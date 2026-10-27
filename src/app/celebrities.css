@@ -1,0 +1,97 @@
+/* ============================================================
+   «چهره‌ها» (owner, 2026-10-27): actors, directors and singers in one directory, one page each with all their works.
+   Built on the media design tokens (--md-*); light and dark follow the site theme.
+   ============================================================ */
+.md-celebrities { --cb-a: #e11d48; --cb-b: #7c3aed; --md-accent: #7c3aed; }
+
+/* directory */
+.cb-page { padding-block: 18px 56px; }
+.cb-hero { position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 8px; padding: clamp(22px, 3.6vw, 48px); border-radius: 28px; border: 1px solid color-mix(in srgb, var(--cb-b) 22%, var(--border)); background: radial-gradient(60% 90% at 100% 0%, color-mix(in srgb, var(--cb-a) 20%, transparent), transparent 70%), radial-gradient(60% 90% at 0% 100%, color-mix(in srgb, var(--cb-b) 22%, transparent), transparent 70%), var(--card); }
+.cb-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(color-mix(in srgb, var(--text) 10%, transparent) 1px, transparent 1px); background-size: 22px 22px; -webkit-mask-image: linear-gradient(200deg, #000, transparent 60%); mask-image: linear-gradient(200deg, #000, transparent 60%); }
+.cb-kicker { justify-self: start; padding: 5px 14px; border-radius: 999px; background: color-mix(in srgb, var(--cb-b) 14%, var(--card)); color: var(--text); font-size: 13px; font-weight: 800; }
+.cb-hero h1 { margin: 6px 0 0; font-size: clamp(24px, 3vw, 42px); font-weight: 900; line-height: 1.4; }
+.cb-hero p { max-width: 62ch; margin: 0; color: var(--muted); line-height: 2; }
+.cb-total { position: absolute; inset-block-start: clamp(22px, 3.6vw, 48px); inset-inline-end: clamp(22px, 3.6vw, 48px); display: grid; justify-items: center; padding: 12px 18px; border-radius: 18px; background: var(--card); border: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.cb-total b { color: var(--text); font-size: 26px; font-weight: 900; }
+.cb-roles { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.cb-roles a { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; transition: border-color .2s ease; }
+.cb-roles a:hover { border-color: var(--cb-b); }
+.cb-roles a.is-on { border-color: var(--cb-b); background: var(--cb-b); color: #fff; }
+.cb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; }
+.cb-card { display: grid; justify-items: center; align-content: start; gap: 6px; padding: 14px 12px 16px; border-radius: 22px; border: 1px solid var(--border); background: var(--card); color: var(--text); text-align: center; text-decoration: none; transition: transform .28s cubic-bezier(.2, .9, .2, 1), box-shadow .28s ease, border-color .28s ease; }
+.cb-card:hover, .cb-card:focus-visible { transform: translateY(-5px); border-color: color-mix(in srgb, var(--cb-b) 40%, var(--border)); box-shadow: 0 26px 40px -28px var(--cb-b); }
+.cb-card-art { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; max-width: 150px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--cb-a) 25%, var(--card)), color-mix(in srgb, var(--cb-b) 25%, var(--card))); box-shadow: 0 0 0 4px var(--card), 0 0 0 5px color-mix(in srgb, var(--cb-b) 30%, var(--border)); }
+.cb-card-art img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.2, .8, .2, 1); }
+.cb-card:hover .cb-card-art img { transform: scale(1.07); }
+.cb-card-art i { font-style: normal; font-size: 44px; font-weight: 900; color: var(--text); }
+.cb-card-art em { position: absolute; inset-block-end: 6px; padding: 1px 10px; border-radius: 999px; background: var(--cb-a); color: #fff; font-size: 11px; font-style: normal; font-weight: 800; }
+.cb-card-name { margin-top: 6px; font-size: 15px; font-weight: 800; }
+.cb-card-roles { color: var(--text); font-size: 12px; font-weight: 600; }
+.cb-card-works { color: var(--muted); font-size: 11.5px; }
+.cb-empty { padding: 40px 0; color: var(--muted); text-align: center; }
+.cb-pager { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 28px; }
+.cb-pager a { padding: 8px 16px; border-radius: 12px; border: 1px solid var(--border); color: var(--text); text-decoration: none; }
+
+/* a person's page */
+.cb-profile { position: relative; isolation: isolate; overflow: hidden; padding-block: clamp(28px, 5vw, 64px); background: radial-gradient(50% 120% at 100% 0%, color-mix(in srgb, var(--cb-a) 22%, transparent), transparent 70%), radial-gradient(50% 120% at 0% 100%, color-mix(in srgb, var(--cb-b) 24%, transparent), transparent 70%), var(--bg-soft, var(--card)); border-bottom: 1px solid var(--border); }
+.cb-profile-inner { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: clamp(18px, 3vw, 40px); }
+.cb-avatar { display: grid; place-items: center; width: clamp(120px, 16vw, 210px); aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, var(--cb-a), var(--cb-b)); box-shadow: 0 0 0 6px var(--card), 0 30px 60px -30px var(--cb-b); }
+.cb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cb-avatar i { font-style: normal; font-size: 72px; font-weight: 900; color: #fff; }
+.cb-profile-copy { display: grid; gap: 10px; min-width: 0; }
+.cb-crumbs { display: flex; gap: 8px; color: var(--muted); font-size: 12.5px; }
+.cb-crumbs a { color: var(--text); text-decoration: none; }
+.cb-profile h1 { margin: 0; font-size: clamp(28px, 3.6vw, 52px); font-weight: 900; line-height: 1.3; }
+.cb-name-en { margin: 0; color: var(--muted); font-size: 15px; }
+.cb-role-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cb-role-chips li { padding: 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--cb-b) 14%, var(--card)); color: var(--text); font-size: 12.5px; font-weight: 800; }
+.cb-stats { display: flex; flex-wrap: wrap; gap: 22px; margin: 4px 0 0; padding: 0; list-style: none; }
+.cb-stats li { display: grid; }
+.cb-stats b { font-size: 24px; font-weight: 900; }
+.cb-stats small { color: var(--muted); font-size: 12px; }
+.cb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
+.cb-section-link { padding: 9px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; }
+.cb-section-link:hover { border-color: var(--cb-b); }
+.cb-body { display: grid; gap: 34px; padding-block: 30px 56px; }
+.cb-shelf .md-shelf-head h2 small { margin-inline-start: 8px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.cb-posters { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+
+@media (max-width: 720px) {
+  .cb-total { position: static; justify-self: start; }
+  .cb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cb-profile-inner { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  .cb-profile-copy { justify-items: center; }
+  .cb-role-chips, .cb-stats, .cb-actions { justify-content: center; }
+  .cb-posters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .cb-card, .cb-card-art img { transition: none; } .cb-card:hover { transform: none; } }
+
+/* the manager (Admin) */
+.cbx-notice { margin: 0 0 10px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 10%, var(--card)); font-size: 13px; }
+.cbx-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0 14px; }
+.cbx-filters .input { flex: 1 1 260px; min-width: 0; }
+.cbx-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cbx-chips button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+.cbx-chips button.is-on { border-color: var(--primary); background: var(--primary); color: var(--on-primary, #fff); }
+.cbx-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cbx-list > li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--card); }
+.cbx-list > li.is-featured { border-color: color-mix(in srgb, #e11d48 40%, var(--border)); }
+.cbx-avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--bg-soft); }
+.cbx-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cbx-avatar i { font-style: normal; font-weight: 900; }
+.cbx-main { display: grid; gap: 4px; min-width: 0; }
+.cbx-sources { display: flex; flex-wrap: wrap; gap: 6px; }
+.cbx-src { padding: 1px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--text); font-size: 12px; text-decoration: none; }
+.cbx-src.is-cinema { border-color: color-mix(in srgb, #e11d48 35%, var(--border)); }
+.cbx-src.is-music { border-color: color-mix(in srgb, #7c3aed 35%, var(--border)); }
+.cbx-apart { color: var(--muted); font-size: 11.5px; }
+.cbx-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 13px; }
+.cbx-join { grid-column: 1 / -1; display: grid; gap: 8px; padding: 10px; border-radius: 12px; border: 1px dashed var(--border); }
+.cbx-join ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; max-height: 240px; overflow: auto; }
+.cbx-join li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cbx-pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 14px; }
+@media (max-width: 720px) { .cbx-list > li { grid-template-columns: auto minmax(0, 1fr); } .cbx-acts { grid-column: 1 / -1; } }
+
+/* the link from a section's own person page to the person's page in «چهره‌ها» */
+.cb-hub-link { display: inline-flex; align-items: center; gap: 6px; justify-self: start; margin-block: 8px; padding: 7px 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, #7c3aed 35%, var(--border)); background: color-mix(in srgb, #7c3aed 8%, var(--card)); color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; }
+.cb-hub-link:hover { border-color: #7c3aed; }

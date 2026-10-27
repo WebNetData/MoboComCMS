@@ -17,6 +17,7 @@ import { PosterCard } from '@/components/media/MediaCards'
 import styles from '@/components/media/cinema/discovery.module.css'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import { getCinemaSettings } from '@/modules/cinema/server/admin'
+import { celebrityFor } from '@/modules/celebrities/server/celebrities'
 
 export const dynamic='force-dynamic'
 type Props={params:Promise<{id:string}>}
@@ -31,7 +32,7 @@ export default async function CinemaPersonPage({params}:Props){
   const person=await personPage(Number(id))
   if(!person)notFound()
   if (person.id !== Number(id)) permanentRedirect(`/cinema/people/${person.id}`)
-  const presentation = await getCinemaSettings(true)
+  const [presentation, celebrity] = await Promise.all([getCinemaSettings(true), celebrityFor({ cinemaPersonId: person.id })])
   const [acted,directed,produced]=await Promise.all([
     person.castCount?browseCinema({actor:String(person.id)}):null,
     person.directorCount?browseCinema({director:String(person.id)}):null,
@@ -45,6 +46,7 @@ export default async function CinemaPersonPage({params}:Props){
       <nav className={styles.breadcrumb} aria-label={fa?'مسیر صفحه':'Breadcrumb'}><Link href="/cinema">{fa?'فیلم و سریال':'Cinema'}</Link><span aria-hidden="true">/</span><Link href="/cinema/people">{fa?'بازیگران و کارگردانان':'Actors & directors'}</Link><span aria-hidden="true">/</span><span aria-current="page" dir="auto">{person.name}</span></nav>
       <ManageBar title="مدیریت پروفایل" anyOf={['cinema.manage']} links={[{href:`/admin/cinema/people?edit=${person.id}`,label:'ویرایش عکس و زندگی‌نامه'}]}/>
       <PersonHeader person={{ ...person, bio: presentation.showPersonBiography ? person.bio : '' }} fa={fa}/>
+      {celebrity && <Link href={`/celebrities/${encodeURIComponent(celebrity.slug)}`} className="cb-hub-link">{celebrity.musicArtistId ? (fa ? 'همهٔ کارها، از جمله آهنگ‌ها، در «چهره‌ها»' : 'All works, songs included, in Celebrities') : (fa ? 'صفحهٔ کامل در «چهره‌ها»' : 'Full page in Celebrities')}</Link>}
       {presentation.personFollowEnabled && <ItemActionBar item={{ type: 'person', id: person.id }} title={person.name} image={person.image} followLabel={fa ? 'اعلان اثر تازه' : 'New works'} favoriteLabels={{ off: fa ? 'دنبال‌کردن' : 'Follow', on: fa ? 'دنبال می‌کنید' : 'Following' }} />}
       {acted&&<Filmography name={person.name} fa={fa} result={acted} role="CAST" href={cinemaBrowseHref({actor:String(person.id)})}/>}
       {directed&&<Filmography name={person.name} fa={fa} result={directed} role="DIRECTOR" href={cinemaBrowseHref({director:String(person.id)})}/>}
