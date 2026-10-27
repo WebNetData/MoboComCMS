@@ -161,8 +161,8 @@ test('the shop home shows its two halves — shipped goods and products delivere
   assert.match(home, /division\.total > 0\)/, 'an empty door is not drawn')
   assert.match(home, /href=\{`\$\{href\}&category=\$\{encodeURIComponent\(category\.slug\)\}`\}/, 'a door\'s categories stay in its half')
   assert.match(page, /<CategoryGrid categories=\{grid\} base=\{base\} \/>/, 'a store\'s category cards stay in its half')
-  // The landing and the listing take the width of the site header; the cart and checkout keep their own.
-  assert.match(css, /\.sx-landing\.container, \.sx-listing\.container \{ width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\);/)
+  // The landing, the listing and (since 2026-10-27, owner) the cart and checkout take the width of the site header.
+  assert.match(css, /\.sx-landing\.container, \.sx-listing\.container, \.sx-cart-page\.container, \.sh-checkout-page\.container \{ width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\);/)
   assert.doesNotMatch(css, /\.sx-page > \.container \{/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.sx-world,/)
 })
