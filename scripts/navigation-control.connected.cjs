@@ -6,14 +6,14 @@ if (!/^\/mobocom_navigation_/.test(new URL(process.env.DATABASE_URL).pathname)) 
 const { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server'), db = new PrismaClient({ log: [{ emit: 'event', level: 'query' }] })
 let productReads = 0
 db.$on('query', event => { if (event.query.startsWith('SELECT') && event.query.includes('"Product".') && !event.query.includes('"ProductCategory".')) productReads++ })
-const stamp = `owned-navigation-${Date.now()}`, keys = ['site.config.v1', 'site.megamenu.v1'], snapshots = new Map(), cache = new Map(), users = [], roles = [], categories = [], productCategories = []
+const stamp = `owned-navigation-${Date.now()}`, keys = ['site.config.v1', 'site.megamenu.v1'], snapshots = new Map(), cache = new Map(), users = [], roles = [], categories = [], productCategories = [], pages = [], vocabulary = [], disabledSources = new Set()
 let token, storeOn = true, apiOn = true, runtime = {}
 const mocks = {
   '@/platform/database/prisma': { db }, react: { cache: fn => fn },
   '@/platform/cache/kv': { cached: async (_key, _ttl, work) => work(), invalidate: async () => {} },
   '@/platform/observability/logger': { logEvent: () => {}, requestIdFrom: () => stamp },
   'next-auth/jwt': { getToken: async () => token },
-  '@/extensions/server/modules': { isModuleEnabled: async () => true, moduleGuard: async () => null },
+  '@/extensions/server/modules': { isModuleEnabled: async id => !disabledSources.has(id), moduleGuard: async () => null },
   '@/extensions/server/state': { getPublicExtensionRuntime: async () => runtime },
   '@/modules/catalog/server/storefront': { isStoreEnabled: async () => storeOn },
   '@/modules/public-api/server/availability': { isPublicApiEnabled: async () => apiOn },
@@ -51,9 +51,14 @@ async function main() {
     const site = load('src/modules/site/server/http/admin/site/route.ts'), mega = load('src/modules/navigation/server/http/routes.ts'), owner = load('src/modules/navigation/server/megamenu.ts'), settings = load('src/modules/settings/server.ts'), defaults = load('src/modules/site/config/defaults.ts').defaultSite
     await db.setting.upsert({ where: { key: keys[0] }, create: { key: keys[0], value: JSON.stringify(defaults) }, update: { value: JSON.stringify(defaults) } })
     const before = await (await site.GET(request('/api/admin/site'))).json()
-    const next = { ...before.config, navigation: [link('parent', '/blog', { icon: '', menuDisplay: 'mega', menuColumns: 4, description: { fa: 'بخش‌های مجله', en: 'Journal sections' }, children: [link('child', '/blog?category=learn', { icon: 'book', description: { fa: 'آموزش‌ها', en: 'Guides' } })] })], footerAccount: [] }
+    const contact = load('src/modules/site/domain/company-contact.ts').normalizeCompanyContact({phone:'+98 111 222 3333',email:'owner@example.invalid',telegram:'@mobocom',latitude:36.474506,longitude:52.872342,mapEnabled:true})
+    const next = { ...before.config, contact, navigation: [link('parent', '/blog', { icon: '', menuDisplay: 'mega', menuColumns: 4, description: { fa: 'بخش‌های مجله', en: 'Journal sections' }, children: [link('child', '/blog?category=learn', { icon: 'book', description: { fa: 'آموزش‌ها', en: 'Guides' } })] })], footerAccount: [] }
     let response = await site.PUT(request('/api/admin/site', 'PUT', next, before.revision)); assert.equal(response.status, 200)
     assert.deepEqual(JSON.parse((await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value).navigation, next.navigation)
+    assert.deepEqual(JSON.parse((await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value).contact, contact)
+    assert.deepEqual((await load('src/modules/site/config/store.ts').getPublicSiteConfig()).contact, contact)
+    const invalidContact = await site.PUT(request('/api/admin/site','PUT',{...next,contact:{...contact,telegram:'https://evil.invalid/mobocom'}}))
+    assert.equal(invalidContact.status,400);assert.deepEqual((await (await site.GET(request('/api/admin/site'))).json()).config.contact,contact)
     const savedHeader = (await (await site.GET(request('/api/admin/site'))).json()).config.navigation
     const publicHeader = load('src/modules/site/config/menus.ts').localizeMenu(savedHeader, 'fa')[0]
     assert.equal(publicHeader.menuDisplay, 'mega'); assert.equal(publicHeader.menuColumns, 4); assert.equal(publicHeader.description, 'بخش‌های مجله'); assert.equal(publicHeader.children[0].description, 'آموزش‌ها')
@@ -114,12 +119,44 @@ async function main() {
     const shop = await owner.buildSectionBar('shop', { ...configured.sections.shop, customItems: [], features: 1 })
     assert.equal(shop.items.length, 13)
     assert.equal(productReads, 12, 'the previous featured-content database query budget remains bounded')
+    runtime = {}
+    for (const status of ['PUBLISHED','DRAFT']) pages.push(await db.page.create({data:{slug:stamp+'-'+status,title:stamp+status,status,showInNav:true,content:'<p>owned</p>'}}))
+    const home = await owner.buildSectionBar('home',configured.sections.home)
+    assert.ok(home.items.some(i=>i.href==='/p/'+pages[0].slug));assert.ok(!home.items.some(i=>i.href==='/p/'+pages[1].slug))
+    const category = await db.vocabulary.create({data:{section:'businesses',list:'CATEGORY',code:stamp,name:'Owned category',nameEn:'Owned',icon:'star',active:true}});vocabulary.push(category.id)
+    const businesses = await owner.buildSectionBar('businesses',configured.sections.businesses)
+    assert.equal(businesses.categoryCatalog.find(i=>i.key==='c'+category.id).href,'/businesses?'+new URLSearchParams({category:stamp}))
+    const preset = load('src/modules/navigation/domain/presets.ts').sectionMenuPreset('businesses',businesses)
+    assert.ok(preset.children.some(i=>i.href==='/businesses?'+new URLSearchParams({category:stamp})))
+    const artists = await owner.buildSectionBar('celebrities',configured.sections.celebrities)
+    assert.ok(artists.items.some(i=>i.href==='/celebrities?role=actor'));assert.ok(artists.items.some(i=>i.href==='/celebrities?role=singer'))
+    disabledSources.add('cinema')
+    const musicOnly = await owner.buildSectionBar('celebrities',configured.sections.celebrities)
+    assert.ok(musicOnly.items.some(i=>i.key==='singer'));assert.ok(!musicOnly.items.some(i=>i.key==='actor'));disabledSources.clear()
+    runtime = {music:{enabled:false,paths:['/music']},cinema:{enabled:false,paths:['/cinema']}}
+    const hiddenPeople = await owner.buildSectionBar('home',{...configured.sections.home,customItems:[load('src/modules/navigation/domain/presets.ts').sectionMenuPreset('celebrities',artists)]})
+    assert.ok(!hiddenPeople.items.some(i=>i.href.startsWith('/celebrities')),'stored recipes also follow both source switches');runtime={}
+    const history=load('src/modules/site/config/history.ts'),snapshot=history.siteSettingsSnapshot(next)
+    const freshContact=(await (await site.GET(request('/api/admin/site'))).json())
+    assert.equal((await site.PUT(request('/api/admin/site','PUT',{...freshContact.config,contact:{...contact,address:'changed'}},freshContact.revision))).status,200)
+    await history.restoreSiteSettings(1,snapshot,async()=>{})
+    assert.deepEqual((await (await site.GET(request('/api/admin/site'))).json()).config.contact,contact,'contact restore uses canonical Studio history')
+    const mapOff = await (await site.GET(request('/api/admin/site'))).json()
+    assert.equal((await site.PUT(request('/api/admin/site','PUT',{...mapOff.config,contact:{...contact,mapEnabled:false}},mapOff.revision))).status,200)
+    const publicContact = (await load('src/modules/site/config/store.ts').getPublicSiteConfig()).contact
+    assert.equal(publicContact.latitude,null);assert.equal(publicContact.longitude,null)
+    assert.equal((await (await site.GET(request('/api/admin/site'))).json()).config.contact.latitude,contact.latitude,'map off hides public coordinates without deleting the saved pin')
+    const layout=load('src/modules/site/server/page-layout.ts')
+    await db.setting.create({data:{key:'page.layout.'+pages[0].id,value:JSON.stringify(layout.validatePageLayout({companyPanel:'contact'}))}})
+    assert.equal((await layout.getPageLayout(pages[0].id)).companyPanel,'contact');assert.equal((await layout.getPageLayout(pages[1].id)).companyPanel,'none')
     await assert.rejects(() => settings.updateJsonSetting(keys[1], async () => { throw Error('owned work failure') }), /owned work failure/)
     console.log('Connected PostgreSQL: nested persistence, stale/concurrent claims, transactional audit rollback, real section permissions, canonical category IDs, hidden families and disabled custom branches passed.')
   } finally {
+    await db.setting.deleteMany({where:{key:{in:pages.map(p=>'page.layout.'+p.id)}}});await db.page.deleteMany({where:{id:{in:pages.map(p=>p.id)},slug:{startsWith:stamp}}});await db.vocabulary.deleteMany({where:{id:{in:vocabulary},code:stamp}})
     for (const id of [...categories].reverse()) await db.postCategory.deleteMany({ where: { id, slug: { startsWith: stamp } } })
     await db.productCategory.deleteMany({ where: { id: { in: productCategories }, slug: { startsWith: stamp } } })
     for (const [key, row] of snapshots) { if (row) await db.setting.upsert({ where: { key }, create: row, update: { value: row.value } }); else await db.setting.deleteMany({ where: { key } }) }
+    await db.contentRevision.deleteMany({ where: { actorId: { in: users.map(u => u.id) } } })
     await db.auditLog.deleteMany({ where: { actorUserId: { in: users.map(u => u.id) } } })
     await db.user.deleteMany({ where: { id: { in: users.map(u => u.id) }, email: { startsWith: stamp } } }); await db.role.deleteMany({ where: { id: { in: roles } } })
     await db.$disconnect()

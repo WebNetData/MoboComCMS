@@ -1,6 +1,7 @@
 import LandingPage from '@/components/site/LandingPage'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
+import SectionBarSlot from '@/components/site/SectionBarSlot'
 import { getPublicSiteConfig } from '@/modules/site/config/store'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { translate } from '@/modules/site/config/types'
@@ -39,6 +40,7 @@ export default async function HomeView({ preview }: { preview?: BuilderPreview }
   return <>
     {faq.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd(faq)) }}/>}
     <ThemeHeader context={CONTEXT} choice={builderDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} preview={preview}/>
+    <SectionBarSlot section="home" />
     {main}
     <ThemeFooter context={CONTEXT} choice={builderDoc?.layout?.footer} locale={locale} navPages={navPages} preview={preview}/>
   </>

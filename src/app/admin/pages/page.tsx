@@ -37,6 +37,7 @@ export default function AdminPagesPage() {
     { section: S.look, key: 'pageTitle', label: 'عنوان صفحه', type: 'select', hideInTable: true, options: [{ value: 'show', label: 'نمایش عنوان' }, { value: 'hide', label: 'بدون عنوان' }] },
     { section: S.look, key: 'pageFrame', label: 'کادر محتوا', type: 'select', hideInTable: true, options: [{ value: 'plain', label: 'بدون کادر' }, { value: 'card', label: 'داخل کارت' }] },
     { section: S.look, key: 'formSlug', label: 'شناسه فرم برای نمایش پایین محتوا (اختیاری؛ از مدیریت فرم‌ها)', dir: 'ltr', hideInTable: true },
+    { section: S.look, key: 'companyPanel', label: 'پنل اطلاعات موبوکام و نقشه (اطلاعات از استودیوی سایت)', type: 'select', hideInTable: true, options: [{ value: 'none', label: 'بدون پنل' }, { value: 'about', label: 'معرفی موبوکام و ارتباط' }, { value: 'contact', label: 'اطلاعات تماس و نقشه' }] },
   ]
 
   // Blank page: create an empty full-width page and jump straight into the builder.

@@ -22,6 +22,70 @@ const tt = load('src/modules/site/domain/theme-templates')
 const menus = load('src/modules/site/config/menus')
 const { validateMenu, validateSite } = load('src/modules/site/config/validation')
 const { menuNodes } = load('src/modules/navigation/domain/presentation')
+const { sectionMenuPreset, mergeMenuPreset } = load('src/modules/navigation/domain/presets')
+const contact = load('src/modules/site/domain/company-contact')
+
+test('section recipes include deep canonical categories and repeat safely without replacing owner edits', () => {
+  let n = 0
+  const bar = { items: [], quick: [{ label: 'همه', href: '/blog' }], categoryCatalog: [
+    { key: 'c1', parentKey: null, label: 'والد', href: '/blog?category=a', icon: '' },
+    { key: 'c2', parentKey: 'c1', label: 'فرزند', href: '/blog?category=b', inMenu: false },
+    { key: 'c3', parentKey: 'c2', label: 'نوه', href: '/blog?category=c' },
+  ] }
+  const preset = sectionMenuPreset('blog', bar, () => 'recipe-'+ ++n), child = preset.children[0]
+  assert.equal(child.icon, ''); assert.equal(child.children[0].enabled, false); assert.equal(child.children[0].children[0].href, '/blog?category=c')
+  const custom = { ...preset, label: { fa: 'نام دلخواه', en: '' }, icon: '', enabled: false, menuDisplay: 'dropdown', children: [{ ...child, label: { fa: 'والد دلخواه', en: '' }, children: [] }] }
+  const result = mergeMenuPreset([custom], sectionMenuPreset('blog', bar, () => 'again-'+ ++n))
+  assert.equal(result.length, 1); assert.equal(result[0].label.fa, 'نام دلخواه'); assert.equal(result[0].icon, ''); assert.equal(result[0].enabled, false); assert.equal(result[0].menuDisplay, 'dropdown'); assert.equal(result[0].children[0].label.fa, 'والد دلخواه')
+  assert.equal(result[0].children[0].children[0].children.length, 1); assert.equal(custom.children[0].children.length, 0)
+  assert.deepEqual(mergeMenuPreset(result, preset), result)
+})
+
+test('section recipes reject oversized, duplicate and cyclic category forests rather than silently dropping data', () => {
+  const node = { key: 'c1', parentKey: null, label: 'دسته', href: '/blog' }, base = { items: [], quick: [], categoryCatalog: [node] }
+  assert.throws(() => sectionMenuPreset('blog', { ...base, categoryCatalog: Array.from({length:120},(_,i)=>({...node,key:'c'+i})) }), /ظرفیت/)
+  assert.throws(() => sectionMenuPreset('blog', { ...base, categoryCatalog: [node,node] }), /تکراری/)
+  assert.throws(() => sectionMenuPreset('blog', { ...base, categoryCatalog: [{ ...node,parentKey:'c1' }] }), /حلقه/)
+  assert.throws(() => sectionMenuPreset('blog', { ...base, categoryCatalog: [{ ...node,parentKey:'c2' },{...node,key:'c2',parentKey:'c1'}] }), /حلقه/)
+})
+
+test('map imports use selected pin rather than map camera or city coordinates and never fetch a URL', () => {
+  assert.deepEqual(contact.coordinatesFromMapLink('https://www.google.com/maps/place/example/@36.4745071,52.8729857,19z/data=!3d36.4634867!4d52.8577787!3m3!8m2!3d36.474506!4d52.872342?entry=ttu'), {latitude:36.474506,longitude:52.872342})
+  assert.deepEqual(contact.coordinatesFromMapLink('https://www.openstreetmap.org/?mlat=0&mlon=0'), {latitude:0,longitude:0})
+  assert.deepEqual(contact.coordinatesFromMapLink('https://maps.google.com/?q=-33.7,151.2'), {latitude:-33.7,longitude:151.2})
+  for(const url of ['https://www.openstreetmap.org/?mlat=&mlon=', 'https://maps.google.com/?q=91,0', 'https://maps.google.com/?q=0,181', 'https://evil.invalid/?q=1,2', 'https://www.google.com@evil.invalid/?q=1,2', 'http://www.google.com/?q=1,2', 'javascript:alert(1)']) assert.throws(()=>contact.coordinatesFromMapLink(url), undefined, url)
+})
+
+test('contact settings remain optional, validate all channels and only build explicit public map URLs', () => {
+  assert.equal(contact.normalizeCompanyContact(undefined).mapEnabled,false)
+  assert.equal(contact.companyMapLinks(contact.emptyCompanyContact()), null)
+  assert.equal(contact.contactSocialHref('telegram','@mobocom'), 'https://t.me/mobocom')
+  assert.equal(contact.contactSocialHref('x','https://twitter.com/mobocom/'), 'https://x.com/mobocom')
+  for(const value of [{phone:'bad'}, {email:'bad'}, {latitude:1}, {latitude:NaN,longitude:1}, {mapEnabled:true}, {zoom:20}, {address:'<script>'}, {telegram:'https://evil.invalid/mobocom'}, {instagram:'https://instagram.com/user?redirect=evil'}, {x:'javascript:evil'}]) assert.throws(()=>contact.normalizeCompanyContact(value))
+  const value=contact.normalizeCompanyContact({latitude:36.474506,longitude:52.872342,mapEnabled:true,phone:'+98 111 222 3333',email:'owner@example.invalid'})
+  const links=contact.companyMapLinks(value),url=new URL(links.embed)
+  assert.equal(url.origin,'https://www.openstreetmap.org');assert.equal(url.searchParams.get('marker'),'36.474506,52.872342')
+  const defaults=load('src/modules/site/config/defaults').defaultSite
+  assert.equal(validateSite({...defaults,contact:value}),true);assert.equal(validateSite({...defaults,contact:{...value,email:'bad'}}),false)
+})
+
+test('company map frame allowlist is limited to managed pages and Studio without broadening other policies', () => {
+  const { contentSecurityPolicy } = load('src/platform/http/csp')
+  for(const path of ['/p/about','/p/contact','/admin/studio']) assert.ok(contentSecurityPolicy({path,nonce:null,production:true}).split(';').find(s=>s.trim().startsWith('frame-src')).includes('https://www.openstreetmap.org'))
+  for(const path of ['/','/blog','/login','/api/admin/site']) assert.ok(!contentSecurityPolicy({path,nonce:null,production:true}).includes('openstreetmap.org'))
+})
+
+test('shared people navigation follows Music/Cinema switches without changing stored recipes', () => {
+  const { siteLinkDisabled, hideDisabledModules } = load('src/modules/site/config/visibility')
+  const off = { music: { enabled:false,paths:['/music'] },cinema:{ enabled:false,paths:['/cinema'] } }
+  assert.equal(siteLinkDisabled('/celebrities',off),true)
+  const musicOnly={...off,music:{...off.music,enabled:true}}
+  assert.equal(siteLinkDisabled('/celebrities',musicOnly),false);assert.equal(siteLinkDisabled('/celebrities?role=actor',musicOnly),true);assert.equal(siteLinkDisabled('/celebrities?role=singer',musicOnly),false)
+  const cinemaOnly={...off,cinema:{...off.cinema,enabled:true}}
+  assert.equal(siteLinkDisabled('/celebrities?role=credit-COMPOSER',cinemaOnly),true);assert.equal(siteLinkDisabled('/celebrities?section=music',cinemaOnly),true);assert.equal(siteLinkDisabled('/celebrities?role=director',cinemaOnly),false)
+  const original=load('src/modules/site/config/defaults').defaultSite,before=JSON.stringify(original),filtered=hideDisabledModules(original,off)
+  assert.equal(filtered.navigation.some(i=>i.href==='/celebrities'),false);assert.equal(JSON.stringify(original),before)
+})
 
 test('header display choices and descriptions survive localization and visibility without rewriting legacy trees', () => {
   const child = { id: 'learn', label: { fa: 'آموزش', en: 'Learn' }, href: '/blog', icon: '', description: { fa: 'مطالب آموزشی', en: 'Learning articles' } }

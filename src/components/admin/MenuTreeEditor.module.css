@@ -17,3 +17,10 @@
 .selected .diagram i { opacity: .8; }
 .mode b { font-size: 13.5px; }
 @media (prefers-reduced-motion: reduce) { .mode { transition: none; } }
+:global(.admin-shell) .preset { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; padding: 18px; margin-block: 18px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--sds-size-radius-200); color: var(--text); }
+:global(.admin-shell) .preset > div { flex: 1 1 260px; }
+:global(.admin-shell) .preset h3 { margin: 0 0 8px; font-size: 1rem; }
+:global(.admin-shell) .preset p { margin: 0; font-size: .82rem; line-height: 1.9; color: var(--muted); }
+:global(.admin-shell) .preset > p { flex-basis: 100%; }
+:global(.admin-shell) .preset > label { flex: 0 1 200px; min-width: 160px; }
+:global(.admin-shell) .preset > button { min-height: 44px; }

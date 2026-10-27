@@ -8,6 +8,7 @@ import { getSiteConfigFrom, SITE_KEY } from './store'
 import { validateSite } from './validation'
 import { bundledThemes } from '@/themes/registry'
 import { extensionCatalog } from '@/extensions/generated/catalog'
+import { normalizeCompanyContact } from '@/modules/site/domain/company-contact'
 import { isDeepStrictEqual } from 'node:util'
 
 const pick = <T extends object>(value: T, keys: readonly (keyof T)[]) => Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]))
@@ -16,6 +17,7 @@ const link = (value: SiteLink): object => ({ ...pick(value, ['id', 'href', 'icon
 /** Explicit presentation fields. Runtime/extension activation and unknown metadata never enter history. */
 export function sitePresentation(value: SiteConfig) {
   return {
+    ...(value.contact ? { contact: normalizeCompanyContact(value.contact) } : {}),
     ...pick(value, ['version', 'brand', 'logo', 'wordmark', 'wordmarkDark', 'wordmarkHeight', 'customCss', 'automaticPageLinks', 'themeId']),
     ...(value.fonts ? { fonts: pick(value.fonts, ['body', 'heading']) } : {}),
     tagline: local(value.tagline), copyright: local(value.copyright),

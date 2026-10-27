@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import SectionMegaBar, { MegaPanel } from '@/components/site/SectionMegaBar'
 import type { MegaMenuConfig, MegaSection, SectionBar, SectionMenuConfig } from '@/modules/navigation/domain/megamenu'
 import MenuTreeEditor from '@/components/admin/MenuTreeEditor'
+import MenuSectionPicker from '@/components/admin/MenuSectionPicker'
 import MenuIconField from '@/components/admin/MenuIconField'
 import CategoryMenuControls from './CategoryMenuControls'
 import AutomaticLinkControls from './AutomaticLinkControls'
@@ -157,7 +158,7 @@ export default function AdminMegaMenuPage() {
         </section>
 
         <CategoryMenuControls key={active} nodes={(preview || info.preview).categoryCatalog || []} config={section} onChange={patch} />
-        <section className="sh-panel"><header className="sh-panel-head"><h2>منوها و زیرمنوهای دلخواه</h2></header><p className="sh-muted">لینک به صفحه، دسته یا نشانی دلخواه؛ بدون تغییر دسته‌بندی محتوای سایت. نمایش در بخش خاموش به‌صورت خودکار متوقف می‌شود.</p><MenuTreeEditor value={section.customItems} onChange={customItems => patch({ customItems })} /></section>
+        <section className="sh-panel"><header className="sh-panel-head"><h2>منوها و زیرمنوهای دلخواه</h2></header><p className="sh-muted">لینک به صفحه، دسته یا نشانی دلخواه؛ بدون تغییر دسته‌بندی محتوای سایت. نمایش در بخش خاموش به‌صورت خودکار متوقف می‌شود.</p><MenuSectionPicker key={active} value={section.customItems} onChange={customItems => patch({ customItems })} /><MenuTreeEditor value={section.customItems} onChange={customItems => patch({ customItems })} /></section>
 
         <section className="sh-panel">
           <header className="sh-panel-head"><h2>بنر تبلیغاتی</h2>

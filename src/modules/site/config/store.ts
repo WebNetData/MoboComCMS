@@ -8,6 +8,7 @@ import { isPublicApiEnabled } from '@/modules/public-api/server/availability'
 import { normalizeTrustSeals, visibleSeals } from './trust-seals'
 import { hideDisabledModules } from './visibility'
 import { filterSiteMenus } from './menus'
+import { normalizeCompanyContact } from '../domain/company-contact'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server/section-history'
 export const SITE_KEY = 'site.config.v1'
@@ -47,7 +48,8 @@ export const getPublicSiteConfig = cache(async () => {
   const [publicApiEnabled, seals] = await Promise.all([isPublicApiEnabled(), getTrustSeals()])
   const shown = visibleSeals(seals)
   const trustSeals = shown.length ? { title: seals.title, seals: shown.map(({ id, kind, title, href, image }) => ({ id, kind, title, href, image })) } : undefined
-  const site = { ...filterSiteMenus(editable, link => publicApiEnabled || !link.href.startsWith('/dashboard/api')), publicApiEnabled, trustSeals }
+  const contact = saved.contact ? normalizeCompanyContact(saved.contact) : undefined
+  const site = { ...filterSiteMenus(editable, link => publicApiEnabled || !link.href.startsWith('/dashboard/api')), ...(contact ? { contact: contact.mapEnabled ? contact : { ...contact, latitude: null, longitude: null } } : {}), publicApiEnabled, trustSeals }
   if (await isStoreEnabled()) return site
   const isShopLink = (link: { href: string }) => /^\/products(?:[/?#]|$)/.test(link.href)
   return {

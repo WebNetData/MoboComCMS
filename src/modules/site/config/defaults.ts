@@ -6,9 +6,9 @@ export const defaultSite: SiteConfig = {
   version: 1, brand: 'موبوکام', tagline: L('فروشگاه و سرگرمی دیجیتال', 'Digital store & entertainment'),
   announcement: { enabled: true, text: L('با اشتراک ویژهٔ موبوکام، تخفیف فروشگاه و محتوای اختصاصی بگیرید', 'MoboCom VIP: store discounts and members-only content'), link: { label: L('اشتراک ویژه', 'VIP membership'), href: '/vip' } },
   navigation: [
-    { label: L('خانه', 'Home'), href: '/' }, { label: L('فروشگاه', 'Shop'), href: '/products' }, { label: L('مجله', 'Magazine'), href: '/blog' },
+    { label: L('خانه', 'Home'), href: '/', icon: 'home', menuDisplay: 'mega', menuColumns: 3, children: [{ label: L('درباره ما', 'About us'), href: '/p/about', icon: 'book' }, { label: L('تماس با ما', 'Contact us'), href: '/p/contact', icon: 'chat' }] }, { label: L('فروشگاه', 'Shop'), href: '/products' }, { label: L('مجله', 'Magazine'), href: '/blog' },
     { label: L('موزیک', 'Music'), href: '/music' }, { label: L('فیلم و سریال', 'Movies & series'), href: '/cinema' }, { label: L('بازی', 'Games'), href: '/games' },
-    { label: L('نرم‌افزار', 'Software'), href: '/software' }, { label: L('تالار گفتمان', 'Forum'), href: '/forum' }, { label: L('اشتراک ویژه', 'VIP'), href: '/vip' },
+    { label: L('نرم‌افزار', 'Software'), href: '/software' }, { label: L('تالار گفتمان', 'Forum'), href: '/forum' }, { label: L('هنرمندان', 'Artists'), href: '/celebrities', icon: 'users' }, { label: L('کسب‌وکارها', 'Businesses'), href: '/businesses', icon: 'globe' }, { label: L('اشتراک ویژه', 'VIP'), href: '/vip' },
   ],
   footer: [ { label: L('درباره موبوکام', 'About MoboCom'), href: '/#about' }, { label: L('مرکز پشتیبانی', 'Support center'), href: '/dashboard/tickets' }, { label: L('سوالات متداول', 'FAQ'), href: '/#faq' }, { label: L('حساب کاربری', 'My account'), href: '/dashboard' } ],
   copyright: L('موبوکام؛ خرید، سرگرمی و گفت‌وگو در یک‌جا.', 'MoboCom: shopping, entertainment and community in one place.'), themeId: 'mobocom', themes: [], plugins: { 'announcement': true, 'support-dock': true },
