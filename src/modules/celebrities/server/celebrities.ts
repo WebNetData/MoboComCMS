@@ -3,6 +3,8 @@ import { db } from '@/platform/database/prisma'
 import { normalizePersonName } from '@/modules/cinema/domain/people'
 import { live as liveMusic } from '@/modules/media/server/queries/core'
 import { CELEBRITY_ROLES, celebritySlug, type CelebrityRole } from '@/modules/celebrities/domain/celebrities'
+import { saveMediaItem } from '@/modules/media/server/admin'
+import { savePerson } from '@/modules/cinema/server/person-admin'
 
 const PAGE = 36
 const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
@@ -193,4 +195,73 @@ export async function joinCelebrities(targetId: number, otherId: number) {
     await tx.celebrity.delete({ where: { id: other.id } })
     return tx.celebrity.update({ where: { id: target.id }, data: { cinemaPersonId, musicArtistId, keepApart: false } })
   }, { isolationLevel: 'Serializable' })
+}
+
+// ------------------------------------------------------------------ one profile for every section
+
+type Actor = { id: number; email: string }
+type AuditPerson = (tx: Prisma.TransactionClient, id: number, created: boolean) => Promise<unknown>
+
+/** What the central editor shows of one person: the profile and which sections they are in. */
+export async function celebrityProfile(id: number) {
+  const row = await db.celebrity.findUnique({ where: { id }, select: { id: true, slug: true, name: true, featured: true, cinemaPersonId: true, musicArtistId: true, cinemaPerson: { select: { name: true, image: true, bio: true } }, musicArtist: { select: { name: true, nameEn: true, image: true, bio: true, slug: true } } } })
+  if (!row) throw new CelebrityError('چهره پیدا نشد')
+  return {
+    id: row.id, slug: row.slug, featured: row.featured, music: !!row.musicArtistId, cinema: !!row.cinemaPersonId,
+    name: row.musicArtist?.name || row.cinemaPerson?.name || row.name, nameEn: row.musicArtist?.nameEn || '',
+    image: row.musicArtist?.image || row.cinemaPerson?.image || '', bio: row.musicArtist?.bio || row.cinemaPerson?.bio || '',
+  }
+}
+
+/**
+ * Saves one person once for every section they are in, through each section's own save (its checks, history and
+ * concurrency): the music artist and the cinema person get the same name, picture and biography. Ticking a section the
+ * person is not yet in makes their record there; a new person is made in the sections ticked. The cinema picture is
+ * kept from then on (a title's import does not replace it).
+ */
+export async function saveCelebrityProfile(raw: Record<string, unknown>, actor: Actor, auditPerson: AuditPerson) {
+  const id = Number(raw.id) || 0
+  const text = (value: unknown) => String(value ?? '').replace(/\s+/g, ' ').trim()
+  const name = text(raw.name), nameEn = text(raw.nameEn), image = String(raw.image ?? '').trim(), bio = String(raw.bio ?? '')
+  if (normalizePersonName(name).length < 2) throw new CelebrityError('نام را وارد کنید')
+  const row = id ? await db.celebrity.findUnique({ where: { id }, select: { id: true, slug: true, cinemaPersonId: true, musicArtistId: true, cinemaPerson: { select: { profileVersion: true } } } }) : null
+  if (id && !row) throw new CelebrityError('چهره پیدا نشد')
+  const wantMusic = raw.music === true || !!row?.musicArtistId, wantCinema = raw.cinema === true || !!row?.cinemaPersonId
+  if (!wantMusic && !wantCinema) throw new CelebrityError('دست‌کم یکی از بخش‌ها را انتخاب کنید: موسیقی یا فیلم و سریال')
+  if (wantMusic && !row?.musicArtistId && !/[a-z0-9]/i.test(nameEn)) throw new CelebrityError('برای افزودن به موسیقی نام انگلیسی لازم است (نشانی صفحهٔ خواننده از آن ساخته می‌شود)')
+
+  let musicArtistId = row?.musicArtistId ?? null
+  const profile = { name, nameEn, image, bio }
+  if (musicArtistId) await saveMediaItem('music-artists', profile, musicArtistId, actor)
+  else if (wantMusic) musicArtistId = Number((await saveMediaItem('music-artists', profile, null, actor)).row.id)
+
+  let cinemaPersonId = row?.cinemaPersonId ?? null
+  if (cinemaPersonId) await savePerson({ id: cinemaPersonId, profileVersion: row!.cinemaPerson!.profileVersion, name, bio, image, imageLocked: true }, auditPerson)
+  else if (wantCinema) {
+    // Credits already name this person (a film saved before): that record is theirs, unless another entry holds it.
+    const known = await db.cinemaPerson.findUnique({ where: { normalizedName: normalizePersonName(name) }, select: { id: true, profileVersion: true, mergedIntoId: true, celebrity: { select: { id: true } } } })
+    if (known && !known.mergedIntoId && (!known.celebrity || known.celebrity.id === row?.id)) {
+      await savePerson({ id: known.id, profileVersion: known.profileVersion, name, bio, image, imageLocked: true }, auditPerson)
+      cinemaPersonId = known.id
+    } else if (known) throw new CelebrityError('این نام در فیلم و سریال به چهرهٔ دیگری وصل است؛ از «وصل به…» استفاده کنید')
+    else cinemaPersonId = (await savePerson({ name, bio, image, imageLocked: true }, auditPerson)).id
+  }
+
+  return db.$transaction(async (tx) => {
+    // A record of this person may already hold an entry of its own (a sync ran between the saves): one entry stays.
+    const held = await tx.celebrity.findMany({ where: { OR: [...(musicArtistId ? [{ musicArtistId }] : []), ...(cinemaPersonId ? [{ cinemaPersonId }] : [])], ...(row ? { id: { not: row.id } } : {}) }, select: { id: true, slug: true } })
+    const keep = row ? row : held[0]
+    for (const other of held) if (other.id !== keep?.id) await tx.celebrity.delete({ where: { id: other.id } })
+    const data = { name, normalizedName: normalizePersonName(name), cinemaPersonId, musicArtistId }
+    if (keep) return tx.celebrity.update({ where: { id: keep.id }, data })
+    const artist = musicArtistId ? await tx.musicArtist.findUnique({ where: { id: musicArtistId }, select: { slug: true } }) : null
+    return tx.celebrity.create({ data: { ...data, slug: artist ? celebritySlug({ musicSlug: artist.slug }) : celebritySlug({ cinemaId: cinemaPersonId! }) } })
+  }, { isolationLevel: 'Serializable' })
+}
+
+/** The person's single page address when it shows something (a section's own person page sends visitors there). */
+export async function publicCelebritySlug(source: { cinemaPersonId?: number; musicArtistId?: number }) {
+  if (!source.cinemaPersonId && !source.musicArtistId) return null
+  const row = await db.celebrity.findFirst({ where: { AND: [source.cinemaPersonId ? { cinemaPersonId: source.cinemaPersonId } : { musicArtistId: source.musicArtistId }, publicWhere(new Date(), null, '')] }, select: { slug: true } }).catch(() => null)
+  return row?.slug ?? null
 }

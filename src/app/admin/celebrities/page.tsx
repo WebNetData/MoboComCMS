@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { SectionShell, type SectionTab } from '../cms/SectionAdmin'
+import CelebrityEditor from './CelebrityEditor'
 
 type Source = { id: number; name: string; image: string; slug?: string }
 type Row = { id: number; slug: string; name: string; featured: boolean; keepApart: boolean; cinemaPerson: Source | null; musicArtist: Source | null }
@@ -27,6 +28,8 @@ export default function CelebritiesAdmin() {
   const [joining, setJoining] = useState<Row | null>(null)
   const [partners, setPartners] = useState<Row[]>([])
   const [partnerQuery, setPartnerQuery] = useState('')
+  // The profile open in the central editor: an entry's id, 0 for a new person, null when closed (?edit=<id> opens one).
+  const [editing, setEditing] = useState<number | null>(() => { if (typeof window === 'undefined') return null; const value = Number(new URLSearchParams(window.location.search).get('edit')); return Number.isSafeInteger(value) && value > 0 ? value : null })
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ q: query, only, page: String(page) })
@@ -51,12 +54,14 @@ export default function CelebritiesAdmin() {
     setJoining(null); load()
   }
 
-  return <SectionShell tabs={TABS} label="مدیریت چهره‌ها" title="چهره‌ها" actions={<>
+  return <SectionShell tabs={TABS} label="مدیریت هنرمندان و چهره‌ها" title="هنرمندان و چهره‌ها" actions={<>
+    <button type="button" className="btn btn-primary" onClick={() => setEditing(0)}>+ هنرمند جدید</button>
     <Link href="/celebrities" className="btn btn-ghost" target="_blank" rel="noreferrer">نمایش در سایت</Link>
-    <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void act({ action: 'sync' }, '')}>همگام‌سازی</button>
+    <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void act({ action: 'sync' }, '')}>همگام‌سازی</button>
   </>}>
-    <p className="sa-hint">هر بازیگر، کارگردان یا خواننده یک صفحه در «چهره‌ها» دارد. اگر یک نفر هم در فیلم و هم در موسیقی با همان نام ثبت شده باشد، خودکار یک صفحه می‌شود. نام، عکس و آثار هر نفر در بخش خودش ویرایش می‌شود؛ اینجا چهره‌های ویژه را انتخاب می‌کنید، یک نفرِ دو‌اسمی را وصل می‌کنید یا دو نفرِ هم‌نام را جدا می‌کنید.</p>
+    <p className="sa-hint">هر بازیگر، کارگردان یا خواننده یک صفحه در «چهره‌ها» دارد. اگر یک نفر هم در فیلم و هم در موسیقی با همان نام ثبت شده باشد، خودکار یک صفحه می‌شود. نام، عکس و بیوگرافی هر هنرمند همین‌جا یک بار ویرایش می‌شود و در موسیقی و فیلم و سریال یکی است؛ آثار و نقش‌ها در همان بخش‌ها ثبت می‌شوند. اینجا چهره‌های ویژه را انتخاب می‌کنید، یک نفرِ دواسمی را وصل می‌کنید یا دو نفرِ هم‌نام را جدا می‌کنید.</p>
     {notice && <p role="status" className="cbx-notice">{notice}</p>}
+    {editing !== null && <CelebrityEditor key={editing} id={editing} onClose={() => setEditing(null)} onSaved={(message) => { setNotice(message); setEditing(null); load() }} />}
     <div className="cbx-filters">
       <input type="search" className="input" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} placeholder="جست‌وجوی نام…" aria-label="جست‌وجوی نام" />
       <div className="cbx-chips" role="group" aria-label="بخش">{FILTERS.map(([key, label]) => <button key={key || 'all'} type="button" className={only === key ? 'is-on' : ''} aria-pressed={only === key} onClick={() => { setOnly(key); setPage(1) }}>{label}</button>)}</div>
@@ -74,6 +79,7 @@ export default function CelebritiesAdmin() {
       </div>
       <div className="cbx-acts">
         <label className="sa-check"><input type="checkbox" checked={row.featured} disabled={busy} onChange={(e) => void act({ action: 'feature', id: row.id, featured: e.target.checked }, e.target.checked ? `«${row.name}» ویژه شد` : `«${row.name}» از ویژه‌ها برداشته شد`)} />ویژه</label>
+        <button type="button" className="sa-link" onClick={() => { setEditing(row.id); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش پروفایل</button>
         <Link href={`/celebrities/${encodeURIComponent(row.slug)}`} className="sa-link" target="_blank" rel="noreferrer">صفحه</Link>
         {row.cinemaPerson && row.musicArtist
           ? <button type="button" className="sa-link is-danger" disabled={busy} onClick={() => { if (window.confirm(`«${row.name}» در فیلم و در موسیقی دو نفر متفاوت‌اند؟ جدا می‌شوند و دیگر خودکار وصل نمی‌شوند.`)) void act({ action: 'split', id: row.id }, `«${row.name}» به دو چهره جدا شد`) }}>جدا کردن</button>

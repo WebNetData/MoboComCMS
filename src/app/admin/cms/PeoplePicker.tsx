@@ -6,7 +6,7 @@ import { normalizePersonName, splitPeopleLine } from '@/modules/cinema/domain/pe
 
 type Suggestion = { id: number; name: string; image: string; roles: string[] }
 export type CastRow = { name: string; role?: string; image?: string }
-const ROLE_FA: Record<string, string> = { DIRECTOR: 'کارگردان', PRODUCER: 'تهیه‌کننده', CAST: 'بازیگر' }
+const ROLE_FA: Record<string, string> = { DIRECTOR: 'کارگردان', PRODUCER: 'تهیه‌کننده', CAST: 'بازیگر', SINGER: 'خواننده (از موسیقی)' }
 
 /**
  * Picks the people of a film or series from the people already on the site, so a name is written exactly like

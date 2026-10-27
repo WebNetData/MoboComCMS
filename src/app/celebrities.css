@@ -96,3 +96,17 @@
 /* the link from a section's own person page to the person's page in «چهره‌ها» */
 .cb-hub-link { display: inline-flex; align-items: center; gap: 6px; justify-self: start; margin-block: 8px; padding: 7px 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, #7c3aed 35%, var(--border)); background: color-mix(in srgb, #7c3aed 8%, var(--card)); color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; }
 .cb-hub-link:hover { border-color: #7c3aed; }
+
+/* the central profile editor */
+.cbx-editor { margin-bottom: 14px; }
+.cbx-editor-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; }
+.cbx-editor-photo { display: grid; justify-items: center; align-content: start; gap: 10px; }
+.cbx-editor-portrait { display: grid; place-items: center; width: 160px; aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, #e11d48, #7c3aed); box-shadow: 0 0 0 4px var(--card), 0 0 0 5px var(--border); }
+.cbx-editor-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.cbx-editor-portrait i { color: #fff; font-size: 56px; font-style: normal; font-weight: 900; }
+.cbx-editor-fields { display: grid; gap: 10px; min-width: 0; }
+.cbx-sections { display: grid; gap: 6px; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; }
+.cbx-sections legend { padding: 0 6px; font-size: 13px; font-weight: 800; }
+.cbx-error { margin: 10px 0 0; color: var(--admin-danger-text, #b42318); font-size: 13px; }
+.cbx-editor-foot { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+@media (max-width: 720px) { .cbx-editor-grid { grid-template-columns: minmax(0, 1fr); } }

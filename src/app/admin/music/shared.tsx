@@ -9,7 +9,7 @@ const TABS: SectionTab[] = [
   { href: '/admin/music', label: 'داشبورد', exact: true },
   { href: '/admin/music/library', label: 'آهنگ، آلبوم و پلی‌لیست' },
   { href: '/admin/music/artists', label: 'خواننده‌ها و هنرمندان' },
-  { href: '/admin/celebrities', label: 'چهره‌ها (همهٔ بخش‌ها)' },
+  { href: '/admin/celebrities', label: 'هنرمندان و چهره‌ها (پروفایل یکتا)' },
   { href: '/admin/music/lists', label: 'فهرست‌ها (سبک، نوع انتشار، نقش)' },
   { href: '/admin/music/settings', label: 'صفحهٔ اصلی و تنظیمات' },
 ]

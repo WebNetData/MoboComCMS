@@ -14,8 +14,7 @@ import { ItemActionBar } from '@/components/engage/Engagement'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { plainText } from '@/shared/text/plain'
 import { getMusicSettings } from '@/modules/music/server/admin'
-import { celebrityFor } from '@/modules/celebrities/server/celebrities'
-import Link from '@/components/AppLink'
+import { publicCelebritySlug } from '@/modules/celebrities/server/celebrities'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -35,7 +34,9 @@ export default async function ArtistPage({ params }: Props) {
   const data = await getArtist(slug)
   const presentation = await getMusicSettings(true)
   if (!data) notFound()
-  const celebrity = await celebrityFor({ musicArtistId: data.artist.id })
+  // One page per person: someone in «چهره‌ها» is shown there, with all their works across the sections.
+  const single = await publicCelebritySlug({ musicArtistId: data.artist.id })
+  if (single) permanentRedirect(toPublicPath(`/celebrities/${encodeURIComponent(single)}`))
   if (data.artist.slug !== slug) permanentRedirect(toPublicPath(`/music/artist/${encodeURIComponent(data.artist.slug)}`))
   const fa = locale === 'fa'
   const { artist } = data
@@ -53,7 +54,6 @@ export default async function ArtistPage({ params }: Props) {
             <h1>{name}</h1>
             <p className="muted">{tracks.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آهنگ' : 'songs'} · {data.albums.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آلبوم' : 'albums'}</p>
             {tracks.length > 0 && <div className="mu-hero-actions"><PlayButton tracks={tracks} index={0} variant="big" label={fa ? 'پخش محبوب‌ترین‌ها' : 'Play top songs'} /></div>}
-            {celebrity && <Link href={`/celebrities/${encodeURIComponent(celebrity.slug)}`} className="cb-hub-link">{celebrity.cinemaPersonId ? (fa ? 'همهٔ کارها، از جمله فیلم‌ها، در «چهره‌ها»' : 'All works, films included, in Celebrities') : (fa ? 'صفحهٔ کامل در «چهره‌ها»' : 'Full page in Celebrities')}</Link>}
             {presentation.showArtistFollow && <ItemActionBar item={{ type: 'artist', id: artist.id }} title={name} image={artist.image} followLabel={fa ? 'آهنگ‌های تازه' : 'new tracks'} />}
           </div>
         </div>

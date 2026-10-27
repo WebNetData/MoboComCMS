@@ -4,17 +4,26 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), cache = new Map(), stamp = `cb${Date.now().toString(36)}`
 const mocks = { '@/platform/database/prisma': { db } }
-function load(relative) {
-  const file = path.resolve(relative); if (cache.has(file)) return cache.get(file).exports
-  const mod = { exports: {} }; cache.set(file, mod)
-  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
-  new Function('require', 'module', 'exports', source)((name) => {
-    if (Object.hasOwn(mocks, name)) return mocks[name]
-    if (name.startsWith('@/') || name.startsWith('.')) { const base = name.startsWith('@/') ? path.resolve('src', name.slice(2)) : path.resolve(path.dirname(file), name); return load(fs.existsSync(base + '.ts') ? base + '.ts' : path.join(base, 'index.ts')) }
+function load(file) {
+  const full = path.resolve(file.endsWith('.ts') || file.endsWith('.tsx') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : fs.existsSync(`${file}.tsx`) ? `${file}.tsx` : path.join(file, 'index.ts'))
+  if (cache.has(full)) return cache.get(full).exports
+  const mod = { exports: {} }; cache.set(full, mod)
+  const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { fileName: full, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText
+  new Function('require', 'module', 'exports', source)(name => {
+    if (name === '@/platform/database/prisma') return { db: db }
+    if (name === '@/platform/observability/logger') return { logEvent: () => {} }
+    if (name === '@/extensions/server/modules') return { isModuleEnabled: async () => true, getModuleSettings: async () => ({}), getModuleStates: async () => ({}) }
+    if (name === 'react') return { ...require('react'), cache: fn => fn }
+    if (name === '@/modules/content/server/events') return { contentChanged: () => {}, MEDIA_RESOURCE_TYPE: {} }
+    if (name === '@/modules/notifications/server/inbox') return { createInboxEvent: async () => {} }
+    if (name.endsWith('.json')) return JSON.parse(fs.readFileSync(name.startsWith('@/') ? `src/${name.slice(2)}` : path.join(path.dirname(full), name), 'utf8'))
+    if (name.startsWith('@/')) return load(`src/${name.slice(2)}`)
+    if (name.startsWith('.')) return load(path.join(path.dirname(full), name))
     return require(name)
   }, mod, mod.exports)
   return mod.exports
 }
+
 async function main() {
   const hub = load('src/modules/celebrities/server/celebrities.ts'), people = load('src/modules/cinema/domain/people.ts')
   const made = { people: [], artists: [], titles: [], tracks: [] }
