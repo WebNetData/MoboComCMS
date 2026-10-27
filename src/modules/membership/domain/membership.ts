@@ -33,7 +33,8 @@ export function memberPrice(regularMinor: bigint, memberMinor: bigint | null | u
   return { amountMinor: regularMinor, memberDiscount: false }
 }
 
-export type Perk = { icon: string; fa: string; en: string }
+/** A plan's perk line; `code` names an entry of the owner's PERK list, whose current text the site shows. */
+export type Perk = { icon: string; fa: string; en: string; code?: string }
 
 export function parsePerks(raw: string | null | undefined): Perk[] {
   try {
@@ -43,8 +44,11 @@ export function parsePerks(raw: string | null | undefined): Perk[] {
       if (!entry || typeof entry !== 'object') return []
       const e = entry as Record<string, unknown>
       const fa = String(e.fa || e.text || '').slice(0, 200)
-      if (!fa) return []
-      return [{ icon: String(e.icon || '★').slice(0, 8), fa, en: String(e.en || '').slice(0, 200) }]
+      const code = String(e.code || '').trim().toUpperCase()
+      const listed = /^[A-Z0-9_]{1,40}$/.test(code)
+      // A listed perk may arrive without text (the list supplies it); a free line needs its own.
+      if (!fa && !listed) return []
+      return [{ icon: String(e.icon || '★').slice(0, 8), fa, en: String(e.en || '').slice(0, 200), ...(listed ? { code } : {}) }]
     })
   } catch { return [] }
 }

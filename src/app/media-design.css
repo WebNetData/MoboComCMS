@@ -596,6 +596,8 @@ li.is-open .cn-ep-caret { transform: rotate(180deg); }
 .vip-plan-price { font-size: 1.9rem; font-weight: 900; }
 .vip-plan-month { color: var(--md-muted); font-size: .8rem; }
 .vip-plan-save { padding: 3px 10px; border-radius: 999px; font-size: .74rem; font-weight: 800; background: rgba(34, 197, 94, .15); color: #22c55e; }
+/* On light pages the saving reads in a deeper green (#22c55e is 2.1:1 on its tint there). */
+html[data-theme='light'] .vip-plan-save { color: #166534; }
 .vip-plan p { color: var(--md-muted); font-size: .88rem; line-height: 1.8; }
 .vip-plan ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 7px; font-size: .9rem; }
 .vip-plan li { display: flex; gap: 8px; align-items: baseline; }

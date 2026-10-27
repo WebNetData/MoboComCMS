@@ -2,6 +2,7 @@
 
 import Link from '@/components/AppLink'
 import { Notice, VipShell, fa, useJson } from '../shared'
+import VocabularyManager from '../../cms/VocabularyManager'
 
 type Perk = { key: string; section: string; label: string; count: number | null; state?: string; href: string }
 
@@ -21,5 +22,7 @@ export default function VipPerksPage() {
         <span className="sa-link">مدیریت</span>
       </Link></li>)}</ul>
     </section>)}</div>}
+    {/* The perk lines the plans show, picked per plan and edited once here. */}
+    <section className="sa-card" aria-labelledby="vip-perk-lines"><header className="sa-card-head"><h2 id="vip-perk-lines">متن مزایا روی کارت پلن‌ها</h2></header><VocabularyManager section="membership" noun="پلن" /></section>
   </VipShell>
 }

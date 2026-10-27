@@ -308,3 +308,12 @@ test('a scored review linked to a reviewable item gets review structured data; o
   assert.equal(formats.reviewJsonLd({ facts: { verdict: 'x' }, items, url: '', base: 'https://s.test' }), null, 'no score, no stars')
   assert.equal(formats.reviewJsonLd({ facts: { score: 7 }, items: [items[0]], url: '', base: 'https://s.test' }), null, 'a review must name a reviewable item')
 })
+
+test('a VIP plan perk line names a listed perk by code (its text comes from the list) or is free text', () => {
+  const membership = load('src/modules/membership/domain/membership')
+  assert.deepEqual(membership.parsePerks(JSON.stringify([{ code: 'hq_music' }, { icon: '⭐', fa: 'خط ویژه', en: 'Own line' }, { code: 'bad code!' }, {}])), [{ icon: '★', fa: '', en: '', code: 'HQ_MUSIC' }, { icon: '⭐', fa: 'خط ویژه', en: 'Own line' }], 'a listed perk may come without text; a bad code without text is dropped')
+  const perks = load('src/modules/membership/server/perks')
+  const entries = [{ code: 'HQ_MUSIC', name: 'موسیقی ۳۲۰', nameEn: '320 kbps', icon: '🎧' }]
+  assert.deepEqual(perks.resolvePerks([{ icon: '★', fa: 'متن قدیمی', en: '', code: 'HQ_MUSIC' }, { icon: '⭐', fa: 'خط ویژه', en: '' }], []), [{ icon: '★', fa: 'متن قدیمی', en: '' }, { icon: '⭐', fa: 'خط ویژه', en: '' }], 'without its entry a listed line falls back to its snapshot')
+  assert.deepEqual(perks.resolvePerks([{ icon: '★', fa: 'متن قدیمی', en: '', code: 'HQ_MUSIC' }, { icon: '★', fa: '', en: '', code: 'GONE' }], entries), [{ icon: '🎧', fa: 'موسیقی ۳۲۰', en: '320 kbps' }], 'a listed line shows the entry\'s current text; one with nothing to show is left out')
+})
