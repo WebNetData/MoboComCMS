@@ -384,6 +384,14 @@ The owner described the transfer as: the customer sees card, Sheba, account and 
 Decided with the owner over several rounds of looking at the result:
 - **The header is two tiers.** The top bar (brand, search, theme, the member chip) stays at the top of every page. The site links are their own full-width row under it: they step aside on the way down the page and return on the way up. **Inside a section its own bar rides under the header instead**, and there the site links return only at the top of the page. On a phone only the top bar stays and the links live in the drawer.
 - **No coloured outline around the chrome.** A quiet hairline and depth; the owner found the lit ring jarring.
+- **One admin page for every menu (owner, 2026-10-28).** "Menu and mega-menu management is confusing; I want full, advanced, tidy management." `/admin/menus` («مدیریت منوها», `settings.manage`) shows a clickable map of where each menu sits, with four tabs. Each edits its existing owner:
+  - **Header:** the `site.config.v1` navigation tree with the section recipe.
+  - **Section bars and mega menus:** `MegaMenuManager`, which keeps its own settings, save and history. `/admin/mega-menu` redirects to this tab.
+  - **Footer:** support links, «دنیای موبوکام» and «فضای شخصی», each with where it appears.
+  - **Automatic pages:** the `automaticPageLinks` switch, and each page's own `showInNav` saved through the Pages API (`cms.pages`).
+
+  Site lists publish together through `PUT /api/admin/site` with the revision claim. Studio no longer edits menus; it links to the page. Pages added automatically to the header are listed by name, so taking «درباره ما» and «قوانین و شرایط» off the header is one switch each.
+- **The about page (owner, 2026-10-28).** The company panel's about variant tells the story with figures taken from the site (`companyFigures`: published items of sections that are on, and active members; zeros and switched-off sections left out). It also shows the menu's sections and the homepage's «چرا موبوکام» items. The place is a large map: an OSM embed, dark-filtered in the dark theme, with a floating card. The card links to Google Maps, Neshan, Balad, Waze and OSM, built only from the saved pin, and offers copy address and copy coordinates.
 - **One width for the chrome and every page** (owner, 2026-10-27: "pages 95–98% wide, the whole site and every section"; this replaces "reading columns keep their own width").
   - **The width:** `--mb-chrome` is set by the mobocom theme. It is `min(97%, 100% - 32px)` with no upper limit, and `calc(100% - 20px)` on a phone.
   - **Pages:** every page column (`.container`) takes it, and a column inside another fills it (`src/app/sections-wide.css`). CMS pages, older covered articles, plans checkout, subscriptions, tickets, the advertiser portal, the repository, the forum's related archive and the address book drop their own caps. The social feed's middle column fills what its side columns leave.

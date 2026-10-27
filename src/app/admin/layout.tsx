@@ -143,10 +143,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'design', part: WEBSITE, title: L('ظاهر و صفحه‌ها', 'Design & pages'), icon: 'palette', items: [
       { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid' },
       { href: '/admin/branding', label: L('لوگو و هویت برند', 'Logo & brand'), icon: 'image', perm: 'settings.manage' },
-      { href: '/admin/studio', label: L('صفحه اصلی، ظاهر و منوها', 'Homepage, design & navigation'), icon: 'sliders', perm: 'settings.manage' },
+      { href: '/admin/studio', label: L('صفحه اصلی و ظاهر', 'Homepage & design'), icon: 'sliders', perm: 'settings.manage' },
+      { href: '/admin/menus', label: L('مدیریت منوها (هدر، نوار بخش‌ها، فوتر)', 'Menus (header, section bars, footer)'), icon: 'layout', perm: 'settings.manage' },
       { href: '/admin/studio?tab=design#contact-information', label: L('اطلاعات تماس و نقشه', 'Contact details & map'), icon: 'pin', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
-      { href: '/admin/mega-menu', label: L('منو و مگامنوی بخش‌ها', 'Section menus'), icon: 'grid', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
       { href: '/admin/editor', label: locale === 'fa' ? 'ویرایشگر بلوکی' : 'Block editor', icon: 'layout', perm: 'cms.pages' },
       { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: ['cms.pages', 'forms.handle'] },

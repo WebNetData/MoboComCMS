@@ -67,7 +67,7 @@ export default function SoftwareSettingsPage() {
           <ul className="sa-rows">
             <li><Link href="/admin/sections/software"><span className="sa-grow"><b>آدرس بخش و سئو</b><small>تغییر مسیر /software، عنوان و توضیح متا</small></span><span className="sa-link">باز کردن</span></Link></li>
             <li><Link href="/admin/taxonomy?tax=software"><span className="sa-grow"><b>دسته‌بندی و زیردسته</b><small>پلتفرم‌ها و دسته‌ها؛ رنگ دسته، کاشی بالای صفحه را می‌سازد</small></span><span className="sa-link">باز کردن</span></Link></li>
-            <li><Link href="/admin/mega-menu"><span className="sa-grow"><b>مگامنو و بنر تبلیغاتی</b><small>منوی بخش نرم‌افزار و بنر ستون کناری</small></span><span className="sa-link">باز کردن</span></Link></li>
+            <li><Link href="/admin/menus?tab=sections"><span className="sa-grow"><b>مگامنو و بنر تبلیغاتی</b><small>منوی بخش نرم‌افزار و بنر ستون کناری</small></span><span className="sa-link">باز کردن</span></Link></li>
             <li><Link href="/admin/downloads"><span className="sa-grow"><b>لینک‌ها و گزارش خرابی</b><small>لینک‌های امن و گزارش کاربران</small></span><span className="sa-link">باز کردن</span></Link></li>
           </ul>
         </section>

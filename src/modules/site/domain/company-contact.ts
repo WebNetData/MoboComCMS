@@ -67,5 +67,16 @@ export function companyMapLinks(contact: CompanyContact) {
   const { latitude: lat, longitude: lon } = contact
   const delta = 180 / 2 ** contact.zoom
   const bbox = [Math.max(-180, lon-delta), Math.max(-90, lat-delta*.65), Math.min(180, lon+delta), Math.min(90, lat+delta*.65)].join(',')
-  return { embed: 'https://www.openstreetmap.org/export/embed.html?'+new URLSearchParams({ bbox, layer: 'mapnik', marker: `${lat},${lon}` }), google: 'https://www.google.com/maps/search/?'+new URLSearchParams({ api: '1', query: `${lat},${lon}` }), directions: 'https://www.google.com/maps/dir/?'+new URLSearchParams({ api: '1', destination: `${lat},${lon}` }) }
+  // Plain links to the pin in the map apps visitors use (Iranian ones included); nothing is fetched or embedded.
+  const at = `${lat},${lon}`
+  return {
+    embed: 'https://www.openstreetmap.org/export/embed.html?'+new URLSearchParams({ bbox, layer: 'mapnik', marker: at }),
+    google: 'https://www.google.com/maps/search/?'+new URLSearchParams({ api: '1', query: at }),
+    directions: 'https://www.google.com/maps/dir/?'+new URLSearchParams({ api: '1', destination: at }),
+    neshan: `https://neshan.org/maps/@${at},${contact.zoom}z`,
+    balad: 'https://balad.ir/location?'+new URLSearchParams({ latitude: String(lat), longitude: String(lon), zoom: String(contact.zoom) }),
+    waze: 'https://waze.com/ul?'+new URLSearchParams({ ll: at, navigate: 'yes' }),
+    osm: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=${contact.zoom}/${lat}/${lon}`,
+    coordinates: at,
+  }
 }
