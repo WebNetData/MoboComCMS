@@ -1,0 +1,119 @@
+/* ============================================================
+   Music, film & series and games in the light theme (owner, 2026-10-27: "a professional, advanced, stylish and
+   attractive light theme"). Until now cinema and games were a dark stage whatever the theme, and music kept a dark
+   hero. In the light theme:
+   - the sections' own palettes (--md-*, --gx-*) turn light, so every card, list and panel built on them follows;
+   - heroes keep their picture under a light veil, with the words in ink;
+   - tiles that put words on a picture (genres, collections, the lead post, banners, posters on hover) keep a dark
+     veil, and their words stay white;
+   - cards get soft depth instead of the contrast a dark page gave them.
+   The dark theme is untouched. Loaded after the sections' own stylesheets.
+   ============================================================ */
+
+/* ---------- palettes ---------- */
+html[data-theme="light"] .md-cinema {
+  --cl-bg: #f6f7fb;
+  --md-card: #fff;
+  --md-line: rgba(17, 24, 39, .08);
+  --md-text: #12141c;
+  --md-muted: #5a6172;
+  --md-soft: #eef0f6;
+  --md-accent: #e11d48;
+  background: radial-gradient(1100px 520px at 88% -8%, rgba(225, 29, 72, .08), transparent 70%), radial-gradient(900px 460px at 0% 34%, rgba(99, 102, 241, .07), transparent 70%), var(--cl-bg);
+  color: var(--md-text);
+}
+html[data-theme="light"] .md-games {
+  --gx-bg: #f5f6fb;
+  --gx-card: #fff;
+  --gx-card-2: #eceef5;
+  --gx-line: rgba(17, 24, 39, .08);
+  --gx-text: #141826;
+  --gx-muted: #5b6275;
+  --gx-purple: #6d5ce8;
+  background: radial-gradient(1200px 500px at 50% -10%, rgba(124, 108, 240, .12), transparent 70%), radial-gradient(800px 420px at 100% 40%, rgba(232, 23, 63, .05), transparent 70%), var(--gx-bg);
+  color: var(--gx-text);
+}
+html[data-theme="light"] .md-games .mm-bar-wrap { --mm-surface: #fff; --mm-soft: #f1f2f7; --mm-line: rgba(17, 24, 39, .08); --mm-text: #141826; --mm-muted: #5b6275; }
+html[data-theme="light"] :is(.md-cinema, .md-games) .md-subnav-wrap { background: rgba(255, 255, 255, .86); }
+
+/* ---------- shared: depth, chips, search ---------- */
+html[data-theme="light"] :is(.md-cinema, .md-games) :is(.md-links-group, .rv-section, .gv-card, .gx-hero-panel, .gx-posts-side, .gx-posts :is(.gx-post-lead, .gx-post-card), .gx-platform-card) { box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 18px 40px -30px rgba(20, 24, 40, .38); }
+html[data-theme="light"] :is(.md-cinema, .md-games) :is(.md-chips a.is-active, .md-search > button) { color: #fff; }
+html[data-theme="light"] .md-cinema .cn-poster-art, html[data-theme="light"] .md-games .gx-cover-art { background: #e8ebf2; box-shadow: 0 18px 34px -24px rgba(20, 24, 40, .5); }
+
+/* ---------- film & series ---------- */
+/* the hero: the picture stays, a light veil rises from the foot and from the side the words sit on */
+html[data-theme="light"] .md-cinema .cn-hero-shade { background: linear-gradient(0deg, var(--cl-bg) 2%, rgba(246, 247, 251, .5) 26%, transparent 56%), linear-gradient(90deg, rgba(246, 247, 251, .97), rgba(246, 247, 251, .74) 36%, transparent 66%); }
+html[data-theme="light"][dir="rtl"] .md-cinema .cn-hero-shade, html[data-theme="light"] [dir="rtl"] .md-cinema .cn-hero-shade { background: linear-gradient(0deg, var(--cl-bg) 2%, rgba(246, 247, 251, .5) 26%, transparent 56%), linear-gradient(270deg, rgba(246, 247, 251, .97), rgba(246, 247, 251, .74) 36%, transparent 66%); }
+html[data-theme="light"] .md-cinema :is(.cn-hero-copy h1, .cn-detail-info h1) { text-shadow: 0 2px 24px rgba(255, 255, 255, .7); }
+html[data-theme="light"] .md-cinema :is(.cn-hero-summary, .cn-summary, .cn-meta) { color: #39404f; }
+html[data-theme="light"] .md-cinema .cn-badge:not(.is-dub):not(.is-sub) { background: rgba(17, 24, 39, .07); color: var(--md-text); }
+html[data-theme="light"] .md-cinema .cn-age { border-color: rgba(17, 24, 39, .35); }
+html[data-theme="light"] .md-cinema .cn-btn-ghost { background: rgba(255, 255, 255, .78); color: var(--md-text) !important; border-color: rgba(17, 24, 39, .12); box-shadow: 0 10px 24px -18px rgba(20, 24, 40, .5); }
+html[data-theme="light"] .md-cinema .cn-btn-ghost:hover { background: #fff; }
+html[data-theme="light"] .md-cinema .cn-hero-thumbs button { background: #e3e6ee; box-shadow: 0 10px 22px -16px rgba(20, 24, 40, .6); }
+html[data-theme="light"] .md-cinema .cn-genres a { border-color: rgba(17, 24, 39, .14); }
+html[data-theme="light"] .md-cinema .cn-poster-hover { color: #fff; }
+/* the download buttons: white on the deeper red of the light theme */
+html[data-theme="light"] .md-cinema .md-go:not(.is-stream):not(.is-locked):not(.is-play) { color: #fff !important; }
+html[data-theme="light"] :is(.md-cinema, .md-games) .md-go.is-play { color: var(--on-primary, #fff) !important; }
+
+/* ---------- games ---------- */
+/* tiles with words on a picture keep their dark veil, so their words stay white */
+html[data-theme="light"] .md-games :is(a.gx-hero-banner, a.gx-genre, a.gv-franchise, .gx-post-lead) { color: #fff; }
+html[data-theme="light"] .md-games .gx-hero-banner { box-shadow: 0 30px 60px -40px rgba(20, 24, 40, .6); }
+html[data-theme="light"] .md-games .gx-platform-go { background: rgba(17, 24, 39, .06); }
+html[data-theme="light"] .md-games .gx-platform-icon, html[data-theme="light"] .md-games .gx-platform-count { color: color-mix(in srgb, var(--tone) 75%, #000); }
+/* the reviews band: the picture under a light veil */
+html[data-theme="light"] .md-games .gx-review-band { background-color: #eef0f7; border-block: 1px solid var(--gx-line); }
+html[data-theme="light"] .md-games .gx-review-veil { background: linear-gradient(to left, rgba(245, 246, 251, .5), rgba(245, 246, 251, .93) 45%, rgba(245, 246, 251, .98)); }
+html[data-theme="light"] .md-games .gx-review-lead p { color: var(--gx-muted); }
+html[data-theme="light"] .md-games .gx-review-lead h2 a { color: #fff; }
+html[data-theme="light"] .md-games .gx-tabs button:focus-visible { outline-color: var(--gx-purple); }
+html[data-theme="light"] .md-games .gx-post-card:hover h3 { color: var(--gx-purple); }
+html[data-theme="light"] .md-games .gx-posts .gx-posts-archive { color: #4c3fc4; }
+html[data-theme="light"] .md-games .gx-posts-tabs > [role='tablist'] > button[aria-selected='true'] { background: var(--gx-purple); }
+/* a game's review reads in ink */
+html[data-theme="light"] .md-games .gv-review .md-prose { color: #2c3140; }
+html[data-theme="light"] .md-games .gv-member-value { color: #0b8f6f; }
+html[data-theme="light"] .md-games .gv-secnav { background: rgba(255, 255, 255, .9); }
+html[data-theme="light"] .md-games .gv-secnav a:is(:hover, :focus-visible) { color: var(--gx-text); }
+/* a game's page: its picture under a light veil */
+html[data-theme="light"] .md-games .gm-detail-hero { background-color: #e9ecf3; }
+html[data-theme="light"] .md-games .gv-pill:not(.is-soon) { background: rgba(17, 24, 39, .06); color: var(--gx-text); }
+html[data-theme="light"] .md-games .gv-pill.is-tba { color: var(--gx-muted); }
+html[data-theme="light"] .md-games .gv-badge:not(.is-editor):not(.is-fa) { background: rgba(17, 24, 39, .06); color: var(--gx-text); }
+html[data-theme="light"] .md-games .gv-badge.is-fa { background: rgba(16, 185, 129, .12); color: #0b6b53; box-shadow: inset 0 0 0 1px rgba(16, 185, 129, .35); }
+html[data-theme="light"] .md-games .gv-lead { color: #39404f; }
+html[data-theme="light"] :is(.md-cinema, .md-games) .gm-btn-ghost { border-color: rgba(17, 24, 39, .14); background: rgba(255, 255, 255, .8); color: var(--gx-text) !important; }
+html[data-theme="light"] :is(.md-cinema, .md-games) .gm-btn-ghost:hover { color: #fff !important; }
+html[data-theme="light"] .md-games .cn-btn-ghost { background: rgba(255, 255, 255, .8); color: var(--gx-text) !important; border-color: rgba(17, 24, 39, .14); }
+/* the library buttons (played, playing, want, dropped): white chips with ink */
+html[data-theme="light"] .md-games .gv-library-buttons :is(button, a):not(.is-on) { border-color: rgba(17, 24, 39, .12); background: #fff; color: var(--gx-text); box-shadow: 0 8px 18px -14px rgba(20, 24, 40, .5); }
+html[data-theme="light"] .md-games .gv-library-buttons button.is-on { color: #fff; }
+html[data-theme="light"] .md-games .gv-library-buttons :is(button, a):not(.is-on) small { background: rgba(17, 24, 39, .08); }
+html[data-theme="light"] .md-games .gv-library-buttons :is(button, a):focus-visible { outline-color: var(--gx-purple); }
+html[data-theme="light"] .md-games .gm-detail-hero .gm-hero-shade { background: linear-gradient(0deg, var(--gx-bg) 3%, rgba(245, 246, 251, .84) 48%, rgba(245, 246, 251, .5)); }
+
+/* ---------- music ---------- */
+/* a shorter panel beside a longer one starts at its top instead of spreading its rows (both themes) */
+.md-music .mu-panel { align-content: start; }
+/* a playlist card is a link: it keeps its white words over its picture in both themes */
+.md-page a.mu-playlist { color: #fff; }
+html[data-theme="light"] .md-music .mu-playlist { box-shadow: 0 26px 44px -30px rgba(20, 24, 40, .55); }
+html[data-theme="light"] .md-music .mu-playlist:hover { box-shadow: 0 36px 54px -28px rgba(20, 24, 40, .6); }
+/* the hero and a track's or album's head: the cover's colours, bright, under a light veil */
+html[data-theme="light"] .md-music :is(.mu-hero, .mu-detail-hero) { background: #f7f5fb; color: #141826; }
+/* a dark cover blurred turns grey on white: little of it shows, under a wash of the section's own colours */
+html[data-theme="light"] .md-music .mu-hero-bg { filter: blur(80px) saturate(1.8) brightness(1.3); opacity: .2; }
+html[data-theme="light"] .md-music :is(.mu-hero, .mu-detail-hero)::after { background: radial-gradient(55% 80% at 88% 0%, color-mix(in srgb, var(--md-accent) 20%, transparent), transparent 70%), radial-gradient(45% 70% at 8% 20%, color-mix(in srgb, var(--mu-2, #8b5cf6) 14%, transparent), transparent 70%), radial-gradient(50% 60% at 50% 110%, color-mix(in srgb, var(--mu-3, #22d3ee) 12%, transparent), transparent 70%), linear-gradient(180deg, rgba(251, 250, 254, .7), rgba(247, 245, 251, .94)); }
+/* words in the accent on a light page take its readable shade */
+html[data-theme="light"] .md-music :is(.md-eyebrow, .md-more) { color: var(--accent-ink, var(--md-accent)) !important; }
+html[data-theme="light"] .md-music :is(.mu-hero-lead, .mu-detail-info) h1 { background: linear-gradient(120deg, #141826 35%, color-mix(in srgb, var(--md-accent) 75%, #141826)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html[data-theme="light"] .md-music .mu-hero-tags > :is(span, a):not(.vip-chip) { border-color: rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .72); color: #1f2433; }
+html[data-theme="light"] .md-music :is(.mu-hero, .mu-detail-hero) .btn-ghost { color: #141826; border-color: rgba(17, 24, 39, .22); background: rgba(255, 255, 255, .6); }
+html[data-theme="light"] .md-music .mu-hero-cover { box-shadow: 0 50px 90px -46px rgba(30, 20, 60, .6), 0 0 0 1px rgba(17, 24, 39, .06), 0 0 90px -30px color-mix(in srgb, var(--md-accent) 60%, transparent); }
+html[data-theme="light"] .md-music .mu-hero-queue { border-color: rgba(17, 24, 39, .07); background: rgba(255, 255, 255, .55); box-shadow: 0 24px 50px -36px rgba(20, 24, 40, .45); }
+html[data-theme="light"] .md-music .mu-hero-queue::before { color: #5b6275; }
+html[data-theme="light"] .md-music .mu-hero-queue li { border-color: rgba(17, 24, 39, .06); background: rgba(255, 255, 255, .78); }
+html[data-theme="light"] .md-music .mu-hero-queue li:hover { background: #fff; border-color: color-mix(in srgb, var(--md-accent) 45%, transparent); }

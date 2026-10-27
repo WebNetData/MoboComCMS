@@ -235,6 +235,11 @@ test('cinema, games, software and the forum take the width of the header and are
   // Section widths follow section styles; the owner's shared native-select fix loads last.
   const imports = [...layout.matchAll(/^import '\.\/([\w\/-]+\.css)'/gm)].map((m) => m[1])
   assert.deepEqual(imports.slice(-2), ['sections-wide.css', 'selects.css'])
+  // Music, film & series and games in the light theme (owner, 2026-10-27): after the sections' own styles.
+  assert.ok(imports.indexOf('media-light.css') > Math.max(imports.indexOf('media-design.css'), imports.indexOf('games-portal.css'), imports.indexOf('games-posts.css')), 'the light theme loads after the sections')
+  const light = read('src/app/media-light.css')
+  for (const rule of ['html[data-theme="light"] .md-cinema {', 'html[data-theme="light"] .md-games {', 'html[data-theme="light"] .md-music :is(.mu-hero, .mu-detail-hero) {', '.md-page a.mu-playlist { color: #fff; }']) assert.ok(light.includes(rule), rule)
+  assert.doesNotMatch(light, /html\[data-theme="dark"\]/, 'the dark theme is left as it was')
   for (const section of ['cinema', 'games', 'software', 'forum']) assert.ok(css.includes(`.md-${section} .container:not(.mm-bar)`), section)
   assert.match(css, /width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\); max-width: none; padding-inline: 0; \}/)
   // Every page (owner, 2026-10-27): 95–98% of the window. A page's column takes the theme's width, a column inside
