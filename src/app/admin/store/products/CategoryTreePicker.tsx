@@ -51,7 +51,7 @@ export default function CategoryTreePicker({ categories, kind, main, extras, onC
   const branch = (parent: number | null, depth: number): ReactNode => {
     const list = (byParent.get(parent) || []).filter((category) => !shown || shown.has(category.id))
     if (!list.length || depth > 6) return null
-    return <ul className={depth ? 'ctp-sub' : 'ctp-tree'} role={depth ? 'group' : undefined}>{list.map((category) => {
+    return <ul className={depth ? 'ctp-sub' : 'ctp-tree'}>{list.map((category) => {
       const id = String(category.id), kids = (byParent.get(category.id) || []).length, open = !!shown || !closed.has(category.id)
       const isMain = id === main, isOn = chosen.has(id)
       return <li key={category.id}>
