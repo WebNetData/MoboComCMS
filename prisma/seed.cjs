@@ -89,7 +89,7 @@ async function main() {
       titleEn: 'About us',
       content: '<h2>دنیای موبوکام</h2><p>خرید، مجله، موسیقی، سینما، بازی و گفت‌وگو؛ بخش‌های مختلف موبوکام با یک حساب کاربری در دسترس شما هستند.</p>',
       contentEn: '',
-      showInNav: true,
+      showInNav: false,
       sortOrder: 1,
     },
     {
@@ -103,7 +103,7 @@ async function main() {
       titleEn: 'Terms of service',
       content: '<h2>قوانین استفاده</h2><p>با خرید اشتراک، شما می‌پذیرید که از سرویس فقط برای مقاصد قانونی استفاده کنید.</p>',
       contentEn: '<h2>Terms</h2><p>By purchasing a subscription you agree to use the service for lawful purposes only.</p>',
-      showInNav: true,
+      showInNav: false,
       sortOrder: 2,
     },
     {
@@ -116,11 +116,24 @@ async function main() {
       sortOrder: 3,
     },
   ]
+  // The starter contact form (the form builder's «تماس با ما» template), made only when missing; the owner edits it in
+  // «فرم‌ها و پاسخ‌ها». The starter contact page shows it beside the ways to reach the team.
+  if (!await prisma.siteForm.findUnique({ where: { slug: 'contact' }, select: { id: true } })) await prisma.siteForm.create({ data: {
+    slug: 'contact', title: 'تماس با ما', description: 'پیام خود را بنویسید؛ در اولین فرصت پاسخ می‌دهیم.', published: true, successText: 'پیام شما ثبت شد. به‌زودی پاسخ می‌دهیم.',
+    fields: JSON.stringify([
+      { id: 'name', label: 'نام و نام خانوادگی', type: 'text', required: true, options: [], width: 'half' },
+      { id: 'email', label: 'ایمیل', type: 'email', required: true, options: [], width: 'half' },
+      { id: 'topic', label: 'موضوع', type: 'select', required: true, options: ['پشتیبانی', 'فروش', 'همکاری', 'سایر'] },
+      { id: 'message', label: 'پیام شما', type: 'textarea', required: true, options: [], min: 10 },
+    ]),
+  } })
+  // Starter pages and their design template («قالب طراحی صفحه»): about, contact with its form, legal documents.
+  const starterLayout = { about: { companyPanel: 'about' }, contact: { companyPanel: 'contact', formSlug: 'contact' }, terms: { companyPanel: 'legal' }, refund: { companyPanel: 'legal' } }
   for (const p of pages) {
     // Seed new starter pages only. An existing page or its layout is the owner's content.
     if (!await prisma.page.findUnique({ where: { slug: p.slug }, select: { id: true } })) await prisma.$transaction(async tx => {
       const page = await tx.page.create({ data: p })
-      if (p.slug === 'about' || p.slug === 'contact') await tx.setting.create({ data: { key: `page.layout.${page.id}`, value: JSON.stringify({ companyPanel: p.slug }) } })
+      if (starterLayout[p.slug]) await tx.setting.create({ data: { key: `page.layout.${page.id}`, value: JSON.stringify(starterLayout[p.slug]) } })
     })
   }
 

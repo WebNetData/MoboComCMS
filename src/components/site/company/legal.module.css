@@ -1,0 +1,51 @@
+/* «سند حقوقی»: a calm document — a head with its facts, numbered sections beside a contents list that follows the
+   reader, related documents and where to ask. Prints as a clean document. */
+.legal { --legal-accent: var(--primary, var(--accent)); display: grid; gap: 32px; padding-block: 28px 72px; color: var(--text); }
+.legal a:focus-visible, .legal button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+.hero { position: relative; isolation: isolate; overflow: hidden; display: grid; justify-items: start; gap: 14px; padding: clamp(28px, 4vw, 52px); border: 1px solid var(--border); border-radius: 32px; background: var(--card); }
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, color-mix(in srgb, var(--legal-accent) 7%, transparent) 1px, transparent 1px) 0 0 / 28px 28px, linear-gradient(0deg, color-mix(in srgb, var(--legal-accent) 7%, transparent) 1px, transparent 1px) 0 0 / 28px 28px; -webkit-mask-image: radial-gradient(70% 120% at 100% 0%, #000, transparent 70%); mask-image: radial-gradient(70% 120% at 100% 0%, #000, transparent 70%); }
+.hero::after { content: ""; position: absolute; inset-inline-start: 0; inset-block: 0; width: 6px; background: linear-gradient(180deg, var(--legal-accent), color-mix(in srgb, #8b5cf6 80%, var(--legal-accent))); }
+.badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: color-mix(in srgb, var(--legal-accent) 10%, var(--card)); color: var(--accent-ink, var(--legal-accent)); font-size: .82rem; font-weight: 800; }
+.hero h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 900; line-height: 1.35; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: .88rem; }
+.meta li { display: inline-flex; align-items: center; gap: 6px; }
+.meta time { color: var(--text); font-weight: 700; }
+.print { padding: 9px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer; }
+.print:hover { border-color: var(--legal-accent); }
+
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: 100px; padding: 18px; border: 1px solid var(--border); border-radius: 22px; background: var(--card); max-height: calc(100vh - 130px); overflow: auto; }
+.toc :global(.toc) { position: static; margin: 0; padding: 0; border: 0; background: none; }
+.toc:empty, .toc:not(:has(a)) { display: none; }
+.layout:not(:has(.toc a)) { grid-template-columns: minmax(0, 1fr); }
+.doc { max-width: none; padding: clamp(22px, 3.4vw, 44px); border: 1px solid var(--border); border-radius: 28px; background: var(--card); font-size: 1.02rem; line-height: 2.25; counter-reset: legal; }
+.doc :global(h2) { counter-increment: legal; display: flex; align-items: baseline; gap: 12px; margin: 2.2em 0 .7em; padding-block-start: 1.2em; border-block-start: 1px solid var(--border); font-size: 1.35rem; font-weight: 900; scroll-margin-top: 140px; }
+.doc :global(h2:first-child) { margin-block-start: 0; padding-block-start: 0; border: 0; }
+.doc :global(h2)::before { content: counter(legal, persian); display: grid; place-items: center; flex: none; min-width: 36px; height: 36px; border-radius: 12px; background: color-mix(in srgb, var(--legal-accent) 12%, var(--card)); color: var(--accent-ink, var(--legal-accent)); font-size: 1rem; }
+.doc :global(h3) { font-size: 1.1rem; scroll-margin-top: 140px; }
+.doc :global(ul), .doc :global(ol) { padding-inline-start: 1.4em; }
+.doc :global(blockquote) { margin-inline: 0; padding: 14px 18px; border-inline-start: 4px solid var(--legal-accent); border-radius: 12px; background: color-mix(in srgb, var(--legal-accent) 6%, var(--card)); }
+
+.related { display: grid; gap: 12px; }
+.related h2 { margin: 0; font-size: 1.1rem; font-weight: 900; }
+.related ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.related a { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); font-weight: 700; transition: border-color .2s, transform .2s; }
+.related a:hover { border-color: var(--legal-accent); transform: translateY(-2px); }
+.related a > :global(svg) { color: var(--accent-ink, var(--legal-accent)); }
+.related b { margin-inline-start: auto; color: var(--muted); font-weight: 400; }
+
+.help { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; padding: clamp(22px, 3vw, 36px); border-radius: 28px; background: linear-gradient(135deg, color-mix(in srgb, var(--legal-accent) 14%, var(--card)), var(--card)); border: 1px solid color-mix(in srgb, var(--legal-accent) 25%, var(--border)); }
+.help h2 { margin: 0 0 6px; font-size: 1.25rem; font-weight: 900; }
+.help p { margin: 0; color: var(--muted); }
+.helpActions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+@media (max-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr); } .toc { position: static; max-height: none; } }
+@media (max-width: 700px) { .hero, .doc, .help { border-radius: 22px; } }
+@media (prefers-reduced-motion: reduce) { .related a { transition: none; } .related a:hover { transform: none; } }
+@media print {
+  :global(.mb-header), :global(.mb-navbar), :global(.mb-breadcrumbs), :global(footer), :global(.site-footer), .toc, .print, .related, .help { display: none !important; }
+  .legal { padding: 0; }
+  .hero, .doc { border: 0; box-shadow: none; padding: 0; }
+  .hero::before, .hero::after { display: none; }
+}

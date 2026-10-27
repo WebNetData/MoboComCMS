@@ -1,10 +1,11 @@
 import { db } from '@/platform/database/prisma'
 import { validateCover } from '@/shared/content/cover'
+/** `companyPanel` is the page's design template («قالب طراحی صفحه»): none, about, contact or legal (owner, 2026-10-28). */
 export const pageLayoutDefaults = { pageLayout: 'full', pageTitle: 'show', pageFrame: 'plain', formSlug: '', cover: '', companyPanel: 'none' }
 export function validatePageLayout(input: Record<string, unknown>) {
   const result = { ...pageLayoutDefaults }
   result.cover = validateCover(input.cover)
-  for (const [key, choices] of Object.entries({ pageLayout: ['full', 'reading', 'sidebar'], pageTitle: ['show', 'hide'], pageFrame: ['plain', 'card'], companyPanel: ['none', 'about', 'contact'] })) {
+  for (const [key, choices] of Object.entries({ pageLayout: ['full', 'reading', 'sidebar'], pageTitle: ['show', 'hide'], pageFrame: ['plain', 'card'], companyPanel: ['none', 'about', 'contact', 'legal'] })) {
     const value = input[key]
     if (value === undefined || value === '') continue
     if (typeof value !== 'string' || !choices.includes(value)) throw new Error('تنظیم چیدمان صفحه معتبر نیست')

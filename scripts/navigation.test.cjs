@@ -350,3 +350,28 @@ test('every menu has one admin page: header, section bars, footer and automatic 
   assert.match(studio, /href="\/admin\/menus"/)
   assert.doesNotMatch(studio, /MenuTreeEditor|MenuSectionPicker/)
 })
+
+test('page design templates: about, contact with its form, legal documents, chosen per page (owner, 2026-10-28)', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const layout = load('src/modules/site/server/page-layout')
+  for (const choice of ['none', 'about', 'contact', 'legal']) assert.equal(layout.validatePageLayout({ companyPanel: choice }).companyPanel, choice)
+  assert.throws(() => layout.validatePageLayout({ companyPanel: 'landing' }))
+  // The page route hands the page's own text and form to the chosen template; the plain layout stays for the rest.
+  const route = read('src/modules/site/server/pages/p/[slug]/page.tsx')
+  assert.match(route, /template === 'about' && <AboutTemplate title=\{title\} body=\{templateBody\} \/>/)
+  assert.match(route, /template === 'contact' && <ContactTemplate title=\{title\} body=\{templateBody\} form=\{attachedForm\?\.published \? publicForm\(parseForm\(attachedForm\)\) : null\} \/>/)
+  assert.match(route, /template === 'legal' && <LegalTemplate title=\{title\} body=\{templateBody\} updatedAt=\{page\.updatedAt\} related=\{related\} \/>/)
+  assert.match(route, /const hasLegacy = template === 'none' &&/)
+  // Pages admin names the template and opens a new page with it; the seed gives starter pages theirs and a contact form.
+  const admin = read('src/app/admin/pages/page.tsx')
+  assert.match(admin, /key: 'companyPanel', label: 'قالب طراحی صفحه[^\n]+value: 'legal'/)
+  for (const link of ['new=1&companyPanel=about', 'new=1&companyPanel=contact&formSlug=contact', 'new=1&companyPanel=legal']) assert.ok(admin.includes(link), link)
+  const seed = read('prisma/seed.cjs')
+  assert.match(seed, /contact: \{ companyPanel: 'contact', formSlug: 'contact' \}, terms: \{ companyPanel: 'legal' \}, refund: \{ companyPanel: 'legal' \}/)
+  assert.match(seed, /if \(!await prisma\.siteForm\.findUnique\(\{ where: \{ slug: 'contact' \}/)
+  assert.doesNotMatch(seed, /showInNav: true/, 'starter pages do not join the header by themselves')
+  // The breadcrumb is one capsule, in the theme and its bundle alike.
+  for (const file of ['src/themes/code/mobocom/theme.css', 'src/themes/generated.css']) assert.match(read(file), /\.mb-crumbs \{ display: inline-flex;/, file)
+  assert.match(read('src/themes/code/mobocom/client.tsx'), /<span className="mb-crumbs">/)
+})

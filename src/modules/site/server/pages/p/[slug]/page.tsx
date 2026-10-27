@@ -18,8 +18,18 @@ import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChro
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { publicBlocksHtml as pageBlocksHtml } from '@/modules/editor/server/documents'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
-import CompanyPanel from '@/components/site/CompanyPanel'
+import AboutTemplate from '@/components/site/company/AboutTemplate'
+import ContactTemplate from '@/components/site/company/ContactTemplate'
+import LegalTemplate from '@/components/site/company/LegalTemplate'
 
+
+/** The other published pages laid out as legal documents (terms, privacy, refunds…), for «اسناد مرتبط». */
+async function legalDocuments(id: number) {
+  const layouts = await db.setting.findMany({ where: { key: { startsWith: 'page.layout.' }, value: { contains: '"companyPanel":"legal"' } }, select: { key: true } }).catch(() => [])
+  const ids = layouts.map((row) => Number(row.key.slice('page.layout.'.length))).filter((other) => Number.isSafeInteger(other) && other !== id)
+  if (!ids.length) return []
+  return db.page.findMany({ where: { id: { in: ids }, status: 'PUBLISHED' }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { slug: true, title: true }, take: 8 }).catch(() => [])
+}
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await paramsPromise
@@ -63,16 +73,23 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
   ])
 
   const chromeContext = { route: 'page' } as const
-  const hasLegacy = !!content || !!attachedForm?.published
+  // A design template (about, contact or legal; chosen in Pages admin) lays out the page's own text and form itself.
+  const template = layout.companyPanel
+  const templateBody = blocks ?? (content ? withTextDirections(content) : '')
+  const related = template === 'legal' ? await legalDocuments(page.id) : []
+  const hasLegacy = template === 'none' && (!!content || !!attachedForm?.published)
   return (
     <>
       <ThemeHeader context={chromeContext} choice={builderDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} breadcrumbs={[{ label: isFa ? 'خانه' : 'Home', href: '/' }, { label: title }]} preview={preview} />
       {/* Browsers hide the nonce attribute after parsing; its .nonce property still matches CSP. */}
       <script nonce={requestHeaders.get('x-nonce') || undefined} suppressHydrationWarning type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(crumbsLd) }} />
       <main>
-        {layout.pageTitle === 'show' ? <TitleCover cover={layout.cover} eyebrow={<span>{isFa ? 'راهنما و اطلاعات' : 'Resources & information'}</span>} title={title} /> : <h1 className="sr-only">{title}</h1>}
+        {template === 'about' && <AboutTemplate title={title} body={templateBody} />}
+        {template === 'contact' && <ContactTemplate title={title} body={templateBody} form={attachedForm?.published ? publicForm(parseForm(attachedForm)) : null} />}
+        {template === 'legal' && <LegalTemplate title={title} body={templateBody} updatedAt={page.updatedAt} related={related} />}
+        {template !== 'none' ? null : layout.pageTitle === 'show' ? <TitleCover cover={layout.cover} eyebrow={<span>{isFa ? 'راهنما و اطلاعات' : 'Resources & information'}</span>} title={title} /> : <h1 className="sr-only">{title}</h1>}
         {builderDoc && <BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, String(page.id))} />}
-        {blocks !== null && <div className="mcb-document container page-main" dangerouslySetInnerHTML={{ __html: blocks }} />}
+        {template === 'none' && blocks !== null && <div className="mcb-document container page-main" dangerouslySetInnerHTML={{ __html: blocks }} />}
         {hasLegacy && (
           <div className={`container page-main content-surface managed-page managed-page-${layout.pageLayout} covered-page-body`}>
             <div className={layout.pageLayout === 'sidebar' ? 'article-layout' : 'managed-page-body'}>
@@ -81,7 +98,6 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
             </div>
           </div>
         )}
-        {layout.companyPanel !== 'none' && <CompanyPanel variant={layout.companyPanel === 'about' ? 'about' : 'contact'} />}
       </main>
       <ThemeFooter context={chromeContext} choice={builderDoc?.layout?.footer} locale={locale} navPages={navPages} preview={preview} />
     </>

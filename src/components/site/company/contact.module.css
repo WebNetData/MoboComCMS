@@ -1,0 +1,53 @@
+/* «تماس با ما»: a bright welcoming head with the quickest ways in, the form beside the channels, a map band, questions. */
+.contact { --contact-accent: var(--primary, var(--accent)); display: grid; gap: 40px; padding-block: 28px 72px; color: var(--text); }
+.contact a:focus-visible, .contact summary:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+.hero { position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, .6fr); align-items: center; gap: 32px; padding: clamp(28px, 4.5vw, 60px); border-radius: 36px; background: linear-gradient(135deg, color-mix(in srgb, var(--contact-accent) 16%, var(--card)), color-mix(in srgb, #10b981 8%, var(--card)) 55%, var(--card)); border: 1px solid color-mix(in srgb, var(--contact-accent) 22%, var(--border)); }
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1px); background-size: 22px 22px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 60%); mask-image: linear-gradient(90deg, transparent, #000 60%); }
+.heroCopy { display: grid; gap: 14px; justify-items: start; }
+.badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); font-size: .82rem; font-weight: 800; }
+.badge i { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 4px color-mix(in srgb, #10b981 22%, transparent); animation: live 2s ease-in-out infinite; }
+@keyframes live { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, #10b981 8%, transparent); } }
+.heroCopy h1 { margin: 0; font-size: clamp(2.1rem, 4.4vw, 3.6rem); font-weight: 900; line-height: 1.3; }
+.intro { max-width: 62ch; margin: 0; color: var(--muted); font-size: 1.02rem; line-height: 2.1; }
+.intro :global(p) { margin: 0; }
+.quick { display: flex; flex-wrap: wrap; gap: 10px; margin-block-start: 6px; }
+.quickLink, .quickHours { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 16px; background: var(--card); border: 1px solid var(--border); }
+.quickLink { transition: border-color .2s, transform .2s; }
+.quickLink:hover { border-color: var(--contact-accent); transform: translateY(-2px); }
+.quickLink > span, .quickHours > span { display: grid; line-height: 1.6; }
+.quickLink small, .quickHours small { color: var(--muted); font-size: .72rem; }
+.quickLink bdi { direction: ltr; font-weight: 800; font-size: .9rem; }
+.quickHours { font-size: .85rem; }
+.heroArt { position: relative; height: 220px; }
+.heroArt span { position: absolute; display: grid; place-items: center; border-radius: 28px; background: var(--card); border: 1px solid var(--border); box-shadow: 0 24px 40px -28px rgba(20, 24, 40, .55); color: var(--accent-ink, var(--contact-accent)); }
+.heroArt span:nth-child(1) { inset-block-start: 10px; inset-inline-start: 20%; width: 96px; height: 96px; transform: rotate(-8deg); }
+.heroArt span:nth-child(2) { inset-block-start: 90px; inset-inline-end: 6%; width: 84px; height: 84px; transform: rotate(10deg); color: #10b981; }
+.heroArt span:nth-child(3) { inset-block-end: 0; inset-inline-start: 6%; width: 72px; height: 72px; transform: rotate(6deg); color: #ec4899; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+.formCard { display: grid; gap: 18px; padding: clamp(22px, 3vw, 36px); border: 1px solid var(--border); border-radius: 30px; background: var(--card); box-shadow: 0 30px 60px -46px rgba(20, 24, 40, .55); }
+.formCard header { display: grid; gap: 6px; padding-block-end: 14px; border-block-end: 1px solid var(--border); }
+.formCard h2 { margin: 0; font-size: 1.45rem; font-weight: 900; }
+.formCard header p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.9; }
+/* the attached form sits in this card: its own frame and heading step aside (its description is shown above) */
+.formCard :global(.public-form) { max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.formCard :global(.public-form) > h2, .formCard :global(.public-form) > h2 + :global(.muted) { display: none; }
+.noForm { margin: 0; padding: 16px; border-radius: 16px; background: var(--bg-soft, var(--card)); color: var(--muted); line-height: 2; }
+.noForm a { color: var(--accent-ink, var(--contact-accent)); text-decoration: underline; }
+.side { position: sticky; top: 100px; display: grid; gap: 12px; }
+.side h2 { margin: 0; font-size: 1.05rem; font-weight: 900; }
+
+.faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.faq details { border: 1px solid var(--border); border-radius: 18px; background: var(--card); }
+.faq details[open] { border-color: color-mix(in srgb, var(--contact-accent) 45%, var(--border)); }
+.faq summary { display: flex; align-items: center; gap: 10px; padding: 16px 18px; cursor: pointer; font-weight: 800; list-style: none; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; margin-inline-start: auto; color: var(--muted); font-size: 1.2rem; transition: transform .2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq summary > :global(svg) { flex: none; color: var(--accent-ink, var(--contact-accent)); }
+.faq p { margin: 0; padding: 0 18px 16px; color: var(--muted); line-height: 2; }
+
+@media (max-width: 1000px) { .grid { grid-template-columns: minmax(0, 1fr); } .side { position: static; } .hero { grid-template-columns: minmax(0, 1fr); } .heroArt { display: none; } }
+@media (max-width: 700px) { .contact { gap: 28px; } .hero { border-radius: 26px; } .formCard { border-radius: 24px; } .faq { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .badge i { animation: none; } .quickLink, .faq summary::after { transition: none; } .quickLink:hover { transform: none; } }
