@@ -36,8 +36,8 @@ export default function AdminPagesPage() {
     { section: S.look, key: 'pageLayout', label: 'چیدمان صفحه', type: 'select', options: [{ value: 'full', label: 'تمام‌عرض' }, { value: 'reading', label: 'متمرکز برای مطالعه' }, { value: 'sidebar', label: 'همراه ستون کناری' }] },
     { section: S.look, key: 'pageTitle', label: 'عنوان صفحه', type: 'select', hideInTable: true, options: [{ value: 'show', label: 'نمایش عنوان' }, { value: 'hide', label: 'بدون عنوان' }] },
     { section: S.look, key: 'pageFrame', label: 'کادر محتوا', type: 'select', hideInTable: true, options: [{ value: 'plain', label: 'بدون کادر' }, { value: 'card', label: 'داخل کارت' }] },
-    { section: S.look, key: 'formSlug', label: 'شناسه فرم برای نمایش پایین محتوا (اختیاری؛ از مدیریت فرم‌ها)', dir: 'ltr', hideInTable: true },
-    { section: S.look, key: 'companyPanel', label: 'پنل اطلاعات موبوکام و نقشه (اطلاعات از استودیوی سایت)', type: 'select', hideInTable: true, options: [{ value: 'none', label: 'بدون پنل' }, { value: 'about', label: 'معرفی موبوکام و ارتباط' }, { value: 'contact', label: 'اطلاعات تماس و نقشه' }] },
+    { section: S.look, key: 'formSlug', label: 'فرم پیوست (شناسهٔ فرم از «فرم‌ها و پاسخ‌ها»، مثلاً contact؛ در قالب «تماس با ما» کنار راه‌های ارتباط می‌نشیند)', dir: 'ltr', hideInTable: true },
+    { section: S.look, key: 'companyPanel', label: 'قالب طراحی صفحه (متن و فرم همین صفحه داخل طراحی قالب می‌نشیند؛ تماس و نقشه از «اطلاعات تماس و نقشه»)', type: 'select', options: [{ value: 'none', label: 'ساده — با چیدمان و عنوان بالا' }, { value: 'about', label: 'درباره ما — داستان، آمار، بخش‌ها، ارزش‌ها و نقشه' }, { value: 'contact', label: 'تماس با ما — فرم پیوست، راه‌های ارتباط، نقشه و پرسش‌ها' }, { value: 'legal', label: 'سند حقوقی — فهرست مطالب، بخش‌های شماره‌دار، چاپ' }] },
   ]
 
   // Blank page: create an empty full-width page and jump straight into the builder.
@@ -81,6 +81,12 @@ export default function AdminPagesPage() {
       headerActions={
         <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
           {createError && <span className="error-text">{createError}</span>}
+          {/* A new page from a design template opens the page form with the template chosen (a full load, so the form opens). */}
+          {fa && <>
+            <a className="btn btn-ghost" href="/admin/pages?new=1&companyPanel=about">＋ صفحه با قالب درباره ما</a>
+            <a className="btn btn-ghost" href="/admin/pages?new=1&companyPanel=contact&formSlug=contact">＋ صفحه با قالب تماس</a>
+            <a className="btn btn-ghost" href="/admin/pages?new=1&companyPanel=legal">＋ سند حقوقی</a>
+          </>}
           <button type="button" className="btn btn-ghost" disabled={creating} onClick={() => void createBlankPage()}>
             {creating ? (fa ? 'در حال ایجاد…' : 'Creating…') : fa ? '＋ صفحه خالی' : '+ Blank page'}
           </button>
