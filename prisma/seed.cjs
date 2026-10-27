@@ -101,7 +101,8 @@ async function main() {
       slug: 'terms',
       title: 'قوانین و شرایط',
       titleEn: 'Terms of service',
-      content: '<h2>قوانین استفاده</h2><p>با خرید اشتراک، شما می‌پذیرید که از سرویس فقط برای مقاصد قانونی استفاده کنید.</p>',
+      // A full starter text for the services offered (owner, 2026-10-28); the owner edits it in Pages admin.
+      content: require('node:fs').readFileSync(require('node:path').join(__dirname, 'starter-content', 'terms.fa.html'), 'utf8'),
       contentEn: '<h2>Terms</h2><p>By purchasing a subscription you agree to use the service for lawful purposes only.</p>',
       showInNav: false,
       sortOrder: 2,

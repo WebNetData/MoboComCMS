@@ -5,7 +5,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import {
   BUILDER_PAGE_ID, SCRIPT_PERMISSION, addUserTemplate, docUsesScripts, listUserTemplates, permFor, removeUserTemplate,
 } from '@/modules/site/server/builder'
-import { BUNDLED_TEMPLATES, POST_TEMPLATES, type BundledTemplate } from '@/modules/site/domain/builder-templates'
+import { BUNDLED_TEMPLATES, PAGE_TEMPLATES, POST_TEMPLATES, type BundledTemplate } from '@/modules/site/domain/builder-templates'
 import { parseBuilderDoc } from '@/modules/site/domain/builder'
 
 const MAX_BODY = 600_000
@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
   if (!await requirePerm(req, permFor(pageId))) return err('forbidden', 403)
   return ok({
     bundled: BUNDLED_TEMPLATES.map(summary),
+    // Whole pages to start from (a foreign payment page, a service page, a campaign).
+    pageBundled: PAGE_TEMPLATES.map(summary),
     postBundled: POST_TEMPLATES.map(summary),
     mine: await listUserTemplates(),
   })

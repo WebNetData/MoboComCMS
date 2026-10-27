@@ -41,7 +41,8 @@ export default function AdminPagesPage() {
   ]
 
   // Blank page: create an empty full-width page and jump straight into the builder.
-  const createBlankPage = async () => {
+  // A new page for the page builder, empty or started from a whole-page template (the builder places it on opening).
+  const createBlankPage = async (template?: { id: string; title: string; slug: string }) => {
     if (creating) return
     setCreating(true)
     setCreateError('')
@@ -50,8 +51,8 @@ export default function AdminPagesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          slug: `page-${Date.now().toString(36)}`,
-          title: fa ? 'صفحه جدید' : 'New page',
+          slug: `${template?.slug || 'page'}-${Date.now().toString(36)}`,
+          title: template?.title || (fa ? 'صفحه جدید' : 'New page'),
           titleEn: 'New page',
           status: 'PUBLISHED',
           content: '',
@@ -65,7 +66,7 @@ export default function AdminPagesPage() {
         setCreateError(data?.error || (fa ? 'ایجاد صفحه ممکن نشد.' : 'Could not create the page.'))
         return
       }
-      router.push(`/admin/builder/${data.id}`)
+      router.push(`/admin/builder/${data.id}${template ? `?template=${template.id}` : ''}`)
     } catch {
       setCreateError(fa ? 'ایجاد صفحه ممکن نشد.' : 'Could not create the page.')
     } finally {
@@ -81,15 +82,24 @@ export default function AdminPagesPage() {
       headerActions={
         <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
           {createError && <span className="error-text">{createError}</span>}
-          {/* A new page from a design template opens the page form with the template chosen (a full load, so the form opens). */}
-          {fa && <>
-            <a className="btn btn-ghost" href="/admin/pages?new=1&companyPanel=about">＋ صفحه با قالب درباره ما</a>
-            <a className="btn btn-ghost" href="/admin/pages?new=1&companyPanel=contact&formSlug=contact">＋ صفحه با قالب تماس</a>
-            <a className="btn btn-ghost" href="/admin/pages?new=1&companyPanel=legal">＋ سند حقوقی</a>
-          </>}
-          <button type="button" className="btn btn-ghost" disabled={creating} onClick={() => void createBlankPage()}>
-            {creating ? (fa ? 'در حال ایجاد…' : 'Creating…') : fa ? '＋ صفحه خالی' : '+ Blank page'}
-          </button>
+          {/* Every way to start a page, in one menu: the page builder (drag and drop, empty or from a whole-page template)
+              or a design template (the page form opens with it chosen; a full load, so the form opens). */}
+          <details className="pg-new">
+            <summary className="btn btn-primary">{creating ? (fa ? 'در حال ایجاد…' : 'Creating…') : fa ? '＋ صفحهٔ جدید' : '+ New page'}</summary>
+            <div className="pg-new-menu">
+              <b>{fa ? 'با صفحه‌ساز (کشیدن و رها کردن بلوک‌ها)' : 'With the page builder (drag and drop)'}</b>
+              <button type="button" disabled={creating} onClick={() => void createBlankPage()}><span>{fa ? 'صفحهٔ خالی' : 'Blank page'}</span><small>{fa ? 'از صفر با بلوک‌های آماده' : 'From scratch with ready blocks'}</small></button>
+              <button type="button" disabled={creating} onClick={() => void createBlankPage({ id: 'page-foreign-payment', title: 'پرداخت سایت خارجی', slug: 'foreign-payment' })}><span>{fa ? 'پرداخت سایت خارجی' : 'Foreign site payment'}</span><small>{fa ? 'معرفی، مراحل، فرم سفارش با نرخ روز و پرسش‌ها' : 'Intro, steps, order form and questions'}</small></button>
+              <button type="button" disabled={creating} onClick={() => void createBlankPage({ id: 'page-service', title: 'معرفی خدمت', slug: 'service' })}><span>{fa ? 'معرفی خدمت' : 'Service page'}</span><small>{fa ? 'ویژگی‌ها، آمار، نظرها، پلن‌ها و پرسش‌ها' : 'Features, figures, quotes, plans'}</small></button>
+              <button type="button" disabled={creating} onClick={() => void createBlankPage({ id: 'page-campaign', title: 'فروش ویژه', slug: 'campaign' })}><span>{fa ? 'کمپین و فروش ویژه' : 'Campaign'}</span><small>{fa ? 'شمارش معکوس و محصولات منتخب' : 'Countdown and selected products'}</small></button>
+              {fa && <>
+                <b>با قالب طراحی (متن در ویرایشگر)</b>
+                <a href="/admin/pages?new=1&companyPanel=about"><span>درباره ما</span><small>داستان، آمار، بخش‌ها و نقشه</small></a>
+                <a href="/admin/pages?new=1&companyPanel=contact&formSlug=contact"><span>تماس با ما</span><small>فرم، راه‌های ارتباط و نقشه</small></a>
+                <a href="/admin/pages?new=1&companyPanel=legal"><span>سند حقوقی</span><small>قوانین، حریم خصوصی، بازگشت وجه</small></a>
+              </>}
+            </div>
+          </details>
         </span>
       }
     />

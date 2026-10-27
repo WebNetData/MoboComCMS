@@ -463,3 +463,109 @@ export const THEME_PRESETS: Record<'header' | 'footer' | 'page', BundledTemplate
 }
 
 export const POST_TEMPLATE_IDS = POST_TEMPLATES.map((template) => template.id)
+
+/** A section that a link on the same page can jump to (#order, #faq). */
+const anchored = (anchor: string, section: BuilderSection): BuilderSection => ({ ...section, anchor })
+
+/**
+ * Whole pages to start from (owner, 2026-10-28: "design any page with ready blocks, no code — e.g. a foreign payment
+ * page with a professional order form"). Every part stays a normal block to edit, move or delete. A form block names a
+ * form of «فرم‌ها و پاسخ‌ها» by its address; the builder makes a missing one from the form builder's template, as a draft.
+ */
+export const PAGE_TEMPLATES: BundledTemplate[] = [
+  {
+    id: 'page-foreign-payment',
+    fa: 'صفحهٔ پرداخت سایت خارجی',
+    en: 'Foreign site payment page',
+    descFa: 'معرفی خدمت، سه مزیت، مراحل کار، فرم سفارش با محاسبهٔ نرخ روز، پرسش‌ها و دعوت پایانی',
+    descEn: 'Service intro, three benefits, steps, an order form priced at the day rate, questions and a closing call',
+    doc: doc([
+      sec([col([
+        w('hero', { eyebrow: 'خدمات ارزی موبوکام', eyebrowEn: 'MoboCom currency services', title: 'پرداخت در هر سایت خارجی، بدون کارت بین‌المللی', titleEn: 'Pay any foreign website without an international card', text: 'اشتراک، دامنه و هاست، ثبت‌نام آزمون، خرید اپلیکیشن یا هر پرداخت دیگری؛ مبلغ دلاری یا یورویی را وارد کنید، مبلغ تومانی را با نرخ روز ببینید و سفارش را ثبت کنید.', textEn: 'Subscriptions, domains, exam fees or app purchases: enter the amount in USD or EUR, see it in toman at the day rate and place the order.', label: 'ثبت سفارش پرداخت', labelEn: 'Place an order', href: '#order', secondaryLabel: 'پرسش‌های پرتکرار', secondaryLabelEn: 'Questions', secondaryHref: '#faq' }),
+      ])], { paddingY: 64 }),
+      sec([
+        col([w('icon-box', { icon: 'wallet', title: 'محاسبهٔ شفاف', titleEn: 'Clear pricing', text: 'مبلغ تومانی با نرخ روز و کارمزد مشخص، پیش از پرداخت روبه‌روی شماست؛ هزینهٔ پنهانی در کار نیست.', textEn: 'The toman amount at the day rate and a stated fee is shown before you pay.', layout: 'top' }, center)], 33.34),
+        col([w('icon-box', { icon: 'bolt', title: 'انجام سریع', titleEn: 'Done fast', text: 'سفارش‌ها در ساعت کاری و به ترتیب ثبت انجام می‌شوند و نتیجه در حساب کاربری شما ثبت می‌شود.', textEn: 'Orders are done in working hours, in the order received, with the result in your account.', layout: 'top' }, center)], 33.33),
+        col([w('icon-box', { icon: 'chat', title: 'پیگیری و پشتیبانی', titleEn: 'Follow-up and support', text: 'از ثبت سفارش تا انجام پرداخت، وضعیت را در حساب کاربری ببینید و از مرکز پشتیبانی بپرسید.', textEn: 'See the status in your account and ask the support centre at any step.', layout: 'top' }, center)], 33.33),
+      ], { paddingY: 48 }),
+      sec([col([
+        w('heading', { level: 'h2', text: 'چطور کار می‌کند؟', textEn: 'How it works' }, center),
+        w('list', { items: items([
+          { icon: '۱', title: 'مبلغ و سایت را وارد کنید', titleEn: 'Enter the amount and site', text: 'نشانی سایت، مبلغ ارزی و توضیح خرید را در فرم سفارش بنویسید.', textEn: 'Write the site, the foreign amount and what you are buying.' },
+          { icon: '۲', title: 'مبلغ تومانی را ببینید', titleEn: 'See the toman amount', text: 'فرم مبلغ قابل پرداخت را با نرخ روز و کارمزد محاسبه می‌کند.', textEn: 'The form works out the amount at the day rate plus the fee.' },
+          { icon: '۳', title: 'پرداخت کنید', titleEn: 'Pay', text: 'از درگاه بانکی یا کیف پول پرداخت کنید؛ سفارش پس از پرداخت ثبت می‌شود.', textEn: 'Pay by bank gateway or wallet; the order is placed once paid.' },
+          { icon: '۴', title: 'نتیجه را دریافت کنید', titleEn: 'Get the result', text: 'پس از انجام پرداخت در سایت مقصد، نتیجه در حساب کاربری شما ثبت می‌شود.', textEn: 'Once paid on the site, the result appears in your account.' },
+        ]) }),
+      ])], { tone: 'light', paddingY: 64 }),
+      anchored('order', sec([
+        col([w('form', { title: 'فرم سفارش پرداخت', titleEn: 'Payment order form', slug: 'foreign-payment' })], 62),
+        col([
+          w('heading', { level: 'h3', text: 'پیش از سفارش بدانید', textEn: 'Before you order' }),
+          w('text', { html: '<ul><li>اطلاعات سایت مقصد و مبلغ را دقیق وارد کنید؛ پرداخت با اطلاعات نادرست قابل بازگشت نیست.</li><li>قوانین سایت مقصد را بخوانید؛ فروشنده و مسئول کالا یا خدمت، همان سایت است.</li><li>اگر سایت مقصد یا بانک پرداخت را رد کند و پرداخت انجام نشود، مبلغ شما بازگردانده می‌شود.</li><li>از پرداخت برای موارد غیرقانونی یا قمار خودداری می‌شود.</li></ul><p><a href="/p/terms">قوانین و شرایط کامل</a></p>', htmlEn: '<ul><li>Enter the site and amount exactly; a payment made with wrong details cannot be returned.</li><li>The destination site is the seller; read its rules.</li><li>If the site or bank refuses and nothing is paid, your money is returned.</li></ul>' }),
+        ], 38),
+      ], { paddingY: 72 })),
+      anchored('faq', sec([col([
+        w('faq', { title: 'پرسش‌های پرتکرار', titleEn: 'Frequently asked', items: items([
+          { q: 'مبلغ تومانی چطور حساب می‌شود؟', qEn: 'How is the toman amount worked out?', a: 'مبلغ ارزی با نرخ روز به تومان تبدیل می‌شود و کارمزد اعلام‌شده به آن اضافه می‌شود. همان مبلغی که پیش از پرداخت می‌بینید، مبلغ نهایی است.', aEn: 'The amount is converted at the day rate and the stated fee is added; what you see before paying is final.' },
+          { q: 'چه مدت طول می‌کشد؟', qEn: 'How long does it take?', a: 'سفارش‌ها در ساعت کاری و به ترتیب ثبت انجام می‌شوند. زمان دقیق به سایت مقصد و حجم سفارش‌ها بستگی دارد.', aEn: 'Orders are done in working hours, in the order received; timing depends on the site.' },
+          { q: 'اگر سایت مقصد پرداخت را نپذیرد چه می‌شود؟', qEn: 'What if the site refuses the payment?', a: 'اگر پرداخت انجام نشود، مبلغ پرداختی شما طبق قوانین و شرایط بازگردانده می‌شود. پس از انجام موفق پرداخت، بازگرداندن وجه تابع قوانین سایت مقصد است.', aEn: 'If nothing is paid, your money is returned as the terms say; after a successful payment, refunds follow the site rules.' },
+          { q: 'برای چه سایت‌هایی می‌شود پرداخت کرد؟', qEn: 'Which sites can I pay?', a: 'بیشتر سایت‌هایی که با ویزا یا مستر کارت پرداخت می‌گیرند. پرداخت برای موارد غیرقانونی، قمار یا خدمات تحریمی انجام نمی‌شود.', aEn: 'Most sites that take Visa or Mastercard; nothing illegal, gambling or sanctioned.' },
+          { q: 'اطلاعات حساب من کجا نگهداری می‌شود؟', qEn: 'Where is my account information kept?', a: 'اطلاعاتی که برای انجام سفارش می‌دهید رمزگذاری‌شده نگهداری و پس از انجام سفارش در مهلت اعلام‌شده پاک می‌شود.', aEn: 'What you give us for the order is kept encrypted and erased after the stated period.' },
+        ]) }),
+      ])], { paddingY: 64 })),
+      sec([col([
+        w('cta', { title: 'سؤالی پیش از سفارش دارید؟', titleEn: 'A question before ordering?', text: 'تیم پشتیبانی موبوکام پیش از ثبت سفارش راهنمایی‌تان می‌کند.', textEn: 'MoboCom support will help before you order.', label: 'تماس با ما', labelEn: 'Contact us', href: '/p/contact' }),
+      ])], { tone: 'accent', paddingY: 56 }),
+    ]),
+  },
+  {
+    id: 'page-service',
+    fa: 'صفحهٔ معرفی خدمت',
+    en: 'Service page',
+    descFa: 'سرصفحه دو ستونه، شش ویژگی، آمار، نظر مشتریان، پلن‌ها، پرسش‌ها و دعوت پایانی',
+    descEn: 'Split hero, six features, figures, testimonials, plans, questions and a closing call',
+    doc: doc([
+      sec([col([
+        w('heading', { level: 'h1', text: 'خدمتی که کار شما را ساده می‌کند', textEn: 'A service that makes your work simple' }),
+        w('text', { html: '<p>در یک جمله بگویید این خدمت چه مشکلی را حل می‌کند و چرا انتخاب شما همین است.</p>', htmlEn: '<p>Say in one sentence what this service solves and why it is the one to choose.</p>' }),
+        w('button', { label: 'شروع کنید', labelEn: 'Get started', href: '#plans', variant: 'primary', secondaryLabel: 'بیشتر بدانید', secondaryLabelEn: 'Learn more', secondaryHref: '#features' }),
+      ], 56), col([w('image', { src: '', alt: 'تصویر خدمت' }, { radius: 24 })], 44)], { paddingY: 88 }),
+      anchored('features', sec([
+        col([w('icon-box', { icon: 'bolt', title: 'سریع', titleEn: 'Fast', text: 'ویژگی اول را کوتاه و روشن بنویسید.', textEn: 'Describe the first feature.' }), w('icon-box', { icon: 'shield', title: 'امن', titleEn: 'Secure', text: 'ویژگی چهارم را کوتاه و روشن بنویسید.', textEn: 'Describe the fourth feature.' })], 33.34),
+        col([w('icon-box', { icon: 'star', title: 'باکیفیت', titleEn: 'Quality', text: 'ویژگی دوم را کوتاه و روشن بنویسید.', textEn: 'Describe the second feature.' }), w('icon-box', { icon: 'chat', title: 'پشتیبانی', titleEn: 'Support', text: 'ویژگی پنجم را کوتاه و روشن بنویسید.', textEn: 'Describe the fifth feature.' })], 33.33),
+        col([w('icon-box', { icon: 'wallet', title: 'مقرون‌به‌صرفه', titleEn: 'Affordable', text: 'ویژگی سوم را کوتاه و روشن بنویسید.', textEn: 'Describe the third feature.' }), w('icon-box', { icon: 'globe', title: 'همه‌جا', titleEn: 'Everywhere', text: 'ویژگی ششم را کوتاه و روشن بنویسید.', textEn: 'Describe the sixth feature.' })], 33.33),
+      ], { paddingY: 64 })),
+      sec([col([w('counters', { items: items([{ value: '1200', suffix: '+', label: 'سفارش انجام‌شده', labelEn: 'Orders done' }, { value: '98', suffix: '٪', label: 'رضایت مشتریان', labelEn: 'Satisfaction' }, { value: '24', suffix: '/7', label: 'پشتیبانی', labelEn: 'Support' }]) }, center)])], { tone: 'dark', paddingY: 56 }),
+      sec([col([w('testimonials', { title: 'مشتریان چه می‌گویند', titleEn: 'What customers say', items: items([{ quote: 'نظر واقعی یک مشتری را اینجا بگذارید.', name: 'نام مشتری', role: 'سمت یا شهر' }, { quote: 'نظر واقعی یک مشتری دیگر را اینجا بگذارید.', name: 'نام مشتری', role: 'سمت یا شهر' }]) })])], { paddingY: 64 }),
+      anchored('plans', sec([col([w('pricing', { title: 'پلن‌ها', titleEn: 'Plans', items: items([
+        { title: 'پایه', price: '۲۹۰٬۰۰۰', period: 'تومان', features: 'ویژگی اول\nویژگی دوم', href: '/products' },
+        { title: 'حرفه‌ای', price: '۴۹۰٬۰۰۰', period: 'تومان', features: 'همهٔ ویژگی‌های پایه\nویژگی سوم\nویژگی چهارم', href: '/products', featured: '1' },
+        { title: 'سازمانی', price: 'تماس بگیرید', period: '', features: 'نیاز ویژه\nپشتیبانی اختصاصی', href: '/p/contact' },
+      ]) })])], { tone: 'light', paddingY: 64 })),
+      sec([col([w('faq', { title: 'پرسش‌های پرتکرار', titleEn: 'Questions', items: items([{ q: 'پرسش اول؟', a: 'پاسخ روشن و کوتاه.' }, { q: 'پرسش دوم؟', a: 'پاسخ روشن و کوتاه.' }, { q: 'پرسش سوم؟', a: 'پاسخ روشن و کوتاه.' }]) })])], { paddingY: 56 }),
+      sec([col([w('cta', { title: 'آماده‌اید شروع کنید؟', titleEn: 'Ready to start?', text: 'یک جملهٔ دعوت کوتاه بنویسید.', textEn: 'A short invitation.', label: 'شروع کنید', labelEn: 'Start', href: '#plans' })])], { tone: 'accent', paddingY: 56 }),
+    ]),
+  },
+  {
+    id: 'page-campaign',
+    fa: 'کمپین و فروش ویژه',
+    en: 'Campaign and sale',
+    descFa: 'سرصفحه پررنگ، شمارش معکوس، محصولات منتخب، سه مزیت و دعوت پایانی',
+    descEn: 'Bold hero, countdown, selected products, three benefits and a closing call',
+    doc: doc([
+      sec([col([
+        w('heading', { level: 'h1', text: 'فروش ویژهٔ موبوکام', textEn: 'MoboCom special sale' }, center),
+        w('text', { html: '<p>تخفیف‌های محدود روی محصولات منتخب؛ تا پایان زمان کمپین فرصت دارید.</p>', htmlEn: '<p>Limited discounts on selected products until the campaign ends.</p>' }, center),
+        w('countdown', { until: '', title: 'تا پایان کمپین', titleEn: 'Until the campaign ends', done: 'کمپین به پایان رسید', doneEn: 'The campaign has ended' }, center),
+        w('button', { label: 'دیدن محصولات', labelEn: 'See the products', href: '#products', variant: 'primary' }, center),
+      ])], { tone: 'accent', paddingY: 96 }),
+      anchored('products', sec([col([w('products', { title: 'محصولات منتخب', titleEn: 'Selected products', limit: '8' })])], { paddingY: 64 })),
+      sec([
+        col([w('icon-box', { icon: 'tag', title: 'تخفیف واقعی', titleEn: 'Real discount', text: 'قیمت پیش و پس از تخفیف روشن نمایش داده می‌شود.', textEn: 'Prices before and after are shown.', layout: 'top' }, center)], 33.34),
+        col([w('icon-box', { icon: 'bolt', title: 'تحویل سریع', titleEn: 'Fast delivery', text: 'محصولات دیجیتال پس از پرداخت تحویل می‌شوند.', textEn: 'Digital products are delivered after payment.', layout: 'top' }, center)], 33.33),
+        col([w('icon-box', { icon: 'chat', title: 'پشتیبانی', titleEn: 'Support', text: 'پیش و پس از خرید کنار شما هستیم.', textEn: 'We are here before and after you buy.', layout: 'top' }, center)], 33.33),
+      ], { tone: 'light', paddingY: 56 }),
+      sec([col([w('cta', { title: 'فرصت محدود است', titleEn: 'Time is limited', text: 'پیش از پایان کمپین خرید کنید.', textEn: 'Buy before the campaign ends.', label: 'رفتن به فروشگاه', labelEn: 'Go to the shop', href: '/products' })])], { paddingY: 56 }),
+    ]),
+  },
+]

@@ -280,3 +280,16 @@ html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-
 html[data-theme='light'] .admin-shell .xm-chip.is-live { color: #047857; }
 html[data-theme='light'] .admin-shell .tm-remove { color: #b42318; }
 .admin-shell .tb-find { margin-bottom: 14px; }
+
+/* Pages admin: «＋ صفحهٔ جدید» — every way to start a page in one menu (page builder or design template). */
+.admin-shell .pg-new { position: relative; }
+.admin-shell .pg-new > summary { list-style: none; cursor: pointer; }
+.admin-shell .pg-new > summary::-webkit-details-marker { display: none; }
+.admin-shell .pg-new > summary::after { content: "▾"; margin-inline-start: 6px; font-size: .8em; }
+.admin-shell .pg-new-menu { position: absolute; z-index: 30; inset-block-start: calc(100% + 8px); inset-inline-end: 0; display: grid; gap: 4px; width: min(340px, 86vw); padding: 10px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); box-shadow: 0 24px 50px -24px rgba(20, 24, 40, .45); }
+.admin-shell .pg-new-menu > b { padding: 8px 10px 4px; color: var(--muted); font-size: .76rem; font-weight: 800; }
+.admin-shell .pg-new-menu > button, .admin-shell .pg-new-menu > a { display: grid; gap: 2px; padding: 10px 12px; border: 0; border-radius: 12px; background: none; color: var(--text); font: inherit; text-align: start; text-decoration: none; cursor: pointer; }
+.admin-shell .pg-new-menu > button:hover, .admin-shell .pg-new-menu > a:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+.admin-shell .pg-new-menu > button:focus-visible, .admin-shell .pg-new-menu > a:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.admin-shell .pg-new-menu span { font-weight: 800; font-size: .9rem; }
+.admin-shell .pg-new-menu small { color: var(--muted); font-size: .76rem; }
