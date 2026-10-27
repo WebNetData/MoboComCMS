@@ -5,6 +5,7 @@ import type { StoreTile } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import Countdown from '@/components/store/Countdown'
+import TileActions from '@/components/store/TileActions'
 import Slider from '@/components/site/Slider'
 import { sized, srcSet } from '@/shared/media/image'
 import { RatingMeter } from '@/components/engage/RatingMeter'
@@ -34,29 +35,45 @@ export function Stars({ rating, count }: { rating: number; count?: number }) {
   return <span className="sx-stars"><RatingMeter size="sm" value={rating} label={`امتیاز ${fa(rating)} از ۵`} /><b className="num">{fa(rating)}</b>{count ? <small className="num">({fa(count)})</small> : null}</span>
 }
 
-/** Product tile used in grids and rails. */
+/** An offer ending within two days shows its clock on the card. */
+const endsSoon = (value: string | null) => { const at = value ? Date.parse(value) : NaN; return Number.isFinite(at) && at - Date.now() > 0 && at - Date.now() < 48 * 3600_000 }
+
+/**
+ * Product card for grids and rails: the picture with its badges, quick favourite and compare, the brand and name,
+ * members' rating and sales, a short-stock bar, and the price with its saving. The whole card opens the product.
+ */
 export function ProductTile({ product, rank }: { product: ProductCard; rank?: number }) {
-  return <article className={`sx-tile${product.inStock ? '' : ' is-out'}`}>
-    <Link href={`/products/${product.slug}`} className="sx-tile-link">
+  const href = `/products/${product.slug}`
+  const deal = product.inStock && product.discount > 0
+  return <article className={`sx-tile${product.inStock ? '' : ' is-out'}${deal ? ' has-deal' : ''}`}>
+    <Link href={href} className="sx-tile-link" aria-label={product.name}>
       <span className="sx-tile-art">
         {product.image ? <img src={sized(product.image, 320)} srcSet={srcSet(product.image, 320)} alt="" loading="lazy" decoding="async" /> : <span className="sx-tile-ph"><StoreIcon name="box" size={40} /></span>}
         {rank !== undefined && <span className="sx-rank num">{fa(rank)}</span>}
-        {product.inStock && product.discount > 0 && <span className="sx-tile-off num">{fa(product.discount)}٪</span>}
+        {deal && <span className="sx-tile-off"><b className="num">{fa(product.discount)}٪</b><small>تخفیف</small></span>}
         {product.vipOnly && <span className="sx-flag is-vip">VIP</span>}
         {product.kind === 'VIRTUAL' && <span className="sx-flag is-digital"><StoreIcon name="bolt" size={12} />{product.instant ? 'تحویل آنی' : 'تحویل دیجیتال'}</span>}
+        {deal && endsSoon(product.saleEndsAt) && product.saleEndsAt && <span className="sx-tile-clock"><StoreIcon name="clock" size={13} /><Countdown until={product.saleEndsAt} /></span>}
+        {!product.inStock && <span className="sx-tile-soldout">ناموجود</span>}
       </span>
       <span className="sx-tile-body">
-        {product.brand && <small className="sx-tile-brand">{product.brand}</small>}
+        <span className="sx-tile-top">{product.brand && <small className="sx-tile-brand">{product.brand}</small>}{product.category && <small className="sx-tile-cat">{product.category}</small>}</span>
         <b className="sx-tile-name">{product.name}</b>
         <span className="sx-tile-meta">
-          {product.lowStock > 0 ? <span className="sx-low">تنها {fa(product.lowStock)} عدد در انبار</span> : product.kind === 'PHYSICAL' && product.inStock ? <span className="sx-ship"><StoreIcon name="truck" size={13} />ارسال فروشگاه</span> : <span />}
-          <Stars rating={product.rating} />
+          {product.rating > 0 && <span className="sx-tile-rate"><StoreIcon name="star" size={13} /><b className="num">{fa(Math.round(product.rating * 10) / 10)}</b>{product.ratingCount > 0 && <small className="num">({fa(product.ratingCount)})</small>}</span>}
+          {product.soldCount > 0 && <small className="sx-tile-sold num">{fa(product.soldCount)} فروش</small>}
+          {product.kind === 'PHYSICAL' && product.inStock && <small className="sx-tile-ship"><StoreIcon name="truck" size={13} />ارسال فروشگاه</small>}
         </span>
-        {product.inStock
-          ? <PriceBlock price={product.price} listPrice={product.listPrice} discount={product.discount} currency={product.currency} />
-          : <span className="sx-unavailable">ناموجود</span>}
+        {product.lowStock > 0 && <span className="sx-tile-stock"><small>تنها <b className="num">{fa(product.lowStock)}</b> عدد باقی مانده</small><i aria-hidden="true"><i style={{ inlineSize: `${Math.max(8, Math.min(100, product.lowStock * 10))}%` }} /></i></span>}
+        <span className="sx-tile-foot">
+          {product.inStock
+            ? <PriceBlock price={product.price} listPrice={product.listPrice} discount={product.discount} currency={product.currency} />
+            : <span className="sx-unavailable">ناموجود</span>}
+          <span className="sx-tile-go" aria-hidden="true"><StoreIcon name="chevron" size={18} /></span>
+        </span>
       </span>
     </Link>
+    <TileActions item={`product:${product.id}`} title={product.name} image={product.image} />
   </article>
 }
 
