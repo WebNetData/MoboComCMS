@@ -95,7 +95,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
   return (
     <>
       <SiteHeader theme={theme} navPages={navPages} />
-      <main className="container py-12 max-w-3xl">
+      <main className="container py-12 invoice-page">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6 no-print">
           <Link href="/dashboard/invoices" className="muted">← {t.myInvoices}</Link>
           {invoice.status !== 'DRAFT' && <div className="invoice-actions">
