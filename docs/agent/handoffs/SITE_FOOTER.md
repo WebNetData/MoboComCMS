@@ -2,6 +2,8 @@
 
 Follow-up after owner-merged PR187: the independent Homepage320 overflow recorded below is now resolved by the existing theme's mobile constraints. See [mobile continuation and its separate evidence](MOBILE_LAYOUT.md); the original footer verification scope below remains historical evidence.
 
+Follow-up 2026-10-28 (owner: "the footer is far too long"): «دنیای موبوکام» is one tile per section (icon, name, part count), not every submenu; spacing tightened; desktop ~1,600px → ~1,050px. Evidence: `.mobocom/claude-tools/pw-footer.cjs`. Decision in PLATFORM_DECISIONS («A compact footer»).
+
 ## Owner requirement and current source
 
 The owner requested a modern, polished footer and explicitly corrected the initial inset/card draft: **the footer must be wide**. The final MoboCom/default footer is edge-to-edge at the viewport width, with responsive inner padding and no maximum-width shell. Preserve that requirement. Keep the site's semantic dark/light colors, current branding, navigation, published page links, account destinations, configured trust seals and plugin slots.
