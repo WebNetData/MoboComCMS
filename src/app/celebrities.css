@@ -156,7 +156,7 @@
 .cb-toolbar { display: grid; gap: 12px; margin: 24px 0 18px; }
 .cb-toolbar .cb-roles { margin: 0; }
 .cb-roles a small { margin-inline-start: 4px; padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); font-size: 11px; font-weight: 700; }
-.cb-roles a.is-on small { background: rgb(255 255 255 / .22); }
+.cb-roles a.is-on small { background: rgb(0 0 0 / .2); color: #fff; }
 .cb-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .cb-sorts { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--bg-soft, var(--card)); border: 1px solid var(--border); }
 .cb-sorts a { padding: 6px 14px; border-radius: 10px; color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; }
@@ -186,11 +186,12 @@
 .cb-profile-back img { width: 100%; height: 100%; object-fit: cover; filter: blur(34px) saturate(1.35); opacity: .45; transform: scale(1.25); }
 .cb-profile.has-backdrop::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, color-mix(in srgb, var(--bg-soft, var(--card)) 30%, transparent), var(--bg-soft, var(--card)) 92%); }
 .cb-follow { display: flex; flex-wrap: wrap; gap: 10px; }
-.cb-anchors { position: sticky; top: 0; z-index: 6; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--card) 92%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+/* Sticks under the site header (90px tall when scrolled, about 70px on a phone). */
+.cb-anchors { position: sticky; top: 90px; z-index: 6; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--card) 92%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .cb-anchors .container { display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; scrollbar-width: none; }
 .cb-anchors a { flex: none; padding: 7px 14px; border-radius: 999px; color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; }
 .cb-anchors a:hover { background: color-mix(in srgb, var(--cb-b) 12%, transparent); }
-.cb-body [id] { scroll-margin-top: 70px; }
+.cb-body [id] { scroll-margin-top: 156px; }
 .cb-known-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
 .cb-group { display: grid; gap: 34px; }
 .cb-team { display: grid; gap: 4px; }
@@ -198,6 +199,10 @@
 @media (max-width: 900px) {
   .cb-hero { grid-template-columns: minmax(0, 1fr); }
   .cb-hero-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .cb-anchors { top: 74px; }
+  .cb-body [id] { scroll-margin-top: 136px; }
 }
 @media (max-width: 720px) {
   .cb-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }

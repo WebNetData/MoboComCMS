@@ -39,7 +39,7 @@ export default async function CelebritiesPage({ searchParams }: { searchParams: 
   const labels = music ? await listLabels('music').catch(() => ({} as Record<string, Record<string, string>>)) : {}
   const creditNames = labels.CREDIT_ROLE ?? {}
   const creditCodes = music ? Object.keys(creditNames).slice(0, 8) : []
-  const plain = !p.q && !role && !creditRole && !letter && !section && (!p.page || p.page === '1')
+  const plain = !p.q && !role && !creditRole && !letter && !section && sort === 'known' && (!p.page || p.page === '1')
   const [result, counts, featured] = await Promise.all([
     celebrityDirectory({ q: p.q, role, creditRole, page: p.page, section, sort, letter }, creditNames),
     celebrityCounts(creditCodes),
@@ -99,7 +99,7 @@ export default async function CelebritiesPage({ searchParams }: { searchParams: 
         <nav className="cb-letters" aria-label="حرف اول نام">
           <Link href={link({ letter: '', page: '' })} className={letter ? '' : 'is-on'}>همه</Link>
           {LETTERS.map((char) => <Link key={char} href={link({ letter: char, page: '' })} className={letter === char ? 'is-on' : ''} aria-current={letter === char ? 'true' : undefined}>{char}</Link>)}
-          <Link href={link({ letter: 'en', page: '' })} className={letter === 'en' ? 'is-on' : ''} aria-label="نام‌های لاتین">A–Z</Link>
+          <Link href={link({ letter: 'en', page: '' })} className={letter === 'en' ? 'is-on' : ''} aria-current={letter === 'en' ? 'true' : undefined} title="نام‌های لاتین">A–Z</Link>
         </nav>
       </div>
 

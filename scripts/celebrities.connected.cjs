@@ -57,6 +57,7 @@ async function main() {
     const slugs = async (input) => (await hub.celebrityDirectory({ q: stamp, role: null, creditRole: '', page: 1, ...input }, {})).people.map((item) => item.slug)
     assert.deepEqual(await slugs({}), [entry.slug, alone.slug], 'most known first')
     assert.deepEqual(await slugs({ sort: 'name' }), [alone.slug, entry.slug], 'or by name')
+    assert.deepEqual((await hub.celebrityDirectory({ q: stamp, role: null, creditRole: '', page: 2, sort: 'name' }, {})).people, [], 'a page past the end is empty')
     assert.deepEqual(await slugs({ section: 'music' }), [entry.slug], 'the music tab holds only who has public music')
     assert.deepEqual(await slugs({ section: 'cinema' }), [entry.slug, alone.slug])
     assert.deepEqual(await slugs({ letter: 'س' }), [entry.slug], 'first letter')
@@ -65,6 +66,13 @@ async function main() {
     assert.ok(counts.roles.director >= 1 && counts.all >= 2 && counts.music >= 1, 'counts of roles and sections')
     const team = await hub.celebrityCollaborators({ cinemaPersonId: person.id, musicArtistId: artist.id }, {})
     assert.deepEqual(team.map((mate) => [mate.slug, mate.shared]), [[alone.slug, 1]], 'collaborators: the director of their film, with one shared work')
+    const latinName = `${stamp} Star`
+    const foreign = await db.cinemaPerson.create({ data: { name: latinName, normalizedName: people.normalizePersonName(latinName) } }); made.people.push(foreign.id)
+    await db.cinemaCredit.create({ data: { titleId: title.id, personId: foreign.id, role: 'CAST' } })
+    await hub.syncCelebrities()
+    const latinSlug = (await db.celebrity.findUnique({ where: { cinemaPersonId: foreign.id } })).slug
+    assert.deepEqual(await slugs({ sort: 'name' }), [alone.slug, entry.slug, latinSlug], 'A to Z: Persian names first, then Latin')
+    assert.deepEqual(await slugs({ letter: 'en' }), [latinSlug], 'and A–Z holds the Latin names')
 
     const split = await hub.splitCelebrity(entry.id)
     await hub.syncCelebrities()

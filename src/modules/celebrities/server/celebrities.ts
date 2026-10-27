@@ -138,6 +138,9 @@ function sectionWhere(now: Date, section: CelebritySection): Prisma.CelebrityWhe
   return null
 }
 
+/** Names written in Latin letters or starting with a digit: the «A–Z» letter of the directory. */
+const LATIN: Prisma.CelebrityWhereInput = { OR: 'abcdefghijklmnopqrstuvwxyz0123456789'.split('').map((char) => ({ normalizedName: { startsWith: char } })) }
+
 /** The directory: by role, section, first letter and name; most known first unless asked otherwise. */
 export async function celebrityDirectory(input: { q?: unknown; role: CelebrityRole | null; creditRole: string; page?: unknown; section?: CelebritySection; sort?: CelebritySort; letter?: string }, creditNames: Record<string, string>) {
   const now = new Date()
@@ -149,9 +152,18 @@ export async function celebrityDirectory(input: { q?: unknown; role: CelebrityRo
     publicWhere(now, input.role, input.creditRole),
     ...(section ? [section] : []),
     ...(q ? [{ OR: [{ normalizedName: { contains: q } }, { musicArtist: { is: { nameEn: { contains: q, mode: 'insensitive' as const } } } }] }] : []),
-    ...(letter === 'en' ? [{ OR: 'abcdefghijklmnopqrstuvwxyz'.split('').map((char) => ({ normalizedName: { startsWith: char } })) }] : letter ? [{ normalizedName: { startsWith: letter } }] : []),
+    ...(letter === 'en' ? [LATIN] : letter ? [{ normalizedName: { startsWith: letter } }] : []),
   ] }
-  const orderBy: Prisma.CelebrityOrderByWithRelationInput[] = input.sort === 'name' ? [{ name: 'asc' }, { id: 'asc' }] : input.sort === 'new' ? [{ createdAt: 'desc' }, { id: 'desc' }] : [{ featured: 'desc' }, { score: 'desc' }, { name: 'asc' }, { id: 'asc' }]
+  if (input.sort === 'name') {
+    // A to Z on a Persian site: Persian names first, then Latin ones (the database collation would put Latin first).
+    const persian: Prisma.CelebrityWhereInput = { AND: [where, { NOT: LATIN }] }, latin: Prisma.CelebrityWhereInput = { AND: [where, LATIN] }
+    const [total, before] = await Promise.all([db.celebrity.count({ where }), db.celebrity.count({ where: persian })])
+    const skip = (page - 1) * PAGE, orderBy: Prisma.CelebrityOrderByWithRelationInput[] = [{ name: 'asc' }, { id: 'asc' }]
+    const rows = skip < before ? await db.celebrity.findMany({ where: persian, orderBy, skip, take: PAGE, select: cardSelect(now) }) : []
+    if (rows.length < PAGE) rows.push(...await db.celebrity.findMany({ where: latin, orderBy, skip: Math.max(0, skip - before), take: PAGE - rows.length, select: cardSelect(now) }))
+    return { q, page, pages: Math.max(1, Math.ceil(total / PAGE)), total, people: rows.map((row) => toCard(row, creditNames)) }
+  }
+  const orderBy: Prisma.CelebrityOrderByWithRelationInput[] = input.sort === 'new' ? [{ createdAt: 'desc' }, { id: 'desc' }] : [{ featured: 'desc' }, { score: 'desc' }, { name: 'asc' }, { id: 'asc' }]
   const [total, rows] = await Promise.all([
     db.celebrity.count({ where }),
     db.celebrity.findMany({ where, orderBy, skip: (page - 1) * PAGE, take: PAGE, select: cardSelect(now) }),
