@@ -222,7 +222,15 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   useEffect(() => {
     if (linked.current) return
     linked.current = true
-    const id = Number(new URLSearchParams(window.location.search).get('edit'))
+    // ?new=1&<field>=<value> opens an empty form with those fields filled ("+ sub-category" under a parent).
+    const query = new URLSearchParams(window.location.search)
+    if (query.get('new') === '1') {
+      emptyForm()
+      setForm((current) => ({ ...current, ...Object.fromEntries(fields.filter((fl) => query.has(fl.key)).map((fl) => [fl.key, query.get(fl.key) || ''])) }))
+      setShowForm(true)
+      return
+    }
+    const id = Number(query.get('edit'))
     if (!Number.isSafeInteger(id) || id <= 0) return
     fetch(`/api/admin/cms?type=${type}&id=${id}`).then((res) => res.ok ? res.json() : null).then((data) => {
       const row = (Array.isArray(data) ? data : data?.rows || []).find((item: any) => item.id === id)

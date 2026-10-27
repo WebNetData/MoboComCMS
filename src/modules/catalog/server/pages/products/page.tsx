@@ -188,7 +188,7 @@ async function Listing({ query }: { query: ShopQuery }) {
         </ul>
       </div>
     </header>
-    {node && node.children.length > 0 && <nav className="sx-subcats" aria-label="زیردسته‌ها">{node.children.map((child) => <Link key={child.id} href={`/products${shopQueryString(query, { category: child.slug })}`}>
+    {node && node.children.some((child) => child.total > 0) && <nav className="sx-subcats" aria-label="زیردسته‌ها">{node.children.filter((child) => child.total > 0).map((child) => <Link key={child.id} href={`/products${shopQueryString(query, { category: child.slug })}`}>
       <span className="sx-subcat-art">{child.image ? <img src={sized(child.image, 96)} alt="" loading="lazy" /> : <StoreIcon name="box" size={22} />}</span><span>{child.name}</span><small className="num">{fa(child.total)}</small>
     </Link>)}</nav>}
 
