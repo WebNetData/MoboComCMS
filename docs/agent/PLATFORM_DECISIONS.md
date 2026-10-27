@@ -134,6 +134,24 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - The cart tells the shopper which offers are reached and how much is left for the next (`CartView.freeShipping`, only with carriers on and physical items, only in Rial/Toman carts). Checkout and the admin trial quote show the rule's text under «رایگان».
 - Carriers are off and the origin is Tehran by default: the owner sets the origin city and turns carriers on at `/admin/shipping-carriers` for any rule to apply.
 
+**Store: full control of shipping (owner, 2026-10-27).** Every carrier is configured by the owner on the same setting (`shipping.carriers.v1`, no migration). Each carrier has:
+- **Routes:** inside the store city, other cities of the province, other provinces, each on or off.
+- **Places:** an only-these / all-but-these list of provinces and cities.
+- **Pricing:**
+  - the zone and weight table;
+  - one fixed amount;
+  - freight paid by the receiver on delivery (`collect`, «پس‌کرایه»).
+- **Hand-set fees** for a city or province (a city beats its province).
+- **A fixed extra fee:** packing, insurance, or taking the parcel to the freight office. It is charged now, also with `collect`.
+- **An order amount range.**
+
+Other rules:
+- A collect carrier is never free: the receiver pays its freight.
+- Templates add Mahex, freight (باربری) and bus terminal next to the existing carriers.
+- Free rules gain "outside the store city" and "everywhere except listed cities".
+- The order keeps `shipping.collect` in its meta; the admin order and shipment panel show it.
+- Saved settings keep their behaviour: a local courier stays city-only with its listed cities.
+
 **Store: a delivered code.** A code leaves the shelf once. Taken back from its buyer it keeps its order and is marked returned (`ProductDigitalCode.returnedAt`, `returnId`, `returnNote`; migration `20261206120000`): void, not the buyer's any more, never sold again.
 - Staff **replace** a code that did not work from the product's pool screen (`replaceCode`): the old one is void and a code of the same shelf takes its place on the same order line, in one step; the buyer is told without the code in the notice.
 - **Sending a code back** is a return like any other, by its own window: `codeReturnDays` in the return rules, 0 (never) by default, because a code the buyer has read cannot be resold and that is the owner's call. Every such request is reviewed by staff; a line gives back no more units than the codes its buyer still holds, and the reasons offered fit what goes back (`reasonsForGoods`). On refund the codes of the returned units are void (`takeBackCodes`, the ones given last first; safe to repeat).
