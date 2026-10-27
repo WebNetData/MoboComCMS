@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `feat/site-wide-width-2026-10-27` puts every page at 95–98% of the window. The width is the theme's `--mb-chrome`; each page column takes it, and the panels fill the space beside their menu. PRs 265–267 («چهره‌ها») merged.
+
 Current continuation 2026-10-27: `feat/celebrities-pro-2026-10-27` (on PR #266) makes «چهره‌ها» the people list of cinema and music. The changes are a professional directory (featured strip, sorts, letters and section tabs) and a richer person page (backdrop, known-for, collaborators and in-page sections). `/cinema/people` and `/music/artists` now redirect into it.
 
 Current continuation 2026-10-27: `feat/central-artists-2026-10-27` (on «چهره‌ها», PR #265) makes one artist profile across music and cinema, one page per person, and singers pickable in the cinema cast form.
