@@ -201,8 +201,16 @@ const TRUST: { icon: StoreIconName; title: string; text: string }[] = [
   { icon: 'headset', title: 'پشتیبانی', text: 'هفت روز هفته پاسخ‌گو هستیم' },
 ]
 
-export function TrustStrip() {
-  return <section className="sx-trust" aria-label="خدمات فروشگاه">{TRUST.map((item) => <div key={item.title}><StoreIcon name={item.icon} size={28} /><span><b>{item.title}</b><small>{item.text}</small></span></div>)}</section>
+export const DIGITAL_TRUST: { icon: StoreIconName; title: string; text: string }[] = [
+  { icon: 'bolt', title: 'تحویل آنلاین', text: 'بدون ارسال پستی، در حساب شما' },
+  { icon: 'shield', title: 'ضمانت اصالت', text: 'کد اصل از منبع معتبر' },
+  { icon: 'card', title: 'پرداخت امن', text: 'درگاه بانکی و کیف پول' },
+  { icon: 'return', title: 'جایگزینی کد', text: 'کد نامعتبر عوض می‌شود' },
+  { icon: 'headset', title: 'پشتیبانی فعال‌سازی', text: 'تا فعال شدن کنار شما' },
+]
+
+export function TrustStrip({ items = TRUST }: { items?: { icon: StoreIconName; title: string; text: string }[] }) {
+  return <section className="sx-trust" aria-label="خدمات فروشگاه">{items.map((item) => <div key={item.title}><StoreIcon name={item.icon} size={28} /><span><b>{item.title}</b><small>{item.text}</small></span></div>)}</section>
 }
 
 export function Crumbs({ items }: { items: { label: string; href?: string }[] }) {

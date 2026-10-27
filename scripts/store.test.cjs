@@ -185,7 +185,7 @@ test('"instant delivery" is said only of a product that hands over a code by its
   assert.deepEqual([says('VIRTUAL', 'CODES', 3), says('VIRTUAL', 'CODES', 0), says('VIRTUAL', 'MANUAL', -1), says('VIRTUAL', 'MANUAL', 5), says('PHYSICAL', 'CODES', 3)], [true, false, false, false, false])
   // No screen prints the promise without asking.
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
-  for (const file of ['src/components/store/BuyBox.tsx', 'src/components/store/CartPage.tsx', 'src/components/store/CartCheckout.tsx', 'src/components/store/Storefront.tsx', 'src/modules/catalog/server/pages/products/[slug]/page.tsx', 'src/modules/compare/server/compare.ts']) {
+  for (const file of ['src/components/store/BuyBox.tsx', 'src/components/store/CartPage.tsx', 'src/components/store/CartCheckout.tsx', 'src/components/store/Storefront.tsx', 'src/components/store/ShopHome.tsx', 'src/modules/catalog/server/pages/products/page.tsx', 'src/modules/catalog/server/pages/products/[slug]/page.tsx', 'src/modules/compare/server/compare.ts']) {
     const source = read(file)
     for (const line of source.split('\n').filter((item) => item.includes('تحویل آنی'))) assert.ok(/instant|deliversInstantly/.test(line), `${file}: ${line.trim().slice(0, 90)}`)
   }

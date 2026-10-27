@@ -49,6 +49,8 @@
 /* side cards */
 .sx-hero-side { display: grid; grid-auto-rows: 1fr; gap: 16px; min-width: 0; }
 .sx-side-card { position: relative; display: grid; grid-template-rows: auto 1fr auto auto; gap: 8px; min-width: 0; padding: 14px; border-radius: 24px; border: 1px solid var(--sx-line); background: var(--sx-surface); color: inherit; text-decoration: none; overflow: hidden; transition: transform .28s cubic-bezier(.2, .9, .2, 1), box-shadow .28s ease, border-color .25s ease; }
+.sx-hero-side > .sx-side-card:only-child { align-self: start; }
+.sx-hero-side > .sx-side-card:only-child .sx-side-art { aspect-ratio: 4 / 3; }
 .sx-side-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--sx-accent) 35%, var(--sx-line)); box-shadow: var(--sx-lift); }
 .sx-side-card.is-deal { border-color: color-mix(in srgb, var(--sx-deal) 30%, var(--sx-line)); background: linear-gradient(165deg, color-mix(in srgb, var(--sx-deal) 11%, var(--sx-surface)), var(--sx-surface) 58%); }
 .sx-side-card.is-new { background: linear-gradient(165deg, color-mix(in srgb, var(--sx-accent) 10%, var(--sx-surface)), var(--sx-surface) 58%); }
@@ -141,6 +143,8 @@
 .sx-listing .sx-subcats small { padding: 0 7px; border-radius: 999px; background: var(--sx-subtle); color: var(--sx-muted); font-size: 11px; }
 
 .sx-listing .sx-toolbar { position: sticky; top: 8px; z-index: 5; padding: 8px 12px; border-radius: 16px; border: 1px solid var(--sx-line); background: color-mix(in srgb, var(--sx-surface) 90%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 12px 30px -26px rgb(15 23 42 / .5); }
+/* Over the cards the sticky bar blends with what lies under it; the chosen order reads in body ink with an accent line. */
+.sx-listing .sx-sorts a.is-active { color: var(--sx-text); background: var(--sx-accent-soft); box-shadow: inset 0 -2px 0 var(--sx-accent); }
 .sx-toolbar-count { flex: none; margin-inline-start: auto; color: var(--sx-muted); font-size: 12.5px; white-space: nowrap; }
 .sx-toolbar-count b { color: var(--sx-text); font-weight: 900; }
 .sx-qf { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: none; }
@@ -184,4 +188,105 @@
   .sx-hero-stage:hover .sx-stage-card.is-1 { transform: rotate(-2deg); }
   .sx-hero-stage:hover .sx-stage-card.is-2 { transform: rotate(6deg) scale(.84); }
   .sx-hero-stage:hover .sx-stage-card.is-3 { transform: rotate(-7deg) scale(.8); }
+}
+
+/* ============================================================
+   Two stores (owner, 2026-10-27): the shop front opens on two doors, digital and physical; each half is a store
+   with its own colour, hero search and quick routes. Advanced filters: specifications, rating, instant delivery,
+   price ranges, counts, a search in long lists.
+   ============================================================ */
+
+.sx-gate-head { display: grid; gap: 4px; margin-block: 8px 14px; }
+.sx-gate-head h1 { margin: 0; font-size: clamp(22px, 2.2vw, 32px); font-weight: 900; letter-spacing: -.01em; }
+.sx-gate-head p { margin: 0; color: var(--sx-muted); font-size: 14px; line-height: 2; }
+.sx-landing > .sx-slider { margin-block: 6px 18px; border-radius: 26px; }
+
+/* the two doors */
+.sx-doors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block: 0 18px; }
+.sx-doors.is-single { grid-template-columns: minmax(0, 1fr); }
+.sx-door { --d1: #4338ca; --d2: #0e7490; position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; gap: 14px; min-height: 330px; padding: clamp(20px, 2.6vw, 34px); border-radius: 30px; color: #fff; background: linear-gradient(140deg, var(--d1), var(--d2)); box-shadow: 0 34px 60px -40px var(--d1); transition: transform .3s cubic-bezier(.2, .9, .2, 1), box-shadow .3s ease; }
+.sx-door.is-physical { --d1: #c2410c; --d2: #be185d; }
+.sx-door::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(60% 70% at 100% 0%, rgb(255 255 255 / .2), transparent 60%), radial-gradient(rgb(255 255 255 / .14) 1.2px, transparent 1.2px) 0 0 / 22px 22px; }
+.sx-door:hover, .sx-door:focus-within { transform: translateY(-4px); box-shadow: 0 44px 70px -40px var(--d1); }
+.sx-door-copy { position: relative; z-index: 1; display: grid; align-content: start; gap: 10px; min-width: 0; }
+.sx-door-kicker { display: inline-flex; align-items: center; justify-self: start; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgb(0 0 0 / .25); font-size: 12.5px; font-weight: 800; }
+.sx-door h2 { margin: 0; font-size: clamp(22px, 2.1vw, 32px); font-weight: 900; line-height: 1.4; }
+/* The whole door is the link; its other links sit above the stretched one. */
+.sx-door-link { color: inherit; text-decoration: none; }
+.sx-door-link::after { content: ""; position: absolute; inset: 0; z-index: 0; border-radius: 30px; }
+.sx-door-link:focus-visible { outline: none; }
+.sx-door-link:focus-visible::after { outline: 3px solid #fff; outline-offset: -6px; }
+.sx-door p { max-width: 46ch; margin: 0; color: #fff; font-size: 14px; line-height: 2; }
+.sx-door-points { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 13px; font-weight: 700; }
+.sx-door-points li { display: inline-flex; align-items: center; gap: 4px; }
+.sx-door-cats { position: relative; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; }
+.sx-door-cats a { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgb(0 0 0 / .2); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .35); color: #fff; font-size: 12.5px; font-weight: 700; text-decoration: none; transition: background .2s ease; }
+.sx-door-cats a:hover { background: rgb(0 0 0 / .32); }
+.sx-door-cats small { padding: 0 6px; border-radius: 999px; background: rgb(0 0 0 / .25); font-size: 11px; }
+.sx-door-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; font-size: 13px; }
+.sx-door-foot b { font-size: 22px; font-weight: 900; }
+.sx-door-cta { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: auto; padding: 10px 18px; border-radius: 14px; background: #fff; color: #1e1b4b; font-weight: 900; box-shadow: 0 14px 26px -16px rgb(0 0 0 / .6); }
+.sx-door.is-physical .sx-door-cta { color: #7c2d12; }
+.sx-door-art { position: relative; min-height: 240px; }
+.sx-door-pic { position: absolute; width: 62%; aspect-ratio: 1; padding: 6px; border-radius: 22px; background: rgb(255 255 255 / .92); box-shadow: 0 26px 40px -24px rgb(0 0 0 / .55); transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
+.sx-door-pic img, .sx-door-pic .sx-art-ph { width: 100%; height: 100%; border-radius: 17px; object-fit: cover; }
+.sx-door-pic.is-1 { z-index: 3; inset-inline-start: 18%; top: 4%; transform: rotate(-4deg); }
+.sx-door-pic.is-2 { z-index: 2; inset-inline-start: 0; top: 38%; width: 48%; transform: rotate(7deg); }
+.sx-door-pic.is-3 { inset-inline-end: 0; top: 42%; width: 46%; transform: rotate(-9deg); }
+.sx-door:hover .sx-door-pic.is-1 { transform: rotate(0) translateY(-6px); }
+.sx-door-icon { display: grid; place-items: center; width: 100%; height: 100%; min-height: 220px; color: rgb(255 255 255 / .85); }
+
+/* a store's own colour: the hero and the listing banner take it */
+.sx-store.is-digital, .sx-listing .sx-lhero.is-digital { --sx-tone: #4f46e5; --sx-tone-2: #06b6d4; }
+.sx-store.is-physical, .sx-listing .sx-lhero.is-physical { --sx-tone: #ea580c; --sx-tone-2: #db2777; }
+.sx-hero.is-digital .sx-hero-intro, .sx-hero.is-physical .sx-hero-intro, .sx-lhero.is-digital, .sx-lhero.is-physical {
+  border-color: color-mix(in srgb, var(--sx-tone) 28%, var(--sx-line));
+  background:
+    radial-gradient(60% 80% at 100% 0%, color-mix(in srgb, var(--sx-tone) 22%, transparent), transparent 70%),
+    radial-gradient(50% 70% at 0% 100%, color-mix(in srgb, var(--sx-tone-2) 18%, transparent), transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--sx-tone) 7%, var(--sx-surface)), var(--sx-surface)); }
+.sx-hero.is-digital .sx-hero-kicker, .sx-hero.is-physical .sx-hero-kicker { background: color-mix(in srgb, var(--sx-tone) 13%, var(--sx-surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sx-tone) 26%, transparent); }
+.sx-hero-search { display: flex; align-items: center; gap: 8px; max-width: 560px; margin: 0 0 18px; padding: 6px; padding-inline-start: 14px; border-radius: 18px; border: 1px solid var(--sx-line); background: var(--sx-surface); box-shadow: 0 16px 34px -28px rgb(15 23 42 / .6); color: var(--sx-muted); }
+.sx-hero-search:focus-within { border-color: var(--sx-accent); }
+.sx-hero-search input[type=search] { flex: 1; min-width: 0; min-height: 42px; border: 0; background: transparent; color: var(--sx-text); font: inherit; font-size: 14px; outline: none; }
+.sx-hero-search .sx-btn { min-height: 42px; border-radius: 13px; }
+.sx-store-switch { display: flex; align-items: center; gap: 14px; margin-block: 30px 0; padding: 18px 20px; border-radius: 22px; border: 1px dashed color-mix(in srgb, var(--sx-accent) 40%, var(--sx-line)); background: color-mix(in srgb, var(--sx-accent) 5%, var(--sx-surface)); color: inherit; text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
+.sx-store-switch:hover { transform: translateY(-2px); border-style: solid; border-color: var(--sx-accent); }
+.sx-store-switch > svg:first-child { flex: none; color: var(--sx-accent); }
+.sx-store-switch span { display: grid; flex: 1; gap: 2px; }
+.sx-store-switch small { color: var(--sx-muted); font-size: 12.5px; }
+.sx-store-switch b { font-size: 16px; font-weight: 900; }
+
+/* advanced filters */
+.sx-facet-on { margin-inline-start: auto; margin-inline-end: 8px; padding: 0 8px; border-radius: 999px; background: var(--sx-accent); color: var(--sx-on-accent) !important; font-size: 11px; font-weight: 800 !important; }
+.sx-facet-find { width: 100%; min-height: 36px; margin-top: 8px; padding: 0 12px; border: 1px solid var(--sx-line); border-radius: 10px; background: var(--sx-subtle); color: var(--sx-text); font: inherit; font-size: 12.5px; }
+.sx-checks label.is-empty span { color: var(--sx-muted); }
+.sx-checks label[hidden] { display: none; }
+.sx-stars-mini { margin-inline-end: 6px; color: var(--sx-star); letter-spacing: 1px; }
+.sx-switch span { flex: 1; }
+.sx-switch small { order: 1; color: var(--sx-muted); font-size: 11.5px; font-weight: 500; }
+.sx-price-steps { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 10px; }
+.sx-price-steps a { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--sx-line); background: var(--sx-surface); color: var(--sx-text); font-size: 12px; text-decoration: none; }
+.sx-price-steps a:hover { border-color: var(--sx-accent); }
+.sx-price-steps a.is-on { border-color: var(--sx-accent); background: var(--sx-accent); color: var(--sx-on-accent); }
+.sx-listing .sx-facet summary { align-items: center; }
+/* The chosen category reads in body ink (accent on its soft tint is under 4.5:1); a bar beside it marks the choice. */
+.sx-listing .sx-tree a.is-active, .sx-listing .sx-tree-all.is-active { color: var(--sx-text); box-shadow: inset -3px 0 0 var(--sx-accent); }
+[dir=ltr] .sx-listing .sx-tree a.is-active, [dir=ltr] .sx-listing .sx-tree-all.is-active { box-shadow: inset 3px 0 0 var(--sx-accent); }
+
+@media (max-width: 1100px) {
+  .sx-door { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .sx-door-art { display: none; }
+}
+@media (max-width: 760px) {
+  .sx-doors { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .sx-door { padding: 20px 18px; border-radius: 24px; }
+  .sx-door-link::after { border-radius: 24px; }
+  .sx-door-cta { margin-inline-start: 0; }
+  .sx-hero-search { margin-bottom: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sx-door, .sx-door-pic, .sx-store-switch { transition: none; }
+  .sx-door:hover, .sx-door:focus-within { transform: none; }
+  .sx-door:hover .sx-door-pic.is-1 { transform: rotate(-4deg); }
 }

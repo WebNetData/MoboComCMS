@@ -32,6 +32,11 @@ Branch `feat/shop-storefront-redesign-2026-10-27`; the decision is recorded in P
 
 ## Possible next slices
 
+- Done since: **two stores and advanced filters** (branch `feat/shop-two-stores-2026-10-27`). Evidence in `.mobocom/claude-tools/pw-shop-stores.cjs`; the decision is in PLATFORM_DECISIONS §6B. Not covered yet:
+  - facets on variant attributes (colour or size per variant);
+  - a price slider;
+  - filters inside the mobile drawer applying while it stays open (they apply and reload the page).
+
 - Free-shipping hint on tiles and in the hero once PR #256 (free shipping rules) is merged.
 - Recently viewed products on the landing (per browser).
 - Category-level banners managed in Admin, if the owner wants different art per category.

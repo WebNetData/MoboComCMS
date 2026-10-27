@@ -169,6 +169,23 @@ Other rules:
 - The listing has a banner with the category image, description and counts, sub-categories with counts, quick filters that toggle (available, discounted, online delivery, physical) and the result count in a sticky toolbar.
 - Owners: `src/components/store/ShopHome.tsx` and `src/modules/catalog/server/pages/products/page.tsx`. The styles in `src/app/store-shop.css` are scoped to `.sx-landing` / `.sx-listing`. A theme page placed as the shop landing still replaces the default landing. Data comes from `shopHome` / `shopListing`; there is no new query or setting.
 
+**Store: two stores and advanced filters (owner, 2026-10-27).** The shop is split into a digital-products store and a physical-goods store. Addresses keep their form:
+- `/products` is the front: two doors (an empty half is not drawn), then what is worth seeing across both.
+- `/products?kind=VIRTUAL` and `?kind=PHYSICAL`, with no other parameter (`isStoreFront`), are each a store front of its own. Each has:
+  - its colour, and a hero with a search inside that store;
+  - the deal and the newest product;
+  - quick routes and its categories;
+  - offers and best sellers;
+  - category rails, brands, its service strip, and a link to the other store.
+- Any filter turns the page into the listing. Links inside a store keep `kind` and are guarded in `store-v2.test.cjs`. Each store page has its own title and canonical.
+
+Filters in the listing:
+- Specifications come from the attribute groups of the listed products' categories: choice and colour fields, and text fields with 2–12 values. They travel as `s_<key>=value`, repeated for several values.
+- Each facet counts with every other filter applied but its own.
+- Also: members' rating (3+ / 4+), instant delivery (only where a product really hands over its code), ready price ranges (only when every listed price shares one currency), counts beside the switches and a search inside long lists.
+- A tick applies at once; the button stays for typed prices and for browsers without script. Inside a store, the category tree is that store's.
+- «تحویل آنی» is never said of a whole store, only of products that deliver by themselves (guard in `store.test.cjs`, now also over the shop front files).
+
 **Cinema: film release calendar.** `CinemaTitle.releaseDate` (additive, migration `20261207120000`; unset = not on the calendar). `/cinema/calendar?kind=films` shows published films opening next and opened last, by day, in the layout the episode side has (`filmCalendar`, `groupDays`). The title pages are untouched (protected visual).
 
 **Cinema: separate subtitle and audio files.** A `MediaLink` may be of kind `SUBTITLE` or `AUDIO` with a `language` from `TRACK_LANGUAGES` (migration `20261209120000`, additive). A track is not a release: it has no dub/original side, is shown in groups of its own under the releases in the order of the language list, is never offered to the player and never what "continue watching" opens (`isTrack`, `trackLinks`, `playbackKind`). It goes through the same protected link route as every file, so tokens, VIP and reports work; it does not count towards the daily download limit. The link editor offers the two kinds for films and episodes only. **In the site's own player:** the subtitle files of the same film or episode that the viewer may open and that are WebVTT or SubRip are offered as tracks (`watchSource` → `subtitles`). Each is served by the site at `/api/media/subtitle/<id>` (`openSubtitle`): the same checks as the link route (module, publication, takedown, price or VIP, page token), read by the server through the downloads module's public-address guard (`fetchRemoteBytes`, at most 2 MB), decoded as UTF-8 or else Windows-1256, and converted to WebVTT (`toWebVtt`); a file without a timed cue is refused. The file's own address never reaches the browser. The player switches on the viewer's language (Persian unless they chose otherwise) and remembers the choice on the device.
