@@ -12,6 +12,10 @@ export const POST_STYLE_BASES = {
   editorial: { fa: 'سردبیری', en: 'Editorial', descFa: 'تیتر میانه با حروف درشت، جلد عریض زیر آن، ستون باریک و پاراگراف آغازین برجسته.', descEn: 'A centred large title, a wide cover below, a narrow column and a leading first paragraph.' },
   cinematic: { fa: 'سینمایی', en: 'Cinematic', descFa: 'نوار تیره با جلد محو در پس‌زمینه و پوستر کنار تیتر؛ برای نقد فیلم، بازی و موسیقی.', descEn: 'A dark band with the cover blurred behind and a poster beside the title; for reviews.' },
   spotlight: { fa: 'ویژه‌نامه', en: 'Spotlight', descFa: 'کارت رنگی با تیتر بسیار درشت و جلدی که روی آن می‌نشیند؛ برای ویژه‌نامه و کمپین.', descEn: 'A colour card with a very large title and the cover resting on it; for features.' },
+  aurora: { fa: 'شفق', en: 'Aurora', descFa: 'نورهای رنگی آرام پشت یک قاب شیشه‌ای، جلد شناور کنار تیتر؛ مدرن و رؤیایی.', descEn: 'Soft colour lights behind a glass panel, the cover floating beside the title.' },
+  neon: { fa: 'نئون', en: 'Neon', descFa: 'زمینهٔ تیره با شبکهٔ نوری، تیتر درخشان و جلد با قاب نئونی؛ برای فناوری و گیم.', descEn: 'A dark grid, a glowing title and a neon-framed cover; for tech and games.' },
+  paper: { fa: 'روزنامه‌ای', en: 'Broadsheet', descFa: 'خط‌های روزنامه بالا و پایین تیتر، خلاصهٔ دوستونه و کاغذ گرم؛ برای خبر و گزارش.', descEn: 'Newspaper rules around the title, a two-column lead and warm paper; for news.' },
+  frame: { fa: 'قاب لوکس', en: 'Luxe frame', descFa: 'جلد در قابی با سایهٔ رنگی جابه‌جا، خط ظریف طلایی و تیتر باوقار؛ برای پرتره و مصاحبه.', descEn: 'The cover in an offset colour frame, a fine rule and a poised title; for portraits.' },
 } as const
 export type PostStyleBase = keyof typeof POST_STYLE_BASES
 export const POST_STYLE_BASE_KEYS = Object.keys(POST_STYLE_BASES) as PostStyleBase[]
@@ -116,6 +120,10 @@ const BASE_DEFAULTS: Record<PostStyleBase, Pick<ResolvedPostStyle, 'align' | 'wi
   editorial: { align: 'center', width: 'narrow', leadIn: true, corners: 'soft' },
   cinematic: { align: 'start', width: 'wide', leadIn: false, corners: 'soft' },
   spotlight: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
+  aurora: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
+  neon: { align: 'center', width: 'wide', leadIn: false, corners: 'soft' },
+  paper: { align: 'center', width: 'standard', leadIn: true, corners: 'sharp' },
+  frame: { align: 'start', width: 'standard', leadIn: true, corners: 'soft' },
 }
 
 /** A style id (built-in or the owner's) as the page applies it; null for anything else (a layout, or gone). */

@@ -13,7 +13,7 @@ import { JournalShell, Notice, send, useJson } from '../shared'
 import PostStyleThumb from '../PostStyleThumb'
 import css from '../post-styles.module.css'
 
-type LayoutOption = { id: string; fa: string; group: string; status?: string; base?: string }
+type LayoutOption = { id: string; fa: string; group: string; status?: string; base?: string; sidebar?: boolean; desc?: string }
 const SWATCHES = ['#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2']
 const WIDTHS = [['narrow', 'باریک'], ['standard', 'متوسط'], ['wide', 'تمام‌عرض']] as const
 const CORNERS = [['round', 'گرد'], ['soft', 'نرم'], ['sharp', 'تیز']] as const
@@ -86,7 +86,9 @@ export default function PostStylesPage() {
     if (!id) id = currentDefault
     if (id.startsWith('ps-')) return <PostStyleThumb base={id.slice(3) as PostStyleBase} />
     const mine = form.custom.find((style) => style.id === id)
-    return mine ? <PostStyleThumb base={mine.base} accent={mine.accent} align={mine.align} /> : <PostStyleThumb base="" layout />
+    if (mine) return <PostStyleThumb base={mine.base} accent={mine.accent} align={mine.align} />
+    const layout = layouts.find((entry) => entry.id === id)
+    return layout?.base ? <PostStyleThumb base={layout.base as PostStyleBase} sidebar={layout.sidebar} /> : <PostStyleThumb base="" layout />
   }
 
   return <JournalShell title="استایل صفحهٔ نوشته" actions={<><SectionSettingsHistoryLink section="journal" /><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
@@ -165,6 +167,19 @@ export default function PostStylesPage() {
           </div>
         </div>}
       </section>
+
+      {layouts.some((layout) => layout.group === 'builtin') && <section className={css.block} aria-labelledby="ps-templates">
+        <header className={css.blockHead}><h2 id="ps-templates">قالب‌های آمادهٔ نوشته</h2><small>چیدمان کامل صفحه با بلوک‌های زنده، هر کدام با یکی از استایل‌ها؛ برای یک نوشته یا یک نوع نوشته انتخابشان کنید</small></header>
+        <ul className={css.gallery} role="list">
+          {layouts.filter((layout) => layout.group === 'builtin').map((layout) => <li key={layout.id} className={css.card}>
+            <span className={css.badgeTpl}>قالب</span>
+            <PostStyleThumb base={(layout.base || 'classic') as PostStyleBase} sidebar={layout.sidebar} />
+            <span className={css.cardText}><b>{layout.fa}</b>{layout.desc ? <small>{layout.desc}</small> : null}</span>
+            <span className={css.cardActions}>{previewHref(layout.id) && <a className="btn btn-ghost" href={previewHref(layout.id)} target="_blank" rel="noreferrer">پیش‌نمایش<span className="sr-only"> {layout.fa}</span></a>}</span>
+          </li>)}
+        </ul>
+        <p className="sa-hint">نسخهٔ دلخواه هر قالب را در <Link href="/admin/theme-builder" className="sa-link">سازندهٔ قالب</Link> بسازید؛ همین‌جا و در فرم نوشته کنار بقیه انتخاب‌شدنی است.</p>
+      </section>}
 
       <section className={css.block} aria-labelledby="ps-formats">
         <header className={css.blockHead}><h2 id="ps-formats">استایل هر نوع نوشته</h2><small>مثلاً نقدها سینمایی و خبرها دوستونه؛ نوشته‌ای که استایل خودش را دارد همان را نگه می‌دارد</small></header>

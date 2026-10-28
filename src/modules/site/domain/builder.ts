@@ -56,7 +56,8 @@ export type BuilderSectionStyle = {
 export type BuilderSection = { id: string; anchor: string; style: BuilderSectionStyle; columns: BuilderColumn[]; adv?: AdvancedStyle }
 export type BuilderCode = { html: string; css: string; js: string; advanced: boolean }
 /** Per-page chrome: hide the shared site header/footer for a full-bleed page. */
-export type BuilderPageLayout = { header: ChromeChoice; footer: ChromeChoice }
+/** `postStyle`: on an article template, the magazine page style its header and reading column wear (`ps-…`, `psc-…`). */
+export type BuilderPageLayout = { header: ChromeChoice; footer: ChromeChoice; postStyle?: string }
 /** 'default' = theme rules decide, 'none' = hidden, or a specific header/footer template id. */
 export type ChromeChoice = 'default' | 'none' | `tpl-${string}`
 export type BuilderDoc = { v: 2; mode: 'builder' | 'code'; code: BuilderCode; sections: BuilderSection[]; layout?: BuilderPageLayout }
@@ -358,7 +359,8 @@ function validatePageChrome(input: unknown): BuilderPageLayout {
     if (typeof value === 'string' && new RegExp(`^tpl-${code}-[a-z0-9]{4,24}$`).test(value)) return value as ChromeChoice
     return 'default'
   }
-  return { header: choice(l.header, 'header'), footer: choice(l.footer, 'footer') }
+  const postStyle = typeof l.postStyle === 'string' && /^(?:ps-[a-z]{3,16}|psc-[a-z0-9]{4,24})$/.test(l.postStyle) ? l.postStyle : ''
+  return { header: choice(l.header, 'header'), footer: choice(l.footer, 'footer'), ...(postStyle ? { postStyle } : {}) }
 }
 
 export function validateBuilderDoc(input: unknown): BuilderDoc {

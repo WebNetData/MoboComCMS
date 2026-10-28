@@ -580,6 +580,23 @@ Following 6Z-2, the values sections had fixed in code are the owner's managed li
   - It is saved as `postStyle` in the magazine's settings (`journal.home.v1`, with history and the revision claim; `cms.posts` or `settings.manage`).
   - The article form has a «استایل صفحه» panel for the manager. It saves a saved article's choice at once through `/api/admin/builder/post-template` (`cms.posts`). A new article keeps its pick until it is first saved (`AdminCrud.onSaved`).
   - The builder's layout list shows the styles too.
+- **Second set, 2026-10-28** ("several very professional page styles and several advanced, striking article templates").
+  - **Four more styles:**
+    - aurora: colour lights behind a darkened glass panel;
+    - neon: a dark grid band, a glowing title and a neon-framed cover;
+    - broadsheet: newspaper rules and a two-column lead, warm paper in the light theme;
+    - luxe frame: a portrait cover with an offset outline and a gold rule.
+  - **Seven designed article templates** (`post-pro-*` in `POST_TEMPLATES`): pro film review, step-by-step guide, full-colour feature, news desk, tech & product review, portrait & interview, aurora story.
+    - Each is live blocks around the article: a side column of latest posts, top films or related products; help boxes; a newsletter call; related posts.
+    - None holds one article's content, so any article or kind of article may take them.
+  - **A builder document may name the style its header wears** (`layout.postStyle`). It is written only when set, so older documents are unchanged.
+  - **Where to see and choose them:** the templates show as cards in «استایل صفحهٔ نوشته» and in the article form, and `?style=post-pro-…` previews one.
+  - **Fixed on the way:**
+    - The article's footer (author, related posts, comments) is no longer put on a light-toned builder section; it lost contrast in both themes, older templates included.
+    - The author label, category chips and the comments eyebrow use the readable accent shade.
+    - A product price in the products block uses the readable accent shade.
+    - An embedded film or games shelf follows the light theme.
+  - **Note:** a saved setting may take up to the settings cache's 30 seconds to show on a public page in the development server.
 - **A fully custom article template** is still the theme builder's «قالب نوشته» (drag and drop with the article slots and HTML/CSS/JS blocks). It appears beside the styles in every list.
 - **Evidence:**
   - `scripts/media-admin.test.cjs`: settings validation, readable colours, attributes, and the order of choices.

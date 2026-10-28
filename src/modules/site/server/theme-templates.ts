@@ -162,7 +162,7 @@ export async function getProductCategoryOptions() {
 
 // ------------------------------------------------------------ per-entry layouts
 
-export type LayoutOption = { id: string; fa: string; en: string; group: 'style' | 'mystyle' | 'theme' | 'builtin' | 'mine'; status?: 'draft' | 'published'; base?: string; accent?: string; align?: string }
+export type LayoutOption = { id: string; fa: string; en: string; group: 'style' | 'mystyle' | 'theme' | 'builtin' | 'mine'; status?: 'draft' | 'published'; base?: string; accent?: string; align?: string; sidebar?: boolean; desc?: string }
 
 /** Layout choices offered in the post / product editor; an article also has the magazine's designed and own styles. */
 export async function listLayoutOptions(entity: 'post' | 'product'): Promise<LayoutOption[]> {
@@ -176,7 +176,8 @@ export async function listLayoutOptions(entity: 'post' | 'product'): Promise<Lay
   return [
     ...styles,
     ...themes.filter((entry) => entry.type === type).map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'theme', status: entry.status })),
-    ...builtin.map((entry): LayoutOption => ({ id: entry.id, fa: entry.fa, en: entry.en, group: 'builtin' })),
+    // A built-in article template carries the style its header wears and whether the article sits beside a column (drawings).
+    ...builtin.map((entry): LayoutOption => ({ id: entry.id, fa: entry.fa, en: entry.en, group: 'builtin', desc: entry.descFa, base: entry.doc.layout?.postStyle?.replace(/^ps-/, '') || undefined, sidebar: entry.doc.sections.some((section) => section.columns.length > 1 && section.columns.some((column) => column.widgets.some((widget) => widget.type === 'content'))) })),
     ...mine.filter((entry) => entry.kind === 'post').map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'mine' })),
   ]
 }

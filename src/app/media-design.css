@@ -885,6 +885,8 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .md-page.md-embed { min-height: 0; padding: 0; background: transparent; display: grid; gap: 14px; }
 .md-page.md-embed.md-cinema, .md-page.md-embed.md-games { padding: 20px; border-radius: 22px; background: #0a0c12; }
 .md-embed .md-shelf-head h2 { font-size: 1.35rem; font-weight: 900; }
+/* In the light theme an embedded film or games shelf takes the light edition (media-light.css), not a dark box. */
+html[data-theme="light"] .md-page.md-embed:is(.md-cinema, .md-games) { border: 1px solid var(--md-line, var(--border)); background: var(--md-card, var(--card)); }
 
 /* small-screen refinements */
 .mu-hero-tags > span.vip-chip { background: linear-gradient(135deg, #ffe08a, #f5b942 55%, #e39b2d); color: #2b1a00; }
