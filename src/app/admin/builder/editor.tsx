@@ -506,10 +506,10 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
             <span>{entity === 'product' ? L('Product layout', 'قالب محصول') : L('Post layout', 'قالب مقاله')}</span>
             <select value={postTpl.templateId} disabled={busy} onChange={(event) => void changePostTemplate(event.target.value)}>
               <option value="">{L('Automatic (theme rules)', 'خودکار (طبق شرط‌ها)')}</option>
-              {(['theme', 'builtin', 'mine'] as const).map((group) => {
+              {(['style', 'mystyle', 'theme', 'builtin', 'mine'] as const).map((group) => {
                 const list = postTpl.options.filter((option) => option.group === group)
                 if (!list.length) return null
-                return <optgroup key={group} label={group === 'theme' ? L('Theme templates', 'قالب‌های سازنده') : group === 'builtin' ? L('Built-in', 'آماده') : L('My saved templates', 'قالب‌های ذخیره‌شده')}>
+                return <optgroup key={group} label={group === 'style' ? L('Article styles', 'استایل‌های نوشته') : group === 'mystyle' ? L('My styles', 'استایل‌های من') : group === 'theme' ? L('Theme templates', 'قالب‌های سازنده') : group === 'builtin' ? L('Built-in', 'آماده') : L('My saved templates', 'قالب‌های ذخیره‌شده')}>
                   {list.map((option) => <option key={option.id} value={option.id}>{L(option.en, option.fa)}{option.status === 'draft' ? L(' (draft)', ' (پیش‌نویس)') : ''}</option>)}
                 </optgroup>
               })}

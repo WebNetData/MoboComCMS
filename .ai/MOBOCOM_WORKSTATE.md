@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-28 (article styles): `feat/journal-post-styles-2026-10-28` (own worktree `.mobocom/claude-post-styles`, from main `46c929d8`) gives the magazine six designed article page styles, the owner's own styles, a default and a choice per kind of article, a style panel in the article form, and styles in the builder's layout list. See PLATFORM_DECISIONS 6Z-4. Checked with tsc, the full check (728/6), the connected settings history test and `pw-post-styles.cjs` (44).
+
 Current continuation 2026-10-28 (footer): `feat/footer-compact-2026-10-28` from main `14de85be` (PRs 273–275 merged) makes the footer compact: «دنیای موبوکام» is one tile per section instead of every submenu, with shared section icons and tighter spacing. Checked with tsc, the full check (724/6 baseline) and `pw-footer.cjs`.
 
 Earlier 2026-10-28: `feat/menus-about-2026-10-28` adds «مدیریت منوها» (`/admin/menus`): one page for header, section bars, footer and automatic pages. It also redesigns the about page with figures, sections and a large map with map-app links. «درباره ما» and «قوانین و شرایط» are off the local header. Then `feat/company-pages-2026-10-28` (on it) adds page design templates (about, contact with its form, legal), chosen per page in Pages admin, and makes the breadcrumb one capsule. Then `feat/terms-about-crumbs-2026-10-28` (on it) adds whole-page builder templates (foreign payment with its paid form, service, campaign), the «＋ صفحهٔ جدید» menu, starter terms for the services, the about bento and a second breadcrumb pass.

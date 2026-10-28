@@ -83,6 +83,7 @@ test('Journal settings preload selected hero and editor posts beyond the recent 
     '@/modules/journal/server/admin': {
       getJournalSettings: async () => settings,
       journalPickers: async ids => { selected = ids; return { posts: [], categories: [] } },
+      latestLivePostSlug: async () => 'newest-article',
     },
   })
   const response = await routes.GET_settings({ url: 'http://localhost:3000/api/admin/journal/settings' })
@@ -92,4 +93,6 @@ test('Journal settings preload selected hero and editor posts beyond the recent 
   assert.match(body.settingsRevision, /^[a-f0-9]{64}$/)
   assert.deepEqual({ settings: body.settings, picker: body.picker }, { settings, picker: { posts: [], categories: [] } })
   assert.deepEqual(selected, [1, 2, 3])
+  // The article the styles page previews its styles on.
+  assert.equal(body.previewSlug, 'newest-article')
 })

@@ -10,6 +10,8 @@ import {
 } from '@/modules/site/server/builder'
 import { POST_TEMPLATES, PRODUCT_TEMPLATES } from '@/modules/site/domain/builder-templates'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { getJournalSettings } from '@/modules/journal/server/admin'
+import { POST_STYLE_BASES, POST_STYLE_BASE_KEYS, builtinStyleId } from '@/modules/journal/domain/post-styles'
 
 export const THEME_INDEX_KEY = 'theme.templates.v1'
 const MAX_TEMPLATES = 200
@@ -160,14 +162,19 @@ export async function getProductCategoryOptions() {
 
 // ------------------------------------------------------------ per-entry layouts
 
-export type LayoutOption = { id: string; fa: string; en: string; group: 'theme' | 'builtin' | 'mine'; status?: 'draft' | 'published' }
+export type LayoutOption = { id: string; fa: string; en: string; group: 'style' | 'mystyle' | 'theme' | 'builtin' | 'mine'; status?: 'draft' | 'published'; base?: string; accent?: string; align?: string }
 
-/** Layout choices offered in the post / product editor. */
+/** Layout choices offered in the post / product editor; an article also has the magazine's designed and own styles. */
 export async function listLayoutOptions(entity: 'post' | 'product'): Promise<LayoutOption[]> {
-  const [themes, mine] = await Promise.all([listThemeTemplates(), entity === 'post' ? listUserTemplates() : Promise.resolve([])])
+  const [themes, mine, journal] = await Promise.all([listThemeTemplates(), entity === 'post' ? listUserTemplates() : Promise.resolve([]), entity === 'post' ? getJournalSettings().catch(() => null) : Promise.resolve(null)])
+  const styles: LayoutOption[] = entity === 'post' ? [
+    ...POST_STYLE_BASE_KEYS.map((base): LayoutOption => ({ id: builtinStyleId(base), fa: POST_STYLE_BASES[base].fa, en: POST_STYLE_BASES[base].en, group: 'style', base })),
+    ...(journal?.postStyle.custom || []).map((style): LayoutOption => ({ id: style.id, fa: style.name, en: style.name, group: 'mystyle', base: style.base, accent: style.accent, align: style.align })),
+  ] : []
   const type = entity === 'post' ? 'single-post' : 'single-product'
   const builtin = entity === 'post' ? POST_TEMPLATES : PRODUCT_TEMPLATES
   return [
+    ...styles,
     ...themes.filter((entry) => entry.type === type).map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'theme', status: entry.status })),
     ...builtin.map((entry): LayoutOption => ({ id: entry.id, fa: entry.fa, en: entry.en, group: 'builtin' })),
     ...mine.filter((entry) => entry.kind === 'post').map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'mine' })),

@@ -1,6 +1,6 @@
 import { articleBodyWithExcerpt } from '@/modules/site/domain/article-output'
 import { categoryMembership } from '@/modules/site/server/categories'
-import { Fragment } from 'react'
+import { Fragment, type CSSProperties } from 'react'
 import ManageBar from '@/components/admin/ManageBar'
 import { postCategories } from '@/modules/site/domain/categories'
 import Link from '@/components/AppLink'
@@ -19,7 +19,9 @@ import { ItemActionBar } from '@/components/engage/Engagement'
 import { articleJsonLd, breadcrumbJsonLd, pageMeta, siteBase } from '@/modules/site/server/seo'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { editableFor, isPreview, previewTemplate, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
-import { postContext, resolveEntryLayout } from '@/modules/site/server/theme-templates'
+import { postContext } from '@/modules/site/server/theme-templates'
+import { resolvePostPresentation } from '@/modules/site/server/post-presentation'
+import { postStyleAttributes } from '@/modules/journal/domain/post-styles'
 import { requireModule } from '@/extensions/server/modules'
 import { getViewer } from '@/modules/membership/server/membership'
 import { teaserHtml } from '@/modules/membership/domain/membership'
@@ -72,7 +74,8 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
   })
 }
 
-export default async function PostPage({ params: paramsPromise, preview }: { params: Promise<{ slug: string }>; preview?: BuilderPreview }) {
+/** `askedStyle`: a style named in the address (`?style=ps-…`), shown instead of the article's own for a look. */
+export default async function PostPage({ params: paramsPromise, preview, askedStyle }: { params: Promise<{ slug: string }>; preview?: BuilderPreview; askedStyle?: string }) {
   const params = await paramsPromise
   await requireModule('journal')
   const [locale, theme] = await Promise.all([getServerLocale(), getServerTheme()])
@@ -104,7 +107,9 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   const builderDoc = locked ? null : await resolveBuilderDoc(preview, `post-${post.id}`)
   const renderContext = await postContext(postCategories(post).map((c) => c.id))
   const editingTemplate = previewTemplate(preview, 'single-post')
-  const templateDoc = await resolveEntryLayout('post', post.id, renderContext, editingTemplate)
+  const presentation = await resolvePostPresentation({ postId: post.id, format: post.format, ctx: renderContext, previewTemplate: editingTemplate, askedStyle })
+  const templateDoc = presentation.doc
+  const dress = postStyleAttributes(presentation.style)
   const builderContext = { postCategoryId: post.category?.id ?? postCategories(post)[0]?.id ?? null, currentPostId: post.id }
   const ownEditable = editableFor(preview, `post-${post.id}`)
 
@@ -172,7 +177,8 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   const crumbsLd = breadcrumbJsonLd(base, [...trail.map((step) => ({ name: step.label, path: step.href })), { name: title, path: `/blog/${post.slug}` }])
 
   const headerSlot = (
-    <header className="journal-post-head jp-hero">
+    // A small copy of the cover is also a style value: the cinematic style blurs it behind the band (loaded only there).
+    <header className="journal-post-head jp-hero" style={{ '--jp-cover': `url("${encodeURI(sized(coverImage, 400))}")` } as CSSProperties}>
       {/* The cover is the header's own background: decoration here, described by the title beside it. */}
       <img className="jp-hero-bg" src={coverImage} alt="" fetchPriority="high" decoding="async" />
       <div className="journal-post-cats">
@@ -476,7 +482,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
           )
         }
         return (
-          <main className="journal-post journal-post-solo">
+          <main className="journal-post journal-post-solo" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
             <div className="journal-post-shell">
               {crumb}
               <PromoSlot placement="content-top" />

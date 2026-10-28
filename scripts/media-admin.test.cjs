@@ -317,3 +317,65 @@ test('a VIP plan perk line names a listed perk by code (its text comes from the 
   assert.deepEqual(perks.resolvePerks([{ icon: '★', fa: 'متن قدیمی', en: '', code: 'HQ_MUSIC' }, { icon: '⭐', fa: 'خط ویژه', en: '' }], []), [{ icon: '★', fa: 'متن قدیمی', en: '' }, { icon: '⭐', fa: 'خط ویژه', en: '' }], 'without its entry a listed line falls back to its snapshot')
   assert.deepEqual(perks.resolvePerks([{ icon: '★', fa: 'متن قدیمی', en: '', code: 'HQ_MUSIC' }, { icon: '★', fa: '', en: '', code: 'GONE' }], entries), [{ icon: '🎧', fa: 'موسیقی ۳۲۰', en: '320 kbps' }], 'a listed line shows the entry\'s current text; one with nothing to show is left out')
 })
+
+// ---- article page styles (owner, 2026-10-28): designed styles, the owner's own, per format and per article
+const postStyles = load('src/modules/journal/domain/post-styles')
+
+test('article style settings keep only real styles and well-formed choices', () => {
+  const own = { id: 'psc-abcd1234', name: '  نقد ویژه  ', base: 'cinematic', accent: '#FACC15', align: 'center', width: 'narrow', leadIn: true, corners: 'sharp' }
+  const s = postStyles.normalizePostStyleSettings({
+    defaultId: 'psc-abcd1234',
+    byFormat: { REVIEW: 'ps-cinematic', NEWS: 'tpl-single-1', VIDEO: 'ps-nope', 'bad code!': 'ps-split', INTERVIEW: 'psc-missing1' },
+    custom: [own, { ...own, name: 'copy' }, { id: 'nope', base: 'split' }, { id: 'psc-ffff9999', base: 'weird', accent: 'red', width: 'huge' }],
+  })
+  assert.equal(s.defaultId, 'psc-abcd1234')
+  assert.deepEqual(s.byFormat, { REVIEW: 'ps-cinematic', NEWS: 'tpl-single-1' })
+  assert.deepEqual(s.custom.map((style) => style.id), ['psc-abcd1234', 'psc-ffff9999'])
+  assert.equal(s.custom[0].name, 'نقد ویژه')
+  assert.equal(s.custom[0].accent, '#facc15')
+  assert.deepEqual([s.custom[1].base, s.custom[1].accent, s.custom[1].width, s.custom[1].corners], ['classic', '', 'wide', 'round'])
+  assert.equal(postStyles.normalizePostStyleSettings({ defaultId: 'psc-gone1234' }).defaultId, '')
+  assert.equal(postStyles.normalizePostStyleSettings({ custom: Array.from({ length: 40 }, (_, i) => ({ id: `psc-x${String(i).padStart(4, '0')}` })) }).custom.length, postStyles.MAX_CUSTOM_POST_STYLES)
+  assert.deepEqual(journal.normalizeJournalSettings({}).postStyle, postStyles.DEFAULT_POST_STYLE_SETTINGS)
+  assert.equal(journal.normalizeJournalSettings({ postStyle: { defaultId: 'ps-split' } }).postStyle.defaultId, 'ps-split')
+})
+
+test('any accent the owner picks stays readable in both themes', () => {
+  for (const hex of ['#facc15', '#22d3ee', '#ffffff', '#000000', '#2563eb', '#16a34a', '#f472b6']) {
+    const accent = postStyles.readableAccent(hex)
+    assert.ok(postStyles.contrast(accent.light, postStyles.LIGHT_SURFACE) >= 4.5, `${hex} light ${accent.light}`)
+    assert.ok(postStyles.contrast(accent.dark, postStyles.DARK_SURFACE) >= 4.5, `${hex} dark ${accent.dark}`)
+    assert.ok(postStyles.contrast(accent.light, accent.on) >= 4.5, `${hex} on ${accent.on}`)
+  }
+  assert.equal(postStyles.readableAccent('#2563eb').light, '#2563eb')
+  assert.equal(postStyles.readableAccent('red'), null)
+})
+
+test('a style becomes attributes on the article page; classic leaves the page as it was', () => {
+  const settings = postStyles.normalizePostStyleSettings({ custom: [{ id: 'psc-abcd1234', name: 'x', base: 'split', accent: '#facc15', align: 'center', width: 'standard', leadIn: true, corners: 'soft' }] })
+  assert.deepEqual(postStyles.postStyleAttributes(postStyles.resolvePostStyle('ps-classic', settings)), { attrs: {}, vars: {} })
+  assert.equal(postStyles.resolvePostStyle('tpl-single-1', settings), null)
+  assert.equal(postStyles.resolvePostStyle('ps-nope', settings), null)
+  const editorial = postStyles.postStyleAttributes(postStyles.resolvePostStyle('ps-editorial', settings))
+  assert.deepEqual(editorial.attrs, { 'data-post-style': 'editorial', 'data-ps-align': 'center', 'data-ps-width': 'narrow', 'data-ps-corners': 'soft', 'data-ps-lead': '' })
+  const own = postStyles.postStyleAttributes(postStyles.resolvePostStyle('psc-abcd1234', settings))
+  assert.equal(own.attrs['data-post-style'], 'split')
+  assert.equal(own.attrs['data-ps-accent'], '')
+  assert.deepEqual(Object.keys(own.vars).sort(), ['--ps-accent-dark', '--ps-accent-light', '--ps-on-accent'])
+})
+
+test('the article page, its editor and the builder share one style choice', () => {
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  const page = read('src/modules/site/server/pages/blog/[slug]/page.tsx')
+  assert.match(page, /resolvePostPresentation\(\{ postId: post\.id, format: post\.format/)
+  assert.match(page, /journal-post-solo" \{\.\.\.dress\.attrs\}/)
+  // order: asked in the address, the article's own, its format's, theme rules, the magazine's default
+  const presentation = read('src/modules/site/server/post-presentation.ts')
+  const order = ['askedStyle', "getEntityTemplateId('post'", 'settings.byFormat', "resolveThemeTemplate('single-post'", 'settings.defaultId'].map((needle) => presentation.indexOf(needle))
+  assert.deepEqual([...order].sort((a, b) => a - b), order)
+  assert.ok(order.every((at) => at > 0))
+  assert.match(read('src/modules/site/server/http/builder/post-template.ts'), /isStyleId\(templateId\)\s*\n?\s*\? !!resolvePostStyle/)
+  assert.match(read('src/app/layout.tsx'), /import '\.\/journal-post-styles\.css'/)
+  assert.match(read('src/app/admin/posts/page.tsx'), /<PostStylePanel /)
+  assert.match(read('src/app/admin/journal/shared.tsx'), /\/admin\/journal\/styles/)
+})
