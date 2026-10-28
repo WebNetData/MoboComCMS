@@ -18,8 +18,9 @@
 .journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-align="center"] .jp-hero :is(.journal-post-cats, .journal-post-meta) { justify-content: center; }
 .journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-align="center"] .jp-hero :is(h1, .journal-post-lead) { margin-inline: auto; }
 .journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-align="center"] .jp-hero .jp-facts { margin-inline-end: 0; }
-.journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-width="narrow"] .jp-read { max-width: 880px; margin-inline: auto; }
-.journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-width="standard"] .jp-read { max-width: 1180px; margin-inline: auto; }
+/* Every article page is as wide as the site (owner, 2026-10-28: 95–98%): no style narrows the reading column, and a
+   builder template's boxed and narrow sections take the site's width on an article page (full ones stay edge to edge). */
+.journal-post.journal-post-built .br-container:not(.br-width-full) { inline-size: var(--mb-chrome, min(97%, 100% - 32px)); }
 .journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-lead] .journal-prose > p:first-of-type { position: relative; padding-inline-start: 20px; font-size: 1.16em; font-weight: 600; line-height: 2.15; }
 .journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-lead] .journal-prose > p:first-of-type::before { content: ''; position: absolute; inset-block: .45em; inset-inline-start: 0; width: 4px; border-radius: 4px; background: linear-gradient(var(--ln-accent), color-mix(in srgb, var(--ln-accent) 25%, transparent)); }
 .journal-post:is(.journal-post-solo, .journal-post-built)[data-ps-corners="soft"] :is(.jp-hero, .journal-post-figure, .journal-post-figure img, .jp-main .toc, .journal-bio, .jp-format-review) { border-radius: 16px; }

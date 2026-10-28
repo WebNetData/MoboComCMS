@@ -2,7 +2,7 @@
 
 import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 import Link from '@/components/AppLink'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   MAX_CUSTOM_POST_STYLES, POST_STYLE_BASES, POST_STYLE_BASE_KEYS, builtinStyleId, newCustomStyleId,
   type CustomPostStyle, type PostStyleBase, type PostStyleSettings,
@@ -11,11 +11,11 @@ import type { JournalSettings } from '@/modules/journal/domain/journal'
 import { useSectionLists } from '../../cms/useSectionLists'
 import { JournalShell, Notice, send, useJson } from '../shared'
 import PostStyleThumb from '../PostStyleThumb'
+import MyPostTemplates, { createPostTemplate } from '../MyPostTemplates'
 import css from '../post-styles.module.css'
 
 type LayoutOption = { id: string; fa: string; group: string; status?: string; base?: string; sidebar?: boolean; desc?: string }
 const SWATCHES = ['#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0891b2']
-const WIDTHS = [['narrow', 'باریک'], ['standard', 'متوسط'], ['wide', 'تمام‌عرض']] as const
 const CORNERS = [['round', 'گرد'], ['soft', 'نرم'], ['sharp', 'تیز']] as const
 const ALIGNS = [['start', 'کنار'], ['center', 'میانه']] as const
 
@@ -34,10 +34,11 @@ export default function PostStylesPage() {
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => { if (data) { setForm((current) => current ?? data.settings.postStyle); setBaseline((current) => current ?? data.settings.postStyle); setRevision((current) => current || data.settingsRevision || '') } }, [data])
-  useEffect(() => {
+  const loadLayouts = useCallback(() => {
     void fetch('/api/admin/builder/post-template?options=post', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null))
       .then((body) => setLayouts((body?.options || []).filter((option: LayoutOption) => option.group !== 'style' && option.group !== 'mystyle'))).catch(() => undefined)
   }, [])
+  useEffect(() => { loadLayouts() }, [loadLayouts])
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(baseline), [form, baseline])
 
   if (!form) return <JournalShell title="استایل صفحهٔ نوشته">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</JournalShell>
@@ -50,9 +51,19 @@ export default function PostStylesPage() {
   const changeCustom = (patch: Partial<CustomPostStyle>) => custom && set({ ...form, custom: form.custom.map((style) => (style.id === custom.id ? { ...style, ...patch } : style)) })
   const addCustom = (base: PostStyleBase) => {
     if (form.custom.length >= MAX_CUSTOM_POST_STYLES) { setMessage({ tone: 'error', text: `حداکثر ${MAX_CUSTOM_POST_STYLES.toLocaleString('fa-IR')} استایل شخصی` }); return }
-    const style: CustomPostStyle = { id: newCustomStyleId(), name: `${POST_STYLE_BASES[base].fa} من`, base, accent: '', align: base === 'editorial' ? 'center' : 'start', width: base === 'editorial' ? 'narrow' : 'wide', leadIn: base === 'editorial', corners: base === 'editorial' || base === 'cinematic' ? 'soft' : 'round' }
+    const style: CustomPostStyle = { id: newCustomStyleId(), name: `${POST_STYLE_BASES[base].fa} من`, base, accent: '', align: base === 'editorial' ? 'center' : 'start', width: 'wide', leadIn: base === 'editorial', corners: base === 'editorial' || base === 'cinematic' ? 'soft' : 'round' }
     set({ ...form, custom: [...form.custom, style] })
     setEditing(style.id)
+  }
+  const copyCustom = (source: CustomPostStyle) => {
+    if (form.custom.length >= MAX_CUSTOM_POST_STYLES) { setMessage({ tone: 'error', text: `حداکثر ${MAX_CUSTOM_POST_STYLES.toLocaleString('fa-IR')} استایل شخصی` }); return }
+    const style = { ...source, id: newCustomStyleId(), name: `${source.name} (کپی)`.slice(0, 60) }
+    set({ ...form, custom: [...form.custom, style] })
+    setEditing(style.id)
+  }
+  const fromReady = async (id: string, fa: string) => {
+    setMessage(null)
+    try { window.location.assign(`/admin/builder/${await createPostTemplate(`${fa} من`, id)}`) } catch (error) { setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'ساخته نشد' }) }
   }
   const removeCustom = (id: string) => {
     if (!confirm('این استایل حذف شود؟ نوشته‌هایی که آن را دارند به استایل پیش‌فرض برمی‌گردند.')) return
@@ -130,6 +141,8 @@ export default function PostStylesPage() {
               <span className={css.cardActions}>
                 <button type="button" className="btn btn-primary" aria-expanded={editing === style.id} onClick={() => setEditing(editing === style.id ? '' : style.id)}>{editing === style.id ? 'بستن' : 'طراحی'}<span className="sr-only"> {style.name}</span></button>
                 {!current && <button type="button" className="btn btn-ghost" onClick={() => set({ ...form, defaultId: style.id })}>پیش‌فرض کن</button>}
+                <button type="button" className="btn btn-ghost" onClick={() => copyCustom(style)}>کپی<span className="sr-only"> {style.name}</span></button>
+                <button type="button" className="btn btn-ghost" onClick={() => removeCustom(style.id)}>حذف<span className="sr-only"> {style.name}</span></button>
                 {saved(style.id) && previewHref(style.id) && <a className="btn btn-ghost" href={previewHref(style.id)} target="_blank" rel="noreferrer">پیش‌نمایش<span className="sr-only"> {style.name}</span></a>}
               </span>
             </li>
@@ -152,7 +165,6 @@ export default function PostStylesPage() {
               {POST_STYLE_BASE_KEYS.map((base) => <label key={base}><input type="radio" name="ps-base" checked={custom.base === base} onChange={() => changeCustom({ base })} /><PostStyleThumb base={base} accent={custom.accent} align={custom.align} />{POST_STYLE_BASES[base].fa}</label>)}
             </fieldset>
             <div className={css.field}><span id="ps-align">چینش تیتر</span><span className={css.segment} role="group" aria-labelledby="ps-align">{ALIGNS.map(([value, label]) => <button key={value} type="button" aria-pressed={custom.align === value} onClick={() => changeCustom({ align: value })}>{label}</button>)}</span></div>
-            <div className={css.field}><span id="ps-width">عرض ستون متن</span><span className={css.segment} role="group" aria-labelledby="ps-width">{WIDTHS.map(([value, label]) => <button key={value} type="button" aria-pressed={custom.width === value} onClick={() => changeCustom({ width: value })}>{label}</button>)}</span></div>
             <div className={css.field}><span id="ps-corners">گوشه‌ها</span><span className={css.segment} role="group" aria-labelledby="ps-corners">{CORNERS.map(([value, label]) => <button key={value} type="button" aria-pressed={custom.corners === value} onClick={() => changeCustom({ corners: value })}>{label}</button>)}</span></div>
             <label className={`${css.field} sa-check`}><span><input type="checkbox" checked={custom.leadIn} onChange={(event) => changeCustom({ leadIn: event.target.checked })} /> پاراگراف آغازین برجسته</span><small>اولین بند متن درشت‌تر و با خط رنگی کنارش.</small></label>
             <div className={css.designerActions}>
@@ -175,11 +187,16 @@ export default function PostStylesPage() {
             <span className={css.badgeTpl}>قالب</span>
             <PostStyleThumb base={(layout.base || 'classic') as PostStyleBase} sidebar={layout.sidebar} />
             <span className={css.cardText}><b>{layout.fa}</b>{layout.desc ? <small>{layout.desc}</small> : null}</span>
-            <span className={css.cardActions}>{previewHref(layout.id) && <a className="btn btn-ghost" href={previewHref(layout.id)} target="_blank" rel="noreferrer">پیش‌نمایش<span className="sr-only"> {layout.fa}</span></a>}</span>
+            <span className={css.cardActions}>
+              {previewHref(layout.id) && <a className="btn btn-ghost" href={previewHref(layout.id)} target="_blank" rel="noreferrer">پیش‌نمایش<span className="sr-only"> {layout.fa}</span></a>}
+              <button type="button" className="btn btn-ghost" onClick={() => void fromReady(layout.id, layout.fa)}>نسخهٔ من<span className="sr-only"> از {layout.fa}</span></button>
+            </span>
           </li>)}
         </ul>
-        <p className="sa-hint">نسخهٔ دلخواه هر قالب را در <Link href="/admin/theme-builder" className="sa-link">سازندهٔ قالب</Link> بسازید؛ همین‌جا و در فرم نوشته کنار بقیه انتخاب‌شدنی است.</p>
+        <p className="sa-hint">«نسخهٔ من» یک کپی قابل‌ویرایش از قالب در «قالب‌های من» می‌سازد و آن را در صفحه‌ساز باز می‌کند.</p>
       </section>}
+
+      <MyPostTemplates drawings={layouts.filter((layout) => layout.group === 'theme')} presets={layouts.filter((layout) => layout.group === 'builtin').map((layout) => ({ id: layout.id, fa: layout.fa }))} onChanged={loadLayouts} />
 
       <section className={css.block} aria-labelledby="ps-formats">
         <header className={css.blockHead}><h2 id="ps-formats">استایل هر نوع نوشته</h2><small>مثلاً نقدها سینمایی و خبرها دوستونه؛ نوشته‌ای که استایل خودش را دارد همان را نگه می‌دارد</small></header>
@@ -197,8 +214,8 @@ export default function PostStylesPage() {
       </section>
 
       <div className={css.layouts}>
-        <p><b>چیدمان کاملاً دلخواه می‌خواهید؟</b> در صفحه‌ساز یک «قالب نوشته» با کشیدن و رها کردن بلوک‌ها بسازید (تیتر، جلد، متن نوشته، نویسنده، بلوک HTML و…). قالب ساخته‌شده همین‌جا و در فرم نوشته کنار استایل‌ها انتخاب‌شدنی است.</p>
-        <Link className="btn btn-primary" href="/admin/theme-builder">رفتن به سازندهٔ قالب</Link>
+        <p><b>راهنمای کوتاه:</b> «استایل» ظاهر سربرگ و متن نوشته است و «قالب» چیدمان کامل صفحه (ستون کناری، بلوک‌ها، HTML). قالب‌های خودتان را در «قالب‌های من» بسازید؛ در صفحه‌ساز از نوار بالا «استایل نوشته» را برای قالب انتخاب کنید. هر استایل یا قالبی را برای یک نوشته (در فرم نوشته) یا یک نوع نوشته (همین صفحه) بگذارید.</p>
+        <a className="btn btn-ghost" href="#ps-my-templates">قالب‌های من</a>
       </div>
 
       {dirty && <div className={css.saveBar} role="status"><span>تغییرها هنوز ذخیره نشده‌اند.</span><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>}

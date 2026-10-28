@@ -173,11 +173,19 @@ export async function listLayoutOptions(entity: 'post' | 'product'): Promise<Lay
   ] : []
   const type = entity === 'post' ? 'single-post' : 'single-product'
   const builtin = entity === 'post' ? POST_TEMPLATES : PRODUCT_TEMPLATES
+  // The designed base of a style a template wears (an own style draws as its base).
+  const baseOf = (id?: string) => (id?.startsWith('psc-') ? journal?.postStyle.custom.find((style) => style.id === id)?.base : id?.replace(/^ps-/, '')) || undefined
+  // The owner's builder templates, with the style each wears (for the drawings beside them).
+  const themeOptions = await Promise.all(themes.filter((entry) => entry.type === type).map(async (entry): Promise<LayoutOption> => {
+    const doc = entity === 'post' ? await getBuilderDoc(entry.id).catch(() => null) : null
+    const sidebar = !!doc?.sections.some((section) => section.columns.length > 1 && section.columns.some((column) => column.widgets.some((widget) => widget.type === 'content')))
+    return { id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'theme', status: entry.status, base: baseOf(doc?.layout?.postStyle), sidebar }
+  }))
   return [
     ...styles,
-    ...themes.filter((entry) => entry.type === type).map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'theme', status: entry.status })),
+    ...themeOptions,
     // A built-in article template carries the style its header wears and whether the article sits beside a column (drawings).
-    ...builtin.map((entry): LayoutOption => ({ id: entry.id, fa: entry.fa, en: entry.en, group: 'builtin', desc: entry.descFa, base: entry.doc.layout?.postStyle?.replace(/^ps-/, '') || undefined, sidebar: entry.doc.sections.some((section) => section.columns.length > 1 && section.columns.some((column) => column.widgets.some((widget) => widget.type === 'content'))) })),
+    ...builtin.map((entry): LayoutOption => ({ id: entry.id, fa: entry.fa, en: entry.en, group: 'builtin', desc: entry.descFa, base: baseOf(entry.doc.layout?.postStyle), sidebar: entry.doc.sections.some((section) => section.columns.length > 1 && section.columns.some((column) => column.widgets.some((widget) => widget.type === 'content'))) })),
     ...mine.filter((entry) => entry.kind === 'post').map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'mine' })),
   ]
 }
