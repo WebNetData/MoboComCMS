@@ -132,6 +132,8 @@ function blockHtml(block: MoboComBlock, registry: BlockRegistry, moduleHtml?: Mo
       const href = safeLinkHref(p.href), label = escapeHtml(String(p.label || ''))
       return label ? `<a class="${cls(name, token('mcb-variant', p.variant), token('mcb-size', p.size))}" href="${escapeHtml(href || '#')}"${p.newTab === true ? ' target="_blank" rel="noopener noreferrer"' : ''}>${label}</a>` : ''
     }
+    // The editor domain depends on nothing else: the address rule and the placeholder are the forms domain's (embed.ts), kept equal by a test.
+    case 'content.form': { const slug = String(p.form || ''); return /^[a-z][a-z0-9-]{1,79}$/.test(slug) ? `<div class="mc-form-embed" data-mc-form="${slug}"></div>` : '' }
     case 'content.buttonGroup': return `<div class="${cls(name, token('mcb-align', p.align), token('mcb-gap', p.gap))}">${inner()}</div>`
     case 'content.quote': return `<figure class="${name}"><blockquote>${richTextHtml(p.content)}</blockquote>${p.cite ? `<figcaption>${escapeHtml(String(p.cite))}</figcaption>` : ''}</figure>`
     case 'content.callout': return `<aside class="${cls(name, token('mcb-tone', p.tone))}" role="note">${p.title ? `<strong>${escapeHtml(String(p.title))}</strong>` : ''}${richTextHtml(p.content)}</aside>`

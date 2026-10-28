@@ -471,6 +471,13 @@ The owner asked for a Gravity-Forms-class form builder that the whole site can u
 - **A password typed into a form** follows 6L: encrypted apart, masked everywhere, read by an audited click, erased a week after the work ends.
 - **`forms.handle`** lets staff read and work on answers without the right to build pages; deleting answers and building forms stay with `cms.pages`.
 - **A form chooses its own look** (theme, accent, corners, density, width, steps).
+- **Designed form looks (owner, 2026-10-28).** "Forms should have several professional, attractive styles that I choose." Four themes join the five:
+  - «دوستونه» (split): the title and description on a colour panel beside the fields, stacked on a phone;
+  - «شفق» (aurora): a colour heading band with a soft glow;
+  - «شب» (night): always dark with a glowing accent, keeping its own readable colours in either site theme;
+  - «لوکس» (elegant): spacious, with a gold rule and underlined fields.
+
+  They are chosen with the others in the form's look panel (`THEMES`, `forms-pro.css`). Evidence: `.mobocom/claude-tools/pw-form-themes.cjs` (29 checks: every theme at 1440 light/dark and 390, axe, no sideways scroll).
 - Spec and the slices still to build: `docs/specs/form-builder/SPEC.md`.
 - **Staff run every invoice from one desk, and an unpaid invoice may close by itself** (owner, 2026-10-14): view, make, edit, record payment, void, refund, delete; recurring invoices weekly, monthly, every 3, 6 or 12 months (Persian months); a price that followed an exchange rate holds 2 hours and closes earlier when its rate rises 3,000 toman — the customer is told on the invoice with a countdown and again when it closes («به دلیل نوسانات ارز فاکتور بسته شد؛ مجدد ثبت کنید»); default action close and delete, configurable; a transfer receipt waiting for staff keeps an invoice open. Spec: `docs/specs/invoice-desk/SPEC.md`.
 - **An invoice says what it is for** (owner, 2026-10-14): a wallet top-up reads «افزایش موجودی کیف پول <site>» with «افزایش موجودی حساب کاربری پلتفرم <site> به مبلغ …»; a paid form uses its own invoice title and description, filled from the answer with `{field:id}` tags (the ready-made "pay a foreign site" form: the amount, the site and the account). Passwords stay masked; each answer keeps its own text direction. One pure owner, `src/modules/billing/domain/invoice-subject.ts`, feeds the invoice page, the customer's invoice list and the official invoice.
@@ -484,6 +491,11 @@ The owner asked for the rest of the form builder in one go. Decided:
 - **A webhook leaves the site only to a public https address**, without following redirects, signed when a secret is set, and never carries a password. It is tried once.
 - **Quiz points are the site's**: never sent to the browser; only the total comes back.
 - **A draft lives in the visitor's browser** and never holds a password, a file, a signature or a turn.
+- **A form anywhere in written content (owner, 2026-10-28: "like WordPress, a shortcode or the visual editor").**
+  - **Shortcode:** `[form slug="contact"]` (also `[form contact]`, `[فرم contact]`) in a page's or article's text becomes a placeholder (`src/modules/forms/domain/embed.ts`). A paragraph holding only the shortcode is replaced whole; one written as code stays text; a bad address is left alone.
+  - **Mounting:** `FormEmbeds` (in the root layout, inside the site providers) mounts the live form into each placeholder through a portal, also after navigation. It reads only a published form's public view (`GET /api/forms/<slug>`), and an unpublished form leaves its place empty.
+  - **Inserting it:** the classic editor has «درج فرم» (the published forms, inserted as the shortcode); the block editor has a «فرم» block with a list of the forms; the forms admin copies a form's shortcode.
+  - **Evidence:** `scripts/forms.test.cjs` and `.mobocom/claude-tools/pw-form-embeds.cjs` (13 checks). The block editor's block was not exercised in a browser, because that module is off on the local site.
 - **A form may name the staff who handle it.** Then only they, and those who build forms, see its answers. Staff may correct plain answers — recorded — but not money, turns, passwords or files.
 - Spec: `docs/specs/form-builder/SPEC.md`.
 
