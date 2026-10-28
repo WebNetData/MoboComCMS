@@ -53,6 +53,16 @@
         ]
       },
       {
+        "href": "/admin/journal/styles",
+        "label": "استایل صفحهٔ نوشته",
+        "labelEn": "Article page styles",
+        "icon": "sparkles",
+        "permissions": [
+          "cms.posts",
+          "settings.manage"
+        ]
+      },
+      {
         "href": "/admin/postcats",
         "label": "دسته‌بندی مطالب",
         "labelEn": "Post categories",
