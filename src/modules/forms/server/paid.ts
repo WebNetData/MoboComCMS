@@ -142,9 +142,9 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
     userId: order.userId, kind: 'FORM', dedupeKey: `form:paid:${submissionId}`, titleFa: `پرداخت «${title}» انجام شد`, titleEn: 'Your request is paid',
     bodyFa: 'درخواست شما به کارشناس سپرده شد؛ وضعیت آن را در «درخواست‌های من» ببینید.', bodyEn: 'Your request is with our staff now.', href: '/dashboard/requests',
   }).catch(() => undefined)
-  // The form's own handlers hear about it when it names them; otherwise the staff of the admin area.
+  // The form's own handlers hear about it when it names them; otherwise the managers (owner, 2026-10-28).
   const handlers = stored ? parseForm(stored.form).settings?.handlers || [] : []
-  const staff = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE', ...(handlers.length ? { id: { in: handlers } } : {}) }, select: { id: true }, take: 50 })
+  const staff = (await (await import('@/modules/forms/server/advanced')).formRecipients(handlers)).slice(0, 50).map((id) => ({ id }))
   await Promise.all(staff.map((admin) => createInboxEvent({
     userId: admin.id, kind: 'FORM', dedupeKey: `form:paid:${submissionId}:${admin.id}`, titleFa: `درخواست پرداخت‌شدهٔ تازه در «${title}»`, titleEn: 'New paid form request',
     bodyFa: `شمارهٔ ${submissionId.toLocaleString('fa-IR')} منتظر کارشناس است.`, bodyEn: '', href: `/admin/forms?form=${Number(meta.formId) || ''}&tab=inbox`,

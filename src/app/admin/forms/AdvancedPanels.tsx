@@ -136,8 +136,8 @@ export function AdvancedSettings({ form, s, set }: { form: FormDefinition; s: Fo
     </section>
 
     <section className="sa-card">
-      <header className="sa-card-head"><h2>کارشناسان این فرم</h2><span className="sa-tag">{s.handlers.length ? `${fa(s.handlers.length)} نفر` : 'همهٔ کارشناسان'}</span></header>
-      <p className="sa-hint">اگر کسی را انتخاب نکنید، هر کارمندِ دارای دسترسی «پاسخ‌ها و درخواست‌های فرم» این فرم را می‌بیند. با انتخاب، فقط همین افراد (و مدیران فرم‌ها) پاسخ‌ها را می‌بینند، خبردار می‌شوند و کار به آن‌ها سپرده می‌شود. فقط کسانی اینجا هستند که این دسترسی را دارند.</p>
+      <header className="sa-card-head"><h2>کارشناسان این فرم</h2><span className="sa-tag">{s.handlers.length ? `${fa(s.handlers.length)} نفر` : 'مدیریت'}</span></header>
+      <p className="sa-hint">کارشناسان این فرم درخواست‌ها را می‌بینند، خبردار می‌شوند و کار به آن‌ها سپرده می‌شود. <b>هر درخواست را اولین کارشناسی که «برمی‌دارد» صاحب می‌شود و از آن پس اطلاعاتش برای بقیهٔ کارشناسان پنهان است</b> (فقط مدیران فرم‌ها همه را می‌بینند). اگر کسی را انتخاب نکنید، درخواست‌های این فرم فقط به مدیریت می‌رسد. فقط کسانی اینجا هستند که دسترسی «پاسخ‌ها و درخواست‌های فرم» را دارند.</p>
       {gone.length > 0 && <div className="fa-gone" role="alert"><b>{fa(gone.length)} نفر از کارشناسان این فرم دیگر دسترسی ندارند</b> (نقششان عوض شده یا حسابشان غیرفعال است). تا آن‌ها را برندارید فرم ذخیره نمی‌شود. <button type="button" className="sa-link" onClick={() => set({ handlers: s.handlers.filter((id) => !gone.includes(id)) })}>برداشتن آن‌ها</button></div>}
       {staff === null ? <p className="sa-hint">در حال بارگذاری کارمندان…</p>
         : !staff.length ? <p className="fa-gone">هیچ کارمندی دسترسی «پاسخ‌ها و درخواست‌های فرم» ندارد. در <Link className="sa-link" href="/admin/roles">نقش‌ها و دسترسی‌ها</Link> یک نقش با این دسترسی بسازید و در بخش کاربران به کارمندها بدهید.</p>
