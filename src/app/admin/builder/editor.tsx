@@ -44,7 +44,7 @@ function backTarget(pageId: string): { href: string; label: [string, string] } {
   return { href: '/admin', label: ['Dashboard', 'داشبورد'] }
 }
 
-type LayoutOption = { id: string; fa: string; en: string; group: 'theme' | 'builtin' | 'mine'; status?: 'draft' | 'published' }
+type LayoutOption = { id: string; fa: string; en: string; group: 'style' | 'mystyle' | 'theme' | 'builtin' | 'mine'; status?: 'draft' | 'published' }
 type PostTemplateState = { templateId: string; options: LayoutOption[] }
 type ChromeTemplate = { id: string; type: string; name: string; nameEn: string; status: string }
 
@@ -318,6 +318,16 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
       .catch(() => undefined)
   }, [entity, entryId])
 
+  // The magazine's page styles, offered to an article template (layout.postStyle).
+  const [postStyles, setPostStyles] = useState<LayoutOption[]>([])
+  useEffect(() => {
+    if (templateKind !== 'post') return
+    void fetch('/api/admin/builder/post-template?options=post', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setPostStyles((data?.options || []).filter((option: LayoutOption) => option.group === 'style' || option.group === 'mystyle')))
+      .catch(() => undefined)
+  }, [templateKind])
+
   // Header / footer templates for the page-frame choice.
   useEffect(() => {
     if (templateKind === 'header' || templateKind === 'footer') return
@@ -449,7 +459,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
   const title = fa ? meta?.title : meta?.titleEn
   const setMode = (mode: BuilderDoc['mode']) => { if (mode !== doc.mode) onChange({ ...doc, mode }, sel) }
   const setChrome = (part: 'header' | 'footer', value: string) => {
-    const layout = { header: doc.layout?.header ?? 'default', footer: doc.layout?.footer ?? 'default', [part]: value }
+    const layout = { ...doc.layout, header: doc.layout?.header ?? 'default', footer: doc.layout?.footer ?? 'default', [part]: value }
     onChange({ ...doc, layout: layout as BuilderDoc['layout'] }, sel)
   }
   const chromeSelect = (part: 'header' | 'footer') => <select value={doc.layout?.[part] ?? 'default'} onChange={(event) => setChrome(part, event.target.value)}>
@@ -458,6 +468,12 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
     {chromeTemplates.filter((tpl) => tpl.type === part).map((tpl) => <option key={tpl.id} value={tpl.id}>{L(tpl.nameEn || tpl.name, tpl.name)}{tpl.status !== 'published' ? L(' (draft)', ' (پیش‌نویس)') : ''}</option>)}
   </select>
   const showChrome = doc.mode === 'builder' && templateKind !== 'header' && templateKind !== 'footer'
+  // An article template wears one of the magazine's page styles on its header and reading column (layout.postStyle).
+  const setPostStyle = (value: string) => {
+    const { postStyle: _previous, ...rest } = doc.layout || { header: 'default', footer: 'default' }
+    void _previous
+    onChange({ ...doc, layout: { header: rest.header ?? 'default', footer: rest.footer ?? 'default', ...(value ? { postStyle: value } : {}) } }, sel)
+  }
 
   return <div className="builder-workspace">
     <header className="builder-head">
@@ -495,6 +511,17 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
           title={L('Toggle settings panel', 'نمایش/مخفی‌کردن پنل تنظیمات')}
           onClick={() => setPanels((previous) => ({ ...previous, right: !previous.right }))}
         >{L('◧ Settings', '◧ تنظیمات')}</button>
+        {templateKind === 'post' && doc.mode === 'builder' && postStyles.length > 0 && (
+          <label className="bld-post-tpl" title={L('The magazine page style this article template wears', 'استایل صفحهٔ نوشته‌ای که این قالب می‌پوشد')}>
+            <span>{L('Article style', 'استایل نوشته')}</span>
+            <select value={doc.layout?.postStyle || ''} onChange={(event) => setPostStyle(event.target.value)}>
+              <option value="">{L('Plain', 'ساده (بدون استایل)')}</option>
+              {(['style', 'mystyle'] as const).map((group) => <optgroup key={group} label={group === 'style' ? L('Article styles', 'استایل‌های آماده') : L('My styles', 'استایل‌های من')}>
+                {postStyles.filter((option) => option.group === group).map((option) => <option key={option.id} value={option.id}>{L(option.en, option.fa)}</option>)}
+              </optgroup>)}
+            </select>
+          </label>
+        )}
         {showChrome && (
           <>
             <label className="bld-post-tpl" title={L('Header of this page', 'هدر این صفحه')}><span>{L('Header', 'هدر')}</span>{chromeSelect('header')}</label>

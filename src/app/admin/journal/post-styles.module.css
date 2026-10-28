@@ -144,6 +144,12 @@
 .preview p { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.8; }
 .designerActions { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
 
+/* «قالب‌های من»: a new template and renaming one */
+.newTemplate { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(200px, 1fr) auto; gap: 12px; align-items: end; padding: 14px; border: 1px dashed color-mix(in srgb, var(--primary) 40%, var(--border)); border-radius: 16px; background: color-mix(in srgb, var(--primary) 3%, transparent); }
+.rename { display: flex; flex-wrap: wrap; gap: 6px; }
+.rename input { flex: 1 1 160px; min-width: 0; }
+@media (max-width: 760px) { .newTemplate { grid-template-columns: minmax(0, 1fr); } }
+
 /* per format */
 .formats { display: grid; gap: 8px; }
 .formatRow { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(200px, 1.4fr) 90px; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 14px; }

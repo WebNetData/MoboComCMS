@@ -357,7 +357,7 @@ test('a style becomes attributes on the article page; classic leaves the page as
   assert.equal(postStyles.resolvePostStyle('tpl-single-1', settings), null)
   assert.equal(postStyles.resolvePostStyle('ps-nope', settings), null)
   const editorial = postStyles.postStyleAttributes(postStyles.resolvePostStyle('ps-editorial', settings))
-  assert.deepEqual(editorial.attrs, { 'data-post-style': 'editorial', 'data-ps-align': 'center', 'data-ps-width': 'narrow', 'data-ps-corners': 'soft', 'data-ps-lead': '' })
+  assert.deepEqual(editorial.attrs, { 'data-post-style': 'editorial', 'data-ps-align': 'center', 'data-ps-width': 'wide', 'data-ps-corners': 'soft', 'data-ps-lead': '' })
   const own = postStyles.postStyleAttributes(postStyles.resolvePostStyle('psc-abcd1234', settings))
   assert.equal(own.attrs['data-post-style'], 'split')
   assert.equal(own.attrs['data-ps-accent'], '')

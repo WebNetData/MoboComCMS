@@ -9,7 +9,7 @@ export const POST_STYLE_BASES = {
   classic: { fa: 'کلاسیک موبوکام', en: 'MoboCom classic', descFa: 'جلد پشت تیتر در قابی گرد؛ چیدمان همیشگی مجله.', descEn: 'The cover behind the title in a rounded frame; the magazine’s usual page.' },
   immersive: { fa: 'جلد تمام‌صفحه', en: 'Full-bleed cover', descFa: 'تصویر تا لبه‌های صفحه، تیتر بزرگ روی آن؛ برای گزارش‌های تصویری.', descEn: 'The picture edge to edge with a large title on it; for picture-led stories.' },
   split: { fa: 'دوستونه', en: 'Split', descFa: 'تیتر و خلاصه در یک سو، جلد بزرگ در سوی دیگر؛ تمیز و روشن.', descEn: 'Title and lead on one side, a large cover on the other; clean and bright.' },
-  editorial: { fa: 'سردبیری', en: 'Editorial', descFa: 'تیتر میانه با حروف درشت، جلد عریض زیر آن، ستون باریک و پاراگراف آغازین برجسته.', descEn: 'A centred large title, a wide cover below, a narrow column and a leading first paragraph.' },
+  editorial: { fa: 'سردبیری', en: 'Editorial', descFa: 'تیتر میانه با حروف درشت، جلد عریض زیر آن و پاراگراف آغازین برجسته.', descEn: 'A centred large title, a wide cover below and a leading first paragraph.' },
   cinematic: { fa: 'سینمایی', en: 'Cinematic', descFa: 'نوار تیره با جلد محو در پس‌زمینه و پوستر کنار تیتر؛ برای نقد فیلم، بازی و موسیقی.', descEn: 'A dark band with the cover blurred behind and a poster beside the title; for reviews.' },
   spotlight: { fa: 'ویژه‌نامه', en: 'Spotlight', descFa: 'کارت رنگی با تیتر بسیار درشت و جلدی که روی آن می‌نشیند؛ برای ویژه‌نامه و کمپین.', descEn: 'A colour card with a very large title and the cover resting on it; for features.' },
   aurora: { fa: 'شفق', en: 'Aurora', descFa: 'نورهای رنگی آرام پشت یک قاب شیشه‌ای، جلد شناور کنار تیتر؛ مدرن و رؤیایی.', descEn: 'Soft colour lights behind a glass panel, the cover floating beside the title.' },
@@ -74,7 +74,8 @@ export function normalizeCustomStyle(input: unknown): CustomPostStyle | null {
     base: pick(raw.base, POST_STYLE_BASE_KEYS, 'classic'),
     accent: HEX.test(accent) ? accent : '',
     align: pick(raw.align, POST_STYLE_ALIGN, 'start'),
-    width: pick(raw.width, POST_STYLE_WIDTH, 'wide'),
+    // Every article page is as wide as the site (owner, 2026-10-28); a width chosen before is read as wide.
+    width: 'wide',
     leadIn: raw.leadIn === true,
     corners: pick(raw.corners, POST_STYLE_CORNERS, 'round'),
   }
@@ -117,13 +118,13 @@ const BASE_DEFAULTS: Record<PostStyleBase, Pick<ResolvedPostStyle, 'align' | 'wi
   classic: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
   immersive: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
   split: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
-  editorial: { align: 'center', width: 'narrow', leadIn: true, corners: 'soft' },
+  editorial: { align: 'center', width: 'wide', leadIn: true, corners: 'soft' },
   cinematic: { align: 'start', width: 'wide', leadIn: false, corners: 'soft' },
   spotlight: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
   aurora: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
   neon: { align: 'center', width: 'wide', leadIn: false, corners: 'soft' },
-  paper: { align: 'center', width: 'standard', leadIn: true, corners: 'sharp' },
-  frame: { align: 'start', width: 'standard', leadIn: true, corners: 'soft' },
+  paper: { align: 'center', width: 'wide', leadIn: true, corners: 'sharp' },
+  frame: { align: 'start', width: 'wide', leadIn: true, corners: 'soft' },
 }
 
 /** A style id (built-in or the owner's) as the page applies it; null for anything else (a layout, or gone). */

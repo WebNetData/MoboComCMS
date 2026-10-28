@@ -597,6 +597,18 @@ Following 6Z-2, the values sections had fixed in code are the owner's managed li
     - A product price in the products block uses the readable accent shade.
     - An embedded film or games shelf follows the light theme.
   - **Note:** a saved setting may take up to the settings cache's 30 seconds to show on a public page in the development server.
+- **As wide as the site; templates managed here (owner, 2026-10-28).**
+  - "Styles and templates must be 95–98% wide like the whole site; I want to make, edit, delete and add article templates and styles myself in the admin."
+  - **No style narrows the reading column any more.** The width choice is gone from the designer, and a stored width reads as wide.
+  - A builder template's boxed and narrow sections take `--mb-chrome` on an article page; full sections stay edge to edge. The built-in templates lost their narrow sections.
+  - **«قالب‌های من»** on «استایل صفحهٔ نوشته» manages the theme builder's single-post templates through the existing `/api/admin/theme-templates`:
+    - make one, from a ready template (the plainest is «کلاسیک», so title, cover, text and end are there), and open it in the page builder;
+    - rename it, copy it or delete it;
+    - switch «اعمال خودکار» on to publish it, so it dresses articles without a choice by its display rules.
+  - Every ready template has «نسخهٔ من».
+  - In the page builder an article template has «استایل نوشته» beside header and footer (`layout.postStyle`).
+  - Own styles can also be copied and deleted from their card.
+  - Evidence: `.mobocom/claude-tools/pw-post-templates-manage.cjs` (19 checks).
 - **A fully custom article template** is still the theme builder's «قالب نوشته» (drag and drop with the article slots and HTML/CSS/JS blocks). It appears beside the styles in every list.
 - **Evidence:**
   - `scripts/media-admin.test.cjs`: settings validation, readable colours, attributes, and the order of choices.
