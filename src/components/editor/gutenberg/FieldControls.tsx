@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, RangeControl, SelectControl, TextControl, TextareaControl, ToggleControl } from '@wordpress/components'
 import LibraryPicker from '@/components/media/LibraryPicker'
 import RemoteCopy from '@/components/media/RemoteCopy'
@@ -12,6 +12,7 @@ import RichTextField from './RichTextField'
 // The settings panel of a block is built from the fields its type declares: a new block type needs no panel of its own.
 
 const LABELS: Record<string, string> = {
+  form: 'فرم',
   source: 'انتخاب محتوا', limit: 'حداکثر تعداد نمایش', showSummary: 'نمایش خلاصه', id: 'شناسهٔ مورد',
   width: 'پهنا', space: 'فاصلهٔ بالا و پایین', tone: 'زمینه', anchor: 'لنگر (نشانی درون صفحه)', align: 'چینش', columns: 'تعداد ستون', gap: 'فاصلهٔ میان اجزا', span: 'پهنای ستون',
   direction: 'جهت چیدن', size: 'اندازه', line: 'نوع خط', content: 'متن', dir: 'جهت متن', text: 'متن', level: 'سطح تیتر', image: 'تصویر', link: 'پیوند', rounded: 'گوشهٔ گرد', images: 'تصویرها',
@@ -20,6 +21,20 @@ const LABELS: Record<string, string> = {
 const SCREEN: Record<string, string> = { desktop: 'رایانه', tablet: 'تبلت', mobile: 'موبایل' }
 const SOURCE_LABELS: Record<string, string> = { latest: 'تازه‌ترین‌ها', selected: 'انتخاب دستی' }
 export const labelOf = (name: string) => LABELS[name] || name
+
+/** The form block's choice: the site's published forms by title; a plain address where the list cannot be read. */
+function FormPicker({ value, onChange, label }: { value: string; onChange: (next: string) => void; label: string }) {
+  const [forms, setForms] = useState<{ slug: string; title: string }[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void fetch('/api/admin/forms', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (live) setForms(data ? (data.forms || []).filter((form: { published?: boolean }) => form.published).map((form: { slug: string; title: string }) => ({ slug: form.slug, title: form.title })) : []) })
+      .catch(() => { if (live) setForms([]) })
+    return () => { live = false }
+  }, [])
+  if (forms && forms.length) return <SelectControl __nextHasNoMarginBottom label={label} value={value} options={[{ label: 'انتخاب فرم…', value: '' }, ...forms.map((form) => ({ label: `${form.title} (${form.slug})`, value: form.slug }))]} onChange={onChange} help="فرم‌ها را در «فرم‌ها و پاسخ‌ها» بسازید؛ فقط فرم‌های منتشرشده اینجا هستند." />
+  return <TextControl __nextHasNoMarginBottom label={label} value={value} onChange={onChange} help="نشانی فرم (مثلاً contact)؛ در متن هم می‌توانید [form slug=&quot;contact&quot;] بنویسید." />
+}
 
 function AssetControl({ spec, value, onChange, label }: { spec: Extract<FieldSpec, { kind: 'asset' }>; value: AssetValue; onChange: (next: AssetValue) => void; label: string }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState('')
@@ -74,6 +89,7 @@ function ListControl({ spec, value, onChange, label }: { spec: Extract<FieldSpec
 
 function Field({ name, spec, value, onChange, compact }: { name: string; spec: FieldSpec; value: unknown; onChange: (next: unknown) => void; compact: boolean }) {
   const label = labelOf(name)
+  if (name === 'form' && spec.kind === 'string') return <FormPicker value={String(value ?? '')} onChange={onChange} label={label} />
   switch (spec.kind) {
     case 'string': return spec.max > 200 ? <TextareaControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} /> : <TextControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} />
     case 'enum': return <SelectControl __nextHasNoMarginBottom label={label} value={String(value ?? spec.default)} options={spec.values.map((option) => ({ label: name === 'source' ? (SOURCE_LABELS[option] || option) : ({ auto: 'خودکار', rtl: 'راست به چپ', ltr: 'چپ به راست', start: 'شروع', end: 'پایان', center: 'وسط', left: 'چپ', right: 'راست', none: 'بدون' } as Record<string, string>)[option] || option, value: option }))} onChange={(next: string) => onChange(next)} />

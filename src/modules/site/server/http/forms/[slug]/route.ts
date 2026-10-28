@@ -3,7 +3,18 @@ import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { requireUser } from '@/modules/identity/server/access'
 import { FormsError } from '@/modules/forms/domain/forms'
-import { submitForm } from '@/modules/forms/server/service'
+import { publicFormBySlug, submitForm } from '@/modules/forms/server/service'
+import { publicForm } from '@/modules/forms/domain/forms'
+import { FORM_SLUG } from '@/modules/forms/domain/embed'
+
+/** GET /api/forms/<slug> — a published form and whether it is open, for a form placed in written content. */
+export async function GET(_req: NextRequest, { params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await paramsPromise
+  if (!FORM_SLUG.test(slug)) return err('فرم پیدا نشد', 404)
+  const found = await publicFormBySlug(slug)
+  if (!found) return err('فرم پیدا نشد', 404)
+  return ok({ form: publicForm(found.form), state: found.state })
+}
 
 /** POST /api/forms/<slug> — { values, website } → the success message (and where to send the visitor). */
 export async function POST(req: NextRequest, { params: paramsPromise }: { params: Promise<{ slug: string }> }) {

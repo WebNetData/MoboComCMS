@@ -88,6 +88,7 @@ import { resolveCodeThemeId } from '@/themes/runtime'
 import { getPackageRuntime } from '@/modules/packages/server/runtime'
 import PwaClient from '@/components/pwa/PwaClient'
 import { CompareTray } from '@/components/engage/CompareControls'
+import FormEmbeds from '@/components/site/FormEmbeds'
 import RouteAliasProvider from '@/platform/routing/RouteAliasProvider'
 import { setRouteAliases } from '@/platform/routing/aliases'
 import { loadRouteAliases } from '@/modules/site/server/routes'
@@ -210,7 +211,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <WebVitals />
         <RouteAliasProvider map={routeAliases}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
-          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /></ExtensionProvider></SiteProvider></Providers>
+          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /><FormEmbeds /></ExtensionProvider></SiteProvider></Providers>
         </LocaleProvider></RouteAliasProvider>
       </body>
     </html>

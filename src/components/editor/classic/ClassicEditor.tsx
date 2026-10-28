@@ -84,6 +84,32 @@ async function uploadPicture(file: Blob, name: string): Promise<string> {
   return String(data.url)
 }
 
+/**
+ * «درج فرم»: the site's published forms (the form builder's), one click inserts the chosen form's shortcode where the
+ * caret is; the page shows the live form there. Someone who cannot read the forms list gets the shortcode to type.
+ */
+function FormInsert({ onInsert, fa }: { onInsert: (html: string) => void; fa: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [forms, setForms] = useState<{ slug: string; title: string }[] | null>(null)
+  useEffect(() => {
+    if (!open || forms) return
+    void fetch('/api/admin/forms', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null))
+      .then((data) => setForms(data ? (data.forms || []).filter((form: { published?: boolean }) => form.published).map((form: { slug: string; title: string }) => ({ slug: form.slug, title: form.title })) : []))
+      .catch(() => setForms([]))
+  }, [open, forms])
+  return <div className="ce-form-insert">
+    <button type="button" className="btn btn-ghost btn-sm ce-media" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
+      {fa ? 'درج فرم' : 'Insert form'}
+    </button>
+    {open && <div className="ce-form-menu" role="dialog" aria-label={fa ? 'درج فرم' : 'Insert form'}>
+      {forms === null ? <p className="ce-form-note">…</p> : forms.length
+        ? <ul>{forms.map((form) => <li key={form.slug}><button type="button" onClick={() => { onInsert(`<p>[form slug="${form.slug}"]</p>`); setOpen(false) }}><b>{form.title}</b><small dir="ltr">{form.slug}</small></button></li>)}</ul>
+        : <p className="ce-form-note">{fa ? 'فرم منتشرشده‌ای نیست؛ در «فرم‌ها و پاسخ‌ها» بسازید، یا بنویسید: [form slug="نشانی-فرم"]' : 'No published form yet.'}</p>}
+    </div>}
+  </div>
+}
+
 export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl', minHeight = 260, toolbar = 'full', startIn = 'visual', noMedia = false }: ClassicEditorProps) {
   const { locale } = useI18n()
   const fa = locale === 'fa'
@@ -184,6 +210,7 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="m4 18 5-5 4 4 3-3 4 4" /></svg>
           {L('افزودن رسانه', 'Add media')}
         </button>
+        <FormInsert fa={fa} onInsert={insertHtml} />
       </>}
       {note && <span className="ce-note" role="status">{note}</span>}
       <div className="ce-tabs" role="tablist" aria-label={L('حالت ویرایش', 'Editing mode')}>
