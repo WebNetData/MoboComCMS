@@ -1,7 +1,5 @@
 # MoboCom Work State
 
-Current continuation 2026-10-28 (artist profile fields): `feat/artist-facts-2026-10-28` adds owner-managed artist profile fields (vocabulary `celebrities/PROFILE_FIELD`, seeded with country, born, died; `Celebrity.facts`), the editor section and the artist page fact line. Two additive migrations. See PLATFORM_DECISIONS 6Z-6. Checked with tsc, the full check (736/6) and `pw-artist-fields.cjs` (16).
-
 Current continuation 2026-10-28 (floating controls, translated direction): `feat/translate-ltr-no-dock-2026-10-28` (worktree `.mobocom/claude-post-styles`, from main `dcb7527c`) deletes the «کنارت هستیم» support shortcut plugin, puts the language button at the line's end (the left of the Persian page), and renders a page translated into a left-to-right language as `dir="ltr"` from the server. See PLATFORM_DECISIONS 6Z-5. Checked with tsc, the full check (733/6) and `pw-translate-ltr.cjs` (23).
 
 Current continuation 2026-10-28 (header language with flags): `feat/header-language-flags-2026-10-28` adds the extension slot `site.header-actions` and puts the translation choice in the header with SVG flags; the floating button stays only where a header has no slot. See PLATFORM_DECISIONS 6Z-5. Checked with tsc, the full check (735/6) and `pw-header-language.cjs` (42).
@@ -15,6 +13,8 @@ Current continuation 2026-10-28 (article styles): `feat/journal-post-styles-2026
 Current continuation 2026-10-28 (article pages wide, templates managed): `feat/journal-wide-manage-2026-10-28` makes every article style and template as wide as the site, adds «قالب‌های من» (make, edit, rename, copy, auto-apply, delete article templates) to «استایل صفحهٔ نوشته» and «استایل نوشته» to the page builder for article templates. See PLATFORM_DECISIONS 6Z-4. Checked with tsc, the full check (735/6), `pw-post-templates-manage.cjs` (19) and `pw-post-styles.cjs` (89).
 
 Current continuation 2026-10-28 (article styles, second set): `feat/journal-styles-templates-2026-10-28` (worktree `.mobocom/claude-post-styles`) adds four page styles (aurora, neon, broadsheet, luxe frame) and seven designed article templates that wear a style, shown as cards in the styles page and the article form. Journal contrast fixes for builder layouts are included. See PLATFORM_DECISIONS 6Z-4. Checked with tsc, the full check (733/6) and `pw-post-styles.cjs` (89).
+
+Current continuation 2026-10-28 (artist profile fields): `feat/artist-facts-2026-10-28` adds owner-managed artist profile fields (vocabulary `celebrities/PROFILE_FIELD`, seeded with country, born, died; `Celebrity.facts`), the editor section and the artist page fact line. Two additive migrations. See PLATFORM_DECISIONS 6Z-6. Checked with tsc, the full check (736/6) and `pw-artist-fields.cjs` (16).
 
 Current continuation 2026-10-28 (footer): `feat/footer-compact-2026-10-28` from main `14de85be` (PRs 273–275 merged) makes the footer compact: «دنیای موبوکام» is one tile per section instead of every submenu, with shared section icons and tighter spacing. Checked with tsc, the full check (724/6 baseline) and `pw-footer.cjs`.
 
