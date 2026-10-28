@@ -1,0 +1,81 @@
+/* ============================================================
+   The language choice in the site header (google-translate plugin, slot site.header-actions; owner, 2026-10-28).
+   A pill with the flag and code of the language in use; a glass panel of flags with each language's own name and
+   its Persian name. Where a header carries it, the floating language button is not shown.
+   ============================================================ */
+body:has(.mc-lang) .mc-translate { display: none; }
+
+.mc-lang { position: relative; display: inline-flex; flex: none; }
+.mc-lang-button {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 40px; padding: 0 10px 0 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 85%, transparent); color: var(--text);
+  font: inherit; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.mc-lang-button:hover, .mc-lang-button[aria-expanded="true"] { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: var(--card); box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--primary) 70%, transparent); }
+.mc-lang-button:focus-visible, .mc-lang-option:focus-visible, .mc-lang-suggest button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.mc-lang-flag { width: 24px; height: 16px; border-radius: 4px; box-shadow: 0 0 0 1px rgb(0 0 0 / .12), 0 2px 6px -2px rgb(0 0 0 / .35); overflow: hidden; }
+.mc-lang-code { direction: ltr; font-variant-numeric: tabular-nums; }
+.mc-lang-caret { color: var(--muted); transition: transform .2s ease; }
+.mc-lang-button[aria-expanded="true"] .mc-lang-caret { transform: rotate(180deg); }
+
+.mc-lang-panel {
+  position: absolute; inset-block-start: calc(100% + 14px); inset-inline-end: 0; z-index: 60;
+  width: min(440px, calc(100vw - 24px)); padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 22px;
+  /* Solid: a blur behind it does not reach through the header's own glass, so the page would show through. */
+  background: var(--site-surface, var(--card));
+  box-shadow: 0 30px 70px -24px rgb(15 23 42 / .35), 0 0 0 1px rgb(255 255 255 / .04);
+  animation: mc-lang-in .18s ease-out both;
+}
+html[data-theme="light"] :is(.mc-lang-panel, .mc-lang-suggest) { background: var(--site-light-surface, #fff); }
+html[data-theme="light"] .mc-lang-suggest::before { background: var(--site-light-surface, #fff); }
+html[data-theme="dark"] .mc-lang-panel { box-shadow: 0 30px 70px -20px #000, 0 0 0 1px rgb(255 255 255 / .05); }
+@keyframes mc-lang-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
+.mc-lang-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 8px 10px; border-block-end: 1px solid color-mix(in srgb, var(--border) 70%, transparent); margin-block-end: 8px; }
+.mc-lang-head b { font-size: 14px; }
+.mc-lang-head span { color: var(--muted); font-size: 12px; direction: ltr; }
+.mc-lang-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; max-height: min(420px, calc(100dvh - 180px)); overflow: auto; overscroll-behavior: contain; }
+.mc-lang-option {
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px;
+  border: 1px solid transparent; border-radius: 14px; background: transparent; color: var(--text);
+  font: inherit; text-align: start; cursor: pointer; transition: background .16s ease, border-color .16s ease;
+}
+.mc-lang-option:hover { background: var(--mb-soft, color-mix(in srgb, var(--primary) 8%, transparent)); }
+.mc-lang-option[aria-selected="true"] { border-color: color-mix(in srgb, var(--primary) 40%, transparent); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.mc-lang-option-flag { flex: none; width: 30px; height: 20px; border-radius: 4px; box-shadow: 0 0 0 1px rgb(0 0 0 / .12), 0 2px 6px -2px rgb(0 0 0 / .3); overflow: hidden; }
+.mc-lang-names { display: grid; gap: 1px; min-width: 0; }
+.mc-lang-names b { overflow: hidden; font-size: 13.5px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.mc-lang-names small { color: var(--muted); font-size: 11.5px; }
+.mc-lang-check { margin-inline-start: auto; flex: none; color: var(--accent-ink, var(--primary)); }
+.mc-lang-note { margin: 8px 8px 2px; color: var(--muted); font-size: 11.5px; line-height: 1.8; }
+/* A language without a fitting flag: its code in a soft badge of the same size. */
+.mc-flag-badge { display: inline-grid; place-items: center; background: color-mix(in srgb, var(--primary) 16%, var(--card)); color: var(--accent-ink, var(--primary)); font-size: 9.5px; font-weight: 900; letter-spacing: .02em; }
+
+.mc-lang-suggest {
+  position: absolute; inset-block-start: calc(100% + 14px); inset-inline-end: 0; z-index: 59;
+  display: flex; align-items: center; gap: 10px; width: max-content; max-width: min(380px, calc(100vw - 24px)); padding: 10px 10px 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-radius: 18px;
+  background: var(--site-surface, var(--card)); color: var(--text); font-size: 12.5px; line-height: 1.6;
+  box-shadow: 0 24px 50px -24px rgb(15 23 42 / .45); animation: mc-lang-in .2s ease-out both;
+}
+.mc-lang-suggest::before { content: ''; position: absolute; inset-block-start: -7px; inset-inline-end: 22px; width: 12px; height: 12px; border-block-start: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-inline-start: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); background: var(--site-surface, var(--card)); transform: rotate(45deg); }
+.mc-lang-yes { flex: none; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-weight: 800; cursor: pointer; }
+.mc-lang-no { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 18px; cursor: pointer; }
+.mc-lang-no:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+
+@media (max-width: 620px) {
+  .mc-lang-button { gap: 5px; min-height: 44px; padding: 0 8px; }
+  .mc-lang-code { display: none; }
+  .mc-lang-panel, .mc-lang-suggest { position: fixed; inset-block-start: 74px; inset-inline: 12px; width: auto; max-width: none; }
+  .mc-lang-suggest::before { content: none; }
+}
+@media (max-width: 520px) {
+  .mc-lang-list { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-lang-panel, .mc-lang-suggest { animation: none; }
+  .mc-lang-caret { transition: none; }
+}

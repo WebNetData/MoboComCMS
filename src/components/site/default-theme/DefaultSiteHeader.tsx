@@ -53,6 +53,7 @@ export default function DefaultSiteHeader({ theme, navPages, breadcrumbs }: { th
         </nav>
 
         <div className="flex items-center gap-2">
+          <PluginOutlet slot="site.header-actions" site={site} locale={locale}/>
           <div className="only-desktop">
             <SiteSearch />
             <ThemeLangControls locale={locale} theme={theme} />
