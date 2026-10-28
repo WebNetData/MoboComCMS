@@ -408,3 +408,28 @@ test('showcase blocks: each is a real block of the document, offered in the pale
   assert.match(live, /const \[now, setNow\] = useState<number \| null>\(null\)/, 'the countdown paints the same on the server and in the browser')
   assert.match(read('src/app/builder-render.css'), /@media \(prefers-reduced-motion: reduce\) \{ \.br-iconbox, \.br-price,/)
 })
+
+// ---- article templates with a page style (owner, 2026-10-28)
+test('designed article templates wear a style and keep the article slots', () => {
+  const builder = load('src/modules/site/domain/builder.ts')
+  const templates = load('src/modules/site/domain/builder-templates.ts')
+  const postStyles = load('src/modules/journal/domain/post-styles.ts')
+  const keep = builder.validateBuilderDoc({ v: 2, mode: 'builder', code: { html: '', css: '', js: '', advanced: false }, sections: [], layout: { header: 'default', footer: 'default', postStyle: 'ps-neon' } })
+  assert.equal(keep.layout.postStyle, 'ps-neon')
+  for (const bad of ['ps-', 'tpl-x', 'ps-NEON', 'psc-!!', 42]) {
+    const doc = builder.validateBuilderDoc({ v: 2, mode: 'builder', code: { html: '', css: '', js: '', advanced: false }, sections: [], layout: { header: 'default', footer: 'default', postStyle: bad } })
+    assert.deepEqual(doc.layout, { header: 'default', footer: 'default' }, String(bad))
+  }
+  assert.equal(Object.keys(postStyles.POST_STYLE_BASES).length, 10)
+  const pro = templates.POST_TEMPLATES.filter((template) => template.id.startsWith('post-pro-'))
+  assert.equal(pro.length, 7)
+  for (const template of pro) {
+    const types = template.doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets.map((widget) => widget.type)))
+    assert.ok(types.includes('content') && types.includes('post-header') && types.includes('post-footer'), template.id)
+    const style = template.doc.layout.postStyle
+    assert.ok(postStyles.resolvePostStyle(style, postStyles.DEFAULT_POST_STYLE_SETTINGS), `${template.id} ${style}`)
+    assert.ok(templates.POST_TEMPLATE_IDS.includes(template.id))
+  }
+  // older templates keep a plain layout (no style key written)
+  assert.equal('postStyle' in templates.POST_TEMPLATES.find((template) => template.id === 'post-classic').doc.layout, false)
+})

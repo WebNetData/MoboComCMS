@@ -52,6 +52,43 @@
 .thumb[data-base='spotlight'] .thumbTitle2 { height: 11px; width: 46%; }
 .thumb[data-base='spotlight'] .thumbCover { display: block; position: relative; height: 22%; margin: -16% 10% 0; box-shadow: 0 8px 18px -8px rgb(0 0 0 / .5); }
 
+.thumb[data-base='aurora'] .thumbHead { grid-template-columns: 1.2fr .8fr; gap: 8%; min-height: 58%; padding: 7%; border-radius: 12px; background: radial-gradient(60% 70% at 20% 30%, color-mix(in srgb, var(--thumb-accent) 75%, transparent), transparent 70%), radial-gradient(50% 60% at 85% 20%, rgb(168 85 247 / .7), transparent 70%), radial-gradient(60% 60% at 60% 100%, rgb(34 211 238 / .55), transparent 70%), #0a0d1f; }
+.thumb[data-base='aurora'] .thumbPic { position: relative; grid-column: 2; grid-row: 1; inset: auto; border-radius: 6px; transform: rotate(-4deg); box-shadow: 0 0 0 1px rgb(255 255 255 / .3), 0 6px 14px -4px rgb(0 0 0 / .6); }
+.thumb[data-base='aurora'] .thumbPic::after { content: none; }
+.thumb[data-base='aurora'] .thumbWords { grid-column: 1; grid-row: 1; align-content: center; padding: 8%; border-radius: 8px; background: rgb(8 10 28 / .45); }
+
+.thumb[data-base='neon'] { padding: 0; gap: 0; background: #05060b; }
+.thumb[data-base='neon'] .thumbHead { min-height: 52%; padding: 9% 9% 6%; border-radius: 0; background: linear-gradient(rgb(255 255 255 / .07) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, rgb(255 255 255 / .07) 1px, transparent 1px) 0 0 / 12px 12px, radial-gradient(70% 90% at 50% 0%, color-mix(in srgb, var(--thumb-accent) 45%, transparent), transparent 70%); }
+.thumb[data-base='neon'] .thumbPic { display: none; }
+.thumb[data-base='neon'] .thumbWords { justify-items: center; }
+.thumb[data-base='neon'] :is(.thumbTitle, .thumbTitle2) { box-shadow: 0 0 8px 1px color-mix(in srgb, var(--thumb-accent) 80%, transparent); }
+.thumb[data-base='neon'] .thumbCover { display: block; height: 20%; margin: -4% 10% 0; box-shadow: 0 0 0 1px color-mix(in srgb, var(--thumb-accent) 70%, transparent), 0 0 14px -2px var(--thumb-accent); }
+.thumb[data-base='neon'] .thumbBody { padding: 6% 12%; background: var(--card); height: 100%; }
+
+.thumb[data-base='paper'] { background: #f8f3ea; }
+.thumb[data-base='paper'] .thumbHead { min-height: 0; padding: 5% 6% 4%; border-block: 3px double #1f1a14; border-radius: 0; }
+.thumb[data-base='paper'] .thumbPic { display: none; }
+.thumb[data-base='paper'] .thumbWords { justify-items: center; }
+.thumb[data-base='paper'] .thumbKicker { background: #1f1a14; width: 26%; height: 3px; }
+.thumb[data-base='paper'] :is(.thumbTitle, .thumbTitle2) { background: #1f1a14; height: 10px; }
+.thumb[data-base='paper'] .thumbLead { background: rgb(31 26 20 / .25); width: 80%; }
+.thumb[data-base='paper'] .thumbCover { display: block; height: 22%; border-radius: 1px; filter: saturate(.8); }
+.thumb[data-base='paper'] .thumbBody i { background: rgb(31 26 20 / .16); }
+
+.thumb[data-base='frame'] .thumbHead { grid-template-columns: 1.1fr .9fr; gap: 12%; min-height: 60%; padding: 6% 4%; }
+.thumb[data-base='frame'] .thumbPic { position: relative; grid-column: 2; grid-row: 1; inset: auto; aspect-ratio: 4 / 5; border-radius: 3px; box-shadow: -6px 6px 0 0 color-mix(in srgb, var(--thumb-accent) 35%, transparent); }
+.thumb[data-base='frame'] .thumbPic::after { content: none; }
+.thumb[data-base='frame'] .thumbWords { grid-column: 1; grid-row: 1; align-content: center; }
+.thumb[data-base='frame'] .thumbKicker { background: linear-gradient(90deg, #b8913a, #e6c873); width: 30%; height: 3px; }
+.thumb[data-base='frame'] :is(.thumbTitle, .thumbTitle2) { background: var(--thumb-ink); }
+.thumb[data-base='frame'] .thumbLead { background: var(--thumb-line); }
+
+/* an article template with a side column (latest posts, products…) */
+.thumb[data-sidebar] .thumbBody { grid-template-columns: minmax(0, 1fr) 30%; column-gap: 6%; }
+.thumb[data-sidebar] .thumbBody i { grid-column: 1; }
+.thumb[data-sidebar] .thumbBody::after { content: ''; grid-column: 2; grid-row: 1 / span 4; border-radius: 6px; background: color-mix(in srgb, var(--thumb-accent) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--thumb-accent) 28%, transparent); }
+.badgeTpl { position: absolute; inset-block-end: 8px; inset-inline-end: 8px; padding: 2px 8px; border-radius: 99px; background: rgb(0 0 0 / .62); color: #fff; font-size: .66rem; font-weight: 700; }
+
 /* a builder layout: a page of blocks */
 .thumb[data-base='layout'] .thumbHead { min-height: 30%; background: color-mix(in srgb, var(--thumb-accent) 14%, var(--card)); border: 1px dashed color-mix(in srgb, var(--thumb-accent) 45%, transparent); }
 .thumb[data-base='layout'] .thumbPic { display: none; }

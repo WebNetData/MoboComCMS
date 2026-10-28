@@ -449,7 +449,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
         // each section decides its own width (boxed / narrow / full).
         if (ownLayout && builderDoc) {
           return (
-            <main className="journal-post journal-post-built">
+            <main className="journal-post journal-post-built" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
               <div className="br-container journal-built-crumb">{crumb}</div>
               {!ownHas('post-header') && <div className="br-container">{headerSlot}</div>}
               {!ownHas('post-cover') && <div className="br-container">{coverSlot}</div>}
@@ -460,7 +460,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
         }
         if (templateDoc && templateDoc.mode === 'builder') {
           return (
-            <main className="journal-post journal-post-built">
+            <main className="journal-post journal-post-built" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
               <div className="br-container journal-built-crumb">{crumb}</div>
               <BuilderRenderer
                 doc={ensureContentSlot(templateDoc)}

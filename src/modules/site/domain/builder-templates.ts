@@ -19,8 +19,9 @@ function sec(columns: BuilderColumn[], opts: Partial<BuilderSection['style']> = 
   return { ...base, columns, style: { ...base.style, paddingY: 72, ...opts } }
 }
 
-function doc(sections: BuilderSection[]): BuilderDoc {
-  return validateBuilderDoc({ v: 2, mode: 'builder', code: { html: '', css: '', js: '', advanced: false }, sections })
+/** `postStyle`: on an article template, the magazine page style its header and reading column wear. */
+function doc(sections: BuilderSection[], postStyle = ''): BuilderDoc {
+  return validateBuilderDoc({ v: 2, mode: 'builder', code: { html: '', css: '', js: '', advanced: false }, sections, layout: { header: 'default', footer: 'default', postStyle } })
 }
 
 const center: Partial<WidgetStyle> = { align: 'center' }
@@ -212,7 +213,7 @@ export const POST_TEMPLATES: BundledTemplate[] = [
       sec([col([w('post-header', {})])], { paddingY: 64 }),
       sec([col([w('post-cover', {})])], { paddingY: 0 }),
       sec([col([w('content', {})])], { paddingY: 48 }),
-      sec([col([w('post-footer', {})])], { tone: 'light', paddingY: 56 }),
+      sec([col([w('post-footer', {})])], { paddingY: 56 }),
     ]),
   },
   {
@@ -231,7 +232,7 @@ export const POST_TEMPLATES: BundledTemplate[] = [
           w('cta', { title: 'اشتراک خبرنامه', titleEn: 'Newsletter', text: 'هر هفته یک ایمیل، بدون شلوغ‌کاری.', textEn: 'One email a week, no noise.', label: 'عضویت', labelEn: 'Subscribe', href: '/newsletter' }),
         ], 32),
       ], { paddingY: 40 }),
-      sec([col([w('post-footer', {})])], { tone: 'light', paddingY: 56 }),
+      sec([col([w('post-footer', {})])], { paddingY: 56 }),
     ]),
   },
   {
@@ -260,7 +261,7 @@ export const POST_TEMPLATES: BundledTemplate[] = [
         w('content', {}),
         w('cta', { title: 'ادامه را در پلن ببینید', titleEn: 'See it in a plan', text: 'همین امروز شروع کنید؛ ۷ روز ضمانت بازگشت وجه.', textEn: 'Start today — 7-day money-back guarantee.', label: 'مشاهده پلن‌ها', labelEn: 'See plans', href: '/plans' }, center),
       ])], { paddingY: 56 }),
-      sec([col([w('post-footer', {})])], { tone: 'light', paddingY: 56 }),
+      sec([col([w('post-footer', {})])], { paddingY: 56 }),
     ]),
   },
 ]
@@ -288,7 +289,7 @@ POST_TEMPLATES.push(
           w('posts', { title: 'نقدهای دیگر', titleEn: 'More reviews', limit: '3', category: '' }),
         ], 32),
       ], { paddingY: 48, valign: 'start' }),
-      sec([col([w('post-footer', {})])], { tone: 'light', paddingY: 56 }),
+      sec([col([w('post-footer', {})])], { paddingY: 56 }),
     ]),
   },
   {
@@ -335,8 +336,135 @@ POST_TEMPLATES.push(
       sec([col([
         w('posts', { title: 'بازی‌های مرتبط', titleEn: 'Related games', limit: '4', category: '' }),
         w('post-footer', {}),
-      ])], { tone: 'light', paddingY: 56 }),
+      ])], { paddingY: 56 }),
     ]),
+  },
+)
+
+// Designed article templates (owner, 2026-10-28): a structure of live blocks around the article, worn with one of the
+// magazine's page styles. Nothing in them is one article's content, so any article may take them.
+const newsletter = (tone: 'light' | 'dark' | 'accent' = 'dark') => sec([col([
+  w('cta', { title: 'هر هفته، بهترین‌های مجله در ایمیل شما', titleEn: 'The best of the magazine, weekly', text: 'یک ایمیل در هفته؛ بدون تبلیغ مزاحم، هر وقت خواستید لغو کنید.', textEn: 'One email a week, no clutter; leave any time.', label: 'عضویت در خبرنامه', labelEn: 'Subscribe', href: '/newsletter' }, center),
+])], { tone, paddingY: 56 })
+const headerOnly = (cover = false) => [sec([col([w('post-header', {}), ...(cover ? [w('post-cover', {})] : [])])], { paddingY: 8 })]
+const closing = (title: string, titleEn: string) => [
+  sec([col([w('posts', { title, titleEn, limit: '3', category: '' })])], { paddingY: 48 }),
+  sec([col([w('post-footer', {})])], { paddingY: 48 }),
+]
+
+POST_TEMPLATES.push(
+  {
+    id: 'post-pro-cinema',
+    fa: 'نقد سینمایی حرفه‌ای',
+    en: 'Pro film review',
+    descFa: 'استایل سینمایی؛ متن کنار ستون «برترین‌های سینما» و نقدهای دیگر، دعوت به خبرنامه',
+    descEn: 'Cinematic style; the review beside top films and more reviews, a newsletter call',
+    doc: doc([
+      ...headerOnly(),
+      sec([
+        col([w('content', {})], 66),
+        col([
+          w('media', { source: 'cinema-top', title: 'برترین‌های سینما', titleEn: 'Top films', limit: '4' }),
+          w('posts', { title: 'نقدهای دیگر', titleEn: 'More reviews', limit: '3', category: '' }),
+        ], 34),
+      ], { paddingY: 40, valign: 'start' }),
+      newsletter('dark'),
+      sec([col([w('post-footer', {})])], { paddingY: 48 }),
+    ], 'ps-cinematic'),
+  },
+  {
+    id: 'post-pro-guide',
+    fa: 'راهنمای گام‌به‌گام',
+    en: 'Step-by-step guide',
+    descFa: 'استایل سردبیری؛ ستون خوانا، سه راه کمک (پشتیبانی، آموزش‌ها، تالار) و آموزش‌های بعدی',
+    descEn: 'Editorial style; a readable column, three ways to get help and the next guides',
+    doc: doc([
+      ...headerOnly(),
+      sec([col([w('content', {})])], { paddingY: 32, width: 'narrow' }),
+      sec([col([w('heading', { level: 'h2', text: 'هنوز سؤالی دارید؟', textEn: 'Still have a question?' }, center)])], { tone: 'light', paddingY: 40 }),
+      sec([
+        col([w('icon-box', { icon: 'lifebuoy', title: 'پشتیبانی', titleEn: 'Support', text: 'سؤالتان را در تیکت بنویسید؛ همکاران ما پاسخ می‌دهند.', textEn: 'Write us a ticket; our team answers.', href: '/dashboard/tickets', layout: 'top' }, center)], 33),
+        col([w('icon-box', { icon: 'book', title: 'آموزش‌های بیشتر', titleEn: 'More guides', text: 'همهٔ راهنماها و آموزش‌های مجله در یک‌جا.', textEn: 'Every guide in the magazine in one place.', href: '/blog', layout: 'top' }, center)], 34),
+        col([w('icon-box', { icon: 'chat', title: 'تالار گفت‌وگو', titleEn: 'Forum', text: 'از تجربهٔ دیگران بپرسید و تجربهٔ خودتان را بگویید.', textEn: 'Ask others and share what you learnt.', href: '/forum', layout: 'top' }, center)], 33),
+      ], { tone: 'light', paddingY: 32 }),
+      ...closing('آموزش‌های بعدی', 'Next guides'),
+    ], 'ps-editorial'),
+  },
+  {
+    id: 'post-pro-feature',
+    fa: 'ویژه‌نامهٔ تمام‌رنگ',
+    en: 'Full-colour feature',
+    descFa: 'استایل ویژه‌نامه؛ کارت رنگی با جلد شناور، متن تمام‌عرض و مطالب همین ویژه‌نامه',
+    descEn: 'Spotlight style; a colour card with the cover on it, a full body and more from the feature',
+    doc: doc([
+      ...headerOnly(true),
+      sec([col([w('content', {})])], { paddingY: 32 }),
+      newsletter('accent'),
+      sec([col([w('posts', { title: 'از همین ویژه‌نامه', titleEn: 'More from this feature', limit: '6', category: '' })])], { paddingY: 48 }),
+      sec([col([w('post-footer', {})])], { paddingY: 48 }),
+    ], 'ps-spotlight'),
+  },
+  {
+    id: 'post-pro-newsdesk',
+    fa: 'میز خبر',
+    en: 'News desk',
+    descFa: 'استایل روزنامه‌ای؛ خبر کنار ستون «تازه‌ترین خبرها» و عضویت در خبرنامه',
+    descEn: 'Broadsheet style; the story beside the latest news and a newsletter call',
+    doc: doc([
+      ...headerOnly(true),
+      sec([
+        col([w('content', {})], 68),
+        col([
+          w('heading', { level: 'h3', text: 'تازه‌ترین خبرها', textEn: 'Latest news' }),
+          w('posts', { title: '', titleEn: '', limit: '6', category: '' }),
+          w('cta', { title: 'خبرنامهٔ روزانه', titleEn: 'Daily briefing', text: 'مهم‌ترین خبرها، هر صبح.', textEn: 'The news that matters, every morning.', label: 'عضویت', labelEn: 'Subscribe', href: '/newsletter' }),
+        ], 32),
+      ], { paddingY: 36, valign: 'start' }),
+      sec([col([w('post-footer', {})])], { paddingY: 48 }),
+    ], 'ps-paper'),
+  },
+  {
+    id: 'post-pro-tech',
+    fa: 'بررسی فناوری و محصول',
+    en: 'Tech & product review',
+    descFa: 'استایل نئون؛ بررسی کنار محصولات مرتبط فروشگاه و بررسی‌های دیگر',
+    descEn: 'Neon style; the review beside related products and more reviews',
+    doc: doc([
+      ...headerOnly(true),
+      sec([
+        col([w('content', {})], 66),
+        col([
+          w('products', { title: 'محصولات مرتبط', titleEn: 'Related products', limit: '3', category: '', kind: '' }),
+          w('button', { label: 'رفتن به فروشگاه', labelEn: 'Visit the shop', href: '/products', variant: 'primary', secondaryLabel: '', secondaryLabelEn: '', secondaryHref: '' }, center),
+        ], 34),
+      ], { paddingY: 40, valign: 'start' }),
+      ...closing('بررسی‌های دیگر', 'More reviews'),
+    ], 'ps-neon'),
+  },
+  {
+    id: 'post-pro-portrait',
+    fa: 'پرتره و گفت‌وگو',
+    en: 'Portrait & interview',
+    descFa: 'استایل قاب لوکس؛ جلد عمودی در قاب، ستون خوانا و گفت‌وگوهای دیگر',
+    descEn: 'Luxe frame style; a portrait cover, a readable column and more interviews',
+    doc: doc([
+      ...headerOnly(),
+      sec([col([w('content', {})])], { paddingY: 32, width: 'narrow' }),
+      ...closing('گفت‌وگوهای دیگر', 'More interviews'),
+    ], 'ps-frame'),
+  },
+  {
+    id: 'post-pro-story',
+    fa: 'روایت شفق',
+    en: 'Aurora story',
+    descFa: 'استایل شفق؛ نورهای رنگی پشت تیتر، ستون خوانا، دعوت رنگی و روایت‌های دیگر',
+    descEn: 'Aurora style; colour lights behind the title, a readable column and more stories',
+    doc: doc([
+      ...headerOnly(),
+      sec([col([w('content', {})])], { paddingY: 32, width: 'narrow' }),
+      newsletter('accent'),
+      ...closing('روایت‌های دیگر', 'More stories'),
+    ], 'ps-aurora'),
   },
 )
 

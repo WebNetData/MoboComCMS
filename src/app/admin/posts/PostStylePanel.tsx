@@ -6,7 +6,7 @@ import type { PostStyleAlign, PostStyleBase } from '@/modules/journal/domain/pos
 import PostStyleThumb from '../journal/PostStyleThumb'
 import css from '../journal/post-styles.module.css'
 
-type Option = { id: string; fa: string; group: 'style' | 'mystyle' | 'theme' | 'builtin' | 'mine'; status?: string; base?: string; accent?: string; align?: string }
+type Option = { id: string; fa: string; group: 'style' | 'mystyle' | 'theme' | 'builtin' | 'mine'; status?: string; base?: string; accent?: string; align?: string; sidebar?: boolean }
 
 /**
  * «استایل صفحه» in the article form (the magazine's manager): automatic (the format's or the magazine's choice),
@@ -40,9 +40,11 @@ export default function PostStylePanel({ postId, slug, live, onPending }: { post
   }
 
   const styles = options.filter((option) => option.group === 'style' || option.group === 'mystyle')
-  const layouts = options.filter((option) => option.group !== 'style' && option.group !== 'mystyle')
+  // The ready-made article templates are cards too; the owner's own builder templates are in the list below.
+  const ready = options.filter((option) => option.group === 'builtin' && option.id.startsWith('post-pro-'))
+  const layouts = options.filter((option) => option.group !== 'style' && option.group !== 'mystyle' && !ready.includes(option))
   const isLayout = layouts.some((option) => option.id === value)
-  const preview = slug && live && value.startsWith('ps') ? `/blog/${slug}?style=${value}` : slug && live ? `/blog/${slug}` : ''
+  const preview = slug && live && (value.startsWith('ps') || ready.some((option) => option.id === value)) ? `/blog/${slug}?style=${value}` : slug && live ? `/blog/${slug}` : ''
 
   return (
     <section className={`sa-card ${css.panel}`} aria-labelledby="post-style-title">
@@ -57,6 +59,16 @@ export default function PostStylePanel({ postId, slug, live, onPending }: { post
           </button>
         ))}
       </div>
+      {ready.length > 0 && <>
+        <p className={css.panelNote} id="post-template-title">قالب‌های آمادهٔ نوشته</p>
+        <div className={css.panelGrid} role="group" aria-labelledby="post-template-title" aria-busy={busy}>
+          {ready.map((option) => (
+            <button key={option.id} type="button" className={css.option} aria-pressed={value === option.id} disabled={busy} onClick={() => void pick(option.id)}>
+              <PostStyleThumb base={(option.base || 'classic') as PostStyleBase} sidebar={option.sidebar} />{option.fa}
+            </button>
+          ))}
+        </div>
+      </>}
       {layouts.length > 0 && (
         <label className={css.panelRow}>
           <span>یا قالب صفحه‌ساز:</span>

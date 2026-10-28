@@ -72,7 +72,7 @@
 .br-product-art{block-size:150px;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,color-mix(in srgb,var(--primary,#2f9fe8) 18%,transparent),transparent);display:grid;place-items:center;font-size:.72rem;letter-spacing:.1em;opacity:.85}
 .br-product-art img{inline-size:100%;block-size:100%;object-fit:cover}
 .br-product h3{margin:.3rem 0 0;font-size:1rem}
-.br-product strong{color:var(--primary,#2f9fe8);font-variant-numeric:tabular-nums}
+.br-product strong{color:var(--accent-ink,var(--primary,#2f9fe8));font-variant-numeric:tabular-nums}
 .br-network{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1.2rem,3vw,2.5rem);align-items:center}
 .br-network-copy p{line-height:1.9;opacity:.85}
 .br-panel{border-radius:20px;padding:clamp(1.1rem,2.5vw,1.8rem);border:1px solid transparent}
