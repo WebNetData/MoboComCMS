@@ -391,6 +391,14 @@ Decided with the owner over several rounds of looking at the result:
   - **Automatic pages:** the `automaticPageLinks` switch, and each page's own `showInNav` saved through the Pages API (`cms.pages`).
 
   Site lists publish together through `PUT /api/admin/site` with the revision claim. Studio no longer edits menus; it links to the page. Pages added automatically to the header are listed by name, so taking «درباره ما» and «قوانین و شرایط» off the header is one switch each.
+- **The home bar is the site's hub (owner, 2026-10-28: "complete the home navbar").**
+  - The home section bar (`additionalSectionSources.home`) has four dropdowns, then the company pages, with «حساب من» and «پیگیری سفارش» as quick links:
+    - «کشف کنید»: popular (game release calendar, new films, new music, latest software, magazine), and collections and tools;
+    - «خرید»: shop, cart, order tracking, VIP, games, software, the file repository;
+    - «جامعه»: community feed, forum, people, artists, businesses;
+    - «راهنما و پشتیبانی»: tickets, FAQ, newsletter, terms, refund, privacy, advertising.
+  - A link to a section that is off (or to the shop while it is off) is left out, an emptied dropdown is dropped, and the FAQ, terms, refund and privacy pages appear only when published.
+  - They are ordinary bar items, so «مدیریت منوها» still hides, renames and orders them.
 - **Pages built without code (owner, 2026-10-28).** "Design any page with drag and drop and ready blocks, with HTML/CSS/JS blocks when needed — e.g. a foreign payment page with a professional order form." The existing page builder (`/admin/builder/<id>`) already has drag and drop, phone, tablet and desktop previews, Elementor-class blocks (icon boxes, tabs, testimonials, counters, pricing, countdown, gallery, carousel, forms, live products and plans) and an HTML/CSS/JS block. This adds three parts.
   - **Whole-page templates** (`PAGE_TEMPLATES`): a foreign payment page (hero, benefits, steps, the form builder's own `foreign-payment` paid form with the day-rate amount, questions consistent with the terms, call), a service page and a campaign. Each part stays a normal block.
   - **Where to find them:** the builder's template panel («صفحه‌های کامل»), and Pages admin «＋ صفحهٔ جدید», which also lists the design templates. A new page opened with `?template=` starts from the template if it is empty.
