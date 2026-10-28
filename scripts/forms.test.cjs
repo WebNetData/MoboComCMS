@@ -319,8 +319,8 @@ test('appointments cannot be overbooked, hooks go only to public https addresses
   for (const type of ['secret', 'slot', 'fxamount', 'file', 'signature', 'hidden', 'repeater']) assert.equal(adv.staffEditable({ type, options: [] }), false, type)
   assert.equal(adv.staffEditable({ type: 'radio', options: ['a'], prices: [100] }), false, 'a priced choice is part of the bill')
   assert.match(route, /const edited = await editSubmission\(one, body\.answers\)\s+await auditAdmin\(\{ req, actor: admin, action: 'forms\.submission_edit'/)
-  // A form with named handlers: only they (and builders) see and work on it.
-  assert.match(server, /export const mayHandle = \(form: Pick<FormDefinition, 'settings'>, user: \{ id: number \}, builder: boolean\) => builder \|\| !form\.settings\?\.handlers\.length \|\| form\.settings\.handlers\.includes\(user\.id\)/)
+  // A form with named handlers: only they (and managers) see and work on it; a form without is the managers' (2026-10-28).
+  assert.match(server, /export const mayHandle = \(form: Pick<FormDefinition, 'settings'>, user: \{ id: number \}, builder: boolean\) => builder \|\| !!form\.settings\?\.handlers\.includes\(user\.id\)/)
   assert.match(list, /\.filter\(\(form\) => mayHandle\(form, reader, Boolean\(builder\)\)\)/)
   assert.match(route, /await assertMayHandleForm\(formId, reader, builder\)/)
   assert.match(route, /await assertMayHandleSubmission\(id, admin, builder\)/)
@@ -328,7 +328,7 @@ test('appointments cannot be overbooked, hooks go only to public https addresses
   assert.match(source('prisma/release-manifest.json'), /"20261229120000_form_bookings_quiz"/)
 })
 
-test('work somebody holds is theirs: a colleague of the same standing reads it and does not change it', () => {
+test('work somebody holds is theirs: a colleague of the same standing neither reads nor changes it', () => {
   const paid = source('src/modules/forms/server/paid.ts'), route = source('src/modules/site/server/http/admin/forms/submissions/route.ts'), files = source('src/modules/site/server/http/admin/forms/files/route.ts')
   // Form answers: every change of an answer passes the holder check, unless the actor manages forms.
   assert.match(paid, /export async function assertOwnWork\(submissionId: number, actor: \{ id: number \}, manager: boolean\) \{\s+if \(manager\) return/)
@@ -342,11 +342,21 @@ test('work somebody holds is theirs: a colleague of the same standing reads it a
   for (const action of ['editSubmission(', 'workOnSubmission(', 'revealSecrets(', 'eraseSecrets(', 'updateSubmissions(']) assert.ok(patchBody.indexOf('assertOwnWork(') < patchBody.indexOf(action), action)
   // An operator opens the attachments of the forms given to them, and of no other.
   assert.match(files, /const reader = builder \|\| await requirePerm\(req, 'forms\.handle'\)/)
-  assert.match(files, /await assertMayHandleForm\(file\.formId, reader, Boolean\(builder\)\)/)
+  assert.match(files, /await assertMayHandleForm\(file\.formId, reader, Boolean\(builder\)\); if \(file\.submissionId\) await assertMayHandleSubmission\(file\.submissionId, reader, Boolean\(builder\)\)/)
+  // Taken work is private (owner, 2026-10-28): a colleague does not open it, list it, export it or count it; a manager does.
+  const server = source('src/modules/forms/server/advanced.ts'), service = source('src/modules/forms/server/service.ts')
+  assert.match(server, /if \(row\.assigneeId && row\.assigneeId !== user\.id\) throw new FormsError\(/)
+  assert.match(service, /const visible = \(query: Pick<SubmissionQuery, 'viewer'>\) => \(query\.viewer \? \{ OR: \[\{ assigneeId: null \}, \{ assigneeId: query\.viewer \}\] \} : \{\}\)/)
+  assert.match(service, /formId: query\.formIds \? \{ in: query\.formIds \} : query\.formId,\s+\.\.\.visible\(query\),/)
+  assert.match(route, /viewer: builder \? undefined : reader\.id/)
+  assert.match(route, /formFieldStats\(formId, builder \? undefined : reader\.id\)/)
   // The queue across forms is built from the forms the member of staff may handle.
   assert.match(route, /const formIds = \(await listForms\(\)\)\.filter\(\(form\) => mayHandle\(form, reader, builder\)\)\.map\(\(form\) => form\.id!\)/)
-  // New work is announced to the form's own handlers when it names them.
-  assert.match(source('src/modules/forms/server/service.ts'), /\.\.\.\(handlers\.length \? \{ id: \{ in: handlers \} \} : \{\}\)/)
+  // New work is announced to the form's own handlers when it names them, or else to the managers — never every admin account.
+  assert.match(server, /return \(handlers\.length \? named : staff\.filter\(\(member\) => member\.manager\)\)\.map\(\(member\) => member\.id\)/)
+  assert.match(service, /formRecipients\(settings\.handlers\)/)
+  assert.match(paid, /formRecipients\(handlers\)/)
+  assert.doesNotMatch(service + paid, /where: \{ role: 'ADMIN', status: 'ACTIVE', \.\.\.\(handlers\.length/)
   assert.match(paid, /export async function releaseUnpaidSlots\(/)
 
   // Tickets follow the same rule; an internal note stays open to colleagues, and the first to answer becomes the holder.

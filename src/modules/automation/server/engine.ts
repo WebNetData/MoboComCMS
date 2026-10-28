@@ -120,7 +120,8 @@ async function staffIds(to: string, facts: Facts): Promise<number[]> {
     const form = await db.siteForm.findUnique({ where: { id: Number(facts.form_id) }, select: { settings: true } })
     const named = parse<{ handlers?: number[] }>(form?.settings || '{}', {}).handlers || []
     if (named.length) return named
-    return people.filter((person) => has(person, 'forms.handle', 'cms.pages')).map((person) => person.id)
+    // A form without named handlers is the managers' (owner, 2026-10-28).
+    return people.filter((person) => held(person) === null || has(person, 'cms.pages')).map((person) => person.id)
   }
   return people.filter((person) => held(person) === null || has(person, 'settings.manage', 'automation.manage')).map((person) => person.id)
 }
@@ -208,10 +209,9 @@ async function assignForm(submissionId: number, formId: number) {
   const { formStaff } = await import('@/modules/forms/server/advanced')
   const form = await db.siteForm.findUnique({ where: { id: formId }, select: { settings: true } })
   const named = parse<{ handlers?: number[] }>(form?.settings || '{}', {}).handlers || []
-  // The form's own staff when it names them; otherwise the operators, and the managers only when there is nobody else.
+  // The form's own staff when it names them; otherwise the managers, whose work a form without staff is (owner, 2026-10-28).
   const everyone = await formStaff()
-  const pool = named.length ? everyone.filter((person) => named.includes(person.id)) : everyone.filter((person) => !person.manager)
-  const able = pool.length ? pool : named.length ? [] : everyone
+  const able = named.length ? everyone.filter((person) => named.includes(person.id)) : everyone.filter((person) => person.manager)
   if (!able.length) throw new AutomationError('کارمندی برای این فرم نیست')
   const load = await db.formSubmission.groupBy({ by: ['assigneeId'], where: { assigneeId: { in: able.map((person) => person.id) }, stage: { in: ['OPEN', 'IN_PROGRESS'] } }, _count: { _all: true } })
   const busy = (id: number) => load.find((group) => group.assigneeId === id)?._count._all || 0

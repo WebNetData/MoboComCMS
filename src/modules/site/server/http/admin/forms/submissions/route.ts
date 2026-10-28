@@ -24,13 +24,13 @@ export async function GET(req: NextRequest) {
   // formId=0 is the work queue: the answers of every form this member of staff may handle.
   if (formId === 0 && !q.get('view') && !q.get('export')) {
     const formIds = (await listForms()).filter((form) => mayHandle(form, reader, builder)).map((form) => form.id!)
-    return ok(await listSubmissions({ formId: 0, formIds, stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', page: Number(q.get('page')) || 1, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free' }))
+    return ok(await listSubmissions({ formId: 0, formIds, viewer: builder ? undefined : reader.id, stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', page: Number(q.get('page')) || 1, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free' }))
   }
   if (!Number.isSafeInteger(formId) || formId < 1) return err('شناسه نامعتبر')
-  const query = { formId, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free', stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
+  const query = { formId, viewer: builder ? undefined : reader.id, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free', stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
   try {
     await assertMayHandleForm(formId, reader, builder)
-    if (q.get('view') === 'fields') return ok(await formFieldStats(formId))
+    if (q.get('view') === 'fields') return ok(await formFieldStats(formId, builder ? undefined : reader.id))
     if (q.get('view') === 'stats') return ok(await formStats(formId))
     if (q.get('export') === 'csv') {
       const file = await exportCsv(query)

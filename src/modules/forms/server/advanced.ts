@@ -104,10 +104,11 @@ export const webhookAnswers = (answers: StoredAnswer[]) => Object.fromEntries(an
 
 // ------------------------------------------------------------------ statistics
 
-export async function formFieldStats(formId: number) {
+/** `viewer`: a handler, whose figures leave out what colleagues have taken. */
+export async function formFieldStats(formId: number, viewer?: number) {
   const form = await db.siteForm.findUnique({ where: { id: formId } })
   if (!form) throw new FormsError('فرم پیدا نشد', 404)
-  const rows = await db.formSubmission.findMany({ where: { formId, status: { not: 'SPAM' } }, select: { data: true, score: true, scoreMax: true }, orderBy: { id: 'desc' }, take: 5000 })
+  const rows = await db.formSubmission.findMany({ where: { formId, status: { not: 'SPAM' }, ...(viewer ? { OR: [{ assigneeId: null }, { assigneeId: viewer }] } : {}) }, select: { data: true, score: true, scoreMax: true }, orderBy: { id: 'desc' }, take: 5000 })
   const scored = rows.filter((row) => row.scoreMax > 0)
   return {
     answers: rows.length, fields: fieldStats(parseForm(form).fields, rows.map((row) => parse<StoredAnswer[]>(row.data, []))),
@@ -145,8 +146,11 @@ export async function editSubmission(submissionId: number, input: unknown) {
 
 // ------------------------------------------------------------------ who may open which form
 
-/** A form with named handlers is open to them only (builders, who hold cms.pages, open every form). */
-export const mayHandle = (form: Pick<FormDefinition, 'settings'>, user: { id: number }, builder: boolean) => builder || !form.settings?.handlers.length || form.settings.handlers.includes(user.id)
+/**
+ * A form with named handlers is open to them only; a form without (a contact form, say) is the managers' (owner,
+ * 2026-10-28). Managers — who build forms (cms.pages) or hold every right — open every form.
+ */
+export const mayHandle = (form: Pick<FormDefinition, 'settings'>, user: { id: number }, builder: boolean) => builder || !!form.settings?.handlers.includes(user.id)
 
 export async function assertMayHandleForm(formId: number, user: { id: number }, builder: boolean) {
   if (builder) return
@@ -154,11 +158,23 @@ export async function assertMayHandleForm(formId: number, user: { id: number }, 
   if (!form || !mayHandle(parseForm(form), user, false)) throw new FormsError('این فرم به شما سپرده نشده است', 403)
 }
 
+/**
+ * One answer: a handler of its form may open it while nobody holds it or they do. Once a colleague has taken it, its
+ * answers are theirs alone (owner, 2026-10-28: privacy) — only a manager still opens it.
+ */
 export async function assertMayHandleSubmission(submissionId: number, user: { id: number }, builder: boolean) {
   if (builder) return
-  const row = await db.formSubmission.findUnique({ where: { id: submissionId }, select: { formId: true } })
+  const row = await db.formSubmission.findUnique({ where: { id: submissionId }, select: { formId: true, assigneeId: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
   await assertMayHandleForm(row.formId, user, false)
+  if (row.assigneeId && row.assigneeId !== user.id) throw new FormsError('این درخواست را همکار دیگری برداشته است', 403)
+}
+
+/** Who hears about a form's new work: its named handlers who can open answers, or else the managers. */
+export async function formRecipients(handlers: number[]) {
+  const staff = await formStaff()
+  const named = staff.filter((member) => handlers.includes(member.id))
+  return (handlers.length ? named : staff.filter((member) => member.manager)).map((member) => member.id)
 }
 
 /**

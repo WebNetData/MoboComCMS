@@ -117,7 +117,7 @@ export async function readUpload(id: string) {
   if (!/^[0-9a-f-]{36}\.(png|jpg|webp|pdf)$/.test(id)) return null
   const row = await db.formUpload.findUnique({ where: { id } })
   if (!row) return null
-  try { return { formId: row.formId, bytes: await readFile(join(formsDirectory(), id)), type: row.mimeType, name: row.originalName } } catch { return null }
+  try { return { formId: row.formId, submissionId: row.submissionId, bytes: await readFile(join(formsDirectory(), id)), type: row.mimeType, name: row.originalName } } catch { return null }
 }
 
 /** Uploads nobody claimed within a day are removed (called by the scheduler). */
@@ -204,8 +204,8 @@ async function notify(form: FormDefinition, submissionId: number, answers: Store
   const settings = form.settings!
   const lines = answers.map((a) => `${a.label}: ${Array.isArray(a.value) ? (a.type === 'file' ? `${a.value.length} فایل` : a.value.join('، ')) : typeof a.value === 'boolean' ? (a.value ? 'بله' : 'خیر') : a.value || '—'}`)
   if (settings.notifyInbox) {
-    const handlers = settings.handlers
-    const admins = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE', ...(handlers.length ? { id: { in: handlers } } : {}) }, select: { id: true }, take: 50 })
+    // Its named handlers, or else the managers; never every account of the admin area.
+    const admins = (await (await import('@/modules/forms/server/advanced')).formRecipients(settings.handlers)).slice(0, 50).map((id) => ({ id }))
     await Promise.all(admins.map((admin) => createInboxEvent({
       userId: admin.id, kind: 'FORM', dedupeKey: `form:${submissionId}:${admin.id}`, titleFa: `پاسخ تازه در «${form.title}»`, titleEn: 'New form submission',
       bodyFa: lines.slice(0, 3).join(' · ').slice(0, 300), bodyEn: '', href: `/admin/forms?form=${form.id}&tab=inbox`,
@@ -237,10 +237,13 @@ export async function quoteForm(slug: string, input: unknown) {
 
 // ------------------------------------------------------------------ inbox
 
-export interface SubmissionQuery { formId: number; /** The work queue across several forms (then `formId` is ignored). */ formIds?: number[]; mine?: number; unassigned?: boolean; status?: string; stage?: string; q?: string; page?: number; from?: string; to?: string }
+export interface SubmissionQuery { formId: number; /** The work queue across several forms (then `formId` is ignored). */ formIds?: number[]; /** A handler (not a manager): what colleagues have taken is left out. */ viewer?: number; mine?: number; unassigned?: boolean; status?: string; stage?: string; q?: string; page?: number; from?: string; to?: string }
 
+/** What a handler may see: the answers nobody holds and their own (owner, 2026-10-28: a taken answer is private). */
+const visible = (query: Pick<SubmissionQuery, 'viewer'>) => (query.viewer ? { OR: [{ assigneeId: null }, { assigneeId: query.viewer }] } : {})
 const where = (query: SubmissionQuery) => ({
   formId: query.formIds ? { in: query.formIds } : query.formId,
+  ...visible(query),
   ...(query.mine ? { assigneeId: query.mine } : query.unassigned ? { assigneeId: null, stage: { in: ['OPEN', 'IN_PROGRESS'] } } : {}),
   ...(query.status === 'ALL' || !query.status ? { status: { not: 'SPAM' } } : STATUSES.includes(query.status as SubmissionStatus) ? { status: query.status } : {}),
   ...(query.q ? { data: { contains: query.q.slice(0, 100) } } : {}),
@@ -267,11 +270,11 @@ export async function listSubmissions(query: SubmissionQuery) {
   const [rows, total, groups] = await Promise.all([
     db.formSubmission.findMany({ where: where(query), orderBy: { createdAt: 'desc' }, skip: (page - 1) * PAGE, take: PAGE, include: { form: { select: { title: true } }, uploads: { select: { id: true, originalName: true, size: true } } } }),
     db.formSubmission.count({ where: where(query) }),
-    db.formSubmission.groupBy({ by: ['status'], where: { formId: query.formIds ? { in: query.formIds } : query.formId }, _count: { _all: true } }),
+    db.formSubmission.groupBy({ by: ['status'], where: { formId: query.formIds ? { in: query.formIds } : query.formId, ...visible(query) }, _count: { _all: true } }),
   ])
   const users = await userNames(rows.flatMap((r) => [r.userId, r.assigneeId]))
   // How much work waits, by stage, for the tiles above the list.
-  const stages = await db.formSubmission.groupBy({ by: ['stage', 'payStatus'], where: { formId: query.formIds ? { in: query.formIds } : query.formId, status: { not: 'SPAM' } }, _count: { _all: true } })
+  const stages = await db.formSubmission.groupBy({ by: ['stage', 'payStatus'], where: { formId: query.formIds ? { in: query.formIds } : query.formId, status: { not: 'SPAM' }, ...visible(query) }, _count: { _all: true } })
   const work = { OPEN: 0, IN_PROGRESS: 0, DONE: 0, REJECTED: 0, UNPAID: 0 } as Record<string, number>
   for (const group of stages) { if (group.payStatus === 'UNPAID') work.UNPAID += group._count._all; else if (group.stage in work) work[group.stage] += group._count._all }
   return { work, rows: rows.map((r) => view(r, users)), total, page, pages: Math.max(1, Math.ceil(total / PAGE)), counts: Object.fromEntries(groups.map((g) => [g.status, g._count._all])) as Record<string, number> }
