@@ -80,8 +80,10 @@ export interface FormSettings {
   /** This form is a service the site sells or performs (it is listed under Services in the admin). */
   service: boolean
 }
-export const THEMES = ['classic', 'card', 'glass', 'minimal', 'bold'] as const
-export const THEME_LABEL: Record<(typeof THEMES)[number], string> = { classic: 'کلاسیک', card: 'کارتی', glass: 'شیشه‌ای', minimal: 'مینیمال', bold: 'پررنگ' }
+// The last four are designed looks (owner, 2026-10-28): a colour panel beside the fields, a colour heading band,
+// always dark, and a spacious one with a gold rule.
+export const THEMES = ['classic', 'card', 'glass', 'minimal', 'bold', 'split', 'aurora', 'night', 'elegant'] as const
+export const THEME_LABEL: Record<(typeof THEMES)[number], string> = { classic: 'کلاسیک', card: 'کارتی', glass: 'شیشه‌ای', minimal: 'مینیمال', bold: 'پررنگ', split: 'دوستونه', aurora: 'شفق', night: 'شب', elegant: 'لوکس' }
 export interface FormStyle { layout: 'classic' | 'conversational'; theme: (typeof THEMES)[number]; accent: string; radius: 'sharp' | 'soft' | 'round'; density: 'comfortable' | 'compact'; width: 'narrow' | 'normal' | 'wide'; progress: 'steps' | 'bar' | 'dots' }
 export const DEFAULT_STYLE: FormStyle = { layout: 'classic', theme: 'card', accent: '', radius: 'soft', density: 'comfortable', width: 'normal', progress: 'steps' }
 const oneOf = <T extends string>(value: unknown, list: readonly T[], fallback: T): T => (list.includes(value as T) ? value as T : fallback)
