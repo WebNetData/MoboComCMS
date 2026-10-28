@@ -2,21 +2,36 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { restoreValues, type Snapshot } from '@/modules/content/domain/revisions'
 import { RevisionError, type RestoreCommit } from '@/modules/content/server/revisions'
+import { pageLayoutSnapshot, readPageLayout, savePageLayout, validatePageLayout } from '@/modules/site/server/page-layout'
+import { isDeepStrictEqual } from 'node:util'
 
-export async function pageRevisionState(id: number) {
-  return db.page.findUnique({ where: { id } })
+export async function pageRevisionState(id: number, tx: Prisma.TransactionClient = db) {
+  const row = await tx.page.findUnique({ where: { id } })
+  return row ? pageLayoutSnapshot(row, (await readPageLayout(id, tx)).layout) : null
 }
 
 export async function restorePageRevision(id: number, snapshot: Snapshot, commit: RestoreCommit) {
   return db.$transaction(async tx => {
-    const before = await tx.page.findUnique({ where: { id } })
+    const before = await pageRevisionState(id, tx)
     if (!before) throw new RevisionError('این صفحه پیدا نشد', 404)
     const data = restoreValues(snapshot, before)
+    const raw = data.__relations
+    delete data.__relations
+    let layout: ReturnType<typeof validatePageLayout> | undefined
+    if (raw !== undefined) {
+      try {
+        const relation = JSON.parse(String(raw))
+        if (relation.version !== 1 || !relation.pageLayout || typeof relation.pageLayout !== 'object' || Array.isArray(relation.pageLayout)) throw Error('invalid layout')
+        layout = validatePageLayout(relation.pageLayout)
+        if (!isDeepStrictEqual(layout, relation.pageLayout)) throw Error('incomplete layout')
+      } catch { throw new RevisionError('تنظیمات صفحه در این نسخه معتبر نیست؛ چیزی تغییر نکرد.', 422) }
+    }
     const { restoredDocumentFields } = await import('@/modules/editor/server/documents')
     Object.assign(data, restoredDocumentFields(before, data))
-    const changed = await tx.page.updateMany({ where: { id, updatedAt: before.updatedAt }, data })
+    const changed = await tx.page.updateMany({ where: { id, updatedAt: before.updatedAt }, data: { ...data, updatedAt: new Date(Math.max(Date.now(), before.updatedAt.getTime() + 1)) } })
     if (!changed.count) throw new RevisionError('صفحه هم‌زمان تغییر کرده است', 409)
-    const after = await tx.page.findUniqueOrThrow({ where: { id } })
+    if (layout) await savePageLayout(id, layout, tx)
+    const after = (await pageRevisionState(id, tx))!
     await commit(tx, before, after)
     return { before, after }
   }, { isolationLevel: 'Serializable', timeout: 30_000 })

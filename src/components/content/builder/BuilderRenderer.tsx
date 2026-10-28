@@ -23,6 +23,7 @@ import { TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import Slider from '@/components/site/Slider'
 import { plainText } from '@/shared/text/plain'
+import { builderMediaModule as mediaModule, builderWidgetModule } from '@/modules/site/domain/builder-content'
 import { advancedCss, styleClass, type AdvancedStyle } from '@/modules/site/domain/builder-style'
 import Icon from '@/components/site/Icon'
 import { BuilderCountdown, BuilderCounter, BuilderTabs } from '@/components/content/builder/BuilderInteractive'
@@ -162,13 +163,11 @@ const radiusOf = (widget: BuilderWidget): CSSProperties | undefined =>
   widget.style.radius ? { borderRadius: `${widget.style.radius}px` } : undefined
 
 /** Which feature module a block belongs to. */
-const WIDGET_MODULE: Partial<Record<string, string>> = { plans: 'vpn', network: 'vpn', posts: 'journal', products: 'store', 'vip-cta': 'membership' }
 const mediaKey = (widget: BuilderWidget) => `${widget.props.source || 'music-new'}:${Number(widget.props.limit) || 6}`
-const mediaModule = (source: string) => (source.startsWith('cinema-') ? 'cinema' : source.startsWith('games-') ? 'games' : 'music')
 
 function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
   const { locale, landing } = ctx
-  const owner = widget.type === 'media' ? mediaModule(widget.props.source || '') : WIDGET_MODULE[widget.type]
+  const owner = builderWidgetModule(widget)
   if (owner && ctx.modules[owner] === false) {
     return ctx.preview ? frame(widget, ctx, <div className="br-img-ph br-video-ph">{locale === 'fa' ? 'ماژول این بلوک غیرفعال است' : 'This block\'s module is turned off'}</div>) : null
   }

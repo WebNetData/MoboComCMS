@@ -247,6 +247,8 @@ A generic Article may be CMS/Publishing. A Movie is Cinema, not a generic custom
 
 Pages and magazine articles use the canonical editor document and revision services. A legacy conversion stays a preview through edits until its explicit first save; omitted parts must be disclosed before acceptance, and autosave resumes only after success. Direction precedence belongs to the editor domain (`resolveTextDirection`), shared by the editing view and public renderer: paragraph choice → block choice → first Unicode letter → page default. See [editor architecture](../editor/ARCHITECTURE.md) for the storage contract and regression checks.
 
+CMS Pages default to drafts; explicit publication stays in the existing Pages review flow. Page writes and restores claim the Page timestamp and atomically retain known typed layout settings in existing ContentRevision metadata; legacy snapshots preserve current layout and builder-document history stays independent. Public descriptions compose live builder and canonical body text through the existing SEO owner. [Contracts, executed evidence and continuation](handoffs/PAGE_LIFECYCLE.md).
+
 ## 8. CRM architecture
 
 ```text

@@ -124,6 +124,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   }
   const filtered = Object.values(filterValues || {}).some(Boolean)
   const initialDateValues = useRef<Record<string, string>>({})
+  const pageVersion = useRef<string | undefined>(undefined)
   const [rows, setRows] = useState<any[]>([])
   const [form, setForm] = useState<Record<string, any>>({})
   const [editId, setEditId] = useState<number | null>(null)
@@ -194,6 +195,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   }, [type, overall])
 
   function emptyForm() {
+    pageVersion.current = undefined
     const f: Record<string, any> = {}
     for (const fl of fields) f[fl.key] = fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : fl.type === 'select' ? (fl.formOptions || fl.options)?.[0]?.value || '' : ''
     for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' || key === 'bundles' ? [] : {}
@@ -204,6 +206,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   }
 
   function edit(row: any) {
+    if (type === 'pages') pageVersion.current = row.updatedAt
     const f: Record<string, any> = {}
     for (const fl of fields) f[fl.key] = fl.type === 'datetime-local' ? localDateTime(row[fl.key]) : row[fl.key] ?? (fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : '')
     initialDateValues.current = Object.fromEntries(fields.filter((fl) => fl.type === 'datetime-local').map((fl) => [fl.key, f[fl.key]]))
@@ -282,6 +285,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   async function persist() {
     if (uploading || saving) return
     const payload = { ...form }
+    if (type === 'pages' && editId && pageVersion.current) payload.expectedUpdatedAt = pageVersion.current
     // The body is the block editor's: a new item starts empty, and this form does not send a body it did not edit.
     if (blockDriven) { if (!editId) payload.content = ''; else if (!legacyBody) delete payload.content }
     if (blocksLocked && editId && editFormat === 'blocks-v1') delete payload.content

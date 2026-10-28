@@ -48,6 +48,11 @@ function relationSummary(raw: Snapshot[string] | undefined): string {
     if (value.seasons) parts.push(value.seasons.map((season: { number: number; episodes: unknown[] }) => `فصل ${count(season.number)}: ${count(season.episodes.length)} قسمت`).join('، ') || 'بدون فصل')
     if (value.terms || value.categoryIds) parts.push(`${count((value.terms?.ids || value.categoryIds).length)} دسته‌بندی`)
     if (value.relationships) parts.push(`${count(value.relationships.length)} ارتباط با محصول دیگر`)
+    if (value.pageLayout) {
+      const layout = value.pageLayout, templates: Record<string, string> = { none: 'ساده', about: 'درباره ما', contact: 'تماس', legal: 'سند حقوقی' }
+      const widths: Record<string, string> = { full: 'تمام‌عرض', reading: 'مطالعه', sidebar: 'ستون کناری' }
+      parts.push(`قالب: ${templates[layout.companyPanel] || layout.companyPanel}`, `چیدمان: ${widths[layout.pageLayout] || layout.pageLayout}`, layout.pageTitle === 'hide' ? 'عنوان پنهان' : 'عنوان نمایان', layout.pageFrame === 'card' ? 'داخل کارت' : 'بدون کادر', layout.cover ? 'دارای کاور' : 'بدون کاور', layout.formSlug ? `فرم: ${layout.formSlug}` : 'بدون فرم')
+    }
     return parts.join(' · ') || 'بدون روابط'
   } catch { return 'روابط این نسخه قابل خواندن نیست' }
 }

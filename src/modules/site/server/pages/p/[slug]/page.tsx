@@ -2,9 +2,10 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { db } from '@/platform/database/prisma'
+import { pageDescription } from '@/modules/site/server/page-description'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
-import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
+import { cleanRichText } from '@/shared/content/sanitize'
 import { breadcrumbJsonLd, pageMeta, siteBase } from '@/modules/site/server/seo'
 import TitleCover from '@/components/content/TitleCover'
 import ArticleToc from '@/components/ArticleToc'
@@ -38,11 +39,10 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
   const locale = await getServerLocale()
   const isFa = locale === 'fa'
   const title = isFa ? page.title : page.titleEn || page.title
-  const body = isFa ? page.content : page.contentEn || page.content
   const layout = await getPageLayout(page.id)
   return pageMeta({
     title,
-    description: richTextToPlain(body, 160),
+    description: await pageDescription(page, locale, layout.companyPanel),
     path: `/p/${page.slug}`,
     locale,
     image: layout.cover || undefined,

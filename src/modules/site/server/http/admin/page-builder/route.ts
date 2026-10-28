@@ -18,7 +18,7 @@ function readPageId(value: unknown): string | null {
   return BUILDER_PAGE_ID.test(id) ? id : null
 }
 
-async function locate(pageId: string): Promise<{ title: string; titleEn: string; path: string }> {
+async function locate(pageId: string): Promise<{ title: string; titleEn: string; path: string; status?: string }> {
   if (templateTypeOf(pageId)) {
     const meta = await getThemeTemplate(pageId)
     if (!meta) return { title: pageId, titleEn: pageId, path: '' }
@@ -39,8 +39,8 @@ async function locate(pageId: string): Promise<{ title: string; titleEn: string;
     return row ? { title: row.name, titleEn: row.nameEn || row.name, path: `/products/${row.slug}` } : { title: pageId, titleEn: pageId, path: '/products' }
   }
   if (!/^\d+$/.test(pageId)) return { title: pageId, titleEn: pageId, path: '/' }
-  const page = await db.page.findUnique({ where: { id: Number(pageId) }, select: { title: true, titleEn: true, slug: true } })
-  return page ? { title: page.title, titleEn: page.titleEn || page.title, path: `/p/${page.slug}` } : { title: pageId, titleEn: pageId, path: '/' }
+  const page = await db.page.findUnique({ where: { id: Number(pageId) }, select: { title: true, titleEn: true, slug: true, status: true } })
+  return page ? { title: page.title, titleEn: page.titleEn || page.title, path: `/p/${page.slug}`, status: page.status } : { title: pageId, titleEn: pageId, path: '/' }
 }
 
 export async function GET(req: NextRequest) {

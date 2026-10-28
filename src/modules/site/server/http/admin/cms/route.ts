@@ -9,7 +9,8 @@ import { tellTrashDecision } from '@/modules/content/server/trash-notice'
 import { completeTrashCase, reopenTrashCase } from '@/modules/moderation/server/cases'
 import type { Permission } from '@/modules/identity/rbac'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
-import { getPageLayout, validatePageLayout } from '@/modules/site/server/page-layout'
+import { getPageLayout } from '@/modules/site/server/page-layout'
+import { createPage, updatePage } from '@/modules/site/server/page-commands'
 import { legacyNumber, minorToDecimal } from '@/shared/money'
 import { validateCover } from '@/shared/content/cover'
 import { validateCategoryParent, validateCategorySelection } from '@/modules/site/server/categories'
@@ -25,7 +26,7 @@ import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
 import { buildCategoryTemplate } from '@/modules/catalog/server/category-template'
 import { ProductCategoryError, replaceExtraCategories, validateExtraCategories } from '@/modules/catalog/server/product-categories'
-import { recordRevision } from '@/modules/content/server/revisions'
+import { recordRevision, RevisionError } from '@/modules/content/server/revisions'
 import { postRevisionState } from '@/modules/site/server/revision-state'
 import { productRevisionState } from '@/modules/catalog/server/revision-state'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
@@ -221,12 +222,8 @@ export async function POST(req: NextRequest) {
       return ok(result)
     }
     if (type === 'pages') {
-      const layout = validatePageLayout(b || {})
-      const row = await db.$transaction(async tx => {
-        const page = await tx.page.create({ data: sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'content', 'contentEn', 'status', 'showInNav', 'sortOrder'])) as any })
-        await tx.setting.create({ data: { key: `page.layout.${page.id}`, value: JSON.stringify(layout) } })
-        return page
-      })
+      const row = await createPage(b || {}, sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'content', 'contentEn', 'status', 'showInNav', 'sortOrder'])), admin,
+        async (tx, _before, after) => { await auditAdminStrict({ req, actor: admin, action: 'cms.pages.create', targetType: 'pages', targetId: Number(after.id) }, tx) })
       return ok(row)
     }
     if (type === 'posts') {
@@ -300,6 +297,7 @@ export async function POST(req: NextRequest) {
     return err('unknown type', 404)
   } catch (e: any) {
     if (e instanceof CategoryKindError || e instanceof PostReviewError || e instanceof ProductCategoryError) return err(e.message, e.status)
+    if (e instanceof RevisionError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'create failed', 400)
   }
 }
@@ -469,20 +467,15 @@ export async function PATCH(req: NextRequest) {
       return tx.postCategory.update({ where: { id }, data })
     }, { isolationLevel: 'Serializable' }))
     if (type === 'pages') {
-      const layout = validatePageLayout({ ...await getPageLayout(id), ...b })
-      const pageBefore = await db.page.findUnique({ where: { id } })
-      const row = await db.$transaction(async tx => {
-        const page = await tx.page.update({ where: { id }, data })
-        await tx.setting.upsert({ where: { key: `page.layout.${id}` }, create: { key: `page.layout.${id}`, value: JSON.stringify(layout) }, update: { value: JSON.stringify(layout) } })
-        return page
-      })
-      await recordRevision({ entityType: 'pages', entityId: id, before: pageBefore, after: row, actor: admin })
+      const row = await updatePage(id, b || {}, data, admin,
+        async tx => { await auditAdminStrict({ req, actor: admin, action: 'cms.pages.update', targetType: 'pages', targetId: id }, tx) })
       return ok(row)
     }
     const row = await model.update({ where: { id }, data })
     return ok(row)
   } catch (e: any) {
     if (e instanceof CategoryKindError || e instanceof ProductCategoryError) return err(e.message, e.status)
+    if (e instanceof RevisionError) return err(e.message, e.status)
     if (e instanceof PostReviewError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'update failed', 400)
   }
@@ -588,15 +581,16 @@ export async function BULK(req: NextRequest) {
         }
       }
     } else {
-      const rows = await db.page.findMany({ where: { id: { in: ids } }, select: { id: true, slug: true } })
+      const rows = await db.page.findMany({ where: { id: { in: ids } }, select: { id: true, slug: true, updatedAt: true } })
       const known = new Set(rows.map((row) => row.id))
       for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
-      if (rows.length) {
-        await db.page.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { status } })
-        for (const row of rows) {
+      for (const row of rows) {
+        try {
+          await updatePage(row.id, { expectedUpdatedAt: row.updatedAt.toISOString() }, { status }, admin,
+            async tx => { await auditAdminStrict({ req, actor: admin, action: `cms.pages.bulk.${action}`, targetType: 'pages', targetId: row.id }, tx) })
           succeeded.push(row.id)
           if (action === 'publish') { const path = publicPathFor(type, { ...row, status }); if (path) paths.push(path) }
-        }
+        } catch (error) { failed.push({ id: row.id, reason: error instanceof Error ? error.message : 'تغییر وضعیت انجام نشد' }) }
       }
     }
   } else {

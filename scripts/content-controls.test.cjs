@@ -735,6 +735,15 @@ test('page layout round-trips the cover, preserves layout, and supports clearing
   assert.equal(validatePageLayout({ ...result, cover: '' }).cover, '')
 })
 
+test('page layout mutation reads reject corrupt data; snapshots include known presentation only', async () => {
+  let value=JSON.stringify({companyPanel:'contact',cover:'/images/network-earth.webp',formSlug:'contact',futureSetting:'keep',providerSecret:'never version this'})
+  const {readPageLayout,getPageLayout,pageLayoutSnapshot}=load('src/modules/site/server/page-layout.ts',{'@/platform/database/prisma':{db:{setting:{findUnique:async()=>({value})}}}})
+  const state=await readPageLayout(1),snapshot=pageLayoutSnapshot({id:1,title:'Page'},state.layout)
+  assert.equal(state.raw.futureSetting,'keep');assert.equal(JSON.parse(snapshot.__relations).pageLayout.companyPanel,'contact');assert.doesNotMatch(snapshot.__relations,/futureSetting|providerSecret|never version/)
+  value='{invalid';await assert.rejects(readPageLayout(1));assert.equal((await getPageLayout(1)).companyPanel,'none')
+  value=JSON.stringify({companyPanel:'unsupported'});await assert.rejects(readPageLayout(1),/معتبر/)
+})
+
 test('storefront is opt-in and public filtering does not erase editable menus', async () => {
   let enabled = false
   const { defaultSite } = load('src/modules/site/config/defaults.ts')

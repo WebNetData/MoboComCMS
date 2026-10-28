@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
 import { validateCover } from '@/shared/content/cover'
 /** `companyPanel` is the page's design template («قالب طراحی صفحه»): none, about, contact or legal (owner, 2026-10-28). */
 export const pageLayoutDefaults = { pageLayout: 'full', pageTitle: 'show', pageFrame: 'plain', formSlug: '', cover: '', companyPanel: 'none' }
@@ -17,7 +18,27 @@ export function validatePageLayout(input: Record<string, unknown>) {
   }
   return result
 }
+export type PageLayout = ReturnType<typeof validatePageLayout>
+type Reader = Pick<Prisma.TransactionClient, 'setting'>
+
+/** Strict mutation reads preserve corrupt/unknown settings instead of replacing them with render defaults. */
+export async function readPageLayout(id: number, reader: Reader = db) {
+  const stored = await reader.setting.findUnique({ where: { key: `page.layout.${id}` } })
+  const raw: unknown = stored ? JSON.parse(stored.value) : {}
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Error('تنظیمات ذخیره‌شدهٔ صفحه معتبر نیست')
+  return { raw: raw as Record<string, unknown>, layout: validatePageLayout(raw as Record<string, unknown>) }
+}
+
+export async function savePageLayout(id: number, layout: PageLayout, tx: Prisma.TransactionClient) {
+  const { raw } = await readPageLayout(id, tx)
+  const value = JSON.stringify({ ...raw, ...layout })
+  await tx.setting.upsert({ where: { key: `page.layout.${id}` }, create: { key: `page.layout.${id}`, value }, update: { value } })
+}
+
+export function pageLayoutSnapshot<T extends Record<string, unknown>>(row: T, layout: PageLayout) {
+  return { ...row, __relations: JSON.stringify({ version: 1, pageLayout: layout }) }
+}
+
 export async function getPageLayout(id: number) {
-  const stored = await db.setting.findUnique({ where: { key: `page.layout.${id}` } })
-  try { return validatePageLayout(stored ? JSON.parse(stored.value) : {}) } catch { return { ...pageLayoutDefaults } }
+  try { return (await readPageLayout(id)).layout } catch { return { ...pageLayoutDefaults } }
 }
