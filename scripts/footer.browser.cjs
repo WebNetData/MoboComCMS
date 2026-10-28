@@ -20,7 +20,7 @@ async function main() {
       }
       await footer.scrollIntoViewIfNeeded()
       // Component-only capture hides unrelated floating chrome for the image; real hit tests below keep it visible.
-      await footer.screenshot({ path: path.join(output, `after-${theme}-${width}.png`), style: 'header,.mc-translate,.support-dock,.lc-root,nextjs-portal{visibility:hidden!important}' })
+      await footer.screenshot({ path: path.join(output, `after-${theme}-${width}.png`), style: 'header,.mc-translate,.lc-root,nextjs-portal{visibility:hidden!important}' })
       if (process.env.E2E_AXE_PATH) {
         await page.evaluate(fs.readFileSync(process.env.E2E_AXE_PATH, 'utf8'))
         const violations = await page.evaluate(async () => (await window.axe.run(document.querySelector('[data-testid=site-footer]'), { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) })))

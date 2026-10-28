@@ -24,7 +24,7 @@ async function clearOfWidgets(page: Page) {
     if (getComputedStyle(chip).visibility !== 'visible' || chip instanceof HTMLElement && chip.inert) return false
     const a = chip.getBoundingClientRect()
     if (a.top < 15 || a.bottom > innerHeight || a.left < 0 || a.right > innerWidth) return false
-    const nodes = document.querySelectorAll('.lc-root, .lc-panel, .mc-translate, .support-dock, .cmp-tray, .mu-player, .mu-queue')
+    const nodes = document.querySelectorAll('.lc-root, .lc-panel, .mc-translate, .cmp-tray, .mu-player, .mu-queue')
     return [...nodes].every(node => {
       if (getComputedStyle(node).visibility === 'hidden') return true
       const b = node.getBoundingClientRect()

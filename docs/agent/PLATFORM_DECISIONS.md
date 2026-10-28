@@ -586,6 +586,20 @@ Following 6Z-2, the values sections had fixed in code are the owner's managed li
   - `scripts/journal-picker.test.cjs`: the preview article.
   - `.mobocom/claude-tools/pw-post-styles.cjs`, 44 real-browser checks.
 
+## 6Z-5. Floating controls and a translated page's direction (owner, 2026-10-28)
+
+"Remove the «کنارت هستیم» button at the bottom of the page entirely, move the Language button to the left, and when a visitor switches to a left-to-right language the whole site, its styles and its writing become left to right." What was decided:
+- **The support shortcut plugin (`support-dock`) is deleted**, not merely switched off. It is gone from the code, the generated registries, the site defaults and every selector that made room for it. Support stays reachable from the footer and the user panel. The footer now reserves only the language button's landing space, and more where the live chat stacks above it.
+- **The language button sits at the line's end** (`inset-inline-end`). That is the left of the Persian page, and the right of a page translated left to right. It therefore never meets the live chat or a panel's side menu, which sit at the line's start.
+- **A translated page takes the translation's direction from the server.**
+  - The root layout reads the widget's own `googtrans` cookie (only while `google-translate` is on) through `src/i18n/translation.ts`. A left-to-right target renders `<html dir="ltr" data-translated="ltr">`; Arabic, Urdu, Pashto and the like stay right to left.
+  - `LocaleSetter` keeps that direction.
+  - While the page is translated left to right, anything that names its own right-to-left direction reads left to right too (`studio.css`): article paragraphs, Persian-only widgets.
+  - The site language (`lang` cookie, the dictionaries) is unchanged; this is only the machine-translated view.
+- **Evidence:**
+  - `scripts/site.test.cjs`: cookie parsing, directions, the layout and CSS rules, and that the plugin is gone.
+  - `.mobocom/claude-tools/pw-translate-ltr.cjs`, 23 real-browser checks, with Google requests blocked.
+
 ## 7. Engineering rules learnt here
 
 - **Stack (owner, 2026-10-19): Next.js 16.4.2, React 19.3.1, TypeScript 7.0.2.** `src/middleware.ts` is now `src/proxy.ts` (export `proxy`; Next 16 always runs it on Node.js, so no `runtime` option). TypeScript 7 is the native compiler: `tsc` checks the whole project in seconds, but it has no JavaScript API. Test loaders that transpile TS therefore use the `typescript-api` alias (`npm:typescript@5.9.3`); do not `require('typescript')` in scripts. TS 7 dropped `baseUrl`; `paths` resolve from tsconfig. Next 16 dropped the `eslint` config key and builds with Turbopack by default.

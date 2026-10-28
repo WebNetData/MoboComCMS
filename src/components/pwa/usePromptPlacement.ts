@@ -4,7 +4,7 @@ import { useEffect, type RefObject } from 'react'
 
 // Existing owners keep their UI/settings. Only the optional invitation yields
 // space; measure rather than assume chat, queue or translated text heights.
-const OBSTACLES = '.lc-root, .lc-panel, .mc-translate, .support-dock, .cmp-tray, .mu-player, .mu-queue, .fx-dock'
+const OBSTACLES = '.lc-root, .lc-panel, .mc-translate, .cmp-tray, .mu-player, .mu-queue, .fx-dock'
 
 export function usePromptPlacement(ref: RefObject<HTMLDivElement | null>, kind: 'push' | 'install' | null) {
   useEffect(() => {
