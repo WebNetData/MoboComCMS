@@ -36,6 +36,12 @@ export async function getJournalSettings(fresh = false): Promise<JournalSettings
   return fresh ? settingsHistory().read() : normalizeJournalSettings(await readJsonSetting(SETTINGS_KEY))
 }
 
+/** The newest live article, to look at the page styles on (empty when the magazine has none). */
+export async function latestLivePostSlug(): Promise<string> {
+  const post = await db.post.findFirst({ where: livePostWhere(), orderBy: { publishedAt: 'desc' }, select: { slug: true } }).catch(() => null)
+  return post?.slug || ''
+}
+
 export async function saveJournalSettings(input: unknown, context?: SectionSettingsContext): Promise<JournalSettings> {
   return settingsHistory().save(input, context)
 }

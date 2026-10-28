@@ -4,6 +4,8 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
 import { getEntityTemplateId, setEntityTemplateId } from '@/modules/site/server/builder'
 import { layoutDocById, listLayoutOptions } from '@/modules/site/server/theme-templates'
+import { getJournalSettings } from '@/modules/journal/server/admin'
+import { isStyleId, resolvePostStyle } from '@/modules/journal/domain/post-styles'
 
 function readTarget(get: (key: string) => unknown): { entity: 'post' | 'product'; id: number } | null {
   for (const entity of ['post', 'product'] as const) {
@@ -22,6 +24,11 @@ const PERMISSION = { post: 'cms.posts', product: 'cms.products' } as const
  * display rules), otherwise a single template, a built-in layout or a saved post template.
  */
 export async function GET(req: NextRequest) {
+  // The choices alone, for an article not saved yet and the magazine's style settings.
+  if (req.nextUrl.searchParams.get('options') === 'post') {
+    if (!await requirePerm(req, PERMISSION.post)) return err('forbidden', 403)
+    return ok({ options: await listLayoutOptions('post') })
+  }
   const target = readTarget((key) => req.nextUrl.searchParams.get(key))
   if (!target) return err('Invalid entry')
   if (!await requirePerm(req, PERMISSION[target.entity])) return err('forbidden', 403)
@@ -43,7 +50,10 @@ export async function PUT(req: NextRequest) {
   const admin = await requirePerm(req, PERMISSION[target.entity])
   if (!admin) return err('forbidden', 403)
   const templateId = String(body?.templateId || '')
-  if (templateId && !await layoutDocById(target.entity, templateId)) return err('Template not found', 404)
+  const exists = target.entity === 'post' && isStyleId(templateId)
+    ? !!resolvePostStyle(templateId, (await getJournalSettings(true)).postStyle)
+    : !!await layoutDocById(target.entity, templateId)
+  if (templateId && !exists) return err('Template not found', 404)
   try {
     await setEntityTemplateId(target.entity, target.id, templateId)
   } catch (e) {

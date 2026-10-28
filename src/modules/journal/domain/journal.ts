@@ -1,6 +1,7 @@
 // Journal (مجله) rules: Liona home layout settings and article health. Pure.
 
 import { clampInt, normalizeIds, normalizeRails, parseSettingsInput } from '@/shared/section-layout'
+import { DEFAULT_POST_STYLE_SETTINGS, normalizePostStyleSettings, type PostStyleSettings } from '@/modules/journal/domain/post-styles'
 
 /** Keys match the sections of the Liona journal home. */
 export const JOURNAL_RAILS = {
@@ -31,6 +32,8 @@ export type JournalSettings = {
   autoApproveComments: boolean
   /** A magazine author's article goes live only after the section's manager approves it. */
   reviewAuthorPosts: boolean
+  /** How article pages look: the site's style, a style or layout per format, and the owner's own styles. */
+  postStyle: PostStyleSettings
 }
 
 export const DEFAULT_JOURNAL_SETTINGS: JournalSettings = {
@@ -41,6 +44,7 @@ export const DEFAULT_JOURNAL_SETTINGS: JournalSettings = {
   pageSize: 24,
   autoApproveComments: false,
   reviewAuthorPosts: false,
+  postStyle: DEFAULT_POST_STYLE_SETTINGS,
 }
 
 export function normalizeJournalSettings(input: unknown): JournalSettings {
@@ -53,6 +57,7 @@ export function normalizeJournalSettings(input: unknown): JournalSettings {
     pageSize: clampInt(raw.pageSize, 12, 48, DEFAULT_JOURNAL_SETTINGS.pageSize),
     autoApproveComments: raw.autoApproveComments === true,
     reviewAuthorPosts: raw.reviewAuthorPosts === true,
+    postStyle: normalizePostStyleSettings(raw.postStyle),
   }
 }
 
