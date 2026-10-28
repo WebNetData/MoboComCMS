@@ -1188,7 +1188,7 @@ div.bi-section-head { min-height: 68px; cursor: default; }
 
 /* The reply editor is docked along the bottom of the screen. The floating helpers that live there (translate
    prompt, support chat, staff bar) step aside while it is open, so nothing sits on its send button. */
-body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-dock) .support-dock, body:has(.fx-dock) .mgr-bar { display: none; }
+body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-dock) .mgr-bar { display: none; }
 
 /* ------------------------------------------------------------------
    The forum's team (ft-) and the rank shown beside a member (tp-rank).

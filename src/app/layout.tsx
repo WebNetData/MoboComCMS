@@ -60,7 +60,8 @@ import LocaleSetter from '@/i18n/LocaleSetter'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dirOf } from '@/i18n/config'
 import { deviceLocaleBootstrap } from '@/i18n/device-locale'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { translatedDirection } from '@/i18n/translation'
 import { isNonce } from '@/platform/http/csp'
 import { MAINTENANCE_SECTIONS, isMaintenanceSection } from '@/modules/site/domain/maintenance'
 import './maintenance/maintenance.css'
@@ -169,6 +170,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const site = { ...siteConfig, locales, footerYear: new Date().getUTCFullYear().toLocaleString(locale, { useGrouping: false }), navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
   // The site-wide music player keeps playing across page navigations while the music module is on.
   const musicOn = !pathDisabled('/music', extensions)
+  // While the page is translated into a left-to-right language (the translation plugin's own cookie), the whole site
+  // reads left to right: layout, styles and every article paragraph (studio.css, data-translated).
+  const translated = extensions['google-translate']?.enabled ? translatedDirection((await cookies()).get('googtrans')?.value) : null
   const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]
   const fonts = { ...defaultSiteFonts(locale), ...(site.fonts || {}) }
   const light = design.lightColors
@@ -188,7 +192,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (design.extends === 'orbital') Object.assign(tokens, { '--orbital-blue': design.colors.accent, '--hp-radius': `${design.radius}px`, ...(theme === 'dark' ? { '--orbital-bg': design.colors.background, '--orbital-surface': design.colors.surface, '--orbital-text': design.colors.text, '--orbital-muted': design.colors.muted, '--orbital-border': design.colors.border } : {}) })
 
   return (
-    <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} data-vip={pathDisabled('/vip', extensions) ? 'off' : undefined} style={tokens} suppressHydrationWarning>
+    <html lang={locale} dir={translated || dirOf(locale)} data-translated={translated || undefined} data-theme={theme} data-design={resolveCodeThemeId(site)} data-vip={pathDisabled('/vip', extensions) ? 'off' : undefined} style={tokens} suppressHydrationWarning>
       <head>
         {locales.length > 1 && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />}
         {packages?.css ? <style data-packages dangerouslySetInnerHTML={{ __html: packages.css }} /> : null}

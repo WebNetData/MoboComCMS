@@ -4,7 +4,6 @@ import { plugin as p2 } from '@/plugins/google-translate/client'
 import { plugin as p3 } from '@/plugins/livechat/client'
 import { plugin as p4 } from '@/plugins/operations-monitor/client'
 import { plugin as p5 } from '@/plugins/remnawave-control/client'
-import { plugin as p6 } from '@/plugins/support-dock/client'
 import type { PluginClientModule } from '@/plugins/types'
 export const clientPlugins: Readonly<Record<string, PluginClientModule>> = {
   'ads': p0,
@@ -12,6 +11,5 @@ export const clientPlugins: Readonly<Record<string, PluginClientModule>> = {
   'google-translate': p2,
   'livechat': p3,
   'operations-monitor': p4,
-  'remnawave-control': p5,
-  'support-dock': p6
+  'remnawave-control': p5
 }

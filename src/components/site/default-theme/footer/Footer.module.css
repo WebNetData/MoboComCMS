@@ -87,8 +87,9 @@
 .seals:global(.trust-seals) { margin-block: 0 28px; padding-block: 24px; border-block: 1px solid var(--ft-line); }
 .seals :global(.trust-seals-title) { color: var(--ft-text); }
 .bottom { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-block: 24px max(32px, env(safe-area-inset-bottom)); border-top: 1px solid var(--ft-line); }
-/* Leave a landing area for the owner's floating translation/support controls. */
-:global(body:has(.mc-translate, .support-dock, .lc-root)) .bottom { padding-block-end: calc(192px + env(safe-area-inset-bottom)); }
+/* Leave a landing area for the floating language button, and more where the live chat stacks above it on a phone. */
+:global(body:has(.mc-translate)) .bottom { padding-block-end: calc(84px + env(safe-area-inset-bottom)); }
+:global(body:has(.lc-root)) .bottom { padding-block-end: calc(150px + env(safe-area-inset-bottom)); }
 .legal { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; font-size: .73rem; line-height: 1.9; color: var(--ft-muted); }
 .legal > span:first-child { color: var(--ft-text); }
 .legal b { font-weight: 600; }
