@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import AdminCrud, { type FieldDef, type ListFilter } from '../cms/AdminCrud'
 import { JournalShell } from '../journal/shared'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
@@ -10,6 +10,7 @@ import AiWritingAssistant from './AiWritingAssistant'
 import PaidAccessPanel from '@/components/admin/PaidAccessPanel'
 import PostItemLinks from './PostItemLinks'
 import PostReviewPanel from './PostReviewPanel'
+import PostStylePanel from './PostStylePanel'
 import { PostProposalNotice, PostProposalPanel } from './PostProposalPanel'
 import { useSectionLists } from '../cms/useSectionLists'
 import type { VocabularyEntry } from '@/modules/vocabulary/domain/vocabulary'
@@ -79,6 +80,14 @@ export default function AdminPostsPage() {
   const [reviewing, setReviewing] = useState(false)
   const onListMeta = useCallback((meta: Record<string, unknown>) => { setMine(meta.mine === true); setReviewing(meta.reviewing === true) }, [])
   const authorReview = mine && reviewing
+  // A new article's page style, chosen before it has an id: saved right after the article is created.
+  const pendingStyle = useRef('')
+  const onSaved = useCallback(async (id: number, created: boolean) => {
+    if (!created || !pendingStyle.current) return
+    const templateId = pendingStyle.current
+    pendingStyle.current = ''
+    await fetch('/api/admin/builder/post-template', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: id, templateId }) })
+  }, [])
   const S = sectionsOf(locale)
   const formats = useSectionLists('journal', true).POST_FORMAT || []
   const categoryName = (id: string) => { const found = cats.find((category) => String(category.id) === id); return found ? (locale === 'fa' ? found.name : found.nameEn || found.name) : `#${id}` }
@@ -96,10 +105,12 @@ export default function AdminPostsPage() {
       thumbnailKey="cover"
       aside={[S.publish, S.cats, S.cover]}
       onListMeta={onListMeta}
+      onSaved={onSaved}
       submitLabel={(form, editId) => (authorReview && editId && form.status === 'PUBLISHED' ? say(locale)('ارسال پیشنهاد ویرایش', 'Send proposed edit') : null)}
       renderAsideExtra={(form, editId) => {
         if (mine) return authorReview && editId && form.status === 'PUBLISHED' ? <PostProposalNotice proposal={form.proposal} /> : null
         return <>
+          <PostStylePanel key={`style-${editId ?? 'new'}`} postId={editId} slug={form.slug} live={form.status === 'PUBLISHED'} onPending={(id) => { pendingStyle.current = id }} />
           {editId && form.status === 'PENDING' && <PostReviewPanel key={`review-${editId}`} id={editId} />}
           {editId && form.proposal?.changes && <PostProposalPanel key={`proposal-${editId}-${form.proposal.at}`} id={editId} proposal={form.proposal} live={form} categoryName={categoryName} />}
         </>

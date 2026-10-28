@@ -2,7 +2,7 @@ import { sectionSettingsRead, sectionSettingsWrite } from '@/modules/settings/se
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
-import { journalDashboard, getJournalSettings, saveJournalSettings, journalPickers, searchJournalPicker } from '@/modules/journal/server/admin'
+import { journalDashboard, getJournalSettings, saveJournalSettings, journalPickers, searchJournalPicker, latestLivePostSlug } from '@/modules/journal/server/admin'
 import { searchPostLinkItems, searchPostLinkProducts, parsePostLinkRefs } from '@/modules/journal/server/item-links'
 
 const journalAdmin = (req: NextRequest) => adminGuard(req, 'journal', ['cms.posts'])
@@ -20,8 +20,8 @@ export async function GET_settings(req: NextRequest) {
   if ('response' in g) return g.response
   return sectionSettingsRead(async () => {
     const settings = await getJournalSettings(true)
-    const picker = await journalPickers([...settings.heroIds, ...settings.editorIds])
-    return { settings, picker }
+    const [picker, previewSlug] = await Promise.all([journalPickers([...settings.heroIds, ...settings.editorIds]), latestLivePostSlug()])
+    return { settings, picker, previewSlug }
   })
 }
 

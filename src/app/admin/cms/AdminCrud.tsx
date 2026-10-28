@@ -62,6 +62,8 @@ interface Props {
   onListMeta?: (meta: Record<string, unknown>) => void
   /** Shown in the side column under the save button (a decision panel). */
   renderAsideExtra?: (form: Record<string, any>, editId: number | null) => React.ReactNode
+  /** After a successful save, before the form closes or a new item opens in the block editor: what the page keeps beside the row. */
+  onSaved?: (id: number, created: boolean) => Promise<void> | void
   /** What the save button says for this form when it is not a plain save (null: the usual words). */
   submitLabel?: (form: Record<string, any>, editId: number | null) => string | null
 }
@@ -85,7 +87,7 @@ function localDateTime(value: unknown): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey, aside, onListMeta, renderAsideExtra, submitLabel }: Props) {
+export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey, aside, onListMeta, renderAsideExtra, submitLabel, onSaved }: Props) {
   const vipOn = useModuleEnabled('membership')
   const fields = useMemo(() => (vipOn ? allFields : allFields.filter((field) => !VIP_FIELD_KEYS.includes(field.key))), [allFields, vipOn])
   const formId = useId()
@@ -310,6 +312,8 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       setMsg(data?.error || t.errGeneric)
       return
     }
+    const savedId = editId || Number(data?.id) || 0
+    if (onSaved && savedId > 0) await Promise.resolve(onSaved(savedId, !editId)).catch(() => undefined)
     // A new page or article goes straight to the block editor for its body.
     if (blockDriven && !editId && data?.id) { window.location.assign(`/admin/editor/${type}/${data.id}`); return }
     setNotice(typeof data?.notice === 'string' ? data.notice : '')

@@ -1,0 +1,158 @@
+/* ============================================================
+   Article page styles (owner, 2026-10-28).
+   A style dresses the plain article page (journal-design.css) through attributes on its <main>
+   (src/modules/journal/domain/post-styles.ts): data-post-style = the designed base; data-ps-align,
+   data-ps-width, data-ps-lead, data-ps-corners = the owner's choices; data-ps-accent with
+   --ps-accent-light / --ps-accent-dark / --ps-on-accent = their colour, already made readable for each theme.
+   With no attribute (classic) the page is exactly the magazine's usual one.
+   ============================================================ */
+
+/* ---------- the owner's colour */
+.journal-post.journal-post-solo[data-ps-accent] { --ln-accent: var(--ps-accent-dark); --accent-ink: var(--ps-accent-dark); --ps-fill: var(--ps-accent-light); }
+[data-theme="light"] .journal-post.journal-post-solo[data-ps-accent] { --ln-accent: var(--ps-accent-light); --accent-ink: var(--ps-accent-light); }
+.journal-post-solo[data-ps-accent] .jp-main .toc nav a.is-active::before,
+.journal-post-solo[data-ps-accent] .jp-review-score { color: var(--ps-on-accent); }
+
+/* ---------- alignment, reading width, opening paragraph, corners */
+.journal-post-solo[data-ps-align="center"] .jp-hero { justify-items: center; text-align: center; }
+.journal-post-solo[data-ps-align="center"] .jp-hero :is(.journal-post-cats, .journal-post-meta) { justify-content: center; }
+.journal-post-solo[data-ps-align="center"] .jp-hero :is(h1, .journal-post-lead) { margin-inline: auto; }
+.journal-post-solo[data-ps-align="center"] .jp-hero .jp-facts { margin-inline-end: 0; }
+.journal-post-solo[data-ps-width="narrow"] .jp-read { max-width: 880px; margin-inline: auto; }
+.journal-post-solo[data-ps-width="standard"] .jp-read { max-width: 1180px; margin-inline: auto; }
+.journal-post-solo[data-ps-lead] .journal-prose > p:first-of-type { position: relative; padding-inline-start: 20px; font-size: 1.16em; font-weight: 600; line-height: 2.15; }
+.journal-post-solo[data-ps-lead] .journal-prose > p:first-of-type::before { content: ''; position: absolute; inset-block: .45em; inset-inline-start: 0; width: 4px; border-radius: 4px; background: linear-gradient(var(--ln-accent), color-mix(in srgb, var(--ln-accent) 25%, transparent)); }
+.journal-post-solo[data-ps-corners="soft"] :is(.jp-hero, .journal-post-figure, .journal-post-figure img, .jp-main .toc, .journal-bio, .jp-format-review) { border-radius: 16px; }
+.journal-post-solo[data-ps-corners="sharp"] :is(.jp-hero, .journal-post-figure, .journal-post-figure img, .jp-main .toc, .journal-bio, .jp-format-review, .journal-post-meta) { border-radius: 4px; }
+
+/* An edge-to-edge band keeps square ends whatever the corners. */
+.journal-post.journal-post-solo:is([data-post-style="immersive"], [data-post-style="cinematic"]) .journal-post-head.jp-hero { border-radius: 0; }
+
+/* ---------- a header on the page's own surface (split, editorial): undo the hero's light-on-dark words */
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero { color: var(--text); box-shadow: none; }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero::after { content: none; }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero h1 { color: var(--text); text-shadow: none; }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .journal-post-lead { color: var(--muted); text-shadow: none; }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .journal-post-cats .ln-badge { border: 1px solid color-mix(in srgb, var(--ln-accent) 28%, transparent); background: color-mix(in srgb, var(--ln-accent) 10%, transparent); color: var(--accent-ink, var(--ln-accent)); backdrop-filter: none; }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .journal-post-meta { border-color: var(--ln-line); background: color-mix(in srgb, var(--card) 80%, transparent); color: var(--text); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .journal-avatar { box-shadow: 0 0 0 3px var(--card), 0 0 0 4px color-mix(in srgb, var(--ln-accent) 55%, transparent); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .journal-avatar-copy small { color: var(--muted); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .journal-avatar-copy strong { color: var(--text); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .jp-fact { background: var(--ln-soft); color: var(--muted); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .jp-fact svg { color: var(--accent-ink, var(--ln-accent)); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .ln-textsize { border-color: var(--ln-line); background: var(--ln-soft); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .ln-textsize span { color: var(--muted); }
+.journal-post-solo:is([data-post-style="split"], [data-post-style="editorial"]) .jp-hero .ln-textsize button { background: var(--card); color: var(--text); }
+
+/* ---------- 1. full-bleed cover: the picture from edge to edge, a large title resting on it */
+.journal-post-solo[data-post-style="immersive"] .jp-hero {
+  margin-inline: calc(50% - 50vw);
+  min-height: clamp(480px, 76vh, 820px);
+  padding-inline: calc(50vw - 50% + clamp(16px, 2.4vw, 40px));
+  padding-block: clamp(80px, 12vh, 140px) clamp(26px, 4vw, 48px);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.journal-post-solo[data-post-style="immersive"] .jp-hero::before { background: linear-gradient(to top, rgb(5 7 16 / .96) 0%, rgb(5 7 16 / .7) 34%, rgb(5 7 16 / .2) 70%, rgb(5 7 16 / .4) 100%), linear-gradient(to left, rgb(5 7 16 / .82), rgb(5 7 16 / .45) 48%, transparent 78%), radial-gradient(60% 50% at 80% 100%, color-mix(in srgb, var(--ln-accent) 36%, transparent), transparent 70%); }
+[dir="ltr"] .journal-post-solo[data-post-style="immersive"] .jp-hero::before { background: linear-gradient(to top, rgb(5 7 16 / .96) 0%, rgb(5 7 16 / .7) 34%, rgb(5 7 16 / .2) 70%, rgb(5 7 16 / .4) 100%), linear-gradient(to right, rgb(5 7 16 / .82), rgb(5 7 16 / .45) 48%, transparent 78%), radial-gradient(60% 50% at 20% 100%, color-mix(in srgb, var(--ln-accent) 36%, transparent), transparent 70%); }
+.journal-post-solo[data-post-style="immersive"] .jp-hero .jp-hero-bg { animation: ps-drift 22s ease-out both; }
+.journal-post.journal-post-solo[data-post-style="immersive"] .jp-hero h1 { max-width: 22ch; font-size: clamp(2.3rem, 5.8vw, 5rem); line-height: 1.28; font-weight: 900; }
+.journal-post-solo[data-post-style="immersive"] .jp-hero .journal-post-lead { max-width: 64ch; font-size: clamp(1.02rem, 1.5vw, 1.3rem); }
+.journal-post-solo[data-post-style="immersive"] .jp-hero .journal-post-meta { max-width: 1100px; }
+.journal-post-solo[data-post-style="immersive"][data-ps-align="center"] .jp-hero .journal-post-meta { margin-inline: auto; }
+.journal-post-solo[data-post-style="immersive"] .journal-crumb-pill { position: relative; z-index: 2; margin-block-end: 14px; }
+@keyframes ps-drift { from { transform: scale(1.08); } to { transform: scale(1); } }
+
+/* ---------- 2. split: title and lead on one side, a large cover on the other */
+.journal-post-solo[data-post-style="split"] .jp-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+  column-gap: clamp(24px, 4vw, 72px);
+  align-content: center;
+  align-items: center;
+  min-height: 0;
+  padding: clamp(18px, 2.6vw, 34px);
+  border: 1px solid var(--ln-line);
+  background:
+    radial-gradient(80% 90% at 100% 0%, color-mix(in srgb, var(--ln-accent) 14%, transparent), transparent 60%),
+    linear-gradient(160deg, var(--card), color-mix(in srgb, var(--card) 86%, var(--ln-accent)));
+}
+.journal-post-solo[data-post-style="split"] .jp-hero::before { inset: auto; inset-block-end: -30%; inset-inline-start: -10%; width: 50%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ln-accent) 18%, transparent), transparent); }
+.journal-post-solo[data-post-style="split"] .jp-hero > * { grid-column: 1; }
+.journal-post-solo[data-post-style="split"] .jp-hero > .jp-hero-bg { position: relative; inset: auto; z-index: 0; grid-column: 2; grid-row: 1 / span 5; height: 100%; min-height: clamp(300px, 32vw, 560px); border-radius: calc(34px - clamp(18px, 2.6vw, 34px) / 2); box-shadow: 0 34px 70px -34px color-mix(in srgb, var(--ln-accent) 50%, rgb(6 8 18 / .6)); }
+.journal-post.journal-post-solo[data-post-style="split"] .jp-hero h1 { max-width: 20ch; font-size: clamp(1.9rem, 3.6vw, 3.3rem); }
+.journal-post-solo[data-post-style="split"] .jp-hero .journal-post-meta { padding: 10px 12px; }
+
+/* ---------- 3. editorial: a centred typographic head, the cover wide beneath, a narrow column */
+.journal-post-solo[data-post-style="editorial"] .jp-hero { min-height: 0; padding: clamp(30px, 5vw, 80px) 0 6px; border: 0; border-radius: 0; background: none; }
+.journal-post-solo[data-post-style="editorial"] .jp-hero::before { content: none; }
+.journal-post-solo[data-post-style="editorial"] .jp-hero > .jp-hero-bg { display: none; }
+.journal-post-solo[data-post-style="editorial"] .jp-hero .journal-post-cats .ln-badge { border: 0; background: none; padding-inline: 0; font-size: 12.5px; letter-spacing: .08em; }
+.journal-post-solo[data-post-style="editorial"] .jp-hero .journal-post-cats { gap: 4px 18px; }
+.journal-post.journal-post-solo[data-post-style="editorial"] .jp-hero h1 { max-width: 19ch; font-size: clamp(2.2rem, 5.4vw, 4.6rem); font-weight: 900; line-height: 1.3; letter-spacing: -0.015em; }
+.journal-post-solo[data-post-style="editorial"] .jp-hero .journal-post-lead { max-width: 58ch; font-size: clamp(1.05rem, 1.6vw, 1.32rem); line-height: 2.1; }
+.journal-post-solo[data-post-style="editorial"] .jp-hero .journal-post-meta { border-inline: 0; border-radius: 0; background: none; backdrop-filter: none; padding-inline: 0; }
+.journal-post-solo[data-post-style="editorial"] .journal-post-figure { display: block; margin-block: 30px 6px; }
+.journal-post-solo[data-post-style="editorial"] .journal-post-figure img { max-height: 640px; }
+.journal-post-solo[data-post-style="editorial"] .journal-prose h2::before { background: var(--ln-accent); }
+
+/* ---------- 4. cinematic: a dark band with the cover blurred behind and a poster beside the title */
+.journal-post-solo[data-post-style="cinematic"] .jp-hero {
+  grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 380px);
+  column-gap: clamp(24px, 4.5vw, 80px);
+  align-content: center;
+  align-items: center;
+  margin-inline: calc(50% - 50vw);
+  min-height: 0;
+  padding-inline: calc(50vw - 50% + clamp(16px, 2.4vw, 40px));
+  padding-block: clamp(46px, 7vw, 110px);
+  border: 0;
+  border-radius: 0;
+  background: #06070d;
+  box-shadow: none;
+}
+.journal-post-solo[data-post-style="cinematic"] .jp-hero::before { inset: -40px; background: linear-gradient(90deg, rgb(6 7 13 / .7), rgb(6 7 13 / .92) 55%, rgb(6 7 13 / .97)), var(--jp-cover) center / cover no-repeat; filter: blur(30px) saturate(1.35); }
+[dir="ltr"] .journal-post-solo[data-post-style="cinematic"] .jp-hero::before { background: linear-gradient(270deg, rgb(6 7 13 / .7), rgb(6 7 13 / .92) 55%, rgb(6 7 13 / .97)), var(--jp-cover) center / cover no-repeat; }
+.journal-post-solo[data-post-style="cinematic"] .jp-hero::after { border-radius: 0; box-shadow: inset 0 -1px 0 rgb(255 255 255 / .08), inset 0 0 160px rgb(0 0 0 / .55); }
+.journal-post-solo[data-post-style="cinematic"] .jp-hero > * { grid-column: 1; }
+.journal-post-solo[data-post-style="cinematic"] .jp-hero > .jp-hero-bg { position: relative; inset: auto; z-index: 0; grid-column: 2; grid-row: 1 / span 5; height: auto; aspect-ratio: 4 / 5; border-radius: 18px; box-shadow: 0 0 0 1px rgb(255 255 255 / .12), 0 40px 80px -30px rgb(0 0 0 / .9), 0 0 120px -20px color-mix(in srgb, var(--ln-accent) 55%, transparent); }
+.journal-post.journal-post-solo[data-post-style="cinematic"] .jp-hero h1 { max-width: 22ch; font-size: clamp(2.1rem, 4.6vw, 4rem); }
+.journal-post-solo[data-post-style="cinematic"] .jp-hero .journal-post-cats .ln-badge { border-color: color-mix(in srgb, var(--ln-accent) 55%, transparent); background: color-mix(in srgb, var(--ln-accent) 22%, rgb(0 0 0 / .4)); }
+.journal-post-solo[data-post-style="cinematic"] .jp-format-review { border-color: color-mix(in srgb, var(--ln-accent) 35%, var(--ln-line)); box-shadow: 0 30px 70px -40px color-mix(in srgb, var(--ln-accent) 60%, transparent); }
+
+/* ---------- 5. spotlight: a colour card with a very large title; the cover rests over its lower edge */
+.journal-post-solo[data-post-style="spotlight"] .jp-hero {
+  min-height: 0;
+  padding: clamp(30px, 5.4vw, 84px) clamp(22px, 4.4vw, 72px) clamp(110px, 13vw, 210px);
+  border: 0;
+  border-radius: 40px;
+  background: linear-gradient(135deg, var(--ps-fill, color-mix(in srgb, var(--ln-accent) 54%, #0b1020)), color-mix(in srgb, var(--ps-fill, var(--ln-accent)) 30%, #0b1020));
+  box-shadow: 0 50px 100px -60px color-mix(in srgb, var(--ln-accent) 80%, transparent);
+}
+.journal-post-solo[data-post-style="spotlight"] .jp-hero::before { background: radial-gradient(circle at 1px 1px, rgb(255 255 255 / .16) 1px, transparent 1.6px) 0 0 / 22px 22px; mask-image: linear-gradient(to bottom, #000, transparent 85%); }
+.journal-post-solo[data-post-style="spotlight"] .jp-hero::after { inset: auto; inset-block-start: -30%; inset-inline-end: -12%; width: 55%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, rgb(255 255 255 / .22), transparent); box-shadow: none; }
+.journal-post-solo[data-post-style="spotlight"] .jp-hero > .jp-hero-bg { display: none; }
+.journal-post.journal-post-solo[data-post-style="spotlight"] .jp-hero h1 { max-width: 17ch; font-size: clamp(2.4rem, 6.6vw, 5.8rem); font-weight: 900; line-height: 1.2; text-shadow: none; }
+.journal-post-solo[data-post-style="spotlight"] .jp-hero .journal-post-lead { color: rgb(255 255 255 / .9); text-shadow: none; }
+.journal-post-solo[data-post-style="spotlight"] .journal-post-figure { display: block; position: relative; z-index: 1; margin: calc(-1 * clamp(90px, 11vw, 180px)) clamp(14px, 4.4vw, 72px) 8px; box-shadow: 0 40px 90px -40px rgb(6 8 18 / .7); }
+.journal-post-solo[data-post-style="spotlight"] .journal-post-figure img { max-height: 600px; }
+
+/* ---------- phones */
+@media (max-width: 760px) {
+  .journal-post-solo[data-post-style="immersive"] .jp-hero { min-height: 78vh; padding-block-start: 120px; }
+  /* On a phone the words take the whole width, so the picture darkens evenly under them. */
+  .journal-post-solo[data-post-style="immersive"] .jp-hero::before, [dir="ltr"] .journal-post-solo[data-post-style="immersive"] .jp-hero::before { background: linear-gradient(to top, rgb(5 7 16 / .96) 0%, rgb(5 7 16 / .8) 45%, rgb(5 7 16 / .55) 100%); }
+  .journal-post-solo:is([data-post-style="split"], [data-post-style="cinematic"]) .jp-hero { grid-template-columns: minmax(0, 1fr); row-gap: 14px; }
+  .journal-post-solo:is([data-post-style="split"], [data-post-style="cinematic"]) .jp-hero > .jp-hero-bg { grid-column: 1; grid-row: 1; min-height: 0; aspect-ratio: 16 / 10; }
+  .journal-post-solo[data-post-style="cinematic"] .jp-hero > .jp-hero-bg { width: min(100%, 360px); aspect-ratio: 4 / 3; }
+  .journal-post-solo[data-post-style="cinematic"] .jp-hero { padding-block: 28px 32px; }
+  .journal-post-solo[data-post-style="spotlight"] .jp-hero { border-radius: 26px; }
+  .journal-post-solo[data-post-style="editorial"] .jp-hero .journal-post-meta { justify-content: center; }
+  .journal-post-solo[data-ps-lead] .journal-prose > p:first-of-type { font-size: 1.08em; padding-inline-start: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journal-post-solo[data-post-style="immersive"] .jp-hero .jp-hero-bg { animation: none; }
+}
+@media print {
+  .journal-post-solo:is([data-post-style="immersive"], [data-post-style="cinematic"]) .jp-hero { margin-inline: 0; padding-inline: 0; }
+}

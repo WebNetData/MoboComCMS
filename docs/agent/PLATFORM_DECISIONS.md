@@ -558,6 +558,34 @@ The owner wants a free hand over the kinds of title (anime, documentary…) and 
 
 Following 6Z-2, the values sections had fixed in code are the owner's managed lists in one shared system (`src/modules/vocabulary`: one `Vocabulary` table, service, API and admin component). Each section declares its lists in its own domain and counts its own uses; the registry names who manages and who only reads them. Games declare platforms, stores, play modes and localisations; software declares licence types. A code is what an item stores and never changes; the name, emoji, order and active flag are the owner's. Items keep only known codes (an inactive code stays where it was); an entry in use is deactivated, not deleted; public filters match whole codes. A new list or section is a declaration plus a seed migration, not a new table. Spec and acceptance: [managed lists](../specs/managed-lists/SPEC.md).
 
+## 6Z-4. Magazine article page styles (owner, 2026-10-28)
+
+"Several attractive, modern styles for the magazine's article page. I choose the style when I post, and I can make the style and template of an article page or a kind of article myself." What was decided:
+- **A style dresses the plain article page; it never replaces it.** Progress bar, contents, the format's facts, author, related posts and comments stay in every style. A style is a set of attributes on the page's `<main>`, with its CSS in `src/app/journal-post-styles.css`. Without a style the page is exactly the usual one («کلاسیک موبوکام»).
+- **Six designed styles** (`src/modules/journal/domain/post-styles.ts`), each with an id `ps-<base>`:
+  - classic;
+  - full-bleed cover;
+  - split;
+  - editorial;
+  - cinematic (dark band, blurred cover, poster);
+  - spotlight (colour card, very large title, the cover over its edge).
+- **The owner's own styles** (`psc-…`, at most 24) start from one of the six. They set a colour, the title alignment, the text column width, a leading first paragraph, and corners.
+  - A chosen colour is darkened for the light theme and lightened for the dark one only as far as 4.5:1 needs, so any colour stays readable.
+  - There is no drop cap, because a cut-off first letter breaks Persian joining.
+- **One choice, one place.** An article's choice is the builder's existing per-article layout setting (`post.template.<id>`); it holds a style or a builder layout.
+  - The first match wins: `?style=` in the address (a look only, style ids only); the article's own choice; its format's choice; a published single-post builder template whose display rules match; the magazine's default style (`src/modules/site/server/post-presentation.ts`).
+  - Styles still work while the page-builder module is off.
+- **Where:**
+  - «مجله → استایل صفحهٔ نوشته» (`/admin/journal/styles`): the gallery with drawings and previews on the newest article, the designer of own styles, the default, and a style or builder layout for each kind of article (the owner's POST_FORMAT list).
+  - It is saved as `postStyle` in the magazine's settings (`journal.home.v1`, with history and the revision claim; `cms.posts` or `settings.manage`).
+  - The article form has a «استایل صفحه» panel for the manager. It saves a saved article's choice at once through `/api/admin/builder/post-template` (`cms.posts`). A new article keeps its pick until it is first saved (`AdminCrud.onSaved`).
+  - The builder's layout list shows the styles too.
+- **A fully custom article template** is still the theme builder's «قالب نوشته» (drag and drop with the article slots and HTML/CSS/JS blocks). It appears beside the styles in every list.
+- **Evidence:**
+  - `scripts/media-admin.test.cjs`: settings validation, readable colours, attributes, and the order of choices.
+  - `scripts/journal-picker.test.cjs`: the preview article.
+  - `.mobocom/claude-tools/pw-post-styles.cjs`, 44 real-browser checks.
+
 ## 7. Engineering rules learnt here
 
 - **Stack (owner, 2026-10-19): Next.js 16.4.2, React 19.3.1, TypeScript 7.0.2.** `src/middleware.ts` is now `src/proxy.ts` (export `proxy`; Next 16 always runs it on Node.js, so no `runtime` option). TypeScript 7 is the native compiler: `tsc` checks the whole project in seconds, but it has no JavaScript API. Test loaders that transpile TS therefore use the `typescript-api` alias (`npm:typescript@5.9.3`); do not `require('typescript')` in scripts. TS 7 dropped `baseUrl`; `paths` resolve from tsconfig. Next 16 dropped the `eslint` config key and builds with Turbopack by default.
