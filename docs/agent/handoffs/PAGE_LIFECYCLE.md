@@ -28,6 +28,8 @@ On an owned empty PostgreSQL database, migrated through the existing release mig
 
 Ignored local evidence is under `.mobocom/page-lifecycle-evidence/`. The private browser fixture file is not an artifact for Git or other agents; fixture identities/pages/settings/history/audit are removed after validation. The source-copy database is disposable and removed separately. Never overwrite real SiteConfig contacts/map/plugin switches to recreate these tests.
 
+PR preparation follow-up: integrated main `f16f55df`/PR277 with the owner's Journal styles preserved. Repeated `npm run check` passed738 site +53 connected unit +4 backup +10 billing tests (805 total), all four native PostgreSQL suites and production build passed, and the maintained browser/axe flow passed again on the combined source. Scoped SAST/secrets remained0. Changed-scope Doctor reported0 errors/2 reviewed performance warnings: the intentional sequential bulk transactions above, and a bounded layout validation read before the canonical-body refusal. Neither is a correctness failure; no suppression or unrelated rewrite was added. The initial801 result above describes the pre-PR277 source. Hosted workflows are skipped using commit messages under the owner's quota preference; owner merges/deploys.
+
 ## Rollout, rollback and remaining limits
 
 No schema migration, package addition, bulk data rewrite, hosted Actions or deployment is part of this task. The owner subsequently requested PR publication and will merge/deploy. Rollback the scoped code while retaining existing Page/Settings/ContentRevision data; legacy snapshots and clients remain compatible. New revision metadata has explicit version1 and never includes arbitrary Settings keys.
