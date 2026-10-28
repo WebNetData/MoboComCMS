@@ -613,8 +613,16 @@ Following 6Z-2, the values sections had fixed in code are the owner's managed li
   - `LocaleSetter` keeps that direction.
   - While the page is translated left to right, anything that names its own right-to-left direction reads left to right too (`studio.css`): article paragraphs, Persian-only widgets.
   - The site language (`lang` cookie, the dictionaries) is unchanged; this is only the machine-translated view.
+- **The language choice is in the header, with flags (owner, 2026-10-28:** "like international sites").
+  - A new extension slot `site.header-actions` sits inside the header's own row of buttons. The MoboCom theme and the default header carry it.
+  - There, the translation plugin shows a pill with the flag and code of the language in use. Its panel lists Persian (the original) first, then each offered language with its flag, its own name and its Persian name. Arrow keys, Home and End move between languages; Escape closes and returns to the button.
+  - A visitor whose browser speaks an offered language is asked once, in a bubble under the button.
+  - **Flags** are drawn as small SVGs in `src/plugins/google-translate/flags.tsx`, because emoji flags do not show on Windows.
+  - A language spoken across borders, or whose flag is disputed (Kurdish, Pashto, Tajik, or any unknown code), shows a code badge instead.
+  - Where a header carries the choice, the floating button is hidden (`language-menu.css`). Themes without the slot (Orbital, Clean) and the account panel keep it.
 - **Evidence:**
   - `scripts/site.test.cjs`: cookie parsing, directions, the layout and CSS rules, and that the plugin is gone.
+  - `.mobocom/claude-tools/pw-header-language.cjs`, 42 real-browser checks.
   - `.mobocom/claude-tools/pw-translate-ltr.cjs`, 23 real-browser checks, with Google requests blocked.
 
 ## 7. Engineering rules learnt here

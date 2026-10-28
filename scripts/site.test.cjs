@@ -90,3 +90,23 @@ test('the translation cookie decides the page direction', () => {
   assert.equal(fs.existsSync(path.resolve(__dirname, '../src/plugins/support-dock')), false)
   assert.equal(defaultSite.plugins['support-dock'], undefined)
 })
+
+// ---- the language choice in the site header, with flags (owner, 2026-10-28)
+test('the language choice sits in the header with a flag for every offered language', () => {
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  assert.match(read('src/platform/extensions/contracts.ts'), /\| 'site\.header-actions'/)
+  assert.match(read('src/themes/code/mobocom/client.tsx'), /<div className="mb-header-actions">\s*<ThemePluginOutlet slot="site\.header-actions"/)
+  assert.match(read('src/components/site/default-theme/DefaultSiteHeader.tsx'), /<PluginOutlet slot="site\.header-actions"/)
+  const client = read('src/plugins/google-translate/client.tsx')
+  assert.match(client, /\{ slot: 'site\.header-actions', Component: HeaderLanguage/)
+  assert.match(client, /\{ slot: 'site\.after-footer', Component: GoogleTranslate/)
+  assert.match(read('src/app/language-menu.css'), /body:has\(\.mc-lang\) \.mc-translate \{ display: none; \}/)
+  // every language offered by default has a drawn flag (Persian too), and Persian and English names
+  const flags = read('src/plugins/google-translate/flags.tsx')
+  const offered = JSON.parse(read('src/plugins/google-translate/manifest.json')).settings.find((s) => s.key === 'languages').default.split(',')
+  for (const code of ['fa', ...offered]) {
+    const key = code.includes('-') ? `'${code}'` : code
+    assert.ok(flags.includes(`\n  ${key}: (`), `flag ${code}`)
+    assert.ok(flags.includes(`${key}: '`), `names ${code}`)
+  }
+})

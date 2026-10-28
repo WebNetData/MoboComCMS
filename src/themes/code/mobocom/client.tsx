@@ -185,6 +185,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
         <Brand/>
         <ThemeSiteSearch className="mb-search"/>
         <div className="mb-header-actions">
+          <ThemePluginOutlet slot="site.header-actions" site={site} locale={locale}/>
           <ThemeLangControls locale={locale} theme={theme} compact/>
           <AccountMenu L={L}/>
           <button type="button" className="mb-menu-button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="mb-mobile-nav" aria-label={open ? L('بستن منو', 'Close menu') : L('باز کردن منو', 'Open menu')}><Icon name={open ? 'close' : 'menu'} size={20}/></button>

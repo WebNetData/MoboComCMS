@@ -5,6 +5,8 @@ export type ExtensionCapability = 'ui' | 'admin' | 'api' | 'events' | 'jobs' | '
 export type ExtensionUiSlot =
   | 'site.before-header'
   | 'site.after-header'
+  /** Inside the header's own row of buttons (language, appearance, account); a theme without it simply omits it. */
+  | 'site.header-actions'
   | 'site.before-footer'
   | 'site.after-footer'
   | 'home.before-main'
