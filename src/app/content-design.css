@@ -41,7 +41,7 @@
 /* ---- v2 page builder (Elementor-style workspace) ---- */
 .bld-modes{display:inline-flex;border:1px solid var(--border,#29445f);border-radius:12px;overflow:hidden;background:var(--bg-soft,#152b43)}
 .bld-modes button{border:0;background:transparent;color:var(--muted,#9bb2cc);padding:.55rem .9rem;cursor:pointer;font-weight:600}
-.bld-modes button.is-selected{background:var(--primary-soft,#173653);color:var(--primary,#41baff)}
+.bld-modes button.is-selected{background:var(--primary-soft,#173653);color:var(--text,#e9f6ff)}
 .bld-dirty{color:#f0b73f;font-weight:600}
 .bld-sect-add{display:flex;flex-wrap:wrap;gap:.4rem;margin-block-end:1rem}
 .bld-group{margin-block-end:1.2rem}

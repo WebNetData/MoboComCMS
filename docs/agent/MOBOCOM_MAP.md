@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Page lifecycle2026-10-28:** Pages/Builder use draft-first creation and existing explicit publication; Page/Settings/ContentRevision/audit share claimed transactions and typed layout restoration; public metadata reads live builder/canonical body. [Source, evidence and independent builder-history limits](handoffs/PAGE_LIFECYCLE.md). Continue this implementation; no new CMS/history/SEO system.
+
 - **Artist slugs / product feedback 2026-10-27:** existing Celebrities profile now owns editable English-name URL suggestions and reserved previous-address aliases; Catalog retains feedback moderation while its Admin has scoped native filters and guarded loading/error/retry. [Current contracts, evidence and rollout](handoffs/ARTIST_SLUGS_PRODUCT_FEEDBACK.md). Existing artist identities, Music slugs, public-work visibility and protected light/dark designs remain.
 
 - **Canonical body proposals/editor workspace 2026-10-26:** `feat/block-proposals-editor-workspace-2026-10-26` continues bea1fd49. Journal's existing PostEditProposal keeps the canonical proposed document; Editor owns shared validation/rendering, exact base/proposal refusal and manager-only full comparison; existing History/Operations/audit remain atomic. Shared block workspace and Classic/Admin fallback styling are implemented. [Current source, executed checks, plugin states and rollout](handoffs/JOURNAL_BLOCK_PROPOSALS.md). No second editor store, hosted Actions or owner-style rewrite. The earlier block-body gap below is now closed locally.

@@ -16,7 +16,7 @@ import Inspector from './inspector'
 import TemplatesPanel from './templates-panel'
 import { ensureTemplateForms } from './template-forms'
 
-type Meta = { title: string; titleEn: string; path: string }
+type Meta = { title: string; titleEn: string; path: string; status?: string }
 
 const HISTORY_LIMIT = 80
 /** Typing into one field within this window is one undo step. */
@@ -519,14 +519,16 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
         <button type="button" className="btn btn-ghost" onClick={undo} disabled={!past.length} title="Ctrl+Z">{L('Undo', 'بازگردانی')}</button>
         <button type="button" className="btn btn-ghost" onClick={redo} disabled={!future.length} title="Ctrl+Shift+Z">{L('Redo', 'دوباره')}</button>
         <button type="button" className="btn btn-ghost" onClick={() => setShowTemplates(true)}>{L('Templates', 'قالب‌ها')}</button>
-        {meta?.path && <Link className="btn btn-ghost" href={meta.path} target="_blank">{L('Open page ↗', 'نمایش صفحه ↗')}</Link>}
+        {meta?.path && <Link className="btn btn-ghost" href={meta.status === 'DRAFT' ? previewSrc : meta.path} target="_blank">{meta.status === 'DRAFT' ? L('Private preview ↗', 'پیش‌نمایش خصوصی ↗') : L('Open page ↗', 'نمایش صفحه ↗')}</Link>}
+        {meta?.status && /^\d+$/.test(pageId) && <Link className="btn btn-ghost" href={`/admin/pages?edit=${pageId}`}>{L('Publication & page settings', 'انتشار و تنظیمات صفحه')}</Link>}
         <Link className="btn btn-ghost" href={`/admin/history?type=${encodeURIComponent(`builder:${pageId}`)}&id=1`} title={L('Every saved version of this design; an earlier one can be put back', 'هر نسخهٔ ذخیره‌شدهٔ این طرح؛ می‌توانید نسخهٔ قبلی را برگردانید')}>{L('History', 'تاریخچه')}</Link>
         <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || uploading || !dirty}>
-          {busy ? L('Saving…', 'در حال ذخیره…') : uploading ? L('Uploading…', 'در حال بارگذاری…') : dirty ? L('Save', 'ذخیره') : L('Saved ✓', 'ذخیره شد ✓')}
+          {busy ? L('Saving…', 'در حال ذخیره…') : uploading ? L('Uploading…', 'در حال بارگذاری…') : dirty ? meta?.status === 'DRAFT' ? L('Save draft', 'ذخیره پیش‌نویس') : L('Save', 'ذخیره') : L('Saved ✓', 'ذخیره شد ✓')}
         </button>
       </div>
     </header>
     {message && <p role="status" className="builder-status">{message}</p>}
+    {meta?.status === 'DRAFT' && <p className="builder-status">{L('This page is private. Saving the design keeps it a draft; review and publish it in Publication & page settings.', 'این صفحه پیش‌نویس است و عمومی نیست. ذخیرهٔ طرح آن را منتشر نمی‌کند؛ انتشار نهایی از «انتشار و تنظیمات صفحه» انجام می‌شود.')}</p>}
     <div className={`builder-grid${panels.left ? '' : ' is-left-hidden'}${panels.right ? '' : ' is-right-hidden'}`}>
       {doc.mode === 'builder'
         ? <Palette

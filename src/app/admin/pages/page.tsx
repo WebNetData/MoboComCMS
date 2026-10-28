@@ -27,8 +27,8 @@ export default function AdminPagesPage() {
       label: t.status,
       type: 'select',
       options: [
-        { value: 'PUBLISHED', label: t.published },
         { value: 'DRAFT', label: t.draft },
+        { value: 'PUBLISHED', label: t.published },
       ],
     },
     { section: S.publish, key: 'showInNav', label: t.showInNav, type: 'checkbox' },
@@ -54,7 +54,7 @@ export default function AdminPagesPage() {
           slug: `${template?.slug || 'page'}-${Date.now().toString(36)}`,
           title: template?.title || (fa ? 'صفحه جدید' : 'New page'),
           titleEn: 'New page',
-          status: 'PUBLISHED',
+          status: 'DRAFT',
           content: '',
           pageTitle: 'hide',
           pageLayout: 'full',

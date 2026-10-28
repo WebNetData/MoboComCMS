@@ -82,7 +82,7 @@ test('admin post create and edit preserve schedules and reject ambiguous dates',
     '@/shared/content/cover': { validateCover: value => value },
     '@/modules/site/server/categories': { validateCategorySelection: async () => [] },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/revisions': { recordRevision: async input => { assert.equal(input.client, db); assert.equal(input.strict, true); revisions.push(input) } },
+    '@/modules/content/server/revisions': { RevisionError: load('src/modules/content/server/revisions.ts', { '@/platform/database/prisma': { db }, '@/platform/observability/logger': { logEvent() {} } }).RevisionError, recordRevision: async input => { assert.equal(input.client, db); assert.equal(input.strict, true); revisions.push(input) } },
   }
   for (const name of ['@/modules/site/server/page-layout', '@/shared/money', '@/modules/site/domain/categories', '@/modules/catalog/server/product-config', '@/modules/catalog/server/product-input', '@/modules/fx/server/fx', '@/modules/content/server/bulk', '@/platform/audit/server', '@/modules/seo/server/indexnow']) mocks[name] = {}
   const route = load('src/modules/site/server/http/admin/cms/route.ts', mocks)

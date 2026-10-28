@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client'
 import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { recordRevision, type RestoreCommit } from '@/modules/content/server/revisions'
+import { pageLayoutSnapshot, readPageLayout } from '@/modules/site/server/page-layout'
 import { contentChanged } from '@/modules/content/server/events'
 import { reviewingAuthorPosts } from '@/modules/journal/server/review-policy'
 import { DOCUMENT_VERSION, walkBlocks, type DocumentIssue, type MoboComDocument } from '@/modules/editor/domain/document'
@@ -137,7 +138,8 @@ export async function saveDocument(input: { entity: DocumentEntity; id: number; 
       throw new EditorError('the item was changed after this editor opened it', 409, 'CHANGED', { updatedAt: now ? stamp(now.updatedAt) : null })
     }
     const after = (await store.find(input.id, tx))!
-    await recordRevision({ entityType: input.entity, entityId: after.id, before, after, actor: { id: input.actor.id, email: input.actor.email }, client: tx, strict: true })
+    const layout = input.entity === 'pages' ? (await readPageLayout(input.id, tx)).layout : null
+    await recordRevision({ entityType: input.entity, entityId: after.id, before: layout ? pageLayoutSnapshot(before, layout) : before, after: layout ? pageLayoutSnapshot(after, layout) : after, actor: { id: input.actor.id, email: input.actor.email }, client: tx, strict: true })
     await input.commit?.(tx, before, after)
     return { before, after }
   }, { isolationLevel: 'Serializable', timeout: 30_000 }).catch(error => {

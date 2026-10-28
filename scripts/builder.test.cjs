@@ -23,6 +23,49 @@ function load(file, mocks = {}, cache = new Map()) {
 
 const domain = () => load('src/modules/site/domain/builder.ts')
 
+function textDoc(widgets) {
+  const d = domain(), section = d.createSection(1)
+  section.columns[0].widgets = widgets.map(([type, props]) => ({ ...d.createWidget(type), props }))
+  return { ...d.emptyDoc(), sections: [section] }
+}
+
+test('builder descriptions contain authored content, separated blocks and decoded entities, never script/style/configuration', () => {
+  const { builderContentText } = load('src/modules/site/domain/builder-content.ts')
+  const doc = textDoc([['hero', {title:'خدمت &amp; راهنما', text:'معرفی واقعی', href:'https://secret.invalid', css:'CSS_SECRET', js:'JS_SECRET'}], ['text', {html:'<p>بخش اول</p><p>بخش دوم</p><script>SCRIPT_SECRET</script><style>STYLE_SECRET</style>'}]])
+  assert.equal(builderContentText(doc,'fa'),'خدمت & راهنما معرفی واقعی بخش اول بخش دوم')
+  assert.doesNotMatch(builderContentText(doc,'fa'),/SECRET|secret.invalid/)
+  const code={...domain().emptyDoc(),mode:'code',code:{html:'<h1>صفحهٔ کد</h1><p>متن عمومی</p><script>PRIVATE_SCRIPT</script>',css:'PRIVATE_CSS',js:'PRIVATE_JS',advanced:true}}
+  assert.equal(builderContentText(code,'fa'),'صفحهٔ کد متن عمومی')
+})
+
+test('builder text follows the same widget module owners as rendering and bounds recursive saved templates', () => {
+  const { builderContentText, builderWidgetModule } = load('src/modules/site/domain/builder-content.ts')
+  const child=textDoc([['text',{html:'<p>قالب عمومی</p>'}],['template',{templateId:'cycle'}]])
+  const doc=textDoc([['products',{title:'فروشگاه خاموش'}],['media',{title:'سینمای خاموش',source:'cinema-new'}],['heading',{text:'Visible',textEn:'English'}],['template',{templateId:'cycle'}]])
+  const text=builderContentText(doc,'fa',new Map([['cycle',child]]),{store:false,cinema:false})
+  assert.doesNotMatch(text,/خاموش/);assert.match(text,/Visible/);assert.equal((text.match(/قالب عمومی/g)||[]).length,3)
+  assert.equal(builderWidgetModule(domain().createWidget('products')),'store')
+  assert.match(builderContentText(doc,'en',new Map(),{store:false,cinema:false}),/English/)
+})
+
+test('page descriptions use live builder and canonical body, preserve template order and fall back to this page title', async () => {
+  let doc=textDoc([['hero',{title:'شرح طراحی',text:'متن صفحه‌ساز'}]]),blocks=null
+  const { pageDescription } = load('src/modules/site/server/page-description.ts', {
+    '@/modules/editor/server/documents':{pageBlocksHtml:()=>blocks},
+    '@/modules/site/server/builder-preview':{resolveBuilderDoc:async(preview)=>{assert.equal(preview,undefined);return doc}},
+    '@/modules/site/server/builder':{listUserTemplates:async()=>[]},
+    '@/extensions/server/modules':{getModuleStates:async()=>({})},
+  })
+  const page={id:1,title:'عنوان همین صفحه',titleEn:'Page title',content:'<p>متن قدیمی</p>',contentEn:'',editorFormat:'legacy',contentDocument:''}
+  assert.equal(await pageDescription(page,'fa','none'),'شرح طراحی متن صفحه‌ساز متن قدیمی')
+  assert.equal(await pageDescription(page,'fa','about'),'متن قدیمی شرح طراحی متن صفحه‌ساز')
+  doc=null;blocks='<p>بدنهٔ زندهٔ بلوکی &amp; درست</p>'
+  assert.equal(await pageDescription({...page,content:'STALE_CACHE'},'fa','none'),'بدنهٔ زندهٔ بلوکی & درست')
+  blocks=null;assert.equal(await pageDescription({...page,content:''},'fa','none'),'عنوان همین صفحه')
+  doc=textDoc([['text',{html:'الف'.repeat(500)}]])
+  assert.equal((await pageDescription({...page,content:''},'fa','none')).length,160)
+})
+
 test('builder documents fill defaults for new section and widget style fields (old documents stay valid)', () => {
   const { validateBuilderDoc } = domain()
   const legacy = {

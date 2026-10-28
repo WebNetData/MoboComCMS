@@ -1,4 +1,6 @@
-# Remaining gaps — scoped snapshot, updated 2026-10-26
+# Remaining gaps — scoped snapshot, updated 2026-10-28
+
+Page lifecycle follow-up: draft-first creation/private preview/explicit publication, complete known Page layout revisions and live builder/canonical-body descriptions are now verified locally. [Source, tests and exact limits](handoffs/PAGE_LIFECYCLE.md). Do not reopen these as missing features. Separate builder-design history remains intentional; public deployment/crawler/provider and operational evidence below remain outstanding.
 
 Admin integration follow-up: main64134402's framework pins and the owner's
 Admin batch are combined locally; CSS isolation, observed contrast/labels,
