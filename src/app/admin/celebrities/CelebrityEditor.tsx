@@ -4,10 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import FileUpload from '@/components/admin/FileUpload'
 import ContentEditor from '@/components/editor/ContentEditor'
 import { suggestedCelebritySlug, validCelebritySlug } from '@/modules/celebrities/domain/celebrities'
+import { COUNTRIES, cleanDate } from '@/modules/celebrities/domain/fields'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
+import Link from '@/components/AppLink'
+import { useSectionLists } from '../cms/useSectionLists'
 
 type Works = { titles: number; tracks: number; albums: number }
-type Profile = { id: number; slug: string; name: string; nameEn: string; image: string; bio: string; featured: boolean; works: Works }
-const EMPTY: Profile = { id: 0, slug: '', name: '', nameEn: '', image: '', bio: '', featured: false, works: { titles: 0, tracks: 0, albums: 0 } }
+type Profile = { id: number; slug: string; name: string; nameEn: string; image: string; bio: string; featured: boolean; works: Works; facts: Record<string, string> }
+const EMPTY: Profile = { id: 0, slug: '', name: '', nameEn: '', image: '', bio: '', featured: false, works: { titles: 0, tracks: 0, albums: 0 }, facts: {} }
 const fa = (value: number) => value.toLocaleString('fa-IR')
 
 /**
@@ -22,12 +26,15 @@ export default function CelebrityEditor({ id, onSaved, onClose }: { id: number; 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const manualSlug = useRef(!!id)
+  // The owner's profile fields (country, born, died…), in their order; switched-off ones keep their values unseen.
+  const fields = (useSectionLists('celebrities').PROFILE_FIELD || [])
   useEffect(() => {
     manualSlug.current = !!id
     if (!id) { setForm(EMPTY); setWas(EMPTY); return }
     fetch(`/api/admin/celebrities?id=${id}`, { cache: 'no-store' }).then((r) => r.json().then((body) => ({ ok: r.ok, body }))).then(({ ok, body }) => {
       if (!ok) { setError(body?.error || 'بارگذاری نشد'); return }
-      setForm(body.profile); setWas(body.profile)
+      const profile = { ...body.profile, facts: body.profile.facts || {} }
+      setForm(profile); setWas(profile)
     }).catch(() => setError('ارتباط برقرار نشد'))
   }, [id])
   if (!form) return <section className="sa-card cbx-editor"><p>{error || 'در حال بارگذاری…'}</p></section>
@@ -73,6 +80,23 @@ export default function CelebrityEditor({ id, onSaved, onClose }: { id: number; 
           <span className={`cbx-presence-item is-music${tracks || albums ? ' has-works' : ''}`}><b>موسیقی</b><small>{tracks || albums ? [tracks ? `${fa(tracks)} آهنگ` : '', albums ? `${fa(albums)} آلبوم` : ''].filter(Boolean).join('، ') : 'هنوز اثری ندارد'}</small></span>
           <p className="sa-sub">یک پروفایل برای همهٔ سایت: این هنرمند در فرم‌های موسیقی و فیلم و سریال قابل انتخاب است و هر اثری که به نامش ثبت شود، در صفحه‌اش می‌آید.</p>
         </div>
+        {fields.length > 0 && <fieldset className="cbx-facts" disabled={busy}>
+          <legend>مشخصات <Link href="/admin/celebrities/fields" className="sa-link">مدیریت فیلدها</Link></legend>
+          <datalist id="cbx-countries">{COUNTRIES.map((country) => <option key={country} value={country} />)}</datalist>
+          {fields.map((field) => {
+            const value = form.facts[field.code] || ''
+            const put = (next: string) => setForm((current) => current && { ...current, facts: { ...current.facts, [field.code]: next } })
+            const id = `cbx-fact-${field.code}`
+            const label = <label htmlFor={id}>{field.icon ? <span aria-hidden="true">{field.icon} </span> : null}{field.name}</label>
+            if (field.family === 'DATE' || field.family === 'BIRTH' || field.family === 'DEATH') return <div key={field.code} className="sa-field">{label}
+              <div className="cbx-fact-date"><JalaliDateInput id={id} value={cleanDate(value).length === 10 ? value : ''} onChange={put} max={new Date().toISOString().slice(0, 10)} />{value && <button type="button" className="sa-link" onClick={() => put('')}>پاک کردن</button>}</div>
+              {value.length === 4 && <small>ثبت‌شده فقط با سال: {value}</small>}</div>
+            if (field.family === 'LONG') return <div key={field.code} className="sa-field cbx-fact-wide">{label}<textarea id={id} className="input" rows={4} value={value} maxLength={2000} onChange={(e) => put(e.target.value)} /></div>
+            return <div key={field.code} className="sa-field">{label}<input id={id} className="input" value={value}
+              {...(field.family === 'COUNTRY' ? { list: 'cbx-countries', maxLength: 60, placeholder: 'مثلاً ایران' } : field.family === 'LINK' ? { type: 'url', dir: 'ltr', maxLength: 300, placeholder: 'https://' } : field.family === 'NUMBER' ? { inputMode: 'decimal' as const, dir: 'ltr', maxLength: 30 } : { maxLength: 200 })}
+              onChange={(e) => put(e.target.value)} /></div>
+          })}
+        </fieldset>}
         <div className="sa-field cbx-bio"><span id="cbx-bio-label">بیوگرافی</span><div aria-labelledby="cbx-bio-label" inert={busy}><ContentEditor value={form.bio} onChange={(bio) => set({ bio })} assetSection="music" minHeight={260} placeholder="زندگی‌نامه و فعالیت‌های هنری…" /></div></div>
       </div>
     </div>

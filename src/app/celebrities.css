@@ -46,6 +46,17 @@
 .cb-name-en { justify-self: start; margin: 0; color: var(--muted); font-size: 15px; }
 .cb-role-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .cb-role-chips li { padding: 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--cb-b) 14%, var(--card)); color: var(--text); font-size: 12.5px; font-weight: 800; }
+/* The owner's profile fields under the name: country, born (age), died (age then), links… (owner, 2026-10-28) */
+.cb-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; }
+.cb-fact { display: inline-flex; align-items: baseline; gap: 6px; min-height: 34px; padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--cb-b, var(--primary)) 22%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--card) 88%, transparent); font-size: 13px; }
+.cb-fact dt { color: var(--muted); font-weight: 700; }
+.cb-fact dt::after { content: ':'; }
+.cb-fact dd { margin: 0; color: var(--text); font-weight: 800; }
+.cb-fact dd small { margin-inline-start: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--cb-b, var(--primary)) 14%, transparent); color: var(--text); font-size: 11.5px; font-weight: 700; }
+.cb-fact a { color: var(--accent-ink, var(--primary)); text-decoration: none; }
+.cb-fact a:hover { text-decoration: underline; }
+.cb-facts-more > div + div { margin-block-start: 18px; }
+.cb-facts-more p { white-space: pre-line; }
 .cb-stats { display: flex; flex-wrap: wrap; gap: 22px; margin: 4px 0 0; padding: 0; list-style: none; }
 .cb-stats li { display: grid; }
 .cb-stats b { font-size: 24px; font-weight: 900; }
@@ -62,7 +73,7 @@
   .cb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .cb-profile-inner { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
   .cb-profile-copy { justify-items: center; }
-  .cb-role-chips, .cb-stats, .cb-actions { justify-content: center; }
+  .cb-role-chips, .cb-stats, .cb-actions, .cb-facts { justify-content: center; }
   .cb-posters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .cb-card, .cb-card-art img { transition: none; } .cb-card:hover { transform: none; } }
@@ -116,6 +127,13 @@
 .cbx-presence-item.is-cinema.has-works { border-inline-start-color: #e11d48; }
 .cbx-presence-item.is-music.has-works { border-inline-start-color: #7c3aed; }
 .cbx-bio > span { font-size: 13px; font-weight: 700; }
+/* The artist's profile fields in the editor (owner, 2026-10-28). */
+.cbx-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: color-mix(in srgb, var(--primary) 3%, var(--card)); }
+.cbx-facts legend { display: flex; align-items: center; gap: 12px; padding-inline: 6px; font-size: 13px; font-weight: 800; }
+.cbx-facts .sa-field label { font-size: 12.5px; font-weight: 700; }
+.cbx-fact-wide { grid-column: 1 / -1; }
+.cbx-fact-date { display: flex; align-items: center; gap: 8px; }
+.cbx-fact-date > :first-child { flex: 1; min-width: 0; }
 .cbx-error { margin: 10px 0 0; color: var(--admin-danger-text, #b42318); font-size: 13px; }
 .cbx-editor-foot { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
 @media (max-width: 720px) { .cbx-editor-grid, .cbx-editor-names, .cbx-presence { grid-template-columns: minmax(0, 1fr); } }

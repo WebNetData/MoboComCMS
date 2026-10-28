@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
-import { SectionShell, type SectionTab } from '../cms/SectionAdmin'
+import { SectionShell } from '../cms/SectionAdmin'
+import { CELEBRITY_TABS as TABS } from './tabs'
 import CelebrityEditor from './CelebrityEditor'
 
 type Source = { id: number; name: string; image: string; slug?: string }
 type Row = { id: number; slug: string; name: string; featured: boolean; keepApart: boolean; cinemaPerson: Source | null; musicArtist: Source | null }
 type List = { page: number; pages: number; total: number; rows: Row[] }
 
-const TABS: SectionTab[] = [{ href: '/admin/celebrities', label: 'چهره‌ها', exact: true }, { href: '/admin/cinema/people', label: 'بازیگران و کارگردان‌ها' }, { href: '/admin/music/artists', label: 'خوانندگان و هنرمندان موسیقی' }]
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const FILTERS: [string, string][] = [['', 'همه'], ['both', 'در هر دو بخش'], ['cinema', 'فقط فیلم و سریال'], ['music', 'فقط موسیقی']]
 

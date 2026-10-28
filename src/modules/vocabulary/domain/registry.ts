@@ -7,6 +7,7 @@ import { JOURNAL_LISTS } from '@/modules/journal/domain/vocabulary'
 import { CINEMA_LISTS } from '@/modules/cinema/domain/vocabulary'
 import { BUSINESS_LISTS } from '@/modules/businesses/domain/vocabulary'
 import { MEMBERSHIP_LISTS } from '@/modules/membership/domain/vocabulary'
+import { CELEBRITY_LISTS } from '@/modules/celebrities/domain/fields'
 
 /**
  * The sections that have managed lists: the module they belong to (none for lists shared by every section), who
@@ -22,6 +23,8 @@ export const VOCABULARY_SECTIONS = {
   businesses: { module: 'businesses', manage: ['businesses.manage'], read: ['businesses.manage'], lists: BUSINESS_LISTS },
   membership: { module: 'membership', manage: ['membership.manage', 'plans.manage'], read: ['membership.manage', 'plans.manage'], lists: MEMBERSHIP_LISTS },
   journal: { module: 'journal', manage: ['cms.posts'], read: ['cms.posts', 'journal.author'], lists: JOURNAL_LISTS },
+  // The artists' profile fields: managed by whoever manages artists (music or film), as the artists' editor is.
+  celebrities: { module: null, manage: ['music.manage', 'cinema.manage'], read: ['music.manage', 'cinema.manage'], lists: CELEBRITY_LISTS },
   // Download and stream links of every section: the site's settings or the film section (where dubs matter) manage them.
   media: { module: null, manage: ['settings.manage', 'cinema.manage'], read: ['settings.manage', 'cinema.manage', 'cinema.author', 'games.manage', 'games.author', 'software.manage', 'software.author'], lists: MEDIA_LISTS },
 } as const satisfies Record<string, { module: string | null; manage: readonly string[]; read: readonly string[]; lists: ListDefinition[] }>

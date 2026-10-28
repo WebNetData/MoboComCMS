@@ -6,6 +6,8 @@ import { saveMediaItem } from '@/modules/media/server/admin'
 import { savePerson } from '@/modules/cinema/server/person-admin'
 import { CelebrityError } from '../errors'
 import { celebritySlug, suggestedCelebritySlug, validCelebritySlug } from '@/modules/celebrities/domain/celebrities'
+import { normalizeFacts, parseFacts } from '@/modules/celebrities/domain/fields'
+import { allLists } from '@/modules/vocabulary/server/vocabulary'
 const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
 // ------------------------------------------------------------------ one profile for every section
 
@@ -14,7 +16,7 @@ type AuditPerson = (tx: Prisma.TransactionClient, id: number, created: boolean) 
 
 /** What the central editor shows of one person: the profile and what they have published in each section. */
 export async function celebrityProfile(id: number) {
-  const row = await db.celebrity.findUnique({ where: { id }, select: { id: true, slug: true, name: true, featured: true, cinemaPersonId: true, musicArtistId: true, cinemaPerson: { select: { name: true, image: true, bio: true } }, musicArtist: { select: { name: true, nameEn: true, image: true, bio: true, slug: true } } } })
+  const row = await db.celebrity.findUnique({ where: { id }, select: { id: true, slug: true, name: true, featured: true, facts: true, cinemaPersonId: true, musicArtistId: true, cinemaPerson: { select: { name: true, image: true, bio: true } }, musicArtist: { select: { name: true, nameEn: true, image: true, bio: true, slug: true } } } })
   if (!row) throw new CelebrityError('چهره پیدا نشد')
   const music = liveMusic()
   const [titles, tracks, albums] = await Promise.all([
@@ -23,7 +25,7 @@ export async function celebrityProfile(id: number) {
     row.musicArtistId ? db.musicAlbum.count({ where: { ...music, artistId: row.musicArtistId } }) : 0,
   ])
   return {
-    id: row.id, slug: row.slug, featured: row.featured, works: { titles, tracks, albums },
+    id: row.id, slug: row.slug, featured: row.featured, works: { titles, tracks, albums }, facts: parseFacts(row.facts),
     name: row.musicArtist?.name || row.cinemaPerson?.name || row.name, nameEn: row.musicArtist?.nameEn || '',
     image: row.musicArtist?.image || row.cinemaPerson?.image || '', bio: row.musicArtist?.bio || row.cinemaPerson?.bio || '',
   }
@@ -68,6 +70,8 @@ export async function saveCelebrityProfile(raw: Record<string, unknown>, actor: 
   const text = (value: unknown) => String(value ?? '').replace(/\s+/g, ' ').trim()
   const name = text(raw.name), nameEn = text(raw.nameEn), image = String(raw.image ?? '').trim(), bio = String(raw.bio ?? '')
   if (normalizePersonName(name).length < 2) throw new CelebrityError('نام را وارد کنید')
+  // The profile fields (country, born, died, the owner's own), kept as their kinds keep them; absent = unchanged.
+  const facts = raw.facts === undefined ? undefined : JSON.stringify(normalizeFacts(raw.facts, (await allLists('celebrities')).PROFILE_FIELD || []))
   const row = id ? await db.celebrity.findUnique({ where: { id }, select: { id: true, slug: true, cinemaPersonId: true, musicArtistId: true, cinemaPerson: { select: { profileVersion: true } } } }) : null
   if (id && !row) throw new CelebrityError('چهره پیدا نشد')
   const requested = raw.slug === undefined || raw.slug === '' ? '' : typeof raw.slug === 'string' ? raw.slug.trim().toLowerCase() : null
@@ -104,7 +108,7 @@ export async function saveCelebrityProfile(raw: Record<string, unknown>, actor: 
       await tx.celebrity.delete({ where: { id: other.id } })
       await tx.celebritySlugAlias.create({ data: { slug: other.slug, celebrityId: keep!.id } })
     }
-    const data = { name, normalizedName: normalizePersonName(name), cinemaPersonId, musicArtistId }
+    const data = { name, normalizedName: normalizePersonName(name), cinemaPersonId, musicArtistId, ...(facts === undefined ? {} : { facts }) }
     const current = keep ? await tx.celebrity.findUniqueOrThrow({ where: { id: keep.id }, select: { slug: true } }) : null
     if (row && current?.slug !== row.slug) throw new CelebrityError('نشانی هنرمند هم‌زمان تغییر کرده؛ فرم را دوباره باز کنید', 409)
     const fallback = suggestedCelebritySlug(nameEn) || (cinemaPersonId ? celebritySlug({ cinemaId: cinemaPersonId }) : `artist-${musicArtistId}`)

@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-28 (artist profile fields): `feat/artist-facts-2026-10-28` adds owner-managed artist profile fields (vocabulary `celebrities/PROFILE_FIELD`, seeded with country, born, died; `Celebrity.facts`), the editor section and the artist page fact line. Two additive migrations. See PLATFORM_DECISIONS 6Z-6. Checked with tsc, the full check (736/6) and `pw-artist-fields.cjs` (16).
+
 Current continuation 2026-10-28 (floating controls, translated direction): `feat/translate-ltr-no-dock-2026-10-28` (worktree `.mobocom/claude-post-styles`, from main `dcb7527c`) deletes the «کنارت هستیم» support shortcut plugin, puts the language button at the line's end (the left of the Persian page), and renders a page translated into a left-to-right language as `dir="ltr"` from the server. See PLATFORM_DECISIONS 6Z-5. Checked with tsc, the full check (733/6) and `pw-translate-ltr.cjs` (23).
 
 Current continuation 2026-10-28 (header language with flags): `feat/header-language-flags-2026-10-28` adds the extension slot `site.header-actions` and puts the translation choice in the header with SVG flags; the floating button stays only where a header has no slot. See PLATFORM_DECISIONS 6Z-5. Checked with tsc, the full check (735/6) and `pw-header-language.cjs` (42).

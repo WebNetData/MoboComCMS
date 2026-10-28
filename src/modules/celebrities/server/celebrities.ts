@@ -3,6 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { normalizePersonName } from '@/modules/cinema/domain/people'
 import { live as liveMusic } from '@/modules/media/server/queries/core'
 import { CELEBRITY_ROLES, celebritySlug, type CelebrityRole } from '@/modules/celebrities/domain/celebrities'
+import { parseFacts } from '@/modules/celebrities/domain/fields'
 
 const PAGE = 36
 const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
@@ -220,8 +221,8 @@ export async function celebrityBySlug(slug: string, creditNames: Record<string, 
   const address = String(slug).slice(0, 90)
   const row = await db.celebrity.findFirst({ where: { AND: [{ OR: [{ slug: address }, { slugAliases: { some: { slug: address } } }] }, publicWhere(now, null, '')] }, select: cardSelect(now) })
   if (!row) return null
-  const sources = await db.celebrity.findUnique({ where: { id: row.id }, select: { cinemaPersonId: true, cinemaPerson: { select: { bio: true } }, musicArtist: { select: { slug: true, bio: true } } } })
-  return { card: toCard(row, creditNames), cinemaPersonId: sources?.cinemaPersonId ?? null, musicSlug: sources?.musicArtist?.slug || '', cinemaBio: sources?.cinemaPerson?.bio || '', musicBio: sources?.musicArtist?.bio || '' }
+  const sources = await db.celebrity.findUnique({ where: { id: row.id }, select: { facts: true, cinemaPersonId: true, cinemaPerson: { select: { bio: true } }, musicArtist: { select: { slug: true, bio: true } } } })
+  return { card: toCard(row, creditNames), cinemaPersonId: sources?.cinemaPersonId ?? null, musicSlug: sources?.musicArtist?.slug || '', cinemaBio: sources?.cinemaPerson?.bio || '', musicBio: sources?.musicArtist?.bio || '', facts: parseFacts(sources?.facts) }
 }
 
 /** The entry a section's own person page links to. */

@@ -11,6 +11,7 @@ import { journalUsage } from '@/modules/journal/server/vocabulary'
 import { cinemaUsage } from '@/modules/cinema/server/vocabulary'
 import { businessUsage } from '@/modules/businesses/server/vocabulary'
 import { membershipUsage } from '@/modules/membership/server/perks'
+import { parseFacts } from '@/modules/celebrities/domain/fields'
 
 type Tx = Prisma.TransactionClient
 type Audit = (tx: Tx, id: number, action: 'created' | 'updated' | 'deleted', metadata: Record<string, unknown>) => Promise<unknown>
@@ -19,7 +20,13 @@ const ORDER: Prisma.VocabularyOrderByWithRelationInput[] = [{ sortOrder: 'asc' }
 const SELECT = { id: true, section: true, list: true, code: true, name: true, nameEn: true, icon: true, family: true, sortOrder: true, active: true } as const
 
 /** How many items use an entry, asked per entry after one read: each section counts its own items. */
-const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink' | 'musicTrack' | 'musicAlbum' | 'musicCredit' | 'post' | 'cinemaTitle' | 'businessProfile' | 'businessRequest' | 'membershipPlan'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage, media: linkUsage, music: musicUsage, journal: journalUsage, cinema: cinemaUsage, businesses: businessUsage, membership: membershipUsage }
+const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink' | 'musicTrack' | 'musicAlbum' | 'musicCredit' | 'post' | 'cinemaTitle' | 'businessProfile' | 'businessRequest' | 'membershipPlan' | 'celebrity'>) => Promise<(list: string, code: string) => number>> = {
+  // An artist profile field is in use while some artist has a value in it (switch it off instead of deleting it).
+  celebrities: async (client) => {
+    const counts = new Map<string, number>()
+    for (const row of await client.celebrity.findMany({ where: { NOT: { facts: '{}' } }, select: { facts: true } })) for (const code of Object.keys(parseFacts(row.facts))) counts.set(code, (counts.get(code) || 0) + 1)
+    return (list: string, code: string) => (list === 'PROFILE_FIELD' ? counts.get(code) || 0 : 0)
+  }, games: gameUsage, software: softwareUsage, media: linkUsage, music: musicUsage, journal: journalUsage, cinema: cinemaUsage, businesses: businessUsage, membership: membershipUsage }
 
 function bySection(section: VocabularySection, rows: VocabularyEntry[]): SectionLists {
   const lists: SectionLists = Object.fromEntries(listsOf(section).map((definition) => [definition.list, [] as VocabularyEntry[]]))

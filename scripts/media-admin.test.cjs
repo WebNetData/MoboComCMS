@@ -379,3 +379,37 @@ test('the article page, its editor and the builder share one style choice', () =
   assert.match(read('src/app/admin/posts/page.tsx'), /<PostStylePanel /)
   assert.match(read('src/app/admin/journal/shared.tsx'), /\/admin\/journal\/styles/)
 })
+
+// ---- an artist's profile fields: country, born, died and the owner's own (owner, 2026-10-28)
+const artistFields = load('src/modules/celebrities/domain/fields')
+
+test('artist profile fields keep each kind of value and show dates with ages', () => {
+  const fields = [
+    { code: 'COUNTRY', name: 'کشور', icon: '', family: 'COUNTRY', active: true },
+    { code: 'BIRTH_DATE', name: 'زادروز', icon: '', family: 'BIRTH', active: true },
+    { code: 'DEATH_DATE', name: 'درگذشت', icon: '', family: 'DEATH', active: true },
+    { code: 'SITE', name: 'وب‌سایت', icon: '', family: 'LINK', active: true },
+    { code: 'HEIGHT', name: 'قد', icon: '', family: 'NUMBER', active: false },
+  ]
+  assert.equal(artistFields.cleanDate('1958-05-02'), '1958-05-02')
+  assert.equal(artistFields.cleanDate('1958-02-30'), '')
+  assert.equal(artistFields.cleanDate('1958'), '1958')
+  assert.equal(artistFields.cleanDate('<b>'), '')
+  const facts = artistFields.normalizeFacts({ COUNTRY: '  ایران ', BIRTH_DATE: '1958-05-02', DEATH_DATE: '2021-11-30', SITE: 'javascript:alert(1)', HEIGHT: '۱۸۲', OTHER: 'x' }, fields)
+  assert.deepEqual(facts, { COUNTRY: 'ایران', BIRTH_DATE: '1958-05-02', DEATH_DATE: '2021-11-30', HEIGHT: '182' })
+  assert.equal(artistFields.normalizeFacts({ SITE: 'https://example.com/a' }, fields).SITE, 'https://example.com/a')
+  assert.deepEqual(artistFields.parseFacts('{"COUNTRY":"ایران","bad key":"x","N":3}'), { COUNTRY: 'ایران' })
+  assert.deepEqual(artistFields.parseFacts('not json'), {})
+  assert.equal(artistFields.yearsBetween('1958-05-02', '2021-11-30'), 63)
+  assert.equal(artistFields.yearsBetween('1958-12-02', '2021-11-30'), 62)
+  const shown = artistFields.shownFacts(facts, fields, '2026-10-28')
+  assert.deepEqual(shown.map((fact) => fact.code), ['COUNTRY', 'BIRTH_DATE', 'DEATH_DATE'])
+  assert.equal(shown[1].note, '')
+  assert.equal(shown[2].note, 'در ۶۳ سالگی')
+  assert.match(shown[1].text, /\(۱۹۵۸\)$/)
+  const living = artistFields.shownFacts({ BIRTH_DATE: '1990-01-01' }, fields, '2026-10-28')
+  assert.equal(living[0].note, '۳۶ سال')
+  // seeds: country, born, died; families decide the input
+  const seeds = artistFields.CELEBRITY_LISTS[0].seeds.map((seed) => `${seed[0]}:${seed[3]}`)
+  assert.deepEqual(seeds, ['COUNTRY:COUNTRY', 'BIRTH_DATE:BIRTH', 'DEATH_DATE:DEATH'])
+})
