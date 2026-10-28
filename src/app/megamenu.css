@@ -61,9 +61,12 @@
 .mm-column-title a { color: inherit; text-decoration: none; }
 .mm-column-title a:hover { color: var(--mm-accent); }
 .mm-column ul { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
-.mm-column li a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 8px; color: var(--mm-muted); font-size: 13.5px; line-height: 1.6; text-decoration: none; transition: background .12s, color .12s; }
+/* The icon sits beside its words at the line's start (owner, 2026-10-28); only a count goes to the far end. */
+.mm-column li a { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 6px 10px; border-radius: 8px; color: var(--mm-muted); font-size: 13.5px; line-height: 1.6; text-decoration: none; transition: background .12s, color .12s; }
 .mm-column li a:hover, .mm-column li a:focus-visible { background: var(--mm-soft); color: var(--mm-text); outline: none; }
-.mm-column li a span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-column li a > span:not(.mm-count) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-column li a > svg { flex: none; }
+.mm-column li a > .mm-count { margin-inline-start: auto; }
 .mm-count { flex: none; min-width: 24px; padding: 0 6px; border-radius: 999px; background: var(--mm-soft); color: var(--mm-muted); font-size: 11px; line-height: 20px; text-align: center; }
 .mm-empty { margin: 0; color: var(--mm-muted); font-size: 13px; }
 .mm-empty a { color: var(--accent-ink, var(--mm-accent)); text-decoration: underline; text-underline-offset: 3px; }
