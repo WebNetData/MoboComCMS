@@ -1831,6 +1831,8 @@ model Celebrity {
   slugAliases    CelebritySlugAlias[]
   /// Published works across the sections (films and series credited, songs, albums, song credits): «most known» order.
   score          Int           @default(0)
+  /// The owner's profile fields beyond the biography (country, born, died…): JSON code → value, fields in the managed list PROFILE_FIELD.
+  facts          String        @default("{}")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @default(now()) @updatedAt
 

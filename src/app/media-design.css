@@ -1503,8 +1503,10 @@ html[dir="ltr"] .mu-queue ol button:hover { transform: translateX(3px); }
 .cf-main strong small { color: var(--muted); font-size: .76rem; font-weight: 600; }
 .cf-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: var(--muted); font-size: .76rem; }
 .cf-meta code { padding: 2px 8px; border-radius: 8px; background: var(--bg-soft); font-size: .72rem; }
-.cf-badge { padding: 3px 10px; border-radius: 999px; font-weight: 700; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+/* The readable accent shade (light theme too): the plain accent on its own tint was below 4.5:1. */
+.cf-badge { padding: 3px 10px; border-radius: 999px; font-weight: 700; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--accent-ink, var(--primary)); }
 .cf-badge.is-series { background: color-mix(in srgb, #a855f7 14%, transparent); color: #a855f7; }
+[data-theme="light"] .cf-badge.is-series { color: #7e22ce; }
 .cf-badge.is-off { background: var(--bg-soft); color: var(--muted); }
 .cf-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .cf-tools .is-danger { color: #ef4444; }

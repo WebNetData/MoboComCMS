@@ -645,6 +645,21 @@ Following 6Z-2, the values sections had fixed in code are the owner's managed li
   - `.mobocom/claude-tools/pw-header-language.cjs`, 42 real-browser checks.
   - `.mobocom/claude-tools/pw-translate-ltr.cjs`, 23 real-browser checks, with Google requests blocked.
 
+## 6Z-6. An artist's profile fields (owner, 2026-10-28)
+
+"Beside the biography, an artist's country, birth date and death date, and any field like these I can manage in the admin (add, edit, delete)." What was decided:
+- **The fields are a managed list**: `celebrities / PROFILE_FIELD` in the vocabulary (`src/modules/celebrities/domain/fields.ts`), managed at «هنرمندان → فیلدهای پروفایل» (`/admin/celebrities/fields`) by `music.manage` or `cinema.manage`, like the artists' editor.
+  - It starts with country, born and died (migration `20270131120100_celebrity_profile_fields`).
+  - An entry's family is its kind: short text, long text, date, birth (shows the age), death (shows the age at death), country (a list of countries, or typed), number, link.
+  - The owner adds, renames, orders and switches off fields.
+  - A field some artist has a value in is not deleted (the vocabulary rule): it is switched off, which hides it from the form and the page and keeps its values.
+- **Values live on the person** (`Celebrity.facts`, JSON code → value, migration `20270131120000_celebrity_facts`). They are saved with the central profile (`saveCelebrityProfile`) and cleaned by kind:
+  - a date is a Gregorian day written by the Persian date picker, or a year alone; an impossible day is dropped;
+  - links are http(s) only;
+  - only fields of the list are kept.
+- **On the artist's page**, short fields form a line under the name (dates in the Persian calendar with the Gregorian year, the age or the age at death); long ones are a section beside the biography. `birthDate`, `deathDate` and `nationality` go into the Person structured data.
+- Evidence: `scripts/media-admin.test.cjs` and `.mobocom/claude-tools/pw-artist-fields.cjs` (16 checks).
+
 ## 7. Engineering rules learnt here
 
 - **Stack (owner, 2026-10-19): Next.js 16.4.2, React 19.3.1, TypeScript 7.0.2.** `src/middleware.ts` is now `src/proxy.ts` (export `proxy`; Next 16 always runs it on Node.js, so no `runtime` option). TypeScript 7 is the native compiler: `tsc` checks the whole project in seconds, but it has no JavaScript API. Test loaders that transpile TS therefore use the `typescript-api` alias (`npm:typescript@5.9.3`); do not `require('typescript')` in scripts. TS 7 dropped `baseUrl`; `paths` resolve from tsconfig. Next 16 dropped the `eslint` config key and builds with Turbopack by default.

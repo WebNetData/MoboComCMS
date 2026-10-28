@@ -7,7 +7,8 @@ import { PosterCard, AlbumCard, Shelf } from '@/components/media/MediaCards'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { listLabels } from '@/modules/vocabulary/server/vocabulary'
+import { activeLists, listLabels } from '@/modules/vocabulary/server/vocabulary'
+import { shownFacts } from '@/modules/celebrities/domain/fields'
 import { browseCinema, getArtist } from '@/modules/media/server/queries'
 import { cinemaBrowseHref } from '@/modules/cinema/domain/discovery'
 import { celebrityBySlug, celebrityCollaborators, ensureCelebritiesSynced } from '@/modules/celebrities/server/celebrities'
@@ -65,6 +66,11 @@ export default async function CelebrityPage({ params }: Props) {
   const tracks = songs ? toPlayerTracks(songs.tracks, true) : []
   const bio = songs?.artist.bio || ''
   const labels = music ? await listLabels('music').catch(() => ({} as Record<string, Record<string, string>>)) : {}
+  // The owner's profile fields: short ones under the name, long texts beside the biography (owner, 2026-10-28).
+  const fields = (await activeLists('celebrities').catch(() => ({} as Record<string, never[]>))).PROFILE_FIELD || []
+  const facts = shownFacts(person.facts, fields, new Date().toISOString().slice(0, 10))
+  const factLine = facts.filter((fact) => fact.family !== 'LONG')
+  const factTexts = facts.filter((fact) => fact.family === 'LONG')
   const team = await celebrityCollaborators({ cinemaPersonId: person.cinemaPersonId, musicArtistId: songs?.artist.id ?? null }, labels.CREDIT_ROLE ?? {})
   const shelves = [
     { key: 'directed', title: 'کارگردانی', result: directed, href: cinemaBrowseHref({ director: personId }) },
@@ -83,10 +89,13 @@ export default async function CelebrityPage({ params }: Props) {
     credited.length ? ['cb-credits', 'همکاری در آهنگ‌ها'] : null,
     team.length ? ['cb-team', 'همکاران'] : null,
     bio || person.cinemaBio ? ['cb-bio', 'بیوگرافی'] : null,
+    factTexts.length ? ['cb-facts-more', 'مشخصات'] : null,
   ].filter((item): item is [string, string] => !!item)
   const backdrop = card.cover || card.image
   const nav = [{ key: 'all', href: '/celebrities', label: 'همهٔ چهره‌ها' }, ...(cinema ? [{ key: 'cinema', href: '/celebrities?section=cinema', label: 'سینما و سریال' }] : []), ...(music ? [{ key: 'music', href: '/celebrities?section=music', label: 'موسیقی' }] : [])]
-  const jsonLd = { '@context': 'https://schema.org', '@type': 'Person', name: card.name, ...(card.nameEn ? { alternateName: card.nameEn } : {}), ...(card.image ? { image: card.image } : {}), ...(card.roles.length ? { jobTitle: card.roles.join('، ') } : {}) }
+  // Structured data from the fields of those kinds: born, died, nationality.
+  const factOf = (family: string) => { const field = fields.find((entry) => entry.family === family && person.facts[entry.code]); return field ? person.facts[field.code] : '' }
+  const jsonLd = { '@context': 'https://schema.org', '@type': 'Person', name: card.name, ...(factOf('BIRTH') ? { birthDate: factOf('BIRTH') } : {}), ...(factOf('DEATH') ? { deathDate: factOf('DEATH') } : {}), ...(factOf('COUNTRY') ? { nationality: { '@type': 'Country', name: factOf('COUNTRY') } } : {}), ...(card.nameEn ? { alternateName: card.nameEn } : {}), ...(card.image ? { image: card.image } : {}), ...(card.roles.length ? { jobTitle: card.roles.join('، ') } : {}) }
   return <MediaShell section="celebrities" nav={nav} search={{ action: '/celebrities', placeholder: 'جست‌وجوی بازیگر، کارگردان، خواننده…' }}>
     <script type="application/ld+json" nonce={(await headers()).get('x-nonce') || undefined} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
     <ManageBar title="مدیریت هنرمند" anyOf={['cinema.manage', 'music.manage']} links={[{ href: `/admin/celebrities?edit=${card.id}`, label: 'ویرایش پروفایل' }, { href: `/admin/celebrities?q=${encodeURIComponent(card.name)}`, label: 'هنرمندان و چهره‌ها' }]} />
@@ -98,6 +107,7 @@ export default async function CelebrityPage({ params }: Props) {
           <nav className="cb-crumbs" aria-label="مسیر صفحه"><Link href="/celebrities">چهره‌ها</Link><span aria-hidden="true">/</span><span aria-current="page">{card.name}</span></nav>
           <h1>{card.name}</h1>
           {card.nameEn && <p className="cb-name-en" dir="ltr">{card.nameEn}</p>}
+          {factLine.length > 0 && <dl className="cb-facts">{factLine.map((fact) => <div key={fact.code} className={`cb-fact is-${fact.family.toLowerCase()}`}><dt>{fact.icon ? <span aria-hidden="true">{fact.icon} </span> : null}{fact.label}</dt><dd>{fact.href ? <a href={fact.href} target="_blank" rel="noopener noreferrer nofollow" dir="ltr">{fact.text}</a> : fact.text}{fact.note && <small>{fact.note}</small>}</dd></div>)}</dl>}
           {card.roles.length > 0 && <ul className="cb-role-chips" aria-label="نقش‌ها">{card.roles.map((role) => <li key={role}>{role}</li>)}</ul>}
           {stats.length > 0 && <ul className="cb-stats">{stats.map(([value, label]) => <li key={label}><b>{fa(value)}</b><small>{label}</small></li>)}</ul>}
           <div className="cb-actions">
@@ -129,6 +139,7 @@ export default async function CelebrityPage({ params }: Props) {
         <div className="cb-grid is-compact">{team.map((mate) => <CelebrityCardView key={mate.id} person={mate} note={`${fa(mate.shared)} کار مشترک`} />)}</div>
       </section>}
       {(bio || person.cinemaBio) && <section id="cb-bio" className="mu-panel md-prose cb-bio"><h2>بیوگرافی</h2>{bio ? <div dangerouslySetInnerHTML={{ __html: withTextDirections(bio) }} /> : <p>{plainText(person.cinemaBio)}</p>}</section>}
+      {factTexts.length > 0 && <section id="cb-facts-more" className="mu-panel cb-bio cb-facts-more">{factTexts.map((fact) => <div key={fact.code}><h2>{fact.label}</h2><p>{fact.text}</p></div>)}</section>}
     </div>
   </MediaShell>
 }
