@@ -471,6 +471,13 @@ The owner asked for a Gravity-Forms-class form builder that the whole site can u
 - **A password typed into a form** follows 6L: encrypted apart, masked everywhere, read by an audited click, erased a week after the work ends.
 - **`forms.handle`** lets staff read and work on answers without the right to build pages; deleting answers and building forms stay with `cms.pages`.
 - **A form chooses its own look** (theme, accent, corners, density, width, steps).
+- **Designed form looks (owner, 2026-10-28).** "Forms should have several professional, attractive styles that I choose." Four themes join the five:
+  - «دوستونه» (split): the title and description on a colour panel beside the fields, stacked on a phone;
+  - «شفق» (aurora): a colour heading band with a soft glow;
+  - «شب» (night): always dark with a glowing accent, keeping its own readable colours in either site theme;
+  - «لوکس» (elegant): spacious, with a gold rule and underlined fields.
+
+  They are chosen with the others in the form's look panel (`THEMES`, `forms-pro.css`). Evidence: `.mobocom/claude-tools/pw-form-themes.cjs` (29 checks: every theme at 1440 light/dark and 390, axe, no sideways scroll).
 - Spec and the slices still to build: `docs/specs/form-builder/SPEC.md`.
 - **Staff run every invoice from one desk, and an unpaid invoice may close by itself** (owner, 2026-10-14): view, make, edit, record payment, void, refund, delete; recurring invoices weekly, monthly, every 3, 6 or 12 months (Persian months); a price that followed an exchange rate holds 2 hours and closes earlier when its rate rises 3,000 toman — the customer is told on the invoice with a countdown and again when it closes («به دلیل نوسانات ارز فاکتور بسته شد؛ مجدد ثبت کنید»); default action close and delete, configurable; a transfer receipt waiting for staff keeps an invoice open. Spec: `docs/specs/invoice-desk/SPEC.md`.
 - **An invoice says what it is for** (owner, 2026-10-14): a wallet top-up reads «افزایش موجودی کیف پول <site>» with «افزایش موجودی حساب کاربری پلتفرم <site> به مبلغ …»; a paid form uses its own invoice title and description, filled from the answer with `{field:id}` tags (the ready-made "pay a foreign site" form: the amount, the site and the account). Passwords stay masked; each answer keeps its own text direction. One pure owner, `src/modules/billing/domain/invoice-subject.ts`, feeds the invoice page, the customer's invoice list and the official invoice.

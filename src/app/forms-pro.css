@@ -406,3 +406,67 @@
 .fp-invoice-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .fp-invoice-tags span { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 99px; background: var(--card); border: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .fp-invoice-tags code { border: 0; padding: 1px 7px; border-radius: 99px; background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+
+/* ---------- Designed form themes (owner, 2026-10-28: «several professional, attractive styles to choose from») */
+
+/* «دوستونه»: the title and description on a colour panel beside the fields; one column on a phone. */
+/* No row gap: the panel spans many rows, and a gap would add to each empty one. The parts keep their own spacing. */
+.pf.pf-theme-split { display: grid; grid-template-columns: minmax(220px, .78fr) minmax(0, 1.6fr); grid-auto-rows: auto; row-gap: 0; column-gap: clamp(20px, 3.4vw, 48px); align-content: start; max-width: 1120px; padding: clamp(12px, 1.6vw, 18px); border: 1px solid var(--pf-line); border-radius: calc(var(--pf-radius) * 1.5); box-shadow: 0 30px 70px -40px color-mix(in srgb, var(--pf-accent) 60%, transparent); }
+/* The site's card draws a thin line with its own ::before; here it is the whole panel. */
+.pf.pf-theme-split::before { content: ''; position: static; inset: auto; width: auto; height: auto; margin: 0; grid-column: 1; grid-row: 1 / span 12; border-radius: calc(var(--pf-radius) * 1.15); background: radial-gradient(circle at 1px 1px, rgb(255 255 255 / .14) 1px, transparent 1.6px) 0 0 / 18px 18px, radial-gradient(70% 60% at 100% 0%, rgb(255 255 255 / .18), transparent 70%), linear-gradient(160deg, color-mix(in srgb, var(--pf-accent) 74%, #0b1020), color-mix(in srgb, var(--pf-accent) 42%, #0b1020)); }
+.pf.pf-theme-split > * { grid-column: 2; }
+.pf.pf-theme-split > h2 { grid-column: 1; grid-row: 1; z-index: 1; align-self: end; margin: 0; padding: clamp(22px, 3vw, 36px) clamp(18px, 2.4vw, 30px) 8px; color: #fff; font-size: clamp(22px, 2.6vw, 32px); font-weight: 900; }
+.pf.pf-theme-split > h2 + .muted { grid-column: 1; grid-row: 2; z-index: 1; margin: 0; padding: 0 clamp(18px, 2.4vw, 30px) clamp(22px, 3vw, 36px); color: rgb(255 255 255 / .86); }
+.pf.pf-theme-split > :is(.pf-steps, .pf-grid) { margin-block-start: clamp(10px, 1.6vw, 18px); }
+.pf.pf-theme-split > .pf-actions { margin-block: 6px 8px; }
+.pf.pf-theme-split > :is(.pf-steps, .pf-step-note, .pf-draft, .error-text) { margin-block-end: 12px; }
+@media (max-width: 760px) {
+  .pf.pf-theme-split { grid-template-columns: minmax(0, 1fr); }
+  .pf.pf-theme-split::before { grid-row: 1 / span 2; }
+  .pf.pf-theme-split > * , .pf.pf-theme-split > h2, .pf.pf-theme-split > h2 + .muted { grid-column: 1; }
+  .pf.pf-theme-split > h2 + .muted { margin-block-end: 18px; }
+}
+
+/* «شفق»: a colour heading band with a soft glow; light glass inputs below it. */
+.pf.pf-theme-aurora { --pf-pad: clamp(20px, 3vw, 36px); row-gap: 18px; position: relative; overflow: hidden; padding: var(--pf-pad); border: 1px solid var(--pf-line); border-radius: calc(var(--pf-radius) * 1.5); box-shadow: 0 34px 80px -46px color-mix(in srgb, var(--pf-accent) 70%, transparent); }
+/* The band runs on through the form's row gap into the description below. */
+.pf.pf-theme-aurora > h2 { position: relative; margin: calc(var(--pf-pad) * -1) calc(var(--pf-pad) * -1) -18px; padding: calc(var(--pf-pad) * 1.1) var(--pf-pad) 24px; color: #fff; background: radial-gradient(60% 120% at 12% 0%, rgb(168 85 247 / .55), transparent 70%), radial-gradient(50% 120% at 90% 0%, rgb(34 211 238 / .4), transparent 70%), color-mix(in srgb, var(--pf-accent) 50%, #0b1020); }
+.pf.pf-theme-aurora > h2 + .muted { margin: 0 calc(var(--pf-pad) * -1) var(--pf-pad); padding: 0 var(--pf-pad) calc(var(--pf-pad) * .9); color: rgb(255 255 255 / .94); background: color-mix(in srgb, var(--pf-accent) 50%, #0b1020); }
+.pf.pf-theme-aurora > h2:last-of-type:not(:has(+ .muted)) { margin-block-end: var(--pf-pad); padding-block-end: calc(var(--pf-pad) * .9); }
+.pf.pf-theme-aurora .input, .pf.pf-theme-aurora .pf-choice { background: color-mix(in srgb, var(--pf-accent) 4%, var(--card)); }
+.pf.pf-theme-aurora .btn-primary { background: linear-gradient(135deg, var(--pf-accent), color-mix(in srgb, var(--pf-accent) 55%, #7c3aed)); border: 0; box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--pf-accent) 80%, transparent); }
+
+/* «شب»: always dark, with a glowing accent (gaming, foreign payment); its own colours, readable in either site theme. */
+.pf.pf-theme-night { --text: #eef0f7; --muted: #a9aec4; --card: #11152a; --bg-soft: #161b33; --border: #2a3152; --pf-line: #2a3152; color: var(--text); padding: clamp(20px, 3vw, 36px); border: 1px solid color-mix(in srgb, var(--pf-accent) 35%, #2a3152); border-radius: calc(var(--pf-radius) * 1.4); background: radial-gradient(70% 50% at 100% 0%, color-mix(in srgb, var(--pf-accent) 22%, transparent), transparent 70%), #0b0e1c; box-shadow: 0 40px 90px -40px #000, 0 0 0 1px rgb(255 255 255 / .03); }
+.pf.pf-theme-night > h2 { color: #fff; text-shadow: 0 0 22px color-mix(in srgb, var(--pf-accent) 55%, transparent); }
+.pf.pf-theme-night .input, .pf.pf-theme-night .pf-choice { border-color: #2a3152; background: #141935; color: #eef0f7; }
+.pf.pf-theme-night .input::placeholder { color: #8a90ab; }
+.pf.pf-theme-night .input:focus { border-color: color-mix(in srgb, var(--pf-accent) 70%, #fff); box-shadow: 0 0 0 4px color-mix(in srgb, var(--pf-accent) 28%, transparent), 0 0 24px -6px var(--pf-accent); }
+.pf.pf-theme-night .pf-choice:has(input:checked) { background: color-mix(in srgb, var(--pf-accent) 22%, #141935); color: #fff; }
+.pf.pf-theme-night :is(.text-link, a) { color: color-mix(in srgb, var(--pf-accent) 55%, #fff); }
+.pf.pf-theme-night .btn-ghost { border-color: #2a3152; background: transparent; color: #eef0f7; }
+
+/* «لوکس»: generous space, a centred title over a fine gold rule, underlined fields and a dark pill button. */
+.pf.pf-theme-elegant { --pf-gap: 24px; padding: clamp(24px, 4vw, 52px); border: 1px solid var(--pf-line); border-radius: calc(var(--pf-radius) * .6); box-shadow: 0 24px 60px -44px rgb(15 23 42 / .5); }
+.pf.pf-theme-elegant > h2 { text-align: center; font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -.01em; }
+.pf.pf-theme-elegant > h2::after { content: ''; display: block; width: 64px; height: 2px; margin: 14px auto 0; border-radius: 2px; background: linear-gradient(90deg, #b8913a, #e6c873); }
+.pf.pf-theme-elegant > h2 + .muted { margin-block-start: 6px; text-align: center; }
+.pf.pf-theme-elegant .pf-label { color: var(--muted); font-size: 12.5px; letter-spacing: .02em; }
+.pf.pf-theme-elegant .input { border-width: 0 0 1px; border-radius: 0; background: transparent; padding-inline: 2px; transition: border-color .2s ease, background-size .25s ease; background-image: linear-gradient(var(--pf-accent), var(--pf-accent)); background-repeat: no-repeat; background-position: bottom center; background-size: 0 2px; }
+.pf.pf-theme-elegant .input:focus { box-shadow: none; background-size: 100% 2px; }
+.pf.pf-theme-elegant .btn-primary { border: 0; border-radius: 999px; background: var(--text); color: var(--card); padding-inline: 34px; }
+.pf.pf-theme-elegant .pf-actions { justify-content: center; border-top: 0; }
+@media (prefers-reduced-motion: reduce) { .pf.pf-theme-elegant .input { transition: none; } }
+
+/* The builder's drawings of the new themes */
+.fp-theme.is-split i { grid-template-columns: 38% 1fr; }
+.fp-theme.is-split i::before { content: ''; grid-row: span 3; border-radius: 5px; background: linear-gradient(160deg, color-mix(in srgb, var(--primary) 74%, #0b1020), color-mix(in srgb, var(--primary) 42%, #0b1020)); }
+.fp-theme.is-aurora i { padding-top: 0; overflow: hidden; }
+.fp-theme.is-aurora i::before { content: ''; height: 14px; margin: 0 -9px 2px; background: linear-gradient(90deg, rgb(168 85 247 / .7), color-mix(in srgb, var(--primary) 70%, #0b1020), rgb(34 211 238 / .6)); }
+.fp-theme.is-night i { border-color: #2a3152; background: #0b0e1c; }
+.fp-theme.is-night i b { background: #2a3152; }
+.fp-theme.is-night i em { box-shadow: 0 0 10px var(--primary); }
+.fp-theme.is-elegant i { justify-items: center; }
+.fp-theme.is-elegant i::before { content: ''; width: 30%; height: 2px; background: linear-gradient(90deg, #b8913a, #e6c873); }
+.fp-theme.is-elegant i b { width: 100%; height: 1px; border-radius: 0; }
+.fp-theme.is-elegant i em { border-radius: 99px; background: var(--text); }
