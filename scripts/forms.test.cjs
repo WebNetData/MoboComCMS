@@ -421,3 +421,29 @@ test('the wallet takes toman and rial at their own limits, and says why a top-up
   assert.match(money, /IRT: \{ fa: 'تومان ایران', en: 'Iranian toman' \}/)
   assert.match(money, /IRR: \{ fa: 'ریال ایران', en: 'Iranian rial' \}/)
 })
+
+// ---- a form placed anywhere in written content (owner, 2026-10-28)
+test('form shortcodes become placeholders, never inside code, never for a bad address', () => {
+  const embed = load('src/modules/forms/domain/embed.ts')
+  const box = (slug) => `<div class="mc-form-embed" data-mc-form="${slug}"></div>`
+  assert.equal(embed.formShortcodes('<p>[form slug="contact"]</p>'), box('contact'))
+  assert.equal(embed.formShortcodes('<p>پیش از [form contact] پس از</p>'), `<p>پیش از ${box('contact')} پس از</p>`)
+  assert.equal(embed.formShortcodes('[فرم foreign-payment]'), box('foreign-payment'))
+  assert.equal(embed.formShortcodes('[form slug=“contact”]'), box('contact'))
+  assert.equal(embed.formShortcodes('<pre>[form slug="contact"]</pre>'), '<pre>[form slug="contact"]</pre>')
+  assert.equal(embed.formShortcodes('<code>[form contact]</code> و [form contact]'), `<code>[form contact]</code> و ${box('contact')}`)
+  for (const bad of ['[form slug="Contact"]', '[form slug="x"]', '[form slug="a<b>"]', '[form]']) assert.equal(embed.formShortcodes(bad), bad, bad)
+  assert.equal(embed.formShortcodes('بدون کد'), 'بدون کد')
+  assert.equal(embed.formShortcode('contact'), '[form slug="contact"]')
+  // The editor's «فرم» block renders the same placeholder; GET /api/forms/<slug> gives only a published form's public view.
+  const render = fs.readFileSync(path.resolve(root, 'src/modules/editor/domain/render.ts'), 'utf8')
+  // The editor keeps its own copy (its domain imports nothing): the same address rule and the same placeholder.
+  assert.ok(render.includes("case 'content.form': { const slug = String(p.form || ''); return /^[a-z][a-z0-9-]{1,79}$/.test(slug) ? `<div class=\"mc-form-embed\" data-mc-form=\"${slug}\"></div>` : '' }"))
+  assert.equal(String(embed.FORM_SLUG), '/^[a-z][a-z0-9-]{1,79}$/')
+  assert.equal(embed.formPlaceholder('contact'), box('contact'))
+  assert.match(fs.readFileSync(path.resolve(root, 'src/modules/editor/domain/core-blocks.ts'), 'utf8'), /type: 'content\.form', version: 1/)
+  const route = fs.readFileSync(path.resolve(root, 'src/modules/site/server/http/forms/[slug]/route.ts'), 'utf8')
+  assert.match(route, /const found = await publicFormBySlug\(slug\)\s+if \(!found\) return err\('فرم پیدا نشد', 404\)\s+return ok\(\{ form: publicForm\(found\.form\), state: found\.state \}\)/)
+  for (const page of ['src/modules/site/server/pages/p/[slug]/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx']) assert.match(fs.readFileSync(path.resolve(root, page), 'utf8'), /formShortcodes\(/, page)
+  assert.match(fs.readFileSync(path.resolve(root, 'src/app/layout.tsx'), 'utf8'), /<FormEmbeds \/>/)
+})

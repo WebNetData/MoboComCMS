@@ -1,1 +1,1 @@
-export { POST } from '@/modules/site/server/http/forms/[slug]/route'
+export { GET, POST } from '@/modules/site/server/http/forms/[slug]/route'

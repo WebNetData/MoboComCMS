@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import PublicForm from '@/components/site/PublicForm'
 import { normalizeForm, publicForm, type FormDefinition } from '@/modules/forms/domain/forms'
+import { formShortcode } from '@/modules/forms/domain/embed'
 import Builder from './Builder'
 import Inbox from './Inbox'
 import SettingsPanel from './SettingsPanel'
@@ -112,7 +113,7 @@ export default function FormsAdmin() {
 
       {!queue && form && <div className="fb-main">
         <div className="fb-title"><div><h2>{form.title || 'فرم بدون عنوان'}</h2>{form.id ? <small dir="ltr">/forms/{form.slug}</small> : <small>ذخیره نشده</small>}</div>
-          {form.id && <div className="sa-row-actions">{form.published && <Link href={`/forms/${form.slug}`} target="_blank" className="btn btn-ghost btn-sm">مشاهده ↗</Link>}<button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('duplicate')}>کپی</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('delete')}>حذف</button></div>}</div>
+          {form.id && <div className="sa-row-actions">{form.published && <Link href={`/forms/${form.slug}`} target="_blank" className="btn btn-ghost btn-sm">مشاهده ↗</Link>}{form.published && <button type="button" className="btn btn-ghost btn-sm" title={`${formShortcode(form.slug)} را در متن هر نوشته، صفحه یا محصول بگذارید؛ در ویرایشگر دیداری بلوک «فرم» هم هست.`} onClick={() => { void navigator.clipboard?.writeText(formShortcode(form.slug)).then(() => say('ok', `کد درج کپی شد: ${formShortcode(form.slug)} — آن را در متن هر نوشته یا صفحه بگذارید.`)).catch(() => say('ok', `کد درج: ${formShortcode(form.slug)}`)) }}>کپی کد درج</button>}<button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('duplicate')}>کپی</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('delete')}>حذف</button></div>}</div>
         <div className="sa-tabs fb-tabs" role="tablist">{TABS.filter(([id]) => canBuild || id === 'inbox').map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}{id === 'inbox' && saved?.counts.new ? <span className="fb-badge">{fa(saved.counts.new)}</span> : null}</button>)}</div>
         {problem && dirty && tab !== 'inbox' && <p className="fb-problem" role="status">⚠ {problem}</p>}
 

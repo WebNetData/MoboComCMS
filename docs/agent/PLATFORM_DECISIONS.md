@@ -491,6 +491,11 @@ The owner asked for the rest of the form builder in one go. Decided:
 - **A webhook leaves the site only to a public https address**, without following redirects, signed when a secret is set, and never carries a password. It is tried once.
 - **Quiz points are the site's**: never sent to the browser; only the total comes back.
 - **A draft lives in the visitor's browser** and never holds a password, a file, a signature or a turn.
+- **A form anywhere in written content (owner, 2026-10-28: "like WordPress, a shortcode or the visual editor").**
+  - **Shortcode:** `[form slug="contact"]` (also `[form contact]`, `[فرم contact]`) in a page's or article's text becomes a placeholder (`src/modules/forms/domain/embed.ts`). A paragraph holding only the shortcode is replaced whole; one written as code stays text; a bad address is left alone.
+  - **Mounting:** `FormEmbeds` (in the root layout, inside the site providers) mounts the live form into each placeholder through a portal, also after navigation. It reads only a published form's public view (`GET /api/forms/<slug>`), and an unpublished form leaves its place empty.
+  - **Inserting it:** the classic editor has «درج فرم» (the published forms, inserted as the shortcode); the block editor has a «فرم» block with a list of the forms; the forms admin copies a form's shortcode.
+  - **Evidence:** `scripts/forms.test.cjs` and `.mobocom/claude-tools/pw-form-embeds.cjs` (13 checks). The block editor's block was not exercised in a browser, because that module is off on the local site.
 - **A form may name the staff who handle it.** Then only they, and those who build forms, see its answers. Staff may correct plain answers — recorded — but not money, turns, passwords or files.
 - Spec: `docs/specs/form-builder/SPEC.md`.
 

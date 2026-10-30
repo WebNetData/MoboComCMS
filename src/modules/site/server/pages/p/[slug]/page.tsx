@@ -6,6 +6,7 @@ import { pageDescription } from '@/modules/site/server/page-description'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
 import { cleanRichText } from '@/shared/content/sanitize'
+import { formShortcodes } from '@/modules/forms/domain/embed'
 import { breadcrumbJsonLd, pageMeta, siteBase } from '@/modules/site/server/seo'
 import TitleCover from '@/components/content/TitleCover'
 import ArticleToc from '@/components/ArticleToc'
@@ -64,8 +65,10 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
 
   const title = isFa ? page.title : page.titleEn || page.title
   // A page written in blocks is rendered from its document; the HTML built there has every value escaped and is not passed through the HTML cleaner.
-  const blocks = await pageBlocksHtml(page)
-  const content = blocks === null ? cleanRichText(isFa ? page.content : page.contentEn || page.content) : ''
+  // A form shortcode in the text becomes a placeholder the page mounts the live form into.
+  const written = await pageBlocksHtml(page)
+  const blocks = written === null ? null : formShortcodes(written)
+  const content = blocks === null ? formShortcodes(cleanRichText(isFa ? page.content : page.contentEn || page.content)) : ''
   const base = await siteBase()
   const crumbsLd = breadcrumbJsonLd(base, [
     { name: isFa ? 'خانه' : 'Home', path: '/' },

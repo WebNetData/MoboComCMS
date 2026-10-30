@@ -1,4 +1,5 @@
 import { articleBodyWithExcerpt } from '@/modules/site/domain/article-output'
+import { formShortcodes } from '@/modules/forms/domain/embed'
 import { categoryMembership } from '@/modules/site/server/categories'
 import { Fragment, type CSSProperties } from 'react'
 import ManageBar from '@/components/admin/ManageBar'
@@ -243,7 +244,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
       <article
         id="article-body"
         className={`prose journal-prose${locked ? ' vip-teaser' : ''}${articleBlocks !== null ? ' mcb-document' : ''}`}
-        dangerouslySetInnerHTML={{ __html: articleBodyWithExcerpt(articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)), isFa ? post.excerpt : post.excerptEn || post.excerpt, isFa) }}
+        dangerouslySetInnerHTML={{ __html: formShortcodes(articleBodyWithExcerpt(articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)), isFa ? post.excerpt : post.excerptEn || post.excerpt, isFa)) }}
       />
       <PostFormatClose facts={facts} fa={isFa} />
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}

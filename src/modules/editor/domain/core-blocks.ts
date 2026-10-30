@@ -57,6 +57,9 @@ export const CORE_BLOCKS: BlockDefinition[] = [
   // pattern's current ones, read when the page is rendered. Inserted from the pattern library, never typed in.
   { type: 'content.pattern', version: 1, category: 'layout', kind: 'dynamic', icon: 'stack', label: { fa: 'الگوی همگام', en: 'Synced pattern' }, dataSource: { kind: 'pattern' },
     fields: { pattern: { kind: 'int', min: 1, max: 2147483647, default: 1 }, title: { kind: 'string', max: 100, role: 'text' } } },
+  // A form of the form builder, placed in the text (owner, 2026-10-28); the page mounts the live form into it.
+  { type: 'content.form', version: 1, category: 'content', kind: 'static', icon: 'form', label: { fa: 'فرم', en: 'Form' },
+    fields: { form: { kind: 'string', max: 80 } } },
   { type: 'content.faq', version: 1, category: 'content', kind: 'static', icon: 'faq', label: { fa: 'پرسش‌های پرتکرار', en: 'FAQ' },
     fields: { items: { kind: 'list', max: 60, item: { question: { kind: 'string', max: 300, role: 'text' }, answer: { kind: 'richText' } } }, open: { kind: 'enum', values: ['none', 'first', 'all'], default: 'none' } } },
 ]
