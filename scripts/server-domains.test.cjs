@@ -14,6 +14,14 @@ function load(relative) {
   return mod.exports
 }
 const d = load('src/modules/server-panel/domain/domains')
+const installation = require('./connected-source-loader.cjs')()('src/modules/server-panel/domain/installation.ts')
+
+test('web setup validates SSL choices without accepting arbitrary host operations', () => {
+  const base = { domain: 'HTTPS://MoboCom.net/', email: 'owner@example.com', acmeAgreement: true }
+  for (const method of ['http', 'cloudflare']) assert.deepEqual(installation.installationNetworkInput({ ...base, method }), { domain: 'mobocom.net', method, email: 'owner@example.com', www: false, url: 'https://mobocom.net' })
+  assert.equal(installation.installationNetworkInput({ domain: 'mobocom.net', method: 'pem', www: true }).www, true)
+  for (const input of [{ ...base, method: 'shell' }, { ...base, domain: 'a.com;id' }, { ...base, domain: '127.0.0.1' }, { ...base, email: 'bad' }, { ...base, acmeAgreement: false }, { domain: 'mobocom.net', method: 'external' }]) assert.throws(() => installation.installationNetworkInput(input))
+})
 
 test('Linux certificate helper keeps private versions and restores the pointer after a failed reload', { skip: process.platform === 'win32' || spawnSync('python3', ['--version']).status !== 0 }, () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'certificate-helper-')), root = path.join(dir, 'certificates'), bin = path.join(dir, 'bin')
@@ -21,7 +29,12 @@ test('Linux certificate helper keeps private versions and restores the pointer a
     fs.mkdirSync(bin); const cert = path.join(dir, 'cert.pem'), key = path.join(dir, 'key.pem'), other = path.join(dir, 'other.pem'), expired = path.join(dir, 'expired.pem')
     execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-subj', '/CN=example.com', '-addext', 'subjectAltName=DNS:example.com', '-addext', 'basicConstraints=critical,CA:FALSE', '-days', '2', '-out', cert, '-keyout', key], { stdio: 'ignore' })
     execFileSync('openssl', ['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', other], { stdio: 'ignore' })
-    execFileSync('openssl', ['x509', '-in', cert, '-signkey', key, '-days', '-1', '-out', expired], { stdio: 'ignore' })
+    // OpenSSL on Ubuntu26 no longer accepts negative -days. Issue a genuinely expired leaf with the same key.
+    const config = path.join(dir, 'ca.cnf'), csr = path.join(dir, 'expired.csr')
+    fs.writeFileSync(path.join(dir, 'index'), ''); fs.writeFileSync(path.join(dir, 'serial'), '01\n')
+    fs.writeFileSync(config, `[ca]\ndefault_ca=fixture\n[fixture]\ndatabase=${dir}/index\nserial=${dir}/serial\nnew_certs_dir=${dir}\ndefault_md=sha256\npolicy=names\nx509_extensions=leaf\n[names]\ncommonName=supplied\n[leaf]\nbasicConstraints=critical,CA:FALSE\nsubjectAltName=DNS:example.com\n`)
+    execFileSync('openssl', ['req', '-new', '-key', key, '-subj', '/CN=example.com', '-out', csr], { stdio: 'ignore' })
+    execFileSync('openssl', ['ca', '-selfsign', '-batch', '-notext', '-config', config, '-keyfile', key, '-in', csr, '-startdate', '20200101000000Z', '-enddate', '20200102000000Z', '-out', expired], { stdio: 'ignore' })
     const payload = (c = cert, k = key) => fs.readFileSync(c).toString('base64') + '\n' + fs.readFileSync(k).toString('base64') + '\n'
     const helper = path.resolve(__dirname, '../deploy/ubuntu/certificate-import.py')
     const call = (args, input = payload(), env = process.env) => spawnSync('python3', [helper, ...args], { input, env, encoding: 'utf8' })
@@ -131,6 +144,9 @@ test('root helper writes nginx from templates and refuses bad input', { skip: pr
     assert.match(conf, /server_name mobocom.net www.mobocom.net;/)
     assert.match(conf, /listen 443 ssl http2;/)
     assert.match(conf, /live\/mobocom.net\/fullchain.pem/)
+    assert.match(conf, /location = \/api\/admin\/server\/updates\/package/)
+    assert.match(conf, /client_max_body_size 512m;/)
+    assert.match(conf, /proxy_request_buffering off;/)
     assert.match(conf, /return 301 https:\/\/\$host\$request_uri;/)
     assert.ok(fs.existsSync(path.join(dir, 'sites-enabled/mobocom-mobocom.net.conf')))
     r = webctl(['site-apply', 'dl.mobocom.net', 'static', '/var/www/dl', '0', '0', '-'], dir)

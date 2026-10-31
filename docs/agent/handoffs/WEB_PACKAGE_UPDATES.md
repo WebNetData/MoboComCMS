@@ -1,5 +1,7 @@
 # Git-independent web packages — 2026-10-31
 
+2026-11-01 continuation: [browser domain/email/SSL and guarded unfinished-install resume](HOST_INSTALL_UPGRADE.md#browser-host-setup-follow-up--2026-11-01) extends these same owners in1.6.1. Follow that latest evidence before older CLI-only instructions.
+
 Authoritative checkout `.mobocom/autonomous-foundation`, branch `feat/web-package-install-update-2026-10-31`, continues `1204d79b`/PR291 without changing Claude's separate worktree. Owner asked for one-command/web installation and web updates independent of GitHub. [Bounded spec](../../specs/web-package-updates/SPEC.md). Existing Installer/Updater/Server Panel/backup owners remain canonical; no new identity, schema, content storage, queue or public redesign.
 
 ## Implementation and trust

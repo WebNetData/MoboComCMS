@@ -27,6 +27,7 @@ LE_LIVE="${WEBCTL_LE_LIVE:-/etc/letsencrypt/live}"
 MANUAL_CERTS="${WEBCTL_MANUAL_CERTS:-/etc/mobocom/certificates}"
 CERT_IMPORT="${WEBCTL_CERT_IMPORT:-/usr/local/libexec/mobocom/certificate-import.py}"
 APP_UPSTREAM="${WEBCTL_APP_UPSTREAM:-http://127.0.0.1:3000}"
+BOOTSTRAP_HELPER="${WEBCTL_BOOTSTRAP_HELPER:-/usr/local/libexec/mobocom/bootstrap-web.sh}"
 DRY="${WEBCTL_DRY:-0}"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
@@ -46,17 +47,72 @@ reload_nginx() {
   nginx -t 2>&1 && systemctl reload nginx
 }
 
+# Certbot renewals retain this root-owned snapshot, never an app-writable credential path.
+secure_cf_credentials() {
+  if [ "$DRY" = 1 ]; then printf '%s\n' "$CF_INI"; return; fi
+  install -d -m 700 "$MANUAL_CERTS"
+  python3 - "$CF_INI" "$MANUAL_CERTS" <<'PY'
+import os, re, stat, sys, tempfile
+try:
+    descriptor = os.open(sys.argv[1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 4096:
+            raise ValueError()
+        text = os.read(descriptor, 4097).decode('ascii')
+    finally:
+        os.close(descriptor)
+    lines = [line.strip() for line in text.splitlines() if line.strip() and not line.lstrip().startswith('#')]
+    match = re.fullmatch(r'dns_cloudflare_api_token\s*=\s*([A-Za-z0-9_-]{30,80})', lines[0]) if len(lines) == 1 else None
+    if not match:
+        raise ValueError()
+    descriptor, temporary = tempfile.mkstemp(prefix='.cloudflare-', dir=sys.argv[2])
+    try:
+        os.write(descriptor, ('dns_cloudflare_api_token = ' + match.group(1) + '\n').encode('ascii'))
+        os.fchmod(descriptor, 0o600)
+        os.close(descriptor)
+        target = os.path.join(sys.argv[2], '.cloudflare.ini')
+        os.replace(temporary, target)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    print(target)
+except Exception:
+    print('ERROR: invalid DNS credential file', file=sys.stderr)
+    sys.exit(2)
+PY
+}
+
 location_block() { # mode target
   local mode="$1" target="$2"
   case "$mode" in
     app|proxy)
       local upstream="$APP_UPSTREAM"; [ "$mode" = "proxy" ] && upstream="$target"
+      if [ "$mode" = app ]; then
+        cat <<BLOCK
+    location = /api/admin/server/updates/package {
+        client_max_body_size 512m;
+        client_body_timeout 300s;
+        proxy_request_buffering off;
+        proxy_pass $upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Host \$http_host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Connection "";
+        proxy_read_timeout 300s;
+    }
+BLOCK
+      fi
       cat <<BLOCK
     client_max_body_size 25m;
     location / {
         proxy_pass $upstream;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Host \$http_host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$remote_addr;
         proxy_set_header X-Forwarded-Proto \$scheme;
@@ -94,7 +150,7 @@ cmd_status() {
   { python3 -c 'import certbot_dns_cloudflare' >/dev/null 2>&1 || [ -d /usr/lib/python3/dist-packages/certbot_dns_cloudflare ]; } && cf=1
   systemctl is-active --quiet certbot.timer 2>/dev/null && timer=1
   ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
-  printf '{"nginx":%s,"certbot":%s,"cloudflare":%s,"renewTimer":%s,"ip":"%s","cfCredentials":%s}\n' "$nginx" "$certbot" "$cf" "$timer" "$ip" "$([ -s "$CF_INI" ] && echo 1 || echo 0)"
+  printf '{"nginx":%s,"certbot":%s,"cloudflare":%s,"renewTimer":%s,"ip":"%s","cfCredentials":%s,"safeDnsCredentials":1}\n' "$nginx" "$certbot" "$cf" "$timer" "$ip" "$([ -s "$CF_INI" ] && echo 1 || echo 0)"
 }
 
 cmd_site_apply() {
@@ -180,7 +236,7 @@ cmd_cert_issue() {
   done
   case "$method" in
     http) mkdir -p "$ACME_ROOT"; args+=(--webroot -w "$ACME_ROOT") ;;
-    cloudflare) [ -s "$CF_INI" ] || die "Cloudflare credentials missing"; args+=(--dns-cloudflare --dns-cloudflare-credentials "$CF_INI" --dns-cloudflare-propagation-seconds 30) ;;
+    cloudflare) [ -s "$CF_INI" ] || die "Cloudflare credentials missing"; local credentials; credentials="$(secure_cf_credentials)" || die 'invalid DNS credential file'; args+=(--dns-cloudflare --dns-cloudflare-credentials "$credentials" --dns-cloudflare-propagation-seconds 30) ;;
     standalone) args+=(--standalone --preferred-challenges http) ;;
     *) die "invalid method" ;;
   esac
@@ -203,6 +259,7 @@ cmd_cert_import() {
 }
 
 cmd_cert_renew() {
+  if [ -s "$CF_INI" ]; then secure_cf_credentials >/dev/null || die 'invalid DNS credential file'; fi
   if [ "${1:-}" = "dry" ]; then run certbot renew --dry-run --no-random-sleep-on-renew; else run certbot renew --no-random-sleep-on-renew --deploy-hook "systemctl reload nginx"; fi
 }
 
@@ -219,6 +276,7 @@ cmd_site_url() {
   [ $# -eq 1 ] || die "usage: site-url <url>"
   [[ "$1" =~ ^https?://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || die "invalid site URL"
   [ -f "$ENV_FILE" ] || die "environment file missing"
+  if grep -Fxq -- "NEXTAUTH_URL=$1" "$ENV_FILE"; then echo 'OK site URL unchanged'; return; fi
   if grep -q '^NEXTAUTH_URL=' "$ENV_FILE"; then sed -i "s|^NEXTAUTH_URL=.*|NEXTAUTH_URL=$1|" "$ENV_FILE"; else printf 'NEXTAUTH_URL=%s\n' "$1" >> "$ENV_FILE"; fi
   if [ "$DRY" = "1" ]; then echo "DRY: restart mobocom"; else systemd-run --on-active=3 --unit="mobocom-restart-$$" /usr/bin/systemctl restart mobocom >/dev/null 2>&1 || (sleep 3; systemctl restart mobocom) >/dev/null 2>&1 & fi
   echo "OK site URL set; restarting"
@@ -226,7 +284,13 @@ cmd_site_url() {
 
 [ "$DRY" = "1" ] || [ "$(id -u)" -eq 0 ] || die "run through sudo"
 sub="${1:-}"; shift || true
+if [ "$DRY" != 1 ] && [[ "$sub" != status && "$sub" != cert-list ]]; then
+  exec 9>"${WEBCTL_LOCK_FILE:-/run/lock/mobocom-web.lock}"
+  flock -n 9 || die 'another web configuration operation is running'
+fi
 case "$sub" in
+  cf-sync) [ $# -eq 0 ] || die 'unexpected DNS credential arguments'; secure_cf_credentials >/dev/null ;;
+  setup-open|setup-close) [ $# -eq 0 ] || die 'unexpected listener arguments'; bash "$BOOTSTRAP_HELPER" "$sub" ;;
   status) cmd_status ;;
   site-apply) cmd_site_apply "$@" ;;
   site-remove) cmd_site_remove "$@" ;;

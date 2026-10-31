@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, chmodSync, openSync, closeSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, chmodSync } from 'node:fs'
 import { join } from 'node:path'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
@@ -15,6 +15,8 @@ import {
   type Check, type InstallMode,
 } from '@/modules/installer/domain/installer'
 import { configDirectory, installMode, isSetupMode, lastErrorFile, markInstalled, runtimeEnvFile } from './state'
+import { exclusive } from './operation'
+import { finishHostSetup, hostSetupEnabled, requireConfiguredNetwork } from './network'
 
 const production = () => process.env.NODE_ENV === 'production'
 
@@ -67,19 +69,6 @@ export function environmentChecks(context: { https: boolean }, mode: InstallMode
 export const checksVerdict = worst
 
 // ------------------------------------------------------------------ database step
-
-let busy = false
-async function exclusive<T>(work: () => Promise<T>): Promise<T> {
-  if (busy) throw new InstallError('عملیات دیگری در حال انجام است؛ چند لحظه صبر کنید', 409)
-  busy = true
-  const file = join(configDirectory(), 'install.operation.lock')
-  let descriptor: number | undefined
-  try {
-    mkdirSync(configDirectory(), { recursive: true })
-    try { descriptor = openSync(file, 'wx', 0o600) } catch { throw new InstallError('نصب دیگری در حال اجراست؛ اگر پردازش قبلی متوقف شده، قفل install.operation.lock را پس از بررسی روی سرور آزاد کنید.', 409) }
-    return await work()
-  } finally { if (descriptor !== undefined) { closeSync(descriptor); unlinkSync(file) }; busy = false }
-}
 
 export async function testDatabase(input: Record<string, unknown>) {
   if (buildProvider() === 'sqlite' && production()) throw new InstallError('این نسخه با SQLite ساخته شده است؛ برای PostgreSQL نسخهٔ تولید را بسازید')
@@ -155,6 +144,7 @@ export async function installSite(input: Record<string, unknown>) {
     if ((await installMode(true)) !== 'needs-admin') throw new InstallError('نصب قبلاً انجام شده یا هنوز جدول‌ها ساخته نشده‌اند', 409)
     const modules = moduleCatalog()
     const site = normalizeSiteInput(input, { production: production(), knownModules: modules.map((m) => m.id) })
+    await requireConfiguredNetwork(site.siteUrl)
     const warnings: string[] = []
 
     return db.$transaction(async (tx) => {
@@ -177,7 +167,11 @@ export async function installSite(input: Record<string, unknown>) {
     const data = { passwordHash, name: site.adminName, role: 'ADMIN', roleId: adminRole?.id ?? null, status: 'ACTIVE', profileCompletedAt: new Date() }
     if (existing) await tx.user.update({ where: { id: existing.id }, data })
     else await tx.user.create({ data: { email: site.adminEmail, ...data } })
-    return { ok: true, warnings, loginUrl: '/login?next=/admin' }
-    }, { timeout: 60_000 }).then(result => { markInstalled(); return result })
+    return { ok: true, warnings, loginUrl: hostSetupEnabled() ? `${site.siteUrl}/login?next=/admin` : '/login?next=/admin' }
+    }, { timeout: 60_000 }).then(async result => {
+      markInstalled()
+      try { await finishHostSetup() } catch { result.warnings.push('بستن پورت موقت نصب انجام نشد؛ از پنل سرور بررسی کنید. ویزارد نصب بسته شده است.') }
+      return result
+    })
   })
 }

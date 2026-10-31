@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
 <body>
 <main class="wrap"><div id="app" aria-live="polite"><p class="lead">در حال بررسی…</p></div>
 <noscript><p class="note bad">برای نصب، جاوااسکریپت مرورگر باید فعال باشد.</p></noscript></main>
+<script nonce="${nonce}" src="/installer/network.js"></script>
 <script nonce="${nonce}" src="/installer/installer.js"></script>
 </body>
 </html>`

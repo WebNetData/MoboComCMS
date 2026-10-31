@@ -1,3 +1,5 @@
+2026-11-01: [browser host setup](handoffs/HOST_INSTALL_UPGRADE.md#browser-host-setup-follow-up--2026-11-01) composes Installer with the existing Server Panel domain/certificate and Updater/backup owners. Private temporary HTTPS/fresh first-owner authority precede canonical URL/admin creation; root tools stay fixed and signed. No second operation service/schema/identity or implicit source replacement.
+
 #2026-10-31: [signed web packages](handoffs/WEB_PACKAGE_UPDATES.md) extend the existing Installer/Updater/Server Panel/host-backup owners with one-command release media and private browser upgrades without destination GitHub/Git. Root-pinned publisher trust, canonical identity/guards/origin, shared update lock/state and preserved data remain; no parallel deployment daemon, public upload store or unrestricted root execution.
 
  MoboCom Reference Architecture — mandate adoption 2026-10-10
