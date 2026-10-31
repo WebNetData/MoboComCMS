@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs MoboComCMS on a fresh Ubuntu 22.04 or 24.04 server with one command.
+# Installs MoboComCMS on a fresh Ubuntu 22.04, 24.04 or 26.04 LTS server with one command.
 #
 #   sudo bash install.sh --domain example.com --email you@example.com
 #
@@ -64,8 +64,8 @@ exec 9>/run/lock/mobocom-install.lock
 flock -n 9 || die 'another installation is running'
 . /etc/os-release
 case "${ID:-}:${VERSION_ID:-}" in
-  ubuntu:22.04|ubuntu:24.04) ;;
-  *) die "this installer supports Ubuntu 22.04 and 24.04; see docs/DEPLOY-COOLIFY.md or docs/DEPLOY-VPS-HOST-FA.md for other systems" ;;
+  ubuntu:22.04|ubuntu:24.04|ubuntu:26.04) ;;
+  *) die "this installer supports Ubuntu 22.04, 24.04 and 26.04 LTS; see docs/DEPLOY-COOLIFY.md or docs/DEPLOY-VPS-HOST-FA.md for other systems" ;;
 esac
 
 [ -n "$DOMAIN" ] || read -r -p "Site domain (example.com): " DOMAIN
@@ -253,6 +253,8 @@ fi
 
 if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
   say "Building the site (about 5 to 15 minutes)"
+  note 'Wait for the final Installed message; compilation is followed by TypeScript checks and service/Nginx setup.'
+  note 'Until then /install may return the default Nginx 404. Do not stop an active build.'
   as_app bash -c "cd '$APP_DIR' && set -a && . '$ENV_FILE' && set +a && npm ci --include=dev --no-audit --no-fund && NODE_OPTIONS=--max-old-space-size=\${BUILD_MEMORY_MB:-4096} npm run build:postgres"
 else
   note "site already built; left as it is"
