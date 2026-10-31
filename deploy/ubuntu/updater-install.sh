@@ -20,6 +20,8 @@ cat > /etc/sudoers.d/mobocom-update <<SUDO
 # Written by updater-install.sh — the site may only run these exact commands.
 ${APP_USER} ALL=(root) NOPASSWD: /usr/local/sbin/mobocom-update
 ${APP_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl restart ${SERVICE}
+${APP_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl stop ${SERVICE}
+${APP_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl start ${SERVICE}
 SUDO
 chmod 440 /etc/sudoers.d/mobocom-update
 visudo -cf /etc/sudoers.d/mobocom-update >/dev/null

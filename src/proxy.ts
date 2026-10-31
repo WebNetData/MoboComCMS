@@ -147,5 +147,7 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
+  // Large signed packages stream directly; their route applies the same canonical
+  // install/origin policy, fresh server unlock, permissions and private headers.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|api/admin/server/updates/package$).*)'],
 }

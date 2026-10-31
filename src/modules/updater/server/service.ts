@@ -16,7 +16,9 @@ const CHECK_TTL_MS = 6 * 3_600_000
 const DEFAULT_REPO = 'WebNetData/MoboComCMS'
 
 export const updateDirectory = () => join(process.env.UPDATE_STATE_DIR || join(process.cwd(), 'storage', 'update'))
-const helperPath = () => process.env.UPDATE_HELPER || '/usr/local/sbin/mobocom-update'
+export const helperPath = () => process.env.UPDATE_HELPER || '/usr/local/sbin/mobocom-update'
+export const packageTool = () => process.env.UPDATE_PACKAGE_TOOL || '/usr/local/lib/mobocom/release-package.cjs'
+export const packageKey = () => process.env.UPDATE_PUBLIC_KEY_FILE || '/etc/mobocom/release-public.pem'
 
 export function currentVersion(): string {
   try { return String(JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).version || '0.0.0') } catch { return '0.0.0' }
@@ -29,9 +31,9 @@ function git(args: string[]): Promise<string> {
 export function environment(): Environment & { method: ReturnType<typeof chooseMethod>; repo: string; feed: string } {
   let hookUrl = ''
   try { hookUrl = safeHookUrl(process.env.UPDATE_DEPLOY_HOOK_URL) } catch { /* an unusable hook is ignored */ }
-  const base: Environment = { dockerenv: existsSync('/.dockerenv'), hasGit: existsSync(join(process.cwd(), '.git')), helper: existsSync(helperPath()), hookUrl }
+  const base: Environment = { dockerenv: existsSync('/.dockerenv'), hasGit: existsSync(join(process.cwd(), '.git')), helper: existsSync(helperPath()), hookUrl, packageReady: existsSync(packageTool()) && existsSync(packageKey()) }
   const repo = isValidRepo(process.env.UPDATE_REPO) ? process.env.UPDATE_REPO : DEFAULT_REPO
-  return { ...base, hookUrl: hookUrl ? new URL(hookUrl).origin : '', method: chooseMethod(base), repo, feed: process.env.UPDATE_FEED_URL ? 'custom' : 'github' }
+  return { ...base, hookUrl: hookUrl ? new URL(hookUrl).origin : '', method: chooseMethod(base), repo, feed: base.packageReady ? 'package' : process.env.UPDATE_FEED_URL ? 'custom' : 'github' }
 }
 
 // ------------------------------------------------------------------ release feed
@@ -39,6 +41,8 @@ export function environment(): Environment & { method: ReturnType<typeof chooseM
 interface CheckCache { checkedAt: string; releases: Release[]; error: string; notified: string }
 
 async function fetchReleases(): Promise<Release[]> {
+  // Package installs are self-contained; status must not implicitly contact GitHub.
+  if (environment().packageReady) return []
   const custom = String(process.env.UPDATE_FEED_URL || '').trim()
   const repo = isValidRepo(process.env.UPDATE_REPO) ? process.env.UPDATE_REPO : DEFAULT_REPO
   const url = custom || `https://api.github.com/repos/${repo}/releases?per_page=15`
@@ -65,6 +69,7 @@ async function readCache(): Promise<CheckCache | null> {
 
 /** Asks the release feed (at most every few hours unless `force`); a failure keeps the last known answer and says why. */
 export async function checkForUpdate(force = false): Promise<CheckCache> {
+  if (environment().packageReady) return { checkedAt: '', releases: [], error: '', notified: '' }
   const cached = await readCache()
   if (cached && !force && !cached.error && Date.now() - Date.parse(cached.checkedAt) < CHECK_TTL_MS) return cached
   let next: CheckCache
@@ -104,10 +109,13 @@ export async function status(force = false) {
   const [check, migrations] = await Promise.all([checkForUpdate(force), migrationStatus()])
   const current = currentVersion()
   const latest = pickUpdate(current, check.releases)
+  const host = environment()
+  let packageSha = ''
+  if (host.packageReady) { try { packageSha = String(JSON.parse(readFileSync(join(process.cwd(), '.release.json'), 'utf8')).sha256 || '').slice(0, 12) } catch { /* first package adoption */ } }
   return {
-    current: { version: current, sha: (await git(['rev-parse', '--short', 'HEAD'])) || '' },
+    current: { version: current, sha: host.packageReady ? packageSha : (await git(['rev-parse', '--short', 'HEAD'])) || '' },
     latest, releases: check.releases.slice(0, 8), checkedAt: check.checkedAt, checkError: check.error,
-    environment: environment(), run: runProgress(), migrations,
+    environment: host, run: runProgress(), migrations,
   }
 }
 

@@ -11,6 +11,15 @@ set -euo pipefail
 APP_USER="${MOBOCOM_APP_USER:-mobocom}"
 APP_DIR="${MOBOCOM_APP_DIR:-/opt/mobocom/app}"
 REF="${1:-}"
+if [ "$REF" = package ]; then
+  ID="${2:-}"
+  [[ "$ID" =~ ^[a-f0-9]{64}$ ]] || { echo 'ERROR: invalid package id' >&2; exit 2; }
+  CMD=(systemd-run --unit=mobocom-update --collect --quiet "--uid=$APP_USER" "--property=WorkingDirectory=$APP_DIR" bash /usr/local/lib/mobocom/package-update.sh "$ID")
+  if [ "${MOBOCOM_UPDATE_DRY:-0}" = 1 ]; then echo "DRY: ${CMD[*]}"; exit 0; fi
+  "${CMD[@]}"
+  echo started
+  exit 0
+fi
 
 [[ "$REF" =~ ^v?[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}([-+][0-9A-Za-z.-]{1,40})?$ ]] || { echo "ERROR: invalid version" >&2; exit 2; }
 [ -r "$APP_DIR/deploy/ubuntu/self-update.sh" ] || [ "${MOBOCOM_UPDATE_DRY:-0}" = "1" ] || { echo "ERROR: $APP_DIR/deploy/ubuntu/self-update.sh not found" >&2; exit 2; }

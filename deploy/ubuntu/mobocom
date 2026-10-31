@@ -21,7 +21,7 @@ HEALTH="${MOBOCOM_HEALTH_URL:-http://127.0.0.1:3000/api/health/ready}"
 die() { echo "[mobocom] $*" >&2; exit 1; }
 usage() { sed -n '4,9p' "$0" | sed 's/^# \{0,1\}//'; }
 [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
-[ -d "$APP_DIR/.git" ] || die "no site in $APP_DIR"
+[ -f "$APP_DIR/package.json" ] || die "no site in $APP_DIR"
 cd "$APP_DIR"
 as_app() { sudo -u "$APP_USER" -H "$@"; }
 # Environment is evaluated only after dropping root. Runtime configuration is kept local.
@@ -53,10 +53,11 @@ status() {
   local name branch waiting
   echo "service:  $(systemctl is-active "$SERVICE" 2>/dev/null || true)"
   if curl -fsS -m 5 "$HEALTH" >/dev/null 2>&1; then echo "site:     healthy"; else echo "site:     NOT answering"; fi
-  echo "version:  $(as_app node -p "require('./package.json').version") ($(as_app git rev-parse --short HEAD))"
+  echo "version:  $(as_app node -p "require('./package.json').version")"
   branch="${1:-main}"
-  as_app git check-ref-format --branch "$branch" >/dev/null || die 'invalid branch'
-  if as_app git fetch --quiet origin "$branch" 2>/dev/null; then
+  if [ -f /etc/mobocom/release-public.pem ]; then
+    echo 'update:   signed package through /admin/updates (no GitHub required)'
+  elif as_app git check-ref-format --branch "$branch" >/dev/null && as_app git fetch --quiet origin "$branch" 2>/dev/null; then
     waiting="$(as_app git rev-list --count "HEAD..origin/$branch")"
     echo "update:   $waiting new change(s) on $branch"
   else
@@ -142,6 +143,7 @@ command="${1:-}"
 case "$command" in
   status) status "$@" ;;
   update)
+    [ ! -f /etc/mobocom/release-public.pem ] || die 'upload a signed .mbrelease package through /admin/updates'
     branch="${1:-main}"
     as_app env BRANCH="$branch" UPDATE_ENV_FILE="$ENV_FILE" MOBOCOM_ENV_FILE="$ENV_FILE" MOBOCOM_APP_DIR="$APP_DIR" bash deploy/ubuntu/update.sh
     status "$branch"
@@ -153,6 +155,7 @@ case "$command" in
     done
     ;;
   rollback)
+    [ ! -f /etc/mobocom/release-public.pem ] || die 'package recovery uses the retained private .package.*/before snapshot; see the recovery guide'
     target="${1:-}"
     if [ -z "$target" ]; then
       target="$(tail -1 storage/update/history.log 2>/dev/null | awk '{print $2}')"

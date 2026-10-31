@@ -1,4 +1,6 @@
-# MoboCom Reference Architecture — mandate adoption 2026-10-10
+#2026-10-31: [signed web packages](handoffs/WEB_PACKAGE_UPDATES.md) extend the existing Installer/Updater/Server Panel/host-backup owners with one-command release media and private browser upgrades without destination GitHub/Git. Root-pinned publisher trust, canonical identity/guards/origin, shared update lock/state and preserved data remain; no parallel deployment daemon, public upload store or unrestricted root execution.
+
+ MoboCom Reference Architecture — mandate adoption 2026-10-10
 
 2026-10-31 launch continuation: Imports retains existing adapters/jobs/Operations/Library; Magazine's HTML compatibility path never replaces an authoritative block document. Preview/apply/undo and an in-transaction legacy-format claim protect later block conversion while selected metadata remains writable. New content-job metadata chooses draft; historical jobs retain their saved semantics. [Evidence and PR continuation](handoffs/IMPORTS_LAUNCH.md), [operator guide](../BULK_IMPORT.md). No second writer/queue or schema added by this slice.
 
