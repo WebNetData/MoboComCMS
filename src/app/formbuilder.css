@@ -116,6 +116,11 @@
 .upd-versions b { font-size: 20px; }
 .upd-notes, .upd-log { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; font: 13px/1.8 inherit; }
 .upd-log { direction: ltr; text-align: left; font: 12px/1.6 ui-monospace, Menlo, Consolas, monospace; }
+.admin-shell .upd-package form { display: grid; gap: 12px; margin-block: 16px; }
+.admin-shell .upd-package-list { display: grid; gap: 14px; padding: 0; list-style: none; }
+.admin-shell .upd-package-list > li { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); min-width: 0; }
+.admin-shell .upd-package-list dd { margin: 6px 0 12px; overflow-wrap: anywhere; font-size: 12px; }
+.admin-shell .upd-package summary { cursor: pointer; padding-block: 8px; }
 .upd-steps { margin: 0 0 12px; padding-inline-start: 20px; color: var(--muted); font-size: 13px; line-height: 2; }
 .upd-howto { padding: 12px 14px; border-radius: 10px; background: var(--primary-soft); }
 .upd-howto p { margin: 6px 0 0; }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Notice, faDate } from '../store/shared'
 import { ServerShell, useServerApi, useServerJson } from '../server/shared'
+import PackageUpdates from './PackageUpdates'
 
 type Release = { version: string; tag: string; notes: string; url: string; publishedAt: string; prerelease: boolean }
 type Run = { status: 'idle' | 'running' | 'done' | 'failed' | 'rolled-back'; step: string; target: string; previous: string; at: string; log: string }
@@ -12,7 +13,7 @@ type Status = {
   releases: Release[]
   checkedAt: string
   checkError: string
-  environment: { method: 'systemd' | 'hook' | 'docker' | 'manual'; repo: string; feed: string; hookUrl: string }
+  environment: { method: 'systemd' | 'package' | 'hook' | 'docker' | 'manual'; repo: string; feed: string; hookUrl: string }
   run: Run
   migrations: { supported: boolean; available: number; applied: number; pending: string[]; error?: string }
 }
@@ -83,8 +84,8 @@ function UpdatesPanel() {
 
     <section className="sa-card upd-versions">
       <div><small>نسخهٔ نصب‌شده</small><b className="num" dir="ltr">{current.version}</b>{current.sha && <span className="sa-sub" dir="ltr">{current.sha}</span>}</div>
-      <div><small>آخرین نسخه</small><b className="num" dir="ltr">{latest ? latest.version : current.version}</b><span className="sa-sub">{latest ? `منتشر شده ${latest.publishedAt ? faDate(latest.publishedAt) : ''}` : 'شما به‌روز هستید'}</span></div>
-      <div><small>آخرین بررسی</small><b>{data.checkedAt ? faDate(data.checkedAt, true) : '—'}</b><span className="sa-sub" dir="ltr">{env.feed === 'custom' ? 'custom feed' : env.repo}</span></div>
+      <div><small>{env.method === 'package' ? 'روش به‌روزرسانی' : 'آخرین نسخه'}</small><b className="num" dir="ltr">{latest ? latest.version : current.version}</b><span className="sa-sub">{env.method === 'package' ? 'بارگذاری بستهٔ انتشار؛ بدون اتصال به GitHub' : latest ? `منتشر شده ${latest.publishedAt ? faDate(latest.publishedAt) : ''}` : 'شما به‌روز هستید'}</span></div>
+      <div><small>آخرین بررسی</small><b>{data.checkedAt ? faDate(data.checkedAt, true) : '—'}</b><span className="sa-sub" dir="ltr">{env.feed === 'package' ? 'Signed release package' : env.feed === 'custom' ? 'custom feed' : env.repo}</span></div>
     </section>
 
     {run && run.status !== 'idle' && <section className="sa-card" aria-live="polite">
@@ -96,6 +97,10 @@ function UpdatesPanel() {
       {run.log && <pre className="upd-log" dir="ltr">{run.log}</pre>}
     </section>}
 
+    {env.method === 'package' && <PackageUpdates running={running || !!busy} onApply={async item => {
+      if (!window.confirm(`نسخهٔ ${item.version} پس از پشتیبان‌گیری نصب شود؟`)) return
+      if (await act('package', { id: item.id, backupConfirmed: true }, 'نصب بسته شروع شد؛ این صفحه را باز نگه دارید.')) setRun({ status: 'running', step: 'در صف اجرا', target: item.version, previous: current.version, at: new Date().toISOString(), log: '' })
+    }} />}
     {latest ? <section className="sa-card">
       <header className="sa-card-head"><h2>نسخهٔ {latest.version} آماده است</h2>{latest.url && <a className="sa-link" href={latest.url} target="_blank" rel="noopener noreferrer">صفحهٔ انتشار ↗</a>}</header>
       {latest.notes ? <pre className="upd-notes">{latest.notes}</pre> : <p className="sa-hint">توضیحی برای این نسخه ثبت نشده است.</p>}
@@ -108,7 +113,7 @@ function UpdatesPanel() {
       {env.method === 'hook' && <div className="sa-row-actions"><button type="button" className="btn btn-primary" disabled={!!busy} onClick={() => void act('hook', {}, 'درخواست استقرار ارسال شد؛ پس از ساخت نسخه، سرویس خودش دوباره بالا می‌آید.')}>استقرار نسخهٔ جدید (وب‌هوک)</button><small className="sa-hint">{env.hookUrl}</small></div>}
       {env.method === 'docker' && <div className="upd-howto"><b>این سایت در Docker اجرا می‌شود.</b><p>ایمیج را از میزبان جدید بسازید: در Coolify روی «Redeploy» بزنید (یا برای یک‌کلیکی، آدرس Deploy Webhook را در متغیر <code dir="ltr">UPDATE_DEPLOY_HOOK_URL</code> بگذارید). مهاجرت‌ها هنگام بالا آمدن خودکار اجرا می‌شوند.</p></div>}
       {env.method === 'manual' && <div className="upd-howto"><b>روی این سرور به‌روزرسانی از پنل فعال نیست.</b><p>روی سرور اجرا کنید: <code dir="ltr">bash deploy/ubuntu/update.sh</code>. برای فعال‌کردن دکمهٔ یک‌کلیکی یک بار <code dir="ltr">sudo bash deploy/ubuntu/updater-install.sh</code> را اجرا کنید (نیازمند systemd و پوشهٔ git).</p></div>}
-    </section> : <section className="sa-card"><p className="sa-hint">نسخهٔ جدیدی وجود ندارد. سرور هر ۶ ساعت خودکار بررسی می‌کند و در صورت انتشار نسخهٔ تازه به مدیران اعلان می‌دهد.</p></section>}
+    </section> : env.method !== 'package' && <section className="sa-card"><p className="sa-hint">نسخهٔ جدیدی وجود ندارد. سرور هر ۶ ساعت خودکار بررسی می‌کند و در صورت انتشار نسخهٔ تازه به مدیران اعلان می‌دهد.</p></section>}
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>مهاجرت‌های پایگاه داده</h2></header>

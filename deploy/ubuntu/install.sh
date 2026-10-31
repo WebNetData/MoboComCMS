@@ -10,6 +10,8 @@
 #   --no-firewall     leave the firewall as it is
 #   --branch NAME     the code branch to install (default: main)
 #   --repo URL        the code repository (default: this project on GitHub)
+#   --package FILE    signed release package; destination needs no Git/GitHub
+#   --public-key FILE publisher key from the trusted installer bundle
 #
 # Safe to run again: it continues where it stopped. It never replaces the settings file, recreates a database or
 # touches stored files, and it never updates the code of a site that is already installed (use "mobocom update").
@@ -21,6 +23,10 @@ SSL=1
 FIREWALL=1
 BRANCH="${BRANCH:-main}"
 REPO="${REPO:-}"
+PACKAGE=''
+PUBLIC_KEY=''
+NEW_PACKAGE_INSTALL=0
+BUNDLE_DIR="$(cd "$(dirname "$0")" && pwd)"
 GITHUB_PATH="WebNetData/MoboComCMS"
 APP_USER="${APP_USER:-mobocom}"
 HOME_DIR="${HOME_DIR:-/opt/mobocom}"
@@ -34,12 +40,14 @@ note() { printf '    %s\n' "$*"; }
 die() { printf '\n[install] %s\n' "$*" >&2; exit 1; }
 
 while [ $# -gt 0 ]; do
-  case "$1" in --domain|--email|--branch|--repo) [ $# -ge 2 ] && [[ "$2" != --* ]] || die "missing value for $1" ;; esac
+  case "$1" in --domain|--email|--branch|--repo|--package|--public-key) [ $# -ge 2 ] && [[ "$2" != --* ]] || die "missing value for $1" ;; esac
   case "$1" in
     --domain) DOMAIN="${2:-}"; shift 2 ;;
     --email) EMAIL="${2:-}"; shift 2 ;;
     --branch) BRANCH="${2:-}"; shift 2 ;;
     --repo) REPO="${2:-}"; shift 2 ;;
+    --package) PACKAGE="$(realpath -- "$2")"; shift 2 ;;
+    --public-key) PUBLIC_KEY="$(realpath -- "$2")"; shift 2 ;;
     --no-ssl) SSL=0; shift ;;
     --no-firewall) FIREWALL=0; shift ;;
     -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -69,6 +77,10 @@ if [ "$SSL" = 1 ]; then [[ "$EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:spac
 if [ -n "$REPO" ]; then
   [[ "$REPO" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ || "$REPO" =~ ^git@github.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || die 'automatic installation supports HTTPS or SSH GitHub repositories only'
 fi
+if [ -n "$PACKAGE" ]; then
+  [ -f "$PUBLIC_KEY" ] && [ -f "$BUNDLE_DIR/release-package.cjs" ] && [ -f "$BUNDLE_DIR/release-extract.py" ] || die 'use the complete trusted .run installer bundle'
+  [ -z "$REPO" ] || die 'choose a release package or a repository, not both'
+fi
 
 FREE_GB="$(df -Pk / | awk 'NR==2 {print int($4 / 1048576)}')"
 [ "$FREE_GB" -ge 15 ] || die "only ${FREE_GB} GB free on the disk; at least 15 GB is needed"
@@ -76,8 +88,11 @@ FREE_GB="$(df -Pk / | awk 'NR==2 {print int($4 / 1048576)}')"
 say "Packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq git curl ca-certificates gnupg openssl sudo nginx redis-server ufw certbot python3 python3-certbot-nginx >/dev/null
-git check-ref-format --branch "$BRANCH" >/dev/null || die 'invalid branch'
+apt-get install -y -qq curl ca-certificates gnupg openssl sudo nginx redis-server ufw certbot python3 python3-certbot-nginx >/dev/null
+if [ -z "$PACKAGE" ]; then
+  apt-get install -y -qq git >/dev/null
+  git check-ref-format --branch "$BRANCH" >/dev/null || die 'invalid branch'
+fi
 
 if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 22 ? 0 : 1)' 2>/dev/null; then
   say "Node.js 22"
@@ -124,7 +139,34 @@ id "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir "$HO
 as_app() { sudo -u "$APP_USER" -H "$@"; }
 
 # A public repository is read over HTTPS; a private one with a read-only deploy key belonging to the service user.
-if [ ! -d "$APP_DIR/.git" ]; then
+if [ -n "$PACKAGE" ]; then
+  say 'Verifying independent release package'
+  ROOT_ASSETS="$(mktemp -d /root/mobocom-install.XXXXXXXX)"
+  trap 'rm -rf -- "$ROOT_ASSETS"' EXIT
+  install -m 600 "$PUBLIC_KEY" "$ROOT_ASSETS/release-public.pem"
+  if [ -e /etc/mobocom/release-public.pem ]; then
+    OLD_KEY="$(node "$BUNDLE_DIR/release-package.cjs" fingerprint /etc/mobocom/release-public.pem)"
+    NEW_KEY="$(node "$BUNDLE_DIR/release-package.cjs" fingerprint "$ROOT_ASSETS/release-public.pem")"
+    [ "$OLD_KEY" = "$NEW_KEY" ] || die 'publisher key differs; explicit operator key rotation required'
+  fi
+  node "$BUNDLE_DIR/release-package.cjs" verify "$PACKAGE" "$ROOT_ASSETS/release-public.pem" "$ROOT_ASSETS/payload.tar.gz" > "$ROOT_ASSETS/manifest.json"
+  VERSION="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).version" "$ROOT_ASSETS/manifest.json")"
+  python3 "$BUNDLE_DIR/release-extract.py" extract "$ROOT_ASSETS/payload.tar.gz" "$ROOT_ASSETS/source" "$VERSION"
+  if [ ! -e "$APP_DIR" ]; then
+    cp -a "$ROOT_ASSETS/source" "$ROOT_ASSETS/app-ready"
+    cp "$ROOT_ASSETS/manifest.json" "$ROOT_ASSETS/app-ready/.release.json"
+    chown -R "$APP_USER:$APP_USER" "$ROOT_ASSETS/app-ready"
+    # Prepare ownership under the private root parent before exposing the new path.
+    mv -T -- "$ROOT_ASSETS/app-ready" "$APP_DIR"
+    NEW_PACKAGE_INSTALL=1
+  else
+    note 'existing application kept; use the web updater for code changes'
+  fi
+  for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf package-update.sh release-extract.py; do
+    install -m 600 "$ROOT_ASSETS/source/deploy/ubuntu/$asset" "$ROOT_ASSETS/$asset"
+  done
+  install -m 600 "$ROOT_ASSETS/source/scripts/release-package.cjs" "$ROOT_ASSETS/release-package.cjs"
+elif [ ! -d "$APP_DIR/.git" ]; then
   if [ -z "$REPO" ]; then
     if as_app env GIT_TERMINAL_PROMPT=0 git ls-remote -q "https://github.com/$GITHUB_PATH.git" HEAD >/dev/null 2>&1; then
       REPO="https://github.com/$GITHUB_PATH.git"
@@ -172,6 +214,7 @@ INTERNAL_JOBS_SECRET=$(secret)
 PANEL_CREDENTIAL_KEY=$(secret)
 BACKUP_ENCRYPTION_KEY=$(secret)
 BACKUP_SCHEDULER=false
+SERVER_PANEL_ENABLED=$([ -n "$PACKAGE" ] && printf true || printf false)
 REDIS_URL=redis://127.0.0.1:6379
 DATABASE_URL=postgresql://mobocom:$DB_PASS@127.0.0.1:5432/mobocom?schema=public
 HOST_BACKUP_DIR=$BACKUP_DIR
@@ -218,6 +261,7 @@ fi
 say "Service, backups and the mobocom command"
 # Privileged assets come from a separate root-owned remote snapshot, never the app-writable checkout.
 # An existing installation is not an authorization to execute its local files as root.
+if [ -z "${ROOT_ASSETS:-}" ]; then
 ROOT_ASSETS="$(mktemp -d /root/mobocom-install.XXXXXXXX)"
 trap 'rm -rf -- "$ROOT_ASSETS"' EXIT
 if [ -z "$REPO" ]; then REPO="$(as_app git remote get-url origin)"; fi
@@ -227,11 +271,27 @@ GIT_SSH_COMMAND="ssh -i /opt/mobocom/.ssh/id_ed25519 -o IdentitiesOnly=yes -o St
 for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf; do
   git -C "$ROOT_ASSETS/repo" show "HEAD:deploy/ubuntu/$asset" > "$ROOT_ASSETS/$asset"
 done
+fi
+if [ -n "$PACKAGE" ]; then
+  if [ -e /etc/mobocom/release-public.pem ]; then
+    OLD_KEY="$(node "$ROOT_ASSETS/release-package.cjs" fingerprint /etc/mobocom/release-public.pem)"
+    NEW_KEY="$(node "$ROOT_ASSETS/release-package.cjs" fingerprint "$ROOT_ASSETS/release-public.pem")"
+    [ "$OLD_KEY" = "$NEW_KEY" ] || die 'publisher key differs; explicit operator key rotation required'
+  else
+    install -m 644 -o root -g root "$ROOT_ASSETS/release-public.pem" /etc/mobocom/release-public.pem
+  fi
+  install -d -m 755 /usr/local/lib/mobocom
+  install -m 644 -o root -g root "$ROOT_ASSETS/release-package.cjs" "$ROOT_ASSETS/release-extract.py" "$ROOT_ASSETS/package-update.sh" /usr/local/lib/mobocom/
+fi
 install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$BACKUP_DIR"
 install -m 644 "$ROOT_ASSETS/mobocom.service" "$ROOT_ASSETS/mobocom-backup.service" "$ROOT_ASSETS/mobocom-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
 bash "$ROOT_ASSETS/updater-install.sh" >/dev/null
 install -m 755 -o root -g root "$ROOT_ASSETS/mobocom" /usr/local/bin/mobocom
+if [ "$NEW_PACKAGE_INSTALL" = 1 ]; then
+  as_app mkdir -p "$APP_DIR/storage/update"
+  as_app node /usr/local/lib/mobocom/release-package.cjs inventory "$APP_DIR" "$APP_DIR/storage/update/current-files.json"
+fi
 systemctl enable --now mobocom-backup.timer >/dev/null
 systemctl enable mobocom >/dev/null
 systemctl restart mobocom

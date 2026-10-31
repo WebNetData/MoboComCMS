@@ -72,9 +72,9 @@ export function pickUpdate(current: string, releases: Release[]): Release | null
 
 // ------------------------------------------------------------------ how this site is updated
 
-export type Method = 'systemd' | 'hook' | 'docker' | 'manual'
+export type Method = 'systemd' | 'package' | 'hook' | 'docker' | 'manual'
 
-export interface Environment { dockerenv: boolean; hasGit: boolean; helper: boolean; hookUrl: string }
+export interface Environment { dockerenv: boolean; hasGit: boolean; helper: boolean; hookUrl: string; packageReady?: boolean }
 
 /**
  * `systemd`: a git checkout with the root helper installed (one click, with automatic rollback).
@@ -82,6 +82,7 @@ export interface Environment { dockerenv: boolean; hasGit: boolean; helper: bool
  * `manual`: anything else — the page explains the steps.
  */
 export function chooseMethod(env: Environment): Method {
+  if (env.packageReady && env.helper) return 'package'
   if (env.hasGit && env.helper && !env.dockerenv) return 'systemd'
   if (env.hookUrl) return 'hook'
   if (env.dockerenv) return 'docker'
