@@ -1,3 +1,4 @@
 *.sh text eol=lf
 /deploy/ubuntu/mobocom-update text eol=lf
 /deploy/ubuntu/mobocom-webctl text eol=lf
+/deploy/ubuntu/mobocom text eol=lf

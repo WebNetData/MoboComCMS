@@ -1,6 +1,6 @@
 # نصب و راه‌اندازی MoboComCMS
 
-راهنمای اصلی نصب و تنظیمات ضروری در [README پروژه](README.md#نصب-روی-سرور) است.
+برای شروع، [راهنمای نصب با یک دستور](docs/INSTALL-FA.md) و [راهنمای آپدیت بدون از دست رفتن اطلاعات](docs/UPGRADE-FA.md) را بخوانید. تنظیمات Docker و Coolify در [README پروژه](README.md#نصب-روی-سرور) است.
 
 - [Docker و Coolify](docs/DEPLOY-COOLIFY.md)
 - [VPS و هاست Node.js](docs/DEPLOY-VPS-HOST-FA.md)

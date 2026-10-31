@@ -236,6 +236,97 @@ test('manual Ubuntu update preserves local commits that are not on the target br
   assert.equal(fs.existsSync(capturedVersion), false, 'no backup runs for an ineligible branch')
 })
 
+test('manual update preserves untracked work and edits appearing during backup/build', () => {
+  for (const phase of ['before', 'backup', 'build', 'commit']) {
+    const box = sandbox()
+    fs.writeFileSync(path.join(box.dir, 'manual-healthy'), 'ok')
+    const before = box.git('rev-parse', 'HEAD').trim()
+    const extra = {}
+    if (phase === 'before') fs.writeFileSync(path.join(box.app, 'owner.txt'), 'keep')
+    if (phase === 'backup') extra.UPDATE_BACKUP = 'printf keep > owner.txt'
+    if (phase === 'build') extra.UPDATE_BUILD = 'printf keep > VERSION; false'
+    if (phase === 'commit') extra.UPDATE_BUILD = 'printf keep > VERSION; git add VERSION; git -c user.name=owner -c user.email=owner@example.invalid commit -qm owner; false'
+    const result = runManualUpdate(box, extra)
+    assert.notEqual(result.code, 0, result.stderr)
+    assert.equal(fs.readFileSync(path.join(box.app, ['build','commit'].includes(phase) ? 'VERSION' : 'owner.txt'), 'utf8'), 'keep')
+    if (!['build','commit'].includes(phase)) assert.equal(box.git('rev-parse', 'HEAD').trim(), before)
+    if (phase === 'commit') assert.equal(box.git('log','-1','--format=%s').trim(),'owner')
+    assert.equal(fs.existsSync(path.join(box.dir, 'state', 'lock')), false)
+  }
+})
+
+test('tag update also preserves edits that appear after preflight', () => {
+  for (const phase of ['backup', 'build']) {
+    const box = sandbox()
+    const result = runUpdate(box, 'v1.1.0', { [phase === 'backup' ? 'UPDATE_BACKUP' : 'UPDATE_BUILD']: 'printf keep > VERSION; ' + (phase === 'build' ? 'false' : 'true') })
+    assert.notEqual(result.code, 0)
+    assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8'), 'keep')
+  }
+})
+
+test('manual Ubuntu update stops before any change when the disk is too full to build', () => {
+  const box = sandbox()
+  const capturedVersion = path.join(box.dir, 'unexpected-backup')
+  const result = runManualUpdate(box, { UPDATE_MIN_FREE_MB: '9999999', UPDATE_BACKUP: `cp VERSION "${capturedVersion}"` })
+  assert.equal(result.code, 2, result.stderr)
+  assert.match(result.stderr, /MB free/)
+  assert.equal(fs.existsSync(capturedVersion), false, 'no backup, no new code')
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+  assert.equal(fs.existsSync(path.join(box.dir, 'state', 'lock')), false)
+})
+
+test('going back to an earlier version backs up first and records it, and a later update still works', () => {
+  const box = sandbox()
+  fs.writeFileSync(path.join(box.dir, 'manual-healthy'), 'ok')
+  const old = box.git('rev-parse', 'HEAD').trim()
+  assert.equal(runManualUpdate(box).code, 0)
+  const history = () => fs.readFileSync(path.join(box.dir, 'state', 'history.log'), 'utf8').trim().split('\n').map((line) => line.split(' '))
+  assert.equal(history().at(-1)[1], old, 'an update remembers the version it replaced')
+  const capturedVersion = path.join(box.dir, 'version-at-backup')
+  const back = runManualUpdate(box, { UPDATE_ROLLBACK_TO: old, UPDATE_BACKUP: `cp VERSION "${capturedVersion}"` })
+  assert.equal(back.code, 0, back.stderr)
+  assert.equal(fs.readFileSync(capturedVersion, 'utf8').trim(), '1.1.0', 'the state being left is backed up')
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+  assert.equal(history().at(-1)[2], old)
+  assert.equal(runManualUpdate(box, { UPDATE_ROLLBACK_TO: 'main; rm -rf /' }).code, 2, 'only a commit id is accepted')
+  assert.equal(runManualUpdate(box).code, 0, 'the next update comes forward again')
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.1.0')
+})
+
+test('both update paths build with the packages NODE_ENV=production would leave out', () => {
+  const box = sandbox()
+  fs.writeFileSync(path.join(box.dir, 'manual-healthy'), 'ok')
+  const seen = path.join(box.dir, 'npm-args'), npm = path.join(box.dir, 'npm')
+  fs.writeFileSync(npm, `#!/bin/sh\necho "$NODE_ENV $*" >> "${seen}"\n`); fs.chmodSync(npm, 0o755)
+  assert.equal(runManualUpdate(box, { UPDATE_NPM: npm, NODE_ENV: 'production' }).code, 0)
+  assert.match(fs.readFileSync(seen, 'utf8'), /production ci --include=dev/)
+  assert.match(read('deploy/ubuntu/self-update.sh'), /"\$NPM" ci --include=dev/)
+})
+
+test('what the site writes never counts as a local change that blocks an update', () => {
+  assert.match(read('.gitignore'), /^\/storage\/\r?$/m)
+  assert.match(read('.gitignore'), /^var\/\r?$/m)
+})
+
+test('the one-command installer and the mobocom command keep what is already there', () => {
+  const installer = read('deploy/ubuntu/install.sh'), helper = read('deploy/ubuntu/mobocom')
+  for (const file of ['deploy/ubuntu/install.sh', 'deploy/ubuntu/mobocom', 'deploy/ubuntu/updater-install.sh', 'deploy/ubuntu/mobocom-update']) assert.equal(spawnSync('bash', ['-n', file], { cwd: root }).status, 0, file)
+  for (const option of ['--domain','--email','--branch','--repo']) {
+    const invalid=spawnSync('bash',['deploy/ubuntu/install.sh',option],{cwd:root,encoding:'utf8'})
+    assert.notEqual(invalid.status,0)
+    assert.match(invalid.stderr,/missing value/, 'bad arguments fail before privileged installation')
+  }
+  assert.match(installer, /if \[ ! -f "\$ENV_FILE" \]; then/, 'an existing settings file is never rewritten')
+  assert.match(installer, /already exists but \$ENV_FILE is missing/, 'a database without its settings stops the installer')
+  assert.match(installer, /select 1 from pg_database/, 'an existing database is never recreated')
+  assert.doesNotMatch(installer + helper, /db push|deploy:seed|dropdb|DROP DATABASE|git reset|--force-reset/)
+  assert.match(installer, /\.next\/BUILD_ID/, 'an installed site is not rebuilt')
+  assert.doesNotMatch(helper, /\. "\$ENV_FILE"/, 'root reads settings; it never runs the file the site may write')
+  assert.match(read('scripts/host-backup-db.cjs'), /--single-transaction/)
+  assert.doesNotMatch(helper, /tar -x|chown -R|--dbname=/, 'root neither unpacks uploads nor exposes DB credentials')
+  assert.match(helper, /as_app python3 deploy\/ubuntu\/restore-files.py extract/)
+})
+
 test('Ubuntu host backup keeps archives outside storage and validates them before publishing', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mobocom-host-backup-'))
   const app = path.join(dir, 'app')
@@ -244,13 +335,14 @@ test('Ubuntu host backup keeps archives outside storage and validates them befor
   const envFile = path.join(dir, 'mobocom.env')
   fs.mkdirSync(path.join(app, 'storage', 'uploads'), { recursive: true })
   fs.mkdirSync(path.join(app, 'storage', 'backups'), { recursive: true })
+  fs.mkdirSync(path.join(app, 'storage', 'update', 'lock'), { recursive: true })
   fs.mkdirSync(bin)
   fs.writeFileSync(path.join(app, 'storage', 'uploads', 'live.txt'), 'user upload')
   fs.writeFileSync(path.join(app, 'storage', 'backups', 'old.dump.enc'), 'existing app backup')
   fs.writeFileSync(envFile, 'DATABASE_URL=postgresql://fixture:fixture@localhost:5432/fixture?schema=public\nBACKUP_DIR=storage/backups\n')
   const dump = path.join(bin, 'pg_dump')
   const restore = path.join(bin, 'pg_restore')
-  fs.writeFileSync(dump, '#!/bin/sh\nfor arg in "$@"; do case "$arg" in --file=*) printf "fixture dump\\n" > "${arg#--file=}" ;; esac; done\n')
+  fs.writeFileSync(dump, '#!/bin/sh\n[ "$PGPASSWORD" = fixture ] || exit 98\ncase "$*" in *fixture*|*postgresql*|*schema=*) exit 99 ;; esac\nprintf "fixture dump\\n"\n')
   fs.writeFileSync(restore, '#!/bin/sh\n[ "${FAIL_DUMP_LIST:-0}" = "1" ] && exit 17\n[ "$1" = "--list" ]\n')
   fs.chmodSync(dump, 0o755)
   fs.chmodSync(restore, 0o755)
@@ -266,6 +358,11 @@ test('Ubuntu host backup keeps archives outside storage and validates them befor
   assert.equal(listing.status, 0, listing.stderr)
   assert.match(listing.stdout, /storage\/uploads\/live\.txt/)
   assert.doesNotMatch(listing.stdout, /storage\/backups\/old\.dump\.enc/)
+  assert.doesNotMatch(listing.stdout, /storage\/update/, 'a running update\'s lock is never restored later')
+  for (const name of files) assert.equal(fs.statSync(path.join(host, name)).mode & 0o077, 0, 'only the owner reads a backup')
+  const locked = spawnSync('flock', [path.join(host,'.backup.lock'), 'bash','deploy/ubuntu/backup.sh'], {cwd:root,env:baseEnv,encoding:'utf8',timeout:60000})
+  assert.equal(locked.status,3,'backup publication/pruning cannot race')
+  assert.notEqual(run({KEEP_DAYS:'0; touch should-not-exist'}).status,0,'invalid retention is refused')
 
   const legacyHost = path.join(dir, 'legacy-host-backups')
   fs.writeFileSync(envFile, `DATABASE_URL=postgresql://fixture:fixture@localhost:5432/fixture?schema=public\nBACKUP_DIR=${legacyHost}\n`)
@@ -276,7 +373,7 @@ test('Ubuntu host backup keeps archives outside storage and validates them befor
   const failedHost = path.join(dir, 'failed-host-backups')
   const failed = run({ HOST_BACKUP_DIR: failedHost, FAIL_DUMP_LIST: '1' })
   assert.notEqual(failed.status, 0, 'a dump that cannot be listed blocks the update')
-  assert.deepEqual(fs.readdirSync(failedHost), [], 'failed archives are never published')
+  assert.deepEqual(fs.readdirSync(failedHost), ['.backup.lock'], 'failed archives are never published')
 
   const insideStorage = run({ HOST_BACKUP_DIR: path.join(app, 'storage', 'backups') })
   assert.notEqual(insideStorage.status, 0, 'host backups cannot be written inside app storage')
@@ -323,6 +420,8 @@ test('root helper validates the tag and starts the update in its own unit', () =
   const installer = read('deploy/ubuntu/updater-install.sh')
   assert.match(installer, /NOPASSWD: \/usr\/local\/sbin\/mobocom-update/); assert.match(installer, /systemctl restart/)
   assert.ok(!/NOPASSWD: ALL/.test(installer))
+  assert.match(installer, /NoNewPrivileges=false/)
+  assert.match(read('deploy/ubuntu/mobocom-update'), /\[ -r /, 'bash entry point need not be chmodded by root in the app checkout')
 })
 
 test('wiring: routes, admin page, job, hook and privileges', () => {

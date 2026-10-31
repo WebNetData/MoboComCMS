@@ -2,6 +2,8 @@
 
 این راهنما برای **Ubuntu 22.04 یا 24.04** است: برنامه با systemd اجرا می‌شود، Nginx جلوی آن قرار می‌گیرد، گواهی SSL از Let's Encrypt گرفته می‌شود و دیتابیس PostgreSQL روی همان سرور است. هیچ پنل یا cron جداگانه‌ای لازم نیست؛ کارهای پس‌زمینه (پردازش سفارش‌ها، صف انتشار تلگرام/اینستاگرام، یادآوری‌ها، فهرست جست‌وجو) داخل خود برنامه اجرا می‌شوند.
 
+> نصب خودکار با یک دستور در [راهنمای نصب](INSTALL-FA.md) است؛ این صفحه همان قدم‌ها را دستی توضیح می‌دهد. برای آپدیت و بازگردانی، [راهنمای آپدیت](UPGRADE-FA.md) مرجع اصلی است.
+>
 > دستورها را با کاربری که دسترسی `sudo` دارد اجرا کنید. هر جا `example.com` آمده، دامنهٔ خودتان را بگذارید.
 
 ## ۱. سرور
@@ -151,7 +153,7 @@ sudo mkdir -p /var/backups/mobocom && sudo chown mobocom:mobocom /var/backups/mo
 sudo cp deploy/ubuntu/mobocom-backup.service deploy/ubuntu/mobocom-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now mobocom-backup.timer
 sudo systemctl start mobocom-backup.service   # یک بار آزمایشی
-ls -lh /var/backups/mobocom
+sudo ls -lh /var/backups/mobocom
 ```
 
 مسیر بکاپ میزبان با `HOST_BACKUP_DIR` (مسیر مطلق و بیرون از پوشهٔ برنامه) تنظیم می‌شود؛ مقدار پیش‌فرض `/var/backups/mobocom` است. `BACKUP_DIR` برای بکاپ رمزگذاری‌شدهٔ داخل برنامه است و مقدار نسبی آن مسیر بکاپ میزبان را تغییر نمی‌دهد. اسکریپت قبل از انتشار فایل‌های بکاپ، قالب dump و سلامت آرشیو فایل‌ها را بررسی می‌کند.
@@ -162,29 +164,25 @@ ls -lh /var/backups/mobocom
 rsync -az root@IP_SERVER:/var/backups/mobocom/ ./mobocom-backups/
 ```
 
-بازگردانی دیتابیس از یک فایل پشتیبان:
-
-```bash
-sudo systemctl stop mobocom
-sudo -u postgres pg_restore --clean --if-exists --no-owner --role=mobocom -d mobocom /var/backups/mobocom/db-YYYYMMDD-HHMMSS.dump
-sudo systemctl start mobocom
-```
+برای بازگردانی دیتابیس و فایل‌ها، `sudo mobocom restore` را طبق [راهنمای آپدیت](UPGRADE-FA.md#راه-دوم-بازگردانی-پشتیبان) اجرا کنید. این دستور ابتدا از وضعیت فعلی پشتیبان می‌گیرد و هر دو بخش را با هم برمی‌گرداند.
 
 ## ۱۰. به‌روزرسانی
 
 هر بار که کد جدید در شاخهٔ `main` ادغام شد:
 
 ```bash
-sudo -u mobocom bash /opt/mobocom/app/deploy/ubuntu/update.sh
+sudo mobocom update
 ```
+
+اگر دستور `mobocom` روی سرور نیست، بخش [سایت‌های نصب‌شده پیش از این ابزار](UPGRADE-FA.md#اگر-سایت-را-پیش-از-این-ابزار-نصب-کردهاید) را یک بار انجام دهید.
 
 پیش از جایگزینی کد، اسکریپت از PostgreSQL و فایل‌های آپلودی پشتیبان تازه می‌گیرد. اگر پشتیبان‌گیری شکست بخورد، به‌روزرسانی متوقف می‌شود؛ پوشهٔ `/var/backups/mobocom` باید برای کاربر `mobocom` قابل نوشتن باشد. به‌روزرسانی از پنل نیز همین شرط را دارد.
 
-این اسکریپت کد را می‌گیرد، وابستگی‌ها را نصب و برنامه را می‌سازد و سرویس را دوباره اجرا می‌کند (مایگریشن‌ها هنگام اجرا اعمال می‌شوند). برای اینکه کاربر `mobocom` بتواند سرویس را ری‌استارت کند، یک بار این دسترسی را بدهید:
+این اسکریپت کد را می‌گیرد، وابستگی‌ها را نصب و برنامه را می‌سازد و سرویس را دوباره اجرا می‌کند (مایگریشن‌ها هنگام اجرا اعمال می‌شوند). برای اینکه کاربر `mobocom` بتواند سرویس را ری‌استارت کند و دستور `mobocom` نصب شود، یک بار این دستورها را اجرا کنید:
 
 ```bash
-echo 'mobocom ALL=(root) NOPASSWD: /usr/bin/systemctl restart mobocom' | sudo tee /etc/sudoers.d/mobocom
-sudo chmod 440 /etc/sudoers.d/mobocom
+sudo bash /opt/mobocom/app/deploy/ubuntu/updater-install.sh
+sudo install -m 755 /opt/mobocom/app/deploy/ubuntu/mobocom /usr/local/bin/mobocom
 ```
 
 اگر نصب، ساخت، راه‌اندازی یا بررسی سلامت نسخهٔ جدید شکست بخورد، اسکریپت دستی کد قبلی را بازمی‌گرداند و دوباره آن را راه‌اندازی و بررسی می‌کند. اجرای هم‌زمان به‌روزرسانی دستی و پنل با قفل مشترک متوقف می‌شود. تغییرات محلی فایل‌های ردیابی‌شده و کامیت‌های محلی خارج از شاخهٔ هدف پیش از شروع باید تعیین تکلیف شوند؛ اسکریپت آن‌ها را پاک نمی‌کند. بازگشت برنامه، مایگریشن‌های اعمال‌شده روی پایگاه داده را برنمی‌گرداند؛ نسخه‌های پیاپی باید با طرح پایگاه داده سازگار بمانند.

@@ -1,5 +1,7 @@
 # راهنمای قدم‌به‌قدم اجرای موبوکام روی سرور مجازی (VPS) و هاست
 
+> روی اوبونتو، [راهنمای نصب با یک دستور](INSTALL-FA.md) همهٔ قدم‌های بخش الف را خودکار انجام می‌دهد. برای آپدیت، [راهنمای آپدیت](UPGRADE-FA.md) را ببینید.
+
 این راهنما دو مسیر دارد:
 
 برای نصب اولیه از مرورگر، کد خصوصی نصب، مدیریت SSL و به‌روزرسانی از پنل، [راهنمای نصب تحت وب و پنل سرور](WEB_SETUP_AND_SERVER.md) را هم بخوانید. آماده‌سازی میزبان در این سند همچنان لازم است.
@@ -165,12 +167,15 @@ sudo systemctl start mobocom-backup.service   # یک اجرای آزمایشی
 
 ### قدم ۱۲ — به‌روزرسانی
 
+یک بار ابزار آپدیت را نصب کنید و از آن به بعد فقط دستور آخر را اجرا کنید:
+
 ```bash
-echo 'mobocom ALL=(root) NOPASSWD: /usr/bin/systemctl restart mobocom' | sudo tee /etc/sudoers.d/mobocom && sudo chmod 440 /etc/sudoers.d/mobocom
-sudo -u mobocom bash /opt/mobocom/app/deploy/ubuntu/update.sh
+sudo bash /opt/mobocom/app/deploy/ubuntu/updater-install.sh
+sudo install -m 755 /opt/mobocom/app/deploy/ubuntu/mobocom /usr/local/bin/mobocom
+sudo mobocom update
 ```
 
-اسکریپت کد تازه را می‌گیرد، می‌سازد و سرویس را ری‌استارت می‌کند؛ مایگریشن‌ها هنگام بالا آمدن اعمال می‌شوند.
+این دستور پیش از تغییر کد پشتیبان می‌گیرد، کد تازه را می‌سازد و سرویس را ری‌استارت می‌کند؛ مایگریشن‌ها هنگام بالا آمدن اعمال می‌شوند. جزئیات، برگشت و بازگردانی در [راهنمای آپدیت](UPGRADE-FA.md) است.
 
 ### قدم ۱۳ — عیب‌یابی
 

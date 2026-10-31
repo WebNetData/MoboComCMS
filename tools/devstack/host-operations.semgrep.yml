@@ -1,0 +1,25 @@
+rules:
+  - id: host-forced-git-replacement
+    languages: [generic]
+    severity: ERROR
+    message: Host updates must preserve local work; forced checkout/reset is forbidden.
+    pattern-regex: 'git\s+(reset[^\n]*--hard|checkout[^\n]*--force)'
+  - id: host-db-credential-argv
+    languages: [generic]
+    severity: ERROR
+    message: Use the shared libpq environment adapter instead of a database URL in argv.
+    pattern-regex: 'pg_(dump|restore)[^\n]*--dbname=[^\n]*(DATABASE_URL|\$url)'
+  - id: host-unverified-ssh-keyscan
+    languages: [generic]
+    severity: ERROR
+    message: Verify the official SSH host key; do not trust unauthenticated keyscan output.
+    pattern-regex: 'ssh-keyscan\s+[^\n]*github\.com'
+  - id: host-unvalidated-archive-extraction
+    languages: [python]
+    paths:
+      include: ['**/*.py']
+    severity: ERROR
+    message: Validate archive members and stream regular files; do not extract arbitrary archive paths.
+    pattern-either:
+      - pattern: $ARCHIVE.extractall(...)
+      - pattern: $ARCHIVE.extract(...)
