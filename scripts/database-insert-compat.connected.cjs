@@ -41,11 +41,12 @@ async function main(){
   const user=await prisma.user.create({data:{email:`${seed}-${i}@example.invalid`,passwordHash:'test-only'}});users.push(user.id);
   await prisma.userNotification.create({data:{userId:user.id,kind:'ANNOUNCEMENT',dedupeKey:`${seed}-${i}`,titleEn:'fixture',titleFa:'آزمون',href:'/dashboard',createdAt:new Date(now.getTime()-2*3600000)}});
  }
- const policy=load('src/modules/notifications/server/policy.ts');
+  cursor.set('notifications.policy.v1',JSON.stringify({digest:{enabled:true,hour:9}}));
+  const policy=load('src/modules/notifications/server/policy.ts');
  assert.equal((await policy.queueInboxDigests(now,200)).queued,151,'digest chunk boundary queues each member');
  const mine={dedupeKey:{in:users.map(id=>`notification-digest:${id}:2026-10-07`)}};
  const jobs=await prisma.backgroundJob.findMany({where:mine,orderBy:{id:'asc'}});assert.equal(jobs.length,151);
- cursor.clear();assert.equal((await policy.queueInboxDigests(now,200)).queued,0,'replayed cursor does not duplicate jobs');
+  cursor.delete('notifications.digest.cursor');assert.equal((await policy.queueInboxDigests(now,200)).queued,0,'replayed cursor does not duplicate jobs');
  assert.deepEqual(await prisma.backgroundJob.findMany({where:mine,orderBy:{id:'asc'}}),jobs,'deduplication preserves queued payloads and state');
  console.log('Portable owner inserts: chunk boundaries, exact added counts, immutable duplicate codes and digest replay passed');
 }

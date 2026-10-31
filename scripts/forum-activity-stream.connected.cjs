@@ -46,7 +46,7 @@ async function main() {
   const all = await stream.activityStream(viewer(stranger.id))
   assert.deepEqual(mine(all), [['post', 'a public feed post'], ['reply', 'public topic'], ['topic', 'public topic']], 'newest first across the forum and the feed; nothing hidden, unlisted, private or for followers')
   const reply = all.entries.find(entry => entry.kind === 'reply' && entry.person.name.startsWith(seed))
-  assert.deepEqual([reply.text, reply.href, reply.place.title, reply.place.color, reply.person.href], ['a reply with a link', `/forum/t/${publicTopic.id}?post=2`, `${seed} open`, '#123456', `/forum/u/${seed}${writer.id}`], 'plain excerpt, link to the post, its forum')
+  assert.deepEqual([reply.text, reply.href, reply.place.title, reply.place.color, reply.person.href], ['a reply with a link', `/forum/t/${publicTopic.id}?post=2`, `${seed} open`, '#123456', `/u/${seed}${writer.id}`], 'plain excerpt, link to the post, its forum and canonical member profile')
   assert.equal(all.entries.find(entry => entry.kind === 'post' && entry.person.name.startsWith(seed)).href.startsWith('/feed/p/'), true)
 
   // ---- each viewer sees what their own access allows
@@ -73,7 +73,7 @@ async function main() {
   const withReviews = await stream.activityStream(viewer(friend.id))
   assert.deepEqual(mine(withReviews).slice(0, 2), [['reply', 'public topic'], ['review', `${seed} public game`]], 'a review is an entry; a bare rating, a pending one and one of an unpublished item are not')
   const entry = withReviews.entries.find(item => item.kind === 'review' && item.person.name.startsWith(seed))
-  assert.deepEqual([entry.rating, entry.text, entry.href.includes(`${seed}-game`), entry.person.href, withReviews.reviews], [4, 'worth playing', true, `/forum/u/${seed}${writer.id}`, true])
+  assert.deepEqual([entry.rating, entry.text, entry.href.includes(`${seed}-game`), entry.person.href, withReviews.reviews], [4, 'worth playing', true, `/u/${seed}${writer.id}`, true])
   assert.deepEqual(mine(await stream.activityStream(viewer(friend.id), { filter: 'reviews' })), [['review', `${seed} public game`]])
   assert.ok(!JSON.stringify(await stream.activityStream(viewer(friend.id), { filter: 'reviews' })).includes('draft game'))
 

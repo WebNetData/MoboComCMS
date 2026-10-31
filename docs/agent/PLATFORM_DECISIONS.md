@@ -10,6 +10,8 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ## Web operations — 2026-10-31
 
+Bulk import continuation: HTML may create/edit legacy bodies, but never replace or undo over a canonical block body; selected metadata is independent. Preview refusal is backed by a transactional format/timestamp claim at apply/undo. Fresh content-job metadata chooses draft; old saved-job normalization and explicit mapped statuses retain their meaning. [Exact contracts and evidence](handoffs/IMPORTS_LAUNCH.md).
+
 Fresh web installation requires a private capability in production and closes after the first owner; use existing Installer and serialized PostgreSQL owner creation. Installed-site operations remain behind Server Panel opt-in, canonical permissions, origin and password/TOTP/IP unlock. Database backup and updates compose their existing owners under that panel; no general SQL writer, public Adminer or arbitrary privileged command API. SSL reuses existing encrypted DNS credentials and a fixed private PEM helper; manual certs require manual renewal. Updates preserve dirty/divergent owner code by refusing it, retain backup-first/health/rollback, never force checkout or rewind the DB, and never steal an aged lock. [Contracts, evidence and activation limits](handoffs/WEB_OPERATIONS.md).
 
 ## 1. Product focus and module switches

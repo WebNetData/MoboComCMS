@@ -12,7 +12,7 @@ function load(relative){
   if(name==='@/platform/database/prisma')return {db};
   if(name==='@/platform/config/env')return {authSecret:()=> 'owned-mask-authority-fixture'};
   if(name==='@/platform/observability/logger')return {logEvent:()=>{}};
-  if(name==='@/modules/settings/server')return {getSettings:async()=>({siteUrl:'https://site.example.invalid'})};
+   if(name==='@/modules/settings/server')return {getSettings:async()=>({siteUrl:'https://site.example.invalid'}),createSectionSettingsHistory:(_key,_entity,normalize)=>({read:async()=>normalize({})})};
   if(name==='@/extensions/server/modules')return {isModuleEnabled:async()=>true,getModuleSettings:async()=>({})};
   if(name==='@/modules/membership/server/membership')return {getViewer:async()=>({userId:viewerId,member:false})};
   if(name==='@/modules/paywall/server/paywall')return {accessFor:async()=>({key:null,decision:{open:true}})};

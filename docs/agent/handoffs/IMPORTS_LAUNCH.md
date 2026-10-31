@@ -1,0 +1,40 @@
+# Bulk import launch continuation — 2026-10-31
+
+Continue `.mobocom/autonomous-foundation`, branch `feat/imports-server-editor-ready-2026-10-31`. This is the owner's requested consolidated PR batch: pending Editor/media/groups/specialists/template retirement and web operations are retained. `origin/main`70d71a40 is merged; its content matched the earlier base, so no production source conflict or owner feature was discarded. The owner merges and deploys.
+
+## Audit and implementation
+
+Existing owner is `src/modules/imports`: parse/coerce/mapping/settings, registered Store/Magazine/Movies/Series/Games/Software/Music adapters, `ImportJob`/records/external identities, Operations queue, Media Library transfers and rollback. Do not create another importer, queue, media registry or canonical identity.
+
+Verified gap: Magazine HTML import could update `content` while `editorFormat=blocks-v1` and `contentDocument` remained authoritative. Preview now refuses selected HTML-body updates on block articles, while selected metadata updates remain available. Apply repeats the refusal and claims the actual legacy format/timestamp inside the write transaction, so conversion between preview/read/claim cannot silently create a stale HTML body. HTML rollback uses the same claim and preserves later block conversion; metadata rollback stays available. No automatic conversion, content-document rewrite or old URL change.
+
+New import metadata defaults for content destinations select `DRAFT`. Saved/legacy options still normalize their historical missing default to `PUBLISHED`; explicit template/file status keeps its meaning. The source file's selected status overrides the fallback. Store retains its own active/inactive contract. New templates are not silently substituted for old saved settings.
+
+The new `src/app/admin/imports/ImportGuide.tsx` composes existing Admin/SDS tokens and the fourth tab in the existing page. It explains mapping, stable source/external IDs, selected writes, preview, dry run, defaults, local-edit protection, explicit Library copy/opt-out, immediate/queued/scheduled work, failed transfers, block-body refusal, actual IMDb limits, reports and safe rollback. Eight public nonsensitive examples live in `public/examples/imports`: seven JSON destinations and Magazine CSV. Store sample is `inactive`; other samples use `DRAFT`. Addresses are placeholders, not downloadable test-provider promises.
+
+Operator docs: [bulk import](../../BULK_IMPORT.md), [web setup/server](../../WEB_SETUP_AND_SERVER.md), README and Ubuntu/VPS guides. VPS instructions now describe private Redis, separate backup key, the tested4GiB build heap, HTTPS before web install and terminal seed as an alternative only. No service was installed on the owner's server. Empty credential examples use explicit quoted empties/comments rather than misleading usable-looking placeholders; actual `.env` files were not changed.
+
+## Verified bounded checks
+
+- Full `npm run check` passed in Linux UID1000/no-.env disposable source with PostgreSQL configured:821 Node passes,0 failures,1 Python-only skip. Includes type/architecture/schema/migration/money/security/audit/i18n and registered unit/mock-connected checks. This command does not execute native PG/E2E suites.
+- New explicit `import-content-compat.connected.cjs` passed on owned PostgreSQL: all7 sample values/required fields and draft-versus-legacy defaults, block preview/apply refusal, metadata write/undo, both audio URLs in sanitized HTML, real legacy HTML write/undo, refusal after block conversion and a conversion committed between the transactional read and claim. Only content-event dispatch is doubled; persistence and claim/rollback are real. No remote media downloaded.
+- Native `import-edit-protection`, `import-execution-authority` and `import-provenance` passed. Their boundaries and exact earlier contracts remain in the existing safety audit and source; this is not a new permission resolver.
+- Maintained `e2e/tests/import-content-compat.spec.ts` passed in installed Edge against owned localhost3205/PostgreSQL. Actual authenticated wizard upload/analyze/mapping/preview/dry run/options/start, `copyAssets=false`, default draft creation/public404, real queue execution, record report and confirmed UI rollback to `ROLLED_BACK`. Four1440/390 light/dark guide captures, no page overflow/runtime errors and scoped axe WCAG2A/AA/2.1AA0. Initial harness session/label/confirmation/repeated-title attempts were corrected; they are not counted as passes.
+- Production Next build passed. Existing dynamic-filesystem tracing warnings remain, including Updater paths. No suppression or dependency upgrade.
+- React Doctor on Imports page/new guide:0 errors/18 reviewed inherited page warnings; Guide itself has no diagnostics. The pre-existing large wizard, data-fetch wrappers, JSX similarity and table keys were not globally rewritten.
+- Consolidated implementation scan: Semgrep85 recognized JS/TS targets,0 findings/errors. Redacted Gitleaks initially reported sample placeholders and cross-line captures of adjacent empty credential names; after unambiguous empty-example formatting the full161-file scan returned0 findings. No allowlist/baseline suppression or actual secret removal was needed.
+- Local Graphify code-only incremental refresh succeeded,0 semantic tokens; no document/cloud indexing or token-savings claim.
+
+`web-operations` and `import-content-compat` are **explicit optional checks** in `run-pg-checks.cjs`. The former requires an empty first-owner database, so it must not be put after CI's normal seed. The latter requires an explicitly disposable DB. They were executed directly in owned databases; a default CI run does not pretend to run them. Prior operations/Editor evidence is in [Web operations](WEB_OPERATIONS.md), [Editor media](EDITOR_MEDIA.md) and [Editor/groups/specialists](EDITOR_GROUPS_EXPERTS.md).
+
+PR publication, 2026-10-31: published from this branch at the owner's request after Codex stopped before the PR. On the exact published content: TypeScript, architecture and release-migration checks clean; `npm run check` in the local check container 748 pass, 1 skipped, 6 failed (the update-script tests that fail in that container on main too; the Linux run above had none). The added lines and example files were scanned for secrets and local paths: none. **Not recorded by anyone:** the final seeded PostgreSQL batch and Redis availability.
+
+## Limits and rollback
+
+No migration is added by this import slice. The consolidated batch still includes the two earlier registered/unreleased incremental migrations. Preserve production data and external identities; do not reset/reseed a running site. Rollback of the application never restores an old database automatically.
+
+The importer supports the existing HTML compatibility path for new text, not arbitrary raw editing-engine JSON or replacement of block documents. For a block article, turn off body update and edit body in the existing editor. Preview and execution can refuse records that changed later; reconcile rather than weakening those guards.
+
+The native fixture validates all seven sample schemas; the browser executes Magazine end to end. This is not an all-adapter browser, all-provider playback or real external-download certification. Scheduled transfer needs the actual deployment worker, free storage and reachable allowed sources. Remote archive, multipart/HLS/provider scraping and target-host operational limits remain in their existing handoffs.
+
+Local evidence is ignored under `.mobocom/imports-release-evidence`. Exclude `.serena` machine state, generated local `public/demo`, runtime storage, credentials, traces and temporary fixture files from the PR. Retain owner changes and original Library data. No manual GitHub Actions dispatch or hosted browser repetition is part of this task; create one consolidated PR to main and leave merge/deploy to the owner.

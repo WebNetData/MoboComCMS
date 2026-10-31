@@ -1,5 +1,7 @@
 # Remaining gaps — scoped snapshot, updated 2026-10-31
 
+Bulk import's verified block/HTML compatibility gap and missing operator guide are closed locally through the existing owner; [evidence and limits](handoffs/IMPORTS_LAUNCH.md). No arbitrary block-document import or all-adapter/provider browser certification is claimed. Target-host workers, source connectivity and deployment/rollback still need the owner's operational rehearsal.
+
 Web operations: the existing installer, table browser, backup and updater are extended and verified locally, including private install claim, SSL methods/PEM and corrected header hover. [Exact tests and limits](handoffs/WEB_OPERATIONS.md). Do not recreate these systems. Remaining operations work is target-host bootstrap/helper activation, real ACME/DNS/renewal and release/rollback rehearsal with retained files/secrets/backups; no local test certifies those external services.
 
 Editorial/team follow-up: the requested template retirement, page-style typography, BBCode palette, exact staff scopes, manual/automatic activity degrees and specialist ownership are implemented and verified locally. [Evidence, migrations and explicit remaining limits](handoffs/EDITOR_GROUPS_EXPERTS.md). Do not reopen article-template creation or runtime rendering from historical notes. Legacy React diagnostics, external providers, deployment/load and the disabled Gutenberg GUI are separate from this bounded completion.
