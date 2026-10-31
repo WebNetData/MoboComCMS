@@ -53,3 +53,7 @@ Cleanup completed: the owned web-operations container/private fixture, isolated 
 Review only this slice's files alongside the preserved pending Editor/team diff. Reverting the header measurement is presentation-only. Disabling Server Panel in the environment closes host operations; it does not remove data, certs or backups. Reverting UI/API code must not delete `storage/config`, uploads, external environment files, encrypted archives or `/etc/mobocom/certificates`. Do not restore an old database merely to roll back application code.
 
 For another agent: start here and the current workstate. Do not build a second installer, database console, backup worker, SSL credential store or updater. Deployment verification is the remaining work, not evidence that these local capabilities are missing. The user has not requested a PR or deployment for this slice; preserve their owner-merge workflow and avoid hosted Actions.
+
+## Ubuntu host continuation — 2026-10-31
+
+Claude's bootstrap/CLI/update/restore batch is continued in [HOST_INSTALL_UPGRADE.md](HOST_INSTALL_UPGRADE.md). That handoff is authoritative for host script changes, current tests and remaining real systemd/certificate rollout; the existing application-side wizard/Server Panel contracts here remain unchanged.

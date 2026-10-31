@@ -1,6 +1,8 @@
 # Safe updates and data ownership
 
-MoboComCMS production state is split into four layers:
+Operator guide (Persian): [UPGRADE-FA.md](UPGRADE-FA.md). This page records the rules behind it.
+
+MoboComCMS production state is split into four layers (Coolify locations shown; on Ubuntu see the operator guide):
 
 | Layer | Location | Replaced on app deploy? |
 |---|---|---|

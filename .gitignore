@@ -1,4 +1,6 @@
 node_modules/
+# Everything the running site writes (uploads, private settings, update state) stays out of the code.
+/storage/
 storage/covers/
 .next/
 .next-dev/

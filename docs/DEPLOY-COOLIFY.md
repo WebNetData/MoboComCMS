@@ -219,3 +219,5 @@ For every future release:
 8. verify `/api/health/ready` and core purchase flow
 
 Do not overwrite production database files with files from the source archive.
+
+The Persian operator summary is in [UPGRADE-FA.md](UPGRADE-FA.md#coolify-یا-docker).
