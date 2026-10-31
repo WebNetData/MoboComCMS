@@ -246,3 +246,7 @@
 @media print {
   .journal-post:is(.journal-post-solo, .journal-post-built):is([data-post-style="immersive"], [data-post-style="cinematic"], [data-post-style="neon"]) .jp-hero { margin-inline: 0; padding-inline: 0; }
 }
+
+/* Managed article typography */
+.journal-post .journal-prose { font-size: var(--ps-body-size, inherit); line-height: var(--ps-line-height, 2.1); }
+.journal-post .journal-prose .mc-decor { box-shadow: 0 8px 30px color-mix(in srgb, var(--text) 3%, transparent); }

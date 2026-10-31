@@ -6,6 +6,7 @@ import { env } from '@/platform/config/env'
 import { logEvent } from '@/platform/observability/logger'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { command } from '@/modules/server-panel/server/system'
+import { validateCertificateUpload } from '@/modules/server-panel/server/certificates'
 import {
   DomainError, apexOf, certCovers, certificateNames, normalizeCertDomain, normalizeDomain, normalizeSiteUrl, parseCertificates, siteApplyArgs,
   validateDnsRecord, validateSite, type CertInfo, type SiteDomain,
@@ -37,9 +38,9 @@ const cfToken = (state: Stored) => { try { return state.cfToken ? decryptPanelCr
 const helperPath = () => env('SERVER_PANEL_WEBCTL') || '/usr/local/sbin/mobocom-webctl'
 
 /** Runs the root helper; in development SERVER_PANEL_WEBCTL_SUDO=0 runs a local copy without sudo. */
-async function helper(args: string[], timeout = 30_000) {
+async function helper(args: string[], timeout = 30_000, input?: string) {
   const direct = env('SERVER_PANEL_WEBCTL_SUDO') === '0'
-  const result = direct ? await command(helperPath(), args, timeout) : await command('sudo', ['-n', helperPath(), ...args], timeout)
+  const result = direct ? await command(helperPath(), args, timeout, undefined, input) : await command('sudo', ['-n', helperPath(), ...args], timeout, undefined, input)
   if (!result.ok && /password is required|a terminal is required|not allowed|no such file|ENOENT|sudoers/i.test(result.out)) {
     return { ok: false, out: 'ابزار مدیریت وب روی سرور نصب نیست؛ اسکریپت deploy/ubuntu/server-panel-install.sh را دوباره اجرا کنید.' }
   }
@@ -76,7 +77,8 @@ export async function saveSite(input: Record<string, unknown>, apply = true) {
   const state = await load()
   if (site.https) {
     const certs = parseCertificates((await helper(['cert-list'])).out)
-    const cert = certs.find((item) => item.name === site.cert) || certs.find((item) => certCovers(item.domains, site.domain) && (!site.www || certCovers(item.domains, `www.${site.domain}`)))
+    const eligible = (item: CertInfo) => item.valid && certCovers(item.domains, site.domain) && (!site.www || certCovers(item.domains, `www.${site.domain}`))
+    const cert = certs.find((item) => item.name === site.cert && eligible(item)) || certs.find(eligible)
     if (!cert) throw new DomainError('برای این دامنه گواهی SSL پیدا نشد؛ اول از بخش «گواهی SSL» گواهی بگیرید، سپس HTTPS را روشن کنید.', 409)
     site.cert = cert.name
   }
@@ -106,19 +108,22 @@ export async function removeSite(domainInput: unknown) {
  * names (the domain must already point here), Cloudflare DNS for wildcard.
  * Certbot's timer renews it automatically before expiry.
  */
-export async function issueCertificate(input: { domain: unknown; wildcard?: boolean; www?: boolean; email?: unknown; extra?: unknown }) {
+export async function issueCertificate(input: { domain: unknown; wildcard?: boolean; www?: boolean; email?: unknown; extra?: unknown; method?: unknown }) {
   const domain = normalizeDomain(input.domain)
   if (!domain) throw new DomainError('دامنه معتبر نیست')
   const state = await load()
   const email = String(input.email || state.email || '').trim()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new DomainError('ایمیل برای ثبت در Let\'s Encrypt لازم است (اطلاع‌رسانی انقضا)')
   const wildcard = input.wildcard === true
-  if (wildcard && !state.cfToken) throw new DomainError('برای گواهی Wildcard ابتدا توکن API کلادفلر را در بخش Cloudflare ثبت کنید.')
+  const method = input.method === undefined ? (wildcard ? 'cloudflare' : 'http') : String(input.method)
+  if (!['http', 'cloudflare', 'standalone'].includes(method)) throw new DomainError('روش صدور گواهی معتبر نیست')
+  if (wildcard && method !== 'cloudflare') throw new DomainError('گواهی Wildcard به روش DNS نیاز دارد')
+  if (method === 'cloudflare' && !state.cfToken) throw new DomainError('ابتدا توکن محدود DNS کلادفلر را ثبت کنید.')
   const extra = Array.isArray(input.extra) ? input.extra.map(normalizeCertDomain).filter(Boolean) : []
   const names = [...new Set([...certificateNames(domain, { wildcard, www: input.www === true }), ...extra])]
-  if (wildcard) await writeCloudflareIni(state)
+  if (method === 'cloudflare') await writeCloudflareIni(state)
   const name = wildcard ? apexOf(domain) : domain
-  const result = await helper(['cert-issue', name, wildcard ? 'cloudflare' : 'http', email, ...names], 240_000)
+  const result = await helper(['cert-issue', name, method, email, ...names], 240_000)
   if (email !== state.email) await save({ ...state, email })
   if (!result.ok) {
     const out = result.out
@@ -130,6 +135,15 @@ export async function issueCertificate(input: { domain: unknown; wildcard?: bool
   }
   logEvent('info', 'server.cert.issued', { name, names, wildcard })
   return { name, names }
+}
+
+export async function importCertificate(input: Record<string, unknown>) {
+  const proposed = validateCertificateUpload(input), state = await load()
+  const required = state.sites.filter(site => site.https && site.cert === proposed.name).flatMap(site => site.www ? [site.domain, `www.${site.domain}`] : [site.domain])
+  const cert = validateCertificateUpload(input, required)
+  const result = await helper(['cert-import', cert.name, cert.domain], 30_000, cert.payload)
+  if (!result.ok) throw new DomainError('ذخیرهٔ گواهی انجام نشد؛ ابزار مدیریت سرور، تطابق کلید و گواهی را بررسی کنید.', 502)
+  return { name: cert.name, domain: cert.domain, expiresAt: cert.expiresAt, automaticRenewal: false }
 }
 
 export async function renewCertificates(dry: boolean) {

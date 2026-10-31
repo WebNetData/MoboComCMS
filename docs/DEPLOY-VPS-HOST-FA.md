@@ -2,6 +2,8 @@
 
 این راهنما دو مسیر دارد:
 
+برای نصب اولیه از مرورگر، کد خصوصی نصب، مدیریت SSL و به‌روزرسانی از پنل، [راهنمای نصب تحت وب و پنل سرور](WEB_SETUP_AND_SERVER.md) را هم بخوانید. آماده‌سازی میزبان در این سند همچنان لازم است.
+
 - **بخش الف — سرور مجازی (VPS) اوبونتو:** مسیر پیشنهادی و کامل. همهٔ امکانات (از جمله ورود گروهی اطلاعات، کارهای پس‌زمینه، پشتیبان‌گیری خودکار، به‌روزرسانی یک‌کلیکی و پنل سرور) کار می‌کنند.
 - **بخش ب — هاست (cPanel یا DirectAdmin با «Node.js App»):** برای وقتی که سرور مجازی ندارید. محدودیت‌هایش در همان بخش آمده است.
 
@@ -48,7 +50,9 @@ sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share
 echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
 sudo apt update && sudo apt -y install postgresql-17
 
-sudo apt -y install nginx certbot python3-certbot-nginx
+sudo apt -y install nginx certbot python3-certbot-nginx redis-server
+sudo systemctl enable --now redis-server
+redis-cli ping
 ```
 
 ### قدم ۴ — دیتابیس
@@ -81,6 +85,9 @@ NEXTAUTH_URL=https://example.com
 NEXTAUTH_SECRET=$(openssl rand -hex 32)
 INTERNAL_JOBS_SECRET=$(openssl rand -hex 32)
 PANEL_CREDENTIAL_KEY=$(openssl rand -hex 32)
+BACKUP_ENCRYPTION_KEY=$(openssl rand -hex 32)
+BACKUP_SCHEDULER=false
+REDIS_URL=redis://127.0.0.1:6379
 DATABASE_URL=postgresql://mobocom:$DB_PASS@127.0.0.1:5432/mobocom?schema=public
 RUN_MIGRATIONS_ON_START=true
 SITE_LOCALES=fa
@@ -96,7 +103,7 @@ sudo chown root:mobocom /etc/mobocom/mobocom.env && sudo chmod 640 /etc/mobocom/
 
 ```bash
 cd /opt/mobocom/app
-sudo -u mobocom bash -c 'npm ci --no-audit --no-fund && set -a && . /etc/mobocom/mobocom.env && set +a && NODE_OPTIONS=--max-old-space-size=3072 npm run build:postgres'
+sudo -u mobocom bash -c 'npm ci --no-audit --no-fund && set -a && . /etc/mobocom/mobocom.env && set +a && NODE_OPTIONS=--max-old-space-size=4096 npm run build:postgres'
 
 sudo cp deploy/ubuntu/mobocom.service /etc/systemd/system/mobocom.service
 sudo systemctl daemon-reload && sudo systemctl enable --now mobocom
@@ -106,6 +113,10 @@ curl -s http://127.0.0.1:3000/api/health/ready
 در اولین اجرا مایگریشن‌ها خودکار اعمال می‌شوند (از جمله جدول‌های ورود گروهی و دسترسی `imports.manage` برای نقش مدیر کل).
 
 ### قدم ۸ — ساخت مدیر اول (فقط یک بار)
+
+مسیر پیشنهادی، نصب تحت وب است: ابتدا قدم ۹ را برای دامنه و HTTPS انجام دهید، سپس `/install` را با کد خصوصی اولین راه‌اندازی باز کنید و نام سایت، دامنه، مدیر و امکانات را تعیین کنید. کد در خروجی سرویس یا فایل خصوصی `storage/config/install.token` است؛ [راهنمای نصب وب](WEB_SETUP_AND_SERVER.md) جزئیات را دارد. PostgreSQL و Redis باید فقط محلی/خصوصی در دسترس باشند؛ پورت‌های ۵۴۳۲ و ۶۳۷۹ را عمومی باز نکنید. کلیدهای رمزگذاری را بیرون از سرور امن نگه دارید و بکاپ زمان‌بندی‌شده را پس از آزمون بازیابی فعال کنید.
+
+دستور زیر **جایگزین نصب وب** برای مدیر اول است؛ اگر نصب وب را انجام داده‌اید یا سایت داده دارد، آن را دوباره اجرا نکنید:
 
 ```bash
 cd /opt/mobocom/app

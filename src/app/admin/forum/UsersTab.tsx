@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import Restrictions from './Restrictions'
 import { date, fa, type Call, type Member } from './shared'
 import { profileAddress } from '@/modules/identity/domain/profile-address'
+import type { UserLevel } from '@/modules/forum/domain/community'
 
 type Filter = '' | 'restricted' | 'locked' | 'noted'
 const FILTERS: [Filter, string][] = [['', 'همه'], ['restricted', 'ساکت یا معلق'], ['locked', 'سطح دستی'], ['noted', 'دارای یادداشت']]
@@ -15,7 +16,7 @@ const active = (until: string | null) => !!until && new Date(until).getTime() > 
  * Forum members as a list to scan: level, activity and any sanction at a glance, filtered by what needs the
  * team's eye. A member's level, title, note, silence, suspension and restrictions open under their row.
  */
-export default function UsersTab({ trustNames, busy, call, revision }: { trustNames: string[]; busy: boolean; call: Call; revision: number }) {
+export default function UsersTab({ trustNames, levels, busy, call, revision }: { trustNames: string[]; levels: UserLevel[]; busy: boolean; call: Call; revision: number }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('')
   const [members, setMembers] = useState<Member[] | null>(null)
@@ -59,7 +60,7 @@ export default function UsersTab({ trustNames, busy, call, revision }: { trustNa
               <td className="sa-card-foot"><button type="button" className="btn btn-ghost btn-sm" aria-expanded={open === user.userId} aria-controls={`fa-user-${user.userId}`} onClick={() => setOpen(open === user.userId ? null : user.userId)}>{open === user.userId ? 'بستن' : 'مدیریت'}</button></td>
             </tr>
             {open === user.userId && <tr className="fa-user-detail" id={`fa-user-${user.userId}`}><td colSpan={7} className="sa-card-main">
-              <UserModeration user={user} trustNames={trustNames} busy={busy} onRestrictionsChanged={() => setReload((n) => n + 1)} onSave={(patch, success) => void call('PATCH', { section: 'users', userId: user.userId, ...patch }, success)} />
+              <UserModeration user={user} trustNames={trustNames} levels={levels} busy={busy} onRestrictionsChanged={() => setReload((n) => n + 1)} onSave={(patch, success) => void call('PATCH', { section: 'users', userId: user.userId, ...patch }, success)} />
             </td></tr>}
           </Fragment>
         })}
@@ -70,7 +71,7 @@ export default function UsersTab({ trustNames, busy, call, revision }: { trustNa
   </section>
 }
 
-function UserModeration({ user, trustNames, busy, onSave, onRestrictionsChanged }: { user: Member; trustNames: string[]; busy: boolean; onSave: (patch: Record<string, unknown>, success: string) => void; onRestrictionsChanged: () => void }) {
+function UserModeration({ user, trustNames, levels, busy, onSave, onRestrictionsChanged }: { user: Member; trustNames: string[]; levels: UserLevel[]; busy: boolean; onSave: (patch: Record<string, unknown>, success: string) => void; onRestrictionsChanged: () => void }) {
   const [title, setTitle] = useState(user.title)
   const [note, setNote] = useState(user.moderationNote)
   const silenced = active(user.silencedUntil), suspended = active(user.suspendedUntil)
@@ -80,6 +81,7 @@ function UserModeration({ user, trustNames, busy, onSave, onRestrictionsChanged 
   }
   return <div className="fa-user-panel">
     <div className="fa-inline fa-wrap">
+      <label className="studio-field"><span>درجهٔ فعالیت</span><select aria-label="درجهٔ فعالیت" className="input" value={levels.some(level => level.id === user.manualLevelId) ? user.manualLevelId || '' : ''} disabled={busy} onChange={event => onSave({ manualLevelId: event.target.value || null }, event.target.value ? 'درجهٔ دستی ذخیره شد' : 'درجه دوباره از فعالیت محاسبه می‌شود')}><option value="">خودکار، بر اساس فعالیت</option>{levels.map(level => <option key={level.id} value={level.id}>{level.icon} {level.name} (دستی)</option>)}</select><small className="muted">درجه نمایشی است و هیچ دسترسی مدیریتی نمی‌دهد.</small></label>
       <label className="studio-field"><span>سطح اعتماد{user.trustLocked ? ' (دستی)' : ''}</span><select className="input" value={user.trustLevel} disabled={busy} onChange={(e) => onSave({ trustLevel: Number(e.target.value), trustLocked: true }, 'سطح اعتماد تغییر کرد')}>{trustNames.map((name, level) => <option key={level} value={level}>{fa(level)} — {name}</option>)}</select></label>
       {user.trustLocked && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => onSave({ trustLocked: false }, 'سطح اعتماد دوباره خودکار شد')}>خودکار شود</button>}
       <div className="studio-field"><span id={`fa-title-${user.userId}`}>عنوان</span><div className="fa-inline"><input className="input" aria-labelledby={`fa-title-${user.userId}`} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40} /><button type="button" className="btn btn-ghost btn-sm" disabled={busy || title === user.title} onClick={() => onSave({ title }, 'عنوان ذخیره شد')}>ذخیره</button></div></div>

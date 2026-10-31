@@ -126,7 +126,7 @@ async function users(q: string, filterParam: string | null) {
     counts: Object.fromEntries(USER_FILTERS.map((key, index) => [key, counts[index]])) as Record<UserFilter, number>,
     users: rows.map((row) => ({
       userId: row.userId, username: row.username, email: row.user.email, name: row.user.name, author: authors.get(row.userId) || fallbackAuthor(row.userId),
-      trustLevel: row.trustLevel, trustLocked: row.trustLocked, title: row.title, postCount: row.postCount, likesReceived: row.likesReceived, lastSeenAt: row.lastSeenAt,
+      trustLevel: row.trustLevel, trustLocked: row.trustLocked, manualLevelId: row.manualLevelId, title: row.title, postCount: row.postCount, likesReceived: row.likesReceived, lastSeenAt: row.lastSeenAt,
       silencedUntil: row.silencedUntil, suspendedUntil: row.suspendedUntil, moderationNote: row.moderationNote,
       groups: groups.filter((item) => item.userId === row.userId).map((item) => `${item.group.icon} ${item.group.name}`.trim()),
     })),
@@ -266,6 +266,11 @@ async function moderateUser(actor: AuthedUser, body: Record<string, any>, req: N
     if (refusal) throw new ForumError(refusal, 403)
   }
   const data: Record<string, unknown> = {}
+  if (body.manualLevelId !== undefined) {
+    const id = body.manualLevelId === null ? '' : String(body.manualLevelId)
+    if (id && !(await getForumSettings()).levels.some(level => level.id === id)) throw new ForumError('درجهٔ انتخاب‌شده وجود ندارد', 400)
+    data.manualLevelId = id || null
+  }
   if (body.trustLevel !== undefined) { data.trustLevel = int(body.trustLevel, 0, 4); data.trustLocked = body.trustLocked !== false }
   else if (body.trustLocked !== undefined) data.trustLocked = body.trustLocked === true
   if (body.moderationNote !== undefined) data.moderationNote = text(body.moderationNote, 500)

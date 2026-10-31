@@ -52,12 +52,13 @@ model User {
   lastLoginAt    DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @default(now()) @updatedAt
-  orders         Order[]
+  orders         Order[] @relation("OrderBuyer")
+  assignedOrders Order[] @relation("OrderAssignee")
   subscriptions  Subscription[]
   tickets        Ticket[]        @relation("TicketUser")
   ticketMessages TicketMessage[]
   crmNotes       CrmNote[]
-  roleRef        Role?           @relation(fields: [roleId], references: [id])
+  roleRef        Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict)
   posts          Post[]
   postComments   PostComment[]
   productReviews  ProductReview[]
@@ -221,6 +222,8 @@ model Plan {
 model Order {
   id            Int            @id @default(autoincrement())
   userId        Int
+  assigneeId Int?
+  assignee User? @relation("OrderAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   planId        Int?
   productId     Int? // single-product purchase
   totalAmount   Float          // legacy display mirror; exact value is totalMinor
@@ -236,7 +239,7 @@ model Order {
   meta          String         @default("{}")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @default(now()) @updatedAt
-  user          User           @relation(fields: [userId], references: [id])
+  user          User           @relation("OrderBuyer", fields: [userId], references: [id])
   plan          Plan?          @relation(fields: [planId], references: [id])
   product       Product?       @relation(fields: [productId], references: [id])
   items         OrderItem[]
@@ -252,6 +255,7 @@ model Order {
   events        OrderEvent[]
   returns       ReturnRequest[]
   shipment      Shipment?
+  @@index([assigneeId, status])
 }
 
 model OrderItem {
@@ -2416,6 +2420,7 @@ model ForumProfile {
   cover         String       @default("")
   title         String       @default("")
   primaryGroupId Int?
+  manualLevelId String? // Activity degree override only; never grants access.
   trustLevel    Int          @default(0)
   trustLocked   Boolean      @default(false)
   topicCount    Int          @default(0)

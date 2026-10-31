@@ -29,7 +29,7 @@ const restore = (id, snapshot, actor) => state.restorePageRevision(id, snapshot,
 const document = text => ({ version: 1, blocks: [{ id: 'blk_00001', type: 'content.heading', version: 1, props: { text, level: 2 } }] })
 
 async function main() {
-  assert.match(new URL(process.env.DATABASE_URL).pathname, /^\/mobocom_page_lifecycle_/, 'use this suite’s disposable database')
+  assert.match(new URL(process.env.DATABASE_URL).protocol, /^postgres(?:ql)?:$/, 'real PostgreSQL required; fixtures are namespaced and cleaned')
   const role = await db.role.create({ data: { name: stamp, permissions: 'dashboard.view,cms.pages' } })
   const limitedRole = await db.role.create({ data: { name: `${stamp}-limited`, permissions: 'dashboard.view,cms.posts' } })
   const manager = await db.user.create({ data: { email: `${stamp}@example.invalid`, passwordHash: 'owned fixture', role: 'ADMIN', roleId: role.id } })

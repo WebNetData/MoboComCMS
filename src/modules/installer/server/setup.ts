@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, chmodSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, chmodSync, openSync, closeSync } from 'node:fs'
 import { join } from 'node:path'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
@@ -72,7 +72,13 @@ let busy = false
 async function exclusive<T>(work: () => Promise<T>): Promise<T> {
   if (busy) throw new InstallError('عملیات دیگری در حال انجام است؛ چند لحظه صبر کنید', 409)
   busy = true
-  try { return await work() } finally { busy = false }
+  const file = join(configDirectory(), 'install.operation.lock')
+  let descriptor: number | undefined
+  try {
+    mkdirSync(configDirectory(), { recursive: true })
+    try { descriptor = openSync(file, 'wx', 0o600) } catch { throw new InstallError('نصب دیگری در حال اجراست؛ اگر پردازش قبلی متوقف شده، قفل install.operation.lock را پس از بررسی روی سرور آزاد کنید.', 409) }
+    return await work()
+  } finally { if (descriptor !== undefined) { closeSync(descriptor); unlinkSync(file) }; busy = false }
 }
 
 export async function testDatabase(input: Record<string, unknown>) {
@@ -151,7 +157,10 @@ export async function installSite(input: Record<string, unknown>) {
     const site = normalizeSiteInput(input, { production: production(), knownModules: modules.map((m) => m.id) })
     const warnings: string[] = []
 
-    // Site identity first: these are harmless to repeat if a later step fails and the person retries.
+    return db.$transaction(async (tx) => {
+    if (buildProvider() === 'postgresql') await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(18704, 1)')
+    if (await tx.user.count({ where: { role: 'ADMIN' } })) throw new InstallError('مدیر سایت قبلاً ساخته شده است', 409)
+    // The database claim also serializes first-owner creation across app instances.
     await setSetting('brandName', site.siteName)
     if (site.tagline) await setSetting('brandTagline', site.tagline)
     if (site.siteUrl) await setSetting('siteUrl', site.siteUrl)
@@ -161,14 +170,14 @@ export async function installSite(input: Record<string, unknown>) {
     }
 
     // Roles and the administrator last: the first administrator closes the installer for good.
-    for (const role of roles) await db.role.upsert({ where: { name: role.name }, update: { permissions: role.permissions }, create: role })
-    const adminRole = await db.role.findUnique({ where: { name: 'admin' } })
+    for (const role of roles) await tx.role.upsert({ where: { name: role.name }, update: { permissions: role.permissions }, create: role })
+    const adminRole = await tx.role.findUnique({ where: { name: 'admin' } })
     const passwordHash = await bcrypt.hash(site.adminPassword, 12)
-    const existing = await db.user.findUnique({ where: { email: site.adminEmail } })
+    const existing = await tx.user.findUnique({ where: { email: site.adminEmail } })
     const data = { passwordHash, name: site.adminName, role: 'ADMIN', roleId: adminRole?.id ?? null, status: 'ACTIVE', profileCompletedAt: new Date() }
-    if (existing) await db.user.update({ where: { id: existing.id }, data })
-    else await db.user.create({ data: { email: site.adminEmail, ...data } })
-    markInstalled()
+    if (existing) await tx.user.update({ where: { id: existing.id }, data })
+    else await tx.user.create({ data: { email: site.adminEmail, ...data } })
     return { ok: true, warnings, loginUrl: '/login?next=/admin' }
+    }, { timeout: 60_000 }).then(result => { markInstalled(); return result })
   })
 }

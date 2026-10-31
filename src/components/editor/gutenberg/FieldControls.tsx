@@ -12,14 +12,14 @@ import RichTextField from './RichTextField'
 // The settings panel of a block is built from the fields its type declares: a new block type needs no panel of its own.
 
 const LABELS: Record<string, string> = {
-  form: 'فرم',
+  form: 'فرم', file: 'فایل رسانه', poster: 'تصویر کاور', audioKind: 'نوع فایل صوتی',
   source: 'انتخاب محتوا', limit: 'حداکثر تعداد نمایش', showSummary: 'نمایش خلاصه', id: 'شناسهٔ مورد',
   width: 'پهنا', space: 'فاصلهٔ بالا و پایین', tone: 'زمینه', anchor: 'لنگر (نشانی درون صفحه)', align: 'چینش', columns: 'تعداد ستون', gap: 'فاصلهٔ میان اجزا', span: 'پهنای ستون',
   direction: 'جهت چیدن', size: 'اندازه', line: 'نوع خط', content: 'متن', dir: 'جهت متن', text: 'متن', level: 'سطح تیتر', image: 'تصویر', link: 'پیوند', rounded: 'گوشهٔ گرد', images: 'تصویرها',
   embed: 'نشانی ویدئو', title: 'عنوان', ratio: 'نسبت تصویر', label: 'نوشته', href: 'نشانی', variant: 'ظاهر', newTab: 'باز شدن در زبانهٔ تازه', cite: 'گوینده', items: 'موردها', question: 'پرسش', answer: 'پاسخ', open: 'باز بودن',
 }
 const SCREEN: Record<string, string> = { desktop: 'رایانه', tablet: 'تبلت', mobile: 'موبایل' }
-const SOURCE_LABELS: Record<string, string> = { latest: 'تازه‌ترین‌ها', selected: 'انتخاب دستی' }
+const SOURCE_LABELS: Record<string, string> = { latest: 'تازه‌ترین‌ها', selected: 'انتخاب دستی', music: 'موسیقی', podcast: 'پادکست', voice: 'پیام صوتی' }
 export const labelOf = (name: string) => LABELS[name] || name
 
 /** The form block's choice: the site's published forms by title; a plain address where the list cannot be read. */
@@ -54,9 +54,9 @@ function AssetControl({ spec, value, onChange, label }: { spec: Extract<FieldSpe
       <TextControl __nextHasNoMarginBottom label="نشانی فایل" help="فایلی از کتابخانهٔ رسانهٔ سایت یا یک نشانی https" value={asset.src} onChange={(src) => void setSrc(src.trim())} dir="ltr" />
       <label className="mc-field-upload">
         <span className="components-button is-secondary" aria-disabled={busy}>{busy ? 'در حال بارگذاری…' : 'بارگذاری از رایانه'}</span>
-        <input type="file" accept={spec.accept === 'image' ? 'image/*' : spec.accept === 'video' ? 'video/*' : undefined} disabled={busy} onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = '' }} />
+        <input type="file" accept={spec.accept === 'image' ? 'image/*' : spec.accept === 'video' ? 'video/*' : spec.accept === 'audio' ? 'audio/*' : undefined} disabled={busy} onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = '' }} />
       </label>
-      <LibraryPicker kind={spec.accept === 'image' ? 'image' : spec.accept === 'video' ? 'video' : undefined} onSelect={picked => onChange({ ...asset, src: picked.url, alt: picked.alt, caption: picked.caption, width: picked.width, height: picked.height, mime: picked.mime })} />
+      <LibraryPicker kind={spec.accept === 'file' ? undefined : spec.accept} onSelect={picked => onChange({ ...asset, src: picked.url, alt: picked.alt, caption: picked.caption, width: picked.width, height: picked.height, mime: picked.mime })} />
       <RemoteCopy url={asset.src} kind={spec.accept === 'image' ? 'image' : 'file'} onCopied={src => void setSrc(src)} />
       {error ? <p className="mc-field-error" role="alert">{error}</p> : null}
       {spec.accept === 'image' ? <TextControl __nextHasNoMarginBottom label="متن جایگزین" help="تصویر چه چیزی را نشان می‌دهد؟ برای نابینایان و موتورهای جست‌وجو" value={asset.alt} onChange={(alt) => onChange({ ...asset, alt })} /> : null}
@@ -92,11 +92,11 @@ function Field({ name, spec, value, onChange, compact }: { name: string; spec: F
   if (name === 'form' && spec.kind === 'string') return <FormPicker value={String(value ?? '')} onChange={onChange} label={label} />
   switch (spec.kind) {
     case 'string': return spec.max > 200 ? <TextareaControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} /> : <TextControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} />
-    case 'enum': return <SelectControl __nextHasNoMarginBottom label={label} value={String(value ?? spec.default)} options={spec.values.map((option) => ({ label: name === 'source' ? (SOURCE_LABELS[option] || option) : ({ auto: 'خودکار', rtl: 'راست به چپ', ltr: 'چپ به راست', start: 'شروع', end: 'پایان', center: 'وسط', left: 'چپ', right: 'راست', none: 'بدون' } as Record<string, string>)[option] || option, value: option }))} onChange={(next: string) => onChange(next)} />
+    case 'enum': return <SelectControl __nextHasNoMarginBottom label={label} value={String(value ?? spec.default)} options={spec.values.map((option) => ({ label: (name === 'source' || name === 'audioKind') ? (SOURCE_LABELS[option] || option) : ({ auto: 'خودکار', rtl: 'راست به چپ', ltr: 'چپ به راست', start: 'شروع', end: 'پایان', center: 'وسط', left: 'چپ', right: 'راست', none: 'بدون' } as Record<string, string>)[option] || option, value: option }))} onChange={(next: string) => onChange(next)} />
     case 'int': return <RangeControl __nextHasNoMarginBottom label={label} value={typeof value === 'number' ? value : spec.default} min={spec.min} max={spec.max} step={1} onChange={(next?: number) => onChange(typeof next === 'number' ? Math.round(next) : spec.default)} />
     case 'boolean': return <ToggleControl __nextHasNoMarginBottom label={label} checked={value === true} onChange={onChange} />
     case 'url': return <TextControl __nextHasNoMarginBottom label={label} help="یک نشانی https، مسیری از همین سایت (‎/blog)، یا ‎#لنگر" value={String(value ?? '')} onChange={(next) => onChange(next.trim())} dir="ltr" />
-    case 'embed': return <TextControl __nextHasNoMarginBottom label={label} help="نشانی ویدئو در YouTube، آپارات یا Vimeo" value={String((value as { url?: string } | undefined)?.url ?? '')} onChange={(url) => onChange({ provider: '', url: url.trim() })} dir="ltr" />
+    case 'embed': return <TextControl __nextHasNoMarginBottom label={label} help="لینک ویدیو در YouTube، آپارات، نماشا، تماشا یا Vimeo" value={String((value as { url?: string } | undefined)?.url ?? '')} onChange={(url) => onChange({ provider: '', url: url.trim() })} dir="ltr" />
     case 'asset': return <AssetControl spec={spec} value={value as AssetValue} onChange={onChange} label={label} />
     case 'richText': return <div className="mc-field-rich"><span className="mc-field-label">{label}</span><RichTextField value={(value as RichTextDoc) || (fieldDefault(spec) as RichTextDoc)} onChange={onChange} label={label} compact={compact} /></div>
     case 'responsive': {

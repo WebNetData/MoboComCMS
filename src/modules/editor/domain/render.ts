@@ -11,6 +11,8 @@ import { walkBlocks, type MoboComBlock, type MoboComDocument } from '@/modules/e
 import { BREAKPOINTS, type AssetValue, type EmbedValue, type FieldSchema, type FieldSpec } from '@/modules/editor/domain/fields'
 import type { BlockRegistry } from '@/modules/editor/domain/registry'
 import { escapeHtml, richTextFacts, richTextHtml, safeLinkHref, textDirection } from '@/modules/editor/domain/rich-text'
+import { editorialMediaHtml, mediaShortcodes } from '@/shared/media/editorial'
+import { renderBBCode } from '@/shared/content/bbcode'
 
 export interface DocumentFacts {
   text: string
@@ -117,7 +119,7 @@ function blockHtml(block: MoboComBlock, registry: BlockRegistry, moduleHtml?: Mo
     case 'layout.stack': return `<div class="${cls(name, responsive('mcb-dir', p.direction), token('mcb-gap', p.gap), token('mcb-align', p.align))}">${inner()}</div>`
     case 'layout.spacer': return `<div class="${cls(name, responsive('mcb-size', p.size))}" aria-hidden="true"></div>`
     case 'layout.divider': return `<hr class="${cls(name, token('mcb-line', p.line))}">`
-    case 'content.richText': return `<div class="${name}"${p.dir === 'rtl' || p.dir === 'ltr' ? ` dir="${p.dir}"` : ''}>${richTextHtml(p.content, p.dir)}</div>`
+    case 'content.richText': return `<div class="${name}"${p.dir === 'rtl' || p.dir === 'ltr' ? ` dir="${p.dir}"` : ''}>${renderBBCode(mediaShortcodes(richTextHtml(p.content, p.dir)))}</div>`
     case 'content.heading': { const level = Math.min(6, Math.max(2, Number(p.level) || 2)); const dir = textDirection(p.text); return `<h${level} class="${cls(name, token('mcb-align', p.align))}"${anchor(p.anchor)}${dir ? ` dir="${dir}"` : ''}>${escapeHtml(String(p.text || ''))}</h${level}>` }
     case 'content.image': {
       const image = imageHtml(p.image as AssetValue), href = safeLinkHref(p.link)
@@ -126,7 +128,11 @@ function blockHtml(block: MoboComBlock, registry: BlockRegistry, moduleHtml?: Mo
     case 'content.gallery': return `<div class="${cls(name, responsive('mcb-cols', p.columns), token('mcb-gap', p.gap))}">${(Array.isArray(p.images) ? p.images : []).map((item) => imageHtml((item as { image?: AssetValue }).image)).join('')}</div>`
     case 'content.embed': {
       const embed = p.embed as EmbedValue | undefined
-      return embed?.url ? `<div class="${cls(name, token('mcb-ratio', p.ratio))}"><iframe src="${escapeHtml(embed.url)}" title="${escapeHtml(String(p.title || ''))}" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe></div>` : ''
+      return editorialMediaHtml({ kind: 'embed', src: embed?.url, title: p.title, ratio: p.ratio })
+    }
+    case 'content.video': case 'content.audio': {
+      const file = p.file as AssetValue | undefined, poster = p.poster as AssetValue | undefined
+      return editorialMediaHtml({ kind: block.type === 'content.video' ? 'video' : 'audio', src: file?.src, title: p.title, caption: file?.caption, poster: poster?.src, audioKind: p.audioKind, ratio: p.ratio })
     }
     case 'content.button': {
       const href = safeLinkHref(p.href), label = escapeHtml(String(p.label || ''))

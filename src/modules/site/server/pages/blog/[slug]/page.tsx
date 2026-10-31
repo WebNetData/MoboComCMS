@@ -18,8 +18,7 @@ import { dict } from '@/i18n/config'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import { articleJsonLd, breadcrumbJsonLd, pageMeta, siteBase } from '@/modules/site/server/seo'
-import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
-import { editableFor, isPreview, previewTemplate, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
+import { isPreview, type BuilderPreview } from '@/modules/site/server/builder-preview'
 import { postContext } from '@/modules/site/server/theme-templates'
 import { resolvePostPresentation } from '@/modules/site/server/post-presentation'
 import { postStyleAttributes } from '@/modules/journal/domain/post-styles'
@@ -31,7 +30,6 @@ import { isPaid, paywallView } from '@/modules/paywall/server/paywall'
 import { publicBlocksHtml as blocksHtml } from '@/modules/editor/server/documents'
 import BuyContent from '@/components/paywall/BuyContent'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
-import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/builder'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
@@ -39,9 +37,6 @@ import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
 import { publicPostLinkItems } from '@/modules/journal/server/item-links'
 import ReadingProgress from '@/components/journal/ReadingProgress'
 import ArticleRail from '@/components/journal/ArticleRail'
-import { PostFormatClose, PostFormatLead } from '@/components/journal/PostFormat'
-import { factsFor, reviewJsonLd } from '@/modules/journal/domain/formats'
-import { allLists } from '@/modules/vocabulary/server/vocabulary'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { sized, srcSet } from '@/shared/media/image'
@@ -105,14 +100,10 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   const viewer = (post.access === 'MEMBERS' || paid) && !isPreview(preview) ? await getViewer() : null
   const paywall = paid && viewer ? await paywallView(viewer, [{ ownerType: 'post', ownerId: post.id }]) : null
   const locked = paywall ? !paywall.open : !!viewer && post.access === 'MEMBERS' && !viewer.opens
-  const builderDoc = locked ? null : await resolveBuilderDoc(preview, `post-${post.id}`)
   const renderContext = await postContext(postCategories(post).map((c) => c.id))
-  const editingTemplate = previewTemplate(preview, 'single-post')
-  const presentation = await resolvePostPresentation({ postId: post.id, format: post.format, ctx: renderContext, previewTemplate: editingTemplate, askedStyle })
-  const templateDoc = presentation.doc
+  const presentation = await resolvePostPresentation({ postId: post.id, format: post.format, ctx: renderContext, askedStyle })
   const dress = postStyleAttributes(presentation.style)
   const builderContext = { postCategoryId: post.category?.id ?? postCategories(post)[0]?.id ?? null, currentPostId: post.id }
-  const ownEditable = editableFor(preview, `post-${post.id}`)
 
   const anchor = post.publishedAt ?? post.createdAt
   const authorWhere = post.authorId ? { ...livePostWhere(now), authorId: post.authorId } : null
@@ -227,12 +218,6 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   // An article written in blocks shows its document (every value escaped by the renderer). A locked article still shows the teaser cut
   // from its HTML copy, and a visitor reading in English gets the English body when the article has one.
   const articleBlocks = !locked && (isFa || !post.contentEn) ? await blocksHtml(post) : null
-  // The post's format (the owner's list) decides which of its facts the page shows: a video or a guest above the
-  // body, a review summary or a news source below it.
-  const formatEntry = (await allLists('journal').catch(() => ({ POST_FORMAT: [] as { code: string; family: string }[] }))).POST_FORMAT?.find((entry) => entry.code === post.format)
-  const facts = factsFor(formatEntry?.family || 'ARTICLE', post.formatData)
-  // A review with a score and a linked item gets review stars in search results (structured data only).
-  const reviewLd = reviewJsonLd({ facts, items: linkedItems, url: `${base}/blog/${post.slug}`, author: authorName || undefined, published: post.publishedAt?.toISOString(), base })
   const contentSlot = (
     <>
       <ReadingProgress />
@@ -240,13 +225,11 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
       <ArticleRail title={title} fa={isFa} />
       <div className="jp-main">
       <ArticleToc />
-      <PostFormatLead facts={facts} title={title} fa={isFa} />
       <article
         id="article-body"
         className={`prose journal-prose${locked ? ' vip-teaser' : ''}${articleBlocks !== null ? ' mcb-document' : ''}`}
         dangerouslySetInnerHTML={{ __html: formShortcodes(articleBodyWithExcerpt(articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)), isFa ? post.excerpt : post.excerptEn || post.excerpt, isFa)) }}
       />
-      <PostFormatClose facts={facts} fa={isFa} />
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}
       {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
 
@@ -411,19 +394,11 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
     </>
   )
 
-  // A post's own builder document is the full page layout: slot widgets place the
-  // article anywhere (before / after / beside). Missing slots fall back to defaults.
-  const ownLayout = !editingTemplate && builderDoc && builderDoc.mode === 'builder' && builderDoc.sections.length > 0
-  const ownHas = (type: 'post-header' | 'post-cover' | 'content' | 'post-footer') =>
-    !!builderDoc && docHasSlotWidget(builderDoc, type)
-  const chromeDoc = ownLayout ? builderDoc : templateDoc
-  const slots = { 'post-header': headerSlot, 'post-cover': coverSlot, content: contentSlot, 'post-footer': footerSlot }
-
   return (
     <>
       {!isPreview(preview) && <ManageBar title="مدیریت نوشته" anyOf={['cms.posts']} links={[{ href: `/admin/posts?edit=${post.id}`, label: 'ویرایش نوشته' }, { href: '/admin/comments', label: 'نظرها' }, { href: '/admin/posts', label: 'همهٔ نوشته‌ها' }]} />}
       <ThemeHeader
-        context={renderContext} choice={chromeDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages}
+        context={renderContext} theme={theme} locale={locale} navPages={navPages}
         builderContext={builderContext} preview={preview}
         fallback={(
           <div className="journal-header-shell">
@@ -437,7 +412,6 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
       <SectionBarSlot section="blog" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(articleLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(crumbsLd) }} />
-      {reviewLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(reviewLd) }} />}
 
       {(() => {
         const crumb = (
@@ -446,51 +420,13 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
             <span className="current" aria-current="page">{title}</span>
           </nav>
         )
-        // Built layouts (own document or a template) control the full page width;
-        // each section decides its own width (boxed / narrow / full).
-        if (ownLayout && builderDoc) {
-          return (
-            <main className="journal-post journal-post-built" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
-              <div className="br-container journal-built-crumb">{crumb}</div>
-              {!ownHas('post-header') && <div className="br-container">{headerSlot}</div>}
-              {!ownHas('post-cover') && <div className="br-container">{coverSlot}</div>}
-              <BuilderRenderer doc={ensureContentSlot(builderDoc)} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} slots={slots} />
-              {!ownHas('post-footer') && <div className="br-container">{footerSlot}</div>}
-            </main>
-          )
-        }
-        if (templateDoc && templateDoc.mode === 'builder') {
-          return (
-            <main className="journal-post journal-post-built" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
-              <div className="br-container journal-built-crumb">{crumb}</div>
-              <BuilderRenderer
-                doc={ensureContentSlot(templateDoc)}
-                locale={locale}
-                preview={isPreview(preview)}
-                editable={!!editingTemplate}
-                context={builderContext}
-                slots={{
-                  ...slots,
-                  content: (
-                    <>
-                      {builderDoc && <div className="journal-post-builder"><BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} /></div>}
-                      {contentSlot}
-                    </>
-                  ),
-                }}
-              />
-            </main>
-          )
-        }
         return (
           <main className="journal-post journal-post-solo" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
             <div className="journal-post-shell">
               {crumb}
               <PromoSlot placement="content-top" />
-              {templateDoc && <div className="journal-post-builder"><BuilderRenderer doc={templateDoc} locale={locale} editable={!!editingTemplate} preview={isPreview(preview)} context={builderContext} /></div>}
               {headerSlot}
               {coverSlot}
-              {builderDoc && <div className="journal-post-builder"><BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} /></div>}
               <div className="journal-post-col">
                 {contentSlot}
                 <PromoSlot placement="content-bottom" />
@@ -500,7 +436,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
           </main>
         )
       })()}
-      <ThemeFooter context={renderContext} choice={chromeDoc?.layout?.footer} locale={locale} navPages={navPages} builderContext={builderContext} preview={preview} />
+      <ThemeFooter context={renderContext} locale={locale} navPages={navPages} builderContext={builderContext} preview={preview} />
     </>
   )
 }

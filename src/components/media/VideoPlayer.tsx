@@ -22,6 +22,8 @@ type Props = {
   audioTracks?: PlayerAudio[]
   /** The signed-in member's choice kept with the account ('' = never chose); null for a visitor. */
   subtitlePreference?: string | null
+  /** Inline editorial players must never consume shortcuts belonging to another player or editor. */
+  keyboardScope?: 'global' | 'focused'
 }
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
@@ -42,7 +44,7 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null, keyboardScope = 'global' }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const frame = useRef<HTMLDivElement>(null), subtitleLayer = useRef<HTMLDivElement>(null)
   const [externalAudio, setExternalAudio] = useState(false)
@@ -115,7 +117,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       if (Date.now() - lastRemoteAt >= 15000) saveRemote()
     }
     const onEnd = () => { write(resumeKey, null); saveRemote(); if (nextEpisode) setNextCountdown(8) }
-    const onPlay = () => setNextCountdown(null)
+    const onPlay = () => { setNextCountdown(null); if (keyboardScope === 'focused') document.querySelectorAll<HTMLMediaElement>('audio,video').forEach(other => { if (other !== element) other.pause() }) }
     const onError = () => {
       const code = element.error?.code
       // 4 = MEDIA_ERR_SRC_NOT_SUPPORTED, 3 = MEDIA_ERR_DECODE, 2 = MEDIA_ERR_NETWORK
@@ -130,15 +132,16 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
     element.addEventListener('error', onError)
     element.addEventListener('loadedmetadata', onMeta)
     return () => { element.removeEventListener('timeupdate', onTime); element.removeEventListener('pause', saveRemote); element.removeEventListener('ended', onEnd); element.removeEventListener('play', onPlay); element.removeEventListener('error', onError); element.removeEventListener('loadedmetadata', onMeta); window.removeEventListener('pagehide', saveRemote) }
-  }, [resumeKey, playback, progressLinkId, nextEpisode])
+  }, [resumeKey, playback, progressLinkId, nextEpisode, keyboardScope])
 
   // Keyboard: space/k play, ←/→ 10s, f fullscreen, m mute.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const element = video.current
       const target = event.target as HTMLElement | null
-      if (!element || (target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName))) return
-      if (event.key === ' ' || event.key === 'k') { event.preventDefault(); if (element.paused) void element.play(); else element.pause() }
+      if (!element || target?.isContentEditable || (target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName))) return
+      if (keyboardScope === 'focused' && (!target || !frame.current?.contains(target))) return
+      if (event.key === ' ' || event.key === 'k') { event.preventDefault(); if (element.paused) void element.play().catch(() => setError('network')); else element.pause() }
       else if (event.key === 'ArrowRight') element.currentTime = Math.min(element.duration || Infinity, element.currentTime + 10)
       else if (event.key === 'ArrowLeft') element.currentTime = Math.max(0, element.currentTime - 10)
       else if (event.key === 'f') { if (document.fullscreenElement) void document.exitFullscreen(); else void frame.current?.requestFullscreen?.() }
@@ -146,14 +149,14 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [keyboardScope])
 
   if (playback === 'embed') return <div className="vp-frame"><iframe src={src} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></div>
 
   const setRate = (value: number) => { setSpeed(value); if (video.current) video.current.playbackRate = value }
   const pickLevel = (value: number) => { setLevel(value); if (hls.current) hls.current.currentLevel = value }
 
-  return <div className="vp" ref={frame}>
+  return <div className="vp" ref={frame} role={keyboardScope === 'focused' ? 'group' : undefined} tabIndex={keyboardScope === 'focused' ? 0 : undefined} aria-label={keyboardScope === 'focused' ? title : undefined}>
     <div className="vp-frame">
       <video ref={video} controls={!externalAudio} playsInline preload="metadata" poster={poster || undefined} aria-label={title}>
         {subtitles.map((track) => <track key={track.id} kind="subtitles" src={track.src} srcLang={track.language || 'und'} label={track.label} />)}

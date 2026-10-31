@@ -12,7 +12,7 @@ import { REACTION_EMOJI } from '@/modules/forum/domain/community'
 import { FORUM_RANK_LABELS, TRUST_NAMES, type ForumRank } from '@/modules/forum/domain/community'
 import { profileAddress } from '@/modules/identity/domain/profile-address'
 
-type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; likes: number; level: { name: string; icon: string; color: string } | null; badges: { name: string; icon: string; tier: string }[]; joinedAt?: string | Date; rank?: ForumRank; flair: { icon: string; color: string; name: string } | null }
+type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; likes: number; level: { name: string; icon: string; color: string } | null; badges: { name: string; icon: string; tier: string }[]; joinedAt?: string | Date; rank?: ForumRank; siteRole?: string; flair: { icon: string; color: string; name: string } | null }
 /** «مهر ۱۴۰۵»: month then year, built from parts because runtimes order the Persian date differently. */
 function joinedLabel(value: string | Date) {
   const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', timeZone: 'Asia/Tehran' }).formatToParts(new Date(value))
@@ -93,7 +93,10 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
   useEffect(() => {
     if (!focusPost) return
     const el = document.getElementById(`post-${focusPost}`)
-    if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('is-highlight'); setTimeout(() => el.classList.remove('is-highlight'), 2200) }
+    if (!el) return
+    el.scrollIntoView({ block: 'start' }); el.classList.add('is-highlight')
+    const timer = setTimeout(() => el.classList.remove('is-highlight'), 2200)
+    return () => { clearTimeout(timer); el.classList.remove('is-highlight') }
   }, [focusPost])
   // Timeline: which post is on screen.
   useEffect(() => {
@@ -329,6 +332,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
               <aside className="fx-post-author ax" aria-label={`نویسنده: ${post.author.name}`} style={post.author.level ? { ['--lv' as string]: post.author.level.color } : undefined}>
                 <Link href={profileAddress(post.author.username)} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} size={76} /></Link>
                 <Link href={profileAddress(post.author.username)} className="fx-author-name">{post.author.name}{post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}</Link>
+                {post.author.siteRole && <span className="tp-rank is-admin">{post.author.siteRole}</span>}
                 {post.author.rank && <span className={`tp-rank is-${post.author.rank}`}>{FORUM_RANK_LABELS[post.author.rank]}</span>}
                 {/* The level their activity earned (forum settings → levels). */}
                 {post.author.level && <span className="ax-level">{post.author.level.icon && <i aria-hidden="true">{post.author.level.icon}</i>}{post.author.level.name}</span>}

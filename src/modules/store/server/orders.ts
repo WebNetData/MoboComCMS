@@ -9,6 +9,7 @@ import { minorToNumber } from '@/shared/money'
 import { maskAnswers } from '@/modules/store/domain/order-inputs'
 import { openAnswers } from '@/modules/store/server/order-inputs'
 import { jalaliDayLabel } from '@/shared/time/jalali'
+import { lockOrderWork, orderVisibility, type OrderWorkScope } from '@/modules/store/server/order-work'
 
 // Store orders are orders with a product (Order.productId is the first line).
 // Payment state lives on Order/Invoice; the physical/digital fulfilment state
@@ -243,12 +244,12 @@ function adminWhere(tab: AdminTab): Prisma.OrderWhereInput {
   }
 }
 
-export async function adminOrders(input: { tab?: string; q?: string; page?: number; kind?: string; date?: string }) {
+export async function adminOrders(input: { tab?: string; q?: string; page?: number; kind?: string; date?: string }, scope?: OrderWorkScope) {
   const tab = (ADMIN_TABS.some((item) => item.key === input.tab) ? input.tab : 'all') as AdminTab
   const q = String(input.q || '').trim().slice(0, 80)
   const page = Math.max(1, Math.min(1000, Math.floor(Number(input.page) || 1)))
   const size = 25
-  const and: Prisma.OrderWhereInput[] = [adminWhere(tab)]
+  const and: Prisma.OrderWhereInput[] = [adminWhere(tab), orderVisibility(scope)]
   if (q) {
     const id = Number(q.replace(/^#/, ''))
     and.push({ OR: [
@@ -269,7 +270,7 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
       include: { ...LINE_INCLUDE, user: { select: { id: true, name: true, email: true, phone: true } }, productDelivery: { select: { status: true, scheduledDate: true, scheduledSlot: true, trackingCode: true } }, invoice: { select: { number: true, status: true } } },
     }),
     db.order.count({ where }),
-    Promise.all(ADMIN_TABS.map((item) => db.order.count({ where: adminWhere(item.key) }))),
+    Promise.all(ADMIN_TABS.map((item) => db.order.count({ where: { AND: [adminWhere(item.key), orderVisibility(scope)] } }))),
   ])
   return {
     tab, q, page, pages: Math.max(1, Math.ceil(total / size)), total,
@@ -277,7 +278,7 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
     orders: rows.map((order) => {
       const lines = orderLines(order)
       return {
-        id: order.id, createdAt: order.createdAt, customer: { id: order.user.id, name: order.user.name, email: order.user.email, phone: order.user.phone },
+        id: order.id, assigneeId: order.assigneeId, createdAt: order.createdAt, customer: { id: order.user.id, name: order.user.name, email: order.user.email, phone: order.user.phone },
         state: orderState(order), fulfilment: order.productDelivery?.status || '', schedule: order.productDelivery?.scheduledDate ? [jalaliDayLabel(order.productDelivery.scheduledDate), order.productDelivery.scheduledSlot].filter(Boolean).join(' · ') : '',
         trackingCode: order.productDelivery?.trackingCode || '', invoiceNumber: order.invoice?.number || '',
         total: minorToNumber(order.totalMinor, order.currency), currency: order.currency,
@@ -288,9 +289,9 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
   }
 }
 
-function loadAdminOrder(orderId: number) {
+function loadAdminOrder(orderId: number, scope?: OrderWorkScope) {
   return db.order.findFirst({
-    where: { ...STORE_ORDER, id: orderId },
+    where: { ...STORE_ORDER, id: orderId, ...orderVisibility(scope) },
     include: {
       ...LINE_INCLUDE,
       user: { select: { id: true, name: true, email: true, phone: true, createdAt: true } },
@@ -303,8 +304,8 @@ function loadAdminOrder(orderId: number) {
   })
 }
 
-export async function adminOrder(orderId: number) {
-  const order = await loadAdminOrder(orderId)
+export async function adminOrder(orderId: number, scope?: OrderWorkScope) {
+  const order = await loadAdminOrder(orderId, scope)
   if (!order) return null
   const [history, actors] = await Promise.all([
     db.order.aggregate({ where: { ...STORE_ORDER, userId: order.userId, status: 'PAID' }, _count: { _all: true }, _sum: { totalMinor: true } }),
@@ -313,6 +314,9 @@ export async function adminOrder(orderId: number) {
   const view = orderDetailView(order)
   return {
     ...view,
+    assigneeId: order.assigneeId,
+    canWork: !scope || scope.manager || order.assigneeId === scope.actorId,
+    manager: !scope || scope.manager,
     orderStatus: order.status,
     gateway: order.gateway?.name || order.provider,
     hasDigitalDelivery: Boolean(order.productDelivery?.digitalDelivery),
@@ -325,10 +329,13 @@ export async function adminOrder(orderId: number) {
 // ------------------------------------------------------------------ what the buyer gave
 
 /** The answers of one order line in full, for the member of staff doing the order. The route records who looked. */
-export async function revealOrderInputs(orderId: number, lineId: number) {
-  const line = await db.orderLine.findFirst({ where: { id: lineId, orderId, order: STORE_ORDER }, select: { inputs: true } })
+export async function revealOrderInputs(orderId: number, lineId: number, scope?: OrderWorkScope) {
+  return db.$transaction(async tx => {
+  await lockOrderWork(tx, orderId, scope)
+  const line = await tx.orderLine.findFirst({ where: { id: lineId, orderId, order: STORE_ORDER }, select: { inputs: true } })
   if (!line) throw new StoreError('این ردیف در سفارش نیست', 404, 'LINE_NOT_FOUND')
   return openAnswers(line.inputs).map((answer) => ({ key: answer.key, label: answer.label, value: answer.value, secret: answer.kind === 'secret' }))
+  })
 }
 
 /** Wipes the buyer's answers from an order (one line, or all of them) once the work is done. */
@@ -368,6 +375,7 @@ const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]
 export async function transitionOrder(input: {
   orderId: number; to: string; actorId: number | null
   trackingCode?: unknown; note?: unknown; digitalDelivery?: unknown; notify?: boolean; restock?: boolean
+  scope?: OrderWorkScope
 }) {
   const delivery = await db.productDelivery.findUnique({ where: { orderId: input.orderId }, include: { order: { select: { userId: true, status: true, product: { select: { kind: true } }, lines: { select: { kind: true } } } } } })
   if (!delivery || delivery.order.status !== 'PAID') throw new StoreError('سفارش پرداخت‌شده پیدا نشد', 404, 'ORDER_NOT_FOUND')
@@ -381,6 +389,7 @@ export async function transitionOrder(input: {
   if (secret && !virtual) throw new StoreError('اطلاعات تحویل دیجیتال فقط برای سفارش‌های مجازی است')
   const encrypted = secret ? encryptDigitalDelivery(secret) : undefined
   await db.$transaction(async (tx) => {
+    await lockOrderWork(tx, input.orderId, input.scope)
     const changed = await tx.productDelivery.updateMany({
       where: { id: delivery.id, status: delivery.status },
       data: { status: to, trackingCode, ...(note ? { deliveryNote: note } : {}), ...(encrypted ? { digitalDelivery: encrypted } : {}), deliveredAt: to === 'DELIVERED' ? new Date() : to === 'RETURNED' ? delivery.deliveredAt : null },
@@ -407,12 +416,15 @@ export async function transitionOrder(input: {
 }
 
 /** Internal note (staff only) or a message shown to the customer on the order timeline. */
-export async function addOrderNote(input: { orderId: number; note: unknown; visible: boolean; actorId: number }) {
+export async function addOrderNote(input: { orderId: number; note: unknown; visible: boolean; actorId: number; scope?: OrderWorkScope }) {
   const note = plain(input.note, 1000)
   if (note.length < 2) throw new StoreError('متن یادداشت را بنویسید')
   const order = await db.order.findFirst({ where: { ...STORE_ORDER, id: input.orderId }, select: { id: true, userId: true } })
   if (!order) throw new StoreError('سفارش پیدا نشد', 404, 'ORDER_NOT_FOUND')
-  const event = await db.orderEvent.create({ data: { orderId: order.id, status: 'NOTE', note, visible: input.visible, actorId: input.actorId } })
+  const event = await db.$transaction(async tx => {
+    await lockOrderWork(tx, input.orderId, input.scope)
+    return tx.orderEvent.create({ data: { orderId: order.id, status: 'NOTE', note, visible: input.visible, actorId: input.actorId } })
+  })
   if (input.visible) await createInboxEvent({
     userId: order.userId, kind: 'ORDER_STATUS', dedupeKey: `store-order:${order.id}:note:${event.id}`,
     titleEn: `Message about order #${order.id}`, titleFa: `پیام دربارهٔ سفارش ${order.id.toLocaleString('fa-IR')}`,

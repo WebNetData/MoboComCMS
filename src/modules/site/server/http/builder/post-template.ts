@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   const [templateId, options] = await Promise.all([getEntityTemplateId(target.entity, target.id), listLayoutOptions(target.entity)])
   return ok({
     ...target,
-    templateId,
+    templateId: target.entity === 'post' && !isStyleId(templateId) ? '' : templateId,
     options,
     // legacy shape used by older editor builds
     builtin: options.filter((entry) => entry.group === 'builtin'),
@@ -50,6 +50,7 @@ export async function PUT(req: NextRequest) {
   const admin = await requirePerm(req, PERMISSION[target.entity])
   if (!admin) return err('forbidden', 403)
   const templateId = String(body?.templateId || '')
+  if (target.entity === 'post' && templateId && !isStyleId(templateId)) return err('قالب نوشته بازنشسته شده است؛ یک استایل صفحه انتخاب کنید', 410)
   const exists = target.entity === 'post' && isStyleId(templateId)
     ? !!resolvePostStyle(templateId, (await getJournalSettings(true)).postStyle)
     : !!await layoutDocById(target.entity, templateId)

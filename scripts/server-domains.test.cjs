@@ -15,6 +15,52 @@ function load(relative) {
 }
 const d = load('src/modules/server-panel/domain/domains')
 
+test('Linux certificate helper keeps private versions and restores the pointer after a failed reload', { skip: process.platform === 'win32' || spawnSync('python3', ['--version']).status !== 0 }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'certificate-helper-')), root = path.join(dir, 'certificates'), bin = path.join(dir, 'bin')
+  try {
+    fs.mkdirSync(bin); const cert = path.join(dir, 'cert.pem'), key = path.join(dir, 'key.pem'), other = path.join(dir, 'other.pem'), expired = path.join(dir, 'expired.pem')
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-subj', '/CN=example.com', '-addext', 'subjectAltName=DNS:example.com', '-addext', 'basicConstraints=critical,CA:FALSE', '-days', '2', '-out', cert, '-keyout', key], { stdio: 'ignore' })
+    execFileSync('openssl', ['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', other], { stdio: 'ignore' })
+    execFileSync('openssl', ['x509', '-in', cert, '-signkey', key, '-days', '-1', '-out', expired], { stdio: 'ignore' })
+    const payload = (c = cert, k = key) => fs.readFileSync(c).toString('base64') + '\n' + fs.readFileSync(k).toString('base64') + '\n'
+    const helper = path.resolve(__dirname, '../deploy/ubuntu/certificate-import.py')
+    const call = (args, input = payload(), env = process.env) => spawnSync('python3', [helper, ...args], { input, env, encoding: 'utf8' })
+    const args = ['import', root, 'manual-example.com', 'example.com']
+    let r = call(args); assert.equal(r.status, 0, r.stderr)
+    const current = path.join(root, 'manual-example.com/current'), previous = fs.readlinkSync(current)
+    assert.equal(fs.statSync(path.join(current, 'privkey.pem')).mode & 0o777, 0o600)
+    assert.match(call(['list', root], '').stdout, /Certificate Name: manual-example.com/)
+    for (const [input, changedArgs] of [[payload(cert, other), args], [payload(expired), args], ['not-base64\nkey\n', args], [payload(), [...args.slice(0, 3), 'wrong.example.com']], [payload(), ['import', root, '../escape', 'example.com']]]) {
+      r = call(changedArgs, input); assert.equal(r.status, 2, r.stdout); assert.equal(fs.readlinkSync(current), previous)
+      assert(!r.stderr.includes('PRIVATE KEY'))
+    }
+    for (const program of ['nginx', 'systemctl']) fs.writeFileSync(path.join(bin, program), '#!/bin/sh\nexit 1\n', { mode: 0o700 })
+    r = call([...args, 'reload'], payload(), { ...process.env, PATH: bin + path.delimiter + process.env.PATH })
+    assert.equal(r.status, 2); assert.equal(fs.readlinkSync(current), previous, 'failed Nginx check restores the previous certificate')
+    assert.equal(call(['delete', root, 'manual-example.com'], '').status, 0)
+    assert(!fs.existsSync(current))
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('imported certificate output accepts the first block and ISO expiry timestamps', () => {
+  const parsed = d.parseCertificates('  Certificate Name: manual-example.com\n    Domains: example.com\n    Expiry Date: 2030-01-01T12:00:00+00:00 (VALID: 20 days)\n    Certificate Path: /private/fullchain.pem', new Date('2029-12-01T00:00:00Z'))
+  assert.equal(parsed.length, 1); assert.equal(parsed[0].valid, true); assert.equal(parsed[0].expiresAt, '2030-01-01T12:00:00.000Z')
+})
+
+test('PEM uploads validate key, SAN, dates, bounds and safe names before helper execution', () => {
+  const { validateCertificateUpload } = require('./connected-source-loader.cjs')({})('src/modules/server-panel/server/certificates.ts')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'web-cert-'))
+  try {
+    const cert = path.join(dir, 'cert.pem'), key = path.join(dir, 'key.pem'), other = path.join(dir, 'other.pem')
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-subj', '/CN=example.com', '-addext', 'subjectAltName=DNS:example.com,DNS:www.example.com', '-addext', 'basicConstraints=critical,CA:FALSE', '-days', '2', '-out', cert, '-keyout', key], { stdio: 'ignore' })
+    execFileSync('openssl', ['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', other], { stdio: 'ignore' })
+    const input = { domain: 'example.com', certificate: fs.readFileSync(cert, 'utf8'), privateKey: fs.readFileSync(key, 'utf8') }
+    const value = validateCertificateUpload(input)
+    assert.equal(value.name, 'manual-example.com'); assert.equal(value.domain, 'example.com'); assert.ok(value.expiresAt)
+    for (const patch of [{ domain: 'other.example.com' }, { name: '../../escape' }, { name: '--option' }, { certificate: 'garbage' }, { certificate: input.certificate + 'garbage' }, { privateKey: fs.readFileSync(other, 'utf8') }, { privateKey: 'x'.repeat(32769) }]) assert.throws(() => validateCertificateUpload({ ...input, ...patch }))
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('domains are normalized and validated', () => {
   assert.equal(d.normalizeDomain('HTTPS://Dl.MoboCom.net/path?x'), 'dl.mobocom.net')
   assert.equal(d.normalizeDomain('mobocom.net.'), 'mobocom.net')

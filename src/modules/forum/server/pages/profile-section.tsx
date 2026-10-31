@@ -25,6 +25,7 @@ export async function ForumProfileSection({ username, piece }: { username: strin
   return <div className="fp-embedded">
     <section className="fp-card">
       <p className="fp-ranks">
+        {author.siteRole && <span className="tp-rank is-admin">{author.siteRole}</span>}
         {author.rank && <span className={`tp-rank is-${author.rank}`}>{FORUM_RANK_LABELS[author.rank]}</span>}
         <span className={`fp-rank is-${profile.trustLevel}`}>{profile.trustName}</span>
         {profile.title && <span className="fp-rank is-title">{profile.title}</span>}

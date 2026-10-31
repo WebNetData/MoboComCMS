@@ -361,7 +361,9 @@ test('a style becomes attributes on the article page; classic leaves the page as
   const own = postStyles.postStyleAttributes(postStyles.resolvePostStyle('psc-abcd1234', settings))
   assert.equal(own.attrs['data-post-style'], 'split')
   assert.equal(own.attrs['data-ps-accent'], '')
-  assert.deepEqual(Object.keys(own.vars).sort(), ['--ps-accent-dark', '--ps-accent-light', '--ps-on-accent'])
+  assert.deepEqual(Object.keys(own.vars).sort(), ['--ps-accent-dark', '--ps-accent-light', '--ps-body-size', '--ps-line-height', '--ps-on-accent'])
+  assert.equal(own.vars['--ps-body-size'], '18px')
+  assert.equal(own.vars['--ps-line-height'], '2.1')
 })
 
 test('the article page, its editor and the builder share one style choice', () => {
@@ -369,15 +371,36 @@ test('the article page, its editor and the builder share one style choice', () =
   const page = read('src/modules/site/server/pages/blog/[slug]/page.tsx')
   assert.match(page, /resolvePostPresentation\(\{ postId: post\.id, format: post\.format/)
   assert.match(page, /journal-post-solo" \{\.\.\.dress\.attrs\}/)
-  // order: asked in the address, the article's own, its format's, theme rules, the magazine's default
+  // Only page styles apply; archived layouts are never executed by the article page.
   const presentation = read('src/modules/site/server/post-presentation.ts')
-  const order = ['askedStyle', "getEntityTemplateId('post'", 'settings.byFormat', "resolveThemeTemplate('single-post'", 'settings.defaultId'].map((needle) => presentation.indexOf(needle))
+  const order = ['input.askedStyle', "getEntityTemplateId('post'", 'settings.defaultId'].map((needle) => presentation.indexOf(needle))
   assert.deepEqual([...order].sort((a, b) => a - b), order)
   assert.ok(order.every((at) => at > 0))
+  assert.doesNotMatch(page, /BuilderRenderer|resolveBuilderDoc|journal-post-built|previewTemplate\(|PostFormatLead|PostFormatClose|reviewJsonLd/)
+  assert.doesNotMatch(presentation, /settings.byFormat/)
   assert.match(read('src/modules/site/server/http/builder/post-template.ts'), /isStyleId\(templateId\)\s*\n?\s*\? !!resolvePostStyle/)
   assert.match(read('src/app/layout.tsx'), /import '\.\/journal-post-styles\.css'/)
   assert.match(read('src/app/admin/posts/page.tsx'), /<PostStylePanel /)
   assert.match(read('src/app/admin/journal/shared.tsx'), /\/admin\/journal\/styles/)
+})
+
+test('article presentation ignores every archived template source while retaining valid styles', async () => {
+  let own = 'post-pro-guide'
+  const settings = postStyles.normalizePostStyleSettings({ defaultId: 'ps-editorial', byFormat: { ARTICLE: 'ps-neon' } })
+  const { resolvePostPresentation } = require('./connected-source-loader.cjs')({
+    '@/modules/site/server/builder': { getEntityTemplateId: async () => own },
+    '@/modules/journal/server/admin': { getJournalSettings: async () => ({ postStyle: settings }) },
+  })('src/modules/site/server/post-presentation.ts')
+  const input = { postId: 1, format: 'ARTICLE', ctx: {}, askedStyle: 'post-pro-guide', previewTemplate: { id: 'tpl-post-retired', doc: { mode: 'builder', layout: { postStyle: 'ps-neon' } } } }
+  for (const legacy of ['post-pro-guide', 'tpl-post-retired', 'user-retired']) {
+    own = legacy
+    const result = await resolvePostPresentation(input)
+    assert.equal(result.doc, null)
+    assert.deepEqual(result.style, postStyles.resolvePostStyle('ps-editorial', settings))
+  }
+  own = 'ps-split'
+  assert.deepEqual((await resolvePostPresentation(input)).style, postStyles.resolvePostStyle('ps-split', settings))
+  assert.deepEqual((await resolvePostPresentation({ ...input, askedStyle: 'ps-neon' })).style, postStyles.resolvePostStyle('ps-neon', settings))
 })
 
 // ---- an artist's profile fields: country, born, died and the owner's own (owner, 2026-10-28)

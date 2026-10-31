@@ -135,7 +135,7 @@ async function main() {
  // ---- the page form leaves the body of a blocks page alone, and the public page reads the document
  const form = fs.readFileSync('src/modules/site/server/http/admin/cms/route.ts', 'utf8'), publicPage = fs.readFileSync('src/modules/site/server/pages/p/[slug]/page.tsx', 'utf8').replace(/\r\n/g, '\n')
  assert.match(form, /b\?\.content !== undefined && \(await db\.page\.findUnique\(\{ where: \{ id \}, select: \{ editorFormat: true \} \}\)\)\?\.editorFormat === 'blocks-v1'\) return err\(/)
- assert.match(publicPage, /const blocks = await pageBlocksHtml\(page\)\n\s+const content = blocks === null \? cleanRichText\(/)
+  assert.match(publicPage, /const written = await pageBlocksHtml\(page\)\n\s+const blocks = written === null \? null : formShortcodes\(written\)\n\s+const content = blocks === null \? formShortcodes\(cleanRichText\(/)
 
  // ---- a magazine article is written the same way, under the magazine's own permission
  const article = await prisma.post.create({data: {slug: `${seed}-article`, title: 'article', content: '<p>متن قدیمی مقاله</p>', status: 'DRAFT'}})

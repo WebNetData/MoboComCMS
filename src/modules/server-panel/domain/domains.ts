@@ -91,12 +91,13 @@ export type CertInfo = { name: string; domains: string[]; expiresAt: string | nu
 
 /** Parses `certbot certificates`. */
 export function parseCertificates(output: string, now = new Date()): CertInfo[] {
-  const blocks = output.split(/\n\s*Certificate Name:\s*/).slice(1)
+  const blocks = output.split(/(?:^|\n)\s*Certificate Name:\s*/).slice(1)
   return blocks.map((block) => {
     const name = block.split('\n')[0].trim()
     const domains = (block.match(/Domains:\s*(.+)/)?.[1] || '').trim().split(/\s+/).filter(Boolean)
-    const expiry = block.match(/Expiry Date:\s*([0-9-]+ [0-9:]+)(\+00:00)?/)?.[1]
-    const expiresAt = expiry ? new Date(`${expiry.replace(' ', 'T')}Z`) : null
+    const expiry = block.match(/Expiry Date:\s*(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})?)/)?.[1]?.replace(' ', 'T')
+    const parsed = expiry ? new Date(/[Z]|[+-]\d\d:\d\d$/.test(expiry) ? expiry : `${expiry}Z`) : null
+    const expiresAt = parsed && Number.isFinite(parsed.getTime()) ? parsed : null
     const daysLeft = expiresAt ? Math.floor((expiresAt.getTime() - now.getTime()) / 86_400_000) : null
     return { name, domains, expiresAt: expiresAt ? expiresAt.toISOString() : null, daysLeft, valid: /VALID/.test(block) && !/INVALID/.test(block) && (daysLeft ?? -1) >= 0, path: block.match(/Certificate Path:\s*(\S+)/)?.[1] || '' }
   }).filter((cert) => cert.name)

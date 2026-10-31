@@ -24,6 +24,8 @@ ACME_ROOT="${WEBCTL_ACME_ROOT:-/var/www/letsencrypt}"
 ENV_FILE="${WEBCTL_ENV_FILE:-/etc/mobocom/mobocom.env}"
 CF_INI="${WEBCTL_CF_INI:-/etc/mobocom/secrets/cloudflare.ini}"
 LE_LIVE="${WEBCTL_LE_LIVE:-/etc/letsencrypt/live}"
+MANUAL_CERTS="${WEBCTL_MANUAL_CERTS:-/etc/mobocom/certificates}"
+CERT_IMPORT="${WEBCTL_CERT_IMPORT:-/usr/local/libexec/mobocom/certificate-import.py}"
 APP_UPSTREAM="${WEBCTL_APP_UPSTREAM:-http://127.0.0.1:3000}"
 DRY="${WEBCTL_DRY:-0}"
 
@@ -109,7 +111,9 @@ cmd_site_apply() {
   local names="$domain"; [ "$www" = "1" ] && names="$domain www.$domain"
   if [ "$https" = "1" ]; then
     valid_cert_name "$cert" || die "invalid certificate name"
-    [ "$DRY" = "1" ] || [ -f "$LE_LIVE/$cert/fullchain.pem" ] || die "certificate $cert not found — issue it first"
+    local cert_dir="$LE_LIVE/$cert"
+    [[ "$cert" == manual-* ]] && cert_dir="$MANUAL_CERTS/$cert/current"
+    [ "$DRY" = "1" ] || [ -f "$cert_dir/fullchain.pem" ] || die "certificate $cert not found — issue it first"
   fi
   mkdir -p "$AVAILABLE" "$ENABLED"; [ "$DRY" = "1" ] || mkdir -p "$ACME_ROOT"
   local file; file="$(site_file "$domain")"
@@ -133,8 +137,8 @@ cmd_site_apply() {
       echo "    listen 443 ssl http2;"
       echo "    listen [::]:443 ssl http2;"
       echo "    server_name $names;"
-      echo "    ssl_certificate $LE_LIVE/$cert/fullchain.pem;"
-      echo "    ssl_certificate_key $LE_LIVE/$cert/privkey.pem;"
+      echo "    ssl_certificate $cert_dir/fullchain.pem;"
+      echo "    ssl_certificate_key $cert_dir/privkey.pem;"
       echo "    ssl_protocols TLSv1.2 TLSv1.3;"
       echo "    ssl_session_cache shared:mobocom_ssl:10m;"
       echo "    add_header Strict-Transport-Security \"max-age=31536000\" always;"
@@ -177,13 +181,26 @@ cmd_cert_issue() {
   case "$method" in
     http) mkdir -p "$ACME_ROOT"; args+=(--webroot -w "$ACME_ROOT") ;;
     cloudflare) [ -s "$CF_INI" ] || die "Cloudflare credentials missing"; args+=(--dns-cloudflare --dns-cloudflare-credentials "$CF_INI" --dns-cloudflare-propagation-seconds 30) ;;
+    standalone) args+=(--standalone --preferred-challenges http) ;;
     *) die "invalid method" ;;
   esac
   run certbot "${args[@]}"
   echo "OK certificate $name"
 }
 
-cmd_cert_list() { if [ "$DRY" = "1" ]; then echo "No certificates found."; else certbot certificates 2>&1; fi; }
+cmd_cert_list() {
+  if [ "$DRY" = "1" ]; then echo "No certificates found."
+  else
+    certbot certificates 2>&1 || true
+    [ ! -f "$CERT_IMPORT" ] || python3 "$CERT_IMPORT" list "$MANUAL_CERTS"
+  fi
+}
+
+cmd_cert_import() {
+  [ $# -eq 2 ] && [[ "$1" == manual-* ]] && valid_cert_name "$1" && valid_domain "$2" || die "invalid import target"
+  [ "$DRY" != "1" ] || die "PEM import requires the isolated import verifier, not dry mode"
+  python3 "$CERT_IMPORT" import "$MANUAL_CERTS" "$1" "$2" reload
+}
 
 cmd_cert_renew() {
   if [ "${1:-}" = "dry" ]; then run certbot renew --dry-run --no-random-sleep-on-renew; else run certbot renew --no-random-sleep-on-renew --deploy-hook "systemctl reload nginx"; fi
@@ -191,6 +208,10 @@ cmd_cert_renew() {
 
 cmd_cert_delete() {
   [ $# -eq 1 ] && valid_cert_name "$1" || die "usage: cert-delete <name>"
+  if [[ "$1" == manual-* ]]; then
+    [ "$DRY" != "1" ] || { echo "DRY: delete imported certificate $1"; return; }
+    python3 "$CERT_IMPORT" delete "$MANUAL_CERTS" "$1"; return
+  fi
   run certbot delete --non-interactive --cert-name "$1"
 }
 
@@ -210,6 +231,7 @@ case "$sub" in
   site-apply) cmd_site_apply "$@" ;;
   site-remove) cmd_site_remove "$@" ;;
   cert-issue) cmd_cert_issue "$@" ;;
+  cert-import) cmd_cert_import "$@" ;;
   cert-list) cmd_cert_list ;;
   cert-renew) cmd_cert_renew "$@" ;;
   cert-delete) cmd_cert_delete "$@" ;;

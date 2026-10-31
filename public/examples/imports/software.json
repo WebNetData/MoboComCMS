@@ -1,0 +1,15 @@
+[
+  {
+    "externalId": "software-001",
+    "title": "نرم‌افزار نمونه",
+    "titleEn": "Sample Software",
+    "slug": "sample-software",
+    "content": "<p>معرفی نرم‌افزار نمونه.</p>",
+    "installGuide": "<ol><li>فایل را دریافت کنید.</li><li>راهنمای واقعی را جایگزین کنید.</li></ol>",
+    "categories": ["ویندوز > ابزارها"],
+    "version": "1.0.0",
+    "icon": "https://example.com/software.jpg",
+    "links": [{ "url": "https://example.com/software.zip", "label": "فایل نمونه" }],
+    "status": "DRAFT"
+  }
+]

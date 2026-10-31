@@ -12,6 +12,7 @@ const TABS: SectionTab[] = [
   { href: '/admin/server/files', label: 'مدیریت فایل' },
   { href: '/admin/server/gallery', label: 'گالری' },
   { href: '/admin/server/database', label: 'پایگاه داده' },
+  { href: '/admin/updates', label: 'به‌روزرسانی امن' },
   { href: '/admin/server/downloads', label: 'مرکز دانلود' },
   { href: '/admin/server/domains', label: 'دامنه و SSL' },
   { href: '/admin/server/mail', label: 'ایمیل' },

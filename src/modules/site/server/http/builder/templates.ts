@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     bundled: BUNDLED_TEMPLATES.map(summary),
     // Whole pages to start from (a foreign payment page, a service page, a campaign).
     pageBundled: PAGE_TEMPLATES.map(summary),
-    postBundled: POST_TEMPLATES.map(summary),
+    postBundled: [], // Article-template authoring retired; stored documents remain readable.
     mine: await listUserTemplates(),
   })
 }
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
   if (!pageId) return err('Invalid page ID')
   const admin = await requirePerm(req, permFor(pageId))
   if (!admin) return err('forbidden', 403)
+  if (body?.kind === 'post') return err('قالب نوشته بازنشسته شده است؛ از استایل صفحه و زیباسازی متن استفاده کنید', 410)
   if (JSON.stringify(body?.doc ?? null).length > MAX_BODY) return err('Template too large', 413)
   const name = String(body?.name || '').trim()
   if (!name) return err('Template name is required')

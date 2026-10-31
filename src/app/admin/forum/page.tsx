@@ -125,7 +125,7 @@ function AdminForumPage() {
 
     {tab === 'badges' && <BadgesTab badges={data.badges} rules={data.badgeRules} busy={busy} call={call} remove={remove} />}
 
-    {tab === 'users' && <UsersTab trustNames={data.trustNames} busy={busy} call={call} revision={revision} />}
+    {tab === 'users' && <UsersTab trustNames={data.trustNames} levels={settings.levels || []} busy={busy} call={call} revision={revision} />}
 
     {tab === 'words' && <Card title="واژه‌های تحت نظر" hint={<>هر واژه یا عبارت در یک خط. تطبیق بر اساس کل واژه است (مثلاً «کار» با «کارت» یکی نیست) و * یعنی هر ادامه‌ای (مثلاً <code>قمار*</code>). برای ناظران اعمال نمی‌شود.</>}>
       <form className="fr-admin-form fa-panel" onSubmit={(event) => { event.preventDefault(); const split = (v: string) => v.split('\n').map((w) => w.trim()).filter(Boolean); void call('PATCH', { section: 'settings', settings: { ...settings, watchedWords: { block: split(wordLists.block), approve: split(wordLists.approve), censor: split(wordLists.censor) } } }, 'واژه‌ها ذخیره شد').then((ok) => { if (ok) setWords(null) }) }}>

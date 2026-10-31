@@ -1,0 +1,58 @@
+import fs from 'node:fs'
+import { test, expect } from '@playwright/test'
+
+test.skip(!process.env.E2E_IMPORT_COMPAT_FIXTURE, 'owned disposable import lab required')
+
+test('import guide, sample downloads and real draft import/rollback work with current editor policy', async ({ browser, baseURL }, info) => {
+  test.setTimeout(240_000)
+  expect(baseURL).toBe('http://localhost:3205')
+  const fixture = JSON.parse(fs.readFileSync(process.env.E2E_IMPORT_COMPAT_FIXTURE!, 'utf8'))
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' })
+  try {
+    await context.addCookies([{ name: 'next-auth.session-token', value: fixture.imports.token, url: baseURL! }])
+    const page = await context.newPage(), errors: string[] = []; page.setDefaultTimeout(20_000); page.on('pageerror', error => errors.push(error.message))
+    for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
+      await context.addCookies([{ name: 'theme', value: theme, url: baseURL! }]); await page.setViewportSize({ width, height: 1000 })
+      await page.goto('/admin/imports')
+      await page.getByRole('button', { name: 'راهنما و نمونه‌فایل', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'راهنمای ورود گروهی', exact: true })).toBeVisible()
+      await expect(page.locator('.imp-guide a[download]')).toHaveCount(8)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.evaluate(source => { const script = document.createElement('script'); script.nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce || ''; script.textContent = source; document.head.append(script) }, fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'))
+      expect(await page.evaluate(async () => (await (window as any).axe.run(document.querySelector('.imp-guide'), { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })).violations)).toEqual([])
+      await page.screenshot({ path: info.outputPath(`guide-${theme}-${width}.png`), fullPage: true })
+    }
+    const sample = await context.request.get('/examples/imports/magazine.json'); expect(sample.ok()).toBe(true)
+    expect((await sample.json())[0].status).toBe('DRAFT')
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.getByRole('button', { name: 'ورود تازه', exact: true }).first().click()
+    await page.getByRole('button', { name: /^مجله — مطالب/ }).click()
+    const next = () => page.getByRole('button', { name: 'بعدی', exact: true }).click()
+    await next()
+    const prefix = 'browser-import-compat-' + Date.now()
+    await page.getByLabel('نام منبع شناسه‌ها', { exact: false }).fill(prefix)
+    const upload = page.waitForResponse(response => response.url().includes('/api/admin/imports/upload') && response.request().method() === 'POST')
+    await page.locator('input[type=file]').setInputFiles({ name: prefix + '.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify([{ externalId: prefix, slug: prefix, title: 'مطلب آزمایشی ورود ' + prefix, content: '<p>متن نمونه</p><audio controls src="https://example.com/one.mp3"></audio><audio controls src="https://example.com/two.mp3"></audio>' }])) })
+    await page.getByRole('button', { name: 'بارگذاری و تحلیل فایل', exact: true }).click()
+    const uploaded = await (await upload).json(), id = uploaded.job.id
+    await expect(page.getByRole('heading', { name: /نگاشت فیلدها/ })).toBeVisible()
+    await next(); await next(); await next()
+    await page.getByRole('button', { name: 'اجرای آزمایشی (بدون ذخیره)', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'اجرای آزمایشی دوباره', exact: true })).toBeVisible()
+    await next(); await next()
+    await expect(page.getByLabel('وضعیت مطالب جدید', { exact: false })).toHaveValue('DRAFT')
+    const before = await (await context.request.get('/api/admin/imports?view=job&id=' + id)).json()
+    expect(before.settings.options.copyAssets).toBe(false)
+    await next()
+    page.once('dialog', dialog => dialog.accept())
+    await page.getByRole('button', { name: 'شروع ورود اطلاعات', exact: true }).click()
+    await expect.poll(async () => (await (await context.request.get('/api/admin/imports?view=job&id=' + id)).json()).status, { timeout: 150_000, intervals: [1000, 2000, 4000] }).toBe('DONE')
+    const report = await (await context.request.get('/api/admin/imports?view=records&id=' + id)).json()
+    expect(report.records[0].action).toBe('CREATE'); expect(['OK', 'WARNING']).toContain(report.records[0].status)
+    expect((await context.request.get('/blog/' + prefix)).status()).toBe(404)
+    page.once('dialog', dialog => dialog.accept())
+    await page.getByRole('button', { name: 'بازگردانی (Rollback)', exact: true }).click()
+    await expect.poll(async () => (await (await context.request.get('/api/admin/imports?view=job&id=' + id)).json()).status, { timeout: 90_000, intervals: [1000, 2000, 4000] }).toBe('ROLLED_BACK')
+    expect(errors).toEqual([])
+  } finally { await context.close() }
+})

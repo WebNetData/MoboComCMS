@@ -1,5 +1,7 @@
 # Shared media library — continuation, 2026-10-17
 
+Editorial follow-up2026-10-28: written-content editors reuse this Library for video, music, podcast and voice files. Continue [EDITOR_MEDIA](EDITOR_MEDIA.md) for the insertion dialog, typed canonical blocks, lightweight adapter, player composition, current evidence and limits. No second asset store/queue or default remote copying was added.
+
 ## Authoritative source / ownership
 
 Continue `.mobocom/autonomous-foundation`, now `feat/media-archive-storage-2026-10-17`, above library `3c0ed764`, journal `1d5b7c91` and business `8856859e`. Do not recreate it in the older root checkout. [Specification](../../specs/media-library/SPEC.md). Owner merges/deploys; no hosted Actions/PR/deployment in these slices.

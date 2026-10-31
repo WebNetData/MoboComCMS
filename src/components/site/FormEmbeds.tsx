@@ -5,8 +5,10 @@ import { createPortal } from 'react-dom'
 import { usePathname } from '@/platform/routing/navigation'
 import PublicForm from '@/components/site/PublicForm'
 import type { FormDefinition, FormState } from '@/modules/forms/domain/forms'
+import { editorialMedia, type EditorialMedia } from '@/shared/media/editorial'
+import EditorialPlayer from '@/components/media/EditorialPlayer'
 
-type Mount = { id: number; node: Element; slug: string; form?: FormDefinition; state?: FormState; missing?: boolean }
+type Mount = { id: number; node: Element; slug: string; form?: FormDefinition; state?: FormState; missing?: boolean; media?: EditorialMedia }
 let nextId = 0
 /** The list without placeholders that left the page; the same list when none did (no needless render). */
 const connected = (list: Mount[]) => (list.every((mount) => mount.node.isConnected) ? list : list.filter((mount) => mount.node.isConnected))
@@ -26,13 +28,29 @@ export default function FormEmbeds() {
   const [mounts, setMounts] = useState<Mount[]>([])
   useEffect(() => {
     const scan = () => {
-      const nodes = [...document.querySelectorAll('[data-mc-form]')].filter((node) => !node.hasAttribute('data-mc-mounted'))
+      const nodes = [...document.querySelectorAll('[data-mc-form],figure[data-mc-media]')].filter((node) => !node.hasAttribute('data-mc-mounted') && !(node.hasAttribute('data-mc-media') && pathname?.startsWith('/admin')))
       if (!nodes.length) { setMounts(connected); return }
-      const fresh = nodes.map((node) => { node.setAttribute('data-mc-mounted', ''); return { id: ++nextId, node, slug: node.getAttribute('data-mc-form') || '' } })
+      const fresh: Mount[] = []
+      for (const node of nodes) {
+        node.setAttribute('data-mc-mounted', '')
+        if (node.hasAttribute('data-mc-media')) {
+          const media = editorialMedia({ kind: node.getAttribute('data-mc-media'), src: node.getAttribute('data-mc-src'), title: node.getAttribute('data-mc-title'), poster: node.getAttribute('data-mc-poster') || '', audioKind: node.getAttribute('data-mc-audio-kind'), ratio: node.getAttribute('data-mc-ratio') })
+          const slot = node.querySelector(':scope > [data-mc-player]')
+          if (media && slot) {
+            // Older Classic insertions could nest later figures in this slot. Rescue
+            // them in document order before enhancement clears the native fallback.
+            let after = node
+            for (const nested of slot.querySelectorAll('figure[data-mc-media]')) { after.after(nested); after = nested }
+            slot.querySelectorAll('video,audio').forEach(element => (element as HTMLMediaElement).pause())
+            slot.replaceChildren()
+            fresh.push({ id: ++nextId, node: slot, slug: '', media })
+          }
+        } else fresh.push({ id: ++nextId, node, slug: node.getAttribute('data-mc-form') || '' })
+      }
       setMounts((list) => [...connected(list), ...fresh])
       // Not tied to this run of the effect: a placeholder is marked once, so its form must arrive even if the effect
       // ran again meanwhile (React runs it twice in development).
-      for (const mount of fresh) void load(mount.slug).then((found) => {
+      for (const mount of fresh.filter(item => !item.media)) void load(mount.slug).then((found) => {
         setMounts((list) => list.map((item) => (item.node === mount.node ? (found ? { ...item, form: found.form, state: found.state } : { ...item, missing: true }) : item)))
       })
     }
@@ -43,5 +61,5 @@ export default function FormEmbeds() {
     observer.observe(document.body, { childList: true, subtree: true })
     return () => { observer.disconnect(); window.clearTimeout(timer) }
   }, [pathname])
-  return <>{mounts.filter((mount) => mount.form && mount.node.isConnected).map((mount) => createPortal(<PublicForm form={mount.form!} state={mount.state} />, mount.node, `form-${mount.id}`))}</>
+  return <>{mounts.filter((mount) => (mount.media || mount.form) && mount.node.isConnected).map((mount) => createPortal(mount.media ? <EditorialPlayer media={mount.media} /> : <PublicForm form={mount.form!} state={mount.state} />, mount.node, `content-${mount.id}`))}</>
 }

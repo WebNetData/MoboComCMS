@@ -6,6 +6,7 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { UpdateError } from '@/modules/updater/domain/updater'
 import { runBackupWorker } from '@/modules/notifications/server/backup-scheduler'
 import { migrateNow, runProgress, startUpdate, status, triggerHook } from './service'
+import { serverGate } from '@/modules/server-panel/server/gate'
 
 const failure = (error: unknown) => { if (error instanceof UpdateError) return err(error.message, error.status); throw error }
 
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
 
 /** POST { op: 'apply' | 'hook' | 'migrate' | 'backup' } */
 export async function POST(req: NextRequest) {
+  const panel = await serverGate(req)
+  if ('response' in panel) return panel.response
   const guard = await adminGuard(req, null, ['settings.manage'])
   if ('response' in guard) return guard.response
   if (!rateLimitHit(`updates:${guard.admin.id}`, 20, 60_000).ok) return err('درخواست‌ها زیاد است', 429)

@@ -1,5 +1,7 @@
 # Form builder, held work and platform safety — continue existing work
 
+2026-10-30 continuation: existing Form handler/privacy permissions remain; work edits now claim original assignee/stage/payment and edited reply/read/status values. A deterministic concurrent-take PG test and actual specialist/colleague browser isolation passed. Store specialists extend the existing Order owner with the same held-work principle. [Exact implementation, evidence, migrations and rollback](EDITOR_GROUPS_EXPERTS.md). Do not create another work queue or permission resolver.
+
 This is the handoff for the form builder, the rule that work somebody holds is theirs, and the safety review of October 2026. Another agent continues from here; the files named below are the owners. Nothing here is a claim that a feature is finished for production: each section says what ran and what did not.
 
 ## Owner requirements (2026-10-13 … 14)

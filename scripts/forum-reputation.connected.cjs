@@ -18,6 +18,7 @@ function load(file) {
   new Function('require', 'module', 'exports', source)(name => {
     if (name === '@/platform/database/prisma') return { db }
     if (name === '@/platform/observability/logger') return { logEvent: () => {} }
+    if (name === '@/modules/settings/server') return { readJsonSetting: async () => JSON.parse(state.settings || '{}'), updateJsonSetting: async (_key, mutate) => { const stored = JSON.parse(state.settings || '{}'); const result = await mutate(stored, db); state.settings = JSON.stringify(stored); return result } }
     if (name === '@/modules/notifications/server/inbox') return { createInboxEvent: async () => {} }
     if (name === '@/extensions/server/modules') return { isModuleEnabled: async () => true, getModuleSettings: async () => ({}), getModuleStates: async () => ({}) }
     if (name === 'react') return { ...require('react'), cache: fn => fn }

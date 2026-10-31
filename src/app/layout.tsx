@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { readableInk, textShade } from '@/shared/color/contrast'
 import './globals.css'
+import './editorial-decorations.css'
 import './studio.css'
 import './happ-design.css'
 import './content-design.css'

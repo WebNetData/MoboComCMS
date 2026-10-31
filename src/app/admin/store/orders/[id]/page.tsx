@@ -6,9 +6,10 @@ import { useState } from 'react'
 import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, nextStatuses, trackingIndex, type FulfilmentStatus } from '@/modules/store/domain/store'
 import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson } from '../../shared'
 import ShipmentPanel from './ShipmentPanel'
+import OrderAssignment, { type Assignment } from './OrderAssignment'
 import LineInputs, { type InputLine } from './LineInputs'
 
-type Detail = {
+type Detail = Assignment & {
   id: number; createdAt: string; state: { key: string; label: string; tone: string }; fulfilment: string; trackingCode: string; deliveryNote: string
   address: { title: string; recipient: string; phone: string; postalCode: string; address: string; lat: number | null; lng: number | null } | null
   schedule: { date: string; slot: string } | null
@@ -43,7 +44,7 @@ export default function StoreOrderPage() {
   if (error) return <StoreShell title="سفارش"><Notice tone="error">{error}</Notice></StoreShell>
   if (!data) return <StoreShell title="سفارش"><div className="sa-skeleton" aria-busy="true" /></StoreShell>
 
-  const options = data.orderStatus === 'PAID' ? nextStatuses(data.fulfilment || 'PENDING') : []
+  const options = data.orderStatus === 'PAID' && data.canWork ? nextStatuses(data.fulfilment || 'PENDING').filter(status => data.manager || !['CANCELLED', 'RETURNED'].includes(status)) : []
   const virtual = data.lines.every((line) => line.kind !== 'PHYSICAL')
   const step = data.fulfilment === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(data.fulfilment || 'PENDING')
   const closed = data.fulfilment === 'CANCELLED' || data.fulfilment === 'RETURNED'
@@ -52,7 +53,7 @@ export default function StoreOrderPage() {
     if (!to) return
     if ((to === 'CANCELLED' || to === 'RETURNED') && !window.confirm(`سفارش «${ACTION_LABEL[to]}» شود؟ این تغییر برگشت‌پذیر نیست.`)) return
     setBusy(true); setResult(null)
-    const response = await send<Detail>(`/api/admin/store/orders/${id}`, 'POST', { action: 'status', to, trackingCode: tracking ?? undefined, note, digitalDelivery: digital || undefined, notify, restock })
+    const response = await send<Detail>(`/api/admin/store/orders/${id}`, 'POST', { action: 'status', to, trackingCode: tracking ?? undefined, note, digitalDelivery: digital || undefined, notify, restock: data?.manager === true && restock })
     setBusy(false)
     if (!response.ok) { setResult({ tone: 'error', text: response.error }); return }
     setData(response.data); setTo(''); setNote(''); setDigital(''); setTracking(null)
@@ -79,13 +80,14 @@ export default function StoreOrderPage() {
 
     <div className="sa-cols">
       <div className="sa-stack">
+        {data.orderStatus === 'PAID' && <OrderAssignment id={data.id} work={data} onChanged={() => void reload()} />}
         <section className="sa-card">
           <header className="sa-card-head"><h2>کالاها</h2><small className="num">{fa(data.lines.reduce((sum, line) => sum + line.quantity, 0))} عدد</small></header>
           <ul className="sa-lines">{data.lines.map((line, index) => <li key={index}>
             {line.image ? <img src={line.image} alt="" /> : <span className="sa-ph" />}
             <span className="sa-grow">{line.productId ? <Link href={`/admin/store/products/${line.productId}`}><b>{line.name}</b></Link> : <b>{line.name}</b>}{line.variantName && <small>{line.variantName}</small>}<small className="num">{fa(line.quantity)} × <Money value={line.unitPrice} currency={data.currency} /></small></span>
             <Money value={line.total} currency={data.currency} />
-            <LineInputs orderId={data.id} line={line} onErased={(detail) => setData(detail as Detail)} />
+            {data.canWork && <LineInputs orderId={data.id} line={line} canErase={data.manager} onErased={(detail) => setData(detail as Detail)} />}
           </li>)}</ul>
           <dl className="sa-totals">
             <div><dt>جمع کالاها</dt><dd><Money value={data.itemsTotal} currency={data.currency} /></dd></div>
@@ -109,7 +111,7 @@ export default function StoreOrderPage() {
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void move()}>{busy ? 'در حال ثبت…' : `ثبت «${ACTION_LABEL[to]}»`}</button>
           </div>}
         </section>}
-        {!virtual && data.orderStatus === 'PAID' && <ShipmentPanel orderId={data.id} method={data.shippingMethod} canIssue={!closed && data.fulfilment !== 'DELIVERED'} onChanged={() => void reload()} />}
+        {data.manager && !virtual && data.orderStatus === 'PAID' && <ShipmentPanel orderId={data.id} method={data.shippingMethod} canIssue={!closed && data.fulfilment !== 'DELIVERED'} onChanged={() => void reload()} />}
         {data.orderStatus === 'PENDING' && <Notice>این سفارش هنوز پرداخت نشده است؛ پس از تأیید پرداخت (از صفحهٔ فاکتور یا رسید کارت‌به‌کارت) وارد صف پردازش می‌شود.</Notice>}
 
         <section className="sa-card">
@@ -119,7 +121,7 @@ export default function StoreOrderPage() {
             <small>{faDate(event.createdAt, true)}{event.actor && ` · ${event.actor}`}</small>
             {event.note && <p>{event.note}</p>}
           </li>)}</ol>
-          <div className="sa-form sa-noprint">
+          <div className="sa-form sa-noprint" hidden={!data.canWork}>
             <label className="sa-field"><span>یادداشت جدید</span><textarea className="input" rows={2} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} /></label>
             <div className="sa-row"><label className="sa-check"><input type="checkbox" checked={visible} onChange={(event) => setVisible(event.target.checked)} />برای مشتری هم نمایش داده شود</label><button type="button" className="btn btn-ghost" disabled={busy || message.trim().length < 2} onClick={() => void addNote()}>افزودن یادداشت</button></div>
           </div>

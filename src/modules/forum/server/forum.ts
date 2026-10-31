@@ -24,6 +24,8 @@ export type AuthorView = {
   posts: number; reputation: number
   /** Their rank in the forum's team, when they have one. */
   rank?: ForumRank
+  /** Actual staff role; presentation only, never an authorization grant. */
+  siteRole?: string
   /** Likes received on their posts, the level that standing gives them, and their latest badges. */
   likes: number
   level: { name: string; icon: string; color: string } | null
@@ -36,7 +38,7 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
   if (!ids.length) return new Map()
   await ensureUserProfiles(ids)
   await ensureProfiles(ids)
-  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, avatarColor: true, role: true, createdAt: true, forumProfile: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })
+  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, avatarColor: true, role: true, roleId: true, status: true, roleRef: { select: { name: true, nameFa: true } }, createdAt: true, forumProfile: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })
   const groupIds = [...new Set(users.map((user) => user.forumProfile?.primaryGroupId).filter((id): id is number => !!id))]
   const groups = new Map((groupIds.length ? await db.forumGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, icon: true, color: true, name: true } }) : []).map((group) => [group.id, group]))
   const ranks = await forumRanks(ids)
@@ -48,12 +50,12 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
   const badgesOf = (userId: number) => grants.filter((grant) => grant.userId === userId).map((grant) => grant.badge).sort((a, b) => (TIER[a.tier] ?? 3) - (TIER[b.tier] ?? 3)).slice(0, 4)
   return new Map(users.map((user) => {
     const profile = user.forumProfile
-    const level = levelFor(levels, { posts: profile?.postCount ?? 0, likes: profile?.likesReceived ?? 0, reputation: profile?.reputation ?? 0 })
+    const level = levelFor(levels, { posts: profile?.postCount ?? 0, likes: profile?.likesReceived ?? 0, reputation: profile?.reputation ?? 0 }, profile?.manualLevelId)
     const group = profile?.primaryGroupId ? groups.get(profile.primaryGroupId) : undefined
     return [user.id, {
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
       avatar: pictureOf(user), avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
-      staff: user.role === 'ADMIN', joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
+      staff: user.role === 'ADMIN' && user.status === 'ACTIVE', siteRole: user.role === 'ADMIN' && user.status === 'ACTIVE' ? user.roleId == null ? 'مدیر کل سایت' : user.roleRef?.nameFa || user.roleRef?.name || 'تیم موبوکام' : undefined, joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
       likes: profile?.likesReceived ?? 0, level: level ? { name: level.name, icon: level.icon, color: level.color } : null, badges: badgesOf(user.id),
       posts: profile?.postCount ?? 0, reputation: profile?.reputation ?? 0, ...(ranks.has(user.id) ? { rank: ranks.get(user.id) } : {}),
     }]

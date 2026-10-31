@@ -9,13 +9,13 @@ import {
   getThemeTemplate, listThemeTemplates, updateThemeTemplate,
 } from '@/modules/site/server/theme-templates'
 import { THEME_TEMPLATE_TYPES, TYPE_CODE, validatePlacement, type ThemeTemplateType } from '@/modules/site/domain/theme-templates'
-import { POST_TEMPLATES, PRODUCT_TEMPLATES, THEME_PRESETS, type BundledTemplate } from '@/modules/site/domain/builder-templates'
+import { PRODUCT_TEMPLATES, THEME_PRESETS, type BundledTemplate } from '@/modules/site/domain/builder-templates'
 
 const TYPE_PERMISSION = (type: ThemeTemplateType) => permFor(`tpl-${TYPE_CODE[type]}-xxxx`)
 
 /** Starting points for a new template of each type. */
 function presetsFor(type: ThemeTemplateType): BundledTemplate[] {
-  if (type === 'single-post') return POST_TEMPLATES
+  if (type === 'single-post') return []
   if (type === 'single-product') return PRODUCT_TEMPLATES
   return THEME_PRESETS[type]
 }
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
     if (!source) return err('Template not found', 404)
     const admin = await requirePerm(req, TYPE_PERMISSION(source.type))
     if (!admin) return err('forbidden', 403)
+    if (source.type === 'single-post') return err('قالب نوشته بازنشسته شده است؛ از استایل صفحه استفاده کنید', 410)
     try {
       const meta = await duplicateThemeTemplate(source.id, { id: admin.id, email: admin.email })
       await auditAdmin({ req, actor: admin, action: 'theme.template.duplicate', targetType: 'Setting', targetId: meta.id, metadata: { from: source.id } })
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
   if (!type) return err('Invalid template type')
   const admin = await requirePerm(req, TYPE_PERMISSION(type))
   if (!admin) return err('forbidden', 403)
+  if (type === 'single-post') return err('قالب نوشته بازنشسته شده است؛ از استایل صفحه استفاده کنید', 410)
   const presetId = String(body?.preset || '')
   const preset = presetId ? presetsFor(type).find((entry) => entry.id === presetId) : null
   if (presetId && !preset) return err('Preset not found', 404)

@@ -24,7 +24,7 @@ function writesIn(entity: DocumentEntity, permissions: string) {
 
 /** The template a new item of this section starts from for this staff member, or null (no role, no default, or it no longer reads cleanly). */
 export async function startingTemplate(entity: DocumentEntity, roleId: number | null | undefined): Promise<{ id: number; title: string; document: MoboComDocument } | null> {
-  if (roleId == null) return null
+  if (entity === 'posts' || roleId == null) return null
   const row = await db.editorRoleTemplate.findUnique({ where: { entity_roleId: { entity, roleId } }, include: { pattern: true } })
   if (!row || row.pattern.entity !== entity || row.pattern.kind !== 'template') return null
   const read = readDocument(row.pattern.contentDocument, await activeEditorRegistry())
@@ -41,6 +41,7 @@ export async function roleTemplates(req: NextRequest) {
   if (req.method !== 'GET' && (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host))) return err('forbidden', 403)
   const admin = await requirePerm(req, permission)
   if (!admin) return err('فقط مدیر همین بخش قالب پیش‌فرض نقش‌ها را تعیین می‌کند.', 403)
+  if (entity === 'posts' && req.method !== 'GET') return err('قالب نوشته بازنشسته شده است؛ از زیباسازی متن و استایل صفحه استفاده کنید', 410)
   if (!await blockEditorEnabled()) return err('ویرایشگر غیرفعال است', 404)
   if (req.method === 'GET') {
     const [roles, templates, assignments] = await Promise.all([

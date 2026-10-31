@@ -1,0 +1,15 @@
+[
+  {
+    "externalId": "product-001",
+    "title": "محصول نمونه",
+    "slug": "sample-product",
+    "sku": "SAMPLE-PRODUCT-001",
+    "description": "<p>توضیح کامل محصول نمونه.</p>",
+    "shortDescription": "خلاصهٔ محصول نمونه",
+    "price": "2500000",
+    "stock": 5,
+    "categories": ["کالای دیجیتال > لوازم جانبی"],
+    "image": "https://example.com/product.jpg",
+    "status": "inactive"
+  }
+]

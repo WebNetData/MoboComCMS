@@ -1,24 +1,15 @@
-import { isModuleEnabled } from '@/extensions/server/modules'
 import { getJournalSettings } from '@/modules/journal/server/admin'
-import { isStyleId, resolvePostStyle, type PostStyleSettings, type ResolvedPostStyle } from '@/modules/journal/domain/post-styles'
+import { resolvePostStyle, type ResolvedPostStyle } from '@/modules/journal/domain/post-styles'
 import type { RenderContext } from '@/modules/site/domain/theme-templates'
 import type { BuilderDoc } from '@/modules/site/domain/builder'
-import { POST_TEMPLATE_IDS } from '@/modules/site/domain/builder-templates'
 import { getEntityTemplateId } from '@/modules/site/server/builder'
-import { layoutDocById, resolveThemeTemplate } from '@/modules/site/server/theme-templates'
 
-export type PostPresentation = { doc: BuilderDoc | null; style: ResolvedPostStyle | null }
-
-/** A builder layout and the page style its document names for the header and reading column (none: plain). */
-const withStyle = (doc: BuilderDoc, settings: PostStyleSettings): PostPresentation => ({ doc, style: doc.layout?.postStyle ? resolvePostStyle(doc.layout.postStyle, settings) : null })
+export type PostPresentation = { doc: null; style: ResolvedPostStyle | null }
 
 /**
- * How one article's page is laid out and dressed, first match wins:
- * a style or built-in article template asked for in the address (a look before choosing), the article's own choice,
- * its format's choice, a published single-post builder template whose display rules match, then the magazine's
- * default style. A choice is a style (`ps-…`, `psc-…`) or a builder layout, which may name a style of its own;
- * one that no longer exists is passed over. `previewTemplate` replaces all of it while a single-post template is
- * being edited in the builder.
+ * Articles use the native Journal page. Legacy layout ids and previews never execute.
+ * Only valid styles apply: address, article, then Journal default.
+ * Stored layouts remain archival data; authored article bodies are unchanged.
  */
 export async function resolvePostPresentation(input: {
   postId: number
@@ -27,24 +18,10 @@ export async function resolvePostPresentation(input: {
   previewTemplate?: { id: string; doc: BuilderDoc | null }
   askedStyle?: string
 }): Promise<PostPresentation> {
-  const [settings, builderOn] = await Promise.all([getJournalSettings().then((value) => value.postStyle), isModuleEnabled('page-builder')])
-  if (input.previewTemplate) return input.previewTemplate.doc ? withStyle(input.previewTemplate.doc, settings) : { doc: null, style: null }
-  const choose = async (id: string): Promise<PostPresentation | null> => {
-    if (!id) return null
-    if (isStyleId(id)) { const style = resolvePostStyle(id, settings); return style ? { doc: null, style } : null }
-    if (!builderOn) return null
-    const doc = await layoutDocById('post', id)
-    return doc ? withStyle(doc, settings) : null
+  const settings = (await getJournalSettings()).postStyle
+  for (const id of [input.askedStyle || '', await getEntityTemplateId('post', input.postId), settings.defaultId || 'ps-classic', 'ps-classic']) {
+    const style = resolvePostStyle(id, settings)
+    if (style) return { doc: null, style }
   }
-  const asked = input.askedStyle && (isStyleId(input.askedStyle) || POST_TEMPLATE_IDS.includes(input.askedStyle)) ? await choose(input.askedStyle) : null
-  if (asked) return asked
-  const own = await choose(await getEntityTemplateId('post', input.postId))
-  if (own) return own
-  const byFormat = await choose(settings.byFormat[input.format] || '')
-  if (byFormat) return byFormat
-  if (builderOn) {
-    const theme = await resolveThemeTemplate('single-post', input.ctx)
-    if (theme?.doc) return withStyle(theme.doc, settings)
-  }
-  return { doc: null, style: resolvePostStyle(settings.defaultId || 'ps-classic', settings) }
+  return { doc: null, style: null }
 }

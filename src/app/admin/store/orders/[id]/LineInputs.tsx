@@ -10,7 +10,7 @@ export type InputLine = { lineId: number; name: string; inputs: LineInput[]; inp
  * What the buyer gave for one line of the order. A password arrives masked; "show" asks the server for it
  * (the click is recorded), and "erase" wipes the answers once the work is done.
  */
-export default function LineInputs({ orderId, line, onErased }: { orderId: number; line: InputLine; onErased: (detail: unknown) => void }) {
+export default function LineInputs({ orderId, line, canErase = true, onErased }: { orderId: number; line: InputLine; canErase?: boolean; onErased: (detail: unknown) => void }) {
   const [revealed, setRevealed] = useState<LineInput[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -48,7 +48,7 @@ export default function LineInputs({ orderId, line, onErased }: { orderId: numbe
       </div>)}</dl>
       <div className="oi-actions">
         {hidden && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void reveal()}>نمایش اطلاعات محرمانه</button>}
-        <button type="button" className="sa-link is-danger" disabled={busy} onClick={() => void erase()}>پاک‌کردن اطلاعات خریدار</button>
+        {canErase && <button type="button" className="sa-link is-danger" disabled={busy} onClick={() => void erase()}>پاک‌کردن اطلاعات خریدار</button>}
         <small>مشاهدهٔ اطلاعات محرمانه با نام شما ثبت می‌شود. یک هفته پس از پایان سفارش خودکار پاک می‌شود.</small>
       </div>
     </>}

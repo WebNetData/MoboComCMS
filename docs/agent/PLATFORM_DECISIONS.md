@@ -8,6 +8,12 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Web operations — 2026-10-31
+
+Bulk import continuation: HTML may create/edit legacy bodies, but never replace or undo over a canonical block body; selected metadata is independent. Preview refusal is backed by a transactional format/timestamp claim at apply/undo. Fresh content-job metadata chooses draft; old saved-job normalization and explicit mapped statuses retain their meaning. [Exact contracts and evidence](handoffs/IMPORTS_LAUNCH.md).
+
+Fresh web installation requires a private capability in production and closes after the first owner; use existing Installer and serialized PostgreSQL owner creation. Installed-site operations remain behind Server Panel opt-in, canonical permissions, origin and password/TOTP/IP unlock. Database backup and updates compose their existing owners under that panel; no general SQL writer, public Adminer or arbitrary privileged command API. SSL reuses existing encrypted DNS credentials and a fixed private PEM helper; manual certs require manual renewal. Updates preserve dirty/divergent owner code by refusing it, retain backup-first/health/rollback, never force checkout or rewind the DB, and never steal an aged lock. [Contracts, evidence and activation limits](handoffs/WEB_OPERATIONS.md).
+
 ## 1. Product focus and module switches
 
 - **Focus surfaces:** Store, Magazine, Games, Movies and TV Series, Music, Forum. VPN sales, resellers and the seller marketplace are set aside for now (owner, 2026-10-06).
@@ -463,6 +469,8 @@ The owner asked for products that need information from the buyer (the login of 
 
 ## 6M. The form builder takes payments and hands work to staff (owner, 2026-10-14)
 
+Editorial insertion follow-up (owner,2026-10-28): video from YouTube/Aparat/Namasha/Tamasha, Library/direct video and music/podcast/voice files are inserted wherever written content is authored, like the existing form insert control. Extend the same Editor registry/HTML adapters, Library, existing VideoPlayer and written-content mount. Use one dependency-free neutral codec with explicit pure-domain tests; no parallel media storage, Music queue or arbitrary iframe/script source. Per-media title/cover/caption/kind/ratio remain editor-controlled. [Implementation, evidence and boundaries](handoffs/EDITOR_MEDIA.md).
+
 The owner asked for a Gravity-Forms-class form builder that the whole site can use, for paid orders (a typed foreign amount priced through the rate API, details, payment, a member of staff doing the work) and for any other form. Decided:
 - **The existing forms module is extended; no second form system.** Its fields, conditions, steps, inbox and embedding stay as they were.
 - **A form's bill is the server's.** Fixed costs, priced options and typed foreign amounts are priced on the page, on submit and again at checkout with the rate of that moment. The percentage and fixed profit of a foreign amount are never sent to visitors.
@@ -565,6 +573,8 @@ Imports preserve local edits when the new wizard's protection choice is enabled;
 
 ## 6X. Role default templates in the block editor (owner, 2026-10-20)
 
+**Superseded for magazine articles2026-10-30:** the owner requested article-template removal. New post full templates/defaults are retired; historic rows remain readable. Page role defaults and ordinary reusable/synced patterns remain. See [current continuation](handoffs/EDITOR_GROUPS_EXPERTS.md). The paragraph below records the earlier decision.
+
 "Role-specific templates" means a **default starting template per role**: for each staff role that writes in a section (pages or magazine articles), that section's manager chooses one of the section's full templates (`EditorPattern` kind `template`). A new item with no body yet opens from it in the browser; nothing is stored until the writer saves, and "start blank" removes it. Items with a body, items already saved in blocks, and the owner without a role open as they are. Templates are not hidden from other roles, and the structure is not locked by role (both were offered and not chosen). Stored in `EditorRoleTemplate` (one per role and section, cascade on role or template removal), set at `/admin/editor` with `cms.pages`/`cms.posts`, audited `editor.role-template.set`.
 
 ## 6Y. Search reads at most 5,000 matches (owner, 2026-10-20)
@@ -584,6 +594,8 @@ The owner wants a free hand over the kinds of title (anime, documentary…) and 
 Following 6Z-2, the values sections had fixed in code are the owner's managed lists in one shared system (`src/modules/vocabulary`: one `Vocabulary` table, service, API and admin component). Each section declares its lists in its own domain and counts its own uses; the registry names who manages and who only reads them. Games declare platforms, stores, play modes and localisations; software declares licence types. A code is what an item stores and never changes; the name, emoji, order and active flag are the owner's. Items keep only known codes (an inactive code stays where it was); an entry in use is deactivated, not deleted; public filters match whole codes. A new list or section is a declaration plus a seed migration, not a new table. Spec and acceptance: [managed lists](../specs/managed-lists/SPEC.md).
 
 ## 6Z-4. Magazine article page styles (owner, 2026-10-28)
+
+**Current owner decision2026-10-30:** retire article-template creation, selection and format controls, keep historical rows as inactive archives and unrelated Page/Product builders; never execute old article templates or per-post Builder layouts. Extend the existing style studio with safe typography and editor BBCode decorations. Historical template/per-format instructions below are not a task to restore removed UI. [Current contracts and executed evidence](handoffs/EDITOR_GROUPS_EXPERTS.md).
 
 "Several attractive, modern styles for the magazine's article page. I choose the style when I post, and I can make the style and template of an article page or a kind of article myself." What was decided:
 - **A style dresses the plain article page; it never replaces it.** Progress bar, contents, the format's facts, author, related posts and comments stay in every style. A style is a set of attributes on the page's `<main>`, with its CSS in `src/app/journal-post-styles.css`. Without a style the page is exactly the usual one («کلاسیک موبوکام»).

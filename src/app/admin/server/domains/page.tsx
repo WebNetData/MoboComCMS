@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { Notice, ServerShell, fa, faDate, useServerApi, useServerJson } from '../shared'
+import CertificateImport from './CertificateImport'
 
 type Mode = 'app' | 'static' | 'redirect' | 'proxy'
 type Cert = { name: string; domains: string[]; expiresAt: string | null; daysLeft: number | null; valid: boolean }
@@ -119,7 +120,7 @@ function Sites({ data, reload }: { data: Overview; reload: () => void }) {
 
 function Certificates({ data, reload }: { data: Overview; reload: () => void }) {
   const { op, notice, busy } = useOp(reload)
-  const [form, setForm] = useState({ domain: '', wildcard: false, www: true, email: data.email, extra: '' })
+  const [form, setForm] = useState({ domain: '', method: 'http', wildcard: false, www: true, email: data.email, extra: '' })
   const [output, setOutput] = useState('')
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -144,7 +145,7 @@ function Certificates({ data, reload }: { data: Overview; reload: () => void }) 
         </tr>)}
         {!data.certificates.length && <tr><td colSpan={4} className="sa-empty">گواهی‌ای روی سرور نیست.</td></tr>}
       </tbody></table>
-      <div className="sp-pad"><p className="sa-hint">Certbot روزی دو بار گواهی‌ها را بررسی می‌کند و هر کدام که کمتر از ۳۰ روز اعتبار داشته باشد را خودکار تمدید و Nginx را بارگذاری دوباره می‌کند{data.tools.renewTimer ? '' : ' — اما تایمر تمدید روی این سرور فعال نیست؛ اسکریپت نصب را دوباره اجرا کنید'}.</p>
+      <div className="sp-pad"><p className="sa-hint">Certbot گواهی‌های صادرشده را در بازهٔ مناسب پیش از انقضا خودکار تمدید می‌کند{data.tools.renewTimer ? '' : ' — اما تایمر تمدید روی این سرور فعال نیست؛ اسکریپت نصب را دوباره اجرا کنید'}. گواهی‌های با پیشوند manual- بارگذاری‌شده‌اند و باید دستی جایگزین شوند.</p>
       {output && <pre className="sp-pre" dir="ltr">{output}</pre>}</div>
     </section>
     <form className="sa-card sa-form" onSubmit={submit}>
@@ -152,15 +153,18 @@ function Certificates({ data, reload }: { data: Overview; reload: () => void }) 
       <label className="sa-field"><span>دامنه</span><input className="input" dir="ltr" value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value.trim().toLowerCase() })} placeholder="mobocom.net" required /></label>
       <fieldset className="sp-methods">
         <legend>روش تأیید</legend>
-        <label className="sa-check"><input type="radio" name="method" checked={!form.wildcard} onChange={() => setForm({ ...form, wildcard: false })} /> <span><b>HTTP</b> — دامنه باید مستقیم (بدون ابر نارنجی) به این سرور اشاره کند</span></label>
-        <label className="sa-check"><input type="radio" name="method" checked={form.wildcard} onChange={() => setForm({ ...form, wildcard: true })} /> <span><b>Wildcard با DNS کلادفلر</b> — <bdi dir="ltr">*.domain</bdi> برای همهٔ زیردامنه‌ها، حتی پشت پروکسی کلادفلر</span></label>
+        <label className="sa-check"><input type="radio" name="method" checked={form.method === 'http'} onChange={() => setForm({ ...form, method: 'http', wildcard: false })} /> <span><b>HTTP / Webroot</b> — تأیید از مسیر وب‌سرور فعلی</span></label>
+        <label className="sa-check"><input type="radio" name="method" checked={form.method === 'cloudflare'} onChange={() => setForm({ ...form, method: 'cloudflare' })} /> <span><b>DNS کلادفلر</b> — دامنهٔ عادی یا Wildcard، حتی پشت پروکسی</span></label>
+        <label className="sa-check"><input type="radio" name="method" checked={form.method === 'standalone'} onChange={() => setForm({ ...form, method: 'standalone', wildcard: false })} /> <span><b>Standalone</b> — پورت ۸۰ باید آزاد باشد؛ سرویس دیگری خودکار متوقف نمی‌شود</span></label>
       </fieldset>
-      {form.wildcard && !data.cloudflare && <Notice tone="error">ابتدا در زبانهٔ Cloudflare توکن API را ثبت کنید.</Notice>}
+      {form.method === 'cloudflare' && <label className="sa-check"><input type="checkbox" checked={form.wildcard} onChange={event => setForm({ ...form, wildcard: event.target.checked })} />پوشش همهٔ زیردامنه‌ها (Wildcard)</label>}
+      {form.method === 'cloudflare' && !data.cloudflare && <Notice tone="error">ابتدا در زبانهٔ Cloudflare توکن API را ثبت کنید.</Notice>}
       {!form.wildcard && <label className="sa-check"><input type="checkbox" checked={form.www} onChange={(e) => setForm({ ...form, www: e.target.checked })} /> <span>www هم پوشش داده شود</span></label>}
       <label className="sa-field"><span>نام‌های بیشتر (اختیاری)</span><input className="input" dir="ltr" value={form.extra} onChange={(e) => setForm({ ...form, extra: e.target.value })} placeholder="dl.mobocom.net shop.mobocom.net" /></label>
       <label className="sa-field"><span>ایمیل (هشدار انقضا از Let&apos;s Encrypt)</span><input className="input" dir="ltr" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
-      <button type="submit" className="btn btn-primary" disabled={!!busy || !form.domain || (form.wildcard && !data.cloudflare)}>{busy === 'cert-issue' ? 'در حال صدور (تا ۲ دقیقه)…' : 'صدور گواهی'}</button>
+      <button type="submit" className="btn btn-primary" disabled={!!busy || !form.domain || (form.method === 'cloudflare' && !data.cloudflare)}>{busy === 'cert-issue' ? 'در حال صدور (تا چند دقیقه)…' : 'صدور گواهی'}</button>
     </form>
+    <CertificateImport reload={reload} />
   </div>
 }
 
@@ -243,7 +247,7 @@ function Domains() {
   const expiring = data.certificates.filter((cert) => (cert.daysLeft ?? 0) < 15)
   return <>
     <Tooling tools={data.tools} error={data.error} />
-    {expiring.length > 0 && <Notice tone="error">گواهی {expiring.map((cert) => cert.name).join('، ')} کمتر از ۱۵ روز اعتبار دارد و تمدید خودکار آن انجام نشده؛ «آزمایش تمدید» را بزنید تا علت مشخص شود.</Notice>}
+    {expiring.length > 0 && <Notice tone="error">گواهی {expiring.map((cert) => cert.name).join('، ')} منقضی شده یا کمتر از ۱۵ روز اعتبار دارد. گواهی‌های manual را با فایل تازه جایگزین کنید؛ برای گواهی‌های Certbot، «آزمایش تمدید» را بررسی کنید.</Notice>}
     {data.tools.installed && <>
       <nav className="sa-subtabs sp-subtabs" aria-label="بخش‌های دامنه">
         {([['sites', `دامنه‌ها (${fa(data.sites.length)})`], ['certs', `گواهی SSL (${fa(data.certificates.length)})`], ['cloudflare', 'Cloudflare DNS'], ['url', 'نشانی سایت']] as const).map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}

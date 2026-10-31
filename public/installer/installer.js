@@ -321,14 +321,14 @@
     var input = h('input', { type: 'password', dir: 'ltr', autocomplete: 'off' })
     return [
       h('h1', { tabindex: '-1', id: 'title' }, 'کد نصب'),
-      h('p', { class: 'lead' }, 'این سرور با «کد نصب» محافظت شده است (متغیر INSTALL_TOKEN). کد را وارد کنید.'),
+      h('p', { class: 'lead' }, 'کد خصوصی نصب را از خروجی اولین راه‌اندازی سرور یا مقدار INSTALL_TOKEN بردارید. این کد را در اختیار دیگران نگذارید؛ پس از ساخت مدیر، نصب بسته می‌شود.'),
       field('کد نصب', input),
       note('bad', S.error),
       h('div', { class: 'actions' }, h('span'), h('div', { class: 'end' }, button('ادامه', function () {
         S.token = input.value.trim()
         try { sessionStorage.setItem('installToken', S.token) } catch (e) { /* ignore */ }
         S.error = ''
-        api('GET').then(function (r) { if (r.ok) { S.status = r.data; S.form.siteUrl = r.data.origin || location.origin; render(true) } else { S.error = 'کد نصب درست نیست'; render() } })
+        api('GET').then(function (r) { if (r.ok) { S.status = r.data; S.form.siteUrl = r.data.origin || location.origin; if (r.data.modules && !S.modules) { S.modules = {}; r.data.modules.forEach(function (m) { S.modules[m.id] = m.defaultEnabled }) } render(true) } else { S.error = 'کد نصب درست نیست'; render() } })
       }, 'primary')))
     ]
   }

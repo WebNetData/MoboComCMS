@@ -11,7 +11,8 @@ const form = fields => { const data = new FormData(); for (const [key, value] of
 function world(db) {
   const cache = new Map()
   const load = file => {
-    const full = path.resolve(file.endsWith('.ts') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : path.join(file, 'index.ts'))
+    const full = path.resolve(file.endsWith('.ts') || file.endsWith('.json') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : path.join(file, 'index.ts'))
+    if (full.endsWith('.json')) return JSON.parse(fs.readFileSync(full, 'utf8'))
     if (cache.has(full)) return cache.get(full).exports
     const mod = { exports: {} }; cache.set(full, mod)
     const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText

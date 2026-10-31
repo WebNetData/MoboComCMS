@@ -68,7 +68,9 @@ export function normalizeLevels(input: unknown): UserLevel[] {
 }
 
 /** The member's level: the last one (in the order the admin set) whose every threshold is met. */
-export function levelFor(levels: UserLevel[], facts: { posts: number; likes: number; reputation: number }): UserLevel | null {
+export function levelFor(levels: UserLevel[], facts: { posts: number; likes: number; reputation: number }, manualId?: string | null): UserLevel | null {
+  const manual = manualId ? levels.find(level => level.id === manualId) : null
+  if (manual) return manual
   let found: UserLevel | null = null
   for (const level of levels) if (facts.posts >= level.minPosts && facts.likes >= level.minLikes && facts.reputation >= level.minReputation) found = level
   return found
