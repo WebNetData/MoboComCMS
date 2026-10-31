@@ -7,7 +7,7 @@ import shutil
 import sys
 import tarfile
 
-FORBIDDEN = {'storage', 'var', '.git', '.next', 'node_modules', '.env', '.serena', '.mobocom', '.agents', '.claude', '.codex', '.ai', '.vscode', '.idea'}
+FORBIDDEN = {'storage', 'var', '.git', '.next', '.next-dev', 'node_modules', '.env', '.serena', '.mobocom', '.agents', '.claude', '.codex', '.ai', '.vscode', '.idea', '.beads', '.graphify', 'AGENTS.md', 'CLAUDE.md', '.mcp.json'}
 KEEP = {'storage', 'var', '.git'}
 
 
@@ -27,6 +27,7 @@ def extract(archive, target, version):
             parts = name.split('/')
             if (not name or '\\' in name or any(p in ('', '.', '..') for p in parts)
                     or parts[0] in FORBIDDEN or any(p.startswith('.env') for p in parts)
+                    or (len(parts) > 1 and parts[0] == 'public' and parts[1] in ('demo', 'uploads'))
                     or name in seen or not (member.isdir() or member.isreg())
                     or member.type == tarfile.GNUTYPE_SPARSE or member.sparse
                     or any(k.startswith('GNU.sparse') for k in member.pax_headers)):
@@ -59,7 +60,8 @@ def pack(source, destination):
         for member in inp:
             parts = member.name.rstrip('/').split('/')
             if (parts[0] in FORBIDDEN or any(p.startswith('.env') for p in parts)
-                    or member.name.startswith('public/demo/')
+                    or member.name.rstrip('/') in ('public/demo', 'public/uploads')
+                    or member.name.startswith(('public/demo/', 'public/uploads/'))
                     or member.name.lower().endswith(('.pem', '.key', '.p12', '.dump', '.enc'))):
                 continue
             if not (member.isdir() or member.isreg()):
@@ -71,7 +73,7 @@ def adopt(app, stage):
     app, stage = Path(app), Path(stage)
     before = stage / 'before'
     before.mkdir(mode=0o700)
-    journal = {'old': [], 'new': []}
+    journal = {'old': [], 'new': [], 'runtime': [], 'createdPublic': False}
     def save():
         (stage / 'moves.json').write_text(json.dumps(journal))
     save()
@@ -88,6 +90,16 @@ def adopt(app, stage):
             item.rename(app / item.name)
             journal['new'].append(item.name)
             save()
+        # Legacy public runtime assets remain at their original URLs.
+        for name in ('demo', 'uploads'):
+            old = before / 'public' / name
+            if old.exists() or old.is_symlink():
+                if not (app / 'public').exists():
+                    (app / 'public').mkdir(mode=0o755)
+                    journal['createdPublic'] = True
+                old.rename(app / 'public' / name)
+                journal['runtime'].append(name)
+                save()
     except Exception:
         try:
             undo(app, stage)
@@ -99,6 +111,10 @@ def adopt(app, stage):
 def undo(app, stage):
     app, stage = Path(app), Path(stage)
     journal = json.loads((stage / 'moves.json').read_text())
+    for name in reversed(journal.get('runtime', [])):
+        (app / 'public' / name).rename(stage / 'before' / 'public' / name)
+    if journal.get('createdPublic'):
+        (app / 'public').rmdir()
     for name in reversed(journal['new']):
         (app / name).rename(stage / 'source' / name)
     for name in reversed(journal['old']):

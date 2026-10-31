@@ -5,11 +5,12 @@ const MAGIC = Buffer.from('MBCREL01'), MAX_BYTES = 512 * 1024 * 1024
 const path = require('node:path')
 const skipped = name => ['storage','var','.git','node_modules','.next'].includes(name) || name.startsWith('.env')
 async function inventory(root) {
-  const result={}
+  const result=Object.create(null)
   async function walk(dir, prefix='') {
     for(const item of await fsp.readdir(dir,{withFileTypes:true})) {
       if(!prefix && skipped(item.name)) continue
       const relative=prefix+item.name, absolute=path.join(dir,item.name)
+      if(relative==='public/demo'||relative==='public/uploads')continue
       if(item.isSymbolicLink()) throw Error('CODE_LINK_REFUSED')
       if(item.isDirectory()) await walk(absolute,relative+'/')
       else if(item.isFile()) { const h=crypto.createHash('sha256');for await(const bytes of fs.createReadStream(absolute))h.update(bytes);result[relative]=h.digest('hex') }

@@ -3,6 +3,7 @@
 set -euo pipefail
 main() {
 umask 077
+[ "$(id -u)" -ne 0 ] || { echo '[release] run through the service-user helper, not root' >&2; exit 2; }
 ID="${1:-}"
 [[ "$ID" =~ ^[a-f0-9]{64}$ ]] || { echo '[release] invalid package id' >&2; exit 2; }
 APP="${MOBOCOM_APP_DIR:-/opt/mobocom/app}"
@@ -37,6 +38,11 @@ finish() {
   if [ "$COMPLETE" = 0 ]; then
     if [ "$ADOPTED" = 1 ]; then
       if python3 "$TOOLS/release-extract.py" undo "$APP" "$HOLD"; then
+        if [ -f "$HOLD/inventory.before" ]; then
+          cp "$HOLD/inventory.before" "$STATE/current-files.json"
+        else
+          rm -f -- "$STATE/current-files.json"
+        fi
         if restart && healthy; then write_state rolled-back 'نسخهٔ جدید ناموفق بود؛ کد قبلی برگشت'; else write_state failed 'کد قبلی برگشت اما سرویس نیازمند بررسی است'; fi
       else
         write_state failed 'بازیابی کد ناموفق؛ سرویس خاموش است و مسیر بازیابی حفظ شد'
@@ -52,8 +58,16 @@ finish() {
 trap finish EXIT
 trap 'exit 130' INT TERM HUP
 exec >>"$STATE/update.log" 2>&1
+if [ -n "${DOWNLOADS_ROOT:-}" ]; then
+  DATA_ROOT="$(realpath -m -- "$DOWNLOADS_ROOT")"
+  case "$DATA_ROOT/" in
+    "$APP/storage/"*|"$APP/public/demo/"*|"$APP/public/uploads/"*) ;;
+    "$APP/"*) echo '[release] custom downloads inside the code tree require operator storage adoption; nothing replaced' >&2; exit 2 ;;
+  esac
+fi
 write_state running 'بررسی بستهٔ امضاشده'
 HOLD="$(mktemp -d "$(dirname "$APP")/.package.XXXXXXXX")"
+if [ -f "$STATE/current-files.json" ]; then cp "$STATE/current-files.json" "$HOLD/inventory.before"; fi
 cp --no-dereference -- "$STATE/packages/$ID.mbrelease" "$HOLD/release.mbrelease"
 [ ! -L "$HOLD/release.mbrelease" ] || exit 2
 [ "$(sha256sum "$HOLD/release.mbrelease" | cut -d' ' -f1)" = "$ID" ] || exit 2
@@ -71,7 +85,7 @@ FREE="$(df -Pm "$APP" | awk 'NR==2 {print $4}')"
 python3 "$TOOLS/release-extract.py" extract "$HOLD/payload.tar.gz" "$HOLD/source" "$TARGET"
 write_state running 'آماده‌سازی نسخهٔ جدید در پوشهٔ جدا'
 ( cd "$HOLD/source"; "${UPDATE_NPM:-npm}" ci --include=dev --no-audit --no-fund; NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "${UPDATE_BUILD:-npm run build:postgres}" )
-rm -rf -- "$HOLD/source/storage" "$HOLD/source/var"
+rm -rf -- "$HOLD/source/storage" "$HOLD/source/var" "$HOLD/source/public/demo" "$HOLD/source/public/uploads"
 cp "$HOLD/manifest.json" "$HOLD/source/.release.json"
 node "$TOOLS/release-package.cjs" inventory "$HOLD/source" "$HOLD/current-files.json"
 clean || { echo '[release] new local changes preserved; update refused' >&2; exit 2; }

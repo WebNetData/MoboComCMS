@@ -40,8 +40,10 @@ class ReleaseFiles(unittest.TestCase):
             root = Path(work)
             app, stage = root / 'app', root / 'stage'
             source = stage / 'source'
-            for directory in [app / 'storage/update/lock', app / 'var', app / '.git', source]:
+            for directory in [app / 'storage/update/lock', app / 'var', app / '.git', app / 'public/demo', app / 'public/uploads', source]:
                 directory.mkdir(parents=True)
+            (app / 'public/demo/cover.svg').write_text('legacy cover')
+            (app / 'public/uploads/customer').write_text('legacy customer media')
             (app / '.env').write_text('secret stays')
             (app / 'code').write_text('old')
             (source / 'code').write_text('new')
@@ -49,8 +51,11 @@ class ReleaseFiles(unittest.TestCase):
             self.assertEqual((app / 'code').read_text(), 'new')
             self.assertEqual((app / '.env').read_text(), 'secret stays')
             self.assertTrue((app / 'storage/update/lock').is_dir())
+            self.assertEqual((app / 'public/demo/cover.svg').read_text(), 'legacy cover')
+            self.assertEqual((app / 'public/uploads/customer').read_text(), 'legacy customer media')
             release.undo(app, stage)
             self.assertEqual((app / 'code').read_text(), 'old')
+            self.assertEqual((app / 'public/demo/cover.svg').read_text(), 'legacy cover')
 
     def test_adoption_failure_compensates_code(self):
         with tempfile.TemporaryDirectory() as work:

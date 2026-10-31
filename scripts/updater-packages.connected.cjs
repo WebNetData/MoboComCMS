@@ -13,7 +13,7 @@ const load=loadFactory({
  '@/modules/installer/server/gate':{installGate:async()=>setupBlocked?new Response('installer closed',{status:404}):null},
  'node:child_process':{...cp,execFile:(file,args,options,callback)=>{if(file!=='sudo')return cp.execFile(file,args,options,callback);helperCalls.push(args);setTimeout(()=>callback(null,'started',''),15)}},
 })
-function request(method='POST',body,headers={}){return new NextRequest('https://site.invalid/api/admin/server/updates/package',{method,headers:{host:'site.invalid',origin:'https://site.invalid',...headers},...(body===undefined?{}:{body})})}
+function request(method='POST',body,headers={}){return new NextRequest('https://site.invalid/api/admin/server/updates/package',{method,headers:{host:'site.invalid',origin:'https://site.invalid',...headers},...(body===undefined?{}:{body,duplex:'half'})})}
 async function main(){
  Object.assign(process.env,{SERVER_PANEL_ENABLED:'true',UPDATE_STATE_DIR:path.join(dir,'state'),UPDATE_HELPER:'/tmp/mobocom-package-tools/helper',UPDATE_PACKAGE_TOOL:'/tmp/mobocom-package-tools/release-package.cjs',UPDATE_PUBLIC_KEY_FILE:'/tmp/mobocom-package-tools/release-public.pem',NEXTAUTH_URL:'https://site.invalid'})
  user=await db.user.create({data:{email:stamp+'@example.invalid',name:stamp,passwordHash:stamp+'-hash',role:'ADMIN',status:'ACTIVE'}})
@@ -29,6 +29,11 @@ async function main(){
  limited=true;assert.equal((await http.POST(req('x'))).status,429);limited=false
  assert.equal((await http.POST(req('not a release'))).status,400)
  assert.equal((await http.POST(req('x',{'content-length':String(513*1024*1024)}))).status,413)
+ // Reuse a bounded chunk: prove the streaming cap itself, not merely Content-Length.
+ let remaining=512*1024*1024+1;const chunk=new Uint8Array(2*1024*1024)
+ const stream=new ReadableStream({pull(controller){if(!remaining){controller.close();return}const size=Math.min(remaining,chunk.length);controller.enqueue(chunk.subarray(0,size));remaining-=size}})
+ assert.equal((await http.POST(req(stream,{'content-length':'1'}))).status,413)
+ assert.equal(fs.readdirSync(path.join(dir,'state/packages')).filter(name=>name.startsWith('.incoming-')).length,0,'overflow cleans its private partial file')
  const admitted=await http.POST(req(fs.readFileSync('/tmp/mobocom-package-tools/valid.mbrelease')));assert.equal(admitted.status,200,await admitted.clone().text())
  const item=await admitted.json();assert.match(item.id,/^[a-f0-9]{64}$/);assert.equal(item.version,'1.6.1')
  assert.equal(fs.statSync(path.join(dir,'state/packages',item.id+'.mbrelease')).mode&0o077,0)

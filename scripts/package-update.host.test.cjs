@@ -43,6 +43,7 @@ async function fixture(t){
  return{dir,app,backups,query,pack,update,health:set=>{fixtureHealth=set},version:()=>JSON.parse(fs.readFileSync(path.join(app,'package.json'))).version,state:()=>JSON.parse(fs.readFileSync(path.join(app,'storage/update/state.json'))),files}
 }
 test('package update without .git: actual code replacement, PG backup, data/config preserved and next package works',{skip:!enabled},async t=>{
+ const rootRefusal=cp.spawnSync('bash',[path.join(root,'deploy/ubuntu/package-update.sh'),'a'.repeat(64)],{encoding:'utf8'});assert.equal(rootRefusal.status,2);assert.match(rootRefusal.stderr,/not root/)
  const b=await fixture(t);let result=await b.update(b.pack());assert.equal(result.code,0,result.stderr)
  assert.equal(b.version(),'1.6.1');assert.equal(b.state().status,'done');assert.equal(fs.existsSync(path.join(b.app,'.git')),false)
  assert.equal(b.query('SELECT value FROM item').trim(),'customer row');assert.equal(fs.readFileSync(path.join(b.app,'storage/uploads/customer'),'utf8'),'customer data');assert.equal(fs.readFileSync(path.join(b.app,'.env'),'utf8'),'OWNER_ENV=preserved')
@@ -67,4 +68,11 @@ test('owner edits and concurrent restore prevent package execution',{skip:!enabl
  const b=await fixture(t),id=b.pack();fs.writeFileSync(path.join(b.app,'owner.js'),'keep this')
  assert.notEqual((await b.update(id)).code,0);assert.equal(b.version(),'1.6.0');assert.equal(fs.readFileSync(path.join(b.app,'owner.js'),'utf8'),'keep this');assert.equal(fs.existsSync(path.join(b.dir,'stopped')),false)
  fs.unlinkSync(path.join(b.app,'owner.js'));fs.mkdirSync(path.join(b.app,'storage/update/lock'));assert.equal((await b.update(id)).code,3)
+})
+test('failure after healthy code adoption restores the previous source inventory too',{skip:!enabled},async t=>{
+ const b=await fixture(t),shim=path.join(b.dir,'shim');fs.mkdirSync(shim)
+ fs.writeFileSync(path.join(shim,'node'),'#!/bin/sh\nif [ "$1" = -e ] && [ "${4:-}" = done ]; then exit 9; fi\nexec /usr/local/bin/node "$@"\n');fs.chmodSync(path.join(shim,'node'),0o755)
+ const result=await b.update(b.pack(),{PATH:shim+':'+process.env.PATH});assert.notEqual(result.code,0);assert.equal(b.version(),'1.6.0');assert.equal(b.state().status,'rolled-back')
+ asApp(['node',path.join(b.dir,'tools/release-package.cjs'),'clean',b.app,path.join(b.app,'storage/update/current-files.json')])
+ assert.equal(b.query('SELECT value FROM item').trim(),'customer row')
 })

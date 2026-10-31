@@ -15,7 +15,7 @@ function fixture(t) {
   fs.chmodSync(dir, 0o755)
   run('chown',['mobocom:mobocom',dir]) // mirrors the service-owned /opt/mobocom home
   const app = path.join(dir,'app'), backups = path.join(dir,'backups'), bin = path.join(dir,'bin'), envFile = path.join(dir,'env')
-  for (const sub of ['storage/uploads','storage/config','storage/update','storage/backups','.git']) fs.mkdirSync(path.join(app,sub),{recursive:true})
+  for (const sub of ['storage/uploads','storage/config','storage/update','storage/backups']) fs.mkdirSync(path.join(app,sub),{recursive:true})
   fs.writeFileSync(path.join(app,'package.json'),'{"version":"1.6.0"}')
   for (const file of ['deploy/ubuntu/backup.sh','deploy/ubuntu/mobocom','deploy/ubuntu/restore-files.py','scripts/host-backup-db.cjs','scripts/backup-core.cjs','scripts/load-runtime-env.cjs']) {
     fs.mkdirSync(path.dirname(path.join(app,file)),{recursive:true}); fs.copyFileSync(path.join(root,file), path.join(app,file))

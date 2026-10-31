@@ -144,13 +144,20 @@ if [ -n "$PACKAGE" ]; then
   ROOT_ASSETS="$(mktemp -d /root/mobocom-install.XXXXXXXX)"
   trap 'rm -rf -- "$ROOT_ASSETS"' EXIT
   install -m 600 "$PUBLIC_KEY" "$ROOT_ASSETS/release-public.pem"
+  if [ -e /etc/mobocom/release-public.pem ]; then
+    OLD_KEY="$(node "$BUNDLE_DIR/release-package.cjs" fingerprint /etc/mobocom/release-public.pem)"
+    NEW_KEY="$(node "$BUNDLE_DIR/release-package.cjs" fingerprint "$ROOT_ASSETS/release-public.pem")"
+    [ "$OLD_KEY" = "$NEW_KEY" ] || die 'publisher key differs; explicit operator key rotation required'
+  fi
   node "$BUNDLE_DIR/release-package.cjs" verify "$PACKAGE" "$ROOT_ASSETS/release-public.pem" "$ROOT_ASSETS/payload.tar.gz" > "$ROOT_ASSETS/manifest.json"
   VERSION="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).version" "$ROOT_ASSETS/manifest.json")"
   python3 "$BUNDLE_DIR/release-extract.py" extract "$ROOT_ASSETS/payload.tar.gz" "$ROOT_ASSETS/source" "$VERSION"
   if [ ! -e "$APP_DIR" ]; then
-    cp -a "$ROOT_ASSETS/source" "$APP_DIR"
-    cp "$ROOT_ASSETS/manifest.json" "$APP_DIR/.release.json"
-    chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+    cp -a "$ROOT_ASSETS/source" "$ROOT_ASSETS/app-ready"
+    cp "$ROOT_ASSETS/manifest.json" "$ROOT_ASSETS/app-ready/.release.json"
+    chown -R "$APP_USER:$APP_USER" "$ROOT_ASSETS/app-ready"
+    # Prepare ownership under the private root parent before exposing the new path.
+    mv -T -- "$ROOT_ASSETS/app-ready" "$APP_DIR"
     NEW_PACKAGE_INSTALL=1
   else
     note 'existing application kept; use the web updater for code changes'
