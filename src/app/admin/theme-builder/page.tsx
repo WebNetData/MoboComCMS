@@ -14,6 +14,7 @@ type Category = { id: number; name: string; nameEn: string; parentId: number | n
 type Preset = { id: string; fa: string; en: string; descFa: string; descEn: string; sections: number }
 type Payload = { templates: ThemeTemplateMeta[]; postCategories: Category[]; productCategories: Category[]; presets: Record<ThemeTemplateType, Preset[]> }
 type L = (en: string, fa: string) => string
+const AUTHORING_TYPES = THEME_TEMPLATE_TYPES.filter(type => type !== 'single-post')
 
 const TYPE_GLYPH: Record<ThemeTemplateType, string> = { header: '▔', footer: '▁', page: '▣', 'single-post': '¶', 'single-product': '◈' }
 
@@ -102,7 +103,7 @@ export default function ThemeBuilderPage() {
     await load()
   }
 
-  const templates = data?.templates || []
+  const templates = (data?.templates || []).filter(entry => entry.type !== 'single-post')
   const words = query.trim().toLowerCase().split(/s+/).filter(Boolean)
   const found = templates.filter((entry) => words.every((word) => [entry.name, entry.nameEn || '', entry.placement.slug].join(' ').toLowerCase().includes(word)) && (!status || entry.status === status))
   const shown = filter === 'all' ? found : found.filter((entry) => entry.type === filter)
@@ -124,7 +125,7 @@ export default function ThemeBuilderPage() {
       <div>
         <span className="tb-eyebrow">قالب‌ساز</span>
         <h1>{L('Theme builder', 'سازندهٔ قالب سایت')}</h1>
-        <p>{L('Design headers, footers, full pages, sections and single-post / product layouts — then decide where each one appears.', 'هدر، فوتر، صفحه‌های کامل، بخش‌ها و قالب پست و محصول را طراحی کنید و تعیین کنید هر کدام کجا نمایش داده شود.')}</p>
+        <p>{L('Design headers, footers, full pages, sections and product layouts — then decide where each one appears.', 'هدر، فوتر، صفحه‌های کامل، بخش‌ها و قالب محصول را طراحی کنید و تعیین کنید هر کدام کجا نمایش داده شود.')}</p>
       </div>
       <button type="button" className="btn btn-primary tb-new" onClick={() => setCreating(true)}>＋ {L('New template', 'قالب جدید')}</button>
     </header>
@@ -147,7 +148,7 @@ export default function ThemeBuilderPage() {
     </search>}
 
     <nav className="tb-tabs" role="tablist">
-      {(['all', ...THEME_TEMPLATE_TYPES] as const).map((type) => {
+      {(['all', ...AUTHORING_TYPES] as const).map((type) => {
         const total = type === 'all' ? found.length : found.filter((entry) => entry.type === type).length
         return <button key={type} type="button" role="tab" aria-selected={filter === type} className={filter === type ? 'is-active' : ''} onClick={() => setFilter(type)}>
           {type === 'all' ? L('All', 'همه') : L(THEME_TYPE_LABELS[type].en, THEME_TYPE_LABELS[type].fa)}
@@ -210,7 +211,7 @@ export default function ThemeBuilderPage() {
       <ol>
         <li>{L('Create a template and design it in the visual builder (drag blocks, sections and columns).', 'یک قالب بسازید و در صفحه‌ساز بصری طراحی کنید (کشیدن بلوک، بخش و ستون).')}</li>
         <li>{L('Set its display rules (e.g. “posts in Gaming”) or, for pages, its placement (home, journal, shop or a /section URL).', 'شرط نمایش (مثلاً «پست‌های دستهٔ گیمینگ») یا برای صفحه‌ها جایگاه را تعیین کنید (خانه، مجله، فروشگاه یا آدرس ‎/بخش).')}</li>
-        <li>{L('Publish it. The most specific rule wins; a post or product can still pick another layout manually in its builder.', 'منتشر کنید. دقیق‌ترین شرط برنده است؛ هر پست یا محصول می‌تواند در صفحه‌ساز خودش قالب دیگری را دستی انتخاب کند.')}</li>
+        <li>{L('Publish it. The most specific rule wins; products can still pick another layout manually in their builder.', 'منتشر کنید. دقیق‌ترین شرط برنده است؛ هر محصول می‌تواند در صفحه‌ساز خودش قالب دیگری را دستی انتخاب کند.')}</li>
       </ol>
     </section>
 
@@ -248,7 +249,7 @@ function CreateDialog({ L, presets, onClose, onCreated }: { L: L; presets: Recor
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={L('Close', 'بستن')}>✕</button>
       </header>
       {!type ? <div className="tb-type-grid">
-        {THEME_TEMPLATE_TYPES.map((entry) => <button type="button" key={entry} className={`tb-type-tile t-${entry}`} onClick={() => { setType(entry); setPreset('') }}>
+        {AUTHORING_TYPES.map((entry) => <button type="button" key={entry} className={`tb-type-tile t-${entry}`} onClick={() => { setType(entry); setPreset('') }}>
           <span className="tb-type-glyph" aria-hidden="true">{TYPE_GLYPH[entry]}</span>
           <b>{L(THEME_TYPE_LABELS[entry].en, THEME_TYPE_LABELS[entry].fa)}</b>
           <small>{L(THEME_TYPE_LABELS[entry].descEn, THEME_TYPE_LABELS[entry].descFa)}</small>

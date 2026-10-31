@@ -15,6 +15,7 @@ export default function LevelsTab({ levels, busy, onChange, onSave }: { levels: 
   const samples = [{ posts: 3, likes: 0 }, { posts: 60, likes: 20 }, { posts: 120, likes: 150 }, { posts: 400, likes: 900 }]
   return <section className="xm-section">
     <h2>درجه‌های کاربری</h2>
+    <p className="muted">درجه فقط نشان‌دهندهٔ فعالیت است و دسترسی نمی‌دهد. برای ارتقای دستی، در زبانهٔ «کاربران» درجهٔ همان کاربر را انتخاب کنید؛ بازگشت به حالت خودکار هم از همان‌جا انجام می‌شود.</p>
     <p className="muted">هر کاربر با رسیدن به آستانه‌ها درجه می‌گیرد و زیر نامش در تاپیک‌ها نشان داده می‌شود. <b>آخرین</b> درجهٔ این فهرست که همهٔ شرط‌هایش برقرار باشد نمایش داده می‌شود؛ پس از آسان به سخت بچینید. درجه از روی آمار فعلی هر کاربر حساب می‌شود و برای همهٔ کاربران قدیمی هم بلافاصله اعمال است.</p>
     <div className="lv-list">
       {levels.map((level, index) => <div key={index} className="card lv-row" style={{ ['--lv' as string]: level.color }}>

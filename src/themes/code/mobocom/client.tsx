@@ -83,7 +83,9 @@ function PriorityNav({ links, isOn, label, more }: { links: NavLink[]; isOn: (hr
   const [glide, setGlide] = useState<{ x: number; width: number } | null>(null)
   const glideTo = (target: EventTarget | null) => {
     const item = target instanceof Element ? target.closest<HTMLElement>('[data-nav-item]') : null
-    if (item && rail.current?.contains(item)) setGlide({ x: item.offsetLeft, width: item.offsetWidth })
+    if (!item || !rail.current?.contains(item)) { setGlide(null); return }
+    const itemRect = item.getBoundingClientRect(), railRect = rail.current.getBoundingClientRect()
+    setGlide({ x: itemRect.left - railRect.left + rail.current.scrollLeft, width: itemRect.width })
   }
   return <nav ref={nav} className="mb-nav" aria-label={label}>
     <div ref={measure} className="mb-nav-measure" aria-hidden="true">{links.map(link => <span key={link.id || link.href}><EntryIcon link={link}/>{link.label}{!!link.children?.length && <b style={{ display: 'inline-block', width: 34 }} aria-hidden="true">⌄</b>}</span>)}</div>

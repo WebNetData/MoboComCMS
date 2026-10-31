@@ -1,0 +1,16 @@
+[
+  {
+    "externalId": "movie-001",
+    "title": "فیلم نمونه",
+    "titleEn": "Sample Movie",
+    "slug": "sample-movie",
+    "summary": "<p>خلاصهٔ داستان نمونه؛ اطلاعات واقعی را جایگزین کنید.</p>",
+    "year": 2025,
+    "genres": ["Drama"],
+    "categories": ["درام"],
+    "poster": "https://example.com/movie.jpg",
+    "cast": [{ "name": "Sample Actor", "role": "نقش نمونه", "image": "https://example.com/actor.jpg" }],
+    "links": [{ "url": "https://example.com/movie.mp4", "label": "نسخهٔ نمونه", "quality": "1080p" }],
+    "status": "DRAFT"
+  }
+]

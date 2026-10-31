@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
 import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { contentChanged } from '@/modules/content/server/events'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
@@ -45,7 +46,7 @@ const normalizeOptions = (raw: Record<string, unknown>): Options => ({
 })
 
 type Cat = { id: number; slug: string; name: string; parentId: number | null }
-type Post = { id: number; slug: string; title: string; titleEn: string; excerpt: string; content: string; cover: string; status: string; updatedAt: Date }
+type Post = { id: number; slug: string; title: string; titleEn: string; excerpt: string; content: string; cover: string; status: string; editorFormat: string; updatedAt: Date }
 type Data = { existing: Post | null; values: Record<string, unknown>; paths: string[][]; authorId: number | null }
 
 async function cats(ctx: ImportContext): Promise<Map<number, Cat>> {
@@ -89,7 +90,7 @@ async function prepare(_items: SourceItem[], values: Record<string, unknown>[], 
   const fromIdentity = ids.map((id) => identityOf(ctx, ENTITY, id)).filter((id): id is number => !!id)
   const slugs = values.map((v) => toText(v.slug, 190)).filter(Boolean)
   const titles = values.map((v) => toText(v.title, 300)).filter(Boolean)
-  const rows = await db.post.findMany({ where: { OR: [{ id: { in: fromIdentity } }, ...(slugs.length ? [{ slug: { in: slugs } }] : []), ...(titles.length ? [{ title: { in: titles } }] : [])] }, select: { id: true, slug: true, title: true, titleEn: true, excerpt: true, content: true, cover: true, status: true, updatedAt: true } })
+  const rows = await db.post.findMany({ where: { OR: [{ id: { in: fromIdentity } }, ...(slugs.length ? [{ slug: { in: slugs } }] : []), ...(titles.length ? [{ title: { in: titles } }] : [])] }, select: { id: true, slug: true, title: true, titleEn: true, excerpt: true, content: true, cover: true, status: true, editorFormat: true, updatedAt: true } })
   const map = (ctx.cache.get('posts') as Map<number, Post> | undefined) || new Map<number, Post>()
   for (const r of rows) map.set(r.id, r)
   ctx.cache.set('posts', map)
@@ -120,6 +121,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, _v: Recor
   const mode = action === 'CREATE' ? 'create' : 'update'
   const allowed = ctx.allow(values, mode, existing ? snapshot(existing as unknown as Record<string, unknown>, ['title', 'titleEn', 'excerpt', 'content', 'cover', 'status']) : undefined)
   if (mode === 'create' && !('title' in allowed && 'content' in allowed)) return fail('عنوان و متن برای ساخت مطلب لازم‌اند')
+  if (existing?.editorFormat === 'blocks-v1' && 'content' in allowed) return fail('متن این مطلب بلوکی است؛ HTML ورودی جایگزین سند بلوکی نمی‌شود. به‌روزرسانی «متن کامل» را بردارید و متن را در ادیتور همان مطلب ویرایش کنید.')
   const paths = (values.categories as string[][] | undefined) || []
   if ('categories' in allowed) {
     const map = await cats(ctx)
@@ -171,6 +173,15 @@ function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promise<App
   return tracked((changes) => applyPost(item, planned, ctx, changes))
 }
 
+/** Serialize an HTML write/undo against conversion to the canonical block document. */
+async function claimLegacyBody(tx: Prisma.TransactionClient, id: number): Promise<string | null> {
+  const current = await tx.post.findUnique({ where: { id }, select: { editorFormat: true, updatedAt: true } })
+  if (!current) return 'مطلب موجود پیدا نشد'
+  if (current.editorFormat !== 'legacy') return 'متن اکنون بلوکی است؛ HTML ورودی یا بازگشت آن ذخیره نشد.'
+  const claimed = await tx.post.updateMany({ where: { id, editorFormat: current.editorFormat, updatedAt: current.updatedAt }, data: { updatedAt: current.updatedAt } })
+  return claimed.count ? null : 'مطلب هم‌زمان تغییر کرده است؛ متن ذخیره نشد.'
+}
+
 async function applyPost(_item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
   const data = planned.data as Data
   const o = ctx.settings.options as unknown as Options
@@ -184,6 +195,7 @@ async function applyPost(_item: SourceItem, planned: Plan, ctx: ImportContext, c
   }
   const mode = existing ? 'update' : 'create'
   const allowed = ctx.allow(data.values, mode, existing ? snapshot(existing as unknown as Record<string, unknown>, ['title', 'titleEn', 'excerpt', 'content', 'cover', 'status']) : undefined)
+  if (existing?.editorFormat === 'blocks-v1' && 'content' in allowed) throw new Error('متن بلوکی از ورود HTML بازنویسی نمی‌شود؛ انتخاب فیلدهای به‌روزرسانی را اصلاح کنید.')
   const row: Record<string, unknown> = {}
   if ('title' in allowed) row.title = toText(allowed.title, 300)
   if ('titleEn' in allowed) row.titleEn = toText(allowed.titleEn, 300)
@@ -204,6 +216,10 @@ async function applyPost(_item: SourceItem, planned: Plan, ctx: ImportContext, c
   let contentFingerprint: string | undefined
   const saved = await db.$transaction(async (tx) => {
     if (existing) await claimImportUpdate(tx, ctx, 'post', existing.id)
+    if (existing && 'content' in row) {
+      const refusal = await claimLegacyBody(tx, existing.id)
+      if (refusal) throw new Error(refusal)
+    }
     if (categoryIds) { row.categoryId = categoryIds[0] || null; row.categories = existing ? { deleteMany: {}, create: categoryIds.map((categoryId) => ({ categoryId })) } : { create: categoryIds.map((categoryId) => ({ categoryId })) } }
     if (!existing) {
       let slug = toText(allowed.slug, 120) || latinSlug(data.values.titleEn || data.values.title, 100) || slugify(data.values.title) || `post-${suffixOf(planned.sourceKey)}`
@@ -232,7 +248,11 @@ async function rollback(changes: Change[]) {
   let undone = 0
   for (const change of [...changes].reverse()) {
     let problem: string | null = null
-    if (change.entity === 'post') problem = await undoChange(change, 'post', { label: 'مطلب', dates: ['publishedAt'], canDelete: async (id) => ((await db.postComment.count({ where: { postId: id } })) ? 'دیدگاه دارد' : null) })
+    if (change.entity === 'post') {
+      problem = change.kind === 'updated' && Object.hasOwn(change.after, 'content')
+        ? await db.$transaction(async tx => (await claimLegacyBody(tx, change.id)) || undoChange(change, 'post', { label: 'مطلب', dates: ['publishedAt'], client: tx }))
+        : await undoChange(change, 'post', { label: 'مطلب', dates: ['publishedAt'], canDelete: async (id) => ((await db.postComment.count({ where: { postId: id } })) ? 'دیدگاه دارد' : null) })
+    }
     else if (change.entity === 'postCategory' && change.kind === 'created') {
       const cat = await db.postCategory.findUnique({ where: { id: change.id }, include: { _count: { select: { posts: true, assignments: true, children: true } } } })
       if (cat) {
@@ -255,7 +275,7 @@ export const magazineImporter: ImportAdapter = {
     { key: 'categorySeparator', label: 'جداکنندهٔ سطح‌های دسته', type: 'select', step: 4, default: '>', choices: [{ value: '>', label: 'A > B' }, { value: '/', label: 'A / B' }, { value: '|', label: 'A | B' }] },
     { key: 'missingCategories', label: 'دستهٔ مجله موجود نیست', type: 'select', step: 4, default: 'create', choices: [{ value: 'create', label: 'ساخته شود' }, { value: 'error', label: 'خطا' }] },
     { key: 'missingAuthor', label: 'نویسنده در کاربران سایت نیست', type: 'select', step: 4, default: 'importer', choices: [{ value: 'importer', label: 'واردکننده نویسنده شود' }, { value: 'error', label: 'خطا' }] },
-    { key: 'defaultStatus', label: 'وضعیت مطالب جدید (اگر ستون وضعیت نگاشت نشده)', type: 'select', step: 8, default: 'PUBLISHED', choices: [{ value: 'PUBLISHED', label: 'منتشر' }, { value: 'DRAFT', label: 'پیش‌نویس' }] },
+    { key: 'defaultStatus', label: 'وضعیت مطالب جدید (اگر ستون وضعیت نگاشت نشده)', type: 'select', step: 8, default: 'DRAFT', choices: [{ value: 'PUBLISHED', label: 'منتشر' }, { value: 'DRAFT', label: 'پیش‌نویس' }] },
   ],
   normalizeOptions: normalizeOptions as unknown as (raw: Record<string, unknown>) => Record<string, unknown>,
   prepare, plan, apply, rollback,

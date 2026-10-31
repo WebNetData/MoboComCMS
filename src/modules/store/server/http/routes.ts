@@ -22,6 +22,7 @@ import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
 import { minorToNumber } from '@/shared/money'
 import { adminProducts, bulkProducts, deleteBrand, inventoryList, listBrands, saveBrand, storeCustomers, storeDashboard, updateStock } from '@/modules/store/server/admin'
 import { enqueue } from '@/modules/operations/server/queue'
+import { assignOrder, orderSpecialists } from '@/modules/store/server/order-work'
 
 function failure(error: unknown) {
   if (error instanceof StoreError) return err(error.message, error.status, { code: error.code })
@@ -166,6 +167,7 @@ export async function POST_cartCheckout(req: NextRequest) {
 // ------------------------------------------------------------------ admin
 
 const orderAdmin = (req: NextRequest) => adminGuard(req, 'store', ['orders.manage'])
+const orderWorker = (req: NextRequest) => adminGuard(req, 'store', ['orders.manage', 'store.orders.handle'])
 const catalogAdmin = (req: NextRequest) => adminGuard(req, 'store', ['cms.products'])
 const anyStoreAdmin = (req: NextRequest) => adminGuard(req, 'store', ['orders.manage', 'cms.products', 'settings.manage'])
 const positiveId = (value: unknown) => {
@@ -183,19 +185,20 @@ export async function GET_dashboard(req: NextRequest) {
 
 /** GET /api/admin/store/orders?tab=&q=&page=&date= */
 export async function GET_orders(req: NextRequest) {
-  const g = await orderAdmin(req)
+  const g = await orderWorker(req)
   if ('response' in g) return g.response
   const params = req.nextUrl.searchParams
-  return ok(await adminOrders({ tab: params.get('tab') || 'all', q: params.get('q') || '', page: Number(params.get('page')) || 1, date: params.get('date') || '' }))
+  return ok(await adminOrders({ tab: params.get('tab') || 'all', q: params.get('q') || '', page: Number(params.get('page')) || 1, date: params.get('date') || '' }, { actorId: g.admin.id, manager: (g.admin.roleId == null || !!g.admin.permissions?.includes('orders.manage')) }))
 }
 
 /** GET /api/admin/store/orders/:id */
 export async function GET_order(req: NextRequest, { params }: IdContext) {
-  const g = await orderAdmin(req)
+  const g = await orderWorker(req)
   if ('response' in g) return g.response
   const id = positiveId((await params).id)
-  const order = id ? await adminOrder(id) : null
-  return order ? ok(order) : err('سفارش پیدا نشد', 404)
+  const manager = (g.admin.roleId == null || !!g.admin.permissions?.includes('orders.manage'))
+  const order = id ? await adminOrder(id, { actorId: g.admin.id, manager }) : null
+  return order ? ok({ ...order, specialists: manager ? await orderSpecialists() : [] }) : err('سفارش پیدا نشد', 404)
 }
 
 /**
@@ -206,21 +209,28 @@ export async function GET_order(req: NextRequest, { params }: IdContext) {
  *   { action: 'erase-inputs', lineId? } — wipes them
  */
 export async function POST_order(req: NextRequest, { params }: IdContext) {
-  const g = await orderAdmin(req)
+  const g = await orderWorker(req)
   if ('response' in g) return g.response
   const id = positiveId((await params).id)
   if (!id) return err('invalid id')
   const body = (await req.json().catch(() => null)) || {}
+  const scope = { actorId: g.admin.id, manager: (g.admin.roleId == null || !!g.admin.permissions?.includes('orders.manage')) }
   try {
+    if (body.action === 'assign' || body.action === 'take') {
+      const result = await assignOrder(id, body.action === 'take' ? g.admin.id : body.assigneeId, scope)
+      await auditAdmin({ req, actor: g.admin, action: 'store.order.assign', targetType: 'order', targetId: id, metadata: result })
+      return ok(result)
+    }
+    if (!scope.manager && (body.action === 'erase-inputs' || body.restock === true || ['CANCELLED', 'RETURNED'].includes(String(body.to || '')))) return err('این عملیات فقط با مدیر سفارش‌ها است', 403)
     if (body.action === 'status') {
-      const result = await transitionOrder({ orderId: id, to: String(body.to || ''), actorId: g.admin.id, trackingCode: body.trackingCode, note: body.note, digitalDelivery: body.digitalDelivery, notify: body.notify !== false, restock: body.restock === true })
+      const result = await transitionOrder({ orderId: id, to: String(body.to || ''), actorId: g.admin.id, trackingCode: body.trackingCode, note: body.note, digitalDelivery: body.digitalDelivery, notify: body.notify !== false, restock: body.restock === true, scope })
       await auditAdmin({ req, actor: g.admin, action: 'store.order.status', targetType: 'order', targetId: id, metadata: { to: result.status, restock: body.restock === true } })
     } else if (body.action === 'note') {
-      await addOrderNote({ orderId: id, note: body.note, visible: body.visible === true, actorId: g.admin.id })
+      await addOrderNote({ orderId: id, note: body.note, visible: body.visible === true, actorId: g.admin.id, scope })
       await auditAdmin({ req, actor: g.admin, action: 'store.order.note', targetType: 'order', targetId: id, metadata: { visible: body.visible === true } })
     } else if (body.action === 'reveal-inputs') {
       const lineId = positiveId(body.lineId)
-      const inputs = await revealOrderInputs(id, lineId)
+      const inputs = await revealOrderInputs(id, lineId, scope)
       // Who read a customer's login is on the record, before the answer leaves the server.
       await auditAdmin({ req, actor: g.admin, action: 'store.order.inputs_reveal', targetType: 'order', targetId: id, metadata: { lineId, fields: inputs.map((answer) => answer.key) } })
       return ok({ lineId, inputs })
@@ -229,7 +239,7 @@ export async function POST_order(req: NextRequest, { params }: IdContext) {
       const erased = await eraseOrderInputs({ orderId: id, lineId, actorId: g.admin.id })
       await auditAdmin({ req, actor: g.admin, action: 'store.order.inputs_erase', targetType: 'order', targetId: id, metadata: { lineId, erased } })
     } else return err('unknown action')
-    return ok(await adminOrder(id))
+    return ok(await adminOrder(id, scope))
   } catch (error) { return failure(error) }
 }
 

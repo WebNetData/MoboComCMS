@@ -1,5 +1,11 @@
 # MOBOCOM_MAP.md
 
+- **Web operations2026-10-31:** extend existing Installer/Server Panel/Notifications backup/Updater, never duplicate them. Private first-install claim, corrected header hover, explicit SSL methods/private PEM, database manual backup/restore-test and gated safe updates are verified locally. [Owners/evidence/limits](handoffs/WEB_OPERATIONS.md); [activation guide](../WEB_SETUP_AND_SERVER.md). Target-host ACME/renewal/deployment remains separate.
+
+- **Editorial/team continuation2026-10-30:** Journal style-only authoring and Editor BBCode; Identity Role/section managers; existing Forum moderation plus separate activity degrees; Forms/Store private specialist work. Article template creation/selection/application is retired; historic layouts are inactive archives and article bodies remain. [Owners, migrations, exact executed checks and rollback](handoffs/EDITOR_GROUPS_EXPERTS.md). Continue these owners and keep the pending media batch.
+
+- **Editorial media2026-10-28:** `feat/editor-media-embeds-2026-10-28` continues the owner's pending form merges. Existing Editor registry/HTML adapters + Library + VideoPlayer + FormEmbeds mount now insert/play hosted video, Library video and audio/podcasts. One dependency-free codec, native fallback and focused keyboard handling; no new storage/queue/API. [Actual evidence and continuation](handoffs/EDITOR_MEDIA.md).
+
 - **Page lifecycle2026-10-28:** Pages/Builder use draft-first creation and existing explicit publication; Page/Settings/ContentRevision/audit share claimed transactions and typed layout restoration; public metadata reads live builder/canonical body. [Source, evidence and independent builder-history limits](handoffs/PAGE_LIFECYCLE.md). Continue this implementation; no new CMS/history/SEO system.
 
 - **Artist slugs / product feedback 2026-10-27:** existing Celebrities profile now owns editable English-name URL suggestions and reserved previous-address aliases; Catalog retains feedback moderation while its Admin has scoped native filters and guarded loading/error/retry. [Current contracts, evidence and rollout](handoffs/ARTIST_SLUGS_PRODUCT_FEEDBACK.md). Existing artist identities, Music slugs, public-work visibility and protected light/dark designs remain.

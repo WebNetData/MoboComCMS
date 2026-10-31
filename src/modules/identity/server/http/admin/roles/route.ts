@@ -43,14 +43,14 @@ export async function POST(req: NextRequest) {
   const preset = String(b?.preset || '')
   const perms: string = Array.isArray(b?.permissions) && b.permissions.length
     ? b.permissions.join(',')
-    : preset === 'admin'
+    : preset === 'admin' || preset === 'site-deputy'
       ? FULL_ACCESS // every capability, including ones added by future plugins
       : preset && ROLE_PRESETS[preset]
         ? ROLE_PRESETS[preset].join(',')
       : ''
   const refusal = roleRefusal(admin, perms)
   if (refusal) return err(refusal, 403)
-  const role = await db.role.create({ data: { name, nameFa: String(b?.nameFa || ''), nameEn: String(b?.nameEn || name), permissions: perms } })
+  const role = await db.role.create({ data: { name, nameFa: String(b?.nameFa || '').trim().slice(0, 80), nameEn: String(b?.nameEn || name).trim().slice(0, 80), permissions: perms } })
   await auditAdmin({ req, actor: admin, action: 'role.create', targetType: 'role', targetId: role.id, metadata: { name: role.name, permissions: role.permissions } })
   return ok(role)
 }
@@ -75,12 +75,15 @@ export async function PATCH(req: NextRequest) {
     if (await db.role.findUnique({ where: { name }, select: { id: true } })) return err('نقش دیگری همین نامک را دارد', 409)
     data.name = name
   }
-  if (!Object.keys(data).length) return err('تغییری ارسال نشده است')
   if (Array.isArray(b?.permissions)) data.permissions = b.permissions.join(',')
+  if (!Object.keys(data).length) return err('تغییری ارسال نشده است')
   // Both what the role held and what it would hold must be within the editor's reach.
   const refusal = roleRefusal(admin, role.permissions, id) || (typeof data.permissions === 'string' ? roleRefusal(admin, data.permissions, id) : null)
   if (refusal) return err(refusal, 403)
-  const updated = await db.role.update({ where: { id }, data })
+  data.updatedAt = new Date(Math.max(Date.now(), role.updatedAt.getTime() + 1))
+  const changed = await db.role.updateMany({ where: { id, updatedAt: role.updatedAt, permissions: role.permissions }, data })
+  if (changed.count !== 1) return err('گروه هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409)
+  const updated = await db.role.findUniqueOrThrow({ where: { id } })
   await auditAdmin({ req, actor: admin, action: 'role.update', targetType: 'role', targetId: id, metadata: { name: updated.name, renamedFrom: updated.name !== role.name ? role.name : undefined, before: role.permissions, after: updated.permissions } })
   return ok(updated)
 }
@@ -95,7 +98,13 @@ export async function DELETE(req: NextRequest) {
   if (role._count.users > 0) return err('ابتدا کاربران این نقش را تغییر دهید', 400)
   const refusal = roleRefusal(admin, role.permissions, id)
   if (refusal) return err(refusal, 403)
-  await db.role.delete({ where: { id } })
+  try {
+    const removed = await db.role.deleteMany({ where: { id, updatedAt: role.updatedAt, users: { none: {} } } })
+    if (removed.count !== 1) return err('گروه هم‌زمان تغییر کرد یا کاربری به آن اضافه شد؛ صفحه را تازه کنید', 409)
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2003') return err('این گروه اکنون کاربر دارد و قابل حذف نیست', 409)
+    throw error
+  }
   await auditAdmin({ req, actor: admin, action: 'role.delete', targetType: 'role', targetId: id, metadata: { name: role.name } })
   return ok({ deleted: true })
 }

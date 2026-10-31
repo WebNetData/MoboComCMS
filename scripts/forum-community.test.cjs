@@ -13,6 +13,14 @@ function load(relative) {
 }
 const md = load('src/modules/forum/domain/markdown.ts')
 const c = load('src/modules/forum/domain/community.ts')
+test('manual activity degree never changes trust, deleted degrees fall back to current activity', () => {
+  const levels = c.DEFAULT_LEVELS, facts = { posts: 0, likes: 0, reputation: 0 }
+  assert.equal(c.levelFor(levels, facts).id, 'member')
+  assert.equal(c.levelFor(levels, facts, 'active').id, 'active')
+  assert.equal(c.levelFor(levels, facts, 'deleted').id, 'member')
+  assert.equal(c.levelFor(levels, { posts: 100, likes: 100, reputation: 100 }).id, 'helpful')
+  assert.equal(facts.posts, 0)
+})
 const restriction = load('src/modules/identity/domain/restrictions.ts')
 const restrictionView = load('src/modules/forum/domain/restrictions.ts')
 
@@ -234,7 +242,7 @@ test('a member\'s level is the last one whose every threshold they meet', () => 
   assert.equal(c.normalizeForumSettings({}).levels.length, c.DEFAULT_LEVELS.length)
   assert.deepEqual(c.normalizeForumSettings({ levels: [] }).levels, [])
   // Levels are worked out when an author is read, so they hold for every member at once.
-  assert.match(sourceOf('src/modules/forum/server/forum.ts'), /const level = levelFor\(levels, \{ posts: profile\?\.postCount \?\? 0, likes: profile\?\.likesReceived \?\? 0, reputation: profile\?\.reputation \?\? 0 \}\)/)
+  assert.match(sourceOf('src/modules/forum/server/forum.ts'), /const level = levelFor\(levels, \{ posts: profile\?\.postCount \?\? 0, likes: profile\?\.likesReceived \?\? 0, reputation: profile\?\.reputation \?\? 0 \}, profile\?\.manualLevelId\)/)
 })
 
 test('a badge may be given at a number the admin chooses', () => {
@@ -269,5 +277,6 @@ test('a role\'s slug and titles can be changed, within limits', () => {
   assert.match(route, /if \(!ROLE_SLUG\.test\(name\) \|\| FIXED_SLUGS\.includes\(name\)\) return err\(/)
   assert.match(route, /if \(await db\.role\.findUnique\(\{ where: \{ name \}, select: \{ id: true \} \}\)\) return err\('نقش دیگری همین نامک را دارد', 409\)/)
   // The limits on who may shape a role still stand in front of the rename.
-  assert.ok(route.indexOf('const refusal = roleRefusal(admin, role.permissions, id)') < route.indexOf('db.role.update({ where: { id }, data })'))
+  assert.ok(route.indexOf('const refusal = roleRefusal(admin, role.permissions, id)') < route.indexOf('db.role.updateMany({ where: { id, updatedAt: role.updatedAt, permissions: role.permissions }, data })'))
+  assert.match(route, /changed.count !== 1/)
 })

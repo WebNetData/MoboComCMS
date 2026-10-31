@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Notice, faDate, send, useJson } from '../store/shared'
+import { Notice, faDate } from '../store/shared'
+import { ServerShell, useServerApi, useServerJson } from '../server/shared'
 
 type Release = { version: string; tag: string; notes: string; url: string; publishedAt: string; prerelease: boolean }
 type Run = { status: 'idle' | 'running' | 'done' | 'failed' | 'rolled-back'; step: string; target: string; previous: string; at: string; log: string }
@@ -21,7 +22,12 @@ const RUN_TONE: Record<Run['status'], string> = { idle: '', running: 'is-info', 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 
 export default function UpdatesPage() {
-  const { data, error, reload } = useJson<Status>('/api/admin/updates')
+  return <ServerShell title="به‌روزرسانی امن"><UpdatesPanel /></ServerShell>
+}
+
+function UpdatesPanel() {
+  const api = useServerApi()
+  const { data, error, reload } = useServerJson<Status>('/api/admin/server/updates')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState('')
   const [backupDone, setBackupDone] = useState(false)
@@ -34,7 +40,7 @@ export default function UpdatesPage() {
   // While an update runs the site restarts: requests fail for a moment, so polling simply keeps going.
   const poll = useCallback(async () => {
     try {
-      const r = await fetch('/api/admin/updates?view=progress', { cache: 'no-store' })
+      const r = await fetch('/api/admin/server/updates?view=progress', { cache: 'no-store' })
       if (r.ok) {
         const next: Run = await r.json()
         setRun(next)
@@ -47,7 +53,7 @@ export default function UpdatesPage() {
 
   async function act(op: string, extra: Record<string, unknown> = {}, ok = 'انجام شد.') {
     setBusy(op); setNotice(null)
-    const result = await send('/api/admin/updates', 'POST', { op, ...extra })
+    const result = await api('/api/admin/server/updates', { body: { op, ...extra } })
     setBusy('')
     if (!result.ok) { say('error', result.error); return false }
     say('ok', ok)
@@ -55,7 +61,7 @@ export default function UpdatesPage() {
   }
   async function refresh() {
     setBusy('refresh')
-    const r = await fetch('/api/admin/updates?refresh=1', { cache: 'no-store' })
+    const r = await fetch('/api/admin/server/updates?refresh=1', { cache: 'no-store' })
     setBusy('')
     if (r.ok) { await reload(); say('ok', 'فهرست نسخه‌ها به‌روز شد.') } else say('error', 'بررسی انجام نشد')
   }

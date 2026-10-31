@@ -12,6 +12,10 @@ import { Extension } from '@tiptap/core'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { rewriteAssets } from '@/modules/downloads/domain/localize'
 import { TypedDirection } from '@/components/editor/TypedDirection'
+import DecorationInsert from '@/components/editor/classic/DecorationInsert'
+import { EditorialDecorationNode, EditorialHighlight } from '@/components/editor/fallback/decoration-node'
+import MediaInsert from '@/components/editor/classic/MediaInsert'
+import { EditorialMediaNode } from '@/components/editor/fallback/media-node'
 
 /**
  * Lightweight text-align support: StarterKit v3 has no textAlign extension, so we
@@ -81,6 +85,8 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
   const [codeMode, setCodeMode] = useState(false)
   const [codeDraft, setCodeDraft] = useState('')
   const [fullscreen, setFullscreen] = useState(false)
+  const sourceArea = useRef<HTMLTextAreaElement>(null)
+  const mediaSelection = useRef({ from: 0, to: 0, at: 0 })
 
   const editor = useEditor({
     // required for Next.js SSR — the editor can only render in the browser
@@ -96,6 +102,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
       TaskList,
       TaskItem.configure({ nested: true }),
       TypedDirection,
+      ...(!ticketMode ? [EditorialMediaNode, EditorialDecorationNode, EditorialHighlight] : []),
     ],
     content: value || '',
     editorProps: {
@@ -221,6 +228,8 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
             <Btn title={t.editorImage} on={addImage}>🖼</Btn>
             <Btn title={t.editorUploadImage} on={() => fileInput.current?.click()}>📤</Btn>
             {localizeOn && <LibraryPicker onSelect={asset => { if (asset.kind === 'image') editor.chain().focus().setImage({ src: asset.url, alt: asset.alt }).run(); else editor.chain().focus().insertContent({ type: 'text', text: asset.name, marks: [{ type: 'link', attrs: { href: asset.url } }] }).run() }} />}
+            <DecorationInsert onOpen={() => { mediaSelection.current = { from: editor.state.selection.from, to: editor.state.selection.to, at: sourceArea.current?.selectionStart ?? codeDraft.length } }} onInsert={html => { if (codeMode) setCodeDraft(current => current.slice(0, mediaSelection.current.at) + html + current.slice(mediaSelection.current.at)); else editor.chain().focus().setTextSelection({ from: mediaSelection.current.from, to: mediaSelection.current.to }).insertContent(html).run() }} />
+            <MediaInsert onOpen={() => { mediaSelection.current = { from: editor.state.selection.from, to: editor.state.selection.to, at: sourceArea.current?.selectionStart ?? codeDraft.length } }} onInsert={html => { if (codeMode) setCodeDraft(current => current.slice(0, mediaSelection.current.at) + html + current.slice(mediaSelection.current.at)); else { const end = editor.state.doc.content.size; editor.chain().focus().setTextSelection({ from: Math.min(mediaSelection.current.from, end), to: Math.min(mediaSelection.current.to, end) }).insertContent(html).run() } }} />
           </>
         )}
         {!ticketMode && <Btn title={t.editorRule} on={() => editor.chain().focus().setHorizontalRule().run()}>―</Btn>}
@@ -239,6 +248,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
       {!compact && localizeOn && <ContentTransfer section={assetSection} getHtml={() => codeMode ? codeDraft : editor.getHTML()} apply={map => { if (codeMode) setCodeDraft(current => rewriteAssets(current, map)); else editor.commands.setContent(rewriteAssets(editor.getHTML(), map), { emitUpdate: true }) }} />}
       {codeMode ? (
         <textarea
+          ref={sourceArea}
           className="rich-code"
           aria-label="کد HTML نوشته"
           dir="ltr"

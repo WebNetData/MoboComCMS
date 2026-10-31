@@ -16,6 +16,19 @@ function load(relative) {
 const i = load('src/modules/installer/domain/installer.ts')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
+test('first-run code is private, stable across starts, and never overwrites an operator token', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-token-'))
+  const run = extra => execFileSync(process.execPath, [path.join(root, 'scripts/bootstrap-install-token.cjs')], { env: { ...process.env, INSTALL_CONFIG_DIR: dir, INSTALL_TOKEN: '', INSTALL_DISABLED: 'false', ...extra }, encoding: 'utf8' })
+  try {
+    const first = run(), token = fs.readFileSync(path.join(dir, 'install.token'), 'utf8').trim()
+    assert.match(token, /^[a-f0-9]{64}$/); assert.ok(first.includes(token))
+    assert.equal(run(), ''); assert.equal(fs.readFileSync(path.join(dir, 'install.token'), 'utf8').trim(), token)
+    if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dir, 'install.token')).mode & 0o777, 0o600)
+    assert.equal(run({ INSTALL_TOKEN: 'operator-provided-test-value' }), '')
+    fs.writeFileSync(path.join(dir, 'installed.lock'), 'done'); assert.equal(run(), '')
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('the installer never opens on a working site', () => {
   const base = { disabled: false, lockFile: false, setupMode: false, probe: 'admin' }
   assert.equal(i.decideMode(base), 'installed')

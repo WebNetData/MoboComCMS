@@ -6,9 +6,9 @@ import {
 } from '@/modules/site/domain/theme-templates'
 import { emptyDoc, parseBuilderDoc, type BuilderDoc } from '@/modules/site/domain/builder'
 import {
-  builderKey, clearBuilderDraft, getBuilderDoc, getEntityTemplateId, listUserTemplates, resolvePostTemplateDoc, saveBuilderDoc,
+  builderKey, clearBuilderDraft, getBuilderDoc, getEntityTemplateId, saveBuilderDoc,
 } from '@/modules/site/server/builder'
-import { POST_TEMPLATES, PRODUCT_TEMPLATES } from '@/modules/site/domain/builder-templates'
+import { PRODUCT_TEMPLATES } from '@/modules/site/domain/builder-templates'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { getJournalSettings } from '@/modules/journal/server/admin'
 import { POST_STYLE_BASES, POST_STYLE_BASE_KEYS, builtinStyleId } from '@/modules/journal/domain/post-styles'
@@ -166,40 +166,30 @@ export type LayoutOption = { id: string; fa: string; en: string; group: 'style' 
 
 /** Layout choices offered in the post / product editor; an article also has the magazine's designed and own styles. */
 export async function listLayoutOptions(entity: 'post' | 'product'): Promise<LayoutOption[]> {
-  const [themes, mine, journal] = await Promise.all([listThemeTemplates(), entity === 'post' ? listUserTemplates() : Promise.resolve([]), entity === 'post' ? getJournalSettings().catch(() => null) : Promise.resolve(null)])
-  const styles: LayoutOption[] = entity === 'post' ? [
-    ...POST_STYLE_BASE_KEYS.map((base): LayoutOption => ({ id: builtinStyleId(base), fa: POST_STYLE_BASES[base].fa, en: POST_STYLE_BASES[base].en, group: 'style', base })),
-    ...(journal?.postStyle.custom || []).map((style): LayoutOption => ({ id: style.id, fa: style.name, en: style.name, group: 'mystyle', base: style.base, accent: style.accent, align: style.align })),
-  ] : []
-  const type = entity === 'post' ? 'single-post' : 'single-product'
-  const builtin = entity === 'post' ? POST_TEMPLATES : PRODUCT_TEMPLATES
-  // The designed base of a style a template wears (an own style draws as its base).
-  const baseOf = (id?: string) => (id?.startsWith('psc-') ? journal?.postStyle.custom.find((style) => style.id === id)?.base : id?.replace(/^ps-/, '')) || undefined
-  // The owner's builder templates, with the style each wears (for the drawings beside them).
-  const themeOptions = await Promise.all(themes.filter((entry) => entry.type === type).map(async (entry): Promise<LayoutOption> => {
-    const doc = entity === 'post' ? await getBuilderDoc(entry.id).catch(() => null) : null
-    const sidebar = !!doc?.sections.some((section) => section.columns.length > 1 && section.columns.some((column) => column.widgets.some((widget) => widget.type === 'content')))
-    return { id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'theme', status: entry.status, base: baseOf(doc?.layout?.postStyle), sidebar }
-  }))
+  if (entity === 'post') {
+    const journal = await getJournalSettings().catch(() => null)
+    return [
+      ...POST_STYLE_BASE_KEYS.map((base): LayoutOption => ({ id: builtinStyleId(base), fa: POST_STYLE_BASES[base].fa, en: POST_STYLE_BASES[base].en, group: 'style', base })),
+      ...(journal?.postStyle.custom || []).map((style): LayoutOption => ({ id: style.id, fa: style.name, en: style.name, group: 'mystyle', base: style.base, accent: style.accent, align: style.align })),
+    ]
+  }
+  const themes = await listThemeTemplates()
   return [
-    ...styles,
-    ...themeOptions,
-    // A built-in article template carries the style its header wears and whether the article sits beside a column (drawings).
-    ...builtin.map((entry): LayoutOption => ({ id: entry.id, fa: entry.fa, en: entry.en, group: 'builtin', desc: entry.descFa, base: baseOf(entry.doc.layout?.postStyle), sidebar: entry.doc.sections.some((section) => section.columns.length > 1 && section.columns.some((column) => column.widgets.some((widget) => widget.type === 'content'))) })),
-    ...mine.filter((entry) => entry.kind === 'post').map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'mine' })),
+    ...themes.filter(entry => entry.type === 'single-product').map((entry): LayoutOption => ({ id: entry.id, fa: entry.name, en: entry.nameEn || entry.name, group: 'theme', status: entry.status, sidebar: false })),
+    ...PRODUCT_TEMPLATES.map((entry): LayoutOption => ({ id: entry.id, fa: entry.fa, en: entry.en, group: 'builtin', desc: entry.descFa, base: entry.doc.layout?.postStyle?.replace(/^ps-/, '') || undefined, sidebar: entry.doc.sections.some(section => section.columns.length > 1 && section.columns.some(column => column.widgets.some(widget => widget.type === 'content'))) })),
   ]
 }
 
 /** Document for an explicitly chosen layout id (theme template, built-in or saved post template). */
 export async function layoutDocById(entity: 'post' | 'product', id: string): Promise<BuilderDoc | null> {
+  if (entity === 'post') return null
   if (!id) return null
   if (id.startsWith('tpl-')) {
     const meta = await getThemeTemplate(id)
-    if (!meta || meta.type !== (entity === 'post' ? 'single-post' : 'single-product')) return null
+    if (!meta || meta.type !== 'single-product') return null
     return (await getBuilderDoc(id)) || emptyDoc()
   }
-  if (entity === 'product') return PRODUCT_TEMPLATES.find((entry) => entry.id === id)?.doc || null
-  return resolvePostTemplateDoc(id)
+  return PRODUCT_TEMPLATES.find((entry) => entry.id === id)?.doc || null
 }
 
 /**
@@ -208,6 +198,7 @@ export async function layoutDocById(entity: 'post' | 'product', id: string): Pro
  * `previewDoc` replaces the chosen theme template while it is edited.
  */
 export async function resolveEntryLayout(entity: 'post' | 'product', entryId: number, ctx: RenderContext, previewTemplate?: { id: string; doc: BuilderDoc | null }): Promise<BuilderDoc | null> {
+  if (entity === 'post') return null
   if (previewTemplate) return previewTemplate.doc
   if (!await isModuleEnabled('page-builder')) return null
   const manual = await getEntityTemplateId(entity, entryId)
@@ -215,6 +206,6 @@ export async function resolveEntryLayout(entity: 'post' | 'product', entryId: nu
     const doc = await layoutDocById(entity, manual)
     if (doc) return doc
   }
-  const resolved = await resolveThemeTemplate(entity === 'post' ? 'single-post' : 'single-product', ctx)
+  const resolved = await resolveThemeTemplate('single-product', ctx)
   return resolved?.doc || null
 }

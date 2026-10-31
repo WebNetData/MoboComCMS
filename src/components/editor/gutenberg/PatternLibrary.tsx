@@ -15,7 +15,7 @@ type Pattern = { id: number; title: string; kind: Kind; document: MoboComDocumen
 const KIND_LABEL: Record<Kind, string> = { template: 'چیدمان کامل', pattern: 'الگوی بلوک', synced: 'الگوی همگام' }
 
 export default function PatternLibrary({ entity, registry, canManage, current, apply }: { entity: string; registry: BlockRegistry; canManage: boolean; current: () => EngineBlockObject[]; apply: (blocks: EngineBlockObject[], replace: boolean) => void }) {
-  const [open, setOpen] = useState(false), [rows, setRows] = useState<Pattern[] | null>(null), [title, setTitle] = useState(''), [kind, setKind] = useState<Kind>('template')
+  const [open, setOpen] = useState(false), [rows, setRows] = useState<Pattern[] | null>(null), [title, setTitle] = useState(''), [kind, setKind] = useState<Kind>(entity === 'posts' ? 'pattern' : 'template')
   const [replace, setReplace] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [version, setVersion] = useState(0)
   const lock = useRef(false), id = useId(), endpoint = `/api/admin/editor/patterns?entity=${entity}`
   const selected = useSelect(select => (select('core/block-editor') as { getSelectedBlock(): EngineBlockObject | null }).getSelectedBlock(), [])
@@ -55,7 +55,7 @@ export default function PatternLibrary({ entity, registry, canManage, current, a
       <div><h2>کتابخانهٔ الگوها</h2><p>الگوی بلوک و چیدمان کامل به‌صورت نسخه‌ای مستقل درج می‌شوند. «الگوی همگام» فقط یک ارجاع درج می‌کند: با به‌روزرسانی الگو، همهٔ صفحه‌هایی که آن را دارند همان لحظه عوض می‌شوند. بلوک‌های غیرفعال حفظ می‌شوند.</p></div>
       {canManage && <form className="mc-patterns-form" onSubmit={event => { event.preventDefault(); void command('POST', { title, kind, document: source(kind) }, 'الگو ذخیره شد.') }}>
         <label>نام الگو<input className="input" value={title} maxLength={100} onChange={event => setTitle(event.target.value)} required /></label>
-        <label>محتوای الگو<select className="input" value={kind} onChange={event => setKind(event.target.value as Kind)}><option value="template">چیدمان کامل نوشته</option><option value="pattern">بلوک انتخاب‌شده با زیرمجموعه‌ها</option><option value="synced">الگوی همگام از بلوک انتخاب‌شده</option></select></label>
+        <label>محتوای الگو<select className="input" value={kind} onChange={event => setKind(event.target.value as Kind)}>{entity !== 'posts' && <option value="template">چیدمان کامل صفحه</option>}<option value="pattern">بلوک انتخاب‌شده با زیرمجموعه‌ها</option><option value="synced">الگوی همگام از بلوک انتخاب‌شده</option></select></label>
         <button type="submit" className="mc-editor-save" disabled={busy || !title.trim() || (kind !== 'template' && !selected)}>ذخیرهٔ الگو</button>
       </form>}
       <label className="mc-patterns-replace"><input type="checkbox" checked={replace} onChange={event => setReplace(event.target.checked)} />جایگزینی تمام بلوک‌های فعلی هنگام درج؛ با واگرد قابل برگشت است</label>

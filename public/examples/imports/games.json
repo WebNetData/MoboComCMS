@@ -1,0 +1,15 @@
+[
+  {
+    "externalId": "game-001",
+    "title": "بازی نمونه",
+    "titleEn": "Sample Game",
+    "slug": "sample-game",
+    "summary": "خلاصهٔ کوتاه بازی نمونه",
+    "content": "<p>معرفی و راهنمای بازی؛ محتوای واقعی را جایگزین کنید.</p>",
+    "categories": ["رایانه > ماجراجویی"],
+    "platforms": ["PC"],
+    "cover": "https://example.com/game.jpg",
+    "links": [{ "url": "https://example.com/game.zip", "label": "فایل نمونه" }],
+    "status": "DRAFT"
+  }
+]

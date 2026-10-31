@@ -54,6 +54,9 @@ chmod 755 /etc/letsencrypt/renewal-hooks/deploy/mobocom-reload-nginx
 
 echo "==> Web helper (domains, SSL, site address)"
 install -m 755 -o root -g root "$(dirname "$0")/mobocom-webctl" /usr/local/sbin/mobocom-webctl
+install -d -m 755 -o root -g root /usr/local/libexec/mobocom
+install -m 755 -o root -g root "$(dirname "$0")/certificate-import.py" /usr/local/libexec/mobocom/certificate-import.py
+install -d -m 700 -o root -g root /etc/mobocom/certificates
 
 echo "==> Download center folder"
 DL_ROOT="${DOWNLOADS_ROOT:-/var/www/dl}"

@@ -1,4 +1,8 @@
 const paths: Record<string, React.ReactNode> = {
+  play: <path d="m8 4 12 8-12 8V4Z" />,
+  pause: <><path d="M8 4v16M16 4v16" /></>,
+  mic: <><rect x="9" y="2" width="6" height="13" rx="3" /><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8" /></>,
+  video: <><rect x="2" y="5" width="14" height="14" rx="3" /><path d="m16 10 6-4v12l-6-4" /></>,
   shield: <><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></>,
   arrow: <><path d="M19 12H5m6-6-6 6 6 6"/></>,
   globe: <><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 6h14M5 18h14"/></>,

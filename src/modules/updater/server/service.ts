@@ -123,7 +123,7 @@ export async function startUpdate(ref: unknown, options: { backupConfirmed: bool
   // Only versions the release feed announced can be installed.
   const known = (await readCache())?.releases.some((r) => r.tag === ref || r.version === String(ref).replace(/^v/, ''))
   if (!known) throw new UpdateError('این نسخه در فهرست انتشارها نیست؛ ابتدا «بررسی نسخه» را بزنید', 400)
-  if (compareVersions(String(ref), currentVersion()) === 0) throw new UpdateError('این نسخه همین حالا نصب است', 409)
+  if (compareVersions(String(ref), currentVersion()) <= 0) throw new UpdateError('فقط نسخهٔ جدیدتر نصب می‌شود؛ بازگشت نسخه باید با بررسی سازگاری و از مسیر بازیابی انجام شود.', 409)
   mkdirSync(updateDirectory(), { recursive: true })
   writeFileSync(join(updateDirectory(), 'state.json'), JSON.stringify({ status: 'running', step: 'در صف اجرا', target: ref, previous: '', at: new Date().toISOString() }))
   await new Promise<void>((resolve, reject) => {

@@ -1,5 +1,6 @@
 'use client'
 
+import { useSession } from 'next-auth/react'
 import Link from '@/components/AppLink'
 import { usePathname } from '@/platform/routing/navigation'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
@@ -34,8 +35,11 @@ const TABS = [
 
 export function StoreShell({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const permissions = (session?.user as { permissions?: string[] } | undefined)?.permissions || []
+  const specialist = permissions.includes('store.orders.handle') && !permissions.includes('orders.manage')
   return <div className="sa" dir="rtl">
-    <nav className="sa-tabs" aria-label="بخش‌های فروشگاه">{TABS.map((tab) => {
+    <nav className="sa-tabs" aria-label="بخش‌های فروشگاه">{TABS.filter(tab => !specialist || tab.href === '/admin/store/orders').map((tab) => {
       const on = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
       return <Link key={tab.href} href={tab.href} className={on ? 'is-active' : ''} aria-current={on ? 'page' : undefined}>{tab.label}</Link>
     })}</nav>

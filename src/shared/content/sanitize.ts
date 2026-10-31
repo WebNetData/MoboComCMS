@@ -2,6 +2,8 @@
 // the customer panel — always sanitize before it leaves the API.
 import sanitizeHtml from 'sanitize-html'
 import { CONTENT_FONT_SIZES, CONTENT_LINE_HEIGHTS, isContentFontFamily } from '@/shared/content/fonts'
+import { editorialMedia, mediaShortcodes, playableFile, safeMediaSrc } from '@/shared/media/editorial'
+import { renderBBCode } from '@/shared/content/bbcode'
 
 // A font is kept only when it is one the editor offers; a size or a line height only when it is on the editor's list.
 const FONT_FAMILY = { test: (value: string) => isContentFontFamily(value) } as unknown as RegExp
@@ -17,13 +19,21 @@ const OPTIONS: sanitizeHtml.IOptions = {
     'a', 'img', 'figure', 'figcaption',
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
     'span', 'div', 'iframe', 'label', 'input',
+    'video', 'audio', 'source', 'details', 'summary',
   ],
   allowedAttributes: {
     a: ['href', 'title', 'target', 'rel'],
     img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
     iframe: ['src', 'width', 'height', 'title', 'allow', 'allowfullscreen', 'frameborder'],
     span: ['class', 'style'],
-    div: ['class', 'style'],
+    div: ['class', 'style', 'data-mc-player', 'data-mc-decoration'],
+    blockquote: ['class', 'data-mc-decoration'],
+    mark: ['class'],
+    details: ['class', 'data-mc-decoration'],
+    figure: ['class', 'data-mc-media', 'data-mc-src', 'data-mc-title', 'data-mc-poster', 'data-mc-audio-kind', 'data-mc-ratio'],
+    video: ['src', 'controls', 'preload', 'poster', 'playsinline', 'aria-label'],
+    audio: ['src', 'controls', 'preload', 'aria-label'],
+    source: ['src', 'type'],
     p: ['class', 'style'],
     pre: ['tabindex', 'role', 'aria-label'],
     td: ['colspan', 'rowspan'],
@@ -46,6 +56,15 @@ const OPTIONS: sanitizeHtml.IOptions = {
   allowedSchemesByTag: { img: ['http', 'https', 'data'] },
   allowProtocolRelative: false,
   transformTags: {
+    figure: (tagName, attribs) => {
+      if (!attribs['data-mc-media']) return { tagName, attribs }
+      const media = editorialMedia({ kind: attribs['data-mc-media'], src: attribs['data-mc-src'], title: attribs['data-mc-title'], poster: attribs['data-mc-poster'], audioKind: attribs['data-mc-audio-kind'], ratio: attribs['data-mc-ratio'] })
+      const safe = Object.fromEntries(Object.entries(attribs).filter(([key]) => !key.startsWith('data-mc-')))
+      return { tagName, attribs: media ? { ...safe, class: 'mc-media', 'data-mc-media': media.kind, 'data-mc-src': media.src, 'data-mc-title': media.title, 'data-mc-poster': media.poster, 'data-mc-audio-kind': media.audioKind, 'data-mc-ratio': media.ratio } : safe }
+    },
+    video: (tagName, attribs) => { const src = safeMediaSrc(attribs.src), poster = safeMediaSrc(attribs.poster); return { tagName, attribs: { ...attribs, src: src && playableFile(src, 'video') ? src : '', poster: poster || '', controls: '', preload: 'none', playsinline: '' } } },
+    audio: (tagName, attribs) => { const src = safeMediaSrc(attribs.src); return { tagName, attribs: { ...attribs, src: src && playableFile(src, 'audio') ? src : '', controls: '', preload: 'none' } } },
+    source: (tagName, attribs) => ({ tagName, attribs: { ...attribs, src: safeMediaSrc(attribs.src) || '' } }),
     // Scrollable code stays reachable by keyboard; author HTML cannot choose its tab order.
     pre: (tagName, attribs) => ({ tagName, attribs: { ...attribs, tabindex: '0', role: 'region', 'aria-label': 'بلوک کد' } }),
     // external links open in a new tab, safely
@@ -61,7 +80,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
 
 export function cleanRichText(input: string | null | undefined): string {
   if (!input) return ''
-  return sanitizeHtml(String(input), OPTIONS)
+  return sanitizeHtml(renderBBCode(mediaShortcodes(String(input))), OPTIONS)
 }
 
 /** Editorial HTML and historical plain text share one safe display boundary. */

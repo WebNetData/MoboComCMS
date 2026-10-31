@@ -77,10 +77,10 @@ NODE_ENV=production
 NEXTAUTH_URL=https://your-domain.example
 DATABASE_URL=postgresql://USER:PASSWORD@POSTGRES_HOST:5432/DATABASE
 REDIS_URL=redis://REDIS_HOST:6379
-NEXTAUTH_SECRET=REPLACE_WITH_RANDOM_SECRET
-INTERNAL_JOBS_SECRET=REPLACE_WITH_ANOTHER_RANDOM_SECRET
-PANEL_CREDENTIAL_KEY=REPLACE_WITH_64_HEX_CHARACTERS
-BACKUP_ENCRYPTION_KEY=REPLACE_WITH_ANOTHER_64_HEX_KEY
+NEXTAUTH_SECRET="" # Fill with an independent openssl rand -hex 32 value
+INTERNAL_JOBS_SECRET="" # Fill with an independent openssl rand -hex 32 value
+PANEL_CREDENTIAL_KEY="" # Fill with an independent openssl rand -hex 32 value
+BACKUP_ENCRYPTION_KEY="" # Fill with an independent openssl rand -hex 32 value
 SEED_DEMO_DATA=false
 BACKUP_SCHEDULER=false
 RUN_MIGRATIONS_ON_START=true
@@ -97,7 +97,7 @@ openssl rand -hex 32
 
 ### ۴. نصب اولیه و حساب مدیر
 
-روی **دیتابیس تازه**، `/install` را باز کنید و مراحل ساخت سایت و اولین مدیر را انجام دهید. برای محافظت از نصب اولیه، `INSTALL_TOKEN` را با مقدار تصادفی تنظیم کنید. پس از ساخت اولین مدیر، نصب‌کننده بسته می‌شود؛ `INSTALL_DISABLED=true` نیز آن را غیرفعال می‌کند.
+روی **دیتابیس تازه**، `/install` را باز کنید و مراحل نام سایت، دامنه، اولین مدیر و امکانات فعال را انجام دهید. کد خصوصی نصب از خروجی اولین راه‌اندازی در دسترس است؛ می‌توانید `INSTALL_TOKEN` تصادفی با حداقل ۳۲ نویسه را خودتان تنظیم کنید. در production بدون کد امن، نصب باز نمی‌شود. پس از ساخت اولین مدیر، نصب‌کننده بسته می‌شود؛ `INSTALL_DISABLED=true` نیز آن را غیرفعال می‌کند.
 
 اگر نصب را از ترمینال انجام می‌دهید، در محیط برنامه و فقط برای نصب اولیه:
 
@@ -107,6 +107,10 @@ ADMIN_EMAIL='admin@your-domain.example' ADMIN_PASSWORD='YOUR_STRONG_PASSWORD' SE
 ```
 
 سپس وارد `/admin` شوید و نام سایت، مدیران بخش‌ها، ماژول‌های فعال و سرویس‌های موردنیاز را تنظیم کنید. seed را هنگام آپدیت معمولی تکرار نکنید. برای نصب بدون دیتابیسِ پیکربندی‌شده، توضیحات نصب‌کننده در [راهنمای VPS](docs/DEPLOY-VPS-HOST-FA.md) را بخوانید.
+
+راهنمای [نصب تحت وب و پنل سرور](docs/WEB_SETUP_AND_SERVER.md) مراحل اتصال PostgreSQL، کد نصب، مدیریت جداول و بکاپ دستی، صدور SSL با HTTP/DNS/Standalone، بارگذاری گواهی و به‌روزرسانی امن را توضیح می‌دهد. آماده‌سازی سرویس‌ها و HTTPS اولیه باید پیش از نصب وب انجام شود.
+
+برای انتقال محتوا، [راهنمای ورود گروهی و نمونه‌فایل‌ها](docs/BULK_IMPORT.md) را بخوانید؛ همین راهنما از تب «راهنما و نمونه‌فایل» در `/admin/imports` هم در دسترس است. ابتدا چند رکورد پیش‌نویس وارد کنید و سپس انتقال فایل و گزارش را بررسی کنید.
 
 ### ۵. بررسی پس از نصب
 

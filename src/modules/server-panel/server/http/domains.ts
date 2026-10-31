@@ -5,7 +5,7 @@ import { serverGate } from '@/modules/server-panel/server/gate'
 import { DomainError } from '@/modules/server-panel/domain/domains'
 import {
   cloudflareRecords, cloudflareZones, deleteCertificate, deleteCloudflareRecord, domainsOverview, issueCertificate, removeSite,
-  renewCertificates, saveCloudflareRecord, saveCloudflareToken, saveSite, setSiteUrl,
+  renewCertificates, saveCloudflareRecord, saveCloudflareToken, saveSite, setSiteUrl, importCertificate,
 } from '@/modules/server-panel/server/domains'
 
 function failure(error: unknown) {
@@ -34,18 +34,32 @@ type Body = Record<string, unknown> & { op?: string }
 export async function POST_domains(req: NextRequest) {
   const gate = await serverGate(req)
   if ('response' in gate) return gate.response
-  const body = (await req.json().catch(() => null) || {}) as Body
+  if (Number(req.headers.get('content-length') || 0) > 262144) return err('حجم درخواست زیاد است', 413)
+  const reader = req.body?.getReader(), decoder = new TextDecoder('utf-8', { fatal: true })
+  let raw = '', bytes = 0
+  try {
+    if (reader) while (true) {
+      const chunk = await reader.read(); if (chunk.done) break
+      bytes += chunk.value.byteLength
+      if (bytes > 262144) { await reader.cancel(); return err('حجم درخواست زیاد است', 413) }
+      raw += decoder.decode(chunk.value, { stream: true })
+    }
+    raw += decoder.decode()
+  } catch { return err('درخواست خوانده نشد', 400) } finally { reader?.releaseLock() }
+  let body: Body
+  try { body = JSON.parse(raw); if (!body || typeof body !== 'object') return err('درخواست نامعتبر است') } catch { return err('درخواست نامعتبر است') }
   const audit = (action: string, target: unknown, metadata?: Record<string, unknown>) => auditAdmin({ req, actor: gate.user, action: `server.${action}`, targetType: 'domain', targetId: String(target ?? ''), metadata })
   try {
     switch (body.op) {
       case 'site-save': { const r = await saveSite(body.site && typeof body.site === 'object' ? body.site as Record<string, unknown> : {}); await audit('domain_save', r.domain, { mode: r.mode, https: r.https, cert: r.cert }); return ok(r) }
       case 'site-remove': { await removeSite(body.domain); await audit('domain_remove', body.domain); return ok({ removed: true }) }
       case 'cert-issue': {
-        const r = await issueCertificate({ domain: body.domain, wildcard: body.wildcard === true, www: body.www === true, email: body.email, extra: body.extra })
+        const r = await issueCertificate({ domain: body.domain, wildcard: body.wildcard === true, www: body.www === true, email: body.email, extra: body.extra, method: body.method })
         await audit('cert_issue', r.name, { names: r.names })
         return ok(r)
       }
       case 'cert-renew': { const r = await renewCertificates(body.dry === true); await audit('cert_renew', '', { dry: body.dry === true, ok: r.ok }); return ok(r) }
+      case 'cert-import': { const r = await importCertificate(body); await audit('cert_import', r.name, { domain: r.domain, expiresAt: r.expiresAt }); return ok(r) }
       case 'cert-delete': { await deleteCertificate(body.name); await audit('cert_delete', body.name); return ok({ deleted: true }) }
       case 'site-url': { const r = await setSiteUrl(body.url); await audit('site_url', r.url); return ok(r) }
       case 'cf-token': { const r = await saveCloudflareToken(body.token); await audit('cloudflare_token', '', { set: r.cloudflare }); return ok(r) }

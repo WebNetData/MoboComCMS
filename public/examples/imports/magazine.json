@@ -1,0 +1,12 @@
+[
+  {
+    "externalId": "article-001",
+    "title": "مطلب آموزشی نمونه",
+    "slug": "sample-article",
+    "excerpt": "خلاصهٔ آموزشی برای بررسی پیش از انتشار",
+    "content": "<h2>شروع مطلب</h2><p>این متن نمونه است؛ محتوای خودتان را جایگزین کنید.</p><audio controls src=\"https://example.com/audio-one.mp3\"></audio><audio controls src=\"https://example.com/audio-two.mp3\"></audio>",
+    "cover": "https://example.com/article.jpg",
+    "categories": ["آموزش > راهنما"],
+    "status": "DRAFT"
+  }
+]

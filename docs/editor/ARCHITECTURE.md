@@ -1,5 +1,9 @@
 # The block editor
 
+Current2026-10-30: the domain permits exactly two tested zero-import codecs: shared media and `shared/content/bbcode.ts`. Safe text decorations reuse existing canonical richText/callout/quote/FAQ/columns blocks and HTML adapters; explicit legacy conversion discloses unsupported detail loss. Article full-template creation/selection and post role defaults are retired; historical documents remain readable, ordinary patterns and Page defaults remain supported. [Current owners, validation and continuation](../agent/handoffs/EDITOR_GROUPS_EXPERTS.md). This supersedes the sole-codec wording and post-template plans in historical notes below.
+
+Current2026-10-28: `content.embed`, `content.video` and `content.audio` use the one dependency-free media codec at `shared/media/editorial.ts`; this is the domain's sole neutral-codec exception, with a test enforcing zero runtime/engine/network dependencies. Classic/lightweight HTML adapters preserve the same playable representation and canonical documents remain MoboCom JSON. [Ownership, current implementation, actual validation and limits](../agent/handoffs/EDITOR_MEDIA.md).
+
 Current 2026-10-26: published Journal authors can explicitly propose the canonical
 body through the existing PostEditProposal while review is enabled. Exact live
 base/proposal tokens, shared Editor validation and guarded manager comparison/

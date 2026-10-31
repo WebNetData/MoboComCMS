@@ -1,0 +1,17 @@
+[
+  {
+    "externalId": "series-001",
+    "title": "سریال نمونه",
+    "titleEn": "Sample Series",
+    "slug": "sample-series",
+    "summary": "<p>خلاصهٔ داستان سریال نمونه.</p>",
+    "year": 2025,
+    "genres": ["Drama"],
+    "poster": "https://example.com/series.jpg",
+    "episodes": [
+      { "season": 1, "episode": 1, "title": "قسمت اول", "links": [{ "url": "https://example.com/s01e01.mp4", "quality": "1080p" }] },
+      { "season": 1, "episode": 2, "title": "قسمت دوم", "links": [{ "url": "https://example.com/s01e02.mp4", "quality": "1080p" }] }
+    ],
+    "status": "DRAFT"
+  }
+]

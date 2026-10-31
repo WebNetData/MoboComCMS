@@ -194,7 +194,8 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   if (patch.reply !== undefined) data.reply = String(patch.reply).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 2000)
   if (!Object.keys(data).length) throw new FormsError('تغییری ارسال نشده است')
   if (row.status === 'NEW') { data.status = 'READ'; data.read = true }
-  await db.formSubmission.update({ where: { id: row.id }, data })
+  const changed = await db.formSubmission.updateMany({ where: { id: row.id, assigneeId: row.assigneeId, stage: row.stage, payStatus: row.payStatus, ...(data.reply !== undefined ? { reply: row.reply } : {}), ...(data.read !== undefined ? { read: row.read } : {}), ...(data.status !== undefined ? { status: row.status } : {}) }, data })
+  if (changed.count !== 1) throw new FormsError('درخواست هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409)
   const stage = (data.stage || row.stage) as Stage | ''
   if (data.stage && data.stage !== row.stage) {
     if (data.stage === 'REJECTED') await releaseSlots(row.id)

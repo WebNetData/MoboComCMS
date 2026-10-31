@@ -66,7 +66,7 @@ export async function editorPatterns(req: NextRequest) {
   if (!scope) return err('forbidden', 403)
   if (!await blockEditorEnabled()) return err('ویرایشگر غیرفعال است', 404)
   if (req.method === 'GET') {
-    const rows = await db.editorPattern.findMany({ where: { entity }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 100, select: { id: true, title: true, kind: true, contentDocument: true, updatedAt: true } })
+    const rows = await db.editorPattern.findMany({ where: { entity, ...(entity === 'posts' ? { kind: { not: 'template' } } : {}) }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 100, select: { id: true, title: true, kind: true, contentDocument: true, updatedAt: true } })
     const response = ok({ patterns: rows.map(({ contentDocument, ...row }) => ({ ...row, document: JSON.parse(contentDocument) })) })
     response.headers.set('Cache-Control', 'private, no-store'); return response
   }
@@ -78,6 +78,7 @@ export async function editorPatterns(req: NextRequest) {
     if (req.method === 'POST') {
       const title = typeof body.title === 'string' ? body.title.trim() : '', kind = KINDS.find(value => value === body.kind)
       if (!title || title.length > 100 || !kind) return err('نام و نوع الگو معتبر نیست.', 422)
+      if (entity === 'posts' && kind === 'template') return err('قالب نوشته بازنشسته شده است؛ از بلوک‌های زیباسازی و استایل صفحه استفاده کنید', 410)
       const registry = await activeEditorRegistry(), checked = checkDocument(body.document, registry, { permissions: key => admin.roleId == null || hasPermission(admin.permissions ?? [], key) })
       if (!checked.ok || !checked.document.blocks.length || checked.unsupported.length || moduleBlocks(checked.document, registry).length > MODULE_BLOCK_LIMIT) return err('الگو باید شامل بلوک‌های معتبر و فعال باشد.', 422)
       if (kind === 'synced' && syncedPatternIds(checked.document.blocks).length) return err('الگوی همگام نمی‌تواند الگوی همگام دیگری داشته باشد.', 422)

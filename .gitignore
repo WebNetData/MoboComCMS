@@ -7,6 +7,8 @@ out/
 .DS_Store
 .env
 .env.*
+/storage/config/
+/storage/update/
 !.env.example
 !.env.production.example
 prisma/dev.db

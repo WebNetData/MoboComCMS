@@ -1,5 +1,9 @@
 # MoboCom Reference Architecture — mandate adoption 2026-10-10
 
+2026-10-31: [web operations](handoffs/WEB_OPERATIONS.md) extends existing Installer/Server Panel/Notifications backup/Updater owners. Fresh-install capability and cross-instance first-owner claim are separate from installed-site password/TOTP-bound server authority. Manual backup and update entry points compose existing services behind ServerShell; private bounded PEM uses a restricted root helper, not a general shell. Header hover measures nested entries in rail coordinates. No new operations schema or parallel registry; local evidence and target-host limits are explicit in the handoff.
+
+2026-10-30: [editorial styles, groups, activity degrees and specialists](handoffs/EDITOR_GROUPS_EXPERTS.md) continues existing Editor/Journal/Identity/Forum/Forms/Store owners. Article templates are neither authored nor applied: historical bodies remain readable, layout documents are inactive archives. Safe BBCode is the second exact dependency-free domain codec. Activity degrees remain display-only; canonical authority stays section-scoped/global through the staff guard. Form and Order specialists use claimed private held work, not another queue; occupied Role deletion is also forbidden by FK. Two incremental migrations and exact local evidence/rollback are in the handoff.
+
 2026-10-27: artist URL editing extends Celebrities, with additive CelebritySlugAlias for permanent redirects/reserved old addresses. Music/Cinema remain profile/work owners; public visibility is unchanged. Product-feedback filters extend the existing Catalog Admin GET/PATCH, with native themed controls and obsolete-read guards. [Current implementation, executed evidence and migration](handoffs/ARTIST_SLUGS_PRODUCT_FEEDBACK.md).
 
 2026-10-26: canonical Journal body proposals extend PostEditProposal, not a new
@@ -248,6 +252,8 @@ A generic Article may be CMS/Publishing. A Movie is Cinema, not a generic custom
 Pages and magazine articles use the canonical editor document and revision services. A legacy conversion stays a preview through edits until its explicit first save; omitted parts must be disclosed before acceptance, and autosave resumes only after success. Direction precedence belongs to the editor domain (`resolveTextDirection`), shared by the editing view and public renderer: paragraph choice → block choice → first Unicode letter → page default. See [editor architecture](../editor/ARCHITECTURE.md) for the storage contract and regression checks.
 
 CMS Pages default to drafts; explicit publication stays in the existing Pages review flow. Page writes and restores claim the Page timestamp and atomically retain known typed layout settings in existing ContentRevision metadata; legacy snapshots preserve current layout and builder-document history stays independent. Public descriptions compose live builder and canonical body text through the existing SEO owner. [Contracts, executed evidence and continuation](handoffs/PAGE_LIFECYCLE.md).
+
+Editorial media extends existing Editor/Library/Downloads and the shared written-content mount: canonical video/audio/embed blocks, Classic/lightweight HTML adapters and the single dependency-free shared media codec. Inline VideoPlayer uses focused keyboard scope; standalone audio is presentation without another catalogue/queue. Hosted-player URLs are normalized to exact approved origins, with matching CSP and no server fetch by default. [Contracts, validation and continuation](handoffs/EDITOR_MEDIA.md).
 
 ## 8. CRM architecture
 

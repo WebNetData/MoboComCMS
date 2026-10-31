@@ -52,7 +52,8 @@
         "labelEn": "Orders",
         "icon": "wallet",
         "permissions": [
-          "orders.manage"
+          "orders.manage",
+          "store.orders.handle"
         ]
       },
       {
@@ -212,6 +213,12 @@
       "labelEn": "store home meta description",
       "type": "textarea",
       "public": true
+    }
+  ],
+  "permissions": [
+    {
+      "id": "store.orders.handle",
+      "label": "کارشناس سفارش‌های فروشگاه (کارهای مجاز)"
     }
   ]
 }

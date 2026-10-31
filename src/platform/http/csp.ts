@@ -11,7 +11,8 @@
  * there. Styles keep `'unsafe-inline'`: React writes `style` attributes, and a style cannot run code.
  */
 
-const VIDEO_FRAME_HOSTS = 'https://www.youtube-nocookie.com https://www.youtube.com https://www.aparat.com https://player.vimeo.com'
+// Kept equal to the pure editor codec's player origins by an executed contract test.
+const VIDEO_FRAME_HOSTS = 'https://www.youtube-nocookie.com https://www.youtube.com https://www.aparat.com https://player.vimeo.com https://www.namasha.com https://tamasha.com'
 // Google Translate website widget (google-translate plugin), public pages only.
 const TRANSLATE_SCRIPT = ' https://translate.google.com https://translate.googleapis.com https://translate-pa.googleapis.com https://www.gstatic.com'
 const TRANSLATE_CONNECT = ' https://translate.googleapis.com https://translate-pa.googleapis.com'

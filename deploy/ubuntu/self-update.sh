@@ -31,10 +31,10 @@ now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 say() { echo "[$(now)] $*" >> "$LOG"; }
 state() { printf '{"status":"%s","step":"%s","target":"%s","previous":"%s","at":"%s"}\n' "$1" "$2" "$REF" "$PREV" "$(now)" > "$STATE"; }
 
-# One update at a time (a lock older than two hours is treated as dead).
+# A lock is never stolen based on age; an operator verifies abandoned work first.
 LOCK="$DIR/lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
-  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +120 2>/dev/null)" ]; then rmdir "$LOCK" 2>/dev/null; mkdir "$LOCK" || exit 3; else echo "another update is running" >&2; exit 3; fi
+  echo "another update is running; verify the lock owner before recovering an abandoned run" >&2; exit 3
 fi
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
@@ -67,14 +67,20 @@ build_and_start() {
 step "دریافت نسخه‌ها"
 PREV="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$PREV" ] || { state failed "مخزن git پیدا نشد"; exit 1; }
+if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then state failed "تغییر محلی وجود دارد؛ ابتدا آن را حفظ و بررسی کنید"; exit 2; fi
 run git fetch --quiet --tags origin || { state failed "دریافت از مخزن ممکن نشد"; exit 1; }
 git rev-parse -q --verify "refs/tags/${REF}^{commit}" >/dev/null || { say "tag $REF not found"; state failed "این نسخه در مخزن نیست"; exit 1; }
+TARGET_SHA="$(git rev-parse "refs/tags/${REF}^{commit}")"
+git merge-base --is-ancestor "$PREV" "$TARGET_SHA" || { state failed "تاریخچهٔ محلی از نسخهٔ مقصد جداست؛ ادغام باید دستی بررسی شود"; exit 2; }
+if [ "${UPDATE_REQUIRE_SIGNED_TAG:-false}" = "true" ]; then
+  run git verify-tag "$REF" || { state failed "امضای نسخه تأیید نشد"; exit 2; }
+fi
 
 step "Backing up before update"
 runsh "$BACKUP" || { state failed "Backup failed before code replacement"; exit 1; }
 
 step "جایگزینی کد با ${REF}"
-run git checkout --quiet --force --detach "$REF" || { state failed "تعویض کد ناموفق بود"; exit 1; }
+run git checkout --quiet --detach "$TARGET_SHA" || { state failed "تعویض کد ناموفق بود"; exit 1; }
 step "نصب وابستگی‌ها"
 if build_and_start; then
   state done "به‌روزرسانی کامل شد"
@@ -84,7 +90,7 @@ fi
 
 say "the new version did not start: rolling back to $PREV"
 step "بازگشت به نسخهٔ قبلی"
-if run git checkout --quiet --force --detach "$PREV" && build_and_start; then
+if run git checkout --quiet --detach "$PREV" && build_and_start; then
   state rolled-back "نسخهٔ جدید بالا نیامد؛ به نسخهٔ قبلی برگشت"
   say "rolled back"
   exit 1

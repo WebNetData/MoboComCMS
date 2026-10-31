@@ -5,6 +5,8 @@
  */
 import type { DocumentIssue } from '@/modules/editor/domain/document'
 import { emptyRichText, normalizeRichText, safeLinkHref, type RichTextDoc } from '@/modules/editor/domain/rich-text'
+import { embedOf, playableFile, safeMediaSrc } from '@/shared/media/editorial'
+export { embedOf } from '@/shared/media/editorial'
 
 export const BREAKPOINTS = ['desktop', 'tablet', 'mobile'] as const
 export type Breakpoint = (typeof BREAKPOINTS)[number]
@@ -19,7 +21,7 @@ export type FieldSpec =
   | { kind: 'int'; min: number; max: number; default: number }
   | { kind: 'boolean'; default: boolean }
   | { kind: 'url'; default?: string }
-  | { kind: 'asset'; accept: 'image' | 'video' | 'file' }
+  | { kind: 'asset'; accept: 'image' | 'video' | 'audio' | 'file' }
   | { kind: 'embed' }
   | { kind: 'richText' }
   | { kind: 'responsive'; of: { kind: 'enum'; values: readonly string[]; default: string } | { kind: 'int'; min: number; max: number; default: number }; default?: Partial<Record<Breakpoint, string | number>> }
@@ -28,34 +30,14 @@ export type FieldSpec =
 export type FieldSchema = Record<string, FieldSpec>
 
 const emptyAsset = (): AssetValue => ({ src: '', alt: '', caption: '', width: 0, height: 0, mime: '' })
-const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg)$/i, VIDEO = /\.(mp4|webm|m4v|mov)$/i
+const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg)$/i
 
 /** Where a stored file may come from: this site's own storage, or an https address. Never data:, blob: or javascript:. */
 export function safeAssetSrc(value: unknown): string | null {
-  const raw = typeof value === 'string' ? value.trim() : ''
-  if (!raw) return ''
-  if (raw.length > 2048 || /[\u0000-\u001f\u007f\s"'<>]/.test(raw)) return null
-  if (raw.startsWith('/')) return raw.startsWith('//') || raw.includes('\\') || raw.includes('..') ? null : raw
-  try { const url = new URL(raw); return url.protocol === 'https:' && !url.username && !url.password ? url.toString() : null } catch { return null }
+  return safeMediaSrc(value)
 }
 
 /** The players a page may embed. The stored address is the player's own embed address, built here from the id. */
-export function embedOf(value: unknown): EmbedValue | null {
-  const raw = typeof value === 'string' ? value.trim() : ''
-  let url: URL
-  try { url = new URL(raw) } catch { return null }
-  if (url.protocol !== 'https:') return null
-  const host = url.hostname.replace(/^www\./, '').replace(/^m\./, '')
-  const id = (pattern: RegExp, text: string) => pattern.exec(text)?.[1] || ''
-  if (host === 'youtu.be') { const v = id(/^\/([\w-]{6,20})/, url.pathname); return v ? { provider: 'youtube', url: `https://www.youtube-nocookie.com/embed/${v}` } : null }
-  if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
-    const v = url.pathname === '/watch' ? url.searchParams.get('v') || '' : id(/^\/(?:shorts|embed|live)\/([\w-]+)/, url.pathname)
-    return /^[\w-]{6,20}$/.test(v) ? { provider: 'youtube', url: `https://www.youtube-nocookie.com/embed/${v}` } : null
-  }
-  if (host === 'aparat.com') { const v = id(/^\/v\/([\w-]{3,40})/, url.pathname) || id(/\/videohash\/([\w-]{3,40})/, url.pathname); return v ? { provider: 'aparat', url: `https://www.aparat.com/video/video/embed/videohash/${v}/vt/frame` } : null }
-  if (host === 'vimeo.com' || host === 'player.vimeo.com') { const v = id(/^\/(?:video\/)?(\d{4,12})/, url.pathname); return v ? { provider: 'vimeo', url: `https://player.vimeo.com/video/${v}` } : null }
-  return null
-}
 
 const text = (value: unknown, max: number) => (typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, max) : '')
 
@@ -104,14 +86,15 @@ export function checkField(spec: FieldSpec, value: unknown, path: string, issues
       if (src === null) return bad('field.asset.src', 'is not a file of the media library or an https address')
       const path = src.split(/[?#]/)[0]
       if (src && spec.accept === 'image' && !IMAGE.test(path)) return bad('field.asset.type', 'must be an image')
-      if (src && spec.accept === 'video' && !VIDEO.test(path)) return bad('field.asset.type', 'must be a video')
+      if (src && spec.accept === 'video' && !playableFile(src, 'video')) return bad('field.asset.type', 'must be a video')
+      if (src && spec.accept === 'audio' && !playableFile(src, 'audio')) return bad('field.asset.type', 'must be audio')
       const size = (n: unknown) => (typeof n === 'number' && Number.isInteger(n) && n > 0 && n <= 20000 ? n : 0)
       return { src, alt: text(raw.alt, 300), caption: text(raw.caption, 500), width: size(raw.width), height: size(raw.height), mime: /^[a-z]+\/[a-z0-9.+-]{1,60}$/.test(String(raw.mime || '')) ? String(raw.mime) : '' } satisfies AssetValue
     }
     case 'embed': {
       const raw = typeof value === 'object' && value && !Array.isArray(value) ? (value as Record<string, unknown>).url : value
       if (raw === '' || raw === undefined) return { provider: '', url: '' }
-      return embedOf(raw) || bad('field.embed', 'is not a video of a supported player (YouTube, Aparat, Vimeo)')
+      return embedOf(raw) || bad('field.embed', 'is not a video of a supported player (YouTube, Aparat, Namasha, Tamasha, Vimeo)')
     }
     case 'richText': {
       const checked = normalizeRichText(value, path)

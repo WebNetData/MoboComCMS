@@ -73,6 +73,8 @@ NODE_ENV=production
 NEXTAUTH_URL=https://example.com
 NEXTAUTH_SECRET=$(openssl rand -hex 32)
 INTERNAL_JOBS_SECRET=$(openssl rand -hex 32)
+BACKUP_ENCRYPTION_KEY=$(openssl rand -hex 32)
+BACKUP_SCHEDULER=false
 # یک بار بسازید و هرگز عوض نکنید؛ کلیدهای پیامک، هوش مصنوعی و توکن‌ها با آن رمز می‌شوند.
 PANEL_CREDENTIAL_KEY=$(openssl rand -hex 32)
 DATABASE_URL=postgresql://mobocom:$DB_PASS@127.0.0.1:5432/mobocom?schema=public
@@ -91,7 +93,7 @@ sudo chown root:mobocom /etc/mobocom/mobocom.env && sudo chmod 640 /etc/mobocom/
 
 ```bash
 cd /opt/mobocom/app
-sudo -u mobocom bash -c 'npm ci --no-audit --no-fund && set -a && . /etc/mobocom/mobocom.env && set +a && NODE_OPTIONS=--max-old-space-size=3072 npm run build:postgres'
+sudo -u mobocom bash -c 'npm ci --no-audit --no-fund && set -a && . /etc/mobocom/mobocom.env && set +a && NODE_OPTIONS=--max-old-space-size=4096 npm run build:postgres'
 ```
 
 سرویس systemd را نصب و روشن کنید (در اولین اجرا مایگریشن‌های دیتابیس خودکار اعمال می‌شوند):
@@ -103,7 +105,9 @@ sudo systemctl status mobocom --no-pager
 curl -s http://127.0.0.1:3000/api/health/ready
 ```
 
-ساخت مدیر اول و داده‌های پایه (**فقط یک بار**):
+برای ساخت مدیر اول از مرورگر، ابتدا Nginx و HTTPS بخش بعد را آماده کنید و سپس `/install` را با کد خصوصی خروجی اولین راه‌اندازی باز کنید. [نصب تحت وب و پنل سرور](WEB_SETUP_AND_SERVER.md) مرجع این مسیر است. کلیدهای رمزگذاری و فایل‌های Library را در برنامهٔ بکاپ استقرار پوشش دهید؛ پس از آزمون بازیابی، زمان‌بند بکاپ را فعال کنید. برای Redis خصوصی و ترتیب کامل نصب، [راهنمای قدم‌به‌قدم VPS](DEPLOY-VPS-HOST-FA.md) را دنبال کنید.
+
+روش جایگزین ترمینالی برای ساخت مدیر اول و داده‌های پایه (**فقط یک بار**؛ پس از نصب وب یا برای آپدیت اجرا نکنید):
 
 ```bash
 cd /opt/mobocom/app

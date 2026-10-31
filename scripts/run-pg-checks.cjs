@@ -5,6 +5,8 @@ const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
   'page-lifecycle',
+  'editor-media',
+  'editor-groups-experts',
   'editorial-schedule',
   'editor-patterns',
   'editor-synced-patterns',
@@ -103,7 +105,8 @@ const CHECKS = [
 // Media checks require owned mobocom_media_*; reliability checks require mobocom_reliability_*.
 // Journal review reliability requires its own mobocom_review_reliability_* database.
 // Run explicitly on those isolated databases, never the site's database.
-const OPTIONAL_CHECKS = ['media-archive', 'media-storage', 'content-authoring', 'journal-notification-intents', 'compatible-audio', 'admin-policy-history', 'journal-review-reliability', 'journal-block-proposals']
+// Web operations needs an empty first-owner database; import compatibility also requires an explicitly disposable DB.
+const OPTIONAL_CHECKS = ['web-operations', 'import-content-compat', 'media-archive', 'media-storage', 'content-authoring', 'journal-notification-intents', 'compatible-audio', 'admin-policy-history', 'journal-review-reliability', 'journal-block-proposals']
 const REGISTERED = [...CHECKS, ...OPTIONAL_CHECKS]
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/run-pg-checks.cjs')

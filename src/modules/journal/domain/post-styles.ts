@@ -37,6 +37,8 @@ export type CustomPostStyle = {
   width: PostStyleWidth
   leadIn: boolean
   corners: PostStyleCorners
+  bodySize?: number
+  lineHeight?: number
 }
 
 export type PostStyleSettings = {
@@ -78,6 +80,8 @@ export function normalizeCustomStyle(input: unknown): CustomPostStyle | null {
     width: 'wide',
     leadIn: raw.leadIn === true,
     corners: pick(raw.corners, POST_STYLE_CORNERS, 'round'),
+    bodySize: [16, 18, 20, 22].includes(Number(raw.bodySize)) ? Number(raw.bodySize) : 18,
+    lineHeight: [1.8, 2, 2.1, 2.3, 2.5].includes(Number(raw.lineHeight)) ? Number(raw.lineHeight) : 2.1,
   }
 }
 
@@ -112,6 +116,8 @@ export type ResolvedPostStyle = {
   accentDark: string
   /** Words on a fill of the accent. */
   onAccent: string
+  bodySize?: number
+  lineHeight?: number
 }
 
 const BASE_DEFAULTS: Record<PostStyleBase, Pick<ResolvedPostStyle, 'align' | 'width' | 'leadIn' | 'corners'>> = {
@@ -139,6 +145,7 @@ export function resolvePostStyle(id: string, settings: PostStyleSettings): Resol
   const accent = custom.accent ? readableAccent(custom.accent) : null
   return {
     id, base: custom.base, align: custom.align, width: custom.width, leadIn: custom.leadIn, corners: custom.corners,
+    bodySize: custom.bodySize, lineHeight: custom.lineHeight,
     accentLight: accent?.light || '', accentDark: accent?.dark || '', onAccent: accent?.on || '',
   }
 }
@@ -177,6 +184,8 @@ export function postStyleAttributes(style: ResolvedPostStyle | null): { attrs: R
   const attrs: Record<string, string> = { 'data-post-style': style.base, 'data-ps-align': style.align, 'data-ps-width': style.width, 'data-ps-corners': style.corners }
   if (style.leadIn) attrs['data-ps-lead'] = ''
   const vars: Record<string, string> = {}
+  if (style.bodySize) vars['--ps-body-size'] = `${style.bodySize}px`
+  if (style.lineHeight) vars['--ps-line-height'] = String(style.lineHeight)
   if (style.accentLight) { vars['--ps-accent-light'] = style.accentLight; vars['--ps-accent-dark'] = style.accentDark; vars['--ps-on-accent'] = style.onAccent; attrs['data-ps-accent'] = '' }
   return { attrs, vars }
 }

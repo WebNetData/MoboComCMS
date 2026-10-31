@@ -50,7 +50,7 @@ export default function BlockEditorHome() {
           </tbody>
         </table>
       )}
-      {enabled ? <RoleTemplatesPanel key={kind} entity={kind} /> : null}
+      {enabled && kind === 'pages' ? <RoleTemplatesPanel key={kind} entity={kind} /> : null}
     </div>
   )
 }

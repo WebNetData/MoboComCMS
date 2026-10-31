@@ -5,6 +5,7 @@ RUNTIME_ENV="${INSTALL_CONFIG_DIR:-storage/config}/runtime.env"
 
 # Settings saved by the web installer (database address, generated secrets). Real environment variables win.
 eval "$(node scripts/load-runtime-env.cjs)"
+node scripts/bootstrap-install-token.cjs
 
 # No database configured yet: start the web installer instead of failing. It asks for the database in the
 # browser, saves it, and restarts this script (Docker/systemd restart the process when it exits).

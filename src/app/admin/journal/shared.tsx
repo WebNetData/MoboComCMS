@@ -10,7 +10,6 @@ const TABS: SectionTab[] = [
   { href: '/admin/posts', label: 'نوشته‌ها' },
   { href: '/admin/postcats', label: 'دسته‌بندی‌ها' },
   { href: '/admin/comments', label: 'دیدگاه‌ها' },
-  { href: '/admin/journal/formats', label: 'قالب‌ها' },
   { href: '/admin/journal/styles', label: 'استایل صفحهٔ نوشته' },
   { href: '/admin/journal/settings', label: 'صفحهٔ اصلی و تنظیمات' },
 ]

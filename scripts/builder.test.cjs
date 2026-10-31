@@ -21,7 +21,45 @@ function load(file, mocks = {}, cache = new Map()) {
   return mod.exports
 }
 
+test('BBCode decorations are allowlisted, nested, code-safe, sanitized and idempotent', () => {
+  const { renderBBCode, TEXT_DECORATIONS } = load('src/shared/content/bbcode.ts')
+  const { cleanRichText } = load('src/shared/content/sanitize.ts')
+  for (const decoration of TEXT_DECORATIONS) {
+    const html = cleanRichText(decoration.code)
+    assert.doesNotMatch(html, /\[(?:note|tip|warning|success|quote|highlight|spoiler|columns)\]/)
+    assert.equal(cleanRichText(html), html)
+  }
+  assert.match(cleanRichText('[note][b]hello[/b][/note]'), /<strong>hello<\/strong>/)
+  assert.match(cleanRichText('[spoiler]answer[/spoiler]'), /<details[^>]*><summary>نمایش جزئیات<\/summary>/)
+  assert.equal(renderBBCode('<code>[note]literal[/note]</code>'), '<code>[note]literal[/note]</code>')
+  assert.equal(renderBBCode('<a title="[b]literal[/b]">link</a>'), '<a title="[b]literal[/b]">link</a>')
+  assert.equal(renderBBCode('[unknown]value[/unknown]'), '[unknown]value[/unknown]')
+  assert.equal(renderBBCode('[note]unclosed'), '[note]unclosed')
+  assert.doesNotMatch(cleanRichText('[note]<img src="x" onerror="alert(1)"><script>alert(1)</script>hello[/note]'), /onerror|<script/)
+  assert.doesNotMatch(cleanRichText('[b]x[/b]<a href="javascript:alert(1)">bad</a>'), /href="javascript/)
+  const hostile = '[note]'.repeat(1000) + 'x' + '[/note]'.repeat(1000)
+  assert.ok(renderBBCode(hostile).length < hostile.length * 2)
+})
+
 const domain = () => load('src/modules/site/domain/builder.ts')
+test('editorial shortcodes are bounded, escaped, idempotent and inert inside code examples',()=>{
+  const media=load('src/shared/media/editorial.ts'),sanitize=load('src/shared/content/sanitize.ts')
+  const input={kind:'audio',src:'/files/a.mp3?x=1&y=2',title:'صدای "من" <script>alert(1)</script>',caption:'توضیح & نمونه',audioKind:'podcast'}
+  const short=media.mediaShortcode(input),html=sanitize.cleanRichText('<p>'+short+'</p>')
+  assert.match(html,/data-mc-media="audio"/);assert.match(html,/data-mc-audio-kind="podcast"/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script|onerror=/)
+  assert.equal(sanitize.cleanRichText(html),html,'stored media survives another save/render pass')
+  const bracket=media.mediaShortcode({...input,title:'قسمت [۱] "آغاز"'})
+  assert.match(media.mediaShortcodes(bracket),/data-mc-title="قسمت \[۱\] &quot;آغاز&quot;"/)
+  assert.match(media.mediaShortcodes('<pre>'+short+'</pre>'),/\[audio /)
+  assert.equal(media.editorialMedia({kind:'audio',src:'javascript:alert(1)'}),null)
+  assert.equal(media.editorialMedia({kind:'video',src:'https://evil.invalid/index.html'}),null)
+  assert.doesNotMatch(sanitize.cleanRichText('<audio src="javascript:alert(1)" onplay="evil()" autoplay></audio>'),/javascript:|onplay|autoplay/)
+  const policy=load('src/platform/http/csp.ts').contentSecurityPolicy({path:'/p/sample',production:true,nonce:'abcdefghijklmnopqrstuv'})
+  assert.match(policy,/https:\/\/www.namasha.com/);assert.match(policy,/https:\/\/tamasha.com/);assert.doesNotMatch(policy,/frame-src[^;]* https:\s/)
+  const frames=policy.match(/frame-src ([^;]+)/)[1].split(' ')
+  for(const origin of media.MEDIA_FRAME_ORIGINS)assert.ok(frames.includes(origin),origin)
+  assert.ok(frames.every(origin=>["'self'",...media.MEDIA_FRAME_ORIGINS,'https://www.openstreetmap.org','https://translate.google.com'].includes(origin)),'no implicit arbitrary frame host')
+})
 
 function textDoc(widgets) {
   const d = domain(), section = d.createSection(1)

@@ -7,6 +7,7 @@ import {
   ACTION_LABEL, type Analysis, type Attribute, type Destination, type DryRun, type FieldDef, type Finding, type Job, type OptionDef, type Policy, type PreviewCard, type Settings, type Template,
 } from './types'
 import './imports.css'
+import ImportGuide from './ImportGuide'
 
 const STEPS = ['مقصد', 'فایل', 'نگاشت فیلدها', 'روابط و ویژگی‌ها', 'پیش‌نمایش', 'اجرای آزمایشی', 'انتخاب فیلدها', 'تنظیمات ورود', 'شروع', 'گزارش']
 const EXISTING: { value: Settings['existing']; label: string; hint: string }[] = [
@@ -57,7 +58,7 @@ function useJson<T>(url: string | null) {
 // ------------------------------------------------------------------ page
 
 export default function ImportsAdmin() {
-  const [tab, setTab] = useState<'new' | 'history' | 'templates'>('new')
+  const [tab, setTab] = useState<'new' | 'history' | 'templates' | 'guide'>('new')
   const [openJob, setOpenJob] = useState<number | null>(null)
   const meta = useJson<{ destinations: Destination[]; statLabels: Record<string, string>; limits: Record<string, number> }>('/api/admin/imports?view=destinations')
   const [wizardKey, setWizardKey] = useState(0)
@@ -67,13 +68,14 @@ export default function ImportsAdmin() {
       <div className="sa-head-actions"><button type="button" className="btn btn-primary" onClick={() => { setTab('new'); setWizardKey((k) => k + 1) }}>ورود تازه</button></div>
     </header>
     <nav className="sa-subtabs" aria-label="بخش‌ها">
-      {([['new', 'ورود تازه'], ['history', 'تاریخچه'], ['templates', 'الگوها']] as const).map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} aria-pressed={tab === id} onClick={() => { setTab(id); setOpenJob(null) }}>{label}</button>)}
+      {([['new', 'ورود تازه'], ['history', 'تاریخچه'], ['templates', 'الگوها'], ['guide', 'راهنما و نمونه‌فایل']] as const).map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} aria-pressed={tab === id} onClick={() => { setTab(id); setOpenJob(null) }}>{label}</button>)}
     </nav>
     {meta.error && <Notice tone="error">{meta.error}</Notice>}
     {!meta.data ? <div className="sa-skeleton" style={{ height: 260 }} aria-busy="true" /> : <>
       {tab === 'new' && <Wizard key={wizardKey} destinations={meta.data.destinations} labels={meta.data.statLabels} limits={meta.data.limits} />}
       {tab === 'history' && (openJob ? <JobReport jobId={openJob} labels={meta.data.statLabels} onBack={() => setOpenJob(null)} /> : <History destinations={meta.data.destinations} onOpen={setOpenJob} />)}
       {tab === 'templates' && <Templates destinations={meta.data.destinations} />}
+      {tab === 'guide' && <ImportGuide destinations={meta.data.destinations} />}
     </>}
   </div>
 }

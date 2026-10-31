@@ -53,7 +53,7 @@ const OPTIONS: OptionDef[] = [
   { key: 'missingAlbums', label: 'آلبوم موجود نیست', type: 'select', step: 4, default: 'create', choices: [{ value: 'create', label: 'ساخته شود' }, { value: 'error', label: 'خطا' }] },
   { key: 'categorySeparator', label: 'جداکنندهٔ سطح‌های دسته', type: 'select', step: 4, default: '>', choices: [{ value: '>', label: 'A > B' }, { value: '/', label: 'A / B' }, { value: '|', label: 'A | B' }] },
   { key: 'missingCategories', label: 'دستهٔ بخش موجود نیست', type: 'select', step: 4, default: 'create', choices: [{ value: 'create', label: 'ساخته شود' }, { value: 'error', label: 'خطا' }] },
-  { key: 'defaultStatus', label: 'وضعیت موارد جدید (اگر ستون وضعیت نگاشت نشده)', type: 'select', step: 8, default: 'PUBLISHED', choices: STATUS_ENUM },
+  { key: 'defaultStatus', label: 'وضعیت موارد جدید (اگر ستون وضعیت نگاشت نشده)', type: 'select', step: 8, default: 'DRAFT', choices: STATUS_ENUM },
 ]
 const normalizeOptions = (raw: Record<string, unknown>): Options => ({
   missingArtists: raw.missingArtists === 'error' ? 'error' : 'create',

@@ -1,4 +1,5 @@
 'use client'
+import DatabaseBackups from './DatabaseBackups'
 
 import { useState } from 'react'
 import { Notice, ServerShell, bytes, fa, useServerApi, useServerJson } from '../shared'
@@ -96,6 +97,7 @@ function Database() {
 }
 
 function Backups({ dialect }: { dialect?: 'postgresql' | 'sqlite' }) {
+  if (dialect !== 'sqlite') return <DatabaseBackups />
   return <section className="sa-card">
     <header className="sa-card-head"><h2>بکاپ پایگاه داده</h2></header>
     {dialect === 'sqlite'

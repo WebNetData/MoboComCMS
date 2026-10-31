@@ -36,6 +36,8 @@ import { CLASSIC_TOOLBARS, QUICKTAGS, applyQuicktag, type ClassicToolbar } from 
 import ContentTransfer from '@/components/media/ContentTransfer'
 import { rewriteAssets } from '@/modules/downloads/domain/localize'
 import MediaLibrary from '@/components/editor/MediaLibrary'
+import MediaInsert from './MediaInsert'
+import DecorationInsert from './DecorationInsert'
 import { CONTENT_FONTS, CONTENT_FONT_SIZES, CONTENT_LINE_HEIGHTS, DEFAULT_FONT_STACK, fontStack } from '@/shared/content/fonts'
 import { TINYMCE_FA } from './tinymce-fa'
 
@@ -70,8 +72,10 @@ function pageFontFaces(): string {
   for (const sheet of Array.from(document.styleSheets)) {
     let list: CSSRuleList
     try { list = sheet.cssRules } catch { continue } // a sheet from another origin cannot be read
-    for (const rule of Array.from(list)) if (rule instanceof CSSFontFaceRule) rules.push(rule.cssText)
+    for (const rule of Array.from(list)) if (rule instanceof CSSFontFaceRule || rule.cssText.includes('.mc-decor') || rule.cssText.includes('.mc-highlight')) rules.push(rule.cssText)
   }
+  const theme = getComputedStyle(document.documentElement)
+  rules.push(':root{' + ['--card', '--text', '--border', '--primary'].map(name => `${name}:${theme.getPropertyValue(name)}`).join(';') + '}')
   return rules.join('\n')
 }
 
@@ -120,6 +124,7 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
   const [ready, setReady] = useState(false)
   const [note, setNote] = useState('')
   const editor = useRef<TinyEditor | null>(null)
+  const mediaBookmark = useRef<ReturnType<TinyEditor['selection']['getBookmark']> | null>(null)
   const area = useRef<HTMLTextAreaElement>(null)
   // The media library: opened by "add media", and by the picture dialog's own browse button (which waits for an address).
   const [library, setLibrary] = useState<null | { done?: (url: string, meta?: Record<string, string>) => void }>(null)
@@ -143,6 +148,26 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
       onChange(value.slice(0, at) + html + value.slice(at))
     }
   }, [mode, value, onChange])
+
+  const insertMedia = (html: string) => {
+    const instance = editor.current
+    if (mode !== 'visual' || !instance) { insertHtml(html); return }
+    instance.focus()
+    if (mediaBookmark.current) instance.selection.moveToBookmark(mediaBookmark.current)
+    instance.undoManager.transact(() => {
+      // A native player's selection can remain inside its figure. Never put the next
+      // media item in the previous player's slot, which is replaced on the public page.
+      let media: Element | null = null
+      for (let node: Element | null = instance.selection.getNode(); node && node !== instance.getBody(); node = node.parentElement) {
+        if (node.matches('figure[data-mc-media]')) media = node
+      }
+      if (media) { instance.selection.select(media); instance.selection.collapse(false) }
+      // TinyMCE puts the caret at the end of the insertion: leave a writing paragraph
+      // outside the figure for consecutive insertions and ordinary text afterwards.
+      instance.insertContent(html + '<p><br></p>')
+    })
+    mediaBookmark.current = null
+  }
 
   const init = useMemo(() => ({
     skin_url: 'default',
@@ -176,7 +201,7 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
     entity_encoding: 'raw' as const,
     // Things that run or submit are never part of an article, whichever tab they were typed in.
     invalid_elements: 'script,style,object,embed,applet,form,button,select,textarea,meta,link,base',
-    extended_valid_elements: 'iframe[src|width|height|title|allow|allowfullscreen|frameborder]',
+    extended_valid_elements: 'iframe[src|width|height|title|allow|allowfullscreen|frameborder],figure[class|data-mc-media|data-mc-src|data-mc-title|data-mc-poster|data-mc-audio-kind|data-mc-ratio],div[class|data-mc-player|data-mc-decoration],blockquote[class|data-mc-decoration],details[class|data-mc-decoration],summary,mark[class],audio[src|controls|preload|aria-label],video[src|controls|preload|playsinline|poster|aria-label],source[src|type]',
     link_default_target: '_blank',
     link_assume_external_targets: 'https' as const,
     table_default_attributes: {},
@@ -211,6 +236,8 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
           {L('افزودن رسانه', 'Add media')}
         </button>
         <FormInsert fa={fa} onInsert={insertHtml} />
+        <MediaInsert onOpen={() => { mediaBookmark.current = editor.current?.selection.getBookmark(2, true) || null }} onInsert={insertMedia} />
+        <DecorationInsert onOpen={() => { mediaBookmark.current = editor.current?.selection.getBookmark(2, true) || null; return mode === 'visual' ? editor.current?.selection.getContent({ format: 'text' }) || '' : value.slice(area.current?.selectionStart ?? 0, area.current?.selectionEnd ?? 0) }} onInsert={insertMedia} />
       </>}
       {note && <span className="ce-note" role="status">{note}</span>}
       <div className="ce-tabs" role="tablist" aria-label={L('حالت ویرایش', 'Editing mode')}>

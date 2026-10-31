@@ -1,0 +1,18 @@
+[
+  {
+    "externalId": "track-001",
+    "title": "آهنگ نمونه",
+    "titleEn": "Sample Track",
+    "artist": "خوانندهٔ نمونه",
+    "artistEn": "Sample Singer",
+    "album": "آلبوم نمونه",
+    "albumEn": "Sample Album",
+    "cover": "https://example.com/track.jpg",
+    "albumCover": "https://example.com/album.jpg",
+    "artistImage": "https://example.com/singer.jpg",
+    "audioUrl": "https://example.com/track.mp3",
+    "duration": "03:20",
+    "genre": ["Pop"],
+    "status": "DRAFT"
+  }
+]

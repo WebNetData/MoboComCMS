@@ -23,7 +23,8 @@ async function main() { try {
   const author = { ...admin, roleId: 1234, permissions: ['journal.author'] }
   const page = await db.post.create({ data: { slug: stamp, title: stamp, content: '', authorId: admin.id } })
   const locked = doc(block('locked_first', { move: true, remove: true }), block('sibling_second'))
-  let response = await patterns.editorPatterns(req('POST', { title: stamp, kind: 'template', document: locked }))
+  assert.equal((await patterns.editorPatterns(req('POST', { title: stamp, kind: 'template', document: locked }))).status, 410, 'article templates are retired')
+  let response = await patterns.editorPatterns(req('POST', { title: stamp, kind: 'pattern', document: locked }))
   assert.equal(response.status, 201, await response.clone().text())
   const pattern = await response.json()
   response = await patterns.editorPatterns(req('GET')); assert.equal(response.headers.get('cache-control'), 'private, no-store')

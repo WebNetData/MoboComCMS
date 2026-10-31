@@ -1,6 +1,14 @@
 /* Bulk import wizard (admin): built on the store-admin (sa-*) tokens. */
 
 .imp { display: grid; gap: 16px; }
+.imp-guide h2 { font-size: 18px; margin-block: 0 12px; }
+.imp-guide h3 { font-size: 14px; margin-block: 0 6px; }
+.imp-guide p, .imp-guide li { line-height: 1.95; overflow-wrap: anywhere; }
+.imp-guide-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px 28px; padding-inline-start: 24px; }
+.imp-guide-steps li::marker { color: var(--sa-accent); font-weight: 700; }
+.imp-guide-sample { display: grid; gap: 8px; align-content: start; border: 1px solid var(--sa-line); border-radius: 12px; padding: 14px; min-inline-size: 0; }
+.imp-guide-sample p { margin: 0; }
+.imp-guide-sample .btn { justify-self: start; }
 .imp-wizard, .imp-stack, .imp-report { display: grid; gap: 14px; }
 
 .imp-steps { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: thin; }

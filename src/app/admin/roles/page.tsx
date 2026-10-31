@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { ROLE_PRESET_LABELS } from '@/modules/identity/rbac'
+import PermissionPicker from './PermissionPicker'
+import Link from '@/components/AppLink'
+import { parsePermissions, ROLE_PRESET_LABELS } from '@/modules/identity/rbac'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
@@ -19,7 +21,8 @@ const PERM_LABELS: Record<string, string> = {
   'dashboard.view': 'داشبورد',
   'users.manage': 'کاربران و CRM',
   'subs.manage': 'اشتراک‌ها',
-  'orders.manage': 'سفارش‌ها',
+  'orders.manage': 'مدیریت سفارش‌ها',
+  'store.orders.handle': 'کارشناس سفارش‌های مجاز',
   'plans.manage': 'پلن‌ها',
   'panels.manage': 'پنل‌های VPN',
   'tickets.handle': 'تیکت‌ها',
@@ -97,7 +100,7 @@ export default function AdminRolesPage() {
 
   function startEdit(r: RoleRow) {
     setEditing(r)
-    setEditPerms(r.permissions ? r.permissions.split(',').filter(Boolean) : [])
+    setEditPerms(parsePermissions(r.permissions || ''))
   }
 
   function togglePerm(p: string) {
@@ -138,6 +141,7 @@ export default function AdminRolesPage() {
       <h1 className="h2 mb-2">{t.rolesPermissions}</h1>
       <p className="muted mb-6">{t.panelsHint ? '' : ''}نقش‌ها را بسازید و برای هر بخش سایت دسترسی تعیین کنید: پشتیبان، حسابدار، ادمین و…</p>
 
+      <nav className="sa-toolbar" aria-label="مدیریت تیم"><Link className="btn btn-ghost" href="/admin/section-managers">مدیران هر بخش</Link><Link className="btn btn-ghost" href="/admin/forum?tab=team">تیم و درجات تالار</Link><Link className="btn btn-ghost" href="/admin/forms">کارشناسان فرم‌ها</Link><Link className="btn btn-ghost" href="/admin/store/orders">کارتابل سفارش‌ها</Link></nav>
       {msg && <p className="error-text mb-4">{msg}</p>}
 
       <form onSubmit={create} className="card mb-6 grid-4 items-end">
@@ -182,14 +186,7 @@ export default function AdminRolesPage() {
                   <label><span className="label">عنوان انگلیسی</span><input className="input" dir="ltr" value={editing.nameEn || ''} maxLength={80} onChange={(e) => setEditing({ ...editing, nameEn: e.target.value })} /></label>
                 </div>
                 {r.isSystem && <p className="muted text-xs mb-3">این نقش سیستمی است: دسترسی‌ها و نامکش ثابت است و فقط عنوانش تغییر می‌کند.</p>}
-                <div className="grid-2 mb-4" hidden={r.isSystem}>
-                  {allPerms.filter((p) => offered(p) || editPerms.includes(p)).map((p) => (
-                    <label key={p} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={editPerms.includes(p)} onChange={() => togglePerm(p)} />
-                      {PERM_LABELS[p] || p}
-                    </label>
-                  ))}
-                </div>
+                {!r.isSystem && <PermissionPicker available={allPerms.filter(p => offered(p) || editPerms.includes(p))} selected={editPerms} labels={PERM_LABELS} onChange={setEditPerms} />}
                 <div className="flex gap-2">
                   <button className="btn btn-primary flex-1" onClick={savePerms}>{t.save}</button>
                   <button className="btn btn-ghost" onClick={() => setEditing(null)}>{t.cancel}</button>
@@ -199,7 +196,7 @@ export default function AdminRolesPage() {
               <>
                 <div className="flex flex-wrap gap-1 mb-3">
                   {(r.permissions || '').split(',').filter(Boolean).map((p) => (
-                    <span key={p} className="badge badge-gray">{PERM_LABELS[p] || p}</span>
+                    <span key={p} className="badge badge-gray">{p === '*' ? 'همهٔ بخش‌ها و دسترسی‌های سایت' : PERM_LABELS[p] || p}</span>
                   ))}
                   {!r.permissions && <span className="muted text-xs">—</span>}
                 </div>

@@ -134,7 +134,7 @@ test('store admin APIs are guarded and audited', () => {
     const start = routes.indexOf(`export async function ${name}(`)
     assert.ok(start >= 0, name)
     const body = routes.slice(start, routes.indexOf('\nexport', start + 10) === -1 ? undefined : routes.indexOf('\nexport', start + 10))
-    assert.match(body, /Admin\(req\)|adminGuard\(/, `${name} is guarded`)
+    assert.match(body, /Admin\(req\)|orderWorker\(req\)|adminGuard\(/, `${name} is guarded`)
     if (name.startsWith('POST') || name.startsWith('PATCH') || name.startsWith('DELETE')) assert.match(body, /auditAdmin/, `${name} is audited`)
   }
   assert.match(routes, /httpOnly: true/, 'cart cookie is httpOnly')
@@ -289,9 +289,10 @@ test('buyer answers stay encrypted from cart to order, and only an audited staff
   assert.match(checkout, /orderLines\.some\(\(line\) => line\.openAmountMinor > 0n\)\) return fail\(409, 'PROMOTION_NOT_APPLICABLE'/)
   // Every order view masks; the full answer leaves only through the recorded action.
   assert.match(orders, /inputs: maskAnswers\(openAnswers\(line\.inputs\)\)\.map/)
-  assert.match(routes, /const inputs = await revealOrderInputs\(id, lineId\)[\s\S]{0,160}action: 'store\.order\.inputs_reveal'[\s\S]{0,200}return ok\(\{ lineId, inputs \}\)/)
+  assert.match(routes, /const inputs = await revealOrderInputs\(id, lineId, scope\)[\s\S]{0,200}action: 'store\.order\.inputs_reveal'[\s\S]{0,200}return ok\(\{ lineId, inputs \}\)/)
   assert.match(routes, /action: 'store\.order\.inputs_erase'/)
-  assert.match(routes.slice(routes.indexOf('export async function POST_order'), routes.indexOf('export async function GET_products')), /const g = await orderAdmin\(req\)/)
+  assert.match(routes.slice(routes.indexOf('export async function POST_order'), routes.indexOf('export async function GET_products')), /const g = await orderWorker\(req\)/)
+  assert.match(routes, /const orderWorker[^\n]*\['orders.manage', 'store.orders.handle'\]/)
   // A week after the order is done the answers go by themselves.
   assert.match(orders, /export const ORDER_INPUT_KEEP_DAYS = 7/)
   assert.match(read('src/modules/fulfillment/server/worker.ts'), /await eraseFinishedOrderInputs\(\)\.catch\(failedStep\('orderInputs', -1\)\)/)

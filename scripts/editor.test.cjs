@@ -24,6 +24,21 @@ const v = load('src/modules/editor/domain/validate')
 const r = load('src/modules/editor/domain/render')
 
 const registry = core.createRegistry()
+test('editorial file blocks share typed asset validation and preserve playable canonical content', () => {
+  for (const [type, src] of [['content.video','/files/uploads/clip.mp4'],['content.audio','/files/uploads/voice.mp3']]) {
+    const checked = v.checkDocument({version:1,blocks:[{id:'media_0001',type,version:1,props:{file:{src,caption:'توضیح'},title:'عنوان',audioKind:'podcast'}}]},registry)
+    assert.equal(checked.ok,true,JSON.stringify(checked.issues))
+    const html = r.documentHtml(checked.document,registry)
+    assert.match(html,/data-mc-player/);assert.ok(html.includes(src));assert.match(html,/controls preload="none"/);assert.match(html,/<figcaption>توضیح<\/figcaption>/)
+  }
+  const wrong=v.checkDocument({version:1,blocks:[{id:'media_0001',type:'content.audio',version:1,props:{file:{src:'/files/document.pdf'}}}]},registry)
+  assert.equal(wrong.ok,false);assert.ok(wrong.issues.some(i=>i.code==='field.asset.type'))
+  assert.equal(v.checkDocument({version:1,blocks:[{id:'media_0001',type:'content.audio',version:1,props:{file:{src:'/api/media/transfers/12345678-1234-1234-1234-123456789abc'}}}]},registry).ok,true,'explicit Library transfers keep their stable URL while pending')
+})
+test('provider resolver canonicalizes exact Namasha/Tamasha hosts and refuses URL confusion',()=>{
+  for(const [url,expected]of [['https://www.namasha.com/v/kDjys59P','https://www.namasha.com/embed/kDjys59P'],['https://tamasha.com/v/xZlNe','https://tamasha.com/embed/xZlNe'],['https://www.tamasha.com/embed/xZlNe?autoplay=1','https://tamasha.com/embed/xZlNe']])assert.equal(fields.embedOf(url)?.url,expected)
+  for(const url of ['https://tamasha.com.evil.invalid/v/xZlNe','https://evil.invalid/?url=https://namasha.com/v/abcd','https://user:password@namasha.com/v/abcd','https://tamasha.com:8443/v/xZlNe','//namasha.com/v/abcd','https://namasha.com/channel/abcd','https://youtu.be/dQw4w9WgXcQ/evil'])assert.equal(fields.embedOf(url),null,url)
+})
 test('module descriptors use the same owner schemas without sending executable migrations to the browser', () => {
   const { blockDescriptors, registryFromDescriptors } = load('src/modules/editor/domain/descriptors')
   const { publicItemsBlock } = load('src/modules/editor/domain/module-blocks')
@@ -298,7 +313,9 @@ test('a document reads as facts for search and SEO, and as plain HTML with nothi
   assert.match(html, /<a href="\/software\/x"><figure><img src="\/uploads\/a\.webp" alt="نمای برنامه" width="640" height="360" loading="lazy" decoding="async"><figcaption>تصویر ۱<\/figcaption><\/figure><\/a>/)
   assert.match(html, /<a class="mcb mcb-content-button mcb-variant-primary mcb-size-md" href="\/dl\/x">دانلود &quot;نسخهٔ جدید&quot;<\/a>/)
   assert.match(html, /<details open><summary>رایگان است؟<\/summary><p dir="rtl">بله<\/p><\/details><details><summary>لینوکس؟/)
-  assert.match(html, /<iframe src="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ" title="معرفی" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation"><\/iframe>/)
+  assert.match(html, /data-mc-media="embed" data-mc-src="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ" data-mc-title="معرفی"/)
+  assert.match(html, /class="mc-media-external" href="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ"/)
+  assert.doesNotMatch(html, /<iframe/, 'an external player waits for explicit viewer activation')
   assert.match(html, /<aside class="mcb mcb-content-callout mcb-tone-warning" role="note"><strong>توجه<\/strong>/)
   assert.doesNotMatch(html, /style=|<script| on[a-z]+=|javascript:/)
   // Props that reach the renderer without having been checked still cannot write markup.
@@ -330,13 +347,17 @@ test('the core blocks: every one valid with its defaults, placed where it says, 
   assert.equal(registry.accepts(registry.get('content.heading'), registry.get('content.button')), false)
 })
 
-test('the editor domain depends on nothing but itself: no editing engine, no React, no database', () => {
+test('the editor domain depends only on itself and dependency-free presentation codecs: no editing engine, React or database', () => {
   const dir = path.resolve(__dirname, '..', 'src/modules/editor/domain')
   for (const name of fs.readdirSync(dir)) {
     const source = fs.readFileSync(path.join(dir, name), 'utf8')
-    for (const [, from] of source.matchAll(/from '([^']+)'/g)) assert.match(from, /^@\/modules\/editor\/domain\//, `${name} imports ${from}`)
+    for (const [, from] of source.matchAll(/from '([^']+)'/g)) assert.ok(from.startsWith('@/modules/editor/domain/') || ['@/shared/media/editorial', '@/shared/content/bbcode'].includes(from), `${name} imports ${from}`)
     assert.doesNotMatch(source, /@wordpress|@tiptap|dangerouslySetInnerHTML|innerHTML/, name)
   }
+  const mediaSource = fs.readFileSync(path.resolve(dir, '../../../shared/media/editorial.ts'), 'utf8')
+  assert.doesNotMatch(mediaSource, /\bimport\s|\brequire\s*\(|\bfrom\s+['"]|window\.|document\.|@wordpress|@tiptap|\bfetch\s*\(/, 'the one neutral codec remains portable and has no external/runtime dependencies')
+  const decorations = fs.readFileSync(path.resolve(dir, '../../../shared/content/bbcode.ts'), 'utf8')
+  assert.doesNotMatch(decorations, /\bimport\s|\brequire\s*\(|\bfrom\s+['"]|window\.|document\.|\bfetch\s*\(/)
 })
 
 // ------------------------------------------------------------------ the Gutenberg adapter

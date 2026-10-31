@@ -144,6 +144,27 @@ test('update script: requires a successful backup before replacing code', () => 
   assert.ok(!failed.log.includes('npm ci'), 'build never starts after a failed backup')
 })
 
+test('automatic update refuses tracked edits, untracked files and divergent local commits', () => {
+  for (const kind of ['tracked', 'untracked', 'commit']) {
+    const box = sandbox()
+    if (kind === 'tracked') fs.writeFileSync(path.join(box.app, 'VERSION'), 'owner edit\n')
+    else { fs.writeFileSync(path.join(box.app, 'owner-content.txt'), 'preserve me'); if (kind === 'commit') { box.git('add', 'owner-content.txt'); box.git('commit', '-qm', 'local owner work') } }
+    const before = box.git('rev-parse', 'HEAD').trim()
+    const result = runUpdate(box, 'v1.1.0')
+    assert.equal(result.code, 2); assert.equal(box.git('rev-parse', 'HEAD').trim(), before)
+    assert.equal(result.state.status, 'failed')
+    assert.ok(!result.log.includes('Backing up before update'))
+    if (kind !== 'tracked') assert.equal(fs.readFileSync(path.join(box.app, 'owner-content.txt'), 'utf8'), 'preserve me')
+  }
+})
+
+test('automatic update can require a trusted signed release and refuses unsigned tags', () => {
+  const box = sandbox(), before = box.git('rev-parse', 'HEAD').trim()
+  const result = runUpdate(box, 'v1.1.0', { UPDATE_REQUIRE_SIGNED_TAG: 'true' })
+  assert.equal(result.code, 2); assert.equal(box.git('rev-parse', 'HEAD').trim(), before)
+  assert.equal(result.state.status, 'failed')
+})
+
 test('manual Ubuntu update also stops before checkout when its backup fails', () => {
   const box = sandbox()
   const capturedVersion = path.join(box.dir, 'manual-version-at-backup')

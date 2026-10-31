@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { db } from '@/platform/database/prisma'
 import { decideMode, type InstallMode, type ModeInput } from '@/modules/installer/domain/installer'
@@ -8,6 +8,10 @@ export const configDirectory = () => resolve(process.env.INSTALL_CONFIG_DIR || j
 export const lockFile = () => join(configDirectory(), 'installed.lock')
 export const runtimeEnvFile = () => join(configDirectory(), 'runtime.env')
 export const lastErrorFile = () => join(configDirectory(), 'last-error.txt')
+export function installationToken(): string {
+  if (process.env.INSTALL_TOKEN?.trim()) return process.env.INSTALL_TOKEN.trim()
+  try { return readFileSync(join(configDirectory(), 'install.token'), 'utf8').trim() } catch { return '' }
+}
 
 export const installerDisabled = () => process.env.INSTALL_DISABLED === 'true'
 /** Booted without a database: the container start script sets SETUP_MODE=1 when no DATABASE_URL is configured. */

@@ -15,7 +15,7 @@ export type Settings = {
   reactions: string[]; reactionWeights: Record<string, number>; clubsEnabled: boolean; clubsMinTrust: number; clubsMaxOwned: number; levels: UserLevel[]; approveNewUserPosts: number
   messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] }; trust: Record<'1' | '2' | '3', Trust>
 }
-export type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
+export type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; manualLevelId: string | null; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
 export type Data = {
   team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; settingsRevision?: string; badgeRules: string[]; trustNames: string[]
   flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number }

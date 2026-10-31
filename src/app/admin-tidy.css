@@ -293,3 +293,11 @@ html[data-theme='light'] .admin-shell .tm-remove { color: #b42318; }
 .admin-shell .pg-new-menu > button:focus-visible, .admin-shell .pg-new-menu > a:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .admin-shell .pg-new-menu span { font-weight: 800; font-size: .9rem; }
 .admin-shell .pg-new-menu small { color: var(--muted); font-size: .76rem; }
+
+/* Team permission groups */
+.admin-shell .role-permission-groups { display: grid; gap: 14px; margin-block: 18px; }
+.admin-shell .role-permission-group { min-width: 0; border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+.admin-shell .role-permission-group legend { padding-inline: 8px; font-weight: 700; }
+.admin-shell .role-permission-group p { font-size: .85rem; margin-block: 0 12px; }
+.admin-shell .role-permission-group > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-block-start: 14px; }
+@media (max-width: 700px) { .admin-shell .role-permission-group > div { grid-template-columns: 1fr; } }
