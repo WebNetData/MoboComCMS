@@ -150,6 +150,7 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
 
 const ENABLED: Record<MegaSection, () => Promise<boolean>> = {
   home: async () => true,
+  prompts: () => isModuleEnabled('prompt-master'),
   celebrities: async () => (await isModuleEnabled('music')) || (await isModuleEnabled('cinema')),
   businesses: () => isModuleEnabled('businesses'),
   shop: () => isStoreEnabled().catch(() => false),
@@ -162,6 +163,7 @@ const ENABLED: Record<MegaSection, () => Promise<boolean>> = {
 }
 
 const SEARCH: Partial<Record<MegaSection, { action: string; placeholder: string; param: string }>> = {
+  prompts: { action: '/prompts/library', placeholder: 'جست‌وجو در الگوهای پرامپت…', param: 'q' },
   celebrities: { action: '/celebrities', placeholder: 'جست‌وجوی هنرمند…', param: 'q' },
   businesses: { action: '/businesses', placeholder: 'جست‌وجوی نام یا دامنهٔ کسب‌وکار…', param: 'q' },
   software: { action: '/software/browse', placeholder: 'نام نرم‌افزار را بنویسید…', param: 'term' },

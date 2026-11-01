@@ -1,5 +1,7 @@
 # Domain capability maturity matrix
 
+Scoped update2026-11-01: Prompt Master is **Functional (bounded local)** for structured prompt creation, illustrated public library (image/video/text/code/WEB), private history and Admin controls using existing shared Media. [Exact evidence and limits](handoffs/PROMPT_MASTER.md). No ProductionVerified/reference-equivalence, cloud-provider, image/video generation or broad domain promotion is claimed.
+
 Scoped update2026-11-01: browser domain/email/SSL extends existing Installer/Server Panel and backup-protected package workers. [Evidence and remaining VM/real CA gates](handoffs/HOST_INSTALL_UPGRADE.md#browser-host-setup-follow-up--2026-11-01). This is not blanket production certification of the domain cells below.
 
 Scoped update2026-10-19: ten public module blocks and five portal-settings history adapters are locally functional in the existing Editor/Content/Settings owners. [Exact scope and evidence](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md). This closes the named browser-registry/rendering gap and extends General/Forum history; it does not promote whole domain cells, arbitrary settings, templates or production maturity. The original matrix snapshot below remains historical evidence.

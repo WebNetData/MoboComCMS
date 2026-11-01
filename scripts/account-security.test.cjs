@@ -254,7 +254,8 @@ test('roles that held the magazine permission keep what it used to open', () => 
 // ---- managers of the site's sections
 test('a choice of sections stands for one role with exactly their permissions', () => {
   const sections = load('src/modules/identity/domain/sections')
-  assert.deepEqual(sections.SITE_SECTIONS.map((section) => section.id), ['businesses', 'magazine', 'music', 'cinema', 'games', 'software', 'store', 'forum', 'reviews'])
+  assert.deepEqual(sections.SITE_SECTIONS.map((section) => section.id), ['prompts', 'businesses', 'magazine', 'music', 'cinema', 'games', 'software', 'store', 'forum', 'reviews'])
+  assert.deepEqual(sections.sectionRole(['prompts']).permissions, ['dashboard.view', 'prompts.manage'])
   assert.deepEqual(sections.sectionRole(['businesses']).permissions, ['dashboard.view', 'businesses.manage'])
   assert.deepEqual(sections.sectionsOf(['reviews.moderate']), ['reviews'], 'review moderation does not grant business management')
   assert.deepEqual(sections.sectionRole(['games', 'music']), { name: 'sections:music+games', nameFa: 'مدیر موزیک و بازی', nameEn: 'Manager: music, games', permissions: ['dashboard.view', 'music.manage', 'games.manage'] })

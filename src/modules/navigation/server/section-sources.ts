@@ -11,6 +11,10 @@ const item = (key: string, label: string, href: string, icon: string): SectionBa
 
 /** The same public owner lists as the sections, never private records or new taxonomies. */
 export const additionalSectionSources = {
+  async prompts() {
+    const categories = (await activeLists('prompts')).CATEGORY || []
+    return { items: categories.map(c => item('prompt-' + c.code, c.name, '/prompts/library?' + new URLSearchParams({ category: c.code }), c.icon || 'sparkles')), quick: [{ label: 'ساخت پرامپت', href: '/prompts', icon: 'sparkles' }, { label: 'همهٔ الگوها', href: '/prompts/library', icon: 'layers' }, { label: 'تاریخچهٔ من', href: '/prompts/history', icon: 'clock' }], searchCategories: [] }
+  },
   /**
    * The home bar is the site's hub (owner, 2026-10-28: "complete the home navbar"): discover, shop, community and
    * help, each a dropdown of the site's own pages, then the company pages. A link to a section that is off (or the
@@ -30,7 +34,7 @@ export const additionalSectionSources = {
     const items = [
       ...hub('home-discover', 'کشف کنید', '/search', 'sparkles', [
         ...column('پرطرفدار', 'star', [['تقویم انتشار بازی', '/games/calendar', 'gamepad'], ['فیلم‌ها و سریال‌های تازه', '/cinema', 'film'], ['آهنگ‌های تازه', '/music', 'music'], ['آخرین نرم‌افزارها', '/software/browse', 'devices'], ['تازه‌های مجله', '/blog', 'book']]),
-        ...column('مجموعه‌ها و ابزارها', 'layers', [['مجموعه‌های منتخب', '/collections', 'grid'], ['مقایسهٔ محصولات', '/compare', 'sliders'], ['علاقه‌مندی‌های من', '/favorites', 'heart'], ['جست‌وجوی پیشرفته', '/search', 'search']]),
+        ...column('مجموعه‌ها و ابزارها', 'layers', [['پرامپت مستر', '/prompts', 'sparkles'], ['مجموعه‌های منتخب', '/collections', 'grid'], ['مقایسهٔ محصولات', '/compare', 'sliders'], ['علاقه‌مندی‌های من', '/favorites', 'heart'], ['جست‌وجوی پیشرفته', '/search', 'search']]),
       ]),
       ...hub('home-shop', 'خرید', '/products', 'bag', [
         ...column('فروشگاه', 'store', [['همهٔ محصولات', '/products', 'bag'], ['سبد خرید', '/cart', 'cart'], ['پیگیری سفارش', '/track', 'box'], ['باشگاه ویژه (VIP)', '/vip', 'crown']]),

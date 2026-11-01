@@ -8,21 +8,21 @@
 
 import type { SiteLink } from '@/modules/site/config/types'
 import { validateMenu } from '@/modules/site/config/validation'
-export const MEGA_SECTIONS = ['home', 'shop', 'blog', 'music', 'cinema', 'games', 'software', 'forum', 'celebrities', 'businesses'] as const
+export const MEGA_SECTIONS = ['home', 'shop', 'blog', 'music', 'cinema', 'games', 'software', 'forum', 'celebrities', 'businesses', 'prompts'] as const
 export type MegaSection = typeof MEGA_SECTIONS[number]
 
 /** Landing page of each section (the bar's home link). */
 export const SECTION_ROOT: Record<MegaSection, string> = {
   shop: '/products', blog: '/blog', music: '/music', cinema: '/cinema', games: '/games', software: '/software', forum: '/forum',
-  home: '/', celebrities: '/celebrities', businesses: '/businesses',
+  prompts: '/prompts', home: '/', celebrities: '/celebrities', businesses: '/businesses',
 }
 
 export const SECTION_LABEL: Record<MegaSection, string> = {
   shop: 'فروشگاه', blog: 'مجله', music: 'موزیک', cinema: 'فیلم و سریال', games: 'بازی', software: 'نرم‌افزار', forum: 'تالار گفتمان',
-  home: 'خانه', celebrities: 'هنرمندان', businesses: 'کسب‌وکارها',
+  prompts: 'پرامپت مستر', home: 'خانه', celebrities: 'هنرمندان', businesses: 'کسب‌وکارها',
 }
 
-export const SECTION_ICON: Record<MegaSection, string> = { home: 'home', shop: 'bag', blog: 'book', music: 'music', cinema: 'film', games: 'gamepad', software: 'file', forum: 'chat', celebrities: 'users', businesses: 'globe' }
+export const SECTION_ICON: Record<MegaSection, string> = { prompts: 'sparkles', home: 'home', shop: 'bag', blog: 'book', music: 'music', cinema: 'film', games: 'gamepad', software: 'file', forum: 'chat', celebrities: 'users', businesses: 'globe' }
 
 export type MegaLink = { label: string; href: string; count?: number; hint?: string; icon?: string; enabled?: boolean; children?: MegaLink[] }
 export type MegaColumn = { title: string; href?: string; icon?: string; links: MegaLink[] }

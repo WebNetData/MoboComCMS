@@ -28,6 +28,7 @@ export async function memberItemExperience(userId: number, ref: ItemRef): Promis
   const watches: Owner[] = []
   let trackIds: number[] = []
   switch (ref.type) {
+    case 'prompt': return ''
     case 'business': {
       const business = await db.businessProfile.findUnique({ where: { id: ref.id }, select: { kind: true } })
       if (business?.kind !== 'SITE') return ''

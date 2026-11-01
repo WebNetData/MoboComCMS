@@ -1,0 +1,38 @@
+{
+  "id": "prompt-master",
+  "name": "پرامپت مستر",
+  "nameEn": "Prompt Master",
+  "description": "استودیوی ساخت پرامپت متن، تصویر، ویدئو و کد؛ کتابخانهٔ الگو، تاریخچهٔ خصوصی و بهبود اختیاری با سرویس هوش مصنوعی موجود.",
+  "version": "1.1.0",
+  "apiVersion": 1,
+  "kind": "module",
+  "category": "content",
+  "icon": "sparkles",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/prompts"],
+  "adminPaths": ["/admin/prompts"],
+  "permissions": [{ "id": "prompts.manage", "label": "مدیریت پرامپت مستر و الگوها" }],
+  "adminMenu": {
+    "title": "پرامپت مستر", "icon": "sparkles", "order": 36,
+    "items": [
+      { "href": "/admin/prompts", "label": "مدیریت الگوها", "icon": "layers", "permissions": ["prompts.manage"], "exact": true },
+      { "href": "/admin/prompts/categories", "label": "دسته‌های کتابخانه", "icon": "folder", "permissions": ["prompts.manage"] },
+      { "href": "/admin/sections/prompt-master", "label": "تنظیمات و دسترسی", "icon": "sliders", "permissions": ["settings.manage"] }
+    ]
+  },
+  "settings": [
+    { "key": "title", "label": "تیتر استودیو", "type": "text", "default": "ایده‌ات را به یک پرامپت دقیق تبدیل کن" },
+    { "key": "description", "label": "توضیح استودیو", "type": "textarea", "default": "از یک فکر کوتاه تا دستور کامل؛ برای نوشتن، طراحی، ویدئو و کدنویسی." },
+    {"key":"library.title","label":"تیتر کتابخانهٔ نمونه‌ها","type":"text","default":"نتیجه را ببین؛ پرامپتش را بردار."},
+    {"key":"library.description","label":"توضیح کتابخانهٔ نمونه‌ها","type":"textarea","default":"از یک قاب تصویری تا یک تجربهٔ وب. نمونه‌ها را کشف کن، متن دقیق پرامپت را بردار و با ایدهٔ خودت ادامه بده."},
+    { "key": "allow-guests", "label": "ساخت پرامپت ساختاریافته برای مهمان‌ها فعال باشد", "type": "boolean", "default": true },
+    { "key": "ai-enabled", "label": "بهبود با سرویس هوش مصنوعی برای اعضا فعال باشد", "description": "نیازمند دستیار هوش مصنوعی فعال و سرویس تنظیم‌شده؛ فقط با انتخاب و موافقت کاربر فراخوانی می‌شود.", "type": "boolean", "default": false },
+    { "key": "minute-limit", "label": "سقف ساخت در دقیقه (۱ تا ۶۰)", "type": "number", "default": 20 },
+    { "key": "ai-daily-limit", "label": "سقف بهبود هوشمند هر عضو در ۲۴ ساعت (۱ تا ۱۰۰)", "type": "number", "default": 10 },
+    { "key": "history-limit", "label": "تعداد خروجی‌های اخیر هر عضو (۵ تا ۲۰۰؛ موارد نگه‌داری‌شده جداگانه)", "type": "number", "default": 50 },
+    { "key": "pin-limit", "label": "سقف نگه‌داری خروجی‌های منتخب هر عضو (۱ تا ۲۰۰)", "type": "number", "default": 50 },
+    { "key": "seo.title", "label": "عنوان سئو", "type": "text", "default": "پرامپت مستر | ساخت پرامپت متن، تصویر، ویدئو و کد" },
+    { "key": "seo.description", "label": "توضیح سئو", "type": "textarea", "default": "ایده‌تان را به پرامپت ساختاریافته تبدیل کنید؛ با کتابخانهٔ الگوهای قابل ویرایش و تاریخچهٔ خصوصی در موبوکام." }
+  ]
+}

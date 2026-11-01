@@ -1,3 +1,4 @@
+import { PROMPT_LISTS } from '@/modules/prompts/domain/vocabulary'
 import type { ListDefinition } from '@/modules/vocabulary/domain/vocabulary'
 import { GAME_LISTS } from '@/modules/games/domain/vocabulary'
 import { SOFTWARE_LISTS } from '@/modules/software/domain/vocabulary'
@@ -15,6 +16,7 @@ import { CELEBRITY_LISTS } from '@/modules/celebrities/domain/fields'
  * the lists themselves. A new section adds its lists here.
  */
 export const VOCABULARY_SECTIONS = {
+  prompts: { module: 'prompt-master', manage: ['prompts.manage'], read: ['prompts.manage'], lists: PROMPT_LISTS },
   games: { module: 'games', manage: ['games.manage'], read: ['games.manage', 'games.author'], lists: GAME_LISTS },
   software: { module: 'software', manage: ['software.manage'], read: ['software.manage', 'software.author'], lists: SOFTWARE_LISTS },
   music: { module: 'music', manage: ['music.manage'], read: ['music.manage', 'music.author'], lists: MUSIC_LISTS },

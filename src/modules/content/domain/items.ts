@@ -6,7 +6,7 @@
  */
 
 import { toInternalPath } from '@/shared/routing/aliases'
-export const ITEM_TYPES = ['software', 'game', 'studio', 'title', 'person', 'album', 'track', 'artist', 'product', 'post', 'thread', 'business'] as const
+export const ITEM_TYPES = ['software', 'game', 'studio', 'title', 'person', 'album', 'track', 'artist', 'product', 'post', 'thread', 'business', 'prompt'] as const
 export type ItemType = typeof ITEM_TYPES[number]
 export type ItemRef = { type: ItemType; id: number }
 
@@ -16,10 +16,11 @@ export const isItemType = (value: unknown): value is ItemType => (ITEM_TYPES as 
 export const ITEM_MODULE: Record<ItemType, string> = {
   software: 'software', game: 'games', studio: 'games', title: 'cinema', album: 'music', track: 'music', artist: 'music',
   product: 'store', post: 'journal', thread: 'forum', business: 'businesses',
-  person: 'cinema',
+  person: 'cinema', prompt: 'prompt-master',
 }
 
 export const ITEM_LABEL: Record<ItemType, { one: string; many: string; icon: string }> = {
+  prompt: { one: 'الگوی پرامپت', many: 'پرامپت‌ها', icon: '✦' },
   business: { one: 'کسب‌وکار', many: 'کسب‌وکارها', icon: '⭐' },
   person: { one: 'بازیگر / کارگردان', many: 'عوامل سینما', icon: '🎭' },
   software: { one: 'نرم‌افزار', many: 'نرم‌افزارها', icon: '💾' },
@@ -37,7 +38,7 @@ export const ITEM_LABEL: Record<ItemType, { one: string; many: string; icon: str
 /** Item types members can rate, review and follow (products keep their own review system). */
 export const REVIEWABLE: readonly ItemType[] = ['software', 'game', 'title', 'album', 'track', 'business']
 /** Item types members can favorite. */
-export const FAVORITABLE: readonly ItemType[] = ['software', 'game', 'studio', 'title', 'person', 'album', 'track', 'artist', 'product', 'post']
+export const FAVORITABLE: readonly ItemType[] = ['software', 'game', 'studio', 'title', 'person', 'album', 'track', 'artist', 'product', 'post', 'prompt']
 /** Item types that can be compared side by side (only with the same type). */
 export const COMPARABLE: readonly ItemType[] = ['software', 'game', 'title', 'product']
 export const COMPARE_MAX = 4
@@ -47,6 +48,7 @@ export const LINKABLE: readonly ItemType[] = ITEM_TYPES.filter((type) => type !=
 export function itemPath(type: ItemType, key: { slug?: string | null; id: number }): string {
   const slug = encodeURIComponent(key.slug || String(key.id))
   switch (type) {
+    case 'prompt': return `/prompts/templates/${slug}`
     case 'business': return `/businesses/${slug}`
     case 'software': return `/software/${slug}`
     case 'game': return `/games/${slug}`

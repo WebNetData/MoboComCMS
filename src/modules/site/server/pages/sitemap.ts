@@ -91,6 +91,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // tables may not be migrated yet
   }
 
+  try {
+    const templates = await db.promptTemplate.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 })
+    entries.push({ url: base + '/prompts', changeFrequency: 'weekly', priority: 0.7 }, { url: base + '/prompts/library', changeFrequency: 'weekly', priority: 0.6 })
+    for (const template of templates) entries.push({ url: base + '/prompts/templates/' + template.slug, lastModified: template.updatedAt, changeFrequency: 'monthly', priority: 0.5 })
+  } catch { /* new additive table may not be migrated yet */ }
+
   // Disabled feature modules (journal, VPN plans, store …) leave the sitemap.
   const runtime = await getPublicExtensionRuntime().catch(() => null)
   const aliases = await loadRouteAliases()

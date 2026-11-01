@@ -4,6 +4,7 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'prompt-master',
   'page-lifecycle',
   'editor-media',
   'editor-groups-experts',
