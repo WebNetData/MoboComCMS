@@ -16,6 +16,31 @@ function load(relative) {
 const i = load('src/modules/installer/domain/installer.ts')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
+// Execute the actual admission branch without root, OS-file changes, apt or service mutations.
+function hostAdmission(id, version) {
+  const installer = read('deploy/ubuntu/install.sh').replace(/\r\n/g, '\n')
+  const branch = installer.match(/case "\$\{ID:-\}:\$\{VERSION_ID:-\}" in[\s\S]*?\nesac/)
+  assert.ok(branch, 'host OS admission exists')
+  return require('node:child_process').spawnSync('bash', ['-c', `die() { printf '%s\\n' "$*" >&2; exit 1; }; ${branch[0]}`], {
+    encoding: 'utf8', env: { ...process.env, ID: id, VERSION_ID: version },
+  })
+}
+
+test('host installer accepts supported Ubuntu LTS releases including 26.04', () => {
+  for (const version of ['22.04', '24.04', '26.04']) {
+    const result = hostAdmission('ubuntu', version)
+    assert.equal(result.status, 0, `${version}: ${result.error || result.stderr}`)
+  }
+})
+
+test('host installer refuses unsupported or unknown systems before package installation', () => {
+  for (const [id, version] of [['ubuntu', '20.04'], ['ubuntu', '25.10'], ['ubuntu', '26.10'], ['ubuntu', ''], ['debian', '26.04'], ['', '26.04']]) {
+    const result = hostAdmission(id, version)
+    assert.equal(result.status, 1, `${id}:${version}: ${result.error || result.stderr}`)
+    assert.match(result.stderr, /supports Ubuntu 22\.04, 24\.04 and 26\.04 LTS/)
+  }
+})
+
 test('first-run code is private, stable across starts, and never overwrites an operator token', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-token-'))
   const run = extra => execFileSync(process.execPath, [path.join(root, 'scripts/bootstrap-install-token.cjs')], { env: { ...process.env, INSTALL_CONFIG_DIR: dir, INSTALL_TOKEN: '', INSTALL_DISABLED: 'false', ...extra }, encoding: 'utf8' })

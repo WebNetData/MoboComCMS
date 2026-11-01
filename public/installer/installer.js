@@ -12,6 +12,7 @@
     modules: null, dbTested: false
   }
   try { S.token = sessionStorage.getItem('installToken') || '' } catch (e) { /* private mode */ }
+  var network = window.MoboComInstallNetwork({ state: S, h: h, field: field, note: note, button: button, api: api, load: load, render: render, next: next, back: back })
 
   // ------------------------------------------------------------------ helpers
   function h(tag, attrs) {
@@ -47,6 +48,7 @@
     var list = [{ id: 'welcome', label: 'شروع' }]
     if (mode === 'needs-database') list.push({ id: 'database', label: 'پایگاه داده' })
     if (mode === 'needs-schema') list.push({ id: 'schema', label: 'ساخت جدول‌ها' })
+    if (S.status.network && S.status.network.enabled) list.push({ id: 'network', label: 'دامنه و SSL' })
     list.push({ id: 'site', label: 'سایت' }, { id: 'admin', label: 'مدیر' }, { id: 'features', label: 'امکانات' }, { id: 'review', label: 'نصب' })
     return list
   }
@@ -57,6 +59,7 @@
       if (r.status === 401 && r.data.tokenRequired) { S.status = { tokenRequired: true }; render(); return }
       if (!r.ok) { S.error = r.data.error || 'وضعیت نصب خوانده نشد'; render(); return }
       S.status = r.data
+      if (r.data.network && r.data.network.ready) S.form.siteUrl = r.data.network.siteUrl
       if (!S.form.siteUrl) S.form.siteUrl = r.data.origin || location.origin
       if (!S.form.siteName) S.form.siteName = ''
       if (r.data.modules && !S.modules) { S.modules = {}; r.data.modules.forEach(function (m) { S.modules[m.id] = m.defaultEnabled }) }
@@ -207,7 +210,7 @@
       S.busy = false
       if (!r.ok) { S.error = r.data.error || 'ساخت جدول‌ها ناموفق بود'; render(); return }
       S.log = r.data.log || ''
-      return load().then(function () { S.step = 'site'; render(true) })
+      return load().then(function () { S.step = S.status.network && S.status.network.enabled ? 'network' : 'site'; render(true) })
     })
   }
 
@@ -218,7 +221,7 @@
       h('p', { class: 'lead' }, 'این‌ها را بعداً هم از پنل مدیریت می‌توانید تغییر دهید.'),
       field('نام سایت', h('input', { type: 'text', value: f.siteName, oninput: bind('siteName'), maxlength: '80', autocomplete: 'off', placeholder: 'مثلاً موبوکام' })),
       field('شعار (اختیاری)', h('input', { type: 'text', value: f.tagline, oninput: bind('tagline'), maxlength: '160' })),
-      field('نشانی عمومی سایت', h('input', { type: 'url', dir: 'ltr', value: f.siteUrl, oninput: bind('siteUrl'), placeholder: 'https://example.com' }), 'برای لینک‌ها، نقشهٔ سایت و پیام‌ها استفاده می‌شود.'),
+      field('نشانی عمومی سایت', h('input', { type: 'url', dir: 'ltr', value: f.siteUrl, oninput: bind('siteUrl'), placeholder: 'https://example.com', readonly: !!(S.status.network && S.status.network.enabled) }), S.status.network && S.status.network.enabled ? 'از مرحلهٔ دامنه و SSL می‌آید؛ برای تغییر، به همان مرحله برگردید.' : 'برای لینک‌ها، نقشهٔ سایت و پیام‌ها استفاده می‌شود.'),
       note('bad', S.error),
       h('div', { class: 'actions' }, button('قبلی', back), h('div', { class: 'end' }, button('ادامه', function () {
         if (!S.form.siteName.trim()) { S.error = 'نام سایت را وارد کنید'; render(); return }
@@ -298,6 +301,7 @@
       if (!r.ok) { S.error = r.data.error || 'نصب ناموفق بود'; render(); return }
       S.warnings = r.data.warnings || []; S.loginUrl = r.data.loginUrl || '/login'
       S.form.adminPassword = ''; S.form.adminPassword2 = ''
+      S.token = ''; try { sessionStorage.removeItem('installToken') } catch (e) { /* private mode */ }
       S.step = 'done'; render(true)
     })
   }
@@ -328,13 +332,13 @@
         S.token = input.value.trim()
         try { sessionStorage.setItem('installToken', S.token) } catch (e) { /* ignore */ }
         S.error = ''
-        api('GET').then(function (r) { if (r.ok) { S.status = r.data; S.form.siteUrl = r.data.origin || location.origin; if (r.data.modules && !S.modules) { S.modules = {}; r.data.modules.forEach(function (m) { S.modules[m.id] = m.defaultEnabled }) } render(true) } else { S.error = 'کد نصب درست نیست'; render() } })
+        api('GET').then(function (r) { if (r.ok) { S.status = r.data; S.form.siteUrl = r.data.network && r.data.network.ready ? r.data.network.siteUrl : r.data.origin || location.origin; if (r.data.modules && !S.modules) { S.modules = {}; r.data.modules.forEach(function (m) { S.modules[m.id] = m.defaultEnabled }) } render(true) } else { S.error = r.status === 401 ? 'کد نصب درست نیست' : r.data.error || 'کد نصب درست نیست'; render() } })
       }, 'primary')))
     ]
   }
 
   // ------------------------------------------------------------------ render
-  var VIEWS = { welcome: welcome, database: database, schema: schema, site: site, admin: admin, features: features, review: review, done: done }
+  var VIEWS = { welcome: welcome, database: database, schema: schema, network: network.view, site: site, admin: admin, features: features, review: review, done: done }
   function render(focus) {
     root.textContent = ''
     var body
@@ -343,7 +347,7 @@
     else {
       var list = stepsFor(S.status.mode)
       if (S.step !== 'done' && !list.some(function (s) { return s.id === S.step })) S.step = 'welcome'
-      body = [S.step === 'done' ? null : stepper(), h('section', { class: 'card', 'aria-labelledby': 'title' }, VIEWS[S.step]())]
+      body = [S.step === 'done' ? null : stepper(), h('section', { class: 'card', 'aria-labelledby': 'title', 'aria-busy': S.busy ? 'true' : 'false' }, VIEWS[S.step]())]
     }
     root.appendChild(h('div', { class: 'brand' }, h('b', { 'aria-hidden': 'true' }, 'م'), h('span', null, 'نصب موبوکام', h('small', null, 'MoboComCMS Installer'))))
     append(root, body)

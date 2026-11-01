@@ -1,5 +1,9 @@
 # MOBOCOM_MAP.md
 
+- **Release/download continuation2026-11-01:** existing signed builder/Installer/Updater plus private GitHub Releases; v1.6.1 Pre-release/7 Assets redownload/hash/signature verified. [Operator/developer guide](../RELEASES-FA.md), [canonical evidence and immutable-version rules](handoffs/WEB_PACKAGE_UPDATES.md#github-release-channel--2026-11-01). Runtime code unchanged from tested browser-host setup; no second publisher/CI/deployment service.
+
+- **Ubuntu26 continuation2026-11-01:** existing `deploy/ubuntu` bootstrap now admits26.04 LTS; no second installer. Actual26.04 unit47/PGhost10/Python3/Nginx checks, dependency provenance and incomplete-build/Nginx404 diagnosis are in the [host handoff](handoffs/HOST_INSTALL_UPGRADE.md#ubuntu-2604-follow-up--2026-11-01). Destination systemd/DNS/SSL remains separate; no remote state changed.
+
 - **Import launch continuation2026-10-31:** existing Import adapters/Editor/Operations/Library; block-body claim/refusal and safe HTML undo, fresh draft defaults, guide8examples, consolidated release instructions. [Exact local validation/limits](handoffs/IMPORTS_LAUNCH.md), [operator guide](../BULK_IMPORT.md). Continue this batch; owner merges/deploys.
 
 - **Web operations2026-10-31:** extend existing Installer/Server Panel/Notifications backup/Updater, never duplicate them. Private first-install claim, corrected header hover, explicit SSL methods/private PEM, database manual backup/restore-test and gated safe updates are verified locally. [Owners/evidence/limits](handoffs/WEB_OPERATIONS.md); [activation guide](../WEB_SETUP_AND_SERVER.md). Target-host ACME/renewal/deployment remains separate.

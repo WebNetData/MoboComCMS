@@ -5,7 +5,7 @@ import { db } from '@/platform/database/prisma'
 import { env } from '@/platform/config/env'
 import { logEvent } from '@/platform/observability/logger'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
-import { command } from '@/modules/server-panel/server/system'
+import { helper } from './domains/helper'
 import { validateCertificateUpload } from '@/modules/server-panel/server/certificates'
 import {
   DomainError, apexOf, certCovers, certificateNames, normalizeCertDomain, normalizeDomain, normalizeSiteUrl, parseCertificates, siteApplyArgs,
@@ -34,18 +34,6 @@ async function save(state: Stored) {
 const cfToken = (state: Stored) => { try { return state.cfToken ? decryptPanelCredential(state.cfToken) : '' } catch { return '' } }
 
 // ------------------------------------------------------------------ helper
-
-const helperPath = () => env('SERVER_PANEL_WEBCTL') || '/usr/local/sbin/mobocom-webctl'
-
-/** Runs the root helper; in development SERVER_PANEL_WEBCTL_SUDO=0 runs a local copy without sudo. */
-async function helper(args: string[], timeout = 30_000, input?: string) {
-  const direct = env('SERVER_PANEL_WEBCTL_SUDO') === '0'
-  const result = direct ? await command(helperPath(), args, timeout, undefined, input) : await command('sudo', ['-n', helperPath(), ...args], timeout, undefined, input)
-  if (!result.ok && /password is required|a terminal is required|not allowed|no such file|ENOENT|sudoers/i.test(result.out)) {
-    return { ok: false, out: 'ابزار مدیریت وب روی سرور نصب نیست؛ اسکریپت deploy/ubuntu/server-panel-install.sh را دوباره اجرا کنید.' }
-  }
-  return { ok: result.ok, out: result.out.replace(/\u001b\[[0-9;]*m/g, '').slice(0, 8000) }
-}
 
 const helperError = (out: string) => (out.match(/ERROR: (.+)/)?.[1] || out.split('\n').filter(Boolean).slice(-3).join(' — ') || 'انجام نشد').slice(0, 600)
 
@@ -169,7 +157,7 @@ export async function setSiteUrl(input: unknown) {
   await db.setting.upsert({ where: { key: 'siteUrl' }, create: { key: 'siteUrl', value: url }, update: { value: url } })
   const result = await helper(['site-url', url], 20_000)
   if (!result.ok) throw new DomainError(`نشانی در تنظیمات سایت ذخیره شد، ولی فایل محیطی به‌روز نشد: ${helperError(result.out)}`, 502)
-  return { url, restarting: true }
+  return { url, restarting: !result.out.includes('site URL unchanged') }
 }
 
 // ------------------------------------------------------------------ Cloudflare
@@ -191,6 +179,11 @@ async function writeCloudflareIni(state: Stored) {
   await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 }).catch(() => undefined)
   await fs.writeFile(file, `# Written by the MoboCom server panel (certbot-dns-cloudflare)\ndns_cloudflare_api_token = ${token}\n`, { mode: 0o600 })
   await fs.chmod(file, 0o600).catch(() => undefined)
+  // New helpers pin a validated root-private copy for Certbot renewal. Older helpers retain their established path.
+  const capabilities = await helper(['status'], 10_000)
+  let safeCopy = false
+  try { safeCopy = Boolean(JSON.parse(capabilities.out.trim().split('\n').pop() || '{}').safeDnsCredentials) } catch { /* legacy helper */ }
+  if (safeCopy && !(await helper(['cf-sync'])).ok) throw new DomainError('ذخیرهٔ امن توکن DNS برای تمدید گواهی انجام نشد؛ ابزار وب سرور را بررسی کنید.', 502)
 }
 
 /** Saves (after verifying) a Cloudflare API token with Zone:DNS:Edit. */

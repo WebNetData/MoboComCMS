@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup for the admin "Server panel" on Ubuntu 22.04/24.04.
+# One-time setup for the admin "Server panel" on Ubuntu 22.04/24.04/26.04 LTS.
 #
 #   sudo MAIL_HOSTNAME=mail.example.com ADMIN_IP=203.0.113.7 bash deploy/ubuntu/server-panel-install.sh
 #   sudo systemctl restart mobocom

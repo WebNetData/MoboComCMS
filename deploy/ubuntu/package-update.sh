@@ -18,6 +18,14 @@ trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
 cd "$APP"
 set -a; . "$ENV_FILE"; set +a
 export MOBOCOM_APP_DIR="$APP" MOBOCOM_ENV_FILE="$ENV_FILE"
+require_uninstalled() {
+  if [ "${UPDATE_REQUIRE_UNINSTALLED:-0}" = 1 ]; then
+    local state
+    state="$(node "$TOOLS/host-backup-db.cjs" install-state)" || return 1
+    case "$state" in no-admin|no-schema) ;; *) echo '[release] site is installed or locked; incomplete-install refresh refused' >&2; return 1 ;; esac
+  fi
+}
+require_uninstalled || return 2
 CURRENT="$(node -p "require('./package.json').version")"
 TRIES="${UPDATE_HEALTH_TRIES:-120}"
 [[ "$TRIES" =~ ^[1-9][0-9]{0,2}$ ]] || exit 2
@@ -89,11 +97,13 @@ rm -rf -- "$HOLD/source/storage" "$HOLD/source/var" "$HOLD/source/public/demo" "
 cp "$HOLD/manifest.json" "$HOLD/source/.release.json"
 node "$TOOLS/release-package.cjs" inventory "$HOLD/source" "$HOLD/current-files.json"
 clean || { echo '[release] new local changes preserved; update refused' >&2; exit 2; }
+require_uninstalled || exit 2
 write_state running 'پشتیبان‌گیری اجباری پیش از جایگزینی'
 bash -c "${UPDATE_BACKUP:-bash deploy/ubuntu/backup.sh}"
 clean || exit 2
 write_state running 'راه‌اندازی نسخهٔ جدید'
 bash -c "${UPDATE_STOP:-sudo -n systemctl stop mobocom}"; STOPPED=1
+require_uninstalled || exit 2
 if python3 "$TOOLS/release-extract.py" adopt "$APP" "$HOLD"; then
   ADOPTED=1
 else

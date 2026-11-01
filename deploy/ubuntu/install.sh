@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
-# Installs MoboComCMS on a fresh Ubuntu 22.04 or 24.04 server with one command.
+# Installs MoboComCMS on a fresh Ubuntu 22.04, 24.04 or 26.04 LTS server with one command.
 #
-#   sudo bash install.sh --domain example.com --email you@example.com
+#   sudo bash install.sh
+#   Domain, email and SSL are entered in the web wizard. Explicit options below keep legacy deployment supported.
 #
 # Options:
-#   --domain NAME     the site's domain (asked for when missing)
-#   --email ADDRESS   for the Let's Encrypt certificate (asked for when missing)
+#   --domain NAME     legacy CLI mode; omit to configure the domain in the browser
+#   --email ADDRESS   certificate email for legacy CLI mode
 #   --no-ssl          skip the certificate (DNS not ready yet, or a proxy provides it)
 #   --no-firewall     leave the firewall as it is
 #   --branch NAME     the code branch to install (default: main)
 #   --repo URL        the code repository (default: this project on GitHub)
 #   --package FILE    signed release package; destination needs no Git/GitHub
 #   --public-key FILE publisher key from the trusted installer bundle
+#   --resume-uninstalled explicitly refresh an older unfinished package installation, with backup
 #
 # Safe to run again: it continues where it stopped. It never replaces the settings file, recreates a database or
 # touches stored files, and it never updates the code of a site that is already installed (use "mobocom update").
 set -euo pipefail
 
 DOMAIN=""
+DOMAIN_GIVEN=0
+WEB_SETUP=0
+SETUP_ORIGIN=''
 EMAIL=""
 SSL=1
 FIREWALL=1
@@ -26,6 +31,8 @@ REPO="${REPO:-}"
 PACKAGE=''
 PUBLIC_KEY=''
 NEW_PACKAGE_INSTALL=0
+RESUME_UNINSTALLED=0
+ADOPT_INVENTORY=0
 BUNDLE_DIR="$(cd "$(dirname "$0")" && pwd)"
 GITHUB_PATH="WebNetData/MoboComCMS"
 APP_USER="${APP_USER:-mobocom}"
@@ -38,19 +45,38 @@ BACKUP_DIR="${HOST_BACKUP_DIR:-/var/backups/mobocom}"
 say() { printf '\n==> %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
 die() { printf '\n[install] %s\n' "$*" >&2; exit 1; }
+installed_version() {
+  as_app node -e 'try { const value=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).version; if(typeof value!=="string"||value.length>40||!/^\d+\.\d+\.\d+$/.test(value))throw Error(); process.stdout.write(value) } catch { console.error("[install] installed version is invalid"); process.exit(2) }' "$APP_DIR/package.json"
+}
+
+install_package_tools() {
+  if [ -e /etc/mobocom/release-public.pem ]; then
+    local old_key new_key
+    old_key="$(node "$ROOT_ASSETS/release-package.cjs" fingerprint /etc/mobocom/release-public.pem)"
+    new_key="$(node "$ROOT_ASSETS/release-package.cjs" fingerprint "$ROOT_ASSETS/release-public.pem")"
+    [ "$old_key" = "$new_key" ] || die 'publisher key differs; explicit operator key rotation required'
+  else
+    install -m 644 -o root -g root "$ROOT_ASSETS/release-public.pem" /etc/mobocom/release-public.pem
+  fi
+  install -d -m 755 /usr/local/lib/mobocom
+  for tool in release-package.cjs release-extract.py package-update.sh host-backup-db.cjs backup-core.cjs; do
+    install -m 644 -o root -g root "$ROOT_ASSETS/$tool" /usr/local/lib/mobocom/
+  done
+}
 
 while [ $# -gt 0 ]; do
   case "$1" in --domain|--email|--branch|--repo|--package|--public-key) [ $# -ge 2 ] && [[ "$2" != --* ]] || die "missing value for $1" ;; esac
   case "$1" in
-    --domain) DOMAIN="${2:-}"; shift 2 ;;
+    --domain) DOMAIN="${2:-}"; DOMAIN_GIVEN=1; shift 2 ;;
     --email) EMAIL="${2:-}"; shift 2 ;;
     --branch) BRANCH="${2:-}"; shift 2 ;;
     --repo) REPO="${2:-}"; shift 2 ;;
     --package) PACKAGE="$(realpath -- "$2")"; shift 2 ;;
     --public-key) PUBLIC_KEY="$(realpath -- "$2")"; shift 2 ;;
+    --resume-uninstalled) RESUME_UNINSTALLED=1; shift ;;
     --no-ssl) SSL=0; shift ;;
     --no-firewall) FIREWALL=0; shift ;;
-    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
@@ -64,15 +90,17 @@ exec 9>/run/lock/mobocom-install.lock
 flock -n 9 || die 'another installation is running'
 . /etc/os-release
 case "${ID:-}:${VERSION_ID:-}" in
-  ubuntu:22.04|ubuntu:24.04) ;;
-  *) die "this installer supports Ubuntu 22.04 and 24.04; see docs/DEPLOY-COOLIFY.md or docs/DEPLOY-VPS-HOST-FA.md for other systems" ;;
+  ubuntu:22.04|ubuntu:24.04|ubuntu:26.04) ;;
+  *) die "this installer supports Ubuntu 22.04, 24.04 and 26.04 LTS; see docs/DEPLOY-COOLIFY.md or docs/DEPLOY-VPS-HOST-FA.md for other systems" ;;
 esac
 
-[ -n "$DOMAIN" ] || read -r -p "Site domain (example.com): " DOMAIN
+if [ "$DOMAIN_GIVEN" = 0 ]; then WEB_SETUP=1; SSL=0; fi
+if [ "$WEB_SETUP" = 0 ]; then
 DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN%%/*}"
 [[ "$DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]] || die "invalid domain: $DOMAIN"
 if [ "$SSL" = 1 ] && [ -z "$EMAIL" ]; then read -r -p "Email for the SSL certificate: " EMAIL; fi
 if [ "$SSL" = 1 ]; then [[ "$EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] || die "invalid email: $EMAIL"; fi
+fi
 [[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$ ]] && [[ "$BRANCH" != *..* ]] || die "invalid branch: $BRANCH"
 if [ -n "$REPO" ]; then
   [[ "$REPO" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ || "$REPO" =~ ^git@github.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || die 'automatic installation supports HTTPS or SSH GitHub repositories only'
@@ -81,6 +109,7 @@ if [ -n "$PACKAGE" ]; then
   [ -f "$PUBLIC_KEY" ] && [ -f "$BUNDLE_DIR/release-package.cjs" ] && [ -f "$BUNDLE_DIR/release-extract.py" ] || die 'use the complete trusted .run installer bundle'
   [ -z "$REPO" ] || die 'choose a release package or a repository, not both'
 fi
+if [ "$RESUME_UNINSTALLED" = 1 ]; then [ -n "$PACKAGE" ] || die '--resume-uninstalled requires the complete signed .run installer'; fi
 
 FREE_GB="$(df -Pk / | awk 'NR==2 {print int($4 / 1048576)}')"
 [ "$FREE_GB" -ge 15 ] || die "only ${FREE_GB} GB free on the disk; at least 15 GB is needed"
@@ -89,6 +118,7 @@ say "Packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq curl ca-certificates gnupg openssl sudo nginx redis-server ufw certbot python3 python3-certbot-nginx >/dev/null
+if [ "$WEB_SETUP" = 1 ]; then apt-get install -y -qq python3-certbot-dns-cloudflare >/dev/null; fi
 if [ -z "$PACKAGE" ]; then
   apt-get install -y -qq git >/dev/null
   git check-ref-format --branch "$BRANCH" >/dev/null || die 'invalid branch'
@@ -109,6 +139,9 @@ if ! command -v pg_ctlcluster >/dev/null 2>&1 || [ ! -x /usr/lib/postgresql/17/b
   apt-get install -y -qq postgresql-17 >/dev/null
 fi
 systemctl enable --now postgresql redis-server >/dev/null
+if [ "$WEB_SETUP" = 1 ]; then
+  SETUP_ORIGIN="$(node -e 'const addresses=Object.values(require("node:os").networkInterfaces()).flat().filter(a=>a&&!a.internal); const a=addresses.find(a=>a.family==="IPv4")||addresses[0]; if(!a)process.exit(1); process.stdout.write("https://"+(a.family==="IPv6"?"["+a.address+"]":a.address)+":8443")')" || die 'cannot determine a non-loopback server address'
+fi
 
 MEMORY_MB="$(awk '/MemTotal/ {print int($2 / 1024)}' /proc/meminfo)"
 SWAP_MB="$(awk '/SwapTotal/ {print int($2 / 1024)}' /proc/meminfo)"
@@ -131,6 +164,7 @@ if [ "$FIREWALL" = 1 ]; then
   ufw allow OpenSSH >/dev/null 2>&1 || true
   ufw allow 80/tcp >/dev/null
   ufw allow 443/tcp >/dev/null
+  if [ "$WEB_SETUP" = 1 ]; then ufw allow 8443/tcp >/dev/null; fi
   ufw --force enable >/dev/null || note "the firewall could not be enabled; open only ports 22, 80 and 443"
 fi
 
@@ -160,12 +194,15 @@ if [ -n "$PACKAGE" ]; then
     mv -T -- "$ROOT_ASSETS/app-ready" "$APP_DIR"
     NEW_PACKAGE_INSTALL=1
   else
+    CURRENT_VERSION="$(installed_version)"
+    node -e 'const release=require(process.argv[1]);process.exit(release.compare(process.argv[2],process.argv[3])<0?1:0)' "$BUNDLE_DIR/release-package.cjs" "$VERSION" "$CURRENT_VERSION" || die 'an older installer cannot replace helpers of a newer application'
     note 'existing application kept; use the web updater for code changes'
   fi
-  for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf package-update.sh release-extract.py; do
+  for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf package-update.sh release-extract.py web-setup-install.sh mobocom-webctl bootstrap-web.sh certificate-import.py resume-uninstalled.sh; do
     install -m 600 "$ROOT_ASSETS/source/deploy/ubuntu/$asset" "$ROOT_ASSETS/$asset"
   done
   install -m 600 "$ROOT_ASSETS/source/scripts/release-package.cjs" "$ROOT_ASSETS/release-package.cjs"
+  install -m 600 "$ROOT_ASSETS/source/scripts/host-backup-db.cjs" "$ROOT_ASSETS/source/scripts/backup-core.cjs" "$ROOT_ASSETS/"
 elif [ ! -d "$APP_DIR/.git" ]; then
   if [ -z "$REPO" ]; then
     if as_app env GIT_TERMINAL_PROMPT=0 git ls-remote -q "https://github.com/$GITHUB_PATH.git" HEAD >/dev/null 2>&1; then
@@ -196,6 +233,9 @@ else
   note "code already present; left as it is"
 fi
 as_app mkdir -p "$APP_DIR/storage" "$APP_DIR/var"
+if [ "$WEB_SETUP" = 1 ] && [ "$RESUME_UNINSTALLED" = 0 ]; then
+  [ -f "$APP_DIR/public/installer/network.js" ] && [ -f "$APP_DIR/src/modules/server-panel/installation.ts" ] || die 'existing code has an older wizard; use this signed installer with --resume-uninstalled only for an unfinished site, or the existing safe updater for an installed site'
+fi
 
 say "Settings"
 secret() { openssl rand -hex 32; }
@@ -208,7 +248,7 @@ if [ ! -f "$ENV_FILE" ]; then
   ( umask 027
     cat > "$ENV_FILE.new" <<EOF
 NODE_ENV=production
-NEXTAUTH_URL=https://$DOMAIN
+NEXTAUTH_URL=$([ "$WEB_SETUP" = 1 ] && printf '%s' "$SETUP_ORIGIN" || printf 'https://%s' "$DOMAIN")
 NEXTAUTH_SECRET=$(secret)
 INTERNAL_JOBS_SECRET=$(secret)
 PANEL_CREDENTIAL_KEY=$(secret)
@@ -251,8 +291,21 @@ else
   note 'custom database configuration kept; no local role/database created'
 fi
 
+if [ "$RESUME_UNINSTALLED" = 1 ]; then
+  # This part comes from the verified private root assets, never from the application checkout.
+  . "$ROOT_ASSETS/resume-uninstalled.sh"
+  assert_uninstalled_source
+fi
+if [ "$WEB_SETUP" = 1 ] && [ ! -f "$APP_DIR/storage/config/installed.lock" ] && ! grep -q '^INSTALL_HOST_SETUP=' "$ENV_FILE"; then
+  printf 'INSTALL_HOST_SETUP=true\n' >> "$ENV_FILE"
+fi
+
+if [ "$RESUME_UNINSTALLED" = 1 ]; then refresh_uninstalled_source; fi
+
 if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
   say "Building the site (about 5 to 15 minutes)"
+  note 'Wait for the final Installed message; compilation is followed by TypeScript checks and service/Nginx setup.'
+  note 'Until then /install may return the default Nginx 404. Do not stop an active build.'
   as_app bash -c "cd '$APP_DIR' && set -a && . '$ENV_FILE' && set +a && npm ci --include=dev --no-audit --no-fund && NODE_OPTIONS=--max-old-space-size=\${BUILD_MEMORY_MB:-4096} npm run build:postgres"
 else
   note "site already built; left as it is"
@@ -268,27 +321,22 @@ if [ -z "$REPO" ]; then REPO="$(as_app git remote get-url origin)"; fi
 [[ "$REPO" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ || "$REPO" =~ ^git@github.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || die 'untrusted repository URL'
 printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$ROOT_ASSETS/known_hosts"
 GIT_SSH_COMMAND="ssh -i /opt/mobocom/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT_ASSETS/known_hosts" GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --no-checkout --depth 1 --branch "$BRANCH" -- "$REPO" "$ROOT_ASSETS/repo"
-for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf; do
+for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf web-setup-install.sh mobocom-webctl bootstrap-web.sh certificate-import.py resume-uninstalled.sh; do
   git -C "$ROOT_ASSETS/repo" show "HEAD:deploy/ubuntu/$asset" > "$ROOT_ASSETS/$asset"
 done
 fi
 if [ -n "$PACKAGE" ]; then
-  if [ -e /etc/mobocom/release-public.pem ]; then
-    OLD_KEY="$(node "$ROOT_ASSETS/release-package.cjs" fingerprint /etc/mobocom/release-public.pem)"
-    NEW_KEY="$(node "$ROOT_ASSETS/release-package.cjs" fingerprint "$ROOT_ASSETS/release-public.pem")"
-    [ "$OLD_KEY" = "$NEW_KEY" ] || die 'publisher key differs; explicit operator key rotation required'
-  else
-    install -m 644 -o root -g root "$ROOT_ASSETS/release-public.pem" /etc/mobocom/release-public.pem
-  fi
-  install -d -m 755 /usr/local/lib/mobocom
-  install -m 644 -o root -g root "$ROOT_ASSETS/release-package.cjs" "$ROOT_ASSETS/release-extract.py" "$ROOT_ASSETS/package-update.sh" /usr/local/lib/mobocom/
+  install_package_tools
 fi
 install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$BACKUP_DIR"
 install -m 644 "$ROOT_ASSETS/mobocom.service" "$ROOT_ASSETS/mobocom-backup.service" "$ROOT_ASSETS/mobocom-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
 bash "$ROOT_ASSETS/updater-install.sh" >/dev/null
+if [ "$WEB_SETUP" = 1 ]; then
+  if [ -f "$APP_DIR/storage/config/installed.lock" ]; then bash "$ROOT_ASSETS/web-setup-install.sh" closed; else bash "$ROOT_ASSETS/web-setup-install.sh" open; fi
+fi
 install -m 755 -o root -g root "$ROOT_ASSETS/mobocom" /usr/local/bin/mobocom
-if [ "$NEW_PACKAGE_INSTALL" = 1 ]; then
+if [ "$NEW_PACKAGE_INSTALL" = 1 ] || [ "$ADOPT_INVENTORY" = 1 ]; then
   as_app mkdir -p "$APP_DIR/storage/update"
   as_app node /usr/local/lib/mobocom/release-package.cjs inventory "$APP_DIR" "$APP_DIR/storage/update/current-files.json"
 fi
@@ -305,6 +353,7 @@ done
 printf '\n'
 [ "$READY" = 1 ] || die "the site did not start; see: sudo journalctl -u mobocom -n 80 --no-pager"
 
+if [ "$WEB_SETUP" = 0 ]; then
 say "Web server"
 SITE=/etc/nginx/sites-available/mobocom
 if [ ! -f "$SITE" ]; then
@@ -329,12 +378,19 @@ if [ "$SSL" = 1 ]; then
     note "sudo certbot --nginx ${NAMES[*]} --redirect"
   fi
 fi
+fi
 
 say "Installed"
 TOKEN_FILE="$APP_DIR/storage/config/install.token"
 if [ -f "$TOKEN_FILE" ] && [ ! -f "$APP_DIR/storage/config/installed.lock" ]; then
-  note "Finish through HTTPS:  https://$DOMAIN/install"
-  [ "$SSL_DONE" = 1 ] || note 'HTTPS must be supplied by your proxy or configured with certbot before entering installation secrets.'
+  if [ "$WEB_SETUP" = 1 ]; then
+    note "Open the installation wizard: $SETUP_ORIGIN/install (use the public server IP if it differs)."
+    note 'This temporary HTTPS certificate is self-signed; verify its SHA256 fingerprint above before accepting it in the browser.'
+    note 'Enter the final domain, certificate email and SSL method in the wizard. The temporary listener closes after installation.'
+  else
+    note "Finish through HTTPS:  https://$DOMAIN/install"
+    [ "$SSL_DONE" = 1 ] || note 'HTTPS must be supplied by your proxy or configured with certbot before entering installation secrets.'
+  fi
   note "Installation code:      $(cat "$TOKEN_FILE")"
   note "The page closes for good after the first administrator is created."
 fi

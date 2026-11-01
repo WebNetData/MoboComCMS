@@ -13,7 +13,7 @@ async function fixture(t){
  for(const folder of [app,tools,backups,path.join(app,'storage/update/packages'),path.join(app,'storage/uploads'),path.join(app,'var')])fs.mkdirSync(folder,{recursive:true})
  const files=['deploy/ubuntu/backup.sh','scripts/backup-core.cjs','scripts/host-backup-db.cjs','scripts/load-runtime-env.cjs']
  for(const file of files)copy(path.join(root,file),path.join(app,file))
- for(const [from,to]of [['deploy/ubuntu/package-update.sh','package-update.sh'],['deploy/ubuntu/release-extract.py','release-extract.py'],['scripts/release-package.cjs','release-package.cjs']])copy(path.join(root,from),path.join(tools,to))
+ for(const [from,to]of [['deploy/ubuntu/package-update.sh','package-update.sh'],['deploy/ubuntu/release-extract.py','release-extract.py'],['scripts/release-package.cjs','release-package.cjs'],['scripts/host-backup-db.cjs','host-backup-db.cjs'],['scripts/backup-core.cjs','backup-core.cjs']])copy(path.join(root,from),path.join(tools,to))
  fs.writeFileSync(path.join(app,'package.json'),'{"version":"1.6.0"}');fs.writeFileSync(path.join(app,'.env'),'OWNER_ENV=preserved');fs.writeFileSync(path.join(app,'storage/uploads/customer'),'customer data')
  const pair=crypto.generateKeyPairSync('ed25519');fs.writeFileSync(keyFile,pair.publicKey.export({type:'spki',format:'pem'}),{mode:0o644})
  const db='package_'+crypto.randomBytes(8).toString('hex')
@@ -40,8 +40,42 @@ async function fixture(t){
   const vars={MOBOCOM_APP_DIR:app,UPDATE_PUBLIC_KEY_FILE:keyFile,UPDATE_ENV_FILE:envFile,UPDATE_NPM:'true',UPDATE_BUILD:'mkdir -p .next; echo built > .next/BUILD_ID',UPDATE_STOP:`touch '${dir}/stopped'`,UPDATE_RESTART:'true',UPDATE_HEALTH_TRIES:'1',UPDATE_MIN_FREE_MB:'0',UPDATE_HEALTH_URL:health,...extra}
   return new Promise(resolve=>cp.execFile('sudo',['-u','mobocom','env',...Object.entries(vars).map(([k,v])=>k+'='+v),'bash',path.join(tools,'package-update.sh'),id],{encoding:'utf8',timeout:60000},(error,stdout,stderr)=>resolve({code:error?.code||0,stdout,stderr})))
  }
- return{dir,app,backups,query,pack,update,health:set=>{fixtureHealth=set},version:()=>JSON.parse(fs.readFileSync(path.join(app,'package.json'))).version,state:()=>JSON.parse(fs.readFileSync(path.join(app,'storage/update/state.json'))),files}
+ return{dir,app,backups,query,pack,update,envFile,health:set=>{fixtureHealth=set},version:()=>JSON.parse(fs.readFileSync(path.join(app,'package.json'))).version,state:()=>JSON.parse(fs.readFileSync(path.join(app,'storage/update/state.json'))),files}
 }
+test('unfinished package refresh preserves member identity and existing data through the normal backup/adoption worker',{skip:!enabled},async t=>{
+ const b=await fixture(t);b.query('CREATE TABLE "User" (id int PRIMARY KEY, role text); INSERT INTO "User" VALUES(42,\'USER\')')
+ const result=await b.update(b.pack(),{UPDATE_REQUIRE_UNINSTALLED:'1'});assert.equal(result.code,0,result.stderr)
+ assert.equal(b.version(),'1.6.1');assert.equal(b.query('SELECT id FROM "User"').trim(),'42');assert.equal(b.query('SELECT value FROM item').trim(),'customer row')
+ assert(fs.readdirSync(b.backups).some(file=>file.endsWith('.dump')))
+})
+
+test('unfinished refresh refuses an administrator, an installed lock or explicit installer disable before backup/stop/adoption',{skip:!enabled},async t=>{
+ for(const kind of ['admin','lock','disabled']){
+  const b=await fixture(t),extra={UPDATE_REQUIRE_UNINSTALLED:'1'}
+  if(kind==='admin')b.query('CREATE TABLE "User" (role text); INSERT INTO "User" VALUES(\'ADMIN\')')
+  if(kind==='lock'){fs.mkdirSync(path.join(b.app,'storage/config'));fs.writeFileSync(path.join(b.app,'storage/config/installed.lock'),'installed')}
+  if(kind==='disabled')extra.INSTALL_DISABLED='true'
+  const result=await b.update(b.pack(),extra);assert.notEqual(result.code,0)
+  assert.equal(b.version(),'1.6.0');assert.equal(fs.existsSync(path.join(b.dir,'stopped')),false);assert.equal(fs.readdirSync(b.backups).length,0)
+  assert.equal(b.query('SELECT value FROM item').trim(),'customer row');assert.equal(fs.existsSync(path.join(b.app,'storage/update/lock')),false)
+ }
+})
+
+test('unfinished refresh rechecks first-owner standing after a concurrent build-time owner creation',{skip:!enabled},async t=>{
+ const b=await fixture(t),script=path.join(b.dir,'new-owner.cjs')
+ fs.writeFileSync(script,`const {pg}=require(process.argv[2]);pg('psql',['-X','-v','ON_ERROR_STOP=1','-c',${JSON.stringify('CREATE TABLE "User" (role text); INSERT INTO "User" VALUES(\'ADMIN\')')}]).catch(()=>{process.exitCode=1})`)
+ const result=await b.update(b.pack(),{UPDATE_REQUIRE_UNINSTALLED:'1',UPDATE_BUILD:`node '${script}' '${b.app}/scripts/backup-core.cjs'; mkdir -p .next; echo built > .next/BUILD_ID`})
+ assert.notEqual(result.code,0);assert.equal(b.version(),'1.6.0');assert.equal(b.query('SELECT count(*) FROM "User"').trim(),'1');assert.equal(fs.existsSync(path.join(b.dir,'stopped')),false)
+ assert.equal(fs.readdirSync(b.backups).length,0)
+})
+
+test('unfinished refresh fails closed on an unreadable database and does not print connection secrets',{skip:!enabled},async t=>{
+ const b=await fixture(t),bad=path.join(b.dir,'offline.env'),secret='Must-Never-Be-Printed-2049'
+ fs.writeFileSync(bad,`DATABASE_URL=postgresql://unused:${secret}@127.0.0.1:9/unreachable\n`)
+ const result=await b.update(b.pack(),{UPDATE_REQUIRE_UNINSTALLED:'1',UPDATE_ENV_FILE:bad})
+ assert.notEqual(result.code,0);assert(!result.stderr.includes(secret));assert.equal(b.version(),'1.6.0');assert.equal(fs.existsSync(path.join(b.dir,'stopped')),false)
+})
+
 test('package update without .git: actual code replacement, PG backup, data/config preserved and next package works',{skip:!enabled},async t=>{
  const rootRefusal=cp.spawnSync('bash',[path.join(root,'deploy/ubuntu/package-update.sh'),'a'.repeat(64)],{encoding:'utf8'});assert.equal(rootRefusal.status,2);assert.match(rootRefusal.stderr,/not root/)
  const b=await fixture(t);let result=await b.update(b.pack());assert.equal(result.code,0,result.stderr)
