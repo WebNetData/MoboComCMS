@@ -1,6 +1,6 @@
 # Domain capability maturity matrix
 
-Scoped update2026-11-01: Prompt Master is **Functional (bounded local)** for structured prompt creation, illustrated public library (image/video/text/code/WEB), private history and Admin controls using existing shared Media. [Exact evidence and limits](handoffs/PROMPT_MASTER.md). No ProductionVerified/reference-equivalence, cloud-provider, image/video generation or broad domain promotion is claimed.
+Scoped update2026-11-01: Prompt Master is **Functional (bounded local)** for structured prompt creation, illustrated public library (image/video/text/code/WEB), private history and Admin controls using existing shared Media. [Exact evidence and limits](handoffs/PROMPT_MASTER.md). Public studio/library/detail presentation was refined after merged PR294 using the same owner and SDS tokens; see the visual-refinement continuation in that handoff. No ProductionVerified/reference-equivalence, cloud-provider, image/video generation or broad domain promotion is claimed.
 
 Scoped update2026-11-01: browser domain/email/SSL extends existing Installer/Server Panel and backup-protected package workers. [Evidence and remaining VM/real CA gates](handoffs/HOST_INSTALL_UPGRADE.md#browser-host-setup-follow-up--2026-11-01). This is not blanket production certification of the domain cells below.
 

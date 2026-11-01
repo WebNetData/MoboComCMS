@@ -46,25 +46,26 @@ export default function PromptStudio({ policy, loggedIn, initialKind, template, 
   }
   const canGenerate = loggedIn || policy.allowGuests
   return <>
+    <div className={s.workspaceHead}><div><span><Icon name="sliders" size={17}/></span><h2>میزکار ساخت پرامپت</h2></div><span>ایده را بنویس، جزئیات را تنظیم کن، خروجی را بردار.</span></div>
     <div className={s.workspace} id="prompt-studio">
       <section className={s.panel} aria-labelledby="prompt-input-title">
         <div className={s.panelHead}><div><span className={s.panelIcon}><Icon name="sparkles" size={18} /></span><h2 id="prompt-input-title">چه چیزی می‌خواهی بسازی؟</h2></div><span className={s.subtle}>ایدهٔ شما، نقطهٔ شروع</span></div>
         <form onSubmit={generate} className={s.inputForm}>
           <fieldset className={s.kinds} disabled={busy}><legend className={s.srOnly}>نوع پرامپت</legend>{PROMPT_KINDS.map(value => <label key={value} className={input.kind === value ? s.kindSelected : ''}><input type="radio" name="prompt-kind" value={value} checked={input.kind === value} onChange={() => kind(value)} /><Icon name={KIND_ICON[value]} size={20} /><span>{KIND_LABEL[value]}</span></label>)}</fieldset>
           {input.templateSlug && <div className={s.templateNotice}><Icon name="layers" size={16} /><span>الگوی انتخابی: <b>{template?.slug === input.templateSlug ? template.title : 'الگوی قبلی'}</b></span><button type="button" className={s.textButton} onClick={() => change('templateSlug', '')} disabled={busy}>برداشتن الگو</button></div>}
-          <label className={s.ideaField} htmlFor="prompt-idea"><span>ایده یا درخواستت را بنویس <small>حداقل ۵ نویسه</small></span><textarea id="prompt-idea" value={input.idea} onChange={e => change('idea', e.target.value)} maxLength={4000} minLength={5} rows={5} required disabled={busy} placeholder="مثلاً: یک کمپین خلاقانه برای معرفی برند قهوه طراحی کن؛ مخاطب من کسانی هستند که به تجربهٔ نوشیدن قهوه اهمیت می‌دهند…" aria-describedby="prompt-privacy" /></label>
+          <label className={s.ideaField} htmlFor="prompt-idea"><span>ایده یا درخواستت را بنویس <small>حداقل ۵ نویسه</small></span><textarea id="prompt-idea" value={input.idea} onChange={e => change('idea', e.target.value)} maxLength={4000} minLength={5} rows={5} required disabled={busy} placeholder="مثلاً: یک کمپین خلاقانه برای معرفی برند قهوه طراحی کن؛ مخاطب من کسانی هستند که به تجربهٔ نوشیدن قهوه اهمیت می‌دهند…" aria-describedby="prompt-privacy" /></label><div className={s.ideaCounter}><span>هدف، مخاطب و جزئیات؛ هرچه روشن‌تر، بهتر.</span><bdi dir="ltr">{input.idea.length.toLocaleString('fa-IR')} / ۴٬۰۰۰</bdi></div>
           <div className={s.examples}><span>برای شروع:</span>{examples.filter(e => e.kind === input.kind).slice(0,3).map(e => <button key={e.title} type="button" onClick={() => change('idea', e.example)} disabled={busy}>{e.title}<Icon name="plus" size={13} /></button>)}</div>
           <PromptFields input={input} change={change} disabled={busy} />
           {policy.aiAvailable && <div className={s.engineChoice}><label><input type="checkbox" checked={engine === 'ai'} onChange={e => { setEngine(e.target.checked ? 'ai' : 'structured'); setConsent(false) }} disabled={busy || !loggedIn} /><span><b>بهبود با هوش مصنوعی</b><small>{loggedIn ? `تا ${policy.aiDailyLimit.toLocaleString('fa-IR')} بار در روز؛ پس از تأیید ارسال ورودی` : 'برای بهبود هوشمند وارد حساب شوید'}</small></span><Icon name="bolt" size={18} /></label>{engine === 'ai' && <label className={s.check}><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={busy} required />با ارسال این ورودی به سرویس هوش مصنوعی سایت موافقم.</label>}</div>}
           {loggedIn && <label className={s.check}><input type="checkbox" checked={saveHistory} onChange={e => setSaveHistory(e.target.checked)} disabled={busy} />ذخیره در تاریخچهٔ خصوصی من</label>}
           <p className={s.privacy} id="prompt-privacy"><Icon name="shield" size={14} />{engine === 'ai' ? 'رمز، کلید API و اطلاعات محرمانه را در ورودی ننویسید.' : 'در حالت ساختاریافته، ورودی شما به سرویس هوش مصنوعی ارسال نمی‌شود.'}</p>
+          {error && <div className={s.error} role="alert"><Icon name="shield" size={18}/>{error}</div>}
           {canGenerate ? <button type="submit" className={`${s.primary} ${s.generate}`} disabled={busy || (engine === 'ai' && !consent)}><Icon name={busy ? 'clock' : 'sparkles'} size={20} />{busy ? 'در حال آماده‌کردن پرامپت…' : engine === 'ai' ? 'ساخت و بهبود هوشمند' : 'ساخت پرامپت'}<Icon name="arrow" size={18} /></button> : <Link className={`${s.primary} ${s.generate}`} href="/login?next=/prompts">ورود برای ساخت پرامپت</Link>}
           <div className={s.formFoot}><span>{engine === 'ai' ? 'بازبینی خلاق با سرویس هوشمند' : 'ساختار روشن، بدون نیاز به کلید API'}</span><Link href="/prompts/history">تاریخچهٔ من<Icon name="arrow" size={13} /></Link></div>
         </form>
       </section>
       <PromptOutput result={result} input={input} output={output} setOutput={setOutput} busy={busy} onSave={saveEdit} saving={saving} />
     </div>
-    {error && <div className={s.error} role="alert"><Icon name="shield" size={18} />{error}</div>}
     <p className={s.feedback} role="status">{notice}</p>
   </>
 }

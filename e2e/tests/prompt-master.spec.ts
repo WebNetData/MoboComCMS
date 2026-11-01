@@ -16,6 +16,10 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     return page
   }
   async function capture(page: Page, name: string, root = 'main') {
+    for (const image of await page.locator(root+' img').all()) { if (!await image.isVisible()) continue; await image.scrollIntoViewIfNeeded(); await expect.poll(()=>image.evaluate(node=>(node as HTMLImageElement).complete&&(node as HTMLImageElement).naturalWidth>0)).toBe(true) }
+    await page.evaluate(()=>scrollTo(0,0))
+    const pushPrompt=page.getByRole('dialog',{name:'اعلان‌ها',exact:true});if(await pushPrompt.isVisible())await pushPrompt.getByRole('button',{name:'بعداً',exact:true}).click()
+    if(root==='[data-testid="prompt-master"]'&&page.viewportSize()!.width===1440) expect(await page.locator(root+' article').evaluateAll(cards=>cards.every(card=>card.getBoundingClientRect().height<650))).toBe(true)
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.evaluate(source => { const script = document.createElement('script'); script.nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce || ''; script.textContent = source; document.head.append(script) }, fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'))
     const violations = await page.evaluate(async selector => (await (window as any).axe.run(document.querySelector(selector), { iframes: false, runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })).violations, root)
@@ -29,13 +33,19 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     await guest.goto('/prompts')
     await expect(guest.getByRole('heading', { name: /ایده‌ات را به یک پرامپت/ })).toBeVisible()
     await expect(guest.getByRole('link', { name: 'کتابخانهٔ الگوها', exact: true })).toBeVisible()
-    for (const [kind, label] of [['TEXT','متن و محتوا'],['IMAGE','تصویر و طراحی'],['VIDEO','ویدئو و سینما'],['CODE','کدنویسی و وب']]) {
+    await expect(guest.getByRole('progressbar',{name:'کامل‌بودن جزئیات ورودی'})).toHaveAttribute('aria-valuemax','5')
+    await expect(guest.getByRole('link',{name:'کشف نمونه‌های تصویری و پرامپت‌ها',exact:true})).toHaveAttribute('href','/prompts/library')
+    for (const [kind, label] of [['TEXT','متن و محتوا'],['IMAGE','تصویر و طراحی'],['VIDEO','ویدئو و سینما'],['CODE','کدنویسی و وب'],['WEB','طراحی وب و رابط']]) {
       await guest.getByRole('radio', { name: label, exact: true }).focus()
       await guest.getByRole('radio', { name: label, exact: true }).press('Space')
       await guest.getByLabel('ایده یا درخواستت را بنویس', { exact: false }).fill('ایدهٔ آزمایشی '+kind+' برای معرفی یک محصول واقعی با جزئیات روشن')
       await guest.getByRole('button', { name: 'ساخت پرامپت', exact: true }).click()
       await expect(guest.getByLabel('متن خروجی پرامپت', { exact: true })).toHaveValue(new RegExp('ایدهٔ آزمایشی '+kind))
     }
+    const progress=guest.getByRole('progressbar',{name:'کامل‌بودن جزئیات ورودی'}),beforeDetails=Number(await progress.getAttribute('aria-valuenow')),advanced=guest.locator('summary').filter({hasText:'تنظیمات دقیق‌تر'})
+    await advanced.focus();await advanced.press('Enter');await guest.getByLabel('زمینه و اطلاعات تکمیلی',{exact:true}).fill('یک استودیوی واقعی طراحی با مخاطبان فارسی‌زبان و نیاز به رابط خوانا و قابل استفاده.')
+    await expect.poll(async()=>Number(await progress.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeDetails)
+    await expect(guest.getByLabel('جهت هنری و سبک رابط',{exact:true})).toBeVisible();await advanced.focus();await advanced.press('Enter');await expect(guest.getByLabel('جهت هنری و سبک رابط',{exact:true})).not.toBeVisible()
     await guest.route('**/api/prompts/generate',route=>route.fulfill({status:429,contentType:'application/json',body:JSON.stringify({error:'محدودیت آزمایشی؛ دوباره تلاش کنید'})}),{times:1})
     await guest.getByRole('button',{name:'ساخت پرامپت',exact:true}).click();await expect(guest.getByRole('alert').filter({hasText:'محدودیت آزمایشی'})).toBeVisible()
     await guest.getByRole('button',{name:'ساخت پرامپت',exact:true}).click();await expect(guest.getByRole('alert').filter({hasText:'محدودیت آزمایشی'})).toHaveCount(0)
