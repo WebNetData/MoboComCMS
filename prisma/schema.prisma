@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  promptGenerations PromptGeneration[]
   libraryFolders MediaFolder[] @relation("MediaFolderCreator")
   libraryAssets MediaAsset[] @relation("MediaAssetCreator")
   mediaTransfers MediaTransfer[] @relation("MediaTransferActor")
@@ -124,6 +125,46 @@ model User {
   cart           Cart?
 
   @@index([phone])
+}
+
+model PromptTemplate {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  title       String
+  summary     String   @default("")
+  kind        String   @default("TEXT")
+  category    String   @default("")
+  tags        String   @default("")
+  content     String
+  example     String   @default("")
+  defaults    String   @default("{}")
+  status      String   @default("DRAFT")
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  version     Int      @default(1)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([status, kind, category, sortOrder])
+}
+
+model PromptGeneration {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  kind      String
+  input     String
+  output    String
+  engine    String   @default("STRUCTURED")
+  model     String   @default("")
+  pinned    Boolean  @default(false)
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId, pinned, createdAt])
 }
 
 model Role {

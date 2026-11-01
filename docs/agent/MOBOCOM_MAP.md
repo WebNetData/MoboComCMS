@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Prompt Master2026-11-01:** `src/modules/prompts` / plugin `prompt-master`, `/prompts` and `/admin/prompts`. Structured instructions, public templates and private current-user history reuse AI/Identity/AuthZ/Settings/Vocabulary/Content/Search/Favorites/Navigation/Maintenance/Audit. [Continuation and exact checks](handoffs/PROMPT_MASTER.md), [operator guide](../PROMPT_MASTER.md). AI is explicit/default-off; no image/video rendering or duplicate shared owner.
+
 - **Release/download continuation2026-11-01:** existing signed builder/Installer/Updater plus private GitHub Releases; v1.6.1 Pre-release/7 Assets redownload/hash/signature verified. [Operator/developer guide](../RELEASES-FA.md), [canonical evidence and immutable-version rules](handoffs/WEB_PACKAGE_UPDATES.md#github-release-channel--2026-11-01). Runtime code unchanged from tested browser-host setup; no second publisher/CI/deployment service.
 
 - **Ubuntu26 continuation2026-11-01:** existing `deploy/ubuntu` bootstrap now admits26.04 LTS; no second installer. Actual26.04 unit47/PGhost10/Python3/Nginx checks, dependency provenance and incomplete-build/Nginx404 diagnosis are in the [host handoff](handoffs/HOST_INSTALL_UPGRADE.md#ubuntu-2604-follow-up--2026-11-01). Destination systemd/DNS/SSL remains separate; no remote state changed.

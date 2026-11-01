@@ -1,3 +1,4 @@
+import { promptUsage } from '@/modules/prompts/server/vocabulary'
 import type { Prisma } from '@prisma/client'
 import { cache } from 'react'
 import { db } from '@/platform/database/prisma'
@@ -20,8 +21,9 @@ const ORDER: Prisma.VocabularyOrderByWithRelationInput[] = [{ sortOrder: 'asc' }
 const SELECT = { id: true, section: true, list: true, code: true, name: true, nameEn: true, icon: true, family: true, sortOrder: true, active: true } as const
 
 /** How many items use an entry, asked per entry after one read: each section counts its own items. */
-const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink' | 'musicTrack' | 'musicAlbum' | 'musicCredit' | 'post' | 'cinemaTitle' | 'businessProfile' | 'businessRequest' | 'membershipPlan' | 'celebrity'>) => Promise<(list: string, code: string) => number>> = {
+const USAGE: Record<VocabularySection, (client: Pick<Tx, 'promptTemplate' | 'gameTitle' | 'softwareTitle' | 'mediaLink' | 'musicTrack' | 'musicAlbum' | 'musicCredit' | 'post' | 'cinemaTitle' | 'businessProfile' | 'businessRequest' | 'membershipPlan' | 'celebrity'>) => Promise<(list: string, code: string) => number>> = {
   // An artist profile field is in use while some artist has a value in it (switch it off instead of deleting it).
+  prompts: promptUsage,
   celebrities: async (client) => {
     const counts = new Map<string, number>()
     for (const row of await client.celebrity.findMany({ where: { NOT: { facts: '{}' } }, select: { facts: true } })) for (const code of Object.keys(parseFacts(row.facts))) counts.set(code, (counts.get(code) || 0) + 1)

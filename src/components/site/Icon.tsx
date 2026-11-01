@@ -1,4 +1,6 @@
 const paths: Record<string, React.ReactNode> = {
+  copy: <><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></>,
+  download: <><path d="M12 3v12m-5-5 5 5 5-5" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></>,
   play: <path d="m8 4 12 8-12 8V4Z" />,
   pause: <><path d="M8 4v16M16 4v16" /></>,
   mic: <><rect x="9" y="2" width="6" height="13" rx="3" /><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8" /></>,

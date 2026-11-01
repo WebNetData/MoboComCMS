@@ -24,20 +24,21 @@ import m22 from '@/plugins/operations-monitor/manifest.json'
 import m23 from '@/plugins/page-builder/manifest.json'
 import m24 from '@/plugins/paywall/manifest.json'
 import m25 from '@/plugins/performance/manifest.json'
-import m26 from '@/plugins/remnawave-control/manifest.json'
-import m27 from '@/plugins/repository/manifest.json'
-import m28 from '@/plugins/reseller/manifest.json'
-import m29 from '@/plugins/reviews/manifest.json'
-import m30 from '@/plugins/search/manifest.json'
-import m31 from '@/plugins/server-panel/manifest.json'
-import m32 from '@/plugins/social-publisher/manifest.json'
-import m33 from '@/plugins/software/manifest.json'
-import m34 from '@/plugins/store/manifest.json'
-import m35 from '@/plugins/vpn/manifest.json'
-import m36 from '@/plugins/web-push/manifest.json'
+import m26 from '@/plugins/prompt-master/manifest.json'
+import m27 from '@/plugins/remnawave-control/manifest.json'
+import m28 from '@/plugins/repository/manifest.json'
+import m29 from '@/plugins/reseller/manifest.json'
+import m30 from '@/plugins/reviews/manifest.json'
+import m31 from '@/plugins/search/manifest.json'
+import m32 from '@/plugins/server-panel/manifest.json'
+import m33 from '@/plugins/social-publisher/manifest.json'
+import m34 from '@/plugins/software/manifest.json'
+import m35 from '@/plugins/store/manifest.json'
+import m36 from '@/plugins/vpn/manifest.json'
+import m37 from '@/plugins/web-push/manifest.json'
 import { assertUniqueExtensionIds, type ExtensionManifest } from '@/platform/extensions/contracts'
 
-export const extensionCatalog = [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27, m28, m29, m30, m31, m32, m33, m34, m35, m36] as unknown as readonly ExtensionManifest[]
+export const extensionCatalog = [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27, m28, m29, m30, m31, m32, m33, m34, m35, m36, m37] as unknown as readonly ExtensionManifest[]
 assertUniqueExtensionIds(extensionCatalog)
 export const extensionById = new Map(extensionCatalog.map((manifest) => [manifest.id, manifest]))
 export const extensionPermissionIds = extensionCatalog.flatMap((manifest) => (manifest.permissions || []).map((permission) => permission.id))

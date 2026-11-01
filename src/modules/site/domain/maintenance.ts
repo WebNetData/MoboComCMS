@@ -8,6 +8,7 @@ import { SITE_SECTIONS, sectionsOf } from '@/modules/identity/domain/sections'
 
 /** The sections that have public pages of their own, and the plugin that owns those pages. */
 export const MAINTENANCE_SECTIONS = [
+  { id: 'prompts', plugin: 'prompt-master', label: 'پرامپت مستر', extra: [] },
   { id: 'businesses', plugin: 'businesses', label: 'تجربهٔ خرید', extra: [] },
   { id: 'store', plugin: 'store', label: 'فروشگاه', extra: [] },
   { id: 'magazine', plugin: 'journal', label: 'مجله', extra: [] },
