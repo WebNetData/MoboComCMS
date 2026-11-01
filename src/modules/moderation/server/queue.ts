@@ -8,6 +8,7 @@ import { waitingForModeration as businessesWaiting } from '@/modules/businesses/
 import { waitingForModeration as storeWaiting } from '@/modules/store/server/admin'
 import { waitingForModeration as communityWaiting } from '@/modules/community/server/admin'
 import { waitingForModeration as copyrightWaiting } from '@/modules/copyright/server/copyright'
+import { waitingTemplates } from '@/modules/prompts/server/prompts'
 
 // The staff moderation overview. Each module reads its own waiting items; nothing is decided here.
 
@@ -36,6 +37,8 @@ export async function moderationQueue(states: Readonly<Record<string, boolean | 
     read('journal', () => postProposals(TAKE)),
   ])
   const bySource: Record<QueueSourceKey, Waiting | null | undefined> = {
+    'review-prompts': await read('prompt-master', () => waitingTemplates('PENDING', TAKE)),
+    'trash-prompts': await read('prompt-master', () => waitingTemplates('TRASHED', TAKE)),
     'forum-posts': forum?.posts, 'forum-flags': forum?.flags, 'article-comments': journal, 'item-reviews': reviews, 'business-experiences': businesses,
     'product-reviews': store?.reviews, 'product-questions': store?.questions, 'community-reports': community, copyright,
     'review-posts': reviewPosts, 'proposal-posts': proposalPosts, 'trash-posts': trashPosts, 'trash-cinema': trashCinema, 'trash-music-tracks': trashTracks, 'trash-music-albums': trashAlbums, 'trash-games': trashGames, 'trash-software': trashSoftware,

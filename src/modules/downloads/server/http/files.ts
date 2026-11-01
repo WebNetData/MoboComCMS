@@ -16,7 +16,7 @@ import { FileError, appendChunk, cancelUpload, finishUpload, logImportFailure, p
 
 // Staff who edit content in any section may upload files and copy pasted assets.
 // A section author uploads what their own items need, like the section's manager.
-const CONTENT_PERMS = ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'software.manage', 'games.manage', 'settings.manage', 'media.manage', ...AUTHOR_PERMISSIONS]
+const CONTENT_PERMS = ['prompts.manage', 'cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'software.manage', 'games.manage', 'settings.manage', 'media.manage', ...AUTHOR_PERMISSIONS]
 
 async function staff(req: NextRequest) {
   for (const perm of CONTENT_PERMS) {

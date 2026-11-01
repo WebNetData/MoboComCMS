@@ -1,0 +1,10 @@
+'use client'
+import Icon from '@/components/site/Icon'
+import type { EditableTemplate } from './admin-model'
+import s from './PromptMaster.module.css'
+
+export default function PublicationPanel({form,initial,canManage,reviewAuthors,blocked,change}:{form:EditableTemplate;initial:EditableTemplate;canManage:boolean;reviewAuthors:boolean;blocked:boolean;change:(key:keyof EditableTemplate,value:string|number|boolean)=>void}) {
+  return <aside className={s.publishPanel}><h3><Icon name="send" size={18}/>آمادهٔ انتشار</h3><p>{canManage?'انتشار، انتخاب سردبیر و تصمیم دربارهٔ الگوهای نویسندگان.':reviewAuthors?'پیش‌نویس را نگه دار یا برای بازبینی مدیر بفرست.':'الگوی خودت را ذخیره و منتشر کن.'}</p><label className={s.field}>وضعیت انتشار<select value={form.status} onChange={e=>change('status',e.target.value)}><option value="DRAFT">پیش‌نویس</option><option value="PENDING">در انتظار بازبینی</option>{(canManage||!reviewAuthors)&&<option value="PUBLISHED">منتشرشده</option>}{blocked&&form.status==='TRASHED'&&<option value="TRASHED">سطل زباله</option>}</select></label>
+      {canManage&&<><label className={s.field}>ترتیب نمایش<input type="number" value={form.sortOrder} min={-10000} max={10000} onChange={e=>change('sortOrder',e.target.value)} required/></label><label className={s.check}><input type="checkbox" checked={form.featured} onChange={e=>change('featured',e.target.checked)}/>انتخاب سردبیر</label><label className={s.field}>یادداشت بازبینی<textarea rows={4} value={form.reviewNote||''} maxLength={1000} onChange={e=>change('reviewNote',e.target.value)} required={initial.status==='PENDING'&&form.status==='DRAFT'}/><small>برای برگشت به پیش‌نویس دلیل را بنویس؛ نویسنده آن را می‌بیند.</small></label></>}
+      {!canManage&&initial.reviewNote&&<div className={s.reviewNote}><b>یادداشت مدیر</b><p>{initial.reviewNote}</p></div>}<div className={s.publishHelp}><Icon name="shield" size={18}/><span>فایل‌های نمونه از کتابخانهٔ مشترک سایت انتخاب می‌شوند. حذف نمونه، فایل اصلی را پاک نمی‌کند.</span></div></aside>
+}

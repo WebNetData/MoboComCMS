@@ -37,7 +37,8 @@ export function templateInput(raw: Record<string, unknown>) {
   if (title.length < 3 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !isKind(raw.kind)) throw new PromptError('عنوان، نشانی انگلیسی و نوع الگو را درست وارد کنید')
   if (content.length < 20 || !content.includes('{{idea}}')) throw new PromptError('متن الگو حداقل ۲۰ نویسه و متغیر {{idea}} داشته باشد')
   for (const [, key] of content.matchAll(/\{\{([^{}]+)\}\}/g)) if (!(INPUT_KEYS as readonly string[]).includes(key.trim())) throw new PromptError(`متغیر «${key}» پشتیبانی نمی‌شود`)
-  const status = raw.status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT'
+  if (!['DRAFT', 'PENDING', 'PUBLISHED'].includes(String(raw.status ?? 'DRAFT'))) throw new PromptError('وضعیت انتشار معتبر نیست')
+  const status = raw.status === 'PUBLISHED' ? 'PUBLISHED' : raw.status === 'PENDING' ? 'PENDING' : 'DRAFT'
   const sortOrder = Number(raw.sortOrder || 0)
   if (!Number.isSafeInteger(sortOrder) || Math.abs(sortOrder) > 10000) throw new PromptError('ترتیب الگو معتبر نیست')
   let defaults: Record<string, string> = {}
@@ -54,5 +55,5 @@ export function templateInput(raw: Record<string, unknown>) {
 
 export function promptPolicy(raw: Record<string, unknown>) {
   const number = (key: string, fallback: number, min: number, max: number) => { const n = Number(raw[key]); return Number.isFinite(n) && raw[key] !== undefined ? Math.max(min, Math.min(max, Math.floor(n))) : fallback }
-  return { libraryTitle: cleanText(raw['library.title'],120) || 'نتیجه را ببین؛ پرامپتش را بردار.', libraryDescription: cleanText(raw['library.description'],500) || 'از یک قاب تصویری تا یک تجربهٔ وب. نمونه‌ها را کشف کن، متن دقیق پرامپت را بردار و با ایدهٔ خودت ادامه بده.', title: cleanText(raw.title, 100) || 'ایده‌ات را به یک پرامپت دقیق تبدیل کن', description: cleanText(raw.description, 400) || 'از یک فکر کوتاه تا دستور کامل؛ برای نوشتن، طراحی، ویدئو و کدنویسی.', allowGuests: raw['allow-guests'] !== false, aiEnabled: raw['ai-enabled'] === true, minuteLimit: number('minute-limit', 20, 1, 60), aiDailyLimit: number('ai-daily-limit', 10, 1, 100), historyLimit: number('history-limit', 50, 5, 200), pinLimit: number('pin-limit', 50, 1, 200) }
+  return { libraryTitle: cleanText(raw['library.title'],120) || 'نتیجه را ببین؛ پرامپتش را بردار.', libraryDescription: cleanText(raw['library.description'],500) || 'از یک قاب تصویری تا یک تجربهٔ وب. نمونه‌ها را کشف کن، متن دقیق پرامپت را بردار و با ایدهٔ خودت ادامه بده.', title: cleanText(raw.title, 100) || 'ایده‌ات را به یک پرامپت دقیق تبدیل کن', description: cleanText(raw.description, 400) || 'از یک فکر کوتاه تا دستور کامل؛ برای نوشتن، طراحی، ویدئو و کدنویسی.', reviewAuthors: raw['review-authors'] !== false, allowGuests: raw['allow-guests'] !== false, aiEnabled: raw['ai-enabled'] === true, minuteLimit: number('minute-limit', 20, 1, 60), aiDailyLimit: number('ai-daily-limit', 10, 1, 100), historyLimit: number('history-limit', 50, 5, 200), pinLimit: number('pin-limit', 50, 1, 200) }
 }

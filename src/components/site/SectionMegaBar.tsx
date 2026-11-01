@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
-import { usePathname } from '@/platform/routing/navigation'
+import { usePathname, useSearchParams } from '@/platform/routing/navigation'
+import { activeSectionItem } from '@/modules/navigation/domain/active-section'
 import type { SectionBar, SectionBarItem, MegaPromo, MegaLink } from '@/modules/navigation/domain/megamenu'
 import NavigationIcon from './NavigationIcon'
 import NavigationBranch from './NavigationBranch'
@@ -81,6 +82,8 @@ function MorePanel({ items, quick, onNavigate }: { items: SectionBarItem[]; quic
  */
 export default function SectionMegaBar({ bar, searchValue, extra }: { bar: SectionBar; searchValue?: string; extra?: ReactNode }) {
   const pathname = usePathname()
+  const search = useSearchParams()?.toString() || ''
+  const activeKey = activeSectionItem(bar.items, pathname, search)
   const [open, setOpen] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const root = useRef<HTMLDivElement>(null)
@@ -88,7 +91,7 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
 
   const clear = () => { if (timer.current) clearTimeout(timer.current); timer.current = null }
   const schedule = useCallback((key: string | null, delay: number) => { clear(); timer.current = setTimeout(() => setOpen(key), delay) }, [])
-  useEffect(() => { clear(); setOpen(null) }, [pathname])
+  useEffect(() => { clear(); setOpen(null) }, [pathname, search])
   useEffect(() => () => clear(), [])
   useEffect(() => {
     if (!open) return
@@ -104,11 +107,6 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onPointer) }
   }, [open])
 
-  const isOn = (href: string) => {
-    const path = decodeURIComponent(href.split('?')[0])
-    const here = decodeURIComponent(pathname)
-    return path !== bar.home && (here === path || here.startsWith(`${path}/`))
-  }
   // Priority+ layout: as many entries as fit (and at most bar.maxItems categories); the rest go under «بیشتر».
   const nav = useRef<HTMLElement>(null)
   const widths = useRef<number[] | null>(null)
@@ -162,7 +160,7 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
     if (!active) return
     const start = active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2
     el.scrollTo({ left: start, behavior: 'instant' as ScrollBehavior })
-  }, [fit, pathname])
+  }, [fit, pathname, search])
   const shownItems = fit ? bar.items.slice(0, fit.items) : bar.items
   const shownQuick = fit ? bar.quick.slice(0, fit.quick) : bar.quick
   const moreItems = fit ? bar.items.slice(fit.items) : []
@@ -174,10 +172,10 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
   return <div ref={root} className="mm-bar-wrap" onBlur={(event) => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(null) }}>
     <div className="container mm-bar">
       <nav ref={nav} className={`mm-bar-nav${fit ? ' is-fitted' : ''}`} aria-label={`منوی ${bar.title}`}>
-        {bar.showHome !== false && <Link href={bar.home} className={`mm-bar-home${pathname === bar.home ? ' is-active' : ''}`} aria-current={pathname === bar.home ? 'page' : undefined}>{bar.homeIcon === undefined ? <HomeIcon /> : <NavigationIcon name={bar.homeIcon} />}<span>{bar.homeLabel || `خانهٔ ${bar.title}`}</span></Link>}
+        {bar.showHome !== false && <Link href={bar.home} className={`mm-bar-home${pathname === bar.home && activeKey === null ? ' is-active' : ''}`} aria-current={pathname === bar.home && activeKey === null ? 'page' : undefined}>{bar.homeIcon === undefined ? <HomeIcon /> : <NavigationIcon name={bar.homeIcon} />}<span>{bar.homeLabel || `خانهٔ ${bar.title}`}</span></Link>}
         {shownItems.map((item) => {
           const expanded = open === item.key
-          const on = isOn(item.href)
+          const on = item.key === activeKey
           if (!item.columns.length && !item.features.length) return <Link key={item.key} data-mm-entry="" href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}><NavigationIcon name={item.icon} />{item.label}</Link>
           return <div key={item.key} data-mm-entry="" className={`mm-bar-item${expanded ? ' is-open' : ''}`} onMouseEnter={() => schedule(item.key, open ? 0 : OPEN_DELAY)} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
             <Link href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}><NavigationIcon name={item.icon} />{item.label}</Link>

@@ -2,7 +2,7 @@
 // module: this file only says which sources exist, who may see each one, where it is decided and,
 // for a plain yes or no, which request of the owning admin API carries that decision.
 
-export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'business-experiences' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright' | 'review-posts' | 'proposal-posts' | 'trash-posts' | 'trash-cinema' | 'trash-music-tracks' | 'trash-music-albums' | 'trash-games' | 'trash-software'
+export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'business-experiences' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright' | 'review-posts' | 'proposal-posts' | 'trash-posts' | 'trash-cinema' | 'trash-music-tracks' | 'trash-music-albums' | 'trash-games' | 'trash-software' | 'review-prompts' | 'trash-prompts'
 
 export interface QueueSource {
   key: QueueSourceKey
@@ -38,6 +38,8 @@ const yesNo = (approve: QueueDecision['request'], reject: QueueDecision['request
 ]
 
 export const QUEUE_SOURCES: readonly QueueSource[] = [
+  { key: 'review-prompts', module: 'prompt-master', permissions: ['prompts.manage'], label: 'بازبینی پرامپت‌های نویسندگان', labelEn: 'Prompts awaiting review', href: '/admin/prompts?status=PENDING' },
+  { key: 'trash-prompts', module: 'prompt-master', permissions: ['prompts.manage'], label: 'سطل زباله: پرامپت‌ها', labelEn: 'Trash: prompts', href: '/admin/prompts?status=TRASHED' },
   { key: 'forum-posts', module: 'forum', permissions: ['forum.moderate'], label: 'پیام‌های تالار در انتظار تأیید', labelEn: 'Forum posts awaiting approval', href: '/admin/forum?tab=review',
     // The forum deletes a held post it rejects.
     decisions: yesNo((id) => ({ url: '/api/forum/review', method: 'POST', body: { postId: id, decision: 'approve', note: '' } }), (id) => ({ url: '/api/forum/review', method: 'POST', body: { postId: id, decision: 'reject', note: '' } }), ['رد و حذف', 'Reject and delete'], ['این پیام رد و حذف شود؟ این کار برگشت‌پذیر نیست.', 'Reject and delete this post? This cannot be undone.']) },

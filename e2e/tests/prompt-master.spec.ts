@@ -86,7 +86,7 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     await member.getByLabel('متن خروجی پرامپت',{exact:true}).fill('نسخهٔ ویرایش‌شدهٔ خصوصی با جزئیات جدید و دقیق')
     await member.getByRole('button',{name:'ذخیرهٔ ویرایش',exact:true}).click();await expect(member.getByText('ویرایش در تاریخچهٔ خصوصی ذخیره شد',{exact:true})).toBeVisible()
     await member.reload();await expect(member.getByLabel('متن خروجی پرامپت',{exact:true})).toHaveValue(/نسخهٔ ویرایش‌شده/)
-    await owner.goto('/admin/prompts');await expect(owner.getByRole('heading',{name:'پرامپت مستر',exact:true})).toBeVisible();await expect(owner.locator('tbody tr')).toHaveCount(20)
+    await owner.goto('/admin/prompts');await expect(owner.getByRole('heading',{name:'کتابخانه و انتشار',exact:true})).toBeVisible();await expect(owner.locator('tbody tr')).toHaveCount(20)
     await owner.getByRole('button',{name:'الگوی جدید',exact:true}).click()
     const editor=owner.locator('section').filter({has:owner.getByRole('heading',{name:'الگوی جدید',exact:true})}),slug='owned-browser-'+Date.now()
     await editor.getByLabel('عنوان الگو',{exact:true}).fill('الگوی مرورگر اختصاصی')
@@ -95,10 +95,10 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     await editor.getByLabel('دسته',{exact:false}).selectOption('WRITING')
     await editor.getByLabel('ایدهٔ نمونه',{exact:true}).fill('یک طرح مقاله برای آموزش عکاسی بنویس')
     const createResponse=owner.waitForResponse(r=>r.url().endsWith('/api/admin/prompts')&&r.request().method()==='POST')
-    await editor.getByRole('button',{name:'ذخیرهٔ الگو',exact:true}).click();const created=await (await createResponse).json();createdId=created.template.id
+    await editor.getByRole('button',{name:/^(ذخیرهٔ الگو|ذخیره و انتشار)$/,exact:true}).click();const created=await (await createResponse).json();createdId=created.template.id
     expect((await guest.request.get('/prompts/templates/'+slug)).status()).toBe(404)
     await owner.goto('/admin/prompts?q='+slug);let row=owner.getByRole('row').filter({hasText:slug});await row.getByRole('button',{name:'ویرایش',exact:true}).click()
-    await owner.getByLabel('وضعیت انتشار',{exact:false}).selectOption('PUBLISHED');const publishResponse=owner.waitForResponse(r=>r.url().endsWith('/api/admin/prompts')&&r.request().method()==='POST');await owner.getByRole('button',{name:'ذخیرهٔ الگو',exact:true}).click();expect((await publishResponse).status()).toBe(200);await expect(owner.getByText('الگو ذخیره شد',{exact:true})).toBeVisible()
+    await owner.getByLabel('وضعیت انتشار',{exact:false}).selectOption('PUBLISHED');const publishResponse=owner.waitForResponse(r=>r.url().endsWith('/api/admin/prompts')&&r.request().method()==='POST');await owner.getByRole('button',{name:/^(ذخیرهٔ الگو|ذخیره و انتشار)$/,exact:true}).click();expect((await publishResponse).status()).toBe(200);await expect(owner.getByText('الگو ذخیره شد',{exact:true})).toBeVisible()
     await guest.goto('/prompts/templates/'+slug);await expect(guest.getByRole('heading',{name:'الگوی مرورگر اختصاصی',exact:true})).toBeVisible()
     await member.goto('/prompts/templates/'+slug);await member.getByRole('button',{name:'ذخیرهٔ الگو در علاقه‌مندی‌ها',exact:true}).click();await expect(member.getByRole('button',{name:/الگوی ذخیره‌شده/})).toHaveAttribute('aria-pressed','true')
     await member.reload();await expect(member.getByRole('button',{name:/الگوی ذخیره‌شده/})).toHaveAttribute('aria-pressed','true');await member.getByRole('button',{name:/الگوی ذخیره‌شده/}).click()
@@ -107,7 +107,7 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     const concurrent = await owner.request.post('/api/admin/prompts',{headers:origin,data:{...current,action:'save',title:'ویرایش هم‌زمان مدیر دیگر'}})
     expect(await concurrent.json()).toHaveProperty('template');expect(concurrent.status()).toBe(200)
     await owner.getByLabel('عنوان الگو',{exact:true}).fill('نسخهٔ قدیمی فرم')
-    await owner.getByRole('button',{name:'ذخیرهٔ الگو',exact:true}).click();await expect(owner.getByRole('alert').filter({hasText:/مدیر دیگری تغییر کرده/})).toBeVisible()
+    await owner.getByRole('button',{name:/^(ذخیرهٔ الگو|ذخیره و انتشار)$/,exact:true}).click();await expect(owner.getByRole('alert').filter({hasText:/هم‌زمان تغییر کرده/})).toBeVisible()
     await owner.getByRole('button',{name:'بستن ویرایشگر',exact:true}).click();await owner.getByRole('button',{name:'تازه‌کردن فهرست',exact:true}).click();await expect(owner.getByText('ویرایش هم‌زمان مدیر دیگر',{exact:true})).toBeVisible()
     await owner.goto('/prompts/templates/'+slug);await owner.getByRole('link',{name:'ویرایش الگو',exact:true}).click();await expect(owner.getByLabel('عنوان الگو',{exact:true})).toHaveValue('ویرایش هم‌زمان مدیر دیگر')
     for (const theme of ['light','dark']) for (const width of [1440,390]) {
