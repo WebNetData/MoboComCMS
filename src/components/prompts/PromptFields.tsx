@@ -18,6 +18,7 @@ export default function PromptFields({ input, change, disabled }: { input: Promp
           {field('style', input.kind === 'VIDEO' ? 'حال‌وهوا و حرکت دوربین' : 'سبک، نور و ترکیب‌بندی', 'سبک دلخواه را دقیق توصیف کنید')}
           <div className={s.twoFields}><label className={s.field}>نسبت تصویر<select value={input.ratio} onChange={e => change('ratio', e.target.value)} disabled={disabled}>{['1:1','16:9','9:16','4:3','3:4','3:2'].map(v => <option key={v} value={v}>{v}</option>)}</select></label>{input.kind === 'VIDEO' && <label className={s.field}>مدت صحنه<select value={input.duration} onChange={e => change('duration', e.target.value)} disabled={disabled}>{['5','10','15','30','60'].map(v => <option key={v} value={v}>{Number(v).toLocaleString('fa-IR')} ثانیه</option>)}</select></label>}</div>
         </>}
+        {input.kind === 'WEB' && field('style', 'جهت هنری و سبک رابط', 'مثلاً تحریریه‌ای، مینیمال یا داشبورد محصول')}
         <label className={s.field}>محدودیت‌ها و موارد ناخواسته<textarea rows={2} value={input.negative} onChange={e => change('negative', e.target.value)} maxLength={2000} placeholder="چه چیزی نباید در نتیجه باشد؟" disabled={disabled} /></label>
       </div>
     </details>

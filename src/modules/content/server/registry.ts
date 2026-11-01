@@ -1,3 +1,4 @@
+import { readShowcase } from '@/modules/prompts/domain/prompts'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { getModuleStates } from '@/extensions/server/modules'
@@ -45,7 +46,7 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
   switch (type) {
     case 'prompt': {
       const rows = await client.promptTemplate.findMany({ where: { ...base, ...live(), ...(text ? { OR: [{ title: { contains: text, ...insensitive } }, { tags: { contains: text, ...insensitive } }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' } })
-      return rows.map(r => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.category, summary: r.summary, keywords: r.tags, image: '', access: 'PUBLIC', publishedAt: r.publishedAt!, updatedAt: r.updatedAt, popularity: r.featured ? 10 : 0 }))
+      return rows.map(r => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.category, summary: r.summary, keywords: r.tags, image: readShowcase(r.showcase).cover, access: 'PUBLIC', publishedAt: r.publishedAt!, updatedAt: r.updatedAt, popularity: r.featured ? 10 : 0 }))
     }
     case 'software': {
       const rows = await client.softwareTitle.findMany({ where: { ...base, ...live(), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' } })

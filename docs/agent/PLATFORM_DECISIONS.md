@@ -10,7 +10,7 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ## Prompt Master — 2026-11-01
 
-`prompts` owns instructions/templates/history only. Reuse the existing AI provider and shared services; structured mode makes no provider call. AI enhancement is default-off and needs a current member, explicit input consent and strict quotas. Public template favorites use existing Engagement; private pinned outputs are retained history, never public content. Template URLs remain stable after creation. Control Plane owns switches/limits; `prompts.manage` does not imply `settings.manage`. [Contracts, checks and migration](handoffs/PROMPT_MASTER.md).
+`prompts` owns instructions/templates/history only. Reuse the existing AI provider and shared services; structured mode makes no provider call. AI enhancement is default-off and needs a current member, explicit input consent and strict quotas. Public template favorites use existing Engagement; private pinned outputs are retained history, never public content. Template URLs remain stable after creation. Public showcase metadata is prompt-owned presentation; Media owns bytes/access. WEB samples use fixed compositions or Library images, never arbitrary stored HTML/JS. Exact sample prompts and provenance remain visible; no fabricated provider/popularity claims. Control Plane owns switches/limits; `prompts.manage` does not imply `settings.manage`. [Contracts, checks and migration](handoffs/PROMPT_MASTER.md).
 
 ## Web operations — 2026-10-31
 

@@ -15,7 +15,7 @@
 .panelIcon { color: var(--pm-ink); display: inline-flex; }
 .subtle, .muted { color: var(--pm-muted); font-size: .76rem; }
 .inputForm { display: grid; gap: 20px; padding: 24px; }
-.kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 5px; margin: 0; border: 1px solid var(--border); border-radius: 14px; gap: 5px; background: var(--bg-soft); }
+.kinds { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 5px; margin: 0; border: 1px solid var(--border); border-radius: 14px; gap: 5px; background: var(--bg-soft); }
 .kinds label { position: relative; display: flex; flex-direction: column; gap: 8px; justify-content: center; align-items: center; padding: 13px 4px; min-height: 76px; border: 1px solid transparent; border-radius: 10px; font-size: .75rem; font-weight: 650; color: var(--pm-muted); cursor: pointer; }
 .kinds .kindSelected { background: var(--card); border-color: color-mix(in srgb, var(--primary) 38%, var(--border)); color: var(--text); box-shadow: var(--sds-effects-shadows-drop-shadow-100); }
 .kinds .kindSelected svg { color: var(--pm-ink); }
@@ -153,3 +153,5 @@
 @media (max-width: 800px) { .workspace { grid-template-columns: minmax(0, 1fr); } .intro { flex-direction: column; gap: 20px; } .introLinks { width: 100%; } .outputLabel textarea, .page .outputLabel textarea { min-height: 360px; } .emptyOutput { min-height: 285px; } .steps { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .page { padding-top: 25px; } .intro h1 { font-size: 1.8rem; } .intro p { font-size: .85rem; } .introLinks a { flex: 1; padding-inline: 10px; font-size: .77rem; } .panelHead { min-height: 68px; padding: 18px; } .panelHead h2 { font-size: .91rem; } .inputForm, .outputBody { padding: 17px; } .kinds { grid-template-columns: repeat(2,minmax(0,1fr)); } .kinds label { flex-direction: row; min-height: 48px; padding: 10px 5px; } .twoFields { grid-template-columns: 1fr; gap: 16px; } .ideaField > span { font-size: .82rem; } .advanced summary .muted { display: none; } .checklist { margin: 0 17px 17px; padding: 17px; } .outputFoot { padding: 17px; } .templateGrid { grid-template-columns: minmax(0,1fr); } .templateText { padding: 20px; } .sectionHead { gap: 12px; align-items: start; } .sectionHead h2 { font-size: 1.1rem; } .sectionHead a { white-space: nowrap; font-size: .74rem; } .filters { grid-template-columns: minmax(0,1fr); padding: 17px; } .filters button { grid-column: auto; } .formFoot { flex-wrap: wrap; } .steps { padding: 22px; } .historyCard, .adminEditor { padding: 18px; } .pattern pre { padding: 17px; } }
 @media (prefers-reduced-motion: reduce) { .templateCard { transition: none; } }
+
+@media (max-width:560px) { .kinds label:last-of-type { grid-column:1/-1; } }

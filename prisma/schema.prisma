@@ -138,6 +138,7 @@ model PromptTemplate {
   content     String
   example     String   @default("")
   defaults    String   @default("{}")
+  showcase    String   @default("{}")
   status      String   @default("DRAFT")
   featured    Boolean  @default(false)
   sortOrder   Int      @default(0)

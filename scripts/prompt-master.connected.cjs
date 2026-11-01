@@ -34,6 +34,8 @@ async function main(){
  assert.equal((await service.templateDirectory({q:stamp},true)).templates[0].id,template.id,'Admin finds a template by its stable URL slug')
  const direct=await http.GET_admin(await request(manager,'/api/admin/prompts?id='+template.id));assert.equal(direct.status,200);assert.equal((await direct.json()).template.id,template.id)
  assert.equal((await http.GET_admin(await request(magazine,'/api/admin/prompts?id='+template.id))).status,403)
+ const media=load('src/modules/media/server/library.ts'),mediaUser=await media.currentLibraryUser({id:manager.id,authAt:new Date()});assert.equal(mediaUser.manageLibrary,false);assert.equal(mediaUser.configureLibrary,false)
+ await assert.rejects(()=>media.currentLibraryUser({id:member.id,authAt:new Date()}),e=>e.status===403)
  await refuses(async()=>service.saveTemplate(await request(magazine),{...template,title:'Forbidden',version:template.version}),403)
  assert.equal(await service.templateBySlug(template.slug),null)
  assert(!(await service.templateDirectory({q:stamp})).templates.length)
@@ -42,6 +44,14 @@ async function main(){
  auditFail=true;await assert.rejects(()=>service.saveTemplate(managerReq,{...template,status:'PUBLISHED'}));auditFail=false
  assert.equal((await prisma.promptTemplate.findUnique({where:{id:template.id}})).status,'DRAFT','failed strict audit rolls publication back')
  const published=await service.saveTemplate(managerReq,{...template,status:'PUBLISHED'});assert.equal(published.version,2)
+ const sample=await service.saveTemplate(managerReq,{...published,kind:'WEB',showcase:JSON.stringify({webLayout:'landing',result:'<script>inert stored code</script>',credit:'Owned native sample'})})
+ assert.equal(sample.kind,'WEB');assert.equal(JSON.parse(sample.showcase).webLayout,'landing')
+ const {showcase:omitted,...oldClient}=sample,kept=await service.saveTemplate(managerReq,{...oldClient,title:'Existing caller keeps sample'});assert.equal(kept.showcase,sample.showcase)
+ await refuses(()=>service.saveTemplate(managerReq,{...kept,showcase:'{"cover":"javascript:alert(1)"}'}),422)
+ assert((await service.templateDirectory({q:stamp,samples:'true'})).templates.some(row=>row.id===template.id))
+ const withSample=await registry.itemCards([{type:'prompt',id:template.id}]);assert.equal(withSample.size,1)
+ const reverted=await service.saveTemplate(managerReq,{...kept,kind:'TEXT',title:published.title,showcase:'{}'})
+ published.version=reverted.version
  assert((await service.templateBySlug(template.slug)).id===template.id)
  const cards=await registry.itemCards([{type:'prompt',id:template.id}]);assert(cards.size===1&&cards.get('prompt:'+template.id).url.endsWith('/'+stamp))
  await refuses(()=>service.saveTemplate(managerReq,{...published,slug:stamp+'-changed'}),409)

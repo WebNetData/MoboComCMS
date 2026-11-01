@@ -13,8 +13,8 @@ function load(file, mocks = {}, cache = new Map()) {
   const mod = { exports:{} }; cache.set(key,mod)
   const localRequire = name => {
     if (Object.hasOwn(mocks,name)) return mocks[name]
-    if (name.startsWith('@/')) {
-      const base = 'src/' + name.slice(2)
+    if (name.startsWith('@/') || name.startsWith('.')) {
+      const base = name.startsWith('@/') ? 'src/' + name.slice(2) : path.posix.join(path.posix.dirname(key), name)
       for (const candidate of [base+'.ts',base+'.tsx',base+'/index.ts',base+'/index.tsx']) if (fs.existsSync(path.join(__dirname,'..',candidate))) return load(candidate,mocks,cache)
       if (base.endsWith('.json') && fs.existsSync(path.join(__dirname,'..',base))) return require(path.join(__dirname,'..',base))
     }

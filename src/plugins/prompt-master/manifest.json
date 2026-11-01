@@ -3,7 +3,7 @@
   "name": "پرامپت مستر",
   "nameEn": "Prompt Master",
   "description": "استودیوی ساخت پرامپت متن، تصویر، ویدئو و کد؛ کتابخانهٔ الگو، تاریخچهٔ خصوصی و بهبود اختیاری با سرویس هوش مصنوعی موجود.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "apiVersion": 1,
   "kind": "module",
   "category": "content",
@@ -24,6 +24,8 @@
   "settings": [
     { "key": "title", "label": "تیتر استودیو", "type": "text", "default": "ایده‌ات را به یک پرامپت دقیق تبدیل کن" },
     { "key": "description", "label": "توضیح استودیو", "type": "textarea", "default": "از یک فکر کوتاه تا دستور کامل؛ برای نوشتن، طراحی، ویدئو و کدنویسی." },
+    {"key":"library.title","label":"تیتر کتابخانهٔ نمونه‌ها","type":"text","default":"نتیجه را ببین؛ پرامپتش را بردار."},
+    {"key":"library.description","label":"توضیح کتابخانهٔ نمونه‌ها","type":"textarea","default":"از یک قاب تصویری تا یک تجربهٔ وب. نمونه‌ها را کشف کن، متن دقیق پرامپت را بردار و با ایدهٔ خودت ادامه بده."},
     { "key": "allow-guests", "label": "ساخت پرامپت ساختاریافته برای مهمان‌ها فعال باشد", "type": "boolean", "default": true },
     { "key": "ai-enabled", "label": "بهبود با سرویس هوش مصنوعی برای اعضا فعال باشد", "description": "نیازمند دستیار هوش مصنوعی فعال و سرویس تنظیم‌شده؛ فقط با انتخاب و موافقت کاربر فراخوانی می‌شود.", "type": "boolean", "default": false },
     { "key": "minute-limit", "label": "سقف ساخت در دقیقه (۱ تا ۶۰)", "type": "number", "default": 20 },

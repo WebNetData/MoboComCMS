@@ -15,6 +15,28 @@ const ai = load('src/modules/ai/domain/ai.ts')
 const promptLoader = require('./connected-source-loader.cjs')()
 const prompts = promptLoader('src/modules/prompts/domain/prompts.ts')
 const starters = promptLoader('src/modules/prompts/domain/starters.ts').PROMPT_STARTERS
+const galleryStarters = require('../prisma/starter-content/prompt-gallery.json')
+
+test('Prompt gallery keeps inert, bounded sample data and refuses unsafe URLs/layouts',()=>{
+  for(const url of ['javascript:alert(1)','data:image/svg+xml,x','//external.invalid/x','https://name:secret@example.com/a','https://127.0.0.1/a','https://localhost/a','/api/admin/secret','/images/../private/a','/images/%2e%2e/a'])assert.throws(()=>prompts.serializeShowcase({cover:url}),prompts.ShowcaseError)
+  assert.throws(()=>prompts.serializeShowcase({webLayout:'execute-html'}),prompts.ShowcaseError)
+  assert.throws(()=>prompts.serializeShowcase('not JSON'),prompts.ShowcaseError)
+  assert.deepEqual(prompts.readShowcase('not JSON'),prompts.EMPTY_SHOWCASE)
+  const value=prompts.readShowcase(prompts.serializeShowcase({result:'<script>literal text only</script>',webLayout:'dashboard',credit:'Original sample'}))
+  assert.equal(value.result,'<script>literal text only</script>');assert.equal(value.webLayout,'dashboard')
+  assert.equal(prompts.serializeShowcase({}),'{}');assert.equal(prompts.showcaseUrl('/images/prompts/blueprint.webp'),'/images/prompts/blueprint.webp')
+  assert.equal(prompts.showcaseUrl('https://cdn.example.com/sample.webm'),'https://cdn.example.com/sample.webm')
+  const saved=prompts.templateInput({title:'Valid sample',slug:'valid-sample',kind:'WEB',content:'A safe template for {{idea}}',showcase:JSON.stringify(value)})
+  assert.equal(saved.kind,'WEB');assert.equal(JSON.parse(saved.showcase).result,value.result)
+  assert.equal(prompts.templateInput({title:'Old client',slug:'old-client',kind:'TEXT',content:'Existing template {{idea}}'}).showcase,undefined,'omitted field must preserve stored samples')
+})
+test('Prompt gallery originals pair all five kinds with usable prompts, safe samples and WEB instructions',()=>{
+  assert.equal(galleryStarters.length,8);assert.equal(new Set(galleryStarters.map(s=>s.slug)).size,8)
+  assert.deepEqual([...new Set(galleryStarters.map(s=>s.kind))].sort(),['CODE','IMAGE','TEXT','VIDEO','WEB'])
+  for(const entry of galleryStarters){assert.ok(entry.example.length>40);assert.ok(prompts.hasShowcase(prompts.readShowcase(prompts.serializeShowcase(entry.showcase))));assert.ok(entry.showcase.credit)}
+  const input=prompts.normalizeInput({...prompts.DEFAULT_INPUT,kind:'WEB',idea:'An accessible responsive product website',target:'v0',style:'Editorial and calm',language:'en'})
+  const output=prompts.assemblePrompt(input);assert.match(output,/responsive web experience/);assert.match(output,/keyboard access/);assert.match(output,/Editorial and calm/);assert.equal(input.target,'v0')
+})
 
 test('Prompt Master produces distinct structured text, image, video and code instructions without a provider', () => {
   for (const kind of prompts.PROMPT_KINDS) {

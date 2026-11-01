@@ -1,0 +1,162 @@
+[
+  {
+    "slug": "design-blueprint-gt",
+    "title": "وقتی اسکچ مهندسی جان می‌گیرد",
+    "summary": "از خطوط دقیق مداد تا رندر واقع‌گرایانهٔ یک گرندتورر مفهومی؛ روی کاغذی با بافت واقعی.",
+    "kind": "IMAGE",
+    "category": "DESIGN",
+    "tags": "خودرو، بلوپرینت، طراحی صنعتی، رندر سه‌بعدی",
+    "example": "Original portfolio sample image for a professional prompt gallery. A beautiful detailed automotive concept study of an original unbranded pearl white electric grand-tourer, no existing brand logo, shown in front three-quarter view as photorealistic 3D rendering, surrounded by delicate pencil technical sketch orthographic views, wheel and suspension sketches, thin dimension lines and tiny plausible engineering annotations. Warm ivory drafting paper, precise graphite lines, restrained blue accents. Editorial automobile design studio quality, natural shadows, rich tactile paper, not a website screenshot. Landscape 4:3 composition with the car filling the frame. Only a tiny neutral heading 'GT / 01'. No watermark. This is a fictional design study, not specifications of a real vehicle.",
+    "defaults": {
+      "language": "en",
+      "ratio": "4:3"
+    },
+    "showcase": {
+      "cover": "/images/prompts/blueprint.webp",
+      "alt": "رندر گرندتورر سفید میان اسکچ‌های فنی روی کاغذ کرم",
+      "aspect": "wide",
+      "credit": "تصویر اختصاصی موبوکام؛ ساخته‌شده با ابزار تولید تصویر",
+      "caption": "مطالعهٔ طراحی خیالی؛ اندازه‌ها مشخصات فنی یک خودروی واقعی نیستند."
+    }
+  },
+  {
+    "slug": "sketchbook-character",
+    "title": "شخصیت سه‌بعدی در دفتر خاطرات",
+    "summary": "بافت نرم لباس، نور لطیف و جزئیات دوست‌داشتنی در یک کلاژ شخصیتی گرم و صمیمی.",
+    "kind": "IMAGE",
+    "category": "DESIGN",
+    "tags": "شخصیت، سه‌بعدی، کلاژ، تصویرسازی",
+    "example": "Original portfolio sample image for a professional prompt gallery. Charming high quality stylized 3D illustration of a young adult woman with short dark wavy hair, amber round glasses, oversized soft terracotta cardigan holding a ceramic cup, expressive thoughtful smile. Cream sketchbook collage backdrop with handwritten-style line doodles of a sleeping cat, tiny plants, coffee beans and torn paper notes. Premium animated-film character design with tactile fabrics, soft volumetric studio lighting, moss and burnt-orange palette, not derived from any specific existing character. Clean cohesive portrait 3:4 framing. No text except tiny decorative simple marks, no watermark. A visual character concept, not a UI screenshot.",
+    "defaults": {
+      "language": "en",
+      "ratio": "3:4"
+    },
+    "showcase": {
+      "cover": "/images/prompts/character.webp",
+      "alt": "شخصیت سه‌بعدی با عینک و فنجان قهوه در کلاژ دفتر طراحی",
+      "aspect": "portrait",
+      "credit": "تصویر اختصاصی موبوکام؛ ساخته‌شده با ابزار تولید تصویر",
+      "caption": "نمونهٔ اصلی طراحی شخصیت؛ برای چهرهٔ واقعی به مرجع دارای مجوز نیاز دارید."
+    }
+  },
+  {
+    "slug": "amber-perfume-editorial",
+    "title": "نور طلایی، شیشهٔ کهربایی",
+    "summary": "عکاسی محصول با سنگ روشن، شکست نور و یک روایت مینیمال از رایحهٔ مرکبات.",
+    "kind": "IMAGE",
+    "category": "DESIGN",
+    "tags": "محصول، عطر، عکاسی، نورپردازی",
+    "example": "Original portfolio sample image for a professional prompt gallery. Luxury editorial product photograph of a simple unbranded amber glass perfume bottle with brushed brass cap on sculptural pale limestone, translucent citrus slices and a single dried botanical sprig, warm late afternoon side-light refracting through glass, evocative subtle caustics and strong crisp shadow, beige sand and burnt orange color story, cinematic macro lens detail and elevated art direction. No typography, no labels, no logos or watermark. Square composition, beautiful realistic glass, commercially polished still life.",
+    "defaults": {
+      "language": "en",
+      "ratio": "1:1"
+    },
+    "showcase": {
+      "cover": "/images/prompts/perfume.webp",
+      "alt": "بطری عطر کهربایی کنار مرکبات روی سنگ آهکی در نور گرم",
+      "aspect": "square",
+      "credit": "تصویر اختصاصی موبوکام؛ ساخته‌شده با ابزار تولید تصویر",
+      "caption": "تصویر نمونه با پرامپت همین صفحه ساخته شده؛ محصول و برند واقعی معرفی نمی‌شود."
+    }
+  },
+  {
+    "slug": "orbit-motion-study",
+    "title": "مدار نور؛ مطالعهٔ حرکت و ریتم",
+    "summary": "یک موشن کوتاهِ بی‌صدا با مدارهای نورانی، عمق میدان و حرکت آرام در فضای تاریک.",
+    "kind": "VIDEO",
+    "category": "VIDEO",
+    "tags": "ویدئو، موشن، نور، حرکت",
+    "example": "یک موشن گرافیک شش‌ثانیه‌ای و بی‌صدا طراحی کن: کرهٔ نورانی فیروزه‌ای در مرکز صحنهٔ تاریک، حلقه‌های بنفش و فیروزه‌ای در مدارهای مایل با حرکت نرم، ذرات کم‌تعداد، درخشش کنترل‌شده و کادر عریض. حرکت یکنواخت و پایان نزدیک به شروع باشد. هیچ نوشته، برش تند یا فلاش روشن نداشته باشد.",
+    "defaults": {
+      "ratio": "16:9",
+      "duration": "5",
+      "style": "موشن سه‌بعدی انتزاعی؛ حرکت آرام و نور کنترل‌شده"
+    },
+    "showcase": {
+      "cover": "/images/prompts/orbit.webp",
+      "video": "/images/prompts/orbit.webm",
+      "alt": "مدارهای بنفش و فیروزه‌ای دور کره‌ای نورانی",
+      "aspect": "wide",
+      "credit": "موشن نمونهٔ تألیفی موبوکام با Canvas؛ خروجی یک مدل ویدئویی نیست",
+      "caption": "نمونهٔ شش‌ثانیه‌ای بدون صدا برای نمایش حرکت پیشنهادی."
+    }
+  },
+  {
+    "slug": "slow-coffee-story",
+    "title": "یک فنجان، کمی آهسته‌تر",
+    "summary": "نمونهٔ متن روایی کوتاه؛ تصویرسازی با کلمات، بدون شعار و ادعاهای ساختگی.",
+    "kind": "TEXT",
+    "category": "WRITING",
+    "tags": "داستان، قهوه، نگارش، روایت",
+    "example": "برای یک کافهٔ کوچک، متنی روایی و کوتاه دربارهٔ مکث‌کردن در شروع روز بنویس. با یک جزئیات حسی شروع کن، لحن گرم و آرام داشته باش، سه بند کوتاه بنویس و بدون شعار تبلیغاتی با یک دعوت ساده تمام کن. ویژگی یا آمار تأییدنشده به کسب‌وکار نسبت نده.",
+    "defaults": {
+      "tone": "صمیمی"
+    },
+    "showcase": {
+      "result": "صبح، پیش از آن‌که خیابان شلوغ شود، بخار از لبهٔ فنجان بالا می‌رود. نور پنجره روی میز می‌نشیند و برای چند لحظه، هیچ کاری فوری نیست.\n\nفنجان را با دو دست بگیر. به گرمایش فرصت بده؛ به صدای آرام قاشق، به بوی قهوه، به فکری که هنوز جمله نشده است.\n\nامروز را کمی آهسته‌تر شروع کنیم. اگر گذرت افتاد، یک صندلی کنار پنجره هست.",
+      "aspect": "portrait",
+      "credit": "نمونهٔ نگارش تألیفی موبوکام",
+      "caption": "نمونهٔ پاسخ برای نشان‌دادن لحن و ساختار؛ ادعای خروجی یک مدل مشخص ندارد."
+    }
+  },
+  {
+    "slug": "atelier-web-landing",
+    "title": "استودیوی خلاق؛ وب‌سایتی با امضا",
+    "summary": "یک لندینگ با تایپوگرافی درشت، فضای تنفس و ترکیب‌بندی تحریریه‌ای برای استودیوی طراحی.",
+    "kind": "WEB",
+    "category": "DEVELOPMENT",
+    "tags": "وب، لندینگ، پورتفولیو، طراحی رابط",
+    "example": "Design a responsive editorial landing page for an independent creative studio called ATELIER. Use warm ivory, dark forest green and a restrained lime accent. Combine oversized serif headlines, generous negative space, a compact navigation and a curated project grid. Include a clear contact call to action, visible keyboard focus and a stacked mobile layout. Use reusable components and accessible semantic HTML. Do not invent client endorsements or business metrics.",
+    "defaults": {
+      "language": "en",
+      "target": "Claude",
+      "style": "Editorial, warm ivory and forest green"
+    },
+    "showcase": {
+      "webLayout": "landing",
+      "result": "<main class=\"studio\">\n  <header><a href=\"/\">ATELIER.</a><nav aria-label=\"Main navigation\">Work · About · Contact</nav></header>\n  <section aria-labelledby=\"studio-title\">\n    <p>INDEPENDENT DESIGN STUDIO</p>\n    <h1 id=\"studio-title\">Ideas made tangible.</h1>\n    <p>Identity, digital experiences and considered design.</p>\n  </section>\n</main>",
+      "aspect": "wide",
+      "credit": "نمونهٔ چیدمان تألیفی موبوکام",
+      "caption": "پیش‌نمایش ساختاری امن از جهت طراحی این پرامپت؛ کد دلخواه در سایت اجرا نمی‌شود."
+    }
+  },
+  {
+    "slug": "pulse-web-dashboard",
+    "title": "داشبوردی که شلوغی را آرام می‌کند",
+    "summary": "نمای مدیریت پروژه با سلسله‌مراتب روشن، خلاصهٔ وضعیت و تایپوگرافی خوانا.",
+    "kind": "WEB",
+    "category": "DEVELOPMENT",
+    "tags": "وب، داشبورد، محصول، رابط کاربری",
+    "example": "Create a responsive project-management dashboard concept named PULSE. Use a calm slate canvas, white cards and small violet accents. Show a clear workspace sidebar, a recent-project list and a simple weekly activity chart using explicitly illustrative sample data. Prioritize readable labels, visual hierarchy, keyboard access, empty/error states and a usable narrow-screen layout. Avoid invented claims about real customers or revenue.",
+    "defaults": {
+      "language": "en",
+      "target": "v0",
+      "style": "Calm product UI, slate and violet"
+    },
+    "showcase": {
+      "webLayout": "dashboard",
+      "result": "<main class=\"workspace\">\n  <aside aria-label=\"Workspace navigation\">PULSE · Overview · Projects</aside>\n  <section aria-labelledby=\"overview-title\">\n    <h1 id=\"overview-title\">Project overview</h1>\n    <p>Illustrative workspace data</p>\n    <ul aria-label=\"Recent projects\"><li>Brand system</li><li>Product website</li><li>Research notes</li></ul>\n  </section>\n</main>",
+      "aspect": "wide",
+      "credit": "نمونهٔ رابط و دادهٔ نمایشی موبوکام",
+      "caption": "داده‌های داخل پیش‌نمایش صرفاً برای نمایش طرح‌اند و آمار واقعی سایت نیستند."
+    }
+  },
+  {
+    "slug": "accessible-form-component",
+    "title": "فرم ساده، جزئیات درست",
+    "summary": "نمونهٔ یک فیلد دسترس‌پذیر با برچسب، توضیح و خطای متصل؛ برای شروع یک رابط قابل اعتماد.",
+    "kind": "CODE",
+    "category": "DEVELOPMENT",
+    "tags": "کد، React، دسترس‌پذیری، فرم",
+    "example": "یک کامپوننت کوچک React و TypeScript برای فیلد ایمیل بنویس. برچسب واقعی، توضیح اختیاری و پیام خطای مرتبط با aria-describedby داشته باشد. از شناسهٔ پایدار استفاده کن، فیلد کنترل‌شده باشد و هیچ وابستگی تازه‌ای اضافه نکن. کد را کوتاه نگه دار و توضیح بده اعتبارسنجی نهایی روی سرور انجام می‌شود.",
+    "defaults": {
+      "format": "کد همراه توضیح"
+    },
+    "showcase": {
+      "result": "import { useId } from \"react\"\n\nexport function EmailField({ value, error, onChange }: {\n  value: string; error?: string; onChange: (value: string) => void\n}) {\n  const id = useId()\n  return <div>\n    <label htmlFor={id}>ایمیل</label>\n    <input id={id} type=\"email\" autoComplete=\"email\" value={value}\n      onChange={event => onChange(event.target.value)}\n      aria-invalid={!!error} aria-describedby={error ? id + \"-error\" : undefined} />\n    {error && <p id={id + \"-error\"} role=\"alert\">{error}</p>}\n  </div>\n}",
+      "aspect": "portrait",
+      "credit": "نمونهٔ کد تألیفی موبوکام",
+      "caption": "الگوی آموزشی؛ اعتبارسنجی و مجوز عملیات نهایی در سرور لازم است."
+    }
+  }
+]

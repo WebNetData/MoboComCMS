@@ -20,11 +20,15 @@ export async function templateDirectory(input: Record<string, unknown>, admin = 
   const q = cleanText(input.q, 100), kind = isKind(input.kind) ? input.kind : '', category = cleanText(input.category, 40)
   const pageSize = admin ? 20 : 12
   const insensitive = /^postgres(?:ql)?:/.test(process.env.DATABASE_URL || '') ? { mode: 'insensitive' as const } : {}
-  const where = { ...(admin ? (input.status === 'DRAFT' || input.status === 'PUBLISHED' ? { status: input.status } : {}) : publicTemplateWhere()), ...(kind ? { kind } : {}), ...(category ? { category } : {}), ...(q ? { OR: ['title', 'summary', 'tags', 'slug'].map(key => ({ [key]: { contains: q, ...insensitive } })) } : {}) }
+  const samples = input.samples === 'true', sort = input.sort === 'newest' ? 'newest' : 'curated'
+  const where = { ...(admin ? (input.status === 'DRAFT' || input.status === 'PUBLISHED' ? { status: input.status } : {}) : publicTemplateWhere()), ...(samples ? { showcase: { not: '{}' } } : {}), ...(kind ? { kind } : {}), ...(category ? { category } : {}), ...(q ? { OR: ['title', 'summary', 'tags', 'slug'].map(key => ({ [key]: { contains: q, ...insensitive } })) } : {}) }
   const total = await db.promptTemplate.count({ where }), pages = Math.max(1, Math.ceil(total / pageSize))
   const page = Math.max(1, Math.min(pages, Math.floor(Number(input.page) || 1)))
-  const templates = await db.promptTemplate.findMany({ where, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { id: 'desc' }], skip: (page - 1) * pageSize, take: pageSize })
-  return { templates, total, page, pages, q, kind, category }
+  const templates = await db.promptTemplate.findMany({ where, orderBy: sort === 'newest' ? [{ id: 'desc' }] : [{ featured: 'desc' }, { sortOrder: 'asc' }, { id: 'desc' }], skip: (page - 1) * pageSize, take: pageSize })
+  return { templates, total, page, pages, q, kind, category, sort, samples }
+}
+export async function templateFacets(samples: boolean) {
+  return db.promptTemplate.groupBy({ by: ['kind'], where: { ...publicTemplateWhere(), ...(samples ? { showcase: { not: '{}' } } : {}) }, _count: { _all: true } })
 }
 export async function templateBySlug(slug: string, reader: Prisma.TransactionClient = db) {
   return reader.promptTemplate.findFirst({ where: { slug, ...publicTemplateWhere() } })

@@ -20,7 +20,7 @@ export async function currentLibraryUser(actor: LibraryActor, reader: Prisma.Tra
   const has = (p: string) => user.roleId == null || hasPermission(user.permissions || [], p)
   const manageLibrary = has('media.manage') || has('settings.manage')
   if (actor.purpose === 'import' && !has('imports.manage')) throw new LibraryError('اختیار ورود اطلاعات معتبر نیست', 403)
-  if (!manageLibrary && !(actor.purpose === 'import' && has('imports.manage')) && ![...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS].some(has)) throw new LibraryError('دسترسی مجاز نیست', 403)
+  if (!manageLibrary && !(actor.purpose === 'import' && has('imports.manage')) && ![...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS, 'prompts.manage'].some(has)) throw new LibraryError('دسترسی مجاز نیست', 403)
   return { ...user, manageLibrary, configureLibrary: has('settings.manage'), serverTools: has('server.manage') }
 }
 export function owns(user: LibraryUser, row: { createdById: number | null }) {
