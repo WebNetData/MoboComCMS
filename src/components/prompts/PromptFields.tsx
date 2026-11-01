@@ -9,7 +9,7 @@ export default function PromptFields({ input, change, disabled }: { input: Promp
       <label className={s.field}>ابزار مقصد<select value={input.target} onChange={e => change('target', e.target.value)} disabled={disabled}>{TARGETS[input.kind].map(v => <option key={v}>{v}</option>)}</select></label>
       <label className={s.field}>زبان پاسخ مورد انتظار<select value={input.language} onChange={e => change('language', e.target.value)} disabled={disabled}><option value="fa">فارسی</option><option value="en">English</option></select></label>
     </div>
-    <details className={s.advanced}><summary><span><Icon name="sliders" size={17} /> تنظیمات دقیق‌تر</span><span className={s.muted}>زمینه، سبک و محدودیت‌ها</span></summary>
+    <details className={s.advanced}><summary><span><Icon name="sliders" size={17} /> تنظیمات دقیق‌تر</span><span className={s.advancedHint}><span className={s.muted}>زمینه، سبک و محدودیت‌ها</span><Icon name="chevron-down" size={15}/></span></summary>
       <div className={s.advancedBody}>
         <div className={s.twoFields}>{field('role', 'نقش متخصص', 'مثلاً مدیر هنری یا مهندس نرم‌افزار')}{field('audience', 'مخاطب', 'این خروجی برای چه کسی است؟')}</div>
         <label className={s.field}>زمینه و اطلاعات تکمیلی<textarea rows={3} value={input.context} onChange={e => change('context', e.target.value)} maxLength={2000} placeholder="اطلاعات واقعی، نمونه، فناوری موجود یا جزئیات پروژه…" disabled={disabled} /></label>

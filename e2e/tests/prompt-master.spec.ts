@@ -16,6 +16,10 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     return page
   }
   async function capture(page: Page, name: string, root = 'main') {
+    for (const image of await page.locator(root+' img').all()) { if (!await image.isVisible()) continue; await image.scrollIntoViewIfNeeded(); await expect.poll(()=>image.evaluate(node=>(node as HTMLImageElement).complete&&(node as HTMLImageElement).naturalWidth>0)).toBe(true) }
+    await page.evaluate(()=>scrollTo(0,0))
+    const pushPrompt=page.getByRole('dialog',{name:'اعلان‌ها',exact:true});if(await pushPrompt.isVisible())await pushPrompt.getByRole('button',{name:'بعداً',exact:true}).click()
+    if(root==='[data-testid="prompt-master"]'&&page.viewportSize()!.width===1440) expect(await page.locator(root+' article').evaluateAll(cards=>cards.every(card=>card.getBoundingClientRect().height<650))).toBe(true)
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.evaluate(source => { const script = document.createElement('script'); script.nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce || ''; script.textContent = source; document.head.append(script) }, fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'))
     const violations = await page.evaluate(async selector => (await (window as any).axe.run(document.querySelector(selector), { iframes: false, runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })).violations, root)
@@ -29,13 +33,19 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     await guest.goto('/prompts')
     await expect(guest.getByRole('heading', { name: /ایده‌ات را به یک پرامپت/ })).toBeVisible()
     await expect(guest.getByRole('link', { name: 'کتابخانهٔ الگوها', exact: true })).toBeVisible()
-    for (const [kind, label] of [['TEXT','متن و محتوا'],['IMAGE','تصویر و طراحی'],['VIDEO','ویدئو و سینما'],['CODE','کدنویسی و وب']]) {
+    await expect(guest.getByRole('progressbar',{name:'کامل‌بودن جزئیات ورودی'})).toHaveAttribute('aria-valuemax','5')
+    await expect(guest.getByRole('link',{name:'کشف نمونه‌های تصویری و پرامپت‌ها',exact:true})).toHaveAttribute('href','/prompts/library')
+    for (const [kind, label] of [['TEXT','متن و محتوا'],['IMAGE','تصویر و طراحی'],['VIDEO','ویدئو و سینما'],['CODE','کدنویسی و وب'],['WEB','طراحی وب و رابط']]) {
       await guest.getByRole('radio', { name: label, exact: true }).focus()
       await guest.getByRole('radio', { name: label, exact: true }).press('Space')
       await guest.getByLabel('ایده یا درخواستت را بنویس', { exact: false }).fill('ایدهٔ آزمایشی '+kind+' برای معرفی یک محصول واقعی با جزئیات روشن')
       await guest.getByRole('button', { name: 'ساخت پرامپت', exact: true }).click()
       await expect(guest.getByLabel('متن خروجی پرامپت', { exact: true })).toHaveValue(new RegExp('ایدهٔ آزمایشی '+kind))
     }
+    const progress=guest.getByRole('progressbar',{name:'کامل‌بودن جزئیات ورودی'}),beforeDetails=Number(await progress.getAttribute('aria-valuenow')),advanced=guest.locator('summary').filter({hasText:'تنظیمات دقیق‌تر'})
+    await advanced.focus();await advanced.press('Enter');await guest.getByLabel('زمینه و اطلاعات تکمیلی',{exact:true}).fill('یک استودیوی واقعی طراحی با مخاطبان فارسی‌زبان و نیاز به رابط خوانا و قابل استفاده.')
+    await expect.poll(async()=>Number(await progress.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeDetails)
+    await expect(guest.getByLabel('جهت هنری و سبک رابط',{exact:true})).toBeVisible();await advanced.focus();await advanced.press('Enter');await expect(guest.getByLabel('جهت هنری و سبک رابط',{exact:true})).not.toBeVisible()
     await guest.route('**/api/prompts/generate',route=>route.fulfill({status:429,contentType:'application/json',body:JSON.stringify({error:'محدودیت آزمایشی؛ دوباره تلاش کنید'})}),{times:1})
     await guest.getByRole('button',{name:'ساخت پرامپت',exact:true}).click();await expect(guest.getByRole('alert').filter({hasText:'محدودیت آزمایشی'})).toBeVisible()
     await guest.getByRole('button',{name:'ساخت پرامپت',exact:true}).click();await expect(guest.getByRole('alert').filter({hasText:'محدودیت آزمایشی'})).toHaveCount(0)
@@ -76,7 +86,7 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     await member.getByLabel('متن خروجی پرامپت',{exact:true}).fill('نسخهٔ ویرایش‌شدهٔ خصوصی با جزئیات جدید و دقیق')
     await member.getByRole('button',{name:'ذخیرهٔ ویرایش',exact:true}).click();await expect(member.getByText('ویرایش در تاریخچهٔ خصوصی ذخیره شد',{exact:true})).toBeVisible()
     await member.reload();await expect(member.getByLabel('متن خروجی پرامپت',{exact:true})).toHaveValue(/نسخهٔ ویرایش‌شده/)
-    await owner.goto('/admin/prompts');await expect(owner.getByRole('heading',{name:'پرامپت مستر',exact:true})).toBeVisible();await expect(owner.locator('tbody tr')).toHaveCount(20)
+    await owner.goto('/admin/prompts');await expect(owner.getByRole('heading',{name:'کتابخانه و انتشار',exact:true})).toBeVisible();await expect(owner.locator('tbody tr')).toHaveCount(20)
     await owner.getByRole('button',{name:'الگوی جدید',exact:true}).click()
     const editor=owner.locator('section').filter({has:owner.getByRole('heading',{name:'الگوی جدید',exact:true})}),slug='owned-browser-'+Date.now()
     await editor.getByLabel('عنوان الگو',{exact:true}).fill('الگوی مرورگر اختصاصی')
@@ -85,10 +95,10 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     await editor.getByLabel('دسته',{exact:false}).selectOption('WRITING')
     await editor.getByLabel('ایدهٔ نمونه',{exact:true}).fill('یک طرح مقاله برای آموزش عکاسی بنویس')
     const createResponse=owner.waitForResponse(r=>r.url().endsWith('/api/admin/prompts')&&r.request().method()==='POST')
-    await editor.getByRole('button',{name:'ذخیرهٔ الگو',exact:true}).click();const created=await (await createResponse).json();createdId=created.template.id
+    await editor.getByRole('button',{name:/^(ذخیرهٔ الگو|ذخیره و انتشار)$/,exact:true}).click();const created=await (await createResponse).json();createdId=created.template.id
     expect((await guest.request.get('/prompts/templates/'+slug)).status()).toBe(404)
     await owner.goto('/admin/prompts?q='+slug);let row=owner.getByRole('row').filter({hasText:slug});await row.getByRole('button',{name:'ویرایش',exact:true}).click()
-    await owner.getByLabel('وضعیت انتشار',{exact:false}).selectOption('PUBLISHED');const publishResponse=owner.waitForResponse(r=>r.url().endsWith('/api/admin/prompts')&&r.request().method()==='POST');await owner.getByRole('button',{name:'ذخیرهٔ الگو',exact:true}).click();expect((await publishResponse).status()).toBe(200);await expect(owner.getByText('الگو ذخیره شد',{exact:true})).toBeVisible()
+    await owner.getByLabel('وضعیت انتشار',{exact:false}).selectOption('PUBLISHED');const publishResponse=owner.waitForResponse(r=>r.url().endsWith('/api/admin/prompts')&&r.request().method()==='POST');await owner.getByRole('button',{name:/^(ذخیرهٔ الگو|ذخیره و انتشار)$/,exact:true}).click();expect((await publishResponse).status()).toBe(200);await expect(owner.getByText('الگو ذخیره شد',{exact:true})).toBeVisible()
     await guest.goto('/prompts/templates/'+slug);await expect(guest.getByRole('heading',{name:'الگوی مرورگر اختصاصی',exact:true})).toBeVisible()
     await member.goto('/prompts/templates/'+slug);await member.getByRole('button',{name:'ذخیرهٔ الگو در علاقه‌مندی‌ها',exact:true}).click();await expect(member.getByRole('button',{name:/الگوی ذخیره‌شده/})).toHaveAttribute('aria-pressed','true')
     await member.reload();await expect(member.getByRole('button',{name:/الگوی ذخیره‌شده/})).toHaveAttribute('aria-pressed','true');await member.getByRole('button',{name:/الگوی ذخیره‌شده/}).click()
@@ -97,7 +107,7 @@ test('Prompt Master studio, private history, templates and Admin controls work a
     const concurrent = await owner.request.post('/api/admin/prompts',{headers:origin,data:{...current,action:'save',title:'ویرایش هم‌زمان مدیر دیگر'}})
     expect(await concurrent.json()).toHaveProperty('template');expect(concurrent.status()).toBe(200)
     await owner.getByLabel('عنوان الگو',{exact:true}).fill('نسخهٔ قدیمی فرم')
-    await owner.getByRole('button',{name:'ذخیرهٔ الگو',exact:true}).click();await expect(owner.getByRole('alert').filter({hasText:/مدیر دیگری تغییر کرده/})).toBeVisible()
+    await owner.getByRole('button',{name:/^(ذخیرهٔ الگو|ذخیره و انتشار)$/,exact:true}).click();await expect(owner.getByRole('alert').filter({hasText:/هم‌زمان تغییر کرده/})).toBeVisible()
     await owner.getByRole('button',{name:'بستن ویرایشگر',exact:true}).click();await owner.getByRole('button',{name:'تازه‌کردن فهرست',exact:true}).click();await expect(owner.getByText('ویرایش هم‌زمان مدیر دیگر',{exact:true})).toBeVisible()
     await owner.goto('/prompts/templates/'+slug);await owner.getByRole('link',{name:'ویرایش الگو',exact:true}).click();await expect(owner.getByLabel('عنوان الگو',{exact:true})).toHaveValue('ویرایش هم‌زمان مدیر دیگر')
     for (const theme of ['light','dark']) for (const width of [1440,390]) {

@@ -299,7 +299,7 @@ test('a section author role holds the panel and author permissions only, and is 
   }
   const rbac = open(path.resolve(__dirname, '..', 'src/modules/identity/rbac'))
   const sections = load('src/modules/identity/domain/sections')
-  assert.deepEqual(sections.AUTHOR_SECTIONS.map((section) => [section.id, section.permission, section.manage]), [['magazine', 'journal.author', 'cms.posts'], ['cinema', 'cinema.author', 'cinema.manage'], ['music', 'music.author', 'music.manage'], ['games', 'games.author', 'games.manage'], ['software', 'software.author', 'software.manage']])
+  assert.deepEqual(sections.AUTHOR_SECTIONS.map((section) => [section.id, section.permission, section.manage]), [['prompts', 'prompts.author', 'prompts.manage'], ['magazine', 'journal.author', 'cms.posts'], ['cinema', 'cinema.author', 'cinema.manage'], ['music', 'music.author', 'music.manage'], ['games', 'games.author', 'games.manage'], ['software', 'software.author', 'software.manage']])
   for (const section of sections.AUTHOR_SECTIONS) {
     // Declared by the section's own plugin, so it exists; not a core permission, so no stored full-access role is touched by it.
     assert.ok(rbac.ALL_PERMISSIONS.includes(section.permission), section.permission)
@@ -329,10 +329,11 @@ test('a section author role holds the panel and author permissions only, and is 
 
 test('an author permission is taken only by the content owners, through the scope guard', () => {
   const files = []
-  const names = ['journal.author', 'cinema.author', 'music.author', 'games.author', 'software.author']
+  const names = ['journal.author', 'cinema.author', 'music.author', 'games.author', 'software.author', 'prompts.author']
   const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) { if (entry.name !== 'generated') walk(full) } else if (/[.](ts|tsx|json)$/.test(entry.name) && names.some((name) => fs.readFileSync(full, 'utf8').includes(name))) files.push(path.relative(path.resolve(__dirname, '..'), full).split(path.sep).join('/')) } }
   walk(path.resolve(__dirname, '..', 'src'))
   assert.deepEqual(files.sort(), [
+    'src/modules/prompts/server/transaction.ts', 'src/plugins/prompt-master/manifest.json',
     'src/modules/editor/server/documents.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/media/server/admin.ts', 'src/modules/site/server/http/admin/cms/route.ts',
     // Games have an admin of their own: its routes take the author through the same guard, and its shell only decides which tabs to show.
     'src/modules/games/server/http/routes.ts', 'src/app/admin/games/shared.tsx',

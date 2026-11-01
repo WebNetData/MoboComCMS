@@ -10,10 +10,10 @@ export class CaseError extends Error {
 }
 
 /** Called only after an authorized owner decision, in its transaction. Never decides or creates content. */
-export async function completeOwnerCase(tx: Prisma.TransactionClient, source: QueueSourceKey, itemId: number, staffId: number, decision: 'approve' | 'reject') {
+export async function completeOwnerCase(tx: Prisma.TransactionClient, source: QueueSourceKey, itemId: number, staffId: number, decision: 'approve' | 'reject', note?: string) {
   if (!Number.isSafeInteger(itemId) || itemId <= 0 || !Number.isSafeInteger(staffId) || staffId <= 0) throw new CaseError('شناسهٔ تصمیم معتبر نیست')
   const row = await tx.moderationCase.upsert({ where: { source_itemId: { source, itemId } }, create: { source, itemId }, update: {} })
-  const changed = await tx.moderationCase.updateMany({ where: { id: row.id, round: row.round, status: { in: ['OPEN', 'CLAIMED', 'CLOSED'] } }, data: { status: 'DECIDED', decision, decidedById: staffId, decidedAt: new Date(), assigneeId: null, claimedAt: null } })
+  const changed = await tx.moderationCase.updateMany({ where: { id: row.id, round: row.round, status: { in: ['OPEN', 'CLAIMED', 'CLOSED'] } }, data: { status: 'DECIDED', decision, decidedById: staffId, decidedAt: new Date(), assigneeId: null, claimedAt: null, ...(note === undefined ? {} : { note: cleanCaseNote(note) }) } })
   if (changed.count) await keepDecision(tx, await tx.moderationCase.findUniqueOrThrow({ where: { id: row.id } }))
   return changed
 }

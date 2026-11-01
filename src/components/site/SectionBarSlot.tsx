@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { Suspense } from 'react'
 import SectionMegaBar from '@/components/site/SectionMegaBar'
 import CartButton from '@/components/store/CartButton'
 import { getSectionBar } from '@/modules/navigation/server/megamenu'
@@ -14,5 +15,5 @@ export default async function SectionBarSlot({ section, searchValue }: { section
   const count = section === 'shop'
     ? await Promise.all([getViewer(), cookies()]).then(([viewer, jar]) => cartCount({ userId: viewer.userId, token: jar.get(CART_COOKIE)?.value || null })).catch(() => 0)
     : 0
-  return <SectionMegaBar bar={bar} searchValue={searchValue} extra={section === 'shop' ? <CartButton initial={count} /> : undefined} />
+  return <Suspense><SectionMegaBar bar={bar} searchValue={searchValue} extra={section === 'shop' ? <CartButton initial={count} /> : undefined} /></Suspense>
 }

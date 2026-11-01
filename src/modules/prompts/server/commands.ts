@@ -6,20 +6,52 @@ import { knownCodes } from '@/modules/vocabulary/server/vocabulary'
 import { cleanText, PromptError, templateInput } from '../domain/prompts'
 import { promptTransaction, positiveId } from './transaction'
 import { policy } from './queries'
+import { trashData, restoreData } from '@/modules/content/domain/trash'
+import { tellTrashDecision } from '@/modules/content/server/trash-notice'
+import { completeOwnerCase, reopenOwnerCase } from '@/modules/moderation/server/cases'
+
+export async function restoreTemplate(req: NextRequest, raw: Record<string, unknown>) {
+  const id = positiveId(raw.id), version = positiveId(raw.version)
+  const outcome = await promptTransaction(req, true, async (tx, actor) => {
+    const row = await tx.promptTemplate.findUnique({ where: { id } })
+    if (!row) throw new PromptError('الگو پیدا نشد', 404)
+    if (row.status !== 'TRASHED') throw new PromptError('الگو در سطل زباله نیست', 409)
+    const claim = await tx.promptTemplate.updateMany({ where: { id, version, status: 'TRASHED' }, data: { ...restoreData(row), version: { increment: 1 } } })
+    if (claim.count !== 1) throw new PromptError('الگو هم‌زمان تغییر کرده؛ فهرست را تازه کنید', 409)
+    await completeOwnerCase(tx, 'trash-prompts', id, actor.id, 'reject')
+    if (row.trashedStatus === 'PENDING') await reopenOwnerCase(tx, 'review-prompts', id)
+    await auditAdminStrict({ req, actor, action: 'prompts.template.restore', targetType: 'prompt-template', targetId: id, metadata: { version } }, tx)
+    return { row, actorId: actor.id }
+  })
+  await reindexItem({ type: 'prompt', id })
+  await tellTrashDecision({ askedById: outcome.row.trashedById, askedAt: outcome.row.trashedAt, decidedById: outcome.actorId, decision: 'restored', kind: 'prompts', id, title: outcome.row.title, href: '/admin/prompts?edit=' + id })
+  return { restored: true }
+}
 
 export async function saveTemplate(req: NextRequest, raw: Record<string, unknown>) {
   const data = templateInput(raw), id = raw.id ? positiveId(raw.id) : null
-  const saved = await promptTransaction(req, true, async (tx, actor) => {
-    const previous = id ? await tx.promptTemplate.findUnique({ where: { id } }) : null
+  const saved = await promptTransaction(req, 'content', async (tx, actor, authorId) => {
+    const previous = id ? await tx.promptTemplate.findFirst({ where: { id, ...(authorId ? { createdById: authorId } : {}) } }) : null
     if (id && !previous) throw new PromptError('الگو پیدا نشد', 404)
+    if (previous?.status === 'TRASHED') throw new PromptError('الگو در سطل زباله است؛ ابتدا مدیر آن را بازیابی کند', 409)
     if (previous && data.slug !== previous.slug) throw new PromptError('برای حفظ نشانی عمومی، نشانی الگوی ثبت‌شده تغییر نمی‌کند', 409)
     if (data.category && !(await knownCodes(tx, 'prompts', 'CATEGORY', [data.category], previous ? [previous.category] : [])).includes(data.category)) throw new PromptError('دسته را از فهرست فعال انتخاب کنید')
-    const changes = { ...data, publishedAt: data.status === 'PUBLISHED' ? previous?.publishedAt || new Date() : null }
-    if (previous) {
-      const claim = await tx.promptTemplate.updateMany({ where: { id: previous.id, version: positiveId(raw.version) }, data: { ...changes, version: { increment: 1 } } })
-      if (claim.count !== 1) throw new PromptError('الگو توسط مدیر دیگری تغییر کرده؛ نسخهٔ تازه را باز کنید', 409)
+    const settings = await policy(tx)
+    if (authorId) {
+      if (data.featured !== (previous?.featured ?? false) || data.sortOrder !== (previous?.sortOrder ?? 0)) throw new PromptError('انتخاب سردبیر و ترتیب نمایش به مدیر اختصاص دارد', 403)
+      if (settings.reviewAuthors && data.status === 'PUBLISHED') throw new PromptError('الگو را برای بازبینی بفرستید؛ انتشار به مدیر اختصاص دارد', 403)
+      if (settings.reviewAuthors && previous?.status === 'PUBLISHED') throw new PromptError('ویرایش الگوی منتشرشده در حالت بازبینی به مدیر اختصاص دارد', 409)
     }
-    const result = previous ? await tx.promptTemplate.findUniqueOrThrow({ where: { id: previous.id } }) : await tx.promptTemplate.create({ data: changes })
+    const reviewNote = authorId ? (data.status === 'PENDING' ? '' : previous?.reviewNote || '') : cleanText(raw.reviewNote ?? previous?.reviewNote, 1000)
+    const changes = { ...data, reviewNote, publishedAt: data.status === 'PUBLISHED' ? previous?.publishedAt || new Date() : null }
+    if (!authorId && previous?.status === 'PENDING' && data.status === 'DRAFT' && !reviewNote) throw new PromptError('دلیل بازگشت به پیش‌نویس را در یادداشت بازبینی بنویسید')
+    if (previous) {
+      const claim = await tx.promptTemplate.updateMany({ where: { id: previous.id, version: positiveId(raw.version), status: previous.status }, data: { ...changes, version: { increment: 1 } } })
+      if (claim.count !== 1) throw new PromptError('الگو هم‌زمان تغییر کرده؛ نسخهٔ تازه را باز کنید', 409)
+    }
+    const result = previous ? await tx.promptTemplate.findUniqueOrThrow({ where: { id: previous.id } }) : await tx.promptTemplate.create({ data: { ...changes, createdById: actor.id } })
+    if (previous?.status === 'PENDING' && data.status !== 'PENDING') await completeOwnerCase(tx, 'review-prompts', result.id, actor.id, data.status === 'PUBLISHED' ? 'approve' : 'reject', reviewNote || undefined)
+    if (result.status === 'PENDING' && previous?.status !== 'PENDING') await reopenOwnerCase(tx, 'review-prompts', result.id)
     await auditAdminStrict({ req, actor, action: 'prompts.template.save', targetType: 'prompt-template', targetId: result.id, metadata: { kind: data.kind, status: data.status, version: result.version } }, tx)
     return result
   })
@@ -28,13 +60,22 @@ export async function saveTemplate(req: NextRequest, raw: Record<string, unknown
 }
 export async function deleteTemplate(req: NextRequest, raw: Record<string, unknown>) {
   const id = positiveId(raw.id), version = positiveId(raw.version)
-  await promptTransaction(req, true, async (tx, actor) => {
-    const removed = await tx.promptTemplate.deleteMany({ where: { id, version } })
-    if (removed.count !== 1) throw new PromptError('الگو حذف یا ویرایش شده؛ فهرست را تازه کنید', 409)
-    await auditAdminStrict({ req, actor, action: 'prompts.template.delete', targetType: 'prompt-template', targetId: id, metadata: { version } }, tx)
+  const outcome = await promptTransaction(req, 'content', async (tx, actor, authorId) => {
+    const row = await tx.promptTemplate.findFirst({ where: { id, ...(authorId ? { createdById: authorId } : {}) } })
+    if (!row) throw new PromptError('الگو پیدا نشد', 404)
+    if (authorId && row.status === 'TRASHED') throw new PromptError('الگو از قبل در سطل زباله است', 409)
+    const where = { id, version, status: row.status }
+    const claim = authorId ? await tx.promptTemplate.updateMany({ where, data: { ...trashData(row, actor.id), version: { increment: 1 } } }) : await tx.promptTemplate.deleteMany({ where })
+    if (claim.count !== 1) throw new PromptError('الگو حذف یا ویرایش شده؛ فهرست را تازه کنید', 409)
+    if (authorId) await reopenOwnerCase(tx, 'trash-prompts', id)
+    else if (row.status === 'TRASHED') await completeOwnerCase(tx, 'trash-prompts', id, actor.id, 'approve')
+    if (row.status === 'PENDING') await completeOwnerCase(tx, 'review-prompts', id, actor.id, 'reject')
+    await auditAdminStrict({ req, actor, action: authorId ? 'prompts.template.trash' : 'prompts.template.delete', targetType: 'prompt-template', targetId: id, metadata: { version } }, tx)
+    return { row, actorId: actor.id, trashed: !!authorId }
   })
   await reindexItem({ type: 'prompt', id })
-  return { deleted: true }
+  if (!outcome.trashed) await tellTrashDecision({ askedById: outcome.row.trashedById, askedAt: outcome.row.trashedAt, decidedById: outcome.actorId, decision: 'deleted', kind: 'prompts', id, title: outcome.row.title, href: '/admin/prompts' })
+  return outcome.trashed ? { trashed: true } : { deleted: true }
 }
 
 export async function pruneHistory(tx: Prisma.TransactionClient, userId: number, limit: number) {

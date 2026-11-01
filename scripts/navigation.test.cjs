@@ -24,6 +24,19 @@ const { validateMenu, validateSite } = load('src/modules/site/config/validation'
 const { menuNodes } = load('src/modules/navigation/domain/presentation')
 const { sectionMenuPreset, mergeMenuPreset } = load('src/modules/navigation/domain/presets')
 const contact = load('src/modules/site/domain/company-contact')
+const { activeSectionItem } = load('src/modules/navigation/domain/active-section')
+
+test('section selection distinguishes query facets and selects only the most specific matching entry', () => {
+  const items = [{key:'all',href:'/prompts/library'}, {key:'writing',href:'/prompts/library?category=WRITING'}, {key:'design',href:'/prompts/library?category=DESIGN'}, {key:'writing-images',href:'/prompts/library?category=WRITING&kind=IMAGE'}]
+  assert.equal(activeSectionItem(items, '/prompts/library', 'category=WRITING&q=hello&page=2'), 'writing')
+  assert.equal(activeSectionItem(items, '/prompts/library', 'category=WRITING&kind=IMAGE'), 'writing-images')
+  assert.equal(activeSectionItem(items, '/prompts/library', 'category=DESIGN'), 'design')
+  assert.equal(activeSectionItem(items, '/prompts/library', ''), 'all')
+  assert.equal(activeSectionItem(items, '/prompts', ''), null)
+  assert.equal(activeSectionItem([{key:'home',href:'/'}], '/prompts', ''), null)
+  assert.equal(activeSectionItem([{key:'one',href:'/games/action'},{key:'two',href:'/games/action'}], '/games/action/example', ''), 'one')
+  assert.equal(activeSectionItem([{key:'external',href:'https://external.invalid/prompts'},{key:'bad',href:'/%xy'}], '/prompts', ''), null)
+})
 
 test('section recipes include deep canonical categories and repeat safely without replacing owner edits', () => {
   let n = 0

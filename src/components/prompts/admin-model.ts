@@ -1,2 +1,4 @@
-export type EditableTemplate = { id?: number; title: string; slug: string; summary: string; kind: string; category: string; content: string; example: string; tags: string; defaults: string; featured: boolean; sortOrder: number | string; status: string; version?: number; showcase?: string }
+import type { PromptAuthorView } from './PromptAuthor'
+export type EditableTemplate = { id?: number; title: string; slug: string; summary: string; kind: string; category: string; content: string; example: string; tags: string; defaults: string; featured: boolean; sortOrder: number | string; status: string; version?: number; showcase?: string; createdBy?: PromptAuthorView | null; reviewNote?: string }
+export const TEMPLATE_STATUS: Record<string, string> = { DRAFT: 'پیش‌نویس', PENDING: 'در انتظار بازبینی', PUBLISHED: 'منتشرشده', TRASHED: 'سطل زباله' }
 export const NEW_TEMPLATE: EditableTemplate = { title: '', slug: '', summary: '', kind: 'TEXT', category: '', content: 'برای این ایده یک خروجی دقیق آماده کن:\n{{idea}}\nاز اطلاعات داده‌شده استفاده کن و فرض‌ها را روشن بنویس.', example: '', tags: '', defaults: '{}', featured: false, sortOrder: 0, status: 'DRAFT', showcase:'{}' }

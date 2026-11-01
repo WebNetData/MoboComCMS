@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  promptTemplates PromptTemplate[] @relation("PromptTemplateCreator")
   promptGenerations PromptGeneration[]
   libraryFolders MediaFolder[] @relation("MediaFolderCreator")
   libraryAssets MediaAsset[] @relation("MediaAssetCreator")
@@ -128,6 +129,12 @@ model User {
 }
 
 model PromptTemplate {
+  createdById Int?
+  createdBy User? @relation("PromptTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewNote String @default("")
+  trashedStatus String @default("")
+  trashedAt DateTime?
+  trashedById Int?
   id          Int      @id @default(autoincrement())
   slug        String   @unique
   title       String
@@ -147,6 +154,7 @@ model PromptTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
+  @@index([createdById, status])
   @@index([status, kind, category, sortOrder])
 }
 

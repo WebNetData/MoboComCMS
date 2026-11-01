@@ -443,6 +443,7 @@
     "20270201120000_activity_degree_order_assignee",
     "20270201121000_role_delete_restrict",
     "20270202120000_prompt_master",
-    "20270202121000_prompt_showcases"
+    "20270202121000_prompt_showcases",
+    "20270202122000_prompt_authors"
   ]
 }

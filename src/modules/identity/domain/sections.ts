@@ -60,6 +60,7 @@ export function sectionRole(ids: readonly string[]): { name: string; nameFa: str
 export type AuthorSection = { id: string; label: string; hint: string; permission: string; manage: string }
 
 export const AUTHOR_SECTIONS: readonly AuthorSection[] = [
+  { id: 'prompts', label: 'پرامپت مستر', hint: 'نوشتن و ویرایش الگوهای خودش و ارسال برای بازبینی', permission: 'prompts.author', manage: 'prompts.manage' },
   { id: 'magazine', label: 'مجله', hint: 'نوشتن و ویرایش نوشته‌های خودش', permission: 'journal.author', manage: 'cms.posts' },
   { id: 'cinema', label: 'فیلم و سریال', hint: 'افزودن و ویرایش عنوان‌های خودش', permission: 'cinema.author', manage: 'cinema.manage' },
   { id: 'music', label: 'موزیک', hint: 'افزودن و ویرایش آهنگ‌ها و آلبوم‌های خودش', permission: 'music.author', manage: 'music.manage' },

@@ -3,7 +3,7 @@
   "name": "پرامپت مستر",
   "nameEn": "Prompt Master",
   "description": "استودیوی ساخت پرامپت متن، تصویر، ویدئو و کد؛ کتابخانهٔ الگو، تاریخچهٔ خصوصی و بهبود اختیاری با سرویس هوش مصنوعی موجود.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "apiVersion": 1,
   "kind": "module",
   "category": "content",
@@ -12,11 +12,11 @@
   "requiresCore": "^1.0.0",
   "publicPaths": ["/prompts"],
   "adminPaths": ["/admin/prompts"],
-  "permissions": [{ "id": "prompts.manage", "label": "مدیریت پرامپت مستر و الگوها" }],
+  "permissions": [{ "id": "prompts.manage", "label": "مدیریت پرامپت مستر و الگوها" }, { "id": "prompts.author", "label": "نویسندگی پرامپت مستر؛ فقط الگوهای خودش" }],
   "adminMenu": {
     "title": "پرامپت مستر", "icon": "sparkles", "order": 36,
     "items": [
-      { "href": "/admin/prompts", "label": "مدیریت الگوها", "icon": "layers", "permissions": ["prompts.manage"], "exact": true },
+      { "href": "/admin/prompts", "label": "مدیریت الگوها", "icon": "layers", "permissions": ["prompts.manage", "prompts.author"], "exact": true },
       { "href": "/admin/prompts/categories", "label": "دسته‌های کتابخانه", "icon": "folder", "permissions": ["prompts.manage"] },
       { "href": "/admin/sections/prompt-master", "label": "تنظیمات و دسترسی", "icon": "sliders", "permissions": ["settings.manage"] }
     ]
@@ -33,6 +33,7 @@
     { "key": "history-limit", "label": "تعداد خروجی‌های اخیر هر عضو (۵ تا ۲۰۰؛ موارد نگه‌داری‌شده جداگانه)", "type": "number", "default": 50 },
     { "key": "pin-limit", "label": "سقف نگه‌داری خروجی‌های منتخب هر عضو (۱ تا ۲۰۰)", "type": "number", "default": 50 },
     { "key": "seo.title", "label": "عنوان سئو", "type": "text", "default": "پرامپت مستر | ساخت پرامپت متن، تصویر، ویدئو و کد" },
-    { "key": "seo.description", "label": "توضیح سئو", "type": "textarea", "default": "ایده‌تان را به پرامپت ساختاریافته تبدیل کنید؛ با کتابخانهٔ الگوهای قابل ویرایش و تاریخچهٔ خصوصی در موبوکام." }
+    { "key": "seo.description", "label": "توضیح سئو", "type": "textarea", "default": "ایده‌تان را به پرامپت ساختاریافته تبدیل کنید؛ با کتابخانهٔ الگوهای قابل ویرایش و تاریخچهٔ خصوصی در موبوکام." },
+    {"key":"review-authors","label":"الگوهای نویسندگان پیش از انتشار بازبینی شوند","description":"نویسنده پیش‌نویس می‌سازد و برای مدیر می‌فرستد؛ ویرایش الگوی منتشرشده در این حالت به مدیر اختصاص دارد.","type":"boolean","default":true}
   ]
 }
