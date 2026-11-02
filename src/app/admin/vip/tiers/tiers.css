@@ -1,0 +1,6 @@
+.vt-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr)); gap:12px }
+.vt-wide { grid-column:1/-1 }
+.vt-checks { display:flex; flex-wrap:wrap; gap:16px; margin-block-start:12px; font-size:.88rem }
+.vt-actions { display:flex; gap:8px; margin-block-start:16px }
+.vt-dot { display:inline-block; width:10px; height:10px; margin-inline-end:8px; border-radius:50% }
+.vt-scroll { overflow-x:auto }

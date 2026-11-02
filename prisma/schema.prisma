@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  membershipAccount MembershipAccount? @relation("MembershipAccount")
   userGroups UserGroupMember[] @relation("UserGroupMember")
   sitePopupsSeen SitePopupSeen[] @relation("SitePopupSeen")
   promptTemplates PromptTemplate[] @relation("PromptTemplateCreator")
@@ -417,6 +418,7 @@ model TrialClaim {
 }
 
 model Promotion {
+  membershipPlanId Int?
   id Int @id @default(autoincrement())
   code String @unique
   active Boolean @default(true)
@@ -1461,6 +1463,21 @@ model ServiceIncident {
 
 /// Paid VIP membership plans (site-wide premium access).
 model MembershipPlan {
+  tierId          Int?
+  tier            MembershipTier? @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  /// DAYS | LIFETIME | FIXED
+  billing         String    @default("DAYS")
+  fixedEndsAt     DateTime?
+  compareAtMinor  BigInt    @default(0)
+  signupFeeMinor  BigInt    @default(0)
+  trialDays       Int       @default(0)
+  trialPriceMinor BigInt    @default(0)
+  payWhatYouWant  Boolean   @default(false)
+  minPriceMinor   BigInt    @default(0)
+  /// Places on sale at once; 0 for no limit.
+  maxMembers      Int       @default(0)
+  /// Left off the pricing page; sold by direct link.
+  hidden          Boolean   @default(false)
   id            Int      @id @default(autoincrement())
   slug          String   @unique
   name          String
@@ -1480,6 +1497,11 @@ model MembershipPlan {
 
 /// One VIP period. A user is a member while now is between startsAt and endsAt (and not revoked).
 model UserMembership {
+  /// PERIOD | TRIAL
+  kind        String  @default("PERIOD")
+  /// What this period was bought for; the unused share is credited on an upgrade.
+  amountMinor BigInt  @default(0)
+  currency    String  @default("")
   id        Int       @id @default(autoincrement())
   userId    Int
   planId    Int?
@@ -4595,4 +4617,47 @@ model ProductGroupPrice {
 
   @@unique([productId, variantId, groupId])
   @@index([groupId])
+}
+
+/// A level of VIP with a place in the order. A plan is one price of a tier.
+model MembershipTier {
+  id                   Int      @id @default(autoincrement())
+  name                 String
+  tagline              String   @default("")
+  color                String   @default("#b45309")
+  rank                 Int      @unique
+  storeDiscountPercent Int      @default(0)
+  freeShipping         Boolean  @default(false)
+  hideAds              Boolean  @default(false)
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @default(now()) @updatedAt
+  plans                MembershipPlan[]
+}
+
+/// A member's choices about their membership, and the team's note on them.
+model MembershipAccount {
+  userId       Int       @id
+  user         User      @relation("MembershipAccount", fields: [userId], references: [id], onDelete: Cascade)
+  autoRenew    Boolean   @default(false)
+  renewPlanId  Int?
+  cancelledAt  DateTime?
+  cancelReason String    @default("")
+  adminNote    String    @default("")
+  renewError   String    @default("")
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([autoRenew])
+}
+
+/// What an item asks of a member beyond VIP itself: a tier, or days since their membership began.
+model MembershipRule {
+  id        Int      @id @default(autoincrement())
+  ownerType String
+  ownerId   Int
+  minRank   Int      @default(0)
+  dripDays  Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([ownerType, ownerId])
 }

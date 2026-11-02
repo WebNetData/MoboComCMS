@@ -11,6 +11,7 @@ import { CART_COOKIE, cartView } from '@/modules/store/server/cart'
 import {
   adminShipment, adminShipments, createShipment, shipmentsForLabels, getCarrierSettings, orderShipment, publicTracking, quoteOptions, saveCarrierSettings, updateShipment,
 } from '@/modules/shipping/server/carriers'
+import { tierStanding } from '@/modules/membership/server/tiers'
 
 function failure(error: unknown) {
   if (error instanceof ShippingError) return err(error.message, error.status, { code: error.code })
@@ -32,7 +33,7 @@ export async function GET_quotes(req: NextRequest) {
   const physical = cart.lines.filter((line) => line.kind === 'PHYSICAL')
   const currency = normalizeCurrency(cart.currency, 'IRT')
   const itemMinor = physical.reduce((sum, line) => sum + toMinor(line.lineTotal, currency), 0n)
-  const priced = await quoteOptions({ lines: physical.map((line) => ({ productId: line.productId, quantity: line.quantity })), dest: address, itemMinor, currency })
+  const priced = await quoteOptions({ memberFree: (await tierStanding(user.id))?.freeShipping, lines: physical.map((line) => ({ productId: line.productId, quantity: line.quantity })), dest: address, itemMinor, currency })
   return ok({ enabled: priced.enabled, weightGrams: priced.weightGrams, currency, options: priced.options.map((item) => item.ok ? { ...item, feeMinor: item.feeMinor.toString() } : item) })
 }
 

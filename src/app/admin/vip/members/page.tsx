@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { VipShell } from '../shared'
+import './members.css'
 
-type Member = { user: { id: number; email: string; name: string | null; telegramUsername: string | null }; active: boolean; endsAt: string | null; periods: { id: number; source: string; startsAt: string; endsAt: string; revokedAt: string | null; note: string; orderId: number | null }[] }
+type Member = { state: string; tier: { name: string; color: string } | null; note: string; autoRenew: boolean; cancelReason: string; user: { id: number; email: string; name: string | null; telegramUsername: string | null }; active: boolean; endsAt: string | null; periods: { id: number; source: string; startsAt: string; endsAt: string; revokedAt: string | null; note: string; orderId: number | null }[] }
 
 
 /** VIP members: search, grant or extend by hand, revoke. */
@@ -13,9 +14,23 @@ export default function VipMembersPage() {
   return <VipShell><Members fa={locale === 'fa'} /></VipShell>
 }
 
+const STATES = [['', 'همه'], ['ACTIVE', 'فعال'], ['EXPIRING', 'رو به پایان'], ['TRIAL', 'آزمایشی'], ['CANCELLED', 'لغوشده'], ['LAPSED', 'پایان‌یافته']] as const
+const STATE_LABEL: Record<string, string> = Object.fromEntries(STATES)
+
+function MemberNote({ member, fa }: { member: Member; fa: boolean }) {
+  const [note, setNote] = useState(member.note)
+  const [saved, setSaved] = useState(false)
+  async function save() {
+    if (note === member.note) return
+    const res = await fetch('/api/admin/membership/members', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: member.user.id, note }) }).catch(() => null)
+    setSaved(!!res?.ok)
+  }
+  return <label className="vm-note"><span className="sr-only">{fa ? 'یادداشت تیم' : 'Team note'}</span><input className="input" maxLength={500} placeholder={fa ? 'یادداشت تیم' : 'Team note'} value={note} onChange={(event) => { setNote(event.target.value); setSaved(false) }} onBlur={() => void save()} />{saved && <small>{fa ? 'ذخیره شد' : 'Saved'}</small>}</label>
+}
+
 function Members({ fa }: { fa: boolean }) {
   const [data, setData] = useState<{ members: Member[]; stats: { active: number; plans: number } } | null>(null)
-  const [scope, setScope] = useState<'active' | 'all'>('active')
+  const [state, setState] = useState('')
   const [q, setQ] = useState('')
   const [grant, setGrant] = useState({ user: '', days: '30', note: '' })
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
@@ -24,11 +39,11 @@ function Members({ fa }: { fa: boolean }) {
   const sourceLabel = (s: string) => ({ PURCHASE: fa ? 'خرید' : 'Purchase', GIFT: fa ? 'هدیه خرید' : 'Gift', ADMIN: fa ? 'مدیر' : 'Admin' }[s] || s)
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/admin/membership/members?scope=${scope}&q=${encodeURIComponent(q)}`)
+    const res = await fetch(`/api/admin/membership/members?scope=all&state=${state}&q=${encodeURIComponent(q)}`)
     const body = await res.json().catch(() => null)
     if (res.ok) setData(body)
     else setMsg({ tone: 'err', text: body?.error || 'Error' })
-  }, [scope, q])
+  }, [state, q])
   useEffect(() => { const timer = setTimeout(load, 250); return () => clearTimeout(timer) }, [load])
 
   async function submit(event: React.FormEvent) {
@@ -66,24 +81,25 @@ function Members({ fa }: { fa: boolean }) {
         <button type="submit" className="btn btn-primary" disabled={busy}>{fa ? 'افزودن روز' : 'Add days'}</button>
         {msg && <span className={msg.tone === 'err' ? 'error-text' : 'badge badge-green'}>{msg.text}</span>}
       </form>
-      <div className="flex gap-2 mb-3">
-        <button type="button" className={`badge ${scope === 'active' ? 'badge-purple' : 'badge-gray'}`} onClick={() => setScope('active')}>{fa ? 'فعال' : 'Active'}</button>
-        <button type="button" className={`badge ${scope === 'all' ? 'badge-purple' : 'badge-gray'}`} onClick={() => setScope('all')}>{fa ? 'همه (با سابقه)' : 'All (history)'}</button>
+      <div className="vm-bar">
+        <div className="sa-tabs vm-states" role="group" aria-label={fa ? 'وضعیت اعضا' : 'Member state'}>{STATES.map(([id, label]) => <button key={id} type="button" className={state === id ? 'is-active' : ''} aria-pressed={state === id} onClick={() => setState(id)}>{label}</button>)}</div>
+        <a className="btn btn-ghost" href={`/api/admin/membership/members?scope=all&state=${state}&q=${encodeURIComponent(q)}&format=csv`}>{fa ? 'خروجی CSV' : 'Export CSV'}</a>
       </div>
       <div className="card overflow-x-auto">
         <table className="data">
-          <thead><tr><th>{fa ? 'کاربر' : 'User'}</th><th>{fa ? 'وضعیت' : 'Status'}</th><th>{fa ? 'اعتبار تا' : 'Valid until'}</th><th>{fa ? 'سابقه' : 'History'}</th><th /></tr></thead>
+          <thead><tr><th>{fa ? 'کاربر' : 'User'}</th><th>{fa ? 'وضعیت' : 'Status'}</th><th>{fa ? 'سطح' : 'Tier'}</th><th>{fa ? 'اعتبار تا' : 'Valid until'}</th><th>{fa ? 'سابقه' : 'History'}</th><th /></tr></thead>
           <tbody>
             {(data?.members || []).map((member) => (
               <tr key={member.user.id}>
                 <td><b>{member.user.name || member.user.email}</b><div className="muted text-sm" dir="ltr">{member.user.email}{member.user.telegramUsername ? ` · @${member.user.telegramUsername}` : ''}</div></td>
-                <td>{member.active ? <span className="badge vip-badge-sm">VIP</span> : <span className="badge badge-gray">{fa ? 'منقضی' : 'Expired'}</span>}</td>
-                <td>{date(member.endsAt)}</td>
+                <td><span className={`badge ${member.active ? 'vip-badge-sm' : 'badge-gray'}`}>{STATE_LABEL[member.state] || member.state}</span>{member.autoRenew && <div className="muted text-sm">{fa ? 'تمدید خودکار' : 'Auto-renew'}</div>}{member.cancelReason && <div className="muted text-sm">{member.cancelReason}</div>}</td>
+                <td>{member.tier ? <span className="vm-tier"><i style={{ background: member.tier.color }} aria-hidden="true" />{member.tier.name}</span> : '—'}</td>
+                <td>{date(member.endsAt)}<MemberNote key={member.note} member={member} fa={fa} /></td>
                 <td className="text-sm">{member.periods.slice(0, 4).map((p) => <div key={p.id} className={p.revokedAt ? 'muted' : ''}>{sourceLabel(p.source)} · {date(p.startsAt)} → {date(p.endsAt)}{p.orderId ? ` · #${p.orderId}` : ''}{p.revokedAt ? (fa ? ' (لغو شده)' : ' (revoked)') : ''}</div>)}</td>
                 <td>{member.active && <button type="button" className="badge badge-red" onClick={() => revoke(member)}>{fa ? 'لغو' : 'Revoke'}</button>}</td>
               </tr>
             ))}
-            {!data?.members.length && <tr><td colSpan={5} className="muted text-center py-8">{fa ? 'عضوی پیدا نشد.' : 'No members found.'}</td></tr>}
+            {!data?.members.length && <tr><td colSpan={6} className="muted text-center py-8">{fa ? 'عضوی پیدا نشد.' : 'No members found.'}</td></tr>}
           </tbody>
         </table>
       </div>

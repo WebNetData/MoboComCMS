@@ -21,19 +21,20 @@ function parseInput(body: any) {
   const maxUses = Number(body?.maxUses ?? 0)
   const perUserLimit = Number(body?.perUserLimit ?? 1)
   const planId = body?.planId ? Number(body.planId) : null
+  const membershipPlanId = body?.membershipPlanId ? Number(body.membershipPlanId) || null : null
   const startsAt = parseDate(body?.startsAt)
   const endsAt = parseDate(body?.endsAt)
   if (!/^[A-Z0-9_-]{3,32}$/.test(code) || !Number.isFinite(value) || value <= 0 || kind === 'PERCENT' && value > 100 || !Number.isSafeInteger(maxUses) || maxUses < 0 || !Number.isSafeInteger(perUserLimit) || perUserLimit < 1 || perUserLimit > 10 || planId !== null && (!Number.isSafeInteger(planId) || planId <= 0) || startsAt && endsAt && endsAt <= startsAt) throw Error('invalid promotion')
   const amountMinor = kind === 'FIXED' ? toMinor(value, currency) : 0n
   const minSubtotalMinor = toMinor(body?.minSubtotal || 0, currency)
   if (amountMinor < 0n || minSubtotalMinor < 0n || amountMinor > 9_000_000_000_000n || minSubtotalMinor > 9_000_000_000_000n) throw Error('invalid amount')
-  return { code, active: body?.active !== false, membersOnly: body?.membersOnly === true, kind, percentBps: kind === 'PERCENT' ? Math.round(value * 100) : 0, amountMinor, currency, planId, minSubtotalMinor, maxUses, perUserLimit, startsAt, endsAt }
+  return { code, active: body?.active !== false, membersOnly: body?.membersOnly === true, kind, percentBps: kind === 'PERCENT' ? Math.round(value * 100) : 0, amountMinor, currency, planId, membershipPlanId, minSubtotalMinor, maxUses, perUserLimit, startsAt, endsAt }
 }
 
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'plans.manage')) return err('forbidden', 403)
-  const [rows, plans] = await Promise.all([db.promotion.findMany({ orderBy: { id: 'desc' }, take: 300 }), db.plan.findMany({ select: { id: true, name: true, nameEn: true }, orderBy: { sort: 'asc' } })])
-  return ok({ promotions: rows.map(row => ({ ...row, amountMinor: undefined, minSubtotalMinor: undefined, value: row.kind === 'PERCENT' ? row.percentBps / 100 : legacyNumber(row.amountMinor, row.currency), minSubtotal: legacyNumber(row.minSubtotalMinor, row.currency) })), plans })
+  const [rows, plans, vipPlans] = await Promise.all([db.promotion.findMany({ orderBy: { id: 'desc' }, take: 300 }), db.plan.findMany({ select: { id: true, name: true, nameEn: true }, orderBy: { sort: 'asc' } }), db.membershipPlan.findMany({ select: { id: true, name: true }, orderBy: { sortOrder: 'asc' } })])
+  return ok({ vipPlans, promotions: rows.map(row => ({ ...row, amountMinor: undefined, minSubtotalMinor: undefined, value: row.kind === 'PERCENT' ? row.percentBps / 100 : legacyNumber(row.amountMinor, row.currency), minSubtotal: legacyNumber(row.minSubtotalMinor, row.currency) })), plans })
 }
 
 export async function POST(req: NextRequest) {

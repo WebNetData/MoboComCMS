@@ -17,6 +17,7 @@ import { legacyNumber, normalizeCurrency } from '@/shared/money'
 import { opensAudience } from '@/modules/account/server/item-audience'
 import { groupDeal } from '@/modules/account/server/user-groups'
 import { unitPrice } from '@/modules/store/server/pricing'
+import { tierStanding } from '@/modules/membership/server/tiers'
 
 export const metadata: Metadata = { title: 'تکمیل سفارش', robots: { index: false, follow: false } }
 
@@ -53,7 +54,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
   const currency = normalizeCurrency(product.currency)
   const { regularMinor, unitMinor: itemMinor } = unitPrice(product, variant, viewer.member, undefined, await groupDeal(viewer.userId, [product.id]))
   const [schedule, gateways] = await Promise.all([deliverySchedule(), checkoutGatewayOptions(currency)])
-  const shippingMinor = shippingFeeMinor(schedule.settings, currency, itemMinor)
+  const shippingMinor = (await tierStanding(viewer.userId))?.freeShipping ? 0n : shippingFeeMinor(schedule.settings, currency, itemMinor)
   const inStock = product.stock !== 0 && (!variant || variant.stock !== 0)
 
   return <>

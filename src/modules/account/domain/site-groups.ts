@@ -14,7 +14,7 @@ export const SITE_GROUP_FAMILIES = [
 export type SiteGroupFamily = (typeof SITE_GROUP_FAMILIES)[number]['id']
 export type SiteGroup = { key: string; label: string; family: SiteGroupFamily; count: number }
 
-const KEY = /^(?:vip|buyers|subscribers|sellers|resellers|group:\d{1,9}|role:\d{1,9}|vip-plan:\d{1,9}|forum:\d{1,9}|crm:[^\s:][^:]{0,39})$/u
+const KEY = /^(?:vip|buyers|subscribers|sellers|resellers|group:\d{1,9}|role:\d{1,9}|vip-plan:\d{1,9}|vip-tier:\d{1,9}|forum:\d{1,9}|crm:[^\s:][^:]{0,39})$/u
 
 export const isSiteGroupKey = (value: unknown): value is string => typeof value === 'string' && KEY.test(value)
 

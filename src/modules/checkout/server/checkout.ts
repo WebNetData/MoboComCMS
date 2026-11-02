@@ -29,6 +29,9 @@ import { PaywallError, parseContentKey } from '@/modules/paywall/domain/paywall'
 import { userOpensAudience } from '@/modules/account/server/item-audience'
 import { userOpensSection } from '@/modules/account/server/section-access'
 import { groupDeal } from '@/modules/account/server/user-groups'
+import { MembershipError } from '@/modules/membership/domain/plans'
+import { membershipQuote, planWithTier } from '@/modules/membership/server/quote'
+import { tierStanding } from '@/modules/membership/server/tiers'
 
 export interface CheckoutCommand {
   userId: number
@@ -40,8 +43,10 @@ export interface CheckoutCommand {
   /** Several store products at once (the shopping cart); replaces productId/variantId. */
   /** A cart line also carries what its buyer gave: the sealed answers and a typed foreign amount. */
   lines?: { productId: number; variantId?: number | null; quantity?: number; inputs?: string | null; openAmountMinor?: bigint | null; openCurrency?: string | null }[] | null
-  /** VIP membership plan purchase. */
+  /** VIP membership plan purchase, as its trial, or at a price the buyer offers on a pay-what-you-want plan. */
   membershipPlanId?: number | null
+  membershipTrial?: boolean
+  membershipOffer?: string | null
   /** A form answer that waits for its payment (the sender's own, unpaid). */
   formSubmissionId?: number | null
   /** Paid content ("post:12", "software:3"): lifetime access to one article or download. */
@@ -168,13 +173,20 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       throw error
     }
   } else if (membershipPlanId) {
-    const vip = await db.membershipPlan.findUnique({ where: { id: membershipPlanId } })
+    const vip = await planWithTier(membershipPlanId)
     if (!vip || !vip.active) return fail(404, 'MEMBERSHIP_PLAN_NOT_FOUND', 'پلن اشتراک ویژه یافت نشد')
-    currency = normalizeCurrency(vip.currency)
-    amountMinor = vip.priceMinor
+    try {
+      const quote = await membershipQuote(vip, command.userId, { trial: command.membershipTrial, offered: command.membershipOffer })
+      if (quote.amountMinor <= 0n) return fail(400, 'MEMBERSHIP_FREE_TRIAL', 'این دوره رایگان است و پرداختی ندارد')
+      currency = quote.currency
+      amountMinor = quote.amountMinor
+      meta = quote.meta
+    } catch (error) {
+      if (error instanceof MembershipError) return fail(error.status, error.code, error.message)
+      throw error
+    }
     amount = legacyNumber(amountMinor, currency)
     label = `VIP · ${vip.nameEn || vip.name}`
-    meta = { kind: 'membership', membershipPlanId: vip.id, planName: vip.name, days: vip.days }
   } else if (planId) {
     const plan = await db.plan.findUnique({ where: { id: planId }, include: { panel: true } })
     if (!plan || !plan.active) return fail(404, 'PLAN_NOT_FOUND', 'پلن یافت نشد')
@@ -259,7 +271,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
         }
         // With carriers on, the chosen carrier decides whether a delivery time is picked (the shop's own courier).
         const dest = { province: String(shippingAddress?.province || ''), city: String(shippingAddress?.city || '') }
-        carrier = await checkoutCarrier({ carrierId: command.carrierId, lines: orderLines.filter((line) => line.kind === 'PHYSICAL'), dest, itemMinor: amountMinor, currency })
+        carrier = await checkoutCarrier({ carrierId: command.carrierId, lines: orderLines.filter((line) => line.kind === 'PHYSICAL'), dest, itemMinor: amountMinor, currency, memberFree: (await tierStanding(command.userId))?.freeShipping })
         if (deliverySettings.enabled && (!carrier || carrier.scheduled)) {
           if (!command.delivery?.date || !command.delivery.slotId) return fail(400, 'DELIVERY_REQUIRED', 'روز و بازهٔ زمانی ارسال را انتخاب کنید')
           delivery = await validateDelivery(command.delivery.date, command.delivery.slotId)
@@ -288,7 +300,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     promotion = await db.promotion.findUnique({ where: { code } })
     if (!promotion) return fail(404, 'PROMOTION_NOT_FOUND', 'discount code not found')
     if (promotion.membersOnly && !member) return fail(403, 'PROMOTION_MEMBERS_ONLY', 'این کد تخفیف مخصوص اعضای ویژه است', { upgradeUrl: '/vip' })
-    const quote = promotionDiscount(promotion, { planId, amountMinor, currency })
+    const quote = promotionDiscount(promotion, { planId, membershipPlanId, amountMinor, currency })
     if (!quote.ok) return fail(409, quote.code, 'discount code cannot be applied to this order')
     discountMinor = quote.discountMinor
     amountMinor -= discountMinor
@@ -300,7 +312,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     const physicalLines = orderLines.filter((line) => line.kind === 'PHYSICAL')
     const dest = meta.shippingAddress as Record<string, string> | undefined
     try {
-      carrier = await checkoutCarrier({ carrierId: carrier.carrierId, lines: physicalLines, dest: { province: String(dest?.province || ''), city: String(dest?.city || '') }, itemMinor: amountMinor, currency }) || carrier
+      carrier = await checkoutCarrier({ carrierId: carrier.carrierId, lines: physicalLines, dest: { province: String(dest?.province || ''), city: String(dest?.city || '') }, itemMinor: amountMinor, currency, memberFree: (await tierStanding(command.userId))?.freeShipping }) || carrier
     } catch (error) {
       if (error instanceof ShippingError) return fail(error.status, error.code, error.message)
       throw error
@@ -310,7 +322,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     amountMinor += shippingMinor
     amount = legacyNumber(amountMinor, currency)
   } else if (productId && meta.productKind === 'PHYSICAL') {
-    shippingMinor = shippingFeeMinor(await getDeliverySettings(), currency, amountMinor)
+    shippingMinor = (await tierStanding(command.userId))?.freeShipping ? 0n : shippingFeeMinor(await getDeliverySettings(), currency, amountMinor)
     amountMinor += shippingMinor
     amount = legacyNumber(amountMinor, currency)
   }

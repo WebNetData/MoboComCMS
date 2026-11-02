@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
     productId: Number(body?.productId) || null,
     variantId: Number(body?.variantId) || null,
     membershipPlanId: Number(body?.membershipPlanId) || null,
+    membershipTrial: body?.membershipTrial === true,
+    membershipOffer: typeof body?.membershipOffer === 'string' ? body.membershipOffer.slice(0, 24) : null,
     formSubmissionId: Number(body?.formSubmissionId) || null,
     contentKey: typeof body?.contentKey === 'string' ? body.contentKey.slice(0, 40) : null,
     addressId: Number.isSafeInteger(Number(body?.addressId)) && Number(body?.addressId) > 0 ? Number(body.addressId) : null,

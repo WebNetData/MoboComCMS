@@ -7,6 +7,8 @@ import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { isMember } from '@/modules/membership/server/membership'
 import { memberPrice } from '@/modules/membership/domain/membership'
+import { MembershipError } from '@/modules/membership/domain/plans'
+import { membershipQuote, planWithTier } from '@/modules/membership/server/quote'
 
 export async function POST(req: NextRequest) {
   const user = await requireUser(req)
@@ -15,7 +17,24 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
   const code = promotionCode(body?.code)
   const planId = Number(body?.planId)
-  if (!/^[A-Z0-9_-]{3,32}$/.test(code) || !Number.isSafeInteger(planId) || planId <= 0) return err('invalid input')
+  const membershipPlanId = Number(body?.membershipPlanId) || 0
+  if (!/^[A-Z0-9_-]{3,32}$/.test(code) || (!membershipPlanId && (!Number.isSafeInteger(planId) || planId <= 0))) return err('invalid input')
+  // A VIP plan is quoted exactly as checkout will charge it, credit and fee included.
+  if (membershipPlanId) {
+    const [vipPromotion, vip] = await Promise.all([db.promotion.findUnique({ where: { code } }), planWithTier(membershipPlanId)])
+    if (!vipPromotion || !vip?.active) return err('code or plan not found', 404)
+    if (vipPromotion.membersOnly && !await isMember(user.id)) return err('PROMOTION_MEMBERS_ONLY', 403)
+    try {
+      const charged = await membershipQuote(vip, user.id, { trial: body?.trial === true, offered: typeof body?.offer === 'string' ? body.offer : null })
+      const found = promotionDiscount(vipPromotion, { planId: null, membershipPlanId, amountMinor: charged.amountMinor, currency: charged.currency })
+      if (!found.ok) return err(found.code, 409)
+      if (await db.promotionRedemption.count({ where: { promotionId: vipPromotion.id, userId: user.id, status: { in: ['RESERVED', 'USED'] } } }) >= vipPromotion.perUserLimit) return err('PROMOTION_USER_LIMIT', 409)
+      return ok({ subtotal: legacyNumber(charged.amountMinor, charged.currency), discount: legacyNumber(found.discountMinor, charged.currency), total: legacyNumber(charged.amountMinor - found.discountMinor, charged.currency), currency: charged.currency })
+    } catch (error) {
+      if (error instanceof MembershipError) return err(error.code, error.status)
+      throw error
+    }
+  }
   const offerId = Number(body?.offerId)
   const [promotion, plan, offer] = await Promise.all([db.promotion.findUnique({ where: { code } }), db.plan.findUnique({ where: { id: planId } }), Number.isSafeInteger(offerId) && offerId > 0 ? db.serviceOffer.findUnique({ where: { id: offerId } }) : null])
   if (!promotion || !plan?.active) return err('code or plan not found', 404)

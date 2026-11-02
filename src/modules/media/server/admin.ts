@@ -39,6 +39,7 @@ import { cleanAppStores, cleanMinOs, cleanPackageId } from '@/modules/software/d
 import { saveMusicCredits } from '@/modules/music/server/credits'
 import { listedPerks } from '@/modules/membership/server/perks'
 import { scheduleStudioPublication } from '@/modules/studios/server/publication-notifications'
+import { normalizeBilling } from '@/modules/membership/domain/plans'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
@@ -504,7 +505,20 @@ const RESOURCES: Record<string, Resource> = {
         highlight: when(b, 'highlight', bool),
         active: when(b, 'active', bool),
         sortOrder: when(b, 'sortOrder', (v) => int(v, -9999, 9999, 0) ?? 0),
+        tierId: when(b, 'tierId', (v) => Number(v) || null),
+        billing: when(b, 'billing', normalizeBilling),
+        fixedEndsAt: when(b, 'fixedEndsAt', (v) => (v ? new Date(String(v)) : null)),
+        trialDays: when(b, 'trialDays', (v) => int(v, 0, 365, 0) ?? 0),
+        maxMembers: when(b, 'maxMembers', (v) => int(v, 0, 1_000_000, 0) ?? 0),
+        payWhatYouWant: when(b, 'payWhatYouWant', bool),
+        hidden: when(b, 'hidden', bool),
       })
+      for (const [key, column] of [['compareAt', 'compareAtMinor'], ['signupFee', 'signupFeeMinor'], ['trialPrice', 'trialPriceMinor'], ['minPrice', 'minPriceMinor']] as const) if (has(b, key)) {
+        const minor = toMinor(String(b[key] || '0'), currency)
+        if (minor < 0n) throw new Error('مبلغ نمی‌تواند منفی باشد / Amounts cannot be negative')
+        out[column] = minor
+      }
+      if (out.billing === 'FIXED' && !out.fixedEndsAt && !existing?.fixedEndsAt) throw new Error('برای دورهٔ تاریخ‌دار، تاریخ پایان لازم است / A fixed plan needs an end date')
       if (has(b, 'price')) {
         const priceMinor = toMinor(String(b.price || '0'), currency)
         if (priceMinor <= 0n) throw new Error('قیمت باید بیشتر از صفر باشد / Price must be positive')
@@ -513,7 +527,7 @@ const RESOURCES: Record<string, Resource> = {
       if (!existing && (!out.days || !out.priceMinor || !out.name)) throw new Error('نام، مدت و قیمت لازم است / Name, days and price are required')
       return out
     },
-    expand: async (rows) => rows.map((row) => ({ ...row, price: legacyNumber(row.priceMinor, row.currency), priceMinor: undefined, perks: (() => { try { return JSON.parse(row.perks || '[]') } catch { return [] } })() })),
+    expand: async (rows) => rows.map((row) => ({ ...row, compareAt: legacyNumber(row.compareAtMinor, row.currency), signupFee: legacyNumber(row.signupFeeMinor, row.currency), trialPrice: legacyNumber(row.trialPriceMinor, row.currency), minPrice: legacyNumber(row.minPriceMinor, row.currency), compareAtMinor: undefined, signupFeeMinor: undefined, trialPriceMinor: undefined, minPriceMinor: undefined, price: legacyNumber(row.priceMinor, row.currency), priceMinor: undefined, perks: (() => { try { return JSON.parse(row.perks || '[]') } catch { return [] } })() })),
   },
 }
 

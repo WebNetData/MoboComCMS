@@ -10,6 +10,8 @@ type Dashboard = {
   series: { day: string; value: number }[]
   sources: { source: string; count: number }[]
   plans: { name: string; count: number }[]
+  tiers: { name: string; color: string; rank: number; count: number }[]
+  health: { churnPercent: number; trials: number; converted: number; conversionPercent: number; recurring: { currency: string; amount: number }[] }
   expiring: { userId: number; email: string; name: string; endsAt: string; days: number }[]
 }
 
@@ -31,6 +33,11 @@ export default function VipDashboardPage() {
         <div className="sa-kpi"><span>درآمد ۳۰ روز</span><b className="num">{data.revenue.length ? data.revenue.map((row) => `${fa(Math.round(row.amount))} ${CURRENCY[row.currency] || row.currency}`).join(' · ') : '۰'}</b><small className="sa-sub">{fa(k.orders30)} سفارش پرداخت‌شده</small></div>
         <div className="sa-kpi"><span>ریزش ۳۰ روز</span><b className="num">{fa(k.lapsed30)}</b><small className="sa-sub">اشتراکشان تمام شد و تمدید نکردند</small></div>
       </div>
+      <div className="sa-kpis">
+        <div className="sa-kpi"><span>ارزش ماهانهٔ اشتراک‌ها</span><b className="num">{data.health.recurring.length ? data.health.recurring.map((row) => `${fa(Math.round(row.amount))} ${CURRENCY[row.currency] || row.currency}`).join(' · ') : '—'}</b><small className="sa-sub">برآورد از دوره‌های پولی جاری</small></div>
+        <div className="sa-kpi"><span>نرخ ریزش ۳۰ روز</span><b className="num">{fa(data.health.churnPercent)}٪</b><small className="sa-sub">از اعضای ابتدای بازه</small></div>
+        <div className="sa-kpi"><span>تبدیل آزمایشی به پولی</span><b className="num">{fa(data.health.conversionPercent)}٪</b><small className="sa-sub">{fa(data.health.converted)} از {fa(data.health.trials)} دورهٔ آزمایشی</small></div>
+      </div>
       <div className="sa-queue">
         <a href="#expiring" className={`sa-queue-item${k.expiring7 ? ' is-hot' : ''}`}><b className="num">{fa(k.expiring7)}</b><span>پایان اشتراک در ۷ روز</span></a>
         <Link href="/admin/vip/members" className="sa-queue-item"><b className="num">{fa(k.active)}</b><span>مدیریت اعضا</span></Link>
@@ -46,6 +53,10 @@ export default function VipDashboardPage() {
           </section>
         </div>
         <div className="sa-stack">
+          {data.tiers.length > 0 && <section className="sa-card">
+            <header className="sa-card-head"><h2>اعضای فعال هر سطح</h2></header>
+            <ul className="sx-bars">{data.tiers.map((row) => <li key={row.name}><span>{row.name}</span><span className="sx-bar" aria-hidden="true"><i style={{ width: `${(row.count / Math.max(1, ...data.tiers.map((item) => item.count))) * 100}%` }} /></span><b className="num">{fa(row.count)}</b></li>)}</ul>
+          </section>}
           <section className="sa-card">
             <header className="sa-card-head"><h2>اعضای فعال هر پلن</h2></header>
             {data.plans.length ? <ul className="sx-bars">{data.plans.map((row) => <li key={row.name}><span>{row.name}</span><span className="sx-bar" aria-hidden="true"><i style={{ width: `${(row.count / maxPlan) * 100}%` }} /></span><b className="num">{fa(row.count)}</b></li>)}</ul> : <p className="sa-hint">هنوز عضوی با خرید پلن فعال نیست.</p>}

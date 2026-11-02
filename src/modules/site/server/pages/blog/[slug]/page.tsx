@@ -41,6 +41,7 @@ import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { sized, srcSet } from '@/shared/media/image'
 import { opensAudience } from '@/modules/account/server/item-audience'
+import { ruleRefusal } from '@/modules/membership/server/rules'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -98,9 +99,12 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   // builder layout is skipped so premium blocks never render for non-members.
   // Paid articles (paywall module) work the same way: a teaser and the buy box until bought.
   const paid = !isPreview(preview) && await isPaid([{ ownerType: 'post', ownerId: post.id }])
-  const viewer = (post.access === 'MEMBERS' || paid) && !isPreview(preview) ? await getViewer() : null
+  const ruled = !isPreview(preview) && await db.membershipRule.count({ where: { ownerType: 'post', ownerId: post.id } }) > 0
+  const viewer = (post.access === 'MEMBERS' || paid || ruled) && !isPreview(preview) ? await getViewer() : null
+  const refusal = ruled ? await ruleRefusal(viewer?.userId, [{ ownerType: 'post', ownerId: post.id }]) : null
+  const refused = !!refusal
   const paywall = paid && viewer ? await paywallView(viewer, [{ ownerType: 'post', ownerId: post.id }]) : null
-  const locked = paywall ? !paywall.open : !!viewer && post.access === 'MEMBERS' && !viewer.opens
+  const locked = paywall ? !paywall.open : refused || (!!viewer && post.access === 'MEMBERS' && !viewer.opens)
   const renderContext = await postContext(postCategories(post).map((c) => c.id))
   const presentation = await resolvePostPresentation({ postId: post.id, format: post.format, ctx: renderContext, askedStyle })
   const dress = postStyleAttributes(presentation.style)
@@ -232,7 +236,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
         dangerouslySetInnerHTML={{ __html: formShortcodes(articleBodyWithExcerpt(articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)), isFa ? post.excerpt : post.excerptEn || post.excerpt, isFa)) }}
       />
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}
-      {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
+      {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={refusal?.reason === 'drip' && refusal.opensAt ? (isFa ? `این مطلب ${refusal.opensAt.toLocaleDateString('fa-IR', { timeZone: 'Asia/Tehran' })} برای شما باز می‌شود` : `This article opens for you on ${refusal.opensAt.toLocaleDateString('en-US', { timeZone: 'Asia/Tehran' })}`) : isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
 
       {tagList.length > 0 && (
         <div className="journal-tags">
