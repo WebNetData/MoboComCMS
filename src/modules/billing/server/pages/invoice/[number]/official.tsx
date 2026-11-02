@@ -6,6 +6,8 @@ import { authOptions } from '@/modules/identity/auth'
 import PrintButton from '@/components/PrintButton'
 import { officialInvoice } from '@/modules/billing/server/official-invoice'
 import InvoiceLogo from '@/components/billing/InvoiceLogo'
+import { headers } from 'next/headers'
+import { invoiceStaffAccess } from '@/modules/billing/server/invoice-access'
 
 const n = (value: string | number) => (typeof value === 'number' ? value : Number(value)).toLocaleString('fa-IR')
 const money = (value: string) => { try { return BigInt(value).toLocaleString('fa-IR') } catch { return value } }
@@ -26,7 +28,8 @@ export default async function OfficialInvoicePage({ params }: { params: Promise<
   const session = await getServerSession(authOptions)
   const user = session?.user as { id?: string; role?: string } | undefined
   if (!user?.id) redirect(`/login?next=${encodeURIComponent(`/invoice/${number}/official`)}`)
-  const doc = await officialInvoice(number, { id: Number(user.id), admin: user.role === 'ADMIN' })
+  const admin = user.role === 'ADMIN' && await invoiceStaffAccess(new Headers(await headers()))
+  const doc = await officialInvoice(number, { id: Number(user.id), admin })
   if (!doc) notFound()
   const s = doc.seller
   return <div className="oi-page" dir="rtl">

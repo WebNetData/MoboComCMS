@@ -13,8 +13,33 @@ function load(relative) {
   return mod.exports
 }
 const { invoiceSubject } = load('src/modules/billing/domain/invoice-subject.ts')
+const { paymentResultState, paymentResultTarget } = load('src/modules/billing/domain/payment-result.ts')
 const f = load('src/modules/forms/domain/forms.ts')
 const base = { siteName: 'موبوکام', amountText: '۱٬۰۰۰٬۰۰۰ تومان' }
+
+test('payment result reflects terminal refunds and persisted invoice payment instead of callback claims', () => {
+  assert.equal(paymentResultState('REFUNDED', 'PAID', true), 'refunded')
+  assert.equal(paymentResultState('PAID', 'REFUNDED'), 'refunded')
+  assert.equal(paymentResultState('PAID', 'PAID', true), 'paid')
+  assert.equal(paymentResultState('UNPAID', 'PAID'), 'pending', 'the order cannot turn an unpaid invoice into a paid result')
+  assert.equal(paymentResultState('VOID', 'PAID'), 'failed')
+  assert.equal(paymentResultState('UNPAID', 'FAILED'), 'failed')
+  assert.equal(paymentResultState('UNPAID', 'PENDING', true), 'failed')
+  assert.equal(paymentResultState('UNPAID', 'PENDING'), 'pending')
+  assert.equal(paymentResultState('DRAFT'), 'pending')
+})
+
+test('payment result login returns to the same invoice or order without path/query injection', () => {
+  assert.deepEqual(paymentResultTarget({ order: '23' }), { invoiceNumber: '', orderId: 23, href: '/payment/result?order=23' })
+  const number = 'صورتحساب&order=99#details'
+  const result = paymentResultTarget({ invoice: number, order: '23' })
+  const query = new URL(result.href, 'https://example.invalid').searchParams
+  assert.equal(query.get('invoice'), number)
+  assert.equal(query.has('order'), false)
+  for (const order of ['NaN', 'Infinity', '2147483648', '-1', '1.5', ['23'], {}, null]) assert.equal(paymentResultTarget({ order }).href, '/payment/result')
+  assert.equal(paymentResultTarget({ invoice: ['one', 'two'] }).invoiceNumber, '')
+  assert.equal(paymentResultTarget({ invoice: 'x'.repeat(256) }).invoiceNumber, '')
+})
 
 test('a wallet top-up says what it is and for how much', () => {
   assert.deepEqual(invoiceSubject({ ...base, kind: 'WALLET_TOPUP' }), { title: 'افزایش موجودی کیف پول موبوکام', detail: 'افزایش موجودی حساب کاربری پلتفرم موبوکام به مبلغ ۱٬۰۰۰٬۰۰۰ تومان' })

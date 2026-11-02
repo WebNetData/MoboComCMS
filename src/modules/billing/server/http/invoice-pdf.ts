@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { err } from '@/platform/http/response'
 import { rateLimitHit } from '@/platform/http/rate-limit'
-import { requireUser } from '@/modules/identity/server/access'
+import { requirePerm, requireUser } from '@/modules/identity/server/access'
 import { getSettings } from '@/modules/settings/server'
 import { officialInvoice } from '@/modules/billing/server/official-invoice'
 import { invoicePdf } from '@/modules/billing/server/invoice-pdf'
@@ -12,7 +12,8 @@ export async function GET_invoicePdf(req: NextRequest, { params }: { params: Pro
   if (!user) return err('برای دریافت فاکتور وارد شوید', 401)
   if (!rateLimitHit(`invoice-pdf:${user.id}`, 40, 10 * 60_000).ok) return err('کمی بعد دوباره تلاش کنید', 429)
   const number = decodeURIComponent((await params).number)
-  const doc = await officialInvoice(number, { id: user.id, admin: user.role === 'ADMIN' })
+  const admin = user.role === 'ADMIN' && Boolean(await requirePerm(req, 'invoices.manage'))
+  const doc = await officialInvoice(number, { id: user.id, admin })
   if (!doc || doc.status === 'DRAFT') return err('فاکتور پیدا نشد', 404)
   const settings = await getSettings()
   const siteUrl = (settings.siteUrl || process.env.NEXTAUTH_URL || '').replace(/\/+$/, '')
