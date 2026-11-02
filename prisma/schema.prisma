@@ -1463,6 +1463,10 @@ model ServiceIncident {
 
 /// Paid VIP membership plans (site-wide premium access).
 model MembershipPlan {
+  /// Activated by the team, not by the payment.
+  requiresApproval Boolean @default(false)
+  /// Seats the buyer can hand out; 0 for a personal plan.
+  seats            Int     @default(0)
   tierId          Int?
   tier            MembershipTier? @relation(fields: [tierId], references: [id], onDelete: SetNull)
   /// DAYS | LIFETIME | FIXED
@@ -4660,4 +4664,69 @@ model MembershipRule {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([ownerType, ownerId])
+}
+
+/// A membership bought for someone else: a code that becomes a period for whoever redeems it.
+model MembershipGift {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  planId         Int
+  buyerId        Int
+  orderId        Int       @unique
+  recipientEmail String    @default("")
+  message        String    @default("")
+  claimedBy      Int?
+  claimedAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([buyerId])
+}
+
+/// A plan with seats: its buyer hands them out through an invite; each seat ends with the buyer's membership.
+model MembershipTeam {
+  id        Int       @id @default(autoincrement())
+  ownerId   Int
+  planId    Int
+  orderId   Int       @unique
+  name      String    @default("")
+  code      String    @unique
+  seats     Int
+  used      Int       @default(0)
+  endsAt    DateTime
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+  members   MembershipTeamMember[]
+
+  @@index([ownerId])
+}
+
+model MembershipTeamMember {
+  id        Int            @id @default(autoincrement())
+  teamId    Int
+  team      MembershipTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    Int
+  periodId  Int
+  joinedAt  DateTime       @default(now())
+  removedAt DateTime?
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+/// A purchase or free trial of a plan that waits for the team's decision.
+model MembershipApplication {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  planId    Int
+  orderId   Int?      @unique
+  /// PENDING | APPROVED | REJECTED
+  status    String    @default("PENDING")
+  note      String    @default("")
+  decidedBy Int?
+  decidedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([status])
+  @@index([userId])
 }

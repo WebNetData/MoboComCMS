@@ -451,6 +451,7 @@
     "20270206120000_popup_site_groups",
     "20270207120000_user_groups",
     "20270208120000_group_badge",
-    "20270209120000_vip_memberships"
+    "20270209120000_vip_memberships",
+    "20270210120000_vip_gifts_teams"
   ]
 }

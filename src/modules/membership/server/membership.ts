@@ -44,8 +44,10 @@ export async function isMember(userId: number | null | undefined): Promise<boole
 export async function grantMembership(input: {
   userId: number
   days: number
-  source: 'PURCHASE' | 'GIFT' | 'ADMIN'
+  source: 'PURCHASE' | 'GIFT' | 'ADMIN' | 'TEAM'
   kind?: 'PERIOD' | 'TRIAL'
+  /** No message to the member, for a bulk import. */
+  silent?: boolean
   /** A period worked out by the plan (lifetime, a fixed end, a trial, an upgrade); otherwise `days` stacked on the current end. */
   period?: { startsAt: Date; endsAt: Date }
   amountMinor?: bigint
@@ -55,10 +57,10 @@ export async function grantMembership(input: {
   dedupeKey?: string | null
   note?: string
   createdBy?: number | null
-}): Promise<{ ok: true; endsAt: Date; created: boolean }> {
+}): Promise<{ ok: true; id: number; endsAt: Date; created: boolean }> {
   if (input.dedupeKey) {
     const existing = await db.userMembership.findUnique({ where: { dedupeKey: input.dedupeKey } })
-    if (existing) return { ok: true, endsAt: existing.endsAt, created: false }
+    if (existing) return { ok: true, id: existing.id, endsAt: existing.endsAt, created: false }
   }
   const current = await db.userMembership.findFirst({ where: { userId: input.userId, revokedAt: null, endsAt: { gt: new Date() } }, orderBy: { endsAt: 'desc' }, select: { endsAt: true } })
   const period = input.period ?? extendMembership(current?.endsAt, input.days)
@@ -77,7 +79,7 @@ export async function grantMembership(input: {
       note: String(input.note || '').slice(0, 500),
       createdBy: input.createdBy ?? null,
     } })
-    await createInboxEvent({
+    if (!input.silent) await createInboxEvent({
       userId: input.userId,
       kind: 'MEMBERSHIP',
       dedupeKey: `membership:${row.id}`,
@@ -87,12 +89,12 @@ export async function grantMembership(input: {
       bodyEn: isLifetime(period.endsAt) ? 'Your lifetime VIP membership is active.' : `VIP valid until ${period.endsAt.toLocaleDateString('en-US')}.`,
       href: '/vip/account',
     }).catch(() => undefined)
-    return { ok: true, endsAt: row.endsAt, created: true }
+    return { ok: true, id: row.id, endsAt: row.endsAt, created: true }
   } catch (error) {
     // A concurrent grant with the same dedupe key already won.
     if (input.dedupeKey) {
       const existing = await db.userMembership.findUnique({ where: { dedupeKey: input.dedupeKey } })
-      if (existing) return { ok: true, endsAt: existing.endsAt, created: false }
+      if (existing) return { ok: true, id: existing.id, endsAt: existing.endsAt, created: false }
     }
     throw error
   }
@@ -106,18 +108,27 @@ export async function revokeMembership(userId: number): Promise<number> {
 
 /** Takes back what a refunded order gave. Safe to call for any order and more than once. */
 export async function revokeOrderMembership(orderId: number) {
-  return (await db.userMembership.updateMany({ where: { orderId, revokedAt: null }, data: { revokedAt: new Date() } })).count
+  const now = new Date()
+  const count = (await db.userMembership.updateMany({ where: { orderId, revokedAt: null }, data: { revokedAt: now } })).count
+  await db.membershipGift.updateMany({ where: { orderId, revokedAt: null }, data: { revokedAt: now } })
+  await db.membershipApplication.updateMany({ where: { orderId, status: 'PENDING' }, data: { status: 'REJECTED', decidedAt: now } })
+  const order = await db.order.findUnique({ where: { id: orderId }, select: { userId: true } })
+  if (order) await (await import('@/modules/membership/server/extras')).syncOwnerTeams(order.userId, now)
+  return count
 }
 
 /** Grants a paid VIP plan order (fulfillment job). Everything it needs was frozen on the order at checkout. */
-export async function fulfillMembershipOrder(orderId: number): Promise<void> {
+export async function fulfillMembershipOrder(orderId: number, options: { approved?: boolean } = {}): Promise<void> {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, status: true, meta: true, totalMinor: true, currency: true } })
   if (!order || order.status !== 'PAID') throw new Error('membership order is not paid')
   let meta: Record<string, unknown> = {}
   try { meta = JSON.parse(order.meta || '{}') } catch { /* ignore */ }
   const planId = Number(meta.membershipPlanId)
   const days = Number(meta.days)
-  if (!planId || !days) throw new Error('membership order has no plan')
+  if (!planId || (!days && meta.billing === 'DAYS')) throw new Error('membership order has no plan')
+  const extras = await import('@/modules/membership/server/extras')
+  if (meta.gift === true) { await extras.openGift(order, meta); return }
+  if (meta.requiresApproval === true && !options.approved) { await extras.openApplication({ userId: order.userId, planId, orderId: order.id }); return }
   const now = new Date()
   const upgradeFrom = Array.isArray(meta.upgradeFrom) ? meta.upgradeFrom.filter((id): id is number => Number.isSafeInteger(id)) : []
   const current = await db.userMembership.findFirst({ where: { userId: order.userId, revokedAt: null, endsAt: { gt: now } }, orderBy: { endsAt: 'desc' }, select: { endsAt: true } })
@@ -128,6 +139,8 @@ export async function fulfillMembershipOrder(orderId: number): Promise<void> {
   await grantMembership({ userId: order.userId, days, source: 'PURCHASE', kind: trial ? 'TRIAL' : 'PERIOD', period, amountMinor: value > 0n ? value : 0n, currency: order.currency, planId, orderId: order.id, dedupeKey: `order:${order.id}` })
   // After the grant and on every repeat, so a job stopped between the two finishes the swap and nobody is left with neither.
   if (upgradeFrom.length) await db.userMembership.updateMany({ where: { id: { in: upgradeFrom }, userId: order.userId, revokedAt: null, orderId: { not: order.id } }, data: { revokedAt: now } })
+  if (Number(meta.seats) > 0) await extras.openTeam(order, planId, Number(meta.seats), String(meta.planName || ''))
+  await extras.syncOwnerTeams(order.userId, now)
 }
 
 /** VIP gift days that come with a paid VPN plan or product. Safe to call more than once. */
@@ -192,7 +205,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
   return { userId, member, endsAt: membership?.endsAt || null, opens: member }
 })
 
-export type PublicVipPlan = { tierId: number | null; billing: string; fixedEndsAt: Date | null; compareAt: number; signupFee: number; trialDays: number; trialPrice: number; payWhatYouWant: boolean; minPrice: number; id: number; slug: string; name: string; nameEn: string; description: string; descriptionEn: string; days: number; price: number; currency: string; perks: Perk[]; highlight: boolean }
+export type PublicVipPlan = { seats: number; requiresApproval: boolean; tierId: number | null; billing: string; fixedEndsAt: Date | null; compareAt: number; signupFee: number; trialDays: number; trialPrice: number; payWhatYouWant: boolean; minPrice: number; id: number; slug: string; name: string; nameEn: string; description: string; descriptionEn: string; days: number; price: number; currency: string; perks: Perk[]; highlight: boolean }
 
 /** Active VIP plans for the /vip landing page. */
 export async function getVipPlans(): Promise<PublicVipPlan[]> {
@@ -202,7 +215,7 @@ export async function getVipPlans(): Promise<PublicVipPlan[]> {
   const { resolvePerks } = await import('@/modules/membership/server/perks')
   const entries = (await allLists('membership')).PERK ?? []
   return rows.map((row) => ({
-    tierId: row.tierId, billing: row.billing, fixedEndsAt: row.fixedEndsAt, compareAt: legacyNumber(row.compareAtMinor, row.currency), signupFee: legacyNumber(row.signupFeeMinor, row.currency), trialDays: row.trialDays, trialPrice: legacyNumber(row.trialPriceMinor, row.currency), payWhatYouWant: row.payWhatYouWant, minPrice: legacyNumber(row.minPriceMinor, row.currency),
+    seats: row.seats, requiresApproval: row.requiresApproval, tierId: row.tierId, billing: row.billing, fixedEndsAt: row.fixedEndsAt, compareAt: legacyNumber(row.compareAtMinor, row.currency), signupFee: legacyNumber(row.signupFeeMinor, row.currency), trialDays: row.trialDays, trialPrice: legacyNumber(row.trialPriceMinor, row.currency), payWhatYouWant: row.payWhatYouWant, minPrice: legacyNumber(row.minPriceMinor, row.currency),
     id: row.id, slug: row.slug, name: row.name, nameEn: row.nameEn, description: row.description, descriptionEn: row.descriptionEn,
     days: row.days, price: legacyNumber(row.priceMinor, row.currency), currency: row.currency, perks: resolvePerks(parsePerks(row.perks), entries), highlight: row.highlight,
   }))

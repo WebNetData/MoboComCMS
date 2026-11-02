@@ -26,9 +26,13 @@ Owner: `membership`. It extends the existing plans, periods, member prices, gift
 | Reports, member filters, notes, CSV export | This batch |
 | Member-only products, per-group audiences | Already there (`access`, `audienceGroups`, `vip-plan:<id>`); this batch adds `vip-tier:<id>` |
 | Teasers, paid single items, gift days with a purchase | Already there |
-| Gift a membership, group seats | Next batch |
-| CSV import, approval before activation | Next batch |
-| Rules by whole category, per-tier download limits, restricted block in the editor | Next batch |
+| Gift a membership | This batch: a paid order becomes a code, opened once by anyone |
+| Group seats | This batch: a plan with seats gives its buyer an invite; seats end with the buyer's membership |
+| CSV import | This batch: destination `vip-members` of the import wizard, with preview and undo. People with no account are reported, not created |
+| Approval before activation | This batch: paid or free, it waits; a refusal refunds to the wallet |
+| Rules by whole category | This batch: magazine, store, cinema, games, software, music, children included |
+| Restricted block in the editor | This batch: `content.restricted` |
+| Per-tier download limits | Not built |
 | Courses, affiliates add-ons | Not adopted: the site's own referral and section modules stand in for them |
 
 ## Actors and authorization
@@ -51,6 +55,13 @@ Additive migration `20270209120000_vip_memberships`. A plan with no tier is rank
 - **Refund:** refunding a membership order revokes its periods.
 - **Rules:** a tier or drip rule is asked by the file gate and the article gate. A viewer given VIP by a site group counts as rank 1 with no drip wait.
 
+- **Gift:** bought at the plan's price with no fee, credit or trial, and never for a plan with seats. The buyer's standing does not change. The code is claimed in one guarded write, so one code gives one period. A refund revokes the gift and the period it became. A gift skips approval: the buyer has paid and the team sees it in the admin.
+- **Group:** seats are extra to the buyer. A seat is a period that ends with the buyer's; a renewal carries them on, a refund or an upgrade follows, and when the buyer's membership ends the group closes. A seat is taken by moving the counter from the value read, and the database refuses more seats than were bought.
+- **Approval:** the order is paid, then waits as an application. Approving runs the same fulfilment; refusing refunds the invoice to the wallet through the normal refund. A decision is taken once.
+- **Category rule:** a rule on a category holds for its children. The strictest of an item's own rule and its categories' rules applies. In the store it refuses adding to the cart and buying.
+- **Restricted block:** decided per request. Its children are left out of saved HTML, search, descriptions and feeds, so without a positive decision only the notice exists. While VIP is off it opens, as everything members-only does.
+- **Descriptions:** the description of a gated article is built from its teaser, so locked text does not reach the page head, Open Graph or structured data.
+
 ## Admin and public UI
 
 `/admin/vip`: dashboard with reports, members, tiers, plans, perks. A rule panel beside the audience panel in item editors. `/vip`: tiers, duration switch, comparison, coupon. `/vip/account`: status, renewal, cancel, history.
@@ -61,4 +72,4 @@ Additive migration `20270209120000_vip_memberships`. A plan with no tier is rank
 
 ## Acceptance
 
-`scripts/vip-memberships.connected.cjs` on real rows through the real checkout: prices, trial once, upgrade credit, stacking, refund, auto-renew once, rules, tier perks. Breaks that must fail it: a trial claimed twice, a refund that keeps the period, a renewal that charges twice. Unit tests in `scripts/content-controls.test.cjs`. Browser journey at 1440 light and dark and 390.
+`scripts/vip-memberships.connected.cjs` on real rows through the real checkout: prices, trial once, upgrade credit, stacking, refund, auto-renew once, rules, tier perks. Breaks that must fail it: a trial claimed twice, a refund that keeps the period, a renewal that charges twice. A used gift, uncounted seats and a restricted block written out must fail it too. Unit tests in `scripts/content-controls.test.cjs`. Browser journey at 1440 light and dark and 390.

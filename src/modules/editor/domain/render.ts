@@ -70,7 +70,8 @@ export function documentFacts(document: MoboComDocument, registry: BlockRegistry
       if (!supported) continue
       const level = typeof block.props.level === 'number' ? block.props.level : 2
       schemaFacts(definition.fields, block.props, block, facts, lines, level)
-      if (definition.children && Array.isArray(block.children)) visit(block.children)
+      // A restricted block's text stays out of search, descriptions and everything else built from these facts.
+      if (definition.children && Array.isArray(block.children) && definition.dataSource?.kind !== 'restricted') visit(block.children)
     }
   }
   visit(document.blocks)
@@ -105,6 +106,13 @@ function imageHtml(asset: AssetValue | undefined): string {
 }
 
 export type ModuleBlockHtml = (block: MoboComBlock) => string | undefined
+
+export function restrictedNotice(message: unknown, audience: unknown): string {
+  const fallback = audience === 'signed-in' ? 'این بخش برای کاربران عضو سایت است.' : 'این بخش مخصوص اعضای ویژه است.'
+  const link = audience === 'signed-in' ? '<a class="mcb-restricted-link" href="/login">ورود به حساب</a>' : '<a class="mcb-restricted-link" href="/vip">مشاهدهٔ اشتراک ویژه</a>'
+  return `<aside class="mcb mcb-content-restricted is-locked"><p>${escapeHtml(String(message || fallback))}</p>${link}</aside>`
+}
+
 function blockHtml(block: MoboComBlock, registry: BlockRegistry, moduleHtml?: ModuleBlockHtml): string {
   const definition = registry.get(block.type)
   // An unsupported block leaves a mark where it stands and shows nothing: its data is kept, not guessed at.
@@ -142,6 +150,8 @@ function blockHtml(block: MoboComBlock, registry: BlockRegistry, moduleHtml?: Mo
     case 'content.form': { const slug = String(p.form || ''); return /^[a-z][a-z0-9-]{1,79}$/.test(slug) ? `<div class="mc-form-embed" data-mc-form="${slug}"></div>` : '' }
     case 'content.buttonGroup': return `<div class="${cls(name, token('mcb-align', p.align), token('mcb-gap', p.gap))}">${inner()}</div>`
     case 'content.quote': return `<figure class="${name}"><blockquote>${richTextHtml(p.content)}</blockquote>${p.cite ? `<figcaption>${escapeHtml(String(p.cite))}</figcaption>` : ''}</figure>`
+    // Without a decision for this reader there is only the notice: the blocks inside are never written out here.
+    case 'content.restricted': return moduleHtml?.(block) ?? restrictedNotice(p.message, p.audience)
     case 'content.callout': return `<aside class="${cls(name, token('mcb-tone', p.tone))}" role="note">${p.title ? `<strong>${escapeHtml(String(p.title))}</strong>` : ''}${richTextHtml(p.content)}</aside>`
     case 'content.faq': return `<div class="${name}">${(Array.isArray(p.items) ? p.items : []).map((item, index) => { const row = item as { question?: string; answer?: unknown }; return `<details${p.open === 'all' || (p.open === 'first' && index === 0) ? ' open' : ''}><summary>${escapeHtml(String(row.question || ''))}</summary>${richTextHtml(row.answer)}</details>` }).join('')}</div>`
     // A block registered by a module is rendered by that module's component on a page; here it leaves its place marked.

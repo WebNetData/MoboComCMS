@@ -512,6 +512,8 @@ const RESOURCES: Record<string, Resource> = {
         maxMembers: when(b, 'maxMembers', (v) => int(v, 0, 1_000_000, 0) ?? 0),
         payWhatYouWant: when(b, 'payWhatYouWant', bool),
         hidden: when(b, 'hidden', bool),
+        seats: when(b, 'seats', (v) => int(v, 0, 10_000, 0) ?? 0),
+        requiresApproval: when(b, 'requiresApproval', bool),
       })
       for (const [key, column] of [['compareAt', 'compareAtMinor'], ['signupFee', 'signupFeeMinor'], ['trialPrice', 'trialPriceMinor'], ['minPrice', 'minPriceMinor']] as const) if (has(b, key)) {
         const minor = toMinor(String(b[key] || '0'), currency)

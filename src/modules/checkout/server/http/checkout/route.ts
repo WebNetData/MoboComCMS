@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     variantId: Number(body?.variantId) || null,
     membershipPlanId: Number(body?.membershipPlanId) || null,
     membershipTrial: body?.membershipTrial === true,
+    membershipGift: body?.membershipGift && typeof body.membershipGift === 'object' ? { email: body.membershipGift.email, message: body.membershipGift.message } : null,
     membershipOffer: typeof body?.membershipOffer === 'string' ? body.membershipOffer.slice(0, 24) : null,
     formSubmissionId: Number(body?.formSubmissionId) || null,
     contentKey: typeof body?.contentKey === 'string' ? body.contentKey.slice(0, 40) : null,

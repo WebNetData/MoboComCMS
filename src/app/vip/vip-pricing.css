@@ -70,6 +70,11 @@
 .va-card p { margin: 0; font-size: .86rem; line-height: 1.8; }
 .va-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .va-leave { display: grid; gap: 8px; width: 100%; max-width: 420px; }
+.va-pending { margin: 0; padding: 12px 16px; border: 1px solid var(--md-line); border-radius: 12px; font-size: .88rem; background: var(--md-soft); }
+.va-wide { width: 100%; }
+.va-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; width: 100%; }
+.va-people li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: .88rem; }
+.va-code { flex: 1 1 240px; min-width: 0; font-size: .8rem; }
 .va-done { margin: 0; font-size: .88rem; color: var(--md-muted); }
 .va-scroll { position: relative; overflow-x: auto; width: 100%; }
 .va-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: .84rem; }

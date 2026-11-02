@@ -11,13 +11,14 @@ const date = (value: Date | string) => new Date(value).toLocaleDateString('fa-IR
 const KIND: Record<string, string> = { PURCHASE: 'خرید', GIFT: 'هدیه', ADMIN: 'از طرف مدیر' }
 
 /** A member's own page: where they stand, renewal, cancelling and history. */
-export default function VipAccount({ initial }: { initial: Overview }) {
+export default function VipAccount({ initial, giftCode = '', teamCode = '', origin = '' }: { initial: Overview; giftCode?: string; teamCode?: string; origin?: string }) {
   const [data, setData] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [planId, setPlanId] = useState(initial.account.renewPlanId || initial.plans[0]?.id || 0)
   const [leaving, setLeaving] = useState(false)
   const [reason, setReason] = useState('')
+  const [code, setCode] = useState(giftCode)
 
   async function act(body: Record<string, unknown>, done: string) {
     setBusy(true); setMessage(null)
@@ -42,7 +43,36 @@ export default function VipAccount({ initial }: { initial: Overview }) {
       <div className="va-links"><Link href="/vip#plans" className="btn vip-btn">{active ? 'تمدید یا ارتقا' : 'انتخاب پلن'}</Link></div>
     </section>
 
+    {data.pending > 0 && <p className="va-pending" role="status">درخواست عضویت شما در انتظار تأیید تیم است.</p>}
+    {data.seatIn.length > 0 && <p className="va-pending">شما عضو گروه «{data.seatIn.join('، ')}» هستید.</p>}
     {message && <p role="status" className={message.ok ? 'va-done' : 'error-text'}>{message.text}</p>}
+
+    {teamCode && <section className="va-card" aria-labelledby="va-join">
+      <h3 id="va-join">دعوت به گروه</h3>
+      <p className="muted">با پیوستن، از اشتراک این گروه استفاده می‌کنید و تا پایان اشتراک مالک گروه فعال می‌ماند.</p>
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void act({ action: 'team-join', code: teamCode }, 'به گروه پیوستید')}>پیوستن به گروه</button>
+    </section>}
+
+    <section className="va-card" aria-labelledby="va-gift">
+      <h3 id="va-gift">کد هدیه دارید؟</h3>
+      <div className="va-row">
+        <label className="vp-field"><span>کد هدیه</span><input className="input" dir="ltr" maxLength={40} value={code} onChange={(event) => setCode(event.target.value)} /></label>
+        <button type="button" className="btn btn-primary" disabled={busy || !code.trim()} onClick={() => void act({ action: 'gift-redeem', code }, 'هدیه فعال شد')}>فعال‌سازی</button>
+      </div>
+    </section>
+
+    {data.teams.map((team) => <section key={team.id} className="va-card" aria-label={`گروه ${team.name}`}>
+      <h3>گروه {team.name}</h3>
+      <p className="muted">{team.used.toLocaleString('fa-IR')} از {team.seats.toLocaleString('fa-IR')} صندلی استفاده شده است. صندلی‌ها تا پایان اشتراک شما فعال‌اند.</p>
+      <label className="vp-field va-wide"><span>لینک دعوت</span><input className="input" dir="ltr" readOnly value={`${origin}/vip/account?team=${team.code}`} onFocus={(event) => event.target.select()} /></label>
+      <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void act({ action: 'team-rotate', teamId: team.id }, 'لینک تازه ساخته شد؛ لینک قبلی دیگر کار نمی‌کند')}>ساخت لینک تازه</button>
+      {team.members.length > 0 && <ul className="va-people">{team.members.map((member) => <li key={member.userId}><span>{member.name}</span><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void act({ action: 'team-remove', teamId: team.id, userId: member.userId }, 'صندلی آزاد شد')}>برداشتن</button></li>)}</ul>}
+    </section>)}
+
+    {data.gifts.length > 0 && <section className="va-card" aria-labelledby="va-gifts">
+      <h3 id="va-gifts">هدیه‌هایی که خریده‌اید</h3>
+      <ul className="va-people">{data.gifts.map((gift) => <li key={gift.id}><span>{gift.plan}{gift.email ? ` · ${gift.email}` : ''}</span>{gift.claimed ? <span className="muted">فعال شده</span> : <input className="input va-code" dir="ltr" readOnly aria-label={`لینک هدیهٔ ${gift.plan}`} value={`${origin}/vip/account?gift=${gift.code}`} onFocus={(event) => event.target.select()} />}</li>)}</ul>
+    </section>}
 
     {active && !data.lifetime && <section className="va-card" aria-labelledby="va-renew">
       <h3 id="va-renew">تمدید خودکار</h3>

@@ -94,11 +94,16 @@ async function browserChecks(source,target,variant,bundleId,adminToken,userToken
  await browser.close();browser=undefined
  console.log('Actual Admin rollout save/reload and bundle create/search/variant/quantity/save/reload, RTL dark/light390/1440 product display/overflow, buy/cart totals, panel error/loading/retry/empty and persistent cart failure checks passed'+(process.env.BUNDLE_AXE?'; five scoped axe WCAG checks passed':''))
 }
-function load(file){const mod={exports:{}};new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText)(name=>{
+const loaded=new Map()
+function load(file){if(loaded.has(file))return loaded.get(file).exports;const mod={exports:{}};loaded.set(file,mod);new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText)(name=>{
  if(name==='@/platform/database/prisma')return{db}
  if(name==='@/modules/catalog/server/storefront')return{isStoreEnabled:async()=>true}
  if(name==='@/modules/store/server/catalog')return{getStoreSettings:async()=>({showProductBundles:true})}
- if(name==='@/modules/membership/server/membership')return{isMember:async()=>false}
+ if(name==='@/modules/membership/server/membership')return{isMember:async()=>false,opensMembersOnly:async(_userId,member)=>!!member}
+ if(name==='@/modules/membership/server/tiers')return{tierStanding:async()=>null}
+ if(name==='@/modules/membership/server/rules')return{ruleRefusal:async()=>null}
+ if(name==='@/modules/account/server/item-audience')return{userOpensAudience:async raw=>!raw}
+ if(name==='@/modules/account/server/user-groups')return{groupDeal:async()=>({percent:0,prices:new Map()})}
  if(name==='@/modules/shipping/server/shipping'||name==='@/modules/shipping/server/carriers'||name==='@/modules/shipping/domain/shipping')return{}
  if(name.startsWith('@/')){const base=`src/${name.slice(2)}`;return load(fs.existsSync(base+'.ts')?base+'.ts':base+'/index.ts')}
  return require(name)

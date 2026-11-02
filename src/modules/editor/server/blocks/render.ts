@@ -11,6 +11,7 @@ import { db } from '@/platform/database/prisma'
 import { moduleBlockRenderer } from '@/modules/editor/server/blocks/registry'
 import { publicItemsHtml } from '@/modules/editor/server/blocks/items'
 import { publicItemSource } from '@/modules/editor/server/blocks/source'
+import { restrictedNotice } from '@/modules/editor/domain/render'
 
 /**
  * A synced pattern's current blocks. A missing pattern shows nothing; references inside a pattern are dropped, so the
@@ -36,6 +37,13 @@ export async function publicDocumentHtml(document: MoboComDocument, registry: Bl
     const definition = registry.get(block.type)!
     if (definition.owner && closed.has(definition.owner)) { html.set(block.id, ''); return }
     try {
+      if (definition.dataSource?.kind === 'restricted') {
+        const { getViewer } = await import('@/modules/membership/server/membership')
+        const { opensRestricted } = await import('@/modules/membership/server/rules')
+        const open = preview || await opensRestricted(await getViewer(), block.props.audience, block.props.minRank)
+        html.set(block.id, open ? `<div class="mcb mcb-content-restricted is-open">${await publicDocumentHtml({ ...document, blocks: block.children || [] }, registry, preview)}</div>` : restrictedNotice(block.props.message, block.props.audience))
+        return
+      }
       if (definition.dataSource?.kind === 'pattern') {
         const id = Number(block.props.pattern)
         let pattern = patterns.get(id)
@@ -61,7 +69,7 @@ export async function publicDocumentHtml(document: MoboComDocument, registry: Bl
     } catch (error) {
       logEvent('error', 'editor.module_block_failed', { type: block.type, error })
       if (preview) throw error
-      html.set(block.id, definition.dataSource?.kind === 'pattern' ? '' : publicItemsHtml(block, definition, [], true))
+      html.set(block.id, definition.dataSource?.kind === 'restricted' ? restrictedNotice(block.props.message, block.props.audience) : definition.dataSource?.kind === 'pattern' ? '' : publicItemsHtml(block, definition, [], true))
     }
   }
   // Bound concurrent owner reads independently of document size; duplicate selections share one query.

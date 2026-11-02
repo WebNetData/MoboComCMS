@@ -34,7 +34,7 @@ export interface BlockDefinition {
   /** The module or extension that supplies the block; shown when the block is unknown because its owner is off. */
   owner?: string
   /** Answered at read time: a trusted owner's public items, or a synced pattern's current blocks. */
-  dataSource?: { kind: 'public-items'; itemType: string } | { kind: 'pattern' }
+  dataSource?: { kind: 'public-items'; itemType: string } | { kind: 'pattern' } | { kind: 'restricted' }
 }
 
 export class BlockRegistry {

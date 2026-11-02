@@ -31,6 +31,9 @@ export default function VipPricing({ groups, gateways, rank, signedIn }: { group
   const [selected, setSelected] = useState<number | null>(start?.id ?? null)
   const [trial, setTrial] = useState(false)
   const [offer, setOffer] = useState('')
+  const [gift, setGift] = useState(false)
+  const [giftEmail, setGiftEmail] = useState('')
+  const [giftMessage, setGiftMessage] = useState('')
   const [code, setCode] = useState('')
   const [discount, setDiscount] = useState<{ code: string; total: number } | null>(null)
   const [gatewayRef, setGatewayRef] = useState('')
@@ -43,15 +46,15 @@ export default function VipPricing({ groups, gateways, rank, signedIn }: { group
   const ref = options.some((g) => g.ref === gatewayRef) ? gatewayRef : options.find((g) => g.isDefault)?.ref || options[0]?.ref || ''
   const price = (value: number, currency: string) => money(value, currency, loc)
   const spanName = (value: number) => value === LIFETIME ? L('مادام‌العمر', 'Lifetime') : value === FIXED ? L('تا تاریخ مشخص', 'Fixed term') : ({ 30: L('ماهانه', 'Monthly'), 90: L('سه‌ماهه', 'Quarterly'), 180: L('شش‌ماهه', 'Half-yearly'), 365: L('سالانه', 'Yearly') } as Record<number, string>)[value] || `${value.toLocaleString(loc)} ${L('روز', 'days')}`
-  const pick = (row: Plan) => { setSelected(row.id); setTrial(false); setOffer(''); setDiscount(null); setCode(''); setError('') }
+  const pick = (row: Plan) => { setSelected(row.id); setTrial(false); setGift(false); setOffer(''); setDiscount(null); setCode(''); setError('') }
   const shown = (group: VipGroup) => (group.tier ? [group.plans.find((row) => spanOf(row) === span) || group.plans[0]] : group.plans)
   const trialFree = !!plan && plan.trialPrice === 0 && (plan.offer?.fee ?? plan.signupFee) === 0
-  const due = !plan ? 0 : trial ? plan.trialPrice + (plan.offer?.fee ?? plan.signupFee) : discount ? discount.total : plan.offer ? plan.offer.amount : plan.price + plan.signupFee
+  const due = !plan ? 0 : discount ? discount.total : gift ? plan.price : trial ? plan.trialPrice + (plan.offer?.fee ?? plan.signupFee) : plan.offer ? plan.offer.amount : plan.price + plan.signupFee
 
   async function applyCode() {
     if (!plan || !code.trim()) return
     setBusy(true); setError('')
-    const response = await fetch('/api/promotions/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, membershipPlanId: plan.id, trial, offer: offer || undefined }) }).catch(() => null)
+    const response = await fetch('/api/promotions/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, membershipPlanId: plan.id, trial, gift, offer: offer || undefined }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(false)
     if (response?.ok) setDiscount({ code: code.trim().toUpperCase(), total: data.total })
@@ -62,14 +65,14 @@ export default function VipPricing({ groups, gateways, rank, signedIn }: { group
     if (!plan || lock.current) return
     lock.current = true; setBusy(true); setError('')
     try {
-      if (trial && trialFree) {
+      if (trial && trialFree && !gift) {
         const response = await fetch('/api/me/membership', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'trial', planId: plan.id }) }).catch(() => null)
         const data = await response?.json().catch(() => null)
         if (response?.ok) window.location.assign('/vip/account')
         else setError(data?.error || L('شروع دورهٔ آزمایشی انجام نشد', 'The trial could not start'))
         return
       }
-      const result = await startCheckout({ membershipPlanId: plan.id, gatewayRef: ref || undefined, ...(trial ? { membershipTrial: true } : {}), ...(offer ? { membershipOffer: offer } : {}), ...(discount ? { discountCode: discount.code } : {}) })
+      const result = await startCheckout({ membershipPlanId: plan.id, gatewayRef: ref || undefined, ...(trial ? { membershipTrial: true } : {}), ...(gift ? { membershipGift: { email: giftEmail, message: giftMessage } } : {}), ...(offer ? { membershipOffer: offer } : {}), ...(discount ? { discountCode: discount.code } : {}) })
       if (!result.ok) {
         if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(result.invoiceUrl); return }
         setError(result.code === 'INSUFFICIENT_FUNDS' ? L('موجودی کیف پول کافی نیست و درگاهی برای این ارز فعال نیست.', 'Not enough wallet balance and no gateway for this currency.') : result.message || L('پرداخت انجام نشد', 'Payment failed'))
@@ -109,6 +112,7 @@ export default function VipPricing({ groups, gateways, rank, signedIn }: { group
             {row.compareAt > row.price && <s dir="ltr">{price(row.compareAt, row.currency)}</s>}
             <strong dir="ltr">{price(amount, row.currency)}</strong>
             <small>{row.billing === 'LIFETIME' ? L('یک‌بار پرداخت، برای همیشه', 'One payment, for life') : row.billing === 'FIXED' && row.fixedEndsAt ? `${L('تا', 'until')} ${new Date(row.fixedEndsAt).toLocaleDateString(loc, { timeZone: 'Asia/Tehran' })}` : `${row.days.toLocaleString(loc)} ${L('روز', 'days')}`}{month > 0 && <> · <span dir="ltr">{price(Math.round(month), row.currency)}</span> {L('در ماه', 'a month')}</>}</small>
+            {row.seats > 0 && <small className="vp-credit">{L(`برای ${row.seats.toLocaleString(loc)} نفر دیگر به‌جز شما`, `For ${row.seats} people besides you`)}</small>}
             {row.offer && row.offer.credit > 0 && <small className="vp-credit">{L('با کسر اعتبار اشتراک فعلی', 'After your current plan\'s credit')}</small>}
             {row.signupFee > 0 && (!row.offer || row.offer.fee > 0) && <small>{L('هزینهٔ عضویت', 'Signup fee')}: <span dir="ltr">{price(row.signupFee, row.currency)}</span></small>}
           </div>
@@ -130,16 +134,23 @@ export default function VipPricing({ groups, gateways, rank, signedIn }: { group
         <div><span>{L('انتخاب شما', 'Your choice')}</span><b>{fa ? plan.name : plan.nameEn || plan.name}</b></div>
         <strong dir="ltr">{price(due, plan.currency)}</strong>
       </div>
-      {plan.trialDays > 0 && (!plan.offer || plan.offer.trialOpen) && <label className="vp-toggle"><input type="checkbox" checked={trial} onChange={(event) => { setTrial(event.target.checked); setDiscount(null) }} /><span>{L(`شروع با ${plan.trialDays.toLocaleString(loc)} روز آزمایشی`, `Start with a ${plan.trialDays}-day trial`)}{plan.trialPrice > 0 && <> · <span dir="ltr">{price(plan.trialPrice, plan.currency)}</span></>}</span></label>}
+      {plan.requiresApproval && <p className="vp-note">{L('این پلن پس از بررسی و تأیید تیم فعال می‌شود. اگر تأیید نشود، مبلغ به کیف پول شما برمی‌گردد.', 'This plan starts after the team approves it. If declined, the amount returns to your wallet.')}</p>}
+      {signedIn && plan.seats === 0 && !trial && <label className="vp-toggle"><input type="checkbox" checked={gift} onChange={(event) => { setGift(event.target.checked); setDiscount(null) }} /><span>{L('این اشتراک هدیه است', 'This is a gift')}</span></label>}
+      {gift && <>
+        <label className="vp-field"><span>{L('ایمیل گیرنده (اختیاری)', 'Recipient email (optional)')}</span><input className="input" dir="ltr" type="email" maxLength={190} value={giftEmail} onChange={(event) => setGiftEmail(event.target.value)} /></label>
+        <label className="vp-field"><span>{L('پیام شما (اختیاری)', 'Your message (optional)')}</span><input className="input" maxLength={300} value={giftMessage} onChange={(event) => setGiftMessage(event.target.value)} /></label>
+        <p className="vp-note">{L('پس از پرداخت، کد هدیه را در صفحهٔ اشتراک من می‌بینید.', 'After payment you will find the code on your membership page.')}</p>
+      </>}
+      {plan.trialDays > 0 && !gift && (!plan.offer || plan.offer.trialOpen) && <label className="vp-toggle"><input type="checkbox" checked={trial} onChange={(event) => { setTrial(event.target.checked); setDiscount(null) }} /><span>{L(`شروع با ${plan.trialDays.toLocaleString(loc)} روز آزمایشی`, `Start with a ${plan.trialDays}-day trial`)}{plan.trialPrice > 0 && <> · <span dir="ltr">{price(plan.trialPrice, plan.currency)}</span></>}</span></label>}
       {plan.payWhatYouWant && !trial && <label className="vp-field"><span>{L('مبلغ دلخواه شما', 'Your amount')} ({L('حداقل', 'at least')} <span dir="ltr">{price(plan.minPrice, plan.currency)}</span>)</span><input className="input" dir="ltr" inputMode="decimal" value={offer} placeholder={String(plan.price)} onChange={(event) => { setOffer(event.target.value); setDiscount(null) }} /></label>}
-      {signedIn && !(trial && trialFree) && <div className="vp-code">
+      {signedIn && !(trial && trialFree && !gift) && <div className="vp-code">
         <label className="vp-field"><span>{L('کد تخفیف', 'Discount code')}</span><input className="input" dir="ltr" value={code} maxLength={32} onChange={(event) => { setCode(event.target.value); setDiscount(null) }} /></label>
         <button type="button" className="btn btn-ghost" disabled={busy || !code.trim()} onClick={() => void applyCode()}>{L('اعمال', 'Apply')}</button>
       </div>}
       {signedIn && !(trial && trialFree) && options.length > 1 && <label className="vp-field"><span>{L('درگاه پرداخت', 'Payment gateway')}</span><select className="select" value={ref} onChange={(event) => setGatewayRef(event.target.value)}>{options.map((g) => <option key={g.ref} value={g.ref}>{g.label}{g.feePercent ? ` · ${g.feePercent}٪` : ''}</option>)}</select></label>}
-      <p className="vp-note">{plan.offer?.upgrade ? L('سطح جدید همین حالا فعال می‌شود و ارزش روزهای باقی‌ماندهٔ شما از قیمت کم شده است.', 'The new tier starts now; your unused days are taken off the price.') : rank > 0 ? L('روزهای جدید به انتهای اشتراک فعلی‌تان اضافه می‌شود.', 'New days are added after your current membership.') : L('ابتدا از موجودی کیف پول استفاده می‌شود و باقی مبلغ با درگاه پرداخت می‌شود.', 'Your wallet is used first; the rest goes through the gateway.')}</p>
+      {!gift && <p className="vp-note">{plan.offer?.upgrade ? L('سطح جدید همین حالا فعال می‌شود و ارزش روزهای باقی‌ماندهٔ شما از قیمت کم شده است.', 'The new tier starts now; your unused days are taken off the price.') : rank > 0 ? L('روزهای جدید به انتهای اشتراک فعلی‌تان اضافه می‌شود.', 'New days are added after your current membership.') : L('ابتدا از موجودی کیف پول استفاده می‌شود و باقی مبلغ با درگاه پرداخت می‌شود.', 'Your wallet is used first; the rest goes through the gateway.')}</p>}
       {signedIn
-        ? <button type="button" className="btn vip-btn vp-go" disabled={busy || !!plan.offer?.refused} onClick={() => void pay()}>{busy ? L('لطفاً صبر کنید…', 'Please wait…') : trial && trialFree ? L('شروع رایگان', 'Start free') : plan.offer?.upgrade ? L('ارتقا و پرداخت', 'Upgrade and pay') : rank > 0 ? L('تمدید اشتراک', 'Renew') : L('پرداخت و فعال‌سازی', 'Pay and activate')}</button>
+        ? <button type="button" className="btn vip-btn vp-go" disabled={busy || (!gift && !!plan.offer?.refused)} onClick={() => void pay()}>{busy ? L('لطفاً صبر کنید…', 'Please wait…') : gift ? L('خرید هدیه', 'Buy the gift') : trial && trialFree ? L('شروع رایگان', 'Start free') : plan.offer?.upgrade ? L('ارتقا و پرداخت', 'Upgrade and pay') : rank > 0 ? L('تمدید اشتراک', 'Renew') : L('پرداخت و فعال‌سازی', 'Pay and activate')}</button>
         : <Link className="btn vip-btn vp-go" href={`/login?next=${encodeURIComponent('/vip')}`}>{L('ورود برای خرید', 'Sign in to buy')}</Link>}
       {error && <p className="error-text" role="alert">{error}</p>}
     </section>}
