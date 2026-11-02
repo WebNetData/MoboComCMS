@@ -80,7 +80,7 @@ Codex VS Code's actual app-server reported Serena 24 tools, Context7 2 and Playw
 
 ## Skills and sources
 
-The current16-skill selection and hashes are defined by ENGINEERING_SKILLS.md
+The current17-skill selection and hashes are defined by ENGINEERING_SKILLS.md
 and external-skills.lock.json. The original2026-10-10 review table below is
 historical: its webapp-testing deferral was superseded by the adapted installation;
 Node Playwright remains the browser owner. Activate Serena on the resolved current
@@ -117,7 +117,7 @@ The older root audit recorded dependency-cruiser, Knip, Semgrep, AST and redacte
 
 ### Project engineering skills
 
-16 scoped skills from Anthropic, UI/UX Pro Max, Vercel and ibelick are vendored for Codex/Claude with source refs, licenses and payload hashes in `tools/devstack/external-skills.lock.json`. Read [task routing and precedence](ENGINEERING_SKILLS.md) before applying their generic UI/stack advice. `python scripts/sync-engineering-skills.py --sync` installs project mirrors with backups; omit `--sync` for offline verification. UI/UX search uses existing Python and local data. No new MCP, runtime dependency, hook or Actions workflow is registered.
+17 scoped skills from Anthropic, UI/UX Pro Max, Vercel, ibelick and Unslop are vendored for Codex/Claude with source refs, licenses and payload hashes in `tools/devstack/external-skills.lock.json`. Read [task routing and precedence](ENGINEERING_SKILLS.md) before applying their generic UI/stack advice. `python scripts/sync-engineering-skills.py --sync` installs project mirrors with backups; omit `--sync` for offline verification. UI/UX search uses existing Python and local data. No new MCP, runtime dependency, hook or Actions workflow is registered.
 
 Use the same existing map/ledger and Serena memory for durable verified facts. A memory entry names evidence/date/scope, never credentials or speculative maturity. Refresh it when its owner changes; a stale snapshot never beats the current repository. Do not store whole source, prompts or run transcripts as memory.
 

@@ -5,6 +5,7 @@ description: Audit an existing product surface against its own design evidence, 
 
 <!-- mobocom-external-skill:start -->
 For MoboCom, first read `docs/agent/ENGINEERING_SKILLS.md` from the active repository root. Apply this skill only to its relevant task; preserve the canonical MoboCom owners, SDS tokens and protected visuals. Resolve bundled scripts/references from this skill's actual installed directory. This installation alone authorizes no deployment, remote upload, dependency migration or runtime redesign.
+Owner preference2026-11-02: apply the relevant UI Skills guidance to MoboCom interface work alongside Unslop, UI/UX Pro Max and selected Vercel React rules. Baseline UI, accessibility and motion checks support the existing SDS/MoboCom tokens and native controls; other catalog skills remain task-scoped. Follow the active project integration document; do not replace its stack, approved layout or shared owners.
 <!-- mobocom-external-skill:end -->
 
 # Improve UI

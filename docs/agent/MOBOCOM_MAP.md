@@ -124,7 +124,7 @@ Keep this file concise. Record only durable architecture facts that prevent repe
 
 ## Protected UI
 Preserve and enhance; do not redesign. Community/Forum, Software and Store are also protected by the current mandate in AGENTS.md.
-- Homepage: `src/app/page.tsx` and the active theme's homepage blocks.
+- Homepage: `src/app/page.tsx` and the active theme's homepage blocks. Owner-requested MoboCom discovery redesign2026-11-02 stays under the current theme/Site Studio projection; [implementation, validation and rollback](handoffs/HOMEPAGE_DESIGN.md).
 - Magazine: `/blog`, `/blog/<slug>` (`src/modules/site/server/pages/blog`), `src/app/journal-design.css`, `journal-liona.css`.
 - Music: `/music/*`, `src/app/media-design.css`, the global player.
 - Games: `/games/*`, `src/app/games-portal.css`.

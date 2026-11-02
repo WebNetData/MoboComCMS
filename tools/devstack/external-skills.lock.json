@@ -216,102 +216,109 @@
     {
       "name": "baseline-ui",
       "repository": "https://github.com/ibelick/ui-skills",
-      "reviewedCommit": "fdd6c09dd866354a627ddf3fa46b7b01d421176d",
+      "reviewedCommit": "4907a526b07943b3a338177558d42fae4fdf0a86",
       "upstreamPath": "skills/baseline-ui",
       "upstreamEntrypointSha256": "fea3322f36d58fdafafce2aef56e4556dd2ac7b20876b7dff7d8be7f25fa597f",
       "files": {
         "LICENSE": "c615621c4cc1676ccde194e7a01b6469ba477780251bd71e007fc473a49c2c2b",
-        "SKILL.md": "937d41b135f2ef44c42663c1d9262d6de3b6fa8f36eabdb0d448b938784d2310"
+        "SKILL.md": "396825427e45da822bc8b033befb23349bd1b76f5cabb22895661358f2e5c272"
       },
       "adaptations": [
-        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained"
+        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained",
+        "Owner preference2026-11-02: relevant UI Skills guide interface work alongside existing MoboCom design skills"
       ]
     },
     {
       "name": "component-canvas",
       "repository": "https://github.com/ibelick/ui-skills",
-      "reviewedCommit": "fdd6c09dd866354a627ddf3fa46b7b01d421176d",
+      "reviewedCommit": "4907a526b07943b3a338177558d42fae4fdf0a86",
       "upstreamPath": "skills/component-canvas",
       "upstreamEntrypointSha256": "ef2d4b55a2ab83b5e00f0e7f13d7e5efd84a2743dac701d1854fafd9d09418ea",
       "files": {
         "LICENSE": "c615621c4cc1676ccde194e7a01b6469ba477780251bd71e007fc473a49c2c2b",
-        "SKILL.md": "8db7ec277d368cf2770cdecefe39d7c4a5bf72e42a16bf6b91b1091e5e0676b9"
+        "SKILL.md": "125879e106b44f5f943a1e834fa16cd994a4be5c0dfc0083984074cce68b76a5"
       },
       "adaptations": [
-        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained"
+        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained",
+        "Owner preference2026-11-02: relevant UI Skills guide interface work alongside existing MoboCom design skills"
       ]
     },
     {
       "name": "create-design-md",
       "repository": "https://github.com/ibelick/ui-skills",
-      "reviewedCommit": "fdd6c09dd866354a627ddf3fa46b7b01d421176d",
+      "reviewedCommit": "4907a526b07943b3a338177558d42fae4fdf0a86",
       "upstreamPath": "skills/create-design-md",
       "upstreamEntrypointSha256": "adba4fa94a9ca0291811ac26405e8fe15c1a6375743a80971c6f895bb837eeed",
       "files": {
         "LICENSE": "c615621c4cc1676ccde194e7a01b6469ba477780251bd71e007fc473a49c2c2b",
-        "SKILL.md": "9c7e7c467c01b207fcea1cf6d8e4d11fb911839c4e13814a8ea84d3c66cca039"
+        "SKILL.md": "ed0d149f568498e409a12839970da992fd9ed39f0df8cd397987875cfb1f777d"
       },
       "adaptations": [
-        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained"
+        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained",
+        "Owner preference2026-11-02: relevant UI Skills guide interface work alongside existing MoboCom design skills"
       ]
     },
     {
       "name": "fixing-accessibility",
       "repository": "https://github.com/ibelick/ui-skills",
-      "reviewedCommit": "fdd6c09dd866354a627ddf3fa46b7b01d421176d",
+      "reviewedCommit": "4907a526b07943b3a338177558d42fae4fdf0a86",
       "upstreamPath": "skills/fixing-accessibility",
       "upstreamEntrypointSha256": "549261e8a53b53a1a20c0ddbf736821e5fc0876ad82eee76e0efab8e9ee9dadf",
       "files": {
         "LICENSE": "c615621c4cc1676ccde194e7a01b6469ba477780251bd71e007fc473a49c2c2b",
-        "SKILL.md": "39d7a3f95764e28c249f61f3f61be8374ab73bb288a7e447b1a4b5409e069eec"
+        "SKILL.md": "bf9b0185353a7865ea250c619662055a6ecbccb1908aca8604bd5cae7025ca29"
       },
       "adaptations": [
-        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained"
+        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained",
+        "Owner preference2026-11-02: relevant UI Skills guide interface work alongside existing MoboCom design skills"
       ]
     },
     {
       "name": "fixing-metadata",
       "repository": "https://github.com/ibelick/ui-skills",
-      "reviewedCommit": "fdd6c09dd866354a627ddf3fa46b7b01d421176d",
+      "reviewedCommit": "4907a526b07943b3a338177558d42fae4fdf0a86",
       "upstreamPath": "skills/fixing-metadata",
       "upstreamEntrypointSha256": "b8315ff95a92dcfa48c33e2b4838a31d9448bd46252aab45726549ce865d6547",
       "files": {
         "LICENSE": "c615621c4cc1676ccde194e7a01b6469ba477780251bd71e007fc473a49c2c2b",
-        "SKILL.md": "2a1499aeb742cf727f2689c53adb054b23bfd165e06e82cb8f9ffef2df30febb"
+        "SKILL.md": "7a265f6330c9875f8c07c2c021e5c1abb3a15e1ac09f63e35a70bcb314986d12"
       },
       "adaptations": [
         "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained",
-        "Moved upstream top-level version into metadata.version for Codex-compatible frontmatter"
+        "Moved upstream top-level version into metadata.version for Codex-compatible frontmatter",
+        "Owner preference2026-11-02: relevant UI Skills guide interface work alongside existing MoboCom design skills"
       ]
     },
     {
       "name": "fixing-motion-performance",
       "repository": "https://github.com/ibelick/ui-skills",
-      "reviewedCommit": "fdd6c09dd866354a627ddf3fa46b7b01d421176d",
+      "reviewedCommit": "4907a526b07943b3a338177558d42fae4fdf0a86",
       "upstreamPath": "skills/fixing-motion-performance",
       "upstreamEntrypointSha256": "0a2d654902bc04263ce68c8c02967ef03f17b482e855360a5463211d99d7baa9",
       "files": {
         "LICENSE": "c615621c4cc1676ccde194e7a01b6469ba477780251bd71e007fc473a49c2c2b",
-        "SKILL.md": "dae68f7076c531ede9f99484c9bcfe1328894e6d6c99a32daf40308f8bd15a29"
+        "SKILL.md": "51b92bf0544ae251ca67c64d96baf8468c7894977d9c326d82eed62f03b66147"
       },
       "adaptations": [
-        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained"
+        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained",
+        "Owner preference2026-11-02: relevant UI Skills guide interface work alongside existing MoboCom design skills"
       ]
     },
     {
       "name": "improve-ui",
       "repository": "https://github.com/ibelick/ui-skills",
-      "reviewedCommit": "fdd6c09dd866354a627ddf3fa46b7b01d421176d",
+      "reviewedCommit": "4907a526b07943b3a338177558d42fae4fdf0a86",
       "upstreamPath": "skills/improve-ui",
       "upstreamEntrypointSha256": "fa2ac808f6d9dab7bb3620880b014d2c18e227e5b006102856038096e573e69a",
       "files": {
         "agents/openai.yaml": "933af431364517518cbcfcd4e70eb8e8b390ead920abc48c071a4eedb6747183",
         "LICENSE": "c615621c4cc1676ccde194e7a01b6469ba477780251bd71e007fc473a49c2c2b",
         "references/plan-template.md": "8faca7a14659a7f951d3b89fb730a43a4ce99966cc00481bf83d82b90f34b868",
-        "SKILL.md": "637947e8fe88912bfded9305f5eb6bfb5857875b0a53299e00485ed413f6481a"
+        "SKILL.md": "7a89837da2ccdac3c1d51c157507526c5ba4bb0963390c97c0fcb0c3d436808a"
       },
       "adaptations": [
-        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained"
+        "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained",
+        "Owner preference2026-11-02: relevant UI Skills guide interface work alongside existing MoboCom design skills"
       ]
     },
     {
@@ -401,7 +408,38 @@
       "adaptations": [
         "Added scoped link to docs/agent/ENGINEERING_SKILLS.md; original workflow/resources retained"
       ]
+    },
+    {
+      "name": "unslop",
+      "repository": "https://github.com/heydamir/unslop",
+      "reviewedCommit": "a6f121eee5f29c2f74976b75456feae8b66afb3a",
+      "upstreamPath": "skills/unslop",
+      "license": "CC-BY-4.0",
+      "upstreamEntrypointSha256": "9e49b2ff7643fa09729e8665890a18f6bfa58a82e6fcbba330da38136ccdc393",
+      "files": {
+        "LICENSE.txt": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411",
+        "SKILL.md": "e67af07571c49fc363fc5afacf11e5996a43dd03114e677b9b007bf46c40f8f5",
+        "agents/openai.yaml": "170d0b33a418d9d82beb7d15f8a91e314adef2edf53a81c37155b6f40dd52f06",
+        "references/effects.md": "ded4f679e22843a8f68860e6cda0396fa8b8fa27202400e08337143b485c86a4",
+        "references/refs.md": "12a70ce17d574914ea69eb0809e5a9605de044df1b66619159c6d0b38d6b8353",
+        "references/refs/beacon-engraving.webp": "73f55f76c7d7455980f407b660e8732b45e2c6e20c989e77022ebd820e3b017a",
+        "references/refs/meadow-3d.webp": "da65c33a712cd97f6b106c55f241537c3cf098c5c4c4a97e6b6b58776a74542e",
+        "references/refs/story-dashboard-frames.webp": "44eea1db92ec3a936350654914a939b5d9829d420ee4b5a0c4ac0ffedd44dceb",
+        "references/refs/unslop-dashboard-after.webp": "2da5f45bff13c928ff27afc46d3d2a608525e926355063bd662b17d4cbfdeaf8",
+        "references/refs/unslop-hero-after.webp": "92b2d796c5b6116a2039f5ca2b0f3edf700c92b41846b11b9501a4e32f72af6e",
+        "references/signs.md": "6250d3c222c2aaa4ef4f31557d99d249e5be86d8720cd1157df14798caf1c8c4",
+        "references/tokens.md": "988b754612b3e2d42d87b1bbaca0b4a61f3e07a2b2eef782d3614e8fdb6db5b0",
+        "references/visuals.md": "7247da579d2d95ace1e051b867c757bd1e05aa02f3ab8dea0ead4cd4bf14d7d7",
+        "scripts/snapshot.mjs": "0a5f2511d922bd5bd0df56e70e72d9e349695f2464f9b93d0bda3ef8a58c6e48",
+        "scripts/story.mjs": "17d3a6ab6564efc5aa7632a36f340c130aa512fde73d229d79474f1b4c09d0e1"
+      },
+      "adaptations": [
+        "Broadened trigger to the owner's default UI-design preference; upstream workflow/resources/credit retained",
+        "Added scoped MoboCom precedence and authorized-work routing; optional helpers remain local and opt-in",
+        "Included the repository CC-BY-4.0 license as LICENSE.txt"
+      ]
     }
   ],
-  "selection": "MoboCom web engineering, UI quality, documentation and MCP authoring. Existing document plugins and system skill-creator retained; deployment/native/mobile/package-specific addons are not activated."
+  "selection": "MoboCom web engineering, UI quality, documentation and MCP authoring. Existing document plugins and system skill-creator retained; deployment/native/mobile/package-specific addons are not activated.",
+  "updated": "2026-11-02"
 }

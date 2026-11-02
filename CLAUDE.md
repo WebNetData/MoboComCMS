@@ -20,6 +20,7 @@ For the form builder, automation rules, staff queues, work that somebody holds (
 ## Supporting engineering skills
 
 For supporting UI/design, React, accessibility, browser testing, documentation or MCP authoring, first read `docs/agent/ENGINEERING_SKILLS.md` in the active MoboCom checkout and load only its relevant task skill. Existing module owners, SDS/MoboCom tokens, protected visuals and actual local validation remain authoritative; generic upstream stack/aesthetic preferences are not architecture decisions.
+For requested interface design, styling, polish or redesign, use `unslop` with the relevant installed UI Skills (`baseline-ui`, `fixing-accessibility`, `fixing-motion-performance`), plus `ui-ux-pro-max` and selected Vercel React rules as needed. Follow `docs/agent/FRONTEND_QUALITY.md` and `ENGINEERING_SKILLS.md`; preserve approved MoboCom/SDS tokens and scoped layout. Other catalog skills stay task-specific.
 <!-- mobocom-engineering-skills:end -->
 
 <!-- mobocom-whole-site-quality:claude:start -->
