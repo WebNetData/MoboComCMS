@@ -27,7 +27,7 @@ async function user(index) {
     const row = stats.get(path)
     const started = performance.now()
     try {
-      const response = await fetch(base + path, { headers: { 'user-agent': 'MoboCom-LoadTest/1.0', ...(cookie ? { cookie } : {}) }, redirect: 'manual', signal: AbortSignal.timeout(30_000) })
+      const response = await fetch(base + path, { headers: { 'user-agent': 'MoboCom-LoadTest/1.0', accept: 'text/html,application/xhtml+xml', ...(cookie ? { cookie } : {}) }, redirect: 'manual', signal: AbortSignal.timeout(30_000) })
       await response.arrayBuffer()
       row.codes[response.status] = (row.codes[response.status] || 0) + 1
       if (response.status >= 500) row.errors++

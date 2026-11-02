@@ -20,6 +20,7 @@ import { toPublicPath } from '@/platform/routing/aliases'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import { getCinemaSettings } from '@/modules/cinema/server/admin'
 import { getMusicSettings } from '@/modules/music/server/admin'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -38,12 +39,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return {}
   const { card } = data.person
   const roles = card.roles.join('، ')
-  return {
+  return shareCard({
     title: `${card.name}${roles ? ` — ${roles}` : ''}`,
     description: plainText(data.person.musicBio || data.person.cinemaBio).slice(0, 160) || `${card.name}${roles ? `، ${roles}` : ''}: فیلم‌ها، سریال‌ها، آلبوم‌ها و آهنگ‌ها در موبوکام.`,
     alternates: { canonical: toPublicPath(`/celebrities/${encodeURIComponent(card.slug)}`) },
     openGraph: card.image ? { images: [card.image] } : undefined,
-  }
+  })
 }
 
 export default async function CelebrityPage({ params }: Props) {

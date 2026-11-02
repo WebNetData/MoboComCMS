@@ -7,6 +7,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { scoreBand } from '@/modules/media/domain/media'
 import { Icon } from '@/components/media/PortalIcons'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -15,7 +16,7 @@ const year = (value: Date | null | undefined) => (value ? new Date(value).getUTC
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await franchisePage((await params).slug)
   if (!data) return {}
-  return { title: `مجموعهٔ بازی‌های ${data.franchise.title}`, description: (data.franchise.description || `همهٔ نسخه‌های ${data.franchise.title} به ترتیب انتشار`).slice(0, 180), alternates: { canonical: toPublicPath(`/games/franchise/${data.franchise.slug}`) }, openGraph: { images: data.franchise.image ? [data.franchise.image] : undefined } }
+  return shareCard({ title: `مجموعهٔ بازی‌های ${data.franchise.title}`, description: (data.franchise.description || `همهٔ نسخه‌های ${data.franchise.title} به ترتیب انتشار`).slice(0, 180), alternates: { canonical: toPublicPath(`/games/franchise/${data.franchise.slug}`) }, openGraph: { images: data.franchise.image ? [data.franchise.image] : undefined } })
 }
 
 /** A series: banner and every title as a release-order timeline. */

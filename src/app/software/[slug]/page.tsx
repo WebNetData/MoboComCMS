@@ -23,6 +23,7 @@ import { toPublicPath } from '@/platform/routing/aliases'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { RatingMeter } from '@/components/engage/RatingMeter'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -33,12 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return {}
   const s = data.software
   const name = softwareName(s, true)
-  return {
+  return shareCard({
     title: `دانلود ${name}${s.version ? ` ${s.version}` : ''}${s.platforms[0] ? ` برای ${s.platforms.join(' و ')}` : ''}`,
-    description: s.summary.slice(0, 180) || undefined,
+    description: s.summary.slice(0, 160) || undefined,
     openGraph: { images: s.cover || s.icon ? [s.cover || s.icon] : undefined },
     alternates: { canonical: toPublicPath(`/software/${s.slug}`) },
-  }
+  })
 }
 
 const date = (d: Date | null) => (d ? new Date(d).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }) : '—')

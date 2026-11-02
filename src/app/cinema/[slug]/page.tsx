@@ -25,6 +25,7 @@ import { safeJsonLd } from '@/shared/seo/json-ld'
 import { formatLabel } from '@/modules/cinema/domain/formats'
 import { sized, srcSet } from '@/shared/media/image'
 import type { CSSProperties } from 'react'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -37,12 +38,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ti = data.title
   const name = fa ? ti.title : ti.titleEn || ti.title
   const kind = ti.kind === 'SERIES' ? (fa ? 'سریال' : 'series') : (fa ? 'فیلم' : 'movie')
-  return {
+  return shareCard({
     title: fa ? `دانلود ${kind} ${name}${ti.year ? ` ${ti.year}` : ''}${ti.dubbed ? ' با دوبله فارسی' : ''}` : `${name}${ti.year ? ` (${ti.year})` : ''}`,
-    description: (fa ? ti.summary : ti.summaryEn || ti.summary).slice(0, 180) || undefined,
+    description: (fa ? ti.summary : ti.summaryEn || ti.summary).slice(0, 160) || undefined,
     openGraph: { images: ti.backdrop || ti.poster ? [ti.backdrop || ti.poster] : undefined, type: ti.kind === 'SERIES' ? 'video.tv_show' : 'video.movie' },
     alternates: { canonical: toPublicPath(`/cinema/${ti.slug}`) },
-  }
+  })
 }
 
 export default async function TitlePage({ params }: Props) {

@@ -115,7 +115,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
               <InvoiceLogo src={profile.logo} name={settings.brandName || 'M'} className="invoice-mark" />
               <div>
                 <div className="invoice-brand">{settings.brandName || 'MoboComCMS'}</div>
-                <div className="invoice-contact">{settings.supportEmail || 'support@example.com'}{settings.siteUrl && <> · <bdi dir="ltr">{settings.siteUrl.replace(/^https?:\/\//, '')}</bdi></>}</div>
+                <div className="invoice-contact">{settings.supportEmail}{settings.siteUrl && <>{settings.supportEmail ? ' · ' : ''}<bdi dir="ltr">{settings.siteUrl.replace(/^https?:\/\//, '')}</bdi></>}</div>
               </div>
             </div>
             <div className="invoice-id">

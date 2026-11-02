@@ -27,6 +27,7 @@ import Trailer from '@/components/media/Trailer'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -39,12 +40,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return {}
   const g = data.game
   const upcoming = releaseState(g.releaseDate).state === 'upcoming'
-  return {
+  return shareCard({
     title: g.seoTitle || (upcoming ? `بازی ${g.title}: تاریخ انتشار، تریلر و اطلاعات` : `نقد، بررسی و دانلود بازی ${g.title}`),
-    description: (g.seoDescription || g.summary).slice(0, 180) || undefined,
+    description: (g.seoDescription || g.summary).slice(0, 160) || undefined,
     openGraph: { images: g.backdrop || g.cover ? [g.backdrop || g.cover] : undefined },
     alternates: { canonical: toPublicPath(`/games/${g.slug}`) },
-  }
+  })
 }
 
 /** GameUp-style game page: hero, section nav, review with verdict, media, requirements, downloads, updates, news and member reviews; identity sidebar. */

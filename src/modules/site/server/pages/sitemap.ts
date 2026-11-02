@@ -11,6 +11,7 @@ import { pathClosed } from '@/modules/site/domain/maintenance'
 import { livePostWhere } from '@/modules/journal/domain/journal'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { entitySitemap, forumSitemap } from '@/modules/seo/server/sitemap-entities'
+import { publicCelebrities } from '@/modules/celebrities/server/celebrities'
 
 
 /** Static storefront routes + every published CMS document. */
@@ -48,12 +49,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Music, film & series, games and VIP (filtered below when their module is off).
   try {
     const live = { status: 'PUBLISHED', publishedAt: { lte: now } }
-    const [tracks, albums, artists, titles, games] = await Promise.all([
+    const [tracks, albums, artists, titles, games, people] = await Promise.all([
       db.musicTrack.findMany({ where: live, select: { slug: true, updatedAt: true }, orderBy: { publishedAt: 'desc' }, take: 5000 }),
       db.musicAlbum.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 2000 }),
-      db.musicArtist.findMany({ select: { slug: true, updatedAt: true }, take: 2000 }),
+      db.musicArtist.findMany({ select: { id: true, slug: true, updatedAt: true }, take: 2000 }),
       db.cinemaTitle.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 5000 }),
       db.gameTitle.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 5000 }),
+      publicCelebrities(now),
     ])
     entries.push(
       { url: `${base}/music`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
@@ -66,7 +68,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
     for (const row of tracks) entries.push({ url: `${base}/music/track/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'monthly', priority: 0.6 })
     for (const row of albums) entries.push({ url: `${base}/music/album/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'monthly', priority: 0.6 })
-    for (const row of artists) entries.push({ url: `${base}/music/artist/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.5 })
+    // An artist with a person page redirects there: only the final address belongs here.
+    const moved = new Set(people.map((row) => row.musicArtistId))
+    for (const row of people) entries.push({ url: `${base}/celebrities/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.5 })
+    for (const row of artists) if (!moved.has(row.id)) entries.push({ url: `${base}/music/artist/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.5 })
     for (const row of titles) entries.push({ url: `${base}/cinema/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })
     for (const row of games) entries.push({ url: `${base}/games/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })
     const franchises = await db.gameFranchise.findMany({ where: { games: { some: live } }, select: { slug: true, updatedAt: true }, take: 2000 })

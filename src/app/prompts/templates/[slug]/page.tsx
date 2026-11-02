@@ -16,12 +16,13 @@ import { favoriteOf } from '@/modules/reviews/server/reviews'
 import { getViewer } from '@/modules/membership/server/membership'
 import s from '@/components/prompts/PromptMaster.module.css'
 import g from '@/components/prompts/PromptGallery.module.css'
+import { shareCard } from '@/modules/site/server/seo'
 export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const entry = await templateBySlug((await params).slug)
   if(!entry)return { title:'الگو پیدا نشد',robots:{index:false} }
   const sample=readShowcase(entry.showcase)
-  return { title:`${entry.title} | پرامپت مستر`,description:entry.summary,alternates:{canonical:`/prompts/templates/${entry.slug}`},openGraph:{title:entry.title,description:entry.summary,...(sample.cover?{images:[{url:sample.cover,alt:sample.alt||entry.title}]}:{})} }
+  return shareCard({ title:`${entry.title} | پرامپت مستر`,description:entry.summary,alternates:{canonical:`/prompts/templates/${entry.slug}`},openGraph:{title:entry.title,description:entry.summary,...(sample.cover?{images:[{url:sample.cover,alt:sample.alt||entry.title}]}:{})} })
 }
 export default async function TemplatePage({ params }: { params: Promise<{ slug: string }> }) {
   const [template, viewer] = await Promise.all([templateBySlug((await params).slug), getViewer()])

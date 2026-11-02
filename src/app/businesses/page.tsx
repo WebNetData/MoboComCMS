@@ -10,7 +10,7 @@ import { getViewer } from '@/modules/membership/server/membership'
 import BusinessRequestForm from '@/components/businesses/BusinessRequestForm'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'تجربهٔ خرید و کسب‌وکارها | موبوکام', description: 'تجربهٔ کاربران از فروشگاه‌های بیرونی، فروشندگان موبوکام و خرید از فروشگاه سایت؛ امتیازها، نظرات و پاسخ کسب‌وکارها.' }
+export const metadata: Metadata = { title: 'تجربهٔ خرید و کسب‌وکارها | موبوکام', alternates: { canonical: '/businesses' }, description: 'تجربهٔ کاربران از فروشگاه‌های بیرونی، فروشندگان موبوکام و خرید از فروشگاه سایت؛ امتیازها، نظرات و پاسخ کسب‌وکارها.' }
 export default async function BusinessDirectoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireModule('businesses')
   const params = await searchParams, [data, viewer, policy] = await Promise.all([businessDirectory(params), getViewer(), businessRequestPolicy()])
