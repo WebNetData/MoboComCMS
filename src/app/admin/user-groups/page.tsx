@@ -9,14 +9,14 @@ import type { SiteGroup } from '@/modules/account/domain/site-groups'
 import { Notice, fa, send, useJson } from '../store/shared'
 import './user-groups.css'
 
-type Group = { id: number; name: string; description: string; color: string; active: boolean; vipBenefits: boolean; hideAds: boolean; discountPercent: number; sortOrder: number; members: number; updatedAt?: string }
+type Group = { id: number; name: string; description: string; color: string; active: boolean; vipBenefits: boolean; hideAds: boolean; discountPercent: number; showBadge: boolean; sortOrder: number; members: number; updatedAt?: string }
 type Draft = Omit<Group, 'id' | 'members'> & { id?: number }
 type Data = { groups: Group[]; catalog: SiteGroup[]; access: Record<string, string[]>; accessRevision: string; sections: { id: string; label: string }[] }
 type Member = { id: number; userId: number; expiresAt: string | null; note: string; user: { id: number; name: string | null; email: string | null; phone: string | null } }
 type Members = { rows: Member[]; total: number; pages: number; asOf: string }
 type Say = (tone: 'ok' | 'error', text: string) => void
 
-const EMPTY: Draft = { name: '', description: '', color: '#4b45ee', active: true, vipBenefits: false, hideAds: false, discountPercent: 0, sortOrder: 0 }
+const EMPTY: Draft = { name: '', description: '', color: '#4b45ee', active: true, vipBenefits: false, hideAds: false, discountPercent: 0, showBadge: true, sortOrder: 0 }
 const API = '/api/admin/user-groups'
 const numericValue = (input: HTMLInputElement, previous: number) => input.value === '' ? 0 : Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : previous
 
@@ -45,6 +45,7 @@ function GroupEditor({ draft, onCancel, onSaved, say }: { draft: Draft; onCancel
       <label><input type="checkbox" checked={form.vipBenefits} onChange={(event) => set('vipBenefits', event.target.checked)} /><span>مزایای عضویت ویژه<small>قیمت ویژه و محتوای مخصوص اعضای ویژه</small></span></label>
       <label><input type="checkbox" checked={form.hideAds} onChange={(event) => set('hideAds', event.target.checked)} /><span>سایت بدون تبلیغ<small>تبلیغ‌های سایت به اعضا نشان داده نمی‌شود</small></span></label>
       <label className="sa-field ug-percent"><span>تخفیف فروشگاه (درصد)</span><input className="input" type="number" min={0} max={90} dir="ltr" value={form.discountPercent} onChange={(event) => set('discountPercent', numericValue(event.target, form.discountPercent))} /></label>
+      <label><input type="checkbox" checked={form.showBadge} onChange={(event) => set('showBadge', event.target.checked)} /><span>نمایش زیر نام کاربر<small>نام گروه در کادر زیر نام اعضا در تالار دیده می‌شود</small></span></label>
       <label><input type="checkbox" checked={form.active} onChange={(event) => set('active', event.target.checked)} /><span>فعال<small>گروه غیرفعال هیچ دسترسی و مزیتی نمی‌دهد</small></span></label>
     </fieldset>
     <p className="sa-hint">این گروه دسترسی به پنل مدیریت نمی‌دهد؛ مدیران با <Link href="/admin/section-managers">مدیران بخش‌ها</Link> تعیین می‌شوند.</p>

@@ -224,6 +224,33 @@ test('a member has one address; the old forum address leads into it', () => {
 
 const sourceOf = (relative) => fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8')
 
+test('a rank is earned by its own conditions, all or any, and a hand-given rank by nobody', () => {
+  const ranks = c.normalizeLevels([
+    { id: 'new', name: 'عضو' },
+    { id: 'active', name: 'فعال', minPosts: 10, minTopics: 2 },
+    { id: 'useful', name: 'مفید', match: 'ANY', minLikes: 50, minSolved: 5 },
+    { id: 'old', name: 'قدیمی', minAccountDays: 365, minDaysVisited: 100 },
+    { id: 'honour', name: 'افتخاری', manualOnly: true },
+  ])
+  const at = (facts) => c.levelFor(ranks, { posts: 0, likes: 0, reputation: 0, ...facts })?.id
+  assert.equal(at({}), 'new')
+  assert.equal(at({ posts: 10 }), 'new', 'all conditions: one is not enough')
+  assert.equal(at({ posts: 10, topics: 2 }), 'active')
+  assert.equal(at({ solved: 5 }), 'useful', 'any condition: one is enough')
+  assert.equal(at({ likes: 50 }), 'useful')
+  assert.equal(at({ accountDays: 365, daysVisited: 99 }), 'new')
+  assert.equal(at({ accountDays: 365, daysVisited: 100 }), 'old')
+  assert.equal(at({ posts: 99999, likes: 99999, solved: 999, accountDays: 9999, daysVisited: 9999, topics: 999 }), 'old', 'a hand-given rank is never earned')
+  assert.equal(c.levelFor(ranks, { posts: 0, likes: 0, reputation: 0 }, 'honour').id, 'honour', 'but it can be given')
+  assert.equal(c.normalizeLevels([{ name: 'بی‌شرط', match: 'HACK', minPosts: -4 }])[0].match, 'ALL')
+  assert.equal(c.normalizeLevels([{ name: 'بی‌شرط', minPosts: -4 }])[0].minPosts, 0)
+  // A rank stored before these conditions keeps meaning what it meant.
+  const stored = c.normalizeLevels([{ id: 'old-rank', name: 'قدیمی', minPosts: 5, minLikes: 5 }])[0]
+  assert.equal(stored.match, 'ALL'); assert.equal(stored.manualOnly, false); assert.equal(stored.minTopics, 0)
+  assert.equal(c.levelFor(c.DEFAULT_LEVELS, { posts: 300, likes: 0, reputation: 0 }).id, 'experienced')
+  assert.equal(c.levelFor(c.DEFAULT_LEVELS, { posts: 0, likes: 100, reputation: 0 }).id, 'helpful')
+})
+
 test('a member\'s level is the last one whose every threshold they meet', () => {
   const levels = c.normalizeLevels([
     { id: 'new', name: 'عضو تازه', minPosts: 0 }, { id: 'active', name: 'کاربر فعال', minPosts: 50, color: '#0EA5E9' },
@@ -242,7 +269,7 @@ test('a member\'s level is the last one whose every threshold they meet', () => 
   assert.equal(c.normalizeForumSettings({}).levels.length, c.DEFAULT_LEVELS.length)
   assert.deepEqual(c.normalizeForumSettings({ levels: [] }).levels, [])
   // Levels are worked out when an author is read, so they hold for every member at once.
-  assert.match(sourceOf('src/modules/forum/server/forum.ts'), /const level = levelFor\(levels, \{ posts: profile\?\.postCount \?\? 0, likes: profile\?\.likesReceived \?\? 0, reputation: profile\?\.reputation \?\? 0 \}, profile\?\.manualLevelId\)/)
+  assert.match(sourceOf('src/modules/forum/server/forum.ts'), /const level = levelFor\(levels, \{ posts: profile\?\.postCount \?\? 0, likes: profile\?\.likesReceived \?\? 0, reputation: profile\?\.reputation \?\? 0, topics: [^}]*accountDays: [^}]*\}, profile\?\.manualLevelId\)/)
 })
 
 test('a badge may be given at a number the admin chooses', () => {

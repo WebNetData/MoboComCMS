@@ -70,7 +70,7 @@ function AdminForumPage() {
   const tabs: { key: Tab; label: string; count?: number; alert?: boolean }[] = [
     { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview, alert: true },
     { key: 'flags', label: 'گزارش‌ها', count: data.stats.pendingFlags, alert: true }, { key: 'categories', label: 'دسته‌ها', count: data.categories.filter((c) => !c.club).length }, { key: 'team', label: 'تیم تالار', count: data.team.deputies.length + data.team.moderators.length },
-    { key: 'groups', label: 'گروه‌ها', count: data.groups.length }, { key: 'levels', label: 'درجه‌های کاربری', count: settings.levels?.length || 0 }, { key: 'badges', label: 'نشان‌ها', count: data.badges.length },
+    { key: 'groups', label: 'گروه‌ها', count: data.groups.length }, { key: 'levels', label: 'مقام‌های کاربری', count: settings.levels?.length || 0 }, { key: 'badges', label: 'نشان‌ها', count: data.badges.length },
     { key: 'users', label: 'کاربران' }, { key: 'words', label: 'واژه‌های تحت نظر' }, { key: 'settings', label: 'تنظیمات' },
   ]
   const wordLists = words || { block: settings.watchedWords.block.join('\n'), approve: settings.watchedWords.approve.join('\n'), censor: settings.watchedWords.censor.join('\n') }

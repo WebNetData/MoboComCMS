@@ -4,7 +4,7 @@ import { getProfile } from '@/modules/forum/server/people'
 import { getForumSettings } from '@/modules/forum/server/community'
 import { canStartMessage } from '@/modules/forum/domain/discourse'
 import { FORUM_RANK_LABELS } from '@/modules/forum/domain/community'
-import { TimeAgo, num } from '@/components/forum/shared'
+import { MemberBoxes, TimeAgo, num } from '@/components/forum/shared'
 import { profileAddress, type ForumPiece } from '@/modules/identity/domain/profile-address'
 
 const PIECES: { key: ForumPiece; label: string }[] = [{ key: 'summary', label: 'خلاصه' }, { key: 'activity', label: 'فعالیت' }, { key: 'topics', label: 'موضوع‌ها' }, { key: 'badges', label: 'نشان‌ها' }]
@@ -27,6 +27,7 @@ export async function ForumProfileSection({ username, piece }: { username: strin
       <p className="fp-ranks">
         {author.siteRole && <span className="tp-rank is-admin">{author.siteRole}</span>}
         {author.rank && <span className={`tp-rank is-${author.rank}`}>{FORUM_RANK_LABELS[author.rank]}</span>}
+        <MemberBoxes author={author} />
         <span className={`fp-rank is-${profile.trustLevel}`}>{profile.trustName}</span>
         {profile.title && <span className="fp-rank is-title">{profile.title}</span>}
         {data.rank && <span className="fp-rank is-place">رتبهٔ {num(data.rank)} در اعتبار</span>}

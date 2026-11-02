@@ -112,6 +112,15 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - Rank is shown beside posts, on the profile, in the member list and on `/forum/staff` (`forumRanks`, `forumTeam` — the public page names no forum the viewer may not see).
 - Where: `src/modules/forum/server/team.ts`, `actions.ts`, `moderation.ts`, `community.ts` (`viewerFor`).
 
+**Ranks and what stands under a name (owner, 2026-11-03)**
+
+- A member's standing is a *rank* (مقام), kept in the forum settings as `levels`. The owner creates, orders and deletes ranks in forum admin → مقام‌های کاربری. It extends the earlier levels; it is not a second system.
+- A rank asks for any of seven numbers (posts, likes received, reputation, topics, accepted answers, days visited, days since joining; zero asks nothing) and is earned by all of them or by any one (`match`). A rank can be given by hand alone (`manualOnly`). A member holds the last rank in the list they earned. A rank stored before these fields keeps its meaning: all conditions, automatic.
+- It is worked out when an author is read (`levelFor`), so a changed rule holds for every member at once and needs no job.
+- Staff change a member's rank in forum admin → کاربران (`ForumProfile.manualLevelId`); a rank given by hand wins until it is taken back or deleted.
+- **A rank shows standing and opens nothing.** Access stays with the team above, trust levels, forum groups and site groups. So the team is not a kind of rank: the two are shown side by side.
+- Under a name stand two boxes (`MemberBoxes`): the group, then the rank. The group is the first of the member's shown site groups in the admin's order (`UserGroup.showBadge`, `sortOrder`), else VIP, else the forum group they chose, else «کاربر عضو». Staff get no plain box. A site group that should stay private is hidden in its own editor. Shown beside posts, on the profile's forum part and in the member list.
+
 **The forum admin (2026-10-26, owner: "every section principled, tidy and specialised")**
 - It sits in the shared section frame (`sa-tabs`, `sa-head`, `sa-card`, `sa-table sa-cards`), like the magazine, cinema and store. Each tab is an address (`/admin/forum?tab=…`), so the admin menu, the staff queue and the back button land on it. The community pages use `SectionShell` itself.
 - Structure is one tree (section → forum → subforum, sections highlighted); a row adds the next level inside itself. Club forums are listed apart (they belong to their club and are not deleted here). Groups are split into the team's, the automatic ones and clubs; members are added from a group's row. Badges are granted from their row.

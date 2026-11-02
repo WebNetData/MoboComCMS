@@ -37,17 +37,33 @@ export interface ForumSettings {
   clubsEnabled: boolean
   clubsMinTrust: number
   clubsMaxOwned: number
-  /** Standing shown under a member's name: the last level in this list whose every threshold they meet. */
+  /** Standing shown under a member's name: the last rank in this list whose conditions they meet. */
   levels: UserLevel[]
 }
 
-/** A level a member reaches by what they did: posts written, likes received on their posts, reputation. */
-export interface UserLevel { id: string; name: string; icon: string; color: string; minPosts: number; minLikes: number; minReputation: number }
+/** What a rank can ask for. Zero asks nothing. */
+export const LEVEL_CONDITIONS = [
+  { min: 'minPosts', fact: 'posts', label: 'پیام' },
+  { min: 'minLikes', fact: 'likes', label: 'لایک دریافتی' },
+  { min: 'minReputation', fact: 'reputation', label: 'اعتبار' },
+  { min: 'minTopics', fact: 'topics', label: 'موضوع' },
+  { min: 'minSolved', fact: 'solved', label: 'پاسخ پذیرفته' },
+  { min: 'minDaysVisited', fact: 'daysVisited', label: 'روز حضور' },
+  { min: 'minAccountDays', fact: 'accountDays', label: 'روز از عضویت' },
+] as const
+type LevelMin = (typeof LEVEL_CONDITIONS)[number]['min']
+export type LevelFacts = { posts: number; likes: number; reputation: number; topics?: number; solved?: number; daysVisited?: number; accountDays?: number }
+
+/** A rank in the forum: earned by meeting all or any of its conditions, or given only by hand. It shows standing and opens nothing. */
+export type UserLevel = { id: string; name: string; icon: string; color: string; match: 'ALL' | 'ANY'; manualOnly: boolean } & Record<LevelMin, number>
+
+const asked = (conditions: Partial<Record<LevelMin, number>>) => ({ minPosts: 0, minLikes: 0, minReputation: 0, minTopics: 0, minSolved: 0, minDaysVisited: 0, minAccountDays: 0, match: 'ALL' as const, manualOnly: false, ...conditions })
 export const DEFAULT_LEVELS: UserLevel[] = [
-  { id: 'member', name: 'عضو تازه', icon: '🌱', color: '#64748b', minPosts: 0, minLikes: 0, minReputation: 0 },
-  { id: 'active', name: 'کاربر فعال', icon: '⚡', color: '#0ea5e9', minPosts: 50, minLikes: 0, minReputation: 0 },
-  { id: 'helpful', name: 'کاربر مفید', icon: '💡', color: '#16a34a', minPosts: 50, minLikes: 100, minReputation: 0 },
-  { id: 'professor', name: 'پروفسور', icon: '🎓', color: '#a855f7', minPosts: 200, minLikes: 500, minReputation: 0 },
+  { id: 'member', name: 'عضو تازه', icon: '🌱', color: '#64748b', ...asked({}) },
+  { id: 'active', name: 'کاربر فعال', icon: '⚡', color: '#0ea5e9', ...asked({ minPosts: 50 }) },
+  { id: 'helpful', name: 'کاربر مفید', icon: '💡', color: '#16a34a', ...asked({ minLikes: 100 }) },
+  { id: 'experienced', name: 'کاربر باتجربه', icon: '🏆', color: '#d97706', ...asked({ minPosts: 300 }) },
+  { id: 'professor', name: 'پروفسور', icon: '🎓', color: '#a855f7', ...asked({ minPosts: 500, minLikes: 500 }) },
 ]
 
 export function normalizeLevels(input: unknown): UserLevel[] {
@@ -62,17 +78,26 @@ export function normalizeLevels(input: unknown): UserLevel[] {
     while (seen.has(id)) id = `${id}x`
     seen.add(id)
     const color = String(raw.color ?? '')
-    out.push({ id, name, icon: String(raw.icon ?? '').trim().slice(0, 8), color: /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#6366f1', minPosts: int(raw.minPosts, 0, 10_000_000, 0), minLikes: int(raw.minLikes, 0, 10_000_000, 0), minReputation: int(raw.minReputation, 0, 100_000_000, 0) })
+    out.push({ id, name, icon: String(raw.icon ?? '').trim().slice(0, 8), color: /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#6366f1', ...asked(Object.fromEntries(LEVEL_CONDITIONS.map(({ min }) => [min, int(raw[min], 0, 10_000_000, 0)]))), match: raw.match === 'ANY' ? 'ANY' : 'ALL', manualOnly: raw.manualOnly === true })
   }
   return out
 }
 
-/** The member's level: the last one (in the order the admin set) whose every threshold is met. */
-export function levelFor(levels: UserLevel[], facts: { posts: number; likes: number; reputation: number }, manualId?: string | null): UserLevel | null {
+/** Whether these facts earn a rank. A rank that asks nothing is everyone's; one given by hand is earned by nobody. */
+export function meetsLevel(level: UserLevel, facts: LevelFacts) {
+  if (level.manualOnly) return false
+  const conditions = LEVEL_CONDITIONS.filter(({ min }) => level[min] > 0)
+  if (!conditions.length) return true
+  const met = ({ min, fact }: (typeof LEVEL_CONDITIONS)[number]) => (facts[fact] ?? 0) >= level[min]
+  return level.match === 'ANY' ? conditions.some(met) : conditions.every(met)
+}
+
+/** The member's rank: the one given by hand if it still exists, else the last one (in the order the admin set) they earned. */
+export function levelFor(levels: UserLevel[], facts: LevelFacts, manualId?: string | null): UserLevel | null {
   const manual = manualId ? levels.find(level => level.id === manualId) : null
   if (manual) return manual
   let found: UserLevel | null = null
-  for (const level of levels) if (facts.posts >= level.minPosts && facts.likes >= level.minLikes && facts.reputation >= level.minReputation) found = level
+  for (const level of levels) if (meetsLevel(level, facts)) found = level
   return found
 }
 

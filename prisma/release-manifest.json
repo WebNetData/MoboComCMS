@@ -449,6 +449,7 @@
     "20270204120000_clear_placeholder_support_email",
     "20270205120000_site_popups",
     "20270206120000_popup_site_groups",
-    "20270207120000_user_groups"
+    "20270207120000_user_groups",
+    "20270208120000_group_badge"
   ]
 }

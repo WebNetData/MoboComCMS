@@ -109,6 +109,13 @@ Acceptance: `scripts/forum-clubs.connected.cjs` and the extended `scripts/forum-
 - Read by the leaderboard (period: each reaction by its weight; all time: the stored number), the profile's standing and number, and the member directory's default order. `likesReceived` remains the plain count for trust levels and badges.
 - Acceptance: `scripts/forum-reputation.connected.cjs`; twelve deliberate breaks fail it.
 
+## Slice 13: ranks the owner defines, and the boxes under a name
+
+- Owner, 2026-11-03: ranks earned by activity, each with its own conditions; made and changed by the owner, and changeable by hand per member. The group and the rank stand in boxes under a member's name. The general manager, the deputy and a manager per forum already existed (slice "team") and were confirmed through the admin in a browser.
+- Actors: `forum.moderate` edits ranks and gives a rank by hand; `users.manage` decides whether a group is shown. Public viewers see the boxes. A rank opens nothing.
+- Data: rank fields live in the settings JSON; a stored rank reads as all conditions, automatic. `UserGroup.showBadge` is additive (migration `20270208120000_group_badge`, default true); rollback leaves it unused.
+- Acceptance: `scripts/forum-community.test.cjs` (all, any, hand-given, stored ranks), `scripts/user-groups.connected.cjs` (shown groups, order, expiry, VIP; `GROUPS_FAULT=badge` must fail it), and a browser journey through the admin, topic, profile and member list.
+
 ## Next slices
 2. A weight per kind of reaction on the leaderboard, if the owner wants some to count for more.
 3. One address for a member's profile — **done**: `/u/<username>`; the old forum address redirects there, every forum link names it directly (2026-10-26), and it hands back to the forum page while social profiles are off.

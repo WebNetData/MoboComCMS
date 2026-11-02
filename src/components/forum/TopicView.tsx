@@ -9,10 +9,11 @@ import Composer, { type ComposerCategory } from '@/components/forum/Composer'
 import { CookedWithPolls, type PollData } from '@/components/forum/Poll'
 import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
-import { FORUM_RANK_LABELS, TRUST_NAMES, type ForumRank } from '@/modules/forum/domain/community'
+import { FORUM_RANK_LABELS, type ForumRank } from '@/modules/forum/domain/community'
+import { MemberBoxes } from '@/components/forum/shared'
 import { profileAddress } from '@/modules/identity/domain/profile-address'
 
-type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; likes: number; level: { name: string; icon: string; color: string } | null; badges: { name: string; icon: string; tier: string }[]; joinedAt?: string | Date; rank?: ForumRank; siteRole?: string; flair: { icon: string; color: string; name: string } | null }
+type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; likes: number; level: { name: string; icon: string; color: string } | null; group: { name: string; color: string } | null; badges: { name: string; icon: string; tier: string }[]; joinedAt?: string | Date; rank?: ForumRank; siteRole?: string; flair: { icon: string; color: string; name: string } | null }
 /** «مهر ۱۴۰۵»: month then year, built from parts because runtimes order the Persian date differently. */
 function joinedLabel(value: string | Date) {
   const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', timeZone: 'Asia/Tehran' }).formatToParts(new Date(value))
@@ -334,12 +335,8 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
                 <Link href={profileAddress(post.author.username)} className="fx-author-name">{post.author.name}{post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}</Link>
                 {post.author.siteRole && <span className="tp-rank is-admin">{post.author.siteRole}</span>}
                 {post.author.rank && <span className={`tp-rank is-${post.author.rank}`}>{FORUM_RANK_LABELS[post.author.rank]}</span>}
-                {/* The level their activity earned (forum settings → levels). */}
-                {post.author.level && <span className="ax-level">{post.author.level.icon && <i aria-hidden="true">{post.author.level.icon}</i>}{post.author.level.name}</span>}
-                {post.author.flair
-                  ? <span className="fx-author-group" style={{ ['--group' as string]: post.author.flair.color }}>{post.author.flair.icon && <span aria-hidden="true">{post.author.flair.icon}</span>}{post.author.flair.name}</span>
-                  : <span className="fx-author-group">{TRUST_NAMES[post.author.trustLevel] || TRUST_NAMES[0]}</span>}
-                {post.author.title && post.author.title !== (post.author.flair?.name || TRUST_NAMES[post.author.trustLevel]) && <span className="fx-author-title">{post.author.title}</span>}
+                <MemberBoxes author={post.author} />
+                {post.author.title && <span className="fx-author-title">{post.author.title}</span>}
                 {post.author.id === thread.userId && <span className="tp-op">نویسندهٔ موضوع</span>}
                 <dl className="fx-author-stats">
                   <div><dt>پیام</dt><dd>{fa(post.author.posts)}</dd></div>
