@@ -6,7 +6,7 @@ Applies whenever frontend design or React behavior changes. Existing MoboCom vis
 
 Supporting design/React/a11y skills follow [engineering skill routing](ENGINEERING_SKILLS.md). Select only the relevant task skill; its generic palette, primitive, package or workflow preferences do not replace this document or protected MoboCom visuals.
 
-1. Inspect the current page, semantic tokens and shared controls; capture a baseline before changing a protected surface.
+1. Apply the installed `unslop` skill by default for requested UI design, styling or refinement, under the integration rules above. Inspect the current page, semantic tokens and shared controls; capture a baseline before changing a protected surface.
 2. Use [Figma SDS](https://github.com/figma/sds) for Variables/Styles, tokens, primitives, compositions and design/code mapping. Extend existing MoboCom components and identity; do not import the SDS demo wholesale or invent a competing component library.
 3. Define loading, empty, error, success, disabled, selected and permission states. Use semantic surface/text/border/focus tokens in both themes, including embedded editor controls. Avoid fixed white backgrounds that bypass theme tokens.
 4. Use existing Storybook coverage for new reusable component states where available. Code Connect is appropriate only for real maintained Figma/component mappings; never invent Figma IDs or claim a connection was published.

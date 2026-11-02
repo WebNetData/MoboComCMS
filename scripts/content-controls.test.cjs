@@ -719,6 +719,42 @@ function load(file, mocks = {}, cache = new Map()) {
   return mod.exports
 }
 
+test('homepage discovery preserves configured copy and hides closed destinations even with stale public data', () => {
+  const React = require('react'), { renderToStaticMarkup } = require('react-dom/server')
+  const { default: HomeHero } = load('src/themes/code/mobocom/home/hero.tsx', {
+    '@/platform/routing/Link': ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children),
+    '@/themes/sdk/server': { themeImage: image => image, themeImageSet: () => undefined },
+    '@/themes/sdk/client': { ThemeLiveSearch: () => React.createElement('input', { name: 'q', 'aria-label': 'Search' }) },
+  })
+  const local = fa => ({ fa, en: fa })
+  const section = { id: 'owner-hero', kind: 'hero', enabled: true, title: local('عنوان مدیر\nخط دوم'), eyebrow: local('سرصفحه'), description: local('توضیحات مدیر'), action: { href: '/products', label: local('فروشگاه') }, items: [] }
+  const site = { sections: [{ kind: 'services', enabled: true, items: [{ href: '/cinema', title: local('سینما') }, { href: '/prompts', title: local('پرامپت‌ها') }] }] }
+  const data = { disabledPaths: ['/cinema', '/vip', '/products'], stats: [{ key: 'cinema', value: 99, href: '/cinema', label: 'محرمانه' }], showcase: [
+    { kind: 'cinema', href: '/cinema/closed', title: 'CLOSED TITLE', image: '/closed.webp', cover: '', meta: '' },
+    { kind: 'music', href: '/music/album/public', title: 'PUBLIC ALBUM', cover: '/public.webp', meta: 'Artist' },
+  ] }
+  const html = renderToStaticMarkup(React.createElement(HomeHero, { section, site, data, locale: 'fa' }))
+  assert.match(html, /عنوان مدیر/); assert.match(html, /توضیحات مدیر/)
+  assert.match(html, /PUBLIC ALBUM/); assert.match(html, /href="\/prompts"/)
+  assert.doesNotMatch(html, /CLOSED TITLE|closed.webp|href="\/cinema|href="\/vip|href="\/products|محرمانه/)
+  const empty = renderToStaticMarkup(React.createElement(HomeHero, { section, site, data: { ...data, showcase: [], stats: [], disabledPaths: ['/search', '/vip', '/products', '/cinema'] }, locale: 'fa' }))
+  assert.match(empty, /عنوان مدیر/)
+  assert.match(empty, /is-text-only/, 'the original Universe layout supports an empty catalogue')
+  assert.doesNotMatch(empty, /<form|\/public.webp|\/closed.webp|muv-feature-art/)
+})
+
+test('homepage service directory composes configured destinations without reopening hidden modules or duplicating cards', () => {
+  const { discoveryLinks } = load('src/themes/code/mobocom/home/discovery.ts')
+  const text = fa => ({ fa, en: fa })
+  const site = { sections: [{ enabled: true, kind: 'services', items: [{ href: '/music', title: text('موزیک'), text: text('آهنگ'), icon: '' }] }], navigation: [
+    { href: '/music', label: text('Duplicate') }, { href: '/celebrities', label: text('هنرمندان') },
+    { href: '/businesses', label: text('Hidden'), enabled: false }, { href: '/prompts', label: text('Closed') },
+  ] }
+  const links = discoveryLinks(site, { disabledPaths: ['/prompts'], stats: [] }, 'fa')
+  assert.deepEqual(links.map(item => item.href), ['/music', '/celebrities'])
+  assert.equal(links[0].icon, '', 'an explicitly removed icon stays removed')
+})
+
 test('cover URLs accept local/remote images and reject executable or malformed input', () => {
   const { validateCover } = load('src/shared/content/cover.ts')
   for (const value of ['', '/api/media/covers/test.webp', 'https://example.org/cover.jpg']) assert.equal(validateCover(value), value)
