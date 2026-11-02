@@ -49,7 +49,7 @@ export default async function ComparePage({ searchParams }: Props) {
                       <th key={item.key} scope="col">
                         <div className="cmp-head">
                           <RemoveColumn itemKey={item.key} keys={keys} />
-                          <Link href={item.url} className="cmp-thumb">{item.image ? <img src={item.image} alt="" /> : <span aria-hidden="true">{item.title.slice(0, 1)}</span>}</Link>
+                          <Link href={item.url} className="cmp-thumb" tabIndex={-1} aria-hidden="true">{item.image ? <img src={item.image} alt="" /> : <span aria-hidden="true">{item.title.slice(0, 1)}</span>}</Link>
                           <Link href={item.url} className="cmp-title"><bdi>{item.title}</bdi></Link>
                           {item.subtitle && <small>{item.subtitle}</small>}
                           {item.access === 'MEMBERS' && <span className="vip-chip is-small">♛ VIP</span>}

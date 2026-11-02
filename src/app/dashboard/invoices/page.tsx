@@ -34,6 +34,7 @@ export default function CustomerInvoicesPage() {
   const [failed, setFailed] = useState(false)
   const [status, setStatus] = useState('')
   const [shown, setShown] = useState(PAGE)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   // A link may ask for one status (?status=UNPAID, from the account home).
   useEffect(() => { const wanted = new URLSearchParams(window.location.search).get('status') || ''; if (FILTERS.some(([id]) => id === wanted)) setStatus(wanted) }, [])
@@ -50,7 +51,7 @@ export default function CustomerInvoicesPage() {
       .catch(() => { if (live) setFailed(true) })
       .finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [])
+  }, [loadAttempt])
 
   const counts = useMemo(() => rows.reduce<Record<string, number>>((acc, row) => { acc[row.status] = (acc[row.status] || 0) + 1; return acc }, {}), [rows])
   const filtered = status ? rows.filter((row) => row.status === status) : rows
@@ -79,8 +80,8 @@ export default function CustomerInvoicesPage() {
       {FILTERS.map(([id, label]) => <button key={id || 'all'} type="button" aria-pressed={status === id} className={status === id ? 'is-on' : ''} onClick={() => pick(id)}>{label}{id && counts[id] ? <i>{fa(counts[id])}</i> : null}</button>)}
     </nav>
 
-    {loading ? <div className="dt-skeleton" aria-busy="true"><i /><i /><i /></div>
-      : failed ? <div className="dt-empty is-bad" role="alert"><Icon name="receipt" size={28} /><b>فهرست فاکتورها دریافت نشد</b><span>اتصال را بررسی کنید و صفحه را دوباره باز کنید.</span></div>
+    {loading ? <div className="dt-skeleton" role="status" aria-label="در حال دریافت فاکتورها" aria-busy="true"><i /><i /><i /></div>
+      : failed ? <div className="dt-empty is-bad" role="alert"><Icon name="receipt" size={28} /><b>فهرست فاکتورها دریافت نشد</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setFailed(false); setLoading(true); setLoadAttempt(attempt => attempt + 1) }}>تلاش دوباره</button></div>
       : !filtered.length ? <div className="dt-empty"><Icon name="receipt" size={30} /><b>{status ? 'فاکتوری با این وضعیت ندارید' : 'هنوز فاکتوری ندارید'}</b><span>{status === 'UNPAID' ? 'همهٔ فاکتورهایتان پرداخت شده‌اند.' : 'فاکتور هر خرید یا شارژ کیف پول این‌جا می‌آید.'}</span></div>
       : <>
         <ul className="dt-list">{filtered.slice(0, shown).map((invoice) => {

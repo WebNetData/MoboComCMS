@@ -18,5 +18,5 @@ export default async function FormPage({ params: paramsPromise }: { params: Prom
   const params = await paramsPromise
   const found = await publicFormBySlug(params.slug)
   if (!found) notFound()
-  return <><SiteHeader theme={await getServerTheme()}/><main className="container section"><PublicForm form={publicForm(found.form)} state={found.state}/></main><SiteFooter/></>
+  return <><SiteHeader theme={await getServerTheme()}/><main className="container section"><PublicForm form={publicForm(found.form)} state={found.state} headingLevel={1}/></main><SiteFooter/></>
 }

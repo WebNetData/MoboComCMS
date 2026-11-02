@@ -3,6 +3,13 @@
    Loaded after application-polish.css, whose .auth-* rules it refines. */
 
 .auth-page { position: relative; isolation: isolate; overflow: hidden; display: grid; align-items: center; padding: clamp(24px, 4vw, 56px) 20px clamp(40px, 6vw, 72px); }
+.auth-loading { display: grid; place-items: center; padding: 32px 20px; color: var(--text); }
+.auth-loading-card { display: grid; justify-items: center; gap: 20px; width: min(420px, 100%); padding: 32px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); }
+.auth-loading-icon { display: grid; place-items: center; width: 64px; height: 64px; border: 1px solid var(--border); border-radius: 16px; color: var(--accent-ink, var(--primary)); background: var(--bg-soft); }
+.auth-loading-card p { margin: 0; color: var(--muted); font-size: .875rem; }
+.auth-loading-bars { display: grid; gap: 12px; width: 100%; }
+.auth-loading-bars i { display: block; height: 44px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); }
+.auth-loading-bars i:last-child { width: 65%; height: 16px; margin: 4px auto 0; }
 
 /* The aurora: three soft lights drifting behind the card. */
 .auth-aurora { position: absolute; inset: 0; z-index: -1; pointer-events: none; background:

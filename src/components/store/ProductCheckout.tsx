@@ -101,7 +101,7 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
             {addresses && addresses.length > 0 && <button type="button" className="sh-link" aria-expanded={chooser} aria-controls="sh-address-list" onClick={() => setChooser((open) => !open)}>{chooser ? 'بستن' : 'تغییر یا ویرایش آدرس'}</button>}
           </header>
           {addressError && <p className="sh-notice is-error" role="alert">{addressError}</p>}
-          {addresses === null ? <div className="sh-skeleton" aria-busy="true" aria-label="در حال بارگذاری آدرس‌ها" /> : addresses.length === 0 ? <div className="sh-empty is-compact">
+          {addresses === null ? <div className="sh-skeleton" role="status" aria-busy="true" aria-label="در حال بارگذاری آدرس‌ها" /> : addresses.length === 0 ? <div className="sh-empty is-compact">
             <p>برای ارسال این کالا یک آدرس ثبت کنید. آدرس در <Link href="/dashboard/addresses">آدرس‌های من</Link> ذخیره می‌شود و دفعهٔ بعد فقط انتخابش می‌کنید.</p>
             <button type="button" className="sh-btn sh-btn-primary" onClick={() => setDialog({ open: true, edit: null })}>+ افزودن آدرس</button>
           </div> : !chooser && address ? <div className="sh-selected-address">

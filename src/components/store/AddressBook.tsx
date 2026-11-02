@@ -163,7 +163,7 @@ export default function AddressBook() {
     </header>
     {notice && <p className={`sh-notice${notice.error ? ' is-error' : ''}`} role="status">{notice.text}</p>}
     {error && <p className="sh-notice is-error" role="alert">{error}</p>}
-    {addresses === null ? <div className="sh-skeleton" aria-busy="true" aria-label="در حال بارگذاری" /> : addresses.length === 0 ? <div className="sh-empty">
+    {addresses === null ? <div className="sh-skeleton" role="status" aria-busy="true" aria-label="در حال بارگذاری" /> : addresses.length === 0 ? <div className="sh-empty">
       <span className="sh-empty-icon" aria-hidden="true">⌖</span>
       <h2>هنوز آدرسی ثبت نکرده‌اید</h2>
       <p>برای خرید محصولات فیزیکی، نشانی دقیق، کد پستی و شمارهٔ تماس گیرنده را یک بار اینجا ثبت کنید.</p>

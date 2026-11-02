@@ -3,6 +3,7 @@ import Link from '@/components/AppLink'
 import SiteHeader from '@/components/SiteHeader'
 import LoginForm from './LoginForm'
 import AuthFrame from './AuthFrame'
+import AuthLoading from './AuthLoading'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
 import TelegramLoginButton from './TelegramLoginButton'
@@ -19,7 +20,7 @@ export default async function LoginPage({ searchParams: searchParamsPromise }: {
 
 function LoginInner({ nextPath }: { nextPath: string }) {
   return (
-    <Suspense fallback={<div className="auth-loading" aria-busy="true" />}>
+    <Suspense fallback={<AuthLoading />}>
       <LoginContent nextPath={nextPath} />
     </Suspense>
   )

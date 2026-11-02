@@ -78,48 +78,30 @@
 .ss-foot .btn { margin-inline-start: auto; }
 @media (max-width: 760px) { .ss-trigger-label, .ss-trigger kbd { display: none; } .ss-trigger { width: 42px; padding: 0; justify-content: center; } .ss-dialog { margin-top: 12px; } }
 
-/* ---------------- search, favorites, compare pages ---------------- */
-.sr-page, .fv-page, .cmp-page, .cr-page { padding-block: 28px 56px; }
-.sr-head { margin-block-end: 18px; }
-.sr-head h1 { font-size: clamp(1.4rem, 2.6vw, 2rem); margin: 0 0 12px; }
-.sr-head p { margin: 0; line-height: 1.9; }
-.sr-form { display: flex; gap: 8px; max-width: 720px; }
-.sr-form .input { flex: 1; min-width: 0; min-height: 48px; font-size: 16px; }
-.sr-page .btn-primary { color: var(--sds-color-white-1000, #fff); background: color-mix(in srgb, var(--primary) 45%, var(--sds-color-black-1000, #000)); }
-.sr-advanced { margin-block: 1.25rem; }
-.sr-advanced fieldset { min-width: 0; padding: 1rem 1.25rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); }
-.sr-advanced legend { padding-inline: .5rem; font-weight: 700; }
-.sr-advanced-fields { display: flex; flex-wrap: wrap; align-items: end; gap: .85rem; }
-.sr-advanced label { display: flex; flex: 1 1 11rem; min-width: 0; flex-direction: column; gap: .5rem; font-size: .85rem; }
-.sr-advanced select { width: 100%; min-height: 44px; padding: .6rem .8rem; color: var(--text); background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius); font: inherit; }
-.sr-advanced select:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
-.sr-advanced p { margin-block: .8rem 0; font-size: .8rem; }
-@media (max-width: 480px) { .sr-advanced-fields > .btn { width: 100%; } }
-.sr-tabs { display: flex; gap: 6px; overflow-x: auto; padding-block-end: 4px; margin-block: 8px 18px; scrollbar-width: thin; }
-.sr-tabs a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--en-line); border-radius: 999px; white-space: nowrap; color: var(--en-text); font-size: 14px; text-decoration: none; }
-.sr-tabs a span { font-size: 12px; color: var(--en-muted); }
-.sr-tabs a.is-active { background: var(--en-text); border-color: var(--en-text); color: var(--en-card); }
-.sr-tabs a.is-active span { color: inherit; opacity: .75; }
-.sr-list { list-style: none; margin: 0; padding: 0; display: grid; }
-.sr-item { display: flex; gap: 16px; padding: 14px 4px; border-block-end: 1px solid var(--en-line); }
-.sr-thumb { width: 76px; height: 76px; flex-shrink: 0; border-radius: 12px; overflow: hidden; background: var(--en-soft); display: grid; place-items: center; font-size: 28px; }
-.sr-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.sr-body { min-width: 0; display: grid; align-content: start; gap: 3px; }
-.sr-type { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--en-accent); }
-.sr-body h2 { font-size: 1.05rem; margin: 0; line-height: 1.6; }
-.sr-body h2 a { color: var(--en-text); text-decoration: none; }
-.sr-body h2 a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.sr-body mark { background: color-mix(in srgb, var(--en-star) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
-.sr-sub { margin: 0; font-size: 13px; color: var(--en-muted); }
-.sr-snippet { margin: 2px 0 0; font-size: 13.5px; line-height: 1.9; color: color-mix(in srgb, var(--en-text) 78%, var(--en-muted)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.sr-empty { text-align: center; padding: 48px 16px; display: grid; justify-items: center; gap: 8px; }
-.sr-empty > span { font-size: 44px; }
-.sr-empty h2 { font-size: 1.2rem; margin: 0; }
-.sr-empty p { max-width: 560px; line-height: 1.9; }
-.sr-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 6px; }
-.sr-chips a { padding: 6px 14px; border-radius: 999px; background: var(--en-soft); color: var(--en-text); font-size: 14px; text-decoration: none; }
-.sr-chips a:hover { background: color-mix(in srgb, var(--en-accent) 12%, transparent); }
-.sr-pager { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 24px; font-size: 14px; }
+/* Search presentation: components/search/SearchPage.module.css.
+   Favorites/Compare/Copyright retain legacy sr-* markup; keep their shared
+   utility presentation here, scoped independently of the search page. */
+/* ---------------- favorites, compare pages ---------------- */
+.fv-page, .cmp-page, .cr-page { padding-block: 28px 56px; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-head { padding: 28px; margin-block-end: 24px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); }
+:is(.fv-page, .cmp-page, .cr-page) .sr-head h1 { margin: 0 0 12px; font-size: clamp(1.5rem, 2.5vw, 2.25rem); line-height: 1.7; text-wrap: balance; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-head p { margin: 16px 0 0; line-height: 1.9; color: var(--muted); }
+:is(.fv-page, .cmp-page, .cr-page) :is(.sr-chips, .sr-tabs) { display: flex; flex-wrap: wrap; gap: 8px; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-tabs { margin-block-end: 20px; }
+:is(.fv-page, .cmp-page, .cr-page) :is(.sr-chips, .sr-tabs) a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); color: var(--text); text-decoration: none; font-size: .8125rem; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-tabs a span { color: var(--muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+:is(.fv-page, .cmp-page, .cr-page) :is(.sr-chips, .sr-tabs) a:hover { border-color: var(--accent-ink, var(--primary)); color: var(--accent-ink, var(--primary)); }
+:is(.fv-page, .cmp-page, .cr-page) .sr-tabs a.is-active { border-color: var(--accent-ink, var(--primary)); background: var(--card); color: var(--accent-ink, var(--primary)); box-shadow: inset 0 -2px var(--accent-ink, var(--primary)); }
+:is(.fv-page, .cmp-page, .cr-page) .sr-tabs a.is-active span { color: inherit; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-type { color: var(--accent-ink, var(--primary)); font-size: .75rem; font-weight: 600; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-sub { margin: 4px 0; color: var(--muted); font-size: .8125rem; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-empty { display: grid; justify-items: center; gap: 16px; padding: 40px 24px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); text-align: center; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-empty > span { display: grid; place-items: center; width: 72px; height: 72px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg-soft); color: var(--accent-ink, var(--primary)); font-size: 36px; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-empty h2 { margin: 0; font-size: 1.25rem; line-height: 1.8; font-weight: 600; text-wrap: balance; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-empty p { margin: 0; max-width: 68ch; color: var(--muted); font-size: .875rem; line-height: 2; text-wrap: pretty; }
+:is(.fv-page, .cmp-page, .cr-page) .sr-empty .sr-chips { justify-content: center; margin-block-start: 8px; }
+:is(.fv-page, .cmp-page, .cr-page) :is(a, button, input):focus-visible { outline: 2px solid var(--accent-ink, var(--primary)); outline-offset: 4px; }
+@media (max-width: 640px) { :is(.fv-page, .cmp-page, .cr-page) :is(.sr-head, .sr-empty) { padding: 24px 20px; } }
 
 .fv-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .fv-card { display: flex; gap: 14px; padding: 14px; border: 1px solid var(--en-line); border-radius: var(--en-radius); background: var(--en-card); }

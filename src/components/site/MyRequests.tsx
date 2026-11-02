@@ -28,14 +28,24 @@ export default function MyRequests() {
   const [payError, setPayError] = useState<{ id: number; code: string; message: string; needed: number; currency?: string } | null>(null)
   const [filter, setFilter] = useState('')
   const [shown, setShown] = useState(PAGE)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const counts = useMemo(() => (rows || []).reduce<Record<string, number>>((acc, row) => { const group = groupOf(row); acc[group] = (acc[group] || 0) + 1; return acc }, {}), [rows])
   const visible = (rows || []).filter((row) => !filter || groupOf(row) === filter)
   useEffect(() => {
-    fetch('/api/me/requests', { cache: 'no-store' }).then(async (response) => {
+    const controller = new AbortController()
+    fetch('/api/me/requests', { cache: 'no-store', signal: controller.signal }).then(async (response) => {
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        if (!controller.signal.aborted) setError(body?.error || 'درخواست‌ها دریافت نشدند')
+        return
+      }
       const body = await response.json().catch(() => null)
-      if (response.ok) setRows(body?.requests || []); else setError(body?.error || 'بارگذاری نشد')
-    }).catch(() => setError('ارتباط برقرار نشد'))
-  }, [])
+      if (controller.signal.aborted) return
+      if (Array.isArray(body?.requests)) setRows(body.requests)
+      else setError('درخواست‌ها دریافت نشدند')
+    }).catch(() => { if (!controller.signal.aborted) setError('ارتباط برقرار نشد') })
+    return () => controller.abort()
+  }, [loadAttempt])
 
   async function pay(row: Request) {
     setPaying(row.id); setPayError(null)
@@ -54,8 +64,8 @@ export default function MyRequests() {
 
   return <div className="rq-page dt-page">
     <header className="dt-head"><div><h1>درخواست‌های من</h1><p>فرم‌هایی که فرستاده‌اید، وضعیت انجام کار و پیام‌های کارشناس.</p></div></header>
-    {error && <div className="dt-empty is-bad" role="alert"><b>{error}</b><span>صفحه را دوباره باز کنید.</span></div>}
-    {!rows && !error && <div className="dt-skeleton" aria-busy="true"><i /><i /><i /></div>}
+    {error && <div className="dt-empty is-bad" role="alert"><b>{error}</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setError(''); setRows(null); setLoadAttempt(attempt => attempt + 1) }}>تلاش دوباره</button></div>}
+    {!rows && !error && <div className="dt-skeleton" role="status" aria-label="در حال دریافت درخواست‌ها" aria-busy="true"><i /><i /><i /></div>}
     {rows && !rows.length && <div className="dt-empty"><b>هنوز درخواستی نفرستاده‌اید</b><span>درخواست‌هایی که با فرم‌های سایت می‌فرستید، با وضعیت و پاسخ کارشناس این‌جا می‌آیند.</span></div>}
     {rows && rows.length > 0 && <nav className="dt-chips" aria-label="وضعیت درخواست">{FILTERS.map(([id, label]) => (!id || counts[id]) ? <button key={id || 'all'} type="button" aria-pressed={filter === id} className={filter === id ? 'is-on' : ''} onClick={() => { setFilter(id); setShown(PAGE) }}>{label}<i>{fa(id ? counts[id] || 0 : rows.length)}</i></button> : null)}</nav>}
     {rows && rows.length > 0 && <div className="rq-list">

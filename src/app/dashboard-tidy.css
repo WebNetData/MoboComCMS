@@ -171,3 +171,21 @@ html[data-theme="dark"] .sx-svc-state.is-ok { color: #6ee7b7; }
 html[data-theme="dark"] .dt-state.is-info { color: #c4b5fd; }
 html[data-theme="dark"] :is(.dt-tx-end b.is-in, .dt-tx-icon.is-in) { color: #6ee7b7; }
 html[data-theme="dark"] :is(.dt-tx-end b.is-out, .dt-tx-icon.is-out) { color: #fca5a5; }
+
+/* Account utility pages: readable links and consistent recovery/empty surfaces. */
+.user-shell .app-main { --sh-muted: var(--muted); }
+.user-shell .app-main :is(.sx-link:not(.is-danger), .text-link, .dt-more, .dt-row-title:hover, a[aria-current="page"]) { color: var(--accent-ink, var(--primary)); }
+.user-shell .app-main .text-link { text-decoration: underline; text-underline-offset: 4px; }
+.user-shell .app-main :is(.dt-quick button.is-on, .dt-chips button.is-on, button.is-active) { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
+.user-shell .app-main :is(.dt-empty, .sx-empty, .sh-empty, .gv-mylib-empty) { min-height: 200px; padding: clamp(28px, 4vw, 48px) 24px; gap: 12px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); }
+.user-shell .app-main .dt-empty.is-bad { border-inline-start: 3px solid var(--danger, #dc2626); }
+.user-shell .app-main :is(.dt-empty > b, .sx-empty > b, .sh-empty h2) { font-size: 1.0625rem; font-weight: 600; line-height: 1.8; text-wrap: balance; }
+.user-shell .app-main :is(.sx-empty, .sh-empty) > svg { width: 64px; height: 64px; padding: 16px; border: 1px solid var(--border); border-radius: 16px; color: var(--accent-ink, var(--primary)); background: var(--bg-soft); }
+.user-shell .app-main :is(.dt-empty, .sx-empty, .sh-empty) :is(.btn, button, a) { min-height: 44px; }
+.user-shell .app-main :is(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid var(--accent-ink, var(--primary)); outline-offset: 3px; }
+html[data-design] .app-shell.user-shell .ws-items .side-link.ws-item.side-link-active,
+html[data-design] .app-shell.user-shell .side-link-active.ws-flat { color: var(--accent-ink, var(--primary)); background: var(--card); }
+.user-shell .side-link-active.ws-flat .ws-tile { color: var(--on-primary); }
+.user-shell .app-main :is(.gv-mylib-head p, .gv-mylib-tabs a, .gv-mylib-empty p) { color: var(--muted); }
+.user-shell .app-main :is(.gv-mylib-tabs a.is-on, .gv-mylib-tabs a.is-active, .ticket-eyebrow) { color: var(--accent-ink, var(--primary)); }
+.user-shell .ud a.btn-primary { color: var(--on-primary); }

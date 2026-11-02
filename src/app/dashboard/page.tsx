@@ -51,7 +51,7 @@ function ActivityGrid({ days, counts }: { days: string[]; counts: number[] }) {
   const cells: (number | null)[] = [...Array(offset).fill(null), ...counts.map((_, i) => i)]
   return <section className="ud-card ud-activity" aria-labelledby="ud-activity-title">
     <header className="ud-card-head"><h2 id="ud-activity-title">فعالیت ۱۲ هفتهٔ اخیر</h2><small aria-live="polite">{focus !== null ? `${persianDay(days[focus])}: ${fa(counts[focus])} فعالیت` : `${fa(total)} فعالیت`}</small></header>
-    <div className="ud-grid" role="grid" aria-label="تقویم فعالیت">{cells.map((index, i) => index === null ? <span key={`x${i}`} className="ud-cell is-empty" aria-hidden="true" /> : <span key={days[index]} role="gridcell" tabIndex={0} className={`ud-cell l${level(counts[index])}`} aria-label={`${persianDay(days[index])}: ${fa(counts[index])} فعالیت`} onMouseEnter={() => setFocus(index)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(index)} onBlur={() => setFocus(null)} />)}</div>
+    <ul className="ud-grid" aria-label="تقویم فعالیت">{cells.map((index, i) => index === null ? <li key={`x${i}`} className="ud-cell is-empty" aria-hidden="true" /> : <li key={days[index]} tabIndex={0} className={`ud-cell l${level(counts[index])}`} aria-label={`${persianDay(days[index])}: ${fa(counts[index])} فعالیت`} onMouseEnter={() => setFocus(index)} onMouseLeave={() => setFocus(null)} onFocus={() => setFocus(index)} onBlur={() => setFocus(null)} />)}</ul>
     <footer className="ud-legend"><span>کمتر</span>{[0, 1, 2, 3, 4].map((l) => <span key={l} className={`ud-cell l${l}`} aria-hidden="true" />)}<span>بیشتر</span><small>پست، دیدگاه، پیام تالار، نقد و سفارش</small></footer>
   </section>
 }
