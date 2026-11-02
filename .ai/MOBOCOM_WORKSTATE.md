@@ -1,6 +1,8 @@
 # MoboCom Work State
 
-Current2026-11-02 Announcement popups: `feat/announcement-popups-2026-11-02` from owner-merged PR304/main `ad40fa78`. New `popups` module with `/admin/popups`, chosen audience, repeat and total, four designs, five effects, three positions and a live preview. Migration `20270205120000_site_popups` is additive. The window's code and styles load only when a popup is shown. The preview needed its Turbopack cache cleared after the schema change.
+Current2026-11-02 Site user groups: `fix/popup-site-groups-2026-11-02` from owner-merged PR305/main `e9e234c6`. The owner corrected the popup audience: groups are the whole site's, not the forum's. New composed `account/*/site-groups.ts`; stored forum ids move to keys through migration `20270206120000_popup_site_groups`.
+
+Delivery2026-11-02 Announcement popups: `feat/announcement-popups-2026-11-02` from owner-merged PR304/main `ad40fa78`. New `popups` module with `/admin/popups`, chosen audience, repeat and total, four designs, five effects, three positions and a live preview. Migration `20270205120000_site_popups` is additive. The window's code and styles load only when a popup is shown. The preview needed its Turbopack cache cleared after the schema change.
 
 Delivery2026-11-02 Final release review: `fix/launch-final-review-2026-11-02` from owner-merged PR303/main `cbdd55ec`. [Evidence table](../docs/agent/LAUNCH_READINESS.md). Member path, purchase path, ten section managers, phone speed, load and SEO were run on the compiled release. Fixed: share cards, canonical and `og:url` claiming the home page, sitemap redirects, `/login` indexing, heavy site images, raw banners, the placeholder support email on invoices, a missing privacy starter, and a load test that bypassed the guest cache. Waiting on the owner: turn on the guest cache, enter contact details, review legal text, remove sample content, and name the target host.
 

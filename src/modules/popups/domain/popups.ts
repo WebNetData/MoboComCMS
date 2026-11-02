@@ -1,4 +1,5 @@
 // Announcement popups: what a popup says and looks like, who sees it, and how often. Pure, shared by the server and the browser.
+import { isSiteGroupKey } from '@/modules/account/domain/site-groups'
 
 export const POPUP_KINDS = [
   { id: 'NOTICE', label: 'اطلاعیه', icon: 'bell' },
@@ -49,7 +50,7 @@ export type PopupInput = {
   title: string; body: string; kind: string; design: string; effect: string; position: string; image: string
   actionLabel: string; actionUrl: string; closeLabel: string; mustConfirm: boolean
   status: PopupStatus; startsAt: Date | null; endsAt: Date | null
-  audience: PopupAudience; groupIds: number[]; sections: string[]
+  audience: PopupAudience; groupIds: string[]; sections: string[]
   repeatHours: number; maxViews: number; delaySeconds: number; pages: string; priority: number
 }
 
@@ -59,8 +60,8 @@ export type PopupFace = Pick<PopupInput, 'title' | 'body' | 'kind' | 'design' | 
 /** What the browser needs to place and repeat a popup. Audience is decided on the server and never sent. */
 export type ServedPopup = PopupFace & { id: number; revision: number; repeatHours: number; maxViews: number; delaySeconds: number; pages: string; audience: PopupAudience }
 
-export type PopupViewer = { signedIn: boolean; staff: boolean; sections: readonly string[]; groupIds: readonly number[] }
-export type PopupRule = { audience: string; groupIds: readonly number[]; sections: readonly string[] }
+export type PopupViewer = { signedIn: boolean; staff: boolean; sections: readonly string[]; groupIds: readonly string[] }
+export type PopupRule = { audience: string; groupIds: readonly string[]; sections: readonly string[] }
 export type PopupSeen = { views: number; lastAt: number }
 
 export class PopupError extends Error {}
@@ -91,7 +92,7 @@ export function normalizePopup(raw: Record<string, unknown>, sectionIds: readonl
   if (title.length < 2) throw new PopupError('عنوان را بنویسید')
   const body = String(raw.body ?? '').replace(/\r\n/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ').trim().slice(0, 1200)
   const audience = oneOf(raw.audience, POPUP_AUDIENCES, 'ALL') as PopupAudience
-  const groupIds = audience === 'GROUPS' ? [...new Set((Array.isArray(raw.groupIds) ? raw.groupIds : []).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))] : []
+  const groupIds = audience === 'GROUPS' ? [...new Set((Array.isArray(raw.groupIds) ? raw.groupIds : []).filter(isSiteGroupKey))] : []
   const sections = audience === 'SECTION_MANAGERS' ? [...new Set((Array.isArray(raw.sections) ? raw.sections : []).map(String).filter((id) => sectionIds.includes(id)))] : []
   if (audience === 'GROUPS' && !groupIds.length) throw new PopupError('دست‌کم یک گروه کاربری انتخاب کنید')
   if (audience === 'SECTION_MANAGERS' && !sections.length) throw new PopupError('دست‌کم یک بخش انتخاب کنید')
