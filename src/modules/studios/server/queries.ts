@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 
 type Enabled = { games: boolean; software: boolean }
-const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' })
 
 /** Public directory, with counts computed only from currently visible titles. */
 export async function studioDirectory(input: { q?: string; page?: number }, enabled: Enabled) {

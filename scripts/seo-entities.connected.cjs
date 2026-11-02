@@ -53,7 +53,8 @@ async function main() {
   const term = (name, count) => prisma.taxonomyTerm.create({ data: { taxonomy: 'cinema', slug: `${seed}-${name}`, name: `${seed} ${name}`, count } })
   const used = await term('used', 3), unused = await term('unused', 0)
   const paths = (await seo.entitySitemap()).map(entry => entry.path)
-  assert.deepEqual([`/studios/${studio.id}`, `/cinema/people/${known.id}`, `/collections/${shared.id}`, `/collections/${editorial.id}`, '/studios', '/cinema/people', '/collections'].map(value => has(paths, value)), [true, true, true, true, true, true, true])
+  // The directory /cinema/people redirects to /celebrities since the merged launch SEO cleanup.
+  assert.deepEqual([`/studios/${studio.id}`, `/cinema/people/${known.id}`, `/collections/${shared.id}`, `/collections/${editorial.id}`, '/studios', '/cinema/people', '/collections'].map(value => has(paths, value)), [true, true, true, true, true, false, true])
   assert.deepEqual([`/studios/${idle.id}`, `/studios/${drafts.id}`, `/cinema/people/${unknown.id}`, `/cinema/people/${nobody.id}`, `/collections/${priv.id}`, `/collections/${unlistedList.id}`, `/collections/${empty.id}`].map(value => has(paths, value)), [false, false, false, false, false, false, false], 'a studio or person with nothing published, a private or link-only collection, an empty collection')
   assert.deepEqual([paths.some(value => value.endsWith(`/${used.slug}`)), paths.some(value => value.endsWith(`/${unused.slug}`)), new Set(paths).size === paths.length], [true, false, true], 'a category page with something in it; every address once')
 

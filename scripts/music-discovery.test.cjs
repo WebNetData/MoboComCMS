@@ -68,6 +68,7 @@ test('detail hydration rechecks publication, keeps reason order and never expose
   const queries = load('src/modules/media/server/queries.ts', {
     // A song's credits and the music lists' names are read beside it; none here.
     '@/platform/database/prisma': { db: { musicCredit: { findMany: async () => [] }, vocabulary: { findMany: async () => [] }, musicTrack: {
+      findUnique: async () => ({ audienceGroups: '', album: null }),
       findFirst: async () => source,
       findMany: async ({ where }) => {
         if (where.albumId) return [{ ...source, id: 5 }]

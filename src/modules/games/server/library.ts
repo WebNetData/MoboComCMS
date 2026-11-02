@@ -4,7 +4,7 @@ import { toGame } from '@/modules/media/server/queries'
 
 // Members' game libraries (played / playing / want to play / dropped).
 
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 export type LibraryCounts = Record<LibraryStatus, number>
 
 const emptyCounts = (): LibraryCounts => Object.fromEntries(LIBRARY_STATUSES.map((status) => [status, 0])) as LibraryCounts

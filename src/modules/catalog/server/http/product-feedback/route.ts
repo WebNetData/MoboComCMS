@@ -5,16 +5,17 @@ import { requireUser } from '@/modules/identity/server/access'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { reviewScore } from '@/modules/catalog/domain/review-score'
-import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
 import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
+import { opensAudience } from '@/modules/account/server/item-audience'
 
 type Context = { params: Promise<{ slug: string }> }
 
 export async function POST(req: NextRequest, { params }: Context) {
   if (!await isStoreEnabled()) return err('not found', 404)
   const { slug } = await params
-  const product = await db.product.findUnique({ where: { slug }, select: { id: true, active: true, approval: true } })
-  if (!product || !isPublicProduct(product)) return err('not found', 404)
+  const product = await db.product.findUnique({ where: { slug }, select: { id: true, active: true, approval: true, audienceGroups: true } })
+  if (!product || !(isPublishedProduct(product) && await opensAudience(product.audienceGroups, 'product'))) return err('not found', 404)
   const input = await req.json().catch(() => null)
   const kind = input?.kind
   const body = String(input?.body || '').trim()

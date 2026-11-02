@@ -22,6 +22,34 @@ const { safeNext, authEntryHref } = load('src/modules/identity/domain/continuati
 const totp = load('src/shared/security/totp')
 const verify = load('src/shared/security/totp-verify')
 const seals = load('src/modules/site/config/trust-seals')
+const userGroups = load('src/modules/account/domain/user-groups')
+const audiences = load('src/modules/account/domain/item-audience')
+const sectionAudience = load('src/modules/account/domain/section-access')
+
+test('user groups validate bounded capabilities without accepting fractional or negative discounts', () => {
+  const group = userGroups.normalizeGroup({ name: 'گروه خریداران' })
+  assert.equal(group.discountPercent, 0)
+  for (const discountPercent of [-1, 91, 1.5, 'not-a-number']) assert.throws(() => userGroups.normalizeGroup({ name: 'مشتریان', discountPercent }))
+  assert.equal(userGroups.normalizeGroup({ name: 'مشتریان', color: 'url(bad)', active: false }).color, '#4b45ee')
+})
+
+test('group pricing chooses the cheapest regular, product, variant and percentage price without creating a free order', () => {
+  const deal = { percent: 20, prices: new Map([['1:0', 700n], ['1:3', 900n]]) }
+  assert.equal(userGroups.dealPrice(1000n, deal, 1, 3), 700n)
+  assert.equal(userGroups.dealPrice(600n, deal, 1, 3), 480n)
+  assert.equal(userGroups.dealPrice(1000n, { percent: 0, prices: new Map() }, 1, null), 1000n)
+  assert.equal(userGroups.dealPrice(1n, { percent: 90, prices: new Map() }, 1, null), 1n)
+})
+
+test('item audience writes reject malformed input rather than silently opening a limited item', () => {
+  assert.equal(audiences.storedAudience([]), '')
+  assert.equal(audiences.storedAudience(['group:2', 'vip', 'group:2']), '["group:2","vip"]')
+  for (const value of [null, {}, 'group:2', ['unknown'], ['group:2', 1]]) assert.throws(() => audiences.storedAudience(value))
+  assert.deepEqual(audiences.parseAudience('not-json'), [])
+  assert.equal(audiences.AUDIENCE_ITEMS.prompt.permission, 'prompts.manage')
+  assert.equal(sectionAudience.sectionOfApi('/api/music/track/1'), 'music')
+  assert.equal(sectionAudience.sectionOfApi('/api/music-other'), null)
+})
 
 test('account continuation preserves exact local paths and refuses external, malformed and looping destinations', () => {
   for (const value of ['/checkout/cart', '/products/example?option=1&name=%D8%A2#details', '/forum/topic/5', '/login-help', '/']) assert.equal(safeNext(value), value)
@@ -235,6 +263,8 @@ test('the magazine permission is named only where the magazine is guarded', () =
   // Each of these is the magazine itself (posts, their categories, comments, templates, newsletter, journal), the
   // or a list of "any content editor" that names every section (collections hold items of every section and take that list).
   assert.deepEqual(files.sort(), [
+    // The typed audience registry maps only posts to the Magazine permission; each other type has its own.
+    'src/modules/account/domain/item-audience.ts',
     'src/app/admin/layout.tsx', 'src/app/admin/roles/page.tsx',
     'src/modules/ai/server/http/admin.ts', 'src/modules/content/server/http/history.ts', 'src/modules/editor/server/documents.ts', 'src/modules/editor/server/document-validation.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/downloads/server/http/files.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/identity/rbac.ts', 'src/modules/journal/server/body-proposals.ts', 'src/modules/journal/server/http/routes.ts', 'src/modules/journal/server/review-bulk.ts', 'src/modules/journal/server/review.ts',
     'src/modules/mail/server/http/newsletter.ts', 'src/modules/moderation/domain/queue.ts', 'src/modules/paywall/server/http/paywall.ts', 'src/modules/site/server/builder.ts',

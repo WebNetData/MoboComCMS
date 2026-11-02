@@ -7,6 +7,7 @@ import type { EditableTemplate } from './admin-model'
 import ShowcaseFields from './ShowcaseFields'
 import PublicationPanel from './PublicationPanel'
 import s from './PromptMaster.module.css'
+import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
 export default function TemplateEditor({ initial, categories, done, cancel, canManage, reviewAuthors }: { initial: EditableTemplate; categories: { code: string; name: string }[]; done: () => void; cancel: () => void; canManage: boolean; reviewAuthors: boolean }) {
   const [form, setForm] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const heading = useRef<HTMLHeadingElement>(null)
@@ -36,6 +37,7 @@ export default function TemplateEditor({ initial, categories, done, cancel, canM
       <details className={s.advanced}><summary>مقادیر اولیهٔ استودیو</summary><div className={s.advancedBody}><div className={s.twoFields}><label className={s.field}>نقش اولیه<input value={defaults.role || ''} onChange={e => changeDefault('role', e.target.value)} maxLength={300} /></label><label className={s.field}>مخاطب اولیه<input value={defaults.audience || ''} onChange={e => changeDefault('audience', e.target.value)} maxLength={300} /></label><label className={s.field}>لحن اولیه<select value={defaults.tone || DEFAULT_INPUT.tone} onChange={e => changeDefault('tone', e.target.value)}>{TONES.map(t => <option key={t}>{t}</option>)}</select></label><label className={s.field}>قالب اولیه<select value={defaults.format || DEFAULT_INPUT.format} onChange={e => changeDefault('format', e.target.value)}>{FORMATS.map(f => <option key={f}>{f}</option>)}</select></label></div><label className={s.field}>سبک اولیه<input value={defaults.style || ''} onChange={e => changeDefault('style', e.target.value)} maxLength={300} /></label></div></details>
       </div><PublicationPanel form={form} initial={initial} canManage={canManage} reviewAuthors={reviewAuthors} blocked={blocked} change={change}/>
     </fieldset>
+    {canManage && <ItemAudiencePanel type="prompt" id={form.id || null} noun="این پرامپت را" />}
     <details className={s.advanced}><summary>پیش‌نمایش خروجی ساختاریافته</summary><pre className={s.previewText} dir="auto">{preview}</pre></details>
     {error && <div className={s.error} role="alert">{error}</div>}<div className={s.historyButtons}><button className={s.primary} disabled={busy || blocked} type="submit"><Icon name="check" size={17} />{busy ? 'در حال ذخیره…' : form.status==='PENDING'&&!canManage?'ذخیره و ارسال برای بازبینی':form.status==='PUBLISHED'?'ذخیره و انتشار':'ذخیرهٔ الگو'}</button><button type="button" className={s.secondary} onClick={close} disabled={busy}>بستن ویرایشگر</button></div>
   </form></section>

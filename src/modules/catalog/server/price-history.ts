@@ -13,7 +13,7 @@ export async function lockProductPricing(tx: PricingTransaction, productId: numb
 }
 
 async function publicProductPrices(tx: PricingTransaction, productId: number) {
-  const product = await tx.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, price: true, priceMinor: true, currency: true } })
+  const product = await tx.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, audienceGroups: true, price: true, priceMinor: true, currency: true } })
   const points = new Map<number, PriceObservation>()
   if (!product || !product.active || product.approval !== 'APPROVED') return points
   for (const point of publicPriceObservations(product, [])) points.set(point.variantId, point)

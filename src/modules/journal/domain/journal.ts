@@ -70,8 +70,10 @@ export const JOURNAL_HEALTH = {
 export type JournalHealth = keyof typeof JOURNAL_HEALTH
 
 /** Scheduled posts remain private until their publication instant. */
-export const livePostWhere = (now = new Date()) => ({ status: 'PUBLISHED' as const, publishedAt: { lte: now } })
-export const isLivePost = (post: { status: string; publishedAt: Date }, now = new Date()) => post.status === 'PUBLISHED' && post.publishedAt <= now
+export const livePostWhere = (now = new Date()) => ({ status: 'PUBLISHED' as const, publishedAt: { lte: now }, audienceGroups: '' })
+export const isPublishedPost = (post: { status: string; publishedAt: Date }, now = new Date()) => post.status === 'PUBLISHED' && post.publishedAt <= now
+/** Open to everyone. An article limited to groups is opened only by a page that then asks `opensAudience`. */
+export const isLivePost = (post: { status: string; publishedAt: Date; audienceGroups: string }, now = new Date()) => isPublishedPost(post, now) && !post.audienceGroups
 
 // ------------------------------------------------------------------ editorial review
 

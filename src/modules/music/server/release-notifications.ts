@@ -20,7 +20,7 @@ export async function scheduleTrackRelease(tx: Prisma.TransactionClient, track: 
 /** Deliver one small follower page per release. The cursor advances after the inbox write. */
 export async function processTrackReleaseNotifications(now = new Date()) {
   const pending = await db.musicTrackReleaseNotification.findMany({
-    where: { completedAt: null, dueAt: { lte: now }, track: { is: { status: 'PUBLISHED', publishedAt: { lte: now } } } },
+    where: { completedAt: null, dueAt: { lte: now }, track: { is: { album: { isNot: { audienceGroups: { not: '' } } },  status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now } } } },
     orderBy: [{ dueAt: 'asc' }, { trackId: 'asc' }],
     take: 20,
     include: { track: { include: { artist: { select: { name: true, nameEn: true } } } } },

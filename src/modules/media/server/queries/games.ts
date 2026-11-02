@@ -3,9 +3,10 @@ import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/
 import { plainText } from '@/shared/text/plain'
 import { relatedGames } from '@/modules/recommendations/server/contextual'
 import { allOrEmpty } from '@/modules/media/server/queries/music'
-import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
+import { PAGE_SIZE, live, publishedNow } from '@/modules/media/server/queries/core'
 import { countList, countMap } from '@/modules/media/server/queries/shared'
 import { publicLinks } from '@/modules/media/server/queries/cinema'
+import { audienceClause, opensAudience } from '@/modules/account/server/item-audience'
 
 export type GameCard = {
   id: number; slug: string; title: string; titleEn: string; cover: string; backdrop: string; platforms: string[]; genres: string[]
@@ -49,7 +50,7 @@ export async function getGamesHome() {
 
 export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; developerStudioId?: number; publisherStudioId?: number; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
-  const where: any = { ...live() }
+  const where: any = { ...live(), ...(await audienceClause('game')) }
   // Any well-formed code of the owner's lists, matched as a whole item of the game's comma list.
   const hasCode = (code: string) => ({ OR: [{ equals: code }, { startsWith: `${code},` }, { endsWith: `, ${code}` }, { contains: `, ${code},` }] })
   const filters = [['localization', input.lang], ['modes', input.mode]].filter(([, code]) => code && /^[A-Z0-9_]{1,40}$/.test(code)).map(([field, code]) => ({ OR: hasCode(code!).OR.map((match) => ({ [field!]: match })) }))
@@ -88,13 +89,14 @@ export async function gameFacets() {
 /** Journal posts about games (categories named بازی/گیم/game), newest first; any posts as a fallback. */
 export async function gamePosts(take = 9) {
   const select = { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, views: true, category: { select: { name: true } } } as const
-  const base = { status: 'PUBLISHED', publishedAt: { lte: new Date() }, cover: { not: '' } }
+  const base = { status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '', cover: { not: '' } }
   const about = await db.post.findMany({ where: { ...base, OR: ['بازی', 'گیم', 'game', 'Game'].map((word) => ({ category: { name: { contains: word } } })) }, orderBy: { publishedAt: 'desc' }, take, select }).catch(() => [])
   return about.length >= 3 ? about : db.post.findMany({ where: base, orderBy: { publishedAt: 'desc' }, take, select }).catch(() => [])
 }
 
 export async function getGame(slug: string) {
-  const row = await db.gameTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
+  const row = await db.gameTitle.findFirst({ where: { slug, ...publishedNow() } }).catch(() => null)
+  if (row && !await opensAudience(row.audienceGroups, 'game')) return null
   if (!row) return null
   await db.gameTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
   const [links, recommendations, releasedVersion, scheduledVersion] = await Promise.all([

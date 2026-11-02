@@ -73,7 +73,7 @@ export async function saveSellerProduct(seller: SellerRow, input: Record<string,
     body.variants = body.variants.slice(0, 100).map((variant: Record<string, unknown>, index: number) => ({ ...variant, sku: String(variant?.sku || '').trim() || `S${seller.id}-${stamp}-${index + 1}` }))
   }
   if (id) {
-    const current = await db.product.findFirst({ where: { id, sellerId: seller.id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, name: true, priceMinor: true } })
+    const current = await db.product.findFirst({ where: { id, sellerId: seller.id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, audienceGroups: true, name: true, priceMinor: true } })
     if (!current) throw new MarketplaceError('محصول پیدا نشد', 404)
     const parsed = await productInput(body, current).catch((error: Error) => { throw new MarketplaceError(error.message) })
     // A rejected product goes back to review when edited.

@@ -15,7 +15,7 @@ const safe = async <T>(load: () => Promise<T[]>): Promise<T[]> => { try { return
 export async function itemTimeline(ref: ItemRef, now = new Date()): Promise<{ item: { type: string; id: number; title: string; url: string }; events: TimelineEvent[] } | null> {
   const card = await itemCard(ref)
   if (!card) return null
-  const live = { status: 'PUBLISHED', publishedAt: { lte: now } }
+  const live = { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' }
   const iso = (date: Date) => date.toISOString()
   const events: TimelineEvent[] = [{ kind: 'published', at: iso(card.publishedAt), title: card.title, href: card.url, detail: '' }]
 

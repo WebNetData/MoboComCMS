@@ -414,7 +414,7 @@ export async function PATCH(req: NextRequest) {
       }, { isolationLevel: 'Serializable' }))
     }
     if (type === 'products') {
-      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, openAmount: true, openCurrencies: true, openMinMinor: true, openMaxMinor: true } })
+      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, audienceGroups: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, openAmount: true, openCurrencies: true, openMinMinor: true, openMaxMinor: true } })
       const revisionBefore = await productRevisionState(id)
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)

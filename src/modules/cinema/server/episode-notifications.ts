@@ -43,7 +43,7 @@ export async function scheduleEpisodeAirings(tx: Prisma.TransactionClient, title
  */
 export async function processEpisodeAirNotifications(now = new Date()) {
   const pending = await db.cinemaEpisodeAirNotification.findMany({
-    where: { completedAt: null, dueAt: { lte: now }, title: { is: { kind: 'SERIES', status: 'PUBLISHED', publishedAt: { lte: now } } } },
+    where: { completedAt: null, dueAt: { lte: now }, title: { is: { kind: 'SERIES', status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now } } } },
     orderBy: [{ dueAt: 'asc' }, { id: 'asc' }], take: 10,
     include: { title: { select: { id: true, slug: true, title: true, titleEn: true } } },
   })

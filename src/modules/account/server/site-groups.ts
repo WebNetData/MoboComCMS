@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { idsOf, type SiteGroup } from '@/modules/account/domain/site-groups'
+import { memberActive } from '@/modules/account/domain/user-groups'
 
 const activeVip = (now: Date) => ({ revokedAt: null, startsAt: { lte: now }, endsAt: { gt: now } })
 const activeSubscription = (now: Date) => ({ status: 'ACTIVE', expiresAt: { gt: now } })
@@ -9,6 +10,8 @@ const activeSubscription = (now: Date) => ({ status: 'ACTIVE', expiresAt: { gt: 
 export async function siteGroupCatalog(now = new Date()): Promise<SiteGroup[]> {
   const [vipOn, storeOn, vpnOn, sellersOn, resellersOn, forumOn] = await Promise.all(['membership', 'store', 'vpn', 'marketplace', 'reseller', 'forum'].map((id) => isModuleEnabled(id)))
   const groups: SiteGroup[] = []
+  const own = await db.userGroup.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, name: true, _count: { select: { members: { where: { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } } } } } })
+  for (const group of own) groups.push({ key: `group:${group.id}`, label: group.name, family: 'group', count: group._count.members })
   const roles = await db.role.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true, nameFa: true, _count: { select: { users: true } } } })
   for (const role of roles) groups.push({ key: `role:${role.id}`, label: role.nameFa || role.name, family: 'role', count: role._count.users })
   if (vipOn) {
@@ -36,9 +39,10 @@ export async function siteGroupCatalog(now = new Date()): Promise<SiteGroup[]> {
 /** Which of these groups a member is in now, asking only the owners that were named. */
 export async function siteGroupsOf(userId: number, keys: readonly string[], now = new Date()): Promise<string[]> {
   const wanted = new Set(keys), mine: string[] = []
-  const roleIds = idsOf(keys, 'role'), planIds = idsOf(keys, 'vip-plan'), forumIds = idsOf(keys, 'forum')
+  const groupIds = idsOf(keys, 'group'), roleIds = idsOf(keys, 'role'), planIds = idsOf(keys, 'vip-plan'), forumIds = idsOf(keys, 'forum')
   const tags = keys.filter((key) => key.startsWith('crm:')).map((key) => key.slice(4))
   const work: Promise<unknown>[] = []
+  if (groupIds.length) work.push(db.userGroupMember.findMany({ where: { userId, groupId: { in: groupIds }, ...memberActive(now) }, select: { groupId: true } }).then((rows) => { for (const row of rows) mine.push(`group:${row.groupId}`) }))
   if (roleIds.length) work.push(db.user.findUnique({ where: { id: userId }, select: { roleId: true } }).then((user) => { if (user?.roleId && roleIds.includes(user.roleId)) mine.push(`role:${user.roleId}`) }))
   if (wanted.has('vip') || planIds.length) work.push(db.userMembership.findMany({ where: { userId, ...activeVip(now) }, select: { planId: true } }).then((rows) => {
     if (rows.length && wanted.has('vip')) mine.push('vip')

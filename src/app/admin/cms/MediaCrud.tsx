@@ -26,6 +26,7 @@ import JalaliDateInput from '@/components/date/JalaliDateInput'
 import PeoplePicker from './PeoplePicker'
 import StudioPicker from './StudioPicker'
 import { optionsOf, useSectionLists } from './useSectionLists'
+import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
 
 // Loaded only when a form with a formatted field is opened.
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -364,6 +365,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
               ? <fieldset key={section.title} className="mx-section"><legend className="mx-section-title">{section.title}</legend><div className="mx-grid">{body}</div></fieldset>
               : <div key="fields" className="mx-grid">{body}</div>
           })}
+          {paywall && <ItemAudiencePanel type={paywall.ownerType} id={editId} noun={paywall.noun} />}
           {paywall && <PaidAccessPanel ownerType={paywall.ownerType} ownerId={editId} noun={paywall.noun} />}
           <div className="flex gap-2 mt-4">
             <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? '…' : needsReview() ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>

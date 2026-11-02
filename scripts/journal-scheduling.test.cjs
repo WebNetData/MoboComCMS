@@ -184,6 +184,8 @@ test('search prepares scheduled posts while public item lookups keep them hidden
   const queries = []
   const db = { post: { findMany: async (query) => { queries.push(query); return query.where.publishedAt || (query.where.id?.gt ?? 0) >= post.id ? [] : [post] } } }
   const registry = load('src/modules/content/server/registry.ts', {
+    // Publication timing is isolated from whole-section audience settings here.
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set() },
     '@/platform/database/prisma': { db },
     '@/extensions/server/modules': { getModuleStates: async () => ({}) },
     '@/modules/software/server/current-version': { currentSoftwareVersions: async () => new Map(), projectSoftwareVersion: (row) => row },

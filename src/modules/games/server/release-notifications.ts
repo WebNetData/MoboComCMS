@@ -18,7 +18,7 @@ export async function scheduleGameUpdateRelease(tx: Prisma.TransactionClient, up
 /** A bounded follower page per release; the cursor moves only after the inbox write. */
 export async function processGameUpdateReleaseNotifications(now = new Date()) {
   const pending = await db.gameUpdateReleaseNotification.findMany({
-    where: { completedAt: null, dueAt: { lte: now }, update: { is: { releasedAt: { lte: now }, game: { is: { status: 'PUBLISHED', publishedAt: { lte: now } } } } } },
+    where: { completedAt: null, dueAt: { lte: now }, update: { is: { releasedAt: { lte: now }, game: { is: { status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now } } } } } },
     orderBy: [{ dueAt: 'asc' }, { updateId: 'asc' }], take: 10,
     include: { update: { include: { game: { select: { id: true, slug: true, title: true } } } } },
   })

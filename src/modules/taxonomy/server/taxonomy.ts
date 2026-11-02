@@ -9,7 +9,7 @@ import {
 type Tx = Prisma.TransactionClient
 type Client = Tx | typeof db
 
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 const split = (value: string) => value.split(/[,،|/]/).map((part) => part.trim()).filter(Boolean)
 
 /** Published owner ids of a taxonomy (what public counts and listings see). */
@@ -20,7 +20,7 @@ async function liveOwnerIds(client: Client, taxonomy: Taxonomy, ids?: number[]):
     : taxonomy === 'games' ? await client.gameTitle.findMany({ where, select })
       : taxonomy === 'music' ? await client.musicAlbum.findMany({ where, select })
         // The language of music is filed on songs, not albums.
-        : taxonomy === 'music-language' ? await client.musicTrack.findMany({ where, select })
+        : taxonomy === 'music-language' ? await client.musicTrack.findMany({ where: { ...where, album: { isNot: { audienceGroups: { not: '' } } } }, select })
           : await client.cinemaTitle.findMany({ where, select })
   return rows.map((row) => row.id)
 }

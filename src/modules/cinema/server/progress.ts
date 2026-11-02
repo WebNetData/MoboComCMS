@@ -12,8 +12,8 @@ async function resolveProgress(userId: number, progress: ProgressRow[], take: nu
   const episodeIds = progress.filter((row) => row.ownerType === 'episode').map((row) => row.ownerId)
   const now = new Date()
   const [titles, episodes, links] = await Promise.all([
-    db.cinemaTitle.findMany({ where: { id: { in: titleIds }, status: 'PUBLISHED', publishedAt: { lte: now } }, select: { id: true, slug: true, title: true, titleEn: true, poster: true } }),
-    db.cinemaEpisode.findMany({ where: { id: { in: episodeIds }, season: { title: { status: 'PUBLISHED', publishedAt: { lte: now } } } }, select: { id: true, number: true, title: true, titleEn: true, season: { select: { number: true, title: { select: { slug: true, title: true, titleEn: true, poster: true } } } } } }),
+    db.cinemaTitle.findMany({ where: { id: { in: titleIds }, status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now } }, select: { id: true, slug: true, title: true, titleEn: true, poster: true } }),
+    db.cinemaEpisode.findMany({ where: { id: { in: episodeIds }, season: { title: { status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now } } } }, select: { id: true, number: true, title: true, titleEn: true, season: { select: { number: true, title: { select: { slug: true, title: true, titleEn: true, poster: true } } } } } }),
     db.mediaLink.findMany({ where: { disabled: false, OR: [{ ownerType: 'title', ownerId: { in: titleIds } }, { ownerType: 'episode', ownerId: { in: episodeIds } }] }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerType: true, ownerId: true, kind: true, url: true } }),
   ])
   const titleById = new Map(titles.map((row) => [row.id, row]))

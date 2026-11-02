@@ -9,7 +9,7 @@ import { celebritySlug, suggestedCelebritySlug, validCelebritySlug } from '@/mod
 import { normalizeFacts, parseFacts } from '@/modules/celebrities/domain/fields'
 import { contentChanged } from '@/modules/content/server/events'
 import { unlinkedMusicProfile } from './import-state'
-const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' })
 // ------------------------------------------------------------------ one profile for every section
 
 type Actor = { id: number; email: string }

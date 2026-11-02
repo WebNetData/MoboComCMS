@@ -12,7 +12,7 @@ const SETTINGS_KEY = 'games.portal.v1'
 const settingsHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-games', normalizeGamesSettings, settings => ({ hero: settings.heroIds.length, rails: settings.rails.filter(rail => rail.enabled).length }))
 export const gamesSettingsState = () => settingsHistory().current()
 export const restoreGamesSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 
 export async function getGamesSettings(fresh = false): Promise<GamesSettings> {
   return fresh ? settingsHistory().read() : normalizeGamesSettings(await readJsonSetting(SETTINGS_KEY))
@@ -40,7 +40,7 @@ async function newsAbout(names: string[], take = 6): Promise<PostCard[]> {
   const words = [...new Set(names.map((name) => name.trim()).filter((name) => name.length >= 3))]
   if (!words.length || !await isModuleEnabled('journal')) return []
   return db.post.findMany({
-    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, OR: words.map((word) => ({ title: { contains: word } })) },
+    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '', OR: words.map((word) => ({ title: { contains: word } })) },
     orderBy: { publishedAt: 'desc' }, take,
     select: { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, views: true, category: { select: { name: true } } },
   }).catch(() => [])

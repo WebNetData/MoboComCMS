@@ -1,3 +1,4 @@
+import { audienceClause } from '@/modules/account/server/item-audience'
 import type { Prisma } from '@prisma/client'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { cache } from 'react'
@@ -104,7 +105,7 @@ async function cards(rows: CardRow[]) {
 }
 
 export async function productCards(where: Prisma.ProductWhereInput, orderBy: Prisma.ProductOrderByWithRelationInput[] = [{ id: 'desc' }], take = 12) {
-  const rows = await db.product.findMany({ where: { AND: [{ active: true, approval: 'APPROVED' }, where] }, orderBy, take, include: CARD_INCLUDE }).catch(() => [] as CardRow[])
+  const rows = await db.product.findMany({ where: { AND: [{ active: true, approval: 'APPROVED', audienceGroups: '' }, where] }, orderBy, take, include: CARD_INCLUDE }).catch(() => [] as CardRow[])
   return cards(rows)
 }
 
@@ -146,7 +147,7 @@ function branchSets(members: Map<number, Set<number>>) {
 export const categoryTree = cache(async (): Promise<CategoryNode[]> => {
   const [rows, members] = await Promise.all([
     db.productCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
-    membership({ active: true, approval: 'APPROVED' }),
+    membership({ active: true, approval: 'APPROVED', audienceGroups: '' }),
   ])
   const direct = new Map([...members].map(([id, set]) => [id, set.size]))
   const nodes = new Map<number, CategoryNode>(rows.map((row) => [row.id, { id: row.id, slug: row.slug, name: row.name, image: row.image, icon: row.icon, description: row.description, parentId: row.parentId, kind: row.kind, count: direct.get(row.id) || 0, total: 0, children: [] }]))
@@ -187,7 +188,7 @@ export async function shopHome() {
     productCards({}, [{ soldCount: 'desc' }, { id: 'desc' }], 12),
     productCards({}, [{ createdAt: 'desc' }], 12),
     productCards({}, [{ views: 'desc' }, { id: 'desc' }], 12),
-    settings.showBrands ? db.productBrand.findMany({ where: { products: { some: { active: true, approval: 'APPROVED' } } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }], take: 18, select: { id: true, slug: true, name: true, logo: true } }) : Promise.resolve([]),
+    settings.showBrands ? db.productBrand.findMany({ where: { products: { some: { active: true, approval: 'APPROVED', audienceGroups: '' } } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }], take: 18, select: { id: true, slug: true, name: true, logo: true } }) : Promise.resolve([]),
   ])
   const offers = offersRaw.filter((card) => card.discount > 0).slice(0, 12)
   // One rail per top-level category that has enough products (up to three).
@@ -210,7 +211,7 @@ export type ShopDivision = { kind: 'PHYSICAL' | 'VIRTUAL'; total: number; catego
 export async function shopDivisions(): Promise<ShopDivision[]> {
   const tree = await categoryTree()
   return Promise.all((['PHYSICAL', 'VIRTUAL'] as const).map(async (kind) => {
-    const where = { active: true, approval: 'APPROVED', kind }
+    const where = { active: true, approval: 'APPROVED', audienceGroups: '', kind }
     const [members, total, products] = await Promise.all([
       membership(where),
       db.product.count({ where }).catch(() => 0),
@@ -233,7 +234,7 @@ const LISTING_CAP = 2000
 export async function shopListing(query: ShopQuery, pageSize = 24) {
   const tree = await categoryTree()
   const found = query.category ? findCategory(tree, query.category) : null
-  const where: Prisma.ProductWhereInput = { active: true, approval: 'APPROVED' }
+  const where: Prisma.ProductWhereInput = { active: true, approval: 'APPROVED', ...(await audienceClause('product')) }
   // A product is found under its main category and under the further ones ticked for it.
   if (found) where.AND = [inCategories(subtreeIds(found.node))]
   if (query.kind) where.kind = query.kind
@@ -380,7 +381,7 @@ export async function shopDivisionHome(kind: 'PHYSICAL' | 'VIRTUAL') {
     productCards({ kind }, [{ soldCount: 'desc' }, { id: 'desc' }], 12),
     productCards({ kind }, [{ createdAt: 'desc' }], 12),
     productCards({ kind }, [{ views: 'desc' }, { id: 'desc' }], 12),
-    settings.showBrands ? db.productBrand.findMany({ where: { products: { some: { active: true, approval: 'APPROVED', kind } } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }], take: 18, select: { id: true, slug: true, name: true, logo: true } }).catch(() => []) : [],
+    settings.showBrands ? db.productBrand.findMany({ where: { products: { some: { active: true, approval: 'APPROVED', audienceGroups: '', kind } } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }], take: 18, select: { id: true, slug: true, name: true, logo: true } }).catch(() => []) : [],
   ])
   const division = divisions.find((item) => item.kind === kind) || { kind, total: 0, categories: [], products: [] }
   const nodes = new Map<string, CategoryNode>()

@@ -30,7 +30,7 @@ import {
 const SETTINGS_KEY = 'site.megamenu.v1'
 const CACHE_MS = 60_000
 
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 const q = (params: Record<string, string>) => `?${new URLSearchParams(params)}`
 /** One failing source must never take the page down. */
 const safe = async <T,>(work: Promise<T>, fallback: T): Promise<T> => work.catch(() => fallback)

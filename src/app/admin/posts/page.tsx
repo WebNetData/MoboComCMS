@@ -12,6 +12,7 @@ import PostItemLinks from './PostItemLinks'
 import PostReviewPanel from './PostReviewPanel'
 import PostStylePanel from './PostStylePanel'
 import { PostProposalNotice, PostProposalPanel } from './PostProposalPanel'
+import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
 
 type Texts = ReturnType<typeof useI18n>['t']
 const say = (locale: string) => (persian: string, english: string) => (locale === 'fa' ? persian : english)
@@ -99,7 +100,7 @@ export default function AdminPostsPage() {
       }}
       editorExtraKeys={['itemLinks', 'proposal']}
       // The writing assistant and paid access are the manager's (PLATFORM_DECISIONS, section authors).
-      renderEditorExtra={(form, setForm, editId) => <><PostItemLinks form={form} setForm={setForm} />{!mine && <><AiWritingAssistant form={form} setForm={setForm} /><PaidAccessPanel ownerType="post" ownerId={editId} noun="این مقاله" /></>}</>}
+      renderEditorExtra={(form, setForm, editId) => <><PostItemLinks form={form} setForm={setForm} />{!mine && <><AiWritingAssistant form={form} setForm={setForm} /><ItemAudiencePanel type="post" id={editId} noun="این مقاله" /><PaidAccessPanel ownerType="post" ownerId={editId} noun="این مقاله" /></>}</>}
       extraRows={(row) => ({
         categoryIds: postCategories<any>(row).map(c => locale === 'fa' ? c.name : c.nameEn || c.name).join('، ') || '—',
         author: row.author?.name || row.author?.email || '—',

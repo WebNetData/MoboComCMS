@@ -7,6 +7,7 @@ import { legacyNumber } from '@/shared/money'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { logEvent } from '@/platform/observability/logger'
+import { groupGivesVip } from '@/modules/account/server/user-groups'
 
 export type ActiveMembership = { id: number; endsAt: Date; startsAt: Date; source: string; planId: number | null }
 
@@ -27,12 +28,12 @@ export async function getActiveMembership(userId: number | null | undefined, now
 /** Access to members-only things for a known user id (server commands): a member, or anybody while VIP is off. */
 export async function opensMembersOnly(userId: number | null | undefined, member?: boolean): Promise<boolean> {
   if (!await isModuleEnabled('membership')) return true
-  return member ?? !!(await getActiveMembership(userId))
+  return member ?? (!!(await getActiveMembership(userId)) || await groupGivesVip(userId))
 }
 
 export async function isMember(userId: number | null | undefined): Promise<boolean> {
   if (!await isModuleEnabled('membership')) return false
-  return !!(await getActiveMembership(userId))
+  return !!(await getActiveMembership(userId)) || await groupGivesVip(userId)
 }
 
 /**
@@ -164,7 +165,8 @@ export const getViewer = cache(async (): Promise<Viewer> => {
   if (!await isModuleEnabled('membership')) return { userId, member: false, endsAt: null, opens: true }
   if (!userId) return { userId, member: false, endsAt: null, opens: false }
   const membership = await getActiveMembership(userId)
-  return { userId, member: !!membership, endsAt: membership?.endsAt || null, opens: !!membership }
+  const member = !!membership || await groupGivesVip(userId)
+  return { userId, member, endsAt: membership?.endsAt || null, opens: member }
 })
 
 export type PublicVipPlan = { id: number; slug: string; name: string; nameEn: string; description: string; descriptionEn: string; days: number; price: number; currency: string; perks: Perk[]; highlight: boolean }

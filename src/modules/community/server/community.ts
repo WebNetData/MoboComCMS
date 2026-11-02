@@ -324,7 +324,7 @@ export async function activityFor(ownerId: number, privacy: Privacy, viewerId: n
     lists.push(replies.map((reply) => ({ key: `reply:${reply.id}`, at: reply.createdAt, kind: 'reply', title: reply.thread.title, text: reply.content.replace(/\[poll[\s\S]*?\[\/poll\]/g, '').replace(/[#*_`>[\]()!]/g, '').slice(0, 200), href: `/forum/t/${reply.thread.id}?post=${reply.postNumber}`, image: '', meta: '' })))
   }
   const reviews = await db.itemReview.findMany({ where: { userId: ownerId, status: 'APPROVED' }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => [])
-  const libraryRows = (self || privacy.showLibrary) && await isModuleEnabled('games') ? await db.gameLibrary.findMany({ where: { userId: ownerId, game: { status: 'PUBLISHED' } }, orderBy: { updatedAt: 'desc' }, take: limit, include: { game: { select: { id: true, title: true, slug: true, cover: true } } } }).catch(() => []) : []
+  const libraryRows = (self || privacy.showLibrary) && await isModuleEnabled('games') ? await db.gameLibrary.findMany({ where: { userId: ownerId, game: { status: 'PUBLISHED', audienceGroups: '' } }, orderBy: { updatedAt: 'desc' }, take: limit, include: { game: { select: { id: true, title: true, slug: true, cover: true } } } }).catch(() => []) : []
   const cards = await itemCards(reviews.flatMap((row) => (isItemType(row.itemType) ? [{ type: row.itemType, id: row.itemId } as ItemRef] : []))).catch(() => new Map<string, ItemCard>())
   lists.push(reviews.flatMap((row) => {
     const card = isItemType(row.itemType) ? cards.get(itemKey({ type: row.itemType, id: row.itemId })) : undefined
@@ -340,7 +340,7 @@ export async function profileShelves(ownerId: number, privacy: Privacy, viewerId
   const relation = await relationBetween(viewerId, ownerId)
   const self = relation.self || relation.staff
   const [games, favorites, stats] = await Promise.all([
-    (self || privacy.showLibrary) && await isModuleEnabled('games') ? db.gameLibrary.findMany({ where: { userId: ownerId, game: { status: 'PUBLISHED' } }, orderBy: { updatedAt: 'desc' }, take: 60, include: { game: { select: { title: true, slug: true, cover: true } } } }).catch(() => []) : Promise.resolve([]),
+    (self || privacy.showLibrary) && await isModuleEnabled('games') ? db.gameLibrary.findMany({ where: { userId: ownerId, game: { status: 'PUBLISHED', audienceGroups: '' } }, orderBy: { updatedAt: 'desc' }, take: 60, include: { game: { select: { title: true, slug: true, cover: true } } } }).catch(() => []) : Promise.resolve([]),
     (self || privacy.showFavorites) ? db.itemFavorite.findMany({ where: { userId: ownerId }, orderBy: { createdAt: 'desc' }, take: 40, select: { itemType: true, itemId: true } }).catch(() => []) : Promise.resolve([]),
     Promise.all([
       db.forumProfile.findUnique({ where: { userId: ownerId }, select: { topicCount: true, postCount: true, likesReceived: true, solvedCount: true, trustLevel: true } }).catch(() => null),

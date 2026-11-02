@@ -8,7 +8,7 @@ import { getStoreSettings } from '@/modules/store/server/catalog'
 /** Optional editorial cards. RELATED fallback remains owned by its existing callers. */
 export async function readEditorialProductCards(productId: number, kind: ProductRelationshipKind, take = 8) {
   if (!Number.isSafeInteger(productId) || productId <= 0 || !await isStoreEnabled() || !(await getStoreSettings()).showProductRelationships) return null
-  const source = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true } })
+  const source = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, audienceGroups: true } })
   if (!source || !isPublicProduct(source)) return null
   const ids = await publicProductRelationshipIds(productId, kind, take)
   if (!ids.length) return { items: [] }

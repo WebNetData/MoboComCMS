@@ -1,6 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
-import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
 import { createGatewayInvoice, customerGatewayLabel, gatewayAcceptsCheckoutCurrency, gatewayCallbackUrl, isInstallmentGateway, resolveCheckoutGateway } from '@/modules/billing/server/gateways'
 import { createInvoiceForOrder, markInvoicePaid, recordProviderEvent, releaseInvoiceCredit } from '@/modules/billing/server/billing'
 import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
@@ -26,6 +26,9 @@ import { FormsError } from '@/modules/forms/domain/forms'
 import { stampFxInvoice } from '@/modules/billing/server/invoice-rules'
 import { quoteContent } from '@/modules/paywall/server/paywall'
 import { PaywallError, parseContentKey } from '@/modules/paywall/domain/paywall'
+import { userOpensAudience } from '@/modules/account/server/item-audience'
+import { userOpensSection } from '@/modules/account/server/section-access'
+import { groupDeal } from '@/modules/account/server/user-groups'
 
 export interface CheckoutCommand {
   userId: number
@@ -195,7 +198,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     for (const [index, want] of requested.entries()) {
       const quantity = Math.floor(Number(want.quantity ?? 1))
       const product = await db.product.findUnique({ where: { id: Number(want.productId) || 0 }, include: { variants: { where: { active: true } } } })
-      if (!product || !isPublicProduct(product)) return fail(404, 'PRODUCT_NOT_FOUND', 'محصول یافت نشد')
+      if (!product || !isPublishedProduct(product) || !await userOpensAudience(product.audienceGroups, 'product', command.userId) || !await userOpensSection('store', command.userId)) return fail(404, 'PRODUCT_NOT_FOUND', 'محصول یافت نشد')
       const named = (message: string) => (many && product ? `${product.name}: ${message}` : message)
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) return fail(400, 'BAD_QUANTITY', named('تعداد معتبر نیست'))
       if (product.access === 'MEMBERS' && !opens) return fail(403, 'MEMBERS_ONLY', named('این محصول مخصوص اعضای ویژه است'), { upgradeUrl: '/vip' })
@@ -213,7 +216,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       // What the order needs from its buyer travels on the cart line; a purchase that skips the cart has none.
       const sealed = String(want.inputs || '')
       if (!answersComplete(readOrderFields(product.orderFields), variant?.name || '', openAnswers(sealed))) return fail(409, 'INPUT_REQUIRED', named('اطلاعات لازم این سفارش وارد نشده است؛ از صفحهٔ محصول آن را به سبد اضافه کنید'), { productId: product.id })
-      let price = unitPrice(product, variant, member)
+      let price = unitPrice(product, variant, member, undefined, await groupDeal(command.userId, [product.id]))
       let openRate = ''
       const openAmountMinor = product.openAmount ? BigInt(want.openAmountMinor ?? 0n) : 0n
       const openCurrency = product.openAmount ? String(want.openCurrency || '') : ''

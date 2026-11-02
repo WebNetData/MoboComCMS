@@ -9,7 +9,7 @@ export async function readFrequentlyBoughtProducts(productId: number) {
   if (!Number.isSafeInteger(productId) || productId <= 0 || !await isStoreEnabled()) return null
   const settings = await getStoreSettings()
   if (!settings.showFrequentlyBoughtTogether) return null
-  const source = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true } })
+  const source = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, audienceGroups: true } })
   if (!source || !isPublicProduct(source)) return null
   const ids = await frequentlyBoughtProductIds(productId, { days: settings.frequentlyBoughtDays, minimumBuyers: settings.frequentlyBoughtMinimumBuyers, take: 8 })
   if (!ids.length) return { items: [] }

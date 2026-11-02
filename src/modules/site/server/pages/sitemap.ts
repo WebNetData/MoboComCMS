@@ -6,8 +6,9 @@ import { getSettings } from '@/modules/settings/server'
 import { listPublishedSections } from '@/modules/site/server/theme-templates'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { pathDisabled } from '@/platform/extensions/contracts'
-import { loadMaintenance, maintenanceBases } from '@/modules/site/server/maintenance'
+import { loadMaintenance, maintenanceBases, closedSectionPlugins } from '@/modules/site/server/maintenance'
 import { pathClosed } from '@/modules/site/domain/maintenance'
+import { MAINTENANCE_SECTIONS } from '@/modules/site/domain/maintenance'
 import { livePostWhere } from '@/modules/journal/domain/journal'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { entitySitemap, forumSitemap } from '@/modules/seo/server/sitemap-entities'
@@ -48,9 +49,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Music, film & series, games and VIP (filtered below when their module is off).
   try {
-    const live = { status: 'PUBLISHED', publishedAt: { lte: now } }
+    const live = { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' }
     const [tracks, albums, artists, titles, games, people] = await Promise.all([
-      db.musicTrack.findMany({ where: live, select: { slug: true, updatedAt: true }, orderBy: { publishedAt: 'desc' }, take: 5000 }),
+      db.musicTrack.findMany({ where: { ...live, album: { isNot: { audienceGroups: { not: '' } } } }, select: { slug: true, updatedAt: true }, orderBy: { publishedAt: 'desc' }, take: 5000 }),
       db.musicAlbum.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 2000 }),
       db.musicArtist.findMany({ select: { id: true, slug: true, updatedAt: true }, take: 2000 }),
       db.cinemaTitle.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 5000 }),
@@ -83,7 +84,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Software downloads and public forum boards/threads (VIP boards stay out).
   try {
     const [software, forum, entities] = await Promise.all([
-      db.softwareTitle.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 }),
+      db.softwareTitle.findMany({ where: { status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 }),
       // Forums and topics come from the forum's own rule for what a visitor may read (a forum of one group, a club, a section are not public by a column).
       forumSitemap().catch(() => []),
       entitySitemap(now).catch(() => []),
@@ -97,7 +98,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const templates = await db.promptTemplate.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 })
+    const templates = await db.promptTemplate.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' }, select: { slug: true, updatedAt: true }, take: 5000 })
     entries.push({ url: base + '/prompts', changeFrequency: 'weekly', priority: 0.7 }, { url: base + '/prompts/library', changeFrequency: 'weekly', priority: 0.6 })
     for (const template of templates) entries.push({ url: base + '/prompts/templates/' + template.slug, lastModified: template.updatedAt, changeFrequency: 'monthly', priority: 0.5 })
   } catch { /* new additive table may not be migrated yet */ }
@@ -110,6 +111,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   // A section in maintenance leaves the sitemap too: its pages answer 503 until it is opened again.
   const maintenance = await loadMaintenance().catch(() => null), bases = maintenanceBases()
-  const open = (entry: MetadataRoute.Sitemap[number]) => { try { const path = new URL(entry.url).pathname; return !(runtime && pathDisabled(path, runtime)) && !(maintenance && pathClosed(path, maintenance, bases)) } catch { return true } }
+  const closed = await closedSectionPlugins()
+  const limitedPaths = MAINTENANCE_SECTIONS.filter(section => closed.has(section.plugin)).flatMap(section => bases[section.id])
+  const open = (entry: MetadataRoute.Sitemap[number]) => { try { const path = new URL(entry.url).pathname; return !(runtime && pathDisabled(path, runtime)) && !(maintenance && pathClosed(path, maintenance, bases)) && !limitedPaths.some(base => path === base || path.startsWith(base + '/')) } catch { return false } }
   return entries.filter(open).map(publish)
 }

@@ -16,6 +16,7 @@ import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { HEALTH_CHECKS, healthIssues } from '@/modules/games/domain/games'
 import { optionsOf, useSectionLists, type ActiveLists } from '../../cms/useSectionLists'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
+import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -225,6 +226,7 @@ export default function GameEditorPage() {
             </div>)}
             <button type="button" className="btn btn-ghost btn-sm ga-add" onClick={() => update('releases', [...form.releases, { platform: platforms.find((p) => !form.releases.some((r: { platform: string }) => r.platform === p)) || '', date: form.releaseDate || '' }])}>+ تاریخ پلتفرم</button>
           </div>
+          <ItemAudiencePanel type="game" id={isNew ? null : Number(id)} noun="این بازی" />
           <PaidAccessPanel ownerType="game" ownerId={isNew ? null : Number(id)} noun="این بازی" />
         </section>
 

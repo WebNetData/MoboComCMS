@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { rankContextual, terms, type ContextualRecommendation } from '@/modules/recommendations/domain/contextual'
 
-const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' })
 
 type GameSource = { id: number; genres: string; platforms: string; developerStudioId: number | null; publisherStudioId: number | null }
 type SoftwareSource = { id: number; category: string; platforms: string; developerStudioId: number | null; publisherStudioId: number | null }
@@ -70,7 +70,7 @@ export async function relatedTracks(source: TrackSource, take = 8, excludedIds: 
   const now = new Date()
   const insensitive = /^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '') ? { mode: 'insensitive' as const } : {}
   const rows = await db.musicTrack.findMany({
-    where: { ...live(now), id: { notIn: [source.id, ...excludedIds.filter(id => Number.isSafeInteger(id) && id > 0).slice(0, 50)] }, artistId: { not: source.artistId }, OR: genres.map(genre => ({ genre: { contains: genre, ...insensitive } })) },
+    where: {album: { isNot: { audienceGroups: { not: '' } } },  ...live(now), id: { notIn: [source.id, ...excludedIds.filter(id => Number.isSafeInteger(id) && id > 0).slice(0, 50)] }, artistId: { not: source.artistId }, OR: genres.map(genre => ({ genre: { contains: genre, ...insensitive } })) },
     orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 180,
     select: { id: true, genre: true, artistId: true, publishedAt: true },
   })

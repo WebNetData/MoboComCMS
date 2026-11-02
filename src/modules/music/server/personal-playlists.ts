@@ -56,7 +56,7 @@ export async function addPersonalTrack(userId: number, id: number, trackValue: u
   return db.$transaction(async (tx) => {
     const playlist = await tx.userMusicPlaylist.findFirst({ where: { id, userId }, select: { id: true } })
     if (!playlist) throw new PlaylistError('پلی‌لیست پیدا نشد', 404)
-    const track = await tx.musicTrack.findFirst({ where: { id: trackId, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true } })
+    const track = await tx.musicTrack.findFirst({ where: {album: { isNot: { audienceGroups: { not: '' } } },  id: trackId, status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: new Date() } }, select: { id: true } })
     if (!track) throw new PlaylistError('آهنگ منتشرشده پیدا نشد', 404)
     const existing = await tx.userMusicPlaylistTrack.findUnique({ where: { playlistId_trackId: { playlistId: id, trackId } }, select: { trackId: true } })
     if (existing) return { added: false }

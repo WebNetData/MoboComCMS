@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 export type StudioRecommendation = { id: number; name: string; logo: string; reason: string }
 
 const genresOf = (value: string) => String(value || '').split(/[,،]/).map((part) => part.trim()).filter(Boolean)
-const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' })
 
 /** Explainable topic overlap. Scores use distinct topics, never mutable view totals. */
 export async function recommendStudios(studioId: number, enabled: { games: boolean; software: boolean }, take = 6): Promise<StudioRecommendation[]> {

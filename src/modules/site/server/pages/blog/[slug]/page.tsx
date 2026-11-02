@@ -33,13 +33,14 @@ import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChro
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
-import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
+import { isPublishedPost, livePostWhere } from '@/modules/journal/domain/journal'
 import { publicPostLinkItems } from '@/modules/journal/server/item-links'
 import ReadingProgress from '@/components/journal/ReadingProgress'
 import ArticleRail from '@/components/journal/ArticleRail'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { sized, srcSet } from '@/shared/media/image'
+import { opensAudience } from '@/modules/account/server/item-audience'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -51,7 +52,7 @@ function readingMinutes(text: string | null | undefined) {
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await paramsPromise
   const post = await db.post.findUnique({ where: { slug: params.slug }, include: { categories: { include: { category: true } }, category: true } }).catch(() => null)
-  if (!post || !isLivePost(post)) return { title: 'Not found', robots: { index: false, follow: false } }
+  if (!post || !isPublishedPost(post) || !await opensAudience(post.audienceGroups, 'post')) return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
   const isFa = locale === 'fa'
   const title = isFa ? post.title : post.titleEn || post.title
@@ -90,7 +91,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
     },
   })
   const now = new Date()
-  if (!post || (!isLivePost(post, now) && !isPreview(preview))) notFound()
+  if (!post || (!isPreview(preview) && (!isPublishedPost(post, now) || !await opensAudience(post.audienceGroups, 'post')))) notFound()
 
   if (!isPreview(preview)) await db.post.update({ where: { id: post.id }, data: { views: { increment: 1 } } })
   // Members-only articles: guests get a teaser and a VIP call to action; the post's own
@@ -115,12 +116,12 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
       include: { category: true, categories: { include: { category: true } } },
     }),
     db.post.findFirst({
-      where: { status: 'PUBLISHED', publishedAt: { gt: anchor, lte: now } },
+      where: { status: 'PUBLISHED', audienceGroups: '', publishedAt: { gt: anchor, lte: now } },
       orderBy: { publishedAt: 'asc' },
       select: { slug: true, title: true, titleEn: true, cover: true },
     }),
     db.post.findFirst({
-      where: { status: 'PUBLISHED', publishedAt: { lt: anchor, lte: now } },
+      where: { status: 'PUBLISHED', audienceGroups: '', publishedAt: { lt: anchor, lte: now } },
       orderBy: { publishedAt: 'desc' },
       select: { slug: true, title: true, titleEn: true, cover: true },
     }),

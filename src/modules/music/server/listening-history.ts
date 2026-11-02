@@ -17,7 +17,7 @@ export function historyTrackId(value: unknown) {
 export async function recordListen(userId: number, rawTrackId: unknown) {
   const trackId = historyTrackId(rawTrackId)
   const now = new Date()
-  const track = await db.musicTrack.findFirst({ where: { id: trackId, status: 'PUBLISHED', publishedAt: { lte: now }, audioUrl: { not: '' } }, select: { id: true } })
+  const track = await db.musicTrack.findFirst({ where: {album: { isNot: { audienceGroups: { not: '' } } },  id: trackId, status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now }, audioUrl: { not: '' } }, select: { id: true } })
   if (!track) throw new HistoryError('track unavailable', 404)
   const changed = await db.musicListenHistory.updateMany({
     where: { userId, trackId, lastPlayedAt: { lte: new Date(now.getTime() - 30_000) } },
@@ -37,7 +37,7 @@ export async function recordListen(userId: number, rawTrackId: unknown) {
 export async function listListeningHistory(userId: number, rawPage: unknown) {
   const requested = Number(rawPage)
   const page = Number.isSafeInteger(requested) ? Math.min(1000, Math.max(1, requested)) : 1
-  const where = { userId, track: { is: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } }
+  const where = { userId, track: { is: { album: { isNot: { audienceGroups: { not: '' } } },  status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' } } }
   const total = await db.musicListenHistory.count({ where })
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const current = Math.min(page, pages)
@@ -50,7 +50,7 @@ export async function listListeningHistory(userId: number, rawPage: unknown) {
 
 export async function continueListening(userId: number) {
   const rows = await db.musicListenHistory.findMany({
-    where: { userId, completedAt: null, positionSeconds: { gte: 5 }, durationSeconds: { gt: 0 }, track: { is: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } },
+    where: { userId, completedAt: null, positionSeconds: { gte: 5 }, durationSeconds: { gt: 0 }, track: { is: { album: { isNot: { audienceGroups: { not: '' } } },  status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' } } },
     orderBy: { progressUpdatedAt: 'desc' }, take: 24,
     include: { track: { include: { artist: { select: { id: true, slug: true, name: true, nameEn: true, image: true } }, album: { select: { id: true, slug: true, title: true, titleEn: true, cover: true } } } } },
   })
@@ -62,13 +62,13 @@ export async function clearListeningHistory(userId: number) {
 }
 
 export async function listeningHistoryCount(userId: number) {
-  return db.musicListenHistory.count({ where: { userId, track: { is: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } })
+  return db.musicListenHistory.count({ where: { userId, track: { is: { album: { isNot: { audienceGroups: { not: '' } } },  status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' } } } })
 }
 
 export async function getListeningProgress(userId: number, rawTrackId: unknown) {
   const trackId = historyTrackId(rawTrackId)
   const row = await db.musicListenHistory.findFirst({
-    where: { userId, trackId, track: { is: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } },
+    where: { userId, trackId, track: { is: { album: { isNot: { audienceGroups: { not: '' } } },  status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' } } },
     select: { positionSeconds: true, durationSeconds: true, completedAt: true, progressUpdatedAt: true },
   })
   return row || { positionSeconds: 0, durationSeconds: 0, completedAt: null, progressUpdatedAt: null }
@@ -85,7 +85,7 @@ export async function saveListeningProgress(userId: number, input: { trackId: un
   const durationSeconds = seconds(input.duration)
   const positionSeconds = seconds(input.position)
   if (!durationSeconds || positionSeconds > durationSeconds || typeof input.completed !== 'boolean') throw new HistoryError('invalid progress')
-  const track = await db.musicTrack.findFirst({ where: { id: trackId, status: 'PUBLISHED', publishedAt: { lte: new Date() }, audioUrl: { not: '' } }, select: { id: true } })
+  const track = await db.musicTrack.findFirst({ where: {album: { isNot: { audienceGroups: { not: '' } } },  id: trackId, status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: new Date() }, audioUrl: { not: '' } }, select: { id: true } })
   if (!track) throw new HistoryError('track unavailable', 404)
   const now = new Date()
   const progress = { positionSeconds, durationSeconds, progressUpdatedAt: now, completedAt: input.completed ? now : null }

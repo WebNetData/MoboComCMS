@@ -147,7 +147,7 @@ test('the shop home shows its two halves — shipped goods and products delivere
   // The halves come from the kind of the products themselves (no second list of categories to keep in step), counted per kind.
   assert.match(catalog, /export async function shopDivisions\(\): Promise<ShopDivision\[\]>/)
   assert.match(catalog, /\(\['PHYSICAL', 'VIRTUAL'\] as const\)\.map\(async \(kind\) =>/)
-  assert.match(catalog, /const where = \{ active: true, approval: 'APPROVED', kind \}/, 'only products a shopper can buy are counted')
+  assert.match(catalog, /const where = \{ active: true, approval: 'APPROVED', audienceGroups: '', kind \}/, 'only public products a shopper can buy are counted')
   assert.match(catalog, /\.filter\(\(node, index\) => node\.total > 0 && /, 'a category with nothing of this kind is not offered under it')
   assert.match(catalog, /if \(path\.has\(node\.id\)\) return new Set\(\)/, 'a loop in the category tree cannot hang the page')
   // Since 2026-10-27 a product may sit in further categories; a branch counts each product once.

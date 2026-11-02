@@ -10,6 +10,7 @@ import { accessFor, paywallEnabled } from '@/modules/paywall/server/paywall'
 import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
 import { incrementPostViews } from '@/modules/journal/server/views'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
+import { closedSectionPlugins } from '@/modules/site/server/maintenance'
 
 /** Members-only and paid article bodies are reduced to a teaser for everyone who may not read them. */
 async function gatePosts<T extends { id?: number; access?: string; content?: string; contentEn?: string }>(posts: T[]): Promise<(T & { locked?: boolean })[]> {
@@ -26,6 +27,8 @@ async function gatePosts<T extends { id?: number; access?: string; content?: str
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
   const type = sp.get('type') || ''
+  const section = type === 'post' || type === 'posts' ? 'journal' : type === 'products' ? 'store' : null
+  if (section && (await closedSectionPlugins()).has(section)) return err('not found', 404)
 
   if (type === 'navpages') {
     const pages = await db.page.findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } })

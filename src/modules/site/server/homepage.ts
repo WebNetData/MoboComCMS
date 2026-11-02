@@ -35,7 +35,7 @@ async function getShowcase(enabled: (id: string) => boolean): Promise<ShowcaseIt
   return items
 }
 
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 
 async function getStats(enabled: (id: string) => boolean): Promise<LandingStat[]> {
   const safe = (p: Promise<number>) => p.catch(() => 0)

@@ -9,10 +9,12 @@ import { shippingFeeMinor } from '@/modules/shipping/domain/shipping'
 import { getCarrierSettings } from '@/modules/shipping/server/carriers'
 import { freeShippingOffers, rialToMinor } from '@/modules/shipping/domain/carriers'
 import { minorToNumber } from '@/shared/money'
-import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { answersComplete, maskAnswers, parseOpenAmount, readOrderFields, validateAnswers } from '@/modules/store/domain/order-inputs'
 import { asStoreError, openAmountPrice, openAnswers, sealAnswers } from '@/modules/store/server/order-inputs'
+import { userOpensAudience } from '@/modules/account/server/item-audience'
+import { groupDeal } from '@/modules/account/server/user-groups'
 
 // A cart belongs to a signed-in customer (userId) or to a browser (token
 // cookie). Guests only ever reach carts without an owner; on sign-in the
@@ -184,6 +186,9 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
   const waiting = guestToken ? await db.cartLine.count({ where: { cart: { token: guestToken, userId: null } } }) : 0
   const member = owner.userId ? await isMember(owner.userId) : false
   const opens = await opensMembersOnly(owner.userId, member)
+  const deal = await groupDeal(owner.userId, [...new Set(rows.map((row) => row.productId))])
+  const hidden = new Set<string>()
+  for (const raw of new Set(rows.map((row) => row.product.audienceGroups))) if (!await userOpensAudience(raw, 'product', owner.userId)) hidden.add(raw)
   const currency = rows[0]?.product.currency || 'IRT'
   let itemsMinor = 0n
   let listMinor = 0n
@@ -203,12 +208,12 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     const product = row.product
     const variant = row.variantKey ? product.variants.find((v) => v.id === row.variantKey) || null : null
     const open = openPrices.get(row.id)
-    const listed = unitPrice(product, variant, member)
+    const listed = unitPrice(product, variant, member, undefined, deal)
     const price = open && 'unitMinor' in open ? { ...listed, unitMinor: open.unitMinor, listMinor: 0n } : listed
     const limit = product.openAmount ? Math.min(1, lineLimit(product.stock, null, product.maxPerOrder)) : lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder)
     const answers = openAnswers(row.inputs)
     let issue = ''
-    if (!isPublicProduct(product) || (row.variantKey && (!variant || !variant.active))) issue = 'این کالا دیگر فروخته نمی‌شود'
+    if (!isPublishedProduct(product) || hidden.has(product.audienceGroups) || (row.variantKey && (!variant || !variant.active))) issue = 'این کالا دیگر فروخته نمی‌شود'
     else if (!row.variantKey && product.variants.some((v) => v.active)) issue = 'نوع کالا را دوباره انتخاب کنید'
     else if (product.access === 'MEMBERS' && !opens) issue = 'مخصوص اعضای ویژه'
     else if (limit === 0) issue = 'ناموجود'
@@ -280,9 +285,9 @@ export async function cartCount(owner: CartOwner): Promise<number> {
   return sum._sum.quantity || 0
 }
 
-async function purchasable(productId: number, variantId: number | null, client: Pick<Prisma.TransactionClient, 'product'> = db) {
+async function purchasable(productId: number, variantId: number | null, userId: number | null, client: Pick<Prisma.TransactionClient, 'product'> = db) {
   const product = await client.product.findUnique({ where: { id: productId }, include: { variants: { where: { active: true }, select: { id: true, stock: true } } } })
-  if (!product || !isPublicProduct(product)) throw new StoreError('کالا پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
+  if (!product || !isPublishedProduct(product) || !await userOpensAudience(product.audienceGroups, 'product', userId)) throw new StoreError('کالا پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
   if (product.variants.length && !variantId) throw new StoreError('نوع کالا را انتخاب کنید', 400, 'VARIANT_REQUIRED')
   const variant = variantId ? product.variants.find((v) => v.id === variantId) : null
   if (variantId && !variant) throw new StoreError('نوع انتخاب‌شده موجود نیست', 404, 'VARIANT_NOT_FOUND')
@@ -301,7 +306,7 @@ async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, 
   const productTotals = new Map<number, number>()
   for (const line of lines) productTotals.set(line.productId, (productTotals.get(line.productId) || 0) + line.quantity)
   for (const request of requests) {
-    const { product, limit } = await purchasable(request.productId, request.variantId, tx)
+    const { product, limit } = await purchasable(request.productId, request.variantId, owner.userId, tx)
     if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
     if (strict && product.access === 'MEMBERS' && !opens) throw new StoreError('این بسته مخصوص اعضای ویژه است', 403, 'MEMBERS_ONLY')
     currencies.add(product.currency)
@@ -331,7 +336,7 @@ export async function addCartComponents(owner: CartOwner, requests: CartAddition
     const key = `${request.productId}:${request.variantId || 0}`
     if (seen.has(key)) throw new StoreError('بسته دارای کالای تکراری است')
     seen.add(key)
-    await purchasable(request.productId, request.variantId)
+    await purchasable(request.productId, request.variantId, owner.userId)
   }
   const member = owner.userId ? await isMember(owner.userId) : false
   const opens = await opensMembersOnly(owner.userId, member)
@@ -347,7 +352,7 @@ export async function addToCart(owner: CartOwner, input: { productId: unknown; v
   if (!Number.isSafeInteger(productId) || productId <= 0) throw new StoreError('کالا مشخص نیست')
   let quantity = Math.max(1, normalizeQuantity(input.quantity ?? 1))
   // Keep the existing pre-creation validation; recheck after taking the cart lock.
-  const available = await purchasable(productId, variantId)
+  const available = await purchasable(productId, variantId, owner.userId)
   if (available.limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
   // A product that asks its buyer something: the answers and the typed amount are checked here and kept
   // on the line, encrypted. Adding it again replaces what was given before.
@@ -383,7 +388,7 @@ export async function updateCartLine(owner: CartOwner, lineId: number, quantityI
       await tx.cartLine.delete({ where: { id: line.id } })
       return { removed: true }
     }
-    const found = await purchasable(line.productId, line.variantKey || null, tx).catch(() => null)
+    const found = await purchasable(line.productId, line.variantKey || null, owner.userId, tx).catch(() => null)
     // One payment per line: a typed foreign amount is not multiplied.
     const limit = found ? (found.product.openAmount ? Math.min(1, found.limit) : found.limit) : 0
     if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')

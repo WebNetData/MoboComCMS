@@ -18,7 +18,7 @@ export async function readProductPriceHistory(productId: number, variantId = 0, 
   if (!await isStoreEnabled()) return null
   const settings = await getStoreSettings()
   if (!settings.showPriceHistory) return null
-  const product = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, currency: true } })
+  const product = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, audienceGroups: true, currency: true } })
   if (!product || !isPublicProduct(product)) return null
   if (variantId) {
     const variant = await db.productVariant.findFirst({ where: { id: variantId, productId, active: true }, select: { id: true } })

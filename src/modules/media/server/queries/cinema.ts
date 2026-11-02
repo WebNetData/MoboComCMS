@@ -5,10 +5,11 @@ import { plainText } from '@/shared/text/plain'
 import { renderEditorialText } from '@/shared/content/sanitize'
 import { relatedCinema } from '@/modules/recommendations/server/contextual'
 import { allOrEmpty } from '@/modules/media/server/queries/music'
-import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
+import { PAGE_SIZE, live, publishedNow } from '@/modules/media/server/queries/core'
 import { countList } from '@/modules/media/server/queries/shared'
 import { cinemaBrowsePage, cinemaPersonId } from '@/modules/cinema/domain/discovery'
 import { canonicalPersonId } from '@/modules/cinema/server/people'
+import { audienceClause, opensAudience } from '@/modules/account/server/item-audience'
 
 export type TitleCard = {
   id: number; slug: string; kind: string; title: string; titleEn: string; originalTitle: string; poster: string; backdrop: string
@@ -77,7 +78,7 @@ export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: n
 
 export async function browseCinema(input: { format?: string; kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string; producer?: string }) {
   const page = cinemaBrowsePage(input.page)
-  const where: any = { ...live() }
+  const where: any = { ...live(), ...(await audienceClause('title')) }
   // Each person filter matches that person's canonical profile (a merged alias leads to the person it joined).
   const canonical = (raw: string | undefined) => { const id = cinemaPersonId(raw); return id === null || id <= 0 ? Promise.resolve(id) : canonicalPersonId(id).then(found => found || id) }
   const [actor,director,producer] = await Promise.all([canonical(input.actor), canonical(input.director), canonical(input.producer)])
@@ -112,8 +113,8 @@ export async function browseCinema(input: { format?: string; kind?: string; genr
 }
 
 export async function getTitle(slug: string) {
-  const row = await db.cinemaTitle.findFirst({ where: { slug, ...live() }, include: { ...titleInclude, seasons: { orderBy: { number: 'asc' }, include: { episodes: { orderBy: { number: 'asc' } } } } } }).catch(() => null)
-  if (!row) return null
+  const row = await db.cinemaTitle.findFirst({ where: { slug, ...publishedNow() }, include: { ...titleInclude, seasons: { orderBy: { number: 'asc' }, include: { episodes: { orderBy: { number: 'asc' } } } } } }).catch(() => null)
+  if (!row || !await opensAudience(row.audienceGroups, 'title')) return null
   await db.cinemaTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
   const episodeIds = row.seasons.flatMap((season) => season.episodes.map((episode) => episode.id))
   const [titleLinks, episodeLinks, recommendations] = await Promise.all([
@@ -144,7 +145,7 @@ export async function getTitle(slug: string) {
 export async function episodeCalendar(input: { when?: unknown; page?: unknown }, now = new Date()) {
   const when = normalizeWhen(input.when)
   const page = calendarPage(input.page)
-  const series = { season: { title: { status: 'PUBLISHED', publishedAt: { lte: now }, kind: 'SERIES' } } }
+  const series = { season: { title: { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '', kind: 'SERIES' } } }
   const where = { ...series, airDate: when === 'upcoming' ? { gt: now } : { lte: now } }
   const [rows, total, upcoming] = await Promise.all([
     db.cinemaEpisode.findMany({
@@ -169,7 +170,7 @@ export async function episodeCalendar(input: { when?: unknown; page?: unknown },
 export async function filmCalendar(input: { when?: unknown; page?: unknown }, now = new Date()) {
   const when = normalizeWhen(input.when)
   const page = calendarPage(input.page)
-  const films = { kind: 'MOVIE', status: 'PUBLISHED', publishedAt: { lte: now } }
+  const films = { kind: 'MOVIE', status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' }
   const where = { ...films, releaseDate: when === 'upcoming' ? { gt: now } : { lte: now } }
   const [rows, total, upcoming] = await Promise.all([
     db.cinemaTitle.findMany({

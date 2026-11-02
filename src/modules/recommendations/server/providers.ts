@@ -6,7 +6,7 @@ import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware, relatedTra
 // The providers the site ships with: one per kind of item a suggestion can start from. They answer from
 // the catalogue itself (shared style, creator, platform), so they need no history and no outside service.
 
-const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' })
 const FROM_ARTIST = 'از هنرمندی که دنبال می‌کنید'
 const FROM_STUDIO = 'از سازنده یا ناشری که دنبال می‌کنید'
 
@@ -16,7 +16,7 @@ const BUILT_IN: RecommendationProvider[] = [
     suggest: async (seed, { now, take }) => {
       const [albums, tracks] = await Promise.all([
         db.musicAlbum.findMany({ where: { artistId: seed.id, ...live(now) }, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take, select: { id: true } }),
-        db.musicTrack.findMany({ where: { artistId: seed.id, ...live(now) }, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take, select: { id: true } }),
+        db.musicTrack.findMany({ where: {album: { isNot: { audienceGroups: { not: '' } } },  artistId: seed.id, ...live(now) }, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take, select: { id: true } }),
       ])
       return [
         ...albums.map((row) => ({ item: { type: 'album' as const, id: row.id }, score: 18, reason: FROM_ARTIST })),
@@ -69,7 +69,7 @@ const BUILT_IN: RecommendationProvider[] = [
   {
     id: 'catalogue.track', seedType: 'track',
     suggest: async (seed, { now, take }) => {
-      const row = await db.musicTrack.findFirst({ where: { id: seed.id, ...live(now) }, select: { id: true, genre: true, artistId: true } })
+      const row = await db.musicTrack.findFirst({ where: {album: { isNot: { audienceGroups: { not: '' } } },  id: seed.id, ...live(now) }, select: { id: true, genre: true, artistId: true } })
       return row ? relatedTracks(row, take) : []
     },
   },

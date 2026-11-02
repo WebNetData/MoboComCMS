@@ -5,6 +5,9 @@ function load(file) {
  const mod = { exports: {} }, code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
  new Function('require','module','exports',code)(name => {
   if(name === '@/platform/database/prisma') return {db}
+  // This suite owns public cart write races; group authority is covered by user-groups.connected.
+  if(name === '@/modules/account/server/item-audience') return {userOpensAudience: async raw => !raw}
+  if(name === '@/modules/account/server/user-groups') return {groupDeal: async () => ({percent:0,prices:new Map()})}
   if(name === '@/modules/store/domain/store') return load('src/modules/store/domain/store.ts')
   if(name === '@/modules/catalog/domain/product-publication') return load('src/modules/catalog/domain/product-publication.ts')
   if(name === '@/modules/store/domain/order-inputs') return load('src/modules/store/domain/order-inputs.ts')

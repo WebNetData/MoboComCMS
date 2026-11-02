@@ -5,7 +5,7 @@ import { imdbPhoto } from '@/modules/cinema/domain/imdb-page'
 
 type Tx = Prisma.TransactionClient
 const CURSOR = 'cinema.people.backfill'
-const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' })
 
 /** Reuse the canonical person's established pictures before contacting an outside source. */
 export async function storedPersonPhotoStates(names: string[]): Promise<Map<string, {image:string;locked:boolean}>> {

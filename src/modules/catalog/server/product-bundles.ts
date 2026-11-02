@@ -36,7 +36,7 @@ export async function replaceProductBundles(tx: Prisma.TransactionClient, produc
 }
 
 const bundleInclude = {
-  product: { select: { id: true, active: true, approval: true } },
+  product: { select: { id: true, active: true, approval: true, audienceGroups: true } },
   components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { product: { include: { variants: true } } } },
 }
 

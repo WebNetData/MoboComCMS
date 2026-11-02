@@ -18,11 +18,12 @@ import { addOrderNote, adminOrder, adminOrders, eraseOrderInputs, revealOrderInp
 import { db } from '@/platform/database/prisma'
 import { OrderInputError, parseOpenAmount } from '@/modules/store/domain/order-inputs'
 import { openAmountPrice } from '@/modules/store/server/order-inputs'
-import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
 import { minorToNumber } from '@/shared/money'
 import { adminProducts, bulkProducts, deleteBrand, inventoryList, listBrands, saveBrand, storeCustomers, storeDashboard, updateStock } from '@/modules/store/server/admin'
 import { enqueue } from '@/modules/operations/server/queue'
 import { assignOrder, orderSpecialists } from '@/modules/store/server/order-work'
+import { opensAudience } from '@/modules/account/server/item-audience'
 
 function failure(error: unknown) {
   if (error instanceof StoreError) return err(error.message, error.status, { code: error.code })
@@ -79,7 +80,7 @@ export async function POST_cartQuote(req: NextRequest) {
   const body = (await req.json().catch(() => null)) || {}
   const id = Number(body.productId)
   const product = Number.isSafeInteger(id) && id > 0 ? await db.product.findUnique({ where: { id } }) : null
-  if (!product || !isPublicProduct(product) || !product.openAmount) return err('این خدمت پیدا نشد', 404, { code: 'PRODUCT_NOT_FOUND' })
+  if (!product || !(isPublishedProduct(product) && await opensAudience(product.audienceGroups, 'product')) || !product.openAmount) return err('این خدمت پیدا نشد', 404, { code: 'PRODUCT_NOT_FOUND' })
   try {
     const typed = parseOpenAmount(product, body)
     const quote = await openAmountPrice(product, typed.amountMinor, typed.currency)

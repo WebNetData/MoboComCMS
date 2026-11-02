@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { termTree, ownerIdsForTermSlug } from '@/modules/taxonomy/server/taxonomy'
 import { flatten } from '@/modules/taxonomy/domain/taxonomy'
 
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 
 /**
  * Genre tiles for the games home and the genre options of the browser: the

@@ -15,6 +15,8 @@ import type { FileTags } from '@/modules/downloads/server/clean'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { getPlaybackPrefs } from '@/modules/media/server/playback-prefs'
 import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
+import { opensAudience, opensItem } from '@/modules/account/server/item-audience'
+import { userOpensSection } from '@/modules/account/server/section-access'
 
 /**
  * Protected media redirects. Download/stream URLs are stored server-side only; the
@@ -81,7 +83,18 @@ async function fileRedirect(request: Request, url: string, download: boolean, us
 
 type Owner = { access: string; path: string; chain: Chain; title: string }
 
+const OWNER_SECTION = { title: 'cinema', game: 'games', software: 'software' } as const
+
+/** The owner of a file, for someone who may see it: its item's groups and a limited section decide here, whatever address asked. */
 async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null> {
+  const owner = await publishedOwner(ownerType, ownerId)
+  const root = owner?.chain[0] as { ownerType: keyof typeof OWNER_SECTION; ownerId: number } | undefined
+  if (!owner || !root || !OWNER_SECTION[root.ownerType]) return null
+  const [item, section] = await Promise.all([opensItem(root.ownerType, root.ownerId), userOpensSection(OWNER_SECTION[root.ownerType], (await getViewer()).userId)])
+  return item && section ? owner : null
+}
+
+async function publishedOwner(ownerType: string, ownerId: number): Promise<Owner | null> {
   if (ownerType === 'title') {
     const row = await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { access: true, slug: true, title: true } })
     return row && { access: row.access, path: `/cinema/${row.slug}`, chain: [{ ownerType: 'title', ownerId }], title: row.title }
@@ -154,8 +167,8 @@ export async function openMediaLink(request: Request, rawId: string) {
 export async function openTrack(request: Request, rawId: string) {
   const id = Number(rawId)
   if (!Number.isSafeInteger(id) || id <= 0 || !await isModuleEnabled('music')) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
-  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, title: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true, title: true, cover: true } }, cover: true, artist: { select: { name: true } } } }).catch(() => null)
-  if (!track || !track.audioUrl) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
+  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, title: true, audienceGroups: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true, title: true, cover: true } }, cover: true, artist: { select: { name: true } } } }).catch(() => null)
+  if (!track || !track.audioUrl || !await opensItem('track', track.id) || !await userOpensSection('music', (await getViewer()).userId)) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   const url = new URL(request.url)
   const hq = url.searchParams.get('q') === 'hq' && !!track.audioHqUrl
   const download = url.searchParams.get('dl') === '1'

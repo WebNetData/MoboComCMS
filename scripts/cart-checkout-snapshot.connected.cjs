@@ -7,6 +7,9 @@ function load(file, cache = new Map()) {
  const mod = {exports: {}}; cache.set(file, mod)
  new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
   if (name === '@/platform/database/prisma') return {db}
+  // Public fixture scope; current group decisions have their own registered PostgreSQL suite.
+  if (name === '@/modules/account/server/item-audience') return {userOpensAudience: async raw => !raw}
+  if (name === '@/modules/account/server/user-groups') return {groupDeal: async () => ({percent:0,prices:new Map()})}
   if (name === '@/modules/membership/server/membership') return {isMember: async () => false, opensMembersOnly: async (_userId, member) => !!member}
   if (name === '@/modules/shipping/server/shipping') return {getDeliverySettings: async () => ({})}
   if (name === '@/modules/shipping/server/carriers') return {getCarrierSettings: async () => ({enabled: false})}

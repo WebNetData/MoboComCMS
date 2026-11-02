@@ -7,13 +7,14 @@ import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/
 import { cleanRichText } from '@/shared/content/sanitize'
 import { livePostWhere } from '@/modules/journal/domain/journal'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { isPublicProduct, publicProductWhere } from '@/modules/catalog/domain/product-publication'
+import { isPublishedProduct, publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
 import { productReviewCriteria } from '@/modules/catalog/server/review-criteria'
 import { readProductPriceHistory } from '@/modules/catalog/server/price-history-read'
 import { readFrequentlyBoughtProducts } from '@/modules/catalog/server/frequently-bought'
 import { readEditorialProductCards } from '@/modules/catalog/server/product-relationship-read'
 import { pictureOf } from '@/modules/identity/domain/picture'
+import { opensAudience } from '@/modules/account/server/item-audience'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest, { params }: Context) {
   if (!await isStoreEnabled()) return err('not found', 404)
   const { slug } = await params
   const product = await db.product.findUnique({ where: { slug }, include: { category: { include: { attributeGroup: true } } } })
-  if (!product || !isPublicProduct(product)) return err('not found', 404)
+  if (!product || !(isPublishedProduct(product) && await opensAudience(product.audienceGroups, 'product'))) return err('not found', 404)
   const tab = req.nextUrl.searchParams.get('tab') || 'description'
   const pageRaw = Number(req.nextUrl.searchParams.get('page') || 1)
   const page = Number.isSafeInteger(pageRaw) ? Math.min(1000, Math.max(1, pageRaw)) : 1

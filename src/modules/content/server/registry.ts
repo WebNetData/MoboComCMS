@@ -31,7 +31,7 @@ export type ItemCard = {
 }
 
 const plain = (html: string, max = 300) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 
 type Where = { id?: { in?: number[]; gt?: number }; slug?: string; q?: string }
 
@@ -45,7 +45,7 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
   const matchName = text ? { OR: [{ name: { contains: text, ...insensitive } }, { nameEn: { contains: text, ...insensitive } }] } : {}
   switch (type) {
     case 'prompt': {
-      const rows = await client.promptTemplate.findMany({ where: { ...base, ...live(), ...(text ? { OR: [{ title: { contains: text, ...insensitive } }, { tags: { contains: text, ...insensitive } }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' } })
+      const rows = await client.promptTemplate.findMany({ where: { ...base, status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '', ...(text ? { OR: [{ title: { contains: text, ...insensitive } }, { tags: { contains: text, ...insensitive } }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' } })
       return rows.map(r => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.category, summary: r.summary, keywords: r.tags, image: readShowcase(r.showcase).cover, access: 'PUBLIC', publishedAt: r.publishedAt!, updatedAt: r.updatedAt, popularity: r.featured ? 10 : 0 }))
     }
     case 'software': {
@@ -77,7 +77,7 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.artist.name, summary: plain(r.description), keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.year].join(' '), image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'track': {
-      const rows = await client.musicTrack.findMany({ where: { ...base, ...live(), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } }, album: { select: { cover: true, title: true } } } })
+      const rows = await client.musicTrack.findMany({ where: {album: { isNot: { audienceGroups: { not: '' } } },  ...base, ...live(), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } }, album: { select: { cover: true, title: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.artist.name, summary: r.album?.title || '', keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.album?.title].join(' '), image: r.cover || r.album?.cover || '', access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.plays + r.downloads }))
     }
     case 'artist': {
@@ -93,11 +93,11 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
       return rows.map(r => card({ id: r.id, slug: r.slug, title: r.name, subtitle: r.category, summary: r.description, keywords: r.domain || '', image: '', access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: 0 }))
     }
     case 'product': {
-      const rows = await client.product.findMany({ where: { ...base, active: true, approval: 'APPROVED', ...(text ? { OR: [{ name: { contains: text, ...insensitive } }, { nameEn: { contains: text, ...insensitive } }, { slug: { contains: text, ...insensitive } }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
+      const rows = await client.product.findMany({ where: { ...base, active: true, approval: 'APPROVED', audienceGroups: '', ...(text ? { OR: [{ name: { contains: text, ...insensitive } }, { nameEn: { contains: text, ...insensitive } }, { slug: { contains: text, ...insensitive } }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, titleEn: r.nameEn, subtitle: r.category?.name || '', summary: plain(r.description), keywords: [r.nameEn, r.category?.name].join(' '), image: r.image, access: r.access, publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'post': {
-      const rows = await client.post.findMany({ where: { ...base, ...(includeScheduledPosts ? { status: 'PUBLISHED' } : live()), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { category: { select: { name: true } } } })
+      const rows = await client.post.findMany({ where: { ...base, ...(includeScheduledPosts ? { status: 'PUBLISHED', audienceGroups: '' } : live()), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.category?.name || 'مجله', summary: plain(r.excerpt || r.content), keywords: r.titleEn, image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'thread': {
@@ -122,9 +122,16 @@ export async function enabledItemTypes(): Promise<ItemType[]> {
   return ITEM_TYPES.filter((type) => type === 'studio' ? states.games !== false || states.software !== false : states[ITEM_MODULE[type]] !== false)
 }
 
+/** Public discovery also obeys section audience limits, without narrowing the private search index. */
+async function publicItemTypes(): Promise<ItemType[]> {
+  const { closedSectionPlugins } = await import('@/modules/site/server/maintenance')
+  const closed = await closedSectionPlugins()
+  return (await enabledItemTypes()).filter(type => type === 'studio' ? !(closed.has('games') && closed.has('software')) : !closed.has(ITEM_MODULE[type]))
+}
+
 /** Cards for the given references, keyed by "type:id". Missing or hidden items are absent. */
 export async function itemCards(refs: ItemRef[], client: Prisma.TransactionClient = db): Promise<Map<string, ItemCard>> {
-  const enabled = new Set(await enabledItemTypes())
+  const enabled = new Set(await publicItemTypes())
   const byType = new Map<ItemType, number[]>()
   for (const ref of refs) if (enabled.has(ref.type)) byType.set(ref.type, [...(byType.get(ref.type) || []), ref.id])
   const result = new Map<string, ItemCard>()
@@ -140,14 +147,13 @@ export async function itemCard(ref: ItemRef): Promise<ItemCard | null> {
 
 /** Search may prepare a scheduled post before it is public; public readers still use itemCard. */
 export async function searchIndexCard(ref: ItemRef): Promise<ItemCard | null> {
-  if (ref.type !== 'post') return itemCard(ref)
   if (!(await enabledItemTypes()).includes(ref.type)) return null
-  return (await load('post', { id: { in: [ref.id] } }, 1, true))[0] || null
+  return (await load(ref.type, { id: { in: [ref.id] } }, 1, ref.type === 'post', true))[0] || null
 }
 
 /** Public item by its URL slug (threads use their numeric id). */
 export async function itemBySlug(type: ItemType, slug: string): Promise<ItemCard | null> {
-  if (!(await enabledItemTypes()).includes(type)) return null
+  if (!(await publicItemTypes()).includes(type)) return null
   const rows = type === 'thread' ? await load(type, { id: { in: [Number(slug) || 0] } }, 1) : await load(type, { slug }, 1)
   return rows[0] || null
 }
@@ -160,7 +166,7 @@ export async function searchItemCards(q: unknown, types: readonly ItemType[], ta
   const text = String(q ?? '').trim()
   if (text.length < 2) return []
   const limit = Math.max(1, Math.min(100, Number(take) || 25))
-  const enabled = new Set(await enabledItemTypes())
+  const enabled = new Set(await publicItemTypes())
   const wanted = types.filter((type) => enabled.has(type))
   if (!wanted.length) return []
   const pages = await Promise.all(wanted.map((type) => load(type, { q: text }, limit)))
@@ -169,6 +175,6 @@ export async function searchItemCards(q: unknown, types: readonly ItemType[], ta
 
 /** A small live catalogue rail using exactly the canonical card publication and module guards. */
 export async function latestItemCards(type: ItemType, take = 6): Promise<ItemCard[]> {
-  if (!(await enabledItemTypes()).includes(type)) return []
+  if (!(await publicItemTypes()).includes(type)) return []
   return load(type, {}, Math.max(1, Math.min(24, Number(take) || 6)))
 }

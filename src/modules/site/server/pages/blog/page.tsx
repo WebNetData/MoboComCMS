@@ -21,6 +21,7 @@ import { Icon } from '@/components/media/PortalIcons'
 import JournalPagination from '@/components/journal/JournalPagination'
 import { journalBrowseUrl, journalPagination } from '@/modules/journal/domain/pagination'
 import { pictureOf } from '@/modules/identity/domain/picture'
+import { audienceClause } from '@/modules/account/server/item-audience'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 /** Badge colours for the journal's main categories (Liona palette). */
@@ -41,7 +42,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   const category = typeof searchParams.category === 'string' ? searchParams.category : ''
   const pageSize = settings.pageSize
   const now = new Date()
-  const where = { ...livePostWhere(now), AND: [await categoryFilter(category)], ...(query ? { OR: [{ title: { contains: query } }, { titleEn: { contains: query } }, { excerpt: { contains: query } }, { excerptEn: { contains: query } }] } : {}) }
+  const where = { ...livePostWhere(now), ...(await audienceClause('post')), AND: [await categoryFilter(category)], ...(query ? { OR: [{ title: { contains: query } }, { titleEn: { contains: query } }, { excerpt: { contains: query } }, { excerptEn: { contains: query } }] } : {}) }
   const total = await db.post.count({ where })
   const pagination = journalPagination(total, pageSize, searchParams.page)
   const { skip } = pagination

@@ -14,7 +14,7 @@ const excerpt = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 160)
 export async function notifyCommentPublished(commentId: number, by: 'moderator' | 'auto') {
     const comment = await db.postComment.findUnique({
       where: { id: commentId },
-      select: { id: true, userId: true, body: true, status: true, post: { select: { slug: true, title: true, titleEn: true, status: true, publishedAt: true } }, parent: { select: { userId: true, status: true } } },
+      select: { id: true, userId: true, body: true, status: true, post: { select: { audienceGroups: true, slug: true, title: true, titleEn: true, status: true, publishedAt: true } }, parent: { select: { userId: true, status: true } } },
     })
     // Nothing is announced for a comment that is not public, or under an article that is not.
     if (!comment || comment.status !== 'APPROVED' || !isLivePost(comment.post)) return { author: false, parent: false }
