@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
-import { MAINTENANCE_SECTIONS, SITE_DEFAULT_MESSAGE, SITE_DEFAULT_TITLE, isMaintenanceSection, noticeOf } from '@/modules/site/domain/maintenance'
+import { MAINTENANCE_MODES, MAINTENANCE_SECTIONS, isMaintenanceSection, noticeOf, siteNoticeOf } from '@/modules/site/domain/maintenance'
 import { getSiteSeo } from '@/modules/site/server/seo'
 import SiteNotice from '@/components/site/maintenance/SiteNotice'
 import { loadMaintenance } from '@/modules/site/server/maintenance'
@@ -17,11 +17,13 @@ export default async function MaintenanceNotice({ searchParams }: { searchParams
   const { section, site } = await searchParams
   const state = await loadMaintenance()
   if (site === '1') {
-    const { title, message, design, effect, icon, reopensAt } = state.site
-    return <SiteNotice title={title || SITE_DEFAULT_TITLE} message={message || SITE_DEFAULT_MESSAGE} design={design} effect={effect} icon={icon} reopensAt={reopensAt} name={(await getSiteSeo('fa')).name} />
+    const { design, effect, icon, reopensAt } = state.site
+    const { title, message } = siteNoticeOf(state.site)
+    return <SiteNotice title={title} message={message} design={design} effect={effect} icon={icon} reopensAt={reopensAt} name={(await getSiteSeo('fa')).name} />
   }
   const known = isMaintenanceSection(section) ? section : null
-  const notice = noticeOf(known ? state[known] : { enabled: false, title: '', message: '' })
+  const notice = noticeOf(known ? state[known] : { title: '', message: '' })
+  const mode = known ? MAINTENANCE_MODES.find((item) => item.id === state[known].mode)?.label : null
   const label = known ? MAINTENANCE_SECTIONS.find((item) => item.id === known)?.label : null
   return (
     <main className="mnt" dir="rtl">
@@ -36,7 +38,7 @@ export default async function MaintenanceNotice({ searchParams }: { searchParams
             </g>
           </svg>
         </div>
-        {label ? <span className="mnt-chip">{label}</span> : null}
+        {label ? <span className="mnt-chip">{label}{mode ? ` · ${mode}` : ''}</span> : null}
         <h1 id="mnt-title" className="mnt-title">{notice.title}</h1>
         <p className="mnt-text">{notice.message}</p>
         <div className="mnt-bar" role="presentation"><span /></div>

@@ -180,7 +180,8 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
       if (res.type === 'opaqueredirect') { setNotice(fa ? 'مرورگر نتوانست فایل را از سرور فایل بگیرد (لینک مستقیم). احتمالاً آن سرور دسترسی را رد می‌کند یا فایل معتبر نیست.' : 'The browser could not load the file from its server (direct link).'); return }
       const reason = lockReason(res.status)
       if (reason) { setLock({ reason, track }); setNotice(''); return }
-      if (res.status === 404 || res.status === 410) setNotice(fa ? 'فایل این آهنگ روی سرور پیدا نشد یا حذف شده است.' : 'The audio file was not found on its server.')
+      if (res.status === 503 && (await res.clone().json().catch(() => null))?.error === 'MAINTENANCE') setNotice(fa ? 'بخش موزیک در حال به‌روزرسانی است؛ کمی بعد دوباره امتحان کنید.' : 'Music is being updated. Please try again soon.')
+      else if (res.status === 404 || res.status === 410) setNotice(fa ? 'فایل این آهنگ روی سرور پیدا نشد یا حذف شده است.' : 'The audio file was not found on its server.')
       else if (res.status >= 500) setNotice(fa ? 'سرور فایل صوتی در حال حاضر در دسترس نیست؛ کمی بعد دوباره تلاش کنید.' : 'The audio server is unreachable right now — try again shortly.')
       else if (res.ok) {
         const type = res.headers.get('content-type') || ''

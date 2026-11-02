@@ -7,7 +7,7 @@ import { mutationOrigin } from '@/platform/http/origin-policy'
 import { contentSecurityPolicy, newNonce, nonceOf, usesNonce } from '@/platform/http/csp'
 import { requireUser } from '@/modules/identity/server/access'
 import { loadMaintenance, maintenanceBases } from '@/modules/site/server/maintenance'
-import { maintenanceDecision, openDuringSiteMaintenance, sectionOfPath } from '@/modules/site/domain/maintenance'
+import { maintenanceDecision, openDuringSiteMaintenance, runsSection, sectionOfPath } from '@/modules/site/domain/maintenance'
 import { loadSectionAccess, sectionLock } from '@/modules/account/server/section-access'
 import { opensDuringMaintenance } from '@/modules/account/server/maintenance-access'
 import { sectionLoginPath, sectionOfApi } from '@/modules/account/domain/section-access'
@@ -106,9 +106,13 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  // A section limited to groups closes its API with its pages.
+  // A section in maintenance or limited to groups closes its API with its pages.
   const apiSection = sectionOfApi(req.nextUrl.pathname)
   if (apiSection) {
+    if ((await loadMaintenance().catch(() => null))?.[apiSection]?.enabled) {
+      const account = await requireUser(req).catch(() => null)
+      if (!runsSection(account ? { role: account.role, roleId: account.roleId ?? null, permissions: account.permissions } : null, apiSection)) return NextResponse.json({ error: 'این بخش در حال به‌روزرسانی است' }, { status: 503, headers: { 'retry-after': '3600', 'cache-control': 'no-store' } })
+    }
     const lock = await sectionLock(apiSection, () => requireUser(req).catch(() => null))
     if (lock !== 'open') return NextResponse.json({ error: lock === 'login' ? 'برای این بخش وارد حساب خود شوید' : 'این بخش برای گروه‌های خاصی باز است' }, { status: lock === 'login' ? 401 : 403, headers: { 'cache-control': 'no-store' } })
   }

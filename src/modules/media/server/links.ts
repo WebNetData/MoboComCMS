@@ -18,6 +18,8 @@ import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
 import { opensAudience, opensItem } from '@/modules/account/server/item-audience'
 import { userOpensSection } from '@/modules/account/server/section-access'
 import { ruleRefusal } from '@/modules/membership/server/rules'
+import { sectionClosedFor } from '@/modules/account/server/maintenance-access'
+import type { MaintenanceSectionId } from '@/modules/site/domain/maintenance'
 
 /**
  * Protected media redirects. Download/stream URLs are stored server-side only; the
@@ -86,14 +88,19 @@ async function fileRedirect(request: Request, url: string, download: boolean, us
 type Owner = { access: string; path: string; chain: Chain; title: string }
 
 const OWNER_SECTION = { title: 'cinema', game: 'games', software: 'software' } as const
+const LINK_SECTION: Record<string, MaintenanceSectionId> = { title: 'cinema', episode: 'cinema', game: 'games', gameupdate: 'games', software: 'software', softwarerelease: 'software' }
+
+const underMaintenance = () => NextResponse.json({ error: 'MAINTENANCE' }, { status: 503, headers: { 'retry-after': '3600', 'cache-control': 'no-store' } })
+const linkUnderMaintenance = async (ownerType: string) => !!LINK_SECTION[ownerType] && sectionClosedFor(LINK_SECTION[ownerType], (await getViewer()).userId)
 
 /** The owner of a file, for someone who may see it: its item's groups and a limited section decide here, whatever address asked. */
 async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null> {
   const owner = await publishedOwner(ownerType, ownerId)
   const root = owner?.chain[0] as { ownerType: keyof typeof OWNER_SECTION; ownerId: number } | undefined
   if (!owner || !root || !OWNER_SECTION[root.ownerType]) return null
-  const [item, section] = await Promise.all([opensItem(root.ownerType, root.ownerId), userOpensSection(OWNER_SECTION[root.ownerType], (await getViewer()).userId)])
-  return item && section ? owner : null
+  const { userId } = await getViewer()
+  const [item, section, closed] = await Promise.all([opensItem(root.ownerType, root.ownerId), userOpensSection(OWNER_SECTION[root.ownerType], userId), sectionClosedFor(OWNER_SECTION[root.ownerType], userId)])
+  return item && section && !closed ? owner : null
 }
 
 async function publishedOwner(ownerType: string, ownerId: number): Promise<Owner | null> {
@@ -133,6 +140,7 @@ export async function openMediaLink(request: Request, rawId: string) {
   if (!link) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   const module = OWNER_MODULE[link.ownerType]
   if (!module || !await isModuleEnabled(module)) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
+  if (await linkUnderMaintenance(link.ownerType)) return underMaintenance()
   const owner = await ownerOf(link.ownerType, link.ownerId).catch(() => null)
   if (!owner) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   const json = wantsJson(request)
@@ -169,6 +177,7 @@ export async function openMediaLink(request: Request, rawId: string) {
 export async function openTrack(request: Request, rawId: string) {
   const id = Number(rawId)
   if (!Number.isSafeInteger(id) || id <= 0 || !await isModuleEnabled('music')) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
+  if (await sectionClosedFor('music', (await getViewer()).userId)) return underMaintenance()
   const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, title: true, audienceGroups: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true, title: true, cover: true } }, cover: true, artist: { select: { name: true } } } }).catch(() => null)
   if (!track || !track.audioUrl || !await opensItem('track', track.id) || !await userOpensSection('music', (await getViewer()).userId)) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   const url = new URL(request.url)
