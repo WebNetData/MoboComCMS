@@ -139,7 +139,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
             {addresses && addresses.length > 0 && <button type="button" className="sh-link" aria-expanded={chooser} aria-controls="sh-address-list" onClick={() => setChooser((open) => !open)}>{chooser ? 'بستن' : 'تغییر یا ویرایش آدرس'}</button>}
           </header>
           {addressError && <p className="sh-notice is-error" role="alert">{addressError}</p>}
-          {addresses === null ? <div className="sh-skeleton" aria-busy="true" aria-label="در حال بارگذاری آدرس‌ها" /> : addresses.length === 0 ? <div className="sh-empty is-compact">
+          {addresses === null ? <div className="sh-skeleton" role="status" aria-busy="true" aria-label="در حال بارگذاری آدرس‌ها" /> : addresses.length === 0 ? <div className="sh-empty is-compact">
             <p>برای ارسال سفارش یک آدرس ثبت کنید. آدرس در <Link href="/dashboard/addresses">آدرس‌های من</Link> ذخیره می‌شود.</p>
             <button type="button" className="sh-btn sh-btn-primary" onClick={() => setDialog({ open: true, edit: null })}>+ افزودن آدرس</button>
           </div> : !chooser && address ? <div className="sh-selected-address">
@@ -164,7 +164,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
             <h2 id="sh-carrier-title">روش ارسال</h2>
             {carriers && <span className="sh-muted">وزن مرسوله حدود {(Math.ceil(carriers.weightGrams / 100) / 10).toLocaleString('fa-IR')} کیلوگرم · {address.city}</span>}
           </header>
-          {!carriers ? <div className="sh-skeleton" aria-busy="true" aria-label="در حال محاسبهٔ هزینهٔ ارسال" /> : !carriers.options.some((o) => o.ok) ? <p className="sh-notice is-error" role="status">برای این آدرس روش ارسالی در دسترس نیست. آدرس دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید.</p>
+          {!carriers ? <div className="sh-skeleton" role="status" aria-busy="true" aria-label="در حال محاسبهٔ هزینهٔ ارسال" /> : !carriers.options.some((o) => o.ok) ? <p className="sh-notice is-error" role="status">برای این آدرس روش ارسالی در دسترس نیست. آدرس دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید.</p>
             : <div className="sh-carriers" role="radiogroup" aria-label="روش ارسال">
               {carriers.options.map((o) => o.ok ? <label key={o.carrierId} className={`sh-option sh-carrier${o.carrierId === carrierId ? ' is-selected' : ''}`}>
                 <input type="radio" name="carrier" checked={o.carrierId === carrierId} onChange={() => { setCarrierId(o.carrierId); setSlotId('') }} />

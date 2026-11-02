@@ -6,8 +6,8 @@ test('public search resets an invalid cursor and fits desktop and mobile', async
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/search?q=mobocom&cursor=invalid')
     await expect(page.locator('main.md-search-results')).toBeVisible()
-    await expect(page.locator('.sr-page [role="status"]')).toContainText('صفحهٔ اول')
+    await expect(page.locator('main [role="status"]')).toContainText('صفحهٔ اول')
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-    await expect(page.locator('.sr-form input[name="q"]')).toHaveValue('mobocom')
+    await expect(page.getByRole('search', { name: 'جست‌وجو در موبوکام', exact: true }).getByRole('searchbox')).toHaveValue('mobocom')
   }
 })

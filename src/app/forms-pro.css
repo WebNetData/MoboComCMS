@@ -7,8 +7,8 @@
 .pf.pf-r-sharp { --pf-radius: 6px; }
 .pf.pf-r-round { --pf-radius: 22px; }
 .pf.pf-d-compact { --pf-gap: 12px; --pf-field: 40px; }
-.pf > h2 { margin: 0; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.5; }
-.pf > h2 + .muted { margin: -8px 0 0; line-height: 2; }
+.pf > :is(h1, h2) { margin: 0; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.5; text-wrap: balance; }
+.pf > :is(h1, h2) + .muted { margin: -8px 0 0; line-height: 2; }
 .pf .pf-grid { gap: 2px 18px; }
 .pf .pf-field { display: grid; gap: 7px; margin-bottom: var(--pf-gap); min-width: 0; }
 .pf .pf-label { color: inherit; font-size: 13.5px; font-weight: 700; }
@@ -85,7 +85,7 @@
 .pf.pf-theme-minimal .pf-choice { border-width: 0 0 2px; border-radius: 0; background: transparent; }
 .pf.pf-theme-minimal .pf-choice:has(input:checked) { box-shadow: none; background: var(--pf-soft); }
 .pf.pf-theme-bold { border-radius: calc(var(--pf-radius) * 1.3); padding: clamp(20px, 3vw, 36px); border: 2px solid var(--pf-accent); box-shadow: 8px 8px 0 color-mix(in srgb, var(--pf-accent) 28%, transparent); }
-.pf.pf-theme-bold > h2 { font-weight: 900; }
+.pf.pf-theme-bold > :is(h1, h2) { font-weight: 900; }
 .pf.pf-theme-bold .input, .pf.pf-theme-bold .pf-choice { border-width: 2px; }
 .pf.pf-theme-bold .btn-primary { box-shadow: 4px 4px 0 color-mix(in srgb, var(--pf-accent) 35%, transparent); }
 @media (max-width: 640px) { .pf.pf-theme-bold { box-shadow: 4px 4px 0 color-mix(in srgb, var(--pf-accent) 28%, transparent); } .pf-fx .input.num { font-size: 18px; } }

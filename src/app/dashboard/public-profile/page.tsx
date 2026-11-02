@@ -50,11 +50,20 @@ export default function PublicProfilePage() {
   const [saved, setSaved] = useState<Profile | null>(null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const cover = useUpload((url) => set({ cover: url }))
   const avatar = useUpload((url) => set({ avatar: url }))
   useEffect(() => {
-    fetch('/api/profile/public', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((data) => { if (data) { setForm(data); setSaved(data) } }).catch(() => setMessage({ ok: false, text: 'بارگذاری پروفایل انجام نشد' }))
-  }, [])
+    const controller = new AbortController()
+    fetch('/api/profile/public', { cache: 'no-store', signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error('profile unavailable')
+      const data = await response.json().catch(() => null)
+      if (controller.signal.aborted) return
+      if (!data) { setMessage({ ok: false, text: 'بارگذاری پروفایل انجام نشد' }); return }
+      setForm(data); setSaved(data)
+    }).catch(() => { if (!controller.signal.aborted) setMessage({ ok: false, text: 'بارگذاری پروفایل انجام نشد' }) })
+    return () => controller.abort()
+  }, [loadAttempt])
   const dirty = !!form && JSON.stringify(form) !== JSON.stringify(saved)
   useEffect(() => {
     if (!dirty) return
@@ -63,7 +72,7 @@ export default function PublicProfilePage() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
-  if (!form) return <div className="dash-page" dir="rtl">{message ? <p className="dash-note is-error">{message.text}</p> : <div className="pp-skeleton" aria-busy="true" />}</div>
+  if (!form) return <div className="dash-page" dir="rtl"><header className="dash-page-head"><div><h1>تصویر و پروفایل من</h1><p>نمایه، تصویر و اطلاعاتی که دیگران از شما می‌بینند.</p></div></header>{message ? <div className="dt-empty is-bad" role="alert"><b>{message.text}</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setMessage(null); setLoadAttempt(attempt => attempt + 1) }}>تلاش دوباره</button></div> : <div className="pp-skeleton" role="status" aria-label="در حال دریافت پروفایل" aria-busy="true" />}</div>
   function set(patch: Partial<Profile>) { setMessage(null); setForm((current) => current && { ...current, ...patch }) }
   const setPrivacy = (patch: Partial<Privacy>) => set({ privacy: { ...form.privacy, ...patch } })
   const link = (kind: string) => form.links.find((l) => l.kind === kind)?.url || ''
