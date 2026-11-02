@@ -112,3 +112,32 @@ export function summarizeMemberships(periods: PeriodRow[], now = new Date(), win
   expiringUsers.sort((a, b) => +a.endsAt - +b.endsAt)
   return { active, joined, renewed, expiring, lapsed, expiringUsers, bySource, byPlan: [...byPlan].map(([planId, count]) => ({ planId, count })).sort((a, b) => b.count - a.count) }
 }
+
+type HealthRow = PeriodRow & { kind: string; amountMinor: bigint; currency: string }
+
+/**
+ * The numbers a membership business runs on, over a window. Recurring value is what running paid periods are worth per 30
+ * days; churn is the members who lapsed against those at the start of the window; conversion is trials followed by a paid period.
+ */
+export function membershipHealth(periods: HealthRow[], now = new Date(), windowDays = 30) {
+  const DAY = 86_400_000
+  const since = new Date(now.getTime() - windowDays * DAY)
+  const recurring = new Map<string, bigint>()
+  for (const row of periods) {
+    if (row.revokedAt || row.kind !== 'PERIOD' || row.amountMinor <= 0n || row.startsAt > now || row.endsAt <= now || !row.currency) continue
+    const days = BigInt(Math.max(1, Math.round((+row.endsAt - +row.startsAt) / DAY)))
+    if (days > 3650n) continue
+    recurring.set(row.currency, (recurring.get(row.currency) || 0n) + (row.amountMinor * 30n) / days)
+  }
+  const valid = periods.filter((row) => !row.revokedAt)
+  const heldAt = (date: Date) => new Set(valid.filter((row) => row.startsAt <= date && row.endsAt > date).map((row) => row.userId))
+  const startOfWindow = heldAt(since), nowHolding = heldAt(now)
+  const lost = [...startOfWindow].filter((userId) => !nowHolding.has(userId)).length
+  const trials = valid.filter((row) => row.kind === 'TRIAL' && row.createdAt >= since)
+  const converted = trials.filter((trial) => valid.some((row) => row.userId === trial.userId && row.kind === 'PERIOD' && row.source === 'PURCHASE' && row.createdAt > trial.createdAt)).length
+  return {
+    recurring: [...recurring].map(([currency, amountMinor]) => ({ currency, amountMinor })),
+    churnPercent: startOfWindow.size ? Math.round((lost / startOfWindow.size) * 100) : 0,
+    trials: trials.length, converted, conversionPercent: trials.length ? Math.round((converted / trials.length) * 100) : 0,
+  }
+}

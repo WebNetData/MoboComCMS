@@ -17,6 +17,7 @@ import { getPlaybackPrefs } from '@/modules/media/server/playback-prefs'
 import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
 import { opensAudience, opensItem } from '@/modules/account/server/item-audience'
 import { userOpensSection } from '@/modules/account/server/section-access'
+import { ruleRefusal } from '@/modules/membership/server/rules'
 
 /**
  * Protected media redirects. Download/stream URLs are stored server-side only; the
@@ -43,6 +44,7 @@ function mustBuy(request: Request, path: string, json: boolean) {
 async function gate(viewer: { userId: number | null; member: boolean; opens: boolean }, chain: Chain, vipOnly: boolean): Promise<'ok' | 'login' | 'vip' | 'buy'> {
   const paid = await accessFor(viewer, chain)
   if (paid.key) return paid.decision.open ? 'ok' : viewer.userId ? 'buy' : 'login'
+  if (await ruleRefusal(viewer.userId, chain)) return viewer.userId ? 'vip' : 'login'
   if (!vipOnly || viewer.opens) return 'ok'
   if (!viewer.userId) return 'login'
   return canAccess('MEMBERS', viewer.member) ? 'ok' : 'vip'

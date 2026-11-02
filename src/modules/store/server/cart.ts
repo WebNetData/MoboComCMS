@@ -15,6 +15,7 @@ import { answersComplete, maskAnswers, parseOpenAmount, readOrderFields, validat
 import { asStoreError, openAmountPrice, openAnswers, sealAnswers } from '@/modules/store/server/order-inputs'
 import { userOpensAudience } from '@/modules/account/server/item-audience'
 import { groupDeal } from '@/modules/account/server/user-groups'
+import { tierStanding } from '@/modules/membership/server/tiers'
 
 // A cart belongs to a signed-in customer (userId) or to a browser (token
 // cookie). Guests only ever reach carts without an owner; on sign-in the
@@ -250,7 +251,7 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     const minor = rialToMinor(offer.minRial, currency)
     return minor === null ? [] : [{ id: offer.id, label: offer.label, place: offer.place, min: minorToNumber(minor, currency) }]
   }) : []
-  const shippingMinor = physicalMinor > 0n && !byAddress ? shippingFeeMinor(await getDeliverySettings(), currency, physicalMinor) : 0n
+  const shippingMinor = physicalMinor > 0n && !byAddress && !(await tierStanding(owner.userId))?.freeShipping ? shippingFeeMinor(await getDeliverySettings(), currency, physicalMinor) : 0n
   return {
     // The browser keeps the guest token while lines wait, so they can still move.
     token: waiting && guestToken ? guestToken : cart.token,

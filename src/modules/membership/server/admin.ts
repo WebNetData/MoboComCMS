@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { getModuleSettings, getModuleStates } from '@/extensions/server/modules'
 import { legacyNumber, normalizeCurrency } from '@/shared/money'
-import { summarizeMemberships } from '@/modules/membership/domain/membership'
+import { membershipHealth, summarizeMemberships } from '@/modules/membership/domain/membership'
 
 // VIP admin read models: the membership dashboard and a one-page overview of
 // everything VIP unlocks across the enabled sections.
@@ -12,10 +12,11 @@ const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: '
 export async function membershipDashboard(now = new Date()) {
   const since = new Date(now.getTime() - 30 * DAY)
   const [periods, plans] = await Promise.all([
-    db.userMembership.findMany({ select: { userId: true, source: true, startsAt: true, endsAt: true, revokedAt: true, planId: true, orderId: true, createdAt: true } }),
-    db.membershipPlan.findMany({ select: { id: true, name: true, days: true, priceMinor: true, currency: true, active: true } }),
+    db.userMembership.findMany({ select: { userId: true, kind: true, source: true, startsAt: true, endsAt: true, revokedAt: true, planId: true, orderId: true, createdAt: true, amountMinor: true, currency: true } }),
+    db.membershipPlan.findMany({ select: { id: true, name: true, days: true, priceMinor: true, currency: true, active: true, tier: { select: { name: true, color: true, rank: true } } } }),
   ])
   const summary = summarizeMemberships(periods, now)
+  const health = membershipHealth(periods, now)
   // Revenue: paid VIP orders (purchase periods carry their order id).
   const orderIds = periods.filter((row) => row.source === 'PURCHASE' && row.orderId && row.createdAt >= since).map((row) => row.orderId!)
   const orders = orderIds.length ? await db.order.findMany({ where: { id: { in: orderIds }, status: 'PAID' }, select: { totalMinor: true, currency: true } }) : []
@@ -31,6 +32,8 @@ export async function membershipDashboard(now = new Date()) {
   return {
     kpis: { active: summary.active, joined30: summary.joined, renewed30: summary.renewed, expiring7: summary.expiring, lapsed30: summary.lapsed, plans: plans.filter((plan) => plan.active).length, orders30: orders.length },
     revenue: [...revenue].map(([currency, amount]) => ({ currency, amount })),
+    health: { churnPercent: health.churnPercent, trials: health.trials, converted: health.converted, conversionPercent: health.conversionPercent, recurring: health.recurring.map((row) => ({ currency: row.currency, amount: legacyNumber(row.amountMinor, row.currency) })) },
+    tiers: Object.values(summary.byPlan.reduce<Record<string, { name: string; color: string; rank: number; count: number }>>((all, row) => { const tier = plans.find((plan) => plan.id === row.planId)?.tier; const name = tier?.name || 'بدون سطح'; all[name] = { name, color: tier?.color || '', rank: tier?.rank ?? 0, count: (all[name]?.count || 0) + row.count }; return all }, {})).sort((a, b) => b.rank - a.rank),
     series: days.map((day) => ({ day, value: grants.get(day)! })),
     sources: Object.entries(summary.bySource).map(([source, count]) => ({ source, count })),
     plans: summary.byPlan.map((row) => ({ name: planName.get(row.planId) || `#${row.planId}`, count: row.count })),

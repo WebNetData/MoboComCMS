@@ -33,6 +33,30 @@
       "public": true
     },
     {
+      "key": "reminder-days",
+      "label": "یادآوری پایان اشتراک، چند روز مانده (با ویرگول جدا کنید)",
+      "labelEn": "Days before the end to remind",
+      "type": "text",
+      "default": "7,3,1",
+      "public": false
+    },
+    {
+      "key": "winback-days",
+      "label": "دعوت دوباره، چند روز پس از پایان اشتراک (صفر یعنی خاموش)",
+      "labelEn": "Days after the end to invite back",
+      "type": "number",
+      "default": 14,
+      "public": false
+    },
+    {
+      "key": "auto-renew",
+      "label": "تمدید خودکار از کیف پول",
+      "labelEn": "Wallet auto-renewal",
+      "type": "boolean",
+      "default": true,
+      "public": false
+    },
+    {
       "key": "teaser-percent",
       "label": "درصد پیش‌نمایش متن مطالب ویژه برای غیرعضو",
       "labelEn": "Teaser share of member-only articles",
@@ -75,6 +99,16 @@
         ]
       },
       {
+        "href": "/admin/vip/tiers",
+        "label": "سطح‌های عضویت",
+        "labelEn": "Tiers",
+        "icon": "grid",
+        "permissions": [
+          "membership.manage",
+          "plans.manage"
+        ]
+      },
+    {
         "href": "/admin/vip/plans",
         "label": "پلن‌های اشتراک",
         "labelEn": "Plans",

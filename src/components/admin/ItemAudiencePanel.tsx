@@ -5,6 +5,7 @@ import { send, useJson } from '@/app/admin/store/shared'
 import GroupPicker from '@/components/admin/GroupPicker'
 import type { SiteGroup } from '@/modules/account/domain/site-groups'
 import { currencyLabel } from '@/shared/money/format'
+import VipRulePanel from '@/components/admin/VipRulePanel'
 
 type Data = { groups: string[]; limited: boolean; revision: string; currency: string; catalog: SiteGroup[]; userGroups: { id: number; name: string }[]; prices: Record<string, string> }
 
@@ -47,7 +48,7 @@ function AudienceForm({ type, id, noun, initial }: { type: string; id: number; n
 
 /** "Who sees this" panel of the section editors. Saved on its own, so it works on any existing item without touching the editor's form. */
 export default function ItemAudiencePanel(props: { type: string; id: number | null; noun?: string }) {
-  return <ItemAudienceContent key={`${props.type}:${props.id}`} {...props} />
+  return <><ItemAudienceContent key={`${props.type}:${props.id}`} {...props} /><VipRulePanel key={`rule:${props.type}:${props.id}`} type={props.type} id={props.id} /></>
 }
 
 function ItemAudienceContent({ type, id, noun = 'این مورد' }: { type: string; id: number | null; noun?: string }) {

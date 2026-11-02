@@ -42,7 +42,7 @@ export async function linesWeight(lines: LineWeight[], settings: CarrierSettings
 export type PriceQuote = Extract<Quote, { ok: true }> & { feeMinor: bigint; fee: number; eta: string }
 
 /** Priced carrier options for an address, in the order currency. */
-export async function quoteOptions(input: { lines: LineWeight[]; dest: { province: string; city: string }; itemMinor: bigint; currency: string }) {
+export async function quoteOptions(input: { lines: LineWeight[]; dest: { province: string; city: string }; itemMinor: bigint; currency: string; memberFree?: boolean }) {
   const settings = await getCarrierSettings()
   const currency = normalizeCurrency(input.currency, 'IRT')
   const weightGrams = await linesWeight(input.lines, settings)
@@ -51,7 +51,7 @@ export async function quoteOptions(input: { lines: LineWeight[]; dest: { provinc
   const list = quotes(settings, { dest: input.dest, weightGrams, itemRial })
   const options = list.map((item) => {
     if (!item.ok) return item
-    const feeMinor = rialToMinor(item.feeRial, currency) ?? 0n
+    const feeMinor = input.memberFree ? 0n : rialToMinor(item.feeRial, currency) ?? 0n
     return { ...item, feeMinor, fee: minorToNumber(feeMinor, currency), eta: etaLabel(item.etaMin, item.etaMax) }
   })
   return { enabled: settings.enabled, weightGrams, options }
@@ -61,7 +61,7 @@ export async function quoteOptions(input: { lines: LineWeight[]; dest: { provinc
  * The carrier chosen at checkout (or the cheapest one when none was sent),
  * re-priced on the server. Throws a customer-facing ShippingError.
  */
-export async function checkoutCarrier(input: { carrierId?: unknown; lines: LineWeight[]; dest: { province: string; city: string }; itemMinor: bigint; currency: string }): Promise<(PriceQuote & { weightGrams: number }) | null> {
+export async function checkoutCarrier(input: { carrierId?: unknown; lines: LineWeight[]; dest: { province: string; city: string }; itemMinor: bigint; currency: string; memberFree?: boolean }): Promise<(PriceQuote & { weightGrams: number }) | null> {
   const priced = await quoteOptions(input)
   if (!priced.enabled) return null
   const available = priced.options.filter((item): item is PriceQuote => item.ok)

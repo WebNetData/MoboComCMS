@@ -2,12 +2,14 @@ import type { Metadata } from 'next'
 import { withSectionSeo } from '@/modules/site/server/section-seo'
 import Link from '@/components/AppLink'
 import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
-import { getViewer, getVipPlans } from '@/modules/membership/server/membership'
+import { getViewer } from '@/modules/membership/server/membership'
+import { vipCatalog } from '@/modules/membership/server/catalog'
 import { daysLeft } from '@/modules/membership/domain/membership'
 import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
 import { getServerLocale } from '@/i18n/server'
 import MediaShell from '@/components/media/MediaShell'
-import VipPlans from '@/components/media/VipPlans'
+import VipPricing from '@/components/media/VipPricing'
+import './vip-pricing.css'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 import { toPublicPath } from '@/platform/routing/aliases'
 
@@ -22,8 +24,10 @@ export default async function VipPage() {
   await requireModule('membership')
   const landing = await sectionLanding('vip')
   if (landing) return landing
-  const [locale, viewer, plans, music, cinema, games, store, journal] = await Promise.all([getServerLocale(), getViewer(), getVipPlans(), isModuleEnabled('music'), isModuleEnabled('cinema'), isModuleEnabled('games'), isModuleEnabled('store'), isModuleEnabled('journal')])
+  const viewer = await getViewer()
+  const [locale, catalog, music, cinema, games, store, journal] = await Promise.all([getServerLocale(), vipCatalog(viewer.userId), isModuleEnabled('music'), isModuleEnabled('cinema'), isModuleEnabled('games'), isModuleEnabled('store'), isModuleEnabled('journal')])
   const fa = locale === 'fa'
+  const plans = catalog.groups.flatMap((group) => group.plans)
   const currencies = [...new Set(plans.map((plan) => plan.currency))]
   const gatewayLists = await Promise.all(currencies.map((currency) => checkoutGatewayOptions(currency).catch(() => [])))
   const gateways = Object.fromEntries(currencies.map((currency, i) => [currency, gatewayLists[i]]))
@@ -58,7 +62,7 @@ export default async function VipPage() {
           <h1>{fa ? 'همه چیز، بدون محدودیت' : 'Everything. No limits.'}</h1>
           <p>{fa ? 'یک اشتراک برای فیلم، سریال، موزیک، بازی، مطالب ویژه و قیمت‌های مخصوص اعضا.' : 'One membership for films, series, music, games, premium articles and member-only prices.'}</p>
           {viewer.member ? (
-            <div className="vip-status is-active"><b>♛ {fa ? 'شما عضو ویژه هستید' : 'You are a VIP member'}</b><span>{fa ? `${left.toLocaleString('fa-IR')} روز باقی‌مانده · تا ${viewer.endsAt ? new Date(viewer.endsAt).toLocaleDateString('fa-IR') : ''}` : `${left} days left · until ${viewer.endsAt ? new Date(viewer.endsAt).toLocaleDateString('en-US') : ''}`}</span></div>
+            <div className="vip-status is-active"><b>♛ {fa ? 'شما عضو ویژه هستید' : 'You are a VIP member'}</b><span>{fa ? `${left.toLocaleString('fa-IR')} روز باقی‌مانده · تا ${viewer.endsAt ? new Date(viewer.endsAt).toLocaleDateString('fa-IR') : ''}` : `${left} days left · until ${viewer.endsAt ? new Date(viewer.endsAt).toLocaleDateString('en-US') : ''}`}</span><Link href="/vip/account">{fa ? 'مدیریت اشتراک' : 'Manage membership'}</Link></div>
           ) : viewer.userId ? null : (
             <div className="vip-status"><span>{fa ? 'قبلاً عضو شده‌اید؟' : 'Already a member?'}</span><Link href={`/login?next=${encodeURIComponent('/vip')}`}>{fa ? 'وارد شوید' : 'Sign in'}</Link></div>
           )}
@@ -67,7 +71,7 @@ export default async function VipPage() {
       <div className="container md-body">
         <section className="vip-section" id="plans">
           <header className="vip-section-head"><h2>{viewer.member ? (fa ? 'تمدید اشتراک' : 'Extend your membership') : (fa ? 'پلن خود را انتخاب کنید' : 'Choose your plan')}</h2></header>
-          <VipPlans plans={plans} gateways={gateways} member={viewer.member} />
+          <VipPricing groups={catalog.groups} gateways={gateways} rank={catalog.rank} signedIn={!!viewer.userId} />
         </section>
         <section className="vip-section">
           <header className="vip-section-head"><h2>{fa ? 'با VIP چه چیزهایی باز می‌شود؟' : 'What VIP unlocks'}</h2></header>

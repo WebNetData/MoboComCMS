@@ -77,6 +77,7 @@ export async function refundPaidInvoice(invoice: Invoice & { gateway?: { provide
     await releaseInventoryReservation(orderId).catch((error) => logEvent('error', 'invoice.refund_release_failed', { invoiceId: invoice.id, orderId, error: String(error) }))
   }
   await db.order.updateMany({ where: { id: orderId, status: { not: 'REFUNDED' } }, data: { status: 'REFUNDED' } })
+  await import('@/modules/membership/server/membership').then((m) => m.revokeOrderMembership(orderId)).catch((error) => logEvent('error', 'invoice.refund_membership_failed', { invoiceId: invoice.id, orderId, error: String(error) }))
   await import('@/modules/marketplace/server/marketplace').then((m) => m.reverseSellerShare(orderId, input.totalMinor, `invoice:${invoice.id}`)).catch((error) => logEvent('error', 'marketplace.refund_reverse_failed', { invoiceId: invoice.id, error: String(error) }))
   await import('@/modules/store/server/marketing').then((m) => m.reverseOrderPoints(orderId, input.totalMinor, `invoice:${invoice.id}`)).catch((error) => logEvent('warn', 'store.loyalty_reverse_failed', { invoiceId: invoice.id, error: String(error) }))
   const shown = `${minorToNumber(input.totalMinor, currency).toLocaleString('fa-IR')} ${currency === 'IRT' ? 'تومان' : currency}`

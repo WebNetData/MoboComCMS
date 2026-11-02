@@ -8,6 +8,7 @@ export { Notice, fa, faDate, useJson } from '../store/shared'
 const TABS: SectionTab[] = [
   { href: '/admin/vip', label: 'داشبورد', exact: true },
   { href: '/admin/vip/members', label: 'اعضا' },
+  { href: '/admin/vip/tiers', label: 'سطح‌ها' },
   { href: '/admin/vip/plans', label: 'پلن‌ها' },
   { href: '/admin/vip/perks', label: 'مزایا در هر بخش' },
 ]

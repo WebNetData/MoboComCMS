@@ -49,6 +49,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/membership/server/membership')).recoverGiftMemberships(),
   },
   {
+    // Membership: reminders, wallet renewal, the notice at the end and the invitation back.
+    name: 'membership-lifecycle', everyMs: 60 * 60_000,
+    run: async () => (await import('@/modules/membership/server/lifecycle')).runMembershipLifecycle(),
+  },
+  {
     // Background queue (heavy admin tasks) and a week of performance samples.
     name: 'queue', everyMs: 60_000,
     run: async (tick) => {

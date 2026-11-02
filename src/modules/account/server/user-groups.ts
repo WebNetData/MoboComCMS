@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import { latinDigits } from '@/shared/text/digits'
 import { GroupError, memberActive, normalizeGroup, type GroupDeal, dealKey, NO_DEAL } from '@/modules/account/domain/user-groups'
+import { tierStanding } from '@/modules/membership/server/tiers'
 
 /** The active groups a member is in now. Expiry is read here, so no job has to remove anyone in time. */
 function membershipsOf(userId: number, now = new Date()) {
@@ -10,14 +11,15 @@ function membershipsOf(userId: number, now = new Date()) {
 }
 
 export const groupGivesVip = async (userId: number | null | undefined) => Boolean(userId) && (await membershipsOf(userId!)).some((row) => row.group.vipBenefits)
-export const groupHidesAds = async (userId: number | null | undefined) => Boolean(userId) && (await membershipsOf(userId!)).some((row) => row.group.hideAds)
+export const groupHidesAds = async (userId: number | null | undefined) => Boolean(userId) && ((await membershipsOf(userId!)).some((row) => row.group.hideAds) || !!(await tierStanding(userId))?.hideAds)
 
 /** The prices a member's groups give on some products: the best discount, and the lowest price set per item. */
 export async function groupDeal(userId: number | null | undefined, productIds: readonly number[]): Promise<GroupDeal> {
   if (!userId || !productIds.length) return NO_DEAL
-  const rows = await membershipsOf(userId)
-  if (!rows.length) return NO_DEAL
-  const percent = Math.max(0, ...rows.map((row) => row.group.discountPercent))
+  const [rows, standing] = await Promise.all([membershipsOf(userId), tierStanding(userId)])
+  const tierPercent = standing?.storeDiscountPercent ?? 0
+  if (!rows.length && !tierPercent) return NO_DEAL
+  const percent = Math.max(tierPercent, ...rows.map((row) => row.group.discountPercent))
   const prices = new Map<string, bigint>()
   for (const row of await db.productGroupPrice.findMany({ where: { groupId: { in: rows.map((item) => item.groupId) }, productId: { in: [...productIds] } } })) {
     const key = dealKey(row.productId, row.variantId), held = prices.get(key)

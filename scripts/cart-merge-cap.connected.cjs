@@ -14,6 +14,7 @@ function load(file, cache = new Map()) {
   if (name === '@/modules/account/server/item-audience') return {userOpensAudience: async raw => !raw}
   if (name === '@/modules/account/server/user-groups') return {groupDeal: async () => ({percent:0,prices:new Map()})}
   if (name === '@/modules/membership/server/membership') return {isMember: async () => false, opensMembersOnly: async (_userId, member) => !!member}
+  if (name === '@/modules/membership/server/tiers') return {tierStanding: async () => null}
   if (name === '@/modules/shipping/server/shipping') return {getDeliverySettings: async () => ({})}
   if (name === '@/modules/shipping/server/carriers') return {getCarrierSettings: async () => ({enabled: false})}
   if (name.startsWith('@/')) {const base = `src/${name.slice(2)}`; return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts', cache)}

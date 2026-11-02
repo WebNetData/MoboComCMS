@@ -1,1 +1,1 @@
-export { GET, POST, DELETE } from '@/modules/membership/server/http/members'
+export { GET, POST, DELETE, PATCH } from '@/modules/membership/server/http/members'
