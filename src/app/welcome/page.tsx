@@ -7,6 +7,7 @@ import BrandLockup from '@/components/site/SiteLogo'
 import { useSite } from '@/components/site/SiteProvider'
 import LocationPicker, { type Pin } from '@/components/site/LocationPicker'
 import { PROVINCES } from '@/modules/shipping/domain/shipping'
+import { authEntryHref, safeNext } from '@/modules/identity/domain/continuation'
 
 type Field = { key: string; label: string; type: string; builtin?: string; required: boolean; placeholder: string; help: string; options: string[] }
 type Address = { province: string; city: string; address: string; plaque: string; unit: string; postalCode: string; mobile: string; lat: number | null; lng: number | null }
@@ -16,7 +17,6 @@ type Status = {
 }
 
 const EMPTY_ADDRESS: Address = { province: '', city: '', address: '', plaque: '', unit: '', postalCode: '', mobile: '', lat: null, lng: null }
-const safeNext = (value: string | null) => (value && /^\/(?!\/)/.test(value) && !/[\\\u0000-\u001f]/.test(value) && !value.startsWith('/welcome') ? value : '/dashboard')
 
 /** «تکمیل مشخصات»: the first stop after sign-up until the required fields are filled. */
 export default function WelcomePage() {
@@ -30,9 +30,10 @@ export default function WelcomePage() {
   const [next, setNext] = useState('/dashboard')
 
   useEffect(() => {
-    setNext(safeNext(new URLSearchParams(window.location.search).get('next')))
+    const destination = safeNext(new URLSearchParams(window.location.search).get('next')) || '/dashboard'
+    setNext(destination)
     fetch('/api/profile/completion', { cache: 'no-store' }).then(async (response) => {
-      if (response.status === 401) { window.location.replace(`/login?next=${encodeURIComponent('/welcome')}`); return }
+      if (response.status === 401) { window.location.replace(authEntryHref('/login', destination)); return }
       const data = await response.json().catch(() => null) as Status | null
       if (!data) { setMessage('بارگذاری انجام نشد؛ صفحه را دوباره باز کنید.'); return }
       setStatus(data)

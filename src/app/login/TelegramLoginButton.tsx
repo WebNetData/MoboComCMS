@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { safeNext } from '@/modules/identity/domain/continuation'
 
 export default function TelegramLoginButton({ botUsername }: { botUsername: string }) {
   const host = useRef<HTMLDivElement>(null)
@@ -26,8 +27,8 @@ export default function TelegramLoginButton({ botUsername }: { botUsername: stri
     script.setAttribute('data-request-access', 'write')
     script.setAttribute('data-lang', locale)
     const callback = new URL('/login/telegram/callback', window.location.origin)
-    const next = params.get('next') || ''
-    if (/^\/(?!\/)/.test(next) && !/[\\\u0000-\u001f]/.test(next)) callback.searchParams.set('next', next)
+    const next = safeNext(params.get('next'))
+    if (next) callback.searchParams.set('next', next)
     script.setAttribute('data-auth-url', callback.toString())
     const unavailable = locale === 'fa' ? 'دکمهٔ تلگرام در این مرورگر بارگذاری نشد.' : 'Telegram sign-in could not load in this browser.'
     let timer: ReturnType<typeof setTimeout> | undefined

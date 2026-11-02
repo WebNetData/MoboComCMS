@@ -10,9 +10,4 @@ export async function signedInPerson(): Promise<SignedInPerson | null> {
   return { name: user.name || '', email: user.email || '', image: user.image || null, admin: user.role === 'ADMIN' }
 }
 
-/** A path on this site to continue to, or '' (never another site, never back to the sign-in pages). */
-export function safeNext(value: string) {
-  const next = String(value || '')
-  if (!/^\/(?!\/)/.test(next) || /[\\\u0000-\u001f]/.test(next) || /^\/(login|register)(\/|\?|$)/.test(next)) return ''
-  return next.slice(0, 500)
-}
+export { safeNext } from '@/modules/identity/domain/continuation'

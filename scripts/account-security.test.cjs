@@ -18,9 +18,28 @@ function load(relative) {
 const read = (relative) => fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8')
 
 const sec = load('src/modules/identity/domain/account-security')
+const { safeNext, authEntryHref } = load('src/modules/identity/domain/continuation')
 const totp = load('src/shared/security/totp')
 const verify = load('src/shared/security/totp-verify')
 const seals = load('src/modules/site/config/trust-seals')
+
+test('account continuation preserves exact local paths and refuses external, malformed and looping destinations', () => {
+  for (const value of ['/checkout/cart', '/products/example?option=1&name=%D8%A2#details', '/forum/topic/5', '/login-help', '/']) assert.equal(safeNext(value), value)
+  for (const value of [undefined, null, [], '//evil.example', 'https://evil.example', '/\\evil.example', '/\nevil.example', '/%5cevil.example', '/%2fevil.example', '/%00', '/bad%escape', '/login?next=/cart', '/register#form', '/welcome?next=/welcome', '/a/../login', '/%6cogin', '/' + 'a'.repeat(500)]) assert.equal(safeNext(value), '', String(value))
+})
+
+test('account entry switches carry one destination without credentials or query injection', () => {
+  const next = '/checkout/cart?coupon=a&b=2#review'
+  let href = authEntryHref('/register', next)
+  assert.equal(new URL(href, 'https://example.invalid').searchParams.get('next'), next)
+  href = authEntryHref('/register', next, { method: 'password' })
+  assert.equal(new URL(href, 'https://example.invalid').searchParams.get('method'), 'password')
+  href = authEntryHref('/login', next, { registered: '1' })
+  assert.equal(new URL(href, 'https://example.invalid').searchParams.get('next'), next)
+  assert.equal(new URL(href, 'https://example.invalid').searchParams.get('registered'), '1')
+  assert.equal(authEntryHref('/login', '//evil.example', { next: '/injected' }), '/login')
+  assert.equal(authEntryHref('/register', ''), '/register')
+})
 
 test('request token access uses the same startup auth secret without loading authentication providers', async () => {
   const originalSecret = process.env.NEXTAUTH_SECRET, originalMode = process.env.NODE_ENV

@@ -9,17 +9,18 @@ import { Suspense } from 'react'
 import LoginForm from '../login/LoginForm'
 import { otpLoginAvailable } from '@/modules/sms/server/sms'
 import { emailOtpAvailable } from '@/modules/identity/server/email-otp'
+import { safeNext } from '@/modules/identity/domain/continuation'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'ساخت حساب کاربری', robots: { index: false } }
 
 // The theme comes from the request, as on the sign-in page: read from the cookie while rendering in the
 // browser, it differed from what the server had rendered for every returning visitor.
-export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ method?: string; telegramToken?: string; ref?: string }> }) {
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ method?: string; telegramToken?: string; ref?: string; next?: string }> }) {
+  const params = await searchParams
   const theme = await getServerTheme()
   const person = await signedInPerson()
-  if (person) return <><SiteHeader theme={theme} /><AuthFrame variant="signed"><SignedIn person={person} next="" /></AuthFrame></>
-  const params = await searchParams
+  if (person) return <><SiteHeader theme={theme} /><AuthFrame variant="signed"><SignedIn person={person} next={safeNext(params.next)} /></AuthFrame></>
   const [otp, emailOtp] = await Promise.all([otpLoginAvailable().catch(() => false), emailOtpAvailable().catch(() => false)])
   const codeEntry = (otp || emailOtp) && params.method !== 'password' && params.telegramToken === undefined && params.ref === undefined
   return <>
