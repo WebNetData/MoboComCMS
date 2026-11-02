@@ -1296,7 +1296,7 @@ test('a section in maintenance shows its notice to visitors and itself to the pe
   const bases = { businesses: ['/businesses'], store: ['/products', '/cart', '/checkout/product'], magazine: ['/blog'], games: ['/games'], cinema: ['/cinema', '/watch'], music: ['/music'], software: ['/software'], forum: ['/forum'] }
   // What is stored is read whatever it is: every section present, off unless it clearly says on, words as plain bounded text.
   const state = m.normalizeMaintenance({ games: { enabled: true, title: '  بازی‌ها بسته است  ', message: 'خط یک\r\nخط دو\u0000' }, music: { enabled: 'yes', title: 5 }, nope: { enabled: true }, forum: { enabled: true, title: 'x'.repeat(500) } })
-  assert.deepEqual(Object.keys(state), ['prompts', 'businesses', 'store', 'magazine', 'games', 'cinema', 'music', 'software', 'forum'])
+  assert.deepEqual(Object.keys(state).filter((key) => key !== 'site'), ['prompts', 'businesses', 'store', 'magazine', 'games', 'cinema', 'music', 'software', 'forum'])
   assert.equal(m.sectionOfPath('/businesses/owned-example', bases), 'businesses')
   assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['businesses.manage'] }, 'businesses'), true)
   assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['reviews.moderate'] }, 'businesses'), false)
@@ -1753,4 +1753,15 @@ test('a restricted block leaves nothing of itself outside a reader it opens to',
   assert.equal(html.includes('<b>'), false, 'the message is plain text')
   assert.equal(documentFacts(document, registry).text.includes('SECRET'), false)
   assert.deepEqual(moduleBlocks(document, registry).map((block) => block.type), ['content.restricted'], 'what it holds is not resolved ahead of the decision')
+})
+
+test('a closed site keeps sign-in, payments and paid services open, and only known choices of look', () => {
+  const m = load('src/modules/site/domain/maintenance.ts')
+  for (const path of ['/login', '/forgot-password', '/reset-password', '/maintenance', '/payment/result', '/s/abc', '/api/auth/session', '/api/login/email-code', '/api/sms/otp', '/api/password/reset', '/api/payment/callback/x', '/api/telegram/hook', '/api/internal/fulfillment', '/api/sub/x', '/logo.png', '/og.png', '/manifest.webmanifest']) assert.equal(m.openDuringSiteMaintenance(path), true, path)
+  for (const path of ['/', '/products', '/forum', '/vip', '/admin', '/admin/users', '/dashboard', '/register', '/api/cart', '/api/admin/users', '/api/products', '/dl/1.zip', '/files/a.pdf', '/api/media/x.mp4', '/loginx']) assert.equal(m.openDuringSiteMaintenance(path), false, path)
+  const site = m.normalizeSite({ enabled: true, title: '  بسته  ', design: 'hack', effect: 'float', icon: 'rocket', reopensAt: 'nope', users: [3, 3, '4', -1, 'x'], groups: ['vip', 'nope', 'group:2'] })
+  assert.deepEqual([site.enabled, site.title, site.design, site.effect, site.icon, site.reopensAt, site.users, site.groups], [true, 'بسته', 'aurora', 'float', 'rocket', '', [3, 4], ['vip', 'group:2']])
+  assert.equal(m.normalizeMaintenance(null).site.enabled, false, 'off unless it clearly says on')
+  assert.equal(m.normalizeSite({ enabled: 'true' }).enabled, false)
+  assert.equal(m.closedPlugins(m.normalizeMaintenance({ site: { enabled: true } })).length, 0, 'the site switch is not a section')
 })

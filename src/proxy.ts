@@ -7,8 +7,9 @@ import { mutationOrigin } from '@/platform/http/origin-policy'
 import { contentSecurityPolicy, newNonce, nonceOf, usesNonce } from '@/platform/http/csp'
 import { requireUser } from '@/modules/identity/server/access'
 import { loadMaintenance, maintenanceBases } from '@/modules/site/server/maintenance'
-import { maintenanceDecision, sectionOfPath } from '@/modules/site/domain/maintenance'
+import { maintenanceDecision, openDuringSiteMaintenance, sectionOfPath } from '@/modules/site/domain/maintenance'
 import { loadSectionAccess, sectionLock } from '@/modules/account/server/section-access'
+import { opensDuringMaintenance } from '@/modules/account/server/maintenance-access'
 import { sectionLoginPath, sectionOfApi } from '@/modules/account/domain/section-access'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
@@ -80,6 +81,29 @@ export async function proxy(req: NextRequest) {
     if (verdict === 'foreign-origin') return NextResponse.json({ error: 'forbidden origin' }, { status: 403 })
     // Signed in by cookie but silent about where the request was made: no current browser does that.
     if (verdict === 'origin-required') return NextResponse.json({ error: 'origin required' }, { status: 403 })
+  }
+
+  // The whole site closed. Decided before everything below, so nothing behind it answers; the switch in the server's
+  // environment is the way back in if the admin cannot be reached.
+  headers.delete('x-site-maintenance')
+  const closure = process.env.SITE_MAINTENANCE_BYPASS === '1' ? null : (await loadMaintenance().catch(() => null))?.site
+  if (closure?.enabled && !openDuringSiteMaintenance(req.nextUrl.pathname)) {
+    const account = await requireUser(req).catch(() => null)
+    if (await opensDuringMaintenance(account, closure)) headers.set('x-site-maintenance', '1')
+    else {
+      const seconds = closure.reopensAt ? Math.max(60, Math.ceil((new Date(closure.reopensAt).getTime() - Date.now()) / 1000)) : 3600
+      if (req.nextUrl.pathname.startsWith('/api/')) return NextResponse.json({ error: 'سایت در حال تعمیر است' }, { status: 503, headers: { 'retry-after': String(seconds), 'cache-control': 'no-store' } })
+      const url = req.nextUrl.clone()
+      url.pathname = '/maintenance'
+      url.search = '?site=1'
+      const notice = NextResponse.rewrite(url, { request: { headers }, status: 503 })
+      notice.headers.set('retry-after', String(seconds))
+      notice.headers.set('x-robots-tag', 'noindex')
+      notice.headers.set('cache-control', 'no-store')
+      notice.headers.set('x-request-id', requestId)
+      applySecurityHeaders(req, notice, nonce)
+      return notice
+    }
   }
 
   // A section limited to groups closes its API with its pages.
