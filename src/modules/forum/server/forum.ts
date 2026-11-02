@@ -9,6 +9,7 @@ import { FORUM_PAGE_SIZE, THREAD_PAGE_SIZE, pageCount } from '@/modules/forum/do
 import { ensureProfiles, getForumSettings, getForumViewer, viewerFor } from '@/modules/forum/server/community'
 import { censorText, timerDue } from '@/modules/forum/domain/discourse'
 import { pollsForPosts, type PollView } from '@/modules/forum/server/polls'
+import { groupBadges } from '@/modules/account/server/site-groups'
 
 // Forum reads: categories, topic lists, topic view, search and author cards.
 // Every query is limited to categories the viewer may see.
@@ -29,6 +30,8 @@ export type AuthorView = {
   /** Likes received on their posts, the level that standing gives them, and their latest badges. */
   likes: number
   level: { name: string; icon: string; color: string } | null
+  /** The site's user group they show under their name. */
+  group: { name: string; color: string } | null
   badges: { name: string; icon: string; tier: string }[]
 }
 
@@ -42,27 +45,29 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
   const groupIds = [...new Set(users.map((user) => user.forumProfile?.primaryGroupId).filter((id): id is number => !!id))]
   const groups = new Map((groupIds.length ? await db.forumGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, icon: true, color: true, name: true } }) : []).map((group) => [group.id, group]))
   const ranks = await forumRanks(ids)
-  const [{ levels }, grants] = await Promise.all([
+  const now = Date.now()
+  const [{ levels }, shown, grants] = await Promise.all([
     getForumSettings(),
+    groupBadges(ids),
     db.forumUserBadge.findMany({ where: { userId: { in: ids }, badge: { enabled: true } }, orderBy: { grantedAt: 'desc' }, take: ids.length * 12, select: { userId: true, badge: { select: { name: true, icon: true, tier: true } } } }),
   ])
   const TIER = { GOLD: 0, SILVER: 1, BRONZE: 2 } as Record<string, number>
   const badgesOf = (userId: number) => grants.filter((grant) => grant.userId === userId).map((grant) => grant.badge).sort((a, b) => (TIER[a.tier] ?? 3) - (TIER[b.tier] ?? 3)).slice(0, 4)
   return new Map(users.map((user) => {
     const profile = user.forumProfile
-    const level = levelFor(levels, { posts: profile?.postCount ?? 0, likes: profile?.likesReceived ?? 0, reputation: profile?.reputation ?? 0 }, profile?.manualLevelId)
+    const level = levelFor(levels, { posts: profile?.postCount ?? 0, likes: profile?.likesReceived ?? 0, reputation: profile?.reputation ?? 0, topics: profile?.topicCount ?? 0, solved: profile?.solvedCount ?? 0, daysVisited: profile?.daysVisited ?? 0, accountDays: Math.floor((now - user.createdAt.getTime()) / 86_400_000) }, profile?.manualLevelId)
     const group = profile?.primaryGroupId ? groups.get(profile.primaryGroupId) : undefined
     return [user.id, {
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
       avatar: pictureOf(user), avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
       staff: user.role === 'ADMIN' && user.status === 'ACTIVE', siteRole: user.role === 'ADMIN' && user.status === 'ACTIVE' ? user.roleId == null ? 'مدیر کل سایت' : user.roleRef?.nameFa || user.roleRef?.name || 'تیم موبوکام' : undefined, joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
-      likes: profile?.likesReceived ?? 0, level: level ? { name: level.name, icon: level.icon, color: level.color } : null, badges: badgesOf(user.id),
+      likes: profile?.likesReceived ?? 0, level: level ? { name: level.name, icon: level.icon, color: level.color } : null, group: shown.get(user.id) || null, badges: badgesOf(user.id),
       posts: profile?.postCount ?? 0, reputation: profile?.reputation ?? 0, ...(ranks.has(user.id) ? { rank: ranks.get(user.id) } : {}),
     }]
   }))
 }
 
-export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null, posts: 0, reputation: 0, likes: 0, level: null, badges: [] })
+export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null, group: null, posts: 0, reputation: 0, likes: 0, level: null, badges: [] })
 
 // ------------------------------------------------------------------ categories
 

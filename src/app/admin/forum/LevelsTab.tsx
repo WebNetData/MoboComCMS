@@ -1,46 +1,59 @@
 'use client'
 
-import { BADGE_METRICS, BADGE_RULE_LABEL, levelFor, parseThresholdRule, type BadgeMetric, type UserLevel } from '@/modules/forum/domain/community'
+import { BADGE_METRICS, BADGE_RULE_LABEL, LEVEL_CONDITIONS, levelFor, parseThresholdRule, type BadgeMetric, type UserLevel } from '@/modules/forum/domain/community'
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 const num = (value: string) => Math.max(0, Math.trunc(Number(value)) || 0)
 
+const NEW_RANK = { icon: '⭐', color: '#6366f1', match: 'ALL', manualOnly: false, minPosts: 0, minLikes: 0, minReputation: 0, minTopics: 0, minSolved: 0, minDaysVisited: 0, minAccountDays: 0 } as const
+const SAMPLES = [{ posts: 3, likes: 0 }, { posts: 60, likes: 20 }, { posts: 120, likes: 150 }, { posts: 400, likes: 300 }, { posts: 800, likes: 900 }]
+
 /**
- * Levels a member reaches by what they did. The last level in the list whose every threshold is met is the one
- * shown under their name, so the list runs from the easiest to the hardest.
+ * The forum's ranks. A member holds the last rank in this list they earned, so the list runs from the easiest to the
+ * hardest. Each rank asks for its own conditions, all of them or any one; a rank can also be given by hand alone.
  */
 export default function LevelsTab({ levels, busy, onChange, onSave }: { levels: UserLevel[]; busy: boolean; onChange: (levels: UserLevel[]) => void; onSave: () => void }) {
   const set = (index: number, patch: Partial<UserLevel>) => onChange(levels.map((level, at) => (at === index ? { ...level, ...patch } : level)))
   const move = (index: number, delta: number) => { const to = index + delta; if (to < 0 || to >= levels.length) return; const next = [...levels]; const [item] = next.splice(index, 1); next.splice(to, 0, item); onChange(next) }
-  const samples = [{ posts: 3, likes: 0 }, { posts: 60, likes: 20 }, { posts: 120, likes: 150 }, { posts: 400, likes: 900 }]
+  const named = levels.filter((item) => item.name.trim())
   return <section className="xm-section">
-    <h2>درجه‌های کاربری</h2>
-    <p className="muted">درجه فقط نشان‌دهندهٔ فعالیت است و دسترسی نمی‌دهد. برای ارتقای دستی، در زبانهٔ «کاربران» درجهٔ همان کاربر را انتخاب کنید؛ بازگشت به حالت خودکار هم از همان‌جا انجام می‌شود.</p>
-    <p className="muted">هر کاربر با رسیدن به آستانه‌ها درجه می‌گیرد و زیر نامش در تاپیک‌ها نشان داده می‌شود. <b>آخرین</b> درجهٔ این فهرست که همهٔ شرط‌هایش برقرار باشد نمایش داده می‌شود؛ پس از آسان به سخت بچینید. درجه از روی آمار فعلی هر کاربر حساب می‌شود و برای همهٔ کاربران قدیمی هم بلافاصله اعمال است.</p>
+    <h2>مقام‌های کاربری</h2>
+    <p className="muted">هر کاربر <b>آخرین</b> مقامی از این فهرست را می‌گیرد که شرط‌هایش را داشته باشد، پس مقام‌ها را از ساده به سخت بچینید. مقام خودکار حساب می‌شود و با فعالیت کاربر بالا می‌رود. برای تغییر دستی مقام یک کاربر، به زبانهٔ «کاربران» بروید. مقام فقط جایگاه کاربر را نشان می‌دهد و دسترسی نمی‌دهد.</p>
     <div className="lv-list">
-      {levels.map((level, index) => <div key={index} className="card lv-row" style={{ ['--lv' as string]: level.color }}>
-        <span className="lv-chip"><i aria-hidden="true">{level.icon}</i>{level.name || 'بدون نام'}</span>
-        <label className="studio-field"><span>نام درجه</span><input className="input" value={level.name} maxLength={40} onChange={(e) => set(index, { name: e.target.value })} placeholder="مثلاً: کاربر فعال" /></label>
-        <label className="studio-field lv-small"><span>آیکون</span><input className="input" value={level.icon} maxLength={8} onChange={(e) => set(index, { icon: e.target.value })} /></label>
-        <label className="studio-field lv-small"><span>رنگ</span><input type="color" value={level.color} onChange={(e) => set(index, { color: e.target.value })} aria-label="رنگ" /></label>
-        <label className="studio-field"><span>حداقل پیام</span><input className="input" dir="ltr" inputMode="numeric" value={level.minPosts} onChange={(e) => set(index, { minPosts: num(e.target.value) })} /></label>
-        <label className="studio-field"><span>حداقل لایک دریافتی</span><input className="input" dir="ltr" inputMode="numeric" value={level.minLikes} onChange={(e) => set(index, { minLikes: num(e.target.value) })} /></label>
-        <label className="studio-field"><span>حداقل اعتبار</span><input className="input" dir="ltr" inputMode="numeric" value={level.minReputation} onChange={(e) => set(index, { minReputation: num(e.target.value) })} /></label>
-        <div className="lv-tools">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(index, -1)} disabled={index === 0} aria-label="بالاتر">↑</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(index, 1)} disabled={index === levels.length - 1} aria-label="پایین‌تر">↓</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(levels.filter((_, at) => at !== index))}>حذف</button>
+      {levels.map((level, index) => <div key={level.id} className="card lv-row" style={{ ['--lv' as string]: level.color }}>
+        <div className="lv-head">
+          <span className="lv-chip"><i aria-hidden="true">{level.icon}</i>{level.name || 'بدون نام'}</span>
+          <div className="lv-tools">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`بالاتر بردن ${level.name}`}>↑</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(index, 1)} disabled={index === levels.length - 1} aria-label={`پایین‌تر بردن ${level.name}`}>↓</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(levels.filter((_, at) => at !== index))}>حذف</button>
+          </div>
         </div>
+        <div className="lv-identity">
+          <label className="studio-field"><span>نام مقام</span><input className="input" value={level.name} maxLength={40} onChange={(e) => set(index, { name: e.target.value })} placeholder="مثلاً: کاربر باتجربه" /></label>
+          <label className="studio-field"><span>آیکون</span><input className="input" value={level.icon} maxLength={8} onChange={(e) => set(index, { icon: e.target.value })} /></label>
+          <label className="studio-field"><span>رنگ</span><input type="color" value={level.color} onChange={(e) => set(index, { color: e.target.value })} /></label>
+          <label className="studio-field"><span>چطور داده شود</span><select className="input" value={level.manualOnly ? 'MANUAL' : level.match} onChange={(e) => set(index, e.target.value === 'MANUAL' ? { manualOnly: true } : { manualOnly: false, match: e.target.value as UserLevel['match'] })}>
+            <option value="ALL">با داشتن همهٔ شرط‌ها</option>
+            <option value="ANY">با داشتن یکی از شرط‌ها</option>
+            <option value="MANUAL">فقط دستی</option>
+          </select></label>
+        </div>
+        {level.manualOnly
+          ? <p className="muted lv-note">این مقام خودکار به کسی داده نمی‌شود؛ مدیر آن را از زبانهٔ «کاربران» می‌دهد.</p>
+          : <div className="lv-conditions" role="group" aria-label={`شرط‌های ${level.name || 'این مقام'}`}>
+            {LEVEL_CONDITIONS.map(({ min, label }) => <label key={min} className="studio-field"><span>حداقل {label}</span><input className="input" dir="ltr" inputMode="numeric" value={level[min]} onChange={(e) => set(index, { [min]: num(e.target.value) })} /></label>)}
+          </div>}
       </div>)}
-      {!levels.length && <p className="card muted">درجه‌ای تعریف نشده است؛ زیر نام کاربران فقط گروه یا سطح اعتمادشان نشان داده می‌شود.</p>}
+      {!levels.length && <p className="card muted">مقامی تعریف نشده است؛ زیر نام کاربران فقط گروهشان نشان داده می‌شود.</p>}
     </div>
     <div className="fr-admin-actions">
-      <button type="button" className="btn btn-ghost btn-sm" disabled={levels.length >= 20} onClick={() => onChange([...levels, { id: `level${Date.now().toString(36)}`, name: '', icon: '⭐', color: '#6366f1', minPosts: 0, minLikes: 0, minReputation: 0 }])}>+ درجهٔ تازه</button>
-      <button type="button" className="btn btn-primary btn-sm" disabled={busy || levels.some((level) => !level.name.trim())} onClick={onSave}>ذخیرهٔ درجه‌ها</button>
+      <button type="button" className="btn btn-ghost btn-sm" disabled={levels.length >= 20} onClick={() => onChange([...levels, { ...NEW_RANK, id: `level${Date.now().toString(36)}`, name: '' }])}>افزودن مقام</button>
+      <button type="button" className="btn btn-primary btn-sm" disabled={busy || levels.some((level) => !level.name.trim())} onClick={onSave}>ذخیرهٔ مقام‌ها</button>
     </div>
     <div className="card lv-preview">
-      <b>نمونه: کاربری با این آمار چه درجه‌ای می‌گیرد؟</b>
-      <ul>{samples.map((sample, index) => { const level = levelFor(levels.filter((item) => item.name.trim()), { ...sample, reputation: sample.likes }); return <li key={index}><span>{fa(sample.posts)} پیام · {fa(sample.likes)} لایک</span>{level ? <span className="lv-chip" style={{ ['--lv' as string]: level.color }}><i aria-hidden="true">{level.icon}</i>{level.name}</span> : <span className="muted">بدون درجه</span>}</li> })}</ul>
+      <b>نمونه: کاربری با این آمار چه مقامی می‌گیرد؟</b>
+      <ul>{SAMPLES.map((sample) => { const level = levelFor(named, { ...sample, reputation: sample.likes }); return <li key={sample.posts}><span>{fa(sample.posts)} پیام و {fa(sample.likes)} لایک</span>{level ? <span className="lv-chip" style={{ ['--lv' as string]: level.color }}><i aria-hidden="true">{level.icon}</i>{level.name}</span> : <span className="muted">بدون مقام</span>}</li> })}</ul>
     </div>
   </section>
 }

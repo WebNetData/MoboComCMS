@@ -8,7 +8,7 @@ import { getForumViewer } from '@/modules/forum/server/forum'
 import { getProfile, type ProfileTab } from '@/modules/forum/server/people'
 import ForumShell from '@/components/forum/ForumShell'
 import FollowMember from '@/components/forum/FollowMember'
-import { Avatar, TimeAgo, num } from '@/components/forum/shared'
+import { Avatar, MemberBoxes, TimeAgo, num } from '@/components/forum/shared'
 import { getForumSettings } from '@/modules/forum/server/community'
 import { canStartMessage } from '@/modules/forum/domain/discourse'
 import { FORUM_RANK_LABELS } from '@/modules/forum/domain/community'
@@ -60,6 +60,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             {social?.headline && <p className="fp-headline">{social.headline}</p>}
             <p className="fp-ranks">
               {author.rank && <span className={`tp-rank is-${author.rank}`}>{FORUM_RANK_LABELS[author.rank]}</span>}
+              <MemberBoxes author={author} />
               <span className={`fp-rank is-${profile.trustLevel}`}>{profile.trustName}</span>
               {profile.title && <span className="fp-rank is-title">{profile.title}</span>}
               {data.rank && <span className="fp-rank is-place">رتبهٔ {num(data.rank)} در اعتبار</span>}

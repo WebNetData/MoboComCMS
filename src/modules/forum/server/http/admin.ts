@@ -268,7 +268,7 @@ async function moderateUser(actor: AuthedUser, body: Record<string, any>, req: N
   const data: Record<string, unknown> = {}
   if (body.manualLevelId !== undefined) {
     const id = body.manualLevelId === null ? '' : String(body.manualLevelId)
-    if (id && !(await getForumSettings()).levels.some(level => level.id === id)) throw new ForumError('درجهٔ انتخاب‌شده وجود ندارد', 400)
+    if (id && !(await getForumSettings()).levels.some(level => level.id === id)) throw new ForumError('مقام انتخاب‌شده وجود ندارد', 400)
     data.manualLevelId = id || null
   }
   if (body.trustLevel !== undefined) { data.trustLevel = int(body.trustLevel, 0, 4); data.trustLocked = body.trustLocked !== false }

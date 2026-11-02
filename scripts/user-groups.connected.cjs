@@ -16,6 +16,7 @@ function load(file) {
   if (cache.has(file)) return cache.get(file).exports
   let source = fs.readFileSync(file, 'utf8')
   if (file.endsWith('/user-groups.ts') && file.includes('/domain/') && process.env.GROUPS_FAULT === 'expired') source = source.replace("{ expiresAt: { gt: now } }", "{ expiresAt: { not: null } }")
+  if (file.endsWith('/account/server/site-groups.ts') && process.env.GROUPS_FAULT === 'badge') source = source.replace('group: { active: true, showBadge: true }', 'group: { active: true }')
   if (file.endsWith('/checkout/server/checkout.ts') && process.env.GROUPS_FAULT === 'price') source = source.replace('await groupDeal(command.userId, [product.id])', 'undefined')
   const mod = { exports: {} }; cache.set(file, mod)
   const req = name => {
@@ -130,6 +131,24 @@ async function main() {
   assert.equal((await db.walletAccount.findUniqueOrThrow({where:{userId_currency:{userId:member.id,currency:'USD'}}})).balanceMinor,94000n)
   const replay = await checkout.executeCheckout(purchase);assert.equal(replay.data.orderId,paid.data.orderId)
   assert.equal((await db.walletAccount.findUniqueOrThrow({where:{userId_currency:{userId:member.id,currency:'USD'}}})).balanceMinor,94000n,'retry never charges twice')
+  // The box under a member's name: shown groups only, in the admin's order, only while the membership holds.
+  const { groupBadges } = load('src/modules/account/server/site-groups.ts')
+  const box = async (sort, data = {}) => { const row = await db.userGroup.create({ data: { name: `${prefix}box${sort}`, color: '#112233', sortOrder: sort, ...data } }); groups.push(row); return row }
+  const shown = async (id) => (await groupBadges([id])).get(id)?.name
+  const plain = users[5], later = await box(20), earlier = await box(10), silent = await box(1, { showBadge: false }), closed = await box(2, { active: false })
+  assert.equal(await shown(plain.id), undefined, 'no group, no box')
+  await db.userGroupMember.createMany({ data: [{ groupId: later.id, userId: plain.id }, { groupId: earlier.id, userId: plain.id }, { groupId: silent.id, userId: plain.id }, { groupId: closed.id, userId: plain.id }] })
+  assert.equal(await shown(plain.id), earlier.name, 'the first shown group in the admin\'s order')
+  await db.userGroupMember.updateMany({ where: { groupId: earlier.id, userId: plain.id }, data: { expiresAt: new Date(Date.now() - 1000) } })
+  assert.equal(await shown(plain.id), later.name, 'an ended membership gives its place to the next')
+  await db.userGroupMember.deleteMany({ where: { groupId: later.id, userId: plain.id } })
+  assert.equal(await shown(plain.id), undefined, 'a hidden or inactive group shows nothing')
+  const now = Date.now()
+  const vip = await db.userMembership.create({ data: { userId: plain.id, startsAt: new Date(now - 1000), endsAt: new Date(now + 60_000) } })
+  assert.equal(await shown(plain.id), 'عضو ویژه', 'VIP stands in when no group is shown')
+  await db.userMembership.update({ where: { id: vip.id }, data: { endsAt: new Date(now - 500) } })
+  assert.equal(await shown(plain.id), undefined, 'and leaves with the membership')
+
   console.log('User groups: real expiry/inactive/role separation, exact prices, transactional audit/input rollback, stale claims, owner-scoped item/album/prompt and section decisions passed')
 }
 main().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{

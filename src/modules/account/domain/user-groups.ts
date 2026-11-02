@@ -1,6 +1,6 @@
 // A user group of the site: who is in it is stored, what it gives is on the group. Pure.
 
-export type GroupInput = { name: string; description: string; color: string; active: boolean; vipBenefits: boolean; hideAds: boolean; discountPercent: number; sortOrder: number }
+export type GroupInput = { name: string; description: string; color: string; active: boolean; vipBenefits: boolean; hideAds: boolean; discountPercent: number; showBadge: boolean; sortOrder: number }
 
 export class GroupError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
@@ -14,7 +14,7 @@ export function normalizeGroup(raw: Record<string, unknown>): GroupInput {
   const color = /^#[0-9a-f]{6}$/i.test(String(raw.color)) ? String(raw.color).toLowerCase() : '#4b45ee'
   const percent = Number(raw.discountPercent ?? 0)
   if (!Number.isInteger(percent) || percent < 0 || percent > 90) throw new GroupError('تخفیف باید عدد صحیح بین ۰ تا ۹۰ درصد باشد')
-  return { name, description: line(raw.description, 300), color, active: raw.active !== false, vipBenefits: raw.vipBenefits === true, hideAds: raw.hideAds === true, discountPercent: percent, sortOrder: Math.max(0, Math.min(1000, Math.trunc(Number(raw.sortOrder)) || 0)) }
+  return { name, description: line(raw.description, 300), color, active: raw.active !== false, vipBenefits: raw.vipBenefits === true, hideAds: raw.hideAds === true, discountPercent: percent, showBadge: raw.showBadge !== false, sortOrder: Math.max(0, Math.min(1000, Math.trunc(Number(raw.sortOrder)) || 0)) }
 }
 
 export const groupSlug = (id: number) => `group-${id}`

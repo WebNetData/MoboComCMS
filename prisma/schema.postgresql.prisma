@@ -4558,6 +4558,8 @@ model UserGroup {
   vipBenefits     Boolean  @default(false)
   hideAds         Boolean  @default(false)
   discountPercent Int      @default(0)
+  /// Shown in a box under the member's name.
+  showBadge       Boolean  @default(true)
   sortOrder       Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @default(now()) @updatedAt

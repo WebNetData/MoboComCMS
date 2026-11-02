@@ -68,6 +68,16 @@ export function Pager({ page, pages, href, fa = true }: { page: number; pages: n
   )
 }
 
+/** The boxes under a member's name: the group they belong to, then the rank their activity earned. */
+export function MemberBoxes({ author }: { author: Pick<AuthorView, 'staff' | 'group' | 'flair' | 'level'> }) {
+  const group = author.group || author.flair
+  const box = (color: string) => ({ ['--box' as string]: color })
+  return <span className="mb-boxes">
+    {group ? <span className="mb-box" style={box(group.color)}>{group.name}</span> : !author.staff && <span className="mb-box is-plain">کاربر عضو</span>}
+    {author.level && <span className="mb-box is-rank" style={box(author.level.color)}>{author.level.icon && <i aria-hidden="true">{author.level.icon}</i>}{author.level.name}</span>}
+  </span>
+}
+
 const TRUST_SHORT = ['تازه‌وارد', 'پایه', 'عضو', 'همیشگی', 'رهبر']
 export function TrustBadge({ level }: { level: number }) {
   return <span className={`fx-trust is-${level}`} title={`سطح اعتماد ${num(level)}`}>{TRUST_SHORT[level] || ''}</span>

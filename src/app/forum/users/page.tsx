@@ -5,7 +5,7 @@ import { getForumViewer } from '@/modules/forum/server/forum'
 import { userDirectory, type DirectorySort } from '@/modules/forum/server/people'
 import { FORUM_RANK_LABELS, TRUST_NAMES } from '@/modules/forum/domain/community'
 import ForumShell from '@/components/forum/ForumShell'
-import { Avatar, Pager, TimeAgo, UserName, num } from '@/components/forum/shared'
+import { Avatar, MemberBoxes, Pager, TimeAgo, UserName, num } from '@/components/forum/shared'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { profileAddress } from '@/modules/identity/domain/profile-address'
 
@@ -61,6 +61,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           <Link href={profileAddress(row.author.username)} className="fm-face" aria-label={`پروفایل ${row.author.name}`}><Avatar author={row.author} size={index === 0 ? 92 : 76} /></Link>
           <UserName author={row.author} />
           <small className="fm-role">{roleOf(row)}</small>
+          <MemberBoxes author={row.author} />
           <p className="fm-score"><b>{num(valueOf(row))}</b><span>{sort.unit}</span></p>
         </li>
       ))}</ol>}
@@ -73,6 +74,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           <UserName author={row.author} />
           <bdi className="fx-handle" dir="ltr">@{row.author.username}</bdi>
           <small className="fm-role">{roleOf(row)}</small>
+          <MemberBoxes author={row.author} />
           <dl className="fm-stats">
             <div className={data.sort === 'postCount' ? 'is-lead' : ''}><dt>پیام</dt><dd>{num(row.postCount)}</dd></div>
             <div className={data.sort === 'likesReceived' ? 'is-lead' : ''}><dt>اعتبار</dt><dd>{num(row.reputation)}</dd></div>

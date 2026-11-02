@@ -57,3 +57,14 @@ export async function siteGroupsOf(userId: number, keys: readonly string[], now 
   await Promise.all(work)
   return mine
 }
+
+/** The group each member shows under their name: the first of their shown groups in the admin's order, else VIP. */
+export async function groupBadges(userIds: readonly number[], now = new Date()) {
+  const badges = new Map<number, { name: string; color: string }>()
+  if (!userIds.length) return badges
+  const rows = await db.userGroupMember.findMany({ where: { userId: { in: [...userIds] }, ...memberActive(now), group: { active: true, showBadge: true } }, orderBy: [{ group: { sortOrder: 'asc' } }, { groupId: 'asc' }], select: { userId: true, group: { select: { name: true, color: true } } } })
+  for (const row of rows) if (!badges.has(row.userId)) badges.set(row.userId, row.group)
+  const rest = userIds.filter((id) => !badges.has(id))
+  if (rest.length && await isModuleEnabled('membership')) for (const row of await db.userMembership.findMany({ where: { userId: { in: rest }, ...activeVip(now) }, distinct: ['userId'], select: { userId: true } })) badges.set(row.userId, { name: 'عضو ویژه', color: '#d97706' })
+  return badges
+}
