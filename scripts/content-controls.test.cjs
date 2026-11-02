@@ -1644,3 +1644,41 @@ test('a banner stored on the site is resized, and the load test asks for pages a
   assert.match(read('src/plugins/ads/PromoSlot.tsx'), /srcSet=\{widthsOf\(ad\.image\)\}/)
   assert.match(read('scripts/load-test.mjs'), /accept: 'text\/html/, 'the guest cache answers only requests for HTML')
 })
+
+test('announcement popups: how often, who, and where', () => {
+  const source = ts.transpileModule(fs.readFileSync(path.join(process.cwd(), 'src/modules/popups/domain/popups.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const mod = { exports: {} }; new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+  const { isDue, matchesAudience, fitsPage, normalizePopup, safeLink, frequencyLabel } = mod.exports
+  const hour = 3600000, now = 1000 * hour
+  assert.equal(isDue({ repeatHours: 24, maxViews: 10 }, null, now), true)
+  assert.equal(isDue({ repeatHours: 24, maxViews: 10 }, { views: 3, lastAt: now - 23 * hour }, now), false)
+  assert.equal(isDue({ repeatHours: 24, maxViews: 10 }, { views: 3, lastAt: now - 24 * hour }, now), true)
+  assert.equal(isDue({ repeatHours: 24, maxViews: 10 }, { views: 10, lastAt: 0 }, now), false, 'the total is a ceiling')
+  assert.equal(isDue({ repeatHours: 0, maxViews: 0 }, { views: 1, lastAt: 0 }, now), false, 'once')
+  assert.equal(isDue({ repeatHours: 48, maxViews: 0 }, { views: 500, lastAt: now - 48 * hour }, now), true, 'no total')
+  const guest = { signedIn: false, staff: false, sections: [], groupIds: [] }, member = { ...guest, signedIn: true, groupIds: [3] }, manager = { signedIn: true, staff: true, sections: ['music'], groupIds: [] }
+  const rule = (audience, extra = {}) => ({ audience, groupIds: [], sections: [], ...extra })
+  assert.equal(matchesAudience(rule('GUESTS'), guest), true); assert.equal(matchesAudience(rule('GUESTS'), member), false)
+  assert.equal(matchesAudience(rule('MEMBERS'), guest), false)
+  assert.equal(matchesAudience(rule('GROUPS', { groupIds: [3] }), member), true); assert.equal(matchesAudience(rule('GROUPS', { groupIds: [4] }), member), false)
+  assert.equal(matchesAudience(rule('SECTION_MANAGERS', { sections: ['music'] }), manager), true)
+  assert.equal(matchesAudience(rule('SECTION_MANAGERS', { sections: ['store'] }), manager), false)
+  assert.equal(matchesAudience(rule('SECTION_MANAGERS', { sections: ['music'] }), { ...member, sections: ['music'] }), false, 'a section needs a manager')
+  assert.equal(matchesAudience(rule('ALL_MANAGERS'), member), false); assert.equal(matchesAudience(rule('NOPE'), manager), false, 'an unknown audience shows to no one')
+  const everywhere = { pages: '', audience: 'ALL' }
+  assert.equal(fitsPage(everywhere, '/products'), true)
+  for (const path of ['/checkout/cart', '/payment/result', '/login', '/invoice/1', '/admin', '/admin/posts']) assert.equal(fitsPage(everywhere, path), false, path)
+  assert.equal(fitsPage({ pages: '', audience: 'ALL_MANAGERS' }, '/admin/posts'), true)
+  assert.equal(fitsPage({ pages: '/products\n/', audience: 'ALL' }, '/products/x'), true)
+  assert.equal(fitsPage({ pages: '/products\n/', audience: 'ALL' }, '/'), true)
+  assert.equal(fitsPage({ pages: '/products\n/', audience: 'ALL' }, '/blog'), false)
+  assert.equal(fitsPage({ pages: '/prod', audience: 'ALL' }, '/products'), false, 'a prefix ends at a slash')
+  for (const bad of ['javascript:alert(1)', '//evil.example', '/\\evil.example', 'http://x.example', 'data:text/html,x']) assert.throws(() => safeLink(bad), /نشانی/, bad)
+  assert.equal(safeLink('/products?x=1'), '/products?x=1'); assert.equal(safeLink('https://a.example/b'), 'https://a.example/b')
+  assert.throws(() => normalizePopup({ title: 'یک پاپ', design: 'cover' }, []), /تصویر/)
+  assert.throws(() => normalizePopup({ title: 'یک پاپ', actionLabel: 'برو' }, []), /دکمه/)
+  assert.throws(() => normalizePopup({ title: 'یک پاپ', audience: 'SECTION_MANAGERS', sections: ['nope'] }, ['music']), /بخش/)
+  assert.equal(normalizePopup({ title: 'یک پاپ', status: 'HACK' }, []).status, 'DRAFT')
+  assert.equal(frequencyLabel({ repeatHours: 24, maxViews: 10 }), 'هر ۲۴ ساعت، در کل ۱۰ بار')
+  assert.equal(frequencyLabel({ repeatHours: 0, maxViews: 0 }), 'فقط یک بار')
+})

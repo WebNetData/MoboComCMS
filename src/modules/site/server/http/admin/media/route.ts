@@ -8,7 +8,7 @@ import { coverFormat, listCoverImages, storeCoverImage } from '@/modules/site/se
 
 /** Whoever may put a picture into content may also pick one that is already here: any content section's manager or author, or settings. */
 async function mayUsePictures(req: NextRequest) {
-  for (const permission of [...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS, 'prompts.manage', 'settings.manage', 'media.manage']) if (await requirePerm(req, permission)) return true
+  for (const permission of [...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS, 'prompts.manage', 'popups.manage', 'settings.manage', 'media.manage']) if (await requirePerm(req, permission)) return true
   return false
 }
 

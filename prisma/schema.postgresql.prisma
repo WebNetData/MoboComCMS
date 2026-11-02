@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  sitePopupsSeen SitePopupSeen[] @relation("SitePopupSeen")
   promptTemplates PromptTemplate[] @relation("PromptTemplateCreator")
   promptGenerations PromptGeneration[]
   libraryFolders MediaFolder[] @relation("MediaFolderCreator")
@@ -4475,4 +4476,57 @@ model PostEditProposal {
   baseUpdatedAt DateTime
   createdAt     DateTime @default(now())
   updatedAt     DateTime @default(now()) @updatedAt
+}
+
+/// An announcement shown as a popup. Who sees it and how often are chosen in the panel.
+model SitePopup {
+  id           Int      @id @default(autoincrement())
+  title        String
+  body         String   @default("")
+  kind         String   @default("NOTICE") // NOTICE | NEWS | WARNING | OFFER
+  design       String   @default("seal") // seal | cover | split | spotlight
+  effect       String   @default("rise") // rise | zoom | drop | slide | flip
+  position     String   @default("center") // center | bottom | corner
+  image        String   @default("")
+  actionLabel  String   @default("")
+  actionUrl    String   @default("")
+  closeLabel   String   @default("")
+  mustConfirm  Boolean  @default(false)
+  status       String   @default("DRAFT") // DRAFT | ACTIVE | PAUSED
+  startsAt     DateTime?
+  endsAt       DateTime?
+  audience     String   @default("ALL") // ALL | GUESTS | MEMBERS | GROUPS | SECTION_MANAGERS | ALL_MANAGERS
+  groupIds     String   @default("[]") // ForumGroup ids
+  sections     String   @default("[]") // SITE_SECTIONS ids
+  repeatHours  Int      @default(24) // 0: once
+  maxViews     Int      @default(0) // 0: no total
+  delaySeconds Int      @default(2)
+  pages        String   @default("") // one address per line; empty: the whole site
+  priority     Int      @default(0)
+  /// Raised by "show to everyone again": guests' browsers keep their count per revision.
+  revision     Int      @default(1)
+  guestViews   Int      @default(0)
+  clicks       Int      @default(0)
+  createdBy    Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  seen         SitePopupSeen[]
+
+  @@index([status])
+}
+
+/// How often one member has seen a popup, kept on the server so it holds across their devices.
+model SitePopupSeen {
+  id      Int       @id @default(autoincrement())
+  popupId Int
+  popup   SitePopup @relation(fields: [popupId], references: [id], onDelete: Cascade)
+  userId  Int
+  user    User      @relation("SitePopupSeen", fields: [userId], references: [id], onDelete: Cascade)
+  views   Int       @default(1)
+  clicked Boolean   @default(false)
+  firstAt DateTime  @default(now())
+  lastAt  DateTime  @default(now())
+
+  @@unique([popupId, userId])
+  @@index([userId])
 }
