@@ -25,7 +25,7 @@ export async function forumSitemap(): Promise<SitemapEntry[]> {
 
 /** Studios, film people, public collections and category pages: only those with something public behind them. */
 export async function entitySitemap(now = new Date()): Promise<SitemapEntry[]> {
-  const live = { status: 'PUBLISHED', publishedAt: { lte: now } }
+  const live = { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' }
   const [studios, people, collections, terms] = await Promise.all([
     safe(() => db.studio.findMany({ where: { OR: [{ gamesDeveloped: { some: live } }, { gamesPublished: { some: live } }, { softwareDeveloped: { some: live } }, { softwarePublished: { some: live } }] }, select: { id: true, updatedAt: true }, take: 5000 })),
     safe(() => db.cinemaPerson.findMany({ where: { credits: { some: { title: live } } }, select: { id: true }, take: 5000 })),

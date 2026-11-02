@@ -19,7 +19,7 @@ export async function scheduleSoftwareRelease(tx: Prisma.TransactionClient, rele
 
 export async function processSoftwareReleaseNotifications(now = new Date()) {
   const pending = await db.softwareReleaseNotification.findMany({
-    where: { completedAt: null, dueAt: { lte: now }, release: { is: { status: 'PUBLISHED', releasedAt: { lte: now }, software: { is: { status: 'PUBLISHED', publishedAt: { lte: now } } } } } },
+    where: { completedAt: null, dueAt: { lte: now }, release: { is: { status: 'PUBLISHED', releasedAt: { lte: now }, software: { is: { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' } } } } },
     orderBy: [{ dueAt: 'asc' }, { releaseId: 'asc' }], take: 10,
     include: { release: { include: { software: { select: { id: true, slug: true, title: true, status: true, publishedAt: true, version: true } } } } },
   })

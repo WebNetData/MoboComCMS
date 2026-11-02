@@ -8,6 +8,8 @@ import { getStoreSettings } from '@/modules/store/server/catalog'
 import { addCartComponents, type CartOwner } from '@/modules/store/server/cart'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { minorToNumber } from '@/shared/money'
+import { groupDeal } from '@/modules/account/server/user-groups'
+import type { GroupDeal } from '@/modules/account/domain/user-groups'
 
 type Definition = NonNullable<Awaited<ReturnType<typeof productBundleDefinition>>>
 export type ProductBundleCard = {
@@ -15,7 +17,7 @@ export type ProductBundleCard = {
   components: { productId: number; variantId: number | null; slug: string; name: string; nameEn: string; image: string; variantName: string; quantity: number; unitPrice: number; total: number }[]
 }
 
-function bundleCard(definition: Definition, member: boolean, opens: boolean): ProductBundleCard | null {
+function bundleCard(definition: Definition, member: boolean, opens: boolean, deal?: GroupDeal | null): ProductBundleCard | null {
   if (!definition.active || !isPublicProduct(definition.product) || definition.components.length < 2 || definition.components.length > 12 || !definition.components.some(component => component.productId === definition.productId)) return null
   const components: ProductBundleCard['components'] = [], totals = new Map<number, number>()
   let currency = '', totalMinor = 0n, issue = ''
@@ -24,7 +26,7 @@ function bundleCard(definition: Definition, member: boolean, opens: boolean): Pr
     if (!product || !isPublicProduct(product)) return null
     const variant = component.variantKey ? product.variants.find(item => item.id === component.variantKey && item.active) || null : null
     if ((component.variantKey && !variant) || (!component.variantKey && product.variants.some(item => item.active))) return null
-    const price = unitPrice(product, variant, member)
+    const price = unitPrice(product, variant, member, undefined, deal)
     if (currency && currency !== price.currency) return null
     currency = price.currency
     const quantity = component.quantity
@@ -43,12 +45,13 @@ async function enabled() {
 
 export async function readProductBundles(productId: number, userId: number | null) {
   if (!await enabled()) return null
-  const source = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true } })
+  const source = await db.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, audienceGroups: true } })
   if (!source || !isPublicProduct(source)) return null
   const member = userId ? await isMember(userId) : false
   const opens = await opensMembersOnly(userId, member)
   const definitions = await productBundleDefinitions(productId)
-  return { items: definitions.flatMap(definition => { const card = bundleCard(definition, member, opens); return card ? [card] : [] }) }
+  const deal = await groupDeal(userId, [...new Set(definitions.flatMap(definition => definition.components.flatMap(component => (component.product ? [component.product.id] : []))))])
+  return { items: definitions.flatMap(definition => { const card = bundleCard(definition, member, opens, deal); return card ? [card] : [] }) }
 }
 
 export async function addProductBundle(owner: CartOwner, bundleId: unknown) {

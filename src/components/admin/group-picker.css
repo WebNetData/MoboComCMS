@@ -1,0 +1,21 @@
+.gp { display: grid; gap: 12px; }
+.gp-family-title { margin: 0 0 6px; font-size: .8rem; font-weight: 500; color: var(--muted); }
+.gp-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.gp-options label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: .84rem; cursor: pointer; }
+.gp-options label.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.gp-options input { margin: 0; accent-color: var(--primary); }
+.gp-options small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.gp-empty { margin: 0; font-size: .84rem; color: var(--muted); }
+.ia { display: grid; gap: 12px; padding: 16px; margin-block: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface, transparent); }
+.ia-head { display: grid; gap: 2px; }
+.ia-head b { font-size: .98rem; font-weight: 500; }
+.ia-head small, .ia-hint { font-size: .82rem; color: var(--muted); }
+.ia-modes { display: flex; flex-wrap: wrap; gap: 16px; }
+.ia-modes label { display: inline-flex; align-items: center; gap: 6px; font-size: .88rem; cursor: pointer; }
+.ia-modes input { accent-color: var(--primary); }
+.ia-prices { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.ia-prices label { display: grid; gap: 4px; font-size: .82rem; color: var(--muted); }
+.ia-prices input { font-variant-numeric: tabular-nums; }
+.ia-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ia-done { font-size: .84rem; color: var(--muted); }
+.ia-done.is-error { color: var(--admin-danger-text, var(--sds-color-text-danger-default)); }

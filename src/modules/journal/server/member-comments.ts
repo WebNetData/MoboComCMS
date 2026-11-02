@@ -13,7 +13,7 @@ export async function memberPostComments(userId: number, take: number) {
     db.postComment.count({ where }),
     db.postComment.findMany({
       where, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: Math.max(1, Math.min(500, Math.trunc(take) || 1)),
-      select: { id: true, body: true, status: true, parentId: true, updatedAt: true, post: { select: { slug: true, title: true, cover: true, status: true, publishedAt: true } } },
+      select: { id: true, body: true, status: true, parentId: true, updatedAt: true, post: { select: { audienceGroups: true, slug: true, title: true, cover: true, status: true, publishedAt: true } } },
     }),
   ])
   return {

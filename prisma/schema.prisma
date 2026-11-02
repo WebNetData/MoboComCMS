@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  userGroups UserGroupMember[] @relation("UserGroupMember")
   sitePopupsSeen SitePopupSeen[] @relation("SitePopupSeen")
   promptTemplates PromptTemplate[] @relation("PromptTemplateCreator")
   promptGenerations PromptGeneration[]
@@ -130,6 +131,7 @@ model User {
 }
 
 model PromptTemplate {
+  audienceGroups String @default("")
   createdById Int?
   createdBy User? @relation("PromptTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
   reviewNote String @default("")
@@ -697,6 +699,8 @@ model PostCategory {
 }
 
 model Post {
+  /// Site group keys that may see this item, as JSON; empty for everyone.
+  audienceGroups String @default("")
   id          Int           @id @default(autoincrement())
   slug        String        @unique
   title       String
@@ -824,6 +828,9 @@ model ProductAttributeGroup {
 }
 
 model Product {
+  groupPrices ProductGroupPrice[] @relation("ProductGroupPrice")
+  /// Site group keys that may see this item, as JSON; empty for everyone.
+  audienceGroups String @default("")
   id            Int              @id @default(autoincrement())
   slug          String           @unique
   name          String
@@ -1516,6 +1523,8 @@ model MusicArtist {
 }
 
 model MusicAlbum {
+  /// Site group keys that may see this item, as JSON; empty for everyone.
+  audienceGroups String @default("")
   id          Int          @id @default(autoincrement())
   slug        String       @unique
   title       String
@@ -1564,6 +1573,8 @@ model MusicCredit {
 }
 
 model MusicTrack {
+  /// Site group keys that may see this item, as JSON; empty for everyone.
+  audienceGroups String @default("")
   id          Int         @id @default(autoincrement())
   slug        String      @unique
   title       String
@@ -1760,6 +1771,8 @@ model UserCollectionReaction {
 // ---------------------------------------------------------------- Film & series
 
 model CinemaTitle {
+  /// Site group keys that may see this item, as JSON; empty for everyone.
+  audienceGroups String @default("")
   id            Int            @id @default(autoincrement())
   slug          String         @unique
   kind          String         @default("MOVIE") // MOVIE | SERIES — follows the format's structure
@@ -2001,6 +2014,8 @@ model Vocabulary {
 }
 
 model GameTitle {
+  /// Site group keys that may see this item, as JSON; empty for everyone.
+  audienceGroups String @default("")
   id           Int       @id @default(autoincrement())
   slug         String    @unique
   title        String
@@ -2127,6 +2142,8 @@ model GameLibrary {
 /// Software downloads (Windows/macOS/Linux/Android/iOS). Base and versioned
 /// MediaLink rows use ownerType "software" and "softwarerelease" respectively.
 model SoftwareTitle {
+  /// Site group keys that may see this item, as JSON; empty for everyone.
+  audienceGroups String @default("")
   id           Int       @id @default(autoincrement())
   slug         String    @unique
   title        String
@@ -4529,4 +4546,51 @@ model SitePopupSeen {
 
   @@unique([popupId, userId])
   @@index([userId])
+}
+
+/// A user group of the whole site. It gives its members public benefits, never access to the panel.
+model UserGroup {
+  id              Int      @id @default(autoincrement())
+  name            String
+  description     String   @default("")
+  color           String   @default("#4b45ee")
+  active          Boolean  @default(true)
+  vipBenefits     Boolean  @default(false)
+  hideAds         Boolean  @default(false)
+  discountPercent Int      @default(0)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+  members         UserGroupMember[]
+  prices          ProductGroupPrice[]
+}
+
+model UserGroupMember {
+  id        Int       @id @default(autoincrement())
+  groupId   Int
+  group     UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation("UserGroupMember", fields: [userId], references: [id], onDelete: Cascade)
+  /// Membership ends by itself; read at decision time.
+  expiresAt DateTime?
+  note      String    @default("")
+  addedBy   Int?
+  createdAt DateTime  @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+/// A product's price for one group. variantId 0 is the whole product.
+model ProductGroupPrice {
+  id         Int       @id @default(autoincrement())
+  productId  Int
+  product    Product   @relation("ProductGroupPrice", fields: [productId], references: [id], onDelete: Cascade)
+  variantId  Int       @default(0)
+  groupId    Int
+  group      UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  priceMinor BigInt
+
+  @@unique([productId, variantId, groupId])
+  @@index([groupId])
 }

@@ -7,7 +7,9 @@ import { mutationOrigin } from '@/platform/http/origin-policy'
 import { contentSecurityPolicy, newNonce, nonceOf, usesNonce } from '@/platform/http/csp'
 import { requireUser } from '@/modules/identity/server/access'
 import { loadMaintenance, maintenanceBases } from '@/modules/site/server/maintenance'
-import { maintenanceDecision } from '@/modules/site/domain/maintenance'
+import { maintenanceDecision, sectionOfPath } from '@/modules/site/domain/maintenance'
+import { loadSectionAccess, sectionLock } from '@/modules/account/server/section-access'
+import { sectionLoginPath, sectionOfApi } from '@/modules/account/domain/section-access'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -80,6 +82,13 @@ export async function proxy(req: NextRequest) {
     if (verdict === 'origin-required') return NextResponse.json({ error: 'origin required' }, { status: 403 })
   }
 
+  // A section limited to groups closes its API with its pages.
+  const apiSection = sectionOfApi(req.nextUrl.pathname)
+  if (apiSection) {
+    const lock = await sectionLock(apiSection, () => requireUser(req).catch(() => null))
+    if (lock !== 'open') return NextResponse.json({ error: lock === 'login' ? 'برای این بخش وارد حساب خود شوید' : 'این بخش برای گروه‌های خاصی باز است' }, { status: lock === 'login' ? 401 : 403, headers: { 'cache-control': 'no-store' } })
+  }
+
   // An admin change may alter public pages: the guest page cache is emptied shortly after it.
   if (MUTATING_METHODS.has(req.method) && ADMIN_WRITE.test(req.nextUrl.pathname) && !ADMIN_WRITE_SKIP.test(req.nextUrl.pathname)) purgeSoon('admin-change')
 
@@ -118,6 +127,30 @@ export async function proxy(req: NextRequest) {
         }
         // The people who run the section see it as it is, and are told nobody else does.
         if (verdict.action === 'pass' && verdict.preview) headers.set('x-maintenance-preview', verdict.preview)
+      }
+      // A section limited to groups, decided before the page cache: guests are asked to sign in, other members told so.
+      const limits = await loadSectionAccess()
+      const section = Object.keys(limits).length ? sectionOfPath(canonicalPath, maintenanceBases()) : null
+      const lock = section ? await sectionLock(section, () => requireUser(req).catch(() => null)) : 'open'
+      if (lock === 'login') {
+        const url = req.nextUrl.clone()
+        const target = new URL(sectionLoginPath(req.nextUrl.pathname, req.nextUrl.search), url)
+        const signIn = NextResponse.redirect(target, 307)
+        signIn.headers.set('cache-control', 'no-store')
+        signIn.headers.set('x-request-id', requestId)
+        applySecurityHeaders(req, signIn, nonce)
+        return signIn
+      }
+      if (lock === 'refused') {
+        const url = req.nextUrl.clone()
+        url.pathname = '/section-locked'
+        url.search = `?section=${section}`
+        const notice = NextResponse.rewrite(url, { request: { headers }, status: 403 })
+        notice.headers.set('x-robots-tag', 'noindex')
+        notice.headers.set('cache-control', 'no-store')
+        notice.headers.set('x-request-id', requestId)
+        applySecurityHeaders(req, notice, nonce)
+        return notice
       }
     }
     if (decision) {

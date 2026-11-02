@@ -63,7 +63,7 @@ test('legacy product response retains names, slug and publication fields', async
   const db = { product: { findMany: async args => { queries.push(args); return [product] } } }
   const links = load('src/modules/journal/server/item-links.ts', { ...itemMocks(registryOf(['product'])), '@/platform/database/prisma': { db } })
   assert.deepEqual(await links.searchPostLinkProducts('product', [5]), { matches: [product], selected: [product] })
-  assert.deepEqual(queries[1].select, { id: true, name: true, nameEn: true, slug: true, active: true, approval: true })
+  assert.deepEqual(queries[1].select, { id: true, name: true, nameEn: true, slug: true, active: true, approval: true, audienceGroups: true })
 })
 test('picker searches one linkable type and resolves selected refs without leaking hidden targets', async () => {
   const game = card('game', 5, 'Fifth quest')
@@ -126,7 +126,7 @@ test('product related articles prioritize explicit live links and fill remaining
     '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
     '@/modules/catalog/server/product-config': { attributeFieldsForCategory: async () => [], parseJson: () => ({}) },
     '@/shared/content/sanitize': { cleanRichText: value => value },
-    '@/modules/catalog/domain/product-publication': { isPublicProduct: () => true, publicProductWhere: {} },
+    '@/modules/catalog/domain/product-publication': load('src/modules/catalog/domain/product-publication.ts'),
     '@/modules/journal/domain/journal': { livePostWhere: () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date('2026-01-01') } }) },
     '@/extensions/server/modules': module,
   })
@@ -147,7 +147,7 @@ test('disabled Journal returns no related articles without reading stored links'
     '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
     '@/modules/catalog/server/product-config': { attributeFieldsForCategory: async () => [], parseJson: () => ({}) },
     '@/shared/content/sanitize': { cleanRichText: value => value },
-    '@/modules/catalog/domain/product-publication': { isPublicProduct: () => true, publicProductWhere: {} },
+    '@/modules/catalog/domain/product-publication': load('src/modules/catalog/domain/product-publication.ts'),
     '@/modules/journal/domain/journal': { livePostWhere: () => ({ status: 'PUBLISHED' }) },
     '@/extensions/server/modules': { isModuleEnabled: async () => false },
   })

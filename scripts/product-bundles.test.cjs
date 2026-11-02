@@ -30,6 +30,8 @@ test('bundle public reads stop before definition lookup when module, rollout or 
    '@/modules/membership/server/membership':{opensMembersOnly:async(_userId,member)=>!!member},'@/modules/store/domain/store':load('src/modules/store/domain/store.ts'),
    '@/modules/store/server/catalog':{getStoreSettings:async()=>({showProductBundles:state!=='paused'})},
    '@/modules/store/server/cart':{},'@/modules/store/server/pricing':{},'@/shared/money':{},
+   '@/modules/account/server/user-groups':{groupDeal:async()=>({percent:0,prices:new Map()})},
+   '@/modules/account/server/item-audience':{userOpensAudience:async raw=>!raw},
   })
   const result=await service.readProductBundles(1,null)
   if(state==='ready'){assert.deepEqual(result,{items:[]});assert.equal(reads,1)}else{assert.equal(result,null);assert.equal(reads,0)}

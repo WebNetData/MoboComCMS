@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { type AlbumCard, type TrackCard, albumInclude, toAlbum, toTrack, trackInclude } from '@/modules/media/server/queries/music'
 import { type TitleCard, titleInclude, toTitle } from '@/modules/media/server/queries/cinema'
 import { type GameCard, toGame } from '@/modules/media/server/queries/games'
-import { live } from '@/modules/media/server/queries/core'
+import { live, liveTrack } from '@/modules/media/server/queries/core'
 
 export type BuilderMediaFeed =
   | { kind: 'tracks'; items: TrackCard[] }
@@ -17,7 +17,7 @@ export async function getBuilderMedia(source: string, limit: number): Promise<Bu
     switch (source) {
       case 'music-new':
       case 'music-top':
-        return { kind: 'tracks', items: (await db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: source === 'music-top' ? [{ plays: 'desc' }, { publishedAt: 'desc' }] : { publishedAt: 'desc' }, take })).map(toTrack) }
+        return { kind: 'tracks', items: (await db.musicTrack.findMany({ where: liveTrack(), include: trackInclude, orderBy: source === 'music-top' ? [{ plays: 'desc' }, { publishedAt: 'desc' }] : { publishedAt: 'desc' }, take })).map(toTrack) }
       case 'music-albums':
         return { kind: 'albums', items: (await db.musicAlbum.findMany({ where: live(), include: albumInclude, orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }], take })).map(toAlbum) }
       case 'cinema-movies':

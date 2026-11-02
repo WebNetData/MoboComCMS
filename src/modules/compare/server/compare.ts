@@ -9,6 +9,7 @@ import { listLabels } from '@/modules/vocabulary/server/vocabulary'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 /**
  * Side-by-side comparison of up to four items of one type. Each row is a label
@@ -117,7 +118,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
       ...dimensionRows,
     )
   } else if (type === 'product') {
-    const products = await db.product.findMany({ where: { id: { in: ids } }, include: { category: { select: { name: true } }, variants: { where: { active: true }, select: { priceMinor: true } } } })
+    const products = await db.product.findMany({ where: { id: { in: ids }, ...publicProductWhere }, include: { category: { select: { name: true } }, variants: { where: { active: true }, select: { priceMinor: true } } } })
     const map = new Map(products.map((r) => [r.id, r]))
     const p = ids.map((id) => map.get(id))
     const reviews = await db.productReview.groupBy({ by: ['productId'], where: { productId: { in: ids }, status: 'APPROVED' }, _avg: { rating: true }, _count: true })

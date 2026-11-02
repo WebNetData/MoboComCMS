@@ -708,6 +708,8 @@ function load(file, mocks = {}, cache = new Map()) {
   const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const localRequire = name => {
     if (Object.hasOwn(mocks, name)) return mocks[name]
+    // These scenarios isolate maintenance/CSP; native user-groups checks cover the additional access policy.
+    if (name === '@/modules/account/server/section-access') return { loadSectionAccess: async () => ({}), sectionLock: async () => 'open' }
     if (name.startsWith('@/') || name.startsWith('.')) {
       const base = name.startsWith('@/') ? path.resolve(__dirname, '../src', name.slice(2)) : path.resolve(path.dirname(absolute), name)
       for (const suffix of ['.ts', '.tsx', '/index.ts']) if (fs.existsSync(base + suffix)) return load(path.relative(path.resolve(__dirname, '..'), base + suffix), mocks, cache)
@@ -1392,8 +1394,12 @@ test('a section in maintenance leaves search, the sitemap and the feeds; an open
   const home = src('src/modules/site/server/homepage.ts')
   assert.ok(home.includes('const enabled = (id: string) => runtime[id]?.enabled !== false && !closed.has(id)'))
   assert.ok(home.includes('MAINTENANCE_SECTIONS.filter((section) => closed.has(section.plugin)).flatMap((section) => bases[section.id])]'))
-  // A state that cannot be read closes nothing.
-  assert.match(src('src/modules/site/server/maintenance.ts'), /closedPlugins\(await loadMaintenance\(\)\.catch\(\(\) => normalizeMaintenance\(null\)\)\)/)
+  // Maintenance retains its existing fallback; unknown audience policy closes public discovery.
+  assert.match(src('src/modules/site/server/maintenance.ts'), /loadMaintenance\(\)\.catch\(\(\) => normalizeMaintenance\(null\)\)/)
+  const visibility = load('src/modules/site/server/maintenance.ts', { '@/platform/database/prisma': { db: { setting: { findUnique: async () => null } } }, '@/modules/account/server/section-access': { loadSectionAccess: async () => ({ music: [], magazine: ['group:4'] }) } })
+  assert.deepEqual([...await visibility.closedSectionPlugins()], ['journal'], 'empty audiences leave sections publicly discoverable')
+  const unavailable = load('src/modules/site/server/maintenance.ts', { '@/platform/database/prisma': { db: { setting: { findUnique: async () => null } } }, '@/modules/account/server/section-access': { loadSectionAccess: async () => { throw Error('offline') } } })
+  assert.ok((await unavailable.closedSectionPlugins()).has('music'), 'unknown audience policy cannot disclose a section')
 })
 
 const sourceOf = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
@@ -1405,6 +1411,7 @@ test('nothing is members-only while the VIP module is off, and prices keep the r
     'next-auth': { getServerSession: async () => state.session },
     '@/platform/database/prisma': { db: { userMembership: { findFirst: async () => state.membership } } },
     '@/modules/identity/auth': { authOptions: {} },
+    '@/modules/account/server/user-groups': { groupGivesVip: async () => false },
     '@/modules/notifications/server/inbox': { createInboxEvent: async () => null },
     '@/extensions/server/modules': { isModuleEnabled: async (id) => id === 'membership' && state.vip },
     '@/platform/observability/logger': { logEvent: () => {} },
@@ -1427,7 +1434,8 @@ test('nothing is members-only while the VIP module is off, and prices keep the r
   // Every place that decides access asks "opens", never "member".
   for (const file of ['src/app/cinema/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/app/music/playlist/[slug]/page.tsx', 'src/app/music/track/[slug]/page.tsx', 'src/app/software/[slug]/page.tsx', 'src/app/software/[slug]/releases/[id]/page.tsx', 'src/modules/site/server/http/public/cms/route.ts', 'src/modules/checkout/server/pages/checkout/page.tsx', 'src/modules/checkout/server/pages/product/page.tsx']) {
     assert.match(sourceOf(file), /viewer\.opens/, file)
-    assert.doesNotMatch(sourceOf(file).replace(/viewer\.member && [a-zA-Z.]*[mM]emberPriceMinor|viewer\.member && memberMinor/g, ''), /viewer\.member/, `${file} decides access by a paid membership`)
+    const accessSource = sourceOf(file).replace(/viewer\.member && [a-zA-Z.]*[mM]emberPriceMinor|viewer\.member && memberMinor/g, '').replace(/unitPrice\(product, variant, viewer\.member,/g, 'unitPrice(product, variant, priceMembership,')
+    assert.doesNotMatch(accessSource, /viewer\.member/, `${file} decides access by a paid membership`)
   }
   assert.match(sourceOf('src/modules/media/server/links.ts'), /if \(!vipOnly \|\| viewer\.opens\) return 'ok'\n  if \(!viewer\.userId\) return 'login'/)
   assert.match(sourceOf('src/modules/site/server/pages/blog/[slug]/page.tsx'), /post\.access === 'MEMBERS' && !viewer\.opens/)

@@ -3,6 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const db=new PrismaClient(),stamp=`owned-journal-paging-${Date.now()}`,ids=[],categories=[]
 let pageSize=12
 const mocks={
+ // The archive pagination scenario is anonymous; audience authorization is exercised by user-groups.connected.cjs.
+ 'next-auth':{getServerSession:async()=>null},'@/modules/identity/auth':{authOptions:{}},
  '@/platform/database/prisma':{db},'@/components/AppLink':'a','@/components/SiteHeader':'SiteHeader',
  '@/components/journal/LionaHome':{__esModule:true,default:'LionaHome',LionaGrid:'LionaGrid'},
  '@/i18n/server':{getServerLocale:async()=>'fa',getServerTheme:async()=>'dark'},

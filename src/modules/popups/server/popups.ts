@@ -25,8 +25,9 @@ const ruleOf = (row: Row) => ({ audience: row.audience, groupIds: parseIds<strin
 
 /** Who is looking: staff by their current role, and the site's groups asked only for what these popups name. */
 async function viewerOf(user: AuthedUser | null, rows: Row[]): Promise<PopupViewer> {
-  const staff = user?.role === 'ADMIN'
-  const permissions = staff ? (user.permissions?.length ? user.permissions : ALL_PERMISSIONS) : []
+  const admin = user?.role === 'ADMIN'
+  const permissions = admin ? (user.roleId == null ? ALL_PERMISSIONS : user.permissions || []) : []
+  const staff = admin && permissions.length > 0
   const keys = [...new Set(rows.filter((row) => row.audience === 'GROUPS').flatMap((row) => parseIds<string>(row.groupIds)))]
   return { signedIn: Boolean(user), staff, sections: sectionsOf(permissions), groupIds: user && keys.length ? await siteGroupsOf(user.id, keys) : [] }
 }

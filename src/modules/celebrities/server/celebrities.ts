@@ -6,7 +6,7 @@ import { CELEBRITY_ROLES, celebritySlug, type CelebrityRole } from '@/modules/ce
 import { parseFacts } from '@/modules/celebrities/domain/fields'
 
 const PAGE = 36
-const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' })
 
 // ------------------------------------------------------------------ building the entries
 

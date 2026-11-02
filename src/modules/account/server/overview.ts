@@ -85,7 +85,7 @@ export async function accountOverview(userId: number, now = new Date()) {
   const games = on('games') ? await (async () => {
     const [grouped, wanted] = await Promise.all([
       db.gameLibrary.groupBy({ by: ['status'], where: { userId }, _count: { _all: true } }),
-      db.gameLibrary.findMany({ where: { userId, status: 'WANT', game: { status: 'PUBLISHED', releaseDate: { gt: now } } }, orderBy: { game: { releaseDate: 'asc' } }, take: 4, select: { game: { select: { title: true, slug: true, cover: true, releaseDate: true } } } }),
+      db.gameLibrary.findMany({ where: { userId, status: 'WANT', game: { status: 'PUBLISHED', audienceGroups: '', releaseDate: { gt: now } } }, orderBy: { game: { releaseDate: 'asc' } }, take: 4, select: { game: { select: { title: true, slug: true, cover: true, releaseDate: true } } } }),
     ])
     return {
       counts: Object.fromEntries(grouped.map((row) => [row.status, row._count._all])) as Record<string, number>,

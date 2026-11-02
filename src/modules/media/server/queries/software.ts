@@ -7,9 +7,10 @@ import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection
 import { relatedSoftware } from '@/modules/recommendations/server/contextual'
 import type { Prisma } from '@prisma/client'
 import { publicLinks } from '@/modules/media/server/queries/cinema'
-import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
+import { PAGE_SIZE, live, publishedNow } from '@/modules/media/server/queries/core'
 import { allOrEmpty } from '@/modules/media/server/queries/music'
 import { countList } from '@/modules/media/server/queries/shared'
+import { audienceClause, opensAudience } from '@/modules/account/server/item-audience'
 
 export type SoftwareCard = {
   id: number; slug: string; title: string; titleEn: string; icon: string; cover: string; version: string; developer: string
@@ -43,7 +44,7 @@ export async function softwareReleaseFeed(input: { software?: string; channel?: 
   const q = String(input.q || '').trim().slice(0, 80)
   const where: Prisma.SoftwareReleaseWhereInput = {
     status: 'PUBLISHED', releasedAt: { lte: now },
-    software: { status: 'PUBLISHED', publishedAt: { lte: now }, ...(input.software ? { slug: String(input.software).slice(0, 120) } : {}) },
+    software: { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '', ...(input.software ? { slug: String(input.software).slice(0, 120) } : {}) },
     ...(channel ? { channel } : {}),
     ...(platform || architecture ? { targets: { some: { ...(platform ? { platform } : {}), ...(architecture ? { architecture } : {}) } } } : {}),
     ...(q ? { OR: [{ version: { contains: q } }, { software: { title: { contains: q } } }, { software: { titleEn: { contains: q } } }, { software: { developer: { contains: q } } }] } : {}),
@@ -61,9 +62,9 @@ export async function getSoftwareRelease(slug: string, releaseId: number) {
   const now = new Date()
   const release = await db.softwareRelease.findFirst({
     where: { id: releaseId, status: 'PUBLISHED', releasedAt: { lte: now }, software: { slug, status: 'PUBLISHED', publishedAt: { lte: now } } },
-    include: { software: { select: { id: true, slug: true, title: true, titleEn: true, icon: true, access: true, developer: true, developerStudioId: true, summary: true } }, targets: { orderBy: { id: 'asc' } } },
+    include: { software: { select: { id: true, slug: true, title: true, titleEn: true, icon: true, access: true, audienceGroups: true, developer: true, developerStudioId: true, summary: true } }, targets: { orderBy: { id: 'asc' } } },
   })
-  if (!release) return null
+  if (!release || !await opensAudience(release.software.audienceGroups, 'software')) return null
   const links = await publicLinks('softwarerelease', [release.id])
   return { id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, requirements: release.requirements, screenshots: parseJsonList<{ src: string }>(release.screenshots).map((shot) => shot.src).filter(Boolean), size: release.size, checksum: release.checksum, releasedAt: release.releasedAt, targets: release.targets, software: { ...release.software, summary: plainText(release.software.summary) }, links: links.get(release.id) || [] }
 }
@@ -71,7 +72,7 @@ export async function getSoftwareRelease(slug: string, releaseId: number) {
 /** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
 export async function softwareFeed(input: { platform?: string; category?: string; license?: string; developer?: string; publisher?: string; developerStudioId?: number; publisherStudioId?: number; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
-  const where: any = { ...live() }
+  const where: any = { ...live(), ...(await audienceClause('software')) }
   /** Items filed under a taxonomy term (and its sub-terms). */
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
@@ -138,7 +139,7 @@ export async function getSoftwareHome() {
 
 export async function browseSoftware(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
-  const where: any = { ...live() }
+  const where: any = { ...live(), ...(await audienceClause('software')) }
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.category) where.category = String(input.category).slice(0, 60)
   if (input.license) where.license = String(input.license).slice(0, 20)
@@ -187,7 +188,7 @@ export async function softwareSuggestions(take = 10, pickedIds: number[] = []) {
 
 /** Latest journal posts with a cover (the portal's “tech news” box). */
 export async function techNews(take = 5) {
-  return db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, cover: { not: '' } }, orderBy: { publishedAt: 'desc' }, take, select: { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, category: { select: { name: true } } } }).catch(() => [])
+  return db.post.findMany({ where: { status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: new Date() }, cover: { not: '' } }, orderBy: { publishedAt: 'desc' }, take, select: { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, category: { select: { name: true } } } }).catch(() => [])
 }
 
 /** Newest software filed under the given ids (one home-page shelf per main category). */
@@ -199,7 +200,8 @@ export async function softwareShelf(ids: number[] | null, take = 8) {
 
 export async function getSoftware(slug: string) {
   const now = new Date()
-  const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
+  const row = await db.softwareTitle.findFirst({ where: { slug, ...publishedNow() } }).catch(() => null)
+  if (row && !await opensAudience(row.audienceGroups, 'software')) return null
   if (!row) return null
   await db.softwareTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
   const [links, recommendations, releases] = await Promise.all([

@@ -38,6 +38,8 @@ import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { openCurrenciesOf, readOrderFields } from '@/modules/store/domain/order-inputs'
+import { opensAudience } from '@/modules/account/server/item-audience'
+import { groupDeal } from '@/modules/account/server/user-groups'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -48,7 +50,7 @@ async function loadProduct(slug: string, preview = false) {
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await paramsPromise
   const product = await loadProduct(params.slug)
-  if (!product || !product.active || product.approval !== 'APPROVED') return { title: 'Not found', robots: { index: false, follow: false } }
+  if (!product || !product.active || product.approval !== 'APPROVED' || !await opensAudience(product.audienceGroups, 'product')) return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
   const isFa = locale === 'fa'
   const name = isFa ? product.name : product.nameEn || product.name
@@ -73,7 +75,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const isFa = locale === 'fa'
 
   const product = await loadProduct(params.slug, isPreview(preview))
-  if (!product || ((product.active !== true || product.approval !== 'APPROVED') && !isPreview(preview))) notFound()
+  if (!product || (!isPreview(preview) && (product.active !== true || product.approval !== 'APPROVED' || !await opensAudience(product.audienceGroups, 'product')))) notFound()
 
   const navPages = await db.page
     .findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } })
@@ -127,10 +129,11 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const [viewer, vipOn, storeSettings, related, deliverySettings, checkoutGateways, loyalty] = await Promise.all([getViewer(), isModuleEnabled('membership'), getStoreSettings(), relatedProducts(product), getDeliverySettings(), listCheckoutGateways(product.currency).catch(() => []), getLoyaltySettings()])
   const installments = checkoutGateways.filter((gateway) => isInstallmentGateway(gateway.provider)).map((gateway) => ({ label: customerGatewayLabel(gateway), count: installmentConfig(gateway.config).installments }))
   if (!isPreview(preview)) countProductView(product.id)
-  const regular = unitPrice(product, null, false)
+  const deal = await groupDeal(viewer.userId, [product.id])
+  const regular = unitPrice(product, null, false, undefined, deal)
   const variantAxes = fields.filter(field => field.variant).map(field => ({ key: field.key, label: isFa ? field.label : field.labelEn || field.label, color: field.kind === 'color' }))
   const buyVariants = activeVariants.map(variant => {
-    const priced = unitPrice(product, variant, false)
+    const priced = unitPrice(product, variant, false, undefined, deal)
     return {
       id: variant.id, name: isFa ? variant.name : variant.nameEn || variant.name, attributes: parseJson<Record<string, string>>(variant.attributes, {}),
       price: minorToNumber(priced.unitMinor, priced.currency), listPrice: priced.listMinor ? minorToNumber(priced.listMinor, priced.currency) : 0,

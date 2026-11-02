@@ -26,6 +26,10 @@ async function ownerOf(type: string): Promise<Owner | null> {
     const { maintenanceSettingsState, restoreMaintenanceSettings } = await import('@/modules/site/server/maintenance')
     return { perms: ['settings.manage'], module: null, current: () => maintenanceSettingsState(), restore: restoreMaintenanceSettings }
   }
+  if (type === 'settings-section-access') {
+    const { sectionAccessSettingsState, restoreSectionAccessSettings } = await import('@/modules/account/server/section-access')
+    return { perms: ['users.manage'], module: null, current: sectionAccessSettingsState, restore: restoreSectionAccessSettings }
+  }
   if (type === 'settings-site') {
     const { siteSettingsState, restoreSiteSettings } = await import('@/modules/site/server/revision-state')
     return { perms: ['settings.manage'], module: null, current: siteSettingsState, restore: restoreSiteSettings }

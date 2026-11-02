@@ -8,12 +8,15 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import ProductCheckout from '@/components/store/ProductCheckout'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
-import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
 import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
 import { getViewer } from '@/modules/membership/server/membership'
 import { deliverySchedule } from '@/modules/shipping/server/shipping'
 import { shippingFeeMinor } from '@/modules/shipping/domain/shipping'
-import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, normalizeCurrency } from '@/shared/money'
+import { opensAudience } from '@/modules/account/server/item-audience'
+import { groupDeal } from '@/modules/account/server/user-groups'
+import { unitPrice } from '@/modules/store/server/pricing'
 
 export const metadata: Metadata = { title: 'تکمیل سفارش', robots: { index: false, follow: false } }
 
@@ -28,7 +31,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
   const [{ slug }, { variant: variantParam }] = await Promise.all([params, searchParams])
   if (!await isStoreEnabled()) notFound()
   const product = await db.product.findUnique({ where: { slug }, include: { variants: { where: { active: true }, orderBy: { id: 'asc' } } } })
-  if (!product || !isPublicProduct(product)) notFound()
+  if (!product || !(isPublishedProduct(product) && await opensAudience(product.audienceGroups, 'product'))) notFound()
   if (product.kind !== 'PHYSICAL') redirect(`/products/${product.slug}`)
   const variantId = Number(variantParam) || 0
   const variant = variantId ? product.variants.find((row) => row.id === variantId) || null : null
@@ -48,9 +51,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
   }
 
   const currency = normalizeCurrency(product.currency)
-  const regularMinor = variant ? variant.priceMinor || toMinor(variant.price, currency) : product.priceMinor || toMinor(product.price, currency)
-  const memberMinor = variant ? variant.memberPriceMinor : product.memberPriceMinor
-  const itemMinor = viewer.member && memberMinor > 0n && memberMinor < regularMinor ? memberMinor : regularMinor
+  const { regularMinor, unitMinor: itemMinor } = unitPrice(product, variant, viewer.member, undefined, await groupDeal(viewer.userId, [product.id]))
   const [schedule, gateways] = await Promise.all([deliverySchedule(), checkoutGatewayOptions(currency)])
   const shippingMinor = shippingFeeMinor(schedule.settings, currency, itemMinor)
   const inStock = product.stock !== 0 && (!variant || variant.stock !== 0)

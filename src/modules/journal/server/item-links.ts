@@ -91,7 +91,7 @@ export async function searchPostLinkProducts(query: string | null, selectedIds: 
   if (!await isModuleEnabled('store') || !await isStoreEnabled()) return { matches: [], selected: [] }
   const q = String(query || '').trim().slice(0, 100)
   const insensitive = /^postgres(?:ql)?:/.test(process.env.DATABASE_URL || '') ? { mode: 'insensitive' as const } : {}
-  const select = { id: true, name: true, nameEn: true, slug: true, active: true, approval: true }
+  const select = { id: true, name: true, nameEn: true, slug: true, active: true, approval: true, audienceGroups: true }
   const [matches, selected] = await Promise.all([
     q.length >= 2 ? db.product.findMany({ where: { ...publicProductWhere, OR: [{ name: { contains: q, ...insensitive } }, { nameEn: { contains: q, ...insensitive } }, { slug: { contains: q, ...insensitive } }] }, orderBy: { id: 'desc' }, take: 25, select }) : [],
     selectedIds.length ? db.product.findMany({ where: { id: { in: selectedIds }, ...publicProductWhere }, select }) : [],

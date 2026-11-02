@@ -11,6 +11,7 @@ import { receiveImage } from '@/modules/site/server/http/admin/media/route'
 import { AdsError, parsePlacementList } from '@/modules/ads/domain/ads'
 import { getAdsConfig, recordClick, recordImpression, serveAd } from '@/modules/ads/server/serving'
 import { advertiserAction, advertiserPortal, buyPackage, publicPackages } from '@/modules/ads/server/manage'
+import { groupHidesAds } from '@/modules/account/server/user-groups'
 
 /**
  * Public side of advertising. Named "promo" on purpose: address-based blockers
@@ -38,6 +39,7 @@ export async function GET_serve(req: NextRequest) {
   if (!rateLimitHit(`promo:serve:${clientIp(req.headers)}`, 240, 60_000).ok) return NextResponse.json(many ? { ads: {} } : none, { status: 429, headers: NO_STORE })
   if (many) {
     const userId = await userIdOf(req)
+    if (await groupHidesAds(userId)) return NextResponse.json({ ads: Object.fromEntries(many.map((key) => [key, none])) }, { headers: NO_STORE })
     const input = { path: q.get('path') || '/', language: q.get('lang') || 'fa', userAgent: req.headers.get('user-agent') || '', userId, vip: () => (userId ? isMember(userId) : Promise.resolve(false)) }
     const served = await Promise.all(many.map((placement) => serveAd({ ...input, placement })))
     return NextResponse.json({ ads: Object.fromEntries(many.map((key, index) => [key, served[index]])) }, { headers: NO_STORE })
@@ -45,6 +47,7 @@ export async function GET_serve(req: NextRequest) {
   const placement = String(q.get('p') || '')
   if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(placement)) return err('invalid placement', 400)
   const userId = await userIdOf(req)
+  if (await groupHidesAds(userId)) return NextResponse.json(none, { headers: NO_STORE })
   const served = await serveAd({ placement, path: q.get('path') || '/', language: q.get('lang') || 'fa', userAgent: req.headers.get('user-agent') || '', userId, vip: () => (userId ? isMember(userId) : Promise.resolve(false)) })
   return NextResponse.json(served, { headers: NO_STORE })
 }

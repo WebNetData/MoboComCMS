@@ -3,9 +3,10 @@ import { parseJsonList } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText, renderEditorialText } from '@/shared/content/sanitize'
 import { relatedAlbums, relatedTracks } from '@/modules/recommendations/server/contextual'
-import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
+import { PAGE_SIZE, live, publishedNow, liveTrack } from '@/modules/media/server/queries/core'
 import { countList } from '@/modules/media/server/queries/shared'
 import { listLabels } from '@/modules/vocabulary/server/vocabulary'
+import { audienceClause, opensAudience, opensItem } from '@/modules/account/server/item-audience'
 
 export type CreditGroup = { role: string; name: string; artists: ArtistRef[] }
 const ARTIST_REF = { id: true, slug: true, name: true, nameEn: true, image: true } as const
@@ -80,7 +81,7 @@ export async function browseMusicArtists(input: { q?: string; page?: number }) {
 export async function browseMusicAlbums(input: { q?: string; page?: number }) {
   const page = musicPage(input.page)
   const q = musicSearch(input.q)
-  const where = { ...live(), ...(q ? { OR: [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }, { artist: { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }] } }] } : {}) }
+  const where = { ...live(), ...(await audienceClause('album')), ...(q ? { OR: [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }, { artist: { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }] } }] } : {}) }
   const [rows, total] = await Promise.all([
     db.musicAlbum.findMany({ where, include: albumInclude, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.musicAlbum.count({ where }),
@@ -113,15 +114,15 @@ export async function getMusicHome(opts: { latestSize?: number; chartSize?: numb
   const albumIds = (opts.featuredAlbumIds || []).slice(0, 12)
   const [featuredAlbums, latestTracks, topTracks, latestAlbums, artists, playlists, genreRows, featuredTracks, pickedTracks, pickedAlbums] = await allOrEmpty([
     db.musicAlbum.findMany({ where: { ...live(), featured: true }, include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
-    db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: Math.max(20, latestTake) }),
-    db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: chartOrder, take: chartTake }),
+    db.musicTrack.findMany({ where: liveTrack(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: Math.max(20, latestTake) }),
+    db.musicTrack.findMany({ where: liveTrack(), include: trackInclude, orderBy: chartOrder, take: chartTake }),
     db.musicAlbum.findMany({ where: live(), include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 12 }),
     // Everyone in «چهره‌ها» has a music artist (one profile for the site); the shelf shows those with music out.
-    db.musicArtist.findMany({ where: { mergedIntoId: null, OR: [{ tracks: { some: live() } }, { albums: { some: live() } }, { credits: { some: { track: live() } } }] }, orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], select: artistSelect, take: 14 }),
+    db.musicArtist.findMany({ where: { mergedIntoId: null, OR: [{ tracks: { some: liveTrack() } }, { albums: { some: live() } }, { credits: { some: { track: liveTrack() } } }] }, orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], select: artistSelect, take: 14 }),
     db.musicPlaylist.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 8 }),
-    db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 500, orderBy: { publishedAt: 'desc' } }),
-    db.musicTrack.findMany({ where: { ...live(), featured: true }, include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),
-    heroIds.length ? db.musicTrack.findMany({ where: { ...live(), id: { in: heroIds } }, include: trackInclude }) : Promise.resolve([]),
+    db.musicTrack.findMany({ where: liveTrack(), select: { genre: true }, take: 500, orderBy: { publishedAt: 'desc' } }),
+    db.musicTrack.findMany({ where: { ...liveTrack(), featured: true }, include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),
+    heroIds.length ? db.musicTrack.findMany({ where: { ...liveTrack(), id: { in: heroIds } }, include: trackInclude }) : Promise.resolve([]),
     albumIds.length ? db.musicAlbum.findMany({ where: { ...live(), id: { in: albumIds } }, include: albumInclude }) : Promise.resolve([]),
   ])
   const genres = countList(genreRows.map((row: { genre: string }) => row.genre)).slice(0, 14)
@@ -146,7 +147,7 @@ export async function getMusicHome(opts: { latestSize?: number; chartSize?: numb
 export async function browseMusic(input: { q?: string; genre?: string; sort?: string; page?: number; ids?: number[] | null }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const q = String(input.q || '').trim().slice(0, 80)
-  const where: any = { ...live() }
+  const where: any = { ...live(), ...(await audienceClause('track')) }
   if (input.genre) where.genre = { contains: String(input.genre).slice(0, 60) }
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { artist: { name: { contains: q } } }, { artist: { nameEn: { contains: q } } }]
@@ -161,7 +162,7 @@ export async function browseMusic(input: { q?: string; genre?: string; sort?: st
 /** Albums filed under a music category (and its sub-categories). */
 export async function albumsByIds(ids: number[], page = 1) {
   const current = Math.max(1, Math.min(500, Number(page) || 1))
-  const where = { ...live(), id: { in: ids.slice(0, 5000) } }
+  const where = { ...live(), ...(await audienceClause('album')), id: { in: ids.slice(0, 5000) } }
   const [rows, total] = await Promise.all([
     db.musicAlbum.findMany({ where, include: albumInclude, orderBy: { publishedAt: 'desc' }, skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.musicAlbum.count({ where }),
@@ -172,7 +173,7 @@ export async function albumsByIds(ids: number[], page = 1) {
 /** Published songs among these ids, newest first: the archive of a language or dialect. */
 export async function tracksByIds(ids: number[], page = 1) {
   const current = Math.max(1, Math.min(500, Number(page) || 1))
-  const where = { ...live(), id: { in: ids.slice(0, 5000) } }
+  const where = { ...liveTrack(), ...(await audienceClause('track')), id: { in: ids.slice(0, 5000) } }
   const [rows, total] = await Promise.all([
     db.musicTrack.findMany({ where, include: trackInclude, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.musicTrack.count({ where }),
@@ -181,30 +182,32 @@ export async function tracksByIds(ids: number[], page = 1) {
 }
 
 export async function getMusicGenres(): Promise<string[]> {
-  const rows = await db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 800, orderBy: { publishedAt: 'desc' } }).catch(() => [])
+  const rows = await db.musicTrack.findMany({ where: liveTrack(), select: { genre: true }, take: 800, orderBy: { publishedAt: 'desc' } }).catch(() => [])
   return countList(rows.map((row) => row.genre)).slice(0, 24)
 }
 
 export async function getTrack(slug: string, options: { recommendations?: boolean } = {}) {
-  const row = await db.musicTrack.findFirst({ where: { slug, ...live() }, include: trackInclude }).catch(() => null)
+  const row = await db.musicTrack.findFirst({ where: { slug, ...publishedNow() }, include: trackInclude }).catch(() => null)
+  if (row && !await opensItem('track', row.id)) return null
   if (!row) return null
   const [albumTracks, artistTracks] = await Promise.all([
-    row.albumId ? db.musicTrack.findMany({ where: { albumId: row.albumId, ...live() }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }], take: 50 }) : Promise.resolve([]),
-    db.musicTrack.findMany({ where: { artistId: row.artistId, id: { not: row.id }, ...live() }, include: trackInclude, orderBy: { plays: 'desc' }, take: 8 }),
+    row.albumId ? db.musicTrack.findMany({ where: { albumId: row.albumId, ...liveTrack() }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }], take: 50 }) : Promise.resolve([]),
+    db.musicTrack.findMany({ where: { artistId: row.artistId, id: { not: row.id }, ...liveTrack() }, include: trackInclude, orderBy: { plays: 'desc' }, take: 8 }),
   ])
   const recommendations = options.recommendations ? await relatedTracks(row, 8, albumTracks.map(track => track.id)) : []
-  const relatedRows = recommendations.length ? await db.musicTrack.findMany({ where: { ...live(), id: { in: recommendations.map(result => result.item.id) } }, include: trackInclude }) : []
+  const relatedRows = recommendations.length ? await db.musicTrack.findMany({ where: { ...liveTrack(), id: { in: recommendations.map(result => result.item.id) } }, include: trackInclude }) : []
   const relatedById = new Map(relatedRows.map(item => [item.id, item]))
   const credits = await creditGroups(row.id)
   return { track: { ...toTrack(row), lyrics: row.lyrics, downloads: row.downloads }, credits, albumTracks: albumTracks.map(toTrack), moreFromArtist: artistTracks.map(toTrack), relatedTracks: recommendations.flatMap(result => { const item = relatedById.get(result.item.id); return item ? [{ ...toTrack(item), recommendationReason: result.reason }] : [] }) }
 }
 
 export async function getAlbum(slug: string) {
-  const row = await db.musicAlbum.findFirst({ where: { slug, ...live() }, include: albumInclude }).catch(() => null)
+  const row = await db.musicAlbum.findFirst({ where: { slug, ...publishedNow() }, include: albumInclude }).catch(() => null)
+  if (row && !await opensAudience(row.audienceGroups, 'album')) return null
   if (!row) return null
   await db.musicAlbum.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
   const [tracks, recommendations] = await Promise.all([
-    db.musicTrack.findMany({ where: { albumId: row.id, ...live() }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }] }),
+    db.musicTrack.findMany({ where: { albumId: row.id, ...liveTrack(), ...(await audienceClause('track')) }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }] }),
     relatedAlbums(row),
   ])
   const relatedRows = recommendations.length ? await db.musicAlbum.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } }, include: albumInclude }) : []
@@ -219,9 +222,9 @@ export async function getArtist(slug: string) {
   if (!row) return null
   const [albums, tracks, creditRows, labels] = await Promise.all([
     db.musicAlbum.findMany({ where: { artistId: row.id, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' } }),
-    db.musicTrack.findMany({ where: { artistId: row.id, ...live() }, include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 30 }),
+    db.musicTrack.findMany({ where: { artistId: row.id, ...liveTrack() }, include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 30 }),
     // Songs of others this artist is credited on (composer, lyricist, featured…), published ones only.
-    db.musicCredit.findMany({ where: { artistId: row.id, track: live() }, orderBy: [{ track: { publishedAt: 'desc' } }], take: 120, select: { role: true, track: { include: trackInclude } } }).catch(() => []),
+    db.musicCredit.findMany({ where: { artistId: row.id, track: liveTrack() }, orderBy: [{ track: { publishedAt: 'desc' } }], take: 120, select: { role: true, track: { include: trackInclude } } }).catch(() => []),
     listLabels('music'),
   ])
   const names = labels.CREDIT_ROLE ?? {}, order = Object.keys(names)
@@ -238,7 +241,7 @@ export async function getPlaylist(slug: string) {
   const row = await db.musicPlaylist.findFirst({ where: { slug, status: 'PUBLISHED' } }).catch(() => null)
   if (!row) return null
   const ids = parseJsonList<number>(row.trackIds).map(Number).filter(Number.isSafeInteger)
-  const rows = ids.length ? await db.musicTrack.findMany({ where: { id: { in: ids }, ...live() }, include: trackInclude }) : []
+  const rows = ids.length ? await db.musicTrack.findMany({ where: { id: { in: ids }, ...liveTrack() }, include: trackInclude }) : []
   const byId = new Map(rows.map((r) => [r.id, r]))
   return { playlist: { ...toPlaylist(row), descriptionHtml: renderEditorialText(row.description) }, tracks: ids.flatMap((id) => (byId.has(id) ? [toTrack(byId.get(id))] : [])) }
 }

@@ -2,7 +2,7 @@ import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
 import { normalizeCurrency, toMinor } from '@/shared/money'
 
 export type PriceObservation = { variantId: number; amountMinor: bigint; currency: string }
-type PriceSource = { active: boolean; approval: string; currency: string; price: number; priceMinor: bigint }
+type PriceSource = { audienceGroups: string; active: boolean; approval: string; currency: string; price: number; priceMinor: bigint }
 
 /** Only the regular publicly offered price; member/list prices never enter history. */
 export function publicPriceObservations(product: PriceSource, variants: { id: number; active: boolean; price: number; priceMinor: bigint }[]): PriceObservation[] {

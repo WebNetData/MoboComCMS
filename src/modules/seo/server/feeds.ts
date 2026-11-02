@@ -5,7 +5,7 @@ import { closedSectionPlugins } from '@/modules/site/server/maintenance'
 import { buildLlmsTxt, buildRss, metaDescription, type LlmsSection } from '@/modules/seo/domain/seo'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
-const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
+const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 
 async function enabledModules() {
   const [runtime, closed] = await Promise.all([getPublicExtensionRuntime().catch(() => ({} as Record<string, { enabled: boolean }>)), closedSectionPlugins()])

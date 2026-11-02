@@ -1,0 +1,31 @@
+.ug .sa-card { margin-block-end: 16px; }
+.ug-grid { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 12px; }
+.ug-wide { grid-column: 1 / -1; }
+.ug-color { padding: 4px; height: 40px; }
+.ug-gives { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); min-inline-size: 0; gap: 12px; margin: 16px 0 0; padding: 0; border: 0; }
+.ug-gives legend { padding: 0; margin-block-end: 8px; font-size: .88rem; font-weight: 500; }
+.ug-gives > label:not(.sa-field) { display: flex; align-items: flex-start; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: .88rem; cursor: pointer; }
+.ug-gives > label input { margin-block-start: 3px; accent-color: var(--primary); }
+.ug-gives small { display: block; margin-block-start: 2px; font-size: .78rem; color: var(--muted); }
+.ug-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 16px; }
+.ug-add { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+.ug-search { max-width: 320px; margin-block: 16px 8px; }
+.ug-scroll { position: relative; overflow-x: auto; }
+.ug-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; }
+.ug-name i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.ug-desc { display: block; margin-block-start: 2px; color: var(--muted); }
+.ug-num { font-variant-numeric: tabular-nums; }
+.ug-ended { color: var(--muted); }
+.ug-row-actions { white-space: nowrap; }
+.ug-pages { display: flex; align-items: center; gap: 12px; margin-block-start: 12px; font-size: .86rem; }
+.ug-sections { display: grid; gap: 8px; margin-block-start: 12px; }
+.ug-section { border: 1px solid var(--line); border-radius: 10px; }
+.ug-section summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; cursor: pointer; font-size: .9rem; }
+.ug-section summary small { color: var(--muted); }
+.ug-section summary small.is-limited { color: var(--primary); }
+.ug-section[open] { padding-block-end: 12px; }
+.ug-section .gp { padding-inline: 12px; }
+@media (max-width: 640px) {
+  .ug-grid { grid-template-columns: 1fr; }
+  .ug-color { width: 96px; }
+}
