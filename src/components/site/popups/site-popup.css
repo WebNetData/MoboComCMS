@@ -1,0 +1,117 @@
+/* Announcement popup. The window stays quiet in the site's own tokens; the kind's colour lives in the seal and the one main button. */
+.spp {
+  --spp-accent: var(--primary);
+  --spp-on: var(--on-primary, #fff);
+  --spp-ink: var(--primary);
+  --spp-ease: cubic-bezier(.16, 1, .3, 1);
+  position: fixed;
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: visible;
+  text-align: start;
+}
+.spp.is-news { --spp-accent: #1d6fd8; --spp-on: #fff; --spp-ink: #1d6fd8; }
+.spp.is-warning { --spp-accent: #c2331f; --spp-on: #fff; --spp-ink: #c2331f; }
+.spp.is-offer { --spp-accent: #0b7a5c; --spp-on: #fff; --spp-ink: #0b7a5c; }
+html[data-theme='dark'] .spp.is-news { --spp-accent: #5aa5ff; --spp-on: #08203f; --spp-ink: #7db8ff; }
+html[data-theme='dark'] .spp.is-warning { --spp-accent: #ff7a66; --spp-on: #3a0b05; --spp-ink: #ff9b8b; }
+html[data-theme='dark'] .spp.is-offer { --spp-accent: #3fd0a4; --spp-on: #04261c; --spp-ink: #5fdcb6; }
+
+.spp.look-split { width: min(720px, calc(100vw - 32px)); }
+.spp.at-bottom { margin-block-end: 16px; }
+.spp.at-corner { inset: auto 16px 16px auto; margin: 0; width: min(380px, calc(100vw - 32px)); z-index: 90; }
+[dir='rtl'] .spp.at-corner { inset: auto auto 16px 16px; }
+
+.spp::backdrop { background: rgb(8 10 18 / .56); backdrop-filter: blur(6px); animation: spp-fade 240ms ease both; }
+.spp.is-leaving::backdrop { animation: spp-fade 180ms ease reverse both; }
+
+/* the card */
+.spp-card { position: relative; display: flex; flex-direction: column; overflow: hidden auto; max-height: calc(100dvh - 32px); border: 1px solid var(--border); border-radius: 20px; background: var(--card); box-shadow: 0 24px 64px -24px rgb(8 10 18 / .5); }
+.spp-text { display: flex; flex-direction: column; gap: 12px; padding: 24px; }
+.spp-mark { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.spp-tag { color: var(--spp-ink); font-size: 13px; font-weight: 600; }
+.spp-title { margin: 0; color: var(--text); font-size: 22px; font-weight: 600; line-height: 1.5; text-wrap: balance; }
+.spp-note { margin: 0; color: var(--muted); font-size: 15px; line-height: 2; white-space: pre-line; overflow-wrap: anywhere; }
+.spp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 8px; }
+.spp-go, .spp-stay { display: inline-flex; flex: 1 1 auto; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease; }
+.spp-go { border: 1px solid transparent; background: var(--spp-accent); color: var(--spp-on); }
+.spp-go:hover { background: color-mix(in srgb, var(--spp-accent) 88%, #000); }
+.spp-stay { border: 1px solid var(--border); background: transparent; color: var(--text); }
+.spp-stay:hover { background: var(--card-hover); }
+.spp-go:active, .spp-stay:active { transform: scale(.98); }
+.spp-go:focus-visible, .spp-stay:focus-visible, .spp-x:focus-visible { outline: 2px solid var(--spp-ink); outline-offset: 2px; }
+.spp-x { position: absolute; inset-block-start: 12px; inset-inline-end: 12px; z-index: 2; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--card) 80%, transparent); color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; transition: background-color 160ms ease, color 160ms ease; }
+.spp-x:hover { background: var(--card-hover); color: var(--text); }
+
+/* the seal: the one rich thing on the card */
+.spp-seal { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--spp-accent); color: var(--spp-on); }
+.spp-seal::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 2px solid var(--spp-accent); opacity: 0; }
+
+/* designs */
+.spp-picture { overflow: hidden; background: var(--bg-soft); }
+.spp-picture img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.look-cover .spp-picture { aspect-ratio: 16 / 9; }
+.look-cover .spp-mark, .look-split .spp-mark { gap: 0; }
+.look-split .spp-card { flex-direction: row; }
+.look-split .spp-picture { flex: 0 0 44%; min-height: 320px; }
+.look-split .spp-text { flex: 1; justify-content: center; }
+.look-spotlight .spp-card { border-color: transparent; background: var(--spp-accent); }
+.look-spotlight .spp-title, .look-spotlight .spp-tag { color: var(--spp-on); }
+.look-spotlight .spp-note { color: var(--spp-on); }
+.look-spotlight .spp-seal { background: color-mix(in srgb, var(--spp-on) 16%, transparent); color: var(--spp-on); }
+.look-spotlight .spp-go { background: var(--spp-on); color: var(--spp-accent); }
+.look-spotlight .spp-go:hover { background: color-mix(in srgb, var(--spp-on) 90%, var(--spp-accent)); }
+.look-spotlight .spp-stay { border-color: color-mix(in srgb, var(--spp-on) 40%, transparent); color: var(--spp-on); }
+.look-spotlight .spp-stay:hover { background: color-mix(in srgb, var(--spp-on) 12%, transparent); }
+.look-spotlight .spp-x { background: transparent; color: var(--spp-on); }
+.look-spotlight .spp-x:hover { background: color-mix(in srgb, var(--spp-on) 16%, transparent); color: var(--spp-on); }
+.look-spotlight .spp-go:focus-visible, .look-spotlight .spp-stay:focus-visible, .look-spotlight .spp-x:focus-visible { outline-color: var(--spp-on); }
+
+/* effects: the window enters once, its contents follow it in */
+.spp[open] .spp-card { animation: 480ms var(--spp-ease) both spp-rise; }
+.spp[open].fx-zoom .spp-card { animation-name: spp-zoom; }
+.spp[open].fx-drop .spp-card { animation-name: spp-drop; }
+.spp[open].fx-slide .spp-card { animation-name: spp-slide; }
+.spp[open].fx-flip { perspective: 1200px; }
+.spp[open].fx-flip .spp-card { animation-name: spp-flip; animation-duration: 620ms; transform-origin: 50% 0; }
+.spp[open] .spp-text > * { animation: 420ms var(--spp-ease) both spp-line; }
+.spp[open] .spp-text > :nth-child(1) { animation-delay: 80ms; }
+.spp[open] .spp-text > :nth-child(2) { animation-delay: 130ms; }
+.spp[open] .spp-text > :nth-child(3) { animation-delay: 180ms; }
+.spp[open] .spp-text > :nth-child(4) { animation-delay: 230ms; }
+.spp[open] .spp-picture img { animation: 900ms var(--spp-ease) both spp-settle; }
+.spp[open] .spp-seal::after { animation: 900ms 260ms ease-out both spp-ring; }
+.spp[open].is-leaving .spp-card { animation: 180ms ease both spp-leave; }
+
+@keyframes spp-fade { from { opacity: 0; } }
+@keyframes spp-rise { from { opacity: 0; transform: translateY(32px) scale(.97); } }
+@keyframes spp-zoom { from { opacity: 0; transform: scale(.84); } }
+@keyframes spp-drop { from { opacity: 0; transform: translateY(-40px) scale(.98); } }
+@keyframes spp-slide { from { opacity: 0; transform: translateX(-56px); } }
+@keyframes spp-flip { from { opacity: 0; transform: rotateX(-24deg) translateY(16px); } }
+@keyframes spp-line { from { opacity: 0; transform: translateY(10px); } }
+@keyframes spp-settle { from { transform: scale(1.08); } }
+@keyframes spp-ring { 0% { opacity: .7; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5); } }
+@keyframes spp-leave { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+[dir='rtl'] .spp[open].fx-slide .spp-card { animation-name: spp-slide-rtl; }
+@keyframes spp-slide-rtl { from { opacity: 0; transform: translateX(56px); } }
+
+@media (max-width: 640px) {
+  .spp.at-bottom, .spp.at-center { width: calc(100vw - 24px); margin: auto auto 12px; }
+  .look-split .spp-card { flex-direction: column; }
+  .look-split .spp-picture { flex: none; min-height: 0; aspect-ratio: 16 / 9; }
+  .spp-text { padding: 20px; }
+  .spp-title { font-size: 19px; }
+  .spp-actions { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spp[open] .spp-card, .spp[open] .spp-text > *, .spp[open] .spp-picture img, .spp[open] .spp-seal::after { animation: none; }
+  .spp[open] .spp-card { animation: 160ms ease both spp-fade; }
+  .spp[open].is-leaving .spp-card { animation: 120ms ease both spp-leave; }
+}

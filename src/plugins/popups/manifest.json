@@ -1,0 +1,25 @@
+{
+  "id": "popups",
+  "name": "پاپ‌آپ اطلاعیه",
+  "nameEn": "Announcement popups",
+  "description": "اطلاعیه، خبر یا هشدار مهم در پنجرهٔ نمایشی، با تعداد نمایش و مخاطب انتخابی",
+  "descriptionEn": "Important notices, news or warnings in a designed popup, with chosen frequency and audience.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "megaphone",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "adminPaths": ["/admin/popups"],
+  "permissions": [{ "id": "popups.manage", "label": "مدیریت پاپ‌آپ اطلاعیه" }],
+  "adminMenu": {
+    "title": "پاپ‌آپ اطلاعیه",
+    "titleEn": "Announcement popups",
+    "icon": "megaphone",
+    "order": 83,
+    "items": [
+      { "href": "/admin/popups", "label": "پاپ‌آپ‌ها", "labelEn": "Popups", "icon": "megaphone", "permissions": ["popups.manage", "settings.manage"] }
+    ]
+  }
+}
