@@ -1,5 +1,11 @@
 # Business experiences — continue existing work
 
+## Launch review colour correction — 2026-11-02
+
+PR297 release review reproduced two light-theme directory contrast failures at1440/390: activity navigation used the raw primary colour on the page (2.93:1); the local primary button darkened its background while keeping text computed for the original primary (4.01:1). `BusinessExperience.module.css` now uses semantic accent ink for those links and the canonical primary/on-primary pair for buttons, including hover. No layout, API, permission, score, provider, schema or data change. Existing wide/protected design and shared tokens remain.
+
+Actual44-view main-section browser rerun passed across all11 public directories in both themes/widths with main axe0, no overflow/runtime errors. Related Directory/Forms/Manager React Doctor review:0 errors/3 existing maintainability advisories; no suppression. Native business suites are part of the154-check fresh-PG pass. Full release context/remaining destination work: [LAUNCH_READINESS](../LAUNCH_READINESS.md). No real provider/CA, deployment or live-data restore was run.
+
 ## Fields of activity from a managed list — 2026-10-27
 
 Branch `feat/business-categories-2026-10-27`, from main `83f0c214`. A business's category is now a name from the owner's `businesses/CATEGORY` list:

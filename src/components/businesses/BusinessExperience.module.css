@@ -78,8 +78,8 @@
 
 /* Business compositions: SDS surface, border, spacing and interaction hierarchy,
    expressed through MoboCom's existing theme tokens. No global overrides. */
-:is(.page, .manager) :global(.btn-primary) { background: color-mix(in srgb, var(--primary) 80%, #000); border-color: color-mix(in srgb, var(--primary) 80%, #000); color: var(--on-primary); }
-:is(.page, .manager) :global(.btn-primary:hover) { background: color-mix(in srgb, var(--primary) 72%, #000); }
+:is(.page, .manager) :global(.btn-primary) { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+:is(.page, .manager) :global(.btn-primary:hover) { background: var(--primary); border-color: var(--accent-ink, var(--primary)); }
 .manager { min-width: 0; }
 .manager:global(.sa) { --sa-muted: color-mix(in srgb, var(--muted) 80%, var(--text)); }
 .manager :global(.sa-stats) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-block: 24px; }
@@ -91,7 +91,7 @@
 .topNav { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; font-size: .85rem; }
 .topNav > :is(a, span) { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; }
 .topNav > span { font-weight: 700; }
-.topNav a, .heroLinks a, .requestBox summary > span { color: var(--primary); }
+.topNav a, .heroLinks a, .requestBox summary > span { color: var(--accent-ink, var(--primary)); }
 .directoryHero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .8fr); gap: clamp(32px, 5vw, 96px); align-items: center; background: radial-gradient(ellipse at 0 15%, color-mix(in srgb, var(--primary) 15%, transparent), transparent 65%), var(--card); }
 .heroContent { min-width: 0; }
 .directoryHero h1 { font-size: clamp(2.2rem, 3.5vw, 3.8rem); font-weight: 850; line-height: 1.55; }
