@@ -1,5 +1,6 @@
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { sized, srcSet } from '@/shared/media/image'
 import { licenseLabel } from '@/modules/media/domain/media'
 import type { SoftwareCard, SoftwareTree } from '@/modules/media/server/queries'
@@ -166,7 +167,7 @@ function TermTree({ nodes, active }: { nodes: TermNode[]; active?: number }) {
 export type Promo = { title: string; text: string; href: string; image: string; cta: string } | null
 
 /** Sidebar: promo banner, editor suggestions, category tree and most downloaded. */
-export function SoftwareSidebar({ data, fa, active, terms, activeTerm, suggestions = [], promo = null }: {
+export async function SoftwareSidebar({ data, fa, active, terms, activeTerm, suggestions = [], promo = null }: {
   data: { tree: SoftwareTree; viewed: SoftwareCard[]; downloaded: SoftwareCard[]; today: SoftwareCard[]; total: number }
   fa: boolean
   active?: { platform?: string; category?: string }
@@ -175,10 +176,12 @@ export function SoftwareSidebar({ data, fa, active, terms, activeTerm, suggestio
   suggestions?: SoftwareCard[]
   promo?: Promo
 }) {
+  // The default banner sells the VIP plans, so it stays away while the membership module is off.
+  const vip = !promo && await isModuleEnabled('membership')
   return <>
     {promo ? <Link href={promo.href} className={`sp-banner${promo.image ? ' has-image' : ''}`} style={promo.image ? { backgroundImage: `url("${encodeURI(promo.image)}")` } : undefined}>
       <b>{promo.title}</b>{promo.text && <span>{promo.text}</span>}<em>{promo.cta || 'مشاهده'} ←</em>
-    </Link> : <Link href="/vip" className="sp-banner"><b>دانلود بدون محدودیت</b><span>با اشتراک ویژه، لینک مستقیم و نسخه‌های کامل</span><em>عضویت VIP ←</em></Link>}
+    </Link> : vip && <Link href="/vip" className="sp-banner"><b>دانلود بدون محدودیت</b><span>با اشتراک ویژه، لینک مستقیم و نسخه‌های کامل</span><em>عضویت VIP ←</em></Link>}
     {suggestions.length > 0 && <section className="sp-box">
       <h3><Icon name="star" size={15} />پیشنهاد موبوکام</h3>
       <ul className="sp-suggest">{suggestions.map((item) => <li key={item.id}><Link href={`/software/${item.slug}`}>

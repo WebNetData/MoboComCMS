@@ -84,6 +84,7 @@ export default async function MusicHomePage() {
 
   return (
     <MediaShell section="music" active="home" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
+      {!(order.includes('hero') && lead) && <h1 className="sr-only">{fa ? 'موزیک' : 'Music'}</h1>}
       {order.includes('hero') && lead ? (
         <section className="mu-hero">
           <div className="mu-hero-bg" style={lead.cover ? { backgroundImage: `url("${lead.cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
