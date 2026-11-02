@@ -72,6 +72,13 @@ test('request token access uses the same startup auth secret without loading aut
   }
 })
 
+test('a reset link is spent only by a password the final save will accept', () => {
+  const source = read('src/modules/identity/server/account-security.ts')
+  const reset = source.slice(source.indexOf('export async function resetWithToken'), source.indexOf('export async function resetWithSms'))
+  assert.ok(reset.indexOf('passwordProblem(password, { email: owner?.email })') > 0, 'the account-derived rule runs here too')
+  assert.ok(reset.indexOf('passwordProblem(password') < reset.indexOf('usedAt: null'), 'a refused password leaves the link usable')
+})
+
 test('password policy refuses short, trivial and account-derived passwords', () => {
   assert.match(sec.passwordProblem('short'), /۸/)
   assert.match(sec.passwordProblem('a'.repeat(129)), /۱۲۸/)

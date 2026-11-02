@@ -264,7 +264,9 @@ export async function resetWithToken(input: { token: unknown; password: unknown;
   if (!row || row.usedAt || row.expiresAt < new Date()) throw new SecurityError('پیوند بازیابی منقضی یا استفاده شده است؛ دوباره درخواست دهید', 410)
   if (await hasSecondFactor(row.userId)) await requireFactor(row.userId, input.code)
   const password = String(input.password ?? '')
-  const problem = passwordProblem(password)
+  // The same rule as the final save: a refused password must not cost the customer their link.
+  const owner = await db.user.findUnique({ where: { id: row.userId }, select: { email: true } })
+  const problem = passwordProblem(password, { email: owner?.email })
   if (problem) throw new SecurityError(problem)
   // Single use, even when the form is submitted twice.
   const claimed = await db.passwordReset.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } })

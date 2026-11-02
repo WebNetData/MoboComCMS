@@ -72,6 +72,7 @@ export default async function CinemaHomePage() {
 
   return (
     <MediaShell section="cinema" active="home" nav={cinemaNav(fa)} search={{ action: '/cinema/browse', placeholder: fa ? 'نام فیلم، سریال یا کارگردان…' : 'Film, series or director…' }}>
+      {!(order.includes('hero') && slides.length) && <h1 className="sr-only">{fa ? 'فیلم و سریال' : 'Films and series'}</h1>}
       {order.includes('hero') && <CinemaHero slides={slides} fa={fa} />}
       <div className="container md-body">
         {watching.length > 0 && <Shelf tone="cinema" title={fa ? 'ادامهٔ تماشا' : 'Continue watching'} eyebrow={fa ? 'کتابخانهٔ شما' : 'Your library'}>
