@@ -4,14 +4,14 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
 import { db } from '@/platform/database/prisma'
-import { DEFAULT_MESSAGE, DEFAULT_TITLE, MAINTENANCE_LIMITS, MAINTENANCE_SECTIONS, SITE_LIMITS, isMaintenanceSection } from '@/modules/site/domain/maintenance'
+import { DEFAULT_MESSAGE, DEFAULT_TITLE, MAINTENANCE_LIMITS, MAINTENANCE_MODES, MAINTENANCE_SECTIONS, SITE_LIMITS, isMaintenanceSection } from '@/modules/site/domain/maintenance'
 import { loadMaintenance, maintenanceBases, saveSectionMaintenance, saveSiteMaintenance } from '@/modules/site/server/maintenance'
 import { siteGroupCatalog } from '@/modules/account/server/site-groups'
 
 const view = async (fresh: boolean) => {
   const state = await loadMaintenance(fresh), bases = maintenanceBases()
   const people = state.site.users.length ? await db.user.findMany({ where: { id: { in: state.site.users } }, select: { id: true, name: true, email: true } }) : []
-  return { site: state.site, people, catalog: await siteGroupCatalog(), sections: MAINTENANCE_SECTIONS.map((section) => ({ id: section.id, label: section.label, paths: bases[section.id], ...state[section.id] })), defaults: { title: DEFAULT_TITLE, message: DEFAULT_MESSAGE }, limits: MAINTENANCE_LIMITS, settingsRevision: sectionSettingsRevision(state) }
+  return { modes: MAINTENANCE_MODES, site: state.site, people, catalog: await siteGroupCatalog(), sections: MAINTENANCE_SECTIONS.map((section) => ({ id: section.id, label: section.label, paths: bases[section.id], ...state[section.id] })), defaults: { title: DEFAULT_TITLE, message: DEFAULT_MESSAGE }, limits: MAINTENANCE_LIMITS, settingsRevision: sectionSettingsRevision(state) }
 }
 
 /** GET /api/admin/maintenance — every section with its state and words (site settings). */
@@ -39,6 +39,7 @@ export async function PUT(req: NextRequest) {
   if (!isMaintenanceSection(body?.section)) return err('unknown section')
   const change: Record<string, unknown> = {}
   if (body.enabled !== undefined) { if (typeof body.enabled !== 'boolean') return err('enabled must be true or false'); change.enabled = body.enabled }
+  if (body.mode !== undefined) { if (!MAINTENANCE_MODES.some((mode) => mode.id === body.mode)) return err('unknown mode'); change.mode = body.mode }
   for (const field of ['title', 'message'] as const) if (body[field] !== undefined) {
     if (typeof body[field] !== 'string') return err(`${field} must be text`)
     if (body[field].trim().length > MAINTENANCE_LIMITS[field]) return err(`${field} is longer than ${MAINTENANCE_LIMITS[field]} characters`)

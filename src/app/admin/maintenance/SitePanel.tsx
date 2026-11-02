@@ -4,10 +4,10 @@ import { useState } from 'react'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import GroupPicker from '@/components/admin/GroupPicker'
 import SiteNotice, { SITE_ICON_ART } from '@/components/site/maintenance/SiteNotice'
-import { SITE_DEFAULT_MESSAGE, SITE_DEFAULT_TITLE, SITE_DESIGNS, SITE_EFFECTS, SITE_ICONS, SITE_LIMITS } from '@/modules/site/domain/maintenance'
+import { MAINTENANCE_MODES, SITE_DESIGNS, SITE_EFFECTS, SITE_ICONS, SITE_LIMITS, siteNoticeOf } from '@/modules/site/domain/maintenance'
 import type { SiteGroup } from '@/modules/account/domain/site-groups'
 
-export type SiteState = { enabled: boolean; title: string; message: string; design: string; effect: string; icon: string; reopensAt: string; users: number[]; groups: string[] }
+export type SiteState = { enabled: boolean; mode: string; title: string; message: string; design: string; effect: string; icon: string; reopensAt: string; users: number[]; groups: string[] }
 export type Person = { id: number; name: string | null; email: string | null }
 
 /** The whole site's maintenance: who stays in, the words, and how the notice looks, with the notice itself beside them. */
@@ -18,6 +18,7 @@ export default function SitePanel({ site, people, catalog, busy, onSave, lookup 
   const [wrong, setWrong] = useState('')
   const set = <K extends keyof SiteState>(key: K, value: SiteState[K]) => setDraft((current) => ({ ...current, [key]: value }))
   const { enabled: _enabled, ...content } = draft
+  const shown = siteNoticeOf(draft), blank = siteNoticeOf({ ...draft, title: '', message: '' })
   const changed = JSON.stringify(content) !== JSON.stringify((({ enabled: _on, ...rest }) => rest)(site))
 
   async function add() {
@@ -44,10 +45,11 @@ export default function SitePanel({ site, people, catalog, busy, onSave, lookup 
     </header>
     <div className="smp-grid">
       <div className="smp-fields">
+        {choice('نوع', MAINTENANCE_MODES, draft.mode, (id) => set('mode', id))}
         <label className="label" htmlFor="smp-heading">عنوان</label>
-        <input id="smp-heading" className="input" maxLength={SITE_LIMITS.title} placeholder={SITE_DEFAULT_TITLE} value={draft.title} onChange={(event) => set('title', event.target.value)} />
+        <input id="smp-heading" className="input" maxLength={SITE_LIMITS.title} placeholder={blank.title} value={draft.title} onChange={(event) => set('title', event.target.value)} />
         <label className="label" htmlFor="smp-message">متن</label>
-        <textarea id="smp-message" className="textarea" rows={3} maxLength={SITE_LIMITS.message} placeholder={SITE_DEFAULT_MESSAGE} value={draft.message} onChange={(event) => set('message', event.target.value)} />
+        <textarea id="smp-message" className="textarea" rows={3} maxLength={SITE_LIMITS.message} placeholder={blank.message} value={draft.message} onChange={(event) => set('message', event.target.value)} />
         <span className="label" id="smp-when">زمان بازگشایی (اختیاری، شمارش معکوس نشان داده می‌شود)</span>
         <JalaliDateInput withTime className="input" value={draft.reopensAt} onChange={(value) => set('reopensAt', value)} />
         {choice('قالب', SITE_DESIGNS, draft.design, (id) => set('design', id), (id) => <span className={`smp-swatch is-${id}`} aria-hidden="true" />)}
@@ -55,7 +57,7 @@ export default function SitePanel({ site, people, catalog, busy, onSave, lookup 
         {choice('آیکن', SITE_ICONS, draft.icon, (id) => set('icon', id), (id) => SITE_ICON_ART[id], 'smp-icon-choice')}
       </div>
       <div className="smp-fields">
-        <SiteNotice preview title={draft.title || SITE_DEFAULT_TITLE} message={draft.message || SITE_DEFAULT_MESSAGE} design={draft.design} effect={draft.effect} icon={draft.icon} reopensAt={draft.reopensAt} />
+        <SiteNotice preview title={shown.title} message={shown.message} design={draft.design} effect={draft.effect} icon={draft.icon} reopensAt={draft.reopensAt} />
         <h3 className="h4">چه کسانی سایت را ببینند؟</h3>
         <p className="muted text-sm">مدیر کل همیشه سایت را می‌بیند. بقیه، حتی مدیران بخش‌ها، فقط اگر اینجا انتخاب شوند.</p>
         <div className="smp-add">

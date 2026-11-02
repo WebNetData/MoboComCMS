@@ -1296,12 +1296,12 @@ test('a section in maintenance shows its notice to visitors and itself to the pe
   const bases = { businesses: ['/businesses'], store: ['/products', '/cart', '/checkout/product'], magazine: ['/blog'], games: ['/games'], cinema: ['/cinema', '/watch'], music: ['/music'], software: ['/software'], forum: ['/forum'] }
   // What is stored is read whatever it is: every section present, off unless it clearly says on, words as plain bounded text.
   const state = m.normalizeMaintenance({ games: { enabled: true, title: '  بازی‌ها بسته است  ', message: 'خط یک\r\nخط دو\u0000' }, music: { enabled: 'yes', title: 5 }, nope: { enabled: true }, forum: { enabled: true, title: 'x'.repeat(500) } })
-  assert.deepEqual(Object.keys(state).filter((key) => key !== 'site'), ['prompts', 'businesses', 'store', 'magazine', 'games', 'cinema', 'music', 'software', 'forum'])
+  assert.deepEqual(Object.keys(state).filter((key) => key !== 'site'), ['prompts', 'businesses', 'store', 'magazine', 'games', 'cinema', 'music', 'software', 'forum', 'celebrities'])
   assert.equal(m.sectionOfPath('/businesses/owned-example', bases), 'businesses')
   assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['businesses.manage'] }, 'businesses'), true)
   assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['reviews.moderate'] }, 'businesses'), false)
-  assert.deepEqual(state.games, { enabled: true, title: 'بازی‌ها بسته است', message: 'خط یک\nخط دو' })
-  assert.deepEqual(state.music, { enabled: false, title: '', message: '' }, 'only true switches a section off for visitors')
+  assert.deepEqual(state.games, { enabled: true, title: 'بازی‌ها بسته است', message: 'خط یک\nخط دو', mode: 'update' })
+  assert.deepEqual(state.music, { enabled: false, title: '', message: '', mode: 'update' }, 'only true switches a section off for visitors')
   assert.equal(state.forum.title.length, m.MAINTENANCE_LIMITS.title)
   for (const junk of [null, 'x', [], 7]) assert.equal(Object.values(m.normalizeMaintenance(junk)).some((section) => section.enabled), false)
   assert.deepEqual(m.noticeOf(state.games), { title: 'بازی‌ها بسته است', message: 'خط یک\nخط دو' })
@@ -1355,8 +1355,10 @@ test('a section in maintenance shows its notice to visitors and itself to the pe
   assert.equal(sent.headers.get('x-middleware-request-x-maintenance-preview'), null)
   assert.doesNotMatch(sent.headers.get('x-middleware-override-headers') || '', /x-maintenance-preview/)
   token = null
-  // Other sections, the home page, the admin and the API are untouched; the old address still redirects.
-  for (const path of ['/music', '/', '/admin/games', '/api/games/list', '/maintenance']) assert.notEqual((await get(path)).status, 503, path)
+  // Other sections, the home page and the admin are untouched; the old address still redirects.
+  for (const path of ['/music', '/', '/admin/games', '/api/music/history', '/maintenance']) assert.notEqual((await get(path)).status, 503, path)
+  // The section's own API closes with its pages, so nothing of it can be reached from another page.
+  assert.equal((await get('/api/games/list')).status, 503)
   assert.equal((await get('/games/doom')).status, 308)
   // The session is read only for a request that would otherwise get a notice.
   tokenReads = 0; await get('/music'); await get('/'); assert.equal(tokenReads, 0)
@@ -1764,4 +1766,23 @@ test('a closed site keeps sign-in, payments and paid services open, and only kno
   assert.equal(m.normalizeMaintenance(null).site.enabled, false, 'off unless it clearly says on')
   assert.equal(m.normalizeSite({ enabled: 'true' }).enabled, false)
   assert.equal(m.closedPlugins(m.normalizeMaintenance({ site: { enabled: true } })).length, 0, 'the site switch is not a section')
+})
+
+test('why a section is closed brings its own words, and the artists section is run by cinema or music', () => {
+  const m = load('src/modules/site/domain/maintenance.ts')
+  const state = m.normalizeMaintenance({ music: { enabled: true, mode: 'repair' }, games: { mode: 'hack' }, site: { mode: 'update' } })
+  assert.equal(m.noticeOf(state.music).title, 'این بخش در حال تعمیر است')
+  assert.equal(state.games.mode, 'update', 'an unknown mode falls back')
+  assert.equal(m.noticeOf({ ...state.music, title: 'متن من' }).title, 'متن من', 'the owner\'s words win')
+  assert.equal(m.siteNoticeOf(state.site).title, 'سایت در حال به‌روزرسانی است')
+  assert.equal(m.siteNoticeOf(m.normalizeSite({})).title, 'سایت در دست توسعه است')
+  const bases = { celebrities: ['/celebrities'] }
+  assert.equal(m.sectionOfPath('/celebrities/hoomaan', bases), 'celebrities')
+  const viewer = (permissions) => ({ role: 'ADMIN', roleId: 9, permissions })
+  assert.equal(m.runsSection(viewer(['cinema.manage']), 'celebrities'), true)
+  assert.equal(m.runsSection(viewer(['music.manage']), 'celebrities'), true)
+  assert.equal(m.runsSection(viewer(['games.manage']), 'celebrities'), false)
+  assert.equal(m.runsSection({ role: 'CUSTOMER' }, 'celebrities'), false)
+  assert.equal(m.runsSection(null, 'celebrities'), false)
+  assert.ok(load('src/modules/account/domain/section-access.ts').sectionOfApi('/api/music/history'))
 })

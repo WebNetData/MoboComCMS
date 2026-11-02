@@ -21,6 +21,9 @@ import { ItemActionBar } from '@/components/engage/Engagement'
 import { getCinemaSettings } from '@/modules/cinema/server/admin'
 import { getMusicSettings } from '@/modules/music/server/admin'
 import { shareCard } from '@/modules/site/server/seo'
+import { getViewer } from '@/modules/membership/server/membership'
+import { sectionClosedFor } from '@/modules/account/server/maintenance-access'
+import { userOpensSection } from '@/modules/account/server/section-access'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -51,7 +54,11 @@ export default async function CelebrityPage({ params }: Props) {
   await ensureCelebritiesSynced()
   const data = await load((await params).slug)
   if (!data) notFound()
-  const { person, cinema, music } = data
+  const { person } = data
+  const { userId } = await getViewer()
+  // A closed section stays closed here too: its works and its player are not on this page.
+  const [cinemaShut, musicShut, cinemaOpen, musicOpen] = await Promise.all([sectionClosedFor('cinema', userId), sectionClosedFor('music', userId), userOpensSection('cinema', userId), userOpensSection('music', userId)])
+  const cinema = data.cinema && !cinemaShut && cinemaOpen, music = data.music && !musicShut && musicOpen
   const { card } = person
   if ((await params).slug !== card.slug) permanentRedirect(toPublicPath(`/celebrities/${encodeURIComponent(card.slug)}`))
   const personId = person.cinemaPersonId ? String(person.cinemaPersonId) : ''
@@ -81,7 +88,7 @@ export default async function CelebrityPage({ params }: Props) {
   // «Known for»: their first works as director and actor, then their albums; at most six, none twice.
   const knownTitles = [...(directed?.titles || []).slice(0, 2), ...(acted?.titles || []).slice(0, 3), ...(produced?.titles || []).slice(0, 1)].filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index).slice(0, 4)
   const knownAlbums = (songs?.albums || []).slice(0, 6 - knownTitles.length)
-  const stats = [card.titles ? [card.titles, 'فیلم و سریال'] : null, card.albums ? [card.albums, 'آلبوم'] : null, card.songs ? [card.songs, 'آهنگ'] : null, team.length ? [team.length, 'همکار'] : null].filter((item): item is [number, string] => !!item)
+  const stats = [cinema && card.titles ? [card.titles, 'فیلم و سریال'] : null, music && card.albums ? [card.albums, 'آلبوم'] : null, music && card.songs ? [card.songs, 'آهنگ'] : null, team.length ? [team.length, 'همکار'] : null].filter((item): item is [number, string] => !!item)
   const credited = songs?.credited || []
   const anchors = [
     shelves.length ? ['cb-films', 'فیلم و سریال'] : null,
