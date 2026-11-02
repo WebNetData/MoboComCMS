@@ -1,5 +1,9 @@
 # Domain capability maturity matrix
 
+Scoped2026-11-02: public Prompt templates, central artists and business profiles now extend the existing Imports registry as **Functional (bounded local)** destinations. Native PostgreSQL, empty-DB/no-seed, failure/race/authority/rollback probes and actual three-destination themed wizard/report flows executed. This does not promote whole domains, external-media providers or target-server rollout. [Current owner map, exact evidence and limits](handoffs/IMPORTS_LAUNCH.md#profile-destinations--2026-11-02).
+
+Scoped2026-11-02: Prompt Master member integration is **Functional (bounded local)**: Admin/member home, library, private workspace, shared template favorites and collections use the same canonical account. Connected PostgreSQL, current-member/permission/module-off faults, build and themed member-browser checks executed; this is not whole-site synchronization or ProductionVerified certification. [Current evidence and limits](handoffs/PROMPT_MASTER.md#member-dashboard-and-shared-library--2026-11-02).
+
 Scoped update2026-11-01: Prompt Master is **Functional (bounded local)** for structured prompt creation, illustrated public library (image/video/text/code/WEB), private history and Admin controls using existing shared Media. [Exact evidence and limits](handoffs/PROMPT_MASTER.md). Public studio/library/detail presentation was refined after merged PR294 using the same owner and SDS tokens; see the visual-refinement continuation in that handoff. No ProductionVerified/reference-equivalence, cloud-provider, image/video generation or broad domain promotion is claimed.
 
 Scoped update2026-11-01: browser domain/email/SSL extends existing Installer/Server Panel and backup-protected package workers. [Evidence and remaining VM/real CA gates](handoffs/HOST_INSTALL_UPGRADE.md#browser-host-setup-follow-up--2026-11-01). This is not blanket production certification of the domain cells below.

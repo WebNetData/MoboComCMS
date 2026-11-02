@@ -113,3 +113,7 @@
   .imp-lines div { grid-template-columns: 1fr auto; }
   .imp-lines dd { grid-column: 1 / -1; }
 }
+.imp-owner-guide { display:grid; grid-template-columns:minmax(110px, .2fr) minmax(0, 1fr); gap:14px 20px; margin-block:20px; }
+.imp-owner-guide dt { font-weight:750; color:var(--text); }
+.imp-owner-guide dd { margin:0; color:var(--muted); line-height:2; overflow-wrap:anywhere; }
+@media(max-width:640px) { .imp-owner-guide { grid-template-columns:1fr; gap:6px; } .imp-owner-guide dd { margin-bottom:16px; } }

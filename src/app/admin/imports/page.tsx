@@ -64,7 +64,7 @@ export default function ImportsAdmin() {
   const [wizardKey, setWizardKey] = useState(0)
   return <div className="sa imp" dir="rtl">
     <header className="sa-head">
-      <div><h1>ورود گروهی اطلاعات</h1><p className="sa-hint">ورود محصولات، مطالب مجله، فیلم، سریال، بازی، نرم‌افزار و موسیقی از فایل JSON، CSV یا XLSX — فقط داده‌هایی را وارد کنید که حق استفاده از آن‌ها را دارید.</p></div>
+      <div><h1>ورود گروهی اطلاعات</h1><p className="sa-hint">ورود محصولات، مجله، سینما، بازی، نرم‌افزار، موسیقی، پرامپت مستر، هنرمندان و کسب‌وکارها از فایل JSON، CSV یا XLSX؛ با پیش‌نمایش، کنترل فیلدها و گزارش هر ردیف.</p></div>
       <div className="sa-head-actions"><button type="button" className="btn btn-primary" onClick={() => { setTab('new'); setWizardKey((k) => k + 1) }}>ورود تازه</button></div>
     </header>
     <nav className="sa-subtabs" aria-label="بخش‌ها">
@@ -241,7 +241,7 @@ function Wizard({ destinations, labels, limits }: { destinations: Destination[];
       {destinations.map((d) => <button key={d.id} type="button" disabled={!d.enabled} className={`sa-card imp-dest ${dest?.id === d.id ? 'is-active' : ''}`} aria-pressed={dest?.id === d.id} onClick={() => { setDest(d); setSettings({ ...emptySettings(), options: optionDefaults(d.options, {}) }) }}>
         <b>{d.label}</b><span>{d.description}</span>
         <small>شناسایی رکورد موجود: {d.identity.join(' ← ')}</small>
-        {!d.enabled && <small className="imp-off">این بخش در سایت خاموش است</small>}
+        {!d.enabled && <small className="imp-off">{d.unavailableReason || 'این بخش در سایت خاموش است'}</small>}
       </button>)}
     </section>}
 
@@ -257,7 +257,7 @@ function Wizard({ destinations, labels, limits }: { destinations: Destination[];
           <TemplateBar templates={templates} templateId={templateId} onLoad={loadTemplate} onSave={saveTemplate} />
         </div>
       </div>
-      <MappingTable fields={dest.fields.filter((f) => !f.implicit)} mapping={settings.mapping} columns={valueColumns} sample={(key) => analysis.columns.find((c) => c.path === settings.mapping[key])?.samples[0] || ''}
+      <MappingTable fields={dest.fields.filter((f) => !f.implicit)} mapping={settings.mapping} columns={valueColumns} jsonColumns={analysis.columns.filter(column => column.kind === 'object' && !column.path.includes('[].')).map(column => column.path)} sample={(key) => analysis.columns.find((c) => c.path === settings.mapping[key])?.samples[0] || ''}
         onChange={(key, value) => { const mapping = { ...settings.mapping, [key]: value }; if (!value) delete mapping[key]; change({ mapping, policies: policiesFor(dest.fields, mapping, settings.policies) }) }} />
     </section>}
 
@@ -334,13 +334,13 @@ function TemplateBar({ templates, templateId, onLoad, onSave }: { templates: Tem
   </>
 }
 
-function MappingTable({ fields, mapping, columns, sample, onChange }: { fields: FieldDef[]; mapping: Record<string, string>; columns: string[]; sample: (key: string) => string; onChange: (key: string, value: string) => void }) {
+function MappingTable({ fields, mapping, columns, jsonColumns = [], sample, onChange }: { fields: FieldDef[]; mapping: Record<string, string>; columns: string[]; jsonColumns?: string[]; sample: (key: string) => string; onChange: (key: string, value: string) => void }) {
   return <div className="sa-table-wrap"><table className="data sa-table imp-map">
     <thead><tr><th>فیلد مقصد</th><th>ستون فایل</th><th>نمونهٔ مقدار</th></tr></thead>
     <tbody>{fields.map((field) => <tr key={field.key} className={mapping[field.key] ? 'is-mapped' : ''}>
       <td><b>{field.label}</b>{field.requiredOnCreate && <span className="imp-req" title="برای ساخت رکورد جدید لازم است">الزامی</span>}{field.updatable === false && <span className="imp-tag">فقط ساخت</span>}{field.hint && <small className="sa-hint">{field.hint}</small>}</td>
       <td><select className="select" aria-label={`ستون ${field.label}`} value={mapping[field.key] || ''} onChange={(e) => onChange(field.key, e.target.value)}>
-        <option value="">— نگاشت نشود —</option>{columns.map((c) => <option key={c} value={c}>{c}</option>)}
+        <option value="">— نگاشت نشود —</option>{[...columns, ...(field.type === 'json' ? jsonColumns : [])].map((c) => <option key={c} value={c}>{c}</option>)}
       </select></td>
       <td className="imp-sample" dir="auto">{mapping[field.key] ? sample(field.key) : ''}</td>
     </tr>)}</tbody>

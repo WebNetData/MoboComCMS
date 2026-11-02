@@ -154,7 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'content', part: WEBSITE, title: L('ابزارهای محتوا', 'Content tools'), icon: 'layers', items: [
       { href: '/admin/sections', label: L('همهٔ بخش‌ها و آدرس‌ها', 'All sections & addresses'), icon: 'grid', perm: 'settings.manage', exact: true },
       { href: '/admin/taxonomy', label: L('دسته‌بندی و زیردسته‌ها', 'Categories'), icon: 'grid', perm: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage'] },
-      { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage'] },
+      { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'prompts.manage'] },
       { href: '/admin/reviews', label: L('امتیازها و نظرها', 'Ratings & reviews'), icon: 'sparkles', perm: ['reviews.moderate'] },
       { href: '/admin/businesses', label: L('تجربهٔ خرید و کسب‌وکارها', 'Business experiences'), icon: 'sparkles', perm: ['businesses.manage'] },
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },

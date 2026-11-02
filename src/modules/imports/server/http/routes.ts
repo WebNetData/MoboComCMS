@@ -31,8 +31,9 @@ export async function GET(req: NextRequest) {
   if ('response' in g) return g.response
   const q = req.nextUrl.searchParams
   try {
+    if (['job','records','export'].includes(q.get('view') || '')) await service.requireJobAccess(q.get('id'), g.admin)
     switch (q.get('view') || 'destinations') {
-      case 'destinations': return ok(await service.destinations())
+      case 'destinations': return ok(await service.destinations(g.admin))
       case 'jobs': return ok(await service.jobList({ adapter: q.get('adapter'), status: q.get('status'), page: q.get('page') }))
       case 'job': return ok(service.jobView(await service.getJob(q.get('id'))))
       case 'records': return ok(await service.records(await service.getJob(q.get('id')), { status: q.get('status'), page: q.get('page') }))
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
   if (!body) return err('درخواست نامعتبر است')
   const audit = (action: string, targetType: string, target: unknown, metadata?: Record<string, unknown>) => auditAdmin({ req, actor: admin, action, targetType, targetId: String(target ?? ''), metadata })
   try {
+    if (['analyze','settings','preview','dry-run','start','pause','resume','cancel','rollback','delete'].includes(String(body.op))) await service.requireJobAccess(body.id, admin)
     switch (body.op) {
       case 'analyze': return ok(await service.analyze(await service.getJob(body.id), body.sheet))
       case 'settings': {

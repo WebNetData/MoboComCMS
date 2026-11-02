@@ -7,6 +7,7 @@ import PromptFields from './PromptFields'
 import PromptOutput, { type PromptResult } from './PromptOutput'
 import { promptRequest } from './browser'
 import s from './PromptMaster.module.css'
+import { memberListsChanged } from '@/components/engage/member-list-events'
 
 type Props = { policy: { allowGuests: boolean; aiAvailable: boolean; aiDailyLimit: number }; loggedIn: boolean; initialKind: PromptKind; template: TemplateView | null; examples: { title: string; example: string; kind: string }[]; generationId: string }
 function initialInput(kind: PromptKind, template: TemplateView | null): PromptInput {
@@ -34,14 +35,14 @@ export default function PromptStudio({ policy, loggedIn, initialKind, template, 
   async function generate(event: React.FormEvent) {
     event.preventDefault(); if (busy) return
     const controller = new AbortController(); active.current = controller; setBusy(true); setError(''); setNotice('')
-    try { const data = await promptRequest<PromptResult>('/api/prompts/generate', { ...input, engine, consent, saveHistory }, controller.signal); setOutput(data.output); setResult(data); setNotice('پرامپت آماده است؛ می‌توانید آن را ویرایش کنید') }
+    try { const data = await promptRequest<PromptResult>('/api/prompts/generate', { ...input, engine, consent, saveHistory }, controller.signal); setOutput(data.output); setResult(data); if (data.item) memberListsChanged('prompt-history'); setNotice('پرامپت آماده است؛ می‌توانید آن را ویرایش کنید') }
     catch (error) { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : 'ساخت پرامپت انجام نشد') }
     finally { setBusy(false) }
   }
   async function saveEdit() {
     if (!result?.item || saving) return
     setSaving(true); setError(''); setNotice('')
-    try { const data = await promptRequest<{ item: { id: number; version: number } }>('/api/prompts/history', { action: 'edit', id: result.item.id, version: result.item.version, output }); setResult({ ...result, output, engine: 'EDITED', item: data.item }); setNotice('ویرایش در تاریخچهٔ خصوصی ذخیره شد') }
+    try { const data = await promptRequest<{ item: { id: number; version: number } }>('/api/prompts/history', { action: 'edit', id: result.item.id, version: result.item.version, output }); setResult({ ...result, output, engine: 'EDITED', item: data.item }); memberListsChanged('prompt-history'); setNotice('ویرایش در تاریخچهٔ خصوصی ذخیره شد') }
     catch (error) { setError(error instanceof Error ? error.message : 'ذخیره انجام نشد') } finally { setSaving(false) }
   }
   const canGenerate = loggedIn || policy.allowGuests

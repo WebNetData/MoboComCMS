@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { snapshotOf } from '@/modules/content/domain/revisions'
 import type { ImportAdapter, ImportContext, Plan } from '@/modules/imports/server/registry'
 
-const MODELS: Record<string, string> = { store: 'product', magazine: 'post', movies: 'cinemaTitle', series: 'cinemaTitle', music: 'musicTrack', games: 'gameTitle', software: 'softwareTitle' }
+const MODELS: Record<string, string> = { store: 'product', magazine: 'post', movies: 'cinemaTitle', series: 'cinemaTitle', music: 'musicTrack', games: 'gameTitle', software: 'softwareTitle', prompts: 'promptTemplate', artists: 'celebrity', businesses: 'businessProfile' }
 type Row = Record<string, unknown>
 type Reader = { findUnique(args: object): Promise<Row | null> }
 type Client = typeof db | Parameters<Parameters<typeof db.$transaction>[0]>[0]
@@ -16,11 +16,12 @@ export async function importContentState(adapter: string, id: number, client: Cl
   const include = model === 'product' ? { variants: { orderBy: { id: 'asc' } } }
     : model === 'post' ? { categories: { orderBy: { categoryId: 'asc' } } }
     : model === 'cinemaTitle' ? { seasons: { orderBy: { number: 'asc' }, include: { episodes: { orderBy: { number: 'asc' } } } } }
-    : model === 'musicTrack' ? { album: true } : undefined
+    : model === 'musicTrack' ? { album: true } : model === 'celebrity' ? { musicArtist: true, cinemaPerson: true } : undefined
   const row = await reader.findUnique({ where: { id }, ...(include ? { include } : {}) })
   if (!row) return null
   const content: Row = { ...snapshotOf(row) }
-  for (const key of ['variants', 'categories', 'seasons', 'album']) if (row[key]) content[key] = row[key]
+  for (const key of ['variants', 'categories', 'seasons', 'album', 'musicArtist', 'cinemaPerson']) if (row[key]) content[key] = row[key]
+  if (model === 'celebrity') delete content.score
   const ownerType = ({ cinemaTitle: 'title', gameTitle: 'game', softwareTitle: 'software' } as Record<string, string>)[model]
   if (ownerType) {
     const ids = [id, ...((row.seasons || []) as { episodes: { id: number }[] }[]).flatMap(s => s.episodes.map(e => e.id))]

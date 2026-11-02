@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import type { Prisma } from '@prisma/client'
-import { auditAdminStrict } from '@/platform/audit/server'
+import { auditAdminStrict, auditSystemStrict } from '@/platform/audit/server'
 import { reindexItem } from '@/modules/search/server/search'
 import { knownCodes } from '@/modules/vocabulary/server/vocabulary'
 import { cleanText, PromptError, templateInput } from '../domain/prompts'
@@ -29,34 +29,38 @@ export async function restoreTemplate(req: NextRequest, raw: Record<string, unkn
 }
 
 export async function saveTemplate(req: NextRequest, raw: Record<string, unknown>) {
-  const data = templateInput(raw), id = raw.id ? positiveId(raw.id) : null
-  const saved = await promptTransaction(req, 'content', async (tx, actor, authorId) => {
-    const previous = id ? await tx.promptTemplate.findFirst({ where: { id, ...(authorId ? { createdById: authorId } : {}) } }) : null
-    if (id && !previous) throw new PromptError('الگو پیدا نشد', 404)
-    if (previous?.status === 'TRASHED') throw new PromptError('الگو در سطل زباله است؛ ابتدا مدیر آن را بازیابی کند', 409)
-    if (previous && data.slug !== previous.slug) throw new PromptError('برای حفظ نشانی عمومی، نشانی الگوی ثبت‌شده تغییر نمی‌کند', 409)
-    if (data.category && !(await knownCodes(tx, 'prompts', 'CATEGORY', [data.category], previous ? [previous.category] : [])).includes(data.category)) throw new PromptError('دسته را از فهرست فعال انتخاب کنید')
-    const settings = await policy(tx)
-    if (authorId) {
-      if (data.featured !== (previous?.featured ?? false) || data.sortOrder !== (previous?.sortOrder ?? 0)) throw new PromptError('انتخاب سردبیر و ترتیب نمایش به مدیر اختصاص دارد', 403)
-      if (settings.reviewAuthors && data.status === 'PUBLISHED') throw new PromptError('الگو را برای بازبینی بفرستید؛ انتشار به مدیر اختصاص دارد', 403)
-      if (settings.reviewAuthors && previous?.status === 'PUBLISHED') throw new PromptError('ویرایش الگوی منتشرشده در حالت بازبینی به مدیر اختصاص دارد', 409)
-    }
-    const reviewNote = authorId ? (data.status === 'PENDING' ? '' : previous?.reviewNote || '') : cleanText(raw.reviewNote ?? previous?.reviewNote, 1000)
-    const changes = { ...data, reviewNote, publishedAt: data.status === 'PUBLISHED' ? previous?.publishedAt || new Date() : null }
-    if (!authorId && previous?.status === 'PENDING' && data.status === 'DRAFT' && !reviewNote) throw new PromptError('دلیل بازگشت به پیش‌نویس را در یادداشت بازبینی بنویسید')
-    if (previous) {
-      const claim = await tx.promptTemplate.updateMany({ where: { id: previous.id, version: positiveId(raw.version), status: previous.status }, data: { ...changes, version: { increment: 1 } } })
-      if (claim.count !== 1) throw new PromptError('الگو هم‌زمان تغییر کرده؛ نسخهٔ تازه را باز کنید', 409)
-    }
-    const result = previous ? await tx.promptTemplate.findUniqueOrThrow({ where: { id: previous.id } }) : await tx.promptTemplate.create({ data: { ...changes, createdById: actor.id } })
-    if (previous?.status === 'PENDING' && data.status !== 'PENDING') await completeOwnerCase(tx, 'review-prompts', result.id, actor.id, data.status === 'PUBLISHED' ? 'approve' : 'reject', reviewNote || undefined)
-    if (result.status === 'PENDING' && previous?.status !== 'PENDING') await reopenOwnerCase(tx, 'review-prompts', result.id)
-    await auditAdminStrict({ req, actor, action: 'prompts.template.save', targetType: 'prompt-template', targetId: result.id, metadata: { kind: data.kind, status: data.status, version: result.version } }, tx)
-    return result
-  })
+  const saved = await promptTransaction(req, 'content', (tx, actor, authorId) => writePromptTemplate(tx, actor, raw, authorId, req))
   await reindexItem({ type: 'prompt', id: saved.id })
   return saved
+}
+
+/** Canonical transactional write; callers supply current owner authority and commit-bound audit. */
+export async function writePromptTemplate(tx: Prisma.TransactionClient, actor: { id: number; email: string }, raw: Record<string, unknown>, authorId: number | null = null, req?: NextRequest) {
+  const data = templateInput(raw), id = raw.id ? positiveId(raw.id) : null
+  const previous = id ? await tx.promptTemplate.findFirst({ where: { id, ...(authorId ? { createdById: authorId } : {}) } }) : null
+  if (id && !previous) throw new PromptError('الگو پیدا نشد', 404)
+  if (previous?.status === 'TRASHED') throw new PromptError('الگو در سطل زباله است؛ ابتدا مدیر آن را بازیابی کند', 409)
+  if (previous && data.slug !== previous.slug) throw new PromptError('برای حفظ نشانی عمومی، نشانی الگوی ثبت‌شده تغییر نمی‌کند', 409)
+  if (data.category && !(await knownCodes(tx, 'prompts', 'CATEGORY', [data.category], previous ? [previous.category] : [])).includes(data.category)) throw new PromptError('دسته را از فهرست فعال انتخاب کنید')
+  const settings = await policy(tx)
+  if (authorId) {
+    if (data.featured !== (previous?.featured ?? false) || data.sortOrder !== (previous?.sortOrder ?? 0)) throw new PromptError('انتخاب سردبیر و ترتیب نمایش به مدیر اختصاص دارد', 403)
+    if (settings.reviewAuthors && data.status === 'PUBLISHED') throw new PromptError('الگو را برای بازبینی بفرستید؛ انتشار به مدیر اختصاص دارد', 403)
+    if (settings.reviewAuthors && previous?.status === 'PUBLISHED') throw new PromptError('ویرایش الگوی منتشرشده در حالت بازبینی به مدیر اختصاص دارد', 409)
+  }
+  const reviewNote = authorId ? (data.status === 'PENDING' ? '' : previous?.reviewNote || '') : cleanText(raw.reviewNote ?? previous?.reviewNote, 1000)
+  const changes = { ...data, reviewNote, publishedAt: data.status === 'PUBLISHED' ? previous?.publishedAt || new Date() : null }
+  if (!authorId && previous?.status === 'PENDING' && data.status === 'DRAFT' && !reviewNote) throw new PromptError('دلیل بازگشت به پیش‌نویس را در یادداشت بازبینی بنویسید')
+  if (previous) {
+    const claim = await tx.promptTemplate.updateMany({ where: { id: previous.id, version: positiveId(raw.version), status: previous.status }, data: { ...changes, version: { increment: 1 } } })
+    if (claim.count !== 1) throw new PromptError('الگو هم‌زمان تغییر کرده؛ نسخهٔ تازه را باز کنید', 409)
+  }
+  const result = previous ? await tx.promptTemplate.findUniqueOrThrow({ where: { id: previous.id } }) : await tx.promptTemplate.create({ data: { ...changes, createdById: actor.id } })
+  if (previous?.status === 'PENDING' && data.status !== 'PENDING') await completeOwnerCase(tx, 'review-prompts', result.id, actor.id, data.status === 'PUBLISHED' ? 'approve' : 'reject', reviewNote || undefined)
+  if (result.status === 'PENDING' && previous?.status !== 'PENDING') await reopenOwnerCase(tx, 'review-prompts', result.id)
+  const audit = { actor, action: 'prompts.template.save', targetType: 'prompt-template', targetId: result.id, metadata: { kind: data.kind, status: data.status, version: result.version } }
+  await (req ? auditAdminStrict({ ...audit, req }, tx) : auditSystemStrict(audit, tx))
+  return result
 }
 export async function deleteTemplate(req: NextRequest, raw: Record<string, unknown>) {
   const id = positiveId(raw.id), version = positiveId(raw.version)

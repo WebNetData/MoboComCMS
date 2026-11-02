@@ -1,0 +1,17 @@
+[
+  {
+    "externalId": "example-prompt-001",
+    "slug": "example-clear-writing",
+    "title": "الگوی آزمایشی نوشتن روشن",
+    "kind": "TEXT",
+    "summary": "نمونهٔ آموزشی برای تنظیم نگاشت؛ پیش از ورود واقعی ویرایش کنید.",
+    "content": "برای {{idea}} یک متن روشن، دقیق و قابل بررسی بنویس. از موارد {{negative}} پرهیز کن.",
+    "example": "معرفی یک محصول آموزشی",
+    "defaults": { "tone": "آموزشی" },
+    "tags": ["نوشتن", "آموزشی"],
+    "sampleCover": "/images/prompts/character.webp",
+    "sampleAlt": "تصویر نمونهٔ آموزشی پرامپت",
+    "sampleResult": "نتیجهٔ آزمایشی برای نمایش نگاشت متن نمونه.",
+    "status": "DRAFT"
+  }
+]

@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import Icon from '@/components/site/Icon'
+import AdminPromptOverview from '@/components/prompts/AdminPromptOverview'
 
 export default function AdminDashboard() {
   const { t, locale } = useI18n()
@@ -100,6 +101,7 @@ export default function AdminDashboard() {
         {quick.map((item) => <Link key={item.href} href={item.href}><span className="ws-tile"><Icon name={item.icon} size={17} /></span>{item.label}</Link>)}
       </nav>
 
+      <AdminPromptOverview />
       <section className="card admin-attention mb-8" aria-label={isFa ? 'نیازمند توجه' : 'Needs attention'}>
         <div className="admin-attention-head">
           <h2 className="font-bold">{isFa ? 'نیازمند توجه' : 'Needs attention'}</h2>

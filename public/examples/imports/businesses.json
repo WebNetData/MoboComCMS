@@ -1,0 +1,11 @@
+[
+  {
+    "externalId": "example-business-001",
+    "name": "کسب‌وکار آزمایشی",
+    "slug": "example-business",
+    "kind": "EXTERNAL",
+    "website": "https://shop.example.com",
+    "description": "نمونهٔ آموزشی؛ نشانی و توضیحات واقعی را پیش از ورود جایگزین کنید.",
+    "status": "DRAFT"
+  }
+]

@@ -18,7 +18,7 @@ import { importMediaServices } from '@/modules/imports/server/library-media'
 import { knownSources } from '@/modules/imports/server/media'
 import { ApplyFailure, getImporter, type ApplyResult, type Change, type Finding, type ImportAdapter, type ImportContext, type Plan } from '@/modules/imports/server/registry'
 import '@/modules/imports/server/adapters'
-import { continuingImportActor, currentImportActor, pauseForImportAuthority } from '@/modules/imports/server/authority'
+import { authorizedImportActor, continuingImportActor, currentImportActor, pauseForImportAuthority } from '@/modules/imports/server/authority'
 
 /**
  * The import engine: settings → items → plans (preview and dry run, no
@@ -52,6 +52,7 @@ export function adapterFor(id: string): ImportAdapter {
 
 export async function ensureModule(adapter: ImportAdapter) {
   if (adapter.module && !await isModuleEnabled(adapter.module)) throw new ImportError(`بخش «${adapter.label}» در سایت خاموش است`)
+  for (const id of adapter.requiredModules || []) if (!await isModuleEnabled(id)) throw new ImportError(`بخش وابستهٔ «${id}» فعال نیست`)
 }
 
 /** Untrusted settings → validated settings for this destination. */
@@ -100,6 +101,9 @@ export async function analyzeJob(job: Job) {
   const columns = discoverColumns(parsed.rows)
   const valueColumns = columns.filter((column) => column.kind !== 'object' && !column.path.includes('[].')).map((column) => column.path)
   const mapping = autoMap(adapter.fields.filter((field) => !field.implicit), valueColumns)
+  // JSON destinations may consume a complete object; do not reduce defaults/facts to one nested scalar.
+  const objectColumns = columns.filter(column => column.kind === 'object' && !column.path.includes('[].')).map(column => column.path)
+  Object.assign(mapping, autoMap(adapter.fields.filter(field => field.type === 'json' && !field.implicit), objectColumns))
   let variants: ImportSettings['variants'] = { mode: 'none', source: '', groupBy: '' }
   let variantMapping: Record<string, string> = {}
   const attributes: { source: string; name: string; variation: boolean }[] = []
@@ -160,7 +164,7 @@ function previewLines(fields: FieldDef[], values: Record<string, unknown>, allow
 
 function makeContext(job: Job | null, settings: ImportSettings, actor: Actor, dryRun: boolean): ImportContext {
   return {
-    jobId: job?.id ?? null, actor, dryRun, settings,
+    jobId: job?.id ?? null, executionGeneration: job?.executionGeneration, actor, dryRun, settings,
     cache: new Map(), planned: new Set(), knownImages: new Set(),
     ...importMediaServices(job, settings, dryRun),
     allow: (values, mode, current) => allowedValues(values, settings.policies, mode, settings.existing, current),
@@ -173,14 +177,14 @@ type Typed = { values: Record<string, unknown>; variantValues: Record<string, un
 
 function typed(adapter: ImportAdapter, settings: ImportSettings, item: SourceItem): Typed {
   const options = { categorySeparator: String(settings.options.categorySeparator || '>') }
-  const main = coerceValues(adapter.fields, item.values, options)
+  const main = coerceValues(adapter.strictValues ? adapter.fields.filter(field => settings.policies[field.key]?.create || settings.policies[field.key]?.update) : adapter.fields, item.values, options)
   const variants = item.variants.map((values) => coerceValues(adapter.variantFields || [], values, options))
   // A value that cannot be read is left out (and reported); the rest of the record still imports.
   const soften = (message: Message, prefix = '') => ({ level: 'warning' as const, text: `${prefix}${message.text} — این مقدار وارد نمی‌شود` })
   return {
     values: main.values,
     variantValues: variants.map((v) => v.values),
-    messages: [...(item.notes || []), ...main.messages.map((m) => soften(m)), ...variants.flatMap((v, i) => v.messages.map((m) => soften(m, `تنوع ${i + 1}: `)))],
+    messages: [...(item.notes || []), ...main.messages.map((m) => adapter.strictValues ? m : soften(m)), ...variants.flatMap((v, i) => v.messages.map((m) => soften(m, `تنوع ${i + 1}: `)))],
   }
 }
 
@@ -191,6 +195,7 @@ function failed(item: SourceItem, text: string): Plan {
 
 async function planOne(adapter: ImportAdapter, item: SourceItem, t: Typed, ctx: ImportContext): Promise<Plan> {
   try {
+    if (adapter.strictValues && t.messages.some(message => message.level === 'error')) return failed(item, t.messages.filter(message => message.level === 'error').map(message => message.text).join('؛ '))
     const plan = await protectImportPlan(adapter, await adapter.plan(item, t.values, t.variantValues, ctx), ctx)
     plan.messages.unshift(...t.messages)
     plan.preview.messages = plan.messages
@@ -228,6 +233,7 @@ export type DryRun = {
 export async function planJob(job: Job, rawSettings: unknown, actor: Actor, limit = 0) {
   const adapter = adapterFor(job.adapter)
   await ensureModule(adapter)
+  if (adapter.permissions?.length && !await authorizedImportActor(actor.id, new Date(), adapter.id)) throw new ImportError('دسترسی مدیریت مقصد لازم است', 403)
   const settings = settingsFor(adapter, rawSettings, job)
   const all = await itemsFor(job, settings)
   const items = limit ? all.slice(0, limit) : all
@@ -417,11 +423,12 @@ export async function rollbackSlice(jobId: number, budgetMs = 30_000): Promise<{
     const records = await db.importRecord.findMany({ where: { jobId, action: { in: ['CREATE', 'UPDATE'] }, status: { in: ['OK', 'WARNING'] } }, orderBy: { index: 'desc' }, take: 20 })
     if (!records.length) break
     for (const record of records) {
-      if (!await continuingImportActor(job, 'ROLLING_BACK')) return { done: false, next: false }
+      const operator = await continuingImportActor(job, 'ROLLING_BACK')
+      if (!operator) return { done: false, next: false }
       let stored: Stored = {}
       try { stored = JSON.parse(record.changes || '{}') } catch { stored = {} }
       let result
-      try { result = await adapter.rollback(stored.changes || []) } catch (error) { result = { undone: 0, conflicts: [error instanceof Error ? error.message : 'خطا'] } }
+      try { result = await adapter.rollback(stored.changes || [], makeContext(job, readSettings(job), operator, false)) } catch (error) { result = { undone: 0, conflicts: [error instanceof Error ? error.message : 'خطا'] } }
       const messages = [...(JSON.parse(record.messages || '[]') as Message[]), ...result.conflicts.map((text) => ({ level: 'warning' as const, text: `بازگردانی: ${text}` }))]
       await db.importRecord.update({ where: { id: record.id }, data: { status: result.conflicts.length ? 'ROLLBACK_CONFLICT' : 'ROLLED_BACK', messages: JSON.stringify(messages.slice(0, 60)) } })
       addStats(summary, { rolledBack: result.conflicts.length ? 0 : 1, rollbackConflicts: result.conflicts.length ? 1 : 0 })

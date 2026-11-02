@@ -12,6 +12,7 @@ export type OptionDef = {
 }
 export type Destination = {
   id: string; label: string; description: string; entity: string; enabled: boolean
+  unavailableReason?: string
   fields: FieldDef[]; variantFields: FieldDef[]; variantLabel: string
   supports: { variants?: boolean; attributes?: boolean; specs?: boolean }; identity: string[]; options: OptionDef[]
 }

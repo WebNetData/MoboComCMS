@@ -283,6 +283,7 @@ export async function joinCelebrities(targetId: number, otherId: number) {
 }
 
 export { celebrityProfile, saveCelebrityProfile } from './celebrities/profile'
+export { celebrityImportState, restoreCelebrityImportState, type CelebrityImportState } from './celebrities/import-state'
 
 /** The person's single page address when it shows something (a section's own person page sends visitors there). */
 export async function publicCelebritySlug(source: { cinemaPersonId?: number; musicArtistId?: number }) {

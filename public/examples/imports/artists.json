@@ -1,0 +1,11 @@
+[
+  {
+    "externalId": "example-artist-001",
+    "name": "هنرمند آزمایشی",
+    "nameEn": "Example Artist",
+    "slug": "example-artist",
+    "bio": "<p>این زندگی‌نامه فقط نمونهٔ آموزشی است؛ پیش از ثبت واقعی جایگزین شود.</p>",
+    "facts": {},
+    "featured": false
+  }
+]

@@ -132,6 +132,8 @@ test('item paths round-trip and keys are validated', () => {
   assert.equal(items.itemPath('thread', { id: 9 }), '/forum/t/9')
   assert.deepEqual(items.parseItemPath('https://mobocom.ir/games/elden-ring?x=1'), { type: 'game', slug: 'elden-ring' })
   assert.deepEqual(items.parseItemPath('/forum/t/42/slug'), { type: 'thread', slug: '42', id: 42 })
+  assert.deepEqual(items.parseItemPath(items.itemPath('prompt', { slug: 'portrait-light', id: 3 })), { type: 'prompt', slug: 'portrait-light' })
+  assert.equal(items.parseItemPath('/prompts/library'), null)
   assert.equal(items.parseItemPath('/software/browse'), null)
   assert.equal(items.parseItemPath('javascript:alert(1)'), null)
   assert.deepEqual(items.parseItemKey('title:7'), { type: 'title', id: 7 })

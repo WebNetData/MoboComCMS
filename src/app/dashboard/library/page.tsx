@@ -18,6 +18,9 @@ import { memberLists } from '@/modules/account/server/lists'
 import { ITEM_LABEL } from '@/modules/content/domain/items'
 import { LIBRARY_LABELS } from '@/modules/games/domain/games'
 import Icon from '@/components/site/Icon'
+import { memberPromptWorkspace } from '@/modules/prompts/server/prompts'
+import MemberPromptShelf from '@/components/prompts/MemberPromptShelf'
+import MemberLibrarySync from '@/components/engage/MemberLibrarySync'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'کتابخانهٔ من | My library', robots: { index: false } }
@@ -31,7 +34,7 @@ export default async function LibraryPage() {
   ])
   const gamesOn = gamesModuleOn && (await getGamesSettings()).libraryEnabled
   const fa = locale === 'fa'
-  const [favorites, games, playlists, listens, collections, watches, saved, purchases, views, suggestions] = await Promise.all([
+  const [favorites, games, playlists, listens, collections, watches, saved, purchases, views, suggestions, prompts] = await Promise.all([
     reviewsOn ? favoritePreview(userId) : Promise.resolve(null),
     gamesOn ? myLibrary(userId, null, 1) : Promise.resolve(null),
     musicOn ? listPersonalPlaylists(userId) : Promise.resolve(null),
@@ -42,6 +45,7 @@ export default async function LibraryPage() {
     paywallOn ? purchasePreview(userId) : Promise.resolve(null),
     recentViewPreview(userId),
     personalRecommendations(userId),
+    memberPromptWorkspace(userId),
   ])
   // Every list the member keeps, read one way from the modules that own them.
   const lists = await memberLists(userId).catch(() => [])
@@ -57,10 +61,12 @@ export default async function LibraryPage() {
   ].sort((a, b) => b.at - a.at).slice(0, 12)
 
   return <div className="ud ulib-page ulib-home">
+    <MemberLibrarySync />
     <header className="ulib-head">
       <span className="ulib-head-icon"><Icon name="layers" size={25} /></span>
       <div><span className="md-eyebrow">{fa ? 'فضای شخصی شما' : 'Your personal space'}</span><h1>{fa ? 'کتابخانهٔ من' : 'My library'}</h1><p className="muted">{fa ? 'محتوای ذخیره‌شده، مجموعه‌ها و تاریخچهٔ شما در یک جا.' : 'Saved content, collections and history in one place.'}</p></div>
     </header>
+    {prompts && <MemberPromptShelf data={prompts} />}
     <div className="ulib-summary">
       {favorites && <Link href="/favorites" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="heart" size={19} /></span><small>{fa ? 'علاقه‌مندی‌ها' : 'Favorites'}</small><b>{number(favorites.total)}</b><span>{fa ? 'نمایش همهٔ موارد' : 'View all items'}</span></Link>}
       {games && <Link href="/dashboard/games" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="devices" size={19} /></span><small>{fa ? 'بازی‌های من' : 'My games'}</small><b>{number(Object.values(games.counts).reduce((sum, value) => sum + value, 0))}</b><span>{fa ? 'مشاهدهٔ قفسه‌های بازی' : 'View game shelves'}</span></Link>}
