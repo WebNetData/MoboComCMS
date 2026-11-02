@@ -7,7 +7,7 @@ type Row = { id: number; ownerId: number; title: string; description: string; co
 type Saved = { id: number; title: string; description: string; cover: string; visibility: string; shareToken: string | null; owner: { name: string }; _count: { items: number } }
 
 export default function MyCollectionsClient({ initial, saved, ownerId, fa }: { initial: Row[]; saved: Saved[]; ownerId: number; fa: boolean }) {
-  const [rows, setRows] = useState(initial)
+  const rows = initial
   const [title, setTitle] = useState('')
   const [visibility, setVisibility] = useState('PRIVATE')
   const [busy, setBusy] = useState(false)

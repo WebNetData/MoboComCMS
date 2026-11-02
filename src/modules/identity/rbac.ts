@@ -43,7 +43,7 @@ export const ALL_PERMISSIONS: readonly string[] = [...PERMISSIONS, ...extensionP
 export const FORMERLY_OPENED_BY_POSTS = ['music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'forum.moderate', 'reviews.moderate'] as const
 
 /** Permissions that let their holder edit some content, and so upload a picture for it. */
-export const CONTENT_EDIT_PERMISSIONS = ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage'] as const
+export const CONTENT_EDIT_PERMISSIONS = ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'prompts.manage'] as const
 
 export const ROLE_PRESETS: Record<string, string[]> = {
   admin: [...ALL_PERMISSIONS],

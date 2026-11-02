@@ -37,6 +37,7 @@ export interface OptionDef {
 export interface ImportContext {
   organization?: AssetOrganization
   jobId: number | null
+  executionGeneration?: number
   actor: { id: number; email: string }
   dryRun: boolean
   settings: ImportSettings
@@ -125,6 +126,10 @@ export interface ImportAdapter {
   entity: string
   /** Module that must be on for this destination (null = always). */
   module: string | null
+  /** Additional modules/section capabilities for destinations that write guarded owner profiles. */
+  requiredModules?: readonly string[]
+  permissions?: readonly string[]
+  strictValues?: boolean
   fields: FieldDef[]
   variantFields?: FieldDef[]
   /** What the nested/grouped rows are called in the wizard ("تنوع‌ها", "قسمت‌ها"). */
@@ -145,7 +150,7 @@ export interface ImportAdapter {
   /** Writes one record (its own transaction(s)); values are already filtered by the field policy. */
   apply(item: SourceItem, plan: Plan, ctx: ImportContext): Promise<ApplyResult>
   /** Undoes one record's changes where it is still safe (rows changed since are reported, not overwritten). */
-  rollback(changes: Change[]): Promise<RollbackResult>
+  rollback(changes: Change[], context?: ImportContext): Promise<RollbackResult>
   /** Once after a job (e.g. recount section categories instead of after every record). */
   finish?(): Promise<void>
 }

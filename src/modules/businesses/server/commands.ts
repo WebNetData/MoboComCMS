@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { requirePerm, requireUser } from '@/modules/identity/server/access'
 import { moduleGuard } from '@/extensions/server/modules'
-import { auditAdminStrict } from '@/platform/audit/server'
+import { auditAdminStrict, auditSystemStrict } from '@/platform/audit/server'
 import { BusinessError } from '../domain/businesses'
 import { businessId, normalizeBusinessProfile } from '../domain/profiles'
 import { listedCategory } from './vocabulary'
@@ -27,20 +27,24 @@ export async function businessTransaction<T>(req: NextRequest, admin: boolean, w
 }
 
 export async function saveBusinessProfile(req: NextRequest, input: Record<string, unknown>) {
+  return businessTransaction(req, true, (tx, actor) => writeBusinessProfile(tx, actor, input, req))
+}
+
+/** Shared owner invariants for the Admin form and an authorized import transaction. */
+export async function writeBusinessProfile(tx: Prisma.TransactionClient, actor: { id: number; email: string }, input: Record<string, unknown>, req?: NextRequest) {
   const data = normalizeBusinessProfile(input), id = input.id !== undefined && input.id !== null ? businessId(input.id) : null
-  return businessTransaction(req, true, async (tx, actor) => {
-    const previous = id ? await tx.businessProfile.findUnique({ where: { id } }) : null
-    if (id && !previous) throw new BusinessError('کسب‌وکار پیدا نشد', 404)
-    // The category is a name of the owner's list (or the one the business already had).
-    data.category = await listedCategory(tx, data.category, previous?.category)
-    if (previous && (previous.slug !== data.slug || previous.kind !== data.kind || previous.sellerId !== data.sellerId || previous.domain !== data.domain)) throw new BusinessError('هویت کسب‌وکار پس از ثبت قابل جابه‌جایی نیست', 409)
-    if (data.sellerId && !await tx.seller.findFirst({ where: { id: data.sellerId, status: 'ACTIVE' } })) throw new BusinessError('فروشندهٔ فعال پیدا نشد', 400)
-    if (data.representativeId && !await tx.user.findFirst({ where: { id: data.representativeId, status: 'ACTIVE' } })) throw new BusinessError('حساب نمایندهٔ فعال پیدا نشد', 400)
-    if (data.representativeId && data.representativeId !== previous?.representativeId && input.acknowledgeRepresentative !== true) throw new BusinessError('تأیید بررسی ارتباط نماینده با کسب‌وکار لازم است', 400)
-    if (data.kind === 'SITE' && await tx.businessProfile.findFirst({ where: { kind: 'SITE', ...(id ? { id: { not: id } } : {}) } })) throw new BusinessError('پروفایل فروشگاه سایت قبلاً ساخته شده است', 409)
-    const saved = id ? await tx.businessProfile.update({ where: { id }, data }) : await tx.businessProfile.create({ data })
-    await refreshBusinessRating(tx, saved)
-    await auditAdminStrict({ req, actor, action: 'businesses.profile.save', targetType: 'business', targetId: saved.id, metadata: { kind: data.kind, status: data.status, representativeId: data.representativeId } }, tx)
-    return saved
-  })
+  const previous = id ? await tx.businessProfile.findUnique({ where: { id } }) : null
+  if (id && !previous) throw new BusinessError('کسب‌وکار پیدا نشد', 404)
+  // The category is a name of the owner's list (or the one the business already had).
+  data.category = await listedCategory(tx, data.category, previous?.category)
+  if (previous && (previous.slug !== data.slug || previous.kind !== data.kind || previous.sellerId !== data.sellerId || previous.domain !== data.domain)) throw new BusinessError('هویت کسب‌وکار پس از ثبت قابل جابه‌جایی نیست', 409)
+  if (data.sellerId && !await tx.seller.findFirst({ where: { id: data.sellerId, status: 'ACTIVE' } })) throw new BusinessError('فروشندهٔ فعال پیدا نشد', 400)
+  if (data.representativeId && !await tx.user.findFirst({ where: { id: data.representativeId, status: 'ACTIVE' } })) throw new BusinessError('حساب نمایندهٔ فعال پیدا نشد', 400)
+  if (data.representativeId && data.representativeId !== previous?.representativeId && input.acknowledgeRepresentative !== true) throw new BusinessError('تأیید بررسی ارتباط نماینده با کسب‌وکار لازم است', 400)
+  if (data.kind === 'SITE' && await tx.businessProfile.findFirst({ where: { kind: 'SITE', ...(id ? { id: { not: id } } : {}) } })) throw new BusinessError('پروفایل فروشگاه سایت قبلاً ساخته شده است', 409)
+  const saved = id ? await tx.businessProfile.update({ where: { id }, data }) : await tx.businessProfile.create({ data })
+  await refreshBusinessRating(tx, saved)
+  const audit = { actor, action: 'businesses.profile.save', targetType: 'business', targetId: saved.id, metadata: { kind: data.kind, status: data.status, representativeId: data.representativeId } }
+  await (req ? auditAdminStrict({ ...audit, req }, tx) : auditSystemStrict(audit, tx))
+  return saved
 }

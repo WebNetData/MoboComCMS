@@ -76,6 +76,7 @@ export function parseItemPath(input: string): { type: ItemType; slug: string; id
   let slug = ''
   const match = (pattern: RegExp) => { const m = pattern.exec(path); if (m) { try { slug = decodeURIComponent(m[1]) } catch { slug = m[1] } } return !!m }
   if (match(/^\/businesses\/([^/]+)\/?$/)) return { type: 'business', slug }
+  if (match(/^\/prompts\/templates\/([^/]+)\/?$/)) return { type: 'prompt', slug }
   if (match(/^\/software\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'software', slug }
   if (match(/^\/games\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'game', slug }
   if (match(/^\/studios\/(\d+)\/?$/)) return { type: 'studio', slug, id: Number(slug) }

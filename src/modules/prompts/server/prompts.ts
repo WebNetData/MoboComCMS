@@ -1,4 +1,6 @@
 export { studioState, templateDirectory, templateBySlug, templateFacets, memberHistory, publicTemplateWhere, waitingTemplates } from './queries'
 export { saveTemplate, deleteTemplate, restoreTemplate, changeHistory } from './commands'
 export { generatePrompt } from './generation'
+export { writePromptTemplate } from './commands'
+export { memberPromptWorkspace, type MemberPromptWorkspace } from './member-workspace'
 export { promptUsage } from './vocabulary'

@@ -12,7 +12,7 @@ const db=wrap(prisma),mocks={
  react:{cache:fn=>fn},
  '@/platform/observability/logger':{logEvent:()=>{},requestIdFrom:()=>stamp},
  '@/modules/search/server/search':{reindexItem:async()=>{}},
- '@/platform/http/rate-limit':{clientIp:h=>h.get('x-forwarded-for')||'fixture',rateLimitStrict:async(key,limit)=>{const count=(limits.get(key)||0)+1;limits.set(key,count);return {ok:count<=limit}}},
+ '@/platform/http/rate-limit':{clientIp:h=>h.get('x-forwarded-for')||'fixture',rateLimitHit:()=>({ok:true}),rateLimitStrict:async(key,limit)=>{const count=(limits.get(key)||0)+1;limits.set(key,count);return {ok:count<=limit}}},
  '@/modules/ai/server/generation':{getAiConfig:async()=>({provider:'custom',apiKey:'',model:'owned-fixture',baseUrl:'http://fixture.invalid'}),generate:async()=>{providerCalls++;if(providerAfter)await providerAfter();if(providerFail)throw Error('secret-provider-error-must-not-leak');return {text:'A refined owned fixture prompt with clear factual boundaries.',model:'owned-fixture'}}},
 }
 const load=sourceLoader(mocks),service=load('src/modules/prompts/server/prompts.ts'),http=load('src/modules/prompts/server/http.ts'),registry=load('src/modules/content/server/registry.ts'),modules=load('src/extensions/server/modules.ts')
@@ -115,6 +115,28 @@ async function main(){
  const getOther=await http.GET_history(await request(other,'/api/prompts/history?id='+generated.item.id));assert.equal(getOther.status,404)
  for(const action of ['edit','pin','delete'])await refuses(()=>service.changeHistory(otherReq,{id:generated.item.id,version:generated.item.version,action,output:'Attempted overwrite',pinned:true}),404)
  const pinned=await service.changeHistory(memberReq,{id:generated.item.id,version:1,action:'pin',pinned:true});assert.equal(pinned.item.pinned,true)
+ // The same signed member, shared Favorite/List/Collection owners and private Prompt history.
+ const reviewsOwner=load('src/modules/reviews/server/reviews.ts'),listsOwner=load('src/modules/account/server/lists.ts'),collectionsOwner=load('src/modules/content/server/collections.ts')
+ const accountHttp=load('src/modules/account/server/http/routes.ts')
+ await reviewsOwner.setFavorite(member.id,{type:'prompt',id:template.id},{on:true,notify:false})
+ const personal=await collectionsOwner.createCollection(member.id,{title:stamp+' prompts',visibility:'PRIVATE'})
+ await listsOwner.setInList(member.id,{type:'prompt',id:template.id},{kind:'collection',id:personal.id},true)
+ assert.deepEqual((await listsOwner.listsHolding(member.id,{type:'prompt',id:template.id})).sort(),['collection:'+personal.id,'favorites'].sort())
+ assert.deepEqual(await listsOwner.listsHolding(other.id,{type:'prompt',id:template.id}),[])
+ await refuses(()=>collectionsOwner.getCollection(personal.id,other.id),404)
+ await refuses(()=>listsOwner.setInList(other.id,{type:'prompt',id:template.id},{kind:'collection',id:personal.id},true),404)
+ const workspace=await service.memberPromptWorkspace(member.id)
+ assert.equal(workspace.total,1);assert.equal(workspace.pinned,1);assert.equal(workspace.favorites.total,1)
+ assert.equal(workspace.recent[0].id,generated.item.id);assert.equal(workspace.favorites.items[0].url,'/prompts/templates/'+stamp)
+ assert(!('output' in workspace.recent[0])&&!('input' in workspace.recent[0]),'overview exposes bounded metadata, not private prompt bodies')
+ const otherWorkspace=await service.memberPromptWorkspace(other.id);assert.equal(otherWorkspace.total,0);assert.equal(otherWorkspace.favorites.total,0)
+ const accountResponse=await accountHttp.GET_overview(await request(member,'/api/my/overview?userId='+other.id))
+ assert.equal(accountResponse.status,200);assert.equal(accountResponse.headers.get('cache-control'),'private, no-store');assert.equal((await accountResponse.json()).prompts.total,1)
+ assert.equal((await accountHttp.GET_overview(await request(null,'/api/my/overview'))).status,401)
+ const editorialHttp=load('src/modules/content/server/http/editorial-collections.ts')
+ assert.equal((await editorialHttp.GET_collections(await request(manager,'/api/admin/collections'))).status,200)
+ assert.equal((await editorialHttp.GET_collections(await request(author,'/api/admin/collections'))).status,403,'author cannot curate site-wide collections')
+ await collectionsOwner.deleteCollection(member.id,personal.id)
  for(let n=0;n<7;n++){const row=await service.generatePrompt(memberReq,input({idea:'Owned history fixture '+stamp+' '+n}));runIds.push(row.item.id)}
  assert.equal(await prisma.promptGeneration.count({where:{userId:member.id,pinned:false}}),5);assert.equal(await prisma.promptGeneration.count({where:{userId:member.id,pinned:true}}),1)
  const last=await prisma.promptGeneration.findFirst({where:{userId:member.id,pinned:false},orderBy:{id:'desc'}})
@@ -137,6 +159,7 @@ async function main(){
  await prisma.setting.update({where:{key:stateKey},data:{value:'{"enabled":false,"settings":{}}'}})
  await refuses(()=>service.saveTemplate(managerReq,{...published,title:'disabled'}),404)
  const off=await modules.whenModuleOn('prompt-master',http.GET_history)(memberReq);assert.equal(off.status,404)
+ assert.equal(await service.memberPromptWorkspace(member.id),null,'module-off hides member integration without removing history')
  await settings({})
  const unpublished=await service.saveTemplate(managerReq,{...published,status:'DRAFT'});assert.equal(await service.templateBySlug(template.slug),null);assert.equal((await registry.itemCards([{type:'prompt',id:template.id}])).size,0)
  await service.deleteTemplate(managerReq,{id:unpublished.id,version:unpublished.version});assert(await prisma.promptGeneration.findUnique({where:{id:generated.item.id}}),'historical saved output survives template deletion')
@@ -146,5 +169,6 @@ main().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{
  for(const [key,row]of savedSettings)if(row)await prisma.setting.upsert({where:{key},create:row,update:{value:row.value}});else await prisma.setting.deleteMany({where:{key}})
  const noticeIds=(await prisma.userNotification.findMany({where:{userId:{in:users.map(u=>u.id)}},select:{id:true}})).map(n=>n.id);if(noticeIds.length)await prisma.backgroundJob.deleteMany({where:{OR:noticeIds.map(id=>({dedupeKey:{startsWith:'notification:'+id+':'}}))}})
  await prisma.moderationCase.deleteMany({where:{source:{in:['review-prompts','trash-prompts']},itemId:{in:templateIds}}})
+ await prisma.userCollection.deleteMany({where:{ownerId:{in:users.map(u=>u.id)}}});await prisma.itemStat.deleteMany({where:{itemType:'prompt',itemId:{in:templateIds}}})
  await prisma.auditLog.deleteMany({where:{actorUserId:{in:users.map(u=>u.id)}}});await prisma.promptGeneration.deleteMany({where:{userId:{in:users.map(u=>u.id)}}});await prisma.promptTemplate.deleteMany({where:{id:{in:templateIds}}});await prisma.user.deleteMany({where:{id:{in:users.map(u=>u.id)}}});await prisma.role.deleteMany({where:{id:{in:roles.map(r=>r.id)}}});await prisma.$disconnect()
 })

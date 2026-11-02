@@ -7,6 +7,7 @@ import {
   adapterFor, analyzeJob, ensureModule, ImportError, planJob, readSettings, settingsFor, setJobState, startJob, startRollback, type DryRun,
 } from '@/modules/imports/server/engine'
 import { listImporters } from '@/modules/imports/server/registry'
+import { authorizedImportActor } from '@/modules/imports/server/authority'
 
 /**
  * What the admin wizard and history pages call. Every function takes
@@ -29,6 +30,13 @@ export async function getJob(id: unknown): Promise<Job> {
   return job
 }
 
+/** New owner-scoped destinations keep file previews/reports behind the same current section authority as writes. */
+export async function requireJobAccess(id: unknown, actor: Actor) {
+  const job = await getJob(id), adapter = adapterFor(job.adapter)
+  if (adapter.permissions?.length && !await authorizedImportActor(actor.id, new Date(), adapter.id)) throw new ImportError('دسترسی مدیریت این مقصد لازم است', 403)
+  return job
+}
+
 const parseJson = <T>(text: string, fallback: T): T => { try { return JSON.parse(text) as T } catch { return fallback } }
 
 /** A job for the wizard and the history (the file itself never leaves the server). */
@@ -43,13 +51,15 @@ export function jobView(job: Job) {
 }
 
 /** Destinations with the metadata the wizard renders (fields, variant fields, options, identity rules). */
-export async function destinations() {
+export async function destinations(actor?: Actor) {
   const { isModuleEnabled } = await import('@/extensions/server/modules')
   const out = []
   for (const adapter of listImporters()) {
+    const modulesOn = (await Promise.all([adapter.module, ...(adapter.requiredModules || [])].filter((id): id is string => !!id).map(id => isModuleEnabled(id)))).every(Boolean)
+    const permitted = !adapter.permissions?.length || !!(actor && await authorizedImportActor(actor.id, new Date(), adapter.id))
     out.push({
       id: adapter.id, label: adapter.label, description: adapter.description, entity: adapter.entity,
-      enabled: adapter.module ? await isModuleEnabled(adapter.module) : true,
+      enabled: modulesOn && permitted, unavailableReason: !modulesOn ? 'بخش یا وابستگی آن در سایت خاموش است' : !permitted ? 'دسترسی مدیریت این مقصد لازم است' : '',
       fields: adapter.fields, variantFields: adapter.variantFields || [], variantLabel: adapter.variantLabel || '',
       supports: adapter.supports, identity: adapter.identity, options: [...adapter.options, ...MEDIA_OPTIONS],
     })
@@ -71,6 +81,7 @@ export async function choicesFor(adapterId: unknown, key: unknown) {
 export async function uploadChunk(actor: Actor, input: { adapter: unknown; name: unknown; token: unknown; offset: unknown; final: boolean }, body: ReadableStream<Uint8Array> | null) {
   const adapter = adapterFor(String(input.adapter || ''))
   await ensureModule(adapter)
+  if (adapter.permissions?.length && !await authorizedImportActor(actor.id, new Date(), adapter.id)) throw new ImportError('دسترسی مدیریت مقصد لازم است', 403)
   const received = await appendUploadChunk(input.token || '', input.offset, body)
   if (!input.final) return { token: received.token, received: received.size, done: false as const }
   const name = String(input.name || 'import').replace(/[\u0000-\u001f/\\]/g, '').slice(0, 180) || 'import'
@@ -199,6 +210,7 @@ export async function templateList(adapter?: unknown) {
 
 export async function templateSave(actor: Actor, input: { id?: unknown; name?: unknown; adapter?: unknown; settings?: unknown }) {
   const adapter = adapterFor(String(input.adapter || ''))
+  if (adapter.permissions?.length && !await authorizedImportActor(actor.id, new Date(), adapter.id)) throw new ImportError('دسترسی مدیریت این مقصد لازم است', 403)
   const name = String(input.name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 120)
   if (!name) throw new ImportError('نام الگو را وارد کنید')
   const settings = settingsFor(adapter, input.settings)

@@ -617,16 +617,17 @@ export async function GET(req: NextRequest) {
  * section categories). Shared with the bulk import engine; the caller recounts taxonomy.
  */
 /** `actor` is the staff member saving through the admin form; an import passes none and is recorded as such. */
-export async function saveMediaItem(type: string, body: Input, id: number | null, actor: { id: number; email: string } | null = null, options: { audit?: (tx:Tx,row:Record<string,any>)=>Promise<unknown>; beforeWrite?: (tx: Tx) => Promise<void>; afterWrite?: (tx: Tx, id: number) => Promise<void> } = {}): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
+export async function saveMediaItem(type: string, body: Input, id: number | null, actor: { id: number; email: string } | null = null, options: { client?: Tx; audit?: (tx:Tx,row:Record<string,any>)=>Promise<unknown>; beforeWrite?: (tx: Tx) => Promise<void>; afterWrite?: (tx: Tx, id: number) => Promise<void> } = {}): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
-  const existing = id ? await resource.delegate(db).findUnique({ where: { id } }) : null
-  const revisionBefore = await mediaRevisionState(type, existing)
+  const reader = options.client || db
+  const existing = id ? await resource.delegate(reader).findUnique({ where: { id } }) : null
+  const revisionBefore = await mediaRevisionState(type, existing, reader)
   if (type === 'music-artists' && existing?.mergedIntoId) throw new ArtistProfileError('این پروفایل ادغام شده است؛ پروفایل اصلی را ویرایش کنید', 409)
   if (id && !existing) throw new Error('not found')
   const data = await resource.parse(body, existing)
   const expected=type==='music-artists'&&id?artistExpectedUpdate(body):null
-  const row = await db.$transaction(async (tx) => {
+  const write = async (tx: Tx) => {
     await options.beforeWrite?.(tx)
     if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
     // Codes of the owner's managed lists: a game's modes and localisations, a software title's licence. A code the
@@ -677,8 +678,9 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     if (options.audit) await options.audit(tx,saved)
     await recordRevision({ entityType: type, entityId: saved.id, before: revisionBefore, after: (await mediaRevisionState(type, saved, tx))!, actor, source: actor ? 'edit' : 'import', client: tx, strict: true })
     return saved
-  }, { timeout: 30_000, ...(options.beforeWrite ? { isolationLevel: 'Serializable' as const } : {}) })
-  if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
+  }
+  const row = options.client ? await write(options.client) : await db.$transaction(write, { timeout: 30_000, ...(options.beforeWrite ? { isolationLevel: 'Serializable' as const } : {}) })
+  if (!options.client && MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
   return { row, existing }
 }
 

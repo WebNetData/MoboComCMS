@@ -25,6 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const storeOn = useModuleEnabled('store')
   const gamesOn = useModuleEnabled('games')
   const musicOn = useModuleEnabled('music')
+  const promptsOn = useModuleEnabled('prompt-master')
   const reviewsOn = useModuleEnabled('reviews')
   const journalOn = useModuleEnabled('journal')
   const adsOn = useModuleEnabled('ads')
@@ -98,7 +99,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: L('لایسنس‌های من', 'My licenses'), icon: 'key' }] : []),
     ] },
     { id: 'mine', title: L('محتوای من', 'My things'), icon: 'bookmark', items: [
-      ...(gamesOn || musicOn || reviewsOn ? [{ href: '/dashboard/library', label: L('کتابخانهٔ من', 'My library'), icon: 'book' }] : []),
+      ...(gamesOn || musicOn || reviewsOn || promptsOn ? [{ href: '/dashboard/library', label: L('کتابخانهٔ من', 'My library'), icon: 'book' }] : []),
+      ...(promptsOn ? [{ href: '/dashboard/prompts', label: L('پرامپت مستر من', 'My Prompt Master'), icon: 'sparkles' }] : []),
       ...(gamesOn ? [{ href: '/dashboard/games', label: L('کتابخانهٔ بازی', 'Game library'), icon: 'gamepad' }] : []),
       { href: '/dashboard/collections', label: L('مجموعه‌های من', 'My collections'), icon: 'folder' },
       ...(reviewsOn || storeOn || journalOn ? [{ href: '/dashboard/reviews', label: L('نظرهای من', 'My reviews'), icon: 'star' }] : []),

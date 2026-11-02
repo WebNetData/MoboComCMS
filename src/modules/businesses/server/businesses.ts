@@ -1,5 +1,5 @@
 export { businessDirectory, businessPage, businessAdminData, waitingForModeration } from './queries'
-export { saveBusinessProfile } from './commands'
+export { saveBusinessProfile, writeBusinessProfile } from './commands'
 export { businessTrustPolicy } from './trust-policy'
 export { myBusinessTrust } from './trust-queries'
 export { myBusinessRequests, businessRequestPolicy } from './requests'

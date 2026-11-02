@@ -11,6 +11,7 @@ export type Coerced = { values: Record<string, unknown>; messages: Message[] }
 const MAX: Partial<Record<FieldDef['type'], number>> = { text: 300, longtext: 20_000, html: 200_000 }
 
 export function coerceField(field: FieldDef, raw: unknown, options: { categorySeparator?: string } = {}): unknown {
+  if (field.maxLength && typeof raw === 'string' && raw.length > field.maxLength) throw new ValueError(`حداکثر ${field.maxLength} نویسه مجاز است`)
   switch (field.type) {
     case 'text': return toText(raw, MAX.text)
     case 'longtext': return toText(raw, MAX.longtext)

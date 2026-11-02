@@ -8,5 +8,7 @@ export async function GET_overview(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('وارد شوید', 401)
   const data = await accountOverview(user.id)
-  return data ? ok(data) : err('حساب پیدا نشد', 404)
+  const response = data ? ok(data) : err('حساب پیدا نشد', 404)
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }

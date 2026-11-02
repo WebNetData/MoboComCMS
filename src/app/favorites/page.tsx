@@ -7,6 +7,7 @@ import { listFavorites } from '@/modules/reviews/server/reviews'
 import { ITEM_LABEL, isItemType, itemKey, type ItemType } from '@/modules/content/domain/items'
 import MediaShell from '@/components/media/MediaShell'
 import ItemActions from '@/components/engage/ItemActions'
+import MemberLibrarySync from '@/components/engage/MemberLibrarySync'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'علاقه‌مندی‌های من', robots: { index: false } }
@@ -23,9 +24,11 @@ export default async function FavoritesPage({ searchParams }: { searchParams: Pr
 
   return (
     <MediaShell section="favorites">
+      <MemberLibrarySync />
       <div className="container fv-page">
         <header className="sr-head">
           <h1>علاقه‌مندی‌های من</h1>
+          <nav className="sr-chips" aria-label="کتابخانه و فهرست‌های من"><Link href="/dashboard/library">کتابخانهٔ من</Link><Link href="/dashboard/collections">کالکشن‌های من</Link>{type === 'prompt' && <Link href="/dashboard/prompts">پیشخوان پرامپت من</Link>}</nav>
           <p className="muted">{items.length ? `${items.length.toLocaleString('fa-IR')} مورد ذخیره شده. با 🔔 از نسخه، قسمت یا تخفیف جدید باخبر شوید؛ اعلان‌ها در صندوق پیام و پیامک شما می‌آیند.` : 'هنوز چیزی ذخیره نکرده‌اید.'}</p>
         </header>
         {(types.length > 1 || isItemType(type)) && (
@@ -51,8 +54,9 @@ export default async function FavoritesPage({ searchParams }: { searchParams: Pr
         ) : (
           <div className="sr-empty">
             <span aria-hidden="true">♡</span>
-            <h2>{type === 'track' ? 'هنوز آهنگی به علاقه‌مندی‌ها اضافه نکرده‌اید' : 'فهرست علاقه‌مندی‌ها خالی است'}</h2>
-            <p className="muted">{type === 'track' ? 'در صفحهٔ هر آهنگ روی «♡ علاقه‌مندی» بزنید تا اینجا نمایش داده شود.' : 'در صفحهٔ هر نرم‌افزار، بازی، فیلم، آلبوم یا محصول روی «♡ علاقه‌مندی» بزنید تا اینجا ذخیره شود.'}</p>
+            <h2>{type === 'prompt' ? 'هنوز الگوی پرامپتی ذخیره نکرده‌اید' : type === 'track' ? 'هنوز آهنگی به علاقه‌مندی‌ها اضافه نکرده‌اید' : 'فهرست علاقه‌مندی‌ها خالی است'}</h2>
+            <p className="muted">{type === 'prompt' ? 'در صفحهٔ هر الگوی عمومی، روی «علاقه‌مندی» بزنید یا آن را در کالکشن دلخواه نگه دارید.' : type === 'track' ? 'در صفحهٔ هر آهنگ روی «♡ علاقه‌مندی» بزنید تا اینجا نمایش داده شود.' : 'در صفحهٔ هر نرم‌افزار، بازی، فیلم، آلبوم، محصول یا پرامپت روی «♡ علاقه‌مندی» بزنید تا اینجا ذخیره شود.'}</p>
+            {type === 'prompt' && <Link href="/prompts/library?view=all" className="btn btn-primary">کشف پرامپت‌ها</Link>}
             <div className="sr-chips"><Link href="/software">نرم‌افزار</Link><Link href="/games">بازی</Link><Link href="/cinema">فیلم و سریال</Link><Link href="/music">موزیک</Link><Link href="/products">فروشگاه</Link></div>
           </div>
         )}

@@ -1,5 +1,9 @@
 # Prompt Master — 2026-11-01
 
+## Member workspace slice — 2026-11-02
+
+Audit: published templates already work in canonical ItemFavorite/UserCollectionItem; PromptGeneration is private. Account home/library and member navigation were disconnected, and Admin home had no scoped summary. Continue these owners, without new identity/storage/schema. Add `/dashboard/prompts`, shared bounded member metadata and links in home/library/favorites/collections, retain `/prompts/history`. Admin counts use current `prompts.manage`/own-author scope; editorial collections admit the existing section manager permission. Never turn a private generation into a public item. Invalidation signals contain no member content; every refresh reads the authenticated owner again. Acceptance: one member session across all surfaces, favorite + collection round-trip, history create/pin/delete refresh, other-user and guest denials, module-off preservation, both themes/mobile/keyboard/axe, connected PostgreSQL and affected React diagnostics. Existing URLs/data/settings and public design remain.
+
 ## Outcome and existing owners
 
 Owner requests a polished new site section inspired by generateprompt.net. `/prompts` is a wide, RTL, light/dark prompt workspace for text, image, video and code instructions, a searchable/paginated public template library and private member history. Create prompts, not images/videos. Reference is product inspiration, not copied content or a promise of all reference-site tools.

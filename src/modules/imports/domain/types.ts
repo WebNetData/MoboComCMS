@@ -44,6 +44,8 @@ export interface FieldDef {
   enum?: { value: string; label: string }[]
   group?: 'main' | 'content' | 'media' | 'relations' | 'commerce' | 'seo' | 'meta'
   hint?: string
+  /** Opt-in strict length bound; older destination coercion remains compatible. */
+  maxLength?: number
   /** Not read from one column but built from other settings (specifications, variants); still has a create/update policy. */
   implicit?: boolean
 }

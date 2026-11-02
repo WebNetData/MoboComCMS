@@ -26,10 +26,10 @@
 .ideaField small { font-weight: 400; font-size: .72rem; color: var(--pm-muted); }
 .ideaField textarea { min-height:170px; resize:vertical; font-size:.94rem; line-height:2.1; padding:17px 18px; border-radius:14px; background:var(--bg-soft); transition:border-color .18s,box-shadow .18s; }
 .field { display: grid; gap: 9px; font-size: .8rem; font-weight: 600; min-width: 0; }
-.page input:not([type=checkbox]):not([type=radio]), .page textarea, .page select, .admin input:not([type=checkbox]), .admin textarea, .admin select { color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 11px; font-family: inherit; max-width: 100%; width: 100%; }
+.page input:not([type=checkbox]):not([type=radio]), .page textarea, .page select, .admin input:not([type=checkbox]), .admin textarea, .admin select, .historyScope :is(input,textarea,select) { color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 11px; font-family: inherit; max-width: 100%; width: 100%; }
 .field input, .field select, .field textarea, .admin input, .admin select, .admin textarea { min-height: 46px; padding: 11px 13px; font: inherit; }
 .field textarea { resize: vertical; line-height: 1.9; }
-.page textarea::placeholder, .page input::placeholder, .admin textarea::placeholder { color: var(--pm-muted, var(--muted)); opacity: 1; }
+.page textarea::placeholder, .page input::placeholder, .admin textarea::placeholder, .historyScope input::placeholder { color: var(--pm-muted, var(--muted)); opacity: 1; }
 .page :is(input, select, textarea, button, a, summary):focus-visible, .admin :is(input, select, textarea, button, a, summary):focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
 .examples { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: -10px; font-size: .73rem; color: var(--pm-muted); }
 .examples button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; padding: 5px 8px; cursor: pointer; }
@@ -119,6 +119,9 @@
 .pattern h2 { font-size: 1.15rem; margin: 0 0 18px; }
 .pattern pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: .94rem; line-height: 2.3; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 13px; padding: 24px; }
 .historyGrid { display: grid; gap: 16px; }
+.historyScope { --pm-muted:color-mix(in srgb,var(--muted) 76%,var(--text)); --pm-tint:color-mix(in srgb,var(--primary) 8%,var(--card)); --pm-ink:color-mix(in srgb,var(--primary) 40%,var(--text)); color:var(--text); min-width:0; }
+.historyScope .primary { color:var(--on-primary); }
+.historyScope :is(input,select,textarea,button,a,pre):focus-visible { outline:2px solid var(--primary); outline-offset:4px; }
 .historyCard { padding:25px; border:1px solid var(--border); border-inline-start:3px solid color-mix(in srgb,var(--primary) 38%,var(--border)); border-radius:18px; background:var(--card); min-width:0; box-shadow:var(--sds-effects-shadows-drop-shadow-100); }
 .historyHead { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
 .historyHead h2 { font-size: 1rem; margin: 0 0 8px; line-height: 1.9; overflow-wrap: anywhere; }

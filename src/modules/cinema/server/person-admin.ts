@@ -48,11 +48,11 @@ export async function adminPerson(id: number) {
   return {...person,credits:person.credits.slice(0,100),moreCredits:person.credits.length>100,publicCredits}
 }
 /** HTTP guard owns authority; atomic audit callback and version claim share this transaction. */
-export async function savePerson(input: Record<string,unknown>,audit: (tx:Prisma.TransactionClient,id:number,created:boolean)=>Promise<unknown>) {
+export async function savePerson(input: Record<string,unknown>,audit: (tx:Prisma.TransactionClient,id:number,created:boolean)=>Promise<unknown>, client?: Prisma.TransactionClient) {
   const data=personProfileInput(input),id=input.id
   if(id!==undefined && (!Number.isSafeInteger(id)||Number(id)<=0))throw new PersonProfileError('شناسه معتبر نیست')
   if(id!==undefined && (!Number.isSafeInteger(input.profileVersion)||Number(input.profileVersion)<0))throw new PersonProfileError('نسخهٔ فرم معتبر نیست؛ پروفایل را دوباره باز کنید')
-  try {return await db.$transaction(async tx=>{
+  const write = async (tx: Prisma.TransactionClient) => {
     let person
     if(id===undefined)person=await tx.cinemaPerson.create({data:{...data,normalizedName:normalizePersonName(data.name)},select:profile})
     else {
@@ -62,5 +62,6 @@ export async function savePerson(input: Record<string,unknown>,audit: (tx:Prisma
     }
     await audit(tx,person.id,id===undefined)
     return person
-  })}catch(error){if((error as {code?:string}).code==='P2002')throw new PersonProfileError('این شخص از قبل ثبت شده است؛ پروفایل موجود را جست‌وجو کنید',409);throw error}
+  }
+  try {return await (client ? write(client) : db.$transaction(write))}catch(error){if((error as {code?:string}).code==='P2002')throw new PersonProfileError('این شخص از قبل ثبت شده است؛ پروفایل موجود را جست‌وجو کنید',409);throw error}
 }

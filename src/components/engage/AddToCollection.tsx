@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter, usePathname } from '@/platform/routing/navigation'
 import type { MemberList } from '@/modules/account/domain/lists'
-import { MEMBER_LISTS_CHANGED, memberListsChanged } from './member-list-events'
+import { MEMBER_LISTS_CHANGED, MEMBER_LISTS_STORAGE, memberListsChanged } from './member-list-events'
 import styles from './MemberLists.module.css'
 
 
@@ -32,8 +32,12 @@ export default function AddToCollection({ item, loggedIn }: { item: string; logg
   }, [open, item, version])
   useEffect(() => {
     const refresh = (event: Event) => { if ((event as CustomEvent).detail?.item === item && open && !command.current) setVersion(value => value + 1) }
+    const stale = () => { if (open && !command.current) setVersion(value => value + 1) }
+    const storage = (event: StorageEvent) => { if (event.key === MEMBER_LISTS_STORAGE) stale() }
     window.addEventListener(MEMBER_LISTS_CHANGED, refresh)
-    return () => window.removeEventListener(MEMBER_LISTS_CHANGED, refresh)
+    window.addEventListener('storage', storage)
+    window.addEventListener('focus', stale)
+    return () => { window.removeEventListener(MEMBER_LISTS_CHANGED, refresh); window.removeEventListener('storage', storage); window.removeEventListener('focus', stale) }
   }, [item, open])
   async function toggle(key: string) {
     if (command.current) return

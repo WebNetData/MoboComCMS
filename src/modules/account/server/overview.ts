@@ -7,6 +7,7 @@ import { ensureUserProfile } from '@/modules/identity/server/profile'
 import { normalizeLinks } from '@/modules/identity/domain/profile'
 import { itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { isItemType, itemKey, type ItemRef } from '@/modules/content/domain/items'
+import { memberPromptWorkspace } from '@/modules/prompts/server/prompts'
 
 /** What a service order is for (a form, VIP, content), named as its invoice names it. */
 const orderName = (meta: string | null) => { let parsed: Record<string, unknown> = {}; try { parsed = JSON.parse(meta || '{}') } catch { parsed = {} } return parsed.kind ? invoiceSubject({ kind: 'BILLING', meta: parsed, siteName: '', amountText: '' }).title : '' }
@@ -119,7 +120,7 @@ export async function accountOverview(userId: number, now = new Date()) {
     money: [...money].map(([currency, row]) => ({ currency, ...row })),
     orders: { inProgress, recent: orders.map((order) => ({ id: order.id, title: order.lines[0]?.name || order.product?.name || order.plan?.name || orderName(order.meta) || `سفارش #${order.id}`, more: Math.max(0, order.lines.length - 1), image: order.lines[0]?.image || order.product?.image || '', status: order.status, fulfilment: order.productDelivery?.status || '', createdAt: order.createdAt.toISOString(), total: legacyNumber(order.totalMinor, normalizeCurrency(order.currency)), currency: normalizeCurrency(order.currency) })) },
     inbox: { unread: unreadNotifications, messages: unreadMessages, tickets: openTickets, recent: notifications.map((n) => ({ id: n.id, title: n.titleFa, body: n.bodyFa, href: n.href, read: !!n.readAt, createdAt: n.createdAt.toISOString(), kind: n.kind })) },
-    community, games,
+    community, games, prompts: on('prompt-master') ? await memberPromptWorkspace(userId) : null,
     favorites: { count: favoriteCount, recent: favoriteRows.flatMap((row) => { const card = isItemType(row.itemType) ? cards.get(itemKey({ type: row.itemType, id: row.itemId })) : undefined; return card ? [{ title: card.title, url: card.url, image: card.image, type: card.type }] : [] }) },
     activity: { days, counts: days.map((d) => counts.get(d)!) },
   }

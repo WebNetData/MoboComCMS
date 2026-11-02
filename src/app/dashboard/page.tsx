@@ -5,6 +5,9 @@ import Link from '@/components/AppLink'
 import VpnHome from './VpnHome'
 import { BASE_CURRENCY, formatCurrency } from '@/shared/money/client'
 import Icon from '@/components/site/Icon'
+import MemberPromptShelf from '@/components/prompts/MemberPromptShelf'
+import type { MemberPromptWorkspace } from '@/modules/prompts/server/prompts'
+import { useMemberLibraryRevision } from '@/components/engage/MemberLibrarySync'
 
 // Account home: profile banner with completeness, quick actions, 12-week
 // activity, orders & wallet, inbox, community, games and favorites — each
@@ -21,6 +24,7 @@ type Overview = {
   community: { followers7: number; likes7: number; comments7: number; feed: { id: number; text: string; createdAt: string; likes: number; comments: number; author: { name: string; username: string; avatar: string; avatarColor: string } }[] } | null
   games: { counts: Record<string, number>; upcoming: { title: string; slug: string; cover: string; releaseDate: string; days: number }[] } | null
   favorites: { count: number; recent: { title: string; url: string; image: string; type: string }[] }
+  prompts: MemberPromptWorkspace | null
   activity: { days: string[]; counts: number[] }
 }
 
@@ -57,11 +61,14 @@ function Avatar({ src, name, color, size = 40 }: { src: string; name: string; co
 }
 
 export default function DashboardHome() {
+  const revision = useMemberLibraryRevision()
   const [data, setData] = useState<Overview | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
-    fetch('/api/my/overview', { cache: 'no-store' }).then(async (r) => { const body = await r.json().catch(() => null); if (r.ok) setData(body); else setError(body?.error || 'بارگذاری انجام نشد') }).catch(() => setError('ارتباط برقرار نشد'))
-  }, [])
+    const controller = new AbortController()
+    fetch('/api/my/overview', { cache: 'no-store', signal: controller.signal }).then(async (r) => { const body = await r.json().catch(() => null); if (controller.signal.aborted) return; if (r.ok) { setData(body); setError('') } else setError(body?.error || 'بارگذاری انجام نشد') }).catch(() => { if (!controller.signal.aborted) setError('ارتباط برقرار نشد') })
+    return () => controller.abort()
+  }, [revision])
   if (error) return <div className="card" role="alert"><p className="error-text">{error}</p></div>
   if (!data) return <div className="ud" aria-busy="true"><div className="ud-skeleton is-hero" /><div className="ud-cols"><div className="ud-skeleton" /><div className="ud-skeleton" /></div></div>
   const { profile: p, modules: m } = data
@@ -71,6 +78,7 @@ export default function DashboardHome() {
     m.store && { href: '/products', label: 'فروشگاه', icon: 'bag' },
     m.forum && { href: '/forum', label: 'تالار', icon: 'chat' },
     m.games && { href: '/dashboard/games', label: 'کتابخانهٔ بازی', icon: 'gamepad' },
+    data.prompts && { href: '/dashboard/prompts', label: 'پرامپت مستر', icon: 'sparkles' },
     { href: '/dashboard/wallet', label: 'شارژ کیف پول', icon: 'wallet' },
     { href: '/dashboard/tickets', label: 'پشتیبانی', icon: 'lifebuoy' },
   ].filter(Boolean) as { href: string; label: string; icon: string }[]
@@ -102,6 +110,7 @@ export default function DashboardHome() {
     </section>
 
     <nav className="ud-quick" aria-label="دسترسی سریع">{quick.map((q) => <Link key={q.href} href={q.href}><span><Icon name={q.icon} size={18} /></span>{q.label}</Link>)}</nav>
+    {data.prompts && <MemberPromptShelf data={data.prompts} />}
 
     <div className="ud-kpis">
       <Link href="/dashboard/wallet" className="ud-kpi is-wallet"><small>موجودی کیف پول</small><b className="num">{money(main.balance, main.currency)}</b>

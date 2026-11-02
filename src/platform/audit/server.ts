@@ -66,6 +66,10 @@ export async function auditAdmin(input: AdminAuditInput) {
  * Audit entry for work a background job does on an administrator's behalf
  * (an import that finishes, a rollback): same log, no request.
  */
+export async function auditSystemStrict(input: Omit<AdminAuditInput, 'req'>, client: Pick<Prisma.TransactionClient, 'auditLog'> = db) {
+  return client.auditLog.create({ data: { actorUserId: input.actor.id, actorEmail: input.actor.email, action: input.action, targetType: input.targetType, targetId: input.targetId == null ? '' : String(input.targetId), requestId: 'background', ip: '', metadata: JSON.stringify(sanitize(input.metadata || {})).slice(0, 12_000) } })
+}
+
 export async function auditSystem(input: {
   actor: { id: number; email: string }
   action: string
@@ -74,18 +78,7 @@ export async function auditSystem(input: {
   metadata?: Record<string, unknown>
 }) {
   try {
-    await db.auditLog.create({
-      data: {
-        actorUserId: input.actor.id,
-        actorEmail: input.actor.email,
-        action: input.action,
-        targetType: input.targetType,
-        targetId: input.targetId == null ? '' : String(input.targetId),
-        requestId: 'background',
-        ip: '',
-        metadata: JSON.stringify(sanitize(input.metadata || {})).slice(0, 12_000),
-      },
-    })
+    await auditSystemStrict(input)
   } catch (error) {
     logEvent('error', 'audit.write_failed', { requestId: 'background', action: input.action, targetType: input.targetType, error })
   }
