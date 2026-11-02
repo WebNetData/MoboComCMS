@@ -6,6 +6,7 @@ import { MembershipError, isLifetime, parseReminderDays, reminderDue } from '@/m
 import { grantMembership } from '@/modules/membership/server/membership'
 import { membershipQuote, planWithTier } from '@/modules/membership/server/quote'
 import { tierStanding } from '@/modules/membership/server/tiers'
+import { memberExtras, openApplication } from '@/modules/membership/server/extras'
 
 const DAY = 86_400_000
 const ACCOUNT = '/vip/account'
@@ -37,6 +38,7 @@ export async function startFreeTrial(userId: number, planId: number) {
   if (!plan || !plan.active) throw new MembershipError('پلن پیدا نشد', 404, 'MEMBERSHIP_PLAN_NOT_FOUND')
   const quote = await membershipQuote(plan, userId, { trial: true })
   if (quote.amountMinor > 0n) throw new MembershipError('این دورهٔ آزمایشی رایگان نیست', 409, 'TRIAL_IS_PAID')
+  if (plan.requiresApproval) { await openApplication({ userId, planId: plan.id, orderId: null }); return { ok: true as const, id: 0, endsAt: new Date(), created: false } }
   const key = `trial:${userId}:${plan.tierId ? `t${plan.tierId}` : `p${plan.id}`}`
   const granted = await grantMembership({ userId, days: plan.trialDays, source: 'PURCHASE', kind: 'TRIAL', planId: plan.id, dedupeKey: key, period: { startsAt: new Date(), endsAt: new Date(Date.now() + plan.trialDays * DAY) } })
   if (!granted.created) throw new MembershipError('دورهٔ آزمایشی این سطح را قبلاً استفاده کرده‌اید', 409, 'TRIAL_USED')
@@ -75,7 +77,7 @@ export async function runMembershipLifecycle(now = new Date()) {
   const days = parseReminderDays(settings['reminder-days'] ?? '7,3,1')
   const winback = Math.max(0, Math.trunc(Number(settings['winback-days'] ?? 14)) || 0)
   const window = new Date(now.getTime() - (winback + 2) * DAY)
-  const rows = await db.userMembership.groupBy({ by: ['userId'], where: { revokedAt: null, endsAt: { gt: window } }, _max: { endsAt: true } })
+  const rows = await db.userMembership.groupBy({ by: ['userId'], where: { revokedAt: null, endsAt: { gt: window }, source: { not: 'TEAM' } }, _max: { endsAt: true } })
   const accounts = new Map((await db.membershipAccount.findMany({ where: { userId: { in: rows.map((row) => row.userId) } } })).map((row) => [row.userId, row]))
   for (const row of rows) {
     const endsAt = row._max.endsAt
@@ -120,7 +122,7 @@ export async function memberOverview(userId: number, now = new Date()) {
   const planName = new Map(names.map((row) => [row.id, row.name]))
   const invoiceOf = new Map(invoices.map((row) => [row.orderId, row.number]))
   return {
-    standing, endsAt: balance?.endsAt ?? null, lifetime: isLifetime(balance?.endsAt), plans,
+    ...(await memberExtras(userId)), standing, endsAt: balance?.endsAt ?? null, lifetime: isLifetime(balance?.endsAt), plans,
     account: { autoRenew: account?.autoRenew ?? false, renewPlanId: account?.renewPlanId ?? null, cancelled: !!account?.cancelledAt, renewError: account?.renewError ?? '' },
     history: periods.map((period) => ({ id: period.id, plan: (period.planId && planName.get(period.planId)) || 'اشتراک ویژه', kind: period.kind, source: period.source, startsAt: period.startsAt, endsAt: period.endsAt, revoked: !!period.revokedAt, invoice: period.orderId ? invoiceOf.get(period.orderId) ?? null : null })),
   }

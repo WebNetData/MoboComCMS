@@ -16,6 +16,7 @@ import { asStoreError, openAmountPrice, openAnswers, sealAnswers } from '@/modul
 import { userOpensAudience } from '@/modules/account/server/item-audience'
 import { groupDeal } from '@/modules/account/server/user-groups'
 import { tierStanding } from '@/modules/membership/server/tiers'
+import { ruleRefusal } from '@/modules/membership/server/rules'
 
 // A cart belongs to a signed-in customer (userId) or to a browser (token
 // cookie). Guests only ever reach carts without an owner; on sign-in the
@@ -289,6 +290,7 @@ export async function cartCount(owner: CartOwner): Promise<number> {
 async function purchasable(productId: number, variantId: number | null, userId: number | null, client: Pick<Prisma.TransactionClient, 'product'> = db) {
   const product = await client.product.findUnique({ where: { id: productId }, include: { variants: { where: { active: true }, select: { id: true, stock: true } } } })
   if (!product || !isPublishedProduct(product) || !await userOpensAudience(product.audienceGroups, 'product', userId)) throw new StoreError('کالا پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
+  if (await ruleRefusal(userId, [{ ownerType: 'product', ownerId: productId }])) throw new StoreError('این محصول برای سطح اشتراک شما باز نیست', 403, 'MEMBERS_ONLY')
   if (product.variants.length && !variantId) throw new StoreError('نوع کالا را انتخاب کنید', 400, 'VARIANT_REQUIRED')
   const variant = variantId ? product.variants.find((v) => v.id === variantId) : null
   if (variantId && !variant) throw new StoreError('نوع انتخاب‌شده موجود نیست', 404, 'VARIANT_NOT_FOUND')

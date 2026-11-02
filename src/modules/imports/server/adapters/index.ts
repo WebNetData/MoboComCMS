@@ -6,6 +6,7 @@ import { musicImporter } from '@/modules/imports/server/adapters/music'
 import { promptsImporter } from './profiles/prompts'
 import { artistsImporter } from './profiles/artists'
 import { businessesImporter } from './profiles/businesses'
+import { vipMembersImporter } from './vip-members'
 
 /** Built-in destinations. A module or plugin adds its own with registerImporter(). */
-for (const adapter of [storeImporter, magazineImporter, moviesImporter, seriesImporter, gamesImporter, softwareImporter, musicImporter, promptsImporter, artistsImporter, businessesImporter]) registerImporter(adapter)
+for (const adapter of [vipMembersImporter, storeImporter, magazineImporter, moviesImporter, seriesImporter, gamesImporter, softwareImporter, musicImporter, promptsImporter, artistsImporter, businessesImporter]) registerImporter(adapter)

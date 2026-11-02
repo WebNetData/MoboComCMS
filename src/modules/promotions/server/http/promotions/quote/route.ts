@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (!vipPromotion || !vip?.active) return err('code or plan not found', 404)
     if (vipPromotion.membersOnly && !await isMember(user.id)) return err('PROMOTION_MEMBERS_ONLY', 403)
     try {
-      const charged = await membershipQuote(vip, user.id, { trial: body?.trial === true, offered: typeof body?.offer === 'string' ? body.offer : null })
+      const charged = await membershipQuote(vip, user.id, { trial: body?.trial === true, offered: typeof body?.offer === 'string' ? body.offer : null, gift: body?.gift === true ? {} : null })
       const found = promotionDiscount(vipPromotion, { planId: null, membershipPlanId, amountMinor: charged.amountMinor, currency: charged.currency })
       if (!found.ok) return err(found.code, 409)
       if (await db.promotionRedemption.count({ where: { promotionId: vipPromotion.id, userId: user.id, status: { in: ['RESERVED', 'USED'] } } }) >= vipPromotion.perUserLimit) return err('PROMOTION_USER_LIMIT', 409)

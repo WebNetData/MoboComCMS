@@ -41,7 +41,7 @@ import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { sized, srcSet } from '@/shared/media/image'
 import { opensAudience } from '@/modules/account/server/item-audience'
-import { ruleRefusal } from '@/modules/membership/server/rules'
+import { hasRule, ruleRefusal } from '@/modules/membership/server/rules'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -58,7 +58,9 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
   const isFa = locale === 'fa'
   const title = isFa ? post.title : post.titleEn || post.title
   const body = isFa ? post.content : post.contentEn || post.content
-  const excerpt = richTextToPlain(isFa ? post.excerpt : post.excerptEn || post.excerpt, 160) || richTextToPlain(body, 160)
+  // A description is read by everyone and by search engines: for gated text it comes from the part anyone may read.
+  const gated = post.access === 'MEMBERS' || await isPaid([{ ownerType: 'post', ownerId: post.id }]) || await hasRule([{ ownerType: 'post', ownerId: post.id }])
+  const excerpt = richTextToPlain(isFa ? post.excerpt : post.excerptEn || post.excerpt, 160) || richTextToPlain(gated ? teaserHtml(body) : body, 160)
   return pageMeta({
     title,
     description: excerpt,
@@ -99,7 +101,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   // builder layout is skipped so premium blocks never render for non-members.
   // Paid articles (paywall module) work the same way: a teaser and the buy box until bought.
   const paid = !isPreview(preview) && await isPaid([{ ownerType: 'post', ownerId: post.id }])
-  const ruled = !isPreview(preview) && await db.membershipRule.count({ where: { ownerType: 'post', ownerId: post.id } }) > 0
+  const ruled = !isPreview(preview) && await hasRule([{ ownerType: 'post', ownerId: post.id }])
   const viewer = (post.access === 'MEMBERS' || paid || ruled) && !isPreview(preview) ? await getViewer() : null
   const refusal = ruled ? await ruleRefusal(viewer?.userId, [{ ownerType: 'post', ownerId: post.id }]) : null
   const refused = !!refusal
@@ -151,7 +153,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   const articleLd = articleJsonLd({
     base,
     title,
-    description: richTextToPlain(isFa ? post.excerpt : post.excerptEn || post.excerpt, 200) || richTextToPlain(content, 200),
+    description: richTextToPlain(isFa ? post.excerpt : post.excerptEn || post.excerpt, 200) || richTextToPlain(locked || post.access === 'MEMBERS' || paid || ruled ? teaserHtml(content) : content, 200),
     url: `${base}/blog/${post.slug}`,
     image: post.cover || undefined,
     published: post.publishedAt?.toISOString(),

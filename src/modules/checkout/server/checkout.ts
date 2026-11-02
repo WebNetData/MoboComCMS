@@ -32,6 +32,7 @@ import { groupDeal } from '@/modules/account/server/user-groups'
 import { MembershipError } from '@/modules/membership/domain/plans'
 import { membershipQuote, planWithTier } from '@/modules/membership/server/quote'
 import { tierStanding } from '@/modules/membership/server/tiers'
+import { ruleRefusal } from '@/modules/membership/server/rules'
 
 export interface CheckoutCommand {
   userId: number
@@ -47,6 +48,8 @@ export interface CheckoutCommand {
   membershipPlanId?: number | null
   membershipTrial?: boolean
   membershipOffer?: string | null
+  /** Bought for someone else: the order becomes a code. */
+  membershipGift?: { email?: unknown; message?: unknown } | null
   /** A form answer that waits for its payment (the sender's own, unpaid). */
   formSubmissionId?: number | null
   /** Paid content ("post:12", "software:3"): lifetime access to one article or download. */
@@ -176,7 +179,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     const vip = await planWithTier(membershipPlanId)
     if (!vip || !vip.active) return fail(404, 'MEMBERSHIP_PLAN_NOT_FOUND', 'پلن اشتراک ویژه یافت نشد')
     try {
-      const quote = await membershipQuote(vip, command.userId, { trial: command.membershipTrial, offered: command.membershipOffer })
+      const quote = await membershipQuote(vip, command.userId, { trial: command.membershipTrial, offered: command.membershipOffer, gift: command.membershipGift })
       if (quote.amountMinor <= 0n) return fail(400, 'MEMBERSHIP_FREE_TRIAL', 'این دوره رایگان است و پرداختی ندارد')
       currency = quote.currency
       amountMinor = quote.amountMinor
@@ -211,6 +214,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       const quantity = Math.floor(Number(want.quantity ?? 1))
       const product = await db.product.findUnique({ where: { id: Number(want.productId) || 0 }, include: { variants: { where: { active: true } } } })
       if (!product || !isPublishedProduct(product) || !await userOpensAudience(product.audienceGroups, 'product', command.userId) || !await userOpensSection('store', command.userId)) return fail(404, 'PRODUCT_NOT_FOUND', 'محصول یافت نشد')
+      if (await ruleRefusal(command.userId, [{ ownerType: 'product', ownerId: product.id }])) return fail(403, 'MEMBERS_ONLY', 'این محصول برای سطح اشتراک شما باز نیست', { upgradeUrl: '/vip' })
       const named = (message: string) => (many && product ? `${product.name}: ${message}` : message)
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) return fail(400, 'BAD_QUANTITY', named('تعداد معتبر نیست'))
       if (product.access === 'MEMBERS' && !opens) return fail(403, 'MEMBERS_ONLY', named('این محصول مخصوص اعضای ویژه است'), { upgradeUrl: '/vip' })

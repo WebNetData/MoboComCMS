@@ -38,6 +38,8 @@ export default function VipPlansPage() {
       { key: 'payWhatYouWant', label: L('مبلغ دلخواه خریدار', 'Pay what you want'), type: 'checkbox' },
       { key: 'minPrice', label: L('حداقل مبلغ دلخواه', 'Minimum amount'), type: 'number' },
       { key: 'maxMembers', label: L('ظرفیت (صفر یعنی بدون محدودیت)', 'Places (0 for no limit)'), type: 'number' },
+      { key: 'seats', label: L('صندلی گروهی (صفر یعنی پلن شخصی)', 'Group seats (0 for personal)'), type: 'number' },
+      { key: 'requiresApproval', label: L('فعال‌سازی پس از تأیید مدیر', 'Needs the team\'s approval'), type: 'checkbox' },
     ]),
     ...inSection(L('معرفی و مزایا', 'Description & perks'), [
       { key: 'description', label: L('توضیح کوتاه', 'Short description'), type: 'textarea', wide: true },

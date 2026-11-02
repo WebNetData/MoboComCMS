@@ -1740,3 +1740,17 @@ test('VIP plans: what they cost, what period they give, and what an upgrade cred
   assert.deepEqual(health.recurring, [{ currency: 'IRT', amountMinor: 3000n }], 'value per 30 days')
   assert.equal(health.churnPercent, 33); assert.equal(health.conversionPercent, 100)
 })
+
+test('a restricted block leaves nothing of itself outside a reader it opens to', () => {
+  const { documentHtml, documentFacts } = load('src/modules/editor/domain/render.ts')
+  const { createRegistry } = load('src/modules/editor/domain/core-blocks.ts')
+  const { moduleBlocks } = load('src/modules/editor/domain/module-blocks.ts')
+  const registry = createRegistry()
+  const text = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'SECRET' }] }] }
+  const document = { version: 1, blocks: [{ id: 'lock000000', type: 'content.restricted', version: 1, props: { audience: 'vip', minRank: 0, message: '<b>فقط اعضا</b>' }, children: [{ id: 'inner00000', type: 'content.richText', version: 2, props: { content: text, dir: 'auto' } }] }] }
+  const html = documentHtml(document, registry)
+  assert.equal(html.includes('SECRET'), false)
+  assert.equal(html.includes('<b>'), false, 'the message is plain text')
+  assert.equal(documentFacts(document, registry).text.includes('SECRET'), false)
+  assert.deepEqual(moduleBlocks(document, registry).map((block) => block.type), ['content.restricted'], 'what it holds is not resolved ahead of the decision')
+})

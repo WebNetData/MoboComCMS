@@ -7,7 +7,7 @@ import { tierStanding } from '@/modules/membership/server/tiers'
 type Plan = MembershipPlan & { tier: MembershipTier | null }
 
 /** Everything a purchase of this plan means for this member, decided here and frozen on the order. */
-export async function membershipQuote(plan: Plan, userId: number, input: { trial?: boolean; offered?: string | null } = {}, now = new Date()) {
+export async function membershipQuote(plan: Plan, userId: number, input: { trial?: boolean; offered?: string | null; gift?: { email?: unknown; message?: unknown } | null } = {}, now = new Date()) {
   const currency = normalizeCurrency(plan.currency)
   if (plan.billing === 'FIXED' && (!plan.fixedEndsAt || plan.fixedEndsAt <= now)) throw new MembershipError('فروش این دوره تمام شده است', 409, 'PLAN_ENDED')
   const [periods, standing, kin] = await Promise.all([
@@ -17,10 +17,15 @@ export async function membershipQuote(plan: Plan, userId: number, input: { trial
   ])
   const running = periods.filter((period) => !period.revokedAt && period.endsAt > now)
   const rank = plan.tier?.rank ?? 1
-  const upgrade = !!standing && rank > standing.rank
-  if (running.some((period) => isLifetime(period.endsAt)) && !upgrade) throw new MembershipError('اشتراک شما مادام‌العمر است و به تمدید نیاز ندارد', 409, 'ALREADY_LIFETIME')
+  // A gift is for someone else: the buyer's own standing changes nothing about it.
+  const gift = input.gift ? { giftEmail: String(input.gift.email ?? '').trim().toLowerCase().slice(0, 190), giftMessage: String(input.gift.message ?? '').replace(/[\u0000-\u0008\u000b-\u001f]/g, ' ').trim().slice(0, 300) } : null
+  if (gift && plan.seats > 0) throw new MembershipError('پلن گروهی را نمی‌توان هدیه داد', 400, 'GIFT_NOT_FOR_GROUPS')
+  if (gift?.giftEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gift.giftEmail)) throw new MembershipError('ایمیل گیرنده معتبر نیست', 400, 'GIFT_EMAIL')
+  if (gift && input.trial) throw new MembershipError('دورهٔ آزمایشی را نمی‌توان هدیه داد', 400, 'GIFT_NO_TRIAL')
+  const upgrade = !gift && !!standing && rank > standing.rank
+  if (!gift && running.some((period) => isLifetime(period.endsAt)) && !upgrade) throw new MembershipError('اشتراک شما مادام‌العمر است و به تمدید نیاز ندارد', 409, 'ALREADY_LIFETIME')
 
-  if (plan.maxMembers > 0 && !running.some((period) => period.planId === plan.id)) {
+  if (plan.maxMembers > 0 && (gift || !running.some((period) => period.planId === plan.id))) {
     const taken = await db.userMembership.findMany({ where: { planId: plan.id, revokedAt: null, endsAt: { gt: now } }, distinct: ['userId'], select: { userId: true } })
     if (taken.length >= plan.maxMembers) throw new MembershipError('ظرفیت این پلن تکمیل شده است', 409, 'PLAN_FULL')
   }
@@ -35,7 +40,7 @@ export async function membershipQuote(plan: Plan, userId: number, input: { trial
 
   const offered = String(input.offered ?? '').trim()
   const offeredMinor = !trial && plan.payWhatYouWant && offered ? toMinor(offered, currency) : null
-  const firstPurchase = !periods.some((period) => period.source === 'PURCHASE' && !period.revokedAt && period.kind === 'PERIOD')
+  const firstPurchase = !gift && !periods.some((period) => period.source === 'PURCHASE' && !period.revokedAt && period.kind === 'PERIOD')
   const charge = planCharge(plan, { trial, firstPurchase, offeredMinor })
   const credit = upgrade ? prorationCredit(periods, now, currency) : { creditMinor: 0n, ids: [] as number[] }
   if (credit.creditMinor > 0n && credit.creditMinor >= charge.amountMinor) throw new MembershipError('اعتبار اشتراک فعلی شما از قیمت این پلن بیشتر است؛ پلن بلندتری انتخاب کنید', 409, 'CREDIT_COVERS_PRICE')
@@ -43,6 +48,7 @@ export async function membershipQuote(plan: Plan, userId: number, input: { trial
     currency, trial, upgrade, valueMinor: charge.valueMinor, feeMinor: charge.feeMinor, creditMinor: credit.creditMinor, amountMinor: charge.amountMinor - credit.creditMinor,
     meta: {
       kind: 'membership', membershipPlanId: plan.id, planName: plan.name, days: plan.days, billing: plan.billing, fixedEndsAt: plan.fixedEndsAt?.toISOString() ?? null,
+      ...(gift ? { gift: true, ...gift } : {}), requiresApproval: plan.requiresApproval, seats: plan.seats,
       trial, trialDays: plan.trialDays, feeMinor: charge.feeMinor.toString(), creditMinor: credit.creditMinor.toString(), upgradeFrom: credit.ids,
     },
   }

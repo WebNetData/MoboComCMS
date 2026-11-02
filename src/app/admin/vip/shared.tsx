@@ -10,6 +10,8 @@ const TABS: SectionTab[] = [
   { href: '/admin/vip/members', label: 'اعضا' },
   { href: '/admin/vip/tiers', label: 'سطح‌ها' },
   { href: '/admin/vip/plans', label: 'پلن‌ها' },
+  { href: '/admin/vip/rules', label: 'قوانین دسته‌ها' },
+  { href: '/admin/vip/approvals', label: 'تأیید، هدیه و گروه' },
   { href: '/admin/vip/perks', label: 'مزایا در هر بخش' },
 ]
 

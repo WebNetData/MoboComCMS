@@ -8,7 +8,9 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { AUDIENCE_ITEMS, isAudienceItem } from '@/modules/account/domain/item-audience'
 import { MembershipError, normalizeTier } from '@/modules/membership/domain/plans'
 import { cancelMembership, memberOverview, resumeMembership, setAutoRenew, startFreeTrial } from '@/modules/membership/server/lifecycle'
-import { readRule, saveRule } from '@/modules/membership/server/rules'
+import { CATEGORY_SOURCES, categoryRules, readRule, saveRule } from '@/modules/membership/server/rules'
+import { adminExtras, decideApplication, joinTeam, redeemGift, removeTeamMember, rotateTeamCode } from '@/modules/membership/server/extras'
+import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 
 const failure = (error: unknown) => {
   if (error instanceof MembershipError) return err(error.message, error.status, { code: error.code })
@@ -28,6 +30,14 @@ export async function POST_me(req: NextRequest) {
       case 'cancel': await cancelMembership(user.id, body.reason); break
       case 'resume': await resumeMembership(user.id); break
       case 'trial': await startFreeTrial(user.id, Number(body.planId) || 0); break
+      case 'gift-redeem':
+        if (!(await rateLimitStrict(`vip:gift:${clientIp(req.headers)}:${user.id}`, 10, 10 * 60_000)).ok) return err('تلاش زیاد بود؛ کمی بعد دوباره امتحان کنید', 429)
+        await redeemGift(body.code, user.id); break
+      case 'team-join':
+        if (!(await rateLimitStrict(`vip:team:${clientIp(req.headers)}:${user.id}`, 10, 10 * 60_000)).ok) return err('تلاش زیاد بود؛ کمی بعد دوباره امتحان کنید', 429)
+        await joinTeam(body.code, user.id); break
+      case 'team-remove': await removeTeamMember(user.id, Number(body.teamId) || 0, Number(body.userId) || 0); break
+      case 'team-rotate': await rotateTeamCode(user.id, Number(body.teamId) || 0); break
       default: return err('عملیات نامعتبر است')
     }
     return ok(await memberOverview(user.id))
@@ -66,9 +76,14 @@ export async function POST_tiers(req: NextRequest) {
 
 const ruleGuard = (req: NextRequest, type: keyof typeof AUDIENCE_ITEMS) => adminGuard(req, 'membership', ['membership.manage', AUDIENCE_ITEMS[type].permission])
 
-/** GET /api/admin/membership/rules?type=&id= */
+/** GET /api/admin/membership/rules?type=&id= — one item's rule; ?list=1 the rules on whole categories. */
 export async function GET_rule(req: NextRequest) {
   const url = req.nextUrl.searchParams, type = url.get('type'), id = Number(url.get('id')) || 0
+  if (url.get('list')) {
+    const g = await adminGuard(req, 'membership', TIERS)
+    if ('response' in g) return g.response
+    return ok(await categoryRules())
+  }
   if (!isAudienceItem(type) || type === 'product' || !id) return err('not found', 404)
   const g = await ruleGuard(req, type)
   if ('response' in g) return g.response
@@ -78,6 +93,15 @@ export async function GET_rule(req: NextRequest) {
 /** POST /api/admin/membership/rules { type, id, minRank, dripDays } */
 export async function POST_rule(req: NextRequest) {
   const body = await req.json().catch(() => null)
+  if (typeof body?.ownerType === 'string') {
+    const g = await adminGuard(req, 'membership', TIERS)
+    if ('response' in g) return g.response
+    const source = CATEGORY_SOURCES.find((row) => row.id === body.ownerType), category = Number(body.ownerId) || 0
+    if (!source || !category) return err('دسته معتبر نیست')
+    const saved = await saveRule(source.id, category, body)
+    await auditAdmin({ req, actor: g.admin, action: 'membership.category-rule', targetType: source.id, targetId: category, metadata: saved })
+    return ok(saved)
+  }
   const type = body?.type, id = Number(body?.id) || 0
   if (!isAudienceItem(type) || type === 'product' || !id) return err('not found', 404)
   const g = await ruleGuard(req, type)
@@ -85,4 +109,24 @@ export async function POST_rule(req: NextRequest) {
   const saved = await saveRule(type, id, body)
   await auditAdmin({ req, actor: g.admin, action: 'membership.rule', targetType: type, targetId: id, metadata: saved })
   return ok(saved)
+}
+
+/** GET /api/admin/membership/extras — applications waiting, gifts and groups. */
+export async function GET_extras(req: NextRequest) {
+  const g = await adminGuard(req, 'membership', TIERS)
+  if ('response' in g) return g.response
+  return ok(await adminExtras())
+}
+
+/** POST /api/admin/membership/extras { id, decision: APPROVED | REJECTED, note } */
+export async function POST_extras(req: NextRequest) {
+  const g = await adminGuard(req, 'membership', TIERS)
+  if ('response' in g) return g.response
+  const body = await req.json().catch(() => null)
+  if (body?.decision !== 'APPROVED' && body?.decision !== 'REJECTED') return err('تصمیم معتبر نیست')
+  try {
+    await decideApplication(Number(body.id) || 0, body.decision, g.admin, body.note)
+    await auditAdmin({ req, actor: g.admin, action: 'membership.application', targetType: 'MembershipApplication', targetId: Number(body.id) || 0, metadata: { decision: body.decision } })
+    return ok({ ok: true })
+  } catch (error) { return failure(error) }
 }

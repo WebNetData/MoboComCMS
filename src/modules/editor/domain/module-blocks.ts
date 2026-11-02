@@ -45,9 +45,10 @@ export function moduleBlocks(document: MoboComDocument, registry: BlockRegistry)
     for (const block of blocks) {
       const definition = registry.get(block.type)
       if (!definition || block.version !== definition.version) continue
-      if (definition.owner || definition.dataSource?.kind === 'pattern') found.push(block)
+      if (definition.owner || definition.dataSource?.kind === 'pattern' || definition.dataSource?.kind === 'restricted') found.push(block)
       if (found.length > MODULE_BLOCK_LIMIT) return
-      if (definition.children) visit(block.children || [])
+      // What a restricted block holds is resolved only for a reader it opens to.
+      if (definition.children && definition.dataSource?.kind !== 'restricted') visit(block.children || [])
       if (found.length > MODULE_BLOCK_LIMIT) return
     }
   }

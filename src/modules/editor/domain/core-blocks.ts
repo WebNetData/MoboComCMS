@@ -61,6 +61,10 @@ export const CORE_BLOCKS: BlockDefinition[] = [
   // pattern's current ones, read when the page is rendered. Inserted from the pattern library, never typed in.
   { type: 'content.pattern', version: 1, category: 'layout', kind: 'dynamic', icon: 'stack', label: { fa: 'الگوی همگام', en: 'Synced pattern' }, dataSource: { kind: 'pattern' },
     fields: { pattern: { kind: 'int', min: 1, max: 2147483647, default: 1 }, title: { kind: 'string', max: 100, role: 'text' } } },
+  // Part of a document for chosen readers. Who reads it is decided per request; everywhere else (saved HTML, search, feeds) it is the notice alone.
+  { type: 'content.restricted', version: 1, category: 'layout', kind: 'static', icon: 'callout', label: { fa: 'محتوای محدود', en: 'Restricted content' }, dataSource: { kind: 'restricted' },
+    fields: { audience: { kind: 'enum', values: ['vip', 'signed-in'], default: 'vip' }, minRank: { kind: 'int', min: 0, max: 99, default: 0 }, message: { kind: 'string', max: 200, role: 'text' } },
+    children: { allowed: 'any' } },
   // A form of the form builder, placed in the text (owner, 2026-10-28); the page mounts the live form into it.
   { type: 'content.form', version: 1, category: 'content', kind: 'static', icon: 'form', label: { fa: 'فرم', en: 'Form' },
     fields: { form: { kind: 'string', max: 80 } } },

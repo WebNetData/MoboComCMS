@@ -118,6 +118,26 @@
           "plans.manage"
         ]
       },
+        {
+        "href": "/admin/vip/rules",
+        "label": "قوانین دسته‌ها",
+        "labelEn": "Category rules",
+        "icon": "grid",
+        "permissions": [
+          "membership.manage",
+          "users.manage"
+        ]
+      },
+      {
+        "href": "/admin/vip/approvals",
+        "label": "تأیید، هدیه و گروه",
+        "labelEn": "Approvals, gifts, groups",
+        "icon": "grid",
+        "permissions": [
+          "membership.manage",
+          "users.manage"
+        ]
+      },
       {
         "href": "/admin/vip/perks",
         "label": "مزایا در هر بخش",
