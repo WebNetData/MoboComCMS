@@ -1,16 +1,17 @@
-// Real PostgreSQL: who sees a popup and how often, on two connections like two server processes. Only the forum's group
-// resolver is a double; rows, counts and the concurrency claim are real. POPUP_FAULT=claim drops the claim on the row.
+// Real PostgreSQL: who sees a popup and how often, on two connections like two server processes. Every kind of site group
+// is read from its own real rows. Only the module switches are a double. POPUP_FAULT=claim drops the claim on the row;
+// POPUP_FAULT=expired reads a VIP period that has ended as if it were live.
 const fs = require('node:fs'), assert = require('node:assert/strict')
 const ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient(), other = new PrismaClient(), prefix = `site-popups-${Date.now()}`, ids = { users: [], popups: [] }
-const fault = process.env.POPUP_FAULT || '', groups = new Map()
+const prisma = new PrismaClient(), other = new PrismaClient(), prefix = `site-popups-${Date.now()}`, ids = { users: [], popups: [], roles: [], plans: [], forum: [], products: [] }
+const fault = process.env.POPUP_FAULT || ''
 
 function instance(db) {
   const cache = new Map()
   const mocks = {
     '@/platform/database/prisma': { db },
     '@/platform/observability/logger': { logEvent: () => {} },
-    '@/modules/forum/server/community': { viewerFor: async (id) => ({ groupIds: groups.get(id ?? 0) || [] }) },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
     '@/extensions/generated/catalog': { extensionPermissionIds: ['popups.manage'] },
   }
   const load = (file) => {
@@ -18,6 +19,7 @@ function instance(db) {
     const mod = { exports: {} }; cache.set(file, mod)
     let text = fs.readFileSync(file, 'utf8')
     if (fault === 'claim' && file.endsWith('server/popups.ts')) text = text.replace('where: { id: seen.id, views: seen.views }', 'where: { id: seen.id }')
+    if (fault === 'expired' && file.endsWith('server/site-groups.ts')) text = text.replace(', endsAt: { gt: now } })', ' })')
     new Function('require', 'module', 'exports', ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText)((name) => {
       if (Object.hasOwn(mocks, name)) return mocks[name]
       if (name.startsWith('@/')) { const base = `src/${name.slice(2)}`; return load(fs.existsSync(`${base}.ts`) ? `${base}.ts` : `${base}/index.ts`) }
@@ -25,7 +27,7 @@ function instance(db) {
     }, mod, mod.exports)
     return mod.exports
   }
-  return load('src/modules/popups/server/popups.ts')
+  return Object.assign({}, load('src/modules/popups/server/popups.ts'), { __catalog: load('src/modules/account/server/site-groups.ts').siteGroupCatalog })
 }
 
 const member = async (key) => { const row = await prisma.user.create({ data: { email: `${prefix}-${key}@example.invalid`, passwordHash: 'test-only' } }); ids.users.push(row.id); return { id: row.id, email: row.email, role: 'CUSTOMER', roleId: null, permissions: null, twoFactor: false } }
@@ -74,26 +76,55 @@ async function main() {
   for (let round = 0; round < 8; round++) await Promise.all([one.recordSeen(raced.id, reza, new Date(later.getTime() + round * 25 * HOUR)), two.recordSeen(raced.id, reza, new Date(later.getTime() + round * 25 * HOUR))])
   assert.equal((await prisma.sitePopupSeen.findFirst({ where: { popupId: raced.id, userId: reza.id } })).views, 9, 'one count for each day')
 
-  // Each audience.
-  const plain = await member('plain'), grouped = await member('grouped'), staffRow = await member('staff')
-  groups.set(grouped.id, [7, 8]); groups.set(0, [1])
+  // Each audience, with every kind of site group built from its own rows.
+  const plain = await member('plain'), staffRow = await member('staff')
+  const person = async (key, build) => { const user = await member(key); await build(user); return user }
+  const role = await prisma.role.create({ data: { name: `${prefix}-role`, nameFa: 'پشتیبان', permissions: 'dashboard.view' } }); ids.roles.push(role.id)
+  const plan = await prisma.membershipPlan.create({ data: { slug: prefix, name: 'طلایی', days: 30 } }), plan2 = await prisma.membershipPlan.create({ data: { slug: `${prefix}-2`, name: 'نقره‌ای', days: 30 } }); ids.plans.push(plan.id, plan2.id)
+  const forum = await prisma.forumGroup.create({ data: { slug: prefix, name: 'گروه تالار' } }); ids.forum.push(forum.id)
+  const hour = (n) => new Date(Date.now() + n * HOUR)
+  const product = await prisma.product.create({ data: { slug: prefix, name: prefix, price: 1, priceMinor: 1n, currency: 'IRT', stock: 1, approval: 'APPROVED' } }); ids.products.push(product.id)
+  const order = (user, status, key) => prisma.order.create({ data: { userId: user.id, productId: product.id, status, totalAmount: 1, totalMinor: 1n, currency: 'IRT', idempotencyKey: `${prefix}-${key}` } })
+  const roled = await person('roled', (u) => prisma.user.update({ where: { id: u.id }, data: { roleId: role.id } }))
+  const vip = await person('vip', (u) => prisma.userMembership.create({ data: { userId: u.id, planId: plan.id, startsAt: hour(-1), endsAt: hour(100) } }))
+  const lapsed = await person('lapsed', (u) => prisma.userMembership.create({ data: { userId: u.id, planId: plan.id, startsAt: hour(-100), endsAt: hour(-1) } }))
+  const revoked = await person('revoked', (u) => prisma.userMembership.create({ data: { userId: u.id, planId: plan.id, startsAt: hour(-1), endsAt: hour(100), revokedAt: hour(-1) } }))
+  const buyer = await person('buyer', (u) => order(u, 'PAID', 'paid'))
+  const unpaid = await person('unpaid', (u) => order(u, 'PENDING', 'pending'))
+  const seller = await person('seller', (u) => prisma.seller.create({ data: { userId: u.id, slug: `${prefix}-s`, shopName: 'فروشگاه', status: 'ACTIVE' } }))
+  const pendingSeller = await person('pendingseller', (u) => prisma.seller.create({ data: { userId: u.id, slug: `${prefix}-p`, shopName: 'منتظر', status: 'PENDING' } }))
+  const tagged = await person('tagged', (u) => prisma.crmTag.create({ data: { userId: u.id, tag: 'مشتری ویژه' } }))
+  const forumer = await person('forumer', (u) => prisma.forumGroupMember.create({ data: { groupId: forum.id, userId: u.id } }))
+  const waiting = await person('waiting', (u) => prisma.forumGroupMember.create({ data: { groupId: forum.id, userId: u.id, status: 'PENDING' } }))
   const magazine = manager(staffRow.id, ['dashboard.view', 'cms.posts']), store = manager(staffRow.id, ['dashboard.view', 'cms.products', 'orders.manage']), partial = manager(staffRow.id, ['dashboard.view', 'cms.products']), full = manager(staffRow.id, null)
   const table = [
     [{ audience: 'ALL' }, { guest: true, plain: true, magazine: true }],
-    [{ audience: 'GUESTS' }, { guest: true, plain: false, grouped: false, magazine: false, full: false }],
+    [{ audience: 'GUESTS' }, { guest: true, plain: false, vip: false, magazine: false, full: false }],
     [{ audience: 'MEMBERS' }, { guest: false, plain: true, magazine: true }],
-    [{ audience: 'GROUPS', groupIds: [8] }, { guest: false, plain: false, grouped: true }],
-    [{ audience: 'GROUPS', groupIds: [1] }, { guest: true, plain: false }],
-    [{ audience: 'ALL_MANAGERS' }, { guest: false, plain: false, grouped: false, magazine: true, store: true, full: true }],
+    [{ audience: 'GROUPS', groupIds: [`role:${role.id}`] }, { guest: false, plain: false, roled: true, vip: false }],
+    [{ audience: 'GROUPS', groupIds: ['vip'] }, { guest: false, plain: false, vip: true, lapsed: false, revoked: false }],
+    [{ audience: 'GROUPS', groupIds: [`vip-plan:${plan.id}`] }, { vip: true, lapsed: false, plain: false }],
+    [{ audience: 'GROUPS', groupIds: [`vip-plan:${plan2.id}`] }, { vip: false }],
+    [{ audience: 'GROUPS', groupIds: ['buyers'] }, { buyer: true, unpaid: false, plain: false, guest: false }],
+    [{ audience: 'GROUPS', groupIds: ['sellers'] }, { seller: true, pendingSeller: false, plain: false }],
+    [{ audience: 'GROUPS', groupIds: ['crm:مشتری ویژه'] }, { tagged: true, plain: false }],
+    [{ audience: 'GROUPS', groupIds: [`forum:${forum.id}`] }, { forumer: true, waiting: false, plain: false }],
+    [{ audience: 'GROUPS', groupIds: ['buyers', 'crm:مشتری ویژه'] }, { buyer: true, tagged: true, vip: false }],
+    [{ audience: 'ALL_MANAGERS' }, { guest: false, plain: false, vip: false, magazine: true, store: true, full: true }],
     [{ audience: 'SECTION_MANAGERS', sections: ['magazine'] }, { guest: false, plain: false, magazine: true, store: false, full: true }],
     [{ audience: 'SECTION_MANAGERS', sections: ['store'] }, { magazine: false, store: true, partial: false, full: true }],
   ]
-  const people = { guest: null, plain, grouped, magazine, store, partial, full }
+  const people = { guest: null, plain, roled, vip, lapsed, revoked, buyer, unpaid, seller, pendingSeller, tagged, forumer, waiting, magazine, store, partial, full }
   for (const [fields, wanted] of table) {
     const row = await make(fields)
     for (const [name, expected] of Object.entries(wanted)) assert.equal(await sees(people[name], row.id), expected, `${JSON.stringify(fields)} / ${name}`)
     await one.setPopupStatus(row.id, 'PAUSED')
   }
+  const catalog = await one.__catalog()
+  const count = (key) => catalog.find((group) => group.key === key)?.count
+  assert.equal(count(`role:${role.id}`), 1); assert.equal(count(`vip-plan:${plan.id}`), 1, 'lapsed and revoked periods are not counted')
+  assert.equal(count(`forum:${forum.id}`), 0, 'its own stored count'); assert.equal(count('crm:مشتری ویژه'), 1)
+  for (const key of ['vip', 'buyers', 'subscribers', 'sellers', 'resellers']) assert.ok(catalog.some((group) => group.key === key), key)
   // A viewer outside the audience cannot add to a count by asking.
   const managersOnly = await make({ audience: 'ALL_MANAGERS' })
   assert.equal(await show(plain, managersOnly.id, start), false)
@@ -120,12 +151,25 @@ async function main() {
   assert.equal((await prisma.sitePopup.findUnique({ where: { id: open.id } })).guestViews, 1)
   await assert.rejects(() => one.savePopup({ title: 'x y', actionLabel: 'رفتن', actionUrl: 'javascript:alert(1)' }, null), /نشانی/)
   await assert.rejects(() => one.savePopup({ title: 'x y', audience: 'GROUPS' }, null), /گروه/)
-  console.log('Site popups: 24h with a total, 48h, once, concurrent showings, six audiences, schedule, pause, restart and guests passed')
+  // A popup saved with the forum's group ids keeps those groups, and repeating the step changes nothing.
+  const older = await prisma.sitePopup.create({ data: { title: `${prefix} older`, audience: 'GROUPS', groupIds: '[3,4]' } }); ids.popups.push(older.id)
+  const step = fs.readFileSync('prisma/migrations/20270206120000_popup_site_groups/migration.sql', 'utf8').split('\n').filter((line) => !line.startsWith('--')).join('\n')
+  for (let run = 0; run < 2; run++) await prisma.$executeRawUnsafe(step)
+  assert.deepEqual(JSON.parse((await prisma.sitePopup.findUnique({ where: { id: older.id } })).groupIds), ['forum:3', 'forum:4'])
+  console.log('Site popups: 24h with a total, 48h, once, concurrent showings, six audiences, every kind of site group, schedule, pause, restart, guests and stored groups passed')
 }
 
 main().catch((error) => { console.error(error.stack); process.exitCode = 1 }).finally(async () => {
   try {
     await prisma.sitePopup.deleteMany({ where: { id: { in: ids.popups } } })
+    await prisma.order.deleteMany({ where: { userId: { in: ids.users } } })
+    await prisma.seller.deleteMany({ where: { userId: { in: ids.users } } })
+    await prisma.crmTag.deleteMany({ where: { userId: { in: ids.users } } })
+    await prisma.userMembership.deleteMany({ where: { userId: { in: ids.users } } })
+    await prisma.forumGroup.deleteMany({ where: { id: { in: ids.forum } } })
     await prisma.user.deleteMany({ where: { id: { in: ids.users } } })
+    await prisma.role.deleteMany({ where: { id: { in: ids.roles } } })
+    await prisma.membershipPlan.deleteMany({ where: { id: { in: ids.plans } } })
+    await prisma.product.deleteMany({ where: { id: { in: ids.products } } })
   } finally { await prisma.$disconnect(); await other.$disconnect() }
 })

@@ -1645,9 +1645,17 @@ test('a banner stored on the site is resized, and the load test asks for pages a
   assert.match(read('scripts/load-test.mjs'), /accept: 'text\/html/, 'the guest cache answers only requests for HTML')
 })
 
+const normalizePopupKeys = ({ normalizePopup }) => normalizePopup({ title: 'یک پاپ', audience: 'GROUPS', groupIds: ['vip', 'vip', 3, 'nope', 'crm:ویژه'] }, []).groupIds
+
 test('announcement popups: how often, who, and where', () => {
-  const source = ts.transpileModule(fs.readFileSync(path.join(process.cwd(), 'src/modules/popups/domain/popups.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
-  const mod = { exports: {} }; new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+  const compile = (file) => ts.transpileModule(fs.readFileSync(path.join(process.cwd(), file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const groups = { exports: {} }; new Function('require', 'module', 'exports', compile('src/modules/account/domain/site-groups.ts'))(require, groups, groups.exports)
+  const mod = { exports: {} }; new Function('require', 'module', 'exports', compile('src/modules/popups/domain/popups.ts'))((name) => name === '@/modules/account/domain/site-groups' ? groups.exports : require(name), mod, mod.exports)
+  const { isSiteGroupKey, idsOf } = groups.exports
+  for (const key of ['vip', 'buyers', 'subscribers', 'sellers', 'resellers', 'role:4', 'vip-plan:2', 'forum:9', 'crm:مشتری ویژه']) assert.equal(isSiteGroupKey(key), true, key)
+  for (const key of ['', 'x', 'role:', 'role:abc', 'crm:', 'forum:1;drop', 7, null]) assert.equal(isSiteGroupKey(key), false, String(key))
+  assert.deepEqual(idsOf(['role:4', 'vip', 'role:9', 'vip-plan:2'], 'role'), [4, 9])
+  assert.deepEqual(normalizePopupKeys(mod.exports), ['vip', 'crm:ویژه'], 'unknown group keys are dropped')
   const { isDue, matchesAudience, fitsPage, normalizePopup, safeLink, frequencyLabel } = mod.exports
   const hour = 3600000, now = 1000 * hour
   assert.equal(isDue({ repeatHours: 24, maxViews: 10 }, null, now), true)
@@ -1656,11 +1664,11 @@ test('announcement popups: how often, who, and where', () => {
   assert.equal(isDue({ repeatHours: 24, maxViews: 10 }, { views: 10, lastAt: 0 }, now), false, 'the total is a ceiling')
   assert.equal(isDue({ repeatHours: 0, maxViews: 0 }, { views: 1, lastAt: 0 }, now), false, 'once')
   assert.equal(isDue({ repeatHours: 48, maxViews: 0 }, { views: 500, lastAt: now - 48 * hour }, now), true, 'no total')
-  const guest = { signedIn: false, staff: false, sections: [], groupIds: [] }, member = { ...guest, signedIn: true, groupIds: [3] }, manager = { signedIn: true, staff: true, sections: ['music'], groupIds: [] }
+  const guest = { signedIn: false, staff: false, sections: [], groupIds: [] }, member = { ...guest, signedIn: true, groupIds: ['vip'] }, manager = { signedIn: true, staff: true, sections: ['music'], groupIds: [] }
   const rule = (audience, extra = {}) => ({ audience, groupIds: [], sections: [], ...extra })
   assert.equal(matchesAudience(rule('GUESTS'), guest), true); assert.equal(matchesAudience(rule('GUESTS'), member), false)
   assert.equal(matchesAudience(rule('MEMBERS'), guest), false)
-  assert.equal(matchesAudience(rule('GROUPS', { groupIds: [3] }), member), true); assert.equal(matchesAudience(rule('GROUPS', { groupIds: [4] }), member), false)
+  assert.equal(matchesAudience(rule('GROUPS', { groupIds: ['vip', 'buyers'] }), member), true); assert.equal(matchesAudience(rule('GROUPS', { groupIds: ['buyers'] }), member), false)
   assert.equal(matchesAudience(rule('SECTION_MANAGERS', { sections: ['music'] }), manager), true)
   assert.equal(matchesAudience(rule('SECTION_MANAGERS', { sections: ['store'] }), manager), false)
   assert.equal(matchesAudience(rule('SECTION_MANAGERS', { sections: ['music'] }), { ...member, sections: ['music'] }), false, 'a section needs a manager')

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import { PopupBody } from '@/components/site/popups/PopupDialog'
 import { POPUP_AUDIENCES, POPUP_DESIGNS, POPUP_EFFECTS, POPUP_KINDS, POPUP_POSITIONS, POPUP_REPEATS, POPUP_STATUS_LABEL, frequencyLabel } from '@/modules/popups/domain/popups'
+import { SITE_GROUP_FAMILIES, type SiteGroup } from '@/modules/account/domain/site-groups'
 import { ImageField } from '../ads/shared'
 import { Notice, fa, send, useJson } from '../store/shared'
 import './popups.css'
@@ -11,10 +12,10 @@ import './popups.css'
 type Draft = {
   id?: number; title: string; body: string; kind: string; design: string; effect: string; position: string; image: string
   actionLabel: string; actionUrl: string; closeLabel: string; mustConfirm: boolean; status: string; startsAt: string; endsAt: string
-  audience: string; groupIds: number[]; sections: string[]; repeatHours: number; maxViews: number; delaySeconds: number; pages: string; priority: number
+  audience: string; groupIds: string[]; sections: string[]; repeatHours: number; maxViews: number; delaySeconds: number; pages: string; priority: number
 }
 type Row = Draft & { id: number; startsAt: string | null; endsAt: string | null; guestViews: number; memberViews: number; people: number; clicks: number }
-type Data = { popups: Row[]; groups: { id: number; name: string; memberCount: number; automatic: string | null }[]; sections: { id: string; label: string }[] }
+type Data = { popups: Row[]; groups: SiteGroup[]; sections: { id: string; label: string }[] }
 
 const EMPTY: Draft = { title: '', body: '', kind: 'NOTICE', design: 'seal', effect: 'rise', position: 'center', image: '', actionLabel: '', actionUrl: '', closeLabel: '', mustConfirm: false, status: 'DRAFT', startsAt: '', endsAt: '', audience: 'ALL', groupIds: [], sections: [], repeatHours: 24, maxViews: 0, delaySeconds: 2, pages: '', priority: 0 }
 const TONE: Record<string, string> = { ACTIVE: 'is-ok', PAUSED: 'is-info', DRAFT: '' }
@@ -35,7 +36,7 @@ export default function PopupsPage() {
   const [replay, setReplay] = useState(0)
 
   const audienceName = useMemo(() => (row: Row) => {
-    if (row.audience === 'GROUPS') return (data?.groups || []).filter((group) => row.groupIds.includes(group.id)).map((group) => group.name).join('، ') || 'گروه حذف‌شده'
+    if (row.audience === 'GROUPS') return (data?.groups || []).filter((group) => row.groupIds.includes(group.key)).map((group) => group.label).join('، ') || 'گروه حذف‌شده'
     if (row.audience === 'SECTION_MANAGERS') return `مدیران ${(data?.sections || []).filter((section) => row.sections.includes(section.id)).map((section) => section.label).join('، ')}`
     return POPUP_AUDIENCES.find((item) => item.id === row.audience)?.label || row.audience
   }, [data])
@@ -96,7 +97,11 @@ export default function PopupsPage() {
         <section className="sa-card" aria-label="مخاطب">
           <header className="sa-card-head"><h2>چه کسانی ببینند</h2></header>
           <Choice legend="مخاطب" options={POPUP_AUDIENCES} value={draft.audience} onChange={(audience) => set('audience', audience)} />
-          {draft.audience === 'GROUPS' && <Chips legend="گروه‌ها" options={(data?.groups || []).map((group) => ({ id: group.id, label: `${group.name}${group.automatic ? '' : ` (${fa(group.memberCount)})`}` }))} value={draft.groupIds} onChange={(groupIds) => set('groupIds', groupIds)} />}
+          {draft.audience === 'GROUPS' && SITE_GROUP_FAMILIES.map((family) => {
+            const groups = (data?.groups || []).filter((group) => group.family === family.id)
+            return groups.length > 0 && <Chips key={family.id} legend={family.label} options={groups.map((group) => ({ id: group.key, label: `${group.label} (${fa(group.count)})` }))} value={draft.groupIds} onChange={(groupIds) => set('groupIds', groupIds)} />
+          })}
+          {draft.audience === 'GROUPS' && draft.groupIds.length > 1 && <p className="sa-hint">هر کسی که دست‌کم در یکی از این گروه‌ها باشد پاپ‌آپ را می‌بیند.</p>}
           {draft.audience === 'SECTION_MANAGERS' && <Chips legend="بخش‌ها" options={data?.sections || []} value={draft.sections} onChange={(sections) => set('sections', sections)} />}
           <label className="sa-field"><span>فقط در این صفحه‌ها (هر نشانی در یک خط؛ خالی یعنی همهٔ سایت)</span><textarea className="input" dir="ltr" rows={2} value={draft.pages} placeholder={'/\n/products'} onChange={(event) => set('pages', event.target.value)} /></label>
         </section>

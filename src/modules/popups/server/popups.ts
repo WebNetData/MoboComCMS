@@ -3,7 +3,7 @@ import { logEvent } from '@/platform/observability/logger'
 import type { AuthedUser } from '@/modules/identity/server/access'
 import { sectionsOf, SITE_SECTIONS } from '@/modules/identity/domain/sections'
 import { ALL_PERMISSIONS } from '@/modules/identity/rbac'
-import { viewerFor } from '@/modules/forum/server/community'
+import { siteGroupCatalog, siteGroupsOf } from '@/modules/account/server/site-groups'
 import { isDue, isLive, matchesAudience, normalizePopup, parseIds, type PopupViewer, type ServedPopup } from '@/modules/popups/domain/popups'
 
 type Row = Awaited<ReturnType<typeof db.sitePopup.findMany>>[number]
@@ -21,14 +21,14 @@ async function livePopups(now: Date) {
   return rows.filter((row) => isLive(row, now))
 }
 
-const ruleOf = (row: Row) => ({ audience: row.audience, groupIds: parseIds<number>(row.groupIds), sections: parseIds<string>(row.sections) })
+const ruleOf = (row: Row) => ({ audience: row.audience, groupIds: parseIds<string>(row.groupIds), sections: parseIds<string>(row.sections) })
 
-/** Who is looking: staff by their current role, groups through the forum's own rule for membership. */
+/** Who is looking: staff by their current role, and the site's groups asked only for what these popups name. */
 async function viewerOf(user: AuthedUser | null, rows: Row[]): Promise<PopupViewer> {
   const staff = user?.role === 'ADMIN'
   const permissions = staff ? (user.permissions?.length ? user.permissions : ALL_PERMISSIONS) : []
-  const needsGroups = rows.some((row) => row.audience === 'GROUPS')
-  return { signedIn: Boolean(user), staff, sections: sectionsOf(permissions), groupIds: needsGroups ? (await viewerFor(user?.id ?? null)).groupIds : [] }
+  const keys = [...new Set(rows.filter((row) => row.audience === 'GROUPS').flatMap((row) => parseIds<string>(row.groupIds)))]
+  return { signedIn: Boolean(user), staff, sections: sectionsOf(permissions), groupIds: user && keys.length ? await siteGroupsOf(user.id, keys) : [] }
 }
 
 const serve = (row: Row): ServedPopup => ({
@@ -76,14 +76,13 @@ export async function adminPopups() {
   const [rows, totals, groups] = await Promise.all([
     db.sitePopup.findMany({ orderBy: [{ updatedAt: 'desc' }] }),
     db.sitePopupSeen.groupBy({ by: ['popupId'], _sum: { views: true }, _count: { _all: true } }),
-    // Clubs are members' own groups; a notice is written for the site's groups.
-    db.forumGroup.findMany({ where: { clubCategoryId: null }, orderBy: { name: 'asc' }, select: { id: true, name: true, memberCount: true, automatic: true } }),
+    siteGroupCatalog(),
   ])
   const sum = new Map(totals.map((row) => [row.popupId, row]))
   return {
     groups, sections: SITE_SECTIONS.map((section) => ({ id: section.id, label: section.label })),
     popups: rows.map((row) => ({
-      ...row, groupIds: parseIds<number>(row.groupIds), sections: parseIds<string>(row.sections),
+      ...row, groupIds: parseIds<string>(row.groupIds), sections: parseIds<string>(row.sections),
       memberViews: sum.get(row.id)?._sum.views ?? 0, people: sum.get(row.id)?._count._all ?? 0,
     })),
   }
