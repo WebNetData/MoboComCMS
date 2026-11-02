@@ -160,7 +160,8 @@ test('the invoice PDF is a real document: Persian font embedded, selectable text
   assert.ok(pages(many) >= 3, `sixty rows take several pages (got ${pages(many)})`)
   // The route answers its owner or staff only, never a draft, and never from a cache.
   const route = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/billing/server/http/invoice-pdf.ts'), 'utf8')
-  assert.match(route, /officialInvoice\(number, \{ id: user\.id, admin: user\.role === 'ADMIN' \}\)/)
+  assert.match(route, /officialInvoice\(number, \{ id: user\.id, admin \}\)/)
+  assert.match(route, /requirePerm\(req, 'invoices\.manage'\)/, 'cross-account PDFs use the canonical invoice permission')
   assert.match(route, /doc\.status === 'DRAFT'/)
   assert.match(route, /'cache-control': 'private, no-store'/)
   // The invoice page offers the document, not a print of the screen.

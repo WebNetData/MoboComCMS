@@ -21,6 +21,8 @@ import { invoiceDueMinor } from '@/modules/billing/server/billing'
 import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { getBrandedInvoiceProfile } from '@/modules/billing/server/official-invoice'
 import InvoiceLogo from '@/components/billing/InvoiceLogo'
+import { headers } from 'next/headers'
+import { invoiceStaffAccess } from '@/modules/billing/server/invoice-access'
 
 
 export default async function InvoicePage({ params: paramsPromise }: { params: Promise<{ number: string }> }) {
@@ -49,7 +51,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
 
   const viewerId = Number((session as any)?.user?.id || 0)
   const isOwner = viewerId && viewerId === invoice.userId
-  const isAdmin = (session as any)?.user?.role === 'ADMIN'
+  const isAdmin = (session as any)?.user?.role === 'ADMIN' && await invoiceStaffAccess(new Headers(await headers()))
   if (!isOwner && !isAdmin) notFound()
 
   const navPages = await db.page
