@@ -4,6 +4,7 @@ import type { Permission } from '@/modules/identity/rbac'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { markInvoicePaid } from '@/modules/billing/server/billing'
+import { cancelUnpaidOrder } from '@/modules/billing/server/order-closure'
 import { ensureInventoryReservation } from '@/modules/catalog/server/inventory'
 import { enqueueOrderFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
 import { auditAdmin } from '@/platform/audit/server'
@@ -84,9 +85,8 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (b?.action === 'cancel') {
-    // Claimed: a refunded order is closed, and the database refuses to reopen it.
-    const cancelled = await db.order.updateMany({ where: { id, status: { not: 'REFUNDED' } }, data: { status: 'CANCELLED' } })
-    if (cancelled.count !== 1) return err('a refunded order cannot be cancelled', 409)
+    const cancelled = await cancelUnpaidOrder(id, `credit released for order ${id} (cancelled by ${admin.email})`)
+    if (!cancelled.ok) return err(cancelled.message, cancelled.status)
     await auditAdmin({ req, actor: admin, action: 'order.cancel', targetType: 'order', targetId: id, metadata: { previousStatus: order.status } })
     return ok({ ok: true })
   }

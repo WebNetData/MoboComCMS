@@ -5,8 +5,8 @@ import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
 import { createInvoiceForOrder, invoiceDueMinor, invoiceTotalMinor, releaseInvoiceCredit, voidOpenInvoice } from '@/modules/billing/server/billing'
 import { settleInvoiceManually } from '@/modules/billing/server/settle'
+import { refundPaidInvoice } from '@/modules/billing/server/order-closure'
 import { ensureInventoryReservation, releaseInventoryReservation } from '@/modules/catalog/server/inventory'
-import { moveWallet } from '@/modules/wallet/server/wallet'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { auditAdmin } from '@/platform/audit/server'
 import { parseFxRates } from '@/modules/billing/domain/invoice-rules'
@@ -225,19 +225,8 @@ export async function PATCH(req: NextRequest) {
     if (invoice.status !== 'PAID') return err('only paid invoices can be refunded')
     const totalMinor = minor(invoice, 'paidAmount', currency) || minor(invoice, 'total', currency)
     const walletMinor = minor(invoice, 'walletApplied', currency)
-    await db.$transaction(async (tx) => {
-      const changed = await tx.invoice.updateMany({ where: { id, status: 'PAID' }, data: { status: 'REFUNDED' } })
-      if (changed.count !== 1) return
-      await tx.payment.create({ data: {
-        userId: invoice.userId, orderId: invoice.orderId, invoiceId: invoice.id, gatewayId: invoice.gatewayId,
-        provider: invoice.gateway?.provider || 'MANUAL', providerTxnId: invoice.providerTxnId,
-        eventKey: `invoice:${invoice.id}:refund`, amount: -legacyNumber(totalMinor, currency), amountMinor: -totalMinor,
-        currency, status: 'REFUNDED', raw: JSON.stringify({ source: 'admin', by: admin.email }), confirmedAt: new Date(),
-      } })
-    })
-    if (walletMinor > 0n) await moveWallet({ userId: invoice.userId, amount: legacyNumber(walletMinor, currency), currency, type: 'REFUND', description: `refund wallet portion of ${invoice.number}`, invoiceId: invoice.id, orderId: invoice.orderId, idempotencyKey: `invoice-refund-wallet:${invoice.id}` })
-    // Marketplace: sellers give back their share of a fully refunded store order.
-    if (invoice.orderId) await import('@/modules/marketplace/server/marketplace').then((m) => m.reverseSellerShare(invoice.orderId!, totalMinor, `invoice:${invoice.id}`)).catch(() => undefined)
+    const refunded = await refundPaidInvoice(invoice, { totalMinor, walletMinor, by: admin.email, actorId: admin.id })
+    if (!refunded.ok) return err(refunded.message, refunded.status)
     await auditAdmin({ req, actor: admin, action: 'invoice.refund', targetType: 'invoice', targetId: id, metadata: { orderId: invoice.orderId, currency, refundMinor: totalMinor.toString(), walletRefundMinor: walletMinor.toString() } })
     return ok({ ok: true, note: 'External gateway refunds must be executed with the provider before recording this action.' })
   }

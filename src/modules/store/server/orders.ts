@@ -121,7 +121,8 @@ function customerWhere(userId: number, tab: CustomerTab): Prisma.OrderWhereInput
     case 'unpaid': return { ...base, status: 'PENDING' }
     case 'delivered': return { ...base, status: 'PAID', productDelivery: { is: { status: 'DELIVERED' } } }
     case 'returned': return { ...base, productDelivery: { is: { status: 'RETURNED' } } }
-    case 'cancelled': return { ...base, OR: [{ status: { in: [...DEAD, 'REFUNDED'] } }, { productDelivery: { is: { status: 'CANCELLED' } } }] }
+    // A returned order has its own tab, even though its money went back too.
+    case 'cancelled': return { ...base, AND: [{ OR: [{ status: { in: [...DEAD, 'REFUNDED'] } }, { productDelivery: { is: { status: 'CANCELLED' } } }] }, { OR: [{ productDelivery: { is: null } }, { productDelivery: { is: { status: { not: 'RETURNED' } } } }] }] }
     default: return { ...base, status: 'PAID', OR: [{ productDelivery: { is: null } }, { productDelivery: { is: { status: { in: ['PENDING', 'PROCESSING', 'PACKED', 'SHIPPED'] } } } }] }
   }
 }

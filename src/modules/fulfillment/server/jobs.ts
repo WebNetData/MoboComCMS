@@ -120,9 +120,11 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
 
   if (job.kind === 'DELIVER_PRODUCT') {
     if (!job.orderId) throw new Error('product delivery job has no orderId')
+    const order = await db.order.findUnique({ where: { id: job.orderId }, select: { status: true, meta: true } })
+    // Refunded or cancelled while this job waited for a retry: there is nothing left to deliver.
+    if (order && ['REFUNDED', 'CANCELLED'].includes(order.status)) return
     const result = await consumeInventoryReservation(job.orderId)
     if (!result.ok) throw new Error(result.message || 'inventory delivery failed')
-    const order = await db.order.findUnique({ where: { id: job.orderId }, select: { meta: true } })
     let meta: Record<string, unknown> = {}
     try { meta = JSON.parse(order?.meta || '{}') } catch {}
     const delivery = (meta.delivery && typeof meta.delivery === 'object' ? meta.delivery : {}) as { date?: unknown; slot?: { label?: unknown } }

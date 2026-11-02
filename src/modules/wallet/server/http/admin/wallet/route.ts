@@ -4,6 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
 import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
+import { BASE_CURRENCY, normalizeCurrency } from '@/shared/money'
 
 /** GET ?userId=1 → wallet history for one customer (admin view) */
 export async function GET(req: NextRequest) {
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   })
 }
 
-/** POST { userId, amount, type?: ADMIN_CREDIT|ADMIN_DEBIT, description? } */
+/** POST { userId, amount, currency?, type?: ADMIN_CREDIT|ADMIN_DEBIT, description? }; the amount is in the site's own currency unless named. */
 export async function POST(req: NextRequest) {
   const admin = await requirePerm(req, 'users.manage' as Permission)
   if (!admin) return err('forbidden', 403)
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
   const result = await moveWallet({
     userId,
     amount,
+    currency: normalizeCurrency(b?.currency || BASE_CURRENCY),
     type: debit ? 'ADMIN_DEBIT' : 'ADMIN_CREDIT',
     description: String(b?.description || (debit ? 'Manual debit by admin' : 'Manual credit by admin')),
     adminId: admin.id,

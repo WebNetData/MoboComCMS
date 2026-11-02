@@ -77,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (status !== 'authenticated') return
     let active = true
     fetch('/api/profile/completion', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((data) => {
-      if (active && data?.needsCompletion) window.location.replace(`/welcome?next=${encodeURIComponent(window.location.pathname)}`)
+      if (active && data?.needsCompletion) window.location.replace(`/welcome?next=${encodeURIComponent(window.location.pathname + window.location.search)}`)
     }).catch(() => null)
     return () => { active = false }
   }, [status])
