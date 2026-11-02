@@ -90,10 +90,10 @@ export default function AdminOrdersPage() {
                 <td><StatusBadge value={o.status} /></td>
                 <td>{fmt(o.createdAt)}</td>
                 <td>
-                  {o.status !== 'PAID' && (
+                  {!['PAID', 'REFUNDED', 'CANCELLED'].includes(o.status) && (
                     <div className="flex gap-1">
                       <button className="badge badge-green" onClick={() => act(o.id, 'markPaid')}>{t.markPaid}</button>
-                      <button className="badge badge-red" onClick={() => act(o.id, 'cancel')}>{t.delete}</button>
+                      <button className="badge badge-red" onClick={() => act(o.id, 'cancel')}>{t.cancel}</button>
                     </div>
                   )}
                 </td>

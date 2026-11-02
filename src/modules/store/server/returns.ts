@@ -12,7 +12,7 @@ import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { moveWallet } from '@/modules/wallet/server/wallet'
-import { restockConsumedInventory } from '@/modules/catalog/server/inventory'
+import { releaseInventoryReservation, restockConsumedInventory } from '@/modules/catalog/server/inventory'
 import { StoreError, canMoveTo } from '@/modules/store/domain/store'
 import {
   MAX_RETURN_PHOTOS, MAX_RETURN_PHOTO_BYTES, RETURN_KIND_LABEL, RETURN_STATUS_LABEL, clampRefund, eligibility, normalizeChoices,
@@ -422,6 +422,8 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
     await transitionOrder({ orderId: row.orderId, to: target, actorId: input.actorId, notify: false, restock: restock && row.kind === 'CANCEL', note: `${RETURN_KIND_LABEL[row.kind as ReturnKind]} ${row.number}` }).catch((error) => logEvent('warn', 'store.return_transition_failed', { returnId: row.id, error: error instanceof Error ? error.message : String(error) }))
   } else if (row.kind === 'CANCEL' && restock) {
     await restockConsumedInventory(row.orderId)
+    // Delivery had not started: the units are still held for this order, not yet sold.
+    await releaseInventoryReservation(row.orderId)
   }
   if (restock && row.kind === 'RETURN') await restockLines(row.orderId, parseJson<LineChoice[]>(row.lines, []))
   if (restock) await db.returnRequest.update({ where: { id: row.id }, data: { restocked: true } })

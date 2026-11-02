@@ -27,7 +27,7 @@ const CHECKS = [
   'business-authority',
   'business-requests-migration',
   'fulfillment-recovery-window', 'seo-entities', 'content-revisions',
-  'money-state-rules', 'editor-page-documents', 'section-maintenance', 'invoice-void-settle', 'invoice-viewer-access', 'import-provenance', 'admin-saved-views', 'item-timeline',
+  'money-state-rules', 'order-closure', 'editor-page-documents', 'section-maintenance', 'invoice-void-settle', 'invoice-viewer-access', 'import-provenance', 'admin-saved-views', 'item-timeline',
   'return-refund-integrity',
   'journal-admin-filters',
   'journal-review',

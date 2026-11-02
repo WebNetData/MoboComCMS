@@ -22,7 +22,7 @@ const mocksFor = db => ({
  '@/platform/http/multipart': {MultipartError: class extends Error {}, readMultipart: async req => req.form},
  '@/modules/settings/server': {readJsonSetting: async () => ({enabled: true, autoRefundCancel: true}), writeJsonSetting: async () => {}},
  '@/modules/notifications/server/inbox': {createInboxEvent: async event => event},
- '@/modules/catalog/server/inventory': {restockConsumedInventory: async orderId => { state.effects.push(`restock:${orderId}`) }},
+ '@/modules/catalog/server/inventory': {restockConsumedInventory: async orderId => { state.effects.push(`restock:${orderId}`) }, releaseInventoryReservation: async () => ({ok: true, released: false})},
  '@/modules/store/server/orders': {transitionOrder: async input => { state.effects.push(`transition:${input.orderId}:${input.to}`) }},
  '@/modules/marketplace/server/marketplace': {reverseSellerShare: async (orderId, amount) => { state.effects.push(`seller:${orderId}:${amount}`) }},
  '@/modules/store/server/marketing': {reverseOrderPoints: async (orderId, amount) => { state.effects.push(`points:${orderId}:${amount}`) }},

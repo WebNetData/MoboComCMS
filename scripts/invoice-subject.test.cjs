@@ -41,6 +41,17 @@ test('payment result login returns to the same invoice or order without path/que
   assert.equal(paymentResultTarget({ invoice: 'x'.repeat(256) }).invoiceNumber, '')
 })
 
+test('an order and its invoice close together, and staff credit is in the site currency', () => {
+  const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+  const invoices = read('src/modules/billing/server/http/admin/invoices/route.ts'), orders = read('src/modules/orders/server/http/admin/orders/route.ts')
+  assert.match(invoices, /refundPaidInvoice\(invoice,/, 'the invoice route refunds through the shared closure')
+  assert.doesNotMatch(invoices, /tx\.payment\.create/, 'and records no refund of its own')
+  assert.match(orders, /cancelUnpaidOrder\(id,/)
+  assert.doesNotMatch(orders, /data: \{ status: 'CANCELLED' \}/, 'a cancel never writes the order state alone')
+  assert.match(read('src/modules/wallet/server/http/admin/wallet/route.ts'), /currency: normalizeCurrency\(b\?\.currency \|\| BASE_CURRENCY\)/, 'a toman amount is never credited as dollars')
+  assert.match(read('src/modules/fulfillment/server/jobs.ts'), /\['REFUNDED', 'CANCELLED'\]\.includes\(order\.status\)/, 'a closed order is not delivered')
+})
+
 test('a wallet top-up says what it is and for how much', () => {
   assert.deepEqual(invoiceSubject({ ...base, kind: 'WALLET_TOPUP' }), { title: 'افزایش موجودی کیف پول موبوکام', detail: 'افزایش موجودی حساب کاربری پلتفرم موبوکام به مبلغ ۱٬۰۰۰٬۰۰۰ تومان' })
 })

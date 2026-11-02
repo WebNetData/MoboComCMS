@@ -42,7 +42,7 @@ async function main() {
   }
   settings = (await json(await admin.request.get('/api/admin/store/returns'))).settings
   await json(await admin.request.put('/api/admin/store/returns', { data: { settings: { ...settings, enabled: true, codeReturnDays: 7 } } }))
-  await json(await admin.request.post('/api/admin/wallet', { data: { userId: buyer.id, amount: 50, description: seed } }))
+  await json(await admin.request.post('/api/admin/wallet', { data: { userId: buyer.id, amount: 50, currency: 'USD', description: seed } }))
   const pool = `/api/admin/store/products/${product.id}/codes`
   await json(await admin.request.post(pool, { data: { action: 'mode', mode: 'CODES' } }))
   const code = `MBC-${Date.now()}-FIRST`
