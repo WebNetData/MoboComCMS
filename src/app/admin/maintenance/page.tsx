@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
+import type { SiteGroup } from '@/modules/account/domain/site-groups'
+import SitePanel, { type Person, type SiteState } from './SitePanel'
 
 type Section = { id: string; label: string; paths: string[]; enabled: boolean; title: string; message: string }
-type View = { sections: Section[]; defaults: { title: string; message: string }; limits: { title: number; message: number }; settingsRevision: string }
+type View = { site: SiteState; people: Person[]; catalog: SiteGroup[]; sections: Section[]; defaults: { title: string; message: string }; limits: { title: number; message: number }; settingsRevision: string }
 
 /** Maintenance mode, one section at a time: the switch, and the words visitors read while it is on. */
 export default function SectionMaintenancePage() {
@@ -33,12 +35,30 @@ export default function SectionMaintenancePage() {
     setNote({ id: section.id, text: done, error: false })
   }
 
+  const saveSite = async (change: Partial<SiteState>, done: string) => {
+    setBusy('site'); setNote(null)
+    const response = await fetch('/api/admin/maintenance', { method: 'PUT', headers: { 'content-type': 'application/json', ...(view?.settingsRevision ? { 'if-match': view.settingsRevision } : {}) }, body: JSON.stringify({ site: change }) }).catch(() => null)
+    const body = await response?.json().catch(() => null)
+    setBusy('')
+    if (!response?.ok) { setNote({ id: 'site', text: body?.error || 'ذخیره نشد.', error: true }); return false }
+    setView(body); setNote({ id: 'site', text: done, error: false })
+    return true
+  }
+  const lookup = async (who: string): Promise<Person | string> => {
+    const response = await fetch(`/api/admin/maintenance?user=${encodeURIComponent(who)}`, { cache: 'no-store' }).catch(() => null)
+    const body = await response?.json().catch(() => null)
+    return response?.ok ? body.user : body?.error || 'کاربر پیدا نشد'
+  }
+
   if (!view) return <div className="card" dir="rtl" aria-busy={!note}>{note?.text || 'در حال بارگذاری…'}</div>
   return (
     <div dir="rtl" className="mnt-admin">
-      <h1 className="h2">حالت تعمیر بخش‌ها</h1>
+      <h1 className="h2">حالت تعمیر</h1>
       <SectionSettingsHistoryLink section="maintenance" />
       <p className="muted">هر بخش را جداگانه به حالت تعمیر ببرید. تا وقتی روشن است، بازدیدکنندگان به‌جای آن بخش اعلان به‌روزرسانی را با متن شما می‌بینند؛ شما و مدیران همان بخش آن را مثل همیشه می‌بینید و می‌توانید پرش کنید. بخش مدیریت همیشه باز است.</p>
+      <SitePanel key={view.settingsRevision} site={view.site} people={view.people} catalog={view.catalog} busy={busy === 'site'} onSave={saveSite} lookup={lookup} />
+      {note?.id === 'site' ? <p role={note.error ? 'alert' : 'status'} className={note.error ? 'text-danger text-sm' : 'text-sm'}>{note.text}</p> : null}
+      <h2 className="h3">حالت تعمیر بخش‌ها</h2>
       <div className="mnt-admin-grid">
         {view.sections.map((section) => {
           const draft = drafts[section.id] || { title: '', message: '' }

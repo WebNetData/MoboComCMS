@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
-import { MAINTENANCE_SECTIONS, isMaintenanceSection, noticeOf } from '@/modules/site/domain/maintenance'
+import { MAINTENANCE_SECTIONS, SITE_DEFAULT_MESSAGE, SITE_DEFAULT_TITLE, isMaintenanceSection, noticeOf } from '@/modules/site/domain/maintenance'
+import { getSiteSeo } from '@/modules/site/server/seo'
+import SiteNotice from '@/components/site/maintenance/SiteNotice'
 import { loadMaintenance } from '@/modules/site/server/maintenance'
 import './maintenance.css'
 
@@ -11,9 +13,13 @@ export const metadata: Metadata = { title: 'در حال به‌روزرسانی'
  * under the section's own address (the address bar does not change) with status 503. The words are
  * the owner's, shown as plain text.
  */
-export default async function MaintenanceNotice({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
-  const { section } = await searchParams
+export default async function MaintenanceNotice({ searchParams }: { searchParams: Promise<{ section?: string; site?: string }> }) {
+  const { section, site } = await searchParams
   const state = await loadMaintenance()
+  if (site === '1') {
+    const { title, message, design, effect, icon, reopensAt } = state.site
+    return <SiteNotice title={title || SITE_DEFAULT_TITLE} message={message || SITE_DEFAULT_MESSAGE} design={design} effect={effect} icon={icon} reopensAt={reopensAt} name={(await getSiteSeo('fa')).name} />
+  }
   const known = isMaintenanceSection(section) ? section : null
   const notice = noticeOf(known ? state[known] : { enabled: false, title: '', message: '' })
   const label = known ? MAINTENANCE_SECTIONS.find((item) => item.id === known)?.label : null

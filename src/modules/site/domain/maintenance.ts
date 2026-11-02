@@ -5,6 +5,7 @@
  * it is, so it can be filled and checked before it is opened.
  */
 import { SITE_SECTIONS, sectionsOf } from '@/modules/identity/domain/sections'
+import { isSiteGroupKey } from '@/modules/account/domain/site-groups'
 
 /** The sections that have public pages of their own, and the plugin that owns those pages. */
 export const MAINTENANCE_SECTIONS = [
@@ -21,7 +22,41 @@ export const MAINTENANCE_SECTIONS = [
 export type MaintenanceSectionId = (typeof MAINTENANCE_SECTIONS)[number]['id']
 
 export interface SectionMaintenance { enabled: boolean; title: string; message: string }
-export type MaintenanceState = Record<MaintenanceSectionId, SectionMaintenance>
+export type MaintenanceState = Record<MaintenanceSectionId, SectionMaintenance> & { site: SiteMaintenance }
+
+/**
+ * The whole site closed, beside the sections. Only full-access staff and the people and groups named here stay in; a
+ * group here is any of the site's groups. The look is the owner's choice among closed lists, the words are plain text.
+ */
+export interface SiteMaintenance { enabled: boolean; title: string; message: string; design: string; effect: string; icon: string; reopensAt: string; users: number[]; groups: string[] }
+
+export const SITE_DESIGNS = [
+  { id: 'aurora', label: 'شفق' }, { id: 'orbit', label: 'مدار' }, { id: 'blueprint', label: 'نقشه' },
+  { id: 'terminal', label: 'ترمینال' }, { id: 'paper', label: 'کاغذ' }, { id: 'brand', label: 'رنگ سایت' },
+] as const
+export const SITE_EFFECTS = [{ id: 'rise', label: 'ورود نرم' }, { id: 'float', label: 'شناور' }, { id: 'pulse', label: 'تپش' }, { id: 'shimmer', label: 'درخشش' }, { id: 'still', label: 'بدون حرکت' }] as const
+export const SITE_ICONS = [{ id: 'gear', label: 'چرخ‌دنده' }, { id: 'wrench', label: 'آچار' }, { id: 'hammer', label: 'چکش' }, { id: 'rocket', label: 'موشک' }, { id: 'sparkle', label: 'درخشش' }, { id: 'clock', label: 'ساعت' }, { id: 'shield', label: 'سپر' }] as const
+export const SITE_DEFAULT_TITLE = 'سایت در دست توسعه است'
+export const SITE_DEFAULT_MESSAGE = 'داریم سایت را بهتر می‌کنیم و به‌زودی با نسخه‌ای تازه برمی‌گردیم. از صبوری شما سپاسگزاریم.'
+export const SITE_LIMITS = { title: 120, message: 1200, users: 200, groups: 40 } as const
+const oneOf = (list: readonly { id: string }[], value: unknown) => (list.some((item) => item.id === value) ? String(value) : list[0].id)
+
+export function normalizeSite(input: unknown): SiteMaintenance {
+  const raw = (input && typeof input === 'object' && !Array.isArray(input) ? input : {}) as Record<string, unknown>
+  const when = typeof raw.reopensAt === 'string' && raw.reopensAt && !Number.isNaN(new Date(raw.reopensAt).getTime()) ? new Date(raw.reopensAt).toISOString() : ''
+  return {
+    enabled: raw.enabled === true, title: clean(raw.title, SITE_LIMITS.title), message: clean(raw.message, SITE_LIMITS.message),
+    design: oneOf(SITE_DESIGNS, raw.design), effect: oneOf(SITE_EFFECTS, raw.effect), icon: oneOf(SITE_ICONS, raw.icon), reopensAt: when,
+    users: [...new Set((Array.isArray(raw.users) ? raw.users : []).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, SITE_LIMITS.users),
+    groups: [...new Set((Array.isArray(raw.groups) ? raw.groups : []).filter(isSiteGroupKey))].slice(0, SITE_LIMITS.groups),
+  }
+}
+
+// What keeps working while the site is closed: signing in, so the owner can get back; a bank returning a payer and what it
+// tells us; the services already paid for and the machines that run the site. Assets are files, so the notice itself can load.
+const OPEN_PAGES = /^\/(login|forgot-password|reset-password|maintenance|install|payment|s)(\/|$)/
+const OPEN_APIS = /^\/api\/(auth|login|password|sms|payment|telegram|internal|health|metrics|install|sub|happ)(\/|$)/
+export const openDuringSiteMaintenance = (path: string) => OPEN_PAGES.test(path) || OPEN_APIS.test(path) || (/\.[a-z0-9]{2,12}$/i.test(path) && !/^\/(dl|files|api|admin)(\/|$)/.test(path))
 
 export const DEFAULT_TITLE = 'این بخش در حال به‌روزرسانی است'
 export const DEFAULT_MESSAGE = 'داریم این بخش را کامل‌تر و بهتر می‌کنیم. به‌زودی دوباره در دسترس خواهد بود؛ از شکیبایی شما سپاسگزاریم.'
@@ -40,6 +75,7 @@ export function normalizeMaintenance(input: unknown): MaintenanceState {
     const item = (raw[section.id] && typeof raw[section.id] === 'object' ? raw[section.id] : {}) as Record<string, unknown>
     out[section.id] = { enabled: item.enabled === true, title: clean(item.title, MAINTENANCE_LIMITS.title), message: clean(item.message, MAINTENANCE_LIMITS.message) }
   }
+  out.site = normalizeSite(raw.site)
   return out
 }
 

@@ -227,7 +227,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
     { id: 'settings', part: SYSTEM, title: L('تنظیمات و نگهداری', 'Settings & upkeep'), icon: 'sliders', items: [
       { href: '/admin/settings', label: L('تنظیمات عمومی و امکانات', 'General settings & features'), icon: 'sliders', perm: 'settings.manage' },
-      { href: '/admin/maintenance', label: L('حالت تعمیر بخش‌ها', 'Section maintenance'), icon: 'shield', perm: 'settings.manage' },
+      { href: '/admin/maintenance', label: L('حالت تعمیر سایت و بخش‌ها', 'Maintenance mode'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/monitoring', label: L('پایش سرعت و سلامت سرور', 'Performance & health'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/imports', label: L('ورود گروهی اطلاعات', 'Bulk import'), icon: 'grid', perm: 'imports.manage' },

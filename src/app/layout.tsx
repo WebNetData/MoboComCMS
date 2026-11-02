@@ -163,7 +163,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const sent = (await headers()).get('x-nonce')
   const nonce = isNonce(sent) ? sent : undefined
   // Set by the middleware for the people who run a section that is in maintenance: they see it as it is, and are told.
-  const previewed = (await headers()).get('x-maintenance-preview')
+  const requestHeaders = await headers()
+  const previewed = requestHeaders.get('x-maintenance-preview')
+  const siteClosed = requestHeaders.get('x-site-maintenance') === '1'
   const previewSection = isMaintenanceSection(previewed) ? MAINTENANCE_SECTIONS.find((item) => item.id === previewed) : null
   const [jsonLd, siteConfig, extensions, packages, routeAliases] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRouteAliases()])
   setRouteAliases(routeAliases)
@@ -202,6 +204,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {site.customCss?.trim() ? <style data-site-custom dangerouslySetInnerHTML={{ __html: safeCustomCss(site.customCss) }} /> : null}
       </head>
       <body>
+        {siteClosed ? <div className="mnt-preview" role="status">سایت در حالت تعمیر است و فقط شما و افراد مجاز آن را می‌بینید. <a href="/admin/maintenance">مدیریت</a></div> : null}
         {previewSection ? <div className="mnt-preview" role="status">بخش «{previewSection.label}» در حالت تعمیر است؛ بازدیدکنندگان اعلان به‌روزرسانی را می‌بینند و فقط شما و مدیران این بخش آن را می‌بینید.<a href="/admin/maintenance">تنظیم</a></div> : null}
         <script
           type="application/ld+json"

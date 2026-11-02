@@ -149,6 +149,16 @@ async function main() {
   await db.userMembership.update({ where: { id: vip.id }, data: { endsAt: new Date(now - 500) } })
   assert.equal(await shown(plain.id), undefined, 'and leaves with the membership')
 
+  // Who stays in while the whole site is closed.
+  const { opensDuringMaintenance } = load('src/modules/account/server/maintenance-access.ts')
+  const closedSite = { users: [], groups: [`group:${groups[0].id}`] }
+  assert.equal(await opensDuringMaintenance(null, closedSite), false, 'a guest stays out')
+  assert.equal(await opensDuringMaintenance({ id: 1, role: 'ADMIN', roleId: null, permissions: null }, { users: [], groups: [] }), true, 'full access always passes')
+  assert.equal(await opensDuringMaintenance({ id: catalogue.id, role: 'ADMIN', roleId: 7, permissions: ['cms.products'] }, { users: [], groups: [] }), false, 'a section manager does not')
+  assert.equal(await opensDuringMaintenance({ id: catalogue.id, role: 'ADMIN', roleId: 7, permissions: ['cms.products'] }, { users: [catalogue.id], groups: [] }), true, 'unless named')
+  assert.equal(await opensDuringMaintenance({ id: member.id, role: 'CUSTOMER', permissions: [] }, closedSite), true, 'a member of the chosen group passes')
+  assert.equal(await opensDuringMaintenance({ id: outsider.id, role: 'CUSTOMER', permissions: [] }, closedSite), false, 'another member does not')
+
   console.log('User groups: real expiry/inactive/role separation, exact prices, transactional audit/input rollback, stale claims, owner-scoped item/album/prompt and section decisions passed')
 }
 main().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{
