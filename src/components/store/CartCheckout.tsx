@@ -10,11 +10,9 @@ import { StoreIcon } from '@/components/store/StoreIcons'
 import { fetchWalletBalance, type CheckoutGatewayChoice } from '@/modules/checkout/ui/client'
 import { checkoutCart, type Cart } from '@/modules/store/ui/cart-client'
 import { WEEKDAY_FA, type ScheduleDay } from '@/modules/shipping/domain/shipping'
+import { useCarrierQuotes, type CarrierOption } from './useCarrierQuotes'
 
 type Delivery = { enabled: boolean; days: ScheduleDay[] }
-type CarrierOption =
-  | { ok: true; carrierId: string; name: string; kind: string; zone: string; fee: number; eta: string; scheduled: boolean; free: boolean; note: string; freeBy?: string; collect?: boolean }
-  | { ok: false; carrierId: string; name: string; reason: string }
 const ZONE_FA: Record<string, string> = { city: 'درون‌شهری', province: 'درون‌استانی', country: 'برون‌استانی' }
 
 const dayMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', timeZone: 'UTC' })
@@ -47,7 +45,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
   const [error, setError] = useState<{ code: string; message: string; needed: number; currency?: string } | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
   const byCarrier = !!cart.shippingByAddress
-  const [carriers, setCarriers] = useState<{ options: CarrierOption[]; weightGrams: number } | null>(null)
+  const { carriers, error: carrierError, retry: retryCarriers } = useCarrierQuotes(addressId, physical && byCarrier)
   const [carrierId, setCarrierId] = useState('')
 
   useEffect(() => { let alive = true; fetchWalletBalance(cart.currency).then((value) => alive && setBalance(value)); return () => { alive = false } }, [cart.currency])
@@ -57,18 +55,10 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
   }, [addresses])
   useEffect(() => { if (error) errorRef.current?.focus() }, [error])
 
-  // Carrier options are priced for the selected address (city, province and parcel weight).
   useEffect(() => {
-    if (!byCarrier || !addressId) { setCarriers(null); return }
-    let alive = true
-    setCarriers(null)
-    fetch(`/api/shipping/quotes?addressId=${addressId}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((body) => {
-      if (!alive || !body) return
-      setCarriers({ options: body.options, weightGrams: body.weightGrams })
-      setCarrierId((current) => body.options.some((o: CarrierOption) => o.ok && o.carrierId === current) ? current : (body.options.find((o: CarrierOption) => o.ok)?.carrierId || ''))
-    }).catch(() => null)
-    return () => { alive = false }
-  }, [byCarrier, addressId])
+    if (!carriers) return
+    setCarrierId(current => carriers.options.some(o => o.ok && o.carrierId === current) ? current : (carriers.options.find(o => o.ok)?.carrierId || ''))
+  }, [carriers])
 
   const address = addresses?.find((a) => a.id === addressId) || null
   const carrier = carriers?.options.find((o): o is Extract<CarrierOption, { ok: true }> => o.ok && o.carrierId === carrierId) || null
@@ -83,12 +73,13 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
     if (cart.blocked) return 'سبد خرید شما نیاز به بازبینی دارد'
     if (!physical) return ''
     if (!address) return 'یک آدرس تحویل انتخاب کنید'
+    if (byCarrier && carrierError) return 'برای ادامه، هزینهٔ ارسال را دوباره دریافت کنید'
     if (byCarrier && !carriers) return 'در حال محاسبهٔ هزینهٔ ارسال…'
     if (byCarrier && !carrier) return 'روش ارسال را انتخاب کنید'
     if (needsSchedule && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
     if (needsSchedule && !slot) return 'زمان ارسال را انتخاب کنید'
     return ''
-  }, [cart.blocked, physical, address, byCarrier, carriers, carrier, needsSchedule, days.length, slot])
+  }, [cart.blocked, physical, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)
@@ -138,7 +129,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
             <h2 id="sh-address-title">آدرس تحویل سفارش</h2>
             {addresses && addresses.length > 0 && <button type="button" className="sh-link" aria-expanded={chooser} aria-controls="sh-address-list" onClick={() => setChooser((open) => !open)}>{chooser ? 'بستن' : 'تغییر یا ویرایش آدرس'}</button>}
           </header>
-          {addressError && <p className="sh-notice is-error" role="alert">{addressError}</p>}
+          {addressError && <div className="sh-notice is-error" role="alert"><p>{addressError}</p><button type="button" className="sh-btn" onClick={() => void reload()}>دریافت دوبارهٔ آدرس‌ها</button></div>}
           {addresses === null ? <div className="sh-skeleton" role="status" aria-busy="true" aria-label="در حال بارگذاری آدرس‌ها" /> : addresses.length === 0 ? <div className="sh-empty is-compact">
             <p>برای ارسال سفارش یک آدرس ثبت کنید. آدرس در <Link href="/dashboard/addresses">آدرس‌های من</Link> ذخیره می‌شود.</p>
             <button type="button" className="sh-btn sh-btn-primary" onClick={() => setDialog({ open: true, edit: null })}>+ افزودن آدرس</button>
@@ -164,7 +155,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
             <h2 id="sh-carrier-title">روش ارسال</h2>
             {carriers && <span className="sh-muted">وزن مرسوله حدود {(Math.ceil(carriers.weightGrams / 100) / 10).toLocaleString('fa-IR')} کیلوگرم · {address.city}</span>}
           </header>
-          {!carriers ? <div className="sh-skeleton" role="status" aria-busy="true" aria-label="در حال محاسبهٔ هزینهٔ ارسال" /> : !carriers.options.some((o) => o.ok) ? <p className="sh-notice is-error" role="status">برای این آدرس روش ارسالی در دسترس نیست. آدرس دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید.</p>
+          {carrierError ? <div className="sh-notice is-error" role="alert"><p>{carrierError}</p><button type="button" className="sh-btn" onClick={retryCarriers}>دریافت دوبارهٔ هزینهٔ ارسال</button></div> : !carriers ? <div className="sh-skeleton" role="status" aria-busy="true" aria-label="در حال محاسبهٔ هزینهٔ ارسال" /> : !carriers.options.some((o) => o.ok) ? <p className="sh-notice is-error" role="status">برای این آدرس روش ارسالی در دسترس نیست. آدرس دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید.</p>
             : <div className="sh-carriers" role="radiogroup" aria-label="روش ارسال">
               {carriers.options.map((o) => o.ok ? <label key={o.carrierId} className={`sh-option sh-carrier${o.carrierId === carrierId ? ' is-selected' : ''}`}>
                 <input type="radio" name="carrier" checked={o.carrierId === carrierId} onChange={() => { setCarrierId(o.carrierId); setSlotId('') }} />

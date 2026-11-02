@@ -1,16 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from '@/platform/routing/navigation'
+import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
 import TurnstileWidget from '@/components/TurnstileWidget'
 import { AuthInput, PasswordInput, PasswordStrength } from '../login/AuthFields'
+import { authEntryHref } from '@/modules/identity/domain/continuation'
 
 /** The sign-up form. The page around it (header, frame) is rendered on the server, see page.tsx. */
 export default function RegisterForm() {
   const router = useRouter()
+  const params = useSearchParams()
   const { t, locale } = useI18n()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -25,7 +27,7 @@ export default function RegisterForm() {
   const [turnstileReset, setTurnstileReset] = useState(0)
   const loginHref = telegramToken
     ? `/login?next=${encodeURIComponent(`/telegram/connect?token=${telegramToken}`)}`
-    : '/login'
+    : authEntryHref('/login', params.get('next'))
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get('telegramToken')
@@ -62,7 +64,8 @@ export default function RegisterForm() {
       }
       // Turnstile tokens are single-use. Send the new account through the
       // protected login form rather than attempting to reuse this token.
-      router.push('/login?registered=1')
+      // A Telegram claim is complete on the server; its consumed link is not a return destination.
+      router.push(authEntryHref('/login', telegramToken ? '' : params.get('next'), { registered: '1' }))
       router.refresh()
     } catch {
       setError(t.errGeneric)
@@ -94,7 +97,7 @@ export default function RegisterForm() {
           {referralCode && <p className="success-text mb-4">{locale === 'fa' ? 'کد معرف' : 'Referral code'}: <strong dir="ltr">{referralCode}</strong></p>}
           <TurnstileWidget action="register" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
           {error && <p className="error-text" role="alert">{error}</p>}
-          <button className="btn btn-primary w-full mt-2" disabled={loading || (turnstileRequired && !turnstileToken)}>
+          <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || (turnstileRequired && !turnstileToken)}>
             {loading ? <><span className="auth-spinner" aria-hidden="true" />{t.loading}</> : t.registerBtn}
           </button>
           <p className="auth-alternative muted">

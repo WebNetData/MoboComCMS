@@ -11,6 +11,7 @@ import { AuthInput, PasswordInput } from './AuthFields'
 import type { ReactNode } from 'react'
 import { latinDigits } from '@/shared/text/digits'
 import { initialEntryMethod } from '@/modules/identity/domain/account-security'
+import { authEntryHref, safeNext } from '@/modules/identity/domain/continuation'
 
 type CodeProvider = 'credentials' | 'sms-otp' | 'email-otp'
 export default function LoginForm({ telegramLogin, otp = false, emailOtp = false, intent = 'login' }: { telegramLogin?: ReactNode; otp?: boolean; emailOtp?: boolean; intent?: 'login' | 'register' }) {
@@ -48,8 +49,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
   }, [resendIn])
 
   const goNext = async () => {
-    const wanted = params.get('next') || '/dashboard'
-    const next = /^\/(?!\/)/.test(wanted) && !/[\\\u0000-\u001f]/.test(wanted) ? wanted : '/dashboard'
+    const next = safeNext(params.get('next')) || '/dashboard'
     // New members (SMS sign-ups especially) first complete the required details.
     const status = await fetch('/api/profile/completion', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
     router.push(status?.needsCompletion ? `/welcome?next=${encodeURIComponent(next)}` : next)
@@ -162,7 +162,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || (!sentTo && turnstileRequired && !turnstileToken) || (!!sentTo && code.length < 6)}>
         {loading ? <><span className="auth-spinner" aria-hidden="true" />{fa ? 'لطفاً صبر کنید…' : 'Please wait…'}</> : sentTo ? (fa ? 'تأیید و ورود' : 'Verify and sign in') : (fa ? 'دریافت کد' : 'Send code')}
       </button>
-      {intent === 'register' && <p className="auth-alternative"><Link href="/register?method=password">{fa ? 'ثبت‌نام با ایمیل و رمز عبور' : 'Register with email and password'}</Link></p>}
+      {intent === 'register' && <p className="auth-alternative"><Link href={authEntryHref('/register', params.get('next'), { method: 'password' })}>{fa ? 'ثبت‌نام با ایمیل و رمز عبور' : 'Register with email and password'}</Link></p>}
       {telegramLogin && <><div className="auth-divider auth-credential-divider"><span>{fa ? 'یا' : 'or'}</span></div>{telegramLogin}</>}
     </form>
   )
@@ -189,7 +189,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || (turnstileRequired && !turnstileToken)}>
         {loading ? <><span className="auth-spinner" aria-hidden="true" />{t.loggingIn}</> : t.loginBtn}
       </button>
-      {intent === 'register' && <p className="auth-alternative"><Link href="/register?method=password">{fa ? 'ثبت‌نام با ایمیل و رمز عبور' : 'Register with email and password'}</Link></p>}
+      {intent === 'register' && <p className="auth-alternative"><Link href={authEntryHref('/register', params.get('next'), { method: 'password' })}>{fa ? 'ثبت‌نام با ایمیل و رمز عبور' : 'Register with email and password'}</Link></p>}
     </form>
   )
 }

@@ -12,6 +12,7 @@ import { otpLoginAvailable } from '@/modules/sms/server/sms'
 import { emailOtpAvailable } from '@/modules/identity/server/email-otp'
 import SignedIn from './SignedIn'
 import { safeNext, signedInPerson } from './signed-in-person'
+import { authEntryHref } from '@/modules/identity/domain/continuation'
 
 export default async function LoginPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ next?: string }> }) {
   const searchParams = await searchParamsPromise
@@ -34,7 +35,7 @@ async function LoginContent({ nextPath }: { nextPath: string }) {
   if (person) return <><SiteHeader theme={theme} /><AuthFrame variant="signed"><SignedIn person={person} next={safeNext(nextPath)} /></AuthFrame></>
   const [telegram, otp, emailOtp] = await Promise.all([telegramConfig(), otpLoginAvailable().catch(() => false), emailOtpAvailable().catch(() => false)])
   const botUsername = telegram.ready ? telegram.username : ''
-  let registerHref = '/register'
+  let registerHref = authEntryHref('/register', nextPath)
   if (nextPath.startsWith('/telegram/connect?')) {
     const token = new URLSearchParams(nextPath.split('?', 2)[1] || '').get('token') || ''
     if (/^[A-Za-z0-9_-]{32}$/.test(token)) registerHref = `/register?telegramToken=${encodeURIComponent(token)}`

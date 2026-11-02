@@ -1,5 +1,7 @@
 # Launch readiness — current priority
 
+Follow-up2026-11-02 after merged PR299/main `da11634c`: the scoped account-to-checkout continuation and shipping-read recovery batch has passed local unit/native PostgreSQL/browser/type/build gates on `fix/member-journeys-2026-11-02`. [Exact evidence, declared registration response double and boundaries](handoffs/PUBLIC_SECTIONS_QUALITY.md#account-continuation-and-checkout-recovery--2026-11-02). This strengthens local customer navigation; real configured registration/OTP, payment/delivery/return, exact final signed artifact and destination-host checks below remain pending. No release/deployment/hosted Actions ran for that batch. The following full-stack audit is historical evidence at its stated source, not certification of all later commits.
+
 Current audit2026-11-02: the owner merged PR #297 as `8a5fa057`; its tree matches tested source `bd233371`. Follow-up `fix/public-readiness-2026-11-02` contains only the scoped Business colour correction and this evidence/continuation. Owner merges and deploys. Use [release checklist](../RELEASE-CHECKLIST.md) and [remaining gaps](REMAINING_GAPS.md); do not restart completed capabilities. Status: **local gates passed; destination-host verification remains pending**. This is an execution checkpoint, not a production certificate.
 
 ## Executed local release review — 2026-11-02
