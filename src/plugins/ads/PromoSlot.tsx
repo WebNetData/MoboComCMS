@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from '@/platform/routing/navigation'
+import { IMAGE_WIDTHS, sized } from '@/shared/media/image'
+
+/** A banner stored on the site comes in the sizes the screen needs, not the file as it was uploaded. */
+const widthsOf = (image: string) => sized(image, 480) === image ? undefined : IMAGE_WIDTHS.filter((width) => width >= 320).map((width) => `${sized(image, width)} ${width}w`).join(', ')
 
 type Served = {
   ad: null | { id: number; kind: string; title: string; alt: string; image: string; imageMobile: string; text: string; cta: string; html: string; click: string; view: string; label: string; width: number; height: number; sticky: boolean }
@@ -97,7 +101,7 @@ export default function PromoSlot({ placement, className = '' }: { placement: st
       {ad?.sticky && <button type="button" className="promo-close" aria-label="بستن" onClick={() => { setClosed(true); write(`promo:closed:${placement}`, '1') }}>✕</button>}
       <div className="promo-frame" style={!ad && !served ? ratio : undefined}>
         {ad?.kind === 'IMAGE' && <a href={ad.click} target="_blank" rel="sponsored nofollow noopener noreferrer" className="promo-link">
-          <picture>{ad.imageMobile && <source media="(max-width: 640px)" srcSet={ad.imageMobile} />}<img src={ad.image} alt={ad.alt || ad.title} width={ad.width || undefined} height={ad.height || undefined} loading="lazy" decoding="async" style={picture} /></picture>
+          <picture>{ad.imageMobile && <source media="(max-width: 640px)" srcSet={ad.imageMobile} />}<img src={sized(ad.image, 1280)} srcSet={widthsOf(ad.image)} sizes="(max-width: 640px) 100vw, 1000px" alt={ad.alt || ad.title} width={ad.width || undefined} height={ad.height || undefined} loading="lazy" decoding="async" style={picture} /></picture>
         </a>}
         {ad?.kind === 'TEXT' && <a href={ad.click} target="_blank" rel="sponsored nofollow noopener noreferrer" className="promo-text"><b>{ad.title}</b>{ad.text && <span>{ad.text}</span>}{ad.cta && <em>{ad.cta}</em>}</a>}
         {ad?.kind === 'HTML' && <iframe title={ad.label} srcDoc={ad.html} sandbox={SANDBOX} loading="lazy" width={ad.width || undefined} height={ad.height || undefined} style={ratio} />}

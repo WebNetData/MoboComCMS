@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { TAXONOMIES } from '@/modules/taxonomy/domain/taxonomy'
+import { publicCelebrities } from '@/modules/celebrities/server/celebrities'
 
 // The entities of the site beyond its documents: forums a visitor may read, studios, film people, public
 // collections and the category pages of every section. Each list is asked of the module that owns the
@@ -36,11 +37,12 @@ export async function entitySitemap(now = new Date()): Promise<SitemapEntry[]> {
       return trees.flat().flatMap((term) => [term, ...term.children]).filter((term) => term.count > 0).map((term) => ({ path: term.path }))
     }),
   ])
+  const listed = new Set((await publicCelebrities(now).catch(() => [])).map((row) => row.cinemaPersonId))
   return [
     ...(studios.length ? [{ path: '/studios', changeFrequency: 'weekly' as const, priority: 0.5 }] : []),
     ...studios.map((row) => ({ path: `/studios/${row.id}`, lastModified: row.updatedAt, changeFrequency: 'weekly' as const, priority: 0.5 })),
-    ...(people.length ? [{ path: '/cinema/people', changeFrequency: 'weekly' as const, priority: 0.5 }] : []),
-    ...people.map((row) => ({ path: `/cinema/people/${row.id}`, changeFrequency: 'monthly' as const, priority: 0.4 })),
+    // A person with a public page redirects there, so only the others are listed under cinema.
+    ...people.filter((row) => !listed.has(row.id)).map((row) => ({ path: `/cinema/people/${row.id}`, changeFrequency: 'monthly' as const, priority: 0.4 })),
     ...(collections.length ? [{ path: '/collections', changeFrequency: 'daily' as const, priority: 0.5 }] : []),
     ...collections.map((row) => ({ path: `/collections/${row.id}`, lastModified: row.updatedAt, changeFrequency: 'weekly' as const, priority: 0.5 })),
     ...terms.map((row) => ({ path: row.path, changeFrequency: 'weekly' as const, priority: 0.5 })),

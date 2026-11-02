@@ -17,6 +17,7 @@ import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -28,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const fa = locale === 'fa'
   const a = data.album
   const title = `${fa ? a.title : a.titleEn || a.title} — ${fa ? a.artist.name : a.artist.nameEn || a.artist.name}`
-  return { title: fa ? `دانلود آلبوم ${title}` : `${title} (album)`, openGraph: { images: a.cover ? [a.cover] : undefined }, alternates: { canonical: toPublicPath(`/music/album/${a.slug}`) } }
+  return shareCard({ title: fa ? `دانلود آلبوم ${title}` : `${title} (album)`, description: fa ? `پخش آنلاین و دانلود آلبوم ${title}` : `Listen to and download ${title}`, openGraph: { images: a.cover ? [a.cover] : undefined }, alternates: { canonical: toPublicPath(`/music/album/${a.slug}`) } })
 }
 
 export default async function AlbumPage({ params }: Props) {

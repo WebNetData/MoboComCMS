@@ -1615,3 +1615,32 @@ test('Persian dates: the shared calendar converts every day both ways and date f
   const games = fs.readFileSync(path.join(root, 'src/modules/games/domain/games.ts'), 'utf8')
   assert.match(games, /from '@\/shared\/time\/jalali'/, 'one calendar implementation')
 })
+
+test('what a search engine or a link preview reads stays true to the page', () => {
+  const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+  const layout = read('src/app/layout.tsx')
+  assert.doesNotMatch(layout, /canonical: seo\.base/, 'a page without its own canonical must not claim the home page')
+  assert.doesNotMatch(layout.slice(layout.indexOf('openGraph:')), /url: seo\.base/, 'nor its share address')
+  assert.match(read('src/app/page.tsx'), /canonical: seo\.base/, 'the home page states its own')
+  assert.match(read('src/modules/site/server/seo.ts'), /images: own\.images \|\| \[seo\.ogImage\]/)
+  for (const page of ['music/track', 'music/album', 'music/artist', 'games', 'cinema', 'software', 'prompts/templates', 'celebrities']) assert.match(read(`src/app/${page}/[slug]/page.tsx`), /return shareCard\(/, page)
+  assert.match(read('src/modules/site/server/pages/sitemap.ts'), /moved\.has\(row\.id\)/, 'an artist who redirects is not listed')
+  assert.match(read('src/modules/seo/server/sitemap-entities.ts'), /listed\.has\(row\.id\)/, 'nor a person who redirects')
+  assert.match(read('src/proxy.ts'), /x-robots-tag/)
+  assert.match(read('src/app/login/page.tsx'), /robots: \{ index: false \}/)
+})
+
+test('a customer never reads a placeholder address, and a privacy page ships with the site', () => {
+  const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+  assert.doesNotMatch(read('src/modules/billing/server/pages/invoice/[number]/page.tsx'), /example\.com/)
+  const seed = read('prisma/seed.cjs')
+  assert.match(seed, /key: 'supportEmail', value: ''/)
+  assert.match(seed, /slug: 'privacy'/)
+  assert.match(read('prisma/starter-content/privacy.fa.html'), /<h2>/)
+})
+
+test('a banner stored on the site is resized, and the load test asks for pages as a browser does', () => {
+  const read = (file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8')
+  assert.match(read('src/plugins/ads/PromoSlot.tsx'), /srcSet=\{widthsOf\(ad\.image\)\}/)
+  assert.match(read('scripts/load-test.mjs'), /accept: 'text\/html/, 'the guest cache answers only requests for HTML')
+})

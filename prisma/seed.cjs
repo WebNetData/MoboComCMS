@@ -108,6 +108,16 @@ async function main() {
       sortOrder: 2,
     },
     {
+      slug: 'privacy',
+      title: 'حریم خصوصی',
+      titleEn: 'Privacy policy',
+      // A starter text that matches what the site stores; the owner reviews it in Pages admin.
+      content: require('node:fs').readFileSync(require('node:path').join(__dirname, 'starter-content', 'privacy.fa.html'), 'utf8'),
+      contentEn: '',
+      showInNav: false,
+      sortOrder: 5,
+    },
+    {
       slug: 'refund',
       title: 'سیاست بازگشت وجه',
       titleEn: 'Refund policy',
@@ -129,7 +139,7 @@ async function main() {
     ]),
   } })
   // Starter pages and their design template («قالب طراحی صفحه»): about, contact with its form, legal documents.
-  const starterLayout = { about: { companyPanel: 'about' }, contact: { companyPanel: 'contact', formSlug: 'contact' }, terms: { companyPanel: 'legal' }, refund: { companyPanel: 'legal' } }
+  const starterLayout = { about: { companyPanel: 'about' }, contact: { companyPanel: 'contact', formSlug: 'contact' }, terms: { companyPanel: 'legal' }, refund: { companyPanel: 'legal' }, privacy: { companyPanel: 'legal' } }
   for (const p of pages) {
     // Seed new starter pages only. An existing page or its layout is the owner's content.
     if (!await prisma.page.findUnique({ where: { slug: p.slug }, select: { id: true } })) await prisma.$transaction(async tx => {
@@ -445,7 +455,7 @@ async function main() {
     // MoboCom sells physical and digital products out of the box.
     { key: 'storeEnabled', value: 'true' },
     { key: 'supportTelegram', value: '@MoboComCMS' },
-    { key: 'supportEmail', value: 'support@example.com' },
+    { key: 'supportEmail', value: '' },
     { key: 'siteUrl', value: process.env.NEXTAUTH_URL || 'http://localhost:3000' },
     { key: 'usdRateToman', value: String(process.env.FRENZYEX_USD_RATE_TOMAN || '0').trim() || '0' },
     { key: 'themeColor', value: '#4b45ee' },

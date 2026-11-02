@@ -12,6 +12,7 @@ import Link from '@/components/AppLink'
 import { parseItemKey } from '@/modules/content/domain/items'
 import { itemCard } from '@/modules/content/server/registry'
 import { profileAddress } from '@/modules/identity/domain/profile-address'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string; post?: string }> }
@@ -21,13 +22,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const data = await getTopic(Number(id), await getForumViewer(), { page: Number(page) || 1 })
   if (!data) return { title: 'موضوع پیدا نشد', robots: { index: false } }
   const hidden = data.thread.status !== 'VISIBLE' || !data.thread.listed
-  return {
+  return shareCard({
     title: `${data.thread.title} — ${data.category.title}`,
     description: data.description || undefined,
     robots: hidden ? { index: false } : undefined,
     alternates: { canonical: toPublicPath(data.page > 1 ? `/forum/t/${id}?page=${data.page}` : `/forum/t/${id}`) },
     openGraph: { type: 'article', title: data.thread.title, description: data.description || undefined },
-  }
+  })
 }
 
 export default async function TopicPage({ params, searchParams }: Props) {

@@ -122,7 +122,7 @@ export async function generateMetadata(): Promise<Metadata> {
     generator: 'Next.js',
     keywords: seo.config.keywords.length ? seo.config.keywords : undefined,
     category: 'shopping',
-    alternates: seo.bilingual ? { canonical: seo.base, languages: { fa: seo.base, en: seo.base, 'x-default': seo.base } } : { canonical: seo.base, types: { 'application/rss+xml': `${seo.base}/feed.xml` } },
+    alternates: { types: { 'application/rss+xml': `${seo.base}/feed.xml` } },
     icons: { icon: '/favicon.svg', apple: '/pwa-icon/180' },
     appleWebApp: { capable: true, title: seo.name, statusBarStyle: 'default' },
     robots: {
@@ -137,7 +137,6 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       type: 'website',
-      url: seo.base,
       siteName: seo.name,
       title: `${seo.name} — ${seo.tagline}`,
       description: seo.description,

@@ -23,6 +23,7 @@ import { toPublicPath } from '@/platform/routing/aliases'
 import { getMusicSettings } from '@/modules/music/server/admin'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import AddToPersonalPlaylist from '@/components/media/AddToPersonalPlaylist'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const fa = locale === 'fa'
   const tr = data.track
   const title = `${fa ? tr.title : tr.titleEn || tr.title} — ${fa ? tr.artist.name : tr.artist.nameEn || tr.artist.name}`
-  return { title: fa ? `دانلود آهنگ ${title}` : title, description: fa ? `پخش آنلاین و دانلود آهنگ ${title}${tr.hasHq ? ' با کیفیت ۳۲۰' : ''}` : `Listen and download ${title}`, openGraph: { images: tr.cover ? [tr.cover] : undefined, type: 'music.song' }, alternates: { canonical: toPublicPath(`/music/track/${tr.slug}`) } }
+  return shareCard({ title: fa ? `دانلود آهنگ ${title}` : title, description: fa ? `پخش آنلاین و دانلود آهنگ ${title}${tr.hasHq ? ' با کیفیت ۳۲۰' : ''}` : `Listen and download ${title}`, openGraph: { images: tr.cover ? [tr.cover] : undefined, type: 'music.song' }, alternates: { canonical: toPublicPath(`/music/track/${tr.slug}`) } })
 }
 
 export default async function TrackPage({ params }: Props) {

@@ -15,6 +15,7 @@ import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { plainText } from '@/shared/text/plain'
 import { getMusicSettings } from '@/modules/music/server/admin'
 import { publicCelebritySlug } from '@/modules/celebrities/server/celebrities'
+import { shareCard } from '@/modules/site/server/seo'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -25,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return {}
   const fa = locale === 'fa'
   const name = fa ? data.artist.name : data.artist.nameEn || data.artist.name
-  return { title: fa ? `آهنگ‌های ${name}` : `${name} — songs & albums`, description:plainText(data.artist.bio).slice(0,160)||(fa ? `آهنگ‌ها و آلبوم‌های ${name}؛ دانلود و پخش آنلاین با بهترین کیفیت.` : `Songs and albums by ${name}: download and listen online.`), openGraph: { images: data.artist.image ? [data.artist.image] : undefined }, alternates: { canonical: toPublicPath(`/music/artist/${data.artist.slug}`) } }
+  return shareCard({ title: fa ? `آهنگ‌های ${name}` : `${name} — songs & albums`, description:plainText(data.artist.bio).slice(0,160)||(fa ? `آهنگ‌ها و آلبوم‌های ${name}؛ دانلود و پخش آنلاین با بهترین کیفیت.` : `Songs and albums by ${name}: download and listen online.`), openGraph: { images: data.artist.image ? [data.artist.image] : undefined }, alternates: { canonical: toPublicPath(`/music/artist/${data.artist.slug}`) } })
 }
 
 export default async function ArtistPage({ params }: Props) {

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
@@ -5,6 +6,8 @@ import { getServerLocale, getServerTheme } from '@/i18n/server'
 import Icon from '@/components/site/Icon'
 import SiteFeedback from '@/components/site/feedback/SiteFeedback'
 import { isModuleEnabled } from '@/extensions/server/modules'
+
+export const metadata: Metadata = { title: 'صفحه پیدا نشد', robots: { index: false } }
 
 export default async function NotFound() {
   const fa = (await getServerLocale()) === 'fa'

@@ -286,6 +286,11 @@ export { celebrityProfile, saveCelebrityProfile } from './celebrities/profile'
 export { celebrityImportState, restoreCelebrityImportState, type CelebrityImportState } from './celebrities/import-state'
 
 /** The person's single page address when it shows something (a section's own person page sends visitors there). */
+/** Everyone with a public page, for the sitemap. */
+export function publicCelebrities(now = new Date(), take = 5000) {
+  return db.celebrity.findMany({ where: publicWhere(now, null, ''), select: { slug: true, updatedAt: true, musicArtistId: true, cinemaPersonId: true }, take })
+}
+
 export async function publicCelebritySlug(source: { cinemaPersonId?: number; musicArtistId?: number }) {
   if (!source.cinemaPersonId && !source.musicArtistId) return null
   const row = await db.celebrity.findFirst({ where: { AND: [source.cinemaPersonId ? { cinemaPersonId: source.cinemaPersonId } : { musicArtistId: source.musicArtistId }, publicWhere(new Date(), null, '')] }, select: { slug: true } }).catch(() => null)

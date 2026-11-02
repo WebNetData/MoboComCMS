@@ -103,6 +103,19 @@ export async function pageMeta(input: PageMetaInput): Promise<Metadata> {
 }
 
 /** Organization + WebSite graph with a sitelinks search box. */
+/**
+ * A page that declares its own share card replaces the site's whole card, so this puts back what it left out: the page's
+ * own address (from its canonical), the site's name and language, and the site's picture when the page has none.
+ */
+export async function shareCard(meta: Metadata, locale: Locale = 'fa'): Promise<Metadata> {
+  const seo = await getSiteSeo(locale)
+  const canonical = meta.alternates?.canonical
+  const url = typeof canonical === 'string' || canonical instanceof URL ? canonical : undefined
+  const own = (meta.openGraph || {}) as Record<string, unknown>
+  const openGraph = { type: 'website', siteName: seo.name, locale: locale === 'fa' ? 'fa_IR' : 'en_US', ...(url ? { url } : {}), ...own, images: own.images || [seo.ogImage] }
+  return { ...meta, openGraph: openGraph as Metadata['openGraph'] }
+}
+
 export async function organizationJsonLd(locale: Locale = 'en') {
   const seo = await getSiteSeo(locale)
   return {

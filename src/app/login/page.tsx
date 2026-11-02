@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import Link from '@/components/AppLink'
 import SiteHeader from '@/components/SiteHeader'
@@ -13,6 +14,8 @@ import { emailOtpAvailable } from '@/modules/identity/server/email-otp'
 import SignedIn from './SignedIn'
 import { safeNext, signedInPerson } from './signed-in-person'
 import { authEntryHref } from '@/modules/identity/domain/continuation'
+
+export const metadata: Metadata = { title: 'ورود به حساب', robots: { index: false } }
 
 export default async function LoginPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ next?: string }> }) {
   const searchParams = await searchParamsPromise
