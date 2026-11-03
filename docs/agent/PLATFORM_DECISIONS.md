@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Mobile registration and recovery — 2026-11-03
+
+Ordinary `/register` uses mobile OTP, then the existing Welcome step asks for first/last names and a new password; email is optional. Identity owns the additive `User.passwordSetupRequired` marker, false for old rows and true only for newly created mobile users. Initial password creation claims the pending, active verified-mobile account and its unchanged snapshot in one transaction; ordinary profile completion never changes passwords. Existing password, Telegram/referral and email-code APIs remain compatible. Password login matches a unique verified normalized mobile or email and retains the same TOTP/current-standing checks. Recovery stays with existing SMS OTP/email-link owners; password writes clear the marker and revoke previous sessions. Settings remain `/admin/sms`, `/admin/email`, `/admin/security`, `/admin/profile-fields`; additional owner-defined fields follow the fixed first-use requirements. [Continuation and deployment](handoffs/PASSWORDLESS_ENTRY.md#mobile-first-registration-and-password--2026-11-03).
+
 ## Prompt Master — 2026-11-01
 
 Member integration2026-11-02: Account owns the dashboard composition; Prompts projects bounded current-member history metadata, Reviews owns template favorites and Content owns collections. `/dashboard/prompts` composes the existing private-history UI and keeps `/prompts/history`. Invalidation carries no private text/identity; each reader reauthorizes through its canonical owner. `prompts.manage` joins the existing shared editorial-collection manager set, while `prompts.author` remains own-template only. No second account, list storage, identity mapping, or public item type for private generations. [Continuation](handoffs/PROMPT_MASTER.md#member-dashboard-and-shared-library--2026-11-02).

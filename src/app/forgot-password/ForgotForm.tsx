@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import TurnstileWidget from '@/components/TurnstileWidget'
 import PasswordField from '@/components/PasswordField'
+import { latinDigits } from '@/shared/text/digits'
 
 type Methods = { email: boolean; sms: boolean }
 
@@ -72,9 +73,9 @@ export default function ForgotForm({ methods }: { methods: Methods }) {
     <Link href="/login" className="btn btn-primary w-full mt-2">ورود به حساب</Link>
   </div>
 
-  const switcher = methods.email && methods.sms && <div className="auth-mode" role="tablist" aria-label="روش بازیابی">
-    <button type="button" role="tab" aria-selected={mode === 'sms'} className={mode === 'sms' ? 'is-active' : ''} onClick={() => { setMode('sms'); setSent(''); setError('') }}>با پیامک</button>
-    <button type="button" role="tab" aria-selected={mode === 'email'} className={mode === 'email' ? 'is-active' : ''} onClick={() => { setMode('email'); setSent(''); setError('') }}>با ایمیل</button>
+  const switcher = methods.email && methods.sms && <div className="auth-mode" role="group" aria-label="روش بازیابی">
+    <button type="button" aria-pressed={mode === 'sms'} className={mode === 'sms' ? 'is-active' : ''} onClick={() => { setMode('sms'); setSent(''); setError('') }}>با پیامک</button>
+    <button type="button" aria-pressed={mode === 'email'} className={mode === 'email' ? 'is-active' : ''} onClick={() => { setMode('email'); setSent(''); setError('') }}>با ایمیل</button>
   </div>
 
   if (mode === 'email') return <form className="auth-form" onSubmit={request} aria-busy={busy}>
@@ -107,7 +108,7 @@ export default function ForgotForm({ methods }: { methods: Methods }) {
       <p className="muted text-sm mb-4" role="status">{sent}</p>
       <div className="mb-4">
         <label className="label" htmlFor="forgot-code">کد پیامک</label>
-        <input id="forgot-code" className="input auth-otp" type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9۰-۹]/g, ''))} required autoFocus />
+        <input id="forgot-code" className="input auth-otp" type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} value={code} onChange={(e) => setCode(latinDigits(e.target.value).replace(/\D/g, ''))} required autoFocus />
         <div className="auth-otp-actions">
           <button type="button" className="link-button" onClick={() => { setSent(''); setCode(''); setNeedsTotp(false); setError('') }}>ویرایش شماره</button>
           <button type="button" className="link-button" disabled={resendIn > 0 || busy} onClick={() => void request()}>{resendIn > 0 ? `ارسال دوباره تا ${resendIn.toLocaleString('fa-IR')} ثانیه` : 'ارسال دوبارهٔ کد'}</button>

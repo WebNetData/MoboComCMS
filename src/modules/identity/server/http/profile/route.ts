@@ -78,6 +78,7 @@ export async function PATCH(req: NextRequest) {
     // As after a reset: every session that signed in before this moment ends, on every device. Someone who
     // changes a password because another person knows it must not leave that person signed in.
     data.passwordChangedAt = new Date()
+    data.passwordSetupRequired = false
   }
 
   const updated = Object.keys(data).length ? await db.user.update({ where: { id: user.id }, data }) : await db.user.findUniqueOrThrow({ where: { id: user.id } })

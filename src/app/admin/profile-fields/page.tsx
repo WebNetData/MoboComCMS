@@ -68,7 +68,7 @@ export default function ProfileFieldsPage() {
   const enabled = config.fields.filter((field) => field.enabled)
   return <div className="sa" dir="rtl">
     <header className="sa-head">
-      <div><h1>فیلدهای ثبت‌نام و تکمیل مشخصات</h1><p className="sa-hint">کاربر تازه (به‌ویژه با پیامک) پس از ورود به صفحهٔ «تکمیل مشخصات» می‌رود و تا فیلدهای ضروری را پر نکند وارد حساب نمی‌شود.</p></div>
+      <div><h1>فیلدهای ثبت‌نام و تکمیل مشخصات</h1><p className="sa-hint">کاربر تازه پس از ورود به صفحهٔ «تکمیل مشخصات» هدایت می‌شود. ثبت‌نام جدید با موبایل همیشه نام، نام خانوادگی و ساخت رمز می‌خواهد و ایمیل در این مرحله اختیاری است؛ تنظیمات زیر برای تکمیل اطلاعات پس از آن اعمال می‌شوند.</p></div>
       <div className="sa-head-actions"><SectionSettingsHistoryLink section="profile-fields" /><a href="/welcome" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش صفحه ↗</a><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
     </header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}

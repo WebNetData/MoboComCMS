@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
+import { clientIp, rateLimitHit, rateLimitStrict } from '@/platform/http/rate-limit'
 import { requirePerm, requireUser } from '@/modules/identity/server/access'
 import { CompletionError, completionStatus, getFieldsConfig, saveFieldsConfig, submitCompletion } from '@/modules/identity/server/profile-fields'
 import { FIELD_TYPES } from '@/modules/identity/domain/profile-fields'
@@ -19,13 +19,13 @@ export async function GET_completion(req: NextRequest) {
 export async function POST_completion(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
-  if (!rateLimitHit(`completion:${user.id}`, 30, 10 * 60_000).ok) return err('درخواست زیاد بود؛ کمی بعد دوباره تلاش کنید', 429)
+  if (!(await rateLimitStrict(`completion:${user.id}`, 30, 10 * 60_000)).ok) return err('درخواست زیاد بود؛ کمی بعد دوباره تلاش کنید', 429)
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return err('اطلاعات ارسال نشد')
   try {
     return ok(await submitCompletion(user.id, body as Record<string, unknown>))
   } catch (error) {
-    if (error instanceof CompletionError) return err(error.message, 422, { errors: error.errors })
+    if (error instanceof CompletionError) return err(error.message, error.status, { errors: error.errors })
     throw error
   }
 }

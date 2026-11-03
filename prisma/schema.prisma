@@ -50,6 +50,7 @@ model User {
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
   passwordChangedAt DateTime?
+  passwordSetupRequired Boolean @default(false)
   totpSecret     String          @default("")
   totpEnabledAt  DateTime?
   totpBackup     String          @default("[]")

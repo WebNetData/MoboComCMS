@@ -103,6 +103,8 @@ export async function PATCH(req: NextRequest) {
   if (typeof body?.name === 'string') data.name = body.name
   if (typeof body?.password === 'string' && body.password.length >= 6) {
     data.passwordHash = await bcrypt.hash(body.password, 10)
+    data.passwordSetupRequired = false
+    data.passwordChangedAt = new Date()
   }
   const refusal = await accountChangeRefusal(admin, id, {
     ...(data.role !== undefined ? { role: data.role as 'ADMIN' | 'CUSTOMER' } : {}), ...(data.roleId !== undefined ? { roleId: data.roleId as number | null } : {}),

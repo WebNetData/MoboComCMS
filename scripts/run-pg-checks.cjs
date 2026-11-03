@@ -20,6 +20,7 @@ const CHECKS = [
   'games-editorial',
   'invoice-logo',
   'identity-otp',
+  'mobile-account-entry',
   'business-trust',
   'business-trust-migration',
   'livechat-placement',

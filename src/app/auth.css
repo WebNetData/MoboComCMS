@@ -80,6 +80,7 @@
 .auth-input-icon { position: absolute; inset-block: 0; inset-inline-start: 14px; display: grid; place-items: center; color: var(--muted); pointer-events: none; transition: color .2s ease; }
 html[data-design] .auth-form .auth-input .input { padding-inline-start: 44px; min-height: 52px; border-radius: 14px; background: var(--card); transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
 html[data-design] .auth-form .auth-input .input[dir="ltr"] { text-align: start; }
+html[data-design] .auth-form .auth-input .auth-identifier[dir="ltr"] { padding-right: 44px; padding-left: 14px; }
 html[data-design] .auth-form .auth-input .input:hover { border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
 html[data-design] .auth-form .auth-input .input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
 .auth-input:focus-within .auth-input-icon { color: var(--primary); }

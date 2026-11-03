@@ -8,8 +8,9 @@ import { signedInPerson } from '../login/signed-in-person'
 import { Suspense } from 'react'
 import LoginForm from '../login/LoginForm'
 import { otpLoginAvailable } from '@/modules/sms/server/sms'
-import { emailOtpAvailable } from '@/modules/identity/server/email-otp'
 import { safeNext } from '@/modules/identity/domain/continuation'
+import Link from '@/components/AppLink'
+import Icon from '@/components/site/Icon'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'ساخت حساب کاربری', robots: { index: false } }
@@ -17,14 +18,18 @@ export const metadata: Metadata = { title: 'ساخت حساب کاربری', rob
 // The theme comes from the request, as on the sign-in page: read from the cookie while rendering in the
 // browser, it differed from what the server had rendered for every returning visitor.
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ method?: string; telegramToken?: string; ref?: string; next?: string }> }) {
-  const params = await searchParams
-  const theme = await getServerTheme()
-  const person = await signedInPerson()
+  const [params, theme, person] = await Promise.all([searchParams, getServerTheme(), signedInPerson()])
   if (person) return <><SiteHeader theme={theme} /><AuthFrame variant="signed"><SignedIn person={person} next={safeNext(params.next)} /></AuthFrame></>
-  const [otp, emailOtp] = await Promise.all([otpLoginAvailable().catch(() => false), emailOtpAvailable().catch(() => false)])
-  const codeEntry = (otp || emailOtp) && params.method !== 'password' && params.telegramToken === undefined && params.ref === undefined
+  const otp = await otpLoginAvailable().catch(() => false)
+  const codeEntry = params.method !== 'password' && params.telegramToken === undefined && params.ref === undefined
   return <>
     <SiteHeader theme={theme} />
-    <AuthFrame variant="register"><Suspense>{codeEntry ? <LoginForm otp={otp} emailOtp={emailOtp} intent="register" /> : <RegisterForm />}</Suspense></AuthFrame>
+    <AuthFrame variant="register"><Suspense>{codeEntry ? otp ? <LoginForm otp intent="register" /> : <div className="auth-form">
+      <span className="auth-form-icon"><Icon name="phone" size={25} /></span>
+      <h1>ثبت‌نام با شمارهٔ موبایل</h1>
+      <p className="auth-form-intro" role="status">ثبت‌نام با کد پیامکی در حال حاضر در دسترس نیست. کمی بعد دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.</p>
+      <Link href="/login" className="btn btn-primary w-full">ورود به حساب موجود</Link>
+      <Link href="/p/contact" className="auth-back">تماس با پشتیبانی</Link>
+    </div> : <RegisterForm />}</Suspense></AuthFrame>
   </>
 }

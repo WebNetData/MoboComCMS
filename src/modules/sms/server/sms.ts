@@ -254,6 +254,7 @@ export async function userForPhone(phone: string) {
     data: {
       email: phoneEmail(phone), phone, phoneVerifiedAt: new Date(), name: '',
       passwordHash: await bcrypt.hash(randomBytes(24).toString('base64url'), 10), lastLoginAt: new Date(),
+      passwordSetupRequired: true,
     },
     include: { roleRef: true },
   })
