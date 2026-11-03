@@ -445,11 +445,35 @@ test('effects: surfaces, heading effects, loops and the new hovers and entrances
   assert.equal(new Set([...PAGE_TEMPLATES, ...BUNDLED_TEMPLATES].map((template) => template.id)).size, PAGE_TEMPLATES.length + BUNDLED_TEMPLATES.length, 'template ids are unique')
 })
 
+test('the slider: settings from a list, addresses checked where drawn, and a client part that pauses, follows the direction and stays still for less motion', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const builder = load('src/modules/site/domain/builder.ts')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const doc = (props) => { const section = builder.createSection(1); section.columns[0].widgets.push({ ...builder.createWidget('slides'), props: { ...builder.createWidget('slides').props, ...props } }); return builder.validateBuilderDoc({ ...builder.emptyDoc(), sections: [section] }).sections[0].columns[0].widgets[0].props }
+  assert.equal(JSON.parse(builder.createWidget('slides').props.items).length, 2, 'a fresh slider has two slides to edit')
+  assert.deepEqual([doc({ effect: 'cube', autoplay: '1', height: '9000px', overlay: 'red', align: 'top' })].map((p) => [p.effect, p.autoplay, p.height, p.overlay, p.align])[0], ['slide', '6', 'md', 'soft', 'start'], 'only listed settings are kept')
+  assert.throws(() => doc({ items: JSON.stringify(Array(11).fill({ title: 'x' })) }), /Invalid items list/)
+  // Tablet values sit between 768 and 1024px, before the phone values that still win below 768px.
+  const style = load('src/modules/site/domain/builder-style.ts')
+  const tabletCss = style.advancedCss('w1', style.validateAdvancedStyle({ paddingT: { t: 12, r: 12, b: 12, l: 12 }, fontSizeT: 30, alignT: 'center', fontSizeM: 20 }))
+  assert.ok(tabletCss.includes('@media (min-width: 768px) and (max-width: 1024px) { .br-x-w1 { padding-block: 12px 12px; padding-inline: 12px 12px; text-align: center; }'), tabletCss)
+  assert.ok(tabletCss.indexOf('min-width: 768px') < tabletCss.indexOf('max-width: 767px'), 'phone rules come after tablet rules')
+  const renderer = read('src/components/content/builder/BuilderRenderer.tsx')
+  const drawn = renderer.slice(renderer.indexOf("case 'slides'"), renderer.indexOf("case 'carousel'"))
+  for (const use of ['src: safeSrc(item.src)', 'href: safeHref(item.href)', 'href2: safeHref(item.href2)']) assert.ok(drawn.includes(use), use)
+  const live = read('src/components/content/builder/BuilderSlides.tsx')
+  assert.match(live, /^'use client'/)
+  for (const part of ["matchMedia('(prefers-reduced-motion: reduce)')", "visibilitychange", 'inert={!on}', 'aria-pressed={paused}', "getComputedStyle(root.current).direction === 'rtl'", 'aria-roledescription']) assert.ok(live.includes(part), part)
+  assert.match(live, /const playing = autoplay > 0 && count > 1 && !paused && !held && !calm && !hidden/)
+  const sheet = read('src/app/builder-render.css')
+  assert.match(sheet, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.br-slide/)
+})
+
 test('showcase blocks: each is a real block of the document, offered in the palette, described in the inspector and drawn safely', () => {
   const fs = require('node:fs'), path = require('node:path')
   const builder = load('src/modules/site/domain/builder.ts')
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
-  const NEW = ['icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress']
+  const NEW = ['icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress', 'slides']
   const palette = read('src/app/admin/builder/palette.tsx'), inspector = read('src/app/admin/builder/inspector.tsx'), renderer = read('src/components/content/builder/BuilderRenderer.tsx')
   for (const type of NEW) {
     assert.ok(builder.WIDGET_TYPES.includes(type), type)

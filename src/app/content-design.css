@@ -197,3 +197,9 @@
 .bld-box-grid small { color: var(--muted); font-size: 10.5px; }
 .bld-adv-reset { width: 100%; margin-top: 14px; }
 .bld-adv :is(button, input, select):focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+/* Structure panel: fold a section, a few words of each block, a mark on styled ones. Advanced style: copy and paste. */
+.bld-tree-row>button.bld-tree-fold{flex:0 0 24px;justify-content:center;padding:0;color:var(--muted)}
+.bld-tree-snip{margin-inline-start:6px;color:var(--muted);font-style:normal;font-size:.75rem}
+.bld-tree-fx{margin-inline-start:5px;color:var(--primary,#41baff);font-style:normal;font-size:.72rem}
+.bld-adv-clip{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 4px}
+.bld-adv-clip small{color:var(--muted);font-size:.75rem}

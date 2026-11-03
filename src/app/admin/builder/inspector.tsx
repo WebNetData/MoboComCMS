@@ -44,6 +44,14 @@ const FIELDS: Partial<Record<WidgetType, Field[]>> = {
     { key: 'items', en: 'Pictures', fa: 'تصویرها', kind: 'items' },
   ],
   carousel: [{ key: 'items', en: 'Slides', fa: 'اسلایدها', kind: 'items' }],
+  slides: [
+    { key: 'height', en: 'Height', fa: 'ارتفاع', kind: 'select', options: [{ value: 'sm', en: 'Short', fa: 'کوتاه' }, { value: 'md', en: 'Medium', fa: 'متوسط' }, { value: 'lg', en: 'Tall', fa: 'بلند' }, { value: 'full', en: 'Full screen', fa: 'تمام‌صفحه' }] },
+    { key: 'effect', en: 'Transition', fa: 'جلوهٔ گذار', kind: 'select', options: [{ value: 'slide', en: 'Slide', fa: 'کشویی' }, { value: 'fade', en: 'Fade', fa: 'محو' }, { value: 'zoom', en: 'Fade with slow zoom', fa: 'محو با زوم آرام' }] },
+    { key: 'autoplay', en: 'Autoplay', fa: 'پخش خودکار', kind: 'select', options: [{ value: '0', en: 'Off', fa: 'خاموش' }, { value: '4', en: 'Every 4 s', fa: 'هر ۴ ثانیه' }, { value: '6', en: 'Every 6 s', fa: 'هر ۶ ثانیه' }, { value: '8', en: 'Every 8 s', fa: 'هر ۸ ثانیه' }, { value: '10', en: 'Every 10 s', fa: 'هر ۱۰ ثانیه' }] },
+    { key: 'overlay', en: 'Shade over the picture', fa: 'سایهٔ روی تصویر', kind: 'select', options: [{ value: 'none', en: 'None', fa: 'بدون' }, { value: 'soft', en: 'Soft', fa: 'ملایم' }, { value: 'strong', en: 'Strong', fa: 'پررنگ' }, { value: 'brand', en: 'Brand colour', fa: 'رنگ برند' }] },
+    { key: 'align', en: 'Text position', fa: 'جای متن', kind: 'select', options: [{ value: 'start', en: 'Start', fa: 'ابتدا' }, { value: 'center', en: 'Centre', fa: 'وسط' }, { value: 'end', en: 'End', fa: 'انتها' }] },
+    { key: 'items', en: 'Slides', fa: 'اسلایدها', kind: 'items' },
+  ],
   pricing: [
     { key: 'title', en: 'Title (FA)', fa: 'عنوان (فا)', kind: 'text' },
     { key: 'titleEn', en: 'Title (EN)', fa: 'عنوان (EN)', kind: 'text', ltr: true },
@@ -212,6 +220,16 @@ const ITEM_KEYS: Record<string, Field[]> = {
   gallery: [
     { key: 'src', en: 'Picture address', fa: 'نشانی تصویر', kind: 'text', ltr: true },
     { key: 'alt', en: 'Alternative text', fa: 'متن جایگزین', kind: 'text' },
+  ],
+  slides: [
+    { key: 'src', en: 'Background picture address', fa: 'نشانی تصویر پس‌زمینه', kind: 'text', ltr: true },
+    { key: 'eyebrow', en: 'Eyebrow', fa: 'روتیتر', kind: 'text' },
+    { key: 'title', en: 'Title', fa: 'تیتر', kind: 'text' },
+    { key: 'text', en: 'Text', fa: 'متن', kind: 'area', rows: 2 },
+    { key: 'label', en: 'Button', fa: 'دکمه', kind: 'text' },
+    { key: 'href', en: 'Button link', fa: 'پیوند دکمه', kind: 'text', ltr: true },
+    { key: 'label2', en: 'Second button', fa: 'دکمهٔ دوم', kind: 'text' },
+    { key: 'href2', en: 'Second button link', fa: 'پیوند دکمهٔ دوم', kind: 'text', ltr: true },
   ],
   carousel: [
     { key: 'src', en: 'Picture address', fa: 'نشانی تصویر', kind: 'text', ltr: true },

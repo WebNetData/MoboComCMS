@@ -11,6 +11,7 @@ export const WIDGET_TYPES = [
   'site-header', 'site-footer',
   'media', 'vip-cta',
   'icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress',
+  'slides',
 ] as const
 export type WidgetType = typeof WIDGET_TYPES[number]
 
@@ -107,6 +108,7 @@ export const WIDGET_LABELS: Record<WidgetType, { fa: string; en: string }> = {
   countdown: { fa: 'شمارش معکوس', en: 'Countdown' },
   social: { fa: 'شبکه‌های اجتماعی', en: 'Social links' },
   progress: { fa: 'نوار پیشرفت', en: 'Progress bars' },
+  slides: { fa: 'اسلایدر حرفه‌ای', en: 'Slider' },
 }
 
 const string = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
@@ -185,6 +187,7 @@ const WIDGET_PROPS: Record<WidgetType, Record<string, PropRule>> = {
   countdown: { until: TEXT(40), title: TEXT(300), titleEn: TEXT(300), done: TEXT(300), doneEn: TEXT(300) },
   social: { items: { json: 12 } },
   progress: { items: { json: 12 } },
+  slides: { items: { json: 10 }, height: { enum: ['md', 'sm', 'lg', 'full'] }, effect: { enum: ['slide', 'fade', 'zoom'] }, autoplay: { enum: ['6', '0', '4', '8', '10'] }, overlay: { enum: ['soft', 'none', 'strong', 'brand'] }, align: { enum: ['start', 'center', 'end'] } },
 }
 
 export type JsonItem = Record<string, string>
@@ -282,6 +285,10 @@ export function createWidget(type: WidgetType): BuilderWidget {
   if (type === 'countdown') { props.title = 'تا شروع'; props.titleEn = 'Starts in'; props.done = 'شروع شد!'; props.doneEn = 'It has started!' }
   if (type === 'social') props.items = JSON.stringify([{ network: 'telegram', href: '' }, { network: 'instagram', href: '' }])
   if (type === 'progress') props.items = JSON.stringify([{ label: 'طراحی', labelEn: 'Design', value: '90' }, { label: 'پشتیبانی', labelEn: 'Support', value: '75' }])
+  if (type === 'slides') props.items = JSON.stringify([
+    { src: '', eyebrow: 'تازه', title: 'تیتر اسلاید اول', text: 'یک جملهٔ کوتاه دربارهٔ پیشنهاد.', label: 'شروع کنید', href: '/register', label2: 'بیشتر بدانید', href2: '#' },
+    { src: '', eyebrow: '', title: 'تیتر اسلاید دوم', text: 'تصویر پس‌زمینه، متن و دکمه‌ها را در تنظیمات بلوک عوض کنید.', label: 'مشاهده', href: '/', label2: '', href2: '' },
+  ])
   if (type === 'faq' && props.items === '[]') props.items = JSON.stringify([{ q: 'پرسش نمونه', qEn: 'Sample question', a: 'پاسخ نمونه', aEn: 'Sample answer' }])
   return { id: newId('w'), type, props, style: validateWidgetStyle({}) }
 }
