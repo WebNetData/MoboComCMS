@@ -13,6 +13,7 @@ import { reindexItem } from '@/modules/search/server/search'
 import { audienceSnapshot, saveItemAudience } from '@/modules/account/server/audience-command'
 import { logEvent } from '@/platform/observability/logger'
 import { writeUserGroup } from '@/modules/account/server/group-command'
+import { memberGroupsSnapshot } from '@/modules/account/server/member-groups'
 import { RevisionError } from '@/modules/content/server/revisions'
 import { JsonSettingMutationError, sectionSettingsRevision } from '@/modules/settings/server'
 
@@ -25,6 +26,11 @@ export async function GET_groups(req: NextRequest) {
   const g = await adminGuard(req, null, GROUPS)
   if ('response' in g) return g.response
   const url = req.nextUrl.searchParams, group = positiveId(url.get('group'))
+  if (url.has('userId')) {
+    const id = positiveId(url.get('userId'))
+    if (!id) return err('شناسهٔ کاربر معتبر نیست')
+    try { const response = ok(await memberGroupsSnapshot(id)); response.headers.set('Cache-Control', 'private, no-store'); return response } catch (error) { if (error instanceof GroupError) return err(error.message, error.status); throw error }
+  }
   if (url.has('group') && !group) return err('شناسهٔ گروه معتبر نیست')
   if (group) return ok(await groupMembers(group, url.get('q') || '', Math.max(1, Math.min(1000000, Math.floor(Number(url.get('page')) || 1)))))
   const [groups, catalog, access] = await Promise.all([adminGroups(), siteGroupCatalog(), loadSectionAccess(true)])

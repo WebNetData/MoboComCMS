@@ -121,12 +121,14 @@ function SectionAccess({ data, onSaved, say }: { data: Data; onSaved: () => void
   }
   return <section className="sa-card" aria-labelledby="ug-sections-title">
     <header className="sa-card-head"><h2 id="ug-sections-title">دسترسی بخش‌ها</h2><SectionSettingsHistoryLink section="section-access" /></header>
-    <p className="sa-hint">بخشی که گروهی برایش انتخاب نشود برای همه باز است. مهمان‌ها برای بخش محدود به صفحهٔ ورود می‌روند و مدیران همان بخش همیشه آن را می‌بینند.</p>
+    <p className="sa-hint">بخشی که گروهی برایش انتخاب نشود برای همه باز است. انتخاب چند گروه یعنی عضویت در یکی از آن‌ها کافی است. مهمان‌ها وارد حساب می‌شوند و مدیران همان بخش همیشه دسترسی دارند.</p>
     <div className="ug-sections">{data.sections.map((section) => {
       const chosen = access[section.id] || []
-      return <details key={section.id} className="ug-section">
+      const catalog: SiteGroup[] = section.id === 'vpn' && !data.catalog.some(group => group.key === 'vip') ? [...data.catalog, { key: 'vip', label: 'اعضای ویژه (نیازمند فعال‌بودن VIP)', family: 'vip', count: 0 }] : data.catalog
+      return <details key={section.id} className="ug-section" open={section.id === 'vpn'}>
         <summary><span>{section.label}</span><small className={chosen.length ? 'is-limited' : ''}>{chosen.length ? `فقط ${fa(chosen.length)} گروه` : 'باز برای همه'}</small></summary>
-        <GroupPicker legend={`گروه‌های ${section.label}`} groups={data.catalog} value={chosen} onChange={(next) => setAccess((current) => ({ ...current, [section.id]: next }))} />
+        {section.id === 'vpn' && <div className="ug-actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setAccess(current => ({ ...current, vpn: ['vip'] }))}>فقط اعضای VIP</button><p className="sa-hint">برای VIP یا گروه خاص، گزینه‌های دلخواه را با هم انتخاب کنید. فعال‌بودن ماژول VPN و برای گزینهٔ VIP فعال‌بودن اشتراک ویژه لازم است؛ این تنظیم ماژول‌ها را روشن نمی‌کند.</p></div>}
+        <GroupPicker legend={`گروه‌های ${section.label}`} groups={catalog} value={chosen} onChange={(next) => setAccess((current) => ({ ...current, [section.id]: next }))} />
       </details>
     })}</div>
     <div className="ug-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ دسترسی بخش‌ها'}</button></div>

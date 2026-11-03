@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Membership groups and VPN — 2026-11-03
+
+Custom membership/VPN2026-11-03: a canonical user may belong to several custom groups at once; their Identity Role remains independent. Per-user membership saves use an exact user-bound revision and the same row lock as existing per-group commands, with strict transactional audit; retained expiry/notes survive. VPN uses the existing section policy and exact `plans.manage` + `subs.manage` manager authority: choose VIP, group(s) or their union, with current standing/expiry/module state checked server-side. Omitted section-setting fields preserve current restrictions; an explicit empty array opens that section. Module activation and already issued external VPN accounts are separate, never implicitly changed by this rule. [Owner paths and boundaries](handoffs/USER_GROUPS_POPUPS.md#vpn-audience-and-user-multi-membership--2026-11-03).
+
 ## Mobile registration and recovery — 2026-11-03
 
 Ordinary `/register` uses mobile OTP, then the existing Welcome step asks for first/last names and a new password; email is optional. Identity owns the additive `User.passwordSetupRequired` marker, false for old rows and true only for newly created mobile users. Initial password creation claims the pending, active verified-mobile account and its unchanged snapshot in one transaction; ordinary profile completion never changes passwords. Existing password, Telegram/referral and email-code APIs remain compatible. Password login matches a unique verified normalized mobile or email and retains the same TOTP/current-standing checks. Recovery stays with existing SMS OTP/email-link owners; password writes clear the marker and revoke previous sessions. Settings remain `/admin/sms`, `/admin/email`, `/admin/security`, `/admin/profile-fields`; additional owner-defined fields follow the fixed first-use requirements. [Continuation and deployment](handoffs/PASSWORDLESS_ENTRY.md#mobile-first-registration-and-password--2026-11-03).

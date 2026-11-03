@@ -21,6 +21,7 @@ const CHECKS = [
   'invoice-logo',
   'identity-otp',
   'mobile-account-entry',
+  'vpn-group-access',
   'business-trust',
   'business-trust-migration',
   'livechat-placement',

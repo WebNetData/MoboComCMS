@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { idsOf, type SiteGroup } from '@/modules/account/domain/site-groups'
 import { memberActive } from '@/modules/account/domain/user-groups'
+import { groupGivesVip } from '@/modules/account/server/user-groups'
 import { holdersOfTier } from '@/modules/membership/server/tiers'
 
 const activeVip = (now: Date) => ({ revokedAt: null, startsAt: { lte: now }, endsAt: { gt: now } })
@@ -16,12 +17,13 @@ export async function siteGroupCatalog(now = new Date()): Promise<SiteGroup[]> {
   const roles = await db.role.findMany({ orderBy: { id: 'asc' }, select: { id: true, name: true, nameFa: true, _count: { select: { users: true } } } })
   for (const role of roles) groups.push({ key: `role:${role.id}`, label: role.nameFa || role.name, family: 'role', count: role._count.users })
   if (vipOn) {
-    const [people, plans, perPlan] = await Promise.all([
+    const [people, plans, perPlan, beneficiaries] = await Promise.all([
       db.userMembership.findMany({ where: activeVip(now), distinct: ['userId'], select: { userId: true } }),
       db.membershipPlan.findMany({ orderBy: { sortOrder: 'asc' }, select: { id: true, name: true } }),
       db.userMembership.findMany({ where: { ...activeVip(now), planId: { not: null } }, distinct: ['userId', 'planId'], select: { planId: true } }),
+      db.userGroupMember.findMany({ where: { ...memberActive(now), group: { active: true, vipBenefits: true } }, distinct: ['userId'], select: { userId: true } }),
     ])
-    groups.push({ key: 'vip', label: 'همهٔ اعضای ویژه', family: 'vip', count: people.length })
+    groups.push({ key: 'vip', label: 'همهٔ اعضای ویژه', family: 'vip', count: new Set([...people, ...beneficiaries].map(row => row.userId)).size })
     for (const tier of await db.membershipTier.findMany({ where: { active: true }, orderBy: { rank: 'asc' }, select: { id: true, name: true, rank: true } })) groups.push({ key: `vip-tier:${tier.id}`, label: `سطح ${tier.name} و بالاتر`, family: 'vip', count: (await holdersOfTier(tier.rank, now)).length })
     for (const plan of plans) groups.push({ key: `vip-plan:${plan.id}`, label: `پلن ${plan.name}`, family: 'vip', count: perPlan.filter((row) => row.planId === plan.id).length })
   }
@@ -44,13 +46,15 @@ export async function siteGroupsOf(userId: number, keys: readonly string[], now 
   const tierIds = idsOf(keys, 'vip-tier'), groupIds = idsOf(keys, 'group'), roleIds = idsOf(keys, 'role'), planIds = idsOf(keys, 'vip-plan'), forumIds = idsOf(keys, 'forum')
   const tags = keys.filter((key) => key.startsWith('crm:')).map((key) => key.slice(4))
   const work: Promise<unknown>[] = []
-  if (tierIds.length) work.push(db.membershipTier.findMany({ where: { id: { in: tierIds } }, select: { id: true, rank: true } }).then(async (tiers) => { for (const tier of tiers) if ((await holdersOfTier(tier.rank, now, userId)).length) mine.push(`vip-tier:${tier.id}`) }))
+  if (tierIds.length) work.push((async () => { if (!await isModuleEnabled('membership')) return; const tiers = await db.membershipTier.findMany({ where: { id: { in: tierIds } }, select: { id: true, rank: true } }); for (const tier of tiers) if ((await holdersOfTier(tier.rank, now, userId)).length) mine.push(`vip-tier:${tier.id}`) })())
   if (groupIds.length) work.push(db.userGroupMember.findMany({ where: { userId, groupId: { in: groupIds }, ...memberActive(now) }, select: { groupId: true } }).then((rows) => { for (const row of rows) mine.push(`group:${row.groupId}`) }))
   if (roleIds.length) work.push(db.user.findUnique({ where: { id: userId }, select: { roleId: true } }).then((user) => { if (user?.roleId && roleIds.includes(user.roleId)) mine.push(`role:${user.roleId}`) }))
-  if (wanted.has('vip') || planIds.length) work.push(db.userMembership.findMany({ where: { userId, ...activeVip(now) }, select: { planId: true } }).then((rows) => {
-    if (rows.length && wanted.has('vip')) mine.push('vip')
+  if (wanted.has('vip') || planIds.length) work.push((async () => {
+    if (!await isModuleEnabled('membership')) return
+    const rows = await db.userMembership.findMany({ where: { userId, ...activeVip(now) }, select: { planId: true } })
+    if (wanted.has('vip') && (rows.length || await groupGivesVip(userId))) mine.push('vip')
     for (const row of rows) if (row.planId && planIds.includes(row.planId)) mine.push(`vip-plan:${row.planId}`)
-  }))
+  })())
   if (wanted.has('buyers')) work.push(db.order.findFirst({ where: { userId, status: 'PAID' }, select: { id: true } }).then((row) => { if (row) mine.push('buyers') }))
   if (wanted.has('subscribers')) work.push(db.subscription.findFirst({ where: { userId, ...activeSubscription(now) }, select: { id: true } }).then((row) => { if (row) mine.push('subscribers') }))
   if (wanted.has('sellers')) work.push(db.seller.findFirst({ where: { userId, status: 'ACTIVE' }, select: { id: true } }).then((row) => { if (row) mine.push('sellers') }))

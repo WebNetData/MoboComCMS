@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { userOpensSection } from '@/modules/account/server/section-access'
 import { enqueueFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
 
 export async function trialPolicy() {
@@ -18,6 +19,7 @@ export function validTrialPolicy(value: { days: number; trafficGB: number; devic
 }
 
 export async function claimTrial(userId: number) {
+  if (!await userOpensSection('vpn', userId)) return { ok: false as const, status: 403, code: 'VPN_FORBIDDEN' }
   const policy = await trialPolicy()
   if (!policy.enabled || !validTrialPolicy(policy)) return { ok: false as const, status: 403, code: 'TRIAL_DISABLED' }
   const plan = await db.plan.findUnique({ where: { id: policy.planId }, include: { panel: true } })

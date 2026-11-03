@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import GlobalRestrictions from '@/components/admin/GlobalRestrictions'
+import UserGroupsEditor from '@/components/admin/UserGroupsEditor'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
 
@@ -170,6 +171,7 @@ export default function AdminCustomerPage() {
         <a className="tab" href={`/admin/crm/${u.id}`}>{isFa ? 'پروندهٔ ۳۶۰ درجه ↗' : 'Customer 360 ↗'}</a>
       </div>
 
+      {tab === 'overview' && <UserGroupsEditor key={`memberships:${u.id}`} userId={u.id} />}
       {tab === 'overview' && data.profileFields && (data.profileFields.rows.length > 0 || data.profileFields.missing.length > 0) && (
         <div className="card mb-4" dir="rtl">
           <h2 className="h3 mb-3">مشخصات تکمیلی</h2>

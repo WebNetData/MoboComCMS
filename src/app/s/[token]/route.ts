@@ -3,6 +3,7 @@
 // path serves byte-for-byte the same thing.
 import { happImportUrl } from '@/modules/subscriptions/server/happ-protocol'
 import { loadSub } from '@/modules/subscriptions/server/subs'
+import { userOpensSection } from '@/modules/account/server/section-access'
 import { getServerLocale } from '@/i18n/server'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,7 @@ export async function GET(_req: Request, { params: paramsPromise }: { params: Pr
   const params = await paramsPromise
   const sub = await loadSub({ token: params.token })
   if (!sub) return new Response(fa ? 'اشتراک پیدا نشد' : 'Subscription not found', { status: 404 })
+  if (!await userOpensSection('vpn', sub.userId)) return new Response(fa ? 'دسترسی به این بخش محدود است' : 'Section access restricted', { status: 403, headers: { 'cache-control': 'private, no-store' } })
   if (sub.status !== 'ACTIVE' || sub.expiresAt.getTime() <= Date.now()) return new Response(fa ? 'اشتراک فعال نیست' : 'Subscription inactive', { status: 403 })
   let link: string
   try { link = await happImportUrl(params.token) } catch { return new Response(fa ? 'لینک Happ هنوز آماده نیست. از پنل کاربری با پشتیبانی تماس بگیرید.' : 'The Happ link is not ready yet. Please contact support from your dashboard.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } }) }

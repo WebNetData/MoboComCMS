@@ -1296,7 +1296,9 @@ test('a section in maintenance shows its notice to visitors and itself to the pe
   const bases = { businesses: ['/businesses'], store: ['/products', '/cart', '/checkout/product'], magazine: ['/blog'], games: ['/games'], cinema: ['/cinema', '/watch'], music: ['/music'], software: ['/software'], forum: ['/forum'] }
   // What is stored is read whatever it is: every section present, off unless it clearly says on, words as plain bounded text.
   const state = m.normalizeMaintenance({ games: { enabled: true, title: '  بازی‌ها بسته است  ', message: 'خط یک\r\nخط دو\u0000' }, music: { enabled: 'yes', title: 5 }, nope: { enabled: true }, forum: { enabled: true, title: 'x'.repeat(500) } })
-  assert.deepEqual(Object.keys(state).filter((key) => key !== 'site'), ['prompts', 'businesses', 'store', 'magazine', 'games', 'cinema', 'music', 'software', 'forum', 'celebrities'])
+  assert.deepEqual(Object.keys(state).filter((key) => key !== 'site'), ['vpn', 'prompts', 'businesses', 'store', 'magazine', 'games', 'cinema', 'music', 'software', 'forum', 'celebrities'])
+  assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['plans.manage', 'subs.manage'] }, 'vpn'), true)
+  assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['subs.manage'] }, 'vpn'), false)
   assert.equal(m.sectionOfPath('/businesses/owned-example', bases), 'businesses')
   assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['businesses.manage'] }, 'businesses'), true)
   assert.equal(m.runsSection({ role: 'ADMIN', roleId: 4, permissions: ['reviews.moderate'] }, 'businesses'), false)

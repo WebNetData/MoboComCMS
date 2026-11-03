@@ -8,6 +8,7 @@ import { normalizeLinks } from '@/modules/identity/domain/profile'
 import { itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { isItemType, itemKey, type ItemRef } from '@/modules/content/domain/items'
 import { memberPromptWorkspace } from '@/modules/prompts/server/prompts'
+import { userOpensSection } from '@/modules/account/server/section-access'
 
 /** What a service order is for (a form, VIP, content), named as its invoice names it. */
 const orderName = (meta: string | null) => { let parsed: Record<string, unknown> = {}; try { parsed = JSON.parse(meta || '{}') } catch { parsed = {} } return parsed.kind ? invoiceSubject({ kind: 'BILLING', meta: parsed, siteName: '', amountText: '' }).title : '' }
@@ -22,7 +23,8 @@ const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: '
 type Check = { key: string; label: string; href: string; done: boolean }
 
 export async function accountOverview(userId: number, now = new Date()) {
-  const modules = await getModuleStates()
+  const modules = { ...await getModuleStates() }
+  if (modules.vpn !== false && !await userOpensSection('vpn', userId)) modules.vpn = false
   const on = (id: string) => modules[id] !== false
   const since84 = new Date(now.getTime() - 84 * DAY)
   const since7 = new Date(now.getTime() - 7 * DAY)

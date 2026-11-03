@@ -5,6 +5,8 @@ import { fetchProfile, upstreamUrl, validProfile } from '@/modules/subscriptions
 import { isHappClient } from '@/modules/subscriptions/server/happ-protocol'
 import { loadSub, siteBaseUrl } from '@/modules/subscriptions/server/subs'
 
+import { userOpensSection } from '@/modules/account/server/section-access'
+
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ token: string }> }) {
@@ -20,6 +22,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   if (!limit.ok) return NextResponse.json({ error: 'درخواست بیش از حد' }, { status: 429, headers: { 'retry-after': String(limit.retryAfter) } })
   const sub = await loadSub({ token: params.token })
   if (!sub) return NextResponse.json({ error: 'اشتراک یافت نشد' }, { status: 404 })
+  if (!await userOpensSection('vpn', sub.userId)) return NextResponse.json({ error: 'دسترسی به این بخش محدود است' }, { status: 403, headers: { 'cache-control': 'private, no-store' } })
   if (sub.status !== 'ACTIVE' || sub.expiresAt.getTime() <= Date.now()) {
     return NextResponse.json({ error: 'اشتراک غیرفعال یا منقضی شده است' }, { status: 403 })
   }
