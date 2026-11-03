@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current2026-11-03 Member shell: `feat/member-shell-pro-2026-11-03`, stacked on PR318 (`f4737388`) and PR317. Owner asked for a still more professional, modern dashboard. The frame round the pages: ambient lights and dot field, glass top bar, side menu depth, see-through cards with a lit edge; rules only under `.member-shell`. [Handoff](../docs/agent/handoffs/PUBLIC_SECTIONS_QUALITY.md).
+
 Current2026-11-03 Member home and effects: `feat/member-dashboard-pro-2026-11-03`, stacked on PR317 (`24c6bc69`, open). Owner asked for a professional, advanced dashboard. Wallet card as the one bright moment, completeness ring, counting figures, icon titles, pointer light, order titles with picture stacks, collection covers. No API or data change. [Handoff](../docs/agent/handoffs/PUBLIC_SECTIONS_QUALITY.md).
 
 Current2026-11-03 Member dashboard design: `feat/member-dashboard-design-2026-11-03` from owner-merged PR316/main `4eb86f7d`. Owner: the dashboard looked plain and request fields untidy. One account design sheet rooted in `.member-shell`; requests redesigned (steps, expert message, answer tiles with copy, secrets masked); designed empty states; home figures before the prompt shelf. No API or data change. [Handoff](../docs/agent/handoffs/PUBLIC_SECTIONS_QUALITY.md).
