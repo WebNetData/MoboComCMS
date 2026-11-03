@@ -7,6 +7,7 @@ import { rateLimitStrict, clientIp } from '@/platform/http/rate-limit'
 import { generate, getAiConfig } from '@/modules/ai/server/generation'
 import { assemblePrompt, cleanText, enhancementPrompt, inputChecklist, normalizeInput, PromptError } from '../domain/prompts'
 import { policy, templateBySlug } from './queries'
+import { isMember } from '@/modules/membership/server/membership'
 import { promptTransaction } from './transaction'
 import { pruneHistory } from './commands'
 
@@ -15,8 +16,9 @@ export async function generatePrompt(req: NextRequest, raw: Record<string, unkno
   if (!actor && !settings.allowGuests) throw new PromptError('برای ساخت پرامپت وارد حساب شوید', 401)
   if (!(await rateLimitStrict(`prompts:generate:${clientIp(req.headers)}`, settings.minuteLimit, 60000)).ok) throw new PromptError('تعداد ساخت‌ها زیاد است؛ یک دقیقه بعد دوباره تلاش کنید', 429)
   if (actor && !(await rateLimitStrict(`prompts:member:${actor.id}`, settings.minuteLimit, 60000)).ok) throw new PromptError('تعداد ساخت‌ها زیاد است؛ کمی بعد دوباره تلاش کنید', 429)
-  const template = input.templateSlug ? await templateBySlug(input.templateSlug) : null
+  const template = input.templateSlug ? await templateBySlug(input.templateSlug, db, { userId: actor?.id || null, member: await isMember(actor?.id) }) : null
   if (input.templateSlug && !template) throw new PromptError('الگوی انتخاب‌شده منتشر نشده یا حذف شده است', 404)
+  if (template?.paywall && !template.paywall.open) throw new PromptError('برای استفاده از این الگو، ابتدا از صفحهٔ پرامپت آن را خریداری کنید', 402)
   if (template && template.kind !== input.kind) throw new PromptError('نوع الگو با نوع پرامپت یکی نیست')
   let output = assemblePrompt(input, template), model = '', engine = 'STRUCTURED'
   if (raw.engine === 'ai') {

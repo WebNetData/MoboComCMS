@@ -67,7 +67,7 @@ export function useJson<T>(url: string | null) {
   return { data, error, loading, reload, setData }
 }
 
-export async function send<T = unknown>(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown, headers: Record<string, string> = {}): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+export async function send<T = unknown>(url: string, method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', body?: unknown, headers: Record<string, string> = {}): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   try {
     const response = await fetch(url, { method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined })
     const data = await response.json().catch(() => null)

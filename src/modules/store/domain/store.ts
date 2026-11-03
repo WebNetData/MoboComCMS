@@ -133,6 +133,8 @@ export type ShopQuery = {
   rating: number
   /** Digital products handed over by themselves on payment. */
   instant: boolean
+  /** Downloadable file products within the existing virtual Store catalogue. */
+  files?: boolean
   /** Technical specifications picked in the filters: key → accepted values (any of them). */
   specs: Record<string, string[]>
   sort: ShopSort
@@ -170,6 +172,7 @@ export function parseShopQuery(params: Params): ShopQuery {
     kind: kind === 'PHYSICAL' || kind === 'VIRTUAL' ? kind : '',
     rating: ['3', '4'].includes(first(params.rating)) ? Number(first(params.rating)) : 0,
     instant: first(params.instant) === '1',
+    files: first(params.files) === '1' && kind !== 'PHYSICAL',
     specs: Object.fromEntries(Object.entries(params).flatMap(([name, value]) => {
       const key = name.startsWith(SPEC_PARAM) ? specKey(name.slice(SPEC_PARAM.length)) : ''
       const values = (Array.isArray(value) ? value : [value || '']).map((item) => item.replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 80)).filter(Boolean)
@@ -194,6 +197,7 @@ export function shopQueryString(query: ShopQuery, patch: Partial<ShopQuery> = {}
   if (next.kind) params.set('kind', next.kind)
   if (next.rating) params.set('rating', String(next.rating))
   if (next.instant) params.set('instant', '1')
+  if (next.files) params.set('files', '1')
   for (const [key, values] of Object.entries(next.specs)) for (const value of values) params.append(`${SPEC_PARAM}${key}`, value)
   if (next.sort !== 'newest') params.set('sort', next.sort)
   if (next.page > 1) params.set('page', String(next.page))
@@ -203,7 +207,7 @@ export function shopQueryString(query: ShopQuery, patch: Partial<ShopQuery> = {}
 
 /** True when anything narrows the listing (the shop landing shows only without filters). */
 export const isFiltered = (query: ShopQuery) =>
-  Boolean(query.q || query.category || query.brands.length || query.min || query.max || query.available || query.discounted || query.kind || query.rating || query.instant || Object.keys(query.specs).length || query.sort !== 'newest' || query.page > 1)
+  Boolean(query.q || query.category || query.brands.length || query.min || query.max || query.available || query.discounted || query.kind || query.rating || query.instant || query.files || Object.keys(query.specs).length || query.sort !== 'newest' || query.page > 1)
 
 /** Only the store half is chosen (?kind=…): that half's own front page, not a listing. */
 export const isStoreFront = (query: ShopQuery) => !!query.kind && !isFiltered({ ...query, kind: '' })
@@ -222,6 +226,9 @@ export type StoreSettings = {
   lowStockDefault: number
   showBrands: boolean
   showCategories: boolean
+  showFileStore: boolean
+  fileStoreTitle: string
+  fileStoreDescription: string
   showPriceHistory: boolean
   priceHistoryDays: number
   priceDropNotifications: boolean
@@ -243,6 +250,9 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   lowStockDefault: 3,
   showBrands: true,
   showCategories: true,
+  showFileStore: true,
+  fileStoreTitle: 'فایل‌های کاربردی، آمادهٔ دریافت',
+  fileStoreDescription: 'نرم‌افزار، فایل و منابع دیجیتال را انتخاب کنید؛ پس از خرید یا با دسترسی ویژه، از حساب خود دریافت کنید.',
   showPriceHistory: false,
   priceHistoryDays: 365,
   priceDropNotifications: true,
@@ -300,6 +310,9 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     lowStockDefault: Number.isSafeInteger(low) && low >= 0 && low <= 10_000 ? low : base.lowStockDefault,
     showBrands: raw.showBrands === undefined ? base.showBrands : raw.showBrands === true,
     showCategories: raw.showCategories === undefined ? base.showCategories : raw.showCategories === true,
+    showFileStore: raw.showFileStore === undefined ? base.showFileStore : raw.showFileStore === true,
+    fileStoreTitle: raw.fileStoreTitle === undefined ? base.fileStoreTitle : cleanText(raw.fileStoreTitle, 80) || DEFAULT_STORE_SETTINGS.fileStoreTitle,
+    fileStoreDescription: raw.fileStoreDescription === undefined ? base.fileStoreDescription : cleanText(raw.fileStoreDescription, 240),
     showPriceHistory: raw.showPriceHistory === undefined ? base.showPriceHistory : raw.showPriceHistory === true,
     priceHistoryDays: Number.isSafeInteger(historyDays) && historyDays >= 30 && historyDays <= 730 ? historyDays : base.priceHistoryDays,
     priceDropNotifications: raw.priceDropNotifications === undefined ? base.priceDropNotifications : raw.priceDropNotifications === true,

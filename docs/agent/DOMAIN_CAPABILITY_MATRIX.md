@@ -1,5 +1,7 @@
 # Domain capability maturity matrix
 
+Scoped2026-11-03: private Store file delivery and per-item VIP/group price rules, including Prompt source gating, are **Functional (bounded local)** in existing owners. PostgreSQL, integer pricing, refund/source/download faults, actual wallet purchases, compiled UID1000 HTTPS themed UI and production artifact isolation executed. This does not promote whole Store/Paywall domains or certify destination-host/payment-provider operation. [Exact contracts, controls and evidence](handoffs/DIGITAL_CONTENT_PRICING.md).
+
 Scoped2026-11-02: public Prompt templates, central artists and business profiles now extend the existing Imports registry as **Functional (bounded local)** destinations. Native PostgreSQL, empty-DB/no-seed, failure/race/authority/rollback probes and actual three-destination themed wizard/report flows executed. This does not promote whole domains, external-media providers or target-server rollout. [Current owner map, exact evidence and limits](handoffs/IMPORTS_LAUNCH.md#profile-destinations--2026-11-02).
 
 Scoped2026-11-02: Prompt Master member integration is **Functional (bounded local)**: Admin/member home, library, private workspace, shared template favorites and collections use the same canonical account. Connected PostgreSQL, current-member/permission/module-off faults, build and themed member-browser checks executed; this is not whole-site synchronization or ProductionVerified certification. [Current evidence and limits](handoffs/PROMPT_MASTER.md#member-dashboard-and-shared-library--2026-11-02).

@@ -74,7 +74,7 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
                     {link.checksum && <small className="md-checksum">SHA-256: <CopyText value={link.checksum} label="SHA-256" /></small>}
                   </span>
                   {locked && own
-                    ? <BuyLinkButton contentKey={own.key} price={own.price} listPrice={own.listPrice} memberPrice={own.memberPrice} vipFree={own.vipFree} loggedIn={loggedIn} />
+                    ? <BuyLinkButton contentKey={own.key} price={own.price} listPrice={own.listPrice} memberPrice={own.memberPrice} groupPrice={own.groupPrice} quote={own.quote} vipFree={own.vipFree} loggedIn={loggedIn} />
                     : locked
                     ? paywall ? <a href="#buy" className="md-go is-locked" rel="nofollow">🛒 {fa ? 'خرید' : 'Buy'}</a> : <Link href={href} className="md-go is-locked" rel="nofollow">🔒 {fa ? 'ویژه VIP' : 'VIP only'}</Link>
                     : <span className="md-go-wrap">

@@ -8,6 +8,7 @@ import ShowcaseFields from './ShowcaseFields'
 import PublicationPanel from './PublicationPanel'
 import s from './PromptMaster.module.css'
 import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
+import PaidAccessPanel from '@/components/admin/PaidAccessPanel'
 export default function TemplateEditor({ initial, categories, done, cancel, canManage, reviewAuthors }: { initial: EditableTemplate; categories: { code: string; name: string }[]; done: () => void; cancel: () => void; canManage: boolean; reviewAuthors: boolean }) {
   const [form, setForm] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const heading = useRef<HTMLHeadingElement>(null)
@@ -38,6 +39,7 @@ export default function TemplateEditor({ initial, categories, done, cancel, canM
       </div><PublicationPanel form={form} initial={initial} canManage={canManage} reviewAuthors={reviewAuthors} blocked={blocked} change={change}/>
     </fieldset>
     {canManage && <ItemAudiencePanel type="prompt" id={form.id || null} noun="این پرامپت را" />}
+    {canManage && <PaidAccessPanel ownerType="prompt" ownerId={form.id || null} noun="پرامپت" />}
     <details className={s.advanced}><summary>پیش‌نمایش خروجی ساختاریافته</summary><pre className={s.previewText} dir="auto">{preview}</pre></details>
     {error && <div className={s.error} role="alert">{error}</div>}<div className={s.historyButtons}><button className={s.primary} disabled={busy || blocked} type="submit"><Icon name="check" size={17} />{busy ? 'در حال ذخیره…' : form.status==='PENDING'&&!canManage?'ذخیره و ارسال برای بازبینی':form.status==='PUBLISHED'?'ذخیره و انتشار':'ذخیرهٔ الگو'}</button><button type="button" className={s.secondary} onClick={close} disabled={busy}>بستن ویرایشگر</button></div>
   </form></section>

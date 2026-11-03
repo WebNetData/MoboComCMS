@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Digital files and content pricing — 2026-11-03
+
+Store owns file products and orders; Paywall owns priced content, now including Prompt. Account owns exact integer PRICE/PERCENT/AMOUNT/FREE adjustment math. Lowest eligible ordinary/VIP/current-group price wins without stacking. Free eligibility is live, while a paid purchase survives group expiry and closes on its applicable refund. Only FILES virtual fixed-price non-service products may have zero Store prices. Media stores opaque private bytes outside public Library roots; copying an existing Library file is explicit and leaves its original public. Current section managers price through existing permissions, with owner-row/revision/audit claims. No second catalogue, grant system or identity. [Owner interfaces, rollout and evidence](handoffs/DIGITAL_CONTENT_PRICING.md).
+
 ## Membership groups and VPN — 2026-11-03
 
 Custom membership/VPN2026-11-03: a canonical user may belong to several custom groups at once; their Identity Role remains independent. Per-user membership saves use an exact user-bound revision and the same row lock as existing per-group commands, with strict transactional audit; retained expiry/notes survive. VPN uses the existing section policy and exact `plans.manage` + `subs.manage` manager authority: choose VIP, group(s) or their union, with current standing/expiry/module state checked server-side. Omitted section-setting fields preserve current restrictions; an explicit empty array opens that section. Module activation and already issued external VPN accounts are separate, never implicitly changed by this rule. [Owner paths and boundaries](handoffs/USER_GROUPS_POPUPS.md#vpn-audience-and-user-multi-membership--2026-11-03).

@@ -4,7 +4,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript-api')
 function load(relative, mocks = {}, cache = new Map()) {
-  const file = path.resolve(__dirname, '..', relative)
+  let file = path.resolve(__dirname, '..', relative)
+  if (!fs.existsSync(file) && file.endsWith('.ts')) file = file.slice(0, -3) + '/index.ts'
   if (cache.has(file)) return cache.get(file).exports
   const mod = { exports: {} }; cache.set(file, mod)
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText

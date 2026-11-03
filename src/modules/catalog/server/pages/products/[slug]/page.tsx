@@ -40,6 +40,8 @@ import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { openCurrenciesOf, readOrderFields } from '@/modules/store/domain/order-inputs'
 import { opensAudience } from '@/modules/account/server/item-audience'
 import { groupDeal } from '@/modules/account/server/user-groups'
+import { productFileAccess } from '@/modules/store/server/product-files'
+import ProductDownloads from '@/components/store/ProductDownloads'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -130,14 +132,17 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const installments = checkoutGateways.filter((gateway) => isInstallmentGateway(gateway.provider)).map((gateway) => ({ label: customerGatewayLabel(gateway), count: installmentConfig(gateway.config).installments }))
   if (!isPreview(preview)) countProductView(product.id)
   const deal = await groupDeal(viewer.userId, [product.id])
-  const regular = unitPrice(product, null, false, undefined, deal)
+  const regular = unitPrice(product, null, viewer.member, undefined, deal)
+  const vipQuote = unitPrice(product, null, true, undefined, deal)
+  const fileAccess = product.digitalMode === 'FILES' ? await productFileAccess(product.id, viewer.userId) : null
   const variantAxes = fields.filter(field => field.variant).map(field => ({ key: field.key, label: isFa ? field.label : field.labelEn || field.label, color: field.kind === 'color' }))
   const buyVariants = activeVariants.map(variant => {
-    const priced = unitPrice(product, variant, false, undefined, deal)
+    const priced = unitPrice(product, variant, viewer.member, undefined, deal)
+    const vipVariant = unitPrice(product, variant, true, undefined, deal)
     return {
       id: variant.id, name: isFa ? variant.name : variant.nameEn || variant.name, attributes: parseJson<Record<string, string>>(variant.attributes, {}),
       price: minorToNumber(priced.unitMinor, priced.currency), listPrice: priced.listMinor ? minorToNumber(priced.listMinor, priced.currency) : 0,
-      memberPrice: vipOn && variant.memberPriceMinor > 0n ? minorToNumber(variant.memberPriceMinor, priced.currency) : 0,
+      memberPrice: vipOn && vipVariant.unitMinor > 0n ? minorToNumber(vipVariant.unitMinor, priced.currency) : 0,
       stock: variant.stock, limit: product.stock === 0 ? 0 : lineLimit(product.stock, variant.stock, product.maxPerOrder), image: variant.image || undefined,
     }
   })
@@ -164,13 +169,15 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   )
   const seller = await productSeller(product.id)
   const purchaseNode = (
-    <aside className="sx-pbuy" aria-label="خرید کالا">
+    <aside className="sx-pbuy" id="product-purchase" aria-label="خرید کالا">
       <BuyBox
         seller={seller ? { name: seller.shopName, label: seller.performance.label, href: `/shop/${seller.slug}` } : null}
         productId={product.id} slug={product.slug} kind={product.kind} instant={deliversInstantly(product)} currency={regular.currency}
         price={minorToNumber(regular.unitMinor, regular.currency)} listPrice={regular.listMinor ? minorToNumber(regular.listMinor, regular.currency) : 0}
-        memberPrice={vipOn && product.memberPriceMinor > 0n ? minorToNumber(product.memberPriceMinor, regular.currency) : 0}
-        limit={lineLimit(product.stock, null, product.maxPerOrder)} inStock={inStock} lowStockAt={product.lowStockAt || storeSettings.lowStockDefault}
+        memberPrice={vipOn && vipQuote.unitMinor > 0n ? minorToNumber(vipQuote.unitMinor, regular.currency) : 0}
+        fileAccess={fileAccess ? { open: fileAccess.open, reason: fileAccess.reason, count: fileAccess.files.length } : undefined}
+        vipFree={vipOn && vipQuote.unitMinor === 0n}
+        limit={lineLimit(product.stock, null, product.maxPerOrder)} inStock={inStock && (product.digitalMode !== 'FILES' || !!fileAccess?.files.length)} lowStockAt={product.lowStockAt || storeSettings.lowStockDefault}
         saleEndsAt={product.saleEndsAt && regular.listMinor ? product.saleEndsAt.toISOString() : null}
         variants={buyVariants} axes={variantAxes}
         vip={{ enabled: vipOn, member: viewer.member, access: product.access, giftDays: vipOn ? product.vipGiftDays : 0 }}
@@ -190,7 +197,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
     </section>
   )
   const uspNode = <TrustStrip />
-  const tabsNode = <>{storeSettings.showProductBundles && <ProductBundles slug={product.slug} />}<ProductTabs slug={product.slug} descriptionFa={htmlFa} descriptionEn={htmlEn} rating={reviewScore._avg.rating || 0} reviewCount={reviewCount} questionCount={questionCount} showPriceHistory={storeSettings.showPriceHistory} showFrequentlyBoughtTogether={storeSettings.showFrequentlyBoughtTogether} showProductRelationships={storeSettings.showProductRelationships} historyVariants={buyVariants.map(({ id, name }) => ({ id, name }))} /></>
+  const tabsNode = <>{fileAccess && <ProductDownloads access={fileAccess} slug={product.slug} title={name} />}{storeSettings.showProductBundles && <ProductBundles slug={product.slug} />}<ProductTabs slug={product.slug} descriptionFa={htmlFa} descriptionEn={htmlEn} rating={reviewScore._avg.rating || 0} reviewCount={reviewCount} questionCount={questionCount} showPriceHistory={storeSettings.showPriceHistory} showFrequentlyBoughtTogether={storeSettings.showFrequentlyBoughtTogether} showProductRelationships={storeSettings.showProductRelationships} historyVariants={buyVariants.map(({ id, name }) => ({ id, name }))} /></>
   const slots = {
     'product-hero': heroNode,
     'product-gallery': <div className="store-product-hero-part">{galleryNode}</div>,
@@ -227,6 +234,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
             context={builderContext}
             slots={slots}
           />
+          {fileAccess && !docHasSlotWidget(layoutDoc, 'product-tabs') && <div className="br-container"><ProductDownloads access={fileAccess} slug={product.slug} title={name} /></div>}
           {!ownLayout && builderDoc && <div className="store-product-builder"><BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} /></div>}
         </main>
       ) : (

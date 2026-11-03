@@ -1,4 +1,8 @@
 import { cache } from 'react'
+import { pricedAccess } from '@/modules/paywall/server/audience-pricing'
+import { adjustmentInput, readAudiencePrices } from '@/modules/account/domain/price-adjustments'
+import { paidRevision, writePaidPrice, deletePaidPrice, type PriceWriteContext } from '@/modules/paywall/server/price-commands'
+import { livePurchases, countLivePurchases, purchaseIsLive } from '@/modules/paywall/server/purchases'
 import { db } from '@/platform/database/prisma'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { itemCards } from '@/modules/content/server/registry'
@@ -65,17 +69,17 @@ const cardOf = async (ownerType: OwnerType, ownerId: number) => (await cards([{ 
 /** The rules on an item and its parents, plus whether the viewer bought the one that applies. */
 export async function accessFor(viewer: { userId: number | null; member: boolean }, chain: Chain): Promise<{ decision: AccessDecision; key: string | null }> {
   if (!chain.length || !await paywallEnabled()) return { decision: { open: true, reason: 'free' }, key: null }
-  const rules = await db.paidItem.findMany({ where: { OR: chain.map((link) => ({ ownerType: link.ownerType, ownerId: link.ownerId })), active: true } }).catch(() => [])
+  const rules = await db.paidItem.findMany({ where: { OR: chain.map((link) => ({ ownerType: link.ownerType, ownerId: link.ownerId })), active: true } })
   const rule = pickRule(rules, chain)
   if (!rule) return { decision: { open: true, reason: 'free' }, key: null }
-  const purchased = viewer.userId ? !!await db.contentPurchase.findFirst({ where: { userId: viewer.userId, ownerType: rule.ownerType, ownerId: rule.ownerId, revokedAt: null }, select: { id: true } }) : false
-  return { decision: decideAccess(rule, { member: viewer.member, purchased }), key: contentKey(rule.ownerType, rule.ownerId) }
+  const purchased = viewer.userId ? (await livePurchases(viewer.userId, [rule], 1)).length > 0 : false
+  return { decision: await pricedAccess(rule, { ...viewer, purchased }), key: contentKey(rule.ownerType, rule.ownerId) }
 }
 
 /** Is there an active price on this item (the paywall replaces the plain "VIP only" gate)? */
 export async function isPaid(chain: Chain): Promise<boolean> {
   if (!chain.length || !await paywallEnabled()) return false
-  return (await db.paidItem.count({ where: { OR: chain.map((link) => ({ ownerType: link.ownerType, ownerId: link.ownerId })), active: true } }).catch(() => 0)) > 0
+  return (await db.paidItem.count({ where: { OR: chain.map((link) => ({ ownerType: link.ownerType, ownerId: link.ownerId })), active: true } })) > 0
 }
 
 export type PaywallView = {
@@ -87,6 +91,8 @@ export type PaywallView = {
   vipFree: boolean
   vipPrice: string
   memberPrice: boolean
+  groupPrice?: boolean
+  quote?: { amountMinor: string; currency: string }
   title: string
 }
 
@@ -100,7 +106,7 @@ export async function paywallView(viewer: { userId: number | null; member: boole
   return {
     key, open: false, reason: 'buy', title: card?.title || '',
     price: formatPrice(decision.priceMinor, decision.currency), listPrice: formatPrice(decision.listPriceMinor, decision.currency),
-    vipFree: decision.vipFree, vipPrice: decision.vipPriceMinor ? formatPrice(decision.vipPriceMinor, decision.currency) : '', memberPrice: decision.memberPrice,
+    vipFree: decision.vipFree, vipPrice: decision.vipPriceMinor ? formatPrice(decision.vipPriceMinor, decision.currency) : '', memberPrice: decision.memberPrice, groupPrice: decision.groupPrice, quote: { amountMinor: decision.priceMinor.toString(), currency: decision.currency },
   }
 }
 
@@ -111,15 +117,15 @@ export async function paywallView(viewer: { userId: number | null; member: boole
 export async function linkPaywalls(viewer: { userId: number | null; member: boolean }, linkIds: number[]): Promise<Map<number, PaywallView>> {
   const out = new Map<number, PaywallView>()
   if (!linkIds.length || !await paywallEnabled()) return out
-  const rules = await db.paidItem.findMany({ where: { ownerType: 'link', ownerId: { in: linkIds }, active: true } }).catch(() => [])
+  const rules = await db.paidItem.findMany({ where: { ownerType: 'link', ownerId: { in: linkIds }, active: true } })
   if (!rules.length) return out
-  const bought = viewer.userId ? new Set((await db.contentPurchase.findMany({ where: { userId: viewer.userId, ownerType: 'link', ownerId: { in: rules.map((rule) => rule.ownerId) }, revokedAt: null }, select: { ownerId: true } })).map((row) => row.ownerId)) : new Set<number>()
+  const bought = viewer.userId ? new Set((await livePurchases(viewer.userId, rules, rules.length)).map(row => row.ownerId)) : new Set<number>()
   for (const rule of rules) {
-    const decision = decideAccess(rule, { member: viewer.member, purchased: bought.has(rule.ownerId) })
+    const decision = await pricedAccess(rule, { ...viewer, purchased: bought.has(rule.ownerId) })
     const key = contentKey('link', rule.ownerId)
     out.set(rule.ownerId, decision.open
       ? { key, open: true, reason: decision.reason, price: '', listPrice: '', vipFree: false, vipPrice: '', memberPrice: false, title: '' }
-      : { key, open: false, reason: 'buy', price: formatPrice(decision.priceMinor, decision.currency), listPrice: formatPrice(decision.listPriceMinor, decision.currency), vipFree: decision.vipFree, vipPrice: decision.vipPriceMinor ? formatPrice(decision.vipPriceMinor, decision.currency) : '', memberPrice: decision.memberPrice, title: '' })
+      : { key, open: false, reason: 'buy', price: formatPrice(decision.priceMinor, decision.currency), listPrice: formatPrice(decision.listPriceMinor, decision.currency), vipFree: decision.vipFree, vipPrice: decision.vipPriceMinor ? formatPrice(decision.vipPriceMinor, decision.currency) : '', memberPrice: decision.memberPrice, groupPrice: decision.groupPrice, quote: { amountMinor: decision.priceMinor.toString(), currency: decision.currency }, title: '' })
   }
   return out
 }
@@ -163,10 +169,9 @@ export async function fulfillContentOrder(orderId: number): Promise<void> {
 export async function grantContent(input: { userId: number; ownerType: OwnerType; ownerId: number; orderId?: number | null; paidMinor?: bigint; currency?: string; source: 'PURCHASE' | 'ADMIN'; note?: string }): Promise<boolean> {
   const where = { userId_ownerType_ownerId: { userId: input.userId, ownerType: input.ownerType, ownerId: input.ownerId } }
   const existing = await db.contentPurchase.findUnique({ where })
-  if (existing && !existing.revokedAt) return false
+  if (existing && await purchaseIsLive(existing)) return false
   if (existing) {
-    await db.contentPurchase.update({ where: { id: existing.id }, data: { revokedAt: null, orderId: input.orderId ?? existing.orderId, source: input.source, note: String(input.note || existing.note).slice(0, 300) } })
-    return true
+    return (await db.contentPurchase.updateMany({ where: { id: existing.id, revokedAt: existing.revokedAt, orderId: existing.orderId, source: existing.source }, data: { revokedAt: null, orderId: input.orderId ?? existing.orderId, paidMinor: input.paidMinor ?? existing.paidMinor, currency: input.currency || existing.currency, source: input.source, note: String(input.note || existing.note).slice(0, 300) } })).count === 1
   }
   try {
     await db.contentPurchase.create({ data: {
@@ -174,8 +179,9 @@ export async function grantContent(input: { userId: number; ownerType: OwnerType
       paidMinor: input.paidMinor ?? 0n, currency: input.currency || 'IRT', source: input.source, note: String(input.note || '').slice(0, 300),
     } })
     return true
-  } catch {
-    return false // a concurrent grant won
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') return false // a concurrent grant won
+    throw error
   }
 }
 
@@ -183,7 +189,7 @@ export async function grantContent(input: { userId: number; ownerType: OwnerType
 
 /** "My purchases": everything the user bought, newest first. */
 export async function myPurchases(userId: number) {
-  const rows = await db.contentPurchase.findMany({ where: { userId, revokedAt: null }, orderBy: { createdAt: 'desc' }, take: 500 })
+  const rows = await livePurchases(userId)
   const found = await cards(rows)
   return rows.map((row) => {
     const card = found.get(`${row.ownerType}:${row.ownerId}`)
@@ -198,8 +204,8 @@ export async function myPurchases(userId: number) {
 export async function purchasePreview(userId: number, take = 6) {
   const size = Math.min(12, Math.max(1, Math.trunc(take) || 6))
   const [total, rows] = await Promise.all([
-    db.contentPurchase.count({ where: { userId, revokedAt: null } }),
-    db.contentPurchase.findMany({ where: { userId, revokedAt: null }, orderBy: { createdAt: 'desc' }, take: Math.min(48, size * 4) }),
+    countLivePurchases(userId),
+    livePurchases(userId, undefined, Math.min(48, size * 4)),
   ])
   const found = await cards(rows)
   const items = rows.flatMap((row) => {
@@ -228,6 +234,7 @@ async function ownerRows(refs: { ownerType: string; ownerId: number }[]): Promis
     ids('title').length && db.cinemaTitle.findMany({ where: { id: { in: ids('title') } }, select: { ...pick, poster: true } }).then((rows) => put('title', rows.map((r) => ({ ...r, image: r.poster })))),
     ids('album').length && db.musicAlbum.findMany({ where: { id: { in: ids('album') } }, select: { ...pick, cover: true } }).then((rows) => put('album', rows.map((r) => ({ ...r, image: r.cover })))),
     ids('track').length && db.musicTrack.findMany({ where: { id: { in: ids('track') } }, select: { ...pick, cover: true } }).then((rows) => put('track', rows.map((r) => ({ ...r, image: r.cover })))),
+    ids('prompt').length && db.promptTemplate.findMany({ where: { id: { in: ids('prompt') } }, select: { ...pick, showcase: true } }).then(rows => put('prompt', rows.map(row => ({ ...row, image: '' })))),
     ids('link').length && linkOwnerRows(ids('link')).then((rows) => { for (const [key, row] of rows) out.set(key, row) }),
   ])
   return out
@@ -247,28 +254,28 @@ async function linkOwnerRows(ids: number[]) {
   return out
 }
 
-const adminItem = (row: { id: number; ownerType: string; ownerId: number; priceMinor: bigint; currency: string; vipAccess: string; memberPriceMinor: bigint | null; active: boolean; sales: number; revenueMinor: bigint; updatedAt: Date }) => ({
+const adminItem = (row: { id: number; ownerType: string; ownerId: number; priceMinor: bigint; currency: string; vipAccess: string; memberPriceMinor: bigint | null; pricingRules: string; active: boolean; sales: number; revenueMinor: bigint; updatedAt: Date }) => ({
   id: row.id, ownerType: row.ownerType, ownerId: row.ownerId, key: contentKey(row.ownerType, row.ownerId),
   price: priceInput(row.priceMinor, row.currency), memberPrice: priceInput(row.memberPriceMinor, row.currency), priceLabel: formatPrice(row.priceMinor, row.currency),
   memberPriceLabel: row.memberPriceMinor ? formatPrice(row.memberPriceMinor, row.currency) : '', currency: row.currency, vipAccess: row.vipAccess, active: row.active,
   sales: row.sales, revenue: formatPrice(row.revenueMinor, row.currency), updatedAt: row.updatedAt.toISOString(),
+  revision: paidRevision(row), pricingRules: readAudiencePrices(row.pricingRules).map(rule => ({ audience: rule.audience, ...adjustmentInput(rule, row.currency) })),
 })
 
 /** Price panel of one item in a section editor. */
 export async function getPaidItem(ownerType: OwnerType, ownerId: number) {
   const row = await db.paidItem.findUnique({ where: { ownerType_ownerId: { ownerType, ownerId } } })
-  return { enabled: await paywallEnabled(), item: row ? adminItem(row) : null }
+  return { enabled: await paywallEnabled(), item: row ? adminItem(row) : null, revision: paidRevision(row), userGroups: await db.userGroup.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, name: true, active: true } }) }
 }
 
-export async function savePaidItem(ownerType: OwnerType, ownerId: number, input: Record<string, unknown>) {
+export async function savePaidItem(ownerType: OwnerType, ownerId: number, input: Record<string, unknown>, context?: PriceWriteContext) {
   if (!(await ownerRows([{ ownerType, ownerId }])).size) throw new PaywallError('این مورد یافت نشد', 404)
-  const data = normalizePaidInput(input)
-  const row = await db.paidItem.upsert({ where: { ownerType_ownerId: { ownerType, ownerId } }, create: { ownerType, ownerId, ...data }, update: data })
+  const row = await writePaidPrice(ownerType, ownerId, input, context)
   return adminItem(row)
 }
 
-export async function removePaidItem(ownerType: OwnerType, ownerId: number) {
-  await db.paidItem.deleteMany({ where: { ownerType, ownerId } })
+export async function removePaidItem(ownerType: OwnerType, ownerId: number, revision?: unknown, context?: PriceWriteContext) {
+  await deletePaidPrice(ownerType, ownerId, revision, context)
 }
 
 /** The paid content dashboard: KPIs, every priced item and recent sales. */

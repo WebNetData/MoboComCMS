@@ -22,6 +22,8 @@ const CHECKS = [
   'identity-otp',
   'mobile-account-entry',
   'vpn-group-access',
+  'digital-content-pricing',
+  'digital-content-pricing-migration',
   'business-trust',
   'business-trust-migration',
   'livechat-placement',

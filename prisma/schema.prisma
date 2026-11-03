@@ -831,6 +831,9 @@ model ProductAttributeGroup {
 }
 
 model Product {
+  files ProductFile[]
+  /// Optional VIP adjustment; empty preserves memberPriceMinor semantics.
+  vipPricing String @default("")
   groupPrices ProductGroupPrice[] @relation("ProductGroupPrice")
   /// Site group keys that may see this item, as JSON; empty for everyone.
   audienceGroups String @default("")
@@ -917,6 +920,7 @@ model Product {
   @@index([sellerId])
   @@index([pricingMode])
   @@index([isService])
+  @@index([kind, digitalMode, active])
 }
 
 /// Named fixed component selections; Store remains the pricing/cart/order owner.
@@ -3632,6 +3636,7 @@ model NewsletterDelivery {
 /// A price on one piece of content (article, software, game, film, album, track).
 /// VIP members get it free, at a member price, or pay like everyone else.
 model PaidItem {
+  pricingRules String @default("[]")
   id               Int      @id @default(autoincrement())
   ownerType        String   // post | software | game | title | album | track
   ownerId          Int
@@ -4612,6 +4617,7 @@ model UserGroupMember {
 
 /// A product's price for one group. variantId 0 is the whole product.
 model ProductGroupPrice {
+  mode String @default("PRICE")
   id         Int       @id @default(autoincrement())
   productId  Int
   product    Product   @relation("ProductGroupPrice", fields: [productId], references: [id], onDelete: Cascade)
@@ -4622,6 +4628,21 @@ model ProductGroupPrice {
 
   @@unique([productId, variantId, groupId])
   @@index([groupId])
+}
+
+/// Private file delivery for a virtual Store product; no public URL.
+model ProductFile {
+  id Int @id @default(autoincrement())
+  productId Int
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  label String
+  filename String
+  storageKey String @unique
+  sizeBytes BigInt
+  sha256 String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  @@index([productId, active])
 }
 
 /// A level of VIP with a place in the order. A plan is one price of a tier.

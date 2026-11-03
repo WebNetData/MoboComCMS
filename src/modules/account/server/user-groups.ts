@@ -5,6 +5,7 @@ import { latinDigits } from '@/shared/text/digits'
 import { GroupError, memberActive, normalizeGroup, type GroupDeal, dealKey, NO_DEAL } from '@/modules/account/domain/user-groups'
 import { tierStanding } from '@/modules/membership/server/tiers'
 import { lockGroupMember } from '@/modules/account/server/member-groups'
+import { readAdjustment, type PriceAdjustment } from '@/modules/account/domain/price-adjustments'
 
 /** The active groups a member is in now. Expiry is read here, so no job has to remove anyone in time. */
 function membershipsOf(userId: number, now = new Date()) {
@@ -22,11 +23,17 @@ export async function groupDeal(userId: number | null | undefined, productIds: r
   if (!rows.length && !tierPercent) return NO_DEAL
   const percent = Math.max(tierPercent, ...rows.map((row) => row.group.discountPercent))
   const prices = new Map<string, bigint>()
+  const adjustments = new Map<string, PriceAdjustment[]>()
   for (const row of await db.productGroupPrice.findMany({ where: { groupId: { in: rows.map((item) => item.groupId) }, productId: { in: [...productIds] } } })) {
     const key = dealKey(row.productId, row.variantId), held = prices.get(key)
+    if (row.mode && (row.mode !== 'PRICE' || row.priceMinor === 0n)) {
+      const rule = readAdjustment({ mode: row.mode, value: row.priceMinor.toString() })
+      if (rule) adjustments.set(key, [...adjustments.get(key) || [], rule])
+      continue
+    }
     if (held === undefined || row.priceMinor < held) prices.set(key, row.priceMinor)
   }
-  return { percent, prices }
+  return { percent, prices, adjustments }
 }
 
 // ------------------------------------------------------------------ admin

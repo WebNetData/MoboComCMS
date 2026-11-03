@@ -141,6 +141,7 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
     // Products with their own code pool deliver themselves. A failure here fails the job, so it is tried again:
     // every step above is safe to repeat and a code is given to a line once.
     await import('@/modules/store/server/digital-codes').then((m) => m.deliverDigitalCodes(job.orderId!))
+    await import('@/modules/store/server/product-files').then(m => m.deliverProductFiles(job.orderId!))
     return
   }
 

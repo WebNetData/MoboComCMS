@@ -12,6 +12,7 @@ import FxPricing from '../FxPricing'
 import PublishReview, { previewValue, type ReviewRow } from '../../../cms/PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import ProductCodes from './Codes'
+import ProductFilesEditor from '@/components/admin/store/ProductFilesEditor'
 import OrderAsk from '../OrderAsk'
 import CategoryTreePicker from '../CategoryTreePicker'
 import { OrganizationScope } from '@/components/media/OrganizationScope'
@@ -190,7 +191,7 @@ export default function ProductEditorPage() {
           </>}
         </section>
 
-        {!isNew && <div id="sa-audience"><ItemAudiencePanel type="product" id={Number(id)} noun="این محصول" /></div>}
+        {!isNew && <div id="sa-audience"><ItemAudiencePanel key={`audience:${id}:${form.digitalMode || 'MANUAL'}`} type="product" id={Number(id)} noun="این محصول" /></div>}
 
         <section id="sa-inventory" className="sa-card">
           <header className="sa-card-head"><h2>انبار و ارسال</h2></header>
@@ -208,7 +209,8 @@ export default function ProductEditorPage() {
 
         <OrderAsk form={form} update={update} />
 
-        {!isNew && form.kind === 'VIRTUAL' && <ProductCodes productId={Number(id)} onStock={(stock) => { setCodesOn(stock >= 0); setForm((current) => current && { ...current, stock }) }} />}
+        {!isNew && form.kind === 'VIRTUAL' && form.digitalMode !== 'FILES' && <ProductCodes productId={Number(id)} onStock={(stock) => { setCodesOn(stock >= 0); setForm((current) => current && { ...current, stock, digitalMode: stock >= 0 ? 'CODES' : 'MANUAL' }) }} />}
+        {!isNew && form.kind === 'VIRTUAL' && <ProductFilesEditor key={`files:${form.digitalMode || 'MANUAL'}`} productId={Number(id)} onMode={mode => { if (form.digitalMode !== mode) { setCodesOn(mode === 'CODES'); setForm(current => ({ ...current, digitalMode: mode, ...(mode === 'FILES' ? { stock: -1 } : {}) })) } }} />}
 
         <section id="sa-media" className="sa-card">
           <header className="sa-card-head"><h2>تصاویر</h2></header>

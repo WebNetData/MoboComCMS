@@ -44,7 +44,7 @@
 @media (max-width: 700px) { .hero, .doc, .help { border-radius: 22px; } }
 @media (prefers-reduced-motion: reduce) { .related a { transition: none; } .related a:hover { transform: none; } }
 @media print {
-  :global(.mb-header), :global(.mb-navbar), :global(.mb-breadcrumbs), :global(footer), :global(.site-footer), .toc, .print, .related, .help { display: none !important; }
+  :global(body):has(.legal) :global(.mb-header), :global(body):has(.legal) :global(.mb-navbar), :global(body):has(.legal) :global(.mb-breadcrumbs), :global(body):has(.legal) :global(footer), :global(body):has(.legal) :global(.site-footer), .toc, .print, .related, .help { display: none !important; }
   .legal { padding: 0; }
   .hero, .doc { border: 0; box-shadow: none; padding: 0; }
   .hero::before, .hero::after { display: none; }

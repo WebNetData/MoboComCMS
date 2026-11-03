@@ -7,6 +7,7 @@ import StudioIntro from '@/components/prompts/StudioIntro'
 import TemplateCard from '@/components/prompts/TemplateCard'
 import s from '@/components/prompts/PromptMaster.module.css'
 import { studioState, templateDirectory, templateBySlug } from '@/modules/prompts/server/prompts'
+import BuyContent from '@/components/paywall/BuyContent'
 import { isKind } from '@/modules/prompts/domain/prompts'
 import { getViewer } from '@/modules/membership/server/membership'
 import { withSectionSeo } from '@/modules/site/server/section-seo'
@@ -17,6 +18,7 @@ export default async function PromptsPage({ searchParams }: { searchParams: Prom
   const query = await searchParams, slug = typeof query.template === 'string' ? query.template.slice(0,100) : ''
   const [policy, directory, template, viewer] = await Promise.all([studioState(), templateDirectory({}), slug ? templateBySlug(slug) : null, getViewer()])
   if (slug && !template) notFound()
+  if (template?.paywall && !template.paywall.open) return <main className={s.page} dir="rtl"><BuyContent view={template.paywall} loggedIn={!!viewer.userId} next={`/prompts?template=${template.slug}`} noun="پرامپت" /><Link href={`/prompts/templates/${template.slug}`}>مشاهدهٔ نمونه و جزئیات پرامپت</Link></main>
   const kind = template && isKind(template.kind) ? template.kind : isKind(query.kind) ? query.kind : 'TEXT'
   const generationId = typeof query.generation === 'string' && /^\d+$/.test(query.generation) ? query.generation : ''
   const featured = directory.templates.slice(0,6), category = (code: string) => policy.categories.find(c => c.code === code)?.name || code

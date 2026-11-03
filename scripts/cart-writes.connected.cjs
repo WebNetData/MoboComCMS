@@ -8,6 +8,8 @@ function load(file) {
   // This suite owns public cart write races; group authority is covered by user-groups.connected.
   if(name === '@/modules/account/server/item-audience') return {userOpensAudience: async raw => !raw}
   if(name === '@/modules/account/server/user-groups') return {groupDeal: async () => ({percent:0,prices:new Map()})}
+  // VIP tier eligibility is a separate owner; this suite exercises cart write races.
+  if(name === '@/modules/membership/server/rules') return {ruleRefusal: async () => null}
   if(name === '@/modules/store/domain/store') return load('src/modules/store/domain/store.ts')
   if(name === '@/modules/catalog/domain/product-publication') return load('src/modules/catalog/domain/product-publication.ts')
   if(name === '@/modules/store/domain/order-inputs') return load('src/modules/store/domain/order-inputs.ts')
