@@ -6,6 +6,8 @@ test('signed package admission, locked/scoped/origin refusal and web launch in f
   test.setTimeout(240_000)
   expect(baseURL).toBe('http://localhost:3205')
   const fixture = JSON.parse(fs.readFileSync(process.env.E2E_PACKAGE_FIXTURE!, 'utf8'))
+  // The lab package is built from this code, so it carries this code's version.
+  const version: string = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1100 }, reducedMotion: 'reduce' })
   const visitor = await browser.newContext({ baseURL }), section = await browser.newContext({ baseURL })
   try {
@@ -28,13 +30,13 @@ test('signed package admission, locked/scoped/origin refusal and web launch in f
     await expect(page.getByText(/امضا یا محتوای بسته معتبر نیست/)).toBeVisible()
     const packageFile = fs.readFileSync(fixture.package)
     expect(packageFile.length).toBeGreaterThan(10 * 1024 * 1024)
-    await input.setInputFiles({ name: 'mobocom-1.6.1.mbrelease', mimeType: 'application/octet-stream', buffer: packageFile })
+    await input.setInputFiles({ name: `mobocom-${version}.mbrelease`, mimeType: 'application/octet-stream', buffer: packageFile })
     await page.getByRole('button', { name: 'بارگذاری و بررسی بسته', exact: true }).click()
-    await expect(page.getByText(/امضای بستهٔ نسخهٔ 1.6.1 تأیید شد/)).toBeVisible({ timeout: 90_000 })
+    await expect(page.getByText(new RegExp(`امضای بستهٔ نسخهٔ ${version.replace(/\./g, '\\.')} تأیید شد`))).toBeVisible({ timeout: 90_000 })
     const card = page.locator('.upd-package')
-    await expect(card.getByRole('button', { name: 'نصب نسخهٔ 1.6.1', exact: true })).toBeDisabled()
+    await expect(card.getByRole('button', { name: `نصب نسخهٔ ${version}`, exact: true })).toBeDisabled()
     await page.reload()
-    await expect(card.getByRole('button', { name: 'نصب نسخهٔ 1.6.1', exact: true })).toBeVisible()
+    await expect(card.getByRole('button', { name: `نصب نسخهٔ ${version}`, exact: true })).toBeVisible()
     await card.getByText('مشخصات صحت و ناشر', { exact: true }).click()
     for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 390], ['dark', 390]] as const) {
       await page.setViewportSize({ width, height: 1100 })
@@ -47,7 +49,7 @@ test('signed package admission, locked/scoped/origin refusal and web launch in f
     }
     await card.getByRole('checkbox', { name: /تأیید می‌کنم پشتیبان اجباری/ }).check()
     page.once('dialog', dialog => dialog.accept())
-    await card.getByRole('button', { name: 'نصب نسخهٔ 1.6.1', exact: true }).click()
+    await card.getByRole('button', { name: `نصب نسخهٔ ${version}`, exact: true }).click()
     await expect(page.getByText('به‌روزرسانی کامل شد. صفحه را تازه کنید.', { exact: true })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('heading', { name: 'به‌روزرسانی سایت', exact: true })).toBeVisible()
     expect(errors).toEqual([])

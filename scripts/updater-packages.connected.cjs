@@ -35,7 +35,7 @@ async function main(){
  assert.equal((await http.POST(req(stream,{'content-length':'1'}))).status,413)
  assert.equal(fs.readdirSync(path.join(dir,'state/packages')).filter(name=>name.startsWith('.incoming-')).length,0,'overflow cleans its private partial file')
  const admitted=await http.POST(req(fs.readFileSync('/tmp/mobocom-package-tools/valid.mbrelease')));assert.equal(admitted.status,200,await admitted.clone().text())
- const item=await admitted.json();assert.match(item.id,/^[a-f0-9]{64}$/);assert.equal(item.version,'1.6.1')
+ const item=await admitted.json();assert.match(item.id,/^[a-f0-9]{64}$/);assert.equal(item.version,require('../package.json').version)
  assert.equal(fs.statSync(path.join(dir,'state/packages',item.id+'.mbrelease')).mode&0o077,0)
  assert.equal((await (await http.GET(request('GET',undefined,{cookie}))).json()).length,1)
  assert.ok(await db.auditLog.count({where:{actorUserId:user.id,action:'updates.package-upload'}}))

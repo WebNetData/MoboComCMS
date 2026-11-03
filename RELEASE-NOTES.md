@@ -1,5 +1,38 @@
 # HappVPN deployable baseline — 2026-09-22
 
+## 1.7.0 — MoboCom 1.0.0 Beta (pre-release, 2026-11-03)
+
+The first public beta. Its public name is **MoboCom 1.0.0 Beta**. The package, panel and Git tag carry **1.7.0** (`v1.7.0`), because a release must be numbered above the earlier 1.6.x releases for updates and the migration order to stay correct. Releases everything merged after 1.6.1 (PRs #290–#329).
+
+- **Install and operations:**
+  - one-line install for Ubuntu 22.04/24.04/26.04, Debian 12/13 and AlmaLinux 9/10 (`install.sh`);
+  - `mobocom versions`, `update VERSION` and `downgrade VERSION` on the safe update path;
+  - browser-based domain/email/SSL setup on a private temporary HTTPS listener;
+  - signed `.run` installer and `.mbrelease` web updates;
+  - host backup and restore.
+- **Admin:**
+  - the panel is organized by area;
+  - whole-site and per-section maintenance notices;
+  - announcement popups with audiences and repeat rules.
+- **Members:**
+  - redesigned member dashboard;
+  - mobile sign-up with first-use password setup;
+  - several user groups per member;
+  - VIP tiers, trials, gifts and group seats;
+  - group pricing and group-only content.
+- **Page builder:**
+  - effects library and landing templates;
+  - slider and twelve advanced blocks;
+  - global brand kit;
+  - column layout and accordion;
+  - owner-set widths and heights.
+- **Content and store:**
+  - Prompt Master studio and library;
+  - profile bulk imports;
+  - private file sales and content pricing;
+  - billing, invoice and shipping fixes for launch.
+- **Database:** 69 migrations (`20261214120000_content_revisions` … `20270212120000_digital_content_pricing`), sealed as release 1.7.0 and applied automatically on start. Take a backup first; the updaters do so themselves.
+
 ## 1.6.0 — MoboComCMS multi-section CMS and bulk import
 
 Releases everything merged after 1.5.0 (PRs #1–#17). Upgrade notes, the migration list and post-update checks: [UPDATE-1.6.0](docs/releases/UPDATE-1.6.0.md); installation: [README](README.md#نصب-روی-سرور) and [VPS/shared hosting](docs/DEPLOY-VPS-HOST-FA.md).
