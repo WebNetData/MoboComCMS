@@ -473,7 +473,7 @@ test('showcase blocks: each is a real block of the document, offered in the pale
   const fs = require('node:fs'), path = require('node:path')
   const builder = load('src/modules/site/domain/builder.ts')
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
-  const NEW = ['icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress', 'slides']
+  const NEW = ['icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress', 'slides', 'flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating']
   const palette = read('src/app/admin/builder/palette.tsx'), inspector = read('src/app/admin/builder/inspector.tsx'), renderer = read('src/components/content/builder/BuilderRenderer.tsx')
   for (const type of NEW) {
     assert.ok(builder.WIDGET_TYPES.includes(type), type)

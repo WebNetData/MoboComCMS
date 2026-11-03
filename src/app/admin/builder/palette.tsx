@@ -11,6 +11,7 @@ const GROUPS: { titleEn: string; titleFa: string; types: WidgetType[] }[] = [
   { titleEn: 'Content', titleFa: 'محتوا', types: ['heading', 'text', 'image', 'button', 'video', 'nav'] },
   { titleEn: 'Structure', titleFa: 'ساختار', types: ['divider', 'spacer', 'stats', 'list', 'faq'] },
   { titleEn: 'Showcase', titleFa: 'نمایشی', types: ['icon-box', 'tabs', 'testimonials', 'counters', 'progress', 'pricing', 'countdown'] },
+  { titleEn: 'Advanced', titleFa: 'پیشرفته', types: ['flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating'] },
   { titleEn: 'Media & social', titleFa: 'رسانه و شبکه‌ها', types: ['slides', 'gallery', 'carousel', 'social'] },
   { titleEn: 'Sections', titleFa: 'بخش‌های آماده', types: ['hero', 'cta', 'plans', 'posts', 'products', 'media', 'vip-cta', 'network', 'form'] },
   { titleEn: 'Advanced', titleFa: 'پیشرفته', types: ['html', 'template'] },
@@ -27,7 +28,7 @@ const GLYPH: Partial<Record<WidgetType, string>> = {
   'product-hero': '◈', 'product-gallery': '▤', 'product-info': 'ℹ', 'product-purchase': '🛍', 'product-usp': '✓', 'product-tabs': '⊟',
   'site-header': '▔', 'site-footer': '▁',
   media: '🎬', 'vip-cta': '♛',
-  'icon-box': '◆', tabs: '⊟', testimonials: '❝', counters: '①', gallery: '▦', carousel: '⇆', slides: '▶', pricing: '₪', countdown: '⏱', social: '@', progress: '▰',
+  'icon-box': '◆', tabs: '⊟', testimonials: '❝', counters: '①', gallery: '▦', carousel: '⇆', slides: '▶', 'flip-box': '⟲', 'animated-headline': '✎', 'before-after': '◧', timeline: '┊', team: '☺', logos: '◎', marquee: '⇢', steps: '①', comparison: '▤', 'video-box': '▷', alert: '!', rating: '★', pricing: '₪', countdown: '⏱', social: '@', progress: '▰',
 }
 
 /** Extra block groups offered for the page being edited. */

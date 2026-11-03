@@ -28,6 +28,7 @@ import { advancedCss, styleClass, type AdvancedStyle } from '@/modules/site/doma
 import Icon from '@/components/site/Icon'
 import { BuilderCountdown, BuilderCounter, BuilderTabs } from '@/components/content/builder/BuilderInteractive'
 import BuilderSlides from '@/components/content/builder/BuilderSlides'
+import { AnimatedWords, BeforeAfter, VideoBox } from '@/components/content/builder/BuilderBlocks'
 
 export type BuilderLocale = 'fa' | 'en'
 
@@ -275,6 +276,78 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
       if (!pictures.length) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph" style={radius} />) : null
       return frame(widget, ctx, <div className="br-gallery" style={{ ['--br-gallery-cols' as string]: ['2', '3', '4', '5'].includes(props.columns) ? props.columns : '3' }}>
         {pictures.map((picture, index) => <a key={index} href={picture.src} target="_blank" rel="noopener noreferrer" style={radius}><img src={picture.src} alt={picture.alt} loading="lazy" /></a>)}
+      </div>)
+    }
+    case 'flip-box': {
+      const href = props.href && safeHref(props.href) !== '#' ? safeHref(props.href) : ''
+      return frame(widget, ctx, <div className={`br-flip is-${props.direction === 'vertical' ? 'vertical' : 'horizontal'} h-${['sm', 'lg'].includes(props.height) ? props.height : 'md'}`} tabIndex={0}>
+        <div className="br-flip-inner" style={radius}>
+          <div className="br-flip-face is-front" style={radius}><span className="br-flip-icon"><Icon name={props.icon || 'sparkles'} size={30} /></span>{props.title && <strong>{props.title}</strong>}{props.text && <span>{props.text}</span>}</div>
+          <div className="br-flip-face is-back" style={radius}>{props.backTitle && <strong>{props.backTitle}</strong>}{props.backText && <span>{props.backText}</span>}{props.label && href && <Link className="btn btn-primary" href={href}>{props.label}</Link>}</div>
+        </div>
+      </div>)
+    }
+    case 'animated-headline': {
+      const words = String(props.words || '').split(/\r?\n/).map((word) => word.trim()).filter(Boolean).slice(0, 8)
+      const Tag = (['h1', 'h3'].includes(props.level) ? props.level : 'h2') as 'h1' | 'h2' | 'h3'
+      if (!words.length && !props.before) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph br-video-ph">{locale === 'fa' ? 'کلمه‌های تیتر را بنویسید' : 'Write the headline words'}</div>) : null
+      return frame(widget, ctx, <Tag className="br-ah">{props.before && <span>{props.before} </span>}{words.length > 0 && <AnimatedWords words={words} effect={['slide', 'fade'].includes(props.effect) ? props.effect : 'type'} />}{props.after && <span> {props.after}</span>}</Tag>)
+    }
+    case 'before-after': {
+      const before = safeSrc(props.before), after = safeSrc(props.after)
+      if (!before || !after) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph" style={radius} />) : null
+      return frame(widget, ctx, <div style={radius} className="br-ba-frame"><BeforeAfter before={before} after={after} beforeLabel={props.beforeLabel || ''} afterLabel={props.afterLabel || ''} alt={props.alt || ''} start={Number(props.start) || 50} fa={locale === 'fa'} /></div>)
+    }
+    case 'timeline':
+      return frame(widget, ctx, <ol className="br-tl">{itemsOf(props.items).map((item, index) => <li key={index}><span className="br-tl-dot" aria-hidden="true" /><div className="br-tl-card">{item.date && <span className="br-tl-date">{item.date}</span>}{item.title && <strong>{item.title}</strong>}{item.text && <p>{item.text}</p>}</div></li>)}</ol>)
+    case 'team':
+      return frame(widget, ctx, <ul className="br-team" style={{ ['--br-team-cols' as string]: ['2', '4'].includes(props.columns) ? props.columns : '3' }}>{itemsOf(props.items).map((item, index) => {
+        const photo = safeSrc(item.photo), href = item.href && safeHref(item.href) !== '#' ? safeHref(item.href) : ''
+        return <li key={index} className="br-member" style={radius}>
+          <span className="br-member-photo">{photo ? <img src={photo} alt="" loading="lazy" /> : <span aria-hidden="true">{(item.name || '؟').slice(0, 1)}</span>}</span>
+          <span className="br-member-copy">{item.name && <strong>{item.name}</strong>}{item.role && <small>{item.role}</small>}{item.text && <span>{item.text}</span>}{href && <Link href={href}>{locale === 'fa' ? 'پروفایل' : 'Profile'}</Link>}</span>
+        </li>
+      })}</ul>)
+    case 'logos': {
+      const logos = itemsOf(props.items).map((item) => ({ src: safeSrc(item.src), alt: item.alt || '', href: item.href && safeHref(item.href) !== '#' ? safeHref(item.href) : '' })).filter((item) => item.src || item.alt)
+      if (!logos.length) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph" />) : null
+      const row = (hidden: boolean) => logos.map((logo, index) => { const mark = logo.src ? <img src={logo.src} alt={hidden ? '' : logo.alt} loading="lazy" /> : <span>{logo.alt}</span>; return <li key={`${hidden ? 'b' : 'a'}${index}`} aria-hidden={hidden || undefined}>{logo.href && !hidden ? <Link href={logo.href}>{mark}</Link> : mark}</li> })
+      return frame(widget, ctx, <div className={`br-logos is-${['slow', 'fast'].includes(props.speed) ? props.speed : 'normal'}`}>{props.title && <p className="br-logos-title">{props.title}</p>}<div className="br-logos-window"><ul className="br-logos-track">{row(false)}{row(true)}</ul></div></div>)
+    }
+    case 'marquee': {
+      const words = String(props.text || '').split(/\r?\n/).map((word) => word.trim()).filter(Boolean).slice(0, 12)
+      if (!words.length) return null
+      const mark = props.separator === 'star' ? '✦' : props.separator === 'slash' ? '/' : '•'
+      const line = (hidden: boolean) => <span className="br-mq-run" aria-hidden={hidden || undefined}>{words.map((word, index) => <span key={index}>{word}<i aria-hidden="true">{mark}</i></span>)}</span>
+      return frame(widget, ctx, <div className={`br-mq is-${['slow', 'fast'].includes(props.speed) ? props.speed : 'normal'} size-${['sm', 'lg'].includes(props.size) ? props.size : 'md'}`}><div className="br-mq-track">{line(false)}{line(true)}</div></div>)
+    }
+    case 'steps':
+      return frame(widget, ctx, <ol className={`br-steps is-${props.layout === 'column' ? 'column' : 'row'}`}>{itemsOf(props.items).map((item, index) => <li key={index}><span className="br-step-no num" aria-hidden="true">{(index + 1).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span><div>{item.title && <strong>{item.title}</strong>}{item.text && <p>{item.text}</p>}</div></li>)}</ol>)
+    case 'comparison': {
+      const names = String(props.names || '').split(/\r?\n/).map((name) => name.trim()).filter(Boolean).slice(0, 4)
+      const highlight = Number(props.highlight) || 0
+      const cell = (value: string) => value === 'yes' ? <span className="br-cmp-yes" role="img" aria-label={locale === 'fa' ? 'دارد' : 'Yes'}>✓</span> : value === 'no' ? <span className="br-cmp-no" role="img" aria-label={locale === 'fa' ? 'ندارد' : 'No'}>—</span> : value
+      return frame(widget, ctx, <div className="br-cmp-wrap"><table className="br-cmp">
+        <thead><tr><th scope="col"><span className="sr-only">{locale === 'fa' ? 'ویژگی' : 'Feature'}</span></th>{names.map((name, index) => <th scope="col" key={index} className={highlight === index + 1 ? 'is-pick' : undefined}>{name}</th>)}</tr></thead>
+        <tbody>{itemsOf(props.items).map((row, index) => <tr key={index}><th scope="row">{row.feature}</th>{names.map((_, at) => <td key={at} className={highlight === at + 1 ? 'is-pick' : undefined}>{cell(row[`v${at + 1}`] || '')}</td>)}</tr>)}</tbody>
+      </table></div>)
+    }
+    case 'video-box': {
+      const src = safeHref(toEmbedUrl(props.url || ''))
+      if (!props.url || src === '#' || !/^https:\/\//.test(src)) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph br-video-ph">{locale === 'fa' ? 'نشانی ویدیو را وارد کنید' : 'Add a video URL'}</div>) : null
+      return frame(widget, ctx, <div style={radius} className="br-vb-frame"><VideoBox src={src} cover={safeSrc(props.cover)} title={props.title || ''} text={props.text || ''} fa={locale === 'fa'} /></div>)
+    }
+    case 'alert': {
+      const tone = ['success', 'warning', 'danger'].includes(props.tone) ? props.tone : 'info'
+      const href = props.href && safeHref(props.href) !== '#' ? safeHref(props.href) : ''
+      return frame(widget, ctx, <div className={`br-alert is-${tone}`} role="note" style={radius}><span className="br-alert-icon" aria-hidden="true"><Icon name={tone === 'success' ? 'check' : tone === 'info' ? 'bell' : 'shield'} size={20} /></span><div>{props.title && <strong>{props.title}</strong>}{props.text && <p>{props.text}</p>}{props.label && href && <Link href={href}>{props.label}</Link>}</div></div>)
+    }
+    case 'rating': {
+      const value = Math.max(0, Math.min(5, Number(props.value) || 0))
+      const shown = value.toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')
+      return frame(widget, ctx, <div className="br-rating" role="img" aria-label={locale === 'fa' ? `امتیاز ${shown} از ۵` : `Rated ${shown} out of 5`}>
+        <span className="br-stars" style={{ ['--br-rate' as string]: `${value * 20}%` }} aria-hidden="true" />
+        <b className="num" aria-hidden="true">{shown}</b>{props.count && <small aria-hidden="true">{props.count}</small>}{props.label && <span aria-hidden="true">{props.label}</span>}
       </div>)
     }
     case 'slides': {

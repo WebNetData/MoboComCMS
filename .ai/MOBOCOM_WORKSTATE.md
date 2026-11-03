@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current2026-11-03 Builder advanced blocks: `feat/builder-pro-blocks-2026-11-03`, stacked on PR322 (open). Owner asked for very advanced, modern blocks. Twelve: flip box, animated headline, before/after, timeline, team, logo strip, scrolling text, steps, comparison, video lightbox, notice, star rating. No schema change. Next: global colours and fonts, nested containers.
+
 Current2026-11-03 Builder slider, tablet, clipboard, structure: `feat/builder-slider-tablet-navigator-2026-11-03` from owner-merged PR321/main `41763b5f`. Owner: do the next stages and add a slider, to build site templates. Slider block, tablet values, copy/paste style, structure panel words/marks/fold; fixed the private preview swallowing clicks and the slider's classes colliding with the carousel's. Next: global colours and fonts, nested flex containers. No schema change.
 
 Current2026-11-03 Builder effects and landing templates: `feat/builder-effects-templates-2026-11-03` from owner-merged PR320/main `4899b7be`. Owner asked for an Elementor Pro-class builder. Audit: the builder already had drag and drop, Elementor-class blocks, device previews and a staff-only HTML/CSS/JS block and code mode. Added the effects library (hovers, entrances, loops, surfaces, heading effects) as listed choices, six landing pages and six effect sections, and fixed toned sections hiding ghost-button text in the dark theme. Next per PLATFORM_DECISIONS 6G. No schema change.
