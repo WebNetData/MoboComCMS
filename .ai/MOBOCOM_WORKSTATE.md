@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current2026-11-03 Builder effects and landing templates: `feat/builder-effects-templates-2026-11-03` from owner-merged PR320/main `4899b7be`. Owner asked for an Elementor Pro-class builder. Audit: the builder already had drag and drop, Elementor-class blocks, device previews and a staff-only HTML/CSS/JS block and code mode. Added the effects library (hovers, entrances, loops, surfaces, heading effects) as listed choices, six landing pages and six effect sections, and fixed toned sections hiding ghost-button text in the dark theme. Next per PLATFORM_DECISIONS 6G. No schema change.
+
 Current2026-11-03 Figures and Prompt Master opening: `fix/account-figures-prompt-hero-2026-11-03` from owner-merged PR319/main `7a1d160b`. Lone `.num` figures aligned right in the member shell, invoice tiles redrawn; the `/prompts` opening fills its wide side and comes alive. CSS only. [Handoff](../docs/agent/handoffs/PUBLIC_SECTIONS_QUALITY.md).
 
 Current2026-11-03 Member shell: `feat/member-shell-pro-2026-11-03`, stacked on PR318 (`f4737388`) and PR317. Owner asked for a still more professional, modern dashboard. The frame round the pages: ambient lights and dot field, glass top bar, side menu depth, see-through cards with a lit edge; rules only under `.member-shell`. [Handoff](../docs/agent/handoffs/PUBLIC_SECTIONS_QUALITY.md).

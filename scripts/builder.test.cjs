@@ -408,6 +408,43 @@ test('advanced style: only bounded values are stored, and the CSS written from t
   for (const motion of style.MOTIONS) assert.match(read('src/app/builder-render.css'), new RegExp('@keyframes br-in-' + motion + ' '))
 })
 
+test('effects: surfaces, heading effects, loops and the new hovers and entrances are choices from a list, and add up rather than replace each other', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const style = load('src/modules/site/domain/builder-style.ts')
+  const css = (adv) => style.advancedCss('w1', style.validateAdvancedStyle(adv))
+  // Only listed values are stored.
+  assert.deepEqual(style.validateAdvancedStyle({ loop: 'float', surface: 'aurora', textFx: 'shimmer', hover: 'tilt', motion: 'flip' }), { hover: 'tilt', motion: 'flip', loop: 'float', surface: 'aurora', textFx: 'shimmer' })
+  assert.equal(style.validateAdvancedStyle({ loop: 'url(x)', surface: '</style>', textFx: 'expression(1)' }), undefined)
+  // An entrance and a loop share one animation list: the entrance on the scroll timeline, the loop on its own clock.
+  const has = (text, part) => assert.ok(text.includes(part), `missing: ${part}\nin: ${text}`)
+  has(css({ motion: 'up', loop: 'float' }), 'animation: br-in-up linear both, br-loop-float 6s ease-in-out infinite; animation-timeline: view(), auto; animation-range: entry 0% entry 45%, normal;')
+  has(css({ loop: 'pulse' }), '@media (prefers-reduced-motion: no-preference) { .br-x-w1 { animation: br-loop-pulse ')
+  // Surfaces draw behind the content in the element's own stacking context; the beam and aurora move only where motion is welcome.
+  has(css({ surface: 'aurora' }), '.br-x-w1 { position: relative; isolation: isolate; }')
+  has(css({ surface: 'aurora' }), ".br-x-w1::before { content: ''; position: absolute; inset: 0; z-index: -1;")
+  has(css({ surface: 'beam' }), '@media (prefers-reduced-motion: no-preference) { .br-x-w1::before { animation: br-beam')
+  has(css({ surface: 'glass' }), 'backdrop-filter: blur(16px)')
+  // Heading effects touch headings only; shimmer moves only where motion is welcome.
+  has(css({ textFx: 'gradient' }), '.br-x-w1 :is(h1, h2, h3, h4, h5, h6), .br-x-w1:is(h1, h2, h3, h4, h5, h6) { background: linear-gradient')
+  has(css({ textFx: 'shimmer' }), '@media (prefers-reduced-motion: no-preference) { .br-x-w1 :is(h1, h2, h3, h4, h5, h6)')
+  // Shine and grey-to-colour exist only for a pointer that hovers; a phone sees the element as it is.
+  assert.match(css({ hover: 'colorize' }), /^@media \(hover: hover\) \{[^@]* \.br-x-w1 \{ filter: grayscale\(1\); \} \}/)
+  has(css({ hover: 'shine' }), '.br-x-w1::after { transition: none; } }')
+  // Every hovered, looped, surfaced or shimmering element still writes nothing a writer typed.
+  for (const hover of style.HOVERS) for (const surface of style.SURFACES) assert.doesNotMatch(css({ hover, surface, textFx: 'shimmer', loop: 'spin' }), /<|url\(|expression|@import|javascript/i)
+  // Every named entrance and loop has its keyframes; the templates that use them are real documents.
+  const sheet = fs.readFileSync(path.resolve(__dirname, '..', 'src/app/builder-render.css'), 'utf8')
+  for (const loop of style.LOOPS) assert.match(sheet, new RegExp('@keyframes br-loop-' + loop + ' '))
+  for (const name of ['br-aurora', 'br-beam', 'br-shimmer']) assert.match(sheet, new RegExp('@keyframes ' + name + ' '))
+  const { PAGE_TEMPLATES, BUNDLED_TEMPLATES } = load('src/modules/site/domain/builder-templates.ts')
+  const landing = PAGE_TEMPLATES.filter((template) => !['page-foreign-payment', 'page-service', 'page-campaign'].includes(template.id))
+  assert.equal(landing.length, 6)
+  const advOf = (template) => template.doc.sections.flatMap((section) => [section.adv, ...section.columns.flatMap((column) => column.widgets.map((widget) => widget.adv))]).filter(Boolean)
+  for (const template of landing) assert.ok(advOf(template).some((adv) => adv.surface) && advOf(template).some((adv) => adv.motion), template.id + ' uses the effects')
+  assert.equal(BUNDLED_TEMPLATES.filter((template) => template.id.startsWith('fx-')).length, 6)
+  assert.equal(new Set([...PAGE_TEMPLATES, ...BUNDLED_TEMPLATES].map((template) => template.id)).size, PAGE_TEMPLATES.length + BUNDLED_TEMPLATES.length, 'template ids are unique')
+})
+
 test('showcase blocks: each is a real block of the document, offered in the palette, described in the inspector and drawn safely', () => {
   const fs = require('node:fs'), path = require('node:path')
   const builder = load('src/modules/site/domain/builder.ts')

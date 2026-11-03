@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { BORDER_STYLES, FONT_WEIGHTS, HOVERS, MOBILE_ALIGNS, MOTIONS, SHADOWS, validateAdvancedStyle, type AdvancedStyle, type Box } from '@/modules/site/domain/builder-style'
+import { BORDER_STYLES, FONT_WEIGHTS, HOVERS, LOOPS, MOBILE_ALIGNS, MOTIONS, SHADOWS, SURFACES, TEXT_EFFECTS, validateAdvancedStyle, type AdvancedStyle, type Box } from '@/modules/site/domain/builder-style'
 
 // The "Advanced" part of the inspector, for a block or a section: spacing per side (with phone values),
 // typography, background and gradient, border and corners, shadow and opacity, hover and entrance motion,
@@ -96,8 +96,14 @@ export default function AdvancedStyleFields({ value, onChange, L, section = fals
       <h4>{L('Shadow and effects', 'سایه و جلوه‌ها')}</h4>
       {choice('shadow', L('Shadow', 'سایه'), SHADOWS, { sm: L('Soft', 'ملایم'), md: L('Medium', 'متوسط'), lg: L('Large', 'بزرگ'), xl: L('Deep', 'عمیق'), glow: L('Accent glow', 'درخشش رنگی') })}
       <label className="bld-field"><span>{L('Opacity', 'شفافیت')} · {adv.opacity ?? 100}%</span><input type="range" min={0} max={100} step={5} value={adv.opacity ?? 100} onChange={(event) => number('opacity', event.target.value)} /></label>
-      {choice('hover', L('On hover', 'هنگام رفتن نشانگر روی آن'), HOVERS, { lift: L('Lift', 'بالا آمدن'), zoom: L('Zoom', 'بزرگ‌شدن'), glow: L('Glow', 'درخشش'), dim: L('Dim', 'تیره‌شدن') })}
-      {choice('motion', L('Entrance motion', 'حرکت هنگام دیده‌شدن'), MOTIONS, { fade: L('Fade in', 'محوشدن'), up: L('From below', 'از پایین'), down: L('From above', 'از بالا'), start: L('From the start side', 'از ابتدا'), end: L('From the end side', 'از انتها'), zoom: L('Zoom in', 'بزرگ‌نمایی') })}
+
+      <h4>{L('Effects', 'افکت‌ها')}</h4>
+      {choice('surface', L('Surface', 'سطح و پس‌زمینهٔ ویژه'), SURFACES, { glass: L('Frosted glass', 'شیشهٔ مات'), aurora: L('Moving aurora', 'شفق متحرک'), mesh: L('Mesh of soft lights', 'مش نورهای ملایم'), grid: L('Fine grid', 'شبکهٔ ظریف'), dots: L('Dots', 'نقطه‌ها'), beam: L('Beam round the edge', 'نور چرخان دور لبه') })}
+      {choice('textFx', L('Headings', 'افکت تیتر'), TEXT_EFFECTS, { gradient: L('Gradient', 'گرادیان'), shimmer: L('Shimmer', 'براق متحرک'), glow: L('Glow', 'درخشان'), outline: L('Outline', 'دورخط') })}
+      {choice('hover', L('On hover', 'هنگام رفتن نشانگر روی آن'), HOVERS, { lift: L('Lift', 'بالا آمدن'), zoom: L('Zoom', 'بزرگ‌شدن'), glow: L('Glow', 'درخشش'), dim: L('Dim', 'تیره‌شدن'), tilt: L('3D tilt', 'کج‌شدن سه‌بعدی'), shine: L('Shine', 'برق‌زدن'), ring: L('Ring', 'حلقهٔ نوری'), float: L('Float', 'شناورشدن'), press: L('Press', 'فشرده‌شدن'), colorize: L('Grey to colour', 'خاکستری به رنگی') })}
+      {choice('motion', L('Entrance motion', 'حرکت هنگام دیده‌شدن'), MOTIONS, { fade: L('Fade in', 'محوشدن'), up: L('From below', 'از پایین'), down: L('From above', 'از بالا'), start: L('From the start side', 'از ابتدا'), end: L('From the end side', 'از انتها'), zoom: L('Zoom in', 'بزرگ‌نمایی'), flip: L('Flip', 'چرخش کارتی'), blur: L('From blur', 'از تاری'), rotate: L('Rotate in', 'چرخش'), pop: L('Pop', 'جهش') })}
+      {choice('loop', L('Continuous motion', 'حرکت پیوسته'), LOOPS, { float: L('Float', 'شناوری'), pulse: L('Pulse', 'تپش'), breathe: L('Breathing glow', 'درخشش نفس‌وار'), spin: L('Slow spin', 'چرخش آرام'), wiggle: L('Wiggle', 'لرزش'), gradient: L('Moving gradient', 'گرادیان متحرک') })}
+      <p className="muted text-xs">{L('Motion stops for visitors who ask for less of it.', 'برای بازدیدکنندگانی که حرکت کمتر خواسته‌اند، حرکت‌ها خاموش می‌شود.')}</p>
 
       <h4>{L('Layout', 'چیدمان')}</h4>
       <label className="bld-field"><span>{L('Max width (px)', 'حداکثر عرض (px)')}</span><input className="input num" dir="ltr" type="number" min={0} max={2400} step={10} value={adv.maxWidth || ''} placeholder={L('auto', 'خودکار')} onChange={(event) => number('maxWidth', event.target.value)} /></label>

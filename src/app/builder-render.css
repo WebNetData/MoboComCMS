@@ -81,6 +81,9 @@
 .br-panel.tone-accent{background:linear-gradient(135deg,color-mix(in srgb,var(--primary,#2f9fe8) 30%,transparent),color-mix(in srgb,var(--primary,#2f9fe8) 8%,transparent));border-color:color-mix(in srgb,var(--primary,#2f9fe8) 42%,transparent)}
 .br-tone-light{background:#f2f7fc;color:#0c233d}
 .br-tone-dark{background:#081727;color:#eaf6ff}
+/* A toned section or panel sets the colour tokens too, so what is inside (ghost buttons, cards, muted text, lines) reads on it in either site theme. */
+.br-tone-light,.br-panel.tone-light{--text:#0c233d;--muted:#4a6078;--border:#d5e6f4;--card:#ffffff;--bg-soft:#e6eef7}
+.br-tone-dark,.br-panel.tone-dark{--text:#eaf6ff;--muted:#9fb3c8;--border:#2b4a68;--card:#0f2236;--bg-soft:#0c1d2e}
 .br-tone-accent{background:radial-gradient(circle at 78% 18%,color-mix(in srgb,var(--primary,#2f9fe8) 34%,transparent),color-mix(in srgb,var(--primary,#123a63) 60%,#101a35) 60%);color:#eef7ff}
 .br-tone-light .br-rich a{color:#1269a9}
 .br-page{display:block}
@@ -114,6 +117,21 @@
 @keyframes br-in-start { from { opacity: 0; transform: translateX(40px) } to { opacity: 1; transform: none } }
 @keyframes br-in-end { from { opacity: 0; transform: translateX(-40px) } to { opacity: 1; transform: none } }
 @keyframes br-in-zoom { from { opacity: 0; transform: scale(.92) } to { opacity: 1; transform: none } }
+@keyframes br-in-flip { from { opacity: 0; transform: perspective(900px) rotateX(-28deg) translateY(24px) } to { opacity: 1; transform: none } }
+@keyframes br-in-blur { from { opacity: 0; filter: blur(14px) } to { opacity: 1; filter: none } }
+@keyframes br-in-rotate { from { opacity: 0; transform: rotate(-8deg) scale(.94) } to { opacity: 1; transform: none } }
+@keyframes br-in-pop { 0% { opacity: 0; transform: scale(.8) } 70% { opacity: 1; transform: scale(1.04) } 100% { opacity: 1; transform: none } }
+/* Loops move through translate, scale and rotate, so they add to an entrance or a hover. */
+@keyframes br-loop-float { 50% { translate: 0 -12px } }
+@keyframes br-loop-pulse { 50% { scale: 1.04 } }
+@keyframes br-loop-breathe { 50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent), 0 0 42px color-mix(in srgb, var(--primary) 45%, transparent) } }
+@keyframes br-loop-spin { to { rotate: 360deg } }
+@keyframes br-loop-wiggle { 0%, 100% { rotate: 0deg } 25% { rotate: -3deg } 75% { rotate: 3deg } }
+@keyframes br-loop-gradient { 0%, 100% { background-position: 0% 50% } 50% { background-position: 100% 50% } }
+@keyframes br-aurora { from { transform: translate(0, 0) rotate(0deg) } to { transform: translate(6%, -4%) rotate(12deg) } }
+@property --br-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes br-beam { to { --br-angle: 360deg } }
+@keyframes br-shimmer { to { background-position: -200% 0 } }
 
 /* ---- Showcase blocks: icon box, tabs, testimonials, counters, gallery, carousel, pricing, countdown, social, progress ---- */
 .br-iconbox { display: grid; gap: 14px; padding: 1.6rem; border: 1px solid color-mix(in srgb, currentColor 14%, transparent); border-radius: 20px; background: color-mix(in srgb, currentColor 5%, transparent); color: inherit; text-align: start; transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
