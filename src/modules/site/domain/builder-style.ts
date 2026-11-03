@@ -21,6 +21,8 @@ export const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800, 900] as const
 export type AdvancedStyle = {
   /** Outside and inside spacing in px (margins may be negative to overlap), and their phone values. */
   margin?: Box; padding?: Box; marginM?: Box; paddingM?: Box
+  /** Tablet values (768–1024px). */
+  marginT?: Box; paddingT?: Box; fontSizeT?: number; alignT?: typeof MOBILE_ALIGNS[number]
   /** Typography: size in px (and on a phone), weight, line height ×100, letter spacing in tenths of a px. */
   fontSize?: number; fontSizeM?: number; fontWeight?: typeof FONT_WEIGHTS[number]; lineHeight?: number; letterSpacing?: number
   /** Background colour; with a second colour it becomes a gradient at `bgAngle` degrees. */
@@ -67,6 +69,7 @@ export function validateAdvancedStyle(input: unknown): AdvancedStyle | undefined
   const set = <K extends keyof AdvancedStyle>(key: K, value: AdvancedStyle[K] | null, skip?: AdvancedStyle[K]) => { if (value !== null && value !== undefined && value !== skip) out[key] = value }
   set('margin', box(raw.margin, -300, 400)); set('padding', box(raw.padding, 0, 400))
   set('marginM', box(raw.marginM, -300, 400)); set('paddingM', box(raw.paddingM, 0, 400))
+  set('marginT', box(raw.marginT, -300, 400)); set('paddingT', box(raw.paddingT, 0, 400)); set('fontSizeT', size(raw.fontSizeT, 8, 200)); set('alignT', pick(raw.alignT, MOBILE_ALIGNS))
   set('fontSize', size(raw.fontSize, 8, 200)); set('fontSizeM', size(raw.fontSizeM, 8, 200))
   set('fontWeight', pick(typeof raw.fontWeight === 'string' ? Number(raw.fontWeight) : raw.fontWeight, FONT_WEIGHTS))
   set('lineHeight', int(raw.lineHeight, 80, 400)); set('letterSpacing', int(raw.letterSpacing, -50, 200), 0)
@@ -120,7 +123,7 @@ export const styleClass = (id: string) => (/^[a-zA-Z0-9_-]{1,64}$/.test(id) ? `b
 export function advancedCss(id: string, adv: AdvancedStyle | undefined): string {
   const name = styleClass(id)
   if (!adv || !name) return ''
-  const sel = `.${name}`, base: string[] = [], text: string[] = [], phone: string[] = [], phoneText: string[] = []
+  const sel = `.${name}`, base: string[] = [], text: string[] = [], phone: string[] = [], phoneText: string[] = [], tablet: string[] = [], tabletText: string[] = []
   if (adv.margin) base.push(sides('margin', adv.margin))
   if (adv.padding) base.push(sides('padding', adv.padding))
   if (adv.bg) base.push(adv.bg2 ? `background: linear-gradient(${adv.bgAngle ?? 135}deg, ${adv.bg}, ${adv.bg2});` : `background: ${adv.bg};`)
@@ -135,6 +138,10 @@ export function advancedCss(id: string, adv: AdvancedStyle | undefined): string 
   if (adv.fontWeight) text.push(`font-weight: ${adv.fontWeight};`)
   if (adv.lineHeight) text.push(`line-height: ${adv.lineHeight / 100};`)
   if (adv.letterSpacing) text.push(`letter-spacing: ${adv.letterSpacing / 10}px;`)
+  if (adv.marginT) tablet.push(sides('margin', adv.marginT))
+  if (adv.paddingT) tablet.push(sides('padding', adv.paddingT))
+  if (adv.alignT) tablet.push(`text-align: ${adv.alignT};`)
+  if (adv.fontSizeT) tabletText.push(`font-size: ${adv.fontSizeT}px;`)
   if (adv.marginM) phone.push(sides('margin', adv.marginM))
   if (adv.paddingM) phone.push(sides('padding', adv.paddingM))
   if (adv.alignM) phone.push(`text-align: ${adv.alignM};`)
@@ -142,6 +149,7 @@ export function advancedCss(id: string, adv: AdvancedStyle | undefined): string 
   const out: string[] = []
   if (base.length) out.push(`${sel} { ${base.join(' ')} }`)
   if (text.length) out.push(`${sel}, ${sel} ${TEXT} { ${text.join(' ')} }`)
+  if (tablet.length || tabletText.length) out.push(`@media (min-width: 768px) and (max-width: 1024px) { ${tablet.length ? `${sel} { ${tablet.join(' ')} } ` : ''}${tabletText.length ? `${sel}, ${sel} ${TEXT} { ${tabletText.join(' ')} }` : ''} }`)
   if (phone.length || phoneText.length) out.push(`@media (max-width: 767px) { ${phone.length ? `${sel} { ${phone.join(' ')} } ` : ''}${phoneText.length ? `${sel}, ${sel} ${TEXT} { ${phoneText.join(' ')} }` : ''} }`)
   if (adv.surface) out.push(surfaceCss(sel, adv.surface))
   if (adv.textFx) out.push(textCss(sel, adv.textFx))

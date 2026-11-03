@@ -26,6 +26,9 @@ const safeId = (value: unknown) => (typeof value === 'string' && ID.test(value) 
 
 export default function BuilderPreviewClient({ pageId, empty }: { pageId: string; empty: { fa: string; en: string } }) {
   useEffect(() => {
+    // Opened in its own tab (the private preview of a draft), the page is for looking at: tabs, sliders and
+    // buttons work as on the site. Selecting, dragging and highlighting only exist inside the editor's frame.
+    if (window.parent === window) return
     const doc = document
     const origin = window.location.origin
     const post = (message: Record<string, unknown>) => {

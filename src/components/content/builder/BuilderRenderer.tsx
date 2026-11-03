@@ -27,6 +27,7 @@ import { builderMediaModule as mediaModule, builderWidgetModule } from '@/module
 import { advancedCss, styleClass, type AdvancedStyle } from '@/modules/site/domain/builder-style'
 import Icon from '@/components/site/Icon'
 import { BuilderCountdown, BuilderCounter, BuilderTabs } from '@/components/content/builder/BuilderInteractive'
+import BuilderSlides from '@/components/content/builder/BuilderSlides'
 
 export type BuilderLocale = 'fa' | 'en'
 
@@ -275,6 +276,11 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
       return frame(widget, ctx, <div className="br-gallery" style={{ ['--br-gallery-cols' as string]: ['2', '3', '4', '5'].includes(props.columns) ? props.columns : '3' }}>
         {pictures.map((picture, index) => <a key={index} href={picture.src} target="_blank" rel="noopener noreferrer" style={radius}><img src={picture.src} alt={picture.alt} loading="lazy" /></a>)}
       </div>)
+    }
+    case 'slides': {
+      const slides = itemsOf(props.items).map((item) => ({ src: safeSrc(item.src), eyebrow: pick(locale, item.eyebrow, item.eyebrowEn), title: pick(locale, item.title, item.titleEn), text: pick(locale, item.text, item.textEn), label: pick(locale, item.label, item.labelEn), href: safeHref(item.href), label2: pick(locale, item.label2, item.label2En), href2: safeHref(item.href2) })).filter((slide) => slide.src || slide.title)
+      if (!slides.length) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph" style={radius} />) : null
+      return frame(widget, ctx, <BuilderSlides slides={slides} effect={props.effect || 'slide'} autoplay={Number(props.autoplay) || 0} height={props.height || 'md'} overlay={props.overlay || 'soft'} align={props.align || 'start'} fa={locale === 'fa'} />, 'br-slides-frame')
     }
     case 'carousel': {
       const slides = itemsOf(props.items).map((item) => ({ src: safeSrc(item.src), alt: item.alt || '', title: pick(locale, item.title, item.titleEn), href: item.href && safeHref(item.href) !== '#' ? safeHref(item.href) : '' })).filter((item) => item.src)

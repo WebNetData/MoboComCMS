@@ -38,7 +38,13 @@ function Colour({ label, value, onChange, L }: { label: string; value: string | 
 
 export default function AdvancedStyleFields({ value, onChange, L, section = false }: { value: AdvancedStyle | undefined; onChange: (next: AdvancedStyle | undefined, history?: boolean) => void; L: L; section?: boolean }) {
   const adv = value || {}
-  const [phone, setPhone] = useState(false)
+  // Which screen the spacing and type values are for; desktop holds everything else.
+  const [device, setDevice] = useState<'desktop' | 'tablet' | 'phone'>('desktop')
+  const phone = device === 'phone', tablet = device === 'tablet'
+  const [note, setNote] = useState('')
+  // A style copied here can be pasted on any block or section, on this device (it is a convenience, not stored).
+  const copyStyle = () => { try { window.localStorage.setItem('mc-builder-style', JSON.stringify(adv)); setNote(L('Style copied', 'استایل کپی شد')) } catch { setNote(L('Could not copy here', 'کپی در این مرورگر ممکن نشد')) } }
+  const pasteStyle = () => { try { const copied = validateAdvancedStyle(JSON.parse(window.localStorage.getItem('mc-builder-style') || 'null')); if (!copied) { setNote(L('Nothing copied yet', 'هنوز استایلی کپی نشده')); return } onChange(copied, true); setNote(L('Style pasted', 'استایل چسبانده شد')) } catch { setNote(L('Nothing copied yet', 'هنوز استایلی کپی نشده')) } }
   const patch = (change: Partial<AdvancedStyle>, history = false) => onChange(validateAdvancedStyle({ ...adv, ...change }), history)
   const number = (key: keyof AdvancedStyle, raw: string) => patch({ [key]: raw === '' ? undefined : Number(raw) } as Partial<AdvancedStyle>)
   const choice = <T extends string>(key: keyof AdvancedStyle, label: string, list: readonly T[], names: Record<T, string>) => <label className="bld-field"><span>{label}</span>
@@ -52,12 +58,19 @@ export default function AdvancedStyleFields({ value, onChange, L, section = fals
     <summary>{L('Advanced', 'پیشرفته')}{set > 0 && <em className="bld-adv-dot" title={L(`${set} set`, `${set.toLocaleString('fa-IR')} تنظیم`)} />}</summary>
 
     <div className="bld-adv-device" role="group" aria-label={L('Values for', 'مقدارها برای')}>
-      <button type="button" className={phone ? '' : 'is-on'} aria-pressed={!phone} onClick={() => setPhone(false)}>🖥 {L('Desktop', 'دسکتاپ')}</button>
-      <button type="button" className={phone ? 'is-on' : ''} aria-pressed={phone} onClick={() => setPhone(true)}>📱 {L('Phone', 'موبایل')}</button>
+      {([['desktop', L('Desktop', 'دسکتاپ')], ['tablet', L('Tablet', 'تبلت')], ['phone', L('Phone', 'موبایل')]] as const).map(([id, label]) => <button key={id} type="button" className={device === id ? 'is-on' : ''} aria-pressed={device === id} onClick={() => setDevice(id)}>{label}</button>)}
+    </div>
+    <div className="bld-adv-clip">
+      <button type="button" className="btn btn-ghost btn-sm" onClick={copyStyle} disabled={!set}>{L('Copy style', 'کپی استایل')}</button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={pasteStyle}>{L('Paste style', 'چسباندن استایل')}</button>
+      {note && <small role="status">{note}</small>}
     </div>
 
     <h4>{L('Spacing', 'فاصله‌ها')}</h4>
-    {phone ? <>
+    {tablet ? <>
+      <BoxField key="mt" label={L('Margin on tablets (px)', 'فاصلهٔ بیرونی در تبلت (px)')} value={adv.marginT} min={-300} max={400} onChange={(marginT) => patch({ marginT })} L={L} />
+      <BoxField key="pt" label={L('Padding on tablets (px)', 'فاصلهٔ درونی در تبلت (px)')} value={adv.paddingT} min={0} max={400} onChange={(paddingT) => patch({ paddingT })} L={L} />
+    </> : phone ? <>
       <BoxField key="mm" label={L('Margin on phones (px)', 'فاصلهٔ بیرونی در موبایل (px)')} value={adv.marginM} min={-300} max={400} onChange={(marginM) => patch({ marginM })} L={L} />
       <BoxField key="pm" label={L('Padding on phones (px)', 'فاصلهٔ درونی در موبایل (px)')} value={adv.paddingM} min={0} max={400} onChange={(paddingM) => patch({ paddingM })} L={L} />
     </> : <>
@@ -66,10 +79,14 @@ export default function AdvancedStyleFields({ value, onChange, L, section = fals
     </>}
 
     <h4>{L('Typography', 'تایپوگرافی')}</h4>
-    {phone
+    {tablet
+      ? <label className="bld-field"><span>{L('Font size on tablets', 'اندازهٔ قلم در تبلت')} · {adv.fontSizeT ? `${adv.fontSizeT}px` : L('same', 'همان دسکتاپ')}</span><input type="range" min={0} max={110} step={1} value={adv.fontSizeT || 0} onChange={(event) => number('fontSizeT', event.target.value === '0' ? '' : event.target.value)} /></label>
+      : phone
       ? <label className="bld-field"><span>{L('Font size on phones', 'اندازهٔ قلم در موبایل')} · {adv.fontSizeM ? `${adv.fontSizeM}px` : L('same', 'همان دسکتاپ')}</span><input type="range" min={0} max={96} step={1} value={adv.fontSizeM || 0} onChange={(event) => number('fontSizeM', event.target.value === '0' ? '' : event.target.value)} /></label>
       : <label className="bld-field"><span>{L('Font size', 'اندازهٔ قلم')} · {adv.fontSize ? `${adv.fontSize}px` : L('theme', 'قالب')}</span><input type="range" min={0} max={120} step={1} value={adv.fontSize || 0} onChange={(event) => number('fontSize', event.target.value === '0' ? '' : event.target.value)} /></label>}
-    {phone
+    {tablet
+      ? choice('alignT', L('Alignment on tablets', 'چیدمان در تبلت'), MOBILE_ALIGNS, { start: L('Start', 'ابتدا'), center: L('Centre', 'وسط'), end: L('End', 'انتها') })
+      : phone
       ? choice('alignM', L('Alignment on phones', 'چیدمان در موبایل'), MOBILE_ALIGNS, { start: L('Start', 'ابتدا'), center: L('Centre', 'وسط'), end: L('End', 'انتها') })
       : <>
         <label className="bld-field"><span>{L('Weight', 'ضخامت قلم')}</span><select className="select" value={adv.fontWeight || ''} onChange={(event) => patch({ fontWeight: (Number(event.target.value) || undefined) as AdvancedStyle['fontWeight'] }, true)}><option value="">{L('Theme', 'قالب')}</option>{FONT_WEIGHTS.map((weight) => <option key={weight} value={weight}>{weight}</option>)}</select></label>
@@ -77,7 +94,7 @@ export default function AdvancedStyleFields({ value, onChange, L, section = fals
         <label className="bld-field"><span>{L('Letter spacing', 'فاصلهٔ حروف')} · {adv.letterSpacing ? `${adv.letterSpacing / 10}px` : '0'}</span><input type="range" min={-30} max={120} step={1} value={adv.letterSpacing || 0} onChange={(event) => number('letterSpacing', event.target.value)} /></label>
       </>}
 
-    {!phone && <>
+    {device === 'desktop' && <>
       <h4>{L('Background', 'پس‌زمینه')}</h4>
       <Colour label={L('Colour', 'رنگ')} value={adv.bg} onChange={(bg) => patch(bg ? { bg } : { bg: undefined, bg2: undefined, bgAngle: undefined })} L={L} />
       {adv.bg && <>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { WIDGET_LABELS, type BuilderDoc, type WidgetType, POST_SLOT_TYPES, PRODUCT_SLOT_TYPES } from '@/modules/site/domain/builder'
 import type { Sel } from './state'
 import type { DragState } from './canvas'
@@ -10,7 +11,7 @@ const GROUPS: { titleEn: string; titleFa: string; types: WidgetType[] }[] = [
   { titleEn: 'Content', titleFa: 'محتوا', types: ['heading', 'text', 'image', 'button', 'video', 'nav'] },
   { titleEn: 'Structure', titleFa: 'ساختار', types: ['divider', 'spacer', 'stats', 'list', 'faq'] },
   { titleEn: 'Showcase', titleFa: 'نمایشی', types: ['icon-box', 'tabs', 'testimonials', 'counters', 'progress', 'pricing', 'countdown'] },
-  { titleEn: 'Media & social', titleFa: 'رسانه و شبکه‌ها', types: ['gallery', 'carousel', 'social'] },
+  { titleEn: 'Media & social', titleFa: 'رسانه و شبکه‌ها', types: ['slides', 'gallery', 'carousel', 'social'] },
   { titleEn: 'Sections', titleFa: 'بخش‌های آماده', types: ['hero', 'cta', 'plans', 'posts', 'products', 'media', 'vip-cta', 'network', 'form'] },
   { titleEn: 'Advanced', titleFa: 'پیشرفته', types: ['html', 'template'] },
 ]
@@ -26,7 +27,7 @@ const GLYPH: Partial<Record<WidgetType, string>> = {
   'product-hero': '◈', 'product-gallery': '▤', 'product-info': 'ℹ', 'product-purchase': '🛍', 'product-usp': '✓', 'product-tabs': '⊟',
   'site-header': '▔', 'site-footer': '▁',
   media: '🎬', 'vip-cta': '♛',
-  'icon-box': '◆', tabs: '⊟', testimonials: '❝', counters: '①', gallery: '▦', carousel: '⇆', pricing: '₪', countdown: '⏱', social: '@', progress: '▰',
+  'icon-box': '◆', tabs: '⊟', testimonials: '❝', counters: '①', gallery: '▦', carousel: '⇆', slides: '▶', pricing: '₪', countdown: '⏱', social: '@', progress: '▰',
 }
 
 /** Extra block groups offered for the page being edited. */
@@ -51,8 +52,19 @@ type Props = {
   onDropSection: (toSectionId: string) => void
 }
 
+/** A few words of what a block shows, for the structure panel. */
+function snippet(widget: BuilderDoc['sections'][number]['columns'][number]['widgets'][number]) {
+  const props = widget.props || {}
+  let raw = props.title || props.text || props.label || ''
+  if (!raw && props.html) raw = props.html
+  if (!raw && props.items) { try { const first = JSON.parse(props.items)[0]; raw = first?.title || first?.label || first?.q || '' } catch { raw = '' } }
+  const text = String(raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  return text.length > 26 ? `${text.slice(0, 26)}…` : text
+}
+
 export default function Palette({ doc, sel, L, drag, setDrag, pageId, onSelect, onAddSection, onAddWidget, onDropWidget, onDropSection }: Props) {
   const groups = groupsFor(pageId)
+  const [folded, setFolded] = useState<Record<string, boolean>>({})
   return <aside className="builder-panel">
     <h2>{L('Add a block', 'افزودن بلوک')}</h2>
     <div className="bld-sect-add">
@@ -98,12 +110,13 @@ export default function Palette({ doc, sel, L, drag, setDrag, pageId, onSelect, 
             onDragOver={(event) => { if (drag) event.preventDefault() }}
             onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (drag?.kind === 'section' || drag?.kind === 'palette-section') onDropSection(section.id) }}
           >
+            <button type="button" className="bld-tree-fold" aria-expanded={!folded[section.id]} aria-label={folded[section.id] ? L('Show what is inside', 'نمایش محتوا') : L('Fold', 'جمع کردن')} onClick={() => setFolded((now) => ({ ...now, [section.id]: !now[section.id] }))}>{folded[section.id] ? '▸' : '▾'}</button>
             <button type="button" onClick={() => onSelect({ kind: 'section', sectionId: section.id })}>
               <small>{sectionIndex + 1}</small>
-              <span>{section.anchor ? `#${section.anchor}` : L('Section', 'بخش')} · {section.columns.length}{L(' col', ' ستون')}</span>
+              <span>{section.anchor ? `#${section.anchor}` : L('Section', 'بخش')} · {section.columns.length}{L(' col', ' ستون')}{section.adv && <em className="bld-tree-fx" title={L('Has advanced style', 'استایل پیشرفته دارد')}>✦</em>}</span>
             </button>
           </div>
-          {section.columns.map((column, columnIndex) => <div className="bld-tree-col" key={column.id}>
+          {!folded[section.id] && section.columns.map((column, columnIndex) => <div className="bld-tree-col" key={column.id}>
             <div className={`bld-tree-row is-col ${sel?.kind === 'column' && sel.columnId === column.id ? 'is-selected' : ''}`}>
               <button type="button" onClick={() => onSelect({ kind: 'column', sectionId: section.id, columnId: column.id })}>
                 <small>{sectionIndex + 1}.{columnIndex + 1}</small>
@@ -121,7 +134,7 @@ export default function Palette({ doc, sel, L, drag, setDrag, pageId, onSelect, 
             >
               <button type="button" onClick={() => onSelect({ kind: 'widget', sectionId: section.id, columnId: column.id, widgetId: widget.id })}>
                 <small>·</small>
-                <span>{L(WIDGET_LABELS[widget.type].en, WIDGET_LABELS[widget.type].fa)}</span>
+                <span>{L(WIDGET_LABELS[widget.type].en, WIDGET_LABELS[widget.type].fa)}{snippet(widget) && <i className="bld-tree-snip">{snippet(widget)}</i>}{widget.adv && <em className="bld-tree-fx" title={L('Has advanced style', 'استایل پیشرفته دارد')}>✦</em>}</span>
               </button>
             </div>)}
             {!column.widgets.length && <div
