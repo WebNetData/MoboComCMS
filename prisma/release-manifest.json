@@ -383,77 +383,287 @@
           "sha256": "d00dba9d3e78a3f05ed06ce8a0a8e682b77aab6b5788474896cf3ec1cac15481"
         }
       ]
+    },
+    "1.7.0": {
+      "migrations": [
+        {
+          "name": "20261214120000_content_revisions",
+          "sha256": "698a5fd05410cb7d6c8d6f2ff599beb9e9ced2057538857e9c3d18e5c841a9f1"
+        },
+        {
+          "name": "20261215120000_admin_saved_views",
+          "sha256": "2335b214888a21456cc770cedd31ea3b0d005c6943af1efcbcb9740989bf47a8"
+        },
+        {
+          "name": "20261216120000_money_state_rules",
+          "sha256": "9e2f7acf65382b81528402e072c1206b433199d67bdfbbd782a394b79bc9e685"
+        },
+        {
+          "name": "20261217120000_page_documents",
+          "sha256": "75eb36405525140b28c94f295fe67a4c96e2f7d650ff579e4159fe0deaf48cfc"
+        },
+        {
+          "name": "20261218120000_post_documents",
+          "sha256": "8c8ed3f484f3737640d6a0aecbda6e4fce965355c13a2104816c867caef0a9b9"
+        },
+        {
+          "name": "20261219120000_access_restrictions",
+          "sha256": "59fb2346a79446929679785a1176e57675fb2d4e40046d3b5f41f4685b32dac2"
+        },
+        {
+          "name": "20261220120000_import_execution_authority",
+          "sha256": "9973ccc14f91a38eb67371f92cfbdee712440031fb8d7f4be42f7901b4ad4167"
+        },
+        {
+          "name": "20261221120000_import_execution_generation",
+          "sha256": "0388f936fef0e1a5348ef913ac5834b141510e269b41df8d5dd10e0cc5ab2d5e"
+        },
+        {
+          "name": "20261222120000_repository_upload_reservations",
+          "sha256": "87270a5ad79683e1abe414680786a719262ac9918d333164d058b5c04a848cdd"
+        },
+        {
+          "name": "20261223120000_business_experiences",
+          "sha256": "326e2fb14741a0073e37ec5d496ab652a534dccdcef730433d7d79b507774e2f"
+        },
+        {
+          "name": "20261224120000_section_authors",
+          "sha256": "40cdc4766914b40e0de1b0d6f41fa34646954e2e3b67a0b3387351a22dff26a4"
+        },
+        {
+          "name": "20261225120000_game_authors",
+          "sha256": "415611182cc67e81e1d95041cffcb1d73289c309e9912d58cebf71ff01002dac"
+        },
+        {
+          "name": "20261226120000_product_category_kind",
+          "sha256": "1fc05102ff5ca7bfe8c9963f4edfe93b7b83562eb945f542558f99ab4f209d8b"
+        },
+        {
+          "name": "20261227120000_order_inputs_open_amount",
+          "sha256": "2eb5df9e60b0979caf795650d55cedb6329f94f73bc1a3ad7ebb88b757c18372"
+        },
+        {
+          "name": "20261228120000_form_payment_workflow",
+          "sha256": "68c061c1a41f41e64c0fcca3c8ad5fbc97d490a3e85de5b3306206825de4e8aa"
+        },
+        {
+          "name": "20261229120000_form_bookings_quiz",
+          "sha256": "62339bce344352dccd4762225e0e2b099d3cc9882ee0d2c21452992c64f0aa29"
+        },
+        {
+          "name": "20261230120000_product_is_service",
+          "sha256": "6250045441f05eb525683748069c57c9c03365b549426b2de36d7451c4e2ee9b"
+        },
+        {
+          "name": "20261231120000_automation",
+          "sha256": "7fb3865f13a43ad69dc3a2533c32590aeb7f80b18c8ba007cae933cb88f566f0"
+        },
+        {
+          "name": "20270101120000_invoice_desk",
+          "sha256": "872298549d303466bf28003bac3968f84fcbc8578ec834e2a05313dbf48f4b52"
+        },
+        {
+          "name": "20270102120000_business_requests",
+          "sha256": "5f2ffc363702634b1190aeaad451cdbc7a5b5757c39d188cead78084c60ab7a3"
+        },
+        {
+          "name": "20270103120000_business_trust",
+          "sha256": "8cf578e5ee0d057f8dc2849f68d5b81c078311f6b81d763d839d49c85959af12"
+        },
+        {
+          "name": "20270104120000_email_otp",
+          "sha256": "f7e7e20370bbd5a62072528d1fe24b367714894f327fff9c52609b1613168db7"
+        },
+        {
+          "name": "20270105120000_media_library",
+          "sha256": "88df816191e39f1ba9956889ac8a1f76c0ff0eb776842677ef93d8c9866527ff"
+        },
+        {
+          "name": "20270105121000_media_transfer_authority",
+          "sha256": "db25a7b12ff46b0b3e6c611e23f39ba57e2e92f92d342616e4ecf4b5932b4250"
+        },
+        {
+          "name": "20270106120000_content_authoring",
+          "sha256": "8852565e90a283ebc458654a28ee861418d5c180d55da8bda47da7daa5066ce9"
+        },
+        {
+          "name": "20270107120000_cinema_people_profiles",
+          "sha256": "6b9278a89d8a55ae1fe4d5de5409951e038f3fc3c543a73b6587c1512a3617b5"
+        },
+        {
+          "name": "20270108120000_people_profile_merges",
+          "sha256": "bf9cd86da999025cf0211ca2e470b263b028115c7bcb590455310c0c8b3eaaea"
+        },
+        {
+          "name": "20270109120000_moderation_rounds",
+          "sha256": "22d9322802b7bd70e88a79b3f1cfa7ac349fe77cc82aeece86c93c024fa2b4ae"
+        },
+        {
+          "name": "20270109121000_moderation_pending_rounds",
+          "sha256": "589fd81c7cf8f02f1a49594429f3e1410ecea2c08ccfb75ba1c05312c5f047c5"
+        },
+        {
+          "name": "20270110120000_editorial_schedule",
+          "sha256": "7786be609775db2d99e6fc24126734a9ff28e0293fa90fec2f98e27f8bb12982"
+        },
+        {
+          "name": "20270110130000_editor_patterns",
+          "sha256": "931dcf27e5f643323f554849228f67b6cd3cc6d8493d370bfcfd377d7d262e36"
+        },
+        {
+          "name": "20270110140000_editor_synced_patterns",
+          "sha256": "e4b7b09f68275c7b39f169afe1a6845a86a9e6f6de7f8857c2ab736eb331cd5d"
+        },
+        {
+          "name": "20270111120000_editor_role_templates",
+          "sha256": "2c91f686d211685aeb87e8f12c4482aa557f3b7e18881bc59857c469c009698f"
+        },
+        {
+          "name": "20270112120000_search_document_recency",
+          "sha256": "50021a2d1f0f9fe8976636890af6b9bfb1f06d991647f596fac7a04509828b8c"
+        },
+        {
+          "name": "20270113120000_cinema_producers",
+          "sha256": "e23cbf1553f13dc2b9832017725f333badae5cb5eba16402241ec0c7db5c5bae"
+        },
+        {
+          "name": "20270114120000_cinema_formats",
+          "sha256": "d35e36fa41fc3e9b2caed14fa08fa72559d5603d258d56865b4ee64ea3e7f983"
+        },
+        {
+          "name": "20270115120000_game_vocabulary",
+          "sha256": "b1722ca07a48d1b7a564a3ba4ffda0e83766442de152ced528ddc969f6e66e48"
+        },
+        {
+          "name": "20270116120000_section_vocabulary",
+          "sha256": "2adf2237e24b03a7bdeee37a854a29057ba4cfe6aebf436549698128e21904c9"
+        },
+        {
+          "name": "20270117120000_link_vocabulary",
+          "sha256": "b99f9ba9061a102738b5a2263bfb4983d73eb1d656fe2bfe4ccea5a009332522"
+        },
+        {
+          "name": "20270118120000_cinema_format_shelves",
+          "sha256": "f94e79d408b7e1012e4fbf09ec55d72613c6f801a28a6280f22a12a7e9571445"
+        },
+        {
+          "name": "20270119120000_post_edit_proposals",
+          "sha256": "235da0af6e82c1d2667ebef4b5cce4fedf486e4e34c9e3116bc823bd6bb417af"
+        },
+        {
+          "name": "20270120120000_software_specialised",
+          "sha256": "e14146caeebc4716b2db87cc4f191ec24b1e1dd0f72337ffe3e0537e6c346b11"
+        },
+        {
+          "name": "20270121120000_music_specialised",
+          "sha256": "5331722081af559f307c6d3d8e4878edf9f61561a97e6f67421464d1a536bc09"
+        },
+        {
+          "name": "20270122120000_post_formats",
+          "sha256": "fdebf6aeb555716f09efb9fc9213f647ec32d54bfc000a3056c0afca5a0f983f"
+        },
+        {
+          "name": "20270123120000_game_lists",
+          "sha256": "43402b9adbd45796f05697224a598ede385a78b9601882a29fb35b8b7e210e63"
+        },
+        {
+          "name": "20270124120000_cinema_lists",
+          "sha256": "32120859fb2886480936291d1382a41cadeab01f5ca8adcd324be40d8cfc719c"
+        },
+        {
+          "name": "20270125120000_business_categories",
+          "sha256": "ea93b0db331e1347c0433e39024ebbf2e6732b00513f4c40a389452368fc2dd3"
+        },
+        {
+          "name": "20270126120000_vip_perk_list",
+          "sha256": "f5ebbf9e0b6455693207130c8c6194df051f390f43884de7d63801b4f2b2d123"
+        },
+        {
+          "name": "20270127120000_product_extra_categories",
+          "sha256": "3323da2dd57e6f4310e5e3c6b7f1e572f90f872b195572115cf2cebaeba07751"
+        },
+        {
+          "name": "20270128120000_celebrities",
+          "sha256": "040c4c1fd4403438c37422bcbbde45fb0d158ed8517520c49b3fd3040a04ba39"
+        },
+        {
+          "name": "20270129120000_celebrity_score",
+          "sha256": "3e451b6e773a22cea0641f18a1829a4cbdeea103b85cf5a4d6654ef41c5935ca"
+        },
+        {
+          "name": "20270130120000_celebrity_slug_aliases",
+          "sha256": "078c48bc4f383afba7d55637e67490690d5b65b15439483ed4cd9e86467216dc"
+        },
+        {
+          "name": "20270131120000_celebrity_facts",
+          "sha256": "5ea39dc2435c5c7861a2a80144924b1db61b513bf9dee40d2124863903f52006"
+        },
+        {
+          "name": "20270131120100_celebrity_profile_fields",
+          "sha256": "eee6f3fa0b8004f4ec7d79f1056d69cbecbb54f512cae4c70deef3186337804a"
+        },
+        {
+          "name": "20270201120000_activity_degree_order_assignee",
+          "sha256": "a7bf6a1171f651e792219fc967bc03e7ca8bb96490fd731cf1e97d5f15f3ce4b"
+        },
+        {
+          "name": "20270201121000_role_delete_restrict",
+          "sha256": "0da9603abf97cd8a88a3a4611b202cf6d56b32d622d5462d46317c61d508bbd2"
+        },
+        {
+          "name": "20270202120000_prompt_master",
+          "sha256": "71630baec7d8c85bec0ffbbce1f0d0ed5c997d4fcab88b82833d1d225a1415ff"
+        },
+        {
+          "name": "20270202121000_prompt_showcases",
+          "sha256": "30bedc292714d18afac1400249210a1f7e77380fcd73161779be1be9897a32e5"
+        },
+        {
+          "name": "20270202122000_prompt_authors",
+          "sha256": "8f425d34502f04910936ae460db4276a67f3eb76733ad689ec13b4b9dcf112b0"
+        },
+        {
+          "name": "20270203120000_close_settled_orders",
+          "sha256": "94db2258155d4ccb19b7f00b37f038c9575891547b815cd93c6c7badf52e1231"
+        },
+        {
+          "name": "20270204120000_clear_placeholder_support_email",
+          "sha256": "66a3bab52a5dbaacb5b1bcce68d2dfa731a8586d7ef99ccfa7c733c80182765e"
+        },
+        {
+          "name": "20270205120000_site_popups",
+          "sha256": "66c17020ce441f9af963c079d8a5e5a5a6db550272ffa613cf998d7972db6b47"
+        },
+        {
+          "name": "20270206120000_popup_site_groups",
+          "sha256": "8b4170a170ccdf58ef2ade2a558238301c7c247a7294e4f2c620affb6a34fb6b"
+        },
+        {
+          "name": "20270207120000_user_groups",
+          "sha256": "764679273095130bb6201be7d243412f06022de8b1b92d7e4620916f20e00c07"
+        },
+        {
+          "name": "20270208120000_group_badge",
+          "sha256": "b46fc0a55fce696f47886f8cafddf9d1dfe87169411554cab9d16bd1ac85ba02"
+        },
+        {
+          "name": "20270209120000_vip_memberships",
+          "sha256": "23f5c898b8986db6f2d80624bb3b28c15c004322b03b239b5ef6e1e00e10c034"
+        },
+        {
+          "name": "20270210120000_vip_gifts_teams",
+          "sha256": "c9065e1db21d7e4e3cd981685e1cfea98e9292b28d5751b3d73ea51e3e88c44b"
+        },
+        {
+          "name": "20270211120000_mobile_password_setup",
+          "sha256": "c41477d45f151d94e00782559c7fd91d37e70959ac62e5a03b6cd0b62aa27e7e"
+        },
+        {
+          "name": "20270212120000_digital_content_pricing",
+          "sha256": "1f989db14be80e15747313647974596018e326ce6f1510e0511408961a514452"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20261214120000_content_revisions",
-    "20261215120000_admin_saved_views",
-    "20261216120000_money_state_rules",
-    "20261217120000_page_documents",
-    "20261218120000_post_documents",
-    "20261219120000_access_restrictions",
-    "20261220120000_import_execution_authority",
-    "20261221120000_import_execution_generation",
-    "20270101120000_invoice_desk",
-    "20261222120000_repository_upload_reservations",
-    "20261223120000_business_experiences",
-    "20261224120000_section_authors",
-    "20261225120000_game_authors",
-    "20261226120000_product_category_kind",
-    "20261227120000_order_inputs_open_amount",
-    "20261228120000_form_payment_workflow",
-    "20261229120000_form_bookings_quiz",
-    "20261230120000_product_is_service",
-    "20261231120000_automation",
-    "20270102120000_business_requests",
-    "20270103120000_business_trust",
-    "20270104120000_email_otp",
-    "20270105120000_media_library",
-    "20270105121000_media_transfer_authority",
-    "20270106120000_content_authoring",
-    "20270107120000_cinema_people_profiles",
-    "20270108120000_people_profile_merges",
-    "20270109120000_moderation_rounds",
-    "20270109121000_moderation_pending_rounds",
-    "20270110120000_editorial_schedule",
-    "20270110130000_editor_patterns",
-    "20270110140000_editor_synced_patterns",
-    "20270111120000_editor_role_templates",
-    "20270112120000_search_document_recency",
-    "20270113120000_cinema_producers",
-    "20270114120000_cinema_formats",
-    "20270115120000_game_vocabulary",
-    "20270116120000_section_vocabulary",
-    "20270117120000_link_vocabulary",
-    "20270118120000_cinema_format_shelves",
-    "20270119120000_post_edit_proposals",
-    "20270120120000_software_specialised",
-    "20270121120000_music_specialised",
-    "20270122120000_post_formats",
-    "20270123120000_game_lists",
-    "20270124120000_cinema_lists",
-    "20270125120000_business_categories",
-    "20270126120000_vip_perk_list",
-    "20270127120000_product_extra_categories",
-    "20270128120000_celebrities",
-    "20270129120000_celebrity_score",
-    "20270130120000_celebrity_slug_aliases",
-    "20270131120000_celebrity_facts",
-    "20270131120100_celebrity_profile_fields",
-    "20270201120000_activity_degree_order_assignee",
-    "20270201121000_role_delete_restrict",
-    "20270202120000_prompt_master",
-    "20270202121000_prompt_showcases",
-    "20270202122000_prompt_authors",
-    "20270203120000_close_settled_orders",
-    "20270204120000_clear_placeholder_support_email",
-    "20270205120000_site_popups",
-    "20270206120000_popup_site_groups",
-    "20270207120000_user_groups",
-    "20270208120000_group_badge",
-    "20270209120000_vip_memberships",
-    "20270210120000_vip_gifts_teams",
-    "20270211120000_mobile_password_setup",
-    "20270212120000_digital_content_pricing"
-  ]
+  "unreleased": []
 }
