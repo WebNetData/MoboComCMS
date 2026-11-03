@@ -28,6 +28,7 @@
     }
   ],
   "adminMenu": {
+    "area": "content",
     "title": "بازی",
     "titleEn": "Games",
     "icon": "gamepad",

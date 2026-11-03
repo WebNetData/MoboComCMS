@@ -15,6 +15,7 @@
   "adminPaths": ["/admin/repository"],
   "permissions": [{ "id": "repository.manage", "label": "مدیریت مخزن افزونه و قالب" }],
   "adminMenu": {
+    "area": "system",
     "title": "مخزن افزونه و قالب",
     "titleEn": "Repository",
     "icon": "box",

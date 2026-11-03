@@ -28,6 +28,7 @@
     }
   ],
   "adminMenu": {
+    "area": "content",
     "title": "نرم‌افزار",
     "titleEn": "Software",
     "icon": "devices",

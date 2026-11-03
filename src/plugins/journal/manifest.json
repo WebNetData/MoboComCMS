@@ -27,6 +27,7 @@
     }
   ],
   "adminMenu": {
+    "area": "content",
     "title": "مجله",
     "titleEn": "Journal",
     "icon": "pen",

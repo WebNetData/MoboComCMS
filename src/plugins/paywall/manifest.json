@@ -15,6 +15,7 @@
   "adminPaths": ["/admin/paywall"],
   "permissions": [{ "id": "paywall.manage", "label": "مدیریت فروش محتوا" }],
   "adminMenu": {
+    "area": "commerce",
     "title": "فروش محتوا",
     "titleEn": "Paid content",
     "icon": "lock",

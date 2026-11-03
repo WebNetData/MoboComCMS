@@ -1,3 +1,12 @@
+# Admin organization by area — 2026-11-03
+
+Owner: management had grown complicated and things were not where they belonged. Branch `feat/admin-organization-2026-11-03` from main `55aa68ae`.
+
+- **Found:** 32 groups and about 170 links; 19 groups under «site sections», of which server panel, optimization, repository, popups and ads are not sections; Happ next to SMS; two entries called «داشبورد جامعه»; `/admin/celebrities`, `/admin/studios` and `/admin/product-deliveries` in no menu; two rows marked on nested pages; the admin home an error for every section manager.
+- **Done:** decision in PLATFORM_DECISIONS 6D. No address, permission, API or data changed. Links only moved, were renamed shorter or were added.
+- **`/admin/studios`:** its API asks for both `games.manage` and `cinema.manage`, so the menu lists it under `settings.manage` and section managers reach it from their tabs as before. A software manager's tab there still answers 403; unchanged here.
+- **Left:** the pages inside still use several header styles (`sa-head`, `appbar`, `ao-hero`); the store's tabs and its menu group repeat each other. Bringing pages to one frame is a page-by-page slice.
+
 # Admin presentation and main integration — 2026-10-19
 
 ## Resume here

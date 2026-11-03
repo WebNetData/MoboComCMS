@@ -15,6 +15,7 @@
   "adminPaths": ["/admin/marketplace"],
   "permissions": [{ "id": "marketplace.manage", "label": "مدیریت فروشندگان، کارمزد و تسویه" }],
   "adminMenu": {
+    "area": "commerce",
     "title": "بازار فروشندگان",
     "titleEn": "Marketplace",
     "icon": "store",

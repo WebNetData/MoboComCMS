@@ -26,7 +26,7 @@ export default function SiteManagementPage() {
   return <div className={styles.directory} aria-busy={loading}>
     <header className={styles.heading}>
       <span className={styles.mark} aria-hidden="true"><Icon name="sliders" size={28} /></span>
-      <div><p className={styles.eyebrow}>{L('کنترل وب‌سایت', 'Website controls')}</p><h1>{L('مرکز مدیریت سایت', 'Website management')}</h1><p>{L('صفحه‌ها، ظاهر، محتوا و تنظیمات هر بخش را از یک جا پیدا کنید. ابزارها مطابق دسترسی شما و ماژول‌های فعال نمایش داده می‌شوند.', 'Find pages, appearance, content and settings in one place. Tools follow your permissions and active modules.')}</p></div>
+      <div><p className={styles.eyebrow}>{L('نقشهٔ پنل', 'Admin map')}</p><h1>{L('همهٔ ابزارها', 'All tools')}</h1><p>{L('صفحه‌ها، ظاهر، محتوا و تنظیمات هر بخش را از یک جا پیدا کنید. ابزارها مطابق دسترسی شما و ماژول‌های فعال نمایش داده می‌شوند.', 'Find pages, appearance, content and settings in one place. Tools follow your permissions and active modules.')}</p></div>
     </header>
 
     {failed ? <div className="card" role="alert"><h2 className="h3">{L('فهرست ابزارها دریافت نشد', 'Controls could not be loaded')}</h2><p className="muted">{L('برای دریافت دسترسی‌ها و وضعیت فعلی بخش‌ها دوباره تلاش کنید.', 'Retry to load current permissions and section availability.')}</p><button className="btn btn-primary" type="button" onClick={retry}>{L('تلاش دوباره', 'Try again')}</button></div>

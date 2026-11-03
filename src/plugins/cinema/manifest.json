@@ -28,6 +28,7 @@
     }
   ],
   "adminMenu": {
+    "area": "content",
     "title": "فیلم و سریال",
     "titleEn": "Film & series",
     "icon": "film",

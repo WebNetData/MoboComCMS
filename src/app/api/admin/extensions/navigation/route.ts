@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
       titleEn: row.manifest.adminMenu!.titleEn || row.manifest.nameEn || row.manifest.name,
       icon: row.manifest.adminMenu!.icon || row.manifest.icon || 'grid',
       order: row.manifest.adminMenu!.order ?? 100,
+      area: row.manifest.adminMenu!.area ?? 'system',
       items: row.manifest.adminMenu!.items,
     })).sort((a, b) => a.order - b.order),
     // Core admin sections of disabled feature modules — hidden from the menu.

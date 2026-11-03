@@ -1,0 +1,91 @@
+/* ============================================================
+   Admin areas: the rail beside the menu, the area's own list and the
+   home page's map of areas. Loaded by the admin layout and rooted in
+   .admin-shell like the rest of its sheets. Project tokens only, so
+   both themes and every code theme follow.
+   ============================================================ */
+
+/* ---------- frame: rail and list side by side ---------- */
+html[data-design] .admin-shell.app-shell > .side { width: 324px; flex: 0 0 324px; }
+.admin-shell .acn-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 78px minmax(0, 1fr); margin-top: 12px; border-top: 1px solid var(--border); }
+.admin-shell .acn-body.is-single { grid-template-columns: minmax(0, 1fr); }
+.admin-shell .acn-body.is-single .acn-rail { display: none; }
+html[data-design] .admin-shell.app-shell > .side > .acn-body > .side-nav { display: block; flex: none; min-height: 0; margin: 0; padding: 12px 10px 18px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent; }
+
+/* ---------- rail ---------- */
+.admin-shell .acn-rail { display: flex; flex-direction: column; gap: 4px; min-height: 0; padding: 10px 7px; overflow-y: auto; scrollbar-width: none; border-inline-end: 1px solid var(--border); background: color-mix(in srgb, var(--text) 3%, transparent); }
+.admin-shell .acn-rail::-webkit-scrollbar { display: none; }
+.admin-shell .acn-tab { position: relative; flex: none; display: grid; justify-items: center; gap: 3px; width: 100%; padding: 7px 0 6px; border: 0; border-radius: 12px; background: transparent; color: var(--admin-muted-text); font: inherit; font-size: 11px; font-weight: 600; line-height: 1.5; cursor: pointer; transition: background .16s, color .16s; }
+.admin-shell .acn-tab:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
+.admin-shell .acn-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.admin-shell .acn-tab-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; transition: background .18s, color .18s, transform .18s, box-shadow .18s; }
+.admin-shell .acn-tab:hover .acn-tab-icon { transform: translateY(-1px); }
+.admin-shell .acn-tab[aria-pressed='true'] { background: var(--primary-soft); color: var(--admin-accent-text); font-weight: 700; }
+.admin-shell .acn-tab[aria-pressed='true'] .acn-tab-icon { background: var(--admin-action-surface); color: var(--sds-color-white-1000, #fff); box-shadow: 0 8px 16px -10px color-mix(in srgb, var(--primary) 80%, transparent); }
+.admin-shell .acn-tab[aria-pressed='true']::before { content: ''; position: absolute; inset-block: 14px; inset-inline-start: -7px; width: 3px; border-start-end-radius: 3px; border-end-end-radius: 3px; background: var(--primary); animation: acn-mark .24s ease-out both; }
+/* The open page's area, while another one is on show: the way back. */
+.admin-shell .acn-tab.has-page[aria-pressed='false']::after { content: ''; position: absolute; top: 9px; inset-inline-end: 15px; width: 7px; height: 7px; border: 1.5px solid var(--bg); border-radius: 50%; background: var(--primary); }
+.admin-shell .acn-ghost { flex: none; height: 58px; border-radius: 12px; background: color-mix(in srgb, var(--text) 6%, transparent); animation: acn-breathe 1.4s ease-in-out infinite; }
+
+/* ---------- the area's list ---------- */
+.admin-shell .acn-head { display: grid; gap: 1px; padding: 0 8px 10px; }
+.admin-shell .acn-head b { font-size: 15px; font-weight: 700; line-height: 1.6; }
+.admin-shell .acn-head span { color: var(--admin-muted-text); font-size: 12px; line-height: 1.7; }
+.admin-shell .acn-groups { animation: acn-in .2s ease-out both; }
+html[data-design] .admin-shell.app-shell .ws-items:not([hidden]) { animation: acn-open .18s ease-out both; }
+.admin-shell .ws-subhead { display: block; padding: 10px 10px 3px; color: var(--admin-muted-text); font-size: 11px; font-weight: 700; line-height: 1.6; }
+.admin-shell .ws-subhead:first-child { padding-top: 2px; }
+
+/* ---------- home: the map of areas ---------- */
+.admin-shell .ao-section-title { margin: 0 0 12px; font-size: 15px; font-weight: 700; }
+.admin-shell .ao-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 12px; margin-bottom: 24px; }
+.admin-shell .ao-area { display: grid; align-content: start; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); transition: border-color .18s, box-shadow .18s, transform .18s; }
+.admin-shell .ao-area:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); box-shadow: 0 14px 28px -22px color-mix(in srgb, var(--primary) 70%, transparent); transform: translateY(-2px); }
+.admin-shell .ao-area-head { display: flex; align-items: center; gap: 12px; min-width: 0; color: var(--text); }
+.admin-shell .ao-area-head:focus-visible, .admin-shell .ao-area li a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 8px; }
+.admin-shell .ao-area-head .ws-tile { flex: 0 0 38px; width: 38px; height: 38px; border-color: transparent; border-radius: 12px; background: var(--primary-soft); color: var(--admin-accent-text); transition: background .18s, color .18s; }
+.admin-shell .ao-area:hover .ao-area-head .ws-tile { background: var(--admin-action-surface); color: var(--sds-color-white-1000, #fff); }
+.admin-shell .ao-area-head b { display: block; font-size: 14px; font-weight: 700; line-height: 1.6; }
+.admin-shell .ao-area-head small { display: block; color: var(--admin-muted-text); font-size: 12px; line-height: 1.7; }
+.admin-shell .ao-area ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.admin-shell .ao-area li a { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; border-radius: 9px; background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); font-size: 12px; font-weight: 500; transition: background .15s, color .15s; }
+.admin-shell .ao-area li a:hover { background: var(--primary-soft); color: var(--admin-accent-text); }
+.admin-shell .ao-area .ao-more { display: inline-flex; align-items: center; min-height: 30px; padding: 0 4px; color: var(--admin-muted-text); font-size: 12px; }
+
+/* ---------- home: entrance, once, on what carries the page ---------- */
+.admin-shell .ao-rise > * { animation: acn-rise .34s cubic-bezier(.2, .7, .2, 1) both; }
+.admin-shell .ao-rise > :nth-child(2) { animation-delay: 40ms; }
+.admin-shell .ao-rise > :nth-child(3) { animation-delay: 80ms; }
+.admin-shell .ao-rise > :nth-child(4) { animation-delay: 120ms; }
+.admin-shell .ao-rise > :nth-child(n + 5) { animation-delay: 160ms; }
+.admin-shell .ao-kpis .kpi { transition: border-color .18s, transform .18s; }
+.admin-shell .ao-kpis .kpi:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); transform: translateY(-2px); }
+.admin-shell .ao-split .chart-bar { transform-origin: bottom; animation: acn-grow .55s cubic-bezier(.2, .7, .2, 1) both; }
+
+@keyframes acn-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes acn-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes acn-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes acn-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes acn-mark { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes acn-breathe { 50% { opacity: .5; } }
+
+/* ---------- laptop ---------- */
+@media (max-width: 1200px) {
+  html[data-design] .admin-shell.app-shell > .side { width: 296px; flex-basis: 296px; }
+}
+
+/* ---------- phone: the drawer keeps the rail, which stays while the list scrolls ---------- */
+@media (max-width: 900px) {
+  .admin-shell .mobile-drawer .acn-body { grid-template-columns: 72px minmax(0, 1fr); gap: 10px; margin: 0; border: 0; }
+  .admin-shell .mobile-drawer .acn-body.is-single { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell .mobile-drawer .acn-rail { position: sticky; top: 0; align-self: start; max-height: calc(100dvh - 90px); padding: 4px; border: 1px solid var(--border); border-radius: 14px; }
+  .admin-shell .mobile-drawer .acn-tab[aria-pressed='true']::before { display: none; }
+  .admin-shell .mobile-drawer .acn-column { min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell :is(.acn-groups, .ao-rise > *, .ao-split .chart-bar, .acn-ghost, .acn-tab::before) { animation: none; }
+  html[data-design] .admin-shell.app-shell .ws-items:not([hidden]) { animation: none; }
+  .admin-shell :is(.acn-tab, .acn-tab-icon, .ao-area, .ao-kpis .kpi) { transition: none; }
+  .admin-shell :is(.acn-tab:hover .acn-tab-icon, .ao-area:hover, .ao-kpis .kpi:hover) { transform: none; }
+}

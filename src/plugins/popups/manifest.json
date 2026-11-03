@@ -14,6 +14,7 @@
   "adminPaths": ["/admin/popups"],
   "permissions": [{ "id": "popups.manage", "label": "مدیریت پاپ‌آپ اطلاعیه" }],
   "adminMenu": {
+    "area": "marketing",
     "title": "پاپ‌آپ اطلاعیه",
     "titleEn": "Announcement popups",
     "icon": "megaphone",

@@ -24,6 +24,7 @@
     }
   ],
   "adminMenu": {
+    "area": "community",
     "title": "تالار گفتمان",
     "titleEn": "Forum",
     "icon": "chat",
@@ -31,7 +32,7 @@
     "items": [
       {
         "href": "/admin/forum",
-        "label": "داشبورد جامعه",
+        "label": "داشبورد تالار",
         "labelEn": "Community dashboard",
         "icon": "grid",
         "permissions": [

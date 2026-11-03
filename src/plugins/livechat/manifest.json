@@ -16,6 +16,7 @@
   "adminPaths": ["/admin/chat", "/admin/crm"],
   "permissions": [{ "id": "support.chat", "label": "پاسخ به گفت‌وگوی آنلاین و مشاهدهٔ پروندهٔ مشتری" }],
   "adminMenu": {
+    "area": "people",
     "title": "گفت‌وگو و مشتریان",
     "titleEn": "Chat & customers",
     "icon": "lifebuoy",

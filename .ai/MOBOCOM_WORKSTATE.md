@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current2026-11-03 Admin organization: `feat/admin-organization-2026-11-03` from owner-merged PR312/main `55aa68ae`. Owner: management was confusing and things sat in the wrong place. Menu now by nine areas with a rail, one on show, finder across all; modules name `adminMenu.area`; home has a permission-filtered map of areas and no longer fails for a section manager. No address, permission, API or data change. [Handoff](../docs/agent/handoffs/ADMIN_INTEGRATION.md).
+
 Current2026-11-03 Maintenance reaches playback: `fix/maintenance-playback-2026-11-03` from owner-merged PR311/main `47c54472`. Owner: artists had no maintenance and music or film played from there. Audit: section maintenance stopped pages only, so `/api/media` and section APIs kept answering from any page. Now closed at the proxy for section APIs, at the file gate for media, and on the artist page; `celebrities` is a section; a mode (repair, update, development) per section and site. Preview on main shows PR311.
 
 Current2026-11-03 Whole-site maintenance: `feat/site-maintenance-2026-11-03` from owner-merged PR310/main `9312ba1c`. Extends section maintenance in the same setting and proxy step; six designs, five effects, seven icons, a countdown, chosen users and groups. Sign-in, payment returns, webhooks and subscription links stay open; `SITE_MAINTENANCE_BYPASS=1` is the way back in.

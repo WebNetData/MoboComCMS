@@ -30,10 +30,19 @@ export interface ExtensionSettingDefinition {
 }
 
 export interface ExtensionPermissionDefinition { id: string; label: string; description?: string }
-export interface ExtensionAdminNavigation { href: string; label: string; labelEn?: string; icon?: string; permission?: string }
+export interface ExtensionAdminNavigation { href: string; label: string; labelEn?: string; icon?: string; permission?: string
+  /** A core admin menu group this link joins; without it the link sits under Extensions. */
+  group?: string
+}
 /** A module's own group in the admin sidebar (dashboard, items, settings …). */
-export interface ExtensionAdminMenuItem { href: string; label: string; labelEn?: string; icon?: string; permissions?: readonly string[]; exact?: boolean }
-export interface ExtensionAdminMenu { title?: string; titleEn?: string; icon?: string; order?: number; items: readonly ExtensionAdminMenuItem[] }
+export interface ExtensionAdminMenuItem { href: string; label: string; labelEn?: string; icon?: string; permissions?: readonly string[]; exact?: boolean
+  /** Starts a titled run of links inside a long group. */
+  heading?: string
+}
+/** The areas of the admin, by the job they serve. A module names its own; without one it sits under system. */
+export const EXTENSION_ADMIN_AREAS = ['content', 'community', 'commerce', 'finance', 'people', 'marketing', 'website', 'system'] as const
+export type ExtensionAdminArea = typeof EXTENSION_ADMIN_AREAS[number]
+export interface ExtensionAdminMenu { title?: string; titleEn?: string; icon?: string; order?: number; area?: ExtensionAdminArea; items: readonly ExtensionAdminMenuItem[] }
 
 export interface ExtensionPublicState {
   enabled: boolean
@@ -107,6 +116,7 @@ export function assertValidExtensionManifest(manifest: ExtensionManifest) {
   }
   if (manifest.adminMenu) {
     if (manifest.kind !== 'module') throw new Error(`Only feature modules may declare adminMenu: ${manifest.id}`)
+    if (manifest.adminMenu.area && !EXTENSION_ADMIN_AREAS.includes(manifest.adminMenu.area)) throw new Error(`Extension "${manifest.id}" names an unknown admin area "${manifest.adminMenu.area}".`)
     // Shared core pages a section may link to: its settings page and its taxonomy.
     const own = [...(manifest.adminPaths || []), `/admin/sections/${manifest.id}`, '/admin/taxonomy']
     for (const item of manifest.adminMenu.items) {

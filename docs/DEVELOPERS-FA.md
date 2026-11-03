@@ -164,7 +164,7 @@ src/app/api/…              فقط re-export هندلرها
 prisma/                    مدل‌ها در هر دو schema (SQLite و PostgreSQL) + migration
 ```
 
-فیلدهای ویژهٔ ماژول در manifest: `requires`، `publicPaths`، `adminPaths`، `adminMenu`، `category`، `icon`. مرجع خوب برای الگو: ماژول تبلیغات ([manifest](../src/plugins/ads/manifest.json)) و فرم‌ساز ([domain](../src/modules/forms/domain/forms.ts)). هر تغییر مدل باید در `prisma/schema.prisma` و `prisma/schema.postgresql.prisma` یکسان باشد و یک migration PostgreSQL داشته باشد (`npm run schema:check`). جزئیات: [EXTENSIONS.md](EXTENSIONS.md).
+فیلدهای ویژهٔ ماژول در manifest: `requires`، `publicPaths`، `adminPaths`، `adminMenu`، `category`، `icon`. در `adminMenu`، فیلد `area` حوزهٔ ماژول در پنل را تعیین می‌کند (`content`، `community`، `commerce`، `finance`، `people`، `marketing`، `website` یا `system`؛ بدون آن، `system`). مرجع خوب برای الگو: ماژول تبلیغات ([manifest](../src/plugins/ads/manifest.json)) و فرم‌ساز ([domain](../src/modules/forms/domain/forms.ts)). هر تغییر مدل باید در `prisma/schema.prisma` و `prisma/schema.postgresql.prisma` یکسان باشد و یک migration PostgreSQL داشته باشد (`npm run schema:check`). جزئیات: [EXTENSIONS.md](EXTENSIONS.md).
 
 ## ۹. چک‌لیست امنیتی
 
