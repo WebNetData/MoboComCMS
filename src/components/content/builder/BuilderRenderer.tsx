@@ -280,6 +280,17 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
         {pictures.map((picture, index) => <a key={index} href={picture.src} target="_blank" rel="noopener noreferrer" style={radius}><img src={picture.src} alt={picture.alt} loading="lazy" /></a>)}
       </div>)
     }
+    case 'accordion': {
+      const rows = itemsOf(props.items).filter((item) => item.title)
+      if (!rows.length) return null
+      const group = props.single === '0' ? undefined : `acc-${widget.id}`
+      return frame(widget, ctx, <div className={`br-acc is-${['lines', 'boxed'].includes(props.look) ? props.look : 'cards'} icon-${props.icon === 'plus' ? 'plus' : 'chevron'}`}>
+        {rows.map((item, index) => <details key={index} name={group} open={props.first !== '0' && index === 0}>
+          <summary><span>{item.title}</span><i aria-hidden="true" /></summary>
+          <div className="br-acc-body">{String(item.text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, at) => <p key={at}>{line}</p>)}</div>
+        </details>)}
+      </div>)
+    }
     case 'flip-box': {
       const href = props.href && safeHref(props.href) !== '#' ? safeHref(props.href) : ''
       return frame(widget, ctx, <div className={`br-flip is-${props.direction === 'vertical' ? 'vertical' : 'horizontal'} h-${['sm', 'lg'].includes(props.height) ? props.height : 'md'}`} tabIndex={0}>
@@ -571,9 +582,10 @@ function renderSection(section: BuilderSection, ctx: Ctx, key: string, nestedSec
   // so clicks select the template block instead of sections that are not in this doc.
   return <section id={nested ? undefined : section.anchor || undefined} className={classes.join(' ')} style={style} data-sid={nested ? undefined : section.id} key={key}>
     {styleTag(section.id, section.adv)}
-    <div className={`br-container br-width-${width}`}>
-      <div className={`br-cols br-valign-${valign}`}>
-        {section.columns.map((column, index) => <div className="br-col" style={{ flex: `${column.width} 1 0%` }} data-cid={nested ? undefined : column.id} key={column.id || index}>
+    <div className={`br-container br-width-${width}`} style={section.style.widthPct ? { inlineSize: `min(${section.style.widthPct}%, 100% - 1.5rem)` } : undefined}>
+      <div className={`br-cols br-valign-${valign}${section.style.gap ? ` br-gap-${section.style.gap}` : ''}${section.style.stackM === 'keep' ? ' br-keep-m' : ''}${section.style.reverseM ? ' br-rev-m' : ''}`}>
+        {section.columns.map((column, index) => <div className={`br-col${column.layout ? ` br-flow-${column.layout.dir} br-cgap-${column.layout.gap} br-cjust-${column.layout.justify} br-calign-${column.layout.align}${column.layout.wrap ? ' br-cwrap' : ''}` : ''}${advClass(column.id, column.adv)}`} style={{ flex: `${column.width} 1 0%` }} data-cid={nested ? undefined : column.id} key={column.id || index}>
+          {styleTag(column.id, column.adv)}
           {column.widgets.map((widget) => <div className={`br-cell${advClass(widget.id, widget.adv)}`} key={widget.id}>{styleTag(widget.id, widget.adv)}{renderWidget(widget, ctx)}</div>)}
         </div>)}
       </div>

@@ -44,6 +44,13 @@ const FIELDS: Partial<Record<WidgetType, Field[]>> = {
     { key: 'items', en: 'Pictures', fa: 'تصویرها', kind: 'items' },
   ],
   carousel: [{ key: 'items', en: 'Slides', fa: 'اسلایدها', kind: 'items' }],
+  accordion: [
+    { key: 'look', en: 'Look', fa: 'ظاهر', kind: 'select', options: [{ value: 'cards', en: 'Cards', fa: 'کارت‌ها' }, { value: 'lines', en: 'Lines', fa: 'خطی' }, { value: 'boxed', en: 'One box', fa: 'یک کادر' }] },
+    { key: 'single', en: 'Open at a time', fa: 'باز شدن', kind: 'select', options: [{ value: '1', en: 'One at a time', fa: 'هر بار یکی' }, { value: '0', en: 'Any number', fa: 'چند تا با هم' }] },
+    { key: 'first', en: 'First item', fa: 'مورد اول', kind: 'select', options: [{ value: '1', en: 'Open', fa: 'باز' }, { value: '0', en: 'Closed', fa: 'بسته' }] },
+    { key: 'icon', en: 'Icon', fa: 'آیکن', kind: 'select', options: [{ value: 'chevron', en: 'Chevron', fa: 'فلش' }, { value: 'plus', en: 'Plus', fa: 'به‌علاوه' }] },
+    { key: 'items', en: 'Items', fa: 'موارد', kind: 'items' },
+  ],
   'flip-box': [
     { key: 'icon', en: 'Icon', fa: 'آیکن', kind: 'select', options: BOX_ICONS.map((name) => ({ value: name, en: name, fa: name })) },
     { key: 'title', en: 'Front title', fa: 'تیتر روی کارت', kind: 'text' },
@@ -289,6 +296,10 @@ const ITEM_KEYS: Record<string, Field[]> = {
   gallery: [
     { key: 'src', en: 'Picture address', fa: 'نشانی تصویر', kind: 'text', ltr: true },
     { key: 'alt', en: 'Alternative text', fa: 'متن جایگزین', kind: 'text' },
+  ],
+  accordion: [
+    { key: 'title', en: 'Title', fa: 'عنوان', kind: 'text' },
+    { key: 'text', en: 'Text', fa: 'متن', kind: 'area', rows: 4 },
   ],
   timeline: [
     { key: 'date', en: 'Date or label', fa: 'تاریخ یا برچسب', kind: 'text' },
@@ -571,6 +582,22 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
             <option value="stretch">{L('Equal height', 'هم‌ارتفاع')}</option>
           </select>
         </label>
+        <div className="bld-field"><span>{L('Content width', 'عرض محتوای بخش')} · {section.style.widthPct ? `${section.style.widthPct}%` : L('as chosen above', 'طبق گزینهٔ بالا')}</span>
+          <div className="bld-range-row" dir="ltr"><input type="range" min={30} max={100} step={1} value={section.style.widthPct || 100} aria-label={L('Content width in percent', 'عرض محتوا به درصد')} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { widthPct: Number(event.target.value) }), sel)} />
+            <input className="input num" type="number" min={30} max={100} value={section.style.widthPct || ''} placeholder="—" aria-label={L('Content width in percent', 'عرض محتوا به درصد')} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { widthPct: event.target.value ? Math.max(30, Math.min(100, Number(event.target.value))) : undefined }), sel)} />
+            {section.style.widthPct ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(patchSectionStyle(doc, section.id, { widthPct: undefined }), sel)}>{L('Reset', 'پیش‌فرض')}</button> : null}</div>
+        </div>
+        <label className="bld-field"><span>{L('Space between columns', 'فاصلهٔ ستون‌ها')}</span>
+          <select className="select" value={section.style.gap || 'md'} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { gap: event.target.value as never }), sel)}>
+            <option value="none">{L('None', 'بدون')}</option><option value="sm">{L('Small', 'کم')}</option><option value="md">{L('Medium', 'متوسط')}</option><option value="lg">{L('Large', 'زیاد')}</option><option value="xl">{L('Very large', 'خیلی زیاد')}</option>
+          </select>
+        </label>
+        <label className="bld-field"><span>{L('Columns on phones', 'ستون‌ها در موبایل')}</span>
+          <select className="select" value={section.style.stackM || 'stack'} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { stackM: event.target.value as never }), sel)}>
+            <option value="stack">{L('One under another', 'زیر هم')}</option><option value="keep">{L('Still side by side', 'همچنان کنار هم')}</option>
+          </select>
+        </label>
+        {section.style.stackM !== 'keep' && <label className="sa-check"><input type="checkbox" checked={!!section.style.reverseM} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { reverseM: event.target.checked }), sel)} /> {L('Reverse their order on phones', 'ترتیب ستون‌ها در موبایل برعکس شود')}</label>}
         <label className="bld-field"><span>{L('Visibility', 'نمایش')}</span>
           <select className="select" value={section.style.hideOn || 'none'} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { hideOn: event.target.value as never }), sel)}>{visibilityOptions(L)}</select>
         </label>
@@ -604,10 +631,27 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
     if (!section || !column) return null
     return <aside className="builder-panel builder-inspector">
       <h2>{L('Column', 'ستون')}</h2>
-      <label className="bld-field"><span>{L('Width', 'عرض')} · {column.width}%</span>
-        <input type="range" min={5} max={100} step={5} value={column.width} onChange={(event) => onChange(patchColumn(doc, section.id, column.id, { width: Number(event.target.value) }), sel, false)} />
-      </label>
+      <div className="bld-field"><span>{L('Width', 'عرض ستون')} · {column.width}%</span>
+        <div className="bld-range-row" dir="ltr"><input type="range" min={5} max={100} step={1} value={column.width} aria-label={L('Column width in percent', 'عرض ستون به درصد')} onChange={(event) => onChange(patchColumn(doc, section.id, column.id, { width: Number(event.target.value) }), sel, false)} />
+          <input className="input num" type="number" min={5} max={100} value={column.width} aria-label={L('Column width in percent', 'عرض ستون به درصد')} onChange={(event) => onChange(patchColumn(doc, section.id, column.id, { width: Math.max(5, Math.min(100, Number(event.target.value) || 5)) }), sel, false)} /></div>
+        <small className="muted">{L('Columns share the row by these numbers; on phones they stack unless the section keeps them side by side.', 'ستون‌ها ردیف را به نسبت همین عددها تقسیم می‌کنند؛ در موبایل زیر هم می‌روند مگر بخش آن‌ها را کنار هم نگه دارد.')}</small>
+      </div>
       <p className="muted text-sm">{L(`${column.widgets.length} blocks inside.`, `${column.widgets.length} بلوک داخل این ستون.`)}</p>
+      <h3 className="bld-sub">{L('Layout of its blocks', 'چیدمان بلوک‌های داخل ستون')}</h3>
+      {(() => {
+        const layout = column.layout || { dir: 'column' as const, gap: 'md' as const, justify: 'start' as const, align: 'stretch' as const, wrap: false }
+        const set = (change: Partial<typeof layout>) => onChange(patchColumn(doc, section.id, column.id, { layout: { ...layout, ...change } }), sel, false)
+        const pick = (key: 'dir' | 'gap' | 'justify' | 'align', label: string, options: [string, string][]) => <label className="bld-field"><span>{label}</span><select className="select" value={layout[key]} onChange={(event) => set({ [key]: event.target.value } as never)}>{options.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>
+        return <>
+          {pick('dir', L('Direction', 'جهت'), [['column', L('One under another', 'زیر هم')], ['row', L('Side by side', 'کنار هم')]])}
+          {pick('gap', L('Space between blocks', 'فاصلهٔ بلوک‌ها'), [['none', L('None', 'بدون')], ['sm', L('Small', 'کم')], ['md', L('Medium', 'متوسط')], ['lg', L('Large', 'زیاد')], ['xl', L('Very large', 'خیلی زیاد')]])}
+          {pick('justify', layout.dir === 'row' ? L('Horizontal alignment', 'چیدمان افقی') : L('Vertical alignment', 'چیدمان عمودی'), [['start', L('Start', 'ابتدا')], ['center', L('Centre', 'وسط')], ['end', L('End', 'انتها')], ['between', L('Spread out', 'پخش در فاصله')]])}
+          {pick('align', layout.dir === 'row' ? L('Vertical alignment', 'تراز عمودی') : L('Horizontal alignment', 'تراز افقی'), [['stretch', L('Full', 'کشیده')], ['start', L('Start', 'ابتدا')], ['center', L('Centre', 'وسط')], ['end', L('End', 'انتها')]])}
+          {layout.dir === 'row' && <label className="sa-check"><input type="checkbox" checked={layout.wrap} onChange={(event) => set({ wrap: event.target.checked })} /> {L('Wrap to the next line when there is no room', 'رفتن به خط بعد وقتی جا نیست')}</label>}
+          {column.layout && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(patchColumn(doc, section.id, column.id, { layout: undefined }), sel, true)}>{L('Back to the default layout', 'بازگشت به چیدمان پیش‌فرض')}</button>}
+        </>
+      })()}
+      <AdvancedStyleFields key={column.id} section value={column.adv} L={L} onChange={(adv, history) => onChange(patchColumn(doc, section.id, column.id, { adv }), sel, !!history)} />
       <div className="bld-actions">
         <button type="button" className="btn btn-ghost btn-sm" disabled={section.columns.length <= 1} onClick={() => onChange(removeColumn(doc, section.id, column.id), { kind: 'section', sectionId: section.id })}>{L('Delete column', 'حذف ستون')}</button>
       </div>
@@ -641,9 +685,10 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
             <option value="end">{L('End', 'انتها')}</option>
           </select>
         </label>
-        <label className="bld-field"><span>{L('Width', 'عرض')} · {widget.style.width ? `${widget.style.width}%` : L('auto', 'خودکار')}</span>
-          <input type="range" min={0} max={100} step={5} value={widget.style.width} onChange={(event) => onChange(applyWidgetStyle(doc, ref, { width: Number(event.target.value) }), sel, false)} />
-        </label>
+        <div className="bld-field"><span>{L('Block width', 'عرض بلوک')} · {widget.style.width ? `${widget.style.width}%` : L('full', 'تمام ستون')}</span>
+          <span className="bld-range-row" dir="ltr"><input type="range" min={0} max={100} step={1} value={widget.style.width} aria-label={L('Block width in percent', 'عرض بلوک به درصد')} onChange={(event) => onChange(applyWidgetStyle(doc, ref, { width: Number(event.target.value) }), sel, false)} />
+            <input className="input num" type="number" min={0} max={100} value={widget.style.width || ''} placeholder="100" aria-label={L('Block width in percent', 'عرض بلوک به درصد')} onChange={(event) => onChange(applyWidgetStyle(doc, ref, { width: Math.max(0, Math.min(100, Number(event.target.value) || 0)) }), sel, false)} /></span>
+        </div>
         <label className="bld-field"><span>{L('Vertical padding', 'فاصله عمودی')} · {widget.style.paddingY}px</span>
           <input type="range" min={0} max={160} step={4} value={widget.style.paddingY} onChange={(event) => onChange(applyWidgetStyle(doc, ref, { paddingY: Number(event.target.value) }), sel, false)} />
         </label>

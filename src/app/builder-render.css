@@ -1,8 +1,9 @@
 /* Public renderer styles for the v2 page builder (logical properties only). */
 .br-doc{display:block}
 .br-section{position:relative;isolation:isolate}
-.br-container{inline-size:min(1180px,100% - 2.5rem);margin-inline:auto}
-.br-container.br-width-narrow{inline-size:min(820px,100% - 2.5rem)}
+/* The site frame: as wide as the rest of the site (the theme's chrome width), not capped at a fixed size. */
+.br-container{inline-size:var(--mb-chrome,min(97%,100% - 32px));margin-inline:auto}
+.br-container.br-width-narrow{inline-size:min(900px,100% - 2.5rem)}
 .br-container.br-width-full{inline-size:100%}
 .br-template .br-container{inline-size:100%}
 .br-cols{display:flex;gap:clamp(1rem,2.5vw,2rem);align-items:flex-start}
@@ -457,3 +458,56 @@ html[dir='rtl'] .br-bar-track span { background: linear-gradient(270deg, var(--p
   .br-logos-track li[aria-hidden] { display: none; }
   .br-mq-run[aria-hidden] { display: none; }
 }
+
+/* ============================================================
+   Layout: a column's own flow (one under another or side by side,
+   gap and alignment), a section's column gap, and columns that keep
+   their row or reverse their order on phones. Then the accordion.
+   ============================================================ */
+.br-col[class*='br-flow-'] { display: flex; gap: var(--br-cgap, 1.1rem); }
+.br-flow-column { flex-direction: column; }
+.br-flow-row { flex-direction: row; align-items: center; }
+.br-flow-row > .br-cell { min-inline-size: 0; }
+.br-cwrap { flex-wrap: wrap; }
+.br-cgap-none { --br-cgap: 0; } .br-cgap-sm { --br-cgap: .5rem; } .br-cgap-md { --br-cgap: 1.1rem; } .br-cgap-lg { --br-cgap: 2rem; } .br-cgap-xl { --br-cgap: 3.25rem; }
+.br-cjust-start { justify-content: flex-start; } .br-cjust-center { justify-content: center; } .br-cjust-end { justify-content: flex-end; } .br-cjust-between { justify-content: space-between; }
+.br-calign-start { align-items: flex-start; } .br-calign-center { align-items: center; } .br-calign-end { align-items: flex-end; } .br-calign-stretch { align-items: stretch; }
+.br-flow-row.br-calign-stretch { align-items: stretch; }
+.br-cols.br-gap-none { gap: 0; } .br-cols.br-gap-sm { gap: .75rem; } .br-cols.br-gap-lg { gap: clamp(1.5rem, 4vw, 3.5rem); } .br-cols.br-gap-xl { gap: clamp(2rem, 6vw, 5rem); }
+@media (max-width: 860px) {
+  .br-cols.br-keep-m { flex-wrap: nowrap; }
+  .br-cols.br-keep-m > .br-col { flex: 1 1 0% !important; }
+  .br-cols.br-rev-m { flex-direction: column-reverse; flex-wrap: nowrap; }
+  .br-cols.br-rev-m > .br-col { flex: 1 1 auto !important; }
+}
+
+/* ---------- accordion: cards, lines or one box; one open at a time through the native details group ---------- */
+.br-acc { display: grid; gap: 10px; }
+.br-acc details { overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--card); transition: border-color .25s ease, box-shadow .25s ease; }
+.br-acc details[open] { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); box-shadow: 0 18px 40px -32px var(--primary); }
+.br-acc summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 20px; list-style: none; cursor: pointer; font-weight: 800; font-size: 15.5px; transition: color .2s ease, background-color .2s ease; }
+.br-acc summary::-webkit-details-marker { display: none; }
+.br-acc summary:hover { color: var(--primary); }
+.br-acc summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 14px; }
+.br-acc summary i { position: relative; flex: none; width: 30px; height: 30px; border-radius: 10px; background: var(--primary-soft); transition: transform .3s ease, background-color .2s ease; }
+.br-acc.icon-chevron summary i::before { content: ''; position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; margin: -6px 0 0 -4px; border-bottom: 2.5px solid var(--primary); border-right: 2.5px solid var(--primary); rotate: 45deg; }
+.br-acc.icon-chevron details[open] summary i { transform: rotate(180deg); }
+.br-acc.icon-plus summary i::before, .br-acc.icon-plus summary i::after { content: ''; position: absolute; top: 50%; left: 50%; width: 12px; height: 2.5px; margin: -1.25px 0 0 -6px; border-radius: 2px; background: var(--primary); transition: transform .3s ease; }
+.br-acc.icon-plus summary i::after { transform: rotate(90deg); }
+.br-acc.icon-plus details[open] summary i::after { transform: rotate(0deg); }
+.br-acc details[open] summary i { background: var(--primary); }
+.br-acc details[open] summary i::before, .br-acc details[open] summary i::after { border-color: var(--on-primary, #fff); }
+.br-acc.icon-plus details[open] summary i::before, .br-acc.icon-plus details[open] summary i::after { background: var(--on-primary, #fff); }
+.br-acc-body { padding: 0 20px 18px; color: var(--muted); line-height: 2; }
+.br-acc-body > :first-child { margin-top: 0; } .br-acc-body > :last-child { margin-bottom: 0; }
+.br-acc details[open] .br-acc-body { animation: br-acc-open .3s ease-out; }
+@keyframes br-acc-open { from { opacity: 0; translate: 0 -6px; } }
+.br-acc.is-lines { gap: 0; }
+.br-acc.is-lines details { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+.br-acc.is-lines summary { padding-inline: 4px; }
+.br-acc.is-lines .br-acc-body { padding-inline: 4px; }
+.br-acc.is-boxed { gap: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 20px; background: var(--card); }
+.br-acc.is-boxed details { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; }
+.br-acc.is-boxed details:last-child { border-bottom: 0; }
+.br-acc.is-boxed details[open] { background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
+@media (prefers-reduced-motion: reduce) { .br-acc details, .br-acc summary, .br-acc summary i, .br-acc summary i::before, .br-acc summary i::after { transition: none; } .br-acc details[open] .br-acc-body { animation: none; } }
