@@ -238,6 +238,7 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
   // A product is found under its main category and under the further ones ticked for it.
   if (found) where.AND = [inCategories(subtreeIds(found.node))]
   if (query.kind) where.kind = query.kind
+  if (query.files) { where.kind = 'VIRTUAL'; where.digitalMode = 'FILES'; where.files = { some: { active: true } } }
   if (query.q) where.OR = [{ name: { contains: query.q } }, { nameEn: { contains: query.q } }, { sku: { contains: query.q } }, { shortDescription: { contains: query.q } }, { brand: { name: { contains: query.q } } }]
   const brandFilter: Prisma.ProductWhereInput = query.brands.length ? { brand: { slug: { in: query.brands } } } : {}
 

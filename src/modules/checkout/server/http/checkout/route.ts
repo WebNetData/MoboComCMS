@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     membershipOffer: typeof body?.membershipOffer === 'string' ? body.membershipOffer.slice(0, 24) : null,
     formSubmissionId: Number(body?.formSubmissionId) || null,
     contentKey: typeof body?.contentKey === 'string' ? body.contentKey.slice(0, 40) : null,
+    expectedQuote: body?.expectedQuote && typeof body.expectedQuote === 'object' ? { amountMinor: body.expectedQuote.amountMinor, currency: body.expectedQuote.currency } : null,
     addressId: Number.isSafeInteger(Number(body?.addressId)) && Number(body?.addressId) > 0 ? Number(body.addressId) : null,
     delivery: body?.delivery && typeof body.delivery === 'object' ? { date: String(body.delivery.date || '').slice(0, 10), slotId: String(body.delivery.slotId || '').slice(0, 20) } : null,
     carrierId: typeof body?.carrierId === 'string' ? body.carrierId.slice(0, 30) : null,

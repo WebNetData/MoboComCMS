@@ -6,6 +6,14 @@ import { getAiConfig } from '@/modules/ai/server/generation'
 import { activeLists } from '@/modules/vocabulary/server/vocabulary'
 import { cleanText, isKind, promptPolicy, PromptError } from '../domain/prompts'
 import { audienceClause, opensAudience } from '@/modules/account/server/item-audience'
+import { paywallView } from '@/modules/paywall/server/paywall'
+import { getViewer } from '@/modules/membership/server/membership'
+
+/** This is the only public source projection; protected text never crosses a server boundary. */
+async function publicSource<T extends { id: number; content: string; example: string; defaults: string }>(row: T, viewer: { userId: number | null; member: boolean }) {
+  const paywall = await paywallView(viewer, [{ ownerType: 'prompt', ownerId: row.id }])
+  return paywall && !paywall.open ? { ...row, content: '', example: '', defaults: '{}', paywall } : { ...row, paywall }
+}
 
 export const publicTemplateWhere = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, audienceGroups: '' })
 export const templateAuthor = { id: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } as const
@@ -32,18 +40,20 @@ export async function templateDirectory(input: Record<string, unknown>, admin = 
   const page = Math.max(1, Math.min(pages, Math.floor(Number(input.page) || 1)))
   const orderBy: Prisma.PromptTemplateOrderByWithRelationInput[] = sort === 'newest' ? [{ id: 'desc' }] : [{ featured: 'desc' }, { sortOrder: 'asc' }, { id: 'desc' }]
   const slice = { where, orderBy, skip: (page - 1) * pageSize, take: pageSize }
-  const templates = admin ? await db.promptTemplate.findMany({ ...slice, include: { createdBy: { select: templateAuthor } } }) : await db.promptTemplate.findMany({ ...slice, select: publicTemplateSelect })
+  const rows = admin ? await db.promptTemplate.findMany({ ...slice, include: { createdBy: { select: templateAuthor } } }) : await db.promptTemplate.findMany({ ...slice, select: publicTemplateSelect })
+  const viewer = admin ? { userId: null, member: false } : await getViewer()
+  const templates = admin ? rows.map(row => ({ ...row, paywall: null })) : await Promise.all(rows.map(row => publicSource(row, viewer)))
   const counts = admin ? await db.promptTemplate.groupBy({ by: ['status'], where: own, _count: { _all: true } }) : []
   return { templates, total, page, pages, q, kind, category, sort, samples, author: publicAuthor ? String(publicAuthor) : '', counts: Object.fromEntries(counts.map(row => [row.status, row._count._all])) }
 }
 export async function templateFacets(samples: boolean) {
   return db.promptTemplate.groupBy({ by: ['kind'], where: { ...publicTemplateWhere(), ...await audienceClause('prompt'), ...(samples ? { showcase: { not: '{}' } } : {}) }, _count: { _all: true } })
 }
-export async function templateBySlug(slug: string, reader: Prisma.TransactionClient = db) {
+export async function templateBySlug(slug: string, reader: Prisma.TransactionClient = db, viewer?: { userId: number | null; member: boolean }) {
   const row = await reader.promptTemplate.findFirst({ where: { slug, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { ...publicTemplateSelect, audienceGroups: true } })
   if (!row || !await opensAudience(row.audienceGroups, 'prompt')) return null
   const { audienceGroups: _audience, ...template } = row
-  return template
+  return publicSource(template, viewer || await getViewer())
 }
 export async function templateForAdmin(id: number, authorId: number | null = null) {
   const template = await db.promptTemplate.findFirst({ where: { id, ...(authorId ? { createdById: authorId } : {}) }, include: { createdBy: { select: templateAuthor } } })

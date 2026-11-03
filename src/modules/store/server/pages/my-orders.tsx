@@ -9,6 +9,8 @@ import ReturnPanel from '@/components/store/ReturnPanel'
 import RateSellers from '@/components/marketplace/RateSellers'
 import { orderShipment } from '@/modules/shipping/server/carriers'
 import { buyerCodes } from '@/modules/store/server/digital-codes'
+import { orderFileProducts } from '@/modules/store/server/product-files'
+import ProductDownloads from '@/components/store/ProductDownloads'
 import CopyText from '@/components/software/CopyText'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
@@ -81,6 +83,7 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
   const shipment = await orderShipment(order.id).catch(() => null)
   // Codes delivered by the product's own pool are the buyer's as soon as the order is paid.
   const codes = await buyerCodes(user, order.id).catch(() => [])
+  const fileProducts = await orderFileProducts(user, order.id)
   const closed = order.fulfilment === 'CANCELLED' || order.fulfilment === 'RETURNED' || order.state.key === 'CANCELLED'
   const step = order.state.key === 'UNPAID' ? -1 : order.fulfilment === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(order.fulfilment || 'PENDING')
   return <div className="sx-my sx-my-detail" dir="rtl">
@@ -106,6 +109,7 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
         <ul>{line.codes.map((code) => <li key={code}><CopyText value={code} label="کد" /></li>)}</ul>
       </div>)}
     </section>}
+    {fileProducts.map(({ product, access }) => access && <ProductDownloads key={product.id} access={access} slug={product.slug} title={product.name} anchor={`downloads-${product.id}`} />)}
     <div className="sx-my-grid">
       <section className="sx-my-card">
         <h2>کالاها <small className="num">({fa(order.lines.reduce((sum, line) => sum + line.quantity, 0))})</small></h2>

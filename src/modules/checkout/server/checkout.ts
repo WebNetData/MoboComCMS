@@ -54,6 +54,8 @@ export interface CheckoutCommand {
   formSubmissionId?: number | null
   /** Paid content ("post:12", "software:3"): lifetime access to one article or download. */
   contentKey?: string | null
+  /** Optional displayed-price claim; server still computes the authoritative amount. */
+  expectedQuote?: { amountMinor: unknown; currency: unknown } | null
   /** Saved address from the customer's address book (physical products). */
   addressId?: number | null
   /** Chosen delivery day (YYYY-MM-DD, Tehran) and time window. */
@@ -219,6 +221,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       const named = (message: string) => (many && product ? `${product.name}: ${message}` : message)
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) return fail(400, 'BAD_QUANTITY', named('تعداد معتبر نیست'))
       if (product.access === 'MEMBERS' && !opens) return fail(403, 'MEMBERS_ONLY', named('این محصول مخصوص اعضای ویژه است'), { upgradeUrl: '/vip' })
+      if (product.digitalMode === 'FILES' && !await db.productFile.count({ where: { productId: product.id, active: true } })) return fail(409, 'FILES_UNAVAILABLE', named('فایل فعالی برای این محصول ثبت نشده است'))
       if (product.stock === 0) return fail(409, 'OUT_OF_STOCK', named('این محصول ناموجود است'))
       const variantId = Number(want.variantId) || null
       if (product.variants.length && !variantId) return fail(400, 'VARIANT_REQUIRED', named('لطفاً نوع محصول را انتخاب کنید'))
@@ -293,6 +296,11 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     if (many) meta = { ...meta, variantId: null, variantName: '', variantSku: '', variantAttributes: '{}' }
   }
   if (amountMinor <= 0n) return fail(400, 'INVALID_PRICE', 'item price must be greater than zero')
+  if (command.expectedQuote) {
+    const quoted = command.expectedQuote
+    if (typeof quoted.amountMinor !== 'string' || !/^\d{1,14}$/.test(quoted.amountMinor) || typeof quoted.currency !== 'string') return fail(400, 'BAD_QUOTE', 'قیمت نمایش‌داده‌شده معتبر نیست')
+    if (BigInt(quoted.amountMinor) !== amountMinor || quoted.currency !== currency) return fail(409, 'PRICE_CHANGED', 'قیمت یا شرایط عضویت تغییر کرده است؛ صفحه را تازه کنید و قیمت جدید را ببینید')
+  }
   const subtotalMinor = amountMinor
   let discountMinor = 0n
   let promotion: Awaited<ReturnType<typeof db.promotion.findUnique>> = null

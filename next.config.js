@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Runtime uploads, private paid files and credentials are mounted data, never release assets.
+  outputFileTracingExcludes: { '/*': ['./storage/**/*'] },
   outputFileTracingIncludes: { '/*': ['./scripts/backup-worker.cjs', './scripts/backup-core.cjs'] },
   // SFTP/FTP clients load native optional modules at runtime; never bundle them.
   serverExternalPackages: ['ssh2', 'ssh2-sftp-client', 'basic-ftp', 'cpu-features', 'ioredis', 'pdfkit'],

@@ -11,6 +11,7 @@ import { StoreIcon } from '@/components/store/StoreIcons'
 import { addToCart } from '@/modules/store/ui/cart-client'
 import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/client'
 import { iranianUnit } from '@/shared/money/format'
+import { toMinor } from '@/shared/money'
 import { variantOption } from '@/modules/store/domain/store'
 import { useSite } from '@/components/site/SiteProvider'
 import { fieldsFor, type OrderField } from '@/modules/store/domain/order-inputs'
@@ -31,6 +32,8 @@ export type BuyBoxProps = {
   price: number
   listPrice: number
   memberPrice: number
+  fileAccess?: { open: boolean; reason: string; count: number }
+  vipFree?: boolean
   limit: number
   inStock: boolean
   lowStockAt: number
@@ -176,7 +179,7 @@ export default function BuyBox(props: BuyBoxProps) {
     try {
       const gateways = await fetchCheckoutGateways(props.currency)
       const gateway = gateways.find((row) => row.isDefault) || gateways[0]
-      const result = await startCheckout({ productId: props.productId, variantId: variant?.id, gatewayRef: gateway?.ref })
+      const result = await startCheckout({ productId: props.productId, variantId: variant?.id, gatewayRef: gateway?.ref, expectedQuote: { amountMinor: toMinor(String(price), props.currency).toString(), currency: props.currency } })
       if (result.ok) {
         if (result.paid || result.invoiceUrl) router.push(`/payment/result?invoice=${result.invoiceNumber}`)
         else if (result.paymentUrl) window.location.href = result.paymentUrl
@@ -239,7 +242,8 @@ export default function BuyBox(props: BuyBoxProps) {
 
       {available && !open && <div className="sx-buy-price">
         {discount > 0 && <div className="sx-price-was"><s className="num">{Math.round(listPrice).toLocaleString('fa-IR')}</s><span className="sx-off">{fa(discount)}٪</span></div>}
-        <Amount value={price} currency={props.currency} className="is-large" />
+        {props.fileAccess?.reason === 'free' ? <strong>رایگان برای حساب شما</strong> : <Amount value={price} currency={props.currency} className="is-large" />}
+        {props.vipFree && !props.vip.member && <div className="sx-buy-vip">دریافت رایگان با عضویت VIP <Link href="/vip">مشاهدهٔ عضویت</Link></div>}
         {props.saleEndsAt && discount > 0 && <div className="sx-buy-timer"><StoreIcon name="clock" size={15} />پایان پیشنهاد <Countdown until={props.saleEndsAt} /></div>}
         {vipPrice > 0 && <div className="sx-buy-vip">{props.vip.member ? <>قیمت شما با عضویت VIP: <Amount value={vipPrice} currency={props.currency} /></> : <>قیمت اعضای VIP: <Amount value={vipPrice} currency={props.currency} /> <Link href="/vip">عضو شوید</Link></>}</div>}
         {props.vip.giftDays > 0 && <div className="sx-buy-vip"><StoreIcon name="star" size={15} />{fa(props.vip.giftDays)} روز اشتراک VIP هدیه با این خرید</div>}
@@ -251,7 +255,7 @@ export default function BuyBox(props: BuyBoxProps) {
       {!available && <p className="sx-unavailable is-box">{props.variants.length && !variant ? 'یکی از گزینه‌ها را انتخاب کنید' : 'این کالا فعلاً موجود نیست'}</p>}
       {!available && !membersOnly && !(props.variants.length && !variant) && <StockAlert productId={props.productId} variantId={variant?.id ?? null} slug={props.slug} />}
 
-      {available && !membersOnly && fields.length > 0 && <fieldset className="sx-ask">
+      {available && !membersOnly && !props.fileAccess?.open && fields.length > 0 && <fieldset className="sx-ask">
         <legend>اطلاعات لازم برای انجام سفارش</legend>
         {fields.map((field) => <label key={field.key} className="sx-ask-field">
           <span>{field.label}{field.required && <i aria-hidden="true"> *</i>}</span>
@@ -266,7 +270,8 @@ export default function BuyBox(props: BuyBoxProps) {
         <p className="sx-ask-note"><StoreIcon name="shield" size={15} />این اطلاعات رمزنگاری‌شده نگه داشته می‌شود، فقط کارشناسِ همین سفارش آن را می‌بیند و پس از انجام سفارش پاک می‌شود.</p>
       </fieldset>}
 
-      {membersOnly ? <div className="sx-buy-members"><b>این کالا مخصوص اعضای ویژه است</b><Link href="/vip" className="sx-btn is-primary is-block">عضویت VIP</Link></div>
+      {props.fileAccess?.open ? <div className="sx-buy-added"><span><StoreIcon name="check" size={18} />{props.fileAccess.reason === 'purchased' ? 'این محصول را خریده‌اید' : 'دریافت برای حساب شما رایگان است'}</span><a href="#downloads" className="sx-btn is-primary is-block">مشاهده و دریافت فایل‌ها</a></div>
+        : membersOnly ? <div className="sx-buy-members"><b>این کالا مخصوص اعضای ویژه است</b><Link href="/vip" className="sx-btn is-primary is-block">عضویت VIP</Link></div>
         : available && (added
           ? <div className="sx-buy-added" role="status">
               <span><StoreIcon name="check" size={18} />به سبد خرید اضافه شد</span>
@@ -279,8 +284,8 @@ export default function BuyBox(props: BuyBoxProps) {
                 <output className="num" aria-live="polite">{fa(quantity)}</output>
                 <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} aria-label="کاهش تعداد"><StoreIcon name="minus" size={16} /></button>
               </div>}
-              <button type="button" className="sx-btn is-primary is-block is-large" disabled={!!busy} onClick={() => void addCart()}>{busy === 'cart' ? 'در حال افزودن…' : 'افزودن به سبد خرید'}</button>
-              {props.kind !== 'PHYSICAL' && !open && !(props.orderFields || []).length && <button type="button" className="sx-btn is-block" disabled={!!busy} onClick={() => void buyNow()}>{busy === 'buy' ? 'در حال انتقال…' : 'خرید فوری'}</button>}
+              <button type="button" className="sx-btn is-primary is-block is-large" disabled={!!busy || status === 'loading'} onClick={() => void addCart()}>{busy === 'cart' ? 'در حال افزودن…' : 'افزودن به سبد خرید'}</button>
+              {props.kind !== 'PHYSICAL' && !open && !(props.orderFields || []).length && <button type="button" className="sx-btn is-block" disabled={!!busy || status === 'loading'} onClick={() => void buyNow()}>{busy === 'buy' ? 'در حال انتقال…' : 'خرید فوری'}</button>}
             </div>)}
       {message && <p className="sx-buy-msg" role="alert">{message}</p>}
       {error && <CheckoutError code={error.code} message={error.message} needed={error.needed} currency={error.currency || props.currency} />}

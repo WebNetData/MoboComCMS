@@ -1,4 +1,5 @@
 // A user group of the site: who is in it is stored, what it gives is on the group. Pure.
+import { adjustedPrice, type PriceAdjustment } from '@/modules/account/domain/price-adjustments'
 
 export type GroupInput = { name: string; description: string; color: string; active: boolean; vipBenefits: boolean; hideAds: boolean; discountPercent: number; showBadge: boolean; sortOrder: number }
 
@@ -21,7 +22,7 @@ export const groupSlug = (id: number) => `group-${id}`
 
 export const memberActive = (now: Date) => ({ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }], group: { active: true } })
 
-export type GroupDeal = { percent: number; prices: ReadonlyMap<string, bigint> }
+export type GroupDeal = { percent: number; prices: ReadonlyMap<string, bigint>; adjustments?: ReadonlyMap<string, readonly PriceAdjustment[]> }
 export const NO_DEAL: GroupDeal = { percent: 0, prices: new Map() }
 export const dealKey = (productId: number, variantId: number | null | undefined) => `${productId}:${variantId || 0}`
 
@@ -32,6 +33,7 @@ export function dealPrice(regularMinor: bigint, deal: GroupDeal | null | undefin
   for (const key of new Set([dealKey(productId, variantId), dealKey(productId, 0)])) {
     const own = deal.prices.get(key)
     if (own !== undefined && own > 0n) candidates.push(own)
+    for (const rule of deal.adjustments?.get(key) || []) candidates.push(adjustedPrice(regularMinor, rule))
   }
   if (deal.percent > 0) {
     const discounted = (regularMinor * BigInt(100 - deal.percent)) / 100n

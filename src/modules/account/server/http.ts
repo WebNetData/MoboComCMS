@@ -67,10 +67,10 @@ export async function GET_item(req: NextRequest) {
   try { snapshot = await audienceSnapshot(type, id) } catch (error) { if (error instanceof GroupError) return err(error.message, error.status); throw error }
   const [catalog, groups] = await Promise.all([
     siteGroupCatalog(),
-    type === 'product' ? db.userGroup.findMany({ orderBy: { sortOrder: 'asc' }, select: { id: true, name: true } }) : [],
+    type === 'product' ? db.userGroup.findMany({ orderBy: { sortOrder: 'asc' }, select: { id: true, name: true, active: true } }) : [],
   ])
   const currency = normalizeCurrency(snapshot.item.currency)
-  return ok({ groups: parseAudience(snapshot.item.audienceGroups), limited: !!snapshot.item.audienceGroups, revision: snapshot.revision, catalog, userGroups: groups, currency, prices: Object.fromEntries(snapshot.prices.map((item) => [item.groupId, String(minorToNumber(item.priceMinor, currency))])) })
+  return ok({ groups: parseAudience(snapshot.item.audienceGroups), limited: !!snapshot.item.audienceGroups, revision: snapshot.revision, catalog, userGroups: groups, currency, pricingRules: snapshot.pricingRules, basePrice: String(minorToNumber(snapshot.item.priceMinor || 0n, currency)), legacyVipPrice: String(minorToNumber(snapshot.item.memberPriceMinor || 0n, currency)), fileDelivery: snapshot.item.kind === 'VIRTUAL' && snapshot.item.digitalMode === 'FILES', prices: Object.fromEntries(snapshot.prices.filter(item => item.mode === 'PRICE').map((item) => [item.groupId, String(minorToNumber(item.priceMinor, currency))])) })
 }
 
 /** POST /api/admin/item-audience { type, id, groups, prices? } — prices are { groupId: amount in the product's currency }. */

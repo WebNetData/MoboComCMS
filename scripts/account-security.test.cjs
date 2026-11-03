@@ -6,7 +6,8 @@ const ts = require('typescript-api')
 
 const cache = new Map()
 function load(relative) {
-  const file = path.resolve(__dirname, '..', relative.endsWith('.ts') ? relative : `${relative}.ts`)
+  let file = path.resolve(__dirname, '..', relative.endsWith('.ts') ? relative : `${relative}.ts`)
+  if (!fs.existsSync(file)) file = file.slice(0, -3) + '/index.ts'
   if (cache.has(file)) return cache.get(file).exports
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
   const mod = { exports: {} }

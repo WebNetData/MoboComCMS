@@ -32,29 +32,28 @@ export async function syncAllCodeStock(limit = 200) {
   return { checked: products.length, changed, failed }
 }
 
-async function codeProduct(productId: number) {
-  const product = await db.product.findUnique({ where: { id: productId }, select: { id: true, kind: true, digitalMode: true, variants: { where: { active: true }, select: { id: true, name: true } } } })
+async function codeProduct(productId: number, client: Prisma.TransactionClient = db) {
+  const product = await client.product.findUnique({ where: { id: productId }, select: { id: true, kind: true, digitalMode: true, openAmount: true, isService: true, variants: { where: { active: true }, select: { id: true, name: true } } } })
   if (!product) throw new StoreError('محصول پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
   return product
 }
 
 /** Switches a virtual product between staff delivery and its own code pool. */
-export async function setDigitalMode(productId: number, value: unknown): Promise<{ mode: DigitalMode; stock: number }> {
+export async function setDigitalMode(productId: number, value: unknown, client: Prisma.TransactionClient = db): Promise<{ mode: DigitalMode; stock: number }> {
+  if (client === db) return db.$transaction(tx => setDigitalMode(productId, value, tx))
   const mode = normalizeDigitalMode(value)
-  const product = await codeProduct(productId)
-  if (mode === 'CODES' && product.kind !== 'VIRTUAL') throw new StoreError('تحویل خودکار کد فقط برای محصول مجازی است')
-  const stock = await db.$transaction(async (tx) => {
-    await lockProduct(tx, productId)
-    await tx.product.update({ where: { id: productId }, data: { digitalMode: mode } })
-    if (mode === 'CODES') return (await syncCodeStock(tx, productId)) ?? 0
+  await lockProduct(client, productId)
+  const product = await codeProduct(productId, client), tx = client
+  if (mode !== 'MANUAL' && product.kind !== 'VIRTUAL') throw new StoreError('تحویل دیجیتال فقط برای محصول مجازی است')
+  if (mode === 'FILES' && (product.openAmount || product.isService)) throw new StoreError('تحویل فایل برای خدمت یا سفارش با مبلغ دلخواه فعال نمی‌شود')
+  await tx.product.update({ where: { id: productId }, data: { digitalMode: mode } })
+  if (mode === 'CODES') return { mode, stock: (await syncCodeStock(tx, productId)) ?? 0 }
     // Back to staff delivery: the product is no longer limited by its pool. The codes stay for a later return to it.
-    if (product.digitalMode === 'CODES') {
+    if (product.digitalMode === 'CODES' || mode === 'FILES') {
       await tx.product.update({ where: { id: productId }, data: { stock: -1 } })
       await tx.productVariant.updateMany({ where: { productId }, data: { stock: -1 } })
     }
-    return -1
-  })
-  return { mode, stock }
+  return { mode, stock: -1 }
 }
 
 /** Adds pasted codes to the pool. A code the product already has (on the shelf or delivered) is skipped and counted. */

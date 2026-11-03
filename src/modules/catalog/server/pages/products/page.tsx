@@ -15,6 +15,7 @@ import {
   BannerGrid, BrandStrip, Crumbs, DIGITAL_TRUST, OfferBand, ProductGrid, ProductRail, TrustStrip,
 } from '@/components/store/Storefront'
 import { CategoryGrid, QuickRoutes, ShopHero, StoreDoors, TopSellers, divisionCopy } from '@/components/store/ShopHome'
+import { FileStoreDoor } from '@/components/store/ProductDownloads'
 import { FacetFind, FilterAutoApply, PriceSlider } from '@/components/store/ShopFilters'
 import { colorSwatch } from '@/modules/store/domain/colors'
 import { shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
@@ -75,6 +76,7 @@ async function Landing() {
       <p>دو فروشگاه در یک جا: محصولات دیجیتال با تحویل آنلاین، و کالای فیزیکی با ارسال به سراسر کشور.</p>
     </header>
     <StoreDoors divisions={divisions} />
+    <FileStoreDoor settings={home.settings} />
     <QuickRoutes />
     {home.settings.showCategories && <CategoryGrid categories={grid} />}
     <OfferBand title={home.settings.offerTitle} products={home.offers} />
@@ -108,6 +110,7 @@ async function StoreFront({ kind }: { kind: 'PHYSICAL' | 'VIRTUAL' }) {
   const grid = home.division.categories.map((category) => ({ slug: category.slug, name: category.name, image: category.image, total: category.total, children: category.children }))
   const ranked = home.bestselling.filter((card) => card.soldCount > 0)
   return <div className={`container sx-landing sx-store is-${tone}`}>
+    {kind === 'VIRTUAL' && <FileStoreDoor settings={home.settings} />}
     <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, { label: STORE_NAME[kind] }]} />
     <ShopHero slider={null} stage={stage} stats={stats} deal={deal} fresh={fresh} copy={copy.hero} tone={tone} />
     <QuickRoutes items={copy.quick} />
@@ -139,7 +142,7 @@ async function Listing({ query }: { query: ShopQuery }) {
   const node = result.category?.node
   const rootKind = result.category?.chain[0]?.kind
   const storeKind = query.kind || (rootKind === 'PHYSICAL' || rootKind === 'VIRTUAL' ? rootKind : '')
-  const title = query.q ? `نتایج جست‌وجو برای «${query.q}»` : node ? node.name : query.discounted ? 'پیشنهادهای شگفت‌انگیز' : query.kind === 'VIRTUAL' ? 'همهٔ محصولات دیجیتال' : query.kind === 'PHYSICAL' ? 'همهٔ کالاهای فیزیکی' : 'همهٔ کالاها'
+  const title = query.q ? `نتایج جست‌وجو برای «${query.q}»` : node ? node.name : query.files ? 'فروشگاه فایل' : query.discounted ? 'پیشنهادهای شگفت‌انگیز' : query.kind === 'VIRTUAL' ? 'همهٔ محصولات دیجیتال' : query.kind === 'PHYSICAL' ? 'همهٔ کالاهای فیزیکی' : 'همهٔ کالاها'
   // Inside one store the category tree holds that store's categories only.
   const tree = query.kind ? result.tree.filter((item) => (item.kind === query.kind || item.kind === '') && item.total > 0) : result.tree
   const home = query.kind ? `/products?kind=${query.kind}` : '/products'
@@ -155,6 +158,7 @@ async function Listing({ query }: { query: ShopQuery }) {
   if (query.kind) chips.push({ label: query.kind === 'PHYSICAL' ? 'کالای فیزیکی' : 'محصول دیجیتال', href: shopQueryString(query, { kind: '' }) })
   if (query.rating) chips.push({ label: `امتیاز ${fa(query.rating)} به بالا`, href: shopQueryString(query, { rating: 0 }) })
   if (query.instant) chips.push({ label: 'تحویل آنی', href: shopQueryString(query, { instant: false }) })
+  if (query.files) chips.push({ label: 'فایل‌های دانلودی', href: shopQueryString(query, { files: false }) })
   for (const [key, values] of Object.entries(query.specs)) for (const value of values) {
     const facet = result.specFacets.find((item) => item.key === key)
     const rest = values.filter((item) => item !== value)
@@ -170,6 +174,7 @@ async function Listing({ query }: { query: ShopQuery }) {
     { label: 'تخفیف‌دار', on: query.discounted, patch: { discounted: !query.discounted }, icon: 'percent' },
     ...(storeKind !== 'PHYSICAL' && (result.toggles.instant > 0 || query.instant) ? [{ label: 'تحویل آنی', on: query.instant, patch: { instant: !query.instant }, icon: 'bolt' as StoreIconName }] : []),
     { label: '۴ ستاره به بالا', on: query.rating === 4, patch: { rating: query.rating === 4 ? 0 : 4 }, icon: 'star' },
+    { label: 'فایل‌های دانلودی', on: !!query.files, patch: { files: !query.files, kind: 'VIRTUAL' }, icon: 'bolt' },
     { label: 'تحویل آنلاین', on: query.kind === 'VIRTUAL', patch: { kind: query.kind === 'VIRTUAL' ? '' : 'VIRTUAL' }, icon: 'bolt' },
     { label: 'کالای فیزیکی', on: query.kind === 'PHYSICAL', patch: { kind: query.kind === 'PHYSICAL' ? '' : 'PHYSICAL' }, icon: 'truck' },
   ]
@@ -250,6 +255,7 @@ async function Listing({ query }: { query: ShopQuery }) {
             </div>
           </details>
           <div className="sx-switches">
+            {storeKind !== 'PHYSICAL' && <label className="sx-switch"><input type="checkbox" name="files" value="1" defaultChecked={query.files} /><span>فقط فایل‌های دانلودی</span></label>}
             <label className="sx-switch"><input type="checkbox" name="available" value="1" defaultChecked={query.available} /><span>فقط کالاهای موجود</span><small className="num">{fa(result.toggles.available)}</small></label>
             <label className="sx-switch"><input type="checkbox" name="discounted" value="1" defaultChecked={query.discounted} /><span>فقط کالاهای تخفیف‌دار</span><small className="num">{fa(result.toggles.discounted)}</small></label>
             {storeKind !== 'PHYSICAL' && (result.toggles.instant > 0 || query.instant) && <label className="sx-switch"><input type="checkbox" name="instant" value="1" defaultChecked={query.instant} /><span>فقط تحویل آنی</span><small className="num">{fa(result.toggles.instant)}</small></label>}

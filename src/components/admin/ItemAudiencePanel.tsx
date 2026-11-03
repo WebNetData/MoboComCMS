@@ -6,21 +6,22 @@ import GroupPicker from '@/components/admin/GroupPicker'
 import type { SiteGroup } from '@/modules/account/domain/site-groups'
 import { currencyLabel } from '@/shared/money/format'
 import VipRulePanel from '@/components/admin/VipRulePanel'
+import PricingRulesEditor, { type PricingFormRule } from '@/components/admin/pricing/PricingRulesEditor'
 
-type Data = { groups: string[]; limited: boolean; revision: string; currency: string; catalog: SiteGroup[]; userGroups: { id: number; name: string }[]; prices: Record<string, string> }
+type Data = { groups: string[]; limited: boolean; revision: string; currency: string; catalog: SiteGroup[]; userGroups: { id: number; name: string }[]; prices: Record<string, string>; pricingRules: PricingFormRule[]; basePrice: string; fileDelivery: boolean }
 
 function AudienceForm({ type, id, noun, initial }: { type: string; id: number; noun: string; initial: Data }) {
   const [limited, setLimited] = useState(initial.limited)
   const revision = useRef(initial.revision)
   const [groups, setGroups] = useState(initial.groups)
-  const [prices, setPrices] = useState(initial.prices)
+  const [pricingRules, setPricingRules] = useState(initial.pricingRules || [])
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<{ ok: boolean; text: string } | null>(null)
 
   async function save() {
     if (limited && !groups.length) { setDone({ ok: false, text: 'دست‌کم یک گروه انتخاب کنید' }); return }
     setBusy(true); setDone(null)
-    const result = await send<{ revision: string; indexPending: boolean }>('/api/admin/item-audience', 'POST', { type, id, revision: revision.current, groups: limited ? groups : [], ...(type === 'product' ? { prices } : {}) })
+    const result = await send<{ revision: string; indexPending: boolean }>('/api/admin/item-audience', 'POST', { type, id, revision: revision.current, groups: limited ? groups : [], ...(type === 'product' ? { pricingRules } : {}) })
     setBusy(false)
     if (result.ok && result.data?.revision) revision.current = result.data.revision
     setDone(result.ok ? { ok: true, text: result.data.indexPending ? 'ذخیره شد؛ فهرست جست‌وجو نیاز به بازسازی دارد' : 'ذخیره شد' } : { ok: false, text: result.error })
@@ -35,12 +36,9 @@ function AudienceForm({ type, id, noun, initial }: { type: string; id: number; n
       <GroupPicker legend="گروه‌هایی که این مورد را می‌بینند" groups={initial.catalog} value={groups} onChange={setGroups} />
       <p className="ia-hint">برای دیگران این مورد وجود ندارد: در فهرست‌ها، جست‌وجو، نقشهٔ سایت و پیشنهادها نمی‌آید و نشانی‌اش هم پیدا نمی‌شود.</p>
     </>}
-    {type === 'product' && (initial.userGroups.length > 0
-      ? <div className="ia-prices">{initial.userGroups.map((group) => <label key={group.id}><span>قیمت برای {group.name}</span><input className="input" inputMode="decimal" dir="ltr" value={prices[group.id] ?? ''} placeholder="قیمت عادی" onChange={(event) => setPrices((current) => ({ ...current, [group.id]: event.target.value }))} /></label>)}</div>
-      : <p className="ia-hint">برای قیمت گروهی، ابتدا در بخش گروه‌های کاربری یک گروه بسازید.</p>)}
-    {type === 'product' && <p className="ia-hint">قیمت‌ها به {currencyLabel(initial.currency)} هستند. مقدار خالی یا صفر، قیمت اختصاصی را حذف می‌کند. کمترین قیمت معتبرِ عادی، ویژه و گروهی در سبد و پرداخت اعمال می‌شود.</p>}
+    {type === 'product' && <fieldset disabled={busy} className="pw-fieldset"><legend className="sr-only">قیمت اختصاصی محصول</legend><PricingRulesEditor rules={pricingRules} onChange={setPricingRules} groups={initial.userGroups} price={initial.basePrice} currency={initial.currency} allowFree={initial.fileDelivery} /><p className="ia-hint">قیمت‌ها به {currencyLabel(initial.currency)} و بر مبنای قیمت پایهٔ ذخیره‌شده هستند. تغییر قیمت پایه را ابتدا در فرم اصلی ذخیره کنید. دسترسی رایگان مخصوص محصول با حالت «تحویل فایل» است.</p></fieldset>}
     <div className="ia-actions">
-      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ مخاطبان'}</button>
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : type === 'product' ? 'ذخیرهٔ مخاطبان و قیمت‌ها' : 'ذخیرهٔ مخاطبان'}</button>
       {done && <span role="status" className={done.ok ? 'ia-done' : 'ia-done is-error'}>{done.text}</span>}
     </div>
   </>

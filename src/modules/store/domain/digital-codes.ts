@@ -1,8 +1,8 @@
 // Codes a virtual product delivers by itself (gift cards, licence keys): the rules that need no database.
 
-export const DIGITAL_MODES = ['MANUAL', 'CODES'] as const
+export const DIGITAL_MODES = ['MANUAL', 'CODES', 'FILES'] as const
 export type DigitalMode = (typeof DIGITAL_MODES)[number]
-export const normalizeDigitalMode = (value: unknown): DigitalMode => (value === 'CODES' ? 'CODES' : 'MANUAL')
+export const normalizeDigitalMode = (value: unknown): DigitalMode => (value === 'CODES' ? 'CODES' : value === 'FILES' ? 'FILES' : 'MANUAL')
 
 export const MAX_CODE_LENGTH = 500
 export const MAX_CODES_PER_REQUEST = 2000

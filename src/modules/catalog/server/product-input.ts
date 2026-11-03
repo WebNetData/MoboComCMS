@@ -39,7 +39,7 @@ export async function productCategoryConfig(categoryId: unknown) {
   return { categoryId: id, ...await attributeGroupForCategory(id), categoryKind: row?.kind || '' }
 }
 
-type FxExisting = { openAmount?: boolean; openCurrencies?: string; openMinMinor?: bigint; openMaxMinor?: bigint; pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
+type FxExisting = { digitalMode?: string; openAmount?: boolean; openCurrencies?: string; openMinMinor?: bigint; openMaxMinor?: bigint; pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
 
 export async function productInput(input: any, existing?: { price: number; currency: string; categoryId: number | null; specifications: string; faqs: string; gallery: string; kind: string; stock: number } & FxExisting) {
   const currency = normalizeCurrency(input?.currency ?? existing?.currency ?? 'IRT')
@@ -60,6 +60,7 @@ export async function productInput(input: any, existing?: { price: number; curre
   const variants = b?.variants === undefined ? undefined : validateVariants(b.variants, category.fields, currency)
   const data = sanitizeProduct(pick(b, ['slug', 'name', 'nameEn', 'description', 'descriptionEn', 'image', 'active', 'featured', 'sortOrder']))
   if (data.image !== undefined) data.image = validateCover(data.image)
+  if (existing?.digitalMode === 'FILES' && (kind !== 'VIRTUAL' || b.openAmount === true || b.isService === true)) throw Error('برای تغییر این محصول، ابتدا تحویل فایل را خاموش کنید')
   // VIP: member-only access, member price (must undercut the regular price) and gift days.
   const vip: Record<string, unknown> = {}
   if (b?.access !== undefined) vip.access = normalizeAccess(b.access)

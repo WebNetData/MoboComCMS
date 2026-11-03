@@ -8,13 +8,13 @@ export class PaywallError extends Error {
 }
 
 /** `link` is one download/stream link with its own price (a 4K file, a special edition). */
-export const OWNER_TYPES = ['post', 'software', 'game', 'title', 'album', 'track', 'link'] as const
+export const OWNER_TYPES = ['post', 'software', 'game', 'title', 'album', 'track', 'link', 'prompt'] as const
 export type OwnerType = (typeof OWNER_TYPES)[number]
 export const OWNER_LABEL: Record<OwnerType, string> = {
-  post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ', link: 'لینک دانلود',
+  post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ', link: 'لینک دانلود', prompt: 'پرامپت',
 }
 export const OWNER_MODULE: Record<OwnerType, string> = {
-  post: 'journal', software: 'software', game: 'games', title: 'cinema', album: 'music', track: 'music', link: 'paywall',
+  post: 'journal', software: 'software', game: 'games', title: 'cinema', album: 'music', track: 'music', link: 'paywall', prompt: 'prompt-master',
 }
 
 export const VIP_ACCESS = ['FREE', 'DISCOUNT', 'NONE'] as const
@@ -65,8 +65,8 @@ export function normalizePaidInput(input: Record<string, unknown>): PaidInput {
 export type PaidRule = { priceMinor: bigint; currency: string; vipAccess: string; memberPriceMinor: bigint | null; active: boolean }
 
 export type AccessDecision =
-  | { open: true; reason: 'free' | 'vip' | 'purchased' }
-  | { open: false; reason: 'buy'; priceMinor: bigint; listPriceMinor: bigint; currency: string; vipFree: boolean; vipPriceMinor: bigint | null; memberPrice: boolean }
+  | { open: true; reason: 'free' | 'vip' | 'purchased' | 'group' }
+  | { open: false; reason: 'buy'; priceMinor: bigint; listPriceMinor: bigint; currency: string; vipFree: boolean; vipPriceMinor: bigint | null; memberPrice: boolean; groupPrice?: boolean }
 
 /**
  * Can this viewer open the content, and if not, what do they pay? The price a

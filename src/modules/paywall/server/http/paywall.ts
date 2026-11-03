@@ -4,6 +4,8 @@ import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { db } from '@/platform/database/prisma'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
 import { requireUser } from '@/modules/identity/server/access'
 import { PaywallError, isOwnerType, parseContentKey, type OwnerType } from '@/modules/paywall/domain/paywall'
 import { adminGrant, getPaidItem, myPurchases, paywallOverview, removePaidItem, revokePurchase, savePaidItem } from '@/modules/paywall/server/paywall'
@@ -12,7 +14,7 @@ import { adminGrant, getPaidItem, myPurchases, paywallOverview, removePaidItem, 
 const SECTION_PERMS: Record<OwnerType, string[]> = {
   post: ['cms.posts'], software: ['software.manage'], game: ['games.manage'],
   title: ['cinema.manage'], album: ['music.manage'], track: ['music.manage'],
-  link: [],
+  link: [], prompt: ['prompts.manage'],
 }
 const LINK_PERMS: Record<string, string[]> = { title: SECTION_PERMS.title, episode: SECTION_PERMS.title, game: SECTION_PERMS.game, gameupdate: SECTION_PERMS.game, software: SECTION_PERMS.software }
 
@@ -26,6 +28,7 @@ const MANAGE = ['paywall.manage', 'membership.manage', 'settings.manage']
 
 const failure = (error: unknown) => {
   if (error instanceof PaywallError) return err(error.message, error.status, { code: error.code })
+  if (error instanceof JsonBodyError) return err(error.message, error.status)
   throw error
 }
 
@@ -39,7 +42,7 @@ function ownerFrom(req: NextRequest, body?: Record<string, unknown>) {
 /** GET /api/admin/paywall — the dashboard, or ?ownerType=&ownerId= for one item's price panel. */
 export async function GET(req: NextRequest) {
   const owner = ownerFrom(req)
-  const guard = await adminGuard(req, 'paywall', owner ? [...MANAGE, ...await sectionPerms(owner)] : MANAGE)
+  const guard = await adminGuard(req, null, owner ? [...MANAGE, ...await sectionPerms(owner)] : MANAGE)
   if ('response' in guard) return guard.response
   if (owner) return ok(await getPaidItem(owner.ownerType, owner.ownerId))
   const q = req.nextUrl.searchParams
@@ -48,27 +51,29 @@ export async function GET(req: NextRequest) {
 
 /** PUT /api/admin/paywall — set the price of one item. */
 export async function PUT(req: NextRequest) {
-  const body = (await req.json().catch(() => null)) || {}
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('درخواست باید از همین سایت ارسال شود', 403)
+  let body: Record<string, unknown>
+  try { body = await readJsonObject(req, 65536) } catch (error) { return failure(error) }
   const owner = ownerFrom(req, body)
   if (!owner) return err('مورد نامعتبر است', 400)
-  const guard = await adminGuard(req, 'paywall', [...MANAGE, ...await sectionPerms(owner)])
+  const permissions = [...MANAGE, ...await sectionPerms(owner)]
+  const guard = await adminGuard(req, null, permissions)
   if ('response' in guard) return guard.response
   try {
-    const item = await savePaidItem(owner.ownerType, owner.ownerId, body)
-    await auditAdmin({ req, actor: guard.admin, action: 'paywall.price', targetType: owner.ownerType, targetId: String(owner.ownerId), metadata: { price: item.price, currency: item.currency, vipAccess: item.vipAccess, active: item.active } })
+    const item = await savePaidItem(owner.ownerType, owner.ownerId, body, { req, permissions })
     return ok({ item })
   } catch (error) { return failure(error) }
 }
 
 /** DELETE /api/admin/paywall?ownerType=&ownerId= — takes the price off; the item follows its normal access again. */
 export async function DELETE(req: NextRequest) {
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('درخواست باید از همین سایت ارسال شود', 403)
   const owner = ownerFrom(req)
   if (!owner) return err('مورد نامعتبر است', 400)
-  const guard = await adminGuard(req, 'paywall', [...MANAGE, ...await sectionPerms(owner)])
+  const permissions = [...MANAGE, ...await sectionPerms(owner)]
+  const guard = await adminGuard(req, null, permissions)
   if ('response' in guard) return guard.response
-  await removePaidItem(owner.ownerType, owner.ownerId)
-  await auditAdmin({ req, actor: guard.admin, action: 'paywall.remove', targetType: owner.ownerType, targetId: String(owner.ownerId), metadata: {} })
-  return ok({ removed: true })
+  try { await removePaidItem(owner.ownerType, owner.ownerId, req.nextUrl.searchParams.get('revision') ?? undefined, { req, permissions }); return ok({ removed: true }) } catch (error) { return failure(error) }
 }
 
 /** POST /api/admin/paywall — { op: 'grant', user, key, note } | { op: 'revoke', id }. */
