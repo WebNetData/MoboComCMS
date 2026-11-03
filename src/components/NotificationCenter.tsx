@@ -81,7 +81,7 @@ export default function NotificationCenter() {
 
       <div className="nc-list">{rows.map(row => <article key={row.id} className={`card nc-item ${row.readAt ? '' : 'is-unread'}`}>
         <span className="nc-item-icon"><Icon name="bell" size={17} /></span>
-        <div className="nc-item-copy"><div className="nc-item-title">{!row.readAt && <span className="nc-unread-dot" aria-label={fa ? 'خوانده‌نشده' : 'Unread'} />}<Link href={destination(row.href)} onClick={() => { if (!row.readAt) void mark(row.id) }}>{fa ? row.titleFa : row.titleEn}</Link></div>{(fa ? row.bodyFa : row.bodyEn) && <p>{fa ? row.bodyFa : row.bodyEn}</p>}<time dateTime={row.createdAt}>{new Date(row.createdAt).toLocaleString(fa ? 'fa-IR' : 'en-US')}</time></div>
+        <div className="nc-item-copy"><div className="nc-item-title">{!row.readAt && <span className="nc-unread-dot" role="img" aria-label={fa ? 'خوانده‌نشده' : 'Unread'} />}<Link href={destination(row.href)} onClick={() => { if (!row.readAt) void mark(row.id) }}>{fa ? row.titleFa : row.titleEn}</Link></div>{(fa ? row.bodyFa : row.bodyEn) && <p>{fa ? row.bodyFa : row.bodyEn}</p>}<time dateTime={row.createdAt}>{new Date(row.createdAt).toLocaleString(fa ? 'fa-IR' : 'en-US')}</time></div>
         {!row.readAt && <button className="btn btn-ghost btn-sm nc-mark-one" onClick={() => mark(row.id)}>{fa ? 'خواندم' : 'Mark read'}</button>}
       </article>)}</div>
       {cursor && <button className="btn btn-ghost nc-more" disabled={loading} onClick={() => load(cursor)}>{fa ? 'نمایش بیشتر' : 'Load more'}</button>}
