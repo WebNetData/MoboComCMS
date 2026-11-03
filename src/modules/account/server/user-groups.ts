@@ -1,9 +1,10 @@
 import { db } from '@/platform/database/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, UserGroupMember } from '@prisma/client'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import { latinDigits } from '@/shared/text/digits'
 import { GroupError, memberActive, normalizeGroup, type GroupDeal, dealKey, NO_DEAL } from '@/modules/account/domain/user-groups'
 import { tierStanding } from '@/modules/membership/server/tiers'
+import { lockGroupMember } from '@/modules/account/server/member-groups'
 
 /** The active groups a member is in now. Expiry is read here, so no job has to remove anyone in time. */
 function membershipsOf(userId: number, now = new Date()) {
@@ -66,16 +67,22 @@ export async function groupMembers(groupId: number, query: string, page: number)
   return { rows, total, pages: Math.max(1, Math.ceil(total / 30)), asOf: new Date().toISOString() }
 }
 
-export async function addGroupMember(input: { groupId: number; user: unknown; expiresAt: unknown; note: unknown; actorId: number }, client: Prisma.TransactionClient = db) {
+export async function addGroupMember(input: { groupId: number; user: unknown; expiresAt: unknown; note: unknown; actorId: number }, client: Prisma.TransactionClient = db): Promise<UserGroupMember> {
+  if (client === db) return db.$transaction(tx => addGroupMember(input, tx))
   const who = latinDigits(input.user).trim().toLowerCase()
   if (!who) throw new GroupError('شناسه، ایمیل یا موبایل کاربر را وارد کنید')
   if (!await client.userGroup.findUnique({ where: { id: input.groupId }, select: { id: true } })) throw new GroupError('گروه پیدا نشد', 404)
   const target = await client.user.findFirst({ where: /^\d{1,9}$/.test(who) ? { id: Number(who) } : who.includes('@') ? { email: who } : { phone: normalizeMobile(who) || who }, select: { id: true } })
   if (!target) throw new GroupError('کاربر پیدا نشد')
+  await lockGroupMember(client, target.id)
   const expiresAt = input.expiresAt ? new Date(String(input.expiresAt)) : null
   if (expiresAt && Number.isNaN(expiresAt.getTime())) throw new GroupError('تاریخ پایان معتبر نیست')
   const note = String(input.note ?? '').trim().slice(0, 200)
   return client.userGroupMember.upsert({ where: { groupId_userId: { groupId: input.groupId, userId: target.id } }, create: { groupId: input.groupId, userId: target.id, expiresAt, note, addedBy: input.actorId }, update: { expiresAt, note } })
 }
 
-export const removeGroupMember = (groupId: number, userId: number, client: Prisma.TransactionClient = db) => client.userGroupMember.deleteMany({ where: { groupId, userId } })
+export async function removeGroupMember(groupId: number, userId: number, client: Prisma.TransactionClient = db): Promise<{ count: number }> {
+  if (client === db) return db.$transaction(tx => removeGroupMember(groupId, userId, tx))
+  if (!await lockGroupMember(client, userId, false)) return { count: 0 }
+  return client.userGroupMember.deleteMany({ where: { groupId, userId } })
+}

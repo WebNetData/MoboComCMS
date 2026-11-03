@@ -130,6 +130,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   const formSubmissionId = Number(command.formSubmissionId) || null
   if ([planId, productId, membershipPlanId, content, formSubmissionId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
   if (planId && !await isModuleEnabled('vpn')) return fail(403, 'VPN_DISABLED', 'فروش این سرویس در حال حاضر فعال نیست')
+  if (planId && !await userOpensSection('vpn', command.userId)) return fail(403, 'VPN_FORBIDDEN', 'این بخش برای اعضای ویژه یا گروه‌های انتخاب‌شده باز است')
   if (membershipPlanId && !await isModuleEnabled('membership')) return fail(403, 'MEMBERSHIP_DISABLED', 'اشتراک ویژه در حال حاضر فعال نیست')
   // VIP status decides member-only items, member prices and member-only codes.
   const member = await isMember(command.userId)

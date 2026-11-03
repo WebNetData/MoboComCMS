@@ -9,6 +9,7 @@ import { db } from '@/platform/database/prisma'
 import { happImportUrl } from '@/modules/subscriptions/server/happ-protocol'
 import { getUserLocale } from '@/modules/notifications/server/telegram-locale'
 import { planName } from '@/modules/catalog/domain/plan-locale'
+import { userOpensSection } from '@/modules/account/server/section-access'
 
 
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ token: string }> }) {
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
   const owned = await db.subscription.findUnique({ where: { subToken: params.token }, select: { userId: true, plan: true } })
   if (!owned || owned.userId !== user.id) return NextResponse.json({ ok: false, error: locale === 'fa' ? 'اشتراک یافت نشد' : 'Subscription not found' }, { status: 404 })
+  if (!await userOpensSection('vpn', user.id)) return NextResponse.json({ ok: false, error: 'دسترسی به این بخش محدود است' }, { status: 403, headers: { 'cache-control': 'private, no-store' } })
   const sync = req.nextUrl.searchParams.get('sync') !== '0'
   const kit = await buildConnectKit({ token: params.token }, { sync })
   if (!kit) return NextResponse.json({ ok: false, error: locale === 'fa' ? 'اشتراک یافت نشد' : 'Subscription not found' }, { status: 404 })

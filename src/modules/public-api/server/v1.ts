@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit, resolveApiCaller, type ApiCaller } from '@/modules/public-api/server/api-keys'
 import { isPublicApiEnabled } from '@/modules/public-api/server/availability'
+import { userOpensSection } from '@/modules/account/server/section-access'
 
 export function apiOk(data: unknown, status = 200) {
   return NextResponse.json({ ok: true, data }, { status, headers: { 'Cache-Control': 'no-store' } })
@@ -35,5 +36,7 @@ export async function authorize(
       return { ok: false, response: apiErr(`rate limit exceeded, retry in ${limit.retryAfter}s`, 429) }
     }
   }
+  const path = req.nextUrl.pathname
+  if ((path === '/api/v1/subscriptions' || path.startsWith('/api/v1/subscriptions/')) && !await userOpensSection('vpn', caller.userId)) return { ok: false, response: apiErr('VPN access restricted', 403, 'VPN_FORBIDDEN') }
   return { ok: true, caller }
 }

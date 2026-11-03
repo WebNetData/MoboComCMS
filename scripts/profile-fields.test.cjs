@@ -98,7 +98,8 @@ test('sign-up, sign-in and the completion page speak about this site and agree w
   for (const line of dictionaries.split('\n').filter((item) => /passwordLabel|errPassShort|newPassword:/.test(item))) assert.ok(!/6|۶/.test(line), line.trim())
   const register = read('src/app/register/RegisterForm.tsx'), login = read('src/app/login/LoginForm.tsx')
   // The sign-up page takes the theme from the request; read from the cookie in the browser it broke hydration for returning visitors.
-  assert.ok(read('src/app/register/page.tsx').includes('await getServerTheme()') && !register.includes("getCookie('theme')"))
+  assert.match(read('src/app/register/page.tsx'), /await (?:getServerTheme\(\)|Promise\.all\(\[[^\n]*getServerTheme\(\))/)
+  assert.ok(!register.includes("getCookie('theme')"))
   assert.match(register, /minLength=\{8\}/)
   for (const source of [register, login]) assert.ok(!/اتصال تازه|اتصال‌های خود|اشتراک‌های شما|all your subscriptions|A NEW CONNECTION|connected world/.test(source), 'wording left from the VPN service')
   // Straight after sign-up the email form opens (it carries the confirmation), whatever the default tab is.

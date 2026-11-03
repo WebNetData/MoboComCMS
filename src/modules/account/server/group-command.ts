@@ -4,6 +4,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { GroupError } from '@/modules/account/domain/user-groups'
 import { addGroupMember, deleteGroup, removeGroupMember, saveGroup } from './user-groups'
+import { setMemberGroups } from '@/modules/account/server/member-groups'
 
 const idOf = (value: unknown) => { const id = Number(value); if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) throw new GroupError('شناسه معتبر نیست'); return id }
 
@@ -15,6 +16,10 @@ export async function writeUserGroup(req: NextRequest, input: Record<string, unk
     let targetId: number, action: string, metadata: Record<string, unknown> = {}
     let result: { group?: { id: number }; ok?: boolean } = { ok: true }
     switch (input.op) {
+      case 'members.set': {
+        targetId = idOf(input.userId); action = 'user-group.members-set'
+        metadata = { userId: targetId, groupIds: await setMemberGroups(tx, targetId, input.groupIds, input.revision, actor.id) }; break
+      }
       case 'save': {
         if (!input.group || typeof input.group !== 'object' || Array.isArray(input.group)) throw new GroupError('اطلاعات گروه معتبر نیست')
         const group = await saveGroup(input.group as Record<string, unknown>, tx)
@@ -37,7 +42,7 @@ export async function writeUserGroup(req: NextRequest, input: Record<string, unk
         await removeGroupMember(targetId, Number(metadata.userId), tx); break
       default: throw new GroupError('عملیات نامعتبر است')
     }
-    await auditAdminStrict({ req, actor, action, targetType: 'user-group', targetId, metadata }, tx)
+    await auditAdminStrict({ req, actor, action, targetType: input.op === 'members.set' ? 'user' : 'user-group', targetId, metadata }, tx)
     return result
   })
 }

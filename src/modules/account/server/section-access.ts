@@ -52,7 +52,8 @@ export async function restoreSectionAccessSettings(...args: Parameters<ReturnTyp
 }
 
 export async function saveSectionAccess(input: unknown, context?: SectionSettingsContext) {
-  const state = await history().save(normalize(input), context)
+  normalize(input) // Validate supplied fields without expanding omissions into public access.
+  const state = await history().save(input, context)
   g.__mobocomSectionAccess = { at: Date.now(), state }
 }
 

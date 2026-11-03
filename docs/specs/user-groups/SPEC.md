@@ -1,5 +1,11 @@
 # User groups
 
+## VPN audience and per-user multiple groups — 2026-11-03
+
+Continue the existing many-to-many UserGroupMember and site.section-access.v1 owners. Add VPN to the shared section catalogue: the owner may choose VIP, one/multiple custom groups, or their union (any selected group). Empty policy remains public for compatibility; neither VPN nor VIP is switched on automatically. Current full-access/VPN section staff bypass through existing Identity permissions. Expired/revoked VIP, expired membership, inactive group, banned/restricted accounts do not qualify. Cover plans/trial/customer subscription pages/APIs, plan checkout/trial commands and site-owned token endpoints; preserve payment callbacks, background fulfilment, records and already-issued external provider URLs. This is site access, not automatic remote account revocation.
+
+Add a per-user multi-select in existing Admin user details (`users.manage`) using the existing group API. Save an exact membership revision under the user's row lock and strict transactional audit. Existing per-group add/remove share that lock. Selected retained memberships preserve expiry/note; role, password and permissions never change. Stale writes return409 with the draft retained; no schema/backfill or parallel roles system. Tests: native `vpn-group-access` (multi-membership, preserved metadata, stale/concurrent/audit rollback, VIP/group allow/deny, expired/inactive/restricted, checkout and token guards), existing group/section suites, browser Admin multi-select/section policy and themed mobile/desktop. Deliberate missing audience and revision checks must fail.
+
 ## Outcome and owner
 
 Owner, 2026-11-03: professional user groups for the whole site. Each group has its own access, the store can price by group, a product, a post, a film or a game can be limited to chosen groups, and so can a whole section.

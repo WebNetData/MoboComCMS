@@ -4,14 +4,14 @@ import { SITE_GROUP_FAMILIES, type SiteGroup } from '@/modules/account/domain/si
 import './group-picker.css'
 
 /** Every group of the site, by kind. A chosen group that no longer exists stays listed, so it can be taken off. */
-export default function GroupPicker({ legend, groups, value, onChange }: { legend: string; groups: SiteGroup[]; value: string[]; onChange: (next: string[]) => void }) {
+export default function GroupPicker({ legend, groups, value, onChange, showCounts = true }: { legend: string; groups: SiteGroup[]; value: string[]; onChange: (next: string[]) => void; showCounts?: boolean }) {
   const missing = value.filter((key) => !groups.some((group) => group.key === key))
   const toggle = (key: string, on: boolean) => onChange(on ? [...value, key] : value.filter((item) => item !== key))
   const option = (key: string, label: string, count?: number) => (
     <label key={key} className={value.includes(key) ? 'is-on' : ''}>
       <input type="checkbox" checked={value.includes(key)} onChange={(event) => toggle(key, event.target.checked)} />
       <span>{label}</span>
-      {count !== undefined && <small>{count.toLocaleString('fa-IR')}</small>}
+      {showCounts && count !== undefined && <small>{count.toLocaleString('fa-IR')}</small>}
     </label>
   )
   return <div className="gp" role="group" aria-label={legend}>
