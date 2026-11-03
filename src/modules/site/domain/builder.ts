@@ -12,6 +12,7 @@ export const WIDGET_TYPES = [
   'media', 'vip-cta',
   'icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress',
   'slides',
+  'flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating',
 ] as const
 export type WidgetType = typeof WIDGET_TYPES[number]
 
@@ -109,6 +110,18 @@ export const WIDGET_LABELS: Record<WidgetType, { fa: string; en: string }> = {
   social: { fa: 'شبکه‌های اجتماعی', en: 'Social links' },
   progress: { fa: 'نوار پیشرفت', en: 'Progress bars' },
   slides: { fa: 'اسلایدر حرفه‌ای', en: 'Slider' },
+  'flip-box': { fa: 'جعبهٔ چرخان', en: 'Flip box' },
+  'animated-headline': { fa: 'تیتر متحرک', en: 'Animated headline' },
+  'before-after': { fa: 'مقایسهٔ قبل و بعد', en: 'Before and after' },
+  timeline: { fa: 'خط زمان', en: 'Timeline' },
+  team: { fa: 'اعضای تیم', en: 'Team' },
+  logos: { fa: 'نوار لوگوها', en: 'Logo strip' },
+  marquee: { fa: 'نوار متن متحرک', en: 'Scrolling text' },
+  steps: { fa: 'مراحل کار', en: 'Steps' },
+  comparison: { fa: 'جدول مقایسه', en: 'Comparison table' },
+  'video-box': { fa: 'ویدیو با پنجرهٔ بازشو', en: 'Video lightbox' },
+  alert: { fa: 'جعبهٔ اعلان', en: 'Notice' },
+  rating: { fa: 'امتیاز ستاره‌ای', en: 'Star rating' },
 }
 
 const string = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
@@ -187,6 +200,18 @@ const WIDGET_PROPS: Record<WidgetType, Record<string, PropRule>> = {
   countdown: { until: TEXT(40), title: TEXT(300), titleEn: TEXT(300), done: TEXT(300), doneEn: TEXT(300) },
   social: { items: { json: 12 } },
   progress: { items: { json: 12 } },
+  'flip-box': { icon: { enum: BOX_ICONS }, title: TEXT(160), text: TEXT(600), backTitle: TEXT(160), backText: TEXT(800), label: TEXT(80), href: { url: 'link' }, direction: { enum: ['horizontal', 'vertical'] }, height: { enum: ['md', 'sm', 'lg'] } },
+  'animated-headline': { before: TEXT(160), words: TEXT(400), after: TEXT(160), effect: { enum: ['type', 'slide', 'fade'] }, level: { enum: ['h2', 'h1', 'h3'] } },
+  'before-after': { before: { url: 'image' }, after: { url: 'image' }, beforeLabel: TEXT(40), afterLabel: TEXT(40), alt: TEXT(160), start: { enum: ['50', '30', '70'] } },
+  timeline: { items: { json: 16 } },
+  team: { items: { json: 12 }, columns: { enum: ['3', '2', '4'] } },
+  logos: { title: TEXT(160), items: { json: 24 }, speed: { enum: ['normal', 'slow', 'fast'] } },
+  marquee: { text: TEXT(600), speed: { enum: ['normal', 'slow', 'fast'] }, size: { enum: ['md', 'sm', 'lg'] }, separator: { enum: ['dot', 'star', 'slash'] } },
+  steps: { items: { json: 8 }, layout: { enum: ['row', 'column'] } },
+  comparison: { names: TEXT(300), items: { json: 30 }, highlight: { enum: ['', '1', '2', '3', '4'] } },
+  'video-box': { url: { url: 'any', max: 600 }, cover: { url: 'image' }, title: TEXT(200), text: TEXT(400) },
+  alert: { tone: { enum: ['info', 'success', 'warning', 'danger'] }, title: TEXT(200), text: TEXT(800), label: TEXT(80), href: { url: 'link' } },
+  rating: { value: { enum: ['5', '4.5', '4', '3.5', '3', '2.5', '2', '1.5', '1'] }, count: TEXT(60), label: TEXT(160) },
   slides: { items: { json: 10 }, height: { enum: ['md', 'sm', 'lg', 'full'] }, effect: { enum: ['slide', 'fade', 'zoom'] }, autoplay: { enum: ['6', '0', '4', '8', '10'] }, overlay: { enum: ['soft', 'none', 'strong', 'brand'] }, align: { enum: ['start', 'center', 'end'] } },
 }
 
@@ -289,6 +314,16 @@ export function createWidget(type: WidgetType): BuilderWidget {
     { src: '', eyebrow: 'تازه', title: 'تیتر اسلاید اول', text: 'یک جملهٔ کوتاه دربارهٔ پیشنهاد.', label: 'شروع کنید', href: '/register', label2: 'بیشتر بدانید', href2: '#' },
     { src: '', eyebrow: '', title: 'تیتر اسلاید دوم', text: 'تصویر پس‌زمینه، متن و دکمه‌ها را در تنظیمات بلوک عوض کنید.', label: 'مشاهده', href: '/', label2: '', href2: '' },
   ])
+  if (type === 'flip-box') Object.assign(props, { icon: 'sparkles', title: 'روی من بروید', text: 'روی کارت یک تیتر و توضیح کوتاه.', backTitle: 'پشت کارت', backText: 'توضیح بیشتر و یک دکمه برای قدم بعد.', label: 'بیشتر بدانید', href: '/' })
+  if (type === 'animated-headline') Object.assign(props, { before: 'ساختن سایت', words: 'سریع\nزیبا\nحرفه‌ای', after: 'با موبوکام' })
+  if (type === 'timeline') props.items = JSON.stringify([{ date: '۱۴۰۲', title: 'شروع', text: 'اولین قدم کار.' }, { date: '۱۴۰۳', title: 'رشد', text: 'تیم و مشتریان بیشتر.' }, { date: '۱۴۰۴', title: 'امروز', text: 'جایی که امروز هستیم.' }])
+  if (type === 'team') props.items = JSON.stringify([{ photo: '', name: 'نام عضو', role: 'نقش در تیم', text: 'یک جملهٔ کوتاه دربارهٔ او.', href: '' }, { photo: '', name: 'نام عضو', role: 'نقش در تیم', text: 'یک جملهٔ کوتاه دربارهٔ او.', href: '' }, { photo: '', name: 'نام عضو', role: 'نقش در تیم', text: 'یک جملهٔ کوتاه دربارهٔ او.', href: '' }])
+  if (type === 'logos') props.items = JSON.stringify([{ src: '', alt: 'نام برند', href: '' }, { src: '', alt: 'نام برند', href: '' }, { src: '', alt: 'نام برند', href: '' }, { src: '', alt: 'نام برند', href: '' }])
+  if (type === 'marquee') props.text = 'طراحی\nتوسعه\nپشتیبانی\nرشد'
+  if (type === 'steps') props.items = JSON.stringify([{ title: 'ثبت درخواست', text: 'نیازتان را بگویید.' }, { title: 'بررسی و طرح', text: 'راه‌حل را با هم می‌چینیم.' }, { title: 'اجرا', text: 'کار انجام و تحویل می‌شود.' }])
+  if (type === 'comparison') { props.names = 'پایه\nحرفه‌ای\nسازمانی'; props.highlight = '2'; props.items = JSON.stringify([{ feature: 'پشتیبانی', v1: 'yes', v2: 'yes', v3: 'yes' }, { feature: 'گزارش پیشرفته', v1: 'no', v2: 'yes', v3: 'yes' }, { feature: 'کاربران', v1: '۳', v2: '۲۰', v3: 'نامحدود' }]) }
+  if (type === 'alert') Object.assign(props, { title: 'یک نکتهٔ مهم', text: 'متن اعلان را این‌جا بنویسید.' })
+  if (type === 'rating') Object.assign(props, { count: '۱۲۰ نظر', label: 'امتیاز مشتریان' })
   if (type === 'faq' && props.items === '[]') props.items = JSON.stringify([{ q: 'پرسش نمونه', qEn: 'Sample question', a: 'پاسخ نمونه', aEn: 'Sample answer' }])
   return { id: newId('w'), type, props, style: validateWidgetStyle({}) }
 }
