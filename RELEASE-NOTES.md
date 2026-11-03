@@ -32,6 +32,7 @@ The first public beta. Its public name is **MoboCom 1.0.0 Beta**. The package, p
   - private file sales and content pricing;
   - billing, invoice and shipping fixes for launch.
 - **Database:** 69 migrations (`20261214120000_content_revisions` … `20270212120000_digital_content_pricing`), sealed as release 1.7.0 and applied automatically on start. Take a backup first; the updaters do so themselves.
+- Packaging: the signed package now holds the committed bytes even when built on Windows (earlier packages, including 1.6.1, had CRLF line endings in text files). Prisma accepts migrations applied from either form; checked against PostgreSQL.
 
 ## 1.6.0 — MoboComCMS multi-section CMS and bulk import
 
