@@ -1,32 +1,8 @@
-import {
-  createSection, createWidget, validateBuilderDoc,
-  type BuilderColumn, type BuilderDoc, type BuilderSection, type BuilderWidget, type WidgetType, type WidgetStyle,
-} from './builder'
+import type { BuilderDoc, BuilderSection } from './builder'
+import { center, col, doc, items, sec, w } from './builder-template-kit'
+import { LANDING_PAGE_TEMPLATES, LANDING_SECTION_TEMPLATES } from './builder-landing-templates'
 
 export type BundledTemplate = { id: string; fa: string; en: string; descFa: string; descEn: string; doc: BuilderDoc }
-
-function w(type: WidgetType, props: Record<string, string>, style: Partial<WidgetStyle> = {}): BuilderWidget {
-  const base = createWidget(type)
-  return { ...base, props: { ...base.props, ...props }, style: { ...base.style, ...style } }
-}
-
-function col(widgets: BuilderWidget[], width = 100): BuilderColumn {
-  return { id: `c-${Math.random().toString(36).slice(2, 10)}`, width, widgets }
-}
-
-function sec(columns: BuilderColumn[], opts: Partial<BuilderSection['style']> = {}): BuilderSection {
-  const base = createSection(1)
-  return { ...base, columns, style: { ...base.style, paddingY: 72, ...opts } }
-}
-
-/** `postStyle`: on an article template, the magazine page style its header and reading column wear. */
-function doc(sections: BuilderSection[], postStyle = ''): BuilderDoc {
-  return validateBuilderDoc({ v: 2, mode: 'builder', code: { html: '', css: '', js: '', advanced: false }, sections, layout: { header: 'default', footer: 'default', postStyle } })
-}
-
-const center: Partial<WidgetStyle> = { align: 'center' }
-
-const items = (rows: Record<string, string>[]) => JSON.stringify(rows)
 
 export const BUNDLED_TEMPLATES: BundledTemplate[] = [
   {
@@ -199,6 +175,7 @@ export const BUNDLED_TEMPLATES: BundledTemplate[] = [
       ])], { tone: 'dark', paddingY: 64 }),
     ]),
   },
+  ...LANDING_SECTION_TEMPLATES,
 ]
 
 /** Built-in single-post layouts — chosen per post, each hosts the article body slot. */
@@ -696,4 +673,5 @@ export const PAGE_TEMPLATES: BundledTemplate[] = [
       sec([col([w('cta', { title: 'فرصت محدود است', titleEn: 'Time is limited', text: 'پیش از پایان کمپین خرید کنید.', textEn: 'Buy before the campaign ends.', label: 'رفتن به فروشگاه', labelEn: 'Go to the shop', href: '/products' })])], { paddingY: 56 }),
     ]),
   },
+  ...LANDING_PAGE_TEMPLATES,
 ]

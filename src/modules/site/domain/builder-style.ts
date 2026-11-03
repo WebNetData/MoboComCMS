@@ -7,8 +7,14 @@ export type Box = { t: number; r: number; b: number; l: number }
 
 export const BORDER_STYLES = ['solid', 'dashed', 'dotted'] as const
 export const SHADOWS = ['sm', 'md', 'lg', 'xl', 'glow'] as const
-export const HOVERS = ['lift', 'zoom', 'glow', 'dim'] as const
-export const MOTIONS = ['fade', 'up', 'down', 'start', 'end', 'zoom'] as const
+export const HOVERS = ['lift', 'zoom', 'glow', 'dim', 'tilt', 'shine', 'ring', 'float', 'press', 'colorize'] as const
+export const MOTIONS = ['fade', 'up', 'down', 'start', 'end', 'zoom', 'flip', 'blur', 'rotate', 'pop'] as const
+/** Motion that keeps going while the element is on the page. It moves through translate, scale and rotate, so it adds to a hover or an entrance rather than replacing it. */
+export const LOOPS = ['float', 'pulse', 'breathe', 'spin', 'wiggle', 'gradient'] as const
+/** A surface drawn behind or round the element: frosted glass, a moving aurora, a mesh of soft lights, a fine grid, dots, or a beam that runs round the edge. */
+export const SURFACES = ['glass', 'aurora', 'mesh', 'grid', 'dots', 'beam'] as const
+/** What the element's headings wear. */
+export const TEXT_EFFECTS = ['gradient', 'shimmer', 'glow', 'outline'] as const
 export const MOBILE_ALIGNS = ['start', 'center', 'end'] as const
 export const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800, 900] as const
 
@@ -27,6 +33,9 @@ export type AdvancedStyle = {
   opacity?: number
   hover?: typeof HOVERS[number]
   motion?: typeof MOTIONS[number]
+  loop?: typeof LOOPS[number]
+  surface?: typeof SURFACES[number]
+  textFx?: typeof TEXT_EFFECTS[number]
   zIndex?: number
   minHeight?: number; maxWidth?: number
   alignM?: typeof MOBILE_ALIGNS[number]
@@ -66,6 +75,7 @@ export function validateAdvancedStyle(input: unknown): AdvancedStyle | undefined
   if (width) { out.borderWidth = width; out.borderStyle = pick(raw.borderStyle, BORDER_STYLES) ?? 'solid'; out.borderColor = hex(raw.borderColor) ?? '#888888' }
   set('radius', box(raw.radius, 0, 300))
   set('shadow', pick(raw.shadow, SHADOWS)); set('hover', pick(raw.hover, HOVERS)); set('motion', pick(raw.motion, MOTIONS))
+  set('loop', pick(raw.loop, LOOPS)); set('surface', pick(raw.surface, SURFACES)); set('textFx', pick(raw.textFx, TEXT_EFFECTS))
   const opacity = int(raw.opacity, 0, 100); if (opacity !== null && opacity < 100) out.opacity = opacity
   set('zIndex', int(raw.zIndex, -1, 100), 0); set('minHeight', size(raw.minHeight, 40, 1600)); set('maxWidth', size(raw.maxWidth, 120, 2400))
   set('alignM', pick(raw.alignM, MOBILE_ALIGNS))
@@ -81,7 +91,20 @@ const SHADOW_CSS: Record<typeof SHADOWS[number], string> = {
 const HOVER_CSS: Record<typeof HOVERS[number], string> = {
   lift: 'transform: translateY(-6px); box-shadow: 0 18px 44px rgb(0 0 0 / .2)', zoom: 'transform: scale(1.03)',
   glow: 'box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 50%, transparent), 0 16px 48px color-mix(in srgb, var(--primary) 40%, transparent)', dim: 'filter: brightness(.88)',
+  tilt: 'transform: perspective(900px) rotateX(5deg) rotateY(-5deg) translateY(-4px); box-shadow: 0 26px 54px rgb(0 0 0 / .24)',
+  shine: 'transform: translateY(-3px)',
+  ring: 'box-shadow: 0 0 0 2px var(--primary), 0 0 0 7px color-mix(in srgb, var(--primary) 22%, transparent)',
+  float: 'transform: translateY(-10px); box-shadow: 0 30px 60px -18px rgb(0 0 0 / .32)',
+  press: 'transform: scale(.97)',
+  colorize: 'filter: grayscale(0)',
 }
+const LOOP_TIMING: Record<typeof LOOPS[number], string> = {
+  float: '6s ease-in-out infinite', pulse: '2.4s ease-in-out infinite', breathe: '3s ease-in-out infinite',
+  spin: '14s linear infinite', wiggle: '3.5s ease-in-out infinite', gradient: '8s ease infinite',
+}
+const ACCENTS = 'var(--primary), #8b5cf6'
+/** A layer behind the content, inside the element's own stacking context. */
+const behind = (sel: string, body: string) => `${sel}::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; ${body} }`
 const sides = (prop: string, b: Box) => `${prop}-block: ${b.t}px ${b.b}px; ${prop}-inline: ${b.r}px ${b.l}px;`
 const TEXT = ':is(h1, h2, h3, h4, h5, h6, p, li, blockquote)'
 
@@ -120,9 +143,44 @@ export function advancedCss(id: string, adv: AdvancedStyle | undefined): string 
   if (base.length) out.push(`${sel} { ${base.join(' ')} }`)
   if (text.length) out.push(`${sel}, ${sel} ${TEXT} { ${text.join(' ')} }`)
   if (phone.length || phoneText.length) out.push(`@media (max-width: 767px) { ${phone.length ? `${sel} { ${phone.join(' ')} } ` : ''}${phoneText.length ? `${sel}, ${sel} ${TEXT} { ${phoneText.join(' ')} }` : ''} }`)
-  if (adv.hover) out.push(`@media (hover: hover) { ${sel} { transition: transform .25s ease, box-shadow .25s ease, filter .25s ease; } ${sel}:hover { ${HOVER_CSS[adv.hover]}; } } @media (prefers-reduced-motion: reduce) { ${sel}, ${sel}:hover { transition: none; transform: none; } }`)
-  if (adv.motion) out.push(`@media (prefers-reduced-motion: no-preference) { @supports (animation-timeline: view()) { ${sel} { animation: br-in-${adv.motion} linear both; animation-timeline: view(); animation-range: entry 0% entry 45%; } } }`)
+  if (adv.surface) out.push(surfaceCss(sel, adv.surface))
+  if (adv.textFx) out.push(textCss(sel, adv.textFx))
+  if (adv.hover) {
+    // Shine draws a light across the element; colorize starts grey. Both only where a pointer hovers, so a phone sees the element as it is.
+    const before = adv.hover === 'shine' ? ` ${sel} { position: relative; overflow: clip; } ${sel}::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / .28) 50%, transparent 65%) no-repeat; background-size: 250% 100%; background-position: 130% 0; transition: background-position .8s ease; } ${sel}:hover::after { background-position: -30% 0; }` : adv.hover === 'colorize' ? ` ${sel} { filter: grayscale(1); }` : ''
+    out.push(`@media (hover: hover) { ${sel} { transition: transform .25s ease, box-shadow .25s ease, filter .25s ease; } ${sel}:hover { ${HOVER_CSS[adv.hover]}; }${before} } @media (prefers-reduced-motion: reduce) { ${sel}, ${sel}:hover { transition: none; transform: none; }${adv.hover === 'shine' ? ` ${sel}::after { transition: none; }` : ''} }`)
+  }
+  if (adv.motion || adv.loop) {
+    // The entrance is tied to scrolling where the browser can; the loop runs on its own clock beside it.
+    const loop = adv.loop ? `br-loop-${adv.loop} ${LOOP_TIMING[adv.loop]}` : ''
+    const parts: string[] = []
+    if (loop) parts.push(`${sel} { animation: ${loop};${adv.loop === 'gradient' ? ' background-size: 240% 240%;' : ''} }`)
+    if (adv.motion) parts.push(`@supports (animation-timeline: view()) { ${sel} { animation: br-in-${adv.motion} linear both${loop ? `, ${loop}` : ''}; animation-timeline: view()${loop ? ', auto' : ''}; animation-range: entry 0% entry 45%${loop ? ', normal' : ''}; } }`)
+    out.push(`@media (prefers-reduced-motion: no-preference) { ${parts.join(' ')} }`)
+  }
   return out.join('\n')
+}
+
+function surfaceCss(sel: string, surface: typeof SURFACES[number]): string {
+  const stack = `${sel} { position: relative; isolation: isolate; }`
+  switch (surface) {
+    case 'glass': return `${sel} { background: color-mix(in srgb, var(--card, #ffffff) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid color-mix(in srgb, #ffffff 16%, transparent); }`
+    case 'mesh': return `${sel} { background-image: radial-gradient(60% 80% at 15% 10%, color-mix(in srgb, var(--primary) 30%, transparent), transparent 70%), radial-gradient(50% 70% at 85% 20%, color-mix(in srgb, #8b5cf6 26%, transparent), transparent 70%), radial-gradient(60% 80% at 60% 100%, color-mix(in srgb, #06b6d4 22%, transparent), transparent 70%); }`
+    case 'aurora': return `${stack} ${sel} { overflow: clip; } ${behind(sel, 'inset: -30%; background: radial-gradient(40% 50% at 20% 30%, color-mix(in srgb, var(--primary) 45%, transparent), transparent 70%), radial-gradient(35% 45% at 80% 20%, color-mix(in srgb, #8b5cf6 40%, transparent), transparent 70%), radial-gradient(40% 50% at 60% 90%, color-mix(in srgb, #06b6d4 35%, transparent), transparent 70%); filter: blur(40px);')} @media (prefers-reduced-motion: no-preference) { ${sel}::before { animation: br-aurora 18s ease-in-out infinite alternate; } }`
+    case 'grid': return `${stack} ${behind(sel, 'background-image: linear-gradient(color-mix(in srgb, currentColor 9%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, currentColor 9%, transparent) 1px, transparent 1px); background-size: 44px 44px; -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 25%, transparent 75%); mask-image: radial-gradient(ellipse at 50% 0%, #000 25%, transparent 75%);')}`
+    case 'dots': return `${stack} ${behind(sel, 'background-image: radial-gradient(color-mix(in srgb, currentColor 18%, transparent) 1.2px, transparent 1.6px); background-size: 22px 22px; -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 78%); mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 78%);')}`
+    case 'beam': return `${stack} ${sel}::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; padding: 2px; background: conic-gradient(from var(--br-angle, 0deg), transparent 55%, ${ACCENTS}, transparent 92%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; } @media (prefers-reduced-motion: no-preference) { ${sel}::before { animation: br-beam 4s linear infinite; } }`
+  }
+}
+
+function textCss(sel: string, effect: typeof TEXT_EFFECTS[number]): string {
+  const heads = `${sel} :is(h1, h2, h3, h4, h5, h6), ${sel}:is(h1, h2, h3, h4, h5, h6)`
+  switch (effect) {
+    case 'gradient': return `${heads} { background: linear-gradient(120deg, ${ACCENTS}); -webkit-background-clip: text; background-clip: text; color: transparent; }`
+    case 'shimmer': return `${heads} { background: linear-gradient(110deg, var(--primary) 20%, #ffffff 40%, #8b5cf6 60%, var(--primary) 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; } @media (prefers-reduced-motion: no-preference) { ${heads} { animation: br-shimmer 4s linear infinite; } }`
+    case 'glow': return `${heads} { text-shadow: 0 0 26px color-mix(in srgb, var(--primary) 55%, transparent), 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent); }`
+    case 'outline': return `${heads} { -webkit-text-stroke: 1.5px currentColor; color: transparent; }`
+  }
 }
 
 /** Whether anything is set (the inspector shows a dot on the tab). */

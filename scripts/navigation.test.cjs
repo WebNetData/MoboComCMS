@@ -393,7 +393,7 @@ test('whole-page templates in the page builder and the starter terms (owner, 202
   const fs = require('node:fs'), path = require('node:path')
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
   const { PAGE_TEMPLATES } = load('src/modules/site/domain/builder-templates')
-  assert.deepEqual(PAGE_TEMPLATES.map((template) => template.id), ['page-foreign-payment', 'page-service', 'page-campaign'])
+  assert.deepEqual(PAGE_TEMPLATES.map((template) => template.id), ['page-foreign-payment', 'page-service', 'page-campaign', 'page-saas', 'page-launch', 'page-course', 'page-agency', 'page-event', 'page-coming-soon'])
   for (const template of PAGE_TEMPLATES) assert.ok(template.doc.sections.length >= 4, template.id)
   // The payment page's order form is the form builder's own «پرداخت سایت خارجی» template, found by its address.
   const pay = PAGE_TEMPLATES[0].doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets))
