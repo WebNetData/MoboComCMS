@@ -77,6 +77,9 @@
 html[data-design="mobocom"] .container:not(.mm-bar) { width: var(--mb-chrome); max-width: none; padding-inline: 0; }
 html[data-design="mobocom"] :is(.container, .app-main) .container:not(.mm-bar) { width: 100%; }
 html[data-design] .app-shell .app-main, .app-main > .container, .app-main > main { max-width: none; }
+/* Account pages fill 96% of the space beside the sidebar, including small screens. */
+html[data-design] .user-shell .app-main { width: 96%; margin-inline: auto; padding-inline: 0; }
+.user-shell .np-page { width: 100%; }
 /* pages that narrowed themselves inside that column */
 .covered-page-body.managed-page-full .managed-page-body, .content-surface.covered-article-body, .content-surface.covered-article-body .article-content-unframed, .content-surface.covered-article-body .article-bottom-links, .post-comments,
 .subscription-hub, .ticket-center, .ticket-ops, .ticket-dept-admin, .checkout-flow, .er-archive, .pr-page, .rp-public, .admin-comments, .sh-book { max-width: none !important; }
