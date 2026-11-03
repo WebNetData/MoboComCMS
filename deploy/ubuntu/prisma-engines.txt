@@ -1,0 +1,7 @@
+# Prisma engines delivered through the project's prisma-engines branch, for servers that cannot reach binaries.prisma.sh.
+# Values are Prisma's own published SHA-256 sums. Add the lines of a new engine version in the release that moves to it.
+# engine-version platform file sha256-of-file sha256-of-gz
+605197351a3c8bdd595af2d2a9bc3025bca48ea2 debian-openssl-3.0.x libquery-engine 35860a5c0fb2f79e7b38c40747c4d212318d97e1910ca528b133c802716de0b8 113c0c2093233206668c7e90183ec6570618972c7d9a8db27447ae9c55620a34
+605197351a3c8bdd595af2d2a9bc3025bca48ea2 debian-openssl-3.0.x schema-engine cedeae04739cfa085493da2bafb5d1e4da0247fc74f2995a51ee24f20c9890be af3cf33c73a950cdc626f921534f2543bacdb2976add12b1311456f5866dbe15
+605197351a3c8bdd595af2d2a9bc3025bca48ea2 rhel-openssl-3.0.x libquery-engine 35860a5c0fb2f79e7b38c40747c4d212318d97e1910ca528b133c802716de0b8 4a73e9296e6c9d147dd38bb82328b42c9714fc0f794a52a237a065df3771659f
+605197351a3c8bdd595af2d2a9bc3025bca48ea2 rhel-openssl-3.0.x schema-engine cedeae04739cfa085493da2bafb5d1e4da0247fc74f2995a51ee24f20c9890be 5ed0761d80b4423f5ada0ab936fde54f135dc01cdf70a32a3e5244a57922c7a2

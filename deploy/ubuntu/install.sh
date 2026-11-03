@@ -14,6 +14,7 @@
 #   --package FILE    signed release package; destination needs no Git/GitHub
 #   --public-key FILE publisher key from the trusted installer bundle
 #   --resume-uninstalled explicitly refresh an older unfinished package installation, with backup
+#   --mirrors / --no-mirrors   always / never use the mirrors for blocked hosts (default: only for hosts not reachable)
 #
 # Safe to run again: it continues where it stopped. It never replaces the settings file, recreates a database or
 # touches stored files, and it never updates the code of a site that is already installed (use "mobocom update").
@@ -79,7 +80,9 @@ while [ $# -gt 0 ]; do
     --resume-uninstalled) RESUME_UNINSTALLED=1; shift ;;
     --no-ssl) SSL=0; shift ;;
     --no-firewall) FIREWALL=0; shift ;;
-    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --mirrors) NETWORK_MIRRORS=on; shift ;;
+    --no-mirrors) NETWORK_MIRRORS=off; shift ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
@@ -218,7 +221,7 @@ elif [ ! -d "$APP_DIR/.git" ]; then
       done
       ;;
   esac
-  as_app git clone -q --branch "$BRANCH" -- "$REPO" "$APP_DIR"
+  retry as_app git clone -q --branch "$BRANCH" -- "$REPO" "$APP_DIR"
 else
   note "code already present; left as it is"
 fi
@@ -292,10 +295,27 @@ fi
 
 if [ "$RESUME_UNINSTALLED" = 1 ]; then refresh_uninstalled_source; fi
 
+# On a restricted network npm and Prisma take their files from reachable sources; the updates run the same scripts.
+# They run as the service user, from the site's code, or from this installer's own copy for code that predates them
+# (fed on stdin: the service user cannot read the installer's private folder).
+app_script() {
+  local name="$1"; shift
+  if [ -f "$APP_DIR/deploy/ubuntu/$name" ]; then as_app env "$@" bash "$APP_DIR/deploy/ubuntu/$name" "$APP_DIR"
+  elif [ -f "$BUNDLE_DIR/$name" ]; then as_app env "$@" bash -s "$APP_DIR" < "$BUNDLE_DIR/$name"
+  fi
+}
+app_script npm-registry.sh NETWORK_MIRRORS="$NETWORK_MIRRORS"
+
 if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
   say "Building the site (about 5 to 15 minutes)"
   note 'Wait for the final Installed message; compilation is followed by TypeScript checks and service/Nginx setup.'
   note 'Until then /install may return the default Nginx 404. Do not stop an active build.'
+  ENGINE_PINS=''
+  if [ ! -f "$APP_DIR/deploy/ubuntu/prisma-engines.txt" ] && [ -f "$BUNDLE_DIR/prisma-engines.txt" ]; then
+    ENGINE_PINS="$(mktemp /tmp/mobocom-engine-pins.XXXXXXXX)"; install -m 644 "$BUNDLE_DIR/prisma-engines.txt" "$ENGINE_PINS"
+  fi
+  app_script prisma-engines.sh PRISMA_ENGINES_FROM_GIT="$([ "$NETWORK_MIRRORS" = on ] && printf 1 || printf 0)" ${ENGINE_PINS:+PRISMA_ENGINES_PINS="$ENGINE_PINS"}
+  [ -z "$ENGINE_PINS" ] || rm -f -- "$ENGINE_PINS"
   as_app bash -c "cd '$APP_DIR' && set -a && . '$ENV_FILE' && set +a && npm ci --include=dev --no-audit --no-fund && NODE_OPTIONS=--max-old-space-size=\${BUILD_MEMORY_MB:-4096} npm run build:postgres"
 else
   note "site already built; left as it is"
@@ -310,7 +330,7 @@ trap 'rm -rf -- "$ROOT_ASSETS"' EXIT
 if [ -z "$REPO" ]; then REPO="$(as_app git -C "$APP_DIR" remote get-url origin)"; fi
 [[ "$REPO" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ || "$REPO" =~ ^git@github.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || die 'untrusted repository URL'
 printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$ROOT_ASSETS/known_hosts"
-GIT_SSH_COMMAND="ssh -i /opt/mobocom/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT_ASSETS/known_hosts" GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --no-checkout --depth 1 --branch "$BRANCH" -- "$REPO" "$ROOT_ASSETS/repo"
+retry env GIT_SSH_COMMAND="ssh -i /opt/mobocom/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT_ASSETS/known_hosts" GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --no-checkout --depth 1 --branch "$BRANCH" -- "$REPO" "$ROOT_ASSETS/repo"
 for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf web-setup-install.sh mobocom-webctl bootstrap-web.sh certificate-import.py resume-uninstalled.sh; do
   git -C "$ROOT_ASSETS/repo" show "HEAD:deploy/ubuntu/$asset" > "$ROOT_ASSETS/$asset"
 done
@@ -384,6 +404,10 @@ if [ -f "$TOKEN_FILE" ] && [ ! -f "$APP_DIR/storage/config/installed.lock" ]; th
   fi
   note "Installation code:      $(cat "$TOKEN_FILE")"
   note "The page closes for good after the first administrator is created."
+fi
+if ! reachable https://acme-v02.api.letsencrypt.org/directory; then
+  note "Let's Encrypt is not reachable from this server, so a free certificate cannot be issued here."
+  note 'In the wizard choose a ready certificate (PEM), for example a Cloudflare Origin Certificate or one you bought.'
 fi
 note "Keep a copy of $ENV_FILE outside this server now, and never change PANEL_CREDENTIAL_KEY."
 note "Status: sudo mobocom status   Update: sudo mobocom update   Versions: sudo mobocom versions"

@@ -68,6 +68,9 @@ healthy() {
 }
 
 build_and_start() {
+  # On a restricted network: an npm mirror that answers, and this version's Prisma engines from GitHub (else nothing).
+  if [ -f deploy/ubuntu/npm-registry.sh ]; then bash deploy/ubuntu/npm-registry.sh || return 1; fi
+  if [ -f deploy/ubuntu/prisma-engines.sh ]; then bash deploy/ubuntu/prisma-engines.sh . || return 1; fi
   # The environment file sets NODE_ENV=production, which would leave out the packages the build needs.
   "$NPM" ci --include=dev --no-audit --no-fund || return 1
   NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "$BUILD" || return 1

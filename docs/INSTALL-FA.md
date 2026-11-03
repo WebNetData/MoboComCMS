@@ -10,9 +10,25 @@
 
     curl -fsSL https://raw.githubusercontent.com/WebNetData/MoboComCMS/main/install.sh | sudo bash
 
-اگر شبکهٔ سرور `raw.githubusercontent.com` را باز نمی‌کند ولی `github.com` باز است، همان نصب از این راه:
+اگر شبکهٔ سرور `raw.githubusercontent.com` را باز نمی‌کند ولی `github.com` باز است (مثل بسیاری از سرورهای داخل ایران)، همان نصب از این راه:
 
-    curl -fsSL https://codeload.github.com/WebNetData/MoboComCMS/tar.gz/refs/heads/main | tar -xz -C /tmp && sudo bash /tmp/MoboComCMS-main/install.sh
+    cd /tmp && git clone --depth 1 https://github.com/WebNetData/MoboComCMS.git mobocom-src && sudo bash mobocom-src/install.sh
+
+اگر `git` روی سرور نیست، اول `sudo apt-get install -y git` (در AlmaLinux: `sudo dnf install -y git`) را اجرا کنید.
+
+#### سرور با اینترنت محدود
+
+نصب‌کننده خودش تشخیص می‌دهد کدام سرویس‌ها از سرور در دسترس نیستند و فقط برای همان‌ها از مسیر جایگزین استفاده می‌کند. تنظیمی لازم نیست:
+
+| اگر این بسته باشد | از کجا گرفته می‌شود | بررسی امنیتی |
+| --- | --- | --- |
+| `apt.postgresql.org` یا `download.postgresql.org` | همان بسته‌های رسمی PostgreSQL از میرور `mirrors.aliyun.com` | کلید امضای PostgreSQL فقط با اثر انگشت رسمی پذیرفته می‌شود و هر بسته با آن امضا بررسی می‌شود |
+| `registry.npmjs.org` | اولین میرور در دسترس از این فهرست: Runflare، Liara و Huawei Cloud. در هر آپدیت دوباره بررسی می‌شود و اگر میرور قبلی از کار افتاده باشد، میرور بعدی انتخاب می‌شود | هر بسته با hash ثبت‌شده در `package-lock.json` بررسی می‌شود |
+| `binaries.prisma.sh` | موتورهای رسمی Prisma از شاخهٔ `prisma-engines` همین مخزن در GitHub | فایل‌ها با SHA-256 منتشرشدهٔ Prisma که در کد ثبت شده مقایسه می‌شوند؛ فایل نامطابق نصب نمی‌شود |
+
+برای استفادهٔ همیشگی از این مسیرها `--mirrors` و برای استفاده‌نکردن از آن‌ها `--no-mirrors` را به انتهای دستور نصب اضافه کنید.
+
+**گواهی SSL:** اگر `acme-v02.api.letsencrypt.org` از سرور باز نشود، گواهی رایگان Let's Encrypt (هم روش HTTP و هم DNS کلادفلر) روی همین سرور صادر نمی‌شود. نصب‌کننده در پایان این را اعلام می‌کند. در ویزارد گزینهٔ **گواهی آماده (PEM)** را انتخاب کنید، مثلاً یک Cloudflare Origin Certificate (وقتی دامنه پشت کلادفلر است) یا گواهی خریداری‌شده.
 
 این دستور سیستم را می‌شناسد و این کارها را انجام می‌دهد. سؤالی نمی‌پرسد و حدود ۱۰ تا ۲۰ دقیقه طول می‌کشد:
 
