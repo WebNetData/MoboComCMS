@@ -10,7 +10,8 @@
 set -euo pipefail
 die() { echo "[prisma-engines] $*" >&2; exit 1; }
 cd "${1:-.}"
-PINS=deploy/ubuntu/prisma-engines.txt
+# The pins beside this code; PRISMA_ENGINES_PINS names the installer's copy for code that predates them.
+PINS="${PRISMA_ENGINES_PINS:-deploy/ubuntu/prisma-engines.txt}"
 [ -f package-lock.json ] && [ -f "$PINS" ] || exit 0
 # The engine version this code needs, from the lockfile; code without Prisma needs nothing.
 HASH="$(node -e 'const v=(require("./package-lock.json").packages||{})["node_modules/@prisma/engines-version"]?.version||"";const h=v.split(".").pop();if(!/^[0-9a-f]{40}$/.test(h))process.exit(1);process.stdout.write(h)' 2>/dev/null)" || exit 0

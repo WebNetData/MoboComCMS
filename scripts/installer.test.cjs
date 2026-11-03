@@ -275,7 +275,9 @@ test('restricted networks: a mirror only for a host that is not reachable, unles
   assert.match(platform, /\[ "\$fpr" = "\$PGDG_KEY_FINGERPRINT" \] \|\| \{ rm -f "\$key\.new"; die /)
   const install = read('deploy/ubuntu/install.sh')
   assert.match(install, /--mirrors\) NETWORK_MIRRORS=on/); assert.match(install, /--no-mirrors\) NETWORK_MIRRORS=off/)
-  assert.match(install, /as_app env NETWORK_MIRRORS="\$NETWORK_MIRRORS" bash "\$APP_DIR\/deploy\/ubuntu\/npm-registry\.sh"/)
+  assert.match(install, /\napp_script npm-registry\.sh NETWORK_MIRRORS="\$NETWORK_MIRRORS"\n/)
+  // Code from an earlier attempt that predates the scripts still gets them: the installer's own copy, fed on stdin.
+  assert.ok(install.includes('elif [ -f "$BUNDLE_DIR/$name" ]; then as_app env "$@" bash -s "$APP_DIR" < "$BUNDLE_DIR/$name"'))
   for (const file of ['deploy/ubuntu/update.sh', 'deploy/ubuntu/package-update.sh']) assert.match(read(file), /if \[ -f deploy\/ubuntu\/npm-registry\.sh \]; then bash deploy\/ubuntu\/npm-registry\.sh \|\| (return|exit) 1; fi/, file)
   for (const file of ['deploy/ubuntu/update.sh', 'deploy/ubuntu/package-update.sh']) assert.match(read(file), /if \[ -f deploy\/ubuntu\/prisma-engines\.sh \]; then bash deploy\/ubuntu\/prisma-engines\.sh \. \|\| (return|exit) 1; fi/, file)
 })

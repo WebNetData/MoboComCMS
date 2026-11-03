@@ -296,17 +296,26 @@ fi
 if [ "$RESUME_UNINSTALLED" = 1 ]; then refresh_uninstalled_source; fi
 
 # On a restricted network npm and Prisma take their files from reachable sources; the updates run the same scripts.
-if [ -f "$APP_DIR/deploy/ubuntu/npm-registry.sh" ]; then
-  as_app env NETWORK_MIRRORS="$NETWORK_MIRRORS" bash "$APP_DIR/deploy/ubuntu/npm-registry.sh"
-fi
+# They run as the service user, from the site's code, or from this installer's own copy for code that predates them
+# (fed on stdin: the service user cannot read the installer's private folder).
+app_script() {
+  local name="$1"; shift
+  if [ -f "$APP_DIR/deploy/ubuntu/$name" ]; then as_app env "$@" bash "$APP_DIR/deploy/ubuntu/$name" "$APP_DIR"
+  elif [ -f "$BUNDLE_DIR/$name" ]; then as_app env "$@" bash -s "$APP_DIR" < "$BUNDLE_DIR/$name"
+  fi
+}
+app_script npm-registry.sh NETWORK_MIRRORS="$NETWORK_MIRRORS"
 
 if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
   say "Building the site (about 5 to 15 minutes)"
   note 'Wait for the final Installed message; compilation is followed by TypeScript checks and service/Nginx setup.'
   note 'Until then /install may return the default Nginx 404. Do not stop an active build.'
-  if [ -f "$APP_DIR/deploy/ubuntu/prisma-engines.sh" ]; then
-    as_app env PRISMA_ENGINES_FROM_GIT="$([ "$NETWORK_MIRRORS" = on ] && printf 1 || printf 0)" bash "$APP_DIR/deploy/ubuntu/prisma-engines.sh" "$APP_DIR"
+  ENGINE_PINS=''
+  if [ ! -f "$APP_DIR/deploy/ubuntu/prisma-engines.txt" ] && [ -f "$BUNDLE_DIR/prisma-engines.txt" ]; then
+    ENGINE_PINS="$(mktemp /tmp/mobocom-engine-pins.XXXXXXXX)"; install -m 644 "$BUNDLE_DIR/prisma-engines.txt" "$ENGINE_PINS"
   fi
+  app_script prisma-engines.sh PRISMA_ENGINES_FROM_GIT="$([ "$NETWORK_MIRRORS" = on ] && printf 1 || printf 0)" ${ENGINE_PINS:+PRISMA_ENGINES_PINS="$ENGINE_PINS"}
+  [ -z "$ENGINE_PINS" ] || rm -f -- "$ENGINE_PINS"
   as_app bash -c "cd '$APP_DIR' && set -a && . '$ENV_FILE' && set +a && npm ci --include=dev --no-audit --no-fund && NODE_OPTIONS=--max-old-space-size=\${BUILD_MEMORY_MB:-4096} npm run build:postgres"
 else
   note "site already built; left as it is"
