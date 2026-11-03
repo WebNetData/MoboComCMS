@@ -10,6 +10,14 @@ Owner: the dashboard looked plain, and the request page's sent answers and field
 - **Done:** decision in PLATFORM_DECISIONS 6D; `account-design.css`; `MyRequests` and its `rq-` rules in `forms-pro.css`; designed empty states in club, purchases and licenses; the home's figures before the shelf. No API, data or address change.
 - **Left:** the seller panel was not redesigned; `/dashboard/api` is a 404 while the public API is off, by design.
 
+## Member home and account effects — 2026-11-03
+
+Owner, after PR317: some parts still looked poor; a professional, advanced dashboard that draws members in. Branch `feat/member-dashboard-pro-2026-11-03`, stacked on PR317's branch so the two merge in either order.
+
+- **Found:** a figure orphaned on its own row; figures drawn left of their labels; the profile's completeness as a thin bar; emoji in the home (👋 ♥ 💬 ✉ 🎧 🎮 ★); order cards with no product name; collection covers as a lone glyph.
+- **Done:** decision in PLATFORM_DECISIONS 6D. Home markup in `src/app/dashboard/page.tsx`, the title line in `my-orders.tsx`, `Spotlight.tsx`, rules in `account-design.css`. No API or data change.
+- **Left:** the order detail page, the seller panel and the library pages keep their present look.
+
 ## Account dashboard width — 2026-11-03
 
 Owner requested publishing mobile entry first, then making narrow user-dashboard pages95–98% wide. Mobile entry [PR314](https://github.com/WebNetData/MoboComCMS/pull/314), tested head `9675a53e`, is owner-merged as main `d0a65205`. Publication fast-forwarded `fix/dashboard-wide-layout-2026-11-03` to that main after verifying identical source trees; no new integration delta required repeating the completed checks. Publish this width slice as its own PR targeting main; owner merges. Preserve the owner's older root work and unrelated `.serena/`/`public/demo/`.

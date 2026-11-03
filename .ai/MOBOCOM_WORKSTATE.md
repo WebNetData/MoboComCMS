@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current2026-11-03 Member home and effects: `feat/member-dashboard-pro-2026-11-03`, stacked on PR317 (`24c6bc69`, open). Owner asked for a professional, advanced dashboard. Wallet card as the one bright moment, completeness ring, counting figures, icon titles, pointer light, order titles with picture stacks, collection covers. No API or data change. [Handoff](../docs/agent/handoffs/PUBLIC_SECTIONS_QUALITY.md).
+
 Current2026-11-03 Member dashboard design: `feat/member-dashboard-design-2026-11-03` from owner-merged PR316/main `4eb86f7d`. Owner: the dashboard looked plain and request fields untidy. One account design sheet rooted in `.member-shell`; requests redesigned (steps, expert message, answer tiles with copy, secrets masked); designed empty states; home figures before the prompt shelf. No API or data change. [Handoff](../docs/agent/handoffs/PUBLIC_SECTIONS_QUALITY.md).
 
 Publication2026-11-03: owner requested the completed VPN audience/multiple-group slice as a PR and will merge. Fresh `origin/main` remains `05017494`, matching the tested base; no integration delta or existing head PR. Publish the reviewed31 source/test/continuation files on `feat/vpn-group-access-2026-11-03` with `[skip ci]` under the owner's Actions quota decision. Preserve `.serena/`, `public/demo/`, private evidence/fixtures and older root owner work. No hosted dispatch, merge, release, deployment, schema change or VPN/Membership activation is part of publication; exact executed evidence and external-provider limitations remain in the handoff below.
