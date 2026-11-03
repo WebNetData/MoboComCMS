@@ -37,7 +37,7 @@ export default function CustomerClub() {
 
   if (error) return <p className="gc-notice is-bad">{error}</p>
   if (!data) return <div className="gc-skeleton" aria-busy="true" />
-  if (!data.enabled) return <div className="card"><h1 className="h2">باشگاه مشتریان</h1><p className="muted">باشگاه مشتریان در حال حاضر فعال نیست.</p></div>
+  if (!data.enabled) return <div className="dt-page"><header className="dt-head"><div><h1>باشگاه مشتریان</h1><p>با هر خرید امتیاز بگیرید، سطح‌تان را بالا ببرید و امتیازها را خرج کنید.</p></div></header><div className="dt-empty"><b>باشگاه مشتریان فعلاً فعال نیست</b><span>وقتی فعال شود، سطح و امتیاز شما همین‌جا نمایش داده می‌شود.</span></div></div>
   const span = data.next ? data.next.minLifetime - data.tier.minLifetime : 1
   const progress = data.next ? Math.min(100, Math.round(((data.lifetime - data.tier.minLifetime) / span) * 100)) : 100
   const value = Number(points) > 0 ? Number(points) * data.rules.pointValueToman : 0

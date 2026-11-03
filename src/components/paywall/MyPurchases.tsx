@@ -21,9 +21,9 @@ export default function MyPurchases() {
   return (
     <div className="pw-page">
       <header className="pw-page-head"><h1 className="h2">خریدهای من</h1><p className="muted">فایل‌ها و مقاله‌هایی که خریده‌اید؛ دسترسی شما همیشگی است.</p></header>
-      {error && <p className="error-text" role="alert">{error}</p>}
-      {!rows && !error && <div className="card muted">در حال بارگذاری…</div>}
-      {rows && !rows.length && <div className="card"><p className="muted">هنوز خریدی ندارید. فایل‌ها و مقاله‌های فروشی را در بخش‌های سایت ببینید.</p></div>}
+      {error && <div className="dt-empty is-bad" role="alert"><b>{error}</b></div>}
+      {!rows && !error && <div className="dt-skeleton" role="status" aria-label="در حال بارگذاری" aria-busy="true"><i /><i /></div>}
+      {rows && !rows.length && <div className="dt-empty"><b>هنوز خریدی ندارید</b><span>فایل‌ها و مقاله‌های فروشی را در بخش‌های سایت ببینید؛ هر چه بخرید، همیشه این‌جا در دسترس است.</span></div>}
       {rows && rows.length > 0 && <div className="pw-list">
         {rows.map((row) => <div key={row.id} className="pw-row">
           {row.image ? <img src={row.image} alt="" loading="lazy" /> : <span className="pw-ph" aria-hidden="true">{row.title.slice(0, 1)}</span>}

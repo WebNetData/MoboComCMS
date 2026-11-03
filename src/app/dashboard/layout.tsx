@@ -1,5 +1,6 @@
 'use client'
 
+import '../account-design.css'
 import { useEffect, useRef, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
@@ -164,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navLinks = <ShellNav groups={[...NAV_GROUPS, shortcuts]} isOn={(href, exact) => !OUTSIDE.includes(href) && isOn(href, exact)} choice={groupsState.choice} onToggle={groupsState.toggle} onNavigate={() => setOpen(false)} openByDefault itemIcons shown={open} />
 
   return (
-    <div className="app-shell user-shell">
+    <div className="app-shell user-shell member-shell">
       <aside className="side">
         <Link href="/" className="side-brand">
           <BrandLockup />

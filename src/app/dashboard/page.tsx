@@ -110,7 +110,6 @@ export default function DashboardHome() {
     </section>
 
     <nav className="ud-quick" aria-label="دسترسی سریع">{quick.map((q) => <Link key={q.href} href={q.href}><span><Icon name={q.icon} size={18} /></span>{q.label}</Link>)}</nav>
-    {data.prompts && <MemberPromptShelf data={data.prompts} />}
 
     <div className="ud-kpis">
       <Link href="/dashboard/wallet" className="ud-kpi is-wallet"><small>موجودی کیف پول</small><b className="num">{money(main.balance, main.currency)}</b>
@@ -121,6 +120,7 @@ export default function DashboardHome() {
       <Link href="/dashboard/notifications" className={`ud-kpi${data.inbox.unread ? ' is-hot' : ''}`}><small>اعلان خوانده‌نشده</small><b className="num">{fa(data.inbox.unread)}</b><span>{m.forum ? `${fa(data.inbox.messages)} پیام خصوصی تازه` : 'صندوق اعلان‌ها'}</span></Link>
       {m.membership && <Link href="/vip" className={`ud-kpi${data.vip ? ' is-vip' : ''}`}><small>اشتراک ویژه</small><b>{data.vip ? `${fa(data.vip.daysLeft)} روز` : 'غیرفعال'}</b><span>{data.vip ? `تا ${new Date(data.vip.endsAt).toLocaleDateString('fa-IR')}` : 'مشاهدهٔ پلن‌ها'}</span></Link>}
     </div>
+    {data.prompts && <MemberPromptShelf data={data.prompts} />}
 
     {m.vpn ? <VpnHome /> : <div className="ud-cols">
       <div className="ud-stack">

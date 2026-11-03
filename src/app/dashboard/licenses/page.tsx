@@ -19,10 +19,10 @@ export default function LicensesDashboard() {
   }
   async function copy(key: string) { try { await navigator.clipboard.writeText(key); setCopied(key); setTimeout(() => setCopied(''), 2000) } catch { /* the key is visible to copy by hand */ } }
   if (error) return <div className="dash-card" role="alert">{error}</div>
-  if (!rows) return <div className="dash-card" aria-busy="true">در حال بارگذاری…</div>
+  if (!rows) return <div className="dt-skeleton" role="status" aria-label="در حال بارگذاری" aria-busy="true"><i /><i /></div>
   return <div className="pr-portal" dir="rtl">
     <header className="pr-head"><div><h1>لایسنس‌های من</h1><p>کلید هر افزونه و قالب پولی که خریده‌اید</p></div><Link href="/repository" className="btn btn-ghost">فروشگاه افزونه‌ها</Link></header>
-    {!rows.length && <section className="dash-card"><p className="pr-empty">هنوز لایسنسی ندارید.</p></section>}
+    {!rows.length && <div className="dt-empty"><b>هنوز لایسنسی ندارید</b><span>کلید افزونه‌ها و قالب‌هایی که از مخزن می‌خرید، با سایت‌هایی که رویشان فعال است، این‌جا می‌آید.</span><Link href="/repository" className="btn btn-primary">دیدن مخزن افزونه و قالب</Link></div>}
     {rows.map((l) => <section key={l.id} className="dash-card">
       <div className="dash-card-head"><div><h2>{l.product}</h2><p>خرید {date(l.createdAt)} · به‌روزرسانی تا {l.updatesUntil ? date(l.updatesUntil) : 'همیشه'} {l.status !== 'ACTIVE' && <b className="error-text"> · باطل‌شده</b>}</p></div></div>
       <div className="pr-actions"><code dir="ltr" style={{ overflowWrap: 'anywhere' }}>{l.key}</code><button type="button" className="btn btn-ghost btn-sm" onClick={() => void copy(l.key)}>{copied === l.key ? 'کپی شد ✓' : 'کپی'}</button>
