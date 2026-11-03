@@ -12,6 +12,16 @@ platform_admit() {
   OS_MAJOR="${VERSION_ID%%.*}"
 }
 
+# Restricted networks: some countries block the hosts below. "auto" takes a mirror only for a host this server cannot
+# reach; --mirrors (on) always, --no-mirrors (off) never. What comes from a mirror is checked as from the original:
+# PostgreSQL's packages by their signing key (pinned below), npm packages by the hashes in package-lock.json.
+NETWORK_MIRRORS="${NETWORK_MIRRORS:-auto}"
+NPM_MIRROR=https://mirror-npm.runflare.com/
+PG_MIRROR=https://mirrors.aliyun.com/postgresql
+PGDG_KEY_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+reachable() { [ "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$1" 2>/dev/null)" != 000 ]; }
+use_mirror() { case "$NETWORK_MIRRORS" in on) return 0 ;; off) return 1 ;; esac; ! reachable "$1"; }
+
 pkg_install() {
   if [ "$PLATFORM" = debian ]; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" >/dev/null
@@ -74,9 +84,21 @@ platform_postgres() {
   if [ "$PLATFORM" = debian ]; then
     PG_SERVICE=postgresql
     if ! command -v pg_ctlcluster >/dev/null 2>&1 || [ ! -x /usr/lib/postgresql/17/bin/postgres ]; then
+      local base=https://apt.postgresql.org/pub/repos/apt key=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc url fpr=''
+      if use_mirror "$base/"; then
+        base="$PG_MIRROR/repos/apt"
+        note "apt.postgresql.org is not reachable; PostgreSQL's packages come from $PG_MIRROR, signed by the same key"
+      fi
       install -d /usr/share/postgresql-common/pgdg
-      curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
-      echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+      # The repository key is accepted only with PostgreSQL's own fingerprint, wherever it was fetched from.
+      for url in https://www.postgresql.org/media/keys/ACCC4CF8.asc "$PG_MIRROR/repos/apt/ACCC4CF8.asc"; do
+        curl -fsSL -m 30 "$url" -o "$key.new" 2>/dev/null || continue
+        fpr="$(gpg --show-keys --with-colons "$key.new" 2>/dev/null | awk -F: '$1 == "fpr" { print $10; exit }')"
+        [ "$fpr" = "$PGDG_KEY_FINGERPRINT" ] && break
+      done
+      [ "$fpr" = "$PGDG_KEY_FINGERPRINT" ] || { rm -f "$key.new"; die "PostgreSQL's repository key could not be fetched with its expected fingerprint"; }
+      mv "$key.new" "$key"
+      echo "deb [signed-by=$key] $base ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
       apt-get update -qq
       pkg_install postgresql-17
     fi
@@ -85,7 +107,11 @@ platform_postgres() {
   PG_SERVICE=postgresql-17
   if [ ! -x /usr/pgsql-17/bin/postgres ]; then
     if ! rpm -q pgdg-redhat-repo >/dev/null 2>&1; then
-      dnf install -y -q "https://download.postgresql.org/pub/repos/yum/reporpms/EL-${OS_MAJOR}-$(uname -m)/pgdg-redhat-repo-latest.noarch.rpm" >/dev/null
+      local base=https://download.postgresql.org/pub mirror=0
+      if use_mirror "$base/repos/yum/"; then base="$PG_MIRROR"; mirror=1; note "download.postgresql.org is not reachable; PostgreSQL's packages come from $PG_MIRROR, signed by the same key"; fi
+      dnf install -y -q "$base/repos/yum/reporpms/EL-${OS_MAJOR}-$(uname -m)/pgdg-redhat-repo-latest.noarch.rpm" >/dev/null
+      # dnf checks every package against the keys this repository package installs.
+      if [ "$mirror" = 1 ]; then sed -i "s|https://download.postgresql.org/pub/|$PG_MIRROR/|" /etc/yum.repos.d/pgdg-redhat-all.repo; fi
     fi
     # On 9 the system's own PostgreSQL module would hide the project's packages.
     dnf -y -q module disable postgresql >/dev/null 2>&1 || true
@@ -100,6 +126,17 @@ platform_postgres() {
   for tool in psql pg_dump pg_restore; do
     [ -e "/usr/bin/$tool" ] || ln -s "/usr/pgsql-17/bin/$tool" "/usr/bin/$tool"
   done
+}
+
+# The npm registry of the service user ($1 home, $2 user): a mirror when registry.npmjs.org is not reachable, kept for
+# later updates. npm still checks every package against the integrity hash in package-lock.json.
+platform_npm_registry() {
+  local rc="$1/.npmrc"
+  use_mirror https://registry.npmjs.org/ || return 0
+  reachable "$NPM_MIRROR" || die "neither registry.npmjs.org nor the npm mirror $NPM_MIRROR is reachable from this server"
+  note "registry.npmjs.org is not reachable; npm packages come from $NPM_MIRROR, each checked against package-lock.json"
+  { [ ! -f "$rc" ] || grep -v '^registry=' "$rc" || true; printf 'registry=%s\n' "$NPM_MIRROR"; } > "$rc.new"
+  chown "$2:$2" "$rc.new"; chmod 644 "$rc.new"; mv "$rc.new" "$rc"
 }
 
 platform_services() { systemctl enable --now "$PG_SERVICE" "$REDIS_SERVICE" >/dev/null; }

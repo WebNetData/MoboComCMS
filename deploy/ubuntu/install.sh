@@ -14,6 +14,7 @@
 #   --package FILE    signed release package; destination needs no Git/GitHub
 #   --public-key FILE publisher key from the trusted installer bundle
 #   --resume-uninstalled explicitly refresh an older unfinished package installation, with backup
+#   --mirrors / --no-mirrors   always / never use the mirrors for blocked hosts (default: only for hosts not reachable)
 #
 # Safe to run again: it continues where it stopped. It never replaces the settings file, recreates a database or
 # touches stored files, and it never updates the code of a site that is already installed (use "mobocom update").
@@ -79,7 +80,9 @@ while [ $# -gt 0 ]; do
     --resume-uninstalled) RESUME_UNINSTALLED=1; shift ;;
     --no-ssl) SSL=0; shift ;;
     --no-firewall) FIREWALL=0; shift ;;
-    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --mirrors) NETWORK_MIRRORS=on; shift ;;
+    --no-mirrors) NETWORK_MIRRORS=off; shift ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
@@ -292,10 +295,16 @@ fi
 
 if [ "$RESUME_UNINSTALLED" = 1 ]; then refresh_uninstalled_source; fi
 
+# Kept for later updates too: on a restricted network npm and Prisma take their files from reachable sources.
+platform_npm_registry "$HOME_DIR" "$APP_USER"
+
 if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
   say "Building the site (about 5 to 15 minutes)"
   note 'Wait for the final Installed message; compilation is followed by TypeScript checks and service/Nginx setup.'
   note 'Until then /install may return the default Nginx 404. Do not stop an active build.'
+  if [ -f "$APP_DIR/deploy/ubuntu/prisma-engines.sh" ]; then
+    as_app env PRISMA_ENGINES_FROM_GIT="$([ "$NETWORK_MIRRORS" = on ] && printf 1 || printf 0)" bash "$APP_DIR/deploy/ubuntu/prisma-engines.sh" "$APP_DIR"
+  fi
   as_app bash -c "cd '$APP_DIR' && set -a && . '$ENV_FILE' && set +a && npm ci --include=dev --no-audit --no-fund && NODE_OPTIONS=--max-old-space-size=\${BUILD_MEMORY_MB:-4096} npm run build:postgres"
 else
   note "site already built; left as it is"
@@ -384,6 +393,10 @@ if [ -f "$TOKEN_FILE" ] && [ ! -f "$APP_DIR/storage/config/installed.lock" ]; th
   fi
   note "Installation code:      $(cat "$TOKEN_FILE")"
   note "The page closes for good after the first administrator is created."
+fi
+if ! reachable https://acme-v02.api.letsencrypt.org/directory; then
+  note "Let's Encrypt is not reachable from this server, so a free certificate cannot be issued here."
+  note 'In the wizard choose a ready certificate (PEM), for example a Cloudflare Origin Certificate or one you bought.'
 fi
 note "Keep a copy of $ENV_FILE outside this server now, and never change PANEL_CREDENTIAL_KEY."
 note "Status: sudo mobocom status   Update: sudo mobocom update   Versions: sudo mobocom versions"

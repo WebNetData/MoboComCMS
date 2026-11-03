@@ -212,3 +212,69 @@ test('wiring: the installer is gated, standalone and cannot brick a site', () =>
   // The first administrator closes the installer.
   assert.match(read('src/modules/installer/server/setup.ts'), /markInstalled\(\)/)
 })
+
+test('restricted networks: the pinned Prisma engines cover the version in package-lock.json, on both platform families', () => {
+  const lock = JSON.parse(read('package-lock.json'))
+  const engine = lock.packages['node_modules/@prisma/engines-version'].version.split('.').pop()
+  const rows = read('deploy/ubuntu/prisma-engines.txt').replace(/\r\n/g, '\n').split('\n').filter((line) => line && !line.startsWith('#')).map((line) => line.split(' '))
+  for (const row of rows) {
+    assert.equal(row.length, 5, row.join(' '))
+    assert.match(row[0], /^[0-9a-f]{40}$/); assert.match(row[1], /^(debian|rhel)-openssl-3\.0\.x$/); assert.match(row[2], /^(libquery-engine|schema-engine)$/)
+    assert.match(row[3], /^[0-9a-f]{64}$/); assert.match(row[4], /^[0-9a-f]{64}$/)
+  }
+  for (const platform of ['debian-openssl-3.0.x', 'rhel-openssl-3.0.x']) for (const file of ['libquery-engine', 'schema-engine']) {
+    assert.ok(rows.some((row) => row[0] === engine && row[1] === platform && row[2] === file), `add ${engine} ${platform} ${file} to prisma-engines.txt and the prisma-engines branch`)
+  }
+})
+
+test('restricted networks: engines come from the branch only when they match their pinned hash, into the cache Prisma reads', { skip: process.platform === 'win32' }, () => {
+  const cp = require('node:child_process'), zlib = require('node:zlib'), crypto = require('node:crypto')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prisma-engines-'))
+  const git = (cwd, ...args) => cp.execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...args], { cwd, encoding: 'utf8' })
+  const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex')
+  try {
+    const hash = 'a'.repeat(40), engines = { 'libquery-engine': Buffer.from('query engine bytes'), 'schema-engine': Buffer.from('schema engine bytes') }
+    // A branch like the project's, in a local repository.
+    const branch = path.join(dir, 'branch'); fs.mkdirSync(path.join(branch, hash), { recursive: true })
+    for (const [name, bytes] of Object.entries(engines)) fs.writeFileSync(path.join(branch, hash, `${name}.gz`), zlib.gzipSync(bytes))
+    git(branch, 'init', '-q', '-b', 'prisma-engines'); git(branch, 'add', '-A'); git(branch, 'commit', '-q', '-m', 'engines')
+    const app = path.join(dir, 'app'); fs.mkdirSync(path.join(app, 'deploy/ubuntu'), { recursive: true })
+    fs.copyFileSync(path.join(root, 'deploy/ubuntu/prisma-engines.sh'), path.join(app, 'deploy/ubuntu/prisma-engines.sh'))
+    fs.writeFileSync(path.join(app, 'package-lock.json'), JSON.stringify({ packages: { 'node_modules/@prisma/engines-version': { version: `5.22.0-44.${hash}` } } }))
+    const pins = (query) => fs.writeFileSync(path.join(app, 'deploy/ubuntu/prisma-engines.txt'), ['debian-openssl-3.0.x', 'rhel-openssl-3.0.x'].map((p) => `${hash} ${p} libquery-engine ${query} ${'1'.repeat(64)}\n${hash} ${p} schema-engine ${sha(engines['schema-engine'])} ${'2'.repeat(64)}\n`).join(''))
+    const home = path.join(dir, 'home')
+    const run = () => cp.spawnSync('bash', ['deploy/ubuntu/prisma-engines.sh', '.'], { cwd: app, encoding: 'utf8', env: { ...process.env, HOME: home, XDG_CACHE_HOME: '', PRISMA_ENGINES_FROM_GIT: '1', PRISMA_ENGINES_REPO: branch } })
+    const os_ = fs.readFileSync('/etc/os-release', 'utf8'), platform = /^ID=("?)(almalinux|rhel|rocky|centos|fedora)\1$/m.test(os_) ? 'rhel-openssl-3.0.x' : 'debian-openssl-3.0.x'
+    const cache = path.join(home, '.cache/prisma/master', hash, platform)
+    // A file that does not match its pin is refused and nothing reaches the cache.
+    pins('f'.repeat(64))
+    let result = run()
+    assert.equal(result.status, 1); assert.match(result.stderr, /libquery-engine does not match its pinned SHA-256; nothing was installed/)
+    assert.equal(fs.existsSync(cache), false)
+    // Matching files land in Prisma's cache with the checksum files Prisma expects beside them.
+    pins(sha(engines['libquery-engine']))
+    result = run()
+    assert.equal(result.status, 0, result.stderr)
+    assert.deepEqual(fs.readFileSync(path.join(cache, 'libquery-engine')), engines['libquery-engine'])
+    assert.deepEqual(fs.readFileSync(path.join(cache, 'schema-engine')), engines['schema-engine'])
+    assert.equal(fs.readFileSync(path.join(cache, 'schema-engine.sha256'), 'utf8'), sha(engines['schema-engine']))
+    assert.equal(fs.readFileSync(path.join(cache, 'libquery-engine.gz.sha256'), 'utf8'), '1'.repeat(64))
+    // Once cached, it needs no repository at all.
+    fs.rmSync(branch, { recursive: true, force: true })
+    result = run(); assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout, '')
+    // Code without Prisma in its lockfile needs nothing.
+    fs.writeFileSync(path.join(app, 'package-lock.json'), '{}'); assert.equal(run().status, 0)
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('restricted networks: a mirror only for a host that is not reachable, unless --mirrors or --no-mirrors decides; PostgreSQL key pinned', () => {
+  const platform = read('deploy/ubuntu/platform.sh').replace(/\r\n/g, '\n')
+  const decide = (mode, reachable) => require('node:child_process').spawnSync('bash', ['-c', `die() { exit 9; }; note() { :; }; . deploy/ubuntu/platform.sh; NETWORK_MIRRORS=${mode}; reachable() { return ${reachable ? 0 : 1}; }; use_mirror https://registry.npmjs.org/ && echo mirror || echo direct`], { cwd: root, encoding: 'utf8' }).stdout.trim()
+  assert.deepEqual([decide('auto', true), decide('auto', false), decide('on', true), decide('off', false)], ['direct', 'mirror', 'mirror', 'direct'])
+  assert.match(platform, /^PGDG_KEY_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8$/m)
+  assert.match(platform, /\[ "\$fpr" = "\$PGDG_KEY_FINGERPRINT" \] \|\| \{ rm -f "\$key\.new"; die /)
+  const install = read('deploy/ubuntu/install.sh')
+  assert.match(install, /--mirrors\) NETWORK_MIRRORS=on/); assert.match(install, /--no-mirrors\) NETWORK_MIRRORS=off/)
+  assert.match(install, /platform_npm_registry "\$HOME_DIR" "\$APP_USER"/)
+  for (const file of ['deploy/ubuntu/update.sh', 'deploy/ubuntu/package-update.sh']) assert.match(read(file), /if \[ -f deploy\/ubuntu\/prisma-engines\.sh \]; then bash deploy\/ubuntu\/prisma-engines\.sh \. \|\| (return|exit) 1; fi/, file)
+})
