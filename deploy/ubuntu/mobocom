@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# The one command an owner needs on an Ubuntu server. Installed root-owned as /usr/local/bin/mobocom by install.sh.
+# The one command an owner needs on the server. Installed root-owned as /usr/local/bin/mobocom by install.sh.
 #
 #   sudo mobocom status              is the site healthy, which version, is an update waiting, the last backup
-#   sudo mobocom update [branch]     backup, new code, build, restart; goes back by itself if the site does not start
+#   sudo mobocom update [VERSION]    backup, new code, build, restart; goes back by itself if the site does not start
+#   sudo mobocom versions            the released versions and which one is installed
+#   sudo mobocom downgrade VERSION   back to an earlier released version, the same safe way (the database is kept)
 #   sudo mobocom backup              a backup of the database and stored files, now
 #   sudo mobocom backups             the backups on this server
-#   sudo mobocom rollback [commit]   back to the previous application version (the database is not changed)
+#   sudo mobocom rollback [commit]   back to the version before the last update (the database is not changed)
 #   sudo mobocom restore <name>      put a backup back (name from "backups", or latest); asks before it starts
 #
 # update, backup and rollback run as the service user. Only restore needs root, and it lives in this root-owned file
 # so root never runs code the site could rewrite.
 set -euo pipefail
+# Raised when this file gains commands; the one-line installer replaces an installed copy only with a higher one.
+HELPER_VERSION=2
 
 APP_USER="${MOBOCOM_APP_USER:-mobocom}"
 APP_DIR="${MOBOCOM_APP_DIR:-/opt/mobocom/app}"
@@ -19,7 +23,7 @@ SERVICE="${MOBOCOM_SERVICE:-mobocom}"
 HEALTH="${MOBOCOM_HEALTH_URL:-http://127.0.0.1:3000/api/health/ready}"
 
 die() { echo "[mobocom] $*" >&2; exit 1; }
-usage() { sed -n '4,9p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '4,13p' "$0" | sed 's/^# \{0,1\}//'; }
 [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
 [ -f "$APP_DIR/package.json" ] || die "no site in $APP_DIR"
 cd "$APP_DIR"
@@ -66,10 +70,61 @@ status() {
   name="$(backup_names | tail -1)"
   echo "backup:   ${name:-NONE}"
   echo "disk:     $(df -Pm . | awk 'NR==2 {print $4}') MB free"
-  if ! cmp -s "$APP_DIR/deploy/ubuntu/mobocom" "$0"; then
+  if [ "$(helper_version "$APP_DIR/deploy/ubuntu/mobocom")" -gt "$HELPER_VERSION" ]; then
     echo "note:     a newer helper came with the code; run: sudo install -m 755 $APP_DIR/deploy/ubuntu/mobocom /usr/local/bin/mobocom"
   fi
   return 0
+}
+helper_version() { local v; v="$(sed -n 's/^HELPER_VERSION=\([0-9]\{1,4\}\)$/\1/p' "$1" 2>/dev/null | head -1)"; printf '%s\n' "${v:-1}"; }
+
+# Released versions are Git tags vX.Y.Z of the repository the site was installed from.
+version_tag() { [[ "$1" =~ ^v?([0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$ ]] && printf 'v%s\n' "${BASH_REMATCH[1]}"; }
+package_install() { [ -f /etc/mobocom/release-public.pem ]; }
+fetch_tags() { as_app env GIT_TERMINAL_PROMPT=0 git fetch --quiet --tags origin || die 'could not reach the code repository'; }
+tag_commit() { as_app git rev-parse --verify --quiet "refs/tags/$1^{commit}" || die "version ${1#v} does not exist; see: sudo mobocom versions"; }
+is_older() { as_app git merge-base --is-ancestor "$1" HEAD; }
+versions() {
+  local head tag commit mark
+  fetch_tags
+  head="$(as_app git rev-parse HEAD)"
+  echo "installed: $(as_app node -p "require('./package.json').version") ($(as_app git describe --tags --always HEAD))"
+  echo 'released versions:'
+  while read -r tag; do
+    [ -n "$tag" ] || continue
+    commit="$(as_app git rev-parse --verify --quiet "refs/tags/$tag^{commit}")" || continue
+    if [ "$commit" = "$head" ]; then mark='installed'
+    elif is_older "$commit"; then mark="older: sudo mobocom downgrade ${tag#v}"
+    else mark="newer: sudo mobocom update ${tag#v}"; fi
+    printf '  %-10s %s\n' "${tag#v}" "$mark"
+  done < <(as_app git tag --list 'v[0-9]*' --sort=-v:refname)
+}
+# The site's own update script does the work. One older than UPDATE_TO knows only UPDATE_ROLLBACK_TO, which
+# moves to the same exact commit the same safe way (it only words its messages as "going back").
+run_update() { as_app env "$@" UPDATE_ENV_FILE="$ENV_FILE" MOBOCOM_ENV_FILE="$ENV_FILE" MOBOCOM_APP_DIR="$APP_DIR" bash deploy/ubuntu/update.sh; }
+to_commit() {
+  if grep -q 'UPDATE_TO:-' deploy/ubuntu/update.sh; then run_update UPDATE_TO="$1"; else run_update UPDATE_ROLLBACK_TO="$1"; fi
+}
+downgrade() {
+  local tag commit answer yes=0
+  [ "${2:-}" != --yes ] || yes=1
+  [ -n "${1:-}" ] || die 'name a version: sudo mobocom downgrade 1.6.1 (list: sudo mobocom versions)'
+  tag="$(version_tag "$1")" || die "not a version number: $1 (list: sudo mobocom versions)"
+  fetch_tags
+  commit="$(tag_commit "$tag")"
+  [ "$commit" != "$(as_app git rev-parse HEAD)" ] || die "version ${tag#v} is already installed"
+  is_older "$commit" || die "version ${tag#v} is not older than the installed code; use: sudo mobocom update ${tag#v}"
+  cat <<EOF
+
+The site's code goes back to version ${tag#v}. First a backup of the database and files is taken.
+Your data stays as it is: orders, users, posts and uploaded files are kept, and the database is not rewound.
+If version ${tag#v} cannot start with this data, the current version comes back by itself.
+To also put the data back to an earlier day, use a backup afterwards: sudo mobocom backups, sudo mobocom restore NAME
+EOF
+  if [ "$yes" = 0 ]; then
+    read -r -p "Type DOWNGRADE to continue: " answer
+    [ "$answer" = DOWNGRADE ] || die 'nothing was changed'
+  fi
+  run_update UPDATE_ROLLBACK_TO="$commit"
 }
 
 restore() {
@@ -143,10 +198,25 @@ command="${1:-}"
 case "$command" in
   status) status "$@" ;;
   update)
-    [ ! -f /etc/mobocom/release-public.pem ] || die 'upload a signed .mbrelease package through /admin/updates'
-    branch="${1:-main}"
-    as_app env BRANCH="$branch" UPDATE_ENV_FILE="$ENV_FILE" MOBOCOM_ENV_FILE="$ENV_FILE" MOBOCOM_APP_DIR="$APP_DIR" bash deploy/ubuntu/update.sh
-    status "$branch"
+    ! package_install || die 'upload a signed .mbrelease package through /admin/updates'
+    if tag="$(version_tag "${1:-}")"; then
+      fetch_tags
+      commit="$(tag_commit "$tag")"
+      [ "$commit" != "$(as_app git rev-parse HEAD)" ] || die "version ${tag#v} is already installed"
+      ! is_older "$commit" || die "version ${tag#v} is older than the installed code; use: sudo mobocom downgrade ${tag#v}"
+      to_commit "$commit"
+      status
+    else
+      branch="${1:-main}"
+      run_update BRANCH="$branch"
+      status "$branch"
+    fi
+    ;;
+  versions) ! package_install || die 'this site takes signed packages through /admin/updates'; versions ;;
+  downgrade)
+    ! package_install || die 'package recovery uses the retained private .package.*/before snapshot; see the recovery guide'
+    downgrade "$@"
+    status
     ;;
   backup) as_app env MOBOCOM_ENV_FILE="$ENV_FILE" MOBOCOM_APP_DIR="$APP_DIR" bash deploy/ubuntu/backup.sh ;;
   backups)

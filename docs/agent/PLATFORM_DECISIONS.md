@@ -8,6 +8,25 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Server installation, update and downgrade — 2026-11-03
+
+Owner: installing on a server must be one command on Ubuntu 22.04/24.04/26.04, Debian 12/13 and AlmaLinux 9/10, and update and downgrade must be just as easy. There is still one installer, `deploy/ubuntu/install.sh`. The OS differences live in `deploy/ubuntu/platform.sh`, which the installer sources from its own trusted bundle, and the signed `.run` bundle carries it too:
+
+- packages: apt or dnf, plus EPEL/CRB;
+- Node 22: NodeSource, or the AppStream module;
+- PostgreSQL 17 from PGDG;
+- Redis, or Valkey where the system ships no Redis;
+- firewall: ufw or firewalld;
+- the nginx `sites-available`/`sites-enabled` layout, joined through `conf.d` on AlmaLinux;
+- the certbot timer name;
+- `sudo`'s search path.
+
+On AlmaLinux, SELinux stays enforcing; only `httpd_can_network_connect` is enabled. Any other system is refused before anything is changed.
+
+`install.sh` at the repository root is the one-line entry (`curl … | sudo bash`). Its body runs only once fully downloaded. It fetches over HTTPS from github.com into a private root folder and runs the installer from there. With `update`, `downgrade VERSION`, `versions` or `status`, it acts on an installed site. It replaces the root-owned `mobocom` command only with one whose `HELPER_VERSION` is higher.
+
+Released versions are Git tags `vX.Y.Z`. `mobocom update VERSION` and `mobocom downgrade VERSION` reuse the existing safe path of `update.sh`: backup first, an exact commit, build, health check, and automatic return on failure. A downgrade changes code only; the database is never rewound, and data goes back only through an explicit `mobocom restore`. Signed-package sites keep updating through `/admin/updates`. [Evidence and limits](handoffs/HOST_INSTALL_UPGRADE.md).
+
 ## Digital files and content pricing — 2026-11-03
 
 Store owns file products and orders; Paywall owns priced content, now including Prompt. Account owns exact integer PRICE/PERCENT/AMOUNT/FREE adjustment math. Lowest eligible ordinary/VIP/current-group price wins without stacking. Free eligibility is live, while a paid purchase survives group expiry and closes on its applicable refund. Only FILES virtual fixed-price non-service products may have zero Store prices. Media stores opaque private bytes outside public Library roots; copying an existing Library file is explicit and leaves its original public. Current section managers price through existing permissions, with owner-row/revision/audit claims. No second catalogue, grant system or identity. [Owner interfaces, rollout and evidence](handoffs/DIGITAL_CONTENT_PRICING.md).

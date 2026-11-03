@@ -44,10 +44,15 @@
 
 Nginx تازه location بسته با سقف ۵۱۲ مگابایت و streaming دارد. در تنظیم قدیمی/سفارشی، location نشانی /api/admin/server/updates/package را از deploy/ubuntu/nginx-mobocom.conf پس از بررسی به server مناسب اضافه و nginx -t را اجرا کنید؛ نصب‌کننده تنظیم سفارشی موجود را بازنویسی نمی‌کند. محدودیت CDN/پراکسی دیگر هم بررسی شود.
 
-برای نصب Git که هنوز منتقل نشده:
+برای نصب Git، از جمله نصب با [دستور یک‌خطی](INSTALL-FA.md#نصب-با-یک-دستور):
 
-    sudo mobocom update
-    sudo mobocom rollback
+    sudo mobocom update              # آخرین نسخه
+    sudo mobocom versions            # نسخه‌های منتشرشده (tagهای vX.Y.Z) و نسخهٔ نصب‌شده
+    sudo mobocom update 1.7.0        # یک نسخهٔ مشخص جدیدتر
+    sudo mobocom downgrade 1.6.1     # یک نسخهٔ قدیمی‌تر؛ تأیید DOWNGRADE می‌خواهد
+    sudo mobocom rollback            # نسخهٔ پیش از آخرین آپدیت
+
+هر چهار مسیر از یک روال استفاده می‌کنند: بکاپ اجباری، تعویض کد، ساخت، بررسی سلامت و بازگشت خودکار به کد قبلی در صورت شکست. دیتابیس در برگشت نسخه عقب نمی‌رود. اگر نسخهٔ قدیمی با دیتابیس فعلی بالا نیاید، نسخهٔ فعلی خودبه‌خود برمی‌گردد. برای برگرداندن داده هم از بخش بازیابی بالا استفاده کنید. روی سروری که دستور `mobocom` آن قدیمی است، `curl -fsSL https://raw.githubusercontent.com/WebNetData/MoboComCMS/main/install.sh | sudo bash -s -- versions` دستور را تازه و اجرا می‌کند.
 
 در نصب بسته‌ای، status/backup/restore بدون Git کار می‌کنند و update شما را به پنل وب هدایت می‌کند.
 

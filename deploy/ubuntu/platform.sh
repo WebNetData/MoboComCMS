@@ -1,0 +1,146 @@
+# The systems install.sh supports and how each one installs packages and names its services.
+# Sourced by install.sh from the same trusted bundle; it only defines variables and functions.
+# Needs: die, note (install.sh) and the fields of /etc/os-release (ID, VERSION_ID, VERSION_CODENAME).
+
+# Debian family: Ubuntu 22.04/24.04/26.04 LTS, Debian 12/13. RHEL family: AlmaLinux 9/10.
+platform_admit() {
+  case "${ID:-}:${VERSION_ID:-}" in
+    ubuntu:22.04|ubuntu:24.04|ubuntu:26.04|debian:12|debian:13) PLATFORM=debian ;;
+    almalinux:9|almalinux:9.[0-9]*|almalinux:10|almalinux:10.[0-9]*) PLATFORM=rhel ;;
+    *) die "this installer supports Ubuntu 22.04, 24.04 and 26.04 LTS, Debian 12 and 13, and AlmaLinux 9 and 10; see docs/DEPLOY-COOLIFY.md or docs/DEPLOY-VPS-HOST-FA.md for other systems" ;;
+  esac
+  OS_MAJOR="${VERSION_ID%%.*}"
+}
+
+pkg_install() {
+  if [ "$PLATFORM" = debian ]; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" >/dev/null
+  else
+    dnf install -y -q "$@" >/dev/null
+  fi
+}
+pkg_available() {
+  if [ "$PLATFORM" = debian ]; then apt-cache show "$1" >/dev/null 2>&1; else dnf -q info "$1" >/dev/null 2>&1; fi
+}
+
+# System packages: web server, cache, certificates, firewall and the tools the installer itself uses.
+# $1 = 1 when the browser setup needs the Cloudflare DNS plugin, $2 = 1 when the code comes from Git.
+platform_packages() {
+  local cloudflare="$1" git="$2" extra=()
+  if [ "$PLATFORM" = debian ]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+    # Debian 13 and newer Ubuntu may ship Valkey (the Redis fork, same protocol) in place of Redis.
+    if pkg_available redis-server; then REDIS_PKG=redis-server; REDIS_SERVICE=redis-server; else REDIS_PKG=valkey-server; REDIS_SERVICE=valkey-server; fi
+    [ "$cloudflare" = 1 ] && extra+=(python3-certbot-dns-cloudflare)
+    [ "$git" = 1 ] && extra+=(git)
+    pkg_install curl ca-certificates gnupg openssl sudo nginx "$REDIS_PKG" ufw certbot python3 python3-certbot-nginx "${extra[@]}"
+    FIREWALL_TOOL=ufw
+  else
+    # Certbot and its plugins come from EPEL; some of their Python dependencies from CRB.
+    pkg_install epel-release dnf-plugins-core
+    dnf config-manager --set-enabled crb >/dev/null 2>&1 || note 'could not enable the CRB repository; continuing'
+    # RHEL 10 replaced Redis with Valkey (the Redis fork, same protocol and port).
+    if pkg_available redis; then REDIS_PKG=redis; REDIS_SERVICE=redis; else REDIS_PKG=valkey; REDIS_SERVICE=valkey; fi
+    [ "$cloudflare" = 1 ] && extra+=(python3-certbot-dns-cloudflare)
+    [ "$git" = 1 ] && extra+=(git)
+    # curl is already there as curl-minimal; asking for the full package would conflict with it.
+    command -v curl >/dev/null 2>&1 || extra+=(curl)
+    pkg_install ca-certificates gnupg2 openssl sudo tar hostname util-linux nginx "$REDIS_PKG" firewalld certbot python3 python3-certbot-nginx "${extra[@]}"
+    FIREWALL_TOOL=firewalld
+  fi
+}
+
+node22_ready() { node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 22 ? 0 : 1)' 2>/dev/null; }
+platform_node() {
+  node22_ready && return 0
+  if [ "$PLATFORM" = debian ]; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+    pkg_install nodejs
+  else
+    # The system's own Node.js 22 first (an AppStream module on 9, the default on 10), NodeSource otherwise.
+    if [ "$OS_MAJOR" = 9 ]; then dnf -y -q module reset nodejs >/dev/null 2>&1 || true; dnf -y -q module enable nodejs:22 >/dev/null 2>&1 || true; fi
+    pkg_install nodejs npm || true
+    if ! node22_ready; then
+      curl -fsSL https://rpm.nodesource.com/setup_22.x | bash - >/dev/null
+      dnf install -y -q --allowerasing nodejs >/dev/null
+    fi
+  fi
+  node22_ready || die 'Node.js 22 could not be installed'
+}
+
+# PostgreSQL 17 from the PostgreSQL project's own repository, its service name and where its programs are.
+platform_postgres() {
+  if [ "$PLATFORM" = debian ]; then
+    PG_SERVICE=postgresql
+    if ! command -v pg_ctlcluster >/dev/null 2>&1 || [ ! -x /usr/lib/postgresql/17/bin/postgres ]; then
+      install -d /usr/share/postgresql-common/pgdg
+      curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+      echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+      apt-get update -qq
+      pkg_install postgresql-17
+    fi
+    return 0
+  fi
+  PG_SERVICE=postgresql-17
+  if [ ! -x /usr/pgsql-17/bin/postgres ]; then
+    if ! rpm -q pgdg-redhat-repo >/dev/null 2>&1; then
+      dnf install -y -q "https://download.postgresql.org/pub/repos/yum/reporpms/EL-${OS_MAJOR}-$(uname -m)/pgdg-redhat-repo-latest.noarch.rpm" >/dev/null
+    fi
+    # On 9 the system's own PostgreSQL module would hide the project's packages.
+    dnf -y -q module disable postgresql >/dev/null 2>&1 || true
+    pkg_install postgresql17-server postgresql17
+  fi
+  if [ ! -s /var/lib/pgsql/17/data/PG_VERSION ]; then
+    # Same rules as Debian's clusters: the local postgres account by peer, network logins with a password.
+    PGSETUP_INITDB_OPTIONS='--auth-local=peer --auth-host=scram-sha-256 --encoding=UTF8' /usr/pgsql-17/bin/postgresql-17-setup initdb >/dev/null
+  fi
+  # sudo searches only /usr/sbin and /usr/bin here; backups and the installer call these by name.
+  local tool
+  for tool in psql pg_dump pg_restore; do
+    [ -e "/usr/bin/$tool" ] || ln -s "/usr/pgsql-17/bin/$tool" "/usr/bin/$tool"
+  done
+}
+
+platform_services() { systemctl enable --now "$PG_SERVICE" "$REDIS_SERVICE" >/dev/null; }
+
+# Opens the SSH ports in use plus web ports; $@ = TCP ports.
+platform_firewall() {
+  local port
+  if [ "$FIREWALL_TOOL" = ufw ]; then
+    for port in "$@"; do ufw allow "$port/tcp" >/dev/null; done
+    ufw allow OpenSSH >/dev/null 2>&1 || true
+    ufw --force enable >/dev/null || note "the firewall could not be enabled; open only the ports: $*"
+  else
+    systemctl enable --now firewalld >/dev/null 2>&1 || { note "firewalld could not be started; open only the ports: $*"; return 0; }
+    for port in "$@"; do firewall-cmd -q --permanent --add-port="$port/tcp"; done
+    firewall-cmd -q --permanent --add-service=ssh >/dev/null 2>&1 || true
+    firewall-cmd -q --reload
+  fi
+}
+
+# The site files live in sites-available/sites-enabled on every system (mobocom-webctl writes them there).
+# On AlmaLinux nginx reads only conf.d, so one include joins them; SELinux must let nginx reach the app.
+platform_nginx() {
+  install -d -m 755 /etc/nginx/sites-available /etc/nginx/sites-enabled
+  if [ "$PLATFORM" = rhel ]; then
+    printf '%s\n' '# MoboCom: sites managed in sites-available/sites-enabled (mobocom-webctl).' 'include /etc/nginx/sites-enabled/*;' > /etc/nginx/conf.d/mobocom-sites.conf
+    chmod 644 /etc/nginx/conf.d/mobocom-sites.conf
+    if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce)" != Disabled ]; then
+      setsebool -P httpd_can_network_connect 1 || die 'SELinux refused to let nginx reach the application (httpd_can_network_connect)'
+    fi
+  fi
+  systemctl enable --now nginx >/dev/null
+}
+
+# A swap file for the build; XFS (AlmaLinux) needs a written file, fallocate is enough elsewhere.
+platform_swap() {
+  if fallocate -l 4G /swapfile 2>/dev/null && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile 2>/dev/null; then return 0; fi
+  swapoff /swapfile 2>/dev/null || true; rm -f /swapfile
+  dd if=/dev/zero of=/swapfile bs=1M count=4096 status=none && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+}
+
+# sudo's search path on AlmaLinux leaves out /usr/local/bin, so "sudo mobocom" needs a name in /usr/bin too.
+platform_command_link() {
+  if [ "$PLATFORM" = rhel ] && [ ! -e /usr/bin/mobocom ]; then ln -s /usr/local/bin/mobocom /usr/bin/mobocom; fi
+}

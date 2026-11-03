@@ -148,7 +148,7 @@ cmd_status() {
   command -v nginx >/dev/null 2>&1 && nginx=1
   command -v certbot >/dev/null 2>&1 && certbot=1
   { python3 -c 'import certbot_dns_cloudflare' >/dev/null 2>&1 || [ -d /usr/lib/python3/dist-packages/certbot_dns_cloudflare ]; } && cf=1
-  systemctl is-active --quiet certbot.timer 2>/dev/null && timer=1
+  { systemctl is-active --quiet certbot.timer 2>/dev/null || systemctl is-active --quiet certbot-renew.timer 2>/dev/null; } && timer=1
   ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
   printf '{"nginx":%s,"certbot":%s,"cloudflare":%s,"renewTimer":%s,"ip":"%s","cfCredentials":%s,"safeDnsCredentials":1}\n' "$nginx" "$certbot" "$cf" "$timer" "$ip" "$([ -s "$CF_INI" ] && echo 1 || echo 0)"
 }

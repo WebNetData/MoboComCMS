@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Installs MoboComCMS on a fresh Ubuntu 22.04, 24.04 or 26.04 LTS server with one command.
+# Installs MoboComCMS on a fresh Ubuntu 22.04/24.04/26.04 LTS, Debian 12/13 or AlmaLinux 9/10 server.
 #
-#   sudo bash install.sh
+#   sudo bash install.sh        (or the one-line command in docs/INSTALL-FA.md, which runs this file)
 #   Domain, email and SSL are entered in the web wizard. Explicit options below keep legacy deployment supported.
 #
 # Options:
@@ -45,6 +45,9 @@ BACKUP_DIR="${HOST_BACKUP_DIR:-/var/backups/mobocom}"
 say() { printf '\n==> %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
 die() { printf '\n[install] %s\n' "$*" >&2; exit 1; }
+# Packages, services and firewall of each supported system; part of the same trusted bundle as this file.
+[ -f "$BUNDLE_DIR/platform.sh" ] || die 'platform.sh is missing next to install.sh; use the complete installer bundle'
+. "$BUNDLE_DIR/platform.sh"
 installed_version() {
   as_app node -e 'try { const value=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).version; if(typeof value!=="string"||value.length>40||!/^\d+\.\d+\.\d+$/.test(value))throw Error(); process.stdout.write(value) } catch { console.error("[install] installed version is invalid"); process.exit(2) }' "$APP_DIR/package.json"
 }
@@ -82,6 +85,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ "$(id -u)" -eq 0 ] || die "run this as root: sudo bash install.sh"
+# Commands run as the service user start in this folder; it may not read the caller's (/root, a private home).
+cd /
 # The supplied systemd units have fixed paths/users. Do not silently install mismatched units.
 [ "$APP_USER" = mobocom ] && [ "$HOME_DIR" = /opt/mobocom ] || die 'automatic installation uses mobocom and /opt/mobocom; use the manual guide for custom paths'
 [[ "$BACKUP_DIR" = /* ]] && [[ "$BACKUP_DIR" != *[[:space:]\'\"\$\`\\]* ]] || die 'invalid absolute host backup path'
@@ -89,10 +94,7 @@ case "$BACKUP_DIR/" in /opt/mobocom/*) die 'host backups must be outside the ser
 exec 9>/run/lock/mobocom-install.lock
 flock -n 9 || die 'another installation is running'
 . /etc/os-release
-case "${ID:-}:${VERSION_ID:-}" in
-  ubuntu:22.04|ubuntu:24.04|ubuntu:26.04) ;;
-  *) die "this installer supports Ubuntu 22.04, 24.04 and 26.04 LTS; see docs/DEPLOY-COOLIFY.md or docs/DEPLOY-VPS-HOST-FA.md for other systems" ;;
-esac
+platform_admit
 
 if [ "$DOMAIN_GIVEN" = 0 ]; then WEB_SETUP=1; SSL=0; fi
 if [ "$WEB_SETUP" = 0 ]; then
@@ -114,31 +116,20 @@ if [ "$RESUME_UNINSTALLED" = 1 ]; then [ -n "$PACKAGE" ] || die '--resume-uninst
 FREE_GB="$(df -Pk / | awk 'NR==2 {print int($4 / 1048576)}')"
 [ "$FREE_GB" -ge 15 ] || die "only ${FREE_GB} GB free on the disk; at least 15 GB is needed"
 
-say "Packages"
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq curl ca-certificates gnupg openssl sudo nginx redis-server ufw certbot python3 python3-certbot-nginx >/dev/null
-if [ "$WEB_SETUP" = 1 ]; then apt-get install -y -qq python3-certbot-dns-cloudflare >/dev/null; fi
+say "Packages (${PRETTY_NAME:-$ID $VERSION_ID})"
+platform_packages "$WEB_SETUP" "$([ -z "$PACKAGE" ] && printf 1 || printf 0)"
 if [ -z "$PACKAGE" ]; then
-  apt-get install -y -qq git >/dev/null
   git check-ref-format --branch "$BRANCH" >/dev/null || die 'invalid branch'
 fi
 
-if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 22 ? 0 : 1)' 2>/dev/null; then
+if ! node22_ready; then
   say "Node.js 22"
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
-  apt-get install -y -qq nodejs >/dev/null
+  platform_node
 fi
 
-if ! command -v pg_ctlcluster >/dev/null 2>&1 || [ ! -x /usr/lib/postgresql/17/bin/postgres ]; then
-  say "PostgreSQL 17"
-  install -d /usr/share/postgresql-common/pgdg
-  curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
-  echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
-  apt-get update -qq
-  apt-get install -y -qq postgresql-17 >/dev/null
-fi
-systemctl enable --now postgresql redis-server >/dev/null
+say "PostgreSQL 17 and $REDIS_PKG"
+platform_postgres
+platform_services
 if [ "$WEB_SETUP" = 1 ]; then
   SETUP_ORIGIN="$(node -e 'const addresses=Object.values(require("node:os").networkInterfaces()).flat().filter(a=>a&&!a.internal); const a=addresses.find(a=>a.family==="IPv4")||addresses[0]; if(!a)process.exit(1); process.stdout.write("https://"+(a.family==="IPv6"?"["+a.address+"]":a.address)+":8443")')" || die 'cannot determine a non-loopback server address'
 fi
@@ -147,7 +138,7 @@ MEMORY_MB="$(awk '/MemTotal/ {print int($2 / 1024)}' /proc/meminfo)"
 SWAP_MB="$(awk '/SwapTotal/ {print int($2 / 1024)}' /proc/meminfo)"
 if [ $((MEMORY_MB + SWAP_MB)) -lt 6000 ] && [ ! -e /swapfile ]; then
   say "Swap (building the site needs more memory than this server has)"
-  if fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile; then
+  if platform_swap; then
     echo '/swapfile none swap sw 0 0' >> /etc/fstab
   else
     rm -f /swapfile
@@ -160,13 +151,12 @@ if [ "$FIREWALL" = 1 ]; then
   # Whatever port this very connection uses stays open, not only the default one.
   SSH_PORTS="$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2}')" || die 'cannot inspect SSH ports; firewall left unchanged'
   [ -n "$SSH_PORTS" ] || die 'no SSH ports detected; firewall left unchanged'
-  for port in $SSH_PORTS; do ufw allow "$port/tcp" >/dev/null; done
-  ufw allow OpenSSH >/dev/null 2>&1 || true
-  ufw allow 80/tcp >/dev/null
-  ufw allow 443/tcp >/dev/null
-  if [ "$WEB_SETUP" = 1 ]; then ufw allow 8443/tcp >/dev/null; fi
-  ufw --force enable >/dev/null || note "the firewall could not be enabled; open only ports 22, 80 and 443"
+  # shellcheck disable=SC2086 # one port per word
+  platform_firewall $SSH_PORTS 80 443 $([ "$WEB_SETUP" = 1 ] && printf 8443)
 fi
+
+say "Web server"
+platform_nginx
 
 say "Service user and code"
 id "$APP_USER" >/dev/null 2>&1 || useradd --system --create-home --home-dir "$HOME_DIR" --shell /bin/bash "$APP_USER"
@@ -283,7 +273,7 @@ CREATE USER mobocom WITH PASSWORD '$DB_PASS';
 EOF
 fi
 if [ "$(sudo -u postgres psql -tAc "select 1 from pg_database where datname='mobocom'")" != "1" ]; then
-  sudo -u postgres createdb -O mobocom mobocom
+  sudo -u postgres psql -q -v ON_ERROR_STOP=1 -c 'CREATE DATABASE mobocom OWNER mobocom'
 else
   note "database already present; left as it is"
 fi
@@ -317,7 +307,7 @@ say "Service, backups and the mobocom command"
 if [ -z "${ROOT_ASSETS:-}" ]; then
 ROOT_ASSETS="$(mktemp -d /root/mobocom-install.XXXXXXXX)"
 trap 'rm -rf -- "$ROOT_ASSETS"' EXIT
-if [ -z "$REPO" ]; then REPO="$(as_app git remote get-url origin)"; fi
+if [ -z "$REPO" ]; then REPO="$(as_app git -C "$APP_DIR" remote get-url origin)"; fi
 [[ "$REPO" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ || "$REPO" =~ ^git@github.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || die 'untrusted repository URL'
 printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$ROOT_ASSETS/known_hosts"
 GIT_SSH_COMMAND="ssh -i /opt/mobocom/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT_ASSETS/known_hosts" GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --no-checkout --depth 1 --branch "$BRANCH" -- "$REPO" "$ROOT_ASSETS/repo"
@@ -336,6 +326,7 @@ if [ "$WEB_SETUP" = 1 ]; then
   if [ -f "$APP_DIR/storage/config/installed.lock" ]; then bash "$ROOT_ASSETS/web-setup-install.sh" closed; else bash "$ROOT_ASSETS/web-setup-install.sh" open; fi
 fi
 install -m 755 -o root -g root "$ROOT_ASSETS/mobocom" /usr/local/bin/mobocom
+platform_command_link
 if [ "$NEW_PACKAGE_INSTALL" = 1 ] || [ "$ADOPT_INVENTORY" = 1 ]; then
   as_app mkdir -p "$APP_DIR/storage/update"
   as_app node /usr/local/lib/mobocom/release-package.cjs inventory "$APP_DIR" "$APP_DIR/storage/update/current-files.json"
@@ -354,7 +345,7 @@ printf '\n'
 [ "$READY" = 1 ] || die "the site did not start; see: sudo journalctl -u mobocom -n 80 --no-pager"
 
 if [ "$WEB_SETUP" = 0 ]; then
-say "Web server"
+say "Site address"
 SITE=/etc/nginx/sites-available/mobocom
 if [ ! -f "$SITE" ]; then
   sed "s/example\.com/$DOMAIN/g" "$ROOT_ASSETS/nginx-mobocom.conf" > "$SITE"
@@ -395,4 +386,5 @@ if [ -f "$TOKEN_FILE" ] && [ ! -f "$APP_DIR/storage/config/installed.lock" ]; th
   note "The page closes for good after the first administrator is created."
 fi
 note "Keep a copy of $ENV_FILE outside this server now, and never change PANEL_CREDENTIAL_KEY."
-note "Status: sudo mobocom status   Update: sudo mobocom update   Guide: docs/UPGRADE-FA.md"
+note "Status: sudo mobocom status   Update: sudo mobocom update   Versions: sudo mobocom versions"
+note "Back to an earlier version: sudo mobocom downgrade VERSION   Guide: docs/UPGRADE-FA.md"
