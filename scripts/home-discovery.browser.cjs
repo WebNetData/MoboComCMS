@@ -102,7 +102,7 @@ async function main() {
         }
       }
       await page.evaluate(() => { document.querySelectorAll('.mbx-products,.mbx-posters').forEach(el => { el.scrollLeft = 0 }); scrollTo({ top: 0, behavior: 'instant' }) })
-      await page.screenshot({ path: path.join(output, `${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
+      await page.screenshot({ caret: 'initial', path: path.join(output, `${theme}-${width}.png`), fullPage: true, animations: 'disabled' })
       await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') })
       const violations = await page.evaluate(async () => (await window.axe.run(document.querySelector('main'), { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) })))
       results.push({ theme, width, layout, palette, violations })

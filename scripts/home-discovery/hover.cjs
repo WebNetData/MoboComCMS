@@ -19,7 +19,7 @@ module.exports = async function hoverChecks(browser, { baseURL, output, errors }
       const feature = page.locator('.muv-feature')
       await feature.hover()
       await expect.poll(() => feature.locator('img').evaluate(el => new DOMMatrixReadOnly(getComputedStyle(el).transform).a)).toBeGreaterThan(1)
-      await page.screenshot({ path: path.join(output, `hover-${theme}-hero.png`), animations: 'disabled' })
+      await page.screenshot({ caret: 'initial', path: path.join(output, `hover-${theme}-hero.png`), animations: 'disabled' })
       const cards = []
       for (const selector of ['.muv-service', '.muv-highlight', '.mvl-store .mbx-product', '.mvl-community .mbx-post', '.mvl-journal .mbx-article:not(.is-lead)']) {
         const card = page.locator(selector).first()

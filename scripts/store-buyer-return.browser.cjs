@@ -130,9 +130,9 @@ async function main() {
   const out = process.env.E2E_ARTIFACT_DIR || '.mobocom/buyer-return-results'; fs.mkdirSync(out, { recursive: true })
   for (const theme of ['light', 'dark']) {
     await customer.addCookies([{ name: 'theme', value: theme, url: baseURL }]); await page.reload({ waitUntil: 'domcontentloaded' })
-    await expect(page.locator('.rp-refund')).toBeVisible(); await page.screenshot({ path: path.join(out, `${theme}-1440.png`), fullPage: true })
+    await expect(page.locator('.rp-refund')).toBeVisible(); await page.screenshot({ caret: 'initial', path: path.join(out, `${theme}-1440.png`), fullPage: true })
   }
-  await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: path.join(out, 'dark-390.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ caret: 'initial', path: path.join(out, 'dark-390.png'), fullPage: true })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false)
   assert.deepEqual(errors, [])
   console.log('Real buyer return: wallet checkout/replay, encrypted-code delivery/privacy, customer return, staff approval/refund/replay, preserved amounts and voided code; light/dark/mobile passed')
