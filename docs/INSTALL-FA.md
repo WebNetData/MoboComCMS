@@ -54,7 +54,7 @@
 
 نصب بسته‌ای به Git، حساب GitHub، Deploy Key یا توکن مخزن نیاز ندارد. یک فایل نصب روی سرور اجرا می‌کنید و ساخت مدیر و تنظیمات سایت را در مرورگر تمام می‌کنید. دسترسی به مخازن Ubuntu، Node.js، PostgreSQL و npm برای پیش‌نیازها لازم است؛ نصب کاملاً آفلاین نیست.
 
-**فایل نصب:** از Assets نسخهٔ موردنظر در [GitHub Releases](https://github.com/WebNetData/MoboComCMS/releases)، فایل `mobocom-setup-VERSION.run` و checksum همراهش را بگیرید. مخزن خصوصی است؛ دانلود را روی کامپیوتر با حساب دارای دسترسی انجام دهید، سپس فایل را به سرور منتقل کنید. ZIP خودکار سورس فایل نصب نیست. [دریافت فایل‌ها و روند نسخه‌های بعدی](RELEASES-FA.md).
+**فایل نصب:** از Assets نسخهٔ موردنظر در [GitHub Releases](https://github.com/WebNetData/MoboComCMS/releases)، فایل `mobocom-setup-VERSION.run` و checksum همراهش را بگیرید. فایل را روی کامپیوتر خود دانلود کنید و سپس به سرور منتقل کنید. ZIP خودکار سورس فایل نصب نیست. [دریافت فایل‌ها و روند نسخه‌های بعدی](RELEASES-FA.md).
 
 ## پیش‌نیاز
 
