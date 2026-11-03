@@ -85,6 +85,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ "$(id -u)" -eq 0 ] || die "run this as root: sudo bash install.sh"
+# Commands run as the service user start in this folder; it may not read the caller's (/root, a private home).
+cd /
 # The supplied systemd units have fixed paths/users. Do not silently install mismatched units.
 [ "$APP_USER" = mobocom ] && [ "$HOME_DIR" = /opt/mobocom ] || die 'automatic installation uses mobocom and /opt/mobocom; use the manual guide for custom paths'
 [[ "$BACKUP_DIR" = /* ]] && [[ "$BACKUP_DIR" != *[[:space:]\'\"\$\`\\]* ]] || die 'invalid absolute host backup path'
@@ -305,7 +307,7 @@ say "Service, backups and the mobocom command"
 if [ -z "${ROOT_ASSETS:-}" ]; then
 ROOT_ASSETS="$(mktemp -d /root/mobocom-install.XXXXXXXX)"
 trap 'rm -rf -- "$ROOT_ASSETS"' EXIT
-if [ -z "$REPO" ]; then REPO="$(as_app git remote get-url origin)"; fi
+if [ -z "$REPO" ]; then REPO="$(as_app git -C "$APP_DIR" remote get-url origin)"; fi
 [[ "$REPO" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ || "$REPO" =~ ^git@github.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || die 'untrusted repository URL'
 printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$ROOT_ASSETS/known_hosts"
 GIT_SSH_COMMAND="ssh -i /opt/mobocom/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT_ASSETS/known_hosts" GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --no-checkout --depth 1 --branch "$BRANCH" -- "$REPO" "$ROOT_ASSETS/repo"

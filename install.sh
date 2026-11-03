@@ -15,9 +15,13 @@
 # there. On an installed server it first refreshes the root-owned "mobocom" command from that code when newer.
 set -euo pipefail
 
+# The private download folder; global, because the cleanup on exit runs after main's own variables are gone.
+WORK=''
+cleanup() { if [ -n "$WORK" ]; then rm -rf -- "$WORK"; fi; }
+
 # Everything is inside main, so a download cut off half way runs nothing.
 main() {
-  local repo=https://github.com/WebNetData/MoboComCMS.git ref="${MOBOCOM_REF:-main}" action=install work bundle arg
+  local repo=https://github.com/WebNetData/MoboComCMS.git ref="${MOBOCOM_REF:-main}" action=install bundle arg
   die() { printf '\n[mobocom] %s\n' "$*" >&2; exit 1; }
   [ "$(id -u)" -eq 0 ] || die 'run it as root: curl -fsSL .../install.sh | sudo bash'
   [[ "$ref" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$ ]] && [[ "$ref" != *..* ]] || die 'invalid MOBOCOM_REF'
@@ -38,12 +42,12 @@ main() {
     esac
   fi
 
-  work="$(mktemp -d /root/mobocom-get.XXXXXXXX)"
-  trap 'rm -rf -- "$work"' EXIT
+  WORK="$(mktemp -d /root/mobocom-get.XXXXXXXX)"
+  trap cleanup EXIT
   printf '==> Fetching MoboComCMS (%s)\n' "$ref"
-  GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --depth 1 --branch "$ref" -- "$repo" "$work/src" </dev/null \
+  GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --depth 1 --branch "$ref" -- "$repo" "$WORK/src" </dev/null \
     || die "could not fetch $repo ($ref); check that this server can reach github.com"
-  bundle="$work/src/deploy/ubuntu"
+  bundle="$WORK/src/deploy/ubuntu"
 
   # Questions (a private repository's key, a legacy e-mail) go to the keyboard, not to the downloaded script.
   local input=/dev/null

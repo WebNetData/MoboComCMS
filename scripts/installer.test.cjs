@@ -47,6 +47,9 @@ test('the one-line installer runs nothing before it is fully read, fetches over 
   const lines = wrapper.trimEnd().split('\n')
   assert.equal(lines[lines.length - 1], 'main "$@"', 'the only top-level call is the last line')
   assert.equal(lines.filter((line) => /^[a-z_]+ "\$@"$/.test(line)).length, 1)
+  // The cleanup on exit runs after main's own variables are gone, so the folder it removes is a global.
+  assert.match(wrapper, /^WORK=''$/m); assert.match(wrapper, /\n  trap cleanup EXIT\n/)
+  assert.doesNotMatch(wrapper, /local [^\n]*\bWORK\b/)
   assert.match(wrapper, /local repo=https:\/\/github\.com\/WebNetData\/MoboComCMS\.git /)
   assert.doesNotMatch(wrapper, /http:\/\/|\beval /, 'no plain HTTP or eval')
   assert.match(wrapper, /\[ "\$ref" = main \] \|\| \[ "\$given" = 1 \] \|\| args\+=\(--branch "\$ref"\)/)
