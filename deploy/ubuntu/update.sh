@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Update a branch-based Ubuntu checkout. Keep the database backup before any code change.
 # Run as the mobocom user from /opt/mobocom/app: bash deploy/ubuntu/update.sh (or, as root: mobocom update)
-# UPDATE_ROLLBACK_TO=<commit> goes back to an earlier application commit the same safe way (mobocom rollback).
+# UPDATE_ROLLBACK_TO=<commit> goes back to an earlier application commit the same safe way (mobocom rollback,
+# mobocom downgrade); UPDATE_TO=<commit> moves to one exact newer commit, such as a release tag (mobocom update VERSION).
 set -euo pipefail
 # Parse the complete operation before checkout can replace this script on disk.
 main() {
@@ -21,11 +22,14 @@ HEALTH="${UPDATE_HEALTH_URL:-http://127.0.0.1:3000/api/health/ready}"
 TRIES="${UPDATE_HEALTH_TRIES:-120}"
 MIN_FREE_MB="${UPDATE_MIN_FREE_MB:-4096}"
 ROLLBACK_TO="${UPDATE_ROLLBACK_TO:-}"
+TO_COMMIT="${UPDATE_TO:-}"
 
 git check-ref-format --branch "$BRANCH" >/dev/null || { echo '[update] invalid branch' >&2; exit 2; }
 [[ "$TRIES" =~ ^[1-9][0-9]{0,2}$ ]] || { echo '[update] invalid health attempt count' >&2; exit 2; }
 [[ "$MIN_FREE_MB" =~ ^[0-9]{1,7}$ ]] || { echo '[update] invalid free space limit' >&2; exit 2; }
 [ -z "$ROLLBACK_TO" ] || [[ "$ROLLBACK_TO" =~ ^[0-9a-f]{7,40}$ ]] || { echo '[update] invalid commit' >&2; exit 2; }
+[ -z "$TO_COMMIT" ] || [[ "$TO_COMMIT" =~ ^[0-9a-f]{7,40}$ ]] || { echo '[update] invalid commit' >&2; exit 2; }
+[ -z "$ROLLBACK_TO" ] || [ -z "$TO_COMMIT" ] || { echo '[update] choose one target commit' >&2; exit 2; }
 PREV="$(git rev-parse --verify HEAD)"
 PREV_BRANCH="$(git symbolic-ref -q --short HEAD || true)"
 clean() { [ -z "$(git status --porcelain --untracked-files=normal)" ]; }
@@ -91,17 +95,18 @@ rollback() {
 # Remembered for "mobocom rollback" (storage/update is kept across updates and is not part of the code).
 remember() { printf '%s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PREV" "$(git rev-parse HEAD)" >> "$(dirname "$LOCK")/history.log"; }
 
-if [ -n "$ROLLBACK_TO" ]; then
-  git rev-parse --verify --quiet "$ROLLBACK_TO^{commit}" >/dev/null || { echo '[update] this commit is not in the repository' >&2; exit 2; }
-  echo '[update] backing up before going back'
+if [ -n "$ROLLBACK_TO$TO_COMMIT" ]; then
+  TARGET="${ROLLBACK_TO:-$TO_COMMIT}"
+  git rev-parse --verify --quiet "$TARGET^{commit}" >/dev/null || { echo '[update] this commit is not in the repository' >&2; exit 2; }
+  if [ -n "$ROLLBACK_TO" ]; then echo '[update] backing up before going back'; else echo '[update] backing up before code replacement'; fi
   bash -c "$BACKUP"
   clean || { echo '[update] local changes appeared during backup' >&2; exit 2; }
-  echo "[update] going back to $ROLLBACK_TO"
-  git checkout --quiet --detach "$ROLLBACK_TO"
+  if [ -n "$ROLLBACK_TO" ]; then echo "[update] going back to $TARGET"; else echo "[update] switching to $TARGET"; fi
+  git checkout --quiet --detach "$TARGET"
   CHECKED_SHA="$(git rev-parse HEAD)"
   if build_and_start; then
     remember
-    echo '[update] healthy on the earlier version; database changes were not reversed'
+    if [ -n "$ROLLBACK_TO" ]; then echo '[update] healthy on the earlier version; database changes were not reversed'; else echo '[update] healthy'; fi
     exit 0
   fi
   rollback || echo '[update] application rollback failed' >&2

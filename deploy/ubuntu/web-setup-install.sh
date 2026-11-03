@@ -27,5 +27,8 @@ chmod 644 /etc/systemd/system/mobocom.service.d/web-setup.conf
 printf '#!/bin/sh\nexec systemctl reload nginx\n' > /etc/letsencrypt/renewal-hooks/deploy/mobocom-reload-nginx
 chmod 755 /etc/letsencrypt/renewal-hooks/deploy/mobocom-reload-nginx
 systemctl daemon-reload
-systemctl enable --now certbot.timer nginx >/dev/null
+# Debian and Ubuntu name the renewal timer certbot.timer; EPEL (AlmaLinux) names it certbot-renew.timer.
+RENEW_TIMER=certbot.timer
+systemctl cat certbot.timer >/dev/null 2>&1 || RENEW_TIMER=certbot-renew.timer
+systemctl enable --now "$RENEW_TIMER" nginx >/dev/null
 if [ "${1:-open}" = closed ]; then /usr/local/sbin/mobocom-webctl setup-close; else /usr/local/sbin/mobocom-webctl setup-open; fi

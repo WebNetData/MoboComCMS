@@ -16,29 +16,61 @@ function load(relative) {
 const i = load('src/modules/installer/domain/installer.ts')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
-// Execute the actual admission branch without root, OS-file changes, apt or service mutations.
+// Execute the actual admission of the platform layer install.sh sources, without root, OS-file changes or packages.
 function hostAdmission(id, version) {
-  const installer = read('deploy/ubuntu/install.sh').replace(/\r\n/g, '\n')
-  const branch = installer.match(/case "\$\{ID:-\}:\$\{VERSION_ID:-\}" in[\s\S]*?\nesac/)
-  assert.ok(branch, 'host OS admission exists')
-  return require('node:child_process').spawnSync('bash', ['-c', `die() { printf '%s\\n' "$*" >&2; exit 1; }; ${branch[0]}`], {
-    encoding: 'utf8', env: { ...process.env, ID: id, VERSION_ID: version },
+  assert.match(read('deploy/ubuntu/install.sh'), /\. "\$BUNDLE_DIR\/platform\.sh"[\s\S]*\nplatform_admit\n/, 'install.sh admits the system through platform.sh')
+  return require('node:child_process').spawnSync('bash', ['-c', `die() { printf '%s\\n' "$*" >&2; exit 1; }; . deploy/ubuntu/platform.sh; platform_admit; printf '%s %s' "$PLATFORM" "$OS_MAJOR"`], {
+    cwd: root, encoding: 'utf8', env: { ...process.env, ID: id, VERSION_ID: version },
   })
 }
 
-test('host installer accepts supported Ubuntu LTS releases including 26.04', () => {
-  for (const version of ['22.04', '24.04', '26.04']) {
-    const result = hostAdmission('ubuntu', version)
-    assert.equal(result.status, 0, `${version}: ${result.error || result.stderr}`)
+test('host installer accepts Ubuntu 22.04/24.04/26.04 LTS, Debian 12/13 and AlmaLinux 9/10, each with its package family', () => {
+  for (const [id, version, family] of [['ubuntu', '22.04', 'debian 22'], ['ubuntu', '24.04', 'debian 24'], ['ubuntu', '26.04', 'debian 26'], ['debian', '12', 'debian 12'], ['debian', '13', 'debian 13'],
+    ['almalinux', '9', 'rhel 9'], ['almalinux', '9.6', 'rhel 9'], ['almalinux', '10', 'rhel 10'], ['almalinux', '10.0', 'rhel 10']]) {
+    const result = hostAdmission(id, version)
+    assert.equal(result.status, 0, `${id} ${version}: ${result.error || result.stderr}`)
+    assert.equal(result.stdout, family, `${id} ${version}`)
   }
 })
 
 test('host installer refuses unsupported or unknown systems before package installation', () => {
-  for (const [id, version] of [['ubuntu', '20.04'], ['ubuntu', '25.10'], ['ubuntu', '26.10'], ['ubuntu', ''], ['debian', '26.04'], ['', '26.04']]) {
+  for (const [id, version] of [['ubuntu', '20.04'], ['ubuntu', '25.10'], ['ubuntu', '26.10'], ['ubuntu', ''], ['debian', '11'], ['debian', '26.04'], ['debian', '12.5'],
+    ['almalinux', '8.10'], ['almalinux', '11'], ['almalinux', '9x'], ['rocky', '9.5'], ['centos', '9'], ['fedora', '41'], ['', '26.04'], ['', '']]) {
     const result = hostAdmission(id, version)
     assert.equal(result.status, 1, `${id}:${version}: ${result.error || result.stderr}`)
-    assert.match(result.stderr, /supports Ubuntu 22\.04, 24\.04 and 26\.04 LTS/)
+    assert.match(result.stderr, /supports Ubuntu 22\.04, 24\.04 and 26\.04 LTS, Debian 12 and 13, and AlmaLinux 9 and 10/)
   }
+})
+
+test('the one-line installer runs nothing before it is fully read, fetches over HTTPS only and passes a release ref on', () => {
+  const wrapper = read('install.sh').replace(/\r\n/g, '\n')
+  const lines = wrapper.trimEnd().split('\n')
+  assert.equal(lines[lines.length - 1], 'main "$@"', 'the only top-level call is the last line')
+  assert.equal(lines.filter((line) => /^[a-z_]+ "\$@"$/.test(line)).length, 1)
+  assert.match(wrapper, /local repo=https:\/\/github\.com\/WebNetData\/MoboComCMS\.git /)
+  assert.doesNotMatch(wrapper, /http:\/\/|\beval /, 'no plain HTTP or eval')
+  assert.match(wrapper, /\[ "\$ref" = main \] \|\| \[ "\$given" = 1 \] \|\| args\+=\(--branch "\$ref"\)/)
+  // A crafted ref is refused before any network or package step (the root check is satisfied by a stand-in id).
+  const bad = require('node:child_process').spawnSync('bash', ['-c', 'id() { echo 0; }; export -f id; bash install.sh'], { cwd: root, encoding: 'utf8', env: { ...process.env, MOBOCOM_REF: 'main;rm -rf /' } })
+  assert.equal(bad.status, 1, bad.stderr); assert.match(bad.stderr, /invalid MOBOCOM_REF/)
+})
+
+test('the mobocom command reads release versions strictly and the one-line installer only installs a newer copy of it', () => {
+  const cli = read('deploy/ubuntu/mobocom').replace(/\r\n/g, '\n')
+  const fn = (name) => cli.match(new RegExp(`^${name}\\(\\) \\{.*\\}$`, 'm'))[0]
+  const tag = (value) => require('node:child_process').spawnSync('bash', ['-c', `${fn('version_tag')}; version_tag "$1"`, '_', value], { encoding: 'utf8' })
+  assert.equal(tag('1.6.1').stdout, 'v1.6.1\n'); assert.equal(tag('v2.0.10').stdout, 'v2.0.10\n')
+  for (const value of ['1.6', 'main', 'v1.6.1;id', '1.6.1 ', '../1.6.1', '']) assert.equal(tag(value).status, 1, JSON.stringify(value))
+  assert.match(cli, /^HELPER_VERSION=[2-9]$/m)
+  const wrapper = read('install.sh').replace(/\r\n/g, '\n')
+  const helperVersion = wrapper.match(/^helper_version\(\) \{.*\}$/m)[0]
+  const version = (text) => require('node:child_process').spawnSync('bash', ['-c', `${helperVersion}; f=$(mktemp); printf '%s' "$1" > "$f"; helper_version "$f"; rm -f "$f"`, '_', text], { encoding: 'utf8' }).stdout.trim()
+  assert.equal(version(cli), cli.match(/^HELPER_VERSION=(\d+)$/m)[1])
+  assert.equal(version('#!/bin/sh\necho old helper\n'), '1')
+  assert.equal(version('HELPER_VERSION=9;rm\n'), '1')
+  // Moving to a release on a checkout whose update script predates UPDATE_TO takes the older exact-commit route.
+  assert.match(cli, /if grep -q 'UPDATE_TO:-' deploy\/ubuntu\/update\.sh; then run_update UPDATE_TO="\$1"; else run_update UPDATE_ROLLBACK_TO="\$1"; fi/)
+  assert.match(read('deploy/ubuntu/update.sh'), /TO_COMMIT="\$\{UPDATE_TO:-\}"/)
 })
 
 test('first-run code is private, stable across starts, and never overwrites an operator token', () => {

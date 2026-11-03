@@ -32,7 +32,7 @@ test('no-domain bootstrap refreshes only unfinished signed source, preserves dat
  const media=path.join(work,'release.mbrelease'),publicKey=path.join(work,'release-public.pem')
  fs.writeFileSync(media,Buffer.concat([header,manifest,crypto.sign(null,manifest,pair.privateKey),payload]));fs.writeFileSync(publicKey,pair.publicKey.export({type:'spki',format:'pem'}))
  const bundle=path.join(work,'bundle');fs.mkdirSync(bundle)
- for(const[from,to]of [['deploy/ubuntu/install.sh','install.sh'],['scripts/release-package.cjs','release-package.cjs'],['deploy/ubuntu/release-extract.py','release-extract.py']])fs.copyFileSync(path.join(root,from),path.join(bundle,to))
+ for(const[from,to]of [['deploy/ubuntu/install.sh','install.sh'],['deploy/ubuntu/platform.sh','platform.sh'],['scripts/release-package.cjs','release-package.cjs'],['deploy/ubuntu/release-extract.py','release-extract.py']])fs.copyFileSync(path.join(root,from),path.join(bundle,to))
  const args=[bundle+'/install.sh','--package',media,'--public-key',publicKey,'--resume-uninstalled','--no-firewall']
  const first=cp.spawnSync('bash',args,{encoding:'utf8',timeout:60000});assert.equal(first.status,0,(first.stdout+first.stderr).replaceAll(privateCode,'[private code]'))
  assert.match(first.stdout,/Open the installation wizard: https:\/\/.+:8443\/install/)

@@ -40,7 +40,7 @@ async function main(){
   await pipeline(fs.createReadStream(path.join(stage,'payload.tar.gz')),fs.createWriteStream(release,{flags:'a'}))
   phase='bootstrap'
   const bundle=path.join(stage,'bootstrap');await fsp.mkdir(bundle,{mode:0o700})
-  const assets={'install.sh':'deploy/ubuntu/install.sh','release-package.cjs':'scripts/release-package.cjs','release-extract.py':'deploy/ubuntu/release-extract.py'}
+  const assets={'install.sh':'deploy/ubuntu/install.sh','platform.sh':'deploy/ubuntu/platform.sh','release-package.cjs':'scripts/release-package.cjs','release-extract.py':'deploy/ubuntu/release-extract.py'}
   for(const [name,file]of Object.entries(assets))await fsp.writeFile(path.join(bundle,name),run('git',['show',`HEAD:${file}`]),{mode:0o600})
   await fsp.copyFile(release,path.join(bundle,'release.mbrelease'));await fsp.writeFile(path.join(bundle,'release-public.pem'),publicPem)
   run(python,['-c',"import tarfile,sys,pathlib; root=pathlib.Path(sys.argv[1]); t=tarfile.open(sys.argv[2],'w:gz'); [t.add(p,arcname=p.name,recursive=False) for p in sorted(root.iterdir())]; t.close()",bundle,path.join(stage,'bootstrap.tar.gz')])
