@@ -338,12 +338,13 @@ html[data-design] .user-shell .side-foot { flex-shrink: 0; margin-top: 10px; pad
 .wl-brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; margin-bottom: 8px; width: fit-content; }
 .wl-head h1 { margin: 0; font-size: clamp(21px, 2.6vw, 27px); letter-spacing: -.02em; }
 .wl-head p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.9; }
-.wl-badge { width: fit-content; padding: 4px 12px; border-radius: 99px; background: color-mix(in srgb, #d97706 16%, transparent); color: #d97706; font-size: 12.5px; font-weight: 800; }
+.wl-badge { width: fit-content; padding: 4px 12px; border-radius: 99px; background: var(--primary-soft); color: var(--text); font-size: 12.5px; font-weight: 800; }
 .wl-section { display: grid; gap: 14px; margin: 0; padding: 18px 0 0; border: 0; border-top: 1px solid var(--border); min-width: 0; }
 .wl-section legend { padding: 0; margin-bottom: 4px; }
 .wl-section h2 { margin: 0; font-size: 16px; }
 .wl-help { margin: -6px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
 .wl-field { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.wl-field .auth-input .input { padding-inline-start: 44px; }
 .wl-field > label, .wl-label { font-weight: 700; font-size: 13px; }
 .wl-field > small { color: var(--muted); font-size: 12px; }
 .wl-wide { grid-column: 1 / -1; }

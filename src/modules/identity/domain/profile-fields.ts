@@ -8,6 +8,10 @@ export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'c
 /** Built-ins map onto real account data; custom fields live in User.profileData. */
 export type BuiltinKey = 'firstName' | 'lastName' | 'username' | 'email' | 'address'
 
+export class CompletionError extends Error {
+  constructor(message: string, readonly errors: Record<string, string>, readonly status = 422) { super(message) }
+}
+
 export type FieldDef = {
   key: string
   label: string

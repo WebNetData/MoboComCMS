@@ -5,16 +5,14 @@ import { isPhonePlaceholderEmail } from '@/modules/sms/domain/sms'
 import { listAddresses, saveAddress } from '@/modules/shipping/server/shipping'
 import { ShippingError, normalizeMobile } from '@/modules/shipping/domain/shipping'
 import { ProfileError } from '@/modules/identity/domain/profile'
-import { cleanCustomValue, missingRequired, normalizeFieldsConfig, splitName, type FieldsConfig, type MemberState } from '@/modules/identity/domain/profile-fields'
+import { CompletionError, cleanCustomValue, missingRequired, normalizeFieldsConfig, splitName, type FieldsConfig, type MemberState } from '@/modules/identity/domain/profile-fields'
+import { completeFirstAccess, firstAccessFields } from '@/modules/identity/server/first-access'
+export { CompletionError } from '@/modules/identity/domain/profile-fields'
 
 // Admin-designed registration fields and the "complete your details" step
 // every new member (SMS sign-ups especially) goes through once.
 
 const KEY = 'profile.fields.v1'
-
-export class CompletionError extends Error {
-  constructor(message: string, readonly errors: Record<string, string>) { super(message) }
-}
 
 export async function getFieldsConfig(): Promise<FieldsConfig> {
   return normalizeFieldsConfig(await readJsonSetting(KEY))
@@ -35,7 +33,7 @@ function parseData(raw: string): Record<string, unknown> {
 }
 
 async function loadMember(userId: number) {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, role: true, profileData: true, profileCompletedAt: true } })
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, role: true, profileData: true, profileCompletedAt: true, passwordSetupRequired: true } })
   if (!user) throw new ProfileError('حساب پیدا نشد', 404)
   const data = parseData(user.profileData)
   const [firstFromName, lastFromName] = splitName(user.name || '')
@@ -48,13 +46,16 @@ async function loadMember(userId: number) {
 
 /** What the completion page needs: enabled fields, current values and what is still missing. */
 export async function completionStatus(userId: number) {
-  const [config, member, profile] = await Promise.all([getFieldsConfig(), loadMember(userId), ensureUserProfile(userId)])
+  const [savedConfig, member, profile] = await Promise.all([getFieldsConfig(), loadMember(userId), ensureUserProfile(userId)])
+  const needsPasswordSetup = member.user.role !== 'ADMIN' && member.user.passwordSetupRequired
+  const config = needsPasswordSetup ? firstAccessFields(savedConfig) : savedConfig
   const missing = missingRequired(config, member.state)
   const defaultAddress = member.addresses.find((address) => address.isDefault) || member.addresses[0] || null
   return {
     // Staff accounts are never blocked by the customer onboarding step.
-    needsCompletion: config.enforce && member.user.role !== 'ADMIN' && missing.length > 0,
-    missing: missing.map((field) => field.key),
+    needsCompletion: needsPasswordSetup || (config.enforce && member.user.role !== 'ADMIN' && missing.length > 0),
+    needsPasswordSetup,
+    missing: [...missing.map((field) => field.key), ...(needsPasswordSetup ? ['password'] : [])],
     intro: config.intro,
     fields: config.fields.filter((field) => field.enabled),
     values: {
@@ -72,6 +73,11 @@ const nameText = (value: unknown) => String(value ?? '').replace(/[\u0000-\u001f
 /** Validates and saves the completion form; throws CompletionError with per-field messages. */
 export async function submitCompletion(userId: number, input: Record<string, unknown>) {
   const [config, member] = await Promise.all([getFieldsConfig(), loadMember(userId)])
+  if (member.user.passwordSetupRequired && member.user.role !== 'ADMIN') {
+    await completeFirstAccess(userId, input)
+    return { ...await completionStatus(userId), signInRequired: true }
+  }
+  if (input.password !== undefined || input.confirmPassword !== undefined) throw new CompletionError('برای تغییر رمز از بخش امنیت حساب استفاده کنید', {}, 409)
   const errors: Record<string, string> = {}
   const data: Record<string, unknown> = { ...member.data }
   const enabled = config.fields.filter((field) => field.enabled)

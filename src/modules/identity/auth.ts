@@ -11,6 +11,7 @@ import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { verifyTurnstile } from '@/modules/identity/server/turnstile'
 import { sessionRevoked } from '@/modules/identity/domain/account-security'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
+import { loginIdentifier } from '@/modules/identity/domain/login-identifier'
 
 /**
  * 2-step sign-in: accounts with an authenticator need its code (or a backup
@@ -49,9 +50,11 @@ export const authOptions: NextAuthOptions = {
         turnstileToken: { label: 'Turnstile token', type: 'text' },
         totp: { label: '2-step code', type: 'text' },
       },
-            async authorize(credentials, req) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
-        const email = credentials.email.toLowerCase()
+        const identity = loginIdentifier(credentials.email)
+        if (!identity) return null
+        const email = identity.value
         // Brute-force guard: throttle per IP and per account+IP.
         const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
         if (!(await rateLimitStrict(`login:ip:${ip}`, 30, 10 * 60_000)).ok) return null
@@ -59,12 +62,12 @@ export const authOptions: NextAuthOptions = {
         // One account, many addresses: a guess spread over a botnet still meets a limit on the account itself.
         if (!(await rateLimitStrict(`login:account:${email}`, 30, 15 * 60_000)).ok) return null
         if (!await verifyTurnstile(credentials.turnstileToken, new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}), 'login')) return null
-        const user = await db.user.findUnique({
-          where: { email },
-          include: { roleRef: true },
-        })
+        const candidates = identity.kind === 'phone' ? await db.user.findMany({ where: { phone: identity.value, phoneVerifiedAt: { not: null } }, include: { roleRef: true }, take: 2 }) : []
+        const user = identity.kind === 'email'
+          ? await db.user.findUnique({ where: { email }, include: { roleRef: true } })
+          : candidates.length === 1 ? candidates[0] : null
         if (!user) return null
-        if (user.status !== 'ACTIVE') return null
+        if (user.status !== 'ACTIVE' || user.passwordSetupRequired) return null
         const ok = await bcrypt.compare(credentials.password, user.passwordHash)
         if (!ok) return null
         await secondFactor(user, credentials.totp)

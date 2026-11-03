@@ -230,7 +230,7 @@ async function setNewPassword(userId: number, password: string, via: string) {
   const problem = passwordProblem(password, { email: user.email })
   if (problem) throw new SecurityError(problem)
   // passwordChangedAt signs out every existing session of the account.
-  await db.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(password, 10), passwordChangedAt: new Date() } })
+  await db.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(password, 10), passwordSetupRequired: false, passwordChangedAt: new Date() } })
   await db.passwordReset.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } })
   logEvent('info', 'identity.password_reset', { userId, via })
   const { brand, site } = await siteVars()

@@ -26,6 +26,13 @@ const userGroups = load('src/modules/account/domain/user-groups')
 const audiences = load('src/modules/account/domain/item-audience')
 const sectionAudience = load('src/modules/account/domain/section-access')
 
+test('password login normalizes verified-mobile candidates and email without changing the credential contract', () => {
+  const { loginIdentifier } = load('src/modules/identity/domain/login-identifier')
+  for (const input of ['09123456789', '+989123456789', '00989123456789', '۰۹۱۲۳۴۵۶۷۸۹', '٠٩١٢٣٤٥٦٧٨٩']) assert.deepEqual(loginIdentifier(input), { kind: 'phone', value: '+989123456789' })
+  assert.deepEqual(loginIdentifier('  Member@Example.COM  '), { kind: 'email', value: 'member@example.com' })
+  for (const input of [null, {}, '0912', '', 'person@invalid', 'a'.repeat(255)]) assert.equal(loginIdentifier(input), null)
+})
+
 test('user groups validate bounded capabilities without accepting fractional or negative discounts', () => {
   const group = userGroups.normalizeGroup({ name: 'گروه خریداران' })
   assert.equal(group.discountPercent, 0)

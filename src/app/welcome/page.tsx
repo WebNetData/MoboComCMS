@@ -8,11 +8,12 @@ import { useSite } from '@/components/site/SiteProvider'
 import LocationPicker, { type Pin } from '@/components/site/LocationPicker'
 import { PROVINCES } from '@/modules/shipping/domain/shipping'
 import { authEntryHref, safeNext } from '@/modules/identity/domain/continuation'
+import { PasswordInput } from '@/app/login/AuthFields'
 
 type Field = { key: string; label: string; type: string; builtin?: string; required: boolean; placeholder: string; help: string; options: string[] }
 type Address = { province: string; city: string; address: string; plaque: string; unit: string; postalCode: string; mobile: string; lat: number | null; lng: number | null }
 type Status = {
-  needsCompletion: boolean; missing: string[]; intro: string; fields: Field[]
+  needsCompletion: boolean; needsPasswordSetup: boolean; missing: string[]; intro: string; fields: Field[]
   values: { firstName: string; lastName: string; username: string; email: string; emailLocked: boolean; phone: string; address: (Address & { id: number }) | null; custom: Record<string, string | boolean> }
 }
 
@@ -28,21 +29,27 @@ export default function WelcomePage() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [next, setNext] = useState('/dashboard')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [retry, setRetry] = useState(0)
 
   useEffect(() => {
+    const controller = new AbortController()
     const destination = safeNext(new URLSearchParams(window.location.search).get('next')) || '/dashboard'
     setNext(destination)
-    fetch('/api/profile/completion', { cache: 'no-store' }).then(async (response) => {
+    fetch('/api/profile/completion', { cache: 'no-store', signal: controller.signal }).then(async (response) => {
       if (response.status === 401) { window.location.replace(authEntryHref('/login', destination)); return }
       const data = await response.json().catch(() => null) as Status | null
-      if (!data) { setMessage('بارگذاری انجام نشد؛ صفحه را دوباره باز کنید.'); return }
+      if (controller.signal.aborted) return
+      if (!response.ok || !data?.values) { setMessage('بارگذاری انجام نشد؛ دوباره تلاش کنید.'); return }
       setStatus(data)
       setValues({ firstName: data.values.firstName, lastName: data.values.lastName, username: '', email: data.values.email, ...data.values.custom })
       setAddress(data.values.address ? { ...EMPTY_ADDRESS, ...data.values.address } : { ...EMPTY_ADDRESS, mobile: data.values.phone })
-    }).catch(() => setMessage('ارتباط برقرار نشد.'))
-  }, [])
+    }).catch(() => { if (!controller.signal.aborted) setMessage('ارتباط برقرار نشد.') })
+    return () => controller.abort()
+  }, [retry])
 
-  if (!status) return <main className="wl" dir="rtl"><div className="wl-card"><div className="pp-skeleton" aria-busy="true" />{message && <p className="dash-note is-error">{message}</p>}</div></main>
+  if (!status) return <main className="wl" dir="rtl"><div className="wl-card">{message ? <><p className="dash-note is-error" role="alert">{message}</p><button type="button" className="btn btn-primary" onClick={() => { setMessage(''); setRetry(value => value + 1) }}>تلاش دوباره</button></> : <div className="pp-skeleton" aria-busy="true" role="status" aria-label="در حال دریافت مشخصات" />}</div></main>
 
   const set = (key: string, value: unknown) => { setMessage(''); setValues((current) => ({ ...current, [key]: value })); setErrors((current) => { const copy = { ...current }; delete copy[key]; return copy }) }
   const setAddr = (patch: Partial<Address>) => { setMessage(''); setAddress((current) => ({ ...current, ...patch })); setErrors((current) => { const copy = { ...current }; delete copy.address; return copy }) }
@@ -51,13 +58,13 @@ export default function WelcomePage() {
   const addressField = has('address')
   const custom = status.fields.filter((field) => !field.builtin)
   const req = (field: Field) => field.required ? <b className="wl-req" aria-hidden="true">*</b> : <small className="wl-opt">(اختیاری)</small>
-  const err = (key: string) => errors[key] ? <small className="wl-error" role="alert">{errors[key]}</small> : null
+  const err = (key: string) => errors[key] ? <small id={`wl-${key}-error`} className="wl-error" role="alert">{errors[key]}</small> : null
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setBusy(true); setMessage(''); setErrors({})
     const addressFilled = Object.entries(address).some(([key, item]) => !['lat', 'lng', 'mobile'].includes(key) && String(item ?? '').trim())
-    const response = await fetch('/api/profile/completion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...values, ...(addressField && addressFilled ? { address } : {}) }) }).catch(() => null)
+    const response = await fetch('/api/profile/completion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...values, ...(status?.needsPasswordSetup ? { password, confirmPassword } : {}), ...(addressField && addressFilled ? { address } : {}) }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) {
@@ -65,6 +72,7 @@ export default function WelcomePage() {
       requestAnimationFrame(() => document.querySelector('.wl-error')?.closest('.wl-field, fieldset')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
       return
     }
+    if (data?.signInRequired) { await signOut({ callbackUrl: authEntryHref('/login', next, { setup: '1' }) }); return }
     if ((data as Status).needsCompletion) { setStatus(data); setMessage('هنوز چند مورد ضروری باقی مانده است.'); return }
     window.location.replace(next)
   }
@@ -103,11 +111,20 @@ export default function WelcomePage() {
               ? <span className="pe-prefix" dir="ltr"><span>@</span><input id="wl-username" className="input" value={String(values.username || '')} maxLength={20} placeholder={status.values.username} onChange={(e) => set('username', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} /></span>
               : field.builtin === 'email' && status.values.emailLocked
                 ? <input id="wl-email" className="input" dir="ltr" value={status.values.email} readOnly />
-                : <input id={`wl-${field.key}`} className="input" dir={field.builtin === 'email' ? 'ltr' : undefined} type={field.builtin === 'email' ? 'email' : 'text'} autoComplete={field.builtin === 'firstName' ? 'given-name' : field.builtin === 'lastName' ? 'family-name' : field.builtin === 'email' ? 'email' : undefined} value={String(values[field.key] || '')} maxLength={field.builtin === 'email' ? 190 : 40} placeholder={field.placeholder} aria-invalid={!!errors[field.key]} onChange={(e) => set(field.key, e.target.value)} />}
+                : <input id={`wl-${field.key}`} className="input" dir={field.builtin === 'email' ? 'ltr' : undefined} type={field.builtin === 'email' ? 'email' : 'text'} autoComplete={field.builtin === 'firstName' ? 'given-name' : field.builtin === 'lastName' ? 'family-name' : field.builtin === 'email' ? 'email' : undefined} value={String(values[field.key] || '')} maxLength={field.builtin === 'email' ? 190 : 40} placeholder={field.placeholder} required={field.required} aria-describedby={errors[field.key] ? `wl-${field.key}-error` : undefined} aria-invalid={!!errors[field.key]} onChange={(e) => set(field.key, e.target.value)} />}
             {field.builtin === 'username' && <small>خالی بگذارید تا همین نام بماند: <bdi dir="ltr">@{status.values.username}</bdi></small>}
             {field.help && field.builtin !== 'username' && <small>{field.help}</small>}
             {err(field.key)}
           </div>)}
+        </div>
+      </section>}
+
+      {status.needsPasswordSetup && <section className="wl-section" aria-labelledby="wl-password-title">
+        <h2 id="wl-password-title">رمز حساب خود را بسازید</h2>
+        <p className="wl-help" id="wl-password-help">با این رمز می‌توانید علاوه بر کد پیامکی، با موبایل یا ایمیل وارد شوید. دست‌کم ۸ کاراکتر و یک رمز غیرقابل‌حدس انتخاب کنید.</p>
+        <div className="dash-grid">
+          <div className="wl-field"><label htmlFor="wl-password">رمز عبور <b className="wl-req" aria-hidden="true">*</b></label><PasswordInput fa id="wl-password" autoComplete="new-password" minLength={8} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} required aria-invalid={!!errors.password} aria-describedby={`wl-password-help${errors.password ? ' wl-password-error' : ''}`} />{err('password')}</div>
+          <div className="wl-field"><label htmlFor="wl-confirm">تکرار رمز عبور <b className="wl-req" aria-hidden="true">*</b></label><PasswordInput fa id="wl-confirm" autoComplete="new-password" minLength={8} maxLength={128} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} required aria-invalid={!!errors.confirmPassword} aria-describedby={errors.confirmPassword ? 'wl-confirmPassword-error' : undefined} />{err('confirmPassword')}</div>
         </div>
       </section>}
 
@@ -146,7 +163,7 @@ export default function WelcomePage() {
         {/* A member who cannot finish now, or signed in with the wrong account, must be able to leave. */}
         {status.needsCompletion && <button type="button" className="btn btn-ghost" onClick={() => void signOut({ callbackUrl: '/' })}>خروج از حساب</button>}
         {!status.needsCompletion && <Link href={next} className="btn btn-ghost">بازگشت</Link>}
-        <button type="submit" className="btn btn-primary wl-submit" disabled={busy}>{busy ? 'در حال ذخیره…' : status.needsCompletion ? 'ذخیره و ادامه' : 'ذخیره'}</button>
+        <button type="submit" className="btn btn-primary wl-submit" disabled={busy}>{busy ? 'در حال ذخیره…' : status.needsPasswordSetup ? 'ذخیره و ورود با رمز جدید' : status.needsCompletion ? 'ذخیره و ادامه' : 'ذخیره'}</button>
       </footer>
     </form>
   </main>

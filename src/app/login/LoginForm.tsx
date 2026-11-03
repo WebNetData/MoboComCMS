@@ -25,8 +25,8 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
   const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const [turnstileToken, setTurnstileToken] = useState(turnstileRequired ? '' : 'not-configured')
   const [turnstileReset, setTurnstileReset] = useState(0)
-  // Someone who has just signed up did so with an email and a password: show that form, with its confirmation.
-  const [mode, setMode] = useState(() => initialEntryMethod({ sms: otp, email: emailOtp, registered: params.get('registered') === '1', passwordChanged: params.get('changed') === '1' }))
+  // A newly created or reset password is followed by the password form and its confirmation.
+  const [mode, setMode] = useState(() => initialEntryMethod({ sms: otp, email: emailOtp, registered: params.get('registered') === '1', passwordChanged: params.get('changed') === '1' || params.get('setup') === '1' }))
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [sentTo, setSentTo] = useState('')
@@ -52,7 +52,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
     const next = safeNext(params.get('next')) || '/dashboard'
     // New members (SMS sign-ups especially) first complete the required details.
     const status = await fetch('/api/profile/completion', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
-    router.push(status?.needsCompletion ? `/welcome?next=${encodeURIComponent(next)}` : next)
+    router.push(!status || status.needsCompletion ? `/welcome?next=${encodeURIComponent(next)}` : next)
     router.refresh()
   }
 
@@ -77,7 +77,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       const res = await signIn(provider, { phone, email, code, totp: twoStep ? totp : '', redirect: false })
       if (twoStepError(res?.error, provider)) return
       if (!res || res.error) { setError(fa ? 'کد وارد شده صحیح نیست یا منقضی شده است.' : 'The code is wrong or expired.'); return }
-      goNext()
+      await goNext()
     } catch { setError(t.errGeneric) } finally { setLoading(false) }
   }
 
@@ -97,7 +97,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
         setTurnstileReset((value) => value + 1)
         return
       }
-      goNext()
+      await goNext()
     } catch {
       setError(t.errGeneric)
     } finally {
@@ -111,7 +111,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
     <h1>{intent === 'register' ? (fa ? 'ثبت‌نام و ورود' : 'Create an account or sign in') : t.loginTitle}</h1>
   </>
   const choose = (value: typeof mode) => { setMode(value); setSentTo(''); setCode(''); setTwoStep(''); setTotp(''); setError(''); setTurnstileReset(v => v + 1) }
-  const switcher = (otp || emailOtp) && <div className="auth-mode" role="group" aria-label={fa ? 'روش ورود' : 'Sign-in method'}>
+  const switcher = intent !== 'register' && (otp || emailOtp) && <div className="auth-mode" role="group" aria-label={fa ? 'روش ورود' : 'Sign-in method'}>
     {otp && <button type="button" aria-pressed={mode === 'phone'} disabled={loading} className={mode === 'phone' ? 'is-active' : ''} onClick={() => choose('phone')}>{fa ? 'موبایل' : 'Mobile'}</button>}
     {emailOtp && <button type="button" aria-pressed={mode === 'email'} disabled={loading} className={mode === 'email' ? 'is-active' : ''} onClick={() => choose('email')}>{fa ? 'ایمیل' : 'Email'}</button>}
     <button type="button" aria-pressed={mode === 'password'} disabled={loading} className={mode === 'password' ? 'is-active' : ''} onClick={() => choose('password')}>{fa ? 'رمز عبور' : 'Password'}</button>
@@ -162,7 +162,6 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || (!sentTo && turnstileRequired && !turnstileToken) || (!!sentTo && code.length < 6)}>
         {loading ? <><span className="auth-spinner" aria-hidden="true" />{fa ? 'لطفاً صبر کنید…' : 'Please wait…'}</> : sentTo ? (fa ? 'تأیید و ورود' : 'Verify and sign in') : (fa ? 'دریافت کد' : 'Send code')}
       </button>
-      {intent === 'register' && <p className="auth-alternative"><Link href={authEntryHref('/register', params.get('next'), { method: 'password' })}>{fa ? 'ثبت‌نام با ایمیل و رمز عبور' : 'Register with email and password'}</Link></p>}
       {telegramLogin && <><div className="auth-divider auth-credential-divider"><span>{fa ? 'یا' : 'or'}</span></div>{telegramLogin}</>}
     </form>
   )
@@ -170,14 +169,15 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
   return (
     <form onSubmit={submit} className="auth-form" aria-busy={loading}>
       {heading}
-      <p className="auth-form-intro">{locale === 'fa' ? 'با ایمیل و رمز عبور وارد شوید.' : 'Sign in with your email and password.'}</p>
+      <p className="auth-form-intro">{locale === 'fa' ? 'با شمارهٔ موبایل تأییدشده یا ایمیل و رمز عبور وارد شوید.' : 'Sign in with your verified mobile number or email and password.'}</p>
+      {params.get('setup') === '1' && <p className="success-text mb-4" role="status">{fa ? 'حساب و رمز شما آماده شد؛ اکنون با موبایل یا ایمیل و رمز تازه وارد شوید.' : 'Your account and password are ready. Sign in with your mobile or email and new password.'}</p>}
       {params.get('registered') === '1' && <p className="success-text mb-4" role="status">{locale === 'fa' ? 'حساب ساخته شد؛ حالا وارد شوید.' : 'Account created. You can now sign in.'}</p>}
       {params.get('changed') === '1' && <p className="success-text mb-4" role="status">{locale === 'fa' ? 'رمز عبور تغییر کرد و همهٔ دستگاه‌ها از حساب خارج شدند. با رمز تازه وارد شوید.' : 'Your password was changed and every device was signed out. Sign in with the new password.'}</p>}
       {switcher}
       {telegramLogin}
       <div className="mb-4">
-        <label className="label" htmlFor="login-email">{t.emailLabel}</label>
-        <AuthInput icon="mail"><input id="login-email" className="input" type="email" autoComplete="username" dir="ltr" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required /></AuthInput>
+        <label className="label" htmlFor="login-email">{fa ? 'موبایل یا ایمیل' : 'Mobile or email'}</label>
+        <AuthInput icon="user"><input id="login-email" className="input auth-identifier" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} dir="ltr" placeholder="09121234567 / name@mail.com" maxLength={254} value={email} onChange={(e) => setEmail(e.target.value)} required /></AuthInput>
       </div>
       <div className="mb-4">
         <label className="label" htmlFor="login-password">{locale === 'fa' ? 'رمز عبور' : 'Password'}</label>

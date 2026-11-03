@@ -1,5 +1,40 @@
 # Mobile and email code entry
 
+## Mobile registration and first-use password — 2026-11-03
+
+Continue existing Identity/SMS/NextAuth/profile-completion/reset owners. Normal
+`/register` uses mobile OTP, then the same account completes first name, family
+name, a confirmed password and optional email in `/welcome`. Existing customers,
+special referral/Telegram entry URLs and legacy provider/API contracts remain.
+Password login accepts normalized verified mobile or email through the existing
+credentials provider, with the same strict throttles, TOTP and standing checks.
+
+Add a public-by-default false `passwordSetupRequired` flag to User; only newly
+created mobile OTP accounts start true. Do not reset or reassign existing users.
+Pending setup always asks for names/password, including when ordinary custom-field
+enforcement is off. Email stays optional for this minimum step; existing enabled
+custom fields still use the Admin profile-field owner. Claim the flag, verified
+phone and current account standing when saving the first password; hash it,
+record completion and invalidate older sessions atomically. Do not provide a
+general password-reset endpoint on an ordinary authenticated profile request.
+After setup, sign in with the new password and preserve safe `next`.
+
+The initial-password step is consumed once. Invalid confirmation/weak password,
+duplicate email, a stale concurrent submission or a revoked account must not
+partly change identity. A password reset clears the pending flag and keeps its
+existing SMS/email proof, TOTP, expiry, replay and session-revocation rules.
+Forgot-password exposes only configured delivery channels and remains generic
+for unknown accounts; normalize Persian/Arabic digits consistently.
+
+Use current themed auth controls/SDS tokens, named errors/loading/retry, RTL,
+keyboard and 1440/390 light/dark acceptance. No hosted Actions or real provider
+sends are authorized by local tests. Add native `mobile-account-entry` checks:
+actual OTP provider→new account→completion→phone/email password sign-in, SMS and
+email reset, existing account preservation, claims/replay, inactive/restricted
+identities and TOTP. Deliberately bypass the setup claim and verified-phone
+lookup and verify failure. Register the new additive migration and retain the
+previous schema on rollback; no destructive down migration.
+
 Owner request 2026-10-15: register/sign in with a mobile one-time code, with email available too. Existing SMS LOGIN/VERIFY/RESET, NextAuth JWT, password/Telegram providers, profile completion and TOTP remain canonical. Email code login is the verified missing slice; existing SMS entry needs registration discovery, current availability checks and concurrency hardening.
 
 - Identity owns email entry; reuse OtpCode with an additive nullable email/index, not another token/user/session store. SMS retains its provider and current API.
