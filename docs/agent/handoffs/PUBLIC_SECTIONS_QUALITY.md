@@ -2,6 +2,14 @@
 
 This continues the magazine's public audit across every public section: cinema, games, software, music, the store, the site home and the magazine. It covers 24 pages, each in light and dark, at 1440 and 390 px.
 
+## Account dashboard design — 2026-11-03
+
+Owner: the dashboard looked plain, and the request page's sent answers and fields had no style. Branch `feat/member-dashboard-design-2026-11-03` from main `4eb86f7d`, on top of the 96% width above.
+
+- **Found:** 15 page-header owners at 20–38px and weights 600–900; the request steps drawn in four columns for three steps; sent answers in a two-column list whose Latin values ran to the far edge; club, purchases and licenses with bare cards for empty or off states; the home's prompt shelf above the member's figures.
+- **Done:** decision in PLATFORM_DECISIONS 6D; `account-design.css`; `MyRequests` and its `rq-` rules in `forms-pro.css`; designed empty states in club, purchases and licenses; the home's figures before the shelf. No API, data or address change.
+- **Left:** the seller panel was not redesigned; `/dashboard/api` is a 404 while the public API is off, by design.
+
 ## Account dashboard width — 2026-11-03
 
 Owner requested publishing mobile entry first, then making narrow user-dashboard pages95–98% wide. Mobile entry [PR314](https://github.com/WebNetData/MoboComCMS/pull/314), tested head `9675a53e`, is owner-merged as main `d0a65205`. Publication fast-forwarded `fix/dashboard-wide-layout-2026-11-03` to that main after verifying identical source trees; no new integration delta required repeating the completed checks. Publish this width slice as its own PR targeting main; owner merges. Preserve the owner's older root work and unrelated `.serena/`/`public/demo/`.

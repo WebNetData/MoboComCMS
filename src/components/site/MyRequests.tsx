@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
+import Icon from '@/components/site/Icon'
 import CheckoutError from '@/components/CheckoutError'
 import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/client'
-import { STAGE_LABEL, answerText, type Answer, type Stage } from '@/modules/forms/domain/forms'
+import { SECRET_MASK, STAGE_LABEL, answerText, type Answer, type Stage } from '@/modules/forms/domain/forms'
 
 type Request = {
   id: number; form: string; slug: string; createdAt: string; answers: { label: string; type: string; value: Answer }[]
@@ -29,6 +30,10 @@ export default function MyRequests() {
   const [filter, setFilter] = useState('')
   const [shown, setShown] = useState(PAGE)
   const [loadAttempt, setLoadAttempt] = useState(0)
+  const [copied, setCopied] = useState('')
+  async function copy(key: string, text: string) {
+    try { await navigator.clipboard.writeText(text); setCopied(key); window.setTimeout(() => setCopied((now) => (now === key ? '' : now)), 1600) } catch { /* the value stays selectable by hand */ }
+  }
   const counts = useMemo(() => (rows || []).reduce<Record<string, number>>((acc, row) => { const group = groupOf(row); acc[group] = (acc[group] || 0) + 1; return acc }, {}), [rows])
   const visible = (rows || []).filter((row) => !filter || groupOf(row) === filter)
   useEffect(() => {
@@ -72,30 +77,46 @@ export default function MyRequests() {
       {visible.slice(0, shown).map((row) => {
         const unpaid = row.payStatus === 'UNPAID'
         const at = TRACK.indexOf(row.stage as Stage)
-        return <article key={row.id} className="rq-card">
+        const complete = row.stage === 'DONE'
+        const tone = row.stage === 'REJECTED' ? 'is-bad' : complete ? 'is-good' : unpaid ? 'is-warn' : ''
+        const shownAnswers = row.answers.filter((answer) => answerText(answer.value))
+        return <article key={row.id} className={`rq-card ${tone}`}>
           <div className="rq-head">
-            <div><h2>{row.form}</h2><small>شمارهٔ {fa(row.id)} · {when(row.createdAt)}{row.slug && <> · <Link href={`/forms/${row.slug}`} className="text-link">ثبت دوباره</Link></>}</small></div>
+            <span className="rq-icon" aria-hidden="true"><Icon name="file" size={20} /></span>
+            <div className="rq-title"><h2>{row.form}</h2><small><span>شمارهٔ <b className="num">{fa(row.id)}</b></span><span>{when(row.createdAt)}</span>{row.slug && <Link href={`/forms/${row.slug}`} className="text-link">ثبت دوباره</Link>}</small></div>
             <div className="rq-badges">
               {row.amount > 0 && <span className={`rq-badge ${unpaid ? 'is-warn' : 'is-good'}`}>{unpaid ? 'در انتظار پرداخت' : 'پرداخت‌شده'}</span>}
               {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{STAGE_LABEL[row.stage as Stage]}</span>}
             </div>
           </div>
-          {row.stage && row.stage !== 'REJECTED' && <ol className="rq-track" aria-label="مراحل انجام">{TRACK.map((stage, index) => <li key={stage} className={index <= at ? 'is-done' : ''}>{STAGE_LABEL[stage]}</li>)}</ol>}
-          {row.reply && <p className="rq-reply"><b>پیام کارشناس</b>{row.reply}</p>}
-          <details>
-            <summary className="text-link">اطلاعاتی که فرستادید</summary>
-            <dl className="rq-answers">{row.answers.map((answer, index) => <div key={index}><dt>{answer.label}</dt><dd dir="auto">{answerText(answer.value) || '—'}</dd></div>)}</dl>
-          </details>
-          {row.amount > 0 && <div className="rq-pay">
-            <span>{unpaid ? 'مبلغ قابل پرداخت' : 'مبلغ پرداخت‌شده'}: <b className="num">{fa(row.amount)}</b> تومان</span>
+          {row.stage && row.stage !== 'REJECTED' && <ol className="rq-track" aria-label="مراحل انجام">{TRACK.map((stage, index) => {
+            const passed = index < at || (complete && index === at), now = index === at && !complete
+            return <li key={stage} className={passed ? 'is-done' : now ? 'is-now' : ''} aria-current={now ? 'step' : undefined}>
+              <span className="rq-step" aria-hidden="true">{passed ? <Icon name="check" size={14} /> : fa(index + 1)}</span>
+              <span className="rq-step-label">{STAGE_LABEL[stage]}</span>
+            </li>
+          })}</ol>}
+          {row.reply && <div className="rq-reply"><span className="rq-reply-icon" aria-hidden="true"><Icon name="chat" size={18} /></span><div><b>پیام کارشناس</b><p>{row.reply}</p></div></div>}
+          {shownAnswers.length > 0 && <details className="rq-sent">
+            <summary><Icon name="layers" size={17} /><span>اطلاعاتی که فرستادید</span><small>{fa(shownAnswers.length)} مورد</small><Icon name="chevron" size={16} className="rq-sent-chevron" /></summary>
+            <dl className="rq-answers">{shownAnswers.map((answer, index) => {
+              const text = answerText(answer.value), key = `${row.id}:${index}`, secret = answer.type === 'secret' || text === SECRET_MASK
+              return <div key={index} className="rq-fact">
+                <dt>{answer.label}</dt>
+                <dd dir="auto" className={secret ? "is-secret" : undefined}>{text}</dd>
+                {!secret && <button type="button" className="rq-copy" onClick={() => void copy(key, text)} aria-label={`کپی ${answer.label}`}><Icon name={copied === key ? 'check' : 'copy'} size={14} /></button>}
+              </div>
+            })}</dl>
+          </details>}
+          {row.amount > 0 && <div className={`rq-pay ${unpaid ? 'is-due' : ''}`}>
+            <div><small>{unpaid ? 'مبلغ قابل پرداخت' : 'مبلغ پرداخت‌شده'}</small><b><span className="num">{fa(row.amount)}</span> تومان</b>{unpaid && <em>مبلغ نهایی هنگام پرداخت با نرخ همان لحظه حساب می‌شود.</em>}</div>
             {unpaid && <button type="button" className="btn btn-primary" disabled={paying === row.id} onClick={() => void pay(row)}>{paying === row.id ? 'در حال انتقال…' : 'پرداخت'}</button>}
           </div>}
-          {unpaid && <small className="muted">مبلغ نهایی هنگام پرداخت با نرخ همان لحظه حساب می‌شود.</small>}
           {payError?.id === row.id && <CheckoutError code={payError.code} message={payError.message} needed={payError.needed} currency={payError.currency || 'IRT'} />}
         </article>
       })}
     </div>}
     {visible.length > shown && <button type="button" className="dt-more" onClick={() => setShown((count) => count + PAGE)}>نمایش {fa(Math.min(PAGE, visible.length - shown))} درخواست دیگر <small>({fa(visible.length - shown)} باقی‌مانده)</small></button>}
-    <p className="muted text-sm">برای پرسش دربارهٔ یک درخواست از <Link href="/dashboard/tickets" className="text-link">تیکت‌ها</Link> استفاده کنید.</p>
+    <p className="rq-help">برای پرسش دربارهٔ یک درخواست از <Link href="/dashboard/tickets" className="text-link">تیکت‌ها</Link> استفاده کنید.</p>
   </div>
 }

@@ -93,30 +93,86 @@
 
 /* My requests (dashboard). */
 .rq-page { display: grid; gap: 16px; }
-.rq-list { display: grid; gap: 14px; }
-.rq-card { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); min-width: 0; }
-.rq-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
-.rq-head h2 { margin: 0; font-size: 16px; }
-.rq-head small { color: var(--muted); }
+.rq-list { display: grid; gap: 16px; }
+/* One request: a coloured edge for where it stands, the steps, the expert's word, what was sent and the bill. */
+.rq-card { --rq-tone: var(--primary); position: relative; display: grid; gap: 16px; padding: 20px 22px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); min-width: 0; overflow: hidden; }
+.rq-card::before { content: ''; position: absolute; inset-block-start: 0; inset-inline: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--rq-tone) 30%, var(--rq-tone) 70%, transparent); opacity: .85; }
+.rq-card.is-good { --rq-tone: #10b981; } .rq-card.is-warn { --rq-tone: #f59e0b; } .rq-card.is-bad { --rq-tone: #ef4444; }
+.rq-card:hover { border-color: color-mix(in srgb, var(--rq-tone) 35%, var(--border)); }
+.rq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; }
+.rq-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; color: var(--rq-tone); background: color-mix(in srgb, var(--rq-tone) 13%, transparent); }
+.rq-title { flex: 1 1 220px; display: grid; gap: 4px; min-width: 0; }
+.rq-head h2 { margin: 0; font-size: 16.5px; font-weight: 800; line-height: 1.6; overflow-wrap: anywhere; }
+.rq-title small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); font-size: 12.5px; }
+.rq-title small > * + *::before { content: ''; display: inline-block; width: 4px; height: 4px; margin-inline-end: 12px; border-radius: 50%; background: color-mix(in srgb, var(--muted) 60%, transparent); vertical-align: middle; }
+.rq-title small b { color: var(--text); font-weight: 700; }
+/* A link in the meta line sits on the line like the rest (some shared rules make links tall touch targets). */
+.rq-title small > a { display: inline; min-height: 0; padding: 0; line-height: inherit; }
 .rq-badges { display: flex; flex-wrap: wrap; gap: 6px; }
-.rq-badge { padding: 4px 11px; border-radius: 99px; font-size: 12px; font-weight: 700; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+.rq-badge { padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 .rq-badge.is-warn { background: color-mix(in srgb, #d97706 14%, transparent); color: #b45309; }
 .rq-badge.is-good { background: color-mix(in srgb, #16a34a 14%, transparent); color: #15803d; }
 .rq-badge.is-bad { background: color-mix(in srgb, #dc2626 13%, transparent); color: #b91c1c; }
-.rq-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-size: 12px; color: var(--muted); }
-.rq-track li { display: grid; gap: 6px; text-align: center; }
-.rq-track li::before { content: ''; height: 5px; border-radius: 99px; background: var(--border); }
-.rq-track li.is-done::before { background: var(--primary); }
-.rq-track li.is-done { color: var(--text); font-weight: 700; }
-.rq-answers { margin: 0; display: grid; gap: 6px; font-size: 13px; }
-.rq-answers > div { display: grid; grid-template-columns: minmax(110px, 220px) minmax(0, 1fr); gap: 10px; }
-.rq-answers dt { color: var(--muted); }
-.rq-answers dd { margin: 0; overflow-wrap: anywhere; }
-.rq-reply { margin: 0; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 8%, transparent); font-size: 13.5px; line-height: 2; }
-.rq-reply b { display: block; font-size: 12px; color: var(--muted); }
-.rq-pay { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px dashed var(--border); }
-.rq-pay b { font-size: 18px; }
-@media (max-width: 560px) { .rq-answers > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } .rq-track { font-size: 10.5px; } }
+html[data-theme='dark'] .rq-badge.is-warn { color: #fcd34d; }
+html[data-theme='dark'] .rq-badge.is-good { color: #6ee7b7; }
+html[data-theme='dark'] .rq-badge.is-bad { color: #fca5a5; }
+
+/* Steps: a numbered dot each, joined by a line that fills as the work moves. */
+.rq-track { list-style: none; margin: 0; padding: 4px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rq-track li { position: relative; display: grid; justify-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; text-align: center; }
+.rq-track li:not(:last-child)::after { content: ''; position: absolute; top: 15px; inset-inline-start: calc(50% + 22px); inset-inline-end: calc(-50% + 22px); height: 3px; border-radius: 99px; background: color-mix(in srgb, var(--border) 90%, transparent); }
+.rq-track li.is-done:not(:last-child)::after { background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #10b981)); }
+.rq-step { position: relative; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; border: 2px solid var(--border); border-radius: 50%; background: var(--card); font-size: 13px; font-weight: 800; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
+.rq-track li.is-done .rq-step { border-color: transparent; background: var(--primary); color: var(--on-primary, #fff); }
+.rq-track li.is-now .rq-step { border-color: var(--primary); color: var(--primary); animation: rq-pulse 2s ease-out infinite; }
+.rq-track li:is(.is-done, .is-now) { color: var(--text); font-weight: 700; }
+@keyframes rq-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
+
+/* The expert's word, as a message. */
+.rq-reply { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border)); border-radius: 16px; border-start-start-radius: 4px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, var(--card)), var(--card)); }
+.rq-reply-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; color: var(--on-primary, #fff); background: var(--primary); }
+.rq-reply b { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+.rq-reply p { margin: 2px 0 0; font-size: 14px; line-height: 2; overflow-wrap: anywhere; white-space: pre-line; }
+
+/* What was sent: a row that opens into one tile per answer. */
+.rq-sent { border: 1px solid var(--border); border-radius: 16px; background: color-mix(in srgb, var(--text) 2%, transparent); }
+.rq-sent > summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; list-style: none; cursor: pointer; color: var(--text); font-size: 13.5px; font-weight: 700; border-radius: 16px; transition: background-color .15s ease; }
+.rq-sent > summary::-webkit-details-marker { display: none; }
+.rq-sent > summary:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.rq-sent > summary > svg:first-child { color: var(--primary); }
+.rq-sent > summary small { margin-inline-start: auto; padding: 1px 9px; border-radius: 99px; background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.rq-sent-chevron { color: var(--muted); transition: transform .2s ease; }
+.rq-sent[open] .rq-sent-chevron { transform: rotate(180deg); }
+.rq-answers { margin: 0; padding: 4px 14px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 10px; }
+.rq-sent[open] .rq-answers { animation: rq-open .25s ease-out; }
+@keyframes rq-open { from { opacity: 0; transform: translateY(-6px); } }
+.rq-fact { position: relative; display: grid; align-content: start; gap: 4px; min-width: 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 13px; background: var(--card); }
+.rq-fact dt { padding-inline-end: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.rq-fact dd { margin: 0; color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.8; overflow-wrap: anywhere; unicode-bidi: plaintext; }
+html[dir='rtl'] .rq-fact dd { text-align: right; }
+.rq-fact dd.is-secret { letter-spacing: .2em; color: var(--muted); }
+.rq-copy { position: absolute; top: 8px; inset-inline-end: 8px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
+.rq-fact:hover .rq-copy, .rq-copy:focus-visible { opacity: 1; }
+.rq-copy:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+@media (hover: none) { .rq-copy { opacity: 1; } }
+
+/* The bill. */
+.rq-pay { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, #10b981 8%, transparent); }
+.rq-pay.is-due { background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 12%, transparent), color-mix(in srgb, #f59e0b 4%, transparent)); }
+.rq-pay > div { display: grid; gap: 2px; }
+.rq-pay small { color: var(--muted); font-size: 12px; }
+.rq-pay b { font-size: 20px; font-weight: 800; }
+.rq-pay em { color: var(--muted); font-size: 11.5px; font-style: normal; }
+.rq-pay .btn { min-width: 132px; min-height: 44px; }
+.rq-help { margin: 0; color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) {
+  .rq-card { padding: 16px; }
+  .rq-icon { width: 38px; height: 38px; }
+  .rq-track li { font-size: 11px; }
+  .rq-answers { padding-inline: 10px; }
+  .rq-pay .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .rq-track li.is-now .rq-step, .rq-sent[open] .rq-answers { animation: none; } .rq-sent-chevron, .rq-step { transition: none; } }
 
 /* Builder panels for the above. */
 .fp-themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 10px; margin-bottom: 14px; }
