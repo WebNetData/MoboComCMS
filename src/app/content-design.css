@@ -220,3 +220,5 @@
 .bld-swatches button{inline-size:26px;block-size:26px;padding:0;border:2px solid var(--card,#fff);border-radius:50%;box-shadow:0 0 0 1px var(--border);cursor:pointer}
 .bld-swatches button.is-on{box-shadow:0 0 0 2px var(--primary,#41baff)}
 @media (max-width:860px){.bld-kit-body{grid-template-columns:minmax(0,1fr)}.bld-kit-preview{position:static}}
+.bld-sub{margin:16px 0 6px;font-size:.9rem;font-weight:800}
+.bld-range-row{display:flex;align-items:center;gap:8px}.bld-range-row input[type=range]{flex:1;min-inline-size:0}.bld-range-row input.num{inline-size:72px;flex:none}

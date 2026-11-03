@@ -445,6 +445,42 @@ test('effects: surfaces, heading effects, loops and the new hovers and entrances
   assert.equal(new Set([...PAGE_TEMPLATES, ...BUNDLED_TEMPLATES].map((template) => template.id)).size, PAGE_TEMPLATES.length + BUNDLED_TEMPLATES.length, 'template ids are unique')
 })
 
+test('width and height: the frame is as wide as the site, a section takes a content width in percent, any element a height in screen percent', () => {
+  const builder = load('src/modules/site/domain/builder.ts'), style = load('src/modules/site/domain/builder-style.ts')
+  const fs = require('node:fs'), path = require('node:path')
+  const sheet = fs.readFileSync(path.resolve(__dirname, '../src/app/builder-render.css'), 'utf8')
+  assert.ok(sheet.includes('.br-container{inline-size:var(--mb-chrome,min(97%,100% - 32px));'), 'the frame is not capped at a fixed width')
+  const section = (widthPct) => { const s = builder.createSection(1); s.style = { ...s.style, widthPct }; return builder.validateBuilderDoc({ ...builder.emptyDoc(), sections: [s] }).sections[0].style.widthPct }
+  assert.deepEqual([section(80), section(10), section(250), section(undefined), section('x')], [80, undefined, 100, undefined, undefined])
+  assert.deepEqual(style.validateAdvancedStyle({ minHeightVh: 100 }), { minHeightVh: 100 })
+  assert.ok(style.advancedCss('w1', { minHeightVh: 60 }).includes('min-height: 60svh;'))
+  assert.equal(style.validateAdvancedStyle({ minHeightVh: '100vh; color:red' }), undefined)
+})
+
+test('layout: a column lays its blocks in a row or a column with its own style, and a section sets its gap and its phone order', () => {
+  const builder = load('src/modules/site/domain/builder.ts')
+  const fs = require('node:fs'), path = require('node:path')
+  const section = builder.createSection(2)
+  section.columns[0].layout = { dir: 'row', gap: 'lg', justify: 'between', align: 'center', wrap: true }
+  section.columns[0].adv = { padding: { t: 20, r: 20, b: 20, l: 20 }, surface: 'glass', junk: 1 }
+  section.columns[1].layout = { dir: 'sideways', gap: '99px', justify: 'x', align: 'y', wrap: 'yes' }
+  section.style = { ...section.style, gap: 'xl', stackM: 'keep', reverseM: 'true' }
+  const saved = builder.validateBuilderDoc({ ...builder.emptyDoc(), sections: [section] }).sections[0]
+  assert.deepEqual(saved.columns[0].layout, { dir: 'row', gap: 'lg', justify: 'between', align: 'center', wrap: true })
+  assert.deepEqual(saved.columns[0].adv, { padding: { t: 20, r: 20, b: 20, l: 20 }, surface: 'glass' })
+  assert.deepEqual(saved.columns[1].layout, { dir: 'column', gap: 'md', justify: 'start', align: 'stretch', wrap: false }, 'unknown values fall back to the defaults')
+  assert.deepEqual([saved.style.gap, saved.style.stackM, saved.style.reverseM], ['xl', 'keep', undefined], 'reversing takes a real true')
+  // Untouched, nothing new is stored, so older documents stay as they were.
+  const plain = builder.validateBuilderDoc({ ...builder.emptyDoc(), sections: [builder.createSection(1)] }).sections[0]
+  assert.deepEqual(['layout' in plain.columns[0], 'adv' in plain.columns[0], 'gap' in plain.style, 'stackM' in plain.style, 'reverseM' in plain.style], [false, false, false, false, false])
+  // Drawn with classes from the lists and the column's own style beside it.
+  const renderer = fs.readFileSync(path.resolve(__dirname, '../src/components/content/builder/BuilderRenderer.tsx'), 'utf8')
+  assert.ok(renderer.includes('{styleTag(column.id, column.adv)}') && renderer.includes('br-flow-${column.layout.dir}'))
+  // The accordion: one open at a time through the native details group, words as text.
+  assert.ok(renderer.includes("const group = props.single === '0' ? undefined : `acc-${widget.id}`"))
+  assert.ok(renderer.includes('<div className="br-acc-body">{String(item.text || \'\').split('), 'the accordion draws its words as text')
+})
+
 test('the global kit: an untouched kit writes nothing, a set one writes only listed values, and advanced style can point at its colours', () => {
   const fs = require('node:fs'), path = require('node:path')
   const kit = load('src/modules/site/domain/builder-kit.ts'), style = load('src/modules/site/domain/builder-style.ts')
@@ -498,7 +534,7 @@ test('showcase blocks: each is a real block of the document, offered in the pale
   const fs = require('node:fs'), path = require('node:path')
   const builder = load('src/modules/site/domain/builder.ts')
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
-  const NEW = ['icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress', 'slides', 'flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating']
+  const NEW = ['icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress', 'slides', 'accordion', 'flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating']
   const palette = read('src/app/admin/builder/palette.tsx'), inspector = read('src/app/admin/builder/inspector.tsx'), renderer = read('src/components/content/builder/BuilderRenderer.tsx')
   for (const type of NEW) {
     assert.ok(builder.WIDGET_TYPES.includes(type), type)

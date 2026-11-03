@@ -12,6 +12,7 @@ export const WIDGET_TYPES = [
   'media', 'vip-cta',
   'icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress',
   'slides',
+  'accordion',
   'flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating',
 ] as const
 export type WidgetType = typeof WIDGET_TYPES[number]
@@ -43,7 +44,13 @@ export const SECTION_WIDTHS = ['boxed', 'narrow', 'full'] as const
 export const COLUMN_ALIGNS = ['start', 'center', 'end', 'stretch'] as const
 /** `adv`: the advanced style (spacing, typography, background, border, shadow, hover, motion…); absent when nothing is set. */
 export type BuilderWidget = { id: string; type: WidgetType; props: Record<string, string>; style: WidgetStyle; adv?: AdvancedStyle }
-export type BuilderColumn = { id: string; width: number; widgets: BuilderWidget[] }
+export const COLUMN_DIRS = ['column', 'row'] as const
+export const COLUMN_JUSTIFY = ['start', 'center', 'end', 'between'] as const
+export const COLUMN_GAPS = ['md', 'none', 'sm', 'lg', 'xl'] as const
+/** How a column lays out its blocks: one under another (the default) or side by side, with gap and alignment. */
+export type ColumnLayout = { dir: typeof COLUMN_DIRS[number]; gap: typeof COLUMN_GAPS[number]; justify: typeof COLUMN_JUSTIFY[number]; align: typeof COLUMN_ALIGNS[number]; wrap: boolean }
+/** `layout` and `adv` are absent while nothing is set, so older documents are unchanged. */
+export type BuilderColumn = { id: string; width: number; widgets: BuilderWidget[]; layout?: ColumnLayout; adv?: AdvancedStyle }
 export type BuilderSectionStyle = {
   bg: string
   bgImage: string
@@ -54,6 +61,12 @@ export type BuilderSectionStyle = {
   /** Vertical alignment of the columns inside the row. */
   valign: typeof COLUMN_ALIGNS[number]
   hideOn: VisibilityRule
+  /** Space between columns; side by side on phones too; the stacked order reversed on phones. All optional. */
+  gap?: typeof COLUMN_GAPS[number]
+  /** Content width in percent of the page (30–100); absent means the chosen width above. */
+  widthPct?: number
+  stackM?: 'stack' | 'keep'
+  reverseM?: boolean
 }
 export type BuilderSection = { id: string; anchor: string; style: BuilderSectionStyle; columns: BuilderColumn[]; adv?: AdvancedStyle }
 export type BuilderCode = { html: string; css: string; js: string; advanced: boolean }
@@ -110,6 +123,7 @@ export const WIDGET_LABELS: Record<WidgetType, { fa: string; en: string }> = {
   social: { fa: 'شبکه‌های اجتماعی', en: 'Social links' },
   progress: { fa: 'نوار پیشرفت', en: 'Progress bars' },
   slides: { fa: 'اسلایدر حرفه‌ای', en: 'Slider' },
+  accordion: { fa: 'آکاردئون', en: 'Accordion' },
   'flip-box': { fa: 'جعبهٔ چرخان', en: 'Flip box' },
   'animated-headline': { fa: 'تیتر متحرک', en: 'Animated headline' },
   'before-after': { fa: 'مقایسهٔ قبل و بعد', en: 'Before and after' },
@@ -200,6 +214,7 @@ const WIDGET_PROPS: Record<WidgetType, Record<string, PropRule>> = {
   countdown: { until: TEXT(40), title: TEXT(300), titleEn: TEXT(300), done: TEXT(300), doneEn: TEXT(300) },
   social: { items: { json: 12 } },
   progress: { items: { json: 12 } },
+  accordion: { items: { json: 20 }, look: { enum: ['cards', 'lines', 'boxed'] }, single: { enum: ['1', '0'] }, first: { enum: ['1', '0'] }, icon: { enum: ['chevron', 'plus'] } },
   'flip-box': { icon: { enum: BOX_ICONS }, title: TEXT(160), text: TEXT(600), backTitle: TEXT(160), backText: TEXT(800), label: TEXT(80), href: { url: 'link' }, direction: { enum: ['horizontal', 'vertical'] }, height: { enum: ['md', 'sm', 'lg'] } },
   'animated-headline': { before: TEXT(160), words: TEXT(400), after: TEXT(160), effect: { enum: ['type', 'slide', 'fade'] }, level: { enum: ['h2', 'h1', 'h3'] } },
   'before-after': { before: { url: 'image' }, after: { url: 'image' }, beforeLabel: TEXT(40), afterLabel: TEXT(40), alt: TEXT(160), start: { enum: ['50', '30', '70'] } },
@@ -314,6 +329,7 @@ export function createWidget(type: WidgetType): BuilderWidget {
     { src: '', eyebrow: 'تازه', title: 'تیتر اسلاید اول', text: 'یک جملهٔ کوتاه دربارهٔ پیشنهاد.', label: 'شروع کنید', href: '/register', label2: 'بیشتر بدانید', href2: '#' },
     { src: '', eyebrow: '', title: 'تیتر اسلاید دوم', text: 'تصویر پس‌زمینه، متن و دکمه‌ها را در تنظیمات بلوک عوض کنید.', label: 'مشاهده', href: '/', label2: '', href2: '' },
   ])
+  if (type === 'accordion') props.items = JSON.stringify([{ title: 'پرسش یا عنوان اول', text: 'پاسخ یا توضیح کوتاه. این متن با باز شدن نمایش داده می‌شود.' }, { title: 'عنوان دوم', text: 'متن دوم.' }, { title: 'عنوان سوم', text: 'متن سوم.' }])
   if (type === 'flip-box') Object.assign(props, { icon: 'sparkles', title: 'روی من بروید', text: 'روی کارت یک تیتر و توضیح کوتاه.', backTitle: 'پشت کارت', backText: 'توضیح بیشتر و یک دکمه برای قدم بعد.', label: 'بیشتر بدانید', href: '/' })
   if (type === 'animated-headline') Object.assign(props, { before: 'ساختن سایت', words: 'سریع\nزیبا\nحرفه‌ای', after: 'با موبوکام' })
   if (type === 'timeline') props.items = JSON.stringify([{ date: '۱۴۰۲', title: 'شروع', text: 'اولین قدم کار.' }, { date: '۱۴۰۳', title: 'رشد', text: 'تیم و مشتریان بیشتر.' }, { date: '۱۴۰۴', title: 'امروز', text: 'جایی که امروز هستیم.' }])
@@ -430,7 +446,12 @@ export function validateBuilderDoc(input: unknown): BuilderDoc {
       if (widgetsRaw.length > 12) throw new Error('Too many widgets in a column')
       widgetCount += widgetsRaw.length
       if (widgetCount > 200) throw new Error('Too many widgets')
+      const lay = (col.layout && typeof col.layout === 'object' ? col.layout : null) as Record<string, unknown> | null
+      const layout: ColumnLayout | null = lay ? { dir: enumOf(lay.dir, COLUMN_DIRS, 'column'), gap: enumOf(lay.gap, COLUMN_GAPS, 'md'), justify: enumOf(lay.justify, COLUMN_JUSTIFY, 'start'), align: enumOf(lay.align, COLUMN_ALIGNS, 'stretch'), wrap: lay.wrap === true } : null
+      const colAdv = validateAdvancedStyle(col.adv)
       return {
+        ...(layout ? { layout } : {}),
+        ...(colAdv ? { adv: colAdv } : {}),
         id: takeId(col.id),
         width: numberIn(col.width, 5, 100, 100),
         widgets: widgetsRaw.map((wRaw) => {
@@ -453,6 +474,10 @@ export function validateBuilderDoc(input: unknown): BuilderDoc {
         width: enumOf(st.width, SECTION_WIDTHS, 'boxed'),
         valign: enumOf(st.valign, COLUMN_ALIGNS, 'start'),
         hideOn: enumOf(st.hideOn, VISIBILITY_RULES, 'none'),
+        ...(st.gap && st.gap !== 'md' ? { gap: enumOf(st.gap, COLUMN_GAPS, 'md') } : {}),
+        ...(numberIn(st.widthPct, 0, 100, 0) >= 30 ? { widthPct: numberIn(st.widthPct, 30, 100, 100) } : {}),
+        ...(st.stackM === 'keep' ? { stackM: 'keep' as const } : {}),
+        ...(st.reverseM === true ? { reverseM: true } : {}),
       },
       columns,
       ...(validateAdvancedStyle(s.adv) ? { adv: validateAdvancedStyle(s.adv) } : {}),

@@ -44,6 +44,8 @@ export type AdvancedStyle = {
   textFx?: typeof TEXT_EFFECTS[number]
   zIndex?: number
   minHeight?: number; maxWidth?: number
+  /** Height in percent of the screen (10–100), for a block, column or section that fills the view. */
+  minHeightVh?: number
   alignM?: typeof MOBILE_ALIGNS[number]
   /** Extra class names for the theme's own CSS (letters, digits, dash, underscore). */
   classes?: string[]
@@ -85,7 +87,7 @@ export function validateAdvancedStyle(input: unknown): AdvancedStyle | undefined
   set('shadow', pick(raw.shadow, SHADOWS)); set('hover', pick(raw.hover, HOVERS)); set('motion', pick(raw.motion, MOTIONS))
   set('loop', pick(raw.loop, LOOPS)); set('surface', pick(raw.surface, SURFACES)); set('textFx', pick(raw.textFx, TEXT_EFFECTS))
   const opacity = int(raw.opacity, 0, 100); if (opacity !== null && opacity < 100) out.opacity = opacity
-  set('zIndex', int(raw.zIndex, -1, 100), 0); set('minHeight', size(raw.minHeight, 40, 1600)); set('maxWidth', size(raw.maxWidth, 120, 2400))
+  set('zIndex', int(raw.zIndex, -1, 100), 0); set('minHeight', size(raw.minHeight, 40, 1600)); set('minHeightVh', size(raw.minHeightVh, 10, 100)); set('maxWidth', size(raw.maxWidth, 120, 2400))
   set('alignM', pick(raw.alignM, MOBILE_ALIGNS))
   const classes = (Array.isArray(raw.classes) ? raw.classes : typeof raw.classes === 'string' ? raw.classes.split(/\s+/) : []).filter((name): name is string => typeof name === 'string' && /^[a-zA-Z][\w-]{0,40}$/.test(name) && !/^br-/.test(name)).slice(0, 6)
   if (classes.length) out.classes = [...new Set(classes)]
@@ -139,6 +141,7 @@ export function advancedCss(id: string, adv: AdvancedStyle | undefined): string 
   if (adv.opacity !== undefined) base.push(`opacity: ${adv.opacity / 100};`)
   if (adv.zIndex) base.push(`position: relative; z-index: ${adv.zIndex};`)
   if (adv.minHeight) base.push(`min-height: ${adv.minHeight}px;`)
+  if (adv.minHeightVh) base.push(`min-height: ${adv.minHeightVh}svh;`)
   if (adv.maxWidth) base.push(`max-width: ${adv.maxWidth}px; margin-inline: auto;`)
   if (adv.fontSize) text.push(`font-size: ${adv.fontSize}px;`)
   if (adv.fontWeight) text.push(`font-weight: ${adv.fontWeight};`)
