@@ -368,7 +368,7 @@ test('builder media and VIP widgets validate their props', () => {
 test('advanced style: only bounded values are stored, and the CSS written from them holds nothing a writer typed', () => {
   const fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
   const compile = (file, deps = {}) => { const mod = { exports: {} }; new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)((name) => deps[name] || require(name), mod, mod.exports); return mod.exports }
-  const style = compile('src/modules/site/domain/builder-style.ts')
+  const style = compile('src/modules/site/domain/builder-style.ts', { './builder-kit': compile('src/modules/site/domain/builder-kit.ts') })
   // Nothing set stores nothing; defaults are dropped so a document stays small.
   for (const empty of [undefined, null, {}, [], 'x', { margin: { t: 0, r: 0, b: 0, l: 0 }, opacity: 100, fontSize: 0, zIndex: 0 }]) assert.equal(style.validateAdvancedStyle(empty), undefined)
   // Numbers are clamped, choices must be on the list, colours must be hex, unknown keys go.
@@ -443,6 +443,31 @@ test('effects: surfaces, heading effects, loops and the new hovers and entrances
   for (const template of landing) assert.ok(advOf(template).some((adv) => adv.surface) && advOf(template).some((adv) => adv.motion), template.id + ' uses the effects')
   assert.equal(BUNDLED_TEMPLATES.filter((template) => template.id.startsWith('fx-')).length, 6)
   assert.equal(new Set([...PAGE_TEMPLATES, ...BUNDLED_TEMPLATES].map((template) => template.id)).size, PAGE_TEMPLATES.length + BUNDLED_TEMPLATES.length, 'template ids are unique')
+})
+
+test('the global kit: an untouched kit writes nothing, a set one writes only listed values, and advanced style can point at its colours', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const kit = load('src/modules/site/domain/builder-kit.ts'), style = load('src/modules/site/domain/builder-style.ts')
+  // Nothing chosen: existing pages keep the site's own look.
+  assert.equal(kit.kitCss(kit.validateKit(undefined)), '')
+  assert.equal(kit.kitCss(kit.validateKit({ colors: [{ id: 'c1', name: 'اصلی', hex: '' }] })), '')
+  // Only hex colours, known slots and listed choices are kept.
+  const stored = kit.validateKit({ colors: [{ id: 'c1', name: 'Brand<script>', hex: '#FF0066' }, { id: 'c1', hex: '#000000' }, { id: 'c9', hex: '#123456' }, { id: 'c2', hex: 'red' }], headingFont: 'comic', bodyFont: 'inter', headingWeight: '900', scale: 'huge', radius: 'round', buttons: 'gradient' })
+  assert.deepEqual(stored.colors, [{ id: 'c1', name: 'Brandscript', hex: '#ff0066' }, { id: 'c2', name: '', hex: '' }])
+  assert.deepEqual([stored.headingFont, stored.bodyFont, stored.headingWeight, stored.scale, stored.radius, stored.buttons], ['theme', 'inter', 900, 'theme', 'round', 'gradient'])
+  const css = kit.kitCss(stored)
+  for (const part of ['--bk-c1: #ff0066;', '--primary: #ff0066;', '--br-radius: 22px;', "font-family: 'HappInter'", 'font-weight: 900;', '.btn-primary { background: linear-gradient']) assert.ok(css.includes(part), part)
+  assert.ok(!css.includes('font-size'), 'heading sizes stay as the site sets them while the scale is left to the theme')
+  assert.doesNotMatch(css, /<|script|url\(|expression/i)
+  // Advanced style points at a kit colour, which falls back to the accent while its slot is empty.
+  assert.deepEqual(style.validateAdvancedStyle({ bg: 'kit:c2', color: 'kit:c1', borderWidth: 1, borderColor: 'kit:c9' }), { color: 'kit:c1', bg: 'kit:c2', borderWidth: 1, borderStyle: 'solid', borderColor: '#888888' })
+  const written = style.advancedCss('w1', style.validateAdvancedStyle({ bg: 'kit:c2', color: 'kit:c1' }))
+  assert.ok(written.includes('background: var(--bk-c2, var(--primary));') && written.includes('color: var(--bk-c1, var(--primary));'), written)
+  // Built pages carry the kit; changing it takes the site settings permission and is audited.
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  assert.ok(read('src/components/content/builder/BuilderRenderer.tsx').includes('const kit = kitCss(await getBuilderKit(!!preview))'))
+  const http = read('src/modules/site/server/http/builder/kit.ts')
+  assert.match(http, /export async function PUT[\s\S]*requirePerm\(req, 'settings\.manage'\)[\s\S]*auditAdmin/)
 })
 
 test('the slider: settings from a list, addresses checked where drawn, and a client part that pauses, follows the direction and stays still for less motion', () => {

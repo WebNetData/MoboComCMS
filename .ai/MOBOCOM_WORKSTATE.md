@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current2026-11-03 Builder global kit: `feat/builder-global-kit-2026-11-03` from owner-merged PR323/main `d4a4fd03`. Brand colours, fonts, heading weight and sizes, corners and button style for every built page; kit colours in advanced style; untouched kit writes nothing. Found: the page side kept the old kit for up to 30 s after a save (separate module caches), so the preview now reads fresh. No schema change. Next: nested flex containers.
+
 Current2026-11-03 Builder advanced blocks: `feat/builder-pro-blocks-2026-11-03`, stacked on PR322 (open). Owner asked for very advanced, modern blocks. Twelve: flip box, animated headline, before/after, timeline, team, logo strip, scrolling text, steps, comparison, video lightbox, notice, star rating. No schema change. Next: global colours and fonts, nested containers.
 
 Current2026-11-03 Builder slider, tablet, clipboard, structure: `feat/builder-slider-tablet-navigator-2026-11-03` from owner-merged PR321/main `41763b5f`. Owner: do the next stages and add a slider, to build site templates. Slider block, tablet values, copy/paste style, structure panel words/marks/fold; fixed the private preview swallowing clicks and the slider's classes colliding with the carousel's. Next: global colours and fonts, nested flex containers. No schema change.

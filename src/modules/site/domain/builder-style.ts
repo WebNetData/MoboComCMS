@@ -7,6 +7,8 @@ export type Box = { t: number; r: number; b: number; l: number }
 
 export const BORDER_STYLES = ['solid', 'dashed', 'dotted'] as const
 export const SHADOWS = ['sm', 'md', 'lg', 'xl', 'glow'] as const
+import { KIT_REF, colorValue } from './builder-kit'
+
 export const HOVERS = ['lift', 'zoom', 'glow', 'dim', 'tilt', 'shine', 'ring', 'float', 'press', 'colorize'] as const
 export const MOTIONS = ['fade', 'up', 'down', 'start', 'end', 'zoom', 'flip', 'blur', 'rotate', 'pop'] as const
 /** Motion that keeps going while the element is on the page. It moves through translate, scale and rotate, so it adds to a hover or an entrance rather than replacing it. */
@@ -27,6 +29,8 @@ export type AdvancedStyle = {
   fontSize?: number; fontSizeM?: number; fontWeight?: typeof FONT_WEIGHTS[number]; lineHeight?: number; letterSpacing?: number
   /** Background colour; with a second colour it becomes a gradient at `bgAngle` degrees. */
   bg?: string; bg2?: string; bgAngle?: number
+  /** Text colour. Every colour here is a hex code or a kit colour (`kit:c1` … `kit:c8`). */
+  color?: string
   borderWidth?: number; borderStyle?: typeof BORDER_STYLES[number]; borderColor?: string
   /** Corner radii in px: t = top-start, r = top-end, b = bottom-end, l = bottom-start. */
   radius?: Box
@@ -53,7 +57,7 @@ const int = (value: unknown, min: number, max: number): number | null => {
 /** A size: zero, a negative or an empty value means "not set" — it is not pulled up to the smallest allowed size. */
 const size = (value: unknown, min: number, max: number): number | null => { const n = int(value, 0, max); return n ? Math.max(min, n) : null }
 const pick = <T extends readonly (string | number)[]>(value: unknown, list: T): T[number] | null => (list.includes(value as never) ? value as T[number] : null)
-const hex = (value: unknown): string | null => (typeof value === 'string' && HEX.test(value) ? value.toLowerCase() : null)
+const hex = (value: unknown): string | null => (typeof value === 'string' && HEX.test(value) ? value.toLowerCase() : typeof value === 'string' && KIT_REF.test(value) ? value : null)
 
 function box(value: unknown, min: number, max: number): Box | null {
   if (!value || typeof value !== 'object') return null
@@ -73,6 +77,7 @@ export function validateAdvancedStyle(input: unknown): AdvancedStyle | undefined
   set('fontSize', size(raw.fontSize, 8, 200)); set('fontSizeM', size(raw.fontSizeM, 8, 200))
   set('fontWeight', pick(typeof raw.fontWeight === 'string' ? Number(raw.fontWeight) : raw.fontWeight, FONT_WEIGHTS))
   set('lineHeight', int(raw.lineHeight, 80, 400)); set('letterSpacing', int(raw.letterSpacing, -50, 200), 0)
+  set('color', hex(raw.color))
   set('bg', hex(raw.bg)); if (out.bg) { set('bg2', hex(raw.bg2)); if (out.bg2) set('bgAngle', int(raw.bgAngle, 0, 360) ?? 135) }
   const width = int(raw.borderWidth, 0, 20)
   if (width) { out.borderWidth = width; out.borderStyle = pick(raw.borderStyle, BORDER_STYLES) ?? 'solid'; out.borderColor = hex(raw.borderColor) ?? '#888888' }
@@ -126,8 +131,9 @@ export function advancedCss(id: string, adv: AdvancedStyle | undefined): string 
   const sel = `.${name}`, base: string[] = [], text: string[] = [], phone: string[] = [], phoneText: string[] = [], tablet: string[] = [], tabletText: string[] = []
   if (adv.margin) base.push(sides('margin', adv.margin))
   if (adv.padding) base.push(sides('padding', adv.padding))
-  if (adv.bg) base.push(adv.bg2 ? `background: linear-gradient(${adv.bgAngle ?? 135}deg, ${adv.bg}, ${adv.bg2});` : `background: ${adv.bg};`)
-  if (adv.borderWidth) base.push(`border: ${adv.borderWidth}px ${adv.borderStyle} ${adv.borderColor};`)
+  if (adv.bg) base.push(adv.bg2 ? `background: linear-gradient(${adv.bgAngle ?? 135}deg, ${colorValue(adv.bg)}, ${colorValue(adv.bg2)});` : `background: ${colorValue(adv.bg)};`)
+  if (adv.borderWidth) base.push(`border: ${adv.borderWidth}px ${adv.borderStyle} ${colorValue(adv.borderColor || '#888888')};`)
+  if (adv.color) text.push(`color: ${colorValue(adv.color)};`)
   if (adv.radius) base.push(`border-start-start-radius: ${adv.radius.t}px; border-start-end-radius: ${adv.radius.r}px; border-end-end-radius: ${adv.radius.b}px; border-end-start-radius: ${adv.radius.l}px; overflow: clip;`)
   if (adv.shadow) base.push(`box-shadow: ${SHADOW_CSS[adv.shadow]};`)
   if (adv.opacity !== undefined) base.push(`opacity: ${adv.opacity / 100};`)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useKit } from './kit-panel'
 import { BORDER_STYLES, FONT_WEIGHTS, HOVERS, LOOPS, MOBILE_ALIGNS, MOTIONS, SHADOWS, SURFACES, TEXT_EFFECTS, validateAdvancedStyle, type AdvancedStyle, type Box } from '@/modules/site/domain/builder-style'
 
 // The "Advanced" part of the inspector, for a block or a section: spacing per side (with phone values),
@@ -26,14 +27,21 @@ function BoxField({ label, value, min, max, onChange, L }: { label: string; valu
   </div>
 }
 
+/** A colour: a hex code, or one of the global kit's colours (kept as `kit:cN`, so changing the kit changes it everywhere). */
 function Colour({ label, value, onChange, L }: { label: string; value: string | undefined; onChange: (next: string | undefined) => void; L: L }) {
-  return <label className="bld-field"><span>{label}</span>
+  const kit = useKit()
+  const swatches = (kit?.colors || []).filter((entry) => entry.hex)
+  const fromKit = value?.startsWith('kit:') ? swatches.find((entry) => `kit:${entry.id}` === value) : undefined
+  return <div className="bld-field"><span>{label}</span>
     <div className="bld-color" dir="ltr">
-      <input type="color" value={value || '#ffffff'} onChange={(event) => onChange(event.target.value)} />
-      <input aria-label={L('Colour code', 'کد رنگ')} className="input mono" dir="ltr" placeholder="#RRGGBB" value={value || ''} onChange={(event) => onChange(/^#[0-9a-fA-F]{6}$/.test(event.target.value) ? event.target.value : value)} />
+      <input type="color" aria-label={label} value={fromKit?.hex || (value && !value.startsWith('kit:') ? value : '#ffffff')} onChange={(event) => onChange(event.target.value)} />
+      <input aria-label={L('Colour code', 'کد رنگ')} className="input mono" dir="ltr" placeholder="#RRGGBB" value={fromKit ? '' : value || ''} onChange={(event) => onChange(/^#[0-9a-fA-F]{6}$/.test(event.target.value) ? event.target.value : value)} />
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(undefined)}>{L('Clear', 'حذف')}</button>
     </div>
-  </label>
+    {swatches.length > 0 && <div className="bld-swatches" role="group" aria-label={L('Kit colours', 'رنگ‌های کیت')}>
+      {swatches.map((entry) => <button key={entry.id} type="button" className={value === `kit:${entry.id}` ? 'is-on' : ''} aria-pressed={value === `kit:${entry.id}`} style={{ background: entry.hex }} title={entry.name || entry.id} aria-label={L(`Kit colour ${entry.name || entry.id}`, `رنگ کیت ${entry.name || entry.id}`)} onClick={() => onChange(`kit:${entry.id}`)} />)}
+    </div>}
+  </div>
 }
 
 export default function AdvancedStyleFields({ value, onChange, L, section = false }: { value: AdvancedStyle | undefined; onChange: (next: AdvancedStyle | undefined, history?: boolean) => void; L: L; section?: boolean }) {
@@ -95,6 +103,8 @@ export default function AdvancedStyleFields({ value, onChange, L, section = fals
       </>}
 
     {device === 'desktop' && <>
+      <h4>{L('Colours', 'رنگ‌ها')}</h4>
+      <Colour label={L('Text colour', 'رنگ متن')} value={adv.color} onChange={(color) => patch({ color })} L={L} />
       <h4>{L('Background', 'پس‌زمینه')}</h4>
       <Colour label={L('Colour', 'رنگ')} value={adv.bg} onChange={(bg) => patch(bg ? { bg } : { bg: undefined, bg2: undefined, bgAngle: undefined })} L={L} />
       {adv.bg && <>

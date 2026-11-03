@@ -28,6 +28,8 @@ import { advancedCss, styleClass, type AdvancedStyle } from '@/modules/site/doma
 import Icon from '@/components/site/Icon'
 import { BuilderCountdown, BuilderCounter, BuilderTabs } from '@/components/content/builder/BuilderInteractive'
 import BuilderSlides from '@/components/content/builder/BuilderSlides'
+import { getBuilderKit } from '@/modules/site/server/builder-kit'
+import { kitCss } from '@/modules/site/domain/builder-kit'
 import { AnimatedWords, BeforeAfter, VideoBox } from '@/components/content/builder/BuilderBlocks'
 
 export type BuilderLocale = 'fa' | 'en'
@@ -601,7 +603,8 @@ export default async function BuilderRenderer({ doc, locale, data, slots, previe
   editable?: boolean
   context?: BuilderContext
 }) {
-  if (doc.mode === 'code') return renderCode(doc.code)
+  const kit = kitCss(await getBuilderKit(!!preview))
+  if (doc.mode === 'code') return <>{kit && <style>{kit}</style>}{renderCode(doc.code)}</>
 
   const ownWidgets = doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets))
   const needsTemplates = ownWidgets.some((widget) => widget.type === 'template')
@@ -640,5 +643,5 @@ export default async function BuilderRenderer({ doc, locale, data, slots, previe
     locale, landing, templates, depth: 0, slots, nav: navPages, preview, nested: !editable, context,
     posts: new Map(postResults), products: new Map(productResults), media: new Map(mediaResults), theme: String(theme || 'dark'), modules,
   }
-  return <div className="br-doc">{doc.sections.map((section, index) => renderSection(section, ctx, section.id || String(index)))}</div>
+  return <div className="br-doc">{kit && <style>{kit}</style>}{doc.sections.map((section, index) => renderSection(section, ctx, section.id || String(index)))}</div>
 }

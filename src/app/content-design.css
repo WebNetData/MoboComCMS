@@ -203,3 +203,20 @@
 .bld-tree-fx{margin-inline-start:5px;color:var(--primary,#41baff);font-style:normal;font-size:.72rem}
 .bld-adv-clip{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 4px}
 .bld-adv-clip small{color:var(--muted);font-size:.75rem}
+
+/* Global kit panel: the form beside a live sample drawn with the kit's own CSS; kit swatches in advanced style. */
+.bld-kit{inline-size:min(980px,96vw);max-block-size:92vh;overflow:auto;display:grid;gap:14px}
+.bld-kit-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.bld-kit-head h2{margin:0}
+.bld-kit-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:18px;align-items:start}
+.bld-kit-form h3{margin:14px 0 6px;font-size:.95rem}.bld-kit-form h3:first-child{margin-top:0}
+.bld-kit-colors{display:grid;gap:8px}.bld-kit-color{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;align-items:center}
+.bld-kit-color input[type=color]{inline-size:44px;block-size:38px;padding:2px;border:1px solid var(--border);border-radius:10px;background:transparent}
+.bld-kit-preview{position:sticky;top:0;padding:18px;border:1px solid var(--border);border-radius:18px;background:var(--bg)}
+.bld-kit-sample{display:grid;gap:12px}.bld-kit-sample :is(h1,h3,p){margin:0}.bld-kit-sample p{color:var(--muted);line-height:1.9}
+.bld-kit-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.bld-kit-swatches{display:flex;flex-wrap:wrap;gap:6px}.bld-kit-swatches span{min-inline-size:56px;padding:4px 8px;border-radius:9px;color:#fff;font-size:.72rem;text-shadow:0 1px 2px rgb(0 0 0 / .5)}
+.bld-kit-error{margin:0;color:var(--danger,#ef4444)}.bld-kit-foot{display:flex;justify-content:space-between;gap:8px}
+.bld-swatches{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bld-swatches button{inline-size:26px;block-size:26px;padding:0;border:2px solid var(--card,#fff);border-radius:50%;box-shadow:0 0 0 1px var(--border);cursor:pointer}
+.bld-swatches button.is-on{box-shadow:0 0 0 2px var(--primary,#41baff)}
+@media (max-width:860px){.bld-kit-body{grid-template-columns:minmax(0,1fr)}.bld-kit-preview{position:static}}
