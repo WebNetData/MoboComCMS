@@ -10,6 +10,10 @@ Owner: the dashboard looked plain, and the request page's sent answers and field
 - **Done:** decision in PLATFORM_DECISIONS 6D; `account-design.css`; `MyRequests` and its `rq-` rules in `forms-pro.css`; designed empty states in club, purchases and licenses; the home's figures before the shelf. No API, data or address change.
 - **Left:** the seller panel was not redesigned; `/dashboard/api` is a 404 while the public API is off, by design.
 
+## Figures and the Prompt Master opening — 2026-11-03
+
+Owner, after PR319: the invoice tiles' numbers sat by the icon, far from their labels; the Prompt Master opening's cards and caption stood far from the left edge on wide screens. Branch `fix/account-figures-prompt-hero-2026-11-03` from main `7a1d160b`. Cause of the first: `html[lang='fa'] .num { unicode-bidi: plaintext }` turns a lone number left to right. Fixed for the member shell and the tiles redrawn; the opening's cards now fill the wide side up to the banner's padding, with a drifting light, floating cards, a shine, a fan-out on hover and a glass caption; all still under reduced motion. Left: admin pages may show the same `.num` alignment.
+
 ## Member shell — 2026-11-03
 
 Owner, after PR318: more professional, modern and advanced. Branch `feat/member-shell-pro-2026-11-03`, stacked on PR318 (itself on PR317). The pages had changed, the frame round them had not: flat background, plain top bar and side menu. Rules only, in `account-design.css` under `.member-shell`; no markup, API or data change. Left: the admin and seller shells.
