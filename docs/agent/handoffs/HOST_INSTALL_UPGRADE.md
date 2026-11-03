@@ -1,5 +1,42 @@
 # Ubuntu host installation and recovery continuation — 2026-10-31
 
+## Restricted networks — 2026-11-04
+
+Branch `feat/restricted-network-install-2026-11-04` from main `4fe03e4e`. The owner's server (Ubuntu 24.04+ with the provider's apt mirror) reaches github.com, NodeSource, aliyun and Liara/Runflare; raw/codeload, apt/download.postgresql.org, registry.npmjs.org, binaries.prisma.sh, Let's Encrypt and Docker Hub are blocked.
+
+**Source changes**
+
+- `platform.sh`:
+  - PGDG from `mirrors.aliyun.com/postgresql` when the official host is unreachable;
+  - the apt key is accepted only with fingerprint `B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8`;
+  - yum repo rewrite on AlmaLinux;
+  - `reachable` takes two tries;
+  - `retry` wraps the code and root-asset clones.
+- `npm-registry.sh` (service user, before every `npm ci` in install, `update.sh` and `package-update.sh`):
+  - keeps a mirror that answers;
+  - otherwise takes the first of Runflare, Liara and Huawei that does;
+  - drops the setting when the official registry answers again;
+  - adds npm retries.
+- `prisma-engines.sh` plus `prisma-engines.txt`:
+  - the engines come from the `prisma-engines` branch (Prisma's own 5.22 files; `debian-` and `rhel-openssl-3.0.x` unpack to the same bytes);
+  - they are checked against pinned SHA-256 values and written to `~/.cache/prisma/master/<hash>/<platform>/` with the `.sha256` and `.gz.sha256` files Prisma requires (without them Prisma downloads anyway);
+  - `installer.test.cjs` fails when `package-lock.json` moves to an engine version that is not pinned.
+- The installer runs its own copy of both scripts (on stdin) when the site code predates them.
+- The wrapper clone retries three times.
+- Let's Encrypt unreachable: the installer says to use PEM.
+- The entry where raw is blocked is `git clone` from github.com.
+
+**Evidence**
+
+- **Real Ubuntu 24.04.5 systemd container behind a loopback proxy blocking the owner's hosts.** The container first got its OS packages from the aliyun Ubuntu mirror.
+  - Run 1 got past PostgreSQL from the mirror with the pinned key, then stopped at npm: Runflare was down.
+  - Run 2 was a rerun over code from run 1, which predates `npm-registry.sh`. The installer skipped the step and `npm ci` failed against the blocked registry; this defect is now fixed. The Prisma engines came from GitHub.
+  - Run 3, the same command again: **10/10**. The wrapper clone failed twice and succeeded on the third try. Liara was chosen automatically and `npm ci` added 545 packages. The engines were in the cache and the built client used the same engine. The real Next build, migrations and health passed, the 8443 wizard answered 200, `mobocom status` reported healthy, and the Let's Encrypt note was printed.
+- **Prisma offline evidence:** with the engines plus both `.sha256` files in the cache, Prisma copied them with 0 network attempts. Without the `.sha256` files it tried to download.
+- **Checks:** `npm run check` 821+53+4+13/0; installer/updater 48/48 (new: pins cover the lockfile engine, tampered/valid/cached engine fetch, npm mirror choice with a stub network, mirror decision and key pin; one test caught `set -o pipefail` stopping on a missing `~/.npmrc`). Gates green. Host-operations Semgrep: 7 files, 0 findings. Gitleaks: 0.
+
+**Not run:** a fresh run where every step succeeds in one go (run 3 completed over the state of runs 1–2), Debian/AlmaLinux behind these blocks, the owner's real VPS, and PEM import end to end.
+
 ## One-line install, Debian and AlmaLinux, versions and downgrade — 2026-11-03
 
 Branch `feat/one-line-install-2026-11-03` from main `0c17cbf9`. The owner asked for one command that installs on Ubuntu 22.04/24.04/26.04, Debian 12/13 and AlmaLinux 9/10, with update and downgrade just as easy. The existing installer is extended: no second installer, schema, permission or data change.
