@@ -1,5 +1,57 @@
 # Ubuntu host installation and recovery continuation — 2026-10-31
 
+## One-line install, Debian and AlmaLinux, versions and downgrade — 2026-11-03
+
+Branch `feat/one-line-install-2026-11-03` from main `0c17cbf9`. The owner asked for one command that installs on Ubuntu 22.04/24.04/26.04, Debian 12/13 and AlmaLinux 9/10, with update and downgrade just as easy. The existing installer is extended: no second installer, schema, permission or data change.
+
+**Source changes**
+
+- `deploy/ubuntu/platform.sh` holds what differs per system:
+  - admission (anything else is refused before changes) and apt/dnf;
+  - EPEL+CRB, NodeSource or the AppStream `nodejs:22` module;
+  - PGDG PostgreSQL 17, with peer/scram initdb and `psql`/`pg_dump`/`pg_restore` on sudo's path on AlmaLinux;
+  - Redis or Valkey, ufw or firewalld;
+  - the nginx `sites-*` layout through `conf.d` plus the `httpd_can_network_connect` boolean;
+  - swap on XFS and a `/usr/bin/mobocom` link.
+- The signed `.run` bundle carries `platform.sh`.
+- The root `install.sh` is the one-line entry:
+  - its whole body runs only once downloaded, over HTTPS from github.com into a private root folder;
+  - prompts go to `/dev/tty`;
+  - `update`/`downgrade`/`versions`/`status` act on an installed site;
+  - it replaces the root helper only when the new copy's `HELPER_VERSION` is higher.
+- `mobocom versions`, `update VERSION` and `downgrade VERSION` work from tags `vX.Y.Z` on the existing `update.sh` exact-commit path. `UPDATE_TO` is new; older checkouts get `UPDATE_ROLLBACK_TO`.
+- certbot's `certbot-renew.timer` name is accepted.
+
+**Two defects found by these runs and fixed**
+
+- With the code already present (a second run), `install.sh` read `git remote get-url origin` from the caller's folder and stopped. It now uses `-C "$APP_DIR"` and starts from `/`.
+- The wrapper's exit cleanup read a variable local to `main`.
+
+**Evidence**
+
+Isolated privileged systemd containers ran the actual one-line command from the pushed branch, piped without a keyboard, against official images: **Debian 12 (32/32 checks), AlmaLinux 9.8 (34/34) and Ubuntu 24.04.5 (32/32)**.
+
+Real in these runs:
+- packages, Node 22, PostgreSQL 17, Redis, nginx, the 8443 listener and its 404 boundary, ufw/firewalld;
+- the sudoers rules (restart mobocom only), the private env and password login over TCP, `sudo mobocom`;
+- backup plus `pg_restore --list`;
+- `versions`, a refused downgrade without confirmation, `downgrade 9.0.0`, `update 9.1.0`, refused missing/same/newer targets;
+- a `downgrade 1.6.1` that cannot start, and its automatic return with health;
+- a second one-line run that kept env/DB/code, and the one-line `status`.
+
+Limits of that evidence:
+- The built site was a stand-in that answers health and `/install`: no Next build or Prisma engine was fetchable for AlmaLinux on this network. The build is OS-independent Node 22 and verified earlier on Ubuntu.
+- Container networking went through a loopback test proxy. Mirrors (Aliyun for AlmaLinux/EPEL/PGDG, PGDG apt preinstalled on Debian) were used only in the harness; product source keeps the official repositories.
+- SELinux is disabled inside containers, so the boolean was not exercised.
+- Debian 13 and AlmaLinux 10 were not run (no local images); their admission, Valkey fallback and EL10 paths are code plus unit tests only.
+
+**Checks**
+
+- `npm run check`: 816+53+4+13 passing, 0 failing. Installer/updater/release: 49/49. Gates green.
+- Host-operations Semgrep: 8 targets, 0 findings. The repository's TS/JS Semgrep config has no shell rules. Gitleaks: 0.
+
+**Remaining:** a real VPS per OS with DNS/SSL, AlmaLinux with SELinux enforcing, and Debian 13/AlmaLinux 10. Versions appear only when the publisher pushes `vX.Y.Z` tags.
+
 ## Browser host setup follow-up — 2026-11-01
 
 Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/browser-host-setup-2026-11-01`, from Ubuntu26 fix1231d9e5. Version1.6.1 changes package metadata only; dependencies/schema are unchanged. Owner requests domain/email/SSL entirely in the browser. Continue existing Installer/Server Panel/Updater; do not recreate a setup service, identity, database manager or queue.
