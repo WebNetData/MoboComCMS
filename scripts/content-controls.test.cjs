@@ -1545,6 +1545,33 @@ test('Admin control discovery searches only the supplied permitted projection, p
   assert.equal(searchControlGroups(groups,'')[0].caption,'وب‌سایت')
   assert.deepEqual(groups,before,'search must not alter shared Admin navigation')
 })
+test('the admin menu goes by area: each module names one, and each person sees only areas they have something in', () => {
+  const { CONTROL_AREAS, controlAreas } = load('src/components/admin/navigation/groups.ts')
+  const { EXTENSION_ADMIN_AREAS, assertValidExtensionManifest } = load('src/platform/extensions/contracts.ts')
+  assert.deepEqual(CONTROL_AREAS.map(area => area.id), ['home', ...EXTENSION_ADMIN_AREAS])
+  const group = (id, area) => ({ id, area, title: id, part: area, icon: 'grid', items: [{ href: `/admin/${id}`, label: id, icon: 'grid' }] })
+  const shown = controlAreas([{ ...group('store', 'commerce'), caption: 'فروش' }, group('home', 'home'), group('vip', 'commerce')])
+  assert.deepEqual(shown.map(area => area.id), ['home', 'commerce'], 'in menu order, and an area with nothing for this person is left out')
+  assert.deepEqual(shown[1].groups.map(item => item.id), ['store', 'vip'])
+  assert.equal(shown[1].groups[0].caption, undefined, 'the area names itself; a caption is for search results')
+  const base = { id: 'demo', name: 'Demo', version: '1.0.0', kind: 'module', apiVersion: 1, adminPaths: ['/admin/demo'] }
+  const manifest = (area) => ({ ...base, apiVersion: require(path.resolve(__dirname, '../src/plugins/store/manifest.json')).apiVersion, adminMenu: { area, items: [{ href: '/admin/demo', label: 'x' }] } })
+  assert.doesNotThrow(() => assertValidExtensionManifest(manifest('commerce')))
+  assert.doesNotThrow(() => assertValidExtensionManifest(manifest(undefined)), 'a module that names none still installs, and sits under system')
+  assert.throws(() => assertValidExtensionManifest(manifest('sales')), /unknown admin area/)
+  // Every shipped module names one, and everything that is not one of the site's content sections has left «site sections».
+  const dir = path.resolve(__dirname, '../src/plugins')
+  for (const id of fs.readdirSync(dir)) {
+    const file = path.join(dir, id, 'manifest.json')
+    if (!fs.existsSync(file)) continue
+    const menu = JSON.parse(fs.readFileSync(file, 'utf8')).adminMenu
+    if (menu) assert.ok(EXTENSION_ADMIN_AREAS.includes(menu.area), id)
+  }
+  const layout = fs.readFileSync(path.resolve(__dirname, '../src/app/admin/layout.tsx'), 'utf8')
+  assert.doesNotMatch(layout, /part: (WEBSITE|BUSINESS|SYSTEM)/)
+  for (const link of ['/admin/celebrities', '/admin/studios']) assert.ok(layout.includes(`href: '${link}'`), link)
+  assert.ok(JSON.parse(fs.readFileSync(path.join(dir, 'store/manifest.json'), 'utf8')).adminMenu.items.some(item => item.href === '/admin/product-deliveries'), 'the delivery page has a link')
+})
 test('complete article excerpts are rendered inside the reading body without changing its canonical markup', () => {
   const { articleBodyWithExcerpt } = load('src/modules/site/domain/article-output.ts')
   const body = '<div class="mcb-block" id="canonical-block"><h2>متن اصلی</h2></div>'
@@ -1589,12 +1616,14 @@ test('admin pages label themselves in Persian, every permission has a Persian na
 
 test('admin presentation cannot style public pages after a client-side route change', () => {
   const read = file => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
-  const css = require('postcss').parse(read('src/app/admin-tidy.css'))
-  css.walkRules(rule => {
-    for (const selector of rule.selectors) assert.match(selector, /\.admin-shell\b/, `Unscoped Admin selector: ${selector}`)
-  })
-  assert.doesNotMatch(read('src/app/layout.tsx'), /import\s+['"].*admin-tidy\.css['"]/)
-  assert.match(read('src/app/admin/layout.tsx'), /import\s+['"]\.\.\/admin-tidy\.css['"]/)
+  for (const sheet of ['admin-tidy', 'admin-areas']) {
+    require('postcss').parse(read(`src/app/${sheet}.css`)).walkRules(rule => {
+      if (rule.parent.type === 'atrule' && rule.parent.name === 'keyframes') return
+      for (const selector of rule.selectors) assert.match(selector, /\.admin-shell\b/, `Unscoped Admin selector: ${selector}`)
+    })
+    assert.doesNotMatch(read('src/app/layout.tsx'), new RegExp(`import\\s+['"].*${sheet}\\.css['"]`))
+    assert.match(read('src/app/admin/layout.tsx'), new RegExp(`import\\s+['"]\\.\\./${sheet}\\.css['"]`))
+  }
 })
 
 test('Persian dates: the shared calendar converts every day both ways and date fields are picked on it', () => {

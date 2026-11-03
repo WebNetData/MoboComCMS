@@ -16,6 +16,7 @@
     { "id": "server.manage", "label": "پنل سرور: فایل‌ها، پایگاه داده، سرویس‌ها و ایمیل (دسترسی کامل سرور)" }
   ],
   "adminMenu": {
+    "area": "system",
     "title": "پنل سرور",
     "titleEn": "Server panel",
     "icon": "server",

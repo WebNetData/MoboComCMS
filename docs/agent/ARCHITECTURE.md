@@ -524,7 +524,7 @@ This is how MoboCom adapts to many business types while remaining one product.
 
 Typed settings are registered by owner.
 
-Website management at `/admin/site-management` discovers the same permission-filtered, enabled-module controls as the Admin menu. The Admin layout is the single navigation projection; the directory has no second permission/settings registry. Add/edit/delete/visibility remain with each existing owner and server guard. New legitimate configurable behavior joins its owner's typed settings or content builder. Arbitrary code-defined fields and immutable financial/security state are not exposed through a generic data editor. [Current coverage and continuation](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
+The Admin menu goes by area (PLATFORM_DECISIONS 6D). All tools at `/admin/site-management` discovers the same permission-filtered, enabled-module controls as the Admin menu. The Admin layout is the single navigation projection; the directory has no second permission/settings registry. Add/edit/delete/visibility remain with each existing owner and server guard. New legitimate configurable behavior joins its owner's typed settings or content builder. Arbitrary code-defined fields and immutable financial/security state are not exposed through a generic data editor. [Current coverage and continuation](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
 
 Potential resolution:
 

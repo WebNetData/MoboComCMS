@@ -8,6 +8,8 @@ import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import Icon from '@/components/site/Icon'
 import AdminPromptOverview from '@/components/prompts/AdminPromptOverview'
+import { useControlNavigation } from '@/components/admin/navigation/ControlNavigation'
+import { controlAreas } from '@/components/admin/navigation/groups'
 
 export default function AdminDashboard() {
   const { t, locale } = useI18n()
@@ -16,12 +18,17 @@ export default function AdminDashboard() {
   const [data, setData] = useState<any>(null)
   const [fin, setFin] = useState<any>(null)
   const [failed, setFailed] = useState(false)
+  // Business figures are for those who hold dashboard.view; a section manager gets the map of their own areas.
+  const [limited, setLimited] = useState(false)
+  const { groups } = useControlNavigation()
+  const canGo = (href: string) => groups.some(group => group.items.some(item => item.href === href))
 
   const load = useCallback(async () => {
     setFailed(false)
     try {
       const [statsRes, finRes] = await Promise.all([fetch('/api/admin/stats'), fetch('/api/admin/finance?months=6')])
       if (statsRes.ok) setData(await statsRes.json())
+      else if (statsRes.status === 403) setLimited(true)
       else setFailed(true)
       if (finRes.ok) setFin(await finRes.json())
     } catch {
@@ -51,6 +58,26 @@ export default function AdminDashboard() {
     )
   }
 
+  const areaMap = <section aria-labelledby="ao-areas-title">
+    <h2 className="ao-section-title" id="ao-areas-title">{isFa ? 'حوزه‌های مدیریت' : 'Admin areas'}</h2>
+    <div className="ao-areas">{controlAreas(groups).filter(area => area.id !== 'home').map(area => <article className="ao-area" key={area.id}>
+      <Link className="ao-area-head" href={area.groups[0].items[0].href}>
+        <span className="ws-tile"><Icon name={area.icon} size={19} /></span>
+        <span className="min-w-0"><b>{isFa ? area.title : area.titleEn}</b><small>{isFa ? area.hint : area.hintEn}</small></span>
+      </Link>
+      <ul>
+        {area.groups.slice(0, 5).map(group => <li key={group.id}><Link href={group.items[0].href}>{group.flat ? group.items[0].label : group.title}</Link></li>)}
+        {area.groups.length > 5 && <li className="ao-more">{isFa ? `و ${num(area.groups.length - 5)} مورد دیگر` : `and ${area.groups.length - 5} more`}</li>}
+      </ul>
+    </article>)}</div>
+  </section>
+
+  if (limited) return <div className="ao-rise">
+    <header className="ao-hero"><div><h1>{t.dashboard}</h1><p>{isFa ? 'بخش‌هایی که مدیریت آن‌ها با شماست' : 'The sections you manage'}</p></div></header>
+    {areaMap}
+    <AdminPromptOverview />
+  </div>
+
   if (!data) return <p className="muted">{t.loading}</p>
 
   const s = data.stats
@@ -72,43 +99,28 @@ export default function AdminDashboard() {
     vpnOn ? [t.activeSubs, num(s.activeSubs), 'link', ''] : [locale === 'fa' ? 'کل سفارش‌ها' : 'All orders', num(s.orders ?? 0), 'bag', ''],
   ]
 
-  // Everyday destinations. A link the signed-in person may not open answers with the page's own refusal.
-  const quick = [
-    { href: '/admin/orders', label: t.orders, icon: 'cart' },
-    { href: '/admin/tickets', label: t.tickets, icon: 'ticket' },
-    { href: '/admin/users', label: t.customers, icon: 'users' },
-    { href: '/admin/moderation', label: isFa ? 'صف بررسی' : 'Moderation queue', icon: 'flag' },
-    { href: '/admin/site-management', label: isFa ? 'مدیریت سایت' : 'Website', icon: 'palette' },
-    { href: '/admin/settings', label: isFa ? 'تنظیمات' : 'Settings', icon: 'sliders' },
-  ]
-
   const maxMonth = fin ? Math.max(1, ...fin.byMonth.map((m: any) => Math.max(m.revenue, m.expenses))) : 1
 
   return (
-    <div>
+    <div className="ao-rise">
       <header className="ao-hero">
         <div>
           <h1>{t.dashboard}</h1>
           <p>{isFa ? 'نمای کلی کسب‌وکار: فروش، سفارش‌ها و پشتیبانی' : 'Business at a glance: sales, orders and support'}</p>
         </div>
         <div className="ao-hero-actions">
-          <Link href="/admin/analytics" className="btn btn-ghost">{isFa ? 'آمار بازدید و فروش' : 'Analytics'}</Link>
-          <Link href="/admin/invoices" className="btn btn-primary">{t.addInvoice}</Link>
+          {canGo('/admin/analytics') && <Link href="/admin/analytics" className="btn btn-ghost">{isFa ? 'آمار بازدید و فروش' : 'Analytics'}</Link>}
+          {canGo('/admin/invoices') && <Link href="/admin/invoices" className="btn btn-primary">{t.addInvoice}</Link>}
         </div>
       </header>
 
-      <nav className="ao-quick" aria-label={isFa ? 'دسترسی سریع' : 'Quick access'}>
-        {quick.map((item) => <Link key={item.href} href={item.href}><span className="ws-tile"><Icon name={item.icon} size={17} /></span>{item.label}</Link>)}
-      </nav>
-
-      <AdminPromptOverview />
       <section className="card admin-attention mb-8" aria-label={isFa ? 'نیازمند توجه' : 'Needs attention'}>
         <div className="admin-attention-head">
           <h2 className="font-bold">{isFa ? 'نیازمند توجه' : 'Needs attention'}</h2>
           <span className="muted text-xs">
             {attention.length
               ? (isFa ? `${num(attention.length)} مورد برای بررسی` : `${attention.length} item${attention.length > 1 ? 's' : ''} to review`)
-              : (isFa ? 'در حال بررسی' : 'All clear')}
+              : (isFa ? 'موردی باز نیست' : 'All clear')}
           </span>
         </div>
         {attention.length === 0 ? (
@@ -192,7 +204,7 @@ export default function AdminDashboard() {
             <Link href="/admin/tickets" className="muted text-xs">{t.viewAll} →</Link>
           </div>
           <div className="flex flex-col gap-3">
-            {data.openTickets.length === 0 && <p className="muted">✨ {t.noTickets}</p>}
+            {data.openTickets.length === 0 && <p className="muted">{t.noTickets}</p>}
             {data.openTickets.map((tk: any) => (
               <Link key={tk.id} href="/admin/tickets" className="block rounded-lg border border-var p-3 card-hover">
                 <div className="text-sm font-semibold"><span className="num">#{tk.id}</span> {tk.subject}</div>
@@ -202,6 +214,10 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {areaMap}
+
+      <AdminPromptOverview />
 
       <div className="card overflow-x-auto">
         <div className="flex items-center justify-between mb-4">

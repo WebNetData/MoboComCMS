@@ -14,6 +14,7 @@
   "publicPaths": ["/u", "/feed", "/people"],
   "adminPaths": ["/admin/community"],
   "adminMenu": {
+    "area": "community",
     "title": "جامعه و پروفایل‌ها",
     "titleEn": "Community & profiles",
     "icon": "users",

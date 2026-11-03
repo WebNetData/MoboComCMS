@@ -14,7 +14,8 @@
   "adminPaths": ["/admin/prompts"],
   "permissions": [{ "id": "prompts.manage", "label": "مدیریت پرامپت مستر و الگوها" }, { "id": "prompts.author", "label": "نویسندگی پرامپت مستر؛ فقط الگوهای خودش" }],
   "adminMenu": {
-    "title": "پرامپت مستر", "icon": "sparkles", "order": 36,
+    "area": "content",
+    "title": "پرامپت مستر", "icon": "sparkles", "order": 75,
     "items": [
       { "href": "/admin/prompts", "label": "مدیریت الگوها", "icon": "layers", "permissions": ["prompts.manage", "prompts.author"], "exact": true },
       { "href": "/admin/prompts/categories", "label": "دسته‌های کتابخانه", "icon": "folder", "permissions": ["prompts.manage"] },

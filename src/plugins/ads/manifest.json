@@ -15,6 +15,7 @@
   "adminPaths": ["/admin/ads"],
   "permissions": [{ "id": "ads.manage", "label": "مدیریت تبلیغات" }],
   "adminMenu": {
+    "area": "marketing",
     "title": "تبلیغات",
     "titleEn": "Advertising",
     "icon": "megaphone",

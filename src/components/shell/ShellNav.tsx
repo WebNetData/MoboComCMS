@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 
 // The menu of a workspace shell (account dashboard, admin): parts with a caption, groups that open and
 // close, and their links. One renderer for the side column and the phone drawer; the layout owns what is listed.
 
-export interface ShellItem { href: string; label: string; icon: string; exact?: boolean; badge?: React.ReactNode }
+export interface ShellItem { href: string; label: string; icon: string; exact?: boolean; badge?: React.ReactNode; heading?: string }
 export interface ShellGroup {
   id: string
   title: string
@@ -81,9 +81,12 @@ export default function ShellNav({ groups, isOn, choice, onToggle, onNavigate, o
           <div className="admin-nav-items ws-items" hidden={!open}>
             {group.items.map((item) => {
               const on = isOn(item.href, item.exact)
-              return <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={on ? 'page' : undefined} className={`side-link ws-item ${on ? 'side-link-active' : ''}`}>
-                {itemIcons && <span className="side-icon"><Icon name={item.icon} size={17} /></span>}<span className="ws-label">{item.label}</span>{item.badge}
-              </Link>
+              return <Fragment key={item.href}>
+                {item.heading && <span className="ws-subhead">{item.heading}</span>}
+                <Link href={item.href} onClick={onNavigate} aria-current={on ? 'page' : undefined} className={`side-link ws-item ${on ? 'side-link-active' : ''}`}>
+                  {itemIcons && <span className="side-icon"><Icon name={item.icon} size={17} /></span>}<span className="ws-label">{item.label}</span>{item.badge}
+                </Link>
+              </Fragment>
             })}
           </div>
         </div>

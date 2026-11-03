@@ -10,7 +10,7 @@
   "capabilities": ["admin", "settings"],
   "defaultEnabled": true,
   "requiresCore": "^1.2.4",
-  "adminNavigation": [{ "href": "/admin/extensions/operations-monitor", "label": "پایش و هشدارها", "labelEn": "Monitoring & Alerts", "icon": "shield", "permission": "settings.manage" }],
+  "adminNavigation": [{ "group": "health", "href": "/admin/extensions/operations-monitor", "label": "پایش و هشدارها", "labelEn": "Monitoring & Alerts", "icon": "shield", "permission": "settings.manage" }],
   "settings": [
     { "key": "alerts", "label": "ارسال هشدار تلگرام", "labelEn": "Send Telegram alerts", "type": "boolean", "default": false },
     { "key": "chat-id", "label": "شناسه عددی چت مدیر", "labelEn": "Admin chat ID", "description": "ربات باید امکان ارسال پیام به این چت را داشته باشد.", "descriptionEn": "The bot must be able to message this chat.", "type": "text", "default": "" },

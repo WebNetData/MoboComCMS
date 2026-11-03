@@ -58,6 +58,7 @@
     }
   ],
   "adminMenu": {
+    "area": "content",
     "title": "موزیک",
     "titleEn": "Music",
     "icon": "music",

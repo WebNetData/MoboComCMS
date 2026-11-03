@@ -30,6 +30,7 @@
     "/admin/shipping-carriers"
   ],
   "adminMenu": {
+    "area": "commerce",
     "title": "فروشگاه",
     "titleEn": "Store",
     "icon": "bag",
@@ -47,6 +48,7 @@
         "exact": true
       },
       {
+        "heading": "سفارش و ارسال",
         "href": "/admin/store/orders",
         "label": "سفارش‌ها",
         "labelEn": "Orders",
@@ -75,9 +77,48 @@
         ]
       },
       {
+        "href": "/admin/product-deliveries",
+        "label": "تحویل دیجیتال و پیگیری",
+        "labelEn": "Delivery tracking",
+        "icon": "bolt",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/shipping-carriers",
+        "label": "شرکت‌های حمل و تعرفهٔ ارسال",
+        "labelEn": "Carriers & shipping rates",
+        "icon": "sliders",
+        "permissions": [
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/delivery",
+        "label": "زمان‌بندی و هزینهٔ ارسال",
+        "labelEn": "Delivery schedule",
+        "icon": "sliders",
+        "permissions": [
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "heading": "کاتالوگ",
         "href": "/admin/store/products",
         "label": "محصولات",
         "labelEn": "Products",
+        "icon": "grid",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/products",
+        "label": "ویرایش سریع محصولات",
+        "labelEn": "Quick product editor",
         "icon": "grid",
         "permissions": [
           "cms.products"
@@ -120,6 +161,18 @@
         ]
       },
       {
+        "href": "/admin/store/currency",
+        "label": "نرخ ارز و قیمت ارزی",
+        "labelEn": "Exchange rates & FX pricing",
+        "icon": "wallet",
+        "permissions": [
+          "cms.products",
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "heading": "مشتریان",
         "href": "/admin/store/customers",
         "label": "مشتریان",
         "labelEn": "Customers",
@@ -139,46 +192,7 @@
         ]
       },
       {
-        "href": "/admin/shipping-carriers",
-        "label": "شرکت‌های حمل و تعرفهٔ ارسال",
-        "labelEn": "Carriers & shipping rates",
-        "icon": "sliders",
-        "permissions": [
-          "orders.manage",
-          "settings.manage"
-        ]
-      },
-      {
-        "href": "/admin/delivery",
-        "label": "زمان‌بندی و هزینهٔ ارسال",
-        "labelEn": "Delivery schedule",
-        "icon": "sliders",
-        "permissions": [
-          "orders.manage",
-          "settings.manage"
-        ]
-      },
-      {
-        "href": "/admin/products",
-        "label": "ویرایش سریع محصولات",
-        "labelEn": "Quick product editor",
-        "icon": "grid",
-        "permissions": [
-          "cms.products"
-        ]
-      },
-      {
-        "href": "/admin/store/currency",
-        "label": "نرخ ارز و قیمت ارزی",
-        "labelEn": "Exchange rates & FX pricing",
-        "icon": "wallet",
-        "permissions": [
-          "cms.products",
-          "orders.manage",
-          "settings.manage"
-        ]
-      },
-      {
+        "heading": "تنظیمات",
         "href": "/admin/store/settings",
         "label": "ویترین فروشگاه",
         "labelEn": "Storefront",

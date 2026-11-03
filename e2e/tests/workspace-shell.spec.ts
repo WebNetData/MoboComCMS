@@ -57,10 +57,17 @@ test('the admin menu is grouped, searchable and usable from the keyboard and on 
     await expect(here).toBeInViewport()
     const group =menu.locator('.ws-group', { has: page.locator('a[href="/admin/tickets"]') })
     await expect(group.locator('.ws-toggle')).toHaveAttribute('aria-expanded', 'true')
-    await expect(menu.locator('a[href="/admin/settings"]')).toBeHidden()
-    // The parts of the menu are named, in order.
-    const captions = await menu.locator('.ws-caption').allTextContents()
-    expect(captions.filter((caption) => ['وب‌سایت', 'کسب‌وکار', 'سیستم'].includes(caption)), label).toEqual(['وب‌سایت', 'کسب‌وکار', 'سیستم'])
+    // One area at a time: its own groups are listed, another area's are not in the page.
+    const rail = page.locator(phone ? '#admin-mobile-navigation .acn-rail' : 'aside.side .acn-rail')
+    const area = (name: string) => rail.locator('.acn-tab', { hasText: name })
+    await expect(area('کاربران')).toHaveAttribute('aria-pressed', 'true')
+    await expect(menu.locator('a[href="/admin/settings"]')).toHaveCount(0)
+    // A press shows another area and stays on the page; the area of the open page keeps a mark.
+    await area('سیستم').focus()
+    await page.keyboard.press('Enter')
+    await expect(area('سیستم')).toHaveAttribute('aria-pressed', 'true')
+    await expect(area('کاربران')).toHaveClass(/has-page/)
+    await expect(page).toHaveURL(/\/admin\/tickets$/)
     // A group opens and closes from the keyboard, and says so.
     const settings = menu.locator('.ws-toggle', { hasText: 'تنظیمات و نگهداری' })
     await settings.focus()
@@ -70,7 +77,8 @@ test('the admin menu is grouped, searchable and usable from the keyboard and on 
     await page.keyboard.press('Enter')
     await expect(settings).toHaveAttribute('aria-expanded', 'false')
     await expect(menu.locator('a[href="/admin/settings"]')).toBeHidden()
-    // The finder narrows the menu to what matches and opens it; nothing matching says so.
+    await area('کاربران').click()
+    // The finder reaches every area: it narrows the menu to what matches and opens it; nothing matching says so.
     const finder = menu.locator('.admin-nav-search input')
     if (!phone) {
       await page.locator('main.app-main').click({ position: { x: 5, y: 5 } })
@@ -86,14 +94,14 @@ test('the admin menu is grouped, searchable and usable from the keyboard and on 
     if (!phone) {
       // The top bar names where this page sits.
       await expect(page.locator('.dash-top .dash-crumbs b[aria-current="page"]')).toHaveText('تیکت‌ها')
-      await expect(page.locator('.dash-top .dash-crumb-group')).toHaveText('کاربران و پشتیبانی')
+      await expect(page.locator('.dash-top .dash-crumb-group')).toHaveText(['کاربران', 'پشتیبانی'])
       // The side column fits the screen: the menu scrolls inside it, the signed-in row stays in view.
       const side = await page.locator('aside.side').boundingBox()
       expect(Math.round(side!.height), label).toBe(900)
       await expect(page.locator('aside.side .ws-foot .ws-out')).toBeInViewport()
       // Every icon tile is a square: a stretched tile means an older rule won.
       const tiles = await page.locator('aside.side .ws-tile').evaluateAll((nodes) => nodes.map((node) => { const box = node.getBoundingClientRect(); return [Math.round(box.width), Math.round(box.height)] }))
-      expect(tiles.length, label).toBeGreaterThan(8)
+      expect(tiles.length, label).toBeGreaterThan(2)
       expect(tiles.filter(([w, h]) => w !== 32 || h !== 32), label).toEqual([])
       await accessible(page, ['aside.side', 'header.dash-top'], label)
     }

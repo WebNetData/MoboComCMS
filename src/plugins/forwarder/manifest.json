@@ -15,6 +15,7 @@
   "adminPaths": ["/admin/forwarder"],
   "permissions": [{ "id": "forwarder.manage", "label": "مدیریت فورواردر و لینک‌های کوتاه" }],
   "adminMenu": {
+    "area": "marketing",
     "title": "لینک‌ها",
     "titleEn": "Links",
     "icon": "link",
