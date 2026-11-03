@@ -14,6 +14,7 @@ import Palette from './palette'
 import Canvas, { CodePane, type DragState } from './canvas'
 import Inspector from './inspector'
 import TemplatesPanel from './templates-panel'
+import KitPanel from './kit-panel'
 import { ensureTemplateForms } from './template-forms'
 
 type Meta = { title: string; titleEn: string; path: string; status?: string }
@@ -66,6 +67,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showKit, setShowKit] = useState(false)
   const [view, setView] = useState<'live' | 'structure'>('live')
   const [panels, setPanels] = useState({ left: true, right: true })
   const [previewSrc, setPreviewSrc] = useState(() => previewUrl(pageId, 0))
@@ -546,6 +548,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
         <button type="button" className="btn btn-ghost" onClick={undo} disabled={!past.length} title="Ctrl+Z">{L('Undo', 'بازگردانی')}</button>
         <button type="button" className="btn btn-ghost" onClick={redo} disabled={!future.length} title="Ctrl+Shift+Z">{L('Redo', 'دوباره')}</button>
         <button type="button" className="btn btn-ghost" onClick={() => setShowTemplates(true)}>{L('Templates', 'قالب‌ها')}</button>
+        <button type="button" className="btn btn-ghost" onClick={() => setShowKit(true)}>{L('Global kit', 'کیت سراسری')}</button>
         {meta?.path && <Link className="btn btn-ghost" href={meta.status === 'DRAFT' ? previewSrc : meta.path} target="_blank">{meta.status === 'DRAFT' ? L('Private preview ↗', 'پیش‌نمایش خصوصی ↗') : L('Open page ↗', 'نمایش صفحه ↗')}</Link>}
         {meta?.status && /^\d+$/.test(pageId) && <Link className="btn btn-ghost" href={`/admin/pages?edit=${pageId}`}>{L('Publication & page settings', 'انتشار و تنظیمات صفحه')}</Link>}
         <Link className="btn btn-ghost" href={`/admin/history?type=${encodeURIComponent(`builder:${pageId}`)}&id=1`} title={L('Every saved version of this design; an earlier one can be put back', 'هر نسخهٔ ذخیره‌شدهٔ این طرح؛ می‌توانید نسخهٔ قبلی را برگردانید')}>{L('History', 'تاریخچه')}</Link>
@@ -628,6 +631,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
         onRemove={removeSelection}
       />
     </div>
+    <KitPanel open={showKit} L={L} onClose={() => setShowKit(false)} onSaved={(text) => { setMessage(text); refreshPreview() }} />
     <TemplatesPanel
       open={showTemplates}
       pageId={pageId}
