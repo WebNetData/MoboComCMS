@@ -179,3 +179,74 @@ html[data-theme='dark'] .member-shell .ud-kpi.is-warn .ud-kpi-icon { color: #fcd
   .member-shell :is(.ud-quick a:hover span, .ud-kpi.is-wallet:hover, .sx-my-order:hover, .collections-card:hover) { transform: none; }
   .member-shell .app-main .ud-kpi.is-wallet::after { display: none; }
 }
+
+/* ============================================================
+   The member shell: ambient light and a fine dot field behind the
+   pages, a glass top bar, and a side menu with depth. The admin and
+   seller shells keep theirs: everything here starts at .member-shell.
+   ============================================================ */
+
+/* ---------- the room: two soft lights and dots that fade out below the fold ---------- */
+html[data-design] .member-shell.app-shell > .flex-1 {
+  background:
+    radial-gradient(820px 380px at 92% -140px, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
+    radial-gradient(640px 340px at 18% -180px, color-mix(in srgb, #8b5cf6 10%, transparent), transparent 70%),
+    linear-gradient(180deg, transparent 0, var(--bg) 520px),
+    radial-gradient(circle, color-mix(in srgb, var(--text) 13%, transparent) 1px, transparent 1.6px) 0 0 / 22px 22px,
+    var(--bg);
+}
+html[data-theme='light'] .member-shell.app-shell > .flex-1 {
+  background:
+    radial-gradient(820px 380px at 92% -140px, color-mix(in srgb, var(--primary) 12%, transparent), transparent 70%),
+    radial-gradient(640px 340px at 18% -180px, color-mix(in srgb, #8b5cf6 7%, transparent), transparent 70%),
+    linear-gradient(180deg, transparent 0, var(--bg) 520px),
+    radial-gradient(circle, color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1.6px) 0 0 / 22px 22px,
+    var(--bg);
+}
+
+/* ---------- the top bar: glass, the path in a capsule, actions in one set ---------- */
+html[data-design] .member-shell.app-shell .dash-top { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); background: color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter: saturate(1.5) blur(18px); backdrop-filter: saturate(1.5) blur(18px); }
+.member-shell .dash-crumbs { padding: 7px 16px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 99px; background: color-mix(in srgb, var(--card) 70%, transparent); font-size: 13px; }
+.member-shell .dash-crumbs b { color: var(--accent-ink, var(--primary)); }
+html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon) { min-height: 40px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--card) 75%, transparent); transition: border-color .18s ease, color .18s ease, transform .18s ease; }
+html[data-design] .member-shell.app-shell .dash-top-icon { width: 40px; height: 40px; }
+html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon):hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); color: var(--text); transform: translateY(-1px); }
+.member-shell .dash-top-user .avatar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--primary) 75%, transparent); transition: box-shadow .2s ease; }
+.member-shell .dash-top-user:hover .avatar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary), 0 0 18px -2px var(--primary); }
+
+/* ---------- the side menu: depth, a lit current page, captions with a rule ---------- */
+html[data-design] .member-shell.app-shell > .side { background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 7%, var(--card)) 0, color-mix(in srgb, var(--card) 72%, var(--bg)) 320px); border-inline-end-color: color-mix(in srgb, var(--border) 75%, transparent); }
+.member-shell .ws-caption { display: flex; align-items: center; gap: 10px; letter-spacing: 0; color: var(--muted); }
+.member-shell .ws-caption::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--border) 90%, transparent)); }
+html[dir='rtl'] .member-shell .ws-caption::after { background: linear-gradient(270deg, color-mix(in srgb, var(--border) 90%, transparent), transparent); }
+html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item { transition: background-color .18s ease, color .18s ease, padding .18s ease; }
+html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover { padding-inline-start: 14px; }
+html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item .side-icon { transition: transform .18s ease, color .18s ease; }
+html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover .side-icon { transform: scale(1.12); color: var(--accent-ink, var(--primary)); }
+html[data-design] .member-shell.app-shell :is(.ws-items .side-link.ws-item.side-link-active, .side-link-active.ws-flat) { background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 6%, transparent), color-mix(in srgb, var(--primary) 18%, transparent)); color: var(--accent-ink, var(--primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent); }
+html[dir='ltr'] .member-shell :is(.ws-items .side-link.ws-item.side-link-active, .side-link-active.ws-flat) { background: linear-gradient(270deg, color-mix(in srgb, var(--primary) 6%, transparent), color-mix(in srgb, var(--primary) 18%, transparent)) !important; }
+.member-shell .ws-item.side-link-active::before { width: 3px; box-shadow: 0 0 10px 1px color-mix(in srgb, var(--primary) 70%, transparent); }
+.member-shell .ws-group.has-active > .ws-toggle .ws-tile, .member-shell .side-link-active.ws-flat .ws-tile { background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #8b5cf6)); box-shadow: 0 8px 18px -10px var(--primary); }
+.member-shell .ws-toggle:hover .ws-tile { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); color: var(--accent-ink, var(--primary)); }
+html[data-design] .member-shell.app-shell .ws-foot .side-user { border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--card) 80%, transparent); }
+html[data-design] .member-shell.app-shell .ws-foot .side-user .avatar { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px color-mix(in srgb, var(--primary) 70%, transparent); }
+
+/* ---------- cards: see-through in the dark, a lit edge when pointed at ---------- */
+html[data-theme='dark'] .member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .ud-quick a, .dt-card, .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card, .dash-card, .np-panel, .nc-panel) { background-color: color-mix(in srgb, var(--card) 84%, transparent); }
+.member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card):hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 32%, transparent), 0 20px 40px -30px var(--primary); }
+
+/* ---------- the home banner: a taller cover and the counts as small tiles ---------- */
+.member-shell .ud-hero { border-radius: 26px; }
+.member-shell .ud-hero-cover { height: 170px; }
+.member-shell .ud-hero-stats { gap: 8px; margin-top: 4px; }
+.member-shell .ud-hero-stats a { display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 12px; border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--text) 3%, transparent); transition: border-color .15s ease, color .15s ease; }
+.member-shell .ud-hero-stats a:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+
+@media (max-width: 900px) {
+  html[data-design] .member-shell.app-shell .mobile-bar { background: color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter: saturate(1.5) blur(18px); backdrop-filter: saturate(1.5) blur(18px); }
+  .member-shell .ud-hero-cover { height: 130px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon, .ws-items .side-link.ws-item, .ws-items .side-link.ws-item .side-icon) { transition: none; }
+  html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon):hover, html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover .side-icon { transform: none; }
+}

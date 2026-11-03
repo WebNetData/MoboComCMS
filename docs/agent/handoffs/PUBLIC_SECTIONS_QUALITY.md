@@ -10,6 +10,10 @@ Owner: the dashboard looked plain, and the request page's sent answers and field
 - **Done:** decision in PLATFORM_DECISIONS 6D; `account-design.css`; `MyRequests` and its `rq-` rules in `forms-pro.css`; designed empty states in club, purchases and licenses; the home's figures before the shelf. No API, data or address change.
 - **Left:** the seller panel was not redesigned; `/dashboard/api` is a 404 while the public API is off, by design.
 
+## Member shell — 2026-11-03
+
+Owner, after PR318: more professional, modern and advanced. Branch `feat/member-shell-pro-2026-11-03`, stacked on PR318 (itself on PR317). The pages had changed, the frame round them had not: flat background, plain top bar and side menu. Rules only, in `account-design.css` under `.member-shell`; no markup, API or data change. Left: the admin and seller shells.
+
 ## Member home and account effects — 2026-11-03
 
 Owner, after PR317: some parts still looked poor; a professional, advanced dashboard that draws members in. Branch `feat/member-dashboard-pro-2026-11-03`, stacked on PR317's branch so the two merge in either order.
