@@ -40,3 +40,8 @@ test('code inventory detects edits and new files while runtime data stays indepe
  fs.writeFileSync(path.join(app,'code.js'),'original');fs.writeFileSync(path.join(app,'owner.js'),'new owner file');assert.notEqual(run('clean').status,0)
  fs.unlinkSync(path.join(app,'owner.js'));fs.writeFileSync(path.join(app,'__proto__'),'owner file with a special JS key');assert.notEqual(run('clean').status,0)
 })
+
+test('the publisher packs the committed bytes, so a package built on Windows has no CRLF the commit lacks', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'build-release-package.cjs'), 'utf8')
+  assert.ok(source.includes("run('git',['-c','core.autocrlf=false','-c','core.eol=lf','archive',"), 'git archive keeps the committed line endings')
+})

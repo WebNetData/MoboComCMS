@@ -26,7 +26,8 @@ async function main(){
  const created=[];let complete=false
  try{
   phase='source-archive'
-  run('git',['archive','--format=tar','--output',path.join(stage,'source.tar'),'HEAD'])
+  // The committed bytes, also on Windows: core.autocrlf would turn every text file but *.sh into CRLF.
+  run('git',['-c','core.autocrlf=false','-c','core.eol=lf','archive','--format=tar','--output',path.join(stage,'source.tar'),'HEAD'])
   phase='source-filter'
   run(python,['deploy/ubuntu/release-extract.py','pack',path.join(stage,'source.tar'),path.join(stage,'payload.tar.gz')])
   phase='payload-signature'
