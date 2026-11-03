@@ -1,6 +1,7 @@
 'use client'
 
 import '../account-design.css'
+import Spotlight from './Spotlight'
 import { useEffect, useRef, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
@@ -166,6 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="app-shell user-shell member-shell">
+      <Spotlight />
       <aside className="side">
         <Link href="/" className="side-brand">
           <BrandLockup />

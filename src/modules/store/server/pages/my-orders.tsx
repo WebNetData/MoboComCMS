@@ -52,6 +52,7 @@ export async function MyOrdersView({ tab: tabParam }: { tab?: string }) {
       : <ul className="sx-my-list">{orders.map((order) => <li key={order.id}>
         <Link href={`/dashboard/orders/${order.id}`} className="sx-my-order">
           <div className="sx-my-order-top">
+            <b className="sx-my-order-title">{order.lines[0]?.name || `سفارش ${fa(order.id)}`}{order.lines.length > 1 && <small> و {fa(order.lines.length - 1)} کالای دیگر</small>}</b>
             <span className={`sx-state is-${order.state.tone}`}>{order.state.label}</span>
             <StoreIcon name="chevron" size={18} />
           </div>

@@ -68,3 +68,114 @@ html[data-theme='light'] .member-shell .app-main :is(.dt-state.is-warn, .rq-badg
   .member-shell .app-main :is(.dt-row, .sx-svc, .ud-card, .rq-card, .btn-primary, .input, .select) { transition: none; }
   .member-shell .app-main :is(.dt-row, .sx-svc, .btn-primary):hover { transform: none; }
 }
+
+/* ============================================================
+   The home: a ring of completeness round the picture, the wallet as
+   a card (the page's one bright moment), figures that count up, and
+   section titles with their icon. Then the light under the pointer,
+   the orders list and the collection covers.
+   ============================================================ */
+@property --p { syntax: '<number>'; inherits: false; initial-value: 0; }
+
+.member-shell .ud-hero-cover { position: relative; height: 140px; }
+.member-shell .ud-hero-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, color-mix(in srgb, var(--card) 92%, transparent)); }
+.member-shell .ud-hero-body { position: relative; }
+.member-shell .ud-ring { position: relative; display: grid; place-items: center; width: 108px; height: 108px; padding: 4px; border-radius: 50%; background: conic-gradient(var(--primary) calc(var(--p) * 1%), color-mix(in srgb, var(--text) 12%, transparent) 0); animation: ud-fill 1.2s cubic-bezier(.2, .7, .2, 1) .15s both; }
+.member-shell .ud-ring .ud-avatar { width: 100px !important; height: 100px !important; box-shadow: 0 0 0 4px var(--card); }
+.member-shell .ud-ring-label { position: absolute; inset-block-end: -6px; left: 50%; translate: -50% 0; padding: 1px 9px; border: 2px solid var(--card); border-radius: 99px; background: var(--primary); color: var(--on-primary, #fff); font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+@keyframes ud-fill { from { --p: 0; } }
+.member-shell .ud-today { color: var(--accent-ink, var(--primary)); font-size: 12.5px; font-weight: 700; }
+.member-shell .ud-hero-copy h1 { font-size: clamp(21px, 1.4vw + 12px, 28px); font-weight: 800; letter-spacing: -.01em; }
+.member-shell .ud-verified { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-inline-start: 6px; border-radius: 50%; background: var(--primary); color: var(--on-primary, #fff); vertical-align: -3px; }
+.member-shell .ud-complete { background: color-mix(in srgb, var(--primary) 6%, var(--bg-soft)); border: 1px dashed color-mix(in srgb, var(--primary) 30%, var(--border)); }
+.member-shell .ud-todo { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.member-shell .ud-todo a { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-radius: 99px; background: var(--card); font-size: 12.5px; transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+.member-shell .ud-todo a:hover { border-color: var(--primary); background: var(--primary); color: var(--on-primary, #fff); }
+
+/* quick actions: the icon tile takes the accent on hover */
+.member-shell .ud-quick a { transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+.member-shell .ud-quick a:hover { box-shadow: 0 14px 26px -22px color-mix(in srgb, var(--primary) 90%, transparent); }
+.member-shell .ud-quick span { color: var(--accent-ink, var(--primary)); transition: background-color .18s ease, color .18s ease, transform .18s ease; }
+.member-shell .ud-quick a:hover span { background: var(--primary); color: var(--on-primary, #fff); transform: scale(1.06) rotate(-4deg); }
+
+/* figures */
+.member-shell .ud-kpi { position: relative; align-content: start; gap: 6px; min-height: 132px; padding: 18px; border-radius: 20px; }
+.member-shell .ud-kpi > b { font-size: 26px; font-weight: 800; line-height: 1.4; }
+.member-shell .ud-kpi > span:last-child { color: var(--muted); font-size: 12.5px; }
+.member-shell .ud-kpi-icon { position: absolute; inset-block-start: 16px; inset-inline-end: 16px; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--primary-soft); color: var(--accent-ink, var(--primary)); }
+.member-shell .ud-kpi.is-warn .ud-kpi-icon { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #b45309; }
+html[data-theme='dark'] .member-shell .ud-kpi.is-warn .ud-kpi-icon { color: #fcd34d; }
+.member-shell .ud-kpi.is-hot .ud-kpi-icon::after { content: ''; position: absolute; top: 7px; inset-inline-end: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger, #ef4444); box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger, #ef4444) 60%, transparent); animation: ud-ping 1.8s ease-out infinite; }
+@keyframes ud-ping { 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+
+/* the wallet card */
+.member-shell .app-main .ud-kpi.is-wallet { overflow: hidden; border: 0; color: #fff; background: radial-gradient(380px 200px at 88% -20%, rgb(255 255 255 / .2), transparent 62%), radial-gradient(300px 180px at 0% 120%, rgb(255 255 255 / .1), transparent 60%), linear-gradient(125deg, color-mix(in srgb, var(--primary) 68%, #0b1020), color-mix(in srgb, var(--primary) 42%, #4c1d95)); box-shadow: 0 26px 48px -30px var(--primary); transition: transform .25s ease, box-shadow .25s ease; }
+.member-shell .app-main .ud-kpi.is-wallet::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / .16) 50%, transparent 65%) no-repeat; background-size: 250% 100%; background-position: 120% 0; pointer-events: none; transition: background-position .9s ease; }
+.member-shell .app-main .ud-kpi.is-wallet:hover { transform: translateY(-3px); box-shadow: 0 32px 56px -30px var(--primary); }
+.member-shell .app-main .ud-kpi.is-wallet:hover::after { background-position: -20% 0; }
+.member-shell .app-main .ud-kpi.is-wallet small, .member-shell .app-main .ud-kpi.is-wallet > span:last-child { color: rgb(255 255 255 / .86); }
+.member-shell .app-main .ud-kpi.is-wallet > b { font-size: clamp(24px, 2.2vw, 32px); }
+.member-shell .app-main .ud-kpi.is-wallet > span:last-child { display: inline-flex; align-items: center; gap: 6px; }
+.member-shell .ud-wallet-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.member-shell .ud-wallet-chip { width: 38px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, #f8e7a1, #d4a944 55%, #f3d675); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .15); }
+.member-shell .app-main .ud-kpi.is-wallet .ud-kpi-more i { background: rgb(255 255 255 / .16); color: #fff; }
+/* The wallet leads the figures: beside four others it spans two rows, otherwise all sit in one row. */
+@media (min-width: 1100px) {
+  .member-shell .ud-kpis { grid-template-columns: minmax(0, 1.35fr); grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }
+  .member-shell .ud-kpis:has(> :nth-child(5)) { grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr)); grid-auto-flow: row; }
+  .member-shell .ud-kpis:has(> :nth-child(5)) > .is-wallet { grid-row: span 2; align-content: center; }
+}
+/* On a phone the wallet keeps the full width and the other figures sit two by two. */
+@media (max-width: 700px) {
+  .member-shell .ud-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .member-shell .ud-kpis > .is-wallet { grid-column: 1 / -1; }
+  .member-shell .ud-kpi { min-height: 0; padding: 14px; }
+  .member-shell .ud-kpi > b { font-size: 22px; }
+  .member-shell .ud-kpi-icon { width: 32px; height: 32px; inset-block-start: 12px; inset-inline-end: 12px; }
+  .member-shell .ud-kpi > small { padding-inline-end: 36px; }
+}
+.member-shell .ud-kpi > b { justify-self: start; }
+.member-shell .ud-kpi > small { padding-inline-end: 44px; }
+.member-shell .ud-ring { justify-self: start; }
+
+/* section titles carry their icon */
+.member-shell .ud-card-head h2 { display: flex; align-items: center; gap: 9px; }
+.member-shell .ud-card-head h2 > svg { flex: none; padding: 7px; width: 32px; height: 32px; border-radius: 10px; background: var(--primary-soft); color: var(--accent-ink, var(--primary)); }
+.member-shell .ud-feed-counts { display: inline-flex; align-items: center; gap: 4px; }
+.member-shell .ud-feed-counts svg:not(:first-child) { margin-inline-start: 8px; }
+.member-shell .ud-pill { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- the light under the pointer (src/app/dashboard/Spotlight.tsx) ---------- */
+.member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card) { position: relative; isolation: isolate; }
+.member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card)::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: var(--spot-o, 0); background: radial-gradient(280px circle at var(--spot-x, 50%) var(--spot-y, 50%), color-mix(in srgb, var(--primary) 13%, transparent), transparent 70%); transition: opacity .3s ease; }
+
+/* ---------- orders: what was bought, beside a stack of its pictures ---------- */
+.member-shell .sx-my-order { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "thumbs top" "thumbs meta"; align-items: center; gap: 8px 18px; padding: 18px 20px; border-radius: 20px; transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+.member-shell .sx-my-order:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.member-shell .sx-my-order-top { grid-area: top; gap: 12px; }
+.member-shell .sx-my-order-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 800; line-height: 1.7; overflow-wrap: anywhere; }
+.member-shell .sx-my-order-title small { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.member-shell .sx-my-order-meta { grid-area: meta; gap: 6px 10px; }
+.member-shell .sx-my-order-meta div { padding: 3px 10px; border-radius: 99px; background: color-mix(in srgb, var(--text) 5%, transparent); }
+.member-shell .sx-my-thumbs { grid-area: thumbs; flex-wrap: nowrap; padding: 0; border: 0; }
+.member-shell .sx-my-thumbs li { width: 76px; height: 76px; border: 3px solid var(--card); border-radius: 16px; box-shadow: 0 8px 18px -12px rgb(0 0 0 / .5); transition: margin .25s ease; }
+.member-shell .sx-my-thumbs li + li { margin-inline-start: -46px; }
+.member-shell .sx-my-thumbs li:nth-child(n + 4):not(.is-more) { display: none; }
+.member-shell .sx-my-order:hover .sx-my-thumbs li + li { margin-inline-start: -30px; }
+@media (max-width: 640px) {
+  .member-shell .sx-my-order { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "meta" "thumbs"; }
+  .member-shell .sx-my-thumbs li { width: 60px; height: 60px; }
+}
+
+/* ---------- collection covers: a stack of cards when the collection has no picture ---------- */
+.member-shell .collections-card { align-items: center; border-radius: 20px; transition: border-color .2s ease, transform .2s ease; }
+.member-shell .collections-card:hover { transform: translateY(-2px); }
+.member-shell .collections-cover { position: relative; flex-basis: 92px; min-height: 104px; overflow: visible; border-radius: 14px; background: linear-gradient(150deg, color-mix(in srgb, var(--primary) 30%, var(--card)), color-mix(in srgb, var(--primary) 8%, var(--card))); box-shadow: 6px -6px 0 -1px color-mix(in srgb, var(--primary) 16%, var(--card)), 12px -12px 0 -2px color-mix(in srgb, var(--primary) 8%, var(--card)); color: var(--accent-ink, var(--primary)); }
+.member-shell .collections-cover img { border-radius: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .member-shell .ud-ring, .member-shell .ud-kpi.is-hot .ud-kpi-icon::after { animation: none; }
+  .member-shell :is(.ud-quick a, .ud-quick span, .ud-kpi.is-wallet, .sx-my-order, .sx-my-thumbs li, .collections-card) { transition: none; }
+  .member-shell :is(.ud-quick a:hover span, .ud-kpi.is-wallet:hover, .sx-my-order:hover, .collections-card:hover) { transform: none; }
+  .member-shell .app-main .ud-kpi.is-wallet::after { display: none; }
+}
