@@ -30,7 +30,7 @@ Released versions are Git tags `vX.Y.Z`. `mobocom update VERSION` and `mobocom d
 Restricted networks (owner's server, 2026-11-04): github.com reachable; raw/codeload, apt/download.postgresql.org, registry.npmjs.org, binaries.prisma.sh and Let's Encrypt blocked. Per host and automatically, with `--mirrors`/`--no-mirrors` to decide:
 
 - **PostgreSQL** comes from `mirrors.aliyun.com/postgresql`. The PGDG key is accepted only with fingerprint `B97B0AFC…ACCC4CF8`.
-- **npm** uses `mirror-npm.runflare.com`, written to the service user's `.npmrc` and kept for updates. Integrity still comes from `package-lock.json`.
+- **npm:** `deploy/ubuntu/npm-registry.sh` runs as the service user before every `npm ci`. It keeps a mirror that answers, else takes the first of Runflare, Liara and Huawei Cloud that does, and removes the setting once the official registry answers again. Integrity still comes from `package-lock.json`.
 - **Prisma's engines** come from the repository's `prisma-engines` branch. `deploy/ubuntu/prisma-engines.sh` runs as the service user before every `npm ci` (install, `update.sh`, `package-update.sh`). It checks the engines against `deploy/ubuntu/prisma-engines.txt` and places them in Prisma's cache, so Prisma copies them and downloads nothing. A Prisma upgrade must add its engines to the branch and the pins in the same release; `installer.test.cjs` fails otherwise.
 - **The entry command** where raw is blocked is a `git clone` from github.com.
 - **Let's Encrypt:** when it is unreachable, the installer says so and the operator uses the existing PEM import.

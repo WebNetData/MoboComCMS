@@ -275,6 +275,31 @@ test('restricted networks: a mirror only for a host that is not reachable, unles
   assert.match(platform, /\[ "\$fpr" = "\$PGDG_KEY_FINGERPRINT" \] \|\| \{ rm -f "\$key\.new"; die /)
   const install = read('deploy/ubuntu/install.sh')
   assert.match(install, /--mirrors\) NETWORK_MIRRORS=on/); assert.match(install, /--no-mirrors\) NETWORK_MIRRORS=off/)
-  assert.match(install, /platform_npm_registry "\$HOME_DIR" "\$APP_USER"/)
+  assert.match(install, /as_app env NETWORK_MIRRORS="\$NETWORK_MIRRORS" bash "\$APP_DIR\/deploy\/ubuntu\/npm-registry\.sh"/)
+  for (const file of ['deploy/ubuntu/update.sh', 'deploy/ubuntu/package-update.sh']) assert.match(read(file), /if \[ -f deploy\/ubuntu\/npm-registry\.sh \]; then bash deploy\/ubuntu\/npm-registry\.sh \|\| (return|exit) 1; fi/, file)
   for (const file of ['deploy/ubuntu/update.sh', 'deploy/ubuntu/package-update.sh']) assert.match(read(file), /if \[ -f deploy\/ubuntu\/prisma-engines\.sh \]; then bash deploy\/ubuntu\/prisma-engines\.sh \. \|\| (return|exit) 1; fi/, file)
+})
+
+test('restricted networks: npm keeps a mirror that answers, else takes the first that does, and leaves a working registry alone', { skip: process.platform === 'win32' }, () => {
+  const cp = require('node:child_process')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-registry-'))
+  try {
+    // A curl stand-in that answers like the network described in ANSWERS (hosts that answer; everything else is blocked).
+    fs.mkdirSync(path.join(dir, 'bin')); fs.mkdirSync(path.join(dir, 'home'))
+    fs.writeFileSync(path.join(dir, 'bin/curl'), '#!/bin/sh\nfor a; do url="$a"; done\nfor h in $ANSWERS; do case "$url" in *"$h"*) printf 200; exit 0;; esac; done\nprintf 000; exit 7\n', { mode: 0o755 })
+    const rc = path.join(dir, 'home/.npmrc'), registry = () => (fs.existsSync(rc) ? fs.readFileSync(rc, 'utf8') : '').match(/^registry=(.*)$/m)?.[1] || ''
+    const run = (answers, extra = {}) => cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/npm-registry.sh')], { encoding: 'utf8', env: { ...process.env, PATH: `${path.join(dir, 'bin')}:${process.env.PATH}`, HOME: path.join(dir, 'home'), ANSWERS: answers, NETWORK_MIRRORS: '', ...extra } })
+    assert.equal(run('registry.npmjs.org').status, 0); assert.equal(fs.existsSync(rc), false, 'the official registry needs nothing')
+    fs.writeFileSync(rc, 'save-exact=true\n')
+    let result = run('package-mirror.liara.ir repo.huaweicloud.com')
+    assert.equal(result.status, 0, result.stderr); assert.equal(registry(), 'https://package-mirror.liara.ir/repository/npm/', 'the first mirror that answers')
+    assert.match(fs.readFileSync(rc, 'utf8'), /^save-exact=true$/m, 'other settings stay'); assert.match(fs.readFileSync(rc, 'utf8'), /^fetch-retries=6$/m)
+    assert.equal(run('registry.npmjs.org package-mirror.liara.ir').status, 0); assert.equal(registry(), 'https://package-mirror.liara.ir/repository/npm/', 'a mirror that answers is kept')
+    assert.equal(run('repo.huaweicloud.com').status, 0); assert.equal(registry(), 'https://repo.huaweicloud.com/repository/npm/', 'a mirror that stopped answering is replaced')
+    assert.equal(run('registry.npmjs.org').status, 0); assert.equal(registry(), '', 'the official registry answers again')
+    assert.match(fs.readFileSync(rc, 'utf8'), /^save-exact=true$/m)
+    result = run(''); assert.equal(result.status, 1); assert.match(result.stderr, /neither registry\.npmjs\.org nor any npm mirror answers/)
+    assert.equal(run('', { NETWORK_MIRRORS: 'off' }).status, 0, '--no-mirrors leaves npm alone')
+    assert.equal(run('registry.npmjs.org mirror-npm.runflare.com', { NETWORK_MIRRORS: 'on' }).status, 0); assert.equal(registry(), 'https://mirror-npm.runflare.com/', '--mirrors always takes a mirror')
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
 })

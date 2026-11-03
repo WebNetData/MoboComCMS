@@ -57,7 +57,7 @@ cd /tmp && git clone --depth 1 https://github.com/WebNetData/MoboComCMS.git mobo
 **سرور با اینترنت محدود:** نصب‌کننده خودش تشخیص می‌دهد کدام سرویس بسته است و فقط برای همان از مسیر جایگزین استفاده می‌کند:
 
 - **PostgreSQL:** از میرور، با کلید امضای رسمی؛
-- **بسته‌های npm:** از میرور Runflare، با hash ثبت‌شده در `package-lock.json`؛
+- **بسته‌های npm:** از اولین میرور در دسترس (Runflare، Liara یا Huawei Cloud)، با hash ثبت‌شده در `package-lock.json`؛
 - **موتورهای Prisma:** از شاخهٔ `prisma-engines` همین مخزن، با SHA-256 ثبت‌شده.
 
 اگر Let's Encrypt از سرور باز نشود، در ویزارد گواهی آماده (PEM) را انتخاب کنید؛ مثلاً Cloudflare Origin Certificate. [جزئیات](docs/INSTALL-FA.md#سرور-با-اینترنت-محدود)

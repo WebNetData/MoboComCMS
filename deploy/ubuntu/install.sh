@@ -295,8 +295,10 @@ fi
 
 if [ "$RESUME_UNINSTALLED" = 1 ]; then refresh_uninstalled_source; fi
 
-# Kept for later updates too: on a restricted network npm and Prisma take their files from reachable sources.
-platform_npm_registry "$HOME_DIR" "$APP_USER"
+# On a restricted network npm and Prisma take their files from reachable sources; the updates run the same scripts.
+if [ -f "$APP_DIR/deploy/ubuntu/npm-registry.sh" ]; then
+  as_app env NETWORK_MIRRORS="$NETWORK_MIRRORS" bash "$APP_DIR/deploy/ubuntu/npm-registry.sh"
+fi
 
 if [ ! -f "$APP_DIR/.next/BUILD_ID" ]; then
   say "Building the site (about 5 to 15 minutes)"

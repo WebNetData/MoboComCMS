@@ -14,9 +14,9 @@ platform_admit() {
 
 # Restricted networks: some countries block the hosts below. "auto" takes a mirror only for a host this server cannot
 # reach; --mirrors (on) always, --no-mirrors (off) never. What comes from a mirror is checked as from the original:
-# PostgreSQL's packages by their signing key (pinned below), npm packages by the hashes in package-lock.json.
+# PostgreSQL's packages by their signing key (pinned below). npm (npm-registry.sh) and Prisma (prisma-engines.sh) are
+# chosen by the service user's own scripts before every npm ci, at installation and at each update.
 NETWORK_MIRRORS="${NETWORK_MIRRORS:-auto}"
-NPM_MIRROR=https://mirror-npm.runflare.com/
 PG_MIRROR=https://mirrors.aliyun.com/postgresql
 PGDG_KEY_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 # Restricted networks also drop connections now and then: a host counts as unreachable only after two tries, and
@@ -129,19 +129,6 @@ platform_postgres() {
   for tool in psql pg_dump pg_restore; do
     [ -e "/usr/bin/$tool" ] || ln -s "/usr/pgsql-17/bin/$tool" "/usr/bin/$tool"
   done
-}
-
-# The npm registry of the service user ($1 home, $2 user): a mirror when registry.npmjs.org is not reachable, kept for
-# later updates. npm still checks every package against the integrity hash in package-lock.json.
-platform_npm_registry() {
-  local rc="$1/.npmrc"
-  use_mirror https://registry.npmjs.org/ || return 0
-  reachable "$NPM_MIRROR" || die "neither registry.npmjs.org nor the npm mirror $NPM_MIRROR is reachable from this server"
-  note "registry.npmjs.org is not reachable; npm packages come from $NPM_MIRROR, each checked against package-lock.json"
-  # More patience for a network that drops connections: thousands of packages are fetched.
-  { [ ! -f "$rc" ] || grep -vE '^(registry|fetch-retries|fetch-retry-mintimeout|fetch-retry-maxtimeout)=' "$rc" || true
-    printf 'registry=%s\nfetch-retries=6\nfetch-retry-mintimeout=15000\nfetch-retry-maxtimeout=120000\n' "$NPM_MIRROR"; } > "$rc.new"
-  chown "$2:$2" "$rc.new"; chmod 644 "$rc.new"; mv "$rc.new" "$rc"
 }
 
 platform_services() { systemctl enable --now "$PG_SERVICE" "$REDIS_SERVICE" >/dev/null; }

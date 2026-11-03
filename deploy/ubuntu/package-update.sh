@@ -92,7 +92,7 @@ FREE="$(df -Pm "$APP" | awk 'NR==2 {print $4}')"
 [ "$FREE" -ge "${UPDATE_MIN_FREE_MB:-4096}" ] || { echo '[release] insufficient build space' >&2; exit 2; }
 python3 "$TOOLS/release-extract.py" extract "$HOLD/payload.tar.gz" "$HOLD/source" "$TARGET"
 write_state running 'آماده‌سازی نسخهٔ جدید در پوشهٔ جدا'
-( cd "$HOLD/source"; if [ -f deploy/ubuntu/prisma-engines.sh ]; then bash deploy/ubuntu/prisma-engines.sh . || exit 1; fi; "${UPDATE_NPM:-npm}" ci --include=dev --no-audit --no-fund; NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "${UPDATE_BUILD:-npm run build:postgres}" )
+( cd "$HOLD/source"; if [ -f deploy/ubuntu/npm-registry.sh ]; then bash deploy/ubuntu/npm-registry.sh || exit 1; fi; if [ -f deploy/ubuntu/prisma-engines.sh ]; then bash deploy/ubuntu/prisma-engines.sh . || exit 1; fi; "${UPDATE_NPM:-npm}" ci --include=dev --no-audit --no-fund; NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "${UPDATE_BUILD:-npm run build:postgres}" )
 rm -rf -- "$HOLD/source/storage" "$HOLD/source/var" "$HOLD/source/public/demo" "$HOLD/source/public/uploads"
 cp "$HOLD/manifest.json" "$HOLD/source/.release.json"
 node "$TOOLS/release-package.cjs" inventory "$HOLD/source" "$HOLD/current-files.json"
