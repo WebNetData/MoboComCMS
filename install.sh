@@ -45,8 +45,14 @@ main() {
   WORK="$(mktemp -d /root/mobocom-get.XXXXXXXX)"
   trap cleanup EXIT
   printf '==> Fetching MoboComCMS (%s)\n' "$ref"
-  GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --depth 1 --branch "$ref" -- "$repo" "$WORK/src" </dev/null \
-    || die "could not fetch $repo ($ref); check that this server can reach github.com"
+  # Restricted networks drop connections now and then: up to three tries.
+  local try
+  for try in 1 2 3; do
+    GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --depth 1 --branch "$ref" -- "$repo" "$WORK/src" </dev/null && break
+    rm -rf -- "$WORK/src"
+    [ "$try" = 3 ] && die "could not fetch $repo ($ref); check that this server can reach github.com"
+    printf '    fetching failed; trying again (%s/3)\n' "$try"; sleep 5
+  done
   bundle="$WORK/src/deploy/ubuntu"
 
   # Questions (a private repository's key, a legacy e-mail) go to the keyboard, not to the downloaded script.

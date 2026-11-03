@@ -38,8 +38,12 @@ fi
 WORK="$(mktemp -d)"
 trap 'rm -rf -- "$WORK"' EXIT
 echo "[prisma-engines] binaries.prisma.sh is not reachable; taking Prisma's engines from the prisma-engines branch on GitHub"
-GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --depth 1 --single-branch --branch prisma-engines --no-checkout -- "$REPO" "$WORK/repo" \
-  || die 'could not fetch the prisma-engines branch from GitHub'
+for try in 1 2 3; do
+  GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --depth 1 --single-branch --branch prisma-engines --no-checkout -- "$REPO" "$WORK/repo" && break
+  rm -rf -- "$WORK/repo"
+  [ "$try" = 3 ] && die 'could not fetch the prisma-engines branch from GitHub'
+  echo "[prisma-engines] fetching failed; trying again ($try/3)"; sleep 5
+done
 for f in libquery-engine schema-engine; do
   git -C "$WORK/repo" show "HEAD:$HASH/$f.gz" > "$WORK/$f.gz" || die "$HASH/$f.gz is not on the prisma-engines branch"
   gunzip -c "$WORK/$f.gz" > "$WORK/$f"

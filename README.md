@@ -48,11 +48,19 @@ docs/releases/    آرشیو یادداشت‌های نسخه‌های قدیم�
 curl -fsSL https://raw.githubusercontent.com/WebNetData/MoboComCMS/main/install.sh | sudo bash
 ```
 
-اگر شبکهٔ سرور `raw.githubusercontent.com` را باز نمی‌کند ولی `github.com` باز است:
+اگر شبکهٔ سرور `raw.githubusercontent.com` را باز نمی‌کند ولی `github.com` باز است (مثل بسیاری از سرورهای داخل ایران):
 
 ```bash
-curl -fsSL https://codeload.github.com/WebNetData/MoboComCMS/tar.gz/refs/heads/main | tar -xz -C /tmp && sudo bash /tmp/MoboComCMS-main/install.sh
+cd /tmp && git clone --depth 1 https://github.com/WebNetData/MoboComCMS.git mobocom-src && sudo bash mobocom-src/install.sh
 ```
+
+**سرور با اینترنت محدود:** نصب‌کننده خودش تشخیص می‌دهد کدام سرویس بسته است و فقط برای همان از مسیر جایگزین استفاده می‌کند:
+
+- **PostgreSQL:** از میرور، با کلید امضای رسمی؛
+- **بسته‌های npm:** از میرور Runflare، با hash ثبت‌شده در `package-lock.json`؛
+- **موتورهای Prisma:** از شاخهٔ `prisma-engines` همین مخزن، با SHA-256 ثبت‌شده.
+
+اگر Let's Encrypt از سرور باز نشود، در ویزارد گواهی آماده (PEM) را انتخاب کنید؛ مثلاً Cloudflare Origin Certificate. [جزئیات](docs/INSTALL-FA.md#سرور-با-اینترنت-محدود)
 
 این دستور سیستم را می‌شناسد و بدون پرسیدن سؤال، حدود ۱۰ تا ۲۰ دقیقه کار می‌کند:
 

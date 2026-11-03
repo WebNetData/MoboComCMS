@@ -19,7 +19,10 @@ NETWORK_MIRRORS="${NETWORK_MIRRORS:-auto}"
 NPM_MIRROR=https://mirror-npm.runflare.com/
 PG_MIRROR=https://mirrors.aliyun.com/postgresql
 PGDG_KEY_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
-reachable() { [ "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$1" 2>/dev/null)" != 000 ]; }
+# Restricted networks also drop connections now and then: a host counts as unreachable only after two tries, and
+# network steps run up to three times.
+reachable() { local n; for n in 1 2; do [ "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$1" 2>/dev/null)" = 000 ] || return 0; done; return 1; }
+retry() { local n; for n in 1 2 3; do "$@" && return 0; [ "$n" = 3 ] || { note "network step failed; trying again ($n/3)"; sleep 5; }; done; return 1; }
 use_mirror() { case "$NETWORK_MIRRORS" in on) return 0 ;; off) return 1 ;; esac; ! reachable "$1"; }
 
 pkg_install() {
@@ -135,7 +138,9 @@ platform_npm_registry() {
   use_mirror https://registry.npmjs.org/ || return 0
   reachable "$NPM_MIRROR" || die "neither registry.npmjs.org nor the npm mirror $NPM_MIRROR is reachable from this server"
   note "registry.npmjs.org is not reachable; npm packages come from $NPM_MIRROR, each checked against package-lock.json"
-  { [ ! -f "$rc" ] || grep -v '^registry=' "$rc" || true; printf 'registry=%s\n' "$NPM_MIRROR"; } > "$rc.new"
+  # More patience for a network that drops connections: thousands of packages are fetched.
+  { [ ! -f "$rc" ] || grep -vE '^(registry|fetch-retries|fetch-retry-mintimeout|fetch-retry-maxtimeout)=' "$rc" || true
+    printf 'registry=%s\nfetch-retries=6\nfetch-retry-mintimeout=15000\nfetch-retry-maxtimeout=120000\n' "$NPM_MIRROR"; } > "$rc.new"
   chown "$2:$2" "$rc.new"; chmod 644 "$rc.new"; mv "$rc.new" "$rc"
 }
 

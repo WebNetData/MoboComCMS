@@ -27,6 +27,14 @@ On AlmaLinux, SELinux stays enforcing; only `httpd_can_network_connect` is enabl
 
 Released versions are Git tags `vX.Y.Z`. `mobocom update VERSION` and `mobocom downgrade VERSION` reuse the existing safe path of `update.sh`: backup first, an exact commit, build, health check, and automatic return on failure. A downgrade changes code only; the database is never rewound, and data goes back only through an explicit `mobocom restore`. Signed-package sites keep updating through `/admin/updates`. [Evidence and limits](handoffs/HOST_INSTALL_UPGRADE.md).
 
+Restricted networks (owner's server, 2026-11-04): github.com reachable; raw/codeload, apt/download.postgresql.org, registry.npmjs.org, binaries.prisma.sh and Let's Encrypt blocked. Per host and automatically, with `--mirrors`/`--no-mirrors` to decide:
+
+- **PostgreSQL** comes from `mirrors.aliyun.com/postgresql`. The PGDG key is accepted only with fingerprint `B97B0AFC…ACCC4CF8`.
+- **npm** uses `mirror-npm.runflare.com`, written to the service user's `.npmrc` and kept for updates. Integrity still comes from `package-lock.json`.
+- **Prisma's engines** come from the repository's `prisma-engines` branch. `deploy/ubuntu/prisma-engines.sh` runs as the service user before every `npm ci` (install, `update.sh`, `package-update.sh`). It checks the engines against `deploy/ubuntu/prisma-engines.txt` and places them in Prisma's cache, so Prisma copies them and downloads nothing. A Prisma upgrade must add its engines to the branch and the pins in the same release; `installer.test.cjs` fails otherwise.
+- **The entry command** where raw is blocked is a `git clone` from github.com.
+- **Let's Encrypt:** when it is unreachable, the installer says so and the operator uses the existing PEM import.
+
 ## Digital files and content pricing — 2026-11-03
 
 Store owns file products and orders; Paywall owns priced content, now including Prompt. Account owns exact integer PRICE/PERCENT/AMOUNT/FREE adjustment math. Lowest eligible ordinary/VIP/current-group price wins without stacking. Free eligibility is live, while a paid purchase survives group expiry and closes on its applicable refund. Only FILES virtual fixed-price non-service products may have zero Store prices. Media stores opaque private bytes outside public Library roots; copying an existing Library file is explicit and leaves its original public. Current section managers price through existing permissions, with owner-row/revision/audit claims. No second catalogue, grant system or identity. [Owner interfaces, rollout and evidence](handoffs/DIGITAL_CONTENT_PRICING.md).
