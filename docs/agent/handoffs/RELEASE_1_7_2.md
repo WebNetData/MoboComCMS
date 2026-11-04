@@ -3,7 +3,7 @@
 Owner 2026-11-04: build 1.7.2 so the site can be updated without trouble. Functional source is merged main `1f3f3aea`
 (through PR342: hosting add-ons and domains). `release/v1.7.2` changes version metadata (`package.json`,
 `package-lock.json`), seals the two unreleased hosting migrations into 1.7.2 and moves the operator guides to 1.7.2; it
-adds no functional code or dependency. Pre-release, like 1.7.0 and 1.7.1. Same publisher key; existing tags and assets
+adds no functional code or dependency. Published as a Pre-release, then marked **stable and latest** by the owner the same day (same tag, commit and assets; notes heading edited only). Git installs see it in `/admin/updates` only as a stable release (`pickUpdate` hides pre-releases from a stable install). Same publisher key; existing tags and assets
 stay immutable. Owner merges the metadata PR.
 
 ## Executed validation (on the release commit, clean LF tree, Linux Node 22)
