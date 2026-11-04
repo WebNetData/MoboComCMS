@@ -2,3 +2,4 @@
 export { loadRouteAliases, loadRoutingState, publicRouteAliases, routableSections, RouteAliasError } from './routes/state'
 export { saveRouteAliases, saveRouting } from './routes/commands'
 export { resolvePublicRoute } from './routes/resolve'
+export { canonicalContentLinks, withCanonicalContentLinks } from './routes/links'

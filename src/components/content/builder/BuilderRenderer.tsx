@@ -2,6 +2,7 @@ import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
 import { cleanWidgetHtml, sanitizeWidgetCss } from '@/shared/content/sanitize'
 import { getLandingData } from '@/modules/site/server/homepage'
+import { withCanonicalContentLinks } from '@/modules/site/server/routes'
 import { getPublicNavigationPages, type PublicNavigationPage } from '@/modules/site/server/navigation'
 import type { LandingData, LandingPost, LandingProduct } from '@/modules/site/domain/homepage'
 import { getBuilderPosts, getBuilderProducts, postQueryKey, productQueryKey, type PostQuery, type ProductQuery } from '@/modules/site/server/builder-data'
@@ -606,7 +607,7 @@ function renderCode(code: BuilderCode): ReactNode {
  * `editable={false}` renders a document that is not the one being edited (e.g. a
  * post layout template) without editor ids, so preview clicks cannot select it.
  */
-export default async function BuilderRenderer({ doc, locale, data, slots, preview, editable = true, context = {} }: {
+export default async function BuilderRenderer({ doc: storedDoc, locale, data, slots, preview, editable = true, context = {} }: {
   doc: BuilderDoc
   locale: BuilderLocale
   data?: LandingData
@@ -615,6 +616,8 @@ export default async function BuilderRenderer({ doc, locale, data, slots, previe
   editable?: boolean
   context?: BuilderContext
 }) {
+  // Stored track/album links get their final address here, so visitors are not sent through a redirect.
+  const doc = await withCanonicalContentLinks(storedDoc)
   const kit = kitCss(await getBuilderKit(!!preview))
   if (doc.mode === 'code') return <>{kit && <style>{kit}</style>}{renderCode(doc.code)}</>
 
@@ -624,7 +627,7 @@ export default async function BuilderRenderer({ doc, locale, data, slots, previe
   const templates = needsTemplates
     ? new Map<string, BuilderDoc>([
         ...BUNDLED_TEMPLATES.map((entry) => [entry.id, entry.doc] as const),
-        ...(userTemplates || []).map((entry) => [entry.id, entry.doc] as const),
+        ...(await withCanonicalContentLinks(userTemplates || [])).map((entry) => [entry.id, entry.doc] as const),
       ])
     : null
   const widgets = collectWidgets(doc, templates)

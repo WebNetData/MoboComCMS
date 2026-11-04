@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { withSectionSeo } from '@/modules/site/server/section-seo'
 import { sized } from '@/shared/media/image'
 import Link from '@/components/AppLink'
+import { contentPath } from '@/platform/routing/aliases'
 import { requireModule } from '@/extensions/server/modules'
 import { getMusicHome } from '@/modules/media/server/queries'
 import { getViewer } from '@/modules/membership/server/membership'
@@ -100,7 +101,7 @@ export default async function MusicHomePage() {
               </div>
               <div className="mu-hero-actions">
                 <PlayButton tracks={hero} index={0} variant="big" label={fa ? 'پخش آهنگ' : 'Play now'} />
-                <Link href={`/music/track/${lead.slug}`} className="btn btn-ghost">{fa ? 'متن و دانلود' : 'Lyrics & download'}</Link>
+                <Link href={contentPath('track', lead.slug, { artist: lead.artist.slug })} className="btn btn-ghost">{fa ? 'متن و دانلود' : 'Lyrics & download'}</Link>
               </div>
             </div>
             <div className="mu-hero-cover">
@@ -112,7 +113,7 @@ export default async function MusicHomePage() {
                   <li key={track.id}>
                     <PlayButton tracks={hero} index={i + 1} />
                     {track.cover ? <img src={sized(track.cover, 120)} alt="" /> : <span className="mu-noart">♪</span>}
-                    <Link href={`/music/track/${track.slug}`}><b>{fa ? track.title : track.titleEn || track.title}</b><small>{fa ? track.artist.name : track.artist.nameEn || track.artist.name}</small></Link>
+                    <Link href={contentPath('track', track.slug, { artist: track.artist.slug })}><b>{fa ? track.title : track.titleEn || track.title}</b><small>{fa ? track.artist.name : track.artist.nameEn || track.artist.name}</small></Link>
                   </li>
                 ))}
               </ol>

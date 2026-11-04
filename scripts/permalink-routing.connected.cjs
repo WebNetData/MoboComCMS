@@ -27,7 +27,7 @@ function load(file){
   return require(name)
  },mod,mod.exports);return mod.exports
 }
-async function main(){const users=[];let role,artist,album,track,page,draft
+async function main(){const users=[];let role,artist,album,track,page,draft,hiddenTrack
  try{
   role=await prisma.role.create({data:{name:stamp,permissions:JSON.stringify(['music.manage'])}})
   users.push(await prisma.user.create({data:{email:stamp+'@example.invalid',passwordHash:'not-a-login-password',role:'ADMIN'}}))
@@ -35,6 +35,7 @@ async function main(){const users=[];let role,artist,album,track,page,draft
   artist=await prisma.musicArtist.create({data:{slug:stamp+'-artist',name:'Test singer',nameEn:'Test singer'}})
   album=await prisma.musicAlbum.create({data:{slug:stamp+'-album',title:'Owned album',artistId:artist.id}})
   track=await prisma.musicTrack.create({data:{slug:stamp+'-track',title:'Owned track',artistId:artist.id,albumId:album.id}})
+  hiddenTrack=await prisma.musicTrack.create({data:{slug:stamp+'-hidden',title:'Owned draft track',artistId:artist.id,status:'DRAFT'}})
   page=await prisma.page.create({data:{slug:stamp+'-page',title:'Owned page',status:'PUBLISHED'}})
   draft=await prisma.page.create({data:{slug:stamp+'-draft',title:'Owned draft',status:'DRAFT'}})
   const route=load('src/modules/site/server/http/admin/routes/route.ts'),owner=load('src/modules/site/server/routes.ts')
@@ -52,11 +53,24 @@ async function main(){const users=[];let role,artist,album,track,page,draft
   assert.deepEqual(await owner.resolvePublicRoute('/music/track/'+track.slug),{kind:'redirect',path:canonical})
   assert.deepEqual(await owner.resolvePublicRoute(canonical),{kind:'rewrite',path:'/music/track/'+track.slug})
   assert.deepEqual(await owner.resolvePublicRoute('/music/wrong-artist/track/'+track.slug),{kind:'redirect',path:canonical})
+  // Stored links (a home-page button, rich text) reach the final address without a redirect; the stored copy is unchanged.
+  const albumCanonical='/music/'+artist.slug+'/album/'+album.slug
+  const stored={sections:[{columns:[{widgets:[
+   {type:'button',props:{href:'/music/track/'+track.slug+'?from=home#play'}},
+   {type:'html',props:{html:'<p><a href="/music/album/'+album.slug+'">album</a> <a href=\'/music/track/'+hiddenTrack.slug+'\'>draft</a></p>'}},
+   {type:'link',props:{href:canonical}},{type:'link',props:{href:'/music/track/'+stamp+'-missing'}},{type:'text',props:{text:'/music/track/'+track.slug+' as words'}}]}]}]}
+  const before=JSON.stringify(stored),shown=await owner.withCanonicalContentLinks(stored),w=shown.sections[0].columns[0].widgets
+  assert.equal(w[0].props.href,canonical+'?from=home#play')
+  assert.equal(w[1].props.html,'<p><a href="'+albumCanonical+'">album</a> <a href=\'/music/track/'+hiddenTrack.slug+'\'>draft</a></p>','a draft keeps its written link')
+  assert.equal(w[2].props.href,canonical);assert.equal(w[3].props.href,'/music/track/'+stamp+'-missing');assert.equal(w[4].props.text,'/music/track/'+track.slug+' as words')
+  assert.equal(JSON.stringify(stored),before,'the stored document is not modified')
+  const plain={a:{b:['x','/games/y']}};assert.equal(await owner.withCanonicalContentLinks(plain),plain,'nothing to change returns the same object')
   assert.equal(await owner.resolvePublicRoute('/login'),null)
   assert.equal(await owner.resolvePublicRoute('/games/calendar'),null)
   for(const base of ['songs','audio']){const response=await route.PUT(await request({aliases:{'/music':base}},users[0],state.revision));assert.equal(response.status,200);state=await response.json()}
   assert.deepEqual(await owner.resolvePublicRoute('/songs/'+artist.slug+'/track/'+track.slug),{kind:'redirect',path:'/audio/'+artist.slug+'/track/'+track.slug})
   assert.deepEqual(await owner.resolvePublicRoute('/songs/browse'),{kind:'redirect',path:'/audio/browse'})
+  assert.equal((await owner.canonicalContentLinks(['/music/track/'+track.slug])).get('/music/track/'+track.slug),'/audio/'+artist.slug+'/track/'+track.slug,'a renamed section is applied too')
   const oldRevision=state.revision
   const race=await Promise.all([route.PUT(await request({templates:{post:'/journal/{slug}'}},users[0],oldRevision)),route.PUT(await request({templates:{post:'/articles/{slug}'}},users[0],oldRevision))])
   assert.deepEqual(race.map(r=>r.status).sort(),[200,409])
@@ -67,12 +81,12 @@ async function main(){const users=[];let role,artist,album,track,page,draft
   const merged=await owner.loadRoutingState(true);assert.equal(merged.aliases['/games'],'/play');assert.equal(merged.permalinks.templates.software,'/apps/{slug}')
   assert.ok(await prisma.auditLog.count({where:{actorUserId:users[0].id,action:'site.routes.update'}})>0)
   assert.equal((await prisma.musicTrack.findUnique({where:{id:track.id}})).artistId,artist.id)
-  console.log('Permalink PostgreSQL: root pages/drafts, artist routes and wrong-artist canonicalization, old aliases, static routes, permissions/Origin, stale race, disjoint concurrent saves, strict audit rollback and unchanged content passed.')
+  console.log('Permalink PostgreSQL: root pages/drafts, artist routes and wrong-artist canonicalization, stored links resolved to the final address (drafts/unknown/words untouched), old aliases, static routes, permissions/Origin, stale race, disjoint concurrent saves, strict audit rollback and unchanged content passed.')
  }finally{
   auditOutage=false
   await prisma.auditLog.deleteMany({where:{actorUserId:{in:users.map(u=>u.id)}}})
   await prisma.setting.deleteMany({where:{key:{startsWith:stamp+'.'}}})
-  if(track)await prisma.musicTrack.delete({where:{id:track.id}});if(album)await prisma.musicAlbum.delete({where:{id:album.id}});if(artist)await prisma.musicArtist.delete({where:{id:artist.id}})
+  if(hiddenTrack)await prisma.musicTrack.delete({where:{id:hiddenTrack.id}});if(track)await prisma.musicTrack.delete({where:{id:track.id}});if(album)await prisma.musicAlbum.delete({where:{id:album.id}});if(artist)await prisma.musicArtist.delete({where:{id:artist.id}})
   await prisma.page.deleteMany({where:{id:{in:[page?.id,draft?.id].filter(Boolean)}}})
   await prisma.user.deleteMany({where:{id:{in:users.map(u=>u.id)}}});if(role)await prisma.role.delete({where:{id:role.id}})
   await prisma.$disconnect()

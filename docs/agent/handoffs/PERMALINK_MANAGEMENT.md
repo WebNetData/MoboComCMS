@@ -2,7 +2,29 @@
 
 Current2026-11-04: `feat/miniapp-platform-2026-11-04`, base `5bdc7c93`; continue the existing Site router and the preceding uncommitted Mini App batch. Preserve older-root work, `.serena/` and `public/demo/`. Owner merges/deploys; four later origin/main PR333/334 commits require reconciliation at publication. No dependency, schema, identity, permission-key, API-address or content-row migration.
 
-## Ownership and contracts
+## Links reach the final address without a redirect — 2026-11-04
+
+Owner: a home-page link `/music/track/banoo-jan` sent visitors through a 308 to `/music/komeil-nasri/track/banoo-jan`.
+A link that knows only the slug cannot name the artist, so `presentContentPath` (and the shared Link) kept the old
+address. Branch `fix/home-permalinks-2026-11-04` from main `e1e404b8`:
+
+- `src/modules/site/server/routes/links.ts` (exported from the `routes.ts` address): `canonicalContentLinks(paths)`
+  resolves track/album paths without an artist with one query per kind (published items only, at most 300 paths),
+  and `withCanonicalContentLinks(value)` returns a copy of a stored document with whole-path strings and `href`
+  attributes in HTML rewritten. Nothing is queried when neither template names `{artist}`; unknown, draft and
+  free-text values stay as written, and the stored document is never modified.
+- Applied where stored links are rendered: `BuilderRenderer` (every builder page, home included, and user templates)
+  and `getPublicSiteConfig` (menus, footer and home sections, once per request).
+- Code that had the artist but wrote the old address now uses `contentPath`: the music landing hero/queue, a
+  playlist's track rows, the track/album pages' review, VIP and purchase return paths, and the follower notification
+  of a new track (it loads the routing state first; stored inbox links keep the pattern of their day).
+- Evidence: `permalink-routing` PG suite extended (button with query/hash, HTML href, draft, unknown, words, renamed
+  section, input not mutated); two deliberate breaks (tracks skipped; query/hash dropped) each failed it and the
+  restored code passed; `section-maintenance` and `module-availability` passed on the same fresh database.
+- Not changed: IndexNow pings, admin "view" links, the download/purchase redirects of `/api/media/track`, the login
+  `next` of the player and the paywall's purchase list still write the old address and are redirected once. The
+  owner's production home was in maintenance during this work, so the exact block holding the link was not seen;
+  every stored and builder link on a page now goes through the resolver.
 
 - `src/modules/site/server/routes.ts` remains the Site router address. Its `routes/state.ts`, `commands.ts`, `resolve.ts` parts own fresh/cached policy, serializable writes and public resolution. Other modules import the address, not the parts.
 - Existing `site.routes.v1` remains section aliases. Additive `site.permalinks.v1` holds typed templates, previous public templates and section-alias history in the existing Settings table. Do not create another redirect service or entity identity. Combined SHA256 revision covers both settings; compare-and-swap, retryable serialization and strict same-transaction audit protect saves. Section Admin writes an alias patch against fresh state instead of clobbering the whole table.
