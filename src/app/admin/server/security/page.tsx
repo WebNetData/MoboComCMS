@@ -12,7 +12,7 @@ const ACTIONS: Record<string, string> = {
   'server.file_archive': 'ساخت آرشیو', 'server.file_extract': 'باز کردن آرشیو', 'server.file_upload': 'بارگذاری', 'server.file_download': 'دانلود',
   'server.totp_enabled': 'فعال‌سازی کد دومرحله‌ای', 'server.totp_disabled': 'غیرفعال‌سازی کد دومرحله‌ای',
   'server.db_query': 'اجرای کوئری', 'server.db_backup': 'بکاپ پایگاه داده', 'server.db_browse': 'مرور جدول',
-  'server.social_proxy_save': 'پیکربندی پروکسی شبکه‌های اجتماعی', 'server.social_proxy_on': 'روشن کردن پروکسی شبکه‌های اجتماعی', 'server.social_proxy_off': 'خاموش کردن پروکسی شبکه‌های اجتماعی', 'server.social_proxy_remove': 'حذف پروکسی شبکه‌های اجتماعی', 'server.social_proxy_reveal': 'نمایش پیکربندی پروکسی',
+  'server.social_proxy_save': 'ذخیرهٔ پیکربندی Xray', 'server.social_proxy_routes': 'تعیین کاربرد پیکربندی‌های Xray', 'server.social_proxy_on': 'روشن کردن پروکسی شبکه‌های اجتماعی', 'server.social_proxy_off': 'خاموش کردن پروکسی شبکه‌های اجتماعی', 'server.social_proxy_remove': 'حذف پیکربندی Xray', 'server.social_proxy_reveal': 'نمایش پیکربندی پروکسی',
   'server.mail_settings': 'تنظیمات ایمیل', 'server.mail_test': 'ایمیل آزمایشی', 'server.mailbox_create': 'ساخت صندوق ایمیل', 'server.mailbox_update': 'ویرایش صندوق ایمیل', 'server.mailbox_delete': 'حذف صندوق ایمیل', 'server.mail_domain': 'دامنهٔ ایمیل', 'server.mail_alias': 'نام مستعار ایمیل', 'server.mail_read': 'خواندن ایمیل', 'server.mail_send': 'ارسال ایمیل از صندوق', 'server.mail_delete': 'حذف ایمیل', 'server.db_export': 'خروجی جدول',
 }
 const actionLabel = (action: string) => ACTIONS[action] || (action.startsWith('server.service_') ? `سرویس: ${action.slice(15)}` : action)

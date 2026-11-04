@@ -4,7 +4,8 @@
 # before it replaces the running configuration.
 #
 #   status     JSON: installed, version, active, configured
-#   apply      outbound JSON on stdin → check → install the configuration → (re)start the proxy
+#   apply      outbound or profiles JSON on stdin → check → install the configuration → (re)start the proxy
+#   check      the same JSON → check only; nothing running changes
 #   disable    stop the proxy and remove its configuration
 set -euo pipefail
 umask 027
@@ -26,9 +27,11 @@ case "${1:-}" in
     if [ -x "$XRAY" ]; then installed=1; version="$("$XRAY" version 2>/dev/null | awk 'NR == 1 { print $2 }' | tr -cd '0-9A-Za-z.-' | head -c 32)"; fi
     [ -s "$CONFIG" ] && configured=1
     active && running=1
-    printf '{"installed":%s,"version":"%s","configured":%s,"active":%s,"port":10809}\n' "$installed" "$version" "$configured" "$running"
+    # The builder's version says what the panel may send (2: several profiles and purposes).
+    builder="$(sed -n 's/^const BUILDER_VERSION = \([0-9]\{1,3\}\)$/\1/p' "$BUILDER" 2>/dev/null | head -1 || true)"
+    printf '{"installed":%s,"version":"%s","configured":%s,"active":%s,"port":10809,"builder":%s}\n' "$installed" "$version" "$configured" "$running" "${builder:-1}"
     ;;
-  apply)
+  apply|check)
     [ -x "$XRAY" ] || die 'Xray-core is not installed on this server; run the installer again'
     work="$(mktemp -d)"
     trap 'rm -rf -- "$work"' EXIT
@@ -39,6 +42,7 @@ case "${1:-}" in
     if ! "$XRAY" run -test -c "$work/config.json" > "$work/test" 2>&1; then
       die "Xray rejected the configuration: $(grep -v '^Xray ' "$work/test" | tail -c 400 | tr '\n' ' ')"
     fi
+    if [ "$1" = check ]; then echo 'OK configuration accepted'; exit 0; fi
     if [ "$DRY" = 1 ]; then echo 'DRY: configuration accepted'; exit 0; fi
     install -m 640 -o root -g mobocom-xray "$work/config.json" "$CONFIG.new"
     mv -f -- "$CONFIG.new" "$CONFIG"
@@ -56,5 +60,5 @@ case "${1:-}" in
     rm -f -- "$CONFIG"
     echo 'OK social-network proxy stopped'
     ;;
-  *) die 'usage: mobocom-xrayctl status | apply | disable' ;;
+  *) die 'usage: mobocom-xrayctl status | apply | check | disable' ;;
 esac
