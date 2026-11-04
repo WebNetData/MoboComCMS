@@ -1,0 +1,80 @@
+/* MoboCom Cloud: the shared section bar (/cloud, /hosting, /servers, /domains) and the overview page (/cloud).
+   Built from the site's tokens like hosting.css; motion is transform/opacity only and stops under reduced motion. */
+
+/* ---------- Section bar ---------- */
+.cx-bar { position: relative; z-index: 2; border-block-end: 1px solid color-mix(in srgb, var(--text) 9%, transparent); background: color-mix(in srgb, var(--card) 82%, transparent); backdrop-filter: blur(12px); }
+.cx-bar-inner { display: flex; align-items: center; gap: 18px; min-height: 56px; }
+.cx-brand { display: inline-flex; align-items: center; gap: 10px; flex: none; color: var(--text); text-decoration: none; font-size: 15px; }
+.cx-brand b { font-weight: 800; white-space: nowrap; }
+.cx-brand b span { background: linear-gradient(100deg, var(--primary), var(--accent-ink, var(--primary))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cx-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--on-primary, #fff); background: linear-gradient(135deg, var(--primary), var(--accent-ink, var(--primary))); box-shadow: 0 6px 18px -8px var(--primary); }
+.cx-tabs { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.cx-tabs::-webkit-scrollbar { display: none; }
+.cx-tabs a { position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border-radius: 10px; color: var(--muted); font-size: 14px; font-weight: 600; white-space: nowrap; text-decoration: none; transition: color .2s, background-color .2s; }
+.cx-tabs a:hover { color: var(--text); background: color-mix(in srgb, var(--text) 5%, transparent); }
+.cx-tabs a[aria-current='page'] { color: var(--text); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.cx-tabs a[aria-current='page']::after { content: ''; position: absolute; inset-inline: 14px; inset-block-end: -8px; height: 2px; border-radius: 2px; background: var(--primary); }
+.cx-tabs a.is-mine { color: var(--primary); }
+.cx-tabs a:focus-visible, .cx-brand:focus-visible, .cx-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 720px) { .cx-bar-inner { flex-direction: column; align-items: stretch; gap: 4px; padding-block: 8px 4px; } .cx-tabs { margin-inline: -4px; } .cx-tabs a[aria-current='page']::after { inset-block-end: 2px; } }
+
+/* ---------- Hero ---------- */
+.cx-proof { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 26px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
+.cx-proof li { display: inline-flex; align-items: center; gap: 7px; }
+.cx-proof svg { color: var(--primary); }
+
+.cx-orbit { position: relative; justify-self: center; width: min(420px, 82vw); aspect-ratio: 1; display: grid; place-items: center; }
+.cx-core { position: relative; z-index: 1; display: grid; justify-items: center; gap: 6px; width: 40%; aspect-ratio: 1; place-content: center; border-radius: 50%; color: var(--on-primary, #fff); background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--accent-ink, var(--primary)) 70%, #fff), var(--primary) 70%); box-shadow: 0 30px 70px -24px var(--primary), inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent); animation: cx-breathe 6s ease-in-out infinite; }
+.cx-core b { font: 700 11px/1.2 var(--sds-typography-family-mono, monospace); letter-spacing: .06em; direction: ltr; }
+.cx-ring { position: absolute; inset: var(--inset); border: 1px dashed color-mix(in srgb, var(--primary) 34%, transparent); border-radius: 50%; animation: cx-spin var(--speed) linear infinite; }
+.cx-ring-1 { --inset: 4%; --speed: 38s; }
+.cx-ring-2 { --inset: 14%; --speed: 28s; animation-direction: reverse; }
+.cx-ring-3 { --inset: 24%; --speed: 20s; }
+.cx-node { position: absolute; inset-block-start: -21px; inset-inline-start: calc(50% - 21px); display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border)); border-radius: 14px; color: var(--primary); background: var(--card); box-shadow: 0 12px 30px -16px var(--primary); animation: cx-spin var(--speed) linear infinite reverse; }
+.cx-ring-2 .cx-node { animation-direction: normal; inset-block-start: auto; inset-block-end: -21px; }
+.cx-ring-3 .cx-node { inset-block-start: calc(50% - 21px); inset-inline-start: -21px; }
+@keyframes cx-spin { to { transform: rotate(360deg); } }
+@keyframes cx-breathe { 50% { transform: scale(1.04); } }
+@media (max-width: 860px) { .cx-hero .hx-hero-inner { grid-template-columns: 1fr; } .cx-orbit { width: min(300px, 76vw); margin-block-start: 12px; } }
+
+/* ---------- Families ---------- */
+.cx-family { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.cx-card { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 10px; padding: 22px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); color: var(--text); text-decoration: none; overflow: hidden; transition: transform .25s ease, border-color .25s, box-shadow .25s; animation: cx-rise .6s ease-out both; animation-delay: calc(var(--i, 0) * 80ms); }
+.cx-card::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 60%); opacity: .7; transition: opacity .25s; }
+.cx-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); box-shadow: 0 24px 48px -28px var(--primary); }
+.cx-card:hover::before { opacity: 1; }
+.cx-card-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.cx-card h3 { margin: 4px 0 0; font-size: 19px; font-weight: 800; }
+.cx-card > p { margin: 0; color: var(--muted); line-height: 1.9; font-size: 14px; }
+.cx-card ul { display: grid; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; font-size: 13.5px; color: var(--text); }
+.cx-card li { display: flex; align-items: center; gap: 7px; }
+.cx-card li svg { flex: none; color: var(--sds-color-text-positive-default, #16a34a); }
+.cx-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.cx-price { color: var(--muted); font-size: 13px; }
+.cx-price b { color: var(--text); font-size: 18px; font-weight: 800; }
+.cx-price small { display: inline-block; margin-inline-start: 2px; color: var(--muted); }
+.cx-go { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); transition: transform .25s, background-color .25s, color .25s; }
+.cx-card:hover .cx-go { transform: translateX(-4px); background: var(--primary); color: var(--on-primary, #fff); }
+@keyframes cx-rise { from { opacity: 0; transform: translateY(14px); } }
+
+/* ---------- Domain search ---------- */
+.cx-domain { max-width: 860px; }
+
+/* ---------- Three steps and a dashboard sketch ---------- */
+.cx-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
+.cx-steps li { display: grid; gap: 6px; padding: 20px; border: 1px solid var(--border); border-radius: 18px; background: var(--card); }
+.cx-steps b { font-size: 16px; }
+.cx-steps p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.9; }
+.cx-step-num { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--on-primary, #fff); background: linear-gradient(135deg, var(--primary), var(--accent-ink, var(--primary))); font-weight: 800; }
+.cx-dash { display: grid; gap: 10px; max-width: 560px; margin: 22px auto 0; padding: 16px; border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border)); border-radius: 20px; background: linear-gradient(160deg, color-mix(in srgb, var(--card) 92%, var(--primary)), var(--card)); box-shadow: 0 30px 60px -40px var(--primary); }
+.cx-dash-row { display: flex; align-items: center; gap: 10px; min-height: 46px; padding-inline: 14px; border: 1px solid color-mix(in srgb, var(--text) 8%, transparent); border-radius: 12px; background: var(--card); color: var(--primary); }
+.cx-dash-row b { color: var(--text); font: 600 13px/1 var(--sds-typography-family-mono, monospace); }
+.cx-dash-row > :last-child { margin-inline-start: auto; }
+.cx-meter { position: relative; width: 120px; height: 6px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--text) 10%, transparent); }
+.cx-meter i { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, var(--primary), var(--accent-ink, var(--primary))); transform-origin: left; transform: scaleX(var(--v)); }
+.cx-chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-ring, .cx-node, .cx-core, .cx-card { animation: none; }
+  .cx-card, .cx-go { transition: none; }
+}

@@ -2,6 +2,7 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import HostingCatalog from '@/components/hosting/HostingCatalog'
+import CloudBar from '@/components/hosting/CloudBar'
 import { getPublicNavigationPages } from '@/modules/site/server/navigation'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { publicHostingCatalog } from '@/modules/hosting/server/catalog'
@@ -69,6 +70,7 @@ export default async function HostingLanding({ group }: { group: HostingGroup })
 
   return <>
     <ThemeHeader context={{ route: 'other' }} theme={theme} locale={locale} navPages={navPages} />
+    <CloudBar active={group} />
     <main className={`hx-page hx-${group}`} dir="rtl">
       <section className="hx-hero">
         <div className="hx-hero-sky" aria-hidden="true"><span /><span /><span /></div>

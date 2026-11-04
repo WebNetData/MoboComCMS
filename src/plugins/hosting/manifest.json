@@ -1,9 +1,9 @@
 {
   "id": "hosting",
-  "name": "میزبانی، سرور و ابر",
-  "nameEn": "Hosting, servers and cloud",
-  "description": "فروش هاست، نمایندگی، سرور مجازی و اختصاصی، سرویس ابری ساعتی و ثبت و انتقال دامنه، با اتصال به کنترل‌پنل‌ها، مجازی‌سازها، API ارائه‌دهندگان و ثبت‌کننده‌ها.",
-  "descriptionEn": "Sell hosting, reseller hosting, VPS, dedicated and hourly cloud services, connected to hosting panels, virtualizers and provider APIs.",
+  "name": "موبوکام کلاد",
+  "nameEn": "MoboCom Cloud",
+  "description": "موبوکام کلاد: هاست و نمایندگی، سرور مجازی و اختصاصی، سرور ابری ساعتی و ثبت و انتقال دامنه در یک بخش، با اتصال به کنترل‌پنل‌ها، مجازی‌سازها، API ارائه‌دهندگان و ثبت‌کننده‌ها.",
+  "descriptionEn": "MoboCom Cloud: hosting, reseller hosting, VPS, dedicated and hourly cloud servers and domains in one section, connected to hosting panels, virtualizers, provider APIs and registrars.",
   "version": "1.0.0",
   "kind": "module",
   "apiVersion": 1,
@@ -12,6 +12,7 @@
   "defaultEnabled": false,
   "requiresCore": "^1.0.0",
   "publicPaths": [
+    "/cloud",
     "/hosting",
     "/servers",
     "/domains"
@@ -22,7 +23,7 @@
   "permissions": [
     {
       "id": "hosting.manage",
-      "label": "مدیریت میزبانی، سرور و ابر"
+      "label": "مدیریت موبوکام کلاد (میزبانی، سرور، ابر و دامنه)"
     }
   ],
   "settings": [
@@ -85,9 +86,9 @@
   ],
   "adminMenu": {
     "area": "commerce",
-    "title": "میزبانی و سرور",
-    "titleEn": "Hosting & servers",
-    "icon": "server",
+    "title": "موبوکام کلاد",
+    "titleEn": "MoboCom Cloud",
+    "icon": "cloud",
     "order": 46,
     "items": [
       {

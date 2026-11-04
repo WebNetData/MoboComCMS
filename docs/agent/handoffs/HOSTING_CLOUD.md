@@ -2,6 +2,28 @@
 
 Spec and slices: [docs/specs/hosting-cloud/SPEC.md](../../specs/hosting-cloud/SPEC.md). Decision: PLATFORM_DECISIONS *Hosting and cloud*.
 
+## MoboCom Cloud — one section (2026-11-04, `feat/mobocom-cloud-2026-11-04` from main `dce11c77`)
+
+Owner: bring hosting, servers and domains together as one section named «موبوکام کلاد», professional and modern.
+
+- Same module (`hosting`), ids, permission (`hosting.manage`), data and addresses. Renamed only where people read it:
+  the manifest name and Admin menu («موبوکام کلاد», cloud icon), the section-manager and maintenance labels, the member
+  menu entry (`/dashboard/services`, now «موبوکام کلاد») and that page's heading, which links to `/cloud`.
+- New public overview `/cloud` (`src/components/hosting/CloudLanding.tsx`, `cloud.css`): hero with an orbit visual,
+  four family cards (web hosting, VPS/dedicated, hourly cloud, domains) with the real lowest price of each from the
+  catalog and TLD list ("به‌زودی" when a family has nothing on sale), the domain search when TLDs exist, three steps with
+  a dashboard sketch, features and FAQ. Reuses the approved `hx-*` language of /hosting and /servers.
+- `CloudBar` (shared section bar: overview, web hosting, servers and cloud, domains, my services) on `/cloud`, `/hosting`,
+  `/servers` and `/domains`; each page keeps its address, SEO and canonical. `/cloud` joined `publicPaths`, so module-off
+  and maintenance close it with the rest.
+- Evidence: full check 868/1 existing skip + 53 + 4 + 13 on a clean Linux tree. Browser on a temporary second preview
+  (port 3001, copy of the local database, schedulers off; removed afterwards): `/cloud`, `/hosting`, `/servers`,
+  `/domains` at 1440/390 light/dark = 16 views, all HTTP 200, axe 0, no horizontal overflow, no console errors; viewport
+  shots read for the bar and hero on mobile and desktop.
+- Not verified: the member dashboard label in a browser (signed-in view), a site with TLDs on sale (the local data has
+  none, so the domain search section of /cloud was not shown). Menus of the site header are the owner's: add `/cloud`
+  from Admin → menus to show it in the main navigation.
+
 ## Slice 1 — foundation (2026-11-04, `feat/hosting-cloud-spec-2026-11-04` from main `2c1964c6`)
 
 Built:
