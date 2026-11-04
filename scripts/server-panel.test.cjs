@@ -499,3 +499,29 @@ test('hosting: customer and staff service APIs are guarded, private and never ca
     assert.match(body, /loginSecret/, `${fn} takes the secret out`)
   }
 })
+
+// ============ Hosting renewal (slice 3) ============
+test('hosting: reminder days, grace and termination settings are read safely', () => {
+  assert.deepEqual(hs.parseDays('۳، 7 ,1, 1, 0, 90, x', [9]), [7, 3, 1])
+  assert.deepEqual(hs.parseDays('', [7, 3, 1]), [7, 3, 1])
+  assert.deepEqual(hs.lifecycleSettings({}), { reminderDays: [7, 3, 1], graceDays: 3, terminateDays: 14, autoRenew: true })
+  assert.deepEqual(hs.lifecycleSettings({ 'grace-days': -1, 'terminate-days': 'x', 'auto-renew': false }), { reminderDays: [7, 3, 1], graceDays: 3, terminateDays: 14, autoRenew: false })
+})
+
+test('hosting: the lifecycle reminds, renews, suspends after grace and terminates only unpaid suspensions', () => {
+  const D = 86_400_000, now = new Date('2026-11-04T12:00:00Z'), set = hs.lifecycleSettings({})
+  const svc = (left, extra = {}) => ({ status: 'ACTIVE', cycle: 'MONTH', nextDueAt: new Date(now.getTime() + left * D), suspendedAt: null, autoRenew: false, unpaidSuspension: false, ...extra })
+  assert.deepEqual(hs.lifecycleStep(svc(2.5), now, set), { kind: 'remind', days: 3 })
+  assert.equal(hs.lifecycleStep(svc(4.5), now, set), null)
+  assert.deepEqual(hs.lifecycleStep(svc(0.5, { autoRenew: true }), now, set), { kind: 'renew' })
+  assert.deepEqual(hs.lifecycleStep(svc(0.5, { autoRenew: true }), now, { ...set, autoRenew: false }), { kind: 'remind', days: 1 }, 'the site can turn wallet renewal off; the customer is reminded instead')
+  assert.equal(hs.lifecycleStep(svc(-2.9), now, set), null, 'inside grace')
+  assert.deepEqual(hs.lifecycleStep(svc(-3.1, { autoRenew: true }), now, set), { kind: 'suspend' }, 'a failing wallet renewal does not keep it open past grace')
+  const suspended = (ago, unpaid, extra = {}) => svc(-20, { status: 'SUSPENDED', suspendedAt: new Date(now.getTime() - ago * D), unpaidSuspension: unpaid, ...extra })
+  assert.deepEqual(hs.lifecycleStep(suspended(12, true), now, set), { kind: 'warn-terminate', days: 2 })
+  assert.deepEqual(hs.lifecycleStep(suspended(14.1, true), now, set), { kind: 'terminate' })
+  assert.equal(hs.lifecycleStep(suspended(100, false), now, set), null, 'staff suspensions are staff\'s')
+  assert.deepEqual(hs.lifecycleStep(suspended(5, true, { autoRenew: true }), now, set), { kind: 'renew' })
+  assert.equal(hs.lifecycleStep(svc(-30, { cycle: 'HOURLY' }), now, set), null)
+  assert.equal(hs.renewedDue(new Date('2026-01-31T00:00:00Z'), 'MONTH').toISOString().slice(0, 10), '2026-02-28')
+})

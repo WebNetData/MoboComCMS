@@ -28,6 +28,7 @@ const CHECKS = [
   'digital-content-pricing-migration',
   'hosting-catalog',
   'hosting-services',
+  'hosting-renewal',
   'business-trust',
   'business-trust-migration',
   'livechat-placement',

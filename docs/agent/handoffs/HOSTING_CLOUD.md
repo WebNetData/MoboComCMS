@@ -78,8 +78,41 @@ Evidence (actually run):
 
 Not run: React Doctor, production build, any real panel/virtualizer (none connected yet).
 
+## Slice 3 — renewal and due dates (2026-11-04, `feat/hosting-renewal-2026-11-04` from main `f37c69cd`)
+
+Built (no schema change):
+- Checkout item `hostingRenewServiceId`: one more term of the customer's own ACTIVE or SUSPENDED fixed-term service at its
+  bought price (no setup fee). Refused for another member's service, a terminated or hourly one, and with discount codes.
+- Fulfillment kind `HOSTING_RENEW` (`server/renewal.ts` `applyHostingRenewal`): adds one term to the due date (not to
+  the payment day), once per order (action key `renew:order:<id>`, due date claimed). A system suspension for the
+  unpaid term is lifted; a staff suspension stays. A renewal paid for a service terminated meanwhile goes back to the
+  wallet (idempotent refund). Lost renewal jobs are recovered by the same worker step.
+- Hourly scheduler job `hosting-lifecycle` (`runHostingLifecycle`): reminders on the configured days, wallet renewal
+  from a day before the due date (key per service and due date, so repeats find the same order), suspension after the
+  grace days, a warning 3 days before termination and termination after the termination days. Only suspensions made
+  by the system for an unpaid term are ever terminated. Pure rules in `domain/services.ts` (`lifecycleStep`).
+- Module settings: reminder days (7,3,1), grace days (3), termination days (14), wallet renewal on/off.
+- Service page: renewal panel (price per term, due date, renew now, auto-renew switch that moves at once and reverts
+  if not saved). Staff delivery now completes the waiting delivery entry instead of adding a second one.
+
+Evidence (actually run):
+- `npm run check` on a clean LF tree: 852 pass / 1 skip that was already in the suite, then 53, 4, 13. `tsc` clean.
+- `scripts/hosting-renewal.connected.cjs` on a fresh database (real checkout, wallet, fulfilment, scheduler): manual
+  renewal, replay, double application, another member, discount refusal, reminders once, wallet renewal once,
+  short wallet, grace, suspension, warning, termination, staff suspension kept, reopen on payment, refund for a
+  deleted service, recovery. Breaks `HOSTING_FAULT=twice|grace|staff|refund` each fail it; clean rerun passes.
+  `hosting-catalog` and `hosting-services` still pass.
+- Browser on the local preview with a test customer (bought and delivered through the real APIs): auto-renew switched
+  on and kept after reload; renew paid from the wallet; due date moved one month; history shows it. 1440/390,
+  light/dark: axe 0 (apart from the existing shell notification link), page errors none. Found and fixed: the switch
+  track covered its checkbox, and the switch waited for the server before moving.
+- The test customer and their data were removed. **Left on purpose for the owner:** the module switched on and the
+  ten sample plans (slugs `hxdemo-`, tagline ends with «(نمونه)»).
+
+Not run: React Doctor, production build.
+
 ## Next
 
-Slice 3 (renewal invoices, wallet auto-renew, suspend and terminate by due date), then 4–10 per the spec. Each real
+Slice 5 (hourly cloud metering from the wallet) is next among slices that need no outside access; then 4–10 per the spec. Each real
 driver (DirectAdmin first, Proxmox, Hetzner) plugs into `ProvisioningDriver` when the owner provides access. Owner still to provide: an international registrar reseller
 account, licensed cPanel/DirectAdmin test servers, the IRNIC reseller account, a Hetzner token for live checks.

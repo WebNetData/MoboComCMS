@@ -17,7 +17,7 @@ export async function listFulfillmentOperations() {
   if (!orderIds.length) return { items: [], scanned: 0, limit: MAX_RECENT_PAID }
 
   const [jobs, subscriptions, reservations] = await Promise.all([
-    db.fulfillmentJob.findMany({ where: { orderId: { in: orderIds }, kind: { in: ['PROVISION_SUBSCRIPTION', 'RENEW_SUBSCRIPTION', 'DELIVER_PRODUCT', 'RESELLER_PROVISION', 'GRANT_MEMBERSHIP', 'HOSTING_PROVISION'] } }, orderBy: { id: 'desc' } }),
+    db.fulfillmentJob.findMany({ where: { orderId: { in: orderIds }, kind: { in: ['PROVISION_SUBSCRIPTION', 'RENEW_SUBSCRIPTION', 'DELIVER_PRODUCT', 'RESELLER_PROVISION', 'GRANT_MEMBERSHIP', 'HOSTING_PROVISION', 'HOSTING_RENEW'] } }, orderBy: { id: 'desc' } }),
     db.subscription.findMany({ where: { orderId: { in: orderIds } }, select: { orderId: true, status: true, username: true } }),
     db.inventoryReservation.findMany({ where: { orderId: { in: orderIds } }, select: { orderId: true, status: true } }),
   ])
@@ -78,7 +78,7 @@ export async function retryPaidFulfillment(orderId: number) {
   if (!invoice?.order || invoice.order.status !== 'PAID' || (!invoice.order.planId && !invoice.order.productId)) {
     return { ok: false as const, message: 'Only a paid service or product order can be retried.' }
   }
-  let job = await db.fulfillmentJob.findFirst({ where: { orderId, kind: { in: ['PROVISION_SUBSCRIPTION', 'RENEW_SUBSCRIPTION', 'DELIVER_PRODUCT', 'RESELLER_PROVISION', 'GRANT_MEMBERSHIP', 'HOSTING_PROVISION'] } }, orderBy: { id: 'desc' } })
+  let job = await db.fulfillmentJob.findFirst({ where: { orderId, kind: { in: ['PROVISION_SUBSCRIPTION', 'RENEW_SUBSCRIPTION', 'DELIVER_PRODUCT', 'RESELLER_PROVISION', 'GRANT_MEMBERSHIP', 'HOSTING_PROVISION', 'HOSTING_RENEW'] } }, orderBy: { id: 'desc' } })
   if (!job && invoice.order.planId) {
     const raw = await db.order.findUnique({ where: { id: orderId }, select: { meta: true } })
     if (isRenewal(raw?.meta || '')) return { ok: false as const, message: 'A missing renewal job needs manual investigation to avoid adding time or traffic twice.' }
