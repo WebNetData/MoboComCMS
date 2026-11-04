@@ -583,3 +583,43 @@ test('hosting: upgrade targets are dearer plans of the same kind priced for the 
   for (const bad of [0, 21, 'x', -1]) assert.throws(() => ha.trafficPacks(bad), /بسته/)
   assert.equal(ha.addonAllowed(null, true), true); assert.equal(ha.addonAllowed(false, true), false); assert.equal(ha.addonAllowed(true, false), true)
 })
+
+// ============ Domains ============
+const hd = load('src/modules/hosting/domain/domains')
+
+test('domains: input is cleaned, the longest extension wins and names follow each registry', () => {
+  assert.equal(hd.cleanDomainInput(' https://WWW.Shop.CO.ir/path?x '), 'shop.co.ir')
+  assert.equal(hd.matchSuffix('shop.co.ir', ['ir', 'co.ir', 'com']), 'co.ir')
+  assert.equal(hd.matchSuffix('shop.ir', ['ir', 'co.ir']), 'ir')
+  assert.equal(hd.matchSuffix('co.ir', ['co.ir']), null, 'an extension alone is not a domain')
+  assert.equal(hd.matchSuffix('shop.org', ['ir', 'com']), null)
+  assert.equal(hd.validLabel('ab', 'ir'), false, 'IRNIC needs three characters')
+  assert.equal(hd.validLabel('ab', 'com'), true)
+  for (const bad of ['-ab', 'ab-', 'a_b', 'ab--cd', 'a'.repeat(64)]) assert.equal(hd.validLabel(bad, 'com'), false, bad)
+  assert.equal(hd.validLabel('xn--mgbh0fb', 'ir'), true, 'punycode is allowed')
+  assert.equal(hd.normalizeSuffix('.CO.IR'), 'co.ir')
+  assert.throws(() => hd.normalizeSuffix('c o'), /پسوند/)
+  assert.deepEqual(hd.parseYears('5, 1, 1, 11, 0, x'), [1, 5])
+})
+
+test('domains: IRNIC handles and name servers are checked', () => {
+  assert.equal(hd.normalizeHandle(' AB1234-IRNIC '), 'ab1234-irnic')
+  for (const bad of ['ab-irnic', 'a1234-irnic', 'ab1234', 'ab1234567-irnic']) assert.throws(() => hd.normalizeHandle(bad), /ایرنیک/, bad)
+  assert.deepEqual(hd.normalizeNameservers('NS1.Example.com.\nns2.example.com ns1.example.com'), ['ns1.example.com', 'ns2.example.com'])
+  assert.throws(() => hd.normalizeNameservers('ns1.example.com'), /۲ تا ۶/)
+  assert.throws(() => hd.normalizeNameservers(['ns1', 'ns2.example.com']), /معتبر نیست/)
+  assert.equal(hd.renewedExpiry(new Date('2026-02-28T00:00:00Z'), 2).toISOString().slice(0, 10), '2028-02-28')
+})
+
+test('domains: reminders, wallet renewal from three days before, and expiry', () => {
+  const D = 86_400_000, now = new Date('2026-11-04T12:00:00Z'), set = hd.domainSettings({})
+  const dom = (left, extra = {}) => ({ status: 'ACTIVE', expiresAt: new Date(now.getTime() + left * D), autoRenew: false, ...extra })
+  assert.deepEqual(set.reminderDays, [30, 7, 1])
+  assert.deepEqual(hd.domainStep(dom(29.5), now, set), { kind: 'remind', days: 30 })
+  assert.equal(hd.domainStep(dom(20), now, set), null)
+  assert.deepEqual(hd.domainStep(dom(2.5, { autoRenew: true }), now, set), { kind: 'renew' })
+  assert.deepEqual(hd.domainStep(dom(-0.1), now, set), { kind: 'expire' })
+  assert.deepEqual(hd.domainStep(dom(-5, { status: 'EXPIRED', autoRenew: true }), now, set), { kind: 'renew' }, 'an expired domain is still renewed from the wallet for a while')
+  assert.equal(hd.domainStep(dom(-40, { status: 'EXPIRED', autoRenew: true }), now, set), null)
+  assert.equal(hd.domainStep(dom(1, { status: 'PENDING' }), now, set), null)
+})

@@ -183,6 +183,49 @@ Evidence (actually run):
 
 Not run: React Doctor, production build, a real driver applying traffic or resize on a server.
 
+## Domains (2026-11-04, `feat/hosting-domains-2026-11-04` from main `6dfbdaf0`)
+
+Built:
+- Migration `20270217120000_hosting_domains` (unreleased): `DomainTld` (suffix unique and checked, register/renew/transfer
+  prices, allowed years, IRNIC handle flag, optional registrar), `Domain` (ASCII lowercase name check, one live row
+  per name via a partial unique index, dates required once registered, one per order), `DomainAction` (history and
+  staff tasks, unique key).
+- `domain/domains.ts`: input cleaning, longest-suffix match, label rules (IRNIC three characters, punycode), years,
+  IRNIC handle (ab1234-irnic), 2–6 name servers, expiry arithmetic, lifecycle step (reminders 30/7/1, wallet renewal
+  from three days before, EXPIRED after the date, wallet renewal still tried for 30 days after).
+- `server/domain-check.ts`: availability from fixed public hosts only: WHOIS whois.nic.ir:43 for .ir, RDAP via
+  rdap.org for the rest; one-minute cache; anything unreadable or blocked is "unknown" (orderable, staff confirm).
+- `server/domains.ts`: price list (staff), public search on the typed extension plus featured ones, checkout items
+  `domainOrder` (register or transfer, handle, encrypted auth code) and `domainRenew`; fulfilment `DOMAIN_ORDER` creates
+  the domain and a registry task (a name taken by a concurrent paid order is refunded in full, once); staff register
+  (expiry given or years from today), cancel with refund, complete tasks (renewal, name servers, transfer code, with
+  a note); renewal adds years to the expiry once per order; customer name servers (stored, newest request replaces a
+  waiting one), transfer code once a day, wallet auto-renew; `domain-lifecycle` hourly job; recovery joins the hosting
+  worker step.
+- Public `/domains` (manifest public path): hero search with register/transfer modes, result rows with availability,
+  order sheet (years, IRNIC handle, auth code), featured chips, steps, full price table, FAQ.
+- Member: domains section in «سرویس‌های من», `/dashboard/domains/[id]` (expiry ring, renewal by years, auto-renew,
+  name servers, transfer code, history). Maintenance of the hosting section also closes `/dashboard/domains`.
+- Admin: `/admin/hosting/domains` (filters including registry tasks, register / cancel and refund / task done) and
+  `/admin/hosting/tlds` (price list). Setting `domain-reminder-days`.
+
+Evidence (actually run):
+- `npm run check` on a clean LF tree: 859 pass / 1 skip that was already in the suite, then 53, 4, 13. `tsc` clean.
+- `scripts/hosting-domains.connected.cjs` (fresh database, real checkout/wallet/fulfilment, lookup double): price
+  list rules, search, handle and years, paid once, replay, already ordered, taken, transfer rules, encrypted code,
+  deterministic two-order race (one live row, loser refunded once), staff register/cancel/refund, freed name, renewal
+  once, ownership, name servers, transfer code limit, reminders, wallet renewal once, expiry, price-list deletion
+  refusal, recovery. Breaks `HOSTING_FAULT=norefund|owner|twice` each fail it; clean rerun passes. The five other
+  hosting scripts pass on the same database.
+- Browser on a temporary second preview (port 3001, a copy of the local database, background jobs off): six sample
+  extensions saved through the API; search returned real IRNIC WHOIS answers for .ir («آزاد است»), while RDAP was not
+  reachable from this network so .com/.net/.org showed «قابل سفارش»; a .com was ordered for 2 years from the wallet,
+  staff marked it registered, the customer saved name servers. Public, results, order sheet, services, domain page
+  and both admin pages at 1440/390 light/dark: axe 0 after one fix (the phone-width price table was not keyboard
+  focusable), no page errors. Container and database copy removed; the owner's localhost:3000 untouched.
+
+Not run: a registrar driver (IRNIC EPP or an international registrar), React Doctor, production build.
+
 ## Next
 
 Among slices that need no outside access: manual add-on purchase (traffic, upgrade), domain search and IRNIC order flow UI; then the drivers (4, 6–9) as access arrives. Each real

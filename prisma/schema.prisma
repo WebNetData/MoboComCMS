@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  domains Domain[] @relation("DomainOwner")
   hostingServices HostingService[] @relation("HostingServiceOwner")
   membershipAccount MembershipAccount? @relation("MembershipAccount")
   userGroups UserGroupMember[] @relation("UserGroupMember")
@@ -4776,6 +4777,7 @@ model HostingProvider {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @default(now()) @updatedAt
   products         HostingProduct[]
+  tlds             DomainTld[]
   services         HostingService[]
 
   @@index([family, active])
@@ -4926,4 +4928,77 @@ model HostingUsageCharge {
 
   @@unique([serviceId, hourStart])
   @@index([userId, hourStart])
+}
+
+/// A domain extension on sale (ir, co.ir, com…) with its yearly prices.
+model DomainTld {
+  id            Int              @id @default(autoincrement())
+  suffix        String           @unique
+  registrarId   Int?
+  registrar     HostingProvider? @relation(fields: [registrarId], references: [id], onDelete: Restrict)
+  registerMinor BigInt
+  renewMinor    BigInt
+  transferMinor BigInt           @default(0)
+  currency      String           @default("IRT")
+  /// Allowed registration lengths in years, comma separated (IRNIC: 1,5).
+  years         String           @default("1,2,3,5")
+  /// IRNIC: the customer's NIC handle is required.
+  needsHandle   Boolean          @default(false)
+  active        Boolean          @default(true)
+  featured      Boolean          @default(false)
+  sort          Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
+  domains       Domain[]
+
+  @@index([active, sort])
+}
+
+/// A domain a customer ordered (registration or transfer in). One live row per name.
+model Domain {
+  id           Int            @id @default(autoincrement())
+  userId       Int
+  user         User           @relation("DomainOwner", fields: [userId], references: [id])
+  tldId        Int
+  tld          DomainTld      @relation(fields: [tldId], references: [id], onDelete: Restrict)
+  name         String
+  status       String         @default("PENDING") // PENDING | ACTIVE | EXPIRED | CANCELLED
+  kind         String         @default("REGISTER") // REGISTER | TRANSFER
+  years        Int            @default(1)
+  /// Yearly renewal price, fixed when ordered.
+  renewMinor   BigInt
+  currency     String         @default("IRT")
+  orderId      Int?           @unique
+  registeredAt DateTime?
+  expiresAt    DateTime?
+  autoRenew    Boolean        @default(false)
+  nameservers  String         @default("[]")
+  handle       String         @default("")
+  /// Encrypted transfer code given by the customer for a transfer in.
+  authCode     String         @default("")
+  locked       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now()) @updatedAt
+  actions      DomainAction[]
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+}
+
+/// Everything done to a domain, and the tasks staff still have to do at the registry.
+model DomainAction {
+  id             Int       @id @default(autoincrement())
+  domainId       Int
+  domain         Domain    @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  actorId        Int?
+  actor          String // CUSTOMER | STAFF | SYSTEM
+  kind           String // REGISTER | TRANSFER | RENEW | NAMESERVERS | AUTHCODE | CANCEL | NOTE | EXPIRE
+  status         String    @default("DONE") // WAITING | DONE | FAILED
+  idempotencyKey String?   @unique
+  detail         String    @default("")
+  createdAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  @@index([domainId, createdAt])
+  @@index([status, kind])
 }

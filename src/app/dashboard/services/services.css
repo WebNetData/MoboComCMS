@@ -178,3 +178,17 @@
 .hs-upgrades li > div { display: grid; gap: 2px; min-width: 0; }
 .hs-upgrades span, .hs-upgrades small { color: var(--muted); font-size: 12px; }
 .hs-upgrades .btn { flex: none; }
+
+/* ---------- Domains ---------- */
+.hs-msg { margin: 0; padding: 12px 14px; border-radius: 12px; font-size: 14px; }
+.hs-msg.is-ok { background: color-mix(in srgb, var(--sds-color-text-positive-default, #16a34a) 12%, var(--card)); color: var(--text); }
+.hs-msg.is-error { background: color-mix(in srgb, var(--danger, #dc2626) 10%, var(--card)); color: var(--text); }
+.hs-years { margin: 0; padding: 0; border: 0; min-width: 0; }
+.hs-years > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.hs-years label { position: relative; display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-soft); cursor: pointer; }
+.hs-years label.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--card)); }
+.hs-years label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
+.hs-years input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.hs-years b { font-size: 14px; }
+.hs-years span { color: var(--muted); font-size: 12px; }
+.hs-section-title { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 17px; }

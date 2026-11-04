@@ -209,7 +209,7 @@ test('a paid form is charged by the site checkout and worked on by staff', () =>
   assert.match(paid, /const bill = await billFor\(form, valuesOf\(parse<StoredAnswer\[\]>\(row\.data, \[\]\)\)\)/)
   assert.match(paid, /findFirst\(\{ where: \{ id: submissionId, userId \}/, 'only the sender pays their own request')
   assert.match(checkout, /if \(formSubmissionId\) \{\s+try \{\s+const quote = await formCheckoutQuote\(formSubmissionId, command\.userId\)/)
-  assert.match(checkout, /\[planId, productId, membershipPlanId, content, formSubmissionId, hostingProductId, hostingRenewServiceId, hostingAddon\]\.filter\(Boolean\)\.length !== 1/)
+  assert.match(checkout, /\[planId, productId, membershipPlanId, content, formSubmissionId, hostingProductId, hostingRenewServiceId, hostingAddon, domainOrder, domainRenew\]\.filter\(Boolean\)\.length !== 1/)
   assert.match(checkout, /if \(code && formSubmissionId\) return fail\(409, 'PROMOTION_NOT_APPLICABLE'/)
   assert.match(checkout, /const kind = formSubmissionId \? 'FORM_PAID' :/)
   assert.match(jobs, /if \(meta\.kind === 'form'\) \{\s+return enqueueFulfillment\(\{ kind: 'FORM_PAID'/)

@@ -176,7 +176,7 @@ member shell's design sheet and `dt-` pieces; RTL first, phone and both themes; 
 | 4 | Servers: Proxmox VE direct driver and Hetzner Cloud API driver, VPS purchase, workspace power bar, rebuild, password, console, graphs; manual delivery with allowed add-ons (traffic, upgrade) | Real Proxmox in a VM; Hetzner with the owner's token |
 | 4b | Other virtualizers: XCP-ng/Xen Orchestra, OpenNebula, CloudStack, Virtualizor, VMware vCenter, SolusVM, OpenStack | Each against a real instance |
 | 5 | Hourly cloud metering and the wallet rules | **Done 2026-11-04** ([handoff](../../agent/handoffs/HOSTING_CLOUD.md)); empty wallet suspends, top-up resumes |
-| 6 | Domains with IRNIC: TLDs, search, register, renew, nameservers, handle | IRNIC test environment (OT&E) |
+| 6 | Domains with IRNIC: TLDs, search, register, renew, nameservers, handle | **Search, ordering, renewal, staff registration done 2026-11-04** ([handoff](../../agent/handoffs/HOSTING_CLOUD.md)); the IRNIC EPP driver waits for the reseller account |
 | 7 | International registrar driver chosen by the owner | Its sandbox |
 | 8 | Other panels: HestiaCP, ISPConfig, Virtualmin, CloudPanel, the second of cPanel/DirectAdmin | Each against a real instance |
 | 9 | Reseller hosting, dedicated servers (manual + IPMI/Redfish power), snapshots, backups, firewall, rDNS, resize, more virtualizers/providers | Per driver |
