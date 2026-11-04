@@ -679,10 +679,19 @@
           "sha256": "005789336cf13434df46ad9fd2c6998d8d276af8f5c3a3c6859dd8afd3e981c2"
         }
       ]
+    },
+    "1.7.2": {
+      "migrations": [
+        {
+          "name": "20270216120000_hosting_addons",
+          "sha256": "28cc3503fa12f400316fa9e1b8319eb9e84ec2636d2b574d5078b8448f942d91"
+        },
+        {
+          "name": "20270217120000_hosting_domains",
+          "sha256": "3228b79c9a454ca07b785209c274ed19dde799262262ba132a7c94b2a5f2d890"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270216120000_hosting_addons",
-    "20270217120000_hosting_domains"
-  ]
+  "unreleased": []
 }
