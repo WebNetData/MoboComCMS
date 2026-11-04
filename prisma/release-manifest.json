@@ -667,6 +667,7 @@
   },
   "unreleased": [
     "20270213120000_hosting_catalog",
-    "20270214120000_hosting_services"
+    "20270214120000_hosting_services",
+    "20270215120000_hosting_hourly"
   ]
 }

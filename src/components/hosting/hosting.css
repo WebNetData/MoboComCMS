@@ -177,3 +177,9 @@
   .hx-page *, .hx-page *::before, .hx-page *::after { animation: none !important; transition: none !important; }
   .hx-plan:hover, .hx-feature:hover { transform: none; }
 }
+
+/* Hourly choice in the order sheet */
+.hx-order-terms label.is-hourly b { display: inline-flex; align-items: center; gap: 4px; }
+.hx-order-terms label.is-hourly b svg { color: color-mix(in srgb, var(--primary) 62%, var(--text)); }
+.hx-order-total.is-hourly { background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--bg-soft)), var(--bg-soft)); }
+.hx-order-error a { color: inherit; font-weight: 700; text-decoration: underline; }

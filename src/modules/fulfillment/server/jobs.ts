@@ -170,6 +170,8 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
   }
 
   if (job.kind === 'HOSTING_PROVISION') {
+    // An hourly service has no order: its job names the service.
+    if (Number(payload.serviceId)) { await (await import('@/modules/hosting/server/services')).provisionService(Number(payload.serviceId)); return }
     if (!job.orderId) throw new Error('hosting job has no orderId')
     await (await import('@/modules/hosting/server/services')).fulfillHostingOrder(job.orderId)
     return

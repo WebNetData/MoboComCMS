@@ -486,8 +486,8 @@ test('hosting: staff transitions start only from their states and a terminated s
 test('hosting: customer and staff service APIs are guarded, private and never carry a secret', () => {
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
   const member = read('src/modules/hosting/server/member-http.ts')
-  assert.equal((member.match(/await moduleGuard\('hosting'\)/g) || []).length, 3)
-  assert.equal((member.match(/const user = await requireUser\(req\)\n  if \(!user\) return err/g) || []).length, 3)
+  assert.equal((member.match(/await moduleGuard\('hosting'\)/g) || []).length, 4, 'list, one service, its actions and hourly purchase')
+  assert.equal((member.match(/const user = await requireUser\(req\)\n  if \(!user\) return err/g) || []).length, 4)
   assert.match(member, /rateLimitStrict\(`hosting:reveal:\$\{user\.id\}`/)
   const staff = read('src/modules/hosting/server/admin-services-http.ts')
   assert.equal((staff.match(/adminGuard\(req, 'hosting', PERMISSIONS\)/g) || []).length, 2)
@@ -524,4 +524,30 @@ test('hosting: the lifecycle reminds, renews, suspends after grace and terminate
   assert.deepEqual(hs.lifecycleStep(suspended(5, true, { autoRenew: true }), now, set), { kind: 'renew' })
   assert.equal(hs.lifecycleStep(svc(-30, { cycle: 'HOURLY' }), now, set), null)
   assert.equal(hs.renewedDue(new Date('2026-01-31T00:00:00Z'), 'MONTH').toISOString().slice(0, 10), '2026-02-28')
+})
+
+// ============ Hosting hourly billing (slice 5) ============
+test('hosting: hourly billing charges completed hours from the start hour, capped per run', () => {
+  const H = 3_600_000, start = new Date('2026-11-04T10:20:00Z')
+  const iso = (list) => list.map((d) => d.toISOString().slice(11, 16))
+  assert.deepEqual(iso(hs.hoursDue({ startedAt: start, chargedUntil: null }, new Date('2026-11-04T13:05:00Z'))), ['10:00', '11:00', '12:00'])
+  assert.deepEqual(iso(hs.hoursDue({ startedAt: start, chargedUntil: new Date('2026-11-04T12:00:00Z') }, new Date('2026-11-04T13:05:00Z'))), ['12:00'])
+  assert.deepEqual(hs.hoursDue({ startedAt: start, chargedUntil: null }, new Date('2026-11-04T10:59:59Z')), [], 'an hour is charged after it has run')
+  assert.deepEqual(hs.hoursDue({ startedAt: null, chargedUntil: null }, new Date()), [], 'not started, not charged')
+  assert.equal(hs.hoursDue({ startedAt: new Date(Date.now() - 500 * H), chargedUntil: null }, new Date()).length, 72)
+  assert.equal(hs.floorHour(new Date('2026-11-04T10:59:59.999Z')).toISOString(), '2026-11-04T10:00:00.000Z')
+  assert.equal(hs.runwayHours(5_500n, 1_000n), 5)
+  assert.equal(hs.runwayHours(5_500n, 0n), Number.POSITIVE_INFINITY)
+  assert.equal(hs.hourlyMinHours({}), 24); assert.equal(hs.hourlyMinHours({ 'hourly-min-hours': 0 }), 24); assert.equal(hs.hourlyMinHours({ 'hourly-min-hours': 6 }), 6)
+})
+
+test('hosting: a suspended hourly service resumes when the wallet pays an hour and is terminated only for credit', () => {
+  const D = 86_400_000, now = new Date('2026-11-04T12:00:00Z'), set = hs.lifecycleSettings({})
+  const svc = (ago, unpaid = true) => ({ status: 'SUSPENDED', cycle: 'HOURLY', suspendedAt: new Date(now.getTime() - ago * D), unpaidSuspension: unpaid })
+  assert.deepEqual(hs.hourlyStep(svc(1), 1_000n, 1_000n, now, set), { kind: 'resume' })
+  assert.equal(hs.hourlyStep(svc(1), 999n, 1_000n, now, set), null)
+  assert.deepEqual(hs.hourlyStep(svc(12), 0n, 1_000n, now, set), { kind: 'warn-terminate', days: 2 })
+  assert.deepEqual(hs.hourlyStep(svc(14.1), 0n, 1_000n, now, set), { kind: 'terminate' })
+  assert.equal(hs.hourlyStep(svc(100, false), 0n, 1_000n, now, set), null, 'staff suspensions are staff\'s')
+  assert.equal(hs.hourlyStep({ ...svc(1), cycle: 'MONTH' }, 9_999n, 1_000n, now, set), null)
 })

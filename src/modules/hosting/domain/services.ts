@@ -143,3 +143,41 @@ export function lifecycleStep(service: { status: string; cycle: string; nextDueA
 export function renewedDue(current: Date, cycle: string): Date {
   return termEnd(current, cycle) || current
 }
+
+// ============ Hourly billing (slice 5) ============
+
+const HOUR = 3_600_000
+
+export const floorHour = (date: Date) => new Date(Math.floor(date.getTime() / HOUR) * HOUR)
+
+/**
+ * The completed hours not charged yet, oldest first: from the charged-until mark (or the hour the service started)
+ * up to the last hour that has ended. At most `max` per run, so a long outage is caught up over several runs.
+ */
+export function hoursDue(service: { startedAt: Date | null; chargedUntil: Date | null }, now: Date, max = 72): Date[] {
+  if (!service.startedAt) return []
+  const hours: Date[] = []
+  for (let at = (service.chargedUntil || floorHour(service.startedAt)).getTime(); at + HOUR <= now.getTime() && hours.length < max; at += HOUR) hours.push(new Date(at))
+  return hours
+}
+
+/** How many whole hours the balance pays for at this rate (Infinity when the rate is zero). */
+export const runwayHours = (balanceMinor: bigint, rateMinor: bigint) => (rateMinor > 0n ? Number(balanceMinor / rateMinor) : Number.POSITIVE_INFINITY)
+
+/** Hours the wallet must cover before an hourly service is bought. */
+export const hourlyMinHours = (raw: Record<string, unknown>) => { const n = Math.trunc(Number(raw['hourly-min-hours'] ?? 24)); return Number.isFinite(n) && n >= 1 && n <= 720 ? n : 24 }
+
+export type HourlyStep = { kind: 'resume' } | { kind: 'warn-terminate'; days: number } | { kind: 'terminate' } | null
+
+/**
+ * A suspended hourly service whose wallet ran out: it comes back as soon as the balance pays an hour; otherwise it
+ * is warned 3 days before and terminated after the termination days. Staff suspensions are left to staff.
+ */
+export function hourlyStep(service: { status: string; cycle: string; suspendedAt: Date | null; unpaidSuspension: boolean }, balanceMinor: bigint, rateMinor: bigint, now: Date, settings: LifecycleSettings): HourlyStep {
+  if (service.cycle !== 'HOURLY' || service.status !== 'SUSPENDED' || !service.unpaidSuspension || !service.suspendedAt) return null
+  if (balanceMinor >= rateMinor && rateMinor > 0n) return { kind: 'resume' }
+  const until = service.suspendedAt.getTime() + settings.terminateDays * DAY - now.getTime()
+  if (until <= 0) return { kind: 'terminate' }
+  const days = Math.ceil(until / DAY)
+  return days <= 3 ? { kind: 'warn-terminate', days } : null
+}

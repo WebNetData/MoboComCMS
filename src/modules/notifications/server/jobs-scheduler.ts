@@ -54,6 +54,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/membership/server/lifecycle')).runMembershipLifecycle(),
   },
   {
+    // Hosting: hourly cloud billing from the wallet, low-credit warnings, suspension and return.
+    name: 'hosting-metering', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/hosting/server/metering')).runHostingMetering(),
+  },
+  {
     // Hosting: due-date reminders, wallet renewals, suspension and termination of unpaid services.
     name: 'hosting-lifecycle', everyMs: 60 * 60_000,
     run: async () => (await import('@/modules/hosting/server/renewal')).runHostingLifecycle(),

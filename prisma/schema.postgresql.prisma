@@ -4867,6 +4867,11 @@ model HostingService {
   allowTraffic  Boolean?
   allowUpgrade  Boolean?
   autoRenew     Boolean         @default(false)
+  /// Hourly billing: RUNNING pays the hourly price, STOPPED only the disk and IP price.
+  powerState    String          @default("RUNNING")
+  stoppedHourlyMinor BigInt      @default(0)
+  /// Hourly billing: every hour before this has been charged.
+  chargedUntil  DateTime?
   startedAt     DateTime?
   nextDueAt     DateTime?
   suspendedAt   DateTime?
@@ -4877,6 +4882,7 @@ model HostingService {
   product       HostingProduct  @relation(fields: [productId], references: [id], onDelete: Restrict)
   provider      HostingProvider? @relation(fields: [providerId], references: [id], onDelete: Restrict)
   actions       HostingAction[]
+  usage         HostingUsageCharge[]
 
   @@index([userId, status])
   @@index([status, nextDueAt])
@@ -4901,4 +4907,21 @@ model HostingAction {
 
   @@index([serviceId, createdAt])
   @@index([status, kind])
+}
+
+/// One hour of a metered (hourly) service, charged to the wallet. Unique per service and hour.
+model HostingUsageCharge {
+  id          Int            @id @default(autoincrement())
+  serviceId   Int
+  userId      Int
+  hourStart   DateTime
+  powerState  String // RUNNING | STOPPED
+  amountMinor BigInt
+  currency    String         @default("IRT")
+  walletTxId  Int?           @unique
+  createdAt   DateTime       @default(now())
+  service     HostingService @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@unique([serviceId, hourStart])
+  @@index([userId, hourStart])
 }
