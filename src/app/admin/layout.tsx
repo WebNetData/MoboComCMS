@@ -251,6 +251,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'settings', area: 'system', order: 10, title: L('تنظیمات و نگهداری', 'Settings & upkeep'), icon: 'sliders', items: [
       { href: '/admin/settings', label: L('تنظیمات عمومی و امکانات', 'General settings & features'), icon: 'sliders', perm: 'settings.manage' },
       { href: '/admin/sections', label: L('همهٔ بخش‌ها و آدرس‌ها', 'All sections & addresses'), icon: 'grid', perm: 'settings.manage', exact: true },
+      { href: '/admin/permalinks', label: L('پیوندهای یکتا', 'Permalinks'), icon: 'link', perm: 'settings.manage' },
       { href: '/admin/maintenance', label: L('حالت تعمیر سایت و بخش‌ها', 'Maintenance mode'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/imports', label: L('ورود گروهی اطلاعات', 'Bulk import'), icon: 'grid', perm: 'imports.manage' },

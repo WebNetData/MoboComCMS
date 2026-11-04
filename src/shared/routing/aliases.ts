@@ -1,3 +1,4 @@
+import { presentContentPath, matchPermalink, getPermalinks, permalinkPath, type PermalinkType } from '@/shared/routing/permalinks'
 /**
  * Section path aliases: every public section keeps its internal route
  * (/games, /forum …) while the site owner can publish it under another
@@ -24,14 +25,8 @@ export function getRouteAliases(): RouteAliases {
   return store.__mcRouteAliases || {}
 }
 
-/** Top-level names the app, the framework or the platform already own. */
-export const RESERVED_SEGMENTS = new Set([
-  'api', 'admin', '_next', 'static', 'public', 'uploads', 'files', 'media', 'assets', 'login', 'logout', 'register', 'signup', 'dashboard', 'account',
-  'checkout', 'cart', 'payment', 'invoice', 'miniapp', 'telegram', 'reseller', 'ext', 'p', 's', 'pwa-icon', 'offline', 'robots.txt', 'sitemap.xml',
-  'feed.xml', 'llms.txt', 'manifest.webmanifest', 'favicon.ico', 'favicon.svg', 'og.png', 'builder-preview', 'shipping', 'forms', 'subscription', 'trial',
-  'u', 'user', 'users', 'profile', 'people', 'feed', 'notifications', 'settings', 'search', 'copyright', 'favorites', 'compare', 'plans', 'vip',
-  'dl', 'forwarder', 'watch', 'track', 'newsletter', 'seller', 'shop', 'chat',
-])
+import { RESERVED_SEGMENTS } from '@/shared/routing/reserved'
+export { RESERVED_SEGMENTS } from '@/shared/routing/reserved'
 
 const SEGMENT = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 
@@ -44,22 +39,23 @@ function baseOf(path: string, base: string): string | null {
 /** "/games/elden?x=1" → "/game/elden?x=1" when /games is published as /game. Other paths are returned as is. */
 export function toPublicPath(path: string, map: RouteAliases = getRouteAliases()): string {
   if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return path
-  for (const [internal, alias] of Object.entries(map)) {
-    const rest = baseOf(path, internal)
-    if (rest !== null) return `${alias}${rest}`
-  }
-  return path
+  return presentContentPath(path, getPermalinks(), map)
 }
 
 /** Inverse of toPublicPath: "/game/elden" → "/games/elden". */
 export function toInternalPath(path: string, map: RouteAliases = getRouteAliases()): string {
-  if (typeof path !== 'string' || !path.startsWith('/')) return path
+  if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return path
+  const matched = matchPermalink(path, getPermalinks(), map)
+  const cut = path.search(/[?#]/), suffix = cut < 0 ? '' : path.slice(cut)
+  if (matched) return matched.internal + suffix
   for (const [internal, alias] of Object.entries(map)) {
     const rest = baseOf(path, alias)
-    if (rest !== null) return `${internal}${rest}`
+    if (rest !== null) return internal + rest
   }
   return path
 }
+
+export function contentPath(kind: PermalinkType, slug: string, values: { artist?: string } = {}) { return permalinkPath(kind, slug, values, getPermalinks(), getRouteAliases()) }
 
 export type AliasCheck = { ok: true; aliases: RouteAliases } | { ok: false; error: string }
 

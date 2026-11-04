@@ -93,7 +93,7 @@ import FormEmbeds from '@/components/site/FormEmbeds'
 import SitePopups from '@/components/site/popups/SitePopups'
 import RouteAliasProvider from '@/platform/routing/RouteAliasProvider'
 import { setRouteAliases } from '@/platform/routing/aliases'
-import { loadRouteAliases } from '@/modules/site/server/routes'
+import { loadRoutingState, publicRouteAliases } from '@/modules/site/server/routes'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import WebVitals from '@/components/site/WebVitals'
 
@@ -167,7 +167,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const previewed = requestHeaders.get('x-maintenance-preview')
   const siteClosed = requestHeaders.get('x-site-maintenance') === '1'
   const previewSection = isMaintenanceSection(previewed) ? MAINTENANCE_SECTIONS.find((item) => item.id === previewed) : null
-  const [jsonLd, siteConfig, extensions, packages, routeAliases] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRouteAliases()])
+  const [jsonLd, siteConfig, extensions, packages, routing] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRoutingState()])
+  const routeAliases = publicRouteAliases(routing.aliases)
   setRouteAliases(routeAliases)
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
   // Pages of enabled uploaded packages that ask for it join the main menu.
@@ -213,7 +214,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <PreviewBridge />
         <WebVitals />
-        <RouteAliasProvider map={routeAliases}><LocaleProvider locale={locale}>
+        <RouteAliasProvider map={routeAliases} permalinks={routing.permalinks}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
           <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /><FormEmbeds /><SitePopups /></ExtensionProvider></SiteProvider></Providers>
         </LocaleProvider></RouteAliasProvider>

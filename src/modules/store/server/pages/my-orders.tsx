@@ -41,18 +41,18 @@ const serviceRow = (row: ServiceOrder) => {
 }
 
 /** /dashboard/orders — Digikala-style order history with status tabs. */
-export async function MyOrdersView({ tab: tabParam }: { tab?: string }) {
-  const id = await userId('/dashboard/orders')
+export async function MyOrdersView({ tab: tabParam, base = '/dashboard/orders' }: { tab?: string; base?: '/dashboard/orders' | '/miniapp/orders' }) {
+  const id = await userId(base)
   const tab = (CUSTOMER_TABS.some((item) => item.key === tabParam) ? tabParam : 'current') as CustomerTab
   const [{ orders, counts }, services] = await Promise.all([customerOrders(id, tab), customerServiceOrders(id)])
   return <div className="sx-my" dir="rtl">
     <header className="sx-my-head"><h1>سفارش‌های من</h1><Link href="/products" className="sx-link">ادامهٔ خرید<StoreIcon name="chevron" size={15} /></Link></header>
-    <nav className="sx-my-tabs" aria-label="وضعیت سفارش‌ها">{CUSTOMER_TABS.map((item) => <Link key={item.key} href={`/dashboard/orders?tab=${item.key}`} className={item.key === tab ? 'is-active' : ''} aria-current={item.key === tab ? 'page' : undefined}>
+    <nav className="sx-my-tabs" aria-label="وضعیت سفارش‌ها">{CUSTOMER_TABS.map((item) => <Link key={item.key} href={`${base}?tab=${item.key}`} className={item.key === tab ? 'is-active' : ''} aria-current={item.key === tab ? 'page' : undefined}>
       {item.label}{counts[item.key] > 0 && <span className="num">{fa(counts[item.key])}</span>}
     </Link>)}</nav>
     {orders.length === 0 ? <div className={`sx-empty${services.length ? ' is-small' : ''}`}><StoreIcon name="receipt" size={services.length ? 28 : 40} /><b>سفارش فروشگاهی در این بخش ندارید</b><Link href="/products" className="sx-btn">رفتن به فروشگاه</Link></div>
       : <ul className="sx-my-list">{orders.map((order) => <li key={order.id}>
-        <Link href={`/dashboard/orders/${order.id}`} className="sx-my-order">
+        <Link href={`${base}/${order.id}`} className="sx-my-order">
           <div className="sx-my-order-top">
             <b className="sx-my-order-title">{order.lines[0]?.name || `سفارش ${fa(order.id)}`}{order.lines.length > 1 && <small> و {fa(order.lines.length - 1)} کالای دیگر</small>}</b>
             <span className={`sx-state is-${order.state.tone}`}>{order.state.label}</span>
@@ -75,9 +75,9 @@ export async function MyOrdersView({ tab: tabParam }: { tab?: string }) {
 }
 
 /** /dashboard/orders/:id — tracking stepper, items, address, delivery time and totals. */
-export async function MyOrderView({ id: idParam }: { id: string }) {
+export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: { id: string; base?: '/dashboard/orders' | '/miniapp/orders' }) {
   const id = Number(idParam)
-  const user = await userId(`/dashboard/orders/${idParam}`)
+  const user = await userId(`${base}/${idParam}`)
   const order = Number.isSafeInteger(id) && id > 0 ? await customerOrder(user, id) : null
   if (!order) notFound()
   const shipment = await orderShipment(order.id).catch(() => null)
@@ -88,7 +88,7 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
   const step = order.state.key === 'UNPAID' ? -1 : order.fulfilment === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(order.fulfilment || 'PENDING')
   return <div className="sx-my sx-my-detail" dir="rtl">
     <header className="sx-my-head">
-      <div><Link href="/dashboard/orders" className="sx-link"><StoreIcon name="chevron" size={15} />سفارش‌ها</Link><h1>جزئیات سفارش <span className="num">{fa(order.id)}</span></h1></div>
+      <div><Link href={base} className="sx-link"><StoreIcon name="chevron" size={15} />سفارش‌ها</Link><h1>جزئیات سفارش <span className="num">{fa(order.id)}</span></h1></div>
       <span className={`sx-state is-${order.state.tone}`}>{order.state.label}</span>
     </header>
     <dl className="sx-my-facts">

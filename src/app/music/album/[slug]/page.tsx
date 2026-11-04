@@ -1,3 +1,6 @@
+import { contentRouteParams } from '@/shared/routing/params'
+import { headers } from 'next/headers'
+import { loadRouteAliases } from '@/modules/site/server/routes'
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
 import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
@@ -15,7 +18,7 @@ import { paywallView } from '@/modules/paywall/server/paywall'
 import BuyContent from '@/components/paywall/BuyContent'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
-import { toPublicPath } from '@/platform/routing/aliases'
+import { toPublicPath, contentPath } from '@/platform/routing/aliases'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { shareCard } from '@/modules/site/server/seo'
 
@@ -23,18 +26,18 @@ export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [{ slug }, locale] = await Promise.all([params, getServerLocale()])
+  const [{ slug }, locale] = await Promise.all([contentRouteParams(params), getServerLocale(), loadRouteAliases()])
   const data = await getAlbum(slug)
   if (!data) return {}
   const fa = locale === 'fa'
   const a = data.album
   const title = `${fa ? a.title : a.titleEn || a.title} — ${fa ? a.artist.name : a.artist.nameEn || a.artist.name}`
-  return shareCard({ title: fa ? `دانلود آلبوم ${title}` : `${title} (album)`, description: fa ? `پخش آنلاین و دانلود آلبوم ${title}` : `Listen to and download ${title}`, openGraph: { images: a.cover ? [a.cover] : undefined }, alternates: { canonical: toPublicPath(`/music/album/${a.slug}`) } })
+  return shareCard({ title: fa ? `دانلود آلبوم ${title}` : `${title} (album)`, description: fa ? `پخش آنلاین و دانلود آلبوم ${title}` : `Listen to and download ${title}`, openGraph: { images: a.cover ? [a.cover] : undefined }, alternates: { canonical: contentPath('album', a.slug, { artist: a.artist.slug }) } })
 }
 
 export default async function AlbumPage({ params }: Props) {
   await requireModule('music')
-  const [{ slug }, locale, viewer] = await Promise.all([params, getServerLocale(), getViewer()])
+  const [{ slug }, locale, viewer] = await Promise.all([contentRouteParams(params), getServerLocale(), getViewer()])
   const data = await getAlbum(slug)
   if (!data) notFound()
   const fa = locale === 'fa'

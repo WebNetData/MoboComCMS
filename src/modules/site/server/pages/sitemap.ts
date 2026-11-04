@@ -1,5 +1,5 @@
-import { toPublicPath } from '@/platform/routing/aliases'
-import { loadRouteAliases } from '@/modules/site/server/routes'
+import { toPublicPath, contentPath } from '@/platform/routing/aliases'
+import { loadRouteAliases, publicRouteAliases } from '@/modules/site/server/routes'
 import type { MetadataRoute } from 'next'
 import { db } from '@/platform/database/prisma'
 import { getSettings } from '@/modules/settings/server'
@@ -17,6 +17,8 @@ import { publicCelebrities } from '@/modules/celebrities/server/celebrities'
 
 /** Static storefront routes + every published CMS document. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  await loadRouteAliases()
+  const musicUrls = new Map<string, string>()
   const settings = await getSettings().catch(() => null)
   const base = (settings?.siteUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '')
   const now = new Date()
@@ -51,8 +53,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const live = { status: 'PUBLISHED', publishedAt: { lte: now }, audienceGroups: '' }
     const [tracks, albums, artists, titles, games, people] = await Promise.all([
-      db.musicTrack.findMany({ where: { ...live, album: { isNot: { audienceGroups: { not: '' } } } }, select: { slug: true, updatedAt: true }, orderBy: { publishedAt: 'desc' }, take: 5000 }),
-      db.musicAlbum.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 2000 }),
+      db.musicTrack.findMany({ where: { ...live, album: { isNot: { audienceGroups: { not: '' } } } }, select: { slug: true, updatedAt: true, artist: { select: { slug: true } } }, orderBy: { publishedAt: 'desc' }, take: 5000 }),
+      db.musicAlbum.findMany({ where: live, select: { slug: true, updatedAt: true, artist: { select: { slug: true } } }, take: 2000 }),
       db.musicArtist.findMany({ select: { id: true, slug: true, updatedAt: true }, take: 2000 }),
       db.cinemaTitle.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 5000 }),
       db.gameTitle.findMany({ where: live, select: { slug: true, updatedAt: true }, take: 5000 }),
@@ -67,6 +69,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${base}/games/franchises`, lastModified: now, changeFrequency: 'weekly', priority: 0.5 },
       { url: `${base}/vip`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     )
+    for (const row of tracks) musicUrls.set('/music/track/' + encodeURIComponent(row.slug), contentPath('track', row.slug, { artist: row.artist.slug }))
+    for (const row of albums) musicUrls.set('/music/album/' + encodeURIComponent(row.slug), contentPath('album', row.slug, { artist: row.artist.slug }))
     for (const row of tracks) entries.push({ url: `${base}/music/track/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'monthly', priority: 0.6 })
     for (const row of albums) entries.push({ url: `${base}/music/album/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'monthly', priority: 0.6 })
     // An artist with a person page redirects there: only the final address belongs here.
@@ -105,9 +109,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Disabled feature modules (journal, VPN plans, store …) leave the sitemap.
   const runtime = await getPublicExtensionRuntime().catch(() => null)
-  const aliases = await loadRouteAliases()
+  const aliases = publicRouteAliases(await loadRouteAliases())
   const publish = (entry: MetadataRoute.Sitemap[number]) => {
-    try { const url = new URL(entry.url); return { ...entry, url: `${url.origin}${toPublicPath(url.pathname + url.search, aliases)}` } } catch { return entry }
+    try { const url = new URL(entry.url); return { ...entry, url: `${url.origin}${musicUrls.get(url.pathname) ? musicUrls.get(url.pathname)! + url.search : toPublicPath(url.pathname + url.search, aliases)}` } } catch { return entry }
   }
   // A section in maintenance leaves the sitemap too: its pages answer 503 until it is opened again.
   const maintenance = await loadMaintenance().catch(() => null), bases = maintenanceBases()

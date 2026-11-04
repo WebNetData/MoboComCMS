@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import { articleBodyWithExcerpt } from '@/modules/site/domain/article-output'
 import { formShortcodes } from '@/modules/forms/domain/embed'
 import { categoryMembership } from '@/modules/site/server/categories'
@@ -51,7 +52,7 @@ function readingMinutes(text: string | null | undefined) {
 }
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const params = await paramsPromise
+  const params = await contentRouteParams(paramsPromise)
   const post = await db.post.findUnique({ where: { slug: params.slug }, include: { categories: { include: { category: true } }, category: true } }).catch(() => null)
   if (!post || !isPublishedPost(post) || !await opensAudience(post.audienceGroups, 'post')) return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
@@ -76,7 +77,7 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
 
 /** `askedStyle`: a style named in the address (`?style=ps-…`), shown instead of the article's own for a look. */
 export default async function PostPage({ params: paramsPromise, preview, askedStyle }: { params: Promise<{ slug: string }>; preview?: BuilderPreview; askedStyle?: string }) {
-  const params = await paramsPromise
+  const params = await contentRouteParams(paramsPromise)
   await requireModule('journal')
   const [locale, theme] = await Promise.all([getServerLocale(), getServerTheme()])
   const navPages = await db.page

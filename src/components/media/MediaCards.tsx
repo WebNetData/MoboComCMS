@@ -1,3 +1,4 @@
+import { contentPath } from '@/platform/routing/aliases'
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { scoreBand } from '@/modules/media/domain/media'
@@ -90,7 +91,7 @@ type AlbumLike = { slug: string; title: string; titleEn: string; cover: string; 
 export function AlbumCard({ album, fa }: Fa & { album: AlbumLike }) {
   const name = fa ? album.title : album.titleEn || album.title
   return (
-    <Link href={`/music/album/${album.slug}`} className="mu-album">
+    <Link href={contentPath('album', album.slug, { artist: album.artist.slug })} className="mu-album">
       <span className="mu-album-art">
         {album.cover ? <img src={sized(album.cover, 320)} srcSet={srcSet(album.cover, 320)} alt={name} loading="lazy" /> : <span className="mu-noart">♪</span>}
         {album.access === 'MEMBERS' && <VipBadge fa={fa} small />}

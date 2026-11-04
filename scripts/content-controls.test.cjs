@@ -346,15 +346,18 @@ const INSTALLED = {
 }
 
 test('origin guard accepts the actual host despite Next localhost normalization and rejects foreign origins', async () => {
-  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': sectionRoutes() })
   const request = origin => new NextRequest('http://localhost:3002/api/subscriptions/1', { method: 'POST', headers: { host: '127.0.0.1:3002', origin, 'x-request-id': 'origin-test-123' } })
   assert.equal((await middleware(request('http://127.0.0.1:3002'))).status, 200)
   assert.equal((await middleware(request('https://attacker.invalid'))).status, 403)
   assert.equal((await middleware(request('http://127.0.0.1:9999'))).status, 403)
 })
 
+// Declared configuration seam; the actual permalink owner is exercised against PostgreSQL.
+function sectionRoutes(map = {}) { return { loadRouteAliases: async () => map, resolvePublicRoute: async path => load('src/shared/routing/aliases.ts').routeDecision(path, map) } }
+
 test('middleware publishes sections under their aliases and redirects old addresses', async () => {
-  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/game' }) } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': sectionRoutes({ '/games': '/game' }) })
   const get = (url) => middleware(new NextRequest(url, { headers: { 'x-request-id': 'alias-test-123' } }))
   const old = await get('http://localhost:3002/games/x?y=1')
   assert.equal(old.status, 308)
@@ -364,6 +367,27 @@ test('middleware publishes sections under their aliases and redirects old addres
   assert.match(aliased.headers.get('x-middleware-rewrite') || '', /\/games\/x$/)
   assert.ok(aliased.headers.get('content-security-policy'))
   assert.equal((await get('http://localhost:3002/api/games/library')).status, 200)
+})
+
+test('a custom artist permalink retains section maintenance, group access and cache ordering', async () => {
+  const m = load('src/modules/site/domain/maintenance.ts')
+  let maintenance = true, lock = 'open', cacheReads = 0
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED,
+    // Native PostgreSQL tests prove these coordinates; this seam isolates the Proxy's decision ordering.
+    '@/modules/site/server/routes': { resolvePublicRoute: async () => ({ kind: 'rewrite', path: '/music/track/banoo-jan' }) },
+    '@/modules/site/server/maintenance': { loadMaintenance: async () => m.normalizeMaintenance({ music: { enabled: maintenance } }), maintenanceBases: () => ({ music: ['/music'] }) },
+    '@/modules/account/server/section-access': { loadSectionAccess: async () => ({ music: ['vip'] }), sectionLock: async section => { assert.equal(section, 'music'); return lock } },
+    '@/modules/identity/server/access': { requireUser: async () => null },
+    '@/modules/performance/server/pagecache': { pageCacheHandle: async input => { cacheReads++; assert.equal(input.canonicalPath, '/music/track/banoo-jan'); return null }, purgeSoon: () => {} },
+  })
+  const get = () => middleware(new NextRequest('http://localhost:3002/music/komeil-nasri/track/banoo-jan?from=nav'))
+  assert.equal((await get()).status, 503); assert.equal(cacheReads, 0)
+  maintenance = false; lock = 'login'
+  const signIn = await get(); assert.equal(signIn.status, 307); assert.match(signIn.headers.get('location'), /login/); assert.equal(cacheReads, 0)
+  lock = 'refused'; assert.equal((await get()).status, 403); assert.equal(cacheReads, 0)
+  lock = 'open'
+  const opened = await get(); assert.equal(opened.status, 200); assert.equal(cacheReads, 1)
+  assert.match(opened.headers.get('x-middleware-rewrite'), /\/music\/track\/banoo-jan\?from=nav$/)
 })
 
 test('incident validation rejects invalid scopes, statuses and oversized messages', () => {
@@ -1204,7 +1228,7 @@ test('a write must show where it was made: Origin, Sec-Fetch-Site, Referer, or n
   assert.equal(from({ hasCookies: false, origin: 'https://evil.example' }), 'foreign-origin', 'a named foreign site is refused with or without cookies')
   assert.equal(mutationOrigin({ origin: 'https://shop.example', secFetchSite: null, referer: null, hasCookies: true, hosts: [null, undefined] }), 'foreign-origin', 'no known host, nothing is ours')
 
-  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': sectionRoutes() })
   const send = (path, headers, method = 'POST') => middleware(new NextRequest('http://localhost:3002' + path, { method, headers: { host: '127.0.0.1:3002', 'x-request-id': 'origin-test-456', ...headers } })).then((response) => response.status)
   const session = { cookie: 'next-auth.session-token=abc' }
   assert.equal(await send('/api/account/x', session), 403, 'a session cookie and no word on the source')
@@ -1246,7 +1270,7 @@ test('scripts run by nonce: one per response, on the request for Next and in the
   assert.match(policy('/miniapp/x'), /frame-ancestors 'self' https:\/\/web\.telegram\.org/)
   assert.match(policy('/login'), /challenges\.cloudflare\.com/)
 
-  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async () => null, purgeSoon: () => {} } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': sectionRoutes(), '@/modules/performance/server/pagecache': { pageCacheHandle: async () => null, purgeSoon: () => {} } })
   const get = (path, headers = {}) => middleware(new NextRequest('http://localhost:3002' + path, { headers: { host: '127.0.0.1:3002', 'x-request-id': 'csp-test-12345', ...headers } }))
   const first = await get('/blog/x'), second = await get('/blog/x')
   const sent = csp.nonceOf(first.headers.get('content-security-policy'))
@@ -1280,7 +1304,7 @@ test('a stored page goes out with the nonce of the response that carries it', as
   // Through the middleware: a page from the cache carries the nonce of this response, and one passed on as rendered keeps its own.
   const body = (nonce) => '<script nonce="' + nonce + '">a()</script>'
   let answer
-  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async (input) => answer(input), purgeSoon: () => {} } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': sectionRoutes(), '@/modules/performance/server/pagecache': { pageCacheHandle: async (input) => answer(input), purgeSoon: () => {} } })
   const get = () => middleware(new NextRequest('http://localhost:3002/blog/x', { headers: { host: '127.0.0.1:3002', 'x-request-id': 'csp-test-67890' } }))
   answer = (input) => new Response(withNonce(Buffer.from(body(stored)), stored, input.nonce), { headers: { 'content-type': 'text/html' } })
   const cached = await get(), cachedNonce = csp.nonceOf(cached.headers.get('content-security-policy'))
@@ -1330,7 +1354,7 @@ test('a section in maintenance shows its notice to visitors and itself to the pe
   // ---- through the middleware
   let stored = state, token = null, tokenReads = 0
   const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED,
-    '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/play' }) },
+    '@/modules/site/server/routes': sectionRoutes({ '/games': '/play' }),
     '@/modules/performance/server/pagecache': { pageCacheHandle: async () => (token ? null : new Response('cached page', { headers: { 'content-type': 'text/html' } })), purgeSoon: () => {} }, // the page cache serves visitors only
     '@/modules/identity/server/access': { requireUser: async () => { tokenReads += 1; return token } },
     '@/modules/site/server/maintenance': { loadMaintenance: async () => stored, maintenanceBases: () => bases },

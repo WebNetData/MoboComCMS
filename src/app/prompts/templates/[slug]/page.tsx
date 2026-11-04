@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from '@/components/AppLink'
@@ -20,13 +21,13 @@ import g from '@/components/prompts/PromptGallery.module.css'
 import { shareCard } from '@/modules/site/server/seo'
 export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const entry = await templateBySlug((await params).slug)
+  const entry = await templateBySlug((await contentRouteParams(params)).slug)
   if(!entry)return { title:'الگو پیدا نشد',robots:{index:false} }
   const sample=readShowcase(entry.showcase)
   return shareCard({ title:`${entry.title} | پرامپت مستر`,description:entry.summary,alternates:{canonical:`/prompts/templates/${entry.slug}`},openGraph:{title:entry.title,description:entry.summary,...(sample.cover?{images:[{url:sample.cover,alt:sample.alt||entry.title}]}:{})} })
 }
 export default async function TemplatePage({ params }: { params: Promise<{ slug: string }> }) {
-  const [template, viewer] = await Promise.all([templateBySlug((await params).slug), getViewer()])
+  const [template, viewer] = await Promise.all([templateBySlug((await contentRouteParams(params)).slug), getViewer()])
   if (!template) notFound()
   const [favorite,relatedData] = await Promise.all([viewer.userId?favoriteOf(viewer.userId,{type:'prompt',id:template.id}):null,templateDirectory({kind:template.kind,samples:'true'})])
   const sample=readShowcase(template.showcase),ready=hasShowcase(sample),kind=isKind(template.kind)?template.kind:'TEXT'

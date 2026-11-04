@@ -1,3 +1,5 @@
+import { toPublicPath } from '@/platform/routing/aliases'
+import { loadRouteAliases } from '@/modules/site/server/routes'
 import { db } from '@/platform/database/prisma'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { getSiteSeo } from '@/modules/site/server/seo'
@@ -15,22 +17,24 @@ async function enabledModules() {
 
 /** RSS 2.0 of the latest magazine posts (and software releases), for readers and faster discovery. */
 export async function rssFeed(): Promise<string> {
+  await loadRouteAliases()
   const [seo, on] = await Promise.all([getSiteSeo('fa'), enabledModules()])
   const [posts, software] = await Promise.all([
     on('journal') ? db.post.findMany({ where: { ...live(), access: 'PUBLIC' }, orderBy: { publishedAt: 'desc' }, take: 40, select: { slug: true, title: true, excerpt: true, content: true, cover: true, publishedAt: true, category: { select: { name: true } } } }).catch(() => []) : [],
     on('software') ? db.softwareTitle.findMany({ where: live(), orderBy: { updatedAt: 'desc' }, take: 20, select: { slug: true, title: true, version: true, summary: true, icon: true, updatedAt: true, category: true } }).catch(() => []) : [],
   ])
   const items = [
-    ...posts.map((post) => ({ title: post.title, url: `${seo.base}/blog/${post.slug}`, description: metaDescription(post.excerpt || post.content, 300), date: post.publishedAt, category: post.category?.name, image: post.cover && !post.cover.startsWith('/') ? post.cover : post.cover ? `${seo.base}${post.cover}` : undefined })),
-    ...software.map((app) => ({ title: `${app.title}${app.version ? ` ${app.version}` : ''}`, url: `${seo.base}/software/${app.slug}`, description: metaDescription(app.summary, 300), date: app.updatedAt, category: app.category || undefined })),
+    ...posts.map((post) => ({ title: post.title, url: `${seo.base}${toPublicPath(`/blog/${post.slug}`)}`, description: metaDescription(post.excerpt || post.content, 300), date: post.publishedAt, category: post.category?.name, image: post.cover && !post.cover.startsWith('/') ? post.cover : post.cover ? `${seo.base}${post.cover}` : undefined })),
+    ...software.map((app) => ({ title: `${app.title}${app.version ? ` ${app.version}` : ''}`, url: `${seo.base}${toPublicPath(`/software/${app.slug}`)}`, description: metaDescription(app.summary, 300), date: app.updatedAt, category: app.category || undefined })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 50)
   return buildRss({ title: seo.name, url: seo.base, description: seo.description, language: 'fa-IR', items })
 }
 
 /** llms.txt: what the site is and where its important pages are, for AI assistants. */
 export async function llmsTxt(): Promise<string> {
+  await loadRouteAliases()
   const [seo, on] = await Promise.all([getSiteSeo('fa'), enabledModules()])
-  const url = (path: string) => `${seo.base}${path}`
+  const url = (path: string) => `${seo.base}${toPublicPath(path)}`
   const [posts, products, software, pages, boards] = await Promise.all([
     on('journal') ? db.post.findMany({ where: { ...live(), access: 'PUBLIC' }, orderBy: { publishedAt: 'desc' }, take: 25, select: { slug: true, title: true, excerpt: true } }).catch(() => []) : [],
     on('store') ? db.product.findMany({ where: publicProductWhere, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 25, select: { slug: true, name: true, description: true } }).catch(() => []) : [],

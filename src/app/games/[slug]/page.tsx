@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
@@ -35,7 +36,7 @@ type Props = { params: Promise<{ slug: string }> }
 const REQ_LABELS: Record<string, string> = { os: 'سیستم‌عامل', cpu: 'پردازنده', gpu: 'کارت گرافیک', ram: 'حافظه', storage: 'فضای خالی', directx: 'دایرکت‌ایکس' }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params
+  const { slug } = await contentRouteParams(params)
   const data = await getGame(slug)
   if (!data) return {}
   const g = data.game
@@ -51,7 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /** GameUp-style game page: hero, section nav, review with verdict, media, requirements, downloads, updates, news and member reviews; identity sidebar. */
 export default async function GamePage({ params }: Props) {
   await requireModule('games')
-  const [{ slug }, viewer] = await Promise.all([params, getViewer()])
+  const [{ slug }, viewer] = await Promise.all([contentRouteParams(params), getViewer()])
   const data = await getGame(slug)
   if (!data) notFound()
   const { game: g } = data

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { routeDecision } from '@/platform/routing/aliases'
-import { loadRouteAliases } from '@/modules/site/server/routes'
+import { resolvePublicRoute } from '@/modules/site/server/routes'
 import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecache'
 import { installGate } from '@/modules/installer/server/gate'
 import { mutationOrigin } from '@/platform/http/origin-policy'
@@ -125,7 +124,7 @@ export async function proxy(req: NextRequest) {
   let canonicalPath = req.nextUrl.pathname
   let redirected = false
   if ((req.method === 'GET' || req.method === 'HEAD') && !NOT_ALIASED.test(req.nextUrl.pathname)) {
-    const decision = routeDecision(req.nextUrl.pathname, await loadRouteAliases().catch(() => ({})))
+    const decision = await resolvePublicRoute(req.nextUrl.pathname)
     if (decision?.kind === 'rewrite') canonicalPath = decision.path
     else if (decision) redirected = true
 

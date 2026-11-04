@@ -8,7 +8,7 @@ import type { Section } from './shared'
 export default function SectionsHubPage() {
   const { data, error } = useJson<{ sections: Section[] }>('/api/admin/sections')
   return <div className="sa" dir="rtl">
-    <header className="sa-head"><div><h1>بخش‌های سایت</h1><p className="sa-hint">هر بخش منوی مدیریت، تنظیمات و آدرس اختصاصی خودش را دارد. آدرس هر بخش را می‌توانید عوض کنید؛ آدرس‌های قدیمی خودکار به آدرس تازه منتقل می‌شوند.</p></div><Link href="/admin/extensions" className="btn btn-ghost">افزونه‌ها و ماژول‌ها</Link></header>
+    <header className="sa-head"><div><h1>بخش‌های سایت</h1><p className="sa-hint">هر بخش منوی مدیریت، تنظیمات و آدرس اختصاصی خودش را دارد. آدرس هر بخش را می‌توانید عوض کنید؛ آدرس‌های قدیمی خودکار به آدرس تازه منتقل می‌شوند.</p></div><Link href="/admin/permalinks" className="btn btn-ghost">پیوندهای یکتا</Link><Link href="/admin/extensions" className="btn btn-ghost">افزونه‌ها و ماژول‌ها</Link></header>
     {error && <Notice tone="error">{error}</Notice>}
     {!data ? <div className="sa-skeleton" aria-busy="true" /> : <div className="sh-grid">{data.sections.map((section) => <article key={section.id} className={`sa-card sh-card${section.enabled ? '' : ' is-off'}`}>
       <header className="sh-card-head"><b>{section.name}</b><span className={`sa-state ${section.enabled ? 'is-ok' : ''}`}>{section.enabled ? 'فعال' : 'غیرفعال'}</span></header>

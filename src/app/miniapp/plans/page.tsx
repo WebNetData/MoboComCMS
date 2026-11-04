@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { fetchCheckoutGateways, fetchWalletBalances, money, startCheckout, type CheckoutGatewayChoice } from '@/modules/checkout/ui/client'
 import { haptic, openLink, paymentHref } from '../telegram-client'
+import MiniAppReadState from '../MiniAppReadState'
 import { planName } from '@/modules/catalog/domain/plan-locale'
 
 interface Plan {
@@ -34,13 +35,18 @@ export default function MiniAppPlans() {
   const [msgOk, setMsgOk] = useState(false)
   const [paymentUrl, setPaymentUrl] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   const load = useCallback(async () => {
+    setLoading(true); setLoadError(false)
+    try {
     const [r, b, g] = await Promise.all([fetch('/api/plans'), fetchWalletBalances(), fetchCheckoutGateways()])
-    if (r.ok) setPlans((await r.json()) || [])
+    if (!r.ok) throw new Error('plans unavailable')
+    setPlans((await r.json()) || [])
     setBalances(Object.fromEntries(b.map((x) => [x.currency, x.balance])))
     setGateways(g)
-    setLoading(false)
+    } catch { setLoadError(true) }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -82,10 +88,11 @@ export default function MiniAppPlans() {
     }
   }
 
+  if (loadError) return <><MiniAppHeading icon="globe" title={t.miniPlans} /><MiniAppReadState error retry={load} /></>
   return <div>
     <MiniAppHeading icon="globe" title={t.miniPlans} />
     {Object.keys(balances).length > 0 && <p className="muted text-sm mb-4">{t.walletBalance}: <b className="num">{Object.entries(balances).map(([c, v]) => money(v, c, locale === 'fa' ? 'fa-IR' : 'en-US')).join(' · ')}</b></p>}
-    <div className="card mb-4"><label className="label">{t.configNameLabel}</label><input className="input" dir="ltr" placeholder={t.configNamePlaceholder} value={username} onChange={e => setUsername(e.target.value)} /><p className="muted text-xs mt-2">{t.configNameHint}</p></div>
+    <div className="card mb-4"><label className="label" htmlFor="miniapp-plan-name">{t.configNameLabel}</label><input id="miniapp-plan-name" className="input" dir="ltr" placeholder={t.configNamePlaceholder} value={username} onChange={e => setUsername(e.target.value)} /><p className="muted text-xs mt-2">{t.configNameHint}</p></div>
     {msg && <p className={msgOk ? 'success-text mb-3' : 'error-text mb-3'}>{msg}</p>}
     {paymentUrl && <a className="btn btn-ghost w-full mb-3" href={paymentUrl}>{locale === 'fa' ? 'باز کردن صفحه پرداخت' : 'Open payment page'}</a>}
     {loading && <p className="muted text-sm">{t.loading}</p>}

@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import { creditProfiles } from '@/modules/cinema/server/people'
 import { creditsOf, normalizePersonName } from '@/modules/cinema/domain/people'
@@ -31,7 +32,7 @@ export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [{ slug }, locale] = await Promise.all([params, getServerLocale()])
+  const [{ slug }, locale] = await Promise.all([contentRouteParams(params), getServerLocale()])
   const data = await getTitle(slug)
   if (!data) return {}
   const fa = locale === 'fa'
@@ -48,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TitlePage({ params }: Props) {
   await requireModule('cinema')
-  const [{ slug }, locale, viewer] = await Promise.all([params, getServerLocale(), getViewer()])
+  const [{ slug }, locale, viewer] = await Promise.all([contentRouteParams(params), getServerLocale(), getViewer()])
   const data = await getTitle(slug)
   if (!data) notFound()
   const fa = locale === 'fa'

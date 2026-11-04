@@ -3,7 +3,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
 import { listExtensionAdminState, saveExtensionState } from '@/extensions/server/state'
-import { RouteAliasError, loadRouteAliases, saveRouteAliases } from '@/modules/site/server/routes'
+import { RouteAliasError, loadRouteAliases, saveRouting } from '@/modules/site/server/routes'
 import { saveBusinessSettings } from '@/modules/businesses/server/businesses'
 import { originIsThisSite } from '@/platform/http/origin-policy'
 
@@ -44,12 +44,10 @@ export async function POST(req: NextRequest) {
   try {
     if (body?.addresses && typeof body.addresses === 'object') {
       const own = new Set(section.bases.map((row) => row.base))
-      const next = { ...await loadRouteAliases() }
-      for (const [base, alias] of Object.entries(body.addresses as Record<string, unknown>)) {
+      for (const base of Object.keys(body.addresses)) {
         if (!own.has(base)) return err(`مسیر ${base} متعلق به این بخش نیست`)
-        next[base] = String(alias ?? '')
       }
-      await saveRouteAliases(next)
+      await saveRouting({ aliasPatch: body.addresses as Record<string, unknown> }, { req, actor: admin })
     }
     if (typeof body?.enabled === 'boolean' || (body?.settings && typeof body.settings === 'object')) {
       const input = { enabled: typeof body?.enabled === 'boolean' ? body.enabled : undefined, settings: body?.settings && typeof body.settings === 'object' ? body.settings as Record<string, unknown> : undefined }
@@ -57,7 +55,7 @@ export async function POST(req: NextRequest) {
       else await saveExtensionState(id, input)
     }
   } catch (error) {
-    if (error instanceof RouteAliasError) return err(error.message)
+    if (error instanceof RouteAliasError) return err(error.message, error.status)
     return err(error instanceof Error ? error.message : 'ذخیره نشد')
   }
   await auditAdmin({ req, actor: admin, action: 'site.section.update', targetType: 'extension', targetId: 0, metadata: { id, enabled: body?.enabled, addresses: body?.addresses, settings: body?.settings ? Object.keys(body.settings as object) : [] } })

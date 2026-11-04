@@ -20,6 +20,60 @@ const r = load('src/shared/routing/aliases')
 const contracts = load('src/platform/extensions/contracts')
 
 const map = { '/games': '/game', '/forum': '/discourse' }
+const p = load('src/shared/routing/permalinks')
+
+test('permalink patterns keep the legacy configuration as the default',()=>{
+ const config=p.defaultPermalinks();assert.equal(p.validatePermalinks(config),null)
+ for(const type of p.PERMALINK_TYPES)assert.equal(p.permalinkPath(type.key,'sample',{},config),type.base+'/sample')
+})
+test('App Router encoded parameters become raw domain slugs exactly once',async()=>{
+ const {contentRouteParams}=load('src/shared/routing/params.ts')
+ for(const slug of ['our-story','آهنگ-من','literal%25'])assert.deepEqual(await contentRouteParams(Promise.resolve({slug:encodeURIComponent(slug),other:'kept'})),{slug,other:'kept'})
+ assert.equal((await contentRouteParams(Promise.resolve({slug:'آهنگ-من'}))).slug,'آهنگ-من')
+ for(const slug of ['%ZZ','%2fadmin','%5cadmin','%2e%2e','a%00b'])assert.equal((await contentRouteParams(Promise.resolve({slug}))).slug,'',slug)
+})
+test('root pages, Unicode slugs and query/fragment suffixes use the shared Link mapper',()=>{
+ const config=p.defaultPermalinks();config.templates.page='/{slug}';p.setPermalinks(config)
+ try{
+  assert.equal(r.toPublicPath('/p/our-story?from=nav#team',{}),'/our-story?from=nav#team')
+  assert.equal(r.toInternalPath('/our-story?from=nav#team',{}),'/p/our-story?from=nav#team')
+  assert.equal(p.matchPermalink('/'+encodeURIComponent('معرفی'),config).slug,'معرفی')
+  for(const root of r.RESERVED_SEGMENTS){assert.equal(p.matchPermalink('/'+root,config),null,root);assert.equal(r.toPublicPath('/p/'+root,{}),'/p/'+root,root)}
+ }finally{p.setPermalinks(p.defaultPermalinks())}
+})
+test('artist-prefixed track and album routes compose with section aliases',()=>{
+ const config=p.defaultPermalinks();config.templates.track='/music/{artist}/track/{slug}';config.templates.album='/music/{artist}/album/{slug}'
+ const aliases={'/music':'/songs'};p.setPermalinks(config);r.setRouteAliases(aliases)
+ try{
+  assert.equal(r.contentPath('track','banoo-jan',{artist:'komeil-nasri'}),'/songs/komeil-nasri/track/banoo-jan')
+  assert.equal(r.toInternalPath('/songs/komeil-nasri/track/banoo-jan',aliases),'/music/track/banoo-jan')
+  assert.equal(p.matchPermalink('/songs/track/banoo-jan',config,aliases).internal,'/music/track/banoo-jan')
+  assert.equal(r.toPublicPath('/music/track/banoo-jan',aliases),'/songs/track/banoo-jan','missing coordinates retain a valid server-resolved legacy link')
+ }finally{p.setPermalinks(p.defaultPermalinks());r.setRouteAliases({})}
+})
+test('old patterns stay readable after changes, including previous section aliases',()=>{
+ const config=p.defaultPermalinks();config.templates.post='/journal/{slug}';config.history.post=['/magazine/{slug}']
+ assert.equal(p.matchPermalink('/magazine/example',config).internal,'/blog/example')
+ assert.equal(p.permalinkPath('post','example',{},config),'/journal/example')
+ config.templates.page='/{slug}';config.aliasHistory['/software']=['/apps'];assert.equal(p.matchPermalink('/apps',config),null)
+ assert.equal(p.permalinkPath('page','apps',{},config),'/p/apps')
+})
+test('patterns reject executable, ambiguous, reserved, traversal and unsupported tokens',()=>{
+ for(const pattern of ['//evil/{slug}','https://evil/{slug}','/api/{slug}','/admin/{slug}','/p/../{slug}','/p/{slug}?x=1','/p/{slug}/{slug}','/p/{id}','/p/prefix-{slug}','/p/{artist}/{slug}']){const config=p.defaultPermalinks();config.templates.page=pattern;assert.ok(p.validatePermalinks(config),pattern)}
+ const collision=p.defaultPermalinks();collision.templates.game='/shared/{slug}';collision.templates.software='/shared/{slug}';assert.ok(p.validatePermalinks(collision))
+ for(const prefix of p.PROTECTED_CONTENT_PREFIXES){
+  const config=p.defaultPermalinks(),key=prefix.startsWith('/music/')?'track':prefix.startsWith('/prompts/')?'prompt':p.PERMALINK_TYPES.find(t=>prefix.startsWith(t.base+'/')).key
+  config.templates[key]=prefix+'/{slug}';assert.ok(p.validatePermalinks(config),prefix+' cannot replace a native subtree')
+  const root='/'+prefix.split('/')[1],aliases={[root]:'/custom-section'};config.templates[key]=config.templates[key].replace(root,'/custom-section');assert.ok(p.validatePermalinks(config,aliases),'aliased '+prefix)
+ }
+ for(const path of ['/p/%2Fapi','/p/%5capi','/p/%ZZ','/p/%2e%2e'])assert.equal(p.matchPermalink(path),null,path)
+})
+test('static pages in sections are not mistaken for item slugs',()=>{
+ const config=p.defaultPermalinks();config.templates.game='/play/{slug}';p.setPermalinks(config)
+ try{assert.equal(r.toPublicPath('/games/calendar',{}),'/games/calendar');assert.equal(p.matchPermalink('/games/calendar',config),null);assert.equal(p.matchPermalink('/play/calendar',config),null)}finally{p.setPermalinks(p.defaultPermalinks())}
+ for(const type of p.PERMALINK_TYPES){const dir=path.resolve(__dirname,'../src/app'+type.base);for(const entry of fs.readdirSync(dir,{withFileTypes:true}).filter(e=>e.isDirectory()&&!e.name.startsWith('[')&&!e.name.startsWith('(')))assert.ok(p.STATIC_CONTENT_SEGMENTS[type.key]?.includes(entry.name),type.key+': '+entry.name)}
+ for(const root of ['/music','/prompts'])for(const entry of fs.readdirSync(path.resolve(__dirname,'../src/app'+root),{withFileTypes:true}).filter(e=>e.isDirectory())){const base=root+'/'+entry.name;assert.ok(p.PROTECTED_CONTENT_PREFIXES.includes(base)||p.PERMALINK_TYPES.some(t=>t.base===base),base+' must have an explicit routing owner')}
+})
 
 test('public and internal paths map whole segments only', () => {
   assert.equal(r.toPublicPath('/games', map), '/game')
