@@ -3,7 +3,7 @@
 
 const OWNERS: Readonly<Record<string, string>> = {
   SUBSCRIPTION_EXPIRING: 'vpn', SUBSCRIPTION_EXPIRED: 'vpn', SUBSCRIPTION_READY: 'vpn', SUBSCRIPTION_RENEWED: 'vpn',
-  MARKETPLACE: 'marketplace', MEMBERSHIP: 'membership', LIVECHAT: 'livechat', CONTENT_PURCHASE: 'paywall', ADS: 'ads',
+  MARKETPLACE: 'marketplace', MEMBERSHIP: 'membership', LIVECHAT: 'livechat', CONTENT_PURCHASE: 'paywall', ADS: 'ads', HOSTING: 'hosting',
   PRODUCT_DELIVERED: 'store', DELIVERY_DELAYED: 'store', STOCK_BACK: 'store', CART_REMINDER: 'store', GIFT_CARD: 'store', LOYALTY: 'store',
 }
 

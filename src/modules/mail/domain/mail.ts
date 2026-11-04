@@ -51,6 +51,7 @@ export const EMAIL_EVENTS: { id: string; label: string }[] = [
   { id: 'GIFT_CARD', label: 'کارت هدیه' },
   { id: 'LOYALTY', label: 'باشگاه مشتریان (امتیاز و سطح)' },
   { id: 'CONTENT_PURCHASE', label: 'خرید فایل یا مقالهٔ پولی' },
+  { id: 'HOSTING', label: 'میزبانی و سرور (تحویل، تعلیق، تمدید)' },
   { id: 'MARKETPLACE', label: 'فروشندگان (سفارش تازه، تسویه، وضعیت فروشگاه)' },
   { id: 'LIVECHAT', label: 'گفت‌وگوی آنلاین (پاسخ اپراتور)' },
   { id: 'INBOX_DIGEST', label: 'خلاصهٔ روزانهٔ اعلان‌های خوانده‌نشده' },

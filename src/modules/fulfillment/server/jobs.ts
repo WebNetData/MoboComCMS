@@ -16,7 +16,7 @@ import { fulfillMembershipOrder, grantGiftForOrder } from '@/modules/membership/
 import { recordStoreSale } from '@/modules/store/server/orders'
 import { fulfillContentOrder } from '@/modules/paywall/server/paywall'
 
-export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'FORM_PAID' | 'GRANT_MEMBERSHIP' | 'GRANT_CONTENT'
+export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'FORM_PAID' | 'GRANT_MEMBERSHIP' | 'GRANT_CONTENT' | 'HOSTING_PROVISION'
 
 type JobPayload = Record<string, unknown>
 
@@ -70,6 +70,9 @@ export async function enqueueOrderFulfillment(input: {
   }
   if (meta.kind === 'form') {
     return enqueueFulfillment({ kind: 'FORM_PAID', dedupeKey: `FORM_PAID:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+  }
+  if (meta.kind === 'hosting') {
+    return enqueueFulfillment({ kind: 'HOSTING_PROVISION', dedupeKey: `HOSTING_PROVISION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
   }
   if (meta.kind === 'content') {
     return enqueueFulfillment({ kind: 'GRANT_CONTENT', dedupeKey: `GRANT_CONTENT:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
@@ -154,6 +157,12 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
   if (job.kind === 'FORM_PAID') {
     if (!job.orderId) throw new Error('form job has no orderId')
     await (await import('@/modules/forms/server/paid')).fulfillFormOrder(job.orderId)
+    return
+  }
+
+  if (job.kind === 'HOSTING_PROVISION') {
+    if (!job.orderId) throw new Error('hosting job has no orderId')
+    await (await import('@/modules/hosting/server/services')).fulfillHostingOrder(job.orderId)
     return
   }
 
@@ -333,6 +342,21 @@ export async function recoverMissingPaidFulfillment(limit = 20) {
     if (paid.length < 500) break
   }
   return { checked, enqueued, failed }
+}
+
+/**
+ * Paid hosting orders carry neither a plan nor a product, so the recovery above does not see them. While the module
+ * is on, one without a delivery job or service gets its job here.
+ */
+export async function recoverHostingOrders(limit = 20) {
+  if (!await isExtensionEnabled('hosting')) return { checked: 0, enqueued: 0, failed: 0 }
+  const missing = await (await import('@/modules/hosting/server/services')).hostingOrdersWithoutDelivery(limit)
+  let enqueued = 0, failed = 0
+  for (const order of missing) {
+    try { await enqueueOrderFulfillment({ orderId: order.orderId, invoiceId: order.invoiceId }); enqueued++ }
+    catch (error) { failed++; logEvent('error', 'fulfillment.hosting_recovery_failed', { orderId: order.orderId, error }) }
+  }
+  return { checked: missing.length, enqueued, failed }
 }
 
 /** A paid top-up must not remain uncredited after a callback interruption. */

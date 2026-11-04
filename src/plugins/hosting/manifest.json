@@ -48,10 +48,19 @@
     "order": 46,
     "items": [
       {
+        "href": "/admin/hosting/services",
+        "label": "سرویس‌های مشتریان",
+        "labelEn": "Customer services",
+        "icon": "server",
+        "permissions": [
+          "hosting.manage"
+        ]
+      },
+      {
         "href": "/admin/hosting",
         "label": "محصولات و پلن‌ها",
         "labelEn": "Products and plans",
-        "icon": "server",
+        "icon": "layers",
         "permissions": [
           "hosting.manage"
         ]

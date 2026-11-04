@@ -38,7 +38,48 @@ Evidence (actually run):
 
 Not run: React Doctor; a real Hetzner token (owner's account); production build.
 
+## Slice 2 — purchase, delivery, My services (2026-11-04, `feat/hosting-purchase-2026-11-04` from main `0d72970b`)
+
+Built:
+- Migration `20270214120000_hosting_services` (unreleased): `HostingService` (one per order, status/cycle/price checks, an
+  ACTIVE fixed-term service must have start and due dates, one service per machine per system via a partial unique
+  index) and `HostingAction` (history and audit, unique idempotency key).
+- Checkout: `hostingProductId`, `hostingCycle`, `hostingName` as one more purchasable item through the existing order,
+  invoice, wallet and gateway path. `hostingQuote` (`server/services.ts`) freezes price, setup and name on the order.
+  Refused: hourly (`HOSTING_HOURLY_LATER`, waits for metering), unknown cycle, invalid domain for web hosting, inactive
+  product, inactive or full system. Discount codes are refused on hosting for now.
+- Fulfillment kind `HOSTING_PROVISION` (meta `kind: 'hosting'`), included in stuck alerts and operations; the worker's
+  `recoverHostingOrders` re-queues paid hosting orders that lost their job (plan/product recovery never saw them).
+- Delivery: a driver that lists `create` provisions (`ProvisioningDriver.provision`, generated 20-character password,
+  stored encrypted); failure sets FAILED, records the action and throws so the job retries with backoff. Without such a
+  driver (all real drivers today) the service waits for staff with a WAITING `DELIVER` action.
+- Staff `/admin/hosting/services` (`/api/admin/hosting/services`): filters, search, deliver/edit (IP, IPv6, hostname,
+  https panel URL, login, password kept when empty, note, per-service add-on overrides), suspend, unsuspend, terminate,
+  history. Status changes claim the status they were decided on.
+- Customer `/dashboard/services` (menu "سرویس‌های من" while the module is on) and `/dashboard/services/[id]`: status hero
+  with days-left ring, delivery steps while waiting, login details with copy, password reveal (owner only, ACTIVE or
+  SUSPENDED, `rateLimitStrict` 6/min, recorded), specs, staff note, history. APIs `/api/hosting/services[/id]`.
+- Public order dialog (`components/hosting/HostingOrder.tsx`): term, domain/hostname, gateway, wallet first.
+- Notification kind `HOSTING` (module-owned, in the email event list). Maintenance of the hosting section also closes
+  `/dashboard/services`. Icon `close` added (`x` is the X logo).
+
+Evidence (actually run):
+- `npm run check` on a clean LF tree: all suites pass after two pinned tests were updated for the new checkout item
+  and worker step (forms checkout regex, worker step mocks). `tsc --noEmit` clean.
+- `scripts/hosting-services.connected.cjs` on a fresh database: real checkout/wallet/fulfilment, replay, ownership,
+  concurrent delivery, encryption, reveal, states, driver failure then retry, capacity, refusals, DB checks, recovery.
+  Deliberate breaks `HOSTING_FAULT=owner|claim|plain|once` each fail it; a clean rerun passes.
+- Browser on the local preview with a test customer: ordered a VPS (yearly, wallet) and a web plan (domain validated
+  in the dialog), saw both waiting, staff delivered the VPS, the customer revealed the password. Pages 1440/390,
+  light/dark: axe 0 on every hosting surface; page errors none. Found and fixed: the dialog closed itself on open
+  (effect cleanup under React's double mount), it was not centred, and its close icon was the X logo. The one axe
+  item seen in the member shell is the existing notification link (also on Invoices and Wallet), not this work.
+- Test customer, orders, invoices, wallet, services, sample products, provider and module state were removed.
+
+Not run: React Doctor, production build, any real panel/virtualizer (none connected yet).
+
 ## Next
 
-Slice 2 (DirectAdmin first), then 3–10 per the spec. Owner still to provide: an international registrar reseller
+Slice 3 (renewal invoices, wallet auto-renew, suspend and terminate by due date), then 4–10 per the spec. Each real
+driver (DirectAdmin first, Proxmox, Hetzner) plugs into `ProvisioningDriver` when the owner provides access. Owner still to provide: an international registrar reseller
 account, licensed cPanel/DirectAdmin test servers, the IRNIC reseller account, a Hetzner token for live checks.
