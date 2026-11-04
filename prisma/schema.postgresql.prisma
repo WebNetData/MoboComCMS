@@ -4752,3 +4752,86 @@ model MembershipApplication {
   @@index([status])
   @@index([userId])
 }
+
+// ============ HOSTING, SERVERS, CLOUD (docs/specs/hosting-cloud/SPEC.md) ============
+/// A connected outside system: a web hosting panel, a virtualizer or cloud API, or a domain registrar.
+model HostingProvider {
+  id               Int              @id @default(autoincrement())
+  name             String
+  family           String // WEB_PANEL | COMPUTE | REGISTRAR
+  driver           String // CPANEL | DIRECTADMIN | ... | HETZNER_CLOUD | PROXMOX | ... | IRNIC
+  url              String           @default("")
+  username         String           @default("")
+  /// Encrypted with PANEL_CREDENTIAL_KEY (providers/server/panel-credentials.ts); never sent to a browser.
+  secret           String           @default("")
+  config           String           @default("{}")
+  location         String           @default("")
+  /// Most services placed here; 0: no limit.
+  capacity         Int              @default(0)
+  active           Boolean          @default(true)
+  lastCheckAt      DateTime?
+  lastCheckOk      Boolean?
+  lastCheckMessage String           @default("")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @default(now()) @updatedAt
+  products         HostingProduct[]
+
+  @@index([family, active])
+}
+
+/// Something for sale: a hosting plan, a server or a cloud size.
+model HostingProduct {
+  id                 Int              @id @default(autoincrement())
+  slug               String           @unique
+  name               String
+  tagline            String           @default("")
+  description        String           @default("")
+  kind               String // SHARED | RESELLER | CLOUD_HOSTING | VPS | CLOUD_SERVER | DEDICATED
+  fulfillment        String           @default("MANUAL") // MANUAL | DRIVER
+  providerId         Int?
+  provider           HostingProvider? @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  /// The package, server type or template name on the provider.
+  providerPlan       String           @default("")
+  cpuCores           Int              @default(0)
+  ramMb              Int              @default(0)
+  diskGb             Int              @default(0)
+  diskType           String           @default("NVMe")
+  trafficGb          Int              @default(0) // 0: unlimited
+  bandwidthMbps      Int              @default(0)
+  sites              Int              @default(0)
+  mailboxes          Int              @default(0)
+  databases          Int              @default(0)
+  ipv4               Int              @default(0)
+  location           String           @default("")
+  features           String           @default("[]")
+  /// Add-ons a manually delivered service may buy, only when switched on.
+  allowTraffic       Boolean          @default(false)
+  trafficPackGb      Int              @default(0)
+  trafficPackMinor   BigInt           @default(0)
+  allowUpgrade       Boolean          @default(false)
+  /// Hourly cloud: what a stopped server still pays per hour for its disk and IPs.
+  stoppedHourlyMinor BigInt           @default(0)
+  currency           String           @default("IRT")
+  active             Boolean          @default(true)
+  featured           Boolean          @default(false)
+  sort               Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @default(now()) @updatedAt
+  prices             HostingPrice[]
+
+  @@index([kind, active, sort])
+  @@index([providerId])
+}
+
+/// One price of a product for one billing cycle.
+model HostingPrice {
+  id          Int            @id @default(autoincrement())
+  productId   Int
+  product     HostingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cycle       String // HOURLY | MONTH | QUARTER | HALF | YEAR
+  currency    String         @default("IRT")
+  amountMinor BigInt
+  setupMinor  BigInt         @default(0)
+
+  @@unique([productId, cycle, currency])
+}

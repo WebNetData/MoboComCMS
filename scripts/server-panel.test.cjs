@@ -390,3 +390,59 @@ test('zip packs the folder that was asked for, not the folder the site runs in',
   assert.match(source, /command\('zip', \['-r', '-q', '-y', file, '--', \.\.\.names\], 10 \* 60_000, dir\)/)
   assert.match(fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/server-panel/server/system.ts'), 'utf8'), /\.\.\.\(cwd \? \{ cwd \} : \{\}\)/)
 })
+
+// ============ Hosting catalogue (docs/specs/hosting-cloud/SPEC.md, slice 1) ============
+const h = load('src/modules/hosting/domain/catalog')
+const hostingProduct = (extra = {}) => ({ kind: 'VPS', name: 'VPS Pro', slug: 'vps-pro', prices: [{ cycle: 'MONTH', amountMinor: '500000' }], ...extra })
+
+test('hosting: hourly is offered only for cloud kinds, every kind has the fixed terms', () => {
+  assert.deepEqual(h.cyclesFor('CLOUD_SERVER'), ['HOURLY', 'MONTH', 'QUARTER', 'HALF', 'YEAR'])
+  assert.deepEqual(h.cyclesFor('SHARED'), ['MONTH', 'QUARTER', 'HALF', 'YEAR'])
+  assert.throws(() => h.normalizeProduct(hostingProduct({ prices: [{ cycle: 'HOURLY', amountMinor: '100' }] })), /دوره/)
+  assert.equal(h.normalizeProduct(hostingProduct({ kind: 'CLOUD_SERVER', prices: [{ cycle: 'HOURLY', amountMinor: '120' }] })).prices[0].amountMinor, 120n)
+})
+
+test('hosting: saving compares a term with paying month by month, in exact integers', () => {
+  const prices = [{ cycle: 'MONTH', amountMinor: 100000n, currency: 'IRT' }, { cycle: 'YEAR', amountMinor: 1000000n, currency: 'IRT' }, { cycle: 'QUARTER', amountMinor: 400000n, currency: 'IRT' }]
+  assert.equal(h.savingPercent(prices, 'YEAR', 'IRT'), 16)
+  assert.equal(h.savingPercent(prices, 'QUARTER', 'IRT'), 0, 'a dearer term shows no saving')
+  assert.equal(h.savingPercent(prices, 'MONTH', 'IRT'), 0)
+  assert.equal(h.savingPercent(prices.slice(1), 'YEAR', 'IRT'), 0, 'no monthly price, nothing to compare')
+  assert.equal(h.monthlyEquivalent({ cycle: 'HOURLY', amountMinor: 100n }), 73000n)
+  assert.equal(h.monthlyEquivalent({ cycle: 'HALF', amountMinor: 600000n }), 100000n)
+})
+
+test('hosting: products are refused when unpriced, duplicated, negative or delivered by nothing', () => {
+  assert.throws(() => h.normalizeProduct(hostingProduct({ prices: [] })), /قیمت/)
+  assert.equal(h.normalizeProduct(hostingProduct({ prices: [], active: false })).active, false)
+  assert.throws(() => h.normalizeProduct(hostingProduct({ prices: [{ cycle: 'MONTH', amountMinor: '1' }, { cycle: 'MONTH', amountMinor: '2' }] })), /یک قیمت/)
+  for (const amountMinor of ['-1', '1.5', '1e3', 'NaN', '9999999999999999']) assert.throws(() => h.normalizeProduct(hostingProduct({ prices: [{ cycle: 'MONTH', amountMinor }] })), /مبلغ/)
+  assert.throws(() => h.normalizeProduct(hostingProduct({ fulfillment: 'DRIVER' })), /سامانه/)
+  assert.throws(() => h.normalizeProduct(hostingProduct({ slug: 'VPS Pro' })), /نامک/)
+  assert.throws(() => h.normalizeProduct(hostingProduct({ allowTraffic: true })), /ترافیک/)
+  const manual = h.normalizeProduct(hostingProduct({ allowTraffic: true, trafficPackGb: '100', trafficPackMinor: '90000', stoppedHourlyMinor: '50' }))
+  assert.deepEqual([manual.fulfillment, manual.trafficPackMinor, manual.stoppedHourlyMinor], ['MANUAL', 90000n, 0n], 'a stopped-server charge belongs to hourly kinds only')
+})
+
+test('hosting: provider addresses are https (ssh for CloudPanel), never carry credentials, fixed for Hetzner', () => {
+  assert.equal(h.normalizeProvider({ driver: 'HETZNER_CLOUD', name: 'H', url: 'https://evil.example', secret: 't' }).url, 'https://api.hetzner.cloud/v1')
+  assert.throws(() => h.normalizeProvider({ driver: 'PROXMOX', name: 'P', url: 'http://pve:8006', username: 'root@pam!site' }), /https/)
+  assert.throws(() => h.normalizeProvider({ driver: 'PROXMOX', name: 'P', url: 'https://u:p@pve:8006', username: 'x' }), /رمز/)
+  assert.throws(() => h.normalizeProvider({ driver: 'DIRECTADMIN', name: 'D', url: 'https://da:2222' }), /نام کاربری/)
+  assert.equal(h.normalizeProvider({ driver: 'CLOUDPANEL', name: 'C', url: 'ssh://cp.example:22', username: 'root' }).family, 'WEB_PANEL')
+  assert.throws(() => h.normalizeProvider({ driver: 'CLOUDPANEL', name: 'C', url: 'https://cp.example', username: 'root' }), /ssh/)
+  assert.throws(() => h.normalizeProvider({ driver: 'NOPE', name: 'N' }), /نوع/)
+  for (const kind of h.HOSTING_KINDS) assert.ok(h.HOSTING_DRIVERS.some((driver) => driver.family === kind.family), kind.id)
+})
+
+test('hosting: a secret is never sent to a browser and every admin call is guarded by hosting.manage', () => {
+  const server = fs.readFileSync(path.resolve(__dirname, '../src/modules/hosting/server/catalog.ts'), 'utf8')
+  assert.match(server, /providers\.map\(\(\{ secret, config: _config, _count, \.\.\.provider \}\)/)
+  assert.match(server, /secret: encryptPanelCredential\(input\.secret\)/)
+  const http = fs.readFileSync(path.resolve(__dirname, '../src/modules/hosting/server/http.ts'), 'utf8')
+  assert.equal((http.match(/adminGuard\(req, 'hosting', PERMISSIONS\)/g) || []).length, 2)
+  assert.match(http, /const PERMISSIONS = \['hosting\.manage'\]/)
+  const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../src/plugins/hosting/manifest.json'), 'utf8'))
+  assert.equal(manifest.defaultEnabled, false)
+  for (const page of ['hosting', 'servers']) assert.match(fs.readFileSync(path.resolve(__dirname, `../src/app/${page}/page.tsx`), 'utf8'), /await requireModule\('hosting'\)/)
+})
