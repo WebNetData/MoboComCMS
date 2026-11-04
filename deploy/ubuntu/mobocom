@@ -144,7 +144,18 @@ helper_version() { local v; v="$(sed -n 's/^HELPER_VERSION=\([0-9]\{1,4\}\)$/\1/
 # Released versions are Git tags vX.Y.Z of the repository the site was installed from.
 version_tag() { [[ "$1" =~ ^v?([0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$ ]] && printf 'v%s\n' "${BASH_REMATCH[1]}"; }
 package_install() { [ -f /etc/mobocom/release-public.pem ]; }
-fetch_tags() { as_app env GIT_TERMINAL_PROMPT=0 git fetch --quiet --tags origin || die 'could not reach the code repository'; }
+# Through the checkout's git-fetch.sh (time limits, HTTP/1.1 retry, UPDATE_GIT_PROXY from the environment file) when
+# the installed code has it; an older checkout fetches directly but says so first, so a slow network is not silence.
+fetch_tags() {
+  local proxy
+  proxy="$(sed -n 's/^UPDATE_GIT_PROXY=//p' "$ENV_FILE" 2>/dev/null | tail -1 | tr -d "\"'")"
+  if [ -f "$APP_DIR/deploy/ubuntu/git-fetch.sh" ]; then
+    as_app env UPDATE_GIT_PROXY="$proxy" bash deploy/ubuntu/git-fetch.sh --tags origin || die 'could not reach the code repository (see docs/UPGRADE-FA.md: proxy or Git bundle)'
+  else
+    echo '[mobocom] fetching versions from the code repository (this can take a while on a slow network)…' >&2
+    as_app env GIT_TERMINAL_PROMPT=0 timeout 900 git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 fetch --quiet --tags origin || die 'could not reach the code repository'
+  fi
+}
 tag_commit() { as_app git rev-parse --verify --quiet "refs/tags/$1^{commit}" || die "version ${1#v} does not exist; see: sudo mobocom versions"; }
 is_older() { as_app git merge-base --is-ancestor "$1" HEAD; }
 versions() {

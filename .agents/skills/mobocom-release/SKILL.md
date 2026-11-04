@@ -30,6 +30,8 @@ Tooling: `docs/agent/DEVSTACK.md`. Run local redacted Gitleaks and one relevant 
 - Migrations added 2026-10-07: `20261214120000` (content revisions), `20261215120000` (admin saved views), `20261216120000` (money state rules: validates stored rows and stops with the constraint's name if one breaks a rule), `20261217120000` and `20261218120000` (document columns on pages and articles). All additive.
 - New since then: the plugin `block-editor` (GPL-2.0-or-later `@wordpress/*` packages, private use), the setting `site.maintenance.v1`, `npm run test:redis`. The production build needs a 4 GB heap on Node 22 (`NODE_OPTIONS=--max-old-space-size=4096`); the browser suite's development server needs more (`e2e.yml`).
 
+- Updaters (2026-11-04): a server build always gets `BUILD_MEMORY_MB` heap; files the build rewrites are listed once per updater in `BUILD_WRITTEN` and never block an update or rollback; fetches go through `deploy/ubuntu/git-fetch.sh`. Generated extension files must match `npm run extensions:check`. A site updates with its installed scripts, so tell the owner what a fix needs on the first update after it ships. Evidence: `docs/agent/handoffs/HOST_INSTALL_UPGRADE.md`.
+
 ## Platform mandate routing — 2026-10-10
 
 Read current repository root instructions, then task-relevant sections of `docs/agent/ARCHITECTURE.md` and `PLATFORM_DECISIONS.md`. The canonical contracts, domain matrix and roadmap are linked there; read only the affected scope. If the repository is unavailable, use the fallback from `references/architecture.md` and do not infer current implementation from it.

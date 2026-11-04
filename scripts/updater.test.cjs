@@ -88,6 +88,9 @@ function sandbox() {
   const put = (name, text) => { fs.mkdirSync(path.dirname(path.join(origin, name)), { recursive: true }); fs.writeFileSync(path.join(origin, name), text) }
   put('deploy/ubuntu/self-update.sh', read('deploy/ubuntu/self-update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/self-update.sh'), 0o755)
   put('deploy/ubuntu/update.sh', read('deploy/ubuntu/update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/update.sh'), 0o755)
+  put('deploy/ubuntu/git-fetch.sh', read('deploy/ubuntu/git-fetch.sh'))
+  // Files the real build rewrites (Next.js and the extension generator), committed like in the repository.
+  put('tsconfig.json', '{}\n'); put('src/themes/generated.css', '/* committed */\n')
   put('VERSION', '1.0.0\n'); git(origin, 'add', '-A'); git(origin, 'commit', '-qm', 'v1'); git(origin, 'tag', 'v1.0.0')
   put('VERSION', '1.1.0\n'); git(origin, 'add', '-A'); git(origin, 'commit', '-qm', 'v1.1'); git(origin, 'tag', 'v1.1.0')
   git(origin, 'checkout', '-q', 'v1.0.0')
@@ -301,6 +304,89 @@ test('both update paths build with the packages NODE_ENV=production would leave 
   assert.equal(runManualUpdate(box, { UPDATE_NPM: npm, NODE_ENV: 'production' }).code, 0)
   assert.match(fs.readFileSync(seen, 'utf8'), /production ci --include=dev/)
   assert.match(read('deploy/ubuntu/self-update.sh'), /"\$NPM" ci --include=dev/)
+})
+
+test('the panel update builds with the same Node heap as the installer and update.sh', () => {
+  const box = sandbox()
+  fs.writeFileSync(path.join(box.dir, 'healthy'), 'ok')
+  const seen = path.join(box.dir, 'node-options')
+  const ok = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: `printf '%s' "$NODE_OPTIONS" > "${seen}"` })
+  assert.equal(ok.code, 0, ok.stderr + ok.log)
+  assert.equal(fs.readFileSync(seen, 'utf8'), '--max-old-space-size=4096', 'a 2 GB default heap ended a real build half way')
+  const big = sandbox(); fs.writeFileSync(path.join(big.dir, 'healthy'), 'ok')
+  assert.equal(runUpdate(big, 'v1.1.0', { BUILD_MEMORY_MB: '6144', UPDATE_BUILD: `printf '%s' "$NODE_OPTIONS" > "${seen}"` }).code, 0)
+  assert.equal(fs.readFileSync(seen, 'utf8'), '--max-old-space-size=6144')
+  const bad = sandbox(), r = runUpdate(bad, 'v1.1.0', { BUILD_MEMORY_MB: '4g; id' })
+  assert.equal(r.code, 2); assert.equal(fs.readFileSync(path.join(bad.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+})
+
+test('files the build rewrites never block an update or its rollback, and a copy of them is kept', () => {
+  // Left over from the previous build: the update goes ahead and keeps the old difference as a patch.
+  const box = sandbox()
+  fs.writeFileSync(path.join(box.dir, 'healthy'), 'ok')
+  fs.writeFileSync(path.join(box.app, 'tsconfig.json'), '{"jsx":"react-jsx"}\n')
+  fs.writeFileSync(path.join(box.app, 'src/themes/generated.css'), '/* rebuilt */\r\n')
+  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: 'printf x >> tsconfig.json' })
+  assert.equal(r.code, 0, r.stderr + r.log)
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.1.0')
+  assert.equal(box.git('status', '--porcelain').trim(), '', 'the files this build rewrote are restored too')
+  const kept = fs.readdirSync(path.join(box.dir, 'state')).filter((name) => /^build-files-.*\.patch$/.test(name))
+  assert.ok(kept.length >= 1)
+  assert.ok(kept.some((name) => /react-jsx/.test(fs.readFileSync(path.join(box.dir, 'state', name), 'utf8'))), 'the difference left by the previous build is kept')
+
+  // The new version does not start after its build rewrote them: the rollback still happens.
+  const back = sandbox(), health = path.join(back.dir, 'healthy')
+  const build = `printf x >> tsconfig.json; if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi`
+  const rb = runUpdate(back, 'v1.1.0', { UPDATE_BUILD: build })
+  assert.equal(rb.state.status, 'rolled-back', JSON.stringify(rb.state) + rb.log)
+  assert.equal(fs.readFileSync(path.join(back.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+
+  const manual = sandbox(), mhealth = path.join(manual.dir, 'manual-healthy')
+  fs.writeFileSync(path.join(manual.app, 'tsconfig.json'), '{"left":"over"}\n')
+  const mr = runManualUpdate(manual, { UPDATE_BUILD: `printf x >> tsconfig.json; if grep -q '^1.1.0' VERSION; then rm -f "${mhealth}"; else touch "${mhealth}"; fi` })
+  assert.equal(mr.code, 1, mr.stderr); assert.match(mr.stderr, /application rolled back/)
+  assert.equal(fs.readFileSync(path.join(manual.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+
+  // Anything else is still owner work and still stops the update.
+  const owner = sandbox()
+  fs.writeFileSync(path.join(owner.app, 'tsconfig.json'), '{"jsx":"react-jsx"}\n')
+  fs.writeFileSync(path.join(owner.app, 'VERSION'), 'owner edit\n')
+  assert.equal(runUpdate(owner, 'v1.1.0').code, 2)
+  assert.equal(fs.readFileSync(path.join(owner.app, 'VERSION'), 'utf8'), 'owner edit\n')
+  const list = (file) => read(file).match(/^BUILD_WRITTEN=\((.*)\)\r?$/m)?.[1]
+  assert.ok(list('deploy/ubuntu/self-update.sh')); assert.equal(list('deploy/ubuntu/self-update.sh'), list('deploy/ubuntu/update.sh'))
+})
+
+test('a fetch that hangs on a filtered network stops with a clear failure instead of waiting forever', async () => {
+  const net = require('node:net')
+  const { spawn } = require('node:child_process')
+  const sockets = []
+  // Accepts the connection and never answers, like a throttled route to GitHub.
+  const server = net.createServer((socket) => sockets.push(socket))
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  try {
+    const box = sandbox()
+    box.git('remote', 'set-url', 'origin', `http://127.0.0.1:${server.address().port}/repo.git`)
+    const started = Date.now()
+    const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: '/nonexistent', UPDATE_BUILD: 'true', UPDATE_FETCH_STALL: '2', UPDATE_FETCH_TIMEOUT: '3' }
+    const code = await new Promise((resolve) => spawn('bash', ['deploy/ubuntu/self-update.sh', 'v1.1.0'], { cwd: box.app, env }).on('exit', resolve))
+    assert.equal(code, 1)
+    assert.ok(Date.now() - started < 40_000, 'the fetch has a time limit')
+    const state = JSON.parse(fs.readFileSync(path.join(box.dir, 'state', 'state.json'), 'utf8'))
+    assert.equal(state.status, 'failed'); assert.match(state.step, /UPDATE_GIT_PROXY/)
+    const log = fs.readFileSync(path.join(box.dir, 'state', 'update.log'), 'utf8')
+    assert.match(log, /HTTP\/1\.1/, 'one more try over HTTP/1.1'); assert.match(log, /Git bundle/)
+    assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+  } finally { for (const socket of sockets) socket.destroy(); server.close() }
+})
+
+test('the fetch helper refuses a malformed proxy and never prints the proxy address', () => {
+  const box = sandbox()
+  const bad = spawnSync('bash', ['deploy/ubuntu/git-fetch.sh', '--tags', 'origin'], { cwd: box.app, env: { ...process.env, UPDATE_GIT_PROXY: 'socks5h://x; id' }, encoding: 'utf8' })
+  assert.equal(bad.status, 2); assert.match(bad.stderr, /invalid UPDATE_GIT_PROXY/)
+  const ok = spawnSync('bash', ['deploy/ubuntu/git-fetch.sh', '--tags', 'origin'], { cwd: box.app, env: { ...process.env, UPDATE_GIT_PROXY: 'http://user:secret@127.0.0.1:9' }, encoding: 'utf8' })
+  assert.equal(ok.status, 0, 'a local origin (a Git bundle or folder) needs no network: ' + ok.stderr)
+  assert.doesNotMatch(ok.stderr, /secret/)
 })
 
 test('what the site writes never counts as a local change that blocks an update', () => {

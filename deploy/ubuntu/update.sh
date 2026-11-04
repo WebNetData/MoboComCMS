@@ -33,13 +33,28 @@ git check-ref-format --branch "$BRANCH" >/dev/null || { echo '[update] invalid b
 PREV="$(git rev-parse --verify HEAD)"
 PREV_BRANCH="$(git symbolic-ref -q --short HEAD || true)"
 clean() { [ -z "$(git status --porcelain --untracked-files=normal)" ]; }
+# Files the build itself rewrites: Next.js (next-env.d.ts, tsconfig.json) and scripts/generate-extensions.mjs. They are
+# never owner work, but left changed they would block the next update and the rollback. Keep in step with self-update.sh.
+BUILD_WRITTEN=(next-env.d.ts tsconfig.json src/extensions/generated src/themes/generated src/themes/generated.css)
+STATE_DIR="${UPDATE_STATE_DIR:-storage/update}"
+# Keeps a copy of what the build changed in the update folder, then restores the committed files.
+reset_build_files() {
+  local changed
+  changed="$(git diff --name-only -- "${BUILD_WRITTEN[@]}")"
+  [ -n "$changed" ] || return 0
+  mkdir -p "$STATE_DIR"
+  git diff -- "${BUILD_WRITTEN[@]}" > "$(mktemp --suffix=.patch "$STATE_DIR/build-files-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
+  # shellcheck disable=SC2086 # one path per line, none with spaces
+  git checkout -- $changed && echo "[update] restored files the build had rewritten: $(echo $changed)"
+}
+reset_build_files
 if ! clean; then
   echo '[update] local changes must be resolved before updating' >&2
   exit 2
 fi
 
 # Share the lock with the tag-based updater so the two entry points cannot race.
-LOCK="${UPDATE_STATE_DIR:-storage/update}/lock"
+LOCK="$STATE_DIR/lock"
 mkdir -p "$(dirname "$LOCK")"
 if ! mkdir "$LOCK" 2>/dev/null; then
   echo '[update] another update is running' >&2
@@ -74,12 +89,14 @@ build_and_start() {
   # The environment file sets NODE_ENV=production, which would leave out the packages the build needs.
   "$NPM" ci --include=dev --no-audit --no-fund || return 1
   NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "$BUILD" || return 1
+  reset_build_files
   bash -c "$RESTART" || return 1
   healthy
 }
 
 rollback() {
   echo "[update] failed; restoring application commit $PREV" >&2
+  reset_build_files
   clean || { echo '[update] local work appeared during the update; preserved for operator recovery' >&2; return 1; }
   [ "$(git rev-parse HEAD)" = "${CHECKED_SHA:-}" ] || { echo '[update] local commit appeared during update; preserved' >&2; return 1; }
   if [ "$PREV_BRANCH" = "$BRANCH" ]; then
@@ -117,7 +134,7 @@ if [ -n "$ROLLBACK_TO$TO_COMMIT" ]; then
 fi
 
 echo "[update] fetching $BRANCH"
-git fetch --quiet origin "$BRANCH"
+if [ -f deploy/ubuntu/git-fetch.sh ]; then bash deploy/ubuntu/git-fetch.sh origin "$BRANCH"; else git fetch --quiet origin "$BRANCH"; fi
 TARGET_SHA="$(git rev-parse --verify "refs/remotes/origin/$BRANCH^{commit}")"
 if ! git merge-base --is-ancestor "$PREV" "$TARGET_SHA"; then
   echo '[update] local commit history diverges from the target branch' >&2
