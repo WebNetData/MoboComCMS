@@ -53,7 +53,7 @@ reset_build_files() {
   local changed
   changed="$(git diff --name-only -- "${BUILD_WRITTEN[@]}")"
   [ -n "$changed" ] || return 0
-  git diff -- "${BUILD_WRITTEN[@]}" > "$(mktemp "$DIR/build-files-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX.patch")"
+  git diff -- "${BUILD_WRITTEN[@]}" > "$(mktemp --suffix=.patch "$DIR/build-files-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
   # shellcheck disable=SC2086 # one path per line, none with spaces
   git checkout -- $changed && say "restored files the build had rewritten: $(echo $changed)"
 }
