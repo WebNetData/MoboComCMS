@@ -663,11 +663,23 @@
           "sha256": "1f989db14be80e15747313647974596018e326ce6f1510e0511408961a514452"
         }
       ]
+    },
+    "1.7.1": {
+      "migrations": [
+        {
+          "name": "20270213120000_hosting_catalog",
+          "sha256": "d9200611381c900dea873274d5efd95df546a1b113f379336c2e3f7d4c1b74d3"
+        },
+        {
+          "name": "20270214120000_hosting_services",
+          "sha256": "441d795d262b4183aa3262c4c456dc6875a40e9484bc4b2221ea275a4b554e1d"
+        },
+        {
+          "name": "20270215120000_hosting_hourly",
+          "sha256": "005789336cf13434df46ad9fd2c6998d8d276af8f5c3a3c6859dd8afd3e981c2"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270213120000_hosting_catalog",
-    "20270214120000_hosting_services",
-    "20270215120000_hosting_hourly"
-  ]
+  "unreleased": []
 }
