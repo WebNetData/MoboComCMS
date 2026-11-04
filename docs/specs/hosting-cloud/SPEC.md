@@ -67,9 +67,9 @@ All new tables, additive migration, line in `prisma/release-manifest.json`, both
 | Model | Purpose and rules the database enforces |
 |---|---|
 | `HostingProvider` | A connected system: `family` WEB_PANEL / REGISTRAR / COMPUTE, `driver` (CPANEL, DIRECTADMIN, HESTIACP, ISPCONFIG, VIRTUALMIN, CLOUDPANEL, IRNIC, …, PROXMOX, …), address, encrypted `secret`, non-secret `config` JSON, `active`, capacity limit |
-| `HostingProduct` | `kind` SHARED / RESELLER / VPS / DEDICATED / CLOUD_SERVER / CLOUD_HOSTING; resources (CPU, RAM, disk, traffic, sites, mailboxes…) as typed columns plus a spec JSON for display; provider package/template name; `active`, `featured`, sort |
+| `HostingProduct` | `kind` SHARED / RESELLER / VPS / DEDICATED / CLOUD_SERVER / CLOUD_HOSTING; resources (CPU, RAM, disk, traffic, sites, mailboxes…) as typed columns plus a spec JSON for display; provider package/template name; `fulfillment` DRIVER / MANUAL; `allowTraffic`, `allowUpgrade` (manual add-ons, off by default) and the traffic pack price; `active`, `featured`, sort |
 | `HostingPrice` | `productId`, `cycle` HOURLY / MONTH / QUARTER / HALF / YEAR, `amountMinor`, `setupMinor`, `currency`; unique `(productId, cycle, currency)` |
-| `HostingService` | One bought thing: `userId`, product, provider, `status` PENDING / PROVISIONING / ACTIVE / SUSPENDED / TERMINATED / FAILED, `cycle`, `externalId` unique per provider, hostname, IPs, `nextDueAt`, `suspendedAt`, `terminateAt`, `autoRenew`; order and invoice links |
+| `HostingService` | One bought thing: `userId`, product, provider, `status` PENDING / PROVISIONING / ACTIVE / SUSPENDED / TERMINATED / FAILED, `cycle`, `externalId` unique per provider, hostname, IPs, `nextDueAt`, `suspendedAt`, `terminateAt`, `autoRenew`; order and invoice links; for manual delivery the login username and encrypted password, and per-service add-on overrides (empty: the product's) |
 | `HostingAction` | Every customer or staff action: service, actor, `kind`, `status` QUEUED / RUNNING / DONE / FAILED, provider task id, `idempotencyKey` unique, error. The audit and the history the workspace shows |
 | `HostingUsageCharge` | One hour of a metered service: unique `(serviceId, hourStart)`, `amountMinor`, `walletTxId`. The unique key is the rule that an hour is never charged twice |
 | `DomainTld` | Suffix, registrar provider, register/renew/transfer/restore price per year, min/max years, `active` |
@@ -94,8 +94,15 @@ what it **can** do (`capabilities`), and the workspace only shows those actions.
   registrar the owner contracts with.
 - **Compute:** create from template/OS image, start, stop, shutdown, reboot, reset, rebuild, root password reset,
   console ticket, rescue/ISO, snapshots, backups, resize, IP list, reverse DNS, firewall, usage graphs, delete.
-  Two connection kinds behind the same contract: **direct** (the owner's virtualizer, e.g. Proxmox VE API) and
-  **provider API** (a cloud provider's API).
+  Two connection kinds behind the same contract: **direct** to the owner's virtualizer — Proxmox VE,
+  XCP-ng through Xen Orchestra, OpenNebula, Apache CloudStack, Virtualizor, VMware (vCenter), SolusVM, OpenStack —
+  and **provider API**, where the owner's own account at a cloud provider (first: Hetzner Cloud) creates the
+  customer's server and the customer manages it fully from the site; the provider is never shown to the customer.
+- **Manual (no driver).** Staff deliver the server by hand: IP, username, password (encrypted, shown to the owner
+  only in the workspace). The customer gets no controls, only the details, renewal and the add-ons staff allow:
+  extra traffic and an upgrade to another plan. Each is off unless switched on for the product, and staff may
+  switch it on or off per service. A paid add-on becomes a staff task (`HostingAction` waiting for staff) with a
+  notice; staff mark it done after applying it.
 
 Every driver has a fake twin for tests; a driver is accepted only after a contract test against a real instance.
 
@@ -113,7 +120,7 @@ retention days → TERMINATED, with notices before each step. Paying a suspended
 **Hourly (cloud).** Requires a wallet balance for at least the setting's minimum hours. Every hour the metering
 job, per active metered service, inserts `HostingUsageCharge` for that hour and debits the wallet with
 `moveWallet` (`idempotencyKey = hosting:usage:<serviceId>:<hourStart>`) in one transaction. A crashed run repeats
-safely. A stopped server is charged its disk rate (setting). Low balance: warnings at 24 h and 2 h left. Zero:
+safely. A stopped server is still charged its disk and its IP addresses (owner, 2026-11-04); only compute stops. Low balance: warnings at 24 h and 2 h left. Zero:
 power off (data kept), then delete after the retention days. Switching an hourly service to a monthly term is a
 cycle change with its own invoice.
 
@@ -164,9 +171,10 @@ member shell's design sheet and `dt-` pieces; RTL first, phone and both themes; 
 |---|---|---|
 | 0 | This spec, owner decisions recorded | Merged |
 | 1 | Foundation: plugin (off by default), permission, models, driver contracts and registry with fake drivers, Admin providers/products/prices, public catalogue pages with the designed look | Admin can define products; public pages render; nothing is sold yet |
-| 2 | Web hosting sale and provisioning with the first panel driver (DirectAdmin or cPanel), *My services* and the hosting workspace with SSO | Real purchase provisions a real account |
+| 2 | Web hosting sale and provisioning with the first panel driver (DirectAdmin), *My services* and the hosting workspace with SSO | Real purchase provisions a real account |
 | 3 | Fixed-term lifecycle: renewal invoice, wallet auto-renew, suspend, unsuspend, terminate, notices | Connected PG test of every state change |
-| 4 | Servers: Proxmox VE direct driver, VPS purchase, workspace power bar, rebuild, password, console, graphs | Real Proxmox in a VM |
+| 4 | Servers: Proxmox VE direct driver and Hetzner Cloud API driver, VPS purchase, workspace power bar, rebuild, password, console, graphs; manual delivery with allowed add-ons (traffic, upgrade) | Real Proxmox in a VM; Hetzner with the owner's token |
+| 4b | Other virtualizers: XCP-ng/Xen Orchestra, OpenNebula, CloudStack, Virtualizor, VMware vCenter, SolusVM, OpenStack | Each against a real instance |
 | 5 | Hourly cloud metering and the wallet rules | Connected PG test: double run charges once; zero balance powers off |
 | 6 | Domains with IRNIC: TLDs, search, register, renew, nameservers, handle | IRNIC test environment (OT&E) |
 | 7 | International registrar driver chosen by the owner | Its sandbox |
@@ -184,11 +192,13 @@ member shell's design sheet and `dt-` pieces; RTL first, phone and both themes; 
 - Not run until the owner provides them: licensed cPanel/DirectAdmin, the IRNIC reseller account, the chosen
   international registrar and the owner's own virtualizer.
 
-## Open owner choices
+## Owner answers (2026-11-04) and what stays open
 
-1. Which virtualizer the owner's servers run (Proxmox VE, Virtualizor, SolusVM, VMware, OpenStack) and which cloud
-   provider APIs to connect; slice 4 starts with Proxmox VE unless told otherwise.
-2. Which international registrar the owner holds a reseller account with. To be verified by the owner for
-   acceptance of Iranian resellers before a driver is written; no registrar is assumed.
-3. First web panel for slice 2: DirectAdmin or cPanel/WHM (needs a licensed test server either way).
-4. Whether a stopped cloud server is charged a disk rate or nothing.
+1. Virtualizers: all eight listed under *Drivers*, Proxmox VE first. Provider API: Hetzner Cloud with the owner's
+   account first. Manual sale with staff-allowed traffic and upgrade add-ons.
+2. International registrar: none yet; the owner will take a reseller account. Slice 7 waits for it.
+3. Web panels: all six. Slice 2 starts with DirectAdmin; the rest follow in slice 8.
+4. A stopped cloud server pays for its disk and IP addresses.
+
+Open: the registrar (2); licensed cPanel and DirectAdmin test servers; the IRNIC reseller account; whether the
+owner's Hetzner account terms allow reselling to the site's customers is for the owner to confirm.
