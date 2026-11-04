@@ -5,17 +5,18 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { cycleMeta, kindMeta } from '@/modules/hosting/domain/catalog'
 import { SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
+import { startCheckout } from '@/modules/checkout/ui/client'
 import { day, daysLeft, fa, kindIcon, moment } from '../shared'
 import '../services.css'
 
 type Service = {
-  id: number; label: string; status: string; cycle: string; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; hasPassword: boolean
+  id: number; label: string; status: string; cycle: string; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; hasPassword: boolean; autoRenew: boolean; priceMinor: string
   note: string; startedAt: string | null; nextDueAt: string | null; suspendedAt: string | null; createdAt: string; allowTraffic: boolean; allowUpgrade: boolean
   product: { kind: string; name: string; cpuCores: number; ramMb: number; diskGb: number; diskType: string; trafficGb: number; bandwidthMbps: number; sites: number; mailboxes: number; databases: number; location: string; fulfillment: string }
   actions: { id: number; kind: string; status: string; actor: string; detail: string; createdAt: string }[]
 }
 
-const ACTION: Record<string, string> = { PROVISION: 'ساخت روی سامانه', DELIVER: 'تحویل سرویس', NOTE: 'به‌روزرسانی اطلاعات', SUSPEND: 'تعلیق', UNSUSPEND: 'رفع تعلیق', TERMINATE: 'حذف سرویس' }
+const ACTION: Record<string, string> = { RENEW: 'تمدید', PROVISION: 'ساخت روی سامانه', DELIVER: 'تحویل سرویس', NOTE: 'به‌روزرسانی اطلاعات', SUSPEND: 'تعلیق', UNSUSPEND: 'رفع تعلیق', TERMINATE: 'حذف سرویس' }
 
 function Copy({ value, label }: { value: string; label: string }) {
   const [done, setDone] = useState(false)
@@ -36,6 +37,7 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
   const [password, setPassword] = useState('')
   const [revealError, setRevealError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [renewError, setRenewError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -55,6 +57,28 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
     setBusy(false)
     if (response?.ok && data?.password) setPassword(String(data.password))
     else setRevealError(String(data?.error || 'رمز دریافت نشد'))
+  }
+
+  async function renew() {
+    if (!service) return
+    setBusy(true); setRenewError('')
+    try {
+      const result = await startCheckout({ hostingRenewServiceId: service.id })
+      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(result.invoiceUrl); return } setRenewError(result.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'تمدید ثبت نشد'); return }
+      const destination = result.paid ? `/payment/result?invoice=${encodeURIComponent(result.invoiceNumber)}` : result.paymentUrl || result.invoiceUrl
+      if (destination) window.location.assign(destination)
+    } catch { setRenewError('ارتباط با سرور برقرار نشد') } finally { setBusy(false) }
+  }
+
+  // The switch moves at once and goes back if the change was not saved.
+  async function toggleAutoRenew(on: boolean) {
+    setRenewError('')
+    setService((current) => (current ? { ...current, autoRenew: on } : current))
+    const response = await fetch(`/api/hosting/services/${encodeURIComponent(id)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'auto-renew', on }) }).catch(() => null)
+    const data = await response?.json().catch(() => null)
+    if (response?.ok) return
+    setService((current) => (current ? { ...current, autoRenew: !on } : current))
+    setRenewError(String(data?.error || 'تغییر ذخیره نشد'))
   }
 
   if (state === 'loading') return <div className="dt-page hs-page" dir="rtl" aria-busy="true"><div className="hs-hero is-skeleton" /></div>
@@ -114,6 +138,19 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
         {revealError && <p className="hs-error" role="alert">{revealError}</p>}
         {service.panelUrl && <a className="btn btn-primary hs-panel-link" href={service.panelUrl} target="_blank" rel="noopener noreferrer"><Icon name="external" size={16} />{server ? 'ورود به پنل سرور' : 'ورود به کنترل‌پنل'}</a>}
         {service.note && <div className="hs-note"><b>یادداشت کارشناس</b><p>{service.note}</p></div>}
+      </section>}
+
+      {usable && service.cycle !== 'HOURLY' && <section className="hs-panel hs-renew" aria-labelledby="hs-renew">
+        <h2 id="hs-renew"><Icon name="clock" size={18} />تمدید</h2>
+        <div className="hs-renew-price"><span>هر {cycleMeta(service.cycle)?.short}</span><b className="num">{Number(service.priceMinor).toLocaleString('fa-IR')} تومان</b></div>
+        <p className="hs-renew-due">{service.nextDueAt ? `سررسید بعدی: ${day.format(new Date(service.nextDueAt))}` : ''}{service.status === 'SUSPENDED' ? ' · با تمدید دوباره فعال می‌شود' : ''}</p>
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void renew()}>{service.status === 'SUSPENDED' ? 'تمدید و فعال‌سازی' : `تمدید یک دورهٔ ${cycleMeta(service.cycle)?.label || ''}`}</button>
+        <label className="hs-switch">
+          <input type="checkbox" role="switch" checked={service.autoRenew} disabled={busy} onChange={(event) => void toggleAutoRenew(event.target.checked)} />
+          <span className="hs-switch-track" aria-hidden="true" />
+          <span>تمدید خودکار از کیف پول<small>یک روز پیش از سررسید، اگر موجودی کافی باشد.</small></span>
+        </label>
+        {renewError && <p className="hs-error" role="alert">{renewError}</p>}
       </section>}
 
       <section className="hs-panel" aria-labelledby="hs-specs">

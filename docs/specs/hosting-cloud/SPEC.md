@@ -172,7 +172,7 @@ member shell's design sheet and `dt-` pieces; RTL first, phone and both themes; 
 | 0 | This spec, owner decisions recorded | Done |
 | 1 | Foundation: plugin (off by default), permission, models, driver contracts and registry with fake drivers, Admin providers/products/prices, public catalogue pages with the designed look | **Done 2026-11-04** ([handoff](../../agent/handoffs/HOSTING_CLOUD.md)); nothing is sold yet |
 | 2 | Web hosting sale and provisioning with the first panel driver (DirectAdmin), *My services* and the hosting workspace with SSO | **Done 2026-11-04** except a real panel: manual delivery and the driver path are proven; DirectAdmin waits for a licence ([handoff](../../agent/handoffs/HOSTING_CLOUD.md)) |
-| 3 | Fixed-term lifecycle: renewal invoice, wallet auto-renew, suspend, unsuspend, terminate, notices | Connected PG test of every state change |
+| 3 | Fixed-term lifecycle: renewal invoice, wallet auto-renew, suspend, unsuspend, terminate, notices | **Done 2026-11-04** ([handoff](../../agent/handoffs/HOSTING_CLOUD.md)); renewal is paid from the service page or the wallet, no invoice is issued ahead |
 | 4 | Servers: Proxmox VE direct driver and Hetzner Cloud API driver, VPS purchase, workspace power bar, rebuild, password, console, graphs; manual delivery with allowed add-ons (traffic, upgrade) | Real Proxmox in a VM; Hetzner with the owner's token |
 | 4b | Other virtualizers: XCP-ng/Xen Orchestra, OpenNebula, CloudStack, Virtualizor, VMware vCenter, SolusVM, OpenStack | Each against a real instance |
 | 5 | Hourly cloud metering and the wallet rules | Connected PG test: double run charges once; zero balance powers off |

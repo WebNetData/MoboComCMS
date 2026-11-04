@@ -38,6 +38,34 @@
       "labelEn": "Hosting pages meta description",
       "type": "textarea",
       "public": true
+    },
+    {
+      "key": "reminder-days",
+      "label": "یادآوری سررسید، چند روز مانده (با ویرگول جدا کنید)",
+      "labelEn": "Days before the due date to remind",
+      "type": "text",
+      "default": "7,3,1"
+    },
+    {
+      "key": "grace-days",
+      "label": "مهلت پس از سررسید تا تعلیق (روز)",
+      "labelEn": "Days after the due date before suspension",
+      "type": "number",
+      "default": 3
+    },
+    {
+      "key": "terminate-days",
+      "label": "مهلت پس از تعلیق تا حذف (روز)",
+      "labelEn": "Days after suspension before termination",
+      "type": "number",
+      "default": 14
+    },
+    {
+      "key": "auto-renew",
+      "label": "تمدید خودکار از کیف پول برای کسانی که روشن کرده‌اند",
+      "labelEn": "Renew from the wallet for customers who turned it on",
+      "type": "boolean",
+      "default": true
     }
   ],
   "adminMenu": {

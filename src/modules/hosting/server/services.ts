@@ -193,8 +193,9 @@ export async function deliverService(serviceId: number, input: DeliveryInput, ac
   // The status the decision was made on: a concurrent delivery or suspension makes this one refuse.
   const updated = await db.hostingService.updateMany({ where: { id: service.id, status: service.status }, data })
   if (updated.count !== 1) throw new HostingRefusal('وضعیت سرویس همزمان تغییر کرد؛ صفحه را تازه کنید', 409)
-  await db.hostingAction.updateMany({ where: { serviceId: service.id, kind: 'DELIVER', status: 'WAITING' }, data: { status: 'DONE', actorId, finishedAt: startedAt } })
-  await db.hostingAction.create({ data: { serviceId: service.id, actorId, actor: 'STAFF', kind: first ? 'DELIVER' : 'NOTE', detail: first ? 'تحویل شد' : 'اطلاعات سرویس به‌روز شد', finishedAt: startedAt } })
+  // The waiting delivery becomes the delivery itself, so the history shows it once.
+  const closed = first ? await db.hostingAction.updateMany({ where: { serviceId: service.id, kind: 'DELIVER', status: 'WAITING' }, data: { status: 'DONE', actor: 'STAFF', actorId, detail: 'تحویل شد', finishedAt: startedAt } }) : { count: 0 }
+  if (!closed.count) await db.hostingAction.create({ data: { serviceId: service.id, actorId, actor: 'STAFF', kind: first ? 'DELIVER' : 'NOTE', detail: first ? 'تحویل شد' : 'اطلاعات سرویس به‌روز شد', finishedAt: startedAt } })
   if (first) await notify(service.userId, service.id, 'ready', 'سرویس شما آماده است', `«${service.label}» تحویل شد. اطلاعات ورود را در داشبورد ببینید.`)
   return { id: service.id, delivered: first }
 }

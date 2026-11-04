@@ -4,6 +4,7 @@ import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { moduleGuard } from '@/extensions/server/modules'
 import { requireUser } from '@/modules/identity/server/access'
 import { HostingRefusal, memberHostingService, memberHostingServices, revealServicePassword } from '@/modules/hosting/server/services'
+import { setServiceAutoRenew } from '@/modules/hosting/server/renewal'
 
 const privateJson = (body: unknown) => { const response = ok(body); response.headers.set('cache-control', 'private, no-store'); return response }
 
@@ -30,7 +31,8 @@ export async function GET_service(req: NextRequest, { params }: { params: Promis
   return privateJson({ service })
 }
 
-/** POST /api/hosting/services/:id { action: 'reveal' } — the login password, to its owner, a few times a minute. */
+/** POST /api/hosting/services/:id { action: 'reveal' } — the login password, to its owner, a few times a minute;
+ *  { action: 'auto-renew', on } — renewal from the wallet on or off. */
 export async function POST_service(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const off = await moduleGuard('hosting')
   if (off) return off
@@ -39,6 +41,10 @@ export async function POST_service(req: NextRequest, { params }: { params: Promi
   const id = await serviceId(params)
   if (!id) return err('سرویس پیدا نشد', 404)
   const body = await req.json().catch(() => null)
+  if (body?.action === 'auto-renew') {
+    try { return privateJson(await setServiceAutoRenew(user.id, id, body.on === true)) }
+    catch (error) { if (error instanceof HostingRefusal) return err(error.message, error.status); throw error }
+  }
   if (body?.action !== 'reveal') return err('عملیات نامعتبر است')
   if (!(await rateLimitStrict(`hosting:reveal:${user.id}`, 6, 60_000)).ok) return err('چند لحظه بعد دوباره امتحان کنید', 429)
   try {

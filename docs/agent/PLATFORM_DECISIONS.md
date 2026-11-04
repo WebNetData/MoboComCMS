@@ -17,6 +17,7 @@ Owner: sell hosting and infrastructure of the ParsPack class, looking and workin
 - **Products:** shared, reseller, VPS, dedicated, cloud server, cloud hosting. **Cycles:** hourly for cloud, and monthly, 3, 6 and 12 months for every service.
 - **Hourly is prepaid from the wallet**: one charge row per service-hour, unique, with the wallet idempotency key; zero balance powers off and keeps data until the retention days pass. Fixed terms renew by invoice, from the wallet only when the member turned it on.
 - **The customer has the full controls the driver offers** (power, reset, rebuild, password, console, snapshots…), each an audited, idempotent action on their own service only; destructive ones need a fresh confirmation.
+- **Renewal (slice 3):** a fixed term renews by one more term from its due date at the price it was bought for. Iranian gateways keep no card, so the customer pays from the service page, or the wallet pays a day before the due date when they turned that on; no unpaid invoice is issued ahead. Defaults: reminders 7, 3 and 1 days before, suspension 3 days after the due date, termination 14 days after that, with a warning 3 days before. Only the system's own unpaid suspensions are terminated automatically; a staff suspension is staff's. Money for a renewal that arrives after termination goes back to the wallet.
 - Spec, slices and open choices: `docs/specs/hosting-cloud/SPEC.md`.
 
 ## Server installation, update and downgrade — 2026-11-03

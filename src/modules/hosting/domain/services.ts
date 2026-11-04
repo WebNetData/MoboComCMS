@@ -85,3 +85,61 @@ export function normalizePanelUrl(value: unknown): string {
   if (url.protocol !== 'https:' || url.username || url.password) throw new HostingError('نشانی پنل باید https و بدون نام کاربری و رمز باشد')
   return url.toString()
 }
+
+// ============ Renewal and due dates (slice 3) ============
+
+const DAY = 86_400_000
+
+export type LifecycleSettings = { reminderDays: number[]; graceDays: number; terminateDays: number; autoRenew: boolean }
+
+/** "7, 3, 1" → [7, 3, 1]: whole days from 1 to 60, largest first, without repeats. */
+export function parseDays(value: unknown, fallback: number[]): number[] {
+  const days = String(value ?? '').split(/[,،\s]+/).map((part) => Number(part.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))))).filter((n) => Number.isInteger(n) && n >= 1 && n <= 60)
+  return days.length ? [...new Set(days)].sort((a, b) => b - a) : fallback
+}
+
+const whole = (value: unknown, fallback: number, max: number) => { const n = Math.trunc(Number(value)); return Number.isFinite(n) && n >= 0 && n <= max ? n : fallback }
+
+export function lifecycleSettings(raw: Record<string, unknown>): LifecycleSettings {
+  return {
+    reminderDays: parseDays(raw['reminder-days'], [7, 3, 1]),
+    graceDays: whole(raw['grace-days'], 3, 60),
+    terminateDays: whole(raw['terminate-days'], 14, 365),
+    autoRenew: raw['auto-renew'] !== false,
+  }
+}
+
+export type LifecycleStep = { kind: 'remind'; days: number } | { kind: 'renew' } | { kind: 'suspend' } | { kind: 'warn-terminate'; days: number } | { kind: 'terminate' } | null
+
+/**
+ * What the scheduled run does to one fixed-term service now. Reminders go out on the listed days before the due
+ * date; a wallet renewal is tried from a day before it; an unpaid service is suspended after the grace days and,
+ * when the system suspended it for that reason, terminated after the termination days (with a warning 3 days before).
+ */
+export function lifecycleStep(service: { status: string; cycle: string; nextDueAt: Date | null; suspendedAt: Date | null; autoRenew: boolean; unpaidSuspension: boolean }, now: Date, settings: LifecycleSettings): LifecycleStep {
+  if (service.cycle === 'HOURLY' || !service.nextDueAt) return null
+  const left = service.nextDueAt.getTime() - now.getTime()
+  if (service.status === 'ACTIVE') {
+    // Past the grace days an unpaid service is suspended even when a wallet renewal keeps failing.
+    if (left < -settings.graceDays * DAY) return { kind: 'suspend' }
+    if (service.autoRenew && settings.autoRenew && left <= DAY) return { kind: 'renew' }
+    if (left > 0) {
+      const days = Math.ceil(left / DAY)
+      if (settings.reminderDays.includes(days)) return { kind: 'remind', days }
+    }
+    return null
+  }
+  if (service.status === 'SUSPENDED' && service.unpaidSuspension && service.suspendedAt) {
+    if (service.autoRenew && settings.autoRenew) return { kind: 'renew' }
+    const until = service.suspendedAt.getTime() + settings.terminateDays * DAY - now.getTime()
+    if (until <= 0) return { kind: 'terminate' }
+    const days = Math.ceil(until / DAY)
+    if (days <= 3) return { kind: 'warn-terminate', days }
+  }
+  return null
+}
+
+/** The next due date after a paid renewal: one more term from the current due date, never from the past payment day. */
+export function renewedDue(current: Date, cycle: string): Date {
+  return termEnd(current, cycle) || current
+}
