@@ -2,7 +2,7 @@
   "id": "hosting",
   "name": "میزبانی، سرور و ابر",
   "nameEn": "Hosting, servers and cloud",
-  "description": "فروش هاست، نمایندگی، سرور مجازی و اختصاصی و سرویس ابری ساعتی، با اتصال به کنترل‌پنل‌ها، مجازی‌سازها و API ارائه‌دهندگان.",
+  "description": "فروش هاست، نمایندگی، سرور مجازی و اختصاصی، سرویس ابری ساعتی و ثبت و انتقال دامنه، با اتصال به کنترل‌پنل‌ها، مجازی‌سازها، API ارائه‌دهندگان و ثبت‌کننده‌ها.",
   "descriptionEn": "Sell hosting, reseller hosting, VPS, dedicated and hourly cloud services, connected to hosting panels, virtualizers and provider APIs.",
   "version": "1.0.0",
   "kind": "module",
@@ -13,7 +13,8 @@
   "requiresCore": "^1.0.0",
   "publicPaths": [
     "/hosting",
-    "/servers"
+    "/servers",
+    "/domains"
   ],
   "adminPaths": [
     "/admin/hosting"
@@ -73,6 +74,13 @@
       "labelEn": "Hourly: wallet must cover this many hours to buy",
       "type": "number",
       "default": 24
+    },
+    {
+      "key": "domain-reminder-days",
+      "label": "دامنه: یادآوری انقضا، چند روز مانده (با ویرگول)",
+      "labelEn": "Domains: days before expiry to remind",
+      "type": "text",
+      "default": "30,7,1"
     }
   ],
   "adminMenu": {
@@ -96,6 +104,24 @@
         "label": "محصولات و پلن‌ها",
         "labelEn": "Products and plans",
         "icon": "layers",
+        "permissions": [
+          "hosting.manage"
+        ]
+      },
+      {
+        "href": "/admin/hosting/domains",
+        "label": "دامنه‌ها",
+        "labelEn": "Domains",
+        "icon": "globe",
+        "permissions": [
+          "hosting.manage"
+        ]
+      },
+      {
+        "href": "/admin/hosting/tlds",
+        "label": "پسوند و قیمت دامنه",
+        "labelEn": "Domain prices",
+        "icon": "tag",
         "permissions": [
           "hosting.manage"
         ]

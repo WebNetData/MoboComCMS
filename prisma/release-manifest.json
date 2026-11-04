@@ -682,6 +682,7 @@
     }
   },
   "unreleased": [
-    "20270216120000_hosting_addons"
+    "20270216120000_hosting_addons",
+    "20270217120000_hosting_domains"
   ]
 }

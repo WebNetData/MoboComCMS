@@ -1,0 +1,51 @@
+/* Domain page (/domains). Builds on hosting.css (.hx-page, hero, order sheet); only the domain parts are here. */
+.dx-hero-inner { display: grid; justify-items: center; gap: 4px; text-align: center; }
+.dx-hero-inner .hx-lead { margin-inline: auto; }
+.dx-search { display: grid; gap: 14px; width: min(760px, 100%); margin-block-start: 26px; }
+.dx-modes { display: inline-flex; justify-self: center; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--hx-glass); backdrop-filter: blur(10px); }
+.dx-modes button { min-height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.dx-modes button.is-on { background: var(--card); color: var(--text); box-shadow: 0 6px 18px -12px rgba(0, 0, 0, .4); }
+.dx-modes button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.dx-box { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px 8px 8px 8px; padding-inline-start: 18px; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border)); border-radius: 20px; background: var(--card); box-shadow: 0 30px 70px -40px var(--hx-glow), 0 0 0 6px color-mix(in srgb, var(--primary) 8%, transparent); transition: box-shadow 220ms ease; }
+.dx-box:focus-within { box-shadow: 0 30px 70px -40px var(--hx-glow), 0 0 0 6px color-mix(in srgb, var(--primary) 22%, transparent); }
+.dx-box svg { color: color-mix(in srgb, var(--primary) 62%, var(--text)); }
+.dx-box input { min-width: 0; height: 52px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 18px; outline: none; }
+.dx-box .btn { min-height: 52px; padding-inline: 26px; border-radius: 14px; }
+.dx-error { margin: 0; color: var(--sds-color-text-danger-default, var(--danger)); }
+.dx-results { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; text-align: start; }
+.dx-result { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); animation: hx-rise 420ms cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.dx-result.is-first { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); box-shadow: 0 16px 40px -28px var(--hx-glow); }
+.dx-result.is-taken { opacity: .7; }
+.dx-name { font-size: 17px; color: var(--muted); }
+.dx-name b { color: var(--text); font-weight: 800; }
+.dx-state { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.dx-state.is-free { background: color-mix(in srgb, var(--sds-color-text-positive-default, #16a34a) 14%, transparent); color: var(--sds-color-text-positive-default, #15803d); }
+.dx-state.is-taken { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--muted); }
+.dx-state.is-unknown { background: color-mix(in srgb, var(--primary) 12%, transparent); color: color-mix(in srgb, var(--primary) 62%, var(--text)); }
+.dx-price b { font-size: 16px; }
+.dx-price small, .dx-na { color: var(--muted); font-size: 12px; }
+.dx-empty { padding: 14px; color: var(--muted); text-align: center; }
+.dx-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+.dx-chips li { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--hx-glass); font-size: 13px; }
+.dx-chips b { color: var(--text); }
+.dx-chips span { color: var(--muted); }
+.dx-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.dx-steps li { display: grid; gap: 8px; align-content: start; padding: 22px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); animation: hx-rise 560ms cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 80ms); }
+.dx-steps b { font-size: 17px; }
+.dx-steps p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.9; }
+.dx-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 20px; background: var(--card); }
+.dx-table { width: 100%; border-collapse: collapse; min-width: 520px; }
+.dx-table th, .dx-table td { padding: 14px 18px; border-block-end: 1px solid var(--border); text-align: start; }
+.dx-table th { color: var(--muted); font-size: 13px; font-weight: 600; background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
+.dx-table tr:last-child td { border-block-end: 0; }
+.dx-table tr.is-featured td:first-child b { color: color-mix(in srgb, var(--primary) 62%, var(--text)); }
+.dx-table td small { display: block; color: var(--muted); font-size: 11px; }
+.dx-table td b { font-size: 16px; }
+@media (max-width: 720px) {
+  .dx-box { grid-template-columns: 1fr; padding: 10px; }
+  .dx-box > svg { display: none; }
+  .dx-box .btn { width: 100%; }
+  .dx-result { grid-template-columns: 1fr auto; row-gap: 8px; }
+  .dx-steps { grid-template-columns: 1fr; }
+}
+.dx-table-wrap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

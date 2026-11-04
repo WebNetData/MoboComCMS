@@ -16,7 +16,7 @@ import { fulfillMembershipOrder, grantGiftForOrder } from '@/modules/membership/
 import { recordStoreSale } from '@/modules/store/server/orders'
 import { fulfillContentOrder } from '@/modules/paywall/server/paywall'
 
-export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'FORM_PAID' | 'GRANT_MEMBERSHIP' | 'GRANT_CONTENT' | 'HOSTING_PROVISION' | 'HOSTING_RENEW' | 'HOSTING_ADDON'
+export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'FORM_PAID' | 'GRANT_MEMBERSHIP' | 'GRANT_CONTENT' | 'HOSTING_PROVISION' | 'HOSTING_RENEW' | 'HOSTING_ADDON' | 'DOMAIN_ORDER' | 'DOMAIN_RENEW'
 
 type JobPayload = Record<string, unknown>
 
@@ -70,6 +70,12 @@ export async function enqueueOrderFulfillment(input: {
   }
   if (meta.kind === 'form') {
     return enqueueFulfillment({ kind: 'FORM_PAID', dedupeKey: `FORM_PAID:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+  }
+  if (meta.kind === 'domain') {
+    return enqueueFulfillment({ kind: 'DOMAIN_ORDER', dedupeKey: `DOMAIN_ORDER:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+  }
+  if (meta.kind === 'domain-renewal') {
+    return enqueueFulfillment({ kind: 'DOMAIN_RENEW', dedupeKey: `DOMAIN_RENEW:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
   }
   if (meta.kind === 'hosting-addon') {
     return enqueueFulfillment({ kind: 'HOSTING_ADDON', dedupeKey: `HOSTING_ADDON:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
@@ -163,6 +169,14 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
   if (job.kind === 'FORM_PAID') {
     if (!job.orderId) throw new Error('form job has no orderId')
     await (await import('@/modules/forms/server/paid')).fulfillFormOrder(job.orderId)
+    return
+  }
+
+  if (job.kind === 'DOMAIN_ORDER' || job.kind === 'DOMAIN_RENEW') {
+    if (!job.orderId) throw new Error('domain job has no orderId')
+    const domains = await import('@/modules/hosting/server/domains')
+    if (job.kind === 'DOMAIN_ORDER') await domains.fulfillDomainOrder(job.orderId)
+    else await domains.applyDomainRenewal(job.orderId)
     return
   }
 
@@ -370,7 +384,7 @@ export async function recoverMissingPaidFulfillment(limit = 20) {
  */
 export async function recoverHostingOrders(limit = 20) {
   if (!await isExtensionEnabled('hosting')) return { checked: 0, enqueued: 0, failed: 0 }
-  const missing = [...await (await import('@/modules/hosting/server/services')).hostingOrdersWithoutDelivery(limit), ...await (await import('@/modules/hosting/server/renewal')).renewalOrdersWithoutDelivery(limit), ...await (await import('@/modules/hosting/server/addons')).addonOrdersWithoutDelivery(limit)]
+  const missing = [...await (await import('@/modules/hosting/server/services')).hostingOrdersWithoutDelivery(limit), ...await (await import('@/modules/hosting/server/renewal')).renewalOrdersWithoutDelivery(limit), ...await (await import('@/modules/hosting/server/addons')).addonOrdersWithoutDelivery(limit), ...await (await import('@/modules/hosting/server/domains')).domainOrdersWithoutDelivery(limit)]
   let enqueued = 0, failed = 0
   for (const order of missing) {
     try { await enqueueOrderFulfillment({ orderId: order.orderId, invoiceId: order.invoiceId }); enqueued++ }

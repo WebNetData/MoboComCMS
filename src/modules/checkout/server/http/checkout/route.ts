@@ -27,6 +27,10 @@ export async function POST(req: NextRequest) {
     hostingProductId: Number.isSafeInteger(Number(body?.hostingProductId)) && Number(body?.hostingProductId) > 0 ? Number(body.hostingProductId) : null,
     hostingCycle: typeof body?.hostingCycle === 'string' ? body.hostingCycle.slice(0, 10) : null,
     hostingName: typeof body?.hostingName === 'string' ? body.hostingName.slice(0, 260) : null,
+    domainOrder: body?.domainOrder && typeof body.domainOrder === 'object' && typeof body.domainOrder.name === 'string'
+      ? { name: body.domainOrder.name.slice(0, 260), years: Number(body.domainOrder.years) || 1, transfer: body.domainOrder.transfer === true, handle: typeof body.domainOrder.handle === 'string' ? body.domainOrder.handle.slice(0, 40) : '', authCode: typeof body.domainOrder.authCode === 'string' ? body.domainOrder.authCode.slice(0, 200) : '' }
+      : null,
+    domainRenew: body?.domainRenew && typeof body.domainRenew === 'object' && Number.isSafeInteger(Number(body.domainRenew.domainId)) && Number(body.domainRenew.domainId) > 0 ? { domainId: Number(body.domainRenew.domainId), years: Number(body.domainRenew.years) || 1 } : null,
     hostingAddon: body?.hostingAddon && typeof body.hostingAddon === 'object' && (body.hostingAddon.kind === 'TRAFFIC' || body.hostingAddon.kind === 'UPGRADE') && Number.isSafeInteger(Number(body.hostingAddon.serviceId)) && Number(body.hostingAddon.serviceId) > 0
       ? { serviceId: Number(body.hostingAddon.serviceId), kind: body.hostingAddon.kind, packs: Number(body.hostingAddon.packs) || undefined, productId: Number(body.hostingAddon.productId) || undefined }
       : null,

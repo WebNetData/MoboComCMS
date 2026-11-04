@@ -59,6 +59,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/hosting/server/metering')).runHostingMetering(),
   },
   {
+    // Domains: expiry reminders, wallet renewal from three days before, and the expired state.
+    name: 'domain-lifecycle', everyMs: 60 * 60_000,
+    run: async () => (await import('@/modules/hosting/server/domains')).runDomainLifecycle(),
+  },
+  {
     // Hosting: due-date reminders, wallet renewals, suspension and termination of unpaid services.
     name: 'hosting-lifecycle', everyMs: 60 * 60_000,
     run: async () => (await import('@/modules/hosting/server/renewal')).runHostingLifecycle(),
