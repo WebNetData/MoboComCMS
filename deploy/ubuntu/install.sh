@@ -191,7 +191,7 @@ if [ -n "$PACKAGE" ]; then
     node -e 'const release=require(process.argv[1]);process.exit(release.compare(process.argv[2],process.argv[3])<0?1:0)' "$BUNDLE_DIR/release-package.cjs" "$VERSION" "$CURRENT_VERSION" || die 'an older installer cannot replace helpers of a newer application'
     note 'existing application kept; use the web updater for code changes'
   fi
-  for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf package-update.sh release-extract.py web-setup-install.sh mobocom-webctl bootstrap-web.sh certificate-import.py resume-uninstalled.sh; do
+  for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf package-update.sh release-extract.py web-setup-install.sh mobocom-webctl bootstrap-web.sh certificate-import.py resume-uninstalled.sh xray-install.sh xray-core.txt xray-config.cjs mobocom-xrayctl mobocom-xray.service; do
     install -m 600 "$ROOT_ASSETS/source/deploy/ubuntu/$asset" "$ROOT_ASSETS/$asset"
   done
   install -m 600 "$ROOT_ASSETS/source/scripts/release-package.cjs" "$ROOT_ASSETS/release-package.cjs"
@@ -331,7 +331,7 @@ if [ -z "$REPO" ]; then REPO="$(as_app git -C "$APP_DIR" remote get-url origin)"
 [[ "$REPO" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ || "$REPO" =~ ^git@github.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || die 'untrusted repository URL'
 printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$ROOT_ASSETS/known_hosts"
 retry env GIT_SSH_COMMAND="ssh -i /opt/mobocom/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ROOT_ASSETS/known_hosts" GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone -q --no-checkout --depth 1 --branch "$BRANCH" -- "$REPO" "$ROOT_ASSETS/repo"
-for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf web-setup-install.sh mobocom-webctl bootstrap-web.sh certificate-import.py resume-uninstalled.sh; do
+for asset in mobocom.service mobocom-backup.service mobocom-backup.timer updater-install.sh mobocom-update mobocom nginx-mobocom.conf web-setup-install.sh mobocom-webctl bootstrap-web.sh certificate-import.py resume-uninstalled.sh xray-install.sh xray-core.txt xray-config.cjs mobocom-xrayctl mobocom-xray.service; do
   git -C "$ROOT_ASSETS/repo" show "HEAD:deploy/ubuntu/$asset" > "$ROOT_ASSETS/$asset"
 done
 fi
@@ -347,6 +347,10 @@ if [ "$WEB_SETUP" = 1 ]; then
 fi
 install -m 755 -o root -g root "$ROOT_ASSETS/mobocom" /usr/local/bin/mobocom
 platform_command_link
+# The social-network proxy (Xray-core, off until the Server Panel sets an outbound). Optional: never stops the install.
+if [ -f "$ROOT_ASSETS/xray-install.sh" ]; then
+  bash "$ROOT_ASSETS/xray-install.sh" || note 'Xray-core could not be installed now; run this installer again later for the social-network proxy'
+fi
 if [ "$NEW_PACKAGE_INSTALL" = 1 ] || [ "$ADOPT_INVENTORY" = 1 ]; then
   as_app mkdir -p "$APP_DIR/storage/update"
   as_app node /usr/local/lib/mobocom/release-package.cjs inventory "$APP_DIR" "$APP_DIR/storage/update/current-files.json"

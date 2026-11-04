@@ -1,0 +1,38 @@
+# The site's social-network proxy: Xray-core as an HTTP proxy on 127.0.0.1:10809 only, for Telegram and Instagram.
+# Installed by xray-install.sh; started by the Server Panel (mobocom-xrayctl apply) once an outbound is set.
+[Unit]
+Description=MoboCom social-network proxy (Xray-core, 127.0.0.1 only)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/mobocom/xray/config.json
+
+[Service]
+Type=simple
+User=mobocom-xray
+Group=mobocom-xray
+Environment=XRAY_LOCATION_ASSET=/usr/local/lib/mobocom/xray
+ExecStart=/usr/local/lib/mobocom/xray/xray run -c /etc/mobocom/xray/config.json
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+# It only reads its configuration and opens network connections.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

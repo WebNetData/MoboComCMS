@@ -4,6 +4,7 @@ import { err } from '@/platform/http/response'
 import { requireReseller, resellerCan } from '@/modules/reseller/server/reseller'
 import { bot, type BotResult } from '@/modules/notifications/server/telegram'
 import { resellerBotConfig } from '@/modules/reseller/server/reseller-bot'
+import { socialFetch } from '@/modules/social/server/egress'
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const guard = await requireReseller(req)
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const found: BotResult<{ file_path?: string; file_size?: number }> = await bot('getFile', { file_id: fileId }, cfg)
   const path = found.result?.file_path || ''
   if (!found.ok || !/^[A-Za-z0-9_./-]+$/.test(path) || path.split('/').includes('..') || (found.result?.file_size || 0) > 8_000_000) return err('receipt unavailable', 502)
-  const response = await fetch(`https://api.telegram.org/file/bot${cfg.token}/${path}`, { redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(10000) }).catch(() => null)
+  const response = await socialFetch(`https://api.telegram.org/file/bot${cfg.token}/${path}`, { redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(10000) }).catch(() => null)
   if (!response?.ok || Number(response.headers.get('content-length') || 0) > 8_000_000) return err('receipt unavailable', 502)
   const bytes = await response.arrayBuffer()
   if (bytes.byteLength > 8_000_000) return err('receipt too large', 413)
