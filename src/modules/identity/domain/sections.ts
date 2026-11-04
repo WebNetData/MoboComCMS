@@ -6,7 +6,7 @@ export type SiteSection = { id: string; label: string; hint: string; permissions
 
 export const SITE_SECTIONS: readonly SiteSection[] = [
   { id: 'vpn', label: 'VPN', hint: 'پلن‌ها و مدیریت اشتراک‌های VPN', permissions: ['plans.manage', 'subs.manage'] },
-  { id: 'hosting', label: 'میزبانی و سرور', hint: 'محصولات میزبانی، سرورها، سامانه‌های متصل و سرویس مشتریان', permissions: ['hosting.manage'] },
+  { id: 'hosting', label: 'موبوکام کلاد', hint: 'محصولات میزبانی، سرورها، سامانه‌های متصل و سرویس مشتریان', permissions: ['hosting.manage'] },
   { id: 'prompts', label: 'پرامپت مستر', hint: 'الگوها و دسته‌های کتابخانهٔ پرامپت', permissions: ['prompts.manage'] },
   { id: 'businesses', label: 'تجربهٔ خرید', hint: 'کسب‌وکارها، فروشندگان و تجربه‌های مشتریان', permissions: ['businesses.manage'] },
   { id: 'magazine', label: 'مجله', hint: 'نوشته‌ها، دسته‌ها، دیدگاه‌ها و خبرنامه', permissions: ['cms.posts'] },

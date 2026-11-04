@@ -32,7 +32,7 @@ export default function MyServicesPage() {
 
   return <div className="dt-page hs-page" dir="rtl">
     <header className="dt-head">
-      <div><h1>سرویس‌های من</h1><p>هاست، سرور و سرویس‌های ابری شما؛ وضعیت، اطلاعات ورود و تمدید هر کدام.</p></div>
+      <div><h1>موبوکام کلاد</h1><p>هاست، سرور، سرویس‌های ابری و دامنه‌های شما؛ وضعیت، اطلاعات ورود و تمدید هر کدام. <Link href="/cloud">خرید سرویس تازه</Link></p></div>
       <div className="hs-head-actions"><Link className="btn btn-ghost" href="/domains">دامنهٔ تازه</Link><Link className="btn btn-ghost" href="/hosting">هاست تازه</Link><Link className="btn btn-primary" href="/servers">سرور تازه</Link></div>
     </header>
     {failed ? <div className="dt-empty is-bad" role="alert"><Icon name="server" size={28} /><b>فهرست سرویس‌ها دریافت نشد</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setFailed(false); setAttempt((n) => n + 1) }}>تلاش دوباره</button></div>

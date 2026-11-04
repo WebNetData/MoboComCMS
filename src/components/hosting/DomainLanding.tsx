@@ -1,6 +1,7 @@
 import Icon from '@/components/site/Icon'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import DomainSearch from '@/components/hosting/DomainSearch'
+import CloudBar from '@/components/hosting/CloudBar'
 import { getPublicNavigationPages } from '@/modules/site/server/navigation'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { getViewer } from '@/modules/membership/server/membership'
@@ -28,6 +29,7 @@ export default async function DomainLanding() {
   const cheapest = tlds.length ? Math.min(...tlds.map((tld) => tld.register)) : 0
   return <>
     <ThemeHeader context={{ route: 'other' }} theme={theme} locale={locale} navPages={navPages} />
+    <CloudBar active="domains" />
     <main className="hx-page dx-page" dir="rtl">
       <section className="hx-hero dx-hero">
         <div className="hx-hero-sky" aria-hidden="true"><span /><span /><span /></div>

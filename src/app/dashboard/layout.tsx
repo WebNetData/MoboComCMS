@@ -92,7 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { id: 'home', flat: true, title: vpnOn ? L('اشتراک‌ها', 'Subscriptions') : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home',
       items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home', exact: true }] },
     { id: 'shopping', caption: L('حساب من', 'My account'), title: L('خرید و پرداخت', 'Orders & billing'), icon: 'bag', items: [
-      ...(hostingOn ? [{ href: '/dashboard/services', label: L('سرویس‌های من', 'My services'), icon: 'server' }] : []),
+      ...(hostingOn ? [{ href: '/dashboard/services', label: L('موبوکام کلاد', 'MoboCom Cloud'), icon: 'cloud' }] : []),
       { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },
       { href: '/dashboard/invoices', label: t.myInvoices, icon: 'receipt' },
       { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
