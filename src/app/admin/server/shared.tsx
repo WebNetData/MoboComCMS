@@ -15,7 +15,7 @@ const TABS: SectionTab[] = [
   { href: '/admin/updates', label: 'به‌روزرسانی امن' },
   { href: '/admin/server/downloads', label: 'مرکز دانلود' },
   { href: '/admin/server/domains', label: 'دامنه و SSL' },
-  { href: '/admin/server/proxy', label: 'پروکسی شبکه‌های اجتماعی' },
+  { href: '/admin/server/proxy', label: 'پروکسی Xray' },
   { href: '/admin/server/mail', label: 'ایمیل' },
   { href: '/admin/server/security', label: 'امنیت پنل' },
 ]

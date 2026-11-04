@@ -3,38 +3,61 @@ import https from 'node:https'
 import tls from 'node:tls'
 import { Readable } from 'node:stream'
 import { readJsonSetting } from '@/modules/settings/server'
+import { fromLegacy, normalizeEgress, purposeOfHost, type EgressPurpose, type EgressSettings } from '@/modules/social/domain/egress'
 
-// Requests to Telegram and Instagram, through the server's social-network proxy (Xray-core on 127.0.0.1) when the owner
-// turned it on in the Server Panel; everything else, and these hosts while it is off, go out directly as before.
+// Requests of the site that belong to a purpose (Telegram, Instagram, AI providers…) go through the local Xray-core proxy
+// (127.0.0.1) when the owner chose a profile for that purpose in the Server Panel; everything else goes out directly.
 
+/** The first setting: one link for Telegram and Instagram. Read only while the profile setting does not exist yet. */
 export const SOCIAL_PROXY_KEY = 'social.proxy.v1'
+/** Profiles (encrypted links) and the profile of each purpose. */
+export const EGRESS_PROXY_KEY = 'egress.proxy.v2'
 export const SOCIAL_PROXY_HOSTS = ['api.telegram.org', 'graph.facebook.com', 'graph.instagram.com'] as const
 const PROXY_PORT = Number(process.env.SOCIAL_PROXY_PORT || 10809)
 
 export type SocialInit = {
   method?: string
-  headers?: Record<string, string>
-  body?: string | URLSearchParams | Uint8Array
-  signal?: AbortSignal
+  headers?: Record<string, string> | Headers | [string, string][]
+  body?: string | URLSearchParams | Uint8Array | ArrayBuffer | null
+  signal?: AbortSignal | null
   redirect?: RequestRedirect
   cache?: RequestCache
 }
 
-let cached: { at: number; on: boolean } | null = null
-/** Whether the owner sends Telegram/Instagram traffic through the proxy; read at most every 15 seconds. */
-async function proxyOn() {
-  if (cached && Date.now() - cached.at < 15_000) return cached.on
-  const value = await readJsonSetting(SOCIAL_PROXY_KEY).catch(() => undefined)
-  cached = { at: Date.now(), on: value?.enabled === true }
-  return cached.on
+/** The stored profiles and routes; the first setting is read as profile p1 until the panel saves the new one. */
+export async function readEgressSettings(): Promise<EgressSettings> {
+  const current = await readJsonSetting(EGRESS_PROXY_KEY).catch(() => undefined)
+  if (current && typeof current === 'object' && Array.isArray((current as { profiles?: unknown }).profiles)) return normalizeEgress(current)
+  return fromLegacy(await readJsonSetting(SOCIAL_PROXY_KEY).catch(() => undefined))
+}
+
+let cached: { at: number; routed: Set<EgressPurpose> } | null = null
+/** The purposes that go through the proxy now; read at most every 15 seconds. */
+async function routedPurposes() {
+  if (cached && Date.now() - cached.at < 15_000) return cached.routed
+  const settings = await readEgressSettings().catch(() => null)
+  cached = { at: Date.now(), routed: new Set(Object.entries(settings?.routes || {}).filter(([, id]) => id).map(([purpose]) => purpose as EgressPurpose)) }
+  return cached.routed
 }
 export function forgetSocialProxySetting() { cached = null }
 
-/** fetch() for the social networks: through the local proxy when it is on and the host is one of theirs. */
-export async function socialFetch(url: string, init: SocialInit = {}): Promise<Response> {
-  const target = new URL(url)
-  if (target.protocol === 'https:' && (SOCIAL_PROXY_HOSTS as readonly string[]).includes(target.hostname) && await proxyOn()) return viaProxy(target, init)
-  return fetch(url, init as RequestInit)
+/** fetch() for the site's outside services: through the local proxy when the host's purpose has a profile. */
+export async function egressFetch(url: string | URL, init: SocialInit = {}): Promise<Response> {
+  const target = new URL(String(url))
+  const purpose = target.protocol === 'https:' ? purposeOfHost(target.hostname) : null
+  if (purpose && (await routedPurposes()).has(purpose)) return viaProxy(target, init)
+  return fetch(String(url), init as RequestInit)
+}
+
+/** The name the Telegram and Instagram callers already use. */
+export const socialFetch = egressFetch
+
+function headerRecord(headers: SocialInit['headers']): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!headers) return out
+  const entries = headers instanceof Headers ? [...headers.entries()] : Array.isArray(headers) ? headers : Object.entries(headers)
+  for (const [key, value] of entries) out[key.toLowerCase()] = String(value)
+  return out
 }
 
 const NO_BODY = new Set([101, 204, 205, 304])
@@ -47,13 +70,13 @@ export function viaProxy(target: URL, init: SocialInit = {}, port = PROXY_PORT):
   return new Promise((resolve, reject) => {
     const signal = init.signal
     if (signal?.aborted) return reject(signal.reason ?? new Error('aborted'))
-    const headers: Record<string, string> = {}
-    for (const [key, value] of Object.entries(init.headers || {})) headers[key.toLowerCase()] = value
+    const headers = headerRecord(init.headers)
     let body: Buffer | undefined
     if (init.body instanceof URLSearchParams) {
       body = Buffer.from(init.body.toString())
       headers['content-type'] ||= 'application/x-www-form-urlencoded;charset=UTF-8'
     } else if (typeof init.body === 'string') body = Buffer.from(init.body)
+    else if (init.body instanceof ArrayBuffer) body = Buffer.from(new Uint8Array(init.body))
     else if (init.body) body = Buffer.from(init.body)
     if (body) headers['content-length'] = String(body.length)
     headers.host = target.host

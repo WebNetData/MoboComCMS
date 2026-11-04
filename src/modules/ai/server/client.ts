@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { db } from '@/platform/database/prisma'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { DEFAULT_AI, effectiveBaseUrl, effectiveModel, normalizeAiConfig, providerById, type AiConfig, type Prompt } from '@/modules/ai/domain/ai'
+// The AI providers go through the Server Panel's Xray profile for the "ai" purpose when one is chosen; otherwise directly.
+import { egressFetch } from '@/modules/social/server/egress'
 
 const KEY = 'ai.config.v1'
 const TIMEOUT_MS = 120_000
@@ -55,7 +57,7 @@ export async function generate(prompt: Prompt, config?: AiConfig): Promise<AiRes
 }
 
 async function claude(apiKey: string, model: string, prompt: Prompt): Promise<string> {
-  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 2 })
+  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 2, fetch: egressFetch as unknown as typeof fetch })
   try {
     const response = await client.beta.messages.create({
       model,
@@ -86,7 +88,7 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
   if (provider === 'openrouter') { headers['X-Title'] = 'MoboComCMS'; if (process.env.NEXTAUTH_URL) headers['HTTP-Referer'] = process.env.NEXTAUTH_URL }
   let response: Response
   try {
-    response = await fetch(`${baseUrl}/chat/completions`, {
+    response = await egressFetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, max_tokens: prompt.maxTokens, temperature: 0.7, messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }] }),

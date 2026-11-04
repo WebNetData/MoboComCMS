@@ -272,3 +272,16 @@ button.dl-name:hover { color: var(--sa-accent); }
 .sp-proxy-checks li { display: grid; gap: 2px; padding: 10px 12px; border-inline-start: 3px solid var(--sa-ok); border-radius: 8px; background: var(--sa-subtle); font-weight: 400; }
 .sp-proxy-checks li.is-bad { border-inline-start-color: var(--sa-danger); }
 .sp-proxy-checks li b { font-weight: 600; }
+
+/* Xray profiles and the profile of each purpose (/admin/server/proxy). */
+.sp-xr-profiles, .sp-xr-routes { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.sp-xr-profiles li, .sp-xr-routes li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--sa-line); border-radius: 10px; background: var(--sa-subtle); }
+.sp-xr-profiles li.is-editing { border-color: var(--sa-accent); }
+.sp-xr-profile-main, .sp-xr-routes li > div { display: grid; gap: 4px; min-width: 0; flex: 1 1 260px; }
+.sp-xr-meta { color: var(--sa-muted); font-size: 12px; overflow-wrap: anywhere; }
+.sp-xr-users { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-xr-routes select { flex: 0 1 240px; min-inline-size: 180px; }
+.sp-xr-check { font-size: 12px; padding-inline-start: 8px; border-inline-start: 3px solid var(--sa-ok); }
+.sp-xr-check.is-bad { border-inline-start-color: var(--sa-danger); }
+.sp-xr-form { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--sa-line); }
+.sp-xr-form h3 { margin: 0 0 8px; font-size: 15px; }
