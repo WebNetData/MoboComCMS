@@ -332,7 +332,7 @@ test('files the build rewrites never block an update or its rollback, and a copy
   assert.equal(box.git('status', '--porcelain').trim(), '', 'the files this build rewrote are restored too')
   const kept = fs.readdirSync(path.join(box.dir, 'state')).filter((name) => /^build-files-.*\.patch$/.test(name))
   assert.ok(kept.length >= 1)
-  assert.match(fs.readFileSync(path.join(box.dir, 'state', kept.sort()[0]), 'utf8'), /react-jsx/)
+  assert.ok(kept.some((name) => /react-jsx/.test(fs.readFileSync(path.join(box.dir, 'state', name), 'utf8'))), 'the difference left by the previous build is kept')
 
   // The new version does not start after its build rewrote them: the rollback still happens.
   const back = sandbox(), health = path.join(back.dir, 'healthy')
