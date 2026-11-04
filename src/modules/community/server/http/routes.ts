@@ -12,6 +12,7 @@ import {
 import { CommunityError } from '@/modules/community/domain/community'
 import { addComment, createPost, deleteComment, deletePost, editPost, getPost, homeFeed, pinPost, profilePosts, report, toggleLike } from '@/modules/community/server/community'
 import { communityDashboard, moderatePost, moderationPosts, resolveReport, reportQueue, setVerified, verificationList } from '@/modules/community/server/admin'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 
 function failure(error: unknown) {
   if (error instanceof CommunityError || error instanceof ProfileError) return err(error.message, error.status, { code: error.code })
@@ -151,7 +152,10 @@ export async function GET_feed(req: NextRequest) {
 export async function POST_posts(req: NextRequest) {
   const g = await member(req)
   if ('response' in g) return g.response
-  try { return ok({ post: await createPost(g.user.id, await body(req)) }, 201) } catch (error) { return failure(error) }
+  const input = await body(req)
+  const refused = await humanCheckRefusal(input.humanCheck, req.headers, 'community')
+  if (refused) return refused
+  try { return ok({ post: await createPost(g.user.id, input) }, 201) } catch (error) { return failure(error) }
 }
 
 /** GET /api/community/posts/:id */
@@ -192,7 +196,10 @@ export async function POST_like(req: NextRequest, ctx: Ctx) {
 export async function POST_comment(req: NextRequest, ctx: Ctx) {
   const g = await member(req)
   if ('response' in g) return g.response
-  try { return ok({ comment: await addComment(g.user.id, id((await ctx.params).id), await body(req)) }, 201) } catch (error) { return failure(error) }
+  const input = await body(req)
+  const refused = await humanCheckRefusal(input.humanCheck, req.headers, 'community')
+  if (refused) return refused
+  try { return ok({ comment: await addComment(g.user.id, id((await ctx.params).id), input) }, 201) } catch (error) { return failure(error) }
 }
 
 /** DELETE /api/community/comments/:id */

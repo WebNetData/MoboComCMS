@@ -498,3 +498,52 @@ test('an author is told what was decided about their delete request, once, and n
     assert.equal(text.split(/await tell(?:TrashDecision|Decision)?\(/).length - 1, calls, file)
   }
 })
+
+// Internal human check: protocol and browser digest compatibility.
+const humanRules = load('src/modules/identity/domain/human-check')
+const { sha256Hex } = load('src/shared/security/sha256')
+test('human-check defaults, per-surface switches and unavailable providers remain protective', () => {
+  const base = humanRules.defaultHumanCheck()
+  assert.equal(base.provider, 'builtin')
+  assert.equal(humanRules.HUMAN_SURFACES.length, 9)
+  for (const surface of humanRules.HUMAN_SURFACES) assert.equal(base.surfaces[surface.key], true)
+  const selected = humanRules.normalizeHumanCheck({ provider: 'turnstile', difficulty: 'bad', surfaces: { comment: false, login: 'false' } })
+  assert.equal(selected.provider, 'builtin'); assert.equal(selected.surfaces.login, true); assert.equal(selected.surfaces.comment, false)
+  const cloud = humanRules.normalizeHumanCheck({ provider: 'turnstile' }, true)
+  assert.equal(humanRules.providerFor(cloud, 'login', true), 'turnstile')
+  assert.equal(humanRules.providerFor(cloud, 'comment', true), 'builtin')
+  assert.equal(humanRules.providerFor(cloud, 'login', false), 'builtin')
+  assert.equal(humanRules.providerFor({ ...base, provider: 'off' }, 'login', false), 'off')
+  assert.equal(humanRules.providerFor(selected, 'comment', false), 'off')
+})
+test('browser SHA-256 agrees with Node for Unicode, block boundaries and random proof inputs', () => {
+  const crypto = require('node:crypto')
+  for (const text of ['', 'abc', 'سلام 🎵', ...[55,56,63,64,65,120,128,300].map(n => 'x'.repeat(n)), ...Array.from({ length: 30 }, () => crypto.randomBytes(32).toString('hex') + ':123456')]) assert.equal(sha256Hex(text), crypto.createHash('sha256').update(text).digest('hex'))
+  assert.equal(humanRules.leadingZeroBits('0000ffff'), 16)
+  assert.equal(humanRules.leadingZeroBits('00008fff'), 16)
+  assert.equal(humanRules.leadingZeroBits('00001fff'), 19)
+})
+test('proof parser refuses honeypots, oversized input and noncanonical nonces', () => {
+  const proof = 'a'.repeat(100) + '.' + 'b'.repeat(43) + '.12'
+  assert.ok(humanRules.parseProof(proof))
+  for (const token of [null, {}, proof + '.hp', proof + '.extra', proof.replace('.12', '.-1'), proof.replace('.12', '.1e6'), 'a'.repeat(601)]) assert.equal(humanRules.parseProof(token), null)
+  assert.equal(humanRules.validPayload({ v: 1, s: 'comment', r: 'a'.repeat(32), b: 16, i: 1, e: 2 }), true)
+  for (const patch of [{ s: 'admin' }, { b: 0 }, { r: 'not-a-salt' }, { e: 1 }, { i: 1.5 }]) assert.equal(humanRules.validPayload({ v: 1, s: 'comment', r: 'a'.repeat(32), b: 16, i: 1, e: 2, ...patch }), false)
+})
+
+test('combined OTP entry cannot bypass registration protection when password login is disabled', () => {
+  const base = humanRules.defaultHumanCheck()
+  const loginOff = { ...base, surfaces: { ...base.surfaces, login: false } }
+  assert.equal(humanRules.providerFor(loginOff, 'login', false), 'off')
+  assert.equal(humanRules.providerFor(loginOff, 'entry', false), 'builtin')
+  const bothOff = { ...loginOff, surfaces: { ...loginOff.surfaces, register: false } }
+  assert.equal(humanRules.providerFor(bothOff, 'entry', false), 'off')
+  assert.equal(humanRules.surfaceGroup('entry'), 'auth')
+})
+
+test('whitespace-only Turnstile credentials cannot select a bypassing provider', () => {
+  const previous = process.env.TURNSTILE_SECRET_KEY
+  const mod = { exports: {} }, code = ts.transpileModule(read('src/modules/identity/server/turnstile.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  new Function('require','module','exports',code)(name => name === '@/platform/http/rate-limit' ? { clientIp: () => 'owned' } : require(name), mod, mod.exports)
+  try { process.env.TURNSTILE_SECRET_KEY = '   '; assert.equal(mod.exports.turnstileConfigured(), false); process.env.TURNSTILE_SECRET_KEY = 'owned-test-only'; assert.equal(mod.exports.turnstileConfigured(), true) } finally { if (previous === undefined) delete process.env.TURNSTILE_SECRET_KEY; else process.env.TURNSTILE_SECRET_KEY = previous }
+})

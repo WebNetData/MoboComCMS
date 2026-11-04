@@ -1,5 +1,7 @@
 2026-11-04: [Configurable permalinks](handoffs/PERMALINK_MANAGEMENT.md) extends the existing Site router/Settings and shared Link/provider with typed13 content patterns, root Pages, primary-artist Music URLs, retained308 history and canonical SEO. Current module pages/guards stay authoritative; Unicode is decoded at existing HTTP-page boundaries. No parallel routing authority, schema or data rewrite.
 
+Identity anti-bot continuation2026-11-04: the existing security policy screen and shared Settings/history/audit own human-check configuration. Public form owners ask Identity to verify a surface-bound single-use proof; trusted plugin UI consumes the extension SDK. [Scoped contract and actual evidence](handoffs/HUMAN_CHECK.md); no second auth/settings/rate-limit system.
+
 2026-11-03: [digital files and audience pricing](handoffs/DIGITAL_CONTENT_PRICING.md) extends Store/Paywall/Account/Media with integer VIP/group price rules, private account-authorized file attachments and Prompt source gating. No parallel checkout, identity or grant owner. Runtime storage is not a release asset; scoped local validation, the production artifact gate and continuation are recorded in the handoff.
 
 2026-11-04: [Telegram Mini App continuation](handoffs/TELEGRAM_MINIAPP.md) is a presentation client of existing Site/Identity/Account/Store services. Studio flags, canonical current-user policy, public closed-section projection and existing financial/file guards remain authoritative; no second account/catalogue/checkout, schema or shared platform service.

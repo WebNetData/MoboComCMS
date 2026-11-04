@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
-import TurnstileWidget from '@/components/TurnstileWidget'
+import HumanCheck from '@/components/HumanCheck'
 import PasswordField from '@/components/PasswordField'
 import { latinDigits } from '@/shared/text/digits'
 
@@ -23,8 +23,9 @@ export default function ForgotForm({ methods }: { methods: Methods }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [resendIn, setResendIn] = useState(0)
-  const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
-  const [turnstileToken, setTurnstileToken] = useState(turnstileRequired ? '' : 'not-configured')
+  // Every sign-in place may ask for the human check; the widget sends 'off' when this one does not.
+  const turnstileRequired = true
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [turnstileReset, setTurnstileReset] = useState(0)
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function ForgotForm({ methods }: { methods: Methods }) {
         <label className="label" htmlFor="forgot-email">ایمیل</label>
         <input id="forgot-email" className="input" type="email" autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </div>
-      <TurnstileWidget action="login" locale="fa" resetKey={turnstileReset} onToken={setTurnstileToken} />
+      <HumanCheck surface="recovery" locale="fa" resetKey={turnstileReset} onToken={setTurnstileToken} />
     </>}
     {error && <p className="error-text" role="alert">{error}</p>}
     {!sent && <button className="btn btn-primary w-full mt-2" disabled={busy || (turnstileRequired && !turnstileToken)}>{busy ? <><span className="auth-spinner" aria-hidden="true" />در حال ارسال…</> : 'ارسال پیوند بازیابی'}</button>}
@@ -103,7 +104,7 @@ export default function ForgotForm({ methods }: { methods: Methods }) {
         <label className="label" htmlFor="forgot-phone">شمارهٔ موبایل</label>
         <input id="forgot-phone" className="input" type="tel" inputMode="numeric" autoComplete="tel" dir="ltr" placeholder="09121234567" value={phone} onChange={(e) => setPhone(e.target.value)} required minLength={10} maxLength={16} />
       </div>
-      <TurnstileWidget action="login" locale="fa" resetKey={turnstileReset} onToken={setTurnstileToken} />
+      <HumanCheck surface="recovery" locale="fa" resetKey={turnstileReset} onToken={setTurnstileToken} />
     </> : <>
       <p className="muted text-sm mb-4" role="status">{sent}</p>
       <div className="mb-4">

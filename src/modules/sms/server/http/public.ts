@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp } from '@/platform/http/rate-limit'
 import { requireUser } from '@/modules/identity/server/access'
-import { verifyTurnstile } from '@/modules/identity/server/turnstile'
+import { verifyHuman } from '@/modules/identity/server/human-check'
 import { SmsError, attachPhone, requestOtp, verifyOtp } from '@/modules/sms/server/sms'
 import { displayMobile } from '@/modules/sms/domain/sms'
 
@@ -11,7 +11,7 @@ const fail = (error: unknown) => error instanceof SmsError ? err(error.message, 
 /** POST { phone, turnstileToken? } — sends a login code. The code is checked by the "sms-otp" sign-in provider. */
 export async function POST_login_code(req: NextRequest) {
   const body = await req.json().catch(() => null)
-  if (!await verifyTurnstile(body?.turnstileToken, req.headers, 'login')) return err('اعتبارسنجی امنیتی را کامل کنید', 400)
+  if (!await verifyHuman(body?.turnstileToken, req.headers, 'entry')) return err('اعتبارسنجی امنیتی را کامل کنید', 400, { code: 'HUMAN_CHECK' })
   try {
     const sent = await requestOtp({ phone: body?.phone, purpose: 'LOGIN', ip: clientIp(req.headers) })
     return ok({ ...sent, display: displayMobile(sent.phone) })

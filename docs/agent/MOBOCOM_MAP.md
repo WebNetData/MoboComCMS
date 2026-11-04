@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+Human check2026-11-04: continue Claude’s uncommitted slice in .mobocom/autonomous-foundation / feat/human-check-2026-11-04 from main1b27c884. Existing Identity security/Settings/history/audit owners now provide local proof-of-work, Turnstile compatibility, nine switches, one-use PostgreSQL claims and all affected web clients; OTP entry composes login OR registration. No hosted Actions or production deployment. [Owners, executed checks and remaining limits](handoffs/HUMAN_CHECK.md).
+
 Permalinks2026-11-04: existing Site `server/routes.ts` facade owns the retained section aliases and additive typed content-pattern/history setting. Shared routing/Link/provider, Proxy, existing module pages and SEO compose it; `contentRouteParams` decodes Next dynamic slug values at13 existing HTTP-page boundaries. [Continuation, actual checks and operator guide](handoffs/PERMALINK_MANAGEMENT.md); no duplicate redirect, identity or permission service.
 
 Telegram Mini App2026-11-04: Site discovery/Studio flags, canonical Identity, Account overview/library and existing Store orders compose the current `/miniapp` client. Public closed-path projection, native account screens, themed mobile discovery and SDK fallbacks extend Claude’s draft; advanced screens remain website-backed. [Current owners, executed evidence and external-client limits](handoffs/TELEGRAM_MINIAPP.md).

@@ -4,7 +4,8 @@ import { auditAdmin } from '@/platform/audit/server'
 import { clientIp } from '@/platform/http/rate-limit'
 import { db } from '@/platform/database/prisma'
 import { requirePerm, requireUser } from '@/modules/identity/server/access'
-import { verifyTurnstile } from '@/modules/identity/server/turnstile'
+import { sectionSettingsAnswer, sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { getHumanCheck, humanCheckStatus, saveHumanCheck, verifyHuman } from '@/modules/identity/server/human-check'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import {
   SecurityError, beginTwoFactor, confirmTwoFactor, disableTwoFactor, getSecurityPolicy, inspectResetToken, regenerateBackupCodes,
@@ -21,7 +22,7 @@ const fail = (error: unknown) => {
 /** POST /api/password/forgot { method: 'email' | 'sms', email?, phone?, turnstileToken? } */
 export async function POST_forgot(req: NextRequest) {
   const body = await req.json().catch(() => null)
-  if (!await verifyTurnstile(body?.turnstileToken, req.headers, 'login')) return err('اعتبارسنجی امنیتی را کامل کنید', 400)
+  if (!await verifyHuman(body?.turnstileToken, req.headers, 'recovery')) return err('اعتبارسنجی امنیتی را کامل کنید', 400, { code: 'HUMAN_CHECK' })
   const ip = clientIp(req.headers)
   try {
     return ok(body?.method === 'sms' ? await requestSmsReset({ phone: body?.phone, ip }) : await requestEmailReset({ email: body?.email, ip }))
@@ -75,6 +76,7 @@ export async function POST_two_factor(req: NextRequest) {
 /** GET/PUT /api/admin/security — sign-in security policy; POST { action: 'reset-2fa', user: id | email | mobile } for support. */
 export async function GET_policy(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('forbidden', 403)
+  if (req.nextUrl.searchParams.get('view') === 'human-check') return sectionSettingsAnswer(await getHumanCheck(), humanCheckStatus())
   const [policy, enabled, admins, adminsWith] = await Promise.all([
     getSecurityPolicy(),
     db.user.count({ where: { totpEnabledAt: { not: null } } }),
@@ -88,6 +90,7 @@ export async function PUT_policy(req: NextRequest) {
   const admin = await requirePerm(req, 'settings.manage')
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
+  if (req.nextUrl.searchParams.get('view') === 'human-check') return sectionSettingsSaveWith(req, admin, context => saveHumanCheck(body, context), settings => ({ settings, ...humanCheckStatus() }))
   // Turning the staff rule on without 2-step sign-in of your own would lock you out.
   if (body?.policy?.requireAdmin2fa === true && !admin.twoFactor) return err('اول ورود دو مرحله‌ای حساب خودتان را در «تنظیمات حساب» فعال کنید، سپس این گزینه را روشن کنید.', 409)
   const policy = await saveSecurityPolicy(body?.policy)

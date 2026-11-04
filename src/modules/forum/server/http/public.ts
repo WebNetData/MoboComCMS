@@ -14,6 +14,7 @@ import { setPollClosed, unvote, vote } from '@/modules/forum/server/polls'
 import { movePosts, reviewPost, reviewQueue, setCategoryLevel, setWiki, topicSettings } from '@/modules/forum/server/moderation'
 import { conversationAction, inbox, replyConversation, startConversation } from '@/modules/forum/server/messages'
 import { auditAdmin } from '@/platform/audit/server'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 
 // Forum API. Reading happens in server components; every route here
 // authenticates, re-checks access in the service and fails closed while the
@@ -42,7 +43,10 @@ const body = async (req: NextRequest) => (await req.json().catch(() => null)) ||
 export async function POST_thread(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
-  try { return ok(await createTopic(g.viewer, await body(req)), 201) } catch (error) { return failure(error) }
+  const input = await body(req)
+  const refused = await humanCheckRefusal(input.humanCheck, req.headers, 'forum')
+  if (refused) return refused
+  try { return ok(await createTopic(g.viewer, input), 201) } catch (error) { return failure(error) }
 }
 
 /** PATCH /api/forum/threads/:id — staff: pinned, locked, status, categoryId */
@@ -62,7 +66,10 @@ export async function DELETE_thread(req: NextRequest, { params }: Ctx) {
 export async function POST_reply(req: NextRequest, { params }: Ctx) {
   const g = await guard(req)
   if ('response' in g) return g.response
-  try { return ok(await createReply(g.viewer, await numberParam(params), await body(req)), 201) } catch (error) { return failure(error) }
+  const input = await body(req)
+  const refused = await humanCheckRefusal(input.humanCheck, req.headers, 'forum')
+  if (refused) return refused
+  try { return ok(await createReply(g.viewer, await numberParam(params), input), 201) } catch (error) { return failure(error) }
 }
 
 /** PUT /api/forum/threads/:id/state { level: WATCHING | TRACKING | NORMAL | MUTED } */

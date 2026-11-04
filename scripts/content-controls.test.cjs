@@ -648,7 +648,9 @@ test('ticket detail stays owner-scoped and returns the reported subscription con
 
 test('journal comments require sign-in, moderation and an approved parent for replies', async () => {
   let user = null, saved, autoApproveComments = false
+  // Captcha is exercised against native PostgreSQL in human-check.connected.cjs.
   const route = load('src/modules/site/server/http/public/blog/[slug]/comments/route.ts', {
+    '@/modules/identity/server/human-check': { humanCheckRefusal: async () => null },
     '@/modules/identity/server/access': { requireUser: async () => user },
     '@/modules/journal/server/admin': { getJournalSettings: async () => ({ autoApproveComments }) },
     '@/modules/journal/server/comment-notification-intents': { queueCommentNotification: async () => {} },

@@ -3,7 +3,9 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),crypto=require('node:crypto'),bcrypt=require('bcryptjs')
 const {PrismaClient}=require('@prisma/client'),db=new PrismaClient(),cache=new Map(),stamp=`owned-mobile-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,ids=[],phones=[],saved=new Map(),messages=[],mail=[],secret='owned-mobile-secret'
 const faults=process.env.MOBILE_ENTRY_FAULT||'',base=crypto.randomInt(100000000,900000000)
+// This suite isolates credential/completion/reset rules; human-check.connected.cjs verifies the real captcha and HTTP intake.
 const mocks={
+ '@/modules/identity/server/human-check':{verifyHuman:async()=>true},
  '@/platform/database/prisma':{db},'@/platform/config/env':{authSecret:()=>secret},
  '@/platform/cache/kv':{kv:async()=>({kind:'memory'}),cached:async(k,t,work)=>work(),invalidate:async()=>{}},
  '@/platform/observability/logger':{logEvent:()=>{}},'@/modules/settings/server':{getSettings:async()=>({brandName:'Owned fixture',siteUrl:'http://localhost:3000'})},

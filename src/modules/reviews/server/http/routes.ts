@@ -10,6 +10,7 @@ import { itemCard } from '@/modules/content/server/registry'
 import { bulkSameOrigin } from '@/modules/content/server/bulk'
 import { ReviewError } from '@/modules/reviews/domain/reviews'
 import { deleteReview, favoriteOf, itemEngagement, moderateReview, reviewQueue, saveReview, setFavorite, setReviewHelpful } from '@/modules/reviews/server/reviews'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 
 function failure(error: unknown) {
   if (error instanceof ReviewError) return err(error.message, error.status)
@@ -44,6 +45,8 @@ export async function POST_review(req: NextRequest) {
   const body = (await req.json().catch(() => null)) || {}
   const ref = refOf(body.item)
   if (!ref) return err('invalid item')
+  const refused = await humanCheckRefusal(body.humanCheck, req.headers, 'review')
+  if (refused) return refused
   try { return ok(await saveReview(g.user.id, ref, body)) } catch (error) { return failure(error) }
 }
 

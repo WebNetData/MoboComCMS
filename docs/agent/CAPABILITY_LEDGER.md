@@ -1,5 +1,7 @@
 # CAPABILITY_LEDGER.md
 
+Human check2026-11-04: continue Claude’s uncommitted slice in .mobocom/autonomous-foundation / feat/human-check-2026-11-04 from main1b27c884. Existing Identity security/Settings/history/audit owners now provide local proof-of-work, Turnstile compatibility, nine switches, one-use PostgreSQL claims and all affected web clients; OTP entry composes login OR registration. No hosted Actions or production deployment. [Owners, executed checks and remaining limits](handoffs/HUMAN_CHECK.md).
+
 | Capability | Owner | Status | Key files/contracts | Verification | Notes |
 |---|---|---|---|---|---|
 | Configurable content permalinks | Existing Site router + Settings + shared routing | GOOD bounded local |13 content templates, root Pages, primary-artist Music, retained section aliases/history308, revision/CAS/strict audit, canonical Link/SEO and Unicode page boundaries |903pass/1 existing skip; six fresh native PG suites; caught/restored singer fault;20 themed browser captures/axe0, ASCII and Persian paths; Doctor21files0errors | No schema/data rewrite; defaults remain legacy until saved. Entity slug renames and target-host rollout are separate. [Continuation](handoffs/PERMALINK_MANAGEMENT.md), [operator guide](../PERMALINKS-FA.md). |

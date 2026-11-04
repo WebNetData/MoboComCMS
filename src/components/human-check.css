@@ -1,0 +1,11 @@
+/* Human check status line (src/components/HumanCheck.tsx). Quiet by design: one muted line, a tick when done. */
+.hc { margin-block: .5rem .75rem; }
+.hc-line { display: flex; align-items: center; gap: .45rem; margin: 0; font-size: .82rem; line-height: 1.5; color: var(--muted); }
+.hc-mark { inline-size: 1.05rem; block-size: 1.05rem; flex: none; display: inline-grid; place-items: center; border-radius: 999px; border: 2px solid var(--border); border-block-start-color: var(--primary); font-size: .7rem; font-weight: 700; }
+.hc-line:not(.is-done):not(.is-error) .hc-mark { animation: hc-spin .8s linear infinite; }
+.hc-line.is-done { color: var(--text); }
+.hc-line.is-done .hc-mark { border-color: color-mix(in srgb, var(--success, #16a34a) 70%, transparent); color: var(--success, #16a34a); }
+.hc-line.is-error { color: var(--danger, #dc2626); }
+.hc-trap { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; opacity: 0; pointer-events: none; }
+@keyframes hc-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .hc-line:not(.is-done):not(.is-error) .hc-mark { animation: none; } }

@@ -1,11 +1,13 @@
 'use client'
 
+import { useHumanCheck } from '@/components/HumanCheck'
 import { useState } from 'react'
 
 type Status = { code: string; label: string; status: string; resolution: string; createdAt: string; resolvedAt: string | null; workTitle: string }
 
 /** Public takedown request form. */
 export function CopyrightReportForm({ prefillUrl = '' }: { prefillUrl?: string }) {
+  const human = useHumanCheck('form')
   const [form, setForm] = useState({ name: '', email: '', organization: '', phone: '', role: 'OWNER', workTitle: '', originalUrl: '', infringingUrls: prefillUrl, description: '', signature: '', statement: false })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -14,10 +16,11 @@ export function CopyrightReportForm({ prefillUrl = '' }: { prefillUrl?: string }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+    if (busy || !human.ready) return
     setBusy(true); setError('')
-    const response = await fetch('/api/copyright', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(form) }).catch(() => null)
+    const response = await fetch('/api/copyright', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...form, humanCheck: human.token }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
-    setBusy(false)
+    setBusy(false); human.reset()
     if (!response?.ok) { setError(data?.error || 'ثبت گزارش انجام نشد؛ دوباره تلاش کنید'); return }
     setCode(data.code)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -61,8 +64,9 @@ export function CopyrightReportForm({ prefillUrl = '' }: { prefillUrl?: string }
         <label className="cr-statement"><input type="checkbox" checked={form.statement} onChange={(e) => set({ statement: e.target.checked })} required />با حسن نیت اعلام می‌کنم استفادهٔ گزارش‌شده بدون اجازهٔ صاحب اثر است و اطلاعات این فرم درست است. می‌دانم گزارش نادرست ممکن است پیگرد قانونی داشته باشد.</label>
         <label className="studio-field"><span>امضا (نام خود را دقیقاً مانند بالا تایپ کنید) *</span><input className="input" value={form.signature} onChange={(e) => set({ signature: e.target.value })} required maxLength={120} /></label>
       </fieldset>
+      {human.widget}
       {error && <p className="error-text" role="alert">{error}</p>}
-      <button className="btn btn-primary" disabled={busy}>{busy ? 'در حال ثبت…' : 'ثبت گزارش'}</button>
+      <button className="btn btn-primary" disabled={busy || !human.ready}>{busy ? 'در حال ثبت…' : 'ثبت گزارش'}</button>
     </form>
   )
 }

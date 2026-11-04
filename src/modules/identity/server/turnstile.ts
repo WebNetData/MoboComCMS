@@ -9,7 +9,7 @@ interface TurnstileResponse {
 }
 
 export function turnstileConfigured() {
-  return Boolean(process.env.TURNSTILE_SECRET_KEY)
+  return Boolean(process.env.TURNSTILE_SECRET_KEY?.trim())
 }
 
 /** Validate a single-use Cloudflare Turnstile token at the origin. */

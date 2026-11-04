@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { sized } from '@/shared/media/image'
 import { categoryTree } from '@/modules/forum/domain/tree'
 import { renderMarkdown } from '@/modules/forum/domain/markdown'
@@ -21,6 +21,10 @@ export type ComposerProps = {
   onSubmit: (value: { title: string; content: string; categoryId: number; tags: string[] }) => Promise<string | null>
   onCancel?: () => void
   autoFocus?: boolean
+  /** Shown above the send button (the human check of a new topic or reply). */
+  footer?: ReactNode
+  /** Keeps the send button off, e.g. until the human check is ready. */
+  blocked?: boolean
 }
 
 const TOOLS: { label: string; title: string; wrap: [string, string]; block?: boolean; placeholder: string }[] = [
@@ -204,8 +208,9 @@ export default function Composer(props: ComposerProps) {
         )}
       </div>
       {error && <p className="error-text" role="alert">{error}</p>}
+      {props.footer}
       <div className="fx-composer-foot">
-        <button className="btn btn-primary" disabled={busy || content.trim().length < 2 || (!!topicFields && title.trim().length < 5)}>{busy ? (props.busyLabel || 'در حال ارسال…') : props.submitLabel}</button>
+        <button className="btn btn-primary" disabled={busy || !!props.blocked || content.trim().length < 2 || (!!topicFields && title.trim().length < 5)}>{busy ? (props.busyLabel || 'در حال ارسال…') : props.submitLabel}</button>
         {props.onCancel && <button type="button" className="btn btn-ghost" onClick={props.onCancel}>انصراف</button>}
         <small className="fx-muted">{content.length.toLocaleString('fa-IR')} / ۲۰٬۰۰۰{draftKey && mode !== 'edit' && savedAt > 0 && content.trim() ? ' · پیش‌نویس ذخیره شد' : ''}</small>
       </div>

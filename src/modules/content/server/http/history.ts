@@ -18,6 +18,10 @@ async function ownerOf(type: string): Promise<Owner | null> {
   const { pageIdOfHistoryType, builderHistoryOwner } = await import('@/modules/site/server/builder')
   const builderPage = pageIdOfHistoryType(type)
   if (builderPage) return builderHistoryOwner(builderPage)
+  if (type === 'settings-human-check') {
+    const { humanCheckSettingsState, restoreHumanCheckSettings } = await import('@/modules/identity/server/human-check')
+    return { perms: ['settings.manage'], module: null, current: humanCheckSettingsState, restore: restoreHumanCheckSettings }
+  }
   if (type === 'settings-livechat') {
     const { chatSettingsState, restoreChatSettings } = await import('@/modules/livechat/server/livechat')
     return { perms: ['settings.manage', 'support.chat'], module: 'livechat', current: () => chatSettingsState(), restore: restoreChatSettings }

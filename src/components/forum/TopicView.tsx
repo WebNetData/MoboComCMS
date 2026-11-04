@@ -11,6 +11,7 @@ import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
 import { FORUM_RANK_LABELS, type ForumRank } from '@/modules/forum/domain/community'
 import { MemberBoxes } from '@/components/forum/shared'
+import { useHumanCheck } from '@/components/HumanCheck'
 import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; likes: number; level: { name: string; icon: string; color: string } | null; group: { name: string; color: string } | null; badges: { name: string; icon: string; tier: string }[]; joinedAt?: string | Date; rank?: ForumRank; siteRole?: string; flair: { icon: string; color: string; name: string } | null }
@@ -71,6 +72,7 @@ type ComposerState = { mode: 'reply' | 'edit'; replyTo?: TopicPost; edit?: Topic
 
 export default function TopicView({ data, categories, focusPost, trail = [] }: { data: TopicData; categories: ComposerCategory[]; focusPost?: number; trail?: { slug: string; title: string }[] }) {
   const router = useRouter()
+  const human = useHumanCheck('forum')
   const { thread } = data
   const [posts, setPosts] = useState(data.posts)
   const [composer, setComposer] = useState<ComposerState>(null)
@@ -251,7 +253,8 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
       setComposer(null); setToast('ویرایش ذخیره شد'); router.refresh()
       return null
     }
-    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/posts`, 'POST', { content: value.content, replyToId: composer.replyTo?.id })
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/posts`, 'POST', { content: value.content, replyToId: composer.replyTo?.id, humanCheck: human.token })
+    human.reset()
     if (!ok) return result.error as string
     setComposer(null)
     if (result.pending) setToast('پاسخ شما ثبت شد و پس از تأیید ناظران برای همه نمایش داده می‌شود')
@@ -500,6 +503,8 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
               submitLabel={composer.mode === 'edit' ? 'ذخیرهٔ ویرایش' : 'ارسال پاسخ'}
               onSubmit={submitComposer}
               onCancel={() => setComposer(null)}
+              footer={composer.mode === 'edit' ? undefined : human.widget}
+              blocked={composer.mode !== 'edit' && !human.ready}
             />
           </div>
         </div>

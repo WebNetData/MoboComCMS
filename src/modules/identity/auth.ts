@@ -8,7 +8,7 @@ import { telegramConfig, verifyInitData, verifyLoginWidget } from '@/modules/not
 import { userForTelegram } from '@/modules/identity/telegram-account'
 import { authSecret } from '@/platform/config/env'
 import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
-import { verifyTurnstile } from '@/modules/identity/server/turnstile'
+import { verifyHuman } from '@/modules/identity/server/human-check'
 import { sessionRevoked } from '@/modules/identity/domain/account-security'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { loginIdentifier } from '@/modules/identity/domain/login-identifier'
@@ -61,7 +61,7 @@ export const authOptions: NextAuthOptions = {
         if (!(await rateLimitStrict(`login:acc:${ip}:${email}`, 8, 10 * 60_000)).ok) return null
         // One account, many addresses: a guess spread over a botnet still meets a limit on the account itself.
         if (!(await rateLimitStrict(`login:account:${email}`, 30, 15 * 60_000)).ok) return null
-        if (!await verifyTurnstile(credentials.turnstileToken, new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}), 'login')) return null
+        if (!await verifyHuman(credentials.turnstileToken, new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}), 'login')) return null
         const candidates = identity.kind === 'phone' ? await db.user.findMany({ where: { phone: identity.value, phoneVerifiedAt: { not: null } }, include: { roleRef: true }, take: 2 }) : []
         const user = identity.kind === 'email'
           ? await db.user.findUnique({ where: { email }, include: { roleRef: true } })

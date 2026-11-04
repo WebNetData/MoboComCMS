@@ -1,4 +1,5 @@
 'use client'
+import { useHumanCheck } from '@/components/HumanCheck'
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import CheckoutError from '@/components/CheckoutError'
 import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/client'
@@ -34,6 +35,7 @@ const CLOSED: Record<Exclude<FormState, 'open'>, string> = { soon: 'این فر�
  */
 export default function PublicForm({ form, state = 'open', preview = false, headingLevel = 2 }: { form: FormDefinition; state?: FormState; preview?: boolean; headingLevel?: 1 | 2 }) {
   const { locale } = useI18n()
+  const human = useHumanCheck('form', locale)
   const uid = useId()
   const settings = form.settings
   const steps = settings?.steps || []
@@ -170,17 +172,18 @@ export default function PublicForm({ form, state = 'open', preview = false, head
       if (bad) setStep(Math.max(0, pages.findIndex((page) => page.includes(bad))))
       return
     }
+    if (busy || !human.ready) return
     setBusy(true); setMessage(''); setNeedsLogin(false)
     const honeypot = new FormData(event.currentTarget).get('website')
     try {
-      const res = await fetch(`/api/forms/${form.slug}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: answers, website: honeypot }) })
+      const res = await fetch(`/api/forms/${form.slug}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: answers, website: honeypot, humanCheck: human.token }) })
       const result = await res.json()
       if (!res.ok) { if (res.status === 401) setNeedsLogin(true); throw new Error(result.error) }
       setMessage(result.message); setSent(true); dropDraft()
       if (result.quiz) setQuiz(result.quiz)
       if (result.pay) { setPay({ submissionId: result.pay.submissionId, lines: result.pay.lines || [], total: result.pay.amount, label: result.pay.label || '' }); return }
       if (result.redirect && !result.quiz) window.location.assign(result.redirect)
-    } catch (e) { setMessage(e instanceof Error ? e.message : 'ارسال ناموفق؛ دوباره تلاش کنید') } finally { setBusy(false) }
+    } catch (e) { setMessage(e instanceof Error ? e.message : 'ارسال ناموفق؛ دوباره تلاش کنید') } finally { setBusy(false); human.reset() }
   }
 
   const Heading = headingLevel === 1 ? 'h1' : 'h2'
@@ -277,9 +280,10 @@ export default function PublicForm({ form, state = 'open', preview = false, head
       })}
     </div>
     {message && <p role={preview ? 'status' : 'alert'} className={preview ? 'muted' : 'error-text'}>{message} {needsLogin && <Link href={`/login?next=${encodeURIComponent(typeof window === 'undefined' ? '/' : window.location.pathname)}`} className="text-link">ورود به حساب</Link>}</p>}
+    {!preview && <div className="pf-full">{human.widget}</div>}
     <div className="pf-actions">
       {pages.length > 1 && at > 0 && <button type="button" className="btn btn-ghost" onClick={() => setStep(at - 1)}>{conversational ? 'قبلی' : 'مرحلهٔ قبل'}</button>}
-      <button type="submit" disabled={busy || !!uploading} className="btn btn-primary">{busy ? '…' : !last ? (conversational ? 'ادامه' : 'مرحلهٔ بعد') : settings?.submitLabel || (paid ? 'تأیید و رفتن به پرداخت' : '') || (locale === 'fa' ? 'ارسال فرم' : 'Send message')} <span aria-hidden="true">{last ? '↗' : '←'}</span></button>
+      <button type="submit" disabled={busy || !!uploading || (!preview && last && !human.ready)} className="btn btn-primary">{busy ? '…' : !last ? (conversational ? 'ادامه' : 'مرحلهٔ بعد') : settings?.submitLabel || (paid ? 'تأیید و رفتن به پرداخت' : '') || (locale === 'fa' ? 'ارسال فرم' : 'Send message')} <span aria-hidden="true">{last ? '↗' : '←'}</span></button>
     </div>
   </form>
 }
