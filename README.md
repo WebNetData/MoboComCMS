@@ -78,6 +78,7 @@ cd /tmp && git clone --depth 1 https://github.com/WebNetData/MoboComCMS.git mobo
 
 ```bash
 sudo mobocom status              # سلامت سایت، نسخه و آخرین بکاپ
+sudo mobocom panel on            # روشن کردن پنل سرور؛ با --ip YOUR.IP.ADDRESS فقط برای IP شما
 sudo mobocom update              # آخرین نسخه
 sudo mobocom versions            # نسخه‌های منتشرشده و نسخهٔ نصب‌شده
 sudo mobocom update 1.7.0        # رفتن به یک نسخهٔ مشخص جدیدتر

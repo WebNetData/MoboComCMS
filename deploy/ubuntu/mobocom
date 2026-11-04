@@ -9,12 +9,13 @@
 #   sudo mobocom backups             the backups on this server
 #   sudo mobocom rollback [commit]   back to the version before the last update (the database is not changed)
 #   sudo mobocom restore <name>      put a backup back (name from "backups", or latest); asks before it starts
+#   sudo mobocom panel on [--ip IP]  turn the Server Panel on (optionally only for these IPs), off, or show its status
 #
 # update, backup and rollback run as the service user. Only restore needs root, and it lives in this root-owned file
 # so root never runs code the site could rewrite.
 set -euo pipefail
 # Raised when this file gains commands; the one-line installer replaces an installed copy only with a higher one.
-HELPER_VERSION=2
+HELPER_VERSION=3
 
 APP_USER="${MOBOCOM_APP_USER:-mobocom}"
 APP_DIR="${MOBOCOM_APP_DIR:-/opt/mobocom/app}"
@@ -23,7 +24,7 @@ SERVICE="${MOBOCOM_SERVICE:-mobocom}"
 HEALTH="${MOBOCOM_HEALTH_URL:-http://127.0.0.1:3000/api/health/ready}"
 
 die() { echo "[mobocom] $*" >&2; exit 1; }
-usage() { sed -n '4,13p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '4,14p' "$0" | sed 's/^# \{0,1\}//'; }
 [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
 [ -f "$APP_DIR/package.json" ] || die "no site in $APP_DIR"
 cd "$APP_DIR"
@@ -42,6 +43,69 @@ backup_dir() {
   fi
   printf '%s\n' "$dir"
 }
+# Sets one KEY=value line of the environment file, keeping every other line, its owner and its mode; the new file
+# replaces the old one in one step. Values are checked by the caller.
+set_setting() {
+  local file="$1" key="$2" value="$3" next
+  next="$(mktemp "$(dirname "$file")/.mobocom.env.XXXXXXXX")"
+  { grep -v "^$key=" "$file" || true; printf '%s=%s\n' "$key" "$value"; } > "$next"
+  chown --reference="$file" "$next"; chmod --reference="$file" "$next"
+  mv -f -- "$next" "$file"
+}
+# IPv4 addresses, IPv4 ranges (a.b.c.d/n) and IPv6 addresses, separated by commas, as the panel reads them.
+valid_ips() {
+  local entry
+  [ -n "$1" ] || return 1
+  for entry in ${1//,/ }; do
+    [[ "$entry" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}(/([0-9]|[12][0-9]|3[0-2]))?$ || "$entry" =~ ^[0-9A-Fa-f:]{2,39}$ ]] || return 1
+  done
+}
+# The address this SSH session comes from, offered as the panel's allowed IP.
+ssh_ip() { who -m --ips 2>/dev/null | awk '{print $NF}' | tr -d '()' | grep -E '^([0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9A-Fa-f:]{2,39}$' | head -1 || true; }
+
+panel() {
+  local action="${1:-status}" ips='' any=0 url
+  [ $# -eq 0 ] || shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --ip) [ $# -ge 2 ] || die 'name the allowed IP: --ip 1.2.3.4 (several: --ip 1.2.3.4,5.6.7.0/24)'; ips="$2"; shift 2 ;;
+      --any-ip) any=1; shift ;;
+      *) die "unknown option: $1" ;;
+    esac
+  done
+  url="$(setting NEXTAUTH_URL)"; url="${url%/}"
+  case "$action" in
+    status)
+      echo "server panel: $([ "$(setting SERVER_PANEL_ENABLED)" = true ] && echo on || echo off)"
+      local allowed; allowed="$(setting SERVER_PANEL_ALLOWED_IPS)"
+      echo "allowed IPs:  ${allowed:-any (no restriction)}"
+      echo "address:      ${url:-https://YOUR-DOMAIN}/admin/server"
+      return 0
+      ;;
+    on)
+      if [ -n "$ips" ]; then valid_ips "$ips" || die "not a list of IP addresses: $ips"; fi
+      set_setting "$ENV_FILE" SERVER_PANEL_ENABLED true
+      if [ -n "$ips" ]; then set_setting "$ENV_FILE" SERVER_PANEL_ALLOWED_IPS "$ips"; fi
+      if [ "$any" = 1 ]; then set_setting "$ENV_FILE" SERVER_PANEL_ALLOWED_IPS ''; fi
+      ;;
+    off) set_setting "$ENV_FILE" SERVER_PANEL_ENABLED false ;;
+    *) die 'usage: sudo mobocom panel on [--ip IP[,IP…]|--any-ip] | off | status' ;;
+  esac
+  echo "[mobocom] restarting the site"
+  systemctl restart "$SERVICE"
+  wait_healthy || die "the site did not come back; see: journalctl -u $SERVICE -n 80"
+  if [ "$action" = off ]; then echo '[mobocom] the Server Panel is off'; return 0; fi
+  echo "[mobocom] the Server Panel is on: ${url:-https://YOUR-DOMAIN}/admin/server"
+  echo '          open it signed in as an administrator, then enter your password (and two-step code) to unlock it.'
+  if [ -z "$(setting SERVER_PANEL_ALLOWED_IPS)" ]; then
+    local mine; mine="$(ssh_ip)"
+    echo '          It accepts any IP address. To allow only yours (recommended):'
+    echo "          sudo mobocom panel on --ip ${mine:-YOUR.IP.ADDRESS}"
+  else
+    echo "          allowed IPs: $(setting SERVER_PANEL_ALLOWED_IPS)"
+  fi
+}
+
 backup_names() { find "$(backup_dir)" -maxdepth 1 -type f -name 'db-*.dump' -printf '%f\n' 2>/dev/null | sed -e 's/^db-//' -e 's/\.dump$//' | sort; }
 
 wait_healthy() {
@@ -234,5 +298,6 @@ case "$command" in
     as_app env UPDATE_ROLLBACK_TO="$target" UPDATE_ENV_FILE="$ENV_FILE" MOBOCOM_ENV_FILE="$ENV_FILE" MOBOCOM_APP_DIR="$APP_DIR" bash deploy/ubuntu/update.sh
     ;;
   restore) restore "$@" ;;
+  panel) panel "$@" ;;
   *) usage; [ -z "$command" ] || [ "$command" = help ] || exit 2 ;;
 esac

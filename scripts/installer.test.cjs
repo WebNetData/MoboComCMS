@@ -305,3 +305,30 @@ test('restricted networks: npm keeps a mirror that answers, else takes the first
     assert.equal(run('registry.npmjs.org mirror-npm.runflare.com', { NETWORK_MIRRORS: 'on' }).status, 0); assert.equal(registry(), 'https://mirror-npm.runflare.com/', '--mirrors always takes a mirror')
   } finally { fs.rmSync(dir, { recursive: true, force: true }) }
 })
+
+test('one command turns the Server Panel on: one environment line changes, the rest of the file and its mode stay; IPs are checked', { skip: process.platform === 'win32' }, () => {
+  const cp = require('node:child_process')
+  const cli = read('deploy/ubuntu/mobocom').replace(/\r\n/g, '\n')
+  const fn = (name) => cli.match(new RegExp(String.raw`^${name}\(\) \{[\s\S]*?\n\}`, 'm'))[0]
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'panel-'))
+  try {
+    const file = path.join(dir, 'mobocom.env')
+    fs.writeFileSync(file, 'NODE_ENV=production\nSERVER_PANEL_ENABLED=false\nDATABASE_URL=postgresql://x\nSERVER_PANEL_ENABLED=maybe\n', { mode: 0o640 })
+    const set = (key, value) => cp.spawnSync('bash', ['-c', `set -euo pipefail; ${fn('set_setting')}; set_setting "$1" "$2" "$3"`, '_', file, key, value], { encoding: 'utf8' })
+    assert.equal(set('SERVER_PANEL_ENABLED', 'true').status, 0)
+    assert.equal(fs.readFileSync(file, 'utf8'), 'NODE_ENV=production\nDATABASE_URL=postgresql://x\nSERVER_PANEL_ENABLED=true\n')
+    assert.equal(fs.statSync(file).mode & 0o777, 0o640, 'the file keeps its mode')
+    assert.equal(set('SERVER_PANEL_ALLOWED_IPS', '1.2.3.4').status, 0)
+    assert.match(fs.readFileSync(file, 'utf8'), /\nSERVER_PANEL_ALLOWED_IPS=1\.2\.3\.4\n$/)
+    assert.deepEqual(fs.readdirSync(dir), ['mobocom.env'], 'no temporary file is left behind')
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+  const valid = (value) => cp.spawnSync('bash', ['-c', `${fn('valid_ips')}; valid_ips "$1"`, '_', value]).status === 0
+  for (const value of ['1.2.3.4', '1.2.3.4,5.6.7.0/24', '10.0.0.0/8', '2001:db8::1', '1.2.3.4,2001:db8::1']) assert.ok(valid(value), value)
+  for (const value of ['', 'example.com', '1.2.3.4/33', '1.2.3', '1.2.3.4;reboot', '$(id)', '1.2.3.4 5.6.7.8\nX=1']) assert.ok(!valid(value), JSON.stringify(value))
+  assert.match(cli, /^  panel\) panel "\$@" ;;$/m)
+  assert.match(cli, /^HELPER_VERSION=[3-9]$/m)
+  assert.match(read('install.sh'), /update\|downgrade\|versions\|status\|panel\) action="\$1"; shift ;;/)
+  // The panel's own "switched off" page points at the command, not at editing the file.
+  const shared = read('src/app/admin/server/shared.tsx')
+  assert.match(shared, /sudo mobocom panel on --ip YOUR\.IP\.ADDRESS/); assert.doesNotMatch(shared, /sudo nano \/etc\/mobocom\/mobocom\.env/)
+})
