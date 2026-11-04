@@ -71,12 +71,12 @@ export default async function AlbumPage({ params }: Props) {
         </div>
       </section>
       <div className="container md-body">
-        {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/music/album/${album.slug}#buy`} noun="آلبوم" />}
+        {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`${contentPath('album', album.slug, { artist: album.artist.slug })}#buy`} noun="آلبوم" />}
         {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ {fa ? 'این آلبوم را خریده‌اید' : 'You own this album'}</span>}
-        {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/album/${album.slug}`} title={fa ? 'این آلبوم مخصوص اعضای VIP است' : 'This album is for VIP members'} />}
+        {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={contentPath('album', album.slug, { artist: album.artist.slug })} title={fa ? 'این آلبوم مخصوص اعضای VIP است' : 'This album is for VIP members'} />}
         <section className="mu-panel"><TrackList tracks={tracks} showCover={false} /></section>
         {album.description && <section className="mu-panel md-prose" dangerouslySetInnerHTML={{ __html: withTextDirections(album.description) }} />}
-        <ReviewSection item={{ type: 'album', id: album.id }} title={name} path={`/music/album/${album.slug}`} />
+        <ReviewSection item={{ type: 'album', id: album.id }} title={name} path={contentPath('album', album.slug, { artist: album.artist.slug })} />
         {data.related.length > 0 && <Shelf tone="music" title={fa ? 'آلبوم‌های مرتبط' : 'Related albums'}>{data.related.map((item) => <AlbumCard key={item.id} album={item} fa={fa} />)}</Shelf>}
       </div>
     </MediaShell>

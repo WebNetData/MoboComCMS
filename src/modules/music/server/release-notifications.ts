@@ -1,6 +1,8 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { contentPath } from '@/platform/routing/aliases'
+import { loadRoutingState } from '@/modules/site/server/routes'
 
 type TrackRelease = { id: number; status: string; publishedAt: Date }
 
@@ -23,12 +25,15 @@ export async function processTrackReleaseNotifications(now = new Date()) {
     where: { completedAt: null, dueAt: { lte: now }, track: { is: { album: { isNot: { audienceGroups: { not: '' } } },  status: 'PUBLISHED', audienceGroups: '', publishedAt: { lte: now } } } },
     orderBy: [{ dueAt: 'asc' }, { trackId: 'asc' }],
     take: 20,
-    include: { track: { include: { artist: { select: { name: true, nameEn: true } } } } },
+    include: { track: { include: { artist: { select: { name: true, nameEn: true, slug: true } } } } },
   })
   let sent = 0
+  // The link in the inbox is the track's final address (it may name the artist), not one that redirects.
+  if (pending.length) await loadRoutingState()
   for (const release of pending) {
     const track = release.track
     if (track.status !== 'PUBLISHED' || track.publishedAt > now) continue
+    const href = contentPath('track', track.slug, { artist: track.artist.slug })
     const followers = await db.itemFavorite.findMany({
       where: { itemType: 'artist', itemId: track.artistId, notify: true, userId: { gt: release.lastUserId }, createdAt: { lte: release.dueAt } },
       orderBy: { userId: 'asc' }, select: { userId: true }, take: 100,
@@ -42,7 +47,7 @@ export async function processTrackReleaseNotifications(now = new Date()) {
         titleEn: `New track by ${track.artist.nameEn || track.artist.name}`,
         bodyFa: `«${track.title}» منتشر شد.`,
         bodyEn: `${track.titleEn || track.title} is now available.`,
-        href: `/music/track/${encodeURIComponent(track.slug)}`,
+        href,
       })
       await db.musicTrackReleaseNotification.update({ where: { trackId: track.id }, data: { lastUserId: follower.userId } })
       sent++

@@ -10,6 +10,7 @@ import { hideDisabledModules } from './visibility'
 import { filterSiteMenus } from './menus'
 import { normalizeCompanyContact } from '../domain/company-contact'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
+import { withCanonicalContentLinks } from '@/modules/site/server/routes'
 import { createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server/section-history'
 export const SITE_KEY = 'site.config.v1'
 export const TRUST_SEALS_KEY = 'site.trust-seals.v1'
@@ -39,8 +40,11 @@ export async function getSiteConfigFrom(reader: Pick<Prisma.TransactionClient, '
 }
 export const getSiteConfig = cache(() => getSiteConfigFrom(db))
 
-/** Filter only public rendering; keep the editable configuration intact. */
-export const getPublicSiteConfig = cache(async () => {
+/** Filter only public rendering; keep the editable configuration intact. Track and album links in menus and home
+ * sections are given their final address here, so a visitor is not redirected. */
+export const getPublicSiteConfig = cache(async () => withCanonicalContentLinks(await readPublicSiteConfig()))
+
+async function readPublicSiteConfig() {
   // Menus, the announcement and home sections that lead into a switched-off module are left out of the public copy.
   const runtime = await getPublicExtensionRuntime().catch(() => ({}))
   const saved = await getSiteConfig()
@@ -56,4 +60,4 @@ export const getPublicSiteConfig = cache(async () => {
     ...filterSiteMenus(site, link => !isShopLink(link)),
     sections: site.sections.map(section => section.kind === 'products' ? { ...section, enabled: false } : section),
   }
-})
+}

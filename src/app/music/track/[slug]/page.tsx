@@ -106,9 +106,9 @@ export default async function TrackPage({ params }: Props) {
       </section>
 
       <div className="container md-body">
-        {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}#buy`} noun={paywall.key.startsWith('album:') ? 'آلبوم' : 'آهنگ'} />}
+        {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`${contentPath('track', track.slug, { artist: track.artist.slug })}#buy`} noun={paywall.key.startsWith('album:') ? 'آلبوم' : 'آهنگ'} />}
         {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ {fa ? 'این مورد را خریده‌اید' : 'You own this'}</span>}
-        {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}`} title={fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members'} />}
+        {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={contentPath('track', track.slug, { artist: track.artist.slug })} title={fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members'} />}
         {makers.length > 0 && <section className="mu-panel mu-credits-panel" aria-labelledby="mu-credits-title">
           <header className="md-shelf-head"><h2 id="mu-credits-title">{fa ? 'عوامل آهنگ' : 'Credits'}</h2></header>
           <dl className="mu-credits">{makers.map((group) => <div key={group.role}><dt>{group.name}</dt><dd>{group.artists.map((artist, index) => <span key={artist.id}>{index > 0 && '، '}<Link href={`/music/artist/${artist.slug}`}>{fa ? artist.name : artist.nameEn || artist.name}</Link></span>)}</dd></div>)}</dl>
@@ -134,7 +134,7 @@ export default async function TrackPage({ params }: Props) {
           <header className="md-shelf-head"><h2 id="music-related-tracks">{fa ? 'آهنگ‌های هم‌سبک' : 'Similar tracks'}</h2></header>
           <TrackList tracks={toPlayerTracks(data.relatedTracks, fa)} reasons={data.relatedTracks.map(item => fa ? item.recommendationReason : 'Shared genre')} />
         </section>}
-        <ReviewSection item={{ type: 'track', id: track.id }} title={name} path={`/music/track/${track.slug}`} />
+        <ReviewSection item={{ type: 'track', id: track.id }} title={name} path={contentPath('track', track.slug, { artist: track.artist.slug })} />
         {album.length > 1 && data.moreFromArtist.length > 0 && (
           <section className="mu-panel">
             <header className="md-shelf-head"><h2>{fa ? `بیشتر از ${artistName}` : `More from ${artistName}`}</h2><Link href={`/music/artist/${track.artist.slug}`} className="md-more">{fa ? 'صفحه هنرمند ←' : 'Artist page →'}</Link></header>
