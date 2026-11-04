@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Release2026-11-05 1.7.3 (stable): owner asked for a stable 1.7.3 build to update. `release/v1.7.3` from merged main `e9413382` (PR345–349) changes version metadata, seals `20270218120000_human_check` and moves the guides; one test fixture fix (`current-account-consumers` stubs the human check). check 872/1 skip+53+4+13, 165 PG suites pass (seven pre-existing failures also on v1.7.2), real 1.7.2→1.7.3 rehearsal with identical rows, UID1000 build 818 safe traces, Gitleaks 0. [Handoff](../docs/agent/handoffs/RELEASE_1_7_3.md).
+
 Current2026-11-04 MoboCom Cloud: `feat/mobocom-cloud-2026-11-04` from main `dce11c77` (worktree `.mobocom/cloud-xray`). One section «موبوکام کلاد»: `/cloud` overview with real lowest prices, a shared section bar on /cloud /hosting /servers /domains, renamed module/Admin/member labels; ids, permission, data and addresses unchanged. Check 868/1 skip+53+4+13; browser 16 views axe 0. [Handoff](../docs/agent/handoffs/HOSTING_CLOUD.md).
 
 Current2026-11-04 Xray profiles: `feat/xray-profiles-2026-11-04` from main `dce11c77` (worktree `.mobocom/cloud-xray`; the human-check work belongs to another agent). Up to 8 named Xray profiles from `/admin/server/proxy`, a profile per purpose (telegram, instagram, updates, ai), root builder v2 with v1 kept, `xrayctl check`, AI client and updater git fetch through their purpose. Real Xray 26.10.31 validated and routed. [Handoff](../docs/agent/handoffs/HOST_INSTALL_UPGRADE.md). Next on the same request: MoboCom Cloud (hosting, servers, domains as one section).

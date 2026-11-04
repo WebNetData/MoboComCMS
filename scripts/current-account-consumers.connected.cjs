@@ -33,6 +33,8 @@ function load(file){
   if(name==='@/modules/forms/server/advanced')return {assertHandlersCanWork:async()=>{},bookSlots:async()=>{},sendFormNotifications:async()=>{},sendFormWebhooks:async()=>{},webhookAnswers:answers=>answers};
   if(name==='@/modules/forms/server/paid')return {FORM_CURRENCY:'IRT',billFor:async()=>{throw Error('Unexpected bill')},sealSecrets:answers=>({answers,secrets:''})};
   if(name==='@/platform/observability/logger')return {logEvent:()=>{throw Error('Unexpected form error')}};
+  // This suite is about who may submit; human-check.connected.cjs verifies the real captcha on the same form route.
+  if(name==='@/modules/identity/server/human-check')return {humanCheckRefusal:async()=>null};
   if(name==='@/modules/mail/server/mailer')return {sendMail:()=>{throw Error('Unexpected external mail')}};
   if(name==='@/modules/notifications/server/inbox')return {createInboxEvent:()=>{throw Error('Unexpected notification')}};
   if(name.startsWith('@/')){
