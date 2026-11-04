@@ -1,0 +1,31 @@
+/* Hosting Admin: product and provider forms. Shares the Admin's sa-* pieces; only the layout is its own. */
+.hx-admin .hx-form { display: grid; gap: 16px; }
+.hx-admin .hx-form .sa-card { display: grid; gap: 12px; }
+.hx-admin .hx-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.hx-admin .hx-choice { margin: 0; padding: 0; border: 0; min-width: 0; }
+.hx-admin .hx-choice legend { padding: 0; margin-block-end: 8px; font-size: 13px; font-weight: 600; color: var(--text); }
+.hx-admin .hx-choice > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.hx-admin .hx-choice label { position: relative; display: inline-flex; flex-direction: column; justify-content: center; min-height: 40px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--text); font-size: 13px; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.hx-admin .hx-choice label small { color: var(--muted); font-size: 12px; }
+.hx-admin .hx-choice label.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card)); font-weight: 600; }
+.hx-admin .hx-choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.hx-admin .hx-choice label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
+.hx-admin .hx-prices { width: 100%; border-collapse: collapse; }
+.hx-admin .hx-prices th, .hx-admin .hx-prices td { padding: 8px; border-block-end: 1px solid var(--border); text-align: start; vertical-align: middle; }
+.hx-admin .hx-prices th { font-size: 13px; color: var(--muted); font-weight: 600; }
+.hx-admin .hx-prices .input { min-width: 0; width: 100%; }
+.hx-admin .hx-prices .hx-saving { color: var(--sds-color-text-positive-default, var(--primary)); font-size: 12px; white-space: nowrap; }
+.hx-admin .hx-save { display: flex; flex-wrap: wrap; gap: 8px; }
+.hx-admin .hx-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.hx-admin .hx-empty { padding: 48px 16px; text-align: center; }
+.hx-admin .hx-empty h2 { margin: 0 0 8px; font-size: 18px; }
+.hx-admin .hx-spec { color: var(--muted); font-size: 12px; }
+.hx-admin .hx-check { display: flex; gap: 6px; align-items: baseline; font-size: 12px; }
+.hx-admin .hx-check.is-ok { color: var(--sds-color-text-positive-default, var(--primary)); }
+.hx-admin .hx-check.is-bad { color: var(--sds-color-text-danger-default, var(--danger)); }
+@media (max-width: 640px) {
+  .hx-admin .hx-prices thead { display: none; }
+  .hx-admin .hx-prices tr { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-block: 8px; border-block-end: 1px solid var(--border); }
+  .hx-admin .hx-prices td { padding: 0; border: 0; }
+  .hx-admin .hx-prices td:first-child { grid-column: 1 / -1; font-weight: 600; }
+}

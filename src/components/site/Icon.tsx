@@ -74,6 +74,10 @@ const paths: Record<string, React.ReactNode> = {
   link: <><path d="M10 14a4 4 0 0 0 5.700 0l3-3a4 4 0 0 0-5.700-5.700l-1 1"/><path d="M14 10a4 4 0 0 0-5.700 0l-3 3a4 4 0 0 0 5.700 5.700l1-1"/></>,
   layout: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></>,
   chevron: <path d="m6 9 6 6 6-6"/>,
+  cpu: <><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.500" y="9.500" width="5" height="5" rx="1"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/></>,
+  activity: <path d="M3 12h4l3-8 4 16 3-8h4"/>,
+  terminal: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m5 0h5"/></>,
+  cloud: <path d="M7 18h10.500a4.500 4.500 0 0 0 .4-8.980A6 6 0 0 0 6.300 10.100 4 4 0 0 0 7 18Z"/>,
 }
 export const ICON_NAMES = Object.keys(paths)
 export default function Icon({ name = 'shield', size = 22, className = '' }: { name?: string; size?: number; className?: string }) {

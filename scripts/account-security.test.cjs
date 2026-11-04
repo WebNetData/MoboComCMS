@@ -318,9 +318,10 @@ test('roles that held the magazine permission keep what it used to open', () => 
 // ---- managers of the site's sections
 test('a choice of sections stands for one role with exactly their permissions', () => {
   const sections = load('src/modules/identity/domain/sections')
-  assert.deepEqual(sections.SITE_SECTIONS.map((section) => section.id), ['vpn', 'prompts', 'businesses', 'magazine', 'music', 'cinema', 'games', 'software', 'store', 'forum', 'reviews'])
+  assert.deepEqual(sections.SITE_SECTIONS.map((section) => section.id), ['vpn', 'hosting', 'prompts', 'businesses', 'magazine', 'music', 'cinema', 'games', 'software', 'store', 'forum', 'reviews'])
   assert.deepEqual(sections.sectionRole(['vpn']).permissions, ['dashboard.view', 'plans.manage', 'subs.manage'])
   assert.deepEqual(sections.sectionsOf(['subs.manage']), [], 'supporting subscriptions alone is not the full VPN section')
+  assert.deepEqual(sections.sectionRole(['hosting']).permissions, ['dashboard.view', 'hosting.manage'])
   assert.deepEqual(sections.sectionRole(['prompts']).permissions, ['dashboard.view', 'prompts.manage'])
   assert.deepEqual(sections.sectionRole(['businesses']).permissions, ['dashboard.view', 'businesses.manage'])
   assert.deepEqual(sections.sectionsOf(['reviews.moderate']), ['reviews'], 'review moderation does not grant business management')

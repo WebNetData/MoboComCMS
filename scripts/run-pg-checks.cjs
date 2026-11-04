@@ -26,6 +26,7 @@ const CHECKS = [
   'vpn-group-access',
   'digital-content-pricing',
   'digital-content-pricing-migration',
+  'hosting-catalog',
   'business-trust',
   'business-trust-migration',
   'livechat-placement',

@@ -1,0 +1,79 @@
+{
+  "id": "hosting",
+  "name": "میزبانی، سرور و ابر",
+  "nameEn": "Hosting, servers and cloud",
+  "description": "فروش هاست، نمایندگی، سرور مجازی و اختصاصی و سرویس ابری ساعتی، با اتصال به کنترل‌پنل‌ها، مجازی‌سازها و API ارائه‌دهندگان.",
+  "descriptionEn": "Sell hosting, reseller hosting, VPS, dedicated and hourly cloud services, connected to hosting panels, virtualizers and provider APIs.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "server",
+  "defaultEnabled": false,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [
+    "/hosting",
+    "/servers"
+  ],
+  "adminPaths": [
+    "/admin/hosting"
+  ],
+  "permissions": [
+    {
+      "id": "hosting.manage",
+      "label": "مدیریت میزبانی، سرور و ابر"
+    }
+  ],
+  "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحه‌های میزبانی و سرور",
+      "labelEn": "Hosting pages SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحه‌های میزبانی و سرور",
+      "labelEn": "Hosting pages meta description",
+      "type": "textarea",
+      "public": true
+    }
+  ],
+  "adminMenu": {
+    "area": "commerce",
+    "title": "میزبانی و سرور",
+    "titleEn": "Hosting & servers",
+    "icon": "server",
+    "order": 46,
+    "items": [
+      {
+        "href": "/admin/hosting",
+        "label": "محصولات و پلن‌ها",
+        "labelEn": "Products and plans",
+        "icon": "server",
+        "permissions": [
+          "hosting.manage"
+        ]
+      },
+      {
+        "href": "/admin/hosting/providers",
+        "label": "سامانه‌های متصل",
+        "labelEn": "Connected systems",
+        "icon": "plug",
+        "permissions": [
+          "hosting.manage"
+        ]
+      },
+      {
+        "href": "/admin/sections/hosting",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  }
+}

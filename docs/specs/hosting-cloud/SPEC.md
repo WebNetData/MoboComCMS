@@ -140,7 +140,7 @@ until the owner chooses otherwise; recorded on the service).
 
 ## Admin and public UI
 
-**Admin** (area *sales*, group *Hosting & servers*): providers (test connection, capacity, health), products and
+**Admin** (area *commerce*, group *Hosting & servers*): providers (test connection, capacity, health), products and
 prices (cycle matrix), TLDs, services (search, filters by status/product/provider/due, bulk suspend), domains,
 actions log, settings (notice days, grace, retention, hourly minimum, disk rate).
 
@@ -169,8 +169,8 @@ member shell's design sheet and `dt-` pieces; RTL first, phone and both themes; 
 
 | # | Slice | Done when |
 |---|---|---|
-| 0 | This spec, owner decisions recorded | Merged |
-| 1 | Foundation: plugin (off by default), permission, models, driver contracts and registry with fake drivers, Admin providers/products/prices, public catalogue pages with the designed look | Admin can define products; public pages render; nothing is sold yet |
+| 0 | This spec, owner decisions recorded | Done |
+| 1 | Foundation: plugin (off by default), permission, models, driver contracts and registry with fake drivers, Admin providers/products/prices, public catalogue pages with the designed look | **Done 2026-11-04** ([handoff](../../agent/handoffs/HOSTING_CLOUD.md)); nothing is sold yet |
 | 2 | Web hosting sale and provisioning with the first panel driver (DirectAdmin), *My services* and the hosting workspace with SSO | Real purchase provisions a real account |
 | 3 | Fixed-term lifecycle: renewal invoice, wallet auto-renew, suspend, unsuspend, terminate, notices | Connected PG test of every state change |
 | 4 | Servers: Proxmox VE direct driver and Hetzner Cloud API driver, VPS purchase, workspace power bar, rebuild, password, console, graphs; manual delivery with allowed add-ons (traffic, upgrade) | Real Proxmox in a VM; Hetzner with the owner's token |
