@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
 import Link from '@/components/AppLink'
-import TurnstileWidget from '@/components/TurnstileWidget'
+import HumanCheck from '@/components/HumanCheck'
 import { AuthInput, PasswordInput } from './AuthFields'
 import type { ReactNode } from 'react'
 import { latinDigits } from '@/shared/text/digits'
@@ -22,8 +22,9 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
-  const [turnstileToken, setTurnstileToken] = useState(turnstileRequired ? '' : 'not-configured')
+  // Every sign-in place may ask for the human check; the widget sends 'off' when this one does not.
+  const turnstileRequired = true
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [turnstileReset, setTurnstileReset] = useState(0)
   // A newly created or reset password is followed by the password form and its confirmation.
   const [mode, setMode] = useState(() => initialEntryMethod({ sms: otp, email: emailOtp, registered: params.get('registered') === '1', passwordChanged: params.get('changed') === '1' || params.get('setup') === '1' }))
@@ -66,7 +67,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       setTurnstileReset((value) => value + 1)
       if (!res.ok) { setError(data?.error || t.errGeneric); return }
       setSentTo(data.display || (mode === 'email' ? email : phone)); setResendIn(Number(data.resendIn) || 60); setCode('')
-    } catch { setError(t.errGeneric) } finally { setLoading(false) }
+    } catch { setError(t.errGeneric); setTurnstileReset(value => value + 1) } finally { setLoading(false) }
   }
 
   async function verifyCode(e: React.FormEvent) {
@@ -78,7 +79,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       if (twoStepError(res?.error, provider)) return
       if (!res || res.error) { setError(fa ? 'کد وارد شده صحیح نیست یا منقضی شده است.' : 'The code is wrong or expired.'); return }
       await goNext()
-    } catch { setError(t.errGeneric) } finally { setLoading(false) }
+    } catch { setError(t.errGeneric); setTurnstileReset(value => value + 1) } finally { setLoading(false) }
   }
 
   async function submit(e: React.FormEvent) {
@@ -99,6 +100,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       }
       await goNext()
     } catch {
+      setTurnstileReset(value => value + 1)
       setError(t.errGeneric)
     } finally {
       setLoading(false)
@@ -127,7 +129,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
         <label className="label" htmlFor="login-totp">{fa ? 'کد ورود دو مرحله‌ای' : '2-step code'}</label>
         <input id="login-totp" className="input auth-otp" type="text" autoComplete="one-time-code" dir="ltr" maxLength={11} value={totp} onChange={(e) => setTotp(e.target.value)} required autoFocus />
       </div>
-      {twoStep === 'credentials' && <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />}
+      {twoStep === 'credentials' && <HumanCheck surface="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />}
       {error && <p className="error-text" role="alert">{error}</p>}
       <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || totp.replace(/[\s-]/g, '').length < 6 || (twoStep === 'credentials' && turnstileRequired && !turnstileToken)}>
         {loading ? <><span className="auth-spinner" aria-hidden="true" />{fa ? 'لطفاً صبر کنید…' : 'Please wait…'}</> : (fa ? 'تأیید و ورود' : 'Verify and sign in')}
@@ -148,7 +150,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
           <label className="label" htmlFor="login-code-email">{t.emailLabel}</label>
           <AuthInput icon="mail"><input id="login-code-email" className="input" type="email" autoComplete="email" dir="ltr" placeholder="name@example.com" value={email} onChange={e => setEmail(e.target.value)} required maxLength={254} aria-describedby={error ? 'login-code-error' : undefined} aria-invalid={!!error} /></AuthInput></>}
         </div>
-        <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
+        <HumanCheck surface="entry" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
       </> : <div className="mb-4">
         <label className="label" htmlFor="login-code">{fa ? 'کد تأیید' : 'Verification code'}</label>
         <input id="login-code" className="input auth-otp" type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} value={code} onChange={(e) => setCode(latinDigits(e.target.value).replace(/\D/g, ''))} required autoFocus aria-describedby={`login-code-help${error ? ' login-code-error' : ''}`} aria-invalid={!!error} />
@@ -156,7 +158,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
           <button type="button" className="link-button" disabled={loading} onClick={() => { setSentTo(''); setCode(''); setError(''); setTurnstileReset(v => v + 1) }}>{fa ? (mode === 'email' ? 'ویرایش ایمیل' : 'ویرایش شماره') : 'Change recipient'}</button>
           <button type="button" className="link-button" disabled={resendIn > 0 || loading || (turnstileRequired && !turnstileToken)} onClick={() => void requestCode()}>{resendIn > 0 ? (fa ? `ارسال دوباره تا ${resendIn.toLocaleString('fa-IR')} ثانیه` : `Resend in ${resendIn}s`) : (fa ? 'ارسال دوبارهٔ کد' : 'Resend code')}</button>
         </div>
-        <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
+        <HumanCheck surface="entry" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
       </div>}
       {error && <p id="login-code-error" className="error-text" role="alert">{error}</p>}
       <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || (!sentTo && turnstileRequired && !turnstileToken) || (!!sentTo && code.length < 6)}>
@@ -184,7 +186,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
         <PasswordInput fa={fa} id="login-password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </div>
       <p className="auth-forgot"><Link href="/forgot-password">{fa ? 'رمز عبور را فراموش کرده‌اید؟' : 'Forgot your password?'}</Link></p>
-      <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
+      <HumanCheck surface="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
       {error && <p className="error-text" role="alert">{error}</p>}
       <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || (turnstileRequired && !turnstileToken)}>
         {loading ? <><span className="auth-spinner" aria-hidden="true" />{t.loggingIn}</> : t.loginBtn}

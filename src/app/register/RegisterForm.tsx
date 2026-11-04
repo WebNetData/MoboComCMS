@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
-import TurnstileWidget from '@/components/TurnstileWidget'
+import HumanCheck from '@/components/HumanCheck'
 import { AuthInput, PasswordInput, PasswordStrength } from '../login/AuthFields'
 import { authEntryHref } from '@/modules/identity/domain/continuation'
 
@@ -22,8 +22,9 @@ export default function RegisterForm() {
   const [telegramToken, setTelegramToken] = useState('')
   const [referralCode, setReferralCode] = useState('')
   const [telegramLinkRequested, setTelegramLinkRequested] = useState(false)
-  const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
-  const [turnstileToken, setTurnstileToken] = useState(turnstileRequired ? '' : 'not-configured')
+  // Every sign-in place may ask for the human check; the widget sends 'off' when this one does not.
+  const turnstileRequired = true
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [turnstileReset, setTurnstileReset] = useState(0)
   const loginHref = telegramToken
     ? `/login?next=${encodeURIComponent(`/telegram/connect?token=${telegramToken}`)}`
@@ -68,6 +69,7 @@ export default function RegisterForm() {
       router.push(authEntryHref('/login', telegramToken ? '' : params.get('next'), { registered: '1' }))
       router.refresh()
     } catch {
+      setTurnstileReset(value => value + 1)
       setError(t.errGeneric)
     } finally {
       setLoading(false)
@@ -95,7 +97,7 @@ export default function RegisterForm() {
             <div id="register-password-hint"><PasswordStrength password={password} fa={locale === 'fa'} /></div>
           </div>
           {referralCode && <p className="success-text mb-4">{locale === 'fa' ? 'کد معرف' : 'Referral code'}: <strong dir="ltr">{referralCode}</strong></p>}
-          <TurnstileWidget action="register" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
+          <HumanCheck surface="register" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
           {error && <p className="error-text" role="alert">{error}</p>}
           <button type="submit" className="btn btn-primary w-full mt-2" disabled={loading || (turnstileRequired && !turnstileToken)}>
             {loading ? <><span className="auth-spinner" aria-hidden="true" />{t.loading}</> : t.registerBtn}

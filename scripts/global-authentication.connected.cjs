@@ -23,7 +23,7 @@ function load(file){
   if(name.startsWith('@/plugins/')&&name.endsWith('/manifest.json'))return JSON.parse(fs.readFileSync('src/'+name.slice(2),'utf8'));
   if(name.startsWith('@/platform/extensions/'))return load('src/'+name.slice(2)+'.ts');
   if(name==='next-auth')return {getServerSession:async()=>({user:{id:String(sessionId)}})};
-  if(name.startsWith('@/modules/identity/')&&!name.includes('telegram-account')&&!name.includes('staff-guard')&&!name.includes('turnstile'))return load('src/'+name.slice(2)+'.ts');
+  if(name.startsWith('@/modules/identity/')&&!name.includes('telegram-account')&&!name.includes('staff-guard')&&!name.includes('turnstile')&&!name.includes('human-check'))return load('src/'+name.slice(2)+'.ts');
   if(name.startsWith('@/'))return new Proxy({},{get:(_,key)=>()=>{throw Error('Unexpected external service: '+name+' '+String(key))}});
   return require(name);
  },mod,mod.exports);

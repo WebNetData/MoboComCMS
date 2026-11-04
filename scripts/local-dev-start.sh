@@ -26,4 +26,5 @@ node scripts/generate-extensions.mjs
 node scripts/generate-db-client.cjs
 npx prisma migrate deploy --schema prisma/schema.postgresql.prisma
 node prisma/seed.cjs
-exec npx next dev --turbopack -p 3000 -H 0.0.0.0
+# Use Webpack for this branch-changing checkout; avoid carrying the large persistent Turbopack cache.
+exec npx next dev --webpack -p 3000 -H 0.0.0.0

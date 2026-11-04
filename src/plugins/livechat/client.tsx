@@ -1,5 +1,6 @@
 'use client'
 
+import { useHumanCheck } from '@/extensions/sdk/human-check'
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import type { PluginClientModule, PluginProps } from '../types'
 import { usePathname } from '@/platform/routing/navigation'
@@ -22,6 +23,7 @@ function Text({ body }: { body: string }) {
 }
 
 function LiveChat(_props: PluginProps) {
+  const human = useHumanCheck('message')
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<State | null>(null)
@@ -119,13 +121,13 @@ function LiveChat(_props: PluginProps) {
   async function send(event?: FormEvent) {
     event?.preventDefault()
     const body = text.trim()
-    if (!body || sending) return
+    if (!body || sending || ((!status || status === 'CLOSED') && !human.ready)) return
     setSending(true); setError(''); setText('')
     const optimistic: Message = { id: -Date.now(), sender: 'VISITOR', body, at: new Date().toISOString() }
     setMessages((current) => [...current, optimistic])
-    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body, pageUrl: window.location.pathname }) }).catch(() => null)
+    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body, pageUrl: window.location.pathname, humanCheck: human.token }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
-    setSending(false)
+    setSending(false); human.reset()
     if (!response?.ok) { setError(data?.error || 'ارسال نشد؛ دوباره تلاش کنید'); setMessages((current) => current.filter((m) => m.id !== optimistic.id)); setText(body); return }
     setMessages((current) => current.filter((m) => m.id !== optimistic.id))
     merge(data.messages)
@@ -134,7 +136,7 @@ function LiveChat(_props: PluginProps) {
 
   async function operator() {
     setSending(true)
-    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'operator' }) }).catch(() => null)
+    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'operator', humanCheck: human.token }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setSending(false)
     if (response?.ok) { merge(data.messages || []); setStatus('WAITING') }
@@ -184,9 +186,10 @@ function LiveChat(_props: PluginProps) {
       </div>
       {error && <p className="lc-error" role="alert">{error}</p>}
       {current === 'BOT' && <button type="button" className="lc-human" onClick={() => void operator()} disabled={sending}>👤 گفت‌وگو با اپراتور</button>}
+      {(!status || status === 'CLOSED') && human.widget}
       <form className="lc-input" onSubmit={send}>
         <textarea value={text} onChange={(e) => onType(e.target.value)} onKeyDown={onKey} rows={1} maxLength={2000} placeholder={current === 'CLOSED' ? 'برای شروع گفت‌وگوی تازه بنویسید…' : 'پیام خود را بنویسید…'} aria-label="پیام" />
-        <button type="submit" disabled={sending || !text.trim()} aria-label="ارسال"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12l-11.5 1.9z" transform="rotate(180 12 12)" /></svg></button>
+        <button type="submit" disabled={sending || ((!status || status === 'CLOSED') && !human.ready) || !text.trim()} aria-label="ارسال"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12l-11.5 1.9z" transform="rotate(180 12 12)" /></svg></button>
       </form>
     </section>}
     <button type="button" className={`lc-bubble${open ? ' is-open' : ''}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'بستن گفت‌وگو' : 'گفت‌وگوی آنلاین'}>

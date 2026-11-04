@@ -5002,3 +5002,13 @@ model DomainAction {
   @@index([domainId, createdAt])
   @@index([status, kind])
 }
+
+/// A solved human check (built-in captcha), accepted once until its challenge expires.
+model HumanCheckUse {
+  salt      String   @id
+  surface   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}

@@ -1,4 +1,5 @@
 import { siteRedirect } from '@/platform/http/redirect'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { err, ok } from '@/platform/http/response'
@@ -23,6 +24,8 @@ function failure(error: unknown) {
 export async function POST_subscribe(req: NextRequest) {
   if (!rateLimitHit(`newsletter:${clientIp(req.headers)}`, 6, 10 * 60_000).ok) return err('تلاش‌های زیادی انجام شد؛ کمی بعد دوباره امتحان کنید', 429)
   const body = (await req.json().catch(() => null)) || {}
+  const refused = await humanCheckRefusal(body.humanCheck, req.headers, 'form')
+  if (refused) return refused
   const user = await requireUser(req).catch(() => null)
   try { return ok(await subscribe({ email: body.email, name: body.name, source: 'form', userId: user?.id ?? null })) } catch (error) { return failure(error) }
 }

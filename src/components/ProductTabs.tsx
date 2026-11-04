@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useSession } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { useHumanCheck } from '@/components/HumanCheck'
 import ProductPriceHistory from '@/components/store/ProductPriceHistory'
 import { RatingMeter } from '@/components/engage/RatingMeter'
 import RatingTiles from '@/components/engage/RatingTiles'
@@ -96,6 +97,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const { status } = useSession()
+  const human = useHumanCheck('review', locale)
   const [tab, setTab] = useState<Tab>('description')
   const [data, setData] = useState<Record<string, any>>({ description: { htmlFa: descriptionFa, htmlEn: descriptionEn } })
   const [loading, setLoading] = useState(false)
@@ -180,7 +182,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
     try {
       const response = await fetch(`/api/products/${encodeURIComponent(slug)}/feedback`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, body, title, criteria, guestName, rating: overall }),
+        body: JSON.stringify({ kind, body, title, criteria, guestName, rating: overall, humanCheck: human.token }),
       })
       const result = await response.json().catch(() => null)
       if (!response.ok) { setMessage(result?.error || (fa ? 'ثبت انجام نشد.' : 'Submission failed.')); return }
@@ -193,7 +195,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
       setReloadToken(token => token + 1)
       setMessage(fa ? 'ثبت شد و پس از بررسی نمایش داده می‌شود.' : 'Submitted. It will appear after moderation.')
     } catch { setMessage(fa ? 'ارتباط برقرار نشد. دوباره تلاش کنید.' : 'Connection failed. Please retry.') }
-    finally { setSubmitting(false) }
+    finally { setSubmitting(false); human.reset() }
   }
 
   const counts: Partial<Record<Tab, number>> = { reviews: reviewCount, questions: questionCount }
@@ -306,7 +308,8 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
               <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={150} placeholder={fa ? 'عنوان دیدگاه (اختیاری)' : 'Review title (optional)'} />
               <textarea className="textarea" value={body} onChange={(event) => setBody(event.target.value)} minLength={10} maxLength={3000} placeholder={fa ? 'دربارهٔ کیفیت، سرعت تحویل و پشتیبانی بنویسید…' : 'Tell others about quality, delivery and support…'} />
               <footer className="rv-form-foot">
-                <button type="button" className="btn btn-primary" disabled={submitting || body.trim().length < 10} onClick={() => void submit('review')}>{submitting ? (fa ? 'در حال ثبت…' : 'Submitting…') : (fa ? 'ثبت دیدگاه' : 'Submit review')}</button>
+                {human.widget}
+                <button type="button" className="btn btn-primary" disabled={submitting || !human.ready || body.trim().length < 10} onClick={() => void submit('review')}>{submitting ? (fa ? 'در حال ثبت…' : 'Submitting…') : (fa ? 'ثبت دیدگاه' : 'Submit review')}</button>
                 <small className="muted">{fa ? 'دیدگاه شما پس از تأیید نمایش داده می‌شود.' : 'Your review appears after approval.'}</small>
               </footer>
             </div>}
@@ -351,7 +354,8 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
               {status !== 'authenticated' && <label className="qa-field">{fa ? 'نام شما' : 'Your name'}<input className="input" value={guestName} onChange={(event) => setGuestName(event.target.value)} minLength={2} maxLength={80} placeholder={fa ? 'مثال: علی' : 'e.g. Alex'} /></label>}
               <label className="qa-field">{fa ? 'پرسش شما' : 'Your question'}<textarea className="textarea" value={body} onChange={(event) => setBody(event.target.value)} minLength={10} maxLength={3000} placeholder={fa ? 'دربارهٔ این محصول چه می‌خواهید بدانید؟' : 'What would you like to know about this product?'} /></label>
               <div className="qa-form-foot">
-                <button type="button" className="btn btn-primary" disabled={submitting || body.trim().length < 10 || (status !== 'authenticated' && guestName.trim().length < 2)} onClick={() => void submit('question')}>{submitting ? (fa ? 'در حال ثبت…' : 'Submitting…') : (fa ? 'ثبت پرسش' : 'Ask a question')}</button>
+                {human.widget}
+                <button type="button" className="btn btn-primary" disabled={submitting || !human.ready || body.trim().length < 10 || (status !== 'authenticated' && guestName.trim().length < 2)} onClick={() => void submit('question')}>{submitting ? (fa ? 'در حال ثبت…' : 'Submitting…') : (fa ? 'ثبت پرسش' : 'Ask a question')}</button>
                 <small className="muted">{fa ? 'پاسخ فروشگاه معمولاً کمتر از ۲۴ ساعت ارسال می‌شود.' : 'Store answers usually arrive within 24 hours.'}</small>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 import { sectionSettingsAnswer, sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
 import { NextResponse } from 'next/server'
 import { err, ok } from '@/platform/http/response'
@@ -54,6 +55,12 @@ export async function POST_visitor(req: NextRequest) {
     const conversation = await visitorConversation(existing, user?.id ?? null)
     if (conversation && conversation.status !== 'CLOSED') await typing(conversation.id, 'visitor')
     return ok({ ok: true })
+  }
+  // A cookie alone proves nothing: only an existing open conversation skips a new check.
+  const conversation = existing ? await visitorConversation(existing, user?.id ?? null) : null
+  if ((!conversation || conversation.status === 'CLOSED') && (!input.op || input.op === 'operator')) {
+    const refused = await humanCheckRefusal(input.humanCheck, req.headers, 'message')
+    if (refused) return refused
   }
   const token = existing || newChatToken()
   if (!rateLimitHit(`chat:${existing || clientIp(req.headers)}`, 20, 60_000).ok) return err('پیام‌ها خیلی سریع ارسال شد؛ کمی صبر کنید', 429)

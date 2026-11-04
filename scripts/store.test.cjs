@@ -43,7 +43,9 @@ test('attribute groups isolate physical colors from virtual account types and va
 
 test('reviews require a paid purchase; member questions are open', async () => {
   let purchased = false, reviewCreated = false, questionCreated = false, reviewWhere
+  // Captcha cryptography/replay is covered by human-check.connected.cjs; isolate purchase/moderation here.
   const route = load('src/modules/catalog/server/http/product-feedback/route.ts', {
+    '@/modules/identity/server/human-check': { humanCheckRefusal: async () => null },
     '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
     '@/modules/identity/server/access': { requireUser: async () => ({ id: 9 }) },
     '@/platform/http/rate-limit': { clientIp: () => '127.0.0.1', rateLimitHit: () => ({ ok: true }) },
@@ -109,7 +111,9 @@ test('guest questions are moderated and review criteria are server-derived', asy
   })
   assert.equal(reviewScore({ criteria: { quality: 5, value: 8, usability: 4 } }), null)
   let question
+  // Captcha cryptography/replay is covered by human-check.connected.cjs; isolate purchase/moderation here.
   const route = load('src/modules/catalog/server/http/product-feedback/route.ts', {
+    '@/modules/identity/server/human-check': { humanCheckRefusal: async () => null },
     '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
     '@/modules/identity/server/access': { requireUser: async () => null },
     '@/platform/http/rate-limit': { clientIp: () => '127.0.0.1', rateLimitHit: () => ({ ok: true }) },

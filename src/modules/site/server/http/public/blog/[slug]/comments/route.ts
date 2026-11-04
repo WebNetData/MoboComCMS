@@ -8,6 +8,7 @@ import { isPublishedPost } from '@/modules/journal/domain/journal'
 import { queueCommentNotification } from '@/modules/journal/server/comment-notification-intents'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { opensAudience } from '@/modules/account/server/item-audience'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 
 const who = (user: { name: string | null; telegramPhoto: string | null; userProfile: { avatar: string } | null }) => ({ name: user.name || 'Member', avatar: pictureOf(user) })
 
@@ -51,6 +52,8 @@ export async function POST(req: NextRequest, { params }: Context) {
   const post = await db.post.findUnique({ where: { slug }, select: { id: true, status: true, publishedAt: true, audienceGroups: true } })
   if (!post || !isPublishedPost(post) || !await opensAudience(post.audienceGroups, 'post')) return err('not found', 404)
   const body = await req.json().catch(() => null)
+  const refused = await humanCheckRefusal(body?.humanCheck, req.headers, 'comment')
+  if (refused) return refused
   const text = typeof body?.body === 'string' ? body.body.trim() : ''
   if (text.length < 2 || text.length > 2000 || /[<>]/.test(text)) return err('Comment must be 2–2000 plain-text characters / نظر باید متن ساده با طول ۲ تا ۲۰۰۰ کاراکتر باشد')
   const parentId = body?.parentId == null ? null : Number(body.parentId)

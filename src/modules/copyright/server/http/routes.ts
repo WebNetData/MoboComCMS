@@ -7,6 +7,7 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { CopyrightError } from '@/modules/copyright/domain/copyright'
 import { decideReport, reportDetail, reportList, reportStatus, submitReport } from '@/modules/copyright/server/copyright'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 
 function failure(error: unknown) {
   if (error instanceof CopyrightError) return err(error.message, error.status)
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
   const off = await moduleGuard('copyright')
   if (off) return off
   const body = (await req.json().catch(() => null)) || {}
+  const refused = await humanCheckRefusal(body.humanCheck, req.headers, 'form')
+  if (refused) return refused
   try { return ok(await submitReport(body, visitorHash(req.headers)), 201) } catch (error) { return failure(error) }
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent, useRef } from 'react'
 import Link from '@/components/AppLink'
+import HumanCheckSettings from './HumanCheckSettings'
 import { Notice, fa } from '../store/shared'
 
 type Policy = { requireAdmin2fa: boolean; emailReset: boolean; smsReset: boolean; emailOtp: boolean }
@@ -69,6 +70,7 @@ export default function SecurityAdminPage() {
 
     <div className="sa-cols">
       <div className="sa-stack">
+        <HumanCheckSettings />
         <section className="sa-card sa-form">
           <header className="sa-card-head"><h2>ثبت‌نام و ورود با کد</h2></header>
           <label className="sa-check"><input type="checkbox" checked={policy.emailOtp} onChange={(e) => setPolicy({ ...policy, emailOtp: e.target.checked })} />ورود و ثبت‌نام با کد یک‌بارمصرف ایمیلی</label>

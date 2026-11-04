@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 import { ok, err } from '@/platform/http/response'
 import { bulkSameOrigin } from '@/modules/content/server/bulk'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
@@ -48,6 +49,10 @@ export async function POST(req: NextRequest) {
   if (!rateLimitHit(`business-write:${user.id}`, 30, 3_600_000).ok) return err('Ú©Ù…ÛŒ Ø¨Ø¹Ø¯ Ø¯ÙˆØ¨Ø§Ø±Ù‡ ØªÙ„Ø§Ø´ Ú©Ù†ÛŒØ¯', 429)
   try {
     const body = await input(req)
+    if (body.action === 'review' || body.action === 'reply') {
+      const refused = await humanCheckRefusal(body.humanCheck, req.headers, 'review')
+      if (refused) return refused
+    }
     if (body.action === 'review') return ok(await submitBusinessExperience(req, body))
     if (body.action === 'reply') return ok(await respondToBusinessExperience(req, body))
     if (body.action === 'request') return ok(await requestBusiness(req, body))

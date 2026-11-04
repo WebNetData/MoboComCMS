@@ -57,7 +57,7 @@ export function normalizeSite(input: unknown): SiteMaintenance {
 // What keeps working while the site is closed: signing in, so the owner can get back; a bank returning a payer and what it
 // tells us; the services already paid for and the machines that run the site. Assets are files, so the notice itself can load.
 const OPEN_PAGES = /^\/(login|forgot-password|reset-password|maintenance|install|payment|s)(\/|$)/
-const OPEN_APIS = /^\/api\/(auth|login|password|sms|payment|telegram|internal|health|metrics|install|sub|happ)(\/|$)/
+const OPEN_APIS = /^\/api\/(auth|login|password|sms|human-check|payment|telegram|internal|health|metrics|install|sub|happ)(\/|$)/
 export const openDuringSiteMaintenance = (path: string) => OPEN_PAGES.test(path) || OPEN_APIS.test(path) || (/\.[a-z0-9]{2,12}$/i.test(path) && !/^\/(dl|files|api|admin)(\/|$)/.test(path))
 
 export const DEFAULT_TITLE = 'این بخش در حال به‌روزرسانی است'

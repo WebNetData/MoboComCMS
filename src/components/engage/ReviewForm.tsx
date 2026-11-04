@@ -2,6 +2,7 @@
 
 import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
+import { useHumanCheck } from '@/components/HumanCheck'
 import { EXPERIENCE_LABEL, isExperienceKind, suggestedRating, type ReviewScores } from '@/modules/reviews/domain/dimensions'
 import { RATING_LABELS, RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
@@ -12,6 +13,7 @@ const LABELS = RATING_LABELS
 /** Star rating, optional per-type dimension scores and optional text review for the signed-in member (create, edit, delete). */
 export default function ReviewForm({ item, mine, loggedIn, title, path, dimensions = [], experience = '', badgeHint = '', startEditing = false, onDone }: { item: string; mine: Mine; loggedIn: boolean; title: string; path: string; dimensions?: Dimension[]; experience?: string; badgeHint?: string; /** Open the editor for an existing review (account list). */ startEditing?: boolean; /** Called when the editor is left: saved, cancelled or deleted. */ onDone?: () => void }) {
   const router = useRouter()
+  const human = useHumanCheck('review')
   const [rating, setRating] = useState(mine?.rating || 0)
   const [hover, setHover] = useState(0)
   const [body, setBody] = useState(mine?.body || '')
@@ -42,8 +44,9 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
     event.preventDefault()
     if (!rating) { setMessage({ text: 'ابتدا از ۱ تا ۵ یک امتیاز انتخاب کنید', error: true }); return }
     setBusy(true); setMessage(null)
-    const response = await fetch('/api/engage/review', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ item, rating, body, ...(dimensions.length ? { scores } : {}) }) }).catch(() => null)
+    const response = await fetch('/api/engage/review', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ item, rating, body, humanCheck: human.token, ...(dimensions.length ? { scores } : {}) }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
+    human.reset()
     setBusy(false)
     if (!response?.ok) { setMessage({ text: data?.error || 'ثبت نشد؛ دوباره امتحان کنید', error: true }); return }
     setEditing(false)
@@ -116,8 +119,9 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
         ? <p className="rv-experience"><span className="rv-badge">✓ {EXPERIENCE_LABEL[badge].label}</span> نظر شما با این نشان نمایش داده می‌شود.</p>
         : badgeHint && <p className="rv-experience">نشان «تجربهٔ تأییدشده» پس از {badgeHint} در موبوکام به نظر شما افزوده می‌شود.</p>}
       {message && <p className={message.error ? 'error-text' : 'rv-ok'} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
+      {human.widget}
       <div className="rv-form-actions">
-        <button className="btn btn-primary btn-sm" disabled={busy || !rating}>{busy ? 'در حال ثبت…' : mine ? 'ذخیرهٔ تغییرات' : 'ثبت امتیاز و نظر'}</button>
+        <button className="btn btn-primary btn-sm" disabled={busy || !human.ready || !rating}>{busy ? 'در حال ثبت…' : mine ? 'ذخیرهٔ تغییرات' : 'ثبت امتیاز و نظر'}</button>
         {mine && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(false); setRating(mine.rating); setBody(mine.body); setScores(mine.scores || {}); onDone?.() }}>انصراف</button>}
         <small className={`rv-counter${body.length > 1800 ? ' is-near' : ''}`}>{body.length.toLocaleString('fa-IR')} / ۲٬۰۰۰</small>
       </div>

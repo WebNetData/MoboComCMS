@@ -1,5 +1,6 @@
 'use client'
 
+import { useHumanCheck } from '@/components/HumanCheck'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -149,6 +150,7 @@ function Images({ list }: { list: string[] }) {
 }
 
 export function PostCard({ post: initial, signedIn, meId, onRemoved, expanded = false }: { post: Post; signedIn: boolean; meId: number | null; onRemoved?: (id: number) => void; expanded?: boolean }) {
+  const human = useHumanCheck('community')
   const [post, setPost] = useState(initial)
   const [comments, setComments] = useState<Comment[]>(initial.all || initial.preview)
   const [showAll, setShowAll] = useState(expanded)
@@ -176,9 +178,10 @@ export function PostCard({ post: initial, signedIn, meId, onRemoved, expanded = 
   }
   async function sendComment(event: React.FormEvent) {
     event.preventDefault()
-    if (need() || !reply.trim()) return
+    if (need() || busy || !human.ready || !reply.trim()) return
     setBusy(true)
-    const result = await call<{ comment: Comment }>(`/api/community/posts/${post.id}/comments`, 'POST', { content: reply })
+    const result = await call<{ comment: Comment }>(`/api/community/posts/${post.id}/comments`, 'POST', { content: reply, humanCheck: human.token })
+    human.reset()
     setBusy(false)
     if (!result.ok) { show(result.error); return }
     setComments((list) => [...list, result.data.comment]); setReply(''); setPost((p) => ({ ...p, comments: p.comments + 1 }))
@@ -253,7 +256,8 @@ export function PostCard({ post: initial, signedIn, meId, onRemoved, expanded = 
           </span>
         </div>
       </div>)}
-      {signedIn && <form className="cm-reply" onSubmit={sendComment}><input id={`reply-${post.id}`} className="input" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="دیدگاه بنویسید…" maxLength={1000} aria-label="دیدگاه" /><button type="submit" className="cm-btn is-icon is-accent" disabled={busy || !reply.trim()} aria-label="ارسال دیدگاه"><CmIcon name="send" size={17} /></button></form>}
+      {signedIn && !!reply.trim() && human.widget}
+      {signedIn && <form className="cm-reply" onSubmit={sendComment}><input id={`reply-${post.id}`} className="input" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="دیدگاه بنویسید…" maxLength={1000} aria-label="دیدگاه" /><button type="submit" className="cm-btn is-icon is-accent" disabled={busy || !human.ready || !reply.trim()} aria-label="ارسال دیدگاه"><CmIcon name="send" size={17} /></button></form>}
     </div>}
     {reporting && <ReportDialog target={reporting} onClose={() => setReporting(null)} onDone={(text) => { setReporting(null); show(text) }} />}
     {node}
@@ -263,6 +267,7 @@ export function PostCard({ post: initial, signedIn, meId, onRemoved, expanded = 
 // ------------------------------------------------------------------ composer
 
 export function Composer({ me, onPosted, allowFollowers = true, allowImages = true, maxLength = 2000, placeholder = 'چه خبر؟ از بازی، فیلم، نرم‌افزار یا هر چیزی که دوست دارید بنویسید…' }: { me: Card; onPosted: (post: Post) => void; allowFollowers?: boolean; allowImages?: boolean; maxLength?: number; placeholder?: string }) {
+  const human = useHumanCheck('community')
   const [text, setText] = useState('')
   const [images, setImages] = useState<string[]>([])
   const [visibility, setVisibility] = useState<'PUBLIC' | 'FOLLOWERS'>('PUBLIC')
@@ -288,9 +293,10 @@ export function Composer({ me, onPosted, allowFollowers = true, allowImages = tr
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (!text.trim() && !images.length) return
+    if (busy || !human.ready || (!text.trim() && !images.length)) return
     setBusy(true); setError('')
-    const result = await call<{ post: Post }>('/api/community/posts', 'POST', { content: text, images, visibility })
+    const result = await call<{ post: Post }>('/api/community/posts', 'POST', { content: text, images, visibility, humanCheck: human.token })
+    human.reset()
     setBusy(false)
     if (!result.ok) { setError(result.error); return }
     setText(''); setImages([]); onPosted(result.data.post)
@@ -302,11 +308,12 @@ export function Composer({ me, onPosted, allowFollowers = true, allowImages = tr
       <textarea ref={area} className="cm-composer-text" value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} maxLength={maxLength} rows={2} aria-label="متن پست" dir="auto" onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') void submit(e as unknown as React.FormEvent) }} />
       {images.length > 0 && <div className="cm-composer-images">{images.map((src) => <span key={src}><img src={src} alt="" /><button type="button" aria-label="حذف تصویر" onClick={() => setImages((list) => list.filter((x) => x !== src))}><CmIcon name="x" size={14} /></button></span>)}</div>}
       {error && <p className="cm-error" role="alert">{error}</p>}
+      {human.widget}
       <div className="cm-composer-bar">
         {allowImages && <><input ref={file} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={(e) => void upload(e.target.files)} /><button type="button" className="cm-btn is-icon is-ghost" onClick={() => file.current?.click()} disabled={uploading || images.length >= 4} aria-label="افزودن تصویر" title="افزودن تصویر (حداکثر ۴)"><CmIcon name="image" size={19} /></button></>}
         {allowFollowers && <label className="cm-visibility"><CmIcon name={visibility === 'PUBLIC' ? 'globe' : 'users'} size={15} /><select value={visibility} onChange={(e) => setVisibility(e.target.value as 'PUBLIC' | 'FOLLOWERS')} aria-label="چه کسانی ببینند"><option value="PUBLIC">همه</option><option value="FOLLOWERS">فقط دنبال‌کنندگان</option></select></label>}
         <span className={`cm-count num${left < 50 ? ' is-low' : ''}`} aria-live="polite">{left < 200 ? fa(left) : ''}</span>
-        <button type="submit" className="btn btn-primary cm-publish" disabled={busy || uploading || (!text.trim() && !images.length)}>{uploading ? 'در حال بارگذاری…' : busy ? 'در حال انتشار…' : 'انتشار'}</button>
+        <button type="submit" className="btn btn-primary cm-publish" disabled={busy || !human.ready || uploading || (!text.trim() && !images.length)}>{uploading ? 'در حال بارگذاری…' : busy ? 'در حال انتشار…' : 'انتشار'}</button>
       </div>
     </div>
   </form>

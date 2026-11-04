@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useSession } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { useHumanCheck } from '@/components/HumanCheck'
 
 type Reply = { id: number; body: string; createdAt: string; user: { name: string; avatar?: string } }
 type Comment = Reply & { replies: Reply[]; deleted?: boolean }
@@ -27,6 +28,7 @@ export default function PostComments({ slug }: { slug: string }) {
   const { status, data: session } = useSession()
   const fa = locale === 'fa'
   const L = (en: string, persian: string) => fa ? persian : en
+  const human = useHumanCheck('comment', locale)
   const [listing, setListing] = useState<Listing | null>(null)
   const [page, setPage] = useState(1)
   const [body, setBody] = useState('')
@@ -56,13 +58,13 @@ export default function PostComments({ slug }: { slug: string }) {
     if (busy) return
     setBusy(true); setError(''); setNotice('')
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: text, parentId }) })
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: text, parentId, humanCheck: human.token }) })
       const data = await response.json().catch(() => null)
       if (!response.ok) throw Error(data?.error || L('Could not submit your comment.', 'ثبت دیدگاه ممکن نشد.'))
       if (parentId) { setReply(''); setReplyTo(null) } else setBody('')
       setNotice(parentId ? L('Your reply was sent for review.', 'پاسخ شما برای بررسی ارسال شد.') : L('Your comment was sent for review.', 'دیدگاه شما برای بررسی ارسال شد.'))
     } catch (cause) { setError(cause instanceof Error ? cause.message : L('Could not submit your comment.', 'ثبت دیدگاه ممکن نشد.')) }
-    finally { setBusy(false) }
+    finally { setBusy(false); human.reset() }
   }
 
   const date = (value: string) => new Date(value).toLocaleDateString(fa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -88,10 +90,11 @@ export default function PostComments({ slug }: { slug: string }) {
       <div className="pc-compose">
         <label htmlFor="post-comment-body">{L('Your comment', 'دیدگاه شما')}</label>
         <textarea id="post-comment-body" className="input" minLength={2} maxLength={MAX} required rows={4} dir="auto" value={body} onChange={event => setBody(event.target.value)} placeholder={L('Write your comment…', 'دیدگاه خود را بنویسید…')} />
+        {human.widget}
         <div className="post-comment-form-foot">
           <small>{L('Comments appear after moderation. Do not share account or subscription details.', 'دیدگاه‌ها پس از تأیید نمایش داده می‌شوند. اطلاعات حساب یا اشتراک را منتشر نکنید.')}</small>
           {counter(body.length)}
-          <button className="btn btn-primary" disabled={busy || body.trim().length < 2}>{busy && !replyTo ? L('Sending…', 'در حال ارسال…') : L('Send comment', 'ارسال دیدگاه')}</button>
+          <button className="btn btn-primary" disabled={busy || !human.ready || body.trim().length < 2}>{busy && !replyTo ? L('Sending…', 'در حال ارسال…') : L('Send comment', 'ارسال دیدگاه')}</button>
         </div>
       </div>
     </form> : <div className="post-comments-signin"><span aria-hidden="true">✎</span><p>{L('Sign in to join the conversation.', 'برای شرکت در گفت‌وگو وارد شوید.')}</p><Link className="btn btn-primary btn-sm" href={`/login?next=${encodeURIComponent(`/blog/${slug}`)}`}>{L('Sign in', 'ورود')}</Link></div>}
@@ -106,7 +109,7 @@ export default function PostComments({ slug }: { slug: string }) {
         {replyTo === comment.id && <form className="pc-reply-form" onSubmit={(event) => { event.preventDefault(); void send(reply, comment.id) }}>
           <label className="sr-only" htmlFor={`post-reply-${comment.id}`}>{L(`Reply to ${comment.user.name}`, `پاسخ به ${comment.user.name}`)}</label>
           <textarea id={`post-reply-${comment.id}`} className="input" minLength={2} maxLength={MAX} required rows={3} dir="auto" autoFocus value={reply} onChange={event => setReply(event.target.value)} placeholder={L(`Reply to ${comment.user.name}…`, `پاسخ به ${comment.user.name}…`)} />
-          <div className="post-comment-form-foot">{counter(reply.length)}<button className="btn btn-primary btn-sm" disabled={busy || reply.trim().length < 2}>{busy ? L('Sending…', 'در حال ارسال…') : L('Send reply', 'ارسال پاسخ')}</button></div>
+          <div className="post-comment-form-foot">{counter(reply.length)}<button className="btn btn-primary btn-sm" disabled={busy || !human.ready || reply.trim().length < 2}>{busy ? L('Sending…', 'در حال ارسال…') : L('Send reply', 'ارسال پاسخ')}</button></div>
         </form>}
         {comment.replies.length > 0 && <div className="pc-replies">{comment.replies.map(item => <div className="post-comment post-comment-child pc-row" key={item.id}>{entry(item)}</div>)}</div>}
       </article>)}

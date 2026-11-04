@@ -8,6 +8,7 @@ import { reviewScore } from '@/modules/catalog/domain/review-score'
 import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
 import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
 import { opensAudience } from '@/modules/account/server/item-audience'
+import { humanCheckRefusal } from '@/modules/identity/server/human-check'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest, { params }: Context) {
   const product = await db.product.findUnique({ where: { slug }, select: { id: true, active: true, approval: true, audienceGroups: true } })
   if (!product || !(isPublishedProduct(product) && await opensAudience(product.audienceGroups, 'product'))) return err('not found', 404)
   const input = await req.json().catch(() => null)
+  const refused = await humanCheckRefusal(input?.humanCheck, req.headers, 'review')
+  if (refused) return refused
   const kind = input?.kind
   const body = String(input?.body || '').trim()
   if (body.length < 10 || body.length > 3000 || /[<>]/.test(body)) return err('Use 10–3000 plain-text characters / متن ساده با طول ۱۰ تا ۳۰۰۰ نویسه وارد کنید')

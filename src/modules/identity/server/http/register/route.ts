@@ -7,7 +7,7 @@ import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { claimTelegramAccount } from '@/modules/identity/telegram-account'
 import { verifyTelegramWebLinkToken } from '@/modules/notifications/server/telegram'
-import { verifyTurnstile } from '@/modules/identity/server/turnstile'
+import { verifyHuman } from '@/modules/identity/server/human-check'
 import { getBotLocale, setUserLocale } from '@/modules/notifications/server/telegram-locale'
 import { normalizeReferralCode, referralPolicy } from '@/modules/referrals/server/referrals'
 
@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
   const telegramToken = String(body?.telegramToken || '').trim()
   const referralCode = normalizeReferralCode(body?.referralCode)
 
-  if (!await verifyTurnstile(body?.turnstileToken, req.headers, 'register')) {
-    return err(L('Security verification failed. Please try again.', 'اعتبارسنجی امنیتی ناموفق بود؛ دوباره تلاش کنید'), 400, { code: 'TURNSTILE_FAILED' })
+  if (!await verifyHuman(body?.turnstileToken, req.headers, 'register')) {
+    return err(L('Security verification failed. Please try again.', 'اعتبارسنجی امنیتی ناموفق بود؛ دوباره تلاش کنید'), 400, { code: 'HUMAN_CHECK' })
   }
 
   if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 190) return err(L('Invalid email address', 'ایمیل معتبر نیست'))

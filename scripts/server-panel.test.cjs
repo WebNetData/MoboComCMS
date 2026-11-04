@@ -484,7 +484,7 @@ test('hosting: staff transitions start only from their states and a terminated s
 })
 
 test('hosting: customer and staff service APIs are guarded, private and never carry a secret', () => {
-  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replaceAll('\r\n', '\n')
   const member = read('src/modules/hosting/server/member-http.ts')
   assert.equal((member.match(/await moduleGuard\('hosting'\)/g) || []).length, 4, 'list, one service, its actions and hourly purchase')
   assert.equal((member.match(/const user = await requireUser\(req\)\n  if \(!user\) return err/g) || []).length, 4)
