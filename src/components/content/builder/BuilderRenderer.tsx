@@ -617,7 +617,8 @@ export default async function BuilderRenderer({ doc: storedDoc, locale, data, sl
   context?: BuilderContext
 }) {
   // Stored track/album links get their final address here, so visitors are not sent through a redirect.
-  const [kit, doc] = await Promise.all([getBuilderKit(!!preview).then(kitCss), withCanonicalContentLinks(storedDoc)])
+  const doc = await withCanonicalContentLinks(storedDoc)
+  const kit = kitCss(await getBuilderKit(!!preview))
   if (doc.mode === 'code') return <>{kit && <style>{kit}</style>}{renderCode(doc.code)}</>
 
   const ownWidgets = doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets))
