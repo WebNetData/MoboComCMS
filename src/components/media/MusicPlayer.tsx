@@ -1,4 +1,5 @@
 'use client'
+import { contentPath } from '@/platform/routing/aliases'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
@@ -303,7 +304,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
           {current.cover && <div className="mu-player-glow" aria-hidden="true" style={{ backgroundImage: `url("${encodeURI(current.cover)}")` }} />}
           <div className="mu-player-progress" aria-hidden="true"><span style={{ width: `${length ? (time / length) * 100 : 0}%` }} /></div>
           <div className="mu-player-inner">
-            <Link href={`/music/track/${current.slug}`} className="mu-player-meta">
+            <Link href={contentPath('track', current.slug, { artist: current.artistSlug })} className="mu-player-meta">
               {current.cover ? <img src={sized(current.cover, 160)} srcSet={srcSet(current.cover, 160)} alt="" className={playing ? 'is-spinning' : ''} /> : <span className="mu-player-noart"><PlayerIcon name="note" /></span>}
               <span><b>{current.title}</b><small>{current.artist}</small></span>
             </Link>

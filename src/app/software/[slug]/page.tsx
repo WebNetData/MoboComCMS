@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
@@ -29,7 +30,7 @@ export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params
+  const { slug } = await contentRouteParams(params)
   const data = await getSoftware(slug)
   if (!data) return {}
   const s = data.software
@@ -52,7 +53,7 @@ const n = (value: number) => value.toLocaleString('fa-IR')
  */
 export default async function SoftwarePage({ params }: Props) {
   await requireModule('software')
-  const [{ slug }, viewer] = await Promise.all([params, getViewer()])
+  const [{ slug }, viewer] = await Promise.all([contentRouteParams(params), getViewer()])
   const [data, chrome] = await Promise.all([getSoftware(slug), softwarePortalChrome()])
   if (!data) notFound()
   const s = data.software

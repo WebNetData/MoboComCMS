@@ -1,3 +1,4 @@
+import { contentPath } from '@/platform/routing/aliases'
 import { readShowcase } from '@/modules/prompts/domain/prompts'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
@@ -36,7 +37,7 @@ const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() }, aud
 type Where = { id?: { in?: number[]; gt?: number }; slug?: string; q?: string }
 
 async function load(type: ItemType, where: Where, take: number, includeScheduledPosts = false, indexScan = false, client: Prisma.TransactionClient = db): Promise<ItemCard[]> {
-  const card = (row: Omit<ItemCard, 'type' | 'url'>): ItemCard => ({ ...row, type, url: itemPath(type, row) })
+  const card = (row: Omit<ItemCard, 'type' | 'url'>, artist?: string): ItemCard => ({ ...row, type, url: artist && (type === 'track' || type === 'album') ? contentPath(type, row.slug, { artist }) : itemPath(type, row) })
   // `q` is an optional bounded text filter for admin pickers; it never reaches Prisma as a field.
   const { q, ...base } = where
   const text = String(q || '').trim().slice(0, 100)
@@ -73,12 +74,12 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: [r.kind === 'SERIES' ? 'سریال' : 'فیلم', r.year, r.genres].filter(Boolean).join(' · '), summary: plain(r.summary), keywords: [r.titleEn, r.originalTitle, r.genres, r.director, r.countries, r.year].join(' '), image: r.poster, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'album': {
-      const rows = await client.musicAlbum.findMany({ where: { ...base, ...live(), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } } } })
-      return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.artist.name, summary: plain(r.description), keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.year].join(' '), image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
+      const rows = await client.musicAlbum.findMany({ where: { ...base, ...live(), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true, slug: true } } } })
+      return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.artist.name, summary: plain(r.description), keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.year].join(' '), image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }, r.artist.slug))
     }
     case 'track': {
-      const rows = await client.musicTrack.findMany({ where: {album: { isNot: { audienceGroups: { not: '' } } },  ...base, ...live(), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } }, album: { select: { cover: true, title: true } } } })
-      return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.artist.name, summary: r.album?.title || '', keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.album?.title].join(' '), image: r.cover || r.album?.cover || '', access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.plays + r.downloads }))
+      const rows = await client.musicTrack.findMany({ where: {album: { isNot: { audienceGroups: { not: '' } } },  ...base, ...live(), ...match }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true, slug: true } }, album: { select: { cover: true, title: true } } } })
+      return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.artist.name, summary: r.album?.title || '', keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.album?.title].join(' '), image: r.cover || r.album?.cover || '', access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.plays + r.downloads }, r.artist.slug))
     }
     case 'artist': {
       const rows = await client.musicArtist.findMany({ where: { ...base, ...(indexScan || text ? { mergedIntoId: null } : {}), ...matchName }, include: { mergedInto: true }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' } })

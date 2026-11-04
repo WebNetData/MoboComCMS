@@ -1,0 +1,11 @@
+# Configurable content permalinks
+
+Owner2026-11-04: pages directly at `/{slug}`; tracks at `/music/{artist}/track/{slug}`; Admin controls across sections. Continue existing Site routes, shared Link/navigation, proxy and module pages. Mini App work remains intact.
+
+- Existing `site.routes.v1` section aliases are retained. Typed `site.permalinks.v1` is the content-address policy owned by the same Site router, not another content, authentication or storage system. It supports literal path segments and `{slug}`; tracks/albums additionally support their primary artist's `{artist}`.
+- Existing deployments remain on their legacy pattern until saved. Admin `/admin/permalinks`, existing `/api/admin/site/routes`, `settings.manage`, same-origin write, revision conflict409, serializable two-key claims and same-transaction strict audit. Section settings merge only their own aliases from fresh state.
+- Keep prior patterns/section aliases for308 redirects and canonicalize incorrect/old artist segments against the stored primary artist. Slugs and entity data are unchanged. Slug renames are separate content commands, not promised by pattern history.
+- Shared Link/navigation and SEO/sitemap use the same policy. A missing artist coordinate produces the valid old address resolved by the server, never a made-up singer. Domain/page guards run on internal routes after rewriting; APIs, file paths, maintenance, module-off and audience policy are unchanged.
+- Only pages may use a root variable. System/module names and historic section aliases are reserved; a colliding page retains `/p/{slug}`. Static section pages such as `/games/calendar` never become item URLs. Unknown root slugs and draft pages stay404. Invalid/traversal/ambiguous/executable patterns are rejected.
+- No schema migration or production-data rewrite. Rollback is code plus restoring the two settings; do not erase old URL history to change the pattern. No host deployment or workflow dispatch.
+- Acceptance: extended `routes.test.cjs`; native `permalink-routing.connected.cjs` with permission/Origin/current-account, repeat aliases, stale/concurrent saves and audit-failure rollback; intentional canonicalization fault must fail. Actual Admin save, canonical/old/query routes, SEO and themes/mobile in browser; type/source/architecture/React Doctor and relevant regression gates.

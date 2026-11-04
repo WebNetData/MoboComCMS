@@ -1,39 +1,24 @@
 'use client'
 
 import Link from '@/components/AppLink'
-import { useEffect, useState } from 'react'
 import Icon from '@/components/site/Icon'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
 import type { MiniAppFeed, MiniAppFeedSection } from '@/modules/site/domain/miniapp-feed'
+import { miniAppHref } from '@/modules/site/domain/miniapp-navigation'
+import { useMiniAppResource } from './useMiniAppResource'
+import MiniAppReadState from './MiniAppReadState'
+import MiniAppDiscover from './MiniAppDiscover'
 
 // Website links are rewritten to their mini app equivalents so a tap never
 // leaves the Telegram shell when an in-app screen exists.
-const IN_APP: [RegExp, string][] = [
-  [/^\/plans(?:[?#].*)?$/, '/miniapp/plans'],
-  [/^\/dashboard\/wallet/, '/miniapp/wallet'],
-  [/^\/dashboard\/tickets/, '/miniapp/support'],
-  [/^\/dashboard\/?$/, '/miniapp'],
-  [/^\/register|^\/login/, '/miniapp'],
-]
-export function miniAppHref(href: string) {
-  for (const [pattern, target] of IN_APP) if (pattern.test(href)) return target
-  return href || '/miniapp'
-}
+export { miniAppHref } from '@/modules/site/domain/miniapp-navigation'
 
 /** Homepage sections shared with the website (Site Studio → "show in mini app"). */
-export default function MiniAppFeedView() {
-  const [feed, setFeed] = useState<MiniAppFeed | null>(null)
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/api/public/miniapp-feed', { signal: controller.signal })
-      .then(response => response.ok ? response.json() : null)
-      .then(value => setFeed(value && Array.isArray(value.sections) ? value : null))
-      .catch(() => {})
-    return () => controller.abort()
-  }, [])
-  if (!feed?.sections.length) return null
-  return <div className="tg-feed">{feed.sections.map(section => <FeedSection key={section.id} section={section}/>)}</div>
+export default function MiniAppFeedView({ explore = false }: { explore?: boolean }) {
+  const { data: feed, loading, error, retry } = useMiniAppResource<MiniAppFeed>('/api/public/miniapp-feed')
+  if (loading || error || !feed) return <MiniAppReadState error={error} retry={retry} />
+  return <>{feed.discover && <MiniAppDiscover data={feed.discover} explore={explore} />}<div className="tg-feed">{feed.sections.map(section => <FeedSection key={section.id} section={section}/>)}</div></>
 }
 
 function FeedSection({ section }: { section: MiniAppFeedSection }) {

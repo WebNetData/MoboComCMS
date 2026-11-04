@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import Link from '@/components/AppLink'
 import ManageBar from '@/components/admin/ManageBar'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
@@ -50,7 +51,7 @@ async function loadProduct(slug: string, preview = false) {
 }
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const params = await paramsPromise
+  const params = await contentRouteParams(paramsPromise)
   const product = await loadProduct(params.slug)
   if (!product || !product.active || product.approval !== 'APPROVED' || !await opensAudience(product.audienceGroups, 'product')) return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
@@ -71,7 +72,7 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
 }
 
 export default async function ProductPage({ params: paramsPromise, preview }: { params: Promise<{ slug: string }>; preview?: BuilderPreview }) {
-  const params = await paramsPromise
+  const params = await contentRouteParams(paramsPromise)
   const [locale, theme] = await Promise.all([getServerLocale(), getServerTheme()])
   const t = dict(locale)
   const isFa = locale === 'fa'

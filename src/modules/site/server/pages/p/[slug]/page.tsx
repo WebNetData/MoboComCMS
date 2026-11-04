@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
@@ -34,7 +35,7 @@ async function legalDocuments(id: number) {
 }
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const params = await paramsPromise
+  const params = await contentRouteParams(paramsPromise)
   const page = await db.page.findUnique({ where: { slug: params.slug } }).catch(() => null)
   if (!page || page.status !== 'PUBLISHED') return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
@@ -51,7 +52,7 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
 }
 
 export default async function CustomPage({ params: paramsPromise, preview }: { params: Promise<{ slug: string }>; preview?: BuilderPreview }) {
-  const params = await paramsPromise
+  const params = await contentRouteParams(paramsPromise)
   const [locale, theme, requestHeaders] = await Promise.all([getServerLocale(), getServerTheme(), headers()])
   const navPages = await db.page.findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } }).catch(() => [])
   const t = dict(locale)

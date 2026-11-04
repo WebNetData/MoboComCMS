@@ -1,5 +1,9 @@
 # Domain capability maturity matrix
 
+Scoped2026-11-04: configurable content permalinks are **Functional (bounded local)** in the existing Site router/Settings/shared Link. Root Pages, primary-artist Music URLs,13 content patterns, history308 and Unicode HTTP-page boundaries passed local browser/native PostgreSQL checks. This does not certify arbitrary slug-renaming redirects or destination-host rollout. [Exact evidence and limits](handoffs/PERMALINK_MANAGEMENT.md).
+
+Scoped2026-11-04: Telegram Mini App native discovery/account/order surfaces are **Functional (bounded local)** in existing Site/Identity/Account/Store owners; whole-client native coverage and real Telegram/provider rollout remain **Partial/Unverified**. [Exact scope and evidence](handoffs/TELEGRAM_MINIAPP.md).
+
 Scoped2026-11-03: private Store file delivery and per-item VIP/group price rules, including Prompt source gating, are **Functional (bounded local)** in existing owners. PostgreSQL, integer pricing, refund/source/download faults, actual wallet purchases, compiled UID1000 HTTPS themed UI and production artifact isolation executed. This does not promote whole Store/Paywall domains or certify destination-host/payment-provider operation. [Exact contracts, controls and evidence](handoffs/DIGITAL_CONTENT_PRICING.md).
 
 Scoped2026-11-02: public Prompt templates, central artists and business profiles now extend the existing Imports registry as **Functional (bounded local)** destinations. Native PostgreSQL, empty-DB/no-seed, failure/race/authority/rollback probes and actual three-destination themed wizard/report flows executed. This does not promote whole domains, external-media providers or target-server rollout. [Current owner map, exact evidence and limits](handoffs/IMPORTS_LAUNCH.md#profile-destinations--2026-11-02).

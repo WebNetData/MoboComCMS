@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from '@/components/AppLink'
@@ -18,11 +19,11 @@ import Icon from '@/components/site/Icon'
 
 export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  try { const data = await businessPage((await params).slug, null); return { title: `تجربهٔ خرید از ${data.profile.name} | موبوکام`, description: data.profile.description || `نظر و تجربهٔ کاربران دربارهٔ ${data.profile.name}` } } catch { return { title: 'تجربهٔ خرید | موبوکام' } }
+  try { const data = await businessPage((await contentRouteParams(params)).slug, null); return { title: `تجربهٔ خرید از ${data.profile.name} | موبوکام`, description: data.profile.description || `نظر و تجربهٔ کاربران دربارهٔ ${data.profile.name}` } } catch { return { title: 'تجربهٔ خرید | موبوکام' } }
 }
 export default async function BusinessProfilePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   await requireModule('businesses')
-  const [route, query, viewer, policy, trustPolicy] = await Promise.all([params, searchParams, getViewer(), businessRequestPolicy(), businessTrustPolicy()])
+  const [route, query, viewer, policy, trustPolicy] = await Promise.all([contentRouteParams(params), searchParams, getViewer(), businessRequestPolicy(), businessTrustPolicy()])
   let data
   try { data = await businessPage(route.slug, viewer.userId, query) } catch (error) { if (error instanceof BusinessError && error.status === 404) notFound(); throw error }
   const { profile, summary } = data, total = Math.max(1, summary.count)

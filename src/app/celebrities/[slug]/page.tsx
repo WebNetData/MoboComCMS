@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import Link from '@/components/AppLink'
@@ -33,12 +34,12 @@ async function load(slug: string) {
   const [cinema, music] = await Promise.all([isModuleEnabled('cinema'), isModuleEnabled('music')])
   if (!cinema && !music) return null
   const labels = music ? await listLabels('music').catch(() => ({} as Record<string, Record<string, string>>)) : {}
-  const person = await celebrityBySlug(decodeURIComponent(slug), labels.CREDIT_ROLE ?? {})
+  const person = await celebrityBySlug(slug, labels.CREDIT_ROLE ?? {})
   return person ? { person, cinema, music } : null
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const data = await load((await params).slug)
+  const data = await load((await contentRouteParams(params)).slug)
   if (!data) return {}
   const { card } = data.person
   const roles = card.roles.join('، ')
@@ -52,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CelebrityPage({ params }: Props) {
   await ensureCelebritiesSynced()
-  const data = await load((await params).slug)
+  const data = await load((await contentRouteParams(params)).slug)
   if (!data) notFound()
   const { person } = data
   const { userId } = await getViewer()
@@ -60,7 +61,7 @@ export default async function CelebrityPage({ params }: Props) {
   const [cinemaShut, musicShut, cinemaOpen, musicOpen] = await Promise.all([sectionClosedFor('cinema', userId), sectionClosedFor('music', userId), userOpensSection('cinema', userId), userOpensSection('music', userId)])
   const cinema = data.cinema && !cinemaShut && cinemaOpen, music = data.music && !musicShut && musicOpen
   const { card } = person
-  if ((await params).slug !== card.slug) permanentRedirect(toPublicPath(`/celebrities/${encodeURIComponent(card.slug)}`))
+  if ((await contentRouteParams(params)).slug !== card.slug) permanentRedirect(toPublicPath(`/celebrities/${encodeURIComponent(card.slug)}`))
   const personId = person.cinemaPersonId ? String(person.cinemaPersonId) : ''
   // Each section answers for its own works, with its own rule for what a visitor may see.
   const [acted, directed, produced, songs, cinemaSettings, musicSettings] = await Promise.all([

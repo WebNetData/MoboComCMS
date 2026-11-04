@@ -1,3 +1,4 @@
+import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
 import { notFound, permanentRedirect } from 'next/navigation'
@@ -21,7 +22,7 @@ export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [{ slug }, locale] = await Promise.all([params, getServerLocale()])
+  const [{ slug }, locale] = await Promise.all([contentRouteParams(params), getServerLocale()])
   const data = await getArtist(slug)
   if (!data) return {}
   const fa = locale === 'fa'
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   await requireModule('music')
-  const [{ slug }, locale] = await Promise.all([params, getServerLocale()])
+  const [{ slug }, locale] = await Promise.all([contentRouteParams(params), getServerLocale()])
   const data = await getArtist(slug)
   const presentation = await getMusicSettings(true)
   if (!data) notFound()

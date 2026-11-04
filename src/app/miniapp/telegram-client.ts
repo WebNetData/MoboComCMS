@@ -6,7 +6,8 @@ type TgWebApp = {
   expand?: () => void
   disableVerticalSwipes?: () => void
   openLink?: (url: string) => void
-  HapticFeedback?: { impactOccurred?: (s: string) => void }
+  HapticFeedback?: { impactOccurred?: (s: string) => void; selectionChanged?: () => void }
+  BackButton?: { show?: () => void; hide?: () => void; onClick?: (handler: () => void) => void; offClick?: (handler: () => void) => void }
   themeParams?: Record<string, string>
   setHeaderColor?: (color: string) => void
   setBackgroundColor?: (color: string) => void
@@ -92,6 +93,21 @@ export function onTelegramEvent(name: string, handler: () => void) {
 }
 
 export function haptic(style: 'light' | 'medium' | 'heavy' = 'light') {
-  tg()?.HapticFeedback?.impactOccurred?.(style)
+  try { tg()?.HapticFeedback?.impactOccurred?.(style) } catch {}
 }
 
+/** A light tick when the selection changes (tab switch); nothing outside Telegram. */
+export function selectionHaptic() {
+  try { tg()?.HapticFeedback?.selectionChanged?.() } catch {}
+}
+
+/** Shows Telegram's own back button on inner pages and runs the handler on it; returns how to remove it. */
+export function telegramBackButton(visible: boolean, handler: () => void) {
+  const button = tg()?.BackButton
+  if (!button) return () => {}
+  try {
+    if (!visible) { button.hide?.(); return () => {} }
+    button.onClick?.(handler); button.show?.()
+  } catch { return () => {} }
+  return () => { try { button.offClick?.(handler); button.hide?.() } catch {} }
+}

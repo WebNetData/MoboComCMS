@@ -1,4 +1,5 @@
 'use client'
+import { contentPath } from '@/platform/routing/aliases'
 
 import Link from '@/components/AppLink'
 import { sized } from '@/shared/media/image'
@@ -43,7 +44,7 @@ export function TrackList({ tracks, numbered = true, showCover = true, chart = f
             <PlayButton tracks={tracks} index={i} />
             {showCover && (track.cover ? <img className="mu-tl-cover" src={sized(track.cover, 120)} alt="" loading="lazy" /> : <span className="mu-tl-cover mu-noart">♪</span>)}
             <span className="mu-tl-meta">
-              <Link href={`/music/track/${track.slug}`}><b>{track.title}</b></Link>
+              <Link href={contentPath('track', track.slug, { artist: track.artistSlug })}><b>{track.title}</b></Link>
               <Link href={`/music/artist/${track.artistSlug}`} className="muted">{track.artist}</Link>
               {reasons?.[i] && <small className="muted">{reasons[i]}</small>}
               {history?.[i] && <small className="muted">{history[i].lastPlayedAt && `${new Date(history[i].lastPlayedAt).toLocaleString(fa ? 'fa-IR' : 'en-US')} · `}{history[i].playCount && `${history[i].playCount.toLocaleString(fa ? 'fa-IR' : 'en-US')} ${fa ? 'بار پخش' : 'plays'}`}{history[i].positionSeconds && history[i].durationSeconds && history[i].durationSeconds - history[i].positionSeconds > 5 ? ` · ${fa ? 'ادامه از' : 'Resume at'} ${fmt(history[i].positionSeconds)}` : ''}</small>}

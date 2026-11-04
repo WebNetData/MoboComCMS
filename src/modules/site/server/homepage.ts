@@ -1,3 +1,4 @@
+import { contentPath } from '@/platform/routing/aliases'
 import { db } from '@/platform/database/prisma'
 import { legacyNumber, normalizeCurrency } from '@/shared/money'
 import { getSettings } from '@/modules/settings/server'
@@ -27,7 +28,7 @@ async function getShowcase(enabled: (id: string) => boolean): Promise<ShowcaseIt
     enabled('forum') ? recentThreads(SHOWCASE_SIZE) : null,
   ])
   const items: ShowcaseItem[] = []
-  if (albums?.kind === 'albums') for (const album of albums.items) items.push({ kind: 'music', title: album.title, meta: album.artist?.name || '', cover: album.cover, href: `/music/album/${album.slug}`, vip: album.access === 'MEMBERS' })
+  if (albums?.kind === 'albums') for (const album of albums.items) items.push({ kind: 'music', title: album.title, meta: album.artist?.name || '', cover: album.cover, href: contentPath('album', album.slug, { artist: album.artist?.slug }), vip: album.access === 'MEMBERS' })
   if (movies?.kind === 'titles') for (const title of movies.items) items.push({ kind: 'cinema', title: title.title, meta: [title.year, title.imdbRating ? `IMDb ${title.imdbRating}` : ''].filter(Boolean).join(' · '), cover: title.poster, href: `/cinema/${title.slug}`, vip: title.access === 'MEMBERS', image: title.backdrop, score: title.imdbRating ? Math.round(title.imdbRating * 10) : null })
   if (games?.kind === 'games') for (const game of games.items) items.push({ kind: 'games', title: game.title, meta: game.platforms.slice(0, 3).join(' · '), cover: game.cover, href: `/games/${game.slug}`, vip: game.access === 'MEMBERS', image: game.backdrop, score: game.score })
   for (const app of software?.items.slice(0, SHOWCASE_SIZE) || []) items.push({ kind: 'software', title: app.title, meta: [app.version && `v${app.version}`, app.platforms.slice(0, 2).join(' · ')].filter(Boolean).join(' · '), cover: app.icon, href: `/software/${app.slug}`, vip: app.access === 'MEMBERS' })

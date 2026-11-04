@@ -23,6 +23,40 @@ const remnaPlugin = load('src/plugins/remnawave-control/server.ts').plugin
 const { reconcileSubscription, safeRepairable } = load('src/modules/providers/domain/remnawave-reconciliation.ts')
 const sampleTheme = JSON.parse(fs.readFileSync(path.join(__dirname,'../public/themes/example.json'),'utf8'))
 const definition = { slug:'contact-us',title:'تماس',description:'',published:true,successText:'ثبت شد',fields:[{id:'email',label:'ایمیل',type:'email',required:true,options:[]},{id:'topic',label:'موضوع',type:'select',required:true,options:['support','sales']},{id:'consent',label:'رضایت',type:'checkbox',required:true,options:[]}] }
+
+test('Mini App discovery excludes only exact closed path segments and their children',()=>{
+  const {miniAppPathOpen,miniAppSections}=load('src/modules/site/domain/miniapp-feed.ts')
+  for(const url of ['/music','/music/album/one','/music?q=x','/music#recent'])assert.equal(miniAppPathOpen(url,['/music/']),false,url)
+  for(const url of ['/musical','/blog','/products'])assert.equal(miniAppPathOpen(url,['','/music']),true,url)
+  assert.equal(miniAppPathOpen('/blog',['/']),false)
+  const sections=miniAppSections(['/music','/products'],[{key:'cinema',value:12}],true)
+  assert.ok(!sections.some(s=>s.key==='music'||s.key==='store'));assert.equal(sections.find(s=>s.key==='cinema').count,12)
+  assert.equal(new Set(sections.map(s=>s.key)).size,sections.length)
+})
+
+test('Mini App native links preserve identifiers, queries and fragments without partial prefix matches',()=>{
+  const {miniAppHref}=load('src/modules/site/domain/miniapp-navigation.ts')
+  assert.equal(miniAppHref('/dashboard/orders/42?tab=paid#files'),'/miniapp/orders/42?tab=paid#files')
+  assert.equal(miniAppHref('/dashboard/tickets/12'),'/miniapp/support/12')
+  assert.equal(miniAppHref('/dashboard?from=x'),'/miniapp/account?from=x')
+  for(const href of ['/plans-old','/dashboard/wallets','/login?next=/music','https://example.invalid/dashboard/orders'])assert.equal(miniAppHref(href),href)
+})
+
+test('Mini App tabs have one selected owner and Back has a safe direct-launch fallback',()=>{
+  const {miniAppTab,miniAppParent}=load('src/modules/site/domain/miniapp-navigation.ts')
+  for(const [path,key]of [['/miniapp','home'],['/miniapp/','home'],['/miniapp/explore','explore'],['/miniapp/plans','explore'],['/miniapp/library','library'],['/miniapp/purchases','library'],['/miniapp/payments','wallet'],['/miniapp/orders/42','account']])assert.equal(miniAppTab(path),key)
+  assert.equal(miniAppParent('/miniapp/orders/42'),'/miniapp/orders');assert.equal(miniAppParent('/miniapp/account'),'/miniapp')
+  assert.equal(miniAppTab('/miniapp/library-old'),'account')
+})
+
+test('Mini App home discovery balances media owners without duplicating or changing their order',()=>{
+  const {miniAppHighlights}=load('src/modules/site/domain/miniapp-feed.ts')
+  const items=[...Array.from({length:8},(_,i)=>({kind:'music',href:'/music/'+i})),{kind:'cinema',href:'/cinema/one'},{kind:'games',href:'/games/one'}]
+  const shelf=miniAppHighlights(items,5)
+  assert.deepEqual(shelf.map(i=>i.href),['/music/0','/cinema/one','/games/one','/music/1','/music/2'])
+  assert.equal(miniAppHighlights([],10).length,0);assert.equal(miniAppHighlights(items,0).length,0)
+  assert.equal(miniAppHighlights(items,100).length,items.length)
+})
 test('default bilingual configuration and portable theme are valid',()=>{assert.equal(validateSite(defaultSite),true);assert.equal(validateTheme(sampleTheme),true)})
 test('stored navigation rejects executable URLs, protocol-relative links and backslashes',()=>{for(const href of ['javascript:alert(1)','//evil.example','/\\evil.example','data:text/html,bad','https://a\n.example'])assert.equal(safeHref(href),false,href);for(const href of ['/plans','/#faq','#network','https://example.org/guide','mailto:help@example.org'])assert.equal(safeHref(href),true,href)})
 test('invalid section structure and duplicate identifiers cannot be persisted',()=>{const v=structuredClone(defaultSite);v.sections.push(structuredClone(v.sections[0]));assert.equal(validateSite(v),false);v.sections.pop();v.sections[0].enabled='yes';assert.equal(validateSite(v),false)})

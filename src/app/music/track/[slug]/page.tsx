@@ -1,3 +1,6 @@
+import { contentRouteParams } from '@/shared/routing/params'
+import { headers } from 'next/headers'
+import { loadRouteAliases } from '@/modules/site/server/routes'
 import type { Metadata } from 'next'
 import { renderEditorialText, richTextToPlain } from '@/shared/content/sanitize'
 import { primaryTerms } from '@/modules/taxonomy/server/taxonomy'
@@ -19,7 +22,7 @@ import { musicNav } from '@/components/media/nav'
 import { VipBadge, VipGate } from '@/components/media/MediaCards'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
-import { toPublicPath } from '@/platform/routing/aliases'
+import { toPublicPath, contentPath } from '@/platform/routing/aliases'
 import { getMusicSettings } from '@/modules/music/server/admin'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import AddToPersonalPlaylist from '@/components/media/AddToPersonalPlaylist'
@@ -30,18 +33,18 @@ export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [{ slug }, locale] = await Promise.all([params, getServerLocale()])
+  const [{ slug }, locale] = await Promise.all([contentRouteParams(params), getServerLocale(), loadRouteAliases()])
   const data = await getTrack(slug)
   if (!data) return {}
   const fa = locale === 'fa'
   const tr = data.track
   const title = `${fa ? tr.title : tr.titleEn || tr.title} — ${fa ? tr.artist.name : tr.artist.nameEn || tr.artist.name}`
-  return shareCard({ title: fa ? `دانلود آهنگ ${title}` : title, description: fa ? `پخش آنلاین و دانلود آهنگ ${title}${tr.hasHq ? ' با کیفیت ۳۲۰' : ''}` : `Listen and download ${title}`, openGraph: { images: tr.cover ? [tr.cover] : undefined, type: 'music.song' }, alternates: { canonical: toPublicPath(`/music/track/${tr.slug}`) } })
+  return shareCard({ title: fa ? `دانلود آهنگ ${title}` : title, description: fa ? `پخش آنلاین و دانلود آهنگ ${title}${tr.hasHq ? ' با کیفیت ۳۲۰' : ''}` : `Listen and download ${title}`, openGraph: { images: tr.cover ? [tr.cover] : undefined, type: 'music.song' }, alternates: { canonical: contentPath('track', tr.slug, { artist: tr.artist.slug }) } })
 }
 
 export default async function TrackPage({ params }: Props) {
   await requireModule('music')
-  const [{ slug }, locale, viewer, settings, layout] = await Promise.all([params, getServerLocale(), getViewer(), getModuleSettings('music'), getMusicSettings()])
+  const [{ slug }, locale, viewer, settings, layout] = await Promise.all([contentRouteParams(params), getServerLocale(), getViewer(), getModuleSettings('music'), getMusicSettings()])
   const data = await getTrack(slug, { recommendations: layout.showRelatedTracks })
   if (!data) notFound()
   const fa = locale === 'fa'
@@ -63,12 +66,13 @@ export default async function TrackPage({ params }: Props) {
   // Featured artists sit beside the main one; the other credits (composer, lyricist…) get their own panel.
   const featured = data.credits.find((group) => group.role === 'FEATURED')
   const makers = data.credits.filter((group) => group.role !== 'FEATURED')
+  const nonce = (await headers()).get('x-nonce') || undefined
   const jsonLd = { '@context': 'https://schema.org', '@type': 'MusicRecording', name, byArtist: { '@type': 'MusicGroup', name: artistName }, ...(track.duration ? { duration: `PT${Math.floor(track.duration / 60)}M${track.duration % 60}S` } : {}), ...(track.album ? { inAlbum: { '@type': 'MusicAlbum', name: track.album.title } } : {}), ...(track.cover ? { image: track.cover } : {}) }
 
   return (
     <MediaShell section="music" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
       <ManageBar title="مدیریت آهنگ" anyOf={['music.manage']} links={[{ href: `/admin/music/library?tab=tracks&edit=${track.id}`, label: 'ویرایش آهنگ' }, { href: '/admin/music/library?tab=tracks', label: 'همهٔ آهنگ‌ها' }]} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <script nonce={nonce} suppressHydrationWarning type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="mu-detail-hero">
         <div className="mu-hero-bg" style={track.cover ? { backgroundImage: `url("${track.cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
         <div className="container mu-detail-inner">
