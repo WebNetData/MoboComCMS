@@ -446,3 +446,56 @@ test('hosting: a secret is never sent to a browser and every admin call is guard
   assert.equal(manifest.defaultEnabled, false)
   for (const page of ['hosting', 'servers']) assert.match(fs.readFileSync(path.resolve(__dirname, `../src/app/${page}/page.tsx`), 'utf8'), /await requireModule\('hosting'\)/)
 })
+
+// ============ Hosting services (slice 2) ============
+const hs = load('src/modules/hosting/domain/services')
+
+test('hosting: a term is whole months held to the month end, counted in UTC', () => {
+  const iso = (d) => d.toISOString().slice(0, 10)
+  assert.equal(iso(hs.addMonths(new Date('2026-01-31T10:00:00Z'), 1)), '2026-02-28')
+  assert.equal(iso(hs.addMonths(new Date('2028-01-31T10:00:00Z'), 1)), '2028-02-29')
+  assert.equal(iso(hs.addMonths(new Date('2026-11-30T23:30:00Z'), 3)), '2027-02-28')
+  assert.equal(iso(hs.addMonths(new Date('2026-05-15T00:00:00Z'), 12)), '2027-05-15')
+  assert.equal(iso(hs.termEnd(new Date('2026-03-31T00:00:00Z'), 'HALF')), '2026-09-30')
+  assert.equal(hs.termEnd(new Date(), 'HOURLY'), null)
+})
+
+test('hosting: what a buyer and staff type is normalised or refused', () => {
+  assert.equal(hs.normalizeDomain(' https://WWW.Shop.Example.IR/path '), 'shop.example.ir')
+  assert.equal(hs.normalizeDomain('xn--mgbh0fb.xn--mgba3a4f16a'), 'xn--mgbh0fb.xn--mgba3a4f16a')
+  for (const bad of ['example', 'exa mple.ir', '-a.ir', 'a-.ir', 'a..ir', 'a.i', 'فروشگاه.ir', '']) assert.throws(() => hs.normalizeDomain(bad), /دامنه/, bad)
+  assert.equal(hs.normalizeServiceName('VPS', ''), '')
+  assert.equal(hs.normalizeServiceName('VPS', 'Web-1'), 'web-1')
+  assert.throws(() => hs.normalizeServiceName('SHARED', ''), /دامنه/)
+  assert.throws(() => hs.normalizeHostname('web_1'), /میزبان/)
+  assert.equal(hs.normalizeIpv4('203.0.113.7'), '203.0.113.7')
+  for (const bad of ['256.1.1.1', '1.2.3', '01.2.3.4', '1.2.3.4.5', 'a.b.c.d']) assert.throws(() => hs.normalizeIpv4(bad), /آی‌پی/, bad)
+  assert.equal(hs.normalizeIpv6('2001:DB8::1'), '2001:db8::1')
+  assert.throws(() => hs.normalizeIpv6('2001:db8::g'), /آی‌پی/)
+  assert.equal(hs.normalizePanelUrl('https://panel.example.com:2222'), 'https://panel.example.com:2222/')
+  for (const bad of ['http://panel.example.com', 'https://u:p@panel.example.com', 'javascript:alert(1)', 'panel']) assert.throws(() => hs.normalizePanelUrl(bad), /پنل/, bad)
+})
+
+test('hosting: staff transitions start only from their states and a terminated service stays terminated', () => {
+  assert.deepEqual(hs.STAFF_TRANSITIONS.SUSPEND.from, ['ACTIVE'])
+  assert.deepEqual(hs.STAFF_TRANSITIONS.UNSUSPEND.from, ['SUSPENDED'])
+  for (const op of Object.keys(hs.STAFF_TRANSITIONS)) assert.ok(!hs.STAFF_TRANSITIONS[op].from.includes('TERMINATED'), op)
+  for (const status of Object.keys(hs.SERVICE_STATUS)) assert.ok(hs.SERVICE_STATUS[status].label, status)
+})
+
+test('hosting: customer and staff service APIs are guarded, private and never carry a secret', () => {
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  const member = read('src/modules/hosting/server/member-http.ts')
+  assert.equal((member.match(/await moduleGuard\('hosting'\)/g) || []).length, 3)
+  assert.equal((member.match(/const user = await requireUser\(req\)\n  if \(!user\) return err/g) || []).length, 3)
+  assert.match(member, /rateLimitStrict\(`hosting:reveal:\$\{user\.id\}`/)
+  const staff = read('src/modules/hosting/server/admin-services-http.ts')
+  assert.equal((staff.match(/adminGuard\(req, 'hosting', PERMISSIONS\)/g) || []).length, 2)
+  const services = read('src/modules/hosting/server/services.ts')
+  assert.match(services, /findFirst\(\{ where: \{ id: serviceId, userId \}, include/)
+  assert.match(services, /findFirst\(\{ where: \{ id: serviceId, userId \}, select/)
+  for (const fn of ['adminHostingServices', 'memberHostingServices', 'memberHostingService']) {
+    const body = services.slice(services.indexOf(`export async function ${fn}`), services.indexOf('\n}\n', services.indexOf(`export async function ${fn}`)))
+    assert.match(body, /loginSecret/, `${fn} takes the secret out`)
+  }
+})

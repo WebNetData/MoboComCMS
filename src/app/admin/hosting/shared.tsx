@@ -21,6 +21,7 @@ export type AdminProvider = {
 export type HostingData = { products: AdminProduct[]; providers: AdminProvider[] }
 
 const TABS = [
+  { href: '/admin/hosting/services', label: 'سرویس‌های مشتریان' },
   { href: '/admin/hosting', label: 'محصولات و پلن‌ها', exact: true },
   { href: '/admin/hosting/providers', label: 'سامانه‌های متصل' },
 ]

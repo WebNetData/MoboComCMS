@@ -24,6 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { t, locale } = useI18n()
   // Without the VPN module the account area is about orders, wallet and VIP.
   const vpnOn = useModuleEnabled('vpn')
+  const hostingOn = useModuleEnabled('hosting')
   const storeOn = useModuleEnabled('store')
   const gamesOn = useModuleEnabled('games')
   const musicOn = useModuleEnabled('music')
@@ -91,6 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { id: 'home', flat: true, title: vpnOn ? L('اشتراک‌ها', 'Subscriptions') : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home',
       items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home', exact: true }] },
     { id: 'shopping', caption: L('حساب من', 'My account'), title: L('خرید و پرداخت', 'Orders & billing'), icon: 'bag', items: [
+      ...(hostingOn ? [{ href: '/dashboard/services', label: L('سرویس‌های من', 'My services'), icon: 'server' }] : []),
       { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },
       { href: '/dashboard/invoices', label: t.myInvoices, icon: 'receipt' },
       { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },

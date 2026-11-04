@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  hostingServices HostingService[] @relation("HostingServiceOwner")
   membershipAccount MembershipAccount? @relation("MembershipAccount")
   userGroups UserGroupMember[] @relation("UserGroupMember")
   sitePopupsSeen SitePopupSeen[] @relation("SitePopupSeen")
@@ -4775,6 +4776,7 @@ model HostingProvider {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @default(now()) @updatedAt
   products         HostingProduct[]
+  services         HostingService[]
 
   @@index([family, active])
 }
@@ -4818,6 +4820,7 @@ model HostingProduct {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @default(now()) @updatedAt
   prices             HostingPrice[]
+  services           HostingService[]
 
   @@index([kind, active, sort])
   @@index([providerId])
@@ -4834,4 +4837,68 @@ model HostingPrice {
   setupMinor  BigInt         @default(0)
 
   @@unique([productId, cycle, currency])
+}
+
+/// One bought hosting product: a hosting account, a server or a cloud instance, bound to its outside system.
+model HostingService {
+  id            Int             @id @default(autoincrement())
+  userId        Int
+  productId     Int
+  providerId    Int?
+  /// The order that bought it; one service per order.
+  orderId       Int?            @unique
+  status        String          @default("PENDING") // PENDING | PROVISIONING | ACTIVE | SUSPENDED | TERMINATED | FAILED
+  cycle         String // MONTH | QUARTER | HALF | YEAR (HOURLY in the metering slice)
+  /// The price it renews at, fixed when bought.
+  priceMinor    BigInt
+  currency      String          @default("IRT")
+  label         String
+  hostname      String          @default("")
+  externalId    String          @default("")
+  ipv4          String          @default("")
+  ipv6          String          @default("")
+  panelUrl      String          @default("")
+  loginUser     String          @default("")
+  /// Encrypted like provider secrets; shown only to the owner on request.
+  loginSecret   String          @default("")
+  /// What staff tell the customer about a manual delivery.
+  note          String          @default("")
+  /// Manual add-ons for this service; null follows the product.
+  allowTraffic  Boolean?
+  allowUpgrade  Boolean?
+  autoRenew     Boolean         @default(false)
+  startedAt     DateTime?
+  nextDueAt     DateTime?
+  suspendedAt   DateTime?
+  terminatedAt  DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @default(now()) @updatedAt
+  user          User            @relation("HostingServiceOwner", fields: [userId], references: [id])
+  product       HostingProduct  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  provider      HostingProvider? @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  actions       HostingAction[]
+
+  @@index([userId, status])
+  @@index([status, nextDueAt])
+  @@index([providerId])
+  @@index([productId])
+}
+
+/// Everything done to a service, by the customer, staff or the system: its history and audit.
+model HostingAction {
+  id             Int            @id @default(autoincrement())
+  serviceId      Int
+  actorId        Int?
+  actor          String // CUSTOMER | STAFF | SYSTEM
+  kind           String // PROVISION | DELIVER | SUSPEND | UNSUSPEND | TERMINATE | REVEAL | NOTE
+  status         String         @default("DONE") // WAITING | RUNNING | DONE | FAILED
+  idempotencyKey String?        @unique
+  detail         String         @default("")
+  error          String         @default("")
+  createdAt      DateTime       @default(now())
+  finishedAt     DateTime?
+  service        HostingService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, createdAt])
+  @@index([status, kind])
 }

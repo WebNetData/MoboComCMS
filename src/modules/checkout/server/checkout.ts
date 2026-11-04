@@ -33,6 +33,8 @@ import { MembershipError } from '@/modules/membership/domain/plans'
 import { membershipQuote, planWithTier } from '@/modules/membership/server/quote'
 import { tierStanding } from '@/modules/membership/server/tiers'
 import { ruleRefusal } from '@/modules/membership/server/rules'
+import { HostingError } from '@/modules/hosting/domain/catalog'
+import { HostingRefusal, hostingQuote } from '@/modules/hosting/server/services'
 
 export interface CheckoutCommand {
   userId: number
@@ -54,6 +56,10 @@ export interface CheckoutCommand {
   formSubmissionId?: number | null
   /** Paid content ("post:12", "software:3"): lifetime access to one article or download. */
   contentKey?: string | null
+  /** A hosting product, server or cloud size for one billing cycle, with the customer's domain or hostname. */
+  hostingProductId?: number | null
+  hostingCycle?: string | null
+  hostingName?: string | null
   /** Optional displayed-price claim; server still computes the authoritative amount. */
   expectedQuote?: { amountMinor: unknown; currency: unknown } | null
   /** Saved address from the customer's address book (physical products). */
@@ -130,9 +136,11 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (command.contentKey && !content) return fail(400, 'BAD_ITEM', 'invalid content key')
   if (productId && !await isStoreEnabled()) return fail(403, 'STORE_DISABLED', 'فروشگاه در حال حاضر غیرفعال است')
   const formSubmissionId = Number(command.formSubmissionId) || null
-  if ([planId, productId, membershipPlanId, content, formSubmissionId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
+  const hostingProductId = Number(command.hostingProductId) || null
+  if ([planId, productId, membershipPlanId, content, formSubmissionId, hostingProductId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
   if (planId && !await isModuleEnabled('vpn')) return fail(403, 'VPN_DISABLED', 'فروش این سرویس در حال حاضر فعال نیست')
   if (planId && !await userOpensSection('vpn', command.userId)) return fail(403, 'VPN_FORBIDDEN', 'این بخش برای اعضای ویژه یا گروه‌های انتخاب‌شده باز است')
+  if (hostingProductId && !await isModuleEnabled('hosting')) return fail(403, 'HOSTING_DISABLED', 'فروش میزبانی و سرور در حال حاضر فعال نیست')
   if (membershipPlanId && !await isModuleEnabled('membership')) return fail(403, 'MEMBERSHIP_DISABLED', 'اشتراک ویژه در حال حاضر فعال نیست')
   // VIP status decides member-only items, member prices and member-only codes.
   const member = await isMember(command.userId)
@@ -176,6 +184,19 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       meta = { kind: 'content', ownerType: quote.ownerType, ownerId: quote.ownerId, contentTitle: quote.label, contentPath: quote.path }
     } catch (error) {
       if (error instanceof PaywallError) return fail(error.status, error.code, error.message, error.code === 'ALREADY_OPEN' ? { contentPath: '' } : undefined)
+      throw error
+    }
+  } else if (hostingProductId) {
+    try {
+      const quote = await hostingQuote({ productId: hostingProductId, cycle: String(command.hostingCycle || ''), hostname: command.hostingName })
+      currency = normalizeCurrency(quote.currency)
+      amountMinor = quote.amountMinor
+      amount = legacyNumber(amountMinor, currency)
+      label = quote.label
+      meta = quote.meta
+    } catch (error) {
+      if (error instanceof HostingRefusal) return fail(error.status, error.code, error.message)
+      if (error instanceof HostingError) return fail(400, 'HOSTING', error.message)
       throw error
     }
   } else if (membershipPlanId) {
@@ -307,6 +328,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   const code = promotionCode(command.discountCode)
   // A typed foreign amount is money passed on, not a margin: a discount code does not cut into it.
   if (code && formSubmissionId) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف روی پرداخت فرم اعمال نمی‌شود')
+  if (code && hostingProductId) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف فعلاً روی میزبانی و سرور اعمال نمی‌شود')
   if (code && orderLines.some((line) => line.openAmountMinor > 0n)) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف روی سفارشی که «پرداخت با مبلغ دلخواه» دارد اعمال نمی‌شود')
   if (code) {
     if (!/^[A-Z0-9_-]{3,32}$/.test(code)) return fail(400, 'PROMOTION_INVALID', 'invalid discount code')
@@ -471,7 +493,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (dueMinor === 0n) {
     const settled = await markInvoicePaid({ invoiceId: invoice.id, provider: 'WALLET', amount: 0, raw: { source: 'wallet' } })
     if (!settled.ok) return fail(500, 'SETTLEMENT_FAILED', settled.message || 'invoice settlement failed')
-    const kind = formSubmissionId ? 'FORM_PAID' : content ? 'GRANT_CONTENT' : membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
+    const kind = formSubmissionId ? 'FORM_PAID' : hostingProductId ? 'HOSTING_PROVISION' : content ? 'GRANT_CONTENT' : membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
     const job = await enqueueFulfillment({ kind, dedupeKey: `${kind}:order:${order.id}`, orderId: order.id, invoiceId: invoice.id })
     const processed = await processFulfillmentJob(job.id)
     const subscription = planId ? await db.subscription.findFirst({ where: { orderId: order.id } }) : null

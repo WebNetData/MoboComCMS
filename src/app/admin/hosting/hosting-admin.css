@@ -29,3 +29,7 @@
   .hx-admin .hx-prices td { padding: 0; border: 0; }
   .hx-admin .hx-prices td:first-child { grid-column: 1 / -1; font-weight: 600; }
 }
+.hx-admin .hx-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-block-end: 12px; }
+.hx-admin .hx-filters form { flex: 0 1 280px; }
+.hx-admin .hx-history { display: grid; gap: 8px; margin: 0; padding-inline-start: 18px; }
+.hx-admin .hx-history-row td { background: var(--bg-soft); }

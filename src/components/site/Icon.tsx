@@ -77,6 +77,7 @@ const paths: Record<string, React.ReactNode> = {
   cpu: <><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.500" y="9.500" width="5" height="5" rx="1"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/></>,
   activity: <path d="M3 12h4l3-8 4 16 3-8h4"/>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m5 0h5"/></>,
+  close: <path d="M6 6l12 12M18 6 6 18"/>,
   cloud: <path d="M7 18h10.500a4.500 4.500 0 0 0 .4-8.980A6 6 0 0 0 6.300 10.100 4 4 0 0 0 7 18Z"/>,
 }
 export const ICON_NAMES = Object.keys(paths)

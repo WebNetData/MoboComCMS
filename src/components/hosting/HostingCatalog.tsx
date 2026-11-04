@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
+import HostingOrder from '@/components/hosting/HostingOrder'
+import type { CheckoutGatewayChoice } from '@/modules/checkout/ui/client'
 import { HOSTING_CYCLES, HOSTING_KINDS, HOURS_PER_MONTH, type PublicHostingProduct } from '@/modules/hosting/domain/catalog'
 
 const nf = (value: number) => Math.round(value).toLocaleString('fa-IR')
@@ -33,7 +35,8 @@ function specs(product: PublicHostingProduct): { icon: string; label: string; va
  * The public catalogue of one page: kind tabs, a billing-cycle switch that shows the saving, plan cards, and for
  * hourly cloud an estimate for the hours a customer expects to use.
  */
-export default function HostingCatalog({ products }: { products: PublicHostingProduct[] }) {
+export default function HostingCatalog({ products, gateways, signedIn }: { products: PublicHostingProduct[]; gateways: CheckoutGatewayChoice[]; signedIn: boolean }) {
+  const [ordering, setOrdering] = useState<PublicHostingProduct | null>(null)
   const kinds = useMemo(() => HOSTING_KINDS.filter((kind) => products.some((product) => product.kind === kind.id)), [products])
   const [kind, setKind] = useState<string>(kinds[0]?.id || '')
   const shown = products.filter((product) => product.kind === kind)
@@ -95,11 +98,12 @@ export default function HostingCatalog({ products }: { products: PublicHostingPr
           {product.features.length > 0 && <ul className="hx-features">{product.features.map((feature) => <li key={feature}><Icon name="check" size={14} />{feature}</li>)}</ul>}
           {product.location && <p className="hx-location"><Icon name="pin" size={14} /> {product.location}</p>}
           <div className="hx-plan-cta">
-            <button type="button" className="btn btn-primary" disabled>سفارش آنلاین به‌زودی</button>
+            <button type="button" className="btn btn-primary" disabled={!product.prices.some((item) => item.cycle !== 'HOURLY')} onClick={() => setOrdering(product)}>{product.prices.some((item) => item.cycle !== 'HOURLY') ? 'سفارش' : 'خرید ساعتی به‌زودی'}</button>
             <Link className="btn btn-ghost" href="/dashboard/tickets">مشاوره</Link>
           </div>
         </article>
       })}
     </div>
+    {ordering && <HostingOrder product={ordering} cycle={cycle?.id || 'MONTH'} gateways={gateways} signedIn={signedIn} onClose={() => setOrdering(null)} />}
   </div>
 }
