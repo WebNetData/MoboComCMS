@@ -7,6 +7,7 @@ import { cycleMeta, kindMeta } from '@/modules/hosting/domain/catalog'
 import { SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
 import { startCheckout } from '@/modules/checkout/ui/client'
 import { day, daysLeft, fa, kindIcon, moment } from '../shared'
+import HourlyPanel, { type HourlyUsage } from './HourlyPanel'
 import '../services.css'
 
 type Service = {
@@ -38,6 +39,8 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
   const [revealError, setRevealError] = useState('')
   const [busy, setBusy] = useState(false)
   const [renewError, setRenewError] = useState('')
+  const [usage, setUsage] = useState<HourlyUsage | null>(null)
+  const [loads, setLoads] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -45,10 +48,10 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
       if (!active) return
       if (r.status === 404) { setState('missing'); return }
       if (!r.ok) { setState('failed'); return }
-      setService((await r.json()).service); setState('ready')
+      const data = await r.json(); setService(data.service); setUsage(data.usage || null); setState('ready')
     }).catch(() => { if (active) setState('failed') })
     return () => { active = false }
-  }, [id])
+  }, [id, loads])
 
   async function reveal() {
     setBusy(true); setRevealError('')
@@ -107,6 +110,7 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
         <p dir="ltr" className="hs-hero-host">{service.hostname || service.ipv4 || `#${service.id}`}</p>
         <span className={`dt-state ${status?.tone || ''}`}><span className="hs-pulse" aria-hidden="true" />{status?.label || service.status}</span>
       </div>
+      {service.cycle === 'HOURLY' && usage && <div className="hs-term hs-term-hourly"><b className="num">{Number(usage.rate).toLocaleString('fa-IR')}</b><span>تومان / ساعت</span><small>{usage.powerState === 'STOPPED' ? 'خاموش' : 'پرداخت ساعتی'}</small></div>}
       {service.status === 'ACTIVE' && left !== null && <div className="hs-term" style={{ ['--p' as string]: `${spent}%` }}>
         <div className="hs-ring" role="img" aria-label={`${fa(Math.max(0, left))} روز تا تمدید`}><b className="num">{fa(Math.max(0, left))}</b><span>روز مانده</span></div>
         <small>تمدید: {service.nextDueAt ? day.format(new Date(service.nextDueAt)) : '—'}</small>
@@ -139,6 +143,8 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
         {service.panelUrl && <a className="btn btn-primary hs-panel-link" href={service.panelUrl} target="_blank" rel="noopener noreferrer"><Icon name="external" size={16} />{server ? 'ورود به پنل سرور' : 'ورود به کنترل‌پنل'}</a>}
         {service.note && <div className="hs-note"><b>یادداشت کارشناس</b><p>{service.note}</p></div>}
       </section>}
+
+      {service.cycle === 'HOURLY' && usage && <HourlyPanel usage={usage} serviceId={service.id} confirmName={service.hostname || service.label} active={service.status === 'ACTIVE'} deletable={service.status !== 'TERMINATED'} onTerminated={() => setLoads((n) => n + 1)} />}
 
       {usable && service.cycle !== 'HOURLY' && <section className="hs-panel hs-renew" aria-labelledby="hs-renew">
         <h2 id="hs-renew"><Icon name="clock" size={18} />تمدید</h2>

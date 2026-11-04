@@ -111,8 +111,46 @@ Evidence (actually run):
 
 Not run: React Doctor, production build.
 
+## Slice 5 — hourly cloud billing (2026-11-04, `feat/hosting-hourly-2026-11-04` from main `f87ffda4`)
+
+Built:
+- Migration `20270215120000_hosting_hourly` (unreleased): `HostingService.powerState` (RUNNING/STOPPED),
+  `stoppedHourlyMinor`, `chargedUntil`; `HostingUsageCharge` with unique (service, hour), unique wallet movement, an
+  hour that starts on the hour and a non-negative amount.
+- Buying (`server/metering.ts` `createHourlyService`, `POST /api/hosting/hourly` with Idempotency-Key): no checkout and
+  no upfront charge; the wallet must cover the configured minimum hours (setting `hourly-min-hours`, 24); at most three
+  hourly services waiting for delivery per customer; delivery is the same `HOSTING_PROVISION` job (by service id).
+  Checkout still refuses HOURLY.
+- Charging (`chargeHourlyService`, scheduler job `hosting-metering` every 5 minutes): each completed hour from the start
+  hour, one transaction per hour (claim `chargedUntil`, wallet debit with key `hosting:usage:<id>:<hour>`, charge row);
+  a stopped server pays the disk and IP rate; at most 72 hours per run. The wallet never goes below zero: an hour it
+  cannot pay suspends the service (system suspension), a top-up resumes it without charging the suspended hours, and
+  it is terminated after the termination days with a warning 3 days before. Low-credit notices at under 24 and under 3
+  hours, once a day, on the customer's total hourly rate.
+- Deleting by the customer (`terminateHourlyByCustomer`): the typed name must match; the hour in progress is charged
+  in full; nothing is charged after.
+- Service page: hourly header rate, usage panel (live meter for the hour, 24 h / month / total, 48-hour chart with
+  stopped hours marked), wallet runway gauge with top-up, delete section. The order sheet offers «ساعتی» with the
+  monthly estimate and minimum credit; cards show «ساخت سرویس ساعتی» on the hourly tab.
+
+Evidence (actually run):
+- `npm run check` on a clean LF tree: 854 pass / 1 skip that was already in the suite, then 53, 4, 13. `tsc` clean.
+- `scripts/hosting-hourly.connected.cjs` (fresh database): refusal without credit, repeated key, no prepayment,
+  checkout refusal, nothing charged before delivery, completed hours charged once under three concurrent runs, DB
+  refusal of a duplicate or off-hour row, stopped rate, usage totals equal the rows, warning, suspension without a
+  negative wallet, resume without charging suspended hours, deletion (name check, current hour, nothing after),
+  termination after the days, fixed term not deletable, wallet debits equal the hour rows. Breaks
+  `HOSTING_FAULT=rate|unpaid|resume` each fail it. The other three hosting scripts still pass.
+- Browser and the real scheduler on the local preview: a test customer ordered Cloud 4 hourly from `/servers`, staff
+  delivered it, the start was moved 9 hours back and the running scheduler charged 9 × 1,250 toman from the wallet.
+  Service page at 1440/390, light/dark: axe 0 (apart from the existing shell notification link), no page errors, the
+  live meter advances. Found and fixed: a lone login card at the top (usage now leads and cards fill gaps).
+- The test customer, their service, charges and wallet movements were removed; the module and ten sample plans stay.
+
+Not run: React Doctor, production build, a real driver (power state changes arrive with the drivers).
+
 ## Next
 
-Slice 5 (hourly cloud metering from the wallet) is next among slices that need no outside access; then 4–10 per the spec. Each real
+Among slices that need no outside access: manual add-on purchase (traffic, upgrade), domain search and IRNIC order flow UI; then the drivers (4, 6–9) as access arrives. Each real
 driver (DirectAdmin first, Proxmox, Hetzner) plugs into `ProvisioningDriver` when the owner provides access. Owner still to provide: an international registrar reseller
 account, licensed cPanel/DirectAdmin test servers, the IRNIC reseller account, a Hetzner token for live checks.

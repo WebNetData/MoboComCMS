@@ -35,7 +35,7 @@ function specs(product: PublicHostingProduct): { icon: string; label: string; va
  * The public catalogue of one page: kind tabs, a billing-cycle switch that shows the saving, plan cards, and for
  * hourly cloud an estimate for the hours a customer expects to use.
  */
-export default function HostingCatalog({ products, gateways, signedIn }: { products: PublicHostingProduct[]; gateways: CheckoutGatewayChoice[]; signedIn: boolean }) {
+export default function HostingCatalog({ products, gateways, signedIn, minHours }: { products: PublicHostingProduct[]; gateways: CheckoutGatewayChoice[]; signedIn: boolean; minHours: number }) {
   const [ordering, setOrdering] = useState<PublicHostingProduct | null>(null)
   const kinds = useMemo(() => HOSTING_KINDS.filter((kind) => products.some((product) => product.kind === kind.id)), [products])
   const [kind, setKind] = useState<string>(kinds[0]?.id || '')
@@ -98,12 +98,12 @@ export default function HostingCatalog({ products, gateways, signedIn }: { produ
           {product.features.length > 0 && <ul className="hx-features">{product.features.map((feature) => <li key={feature}><Icon name="check" size={14} />{feature}</li>)}</ul>}
           {product.location && <p className="hx-location"><Icon name="pin" size={14} /> {product.location}</p>}
           <div className="hx-plan-cta">
-            <button type="button" className="btn btn-primary" disabled={!product.prices.some((item) => item.cycle !== 'HOURLY')} onClick={() => setOrdering(product)}>{product.prices.some((item) => item.cycle !== 'HOURLY') ? 'سفارش' : 'خرید ساعتی به‌زودی'}</button>
+            <button type="button" className="btn btn-primary" onClick={() => setOrdering(product)}>{cycle?.id === 'HOURLY' ? 'ساخت سرویس ساعتی' : 'سفارش'}</button>
             <Link className="btn btn-ghost" href="/dashboard/tickets">مشاوره</Link>
           </div>
         </article>
       })}
     </div>
-    {ordering && <HostingOrder product={ordering} cycle={cycle?.id || 'MONTH'} gateways={gateways} signedIn={signedIn} onClose={() => setOrdering(null)} />}
+    {ordering && <HostingOrder product={ordering} cycle={cycle?.id || 'MONTH'} gateways={gateways} signedIn={signedIn} minHours={minHours} onClose={() => setOrdering(null)} />}
   </div>
 }

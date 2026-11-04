@@ -8,6 +8,8 @@ import { publicHostingCatalog } from '@/modules/hosting/server/catalog'
 import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
 import { getViewer } from '@/modules/membership/server/membership'
 import { BASE_CURRENCY } from '@/shared/money'
+import { getModuleSettings } from '@/extensions/server/modules'
+import { hourlyMinHours } from '@/modules/hosting/domain/services'
 import type { HostingGroup } from '@/modules/hosting/domain/catalog'
 import './hosting.css'
 
@@ -60,7 +62,7 @@ const COPY: Record<HostingGroup, {
 /** The public page of web hosting (/hosting) or servers and cloud (/servers). */
 export default async function HostingLanding({ group }: { group: HostingGroup }) {
   const [products, locale, theme, navPages, viewer] = await Promise.all([publicHostingCatalog(group), getServerLocale(), getServerTheme(), getPublicNavigationPages(), getViewer()])
-  const gateways = await checkoutGatewayOptions(products[0]?.currency || BASE_CURRENCY).catch(() => [])
+  const [gateways, settings] = await Promise.all([checkoutGatewayOptions(products[0]?.currency || BASE_CURRENCY).catch(() => []), getModuleSettings('hosting').catch(() => ({}))])
   const copy = COPY[group]
   const from = products.flatMap((product) => product.prices.filter((price) => price.cycle !== 'HOURLY').map((price) => price.monthly)).filter((value) => value > 0)
   const cheapest = from.length ? Math.min(...from) : 0
@@ -97,7 +99,7 @@ export default async function HostingLanding({ group }: { group: HostingGroup })
 
       <section className="container hx-section" id="plans" aria-labelledby="hx-plans-title">
         <header className="hx-section-head"><h2 id="hx-plans-title">پلن مناسبت را انتخاب کن</h2><p>دورهٔ پرداخت را عوض کن تا قیمت و صرفه‌جویی هر دوره را ببینی.</p></header>
-        <HostingCatalog products={products} gateways={gateways} signedIn={Boolean(viewer.userId)} />
+        <HostingCatalog products={products} gateways={gateways} signedIn={Boolean(viewer.userId)} minHours={hourlyMinHours(settings)} />
       </section>
 
       <section className="container hx-section" aria-labelledby="hx-why-title">

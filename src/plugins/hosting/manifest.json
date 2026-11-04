@@ -66,6 +66,13 @@
       "labelEn": "Renew from the wallet for customers who turned it on",
       "type": "boolean",
       "default": true
+    },
+    {
+      "key": "hourly-min-hours",
+      "label": "سرویس ساعتی: موجودی کیف پول دست‌کم برای چند ساعت",
+      "labelEn": "Hourly: wallet must cover this many hours to buy",
+      "type": "number",
+      "default": 24
     }
   ],
   "adminMenu": {

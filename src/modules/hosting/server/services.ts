@@ -36,7 +36,7 @@ async function notify(userId: number, serviceId: number, key: string, titleFa: s
 export async function hostingQuote(input: { productId: number; cycle: string; hostname: unknown }) {
   const product = await db.hostingProduct.findUnique({ where: { id: input.productId }, include: { prices: true, provider: { select: { id: true, active: true, capacity: true } } } })
   if (!product || !product.active) throw new HostingRefusal('این پلن در حال حاضر فروخته نمی‌شود', 404, 'HOSTING_PRODUCT_NOT_FOUND')
-  if (input.cycle === 'HOURLY') throw new HostingRefusal('خرید ساعتی از کیف پول به‌زودی فعال می‌شود؛ فعلاً یک دورهٔ ماهانه یا بلندتر انتخاب کنید', 409, 'HOSTING_HOURLY_LATER')
+  if (input.cycle === 'HOURLY') throw new HostingRefusal('سرویس ساعتی پیش‌پرداخت ندارد و از صفحهٔ پلن با «ساخت سرویس ساعتی» ساخته می‌شود', 409, 'HOSTING_HOURLY_LATER')
   const price = product.prices.find((row) => row.cycle === input.cycle && row.currency === product.currency)
   if (!price || !cycleMeta(input.cycle)) throw new HostingRefusal('این دوره برای این پلن قیمت ندارد', 400, 'HOSTING_CYCLE')
   const hostname = normalizeServiceName(product.kind, input.hostname)
@@ -233,7 +233,7 @@ export async function adminHostingServices(filter: { status?: string; q?: string
   ])
   return {
     page, pages: Math.max(1, Math.ceil(total / take)), total, waiting,
-    services: rows.map(({ loginSecret, priceMinor, ...row }) => ({ ...row, priceMinor: priceMinor.toString(), hasPassword: Boolean(loginSecret) })),
+    services: rows.map(({ loginSecret, priceMinor, stoppedHourlyMinor, ...row }) => ({ ...row, priceMinor: priceMinor.toString(), stoppedHourlyMinor: stoppedHourlyMinor.toString(), hasPassword: Boolean(loginSecret) })),
   }
 }
 
@@ -242,15 +242,15 @@ export async function adminHostingServices(filter: { status?: string; q?: string
 /** The customer's own services; nobody else's are ever read here. */
 export async function memberHostingServices(userId: number) {
   const rows = await db.hostingService.findMany({ where: { userId }, orderBy: [{ status: 'asc' }, { id: 'desc' }], include: { product: { select: { kind: true, cpuCores: true, ramMb: true, diskGb: true, diskType: true, location: true } } } })
-  return rows.map(({ loginSecret: _secret, priceMinor, ...row }) => ({ ...row, priceMinor: priceMinor.toString() }))
+  return rows.map(({ loginSecret: _secret, priceMinor, stoppedHourlyMinor, ...row }) => ({ ...row, priceMinor: priceMinor.toString(), stoppedHourlyMinor: stoppedHourlyMinor.toString() }))
 }
 
 export async function memberHostingService(userId: number, serviceId: number) {
   const row = await db.hostingService.findFirst({ where: { id: serviceId, userId }, include: { product: true, actions: { where: { kind: { not: 'REVEAL' } }, orderBy: { id: 'desc' }, take: 20 } } })
   if (!row) return null
-  const { loginSecret, priceMinor, product, actions, ...service } = row
+  const { loginSecret, priceMinor, stoppedHourlyMinor, product, actions, ...service } = row
   return {
-    ...service, priceMinor: priceMinor.toString(), hasPassword: Boolean(loginSecret),
+    ...service, priceMinor: priceMinor.toString(), stoppedHourlyMinor: stoppedHourlyMinor.toString(), hasPassword: Boolean(loginSecret),
     allowTraffic: service.allowTraffic ?? product.allowTraffic, allowUpgrade: service.allowUpgrade ?? product.allowUpgrade,
     product: { kind: product.kind, name: product.name, cpuCores: product.cpuCores, ramMb: product.ramMb, diskGb: product.diskGb, diskType: product.diskType, trafficGb: product.trafficGb, bandwidthMbps: product.bandwidthMbps, sites: product.sites, mailboxes: product.mailboxes, databases: product.databases, location: product.location, fulfillment: product.fulfillment },
     actions: actions.map((action) => ({ id: action.id, kind: action.kind, status: action.status, actor: action.actor, detail: action.detail, createdAt: action.createdAt })),
