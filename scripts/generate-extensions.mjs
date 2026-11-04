@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 const root = process.cwd()
 const pluginsDir = path.join(root, 'src/plugins')
@@ -40,6 +41,14 @@ function validateManifest(manifest, expectedKind, file) {
   }
   for (const nav of manifest.adminNavigation || []) if (!String(nav.href || '').startsWith(`/admin/extensions/${manifest.id}`)) throw new Error(`${file}: adminNavigation must live under /admin/extensions/${manifest.id}`)
 }
+// The generated files are committed, and the build regenerates them on every server. They must come out byte for byte
+// the same on Linux and Windows, or an installed site shows them as changed and its update stops. --check compares
+// what would be written with the Git index (the committed bytes) and writes nothing.
+const checkOnly = process.argv.includes('--check')
+const outputs = []
+function emit(file, text) { outputs.push([file, text]); if (!checkOnly) fs.writeFileSync(file, text) }
+const lf = (text) => text.replace(/\r\n?/g, '\n')
+
 fs.mkdirSync(extensionOut, { recursive: true })
 fs.mkdirSync(themeOut, { recursive: true })
 
@@ -58,21 +67,33 @@ function packages(dir) {
 // manager activates both; their code stays in src/modules and checks the flag.
 const plugins = packages(pluginsDir).map(x => { validateManifest(x.manifest, ['plugin', 'module'], x.file); return ({ ...x, client: fs.existsSync(path.join(pluginsDir, x.dir, 'client.tsx')), server: fs.existsSync(path.join(pluginsDir, x.dir, 'server.ts')) }) })
 const catalogImports = plugins.map((x, i) => `import m${i} from '@/plugins/${x.dir}/manifest.json'`).join('\n')
-fs.writeFileSync(path.join(extensionOut, 'catalog.ts'), `${catalogImports}\nimport { assertUniqueExtensionIds, type ExtensionManifest } from '@/platform/extensions/contracts'\n\nexport const extensionCatalog = [${plugins.map((_, i) => `m${i}`).join(', ')}] as unknown as readonly ExtensionManifest[]\nassertUniqueExtensionIds(extensionCatalog)\nexport const extensionById = new Map(extensionCatalog.map((manifest) => [manifest.id, manifest]))\nexport const extensionPermissionIds = extensionCatalog.flatMap((manifest) => (manifest.permissions || []).map((permission) => permission.id))\n`)
+emit(path.join(extensionOut, 'catalog.ts'), `${catalogImports}\nimport { assertUniqueExtensionIds, type ExtensionManifest } from '@/platform/extensions/contracts'\n\nexport const extensionCatalog = [${plugins.map((_, i) => `m${i}`).join(', ')}] as unknown as readonly ExtensionManifest[]\nassertUniqueExtensionIds(extensionCatalog)\nexport const extensionById = new Map(extensionCatalog.map((manifest) => [manifest.id, manifest]))\nexport const extensionPermissionIds = extensionCatalog.flatMap((manifest) => (manifest.permissions || []).map((permission) => permission.id))\n`)
 const clientPlugins = plugins.filter(x => x.client)
-fs.writeFileSync(path.join(extensionOut, 'client-registry.ts'), `${clientPlugins.map((x,i)=>`import { plugin as p${i} } from '@/plugins/${x.dir}/client'`).join('\n')}\nimport type { PluginClientModule } from '@/plugins/types'\nexport const clientPlugins: Readonly<Record<string, PluginClientModule>> = {\n  ${clientPlugins.map((x,i)=>`'${x.dir}': p${i}`).join(',\n  ')}\n}\n`)
+emit(path.join(extensionOut, 'client-registry.ts'), `${clientPlugins.map((x,i)=>`import { plugin as p${i} } from '@/plugins/${x.dir}/client'`).join('\n')}\nimport type { PluginClientModule } from '@/plugins/types'\nexport const clientPlugins: Readonly<Record<string, PluginClientModule>> = {\n  ${clientPlugins.map((x,i)=>`'${x.dir}': p${i}`).join(',\n  ')}\n}\n`)
 const serverPlugins = plugins.filter(x => x.server)
-fs.writeFileSync(path.join(extensionOut, 'server-registry.ts'), `${serverPlugins.map((x,i)=>`import { plugin as s${i} } from '@/plugins/${x.dir}/server'`).join('\n')}\nimport type { PluginServerModule } from '@/extensions/server/types'\nexport const serverPlugins: Readonly<Record<string, PluginServerModule>> = {\n  ${serverPlugins.map((x,i)=>`'${x.dir}': s${i}`).join(',\n  ')}\n}\n`)
+emit(path.join(extensionOut, 'server-registry.ts'), `${serverPlugins.map((x,i)=>`import { plugin as s${i} } from '@/plugins/${x.dir}/server'`).join('\n')}\nimport type { PluginServerModule } from '@/extensions/server/types'\nexport const serverPlugins: Readonly<Record<string, PluginServerModule>> = {\n  ${serverPlugins.map((x,i)=>`'${x.dir}': s${i}`).join(',\n  ')}\n}\n`)
 
 const themes = packages(themesDir).map(x => { validateManifest(x.manifest, 'theme', x.file); return ({ ...x, client: fs.existsSync(path.join(themesDir, x.dir, 'client.tsx')), home: fs.existsSync(path.join(themesDir, x.dir, 'home.tsx')), css: fs.existsSync(path.join(themesDir, x.dir, 'theme.css')) }) })
 for (const { manifest } of themes) {
   if (manifest.kind !== 'theme' || !manifest.design || manifest.design.id !== manifest.id) throw new Error(`Theme ${manifest.id} must declare kind=theme and a matching design manifest`)
 }
-fs.writeFileSync(path.join(themeOut, 'catalog.ts'), `${themes.map((x,i)=>`import t${i} from '@/themes/code/${x.dir}/manifest.json'`).join('\n')}\nimport type { ThemeManifest } from '@/modules/site/config/types'\nexport const codeThemeCatalog = [${themes.map((_,i)=>`t${i}`).join(', ')}] as const\nexport const codeThemeDesigns: readonly ThemeManifest[] = codeThemeCatalog.map(theme => theme.design as ThemeManifest)\n`)
+emit(path.join(themeOut, 'catalog.ts'), `${themes.map((x,i)=>`import t${i} from '@/themes/code/${x.dir}/manifest.json'`).join('\n')}\nimport type { ThemeManifest } from '@/modules/site/config/types'\nexport const codeThemeCatalog = [${themes.map((_,i)=>`t${i}`).join(', ')}] as const\nexport const codeThemeDesigns: readonly ThemeManifest[] = codeThemeCatalog.map(theme => theme.design as ThemeManifest)\n`)
 const clientThemes = themes.filter(x=>x.client)
-fs.writeFileSync(path.join(themeOut, 'client-registry.ts'), `${clientThemes.map((x,i)=>`import { theme as t${i} } from '@/themes/code/${x.dir}/client'`).join('\n')}\nimport type { ThemeClientModule } from '@/themes/types'\nexport const codeThemeClients: Readonly<Record<string, ThemeClientModule>> = {\n  ${clientThemes.map((x,i)=>`'${x.dir}': t${i}`).join(',\n  ')}\n}\n`)
+emit(path.join(themeOut, 'client-registry.ts'), `${clientThemes.map((x,i)=>`import { theme as t${i} } from '@/themes/code/${x.dir}/client'`).join('\n')}\nimport type { ThemeClientModule } from '@/themes/types'\nexport const codeThemeClients: Readonly<Record<string, ThemeClientModule>> = {\n  ${clientThemes.map((x,i)=>`'${x.dir}': t${i}`).join(',\n  ')}\n}\n`)
 const homeThemes = themes.filter(x=>x.home)
-fs.writeFileSync(path.join(themeOut, 'server-registry.ts'), `${homeThemes.map((x,i)=>`import { theme as t${i} } from '@/themes/code/${x.dir}/home'`).join('\n')}\nimport type { ThemeServerModule } from '@/themes/types'\nexport const codeThemeServers: Readonly<Record<string, ThemeServerModule>> = {\n  ${homeThemes.map((x,i)=>`'${x.dir}': t${i}`).join(',\n  ')}\n}\n`)
-const css = themes.filter(x=>x.css).map(x=>`/* theme: ${x.dir} */\n${fs.readFileSync(path.join(themesDir,x.dir,'theme.css'),'utf8')}`).join('\n\n')
-fs.writeFileSync(path.join(root, 'src/themes/generated.css'), css + '\n')
-console.log(`Generated registries for ${plugins.length} plugin(s) and ${themes.length} code theme(s).`)
+emit(path.join(themeOut, 'server-registry.ts'), `${homeThemes.map((x,i)=>`import { theme as t${i} } from '@/themes/code/${x.dir}/home'`).join('\n')}\nimport type { ThemeServerModule } from '@/themes/types'\nexport const codeThemeServers: Readonly<Record<string, ThemeServerModule>> = {\n  ${homeThemes.map((x,i)=>`'${x.dir}': t${i}`).join(',\n  ')}\n}\n`)
+const css = themes.filter(x=>x.css).map(x=>`/* theme: ${x.dir} */\n${lf(fs.readFileSync(path.join(themesDir,x.dir,'theme.css'),'utf8'))}`).join('\n\n')
+emit(path.join(root, 'src/themes/generated.css'), css + '\n')
+function committed(file) {
+  const name = path.relative(root, file).split(path.sep).join('/')
+  try { return execFileSync('git', ['show', `:${name}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 << 20 }) }
+  catch { return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null }
+}
+if (checkOnly) {
+  const stale = outputs.filter(([file, text]) => committed(file) !== text).map(([file]) => path.relative(root, file).split(path.sep).join('/'))
+  if (stale.length) {
+    console.error(`Generated extension files are out of date in Git: ${stale.join(', ')}\nRun "npm run extensions:generate" and commit the result.`)
+    process.exit(1)
+  }
+  console.log(`Generated extension files match the source (${outputs.length} files).`)
+} else console.log(`Generated registries for ${plugins.length} plugin(s) and ${themes.length} code theme(s).`)
