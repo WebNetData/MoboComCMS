@@ -1,6 +1,34 @@
 # Ubuntu host installation and recovery continuation — 2026-10-31
 
-## Git-install update on a filtered network — 2026-11-04
+## Xray profiles per purpose from the Server Panel — 2026-11-04
+
+Owner: enter Xray configs from Admin and choose which config each job uses. Branch `feat/xray-profiles-2026-11-04` from
+main `dce11c77`; extends the existing social-proxy owner (social module + Server Panel), no second proxy system.
+
+- **Purposes** (fixed in two places that must agree): the root builder `deploy/ubuntu/xray-config.cjs` `PURPOSES` holds the
+  Xray domains each purpose may reach; `src/modules/social/domain/egress.ts` `EGRESS_PURPOSES` says which site requests
+  belong to it. `telegram` (api.telegram.org), `instagram` (Graph API), `updates` (github.com, githubusercontent.com,
+  used by the updater's git fetch), `ai` (OpenAI, Anthropic, the Gemini host only, OpenRouter, Groq). Everything else
+  through the proxy is dropped; requests without a routed purpose go out directly as before.
+- **Profiles**: up to 8 named outbounds (`p1`…`p8`), links encrypted, in Setting `egress.proxy.v2`. Until the panel
+  saves it, the first setting `social.proxy.v1` reads as profile p1 for Telegram/Instagram when it was on.
+- **Root helper**: builder version 2 accepts `{version:2, profiles, routes}` and still takes the single outbound of
+  version 1. `mobocom-xrayctl status` reports `builder`; new `check` action tests without changing what runs. Root files
+  are installed by `xray-install.sh` only, so an updated site keeps builder 1 until the operator runs
+  `sudo bash /opt/mobocom/app/deploy/ubuntu/xray-install.sh` (or the installer again). With builder 1 the panel applies
+  only one profile shared by Telegram/Instagram and says what to run for the rest.
+- **Users**: `egressFetch` (alias `socialFetch`) chooses per host; the AI client (OpenAI-compatible fetch and the Anthropic
+  SDK's `fetch` option) uses it. The panel writes `storage/update/git-proxy` while `updates` has a profile;
+  `git-fetch.sh` uses it when `UPDATE_GIT_PROXY` is not set (validated the same way).
+- **Panel** `/admin/server/proxy` («پروکسی Xray»): core status and builder warning, profiles (add, rename/replace, reveal,
+  remove; removing sends its purposes direct), a select per purpose, apply, and a per-purpose connection test. API ops:
+  `profile | remove | routes | test | reveal`, behind the unlocked Server Panel; audit names profile ids and protocols, never links.
+- **Evidence** (Linux, Node 22): `scripts/social-proxy.test.cjs` 11/11 (builder v2 rules and nine refusals, domain rules,
+  legacy conversion, helper payload for builder 1/2, egress per purpose, git proxy file read and validated, xrayctl status
+  and dry `check`). Real Xray 26.10.31 (pinned archive, hash checked): both v1 and v2 configurations `Configuration OK`;
+  a running Xray with two recording upstreams sent Telegram to p1, GitHub/OpenAI/Gemini to p2, and dropped
+  graph.facebook.com (no profile), example.com and storage.googleapis.com.
+- **Not verified**: a real VLESS/Trojan server, the owner's server, the panel in a browser against a live helper.
 
 Field report from the owner's server (Git install at `/opt/mobocom/app`, service user `mobocom`, installed commit
 `5bdc7c93`, updating to v1.7.2 from `/admin/updates`). Three defects in the updaters, each reproduced here:
