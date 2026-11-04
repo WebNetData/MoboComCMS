@@ -846,6 +846,8 @@ Following 6Z-2, the values sections had fixed in code are the owner's managed li
 - **A link is written at its final address** (owner, 2026-11-04). Code builds track and album links with `contentPath(kind, slug, { artist })`; stored links (builder pages, menus, home sections) pass through `withCanonicalContentLinks` from the Site routing address before rendering. The 308 of an old address stays for outside links only.
 - **Hosting, servers, cloud and domains are one section, «موبوکام کلاد»** (owner, 2026-11-04). One module (`hosting`), one permission, one member entry; `/cloud` is its overview and `/hosting`, `/servers`, `/domains` stay its pages under a shared section bar. Renaming never changes ids, permissions, data or addresses.
 
+- **One local Xray proxy, several profiles, a profile per purpose** (owner, 2026-11-04). Purposes and their hosts are fixed in code (root builder and `social/domain/egress.ts`, kept equal); the panel only chooses which profile, or none, each purpose uses. A request goes through the proxy only when its host's purpose has a profile. Root helpers change only when the operator re-runs `xray-install.sh`.
+
 ## 8. Open, by the owner's decision or still owed
 
 - Production: run `npm run deploy:migrate` (through `20261215120000`), set `STORE_DELIVERY_KEY`, decide the return window for codes, the keeping times of notifications and whether the daily summary goes out (`/admin/store/returns`, `/admin/notifications`), configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.

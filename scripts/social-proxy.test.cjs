@@ -16,6 +16,7 @@ function load(relative, stubs = {}) {
   return mod.exports
 }
 const { parseProxyConfig, ProxyConfigError } = load('src/modules/social/domain/xray-link.ts')
+const egressDomain = load('src/modules/social/domain/egress.ts')
 const builder = require('../deploy/ubuntu/xray-config.cjs')
 const UUID = '0e6a5f6e-7c2b-4b4e-9b3a-2f1d3c4b5a69'
 const b64 = (value) => Buffer.from(value).toString('base64')
@@ -117,7 +118,13 @@ test('the root helper applies only what Xray accepts, and the installer checks t
     result = run('{"protocol":"freedom","settings":{}}'); assert.equal(result.status, 2); assert.match(result.stderr, /not allowed/)
     result = run('x'.repeat(70000)); assert.equal(result.status, 2); assert.match(result.stderr, /too large/)
     const status = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'status'], { encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: path.join(dir, 'missing'), XRAYCTL_DIR: dir } })
-    assert.deepEqual(JSON.parse(status.stdout), { installed: 0, version: '', configured: 0, active: 0, port: 10809 })
+    assert.deepEqual(JSON.parse(status.stdout), { installed: 0, version: '', configured: 0, active: 0, port: 10809, builder: 1 }, 'an old or missing builder reads as version 1')
+    const newer = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'status'], { encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: path.join(dir, 'missing'), XRAYCTL_DIR: dir, XRAYCTL_BUILDER: path.join(root, 'deploy/ubuntu/xray-config.cjs') } })
+    assert.equal(JSON.parse(newer.stdout).builder, 2)
+    // check: Xray tests the profiles, nothing is installed or restarted.
+    const check = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'check'], { input: JSON.stringify({ version: 2, profiles: [{ tag: 'p1', outbound: good }], routes: { ai: 'p1' } }), encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: fake, XRAYCTL_BUILDER: path.join(root, 'deploy/ubuntu/xray-config.cjs'), XRAYCTL_DIR: dir } })
+    assert.equal(check.status, 0, check.stderr); assert.match(check.stdout, /OK configuration accepted/)
+    assert.equal(fs.existsSync(path.join(dir, 'config.json')), false)
   } finally { fs.rmSync(dir, { recursive: true, force: true }) }
 
   const install = read('deploy/ubuntu/xray-install.sh')
@@ -135,7 +142,8 @@ test('the root helper applies only what Xray accepts, and the installer checks t
 
 test('the site sends only Telegram and Instagram through the local proxy, and only while the owner has it on', async () => {
   let enabled = false
-  const egress = load('src/modules/social/server/egress.ts', { '@/modules/settings/server': { readJsonSetting: async () => ({ enabled }) } })
+  // The first setting (one link, on/off) still drives Telegram and Instagram until profiles are saved.
+  const egress = load('src/modules/social/server/egress.ts', { '@/modules/settings/server': { readJsonSetting: async (key) => key === 'social.proxy.v1' ? { enabled, link: 'encrypted' } : undefined }, '@/modules/social/domain/egress': egressDomain })
   // A local proxy that records what it is asked to reach and refuses it (no TLS is needed to see the tunnel request).
   const asked = []
   const proxy = http.createServer().on('connect', (req, socket) => { asked.push(req.url); socket.end('HTTP/1.1 403 Forbidden\r\n\r\n') })
@@ -163,6 +171,92 @@ test('the site sends only Telegram and Instagram through the local proxy, and on
     await assert.rejects(egress.socialFetch('https://api.telegram.org/botX/getMe'), /social-network proxy is not reachable/, 'on and an allowed host: through the proxy, which is not running here')
   } finally { global.fetch = realFetch }
   assert.deepEqual([...egress.SOCIAL_PROXY_HOSTS], ['api.telegram.org', 'graph.facebook.com', 'graph.instagram.com'])
+})
+
+test('the root builder takes named profiles: each purpose reaches only its own hosts through its profile, the rest is dropped', () => {
+  const a = parseProxyConfig(`vless://${UUID}@edge.example.com:443?security=tls&sni=edge.example.com`).outbound
+  const b = parseProxyConfig('trojan://pw@other.example:443').outbound
+  const config = builder.build({ version: 2, profiles: [{ tag: 'p1', outbound: a }, { tag: 'p2', outbound: b }], routes: { telegram: 'p1', updates: 'p2', ai: 'p2' } })
+  assert.deepEqual(config.inbounds, [{ tag: 'site', listen: '127.0.0.1', port: 10809, protocol: 'http', settings: { allowTransparent: false } }])
+  assert.deepEqual(config.outbounds.map((o) => o.tag), ['p1', 'p2', 'drop'])
+  assert.deepEqual(config.routing.rules, [
+    { type: 'field', inboundTag: ['site'], domain: builder.PURPOSES.telegram, outboundTag: 'p1' },
+    { type: 'field', inboundTag: ['site'], domain: builder.PURPOSES.updates, outboundTag: 'p2' },
+    { type: 'field', inboundTag: ['site'], domain: builder.PURPOSES.ai, outboundTag: 'p2' },
+    { type: 'field', inboundTag: ['site'], outboundTag: 'drop' },
+  ])
+  assert.ok(builder.PURPOSES.updates.includes('domain:github.com'))
+  assert.equal(builder.BUILDER_VERSION, 2)
+  // The panel cannot name hosts, add keys, reuse or invent tags, or weaken an outbound.
+  for (const [bad, message] of [
+    [{ version: 2, profiles: [{ tag: 'p1', outbound: a }], routes: { anything: 'p1' } }, /not known/],
+    [{ version: 2, profiles: [{ tag: 'p1', outbound: a }], routes: { telegram: 'p2' } }, /not given/],
+    [{ version: 2, profiles: [{ tag: 'p1', outbound: a }], routes: {} }, /no purpose/],
+    [{ version: 2, profiles: [{ tag: 'p1', outbound: a }, { tag: 'p1', outbound: b }], routes: { telegram: 'p1' } }, /each once/],
+    [{ version: 2, profiles: [{ tag: 'upstream', outbound: a }], routes: { telegram: 'upstream' } }, /p1 to p8/],
+    [{ version: 2, profiles: [{ tag: 'p1', outbound: a, domains: ['x.com'] }], routes: { telegram: 'p1' } }, /domains/],
+    [{ version: 2, profiles: [{ tag: 'p1', outbound: { protocol: 'freedom', settings: {} } }], routes: { telegram: 'p1' } }, /freedom/],
+    [{ version: 2, profiles: [{ tag: 'p1', outbound: a }], routes: { telegram: 'p1' }, rules: [] }, /rules/],
+    [{ version: 2, profiles: Array.from({ length: 9 }, (_, i) => ({ tag: `p${i + 1}`, outbound: a })), routes: { telegram: 'p1' } }, /between 1 and 8/],
+  ]) assert.throws(() => builder.build(bad), message)
+})
+
+test('profiles and purposes: hosts map to purposes, old settings become profile p1, and an old builder takes only one shared profile', () => {
+  const d = egressDomain
+  assert.equal(d.purposeOfHost('api.telegram.org'), 'telegram')
+  assert.equal(d.purposeOfHost('graph.instagram.com'), 'instagram')
+  assert.equal(d.purposeOfHost('api.openai.com'), 'ai')
+  assert.equal(d.purposeOfHost('generativelanguage.googleapis.com'), 'ai')
+  assert.equal(d.purposeOfHost('storage.googleapis.com'), null, 'only the listed Google host, not all of googleapis.com')
+  assert.equal(d.purposeOfHost('evilopenai.com'), null)
+  assert.equal(d.purposeOfHost('example.com'), null)
+  const legacy = d.fromLegacy({ enabled: true, link: 'enc', label: 'Germany', protocol: 'vless', server: 'de.example:443' })
+  assert.deepEqual(legacy.routes, { telegram: 'p1', instagram: 'p1' }); assert.equal(legacy.profiles[0].name, 'Germany')
+  assert.deepEqual(d.fromLegacy({ enabled: false, link: 'enc' }).routes, {})
+  assert.deepEqual(d.fromLegacy({}).profiles, [])
+  const settings = d.normalizeEgress({ profiles: [{ id: 'p1', name: ' A ', link: 'x' }, { id: 'p1', name: 'dup', link: 'y' }, { id: 'p9', link: 'z' }, { id: 'p2', name: 'B', link: 'w' }], routes: { telegram: 'p1', ai: 'p2', updates: 'p7', bogus: 'p1' } })
+  assert.deepEqual(settings.profiles.map((p) => [p.id, p.name]), [['p1', 'A'], ['p2', 'B']])
+  assert.deepEqual(settings.routes, { telegram: 'p1', ai: 'p2' }, 'unknown purposes and missing profiles are dropped')
+  assert.equal(d.nextProfileId(settings), 'p3')
+  const out = (p) => `outbound-${p.id}`
+  assert.deepEqual(d.helperPayload(settings, out, 2), { kind: 'v2', body: { version: 2, profiles: [{ tag: 'p1', outbound: 'outbound-p1' }, { tag: 'p2', outbound: 'outbound-p2' }], routes: { telegram: 'p1', ai: 'p2' } } })
+  assert.deepEqual(d.helperPayload(settings, out, 1), { kind: 'old-builder' })
+  assert.deepEqual(d.helperPayload({ ...settings, routes: { telegram: 'p2', instagram: 'p2' } }, out, 1), { kind: 'v1', body: 'outbound-p2' })
+  assert.deepEqual(d.helperPayload({ ...settings, routes: {} }, out, 2), { kind: 'none' })
+})
+
+test('the site sends a purpose through the proxy only when that purpose has a profile', async () => {
+  const stored = { profiles: [{ id: 'p1', name: 'A', link: 'enc' }], routes: { ai: 'p1' } }
+  const egress = load('src/modules/social/server/egress.ts', { '@/modules/settings/server': { readJsonSetting: async (key) => key === 'egress.proxy.v2' ? stored : { enabled: true, link: 'old' } }, '@/modules/social/domain/egress': egressDomain })
+  const direct = []
+  const realFetch = global.fetch
+  global.fetch = async (url) => { direct.push(String(url)); return new Response('direct') }
+  try {
+    await egress.egressFetch('https://api.telegram.org/botX/getMe')
+    assert.deepEqual(direct, ['https://api.telegram.org/botX/getMe'], 'saved profiles replace the first setting: Telegram has none here')
+    await assert.rejects(egress.egressFetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: new Headers({ authorization: 'Bearer x' }), body: '{}' }), /proxy is not reachable/, 'AI goes to the local proxy (not running here)')
+  } finally { global.fetch = realFetch }
+  // The AI client and the updater use the same profiles.
+  const ai = read('src/modules/ai/server/client.ts')
+  assert.match(ai, /fetch: egressFetch as unknown as typeof fetch/)
+  assert.match(ai, /await egressFetch\(`\$\{baseUrl\}\/chat\/completions`/)
+  assert.match(read('deploy/ubuntu/git-fetch.sh'), /PANEL_PROXY="\$\{UPDATE_STATE_DIR:-storage\/update\}\/git-proxy"/)
+})
+
+test('the updater fetch reads the panel proxy file and still validates it', { skip: process.platform === 'win32' }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gitproxy-'))
+  try {
+    const repo = path.join(dir, 'repo'); fs.mkdirSync(repo)
+    const git = (...args) => cp.execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: repo, encoding: 'utf8' })
+    git('init', '-q'); fs.writeFileSync(path.join(repo, 'a'), '1'); git('add', '-A'); git('commit', '-qm', 'x')
+    const app = path.join(dir, 'app'); cp.execFileSync('git', ['clone', '-q', repo, app])
+    const state = path.join(dir, 'state'); fs.mkdirSync(state)
+    const run = () => cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/git-fetch.sh'), '--tags', 'origin'], { cwd: app, encoding: 'utf8', env: { ...process.env, UPDATE_STATE_DIR: state, UPDATE_GIT_PROXY: '' } })
+    fs.writeFileSync(path.join(state, 'git-proxy'), 'http://127.0.0.1:10809\n')
+    let result = run(); assert.equal(result.status, 0, result.stderr); assert.match(result.stderr, /through UPDATE_GIT_PROXY/)
+    fs.writeFileSync(path.join(state, 'git-proxy'), 'http://x; id\n')
+    result = run(); assert.equal(result.status, 2); assert.match(result.stderr, /invalid UPDATE_GIT_PROXY/)
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
 })
 
 test('Telegram, the reseller bot receipts and Instagram publishing all go through socialFetch', () => {

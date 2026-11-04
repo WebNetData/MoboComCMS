@@ -13,6 +13,9 @@ set -uo pipefail
 STALL="${UPDATE_FETCH_STALL:-60}"
 LIMIT="${UPDATE_FETCH_TIMEOUT:-900}"
 PROXY="${UPDATE_GIT_PROXY:-}"
+# The Server Panel writes this file while the "updates" purpose has an Xray profile (the site's local proxy).
+PANEL_PROXY="${UPDATE_STATE_DIR:-storage/update}/git-proxy"
+if [ -z "$PROXY" ] && [ -f "$PANEL_PROXY" ]; then PROXY="$(head -c 200 "$PANEL_PROXY" | head -1 | tr -d '\r\n ')"; fi
 [[ "$STALL" =~ ^[1-9][0-9]{0,3}$ ]] || { echo '[fetch] invalid UPDATE_FETCH_STALL' >&2; exit 2; }
 [[ "$LIMIT" =~ ^[1-9][0-9]{0,4}$ ]] || { echo '[fetch] invalid UPDATE_FETCH_TIMEOUT' >&2; exit 2; }
 [ -z "$PROXY" ] || [[ "$PROXY" =~ ^(socks5h?|socks4a?|https?)://[A-Za-z0-9._~%:@-]+(:[0-9]{1,5})?/?$ ]] || { echo '[fetch] invalid UPDATE_GIT_PROXY' >&2; exit 2; }
