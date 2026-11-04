@@ -81,7 +81,7 @@ sudo mobocom status              # سلامت سایت، نسخه و آخرین 
 sudo mobocom panel on            # روشن کردن پنل سرور؛ با --ip YOUR.IP.ADDRESS فقط برای IP شما
 sudo mobocom update              # آخرین نسخه
 sudo mobocom versions            # نسخه‌های منتشرشده و نسخهٔ نصب‌شده
-sudo mobocom update 1.7.1        # رفتن به یک نسخهٔ مشخص جدیدتر
+sudo mobocom update 1.7.2        # رفتن به یک نسخهٔ مشخص جدیدتر
 sudo mobocom downgrade 1.6.1     # برگشت به یک نسخهٔ قدیمی‌تر
 sudo mobocom rollback            # برگشت به نسخهٔ پیش از آخرین آپدیت
 sudo mobocom backup              # بکاپ دستی از دیتابیس و فایل‌ها
@@ -109,7 +109,7 @@ curl -fsSL https://raw.githubusercontent.com/WebNetData/MoboComCMS/main/install.
 از Assets هر نسخه، فایل `.run` برای نصب اولیه و `.mbrelease` برای آپدیت از پنل سایت است. ZIP خودکار سورس، فایل آپدیت نیست. فایل را روی کامپیوتر خود دانلود کنید و به سرور منتقل کنید؛ سرور به GitHub نیاز ندارد. بستهٔ امضاشده شامل سورس همان commit است و بیلد سازگار با Linux را روی سرور آماده می‌کند. روی همان سیستم‌عامل‌های بالا:
 
 ```bash
-sudo bash mobocom-setup-1.7.1.run
+sudo bash mobocom-setup-1.7.2.run
 ```
 
 ادامهٔ نصب مانند روش یک‌خطی در مرورگر است. آپدیت این نصب با بستهٔ `.mbrelease` از **پنل سرور ← به‌روزرسانی امن** و با پشتیبان اجباری انجام می‌شود. توسعه، انتشار نسخه و ارتقای سایت سه مرحلهٔ مستقل‌اند؛ برای هر commit لازم نیست سایت را ارتقا دهید.
