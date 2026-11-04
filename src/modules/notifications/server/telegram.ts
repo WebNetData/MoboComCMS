@@ -12,6 +12,7 @@ import { db } from '@/platform/database/prisma'
 import { safeHappLink } from '@/modules/subscriptions/server/happ-protocol'
 import { planName } from '@/modules/catalog/domain/plan-locale'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { socialFetch } from '@/modules/social/server/egress'
 
 export const TG_KEYS = {
   token: 'telegramBotToken',
@@ -70,7 +71,8 @@ export async function bot<T = any>(
   const config = cfg || (await telegramConfig())
   if (!config.token) return { ok: false, description: 'bot token is not configured' }
   try {
-    const res = await fetch(`${config.apiBase}/bot${config.token}/${method}`, {
+    // Through the social-network proxy when the owner turned it on (Server Panel); directly otherwise.
+    const res = await socialFetch(`${config.apiBase}/bot${config.token}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),

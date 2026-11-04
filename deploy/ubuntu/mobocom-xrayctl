@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# mobocom-xrayctl — the only root actions the site may take for its social-network proxy (through sudo, see
+# xray-install.sh). The site sends one outbound; xray-config.cjs builds the rest and Xray itself checks the result
+# before it replaces the running configuration.
+#
+#   status     JSON: installed, version, active, configured
+#   apply      outbound JSON on stdin → check → install the configuration → (re)start the proxy
+#   disable    stop the proxy and remove its configuration
+set -euo pipefail
+umask 027
+
+XRAY="${XRAYCTL_XRAY:-/usr/local/lib/mobocom/xray/xray}"
+BUILDER="${XRAYCTL_BUILDER:-/usr/local/libexec/mobocom/xray-config.cjs}"
+DIR="${XRAYCTL_DIR:-/etc/mobocom/xray}"
+CONFIG="$DIR/config.json"
+UNIT=mobocom-xray
+DRY="${XRAYCTL_DRY:-0}"
+
+die() { echo "ERROR: $*" >&2; exit 2; }
+[ "$DRY" = 1 ] || [ "$(id -u)" -eq 0 ] || die 'run through the root helper'
+active() { [ "$DRY" = 1 ] && return 1; systemctl is-active --quiet "$UNIT"; }
+
+case "${1:-}" in
+  status)
+    installed=0 version='' configured=0 running=0
+    if [ -x "$XRAY" ]; then installed=1; version="$("$XRAY" version 2>/dev/null | awk 'NR == 1 { print $2 }' | tr -cd '0-9A-Za-z.-' | head -c 32)"; fi
+    [ -s "$CONFIG" ] && configured=1
+    active && running=1
+    printf '{"installed":%s,"version":"%s","configured":%s,"active":%s,"port":10809}\n' "$installed" "$version" "$configured" "$running"
+    ;;
+  apply)
+    [ -x "$XRAY" ] || die 'Xray-core is not installed on this server; run the installer again'
+    work="$(mktemp -d)"
+    trap 'rm -rf -- "$work"' EXIT
+    head -c 65537 > "$work/outbound.json"
+    [ "$(stat -c %s "$work/outbound.json")" -le 65536 ] || die 'the outbound is too large'
+    node "$BUILDER" < "$work/outbound.json" > "$work/config.json" 2> "$work/error" || die "$(head -c 300 "$work/error")"
+    # Xray reads the whole configuration first; a configuration it refuses never replaces the running one.
+    if ! "$XRAY" run -test -c "$work/config.json" > "$work/test" 2>&1; then
+      die "Xray rejected the configuration: $(grep -v '^Xray ' "$work/test" | tail -c 400 | tr '\n' ' ')"
+    fi
+    if [ "$DRY" = 1 ]; then echo 'DRY: configuration accepted'; exit 0; fi
+    install -m 640 -o root -g mobocom-xray "$work/config.json" "$CONFIG.new"
+    mv -f -- "$CONFIG.new" "$CONFIG"
+    systemctl enable "$UNIT" >/dev/null 2>&1
+    systemctl restart "$UNIT"
+    # Running means accepting connections: systemd reports a simple service active before Xray has opened its port.
+    for _ in $(seq 1 20); do
+      if active && (exec 3<>/dev/tcp/127.0.0.1/10809) 2>/dev/null; then echo 'OK social-network proxy running on 127.0.0.1:10809'; exit 0; fi
+      sleep 0.5
+    done
+    die "the proxy did not start; see: journalctl -u $UNIT -n 30"
+    ;;
+  disable)
+    [ "$DRY" = 1 ] || systemctl disable --now "$UNIT" >/dev/null 2>&1 || true
+    rm -f -- "$CONFIG"
+    echo 'OK social-network proxy stopped'
+    ;;
+  *) die 'usage: mobocom-xrayctl status | apply | disable' ;;
+esac

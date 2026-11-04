@@ -9,6 +9,7 @@ import { itemKey, type ItemRef } from '@/modules/content/domain/items'
 import { itemCard, type ItemCard } from '@/modules/content/server/registry'
 import { broadcast } from '@/modules/push/server/push'
 import { hashtag } from '@/modules/social/domain/social'
+import { socialFetch } from '@/modules/social/server/egress'
 import {
   DEFAULT_SOCIAL, MAX_ATTEMPTS, isAnnounceType, normalizeSocialSettings, renderPost, retryDelayMs, withUtm,
   type AnnounceType, type Channel, type SocialSettings,
@@ -96,7 +97,7 @@ async function sendTelegram(settings: SocialSettings, item: ItemCard, url: strin
 }
 
 async function graph(version: string, path: string, params: Record<string, string>) {
-  const response = await fetch(`https://graph.facebook.com/${version}/${path}`, { method: 'POST', body: new URLSearchParams(params), signal: AbortSignal.timeout(20_000), cache: 'no-store' })
+  const response = await socialFetch(`https://graph.facebook.com/${version}/${path}`, { method: 'POST', body: new URLSearchParams(params), signal: AbortSignal.timeout(20_000), cache: 'no-store' })
   const data = await response.json().catch(() => null) as { id?: string; error?: { message?: string } } | null
   if (!response.ok || !data?.id) throw new Error(`اینستاگرام: ${data?.error?.message || `HTTP ${response.status}`}`)
   return data.id
@@ -114,7 +115,7 @@ async function sendInstagram(settings: SocialSettings, item: ItemCard, url: stri
   const container = await graph(graphVersion, `${accountId}/media`, { image_url: image, caption, access_token: token })
   // Image containers are usually ready at once; wait briefly when they are not.
   for (let i = 0; i < 5; i++) {
-    const status = await fetch(`https://graph.facebook.com/${graphVersion}/${container}?fields=status_code&access_token=${encodeURIComponent(token)}`, { signal: AbortSignal.timeout(10_000), cache: 'no-store' }).then((r) => r.json()).catch(() => null) as { status_code?: string } | null
+    const status = await socialFetch(`https://graph.facebook.com/${graphVersion}/${container}?fields=status_code&access_token=${encodeURIComponent(token)}`, { signal: AbortSignal.timeout(10_000), cache: 'no-store' }).then((r) => r.json()).catch(() => null) as { status_code?: string } | null
     if (!status?.status_code || status.status_code === 'FINISHED') break
     if (status.status_code === 'ERROR') throw new Error('اینستاگرام تصویر را نپذیرفت')
     await new Promise((resolve) => setTimeout(resolve, 3000))

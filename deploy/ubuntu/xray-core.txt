@@ -1,0 +1,5 @@
+# Xray-core for the social-network proxy: the release, and the SHA-256 of each archive as Xray publishes it (.dgst).
+# The project's xray-core branch carries the same archives under a folder named after the release.
+# release archive sha256
+v26.10.31 Xray-linux-64.zip e4bd9119f50ae7c41658b1abd0679ae06f98bd864a2907ff33f2f2cf7081b214
+v26.10.31 Xray-linux-arm64-v8a.zip 1811c8f1da0c3b6dc707ebaf1c8390e987ba39859a8f0a7aadd8526157f2ec8d

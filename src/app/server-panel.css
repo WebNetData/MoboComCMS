@@ -261,3 +261,14 @@ button.dl-name:hover { color: var(--sa-accent); }
 .dl-editor { min-block-size: 380px; font-family: var(--sp-mono); font-size: 13px; line-height: 1.7; resize: vertical; tab-size: 4; }
 @media (max-width: 1100px) { .dl-layout { grid-template-columns: minmax(0, 1fr); } .dl-side { position: static; } }
 @media (max-width: 760px) { .dl-archive-body { grid-template-columns: minmax(0, 1fr); } .dl-host { grid-template-columns: minmax(0, 1fr) 90px; } .dl-filter { inline-size: 100%; } }
+
+/* Social-network proxy (Xray) */
+.sp-proxy-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 14px 0 0; }
+.sp-proxy-facts div { display: grid; gap: 2px; min-width: 0; }
+.sp-proxy-facts dt { color: var(--sa-muted); font-size: 12px; }
+.sp-proxy-facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.sp-proxy-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-proxy-checks { margin-top: 14px; flex-direction: column; gap: 8px; }
+.sp-proxy-checks li { display: grid; gap: 2px; padding: 10px 12px; border-inline-start: 3px solid var(--sa-ok); border-radius: 8px; background: var(--sa-subtle); font-weight: 400; }
+.sp-proxy-checks li.is-bad { border-inline-start-color: var(--sa-danger); }
+.sp-proxy-checks li b { font-weight: 600; }

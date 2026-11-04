@@ -1,5 +1,40 @@
 # Ubuntu host installation and recovery continuation — 2026-10-31
 
+## Social-network proxy (Xray-core) — 2026-11-04
+
+Branch `feat/social-proxy-xray-2026-11-04` from main `5bdc7c93`, plus the `xray-core` branch (Xray v26.10.31 official linux-64 and arm64-v8a archives with their `.dgst`, 31 MB). The decision is in PLATFORM_DECISIONS.
+
+**Source**
+
+- `social/domain/xray-link.ts`: the parser.
+- `social/server/egress.ts`: `socialFetch` and `viaProxy`. The latter uses core `http`/`tls` with no new dependency; note that `agent` must be absent, because with `agent: false` Node ignores `createConnection` and connects directly.
+- `social/server/proxy.ts` and the Server Panel endpoint `/api/admin/server/proxy`: gated, audited without secrets.
+- The page `/admin/server/proxy`.
+- Root side: `deploy/ubuntu/{xray-install.sh,xray-core.txt,xray-config.cjs,mobocom-xrayctl,mobocom-xray.service}`.
+- `install.sh` carries the assets in both modes and runs the installer optionally.
+- Call sites changed: Telegram `bot()`, the reseller receipt download, Instagram `graph` and status.
+
+**Evidence**
+
+- **Real Xray 26.10.31 in the check container:**
+  - all 11 link kinds (REALITY+vision, WS/gRPC/xhttp/httpupgrade with TLS, VMess, Trojan, SS SIP002 and 2022, SOCKS, JSON) build configurations Xray accepts (`run -test`);
+  - unencrypted VLESS to a public host is refused by Xray and explained in Persian;
+  - the app code went through the real Xray (outbound: an HTTP upstream on the host) and reached the real Telegram (302) and Graph API (400), and a Bot API POST got Telegram's own 401 JSON;
+  - github.com was dropped by Xray.
+- **Real Ubuntu 24.04 systemd container** behind a proxy blocking GitHub release downloads, run twice, final 20/20 except one intermittent Telegram probe:
+  - the archive came from the `xray-core` branch, and the binary is root-owned;
+  - the unit stays off until applied, then runs as `mobocom-xray`, listening only on 127.0.0.1:10809;
+  - the configuration is root:mobocom-xray 640, and the sudo rule allows nothing else;
+  - Telegram 302 and Graph 400 through `curl -x`, github dropped;
+  - an Xray-refused configuration is reported and the running one kept; a `freedom` outbound is refused;
+  - the second installer run reuses the binary, and `disable` stops and removes.
+  - The first run found that `apply` reported running before the port was open; it now waits for a connection.
+  - The Telegram probe also fails directly from this host about half the time (this network), not through Xray only.
+- **Browser on the preview** (Server Panel off locally, so its two API answers were stood in): save, test and states; 1440 dark/light and 390; axe 0; no overflow; no page error. React Doctor reported one complexity warning, now split and clean.
+- **Checks:** `npm run check` 828+53+4+13/0 (new `scripts/social-proxy.test.cjs`, 7 tests); tsc, gates and `build:postgres` green. Semgrep host-operations 4 files and TS rules 5 files: 0 findings. Gitleaks: 0.
+
+**Not run:** a real VLESS/REALITY server (only an HTTP upstream carried real traffic; the other protocols were checked by `xray -test`), Telegram webhooks reaching an Iranian server, AlmaLinux/SELinux for this unit, and the owner's server.
+
 ## Restricted networks — 2026-11-04
 
 Branch `feat/restricted-network-install-2026-11-04` from main `4fe03e4e`. The owner's server (Ubuntu 24.04+ with the provider's apt mirror) reaches github.com, NodeSource, aliyun and Liara/Runflare; raw/codeload, apt/download.postgresql.org, registry.npmjs.org, binaries.prisma.sh, Let's Encrypt and Docker Hub are blocked.

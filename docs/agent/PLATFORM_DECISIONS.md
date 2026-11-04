@@ -35,6 +35,15 @@ Restricted networks (owner's server, 2026-11-04): github.com reachable; raw/code
 - **The entry command** where raw is blocked is a `git clone` from github.com.
 - **Let's Encrypt:** when it is unreachable, the installer says so and the operator uses the existing PEM import.
 
+Social-network proxy (owner, 2026-11-04: "put Xray-core in the system so the Telegram bot/mini app and social publishing can reach Telegram and Instagram through a config I set"):
+
+- **Running:** Xray-core runs as `mobocom-xray.service`, under its own unprivileged user and a hardened unit, as an HTTP proxy on `127.0.0.1:10809` only. It is off until an outbound is applied.
+- **Fixed by the root builder:** the Server Panel's "پروکسی شبکه‌های اجتماعی" sends one outbound, parsed from a share link or outbound JSON in `social/domain/xray-link.ts`. Root-owned `xray-config.cjs` builds the rest: the listener, a log without access lines, and routing. Telegram and Facebook/Instagram domains go through the outbound; everything else is blackholed.
+- **Applying:** `mobocom-xrayctl` (the site's only sudo rule for it) applies a configuration only after `xray run -test`. It reports running only once the port accepts connections.
+- **The site's use:** `socialFetch` (`social/server/egress.ts`) tunnels only `api.telegram.org`, `graph.facebook.com` and `graph.instagram.com` (CONNECT, then TLS with the host's own certificate checks), and only while the setting `social.proxy.v1.enabled` is on. Every Telegram/Instagram call site uses it.
+- **Storage and audit:** the link is stored encrypted; the audit records the protocol and server only.
+- **The binary:** pinned in `deploy/ubuntu/xray-core.txt` (Xray's own SHA-256), from the official release, or from the `xray-core` branch where release files are blocked. It is installed by `install.sh`, optionally: a failure never stops the site's install.
+
 ## Digital files and content pricing — 2026-11-03
 
 Store owns file products and orders; Paywall owns priced content, now including Prompt. Account owns exact integer PRICE/PERCENT/AMOUNT/FREE adjustment math. Lowest eligible ordinary/VIP/current-group price wins without stacking. Free eligibility is live, while a paid purchase survives group expiry and closes on its applicable refund. Only FILES virtual fixed-price non-service products may have zero Store prices. Media stores opaque private bytes outside public Library roots; copying an existing Library file is explicit and leaves its original public. Current section managers price through existing permissions, with owner-row/revision/audit claims. No second catalogue, grant system or identity. [Owner interfaces, rollout and evidence](handoffs/DIGITAL_CONTENT_PRICING.md).
