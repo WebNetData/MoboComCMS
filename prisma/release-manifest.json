@@ -691,9 +691,15 @@
           "sha256": "3228b79c9a454ca07b785209c274ed19dde799262262ba132a7c94b2a5f2d890"
         }
       ]
+    },
+    "1.7.3": {
+      "migrations": [
+        {
+          "name": "20270218120000_human_check",
+          "sha256": "405303e4d6ffdaa9f869f6c635e7463d53d0b7f855ed95e16b0438db11e7a235"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270218120000_human_check"
-  ]
+  "unreleased": []
 }
