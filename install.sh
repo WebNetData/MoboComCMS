@@ -8,6 +8,7 @@
 #   ... | sudo bash -s -- downgrade VERSION   an earlier release; backup first, the database is kept
 #   ... | sudo bash -s -- versions            the releases and which one is installed
 #   ... | sudo bash -s -- status
+#   ... | sudo bash -s -- panel on            the Server Panel on (also: panel off, panel status, panel on --ip IP)
 # Installation options are those of deploy/ubuntu/install.sh, for example: ... | sudo bash -s -- --no-firewall
 # Afterwards the same actions are a short command: sudo mobocom update, sudo mobocom downgrade VERSION, ...
 #
@@ -26,9 +27,9 @@ main() {
   [ "$(id -u)" -eq 0 ] || die 'run it as root: curl -fsSL .../install.sh | sudo bash'
   [[ "$ref" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$ ]] && [[ "$ref" != *..* ]] || die 'invalid MOBOCOM_REF'
   case "${1:-}" in
-    update|downgrade|versions|status) action="$1"; shift ;;
+    update|downgrade|versions|status|panel) action="$1"; shift ;;
     install) shift ;;
-    help|-h|--help) sed -n '2,15p' "${BASH_SOURCE[0]}" 2>/dev/null | sed 's/^# \{0,1\}//' || true; return 0 ;;
+    help|-h|--help) sed -n '2,16p' "${BASH_SOURCE[0]}" 2>/dev/null | sed 's/^# \{0,1\}//' || true; return 0 ;;
   esac
   [ -r /etc/os-release ] || die 'unknown system: /etc/os-release is missing'
   # shellcheck disable=SC1091

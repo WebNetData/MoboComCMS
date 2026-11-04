@@ -105,8 +105,8 @@ function BlockedView({ blocked }: { blocked: Blocked }) {
     <h2>{blocked.code === 'disabled' ? 'پنل سرور خاموش است' : blocked.code === 'ip' ? 'دسترسی از این IP مجاز نیست' : 'دسترسی ممکن نیست'}</h2>
     <p>{blocked.message}</p>
     {blocked.code === 'disabled' && <>
-      <p className="sa-hint">برای امنیت، این پنل تا وقتی مدیر سرور آن را در فایل محیطی روشن نکند کار نمی‌کند. روی سرور:</p>
-      <pre className="sp-pre" dir="ltr">{'sudo nano /etc/mobocom/mobocom.env\n\nSERVER_PANEL_ENABLED=true\nSERVER_PANEL_ALLOWED_IPS=YOUR.IP.ADDRESS   # recommended\n\nsudo systemctl restart mobocom'}</pre>
+      <p className="sa-hint">برای امنیت، این پنل تا وقتی مدیر سرور آن را روی خود سرور روشن نکند کار نمی‌کند. در ترمینال سرور یکی از این دو دستور را اجرا کنید (دومی پنل را فقط برای IP شما باز می‌کند و پیشنهاد می‌شود):</p>
+      <pre className="sp-pre" dir="ltr">{'sudo mobocom panel on\nsudo mobocom panel on --ip YOUR.IP.ADDRESS'}</pre>
       <p className="sa-hint">برای دسترسی کامل به فایل‌های سرور، ایمیل دامنه و ری‌استارت سرویس‌ها، اسکریپت <code dir="ltr">deploy/ubuntu/server-panel-install.sh</code> را یک بار اجرا کنید.</p>
     </>}
   </section>
