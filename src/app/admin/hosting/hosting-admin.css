@@ -33,3 +33,4 @@
 .hx-admin .hx-filters form { flex: 0 1 280px; }
 .hx-admin .hx-history { display: grid; gap: 8px; margin: 0; padding-inline-start: 18px; }
 .hx-admin .hx-history-row td { background: var(--bg-soft); }
+.hx-admin .hx-task { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-block-start: 6px; padding: 6px 8px; border-radius: 10px; background: color-mix(in srgb, var(--primary) 9%, var(--card)); font-size: 12px; }

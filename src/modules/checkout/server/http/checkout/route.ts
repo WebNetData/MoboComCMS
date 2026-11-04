@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     hostingProductId: Number.isSafeInteger(Number(body?.hostingProductId)) && Number(body?.hostingProductId) > 0 ? Number(body.hostingProductId) : null,
     hostingCycle: typeof body?.hostingCycle === 'string' ? body.hostingCycle.slice(0, 10) : null,
     hostingName: typeof body?.hostingName === 'string' ? body.hostingName.slice(0, 260) : null,
+    hostingAddon: body?.hostingAddon && typeof body.hostingAddon === 'object' && (body.hostingAddon.kind === 'TRAFFIC' || body.hostingAddon.kind === 'UPGRADE') && Number.isSafeInteger(Number(body.hostingAddon.serviceId)) && Number(body.hostingAddon.serviceId) > 0
+      ? { serviceId: Number(body.hostingAddon.serviceId), kind: body.hostingAddon.kind, packs: Number(body.hostingAddon.packs) || undefined, productId: Number(body.hostingAddon.productId) || undefined }
+      : null,
     hostingRenewServiceId: Number.isSafeInteger(Number(body?.hostingRenewServiceId)) && Number(body?.hostingRenewServiceId) > 0 ? Number(body.hostingRenewServiceId) : null,
     expectedQuote: body?.expectedQuote && typeof body.expectedQuote === 'object' ? { amountMinor: body.expectedQuote.amountMinor, currency: body.expectedQuote.currency } : null,
     addressId: Number.isSafeInteger(Number(body?.addressId)) && Number(body?.addressId) > 0 ? Number(body.addressId) : null,

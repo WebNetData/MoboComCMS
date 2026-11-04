@@ -4872,6 +4872,8 @@ model HostingService {
   stoppedHourlyMinor BigInt      @default(0)
   /// Hourly billing: every hour before this has been charged.
   chargedUntil  DateTime?
+  /// Traffic bought on top of the plan (GB), added by paid add-on orders.
+  extraTrafficGb Int            @default(0)
   startedAt     DateTime?
   nextDueAt     DateTime?
   suspendedAt   DateTime?

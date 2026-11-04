@@ -551,3 +551,35 @@ test('hosting: a suspended hourly service resumes when the wallet pays an hour a
   assert.equal(hs.hourlyStep(svc(100, false), 0n, 1_000n, now, set), null, 'staff suspensions are staff\'s')
   assert.equal(hs.hourlyStep({ ...svc(1), cycle: 'MONTH' }, 9_999n, 1_000n, now, set), null)
 })
+
+// ============ Hosting add-ons ============
+const ha = load('src/modules/hosting/domain/addons')
+
+test('hosting: an upgrade costs the price difference for the part of the term that is left, rounded up', () => {
+  const due = new Date('2026-12-01T00:00:00Z'), month = (now) => ha.upgradeCharge({ cycle: 'MONTH', currentPriceMinor: 300_000n, newPriceMinor: 600_000n, nextDueAt: due, now: new Date(now) })
+  assert.equal(month('2026-11-01T00:00:00Z'), 300_000n, 'the whole term left: the whole difference')
+  assert.equal(month('2026-11-16T00:00:00Z'), 150_000n, 'half the term left: half')
+  assert.equal(month('2026-11-30T23:59:59Z'), 1n, 'a second left still costs the smallest unit')
+  assert.equal(month('2026-12-02T00:00:00Z'), 0n, 'an ended term is renewed first, not upgraded')
+  assert.equal(ha.upgradeCharge({ cycle: 'HOURLY', currentPriceMinor: 1n, newPriceMinor: 9n, nextDueAt: null, now: new Date() }), 0n)
+  assert.equal(ha.upgradeCharge({ cycle: 'YEAR', currentPriceMinor: 5n, newPriceMinor: 4n, nextDueAt: due, now: new Date('2026-06-01T00:00:00Z') }), 0n, 'never a credit')
+  const year = ha.upgradeCharge({ cycle: 'YEAR', currentPriceMinor: 1_200_000n, newPriceMinor: 2_400_000n, nextDueAt: due, now: new Date('2026-06-01T00:00:00Z') })
+  assert.ok(year > 600_000n && year < 620_000n, `about half a year: ${year}`)
+})
+
+test('hosting: upgrade targets are dearer plans of the same kind priced for the cycle; packs and switches are checked', () => {
+  const price = (cycle, amountMinor) => ({ cycle, currency: 'IRT', amountMinor })
+  const products = [
+    { id: 1, kind: 'VPS', active: true, prices: [price('MONTH', 500n)] },
+    { id: 2, kind: 'VPS', active: true, prices: [price('MONTH', 900n)] },
+    { id: 3, kind: 'VPS', active: true, prices: [price('MONTH', 700n)] },
+    { id: 4, kind: 'VPS', active: false, prices: [price('MONTH', 800n)] },
+    { id: 5, kind: 'CLOUD_SERVER', active: true, prices: [price('MONTH', 999n)] },
+    { id: 6, kind: 'VPS', active: true, prices: [price('YEAR', 9999n)] },
+    { id: 7, kind: 'VPS', active: true, prices: [price('MONTH', 400n)] },
+  ]
+  assert.deepEqual(ha.upgradeTargets({ productId: 1, kind: 'VPS', cycle: 'MONTH', currency: 'IRT', priceMinor: 500n }, products).map((p) => [p.id, p.newPriceMinor]), [[3, 700n], [2, 900n]])
+  assert.equal(ha.trafficPacks('3'), 3)
+  for (const bad of [0, 21, 'x', -1]) assert.throws(() => ha.trafficPacks(bad), /بسته/)
+  assert.equal(ha.addonAllowed(null, true), true); assert.equal(ha.addonAllowed(false, true), false); assert.equal(ha.addonAllowed(true, false), true)
+})

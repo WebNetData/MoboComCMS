@@ -31,7 +31,7 @@ export async function alertStuckFulfillment(limit = 10) {
   if (!telegram.ready) return { sent: 0, failed: 0 }
 
   const jobs = await db.fulfillmentJob.findMany({
-    where: { status: 'FAILED', attempts: { gte: 2 }, orderId: { not: null }, kind: { in: ['PROVISION_SUBSCRIPTION', 'RENEW_SUBSCRIPTION', 'DELIVER_PRODUCT', 'RESELLER_PROVISION', 'GRANT_MEMBERSHIP', 'HOSTING_PROVISION', 'HOSTING_RENEW'] } },
+    where: { status: 'FAILED', attempts: { gte: 2 }, orderId: { not: null }, kind: { in: ['PROVISION_SUBSCRIPTION', 'RENEW_SUBSCRIPTION', 'DELIVER_PRODUCT', 'RESELLER_PROVISION', 'GRANT_MEMBERSHIP', 'HOSTING_PROVISION', 'HOSTING_RENEW', 'HOSTING_ADDON'] } },
     orderBy: { updatedAt: 'desc' },
     take: 500,
   })

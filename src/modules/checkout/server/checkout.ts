@@ -36,6 +36,7 @@ import { ruleRefusal } from '@/modules/membership/server/rules'
 import { HostingError } from '@/modules/hosting/domain/catalog'
 import { HostingRefusal, hostingQuote } from '@/modules/hosting/server/services'
 import { hostingRenewalQuote } from '@/modules/hosting/server/renewal'
+import { hostingAddonQuote, type AddonRequest } from '@/modules/hosting/server/addons'
 
 export interface CheckoutCommand {
   userId: number
@@ -63,6 +64,8 @@ export interface CheckoutCommand {
   hostingName?: string | null
   /** One more term of the customer's own fixed-term hosting service, at its fixed price. */
   hostingRenewServiceId?: number | null
+  /** Extra traffic packs or an upgrade to a dearer plan on the customer's own service. */
+  hostingAddon?: AddonRequest | null
   /** Optional displayed-price claim; server still computes the authoritative amount. */
   expectedQuote?: { amountMinor: unknown; currency: unknown } | null
   /** Saved address from the customer's address book (physical products). */
@@ -141,10 +144,11 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   const formSubmissionId = Number(command.formSubmissionId) || null
   const hostingProductId = Number(command.hostingProductId) || null
   const hostingRenewServiceId = Number(command.hostingRenewServiceId) || null
-  if ([planId, productId, membershipPlanId, content, formSubmissionId, hostingProductId, hostingRenewServiceId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
+  const hostingAddon = command.hostingAddon && Number(command.hostingAddon.serviceId) > 0 ? command.hostingAddon : null
+  if ([planId, productId, membershipPlanId, content, formSubmissionId, hostingProductId, hostingRenewServiceId, hostingAddon].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
   if (planId && !await isModuleEnabled('vpn')) return fail(403, 'VPN_DISABLED', 'فروش این سرویس در حال حاضر فعال نیست')
   if (planId && !await userOpensSection('vpn', command.userId)) return fail(403, 'VPN_FORBIDDEN', 'این بخش برای اعضای ویژه یا گروه‌های انتخاب‌شده باز است')
-  if ((hostingProductId || hostingRenewServiceId) && !await isModuleEnabled('hosting')) return fail(403, 'HOSTING_DISABLED', 'فروش میزبانی و سرور در حال حاضر فعال نیست')
+  if ((hostingProductId || hostingRenewServiceId || hostingAddon) && !await isModuleEnabled('hosting')) return fail(403, 'HOSTING_DISABLED', 'فروش میزبانی و سرور در حال حاضر فعال نیست')
   if (membershipPlanId && !await isModuleEnabled('membership')) return fail(403, 'MEMBERSHIP_DISABLED', 'اشتراک ویژه در حال حاضر فعال نیست')
   // VIP status decides member-only items, member prices and member-only codes.
   const member = await isMember(command.userId)
@@ -190,9 +194,9 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       if (error instanceof PaywallError) return fail(error.status, error.code, error.message, error.code === 'ALREADY_OPEN' ? { contentPath: '' } : undefined)
       throw error
     }
-  } else if (hostingProductId || hostingRenewServiceId) {
+  } else if (hostingProductId || hostingRenewServiceId || hostingAddon) {
     try {
-      const quote = hostingRenewServiceId ? await hostingRenewalQuote(hostingRenewServiceId, command.userId) : await hostingQuote({ productId: hostingProductId!, cycle: String(command.hostingCycle || ''), hostname: command.hostingName })
+      const quote = hostingAddon ? await hostingAddonQuote(command.userId, hostingAddon) : hostingRenewServiceId ? await hostingRenewalQuote(hostingRenewServiceId, command.userId) : await hostingQuote({ productId: hostingProductId!, cycle: String(command.hostingCycle || ''), hostname: command.hostingName })
       currency = normalizeCurrency(quote.currency)
       amountMinor = quote.amountMinor
       amount = legacyNumber(amountMinor, currency)
@@ -332,7 +336,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   const code = promotionCode(command.discountCode)
   // A typed foreign amount is money passed on, not a margin: a discount code does not cut into it.
   if (code && formSubmissionId) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف روی پرداخت فرم اعمال نمی‌شود')
-  if (code && (hostingProductId || hostingRenewServiceId)) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف فعلاً روی میزبانی و سرور اعمال نمی‌شود')
+  if (code && (hostingProductId || hostingRenewServiceId || hostingAddon)) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف فعلاً روی میزبانی و سرور اعمال نمی‌شود')
   if (code && orderLines.some((line) => line.openAmountMinor > 0n)) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف روی سفارشی که «پرداخت با مبلغ دلخواه» دارد اعمال نمی‌شود')
   if (code) {
     if (!/^[A-Z0-9_-]{3,32}$/.test(code)) return fail(400, 'PROMOTION_INVALID', 'invalid discount code')
@@ -497,7 +501,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (dueMinor === 0n) {
     const settled = await markInvoicePaid({ invoiceId: invoice.id, provider: 'WALLET', amount: 0, raw: { source: 'wallet' } })
     if (!settled.ok) return fail(500, 'SETTLEMENT_FAILED', settled.message || 'invoice settlement failed')
-    const kind = formSubmissionId ? 'FORM_PAID' : hostingProductId ? 'HOSTING_PROVISION' : hostingRenewServiceId ? 'HOSTING_RENEW' : content ? 'GRANT_CONTENT' : membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
+    const kind = formSubmissionId ? 'FORM_PAID' : hostingProductId ? 'HOSTING_PROVISION' : hostingRenewServiceId ? 'HOSTING_RENEW' : hostingAddon ? 'HOSTING_ADDON' : content ? 'GRANT_CONTENT' : membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
     const job = await enqueueFulfillment({ kind, dedupeKey: `${kind}:order:${order.id}`, orderId: order.id, invoiceId: invoice.id })
     const processed = await processFulfillmentJob(job.id)
     const subscription = planId ? await db.subscription.findFirst({ where: { orderId: order.id } }) : null

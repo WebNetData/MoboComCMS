@@ -30,6 +30,7 @@ const CHECKS = [
   'hosting-services',
   'hosting-renewal',
   'hosting-hourly',
+  'hosting-addons',
   'business-trust',
   'business-trust-migration',
   'livechat-placement',

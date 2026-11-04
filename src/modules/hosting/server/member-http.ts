@@ -7,6 +7,7 @@ import { HostingRefusal, memberHostingService, memberHostingServices, revealServ
 import { setServiceAutoRenew } from '@/modules/hosting/server/renewal'
 import { createHourlyService, hourlyUsage, terminateHourlyByCustomer } from '@/modules/hosting/server/metering'
 import { HostingError } from '@/modules/hosting/domain/catalog'
+import { memberAddons, upgradeHourlyService } from '@/modules/hosting/server/addons'
 
 const privateJson = (body: unknown) => { const response = ok(body); response.headers.set('cache-control', 'private, no-store'); return response }
 
@@ -30,7 +31,8 @@ export async function GET_service(req: NextRequest, { params }: { params: Promis
   const id = await serviceId(params)
   const service = id ? await memberHostingService(user.id, id) : null
   if (!service) return err('سرویس پیدا نشد', 404)
-  return privateJson({ service, usage: service.cycle === 'HOURLY' ? await hourlyUsage(user.id, id) : null })
+  const [usage, addons] = await Promise.all([service.cycle === 'HOURLY' ? hourlyUsage(user.id, id) : null, memberAddons(user.id, id)])
+  return privateJson({ service, usage, addons })
 }
 
 /** POST /api/hosting/services/:id { action: 'reveal' } — the login password, to its owner, a few times a minute;
@@ -45,6 +47,10 @@ export async function POST_service(req: NextRequest, { params }: { params: Promi
   const body = await req.json().catch(() => null)
   if (body?.action === 'auto-renew') {
     try { return privateJson(await setServiceAutoRenew(user.id, id, body.on === true)) }
+    catch (error) { if (error instanceof HostingRefusal) return err(error.message, error.status); throw error }
+  }
+  if (body?.action === 'upgrade-hourly') {
+    try { return privateJson(await upgradeHourlyService(user.id, id, Number(body.productId) || 0)) }
     catch (error) { if (error instanceof HostingRefusal) return err(error.message, error.status); throw error }
   }
   if (body?.action === 'terminate') {

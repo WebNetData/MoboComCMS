@@ -224,15 +224,18 @@ export async function adminHostingServices(filter: { status?: string; q?: string
   const q = String(filter.q || '').trim().slice(0, 80)
   const where = {
     ...(filter.status && filter.status in SERVICE_STATUS ? { status: filter.status } : {}),
+    // Paid add-ons that staff still have to apply on the server.
+    ...(filter.status === 'TASKS' ? { actions: { some: { status: 'WAITING', kind: { in: ['TRAFFIC', 'UPGRADE'] } } } } : {}),
     ...(q ? { OR: [{ label: { contains: q, mode: 'insensitive' as const } }, { hostname: { contains: q, mode: 'insensitive' as const } }, { ipv4: { contains: q } }, { user: { email: { contains: q, mode: 'insensitive' as const } } }, ...(/^\d+$/.test(q) ? [{ id: Number(q) }] : [])] } : {}),
   }
-  const [rows, total, waiting] = await Promise.all([
+  const [rows, total, waiting, tasks] = await Promise.all([
     db.hostingService.findMany({ where, orderBy: { id: 'desc' }, skip: (page - 1) * take, take, include: { user: { select: { id: true, email: true, name: true } }, product: { select: { kind: true, fulfillment: true, allowTraffic: true, allowUpgrade: true } }, provider: { select: { name: true } }, actions: { orderBy: { id: 'desc' }, take: 12 } } }),
     db.hostingService.count({ where }),
     db.hostingService.count({ where: { status: { in: ['PENDING', 'FAILED'] } } }),
+    db.hostingAction.count({ where: { status: 'WAITING', kind: { in: ['TRAFFIC', 'UPGRADE'] } } }),
   ])
   return {
-    page, pages: Math.max(1, Math.ceil(total / take)), total, waiting,
+    page, pages: Math.max(1, Math.ceil(total / take)), total, waiting, tasks,
     services: rows.map(({ loginSecret, priceMinor, stoppedHourlyMinor, ...row }) => ({ ...row, priceMinor: priceMinor.toString(), stoppedHourlyMinor: stoppedHourlyMinor.toString(), hasPassword: Boolean(loginSecret) })),
   }
 }
