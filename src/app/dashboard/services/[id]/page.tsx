@@ -8,6 +8,7 @@ import { SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/ser
 import { startCheckout } from '@/modules/checkout/ui/client'
 import { day, daysLeft, fa, kindIcon, moment } from '../shared'
 import HourlyPanel, { type HourlyUsage } from './HourlyPanel'
+import AddonsPanel, { type Addons } from './AddonsPanel'
 import '../services.css'
 
 type Service = {
@@ -17,7 +18,7 @@ type Service = {
   actions: { id: number; kind: string; status: string; actor: string; detail: string; createdAt: string }[]
 }
 
-const ACTION: Record<string, string> = { RENEW: 'تمدید', PROVISION: 'ساخت روی سامانه', DELIVER: 'تحویل سرویس', NOTE: 'به‌روزرسانی اطلاعات', SUSPEND: 'تعلیق', UNSUSPEND: 'رفع تعلیق', TERMINATE: 'حذف سرویس' }
+const ACTION: Record<string, string> = { TRAFFIC: 'ترافیک اضافه', UPGRADE: 'ارتقای پلن', RENEW: 'تمدید', PROVISION: 'ساخت روی سامانه', DELIVER: 'تحویل سرویس', NOTE: 'به‌روزرسانی اطلاعات', SUSPEND: 'تعلیق', UNSUSPEND: 'رفع تعلیق', TERMINATE: 'حذف سرویس' }
 
 function Copy({ value, label }: { value: string; label: string }) {
   const [done, setDone] = useState(false)
@@ -40,6 +41,7 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
   const [busy, setBusy] = useState(false)
   const [renewError, setRenewError] = useState('')
   const [usage, setUsage] = useState<HourlyUsage | null>(null)
+  const [addons, setAddons] = useState<Addons | null>(null)
   const [loads, setLoads] = useState(0)
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
       if (!active) return
       if (r.status === 404) { setState('missing'); return }
       if (!r.ok) { setState('failed'); return }
-      const data = await r.json(); setService(data.service); setUsage(data.usage || null); setState('ready')
+      const data = await r.json(); setService(data.service); setUsage(data.usage || null); setAddons(data.addons || null); setState('ready')
     }).catch(() => { if (active) setState('failed') })
     return () => { active = false }
   }, [id, loads])
@@ -95,8 +97,8 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
   const waiting = ['PENDING', 'PROVISIONING', 'FAILED'].includes(service.status)
   const usable = service.status === 'ACTIVE' || service.status === 'SUSPENDED'
   const specs = (server
-    ? [['cpu', 'پردازنده', service.product.cpuCores ? `${fa(service.product.cpuCores)} هسته` : ''], ['layers', 'رم', service.product.ramMb ? (service.product.ramMb >= 1024 ? `${fa(service.product.ramMb / 1024)} گیگابایت` : `${fa(service.product.ramMb)} مگابایت`) : ''], ['database', 'دیسک', service.product.diskGb ? `${fa(service.product.diskGb)} گیگابایت ${service.product.diskType}` : ''], ['activity', 'ترافیک ماهانه', service.product.trafficGb ? `${fa(service.product.trafficGb)} گیگابایت` : 'نامحدود'], ['bolt', 'پورت', service.product.bandwidthMbps ? `${fa(service.product.bandwidthMbps)} Mbps` : '']]
-    : [['database', 'فضا', service.product.diskGb ? `${fa(service.product.diskGb)} گیگابایت ${service.product.diskType}` : ''], ['activity', 'ترافیک ماهانه', service.product.trafficGb ? `${fa(service.product.trafficGb)} گیگابایت` : 'نامحدود'], ['globe', 'سایت', service.product.sites ? fa(service.product.sites) : 'نامحدود'], ['mail', 'ایمیل', service.product.mailboxes ? fa(service.product.mailboxes) : ''], ['layers', 'پایگاه داده', service.product.databases ? fa(service.product.databases) : '']]
+    ? [['cpu', 'پردازنده', service.product.cpuCores ? `${fa(service.product.cpuCores)} هسته` : ''], ['layers', 'رم', service.product.ramMb ? (service.product.ramMb >= 1024 ? `${fa(service.product.ramMb / 1024)} گیگابایت` : `${fa(service.product.ramMb)} مگابایت`) : ''], ['database', 'دیسک', service.product.diskGb ? `${fa(service.product.diskGb)} گیگابایت ${service.product.diskType}` : ''], ['activity', 'ترافیک ماهانه', service.product.trafficGb ? `${fa(service.product.trafficGb + (addons?.extraTrafficGb || 0))} گیگابایت${addons?.extraTrafficGb ? ` (${fa(addons.extraTrafficGb)} اضافه)` : ''}` : 'نامحدود'], ['bolt', 'پورت', service.product.bandwidthMbps ? `${fa(service.product.bandwidthMbps)} Mbps` : '']]
+    : [['database', 'فضا', service.product.diskGb ? `${fa(service.product.diskGb)} گیگابایت ${service.product.diskType}` : ''], ['activity', 'ترافیک ماهانه', service.product.trafficGb ? `${fa(service.product.trafficGb + (addons?.extraTrafficGb || 0))} گیگابایت${addons?.extraTrafficGb ? ` (${fa(addons.extraTrafficGb)} اضافه)` : ''}` : 'نامحدود'], ['globe', 'سایت', service.product.sites ? fa(service.product.sites) : 'نامحدود'], ['mail', 'ایمیل', service.product.mailboxes ? fa(service.product.mailboxes) : ''], ['layers', 'پایگاه داده', service.product.databases ? fa(service.product.databases) : '']]
   ).filter(([, , value]) => value) as [string, string, string][]
 
   return <div className="dt-page hs-page" dir="rtl">
@@ -146,6 +148,8 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
 
       {service.cycle === 'HOURLY' && usage && <HourlyPanel usage={usage} serviceId={service.id} confirmName={service.hostname || service.label} active={service.status === 'ACTIVE'} deletable={service.status !== 'TERMINATED'} onTerminated={() => setLoads((n) => n + 1)} />}
 
+      {addons && <AddonsPanel addons={addons} serviceId={service.id} hourly={service.cycle === 'HOURLY'} onChanged={() => setLoads((n) => n + 1)} />}
+
       {usable && service.cycle !== 'HOURLY' && <section className="hs-panel hs-renew" aria-labelledby="hs-renew">
         <h2 id="hs-renew"><Icon name="clock" size={18} />تمدید</h2>
         <div className="hs-renew-price"><span>هر {cycleMeta(service.cycle)?.short}</span><b className="num">{Number(service.priceMinor).toLocaleString('fa-IR')} تومان</b></div>
@@ -164,7 +168,7 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
         <ul className="hs-specs">{specs.map(([icon, label, value]) => <li key={label}><Icon name={icon} size={16} /><span>{label}</span><b>{value}</b></li>)}</ul>
         {service.product.location && <p className="hs-location"><Icon name="pin" size={14} />{service.product.location}</p>}
         <div className="hs-more">
-          {(service.allowUpgrade || service.allowTraffic) && usable && <Link className="btn btn-ghost" href="/dashboard/tickets">{service.allowUpgrade && service.allowTraffic ? 'درخواست ارتقا یا ترافیک' : service.allowUpgrade ? 'درخواست ارتقا' : 'درخواست ترافیک اضافه'}</Link>}
+          {(service.allowUpgrade || service.allowTraffic) && usable && !addons && <Link className="btn btn-ghost" href="/dashboard/tickets">{service.allowUpgrade && service.allowTraffic ? 'درخواست ارتقا یا ترافیک' : service.allowUpgrade ? 'درخواست ارتقا' : 'درخواست ترافیک اضافه'}</Link>}
           <Link className="btn btn-ghost" href="/dashboard/tickets"><Icon name="lifebuoy" size={16} />پشتیبانی این سرویس</Link>
           <Link className="btn btn-ghost" href="/dashboard/invoices">فاکتورها</Link>
         </div>

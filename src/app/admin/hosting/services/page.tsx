@@ -12,10 +12,10 @@ type Row = {
   hasPassword: boolean; priceMinor: string; nextDueAt: string | null; createdAt: string; allowTraffic: boolean | null; allowUpgrade: boolean | null
   user: { id: number; email: string; name: string | null }; product: { kind: string; fulfillment: string; allowTraffic: boolean; allowUpgrade: boolean }; provider: { name: string } | null; actions: Action[]
 }
-type Data = { services: Row[]; page: number; pages: number; total: number; waiting: number }
+type Data = { services: Row[]; page: number; pages: number; total: number; waiting: number; tasks: number }
 type Draft = { id: number; label: string; first: boolean; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; password: string; note: string; allowTraffic: string; allowUpgrade: string }
 
-const ACTION: Record<string, string> = { PROVISION: 'ساخت خودکار', DELIVER: 'تحویل', NOTE: 'به‌روزرسانی', SUSPEND: 'تعلیق', UNSUSPEND: 'رفع تعلیق', TERMINATE: 'حذف', REVEAL: 'نمایش رمز توسط مشتری' }
+const ACTION: Record<string, string> = { TRAFFIC: 'ترافیک اضافه', UPGRADE: 'ارتقا', RENEW: 'تمدید', PROVISION: 'ساخت خودکار', DELIVER: 'تحویل', NOTE: 'به‌روزرسانی', SUSPEND: 'تعلیق', UNSUSPEND: 'رفع تعلیق', TERMINATE: 'حذف', REVEAL: 'نمایش رمز توسط مشتری' }
 const tri = (value: boolean | null) => (value === null ? '' : value ? 'on' : 'off')
 const fromTri = (value: string) => (value === 'on' ? true : value === 'off' ? false : null)
 
@@ -87,7 +87,7 @@ export default function HostingServicesPage() {
     <section className="sa-card" aria-label="فهرست سرویس‌ها">
       <div className="hx-filters">
         <div className="hx-choice" role="group" aria-label="وضعیت"><div>
-          {[['', `همه${data ? ` (${fa(data.total)})` : ''}`], ...Object.entries(SERVICE_STATUS).map(([id, item]) => [id, id === 'PENDING' && data?.waiting ? `${item.label} (${fa(data.waiting)})` : item.label])].map(([id, label]) => <label key={id} className={status === id ? 'is-on' : ''}><input type="radio" name="status" checked={status === id} onChange={() => { setStatus(id); setPage(1) }} /><span>{label}</span></label>)}
+          {[['', `همه${data ? ` (${fa(data.total)})` : ''}`], ...Object.entries(SERVICE_STATUS).map(([id, item]) => [id, id === 'PENDING' && data?.waiting ? `${item.label} (${fa(data.waiting)})` : item.label]), ['TASKS', `کارهای افزودنی${data?.tasks ? ` (${fa(data.tasks)})` : ''}`]].map(([id, label]) => <label key={id} className={status === id ? 'is-on' : ''}><input type="radio" name="status" checked={status === id} onChange={() => { setStatus(id); setPage(1) }} /><span>{label}</span></label>)}
         </div></div>
         <form role="search" onSubmit={(event) => { event.preventDefault(); setQuery(q); setPage(1) }}><input className="input" type="search" aria-label="جست‌وجو" placeholder="ایمیل، دامنه، آی‌پی یا شماره" value={q} onChange={(event) => setQ(event.target.value)} /></form>
       </div>
@@ -102,7 +102,7 @@ export default function HostingServicesPage() {
             <td><span dir="ltr">{row.user.email}</span>{row.user.name && <div className="hx-spec">{row.user.name}</div>}</td>
             <td>{cycleMeta(row.cycle)?.label}<div className="hx-spec">{toman(row.priceMinor)}</div></td>
             <td>{row.nextDueAt ? faDate(row.nextDueAt) : '—'}</td>
-            <td><span className={`sa-state ${state?.tone || ''}`}>{state?.label || row.status}</span></td>
+            <td><span className={`sa-state ${state?.tone || ''}`}>{state?.label || row.status}</span>{row.actions.filter((action) => action.status === 'WAITING' && (action.kind === 'TRAFFIC' || action.kind === 'UPGRADE')).map((action) => <div key={action.id} className="hx-task"><span>{action.detail}</span><button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => void run({ op: 'complete-task', id: action.id }, 'کار انجام‌شده ثبت شد و به مشتری اطلاع داده شد.')}>اعمال شد</button></div>)}</td>
             <td><div className="hx-actions">
               {row.status !== 'TERMINATED' && <button type="button" className={`btn btn-sm ${waiting ? 'btn-primary' : 'btn-ghost'}`} onClick={() => edit(row)}>{waiting ? 'تحویل' : 'ویرایش'}</button>}
               {row.status === 'ACTIVE' && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => change(row, 'SUSPEND')}>تعلیق</button>}

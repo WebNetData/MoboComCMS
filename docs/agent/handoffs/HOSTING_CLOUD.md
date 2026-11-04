@@ -149,6 +149,40 @@ Evidence (actually run):
 
 Not run: React Doctor, production build, a real driver (power state changes arrive with the drivers).
 
+## Add-ons — traffic packs and upgrades (2026-11-04, `feat/hosting-addons-2026-11-04` from `release/v1.7.1` `4d3c6315`)
+
+Based on the release branch because 1.7.1 seals the earlier hosting migrations; this slice's migration is the only
+unreleased one. The PR also shows the release commit until the 1.7.1 metadata PR is merged.
+
+Built:
+- Migration `20270216120000_hosting_addons` (unreleased): `HostingService.extraTrafficGb` (non-negative).
+- `domain/addons.ts`: packs 1–20, per-service switch over product switch, upgrade targets (same kind, on sale, priced
+  for the service's cycle, dearer than it pays), prorated upgrade charge (difference × time left, rounded up; nothing
+  for an ended term or an hourly service).
+- `server/addons.ts`: checkout item `hostingAddon` (TRAFFIC with packs, UPGRADE with a target) for the customer's own
+  ACTIVE or SUSPENDED service; discount codes refused. Fulfilment `HOSTING_ADDON` applies once per order (action key
+  `addon:order:<id>`): traffic adds GB; an upgrade moves the service to the new plan and renewal price, claiming the
+  plan it was bought from. A manually delivered service gets a WAITING task; staff mark it «اعمال شد» and the customer
+  is told. Hourly services upgrade without payment (new hourly and stopped rates from the next hour). Recovery of lost
+  add-on jobs joins the hosting worker step.
+- Customer page: «افزودنی‌ها» panel (pack stepper with live total, upgrade list with specs, new renewal price and what
+  is paid now); specs show the extra traffic; the old ticket link shows only when there is no panel.
+- Admin services: «کارهای افزودنی» filter with a count, waiting tasks on each row with a done button.
+
+Evidence (actually run):
+- `npm run check` on a clean LF tree: 856 pass / 1 skip that was already in the suite, then 53, 4, 13. `tsc` clean.
+- `scripts/hosting-addons.connected.cjs` (fresh database, real checkout/wallet/fulfilment): offer, traffic paid and
+  added once, replay, staff task and double completion refused, other member, too many packs, discount, closed
+  switch, wrong target, prorated upgrade within bounds, new renewal price, new plan's own switch, renew first,
+  hourly upgrade with new rates, recovery. Breaks `HOSTING_FAULT=twice|owner|closed` each fail it; clean rerun passes.
+  The other four hosting scripts still pass on the same database.
+- Browser on a temporary second preview (port 3001, this branch, a copy of the local database, background jobs off):
+  2 packs bought (specs 2,200 GB with 200 extra), upgrade to VPS-M paid, admin showed 2 tasks and one was completed.
+  1440/390 light/dark axe 0 (apart from the existing shell notification link), no page errors. The container and the
+  database copy were removed; the owner's localhost:3000 and its database were not touched.
+
+Not run: React Doctor, production build, a real driver applying traffic or resize on a server.
+
 ## Next
 
 Among slices that need no outside access: manual add-on purchase (traffic, upgrade), domain search and IRNIC order flow UI; then the drivers (4, 6–9) as access arrives. Each real

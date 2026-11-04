@@ -4,6 +4,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { HostingError } from '@/modules/hosting/domain/catalog'
 import { HostingRefusal, adminHostingServices, changeServiceStatus, deliverService } from '@/modules/hosting/server/services'
+import { completeHostingTask } from '@/modules/hosting/server/addons'
 
 const PERMISSIONS = ['hosting.manage']
 
@@ -17,7 +18,7 @@ export async function GET_admin_services(req: NextRequest) {
   return response
 }
 
-/** POST /api/admin/hosting/services { op: deliver | SUSPEND | UNSUSPEND | TERMINATE, id, … } */
+/** POST /api/admin/hosting/services { op: deliver | SUSPEND | UNSUSPEND | TERMINATE | complete-task, id, … } */
 export async function POST_admin_services(req: NextRequest) {
   const g = await adminGuard(req, 'hosting', PERMISSIONS)
   if ('response' in g) return g.response
@@ -25,6 +26,11 @@ export async function POST_admin_services(req: NextRequest) {
   const id = Number(body?.id) || 0
   if (!id) return err('سرویس پیدا نشد', 404)
   try {
+    if (body?.op === 'complete-task') {
+      const result = await completeHostingTask(id, g.admin.id)
+      await auditAdmin({ req, actor: g.admin, action: 'hosting.task.complete', targetType: 'hosting-action', targetId: id })
+      return ok(result)
+    }
     if (body?.op === 'deliver') {
       const input = body.service && typeof body.service === 'object' ? body.service : {}
       const result = await deliverService(id, input, g.admin.id)
