@@ -1,5 +1,58 @@
 # Ubuntu host installation and recovery continuation — 2026-10-31
 
+## Git-install update on a filtered network — 2026-11-04
+
+Field report from the owner's server (Git install at `/opt/mobocom/app`, service user `mobocom`, installed commit
+`5bdc7c93`, updating to v1.7.2 from `/admin/updates`). Three defects in the updaters, each reproduced here:
+
+1. **Build-written files blocked the update and the rollback.** `next build` rewrites `next-env.d.ts` and
+   `tsconfig.json` (Next 16: `import "./.next/types/routes.d.ts"`, `jsx: react-jsx`, `.next/dev/types`), and
+   `scripts/generate-extensions.mjs` rewrote `src/extensions/generated/catalog.ts` (the committed copy was stale: no
+   `hosting`) and `src/themes/generated.css` (committed with CRLF from Windows). A clean v1.7.2 checkout on Linux shows
+   all four changed after `extensions:generate` and `next typegen`. `self-update.sh` refused the update ("تغییر محلی
+   وجود دارد"), and after a failed build it refused its own rollback (`rollback failed` within a second).
+2. **The panel build had Node's default heap.** The installer, `update.sh` and `package-update.sh` pass
+   `--max-old-space-size=${BUILD_MEMORY_MB:-4096}`; `self-update.sh` did not, and the owner's build ended with
+   "JavaScript heap out of memory" at ~1.9 GB.
+3. **The fetch had no time limit.** On the owner's network a fetch from GitHub stalled for 15+ minutes with no output,
+   then once ended with `curl 92 … HTTP/2 stream … CANCEL` / `early EOF`.
+
+Fixes on `fix/updater-build-files-2026-11-04` (from main `d3afd4b6`):
+
+- `BUILD_WRITTEN` (same list in `self-update.sh` and `update.sh`, a test keeps them equal): before the clean check,
+  after every build and before a rollback, a difference in these paths is saved as
+  `storage/update/build-files-<time>-<random>.patch` and the committed files are restored. Any other change (tracked or
+  untracked) still stops the update untouched.
+- `self-update.sh` builds with `BUILD_MEMORY_MB` (default 4096, validated) and runs `npm-registry.sh` and
+  `prisma-engines.sh` like `update.sh`.
+- `deploy/ubuntu/git-fetch.sh` (new, used by both scripts and the `mobocom` command when present): stops below 1 KB/s
+  for `UPDATE_FETCH_STALL` s (60) or after `UPDATE_FETCH_TIMEOUT` s (900), retries once over HTTP/1.1, takes an optional
+  `UPDATE_GIT_PROXY` from `/etc/mobocom/mobocom.env` (validated, never printed), and names the proxy and the Git-bundle
+  route when it gives up. The `mobocom` command's fallback for older checkouts prints a line and has the same limits.
+- The generator writes LF only (theme CSS is normalised) and `npm run extensions:check` (first step of `npm run check`)
+  fails when the committed generated files are not byte-identical to its output. Regenerated: `catalog.ts`, `generated.css`.
+
+Evidence (clean LF tree, Linux, Node 22, check container): `scripts/updater.test.cjs` 34/34 three times in a row,
+including four new tests: build heap (4096 default, 6144 override, invalid value refused before any change); build-written
+files left over, rewritten by the build, and present when the new version fails (panel and CLI rollbacks both complete;
+an owner edit beside them still stops the update); a silent HTTP server makes the panel update fail in seconds with the
+HTTP/1.1 retry and the bundle hint in the log; the helper refuses a malformed proxy and never prints a proxy password.
+Against main's scripts the heap and build-file tests fail, and the old fetch was still hanging after five minutes.
+`extensions:check` passes on the clean Linux tree, and running the generator there changes nothing.
+
+Limits and next steps:
+
+- The update **to** a version runs the **installed** version's scripts. Updating a 1.7.2 site to the release with these
+  fixes still uses 1.7.2's `self-update.sh`: before it, restore the four files (`git checkout -- next-env.d.ts
+  tsconfig.json src/extensions/generated src/themes/generated.css`) and either use `sudo mobocom update X` (update.sh
+  already has the heap) or put `NODE_OPTIONS=--max-old-space-size=4096` in the environment file for that run (the service reads that file
+  too, so remove it afterwards). On a
+  filtered network use the Git bundle or the operator's own proxy (`git config http.proxy`). From then on the fixes apply.
+- The site's own Xray proxy (`127.0.0.1:10809`) routes only Telegram/Instagram domains; GitHub through it would need a
+  reviewed change to `xray-config.cjs` (an "updates" route for github.com/codeload) and a panel setting. Not done.
+- A Git install still has no `.mbrelease` upload in `/admin/updates` (package installs only). Not done.
+- The owner's server run of these fixes is not verified here.
+
 ## Social-network proxy (Xray-core) — 2026-11-04
 
 Branch `feat/social-proxy-xray-2026-11-04` from main `5bdc7c93`, plus the `xray-core` branch (Xray v26.10.31 official linux-64 and arm64-v8a archives with their `.dgst`, 31 MB). The decision is in PLATFORM_DECISIONS.
