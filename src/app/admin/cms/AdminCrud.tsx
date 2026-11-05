@@ -139,6 +139,8 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   const blocksLocked = (type === 'pages' || type === 'posts') && !blockEditor
   const [editFormat, setEditFormat] = useState('legacy')
   const [legacyBody, setLegacyBody] = useState(false)
+  // The body editor of a new or still-legacy item while the block editor module is on: the writer picks per item.
+  const [bodyEditor, setBodyEditor] = useState<'blocks' | 'classic'>('blocks')
   const [msg, setMsg] = useState('')
   // What a save answered for the reader (an edit kept as a proposal), shown above the list until the next save.
   const [notice, setNotice] = useState('')
@@ -201,6 +203,8 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
     for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' || key === 'bundles' ? [] : {}
     setForm(f)
     initialDateValues.current = {}
+    setEditFormat('legacy')
+    setBodyEditor('blocks')
     setAiValues({})
     setOriginalStatus('')
   }
@@ -217,6 +221,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
     setEditId(row.id)
     setEditFormat(row.editorFormat === 'blocks-v1' ? 'blocks-v1' : 'legacy')
     setLegacyBody(false)
+    setBodyEditor('classic')
     setShowForm(true)
     setAiValues({})
     setOriginalStatus(row.status || '')
@@ -287,7 +292,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
     const payload = { ...form }
     if (type === 'pages' && editId && pageVersion.current) payload.expectedUpdatedAt = pageVersion.current
     // The body is the block editor's: a new item starts empty, and this form does not send a body it did not edit.
-    if (blockDriven) { if (!editId) payload.content = ''; else if (!legacyBody) delete payload.content }
+    if (blockDriven) { if (!editId) payload.content = bodyEditor === 'classic' ? payload.content : ''; else if (editFormat === 'blocks-v1' || !legacyBody) delete payload.content }
     if (blocksLocked && editId && editFormat === 'blocks-v1') delete payload.content
     for (const fl of fields) if (fl.type === 'datetime-local') {
       if (editId && payload[fl.key] === initialDateValues.current[fl.key]) { delete payload[fl.key]; continue }
@@ -315,7 +320,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
     const savedId = editId || Number(data?.id) || 0
     if (onSaved && savedId > 0) await Promise.resolve(onSaved(savedId, !editId)).catch(() => undefined)
     // A new page or article goes straight to the block editor for its body.
-    if (blockDriven && !editId && data?.id) { window.location.assign(`/admin/editor/${type}/${data.id}`); return }
+    if (blockDriven && !editId && bodyEditor === 'blocks' && data?.id) { window.location.assign(`/admin/editor/${type}/${data.id}`); return }
     setNotice(typeof data?.notice === 'string' ? data.notice : '')
     setEditId(null)
     setShowForm(false)
@@ -396,21 +401,26 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   const fieldBox = (fl: FieldDef) => fl.showWhen && !fl.showWhen(form) ? null : (
     <div key={fl.key} className={`mx-field ${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${fl.wide ? ' is-wide' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
       {!['checkbox', 'multiselect', 'image', 'richtext'].includes(fl.type || '') ? <label className="label" htmlFor={`${formId}-${fl.key}`}>{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label> : <span className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</span>}
-      {blockDriven && fl.key === 'content' && !legacyBody ? (
-        <div className="cms-block-body">
-          {editId ? <a className="btn btn-primary" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن متن در ویرایشگر بلوکی' : 'Write the body in the block editor'}</a> : <p className="muted text-sm">{fa ? 'پس از ذخیره، برای نوشتن متن به ویرایشگر بلوکی می‌روید.' : 'After saving you go to the block editor to write the body.'}</p>}
-          {editId && editFormat === 'legacy' ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود. ' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save. '}<button type="button" className="link" onClick={() => setLegacyBody(true)}>{fa ? 'ادامه با ویرایشگر قدیمی' : 'Keep using the old editor'}</button></p> : null}
-        </div>
-      ) : blocksLocked && fl.key === 'content' && editId && editFormat === 'blocks-v1' ? (
-        <p className="muted text-sm cms-block-body">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده است و سر جایش است. برای ویرایش آن، افزونهٔ «ویرایشگر بلوکی» را از صفحهٔ افزونه‌ها فعال کنید.' : 'The body of this item is written in blocks and is kept. To edit it, turn the Block editor plugin on.'}</p>
-      ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'richtext' ? (
+      {blockDriven && fl.key === 'content' ? (
+        <div className="cms-block-body" data-choice={bodyEditor}>
+          <div className="cms-body-picker" role="radiogroup" aria-label={fa ? 'ویرایشگر متن' : 'Body editor'}>
+            <button type="button" role="radio" aria-checked={bodyEditor === 'blocks'} className={bodyEditor === 'blocks' ? 'is-active' : ''} onClick={() => { setBodyEditor('blocks'); setLegacyBody(false) }}>{fa ? 'ویرایشگر بلوکی' : 'Block editor'}</button>
+            <button type="button" role="radio" aria-checked={bodyEditor === 'classic'} className={bodyEditor === 'classic' ? 'is-active' : ''} onClick={() => { setBodyEditor('classic'); setLegacyBody(true) }}>{fa ? 'ویرایشگر کلاسیک' : 'Classic editor'}</button>
+            {editId && bodyEditor === 'blocks' && <a className="btn btn-primary btn-sm" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن در ویرایشگر بلوکی' : 'Write in the block editor'}</a>}
+          </div>
+          {editId && bodyEditor === 'blocks' && !legacyBody ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود.' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save.'}</p> : null}
+          {legacyBody ? (
         <RichEditor
           value={form[fl.key] || ''}
           onChange={(html) => setForm({ ...form, [fl.key]: html })}
           placeholder={fl.label}
           dir={fl.dir || (/En$/.test(fl.key) ? 'ltr' : 'rtl')}
         />
-      ) : fl.type === 'textarea' ? (
+      ) : null}
+        </div>
+      ) : blocksLocked && fl.key === 'content' && editId && editFormat === 'blocks-v1' ? (
+        <p className="muted text-sm cms-block-body">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده است و سر جایش است. برای ویرایش آن، افزونهٔ «ویرایشگر بلوکی» را از صفحهٔ افزونه‌ها فعال کنید.' : 'The body of this item is written in blocks and is kept. To edit it, turn the Block editor plugin on.'}</p>
+      ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'textarea' ? (
         <textarea id={`${formId}-${fl.key}`} className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
       ) : fl.type === 'checkbox' ? (
         <label className="flex items-center gap-2 text-sm mx-check" style={{ minHeight: '2.75rem' }}>
