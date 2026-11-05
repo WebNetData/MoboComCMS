@@ -3,8 +3,11 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), ts = requ
 const db = new PrismaClient(), seed = `guest-owner-${Date.now()}`, users = [], carts = [], products = []
 function load(client) {
  const mod = {exports: {}}
+ const account = require('./connected-source-loader.cjs')({'@/platform/database/prisma': {db: client}})
  new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync('src/modules/store/server/cart.ts', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
   if (name === '@/platform/database/prisma') return {db: client}
+  if (name === '@/modules/account/server/item-audience') return account('src/modules/account/server/item-audience.ts')
+  if (name === '@/modules/membership/server/rules') return account('src/modules/membership/server/rules.ts')
   if (name === '@/modules/store/domain/store' || name === '@/modules/catalog/domain/product-publication' || name === '@/modules/store/domain/order-inputs') {
    const child = {exports: {}}
    new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/' + name.slice(2) + '.ts', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(child, child.exports)

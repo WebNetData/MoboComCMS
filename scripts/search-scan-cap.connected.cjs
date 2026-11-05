@@ -4,7 +4,7 @@ const assert = require('node:assert/strict'), { PrismaClient } = require('@prism
 const prisma = new PrismaClient(), stamp = 'scap' + Date.now() + process.pid, fresh = new Date().toISOString()
 let batches = 0, artist
 const db = new Proxy(prisma, { get(target, key) {
-  if (key === 'setting') return { findUnique: async () => ({ key: 'search.indexedAt', value: fresh }), upsert: async () => {} }
+  if (key === 'setting') return { findUnique: async args => args.where.key === 'search.indexedAt' ? { key: 'search.indexedAt', value: fresh } : target.setting.findUnique(args), findMany: args => target.setting.findMany(args), upsert: async args => args.where.key === 'search.indexedAt' ? undefined : target.setting.upsert(args) }
   if (key === 'searchDocument') return new Proxy(target[key], { get(model, method) { if (method === 'findMany') return async (args) => { batches++; return model.findMany(args) }; return typeof model[method] === 'function' ? model[method].bind(model) : model[method] } })
   return typeof target[key] === 'function' ? target[key].bind(target) : target[key]
 } })

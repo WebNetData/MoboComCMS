@@ -6,6 +6,7 @@ const guardedDb=new Proxy(db,{get(target,key){if(key==='cinemaTitle'&&broken)ret
 function load(file){
  const p=path.resolve(file),full=fs.existsSync(p)&&fs.statSync(p).isFile()?p:['.ts','/index.ts'].map(ext=>p+ext).find(fs.existsSync)
  if(!full)throw Error('Missing '+file);if(cache.has(full))return cache.get(full).exports
+ if(full.endsWith('.json'))return JSON.parse(fs.readFileSync(full,'utf8'))
  const mod={exports:{}};cache.set(full,mod)
  const code=ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText
  new Function('require','module','exports',code)(name=>{

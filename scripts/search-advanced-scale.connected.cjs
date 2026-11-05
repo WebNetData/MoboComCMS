@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),{performance}=require('node:perf_hook
 const prisma=new PrismaClient(),stamp='sadvanced'+Date.now()+process.pid,COUNT=1105,metrics=[],fresh=new Date().toISOString()
 let batches=0,dimensionRows=0,dimensionCalls=0,actor,artist
 const db=new Proxy(prisma,{get(target,key){
- if(key==='setting')return{findUnique:async()=>({key:'search.indexedAt',value:fresh}),upsert:async()=>{}}
+ if(key==='setting')return{findUnique:async args=>args.where.key==='search.indexedAt'?{key:'search.indexedAt',value:fresh}:target.setting.findUnique(args),findMany:args=>target.setting.findMany(args),upsert:async args=>args.where.key==='search.indexedAt'?undefined:target.setting.upsert(args)}
  if(key==='searchDocument')return new Proxy(target[key],{get(model,method){if(method==='findMany')return async args=>{assert.ok(args.take<=500);const result=await model.findMany(args);batches++;return result};return typeof model[method]==='function'?model[method].bind(model):model[method]}})
  if(key==='$queryRaw')return async(...args)=>{const result=await target.$queryRaw(...args);const sql=args[0]?.strings?.join(' ')||'';if(sql.includes('ItemReviewScore')){dimensionCalls++;assert.ok(result.length<=500);dimensionRows+=result.length}return result}
  return typeof target[key]==='function'?target[key].bind(target):target[key]

@@ -44,6 +44,8 @@ form, the block editor module (`block-editor`), the classic editor module (`clas
 
 ## For the next agent
 
+Release follow-up2026-11-05: PR353 is merged at main4fb0f7ac. Production QA for1.7.4 caught the initially hidden classic body (`setLegacyBody(false)`) despite the checked Classic label. `edit` now initializes visible body and selected editor together from stored format; blocks stay locked. Final production browser covers both pages and articles, eight1440/390 light/dark states/axe0, four real classic/block creates and direct body-write409; all175 native PG suites and final check/build pass. See [release handoff](RELEASE_1_7_4.md). The older walk below did not establish this first-open behavior.
+
 - Pages (`/admin/pages`) share the same AdminCrud branch; the walk covered posts, pages inherit.
 - Do not "simplify" by removing `legacyBody`: `persist()` uses it as the send/don't-send gate.
 - Dark mode and 390px screenshots of the picker were not taken yet; the styles use tokens so risk is low, but the
