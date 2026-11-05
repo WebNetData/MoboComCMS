@@ -35,6 +35,7 @@ export interface OptionDef {
 
 /** Per-run services the engine gives adapters. */
 export interface ImportContext {
+  selected?: import('./field-inputs').SelectedFields
   organization?: AssetOrganization
   jobId: number | null
   executionGeneration?: number

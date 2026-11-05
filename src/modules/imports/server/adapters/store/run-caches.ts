@@ -34,7 +34,8 @@ export async function caches(ctx: ImportContext): Promise<Caches> {
 }
 
 /** Existing category for a path, or how far the path already exists. */
-export function walkPath(c: Caches, path: string[]): { found: Cat | null; existing: Cat[]; missing: string[] } {
+export function walkPath(c: Caches, path: string[], selectedId?: number): { found: Cat | null; existing: Cat[]; missing: string[] } {
+  if (selectedId) { const found = c.cats.get(selectedId); if (!found) throw new Error('دستهٔ انتخاب‌شده دیگر وجود ندارد'); return { found, existing: [found], missing: [] } }
   const existing: Cat[] = []
   let parent: number | null = null
   for (let i = 0; i < path.length; i++) {
@@ -79,7 +80,8 @@ export function currencyConflict(existing: Existing | null, o: Opt): string {
 /** Key of a manual value mapping: attribute key and the normalized source value. */
 export const optionMapKey = (key: string, value: string) => `${key}=${normalizeValue(value)}`
 
-export const findBrand = (c: Caches, name: string) => {
+export const findBrand = (c: Caches, name: string, selectedId?: number) => {
+  if (selectedId) return c.brands.get(selectedId) || null
   const n = normalizeName(name), s = latinSlug(name)
   return [...c.brands.values()].find((b) => normalizeName(b.name) === n || (b.nameEn && normalizeName(b.nameEn) === n) || (s && b.slug === s)) || null
 }

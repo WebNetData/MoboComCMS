@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import type { Prisma } from '@prisma/client'
+import { assertFieldSelections } from '@/modules/imports/server/field-inputs'
 import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { appendMediaLinks, deleteMediaItem, mediaLinksOf, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
 import { cleanRichText } from '@/shared/content/sanitize'
@@ -189,7 +190,7 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
     return tracked((changes) => applyItem(item, planned, ctx, changes))
   }
 
-  async function applyItem(_item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
+  async function applyItem(item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
     const data = planned.data as Data
     const o = ctx.settings.options as unknown as Options
     const messages: Message[] = []
@@ -285,7 +286,7 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
     let contentFingerprint: string | undefined
     if (Object.keys(body).length || episodes.length || (id && ctx.settings.protectEdits)) {
       const before = existing ? await delegate(db, spec.model).findUnique({ where: { id: existing.id } }) : null
-      const { row } = await saveMediaItem(spec.resource, body, id, null, { beforeWrite: id && ctx.settings.protectEdits ? tx => claimImportUpdate(tx, ctx, spec.model, id!) : undefined, afterWrite: async (tx, savedId) => { await writeEpisodes(tx, savedId); contentFingerprint = (await importContentState(spec.id, savedId, tx))?.fingerprint } })
+      const { row } = await saveMediaItem(spec.resource, body, id, null, { beforeWrite: Object.keys(ctx.selected || {}).length || id && ctx.settings.protectEdits ? async tx => { await assertFieldSelections(spec.id, item.values, data.values, tx, o.categorySeparator); if (id && ctx.settings.protectEdits) await claimImportUpdate(tx, ctx, spec.model, id) } : undefined, afterWrite: async (tx, savedId) => { await writeEpisodes(tx, savedId); contentFingerprint = (await importContentState(spec.id, savedId, tx))?.fingerprint } })
       id = row.id as number
       writtenAt = (row.updatedAt as Date).toISOString()
       if (before) {

@@ -66,6 +66,10 @@ export interface ImportSettings {
   source: string
   sheet: string
   /** destination field key → source path ('' = not mapped). */
+  slugMode?: 'title' | 'source'
+  slugRemove?: string[]
+  fieldInputs?: import('./field-inputs').FieldInputs
+  variantInputs?: import('./field-inputs').FieldInputs
   mapping: Record<string, string>
   /** variant field key → source path, relative to a nested variant or the flat row. */
   variantMapping: Record<string, string>

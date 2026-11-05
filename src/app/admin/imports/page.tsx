@@ -8,6 +8,8 @@ import {
 } from './types'
 import './imports.css'
 import ImportGuide from './ImportGuide'
+import FieldInputsPanel from './FieldInputs'
+import { inputMapping } from '@/modules/imports/domain/field-inputs'
 
 const STEPS = ['مقصد', 'فایل', 'نگاشت فیلدها', 'روابط و ویژگی‌ها', 'پیش‌نمایش', 'اجرای آزمایشی', 'انتخاب فیلدها', 'تنظیمات ورود', 'شروع', 'گزارش']
 const EXISTING: { value: Settings['existing']; label: string; hint: string }[] = [
@@ -20,8 +22,8 @@ const STATE_LABEL: Record<string, string> = { IMPORTED: 'وارد می‌شود'
 const OUTCOME: Record<Finding['outcome'], string> = { ignored: 'نادیده گرفته می‌شود', added: 'به گروه ویژگی اضافه می‌شود', mapped: 'نگاشت شد', rejected: 'رکورد رد می‌شود', 'needs-mapping': 'نیاز به نگاشت' }
 
 const emptySettings = (): Settings => ({
-  sheet: '', source: 'default', mapping: {}, variantMapping: {}, policies: {}, variantPolicies: {}, existing: 'skip', protectEdits: true,
-  variants: { mode: 'none', source: '', groupBy: '' }, attributes: [], specsSource: '', options: { copyAssets: false, mediaTransferMode: 'immediate' },
+  sheet: '', source: 'default', fieldInputs: {}, variantInputs: {}, slugMode: 'title', slugRemove: [], mapping: {}, variantMapping: {}, policies: {}, variantPolicies: {}, existing: 'skip', protectEdits: true,
+  variants: { mode: 'none', source: '', groupBy: '' }, attributes: [], specsSource: '', options: { copyAssets: false, mediaTransferMode: 'immediate', missingCategories: 'error', missingBrands: 'error', missingArtists: 'error', missingAlbums: 'error' },
 })
 const defaultPolicy = (field: FieldDef, mapped: boolean): Policy => ({ create: mapped, update: mapped && field.updatable !== false && field.updateByDefault !== false })
 
@@ -121,8 +123,8 @@ function Wizard({ destinations, labels, limits }: { destinations: Destination[];
     const attributes = base.attributes.length ? base.attributes : s.attributes
     return {
       ...base, sheet: a.sheet, mapping, variants, variantMapping, attributes,
-      policies: policiesFor(d.fields, mapping, base.policies),
-      variantPolicies: policiesFor(d.variantFields, variantMapping, base.variantPolicies),
+      policies: policiesFor(d.fields, { ...inputMapping(mapping, base.fieldInputs), ...(base.slugMode === 'title' ? { slug: '@generated' } : {}) }, base.policies),
+      variantPolicies: policiesFor(d.variantFields, inputMapping(variantMapping, base.variantInputs), base.variantPolicies),
       options: optionDefaults(d.options, base.options),
     }
   }
@@ -174,7 +176,7 @@ function Wizard({ destinations, labels, limits }: { destinations: Destination[];
     setTemplateId(id)
     const tpl = templates.find((x) => x.id === id)
     if (!tpl || !dest) return
-    const merged: Settings = { ...emptySettings(), ...tpl.settings, sheet: settings.sheet, options: { ...(tpl.settings.options || {}) } } as Settings
+    const merged: Settings = { ...emptySettings(), ...tpl.settings, slugMode: tpl.settings.slugMode || 'source', sheet: settings.sheet, options: { ...(tpl.settings.options || {}) } } as Settings
     setSettings(analysis ? applySuggestions(analysis, merged, dest) : merged)
     setNotice({ tone: 'ok', text: `الگوی «${tpl.name}» بارگذاری شد؛ نگاشت‌ها را با ستون‌های این فایل بررسی کنید.` })
     if (dry) setDirty(true)
@@ -238,7 +240,7 @@ function Wizard({ destinations, labels, limits }: { destinations: Destination[];
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 
     {step === 0 && <section className="imp-grid" aria-label="انتخاب مقصد">
-      {destinations.map((d) => <button key={d.id} type="button" disabled={!d.enabled} className={`sa-card imp-dest ${dest?.id === d.id ? 'is-active' : ''}`} aria-pressed={dest?.id === d.id} onClick={() => { setDest(d); setSettings({ ...emptySettings(), options: optionDefaults(d.options, {}) }) }}>
+      {destinations.map((d) => <button key={d.id} type="button" disabled={!d.enabled} className={`sa-card imp-dest ${dest?.id === d.id ? 'is-active' : ''}`} aria-pressed={dest?.id === d.id} onClick={() => { setDest(d); setSettings({ ...emptySettings(), options: optionDefaults(d.options, emptySettings().options) }) }}>
         <b>{d.label}</b><span>{d.description}</span>
         <small>شناسایی رکورد موجود: {d.identity.join(' ← ')}</small>
         {!d.enabled && <small className="imp-off">{d.unavailableReason || 'این بخش در سایت خاموش است'}</small>}
@@ -252,13 +254,18 @@ function Wizard({ destinations, labels, limits }: { destinations: Destination[];
         <h3>نگاشت فیلدها <small className="sa-hint">({fa(analysis.rows)} رکورد، {analysis.format.toUpperCase()})</small></h3>
         <div className="imp-actions">
           {analysis.sheets.length > 1 && <select className="select" aria-label="برگه" value={analysis.sheet} disabled={!!busy} onChange={(e) => changeSheet(e.target.value)}>{analysis.sheets.map((s) => <option key={s} value={s}>{s}</option>)}</select>}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const mapping = analysis.suggestions.mapping; change({ mapping, policies: policiesFor(dest.fields, mapping, settings.policies) }) }}>نگاشت خودکار</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => change({ mapping: {}, policies: policiesFor(dest.fields, {}, {}) })}>پاک‌کردن</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { const mapping = analysis.suggestions.mapping; change({ mapping, policies: policiesFor(dest.fields, inputMapping(mapping, settings.fieldInputs), settings.policies) }) }}>نگاشت خودکار</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => change({ mapping: {}, fieldInputs: {}, variantInputs: {}, policies: policiesFor(dest.fields, {}, {}) })}>پاک‌کردن</button>
           <TemplateBar templates={templates} templateId={templateId} onLoad={loadTemplate} onSave={saveTemplate} />
         </div>
       </div>
+      <div className="imp-slug-policy">
+        <label className="sa-field"><span>نامک مطالب جدید</span><select className="select" value={settings.slugMode || 'source'} onChange={event => change({ slugMode: event.target.value === 'title' ? 'title' : 'source', policies: { ...settings.policies, slug: { create: event.target.value === 'title' || !!settings.mapping.slug, update: false } } })}><option value="title">ساخت از عنوان خود محتوا؛ بدون دامنهٔ منبع</option><option value="source">از ستون نامک؛ حذف دامنه و پارامترهای لینک</option></select></label>
+        <label className="sa-field"><span>نام‌ها و عبارت‌های منبع برای حذف از نامک</span><input className="input" dir="auto" value={(settings.slugRemove || []).join(', ')} onChange={event => change({ slugRemove: event.target.value.split(/[,،]/).map(value => value.trim()) })} placeholder="نام سایت، example.com"/><small className="sa-hint">با ویرگول جدا کنید. نامک صفحات موجود بازنویسی نمی‌شود؛ نتیجه را در پیش‌نمایش بررسی کنید.</small></label>
+      </div>
+      <FieldInputsPanel dest={dest} analysis={analysis} settings={settings} change={change}/>
       <MappingTable fields={dest.fields.filter((f) => !f.implicit)} mapping={settings.mapping} columns={valueColumns} jsonColumns={analysis.columns.filter(column => column.kind === 'object' && !column.path.includes('[].')).map(column => column.path)} sample={(key) => analysis.columns.find((c) => c.path === settings.mapping[key])?.samples[0] || ''}
-        onChange={(key, value) => { const mapping = { ...settings.mapping, [key]: value }; if (!value) delete mapping[key]; change({ mapping, policies: policiesFor(dest.fields, mapping, settings.policies) }) }} />
+        onChange={(key, value) => { const mapping = { ...settings.mapping, [key]: value }; if (!value) delete mapping[key]; change({ mapping, policies: policiesFor(dest.fields, inputMapping(mapping, settings.fieldInputs), settings.policies) }) }} />
     </section>}
 
     {step === 3 && dest && analysis && <RelationsStep dest={dest} analysis={analysis} settings={settings} change={change} variantColumns={variantColumns} valueColumns={valueColumns} />}
@@ -514,11 +521,11 @@ function FieldSelection({ dest, settings, change }: { dest: Destination; setting
       <div className="imp-actions">
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => change({ policies: Object.fromEntries(Object.entries(settings.policies).map(([k, p]) => [k, { ...p, update: false }])) })}>غیرفعال کردن همهٔ به‌روزرسانی‌ها</button>
       </div></div>
-      <PolicyRows fields={dest.fields} policies={settings.policies} mapping={settings.mapping} implicitNote onChange={(key, p) => change({ policies: { ...settings.policies, [key]: p } })} />
+      <PolicyRows fields={dest.fields} policies={settings.policies} mapping={{ ...inputMapping(settings.mapping, settings.fieldInputs), ...(settings.slugMode === 'title' ? { slug: '@generated' } : {}) }} implicitNote onChange={(key, p) => change({ policies: { ...settings.policies, [key]: p } })} />
       <p className="sa-hint">این انتخاب در خود موتور ورود اعمال می‌شود: فیلدی که «ساخت» آن خاموش است در رکورد جدید نوشته نمی‌شود و فیلدی که «به‌روزرسانی» آن خاموش است مقدار فعلی رکورد موجود را هرگز تغییر نمی‌دهد (مثلاً با خاموش کردن قیمت، قیمت فعلی دست نمی‌خورد).</p>
     </div>
     {settings.variants.mode !== 'none' && dest.variantFields.length > 0 && <div className="sa-card sa-table-wrap"><div className="sa-card-head"><h3>فیلدهای {dest.variantLabel || 'تنوع'}</h3></div>
-      <PolicyRows fields={dest.variantFields} policies={settings.variantPolicies} mapping={settings.variantMapping} onChange={(key, p) => change({ variantPolicies: { ...settings.variantPolicies, [key]: p } })} />
+      <PolicyRows fields={dest.variantFields} policies={settings.variantPolicies} mapping={inputMapping(settings.variantMapping, settings.variantInputs)} onChange={(key, p) => change({ variantPolicies: { ...settings.variantPolicies, [key]: p } })} />
     </div>}
   </section>
 }
@@ -538,8 +545,8 @@ function PlanSummary({ dest, settings, dry, labels }: { dest: Destination; setti
       {dest.options.filter((o) => !o.when || o.when.values.includes(settings.options[o.when.key])).map((o) => <div key={o.key}><dt>{o.label}</dt><dd>{optionLabel(o)}</dd></div>)}
     </dl>
     <h4>فیلدها</h4>
-    <dl>{describe(dest.fields, settings.policies, settings.mapping).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-    {settings.variants.mode !== 'none' && <><h4>فیلدهای {dest.variantLabel || 'تنوع'}</h4><dl>{describe(dest.variantFields, settings.variantPolicies, settings.variantMapping).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></>}
+    <dl>{describe(dest.fields, settings.policies, { ...inputMapping(settings.mapping, settings.fieldInputs), ...(settings.slugMode === 'title' ? { slug: '@generated' } : {}) }).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+    {settings.variants.mode !== 'none' && <><h4>فیلدهای {dest.variantLabel || 'تنوع'}</h4><dl>{describe(dest.variantFields, settings.variantPolicies, inputMapping(settings.variantMapping, settings.variantInputs)).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></>}
     {dry && <><h4>نتیجهٔ اجرای آزمایشی ({faDate(dry.at, true)})</h4><Stats stats={{ total: dry.total, valid: dry.valid, warnings: dry.warnings, invalid: dry.invalid, create: dry.actions.CREATE || 0, update: dry.actions.UPDATE || 0, skip: dry.actions.SKIP || 0, ...dry.counters }} labels={labels} /></>}
   </div>
 }

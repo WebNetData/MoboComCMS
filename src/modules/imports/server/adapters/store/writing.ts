@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { assertFieldSelections } from '@/modules/imports/server/field-inputs'
 import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
@@ -30,6 +31,7 @@ async function uniqueSlug(client: Client, base: string, table: 'product' | 'prod
 
 /** Missing categories along a path, created top-down (each in its own small transaction). */
 async function ensureCategory(ctx: ImportContext, c: Caches, path: string[], changes: Change[], counters: Counters): Promise<Cat | null> {
+  if (ctx.selected?.category?.[0]) { const row = await db.productCategory.findUnique({ where: { id: ctx.selected.category[0] } }); if (!row) throw new Error('دستهٔ انتخاب‌شده دیگر وجود ندارد'); return row }
   if (!path.length) return null
   const walk = walkPath(c, path)
   if (walk.found) return walk.found
@@ -48,6 +50,7 @@ async function ensureCategory(ctx: ImportContext, c: Caches, path: string[], cha
 }
 
 async function ensureBrand(ctx: ImportContext, c: Caches, name: string, changes: Change[], counters: Counters): Promise<Brand | null> {
+  if (ctx.selected?.brand?.[0]) { const row = await db.productBrand.findUnique({ where: { id: ctx.selected.brand[0] } }); if (!row) throw new Error('برند انتخاب‌شده دیگر وجود ندارد'); return row }
   if (!name) return null
   const hit = findBrand(c, name)
   if (hit) return hit
@@ -120,7 +123,7 @@ export function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Prom
   return tracked((changes) => applyProduct(item, planned, ctx, changes))
 }
 
-async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
+async function applyProduct(item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
   const data = planned.data as Data
   const o = ctx.settings.options as unknown as Opt
   const c = await caches(ctx)
@@ -218,6 +221,7 @@ async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext
   // Changes made inside the transaction are only kept if it commits.
   const mark = changes.length
   const result = await db.$transaction(async (tx) => {
+    await assertFieldSelections('store', item.values, data.values, tx, o.categorySeparator)
     if (existing) await claimImportUpdate(tx, ctx, 'product', existing.id)
     let productId: number
     const pricesBefore = existing ? await prepareProductPriceCapture(tx, existing.id) : new Map()

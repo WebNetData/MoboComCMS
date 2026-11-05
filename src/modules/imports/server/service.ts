@@ -6,6 +6,7 @@ import { appendUploadChunk, deleteUpload, finishUploadFile } from '@/modules/imp
 import {
   adapterFor, analyzeJob, ensureModule, ImportError, planJob, readSettings, settingsFor, setJobState, startJob, startRollback, type DryRun,
 } from '@/modules/imports/server/engine'
+import { existingFieldChoices, fieldSelection, fieldLookup } from '@/modules/imports/server/field-choices'
 import { listImporters } from '@/modules/imports/server/registry'
 import { authorizedImportActor } from '@/modules/imports/server/authority'
 
@@ -60,7 +61,7 @@ export async function destinations(actor?: Actor) {
     out.push({
       id: adapter.id, label: adapter.label, description: adapter.description, entity: adapter.entity,
       enabled: modulesOn && permitted, unavailableReason: !modulesOn ? 'بخش یا وابستگی آن در سایت خاموش است' : !permitted ? 'دسترسی مدیریت این مقصد لازم است' : '',
-      fields: adapter.fields, variantFields: adapter.variantFields || [], variantLabel: adapter.variantLabel || '',
+      fields: adapter.fields.map(field => ({ ...field, selection: fieldSelection(adapter.id, field) })), variantFields: adapter.variantFields || [], variantLabel: adapter.variantLabel || '',
       supports: adapter.supports, identity: adapter.identity, options: [...adapter.options, ...MEDIA_OPTIONS],
     })
   }
@@ -72,6 +73,15 @@ export async function choicesFor(adapterId: unknown, key: unknown) {
   const option = adapter.options.find((o) => o.key === key && o.dynamic)
   if (!option || !adapter.choices) return []
   return adapter.choices(option.key)
+}
+
+export async function fieldChoicesFor(actor: Actor, adapterId: unknown, key: unknown, query: unknown, page: unknown) {
+  const adapter = adapterFor(String(adapterId || ''))
+  await ensureModule(adapter)
+  if (!await authorizedImportActor(actor.id, new Date(), adapter.id)) throw new ImportError('دسترسی مدیریت مقصد لازم است', 403)
+  if (!adapter.fields.some(field => field.key === key) || !fieldLookup(adapter.id, String(key))) throw new ImportError('فیلد نامعتبر است')
+  const result = await existingFieldChoices(adapter.id, String(key), String(query || '').slice(0, 100), Math.max(1, Math.min(10000, Math.floor(Number(page) || 1))))
+  return { choices: result.choices.map(({ id, label }) => ({ id, label })), more: result.more }
 }
 
 /**

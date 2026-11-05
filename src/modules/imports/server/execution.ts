@@ -4,6 +4,7 @@ import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { auditSystem } from '@/platform/audit/server'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { resolveFieldInputs } from '@/modules/imports/server/field-inputs'
 import { coerceValues } from '@/modules/imports/domain/coerce'
 import { buildItems } from '@/modules/imports/domain/items'
 import { allowedValues, autoMap, discoverColumns, getPath, missingForCreate, type SourceColumn } from '@/modules/imports/domain/mapping'
@@ -173,18 +174,23 @@ function makeContext(job: Job | null, settings: ImportSettings, actor: Actor, dr
   }
 }
 
-type Typed = { values: Record<string, unknown>; variantValues: Record<string, unknown>[]; messages: Message[] }
+type Typed = { selected: import('./field-inputs').SelectedFields; invalidInput: boolean; values: Record<string, unknown>; variantValues: Record<string, unknown>[]; messages: Message[] }
 
-function typed(adapter: ImportAdapter, settings: ImportSettings, item: SourceItem): Typed {
+async function typed(adapter: ImportAdapter, settings: ImportSettings, item: SourceItem, ctx: ImportContext): Promise<Typed> {
+  const resolved = await resolveFieldInputs(adapter.id, item.values, ctx.cache)
   const options = { categorySeparator: String(settings.options.categorySeparator || '>') }
-  const main = coerceValues(adapter.strictValues ? adapter.fields.filter(field => settings.policies[field.key]?.create || settings.policies[field.key]?.update) : adapter.fields, item.values, options)
+  const main = coerceValues(adapter.strictValues ? adapter.fields.filter(field => settings.policies[field.key]?.create || settings.policies[field.key]?.update) : adapter.fields, resolved.values, options)
   const variants = item.variants.map((values) => coerceValues(adapter.variantFields || [], values, options))
+  const controlledMain = new Set(adapter.fields.filter(field => settings.fieldInputs?.[field.key]).map(field => field.label))
+  const controlledVariants = new Set((adapter.variantFields || []).filter(field => settings.variantInputs?.[field.key]).map(field => field.label))
+  const controlled = (message: Message, labels: Set<string>) => [...labels].some(label => message.text.startsWith(label + ':'))
   // A value that cannot be read is left out (and reported); the rest of the record still imports.
   const soften = (message: Message, prefix = '') => ({ level: 'warning' as const, text: `${prefix}${message.text} — این مقدار وارد نمی‌شود` })
   return {
+    selected: resolved.selected, invalidInput: main.messages.some(message => controlled(message, controlledMain)) || variants.some(value => value.messages.some(message => controlled(message, controlledVariants))) || resolved.messages.length > 0 || (item.notes || []).some(message => message.level === 'error'),
     values: main.values,
     variantValues: variants.map((v) => v.values),
-    messages: [...(item.notes || []), ...main.messages.map((m) => adapter.strictValues ? m : soften(m)), ...variants.flatMap((v, i) => v.messages.map((m) => soften(m, `تنوع ${i + 1}: `)))],
+    messages: [...(item.notes || []), ...resolved.messages, ...main.messages.map((m) => adapter.strictValues || controlled(m, controlledMain) ? m : soften(m)), ...variants.flatMap((v, i) => v.messages.map((m) => controlled(m, controlledVariants) ? m : soften(m, `تنوع ${i + 1}: `)))],
   }
 }
 
@@ -195,7 +201,8 @@ function failed(item: SourceItem, text: string): Plan {
 
 async function planOne(adapter: ImportAdapter, item: SourceItem, t: Typed, ctx: ImportContext): Promise<Plan> {
   try {
-    if (adapter.strictValues && t.messages.some(message => message.level === 'error')) return failed(item, t.messages.filter(message => message.level === 'error').map(message => message.text).join('؛ '))
+    ctx = { ...ctx, selected: t.selected }
+    if ((t.invalidInput || adapter.strictValues) && t.messages.some(message => message.level === 'error')) return failed(item, t.messages.filter(message => message.level === 'error').map(message => message.text).join('؛ '))
     const plan = await protectImportPlan(adapter, await adapter.plan(item, t.values, t.variantValues, ctx), ctx)
     plan.messages.unshift(...t.messages)
     plan.preview.messages = plan.messages
@@ -247,7 +254,7 @@ export async function planJob(job: Job, rawSettings: unknown, actor: Actor, limi
   const plans: Plan[] = []
   for (let i = 0; i < items.length; i += 200) {
     const chunk = items.slice(i, i + 200)
-    const t = chunk.map((item) => typed(adapter, settings, item))
+    const t = await Promise.all(chunk.map((item) => typed(adapter, settings, item, ctx)))
     if (adapter.prepare) await adapter.prepare(chunk, t.map((x) => x.values), ctx)
     for (let j = 0; j < chunk.length; j++) plans.push(await planOne(adapter, chunk[j], t[j], ctx))
   }
@@ -325,7 +332,7 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
       const preparer = await continuingImportActor(job, 'RUNNING')
       if (!preparer) { stop = true; break }
       ctx.actor = preparer
-      const t = batch.map((item) => typed(adapter, settings, item))
+      const t = await Promise.all(batch.map((item) => typed(adapter, settings, item, ctx)))
       if (adapter.prepare) await adapter.prepare(batch, t.map((x) => x.values), ctx)
       for (let j = 0; j < batch.length; j++) {
         const item = batch[j]
@@ -345,7 +352,9 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
         if (plan.action === 'FAIL' || plan.action === 'SKIP') result = { action: plan.action, entityType: '', entityId: plan.entityId, changes: [], messages: plan.messages, counters: {} }
         else {
           try {
-            result = await adapter.apply(item, plan, ctx)
+            const fresh = await resolveFieldInputs(adapter.id, item.values)
+            if (fresh.messages.length) throw new Error(fresh.messages.map(message => message.text).join('; '))
+            result = await adapter.apply(item, plan, { ...ctx, selected: t[j].selected })
             result.messages = [...plan.messages.filter((m) => m.level !== 'info'), ...result.messages]
           } catch (error) {
             // A failed record never stops the job; rows it managed to create are kept for rollback.

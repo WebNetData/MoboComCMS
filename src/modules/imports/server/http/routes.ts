@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
       case 'job': return ok(service.jobView(await service.getJob(q.get('id'))))
       case 'records': return ok(await service.records(await service.getJob(q.get('id')), { status: q.get('status'), page: q.get('page') }))
       case 'templates': return ok({ templates: await service.templateList(q.get('adapter')) })
+      case 'field-choices': return ok(await service.fieldChoicesFor(g.admin, q.get('adapter'), q.get('key'), q.get('q'), q.get('page')))
       case 'choices': return ok({ choices: await service.choicesFor(q.get('adapter'), q.get('key')) })
       case 'export': {
         const job = await service.getJob(q.get('id'))

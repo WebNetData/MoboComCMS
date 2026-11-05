@@ -412,3 +412,38 @@ test('bulk import wiring: own permission, audit, real models, no parallel system
   assert.match(read('src/modules/site/server/http/admin/media/route.ts'), /storeCoverImage/)
   for (const file of ['src/modules/catalog/server/pages/products/[slug]/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/app/cinema/[slug]/page.tsx', 'src/app/layout.tsx']) assert.match(read(file), /safeJsonLd\(/, file)
 })
+
+
+test('manual inputs support every field type, value maps, nested rows and create/update policy', () => {
+  const fields = [{ key: 'title', type: 'text', requiredOnCreate: true }, { key: 'categories', type: 'category' }, { key: 'price', type: 'money' }, { key: 'featured', type: 'bool' }, { key: 'slug', type: 'slug', updatable: false }, { key: 'implicit', type: 'json', implicit: true }]
+  const raw = { mapping: { title: 'title', categories: 'cat' }, fieldInputs: { categories: { mode: 'fixed', value: { existing: ['42'] } }, price: { mode: 'fixed', value: '250000' }, featured: { mode: 'fixed', value: false }, title: { mode: 'map', entries: [{ from: 'Source', value: 'Clean title' }], unmatched: 'error' }, unknown: { mode: 'fixed', value: 'no' }, implicit: { mode: 'fixed', value: '{}' } }, variants: { mode: 'nested', source: 'variants' }, variantInputs: { price: { mode: 'fixed', value: '500' } } }
+  const settings = settingsMod.normalizeSettings(raw, 'store', fields, [{ key: 'price', type: 'money' }])
+  assert.equal(settings.fieldInputs.unknown, undefined); assert.equal(settings.fieldInputs.implicit, undefined)
+  assert.equal(settings.policies.price.create, true); assert.equal(settings.policies.featured.create, true)
+  const built = items.buildItems([{ title: 'Source', cat: 'Do not create me', variants: [{ price: '1' }, { price: '2' }] }], settings)[0]
+  assert.equal(built.values.title, 'Clean title'); assert.deepEqual(built.values.categories, { existing: ['42'] }); assert.equal(built.values.featured, false)
+  assert.deepEqual(built.variants, [{ price: '500' }, { price: '500' }]); assert.deepEqual(built.notes, [])
+  const unmatched = items.buildItems([{ title: 'Other' }], settings)[0]; assert(unmatched.notes.some(message => message.level === 'error')); assert.equal(unmatched.values.title, undefined)
+  settings.fieldInputs.title.unmatched = 'keep'; assert.equal(items.buildItems([{ title: 'Other' }], settings)[0].values.title, 'Other')
+  settings.policies.categories = { create: false, update: false }; assert.equal(items.buildItems([{}], settings)[0].values.categories, undefined)
+  const allowed = mapping.allowedValues({ price: '250000', featured: false }, { price: { create: true, update: false }, featured: { create: true, update: true } }, 'update', 'update', {})
+  assert.deepEqual(allowed, { featured: false })
+  const hostile = JSON.parse('{"__proto__":{"mode":"fixed","value":"no"},"price":{"mode":"fixed","value":"1"}}')
+  assert.deepEqual(Object.keys(settingsMod.normalizeSettings({ fieldInputs: hostile }, 'store', fields, []).fieldInputs), ['price'])
+})
+
+test('imported slugs contain the content path, never the source host, query or configured branding', () => {
+  const { importedSlug } = load('src/modules/imports/domain/slug.ts')
+  for (const input of ['https://source.example/posts/my-article.html?utm_source=source#part', '//source.example/posts/my-article/', 'source.example/posts/my-article']) assert.equal(importedSlug(input), 'my-article')
+  assert.equal(importedSlug('https://source.example/'), '')
+  assert.equal(importedSlug('https://source.example/posts/clear-article-source'), 'clear-article')
+  assert.equal(importedSlug('source.example'), '')
+  assert.equal(importedSlug('Article - Source News', ['Source News']), 'article')
+  assert.equal(importedSlug('cartography art', ['art']), 'cartography')
+  assert.equal(coerce.coerceField({ key: 'slug', type: 'slug' }, 'https://source.example/posts/my-article'), 'my-article')
+  const fields = [{ key: 'title', type: 'text' }, { key: 'slug', type: 'slug' }]
+  const settings = settingsMod.normalizeSettings({ slugMode: 'title', slugRemove: ['Source News'], mapping: { title: 'title', slug: 'url' } }, 'magazine', fields, [])
+  const row = items.buildItems([{ title: 'Original Article - Source News', url: 'https://source.example/bad-slug' }], settings)[0]
+  assert.equal(row.values.slug, 'original-article'); assert.equal(settings.policies.slug.create, true)
+  assert.equal(settingsMod.normalizeSettings({}, 'magazine', fields, []).slugMode, 'source', 'saved jobs without the new preference keep their source identity')
+})
