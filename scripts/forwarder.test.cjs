@@ -11,11 +11,28 @@ function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
   const mod = { exports: {} }
   cache.set(file, mod)
-  const localRequire = (specifier) => specifier.endsWith('.json') ? JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', `src/${specifier.slice(2)}`), 'utf8')) : (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
+  const localRequire = (specifier) => specifier.endsWith('.json') ? JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', `src/${specifier.slice(2)}`), 'utf8')) : (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : specifier.startsWith('.') ? load(path.resolve(path.dirname(file), specifier)) : require(specifier))
   new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
 const f = load('src/modules/forwarder/domain/forwarder')
+const automatic = load('src/modules/forwarder/domain/automatic')
+
+test('automatic anchors preserve web URLs and never wrap internal, unsafe or non-web addresses', () => {
+  const policy = { enabled: true, siteHost: 'mobocom.example' }, origin = 'https://preview.example'
+  const target = 'https://outside.example/سلام/a%2Fb?q=a%26b&x=2#بخش'
+  const wrapped = automatic.automaticForwardHref(target, origin, policy)
+  const parsed = new URL(wrapped, origin)
+  assert.equal(parsed.pathname, '/forwarder'); assert.equal(parsed.searchParams.get('auto'), '1')
+  assert.equal(parsed.searchParams.get('url'), new URL(target).href)
+  assert.equal(automatic.automaticForwardHref('//outside.example/x', origin, policy), '/forwarder?auto=1&url=https%3A%2F%2Foutside.example%2Fx')
+  for (const href of ['/games/x', '#part', '?page=2', 'mailto:a@outside.example', 'tel:123', 'javascript:alert(1)', 'ftp://outside.example/a', 'https://u:p@outside.example', 'http://127.0.0.1', 'https://preview.example/x', 'http://mobocom.example/x', 'https://MOBOCOM.example./x', 'https://preview.example/forwarder?url=x']) assert.equal(automatic.automaticForwardHref(href, origin, policy), href)
+  assert.equal(automatic.automaticForwardHref(target, origin, { ...policy, enabled: false }), target)
+  assert.equal(f.normalizeForwarderSettings({}).autoExternalLinks, false)
+  assert.equal(f.normalizeForwarderSettings({ autoExternalLinks: true }).autoExternalLinks, true)
+  for (const path of ['/admin', '/admin/forwarder', '/forwarder', '/forwarder/x', '/builder-preview/x']) assert.equal(automatic.automaticLinksAllowed(path), false)
+  for (const path of ['/', '/journal/x', '/forum/x', '/forwarders']) assert.equal(automatic.automaticLinksAllowed(path), true)
+})
 
 test('targets: scheme added, only public http(s)', () => {
   assert.equal(f.normalizeTarget('google.com').url, 'https://google.com/')

@@ -10,6 +10,8 @@ export class ForwarderError extends Error {
 
 export type ForwarderSettings = {
   enabled: boolean
+  /** Apply to public external anchors at display time; never rewrite stored content. */
+  autoExternalLinks: boolean
   /** Seconds before the redirect (0 = immediate). */
   countdown: number
   /** Accept /forwarder/url=… for addresses that are not saved short links. */
@@ -28,7 +30,7 @@ export type ForwarderSettings = {
 }
 
 export const DEFAULT_FORWARDER: ForwarderSettings = {
-  enabled: true, countdown: 5, allowRawUrls: true, autoRedirect: true,
+  enabled: true, autoExternalLinks: false, countdown: 5, allowRawUrls: true, autoRedirect: true,
   title: 'در حال انتقال…', message: 'تا چند ثانیهٔ دیگر به مقصد منتقل می‌شوید. مسئولیت محتوای سایت مقصد با ما نیست.',
   bannerImage: '', bannerLink: '', adTop: '', adBottom: '', blockedHosts: [],
 }
@@ -45,10 +47,11 @@ function safeImage(value: unknown) {
 export function normalizeForwarderSettings(input: unknown): ForwarderSettings {
   const raw = input && typeof input === 'object' ? input as Record<string, unknown> : {}
   const seconds = Math.round(Number(raw.countdown))
-  const bool = (key: 'enabled' | 'allowRawUrls' | 'autoRedirect') => typeof raw[key] === 'boolean' ? raw[key] as boolean : DEFAULT_FORWARDER[key]
+  const bool = (key: 'enabled' | 'autoExternalLinks' | 'allowRawUrls' | 'autoRedirect') => typeof raw[key] === 'boolean' ? raw[key] as boolean : DEFAULT_FORWARDER[key]
   const banner = raw.bannerLink ? normalizeTarget(raw.bannerLink) : null
   return {
     enabled: bool('enabled'),
+    autoExternalLinks: bool('autoExternalLinks'),
     countdown: Number.isFinite(seconds) ? Math.max(0, Math.min(60, seconds)) : DEFAULT_FORWARDER.countdown,
     allowRawUrls: bool('allowRawUrls'),
     autoRedirect: bool('autoRedirect'),
