@@ -270,3 +270,12 @@ test('Telegram, the reseller bot receipts and Instagram publishing all go throug
   assert.equal((http.match(/const gate = await serverGate\(req\)/g) || []).length, 2)
   assert.doesNotMatch(http, /audit\([^)]*link/)
 })
+
+test('Gemini HTTPS proxy preserves the request, verifies certificates and aborts a stalled body', { skip: process.platform === 'win32' }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'egress-tls-'))
+  try {
+    cp.execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-keyout', path.join(dir, 'key.pem'), '-out', path.join(dir, 'cert.pem'), '-subj', '/CN=generativelanguage.googleapis.com', '-addext', 'subjectAltName=DNS:generativelanguage.googleapis.com'], { stdio: 'ignore' })
+    const result = cp.spawnSync(process.execPath, [path.join(root, 'scripts/fixtures/egress-tls.cjs'), dir], { cwd: root, env: { ...process.env, NODE_EXTRA_CA_CERTS: path.join(dir, 'cert.pem') }, encoding: 'utf8', timeout: 15000 })
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+})

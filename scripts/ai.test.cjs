@@ -166,3 +166,116 @@ test('source credit only links http(s) pages', () => {
   assert.equal(ai.sourceCredit('javascript:alert(1)'), '')
   assert.equal(ai.sourceCredit(''), '')
 })
+
+function aiClient(transport = async () => new Response(JSON.stringify({ choices: [{ message: { content: 'آماده‌ام' } }] })), route = 'proxy') {
+  let row = null
+  const db = { setting: {
+    findUnique: async () => row,
+    upsert: async ({ create, update }) => { row = row ? { ...row, ...update } : create; return row },
+  } }
+  const load = require('./connected-source-loader.cjs')({
+    '@/platform/database/prisma': { db },
+    '@/modules/social/server/egress': { egressFetch: transport, egressRoute: async () => route },
+  })
+  return { client: load('src/modules/ai/server/client.ts'), crypto: load('src/modules/providers/server/panel-credentials.ts'), db, setRow: value => { row = value } }
+}
+const ping = { system: 'فارسی', user: 'سلام', maxTokens: 200 }
+
+test('AI encrypted long keys survive read, masked resave and actual generation', async () => {
+  const prior = process.env.PANEL_CREDENTIAL_KEY
+  process.env.PANEL_CREDENTIAL_KEY = require('node:crypto').randomBytes(32).toString('hex')
+  try {
+    let authorization
+    const { client, crypto } = aiClient(async (_url, init) => { authorization = init.headers.Authorization; return new Response('{"choices":[{"message":{"content":"ok"}}]}') })
+    const apiKey = 'synthetic-ai-key-'.padEnd(400, 'x')
+    const stored = await client.saveAiConfig({ provider: 'groq', apiKey })
+    assert.ok(stored.apiKey.length > 400)
+    const read = await client.getAiConfig()
+    assert.equal(read.apiKey, stored.apiKey)
+    assert.equal(crypto.decryptPanelCredential(read.apiKey), apiKey)
+    await client.saveAiConfig({ ...client.publicAiConfig(read), apiKey: '' })
+    assert.equal((await client.getAiConfig()).apiKey, stored.apiKey)
+    await client.generate(ping)
+    assert.equal(authorization, `Bearer ${apiKey}`)
+  } finally { if (prior === undefined) delete process.env.PANEL_CREDENTIAL_KEY; else process.env.PANEL_CREDENTIAL_KEY = prior }
+})
+
+test('AI refuses corrupt settings and database read failures before saving defaults', async () => {
+  const { client, db, setRow } = aiClient()
+  for (const value of ['{broken', 'null', '[]', '{"apiKey":123}']) {
+    setRow({ key: 'ai.config.v1', value })
+    await assert.rejects(client.saveAiConfig({ provider: 'gemini', apiKey: 'replacement' }), /تنظیمات/)
+    assert.equal((await db.setting.findUnique()).value, value)
+  }
+  db.setting.findUnique = async () => { throw Error('database unavailable') }
+  await assert.rejects(client.saveAiConfig({ provider: 'gemini' }), /تنظیمات/)
+})
+
+test('Gemini Flash short requests reserve the output for the answer; other models retain their protocol', async () => {
+  const bodies = []
+  const { client } = aiClient(async (_url, init) => {
+    const body = JSON.parse(init.body); bodies.push(body)
+    // Provider-shaped response when dynamic thinking uses up this short output budget.
+    return new Response(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: body.reasoning_effort === 'none' ? 'آماده‌ام' : '' } }] }))
+  })
+  const config = { ...ai.DEFAULT_AI, apiKey: 'synthetic' }
+  assert.equal((await client.generate(ping, config)).text, 'آماده‌ام')
+  assert.equal(bodies[0].max_tokens, 200)
+  await assert.rejects(client.generate({ ...ping, maxTokens: 6000 }, config), /توکن/)
+  assert.equal(Object.hasOwn(bodies.at(-1), 'reasoning_effort'), false, 'long editorial requests keep their existing thinking behavior')
+  for (const [provider, model] of [['gemini', 'gemini-2.5-pro'], ['gemini', 'gemini-3-flash'], ['groq', 'llama-3.3-70b-versatile'], ['custom', 'gemini-2.5-flash']]) {
+    await assert.rejects(client.generate(ping, { ...config, provider, model }), /توکن/)
+    assert.equal(Object.hasOwn(bodies.at(-1), 'reasoning_effort'), false)
+  }
+})
+
+test('Gemini location, key, access, quota and model errors stay distinct without disclosing secrets', async () => {
+  let status, error
+  const { client } = aiClient(async () => new Response(JSON.stringify({ error }), { status }))
+  const config = { ...ai.DEFAULT_AI, apiKey: 'synthetic-private-key' }
+  for (const [code, message, expected, expectedStatus] of [
+    [400, 'User location is not supported for the API use.', /جغرافیایی.*Xray/, 403],
+    [403, 'Permission denied', /دسترسی/, 403],
+    [401, 'Invalid API key', /کلید/, 401],
+    [400, 'API key not valid. Please pass a valid API key.', /کلید/, 401],
+    [429, 'Quota exhausted', /سهمیه/, 429],
+    [404, 'Model not found', /مدل/, 404],
+    [502, 'Upstream failed synthetic-private-key', /502/, 502],
+  ]) {
+    status = code; error = { message }
+    await assert.rejects(client.generate(ping, config), e => e.status === expectedStatus && expected.test(e.message) && !e.message.includes(config.apiKey))
+  }
+})
+
+test('AI network diagnostics name the selected route and response parsing never returns a malformed result', async () => {
+  for (const route of ['direct', 'proxy']) {
+    const { client } = aiClient(async () => { throw Error('network failure containing synthetic-private-key') }, route)
+    await assert.rejects(client.generate(ping, { ...ai.DEFAULT_AI, apiKey: 'synthetic-private-key' }), error => error.status === 502 && error.message.includes(route === 'proxy' ? 'مسیر Xray' : 'مسیر مستقیم') && !error.message.includes('synthetic-private-key'))
+  }
+  for (const [payload, expected] of [['not-json', /JSON/], ['{"choices":[{"finish_reason":"length","message":{"content":[]}}]}', /قالب/], ['{"choices":[{"finish_reason":"content_filter"}]}', /موضوع/]]) {
+    const { client } = aiClient(async () => new Response(payload))
+    await assert.rejects(client.generate(ping, { ...ai.DEFAULT_AI, apiKey: 'synthetic' }), expected)
+  }
+})
+
+test('AI Admin GET and PUT surface unreadable settings while guests remain denied', async () => {
+  const { client, setRow } = aiClient()
+  setRow({ key: 'ai.config.v1', value: '{broken' })
+  let admin = { id: 10, email: 'fixture@example.invalid' }
+  const load = require('./connected-source-loader.cjs')({
+    '@/platform/database/prisma': { db: { postCategory: { findMany: async () => [] } } },
+    '@/modules/ai/server/client': client,
+    '@/modules/ai/server/tasks': { assistantQueues: async () => ({}) },
+    '@/platform/audit/server': { auditAdmin: async () => { throw Error('must not audit failed save') } },
+    '@/platform/http/rate-limit': {},
+    '@/modules/identity/server/access': { requirePerm: async () => admin },
+    '@/extensions/server/modules': { moduleGuard: async () => null },
+  })
+  const route = load('src/modules/ai/server/http/admin.ts')
+  const request = { json: async () => ({ provider: 'gemini' }) }
+  assert.equal((await route.GET(request)).status, 503)
+  assert.equal((await route.PUT(request)).status, 503)
+  admin = null
+  assert.equal((await route.GET(request)).status, 403)
+  assert.equal((await route.PUT(request)).status, 403)
+})

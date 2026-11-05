@@ -83,3 +83,7 @@ For requested interface design, styling, polish or redesign, use `unslop` with t
 
 Scope and already-granted authorization come from the current user request. Read the adoption note before running a whole-site brief; use existing status documents and do not reopen approval for an authorized slice.
 <!-- mobocom-whole-site-quality:end -->
+
+## AI connection and Xray continuation
+
+For Gemini/AI connection failures, encrypted AI settings or proxy deadlines, read `docs/agent/handoffs/AI_CONNECTION.md` first. Continue the existing AI client and Social egress owners; preserve explicit per-purpose routing, fixed host allowlists and root-helper ownership. Local fixtures do not establish destination-server or live-provider readiness.
