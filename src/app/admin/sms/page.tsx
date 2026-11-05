@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 type EventSetting = { enabled: boolean; text: string; pattern: string }
 type Config = { enabled: boolean; apiKey: string; hasKey: boolean; ready: boolean; fromNumber: string; otpLogin: boolean; otpPattern: string; otpParam: string; otpText: string; adminPhones: string[]; events: Record<string, EventSetting> }
@@ -21,12 +21,17 @@ export default function SmsPage() {
   const [send, setSend] = useState({ to: 'phone', phone: '', text: '' })
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
+  const draftVersion = useRef(0)
+  const editConfig = (next: Config) => { draftVersion.current++; setConfig(next) }
+  const editApiKey = (next: string) => { draftVersion.current++; setApiKey(next) }
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preserveDraft = false) => {
+    const version = draftVersion.current
     const response = await fetch('/api/admin/sms', { cache: 'no-store' })
     const data = await response.json().catch(() => null)
     if (!response.ok) { setMessage({ text: data?.error || 'دریافت اطلاعات ناموفق بود', error: true }); return }
-    setConfig(data.config); setEvents(data.events); setLog(data.log); setStats(data.stats); setVerified(data.verifiedUsers)
+    if (!preserveDraft && version === draftVersion.current) setConfig(data.config)
+    setEvents(data.events); setLog(data.log); setStats(data.stats); setVerified(data.verifiedUsers)
   }, [])
   useEffect(() => { void load() }, [load])
 
@@ -35,25 +40,27 @@ export default function SmsPage() {
     const response = await fetch('/api/admin/sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...body }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy('')
-    if (!response?.ok) { setMessage({ text: data?.error || 'انجام نشد', error: true }); void load(); return null }
+    if (!response?.ok) { setMessage({ text: data?.error || 'انجام نشد', error: true }); void load(true); return null }
     setMessage({ text: label.replace('{n}', String(data?.sent ?? '')).replace('{total}', String(data?.total ?? '')).replace('{credit}', Math.floor(Number(data?.credit || 0)).toLocaleString('fa-IR')), error: false })
-    void load()
+    void load(true)
     return data
   }
 
   async function save() {
     if (!config) return
+    const version = draftVersion.current
     setBusy('save'); setMessage(null)
     const response = await fetch('/api/admin/sms', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...config, apiKey: apiKey || config.apiKey }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy('')
     if (!response?.ok) { setMessage({ text: data?.error || 'ذخیره نشد', error: true }); return }
-    setConfig(data.config); setApiKey('')
-    setMessage({ text: 'تنظیمات پیامک ذخیره شد', error: false })
+    const unchanged = version === draftVersion.current
+    if (unchanged) { draftVersion.current++; setConfig(data.config); setApiKey('') }
+    setMessage({ text: unchanged ? 'تنظیمات پیامک ذخیره شد' : 'تنظیمات پیامک ذخیره شد؛ تغییرات جدید فرم هنوز ذخیره نشده‌اند', error: false })
   }
 
   if (!config) return <div className="xm-page" dir="rtl">{message ? <div className="xm-notice is-error">{message.text}</div> : <div className="tb-empty">در حال بارگذاری…</div>}</div>
-  const setEvent = (id: string, patch: Partial<EventSetting>) => setConfig({ ...config, events: { ...config.events, [id]: { ...config.events[id], ...patch } } })
+  const setEvent = (id: string, patch: Partial<EventSetting>) => editConfig({ ...config, events: { ...config.events, [id]: { ...config.events[id], ...patch } } })
 
   return <div className="xm-page ai-page" dir="rtl">
     <header className="tb-hero"><div><span className="tb-eyebrow">پیامک · IPPanel</span><h1>پنل پیامک</h1><p>ورود با کد پیامکی، اطلاع‌رسانی خودکار سفارش، پرداخت، رسید کارت به کارت و تیکت به مشتری و مدیران، و ارسال دستی پیامک.</p></div>
@@ -63,20 +70,20 @@ export default function SmsPage() {
     <nav className="md-chips seo-filter ai-tabs" aria-label="بخش‌های پیامک">{([['settings', 'اتصال و ورود پیامکی'], ['events', 'اطلاع‌رسانی رویدادها'], ['send', 'ارسال دستی'], ['log', 'گزارش ارسال']] as [Tab, string][]).map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}</button>)}</nav>
 
     {tab === 'settings' && <section className="card seo-form">
-      <label className="studio-switch seo-wide"><input type="checkbox" checked={config.enabled} onChange={(e) => setConfig({ ...config, enabled: e.target.checked })} />ارسال پیامک فعال باشد</label>
-      <label className="studio-field"><span>کلید API (پنل IPPanel ← توسعه‌دهندگان ← کلیدهای دسترسی) {config.hasKey ? `— ذخیره‌شده: ${config.apiKey}` : ''}</span><input className="input" type="password" dir="ltr" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={config.hasKey ? 'برای تغییر، کلید جدید را وارد کنید' : 'API key'} /></label>
-      <label className="studio-field"><span>شمارهٔ خط ارسال</span><input className="input" dir="ltr" value={config.fromNumber} onChange={(e) => setConfig({ ...config, fromNumber: e.target.value })} placeholder="+983000505" /></label>
-      <label className="studio-field seo-wide"><span>شماره‌های مدیران برای هشدارها (با ویرگول یا فاصله)</span><input className="input" dir="ltr" value={config.adminPhones.join(', ')} onChange={(e) => setConfig({ ...config, adminPhones: e.target.value.split(/[,،\s]+/).filter(Boolean) })} placeholder="09121234567, 09351234567" /></label>
+      <label className="studio-switch seo-wide"><input type="checkbox" checked={config.enabled} onChange={(e) => editConfig({ ...config, enabled: e.target.checked })} />ارسال پیامک فعال باشد</label>
+      <label className="studio-field"><span>کلید API (پنل IPPanel ← توسعه‌دهندگان ← کلیدهای دسترسی) {config.hasKey ? `— ذخیره‌شده: ${config.apiKey}` : ''}</span><input className="input" type="password" dir="ltr" autoComplete="off" value={apiKey} onChange={(e) => editApiKey(e.target.value)} placeholder={config.hasKey ? 'برای تغییر، کلید جدید را وارد کنید' : 'API key'} /></label>
+      <label className="studio-field"><span>شمارهٔ خط ارسال</span><input className="input" dir="ltr" value={config.fromNumber} onChange={(e) => editConfig({ ...config, fromNumber: e.target.value })} placeholder="+983000505" /></label>
+      <label className="studio-field seo-wide"><span>شماره‌های مدیران برای هشدارها (با ویرگول یا فاصله)</span><input className="input" dir="ltr" value={config.adminPhones.join(', ')} onChange={(e) => editConfig({ ...config, adminPhones: e.target.value.split(/[,،\s]+/).filter(Boolean) })} placeholder="09121234567, 09351234567" /></label>
       <h3 className="seo-wide">ورود با کد پیامکی (OTP)</h3>
-      <label className="studio-switch seo-wide"><input type="checkbox" checked={config.otpLogin} onChange={(e) => setConfig({ ...config, otpLogin: e.target.checked })} />ورود و ثبت‌نام با شمارهٔ موبایل در صفحهٔ ورود</label>
-      <label className="studio-field"><span>کد پترن OTP (پیشنهادی — سریع و بدون صف بررسی)</span><input className="input" dir="ltr" value={config.otpPattern} onChange={(e) => setConfig({ ...config, otpPattern: e.target.value })} placeholder="کد پترن تأییدشده در IPPanel" /></label>
-      <label className="studio-field"><span>نام متغیر کد در پترن</span><input className="input" dir="ltr" value={config.otpParam} onChange={(e) => setConfig({ ...config, otpParam: e.target.value })} placeholder="code" /></label>
-      <label className="studio-field seo-wide"><span>متن پیامک OTP (وقتی پترن ندارید) — متغیرها: {'{code}'} و {'{brand}'}</span><textarea className="input" rows={2} value={config.otpText} onChange={(e) => setConfig({ ...config, otpText: e.target.value })} /></label>
+      <label className="studio-switch seo-wide"><input type="checkbox" checked={config.otpLogin} onChange={(e) => editConfig({ ...config, otpLogin: e.target.checked })} />ورود و ثبت‌نام با شمارهٔ موبایل در صفحهٔ ورود</label>
+      <label className="studio-field"><span>کد پترن OTP (پیشنهادی — سریع و بدون صف بررسی)</span><input className="input" dir="ltr" value={config.otpPattern} onChange={(e) => editConfig({ ...config, otpPattern: e.target.value })} placeholder="کد پترن تأییدشده در IPPanel" /></label>
+      <label className="studio-field"><span>نام متغیر کد در پترن</span><input className="input" dir="ltr" value={config.otpParam} onChange={(e) => editConfig({ ...config, otpParam: e.target.value })} placeholder="code" /></label>
+      <label className="studio-field seo-wide"><span>متن پیامک OTP (وقتی پترن ندارید) — متغیرها: {'{code}'} و {'{brand}'}</span><textarea className="input" rows={2} value={config.otpText} onChange={(e) => editConfig({ ...config, otpText: e.target.value })} /></label>
       <div className="seo-actions seo-wide">
         <button type="button" className="btn btn-primary" disabled={!!busy} onClick={() => void save()}>ذخیرهٔ تنظیمات</button>
         <button type="button" className="btn btn-ghost" disabled={!!busy || !config.hasKey} onClick={() => void post('credit', {}, 'اتصال برقرار است. اعتبار پنل: {credit} ریال')}>{busy === 'credit' ? 'در حال بررسی…' : 'بررسی اتصال و اعتبار'}</button>
       </div>
-      <p className="muted seo-wide">کلید با کلید رمزنگاری سرور ذخیره می‌شود و به مرورگر برنمی‌گردد. پیامک رویدادها فقط برای شماره‌هایی ارسال می‌شود که کاربر با کد تأیید کرده و اطلاع‌رسانی پیامکی را خاموش نکرده باشد ({verified.toLocaleString('fa-IR')} کاربر).</p>
+      <p className="muted seo-wide">تیک فعال‌بودن و شمارهٔ خط با «ذخیرهٔ تنظیمات» اعمال می‌شوند؛ بررسی اعتبار جای ذخیره را نمی‌گیرد. پس از ذخیره، کادر کلید خالی و نشان «ذخیره‌شده» نمایش داده می‌شود. کلید با کلید رمزنگاری سرور ذخیره می‌شود و به مرورگر برنمی‌گردد. پیامک رویدادها فقط برای شماره‌هایی ارسال می‌شود که کاربر با کد تأیید کرده و اطلاع‌رسانی پیامکی را خاموش نکرده باشد ({verified.toLocaleString('fa-IR')} کاربر).</p>
     </section>}
 
     {tab === 'events' && <section className="sms-events">

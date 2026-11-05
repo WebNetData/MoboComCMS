@@ -1,3 +1,5 @@
+SMS settings retention2026-11-05: GOOD bounded local — actual saved enabled/sender survive form reloads, ciphertext stays complete, invalid saves/read failures preserve settings.11 SMS/payment tests, three native PG suites, responsive browser/axe0, TypeScript/Doctor/source/security gates; real provider delivery and production adoption remain unverified. [Evidence](handoffs/SMS_SETTINGS_RETENTION.md).
+
 Content PDF2026-11-05: FUNCTIONAL — eight native Persian designs for registered content/pages/products/forum posts, per-kind assignments and text/logo watermark Admin. Real PDF/Poppler, PostgreSQL authorization/settings/fault checks and themed responsive browser/axe/download evidence passed. Reading exports preserve online interactive content; bounded limits and no production-deployment claim. [Evidence and continuation](handoffs/CONTENT_PDF.md).
 
 # CAPABILITY_LEDGER.md
