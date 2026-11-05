@@ -204,18 +204,27 @@ export async function fetchRemoteBytes(raw: string, maxBytes: number): Promise<U
 export async function importImage(raw: string): Promise<string> {
   return (await (await import('@/modules/imports/server/media')).importImage(raw)).url
 }
-export async function importFile(raw: string, section = 'posts', options: { maxBytes?: number; timeoutMs?: number; checkpoint?: () => Promise<void>; canonical?: boolean; destination?: string } = {}): Promise<string> {
-  const name = cleanFileName(fileNameOf(raw, 'file'))
+export async function importFile(raw: string, section = 'posts', options: { maxBytes?: number; timeoutMs?: number; checkpoint?: () => Promise<void>; canonical?: boolean; destination?: string; name?: string; prepare?: (file: string) => Promise<void> } = {}): Promise<string> {
+  const name = cleanFileName(options.name || fileNameOf(raw, 'file'))
   const dir = options.destination ? await (await import('./organization')).organizedDirectory(filesRoot(), options.destination) : path.join(filesRoot(), 'uploads', SECTIONS.has(section) ? section : 'posts', month())
   await fs.mkdir(dir, { recursive: true }); await fs.mkdir(incoming(), { recursive: true })
   const temp = path.join(incoming(), `imp-${randomBytes(12).toString('hex')}`)
   // Unique immutable storage key: logical renaming in the library never changes URLs.
-  const target = path.join(dir, `${randomUUID()}-${name}`)
+  let target = path.join(dir, `${randomUUID()}-${name}`)
   try {
     await (await import('./remote')).streamPublicFile(raw, createWriteStream(temp, { flags: 'wx', mode: 0o600 }), { ...options, maxBytes: Math.min(options.maxBytes || 512 * 1024 ** 2, MAX_UPLOAD(), 4 * 1024 ** 3) })
+    await options.prepare?.(temp)
     await options.checkpoint?.()
     if(options.destination)await (await import('./organization')).organizedDirectory(filesRoot(),options.destination)
-    await fs.rename(temp, target); await fs.chmod(target, 0o644)
+    if (options.name) {
+      // Atomic exclusive publication: parallel transfers never overwrite a song or a symlink.
+      for (let n = 1; ; n++) {
+        const dot = name.lastIndexOf('.')
+        target = path.join(dir, n === 1 ? name : name.slice(0, dot)+' ('+n+')'+name.slice(dot))
+        try { await fs.link(temp, target); break } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || n >= 999) throw error }
+      }
+    } else await fs.rename(temp, target)
+    await fs.chmod(target, 0o644)
   } finally { await fs.rm(temp, { force: true }) }
   const relative=options.destination ? `${options.destination}/${path.basename(target)}` : relativeOf(target)
   return options.canonical ? `/files/${relative.split('/').map(encodeURIComponent).join('/')}` : publicFileUrl(relative)

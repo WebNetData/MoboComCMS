@@ -1,3 +1,4 @@
+import { rewriteMp3Tags } from '@/modules/downloads/server/audio-tags'
 import { createHash, randomBytes } from 'node:crypto'
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs'
 import path from 'node:path'
@@ -7,7 +8,7 @@ import { spawn } from 'node:child_process'
 import { logEvent } from '@/platform/observability/logger'
 import { getSettings } from '@/modules/settings/server'
 import { getDownloadSettings } from '@/modules/downloads/server/guard'
-import { archiveJunk, buildId3, cleanKindOf, ffmpegArgs, id3v2Size, isNoteFile, trailingTagSize, type CleanKind } from '@/modules/downloads/domain/filemeta'
+import { archiveJunk, cleanKindOf, ffmpegArgs, isNoteFile, type CleanKind } from '@/modules/downloads/domain/filemeta'
 import { contentTypeFor, dispositionFor } from '@/modules/downloads/domain/mask'
 import type { DownloadSettings } from '@/modules/downloads/domain/downloads'
 
@@ -89,28 +90,8 @@ async function coverJpeg(cover?: string): Promise<Uint8Array | null> {
 }
 
 async function cleanMp3(input: string, output: string, tags: FileTags, settings: DownloadSettings) {
-  const handle = await fs.open(input, 'r')
-  try {
-    const { size } = await handle.stat()
-    let start = 0
-    const head = Buffer.alloc(10)
-    for (let i = 0; i < 8 && start < size; i++) {
-      await handle.read(head, 0, 10, start)
-      const tag = id3v2Size(head)
-      if (!tag) break
-      start += tag
-    }
-    const tailLength = Math.min(size - start, 4096)
-    const tail = Buffer.alloc(tailLength)
-    await handle.read(tail, 0, tailLength, size - tailLength)
-    const end = size - trailingTagSize(tail)
-    if (end <= start) throw new Error('no audio after the tags')
-    const site = await siteInfo()
-    const tag = buildId3({ ...tags, comment: settings.tagComment, url: site.url }, await coverJpeg(tags.cover))
-    const out = createWriteStream(output)
-    await new Promise<void>((resolve, reject) => { out.write(Buffer.from(tag), (error) => (error ? reject(error) : resolve())) })
-    await pipeline(createReadStream(input, { start, end: end - 1 }), out)
-  } finally { await handle.close() }
+  const site = await siteInfo()
+  await rewriteMp3Tags(input, output, { ...tags, comment: settings.tagComment, url: site.url }, await coverJpeg(tags.cover))
 }
 
 async function cleanVideo(input: string, output: string, tags: FileTags, settings: DownloadSettings) {
@@ -207,6 +188,7 @@ export async function cleanedCopy(source: Source, name: string, tags: FileTags, 
   const kind = cleanKindOf(name)
   const settings = await getDownloadSettings()
   if (!kind || !enabledFor(settings, kind)) return null
+  if (kind === 'audio' && 'file' in source && await (await import('@/modules/media/server/library')).preservesTransferredMusicTags(source.file)) return null
   const ext = (name.split('.').pop() || '').toLowerCase()
   const key = cacheKey(source, tags, settings)
   const final = path.join(root(), `${key}.${ext}`)

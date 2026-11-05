@@ -8,6 +8,20 @@ const file = path.resolve(__dirname, '../src/modules/downloads/domain/filemeta.t
 const mod = { exports: {} }
 new Function('module', 'exports', 'require', ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(mod, mod.exports, require)
 const { cleanKindOf, id3v2Size, trailingTagSize, buildId3, archiveJunk, ffmpegArgs } = mod.exports
+const load = require('./connected-source-loader.cjs')()
+const musicFiles = load('src/modules/music/domain/file-policy.ts')
+
+test('music filename prefers supplied foreign names, sanitizes paths and preserves the audio extension', () => {
+  const metadata = musicFiles.musicFileMetadata({ artist: 'Artist', title: 'Song', quality: '320' })
+  assert.equal(musicFiles.musicFileName('source_ad.MP3', metadata, true), 'Artist - Song - 320.mp3')
+  assert.equal(musicFiles.musicFileName('source.mp3', metadata, false), undefined)
+  assert.equal(musicFiles.musicFileName('source.zip', metadata, true), undefined)
+  assert.equal(musicFiles.musicFileName('source.mp3', { ...metadata, title: '' }, true), undefined)
+  assert.equal(musicFiles.musicFileName('song.flac', { ...metadata, artist: '../A/B', title: 'x:y?z' }, true), 'A B - x y z - 320.flac')
+  assert.equal(musicFiles.musicTagUrl('javascript:alert(1)'), 'https://mobocom.net/')
+  const music = load('src/modules/music/domain/music.ts')
+  assert.deepEqual(music.normalizeMusicSettings(music.normalizeMusicSettings({})), music.normalizeMusicSettings({}), 'default settings have a stable revision')
+})
 
 test('file kinds', () => {
   assert.equal(cleanKindOf('Song.MP3'), 'audio')

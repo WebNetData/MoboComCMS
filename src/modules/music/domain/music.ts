@@ -1,5 +1,7 @@
 import { clampInt, normalizeIds, normalizeRails, parseSettingsInput } from '@/shared/section-layout'
 
+import { musicTagUrl } from '@/modules/music/domain/file-policy'
+
 // Music section rules: home layout settings and catalogue health. Pure.
 
 export const MUSIC_RAILS = {
@@ -18,6 +20,10 @@ export const CHART_SOURCES = { plays: 'بیشترین پخش', downloads: 'بی�
 export type ChartSource = keyof typeof CHART_SOURCES
 
 export type MusicSettings = {
+  renameTransferredFiles: boolean
+  tagTransferredFiles: boolean
+  fileTagBrand: string
+  fileTagUrl: string
   rails: { key: MusicRail; enabled: boolean }[]
   /** Hand-picked hero tracks in order; empty = featured tracks, then newest. */
   heroTrackIds: number[]
@@ -33,6 +39,10 @@ export type MusicSettings = {
 }
 
 export const DEFAULT_MUSIC_SETTINGS: MusicSettings = {
+  renameTransferredFiles: true,
+  tagTransferredFiles: true,
+  fileTagBrand: 'موبوکام',
+  fileTagUrl: 'https://mobocom.net/',
   rails: (Object.keys(MUSIC_RAILS) as MusicRail[]).map((key) => ({ key, enabled: true })),
   heroTrackIds: [],
   featuredAlbumIds: [],
@@ -50,6 +60,10 @@ export function normalizeMusicSettings(input: unknown): MusicSettings {
   const d = DEFAULT_MUSIC_SETTINGS
   const source = String(raw.chartSource || '')
   return {
+    renameTransferredFiles: raw.renameTransferredFiles !== false,
+    tagTransferredFiles: raw.tagTransferredFiles !== false,
+    fileTagBrand: typeof raw.fileTagBrand === 'string' ? raw.fileTagBrand.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 100) || d.fileTagBrand : d.fileTagBrand,
+    fileTagUrl: musicTagUrl(raw.fileTagUrl),
     rails: normalizeRails(raw.rails, MUSIC_RAILS),
     heroTrackIds: normalizeIds(raw.heroTrackIds, 5),
     featuredAlbumIds: normalizeIds(raw.featuredAlbumIds, 12),

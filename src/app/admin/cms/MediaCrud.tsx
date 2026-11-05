@@ -41,7 +41,7 @@ const VIP_FIELD_KEYS = ['access', 'memberPrice', 'vipGiftDays']
  */
 
 /** A choice; `alias` is another name the same entry arrives by (the English name an import brings). */
-type Opt = { value: string; label: string; alias?: string }
+type Opt = { value: string; label: string; alias?: string; foreignName?: string }
 export type MediaField = {
   key: string
   label: string
@@ -149,8 +149,9 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
   const [originalStatus, setOriginalStatus] = useState('')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkProgress, setBulkProgress] = useState(0)
-  const sourceLabel=(resource:string,id:unknown)=>(sources[resource]||[]).find(o=>o.value===String(id))?.label||''
-  const assetOrganization:AssetOrganization|undefined=form?{section:type==='cinema-titles'?form.kind==='SERIES'?'series':'film':type.startsWith('music-')?'music':type,title:form.originalTitle||form.titleEn||form.title||form.name,category:String(form.category||form.genres||'').split(/[,،]/)[0],artist:type==='music-artists'?form.nameEn||form.name:sourceLabel('music-artists',form.artistId),album:type==='music-albums'?form.titleEn||form.title:sourceLabel('music-albums',form.albumId),artistImage:type==='music-artists'}:undefined
+  const sourceChoice=(resource:string,id:unknown)=>(sources[resource]||[]).find(o=>o.value===String(id))
+  const sourceLabel=(resource:string,id:unknown)=>sourceChoice(resource,id)?.label||''
+  const assetOrganization:AssetOrganization|undefined=form?{artistId:Number(form.artistId)||undefined,artistEn:sourceChoice('music-artists',form.artistId)?.foreignName,titleEn:form.titleEn,section:type==='cinema-titles'?form.kind==='SERIES'?'series':'film':type.startsWith('music-')?'music':type,title:form.originalTitle||form.titleEn||form.title||form.name,category:String(form.category||form.genres||'').split(/[,،]/)[0],artist:type==='music-artists'?form.nameEn||form.name:sourceLabel('music-artists',form.artistId),album:type==='music-albums'?form.titleEn||form.title:sourceLabel('music-albums',form.albumId),artistImage:type==='music-artists'}:undefined
 
   const load = useCallback(async () => {
     const requestId = ++loadId.current
@@ -186,7 +187,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       const res = await fetch(`${API}?type=${sourceType}&paged=1&limit=all`)
       const data = res.ok ? await res.json().catch(() => []) : []
       const field = fields.find((f) => f.source?.type === sourceType)!
-      setSources((current) => ({ ...current, [sourceType]: (Array.isArray(data?.rows) ? data.rows : []).map((row: any) => ({ value: String(row.id), label: field.source!.label(row) })) }))
+      setSources((current) => ({ ...current, [sourceType]: (Array.isArray(data?.rows) ? data.rows : []).map((row: any) => ({ value: String(row.id), label: field.source!.label(row), foreignName: row.nameEn || row.titleEn || '' })) }))
     })
   }, [form === null, sourceTypes]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -437,7 +438,7 @@ const WIDE_TYPES = new Set(['textarea', 'image', 'links', 'records', 'seasons', 
 function FieldBox({ field, value, ai, organization, options, fa, onBusy, titleHint, onChange }: { field: MediaField; value: any; ai: boolean; organization?: AssetOrganization; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string; onChange: (value: unknown, projected?: Record<string, string>) => void }) {
   return <div className={`mx-field${field.wide || WIDE_TYPES.has(field.type || '') ? ' is-wide' : ''}${ai ? ' is-ai' : ''}`}>
     {field.type !== 'checkbox' && <span className="label">{field.label}{field.required ? ' *' : ''}{ai && <span className="ai-badge">پیشنهاد AI</span>}</span>}
-    <OrganizationScope value={organization ? { ...organization, video: field.key === 'trailerUrl' } : undefined}><FieldInput field={field} value={value} onChange={onChange} options={options} fa={fa} onBusy={onBusy} titleHint={titleHint} /></OrganizationScope>
+    <OrganizationScope value={organization ? { ...organization, quality: field.key === 'audioHqUrl' ? '320' : field.key === 'audioUrl' ? '128' : undefined, video: field.key === 'trailerUrl' } : undefined}><FieldInput field={field} value={value} onChange={onChange} options={options} fa={fa} onBusy={onBusy} titleHint={titleHint} /></OrganizationScope>
     {field.hint && <small className="muted mx-hint">{field.hint}</small>}
   </div>
 }

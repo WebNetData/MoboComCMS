@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { bot, telegramConfig } from '@/modules/notifications/server/telegram'
 import { siteBase } from '@/modules/site/server/seo'
@@ -10,6 +10,7 @@ import { itemCard, type ItemCard } from '@/modules/content/server/registry'
 import { broadcast } from '@/modules/push/server/push'
 import { hashtag } from '@/modules/social/domain/social'
 import { socialFetch } from '@/modules/social/server/egress'
+import { socialImage } from '@/modules/social/server/images'
 import {
   DEFAULT_SOCIAL, MAX_ATTEMPTS, isAnnounceType, normalizeSocialSettings, renderPost, retryDelayMs, withUtm,
   type AnnounceType, type Channel, type SocialSettings,
@@ -23,11 +24,13 @@ export async function getSocialSettings(): Promise<SocialSettings> {
 }
 
 export async function saveSocialSettings(input: Record<string, unknown>): Promise<SocialSettings> {
-  const previous = await getSocialSettings()
-  const next = normalizeSocialSettings(input, previous)
-  if (next.instagram.accessToken !== previous.instagram.accessToken) next.instagram.accessToken = encryptPanelCredential(next.instagram.accessToken)
-  await writeJsonSetting(KEY, next)
-  return next
+  return updateJsonSetting(KEY, async stored => {
+    const previous = normalizeSocialSettings(stored, structuredClone(DEFAULT_SOCIAL))
+    const next = normalizeSocialSettings(input, previous)
+    if (next.instagram.accessToken !== previous.instagram.accessToken) next.instagram.accessToken = encryptPanelCredential(next.instagram.accessToken)
+    for (const [key, value] of Object.entries(next)) stored[key] = value && typeof value === 'object' ? { ...(stored[key] as Record<string, unknown> || {}), ...value } : value
+    return next
+  })
 }
 
 export function publicSocialSettings(settings: SocialSettings) {
@@ -84,11 +87,14 @@ async function sendTelegram(settings: SocialSettings, item: ItemCard, url: strin
   const vars = { type, title: item.title, subtitle: item.subtitle, summary: item.summary, url, hashtags: [hashtag(item.subtitle.split('·')[0] || ''), '#موبوکام'].filter(Boolean).join(' ') }
   const keyboard = settings.telegram.button ? { inline_keyboard: [[{ text: settings.telegram.button, url }]] } : undefined
   const common = { chat_id: settings.telegram.channel, parse_mode: 'HTML', disable_notification: settings.telegram.silent, ...(keyboard ? { reply_markup: keyboard } : {}) }
-  if (item.image) {
+  if (item.image && settings.telegram.includeImage) {
     const caption = renderPost(settings.telegram.template, vars, { html: true, max: 1024 })
-    const photo = await bot<{ message_id: number }>('sendPhoto', { ...common, photo: absolute(base, item.image), caption }, config)
+    const photoBody = new FormData()
+    for (const [key, value] of Object.entries({ ...common, caption })) photoBody.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value))
+    photoBody.set('photo', new Blob([await socialImage(item.image, base)], { type: 'image/jpeg' }), `${item.type}-${item.id}.jpg`)
+    const photo = await bot<{ message_id: number }>('sendPhoto', photoBody, config)
     if (photo.ok) return { externalId: String(photo.result?.message_id || ''), text: caption }
-    logEvent('warn', 'social.telegram_photo_failed', { item: itemKey(item), error: photo.description })
+    throw new Error('تلگرام تصویر شاخص را نپذیرفت؛ ارسال تصویری دوباره تلاش می‌شود')
   }
   const text = renderPost(settings.telegram.template, vars, { html: true, max: 4096 })
   const message = await bot<{ message_id: number }>('sendMessage', { ...common, text, link_preview_options: { url, prefer_large_media: true } }, config)
