@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+Automatic external links2026-11-05: existing Forwarder/Settings/extension state owns the default-off Admin switch and reversible root-shell anchor policy. Original documents stay intact; fresh validated automatic URLs bypass countdown with307 when disabled. Sparse CAS/strict audit and existing Identity/Origin guards remain authoritative. [Scope, executed PostgreSQL/browser evidence and rollback](handoffs/AUTOMATIC_FORWARDER.md).
+
 Human check2026-11-04: continue Claude’s uncommitted slice in .mobocom/autonomous-foundation / feat/human-check-2026-11-04 from main1b27c884. Existing Identity security/Settings/history/audit owners now provide local proof-of-work, Turnstile compatibility, nine switches, one-use PostgreSQL claims and all affected web clients; OTP entry composes login OR registration. No hosted Actions or production deployment. [Owners, executed checks and remaining limits](handoffs/HUMAN_CHECK.md).
 
 Permalinks2026-11-04: existing Site `server/routes.ts` facade owns the retained section aliases and additive typed content-pattern/history setting. Shared routing/Link/provider, Proxy, existing module pages and SEO compose it; `contentRouteParams` decodes Next dynamic slug values at13 existing HTTP-page boundaries. [Continuation, actual checks and operator guide](handoffs/PERMALINK_MANAGEMENT.md); no duplicate redirect, identity or permission service.

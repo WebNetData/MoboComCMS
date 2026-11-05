@@ -1,7 +1,10 @@
 import { randomInt } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, updateJsonSetting, type SectionSettingsContext } from '@/modules/settings/server'
+import { auditAdminStrict } from '@/platform/audit/server'
+import { getExtensionState } from '@/extensions/server/state'
+import type { AutomaticForwarderPolicy } from '../domain/automatic'
 import {
   ForwarderError, isBlocked, normalizeForwarderSettings, normalizeSlug, normalizeTarget, parseForwarderPath, randomSlug, slugProblem,
   type ForwarderSettings,
@@ -13,10 +16,31 @@ export async function getForwarderSettings(): Promise<ForwarderSettings> {
   return normalizeForwarderSettings(await readJsonSetting(KEY).catch(() => undefined))
 }
 
-export async function saveForwarderSettings(input: unknown) {
-  const settings = normalizeForwarderSettings(input)
-  await writeJsonSetting(KEY, settings)
-  return settings
+export async function saveForwarderSettings(input: unknown, context?: SectionSettingsContext) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ForwarderError('تنظیمات معتبر نیست', 422)
+  const patch = Object.fromEntries(Object.entries(input).filter(([key]) => Object.hasOwn(normalizeForwarderSettings({}), key)))
+  for (const [key, value] of Object.entries(patch)) {
+    const sample = normalizeForwarderSettings({})[key as keyof ForwarderSettings]
+    if (Array.isArray(sample) ? !Array.isArray(value) || value.some(host => typeof host !== 'string') : typeof value !== typeof sample || (typeof value === 'number' && !Number.isFinite(value))) throw new ForwarderError('تنظیمات معتبر نیست', 422)
+  }
+  return updateJsonSetting(KEY, async (stored, tx) => {
+    const normalized = normalizeForwarderSettings({ ...stored, ...patch })
+    for (const key of Object.keys(patch)) stored[key] = normalized[key as keyof ForwarderSettings]
+    const settings = normalizeForwarderSettings(stored)
+    if (context) await auditAdminStrict({ ...context, action: 'forwarder.settings', targetType: 'setting', targetId: KEY, metadata: { enabled: settings.enabled, autoExternalLinks: settings.autoExternalLinks, countdown: settings.countdown, allowRawUrls: settings.allowRawUrls } }, tx)
+    return settings
+  })
+}
+
+/** Fresh reads also make old generated URLs safe after a setting/extension is disabled. */
+export async function getAutomaticForwarderPolicy(): Promise<AutomaticForwarderPolicy> {
+  let siteHost = ''
+  try { siteHost = new URL(process.env.NEXTAUTH_URL || '').hostname } catch { /* current browser host still applies */ }
+  try {
+    const [raw, extension] = await Promise.all([readJsonSetting(KEY, db), getExtensionState('forwarder', [], db, true)])
+    const settings = normalizeForwarderSettings(raw)
+    return { enabled: extension.enabled && settings.enabled && settings.autoExternalLinks, siteHost }
+  } catch { return { enabled: false, siteHost } }
 }
 
 // ------------------------------------------------------------------ links (admin)
@@ -98,20 +122,21 @@ export const deleteShortLink = (id: number) => db.shortLink.delete({ where: { id
 // ------------------------------------------------------------------ public
 
 export type ForwardPage =
-  | { ok: true; url: string; host: string; title: string; countdown: number; settings: ForwarderSettings; slug: string | null }
+  | { ok: true; url: string; host: string; title: string; countdown: number; settings: ForwarderSettings; slug: string | null; bypass?: boolean }
   | { ok: false; reason: 'off' | 'not-found' | 'blocked' | 'invalid' | 'raw-off'; message: string; settings: ForwarderSettings }
 
 /** Resolves /forwarder/<segment> and counts the visit for saved links (not for crawlers). */
-export async function resolveForward(segment: string, options: { count: boolean }): Promise<ForwardPage> {
-  const settings = await getForwarderSettings()
-  if (!settings.enabled) return { ok: false, reason: 'off', message: 'انتقال لینک غیرفعال است.', settings }
-  const parsed = parseForwarderPath(segment)
+export async function resolveForward(segment: string, options: { count: boolean; automatic?: boolean; rawTarget?: string }): Promise<ForwardPage> {
+  const settings = options.automatic ? normalizeForwarderSettings(await readJsonSetting(KEY, db)) : await getForwarderSettings()
+  if (!settings.enabled && !options.automatic) return { ok: false, reason: 'off', message: 'انتقال لینک غیرفعال است.', settings }
+  const parsed = options.rawTarget !== undefined ? { kind: 'raw' as const, target: options.rawTarget } : parseForwarderPath(segment)
   if (parsed.kind === 'raw') {
-    if (!settings.allowRawUrls) return { ok: false, reason: 'raw-off', message: 'فقط لینک‌های ثبت‌شده قابل استفاده‌اند.', settings }
+    if (!settings.allowRawUrls && !options.automatic) return { ok: false, reason: 'raw-off', message: 'فقط لینک‌های ثبت‌شده قابل استفاده‌اند.', settings }
     const target = normalizeTarget(parsed.target)
     if (!target.ok) return { ok: false, reason: 'invalid', message: target.reason, settings }
     if (isBlocked(target.host, settings.blockedHosts)) return { ok: false, reason: 'blocked', message: 'انتقال به این دامنه مسدود است.', settings }
-    return { ok: true, url: target.url, host: target.host, title: '', countdown: settings.countdown, settings, slug: null }
+    const bypass = options.automatic ? !(await getAutomaticForwarderPolicy()).enabled : false
+    return { ok: true, url: target.url, host: target.host, title: '', countdown: settings.countdown, settings, slug: null, bypass }
   }
   const link = parsed.slug ? await db.shortLink.findUnique({ where: { slug: parsed.slug } }) : null
   if (!link || !link.active) return { ok: false, reason: 'not-found', message: 'این لینک وجود ندارد یا غیرفعال شده است.', settings }

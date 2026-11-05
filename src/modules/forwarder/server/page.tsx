@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { headers } from 'next/headers'
 import { requireModule } from '@/extensions/server/modules'
+import { isExtensionEnabled } from '@/extensions/server/state'
+import { notFound, redirect } from 'next/navigation'
 import { getSettings } from '@/modules/settings/server'
 import { adDocument } from '@/modules/forwarder/domain/forwarder'
 import { resolveForward } from '@/modules/forwarder/server/forwarder'
@@ -18,10 +20,16 @@ function Ad({ html, label }: { html: string; label: string }) {
 }
 
 /** The "redirecting…" page for a short link or an outside address. */
-export async function ForwarderPage({ segment }: { segment: string }) {
-  await requireModule('forwarder')
+export async function ForwarderPage({ segment, rawTarget, automatic = false }: { segment: string; rawTarget?: string; automatic?: boolean }) {
+  const extensionOn = await isExtensionEnabled('forwarder')
+  if (!automatic) {
+    await requireModule('forwarder')
+    if (!extensionOn) notFound()
+  }
   const agent = (await headers()).get('user-agent') || ''
-  const [result, site] = await Promise.all([resolveForward(segment, { count: !BOT.test(agent) }), getSettings().catch(() => ({} as Record<string, string>))])
+  const [result, site] = await Promise.all([resolveForward(segment, { count: !BOT.test(agent), rawTarget, automatic }), getSettings().catch(() => ({} as Record<string, string>))])
+  if (result.ok && result.bypass) redirect(result.url)
+  if (!extensionOn) notFound()
   const brand = site.brandName || 'موبوکام'
   const s = result.settings
   return <main className="fw-page" dir="rtl">

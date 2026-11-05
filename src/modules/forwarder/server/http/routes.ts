@@ -2,10 +2,16 @@ import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
+import { isExtensionEnabled } from '@/extensions/server/state'
+import { originIsThisSite } from '@/platform/http/origin-policy'
 import { ForwarderError } from '@/modules/forwarder/domain/forwarder'
 import { createShortLink, deleteShortLink, getForwarderSettings, listShortLinks, saveForwarderSettings, updateShortLink } from '@/modules/forwarder/server/forwarder'
 
-const guard = (req: NextRequest) => adminGuard(req, 'forwarder', ['forwarder.manage', 'settings.manage'])
+const guard = async (req: NextRequest) => {
+  if (!['GET', 'HEAD'].includes(req.method) && (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host))) return { response: err('forbidden', 403) }
+  if (!await isExtensionEnabled('forwarder')) return { response: err('This feature is disabled', 404) }
+  return adminGuard(req, 'forwarder', ['forwarder.manage', 'settings.manage'])
+}
 const fail = (error: unknown) => {
   if (error instanceof ForwarderError) return err(error.message, error.status)
   throw error
@@ -37,9 +43,10 @@ export async function PUT_admin(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
   const body = await req.json().catch(() => null)
-  const settings = await saveForwarderSettings(body?.settings)
-  await auditAdmin({ req, actor: g.admin, action: 'forwarder.settings', targetType: 'setting', targetId: 'forwarder.v1', metadata: { enabled: settings.enabled, countdown: settings.countdown, allowRawUrls: settings.allowRawUrls } })
-  return ok({ settings })
+  try {
+    const settings = await saveForwarderSettings(body?.settings, { req, actor: g.admin })
+    return ok({ settings })
+  } catch (error) { return fail(error) }
 }
 
 type IdContext = { params: Promise<{ id: string }> }

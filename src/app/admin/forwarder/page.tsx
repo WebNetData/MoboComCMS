@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Notice, Pager, fa, faDate } from '../store/shared'
+import type { ForwarderSettings } from '@/modules/forwarder/domain/forwarder'
 
 type LinkRow = { id: number; slug: string; target: string; title: string; countdown: number | null; active: boolean; clicks: number; lastClickAt: string | null; createdAt: string }
-type Settings = { enabled: boolean; countdown: number; allowRawUrls: boolean; autoRedirect: boolean; title: string; message: string; bannerImage: string; bannerLink: string; adTop: string; adBottom: string; blockedHosts: string[] }
+type Settings = ForwarderSettings
 type Data = { page: number; pages: number; total: number; stats: { links: number; clicks: number }; rows: LinkRow[]; settings: Settings }
 type Tone = { tone: 'ok' | 'error'; text: string } | null
 
@@ -72,10 +73,13 @@ export default function ForwarderAdminPage() {
   async function saveSettings() {
     if (!settings) return
     setBusy(true)
-    const result = await call<{ settings: Settings }>('/api/admin/forwarder', 'PUT', { settings })
+    const previous = JSON.parse(savedSettings) as Settings
+    const patch = Object.fromEntries(Object.entries(settings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(previous[key as keyof Settings])))
+    const result = await call<{ settings: Settings }>('/api/admin/forwarder', 'PUT', { settings: patch })
     setBusy(false)
     if (!result.ok) { setNotice({ tone: 'error', text: result.error }); return }
     setSettings(result.data.settings); setSavedSettings(JSON.stringify(result.data.settings)); setNotice({ tone: 'ok', text: 'تنظیمات ذخیره شد.' })
+    if (typeof BroadcastChannel !== 'undefined') { const channel = new BroadcastChannel('mobocom-forwarder'); channel.postMessage('refresh'); channel.close() }
   }
 
   return <div className="sa" dir="rtl">
@@ -133,6 +137,8 @@ export default function ForwarderAdminPage() {
       {settings && <section className="sa-card sa-form">
         <header className="sa-card-head"><h2>صفحهٔ «در حال انتقال»</h2></header>
         <label className="sa-check"><input type="checkbox" checked={settings.enabled} onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })} />فورواردر فعال باشد</label>
+        <label className="sa-check"><input type="checkbox" checked={settings.autoExternalLinks} aria-describedby="fw-automatic-help" onChange={(e) => setSettings({ ...settings, autoExternalLinks: e.target.checked })} />اعمال خودکار روی همهٔ لینک‌های خارجی</label>
+        <p className="sa-hint" id="fw-automatic-help">لینک‌های خارجی در مطالب قبلی و جدید، منوها و بخش‌های سایت از صفحهٔ انتقال عبور می‌کنند. آدرس اصلی در محتوا حفظ می‌شود؛ با خاموش‌کردن این گزینه، فورواردر یا افزونه، لینک‌ها دوباره مستقیم باز می‌شوند. لینک‌های داخلی، پنل مدیریت و محیط ویرایش تغییر نمی‌کنند. ذخیره کنید تا تنظیم اعمال شود.</p>
         <label className="sa-check"><input type="checkbox" checked={settings.allowRawUrls} onChange={(e) => setSettings({ ...settings, allowRawUrls: e.target.checked })} />انتقال به هر نشانی با <bdi dir="ltr">/forwarder/url=…</bdi> (بدون ساخت لینک)</label>
         <label className="sa-check"><input type="checkbox" checked={settings.autoRedirect} onChange={(e) => setSettings({ ...settings, autoRedirect: e.target.checked })} />پس از ثانیه‌شمار خودکار منتقل شود (وگرنه دکمه فعال می‌شود)</label>
         <div className="sa-grid">

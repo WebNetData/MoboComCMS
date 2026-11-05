@@ -96,6 +96,8 @@ import { setRouteAliases } from '@/platform/routing/aliases'
 import { loadRoutingState, publicRouteAliases } from '@/modules/site/server/routes'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import WebVitals from '@/components/site/WebVitals'
+import AutomaticLinks from '@/components/forwarder/AutomaticLinks'
+import { getAutomaticForwarderPolicy } from '@/modules/forwarder/server/forwarder'
 
 export const dynamic = 'force-dynamic'
 
@@ -167,7 +169,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const previewed = requestHeaders.get('x-maintenance-preview')
   const siteClosed = requestHeaders.get('x-site-maintenance') === '1'
   const previewSection = isMaintenanceSection(previewed) ? MAINTENANCE_SECTIONS.find((item) => item.id === previewed) : null
-  const [jsonLd, siteConfig, extensions, packages, routing] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRoutingState()])
+  const [jsonLd, siteConfig, extensions, packages, routing, forwarderPolicy] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRoutingState(), getAutomaticForwarderPolicy()])
   const routeAliases = publicRouteAliases(routing.aliases)
   setRouteAliases(routeAliases)
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
@@ -214,6 +216,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <PreviewBridge />
         <WebVitals />
+        <AutomaticLinks initialPolicy={forwarderPolicy} />
         <RouteAliasProvider map={routeAliases} permalinks={routing.permalinks}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
           <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /><FormEmbeds /><SitePopups /></ExtensionProvider></SiteProvider></Providers>
