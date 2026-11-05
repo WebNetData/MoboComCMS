@@ -13,12 +13,14 @@
 set -uo pipefail
 main() {
 cd "$(dirname "$0")/../.."
+. deploy/ubuntu/git-build.sh
 
 REF="${1:-}"
 [[ "$REF" =~ ^v?[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}([-+][0-9A-Za-z.-]{1,40})?$ ]] || { echo "invalid version: $REF" >&2; exit 2; }
 
 DIR="${UPDATE_STATE_DIR:-storage/update}"
 mkdir -p "$DIR"
+DIR="$(cd "$DIR" && pwd -P)"
 LOG="$DIR/update.log"
 STATE="$DIR/state.json"
 NPM="${UPDATE_NPM:-npm}"
@@ -70,6 +72,9 @@ healthy() {
 }
 
 build_and_start() {
+  run git_build_prepare || return 1
+  (
+  cd "$GIT_BUILD_STAGE/source" || return 1
   # The environment file sets NODE_ENV=production, which would leave out the packages the build needs.
   # On a restricted network: an npm mirror that answers, and this version's Prisma engines from GitHub (else nothing).
   if [ -f deploy/ubuntu/npm-registry.sh ]; then run bash deploy/ubuntu/npm-registry.sh || return 1; fi
@@ -79,6 +84,8 @@ build_and_start() {
   # Next.js needs more than Node's default heap; without it a 2 GB limit ends the build half way.
   say "$ $BUILD (heap ${BUILD_MEMORY} MB)"
   NODE_OPTIONS="--max-old-space-size=$BUILD_MEMORY" bash -c "$BUILD" >> "$LOG" 2>&1 || return 1
+  ) || return 1
+  run git_build_adopt || return 1
   reset_build_files
   step "راه‌اندازی مجدد سرویس"
   runsh "$RESTART" || return 1
@@ -94,6 +101,7 @@ PREV="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$PREV" ] || { state failed "مخزن git پیدا نشد"; exit 1; }
 reset_build_files
 if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then state failed "تغییر محلی وجود دارد؛ ابتدا آن را حفظ و بررسی کنید"; exit 2; fi
+run git_build_preflight || { state failed "بیلد فعلی یا مسیر ساخت نیازمند بازیابی اپراتور است"; exit 2; }
 if [ -f deploy/ubuntu/git-fetch.sh ]; then
   run bash deploy/ubuntu/git-fetch.sh --tags origin || { state failed "دریافت از مخزن ممکن نشد؛ شبکه یا UPDATE_GIT_PROXY را بررسی کنید"; exit 1; }
 else
@@ -124,7 +132,7 @@ fi
 say "the new version did not start: rolling back to $PREV"
 step "بازگشت به نسخهٔ قبلی"
 reset_build_files
-if [ -z "$(git status --porcelain --untracked-files=normal)" ] && [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] && run git checkout --quiet --detach "$PREV" && build_and_start; then
+if [ -z "$(git status --porcelain --untracked-files=normal)" ] && [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] && run git checkout --quiet --detach "$PREV" && run git_build_restore && runsh "$RESTART" && healthy; then
   state rolled-back "نسخهٔ جدید بالا نیامد؛ به نسخهٔ قبلی برگشت"
   say "rolled back"
   exit 1

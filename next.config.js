@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Reduce Webpack's peak heap on small update hosts without skipping build/type checks.
+  experimental: { webpackMemoryOptimizations: true },
   // Runtime uploads, private paid files and credentials are mounted data, never release assets.
   outputFileTracingExcludes: { '/*': ['./storage/**/*'] },
   outputFileTracingIncludes: { '/*': ['./scripts/backup-worker.cjs', './scripts/backup-core.cjs'] },
