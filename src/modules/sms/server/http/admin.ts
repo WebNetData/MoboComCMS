@@ -30,10 +30,12 @@ export async function PUT(req: NextRequest) {
   const admin = await guard(req)
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
-  if (!body || typeof body !== 'object') return err('invalid body')
-  const config = await saveSmsConfig(body)
-  await auditAdmin({ req, actor: admin, action: 'sms.config.update', targetType: 'setting', targetId: 'sms.config.v1', metadata: { enabled: config.enabled, fromNumber: config.fromNumber } })
-  return ok({ config: publicSmsConfig(config) })
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return err('invalid body')
+  try {
+    const config = await saveSmsConfig(body)
+    await auditAdmin({ req, actor: admin, action: 'sms.config.update', targetType: 'setting', targetId: 'sms.config.v1', metadata: { enabled: config.enabled, fromNumber: config.fromNumber } })
+    return ok({ config: publicSmsConfig(config) })
+  } catch (error) { return fail(error) }
 }
 
 /** POST { action: 'credit' | 'test' | 'broadcast', ... } */

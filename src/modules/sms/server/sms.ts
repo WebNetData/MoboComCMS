@@ -23,19 +23,29 @@ export class SmsError extends Error {
 // ------------------------------------------------------------------ settings
 
 export async function getSmsConfig(): Promise<SmsConfig> {
-  const row = await db.setting.findUnique({ where: { key: KEY } }).catch(() => null)
+  const row = await db.setting.findUnique({ where: { key: KEY } }).catch(() => {
+    throw new SmsError('دریافت تنظیمات پیامک ممکن نشد؛ تنظیمات قبلی حفظ شده است', 503)
+  })
   if (!row) return structuredClone(DEFAULT_SMS)
   try {
     const stored = JSON.parse(row.value)
-    return normalizeSmsConfig(stored, { ...DEFAULT_SMS, apiKey: String(stored.apiKey || '') })
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) throw new Error('invalid SMS settings')
+    // The encrypted envelope is longer than the form's plaintext limit. Never trim or sanitize persisted ciphertext.
+    const apiKey = typeof stored.apiKey === 'string' ? stored.apiKey : ''
+    return normalizeSmsConfig({ ...stored, apiKey: '' }, { ...DEFAULT_SMS, apiKey })
   } catch {
-    return structuredClone(DEFAULT_SMS)
+    throw new SmsError('خواندن تنظیمات پیامک ممکن نشد؛ تنظیمات قبلی حفظ شده است', 503)
   }
 }
 
 export async function saveSmsConfig(input: Record<string, unknown>): Promise<SmsConfig> {
   const previous = await getSmsConfig()
   const next = normalizeSmsConfig(input, previous)
+  if (String(input.fromNumber ?? '').trim() && !next.fromNumber) {
+    throw new SmsError('شمارهٔ خط ارسال معتبر نیست؛ شماره را با ارقام، مانند 3000505 یا +983000505 وارد کنید')
+  }
+  if (next.enabled && !next.fromNumber) throw new SmsError('برای فعال‌کردن پیامک، شمارهٔ خط ارسال را وارد کنید')
+  if (next.enabled && !next.apiKey) throw new SmsError('برای فعال‌کردن پیامک، کلید API را وارد کنید')
   // A new key is encrypted at rest (AES-256-GCM with PANEL_CREDENTIAL_KEY).
   const stored = { ...next, apiKey: next.apiKey === previous.apiKey ? next.apiKey : encryptPanelCredential(next.apiKey) }
   const value = JSON.stringify(stored)
@@ -49,10 +59,10 @@ function apiKeyOf(config: SmsConfig) {
 
 export function publicSmsConfig(config: SmsConfig) {
   const key = apiKeyOf(config)
-  return { ...config, apiKey: key ? `••••${key.slice(-4)}` : '', hasKey: !!config.apiKey, ready: isReady(config) }
+  return { ...config, apiKey: key ? `••••${key.slice(-4)}` : '', hasKey: !!key, ready: isReady(config) }
 }
 
-const isReady = (config: SmsConfig) => config.enabled && !!config.apiKey && !!config.fromNumber
+const isReady = (config: SmsConfig) => config.enabled && !!apiKeyOf(config) && !!config.fromNumber
 
 /** Whether SMS codes can be delivered (in development they go to the server log). */
 export async function smsAvailable() {
@@ -144,7 +154,9 @@ export async function notifyAdmins(eventId: string, values: Record<string, strin
 /** Manual message from the admin panel: one number or a group of opted-in, verified users. */
 export async function broadcast(input: { to: 'phone' | 'verified' | 'vip'; phone?: string; text: string }) {
   const config = await getSmsConfig()
-  if (!isReady(config)) throw new SmsError('ابتدا پنل پیامک را فعال و تنظیم کنید')
+  if (!config.enabled) throw new SmsError('ارسال پیامک غیرفعال است؛ تیک فعال‌بودن را بزنید و تنظیمات را ذخیره کنید')
+  if (!apiKeyOf(config)) throw new SmsError('کلید API پیامک وارد نشده یا قابل خواندن نیست؛ کلید را دوباره ذخیره کنید')
+  if (!config.fromNumber) throw new SmsError('شمارهٔ خط ارسال پیامک وارد نشده است؛ شماره را در تنظیمات ذخیره کنید')
   const text = String(input.text || '').trim().slice(0, 700)
   if (text.length < 2) throw new SmsError('متن پیامک خالی است')
   if (input.to === 'phone') {

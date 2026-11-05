@@ -28,6 +28,7 @@ const CHECKS = [
   'games-editorial',
   'invoice-logo',
   'identity-otp',
+  'sms-settings',
   'mobile-account-entry',
   'vpn-group-access',
   'digital-content-pricing',

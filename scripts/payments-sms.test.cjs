@@ -110,6 +110,68 @@ test('IPPanel requests follow the Edge API (webservice, pattern, credit)', async
   }
 })
 
+function smsSettingsFixture() {
+  let row = null, readError = false, writes = 0
+  const modules = new Map(), logs = [], delivered = []
+  const db = {
+    setting: {
+      findUnique: async () => { if (readError) throw Error('owned database read failure'); return row },
+      upsert: async ({ create, update }) => { writes++; row = row ? { ...row, ...update } : create; return row },
+    },
+    smsLog: { create: async ({ data }) => { logs.push(data); return data } },
+  }
+  const mocks = {
+    '@/platform/database/prisma': { db }, '@/platform/config/env': { authSecret: () => 'owned-test-secret' },
+    '@/platform/observability/logger': { logEvent: () => {} }, '@/modules/settings/server': { getSettings: async () => ({}) },
+    '@/modules/identity/server/otp-challenge': {}, '@/platform/http/rate-limit': {},
+    '@/modules/sms/server/ippanel': { sendText: async (key, from, phones, text) => { delivered.push({ key, from, phones, text }); return { ok: true, id: 'owned-offline-send' } }, credit: async () => ({ ok: true, credit: 1200 }) },
+  }
+  function source(relative) {
+    if (modules.has(relative)) return modules.get(relative).exports
+    const mod = { exports: {} }; modules.set(relative, mod)
+    const compiled = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
+    new Function('require', 'module', 'exports', compiled)(name => Object.hasOwn(mocks, name) ? mocks[name] : name.startsWith('@/') ? source(`src/${name.slice(2)}.ts`) : require(name), mod, mod.exports)
+    return mod.exports
+  }
+  return { owner: source('src/modules/sms/server/sms.ts'), delivered, logs, get value() { return row?.value }, get writes() { return writes }, corrupt: value => { row = { key: 'sms.config.v1', value } }, failRead: () => { readError = true } }
+}
+
+test('SMS settings keep the complete encrypted API key through save, reload, masked resave and delivery', async () => {
+  const prior = process.env.PANEL_CREDENTIAL_KEY; process.env.PANEL_CREDENTIAL_KEY = '4b'.repeat(32)
+  try {
+    const fixture = smsSettingsFixture(), owner = fixture.owner, apiKey = 'owned-synthetic-key-'.padEnd(250, 'k')
+    const saved = await owner.saveSmsConfig({ enabled: true, apiKey, fromNumber: '۳۰۰۰۵۰۵' })
+    assert.match(saved.apiKey, /^encv1:/); assert(saved.apiKey.length > 300); assert(!fixture.value.includes(apiKey))
+    const read = await owner.getSmsConfig(), visible = owner.publicSmsConfig(read)
+    assert.equal(read.apiKey, saved.apiKey); assert.equal(visible.apiKey, '••••kkkk'); assert.equal(visible.ready, true); assert.equal(visible.fromNumber, '+983000505')
+    await owner.saveSmsConfig({ ...visible, apiKey: '' })
+    const again = await owner.getSmsConfig(); assert.equal(again.apiKey, saved.apiKey); assert.equal(again.fromNumber, '+983000505'); assert.equal(again.enabled, true)
+    assert.deepEqual(await owner.broadcast({ to: 'phone', phone: '09121234567', text: 'پیام آزمایشی محلی' }), { sent: 1, total: 1 })
+    assert.equal(fixture.delivered[0].key, apiKey); assert.equal(fixture.delivered[0].from, '+983000505')
+  } finally { if (prior === undefined) delete process.env.PANEL_CREDENTIAL_KEY; else process.env.PANEL_CREDENTIAL_KEY = prior }
+})
+
+test('an invalid or missing SMS sender is rejected without erasing the stored configuration', async () => {
+  const fixture = smsSettingsFixture(), owner = fixture.owner
+  const config = await owner.saveSmsConfig({ enabled: true, apiKey: 'owned-test-only', fromNumber: '3000505' }), before = fixture.value, writes = fixture.writes
+  for (const fromNumber of ['bad-line', '12', '']) {
+    await assert.rejects(owner.saveSmsConfig({ ...config, fromNumber }), /شمارهٔ خط/)
+    assert.equal(fixture.value, before); assert.equal(fixture.writes, writes)
+  }
+  await assert.rejects(smsSettingsFixture().owner.saveSmsConfig({ enabled: true, fromNumber: '3000505' }), /کلید API/)
+})
+
+test('SMS read errors and corrupt saved JSON never become writable empty defaults', async () => {
+  for (const kind of ['database', 'json']) {
+    const fixture = smsSettingsFixture(); fixture.corrupt(kind === 'json' ? '{invalid' : '{"enabled":true,"apiKey":"owned-key","fromNumber":"+983000505"}')
+    if (kind === 'database') fixture.failRead()
+    const before = fixture.value
+    await assert.rejects(fixture.owner.getSmsConfig(), /تنظیمات پیامک/)
+    await assert.rejects(fixture.owner.saveSmsConfig({ enabled: false, apiKey: '', fromNumber: '' }), /تنظیمات پیامک/)
+    assert.equal(fixture.value, before); assert.equal(fixture.writes, 0)
+  }
+})
+
 // ------------------------------------------------------------------ the invoice as a PDF document
 
 // Modules with a default import (pdfkit, bidi-js, qrcode, sharp) as the bundler hands them over.
