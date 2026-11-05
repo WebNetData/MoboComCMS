@@ -406,9 +406,10 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
           <div className="cms-body-picker" role="radiogroup" aria-label={fa ? 'ویرایشگر متن' : 'Body editor'}>
             <button type="button" role="radio" aria-checked={bodyEditor === 'blocks'} className={bodyEditor === 'blocks' ? 'is-active' : ''} onClick={() => { setBodyEditor('blocks'); setLegacyBody(false) }}>{fa ? 'ویرایشگر بلوکی' : 'Block editor'}</button>
             <button type="button" role="radio" aria-checked={bodyEditor === 'classic'} className={bodyEditor === 'classic' ? 'is-active' : ''} onClick={() => { setBodyEditor('classic'); setLegacyBody(true) }}>{fa ? 'ویرایشگر کلاسیک' : 'Classic editor'}</button>
-            {editId && bodyEditor === 'blocks' && <a className="btn btn-primary btn-sm" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن در ویرایشگر بلوکی' : 'Write in the block editor'}</a>}
+            {editId && (editFormat === 'blocks-v1' || bodyEditor === 'blocks') && <a className="btn btn-primary btn-sm" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن در ویرایشگر بلوکی' : 'Write in the block editor'}</a>}
           </div>
-          {editId && bodyEditor === 'blocks' && !legacyBody ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود.' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save.'}</p> : null}
+          {editId && editFormat === 'legacy' && bodyEditor === 'blocks' && !legacyBody ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود.' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save.'}</p> : null}
+          {editId && editFormat === 'blocks-v1' ? <p className="muted text-sm">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده و از این فرم عوض نمی‌شود.' : 'This item is written in blocks; its body does not change from this form.'}</p> : null}
           {legacyBody ? (
         <RichEditor
           value={form[fl.key] || ''}
