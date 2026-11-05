@@ -702,9 +702,15 @@
     },
     "1.7.4": {
       "migrations": []
+    },
+    "1.7.5": {
+      "migrations": [
+        {
+          "name": "20270219120000_music_transfer_metadata",
+          "sha256": "c1103331fc7efd17297b6b7a3f46de179081236f91c53fccc84d4073c8eb6103"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270219120000_music_transfer_metadata"
-  ]
+  "unreleased": []
 }
