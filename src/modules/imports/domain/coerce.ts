@@ -3,20 +3,21 @@
  * a value that cannot be converted becomes an error on that field only (the
  * rest of the record still imports). Pure.
  */
+import { importedSlug } from '@/modules/imports/domain/slug'
 import type { FieldDef, Message } from '@/modules/imports/domain/types'
-import { isBlank, normalizeName, toBool, toCategoryPaths, toDate, toImages, toInt, toList, toMoney, toNumber, toText, toUrl, latinSlug, toDuration, ValueError } from '@/modules/imports/domain/values'
+import { isBlank, normalizeName, toBool, toCategoryPaths, toDate, toImages, toInt, toList, toMoney, toNumber, toText, toUrl, toDuration, ValueError } from '@/modules/imports/domain/values'
 
 export type Coerced = { values: Record<string, unknown>; messages: Message[] }
 
 const MAX: Partial<Record<FieldDef['type'], number>> = { text: 300, longtext: 20_000, html: 200_000 }
 
 export function coerceField(field: FieldDef, raw: unknown, options: { categorySeparator?: string } = {}): unknown {
-  if (field.maxLength && typeof raw === 'string' && raw.length > field.maxLength) throw new ValueError(`حداکثر ${field.maxLength} نویسه مجاز است`)
+  if (field.type !== 'slug' && field.maxLength && typeof raw === 'string' && raw.length > field.maxLength) throw new ValueError(`حداکثر ${field.maxLength} نویسه مجاز است`)
   switch (field.type) {
     case 'text': return toText(raw, MAX.text)
     case 'longtext': return toText(raw, MAX.longtext)
     case 'html': return isBlank(raw) ? '' : String(Array.isArray(raw) ? raw.join('\n') : raw).slice(0, MAX.html)
-    case 'slug': { const slug = latinSlug(raw); if (!isBlank(raw) && !slug) throw new ValueError('نامک باید حروف انگلیسی یا عدد داشته باشد'); return slug }
+    case 'slug': { const slug = importedSlug(raw); if (field.maxLength && slug.length > field.maxLength) throw new ValueError('نامک بیش از حد بلند است'); if (!isBlank(raw) && !slug) throw new ValueError('نامک باید حروف انگلیسی یا عدد داشته باشد'); return slug }
     case 'int': return toInt(raw)
     case 'number': return toNumber(raw)
     case 'money': return toMoney(raw)

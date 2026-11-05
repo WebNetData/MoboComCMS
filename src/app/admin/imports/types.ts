@@ -3,6 +3,7 @@
 export type FieldType = 'text' | 'longtext' | 'html' | 'slug' | 'int' | 'number' | 'money' | 'bool' | 'date' | 'image' | 'images' | 'list' | 'url' | 'enum' | 'category' | 'json' | 'duration'
 export type FieldDef = {
   key: string; label: string; type: FieldType; requiredOnCreate?: boolean; updatable?: boolean; updateByDefault?: boolean
+  selection?: { multiple: boolean }
   group?: string; hint?: string; implicit?: boolean; enum?: { value: string; label: string }[]
 }
 export type OptionDef = {
@@ -19,6 +20,9 @@ export type Destination = {
 export type Policy = { create: boolean; update: boolean }
 export type Attribute = { source: string; name: string; variation: boolean; key?: string }
 export type Settings = {
+  fieldInputs?: import('@/modules/imports/domain/field-inputs').FieldInputs
+  variantInputs?: import('@/modules/imports/domain/field-inputs').FieldInputs
+  slugMode?: 'title' | 'source'; slugRemove?: string[]
   sheet: string; source: string
   mapping: Record<string, string>; variantMapping: Record<string, string>
   policies: Record<string, Policy>; variantPolicies: Record<string, Policy>

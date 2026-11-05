@@ -7,6 +7,7 @@ const CHECKS = [
   'human-check',
   'permalink-routing',
   'miniapp-feed',
+  'import-field-inputs',
   'import-profiles',
   'prompt-master',
   'page-lifecycle',

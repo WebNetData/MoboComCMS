@@ -39,6 +39,7 @@ function walk(terms: Map<number, Term>, path: string[]) {
 
 /** Dry run: which paths exist; counts terms to create once. Returns an error text when creation is off. */
 export async function planTerms(ctx: ImportContext, taxonomy: Taxonomy, paths: string[][], create: boolean, counters: Counters): Promise<string | null> {
+  if (ctx.selected?.categories?.length) return null
   const terms = await termsOf(ctx, taxonomy)
   for (const path of paths) {
     const { found, missing } = walk(terms, path)
@@ -52,6 +53,11 @@ export async function planTerms(ctx: ImportContext, taxonomy: Taxonomy, paths: s
 /** The leaf term ids of the paths, creating missing levels (recorded for rollback). */
 export async function ensureTerms(ctx: ImportContext, taxonomy: Taxonomy, paths: string[][], changes: Change[], counters: Counters): Promise<number[]> {
   const terms = await termsOf(ctx, taxonomy)
+  if (ctx.selected?.categories?.length) {
+    const rows = await db.taxonomyTerm.findMany({ where: { taxonomy, id: { in: ctx.selected.categories } }, select: { id: true } })
+    if (rows.length !== ctx.selected.categories.length) throw new Error('دستهٔ انتخاب‌شده دیگر وجود ندارد')
+    return ctx.selected.categories
+  }
   const ids: number[] = []
   for (const path of paths) {
     const { found, missing } = walk(terms, path)

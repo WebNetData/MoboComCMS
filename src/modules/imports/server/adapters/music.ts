@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { assertFieldSelections } from '@/modules/imports/server/field-inputs'
 import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { deleteMediaItem, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
 import type { Counters, FieldDef, Message, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
@@ -131,8 +132,10 @@ async function plan(item: SourceItem, values: Record<string, unknown>, _variants
   const sourceKey = toText(values.externalId, 190) || toText(values.slug, 120) || `${normalizeName(artistName)}|${normalizeName(albumName)}|${normalizeName(title)}`
   const fail = (text: string): Plan => ({ action: 'FAIL', title, sourceKey, messages: [...messages, { level: 'error', text }], counters, preview: { title, action: 'FAIL', lines: [], messages: [...messages, { level: 'error', text }] } })
 
-  const artist = artistName ? findArtist(r, artistName, toText(values.artistEn, 160)) : null
-  const album = artist && albumName ? findAlbum(r, artist.id, albumName, toText(values.albumEn, 200)) : null
+  const artist = ctx.selected?.artist?.[0] ? r.artists.get(ctx.selected.artist[0]) || null : artistName ? findArtist(r, artistName, toText(values.artistEn, 160)) : null
+  const album = ctx.selected?.album?.[0] ? r.albums.get(ctx.selected.album[0]) || null : artist && albumName ? findAlbum(r, artist.id, albumName, toText(values.albumEn, 200)) : null
+  if (ctx.selected?.artist?.length && !artist) return fail('هنرمند انتخاب‌شده دیگر وجود ندارد')
+  if (ctx.selected?.album?.length && (!album || album.artistId !== artist?.id)) return fail('آلبوم انتخاب‌شده متعلق به این هنرمند نیست')
   const existing = findTrack(ctx, r, values, artist, album)
   const first = seenBefore(ctx, `music:${sourceKey}`, item.index)
   if (first !== null) { counters.duplicates = 1; messages.push({ level: 'warning', text: `تکراری در فایل (مثل رکورد ${first + 1})؛ روی همان آهنگ اعمال می‌شود` }) }
@@ -144,6 +147,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, _variants
     if (!('title' in allowed)) return fail('امکان ساخت آهنگ نیست؛ فیلد الزامی «نام آهنگ» در فایل نیست یا از ورود اطلاعات کنار گذاشته شده')
     if (!('artist' in allowed)) return fail('امکان ساخت آهنگ نیست؛ فیلد الزامی «هنرمند» در فایل نیست یا از ورود اطلاعات کنار گذاشته شده')
   }
+  if (existing && 'album' in allowed && ctx.selected?.album?.length && album?.artistId !== existing.artistId) return fail('آلبوم انتخاب‌شده متعلق به هنرمند فعلی این آهنگ نیست؛ هنرمند آهنگ موجود از ورود گروهی تغییر نمی‌کند')
   // Artist and album are resolved (or created once per run) for new tracks, and for existing ones when the album is imported.
   const needsArtist = mode === 'create' || ('album' in allowed && albumName)
   if (needsArtist && artistName && !artist) {
@@ -186,7 +190,7 @@ function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promise<App
   return tracked((changes) => applyTrack(item, planned, ctx, changes))
 }
 
-async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
+async function applyTrack(item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
   const data = planned.data as Data
   const o = ctx.settings.options as unknown as Options
   const r = run(ctx)
@@ -200,6 +204,7 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   }
   const mode = existing ? 'update' : 'create'
   const allowed = ctx.allow(data.values, mode, existing ? snapshot(existing, TRACK_COLUMNS) : undefined)
+  if (existing && 'album' in allowed && ctx.selected?.album?.[0]) { const selectedAlbum = await db.musicAlbum.findUnique({ where: { id: ctx.selected.album[0] }, select: { artistId: true } }); if (selectedAlbum?.artistId !== existing.artistId) throw new Error('آلبوم انتخاب‌شده متعلق به هنرمند فعلی این آهنگ نیست') }
   const savedArtist=existing?.artistId?await db.musicArtist.findUnique({where:{id:existing.artistId},select:{name:true,nameEn:true}}):null
   const savedAlbum=existing?.albumId?await db.musicAlbum.findUnique({where:{id:existing.albumId},select:{title:true,titleEn:true}}):null
   ctx={...ctx,organization:{section:'music',artist:toText(savedArtist?.nameEn||savedArtist?.name||data.values.artistEn||data.artistName,160),album:toText(existing&&!('album' in allowed)?savedAlbum?.titleEn||savedAlbum?.title:data.values.albumEn||data.albumName||savedAlbum?.titleEn||savedAlbum?.title,200)}}
@@ -208,10 +213,10 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   let artist: Artist | null = null
   if (data.artistName && (mode === 'create' || ('album' in allowed && data.albumName))) {
     const nameEn = toText(data.values.artistEn, 160)
-    artist = findArtist(r, data.artistName, nameEn)
+    artist = ctx.selected?.artist?.[0] ? await db.musicArtist.findUnique({ where: { id: ctx.selected.artist[0] }, select: { id: true, name: true, nameEn: true } }) : findArtist(r, data.artistName, nameEn)
       || await db.musicArtist.findFirst({ where: { OR: [{ name: data.artistName }, ...(nameEn ? [{ nameEn }] : [])] }, select: { id: true, name: true, nameEn: true } })
     if (!artist) {
-      if (o.missingArtists === 'error') throw new Error(`هنرمند «${data.artistName}» وجود ندارد`)
+      if (ctx.selected?.artist?.length || o.missingArtists === 'error') throw new Error(`هنرمند «${data.artistName}» وجود ندارد`)
       const body: Record<string, unknown> = { name: data.artistName, nameEn, slug: await uniqueSlug('musicArtist', latinSlug(nameEn || data.artistName, 90), `artist-${suffixOf(normalizeName(data.artistName))}`) }
       if ('artistImage' in allowed) { const [img] = await importImages({...ctx,organization:{...ctx.organization!,artistImage:true}}, [String(allowed.artistImage)], messages, counters, 'تصویر هنرمند'); if (img) body.image = img }
       const { row } = await saveMediaItem('music-artists', body, null)
@@ -228,11 +233,11 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   let album: Album | null = null
   if (artist && data.albumName && 'album' in allowed) {
     const titleEn = toText(data.values.albumEn, 200)
-    album = findAlbum(r, artist.id, data.albumName, titleEn)
+    album = ctx.selected?.album?.[0] ? await db.musicAlbum.findFirst({ where: { id: ctx.selected.album[0], artistId: artist.id }, select: { id: true, artistId: true, title: true, titleEn: true } }) : findAlbum(r, artist.id, data.albumName, titleEn)
       || await db.musicAlbum.findFirst({ where: { artistId: artist.id, OR: [{ title: data.albumName }, ...(titleEn ? [{ titleEn }] : [])] }, select: { id: true, artistId: true, title: true, titleEn: true } })
     const terms = 'categories' in allowed && data.paths.length ? { ids: await ensureTerms(ctx, 'music', data.paths, changes, counters) } : null
     if (!album) {
-      if (o.missingAlbums === 'error') throw new Error(`آلبوم «${data.albumName}» وجود ندارد`)
+      if (ctx.selected?.album?.length || o.missingAlbums === 'error') throw new Error(`آلبوم «${data.albumName}» وجود ندارد`)
       const body: Record<string, unknown> = {
         title: data.albumName, titleEn, artistId: artist.id,
         slug: await uniqueSlug('musicAlbum', latinSlug(`${artist.nameEn || artist.name} ${titleEn || data.albumName}`, 90), `album-${suffixOf(`${artist.id}|${normalizeName(data.albumName)}`)}`),
@@ -274,7 +279,7 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   let contentFingerprint: string | undefined
   if (Object.keys(body).length) {
     const before = existing ? await db.musicTrack.findUnique({ where: { id: existing.id } }) as unknown as Record<string, unknown> : null
-    const { row } = await saveMediaItem('music-tracks', body, id, null, { beforeWrite: id && ctx.settings.protectEdits ? tx => claimImportUpdate(tx, ctx, 'musicTrack', id!) : undefined, afterWrite: async (tx, savedId) => { contentFingerprint = (await importContentState('music', savedId, tx))?.fingerprint } })
+    const { row } = await saveMediaItem('music-tracks', body, id, null, { beforeWrite: Object.keys(ctx.selected || {}).length || id && ctx.settings.protectEdits ? async tx => { await assertFieldSelections('music', item.values, data.values, tx, o.categorySeparator); if (id && ctx.settings.protectEdits) await claimImportUpdate(tx, ctx, 'musicTrack', id) } : undefined, afterWrite: async (tx, savedId) => { contentFingerprint = (await importContentState('music', savedId, tx))?.fingerprint } })
     id = row.id as number
     writtenAt = (row.updatedAt as Date).toISOString()
     if (before) {

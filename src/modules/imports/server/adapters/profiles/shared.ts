@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { auditSystemStrict } from '@/platform/audit/server'
+import { assertFieldSelections } from '@/modules/imports/server/field-inputs'
 import { destinationActor } from '@/modules/imports/server/authority'
 import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { countImages, identityOf, loadIdentities, saveIdentity, seenBefore } from '../common'
@@ -100,6 +101,7 @@ export function profileImporter(spec: ProfileSpec): ImportAdapter {
       try { id = await spec.write(input, previous, ctx, {
         async beforeWrite(tx) {
           await destinationActor(ctx, tx)
+          await assertFieldSelections(spec.id, item.values, data.values, tx, String(ctx.settings.options.categorySeparator || '>'))
           const actual = previous ? await spec.read(previous.id, tx) : null
           if (previous && (!actual || !equal(actual, previous))) throw new Error('رکورد یا روابط آن هم‌زمان تغییر کرده‌اند؛ دوباره پیش‌نمایش بگیرید')
           if (previous) spec.assertIdentity?.(data.values, actual!)

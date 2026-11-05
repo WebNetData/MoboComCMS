@@ -11,14 +11,8 @@ export class ValueError extends Error {}
 const PERSIAN_DIGITS = /[۰-۹٠-٩]/g
 export const latinDigits = (text: string) => text.replace(PERSIAN_DIGITS, (d) => String((d.charCodeAt(0) & 0xf) % 10))
 
-export const isBlank = (value: unknown) => value === undefined || value === null || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && !value.length)
-
-export function toText(value: unknown, max = 500): string {
-  if (isBlank(value)) return ''
-  if (Array.isArray(value)) return value.map((item) => toText(item, max)).filter(Boolean).join(', ').slice(0, max)
-  if (typeof value === 'object') return JSON.stringify(value).slice(0, max)
-  return String(value).replace(/\u0000/g, '').trim().slice(0, max)
-}
+import { isBlank, toText } from '@/modules/imports/domain/text'
+export { isBlank, toText } from '@/modules/imports/domain/text'
 
 /** "۱۲۵٬۰۰۰٬۰۰۰ تومان", "1,250.50", 1250 → a finite number (null when blank). */
 export function toNumber(value: unknown): number | null {

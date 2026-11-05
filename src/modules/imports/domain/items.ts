@@ -3,8 +3,10 @@
  * list of variants inside each record; a flat file groups the rows that
  * share a parent key (parent SKU…) into one item with one variant per row.
  */
+import { importedSlug } from '@/modules/imports/domain/slug'
+import { applyFieldInputs } from '@/modules/imports/domain/field-inputs'
 import { getPath } from '@/modules/imports/domain/mapping'
-import { isBlank, toText } from '@/modules/imports/domain/values'
+import { isBlank, stableHash, toText } from '@/modules/imports/domain/values'
 import { LIMITS, type ImportSettings, type Message, type SourceItem } from '@/modules/imports/domain/types'
 
 /** A variant-relative path: "variants[].color" → "color" when the variants live under "variants". */
@@ -43,6 +45,15 @@ export function specsFrom(value: unknown): Record<string, string> {
 function build(index: number, rows: Record<string, unknown>[], rowNumbers: number[], settings: ImportSettings, variants: Record<string, unknown>[]): SourceItem {
   const values: Record<string, unknown> = {}
   for (const [field, path] of Object.entries(settings.mapping)) if (path) values[field] = firstFilled(rows, path)
+  const notes = applyFieldInputs(values, settings.fieldInputs, settings.policies)
+  const slugRemove = [...(settings.slugRemove || [])]
+  if (settings.source && settings.source !== 'default') slugRemove.push(settings.source)
+  if (typeof values.slug === 'string') { try { const host = new URL(values.slug.startsWith('//') ? 'https:' + values.slug : values.slug).hostname.replace(/^www\./, ''); if (host) slugRemove.push(host, host.split('.')[0]) } catch { /* source slug is not a URL */ } }
+  if (settings.slugMode === 'title' && !settings.fieldInputs?.slug) {
+    const title = values.titleEn || values.nameEn || values.originalTitle || values.title || values.name
+    values.slug = importedSlug(title, slugRemove) || 'item-' + stableHash(String(title || index))
+  } else if (values.slug && !isBlank(values.slug)) values.slug = importedSlug(values.slug, slugRemove)
+
   const specs: Record<string, string> = settings.specsSource ? specsFrom(firstFilled(rows, settings.specsSource)) : {}
   for (const attr of settings.attributes.filter((a) => !a.variation)) {
     const value = toText(firstFilled(rows, attr.source), 500)
@@ -54,6 +65,7 @@ function build(index: number, rows: Record<string, unknown>[], rowNumbers: numbe
   for (const variant of variants) {
     const v: Record<string, unknown> = {}
     for (const [field, path] of Object.entries(settings.variantMapping)) if (path) v[field] = getPath(variant, relativePath(path, settings.variants.source))
+    notes.push(...applyFieldInputs(v, settings.variantInputs, settings.variantPolicies))
     variantValues.push(v)
     const attrs: Record<string, string> = {}
     for (const attr of variationAttrs) {
@@ -62,7 +74,7 @@ function build(index: number, rows: Record<string, unknown>[], rowNumbers: numbe
     }
     variantAttributes.push(attrs)
   }
-  return { index, rows: rowNumbers, values, variants: variantValues, variantAttributes, specs, raw: rows[0] }
+  return { index, rows: rowNumbers, values, variants: variantValues, variantAttributes, specs, raw: rows[0], notes }
 }
 
 /** Items of a parsed file under these settings, in file order. */
@@ -84,10 +96,10 @@ export function buildItems(rows: Record<string, unknown>[], settings: ImportSett
       const hasVariantData = settings.attributes.some((a) => a.variation) || Object.values(settings.variantMapping).some(Boolean)
       const item = build(index, memberRows, members.map((i) => i + 1), settings, hasVariantData ? memberRows.slice(0, LIMITS.variantsPerItem + 1) : [])
       // Ambiguity is reported, not guessed away: a row without a group key, or rows of one group that disagree on a product field.
-      const notes: Message[] = []
+      const notes: Message[] = [...(item.notes || [])]
       if (key.startsWith('r:')) notes.push({ level: 'warning', text: `ستون گروه‌بندی «${settings.variants.groupBy}» در ردیف ${members[0] + 1} خالی است؛ این ردیف یک محصول جداگانه در نظر گرفته شد` })
       for (const [field, path] of Object.entries(settings.mapping)) {
-        if (!path || variantPaths.has(path)) continue
+        if (!path || variantPaths.has(path) || settings.fieldInputs?.[field]?.mode === 'fixed') continue
         const distinct = [...new Set(memberRows.map((row) => toText(getPath(row, path), 120)).filter(Boolean))]
         if (distinct.length > 1) notes.push({ level: 'warning', text: `ردیف‌های گروه «${key.slice(2)}» برای «${field}» مقدار متفاوت دارند (${distinct.slice(0, 3).join(' | ')})؛ مقدار اولین ردیف استفاده شد` })
       }

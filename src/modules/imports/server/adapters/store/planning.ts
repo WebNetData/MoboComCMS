@@ -62,7 +62,7 @@ export async function plan(item: SourceItem, values: Record<string, unknown>, va
   // still to be created — its deepest existing ancestor (new categories inherit exactly like existing ones).
   let groupSource: Cat | null = null
   if (categoryPath.length) {
-    const walk = walkPath(c, categoryPath)
+    const walk = walkPath(c, categoryPath, ctx.selected?.category?.[0])
     category = walk.found
     groupSource = walk.found || walk.existing[walk.existing.length - 1] || null
     if (walk.missing.length) {
@@ -73,7 +73,7 @@ export async function plan(item: SourceItem, values: Record<string, unknown>, va
 
   // Brand.
   const brandName = toText(values.brand, 120)
-  if (brandName && !findBrand(c, brandName)) {
+  if (brandName && !findBrand(c, brandName, ctx.selected?.brand?.[0])) {
     if (o.missingBrands === 'error') return fail(`برند «${brandName}» وجود ندارد`)
     planOnce(ctx, `brand:${normalizeName(brandName)}`, counters, 'brandsCreated')
   }

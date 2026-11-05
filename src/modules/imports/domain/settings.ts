@@ -3,6 +3,7 @@
  * checked against the destination's fields, sizes are capped and unknown
  * values fall back to safe defaults (never "replace" or "delete").
  */
+import { normalizeFieldInputs, inputMapping } from '@/modules/imports/domain/field-inputs'
 import { normalizePolicies } from '@/modules/imports/domain/mapping'
 import type { AttributeSource, ExistingMode, FieldDef, ImportSettings } from '@/modules/imports/domain/types'
 
@@ -19,6 +20,10 @@ export function normalizeSettings(input: unknown, adapter: string, fields: Field
   const raw = input && typeof input === 'object' ? input as Record<string, unknown> : {}
   const mapping = mappingOf(raw.mapping, fields)
   const variantMapping = mappingOf(raw.variantMapping, variantFields)
+  const fieldInputs = normalizeFieldInputs(raw.fieldInputs, fields)
+  const variantInputs = normalizeFieldInputs(raw.variantInputs, variantFields)
+  const effectiveMapping = inputMapping(mapping, fieldInputs)
+  if (raw.slugMode === 'title' && fields.some(field => field.key === 'slug')) effectiveMapping.slug = '@generated'
   const variantsRaw = raw.variants && typeof raw.variants === 'object' ? raw.variants as Record<string, unknown> : {}
   const mode = variantsRaw.mode === 'nested' || variantsRaw.mode === 'flat' ? variantsRaw.mode : 'none'
   const existing: ExistingMode = (['skip', 'update', 'fill-empty', 'replace'] as const).includes(raw.existing as ExistingMode) ? raw.existing as ExistingMode : 'skip'
@@ -38,11 +43,14 @@ export function normalizeSettings(input: unknown, adapter: string, fields: Field
   return {
     adapter,
     source,
+    slugMode: raw.slugMode === 'title' ? 'title' : 'source',
+    slugRemove: Array.isArray(raw.slugRemove) ? raw.slugRemove.slice(0, 30).map(value => String(value).slice(0, 100)).filter(Boolean) : [],
     sheet: String(raw.sheet ?? '').slice(0, 100),
     mapping,
+    fieldInputs, variantInputs: mode === 'none' ? {} : variantInputs,
     variantMapping: mode === 'none' ? {} : variantMapping,
-    policies: normalizePolicies(fields, raw.policies, mapping),
-    variantPolicies: mode === 'none' ? {} : normalizePolicies(variantFields, raw.variantPolicies, variantMapping),
+    policies: normalizePolicies(fields, raw.policies, effectiveMapping),
+    variantPolicies: mode === 'none' ? {} : normalizePolicies(variantFields, raw.variantPolicies, inputMapping(variantMapping, variantInputs)),
     existing,
     protectEdits: raw.protectEdits === true,
     variants: { mode, source: mode === 'nested' ? path(variantsRaw.source) : '', groupBy: mode === 'flat' ? path(variantsRaw.groupBy) : '' },

@@ -117,3 +117,30 @@
 .imp-owner-guide dt { font-weight:750; color:var(--text); }
 .imp-owner-guide dd { margin:0; color:var(--muted); line-height:2; overflow-wrap:anywhere; }
 @media(max-width:640px) { .imp-owner-guide { grid-template-columns:1fr; gap:6px; } .imp-owner-guide dd { margin-bottom:16px; } }
+
+/* Manual bindings: progressive controls use the established Admin surface tokens. */
+.imp-input-panel { display: grid; gap: 14px; padding-block: 20px; border-block: 1px solid var(--sa-line); margin-block: 20px; }
+.imp-input-panel h3 { margin: 0; }
+.imp-binding-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.imp-binding { min-inline-size: 0; border: 1px solid var(--sa-line); border-radius: 12px; background: var(--sa-surface); }
+.imp-binding > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; cursor: pointer; min-block-size: 48px; }
+.imp-binding[open] > summary { border-block-end: 1px solid var(--sa-line); }
+.imp-binding-body, .imp-existing { display: grid; gap: 12px; min-inline-size: 0; padding: 14px; }
+.imp-existing { padding: 0; }
+.imp-existing-list { display: grid; gap: 4px; max-block-size: 280px; overflow: auto; padding: 8px; border: 1px solid var(--sa-line); border-radius: 10px; min-inline-size: 0; }
+.imp-existing-choice { display: flex; align-items: center; gap: 10px; padding: 10px 8px; min-block-size: 44px; border-radius: 8px; cursor: pointer; overflow-wrap: anywhere; }
+.imp-existing-choice:has(input:checked) { background: var(--sa-accent-soft, var(--sa-subtle)); }
+.imp-existing-choice:hover { background: var(--sa-subtle); }
+.imp-existing-choice input { flex: 0 0 auto; accent-color: var(--sa-accent); }
+.imp-chosen { display: flex; flex-wrap: wrap; gap: 6px; }
+.imp-value-map { border-block-end: 1px solid var(--sa-line); padding-block: 8px; overflow-wrap: anywhere; }
+.imp-value-map > summary { cursor: pointer; padding-block: 8px; }
+.imp-value-map > .imp-existing { margin-block: 10px; }
+.imp-binding textarea { min-inline-size: 0; inline-size: 100%; resize: vertical; }
+.imp-slug-policy { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.imp-binding summary:focus-visible, .imp-existing-choice:focus-within { outline: 2px solid var(--sa-accent); outline-offset: 3px; }
+@media (max-width: 800px) { .imp-binding-grid, .imp-slug-policy { grid-template-columns: minmax(0, 1fr); } }
+
+.imp-binding[open] { grid-column: 1 / -1; }
+.imp-binding > summary b { margin-inline-end: auto; }
+.imp-binding[open] > summary > svg { transform: rotate(180deg); }

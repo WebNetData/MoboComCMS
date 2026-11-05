@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import type { Prisma } from '@prisma/client'
+import { assertFieldSelections } from '@/modules/imports/server/field-inputs'
 import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { contentChanged } from '@/modules/content/server/events'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
@@ -123,7 +124,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, _v: Recor
   if (mode === 'create' && !('title' in allowed && 'content' in allowed)) return fail('عنوان و متن برای ساخت مطلب لازم‌اند')
   if (existing?.editorFormat === 'blocks-v1' && 'content' in allowed) return fail('متن این مطلب بلوکی است؛ HTML ورودی جایگزین سند بلوکی نمی‌شود. به‌روزرسانی «متن کامل» را بردارید و متن را در ادیتور همان مطلب ویرایش کنید.')
   const paths = (values.categories as string[][] | undefined) || []
-  if ('categories' in allowed) {
+  if ('categories' in allowed && !ctx.selected?.categories?.length) {
     const map = await cats(ctx)
     for (const path of paths) {
       const w = walk(map, path)
@@ -135,7 +136,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, _v: Recor
   let authorId: number | null = null
   if ('author' in allowed) {
     const map = await authors(ctx, [toText(allowed.author, 190)])
-    authorId = map.get(normalizeName(allowed.author)) ?? null
+    authorId = ctx.selected?.author?.[0] ?? map.get(normalizeName(allowed.author)) ?? null
     if (authorId) counters.authorsMatched = 1
     else if (o.missingAuthor === 'error') return fail(`نویسندهٔ «${toText(allowed.author, 80)}» در کاربران سایت پیدا نشد`)
     else messages.push({ level: 'warning', text: `نویسندهٔ «${toText(allowed.author, 80)}» پیدا نشد؛ واردکننده به‌عنوان نویسنده ثبت می‌شود` })
@@ -148,6 +149,11 @@ async function plan(item: SourceItem, values: Record<string, unknown>, _v: Recor
 
 async function ensureCategories(ctx: ImportContext, paths: string[][], changes: Change[], counters: Counters): Promise<number[]> {
   const map = await cats(ctx)
+  if (ctx.selected?.categories?.length) {
+    const rows = await db.postCategory.findMany({ where: { id: { in: ctx.selected.categories } }, select: { id: true } })
+    if (rows.length !== ctx.selected.categories.length) throw new Error('دستهٔ انتخاب‌شده دیگر وجود ندارد')
+    return ctx.selected.categories
+  }
   const ids: number[] = []
   for (const path of paths) {
     const w = walk(map, path)
@@ -182,7 +188,7 @@ async function claimLegacyBody(tx: Prisma.TransactionClient, id: number): Promis
   return claimed.count ? null : 'مطلب هم‌زمان تغییر کرده است؛ متن ذخیره نشد.'
 }
 
-async function applyPost(_item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
+async function applyPost(item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
   const data = planned.data as Data
   const o = ctx.settings.options as unknown as Options
   const messages: Message[] = []
@@ -215,6 +221,7 @@ async function applyPost(_item: SourceItem, planned: Plan, ctx: ImportContext, c
   const categoryIds = 'categories' in allowed && data.paths.length ? await ensureCategories(ctx, data.paths, changes, counters) : null
   let contentFingerprint: string | undefined
   const saved = await db.$transaction(async (tx) => {
+    await assertFieldSelections('magazine', item.values, data.values, tx, o.categorySeparator)
     if (existing) await claimImportUpdate(tx, ctx, 'post', existing.id)
     if (existing && 'content' in row) {
       const refusal = await claimLegacyBody(tx, existing.id)
