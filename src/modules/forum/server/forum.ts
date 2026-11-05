@@ -239,7 +239,7 @@ export type PostView = {
 }
 
 /** A topic page: posts (by post number), reactions, bookmarks and what the viewer may do. */
-export async function getTopic(id: number, viewer: Viewer, input: { page?: number; post?: number } = {}) {
+export async function getTopic(id: number, viewer: Viewer, input: { page?: number; post?: number; trackRead?: boolean } = {}) {
   if (!Number.isSafeInteger(id) || id <= 0) return null
   const thread = await db.forumThread.findUnique({ where: { id }, include: { category: { include: { permissions: { select: { groupId: true, level: true } }, parent: { select: { slug: true, title: true, color: true } } } }, tags: { include: { tag: true } } } }).catch(() => null)
   if (!thread) return null
@@ -285,7 +285,7 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
   const flagMap = new Map(flagRows.map((row) => [row.postId, row._count._all]))
 
   // Read position (for unread/new) and view count.
-  if (viewer.userId) {
+  if (viewer.userId && input.trackRead !== false) {
     const lastNumber = posts.length ? posts[posts.length - 1].postNumber : 0
     await db.forumTopicUser.upsert({
       where: { userId_threadId: { userId: viewer.userId, threadId: id } },
@@ -293,7 +293,7 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
       update: { lastRead: Math.max(state?.lastRead ?? 0, lastNumber), lastVisitedAt: new Date() },
     }).catch(() => undefined)
   }
-  await db.forumThread.update({ where: { id }, data: { views: { increment: 1 } } }).catch(() => undefined)
+  if (input.trackRead !== false) await db.forumThread.update({ where: { id }, data: { views: { increment: 1 } } }).catch(() => undefined)
 
   const imagesFor = (a: AuthorView) => postLimits(a.trustLevel, settings, a.staff).images
   const editable = (post: { userId: number; createdAt: Date }) => canEditPost(post, viewer, settings.editWindowHours) && (!thread.locked || viewer.moderator)

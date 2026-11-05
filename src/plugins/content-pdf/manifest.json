@@ -1,0 +1,42 @@
+{
+  "id": "content-pdf",
+  "name": "نسخهٔ PDF محتوا",
+  "nameEn": "Content PDF editions",
+  "description": "دانلود PDF فارسی محتوا با طرح اختصاصی هر بخش و واترمارک قابل تنظیم.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "file",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": [
+    "/admin/content-pdf"
+  ],
+  "permissions": [
+    {
+      "id": "content-pdf.manage",
+      "label": "مدیریت طرح‌ها و واترمارک PDF"
+    }
+  ],
+  "adminMenu": {
+    "area": "content",
+    "title": "نسخه‌های PDF",
+    "titleEn": "PDF editions",
+    "icon": "file",
+    "order": 180,
+    "items": [
+      {
+        "href": "/admin/content-pdf",
+        "label": "طرح و واترمارک PDF",
+        "labelEn": "PDF design & watermark",
+        "icon": "file",
+        "permissions": [
+          "content-pdf.manage",
+          "settings.manage"
+        ]
+      }
+    ]
+  }
+}

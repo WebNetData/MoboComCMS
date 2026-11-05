@@ -1,4 +1,5 @@
 'use client'
+import PdfDownloadButton from '@/components/content/PdfDownloadButton'
 
 import Link from '@/components/AppLink'
 import { sized } from '@/shared/media/image'
@@ -70,7 +71,7 @@ async function api(url: string, method: string, body?: unknown): Promise<{ ok: b
 
 type ComposerState = { mode: 'reply' | 'edit'; replyTo?: TopicPost; edit?: TopicPost; initial?: string; key: number } | null
 
-export default function TopicView({ data, categories, focusPost, trail = [] }: { data: TopicData; categories: ComposerCategory[]; focusPost?: number; trail?: { slug: string; title: string }[] }) {
+export default function TopicView({ data, categories, focusPost, trail = [], pdfEnabled }: { data: TopicData; categories: ComposerCategory[]; focusPost?: number; trail?: { slug: string; title: string }[]; pdfEnabled?: boolean }) {
   const router = useRouter()
   const human = useHumanCheck('forum')
   const { thread } = data
@@ -370,7 +371,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
                   : post.status !== 'VISIBLE' && <div className="fx-hidden-note">این پیام پنهان است{post.flags ? ` — ${fa(post.flags)} گزارش در انتظار بررسی` : ''}</div>}
                 {post.wiki && <div className="fx-wiki-note">📝 ویکی — اعضا از سطح اعتماد ۱ می‌توانند این پیام را ویرایش کنند</div>}
                 <CookedWithPolls html={post.html} polls={post.polls} signedIn={data.signedIn} canManage={data.moderator || post.own} onLogin={() => { requireLogin() }} onError={setToast} />
-                <footer className="fx-post-actions">
+                <footer className="fx-post-actions">{pdfEnabled && post.status === 'VISIBLE' && <PdfDownloadButton item={`forum-post:${post.id}`}/>}
                   <div className="fx-reactions">
                     {post.reactions.map((reaction) => (
                       <button key={reaction.emoji} type="button" className={`fx-react${reaction.mine ? ' is-mine' : ''}`} onClick={() => void react(post, reaction.emoji)} disabled={post.own} aria-pressed={reaction.mine} title={post.own ? 'به پیام خودتان نمی‌توانید واکنش بدهید' : 'واکنش'}>

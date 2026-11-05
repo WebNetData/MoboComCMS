@@ -1,3 +1,5 @@
+Content PDF2026-11-05: Content owns authorized native reading/catalogue editions, eight typed per-kind designs, Admin watermark/settings/history and shared public download actions. Existing publication, audience, paid/VIP/rule/forum/maintenance owners remain authoritative. [Owners, executed evidence, limits and rollback](handoffs/CONTENT_PDF.md).
+
 # MOBOCOM_MAP.md
 
 Automatic external links2026-11-05: existing Forwarder/Settings/extension state owns the default-off Admin switch and reversible root-shell anchor policy. Original documents stay intact; fresh validated automatic URLs bypass countdown with307 when disabled. Sparse CAS/strict audit and existing Identity/Origin guards remain authoritative. [Scope, executed PostgreSQL/browser evidence and rollback](handoffs/AUTOMATIC_FORWARDER.md).

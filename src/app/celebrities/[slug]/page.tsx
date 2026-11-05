@@ -1,3 +1,4 @@
+import PdfDownload from '@/components/content/PdfDownload'
 import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
@@ -124,8 +125,9 @@ export default async function CelebrityPage({ params }: Props) {
           </div>
           {/* Following stays per section: new songs from the music side, new films and series from the cinema side. */}
           <div className="cb-follow">
-            {songs && musicSettings?.showArtistFollow && <ItemActionBar item={{ type: 'artist', id: songs.artist.id }} title={card.name} image={card.image} followLabel="آهنگ‌های تازه" />}
-            {personId && cinemaSettings?.personFollowEnabled && <ItemActionBar item={{ type: 'person', id: Number(personId) }} title={card.name} image={card.image} followLabel="اعلان اثر تازه" favoriteLabels={{ off: 'دنبال‌کردن فیلم‌ها', on: 'دنبال می‌کنید' }} />}
+            {(songs || personId) && <PdfDownload item={songs ? `artist:${songs.artist.id}` : `person:${personId}`}/>}
+            {songs && musicSettings?.showArtistFollow && <ItemActionBar pdf={false} item={{ type: 'artist', id: songs.artist.id }} title={card.name} image={card.image} followLabel="آهنگ‌های تازه" />}
+            {personId && cinemaSettings?.personFollowEnabled && <ItemActionBar pdf={false} item={{ type: 'person', id: Number(personId) }} title={card.name} image={card.image} followLabel="اعلان اثر تازه" favoriteLabels={{ off: 'دنبال‌کردن فیلم‌ها', on: 'دنبال می‌کنید' }} />}
           </div>
         </div>
       </div>

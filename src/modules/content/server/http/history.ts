@@ -18,6 +18,10 @@ async function ownerOf(type: string): Promise<Owner | null> {
   const { pageIdOfHistoryType, builderHistoryOwner } = await import('@/modules/site/server/builder')
   const builderPage = pageIdOfHistoryType(type)
   if (builderPage) return builderHistoryOwner(builderPage)
+  if (type === 'settings-content-pdf') {
+    const { pdfSettingsState, restorePdfSettings } = await import('@/modules/content/server/pdf')
+    return { perms: ['content-pdf.manage', 'settings.manage'], module: 'content-pdf', current: pdfSettingsState, restore: restorePdfSettings }
+  }
   if (type === 'settings-human-check') {
     const { humanCheckSettingsState, restoreHumanCheckSettings } = await import('@/modules/identity/server/human-check')
     return { perms: ['settings.manage'], module: null, current: humanCheckSettingsState, restore: restoreHumanCheckSettings }

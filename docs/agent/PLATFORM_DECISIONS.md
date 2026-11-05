@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Content PDF editions — 2026-11-05
+
+Owner requests native downloadable PDF editions across public content/products and dedicated per-kind designs, with an Admin-selected watermark. Existing Content owns the authorized export projection and typed presets; Settings/history/Identity/Media remain canonical. Film and series assignments are independent; interactive media stays online and restricted content requires its existing access. Code-owned templates never execute administrator-supplied HTML/CSS/JS. [Implementation and evidence](handoffs/CONTENT_PDF.md).
+
 ## Hosting and cloud — 2026-11-04
 
 Owner: sell hosting and infrastructure of the ParsPack class, looking and working better. Decided:

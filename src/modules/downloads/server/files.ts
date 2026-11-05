@@ -194,11 +194,11 @@ export async function serveLocalFile(req: Request, segments: string[]): Promise<
 // ------------------------------------------------------------------ copying pasted content
 
 /** Small remote resources share the bounded, socket-guarded transport. */
-export async function fetchRemoteBytes(raw: string, maxBytes: number): Promise<Uint8Array> {
+export async function fetchRemoteBytes(raw: string, maxBytes: number, options: { timeoutMs?: number } = {}): Promise<Uint8Array> {
   const { Writable } = await import('node:stream')
   const chunks: Buffer[] = []
   const sink = new Writable({ write(chunk: Buffer, _encoding, done) { chunks.push(chunk); done() } })
-  await (await import('./remote')).streamPublicFile(raw, sink, { maxBytes, timeoutMs: 60000 })
+  await (await import('./remote')).streamPublicFile(raw, sink, { maxBytes, timeoutMs: options.timeoutMs ?? 60000 })
   return Buffer.concat(chunks)
 }
 export async function importImage(raw: string): Promise<string> {

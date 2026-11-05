@@ -3,6 +3,7 @@ import { COMPARABLE, FAVORITABLE, REVIEWABLE, itemKey, type ItemRef } from '@/mo
 import { getViewer } from '@/modules/membership/server/membership'
 import { itemEngagement } from '@/modules/reviews/server/reviews'
 import { dimensionsFor } from '@/modules/reviews/domain/dimensions'
+import PdfDownload from '@/components/content/PdfDownload'
 import ItemActions from '@/components/engage/ItemActions'
 import RecentViewTracker from '@/components/engage/RecentViewTracker'
 import ReviewForm from '@/components/engage/ReviewForm'
@@ -16,13 +17,13 @@ const BADGE_HINT: Partial<Record<ItemRef['type'], string>> = {
 }
 
 /** Favorite / follow / compare buttons for an item hero. Renders nothing when both modules are off. */
-export async function ItemActionBar({ item, title, image, followLabel, favoriteLabels }: { item: ItemRef; title: string; image?: string; followLabel?: string; favoriteLabels?: { off: string; on: string } }) {
+export async function ItemActionBar({ item, title, image, followLabel, favoriteLabels, pdf = true }: { item: ItemRef; title: string; image?: string; followLabel?: string; favoriteLabels?: { off: string; on: string }; pdf?: boolean }) {
   const [reviewsOn, compareOn] = await Promise.all([isModuleEnabled('reviews'), isModuleEnabled('compare')])
   const canFavorite = reviewsOn && FAVORITABLE.includes(item.type)
   const canCompare = compareOn && COMPARABLE.includes(item.type)
   const viewer = await getViewer()
   const data = canFavorite ? await itemEngagement(item, viewer.userId) : null
-  return <><ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} favoriteLabels={favoriteLabels} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
+  return <><ItemActions pdf={pdf ? <PdfDownload item={itemKey(item)}/> : undefined} item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} favoriteLabels={favoriteLabels} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
 }
 
 /**

@@ -1,3 +1,4 @@
+import PdfDownload from '@/components/content/PdfDownload'
 import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
@@ -41,6 +42,7 @@ export default async function PlaylistPage({ params }: Props) {
   return (
     <MediaShell section="music" active="playlists" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
       <ManageBar title="مدیریت پلی‌لیست" anyOf={['music.manage']} links={[{ href: `/admin/music/library?tab=playlists&edit=${playlist.id}`, label: 'ویرایش پلی‌لیست' }, { href: '/admin/music/library?tab=playlists', label: 'همهٔ پلی‌لیست‌ها' }]} />
+      <div className="container content-pdf-actions"><PdfDownload item={`playlist:${playlist.id}`}/></div>
       <section className="mu-detail-hero is-playlist">
         <div className="mu-hero-bg" style={cover ? { backgroundImage: `url("${cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
         <div className="container mu-detail-inner">

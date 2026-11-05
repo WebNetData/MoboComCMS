@@ -1,3 +1,5 @@
+2026-11-05: [Content PDF editions](handoffs/CONTENT_PDF.md) composes existing Content publication, canonical access, Settings/history and guarded Media into native PDFKit/Vazirmatn exports. Eight typed designs and per-kind assignments/watermarks live behind the Content PDF public address; Billing invoices stay separate. No renderer service, parallel authorization/settings owner or schema change.
+
 2026-11-04: [Configurable permalinks](handoffs/PERMALINK_MANAGEMENT.md) extends the existing Site router/Settings and shared Link/provider with typed13 content patterns, root Pages, primary-artist Music URLs, retained308 history and canonical SEO. Current module pages/guards stay authoritative; Unicode is decoded at existing HTTP-page boundaries. No parallel routing authority, schema or data rewrite.
 
 Identity anti-bot continuation2026-11-04: the existing security policy screen and shared Settings/history/audit own human-check configuration. Public form owners ask Identity to verify a surface-bound single-use proof; trusted plugin UI consumes the extension SDK. [Scoped contract and actual evidence](handoffs/HUMAN_CHECK.md); no second auth/settings/rate-limit system.

@@ -1,3 +1,4 @@
+import PdfDownload from '@/components/content/PdfDownload'
 import { contentRouteParams } from '@/shared/routing/params'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -103,6 +104,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
           </div>
         )}
       </main>
+      <div className="container content-pdf-actions"><PdfDownload item={`page:${page.id}`}/></div>
       <ThemeFooter context={chromeContext} choice={builderDoc?.layout?.footer} locale={locale} navPages={navPages} preview={preview} />
     </>
   )
