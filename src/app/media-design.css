@@ -1521,3 +1521,12 @@ html[dir="ltr"] .mu-queue ol button:hover { transform: translateX(3px); }
 .cf-head .cf-intro { margin: 0 0 14px; }
 .cf-head .btn { flex: none; }
 @media (max-width: 640px) { .cf-head { flex-direction: column; } }
+
+/* The per-item body editor choice (AdminCrud): two segmented options above the body of pages and articles. */
+.cms-body-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cms-body-picker [role='radio'] { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft, transparent); color: var(--muted); font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; transition: color .15s, border-color .15s, background-color .15s; }
+.cms-body-picker [role='radio']:hover { color: var(--text); }
+.cms-body-picker [role='radio'].is-active { color: var(--text); border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.cms-body-picker [role='radio']:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cms-block-body .RichEditor, .cms-block-body .cms-editor-loading { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { .cms-body-picker [role='radio'] { transition: none; } }

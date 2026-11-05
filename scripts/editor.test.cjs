@@ -688,3 +688,26 @@ test('legacy code is keyboard reachable without accepting authored tab order or 
   const html = cleaning.exports.cleanRichText('<pre tabindex="99" role="button" aria-label="wrong" onclick="evil()"><code>&lt;script&gt;literal&lt;/script&gt;</code></pre>')
   assert.equal(html, '<pre tabindex="0" role="region" aria-label="بلوک کد"><code>&lt;script&gt;literal&lt;/script&gt;</code></pre>')
 })
+
+const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+
+test('the body editor is a per-item choice: picker, classic stays in the form, blocks still redirect and a blocks item stays locked', () => {
+  const crud = read('src/app/admin/cms/AdminCrud.tsx').replace(/\r\n/g, '\n')
+  // The choice is offered wherever the block editor drives the form, for new and legacy items alike.
+  assert.match(crud, /blockDriven && fl\.key === 'content' \?/)
+  assert.match(crud, /cms-body-picker/)
+  assert.match(crud, /role="radio" aria-checked=\{bodyEditor === 'classic'\}/, 'the classic option is a real choice, not a hidden escape')
+  // A new item saved with the classic editor sends its body and stays in the form.
+  assert.match(crud, /bodyEditor === 'classic' \? payload\.content : ''/)
+  assert.doesNotMatch(crud, /blockDriven && !editId && data\?\.id\) \{ window\.location/, 'the redirect must ask the choice first')
+  assert.match(crud, /blockDriven && !editId && bodyEditor === 'blocks' && data\?\.id/)
+  // A legacy item opened for editing still defaults to its own editor.
+  assert.match(crud, /setEditFormat\(row\.editorFormat === 'blocks-v1' \? 'blocks-v1' : 'legacy'\)\n\s+setLegacyBody\(false\)\n\s+setBodyEditor\('classic'\)/)
+  // A block-written item keeps its guard and its lock message; the classic path never sends its body.
+  assert.match(crud, /if \(blockDriven\) \{ if \(!editId\) payload\.content = bodyEditor === 'classic' \? payload\.content : ''; else if \(editFormat === 'blocks-v1' \|\| !legacyBody\) delete payload\.content \}/)
+  assert.match(crud, /blocksLocked && fl\.key === 'content' && editId && editFormat === 'blocks-v1'/)
+  // The choice resets for the next new item.
+  assert.match(crud, /setEditFormat\('legacy'\)\n\s+setBodyEditor\('blocks'\)/)
+  // The classic editor rendered in the form is the same ContentEditor door every staff form uses.
+  assert.match(crud, /import\('@\/components\/editor\/ContentEditor'\)/)
+})
