@@ -701,8 +701,8 @@ test('the body editor is a per-item choice: picker, classic stays in the form, b
   assert.match(crud, /bodyEditor === 'classic' \? payload\.content : ''/)
   assert.doesNotMatch(crud, /blockDriven && !editId && data\?\.id\) \{ window\.location/, 'the redirect must ask the choice first')
   assert.match(crud, /blockDriven && !editId && bodyEditor === 'blocks' && data\?\.id/)
-  // A legacy item opened for editing still defaults to its own editor.
-  assert.match(crud, /setEditFormat\(row\.editorFormat === 'blocks-v1' \? 'blocks-v1' : 'legacy'\)\n\s+setLegacyBody\(false\)\n\s+setBodyEditor\('classic'\)/)
+  // The checked choice and visible body agree immediately with the stored format, without a second click.
+  assert.match(crud, /setEditFormat\(row\.editorFormat === 'blocks-v1' \? 'blocks-v1' : 'legacy'\)\n\s+setLegacyBody\(row\.editorFormat !== 'blocks-v1'\)\n\s+setBodyEditor\(row\.editorFormat === 'blocks-v1' \? 'blocks' : 'classic'\)/)
   // A block-written item keeps its guard and its lock message; the classic path never sends its body.
   assert.match(crud, /if \(blockDriven\) \{ if \(!editId\) payload\.content = bodyEditor === 'classic' \? payload\.content : ''; else if \(editFormat === 'blocks-v1' \|\| !legacyBody\) delete payload\.content \}/)
   assert.match(crud, /blocksLocked && fl\.key === 'content' && editId && editFormat === 'blocks-v1'/)

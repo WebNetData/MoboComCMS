@@ -4,7 +4,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `sfacet${Date.now()}`
 const state = { reviews: true, indexedAt: new Date().toISOString() }
-const db = new Proxy(prisma, { get: (target, key) => key === 'setting' ? { findUnique: async () => ({ key: 'search.indexedAt', value: state.indexedAt }), upsert: async () => {} } : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
+const db = new Proxy(prisma, { get: (target, key) => key === 'setting' ? { findUnique: async args => args.where.key === 'search.indexedAt' ? { key: 'search.indexedAt', value: state.indexedAt } : target.setting.findUnique(args), findMany: args => target.setting.findMany(args), upsert: async args => args.where.key === 'search.indexedAt' ? undefined : target.setting.upsert(args) } : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
 const cache = new Map()
 function load(file) {
   const full = path.resolve(file.endsWith('.ts') || file.endsWith('.tsx') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : fs.existsSync(`${file}.tsx`) ? `${file}.tsx` : path.join(file, 'index.ts'))
