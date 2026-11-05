@@ -53,6 +53,14 @@ export async function publicAssetFile(id: string) {
   if (!info.isFile()) throw new LibraryError('فایل عمومی معتبر نیست', 403)
   return { file, name: asset.name, size: info.size }
 }
+/** A completed transfer's physical tags take precedence over older download-time cleanup. */
+export async function preservesTransferredMusicTags(file: string): Promise<boolean> {
+  const relative = path.relative(filesRoot(), file)
+  if (!relative || path.isAbsolute(relative) || relative.startsWith('..' + path.sep)) return false
+  const key = relative.split(path.sep).join('/')
+  const row = await db.mediaTransfer.findFirst({ where: { status: 'READY', asset: { is: { storage: 'downloads', key } } }, select: { musicMetadata: true } })
+  try { return JSON.parse(row?.musicMetadata || '{}').tagged === true } catch { return false }
+}
 /** Bounded, resumable discovery of existing public files. Private and generated trees are never visited. */
 async function* publicFiles() {
   const covers = await fs.readdir(path.join(process.cwd(), 'storage', 'covers')).catch(() => [])

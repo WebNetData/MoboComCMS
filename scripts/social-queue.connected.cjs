@@ -12,7 +12,7 @@ const mocks = {
  '@/platform/database/prisma': {db},
  '@/platform/observability/logger': {logEvent: () => {}},
  '@/extensions/server/modules': {isModuleEnabled: async () => true},
- '@/modules/settings/server': {readJsonSetting: async () => null, writeJsonSetting: async () => {}},
+ '@/modules/settings/server': {readJsonSetting: async () => null, updateJsonSetting: async (_key, work) => work({})},
  '@/modules/providers/server/panel-credentials': {decryptPanelCredential: value => value, encryptPanelCredential: value => value},
  '@/modules/notifications/server/telegram': {bot: async () => ({ok: false}), telegramConfig: async () => ({})},
  '@/modules/site/server/seo': {siteBase: async () => 'http://localhost'},

@@ -259,11 +259,12 @@ async function applyTrack(item: SourceItem, planned: Plan, ctx: ImportContext, c
     r.albums.set(album.id, album)
   }
 
+  ctx={...ctx,organization:{...ctx.organization!,artist:artist?.nameEn||artist?.name||ctx.organization?.artist,titleEn:toText(allowed.titleEn||existing?.titleEn||data.values.titleEn,200),title:toText(allowed.title||existing?.title||data.values.title,200)}}
   // The track, through the music admin's save path (same validation).
   const body: Record<string, unknown> = {}
   for (const key of TRACK_COLUMNS) {
     if (!(key in allowed)) continue
-    if (['audioUrl', 'audioHqUrl'].includes(key)) { body[key] = await importFileLink(ctx, String(allowed[key]), messages); continue }
+    if (['audioUrl', 'audioHqUrl'].includes(key)) { body[key] = await importFileLink({...ctx,organization:{...ctx.organization!,quality:key==='audioHqUrl'?'320':'128'}}, String(allowed[key]), messages); continue }
     if (key === 'lyrics') { body[key] = await localizeHtml(ctx, String(allowed[key]), messages, counters, 'رسانهٔ ترانه'); continue }
     if (key === 'cover') { const [img] = await importImages(ctx, [String(allowed.cover)], messages, counters, 'کاور آهنگ'); if (img) body.cover = img; continue }
     body[key] = allowed[key]

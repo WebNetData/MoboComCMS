@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import sharp from 'sharp'
+import { socialImage } from '@/modules/social/server/images'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
@@ -71,15 +71,9 @@ export async function GET_image(_req: NextRequest, { params }: { params: Promise
   const item = ref ? await itemCard(ref) : null
   if (!item?.image) return err('not found', 404)
   const base = await siteBase()
-  const source = /^https?:\/\//.test(item.image) ? item.image : `${base}${item.image}`
   try {
-    const response = await fetch(source, { signal: AbortSignal.timeout(10_000), redirect: 'follow' })
-    const length = Number(response.headers.get('content-length') || 0)
-    if (!response.ok || length > 15 * 1024 * 1024) return err('image unavailable', 502)
-    const input = Buffer.from(await response.arrayBuffer())
-    if (input.length > 15 * 1024 * 1024) return err('image too large', 413)
-    const jpeg = await sharp(input, { limitInputPixels: 50_000_000 }).rotate().resize(1080, 1350, { fit: 'cover', position: 'attention' }).flatten({ background: '#ffffff' }).jpeg({ quality: 88, mozjpeg: true }).toBuffer()
-    return new Response(new Uint8Array(jpeg), { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' } })
+    const jpeg = await socialImage(item.image, base)
+    return new Response(new Uint8Array(jpeg), { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff' } })
   } catch {
     return err('image conversion failed', 502)
   }

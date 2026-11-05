@@ -14,7 +14,7 @@ export interface SocialSettings {
   /** Minutes to wait after publishing (gives editors time to fix typos). */
   delayMinutes: number
   utm: boolean
-  telegram: { enabled: boolean; channel: string; template: string; button: string; silent: boolean }
+  telegram: { enabled: boolean; channel: string; template: string; button: string; silent: boolean; includeImage: boolean }
   instagram: { enabled: boolean; accountId: string; accessToken: string; graphVersion: string; template: string; hashtags: string }
   push: { enabled: boolean; title: string; body: string }
 }
@@ -24,7 +24,7 @@ export const DEFAULT_SOCIAL: SocialSettings = {
   delayMinutes: 0,
   utm: true,
   telegram: {
-    enabled: false, channel: '', button: 'مشاهده و دانلود', silent: false,
+    enabled: false, channel: '', button: 'مشاهده و دانلود', silent: false, includeImage: true,
     template: '{icon} {title}\n{subtitle}\n\n{summary}\n\n🔗 {url}\n{hashtags}',
   },
   instagram: {
@@ -66,6 +66,7 @@ export function normalizeSocialSettings(input: Record<string, any> = {}, previou
       template: text(tg.template, 900, d.telegram.template) || DEFAULT_SOCIAL.telegram.template,
       button: text(tg.button, 40, d.telegram.button).trim(),
       silent: bool(tg.silent, d.telegram.silent),
+      includeImage: bool(tg.includeImage, d.telegram.includeImage ?? true),
     },
     instagram: {
       enabled: bool(ig.enabled, d.instagram.enabled),

@@ -21,6 +21,8 @@ const CHECKS = [
   'configuration-history',
   'authoring-migrations',
   'media-library',
+  'music-files',
+  'social-images',
   'journal-pagination',
   'games-editorial',
   'invoice-logo',

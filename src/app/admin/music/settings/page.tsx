@@ -43,6 +43,15 @@ export default function MusicSettingsPage() {
     <div className="sa-cols">
       <div className="sa-stack">
         <section className="sa-card">
+          <header className="sa-card-head"><h2>فایل‌های منتقل‌شدهٔ موزیک</h2></header>
+          <label className="sa-check"><input type="checkbox" checked={form.renameTransferredFiles} onChange={e => set({ renameTransferredFiles: e.target.checked })} />نام فایل از نام خارجی خواننده و آهنگ ساخته شود</label>
+          <p className="sa-hint">نمونه: <bdi dir="ltr">Artist - Song - 320.mp3</bdi>؛ اگر نام خارجی ثبت نشده باشد، نام موجود استفاده می‌شود. فایل‌های هم‌نام با شماره نگهداری می‌شوند.</p>
+          <label className="sa-check"><input type="checkbox" checked={form.tagTransferredFiles} onChange={e => set({ tagTransferredFiles: e.target.checked })} />جایگزینی تگ‌های فایل صوتی هنگام انتقال</label>
+          <label className="sa-field"><span>نام سایت در تگ موزیک</span><input className="input" value={form.fileTagBrand} maxLength={100} onChange={e => set({ fileTagBrand: e.target.value })} /></label>
+          <label className="sa-field"><span>آدرس سایت در تگ موزیک</span><input className="input" dir="ltr" type="url" value={form.fileTagUrl} maxLength={250} onChange={e => set({ fileTagUrl: e.target.value })} /></label>
+          <p className="sa-hint">فقط انتقال‌های جدید تغییر می‌کنند؛ نام آهنگ و خواننده در تگ حفظ می‌شود و نام و آدرس سایت در توضیحات و آدرس تگ نوشته می‌شود. MP3 بدون تغییر کیفیت پردازش می‌شود؛ فرمت‌های M4A، FLAC، OGG، OPUS و WAV به ffmpeg روی سرور نیاز دارند. سایر فرمت‌ها دست‌نخورده منتقل می‌شوند.</p>
+        </section>
+        <section className="sa-card">
           <header className="sa-card-head"><h2>بلوک‌های صفحهٔ اصلی</h2><small>ترتیب و نمایش</small></header>
           <RailsEditor rails={form.rails} labels={MUSIC_RAILS} onChange={(rails) => set({ rails })} />
         </section>

@@ -1,4 +1,4 @@
-export type AssetOrganization = { section: string; title?: string; category?: string; artist?: string; album?: string; season?: number; artistImage?: boolean; video?: boolean; personRole?: 'actor'|'director'; enabled?: boolean }
+export type AssetOrganization = { section: string; title?: string; titleEn?: string; artistEn?: string; artistId?: number; quality?: string; category?: string; artist?: string; album?: string; season?: number; artistImage?: boolean; video?: boolean; personRole?: 'actor'|'director'; enabled?: boolean }
 /** One safe, portable directory name. Display titles and public content URLs are never changed. */
 export function organizationSegment(raw: unknown, fallback='') {
   const value=String(raw ?? '').normalize('NFC').replace(/[\u0000-\u001f\u007f<>:"/\\|?*%]/g,' ').replace(/\s+/g,' ').trim().replace(/^[. ]+|[. ]+$/g,'').slice(0,100).trim()

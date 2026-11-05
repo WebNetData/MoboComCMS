@@ -4,7 +4,7 @@ import Link from '@/components/AppLink'
 
 type Settings = {
   types: Record<string, boolean>; delayMinutes: number; utm: boolean
-  telegram: { enabled: boolean; channel: string; template: string; button: string; silent: boolean }
+  telegram: { enabled: boolean; channel: string; template: string; button: string; silent: boolean; includeImage: boolean }
   instagram: { enabled: boolean; accountId: string; accessToken: string; hasToken?: boolean; graphVersion: string; template: string; hashtags: string }
   push: { enabled: boolean; title: string; body: string }
 }
@@ -84,6 +84,8 @@ export default function AdminSocialPage() {
         <label className="studio-field"><span>کانال</span><input className="input" dir="ltr" value={tg.channel} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, channel: e.target.value } })} placeholder="@mobocom یا -1001234567890" /></label>
         <label className="studio-field"><span>متن دکمه</span><input className="input" value={tg.button} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, button: e.target.value } })} maxLength={40} /></label>
         <label className="studio-switch"><input type="checkbox" checked={tg.silent} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, silent: e.target.checked } })} />ارسال بی‌صدا</label>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={tg.includeImage} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, includeImage: e.target.checked } })} />ارسال تصویر شاخص همراه متن پست</label>
+        <p className="muted fr-admin-wide">تصویر شاخص به JPEG تبدیل و مستقیم بارگذاری می‌شود. اگر ارسال تصویر خطا بدهد، پست در صف تلاش دوباره می‌ماند؛ پست بدون تصویر شاخص به‌صورت متن ارسال می‌شود.</p>
         <label className="studio-field fr-admin-wide"><span>قالب پست (متغیرها: <code dir="ltr">{VARS}</code>)</span><textarea className="input" rows={7} value={tg.template} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, template: e.target.value } })} /></label>
         <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیره</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !tg.channel} onClick={() => void call('POST', { action: 'test-telegram' }, 'پیام آزمایشی به کانال فرستاده شد')}>ارسال پیام آزمایشی</button></div>
       </form>

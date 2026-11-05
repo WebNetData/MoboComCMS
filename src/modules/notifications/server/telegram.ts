@@ -65,19 +65,23 @@ export interface BotResult<T = any> {
  */
 export async function bot<T = any>(
   method: string,
-  payload: Record<string, unknown> = {},
+  payload: Record<string, unknown> | FormData = {},
   cfg?: TelegramConfig
 ): Promise<BotResult<T>> {
   const config = cfg || (await telegramConfig())
   if (!config.token) return { ok: false, description: 'bot token is not configured' }
   try {
+    // Serialize multipart once so the same byte body also crosses the existing Xray transport.
+    const multipart = payload instanceof FormData ? new Request('http://localhost', { method: 'POST', body: payload }) : null
+    const headers = { 'content-type': multipart?.headers.get('content-type') || 'application/json' }
+    const body = multipart ? await multipart.arrayBuffer() : JSON.stringify(payload)
     // Through the social-network proxy when the owner turned it on (Server Panel); directly otherwise.
     const res = await socialFetch(`${config.apiBase}/bot${config.token}/${method}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
+      headers,
+      body,
       cache: 'no-store',
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(multipart ? 30_000 : 8000),
     })
     const data = await res.json().catch(() => null)
     return { ok: Boolean(data?.ok), result: data?.result, description: data?.description, status: res.status }
