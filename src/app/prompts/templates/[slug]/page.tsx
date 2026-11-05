@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import ItemActions from '@/components/engage/ItemActions'
+import PdfDownload from '@/components/content/PdfDownload'
 import MemberLibrarySync from '@/components/engage/MemberLibrarySync'
 import ManageBar from '@/components/admin/ManageBar'
 import { authorPermissionOf } from '@/modules/identity/domain/sections'
@@ -48,7 +49,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ slug:
           <pre className={g.exactPrompt} dir="auto" tabIndex={0} aria-label="متن دقیق پرامپت نمونه">{prompt}</pre><PromptCopy text={prompt} title={template.title}/>
           <Link className={g.useTemplate} href={`/prompts?template=${template.slug}`}><Icon name="sparkles" size={17}/>شخصی‌سازی در استودیو<Icon name="arrow" size={16}/></Link>
         </>}
-        <ItemActions item={`prompt:${template.id}`} title={template.title} image={sample.cover} loggedIn={!!viewer.userId} favorite={favorite} favoriteLabels={{off:'ذخیرهٔ الگو در علاقه‌مندی‌ها',on:'الگوی ذخیره‌شده'}}/>
+        <ItemActions pdf={<PdfDownload item={`prompt:${template.id}`}/>} item={`prompt:${template.id}`} title={template.title} image={sample.cover} loggedIn={!!viewer.userId} favorite={favorite} favoriteLabels={{off:'ذخیرهٔ الگو در علاقه‌مندی‌ها',on:'الگوی ذخیره‌شده'}}/>
         {!!tags.length&&<div className={g.detailTags}>{tags.map(tag=><Link key={tag} href={'/prompts/library?'+new URLSearchParams({q:tag,view:'all'})}>#{tag}</Link>)}</div>}
       </section></div>
     <RelatedPrompts templates={related} kind={kind}/>

@@ -2,12 +2,14 @@
 
 import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { COMPARE_EVENT, readCompare, toggleCompare, type CompareEntry } from '@/components/engage/compare-store'
 import AddToCollection from '@/components/engage/AddToCollection'
 import { memberListsChanged } from './member-list-events'
 
 type Props = {
+  pdf?: ReactNode
   item: string
   title: string
   image?: string
@@ -22,7 +24,7 @@ type Props = {
 }
 
 /** Favorite (with "tell me about updates") and compare toggles for an item page. */
-export default function ItemActions({ item, title, image = '', loggedIn, favorite: initial, favorites = 0, canFavorite = true, canCompare = false, followLabel, favoriteLabels }: Props) {
+export default function ItemActions({ item, title, image = '', loggedIn, favorite: initial, favorites = 0, canFavorite = true, canCompare = false, followLabel, favoriteLabels, pdf }: Props) {
   const reviewsOn = useModuleEnabled('reviews')
   const compareOn = useModuleEnabled('compare')
   const [favorite, setFavorite] = useState(initial)
@@ -82,6 +84,7 @@ export default function ItemActions({ item, title, image = '', loggedIn, favorit
           : <button type="button" className="ea-btn" aria-pressed="false" onClick={compare}>{icon('M12 4v16M5 8h14M7 8l-3 6a3 3 0 0 0 6 0L7 8Zm10 0-3 6a3 3 0 0 0 6 0l-3-6ZM8 20h8')}افزودن به مقایسه</button>
       )}
       <AddToCollection item={item} loggedIn={loggedIn} />
+      {pdf}
       {(error || compareNote) && <p className="ea-note" role="status">{error || compareNote}</p>}
     </div>
   )

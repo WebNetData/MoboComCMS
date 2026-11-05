@@ -1,3 +1,5 @@
+Content PDF2026-11-05: FUNCTIONAL — eight native Persian designs for registered content/pages/products/forum posts, per-kind assignments and text/logo watermark Admin. Real PDF/Poppler, PostgreSQL authorization/settings/fault checks and themed responsive browser/axe/download evidence passed. Reading exports preserve online interactive content; bounded limits and no production-deployment claim. [Evidence and continuation](handoffs/CONTENT_PDF.md).
+
 # CAPABILITY_LEDGER.md
 
 Human check2026-11-04: continue Claude’s uncommitted slice in .mobocom/autonomous-foundation / feat/human-check-2026-11-04 from main1b27c884. Existing Identity security/Settings/history/audit owners now provide local proof-of-work, Turnstile compatibility, nine switches, one-use PostgreSQL claims and all affected web clients; OTP entry composes login OR registration. No hosted Actions or production deployment. [Owners, executed checks and remaining limits](handoffs/HUMAN_CHECK.md).

@@ -1,3 +1,4 @@
+import { contentPdfAvailable } from '@/modules/content/server/pdf'
 import type { Metadata } from 'next'
 import { categoryPath } from '@/modules/forum/domain/tree'
 import { notFound } from 'next/navigation'
@@ -56,7 +57,7 @@ export default async function TopicPage({ params, searchParams }: Props) {
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />}
       {viewer.userId && data.thread.status === 'VISIBLE' && data.thread.listed && <RecentViewTracker item={`thread:${data.thread.id}`} />}
       {relatedItem && <nav className="er-topic-context" aria-label="موضوع مرتبط"><span>{data.thread.kind === 'QUESTION' ? 'پرسش دربارهٔ' : 'گفت‌وگو دربارهٔ'}</span><Link href={relatedItem.url}>{relatedItem.title} ←</Link></nav>}
-      <TopicView data={serialized} categories={categories} focusPost={Number(post) || undefined} trail={trail} />
+      <TopicView pdfEnabled={await contentPdfAvailable(`thread:${data.thread.id}`)} data={serialized} categories={categories} focusPost={Number(post) || undefined} trail={trail} />
     </ForumShell>
   )
 }
