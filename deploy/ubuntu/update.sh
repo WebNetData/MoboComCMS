@@ -7,6 +7,7 @@ set -euo pipefail
 # Parse the complete operation before checkout can replace this script on disk.
 main() {
 cd "$(dirname "$0")/../.."
+. deploy/ubuntu/git-build.sh
 
 ENV_FILE="${UPDATE_ENV_FILE:-/etc/mobocom/mobocom.env}"
 [ -f "$ENV_FILE" ] || { echo '[update] environment file is missing' >&2; exit 1; }
@@ -52,6 +53,7 @@ if ! clean; then
   echo '[update] local changes must be resolved before updating' >&2
   exit 2
 fi
+git_build_preflight || exit 2
 
 # Share the lock with the tag-based updater so the two entry points cannot race.
 LOCK="$STATE_DIR/lock"
@@ -83,12 +85,17 @@ healthy() {
 }
 
 build_and_start() {
+  git_build_prepare || return 1
+  (
+  cd "$GIT_BUILD_STAGE/source" || return 1
   # On a restricted network: an npm mirror that answers, and this version's Prisma engines from GitHub (else nothing).
   if [ -f deploy/ubuntu/npm-registry.sh ]; then bash deploy/ubuntu/npm-registry.sh || return 1; fi
   if [ -f deploy/ubuntu/prisma-engines.sh ]; then bash deploy/ubuntu/prisma-engines.sh . || return 1; fi
   # The environment file sets NODE_ENV=production, which would leave out the packages the build needs.
   "$NPM" ci --include=dev --no-audit --no-fund || return 1
   NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "$BUILD" || return 1
+  ) || return 1
+  git_build_adopt || return 1
   reset_build_files
   bash -c "$RESTART" || return 1
   healthy
@@ -109,7 +116,9 @@ rollback() {
       git checkout --quiet --detach "$PREV" || return 1
     fi
   fi
-  build_and_start
+  git_build_restore || return 1
+  bash -c "$RESTART" || return 1
+  healthy
 }
 
 # Remembered for "mobocom rollback" (storage/update is kept across updates and is not part of the code).

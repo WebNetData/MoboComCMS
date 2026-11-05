@@ -1,5 +1,71 @@
 # Ubuntu host installation and recovery continuation — 2026-10-31
 
+## Preserve Git-update compiled artifacts — 2026-11-05
+
+Branch `fix/retain-update-build-2026-11-05`, from merged main `dc263fbd` (PR357).
+Scope/spec: [Git update build retention](../../specs/update-build-safety/SPEC.md).
+
+Owner report: the manually published1.7.5 update exhausted the4096 MB V8 heap;
+rollback failed and systemd looped on a missing `.next/BUILD_ID`. Server:3.8 GiB RAM,
+4 GiB swap,49 GiB disk free, service user `mobocom`, app `/opt/mobocom/app`.
+Operator was instructed to stop the loop, add a separate temporary4 GiB swap file,
+build with6144 MB heap and restart only after build success plus a nonempty BUILD_ID.
+The owner subsequently supplied `systemctl is-active mobocom` = `active` and actual
+`GET http://127.0.0.1:3000/api/health/ready` = HTTP200 with
+`{"ok":true,"database":"ready"}` at2026-11-05 18:37:01 UTC. This confirms app/database
+recovery through loopback; public HTTPS was not independently verified. Commands
+were run by the owner, not through a remote session here.
+
+- Shared `deploy/ubuntu/git-build.sh` is sourced before checkout replaces scripts.
+  Both Git updaters build tracked source in a private sibling; npm/build cannot
+  replace active `.next` or `node_modules`. Candidate BUILD_ID, clean HEAD/worktree,
+  app-parent write access and existing service-stop permission are checked.
+- Adoption stops the service and retains both original directories. Guarded
+  rollback restores those exact directories without npm/build. Partial move failure
+  is compensated. Missing installed build requires manual repair before updating.
+- `next.config.js` enables `experimental.webpackMemoryOptimizations`; no check is
+  disabled and no dependency is upgraded. Actual Next16.4.2 production build passed
+  with4096 MB heap in the isolated6 GiB validation container. This does not guarantee
+  that heap is sufficient on every host.
+- Source checkout still occurs before compilation; this is not zero downtime.
+  Private `.mobocom-build.*` directories are deliberately retained for operator
+  recovery and consume disk. No automatic data/schema rollback or cleanup.
+- First adoption: an update executes the installed scripts. An old1.7.5 script
+  does not gain these protections during its current run. Repair the existing
+  build and provision adequate capacity first. Legacy stop permission comes from
+  the trusted `updater-install.sh`; no added sudo privilege or root-helper change.
+  Keep already published1.7.5 assets/tag immutable; publish a later version for
+  these changes through the normal owner release workflow.
+
+Executed local evidence (Linux Node22, UID1000, isolated source without `.env`):
+
+- Final `npm run check`:890 site tests,53 architecture,4 review,13 money tests;
+  TypeScript, generated files, source/schema/security/migration checks passed.
+  The updater/installer group has60 tests, including7 new regressions covering
+  retained bytes, no second compile, invalid builds, owner edits, partial adoption
+  and missing stop permission. Bash syntax checks passed for all three scripts.
+- Two deliberate isolated faults were detected: building in the active app and
+  skipping artifact restoration. The source used for final validation was intact.
+- All171 migrations applied to dedicated PostgreSQL. Actual signed-package
+  connected suite passed with a root-owned synthetic Ed25519 publisher key,
+  real native database, authentication/Origin, streaming limit and audit checks.
+  Fixture setup initially failed on absent tooling then the intended root-key
+  ownership guard; it was provisioned correctly without weakening the check.
+- Production `build:postgres` passed,822 runtime trace manifests, runtime storage
+  excluded. A real production bundle and native dependencies were then moved by
+  the actual helper and restored by it: both runs returned HTTP200 readiness with
+  database ready and delivered a compiled static JavaScript asset, without rebuild.
+  The fixture first rejected invalid HTTP production configuration as designed;
+  final run used HTTPS configuration. No visible UI change or browser claim.
+- Local Semgrep host-operation rules:0 findings on5 changed code files (3 applicable
+  rules). Redacted Gitleaks:0 leaks. Windows sandbox initially prevented certificate
+  access; rerun with certificate-store access passed. ShellCheck was unavailable;
+  bash syntax, executed regression tests and manual diff review provide shell proof.
+
+Ignored evidence: `.mobocom/update-safety/` (full check/build/security/relocation
+receipts). No production deploy, hosted workflow dispatch, release/tag mutation,
+database schema change or external message was performed by this fix.
+
 ## Xray profiles per purpose from the Server Panel — 2026-11-04
 
 Owner: enter Xray configs from Admin and choose which config each job uses. Branch `feat/xray-profiles-2026-11-04` from

@@ -88,6 +88,8 @@ function sandbox() {
   const put = (name, text) => { fs.mkdirSync(path.dirname(path.join(origin, name)), { recursive: true }); fs.writeFileSync(path.join(origin, name), text) }
   put('deploy/ubuntu/self-update.sh', read('deploy/ubuntu/self-update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/self-update.sh'), 0o755)
   put('deploy/ubuntu/update.sh', read('deploy/ubuntu/update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/update.sh'), 0o755)
+  put('deploy/ubuntu/git-build.sh', read('deploy/ubuntu/git-build.sh'))
+  put('.gitignore', '.next/\nnode_modules/\nstorage/\n.env\n')
   put('deploy/ubuntu/git-fetch.sh', read('deploy/ubuntu/git-fetch.sh'))
   // Files the real build rewrites (Next.js and the extension generator), committed like in the repository.
   put('tsconfig.json', '{}\n'); put('src/themes/generated.css', '/* committed */\n')
@@ -96,11 +98,13 @@ function sandbox() {
   git(origin, 'checkout', '-q', 'v1.0.0')
   const app = path.join(dir, 'app')
   execFileSync('git', ['clone', '-q', origin, app]); git(app, 'checkout', '-q', '--detach', 'v1.0.0')
+  fs.mkdirSync(path.join(app,'.next')); fs.writeFileSync(path.join(app,'.next','BUILD_ID'),'previous-build')
+  fs.mkdirSync(path.join(app,'node_modules')); fs.writeFileSync(path.join(app,'node_modules','previous-dependency'),'kept')
   return { dir, app, git: (...a) => git(app, ...a) }
 }
 function runUpdate(box, ref, extra = {}) {
   const health = path.join(box.dir, 'healthy')
-  const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: '/nonexistent', UPDATE_HEALTH_URL: `file://${health}`, UPDATE_HEALTH_TRIES: '1', UPDATE_BUILD: 'true', HEALTH_FILE: health, ...extra }
+  const env = { ...process.env, UPDATE_APP_DIR: box.app, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_STOP: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: '/nonexistent', UPDATE_HEALTH_URL: `file://${health}`, UPDATE_HEALTH_TRIES: '1', UPDATE_BUILD: 'mkdir -p .next node_modules; printf candidate > .next/BUILD_ID', HEALTH_FILE: health, ...extra }
   const result = spawnSync('bash', ['deploy/ubuntu/self-update.sh', ref], { cwd: box.app, env, encoding: 'utf8', timeout: 60_000 })
   let state = {}
   try { state = JSON.parse(fs.readFileSync(path.join(box.dir, 'state', 'state.json'), 'utf8')) } catch { /* none */ }
@@ -113,7 +117,7 @@ function runManualUpdate(box, extra = {}) {
   const health = path.join(box.dir, 'manual-healthy')
   const envFile = path.join(box.dir, 'mobocom.env')
   fs.writeFileSync(envFile, 'DATABASE_URL=postgresql://fixture:fixture@localhost:5432/fixture\n')
-  const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: envFile, UPDATE_HEALTH_URL: `file://${health}`, UPDATE_HEALTH_TRIES: '1', UPDATE_BUILD: 'true', ...extra }
+  const env = { ...process.env, UPDATE_APP_DIR: box.app, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_STOP: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: envFile, UPDATE_HEALTH_URL: `file://${health}`, UPDATE_HEALTH_TRIES: '1', UPDATE_BUILD: 'mkdir -p .next node_modules; printf candidate > .next/BUILD_ID', ...extra }
   const result = spawnSync('bash', ['deploy/ubuntu/update.sh'], { cwd: box.app, env, encoding: 'utf8', timeout: 60_000 })
   return { code: result.status, stdout: result.stdout, stderr: result.stderr, health }
 }
@@ -191,11 +195,77 @@ test('manual Ubuntu update succeeds after backup and a healthy restart', () => {
 test('manual Ubuntu update restores old application code when the new build fails', () => {
   const box = sandbox()
   fs.writeFileSync(path.join(box.dir, 'manual-healthy'), 'ok')
-  const result = runManualUpdate(box, { UPDATE_BUILD: "if grep -q '^1.1.0' VERSION; then false; else true; fi" })
+  const result = runManualUpdate(box, { UPDATE_BUILD: "mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; if grep -q '^1.1.0' VERSION; then false; else true; fi" })
   assert.equal(result.code, 1, result.stderr)
   assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
   assert.match(result.stderr, /application rolled back/)
   assert.equal(fs.existsSync(path.join(box.dir, 'state', 'lock')), false)
+})
+
+test('a failed isolated build never overwrites the active build or dependencies and rollback never rebuilds', () => {
+  for (const manual of [false,true]) {
+    const box=sandbox(),health=path.join(box.dir,manual?'manual-healthy':'healthy'),seen=path.join(box.dir,'build-cwd'),stop=path.join(box.dir,'stopped')
+    fs.writeFileSync(health,'ok');fs.writeFileSync(path.join(box.app,'.env'),'private runtime settings')
+    fs.mkdirSync(path.join(box.app,'storage'));fs.writeFileSync(path.join(box.app,'storage','owner-file'),'private upload')
+    const build=`pwd >> "${seen}"; test ! -e .env && test ! -e storage/owner-file || exit 21; mkdir -p .next node_modules; printf broken > .next/BUILD_ID; printf broken > node_modules/partial; exit 134`
+    const extra={UPDATE_BUILD:build,UPDATE_STOP:`touch "${stop}"`},r=manual?runManualUpdate(box,extra):runUpdate(box,'v1.1.0',extra)
+    assert.equal(r.code,1,r.stderr+(r.log||''));assert.equal(fs.readFileSync(path.join(box.app,'.next','BUILD_ID'),'utf8'),'previous-build')
+    assert.equal(fs.readFileSync(path.join(box.app,'node_modules','previous-dependency'),'utf8'),'kept');assert.equal(fs.readFileSync(path.join(box.app,'VERSION'),'utf8').trim(),'1.0.0')
+    const attempts=fs.readFileSync(seen,'utf8').trim().split('\n');assert.equal(attempts.length,1,'an OOM never triggers another build for rollback');assert.notEqual(path.resolve(attempts[0]),box.app)
+    assert.equal(fs.existsSync(stop),false,'failed candidate never stops the running site');assert.equal(fs.readFileSync(path.join(box.app,'.env'),'utf8'),'private runtime settings')
+  }
+})
+
+test('a failed candidate health check restores the exact previous build/dependencies without npm or build replay', () => {
+  for (const manual of [false,true]) {
+    const box=sandbox(),health=path.join(box.dir,manual?'manual-healthy':'healthy'),seen=path.join(box.dir,'builds')
+    fs.writeFileSync(health,'ok')
+    const r=(manual?runManualUpdate:((b,e)=>runUpdate(b,'v1.1.0',e)))(box,{
+      UPDATE_BUILD:`printf build >> "${seen}"; mkdir -p .next node_modules; printf new > .next/BUILD_ID; printf new > node_modules/new-dependency`,
+      UPDATE_RESTART:`if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi`,
+    })
+    assert.equal(r.code,1,r.stderr+(r.log||''));assert.equal(fs.readFileSync(seen,'utf8'),'build')
+    assert.equal(fs.readFileSync(path.join(box.app,'.next','BUILD_ID'),'utf8'),'previous-build');assert.equal(fs.readFileSync(path.join(box.app,'node_modules','previous-dependency'),'utf8'),'kept')
+    assert.equal(fs.existsSync(path.join(box.app,'node_modules','new-dependency')),false)
+  }
+})
+
+test('a successful command without a candidate BUILD_ID cannot replace the active build', () => {
+  const box=sandbox();fs.writeFileSync(path.join(box.dir,'healthy'),'ok')
+  const r=runUpdate(box,'v1.1.0',{UPDATE_BUILD:'mkdir -p node_modules; true'})
+  assert.equal(r.code,1);assert.match(r.log,/candidate BUILD_ID is missing/);assert.equal(r.state.status,'rolled-back')
+  assert.equal(fs.readFileSync(path.join(box.app,'.next','BUILD_ID'),'utf8'),'previous-build')
+})
+
+test('a missing installed production build fails before checkout, backup or npm', () => {
+  const box=sandbox(),before=box.git('rev-parse','HEAD').trim(),marker=path.join(box.dir,'unexpected-backup')
+  fs.unlinkSync(path.join(box.app,'.next','BUILD_ID'))
+  const r=runUpdate(box,'v1.1.0',{UPDATE_BACKUP:`touch "${marker}"`})
+  assert.equal(r.code,2);assert.equal(box.git('rev-parse','HEAD').trim(),before);assert.equal(fs.existsSync(marker),false)
+  assert.match(r.log,/current production build is missing/)
+})
+
+test('owner edits during a successful isolated build prevent adoption and leave active artifacts intact', () => {
+  const box=sandbox();fs.writeFileSync(path.join(box.dir,'healthy'),'ok')
+  const r=runUpdate(box,'v1.1.0',{UPDATE_BUILD:'mkdir -p .next node_modules; printf new > .next/BUILD_ID; printf keep > "$UPDATE_APP_DIR/VERSION"'})
+  assert.equal(r.state.status,'failed');assert.match(r.log,/local work appeared during the isolated build/)
+  assert.equal(fs.readFileSync(path.join(box.app,'VERSION'),'utf8'),'keep');assert.equal(fs.readFileSync(path.join(box.app,'.next','BUILD_ID'),'utf8'),'previous-build')
+})
+
+test('partial artifact adoption is compensated without deleting previous build or dependency bytes', () => {
+  const box=sandbox(),bin=path.join(box.dir,'bin');fs.mkdirSync(bin);fs.writeFileSync(path.join(box.dir,'healthy'),'ok')
+  const mv=path.join(bin,'mv');fs.writeFileSync(mv,'#!/bin/sh\nif [ "$2" = "$UPDATE_APP_DIR/node_modules" ]; then exit 23; fi\nexec /bin/mv "$@"\n');fs.chmodSync(mv,0o755)
+  const r=runUpdate(box,'v1.1.0',{PATH:bin+path.delimiter+process.env.PATH})
+  assert.equal(r.state.status,'rolled-back',r.log);assert.equal(fs.readFileSync(path.join(box.app,'.next','BUILD_ID'),'utf8'),'previous-build')
+  assert.equal(fs.readFileSync(path.join(box.app,'node_modules','previous-dependency'),'utf8'),'kept')
+})
+
+test('legacy missing stop permission is refused before backup or code changes', () => {
+  const box=sandbox(),bin=path.join(box.dir,'limited-bin'),marker=path.join(box.dir,'unexpected-backup');fs.mkdirSync(bin)
+  const sudo=path.join(bin,'sudo');fs.writeFileSync(sudo,'#!/bin/sh\nexit 1\n');fs.chmodSync(sudo,0o755)
+  const r=runUpdate(box,'v1.1.0',{PATH:bin+path.delimiter+process.env.PATH,UPDATE_STOP:'',UPDATE_BACKUP:`touch "${marker}"`})
+  assert.equal(r.code,2);assert.match(r.log,/stop permission missing/);assert.equal(fs.existsSync(marker),false)
+  assert.equal(fs.readFileSync(path.join(box.app,'VERSION'),'utf8').trim(),'1.0.0')
 })
 
 test('manual Ubuntu update restores the old branch commit after a failed health check', () => {
@@ -247,8 +317,8 @@ test('manual update preserves untracked work and edits appearing during backup/b
     const extra = {}
     if (phase === 'before') fs.writeFileSync(path.join(box.app, 'owner.txt'), 'keep')
     if (phase === 'backup') extra.UPDATE_BACKUP = 'printf keep > owner.txt'
-    if (phase === 'build') extra.UPDATE_BUILD = 'printf keep > VERSION; false'
-    if (phase === 'commit') extra.UPDATE_BUILD = 'printf keep > VERSION; git add VERSION; git -c user.name=owner -c user.email=owner@example.invalid commit -qm owner; false'
+    if (phase === 'build') extra.UPDATE_BUILD = 'cd "$UPDATE_APP_DIR"; printf keep > VERSION; false'
+    if (phase === 'commit') extra.UPDATE_BUILD = 'cd "$UPDATE_APP_DIR"; printf keep > VERSION; git add VERSION; git -c user.name=owner -c user.email=owner@example.invalid commit -qm owner; false'
     const result = runManualUpdate(box, extra)
     assert.notEqual(result.code, 0, result.stderr)
     assert.equal(fs.readFileSync(path.join(box.app, ['build','commit'].includes(phase) ? 'VERSION' : 'owner.txt'), 'utf8'), 'keep')
@@ -261,7 +331,7 @@ test('manual update preserves untracked work and edits appearing during backup/b
 test('tag update also preserves edits that appear after preflight', () => {
   for (const phase of ['backup', 'build']) {
     const box = sandbox()
-    const result = runUpdate(box, 'v1.1.0', { [phase === 'backup' ? 'UPDATE_BACKUP' : 'UPDATE_BUILD']: 'printf keep > VERSION; ' + (phase === 'build' ? 'false' : 'true') })
+    const result = runUpdate(box, 'v1.1.0', { [phase === 'backup' ? 'UPDATE_BACKUP' : 'UPDATE_BUILD']: 'cd "$UPDATE_APP_DIR"; printf keep > VERSION; ' + (phase === 'build' ? 'false' : 'true') })
     assert.notEqual(result.code, 0)
     assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8'), 'keep')
   }
@@ -310,11 +380,11 @@ test('the panel update builds with the same Node heap as the installer and updat
   const box = sandbox()
   fs.writeFileSync(path.join(box.dir, 'healthy'), 'ok')
   const seen = path.join(box.dir, 'node-options')
-  const ok = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: `printf '%s' "$NODE_OPTIONS" > "${seen}"` })
+  const ok = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: `mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; printf '%s' "$NODE_OPTIONS" > "${seen}"` })
   assert.equal(ok.code, 0, ok.stderr + ok.log)
   assert.equal(fs.readFileSync(seen, 'utf8'), '--max-old-space-size=4096', 'a 2 GB default heap ended a real build half way')
   const big = sandbox(); fs.writeFileSync(path.join(big.dir, 'healthy'), 'ok')
-  assert.equal(runUpdate(big, 'v1.1.0', { BUILD_MEMORY_MB: '6144', UPDATE_BUILD: `printf '%s' "$NODE_OPTIONS" > "${seen}"` }).code, 0)
+  assert.equal(runUpdate(big, 'v1.1.0', { BUILD_MEMORY_MB: '6144', UPDATE_BUILD: `mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; printf '%s' "$NODE_OPTIONS" > "${seen}"` }).code, 0)
   assert.equal(fs.readFileSync(seen, 'utf8'), '--max-old-space-size=6144')
   const bad = sandbox(), r = runUpdate(bad, 'v1.1.0', { BUILD_MEMORY_MB: '4g; id' })
   assert.equal(r.code, 2); assert.equal(fs.readFileSync(path.join(bad.app, 'VERSION'), 'utf8').trim(), '1.0.0')
@@ -326,7 +396,7 @@ test('files the build rewrites never block an update or its rollback, and a copy
   fs.writeFileSync(path.join(box.dir, 'healthy'), 'ok')
   fs.writeFileSync(path.join(box.app, 'tsconfig.json'), '{"jsx":"react-jsx"}\n')
   fs.writeFileSync(path.join(box.app, 'src/themes/generated.css'), '/* rebuilt */\r\n')
-  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: 'printf x >> tsconfig.json' })
+  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: 'mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; printf x >> tsconfig.json' })
   assert.equal(r.code, 0, r.stderr + r.log)
   assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.1.0')
   assert.equal(box.git('status', '--porcelain').trim(), '', 'the files this build rewrote are restored too')
@@ -336,14 +406,14 @@ test('files the build rewrites never block an update or its rollback, and a copy
 
   // The new version does not start after its build rewrote them: the rollback still happens.
   const back = sandbox(), health = path.join(back.dir, 'healthy')
-  const build = `printf x >> tsconfig.json; if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi`
-  const rb = runUpdate(back, 'v1.1.0', { UPDATE_BUILD: build })
+  const build = `mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; printf x >> tsconfig.json; if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi`
+  const rb = runUpdate(back, 'v1.1.0', { UPDATE_BUILD: build, UPDATE_RESTART: `if grep -q '^1.0.0' VERSION; then touch "${health}"; fi` })
   assert.equal(rb.state.status, 'rolled-back', JSON.stringify(rb.state) + rb.log)
   assert.equal(fs.readFileSync(path.join(back.app, 'VERSION'), 'utf8').trim(), '1.0.0')
 
   const manual = sandbox(), mhealth = path.join(manual.dir, 'manual-healthy')
   fs.writeFileSync(path.join(manual.app, 'tsconfig.json'), '{"left":"over"}\n')
-  const mr = runManualUpdate(manual, { UPDATE_BUILD: `printf x >> tsconfig.json; if grep -q '^1.1.0' VERSION; then rm -f "${mhealth}"; else touch "${mhealth}"; fi` })
+  const mr = runManualUpdate(manual, { UPDATE_BUILD: `mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; printf x >> tsconfig.json; if grep -q '^1.1.0' VERSION; then rm -f "${mhealth}"; fi`, UPDATE_RESTART: `if grep -q '^1.0.0' VERSION; then touch "${mhealth}"; fi` })
   assert.equal(mr.code, 1, mr.stderr); assert.match(mr.stderr, /application rolled back/)
   assert.equal(fs.readFileSync(path.join(manual.app, 'VERSION'), 'utf8').trim(), '1.0.0')
 
@@ -368,7 +438,7 @@ test('a fetch that hangs on a filtered network stops with a clear failure instea
     const box = sandbox()
     box.git('remote', 'set-url', 'origin', `http://127.0.0.1:${server.address().port}/repo.git`)
     const started = Date.now()
-    const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: '/nonexistent', UPDATE_BUILD: 'true', UPDATE_FETCH_STALL: '2', UPDATE_FETCH_TIMEOUT: '3' }
+    const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_STOP: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: '/nonexistent', UPDATE_BUILD: 'true', UPDATE_FETCH_STALL: '2', UPDATE_FETCH_TIMEOUT: '3' }
     const code = await new Promise((resolve) => spawn('bash', ['deploy/ubuntu/self-update.sh', 'v1.1.0'], { cwd: box.app, env }).on('exit', resolve))
     assert.equal(code, 1)
     assert.ok(Date.now() - started < 40_000, 'the fetch has a time limit')
@@ -473,8 +543,8 @@ test('update script: a new version that does not start is rolled back automatica
   const box = sandbox()
   const health = path.join(box.dir, 'healthy')
   // "Building" 1.1.0 breaks the health check; building the old version fixes it.
-  const build = `if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi`
-  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: build })
+  const build = `mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi`
+  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: build, UPDATE_RESTART: `if grep -q '^1.0.0' VERSION; then touch "${health}"; fi` })
   assert.equal(r.code, 1)
   assert.equal(r.state.status, 'rolled-back', JSON.stringify(r.state) + r.log)
   assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0', 'the old code is back')
@@ -483,7 +553,7 @@ test('update script: a new version that does not start is rolled back automatica
 
 test('update script: when even the rollback fails it says so', () => {
   const box = sandbox()
-  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: 'false' })
+  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: 'mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; false' })
   assert.equal(r.state.status, 'failed'); assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
 })
 
