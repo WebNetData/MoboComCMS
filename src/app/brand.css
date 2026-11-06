@@ -14,6 +14,12 @@ html[data-theme="dark"] .site-wordmark.has-dark .wm-dark { display: block; }
 
 /* Admin: logo and brand. */
 .br-page { display: grid; gap: 18px; }
+.admin-shell .br-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 18px; }
+.admin-shell .br-slot-actions label:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.admin-shell .br-page { --br-caption: color-mix(in srgb, var(--muted) 75%, var(--text)); }
+.admin-shell .br-page :is(.br-head p,.br-card > p,.br-card > header small,.br-range small,.br-field small,.br-current span,.br-check small) { color: var(--br-caption); }
+.admin-shell .br-page :is(.br-alert.is-ok,.br-alert.is-bad) { color: var(--text); }
+.admin-shell .br-page .br-current.is-dark { --br-caption: var(--sds-color-gray-200); }
 .br-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
 .br-head h1 { margin: 0; font-size: 26px; font-weight: 900; }
 .br-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.8; max-width: 70ch; }

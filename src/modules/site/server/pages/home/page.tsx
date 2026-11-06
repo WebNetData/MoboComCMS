@@ -1,3 +1,4 @@
+import { headers } from 'next/headers'
 import LandingPage from '@/components/site/LandingPage'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
@@ -33,12 +34,13 @@ export default async function HomeView({ preview }: { preview?: BuilderPreview }
   const useHomeDoc = !placed || preview?.pageId === 'home'
   const builderDoc = useHomeDoc ? homeDoc : placed.doc
   const docPageId = useHomeDoc ? 'home' : placed.meta.id
-  const faq = site.sections.filter(s => s.enabled && s.kind === 'faq').flatMap(s => s.items.map(i => ({ q: translate(i.title, locale), a: translate(i.text, locale) })))
+  const nonce = (await headers()).get('x-nonce') || undefined
+  const faq = builderDoc ? [] : site.sections.filter(s => s.enabled && s.kind === 'faq').flatMap(s => s.items.map(i => ({ q: translate(i.title, locale), a: translate(i.text, locale) })))
   const main = builderDoc
-    ? <><PluginOutlet slot="home.before-main" site={site} locale={locale}/><main className="br-page-main"><BuilderRenderer doc={builderDoc} locale={locale} data={landingData} preview={isPreview(preview)} editable={editableFor(preview, docPageId)}/></main><PluginOutlet slot="home.after-main" site={site} locale={locale}/></>
+    ? <><PluginOutlet slot="home.before-main" site={site} locale={locale}/><main className="br-page-main" data-solution={useHomeDoc ? undefined : placed?.meta.solution}><BuilderRenderer doc={builderDoc} locale={locale} data={landingData} preview={isPreview(preview)} editable={editableFor(preview, docPageId)}/></main><PluginOutlet slot="home.after-main" site={site} locale={locale}/></>
     : <LandingPage site={site} locale={locale} data={landingData}/>
   return <>
-    {faq.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd(faq)) }}/>}
+    {faq.length > 0 && <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd(faq)) }}/>}
     <ThemeHeader context={CONTEXT} choice={builderDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} preview={preview}/>
     <SectionBarSlot section="home" />
     {main}

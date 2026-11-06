@@ -234,6 +234,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     { id: 'design', area: 'website', order: 10, title: L('ظاهر و برند', 'Design & brand'), icon: 'palette', items: [
       { href: '/admin/studio', label: L('صفحه اصلی و ظاهر', 'Homepage & design'), icon: 'sliders', perm: 'settings.manage' },
+      { href: '/admin/homepage', label: L('طرح صفحهٔ اول', 'Home page designs'), icon: 'home', perm: 'settings.manage' },
       { href: '/admin/branding', label: L('لوگو و هویت برند', 'Logo & brand'), icon: 'image', perm: 'settings.manage' },
       { href: '/admin/menus', label: L('مدیریت منوها', 'Menus'), icon: 'layout', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },

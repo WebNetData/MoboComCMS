@@ -235,8 +235,9 @@ export async function buildSectionBar(section: MegaSection, cfg: SectionMenuConf
 export async function getSectionBar(section: MegaSection): Promise<SectionBar | null> {
   // Rendering and route handlers may hold different module instances. Read the
   // setting revision so a saved edit cannot be hidden by another instance's tree.
-  const config = await getMegaConfig(true)
-  const revision = megaConfigRevision(config)
+  const [config, runtime, storeOn, apiOn] = await Promise.all([getMegaConfig(true), getPublicExtensionRuntime(), isStoreEnabled(), isPublicApiEnabled()])
+  // Availability can change independently of menu edits (including mirrored storefront flags).
+  const revision = createHash('sha256').update(JSON.stringify([megaConfigRevision(config), Object.entries(runtime).map(([id, state]) => [id, state.enabled]), storeOn, apiOn])).digest('hex')
   const hit = cache.get(section)
   if (hit && hit.revision === revision && Date.now() - hit.at < CACHE_MS) return hit.bar
   const on = config.enabled && config.sections[section].enabled && await isModuleEnabled('mega-menu') && await ENABLED[section]().catch(() => false)

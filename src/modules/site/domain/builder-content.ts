@@ -1,8 +1,8 @@
 import type { BuilderDoc, BuilderWidget } from './builder'
 import { plainText } from '@/shared/text/plain'
 
-const WIDGET_MODULE: Partial<Record<string, string>> = { plans: 'vpn', network: 'vpn', posts: 'journal', products: 'store', 'vip-cta': 'membership' }
-export const builderMediaModule = (source: string) => source.startsWith('cinema-') ? 'cinema' : source.startsWith('games-') ? 'games' : 'music'
+const WIDGET_MODULE: Partial<Record<string, string>> = { hosting: 'hosting', plans: 'vpn', network: 'vpn', posts: 'journal', products: 'store', 'vip-cta': 'membership' }
+export const builderMediaModule = (source: string) => source.startsWith('software-') ? 'software' : source.startsWith('cinema-') ? 'cinema' : source.startsWith('games-') ? 'games' : 'music'
 export const builderWidgetModule = (widget: BuilderWidget) => widget.type === 'media' ? builderMediaModule(widget.props.source || '') : WIDGET_MODULE[widget.type]
 
 const TEXT_FIELDS: Partial<Record<BuilderWidget['type'], string[]>> = {

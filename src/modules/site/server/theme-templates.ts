@@ -1,3 +1,6 @@
+import type { Prisma } from '@prisma/client'
+import { mutateThemeIndex, THEME_INDEX_KEY } from './theme-index'
+export { THEME_INDEX_KEY, readThemeIndex, mutateThemeIndex, ThemeIndexError } from './theme-index'
 import { db } from '@/platform/database/prisma'
 import { categoryDescendants } from '@/modules/site/domain/categories'
 import {
@@ -10,10 +13,10 @@ import {
 } from '@/modules/site/server/builder'
 import { PRODUCT_TEMPLATES } from '@/modules/site/domain/builder-templates'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { closedSectionPlugins } from '@/modules/site/server/maintenance'
 import { getJournalSettings } from '@/modules/journal/server/admin'
 import { POST_STYLE_BASES, POST_STYLE_BASE_KEYS, builtinStyleId } from '@/modules/journal/domain/post-styles'
 
-export const THEME_INDEX_KEY = 'theme.templates.v1'
 const MAX_TEMPLATES = 200
 
 export async function listThemeTemplates(): Promise<ThemeTemplateMeta[]> {
@@ -21,31 +24,19 @@ export async function listThemeTemplates(): Promise<ThemeTemplateMeta[]> {
   return parseTemplateIndex(row?.value)
 }
 
-async function writeIndex(list: ThemeTemplateMeta[]) {
-  const value = JSON.stringify(list)
-  await db.setting.upsert({ where: { key: THEME_INDEX_KEY }, create: { key: THEME_INDEX_KEY, value }, update: { value } })
-}
-
 export async function getThemeTemplate(id: string): Promise<ThemeTemplateMeta | null> {
   return (await listThemeTemplates()).find((entry) => entry.id === id) || null
 }
 
 /** `actor`: the staff member creating it, named on the design's first version. */
-export async function createThemeTemplate(input: { type: ThemeTemplateType; name: string; nameEn?: string; doc?: BuilderDoc | null; conditions?: unknown; placement?: unknown }, actor: { id: number; email: string } | null = null): Promise<ThemeTemplateMeta> {
-  const list = await listThemeTemplates()
-  if (list.length >= MAX_TEMPLATES) throw new Error('Template limit reached')
-  const meta = validateTemplateMeta({
-    id: newTemplateId(input.type),
-    name: input.name,
-    nameEn: input.nameEn || '',
-    status: 'draft',
-    conditions: input.conditions ?? defaultConditions(input.type),
-    placement: input.placement,
+export async function createThemeTemplate(input: { type: ThemeTemplateType; name: string; nameEn?: string; doc?: BuilderDoc | null; conditions?: unknown; placement?: unknown; solution?: string }, actor: { id: number; email: string } | null = null, commit?: (tx: Prisma.TransactionClient, meta: ThemeTemplateMeta) => Promise<void>): Promise<ThemeTemplateMeta> {
+  return mutateThemeIndex(async (list, tx) => {
+    if (list.length >= MAX_TEMPLATES) throw new Error('Template limit reached')
+    const meta = validateTemplateMeta({ id: newTemplateId(input.type), name: input.name, nameEn: input.nameEn || '', status: 'draft', conditions: input.conditions ?? defaultConditions(input.type), placement: input.placement, solution: input.solution })
+    await saveBuilderDoc(meta.id, input.doc ? parseBuilderDoc(input.doc) : emptyDoc(), actor, tx)
+    list.push(meta); await commit?.(tx, meta)
+    return meta
   })
-  const doc = input.doc ? parseBuilderDoc(input.doc) : emptyDoc()
-  await saveBuilderDoc(meta.id, doc, actor)
-  await writeIndex([...list, meta])
-  return meta
 }
 
 export function defaultConditions(type: ThemeTemplateType) {
@@ -56,14 +47,13 @@ export function defaultConditions(type: ThemeTemplateType) {
 }
 
 export async function updateThemeTemplate(id: string, patch: Record<string, unknown>): Promise<ThemeTemplateMeta> {
-  const list = await listThemeTemplates()
-  const existing = list.find((entry) => entry.id === id)
-  if (!existing) throw new Error('Template not found')
-  const meta = validateTemplateMeta({ ...patch, id: existing.id }, existing)
-  const conflict = placementConflict(list, meta)
-  if (conflict) throw new Error(`این جایگاه در اختیار قالب «${conflict.name}» است؛ ابتدا آن را غیرفعال کنید / Placement already used by “${conflict.nameEn || conflict.name}”`)
-  await writeIndex(list.map((entry) => (entry.id === id ? meta : entry)))
-  return meta
+  return mutateThemeIndex(async list => {
+    const index = list.findIndex(entry => entry.id === id), existing = list[index]
+    if (!existing) throw new Error('Template not found')
+    const meta = validateTemplateMeta({ ...patch, id: existing.id }, existing), conflict = placementConflict(list, meta)
+    if (conflict) throw new Error(`این جایگاه در اختیار قالب «${conflict.name}» است؛ ابتدا جایگاه آن را تغییر دهید`)
+    list[index] = meta; return meta
+  })
 }
 
 export async function duplicateThemeTemplate(id: string, actor: { id: number; email: string } | null = null): Promise<ThemeTemplateMeta> {
@@ -76,17 +66,19 @@ export async function duplicateThemeTemplate(id: string, actor: { id: number; em
     nameEn: source.nameEn ? `${source.nameEn} (copy)`.slice(0, 80) : '',
     doc,
     conditions: source.conditions,
+    solution: source.solution,
     placement: source.type === 'page' ? { ...source.placement, kind: 'none' } : undefined,
   }, actor)
 }
 
 export async function deleteThemeTemplate(id: string): Promise<boolean> {
-  const list = await listThemeTemplates()
-  if (!list.some((entry) => entry.id === id)) return false
-  await writeIndex(list.filter((entry) => entry.id !== id))
-  await db.setting.delete({ where: { key: builderKey(id) } }).catch(() => undefined)
-  await clearBuilderDraft(id)
-  return true
+  const removed = await mutateThemeIndex(async (list, tx) => {
+    const at = list.findIndex(entry => entry.id === id)
+    if (at < 0) return false
+    list.splice(at, 1); await tx.setting.deleteMany({ where: { key: builderKey(id) } }); return true
+  })
+  if (removed) await clearBuilderDraft(id)
+  return removed
 }
 
 // ------------------------------------------------------------ resolution
@@ -143,6 +135,7 @@ export async function resolvePlacedPage(kind: 'home' | 'blog' | 'shop' | 'sectio
   if (!await isModuleEnabled('page-builder')) return null
   const list = await listThemeTemplates()
   const meta = list.find((entry) => entry.type === 'page' && entry.status === 'published' && entry.placement.kind === kind && (kind !== 'section' || entry.placement.slug === slug)) || null
+  if (meta?.solution && (!await isModuleEnabled(meta.solution) || (await closedSectionPlugins()).has(meta.solution))) return null
   return withDoc(meta)
 }
 

@@ -1,8 +1,9 @@
 import type { BuilderDoc, BuilderSection } from './builder'
 import { center, col, doc, items, sec, w } from './builder-template-kit'
+import { SPECIALIST_HOMES } from './specialist-homes'
 import { LANDING_PAGE_TEMPLATES, LANDING_SECTION_TEMPLATES } from './builder-landing-templates'
 
-export type BundledTemplate = { id: string; fa: string; en: string; descFa: string; descEn: string; doc: BuilderDoc }
+export type BundledTemplate = { module?: string; id: string; fa: string; en: string; descFa: string; descEn: string; doc: BuilderDoc }
 
 export const BUNDLED_TEMPLATES: BundledTemplate[] = [
   {
@@ -538,6 +539,7 @@ export const THEME_PRESETS: Record<'header' | 'footer' | 'page', BundledTemplate
     },
   ],
   page: [
+    ...SPECIALIST_HOMES,
     {
       id: 'page-section-hub', fa: 'صفحهٔ بخش (مثل گیمینگ)', en: 'Section hub (e.g. gaming)',
       descFa: 'هیرو، آخرین مطالب همین بخش و دعوت پایانی', descEn: 'Hero, latest posts of this section and a closing CTA',

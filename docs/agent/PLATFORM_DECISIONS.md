@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Site identity and specialist homepages — 2026-11-06
+
+Owner wants all site identity configurable in Admin and optional professional homepages for hosting/domains/servers, news, store, music, cinema/series, software and games. Preserve the current home by default. Extend the existing brand/Studio/SEO and Theme Builder owners; do not fork the platform or introduce another home/theme/settings authority. Creating a draft never changes live home; explicit selection publishes/places it, retains previous documents and permits return to the original builder/default. Settings + page permissions govern home selection, strict current Settings/index claims and audit protect concurrent work. Choosing a design never activates/deletes modules or changes staff access. Disabled/maintenance solution modules preserve the selected document and fall back to the original home. [Operation and evidence](handoffs/SITE_IDENTITY_HOMEPAGES.md).
+
 ## Operational AI defaults to review; direct execution is per request — 2026-11-06
 
 Owner now also requests occasional execution without proposal approval and explicitly chooses «برای همین درخواست، با انتخاب خودم». Review remains the default. Settings manager must enable direct execution per tool (default empty); the requesting admin explicitly selects it for one instruction and retains current section permission. The checkbox resets on submission. Stored request keys/mode, owner/version claims and atomic receipts preserve once-only execution; review proposals cannot become direct actions. No always-on or scheduled AI authority, payment/refund, customer messaging or arbitrary code is granted. Existing Automation remains the unattended-rule owner. [Current contracts and evidence](handoffs/AI_DIRECT_REQUESTS.md), [base owners](handoffs/AI_OPERATIONS.md).

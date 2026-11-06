@@ -18,7 +18,7 @@ const link = (value: SiteLink): object => ({ ...pick(value, ['id', 'href', 'icon
 export function sitePresentation(value: SiteConfig) {
   return {
     ...(value.contact ? { contact: normalizeCompanyContact(value.contact) } : {}),
-    ...pick(value, ['version', 'brand', 'logo', 'wordmark', 'wordmarkDark', 'wordmarkHeight', 'customCss', 'automaticPageLinks', 'themeId']),
+    ...pick(value, ['identity', 'version', 'brand', 'logo', 'wordmark', 'wordmarkDark', 'wordmarkHeight', 'customCss', 'automaticPageLinks', 'themeId']),
     ...(value.fonts ? { fonts: pick(value.fonts, ['body', 'heading']) } : {}),
     tagline: local(value.tagline), copyright: local(value.copyright),
     ...(value.copy ? { copy: Object.fromEntries(Object.entries(value.copy).map(([key, text]) => [key, local(text)])) } : {}),

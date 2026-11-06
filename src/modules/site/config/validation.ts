@@ -1,3 +1,4 @@
+import { validSiteIdentity } from '../domain/site-identity'
 import type { SiteConfig, ThemeManifest } from './types'
 import { MENU_DEPTH, MENU_ITEMS } from './menus'
 import { validCompanyContact } from '../domain/company-contact'
@@ -40,6 +41,7 @@ export function validateTheme(v: unknown): v is ThemeManifest {
 export function validateSite(v: unknown): v is SiteConfig {
   if (record(v) && v.contact !== undefined && !validCompanyContact(v.contact)) return false
   if (!record(v) || v.version !== 1 || !text(v.brand, 60) || !v.brand.trim() || !localized(v.tagline) || !localized(v.copyright)) return false
+  if (v.identity !== undefined && !validSiteIdentity(v.identity)) return false
   if (v.logo !== undefined && v.logo !== '' && !safeHref(v.logo)) return false
   if ([v.wordmark, v.wordmarkDark].some((value) => value !== undefined && value !== '' && (typeof value !== 'string' || !safeHref(value)))) return false
   if (v.wordmarkHeight !== undefined && !(Number.isInteger(v.wordmarkHeight) && v.wordmarkHeight >= 24 && v.wordmarkHeight <= 72)) return false

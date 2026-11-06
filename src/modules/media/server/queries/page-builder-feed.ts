@@ -1,3 +1,4 @@
+import { browseSoftware, type SoftwareCard } from './software'
 import { db } from '@/platform/database/prisma'
 import { type AlbumCard, type TrackCard, albumInclude, toAlbum, toTrack, trackInclude } from '@/modules/media/server/queries/music'
 import { type TitleCard, titleInclude, toTitle } from '@/modules/media/server/queries/cinema'
@@ -9,6 +10,7 @@ export type BuilderMediaFeed =
   | { kind: 'albums'; items: AlbumCard[] }
   | { kind: 'titles'; items: TitleCard[] }
   | { kind: 'games'; items: GameCard[] }
+  | { kind: 'software'; items: SoftwareCard[] }
 
 /** Data for the page-builder `media` widget. */
 export async function getBuilderMedia(source: string, limit: number): Promise<BuilderMediaFeed> {
@@ -36,6 +38,9 @@ export async function getBuilderMedia(source: string, limit: number): Promise<Bu
       case 'games-new':
       case 'games-top':
         return { kind: 'games', items: (await db.gameTitle.findMany({ where: source === 'games-top' ? { ...live(), score: { not: null } } : live(), orderBy: source === 'games-top' ? { score: 'desc' } : { publishedAt: 'desc' }, take })).map(toGame) }
+      case 'software-new':
+      case 'software-top':
+        return { kind: 'software', items: (await browseSoftware({ sort: source === 'software-top' ? 'popular' : '', page: 1 })).items.slice(0, take) }
       default:
         return { kind: 'tracks', items: [] }
     }

@@ -13,7 +13,7 @@ const GROUPS: { titleEn: string; titleFa: string; types: WidgetType[] }[] = [
   { titleEn: 'Showcase', titleFa: 'نمایشی', types: ['icon-box', 'tabs', 'testimonials', 'counters', 'progress', 'pricing', 'countdown'] },
   { titleEn: 'Advanced', titleFa: 'پیشرفته', types: ['accordion', 'flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating'] },
   { titleEn: 'Media & social', titleFa: 'رسانه و شبکه‌ها', types: ['slides', 'gallery', 'carousel', 'social'] },
-  { titleEn: 'Sections', titleFa: 'بخش‌های آماده', types: ['hero', 'cta', 'plans', 'posts', 'products', 'media', 'vip-cta', 'network', 'form'] },
+  { titleEn: 'Sections', titleFa: 'بخش‌های آماده', types: ['hero', 'cta', 'plans', 'posts', 'products', 'media', 'hosting', 'vip-cta', 'network', 'form'] },
   { titleEn: 'Code & templates', titleFa: 'کد و قالب', types: ['html', 'template'] },
 ]
 
