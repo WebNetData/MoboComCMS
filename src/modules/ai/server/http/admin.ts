@@ -2,11 +2,12 @@ import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
-import { rateLimitHit } from '@/platform/http/rate-limit'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { requirePerm } from '@/modules/identity/server/access'
 import { moduleGuard } from '@/extensions/server/modules'
 import { AI_PROVIDERS } from '@/modules/ai/domain/ai'
 import { AiError, generate, getAiConfig, publicAiConfig, saveAiConfig } from '@/modules/ai/server/client'
+import { withPersonalAi } from '@/modules/ai/server/admin-context'
 import {
   applyMeta, applyProductCopy, assistEditor, assistantQueues, autofillContent, draftPost, productCopy, publishCommentReply, publishForumReply,
   suggestCommentReply, suggestForumReply, suggestMeta,
@@ -78,9 +79,9 @@ export async function POST(req: NextRequest) {
   if (!action) return err('unknown action', 404)
   const admin = await anyPerm(req, Array.isArray(action.perm) ? action.perm : [action.perm])
   if (!admin) return err('forbidden', 403)
-  if (action.generates && !rateLimitHit(`ai:generate:${admin.id}`, 30, 10 * 60_000).ok) return err('درخواست‌های زیادی فرستادید؛ چند دقیقه صبر کنید', 429)
+  if (action.generates && !(await rateLimitStrict(`ai:generate:${admin.id}`, 30, 10 * 60_000)).ok) return err('درخواست‌های زیادی فرستادید؛ چند دقیقه صبر کنید', 429)
   try {
-    const result = await action.run(admin, body)
+    const result = await withPersonalAi(admin.id, () => action.run(admin, body))
     await auditAdmin({ req, actor: admin, action: `ai.${body.action}`, targetType: 'ai', targetId: body.id ?? body.section ?? '', metadata: { model: (result as { model?: string })?.model } })
     return ok(result)
   } catch (error) {

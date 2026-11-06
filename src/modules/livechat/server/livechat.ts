@@ -9,7 +9,7 @@ import { publish } from '@/platform/realtime/bus'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { minorToNumber } from '@/shared/money'
 import {
-  CRM_TAG, ChatError, chatPrompt, cleanContact, cleanMessage, customerSegment, normalizeChatSettings, operatorsOnline, parseBotReply, timeline, wantsHuman,
+  CRM_TAG, ChatError, chatPrompt, cleanContact, cleanMessage, customerSegment, normalizeChatSettings, operatorsOnline, parsePlatformBotReply, platformSupportRefusal, timeline, wantsHuman,
   type ChatSettings, type CrmEvent,
 } from '@/modules/livechat/domain/livechat'
 
@@ -220,16 +220,19 @@ async function customerFacts(userId: number | null) {
 
 async function botAnswer(conversation: Conversation, settings: ChatSettings): Promise<{ body: string; handoff: boolean } | null> {
   try {
+    if (!await isModuleEnabled('ai-assistant')) return null
     const [{ generate }, site, turns, customer] = await Promise.all([
       import('@/modules/ai/server/client'),
       getSettings(),
       db.chatMessage.findMany({ where: { conversationId: conversation.id }, orderBy: { id: 'desc' }, take: 16, select: { sender: true, body: true } }),
       customerFacts(conversation.userId),
     ])
+    const refusal = platformSupportRefusal(turns.find(turn => turn.sender === 'VISITOR')?.body || '')
+    if (refusal) return { body: refusal, handoff: false }
     const prompt = chatPrompt({ brand: site.brandName || 'موبوکام', botName: settings.botName, knowledge: settings.knowledge, customer, turns: turns.reverse().filter((turn) => turn.sender !== 'SYSTEM') })
     const result = await Promise.race([generate(prompt), new Promise<null>((resolve) => setTimeout(() => resolve(null), BOT_TIMEOUT_MS))])
     if (!result) return null
-    const reply = parseBotReply(result.text)
+    const reply = parsePlatformBotReply(result.text)
     return reply.body ? reply : null
   } catch (error) {
     logEvent('warn', 'livechat.bot_failed', { conversationId: conversation.id, error: error instanceof Error ? error.message : String(error) })

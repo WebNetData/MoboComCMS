@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Personal ChatGPT for Admin — 2026-11-06
+
+Owner choice: their own ChatGPT account serves personal Admin tools only. Each authorized admin has a separate connection; users, Livechat, Prompt Master and background work never consume it. Public support answers concern MoboCom only. Use the documented personal OSS/self-hosted OAuth path and explicit consent, never imported browser sessions. Active personal errors do not fall back to a paid API; explicit disable/disconnect returns to existing configured AI. No hosted shared-account service is authorized. [Implementation and limits](handoffs/CHATGPT_ADMIN.md).
+
 ## Content PDF editions — 2026-11-05
 
 Owner requests native downloadable PDF editions across public content/products and dedicated per-kind designs, with an Admin-selected watermark. Existing Content owns the authorized export projection and typed presets; Settings/history/Identity/Media remain canonical. Film and series assignments are independent; interactive media stays online and restricted content requires its existing access. Code-owned templates never execute administrator-supplied HTML/CSS/JS. [Implementation and evidence](handoffs/CONTENT_PDF.md).
