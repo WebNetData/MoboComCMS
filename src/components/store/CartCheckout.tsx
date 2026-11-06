@@ -1,5 +1,8 @@
 'use client'
 
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
@@ -27,7 +30,7 @@ const PROMO_MESSAGES: Record<string, string> = {
 }
 
 /** Cart checkout: delivery address and time (for physical items), discount code, payment. */
-export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
+export default function CartCheckout({ cart, delivery, gateways, surface = 'public' }: { surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
   const router = useRouter()
   const physical = cart.hasPhysical
   const { addresses, error: addressError, reload } = useAddresses()
@@ -92,6 +95,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
     setBusy(true); setError(null)
     try {
       const result = await checkoutCart({
+        surface: surface === 'dashboard' ? 'dashboard' : undefined,
         addressId: physical && address ? address.id : undefined,
         delivery: physical && needsSchedule && slot && day ? { date: day.date, slotId: slot.id } : undefined,
         carrierId: physical && byCarrier && carrier ? carrier.carrierId : undefined,
@@ -99,7 +103,8 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
         discountCode: code.trim() || undefined,
       })
       if (result.ok) {
-        if (result.paid || result.invoiceUrl) router.push(`/payment/result?invoice=${result.invoiceNumber}`)
+        if (surface === 'dashboard') { const destination = checkoutDestination(result, surface); if (destination) window.location.assign(destination) }
+        else if (result.paid || result.invoiceUrl) router.push(`/payment/result?invoice=${result.invoiceNumber}`)
         else if (result.paymentUrl) window.location.href = result.paymentUrl
         return
       }
@@ -117,7 +122,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
 
   return <div className="sh-checkout sx-checkout" dir="rtl">
     <ol className="sh-steps" aria-label="مراحل خرید">
-      <li className="is-done"><Link href="/cart">سبد خرید</Link></li>
+      <li className="is-done"><Link href={checkoutPath('/cart', surface)}>سبد خرید</Link></li>
       <li className="is-current" aria-current="step">{physical ? 'آدرس و زمان ارسال' : 'بازبینی سفارش'}</li>
       <li>پرداخت</li>
     </ol>

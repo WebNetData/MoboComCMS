@@ -1118,6 +1118,7 @@
 .invoice-meta b { font-size: 0.95rem; overflow-wrap: anywhere; }
 .invoice-meta small { font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; text-align: start; }
 .invoice-items { border: 1px solid var(--border); border-radius: 1rem; overflow-x: auto; }
+.invoice-items:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
 .invoice-table { margin: 0; inline-size: 100%; }
 .invoice-table thead th { background: color-mix(in srgb, var(--primary) 9%, var(--card)); font-size: 0.8rem; white-space: nowrap; }
 .invoice-table th:not(:first-child), .invoice-table td:not(:first-child) { text-align: end; white-space: nowrap; }

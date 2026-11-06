@@ -32,12 +32,12 @@ export default function MyServicesPage() {
 
   return <div className="dt-page hs-page" dir="rtl">
     <header className="dt-head">
-      <div><h1>موبوکام کلاد</h1><p>هاست، سرور، سرویس‌های ابری و دامنه‌های شما؛ وضعیت، اطلاعات ورود و تمدید هر کدام. <Link href="/cloud">خرید سرویس تازه</Link></p></div>
-      <div className="hs-head-actions"><Link className="btn btn-ghost" href="/domains">دامنهٔ تازه</Link><Link className="btn btn-ghost" href="/hosting">هاست تازه</Link><Link className="btn btn-primary" href="/servers">سرور تازه</Link></div>
+      <div><h1>موبوکام کلاد</h1><p>هاست، سرور، سرویس‌های ابری و دامنه‌های شما؛ وضعیت، اطلاعات ورود و تمدید هر کدام. <Link href="/dashboard/order">خرید سرویس تازه</Link></p></div>
+      <div className="hs-head-actions"><Link className="btn btn-ghost" href="/dashboard/order?category=domains">دامنهٔ تازه</Link><Link className="btn btn-ghost" href="/dashboard/order?category=hosting">هاست تازه</Link><Link className="btn btn-primary" href="/dashboard/order?category=servers">سرور تازه</Link></div>
     </header>
     {failed ? <div className="dt-empty is-bad" role="alert"><Icon name="server" size={28} /><b>فهرست سرویس‌ها دریافت نشد</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setFailed(false); setAttempt((n) => n + 1) }}>تلاش دوباره</button></div>
       : rows === null ? <div className="hs-grid" aria-busy="true">{[0, 1, 2].map((n) => <div key={n} className="hs-card is-skeleton" />)}</div>
-      : !rows.length ? <div className="dt-empty"><Icon name="server" size={30} /><b>هنوز سرویسی ندارید</b><span>هاست سایت یا سرور مجازی و ابری بخرید؛ همه این‌جا کنار هم مدیریت می‌شوند.</span><div className="hs-head-actions"><Link className="btn btn-primary" href="/hosting">دیدن پلن‌های هاست</Link><Link className="btn btn-ghost" href="/servers">دیدن سرورها</Link></div></div>
+      : !rows.length ? <div className="dt-empty"><Icon name="server" size={30} /><b>هنوز سرویسی ندارید</b><span>هاست سایت یا سرور مجازی و ابری بخرید؛ همه این‌جا کنار هم مدیریت می‌شوند.</span><div className="hs-head-actions"><Link className="btn btn-primary" href="/dashboard/order?category=hosting">دیدن پلن‌های هاست</Link><Link className="btn btn-ghost" href="/dashboard/order?category=servers">دیدن سرورها</Link></div></div>
       : <div className="hs-grid">{rows.map((row) => {
         const status = SERVICE_STATUS[row.status as ServiceStatus]
         const left = daysLeft(row.nextDueAt)

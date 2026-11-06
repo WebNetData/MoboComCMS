@@ -123,7 +123,7 @@ const CHECKS = [
   'referral-reward-recovery', 'loyalty-redemption-recovery',
   'renewal-resume', 'notification-policy',
   'cinema-calendar', 'media-tracks', 'player-subtitles',
-  'episode-air-alerts', 'cinema-people', 'cinema-people-admin', 'music-artist-profiles', 'celebrity-profile', 'cinema-discovery', 'cinema-formats', 'vocabulary', 'builder-history', 'site-identity-homepages',
+  'episode-air-alerts', 'cinema-people', 'cinema-people-admin', 'music-artist-profiles', 'celebrity-profile', 'cinema-discovery', 'cinema-formats', 'vocabulary', 'builder-history', 'site-identity-homepages', 'dashboard-service-ordering',
 ]
 
 // These invoke optional tools/protocol servers, queue workers or canonical-setting fixtures.

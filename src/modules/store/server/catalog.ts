@@ -109,6 +109,14 @@ export async function productCards(where: Prisma.ProductWhereInput, orderBy: Pri
   return cards(rows)
 }
 
+/** Dashboard service discovery uses the same cards/pricing and canonical audience rules. */
+export async function memberServiceCards(query = '', foreign = false, page = 1) {
+  const q = query.trim().slice(0, 80), current = Number.isSafeInteger(page) ? Math.max(1, Math.min(1000, page)) : 1
+  const where: Prisma.ProductWhereInput = { active: true, approval: 'APPROVED', kind: 'VIRTUAL', digitalMode: { not: 'FILES' }, ...(foreign ? { openAmount: true } : {}), ...(await audienceClause('product')), ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { shortDescription: { contains: q, mode: 'insensitive' } }] } : {}) }
+  const [rows, total] = await Promise.all([db.product.findMany({ where, orderBy: [{ sortOrder: 'asc' }, { id: 'desc' }], skip: (current - 1) * 12, take: 12, include: CARD_INCLUDE }), db.product.count({ where })])
+  return { items: await cards(rows), total, page: current, pages: Math.max(1, Math.ceil(total / 12)) }
+}
+
 // ------------------------------------------------------------------ categories
 
 export type CategoryNode = { id: number; slug: string; name: string; image: string; icon: string; description: string; parentId: number | null; kind: string; count: number; total: number; children: CategoryNode[] }

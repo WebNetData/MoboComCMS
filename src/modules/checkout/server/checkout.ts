@@ -87,6 +87,7 @@ export interface CheckoutCommand {
   idempotencyKey: string
   siteUrl: string
   channel?: 'web' | 'telegram'
+  surface?: 'dashboard'
 }
 
 export type CheckoutFailure = { ok: false; status: number; code: string; message: string; meta?: Record<string, unknown> }
@@ -440,7 +441,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
         status: 'PENDING',
         provider: dueMinor === 0n ? 'wallet' : gateway!.provider.toLowerCase(),
         gatewayId: gateway?.id ?? null,
-        meta: JSON.stringify({ ...meta, walletApplied: minorToNumber(creditMinor, currency), username: desiredUsername || '', discountCode: code, discountMinor: discountMinor.toString(), memberPrice: memberDiscount, shippingMinor: shippingMinor.toString() }),
+        meta: JSON.stringify({ ...meta, ...(command.surface === 'dashboard' ? { checkoutSurface: 'dashboard' } : {}), walletApplied: minorToNumber(creditMinor, currency), username: desiredUsername || '', discountCode: code, discountMinor: discountMinor.toString(), memberPrice: memberDiscount, shippingMinor: shippingMinor.toString() }),
       } })
       if (delivery) await bookDelivery(tx, created.id, delivery.date, delivery.slot.id)
       for (const line of orderLines) await tx.orderLine.create({ data: { ...line, orderId: created.id } })

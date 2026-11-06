@@ -1,3 +1,4 @@
+import { checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
@@ -28,7 +29,7 @@ async function owner() {
 }
 
 /** /cart — the shopping cart with suggestions under it. */
-export async function CartView() {
+export async function CartView({ surface = 'public' }: { surface?: CheckoutSurface } = {}) {
   if (!await isStoreEnabled()) notFound()
   const [locale, theme, who] = await Promise.all([getServerLocale(), getServerTheme(), owner()])
   const [cart, settings, navPages] = await Promise.all([
@@ -36,6 +37,7 @@ export async function CartView() {
     getStoreSettings(),
     db.page.findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } }).catch(() => []),
   ])
+  if (surface === 'dashboard') return <div className="dt-page sx-page sx-cart-page"><CartPage initial={cart} note={settings.cartNote} surface={surface} /></div>
   const inCart = cart.lines.map((line) => line.productId)
   const suggestions = await productCards({ id: { notIn: inCart }, stock: { not: 0 } }, [{ soldCount: 'desc' }, { id: 'desc' }], 12)
   return <>
@@ -50,18 +52,19 @@ export async function CartView() {
 }
 
 /** /checkout/cart — address, delivery time and payment for the whole cart. */
-export async function CartCheckoutView() {
+export async function CartCheckoutView({ surface = 'public' }: { surface?: CheckoutSurface } = {}) {
   if (!await isStoreEnabled()) notFound()
   const who = await owner()
   if (!who.userId) redirect(`/login?next=${encodeURIComponent('/checkout/cart')}`)
   const cart = await cartView(who)
-  if (!cart.lines.length || cart.blocked) redirect('/cart')
+  if (!cart.lines.length || cart.blocked) redirect(checkoutPath('/cart', surface))
   const [schedule, gateways, theme] = await Promise.all([deliverySchedule(), checkoutGatewayOptions(cart.currency), getServerTheme()])
+  const Surface = surface === 'dashboard' ? 'section' : 'main'
   return <>
-    <SiteHeader theme={theme} />
-    <main className="container content-surface sh-checkout-page">
-      <CartCheckout cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days }} gateways={gateways} />
-    </main>
-    <SiteFooter />
+    {surface === 'public' && <SiteHeader theme={theme} />}
+    <Surface className="container content-surface sh-checkout-page">
+      <CartCheckout surface={surface} cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days }} gateways={gateways} />
+    </Surface>
+    {surface === 'public' && <SiteFooter />}
   </>
 }

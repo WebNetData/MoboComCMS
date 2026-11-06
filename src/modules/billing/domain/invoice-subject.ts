@@ -3,6 +3,8 @@
  * Pure — the invoice page, the customer's invoice list and the official invoice all read it from here.
  */
 
+import { HOSTING_CYCLES } from '@/modules/hosting/domain/catalog'
+
 export type InvoiceSubjectInput = {
   kind: string
   /** What staff wrote on the invoice; it wins over anything worked out. */
@@ -40,6 +42,15 @@ export function invoiceSubject(input: InvoiceSubjectInput): { title: string; det
     return { title: `اشتراک ویژهٔ ${str(meta.planName, 80) || site}`, detail: days > 0 ? `اعتبار ${days.toLocaleString('fa-IR')} روزه در ${site}` : '' }
   }
   if (meta.kind === 'content') return { title: `دسترسی به «${str(meta.contentTitle, 120) || 'محتوای ویژه'}»`, detail: `خرید محتوا در ${site}` }
+  if (meta.kind === 'hosting' || meta.kind === 'hosting-renewal') {
+    const cycle = HOSTING_CYCLES.find(row => row.id === meta.cycle)?.label || ''
+    return { title: `${meta.kind === 'hosting-renewal' ? 'تمدید' : 'سفارش'} ${str(meta.productName, 100) || 'سرویس میزبانی و سرور'}`, detail: [cycle, str(meta.hostname, 253)].filter(Boolean).join(' · ') }
+  }
+  if (meta.kind === 'hosting-addon') return { title: `${meta.addon === 'TRAFFIC' ? 'ترافیک اضافه' : 'ارتقای سرویس'} ${str(meta.productName, 100)}`, detail: str(meta.toName, 120) }
+  if (meta.kind === 'domain' || meta.kind === 'domain-renewal') {
+    const years = Number(meta.years)
+    return { title: `${meta.kind === 'domain-renewal' ? 'تمدید دامنهٔ' : meta.action === 'TRANSFER' ? 'انتقال دامنهٔ' : 'ثبت دامنهٔ'} ${str(meta.productName, 253) || str(meta.name, 253)}`, detail: Number.isSafeInteger(years) && years > 0 && years <= 10 ? `برای ${years.toLocaleString('fa-IR')} سال` : '' }
+  }
   if (input.planName) return { title: str(input.planName, 120), detail: '' }
   if (input.productName) return { title: str(input.productName, 120), detail: str(meta.variantName, 120) }
   const note = str(String(input.notes || '').split('\n')[0], 120)

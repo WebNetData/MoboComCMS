@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     idempotencyKey,
     siteUrl,
     channel: 'web',
+    surface: body?.surface === 'dashboard' ? 'dashboard' : undefined,
   })
   if (!result.ok) return err(result.message, result.status, { code: result.code, ...(result.meta || {}) })
   return ok(result.data)
