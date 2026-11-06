@@ -4,6 +4,7 @@ import { decryptPanelCredential, encryptPanelCredential } from '@/modules/provid
 import { DEFAULT_AI, effectiveBaseUrl, effectiveModel, normalizeAiConfig, providerById, type AiConfig, type Prompt } from '@/modules/ai/domain/ai'
 // The AI providers go through the Server Panel's Xray profile for the "ai" purpose when one is chosen; otherwise directly.
 import { egressFetch, egressRoute } from '@/modules/social/server/egress'
+import { personalAiActor } from './admin-context'
 
 const KEY = 'ai.config.v1'
 const TIMEOUT_MS = 120_000
@@ -46,6 +47,12 @@ export interface AiResult { text: string; model: string; provider: string }
 
 /** Runs one prompt on the configured provider and returns its text. */
 export async function generate(prompt: Prompt, config?: AiConfig): Promise<AiResult> {
+  const actor = personalAiActor()
+  if (actor !== undefined) {
+    const { personalGenerate, ChatGptError } = await import('./chatgpt')
+    try { const personal = await personalGenerate(actor, prompt); if (personal) return personal }
+    catch (error) { if (error instanceof ChatGptError) throw new AiError(error.message, error.status); throw error }
+  }
   const settings = config || await getAiConfig()
   let apiKey = ''
   try { apiKey = decryptPanelCredential(settings.apiKey) } catch { throw new AiError('کلید API قابل خواندن نیست؛ دوباره آن را ذخیره کنید') }

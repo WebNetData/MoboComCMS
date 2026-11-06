@@ -1,6 +1,7 @@
 'use client'
 import Link from '@/components/AppLink'
 import { useCallback, useEffect, useState, useRef } from 'react'
+import PersonalChatGpt from './PersonalChatGpt'
 
 type Provider = { id: string; label: string; model: string; free: boolean; keyUrl: string; note: string }
 type Config = { provider: string; model: string; baseUrl: string; apiKey: string; hasKey: boolean; voice: string; botName: string; effectiveModel: string }
@@ -19,6 +20,11 @@ const TABS: { id: Tab; label: string }[] = [
 /** AI writing assistant: every result is a draft or a suggestion the admin edits before publishing. */
 export default function AdminAiPage() {
   const [tab, setTab] = useState<Tab>('write')
+  useEffect(() => {
+    const callback = () => { if (location.hash.startsWith('#chatgpt_callback=')) setTab('settings') }
+    callback(); window.addEventListener('hashchange', callback)
+    return () => window.removeEventListener('hashchange', callback)
+  }, [])
   const [config, setConfig] = useState<Config | null>(null)
   const [providers, setProviders] = useState<Provider[]>([])
   const [queues, setQueues] = useState<Queues | null>(null)
@@ -162,6 +168,7 @@ export default function AdminAiPage() {
     </section>}
 
     {tab === 'settings' && <section className="xm-section">
+      <PersonalChatGpt />
       <div className="ai-providers">{providers.map((item) => <article key={item.id} className={`card${item.id === config.provider ? ' is-active' : ''}`}><b>{item.label}</b> {item.free ? <span className="badge badge-green">رایگان</span> : <span className="badge">پولی</span>}<p className="muted">{item.note}</p>{item.keyUrl && <a href={item.keyUrl} target="_blank" rel="noreferrer">گرفتن کلید ↗</a>}</article>)}</div>
       <form key={`${config.provider}-${config.apiKey}`} className="card seo-form" onSubmit={saveSettings}>
         <label className="studio-field"><span>سرویس</span><select className="input" name="provider" defaultValue={config.provider} onChange={(e) => setConfig({ ...config, provider: e.target.value, model: '' })}>{providers.map((item) => <option key={item.id} value={item.id}>{item.label}{item.free ? ' (رایگان)' : ''}</option>)}</select></label>
