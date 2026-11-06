@@ -29,12 +29,15 @@ function fixture(extra={}){
 }
 
 test('personal ChatGPT OAuth validates state, PKCE, signed identity, scopes and one-use completion without leaking stored secrets',async()=>{
+ const priorKey=process.env.PANEL_CREDENTIAL_KEY;process.env.PANEL_CREDENTIAL_KEY=crypto.randomBytes(32).toString('hex')
+ try{
  const f=fixture(),begun=await f.connect(),url=new URL(begun.url),state=await f.store.readState(11)
  assert.equal(url.origin,'https://auth.openai.com');assert.equal(url.searchParams.get('client_id'),'dynamic_agent_client');assert.equal(url.searchParams.get('redirect_uri'),'http://127.0.0.1:1455/auth/callback');assert.equal(url.searchParams.get('code_challenge_method'),'S256');assert.equal(url.searchParams.get('agent_name_hint'),'MoboComCMS')
  assert.equal(state.enabled,false);assert.equal(state.accounts[0].subject,'owned-subject');assert.equal(state.accounts[0].access,'owned-access-secret');assert(![...f.rows.values()].join().includes('owned-access-secret'))
  assert(!JSON.stringify(f.store.publicState(state)).includes('owned-refresh-secret'));await assert.rejects(f.session.finishLogin(11,{state:begun.state,code:'owned-code',client_id:'oaiapp_owned'}),e=>e.status===409)
  const next=await f.session.beginLogin(11,'oaiapp_owned');assert.equal(new URL(next.url).searchParams.get('ext_agent_host_id'),state.hostId);assert.equal(new URL(next.url).searchParams.has('agent_name_hint'),false)
  await assert.rejects(f.session.finishLogin(11,{state:'wrong',code:'owned-code'}),e=>e.status===409);assert.equal((await f.store.readState(11)).pending.state,next.state)
+ }finally{if(priorKey===undefined)delete process.env.PANEL_CREDENTIAL_KEY;else process.env.PANEL_CREDENTIAL_KEY=priorKey}
 })
 test('ChatGPT rejects forged identities, wrong nonce/audience and missing plan scope before replacing any connection',async()=>{
  for(const fault of ['nonce','audience','signature','scope']){

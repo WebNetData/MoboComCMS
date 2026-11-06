@@ -5,13 +5,14 @@ import { DEFAULT_AI, effectiveBaseUrl, effectiveModel, normalizeAiConfig, provid
 // The AI providers go through the Server Panel's Xray profile for the "ai" purpose when one is chosen; otherwise directly.
 import { egressFetch, egressRoute } from '@/modules/social/server/egress'
 import { personalAiActor } from './admin-context'
+import { personalAiPurpose } from './admin-context'
+import { allowsPersonalAi, type AiPurpose } from '../domain/routing'
+import { readAiRoutes, resolveAiRoute } from './routing'
+import { AiError } from './error'
+export { AiError } from './error'
 
 const KEY = 'ai.config.v1'
 const TIMEOUT_MS = 120_000
-
-export class AiError extends Error {
-  constructor(message: string, readonly status = 400) { super(message) }
-}
 
 export async function getAiConfig(): Promise<AiConfig> {
   const row = await db.setting.findUnique({ where: { key: KEY } }).catch(() => { throw new AiError('خواندن تنظیمات هوش مصنوعی انجام نشد؛ دوباره تلاش کنید', 503) })
@@ -45,15 +46,26 @@ export function publicAiConfig(config: AiConfig) {
 
 export interface AiResult { text: string; model: string; provider: string }
 
+/** Public feature availability follows its own API binding, never an Admin grant. */
+export async function publicAiReady(purpose: 'support' | 'prompts') {
+  const route = resolveAiRoute(await readAiRoutes(), purpose)
+  if (route.source === 'personal') return false
+  const config = route.source === 'api' && route.config ? route.config : await getAiConfig()
+  return config.provider === 'custom' || !!config.apiKey
+}
+
 /** Runs one prompt on the configured provider and returns its text. */
-export async function generate(prompt: Prompt, config?: AiConfig): Promise<AiResult> {
+export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPurpose): Promise<AiResult> {
   const actor = personalAiActor()
-  if (actor !== undefined) {
+  const selected = purpose || personalAiPurpose() || (actor !== undefined ? 'admin' : undefined)
+  const route = selected ? resolveAiRoute(await readAiRoutes(), selected) : { source: 'inherit' as const }
+  if (route.source === 'personal' || (route.source === 'inherit' && actor !== undefined && selected && allowsPersonalAi(selected))) {
+    if (actor === undefined) throw new AiError('ورود مدیر برای استفاده از حساب شخصی ChatGPT لازم است', 403)
     const { personalGenerate, ChatGptError } = await import('./chatgpt')
-    try { const personal = await personalGenerate(actor, prompt); if (personal) return personal }
+    try { const personal = await personalGenerate(actor, prompt); if (personal) return personal; if (route.source === 'personal') throw new AiError('اتصال شخصی ChatGPT را در تنظیمات حساب خودتان فعال کنید', 409) }
     catch (error) { if (error instanceof ChatGptError) throw new AiError(error.message, error.status); throw error }
   }
-  const settings = config || await getAiConfig()
+  const settings = route.source === 'api' && route.config ? route.config : config || await getAiConfig()
   let apiKey = ''
   try { apiKey = decryptPanelCredential(settings.apiKey) } catch { throw new AiError('کلید API قابل خواندن نیست؛ دوباره آن را ذخیره کنید') }
   const model = effectiveModel(settings)

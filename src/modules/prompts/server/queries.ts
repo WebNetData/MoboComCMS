@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { getExtensionState } from '@/extensions/server/state'
 import { moduleGuard, isModuleEnabled } from '@/extensions/server/modules'
-import { getAiConfig } from '@/modules/ai/server/generation'
+import { publicAiReady } from '@/modules/ai/server/generation'
 import { activeLists } from '@/modules/vocabulary/server/vocabulary'
 import { cleanText, isKind, promptPolicy, PromptError } from '../domain/prompts'
 import { audienceClause, opensAudience } from '@/modules/account/server/item-audience'
@@ -25,8 +25,8 @@ export async function policy(reader: Prisma.TransactionClient = db) {
 }
 export async function studioState() {
   const [settings, lists, aiOn] = await Promise.all([policy(), activeLists('prompts'), isModuleEnabled('ai-assistant')])
-  const ai = settings.aiEnabled && aiOn ? await getAiConfig() : null
-  return { ...settings, aiAvailable: !!(ai && (ai.apiKey || ai.provider === 'custom')), categories: lists.CATEGORY || [] }
+  const aiAvailable = settings.aiEnabled && aiOn ? await publicAiReady('prompts') : false
+  return { ...settings, aiAvailable, categories: lists.CATEGORY || [] }
 }
 export async function templateDirectory(input: Record<string, unknown>, admin = false, authorId: number | null = null) {
   const q = cleanText(input.q, 100), kind = isKind(input.kind) ? input.kind : '', category = cleanText(input.category, 40)

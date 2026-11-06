@@ -230,7 +230,7 @@ async function botAnswer(conversation: Conversation, settings: ChatSettings): Pr
     const refusal = platformSupportRefusal(turns.find(turn => turn.sender === 'VISITOR')?.body || '')
     if (refusal) return { body: refusal, handoff: false }
     const prompt = chatPrompt({ brand: site.brandName || 'موبوکام', botName: settings.botName, knowledge: settings.knowledge, customer, turns: turns.reverse().filter((turn) => turn.sender !== 'SYSTEM') })
-    const result = await Promise.race([generate(prompt), new Promise<null>((resolve) => setTimeout(() => resolve(null), BOT_TIMEOUT_MS))])
+    const result = await Promise.race([generate(prompt, undefined, 'support'), new Promise<null>((resolve) => setTimeout(() => resolve(null), BOT_TIMEOUT_MS))])
     if (!result) return null
     const reply = parsePlatformBotReply(result.text)
     return reply.body ? reply : null
