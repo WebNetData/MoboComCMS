@@ -1,3 +1,5 @@
+AI connection2026-11-06: `ai/server/client.ts` owns credentials/provider protocol; `social/server/egress.ts` owns `egressRoute`/`egressFetch` and full-body deadlines; `/api/admin/ai` preserves typed read/save errors. Gemini short-output and routing fixes extend existing owners. [Continuation, evidence and destination limits](handoffs/AI_CONNECTION.md), [operator guide](../AI-CONNECTION-FA.md).
+
 Content PDF2026-11-05: Content owns authorized native reading/catalogue editions, eight typed per-kind designs, Admin watermark/settings/history and shared public download actions. Existing publication, audience, paid/VIP/rule/forum/maintenance owners remain authoritative. [Owners, executed evidence, limits and rollback](handoffs/CONTENT_PDF.md).
 
 # MOBOCOM_MAP.md

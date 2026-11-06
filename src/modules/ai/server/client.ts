@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { DEFAULT_AI, effectiveBaseUrl, effectiveModel, normalizeAiConfig, providerById, type AiConfig, type Prompt } from '@/modules/ai/domain/ai'
 // The AI providers go through the Server Panel's Xray profile for the "ai" purpose when one is chosen; otherwise directly.
-import { egressFetch } from '@/modules/social/server/egress'
+import { egressFetch, egressRoute } from '@/modules/social/server/egress'
 
 const KEY = 'ai.config.v1'
 const TIMEOUT_MS = 120_000
@@ -13,13 +13,15 @@ export class AiError extends Error {
 }
 
 export async function getAiConfig(): Promise<AiConfig> {
-  const row = await db.setting.findUnique({ where: { key: KEY } }).catch(() => null)
+  const row = await db.setting.findUnique({ where: { key: KEY } }).catch(() => { throw new AiError('خواندن تنظیمات هوش مصنوعی انجام نشد؛ دوباره تلاش کنید', 503) })
   if (!row) return { ...DEFAULT_AI }
   try {
     const stored = JSON.parse(row.value)
-    return { ...normalizeAiConfig(stored, { ...DEFAULT_AI, apiKey: String(stored.apiKey || '') }) }
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored) || (stored.apiKey !== undefined && typeof stored.apiKey !== 'string')) throw new Error('invalid settings')
+    // Form limits apply to new plaintext input, never to the larger encrypted envelope in storage.
+    return { ...normalizeAiConfig({ ...stored, apiKey: '' }), apiKey: stored.apiKey || '' }
   } catch {
-    return { ...DEFAULT_AI }
+    throw new AiError('تنظیمات ذخیره‌شدهٔ هوش مصنوعی قابل خواندن نیست؛ دادهٔ قبلی حفظ شد', 503)
   }
 }
 
@@ -37,7 +39,7 @@ export async function saveAiConfig(input: Record<string, unknown>): Promise<AiCo
 export function publicAiConfig(config: AiConfig) {
   let hint = ''
   try { const plain = decryptPanelCredential(config.apiKey); hint = plain ? `••••${plain.slice(-4)}` : '' } catch { hint = '••••' }
-  return { ...config, apiKey: hint, hasKey: !!config.apiKey, effectiveModel: effectiveModel(config) }
+  return { ...config, apiKey: hint, hasKey: !!config.apiKey && hint !== '••••', effectiveModel: effectiveModel(config) }
 }
 
 export interface AiResult { text: string; model: string; provider: string }
@@ -86,24 +88,43 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
   if (provider === 'openrouter') { headers['X-Title'] = 'MoboComCMS'; if (process.env.NEXTAUTH_URL) headers['HTTP-Referer'] = process.env.NEXTAUTH_URL }
+  const route = await egressRoute(baseUrl)
+  const routeHint = route === 'proxy'
+    ? 'مسیر Xray: سرویس محلی و پیکربندی انتخاب‌شده برای «هوش مصنوعی» در /admin/server/proxy را بررسی کنید'
+    : provider === 'custom'
+      ? 'مسیر مستقیم: نشانی سرویس سفارشی و شبکهٔ سرور را بررسی کنید؛ میزبان خارج از فهرست مجاز Xray مستقیم متصل می‌شود'
+      : 'مسیر مستقیم: برای استفاده از Xray، در /admin/server/proxy یک پیکربندی برای «هوش مصنوعی» انتخاب و اعمال کنید'
+  // Gemini 2.5 Flash's default thinking shares max_tokens with the answer. Short editor/meta/test requests
+  // can spend the entire budget on thinking and look like a failed connection. Other model protocols stay intact.
+  const reasoning = provider === 'gemini' && prompt.maxTokens <= 1200 && /^gemini-2\.5-flash(?:$|-)/.test(model) ? { reasoning_effort: 'none' } : {}
   let response: Response
+  let data: { choices?: { message?: { content?: string }; finish_reason?: string }[]; error?: { message?: string } | string } | null
   try {
     response = await egressFetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model, max_tokens: prompt.maxTokens, temperature: 0.7, messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }] }),
+      body: JSON.stringify({ model, max_tokens: prompt.maxTokens, temperature: 0.7, ...reasoning, messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }] }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: 'no-store',
     })
-  } catch {
-    throw new AiError('اتصال به سرویس هوش مصنوعی برقرار نشد (نشانی یا شبکهٔ سرور را بررسی کنید)', 502)
+    data = await response.json()
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new AiError(`پاسخ سرویس هوش مصنوعی JSON معتبر نبود؛ ${routeHint}`, 502)
+    throw new AiError(`اتصال یا دریافت پاسخ سرویس هوش مصنوعی کامل نشد؛ ${routeHint}`, 502)
   }
-  const data = await response.json().catch(() => null) as { choices?: { message?: { content?: string }; finish_reason?: string }[]; error?: { message?: string } | string } | null
   if (!response.ok) {
     const detail = typeof data?.error === 'string' ? data.error : data?.error?.message || response.statusText
-    if (response.status === 401 || response.status === 403) throw new AiError('کلید API نامعتبر است یا دسترسی ندارد', 401)
-    if (response.status === 429) throw new AiError('سهمیهٔ رایگان این سرویس فعلاً تمام شده؛ کمی بعد یا با مدل/سرویس دیگری تلاش کنید', 429)
-    throw new AiError(`خطای سرویس هوش مصنوعی: ${detail}`.slice(0, 300), 502)
+    if (/user location is not supported|unsupported (?:country|region|location)|not (?:available|supported) in (?:your|this) (?:country|region|location)/i.test(detail)) throw new AiError(`سرویس محدودیت جغرافیایی برای IP خروجی اعلام کرد؛ ${routeHint}`, 403)
+    if (response.status === 401 || /API[_ ]KEY[_ ](?:INVALID|NOT[_ ]VALID)|invalid API key/i.test(detail)) throw new AiError('کلید API نامعتبر است؛ کلید همین سرویس را دوباره وارد کنید', 401)
+    if (response.status === 403) throw new AiError(`سرویس دسترسی این کلید یا پروژه را نپذیرفت (403)؛ مجوز API و محدودیت IP کلید را بررسی کنید؛ ${routeHint}`, 403)
+    if (response.status === 429) throw new AiError('سهمیه یا محدودیت درخواست سرویس تمام شده؛ سهمیه و وضعیت پرداخت پروژه را بررسی کنید', 429)
+    if (response.status === 404) throw new AiError('مدل یا نشانی API پیدا نشد؛ نام مدل و دسترسی پروژه به آن را بررسی کنید', 404)
+    // Provider errors may echo credentials or user input; return a bounded, secret-free diagnostic.
+    throw new AiError(`سرویس هوش مصنوعی درخواست را نپذیرفت (HTTP ${response.status})؛ مدل و تنظیمات سرویس را بررسی کنید`, 502)
   }
-  return data?.choices?.[0]?.message?.content || ''
+  const content = data?.choices?.[0]?.message?.content
+  if (content != null && typeof content !== 'string') throw new AiError('قالب پاسخ سرویس هوش مصنوعی با پاسخ متنی سازگار نیست', 502)
+  if (data?.choices?.[0]?.finish_reason === 'content_filter') throw new AiError('سرویس به این درخواست پاسخ نداد؛ موضوع یا متن را تغییر دهید', 422)
+  if (data?.choices?.[0]?.finish_reason === 'length' && !content?.trim()) throw new AiError('بودجهٔ توکن مدل پیش از تولید پاسخ تمام شد؛ سقف خروجی یا تنظیم تفکر مدل را بررسی کنید', 502)
+  return content || ''
 }

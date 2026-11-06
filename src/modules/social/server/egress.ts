@@ -41,11 +41,17 @@ async function routedPurposes() {
 }
 export function forgetSocialProxySetting() { cached = null }
 
+/** The actual host/purpose decision, also used by callers' secret-free connection diagnostics. */
+export async function egressRoute(url: string | URL): Promise<'direct' | 'proxy'> {
+  const target = new URL(String(url))
+  const purpose = target.protocol === 'https:' ? purposeOfHost(target.hostname) : null
+  return purpose && (await routedPurposes()).has(purpose) ? 'proxy' : 'direct'
+}
+
 /** fetch() for the site's outside services: through the local proxy when the host's purpose has a profile. */
 export async function egressFetch(url: string | URL, init: SocialInit = {}): Promise<Response> {
   const target = new URL(String(url))
-  const purpose = target.protocol === 'https:' ? purposeOfHost(target.hostname) : null
-  if (purpose && (await routedPurposes()).has(purpose)) return viaProxy(target, init)
+  if (await egressRoute(target) === 'proxy') return viaProxy(target, init)
   return fetch(String(url), init as RequestInit)
 }
 
@@ -87,7 +93,8 @@ export function viaProxy(target: URL, init: SocialInit = {}, port = PROXY_PORT):
     const done = (error?: unknown, response?: Response) => {
       if (settled) return
       settled = true
-      signal?.removeEventListener('abort', onAbort)
+      // A fetch signal covers response consumption too, not only receipt of its headers.
+      if (error) signal?.removeEventListener('abort', onAbort)
       if (error) reject(error); else resolve(response!)
     }
     const connect = http.request({ host: '127.0.0.1', port, method: 'CONNECT', path: authority, headers: { host: authority } })
@@ -104,6 +111,10 @@ export function viaProxy(target: URL, init: SocialInit = {}, port = PROXY_PORT):
       })
       request.once('error', (error) => done(error))
       request.once('response', (incoming) => {
+        const cleanup = () => signal?.removeEventListener('abort', onAbort)
+        incoming.once('end', cleanup)
+        incoming.once('close', cleanup)
+        incoming.once('error', cleanup)
         const responseHeaders = new Headers()
         for (const [key, value] of Object.entries(incoming.headers)) {
           if (Array.isArray(value)) for (const item of value) responseHeaders.append(key, item)

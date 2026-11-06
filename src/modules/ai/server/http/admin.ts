@@ -45,8 +45,13 @@ export async function GET(req: NextRequest) {
   if (off) return off
   const admin = await anyPerm(req, ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'])
   if (!admin) return err('forbidden', 403)
-  const [config, queues, categories] = await Promise.all([getAiConfig(), assistantQueues(), db.postCategory.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } })])
-  return ok({ config: publicAiConfig(config), providers: AI_PROVIDERS, queues, categories })
+  try {
+    const [config, queues, categories] = await Promise.all([getAiConfig(), assistantQueues(), db.postCategory.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } })])
+    return ok({ config: publicAiConfig(config), providers: AI_PROVIDERS, queues, categories })
+  } catch (error) {
+    if (error instanceof AiError) return err(error.message, error.status)
+    throw error
+  }
 }
 
 export async function PUT(req: NextRequest) {
@@ -54,9 +59,14 @@ export async function PUT(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return err('invalid body')
-  const config = await saveAiConfig(body)
-  await auditAdmin({ req, actor: admin, action: 'ai.config.update', targetType: 'setting', targetId: 'ai.config.v1', metadata: { provider: config.provider, model: config.model } })
-  return ok({ config: publicAiConfig(config) })
+  try {
+    const config = await saveAiConfig(body)
+    await auditAdmin({ req, actor: admin, action: 'ai.config.update', targetType: 'setting', targetId: 'ai.config.v1', metadata: { provider: config.provider, model: config.model } })
+    return ok({ config: publicAiConfig(config) })
+  } catch (error) {
+    if (error instanceof AiError) return err(error.message, error.status)
+    throw error
+  }
 }
 
 /** POST { action, ...input } — see ACTIONS. */
