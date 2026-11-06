@@ -3,6 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript-api')
+require('./site-identity-homepages.cases.cjs')
 
 function load(file, mocks = {}, cache = new Map()) {
   const absolute = path.resolve(__dirname, '..', file)

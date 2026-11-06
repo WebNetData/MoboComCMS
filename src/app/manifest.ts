@@ -1,3 +1,4 @@
+import { appIcons } from '@/modules/site/domain/site-identity'
 import type { MetadataRoute } from 'next'
 import { getSiteSeo } from '@/modules/site/server/seo'
 
@@ -9,7 +10,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   return {
     id: '/',
     name: seo.name,
-    short_name: seo.name.slice(0, 12),
+    short_name: seo.identity.shortName || seo.name.slice(0, 12),
     description: seo.description,
     lang: 'fa',
     dir: 'rtl',
@@ -17,14 +18,10 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#ffffff',
-    theme_color: '#6d4aff',
+    background_color: seo.identity.backgroundColor || '#ffffff',
+    theme_color: seo.identity.themeColor || '#6d4aff',
     categories: ['shopping', 'entertainment', 'utilities'],
-    icons: [
-      { src: '/pwa-icon/192', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/pwa-icon/512', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/pwa-icon/512?maskable=1', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
+    icons: appIcons(seo.identity),
     shortcuts: [
       { name: 'جست‌وجو', url: '/search', icons: [{ src: '/pwa-icon/192', sizes: '192x192' }] },
       { name: 'نرم‌افزار', url: '/software' },

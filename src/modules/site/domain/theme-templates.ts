@@ -133,6 +133,7 @@ export const SECTION_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 // ---------------------------------------------------------------- index entry
 
 export type ThemeTemplateMeta = {
+  solution?: string
   id: string
   type: ThemeTemplateType
   name: string
@@ -201,6 +202,7 @@ export function validateTemplateMeta(input: unknown, existing?: ThemeTemplateMet
     type,
     name,
     nameEn: text(m.nameEn ?? existing?.nameEn, 80),
+    ...(['hosting', 'journal', 'store', 'music', 'cinema', 'software', 'games'].includes(String(m.solution ?? existing?.solution)) ? { solution: String(m.solution ?? existing?.solution) } : {}),
     status: (m.status ?? existing?.status) === 'published' ? 'published' : 'draft',
     conditions: validateConditions(type, m.conditions ?? existing?.conditions ?? []),
     placement: type === 'page' ? validatePlacement(m.placement ?? existing?.placement) : emptyPlacement(),

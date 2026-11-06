@@ -23,6 +23,7 @@ const limitOptions = [{ value: '2', en: '2 items', fa: '۲ مورد' }, { value:
 const feedLimits = [...limitOptions, { value: '8', en: '8 items', fa: '۸ مورد' }, { value: '9', en: '9 items', fa: '۹ مورد' }, { value: '12', en: '12 items', fa: '۱۲ مورد' }]
 
 const FIELDS: Partial<Record<WidgetType, Field[]>> = {
+  hosting: [{ key: 'title', en: 'Title', fa: 'عنوان', kind: 'text' }, { key: 'group', en: 'Catalogue', fa: 'کاتالوگ', kind: 'select', options: [{ value: 'all', en: 'All', fa: 'همه' }, { value: 'hosting', en: 'Hosting', fa: 'میزبانی وب' }, { value: 'servers', en: 'Servers', fa: 'سرورها' }] }],
   'icon-box': [
     { key: 'icon', en: 'Icon', fa: 'آیکن', kind: 'select', options: BOX_ICONS.map((name) => ({ value: name, en: name, fa: name })) },
     { key: 'layout', en: 'Layout', fa: 'چیدمان', kind: 'select', options: [{ value: 'top', en: 'Icon on top', fa: 'آیکن بالا' }, { value: 'side', en: 'Icon at the side', fa: 'آیکن کنار' }] },
@@ -247,6 +248,8 @@ const FIELDS: Partial<Record<WidgetType, Field[]>> = {
   ],
   media: [
     { key: 'source', en: 'Feed', fa: 'فهرست', kind: 'select', options: [
+      { value: 'software-new', en: 'Software · new', fa: 'نرم‌افزار · تازه‌ها' },
+      { value: 'software-top', en: 'Software · popular', fa: 'نرم‌افزار · محبوب‌ها' },
       { value: 'music-new', en: 'Music · new songs', fa: 'موزیک · جدیدترین آهنگ‌ها' },
       { value: 'music-top', en: 'Music · top chart', fa: 'موزیک · پربازدیدترین‌ها' },
       { value: 'music-albums', en: 'Music · albums', fa: 'موزیک · آلبوم‌ها' },

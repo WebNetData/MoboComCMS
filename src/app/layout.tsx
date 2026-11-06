@@ -74,7 +74,7 @@ import './selects.css'
 import { siteLocales } from '@/i18n/policy'
 import { applyTitleTemplate } from '@/modules/seo/domain/seo'
 import { getSiteSeo, organizationJsonLd } from '@/modules/site/server/seo'
-import { getPublicSiteConfig } from '@/modules/site/config/store'
+import { getPublicSiteConfig, getSiteConfig } from '@/modules/site/config/store'
 import { defaultSiteFonts } from '@/modules/site/config/types'
 import { safeCustomCss } from '@/modules/site/config/validation'
 import { bundledThemes } from '@/themes/registry'
@@ -83,6 +83,7 @@ import ExtensionProvider from '@/extensions/client/ExtensionProvider'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { pathDisabled } from '@/platform/extensions/contracts'
 import PreviewBridge from '@/components/site/PreviewBridge'
+import { siteIcons } from '@/modules/site/domain/site-identity'
 import MusicPlayerProvider from '@/components/media/MusicPlayer'
 import type { CSSProperties } from 'react'
 import { resolveCodeThemeId } from '@/themes/runtime'
@@ -101,13 +102,18 @@ import { getAutomaticForwarderPolicy } from '@/modules/forwarder/server/forwarde
 
 export const dynamic = 'force-dynamic'
 
-export const viewport: Viewport = {
+const defaultViewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#0e1017' },
   ],
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const { identity } = await getSiteConfig()
+  return { ...defaultViewport, ...(identity?.themeColor ? { themeColor: identity.themeColor } : {}) }
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -126,8 +132,8 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: seo.config.keywords.length ? seo.config.keywords : undefined,
     category: 'shopping',
     alternates: { types: { 'application/rss+xml': `${seo.base}/feed.xml` } },
-    icons: { icon: '/favicon.svg', apple: '/pwa-icon/180' },
-    appleWebApp: { capable: true, title: seo.name, statusBarStyle: 'default' },
+    icons: siteIcons(seo.identity),
+    appleWebApp: { capable: true, title: seo.identity.shortName || seo.name, statusBarStyle: 'default' },
     robots: {
       index: true,
       follow: true,

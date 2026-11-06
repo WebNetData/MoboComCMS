@@ -29,7 +29,7 @@ export async function ThemePageView({ meta, doc, preview }: { meta: ThemeTemplat
   const builderContext = { postCategoryId: placement.postCategoryId, productCategoryId: placement.productCategoryId }
   return <>
     <ThemeHeader context={context} choice={doc?.layout?.header} theme={theme} locale={locale} navPages={navPages} builderContext={builderContext} preview={preview} />
-    <main className="br-page-main">
+    <main className="br-page-main" data-solution={meta.solution}>
       {doc
         ? <BuilderRenderer doc={doc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, meta.id)} context={builderContext} />
         : isPreview(preview) ? <div className="br-container"><div className="br-img-ph br-video-ph">{locale === 'fa' ? 'صفحهٔ خالی — یک بخش یا بلوک اضافه کنید' : 'Blank page — add a section or block'}</div></div> : null}

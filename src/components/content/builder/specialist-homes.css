@@ -1,0 +1,6 @@
+.br-page-main .hp-plan-grid,.br-page-main .hp-software-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px}
+.br-page-main .hp-plan{padding:28px;border:1px solid var(--border);border-radius:var(--radius,20px);background:var(--surface);color:var(--text);display:flex;flex-direction:column;gap:16px}
+.br-page-main .hp-plan h3,.br-page-main .hp-plan p{margin:0}.br-page-main .hp-plan>span{color:var(--muted);font-size:.875rem}
+.br-page-main .hp-plan dl{display:grid;gap:8px}.br-page-main .hp-plan dl>div{display:flex;justify-content:space-between;gap:16px}.br-page-main .hp-plan dd{margin:0}.br-page-main .hp-plan>.btn{margin-top:auto}
+.br-page-main[data-solution=games] .md-more{--md-accent:var(--text)}
+@media(max-width:600px){.br-page-main .hp-plan{padding:20px}.br-page-main .hp-plan-grid,.br-page-main .hp-software-grid{gap:16px}}

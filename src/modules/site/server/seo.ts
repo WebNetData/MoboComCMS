@@ -1,3 +1,4 @@
+import type { SiteIdentity } from '@/modules/site/domain/site-identity'
 import { toPublicPath } from '@/platform/routing/aliases'
 import type { Locale } from '@/i18n/dictionaries'
 // Shared SEO helpers: canonical URLs, hreflang alternates, Open Graph/Twitter
@@ -13,6 +14,7 @@ import { siteLocales } from '@/i18n/policy'
 import type { SeoConfig } from '@/modules/seo/domain/seo'
 
 export interface SiteSeo {
+  identity: SiteIdentity
   base: string
   name: string
   tagline: string
@@ -38,6 +40,7 @@ export async function getSiteSeo(locale: Locale = 'en'): Promise<SiteSeo> {
   return {
     base,
     name,
+    identity: site.identity || {},
     tagline,
     description:
       config.description ||

@@ -9,7 +9,7 @@ export const WIDGET_TYPES = [
   'post-header', 'post-cover', 'content', 'post-footer',
   'product-hero', 'product-gallery', 'product-info', 'product-purchase', 'product-usp', 'product-tabs',
   'site-header', 'site-footer',
-  'media', 'vip-cta',
+  'media', 'hosting', 'vip-cta',
   'icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress',
   'slides',
   'accordion',
@@ -18,7 +18,7 @@ export const WIDGET_TYPES = [
 export type WidgetType = typeof WIDGET_TYPES[number]
 
 /** Live feeds the `media` widget can show (each belongs to the module named by its prefix). */
-export const MEDIA_SOURCES = ['music-new', 'music-top', 'music-albums', 'cinema-movies', 'cinema-series', 'cinema-top', 'cinema-dubbed', 'cinema-vip', 'games-new', 'games-top'] as const
+export const MEDIA_SOURCES = ['music-new', 'music-top', 'music-albums', 'cinema-movies', 'cinema-series', 'cinema-top', 'cinema-dubbed', 'cinema-vip', 'games-new', 'games-top', 'software-new', 'software-top'] as const
 export type MediaSource = typeof MEDIA_SOURCES[number]
 
 /** Widgets that only render on single-post pages (template slots). */
@@ -110,7 +110,8 @@ export const WIDGET_LABELS: Record<WidgetType, { fa: string; en: string }> = {
   'product-tabs': { fa: 'تب‌ها (توضیح، دیدگاه، پرسش)', en: 'Tabs (description, reviews, Q&A)' },
   'site-header': { fa: 'هدر پیش‌فرض سایت', en: 'Default site header' },
   'site-footer': { fa: 'فوتر پیش‌فرض سایت', en: 'Default site footer' },
-  media: { fa: 'موزیک / فیلم / بازی (زنده)', en: 'Music / films / games (live)' },
+  media: { fa: 'موزیک / فیلم / بازی / نرم‌افزار (زنده)', en: 'Music / films / games / software (live)' },
+  hosting: { fa: 'پلن‌های میزبانی و سرور (زنده)', en: 'Hosting and server plans (live)' },
   'vip-cta': { fa: 'دعوت به عضویت VIP', en: 'VIP call to action' },
   'icon-box': { fa: 'جعبهٔ آیکن', en: 'Icon box' },
   tabs: { fa: 'تب‌ها', en: 'Tabs' },
@@ -202,6 +203,7 @@ const WIDGET_PROPS: Record<WidgetType, Record<string, PropRule>> = {
   'product-tabs': {},
   'site-header': {},
   'site-footer': {},
+  hosting: { title: TEXT(300), group: { enum: ['all', 'hosting', 'servers'] } },
   media: { source: { enum: MEDIA_SOURCES }, title: TEXT(300), titleEn: TEXT(300), limit: { enum: ['6', '4', '8', '10', '12', '16'] } },
   'vip-cta': { title: TEXT(300), titleEn: TEXT(300), text: TEXT(1200), textEn: TEXT(1200), label: TEXT(100), labelEn: TEXT(100) },
   'icon-box': { icon: { enum: BOX_ICONS }, title: TEXT(200), titleEn: TEXT(200), text: TEXT(1200), textEn: TEXT(1200), href: { url: 'link' }, layout: { enum: ['top', 'side'] } },

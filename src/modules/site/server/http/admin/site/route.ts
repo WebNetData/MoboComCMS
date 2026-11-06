@@ -1,3 +1,5 @@
+import { patchSiteIdentity } from '@/modules/site/server/identity-settings'
+import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
@@ -49,4 +51,11 @@ export async function PUT(req: NextRequest) {
     console.error('[site.update]', error)
     return err('ذخیره نشد؛ دوباره تلاش کنید', 500)
   }
+}
+
+export async function PATCH(req: NextRequest) {
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
+  if (!await requirePerm(req, 'settings.manage')) return err('دسترسی مجاز نیست', 403)
+  try { const input = await readJsonObject(req, 25000); return ok(await patchSiteIdentity(req, input.changes)) }
+  catch (e) { if (e instanceof JsonBodyError) return err(e.message, e.status); if (e instanceof JsonSettingMutationError && e.message.startsWith('invalid identity')) return err('نشانی آیکون، نام یا کد رنگ معتبر نیست؛ اطلاعات واردشده را بررسی کنید', 422); if (e instanceof JsonSettingMutationError) return err(e.message === 'forbidden' ? 'دسترسی مجاز نیست' : 'تنظیمات تغییر کرده یا معتبر نیست؛ صفحه را تازه کنید و داده‌ها را بررسی کنید', e.message === 'forbidden' ? 403 : 409); return err('هویت ذخیره نشد؛ تنظیمات قبلی حفظ شد', 503) }
 }

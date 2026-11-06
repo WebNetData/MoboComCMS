@@ -1,3 +1,4 @@
+import type { SiteIdentity } from '@/modules/site/domain/site-identity'
 import type { CompanyContact } from '@/modules/site/domain/company-contact'
 export type LocalText = { fa: string; en: string; [locale: string]: string }
 export type SiteLink = { id?: string; label: LocalText; href: string; /** Unset preserves theme defaults; empty removes the icon. */ icon?: string; enabled?: boolean; children?: SiteLink[]; /** Header root presentation; absent preserves the existing dropdown. */ menuDisplay?: 'dropdown' | 'mega'; menuColumns?: 2 | 3 | 4; description?: LocalText }
@@ -8,6 +9,7 @@ export type ThemeColors = { background: string; surface: string; accent: string;
 export type ThemeManifest = { id: string; name: string; description: string; version: string; extends?: string; colors: ThemeColors; lightColors?: ThemeColors; radius: number }
 export type SiteFonts = { body: string; heading: string }
 export type SiteConfig = {
+  identity?: SiteIdentity
   /** Public company contact details; edited through the existing Studio configuration. */
   contact?: CompanyContact
   /** Runtime only: UTC year formatted on the server once for hydration-stable footer copyright. */

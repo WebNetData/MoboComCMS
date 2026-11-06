@@ -1,3 +1,5 @@
+import BuilderHosting from './BuilderHosting'
+import './specialist-homes.css'
 import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
 import { cleanWidgetHtml, sanitizeWidgetCss } from '@/shared/content/sanitize'
@@ -19,7 +21,7 @@ import NetworkGlobe from '@/components/site/NetworkGlobe'
 import AdvancedCode from '@/components/content/builder/AdvancedCode'
 import { formatAmount } from '@/shared/money/format'
 import { getBuilderMedia, type BuilderMediaFeed } from '@/modules/media/server/queries'
-import { AlbumCard, GameCard, PosterCard } from '@/components/media/MediaCards'
+import { AlbumCard, GameCard, PosterCard, SoftwareCard } from '@/components/media/MediaCards'
 import { TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import Slider from '@/components/site/Slider'
@@ -482,18 +484,20 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
         </div>
       </>)
     }
+    case 'hosting': return frame(widget, ctx, <BuilderHosting group={props.group || 'all'} title={props.title || ''} locale={locale} />)
     case 'media': {
       const title = pick(locale, props.title, props.titleEn)
       const feed = ctx.media.get(mediaKey(widget))
       const fa = locale === 'fa'
       const section = mediaModule(props.source || '')
       if (!feed?.items.length) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph br-video-ph">{fa ? 'هنوز محتوایی برای این فهرست منتشر نشده' : 'Nothing published for this feed yet'}</div>) : null
-      const more = section === 'cinema' ? '/cinema' : section === 'games' ? '/games' : '/music'
+      const more = section === 'software' ? '/software' : section === 'cinema' ? '/cinema' : section === 'games' ? '/games' : '/music'
       return frame(widget, ctx, <div className={`md-page md-embed md-${section}`}>
         <div className="md-shelf-head">{title ? <h2>{title}</h2> : <span />}<Link href={more} className="md-more">{fa ? 'همه ←' : 'All →'}</Link></div>
         {feed.kind === 'tracks' && <div className="mu-panel"><TrackList tracks={toPlayerTracks(feed.items, fa)} chart={props.source === 'music-top'} /></div>}
         {feed.kind === 'albums' && <Slider className="md-rail">{feed.items.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}</Slider>}
         {feed.kind === 'titles' && <Slider className="md-rail">{feed.items.map((item, i) => <PosterCard key={item.id} item={item} fa={fa} rank={props.source === 'cinema-top' ? i + 1 : undefined} />)}</Slider>}
+        {feed.kind === 'software' && <div className="hp-software-grid">{feed.items.map(item => <SoftwareCard key={item.id} item={item} fa={fa} />)}</div>}
         {feed.kind === 'games' && <Slider className="md-rail">{feed.items.map((game) => <GameCard key={game.id} game={game} fa={fa} />)}</Slider>}
       </div>)
     }
