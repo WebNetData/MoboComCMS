@@ -4,7 +4,7 @@ import { isModuleEnabled } from '@/extensions/server/modules'
 import { moduleGuard } from '@/extensions/server/modules'
 import { db } from '@/platform/database/prisma'
 import { rateLimitStrict, clientIp } from '@/platform/http/rate-limit'
-import { generate, getAiConfig } from '@/modules/ai/server/generation'
+import { generate } from '@/modules/ai/server/generation'
 import { assemblePrompt, cleanText, enhancementPrompt, inputChecklist, normalizeInput, PromptError } from '../domain/prompts'
 import { policy, templateBySlug } from './queries'
 import { isMember } from '@/modules/membership/server/membership'
@@ -26,9 +26,7 @@ export async function generatePrompt(req: NextRequest, raw: Record<string, unkno
     if (!settings.aiEnabled || !await isModuleEnabled('ai-assistant')) throw new PromptError('بهبود هوشمند فعال نیست؛ از ساخت ساختاریافته استفاده کنید', 409)
     if (raw.consent !== true) throw new PromptError('برای ارسال ورودی به سرویس هوش مصنوعی، موافقت خود را اعلام کنید')
     if (!(await rateLimitStrict(`prompts:ai:${actor.id}`, settings.aiDailyLimit, 86400000)).ok) throw new PromptError('سقف بهبود هوشمند امروز شما پر شده است', 429)
-    const config = await getAiConfig()
-    if (!config.apiKey && config.provider !== 'custom') throw new PromptError('سرویس هوش مصنوعی آماده نیست؛ از ساخت ساختاریافته استفاده کنید', 503)
-    try { const result = await generate(enhancementPrompt(input, output), config); output = cleanText(result.text, 24000); model = result.model; engine = 'AI' }
+    try { const result = await generate(enhancementPrompt(input, output), undefined, 'prompts'); output = cleanText(result.text, 24000); model = result.model; engine = 'AI' }
     catch { throw new PromptError('پاسخ سرویس هوش مصنوعی دریافت نشد؛ کمی بعد تلاش کنید یا حالت ساختاریافته را انتخاب کنید', 502) }
     if (output.length < 10) throw new PromptError('پاسخ سرویس کامل نبود؛ دوباره تلاش کنید', 502)
   } else if (raw.engine !== undefined && raw.engine !== 'structured') throw new PromptError('روش ساخت معتبر نیست')

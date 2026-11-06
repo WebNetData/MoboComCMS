@@ -6,6 +6,7 @@ import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { requirePerm } from '@/modules/identity/server/access'
 import { moduleGuard } from '@/extensions/server/modules'
 import { AI_PROVIDERS } from '@/modules/ai/domain/ai'
+import { isAiPurpose, purposeForAdminAction } from '@/modules/ai/domain/routing'
 import { AiError, generate, getAiConfig, publicAiConfig, saveAiConfig } from '@/modules/ai/server/client'
 import { withPersonalAi } from '@/modules/ai/server/admin-context'
 import {
@@ -81,7 +82,9 @@ export async function POST(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   if (action.generates && !(await rateLimitStrict(`ai:generate:${admin.id}`, 30, 10 * 60_000)).ok) return err('درخواست‌های زیادی فرستادید؛ چند دقیقه صبر کنید', 429)
   try {
-    const result = await withPersonalAi(admin.id, () => action.run(admin, body))
+    if (body.action === 'test' && body.purpose !== undefined && !isAiPurpose(body.purpose)) throw new AiError('کاربرد هوش مصنوعی معتبر نیست')
+    const purpose = body.action === 'test' && isAiPurpose(body.purpose) ? body.purpose : purposeForAdminAction(String(body.action), body.section)
+    const result = await withPersonalAi(admin.id, () => action.run(admin, body), purpose)
     await auditAdmin({ req, actor: admin, action: `ai.${body.action}`, targetType: 'ai', targetId: body.id ?? body.section ?? '', metadata: { model: (result as { model?: string })?.model } })
     return ok(result)
   } catch (error) {

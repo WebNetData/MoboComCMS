@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## AI service/model per purpose — 2026-11-06
+
+Owner requests independent providers/models for each application, for example Gemini support and personal ChatGPT Admin. Existing shared configuration remains the inherited default. Public support and Prompt Master never use an admin’s personal grant; Admin child purposes may inherit Admin or explicitly select their own API/personal route. Explicit API bypasses personal; failures never switch provider. Provider/endpoint changes never forward a retained old key. [Behavior/evidence/operation](handoffs/AI_ROUTING.md).
+
 ## Personal ChatGPT for Admin — 2026-11-06
 
 Owner choice: their own ChatGPT account serves personal Admin tools only. Each authorized admin has a separate connection; users, Livechat, Prompt Master and background work never consume it. Public support answers concern MoboCom only. Use the documented personal OSS/self-hosted OAuth path and explicit consent, never imported browser sessions. Active personal errors do not fall back to a paid API; explicit disable/disconnect returns to existing configured AI. No hosted shared-account service is authorized. [Implementation and limits](handoffs/CHATGPT_ADMIN.md).

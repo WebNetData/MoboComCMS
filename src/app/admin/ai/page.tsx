@@ -2,6 +2,7 @@
 import Link from '@/components/AppLink'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import PersonalChatGpt from './PersonalChatGpt'
+import AiRouting from './AiRouting'
 
 type Provider = { id: string; label: string; model: string; free: boolean; keyUrl: string; note: string }
 type Config = { provider: string; model: string; baseUrl: string; apiKey: string; hasKey: boolean; voice: string; botName: string; effectiveModel: string }
@@ -83,7 +84,7 @@ export default function AdminAiPage() {
 
   return <div className="xm-page ai-page" dir="rtl">
     <header className="tb-hero"><div><span className="tb-eyebrow">دستیار هوش مصنوعی</span><h1>دستیار هوش مصنوعی</h1><p>مقاله، توضیحات محصول و پاسخ دیدگاه‌ها و تالار را با هوش مصنوعی بنویسید. همه‌چیز اول پیش‌نویس است؛ شما ویرایش و تأیید می‌کنید و بعد منتشر می‌شود.</p></div>
-      <div className="ai-status"><b>{provider?.label}</b><small dir="ltr">{config.effectiveModel}</small>{provider?.free ? <span className="badge badge-green">رایگان</span> : <span className="badge">پولی</span>}</div>
+      <div className="ai-status"><small>سرویس پیش‌فرض سایت</small><b>{provider?.label}</b><small dir="ltr">{config.effectiveModel}</small>{provider?.free ? <span className="badge badge-green">رایگان</span> : <span className="badge">پولی</span>}</div>
     </header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <nav className="md-chips seo-filter ai-tabs" aria-label="بخش‌های دستیار">{TABS.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>{item.label}{counts[item.id] ? ` (${counts[item.id]!.toLocaleString('fa-IR')})` : ''}</button>)}</nav>
@@ -169,8 +170,10 @@ export default function AdminAiPage() {
 
     {tab === 'settings' && <section className="xm-section">
       <PersonalChatGpt />
+      <AiRouting />
       <div className="ai-providers">{providers.map((item) => <article key={item.id} className={`card${item.id === config.provider ? ' is-active' : ''}`}><b>{item.label}</b> {item.free ? <span className="badge badge-green">رایگان</span> : <span className="badge">پولی</span>}<p className="muted">{item.note}</p>{item.keyUrl && <a href={item.keyUrl} target="_blank" rel="noreferrer">گرفتن کلید ↗</a>}</article>)}</div>
       <form key={`${config.provider}-${config.apiKey}`} className="card seo-form" onSubmit={saveSettings}>
+        <header className="seo-wide"><h2>تنظیمات پیش‌فرض سایت</h2><p className="muted">بخش‌هایی که API مستقل ندارند از این تنظیمات استفاده می‌کنند. اتصال شخصی مدیر فقط در ابزارهای مدیریت و طبق انتخاب همان بخش به کار می‌رود.</p></header>
         <label className="studio-field"><span>سرویس</span><select className="input" name="provider" defaultValue={config.provider} onChange={(e) => setConfig({ ...config, provider: e.target.value, model: '' })}>{providers.map((item) => <option key={item.id} value={item.id}>{item.label}{item.free ? ' (رایگان)' : ''}</option>)}</select></label>
         <label className="studio-field"><span>کلید API {config.hasKey ? `(ذخیره‌شده: ${config.apiKey})` : ''}</span><input className="input" name="apiKey" type="password" dir="ltr" autoComplete="off" placeholder={config.hasKey ? 'برای تغییر، کلید جدید را وارد کنید' : 'API key'}/></label>
         <label className="studio-field"><span>مدل (خالی = پیش‌فرض)</span><input className="input" name="model" dir="ltr" defaultValue={config.model} placeholder={provider?.model}/></label>
