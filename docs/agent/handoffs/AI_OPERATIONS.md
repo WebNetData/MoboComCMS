@@ -1,5 +1,10 @@
 # Approval-only AI operations — 2026-11-06
 
+Continuation: the owner subsequently selected optional direct execution **for
+one explicitly selected request**. [Current implementation/evidence](AI_DIRECT_REQUESTS.md)
+supersedes this slice's absolute approval requirement; its six owners, normal
+review workflow and transactional boundaries remain in force.
+
 Owner: all changes must first be proposed and execute only after their explicit
 Admin approval. Branch `feat/ai-operations-2026-11-06` from owner-merged PR363,
 main3e9600a7. [Spec](../../specs/ai-operations/SPEC.md),

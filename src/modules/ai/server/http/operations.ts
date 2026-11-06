@@ -8,6 +8,7 @@ import { AiError } from '../error'
 import { AiOperationError } from '../../domain/operations'
 import { decideOperation, operationsActor, operationsView, proposeOperations } from '../operations/service'
 import { saveOperationsPolicy } from '../operations/policy'
+import { runDirectOperations } from '../operations/direct'
 
 const response = (value: unknown) => { const out = ok(value); out.headers.set('Cache-Control', 'private, no-store'); return out }
 function failure(error: unknown) {
@@ -29,9 +30,9 @@ export async function POST(req: NextRequest) {
   if (!(await rateLimitStrict(`ai:operations:requests:${access.actor.id}`, 90, 10 * 60_000)).ok) return err('تعداد درخواست‌های بررسی زیاد است؛ کمی بعد تلاش کنید', 429)
   try {
     const input = await readJsonObject(req, 10_000)
-    if (input.action === 'propose') {
+    if (input.action === 'propose' || input.action === 'run-direct') {
       if (!(await rateLimitStrict(`ai:operations:plan:${access.actor.id}`, 10, 10 * 60_000)).ok) return err('سقف تولید پیشنهاد پر شده است؛ پیشنهادهای فعلی را بررسی کنید', 429)
-      return response(await proposeOperations(req, input.instruction))
+      return response(input.action === 'run-direct' ? await runDirectOperations(req, input) : await proposeOperations(req, input.instruction))
     }
     if (input.action === 'approve' || input.action === 'reject') return response(await decideOperation(req, input))
     return err('unknown action', 404)

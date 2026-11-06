@@ -1,6 +1,14 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),loadSource=require('./connected-source-loader.cjs')
 const load=loadSource(),d=load('src/modules/ai/domain/operations.ts')
 const article={tool:'post.create',reason:'درخواست مدیر',args:{title:'عنوان پیشنهادی',slug:'owned-post',excerpt:'خلاصه',body:'متن سادهٔ پیشنهادی برای بررسی مدیر',status:'DRAFT'}}
+
+test('direct execution is opt-in per tool; legacy policies preserve review and malformed grants fail closed',()=>{
+ const {decodePolicy}=loadSource({'@/platform/database/prisma':{db:{}},'@/modules/settings/server':{},'@/platform/audit/server':{}})('src/modules/ai/server/operations/policy.ts')
+ assert.deepEqual(decodePolicy({}).directAllowed,[])
+ const legacy={enabled:true,allowed:['post.create'],maxProposals:3};assert.deepEqual(decodePolicy(legacy).directAllowed,[])
+ assert.deepEqual(decodePolicy({...legacy,directAllowed:['post.create','post.create']}).directAllowed,['post.create'])
+ for(const directAllowed of [true,['order.note'],['sql.run'],['post.create',42]])assert.throws(()=>decodePolicy({...legacy,directAllowed}),e=>e.status===503)
+})
 test('operational AI accepts closed typed proposals and never accepts arbitrary tools, money actions or authority',()=>{
  assert.equal(d.parseOperationPlan(JSON.stringify({actions:[article]}),['post.create'])[0].tool,'post.create')
  for(const raw of [{...article,tool:'sql.run'},{...article,tool:'order.refund'},{...article,args:{...article.args,actorId:99}},{...article,args:{...article.args,status:['PUBLISHED']}},{...article,args:{...article.args,slug:'../../admin'}},{...article,args:{...article.args,body:'x'.repeat(24001)}}])assert.throws(()=>d.parseOperation(raw))
