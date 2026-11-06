@@ -1,5 +1,10 @@
 # Approval-only operational AI assistant
 
+Slice2 supersedes the absolute approval requirement below: [explicit direct
+execution for one request](DIRECT.md). Review remains the default; direct tools
+are independently opt-in and never run on a schedule. The original slice below
+records the preserved owner/transaction and review-mode baseline.
+
 R4 bounded vertical slice; owner decision2026-11-06: **all mutations are
 proposals first and execute only after explicit Admin approval**. Base is
 owner-merged PR363/main3e9600a7. Existing AI, canonical Identity, Settings,

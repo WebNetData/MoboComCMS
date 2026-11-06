@@ -5022,6 +5022,8 @@ model AiAssistantProposal {
   createdById Int?
   createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   batchId     String
+  requestKey  String?  @unique
+  executionMode String @default("REVIEW")
   instruction String
   tool        String
   reason      String

@@ -8,9 +8,9 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
-## Operational AI requires individual human approval — 2026-11-06
+## Operational AI defaults to review; direct execution is per request — 2026-11-06
 
-Owner explicitly chose: «همهٔ تغییرات ابتدا پیشنهاد شوند و با تأیید مدیر اجرا شوند». The assistant proposes bounded content/product/order actions; only the requesting admin with current section permission can approve each one. Settings may disable tools, never remove approval. Existing owner commands preserve publication, exact money, order-state/version and strict audit rules; no payment/refund, customer messaging, arbitrary code or unattended execution is granted. Existing Automation remains the unattended-rule owner. [Contracts, evidence and limits](handoffs/AI_OPERATIONS.md).
+Owner now also requests occasional execution without proposal approval and explicitly chooses «برای همین درخواست، با انتخاب خودم». Review remains the default. Settings manager must enable direct execution per tool (default empty); the requesting admin explicitly selects it for one instruction and retains current section permission. The checkbox resets on submission. Stored request keys/mode, owner/version claims and atomic receipts preserve once-only execution; review proposals cannot become direct actions. No always-on or scheduled AI authority, payment/refund, customer messaging or arbitrary code is granted. Existing Automation remains the unattended-rule owner. [Current contracts and evidence](handoffs/AI_DIRECT_REQUESTS.md), [base owners](handoffs/AI_OPERATIONS.md).
 
 ## AI service/model per purpose — 2026-11-06
 
