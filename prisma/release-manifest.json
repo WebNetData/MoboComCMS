@@ -715,5 +715,7 @@
       "migrations": []
     }
   },
-  "unreleased": []
+  "unreleased": [
+    "20270220120000_ai_assistant_proposals"
+  ]
 }

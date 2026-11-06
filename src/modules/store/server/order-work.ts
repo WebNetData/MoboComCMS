@@ -9,10 +9,10 @@ export const orderVisibility = (scope?: OrderWorkScope): Prisma.OrderWhereInput 
 /** Locks the same Order row as assignment. A colleague cannot reassign between a check and a write. */
 export async function lockOrderWork(tx: Prisma.TransactionClient, id: number, scope?: OrderWorkScope) {
   if (!scope) return // Existing internal callers remain manager-only through their own boundary.
-  const row = await tx.order.findFirst({ where: { id, productId: { not: null } }, select: { assigneeId: true, status: true } })
+  const row = await tx.order.findFirst({ where: { id, productId: { not: null } }, select: { assigneeId: true, status: true, updatedAt: true } })
   if (!row) throw new StoreError('سفارش پیدا نشد', 404, 'ORDER_NOT_FOUND')
   if (!scope.manager && (row.status !== 'PAID' || row.assigneeId !== scope.actorId)) throw new StoreError('ابتدا سفارش را بردارید؛ کار همکار دیگر در دسترس شما نیست', 403, 'NOT_YOUR_WORK')
-  const held = await tx.order.updateMany({ where: { id, status: row.status, assigneeId: row.assigneeId }, data: { assigneeId: row.assigneeId } })
+  const held = await tx.order.updateMany({ where: { id, status: row.status, assigneeId: row.assigneeId, updatedAt: row.updatedAt }, data: { assigneeId: row.assigneeId, updatedAt: new Date(Math.max(Date.now(), row.updatedAt.getTime() + 1)) } })
   if (held.count !== 1) throw new StoreError('کارشناس سفارش هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409, 'CONFLICT')
 }
 

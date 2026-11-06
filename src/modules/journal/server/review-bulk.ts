@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import type { Post } from '@prisma/client'
+import type { Post, Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { recordRevision } from '@/modules/content/server/revisions'
@@ -11,7 +11,7 @@ import { queueReviewDecision } from './review-notifications'
 type Row = PostWriteState & { slug: string; title: string; publishedAt: Date }
 
 /** Preserve per-item bulk results; a stale row never changes state or receives a decision notice. */
-export function changePostStates(input: { rows: Row[]; status: 'PUBLISHED' | 'DRAFT'; actor: { id: number; email: string }; req: NextRequest }) {
+export function changePostStates(input: { rows: Row[]; status: 'PUBLISHED' | 'DRAFT'; actor: { id: number; email: string }; req: NextRequest; commit?: (tx: Prisma.TransactionClient, row: Post) => Promise<void> }) {
   return db.$transaction(async tx => {
     const changed: { before: Row; after: Post }[] = [], failed: { id: number; reason: string }[] = []
     for (const row of input.rows) {
@@ -29,6 +29,7 @@ export function changePostStates(input: { rows: Row[]; status: 'PUBLISHED' | 'DR
         await auditAdminStrict({ req: input.req, actor: input.actor, action: `cms.posts.review.${decision}`, targetType: 'posts', targetId: row.id }, tx)
       }
       changed.push({ before: row, after })
+      await input.commit?.(tx, after)
     }
     return { changed, failed }
   })

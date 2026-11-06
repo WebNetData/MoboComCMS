@@ -273,6 +273,8 @@ test('the magazine permission is named only where the magazine is guarded', () =
   assert.deepEqual(files.sort(), [
     // The typed audience registry maps only posts to the Magazine permission; each other type has its own.
     'src/modules/account/domain/item-audience.ts',
+    // Operational tools/context map only Magazine creation/publication and Magazine records to this key.
+    'src/modules/ai/domain/operations.ts', 'src/modules/ai/server/operations/context.ts',
     'src/app/admin/layout.tsx', 'src/app/admin/roles/page.tsx',
     'src/modules/ai/server/http/admin.ts', 'src/modules/content/server/http/history.ts', 'src/modules/editor/server/documents.ts', 'src/modules/editor/server/document-validation.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/downloads/server/http/files.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/identity/rbac.ts', 'src/modules/journal/server/body-proposals.ts', 'src/modules/journal/server/http/routes.ts', 'src/modules/journal/server/review-bulk.ts', 'src/modules/journal/server/review.ts',
     'src/modules/mail/server/http/newsletter.ts', 'src/modules/moderation/domain/queue.ts', 'src/modules/paywall/server/http/paywall.ts', 'src/modules/site/server/builder.ts',

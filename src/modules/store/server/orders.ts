@@ -377,6 +377,8 @@ export async function transitionOrder(input: {
   orderId: number; to: string; actorId: number | null
   trackingCode?: unknown; note?: unknown; digitalDelivery?: unknown; notify?: boolean; restock?: boolean
   scope?: OrderWorkScope
+  beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>
+  commit?: (tx: Prisma.TransactionClient, result: { status: string; trackingCode: string }) => Promise<void>
 }) {
   const delivery = await db.productDelivery.findUnique({ where: { orderId: input.orderId }, include: { order: { select: { userId: true, status: true, product: { select: { kind: true } }, lines: { select: { kind: true } } } } } })
   if (!delivery || delivery.order.status !== 'PAID') throw new StoreError('سفارش پرداخت‌شده پیدا نشد', 404, 'ORDER_NOT_FOUND')
@@ -390,6 +392,7 @@ export async function transitionOrder(input: {
   if (secret && !virtual) throw new StoreError('اطلاعات تحویل دیجیتال فقط برای سفارش‌های مجازی است')
   const encrypted = secret ? encryptDigitalDelivery(secret) : undefined
   await db.$transaction(async (tx) => {
+    await input.beforeWrite?.(tx)
     await lockOrderWork(tx, input.orderId, input.scope)
     const changed = await tx.productDelivery.updateMany({
       where: { id: delivery.id, status: delivery.status },
@@ -397,7 +400,8 @@ export async function transitionOrder(input: {
     })
     if (changed.count !== 1) throw new StoreError('وضعیت سفارش هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409, 'CONFLICT')
     await tx.orderEvent.create({ data: { orderId: input.orderId, status: to, note: note || (to === 'SHIPPED' && trackingCode ? `کد رهگیری مرسوله: ${trackingCode}` : ''), actorId: input.actorId } })
-  })
+    await input.commit?.(tx, { status: to, trackingCode })
+  }, input.beforeWrite ? { isolationLevel: 'Serializable' } : undefined)
   if ((to === 'CANCELLED' || to === 'RETURNED') && input.restock) {
     await restockConsumedInventory(input.orderId)
     const lines = await db.orderLine.findMany({ where: { orderId: input.orderId, productId: { not: null } }, select: { productId: true, quantity: true } })
@@ -417,15 +421,18 @@ export async function transitionOrder(input: {
 }
 
 /** Internal note (staff only) or a message shown to the customer on the order timeline. */
-export async function addOrderNote(input: { orderId: number; note: unknown; visible: boolean; actorId: number; scope?: OrderWorkScope }) {
+export async function addOrderNote(input: { orderId: number; note: unknown; visible: boolean; actorId: number; scope?: OrderWorkScope; beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>; commit?: (tx: Prisma.TransactionClient, result: { id: number }) => Promise<void> }) {
   const note = plain(input.note, 1000)
   if (note.length < 2) throw new StoreError('متن یادداشت را بنویسید')
   const order = await db.order.findFirst({ where: { ...STORE_ORDER, id: input.orderId }, select: { id: true, userId: true } })
   if (!order) throw new StoreError('سفارش پیدا نشد', 404, 'ORDER_NOT_FOUND')
   const event = await db.$transaction(async tx => {
+    await input.beforeWrite?.(tx)
     await lockOrderWork(tx, input.orderId, input.scope)
-    return tx.orderEvent.create({ data: { orderId: order.id, status: 'NOTE', note, visible: input.visible, actorId: input.actorId } })
-  })
+    const created = await tx.orderEvent.create({ data: { orderId: order.id, status: 'NOTE', note, visible: input.visible, actorId: input.actorId } })
+    await input.commit?.(tx, created)
+    return created
+  }, input.beforeWrite ? { isolationLevel: 'Serializable' } : undefined)
   if (input.visible) await createInboxEvent({
     userId: order.userId, kind: 'ORDER_STATUS', dedupeKey: `store-order:${order.id}:note:${event.id}`,
     titleEn: `Message about order #${order.id}`, titleFa: `پیام دربارهٔ سفارش ${order.id.toLocaleString('fa-IR')}`,
