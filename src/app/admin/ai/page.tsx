@@ -87,6 +87,7 @@ export default function AdminAiPage() {
       <div className="ai-status"><small>سرویس پیش‌فرض سایت</small><b>{provider?.label}</b><small dir="ltr">{config.effectiveModel}</small>{provider?.free ? <span className="badge badge-green">رایگان</span> : <span className="badge">پولی</span>}</div>
     </header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
+    <div className="seo-actions"><Link className="btn btn-ghost" href="/admin/ai/operations">دستیار عملیاتی با بررسی و تأیید شما</Link></div>
     <nav className="md-chips seo-filter ai-tabs" aria-label="بخش‌های دستیار">{TABS.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>{item.label}{counts[item.id] ? ` (${counts[item.id]!.toLocaleString('fa-IR')})` : ''}</button>)}</nav>
 
     {tab === 'write' && <section className="xm-section">

@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  aiAssistantProposals AiAssistantProposal[]
   domains Domain[] @relation("DomainOwner")
   hostingServices HostingService[] @relation("HostingServiceOwner")
   membershipAccount MembershipAccount? @relation("MembershipAccount")
@@ -5012,4 +5013,28 @@ model HumanCheckUse {
   createdAt DateTime @default(now())
 
   @@index([expiresAt])
+}
+
+
+/// Reviewed AI commands. This is domain approval history, not another job queue.
+model AiAssistantProposal {
+  id          Int      @id @default(autoincrement())
+  createdById Int?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  batchId     String
+  instruction String
+  tool        String
+  reason      String
+  arguments   String
+  preview     String
+  snapshot    String   @default("{}")
+  status      String   @default("PROPOSED")
+  result      String   @default("{}")
+  model       String   @default("")
+  expiresAt   DateTime
+  decidedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  @@index([createdById, createdAt])
+  @@index([status, expiresAt])
 }

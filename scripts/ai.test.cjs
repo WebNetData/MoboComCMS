@@ -5,6 +5,7 @@ const path = require('node:path')
 const ts = require('typescript-api')
 require('./chatgpt-admin.cases.cjs')
 require('./ai-routing.cases.cjs')
+require('./ai-operations.cases.cjs')
 
 function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText

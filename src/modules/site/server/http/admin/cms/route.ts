@@ -1,3 +1,5 @@
+import { createJournalPost } from '@/modules/journal/server/create'
+import { createCatalogProduct } from '@/modules/catalog/server/create'
 import { NextRequest } from 'next/server'
 import { contentChanged } from '@/modules/content/server/events'
 import { normalizeAccess } from '@/modules/membership/domain/membership'
@@ -228,30 +230,8 @@ export async function POST(req: NextRequest) {
     }
     if (type === 'posts') {
       const status = postFormStatus(b?.status)
-      // While review is on, an author's new article is a draft or waits for the manager; it never goes live here.
       if (caller.authorId) { const refusal = authorReviewRefusal({ reviewing: await reviewingAuthorPosts(), asked: status, creating: true }); if (refusal) return err(refusal, 403) }
-      const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
-      let formatInput: Awaited<ReturnType<typeof postFormatInput>>
-      try { formatInput = await postFormatInput(db, b || {}, null) } catch (error) { if (error instanceof PostFormatError) return err(error.message, error.status); throw error }
-      const row = await db.$transaction(async tx => {
-        const ids = await validateCategorySelection(tx, b || {})
-        if (itemLinks) await validatePostItemLinks(tx, itemLinks)
-        const created = await tx.post.create({
-        data: sanitizeContent({
-          ...pick({ ...b, status }, postFields(caller.authorId)),
-          ...formatInput,
-          ...(b?.publishedAt !== undefined ? { publishedAt: publicationDateInput(b.publishedAt) } : {}),
-          access: normalizeAccess(b?.access),
-          authorId: admin.id,
-          categoryId: ids[0] || null,
-          categories: { create: ids.map(categoryId => ({ categoryId })) },
-        }) as any,
-        })
-        if (itemLinks) await replacePostItemLinks(tx, created.id, itemLinks)
-        await recordRevision({ entityType: 'posts', entityId: created.id, before: null, after: (await postRevisionState(created.id, tx))!, actor: admin, client: tx, strict: true })
-        return created
-      })
-      contentChanged({ type: 'post', id: row.id }, null, row)
+      const row = await createJournalPost(b || {}, sanitizeContent(pick({ ...b, status }, postFields(caller.authorId))), admin)
       return ok(row)
     }
     if (type === 'postcats' || type === 'productcats') {
@@ -268,22 +248,7 @@ export async function POST(req: NextRequest) {
       return ok(row)
     }
     if (type === 'productgroups') return ok(await db.productAttributeGroup.create({ data: productGroupInput(b) }))
-    if (type === 'products') {
-      const input = await productInput(b)
-      const relationships = b?.relationships === undefined ? null : parseProductRelationships(b.relationships)
-      if (b?.bundles !== undefined && (!Array.isArray(b.bundles) || b.bundles.length)) throw Error("Save the product before composing bundles")
-      const row = await db.$transaction(async tx => {
-        const created = await tx.product.create({ data: input.data as any })
-        if (b?.categoryIds !== undefined) await replaceExtraCategories(tx, created.id, await validateExtraCategories(tx, b.categoryIds, created.categoryId, created.kind))
-        if (input.variants) await saveVariants(tx, created.id, input.variants)
-        if (relationships) await replaceProductRelationships(tx, created.id, relationships)
-        await capturePublicProductPrices(tx, created.id, new Map())
-        await recordRevision({ entityType: 'products', entityId: created.id, before: null, after: (await productRevisionState(created.id, tx))!, actor: admin, client: tx, strict: true })
-        return created
-      })
-      contentChanged({ type: 'product', id: row.id }, null, row)
-      return ok(row)
-    }
+    if (type === 'products') return ok(await createCatalogProduct(b || {}, admin))
     if (type === 'locations') {
       const row = await model.create({
         data: {
@@ -296,7 +261,7 @@ export async function POST(req: NextRequest) {
     }
     return err('unknown type', 404)
   } catch (e: any) {
-    if (e instanceof CategoryKindError || e instanceof PostReviewError || e instanceof ProductCategoryError) return err(e.message, e.status)
+    if (e instanceof CategoryKindError || e instanceof PostReviewError || e instanceof ProductCategoryError || e instanceof PostFormatError) return err(e.message, e.status)
     if (e instanceof RevisionError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'create failed', 400)
   }

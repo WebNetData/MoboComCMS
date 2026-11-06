@@ -1,5 +1,6 @@
 export const AI_PURPOSES = [
   { id: 'admin', label: 'پیش‌فرض ابزارهای مدیریت', personal: true },
+  { id: 'operations', label: 'دستیار عملیاتی با تأیید مدیر', personal: true },
   { id: 'support', label: 'پشتیبانی آنلاین کاربران', personal: false },
   { id: 'prompts', label: 'بهبود هوشمند پرامپت‌مستر', personal: false },
   { id: 'journal', label: 'نوشتن مطالب مجله', personal: true },

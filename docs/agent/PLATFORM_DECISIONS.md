@@ -8,6 +8,10 @@ Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices o
 
 ---
 
+## Operational AI requires individual human approval — 2026-11-06
+
+Owner explicitly chose: «همهٔ تغییرات ابتدا پیشنهاد شوند و با تأیید مدیر اجرا شوند». The assistant proposes bounded content/product/order actions; only the requesting admin with current section permission can approve each one. Settings may disable tools, never remove approval. Existing owner commands preserve publication, exact money, order-state/version and strict audit rules; no payment/refund, customer messaging, arbitrary code or unattended execution is granted. Existing Automation remains the unattended-rule owner. [Contracts, evidence and limits](handoffs/AI_OPERATIONS.md).
+
 ## AI service/model per purpose — 2026-11-06
 
 Owner requests independent providers/models for each application, for example Gemini support and personal ChatGPT Admin. Existing shared configuration remains the inherited default. Public support and Prompt Master never use an admin’s personal grant; Admin child purposes may inherit Admin or explicitly select their own API/personal route. Explicit API bypasses personal; failures never switch provider. Provider/endpoint changes never forward a retained old key. [Behavior/evidence/operation](handoffs/AI_ROUTING.md).
