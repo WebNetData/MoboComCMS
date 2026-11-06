@@ -1,5 +1,8 @@
 'use client'
 
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
+
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -14,7 +17,7 @@ const newKey = () => `web-hourly-${typeof crypto !== 'undefined' && 'randomUUID'
  * A fixed term goes through checkout (wallet first, then gateway); hourly needs only enough wallet credit and is
  * charged as it runs. The server prices everything again.
  */
-export default function HostingOrder({ product, cycle, gateways, signedIn, minHours, onClose }: { product: PublicHostingProduct; cycle: string; gateways: CheckoutGatewayChoice[]; signedIn: boolean; minHours: number; onClose: () => void }) {
+export default function HostingOrder({ product, cycle, gateways, signedIn, minHours, onClose, surface = 'public' }: { surface?: CheckoutSurface; product: PublicHostingProduct; cycle: string; gateways: CheckoutGatewayChoice[]; signedIn: boolean; minHours: number; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const terms = product.prices
   const [term, setTerm] = useState(terms.some((price) => price.cycle === cycle) ? cycle : terms.find((price) => price.cycle === 'MONTH')?.cycle || terms[0]?.cycle || '')
@@ -46,13 +49,13 @@ export default function HostingOrder({ product, cycle, gateways, signedIn, minHo
     lock.current = true; setBusy(true); setError(null)
     try {
       if (hourly) { await orderHourly(); return }
-      const result = await startCheckout({ hostingProductId: product.id, hostingCycle: term, hostingName: name.trim(), gatewayRef: gatewayRef || undefined })
+      const result = await startCheckout({ surface: surface === 'dashboard' ? 'dashboard' : undefined, hostingProductId: product.id, hostingCycle: term, hostingName: name.trim(), gatewayRef: gatewayRef || undefined })
       if (!result.ok) {
-        if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(result.invoiceUrl); return }
+        if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(checkoutPath(result.invoiceUrl, surface)); return }
         setError({ text: result.code === 'NEED_LOGIN' ? 'برای سفارش ابتدا وارد حساب خود شوید.' : result.code === 'NO_GATEWAY' || result.code === 'INSUFFICIENT_FUNDS' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'سفارش ثبت نشد', wallet: result.code === 'INSUFFICIENT_FUNDS' })
         return
       }
-      const destination = result.paid ? `/payment/result?invoice=${encodeURIComponent(result.invoiceNumber)}` : result.paymentUrl || result.invoiceUrl
+      const destination = checkoutDestination(result, surface)
       if (destination) window.location.assign(destination)
     } catch {
       setError({ text: 'ارتباط با سرور برقرار نشد؛ دوباره امتحان کنید.' })

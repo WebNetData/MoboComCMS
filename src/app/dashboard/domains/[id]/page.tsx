@@ -1,5 +1,8 @@
 'use client'
 
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
+
 import { use, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -51,9 +54,9 @@ export default function DomainPage({ params }: { params: Promise<{ id: string }>
     if (!domain) return
     setBusy('renew'); setMessage(null)
     try {
-      const result = await startCheckout({ domainRenew: { domainId: domain.id, years } })
-      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(result.invoiceUrl); return } setMessage({ tone: 'error', text: result.message || 'تمدید ثبت نشد' }); return }
-      const destination = result.paid ? `/payment/result?invoice=${encodeURIComponent(result.invoiceNumber)}` : result.paymentUrl || result.invoiceUrl
+      const result = await startCheckout({ surface: 'dashboard', domainRenew: { domainId: domain.id, years } })
+      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(checkoutPath(result.invoiceUrl, 'dashboard')); return } setMessage({ tone: 'error', text: result.message || 'تمدید ثبت نشد' }); return }
+      const destination = checkoutDestination(result, 'dashboard')
       if (destination) window.location.assign(destination)
     } catch { setMessage({ tone: 'error', text: 'ارتباط با سرور برقرار نشد' }) } finally { setBusy('') }
   }

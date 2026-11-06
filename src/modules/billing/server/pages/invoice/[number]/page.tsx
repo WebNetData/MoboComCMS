@@ -1,5 +1,6 @@
+import { checkoutPath, storedCheckoutSurface, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 import Link from '@/components/AppLink'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/modules/identity/auth'
 import { db } from '@/platform/database/prisma'
@@ -25,7 +26,7 @@ import { headers } from 'next/headers'
 import { invoiceStaffAccess } from '@/modules/billing/server/invoice-access'
 
 
-export default async function InvoicePage({ params: paramsPromise }: { params: Promise<{ number: string }> }) {
+export default async function InvoicePage({ params: paramsPromise, surface = 'public' }: { params: Promise<{ number: string }>; surface?: CheckoutSurface }) {
   const params = await paramsPromise
   const [locale, theme, session, settings] = await Promise.all([
     getServerLocale(),
@@ -53,6 +54,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
   const isOwner = viewerId && viewerId === invoice.userId
   const isAdmin = (session as any)?.user?.role === 'ADMIN' && await invoiceStaffAccess(new Headers(await headers()))
   if (!isOwner && !isAdmin) notFound()
+  if (isOwner && surface === 'public' && storedCheckoutSurface(invoice.order?.meta) === 'dashboard') redirect(checkoutPath(`/invoice/${encodeURIComponent(invoice.number)}`, 'dashboard'))
 
   const navPages = await db.page
     .findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } })
@@ -94,10 +96,11 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
       ? invoice.paymentUrl || invoice.order?.paymentUrl || ''
       : ''
 
+  const Surface = surface === 'dashboard' ? 'section' : 'main'
   return (
     <>
-      <SiteHeader theme={theme} navPages={navPages} />
-      <main className="container py-12 invoice-page">
+      {surface === 'public' && <SiteHeader theme={theme} navPages={navPages} />}
+      <Surface className="container py-12 invoice-page">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6 no-print">
           <Link href="/dashboard/invoices" className="muted">← {t.myInvoices}</Link>
           {invoice.status !== 'DRAFT' && <div className="invoice-actions">
@@ -120,7 +123,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
             </div>
             <div className="invoice-id">
               <span className={`invoice-status is-${invoice.status.toLowerCase()}`}>{(t as Record<string, string>)[`st${invoice.status}`] || invoice.status}</span>
-              <div className="invoice-title">{t.invoice}</div>
+              <div className="invoice-title" role="heading" aria-level={1}>{t.invoice}</div>
               <bdi className="invoice-number" dir="ltr">{invoice.number}</bdi>
             </div>
           </div>
@@ -136,7 +139,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
             <div><span>{t.gateway}</span><b>{invoice.gateway?.name || t.manualTransfer}</b></div>
           </div>
 
-          <div className="invoice-items">
+          <div className="invoice-items" role="region" aria-label={isFa ? 'شرح و اقلام فاکتور' : 'Invoice items'} tabIndex={0}>
           <table className="data invoice-table">
             <thead>
               <tr>
@@ -254,8 +257,8 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
             <Link href="/admin/invoices" className="btn btn-ghost mt-4">{t.invoicesAdmin}</Link>
           </div>
         )}
-      </main>
-      <SiteFooter navPages={navPages} />
+      </Surface>
+      {surface === 'public' && <SiteFooter navPages={navPages} />}
     </>
   )
 }

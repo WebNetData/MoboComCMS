@@ -1,5 +1,8 @@
 'use client'
 
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
+
 import { use, useEffect, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -68,9 +71,9 @@ export default function ServiceWorkspace({ params }: { params: Promise<{ id: str
     if (!service) return
     setBusy(true); setRenewError('')
     try {
-      const result = await startCheckout({ hostingRenewServiceId: service.id })
-      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(result.invoiceUrl); return } setRenewError(result.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'تمدید ثبت نشد'); return }
-      const destination = result.paid ? `/payment/result?invoice=${encodeURIComponent(result.invoiceNumber)}` : result.paymentUrl || result.invoiceUrl
+      const result = await startCheckout({ surface: 'dashboard', hostingRenewServiceId: service.id })
+      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(checkoutPath(result.invoiceUrl, 'dashboard')); return } setRenewError(result.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'تمدید ثبت نشد'); return }
+      const destination = checkoutDestination(result, 'dashboard')
       if (destination) window.location.assign(destination)
     } catch { setRenewError('ارتباط با سرور برقرار نشد') } finally { setBusy(false) }
   }

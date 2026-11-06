@@ -1,3 +1,4 @@
+import type { CheckoutSurface } from '@/modules/checkout/domain/surface'
 import { contentRouteParams } from '@/shared/routing/params'
 import Link from '@/components/AppLink'
 import ManageBar from '@/components/admin/ManageBar'
@@ -71,7 +72,7 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
   })
 }
 
-export default async function ProductPage({ params: paramsPromise, preview }: { params: Promise<{ slug: string }>; preview?: BuilderPreview }) {
+export default async function ProductPage({ params: paramsPromise, preview, surface = 'public' }: { params: Promise<{ slug: string }>; preview?: BuilderPreview; surface?: CheckoutSurface }) {
   const params = await contentRouteParams(paramsPromise)
   const [locale, theme] = await Promise.all([getServerLocale(), getServerTheme()])
   const t = dict(locale)
@@ -79,6 +80,8 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
 
   const product = await loadProduct(params.slug, isPreview(preview))
   if (!product || (!isPreview(preview) && (product.active !== true || product.approval !== 'APPROVED' || !await opensAudience(product.audienceGroups, 'product')))) notFound()
+
+  if (surface === 'dashboard' && product.kind !== 'VIRTUAL') notFound()
 
   const navPages = await db.page
     .findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } })
@@ -171,7 +174,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const seller = await productSeller(product.id)
   const purchaseNode = (
     <aside className="sx-pbuy" id="product-purchase" aria-label="خرید کالا">
-      <BuyBox
+      <BuyBox surface={surface}
         seller={seller ? { name: seller.shopName, label: seller.performance.label, href: `/shop/${seller.slug}` } : null}
         productId={product.id} slug={product.slug} kind={product.kind} instant={deliversInstantly(product)} currency={regular.currency}
         price={minorToNumber(regular.unitMinor, regular.currency)} listPrice={regular.listMinor ? minorToNumber(regular.listMinor, regular.currency) : 0}
@@ -190,6 +193,8 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
       {seller && <SellerCard seller={seller} />}
     </aside>
   )
+  if (surface === 'dashboard') return <section className="do-detail sx-product"><div className="do-summary"><h1>{name}</h1>{product.shortDescription && <p>{product.shortDescription}</p>}<div dangerouslySetInnerHTML={{ __html: html }} />{fileAccess && <ProductDownloads access={fileAccess} slug={product.slug} title={name} />}</div>{purchaseNode}</section>
+
   const heroNode = (
     <section className={`sx-phero ${product.kind === 'PHYSICAL' ? 'is-physical' : 'is-virtual'}`} aria-label={name}>
       <div className="sx-pgallery">{galleryNode}</div>

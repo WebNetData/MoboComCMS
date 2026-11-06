@@ -1,5 +1,8 @@
 'use client'
 
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
+
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -9,7 +12,7 @@ type Result = { name: string; display: string; suffix: string; state: 'available
 const nf = (value: number) => Math.round(value).toLocaleString('fa-IR')
 const STATE = { available: ['آزاد است', 'is-free'], taken: ['ثبت شده', 'is-taken'], unknown: ['قابل سفارش', 'is-unknown'] } as const
 
-function OrderSheet({ result, transfer, signedIn, onClose }: { result: Result; transfer: boolean; signedIn: boolean; onClose: () => void }) {
+function OrderSheet({ result, transfer, signedIn, onClose, surface = 'public' }: { surface?: CheckoutSurface; result: Result; transfer: boolean; signedIn: boolean; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [years, setYears] = useState(result.years[0] || 1)
   const [handle, setHandle] = useState('')
@@ -24,9 +27,9 @@ function OrderSheet({ result, transfer, signedIn, onClose }: { result: Result; t
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      const outcome = await startCheckout({ domainOrder: { name: result.name, years, transfer, handle: handle.trim(), authCode: authCode.trim() } })
-      if (!outcome.ok) { if (outcome.code === 'GATEWAY_AMBIGUOUS' && outcome.invoiceUrl) { window.location.assign(outcome.invoiceUrl); return } setError(outcome.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : outcome.message || 'سفارش ثبت نشد'); return }
-      const destination = outcome.paid ? `/payment/result?invoice=${encodeURIComponent(outcome.invoiceNumber)}` : outcome.paymentUrl || outcome.invoiceUrl
+      const outcome = await startCheckout({ surface: surface === 'dashboard' ? 'dashboard' : undefined, domainOrder: { name: result.name, years, transfer, handle: handle.trim(), authCode: authCode.trim() } })
+      if (!outcome.ok) { if (outcome.code === 'GATEWAY_AMBIGUOUS' && outcome.invoiceUrl) { window.location.assign(checkoutPath(outcome.invoiceUrl, surface)); return } setError(outcome.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : outcome.message || 'سفارش ثبت نشد'); return }
+      const destination = checkoutDestination(outcome, surface)
       if (destination) window.location.assign(destination)
     } catch { setError('ارتباط با سرور برقرار نشد؛ دوباره امتحان کنید.') } finally { setBusy(false) }
   }
@@ -64,7 +67,7 @@ function OrderSheet({ result, transfer, signedIn, onClose }: { result: Result; t
 }
 
 /** The domain search: one box, results on every featured extension, and the order sheet. */
-export default function DomainSearch({ signedIn, initial = '' }: { signedIn: boolean; initial?: string }) {
+export default function DomainSearch({ signedIn, initial = '', surface = 'public' }: { surface?: CheckoutSurface; signedIn: boolean; initial?: string }) {
   const [query, setQuery] = useState(initial)
   const [results, setResults] = useState<Result[] | null>(null)
   const [error, setError] = useState('')
@@ -112,6 +115,6 @@ export default function DomainSearch({ signedIn, initial = '' }: { signedIn: boo
       })}
       {!results.length && !error && <li className="dx-empty">پسوندی برای این جست‌وجو تعریف نشده است.</li>}
     </ul>}
-    {ordering && <OrderSheet result={ordering.result} transfer={ordering.transfer} signedIn={signedIn} onClose={() => setOrdering(null)} />}
+    {ordering && <OrderSheet surface={surface} result={ordering.result} transfer={ordering.transfer} signedIn={signedIn} onClose={() => setOrdering(null)} />}
   </div>
 }

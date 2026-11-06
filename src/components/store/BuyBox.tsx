@@ -1,5 +1,8 @@
 'use client'
 
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
+
 import Link from '@/components/AppLink'
 import { colorSwatch } from '@/modules/store/domain/colors'
 import { useEffect, useMemo, useState } from 'react'
@@ -21,6 +24,7 @@ export type BuyVariant = { id: number; name: string; attributes: Record<string, 
 /** Tells the product gallery which picture the chosen variant has (ProductGallery listens for it). */
 export const VARIANT_IMAGE_EVENT = 'store:variant-image'
 export type BuyBoxProps = {
+  surface?: CheckoutSurface
   /** Marketplace seller of this product; the site itself when absent. */
   seller?: { name: string; label: string; href: string } | null
   productId: number
@@ -136,6 +140,7 @@ export default function BuyBox(props: BuyBoxProps) {
   const clubPoints = props.club && toman > 0 ? Math.floor(Math.floor(toman / props.club.earnStepToman) * props.club.earnPoints) : 0
   const installmentsNote = toman > 0 ? (props.installments || []).filter((row) => row.count >= 2).map((row) => ({ ...row, each: Math.ceil(toman / row.count) })) : []
 
+  const surface = props.surface || 'public'
   const open = props.open || null
   const fields = useMemo(() => fieldsFor(props.orderFields || [], variant?.name || ''), [props.orderFields, variant?.name])
   // A typed amount is priced by the server a moment after the buyer stops typing.
@@ -179,9 +184,10 @@ export default function BuyBox(props: BuyBoxProps) {
     try {
       const gateways = await fetchCheckoutGateways(props.currency)
       const gateway = gateways.find((row) => row.isDefault) || gateways[0]
-      const result = await startCheckout({ productId: props.productId, variantId: variant?.id, gatewayRef: gateway?.ref, expectedQuote: { amountMinor: toMinor(String(price), props.currency).toString(), currency: props.currency } })
+      const result = await startCheckout({ surface: surface === 'dashboard' ? 'dashboard' : undefined, productId: props.productId, variantId: variant?.id, gatewayRef: gateway?.ref, expectedQuote: { amountMinor: toMinor(String(price), props.currency).toString(), currency: props.currency } })
       if (result.ok) {
-        if (result.paid || result.invoiceUrl) router.push(`/payment/result?invoice=${result.invoiceNumber}`)
+        if (surface === 'dashboard') { const destination = checkoutDestination(result, surface); if (destination) window.location.assign(destination) }
+        else if (result.paid || result.invoiceUrl) router.push(`/payment/result?invoice=${result.invoiceNumber}`)
         else if (result.paymentUrl) window.location.href = result.paymentUrl
         return
       }
@@ -275,7 +281,7 @@ export default function BuyBox(props: BuyBoxProps) {
         : available && (added
           ? <div className="sx-buy-added" role="status">
               <span><StoreIcon name="check" size={18} />به سبد خرید اضافه شد</span>
-              <Link href="/cart" className="sx-btn is-primary is-block">مشاهدهٔ سبد خرید و ادامه</Link>
+              <Link href={checkoutPath('/cart', surface)} className="sx-btn is-primary is-block">مشاهدهٔ سبد خرید و ادامه</Link>
               <button type="button" className="sx-link" onClick={() => setAdded(false)}>افزودن دوباره</button>
             </div>
           : <div className="sx-buy-actions">

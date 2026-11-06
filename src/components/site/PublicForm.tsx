@@ -1,4 +1,6 @@
 'use client'
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
 import { useHumanCheck } from '@/components/HumanCheck'
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import CheckoutError from '@/components/CheckoutError'
@@ -33,7 +35,7 @@ const CLOSED: Record<Exclude<FormState, 'open'>, string> = { soon: 'این فر�
  * A published form: steps with progress, fields that appear by condition, per-field errors,
  * file attachments and the anti-spam honeypot. Answers are checked here with the same rules the server applies.
  */
-export default function PublicForm({ form, state = 'open', preview = false, headingLevel = 2 }: { form: FormDefinition; state?: FormState; preview?: boolean; headingLevel?: 1 | 2 }) {
+export default function PublicForm({ form, state = 'open', preview = false, headingLevel = 2, surface = 'public' }: { surface?: CheckoutSurface; form: FormDefinition; state?: FormState; preview?: boolean; headingLevel?: 1 | 2 }) {
   const { locale } = useI18n()
   const human = useHumanCheck('form', locale)
   const uid = useId()
@@ -80,9 +82,10 @@ export default function PublicForm({ form, state = 'open', preview = false, head
     try {
       const gateways = await fetchCheckoutGateways('IRT')
       const gateway = gateways.find((row) => row.isDefault) || gateways[0]
-      const result = await startCheckout({ formSubmissionId: pay.submissionId, gatewayRef: gateway?.ref })
+      const result = await startCheckout({ surface: surface === 'dashboard' ? 'dashboard' : undefined, formSubmissionId: pay.submissionId, gatewayRef: gateway?.ref })
       if (result.ok) {
-        if (result.paid || result.invoiceUrl) window.location.assign(`/payment/result?invoice=${result.invoiceNumber}`)
+        if (surface === 'dashboard') { const destination = checkoutDestination(result, surface); if (destination) window.location.assign(destination) }
+        else if (result.paid || result.invoiceUrl) window.location.assign(`/payment/result?invoice=${result.invoiceNumber}`)
         else if (result.paymentUrl) window.location.href = result.paymentUrl
         return
       }

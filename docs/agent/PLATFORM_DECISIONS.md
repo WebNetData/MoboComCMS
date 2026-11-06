@@ -1,5 +1,7 @@
 # MoboCom — Platform decisions in force
 
+Customer service ordering2026-11-07: customers can choose/configure/pay/track hosting, servers, domains, foreign payments and paid services within the existing dashboard. Reuse the current Hosting/Store/Forms/Checkout/Billing owners and Admin catalogue/driver controls; canonical access, prices, claims and once-only receipts remain authoritative. Only an external gateway leaves the shell, returning through an owned persisted presentation marker. No parallel checkout, identity, provisioning or permission system. [Contract/evidence](handoffs/DASHBOARD_SERVICE_ORDERING.md).
+
 Decisions the owner made, and rules that came out of the work, **after** the v4 master prompt was written. They are part of the platform's algorithm: read this before working on access, the forum, staff, or the local workflow. The master prompt states principles; this file states what was decided here and where it lives in the code.
 
 Keep it short and current. When a decision changes, change the entry; do not append history (git and `.ai/MOBOCOM_WORKSTATE.md` hold that). Each entry: the rule, why, where, and what guards it.

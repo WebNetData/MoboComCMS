@@ -1,5 +1,8 @@
 'use client'
 
+import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
+
 import { useState } from 'react'
 import Icon from '@/components/site/Icon'
 import { startCheckout } from '@/modules/checkout/ui/client'
@@ -25,9 +28,9 @@ export default function AddonsPanel({ addons, serviceId, hourly, onChanged }: { 
   async function pay(addon: { kind: 'TRAFFIC' | 'UPGRADE'; packs?: number; productId?: number }, tag: string) {
     setBusy(tag); setError('')
     try {
-      const result = await startCheckout({ hostingAddon: { serviceId, ...addon } })
-      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(result.invoiceUrl); return } setError(result.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'ثبت نشد'); return }
-      const destination = result.paid ? `/payment/result?invoice=${encodeURIComponent(result.invoiceNumber)}` : result.paymentUrl || result.invoiceUrl
+      const result = await startCheckout({ surface: 'dashboard', hostingAddon: { serviceId, ...addon } })
+      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(checkoutPath(result.invoiceUrl, 'dashboard')); return } setError(result.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'ثبت نشد'); return }
+      const destination = checkoutDestination(result, 'dashboard')
       if (destination) window.location.assign(destination)
     } catch { setError('ارتباط با سرور برقرار نشد') } finally { setBusy('') }
   }

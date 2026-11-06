@@ -1,5 +1,7 @@
 'use client'
 
+import { checkoutDestination } from '@/modules/checkout/domain/surface'
+
 import { useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -57,10 +59,9 @@ export default function MyRequests() {
     try {
       const gateways = await fetchCheckoutGateways('IRT')
       const gateway = gateways.find((item) => item.isDefault) || gateways[0]
-      const result = await startCheckout({ formSubmissionId: row.id, gatewayRef: gateway?.ref })
+      const result = await startCheckout({ surface: 'dashboard', formSubmissionId: row.id, gatewayRef: gateway?.ref })
       if (result.ok) {
-        if (result.paid || result.invoiceUrl) window.location.assign(`/payment/result?invoice=${result.invoiceNumber}`)
-        else if (result.paymentUrl) window.location.href = result.paymentUrl
+        const destination = checkoutDestination(result, 'dashboard'); if (destination) window.location.assign(destination)
         return
       }
       setPayError({ id: row.id, code: result.code, message: result.message, needed: result.needed, currency: result.currency })
@@ -83,7 +84,7 @@ export default function MyRequests() {
         return <article key={row.id} className={`rq-card ${tone}`}>
           <div className="rq-head">
             <span className="rq-icon" aria-hidden="true"><Icon name="file" size={20} /></span>
-            <div className="rq-title"><h2>{row.form}</h2><small><span>شمارهٔ <b className="num">{fa(row.id)}</b></span><span>{when(row.createdAt)}</span>{row.slug && <Link href={`/forms/${row.slug}`} className="text-link">ثبت دوباره</Link>}</small></div>
+            <div className="rq-title"><h2>{row.form}</h2><small><span>شمارهٔ <b className="num">{fa(row.id)}</b></span><span>{when(row.createdAt)}</span>{row.slug && <Link href={row.amount > 0 ? `/dashboard/order/forms/${encodeURIComponent(row.slug)}` : `/forms/${row.slug}`} className="text-link">ثبت دوباره</Link>}</small></div>
             <div className="rq-badges">
               {row.amount > 0 && <span className={`rq-badge ${unpaid ? 'is-warn' : 'is-good'}`}>{unpaid ? 'در انتظار پرداخت' : 'پرداخت‌شده'}</span>}
               {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{STAGE_LABEL[row.stage as Stage]}</span>}

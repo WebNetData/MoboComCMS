@@ -1,5 +1,7 @@
 'use client'
 
+import { checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+
 import Link from '@/components/AppLink'
 import { useState } from 'react'
 import { useRouter } from '@/platform/routing/navigation'
@@ -16,7 +18,7 @@ export function Amount({ value, currency }: { value: number; currency: string })
 }
 
 /** The shopping cart: lines with quantity steppers and the order summary. */
-export default function CartPage({ initial, note }: { initial: Cart; note: string }) {
+export default function CartPage({ initial, note, surface = 'public' }: { surface?: CheckoutSurface; initial: Cart; note: string }) {
   const router = useRouter()
   const { status } = useSession()
   const [cart, setCart] = useState(initial)
@@ -40,14 +42,14 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
   }
 
   function proceed() {
-    router.push(status === 'authenticated' ? '/checkout/cart' : `/login?next=${encodeURIComponent('/checkout/cart')}`)
+    router.push(status === 'authenticated' ? checkoutPath('/checkout/cart', surface) : `/login?next=${encodeURIComponent('/checkout/cart')}`)
   }
 
   if (!cart.lines.length) return <div className="sx-cart-empty">
     <StoreIcon name="cart" size={56} />
     <h1>سبد خرید شما خالی است!</h1>
-    <p>می‌توانید برای مشاهدهٔ کالاها به صفحهٔ فروشگاه بروید یا پیشنهادهای شگفت‌انگیز را ببینید.</p>
-    <div><Link href="/products" className="sx-btn is-primary">رفتن به فروشگاه</Link><Link href="/products?discounted=1&sort=discount" className="sx-btn">شگفت‌انگیزها</Link></div>
+    <p>{surface === 'dashboard' ? 'سرویس موردنیازتان را انتخاب کنید؛ پیش از پرداخت، موارد سفارش را همین‌جا بررسی می‌کنید.' : 'می‌توانید برای مشاهدهٔ کالاها به صفحهٔ فروشگاه بروید یا پیشنهادهای شگفت‌انگیز را ببینید.'}</p>
+    <div><Link href={surface === 'dashboard' ? '/dashboard/order?category=digital' : '/products'} className="sx-btn is-primary">{surface === 'dashboard' ? 'انتخاب خدمت' : 'رفتن به فروشگاه'}</Link>{surface !== 'dashboard' && <Link href="/products?discounted=1&sort=discount" className="sx-btn">شگفت‌انگیزها</Link>}</div>
   </div>
 
   return <div className="sx-cart">
@@ -61,9 +63,9 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
       {!!cart.waiting && <p className="sx-cart-hint is-warn" role="status">سبد خرید پر است. {fa(cart.waiting)} کالا که پیش از ورود انتخاب کرده بودید نگه داشته شده و با خالی شدن جا به سبد اضافه می‌شود.</p>}
       <ul className="sx-cart-lines">
         {cart.lines.map((line) => <li key={line.id} className={line.issue ? 'has-issue' : ''} aria-busy={busy === line.id}>
-          <Link href={`/products/${line.slug}`} className="sx-cart-art" aria-label={line.name} tabIndex={-1}>{line.image ? <img src={line.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={34} />}</Link>
+          <Link href={surface === 'dashboard' && line.kind === 'VIRTUAL' ? `/dashboard/order/products/${encodeURIComponent(line.slug)}` : `/products/${line.slug}`} className="sx-cart-art" aria-label={line.name} tabIndex={-1}>{line.image ? <img src={line.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={34} />}</Link>
           <div className="sx-cart-info">
-            <Link href={`/products/${line.slug}`} className="sx-cart-name">{line.name}</Link>
+            <Link href={surface === 'dashboard' && line.kind === 'VIRTUAL' ? `/dashboard/order/products/${encodeURIComponent(line.slug)}` : `/products/${line.slug}`} className="sx-cart-name">{line.name}</Link>
             <ul className="sx-cart-attrs">
               {Object.entries(line.attributes).map(([key, value]) => <li key={key}>{value}</li>)}
               {!Object.keys(line.attributes).length && line.variantName && <li>{line.variantName}</li>}

@@ -90,6 +90,7 @@ export default function DashboardHome() {
   const { profile: p, modules: m } = data
   const money = (n: number, currency: string) => formatCurrency(n, currency, 'fa-IR')
   const quick = [
+    { href: '/dashboard/order', label: 'سفارش جدید', icon: 'plus' },
     m.community && { href: '/feed', label: 'تازه‌ها', icon: 'rss' },
     m.store && { href: '/products', label: 'فروشگاه', icon: 'bag' },
     m.forum && { href: '/forum', label: 'تالار', icon: 'chat' },
@@ -159,7 +160,7 @@ export default function DashboardHome() {
             {o.image ? <img src={o.image} alt="" /> : <span className="ud-ph"><Icon name="bag" size={18} /></span>}
             <span className="ud-grow"><b>{o.title}{o.more > 0 && <small> و {fa(o.more)} کالای دیگر</small>}</b><small className="num">#{fa(o.id)} · {new Date(o.createdAt).toLocaleDateString('fa-IR')}</small></span>
             <span className="ud-end"><b className="num">{money(o.total, o.currency)}</b><span className={`ud-state ${STATE[o.status]?.[1] || ''}`}>{o.status === 'PAID' && o.fulfilment ? FULFIL[o.fulfilment] || STATE.PAID[0] : STATE[o.status]?.[0] || o.status}</span></span>
-          </Link></li>)}</ul> : <p className="ud-muted">سفارشی ثبت نکرده‌اید. <Link href="/products">سری به فروشگاه بزنید</Link>.</p>}
+          </Link></li>)}</ul> : <p className="ud-muted">سفارشی ثبت نکرده‌اید. <Link href="/dashboard/order">سرویس موردنیازتان را انتخاب کنید</Link>.</p>}
         </section>}
       </div>
       <div className="ud-stack">

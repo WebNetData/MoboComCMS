@@ -1,3 +1,5 @@
+import { checkoutPath, storedCheckoutSurface, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+import { redirect } from 'next/navigation'
 import Link from '@/components/AppLink'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/modules/identity/auth'
@@ -22,8 +24,10 @@ import { invoiceStaffAccess } from '@/modules/billing/server/invoice-access'
  */
 export default async function PaymentResultPage({
   searchParams: searchParamsPromise,
+  surface = 'public',
 }: {
   searchParams: Promise<{ invoice?: string; order?: string; failed?: string; reason?: string }>
+  surface?: CheckoutSurface
 }) {
   const searchParams = await searchParamsPromise
   const [locale, theme, session] = await Promise.all([getServerLocale(), getServerTheme(), getServerSession(authOptions)])
@@ -50,6 +54,7 @@ export default async function PaymentResultPage({
 
   const allowed = Boolean(invoice && viewerId && (invoice.userId === viewerId || isAdmin))
   const view = allowed && invoice ? invoice : null
+  if (view?.userId === viewerId && surface === 'public' && storedCheckoutSurface(view.order?.meta) === 'dashboard') redirect(checkoutPath(resultHref, 'dashboard') + (searchParams.failed === '1' ? '&failed=1' : ''))
 
   const subscription = view?.orderId
     ? await db.subscription.findFirst({ where: { orderId: view.orderId }, select: { id: true, username: true, expiresAt: true } })
@@ -73,17 +78,21 @@ export default async function PaymentResultPage({
   try { orderMeta = JSON.parse(view?.order?.meta || '{}') } catch { /* ignore */ }
   const contentPath = (orderMeta.kind === 'content' || orderMeta.kind === 'form') && typeof orderMeta.contentPath === 'string' && orderMeta.contentPath.startsWith('/') ? orderMeta.contentPath : ''
 
+  const serviceOrder = surface === 'dashboard' && ['hosting', 'hosting-renewal', 'hosting-addon', 'domain', 'domain-renewal'].includes(String(orderMeta.kind))
+  const serviceHref = serviceOrder ? (typeof orderMeta.contentPath === 'string' && /^\/dashboard\/(?:services|domains)\/[1-9]\d*$/.test(orderMeta.contentPath) ? orderMeta.contentPath : '/dashboard/services') : ''
+
   const money = (n: number) => formatAmount(n, view?.currency || BASE_CURRENCY, isFa ? 'fa-IR' : 'en-US')
   const fmt = (d: Date | null | undefined) => (d ? new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US') : '—')
 
+  const Surface = surface === 'dashboard' ? 'section' : 'main'
   return (
     <>
-      <SiteHeader theme={theme} navPages={navPages} />
-      <main className="container flex justify-center py-20">
+      {surface === 'public' && <SiteHeader theme={theme} navPages={navPages} />}
+      <Surface className="container flex justify-center py-20">
         <div className="card text-center max-w-xl w-full py-10">
           <div className="text-5xl mb-4">{icon}</div>
           <h1 className="h2">{title}</h1>
-          <p className="muted mt-3 leading-7">{body}</p>
+          <p className="muted mt-3 leading-7">{surface === 'dashboard' && paid ? (isFa ? 'پرداخت سفارش شما ثبت و تأیید شد. وضعیت آماده‌سازی، تحویل یا انجام درخواست را از گزینهٔ پیگیری زیر ببینید.' : 'Your order payment is confirmed. Use the tracking option below to check preparation, delivery or request progress.') : body}</p>
           {failed && searchParams.reason && <p className="error-text mt-3 leading-7" role="alert">{String(searchParams.reason).replace(/[<>]/g, '').slice(0, 240)}</p>}
 
           {view && (
@@ -120,16 +129,16 @@ export default async function PaymentResultPage({
           <div className="flex justify-center gap-3 mt-6 flex-wrap">
             {!viewerId && <Link href={authEntryHref('/login', resultHref)} className="btn btn-primary">{t.login}</Link>}
             {contentPath && orderMeta.kind !== 'form' && paid && delivered && <Link href={contentPath} className="btn btn-primary">{isFa ? 'مشاهده و دریافت' : 'Open your purchase'}</Link>}
-            <Link href={subscription ? `/dashboard/subscriptions/${subscription.id}` : orderMeta.kind === 'form' ? '/dashboard/requests' : contentPath ? '/dashboard/purchases' : '/dashboard/invoices'} className={contentPath && paid ? 'btn btn-ghost' : 'btn btn-primary'}>{subscription ? t.viewSubscription : orderMeta.kind === 'form' ? (isFa ? 'درخواست‌های من' : 'My requests') : contentPath ? (isFa ? 'خریدهای من' : 'My purchases') : t.goToDash}</Link>
-            {view && <Link href={`/invoice/${view.number}`} className="btn btn-ghost">{t.viewInvoice}</Link>}
+            <Link href={serviceHref || (subscription ? `/dashboard/subscriptions/${subscription.id}` : orderMeta.kind === 'form' ? '/dashboard/requests' : contentPath ? '/dashboard/purchases' : '/dashboard/invoices')} className={contentPath && paid ? 'btn btn-ghost' : 'btn btn-primary'}>{serviceHref ? (isFa ? 'پیگیری و مدیریت سرویس' : 'Manage your service') : subscription ? t.viewSubscription : orderMeta.kind === 'form' ? (isFa ? 'درخواست‌های من' : 'My requests') : contentPath ? (isFa ? 'خریدهای من' : 'My purchases') : t.goToDash}</Link>
+            {view && <Link href={checkoutPath(`/invoice/${view.number}`, surface)} className="btn btn-ghost">{t.viewInvoice}</Link>}
             {view?.productId && view.orderId && <Link href={`/dashboard/orders/${view.orderId}`} className="btn btn-ghost">{isFa ? 'پیگیری سفارش' : 'Track order'}</Link>}
-            {view && paid && !delivered && <Link href={`/payment/result?invoice=${encodeURIComponent(view.number)}`} className="btn btn-ghost">{isFa ? 'بررسی دوباره وضعیت' : 'Check status again'}</Link>}
-            {view && !paid && view.status === 'UNPAID' && <Link href={`/invoice/${view.number}`} className="btn btn-ghost">{isFa ? 'ادامه پرداخت' : 'Resume payment'}</Link>}
+            {view && paid && !delivered && <Link href={checkoutPath(`/payment/result?invoice=${encodeURIComponent(view.number)}`, surface)} className="btn btn-ghost">{isFa ? 'بررسی دوباره وضعیت' : 'Check status again'}</Link>}
+            {view && !paid && view.status === 'UNPAID' && <Link href={checkoutPath(`/invoice/${view.number}`, surface)} className="btn btn-ghost">{isFa ? 'ادامه پرداخت' : 'Resume payment'}</Link>}
             {failed && <Link href={view?.kind === 'WALLET_TOPUP' ? '/dashboard/wallet' : await isModuleEnabled('vpn') ? '/plans' : '/dashboard/invoices'} className="btn btn-ghost">{t.tryAgain}</Link>}
           </div>
         </div>
-      </main>
-      <SiteFooter navPages={navPages} />
+      </Surface>
+      {surface === 'public' && <SiteFooter navPages={navPages} />}
     </>
   )
 }

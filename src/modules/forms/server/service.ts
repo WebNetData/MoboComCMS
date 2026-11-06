@@ -82,6 +82,13 @@ export async function publicFormBySlug(slug: string) {
   return { form, state: formState(settings, count) }
 }
 
+/** Published paid services for the member desk; never expose private form settings. */
+export async function publishedOrderForms(foreign = false) {
+  const rows = await db.siteForm.findMany({ where: { published: true }, orderBy: { id: 'desc' }, take: 100 })
+  return rows.map(parseForm).filter(form => form.settings?.payment.enabled && (!foreign || form.fields.some(field => field.type === 'fxamount')))
+    .map(form => ({ slug: form.slug, title: form.title, description: form.description }))
+}
+
 // ------------------------------------------------------------------ files
 
 async function removeFiles(names: string[]) {
