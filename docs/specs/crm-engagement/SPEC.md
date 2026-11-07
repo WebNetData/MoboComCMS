@@ -2,7 +2,8 @@
 
 Owner request2026-11-07: ongoing customer relationships, offers for products a
 member follows, special discounts, stock return and birthday SMS. R4 scoped
-extension; independent of unmerged PR368/369. Owner merges/deploys; no actual
+extension from main `d7d4a23a` with owner-merged PR368; independent of PR369.
+Owner merges/deploys; no actual
 customer/provider messages or production activation during development.
 
 ## Inventory and envelope

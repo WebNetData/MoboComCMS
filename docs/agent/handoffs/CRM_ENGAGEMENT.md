@@ -2,7 +2,8 @@
 
 Owner requested ongoing CRM relationships, followed-product/special offers, stock
 return and birthday SMS. Implemented on `feat/crm-engagement-2026-11-07` from
-main `6e6f58b9`, independently of unmerged PR368/369. Owner merges/deploys.
+main `d7d4a23a`, including owner-merged PR368 and independently of PR369.
+Owner merges/deploys.
 [Scenario](../../specs/crm-engagement/SPEC.md), [Persian guide](../../CRM-ENGAGEMENT-FA.md).
 Status: functional within the bounded local evidence below; not whole CRM,
 provider delivery/read/conversion or production rollout certification.
