@@ -124,6 +124,7 @@ function validate(c, input) {
     check(!running, 'Another isolated build is active');
     row.changed = changed(source(row.id), row.baseSha);
     row.inputHash = hash(row.changed.map(name => name + '\0' + hash(fs.readFileSync(filePath(source(row.id), name, true)))).join('\n'));
+    p.requireArchitecture(row.changed);
     check(row.inputHash !== row.lastFailedInputHash, 'Unchanged failed source is not rebuilt');
     row.builds = (row.builds || 0) + 1;
     check(row.builds <= 3, 'Three distinct builds are the per-request ceiling');

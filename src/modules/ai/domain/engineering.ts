@@ -2,6 +2,9 @@ import type { Prompt } from './ai'
 
 export class EngineeringError extends Error { constructor(message: string, public status = 400, public code?: string) { super(message) } }
 export const ENGINEERING_PROTOCOL = 1
+export function requireEngineeringArchitecture(paths: string[]) {
+  if (!paths.includes('docs/agent/ARCHITECTURE.md')) throw new EngineeringError('پیش از پایان توسعه، مالک و رفتار تغییر را در معماری موبوکام ثبت کنید؛ بیلد و PR شروع نشد', 409)
+}
 export const ENGINEERING_ACTIVE = ['QUEUED', 'DEVELOPING', 'VALIDATING', 'PUBLISHING', 'DEPLOY_QUEUED', 'ROLLBACK_QUEUED', 'REPAIR_QUEUED']
 export const ENGINEERING_REPAIRS = ['reload-proxy', 'start-proxy', 'start-current-runtime'] as const
 export function engineeringRepairPlan(text: string, allowed: string[]) {

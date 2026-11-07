@@ -106,4 +106,5 @@ function credentialLiterals(text) {
     check(!/(?:gh[pousr]_[A-Za-z0-9]{24,}|github_pat_[A-Za-z0-9_]{30,}|sk-[A-Za-z0-9_-]{24,}|AIza[A-Za-z0-9_-]{30,})/.test(text), 'Credential-like literal refused; use encrypted Admin settings, not source files');
     check(!/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----(?:\\n|\s)+[A-Za-z0-9+/=]{24,}/.test(text), 'Private-key material must not enter source files');
 }
-module.exports = { fs, path, ROOT, TOOLS, CONFIG, hash, check, owned, config, runId, directory, save, state, writeState, lock, asyncLock, command, git, safePath, filePath, redact, environment, credentialLiterals };
+function requireArchitecture(paths) { check(paths.includes('docs/agent/ARCHITECTURE.md'), 'Record the concrete owner and behavior change in MoboCom architecture before validation'); }
+module.exports = { fs, path, ROOT, TOOLS, CONFIG, hash, check, owned, config, runId, directory, save, state, writeState, lock, asyncLock, command, git, safePath, filePath, redact, environment, credentialLiterals, requireArchitecture };

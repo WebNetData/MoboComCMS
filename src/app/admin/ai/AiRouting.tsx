@@ -20,7 +20,7 @@ export default function AiRouting() {
   if (forbidden) return null
   const selected = data?.routes.find(r => r.id === purpose)
   return <section className="card seo-form" aria-label="سرویس هوش مصنوعی هر بخش">
-    <header className="seo-wide"><h2>سرویس و مدل هر بخش</h2><p className="muted">برای نمونه، پشتیبانی با Gemini و ابزارهای مدیریت با حساب شخصی ChatGPT کار کنند. انتخاب هر بخش مستقل است؛ خطای آن باعث رفتن به سرویس دیگری نمی‌شود.</p></header>
+    <header className="seo-wide"><h2>سرویس و مدل هر بخش</h2><p className="muted">برای نمونه، پشتیبانی با Gemini و ابزارهای مدیریت با حساب شخصی ChatGPT کار کنند. انتخاب هر بخش مستقل است؛ مجموعهٔ کلیدها در صورت فعال‌بودن فقط در همان سرویس و مقصد جابه‌جا می‌شود.</p></header>
     <nav className="seo-actions seo-wide" aria-label="ابزارهای هستهٔ هوش مصنوعی"><a className="btn btn-ghost" href="/admin/ai/operations">دستیار عملیاتی</a><a className="btn btn-ghost" href="/admin/server/engineering">مهندسی، مهارت‌ها و معماری</a><a className="btn btn-ghost" href="/admin/chat">پشتیبانی و دانش پاسخ‌گویی</a></nav>
     {error && <p className="xm-notice is-error seo-wide" role="alert">{error}</p>}
     {!data && !error && <p className="seo-wide" role="status">در حال دریافت تنظیمات بخش‌ها…</p>}

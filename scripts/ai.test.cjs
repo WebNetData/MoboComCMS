@@ -6,6 +6,7 @@ const ts = require('typescript-api')
 require('./chatgpt-admin.cases.cjs')
 require('./ai-readiness.cases.cjs')
 require('./ai-workspace.cases.cjs')
+require('./ai-resilience.cases.cjs')
 require('./ai-routing.cases.cjs')
 require('./ai-operations.cases.cjs')
 require('./ai-engineering.cases.cjs')
@@ -176,7 +177,7 @@ test('source credit only links http(s) pages', () => {
 function aiClient(transport = async () => new Response(JSON.stringify({ choices: [{ message: { content: 'آماده‌ام' } }] })), route = 'proxy') {
   let row = null
   const db = { setting: {
-    findUnique: async () => row,
+    findUnique: async (input) => !input || input.where.key === 'ai.config.v1' ? row : null,
     upsert: async ({ create, update }) => { row = row ? { ...row, ...update } : create; return row },
   } }
   const load = require('./connected-source-loader.cjs')({

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict'), crypto = require('node:crypto'), { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server'), { encode } = require('next-auth/jwt'), sourceLoader = require('./connected-source-loader.cjs'), db = new PrismaClient();
-const stamp = 'owned-ai-engineering-' + Date.now(), users = [], runs = [], backup = new Map(), prior = {}, keys = ['ai.engineering.v1', 'ai.routing.v1', 'ai.config.v1', 'extension.ai-assistant.state.v1', 'extension.server-panel.state.v1', 'security.policy.v1'];
-let failAudit = false, planCalls = 0, hostCalls = [], phase = new Map(), rawAudit, secret;
+const stamp = 'owned-ai-engineering-' + Date.now(), users = [], runs = [], backup = new Map(), prior = {}, keys = ['ai.engineering.v1', 'ai.routing.v1', 'ai.config.v1', 'ai.credentials.v1', 'ai.credentials.health.v1', 'extension.ai-assistant.state.v1', 'extension.server-panel.state.v1', 'security.policy.v1'];
+let hostProtocol = 2, failAudit = false, planCalls = 0, hostCalls = [], phase = new Map(), rawAudit, secret;
 async function main() {
     try {
         for (const key of ['NEXTAUTH_SECRET', 'NEXTAUTH_URL', 'PANEL_CREDENTIAL_KEY', 'SERVER_PANEL_ENABLED', 'SERVER_PANEL_ALLOWED_IPS'])
@@ -17,20 +17,20 @@ async function main() {
         }
         for (const role of ['ADMIN', 'ADMIN', 'USER'])
             users.push(await db.user.create({ data: { email: stamp + '-' + users.length + '@invalid.test', name: stamp, passwordHash: 'owned-password-hash', role, status: 'ACTIVE' } }));
-        let nextPlan = () => ({ summary: 'Inspect canonical owner', reads: ['src/modules/store/server/owned.ts'], edits: [], done: false }), fakeSource = 'export const owned = 1\n';
+        let nextPlan = () => ({ summary: 'Inspect canonical owner', reads: ['src/modules/store/server/owned.ts', 'docs/agent/ARCHITECTURE.md'], edits: [], done: false }), fakeSource = 'export const owned = 1\n';
         const fakeHost = async (action, input = {}) => {
             hostCalls.push({ action, id: input.runId });
             const id = input.runId;
             if (action === 'status')
-                return { ok: true, ready: true, supported: true };
+                return { ok: true, ready: true, supported: true, knowledgeProtocol: hostProtocol };
             if (action === 'prepare') {
                 phase.set(id, 'developing');
                 return { phase: 'developing', baseSha: 'a'.repeat(40), manifest: ['src/modules/store/server/owned.ts'] };
             }
             if (action === 'read')
-                return { files: [{ path: 'src/modules/store/server/owned.ts', content: fakeSource, sha256: crypto.createHash('sha256').update(fakeSource).digest('hex') }] };
+                return { files: input.paths.map(path => ({ path, content: fakeSource, sha256: crypto.createHash('sha256').update(fakeSource).digest('hex') })) };
             if (action === 'apply')
-                return { changed: ['src/modules/store/server/owned.ts'] };
+                return { changed: input.edits.map(edit => edit.path) };
             if (action === 'validate') {
                 phase.set(id, 'validating');
                 return { phase: 'validating' };
@@ -95,6 +95,7 @@ async function main() {
         assert.equal((await db.setting.findUnique({ where: { key: 'ai.engineering.v1' } })).value, oldValue, 'audit failure rolls back settings');
         await routing.saveAiRoute('engineering', { source: 'api', config: { provider: 'gemini', apiKey: 'owned-fixture-only', model: 'owned-engineer' } }, audit);
         async function create(extra = {}) { const input = { action: 'request', requestId: crypto.randomUUID(), instruction: 'Implement owned store feature without touching live data', mode: 'DEVELOP', skillIds: [], ...extra }; const before = await db.aiEngineeringRun.count(); await service.createEngineeringRun(req, input); const row = await db.aiEngineeringRun.findUnique({ where: { requestKey: users[0].id + ':' + input.requestId } }); assert(row); runs.push(row.id); assert.equal(await db.aiEngineeringRun.count(), before + 1); return { input, row }; }
+        hostProtocol = 1;assert.equal((await service.engineeringView(req)).host.ready,false,'old host is not advertised ready');await assert.rejects(create(),e=>e.status===409);hostProtocol=2;
         let current = await create();
         await service.createEngineeringRun(req, current.input);
         assert.equal(await db.aiEngineeringRun.count(), 1, 'request replay does not enqueue twice');
@@ -103,7 +104,7 @@ async function main() {
         await assert.rejects(service.decideEngineeringRun(await request(users[1]), { action: 'cancel', id: current.row.id, revision: 0 }), /حساب/);
         await worker.runEngineeringStep({ runId: current.row.id });
         await worker.runEngineeringStep({ runId: current.row.id });
-        nextPlan = () => ({ summary: 'Implemented typed owned feature', reads: [], edits: [{ path: 'src/modules/store/server/owned.ts', before: crypto.createHash('sha256').update(fakeSource).digest('hex'), content: 'export const owned = 2\n' }], done: true });
+        nextPlan = () => ({ summary: 'Implemented typed owned feature', reads: [], edits: [{ path: 'src/modules/store/server/owned.ts', before: crypto.createHash('sha256').update(fakeSource).digest('hex'), content: 'export const owned = 2\n' }, { path: 'docs/agent/ARCHITECTURE.md', before: crypto.createHash('sha256').update(fakeSource).digest('hex'), content: 'Store owns the new typed feature; existing data and rollback are preserved.\n' }], done: true });
         await worker.runEngineeringStep({ runId: current.row.id });
         await worker.runEngineeringStep({ runId: current.row.id });
         await worker.runEngineeringStep({ runId: current.row.id });

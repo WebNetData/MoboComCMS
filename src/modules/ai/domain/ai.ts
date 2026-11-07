@@ -22,7 +22,7 @@ export const AI_PROVIDERS: AiProvider[] = [
   { id: 'gemini', label: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash', free: true, keyUrl: 'https://aistudio.google.com/apikey', note: 'سهمیهٔ رایگان روزانه؛ فارسی خوب. کلید را از Google AI Studio بگیرید.' },
   { id: 'openrouter', label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'meta-llama/llama-3.3-70b-instruct:free', free: true, keyUrl: 'https://openrouter.ai/keys', note: 'مدل‌هایی که به :free ختم می‌شوند رایگان‌اند (با محدودیت تعداد درخواست).' },
   { id: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', free: true, keyUrl: 'https://console.groq.com/keys', note: 'بسیار سریع؛ سهمیهٔ رایگان روزانه.' },
-  { id: 'anthropic', label: 'Anthropic Claude', baseUrl: '', model: 'claude-opus-5', free: false, keyUrl: 'https://platform.claude.com/settings/keys', note: 'پولی (بر اساس مصرف)؛ بهترین کیفیت نوشتن فارسی. پشتیبان خودکار سمت سرور فعال است.' },
+  { id: 'anthropic', label: 'Anthropic Claude', baseUrl: '', model: 'claude-opus-5', free: false, keyUrl: 'https://platform.claude.com/settings/keys', note: 'پولی بر اساس مصرف؛ جابه‌جایی کلید فقط با فعال‌کردن مجموعهٔ کلیدها و در همان سرویس و مدل است.' },
   { id: 'custom', label: 'سرویس سازگار با OpenAI', baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:7b', free: true, keyUrl: '', note: 'هر سرویس سازگار با OpenAI، مثلاً Ollama روی سرور خودتان (کاملاً رایگان).' },
 ]
 

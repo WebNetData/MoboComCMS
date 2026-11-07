@@ -9,6 +9,8 @@ import { personalAiPurpose } from './admin-context'
 import { allowsPersonalAi, type AiPurpose } from '../domain/routing'
 import { readAiRoutes, resolveAiRoute } from './routing'
 import { AiError } from './error'
+import { credentialPoolReady, generateWithCredentialPool } from './credentials'
+import { providerJson } from './provider-json'
 export { AiError } from './error'
 
 const KEY = 'ai.config.v1'
@@ -51,7 +53,8 @@ export async function publicAiReady(purpose: 'support' | 'prompts') {
   const route = resolveAiRoute(await readAiRoutes(), purpose)
   if (route.source === 'personal') return false
   const config = route.source === 'api' && route.config ? route.config : await getAiConfig()
-  return config.provider === 'custom' || !!config.apiKey
+  const pooled = await credentialPoolReady(config)
+  return pooled === null ? config.provider === 'custom' || !!config.apiKey : pooled
 }
 
 /** Runs one prompt on the configured provider and returns its text. */
@@ -66,9 +69,13 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
     catch (error) { if (error instanceof ChatGptError) throw new AiError(error.message, error.status); throw error }
   }
   const settings = route.source === 'api' && route.config ? route.config : config || await getAiConfig()
+  const model = effectiveModel(settings)
+  const pooled = await generateWithCredentialPool(settings, (key, signal) => settings.provider === 'anthropic'
+    ? claude(key, model, prompt, selected === 'support', signal)
+    : openAiCompatible(effectiveBaseUrl(settings), key, model, prompt, settings.provider, signal))
+  if (pooled !== null) return { text: pooled, model, provider: settings.provider }
   let apiKey = ''
   try { apiKey = decryptPanelCredential(settings.apiKey) } catch { throw new AiError('کلید API قابل خواندن نیست؛ دوباره آن را ذخیره کنید') }
-  const model = effectiveModel(settings)
   if (!apiKey && settings.provider !== 'custom') throw new AiError(`ابتدا کلید API سرویس ${providerById(settings.provider).label} را در تنظیمات دستیار وارد کنید`)
   const text = settings.provider === 'anthropic'
     ? await claude(apiKey, model, prompt, selected === 'support')
@@ -77,7 +84,7 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
   return { text, model, provider: settings.provider }
 }
 
-async function claude(apiKey: string, model: string, prompt: Prompt, support = false): Promise<string> {
+async function claude(apiKey: string, model: string, prompt: Prompt, support = false, signal?: AbortSignal): Promise<string> {
   const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 0, fetch: egressFetch as unknown as typeof fetch })
   try {
     const response = await client.beta.messages.create({
@@ -87,19 +94,19 @@ async function claude(apiKey: string, model: string, prompt: Prompt, support = f
       system: prompt.system,
       messages: [{ role: 'user', content: prompt.user }],
       ...(!support ? { thinking: { type: 'adaptive' as const } } : {}),
-    })
+    }, { signal })
     if (response.stop_reason === 'refusal') throw new AiError('مدل به این درخواست پاسخ نداد؛ موضوع یا متن را تغییر دهید', 422)
     return response.content.map((block) => block.type === 'text' ? block.text : '').join('')
   } catch (error) {
     if (error instanceof AiError) throw error
-    if (error instanceof Anthropic.AuthenticationError) throw new AiError('کلید API کلاد نامعتبر است', 401)
-    if (error instanceof Anthropic.RateLimitError) throw new AiError('محدودیت تعداد درخواست کلاد؛ کمی بعد دوباره تلاش کنید', 429)
-    if (error instanceof Anthropic.APIError) throw new AiError(`سرویس کلاد درخواست را نپذیرفت (HTTP ${error.status || 502})؛ مدل و دسترسی پروژه را بررسی کنید`, 502)
-    throw new AiError('اتصال به کلاد برقرار نشد', 502)
+    if (error instanceof Anthropic.AuthenticationError) throw new AiError('کلید API کلاد نامعتبر است', 401, 'auth')
+    if (error instanceof Anthropic.RateLimitError) throw new AiError('محدودیت تعداد درخواست کلاد؛ کمی بعد دوباره تلاش کنید', 429, 'rate')
+    if (error instanceof Anthropic.APIError) throw new AiError(`سرویس کلاد درخواست را نپذیرفت (HTTP ${error.status || 502})؛ مدل و دسترسی پروژه را بررسی کنید`, 502, error.status === 402 ? 'quota' : !error.status || error.status >= 500 ? 'unavailable' : undefined, !!error.status)
+    throw new AiError('اتصال به کلاد برقرار نشد؛ درخواست دوباره خودکار ارسال نشد', 502, 'unavailable', false)
   }
 }
 
-async function openAiCompatible(baseUrl: string, apiKey: string, model: string, prompt: Prompt, provider: string): Promise<string> {
+async function openAiCompatible(baseUrl: string, apiKey: string, model: string, prompt: Prompt, provider: string, signal?: AbortSignal): Promise<string> {
   if (!baseUrl) throw new AiError('نشانی سرویس هوش مصنوعی تنظیم نشده است')
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
@@ -114,32 +121,34 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
   // can spend the entire budget on thinking and look like a failed connection. Other model protocols stay intact.
   const reasoning = provider === 'gemini' && prompt.maxTokens <= 1200 && /^gemini-2\.5-flash(?:$|-)/.test(model) ? { reasoning_effort: 'none' } : {}
   let response: Response
-  let data: { choices?: { message?: { content?: string }; finish_reason?: string }[]; error?: { message?: string } | string } | null
+  let data: { choices?: { message?: { content?: string }; finish_reason?: string }[]; error?: { message?: string; code?: string } | string } | null
   try {
     response = await egressFetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, max_tokens: prompt.maxTokens, temperature: 0.7, ...reasoning, messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }] }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: signal || AbortSignal.timeout(TIMEOUT_MS),
       cache: 'no-store',
     })
-    data = await response.json()
+    // A rejected HTTP request may carry HTML from an edge proxy. Classify the
+    // status without exposing that body; malformed successful output is never replayed.
+    data = await providerJson(response)
   } catch (error) {
-    if (error instanceof SyntaxError) throw new AiError(`پاسخ سرویس هوش مصنوعی JSON معتبر نبود؛ ${routeHint}`, 502)
-    throw new AiError(`اتصال یا دریافت پاسخ سرویس هوش مصنوعی کامل نشد؛ ${routeHint}`, 502)
+    if (error instanceof SyntaxError) throw new AiError(`پاسخ سرویس هوش مصنوعی JSON معتبر نبود؛ ${routeHint}`, 502, 'unavailable', false)
+    throw new AiError(`اتصال یا دریافت پاسخ سرویس هوش مصنوعی کامل نشد؛ ${routeHint}`, 502, 'unavailable', false)
   }
   if (!response.ok) {
     const detail = typeof data?.error === 'string' ? data.error : data?.error?.message || response.statusText
     if (/user location is not supported|unsupported (?:country|region|location)|not (?:available|supported) in (?:your|this) (?:country|region|location)/i.test(detail)) throw new AiError(`سرویس محدودیت جغرافیایی برای IP خروجی اعلام کرد؛ ${routeHint}`, 403)
-    if (response.status === 401 || /API[_ ]KEY[_ ](?:INVALID|NOT[_ ]VALID)|invalid API key/i.test(detail)) throw new AiError('کلید API نامعتبر است؛ کلید همین سرویس را دوباره وارد کنید', 401)
+    if (response.status === 401 || /API[_ ]KEY[_ ](?:INVALID|NOT[_ ]VALID)|invalid API key/i.test(detail)) throw new AiError('کلید API نامعتبر است؛ کلید همین سرویس را دوباره وارد کنید', 401, 'auth')
     if (response.status === 403) throw new AiError(`سرویس دسترسی این کلید یا پروژه را نپذیرفت (403)؛ مجوز API و محدودیت IP کلید را بررسی کنید؛ ${routeHint}`, 403)
-    if (response.status === 429) throw new AiError('سهمیه یا محدودیت درخواست سرویس تمام شده؛ سهمیه و وضعیت پرداخت پروژه را بررسی کنید', 429)
+    if (response.status === 402 || response.status === 429) throw new AiError('سهمیه یا محدودیت درخواست سرویس تمام شده؛ سهمیه و وضعیت پرداخت پروژه را بررسی کنید', response.status, response.status === 402 || /insufficient_quota|quota.*exceed|credit|billing/i.test(detail + (typeof data?.error === 'object' ? data.error?.code || '' : '')) ? 'quota' : 'rate')
     if (response.status === 404) throw new AiError('مدل یا نشانی API پیدا نشد؛ نام مدل و دسترسی پروژه به آن را بررسی کنید', 404)
     // Provider errors may echo credentials or user input; return a bounded, secret-free diagnostic.
-    throw new AiError(`سرویس هوش مصنوعی درخواست را نپذیرفت (HTTP ${response.status})؛ مدل و تنظیمات سرویس را بررسی کنید`, 502)
+    throw new AiError(`سرویس هوش مصنوعی درخواست را نپذیرفت (HTTP ${response.status})؛ مدل و تنظیمات سرویس را بررسی کنید`, 502, response.status >= 500 ? 'unavailable' : undefined)
   }
   const content = data?.choices?.[0]?.message?.content
-  if (content != null && typeof content !== 'string') throw new AiError('قالب پاسخ سرویس هوش مصنوعی با پاسخ متنی سازگار نیست', 502)
+  if (content != null && typeof content !== 'string') throw new AiError('قالب پاسخ سرویس هوش مصنوعی با پاسخ متنی سازگار نیست', 502, 'unavailable', false)
   if (data?.choices?.[0]?.finish_reason === 'content_filter') throw new AiError('سرویس به این درخواست پاسخ نداد؛ موضوع یا متن را تغییر دهید', 422)
   if (data?.choices?.[0]?.finish_reason === 'length' && !content?.trim()) throw new AiError('بودجهٔ توکن مدل پیش از تولید پاسخ تمام شد؛ سقف خروجی یا تنظیم تفکر مدل را بررسی کنید', 502)
   return content || ''
