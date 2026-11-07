@@ -74,7 +74,7 @@ test('followers beyond 5000 use bounded checkpoints, point-specific dedupe and c
     } },
     '@/modules/notifications/server/inbox': { createInboxEvent: async event => {
       if (event.userId === failUser) throw Error('inbox unavailable')
-      assert.equal(event.kind, 'FOLLOWED_UPDATE'); assert.ok(event.titleEn.includes('Product')); assert.equal(event.href, '/products/test')
+      assert.equal(event.kind, 'PRODUCT_PRICE_DROP'); assert.ok(event.titleEn.includes('Product')); assert.equal(event.href, '/products/test')
       events.set(event.dedupeKey, event)
     } },
   })

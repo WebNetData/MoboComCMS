@@ -362,7 +362,8 @@ export async function processAutomation(now = new Date()) {
     } catch (error) { logEvent('error', 'automation.scan_failed', { rule: rule.id, error }) }
   }
   // Processed events are kept two weeks for the record, runs half a year.
-  await db.automationEvent.deleteMany({ where: { processedAt: { lt: new Date(now.getTime() - 14 * 86_400_000) } } }).catch(() => undefined)
+  // Idempotency-bearing processed events retain their minimal receipt after inbox retention.
+  await db.automationEvent.deleteMany({ where: { dedupeKey: null, processedAt: { lt: new Date(now.getTime() - 14 * 86_400_000) } } }).catch(() => undefined)
   await db.automationRun.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 180 * 86_400_000) } } }).catch(() => undefined)
   return { events, runs }
 }

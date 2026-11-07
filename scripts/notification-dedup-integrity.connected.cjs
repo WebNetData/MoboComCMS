@@ -1,5 +1,5 @@
 // Canonical inbox owner on a real owned PostgreSQL/SQLite fixture; no external sends.
-const assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),ts=require('typescript-api');
+const assert=require('node:assert/strict');
 const clientModule=process.env.MOBOCOM_TEST_CLIENT||'@prisma/client';
 const {PrismaClient,Prisma}=require(clientModule),errors=[];
 const prisma=new PrismaClient({log:[{emit:'event',level:'error'}]});prisma.$on('error',e=>errors.push(e));
@@ -22,10 +22,7 @@ const db=new Proxy(prisma,{get(target,key){
  return typeof target[key]==='function'?target[key].bind(target):target[key];
 }});
 function owner(){
- const compiled=ts.transpileModule(fs.readFileSync('src/modules/notifications/server/inbox.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const mod={exports:{}};
- new Function('require','module','exports',compiled)(name=>name==='@/platform/database/prisma'?{db}:name==='@prisma/client'?require(clientModule):name.startsWith('@/')?(()=>{throw Error('Unexpected outside service: '+name)})():require(name),mod,mod.exports);
- return mod.exports;
+ return require('./connected-source-loader.cjs')({'@/platform/database/prisma':{db},'@prisma/client':require(clientModule)})('src/modules/notifications/server/inbox.ts');
 }
 const jobsWhere=id=>({dedupeKey:{in:['sms','email','push'].map(channel=>`notification:${id}:${channel}`)}});
 async function main(){

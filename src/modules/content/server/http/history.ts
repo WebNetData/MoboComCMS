@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
+import { requirePerm } from '@/modules/identity/server/access'
 import { originIsThisSite } from '@/platform/http/origin-policy'
 import { readJsonObject } from '@/platform/http/read-json'
 import { contentChanged } from '@/modules/content/server/events'
@@ -12,7 +13,7 @@ import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionS
 // history of an item is whoever may edit that item: the permission comes from the item's own owner.
 
 /** `extraPerms`: what putting back a particular version also needs (a builder version that adds script code). */
-type Owner = { perms: readonly string[]; module: string | null; extraPerms?: (snapshot: Snapshot) => Promise<string[]>; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
+type Owner = { requiredPerms?: readonly string[]; perms: readonly string[]; module: string | null; extraPerms?: (snapshot: Snapshot) => Promise<string[]>; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
 
 async function ownerOf(type: string): Promise<Owner | null> {
   const { pageIdOfHistoryType, builderHistoryOwner } = await import('@/modules/site/server/builder')
@@ -98,6 +99,10 @@ async function ownerOf(type: string): Promise<Owner | null> {
     const { watermarkSettingsState, restoreWatermarkSettings } = await import('@/modules/watermark/server/watermark')
     return { perms: ['settings.manage'], module: null, current: () => watermarkSettingsState(), restore: restoreWatermarkSettings }
   }
+  if (type === 'settings-crm-engagement') {
+    const { engagementSettingsState, restoreEngagementSettings } = await import('@/modules/automation/server/engagement')
+    return { perms: ['automation.manage'], requiredPerms: ['users.manage'], module: null, current: () => engagementSettingsState(), restore: restoreEngagementSettings }
+  }
   if (type === 'settings-profile-fields') {
     const { profileFieldsSettingsState, restoreProfileFieldsSettings } = await import('@/modules/identity/server/profile-fields')
     return { perms: ['users.manage', 'settings.manage'], module: null, current: () => profileFieldsSettingsState(), restore: restoreProfileFieldsSettings }
@@ -147,6 +152,7 @@ export async function GET_history(req: NextRequest) {
   if (!owner || !id) return err('نوع یا شناسه معتبر نیست', 400)
   const g = await adminGuard(req, owner.module, owner.perms)
   if ('response' in g) return g.response
+  for (const permission of owner.requiredPerms || []) if (!await requirePerm(req, permission)) return err('دسترسی کافی نیست', 403)
   try {
     const version = idOf(params.get('version'))
     if (version) return ok(await revisionDetail(type, id, version))
@@ -167,6 +173,7 @@ export async function POST_history(req: NextRequest) {
   if (!owner || !id || !version) return err('درخواست معتبر نیست', 400)
   const g = await adminGuard(req, owner.module, owner.perms)
   if ('response' in g) return g.response
+  for (const permission of owner.requiredPerms || []) if (!await requirePerm(req, permission)) return err('دسترسی کافی نیست', 403)
   try {
     const snapshot = await revisionSnapshot(type, id, version)
     const extra = await owner.extraPerms?.(snapshot)

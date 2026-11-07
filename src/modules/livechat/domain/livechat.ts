@@ -169,7 +169,7 @@ export function parsePlatformBotReply(text: string): { body: string; handoff: bo
   return parseBotReply(text.trimStart().slice('[MOBOCOM]'.length).replace(/https?:\/\/[^\s)\]>]+/gi, ''))
 }
 
-export type CrmEvent = { at: Date; kind: 'order' | 'ticket' | 'chat' | 'wallet' | 'return' | 'note' | 'review' | 'signup'; title: string; detail: string; href: string; tone: '' | 'ok' | 'warn' | 'bad' }
+export type CrmEvent = { at: Date; kind: 'order' | 'ticket' | 'chat' | 'wallet' | 'return' | 'note' | 'review' | 'signup' | 'communication'; title: string; detail: string; href: string; tone: '' | 'ok' | 'warn' | 'bad' }
 
 /** Merges every source into one newest-first timeline (bounded). */
 export function timeline(events: CrmEvent[], max = 120): CrmEvent[] {

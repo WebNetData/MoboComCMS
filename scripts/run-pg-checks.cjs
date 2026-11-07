@@ -4,6 +4,7 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'crm-engagement',
   'ai-connection',
   'ai-engineering',
   'ai-operations',

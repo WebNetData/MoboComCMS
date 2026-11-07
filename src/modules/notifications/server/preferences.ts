@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { EMAIL_EVENTS } from '@/modules/mail/domain/mail'
 import { SMS_EVENTS } from '@/modules/sms/domain/sms'
+import { isMarketingKind } from '@/modules/automation/domain/engagement'
 
 export type NotificationChannel = 'sms' | 'email' | 'push'
 type KindLabel = { kind: string; labelEn: string; labelFa: string }
@@ -56,8 +57,15 @@ export const validNotificationPreference = (kind: string, channel: string) =>
 
 /** A missing mute preserves legacy delivery. The private inbox is never checked here. */
 export async function isNotificationChannelEnabled(userId: number, kind: string, channel: NotificationChannel) {
+  if (isMarketingKind(kind)) {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { marketingOptIn: true, status: true } })
+    if (!user?.marketingOptIn || user.status !== 'ACTIVE') return false
+  }
   const muted = await db.userNotificationMute.findUnique({
     where: { userId_kind_channel: { userId, kind, channel } }, select: { id: true },
   })
-  return !muted
+  if (muted) return false
+  // Specialized product alerts inherit an existing followed-content mute.
+  if (kind === 'PRODUCT_PRICE_DROP') return !await db.userNotificationMute.findUnique({ where: { userId_kind_channel: { userId, kind: 'FOLLOWED_UPDATE', channel } }, select: { id: true } })
+  return true
 }

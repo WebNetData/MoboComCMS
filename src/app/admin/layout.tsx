@@ -257,6 +257,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/maintenance', label: L('حالت تعمیر سایت و بخش‌ها', 'Maintenance mode'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/imports', label: L('ورود گروهی اطلاعات', 'Bulk import'), icon: 'grid', perm: 'imports.manage' },
+      { href: '/admin/crm/engagement', label: L('ارتباط با مشتری', 'Customer engagement'), icon: 'mail', perm: 'automation.manage' },
       { href: '/admin/automation', label: L('اتوماسیون', 'Automation'), icon: 'sparkles', perm: 'automation.manage' },
     ] },
     { id: 'health', area: 'system', order: 20, title: L('سلامت و پایش', 'Health & monitoring'), icon: 'chart', items: [

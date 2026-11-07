@@ -1,3 +1,5 @@
+Scoped2026-11-07: continuous opt-in CRM engagement is **Functional (bounded local)** in existing Livechat/Identity/Automation/Notification/Store owners. Four closed journey types, retention-independent idempotency/caps, native PostgreSQL and actual Admin/member browser evidence do not certify whole CRM, general multistep automation or real provider rollout. [Exact scope and evidence](handoffs/CRM_ENGAGEMENT.md).
+
 # Domain capability maturity matrix
 
 Scoped2026-11-04: configurable content permalinks are **Functional (bounded local)** in the existing Site router/Settings/shared Link. Root Pages, primary-artist Music URLs,13 content patterns, history308 and Unicode HTTP-page boundaries passed local browser/native PostgreSQL checks. This does not certify arbitrary slug-renaming redirects or destination-host rollout. [Exact evidence and limits](handoffs/PERMALINK_MANAGEMENT.md).

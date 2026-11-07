@@ -1,5 +1,6 @@
 /** UI addresses only. Authorization and restore behavior stay with each server owner. */
 export const CONFIGURATION_FORMS = [
+  ['crm-engagement', 'ارتباط با مشتری', '/admin/crm/engagement'],
   ['content-pdf', 'طرح‌های PDF', '/admin/content-pdf'],
   ['general', 'عمومی', '/admin/settings'], ['forum', 'تالار', '/admin/forum?tab=settings'],
   ['journal', 'مجله', '/admin/journal/settings'], ['cinema', 'فیلم و سریال', '/admin/cinema/settings'],

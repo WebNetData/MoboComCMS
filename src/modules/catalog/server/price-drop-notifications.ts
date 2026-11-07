@@ -23,7 +23,7 @@ export async function deliverProductPriceDrop(payload: Record<string, unknown>) 
     if (!await db.itemFavorite.findFirst({ where: { ...where, userId: follower.userId }, select: { userId: true } })) continue
     const nameFa = point.product.name, nameEn = point.product.nameEn || nameFa
     await createInboxEvent({
-      userId: follower.userId, kind: 'FOLLOWED_UPDATE', dedupeKey: `follow:product:${point.productId}:price-point-${point.id}:${follower.userId}`,
+      userId: follower.userId, kind: 'PRODUCT_PRICE_DROP', dedupeKey: `follow:product:${point.productId}:price-point-${point.id}:${follower.userId}`,
       titleFa: `قیمت ${nameFa} کاهش یافت`, titleEn: `${nameEn} price dropped`,
       bodyFa: `قیمت ثبت‌شدهٔ «${nameFa}» به ${formatMoney(point.amountMinor, point.currency, 'fa-IR')} کاهش یافت؛ قیمت فعلی را در صفحهٔ محصول بررسی کنید.`,
       bodyEn: `The recorded price of ${nameEn} dropped to ${formatMoney(point.amountMinor, point.currency, 'en-US')}. Check the product page for the current offer.`,

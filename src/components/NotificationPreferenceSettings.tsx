@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
+import MarketingConsent, { type MarketingChoice } from '@/components/MarketingConsent'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 type Channel = 'sms' | 'email' | 'push'
 type Event = { kind: string; labelFa: string; labelEn: string; channels: Channel[] }
-type PreferenceResponse = { catalog: Event[]; muted: { kind: string; channel: Channel }[] }
+type PreferenceResponse = { marketing?: MarketingChoice; catalog: Event[]; muted: { kind: string; channel: Channel }[] }
 
 const channels: Channel[] = ['sms', 'email', 'push']
 const keyOf = (kind: string, channel: Channel) => `${kind}:${channel}`
@@ -22,6 +23,7 @@ export default function NotificationPreferenceSettings() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<'load' | 'save' | null>(null)
   const [saved, setSaved] = useState(false)
+  const [marketing, setMarketing] = useState<MarketingChoice | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -31,6 +33,7 @@ export default function NotificationPreferenceSettings() {
       const response = await fetch('/api/inbox/preferences', { cache: 'no-store' })
       if (!response.ok) throw new Error('preferences unavailable')
       const data = await response.json() as PreferenceResponse
+      setMarketing(data.marketing || null)
       setCatalog(data.catalog)
       setMuted(new Set(data.muted.map((row) => keyOf(row.kind, row.channel))))
     } catch { setError('load') }
@@ -76,6 +79,7 @@ export default function NotificationPreferenceSettings() {
       </div>
     </header>
 
+    {marketing && <MarketingConsent value={marketing} changed={setMarketing} fa={fa} />}
     <aside className="np-inbox-note">
       <span className="np-inbox-icon"><Icon name="shield" size={20} /></span>
       <div><strong>{fa ? 'اعلان‌های داخل حساب همیشه در دسترس‌اند' : 'Your account inbox stays available'}</strong>

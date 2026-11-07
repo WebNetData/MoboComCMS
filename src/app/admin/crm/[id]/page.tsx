@@ -14,7 +14,7 @@ type Profile = {
   counts: Record<string, number>
 }
 const ICON: Record<string, string> = { order: '🛒', ticket: '🎫', chat: '💬', wallet: '👛', return: '↩️', note: '📝', review: '⭐', signup: '👋' }
-const KINDS = [['', 'همه'], ['order', 'سفارش‌ها'], ['ticket', 'تیکت‌ها'], ['chat', 'گفت‌وگوها'], ['wallet', 'کیف پول'], ['return', 'مرجوعی'], ['review', 'نظرها'], ['note', 'یادداشت‌ها']] as const
+const KINDS = [['', 'همه'], ['order', 'سفارش‌ها'], ['ticket', 'تیکت‌ها'], ['chat', 'گفت‌وگوها'], ['wallet', 'کیف پول'], ['return', 'مرجوعی'], ['review', 'نظرها'], ['note', 'یادداشت‌ها'], ['communication', 'ارتباط‌های بازاریابی']] as const
 
 async function post(body: Record<string, unknown>) {
   const response = await fetch('/api/admin/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)

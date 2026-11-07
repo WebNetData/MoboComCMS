@@ -1,3 +1,4 @@
+import { MARKETING_EVENTS } from '@/modules/automation/domain/engagement'
 import { randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
@@ -369,6 +370,7 @@ export async function crmProfile(userId: number) {
     db.subscription.count({ where: { userId, status: 'ACTIVE' } }),
     db.userAddress.findMany({ where: { userId }, take: 5, select: { city: true } }),
   ])
+  const communications = await db.userNotification.findMany({ where: { userId, kind: { in: [...MARKETING_EVENTS] } }, orderBy: { id: 'desc' }, take: 40, select: { createdAt: true, titleFa: true, readAt: true } })
   const authors = await db.user.findMany({ where: { id: { in: [...new Set(notes.map((n) => n.adminId))] } }, select: { id: true, name: true } })
   const authorName = new Map(authors.map((a) => [a.id, a.name]))
   const money = (minor: bigint, currency: string) => `${minorToNumber(minor, currency).toLocaleString('fa-IR')} ${currency === 'IRT' ? 'تومان' : currency === 'IRR' ? 'ریال' : currency}`
@@ -381,6 +383,7 @@ export async function crmProfile(userId: number) {
     ...walletTx.map((tx): CrmEvent => ({ at: tx.createdAt, kind: 'wallet', title: `کیف پول: ${tx.amountMinor < 0n ? 'برداشت' : 'واریز'} ${money(tx.amountMinor < 0n ? -tx.amountMinor : tx.amountMinor, tx.currency)}`, detail: tx.description, href: '', tone: tx.amountMinor < 0n ? '' : 'ok' })),
     ...returns.map((row): CrmEvent => ({ at: row.createdAt, kind: 'return', title: `${row.kind === 'CANCEL' ? 'لغو' : 'مرجوعی'} ${row.number}`, detail: `سفارش #${row.orderId} · ${row.status}`, href: '/admin/store/returns', tone: 'warn' })),
     ...reviews.map((row): CrmEvent => ({ at: row.createdAt, kind: 'review', title: `نظر با امتیاز ${row.rating.toLocaleString('fa-IR')} از ۵ برای ${row.product.name}`, detail: row.title || row.body.slice(0, 100), href: `/products/${row.product.slug}`, tone: row.rating >= 4 ? 'ok' : row.rating <= 2 ? 'bad' : '' })),
+    ...communications.map((row): CrmEvent => ({ at: row.createdAt, kind: 'communication', title: row.titleFa, detail: row.readAt ? 'اعلان حساب دیده شده؛ نتیجهٔ کانال‌ها در سابقهٔ ارتباط' : 'اعلان حساب ثبت شده؛ نتیجهٔ کانال‌ها در سابقهٔ ارتباط', href: '/admin/crm/engagement', tone: '' })),
     ...notes.map((note): CrmEvent => ({ at: note.createdAt, kind: 'note', title: `یادداشت ${authorName.get(note.adminId) || 'مدیر'}`, detail: note.body, href: '', tone: '' })),
   ]
   return {
