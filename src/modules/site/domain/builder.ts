@@ -1,9 +1,11 @@
+import { DASHBOARD_PARTS, DYNAMIC_FIELDS } from './builder-surfaces'
 import { validatePageBlocks, type PageBlock } from './page-blocks'
 import { validateAdvancedStyle, type AdvancedStyle } from './builder-style'
 
 export const BUILDER_VERSION = 2
 
 export const WIDGET_TYPES = [
+  'surface-content', 'dashboard-part', 'dynamic-value',
   'heading', 'text', 'image', 'button', 'divider', 'spacer', 'video', 'stats', 'list', 'faq',
   'html', 'template', 'hero', 'cta', 'plans', 'posts', 'products', 'network', 'form', 'nav',
   'post-header', 'post-cover', 'content', 'post-footer',
@@ -25,7 +27,7 @@ export type MediaSource = typeof MEDIA_SOURCES[number]
 export const POST_SLOT_TYPES = ['post-header', 'post-cover', 'content', 'post-footer'] as const
 /** Widgets that only render on single-product pages (template slots). */
 export const PRODUCT_SLOT_TYPES = ['product-hero', 'product-gallery', 'product-info', 'product-purchase', 'product-usp', 'product-tabs'] as const
-export const SLOT_WIDGET_TYPES = [...POST_SLOT_TYPES, ...PRODUCT_SLOT_TYPES] as const
+export const SLOT_WIDGET_TYPES = [...POST_SLOT_TYPES, ...PRODUCT_SLOT_TYPES, 'surface-content'] as const
 export type SlotWidgetType = typeof SLOT_WIDGET_TYPES[number]
 
 export type WidgetStyle = {
@@ -72,12 +74,15 @@ export type BuilderSection = { id: string; anchor: string; style: BuilderSection
 export type BuilderCode = { html: string; css: string; js: string; advanced: boolean }
 /** Per-page chrome: hide the shared site header/footer for a full-bleed page. */
 /** `postStyle`: on an article template, the magazine page style its header and reading column wear (`ps-…`, `psc-…`). */
-export type BuilderPageLayout = { header: ChromeChoice; footer: ChromeChoice; postStyle?: string }
+export type BuilderPageLayout = { header: ChromeChoice; footer: ChromeChoice; postStyle?: string; designVersion?: 1 }
 /** 'default' = theme rules decide, 'none' = hidden, or a specific header/footer template id. */
 export type ChromeChoice = 'default' | 'none' | `tpl-${string}`
 export type BuilderDoc = { v: 2; mode: 'builder' | 'code'; code: BuilderCode; sections: BuilderSection[]; layout?: BuilderPageLayout }
 
 export const WIDGET_LABELS: Record<WidgetType, { fa: string; en: string }> = {
+  'surface-content': { fa: 'محتوای اصلی همین بخش', en: 'Current owner content' },
+  'dashboard-part': { fa: 'بخش زندهٔ پیشخوان کاربر', en: 'Member dashboard part' },
+  'dynamic-value': { fa: 'دادهٔ پویای همین محتوا', en: 'Dynamic entry value' },
   heading: { fa: 'تیتر', en: 'Heading' },
   text: { fa: 'متن غنی', en: 'Rich text' },
   image: { fa: 'تصویر', en: 'Image' },
@@ -168,6 +173,9 @@ type PropRule = { max?: number; json?: number; enum?: readonly string[]; url?: '
 const TEXT = (max: number): PropRule => ({ max })
 
 const WIDGET_PROPS: Record<WidgetType, Record<string, PropRule>> = {
+  'surface-content': {},
+  'dashboard-part': { part: { enum: DASHBOARD_PARTS } },
+  'dynamic-value': { field: { enum: DYNAMIC_FIELDS }, as: { enum: ['h1', 'h2', 'h3', 'p'] }, fallback: TEXT(500), label: TEXT(120) },
   heading: { text: TEXT(300), textEn: TEXT(300), level: { enum: ['h1', 'h2', 'h3', 'h4', 'p'] } },
   text: { html: TEXT(20000), htmlEn: TEXT(20000) },
   image: { src: { url: 'image' }, alt: TEXT(160), href: { url: 'link' }, label: TEXT(80), labelEn: TEXT(80) },
@@ -420,7 +428,7 @@ function validatePageChrome(input: unknown): BuilderPageLayout {
     return 'default'
   }
   const postStyle = typeof l.postStyle === 'string' && /^(?:ps-[a-z]{3,16}|psc-[a-z0-9]{4,24})$/.test(l.postStyle) ? l.postStyle : ''
-  return { header: choice(l.header, 'header'), footer: choice(l.footer, 'footer'), ...(postStyle ? { postStyle } : {}) }
+  return { header: choice(l.header, 'header'), footer: choice(l.footer, 'footer'), ...(postStyle ? { postStyle } : {}), ...(l.designVersion === 1 ? { designVersion: 1 as const } : {}) }
 }
 
 export function validateBuilderDoc(input: unknown): BuilderDoc {

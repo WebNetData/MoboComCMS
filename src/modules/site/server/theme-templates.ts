@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client'
-import { mutateThemeIndex, THEME_INDEX_KEY } from './theme-index'
+import { ThemeIndexError, mutateThemeIndex, THEME_INDEX_KEY } from './theme-index'
 export { THEME_INDEX_KEY, readThemeIndex, mutateThemeIndex, ThemeIndexError } from './theme-index'
 import { db } from '@/platform/database/prisma'
 import { categoryDescendants } from '@/modules/site/domain/categories'
@@ -7,6 +7,7 @@ import {
   newTemplateId, parseTemplateIndex, pickTemplate, placementConflict, validateTemplateMeta,
   type RenderContext, type ThemeTemplateMeta, type ThemeTemplateType,
 } from '@/modules/site/domain/theme-templates'
+import type { BuilderSurface } from '../domain/builder-surfaces'
 import { emptyDoc, parseBuilderDoc, type BuilderDoc } from '@/modules/site/domain/builder'
 import {
   builderKey, clearBuilderDraft, getBuilderDoc, getEntityTemplateId, saveBuilderDoc,
@@ -29,10 +30,10 @@ export async function getThemeTemplate(id: string): Promise<ThemeTemplateMeta | 
 }
 
 /** `actor`: the staff member creating it, named on the design's first version. */
-export async function createThemeTemplate(input: { type: ThemeTemplateType; name: string; nameEn?: string; doc?: BuilderDoc | null; conditions?: unknown; placement?: unknown; solution?: string }, actor: { id: number; email: string } | null = null, commit?: (tx: Prisma.TransactionClient, meta: ThemeTemplateMeta) => Promise<void>): Promise<ThemeTemplateMeta> {
+export async function createThemeTemplate(input: { type: ThemeTemplateType; name: string; nameEn?: string; doc?: BuilderDoc | null; conditions?: unknown; placement?: unknown; solution?: string; surface?: BuilderSurface }, actor: { id: number; email: string } | null = null, commit?: (tx: Prisma.TransactionClient, meta: ThemeTemplateMeta) => Promise<void>): Promise<ThemeTemplateMeta> {
   return mutateThemeIndex(async (list, tx) => {
     if (list.length >= MAX_TEMPLATES) throw new Error('Template limit reached')
-    const meta = validateTemplateMeta({ id: newTemplateId(input.type), name: input.name, nameEn: input.nameEn || '', status: 'draft', conditions: input.conditions ?? defaultConditions(input.type), placement: input.placement, solution: input.solution })
+    const meta = validateTemplateMeta({ id: newTemplateId(input.type), name: input.name, nameEn: input.nameEn || '', status: 'draft', conditions: input.conditions ?? defaultConditions(input.type), placement: input.placement, solution: input.solution, surface: input.surface, generation: input.type === 'single-post' ? 1 : undefined })
     await saveBuilderDoc(meta.id, input.doc ? parseBuilderDoc(input.doc) : emptyDoc(), actor, tx)
     list.push(meta); await commit?.(tx, meta)
     return meta
@@ -42,17 +43,19 @@ export async function createThemeTemplate(input: { type: ThemeTemplateType; name
 export function defaultConditions(type: ThemeTemplateType) {
   if (type === 'single-post') return [{ mode: 'include', target: 'posts' }]
   if (type === 'single-product') return [{ mode: 'include', target: 'products' }]
+  if (type === 'surface') return [{ mode: 'include', target: 'all' }]
   if (type === 'header' || type === 'footer') return [{ mode: 'include', target: 'all' }]
   return []
 }
 
-export async function updateThemeTemplate(id: string, patch: Record<string, unknown>): Promise<ThemeTemplateMeta> {
-  return mutateThemeIndex(async list => {
+export async function updateThemeTemplate(id: string, patch: Record<string, unknown>, commit?: (tx: Prisma.TransactionClient, meta: ThemeTemplateMeta) => Promise<void>): Promise<ThemeTemplateMeta> {
+  return mutateThemeIndex(async (list, tx) => {
     const index = list.findIndex(entry => entry.id === id), existing = list[index]
     if (!existing) throw new Error('Template not found')
+    if (patch.expectedUpdatedAt !== undefined && patch.expectedUpdatedAt !== existing.updatedAt) throw new ThemeIndexError('قالب هم‌زمان تغییر کرده است؛ فهرست را تازه کنید')
     const meta = validateTemplateMeta({ ...patch, id: existing.id }, existing), conflict = placementConflict(list, meta)
     if (conflict) throw new Error(`این جایگاه در اختیار قالب «${conflict.name}» است؛ ابتدا جایگاه آن را تغییر دهید`)
-    list[index] = meta; return meta
+    list[index] = meta; await commit?.(tx, meta); return meta
   })
 }
 
@@ -67,6 +70,7 @@ export async function duplicateThemeTemplate(id: string, actor: { id: number; em
     doc,
     conditions: source.conditions,
     solution: source.solution,
+    surface: source.surface,
     placement: source.type === 'page' ? { ...source.placement, kind: 'none' } : undefined,
   }, actor)
 }
@@ -111,7 +115,7 @@ export async function productContext(kind: string, categoryId: number | null | u
 export type ResolvedTemplate = { meta: ThemeTemplateMeta; doc: BuilderDoc }
 
 async function withDoc(meta: ThemeTemplateMeta | null): Promise<ResolvedTemplate | null> {
-  if (!meta) return null
+  if (!meta || (meta.type === 'single-post' && meta.generation !== 1)) return null
   const doc = await getBuilderDoc(meta.id)
   // An empty single template still applies (its slots are filled in automatically);
   // empty headers/footers/pages are ignored so the site never loses its chrome.
@@ -122,7 +126,7 @@ async function withDoc(meta: ThemeTemplateMeta | null): Promise<ResolvedTemplate
 /** Header/footer/single template for a context. `choice` is a page-level override. */
 export async function resolveThemeTemplate(type: ThemeTemplateType, ctx: RenderContext, choice?: string): Promise<ResolvedTemplate | null> {
   if (!await isModuleEnabled('page-builder')) return null
-  const list = await listThemeTemplates()
+  const list = (await listThemeTemplates()).filter(meta => type !== 'single-post' || meta.generation === 1)
   if (choice && choice !== 'default' && choice !== 'none') {
     const chosen = list.find((entry) => entry.id === choice && entry.type === type)
     if (chosen) return withDoc(chosen)
@@ -162,6 +166,7 @@ export async function listLayoutOptions(entity: 'post' | 'product'): Promise<Lay
   if (entity === 'post') {
     const journal = await getJournalSettings().catch(() => null)
     return [
+      ...(await listThemeTemplates()).filter(meta => meta.type === 'single-post' && meta.generation === 1).map((meta): LayoutOption => ({id:meta.id,fa:meta.name,en:meta.nameEn || meta.name,group:'theme',status:meta.status})),
       ...POST_STYLE_BASE_KEYS.map((base): LayoutOption => ({ id: builtinStyleId(base), fa: POST_STYLE_BASES[base].fa, en: POST_STYLE_BASES[base].en, group: 'style', base })),
       ...(journal?.postStyle.custom || []).map((style): LayoutOption => ({ id: style.id, fa: style.name, en: style.name, group: 'mystyle', base: style.base, accent: style.accent, align: style.align })),
     ]
@@ -175,13 +180,13 @@ export async function listLayoutOptions(entity: 'post' | 'product'): Promise<Lay
 
 /** Document for an explicitly chosen layout id (theme template, built-in or saved post template). */
 export async function layoutDocById(entity: 'post' | 'product', id: string): Promise<BuilderDoc | null> {
-  if (entity === 'post') return null
   if (!id) return null
   if (id.startsWith('tpl-')) {
     const meta = await getThemeTemplate(id)
-    if (!meta || meta.type !== 'single-product') return null
+    if (!meta || meta.type !== (entity === 'post' ? 'single-post' : 'single-product') || (entity === 'post' && meta.generation !== 1)) return null
     return (await getBuilderDoc(id)) || emptyDoc()
   }
+  if (entity === 'post') return null
   return PRODUCT_TEMPLATES.find((entry) => entry.id === id)?.doc || null
 }
 
@@ -191,14 +196,17 @@ export async function layoutDocById(entity: 'post' | 'product', id: string): Pro
  * `previewDoc` replaces the chosen theme template while it is edited.
  */
 export async function resolveEntryLayout(entity: 'post' | 'product', entryId: number, ctx: RenderContext, previewTemplate?: { id: string; doc: BuilderDoc | null }): Promise<BuilderDoc | null> {
-  if (entity === 'post') return null
-  if (previewTemplate) return previewTemplate.doc
   if (!await isModuleEnabled('page-builder')) return null
+  if (previewTemplate) {
+    if (entity !== 'post' || previewTemplate.id === `post-${entryId}` || (await getThemeTemplate(previewTemplate.id))?.generation === 1) return previewTemplate.doc
+    return null
+  }
+  if (entity === 'post') { const direct = await getBuilderDoc(`post-${entryId}`); if (direct?.layout?.designVersion === 1) return direct }
   const manual = await getEntityTemplateId(entity, entryId)
   if (manual) {
     const doc = await layoutDocById(entity, manual)
     if (doc) return doc
   }
-  const resolved = await resolveThemeTemplate('single-product', ctx)
+  const resolved = await resolveThemeTemplate(entity === 'post' ? 'single-post' : 'single-product', ctx)
   return resolved?.doc || null
 }

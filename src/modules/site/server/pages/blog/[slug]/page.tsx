@@ -20,7 +20,10 @@ import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import { articleJsonLd, breadcrumbJsonLd, pageMeta, siteBase } from '@/modules/site/server/seo'
 import { isPreview, type BuilderPreview } from '@/modules/site/server/builder-preview'
-import { postContext } from '@/modules/site/server/theme-templates'
+import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
+import { ensureContentSlot } from '@/modules/site/domain/builder'
+import { previewTemplate } from '@/modules/site/server/builder-preview'
+import { resolveEntryLayout, postContext } from '@/modules/site/server/theme-templates'
 import { resolvePostPresentation } from '@/modules/site/server/post-presentation'
 import { postStyleAttributes } from '@/modules/journal/domain/post-styles'
 import { requireModule } from '@/extensions/server/modules'
@@ -110,6 +113,8 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   const locked = paywall ? !paywall.open : refused || (!!viewer && post.access === 'MEMBERS' && !viewer.opens)
   const renderContext = await postContext(postCategories(post).map((c) => c.id))
   const presentation = await resolvePostPresentation({ postId: post.id, format: post.format, ctx: renderContext, askedStyle })
+  renderContext.postId = post.id
+  const designDoc = await resolveEntryLayout('post', post.id, renderContext, preview?.pageId === `post-${post.id}` ? {id: preview.pageId, doc: preview.doc} : previewTemplate(preview, 'single-post'))
   const dress = postStyleAttributes(presentation.style)
   const builderContext = { postCategoryId: post.category?.id ?? postCategories(post)[0]?.id ?? null, currentPostId: post.id }
 
@@ -406,7 +411,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
     <>
       {!isPreview(preview) && <ManageBar title="مدیریت نوشته" anyOf={['cms.posts']} links={[{ href: `/admin/posts?edit=${post.id}`, label: 'ویرایش نوشته' }, { href: '/admin/comments', label: 'نظرها' }, { href: '/admin/posts', label: 'همهٔ نوشته‌ها' }]} />}
       <ThemeHeader
-        context={renderContext} theme={theme} locale={locale} navPages={navPages}
+        context={renderContext} choice={designDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages}
         builderContext={builderContext} preview={preview}
         fallback={(
           <div className="journal-header-shell">
@@ -428,6 +433,9 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
             <span className="current" aria-current="page">{title}</span>
           </nav>
         )
+        if (designDoc) return <main className="journal-post journal-post-custom" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
+          {crumb}<BuilderRenderer doc={ensureContentSlot(designDoc)} locale={locale} preview={isPreview(preview)} values={{title,excerpt:lead,cover:coverImage,author:authorName,date:fmt(post.publishedAt || post.createdAt),url:'/blog/'+post.slug}} slots={{ 'post-header':headerSlot,'post-cover':coverSlot,content:contentSlot,'post-footer':footerSlot }} context={builderContext} />
+        </main>
         return (
           <main className="journal-post journal-post-solo" {...dress.attrs} style={Object.keys(dress.vars).length ? dress.vars as CSSProperties : undefined}>
             <div className="journal-post-shell">
@@ -444,7 +452,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
           </main>
         )
       })()}
-      <ThemeFooter context={renderContext} locale={locale} navPages={navPages} builderContext={builderContext} preview={preview} />
+      <ThemeFooter context={renderContext} choice={designDoc?.layout?.footer} locale={locale} navPages={navPages} builderContext={builderContext} preview={preview} />
     </>
   )
 }

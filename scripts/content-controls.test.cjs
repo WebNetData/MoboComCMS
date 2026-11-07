@@ -1462,7 +1462,7 @@ test('nothing is members-only while the VIP module is off, and prices keep the r
   assert.deepEqual(await membership.getViewer(), { userId: null, member: false, endsAt: null, opens: true })
   assert.deepEqual([await membership.opensMembersOnly(null), await membership.opensMembersOnly(7, false)], [true, true])
   // Every place that decides access asks "opens", never "member".
-  for (const file of ['src/app/cinema/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/app/music/playlist/[slug]/page.tsx', 'src/app/music/track/[slug]/page.tsx', 'src/app/software/[slug]/page.tsx', 'src/app/software/[slug]/releases/[id]/page.tsx', 'src/modules/site/server/http/public/cms/route.ts', 'src/modules/checkout/server/pages/checkout/page.tsx', 'src/modules/checkout/server/pages/product/page.tsx']) {
+  for (const file of ['src/app/cinema/[slug]/detail-view.tsx', 'src/app/games/[slug]/detail-view.tsx', 'src/app/music/album/[slug]/detail-view.tsx', 'src/app/music/playlist/[slug]/page.tsx', 'src/app/music/track/[slug]/detail-view.tsx', 'src/app/software/[slug]/detail-view.tsx', 'src/app/software/[slug]/releases/[id]/page.tsx', 'src/modules/site/server/http/public/cms/route.ts', 'src/modules/checkout/server/pages/checkout/page.tsx', 'src/modules/checkout/server/pages/product/page.tsx']) {
     assert.match(sourceOf(file), /viewer\.opens/, file)
     const accessSource = sourceOf(file).replace(/viewer\.member && [a-zA-Z.]*[mM]emberPriceMinor|viewer\.member && memberMinor/g, '').replace(/unitPrice\(product, variant, viewer\.member,/g, 'unitPrice(product, variant, priceMembership,')
     assert.doesNotMatch(accessSource, /viewer\.member/, `${file} decides access by a paid membership`)
@@ -1690,7 +1690,10 @@ test('what a search engine or a link preview reads stays true to the page', () =
   assert.doesNotMatch(layout.slice(layout.indexOf('openGraph:')), /url: seo\.base/, 'nor its share address')
   assert.match(read('src/app/page.tsx'), /canonical: seo\.base/, 'the home page states its own')
   assert.match(read('src/modules/site/server/seo.ts'), /images: own\.images \|\| \[seo\.ogImage\]/)
-  for (const page of ['music/track', 'music/album', 'music/artist', 'games', 'cinema', 'software', 'prompts/templates', 'celebrities']) assert.match(read(`src/app/${page}/[slug]/page.tsx`), /return shareCard\(/, page)
+  for (const page of ['music/track', 'music/album', 'music/artist', 'games', 'cinema', 'software', 'prompts/templates', 'celebrities']) {
+    const owner = ['music/track', 'music/album', 'games', 'cinema', 'software'].includes(page) ? 'detail-view' : 'page'
+    assert.match(read(`src/app/${page}/[slug]/${owner}.tsx`), /return shareCard\(/, page)
+  }
   assert.match(read('src/modules/site/server/pages/sitemap.ts'), /moved\.has\(row\.id\)/, 'an artist who redirects is not listed')
   assert.match(read('src/modules/seo/server/sitemap-entities.ts'), /listed\.has\(row\.id\)/, 'nor a person who redirects')
   assert.match(read('src/proxy.ts'), /x-robots-tag/)

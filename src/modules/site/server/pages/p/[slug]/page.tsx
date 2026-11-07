@@ -93,7 +93,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
         {template === 'contact' && <ContactTemplate title={title} body={templateBody} form={attachedForm?.published ? publicForm(parseForm(attachedForm)) : null} />}
         {template === 'legal' && <LegalTemplate title={title} body={templateBody} updatedAt={page.updatedAt} related={related} />}
         {template !== 'none' ? null : layout.pageTitle === 'show' ? <TitleCover cover={layout.cover} eyebrow={<span>{isFa ? 'راهنما و اطلاعات' : 'Resources & information'}</span>} title={title} /> : <h1 className="sr-only">{title}</h1>}
-        {builderDoc && <BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, String(page.id))} />}
+        {builderDoc && <BuilderRenderer doc={builderDoc} values={{title,url:`/p/${page.slug}`}} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, String(page.id))} />}
         {template === 'none' && blocks !== null && <div className="mcb-document container page-main" dangerouslySetInnerHTML={{ __html: blocks }} />}
         {hasLegacy && (
           <div className={`container page-main content-surface managed-page managed-page-${layout.pageLayout} covered-page-body`}>

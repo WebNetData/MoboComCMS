@@ -75,6 +75,7 @@ test('every header and panel draws the wide logo when there is one', () => {
   assert.match(read('src/themes/sdk/client.ts'), /Wordmark as ThemeWordmark/)
   for (const file of ['src/themes/code/mobocom/client.tsx', 'src/themes/code/clean/client.tsx', 'src/themes/code/orbital/header.tsx', 'src/themes/code/orbital/footer.tsx']) assert.match(read(file), /ThemeWordmark/, file)
   assert.match(read('src/components/site/default-theme/DefaultSiteHeader.tsx'), /site\.wordmark \? <Wordmark/)
-  for (const file of ['src/app/admin/layout.tsx', 'src/app/dashboard/layout.tsx', 'src/app/reseller/layout.tsx', 'src/app/seller/layout.tsx', 'src/app/welcome/page.tsx']) assert.match(read(file), /<BrandLockup \/>/, file)
+  assert.match(read('src/app/dashboard/layout.tsx'), /<AccountShell>/)
+  for (const file of ['src/app/admin/layout.tsx', 'src/app/dashboard/AccountShell.tsx', 'src/app/reseller/layout.tsx', 'src/app/seller/layout.tsx', 'src/app/welcome/page.tsx']) assert.match(read(file), /<BrandLockup \/>/, file)
   assert.match(read('src/app/admin/layout.tsx'), /href: '\/admin\/branding'[^\n]*perm: 'settings\.manage'/)
 })

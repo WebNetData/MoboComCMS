@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
@@ -15,6 +16,7 @@ function readPageId(value: unknown): string | null {
 
 /** Unsaved editor state for the live-preview iframe (never rendered publicly). */
 export async function PUT(req: NextRequest) {
+  const off = await moduleGuard('page-builder'); if (off) return off
   const body = await req.json().catch(() => null)
   const pageId = readPageId(body?.pageId)
   if (!pageId) return err('Invalid page ID')
@@ -30,6 +32,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const off = await moduleGuard('page-builder'); if (off) return off
   const pageId = readPageId(req.nextUrl.searchParams.get('pageId'))
   if (!pageId) return err('Invalid page ID')
   if (!await requirePerm(req, permFor(pageId))) return err('forbidden', 403)

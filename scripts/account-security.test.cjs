@@ -273,13 +273,15 @@ test('the magazine permission is named only where the magazine is guarded', () =
   assert.deepEqual(files.sort(), [
     // The typed audience registry maps only posts to the Magazine permission; each other type has its own.
     'src/modules/account/domain/item-audience.ts',
+    // Read-only canonical documentation bundled for the engineering assistant; not an authorization consumer.
+    'src/modules/ai/domain/engineering-knowledge.generated.json',
     // Operational tools/context map only Magazine creation/publication and Magazine records to this key.
     'src/modules/ai/domain/operations.ts', 'src/modules/ai/server/operations/context.ts',
     'src/app/admin/layout.tsx', 'src/app/admin/roles/page.tsx',
     'src/modules/ai/server/http/admin.ts', 'src/modules/content/server/http/history.ts', 'src/modules/editor/server/documents.ts', 'src/modules/editor/server/document-validation.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/downloads/server/http/files.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/identity/rbac.ts', 'src/modules/journal/server/body-proposals.ts', 'src/modules/journal/server/http/routes.ts', 'src/modules/journal/server/review-bulk.ts', 'src/modules/journal/server/review.ts',
     'src/modules/mail/server/http/newsletter.ts', 'src/modules/moderation/domain/queue.ts', 'src/modules/paywall/server/http/paywall.ts', 'src/modules/site/server/builder.ts',
     'src/modules/site/server/http/admin/builder/post-template/route.ts', 'src/modules/site/server/http/admin/cms/route.ts', 'src/modules/site/server/http/admin/comments/route.ts',
-    'src/modules/site/server/http/builder/post-template.ts', 'src/modules/site/server/http/theme/templates.ts', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/plugins/journal/manifest.json',
+    'src/modules/site/server/http/builder/post-template.ts', 'src/modules/site/server/http/builder/targets.ts', 'src/modules/site/server/http/theme/templates.ts', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/plugins/journal/manifest.json',
     // The magazine's managed list (post formats): managed with the magazine's own permission.
     'src/modules/vocabulary/domain/registry.ts',
   ].sort(), 'a new place accepts cms.posts: make sure it is the magazine, then list it here')
@@ -289,6 +291,7 @@ test('the magazine permission is named only where the magazine is guarded', () =
   for (const plugin of ['music', 'cinema', 'games', 'software', 'forum']) assert.equal(read(`src/plugins/${plugin}/manifest.json`).includes('cms.posts'), false, plugin)
   // Where it still sits beside other permissions, it guards a post and nothing else.
   assert.match(read('src/modules/paywall/server/http/paywall.ts'), /post: \['cms\.posts'\], software: \['software\.manage'\], game: \['games\.manage'\]/)
+  assert.match(read('src/modules/site/server/http/builder/targets.ts'), /kind === 'post' \? 'cms\.posts' : kind === 'product' \? 'cms\.products' : 'cms\.pages'/)
   assert.match(read('src/modules/moderation/domain/queue.ts'), /key: 'item-reviews', module: 'reviews', permissions: \['reviews\.moderate'\]/)
 })
 
@@ -402,6 +405,8 @@ test('an author permission is taken only by the content owners, through the scop
   const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) { if (entry.name !== 'generated') walk(full) } else if (/[.](ts|tsx|json)$/.test(entry.name) && names.some((name) => fs.readFileSync(full, 'utf8').includes(name))) files.push(path.relative(path.resolve(__dirname, '..'), full).split(path.sep).join('/')) } }
   walk(path.resolve(__dirname, '..', 'src'))
   assert.deepEqual(files.sort(), [
+    // The generated engineering reference quotes the canonical standing rules; it grants no permission.
+    'src/modules/ai/domain/engineering-knowledge.generated.json',
     'src/modules/prompts/server/transaction.ts', 'src/plugins/prompt-master/manifest.json',
     'src/modules/editor/server/documents.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/media/server/admin.ts', 'src/modules/site/server/http/admin/cms/route.ts',
     // Games have an admin of their own: its routes take the author through the same guard, and its shell only decides which tabs to show.

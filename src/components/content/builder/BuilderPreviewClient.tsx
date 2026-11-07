@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 /**
  * Runs inside the builder's live-preview iframe (/builder-preview/<pageId>).
@@ -16,6 +17,7 @@ import { useEffect } from 'react'
  */
 
 type Incoming =
+  | { source: 'happ-builder-editor'; type: 'refresh'; pageId: string }
   | { source: 'happ-builder-editor'; type: 'select'; sectionId?: string | null; columnId?: string | null; widgetId?: string | null }
   | { source: 'happ-builder-editor'; type: 'palette-drag'; active: boolean; kind?: 'widget' | 'section'; widgetType?: string; columns?: number }
 
@@ -25,6 +27,7 @@ const ID = /^[a-zA-Z0-9_-]{1,64}$/
 const safeId = (value: unknown) => (typeof value === 'string' && ID.test(value) ? value : null)
 
 export default function BuilderPreviewClient({ pageId, empty }: { pageId: string; empty: { fa: string; en: string } }) {
+  const router = useRouter()
   useEffect(() => {
     // Opened in its own tab (the private preview of a draft), the page is for looking at: tabs, sliders and
     // buttons work as on the site. Selecting, dragging and highlighting only exist inside the editor's frame.
@@ -253,6 +256,7 @@ export default function BuilderPreviewClient({ pageId, empty }: { pageId: string
       if (event.origin !== origin || event.source !== window.parent) return
       const data = event.data as Incoming | null
       if (!data || data.source !== 'happ-builder-editor') return
+      if (data.type === 'refresh') { if (data.pageId === pageId) router.refresh(); return }
       if (data.type === 'select') {
         selected = { sectionId: safeId(data.sectionId), columnId: safeId(data.columnId), widgetId: safeId(data.widgetId) }
         applySelection(true)
@@ -302,7 +306,7 @@ export default function BuilderPreviewClient({ pageId, empty }: { pageId: string
       window.removeEventListener('message', onMessage)
       clearDrag()
     }
-  }, [pageId, empty.fa, empty.en])
+  }, [pageId, empty.fa, empty.en, router])
 
   return null
 }

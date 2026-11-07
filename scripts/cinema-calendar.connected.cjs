@@ -1,21 +1,15 @@
 // Real PostgreSQL series, seasons and episodes. The calendar query only sees this script's series.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `cal-${Date.now()}`
-const compile = file => ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
 const mine = where => ({ AND: [where || {}, { season: { title: { slug: { startsWith: seed } } } }] })
 const episodes = new Proxy(prisma.cinemaEpisode, { get: (target, key) => key === 'findMany' || key === 'count' ? args => target[key]({ ...args, where: mine(args.where) }) : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
 const titles = new Proxy(prisma.cinemaTitle, { get: (target, key) => key === 'findMany' || key === 'count' ? args => target[key]({ ...args, where: { AND: [args.where || {}, { slug: { startsWith: seed } }] } }) : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
 const db = new Proxy(prisma, { get: (target, key) => key === 'cinemaEpisode' ? episodes : key === 'cinemaTitle' ? titles : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
-function load(file, real = {}) {
-  const stub = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : () => { throw new Error(`test double called: ${String(key)}`) } })
-  const mod = { exports: {} }
-  new Function('require', 'module', 'exports', compile(file))(name => name === '@/platform/database/prisma' ? { db } : Object.hasOwn(real, name) ? real[name] : name.startsWith('@/modules/media/server/queries/') ? load('src/' + name.slice(2) + '.ts', real) : name.startsWith('@/') ? stub : require(name), mod, mod.exports)
-  return mod.exports
-}
+const load = require('./connected-source-loader.cjs')({ '@/platform/database/prisma': { db }, react: { ...require('react'), cache: fn => fn } })
 const now = new Date(), at = hours => new Date(now.getTime() + hours * 3_600_000)
 
 async function main() {
-  const queries = load('src/modules/media/server/queries.ts', { '@/modules/cinema/domain/calendar': load('src/modules/cinema/domain/calendar.ts') })
+  const queries = load('src/modules/media/server/queries.ts')
   const title = (name, data) => prisma.cinemaTitle.create({ data: { slug: `${seed}-${name}`, title: name, kind: 'SERIES', poster: `/p/${name}.jpg`, ...data } })
   const season = (row, number, list) => prisma.cinemaSeason.create({ data: { titleId: row.id, number, episodes: { create: list } } })
   const open = await title('open', {}), vip = await title('vip', { access: 'MEMBERS' })

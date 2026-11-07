@@ -20,6 +20,7 @@ const CHECKS = [
   'page-lifecycle',
   'editor-media',
   'editor-groups-experts',
+  'visual-studio',
   'editorial-schedule',
   'editor-patterns',
   'editor-synced-patterns',
