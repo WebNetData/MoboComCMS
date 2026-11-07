@@ -106,6 +106,13 @@ its production build and PostgreSQL/Redis jobs succeeded. Update the obsolete
 handoff. Native `livechat-continuity` now verifies WAITING on both visitor and
 agent channels after the actual claimed database transition.
 
+The next hosted run42400798787 also caught the new ManageBar visibility list
+missing from the exact Magazine-permission source inventory. It is an existing
+"any operational tool's section permission" entry point, not a cross-section
+guard; register that reviewed consumer in `account-security.test.cjs`, retaining
+the exact inventory and every section-specific negative assertion. Its targeted
+Linux/non-root test passes. No runtime code changes in this follow-up.
+
 The existing Admin layout lazily loads `components/admin/ai/Workspace`; its
 entry and native modal live outside the responsive sidebar. This location was
 corrected after the first browser pass exposed sidebar hiding on mobile. The
