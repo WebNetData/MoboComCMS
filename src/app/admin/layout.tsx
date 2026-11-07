@@ -5,6 +5,7 @@ import '../admin-areas.css'
 
 import { useEffect, useRef, useState } from 'react'
 import AdminWorkspace from '@/components/admin/Workspace'
+import dynamic from 'next/dynamic'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
 import { usePathname, useSearchParams } from '@/platform/routing/navigation'
@@ -20,6 +21,7 @@ import ShellNav from '@/components/shell/ShellNav'
 import { ControlNavigationProvider } from '@/components/admin/navigation/ControlNavigation'
 import AreaRail from '@/components/admin/navigation/AreaRail'
 import { CONTROL_AREAS, controlAreas, searchControlGroups, type ControlGroup } from '@/components/admin/navigation/groups'
+const AiWorkspace = dynamic(() => import('@/components/admin/ai/Workspace'))
 
 interface NavItem {
   href: string
@@ -322,6 +324,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="app-shell admin-shell">
+      <div className="ai-workspace-entry"><AiWorkspace canGo={href => controls.some(group => group.items.some(item => item.href === href))} /></div>
       <aside className="side">
         <Link href="/admin" className="side-brand">
           <BrandLockup /> <span className="badge badge-purple">{t.admin}</span>

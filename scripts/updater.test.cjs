@@ -14,6 +14,7 @@ function load(relative) {
   return mod.exports
 }
 const u = load('src/modules/updater/domain/updater.ts')
+require('./update-network.cases.cjs')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
 test('versions compare by semantic-version precedence', () => {
@@ -583,7 +584,7 @@ test('root helper validates the tag and starts the update in its own unit', () =
 test('wiring: routes, admin page, job, hook and privileges', () => {
   for (const file of ['src/app/api/admin/updates/route.ts', 'src/app/admin/updates/page.tsx', 'src/modules/updater/server/service.ts']) assert.ok(fs.existsSync(path.join(root, file)), file)
   const http = read('src/modules/updater/server/http.ts')
-  assert.match(http, /settings\.manage/); assert.match(http, /auditAdmin/); assert.match(http, /rateLimitHit/)
+  assert.match(http, /settings\.manage/); assert.match(http, /auditAdmin/); assert.match(http, /await rateLimitStrict\(/)
   const service = read('src/modules/updater/server/service.ts')
   assert.match(service, /isSafeRef/); assert.match(service, /backupConfirmed/); assert.match(service, /safeHookUrl/); assert.match(service, /redirect: 'manual'/)
   assert.match(read('src/modules/notifications/server/jobs-scheduler.ts'), /name: 'updates'/)

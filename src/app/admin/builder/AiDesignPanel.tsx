@@ -5,10 +5,10 @@ import Link from '@/components/AppLink'
 import { designStillCurrent } from '@/modules/site/domain/builder-design'
 import { cloneSections, type BuilderDoc } from '@/modules/site/domain/builder'
 
-export default function AiDesignPanel({ pageId, doc, apply, close }: {
-  pageId: string; doc: BuilderDoc; apply: (doc: BuilderDoc) => void; close: () => void
+export default function AiDesignPanel({ pageId, doc, apply, close, initialInstruction = '' }: {
+  pageId: string; doc: BuilderDoc; apply: (doc: BuilderDoc) => void; close: () => void; initialInstruction?: string
 }) {
-  const [instruction, setInstruction] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('')
+  const [instruction, setInstruction] = useState(initialInstruction), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [proposal, setProposal] = useState<{ doc: BuilderDoc; base: string; model: string } | null>(null)
   const [replace, setReplace] = useState(false), pending = useRef(false)
   async function generate() {

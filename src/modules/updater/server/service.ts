@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { assertNativeUpdateTarget } from './managed-runtime'
+import { updateJson } from './network'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
@@ -43,23 +44,18 @@ interface CheckCache { checkedAt: string; releases: Release[]; error: string; no
 
 async function fetchReleases(): Promise<Release[]> {
   // Package installs are self-contained; status must not implicitly contact GitHub.
-  if (environment().packageReady) return []
   const custom = String(process.env.UPDATE_FEED_URL || '').trim()
   const repo = isValidRepo(process.env.UPDATE_REPO) ? process.env.UPDATE_REPO : DEFAULT_REPO
   const url = custom || `https://api.github.com/repos/${repo}/releases?per_page=15`
   if (custom && !/^https:\/\//i.test(custom)) throw new UpdateError('نشانی خوراک به‌روزرسانی باید https باشد')
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8000)
   try {
-    const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'MoboComCMS-updater' }, cache: 'no-store' })
-    if (!response.ok) throw new UpdateError(response.status === 404 ? 'مخزن یا انتشاری پیدا نشد (مخزن خصوصی است یا هنوز نسخه‌ای منتشر نشده)' : `سرور نسخه‌ها پاسخ ${response.status} داد`, 502)
-    const data: unknown = await response.json()
+    const data: unknown = await updateJson(url)
     const list = Array.isArray(data) ? data : [data]
     return list.map(normalizeRelease).filter((r): r is Release => !!r)
   } catch (error) {
     if (error instanceof UpdateError) throw error
-    throw new UpdateError('اتصال به سرور نسخه‌ها برقرار نشد (دسترسی اینترنت سرور را بررسی کنید)', 502)
-  } finally { clearTimeout(timer) }
+    throw new UpdateError('دریافت فهرست نسخه‌ها کامل نشد؛ مسیر «به‌روزرسانی» در تنظیمات پروکسی و دسترسی GitHub را بررسی کنید', 502)
+  }
 }
 
 async function readCache(): Promise<CheckCache | null> {
@@ -70,7 +66,7 @@ async function readCache(): Promise<CheckCache | null> {
 
 /** Asks the release feed (at most every few hours unless `force`); a failure keeps the last known answer and says why. */
 export async function checkForUpdate(force = false): Promise<CheckCache> {
-  if (environment().packageReady) return { checkedAt: '', releases: [], error: '', notified: '' }
+  if (environment().packageReady && !force) return (await readCache()) || { checkedAt: '', releases: [], error: '', notified: '' }
   const cached = await readCache()
   if (cached && !force && !cached.error && Date.now() - Date.parse(cached.checkedAt) < CHECK_TTL_MS) return cached
   let next: CheckCache
@@ -131,13 +127,13 @@ export async function startUpdate(ref: unknown, options: { backupConfirmed: bool
   if (!isSafeRef(ref)) throw new UpdateError('نسخهٔ انتخابی معتبر نیست')
   if (runProgress().status === 'running') throw new UpdateError('یک به‌روزرسانی در حال انجام است', 409)
   // Only versions the release feed announced can be installed.
-  const known = (await readCache())?.releases.some((r) => r.tag === ref || r.version === String(ref).replace(/^v/, ''))
+  const known = (await readCache())?.releases.find((r) => r.tag === ref || r.version === String(ref).replace(/^v/, ''))
   if (!known) throw new UpdateError('این نسخه در فهرست انتشارها نیست؛ ابتدا «بررسی نسخه» را بزنید', 400)
   if (compareVersions(String(ref), currentVersion()) <= 0) throw new UpdateError('فقط نسخهٔ جدیدتر نصب می‌شود؛ بازگشت نسخه باید با بررسی سازگاری و از مسیر بازیابی انجام شود.', 409)
   mkdirSync(updateDirectory(), { recursive: true })
   writeFileSync(join(updateDirectory(), 'state.json'), JSON.stringify({ status: 'running', step: 'در صف اجرا', target: ref, previous: '', at: new Date().toISOString() }))
   await new Promise<void>((resolve, reject) => {
-    execFile('sudo', ['-n', helperPath(), ref], { timeout: 20_000 }, (error, _out, stderr) => (error ? reject(new UpdateError(`اجرای به‌روزرسانی ممکن نشد: ${String(stderr || error.message).slice(0, 300)}`, 500)) : resolve()))
+    execFile('sudo', ['-n', helperPath(), known.tag], { timeout: 20_000 }, (error, _out, stderr) => (error ? reject(new UpdateError(`اجرای به‌روزرسانی ممکن نشد: ${String(stderr || error.message).slice(0, 300)}`, 500)) : resolve()))
   }).catch((error) => { writeFileSync(join(updateDirectory(), 'state.json'), JSON.stringify({ status: 'failed', step: 'شروع نشد', target: ref, previous: '', at: new Date().toISOString() })); throw error })
   return { started: true }
 }

@@ -7,14 +7,15 @@ import { JsonBodyError, readJsonObject } from '@/platform/http/read-json'
 import { AI_PROVIDERS } from '../../domain/ai'
 import { isAiPurpose } from '../../domain/routing'
 import { AiError } from '../error'
-import { publicAiRoutes, readAiRoutes, saveAiRoute } from '../routing'
+import { saveAiRoute } from '../routing'
+import { aiReadiness } from '../readiness'
 
 const reply = (value: unknown) => { const response = ok(value); response.headers.set('Cache-Control', 'private, no-store'); return response }
 const failure = (error: unknown) => error instanceof AiError || error instanceof JsonBodyError ? err(error.message, error.status) : err('تنظیم کاربرد هوش مصنوعی انجام نشد؛ اطلاعات قبلی حفظ شد', 503)
 export async function GET(req: NextRequest) {
   const off = await moduleGuard('ai-assistant'); if (off) return off
-  if (!await requirePerm(req, 'settings.manage')) return err('forbidden', 403)
-  try { return reply({ routes: publicAiRoutes(await readAiRoutes()), providers: AI_PROVIDERS }) } catch (error) { return failure(error) }
+  const actor = await requirePerm(req, 'settings.manage'); if (!actor) return err('forbidden', 403)
+  try { return reply({ routes: await aiReadiness(actor.id), providers: AI_PROVIDERS }) } catch (error) { return failure(error) }
 }
 export async function PUT(req: NextRequest) {
   const off = await moduleGuard('ai-assistant'); if (off) return off
@@ -23,7 +24,7 @@ export async function PUT(req: NextRequest) {
   try {
     const input = await readJsonObject(req, 8_000)
     if (!isAiPurpose(input.purpose)) throw new AiError('کاربرد هوش مصنوعی معتبر نیست')
-    const routes = await saveAiRoute(input.purpose, input, { req, actor, action: 'ai.routing.update', targetType: 'setting', targetId: `ai.routing.v1:${input.purpose}` })
-    return reply({ routes })
+    await saveAiRoute(input.purpose, input, { req, actor, action: 'ai.routing.update', targetType: 'setting', targetId: `ai.routing.v1:${input.purpose}` })
+    return reply({ routes: await aiReadiness(actor.id) })
   } catch (error) { return failure(error) }
 }

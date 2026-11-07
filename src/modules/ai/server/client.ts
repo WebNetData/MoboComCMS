@@ -71,25 +71,22 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
   const model = effectiveModel(settings)
   if (!apiKey && settings.provider !== 'custom') throw new AiError(`ابتدا کلید API سرویس ${providerById(settings.provider).label} را در تنظیمات دستیار وارد کنید`)
   const text = settings.provider === 'anthropic'
-    ? await claude(apiKey, model, prompt)
+    ? await claude(apiKey, model, prompt, selected === 'support')
     : await openAiCompatible(effectiveBaseUrl(settings), apiKey, model, prompt, settings.provider)
   if (!text.trim()) throw new AiError('پاسخی از هوش مصنوعی دریافت نشد؛ دوباره تلاش کنید', 502)
   return { text, model, provider: settings.provider }
 }
 
-async function claude(apiKey: string, model: string, prompt: Prompt): Promise<string> {
-  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: personalAiPurpose() === 'engineering' ? 0 : 2, fetch: egressFetch as unknown as typeof fetch })
+async function claude(apiKey: string, model: string, prompt: Prompt, support = false): Promise<string> {
+  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 0, fetch: egressFetch as unknown as typeof fetch })
   try {
     const response = await client.beta.messages.create({
       model,
       // Adaptive thinking shares this budget with the answer.
-      max_tokens: Math.max(prompt.maxTokens, 16000),
+      max_tokens: support ? prompt.maxTokens : Math.max(prompt.maxTokens, 16000),
       system: prompt.system,
       messages: [{ role: 'user', content: prompt.user }],
-      thinking: { type: 'adaptive' },
-      // If the model declines for policy reasons, the API retries on its default fallback model.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
+      ...(!support ? { thinking: { type: 'adaptive' as const } } : {}),
     })
     if (response.stop_reason === 'refusal') throw new AiError('مدل به این درخواست پاسخ نداد؛ موضوع یا متن را تغییر دهید', 422)
     return response.content.map((block) => block.type === 'text' ? block.text : '').join('')
@@ -97,7 +94,7 @@ async function claude(apiKey: string, model: string, prompt: Prompt): Promise<st
     if (error instanceof AiError) throw error
     if (error instanceof Anthropic.AuthenticationError) throw new AiError('کلید API کلاد نامعتبر است', 401)
     if (error instanceof Anthropic.RateLimitError) throw new AiError('محدودیت تعداد درخواست کلاد؛ کمی بعد دوباره تلاش کنید', 429)
-    if (error instanceof Anthropic.APIError) throw new AiError(`خطای کلاد: ${error.message}`.slice(0, 300), 502)
+    if (error instanceof Anthropic.APIError) throw new AiError(`سرویس کلاد درخواست را نپذیرفت (HTTP ${error.status || 502})؛ مدل و دسترسی پروژه را بررسی کنید`, 502)
     throw new AiError('اتصال به کلاد برقرار نشد', 502)
   }
 }

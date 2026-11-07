@@ -31,6 +31,8 @@ test('chat settings are normalized with safe defaults', () => {
   assert.equal(s.maxBotReplies, 30)
   assert.deepEqual(s.hours, { enabled: true, days: [1], from: '09:00', to: '17:30' })
   assert.equal(c.normalizeChatSettings(null).botEnabled, true)
+  assert.equal(c.normalizeChatSettings({ maxBotReplies: 1 }).continuous, true, 'existing conversations default to continuous answers')
+  assert.equal(c.normalizeChatSettings({ continuous: false }).continuous, false)
 })
 
 test('chat placement keeps legacy all-pages settings and scopes selected sections to path boundaries', () => {
@@ -68,6 +70,7 @@ test('messages, contact and handoff detection', () => {
   assert.equal(c.cleanContact('Ali@Example.com'), 'ali@example.com')
   assert.equal(c.cleanContact('bad'), '')
   assert.equal(c.wantsHuman('میخوام با اپراتور صحبت کنم'), true)
+  for (const query of ['پشتیبانی موبوکام چطور کار می‌کند؟', 'کجا تیکت به کارشناس بزنم؟', 'راهنمای حساب و محصولات چیست؟']) assert.equal(c.wantsHuman(query), false, query)
   assert.equal(c.wantsHuman('قیمت این گوشی چنده؟'), false)
   assert.deepEqual(c.parseBotReply('دستیار: وصلتان می‌کنم. [HANDOFF]'), { body: 'وصلتان می‌کنم.', handoff: true })
   assert.deepEqual(c.parseBotReply('ارسال یک‌روزه است.'), { body: 'ارسال یک‌روزه است.', handoff: false })

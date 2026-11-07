@@ -130,7 +130,10 @@ test('SSE response: event framing, ids, heartbeat headers, cleanup on abort', as
 test('chat wiring: messages and status changes are announced; streams catch up from Last-Event-ID', () => {
   const chat = read('src/modules/livechat/server/livechat.ts')
   assert.match(chat, /await announce\(conversation\.id, \{ type: 'message'/)
-  assert.ok((chat.match(/await setStatus\(/g) || []).length >= 6)
+  // Human takeover uses setStatus; bot handoff claims an unassigned conversation
+  // before announcing WAITING. Counting call sites rejected that safer path.
+  assert.match(chat, /await announce\(id, \{ type: 'status', status: data.status \}\)/)
+  assert.match(chat, /if \(!claimed.count\) return \[\][\s\S]*?await announce\(conversation.id, \{ type: 'status', status: 'WAITING' \}\)/)
   const http = read('src/modules/livechat/server/http/livechat.ts')
   assert.match(http, /last-event-id/)
   assert.match(http, /GET_visitorStream/)

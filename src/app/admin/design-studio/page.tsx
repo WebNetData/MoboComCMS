@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { useRouter } from '@/platform/routing/navigation'
+import { useSearchParams } from 'next/navigation'
 import { BUILDER_SURFACES, SURFACE_LABELS, type BuilderSurface } from '@/modules/site/domain/builder-surfaces'
 import type { ThemeTemplateMeta, ThemeTemplateType } from '@/modules/site/domain/theme-templates'
 import './studio.css'
 
 type Target = { id: number; title: string; pageId: string }
-export default function DesignStudio() {
+function DesignStudio() {
+  const assistant = useSearchParams().get('assistant') === '1'
   const router = useRouter(), [templates, setTemplates] = useState<ThemeTemplateMeta[]>([]), [allowed, setAllowed] = useState<ThemeTemplateType[]>([])
   const [error, setError] = useState(''), [loading, setLoading] = useState(true), [busy, setBusy] = useState('')
   const [kind, setKind] = useState('page'), [query, setQuery] = useState(''), [targets, setTargets] = useState<Target[]>([]), [searching, setSearching] = useState(false)
@@ -32,6 +34,7 @@ export default function DesignStudio() {
   }
   return <div className="ds-studio">
     <header className="ds-hero"><div><span className="sa-eyebrow">صفحه، قالب و تجربهٔ کاربر</span><h1>استودیوی طراحی</h1><p>با همان بلوک‌ها، داده‌های زنده و پیش‌نمایش تمام‌صفحه طراحی کنید؛ قالب جدید را ابتدا به‌صورت پیش‌نویس بسازید و پس از بررسی منتشر کنید</p></div><div className="ds-actions"><Link className="btn btn-primary" href="/admin/theme-builder">قالب‌ها و شرط‌های نمایش</Link><Link className="btn btn-ghost" href="/admin/homepage">طرح صفحهٔ اول</Link></div></header>
+    {assistant && <p className="card" role="status">درخواست طراحی در همین تب تا ۱۰ دقیقه نگه داشته می‌شود. یک طرح بسازید یا محتوای موردنظر را انتخاب کنید؛ متن در دستیار صفحه‌ساز آمادهٔ بررسی خواهد بود.</p>}
     {error && <p role="alert" className="error-text">{error}</p>}
     {loading ? <p role="status">در حال دریافت فضای طراحی…</p> : <>
       <section aria-labelledby="ds-start"><h2 id="ds-start">از کجا شروع می‌کنید؟</h2><div className="ds-grid">{([{type:'page',title:'صفحه و لندینگ',icon:'grid',text:'صفحهٔ آزاد، خانه یا بخش اختصاصی'}, {type:'header',title:'هدر',icon:'menu',text:'منو، برند و سربرگ مستقل'}, {type:'footer',title:'فوتر',icon:'grid',text:'پاورقی مستقل با شرط نمایش'}, {type:'single-post',title:'قالب نوشته',icon:'file',text:'یک نوشته، دسته یا همهٔ نوشته‌ها'}, {type:'single-product',title:'قالب محصول',icon:'bag',text:'محصول مشخص، دسته یا نوع محصول'}] as const).filter(item=>allowed.includes(item.type)).map(item=><article className="ds-card" key={item.type}><Icon name={item.icon} size={20}/><h3>{item.title}</h3><p>{item.text}</p><button type="button" className="btn btn-ghost" disabled={!!busy} onClick={()=>void create(item.type)}>ساخت {item.title}</button></article>)}</div></section>
@@ -42,3 +45,4 @@ export default function DesignStudio() {
     </>}
   </div>
 }
+export default function Page() { return <Suspense fallback={<p role="status">در حال دریافت استودیو…</p>}><DesignStudio /></Suspense> }

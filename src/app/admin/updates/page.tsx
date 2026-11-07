@@ -32,6 +32,7 @@ function UpdatesPanel() {
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState('')
   const [backupDone, setBackupDone] = useState(false)
+  const [packageRefresh, setPackageRefresh] = useState(0)
   const [run, setRun] = useState<Run | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -62,9 +63,13 @@ function UpdatesPanel() {
   }
   async function refresh() {
     setBusy('refresh')
-    const r = await fetch('/api/admin/server/updates?refresh=1', { cache: 'no-store' })
-    setBusy('')
-    if (r.ok) { await reload(); say('ok', 'فهرست نسخه‌ها به‌روز شد.') } else say('error', 'بررسی انجام نشد')
+    try {
+      const r = await fetch('/api/admin/server/updates?refresh=1', { cache: 'no-store', signal: AbortSignal.timeout(30_000) })
+      const body = await r.json()
+      if (!r.ok) throw Error(body.error || 'بررسی نسخه انجام نشد')
+      await reload(); say(body.checkError ? 'error' : 'ok', body.checkError || 'فهرست نسخه‌ها به‌روز شد.')
+    } catch (error) { say('error', error instanceof Error && error.name !== 'TimeoutError' ? error.message : 'پاسخ GitHub در زمان مجاز نرسید؛ مسیر به‌روزرسانی پروکسی یا بارگذاری بسته را بررسی کنید') }
+    finally { setBusy('') }
   }
   async function apply(tag: string) {
     if (!window.confirm(`سایت به نسخهٔ ${tag} به‌روزرسانی شود؟ سرویس چند دقیقه دوباره راه‌اندازی می‌شود.`)) return
@@ -78,13 +83,13 @@ function UpdatesPanel() {
 
   return <div className="sa upd" dir="rtl">
     <header className="sa-head"><div><h1>به‌روزرسانی سایت</h1><p className="sa-hint">نسخهٔ تازه را ببینید و با یک کلیک نصب کنید؛ مهاجرت پایگاه داده خودکار انجام می‌شود.</p></div>
-      <div className="sa-head-actions"><button type="button" className="btn btn-ghost" disabled={busy === 'refresh' || running} onClick={() => void refresh()}>{busy === 'refresh' ? 'در حال بررسی…' : 'بررسی نسخه'}</button></div></header>
+      <div className="sa-head-actions"><button type="button" className="btn btn-ghost" disabled={!!busy || running} onClick={() => void refresh()}>{busy === 'refresh' ? 'در حال بررسی…' : 'بررسی نسخه'}</button></div></header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
     {data.checkError && <Notice tone="error">{data.checkError}</Notice>}
 
     <section className="sa-card upd-versions">
       <div><small>نسخهٔ نصب‌شده</small><b className="num" dir="ltr">{current.version}</b>{current.sha && <span className="sa-sub" dir="ltr">{current.sha}</span>}</div>
-      <div><small>{env.method === 'package' ? 'روش به‌روزرسانی' : 'آخرین نسخه'}</small><b className="num" dir="ltr">{latest ? latest.version : current.version}</b><span className="sa-sub">{env.method === 'package' ? 'بارگذاری بستهٔ انتشار؛ بدون اتصال به GitHub' : latest ? `منتشر شده ${latest.publishedAt ? faDate(latest.publishedAt) : ''}` : 'شما به‌روز هستید'}</span></div>
+      <div><small>آخرین نسخهٔ بررسی‌شده</small><b className="num" dir="ltr">{latest ? latest.version : current.version}</b><span className="sa-sub">{env.method === 'package' ? 'بستهٔ امضاشده؛ دریافت از GitHub یا بارگذاری فایل' : latest ? `منتشر شده ${latest.publishedAt ? faDate(latest.publishedAt) : ''}` : 'شما به‌روز هستید'}</span></div>
       <div><small>آخرین بررسی</small><b>{data.checkedAt ? faDate(data.checkedAt, true) : '—'}</b><span className="sa-sub" dir="ltr">{env.feed === 'package' ? 'Signed release package' : env.feed === 'custom' ? 'custom feed' : env.repo}</span></div>
     </section>
 
@@ -97,13 +102,14 @@ function UpdatesPanel() {
       {run.log && <pre className="upd-log" dir="ltr">{run.log}</pre>}
     </section>}
 
-    {env.method === 'package' && <PackageUpdates running={running || !!busy} onApply={async item => {
+    {env.method === 'package' && <PackageUpdates key={packageRefresh} running={running || !!busy} onApply={async item => {
       if (!window.confirm(`نسخهٔ ${item.version} پس از پشتیبان‌گیری نصب شود؟`)) return
       if (await act('package', { id: item.id, backupConfirmed: true }, 'نصب بسته شروع شد؛ این صفحه را باز نگه دارید.')) setRun({ status: 'running', step: 'در صف اجرا', target: item.version, previous: current.version, at: new Date().toISOString(), log: '' })
     }} />}
     {latest ? <section className="sa-card">
       <header className="sa-card-head"><h2>نسخهٔ {latest.version} آماده است</h2>{latest.url && <a className="sa-link" href={latest.url} target="_blank" rel="noopener noreferrer">صفحهٔ انتشار ↗</a>}</header>
       {latest.notes ? <pre className="upd-notes">{latest.notes}</pre> : <p className="sa-hint">توضیحی برای این نسخه ثبت نشده است.</p>}
+      {env.method === 'package' && <div className="upd-howto"><p>بستهٔ امضاشده از GitHub دریافت و با کلید ناشر همین سرور بررسی می‌شود. دریافت فایل به معنی نصب نیست؛ نصب را پس از بررسی نسخه و تأیید بکاپ شروع کنید.</p><button type="button" className="btn btn-primary" disabled={!!busy || running} onClick={() => void act('github-package', { ref: latest.tag }, 'بسته دریافت و امضای ناشر تأیید شد؛ اکنون از فهرست بسته‌ها نصب کنید.').then(ok => { if (ok) setPackageRefresh(v => v + 1) })}>{busy === 'github-package' ? 'دریافت و بررسی امضای بسته…' : `دریافت امن ${latest.version} از GitHub`}</button><p className="sa-hint">اگر مسیر اینترنت محدود است، پروفایل «به‌روزرسانی» را در پنل پروکسی تنظیم کنید. بارگذاری دستی mbrelease همچنان در دسترس است.</p></div>}
       {env.method === 'systemd' && <>
         <ul className="upd-steps"><li>پشتیبان کامل گرفته می‌شود (پیشنهاد می‌شود).</li><li>کد نسخهٔ جدید دریافت و ساخته می‌شود.</li><li>سرویس دوباره راه‌اندازی و مهاجرت‌ها اجرا می‌شود.</li><li>اگر نسخهٔ جدید بالا نیامد، خودکار به نسخهٔ قبلی برمی‌گردد.</li></ul>
         <div className="sa-row-actions"><button type="button" className="btn btn-ghost" disabled={!!busy || running} onClick={() => void act('backup', {}, 'پشتیبان‌گیری شروع شد؛ نتیجه در «پشتیبان‌گیری» دیده می‌شود.')}>پشتیبان‌گیری اکنون</button></div>

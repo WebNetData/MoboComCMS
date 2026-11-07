@@ -40,7 +40,7 @@ async function main(){
  assert.equal((await (await http.GET(request('GET',undefined,{cookie}))).json()).length,1)
  assert.ok(await db.auditLog.count({where:{actorUserId:user.id,action:'updates.package-upload'}}))
  const fetchBefore=global.fetch;global.fetch=()=>{throw Error('Package mode must never fetch GitHub')}
- try{const status=await service.status(true);assert.equal(status.environment.method,'package');assert.equal(status.releases.length,0)}finally{global.fetch=fetchBefore}
+ try{const status=await service.status(false);assert.equal(status.environment.method,'package');assert.equal(status.releases.length,0)}finally{global.fetch=fetchBefore}
  await assert.rejects(packages.startPackage(item.id,false),error=>error.status===400)
  const settled=await Promise.allSettled([packages.startPackage(item.id,true),packages.startPackage(item.id,true)])
  assert.equal(settled.filter(r=>r.status==='fulfilled').length,1);assert.equal(helperCalls.length,1);assert.deepEqual(helperCalls[0],['-n','/tmp/mobocom-package-tools/helper','package',item.id])

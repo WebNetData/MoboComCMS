@@ -7,7 +7,7 @@ import { usePathname } from '@/platform/routing/navigation'
 import { chatShownOn } from '@/extensions/sdk/livechat'
 
 type Message = { id: number; sender: 'VISITOR' | 'BOT' | 'AGENT' | 'SYSTEM'; body: string; at: string }
-type State = { places?: string[]; botName: string; welcome: string; online: boolean; offlineMessage: string; askContact: boolean; conversation: { status: string; rated: boolean; hasContact: boolean } | null; messages: Message[] }
+type State = { places?: string[]; botName: string; welcome: string; online: boolean; offlineMessage: string; askContact: boolean; assistantEnabled?: boolean; continuous?: boolean; ticketUrl?: string; conversation: { status: string; rated: boolean; hasContact: boolean } | null; messages: Message[] }
 
 const STATUS: Record<string, string> = { BOT: 'پاسخ‌گویی با دستیار هوشمند', WAITING: 'در انتظار اپراتور', OPEN: 'اپراتور در گفت‌وگوست', CLOSED: 'گفت‌وگو بسته شد' }
 const time = (value: string) => new Date(value).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
@@ -17,7 +17,7 @@ function Text({ body }: { body: string }) {
   const parts = body.split(/(\s\/[a-z0-9/_?=&#-]+|https?:\/\/[^\s]+)/gi)
   return <>{parts.map((part, index) => {
     const url = part.trim()
-    if (url.startsWith('/') || (/^https?:\/\//.test(url) && typeof window !== 'undefined' && url.startsWith(window.location.origin))) return <a key={index} href={url}> {url}</a>
+    if (/^\/(?!\/)[a-z0-9]/i.test(url)) return <a key={index} href={url}> {url}</a>
     return <span key={index}>{part}</span>
   })}</>
 }
@@ -43,6 +43,12 @@ function LiveChat(_props: PluginProps) {
   const lastId = useRef(0)
   const openRef = useRef(open)
   const typingSent = useRef(0)
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const receiveTyping = useCallback(() => {
+    setAgentTyping(true)
+    if (typingTimer.current) clearTimeout(typingTimer.current)
+    typingTimer.current = setTimeout(() => setAgentTyping(false), 4000)
+  }, [])
   useEffect(() => { openRef.current = open }, [open])
 
   /** Adds new messages once (the stream, the send response and polling may all deliver the same one). */
@@ -81,19 +87,18 @@ function LiveChat(_props: PluginProps) {
   useEffect(() => {
     if (!visible || !hasConversation || typeof EventSource === 'undefined') return
     let failures = 0
-    let typingTimer: ReturnType<typeof setTimeout> | undefined
     const source = new EventSource(`/api/chat/stream?since=${lastId.current}`)
     source.addEventListener('ready', () => { failures = 0; setLive(true) })
     source.addEventListener('message', (event) => { merge([JSON.parse((event as MessageEvent).data)]); setAgentTyping(false) })
     source.addEventListener('status', (event) => setStatus(JSON.parse((event as MessageEvent).data).status))
-    source.addEventListener('typing', () => { setAgentTyping(true); clearTimeout(typingTimer); typingTimer = setTimeout(() => setAgentTyping(false), 4000) })
+    source.addEventListener('typing', receiveTyping)
     source.onerror = () => {
       setLive(false)
       // Three failed connections in a row: fall back to polling.
       if (++failures >= 3) source.close()
     }
-    return () => { source.close(); clearTimeout(typingTimer); setLive(false) }
-  }, [visible, hasConversation, merge])
+    return () => { source.close(); if (typingTimer.current) clearTimeout(typingTimer.current); typingTimer.current = null; setLive(false) }
+  }, [visible, hasConversation, merge, receiveTyping])
 
   // Fallback polling (no EventSource, or the stream keeps failing): every 3 s while open, 25 s for the badge.
   useEffect(() => {
@@ -140,6 +145,7 @@ function LiveChat(_props: PluginProps) {
     const data = await response?.json().catch(() => null)
     setSending(false)
     if (response?.ok) { merge(data.messages || []); setStatus('WAITING') }
+    else setError(data?.error || 'درخواست همکار ثبت نشد؛ دوباره تلاش کنید یا تیکت بسازید')
   }
 
   async function saveContact(event: FormEvent) {
@@ -186,6 +192,8 @@ function LiveChat(_props: PluginProps) {
       </div>
       {error && <p className="lc-error" role="alert">{error}</p>}
       {current === 'BOT' && <button type="button" className="lc-human" onClick={() => void operator()} disabled={sending}>👤 گفت‌وگو با اپراتور</button>}
+      <a className="lc-human" href="/dashboard/tickets">ثبت تیکت و پیگیری پاسخ همکار</a>
+      {state.assistantEnabled && state.continuous && current === 'WAITING' && <p className="lc-system">تا پاسخ همکار می‌توانید از دستیار هم سؤال کنید.</p>}
       {(!status || status === 'CLOSED') && human.widget}
       <form className="lc-input" onSubmit={send}>
         <textarea value={text} onChange={(e) => onType(e.target.value)} onKeyDown={onKey} rows={1} maxLength={2000} placeholder={current === 'CLOSED' ? 'برای شروع گفت‌وگوی تازه بنویسید…' : 'پیام خود را بنویسید…'} aria-label="پیام" />

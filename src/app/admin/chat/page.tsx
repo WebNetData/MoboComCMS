@@ -182,13 +182,14 @@ function SettingsForm() {
         <p className="sa-sub">حداقل یک بخش را نگه دار؛ برای نمایش سراسری، «همهٔ صفحات سایت» را انتخاب کن.</p>
       </>}
     </fieldset>
-    <label className="sa-check"><input type="checkbox" checked={form.botEnabled} onChange={(e) => set({ botEnabled: e.target.checked })} /> دستیار هوش مصنوعی پاسخ اول را بدهد (کلید API در «دستیار هوش مصنوعی» تنظیم شود)</label>
+    <label className="sa-check"><input type="checkbox" checked={form.botEnabled} onChange={(e) => set({ botEnabled: e.target.checked })} /> دستیار هوش مصنوعی برای پاسخ‌گویی فعال باشد (سرویس پشتیبانی در «دستیار هوش مصنوعی» تنظیم شود)</label>
     <div className="sa-cols">
       <label className="sa-field"><span>نام دستیار</span><input className="input" value={form.botName} onChange={(e) => set({ botName: e.target.value })} /></label>
-      <label className="sa-field"><span>حداکثر پاسخ دستیار پیش از پیشنهاد اپراتور</span><input className="input" dir="ltr" inputMode="numeric" value={form.maxBotReplies} onChange={(e) => set({ maxBotReplies: Number(e.target.value) || 1 })} /></label>
+      <label className="sa-check"><input type="checkbox" checked={form.continuous} onChange={e => set({ continuous: e.target.checked })} /> دستیار برای تمام پیام‌های کاربر پاسخ دهد؛ تا وقتی همکار گفتگو را تحویل نگرفته است</label>
+      {!form.continuous && <label className="sa-field"><span>حداکثر پاسخ دستیار پیش از پیشنهاد اپراتور</span><input className="input" dir="ltr" inputMode="numeric" value={form.maxBotReplies} onChange={(e) => set({ maxBotReplies: Number(e.target.value) || 1 })} /></label>}
     </div>
     <label className="sa-field"><span>پیام خوش‌آمد</span><input className="input" value={form.welcome} onChange={(e) => set({ welcome: e.target.value })} /></label>
-    <label className="sa-field"><span>دانستنی‌های فروشگاه برای دستیار (ارسال، مرجوعی، پرداخت، ساعات کاری، پرسش‌های پرتکرار)</span><textarea className="textarea" rows={10} value={form.knowledge} onChange={(e) => set({ knowledge: e.target.value })} placeholder={'ارسال تهران ۱ روزه و شهرستان ۲ تا ۴ روز کاری است.\nمرجوعی تا ۷ روز پس از تحویل…'} /><small className="sa-sub">دستیار فقط از همین متن و اطلاعات حساب همان مشتری پاسخ می‌دهد و در غیر این صورت گفت‌وگو را به اپراتور می‌سپارد.</small></label>
+    <label className="sa-field"><span>دانستنی‌های فروشگاه برای دستیار (ارسال، مرجوعی، پرداخت، ساعات کاری، پرسش‌های پرتکرار)</span><textarea className="textarea" rows={10} value={form.knowledge} onChange={(e) => set({ knowledge: e.target.value })} placeholder={'ارسال تهران ۱ روزه و شهرستان ۲ تا ۴ روز کاری است.\nمرجوعی تا ۷ روز پس از تحویل…'} /><small className="sa-sub">دستیار از راهنمای همین سایت، این متن و اطلاعات همان مشتری پاسخ می‌دهد؛ موارد نیازمند بررسی انسانی را به تیکت یا همکار ارجاع می‌دهد و در حالت پیوسته آمادهٔ سؤال بعدی می‌ماند.</small></label>
     <label className="sa-check"><input type="checkbox" checked={form.hours.enabled} onChange={(e) => set({ hours: { ...form.hours, enabled: e.target.checked } })} /> ساعات کاری اپراتورها محدود است</label>
     {form.hours.enabled && <div className="sa-cols">
       <div className="sa-field"><span>روزهای کاری</span><div className="crm-filters">{[6, 0, 1, 2, 3, 4, 5].map((day) => <button key={day} type="button" className={form.hours.days.includes(day) ? 'is-active' : ''} aria-pressed={form.hours.days.includes(day)} onClick={() => set({ hours: { ...form.hours, days: form.hours.days.includes(day) ? form.hours.days.filter((d) => d !== day) : [...form.hours.days, day] } })}>{DAYS[day]}</button>)}</div></div>

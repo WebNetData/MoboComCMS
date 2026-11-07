@@ -17,6 +17,8 @@ import TemplatesPanel from './templates-panel'
 import KitPanel from './kit-panel'
 import LivePreviewFrame from './LivePreviewFrame'
 import AiDesignPanel from './AiDesignPanel'
+import { useWorkspaceBrief } from '@/components/admin/ai/use-workspace-brief'
+import { workspaceInstruction } from '@/modules/ai/domain/workspace'
 import { useBuilderLivePreview } from './use-live-preview'
 import './studio.css'
 import { ensureTemplateForms } from './template-forms'
@@ -73,6 +75,8 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
   const [showTemplates, setShowTemplates] = useState(false)
   const [showKit, setShowKit] = useState(false)
   const [showAi, setShowAi] = useState(false)
+  const aiBrief = useWorkspaceBrief('builder')
+  useEffect(() => { if (aiBrief) setShowAi(true) }, [aiBrief])
   const [revision, setRevision] = useState<string | undefined>()
   const [view, setView] = useState<'live' | 'structure'>('live')
   const [panels, setPanels] = useState({ left: true, right: true })
@@ -552,7 +556,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
     </header>
     {message && <p role="status" className="builder-status">{message}</p>}
     {live.error && <p className="builder-status" role="alert">{live.error} <button type="button" className="btn btn-ghost btn-sm" onClick={live.retry}>تلاش دوبارهٔ پیش‌نمایش</button></p>}
-    {showAi && <AiDesignPanel pageId={pageId} doc={doc} close={() => setShowAi(false)} apply={next => onChange(next, null)} />}
+    {showAi && <AiDesignPanel key={aiBrief?.expires || 'manual'} initialInstruction={aiBrief ? workspaceInstruction(aiBrief.instruction, aiBrief.source) : ''} pageId={pageId} doc={doc} close={() => setShowAi(false)} apply={next => onChange(next, null)} />}
     {meta?.status === 'DRAFT' && <p className="builder-status">{templateKind ? <>این قالب پیش‌نویس است؛ ذخیرهٔ طرح آن را منتشر نمی‌کند. <Link href="/admin/theme-builder">انتشار و شرط‌های نمایش</Link></> : L('This page is private. Saving the design keeps it a draft; review and publish it in Publication & page settings.', 'این صفحه پیش‌نویس است و عمومی نیست. ذخیرهٔ طرح آن را منتشر نمی‌کند؛ انتشار نهایی از «انتشار و تنظیمات صفحه» انجام می‌شود.')}</p>}
     {(meta?.status === 'PUBLISHED' || !!entry || pageId === 'home' || pageId === 'blog') && <p className="builder-status">ذخیرهٔ طرحِ محتوای منتشرشده، نمایش آن را به‌روز می‌کند. برای بررسی جداگانه ابتدا یک قالب پیش‌نویس بسازید.</p>}
     <div className={`builder-grid${panels.left ? '' : ' is-left-hidden'}${panels.right ? '' : ' is-right-hidden'}`}>
