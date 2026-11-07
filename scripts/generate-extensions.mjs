@@ -97,3 +97,5 @@ if (checkOnly) {
   }
   console.log(`Generated extension files match the source (${outputs.length} files).`)
 } else console.log(`Generated registries for ${plugins.length} plugin(s) and ${themes.length} code theme(s).`)
+
+if (!checkOnly) execFileSync(process.execPath, [path.join(root, 'scripts/generate-ai-knowledge.cjs')], { cwd: root, stdio: 'inherit' })

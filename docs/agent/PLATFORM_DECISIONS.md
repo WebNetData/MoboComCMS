@@ -884,3 +884,12 @@ Section-specific keys/roles and full-access staff compatibility remain; Store's 
 
 
 Owner2026-11-01: domain, SSL and email are entered during browser setup. No-argument trusted bootstrap exposes only temporary HTTPS8443/fingerprint/private-code setup; existing Server Panel services handle HTTP/DNS/PEM, then canonical identity closes setup. Explicit unfinished-install resume uses existing signed updater/mandatory backup and refuses installed/disabled/unknown state. Existing CLI/manual paths remain. [Exact continuation, evidence and deployment limits](handoffs/HOST_INSTALL_UPGRADE.md#browser-host-setup-follow-up--2026-11-01).
+
+## AI engineering authority — 2026-11-07
+
+Owner selected automatic isolated development and PR creation, with production
+promotion only after their approval. Existing per-request direct content-tool
+policy is separate. New skills are stored inert instructions, never new server
+authority. Preserve data and retain compatible code rollback; no automatic schema
+downgrade, root terminal, hosted workflow dispatch or owner merge. Scope and
+evidence: [AI engineering](handoffs/AI_ENGINEERING.md).

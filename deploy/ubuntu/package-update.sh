@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+if [ -f /run/mobocom-engineering/active.json ]; then
+  node /usr/local/lib/mobocom-engineering/native-update-check.cjs || exit 3
+fi
 # Root-owned transport adapter of the existing Updater. Runs as the service user.
 set -euo pipefail
 main() {

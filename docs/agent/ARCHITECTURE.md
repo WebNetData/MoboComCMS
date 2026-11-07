@@ -803,3 +803,25 @@ Project-scoped external skills from Anthropic, UI/UX Pro Max, Vercel and ibelick
 Engineering tools follow the [scoped devstack](DEVSTACK.md): pinned agent documentation/browser MCPs, reusable semantic tooling and the offline incremental Graphify source graph for relationship discovery (confirmed with Serena and existing tests), local security/secret scans and reviewed graph/dead-code baselines. This extends current MoboCom skills and gates; it creates no new runtime service, specification tree or agent orchestrator.
 
 Architecture/skill adoption is documentation completion only. Maturity progresses through Missing, Planned, Foundation, PartiallyImplemented, Functional, ProductionVerified, Advanced and ReferenceClassEquivalent with named evidence; unassessed is not missing. Keep the existing ledger's finding labels separate from maturity. Audit then implement safe vertical slices with relevant actual tests; no new platform owner without an inspected gap. Preserve PostgreSQL/SQLite parity, release-manifest migrations, state claims, old APIs/URLs/data and realistic rollback. PRs target main; owner merges/deploys. [Roadmap](IMPLEMENTATION_ROADMAP.md) prioritizes launch essentials and foundation reuse before advanced breadth.
+
+
+## Private AI engineering and recovery — 2026-11-07
+
+AI owns bounded engineering policy/custom skills, pinned canonical knowledge and
+private AiEngineeringRun history. Operations remains the only executable queue;
+Server Panel keeps canonical access/unlock and the fixed version1 local host
+protocol. Root-owned tools stage network-isolated non-root Docker builds against
+empty PostgreSQL. Successful changes create a main-targeting PR and architecture
+receipt automatically. Owner merge plus explicit fresh approval of the exact
+sealed artifact is required for production. Native immutable systemd releases
+retain host tools/storage; Nginx switches only after readiness and a canonical
+backup. Code rollback never restores an old database over new user data.
+
+This is an opt-in bounded slice, not arbitrary root commands or general incident
+autonomy. Inert custom skills cannot grant authority; dependency/schema/host or
+security-control changes require a normal reviewed release. Fixed recovery
+runbooks have separate exact diagnostic approval. The independent worker uses
+BackgroundJob even when the HTTP preview is unavailable. Native control-plane
+APIs remain on the retained original service; active-runtime guards prevent
+duplicate scheduled work. See [implementation and evidence](handoffs/AI_ENGINEERING.md)
+and [operator guide](../AI-ENGINEERING-FA.md).

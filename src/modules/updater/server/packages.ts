@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { assertNativeUpdateTarget } from './managed-runtime'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
@@ -66,6 +67,7 @@ export async function uploadPackage(request: Request): Promise<PackageInfo> {
 }
 
 export async function startPackage(value: unknown, backupConfirmed: boolean) {
+  assertNativeUpdateTarget()
   ready()
   if (!backupConfirmed) throw new UpdateError('پشتیبان‌گیری و شروع نصب را تأیید کنید')
   const requestLock = join(updateDirectory(), 'request.lock')
