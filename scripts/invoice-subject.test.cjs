@@ -2,16 +2,10 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 const read = (relative) => fs.readFileSync(path.resolve(root, relative), 'utf8')
-function load(relative) {
-  const source = ts.transpileModule(read(relative), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
-  const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
-  return mod.exports
-}
+const load = require('./connected-source-loader.cjs')()
 const { invoiceSubject } = load('src/modules/billing/domain/invoice-subject.ts')
 const { paymentResultState, paymentResultTarget } = load('src/modules/billing/domain/payment-result.ts')
 const f = load('src/modules/forms/domain/forms.ts')

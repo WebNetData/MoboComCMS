@@ -1,21 +1,6 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const ts = require('typescript-api')
-function load(relative, mocks = {}, cache = new Map()) {
-  let file = path.resolve(__dirname, '..', relative)
-  if (!fs.existsSync(file) && file.endsWith('.ts')) file = file.slice(0, -3) + '/index.ts'
-  if (cache.has(file)) return cache.get(file).exports
-  const mod = { exports: {} }; cache.set(file, mod)
-  const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
-  new Function('require', 'module', 'exports', code)(name => {
-    if (Object.hasOwn(mocks, name)) return mocks[name]
-    if (name.startsWith('@/')) return load(`src/${name.slice(2)}.ts`, mocks, cache)
-    return require(name)
-  }, mod, mod.exports)
-  return mod.exports
-}
+const load = (relative, mocks = {}) => require('./connected-source-loader.cjs')(mocks)(relative)
 
 test('artist URL suggestions use the English name; editable slugs have one bounded ASCII format', () => {
   const { suggestedCelebritySlug: suggest, validCelebritySlug: valid } = load('src/modules/celebrities/domain/celebrities.ts')

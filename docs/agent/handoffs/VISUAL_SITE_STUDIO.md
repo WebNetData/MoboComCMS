@@ -1,5 +1,41 @@
 # Visual site studio — 2026-11-07
 
+## PR369 check repair after the owner's main merge
+
+Owner requested repair of failed Checks on head `6490d420` (main `d7d4a23a`
+was merged by the owner). Hosted run42352662805 had a successful production
+build; `npm run check` stopped at translation audit and PostgreSQL had six failures.
+
+- Rename six local `t` arrow bindings to tool/template/tag through their actual
+  Babel bindings. The translation auditor no longer mistakes local properties
+  for dictionary keys. No dictionary allowlist/suppression, JSX copy, layout,
+  permission or application behavior changed.
+- CI provisions `mobocom_ci_test` consistently in service, health check and URL.
+  The four disposable-database guards stay intact. Mini App assertions inspect
+  their own namespaced live/draft/future/group fixtures while allowing valid
+  first-deploy seeded content. Cinema/music/billing tests use the existing common
+  source loader, including relative owner imports. The example-install fixture
+  includes the real knowledge generator and integrity-checked shipped bundle.
+- Existing permission inventory explicitly accounts for the generated read-only
+  knowledge reference and the Magazine-only builder target selector, with a
+  mapping assertion. Brand/avatar tests follow the extracted AccountShell and
+  also assert that the actual dashboard layout mounts it. Article checks retain
+  canonical style and retired-layout protections while accepting the explicitly
+  requested generation1 layouts. No runtime access or privacy assertion was removed.
+- Local UID1000/no dotenv: all six originally failing PostgreSQL suites passed
+  against a separately migrated and seeded174-migration database. One complete
+  check exposed seven later unit failures; those seven alone passed after the
+  fixture/owner corrections, alongside the941 already passing cases (948 total).
+  Remaining connected53, backup4, billing13 and TypeScript steps passed; successful
+  steps were not repeated. Architecture/source/schema/money/security/audit/i18n
+  gates passed. Doctor0 errors/four existing warnings; offline Zizmor0 reported
+  findings with its two existing suppressions. No new browser run was needed for
+  binding-only renames; the original feature browser evidence below remains scoped.
+
+The repair changes CI/test compatibility and local variable names. No new schema,
+dependency, production deployment, provider call or feature redesign. Hosted
+checks for the repair commit are recorded in the local workstate after pushing.
+
 Branch `feat/visual-site-studio-2026-11-07`, independently based on owner-merged
 PR367/main `6e6f58b9`; no dependency on the separate AI engineering PR368.
 [Scenario](../../specs/visual-site-studio/SPEC.md),
