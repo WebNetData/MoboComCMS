@@ -41,7 +41,7 @@ async function dispatch(c, action, input) {
         catch {
             ready = false;
         }
-        return { ready, supported: true, phase: d.active().id === 'native' ? 'native' : 'managed', diagnostics: ready ? 'محیط جدا و worker مستقل آماده‌اند؛ انتشار نیاز به مرج و تأیید دارد.' : 'تصویرهای ثابت و worker مستقل باید طبق راهنما آماده و فعال شوند.' };
+        return { ready, supported: true, knowledgeProtocol: 2, phase: d.active().id === 'native' ? 'native' : 'managed', diagnostics: ready ? 'محیط جدا و worker مستقل آماده‌اند؛ انتشار نیاز به مرج و تأیید دارد.' : 'تصویرهای ثابت و worker مستقل باید طبق راهنما آماده و فعال شوند.' };
     }
     p.runId(input.runId);
     if (action === 'diagnose')

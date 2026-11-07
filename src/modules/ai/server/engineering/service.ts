@@ -8,7 +8,7 @@ import { auditAdminStrict } from '@/platform/audit/server'
 import { enqueue } from '@/modules/operations/server/enqueue'
 import { ENGINEERING_ACTIVE, EngineeringError, engineeringText } from '../../domain/engineering'
 import { readEngineeringPolicy } from './policy'
-import { engineeringKnowledge } from './knowledge'
+import { engineeringKnowledge, currentEngineeringKnowledge } from './knowledge'
 import { engineeringHost } from './host'
 import { engineeringAuthority } from './authority'
 
@@ -23,7 +23,8 @@ export async function engineeringActor(req: NextRequest) {
 export async function engineeringView(req: NextRequest) {
   const actor = await engineeringActor(req)
   const [policy, host, runs] = await Promise.all([readEngineeringPolicy(), engineeringHost('status'), db.aiEngineeringRun.findMany({ where: { createdById: actor.id }, orderBy: { createdAt: 'desc' }, take: 20 })])
-  return { policy, host, approvalRequired: true, runs: runs.map(r => ({ id: r.id, instruction: r.instruction, mode: r.mode, status: r.status, revision: r.revision, report: r.report, result: JSON.parse(r.result), steps: r.steps, inputChars: r.inputChars, outputBudget: r.outputBudget, model: r.model, createdAt: r.createdAt.toISOString(), expiresAt: r.expiresAt.toISOString() })) }
+  if (host.ready && host.knowledgeProtocol !== 2) { host.ready = false; host.diagnostics = 'ابزار مستقل میزبان قدیمی است؛ پیش از کار تازه، ابزار و worker مرورشده را با حفظ رسیدها ارتقا دهید.' }
+  return { policy, host, knowledge: { sources: currentEngineeringKnowledge().entries.map(entry => ({ path: entry.path, sha256: entry.sha256 })), mandatoryRules: 'docs/agent/AI_ENGINEERING_RULES.md', architectureRequired: true }, approvalRequired: true, runs: runs.map(r => ({ id: r.id, instruction: r.instruction, mode: r.mode, status: r.status, revision: r.revision, report: r.report, result: JSON.parse(r.result), steps: r.steps, inputChars: r.inputChars, outputBudget: r.outputBudget, model: r.model, createdAt: r.createdAt.toISOString(), expiresAt: r.expiresAt.toISOString() })) }
 }
 export async function createEngineeringRun(req: NextRequest, input: Record<string, unknown>) {
   const actor = await engineeringActor(req), instruction = engineeringText(input.instruction, 8, 4000)
@@ -38,6 +39,7 @@ export async function createEngineeringRun(req: NextRequest, input: Record<strin
   if (!policy.enabled) throw new EngineeringError('ابتدا مهندسی هوشمند را از تنظیمات همین صفحه فعال کنید', 409)
   const host = await engineeringHost('status')
   if (!host.ready) throw new EngineeringError(host.diagnostics || 'محیط جدا هنوز آماده نشده است', 409)
+  if (host.knowledgeProtocol !== 2) throw new EngineeringError('ابزار میزبان با قواعد دانش و معماری تازه سازگار نیست؛ اپراتور باید ابزار و worker را ارتقا دهد', 409)
   const knowledge = engineeringKnowledge(instruction, policy, input.skillIds || []), token = await getRawToken(req), authAt = typeof token?.authAt === 'number' ? token.authAt : null
   const grant = { createdById: actor.id, authAt, expiresAt: new Date(Date.now() + 24 * 3600000) }, id = randomUUID()
   await db.$transaction(async tx => {

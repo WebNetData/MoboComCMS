@@ -4,7 +4,7 @@ import { createConnection } from 'node:net'
 import { EngineeringError, ENGINEERING_PROTOCOL } from '../../domain/engineering'
 
 export type HostAction = 'status' | 'prepare' | 'read' | 'apply' | 'validate' | 'poll' | 'publish' | 'promote' | 'rollback' | 'cancel' | 'diagnose' | 'repair' | 'reopen'
-export type HostReceipt = { ok: boolean; ready?: boolean; phase?: string; baseSha?: string; headSha?: string; artifact?: string; prUrl?: string; files?: { path: string; sha256: string; content: string }[]; manifest?: string[]; checks?: { name: string; passed: boolean }[]; changed?: string[]; diffSummary?: string; diagnostics?: string; previous?: string; error?: string; supported?: boolean; allowedRepairs?: string[]; diagnosticHash?: string; runtimeId?: string; repairId?: string }
+export type HostReceipt = { ok: boolean; ready?: boolean; knowledgeProtocol?: number; phase?: string; baseSha?: string; headSha?: string; artifact?: string; prUrl?: string; files?: { path: string; sha256: string; content: string }[]; manifest?: string[]; checks?: { name: string; passed: boolean }[]; changed?: string[]; diffSummary?: string; diagnostics?: string; previous?: string; error?: string; supported?: boolean; allowedRepairs?: string[]; diagnosticHash?: string; runtimeId?: string; repairId?: string }
 /** No model command, executable path, environment or remote URL enters this boundary. */
 export async function engineeringHost(action: HostAction, input: Record<string, unknown> = {}): Promise<HostReceipt> {
   if (existsSync('/run/mobocom-engineering/broker.sock')) return new Promise((resolve, reject) => {

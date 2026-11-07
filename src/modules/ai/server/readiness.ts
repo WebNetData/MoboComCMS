@@ -4,12 +4,13 @@ import { decryptPanelCredential } from '@/modules/providers/server/panel-credent
 import { getAiConfig } from './client'
 import { publicAiRoutes, readAiRoutes, resolveAiRoute } from './routing'
 import { readState } from './chatgpt/store'
+import { credentialPoolReady } from './credentials'
 
 /** Configuration diagnostics only: never spends quota or refreshes a personal grant. */
 export async function aiReadiness(actorId: number) {
   const routes = await readAiRoutes(), projection = publicAiRoutes(routes)
   const [base, personal] = await Promise.allSettled([getAiConfig(), readState(actorId)])
-  return projection.map((route, index) => {
+  return Promise.all(projection.map(async (route, index) => {
     try {
       const purpose = AI_PURPOSES[index].id, resolved = resolveAiRoute(routes, purpose)
       if (allowsPersonalAi(purpose) && resolved.source === 'inherit' && personal.status === 'rejected') throw Error('personal settings unavailable')
@@ -23,10 +24,11 @@ export async function aiReadiness(actorId: number) {
       if (resolved.source !== 'api' && base.status !== 'fulfilled') throw Error('default settings')
       const config = resolved.source === 'api' && resolved.config ? resolved.config : base.status === 'fulfilled' ? base.value : null
       if (!config) throw Error('missing config')
-      const configured = config.provider === 'custom' ? !!effectiveBaseUrl(config) : !!decryptPanelCredential(config.apiKey)
+      const pooled = await credentialPoolReady(config)
+      const configured = pooled === null ? config.provider === 'custom' ? !!effectiveBaseUrl(config) : !!decryptPanelCredential(config.apiKey) : pooled
       return { ...route, readiness: { configured, source: 'api', provider: config.provider, model: effectiveModel(config), message: configured ? 'سرویس و مدل تنظیم شده‌اند؛ اتصال زنده با آزمایش همین کاربرد بررسی می‌شود' : 'کلید API این کاربرد یا پیش‌فرض سایت را تنظیم کنید' } }
     } catch {
       return { ...route, readiness: { configured: false, source: route.effective.source, provider: '', model: '', message: 'تنظیمات این کاربرد قابل خواندن نیست؛ اتصال و کلید ذخیره‌شده را بررسی کنید' } }
     }
-  })
+  }))
 }

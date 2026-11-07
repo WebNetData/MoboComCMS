@@ -1,5 +1,5 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), root = process.argv.includes('--root') ? path.resolve(process.argv[process.argv.indexOf('--root') + 1]) : path.resolve(__dirname, '..');
-const files = ['AGENTS.md', 'docs/agent/ARCHITECTURE.md', 'docs/agent/PLATFORM_DECISIONS.md', 'docs/agent/FRONTEND_QUALITY.md', 'docs/agent/MOBOCOM_MAP.md', ...['audit', 'spec', 'develop', 'release', 'contracts', 'extensions'].map(s => `.agents/skills/mobocom-${s}/SKILL.md`)];
+const files = ['AGENTS.md', 'docs/agent/AI_ENGINEERING_RULES.md', 'docs/agent/ARCHITECTURE.md', 'docs/agent/PLATFORM_DECISIONS.md', 'docs/agent/FRONTEND_QUALITY.md', 'docs/agent/MOBOCOM_MAP.md', 'docs/agent/CAPABILITY_LEDGER.md', 'docs/agent/WHOLE_SITE_QUALITY_STANDARD.md', ...['audit', 'spec', 'develop', 'release', 'contracts', 'extensions'].map(s => `.agents/skills/mobocom-${s}/SKILL.md`)];
 const shipped = path.join(root, 'src/modules/ai/domain/engineering-knowledge.generated.json');
 if (files.some(file => !fs.existsSync(path.join(root, file)))) {
     const bundle = JSON.parse(fs.readFileSync(shipped, 'utf8'));

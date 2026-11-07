@@ -5,7 +5,7 @@ import { auditSystemStrict } from '@/platform/audit/server'
 import { enqueue } from '@/modules/operations/server/enqueue'
 import { generate } from '../client'
 import { withPersonalAi } from '../admin-context'
-import { ENGINEERING_ACTIVE, EngineeringError, engineeringPlan, engineeringPrompt, engineeringRepairPlan, type EngineeringPolicy } from '../../domain/engineering'
+import { ENGINEERING_ACTIVE, EngineeringError, engineeringPlan, engineeringPrompt, engineeringRepairPlan, requireEngineeringArchitecture, type EngineeringPolicy } from '../../domain/engineering'
 import { engineeringAuthority } from './authority'
 import { engineeringHost, type HostReceipt } from './host'
 
@@ -122,6 +122,7 @@ export async function runEngineeringStep(payload: Record<string, unknown>) {
       snapshot.history = `${snapshot.history}\n${run.steps}: ${plan.summary}`.slice(-3000)
       if (plan.done) {
         if (!snapshot.changed?.length) throw new EngineeringError('تغییری برای ساخت و PR ثبت نشده است', 409)
+        requireEngineeringArchitecture(snapshot.changed)
         await engineeringHost('validate', { runId: run.id })
         await commit('VALIDATING', { model: answer.model, snapshot: JSON.stringify(snapshot), report: plan.summary }, true, 30000)
       } else {
