@@ -740,6 +740,9 @@
     },
     "1.7.8": {
       "migrations": []
+    },
+    "1.7.9": {
+      "migrations": []
     }
   },
   "unreleased": []
