@@ -40,7 +40,7 @@ export default function PackageUpdates({ running, onApply }: { running: boolean;
   }
   const disabled = !!busy || running
   return <section className="sa-card upd-package" aria-busy={!!busy} aria-labelledby={`${id}-title`}>
-    <header className="sa-card-head"><div><h2 id={`${id}-title`}>نصب بستهٔ به‌روزرسانی</h2><p className="sa-hint">بدون GitHub و حساب توسعه‌دهنده؛ فایل انتشار مورد اعتماد را انتخاب کنید.</p></div><span className="sa-state is-ok">بستهٔ امضاشده</span></header>
+<header className="sa-card-head"><div><h2 id={`${id}-title`}>نصب بستهٔ به‌روزرسانی</h2><p className="sa-hint">فایل انتشار را مستقیم بارگذاری کنید یا از بخش دریافت امن GitHub بگیرید؛ هر دو با امضای ناشر بررسی می‌شوند.</p></div><span className="sa-state is-ok">بستهٔ امضاشده</span></header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
     {error && <Notice tone="error">{error} <button type="button" className="btn btn-ghost" onClick={() => void reload()}>تلاش دوباره</button></Notice>}
     <form onSubmit={event => { event.preventDefault(); void upload() }}>

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 type Provider = { id: string; label: string; model: string }
 type Config = { provider: string; model: string; baseUrl: string; hasKey: boolean }
-type Route = { id: string; label: string; personal: boolean; source: string; config: Config | null; effective: { source: string; provider: string; model: string; inheritedFrom: string } }
+type Route = { id: string; label: string; personal: boolean; source: string; config: Config | null; effective: { source: string; provider: string; model: string; inheritedFrom: string }; readiness?: { configured: boolean; source: string; provider: string; model: string; message: string } }
 const endpoint = '/api/admin/ai/routing'
 
 export default function AiRouting() {
@@ -21,11 +21,13 @@ export default function AiRouting() {
   const selected = data?.routes.find(r => r.id === purpose)
   return <section className="card seo-form" aria-label="سرویس هوش مصنوعی هر بخش">
     <header className="seo-wide"><h2>سرویس و مدل هر بخش</h2><p className="muted">برای نمونه، پشتیبانی با Gemini و ابزارهای مدیریت با حساب شخصی ChatGPT کار کنند. انتخاب هر بخش مستقل است؛ خطای آن باعث رفتن به سرویس دیگری نمی‌شود.</p></header>
+    <nav className="seo-actions seo-wide" aria-label="ابزارهای هستهٔ هوش مصنوعی"><a className="btn btn-ghost" href="/admin/ai/operations">دستیار عملیاتی</a><a className="btn btn-ghost" href="/admin/server/engineering">مهندسی، مهارت‌ها و معماری</a><a className="btn btn-ghost" href="/admin/chat">پشتیبانی و دانش پاسخ‌گویی</a></nav>
     {error && <p className="xm-notice is-error seo-wide" role="alert">{error}</p>}
     {!data && !error && <p className="seo-wide" role="status">در حال دریافت تنظیمات بخش‌ها…</p>}
     {data && selected && <>
       {saved && <p className="xm-notice seo-wide" role="status">{saved}</p>}
       <label className="studio-field seo-wide"><span>بخش یا کاربرد</span><select className="input" value={purpose} disabled={saving} onChange={e => { setPurpose(e.target.value); setSaved('') }}>{data.routes.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}</select></label>
+      {selected.readiness && <div className="xm-notice seo-wide" role="status"><strong>{selected.readiness.configured ? 'پیکربندی آماده است' : 'نیازمند تنظیم'} · {selected.label}</strong><p>{selected.readiness.message}</p>{selected.readiness.provider && <p dir="ltr">{selected.readiness.provider} · {selected.readiness.model}</p>}<small>این بررسی سهمیه مصرف نمی‌کند و جایگزین آزمایش اتصال زنده نیست.</small></div>}
       <RoutingForm key={`${purpose}:${revision}`} route={selected} providers={data.providers} routes={data.routes} onBusy={setSaving} onSaved={routes => { setData(current => current ? { ...current, routes } : current); setRevision(v => v + 1); setSaved(`تنظیم ${selected.label} ذخیره شد`) }} />
     </>}
   </section>

@@ -106,7 +106,7 @@ reset_build_files
 if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then state failed "تغییر محلی وجود دارد؛ ابتدا آن را حفظ و بررسی کنید"; exit 2; fi
 run git_build_preflight || { state failed "بیلد فعلی یا مسیر ساخت نیازمند بازیابی اپراتور است"; exit 2; }
 if [ -f deploy/ubuntu/git-fetch.sh ]; then
-  run bash deploy/ubuntu/git-fetch.sh --tags origin || { state failed "دریافت از مخزن ممکن نشد؛ شبکه یا UPDATE_GIT_PROXY را بررسی کنید"; exit 1; }
+  run bash deploy/ubuntu/git-fetch.sh --no-tags origin "refs/tags/$REF:refs/tags/$REF" || { state failed "دریافت از مخزن ممکن نشد؛ شبکه یا UPDATE_GIT_PROXY را بررسی کنید"; exit 1; }
 else
   run git fetch --quiet --tags origin || { state failed "دریافت از مخزن ممکن نشد"; exit 1; }
 fi

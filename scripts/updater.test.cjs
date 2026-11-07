@@ -14,6 +14,7 @@ function load(relative) {
   return mod.exports
 }
 const u = load('src/modules/updater/domain/updater.ts')
+require('./update-network.cases.cjs')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
 test('versions compare by semantic-version precedence', () => {

@@ -897,3 +897,8 @@ policy is separate. New skills are stored inert instructions, never new server
 authority. Preserve data and retain compatible code rollback; no automatic schema
 downgrade, root terminal, hosted workflow dispatch or owner merge. Scope and
 evidence: [AI engineering](handoffs/AI_ENGINEERING.md).
+
+
+## Continuous platform AI and explicit GitHub updates — 2026-11-07
+
+Owner wants the existing AI core integrated and support available for every turn, with optional human/ticket assistance. Default continuous mode does not stop after the old reply cap or a transient model failure; a human-assigned conversation remains exclusive. Public support remains about MoboCom and never uses personal Admin quota. Configuration readiness is not live provider verification. Preserve exact per-request/direct-tool and separate owner-approved production deployment authority. Explicit GitHub package download must use the existing updates network route and original publisher verification; downloading never installs. Keep manual upload and no unsolicited GitHub fetch on package installs. [Scope and actual evidence](handoffs/AI_CORE_SUPPORT_RELIABILITY.md).

@@ -5,13 +5,13 @@
 #
 # A filtered network can stall a fetch forever or cut it half way (curl 92, "early EOF"). Here a fetch stops when
 # fewer than 1 KB/s arrive for UPDATE_FETCH_STALL seconds (default 60) or after UPDATE_FETCH_TIMEOUT seconds in all
-# (default 900), and one failed try is repeated over HTTP/1.1. UPDATE_GIT_PROXY (set in /etc/mobocom/mobocom.env,
+# (default 120), and one failed try is repeated over HTTP/1.1. UPDATE_GIT_PROXY (set in /etc/mobocom/mobocom.env,
 # e.g. socks5h://127.0.0.1:10808) sends only this fetch through a proxy the operator runs. A local origin, such as a
 # Git bundle, needs no network. Nothing here changes the checkout: only refs and objects are fetched.
 set -uo pipefail
 
 STALL="${UPDATE_FETCH_STALL:-60}"
-LIMIT="${UPDATE_FETCH_TIMEOUT:-900}"
+LIMIT="${UPDATE_FETCH_TIMEOUT:-120}"
 PROXY="${UPDATE_GIT_PROXY:-}"
 # The Server Panel writes this file while the "updates" purpose has an Xray profile (the site's local proxy).
 PANEL_PROXY="${UPDATE_STATE_DIR:-storage/update}/git-proxy"
@@ -27,7 +27,7 @@ options=(-c "http.lowSpeedLimit=1024" -c "http.lowSpeedTime=$STALL")
 attempt() { GIT_TERMINAL_PROMPT=0 timeout --kill-after=10 "$LIMIT" git "${options[@]}" "$@" fetch --quiet "${ARGS[@]}"; }
 ARGS=("$@")
 
-echo "[fetch] fetching from the code repository$([ -z "$PROXY" ] || echo ' through UPDATE_GIT_PROXY') (stops after ${STALL}s without progress)" >&2
+echo "[fetch] fetching from the code repository$([ -z "$PROXY" ] || echo ' through UPDATE_GIT_PROXY') (at most ${LIMIT}s per attempt, ${STALL}s without progress)" >&2
 attempt && exit 0
 code=$?
 echo "[fetch] the fetch stopped (code $code); trying once more over HTTP/1.1" >&2

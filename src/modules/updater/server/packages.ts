@@ -27,7 +27,7 @@ function ready() {
 }
 
 /** Private code-package admission, not the public content Media library. */
-export async function uploadPackage(request: Request): Promise<PackageInfo> {
+export async function uploadPackage(request: Request, expectedVersion?: string): Promise<PackageInfo> {
   ready()
   if (request.headers.get('content-type')?.split(';')[0] !== 'application/octet-stream') throw new UpdateError('نوع فایل ارسالی معتبر نیست')
   if (Number(request.headers.get('content-length')) > MAX_PACKAGE_BYTES) throw new UpdateError('حداکثر حجم بسته ۵۱۲ مگابایت است', 413)
@@ -55,6 +55,7 @@ export async function uploadPackage(request: Request): Promise<PackageInfo> {
       }
     } finally { await reader.cancel().catch(() => undefined); await handle.close() }
     const manifest = await inspect(file)
+    if (expectedVersion && manifest.version !== expectedVersion) throw new UpdateError('نسخهٔ بستهٔ امضاشده با انتشار انتخابی یکی نیست', 409)
     if (compareVersions(manifest.version, currentVersion()) <= 0) throw new UpdateError('بسته باید نسخه‌ای جدیدتر از نسخهٔ نصب‌شده باشد', 409)
     const id = hash.digest('hex'), target = join(directory(), `${id}.mbrelease`)
     try { await fs.link(file, target) } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error }

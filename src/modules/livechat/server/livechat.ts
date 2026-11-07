@@ -25,7 +25,6 @@ const KEY = 'livechat.v1'
 const chatHistory = createSectionSettingsHistory(KEY, 'settings-livechat', normalizeChatSettings, settings => ({ botEnabled: settings.botEnabled, hours: settings.hours.enabled }), { action: 'livechat.settings', targetId: 'livechat' })
 export const chatSettingsState = chatHistory.current
 export const restoreChatSettings = chatHistory.restore
-const BOT_TIMEOUT_MS = 25_000
 
 export async function getChatSettings(): Promise<ChatSettings> {
   // Placement must reflect the saved selection on the next navigation, across route caches.
@@ -67,6 +66,19 @@ async function addMessage(conversation: Conversation, sender: string, body: stri
   return message
 }
 
+/** Claim the triggering visitor turn: never append a stale machine reply after takeover or newer input. */
+async function saveAssistantReply(conversationId: number, trigger: { id: number; createdAt: Date }, sender: 'BOT' | 'SYSTEM', body: string) {
+  const saved = await db.$transaction(async tx => {
+    const claim = await tx.chatConversation.updateMany({ where: { id: conversationId, status: { in: ['BOT', 'WAITING'] }, assignedTo: null, lastMessageAt: trigger.createdAt, messages: { none: { id: { gt: trigger.id } } } }, data: { ...(sender === 'BOT' ? { botReplies: { increment: 1 } } : {}), unreadForVisitor: { increment: 1 } } })
+    if (!claim.count) return null
+    const answer = await tx.chatMessage.create({ data: { conversationId, sender, body } })
+    await tx.chatConversation.update({ where: { id: conversationId }, data: { lastMessageAt: answer.createdAt } })
+    return answer
+  })
+  if (saved) await announce(conversationId, { type: 'message', id: saved.id, sender })
+  return saved
+}
+
 async function setStatus(id: number, data: Parameters<typeof db.chatConversation.update>[0]['data'] & { status: string }) {
   const row = await db.chatConversation.update({ where: { id }, data })
   await announce(id, { type: 'status', status: data.status })
@@ -92,6 +104,7 @@ export async function visitorState(token: string | null, userId: number | null) 
   const messages = mine ? await db.chatMessage.findMany({ where: { conversationId: mine.id }, orderBy: { id: 'asc' }, take: 200 }) : []
   return {
     botName: settings.botName, welcome: settings.welcome, places: settings.places, online, offlineMessage: settings.offlineMessage, askContact: settings.askContact && !userId,
+    assistantEnabled: settings.botEnabled, continuous: settings.continuous, ticketUrl: '/dashboard/tickets',
     conversation: mine ? { status: mine.status, rated: mine.rating != null, hasContact: !!(mine.contact || mine.userId) } : null,
     messages: messages.map(publicMessage),
   }
@@ -117,18 +130,23 @@ export async function visitorSend(input: { token: string; userId: number | null;
   const message = await addMessage(conversation, 'VISITOR', body)
   const replies = [publicMessage(message)]
 
-  if (conversation.status === 'BOT') {
+  if (conversation.status === 'BOT' || (settings.continuous && conversation.status === 'WAITING' && !conversation.assignedTo)) {
     const handoffByUser = wantsHuman(body)
-    let handoff = handoffByUser || conversation.botReplies >= settings.maxBotReplies
+    let handoff = handoffByUser || !settings.botEnabled || (!settings.continuous && conversation.botReplies >= settings.maxBotReplies)
     let botHandedOff = false
-    if (!handoff) {
+    if (!handoff && settings.botEnabled) {
       const bot = await botAnswer(conversation, settings)
       if (bot) {
-        const saved = await addMessage(conversation, 'BOT', bot.body)
-        await db.chatConversation.update({ where: { id: conversation.id }, data: { botReplies: { increment: 1 } } })
-        replies.push(publicMessage(saved))
-        handoff = bot.handoff
+        const latestSettings = await getChatSettings()
+        if (!latestSettings.botEnabled || !await isModuleEnabled('ai-assistant') || !await chatEnabled()) return { status: conversation.status, messages: replies }
+        const saved = await saveAssistantReply(conversation.id, message, 'BOT', bot.body)
+        if (saved) replies.push(publicMessage(saved))
+        handoff = bot.handoff && !settings.continuous
         botHandedOff = bot.handoff
+      } else if (settings.continuous) {
+        // A transient failure must not permanently disable all subsequent assistant turns.
+        const saved = await saveAssistantReply(conversation.id, message, 'SYSTEM', 'دستیار فعلاً پاسخ نداد؛ پیام شما ثبت شد. دوباره بپرسید یا برای بررسی همکار، تیکت ثبت کنید: /dashboard/tickets')
+        if (saved) replies.push(publicMessage(saved))
       } else handoff = true
     }
     // The assistant already told the visitor it is connecting them; only say it ourselves otherwise.
@@ -139,14 +157,17 @@ export async function visitorSend(input: { token: string; userId: number | null;
   return { status: (await db.chatConversation.findUnique({ where: { id: conversation.id }, select: { status: true } }))?.status || conversation.status, messages: replies }
 }
 
-async function handToOperator(conversation: Conversation, settings: ChatSettings, lastText: string, announce = true) {
-  await setStatus(conversation.id, { status: 'WAITING' })
+async function handToOperator(conversation: Conversation, settings: ChatSettings, lastText: string, shouldAnnounce = true) {
+  const claimed = await db.chatConversation.updateMany({ where: { id: conversation.id, status: { in: ['BOT', 'WAITING'] }, assignedTo: null }, data: { status: 'WAITING' } })
+  if (!claimed.count) return []
+  await announce(conversation.id, { type: 'status', status: 'WAITING' })
   const online = operatorsOnline(settings)
   await notifyAgents(conversation, lastText)
-  if (online && !announce) return []
+  if (online && !shouldAnnounce) return []
   const system = await addMessage(conversation, 'SYSTEM', online ? 'شما را به همکاران پشتیبانی وصل می‌کنم؛ لطفاً چند لحظه منتظر بمانید.' : settings.offlineMessage)
   return [publicMessage(system)]
 }
+
 
 export async function requestOperator(token: string, userId: number | null) {
   const conversation = await db.chatConversation.findUnique({ where: { token } })
@@ -231,12 +252,13 @@ async function botAnswer(conversation: Conversation, settings: ChatSettings): Pr
     const refusal = platformSupportRefusal(turns.find(turn => turn.sender === 'VISITOR')?.body || '')
     if (refusal) return { body: refusal, handoff: false }
     const prompt = chatPrompt({ brand: site.brandName || 'موبوکام', botName: settings.botName, knowledge: settings.knowledge, customer, turns: turns.reverse().filter((turn) => turn.sender !== 'SYSTEM') })
-    const result = await Promise.race([generate(prompt, undefined, 'support'), new Promise<null>((resolve) => setTimeout(() => resolve(null), BOT_TIMEOUT_MS))])
+    // Use the canonical provider deadline; a second shorter race used to strand paid calls and close the bot.
+    const result = await generate(prompt, undefined, 'support')
     if (!result) return null
     const reply = parsePlatformBotReply(result.text)
     return reply.body ? reply : null
   } catch (error) {
-    logEvent('warn', 'livechat.bot_failed', { conversationId: conversation.id, error: error instanceof Error ? error.message : String(error) })
+    logEvent('warn', 'livechat.bot_failed', { conversationId: conversation.id, reason: 'provider_or_context_unavailable' })
     return null
   }
 }
