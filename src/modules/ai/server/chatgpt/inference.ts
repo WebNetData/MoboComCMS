@@ -4,8 +4,11 @@ import { readState } from './store'
 import { activeAccount } from './session'
 import { fixedFetch, jsonRequest } from './network'
 
+// Account catalogs include provider metadata omitted from the bounded picker projection.
+const MODEL_CATALOG_MAX_BYTES = 4 * 1024 * 1024
+
 export async function modelsFor(id: number) {
-  const account = await activeAccount(id), data = await jsonRequest(`${RESOURCE}/models`, { headers: { Authorization: `Bearer ${account.access}` } })
+  const account = await activeAccount(id), data = await jsonRequest(`${RESOURCE}/models`, { headers: { Authorization: `Bearer ${account.access}` } }, MODEL_CATALOG_MAX_BYTES)
   if (!Array.isArray(data.models)) throw new ChatGptError('فهرست مدل‌های حساب دریافت نشد', 502)
   return data.models.filter(m => m && typeof m === 'object' && m.visibility === 'list' && typeof m.slug === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(m.slug)).slice(0, 100).map(m => ({ id: String(m.slug), label: String(m.display_name || m.slug).slice(0, 120) }))
 }

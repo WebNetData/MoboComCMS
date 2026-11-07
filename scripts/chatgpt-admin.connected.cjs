@@ -11,6 +11,7 @@ async function main(){try{
   if(url.endsWith('openid-configuration'))return Response.json({issuer:'https://auth.openai.com',jwks_uri:'https://auth.openai.com/owned-jwks',revocation_endpoint:'https://auth.openai.com/owned-revoke'})
   if(url.endsWith('owned-jwks'))return Response.json({keys:[jwk]})
   if(url.endsWith('/oauth/token')){const form=new URLSearchParams(init.body),refresh=form.get('grant_type')==='refresh_token';if(refresh)rotation++;return Response.json({token_type:'Bearer',access_token:'owned-access-'+rotation,refresh_token:'owned-refresh-'+rotation,expires_in:3600,scope:'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct',id_token:sign({iss:'https://auth.openai.com',aud:form.get('client_id'),sub:'owned-subject',email:stamp+'@invalid.test',nonce,exp:Math.floor(Date.now()/1000)+3600})})}
+  if(url.endsWith('/models'))return Response.json({models:[{slug:'owned-model',display_name:'Owned account model',visibility:'list',instructions:'catalog metadata '.repeat(18000)},{slug:'hidden-model',visibility:'hidden'}]})
   if(url.endsWith('/responses'))return new Response(event('response.output_text.delta',{delta:'پاسخ مدیریت'})+event('response.completed',{response:{status:'completed'}}),{headers:{'content-type':'text/event-stream'}})
   if(url.endsWith('owned-revoke'))return new Response(null,{status:200})
   if(url.endsWith('/chat/completions'))return Response.json({choices:[{message:{content:'shared-public-provider'}}]})
@@ -21,6 +22,7 @@ async function main(){try{
  const id=users[0].id,begun=await session.beginLogin(id,'');nonce=new URL(begun.url).searchParams.get('nonce')
  await session.finishLogin(id,{state:begun.state,code:'owned-code',client_id:'oaiapp_native_'+id});await assert.rejects(session.finishLogin(id,{state:begun.state,code:'owned-code',client_id:'oaiapp_native_'+id}))
  const row=await db.setting.findUniqueOrThrow({where:{key:keys[0]}});assert(!row.value.includes('owned-access'));assert(!row.value.includes('owned-refresh'));assert.equal((await store.readState(users[1].id)).accounts.length,0)
+ const inference=load('src/modules/ai/server/chatgpt/inference.ts');assert.deepEqual(await inference.modelsFor(id),[{id:'owned-model',label:'Owned account model'}]);assert.equal((await db.setting.findUniqueOrThrow({where:{key:keys[0]}})).value,row.value,'large model catalog preserves the encrypted connection and is never stored')
  // Two genuine first-row creations must merge through the existing Serializable/CAS retry owner.
  await Promise.all([store.changeState(users[1].id,s=>{s.model='owned-model'}),store.changeState(users[1].id,s=>{s.enabled=true})]);const raced=await store.readState(users[1].id);assert.equal(raced.model,'owned-model');assert.equal(raced.enabled,true)
  await store.changeState(id,s=>{s.enabled=true;s.model='owned-model';s.accounts[0].expires=0})

@@ -19,13 +19,13 @@ export async function fixedFetch(url: string, init: ChatRequest = {}) {
   try { return await egressFetch(url, { ...init, redirect: 'error', cache: 'no-store', signal: init.signal || AbortSignal.timeout(20_000) }) }
   catch { throw new ChatGptError('اتصال ChatGPT کامل نشد؛ مسیر هوش مصنوعی در تنظیمات پروکسی را بررسی کنید', 502) }
 }
-export async function jsonRequest(url: string, init: ChatRequest = {}) {
+export async function jsonRequest(url: string, init: ChatRequest = {}, maxBytes = 128 * 1024) {
   const response = await fixedFetch(url, init)
   if (!response.ok) { await response.body?.cancel().catch(() => undefined)
     if (response.status === 429) throw new ChatGptError('سهمیه یا محدودیت ChatGPT تمام شده است؛ API پولی استفاده نشد', 429)
     if ([400, 401, 403].includes(response.status)) throw new ChatGptError('اجازهٔ اتصال ChatGPT پذیرفته نشد؛ دوباره وارد حساب شوید', 401)
     throw new ChatGptError('سرویس ChatGPT پاسخ معتبر نداد', 502) }
-  try { return JSON.parse(await boundedText(response)) as Record<string, unknown> } catch (error) {
+  try { return JSON.parse(await boundedText(response, maxBytes)) as Record<string, unknown> } catch (error) {
     if (error instanceof ChatGptError) throw error
     throw new ChatGptError('قالب پاسخ ChatGPT معتبر نبود', 502)
   }
