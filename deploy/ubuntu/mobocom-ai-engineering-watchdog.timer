@@ -1,0 +1,8 @@
+[Unit]
+Description=Check the currently approved engineering runtime
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=30
+Unit=mobocom-ai-engineering-watchdog.service
+[Install]
+WantedBy=timers.target

@@ -6,6 +6,7 @@ const ts = require('typescript-api')
 require('./chatgpt-admin.cases.cjs')
 require('./ai-routing.cases.cjs')
 require('./ai-operations.cases.cjs')
+require('./ai-engineering.cases.cjs')
 
 function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
@@ -282,3 +283,6 @@ test('AI Admin GET and PUT surface unreadable settings while guests remain denie
   assert.equal((await route.GET(request)).status, 403)
   assert.equal((await route.PUT(request)).status, 403)
 })
+
+// Focused AI-authored feature tests join the existing site test entry point.
+for (const name of require('node:fs').readdirSync(__dirname).filter(name => /^engineering-feature-[a-z0-9-]+\.test\.cjs$/.test(name)).sort()) require(require('node:path').join(__dirname, name))

@@ -170,3 +170,25 @@ The staff-only manage bar on these pages is not part of their public look.
 ## Livechat placement owner
 
 Existing livechat.v1 in canonical Settings owns all/store/selected placement. Admin /admin/chat and the livechat client compose domain CHAT_PLACES/chatShownOn through extensions/sdk/livechat.ts; no alternate settings/auth system. Fresh reader and CAS update retain current selection/history. See [handoff](handoffs/CHAT_PLACEMENT.md) for executed evidence and scope.
+
+
+## Private AI engineering and recovery — 2026-11-07
+
+AI owns bounded engineering policy/custom skills, pinned canonical knowledge and
+private AiEngineeringRun history. Operations remains the only executable queue;
+Server Panel keeps canonical access/unlock and the fixed version1 local host
+protocol. Root-owned tools stage network-isolated non-root Docker builds against
+empty PostgreSQL. Successful changes create a main-targeting PR and architecture
+receipt automatically. Owner merge plus explicit fresh approval of the exact
+sealed artifact is required for production. Native immutable systemd releases
+retain host tools/storage; Nginx switches only after readiness and a canonical
+backup. Code rollback never restores an old database over new user data.
+
+This is an opt-in bounded slice, not arbitrary root commands or general incident
+autonomy. Inert custom skills cannot grant authority; dependency/schema/host or
+security-control changes require a normal reviewed release. Fixed recovery
+runbooks have separate exact diagnostic approval. The independent worker uses
+BackgroundJob even when the HTTP preview is unavailable. Native control-plane
+APIs remain on the retained original service; active-runtime guards prevent
+duplicate scheduled work. See [implementation and evidence](handoffs/AI_ENGINEERING.md)
+and [operator guide](../AI-ENGINEERING-FA.md).

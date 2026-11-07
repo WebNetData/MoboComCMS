@@ -1,9 +1,11 @@
+import { runtimeOwnsBackgroundWork } from '@/modules/operations/server/runtime'
 import { runOperationsMonitor } from './operations-monitor'
 import { logEvent } from '@/platform/observability/logger'
 
 const state = globalThis as typeof globalThis & { operationsMonitorTimer?: ReturnType<typeof setInterval>; operationsMonitorBusy?: boolean }
 
 async function tick() {
+  if (!runtimeOwnsBackgroundWork()) return
   if (state.operationsMonitorBusy) return
   state.operationsMonitorBusy = true
   try { await runOperationsMonitor() }

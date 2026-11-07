@@ -3,6 +3,7 @@ import { resolvePublicRoute } from '@/modules/site/server/routes'
 import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecache'
 import { installGate } from '@/modules/installer/server/gate'
 import { mutationOrigin } from '@/platform/http/origin-policy'
+import { nativeControlPlaneTarget } from '@/modules/server-panel/domain/control-plane'
 import { contentSecurityPolicy, newNonce, nonceOf, usesNonce } from '@/platform/http/csp'
 import { requireUser } from '@/modules/identity/server/access'
 import { loadMaintenance, maintenanceBases } from '@/modules/site/server/maintenance'
@@ -202,6 +203,8 @@ export async function proxy(req: NextRequest) {
       return cached
     }
   }
+  const controlPlane = nativeControlPlaneTarget(req.nextUrl.pathname, req.nextUrl.search, !!process.env.ENGINEERING_RUN_ID)
+  if (!response && controlPlane) response = NextResponse.rewrite(controlPlane, { request: { headers } })
   response ||= NextResponse.next({ request: { headers } })
   response.headers.set('x-request-id', requestId)
   applySecurityHeaders(req, response, nonce)

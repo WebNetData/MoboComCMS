@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+if [ -f /run/mobocom-engineering/active.json ]; then
+  node /usr/local/lib/mobocom-engineering/native-update-check.cjs || exit 3
+fi
 # Updates this checkout to a release tag, rebuilds, restarts, and rolls back by itself if the new version does not start.
 #
 #   bash deploy/ubuntu/self-update.sh v1.6.0

@@ -1,0 +1,20 @@
+[Unit]
+Description=MoboCom independent canonical engineering queue worker
+After=network.target mobocom-ai-engineering-broker.service
+[Service]
+Type=simple
+User=mobocom
+Group=mobocom
+WorkingDirectory=/opt/mobocom/app
+EnvironmentFile=/etc/mobocom/mobocom.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /usr/local/lib/mobocom-engineering/worker.cjs
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=480
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target

@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { JOB_LABEL } from '@/modules/operations/domain/job-kinds'
 import { enqueue } from './enqueue'
+import { runtimeOwnsBackgroundWork } from './runtime'
 
 /**
  * Background queue for heavy work. Requests enqueue and return at once; the
@@ -17,6 +18,7 @@ type Handler = (payload: Record<string, unknown>, job: {
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { run: Handler }> = {
+  'ai.engineering': { run: async payload => (await import('@/modules/ai/server/engineering')).runEngineeringStep(payload) },
   'journal.editorial-decision': { run: async payload => (await import('@/modules/journal/server/review-notifications')).deliverReviewDecision(payload) },
   'journal.comment-published': { run: async payload => {
     const id = Number(payload.commentId)
@@ -126,16 +128,17 @@ const backoff = (attempts: number) => Math.min(60, 2 ** attempts) * 60_000
 const MAX_ATTEMPTS = 5
 
 /** Runs due jobs one after another for up to `budgetMs`. Called by the job scheduler. */
-export async function runQueue(budgetMs = 45_000) {
+export async function runQueue(budgetMs = 45_000, kinds?: string[]) {
+  if (!(kinds?.length === 1 && kinds[0] === 'ai.engineering') && !runtimeOwnsBackgroundWork()) return { ran: 0 }
   const until = Date.now() + budgetMs
   let ran = 0
   // Jobs stuck in RUNNING (a crashed instance) go back to the queue after 10 minutes;
   // a job that was interrupted on every attempt stops instead of taking the instance down again.
-  const stuck = { status: 'RUNNING', lockedAt: { lt: new Date(Date.now() - 10 * 60_000) } }
+  const stuck = { status: 'RUNNING', lockedAt: { lt: new Date(Date.now() - 10 * 60_000) }, ...(kinds ? { kind: { in: kinds } } : {}) }
   await db.backgroundJob.updateMany({ where: { ...stuck, attempts: { gte: MAX_ATTEMPTS } }, data: { status: 'FAILED', lockedAt: null, finishedAt: new Date(), lastError: 'interrupted on every attempt' } })
   await db.backgroundJob.updateMany({ where: stuck, data: { status: 'QUEUED', lockedAt: null } })
   while (Date.now() < until) {
-    const job = await db.backgroundJob.findFirst({ where: { status: 'QUEUED', runAt: { lte: new Date() } }, orderBy: { id: 'asc' } })
+    const job = await db.backgroundJob.findFirst({ where: { status: 'QUEUED', runAt: { lte: new Date() }, ...(kinds ? { kind: { in: kinds } } : {}) }, orderBy: { id: 'asc' } })
     if (!job) break
     const lockedAt = new Date()
     const claimed = await db.backgroundJob.updateMany({ where: { id: job.id, status: 'QUEUED', attempts: job.attempts }, data: { status: 'RUNNING', lockedAt, attempts: { increment: 1 } } })
