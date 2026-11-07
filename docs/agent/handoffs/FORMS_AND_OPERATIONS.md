@@ -1,3 +1,5 @@
+CRM engagement2026-11-07: continue [the scoped CRM handoff](CRM_ENGAGEMENT.md) for birthday/offers/winback. It adds a closed configuration within Automation and reuses the canonical notification queue/providers; the generic Automation rule executor remains unchanged apart from retaining idempotency-bearing processed event receipts. No second queue, identity, discount engine or real campaign activation.
+
 # Form builder, held work and platform safety — continue existing work
 
 2026-10-30 continuation: existing Form handler/privacy permissions remain; work edits now claim original assignee/stage/payment and edited reply/read/status values. A deterministic concurrent-take PG test and actual specialist/colleague browser isolation passed. Store specialists extend the existing Order owner with the same held-work principle. [Exact implementation, evidence, migrations and rollback](EDITOR_GROUPS_EXPERTS.md). Do not create another work queue or permission resolver.

@@ -1,12 +1,8 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const ts = require('typescript-api')
 
 // Database concurrency, rollback and queue dedupe live in the registered connected check.
 test('inbox replay preserves its owner and delivery distinguishes retryable provider failures', async () => {
-  const compiled = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/modules/notifications/server/inbox.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const event = { id: 1, userId: 1, kind: 'TEST', dedupeKey: 'one', titleEn: 'One', titleFa: 'یک', href: '/dashboard/notifications' }
   const deliveries = { sms: 0, mail: 0, push: 0 }
   let failMail = true, pushFailure = 'none'
@@ -16,9 +12,8 @@ test('inbox replay preserves its owner and delivery distinguishes retryable prov
     '@/modules/mail/server/mailer': { notifyUserEmail: async () => { deliveries.mail++; return failMail ? false : true } },
     '@/modules/push/server/push': { pushToUser: async () => { deliveries.push++; return { sent: pushFailure === 'none' ? 1 : 0, failed: pushFailure === 'none' ? 0 : 1, retryable: pushFailure === 'transient' ? 1 : 0 } } },
   }
-  const module = { exports: {} }
-  new Function('require', 'module', 'exports', compiled)(name => mocks[name] || require(name), module, module.exports)
-  const { createInboxEvent, deliverInboxCopy } = module.exports
+  const load = require('./connected-source-loader.cjs')(mocks)
+  const { createInboxEvent, deliverInboxCopy } = load('src/modules/notifications/server/inbox.ts')
   assert.equal(await createInboxEvent({ ...event, titleEn: 'Replacement' }), event)
   assert.deepEqual(deliveries, { sms: 0, mail: 0, push: 0 }, 'a replay never calls external providers')
   await assert.rejects(createInboxEvent({ ...event, userId: 2 }), /dedupe key collision/)

@@ -182,6 +182,14 @@ export async function runQueue(budgetMs = 45_000, kinds?: string[]) {
       }
       await checkpoint()
       const result = await handler.run(payload, { id: job.id, attempts: job.attempts + 1, checkpoint, continueWith })
+      // A quiet marketing window is a scheduled continuation, not a provider failure.
+      // Keep the exact claimed row/attempt history; no transport runs while it is deferred.
+      if (job.kind === 'notification.deliver' && result && typeof result === 'object' && 'deferUntil' in result) {
+        const runAt = new Date(String(result.deferUntil))
+        if (!Number.isFinite(runAt.getTime()) || runAt.getTime() <= Date.now() || runAt.getTime() > Date.now() + 2 * 86400000) throw new Error('Invalid notification deferral')
+        await db.backgroundJob.updateMany({ where: lease, data: { status: 'QUEUED', runAt, attempts: job.attempts, lockedAt: null, lastError: '', result: JSON.stringify(result).slice(0, 4000) } })
+        continue
+      }
       await db.backgroundJob.updateMany({ where: lease, data: { status: 'DONE', finishedAt: new Date(), lockedAt: null, lastError: '', result: JSON.stringify(result ?? null, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)).slice(0, 4000) } })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

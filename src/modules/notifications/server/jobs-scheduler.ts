@@ -16,6 +16,7 @@ type Job = { name: string; everyMs: number; run: (tick: number) => Promise<unkno
 const state = globalThis as typeof globalThis & { jobsTimer?: ReturnType<typeof setInterval>; jobsBusy?: Set<string>; jobsTick?: number }
 
 const JOBS: Job[] = [
+  { name: 'crm-engagement', everyMs: 60_000, run: async () => (await import('@/modules/automation/server/engagement')).runCrmEngagement() },
   {
     name: 'editorial-collections', everyMs: 60_000,
     run: async () => (await import('@/modules/content/server/collections')).publishDueEditorialCollections(),

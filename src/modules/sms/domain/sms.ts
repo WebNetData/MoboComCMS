@@ -34,6 +34,10 @@ export interface SmsEventDef {
 
 // User events mirror the customer inbox (notifications); admin events alert staff.
 export const SMS_EVENTS: SmsEventDef[] = [
+  { id: 'CRM_BIRTHDAY', audience: 'user', label: 'تبریک تولد', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
+  { id: 'CRM_OFFER', audience: 'user', label: 'پیشنهاد و تخفیف موردعلاقه', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
+  { id: 'CRM_WINBACK', audience: 'user', label: 'پیشنهاد بازگشت مشتری', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
+  { id: 'PRODUCT_PRICE_DROP', audience: 'user', label: 'کاهش قیمت کالای دنبال‌شده', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'PAYMENT_PAID', audience: 'user', label: 'پرداخت تأیید شد', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}.\n{link}\n{brand}' },
   { id: 'RECEIPT_REJECTED', audience: 'user', label: 'رسید کارت به کارت رد شد', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\nبرای ارسال دوباره: {link}\n{brand}' },
   { id: 'PAYMENT_CLOSED', audience: 'user', label: 'فاکتور بسته شد', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}.\n{link}\n{brand}' },

@@ -34,6 +34,10 @@ export const isGmailHost = (host: string) => host === GMAIL_HOST || host === 'sm
 
 /** Customer notification kinds that may also go out by email. */
 export const EMAIL_EVENTS: { id: string; label: string }[] = [
+  { id: 'CRM_BIRTHDAY', label: 'تبریک تولد' },
+  { id: 'CRM_OFFER', label: 'پیشنهاد و تخفیف موردعلاقه' },
+  { id: 'CRM_WINBACK', label: 'پیشنهاد بازگشت مشتری' },
+  { id: 'PRODUCT_PRICE_DROP', label: 'کاهش قیمت کالای دنبال‌شده' },
   { id: 'PAYMENT_PAID', label: 'پرداخت تأیید شد' },
   { id: 'RECEIPT_REJECTED', label: 'رسید کارت به کارت رد شد' },
   { id: 'PAYMENT_CLOSED', label: 'فاکتور بسته شد' },

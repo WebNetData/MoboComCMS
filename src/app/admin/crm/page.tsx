@@ -19,7 +19,7 @@ export default function CrmList() {
   }, [q, tag, segment])
   useEffect(() => { const timer = setTimeout(() => void load(), 250); return () => clearTimeout(timer) }, [load])
   return <div className="sa" dir="rtl">
-    <header className="sa-head"><div><h1>پروندهٔ مشتریان</h1><p className="sa-hint">ارزش خرید، آخرین خرید و وضعیت هر مشتری؛ با کلیک، همهٔ سفارش‌ها، تیکت‌ها و گفت‌وگوها در یک صفحه.</p></div></header>
+    <header className="sa-head"><div><h1>پروندهٔ مشتریان</h1><p className="sa-hint">ارزش خرید، آخرین خرید و وضعیت هر مشتری؛ با کلیک، همهٔ سفارش‌ها، تیکت‌ها و گفت‌وگوها در یک صفحه.</p></div><Link className="btn btn-primary" href="/admin/crm/engagement">ارتباط خودکار و بازاریابی</Link></header>
     <section className="sa-card sa-table-wrap">
       <header className="sa-card-head">
         <div className="crm-filters">{SEGMENTS.map(([value, label]) => <button key={value} type="button" className={segment === value ? 'is-active' : ''} aria-pressed={segment === value} onClick={() => setSegment(value)}>{label}</button>)}</div>

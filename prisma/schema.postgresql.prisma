@@ -45,6 +45,9 @@ model User {
   telegramLinkedAt DateTime?
   subscriptionAlerts Boolean @default(true)
   phoneVerifiedAt DateTime?
+  /// Explicit permission for CRM offers, birthday and win-back; legacy members stay opted out.
+  marketingOptIn Boolean @default(false)
+  marketingConsentAt DateTime?
   smsAlerts      Boolean         @default(true)
   emailAlerts    Boolean         @default(true)
   pushAlerts     Boolean         @default(true)
@@ -85,6 +88,7 @@ model User {
   notificationMutes UserNotificationMute[]
 
   @@index([telegramId])
+  @@index([marketingOptIn, status, id])
   forumThreads   ForumThread[]
   forumPosts     ForumPost[]
   paymentReceipts PaymentReceipt[]
@@ -208,12 +212,17 @@ model UserNotification {
   bodyEn     String    @default("")
   bodyFa     String    @default("")
   href       String
+  /// Empty channels/source retain the legacy transactional delivery contract.
+  deliveryChannels String @default("")
+  marketingSource String @default("")
+  expiresAt DateTime?
   readAt     DateTime?
   createdAt  DateTime  @default(now())
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+  @@index([kind, createdAt])
 }
 
 /// A missing row means the external copy is allowed. In-app notices are never muted here.
@@ -4356,6 +4365,7 @@ model AutomationRule {
 
 /// Something that happened, waiting for the rules that start from it. Processed once.
 model AutomationEvent {
+  dedupeKey   String?   @unique
   id          Int       @id @default(autoincrement())
   name        String
   subjectKey  String // "order:12", "user:7"
@@ -4365,6 +4375,7 @@ model AutomationEvent {
   processedAt DateTime?
 
   @@index([processedAt, id])
+  @@index([userId, name, createdAt])
 }
 
 /// One rule run for one subject: what it did, or why it could not.

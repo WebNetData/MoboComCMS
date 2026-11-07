@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { ensureUserProfile, setUsername } from '@/modules/identity/server/profile'
@@ -177,4 +178,18 @@ export async function memberNationalId(userId: number) {
   const [config, member] = await Promise.all([getFieldsConfig(), loadMember(userId)])
   const field = config.fields.find((item) => item.type === 'nationalId' && member.data[item.key])
   return field ? String(member.data[field.key]) : ''
+}
+
+/** Private, configured date-field projection for internal CRM; never part of the public member profile. */
+export async function memberDateField(userId: number, key: string, reader: Prisma.TransactionClient = db): Promise<string | null> {
+  const raw = await reader.setting.findUnique({ where: { key: KEY }, select: { value: true } })
+  const config = normalizeFieldsConfig(raw ? JSON.parse(raw.value) : {})
+  if (!config.fields.some(field => field.key === key && field.type === 'date' && field.enabled && !field.builtin)) return null
+  const user = await reader.user.findUnique({ where: { id: userId }, select: { profileData: true } })
+  const value = user ? parseData(user.profileData)[key] : null
+  return typeof value === 'string' ? value : null
+}
+
+export async function memberDateFieldOptions() {
+  return (await getFieldsConfig()).fields.filter(field => field.type === 'date' && field.enabled && !field.builtin).map(field => ({ key: field.key, label: field.label }))
 }
