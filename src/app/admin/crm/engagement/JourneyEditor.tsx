@@ -1,6 +1,7 @@
 'use client';
 
 import { inputInteger } from './types';
+import JalaliDateInput from '@/components/date/JalaliDateInput';
 import { useEffect, useState } from 'react';
 import { ENGAGEMENT_CHANNELS, ENGAGEMENT_LABELS, SEGMENT_LABELS, SEGMENTS, type EngagementJourney } from '@/modules/automation/domain/engagement';
 function ProductPicker({
@@ -87,10 +88,10 @@ export default function JourneyEditor({
           })} /></label>}{journey.productId > 0 && <label>پس از خرید همان کالا، چند روز پیشنهاد نرود؟<input className="input" type="number" min={0} max={365} value={journey.purchaseQuietDays} onChange={e => patch({
             purchaseQuietDays: inputInteger(e.currentTarget, journey.purchaseQuietDays)
           })} /></label>}</div>{journey.kind === 'product-interest' && <p className="muted">کاربر باید اعلانِ همان کالا را از قبل دنبال کرده باشد؛ علاقه از مرور صفحه حدس زده نمی‌شود.</p>}</section>
-  <section aria-labelledby="ce-schedule"><h3 id="ce-schedule">زمان‌بندی</h3><div className="ce-form-grid"><label>از تاریخ<input className="input" type="date" value={journey.startsOn} onChange={e => patch({
-            startsOn: e.target.value
-          })} /></label><label>تا تاریخ<input className="input" type="date" value={journey.endsOn} onChange={e => patch({
-            endsOn: e.target.value
+  <section aria-labelledby="ce-schedule"><h3 id="ce-schedule">زمان‌بندی</h3><div className="ce-form-grid"><label>از تاریخ<JalaliDateInput aria-label="از تاریخ" value={journey.startsOn} onChange={startsOn => patch({
+            startsOn
+          })} /></label><label>تا تاریخ<JalaliDateInput aria-label="تا تاریخ" value={journey.endsOn} onChange={endsOn => patch({
+            endsOn
           })} /></label>{journey.kind !== 'birthday' && <label>تکرار پس از چند روز؛ صفر یعنی یک‌بار<input className="input" type="number" min={0} max={365} value={journey.cadenceDays} onChange={e => patch({
             cadenceDays: inputInteger(e.currentTarget, journey.cadenceDays)
           })} /></label>}</div><p className="muted">{journey.kind === 'birthday' ? 'تولد برای هر کاربر در هر سالِ تقویم انتخابی، یک‌بار ثبت می‌شود.' : 'هر کاربر در هر دوره فقط یک پیام از این مسیر می‌گیرد؛ ویرایش متن، پیام قبلی را تکرار نمی‌کند.'} بازهٔ ساعت و سقف ارتباط از تنظیمات ارسال اعمال می‌شوند. کپی بیرونیِ پیام روز گذشته ارسال نمی‌شود.</p></section>

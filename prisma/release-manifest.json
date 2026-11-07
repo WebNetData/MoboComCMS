@@ -713,13 +713,31 @@
     },
     "1.7.6": {
       "migrations": []
+    },
+    "1.7.7": {
+      "migrations": [
+        {
+          "name": "20270220120000_ai_assistant_proposals",
+          "sha256": "3ae17f0f8a12ea50b7213cb0b9f8cb7850d13bc472965b63766dde30d841bdbe"
+        },
+        {
+          "name": "20270221120000_ai_direct_requests",
+          "sha256": "e2535315cde4f961b8764eddf45c1270aa316e03cabf6252e11018842ea65a16"
+        },
+        {
+          "name": "20270222120000_ai_engineering_runs",
+          "sha256": "311d33629912b0f92b147bc645ab86685f8bd24523fe6f03fad20c527ba209fc"
+        },
+        {
+          "name": "20270223120000_crm_engagement",
+          "sha256": "d851678c6e48520552397b0566da36df2b9b58f7233b980473ede34359c73980"
+        },
+        {
+          "name": "20270223121000_crm_engagement_receipts",
+          "sha256": "2dcdf5d14511f67ef3e95d3f079a7cdb0ac387720b28aefd4f9df957575338c7"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270220120000_ai_assistant_proposals",
-    "20270221120000_ai_direct_requests",
-    "20270222120000_ai_engineering_runs",
-    "20270223120000_crm_engagement",
-    "20270223121000_crm_engagement_receipts"
-  ]
+  "unreleased": []
 }
