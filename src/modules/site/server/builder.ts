@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { RevisionError, recordRevision, type RestoreCommit } from '@/modules/content/server/revisions'
@@ -54,8 +55,9 @@ export async function introducesScripts(pageId: string, doc: BuilderDoc): Promis
 }
 
 export function permFor(pageId: string): Permission {
-  const template = /^tpl-(header|footer|page|post|product)-/.exec(pageId)
+  const template = /^tpl-(header|footer|page|post|product|surface)-/.exec(pageId)
   if (template) {
+    if (template[1] === 'surface') return 'settings.manage'
     if (template[1] === 'post') return 'cms.posts'
     if (template[1] === 'product') return 'cms.products'
     if (template[1] === 'page') return 'cms.pages'
@@ -77,11 +79,12 @@ function parseMeaningful(raw: string): BuilderDoc | null {
   }
 }
 
+export async function readBuilderState(pageId: string) {
+  const row = BUILDER_PAGE_ID.test(pageId) ? await db.setting.findUnique({ where: { key: builderKey(pageId) } }) : null
+  return { doc: row ? parseMeaningful(row.value) : null, revision: builderRevision(row?.value) }
+}
 export async function getBuilderDoc(pageId: string): Promise<BuilderDoc | null> {
-  if (!BUILDER_PAGE_ID.test(pageId)) return null
-  const row = await db.setting.findUnique({ where: { key: builderKey(pageId) } })
-  if (!row) return null
-  return parseMeaningful(row.value)
+  return (await readBuilderState(pageId)).doc
 }
 
 /**
@@ -101,8 +104,13 @@ export async function saveBuilderDraft(pageId: string, doc: BuilderDoc): Promise
   await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
 }
 
-export async function clearBuilderDraft(pageId: string): Promise<void> {
-  await db.setting.delete({ where: { key: draftKey(pageId) } }).catch(() => undefined)
+export async function clearBuilderDraft(pageId: string, expected?: BuilderDoc): Promise<void> {
+  await db.setting.deleteMany({ where: { key: draftKey(pageId), ...(expected ? { value: JSON.stringify(expected) } : {}) } })
+}
+
+export const builderRevision = (value: string | null | undefined) => createHash('sha256').update(value || '').digest('hex')
+export async function currentBuilderRevision(pageId: string) {
+  return builderRevision((await db.setting.findUnique({ where: { key: builderKey(pageId) } }))?.value)
 }
 
 // ------------------------------------------------------------------ history
@@ -120,16 +128,24 @@ export function builderSnapshot(doc: BuilderDoc | null): Snapshot | null {
 }
 
 /** Saves the live document and keeps it as the next version in the same transaction (a save that changes nothing adds none). */
-export async function saveBuilderDoc(pageId: string, doc: BuilderDoc, actor: Actor = null, client?: Prisma.TransactionClient): Promise<void> {
+export async function saveBuilderDoc(pageId: string, doc: BuilderDoc, actor: Actor = null, client?: Prisma.TransactionClient, expectedRevision?: string, commit?: (tx: Prisma.TransactionClient) => Promise<void>): Promise<string> {
   const key = builderKey(pageId)
   const value = JSON.stringify(doc)
   const work = async (tx: Prisma.TransactionClient) => {
     const previous = await tx.setting.findUnique({ where: { key }, select: { value: true } })
-    await tx.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
+    if (expectedRevision !== undefined && expectedRevision !== builderRevision(previous?.value)) throw new RevisionError('این طرح هم‌زمان تغییر کرده است؛ کار شما حفظ شده، نسخهٔ تازه را بررسی کنید', 409)
+    if (previous) {
+      const claimed = await tx.setting.updateMany({ where: { key, value: previous.value }, data: { value } })
+      if (!claimed.count) throw new RevisionError('طرح هم‌زمان تغییر کرد', 409)
+    } else {
+      try { await tx.setting.create({ data: { key, value } }) } catch (error) { if ((error as { code?: string }).code === 'P2002') throw new RevisionError('طرح هم‌زمان ایجاد شد', 409); throw error }
+    }
     await recordRevision({ entityType: builderHistoryType(pageId), entityId: 1, before: previous ? builderSnapshot(parseMeaningful(previous.value)) : null, after: builderSnapshot(doc)!, actor, client: tx, strict: true })
+    await commit?.(tx)
+    return builderRevision(value)
   }
-  if (client) await work(client)
-  else await db.$transaction(work)
+  if (client) return work(client)
+  return db.$transaction(work)
 }
 
 /**

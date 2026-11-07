@@ -807,6 +807,9 @@ Engineering tools follow the [scoped devstack](DEVSTACK.md): pinned agent docume
 Architecture/skill adoption is documentation completion only. Maturity progresses through Missing, Planned, Foundation, PartiallyImplemented, Functional, ProductionVerified, Advanced and ReferenceClassEquivalent with named evidence; unassessed is not missing. Keep the existing ledger's finding labels separate from maturity. Audit then implement safe vertical slices with relevant actual tests; no new platform owner without an inspected gap. Preserve PostgreSQL/SQLite parity, release-manifest migrations, state claims, old APIs/URLs/data and realistic rollback. PRs target main; owner merges/deploys. [Roadmap](IMPLEMENTATION_ROADMAP.md) prioritizes launch essentials and foundation reuse before advanced breadth.
 
 
+## Visual site studio continuation —2026-11-07
+
+The existing Site builder/theme registry owns the fullscreen visual studio and typed specialist/account/member-home presentation. Account/content owners retain queries, gates, private values and actions; closed slots never become an arbitrary data/execution engine. Public route adapters exclude internal preview props. Current-entry bindings, explicitly new generation1 article templates and optional proposal-only AI extend the same documents/index/history/audit. No new settings/identity/theme runtime or migration. Existing public designs remain until explicit publication/direct save; archived article templates remain inactive. [Ownership, exact evidence and rollback](handoffs/VISUAL_SITE_STUDIO.md).
 ## Private AI engineering and recovery — 2026-11-07
 
 AI owns bounded engineering policy/custom skills, pinned canonical knowledge and

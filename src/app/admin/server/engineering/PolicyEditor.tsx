@@ -4,7 +4,7 @@ import type { EngineeringPolicy, EngineeringSkill } from '@/modules/ai/domain/en
 
 function SkillTags({ tags, commit }: { tags: string[]; commit: (tags: string[]) => void }) {
   const [text, setText] = useState(tags.join(', '))
-  return <label>برچسب‌ها، با ویرگول جدا شوند<input className="input" value={text} maxLength={400} onChange={e => setText(e.target.value)} onBlur={() => commit(text.split(/[,،]/).map(t => t.trim()).filter(Boolean))} /></label>
+  return <label>برچسب‌ها، با ویرگول جدا شوند<input className="input" value={text} maxLength={400} onChange={e => setText(e.target.value)} onBlur={() => commit(text.split(/[,،]/).map(tag => tag.trim()).filter(Boolean))} /></label>
 }
 export default function PolicyEditor({ initial, busy, save }: { initial: EngineeringPolicy; busy: boolean; save: (policy: EngineeringPolicy) => Promise<boolean> }) {
   const [draft, setDraft] = useState(initial), [reloadKey, setReloadKey] = useState(0)

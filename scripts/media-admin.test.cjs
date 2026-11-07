@@ -371,12 +371,15 @@ test('the article page, its editor and the builder share one style choice', () =
   const page = read('src/modules/site/server/pages/blog/[slug]/page.tsx')
   assert.match(page, /resolvePostPresentation\(\{ postId: post\.id, format: post\.format/)
   assert.match(page, /journal-post-solo" \{\.\.\.dress\.attrs\}/)
-  // Only page styles apply; archived layouts are never executed by the article page.
+  // Canonical styles remain; only newly authored generation1 layouts may compose the article body.
   const presentation = read('src/modules/site/server/post-presentation.ts')
   const order = ['input.askedStyle', "getEntityTemplateId('post'", 'settings.defaultId'].map((needle) => presentation.indexOf(needle))
   assert.deepEqual([...order].sort((a, b) => a - b), order)
   assert.ok(order.every((at) => at > 0))
-  assert.doesNotMatch(page, /BuilderRenderer|resolveBuilderDoc|journal-post-built|previewTemplate\(|PostFormatLead|PostFormatClose|reviewJsonLd/)
+  assert.doesNotMatch(page, /resolveBuilderDoc|journal-post-built|PostFormatLead|PostFormatClose|reviewJsonLd/)
+  assert.match(page, /resolveEntryLayout\(/)
+  assert.match(page, /ensureContentSlot\(designDoc\)/)
+  assert.match(read('src/modules/site/server/theme-templates.ts'), /meta\.type === 'single-post' && meta\.generation !== 1/)
   assert.doesNotMatch(presentation, /settings.byFormat/)
   assert.match(read('src/modules/site/server/http/builder/post-template.ts'), /isStyleId\(templateId\)\s*\n?\s*\? !!resolvePostStyle/)
   assert.match(read('src/app/layout.tsx'), /import '\.\/journal-post-styles\.css'/)

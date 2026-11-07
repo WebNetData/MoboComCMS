@@ -1,3 +1,4 @@
+import DesignSurface, { type SurfaceDesign } from '@/components/content/builder/DesignSurface'
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
@@ -20,7 +21,7 @@ export type SectionNavItem = { href: string; label: string; key: string }
  * footer (a template targeting the section wins), plus the section's own menu bar: its main
  * categories with mega panels (falls back to the simple sub-menu when the bar is off).
  */
-export default async function MediaShell({ section, active, nav, children, search }: { section: 'music' | 'cinema' | 'games' | 'vip' | 'software' | 'forum' | 'search' | 'compare' | 'favorites' | 'copyright' | 'community' | 'celebrities'; active?: string; nav?: SectionNavItem[]; children: ReactNode; search?: { action: string; placeholder: string; value?: string } }) {
+export default async function MediaShell({ section, active, nav, children, search, design }: { design?: SurfaceDesign; section: 'music' | 'cinema' | 'games' | 'vip' | 'software' | 'forum' | 'search' | 'compare' | 'favorites' | 'copyright' | 'community' | 'celebrities'; active?: string; nav?: SectionNavItem[]; children: ReactNode; search?: { action: string; placeholder: string; value?: string } }) {
   const barSection: MegaSection | null = (BAR_SECTIONS as readonly string[]).includes(section) ? (section as MegaSection) : null
   const [locale, theme, navPages, bar] = await Promise.all([getServerLocale(), getServerTheme(), getPublicNavigationPages(), barSection ? getSectionBar(barSection).catch(() => null) : null])
   const context = { route: 'section' as const, sectionSlug: section }
@@ -42,7 +43,7 @@ export default async function MediaShell({ section, active, nav, children, searc
           </div>
         )}
         {PROMO_SECTIONS.includes(section) && <PromoSlot placement="content-top" />}
-        {children}
+        {design ? <DesignSurface design={design} locale={locale}>{children}</DesignSurface> : children}
         {PROMO_SECTIONS.includes(section) && <PromoSlot placement="content-bottom" />}
       </main>
       <ThemeFooter context={context} locale={locale} navPages={navPages} />

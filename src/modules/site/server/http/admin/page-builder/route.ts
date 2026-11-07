@@ -2,13 +2,14 @@ import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdminStrict } from '@/platform/audit/server'
 import {
-  BUILDER_PAGE_ID, SCRIPT_PERMISSION, clearBuilderDraft, docUsesScripts, introducesScripts, getBuilderDoc, getBuilderDraft, permFor, sanitizeBuilderDoc, saveBuilderDoc,
+  readBuilderState, BUILDER_PAGE_ID, SCRIPT_PERMISSION, clearBuilderDraft, docUsesScripts, introducesScripts, getBuilderDoc, getBuilderDraft, permFor, sanitizeBuilderDoc, saveBuilderDoc,
 } from '@/modules/site/server/builder'
 import { emptyDoc, parseBuilderDoc } from '@/modules/site/domain/builder'
 import { THEME_TYPE_LABELS, templateTypeOf } from '@/modules/site/domain/theme-templates'
 import { getThemeTemplate } from '@/modules/site/server/theme-templates'
+import { RevisionError } from '@/modules/content/server/revisions'
 import { moduleGuard } from '@/extensions/server/modules'
 
 const MAX_BODY = 600_000
@@ -24,7 +25,7 @@ async function locate(pageId: string): Promise<{ title: string; titleEn: string;
     if (!meta) return { title: pageId, titleEn: pageId, path: '' }
     const p = meta.placement
     const path = meta.type !== 'page' ? '' : p.kind === 'home' ? '/' : p.kind === 'blog' ? '/blog' : p.kind === 'shop' ? '/products' : p.kind === 'section' ? `/${p.slug}` : ''
-    return { title: `${THEME_TYPE_LABELS[meta.type].fa}: ${meta.name}`, titleEn: `${THEME_TYPE_LABELS[meta.type].en}: ${meta.nameEn || meta.name}`, path: meta.status === 'published' ? path : '' }
+    return { title: `${THEME_TYPE_LABELS[meta.type].fa}: ${meta.name}`, titleEn: `${THEME_TYPE_LABELS[meta.type].en}: ${meta.nameEn || meta.name}`, path: meta.status === 'published' ? path : '', status: meta.status === 'published' ? 'PUBLISHED' : 'DRAFT' }
   }
   if (pageId === 'home') return { title: 'صفحه اصلی', titleEn: 'Home', path: '/' }
   if (pageId === 'blog') return { title: 'مجله', titleEn: 'Journal', path: '/blog' }
@@ -49,8 +50,8 @@ export async function GET(req: NextRequest) {
   const pageId = readPageId(req.nextUrl.searchParams.get('pageId'))
   if (!pageId) return err('Invalid page ID')
   if (!await requirePerm(req, permFor(pageId))) return err('forbidden', 403)
-  const [doc, draft] = await Promise.all([getBuilderDoc(pageId), getBuilderDraft(pageId)])
-  return ok({ pageId, templateType: templateTypeOf(pageId), meta: await locate(pageId), doc: doc || emptyDoc(), draft: draft.present ? { doc: draft.doc } : null })
+  const [snapshot, draft] = await Promise.all([readBuilderState(pageId), getBuilderDraft(pageId)])
+  return ok({ revision: snapshot.revision, pageId, templateType: templateTypeOf(pageId), meta: await locate(pageId), doc: snapshot.doc || emptyDoc(), draft: draft.present ? { doc: draft.doc } : null })
 }
 
 export async function PUT(req: NextRequest) {
@@ -64,19 +65,19 @@ export async function PUT(req: NextRequest) {
   if (JSON.stringify(body?.doc ?? null).length > MAX_BODY) return err('Builder document too large', 413)
   let doc
   try { doc = sanitizeBuilderDoc(parseBuilderDoc(body?.doc)) } catch (e) { return err(e instanceof Error ? e.message : 'Invalid document') }
+  const draftDoc = doc
+  if (/^post-\d+$/.test(pageId)) doc = { ...doc, layout: { header: doc.layout?.header || 'default', footer: doc.layout?.footer || 'default', ...doc.layout, designVersion: 1 as const } }
   const scripts = docUsesScripts(doc)
   if (await introducesScripts(pageId, doc) && !await requirePerm(req, SCRIPT_PERMISSION)) {
     return err('Advanced code (JavaScript) requires the site settings permission', 403)
   }
-  await saveBuilderDoc(pageId, doc, { id: admin.id, email: admin.email })
-  await clearBuilderDraft(pageId)
-  await auditAdmin({
-    req,
-    actor: admin,
-    action: 'page.builder.update',
-    targetType: 'Setting',
-    targetId: pageId,
-    metadata: { mode: doc.mode, sections: doc.sections.length, pageId, advancedCode: scripts },
-  })
-  return ok({ saved: true, pageId })
+  if (body.expectedRevision !== undefined && (typeof body.expectedRevision !== 'string' || !/^[a-f0-9]{64}$/.test(body.expectedRevision))) return err('نسخهٔ طرح معتبر نیست')
+  let revision: string
+  try {
+    revision = await saveBuilderDoc(pageId, doc, { id: admin.id, email: admin.email }, undefined, body.expectedRevision, async tx => {
+      await auditAdminStrict({ req, actor: admin, action: 'page.builder.update', targetType: 'Setting', targetId: pageId, metadata: { mode: doc.mode, sections: doc.sections.length, pageId, advancedCode: scripts } }, tx)
+    })
+  } catch (error) { if (error instanceof RevisionError) return err(error.message, error.status); throw error }
+  await clearBuilderDraft(pageId, draftDoc)
+  return ok({ saved: true, pageId, revision, doc })
 }

@@ -10,6 +10,7 @@ export const AI_PURPOSES = [
   { id: 'forum', label: 'پیشنهاد پاسخ انجمن', personal: true },
   { id: 'seo', label: 'توضیحات متا و سئو', personal: true },
   { id: 'editor', label: 'ویرایش و بازنویسی محتوا', personal: true },
+  { id: 'builder', label: 'دستیار طراحی صفحه و قالب', personal: true },
   { id: 'pages', label: 'فرم صفحات', personal: true },
   { id: 'music', label: 'فرم موزیک', personal: true },
   { id: 'cinema', label: 'فرم فیلم و سریال', personal: true },

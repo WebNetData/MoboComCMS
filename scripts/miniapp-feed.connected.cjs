@@ -58,8 +58,10 @@ async function main(){
   const route=load('src/modules/site/server/http/public/miniapp-feed/route.ts')
   const first=await route.GET(),feed=await first.json()
   assert.equal(first.headers.get('cache-control'),'no-store')
-  assert.deepEqual(feed.discover.posts.map(p=>p.slug),[stamp+'-live'])
-  assert.deepEqual(feed.discover.products.map(p=>p.slug),[stamp+'-live'])
+  // First-deploy CI also contains valid seeded content; assert every own fixture,
+  // including draft/future/group exclusions, without treating other public rows as leaks.
+  assert.deepEqual(feed.discover.posts.filter(p=>p.slug.startsWith(stamp)).map(p=>p.slug),[stamp+'-live'])
+  assert.deepEqual(feed.discover.products.filter(p=>p.slug.startsWith(stamp)).map(p=>p.slug),[stamp+'-live'])
   assert.ok(!JSON.stringify(feed).includes('private body'))
   assert.ok(!JSON.stringify(feed).includes('priceMinor'))
   disabled=new Set(['journal','music','store'])

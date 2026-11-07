@@ -279,7 +279,8 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   assert.match(auth, /select: \{ status: true, passwordChangedAt: true, name: true, telegramPhoto: true, userProfile: \{ select: \{ avatar: true \} \} \}/)
   assert.match(auth, /token\.picture = pictureOf\(current\) \|\| null/)
   assert.match(auth, /session\.user\.image = typeof token\.picture === 'string' && token\.picture \? token\.picture : null/)
-  for (const shell of ['src/app/dashboard/layout.tsx', 'src/app/admin/layout.tsx']) assert.match(read(shell), /session\?\.user\?\.image \? <img src=\{session\.user\.image\} alt="" \/> : initial/, shell)
+  assert.match(read('src/app/dashboard/layout.tsx'), /<AccountShell>/)
+  for (const shell of ['src/app/dashboard/AccountShell.tsx', 'src/app/admin/layout.tsx']) assert.match(read(shell), /session\?\.user\?\.image \? <img src=\{session\.user\.image\} alt="" \/> : initial/, shell)
   assert.match(read('src/modules/forum/server/forum.ts'), /avatar: pictureOf\(user\)/)
   assert.match(read('src/modules/forum/server/forum.ts'), /await ensureUserProfiles\(ids\)/)
   // An article tells its whole path once: home, the magazine, the categories above it, its category, the title — on the page and to search engines.

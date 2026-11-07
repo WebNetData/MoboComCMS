@@ -4,12 +4,16 @@
   "nameEn": "Page & theme builder",
   "description": "صفحه‌ساز بصری، هدر و فوتر اختصاصی، صفحه‌ها و بخش‌ها با آدرس کوتاه و قالب‌های پست و محصول. با غیرفعال‌کردن، سایت به چیدمان پیش‌فرض برمی‌گردد (طرح‌ها حذف نمی‌شوند).",
   "descriptionEn": "Visual builder, custom headers/footers, pages and short-URL sections, post and product layouts. Turning it off restores the default layouts (designs are kept).",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "module",
   "apiVersion": 1,
   "category": "design",
   "icon": "sparkles",
   "defaultEnabled": true,
   "requiresCore": "^1.0.0",
-  "adminPaths": ["/admin/theme-builder", "/admin/builder"]
+  "adminPaths": [
+    "/admin/design-studio",
+    "/admin/theme-builder",
+    "/admin/builder"
+  ]
 }

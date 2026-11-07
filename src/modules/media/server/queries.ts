@@ -7,6 +7,6 @@ export { toGame, getGamesHome, browseGames, gameFacets, gamePosts, getGame } fro
 export type { GameCard } from '@/modules/media/server/queries/games'
 export { softwareReleaseFeed, getSoftwareRelease, softwareFeed, softwareSidebar, getSoftwareHome, browseSoftware, softwareStats, softwareSuggestions, techNews, softwareShelf, getSoftware } from '@/modules/media/server/queries/software'
 export type { SoftwareCard, SoftwareTree } from '@/modules/media/server/queries/software'
-export { getBuilderMedia } from '@/modules/media/server/queries/page-builder-feed'
+export { getBuilderMedia, getBuilderMediaExample } from '@/modules/media/server/queries/page-builder-feed'
 export type { BuilderMediaFeed } from '@/modules/media/server/queries/page-builder-feed'
 export { published as PUBLISHED_FILTER } from '@/modules/media/server/queries/core'

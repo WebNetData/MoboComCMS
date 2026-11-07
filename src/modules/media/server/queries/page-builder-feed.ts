@@ -12,6 +12,18 @@ export type BuilderMediaFeed =
   | { kind: 'games'; items: GameCard[] }
   | { kind: 'software'; items: SoftwareCard[] }
 
+/** Minimal public identity for an exact designer sample; never a media source or private group entry. */
+export async function getBuilderMediaExample(source: string, id: number): Promise<{ id: number; slug: string; title: string } | null> {
+  if (!Number.isSafeInteger(id) || id <= 0) return null
+  const select = { id: true, slug: true, title: true } as const
+  if (source === 'music-new') return db.musicTrack.findFirst({ where: { id, ...liveTrack() }, select })
+  if (source === 'music-albums') return db.musicAlbum.findFirst({ where: { id, ...live() }, select })
+  if (source === 'cinema-movies' || source === 'cinema-series') return db.cinemaTitle.findFirst({ where: { id, ...live(), kind: source === 'cinema-series' ? 'SERIES' : 'MOVIE' }, select })
+  if (source === 'games-new') return db.gameTitle.findFirst({ where: { id, ...live() }, select })
+  if (source === 'software-new') return db.softwareTitle.findFirst({ where: { id, ...live() }, select })
+  return null
+}
+
 /** Data for the page-builder `media` widget. */
 export async function getBuilderMedia(source: string, limit: number): Promise<BuilderMediaFeed> {
   const take = Math.max(1, Math.min(16, Math.round(limit) || 6))

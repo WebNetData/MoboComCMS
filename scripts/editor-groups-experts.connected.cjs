@@ -28,11 +28,14 @@ async function call(handler, method, url, data, id) {
 async function main() {
   const owner = await user('owner'), forumManager = await user('forum', 'dashboard.view,forum.moderate'), journal = await user('journal', 'dashboard.view,cms.posts'), expert = await user('expert', 'dashboard.view,store.orders.handle,forms.handle'), other = await user('other', 'dashboard.view,store.orders.handle,forms.handle'), roleEditor = await user('role-editor', 'dashboard.view,roles.manage,forum.moderate')
   viewer = owner
-  assert.equal((await call(themeApi.POST, 'POST', '/api/admin/theme-templates', { type: 'single-post', name: 'retired' })).status, 410)
   const legacy = await themeTemplates.createThemeTemplate({ type: 'single-post', name: stamp }, { id: owner.id, email: owner.email })
+  // Simulate the archived pre-studio row; new templates are explicitly generation-marked.
+  const index = JSON.parse((await db.setting.findUnique({ where: { key: themeTemplates.THEME_INDEX_KEY } })).value)
+  delete index.find(row => row.id === legacy.id).generation
+  await db.setting.update({ where: { key: themeTemplates.THEME_INDEX_KEY }, data: { value: JSON.stringify(index) } })
   try {
     assert.equal((await call(themeApi.POST, 'POST', '/api/admin/theme-templates', { action: 'duplicate', id: legacy.id })).status, 410)
-    assert.deepEqual((await call(themeApi.GET, 'GET', '/api/admin/theme-templates')).body.presets['single-post'], [])
+    assert.ok(!(await call(themeApi.GET, 'GET', '/api/admin/theme-templates')).body.templates.some(row => row.id === legacy.id))
     await themeTemplates.updateThemeTemplate(legacy.id, { status: 'published', conditions: [{ mode: 'include', target: 'posts' }] })
     assert.equal(await themeTemplates.layoutDocById('post', legacy.id), null)
     assert.equal(await themeTemplates.resolveEntryLayout('post', 1, {}, { id: legacy.id, doc: { mode: 'builder' } }), null)

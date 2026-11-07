@@ -35,10 +35,16 @@ test('example:install copies an example and the generator registers it (in a thr
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ex-'))
   fs.cpSync(path.join(root, 'examples'), path.join(dir, 'examples'), { recursive: true })
   fs.mkdirSync(path.join(dir, 'scripts')); fs.copyFileSync(path.join(root, 'scripts/generate-extensions.mjs'), path.join(dir, 'scripts/generate-extensions.mjs'))
+  // The real generator also verifies shipped AI knowledge when source-only docs/skills are absent.
+  for (const file of ['scripts/generate-ai-knowledge.cjs', 'src/modules/ai/domain/engineering-knowledge.generated.json']) {
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true })
+    fs.copyFileSync(path.join(root, file), path.join(dir, file))
+  }
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', version: '1.5.0' }))
   const run = (...args) => spawnSync(process.execPath, [path.join(root, 'scripts/install-example.mjs'), ...args], { cwd: dir, env: { ...process.env, EXAMPLE_ROOT: dir }, encoding: 'utf8' })
   const plugin = run('plugin', 'sample-feedback')
   assert.equal(plugin.status, 0, plugin.stderr + plugin.stdout)
+  assert.match(plugin.stdout, /Verified shipped canonical AI knowledge/)
   const theme = run('theme', 'sample-editorial')
   assert.equal(theme.status, 0, theme.stderr + theme.stdout)
   assert.ok(fs.existsSync(path.join(dir, 'src/plugins/sample-feedback/server.ts')))

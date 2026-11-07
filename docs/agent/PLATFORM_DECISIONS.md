@@ -887,6 +887,8 @@ Section-specific keys/roles and full-access staff compatibility remain; Store's 
 
 Owner2026-11-01: domain, SSL and email are entered during browser setup. No-argument trusted bootstrap exposes only temporary HTTPS8443/fingerprint/private-code setup; existing Server Panel services handle HTTP/DNS/PEM, then canonical identity closes setup. Explicit unfinished-install resume uses existing signed updater/mandatory backup and refuses installed/disabled/unknown state. Existing CLI/manual paths remain. [Exact continuation, evidence and deployment limits](handoffs/HOST_INSTALL_UPGRADE.md#browser-host-setup-follow-up--2026-11-01).
 
+
+Owner2026-11-07: extend the existing visual page/theme builder to fullscreen live authoring, individual/global content/product layouts, independent header/footer, specialist sections, account/member-home and optional AI design assistance. This explicitly reopens NEW article-layout authoring after the earlier retirement: generation1 templates and explicit direct post saves only; archived records are not reactivated. Protected default designs, canonical block content, identity, module gates and financial/access actions stay with their owners. Presentation templates do not authorize server commands, arbitrary private queries, executable themes or silent AI publication. [Implementation and scope](handoffs/VISUAL_SITE_STUDIO.md).
 ## AI engineering authority — 2026-11-07
 
 Owner selected automatic isolated development and PR creation, with production

@@ -4,6 +4,15 @@ import { authOptions } from '@/modules/identity/auth'
 import {
   canPreviewBuilder, resolvePreviewDoc, resolvePreviewTarget, validPreviewPageId,
 } from '@/modules/site/server/builder-preview-admin'
+import DesignSurface from '@/components/content/builder/DesignSurface'
+import DashboardHome from '@/app/dashboard/OverviewHome'
+import { getServerLocale } from '@/i18n/server'
+import DashboardDesign from '@/app/dashboard/DesignView'
+import TitlePage from '@/app/cinema/[slug]/detail-view'
+import TrackPage from '@/app/music/track/[slug]/detail-view'
+import AlbumPage from '@/app/music/album/[slug]/detail-view'
+import GamePage from '@/app/games/[slug]/detail-view'
+import SoftwarePage from '@/app/software/[slug]/detail-view'
 import HomeView from '@/modules/site/server/pages/home/page'
 import BlogPage from '@/modules/site/server/pages/blog/page'
 import PostPage from '@/modules/site/server/pages/blog/[slug]/page'
@@ -58,7 +67,17 @@ export default async function BuilderPreviewRoute({ params }: { params: Promise<
         const { meta, sample } = target
         const withTemplate: BuilderPreview = { pageId, doc, template: { id: meta.id, type: meta.type, doc } }
         const none = (fa: string, en: string) => <div className="bp-note">{fa}<br />{en}</div>
-        if (meta.type === 'page') body = <ThemePageView meta={meta} doc={doc} preview={preview} />
+        if (meta.type === 'surface') {
+          const props = { params: Promise.resolve({slug: sample || ''}), preview: withTemplate }
+          body = meta.surface === 'account' ? <DesignSurface design={{surface:'account',entryId:0,preview:withTemplate}} locale={await getServerLocale()}><DashboardHome /></DesignSurface>
+            : meta.surface === 'dashboard' ? <DashboardDesign preview={withTemplate} />
+            : !sample ? none('برای پیش‌نمایش، ابتدا یک محتوای منتشرشده در این بخش بسازید.', 'Publish an entry in this section first.')
+            : meta.surface === 'movie' || meta.surface === 'series' ? <TitlePage {...props} />
+            : meta.surface === 'track' ? <TrackPage {...props} />
+            : meta.surface === 'album' ? <AlbumPage {...props} />
+            : meta.surface === 'game' ? <GamePage {...props} /> : <SoftwarePage {...props} />
+        }
+        else if (meta.type === 'page') body = <ThemePageView meta={meta} doc={doc} preview={preview} />
         else if (meta.type === 'header' || meta.type === 'footer') body = <HomeView preview={withTemplate} />
         else if (meta.type === 'single-post') body = sample ? <PostPage params={Promise.resolve({ slug: sample })} preview={withTemplate} /> : none('برای پیش‌نمایش قالب پست، ابتدا یک مطلب بسازید.', 'Create a post to preview this layout.')
         else body = sample ? <ProductPage params={Promise.resolve({ slug: sample })} preview={withTemplate} /> : none('برای پیش‌نمایش قالب محصول، ابتدا یک محصول بسازید.', 'Create a product to preview this layout.')
