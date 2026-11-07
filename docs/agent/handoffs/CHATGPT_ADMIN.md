@@ -101,3 +101,38 @@ rollback, disable/disconnect personal mode first, revoke app access in ChatGPT
 if needed, then revert code through the normal PR/deploy path. Stored rows and
 customer data need no purge or schema rollback. Do not restore old rotating
 refresh tokens from a backup. The owner merges and deploys.
+
+## Model catalog response repair — 2026-11-07
+
+Production1.7.7 successfully connects the account, then reports the bounded JSON
+reader's large-response error while fetching account models. The shared128KiB
+JSON cap was inappropriate for catalogs with provider metadata. Only `modelsFor`
+now opts into4MiB; discovery, keys and token grants retain128KiB. The existing
+stream reader counts actual bytes (even without a trustworthy Content-Length),
+cancels rejected bodies and retains the saved connection. The picker still
+exposes at most100 validated visible IDs/labels; provider instructions are never
+projected or stored. No dependency/schema/permission/credential change.
+
+The original error was reproduced on unchanged source with a streamed synthetic
+catalog larger than128KiB. After repair, all10 personal-ChatGPT cases pass under
+Linux Node22/non-root/no dotenv, including oversized stream cancellation,
+unchanged identity cap, PKCE/signature/scopes, privacy, refresh races and no paid
+fallback. The registered native PostgreSQL check passes after all176 empty
+migrations; its larger catalog assertion verifies the encrypted Setting stays
+byte-identical. Types, architecture, source, security and scoped Semgrep/redacted
+Gitleaks pass.
+
+Actual browser with a pre-connected synthetic account verifies large catalog
+projection, select/save/enable, inference and oversized-error/retry recovery
+without another OAuth flow. Private status excludes tokens; no shared provider
+call or page error occurred.1440/390 light/dark captures have no overflow. The
+initial functional run reached its separate axe check, which found contrast
+issues on existing secondary buttons; the follow-up retained those diagnostics
+(1440 light0; other three views color-contrast). No JSX/CSS changed and no axe0
+claim is made. Evidence: ignored `.mobocom/chatgpt-catalog/`.
+
+The Persian guide now also describes an SSH local forward when running the
+loopback helper on a VPS. No real owner credentials/provider requests or
+production deployment were used. Existing1.7.7 artifacts remain immutable; the
+owner merges this focused fix and deploys it through a later approved update.
+Rollback reverts the two reader/caller edits; saved accounts/data stay intact.

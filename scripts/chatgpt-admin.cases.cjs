@@ -66,6 +66,23 @@ test('ChatGPT SSE requires completed status and rejects quota, malformed, incomp
  assert.equal(await f.inference.responseText(new Response(chunks,{headers:{'content-type':'text/event-stream'}})),'سلام')
  for(const text of [f.event('response.output_text.delta',{delta:'partial'}),f.event('response.failed',{response:{error:{code:'subscription_sharing_usage_limit_exceeded'}}}),f.event('response.incomplete'),f.event('response.completed',{response:{status:'failed'}}),'data: {bad}\n\n'])await assert.rejects(f.inference.responseText(make(text)))
 })
+
+test('ChatGPT model picker accepts a large streamed account catalog without exposing model metadata',async()=>{
+ let f;const payload=JSON.stringify({models:[{slug:'owned-model',display_name:'Owned model',visibility:'list',instructions:'catalog metadata '.repeat(18000)},{slug:'hidden-model',visibility:'hidden'},{slug:'bad/model',visibility:'list'}]});assert(Buffer.byteLength(payload)>128*1024)
+ f=fixture({fetch:async(url,init)=>{if(!url.endsWith('/models'))return f.upstream(url,init);const bytes=Buffer.from(payload);let offset=0;return new Response(new ReadableStream({pull(controller){if(offset===bytes.length)controller.close();else{const end=Math.min(offset+4096,bytes.length);controller.enqueue(bytes.subarray(offset,end));offset=end}}}),{headers:{'Content-Type':'application/json','Content-Length':'1'}})}})
+ await f.connect();const before=[...f.rows];assert.deepEqual(await f.inference.modelsFor(11),[{id:'owned-model',label:'Owned model'}]);assert.deepEqual([...f.rows],before,'catalog fetch preserves the saved connection');assert(!f.requests.some(r=>r.url.endsWith('/responses')||r.url.endsWith('/chat/completions')))
+})
+
+test('ChatGPT oversized catalogs stop and cancel their stream while retaining the connected account',async()=>{
+ let f,cancelled=false,pulls=0;const chunk=new Uint8Array(16*1024)
+ f=fixture({fetch:async(url,init)=>url.endsWith('/models')?new Response(new ReadableStream({pull(controller){pulls++;controller.enqueue(chunk)},cancel(){cancelled=true}}),{headers:{'Content-Type':'application/json'}}):f.upstream(url,init)})
+ await f.connect();const before=[...f.rows];await assert.rejects(f.inference.modelsFor(11),e=>e.status===502&&/بزرگ/.test(e.message));assert(cancelled);assert(pulls<=258,'catalog reader remains bounded to 4 MiB plus a prefetched chunk');assert.deepEqual([...f.rows],before);assert.equal(f.store.publicState(await f.store.readState(11)).connected,true)
+})
+
+test('ChatGPT identity metadata retains its smaller response bound independently of model catalogs',async()=>{
+ let cancelled=false,pulls=0;const f=fixture({fetch:async()=>new Response(new ReadableStream({pull(controller){pulls++;controller.enqueue(new Uint8Array(16*1024))},cancel(){cancelled=true}}))})
+ const network=f.load('src/modules/ai/server/chatgpt/network.ts');await assert.rejects(network.jsonRequest('https://auth.openai.com/.well-known/openid-configuration'),e=>e.status===502&&/بزرگ/.test(e.message));assert(cancelled);assert(pulls<=10,'the 128 KiB identity response bound is unchanged')
+})
 test('ChatGPT disconnect clears tokens and retains client/host identity for reauthorization',async()=>{
  const f=fixture();await f.connect();const old=await f.store.readState(11);assert.equal(await f.session.disconnect(11),true);const next=await f.store.readState(11);assert.equal(next.hostId,old.hostId);assert.equal(next.accounts[0].clientId,old.accounts[0].clientId);assert.equal(next.accounts[0].refresh,'');assert.equal(next.accounts[0].access,'');assert.equal(next.accounts[0].idToken,'');assert.equal(next.enabled,false)
  const begun=await f.session.beginLogin(11,next.accounts[0].clientId);assert.equal(new URL(begun.url).searchParams.get('client_id'),'oaiapp_owned')
