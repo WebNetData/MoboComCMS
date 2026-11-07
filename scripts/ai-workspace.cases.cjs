@@ -1,0 +1,14 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),load=require('./connected-source-loader.cjs')()
+const workspace=load('src/modules/ai/domain/workspace.ts')
+test('AI workspace briefs are bounded, expire and stay with the same actor and tool; context carries no query',()=>{
+  const now=123456,brief={actor:'41',kind:'builder',instruction:'طرح خدمات موبوکام',source:'/admin/pages',expires:now+600000}
+  assert.deepEqual(workspace.workspaceBrief(brief,'41','builder',now),brief)
+  for(const patch of [{actor:'42'},{kind:'engineering'},{instruction:'a'.repeat(2601)},{source:'//evil.test'},{source:'/admin/pages?token=private'},{source:'https://evil.test'},{expires:now},{expires:now+600001},{expires:NaN}])assert.equal(workspace.workspaceBrief({...brief,...patch},'41','builder',now),null)
+  assert.notEqual(workspace.workspaceKey('41','builder'),workspace.workspaceKey('42','builder'))
+  assert.notEqual(workspace.workspaceKey('41','builder'),workspace.workspaceKey('41','engineering'))
+  assert.equal(workspace.workspaceInstruction('متن','/admin/pages?private=secret'),'متن')
+  assert(workspace.workspaceInstruction('متن','/admin/pages').endsWith('/admin/pages'))
+  assert(workspace.workspaceInstruction('a'.repeat(2600),'/'+'a'.repeat(239)).length<=3000,'builder instructions fit its server limit')
+  assert(workspace.workspaceInstruction('a'.repeat(4000),'/'+'a'.repeat(239)).length<=4000,'operations keep the existing server limit')
+  assert.equal(workspace.workspaceInstruction('a'.repeat(4000),'').length,4000,'existing long instructions stay intact')
+})

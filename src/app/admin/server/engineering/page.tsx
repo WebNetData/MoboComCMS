@@ -6,6 +6,8 @@ import { ServerShell, useServerApi, useServerJson } from '../shared'
 import PolicyEditor from './PolicyEditor'
 import RunCard from './RunCard'
 import type { EngineeringView } from './types'
+import { useWorkspaceBrief } from '@/components/admin/ai/use-workspace-brief'
+import { workspaceInstruction } from '@/modules/ai/domain/workspace'
 import './engineering.css'
 
 const endpoint = '/api/admin/server/engineering'
@@ -13,6 +15,8 @@ function EngineeringDesk() {
   const api = useServerApi(), { data, error, loading, reload, setData } = useServerJson<EngineeringView>(endpoint)
   const [instruction, setInstruction] = useState(''), [mode, setMode] = useState('DEVELOP'), [skillIds, setSkillIds] = useState<string[]>([]), [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [failed, setFailed] = useState(false)
   const running = useRef(false), request = useRef<{ body: string; id: string } | null>(null)
+  const brief = useWorkspaceBrief('engineering')
+  useEffect(() => { if (brief) setInstruction(workspaceInstruction(brief.instruction, brief.source)) }, [brief])
   const active = data?.runs.some(r => ENGINEERING_ACTIVE.includes(r.status)) || false
   useEffect(() => { if (!active) return; const timer = setInterval(() => { if (!document.hidden && !running.current) void reload() }, 5000); return () => clearInterval(timer) }, [active, reload])
   async function call(body: Record<string, unknown>) {

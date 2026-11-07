@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { usePathname } from 'next/navigation'
+import { workspacePath } from '@/modules/ai/domain/workspace'
 
 export type ManageLink = { href: string; label: string }
 
@@ -15,17 +17,20 @@ export default function ManageBar({ title, anyOf, links }: { title: string; anyO
   const { data: session, status } = useSession()
   const role = (session?.user as { role?: string } | undefined)?.role
   const [allowed, setAllowed] = useState(false)
+  const [aiAllowed, setAiAllowed] = useState(false)
+  const pathname = usePathname()
   const [open, setOpen] = useState(true)
   const needed = anyOf.join(',')
 
   useEffect(() => {
-    if (status !== 'authenticated' || role !== 'ADMIN') { setAllowed(false); return }
+    if (status !== 'authenticated' || role !== 'ADMIN') { setAllowed(false); setAiAllowed(false); return }
     let live = true
     // Fresh from the server, as the panel reads it, so a role edited a minute ago already applies.
     fetch('/api/me').then((response) => response.ok ? response.json() : null).then((me: { role?: string; roleId?: number | null; permissions?: string[] | null } | null) => {
       if (!live || !me || me.role !== 'ADMIN') return
       // A staff account without a role is the full-access owner; with a role, one of the permissions is needed.
       setAllowed(me.roleId == null || needed.split(',').some((permission) => !!me.permissions?.includes(permission)))
+      setAiAllowed(me.roleId == null || ['cms.pages', 'cms.posts', 'cms.products', 'orders.manage', 'settings.manage'].some(permission => me.permissions?.includes(permission)))
     }).catch(() => undefined)
     return () => { live = false }
   }, [status, role, needed])
@@ -36,6 +41,7 @@ export default function ManageBar({ title, anyOf, links }: { title: string; anyO
     <aside className="mgr-bar" aria-label="مدیریت این صفحه">
       <span className="mgr-bar-title"><span aria-hidden="true">⚙</span>{title}</span>
       {links.map((link, index) => <a key={link.href} href={link.href} className={index === 0 ? 'is-main' : ''}>{link.label}</a>)}
+      {aiAllowed && workspacePath(pathname) && <a href={`/admin/ai/operations?from=${encodeURIComponent(pathname)}`}>کمک هوش مصنوعی</a>}
       <button type="button" onClick={() => setOpen(false)} aria-label="بستن نوار مدیریت">×</button>
     </aside>
   )

@@ -96,3 +96,53 @@ keys/accounts/conversations/tickets and history; no reverse SQL/database restore
 No automatic campaign messages, deployments, wallet/payment/refund powers or
 unrestricted host commands were introduced. Known provider/VM/systemd availability
 and an installed worker remain operational prerequisites, not UI readiness claims.
+
+## PR373 continuation: contextual AI and reported workflow failures
+
+The reported run42397839688 had two failed source assertions in `npm run check`;
+its production build and PostgreSQL/Redis jobs succeeded. Update the obsolete
+`rateLimitHit` expectation to `await rateLimitStrict`, and replace the count of
+`setStatus` calls with assertions for status announcements on the conditional
+handoff. Native `livechat-continuity` now verifies WAITING on both visitor and
+agent channels after the actual claimed database transition.
+
+The existing Admin layout lazily loads `components/admin/ai/Workspace`; its
+entry and native modal live outside the responsive sidebar. This location was
+corrected after the first browser pass exposed sidebar hiding on mobile. The
+reused `Operations` component remains the implementation behind the existing
+operational page and the inline desk. Builder and Engineering receive a bounded,
+actor/tool-bound, ten-minute tab draft through `use-workspace-brief`; receiving
+forms stay editable and never submit automatically. Public staff ManageBar
+forwards a pathname only. See [scenario](../../specs/ai-workspace/SPEC.md) and
+[operator guide](../../AI-CORE-SUPPORT-FA.md). No API/DB/queue/execution owner or
+dependency was added.
+
+Executed local evidence in `.mobocom/pr373-continuation`:
+
+- Three targeted unit regressions pass; two connected checks (`livechat-
+  continuity`, `ai-operations`) pass on a fresh176-migration database as UID1000
+  without `.env`. Existing reviewed/direct execution and permissions are retained.
+- Types, architecture, source, security and canonical knowledge checks pass.
+  Final types/architecture/source were rerun only after the mobile/layout and
+  Suspense corrections. A knowledge check reached the copied docs before their
+  synchronization and failed; after synchronizing only that document, the
+  knowledge-only recheck passed. Scoped Semgrep/Gitleaks have no findings;
+  Windows scanner needed ordinary certificate-store access outside the sandbox.
+- Doctor on affected React files: zero errors,32 reviewed warnings. Existing
+  large layout/editor components and data-loading patterns remain; new lazy
+  workspace composition is scoped and no diagnostic rule was suppressed.
+- Actual Edge/Playwright: global page proposal and explicit review/application;
+  Studio and same-page Builder handoffs without automatic calls; canonical design
+  proposal applied and saved as DRAFT; engineering handoff across real panel
+  unlock, honestly blocked without host tooling; section staff denied direct
+  engineering/home design and visitor/customer denied operations. Public ManageBar
+  excludes query data. Modal Escape restores focus;1440/390 light/dark scoped
+  axe0 and no modal overflow; screenshots inspected. The first pointer save check
+  timed out during the live preview; it is not claimed passed. The remaining flow
+  completed with the actual keyboard save, without rerunning successful checks.
+
+Only synthetic accounts/model responses were used; no real quota, customer
+messages, host worker setup, release, merge, production change or workflow
+dispatch. Engineering still requires an operator-installed worker and explicit
+deployment approval. Code rollback removes these entry points while preserving
+content, proposals, designs, accounts and history. Owner merges/deploys.
