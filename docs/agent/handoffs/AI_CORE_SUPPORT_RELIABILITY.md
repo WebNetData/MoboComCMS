@@ -50,6 +50,10 @@ calls, live GitHub credentials or actual installation used.
 13 initial focused Livechat/readiness/update cases and six existing AI-purpose
 cases passed; the added Claude budget/no-retry/no-model-switch case passed.
 Native Livechat continuity/placement and GitHub signed-package checks passed.
+The GitHub check is registered as optional: its root-pinned verifier/public-key
+and signed9.0.0/9.0.1 fixtures are installed only inside the disposable host lab;
+the check itself runs UID1000. It is not part of ordinary empty-DB CI without
+that host fixture. Livechat continuity is self-contained in the default PG gate.
 The latter uses actual Ed25519 verification, canonical unlock/scoped permissions,
 database Audit, tamper and version-mismatch refusal and proves no install starts.
 Focused Git helper tests passed for real stalled socket, proxy admission and
