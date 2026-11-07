@@ -1,3 +1,4 @@
+import { DASHBOARD_PARTS, DYNAMIC_FIELDS, type BuilderValues, type DashboardPart } from '@/modules/site/domain/builder-surfaces'
 import BuilderHosting from './BuilderHosting'
 import './specialist-homes.css'
 import Link from '@/components/AppLink'
@@ -38,7 +39,7 @@ import { AnimatedWords, BeforeAfter, VideoBox } from '@/components/content/build
 export type BuilderLocale = 'fa' | 'en'
 
 /** Node slots a single-post / single-product template places the real entry parts into. */
-export type BuilderSlots = Partial<Record<SlotWidgetType, ReactNode>>
+export type BuilderSlots = Partial<Record<SlotWidgetType | `dashboard-${DashboardPart}`, ReactNode>>
 
 /** What the document is rendered for — lets "current section / category" blocks filter. */
 export type BuilderContext = {
@@ -53,6 +54,7 @@ type Ctx = {
   landing: LandingData | null
   templates: Map<string, BuilderDoc> | null
   depth: number
+  values?: BuilderValues
   slots?: BuilderSlots
   nav?: PublicNavigationPage[] | null
   /** Admin live preview: show placeholders for empty blocks so they stay selectable. */
@@ -69,7 +71,7 @@ type Ctx = {
 }
 
 const DYNAMIC = new Set(['plans', 'network', 'form'])
-const SLOT_TYPES = new Set<string>(['post-header', 'post-cover', 'content', 'post-footer', 'product-hero', 'product-gallery', 'product-info', 'product-purchase', 'product-usp', 'product-tabs'])
+const SLOT_TYPES = new Set<string>(['post-header', 'post-cover', 'content', 'post-footer', 'product-hero', 'product-gallery', 'product-info', 'product-purchase', 'product-usp', 'product-tabs', 'surface-content'])
 const LIVE_SELECTOR = /^@(section|current)$/
 
 function postQueryOf(widget: BuilderWidget, context: BuilderContext): PostQuery {
@@ -182,6 +184,18 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
   const radius = radiusOf(widget)
 
   switch (widget.type) {
+    case 'dynamic-value': {
+      const field = DYNAMIC_FIELDS.find(key => key === props.field) || 'title', text = ctx.values?.[field] || props.fallback || ''
+      if (!text) return ctx.preview ? frame(widget, ctx, <p className="muted">دادهٔ پویا در این نمونه موجود نیست</p>) : null
+      if (field === 'cover') return frame(widget, ctx, safeSrc(text) ? <img src={safeSrc(text)} alt={ctx.values?.title || ''} style={radius} /> : null)
+      if (field === 'url') return frame(widget, ctx, <Link href={safeHref(text)}>{props.label || 'مشاهدهٔ محتوا'}</Link>)
+      const Tag = props.as === 'h1' ? 'h1' : props.as === 'h3' ? 'h3' : props.as === 'p' ? 'p' : 'h2'
+      return frame(widget, ctx, <Tag>{text}</Tag>)
+    }
+    case 'dashboard-part': {
+      const part = DASHBOARD_PARTS.find(key => key === props.part) || 'profile', node = ctx.slots?.[`dashboard-${part}`]
+      return node ? frame(widget, ctx, node) : ctx.preview ? frame(widget, ctx, <p className="muted">این بخش برای کاربر یا ماژول فعلی موجود نیست</p>) : null
+    }
     case 'heading': {
       const level = LEVELS.has(props.level || '') ? props.level : 'h2'
       const text = pick(locale, props.text, props.textEn)
@@ -611,11 +625,12 @@ function renderCode(code: BuilderCode): ReactNode {
  * `editable={false}` renders a document that is not the one being edited (e.g. a
  * post layout template) without editor ids, so preview clicks cannot select it.
  */
-export default async function BuilderRenderer({ doc: storedDoc, locale, data, slots, preview, editable = true, context = {} }: {
+export default async function BuilderRenderer({ doc: storedDoc, locale, data, slots, values, preview, editable = true, context = {} }: {
   doc: BuilderDoc
   locale: BuilderLocale
   data?: LandingData
   slots?: BuilderSlots
+  values?: BuilderValues
   preview?: boolean
   editable?: boolean
   context?: BuilderContext
@@ -659,7 +674,7 @@ export default async function BuilderRenderer({ doc: storedDoc, locale, data, sl
   ])
 
   const ctx: Ctx = {
-    locale, landing, templates, depth: 0, slots, nav: navPages, preview, nested: !editable, context,
+    locale, landing, templates, depth: 0, slots, values, nav: navPages, preview, nested: !editable, context,
     posts: new Map(postResults), products: new Map(productResults), media: new Map(mediaResults), theme: String(theme || 'dark'), modules,
   }
   return <div className="br-doc">{kit && <style>{kit}</style>}{doc.sections.map((section, index) => renderSection(section, ctx, section.id || String(index)))}</div>

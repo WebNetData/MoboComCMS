@@ -1,3 +1,5 @@
+import { isModuleEnabled } from '@/extensions/server/modules'
+import { exactSurfaceExample, surfaceExamples } from './builder-surfaces'
 import { db } from '@/platform/database/prisma'
 import { parsePermissions, hasPermission } from '@/modules/identity/rbac'
 import { BUILDER_PAGE_ID, getBuilderDoc, getBuilderDraft, permFor } from '@/modules/site/server/builder'
@@ -24,6 +26,7 @@ export function validPreviewPageId(pageId: string): boolean {
 export async function canPreviewBuilder(pageId: string, userId: number): Promise<boolean> {
   if (!BUILDER_PAGE_ID.test(pageId) || !Number.isSafeInteger(userId) || userId <= 0) return false
   try {
+    if (!await isModuleEnabled('page-builder')) return false
     const user = await db.user.findUnique({ where: { id: userId }, include: { roleRef: true } })
     if (!user || user.status !== 'ACTIVE' || user.role !== 'ADMIN') return false
     const permissions = user.roleId != null ? parsePermissions(user.roleRef?.permissions || '') : null
@@ -44,6 +47,8 @@ export async function resolvePreviewDoc(pageId: string): Promise<BuilderDoc | nu
 /** A real post / product to show a single template with — preferring one its rules match. */
 async function sampleEntry(meta: ThemeTemplateMeta): Promise<string | null> {
   if (meta.type === 'single-post') {
+    const specific = meta.conditions.find(rule => rule.mode === 'include' && rule.target.startsWith('post-id:'))
+    if (specific) return (await db.post.findFirst({where:{id:Number(specific.target.slice(8))},select:{slug:true}}))?.slug || null
     const category = meta.conditions.find((rule) => rule.mode === 'include' && rule.target.startsWith('post-category:'))
     let where: Record<string, unknown> = { status: 'PUBLISHED' }
     if (category) {
@@ -55,6 +60,8 @@ async function sampleEntry(meta: ThemeTemplateMeta): Promise<string | null> {
     return post?.slug || null
   }
   if (meta.type === 'single-product') {
+    const specific = meta.conditions.find(rule => rule.mode === 'include' && rule.target.startsWith('product-id:'))
+    if (specific) return (await db.product.findFirst({where:{id:Number(specific.target.slice(11))},select:{slug:true}}))?.slug || null
     const kind = meta.conditions.find((rule) => rule.mode === 'include' && rule.target.startsWith('product-kind:'))
     const category = meta.conditions.find((rule) => rule.mode === 'include' && rule.target.startsWith('product-category:'))
     const where: Record<string, unknown> = {}
@@ -66,6 +73,11 @@ async function sampleEntry(meta: ThemeTemplateMeta): Promise<string | null> {
     const product = await db.product.findFirst({ where, orderBy: [{ active: 'desc' }, { id: 'desc' }], select: { slug: true } })
       || await db.product.findFirst({ orderBy: { id: 'desc' }, select: { slug: true } })
     return product?.slug || null
+  }
+  if (meta.type === 'surface' && meta.surface && meta.surface !== 'dashboard') {
+    const specific = meta.conditions.find(rule => rule.mode === 'include' && rule.target.startsWith('entry:'))
+    if (specific) return (await exactSurfaceExample(meta.surface, Number(specific.target.slice(6))))?.slug || null
+    return (await surfaceExamples(meta.surface))[0]?.slug || null
   }
   return null
 }

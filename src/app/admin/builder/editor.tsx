@@ -15,6 +15,10 @@ import Canvas, { CodePane, type DragState } from './canvas'
 import Inspector from './inspector'
 import TemplatesPanel from './templates-panel'
 import KitPanel from './kit-panel'
+import LivePreviewFrame from './LivePreviewFrame'
+import AiDesignPanel from './AiDesignPanel'
+import { useBuilderLivePreview } from './use-live-preview'
+import './studio.css'
 import { ensureTemplateForms } from './template-forms'
 
 type Meta = { title: string; titleEn: string; path: string; status?: string }
@@ -24,7 +28,7 @@ const HISTORY_LIMIT = 80
 const COALESCE_MS = 1200
 
 type Device = 'desktop' | 'tablet' | 'mobile'
-const DEVICE_WIDTH: Record<Device, string> = { desktop: '100%', tablet: '820px', mobile: '390px' }
+
 
 const previewUrl = (pageId: string, version: number | string) => `/builder-preview/${encodeURIComponent(pageId)}?v=${version}`
 
@@ -68,14 +72,23 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
   const [message, setMessage] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
   const [showKit, setShowKit] = useState(false)
+  const [showAi, setShowAi] = useState(false)
+  const [revision, setRevision] = useState<string | undefined>()
   const [view, setView] = useState<'live' | 'structure'>('live')
   const [panels, setPanels] = useState({ left: true, right: true })
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 900px)')
+    const collapse = () => { if (query.matches) setPanels({ left: false, right: false }) }
+    collapse(); query.addEventListener('change', collapse)
+    return () => query.removeEventListener('change', collapse)
+  }, [])
   const [previewSrc, setPreviewSrc] = useState(() => previewUrl(pageId, 0))
   const [device, setDevice] = useState<Device>('desktop')
   const draftPushed = useRef(false)
   const lastEdit = useRef<{ key: string; at: number }>({ key: '', at: 0 })
   const [postTpl, setPostTpl] = useState<PostTemplateState | null>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const previewReady = useRef(false), refreshPending = useRef(true)
   const selRef = useRef<Sel | null>(null)
   useEffect(() => { selRef.current = sel }, [sel])
 
@@ -85,12 +98,17 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
   const entryId = entry ? Number(entry[2]) : 0
   const isPost = entity === 'post'
   const postId = isPost ? entryId : 0
-  const templateKind = /^tpl-(header|footer|page|post|product)-/.exec(pageId)?.[1] || null
+  const templateKind = /^tpl-(header|footer|page|post|product|surface)-/.exec(pageId)?.[1] || null
   const [chromeTemplates, setChromeTemplates] = useState<ChromeTemplate[]>([])
 
   const refreshPreview = useCallback(() => {
-    setPreviewSrc(previewUrl(pageId, Date.now()))
+    const frame = iframeRef.current
+    refreshPending.current = true
+    if (frame?.contentWindow && frame.getAttribute('src')?.startsWith('/builder-preview/' + encodeURIComponent(pageId))) {
+      if (previewReady.current) { frame.contentWindow.postMessage({ source: 'happ-builder-editor', type: 'refresh', pageId }, window.location.origin); refreshPending.current = false }
+    } else { previewReady.current = false; setPreviewSrc(previewUrl(pageId, Date.now())) }
   }, [pageId])
+  useEffect(() => { previewReady.current = false; refreshPending.current = true }, [pageId, view, doc?.mode, previewSrc])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,7 +121,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
       const next = restored && draftDoc ? draftDoc : stored
       draftPushed.current = !!data.draft
       docRef.current = next
-      setDoc(next); setMeta(data.meta); setSaved(JSON.stringify(stored)); setPast([]); setFuture([])
+      setDoc(next); setMeta(data.meta); setRevision(data.revision); setSaved(JSON.stringify(stored)); setPast([]); setFuture([])
       setSel(next.sections[0] ? { kind: 'section', sectionId: next.sections[0].id } : null)
       setMessage(restored ? L('Unsaved draft restored.', 'پیش‌نویس ذخیره‌نشده بازیابی شد.') : '')
       refreshPreview()
@@ -179,41 +197,15 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
     setBusy(true); setMessage('')
     const response = await fetch('/api/admin/page-builder', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pageId, doc }),
+      body: JSON.stringify({ pageId, doc, expectedRevision: revision }),
     }).catch(() => null)
     const data = await response?.json().catch(() => null)
-    if (response?.ok) { draftPushed.current = false; setSaved(JSON.stringify(doc)); setMessage(L('Saved.', 'ذخیره شد.')); refreshPreview() }
+    if (response?.ok) { const stored: BuilderDoc = data.doc || doc; setRevision(data.revision); if (docRef.current === doc) { docRef.current = stored; setDoc(stored) } draftPushed.current = false; setSaved(JSON.stringify(stored)); setMessage(L('Saved.', 'ذخیره شد.')); refreshPreview() }
     else setMessage(data?.error || L('Save failed.', 'ذخیره انجام نشد.'))
     setBusy(false)
-  }, [doc, pageId, busy, uploading, L, refreshPreview])
+  }, [doc, pageId, busy, uploading, L, refreshPreview, revision])
 
-  // Elementor-style live preview: push the unsaved draft and reload the iframe.
-  // When the document is back to the saved version the draft is discarded.
-  useEffect(() => {
-    if (loading || !doc) return
-    const clean = JSON.stringify(doc) === saved
-    if (clean && !draftPushed.current) return
-    let cancelled = false
-    const timer = setTimeout(() => {
-      const request = clean
-        ? fetch(`/api/admin/builder/draft?pageId=${encodeURIComponent(pageId)}`, { method: 'DELETE' })
-        : fetch('/api/admin/builder/draft', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pageId, doc }),
-          })
-      void request.then(async (response) => {
-        if (cancelled) return
-        if (response.ok) {
-          draftPushed.current = !clean
-          refreshPreview()
-        } else {
-          const data = await response.json().catch(() => null)
-          setMessage(data?.error || L('Live preview could not be updated.', 'پیش‌نمایش زنده به‌روز نشد.'))
-        }
-      }).catch(() => undefined)
-    }, 600)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [doc, saved, loading, pageId, refreshPreview, L])
+  const live = useBuilderLivePreview({ doc, saved, loading, pageId, draftPushed, refresh: refreshPreview })
 
   const sendSelection = useCallback(() => {
     const current = selRef.current
@@ -233,12 +225,12 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return
       const data = event.data as {
-        source?: string; type?: string; sectionId?: string | null; columnId?: string | null; widgetId?: string | null
+        pageId?: string; source?: string; type?: string; sectionId?: string | null; columnId?: string | null; widgetId?: string | null
         fromId?: string | null; toId?: string | null; after?: number | boolean; index?: number
         widgetType?: string; columns?: number; key?: string; shift?: boolean
       } | null
-      if (!data || data.source !== 'happ-builder-preview') return
-      if (data.type === 'ready') { sendSelection(); return }
+      if (!data || data.source !== 'happ-builder-preview' || data.pageId !== pageId) return
+      if (data.type === 'ready') { previewReady.current = true; if (refreshPending.current) refreshPreview(); sendSelection(); return }
       if (data.type === 'key') {
         if (data.key === 's') void saveRef.current()
         else if (data.key === 'z' && !data.shift) undoRef.current()
@@ -292,7 +284,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [sendSelection, onChange])
+  }, [sendSelection, onChange, pageId, refreshPreview])
 
   // Tell the preview iframe that a palette item is being dragged from the editor.
   const setDragBridged = useCallback((next: DragState) => {
@@ -469,7 +461,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
     <option value="none">{part === 'header' ? L('No header', 'بدون هدر') : L('No footer', 'بدون فوتر')}</option>
     {chromeTemplates.filter((tpl) => tpl.type === part).map((tpl) => <option key={tpl.id} value={tpl.id}>{L(tpl.nameEn || tpl.name, tpl.name)}{tpl.status !== 'published' ? L(' (draft)', ' (پیش‌نویس)') : ''}</option>)}
   </select>
-  const showChrome = doc.mode === 'builder' && templateKind !== 'header' && templateKind !== 'footer'
+  const showChrome = doc.mode === 'builder' && templateKind !== 'header' && templateKind !== 'footer' && templateKind !== 'surface'
   // An article template wears one of the magazine's page styles on its header and reading column (layout.postStyle).
   const setPostStyle = (value: string) => {
     const { postStyle: _previous, ...rest } = doc.layout || { header: 'default', footer: 'default' }
@@ -488,7 +480,10 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
           {dirty && <span className="bld-dirty">{L(' · unsaved changes', ' · تغییرات ذخیره‌نشده')}</span>}
         </p>
       </div>
-      <div className="builder-head-actions">
+      <div className="builder-head-actions"><span className={`bld-sync is-${live.state}`} role="status">{live.state === 'syncing' ? 'همگام‌سازی پیش‌نمایش…' : live.state === 'error' ? 'پیش‌نمایش همگام نیست' : 'پیش‌نمایش همگام است'}</span>
+        <button type="button" className="btn btn-ghost" aria-pressed={showAi} onClick={() => setShowAi(value => !value)}>دستیار طراحی</button><button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || uploading || !dirty}>
+          {busy ? L('Saving…', 'در حال ذخیره…') : uploading ? L('Uploading…', 'در حال بارگذاری…') : dirty ? meta?.status === 'DRAFT' ? L('Save draft', 'ذخیره پیش‌نویس') : L('Save', 'ذخیره') : L('Saved ✓', 'ذخیره شد ✓')}
+        </button><details className="bld-tool-menu"><summary>ابزارها و تنظیمات</summary><div className="bld-tool-content">
         <div className="bld-modes" role="tablist">
           <button type="button" role="tab" aria-selected={doc.mode === 'builder'} className={doc.mode === 'builder' ? 'is-selected' : ''} onClick={() => setMode('builder')}>{L('Builder', 'صفحه‌ساز')}</button>
           <button type="button" role="tab" aria-selected={doc.mode === 'code'} className={doc.mode === 'code' ? 'is-selected' : ''} onClick={() => setMode('code')}>{L('Code', 'کد')}</button>
@@ -552,13 +547,14 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
         {meta?.path && <Link className="btn btn-ghost" href={meta.status === 'DRAFT' ? previewSrc : meta.path} target="_blank">{meta.status === 'DRAFT' ? L('Private preview ↗', 'پیش‌نمایش خصوصی ↗') : L('Open page ↗', 'نمایش صفحه ↗')}</Link>}
         {meta?.status && /^\d+$/.test(pageId) && <Link className="btn btn-ghost" href={`/admin/pages?edit=${pageId}`}>{L('Publication & page settings', 'انتشار و تنظیمات صفحه')}</Link>}
         <Link className="btn btn-ghost" href={`/admin/history?type=${encodeURIComponent(`builder:${pageId}`)}&id=1`} title={L('Every saved version of this design; an earlier one can be put back', 'هر نسخهٔ ذخیره‌شدهٔ این طرح؛ می‌توانید نسخهٔ قبلی را برگردانید')}>{L('History', 'تاریخچه')}</Link>
-        <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || uploading || !dirty}>
-          {busy ? L('Saving…', 'در حال ذخیره…') : uploading ? L('Uploading…', 'در حال بارگذاری…') : dirty ? meta?.status === 'DRAFT' ? L('Save draft', 'ذخیره پیش‌نویس') : L('Save', 'ذخیره') : L('Saved ✓', 'ذخیره شد ✓')}
-        </button>
-      </div>
+
+      </div></details></div>
     </header>
     {message && <p role="status" className="builder-status">{message}</p>}
-    {meta?.status === 'DRAFT' && <p className="builder-status">{L('This page is private. Saving the design keeps it a draft; review and publish it in Publication & page settings.', 'این صفحه پیش‌نویس است و عمومی نیست. ذخیرهٔ طرح آن را منتشر نمی‌کند؛ انتشار نهایی از «انتشار و تنظیمات صفحه» انجام می‌شود.')}</p>}
+    {live.error && <p className="builder-status" role="alert">{live.error} <button type="button" className="btn btn-ghost btn-sm" onClick={live.retry}>تلاش دوبارهٔ پیش‌نمایش</button></p>}
+    {showAi && <AiDesignPanel pageId={pageId} doc={doc} close={() => setShowAi(false)} apply={next => onChange(next, null)} />}
+    {meta?.status === 'DRAFT' && <p className="builder-status">{templateKind ? <>این قالب پیش‌نویس است؛ ذخیرهٔ طرح آن را منتشر نمی‌کند. <Link href="/admin/theme-builder">انتشار و شرط‌های نمایش</Link></> : L('This page is private. Saving the design keeps it a draft; review and publish it in Publication & page settings.', 'این صفحه پیش‌نویس است و عمومی نیست. ذخیرهٔ طرح آن را منتشر نمی‌کند؛ انتشار نهایی از «انتشار و تنظیمات صفحه» انجام می‌شود.')}</p>}
+    {(meta?.status === 'PUBLISHED' || !!entry || pageId === 'home' || pageId === 'blog') && <p className="builder-status">ذخیرهٔ طرحِ محتوای منتشرشده، نمایش آن را به‌روز می‌کند. برای بررسی جداگانه ابتدا یک قالب پیش‌نویس بسازید.</p>}
     <div className={`builder-grid${panels.left ? '' : ' is-left-hidden'}${panels.right ? '' : ' is-right-hidden'}`}>
       {doc.mode === 'builder'
         ? <Palette
@@ -599,15 +595,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
                     <button type="button" className="btn btn-ghost btn-sm" onClick={refreshPreview}>{L('Refresh', 'تازه‌سازی')}</button>
                   </div>
                 </div>
-                <div className={`bld-preview-stage is-${device}`}>
-                  <iframe
-                    ref={iframeRef}
-                    className="bld-preview-frame"
-                    style={{ inlineSize: DEVICE_WIDTH[device] }}
-                    src={previewSrc}
-                    title={L('Live preview', 'پیش‌نمایش زنده')}
-                  />
-                </div>
+                <LivePreviewFrame device={device} src={previewSrc} frameRef={iframeRef} title={L('Live preview', 'پیش‌نمایش زنده')} />
               </div>
             )
             : (

@@ -12,11 +12,14 @@
  * page id `tpl-<type>-<suffix>`, so the visual editor edits templates unchanged.
  */
 
-export const THEME_TEMPLATE_TYPES = ['header', 'footer', 'page', 'single-post', 'single-product'] as const
+import { isBuilderSurface, surfaceCondition, currentSurfaceScore, type BuilderSurface } from './builder-surfaces'
+
+export const THEME_TEMPLATE_TYPES = ['header', 'footer', 'page', 'single-post', 'single-product', 'surface'] as const
 export type ThemeTemplateType = typeof THEME_TEMPLATE_TYPES[number]
 
 /** Short id fragment used in page ids: tpl-<code>-<suffix>. */
 export const TYPE_CODE: Record<ThemeTemplateType, string> = {
+  surface: 'surface',
   header: 'header',
   footer: 'footer',
   page: 'page',
@@ -26,6 +29,7 @@ export const TYPE_CODE: Record<ThemeTemplateType, string> = {
 const CODE_TYPE = Object.fromEntries(Object.entries(TYPE_CODE).map(([type, code]) => [code, type])) as Record<string, ThemeTemplateType>
 
 export const THEME_TYPE_LABELS: Record<ThemeTemplateType, { fa: string; en: string; descFa: string; descEn: string }> = {
+  surface: { fa: 'قالب بخش و داشبورد', en: 'Content & dashboard', descFa: 'طراحی جزئیات فیلم، موزیک، بازی و نرم‌افزار یا پیشخوان کاربر؛ بدون تغییر داده و دسترسی.', descEn: 'Design section entries or member home using owner-rendered content.' },
   header: { fa: 'هدر', en: 'Header', descFa: 'سربرگ اختصاصی سایت؛ با شرط نمایش روی همه یا بخشی از صفحات.', descEn: 'Custom site header, shown where its rules match.' },
   footer: { fa: 'فوتر', en: 'Footer', descFa: 'پابرگ اختصاصی سایت؛ با شرط نمایش.', descEn: 'Custom site footer, shown where its rules match.' },
   page: { fa: 'صفحه', en: 'Page', descFa: 'صفحهٔ آزاد: صفحه اصلی، صفحه اصلی مجله، فروشگاه یا یک بخش با آدرس کوتاه (مثل ‎/gaming).', descEn: 'Free page: home, journal landing, shop landing or a section at a short URL (e.g. /gaming).' },
@@ -33,7 +37,7 @@ export const THEME_TYPE_LABELS: Record<ThemeTemplateType, { fa: string; en: stri
   'single-product': { fa: 'قالب محصول', en: 'Single product', descFa: 'چیدمان صفحهٔ محصول؛ مجزا برای محصولات مجازی، فیزیکی یا هر دسته.', descEn: 'Product page layout — per digital/physical kind or category.' },
 }
 
-export const TEMPLATE_PAGE_ID = /^tpl-(header|footer|page|post|product)-[a-z0-9]{4,24}$/
+export const TEMPLATE_PAGE_ID = /^tpl-(header|footer|page|post|product|surface)-[a-z0-9]{4,24}$/
 
 export function templateTypeOf(pageId: string): ThemeTemplateType | null {
   const match = TEMPLATE_PAGE_ID.exec(pageId)
@@ -55,20 +59,25 @@ export function newTemplateId(type: ThemeTemplateType): string {
  */
 export type ConditionRule = { mode: 'include' | 'exclude'; target: string }
 
-const TARGET = /^(all|home|blog|shop|pages|sections|posts|products|section:[a-z0-9-]{1,40}|post-category:\d{1,9}|product-category:\d{1,9}|product-kind:(VIRTUAL|PHYSICAL))$/
+const TARGET = /^(all|home|blog|shop|pages|sections|posts|products|section:[a-z0-9-]{1,40}|post-category:\d{1,9}|product-category:\d{1,9}|product-kind:(VIRTUAL|PHYSICAL)|post-id:[1-9]\d{0,8}|product-id:[1-9]\d{0,8})$/
 
 /** Which targets make sense for which template type. */
 export function targetAllowed(type: ThemeTemplateType, target: string): boolean {
+  if (type === 'surface') return surfaceCondition(target)
   if (!TARGET.test(target)) return false
-  if (type === 'single-post') return target === 'all' || target === 'posts' || target.startsWith('post-category:')
-  if (type === 'single-product') return target === 'all' || target === 'products' || target.startsWith('product-category:') || target.startsWith('product-kind:')
+  if (type === 'single-post') return target === 'all' || target === 'posts' || target.startsWith('post-category:') || target.startsWith('post-id:')
+  if (type === 'single-product') return target === 'all' || target === 'products' || target.startsWith('product-category:') || target.startsWith('product-kind:') || target.startsWith('product-id:')
   if (type === 'page') return false
   return true
 }
 
 /** What is being rendered — used to pick header/footer/single templates. */
 export type RenderContext = {
-  route: 'home' | 'blog' | 'shop' | 'page' | 'section' | 'post' | 'product' | 'other'
+  route: 'home' | 'blog' | 'shop' | 'page' | 'section' | 'post' | 'product' | 'surface' | 'other'
+  surface?: BuilderSurface
+  entryId?: number
+  postId?: number
+  productId?: number
   sectionSlug?: string
   /** Post categories of the current post, including ancestors. */
   postCategoryIds?: number[]
@@ -79,6 +88,9 @@ export type RenderContext = {
 
 /** 0 = no match; higher = more specific. */
 export function targetScore(target: string, ctx: RenderContext): number {
+  if (ctx.route === 'surface') return currentSurfaceScore(target, ctx.entryId)
+  if (target.startsWith('post-id:')) return ctx.route === 'post' && ctx.postId === Number(target.slice(8)) ? 7 : 0
+  if (target.startsWith('product-id:')) return ctx.route === 'product' && ctx.productId === Number(target.slice(11)) ? 7 : 0
   if (target === 'all') return 1
   if (target === 'home') return ctx.route === 'home' ? 5 : 0
   if (target === 'blog') return ctx.route === 'blog' ? 5 : 0
@@ -133,6 +145,8 @@ export const SECTION_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 // ---------------------------------------------------------------- index entry
 
 export type ThemeTemplateMeta = {
+  generation?: 1
+  surface?: BuilderSurface
   solution?: string
   id: string
   type: ThemeTemplateType
@@ -194,12 +208,17 @@ export function validateTemplateMeta(input: unknown, existing?: ThemeTemplateMet
   const id = existing?.id || text(m.id, 64)
   const type = existing?.type || templateTypeOf(id)
   if (!type || !TEMPLATE_PAGE_ID.test(id)) throw new Error('Invalid template id')
+  const surface = existing?.surface ?? m.surface
+  if (type === 'surface' && !isBuilderSurface(surface)) throw new Error('نوع بخش طراحی معتبر نیست')
+  if (type === 'surface' && (surface === 'dashboard' || surface === 'account') && validateConditions(type, m.conditions ?? existing?.conditions ?? []).some(rule => rule.target !== 'all')) throw new Error('قالب حساب کاربری فقط شرط عمومی دارد')
   const now = new Date().toISOString()
   const name = text(m.name ?? existing?.name, 80)
   if (!name) throw new Error('نام قالب لازم است / Template name is required')
   return {
     id,
     type,
+    ...(type === 'surface' ? { surface: surface as BuilderSurface } : {}),
+    ...((existing ? existing.generation : m.generation) === 1 ? { generation: 1 as const } : {}),
     name,
     nameEn: text(m.nameEn ?? existing?.nameEn, 80),
     ...(['hosting', 'journal', 'store', 'music', 'cinema', 'software', 'games'].includes(String(m.solution ?? existing?.solution)) ? { solution: String(m.solution ?? existing?.solution) } : {}),
@@ -266,6 +285,9 @@ export function describeTarget(target: string, fa: boolean, names: { post: Map<n
     case 'products': return L('All products', 'همه محصولات')
   }
   const [kind, value] = target.split(':')
+  if (kind === 'entry') return `${L('This section entry', 'مورد همین بخش')} #${value}`
+  if (kind === 'post-id') return `${L('Post', 'نوشته')} #${value}`
+  if (kind === 'product-id') return `${L('Product', 'محصول')} #${value}`
   if (kind === 'section') return `${L('Section', 'بخش')} /${value}`
   if (kind === 'post-category') return `${L('Post category', 'دستهٔ پست')}: ${names.post.get(Number(value)) || `#${value}`}`
   if (kind === 'product-category') return `${L('Product category', 'دستهٔ محصول')}: ${names.product.get(Number(value)) || `#${value}`}`

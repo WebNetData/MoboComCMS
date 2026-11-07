@@ -1,5 +1,6 @@
 'use client'
 
+import Icon from '@/components/site/Icon'
 import { useState } from 'react'
 import { WIDGET_LABELS, type BuilderDoc, type WidgetType, POST_SLOT_TYPES, PRODUCT_SLOT_TYPES } from '@/modules/site/domain/builder'
 import type { Sel } from './state'
@@ -8,6 +9,7 @@ import type { DragState } from './canvas'
 type L = (en: string, fa: string) => string
 
 const GROUPS: { titleEn: string; titleFa: string; types: WidgetType[] }[] = [
+  { titleEn: 'Live context', titleFa: 'محتوا و پیشخوان پویا', types: ['dynamic-value', 'surface-content', 'dashboard-part'] },
   { titleEn: 'Content', titleFa: 'محتوا', types: ['heading', 'text', 'image', 'button', 'video', 'nav'] },
   { titleEn: 'Structure', titleFa: 'ساختار', types: ['divider', 'spacer', 'stats', 'list', 'faq'] },
   { titleEn: 'Showcase', titleFa: 'نمایشی', types: ['icon-box', 'tabs', 'testimonials', 'counters', 'progress', 'pricing', 'countdown'] },
@@ -20,16 +22,6 @@ const GROUPS: { titleEn: string; titleFa: string; types: WidgetType[] }[] = [
 const POST_GROUP = { titleEn: 'Article parts', titleFa: 'اجزای مقاله', types: [...POST_SLOT_TYPES] as WidgetType[] }
 const PRODUCT_GROUP = { titleEn: 'Product parts', titleFa: 'اجزای محصول', types: [...PRODUCT_SLOT_TYPES] as WidgetType[] }
 const CHROME_GROUP = { titleEn: 'Site header & footer', titleFa: 'هدر و فوتر سایت', types: ['site-header', 'site-footer', 'nav'] as WidgetType[] }
-
-const GLYPH: Partial<Record<WidgetType, string>> = {
-  heading: 'H', text: '¶', image: '🖼', button: '➔', video: '▶', nav: '☰', divider: '—', spacer: '↕', stats: '#', list: '▦', faq: '?',
-  hero: '★', cta: '📣', plans: '💳', posts: '📰', products: '🛒', network: '🌐', form: '✉', html: '</>', template: '⧉',
-  'post-header': 'T', 'post-cover': '▭', content: '≡', 'post-footer': '⌄',
-  'product-hero': '◈', 'product-gallery': '▤', 'product-info': 'ℹ', 'product-purchase': '🛍', 'product-usp': '✓', 'product-tabs': '⊟',
-  'site-header': '▔', 'site-footer': '▁',
-  media: '🎬', 'vip-cta': '♛',
-  'icon-box': '◆', tabs: '⊟', testimonials: '❝', counters: '①', gallery: '▦', carousel: '⇆', slides: '▶', accordion: '☰', 'flip-box': '⟲', 'animated-headline': '✎', 'before-after': '◧', timeline: '┊', team: '☺', logos: '◎', marquee: '⇢', steps: '①', comparison: '▤', 'video-box': '▷', alert: '!', rating: '★', pricing: '₪', countdown: '⏱', social: '@', progress: '▰',
-}
 
 /** Extra block groups offered for the page being edited. */
 function groupsFor(pageId = '') {
@@ -92,7 +84,7 @@ export default function Palette({ doc, sel, L, drag, setDrag, pageId, onSelect, 
           onDragEnd={() => setDrag(null)}
           onClick={() => onAddWidget(type)}
         >
-          <span aria-hidden="true">{GLYPH[type] || '＋'}</span>
+          <Icon name={type.includes('image') || type === 'gallery' ? 'image' : type === 'button' ? 'arrow' : type.includes('product') ? 'bag' : type === 'dynamic-value' ? 'bolt' : type === 'dashboard-part' ? 'user' : 'layers'} size={18} />
           {L(WIDGET_LABELS[type].en, WIDGET_LABELS[type].fa)}
         </button>)}
       </div>

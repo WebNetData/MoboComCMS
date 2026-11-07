@@ -410,7 +410,7 @@ test('bulk import wiring: own permission, audit, real models, no parallel system
   assert.match(read('src/modules/imports/server/adapters/sections.ts'), /fixed: \{ kind: 'SERIES' \}/)
   assert.match(read('src/modules/imports/server/media.ts'), /storeCoverImage/, 'images go through the site image store')
   assert.match(read('src/modules/site/server/http/admin/media/route.ts'), /storeCoverImage/)
-  for (const file of ['src/modules/catalog/server/pages/products/[slug]/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/app/cinema/[slug]/page.tsx', 'src/app/layout.tsx']) assert.match(read(file), /safeJsonLd\(/, file)
+  for (const file of ['src/modules/catalog/server/pages/products/[slug]/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/app/cinema/[slug]/detail-view.tsx', 'src/app/layout.tsx']) assert.match(read(file), /safeJsonLd\(/, file)
 })
 
 

@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript-api')
 require('./site-identity-homepages.cases.cjs')
+require('./visual-studio.cases.cjs')
 
 function load(file, mocks = {}, cache = new Map()) {
   const absolute = path.resolve(__dirname, '..', file)

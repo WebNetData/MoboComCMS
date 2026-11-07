@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { useRouter } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { BUILDER_SURFACES, SURFACE_LABELS, type BuilderSurface } from '@/modules/site/domain/builder-surfaces'
 import {
   THEME_TEMPLATE_TYPES, THEME_TYPE_LABELS, describeTarget,
   type ConditionRule, type Placement, type ThemeTemplateMeta, type ThemeTemplateType,
@@ -14,19 +15,23 @@ type Category = { id: number; name: string; nameEn: string; parentId: number | n
 type Preset = { id: string; fa: string; en: string; descFa: string; descEn: string; sections: number }
 type Payload = { templates: ThemeTemplateMeta[]; postCategories: Category[]; productCategories: Category[]; presets: Record<ThemeTemplateType, Preset[]> }
 type L = (en: string, fa: string) => string
-const AUTHORING_TYPES = THEME_TEMPLATE_TYPES.filter(type => type !== 'single-post')
+const AUTHORING_TYPES = THEME_TEMPLATE_TYPES
 
-const TYPE_GLYPH: Record<ThemeTemplateType, string> = { header: '▔', footer: '▁', page: '▣', 'single-post': '¶', 'single-product': '◈' }
+const TYPE_GLYPH: Record<ThemeTemplateType, string> = { surface: '▦', header: '▔', footer: '▁', page: '▣', 'single-post': '¶', 'single-product': '◈' }
 
 /** Which rule kinds a template type offers. */
 const RULE_KINDS: Record<Exclude<ThemeTemplateType, 'page'>, string[]> = {
+  surface: ['all', 'entry'],
   header: ['all', 'home', 'blog', 'shop', 'pages', 'sections', 'section', 'posts', 'post-category', 'products', 'product-kind', 'product-category'],
   footer: ['all', 'home', 'blog', 'shop', 'pages', 'sections', 'section', 'posts', 'post-category', 'products', 'product-kind', 'product-category'],
-  'single-post': ['posts', 'post-category'],
-  'single-product': ['products', 'product-kind', 'product-category'],
+  'single-post': ['posts', 'post-category', 'post-id'],
+  'single-product': ['products', 'product-kind', 'product-category', 'product-id'],
 }
 
 const KIND_LABEL = (L: L): Record<string, string> => ({
+  entry: L('One entry', 'یک مورد از همین بخش'),
+  'post-id': L('One post', 'یک نوشتهٔ مشخص'),
+  'product-id': L('One product', 'یک محصول مشخص'),
   all: L('Entire site', 'کل سایت'),
   home: L('Home page', 'صفحه اصلی'),
   blog: L('Journal landing', 'صفحه اصلی مجله'),
@@ -76,7 +81,7 @@ export default function ThemeBuilderPage() {
 
   const patch = async (id: string, body: Record<string, unknown>) => {
     setBusy(id); setError('')
-    const response = await fetch('/api/admin/theme-templates', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...body }) })
+    const response = await fetch('/api/admin/theme-templates', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, expectedUpdatedAt: data?.templates.find(meta => meta.id === id)?.updatedAt, ...body }) })
     const result = await response.json().catch(() => null)
     setBusy('')
     if (!response.ok) { setError(result?.error || L('Update failed.', 'به‌روزرسانی انجام نشد.')); return false }
@@ -103,7 +108,7 @@ export default function ThemeBuilderPage() {
     await load()
   }
 
-  const templates = (data?.templates || []).filter(entry => entry.type !== 'single-post')
+  const templates = (data?.templates || []).filter(entry => entry.type !== 'single-post' || entry.generation === 1)
   const words = query.trim().toLowerCase().split(/s+/).filter(Boolean)
   const found = templates.filter((entry) => words.every((word) => [entry.name, entry.nameEn || '', entry.placement.slug].join(' ').toLowerCase().includes(word)) && (!status || entry.status === status))
   const shown = filter === 'all' ? found : found.filter((entry) => entry.type === filter)
@@ -181,7 +186,7 @@ export default function ThemeBuilderPage() {
                 <span>{live ? L('Live', 'فعال') : L('Draft', 'پیش‌نویس')}</span>
               </label>
             </div>
-            <h3>{L(meta.nameEn || meta.name, meta.name)}</h3>
+            <h3>{L(meta.nameEn || meta.name, meta.name)}</h3>{meta.surface && <p className="muted">{SURFACE_LABELS[meta.surface]}</p>}
             <div className="tb-rules">
               {meta.type === 'page'
                 ? <span className={`tb-chip${meta.placement.kind === 'none' ? ' is-muted' : ''}`}>{meta.placement.kind === 'none' ? L('Not placed', 'بدون جایگاه') : meta.placement.kind === 'home' ? L('Home page', 'صفحه اصلی') : meta.placement.kind === 'blog' ? L('Journal landing', 'صفحه اصلی مجله') : meta.placement.kind === 'shop' ? L('Shop landing', 'صفحه فروشگاه') : <span dir="ltr">/{meta.placement.slug}</span>}</span>
@@ -229,13 +234,14 @@ function CreateDialog({ L, presets, onClose, onCreated }: { L: L; presets: Recor
   const [name, setName] = useState('')
   const [nameEn, setNameEn] = useState('')
   const [preset, setPreset] = useState('')
+  const [surface, setSurface] = useState<BuilderSurface>('dashboard')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   const create = async () => {
     if (!type || !name.trim()) return
     setBusy(true); setError('')
-    const response = await fetch('/api/admin/theme-templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, name, nameEn, preset }) }).catch(() => null)
+    const response = await fetch('/api/admin/theme-templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, name, nameEn, surface, preset: type === 'surface' ? (surface === 'dashboard' ? 'surface-dashboard' : 'surface-entry') : preset }) }).catch(() => null)
     const result = await response?.json().catch(() => null)
     setBusy(false)
     if (response?.ok && result?.template) onCreated(result.template)
@@ -255,6 +261,7 @@ function CreateDialog({ L, presets, onClose, onCreated }: { L: L; presets: Recor
           <small>{L(THEME_TYPE_LABELS[entry].descEn, THEME_TYPE_LABELS[entry].descFa)}</small>
         </button>)}
       </div> : <>
+        {type === 'surface' && <label className="bld-field">بخش طراحی<select className="select" value={surface} onChange={event => setSurface(event.target.value as BuilderSurface)}>{BUILDER_SURFACES.map(value => <option key={value} value={value}>{SURFACE_LABELS[value]}</option>)}</select></label>}
         <div className="tb-form-row">
           <label><span>{L('Name (FA)', 'نام (فارسی)')}</span><input className="input" autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder={type === 'single-post' ? 'مثلاً: قالب نقد فیلم' : type === 'page' ? 'مثلاً: بخش گیمینگ' : ''} /></label>
           <label><span>{L('Name (EN)', 'نام (انگلیسی)')}</span><input className="input" dir="ltr" value={nameEn} onChange={(event) => setNameEn(event.target.value)} /></label>
@@ -289,7 +296,7 @@ function toDraft(rule: ConditionRule): RuleDraft {
   return { mode: rule.mode, kind, value }
 }
 function fromDraft(rule: RuleDraft): ConditionRule | null {
-  const needsValue = ['section', 'post-category', 'product-category', 'product-kind'].includes(rule.kind)
+  const needsValue = ['section', 'post-category', 'product-category', 'product-kind', 'entry', 'post-id', 'product-id'].includes(rule.kind)
   if (needsValue && !rule.value) return null
   return { mode: rule.mode, target: needsValue ? `${rule.kind}:${rule.value}` : rule.kind }
 }
@@ -300,8 +307,9 @@ function RulesDialog({ L, fa, meta, data, onClose, onSave }: { L: L; fa: boolean
   const [sticky, setSticky] = useState(meta.sticky)
   const [placement, setPlacement] = useState<Placement>(meta.placement)
   const [saving, setSaving] = useState(false)
-  const kinds = meta.type === 'page' ? [] : RULE_KINDS[meta.type]
+  const kinds = meta.type === 'page' ? [] : meta.type === 'surface' && (meta.surface === 'dashboard' || meta.surface === 'account') ? ['all'] : RULE_KINDS[meta.type]
   const labels = KIND_LABEL(L)
+  if (meta.surface) labels.all = `همهٔ موارد ${SURFACE_LABELS[meta.surface]}`
   const sections = data.templates.filter((entry) => entry.type === 'page' && entry.placement.kind === 'section')
 
   const save = async () => {
@@ -314,6 +322,7 @@ function RulesDialog({ L, fa, meta, data, onClose, onSave }: { L: L; fa: boolean
 
   const valueField = (rule: RuleDraft, index: number) => {
     const set = (value: string) => setRules((list) => list.map((entry, i) => (i === index ? { ...entry, value } : entry)))
+    if (['entry', 'post-id', 'product-id'].includes(rule.kind)) return <input className="input" aria-label="شناسهٔ مورد" type="number" min="1" max="999999999" value={rule.value} onChange={event => set(event.target.value)} />
     if (rule.kind === 'post-category') return <select aria-label={L('Category', 'دسته')} className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
       <option value="">{L('Choose a category', 'انتخاب دسته')}</option>
       {data.postCategories.map((c) => <option key={c.id} value={c.id}>{catLabel(fa, c)}</option>)}

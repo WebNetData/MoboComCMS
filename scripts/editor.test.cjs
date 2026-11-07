@@ -496,7 +496,7 @@ test('stored HTML is given a direction per paragraph where it is shown, and a wr
   assert.deepEqual([stamp(''), stamp(null), stamp(undefined)], ['', '', ''])
   // It runs where prose is shown, not where it is saved.
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
-  for (const file of ['src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/modules/site/server/pages/p/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/software/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/app/music/artist/[slug]/page.tsx', 'src/components/ProductTabs.tsx']) assert.match(read(file), /__html: [^}]*withTextDirections\(/, file)
+  for (const file of ['src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/modules/site/server/pages/p/[slug]/page.tsx', 'src/app/games/[slug]/detail-view.tsx', 'src/app/software/[slug]/detail-view.tsx', 'src/app/music/album/[slug]/detail-view.tsx', 'src/app/music/artist/[slug]/page.tsx', 'src/components/ProductTabs.tsx']) assert.match(read(file), /__html: [^}]*withTextDirections\(/, file)
   assert.doesNotMatch(read('src/shared/content/sanitize.ts'), /withTextDirections/)
 })
 

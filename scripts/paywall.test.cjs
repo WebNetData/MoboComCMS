@@ -99,7 +99,7 @@ test('every gate asks the paywall: pages, download links, player, articles and c
     assert.ok(end > start && /await gate\(viewer/.test(links.slice(start, end)), `${name} checks paywall access`)
   }
   assert.match(links, /status: 402/)
-  for (const page of ['src/app/software/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/cinema/[slug]/page.tsx', 'src/app/music/track/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx']) {
+  for (const page of ['src/app/software/[slug]/detail-view.tsx', 'src/app/games/[slug]/detail-view.tsx', 'src/app/cinema/[slug]/detail-view.tsx', 'src/app/music/track/[slug]/detail-view.tsx', 'src/app/music/album/[slug]/detail-view.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx']) {
     assert.match(read(page), /paywallView\(/, page)
     assert.match(read(page), /<BuyContent /, page)
   }

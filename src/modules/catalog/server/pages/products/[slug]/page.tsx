@@ -95,6 +95,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
   const builderDoc = await resolveBuilderDoc(preview, `product-${product.id}`)
   const renderContext = await productContext(product.kind, product.categoryId)
   const editingTemplate = previewTemplate(preview, 'single-product')
+  renderContext.productId = product.id
   const templateDoc = await resolveEntryLayout('product', product.id, renderContext, editingTemplate)
   const builderContext = { productCategoryId: product.categoryId ?? null, currentProductId: product.id }
   const ownEditable = editableFor(preview, `product-${product.id}`)
@@ -233,7 +234,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
           <div className="br-container">{breadcrumbsNode}</div>
           {ldNodes}
           <BuilderRenderer
-            doc={ownLayout ? layoutDoc : ensureProductSlots(layoutDoc)}
+            values={{ title: product.name, cover: product.image || '', url: `/products/${product.slug}`, kind: product.kind }} doc={ownLayout ? layoutDoc : ensureProductSlots(layoutDoc)}
             locale={locale}
             preview={isPreview(preview)}
             editable={ownLayout ? ownEditable : !!editingTemplate}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { DASHBOARD_PARTS, DASHBOARD_LABELS, DYNAMIC_FIELDS, DYNAMIC_LABELS } from '@/modules/site/domain/builder-surfaces'
 import { BOX_ICONS, WIDGET_LABELS, type BuilderDoc, type BuilderWidget, type WidgetType } from '@/modules/site/domain/builder'
 import {
   addColumn, applyWidgetStyle, equalizeColumns, getSection, getWidget, nudgeSection, nudgeWidget,
@@ -23,6 +24,8 @@ const limitOptions = [{ value: '2', en: '2 items', fa: '۲ مورد' }, { value:
 const feedLimits = [...limitOptions, { value: '8', en: '8 items', fa: '۸ مورد' }, { value: '9', en: '9 items', fa: '۹ مورد' }, { value: '12', en: '12 items', fa: '۱۲ مورد' }]
 
 const FIELDS: Partial<Record<WidgetType, Field[]>> = {
+  'dynamic-value': [{ key: 'field', en: 'Current entry value', fa: 'دادهٔ همین محتوا', kind: 'select', options: DYNAMIC_FIELDS.map(value => ({value,en:value,fa:DYNAMIC_LABELS[value]})) }, {key:'as',en:'Text element',fa:'عنصر متن',kind:'select',options:['h1','h2','h3','p'].map(value=>({value,en:value,fa:value}))},{key:'fallback',en:'Fallback text',fa:'متن جایگزین در نبود داده',kind:'text'}],
+  'dashboard-part': [{ key: 'part', en: 'Dashboard part', fa: 'بخش پیشخوان', kind: 'select', options: DASHBOARD_PARTS.map(value => ({value,en:value,fa:DASHBOARD_LABELS[value]})) }],
   hosting: [{ key: 'title', en: 'Title', fa: 'عنوان', kind: 'text' }, { key: 'group', en: 'Catalogue', fa: 'کاتالوگ', kind: 'select', options: [{ value: 'all', en: 'All', fa: 'همه' }, { value: 'hosting', en: 'Hosting', fa: 'میزبانی وب' }, { value: 'servers', en: 'Servers', fa: 'سرورها' }] }],
   'icon-box': [
     { key: 'icon', en: 'Icon', fa: 'آیکن', kind: 'select', options: BOX_ICONS.map((name) => ({ value: name, en: name, fa: name })) },
