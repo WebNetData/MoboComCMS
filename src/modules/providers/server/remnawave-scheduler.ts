@@ -1,8 +1,10 @@
+import { runtimeOwnsBackgroundWork } from '@/modules/operations/server/runtime'
 import { runRemnaControl } from './remnawave-control'
 import { logEvent } from '@/platform/observability/logger'
 
 const state = globalThis as typeof globalThis & { remnaTimer?: ReturnType<typeof setInterval>; remnaBusy?: boolean }
 async function tick() {
+  if (!runtimeOwnsBackgroundWork()) return
   if (state.remnaBusy) return
   state.remnaBusy = true
   try { await runRemnaControl() }

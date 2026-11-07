@@ -1,3 +1,4 @@
+import { runtimeOwnsBackgroundWork } from '@/modules/operations/server/runtime'
 import { logEvent } from '@/platform/observability/logger'
 import { acquireLease } from '@/modules/settings/server'
 
@@ -169,6 +170,7 @@ export function startJobScheduler() {
   state.jobsBusy = new Set()
   state.jobsTick = 0
   const tick = async () => {
+    if (!runtimeOwnsBackgroundWork()) return
     const current = state.jobsTick = (state.jobsTick || 0) + 1
     for (const job of JOBS) {
       if (state.jobsBusy?.has(job.name)) continue

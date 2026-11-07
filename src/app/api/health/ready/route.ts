@@ -7,6 +7,6 @@ export async function GET() {
   const ready = await databaseReady()
   return NextResponse.json(
     { ok: ready, database: ready ? 'ready' : 'unavailable' },
-    { status: ready ? 200 : 503, headers: { 'Cache-Control': 'no-store' } },
+    { status: ready ? 200 : 503, headers: { 'Cache-Control': 'no-store', 'X-Mobocom-Runtime': process.env.ENGINEERING_RUN_ID || 'native' } },
   )
 }

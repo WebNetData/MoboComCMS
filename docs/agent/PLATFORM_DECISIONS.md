@@ -887,3 +887,11 @@ Owner2026-11-01: domain, SSL and email are entered during browser setup. No-argu
 
 
 Owner2026-11-07: extend the existing visual page/theme builder to fullscreen live authoring, individual/global content/product layouts, independent header/footer, specialist sections, account/member-home and optional AI design assistance. This explicitly reopens NEW article-layout authoring after the earlier retirement: generation1 templates and explicit direct post saves only; archived records are not reactivated. Protected default designs, canonical block content, identity, module gates and financial/access actions stay with their owners. Presentation templates do not authorize server commands, arbitrary private queries, executable themes or silent AI publication. [Implementation and scope](handoffs/VISUAL_SITE_STUDIO.md).
+## AI engineering authority — 2026-11-07
+
+Owner selected automatic isolated development and PR creation, with production
+promotion only after their approval. Existing per-request direct content-tool
+policy is separate. New skills are stored inert instructions, never new server
+authority. Preserve data and retain compatible code rollback; no automatic schema
+downgrade, root terminal, hosted workflow dispatch or owner merge. Scope and
+evidence: [AI engineering](handoffs/AI_ENGINEERING.md).

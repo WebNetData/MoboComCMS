@@ -1,3 +1,4 @@
+import { runtimeOwnsBackgroundWork } from '@/modules/operations/server/runtime'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 
@@ -35,6 +36,7 @@ function release() {
  * manual button, which must not wait for the next two-hour slot.
  */
 export function runBackupWorker(force = false) {
+  if (!force && !runtimeOwnsBackgroundWork()) return false
   if (backupRunning()) return false
   if (!postgresReady()) return false
   state.backupBusy = true

@@ -78,7 +78,7 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
 }
 
 async function claude(apiKey: string, model: string, prompt: Prompt): Promise<string> {
-  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 2, fetch: egressFetch as unknown as typeof fetch })
+  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: personalAiPurpose() === 'engineering' ? 0 : 2, fetch: egressFetch as unknown as typeof fetch })
   try {
     const response = await client.beta.messages.create({
       model,

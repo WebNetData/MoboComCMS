@@ -808,3 +808,23 @@ Architecture/skill adoption is documentation completion only. Maturity progresse
 ## Visual site studio continuation —2026-11-07
 
 The existing Site builder/theme registry owns the fullscreen visual studio and typed specialist/account/member-home presentation. Account/content owners retain queries, gates, private values and actions; closed slots never become an arbitrary data/execution engine. Public route adapters exclude internal preview props. Current-entry bindings, explicitly new generation1 article templates and optional proposal-only AI extend the same documents/index/history/audit. No new settings/identity/theme runtime or migration. Existing public designs remain until explicit publication/direct save; archived article templates remain inactive. [Ownership, exact evidence and rollback](handoffs/VISUAL_SITE_STUDIO.md).
+## Private AI engineering and recovery — 2026-11-07
+
+AI owns bounded engineering policy/custom skills, pinned canonical knowledge and
+private AiEngineeringRun history. Operations remains the only executable queue;
+Server Panel keeps canonical access/unlock and the fixed version1 local host
+protocol. Root-owned tools stage network-isolated non-root Docker builds against
+empty PostgreSQL. Successful changes create a main-targeting PR and architecture
+receipt automatically. Owner merge plus explicit fresh approval of the exact
+sealed artifact is required for production. Native immutable systemd releases
+retain host tools/storage; Nginx switches only after readiness and a canonical
+backup. Code rollback never restores an old database over new user data.
+
+This is an opt-in bounded slice, not arbitrary root commands or general incident
+autonomy. Inert custom skills cannot grant authority; dependency/schema/host or
+security-control changes require a normal reviewed release. Fixed recovery
+runbooks have separate exact diagnostic approval. The independent worker uses
+BackgroundJob even when the HTTP preview is unavailable. Native control-plane
+APIs remain on the retained original service; active-runtime guards prevent
+duplicate scheduled work. See [implementation and evidence](handoffs/AI_ENGINEERING.md)
+and [operator guide](../AI-ENGINEERING-FA.md).

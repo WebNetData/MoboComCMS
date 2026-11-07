@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { assertNativeUpdateTarget } from './managed-runtime'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
@@ -123,6 +124,7 @@ export async function status(force = false) {
 
 /** Starts the root helper, which runs deploy/ubuntu/self-update.sh outside this process (the process is restarted during the update). */
 export async function startUpdate(ref: unknown, options: { backupConfirmed: boolean }) {
+  assertNativeUpdateTarget()
   const env = environment()
   if (env.method !== 'systemd') throw new UpdateError('به‌روزرسانی یک‌کلیکی روی این نصب فعال نیست؛ راهنمای همین صفحه را دنبال کنید', 409)
   if (!options.backupConfirmed) throw new UpdateError('ابتدا پشتیبان بگیرید و تأیید کنید', 400)

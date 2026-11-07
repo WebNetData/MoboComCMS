@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Reduce Webpack's peak heap on small update hosts without skipping build/type checks.
-  experimental: { webpackMemoryOptimizations: true },
+  experimental: {
+    webpackMemoryOptimizations: true,
+    // Reviewed releases are immutable; ISR uses Next's bounded memory cache.
+    isrFlushToDisk: !process.env.ENGINEERING_RUN_ID,
+  },
   // Runtime uploads, private paid files and credentials are mounted data, never release assets.
   outputFileTracingExcludes: { '/*': ['./storage/**/*'] },
   outputFileTracingIncludes: { '/*': ['./scripts/backup-worker.cjs', './scripts/backup-core.cjs'] },

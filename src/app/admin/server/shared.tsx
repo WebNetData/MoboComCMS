@@ -9,6 +9,7 @@ export { Notice, fa, faDate } from '../store/shared'
 
 const TABS: SectionTab[] = [
   { href: '/admin/server', label: 'وضعیت و سرویس‌ها', exact: true },
+  { href: '/admin/server/engineering', label: 'مهندسی هوشمند' },
   { href: '/admin/server/files', label: 'مدیریت فایل' },
   { href: '/admin/server/gallery', label: 'گالری' },
   { href: '/admin/server/database', label: 'پایگاه داده' },

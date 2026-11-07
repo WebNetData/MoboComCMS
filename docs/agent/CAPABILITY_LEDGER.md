@@ -183,3 +183,25 @@ Business presentation 2026-10-16: the audited WEAK_UX width/filter hierarchy is 
 Statuses: GOOD, WEAK_UX, WEAK_BACKEND, WEAK_SECURITY, PARTIAL, DISCONNECTED, DUPLICATE, MISSING, REGRESSED.
 
 Livechat placement: FUNCTIONAL — existing Settings/Admin/SDK/client supports store-only, multiple sections and legacy all-pages; safe merge, current reader, hidden SSE/polling. Actual PostgreSQL, scoped unit/Settings tests, browser1440 light/dark/390 dark and axe passed. This is not full Livechat/CRM production certification. [Evidence and continuation](handoffs/CHAT_PLACEMENT.md).
+
+
+## Private AI engineering and recovery — 2026-11-07
+
+AI owns bounded engineering policy/custom skills, pinned canonical knowledge and
+private AiEngineeringRun history. Operations remains the only executable queue;
+Server Panel keeps canonical access/unlock and the fixed version1 local host
+protocol. Root-owned tools stage network-isolated non-root Docker builds against
+empty PostgreSQL. Successful changes create a main-targeting PR and architecture
+receipt automatically. Owner merge plus explicit fresh approval of the exact
+sealed artifact is required for production. Native immutable systemd releases
+retain host tools/storage; Nginx switches only after readiness and a canonical
+backup. Code rollback never restores an old database over new user data.
+
+This is an opt-in bounded slice, not arbitrary root commands or general incident
+autonomy. Inert custom skills cannot grant authority; dependency/schema/host or
+security-control changes require a normal reviewed release. Fixed recovery
+runbooks have separate exact diagnostic approval. The independent worker uses
+BackgroundJob even when the HTTP preview is unavailable. Native control-plane
+APIs remain on the retained original service; active-runtime guards prevent
+duplicate scheduled work. See [implementation and evidence](handoffs/AI_ENGINEERING.md)
+and [operator guide](../AI-ENGINEERING-FA.md).
