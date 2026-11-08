@@ -88,3 +88,9 @@ failed case was rerun locally, passing in a disposable non-root, network-disable
 Linux container with read-only source/dependencies (ci-store-case.json). The
 whitespace check also removed one final blank line from image-input.ts; its
 non-whitespace source is identical to the validated Linux file.
+
+## Clean generated slugs — 2026-11-09
+
+AI Production now saves the generated slug verbatim when available. The old save path unconditionally appended12 characters from the item UUID. Actual collisions alone choose readable -2/-3 suffixes with bounded slug-specific unique-conflict handling. Existing stored URLs are not rewritten; canonical Journal/Catalog/Site transactions, history and atomic item receipts stay intact. No schema, permission, UI, inference or extension change.
+
+Exact source was already validated on native PostgreSQL: post/product/page free slugs, actual collisions and repeated-save idempotency; owned fixtures were cleaned. Scoped installed TypeScript7.0.2 passed. The source here matches6ffbabc0 byte-for-byte after newline normalization, and main is the same b3c81884 server baseline used for that evidence. No redundant tests, new container, hosted workflow, production build or deployment were run to extract this focused PR. The registered ai-production-slug.connected.cjs is reproducible on the ordinary test DB. Owner merges and applies the web update; upgrading only the browser bridge cannot change server slug generation.
