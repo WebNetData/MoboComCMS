@@ -669,3 +669,7 @@ Existing Site excerpt composition, specialist ContentEditor fields, Cinema metad
 ## Chat production recovery — 2026-11-08
 
 Bridge0.5/production-v3 fixes split-markdown completion and per-item sequential images. Same-operation result recovery avoids blind resends; explicit fresh retry preserves stored output. Existing AI/server/Media/draft guards unchanged. Controlled unpacked extension and actual Admin passed text/cover/inline across two items; four responsive light/dark axe0 views. Scoped types, Linux UID1000 no-env worker fences, architecture/source/knowledge and security scans passed. Exact13-file ZIP served HTTP200. Test identities/cookies/profiles cleaned, original app/database/session ready. No real account certification, release rebuild, hosted CI or VPS deploy. Continue docs/agent/handoffs/AI_CHAT_RECOVERY.md; owner merges/deploys.
+
+## Standalone AI clean-slug fix — 2026-11-09
+
+Focused extraction of exactly validated production save/collision/idempotency code, independent of pending Chat bridge routing work. Continue docs/agent/handoffs/AI_PRODUCTION.md#clean-generated-slugs--2026-11-09. Native PostgreSQL and native TypeScript7.0.2 evidence is reused for identical source on the identical server baseline; no redundant checks/CI/container/build/deploy. Existing URLs remain. Owner merges and applies the web change.

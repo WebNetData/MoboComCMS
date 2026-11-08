@@ -28,10 +28,18 @@ export async function saveProduction(req: NextRequest,id:unknown,itemId:unknown,
     const remaining=await tx.aiProductionItem.count({where:{batchId:batch.id,state:{not:'SAVED'}}});if(!remaining)await tx.aiProductionBatch.updateMany({where:{id:batch.id,version:fresh.version+1},data:{status:'DONE'}})
     await auditAdminStrict({req,actor,action:'ai.production.save',targetType:batch.kind,targetId:String(after.id),metadata:{batchId:batch.id,itemId:item.id}},tx)
   }
-  const slug=output.slug+'-'+item.id.replaceAll('-','').slice(0,12),cover=images.find(x=>x.index===0)?.url||''
+  const cover=images.find(x=>x.index===0)?.url||''
+  // Keep the requested slug. Only an actual collision adds a readable number.
+  for(let attempt=0;attempt<20;attempt++){
+  const slug=output.slug+(attempt?'-'+(attempt+1):'')
+  const query={where:{slug},select:{id:true}}
+  const existing=batch.kind==='product'?await db.product.findUnique(query):batch.kind==='page'?await db.page.findUnique(query):await db.post.findUnique(query)
+  if(existing)continue
   try{
     if(batch.kind==='product')await createCatalogProduct({name:output.title,slug,description:productionHtml(output,images),image:cover,gallery:images.filter(x=>x.index>0).map(x=>x.url),price:seed.price,currency:config.currency,kind:config.productKind,stock:seed.stock,active:false,categoryId:config.categoryIds[0]||null,categoryIds:config.categoryIds,specifications:JSON.parse(config.specifications)},actor,commit)
     else{const fields={title:output.title,slug,status:'DRAFT',...await productionDocument(output,images,{...actor,roleId:actor.roleId??null,permissions:actor.permissions},batch.kind==='page')};if(batch.kind==='post')await createJournalPost({categoryIds:config.categoryIds,status:'DRAFT'}, {...fields,cover,excerpt:output.excerpt},actor,commit);else await createPage({},fields,actor,commit)}
     return result
-  }catch(e){const current=await db.aiProductionItem.findUnique({where:{id:item.id}});if(current?.state==='SAVED')return JSON.parse(current.saved);throw e}
+  }catch(e){const current=await db.aiProductionItem.findUnique({where:{id:item.id}});if(current?.state==='SAVED')return JSON.parse(current.saved);const error=e as {code?:string;meta?:{target?:unknown}};if(error?.code==='P2002'&&Array.isArray(error.meta?.target)&&error.meta.target.includes('slug'))continue;throw e}
+  }
+  throw new ProductionError('این نامک بارها استفاده شده است؛ نامک متفاوتی انتخاب کنید',409)
 }
