@@ -79,3 +79,12 @@ Closure: all8 shipped ZIP entries match canonical LF source; actual download
 HTTP200 SHA256 matches. Owned runtime, production/upgrade databases,4 disposable
 profiles and synthetic session file removed. Original app/PostgreSQL remain
 running and session HTTP200. No production deploy or real Chat account test.
+
+PR378 initial automatic unit job passed969/970; the sole failure was the existing
+Store delivery-authentication test replacing a random ciphertext suffix with
+`zz`, which can decode to unchanged bytes. The test now flips an authenticated
+ciphertext byte deterministically. Production encryption is unchanged. Only this
+failed case was rerun locally, passing in a disposable non-root, network-disabled
+Linux container with read-only source/dependencies (ci-store-case.json). The
+whitespace check also removed one final blank line from image-input.ts; its
+non-whitespace source is identical to the validated Linux file.
