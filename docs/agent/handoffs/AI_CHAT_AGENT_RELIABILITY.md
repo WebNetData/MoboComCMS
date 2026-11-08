@@ -2,7 +2,7 @@
 
 Continue the existing AI Production/Media/editor owners and
 [handoff envelope](../../specs/chat-web-production/AGENT_HANDOFF.md).
-Published1.7.12 remains immutable. Bridge0.6.6/production-v4 retains older protocol
+Published1.7.12 remains immutable. Bridge0.6.7/production-v4 retains older protocol
 advertisements for the installed1.7.12 client; no migration/dependency/paid fallback.
 
 The operator's0.6.2 diagnostic identified visible user bubbles with
@@ -136,3 +136,45 @@ Focused regressions also cover same-image/no-abort, changed-image/abort, unrelat
 clicks, body budget/timeout classification and existing CORS/size guards. No new
 PostgreSQL/TypeScript/public UI behavior in this slice; earlier native evidence is
 retained, not described as newly rerun. Real-account0.6.6 completion remains pending.
+
+## Owned result during router transition — 2026-11-09, 0.6.7
+
+The operator reports no timeout on0.6.6, but the first text still needs recovery.
+The diagnostic now identifies the boundary precisely: owned=true, receiptStage=sent,
+fromFresh=true, toThread=false, sameAsTab=true; the current nonce is visible later at
+the canonical thread. The page had confirmed the message at root, then treated an
+intermediate route as a different conversation. Actual unpacked0.6.6 reproduced the
+same error through root→/chat→/c/id. This is distinct from the earlier20-second cap.
+
+Bridge0.6.7 waits for the original nonce-owned page to settle within its existing
+deadline, without reading/delivering another response or sending again. Context
+ownership still checks all user markers. At the worker boundary, an owned result
+on a transient path receives a private routePending receipt: no path binding,
+result acceptance or panel failure. The page rechecks ownership before retrying
+only the same progress/result message. Deadline, origin, actor/tab and prompt/phase
+bindings remain. A different thread after canonical binding is still refused.
+Route waiting lives outside the worker queue, so it does not hold up cancellation.
+Diagnostics expose routePending booleans; no path IDs or raw messages are exported.
+
+Actual unpacked controlled alias and placeholder routing cases passed one text and
+four distinct images in one chat (five sends), without manual recovery. Focused
+worker/receipt regressions prove transient results are not accepted, the same result
+is delivered after canonical binding, missing nonce/expired deadline is refused,
+and a foreign thread after binding cannot overwrite a cached result. Live0.6.7
+first-attempt completion remains operator verification.
+
+The server-side slug fix is independently ready in [PR386](https://github.com/WebNetData/MoboComCMS/pull/386).
+It contains the exact previously validated save/test source on the identical server
+baseline, with no repeated suite or bridge change. The owner must merge/apply that
+web change for VPS slugs; desktop extension installation cannot change server saves.
+Existing suffixed URLs are retained. Main bridge work continues in PR385; no hosted
+workflow, new container, release rebuild or deployment was requested or performed.
+
+Final0.6.7 controlled combination also passed transient alias routing plus variants,
+explicit second-image clicks, cancelled cover delivery and same-result recovery;
+delivered bitmap pixels and five sends were checked. Six scoped host regressions,
+JS syntax, exact17-entry source/ZIP comparison and scoped Semgrep/Gitleaks0 passed.
+Docker Desktop's Linux engine pipe became unavailable before runtime sync, so the
+container sync/Linux rerun and new local HTTP/runtime-hash check did not run; do not
+reuse0.6.6 runtime receipts as0.6.7 proof. No replacement container or daemon restart
+was performed. This does not change the standalone desktop package's verified bytes.

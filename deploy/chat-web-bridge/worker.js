@@ -54,6 +54,9 @@ async function content(m,sender){
   if(s?.operation===op)await chrome.storage.session.set({conversation:s});if(p?.execution===m.id){p.operation=op;await chrome.storage.session.set({pending:p})}
  }
  // A confirmation failure is safe to report without trusting the new path or any response body.
+ if(provider==='chatgpt'&&freshChatPath(current)&&path!==current&&!threadPath(path)&&m.owned===true&&(m.type==='CHAT_PROGRESS'&&['sent','reading'].includes(m.stage)&&Number.isInteger(m.baseline)&&m.baseline>=0&&m.baseline<=40||m.type==='CHAT_RESULT'&&typeof m.error!=='string'&&['sent','reading','complete'].includes(op.stage))){
+  op.routePending=true;if(s?.operation===op)await chrome.storage.session.set({conversation:s});if(p?.execution===m.id){p.operation=op;await chrome.storage.session.set({pending:p})}return{ok:true,active:p?.execution===m.id&&!cancelled.has(p.id),routePending:true}
+ }
  if(provider==='chatgpt'&&freshChatPath(current)&&threadPath(path)&&op.stage==='dispatched'&&m.type==='CHAT_RESULT'&&typeof m.error==='string'){
   if(p?.execution===m.id&&p.expires>Date.now()+1000&&!op.confirmationRecovery&&!cancelled.has(p.id)){
    // One read-only recovery of this already-dispatched execution; never click again.
@@ -64,6 +67,7 @@ async function content(m,sender){
  if(path!==current&&!transition&&!freshAlias&&!otherThread){if(p?.execution===m.id)await finish(m.id,{error:'گفتگوی درخواست تغییر کرده؛ پاسخ گفتگوی دیگری خوانده نشد.',keepChat:true});throw Error('گفتگوی درخواست تغییر کرده؛ پاسخ خوانده نشد.')}
  if(m.type==='CHAT_VISIBLE'){await chrome.tabs.update(tab,{active:true}).catch(()=>{});return{ok:true}}
  if(m.type==='CHAT_PROGRESS'){
+  delete op.routePending
   if(!['prepared','dispatched','sent','reading'].includes(m.stage)||!Number.isInteger(m.baseline)||m.baseline<0||m.baseline>40)throw Error('وضعیت مرحله معتبر نیست.')
   if(op.baseline===undefined)op.baseline=m.baseline
   const order=['new','prepared','dispatched','sent','reading','complete'];if(order.indexOf(m.stage)>order.indexOf(op.stage))op.stage=m.stage
@@ -72,6 +76,7 @@ async function content(m,sender){
   return{ok:true,active:p?.execution===m.id&&!cancelled.has(p.id)&&p.expires>Date.now()}
  }
  let result={error:'پاسخ پل معتبر نیست.'}
+ delete op.routePending
  if(typeof m.error==='string')result={error:m.error.slice(0,500),keepChat:true}
  else if(m.owned!==true||!['sent','reading','complete'].includes(op.stage))result={error:'نمایش پیام همین درخواست تأیید نشده؛ پاسخ نامطمئن پذیرفته نشد.',keepChat:true}
  else if(op.mode==='IMAGE'){if(typeof m.data==='string'&&/^data:image\/webp;base64,[a-z0-9+/]+=*$/i.test(m.data)&&m.data.length<=2800000)result={data:m.data}}

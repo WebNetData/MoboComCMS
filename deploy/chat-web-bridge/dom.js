@@ -43,10 +43,19 @@ globalThis.mobocomChatDom=(()=>{
   state.deadline=Math.max(state.deadline,deadline);return state
  }
  const notify=async(state,stage,owned=true)=>{
-  const reply=await chrome.runtime.sendMessage({type:'CHAT_PROGRESS',id:state.id,stage,baseline:state.baseline||0,owned})
+  const reply=await receipt(state,{type:'CHAT_PROGRESS',id:state.id,stage,baseline:state.baseline||0,owned})
   if(reply?.error)throw Object.assign(Error(reply.error),{code:'CHAT_UI'})
   return reply?.active===true
  }
- const deliver=async(state,result,owned=true)=>{state.result=result;const response=await chrome.runtime.sendMessage({type:'CHAT_RESULT',id:state.id,owned,...result});if(response?.error)throw Error(response.error)}
+ async function receipt(state,message){
+  while(Date.now()<state.deadline){
+   if(state.options.provider==='chatgpt'){const page=globalThis.mobocomChatPage;await page.settle(state);if(message.owned===true&&!page.owns(state))throw Error('پیام همین درخواست در گفتگو پیدا نشد؛ نتیجهٔ نامطمئن پذیرفته نشد.')}
+   const reply=await chrome.runtime.sendMessage(message)
+   if(!reply?.routePending)return reply
+   state.routePending=true;await new Promise(resolve=>setTimeout(resolve,250))
+  }
+  throw Error('نشانی گفتگو در مهلت همین درخواست آماده نشد؛ پاسخ حفظ شده و تولید دوباره انجام نشد.')
+ }
+ const deliver=async(state,result,owned=true)=>{state.result=result;const response=await receipt(state,{type:'CHAT_RESULT',id:state.id,owned,...result});if(response?.error)throw Error(response.error)}
  return{visible,outer,text,completed,productionJson,operation,notify,deliver,composerSelector,query:tree.queryAll,contains:tree.contains,closest:tree.closest,after:tree.after}
 })()

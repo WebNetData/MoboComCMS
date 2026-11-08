@@ -40,6 +40,18 @@ is classified separately from model generation. Popup metadata exposes only coun
 and selection/transfer enums. Actual server-registration timeout remains distinct
 and must be located from a live operation receipt, not inferred from a closed tab.
 
+0.6.7 evidence: operator's first text failure is owned=true, stage=sent,
+fromFresh=true, toThread=false, sameAsTab=true. It is a transient noncanonical route,
+not an unconfirmed send. Reproduce root→temporary alias/placeholder→canonical thread
+after the nonce was already confirmed at root. Keep ownership/path fences: the page
+waits within the original deadline; the worker returns a private route-pending
+receipt without binding a path or accepting a result. The same progress/result may
+be delivered only after rechecking the nonce and canonical route; no new inference.
+After a canonical thread is bound, any different thread remains rejected.
+
+Clean server slugs are independently deliverable in PR386. Installing a desktop
+bridge does not modify server creation code or rewrite old stored URLs.
+
 Envelope: acknowledge an uncertain dispatch before clicking, then wait for its exact
 user marker before accepting navigation or response. Resume dispatched work read-only.
 Extract production JSON from the new owned response even when the model omits its

@@ -13,7 +13,7 @@ async function mobocomChatImage(prompt,id,expires,options={}){
   const readyImages=()=>[...new Map(visibleImages().filter(img=>img.complete&&img.naturalWidth>=256&&img.naturalHeight>=256).map(img=>[img.currentSrc||img.src,img])).values()]
   let previous='',stable=0,lastProgress=0,plain='',plainSince=0
   while(Date.now()<state.deadline){
-   page.check(state)
+   await page.settle(state)
    const visible=visibleImages(),images=readyImages()
    const image=choice.pick(images),stamp=image?(image.currentSrc||image.src)+'|'+image.naturalWidth+'|'+image.naturalHeight:'';stable=stamp&&stamp===previous?stable+1:0;previous=stamp
    if(image&&stable>=3&&page.stopped(state)){

@@ -11,7 +11,7 @@ async function mobocomChatRun(prompt,id,expires,provider='chatgpt',options={}){
   if(provider==='chatgpt'&&!state.confirmed)await page.confirmSent(state)
   let previous='',stable=0,lastProgress=0
   while(Date.now()<state.deadline){
-   if(provider==='chatgpt')page.check(state)
+   if(provider==='chatgpt')await page.settle(state)
    const all=provider==='chatgpt'?page.responses(state):[...page.turns()].slice(state.baseline||0),answer=all.map(dom.text).join('\n')
    if(answer.length>90000)throw Error('پاسخ Chat بیش از حد بزرگ شد؛ درخواست تکرار نشد.')
    const marked=dom.completed(answer,marker),result=options.context?(dom.productionJson(marked||answer)||marked):marked;stable=result&&result===previous?stable+1:0;previous=result

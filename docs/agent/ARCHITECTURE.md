@@ -1,4 +1,4 @@
-Chat agent2026-11-09: bridge0.6.6 handles multiple images in the same nonce-owned response; explicit preference wins, otherwise the owner requests automatic first variant. Bitmap transfer uses the original operation deadline with normal bounded CORS. Controlled selected-bitmap/recovery cases pass; live0.6.6 completion remains pending. Clean-slug/native persistence evidence is retained. [Evidence and rollback](handoffs/AI_CHAT_AGENT_RELIABILITY.md).
+Chat agent2026-11-09: bridge0.6.7 waits through transient routing after an owned send before delivery; transient routes never bind or accept a result. Same-message receipt retries recheck nonce/deadline and never invoke generation. Selected-image and transfer-budget behavior is retained. Clean server slugs are independently ready in PR386; live0.6.7 proof is pending. [Evidence and rollback](handoffs/AI_CHAT_AGENT_RELIABILITY.md).
 
 ## Authorized economy AI and manual CI — owner2026-11-08
 

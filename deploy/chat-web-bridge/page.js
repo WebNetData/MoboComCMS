@@ -25,12 +25,24 @@ globalThis.mobocomChatPage=(()=>{
   const eligible=el=>dom.visible(el)&&!el.disabled&&!el.readOnly&&(el instanceof HTMLTextAreaElement||el.isContentEditable);let all=[...document.querySelectorAll(dom.composerSelector)].filter(eligible);if(!all.length)all=[...document.querySelectorAll('main textarea,[role="main"] textarea,main [contenteditable="true"],[role="main"] [contenteditable="true"]')].filter(eligible)
   const unique=all.filter(el=>!all.some(other=>other!==el&&el.contains(other)));if(unique.length>1)throw ui('بیش از یک کادر پیام پیدا شد؛ ارسال انجام نشد.');return unique[0]
  }
+ async function settle(state){
+  while(Date.now()<state.deadline){
+   try{check(state);state.routePending=false;return}catch(error){
+    const markers=[...(state.options.markers||[]),'MOBOCOM_REQUEST_'+state.id],messages=users(),owned=messages.length&&messages.every(el=>markers.some(marker=>dom.text(el).includes(marker)))
+    if(location.origin!=='https://chatgpt.com'||!freshPath(state.path)||threadPath(location.pathname)||!owned)throw error
+    // The nonce is present, but the router has not committed its canonical path.
+    // Do not read/deliver results or send another prompt during this transition.
+    state.routePending=true;await pause()
+   }
+  }
+  throw ui('نشانی نهایی گفتگو در مهلت همین درخواست آماده نشد؛ پاسخ حفظ شده و درخواست دوباره ارسال نمی‌شود.')
+ }
  const inWork=()=>[...document.querySelectorAll('[aria-selected="true"],[aria-pressed="true"],[role="tab"][data-state="active"]')].some(el=>dom.visible(el)&&/^(work|codex)$/i.test(el.innerText.trim()))
  const switchers=()=>[...document.querySelectorAll('[role="tab"],button,a')].filter(el=>dom.visible(el)&&/^(chat|چت|گفتگو)$/i.test(el.innerText.trim()))
  async function ready(state){
   const until=Math.min(state.deadline,Date.now()+20000);let selected=false,shown=false
   while(Date.now()<until){
-   check(state);if(owns(state)){state.sent=true;return null}
+   await settle(state);if(owns(state)){state.sent=true;return null}
    if(inWork()){const buttons=switchers();if(!selected&&buttons.length===1){buttons[0].click();selected=true;await pause();continue}if(selected){await pause();continue}throw ui('در تب بازشده حالت Chat را انتخاب کنید؛ Work/Codex استفاده نمی‌شود.')}
    const input=composer();if(input)return input
    if(!shown){shown=true;await chrome.runtime.sendMessage({type:'CHAT_VISIBLE',id:state.id}).catch(()=>{})}
@@ -46,7 +58,7 @@ globalThis.mobocomChatPage=(()=>{
   if(normalize(input instanceof HTMLTextAreaElement?input.value:input.innerText)!==normalize(value))throw ui('نوشتن پیام تأیید نشد؛ ارسال انجام نشد.')
  }
  async function imageMode(state,input,payload){
-  check(state);const current=input instanceof HTMLTextAreaElement?input.value:input.innerText,normalize=value=>(value||'').replace(/\s+/g,' ').trim();if(current.trim()&&normalize(current)!==normalize(payload))return
+  await settle(state);const current=input instanceof HTMLTextAreaElement?input.value:input.innerText,normalize=value=>(value||'').replace(/\s+/g,' ').trim();if(current.trim()&&normalize(current)!==normalize(payload))return
   const root=input.closest('form')||input.parentElement,names=new Set(['Create image','Create images','Generate image','ساخت تصویر','ایجاد تصویر','تولید تصویر']),label=el=>(el.getAttribute('aria-label')||el.innerText||'').replace(/\s+/g,' ').trim()
   if([...root.querySelectorAll('[aria-pressed="true"],[aria-selected="true"],button')].some(el=>dom.visible(el)&&(/^(?:Remove|حذف) (?:Create image|image|تصویر)/i.test(label(el))||names.has(label(el))&&(el.getAttribute('aria-pressed')==='true'||el.getAttribute('aria-selected')==='true')))){state.imageTool='selected';return}
   const choices=scope=>[...scope.querySelectorAll('button,[role="menuitem"]')].filter(el=>dom.visible(el)&&!el.disabled&&!el.closest('a[href]')&&names.has(label(el)))
@@ -63,8 +75,8 @@ globalThis.mobocomChatPage=(()=>{
   const until=state.deadline
   while(Date.now()<until){
    if(location.origin!=='https://chatgpt.com')throw ui('نشانی سرویس تغییر کرده؛ ارسال دیگری انجام نشد.')
-   if(location.pathname!==state.path&&!(freshPath(state.path)&&threadPath(location.pathname)))throw ui('گفتگوی درخواست تغییر کرده؛ پاسخ دیگری خوانده نشد.')
-   if(owns(state)){state.path=location.pathname;check(state);await dom.notify(state,'sent',true);state.confirmed=true;return}
+   if(owns(state)){await settle(state);state.path=location.pathname;await dom.notify(state,'sent',true);state.confirmed=true;return}
+   if(location.pathname!==state.path&&!(freshPath(state.path)&&(threadPath(location.pathname)||freshPath(location.pathname)||/^\/c\/?$/.test(location.pathname))))throw ui('گفتگوی درخواست تغییر کرده؛ پاسخ دیگری خوانده نشد.')
    const allowed=state.options.markers||[],foreign=users().some(el=>{const value=dom.text(el).trim();return value&&!allowed.some(marker=>value.includes(marker))})
    if(foreign)throw ui('گفتگو پیام نامرتبط دارد؛ ارسال نامطمئن تکرار نشد.')
    await pause()
@@ -74,7 +86,7 @@ globalThis.mobocomChatPage=(()=>{
  async function send(state,input){
   const until=Math.min(state.deadline,Date.now()+30000)
   while(Date.now()<until){
-   check(state);if(owns(state)){state.sent=true;await confirmSent(state);return}
+   await settle(state);if(owns(state)){state.sent=true;await confirmSent(state);return}
    if(inWork())throw ui('حالت Work/Codex فعال شد؛ ارسال انجام نشد.')
    const root=input.closest('form')||document,buttons=[...root.querySelectorAll('button[data-testid="send-button"],button[data-testid="composer-send-button"],button#composer-submit-button,button[aria-label="Send prompt"],button[aria-label="Send message"],button[aria-label="Send"],button[aria-label="ارسال پیام"],button[type="submit"]')].filter(el=>dom.visible(el)&&!el.disabled&&el.getAttribute('aria-disabled')!=='true')
    if(buttons.length===1){if(!await dom.notify(state,'dispatched',false))throw ui('درخواست متوقف شده؛ پیام فرستاده نشد.');state.sent=true;buttons[0].click();await confirmSent(state);return}
@@ -83,5 +95,5 @@ globalThis.mobocomChatPage=(()=>{
   throw ui('دکمهٔ ارسال آماده یا یکتا نشد؛ متن همین درخواست حفظ شد. با بازیابی مرحله دوباره ارسال نمی‌شود مگر هنوز ارسال نشده باشد.')
  }
  const stopped=state=>{const controls=dom.query('button[data-testid="stop-button"],button[data-testid="composer-stop-button"],button[aria-label="Stop generating"]');if(controls.some(dom.visible))return false;return !responses(state).some(el=>el.matches('[data-is-streaming="true"]')||dom.query('[data-is-streaming="true"],[role="progressbar"]',el).some(dom.visible))}
- return{turns,users,responses,owns,check,ready,fill,send,imageMode,confirmSent,stopped}
+ return{turns,users,responses,owns,check,settle,ready,fill,send,imageMode,confirmSent,stopped}
 })()

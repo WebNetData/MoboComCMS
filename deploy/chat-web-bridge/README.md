@@ -71,3 +71,5 @@ Version0.6.4 performs at most one read-only recovery when the already-sent user 
 Version0.6.5 waits for an already-sent message within its original operation deadline, including when the conversation URL is still being assigned. Confirmation is not cut off by the readiness20-second budget. No second send or deadline extension.
 
 Version0.6.6 accepts image alternatives from the owned reply: an explicit image/preference click or selected state wins; otherwise the first image is used. It does not click preference controls. Slow bitmap reads share the existing operation deadline; a changed choice rereads that asset without regenerating. Diagnostics contain only counts and selection/transfer enums.
+
+Version0.6.7 waits through nonce-owned temporary routing after a confirmed send. A private routePending receipt does not accept data or bind that route; only the same progress/result is retried after ownership is rechecked. No generation replay or deadline extension. Different bound threads are still refused. Server slug behavior requires the separate web fix in PR386.
