@@ -4,12 +4,14 @@ import { importDataImage } from '@/modules/downloads/server/files'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { ProductionError, nextImage, type ProductionImage } from '../../domain/production'
 import { owned,configOf,imagesOf,outputOf,claimBatch,snapshot,view } from './store'
+import { requireProductionTransport } from './providers'
 
-export async function productionImage(req: NextRequest,body:Record<string,unknown>) {
+export async function productionImage(req: NextRequest,body:Record<string,unknown>,transport:'chat-web'|'api'='chat-web') {
   const{batch,actor}=await owned(req,body.id),item=batch.items.find(x=>x.id===body.itemId)
   if(!item||!item.output)throw new ProductionError('ردیف پیدا نشد',404)
   if(batch.status!=='RUNNING'||item.state!=='RUNNING'||item.lease!==body.lease||!item.expiresAt||item.expiresAt.getTime()<Date.now())throw new ProductionError('پاسخ تصویر منقضی یا لغو شده است',409)
   const config=configOf(batch),images=imagesOf(item),index=nextImage(config,images)
+  requireProductionTransport(config,'image',transport)
   if(index===undefined||index!==body.index||typeof body.data!=='string'||!/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/]+=*$/i.test(body.data)||body.data.length>2800000)throw new ProductionError('تصویر یا شمارهٔ مرحله معتبر نیست',422)
   // Reuse Media's existing bounded decoder/reencoder and Library registration.
   // If a concurrent stop wins, the owned imported image stays in Library; no content is saved.

@@ -6,9 +6,12 @@ import { auditAdminStrict } from '@/platform/audit/server'
 import { parseProductionOutput, productionPrompt, imagePrompt, nextImage, ProductionError, type ProductionKind } from '../../domain/production'
 import { owned, configOf, outputOf, imagesOf, seedOf, categories, claimBatch, snapshot, view } from './store'
 import { saveProduction } from './save'
+import { requireProductionTransport, validateProductionProviders, productionModelAuthority } from './providers'
+import type { ProductionStep } from '../../domain/production-execution'
 
-export async function productionCommand(req: NextRequest,body:Record<string,unknown>) {
+export async function productionCommand(req: NextRequest,body:Record<string,unknown>,transport:'chat-web'|'api'='chat-web'): Promise<{batch:ReturnType<typeof view>;step?:ProductionStep;result?:unknown}> {
   if(body.action==='save'){const result=await saveProduction(req,body.id,body.itemId,body.version);return{result,batch:view((await owned(req,body.id)).batch)}}
+  if(body.action==='start')await validateProductionProviders(configOf((await owned(req,body.id)).batch),await productionModelAuthority(req))
   const brand=(await getSiteSeo('fa')).name
   return db.$transaction(async tx=>{
     const{batch,actor}=await owned(req,body.id,tx),config=configOf(batch),item=batch.items.find(x=>x.id===body.itemId)
@@ -32,15 +35,17 @@ export async function productionCommand(req: NextRequest,body:Record<string,unkn
       const names=await categories(batch.kind as ProductionKind,config,tx),lease=randomUUID(),expiresAt=new Date(Date.now()+12*60*1000),index=item.output?nextImage(config,imagesOf(item)):undefined
       if(item.output&&index===undefined)throw new ProductionError('ردیف آمادهٔ بازبینی است',409)
       const phase=item.output?'image':'text',prompt=phase==='text'?productionPrompt(batch.kind as ProductionKind,config,seedOf(item),names,brand):imagePrompt(config,outputOf(item),index!)
+      requireProductionTransport(config,phase,transport)
       const updated=await tx.aiProductionItem.updateMany({where:{id:item.id,version:item.version,state:'READY'},data:{state:'RUNNING',lease,expiresAt,version:{increment:1}}});if(updated.count!==1)throw new ProductionError('ردیف هم‌زمان گرفته شد',409)
       return{...await done(),step:{itemId:item.id,lease,phase,index,prompt}}
     }
     if(item.state!=='RUNNING'||typeof body.lease!=='string'||item.lease!==body.lease||!item.expiresAt||item.expiresAt.getTime()<Date.now()||batch.status!=='RUNNING')throw new ProductionError('مجوز این پاسخ منقضی یا لغو شده است',409)
     if(body.action==='fail'){
-      await tx.aiProductionItem.updateMany({where:{id:item.id,version:item.version,lease:item.lease},data:{state:'FAILED',error:'تولید متوقف شد؛ ورود، سهمیه یا رابط Chat را بررسی و در صورت نیاز صریحاً دوباره تلاش کنید',lease:null,expiresAt:null,version:{increment:1}}})
+      await tx.aiProductionItem.updateMany({where:{id:item.id,version:item.version,lease:item.lease},data:{state:'FAILED',error:'تولید متوقف شد؛ اتصال، سهمیه یا رابط سرویس را بررسی و در صورت نیاز صریحاً دوباره تلاش کنید',lease:null,expiresAt:null,version:{increment:1}}})
       await tx.aiProductionBatch.updateMany({where:{id:batch.id,version:batch.version+1},data:{status:'PAUSED'}});return done()
     }
     if(body.action!=='text'||item.output)throw new ProductionError('مرحلهٔ پاسخ معتبر نیست',409)
+    requireProductionTransport(config,'text',transport)
     const output=parseProductionOutput(body.text)
     if(output.sections.length<config.inline)throw new ProductionError('تعداد بخش‌ها برای تصاویر داخلی کافی نیست',422)
     if(config.cover&&output.coverPrompt.length<3||output.sections.slice(0,config.inline).some(s=>s.imagePrompt.length<3))throw new ProductionError('پرامپت تصاویر انتخاب‌شده کامل برنگشت؛ هیچ تصویری درخواست نشد',422)

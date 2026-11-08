@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
   if (action.generates && !(await rateLimitStrict(`ai:generate:${admin.id}`, 30, 10 * 60_000)).ok) return err('درخواست‌های زیادی فرستادید؛ چند دقیقه صبر کنید', 429)
   try {
     if (body.action === 'test' && body.purpose !== undefined && !isAiPurpose(body.purpose)) throw new AiError('کاربرد هوش مصنوعی معتبر نیست')
+    if (body.action === 'test' && body.purpose === 'production-image') throw new AiError('مدل تصویر را از صفحهٔ تولید انبوه با درخواست تصویر آزمایش کنید؛ درخواست متنی ارسال نشد',409)
     const purpose = body.action === 'test' && isAiPurpose(body.purpose) ? body.purpose : purposeForAdminAction(String(body.action), body.section)
     const result = await withPersonalAi(admin.id, () => action.run(admin, body), purpose)
     await auditAdmin({ req, actor: admin, action: `ai.${body.action}`, targetType: 'ai', targetId: body.id ?? body.section ?? '', metadata: { model: (result as { model?: string })?.model } })

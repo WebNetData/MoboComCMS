@@ -15,6 +15,6 @@ export default function ProductionSettings({kind,value,onChange,categories,disab
     <label className="studio-field"><span>تعداد تصویر داخل محتوا</span><select className="select" value={value.inline} onChange={e=>set('inline',Number(e.target.value))}>{[0,1,2,3].map(x=><option key={x} value={x}>{x}</option>)}</select></label>
     <label className="studio-field"><span>نسبت تصویر</span><select className="select" value={value.ratio} onChange={e=>set('ratio',e.target.value)}><option value="landscape">افقی ۱۶:۹</option><option value="square">مربع ۱:۱</option><option value="portrait">عمودی ۳:۴</option></select></label>
     <label className="studio-field seo-wide"><span>سبک و راهنمای تصویر</span><textarea className="textarea" rows={2} maxLength={1000} value={value.imageStyle} onChange={e=>set('imageStyle',e.target.value)}/></label>
-    <p className="muted seo-wide">تصاویر، تصویرسازی هوش مصنوعی‌اند و به‌عنوان عکس واقعی و تأییدشدهٔ محصول معرفی نمی‌شوند. برای هر تصویر یک درخواست جدا با همان حساب Chat ارسال می‌شود.</p>
+    <p className="muted seo-wide">تصاویر، تصویرسازی هوش مصنوعی‌اند و به‌عنوان عکس واقعی و تأییدشدهٔ محصول معرفی نمی‌شوند. برای هر تصویر یک درخواست جدا از مسیر تصویر انتخاب‌شدهٔ همین دسته ارسال می‌شود.</p>
   </fieldset>
 }

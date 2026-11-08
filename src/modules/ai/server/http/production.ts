@@ -29,6 +29,7 @@ export async function POST(req:NextRequest) {
   const denied=await access(req,true);if(denied)return denied
   try{const body=await readJsonObject(req,700000);if(body.versionProtocol!==1)throw new ProductionError('نسخهٔ قرارداد معتبر نیست')
     if(body.action==='create')return reply({batch:await productionCreate(req,body.input,body.id)})
+    if(body.action==='generate')return reply(await productionGenerate(req,body))
     if(!['start','claim','text','fail','pause','cancel','retry','save'].includes(String(body.action)))throw new ProductionError('عملیات معتبر نیست')
     return reply(await productionCommand(req,body))
   }catch(e){return failure(e)}
@@ -37,3 +38,4 @@ export async function POST_image(req:NextRequest) {
   const denied=await access(req,true);if(denied)return denied
   try{const body=await readJsonObject(req,2900000);if(body.versionProtocol!==1)throw new ProductionError('نسخهٔ قرارداد معتبر نیست');return reply(await productionImage(req,body))}catch(e){return failure(e)}
 }
+import { productionGenerate } from '../production'

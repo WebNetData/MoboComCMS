@@ -18,7 +18,7 @@ const PURPOSES = {
   telegram: ['domain:telegram.org', 'domain:t.me', 'domain:telegram.me'],
   instagram: ['domain:facebook.com', 'domain:fbcdn.net', 'domain:instagram.com', 'domain:cdninstagram.com'],
   updates: ['domain:github.com', 'domain:githubusercontent.com'],
-  ai: ['domain:openai.com', 'domain:anthropic.com', 'full:generativelanguage.googleapis.com', 'domain:openrouter.ai', 'domain:groq.com'],
+  ai: ['domain:openai.com', 'domain:anthropic.com', 'full:generativelanguage.googleapis.com', 'domain:openrouter.ai', 'domain:groq.com', 'full:dashscope-intl.aliyuncs.com', 'full:api.deepseek.com'],
 }
 const DOMAINS = [...PURPOSES.telegram, ...PURPOSES.instagram]
 const MAX_PROFILES = 8
