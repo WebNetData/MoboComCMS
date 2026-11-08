@@ -8,6 +8,9 @@ import { replaceExtraCategories, validateExtraCategories } from './product-categ
 import { capturePublicProductPrices } from './price-history'
 import { productRevisionState } from './revision-state'
 
+/** Validate an inactive draft before a browser-driven producer spends account usage. */
+export async function validateCatalogDraft(body: Record<string, unknown>) { await productInput(body) }
+
 /** One creation path, including variants/categories/prices/history and atomic caller receipt. */
 export async function createCatalogProduct(body: Record<string, unknown>, actor: { id: number; email: string }, commit?: RestoreCommit) {
   const input = await productInput(body), relationships = body.relationships === undefined ? null : parseProductRelationships(body.relationships)

@@ -156,7 +156,11 @@ test('virtual product delivery details are encrypted and authenticated', () => {
     assert.ok(encrypted.startsWith('store:v1:'))
     assert.ok(!encrypted.includes('private-code'))
     assert.equal(decryptDigitalDelivery(encrypted), 'account@example.com\nprivate-code')
-    assert.throws(() => decryptDigitalDelivery(encrypted.slice(0, -2) + 'zz'))
+    const parts = encrypted.split('.')
+    const ciphertext = Buffer.from(parts[2], 'base64url')
+    ciphertext[0] ^= 1 // always change an authenticated byte, not unused base64 bits
+    parts[2] = ciphertext.toString('base64url')
+    assert.throws(() => decryptDigitalDelivery(parts.join('.')))
   } finally {
     if (previous === undefined) delete process.env.STORE_DELIVERY_KEY
     else process.env.STORE_DELIVERY_KEY = previous

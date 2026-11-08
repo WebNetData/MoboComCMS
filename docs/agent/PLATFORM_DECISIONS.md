@@ -1,3 +1,7 @@
+## Separate bulk generation transport — owner2026-11-08
+
+Owner requests bulk posts/products and generated cover/inline pictures from personal Chat web inside Admin, while assistant/engineering keep current ChatGPT/Codex routing. Extend the accepted personal desktop bridge; never claim unlimited/free usage or invoke API/Work as fallback. Existing target permissions, Media/Library and canonical draft creation remain; exact product facts/price/stock are human input. Browser-driven production persists progress but does not pretend to run without the browser. Failures require explicit retry; reviewed save is DRAFT/inactive with atomic receipt. [Scenario/evidence](handoffs/AI_PRODUCTION.md).
+
 ## Personal Chat web writing bridge — owner 2026-11-08
 
 Owner chooses writing inside the MoboCom post form using personal Chat web, explicitly accepts an unofficial browser bridge and account/UI limitations. Use reviewed optional desktop extension/fresh owned tabs, not exported cookies, private web endpoints or a claimed unlimited API. Existing configured API transport remains default; browser choice is explicit, has no paid fallback, and returns suggestions for review/ordinary CMS save. Only the article-writing assistant uses this transport; customer support/engineering never borrow it. Same prompt/parser/sanitizer, canonical identity/permission/module/Origin/rate checks and block-body locks remain. [Scope/evidence](handoffs/CHAT_WEB_BRIDGE.md).

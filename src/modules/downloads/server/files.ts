@@ -237,3 +237,5 @@ export async function organizeCoverImage(url: string, destination: string, check
 export function logImportFailure(url: string, error: unknown) {
   logEvent('warn', 'content.import_failed', { host: (() => { try { return new URL(url).hostname } catch { return '' } })(), error: String(error instanceof Error ? error.message : error).slice(0, 200) })
 }
+
+export { importDataImage } from './image-input'

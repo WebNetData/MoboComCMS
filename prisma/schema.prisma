@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  aiProductionBatches AiProductionBatch[]
   aiAssistantProposals AiAssistantProposal[]
   aiEngineeringRuns AiEngineeringRun[]
   domains Domain[] @relation("DomainOwner")
@@ -5078,4 +5079,38 @@ model AiEngineeringRun {
   updatedAt DateTime @default(now()) @updatedAt
   @@index([createdById, createdAt])
   @@index([status, leaseUntil])
+}
+
+
+/// Browser-driven AI production; no model credentials or image bytes are stored here.
+model AiProductionBatch {
+  id String @id
+  actorId Int
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  kind String
+  config String
+  status String @default("PLANNED")
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items AiProductionItem[]
+  @@index([actorId, createdAt])
+}
+
+model AiProductionItem {
+  id String @id
+  batchId String
+  batch AiProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  position Int
+  seed String
+  state String @default("READY")
+  output String @default("")
+  images String @default("[]")
+  lease String?
+  expiresAt DateTime?
+  error String @default("")
+  saved String @default("")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  @@unique([batchId, position])
 }
