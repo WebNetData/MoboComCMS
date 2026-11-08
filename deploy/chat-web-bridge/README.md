@@ -1,6 +1,6 @@
 
 
-## Low-cost routes and personal web chat (0.4)
+## Low-cost routes and personal web chat (0.5)
 
 The Admin economy policy references your existing authorized connections. OpenRouter
 uses only `openrouter/free`; Ollama verifies installed, non-remote models through
@@ -31,3 +31,14 @@ Web chat quotas still apply; no account rotation or limit bypass is included.
 A gateway on the host is not Docker localhost. Use a reachable trusted host address
 and protect the endpoint/key; do not expose a local model unauthenticated publicly.
 No additional container or gateway installation is performed by this change.
+
+Bridge0.5 adds production-v3: full assistant-turn text extraction, a bounded
+20-minute session receipt, explicit same-operation recovery and one owned ChatGPT
+conversation per item. Cover and inline images are separate sequential requests;
+only new assistant-turn images count. Canvas/CORS restrictions remain. Upgrade the
+same unpacked extension, click Reload in the browser extension manager, reconnect
+and reload Admin. Replacing files alone may leave the old service worker active.
+Recovery is restricted to the same panel tab, origin, provider, prompt and operation;
+it never scans arbitrary history. Closing the owned tabs/browser can lose recovery.
+Explicit fresh-chat retry may repeat generation. Real-account behavior remains
+operator verification; controlled browser tests do not certify external interfaces.
