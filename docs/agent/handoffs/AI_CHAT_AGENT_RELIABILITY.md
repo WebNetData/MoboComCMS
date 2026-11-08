@@ -70,3 +70,34 @@ Install by replacing the same unpacked extension's files, Reload, reconnect and
 refresh Admin. New download files must match source byte-for-byte. Rollback: stop
 production and restore prior web/bridge code; saved drafts/media/batches are kept.
 Owner merges/deploys. No new release/tag, production deployment or hosted workflow.
+
+## Confirmation deadline and clean slugs — 0.6.5
+
+Operator0.6.4 reported the exact click-confirmation timeout. Matching current nonce,
+complete JSON/end marker and a visible assistant were present later; worker stayed
+dispatched at root with readOnlyRecovery=false. The package installed in the local
+download folder matched the supplied0.6.4 sources, so an obsolete file was not assumed.
+Controlled `modern-late-root` reproduced that exact error in0.6.4: both thread URL
+assignment and user hydration arrived after the confirmation stage's20-second cap.
+The0.6.4 recovery condition only covered an already-assigned thread.
+
+Bridge0.6.5 waits for the already-dispatched message within the original operation
+deadline; it does not increase the step deadline, create a new lease or send again.
+The local confirmed bit is set after worker acknowledgement, and explicit sanitized
+route-failure metadata carries only enum/boolean validation facts. The same actual
+unpacked extension scenario passed one text/four sequential images in one chat with
+exactly five sends, plus interrupted-dispatch recovery with one send. Real-account
+first-attempt0.6.5 confirmation remains pending; do not claim controlled DOM is live
+account proof.
+
+AI Production's save used to append12 characters from every item UUID. It now keeps
+the output slug verbatim when free, chooses -2/-3 only on actual collisions and
+retries a slug-specific unique conflict within20 candidates. Canonical Journal,
+Catalog and Site creation/history plus the atomic item receipt are retained.
+Existing stored URLs are unchanged. No migration or automatic old-URL rewrite.
+The focused `ai-production-slug.connected.cjs` (registered in the PostgreSQL runner)
+passed actual PostgreSQL post/product/page saves, true collisions and repeated-save
+idempotency. Only owned test data was removed. Scoped native TypeScript7.0.2 passed.
+No inference, real account session, global settings or published content was used
+by that check. The user needs the web change deployed for the new slug behavior;
+the standalone bridge can be upgraded independently on existing1.7.12.

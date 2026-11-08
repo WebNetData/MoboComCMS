@@ -1,4 +1,4 @@
-Chat agent2026-11-08: bridge0.6.4 recognizes operator-observed user bubbles/indexed text, confirms dispatch through hydration and reads the exact owned response. Separate same-chat picture requests use normal bounded CORS. Native Admin/API/PostgreSQL/Media draft flow and controlled modern DOM passed; operator confirmed fresh text/images after manual recovery; clean first-attempt confirmation is pending. [Evidence and rollback](handoffs/AI_CHAT_AGENT_RELIABILITY.md).
+Chat agent2026-11-08: bridge0.6.5 recognizes observed modern messages and confirms already-sent work within the original operation deadline. Operator0.6.4 timeout reproduced with delayed root/thread hydration; controlled text/four same-chat images now pass without manual replay. Native post/product/page saves preserve clean slugs, using numeric suffixes only for real collisions; old URLs remain. Live first-attempt0.6.5 proof is pending. [Evidence and rollback](handoffs/AI_CHAT_AGENT_RELIABILITY.md).
 
 ## Authorized economy AI and manual CI — owner2026-11-08
 

@@ -48,6 +48,11 @@ async function content(m,sender){
  const transition=provider==='chatgpt'&&freshChatPath(current)&&threadPath(path)&&m.owned===true&&['sent','reading','complete'].includes(m.stage||op.stage)
  const freshAlias=provider==='chatgpt'&&freshChatPath(current)&&freshChatPath(path)&&['new','prepared'].includes(op.stage)
  const otherThread=provider!=='chatgpt'&&current===initialPath(provider)&&m.owned===true&&['sent','reading','complete'].includes(m.stage||op.stage)&&(provider==='gemini'?/^\/app\/[a-z0-9_-]+\/?$/i.test(path):/^\/(?:c|chat|a\/chat\/s)\/[a-z0-9_-]+\/?$/i.test(path))
+ if(path!==current&&!transition&&!freshAlias&&!otherThread){
+  const stage=value=>['new','prepared','dispatched','sent','reading','complete'].includes(value)?value:'unknown'
+  op.routeFailure={message:['CHAT_PROGRESS','CHAT_RESULT','CHAT_VISIBLE'].includes(m.type)?m.type:'unknown',messageStage:stage(m.stage),receiptStage:stage(op.stage),owned:m.owned===true,fromFresh:freshChatPath(current),toThread:threadPath(path),sameAsTab:path===tabUrl.pathname,hasPending:p?.execution===m.id}
+  if(s?.operation===op)await chrome.storage.session.set({conversation:s});if(p?.execution===m.id){p.operation=op;await chrome.storage.session.set({pending:p})}
+ }
  // A confirmation failure is safe to report without trusting the new path or any response body.
  if(provider==='chatgpt'&&freshChatPath(current)&&threadPath(path)&&op.stage==='dispatched'&&m.type==='CHAT_RESULT'&&typeof m.error==='string'){
   if(p?.execution===m.id&&p.expires>Date.now()+1000&&!op.confirmationRecovery&&!cancelled.has(p.id)){

@@ -13,6 +13,7 @@ const CHECKS = [
   'ai-resilience',
   'chat-web',
   'ai-production',
+  'ai-production-slug',
   'ai-production-api',
  'ai-economy',
   'chatgpt-admin',

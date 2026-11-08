@@ -67,3 +67,5 @@ schema3 reports light/deep role counts and redacted host/layout metadata, never 
 messages or private attribute values.
 
 Version0.6.4 performs at most one read-only recovery when the already-sent user message hydrates after initial navigation confirmation. It retains the original deadline and never resends that prompt.
+
+Version0.6.5 waits for an already-sent message within its original operation deadline, including when the conversation URL is still being assigned. Confirmation is not cut off by the readiness20-second budget. No second send or deadline extension.

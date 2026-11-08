@@ -58,11 +58,13 @@ globalThis.mobocomChatPage=(()=>{
   input.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));input.focus();state.imageTool='prompt'
  }
  async function confirmSent(state){
-  const until=Math.min(state.deadline,Date.now()+20000)
+  // The send is already recorded. Hydration may outlast readiness's short budget;
+  // observe it within the original operation deadline rather than fail and replay.
+  const until=state.deadline
   while(Date.now()<until){
    if(location.origin!=='https://chatgpt.com')throw ui('نشانی سرویس تغییر کرده؛ ارسال دیگری انجام نشد.')
    if(location.pathname!==state.path&&!(freshPath(state.path)&&threadPath(location.pathname)))throw ui('گفتگوی درخواست تغییر کرده؛ پاسخ دیگری خوانده نشد.')
-   if(owns(state)){state.path=location.pathname;check(state);state.confirmed=true;await dom.notify(state,'sent',true);return}
+   if(owns(state)){state.path=location.pathname;check(state);await dom.notify(state,'sent',true);state.confirmed=true;return}
    const allowed=state.options.markers||[],foreign=users().some(el=>{const value=dom.text(el).trim();return value&&!allowed.some(marker=>value.includes(marker))})
    if(foreign)throw ui('گفتگو پیام نامرتبط دارد؛ ارسال نامطمئن تکرار نشد.')
    await pause()

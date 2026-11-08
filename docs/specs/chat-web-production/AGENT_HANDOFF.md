@@ -18,6 +18,18 @@ observed nodes. Response fallback is anchored after the exact request's user bub
 excludes navigation/editor/other user messages, and never confirms a sidebar title.
 Read-only diagnostics expose counts and a masked route, not message text or IDs.
 
+0.6.4 operator failure: exact send-confirmation timeout, even though the later
+read-only report sees the matching user/complete JSON. Reproduced by delaying both
+root-to-thread assignment and user hydration past20 seconds; the old recovery
+branch required an already-assigned thread and never ran. Bridge0.6.5 observes
+confirmation within the existing operation deadline, with no deadline extension or
+second send. The confirmed flag follows the worker acknowledgement. Sanitized
+route-failure metadata distinguishes receipt/message stages without paths/IDs.
+
+Reviewed save now preserves the generated clean slug. Only actual existing slug
+collisions add readable -2/-3 suffixes; bounded unique-constraint retries preserve
+the canonical content/history/item receipt transaction. Existing URLs are retained.
+
 Envelope: acknowledge an uncertain dispatch before clicking, then wait for its exact
 user marker before accepting navigation or response. Resume dispatched work read-only.
 Extract production JSON from the new owned response even when the model omits its
