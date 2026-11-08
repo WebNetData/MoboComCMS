@@ -1,4 +1,4 @@
-importScripts('providers.js')
+importScripts('providers.js','diagnostics.js')
 const valid=id=>typeof id==='string'&&/^[a-f0-9-]{36}$/.test(id)
 const panelPath=path=>/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(path)
 const cancelled=new Set();let queue=Promise.resolve()
@@ -25,7 +25,7 @@ async function closeOwned(session){
 async function finish(execution,result){
  const{pending:p,conversation:s}=await chrome.storage.session.get(['pending','conversation'])
  if(s?.operation.id===execution){
-  if(!result.error){s.operation.result=result;s.operation.stage='complete'}
+  if(!result.error){s.operation.result=result;s.operation.stage='complete';delete s.operation.error}
   else s.operation.error=String(result.error).slice(0,500)
   s.expires=Date.now()+20*60000;await chrome.storage.session.set({conversation:s})
  }
@@ -48,18 +48,37 @@ async function content(m,sender){
  const transition=provider==='chatgpt'&&freshChatPath(current)&&threadPath(path)&&m.owned===true&&['sent','reading','complete'].includes(m.stage||op.stage)
  const freshAlias=provider==='chatgpt'&&freshChatPath(current)&&freshChatPath(path)&&['new','prepared'].includes(op.stage)
  const otherThread=provider!=='chatgpt'&&current===initialPath(provider)&&m.owned===true&&['sent','reading','complete'].includes(m.stage||op.stage)&&(provider==='gemini'?/^\/app\/[a-z0-9_-]+\/?$/i.test(path):/^\/(?:c|chat|a\/chat\/s)\/[a-z0-9_-]+\/?$/i.test(path))
+ if(path!==current&&!transition&&!freshAlias&&!otherThread){
+  const stage=value=>['new','prepared','dispatched','sent','reading','complete'].includes(value)?value:'unknown'
+  op.routeFailure={message:['CHAT_PROGRESS','CHAT_RESULT','CHAT_VISIBLE'].includes(m.type)?m.type:'unknown',messageStage:stage(m.stage),receiptStage:stage(op.stage),owned:m.owned===true,fromFresh:freshChatPath(current),toThread:threadPath(path),sameAsTab:path===tabUrl.pathname,hasPending:p?.execution===m.id}
+  if(s?.operation===op)await chrome.storage.session.set({conversation:s});if(p?.execution===m.id){p.operation=op;await chrome.storage.session.set({pending:p})}
+ }
+ // A confirmation failure is safe to report without trusting the new path or any response body.
+ if(provider==='chatgpt'&&freshChatPath(current)&&path!==current&&!threadPath(path)&&m.owned===true&&(m.type==='CHAT_PROGRESS'&&['sent','reading'].includes(m.stage)&&Number.isInteger(m.baseline)&&m.baseline>=0&&m.baseline<=40||m.type==='CHAT_RESULT'&&typeof m.error!=='string'&&['sent','reading','complete'].includes(op.stage))){
+  op.routePending=true;if(s?.operation===op)await chrome.storage.session.set({conversation:s});if(p?.execution===m.id){p.operation=op;await chrome.storage.session.set({pending:p})}return{ok:true,active:p?.execution===m.id&&!cancelled.has(p.id),routePending:true}
+ }
+ if(provider==='chatgpt'&&freshChatPath(current)&&threadPath(path)&&op.stage==='dispatched'&&m.type==='CHAT_RESULT'&&typeof m.error==='string'){
+  if(p?.execution===m.id&&p.expires>Date.now()+1000&&!op.confirmationRecovery&&!cancelled.has(p.id)){
+   // One read-only recovery of this already-dispatched execution; never click again.
+   op.confirmationRecovery=true;if(s?.operation===op)await chrome.storage.session.set({conversation:s});p.operation=op;await chrome.storage.session.set({pending:p});await tell(p,{type:'PROGRESS',stage:'reading'});setTimeout(()=>{void launch(p,'')},300);return{ok:true,recovering:true}
+  }
+  await finish(m.id,{error:m.error.slice(0,500),keepChat:true});return{ok:true}
+ }
  if(path!==current&&!transition&&!freshAlias&&!otherThread){if(p?.execution===m.id)await finish(m.id,{error:'گفتگوی درخواست تغییر کرده؛ پاسخ گفتگوی دیگری خوانده نشد.',keepChat:true});throw Error('گفتگوی درخواست تغییر کرده؛ پاسخ خوانده نشد.')}
  if(m.type==='CHAT_VISIBLE'){await chrome.tabs.update(tab,{active:true}).catch(()=>{});return{ok:true}}
  if(m.type==='CHAT_PROGRESS'){
-  if(!['prepared','sent','reading'].includes(m.stage)||!Number.isInteger(m.baseline)||m.baseline<0||m.baseline>40)throw Error('وضعیت مرحله معتبر نیست.')
+  delete op.routePending
+  if(!['prepared','dispatched','sent','reading'].includes(m.stage)||!Number.isInteger(m.baseline)||m.baseline<0||m.baseline>40)throw Error('وضعیت مرحله معتبر نیست.')
   if(op.baseline===undefined)op.baseline=m.baseline
-  if(op.stage!=='complete'&&(m.stage!=='prepared'||!['sent','reading'].includes(op.stage)))op.stage=m.stage
+  const order=['new','prepared','dispatched','sent','reading','complete'];if(order.indexOf(m.stage)>order.indexOf(op.stage))op.stage=m.stage
   if(s?.operation===op){s.path=path;await chrome.storage.session.set({conversation:s})}
-  if(p?.execution===m.id){p.path=path;p.operation=op;await chrome.storage.session.set({pending:p});await tell(p,{type:'PROGRESS',stage:m.stage})}
+  if(p?.execution===m.id){p.path=path;p.operation=op;await chrome.storage.session.set({pending:p});await tell(p,{type:'PROGRESS',stage:m.stage==='dispatched'?'sent':m.stage})}
   return{ok:true,active:p?.execution===m.id&&!cancelled.has(p.id)&&p.expires>Date.now()}
  }
  let result={error:'پاسخ پل معتبر نیست.'}
+ delete op.routePending
  if(typeof m.error==='string')result={error:m.error.slice(0,500),keepChat:true}
+ else if(m.owned!==true||!['sent','reading','complete'].includes(op.stage))result={error:'نمایش پیام همین درخواست تأیید نشده؛ پاسخ نامطمئن پذیرفته نشد.',keepChat:true}
  else if(op.mode==='IMAGE'){if(typeof m.data==='string'&&/^data:image\/webp;base64,[a-z0-9+/]+=*$/i.test(m.data)&&m.data.length<=2800000)result={data:m.data}}
  else if(typeof m.text==='string'&&m.text.trim()&&m.text.length<=60000)result={text:m.text}
  if(s?.operation===op){s.path=path;await chrome.storage.session.set({conversation:s})}
@@ -80,13 +99,14 @@ async function launch(p,prompt){
   while(Date.now()<until){const state=await chrome.storage.session.get('pending');if(state.pending?.execution!==p.execution||cancelled.has(p.id))return;tab=await chrome.tabs.get(tab.id);if(tab.status==='complete'&&new URL(tab.url).origin===mobocomWebProviders[p.provider].origin){loaded=true;break}await new Promise(r=>setTimeout(r,200))}
   if(!loaded)throw Error('صفحهٔ Chat آماده نشد؛ وارد حساب شوید. درخواست تازه خودکار ارسال نمی‌شود.')
   const state=await chrome.storage.session.get(['pending','conversation']);if(state.pending?.execution!==p.execution||cancelled.has(p.id))return
-  const session=state.conversation,op=state.pending.operation,options={provider:p.provider,context:!!p.context,path:session?.operation.id===op.id?session.path:state.pending.path,markers:session?.operation.id===op.id?session.markers:[],baseline:op.baseline,resume:['sent','reading','complete'].includes(op.stage)}
-  await chrome.scripting.executeScript({target:{tabId:tab.id},files:p.provider==='chatgpt'?['dom.js','page.js',p.mode==='IMAGE'?'image.js':'chat.js']:['dom.js','providers.js','web-page.js','chat.js']})
+  const session=state.conversation,op=state.pending.operation,options={provider:p.provider,context:!!p.context,path:session?.operation.id===op.id?session.path:state.pending.path,markers:session?.operation.id===op.id?session.markers:[],baseline:op.baseline,resume:['dispatched','sent','reading','complete'].includes(op.stage)}
+  await chrome.scripting.executeScript({target:{tabId:tab.id},files:p.provider==='chatgpt'?['dom-roots.js','dom.js','page.js',...(p.mode==='IMAGE'?['image-choice.js','image-data.js','image.js']:['chat.js'])]:['dom-roots.js','dom.js','providers.js','web-page.js','chat.js']})
   await chrome.scripting.executeScript({target:{tabId:tab.id},func:(prompt,id,expires,options,mode)=>{if(mode==='IMAGE')void mobocomChatImage(prompt,id,expires,options);else void mobocomChatRun(prompt,id,expires,options.provider,options)},args:[prompt,op.id,p.expires-1000,options,p.mode]})
  }catch(error){await enqueue(()=>finish(p.execution,{error:error?.message||'صفحهٔ چت در دسترس نیست؛ نتیجه حفظ شده و تولید دوباره ارسال نشد.',keepChat:true}))}
 }
 async function handle(m,sender){
  if(['CHAT_RESULT','CHAT_VISIBLE','CHAT_PROGRESS'].includes(m?.type))return content(m,sender)
+ if(m?.type==='DIAGNOSE'){if(sender.id!==chrome.runtime.id||sender.url!==chrome.runtime.getURL('popup.html'))throw Error('فرستنده معتبر نیست.');return{report:await mobocomChatDiagnostics()}}
  if(['CONNECT','DISCONNECT'].includes(m?.type)){
   if(sender.id!==chrome.runtime.id||sender.url!==chrome.runtime.getURL('popup.html'))throw Error('فرستنده معتبر نیست.')
   const{origin}=await chrome.storage.local.get('origin'),{pending,conversation}=await chrome.storage.session.get(['pending','conversation'])
@@ -99,7 +119,7 @@ async function handle(m,sender){
   await chrome.storage.local.set({origin:u.origin});await chrome.scripting.registerContentScripts([{id:'mobocom-panel',matches:[u.origin+'/admin/posts*',u.origin+'/admin/ai/production*'],js:['panel.js'],runAt:'document_idle'}]);return{ok:true}
  }
  const url=await panelSender(sender);if(!valid(m?.id))throw Error('شناسهٔ درخواست معتبر نیست.')
- if(m.type==='PING')return{ready:true,capabilities:['text','image','production-v1','production-v2','production-v3',...Object.keys(mobocomWebProviders).map(p=>'chat-'+p)]}
+ if(m.type==='PING')return{ready:true,version:chrome.runtime.getManifest().version,capabilities:['text','image','production-v1','production-v2','production-v3','production-v4',...Object.keys(mobocomWebProviders).map(p=>'chat-'+p)]}
  const state=await chrome.storage.session.get(['pending','conversation']),p=state.pending,s=state.conversation
  if(m.type==='CANCEL'){if(p&&p.panel===sender.tab.id&&p.id===m.id){cancelled.add(p.id);await chrome.storage.session.remove('pending');if(!p.context&&p.chat)await closeOwned({tab:p.chat,provider:p.provider,path:p.path})}return{ok:true}}
  const context=contextOf(m.context)
@@ -133,3 +153,4 @@ chrome.runtime.onMessage.addListener((m,sender,reply)=>{
  const task=m?.type==='PING'?handle(m,sender):enqueue(()=>handle(m,sender));task.then(reply,e=>reply({error:e.message||'پل در دسترس نیست.'}));return true
 })
 chrome.tabs.onRemoved.addListener(id=>{void enqueue(async()=>{const{pending:p,conversation:s}=await chrome.storage.session.get(['pending','conversation']);if(p&&(p.panel===id||p.chat===id))await finish(p.execution,{error:'تب درخواست بسته شد؛ نتیجهٔ نامطمئن دوباره تولید نشد.',keepChat:true});if(s&&(s.panel===id||s.tab===id))await chrome.storage.session.remove('conversation')})})
+chrome.tabs.onUpdated.addListener((id,change)=>{if(change.status!=='complete')return;void enqueue(async()=>{const{pending:p}=await chrome.storage.session.get('pending');return p?.chat===id&&p.expires>Date.now()&&['dispatched','sent','reading'].includes(p.operation.stage)?p:null}).then(p=>{if(p)void launch(p,'')})})

@@ -1,0 +1,12 @@
+const{test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+test('route-pending receipts retain the same result and recheck nonce ownership without another generation request',async()=>{
+ const messages=[];let owned=true,checks=0;const context={setTimeout:fn=>fn(),chrome:{runtime:{sendMessage:async m=>{messages.push(m);return messages.length===1?{routePending:true}:{ok:true}}}},mobocomChatPage:{settle:async()=>{checks++},owns:()=>owned}};
+ vm.runInNewContext(fs.readFileSync('deploy/chat-web-bridge/dom-roots.js','utf8')+'\n'+fs.readFileSync('deploy/chat-web-bridge/dom.js','utf8'),context);const dom=context.mobocomChatDom,state=dom.operation('owned',{provider:'chatgpt'},Date.now()+5000);
+ await dom.deliver(state,{text:'same completed response'},true);assert.equal(messages.length,2);assert(messages.every(m=>m.type==='CHAT_RESULT'&&m.id==='owned'&&m.text==='same completed response'));assert.equal(checks,2);assert.equal(state.result.text,'same completed response');
+ owned=false;await assert.rejects(dom.deliver(state,state.result,true));assert.equal(messages.length,2,'missing nonce cannot deliver a cached answer');
+ const expired=dom.operation('expired',{provider:'chatgpt'},Date.now()-1);await assert.rejects(dom.deliver(expired,{text:'late'},true));assert.equal(messages.length,2,'the original deadline is not extended');
+});
+test('owned production extraction accepts complete JSON without a marker and rejects incomplete or competing payloads',()=>{
+ const context={};vm.runInNewContext(fs.readFileSync('deploy/chat-web-bridge/dom-roots.js','utf8')+'\n'+fs.readFileSync('deploy/chat-web-bridge/dom.js','utf8'),context);const dom=context.mobocomChatDom,output={title:'متن کامل',slug:'complete',excerpt:'خلاصه',coverPrompt:'illustration',sections:[{heading:'عنوان',text:'متن دارای { آکولاد } و "نقل قول"',imagePrompt:'image'}]},json=JSON.stringify(output);
+ assert.deepEqual(JSON.parse(dom.productionJson('json\n'+json+'\nCopy response')),output);assert.deepEqual(JSON.parse(dom.productionJson('```json\n'+json+'\n```')),output);assert.equal(dom.productionJson(json.slice(0,-1)),null);assert.equal(dom.productionJson(json+'\n'+json),null);assert.equal(dom.productionJson('{"title":"wrong format"}'),null);assert.equal(dom.productionJson('x'.repeat(90001)),null);assert.equal(dom.completed(json+'\nMOBOCOM_END_owned\nCopy response','MOBOCOM_END_owned'),json);
+});

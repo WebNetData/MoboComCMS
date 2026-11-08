@@ -1,6 +1,6 @@
 
 
-## Low-cost routes and personal web chat (0.5)
+## Low-cost routes and personal web chat (0.6)
 
 The Admin economy policy references your existing authorized connections. OpenRouter
 uses only `openrouter/free`; Ollama verifies installed, non-remote models through
@@ -42,3 +42,34 @@ Recovery is restricted to the same panel tab, origin, provider, prompt and opera
 it never scans arbitrary history. Closing the owned tabs/browser can lose recovery.
 Explicit fresh-chat retry may repeat generation. Real-account behavior remains
 operator verification; controlled browser tests do not certify external interfaces.
+
+Bridge0.6/production-v4 persists uncertain dispatch before clicking, confirms the
+exact user marker after asynchronous navigation/hydration and resumes owned reloads
+without resending. Owned complete production JSON may omit its completion marker;
+canonical server validation still applies. Responses use user/turn order and include
+assistant image-tool cards outside their text node. Each picture selects an explicit
+available image control and gets its own request in the same conversation. Visible
+image bytes may be re-read under normal CORS with strict bounds; no hidden inference
+endpoint or account cookie export. Popup diagnostics contain only version, phase,
+counts and image origins; no raw content, account data or signed asset URLs. Account
+compatibility remains operator verification. Reload/reconnect the same extension.
+
+Patch0.6.1 handles boxless visible role containers and semantic conversation labels.
+Diagnostic schema2 distinguishes raw role nodes from rendered turns and reports
+redacted route/layout/control structure without conversation IDs or content. An
+unconfirmed-navigation error may be reported without trusting that path or accepting
+response data; text/images still require an acknowledged owned user turn.
+
+Patch0.6.2 traverses open shadow roots and assigned slots in composed document order.
+It does not open closed roots or cross-origin frames. Thread-title/sidebar markers
+cannot establish ownership; the nonce must belong to a user-role message. Diagnostic
+schema3 reports light/deep role counts and redacted host/layout metadata, never raw
+messages or private attribute values.
+
+Version0.6.4 performs at most one read-only recovery when the already-sent user message hydrates after initial navigation confirmation. It retains the original deadline and never resends that prompt.
+
+Version0.6.5 waits for an already-sent message within its original operation deadline, including when the conversation URL is still being assigned. Confirmation is not cut off by the readiness20-second budget. No second send or deadline extension.
+
+Version0.6.6 accepts image alternatives from the owned reply: an explicit image/preference click or selected state wins; otherwise the first image is used. It does not click preference controls. Slow bitmap reads share the existing operation deadline; a changed choice rereads that asset without regenerating. Diagnostics contain only counts and selection/transfer enums.
+
+Version0.6.7 waits through nonce-owned temporary routing after a confirmed send. A private routePending receipt does not accept data or bind that route; only the same progress/result is retried after ownership is rechecked. No generation replay or deadline extension. Different bound threads are still refused. Server slug behavior requires the separate web fix in PR386.
