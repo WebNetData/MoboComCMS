@@ -1,4 +1,4 @@
-Chat agent2026-11-08: bridge0.6.5 recognizes observed modern messages and confirms already-sent work within the original operation deadline. Operator0.6.4 timeout reproduced with delayed root/thread hydration; controlled text/four same-chat images now pass without manual replay. Native post/product/page saves preserve clean slugs, using numeric suffixes only for real collisions; old URLs remain. Live first-attempt0.6.5 proof is pending. [Evidence and rollback](handoffs/AI_CHAT_AGENT_RELIABILITY.md).
+Chat agent2026-11-09: bridge0.6.6 handles multiple images in the same nonce-owned response; explicit preference wins, otherwise the owner requests automatic first variant. Bitmap transfer uses the original operation deadline with normal bounded CORS. Controlled selected-bitmap/recovery cases pass; live0.6.6 completion remains pending. Clean-slug/native persistence evidence is retained. [Evidence and rollback](handoffs/AI_CHAT_AGENT_RELIABILITY.md).
 
 ## Authorized economy AI and manual CI — owner2026-11-08
 

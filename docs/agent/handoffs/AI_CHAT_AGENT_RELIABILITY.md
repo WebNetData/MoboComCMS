@@ -2,7 +2,7 @@
 
 Continue the existing AI Production/Media/editor owners and
 [handoff envelope](../../specs/chat-web-production/AGENT_HANDOFF.md).
-Published1.7.12 remains immutable. Bridge0.6.4/production-v4 retains older protocol
+Published1.7.12 remains immutable. Bridge0.6.6/production-v4 retains older protocol
 advertisements for the installed1.7.12 client; no migration/dependency/paid fallback.
 
 The operator's0.6.2 diagnostic identified visible user bubbles with
@@ -101,3 +101,38 @@ idempotency. Only owned test data was removed. Scoped native TypeScript7.0.2 pas
 No inference, real account session, global settings or published content was used
 by that check. The user needs the web change deployed for the new slug behavior;
 the standalone bridge can be upgraded independently on existing1.7.12.
+
+## Image variants and transfer budget — 2026-11-09, 0.6.6
+
+Operator0.6.5 reached generated images, then reported raw `signal timed out` and
+the exact multiple-images refusal, even after choosing one alternative. The old
+unpacked extension reproduced the multiple-images error. The operator explicitly
+chose automatic first variant when no preference exists. A read-only report could
+not locate the live timeout stage because the operator had closed that request.
+
+The new image-choice helper is scoped to the current nonce-owned response, observes
+explicit image/preference clicks and semantic selected flags, otherwise chooses
+the first candidate in DOM order. It never clicks Chat preference controls itself.
+Multiple variants are not an error. A different explicit preference cancels only
+the old bitmap transfer and reads the chosen visible asset; choosing the same asset
+does not interrupt it. Selection remains private in the owned operation state.
+Diagnostics export only candidate counts and selection/transfer enums, no image IDs
+or signed URLs. Existing images and prompts from other operations remain excluded.
+
+The visible-asset reader's15-second signal covered the response body too, whose
+timeout escaped as a raw browser exception. VM execution of the prior committed
+source reproduced that exact raw error during a slow body read. The corrected reader
+uses the original operation deadline (no new lease or step extension), classifies
+header/body timeouts, retains the generated asset and respects the original normal
+CORS, redirect-host, MIME, byte and pixel bounds. No paid/inference endpoint or
+session/cookie export. A separate server upload/registration timeout has not been
+certified as fixed; the next live receipt distinguishes that from a browser read.
+
+Actual unpacked0.6.6 controlled cases passed default-first, semantic second-choice
+and explicit click plus cancelled-delivery recovery. Delivered bitmap pixels were
+checked against the selected alternative. Each item still used one text/four image
+prompts in one conversation (five sends); cover recovery did not generate again.
+Focused regressions also cover same-image/no-abort, changed-image/abort, unrelated
+clicks, body budget/timeout classification and existing CORS/size guards. No new
+PostgreSQL/TypeScript/public UI behavior in this slice; earlier native evidence is
+retained, not described as newly rerun. Real-account0.6.6 completion remains pending.

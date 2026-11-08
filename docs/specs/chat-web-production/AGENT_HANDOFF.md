@@ -30,6 +30,16 @@ Reviewed save now preserves the generated clean slug. Only actual existing slug
 collisions add readable -2/-3 suffixes; bounded unique-constraint retries preserve
 the canonical content/history/item receipt transaction. Existing URLs are retained.
 
+0.6.6 image continuation: the owner explicitly chooses automatic first variant when
+no preference was selected. A current owned-response click or semantic selection
+has priority. Never select an image from another request, click preference controls
+automatically, or send another generation prompt to resolve alternatives. A change
+of preference interrupts only the previous bitmap read. All transfer work shares
+the existing operation deadline, CORS/origin/MIME/byte/pixel bounds; a body timeout
+is classified separately from model generation. Popup metadata exposes only counts
+and selection/transfer enums. Actual server-registration timeout remains distinct
+and must be located from a live operation receipt, not inferred from a closed tab.
+
 Envelope: acknowledge an uncertain dispatch before clicking, then wait for its exact
 user marker before accepting navigation or response. Resume dispatched work read-only.
 Extract production JSON from the new owned response even when the model omits its

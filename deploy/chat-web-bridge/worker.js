@@ -95,7 +95,7 @@ async function launch(p,prompt){
   if(!loaded)throw Error('صفحهٔ Chat آماده نشد؛ وارد حساب شوید. درخواست تازه خودکار ارسال نمی‌شود.')
   const state=await chrome.storage.session.get(['pending','conversation']);if(state.pending?.execution!==p.execution||cancelled.has(p.id))return
   const session=state.conversation,op=state.pending.operation,options={provider:p.provider,context:!!p.context,path:session?.operation.id===op.id?session.path:state.pending.path,markers:session?.operation.id===op.id?session.markers:[],baseline:op.baseline,resume:['dispatched','sent','reading','complete'].includes(op.stage)}
-  await chrome.scripting.executeScript({target:{tabId:tab.id},files:p.provider==='chatgpt'?['dom-roots.js','dom.js','page.js',...(p.mode==='IMAGE'?['image-data.js','image.js']:['chat.js'])]:['dom-roots.js','dom.js','providers.js','web-page.js','chat.js']})
+  await chrome.scripting.executeScript({target:{tabId:tab.id},files:p.provider==='chatgpt'?['dom-roots.js','dom.js','page.js',...(p.mode==='IMAGE'?['image-choice.js','image-data.js','image.js']:['chat.js'])]:['dom-roots.js','dom.js','providers.js','web-page.js','chat.js']})
   await chrome.scripting.executeScript({target:{tabId:tab.id},func:(prompt,id,expires,options,mode)=>{if(mode==='IMAGE')void mobocomChatImage(prompt,id,expires,options);else void mobocomChatRun(prompt,id,expires,options.provider,options)},args:[prompt,op.id,p.expires-1000,options,p.mode]})
  }catch(error){await enqueue(()=>finish(p.execution,{error:error?.message||'صفحهٔ چت در دسترس نیست؛ نتیجه حفظ شده و تولید دوباره ارسال نشد.',keepChat:true}))}
 }

@@ -1,0 +1,7 @@
+const vm=require('node:vm');
+// A response starts successfully but its body takes longer than the old15s cap.
+module.exports=async function transfer(code,budget=60000){let request,drawn=false,done=false,cancelled=0;const stages=[],image={currentSrc:'https://files.oaiusercontent.com/owned.png',naturalWidth:320,naturalHeight:320};
+ const reader={async read(){if(request.options.signal.budget<20000)throw Object.assign(Error('signal timed out'),{name:'TimeoutError'});if(done)return{done:true};done=true;return{done:false,value:new Uint8Array([1,2,3])}},async cancel(){cancelled++},releaseLock(){}};
+ const context={URL,Date,Blob,Uint8Array,AbortSignal:{timeout:budget=>({budget}),any:signals=>signals[0]},location:{href:'https://chatgpt.com/c/owned',origin:'https://chatgpt.com'},document:{createElement:()=>({getContext:()=>({drawImage:source=>{drawn=source===image}}),toDataURL:()=>{if(drawn)throw Object.assign(Error('tainted'),{name:'SecurityError'});return'data:image/webp;base64,AAAA'}})},fetch:async(url,options)=>{request={url,options};return{ok:true,url,headers:{get:key=>key==='content-type'?'image/png':'3'},body:{getReader:()=>reader}}},createImageBitmap:async()=>({width:320,height:320,close(){}})};
+ vm.runInNewContext(code,context);let result,error;try{result=await context.mobocomChatImageData(image,{deadline:Date.now()+budget,onStage:stage=>stages.push(stage)})}catch(e){error={message:e.message,code:e.code}}return{result,error,budget:request?.options.signal.budget,cancelled,stages};
+}
