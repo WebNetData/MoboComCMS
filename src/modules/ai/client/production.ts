@@ -1,25 +1,27 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { requestChatWeb, requestChatWebImage } from './chat-web'
+import { requestChatWeb, requestChatWebImage, checkProductionChat } from './chat-web'
+import type { ProductionChoice } from '../domain/production-execution'
 import type { ProductionConfig, ProductionKind, ProductionSeed, ProductionOutput, ProductionImage } from '../domain/production'
 export type ProductionItemView = { id: string; position: number; seed: ProductionSeed; state: string; output: ProductionOutput | null; images: ProductionImage[]; error: string; expiresAt: string | null; saved: { id: number; href: string; title: string } | null }
 export type ProductionBatchView = { id: string; kind: ProductionKind; status: string; version: number; config: ProductionConfig; items: ProductionItemView[] }
 type BatchSummary = { id: string; status: string; createdAt: string; _count: { items: number } }
 type Step = { itemId: string; lease: string; phase: 'text' | 'image'; index?: number; prompt: string }
-export async function productionApi(body: Record<string, unknown>, image = false) {
-  const response = await fetch('/api/admin/ai/production'+(image?'/image':''), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ versionProtocol: 1, ...body }), signal: AbortSignal.timeout(65000) })
+export async function productionApi(body: Record<string, unknown>, image = false, signal?: AbortSignal) {
+  const response = await fetch('/api/admin/ai/production'+(image?'/image':''), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ versionProtocol: 1, ...body }), signal: AbortSignal.any([AbortSignal.timeout(body.action==='generate'?155000:65000),...(signal?[signal]:[])]) })
   const data = await response.json().catch(() => null)
   if (!response.ok || !data) throw new Error(data?.error || 'درخواست انجام نشد؛ وضعیت را تازه کنید. تولید خودکار تکرار نشد.')
   return data as { batch: ProductionBatchView; step?: Step }
 }
 export function useProduction(kind: ProductionKind) {
   const [batch, setBatch] = useState<ProductionBatchView | null>(null), [batches,setBatches] = useState<BatchSummary[]>([]), [categories,setCategories] = useState<{id:number;name:string}[]>([]), [busy,setBusy]=useState(false), [message,setMessage]=useState('')
+  const [providers,setProviders]=useState<{text:ProductionChoice[];image:ProductionChoice[];message?:string;canSelectModel?:boolean}>({text:[],image:[]})
   const current=useRef(batch), running=useRef(false), abort=useRef<AbortController|null>(null)
   const receive=useCallback((value:ProductionBatchView|null)=>{current.current=value;setBatch(value)},[])
   const refresh=useCallback(async(id?:string)=>{
     const response=await fetch('/api/admin/ai/production?'+(id?'id='+encodeURIComponent(id):'kind='+kind),{cache:'no-store',signal:AbortSignal.timeout(20000)}),data=await response.json().catch(()=>null)
     if(!response.ok||!data)throw new Error(data?.error||'خواندن وضعیت انجام نشد')
-    if(id)receive(data.batch);else{setCategories(data.categories);setBatches(data.batches)}
+    if(id)receive(data.batch);else{setCategories(data.categories);setBatches(data.batches);setProviders(data.providers||{text:[],image:[]})}
     return data.batch as ProductionBatchView|undefined
   },[kind,receive])
   useEffect(()=>{void refresh().catch(e=>setMessage(e.message));receive(null);return()=>abort.current?.abort()},[refresh,receive])
@@ -32,9 +34,16 @@ export function useProduction(kind: ProductionKind) {
     if(running.current||!current.current)return
     running.current=true;setBusy(true);setMessage('');const control=new AbortController();abort.current=control;let step:Step|undefined
     try{
+      const config=current.current.config,hasWork=current.current.items.some(x=>x.state==='READY')
+      if(hasWork&&((config.generation?.text.source||'chat-web')==='chat-web'||(config.cover||config.inline)&&(config.generation?.image.source||'chat-web')==='chat-web')){setMessage('بررسی نسخه و اتصال پل Chat؛ هنوز درخواستی تولید نشده است…');await checkProductionChat(control.signal)}
       await command('start')
       while(!control.signal.aborted){
-        const item=current.current!.items.find(x=>x.state==='READY');if(!item)break
+        const item:ProductionItemView|undefined=current.current!.items.find(x=>x.state==='READY');if(!item)break
+        const phase:'text'|'image'=item.output?'image':'text',target=current.current!.config.generation?.[phase]
+        if(target?.source==='api'){
+          setMessage(`${item.position+1} از ${current.current!.items.length} · ${phase==='text'?'نوشتن متن':'تولید تصویر'} با ${target.provider} · ${target.model}؛ در انتظار پاسخ سرویس…`)
+          const result=await productionApi({action:'generate',id:current.current!.id,version:current.current!.version,itemId:item.id},false,control.signal);receive(result.batch);continue
+        }
         const claimed=await command('claim',{itemId:item.id});step=claimed.step;if(!step)throw new Error('مرحلهٔ تولید دریافت نشد')
         setMessage(`${item.position+1} از ${current.current!.items.length} · ${step.phase==='text'?'نوشتن متن':'تولید تصویر '+step.index}`)
         if(step.phase==='text'){const text=await requestChatWeb(step.prompt,control.signal,true);if(control.signal.aborted)break;await command('text',{itemId:step.itemId,lease:step.lease,text})}
@@ -50,5 +59,5 @@ export function useProduction(kind: ProductionKind) {
   async function stop() {abort.current?.abort();setMessage('در حال توقف؛ متن‌ها و تصاویر تکمیل‌شده حفظ می‌شوند.')}
   async function act(action:string,itemId?:string){if(running.current)return;setBusy(true);setMessage('');try{await command(action,itemId?{itemId}:{});if(action==='save')setMessage('پیش‌نویس ذخیره شد؛ انتشار خودکار انجام نمی‌شود.')}catch(e){setMessage(e instanceof Error?e.message:'انجام نشد')}finally{setBusy(false)}}
   async function saveAll(){if(running.current||!current.current)return;setBusy(true);setMessage('');try{for(const row of current.current.items.filter(x=>x.state==='REVIEW'))await command('save',{itemId:row.id});setMessage('ردیف‌های بازبینی‌شده به‌صورت پیش‌نویس ذخیره شدند.')}catch(e){setMessage(e instanceof Error?e.message:'ذخیره متوقف شد؛ موارد موفق دوباره ساخته نمی‌شوند')}finally{setBusy(false)}}
-  return{batch,batches,categories,busy,message,setMessage,refresh,create,run,stop,act,saveAll}
+  return{batch,batches,categories,providers,busy,message,setMessage,refresh,create,run,stop,act,saveAll}
 }

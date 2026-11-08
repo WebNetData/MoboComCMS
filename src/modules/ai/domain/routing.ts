@@ -1,5 +1,7 @@
 export const AI_PURPOSES = [
   { id: 'admin', label: 'پیش‌فرض ابزارهای مدیریت', personal: true },
+  { id: 'production', label: 'تولید انبوه · API متن', personal: false },
+  { id: 'production-image', label: 'تولید انبوه · API تصویر (خروجی base64)', personal: false },
   { id: 'operations', label: 'دستیار عملیاتی با تأیید مدیر', personal: true },
   { id: 'engineering', label: 'مهندسی و تعمیر سایت در محیط جدا', personal: true },
   { id: 'support', label: 'پشتیبانی آنلاین کاربران', personal: false },

@@ -26,7 +26,7 @@ function exchange(type: 'PING' | 'RUN' | 'IMAGE', prompt: string, signal: AbortS
 export async function requestChatWeb(prompt: string, signal: AbortSignal, production = false) {
   if (!prompt.trim() || prompt.length > 120000) throw new Error('درخواست برای پل بیش از حد طولانی است.')
   const hello = await exchange('PING', '', signal)
-  if (production && !hello.capabilities?.includes('production-v1')) throw new Error('افزونهٔ پل را به نسخهٔ ۰.۲ یا جدیدتر ارتقا و دوباره به سایت متصل کنید.')
+  if (production && !hello.capabilities?.includes('production-v2')) throw new Error('افزونهٔ پل را به نسخهٔ ۰.۳ یا جدیدتر ارتقا و دوباره به سایت متصل کنید.')
   return (await exchange('RUN', prompt, signal)).text!
 }
 
@@ -35,4 +35,10 @@ export async function requestChatWebImage(prompt: string, signal: AbortSignal) {
   const hello = await exchange('PING', '', signal)
   if (!hello.capabilities?.includes('image') || !hello.capabilities.includes('production-v1')) throw new Error('نسخهٔ افزونه تولید تصویر را پشتیبانی نمی‌کند؛ پل را ارتقا دهید.')
   return (await exchange('IMAGE', prompt, signal)).data!
+}
+
+/** Capability check happens before claiming a persisted generation step. */
+export async function checkProductionChat(signal: AbortSignal) {
+  const hello = await exchange('PING', '', signal)
+  if (!hello.capabilities?.includes('production-v2')) throw new Error('پل Chat وب نسخهٔ ۰.۳ لازم است؛ افزونه را ارتقا و صفحه را تازه کنید. هنوز درخواستی تولید نشده است.')
 }

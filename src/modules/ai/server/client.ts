@@ -69,17 +69,23 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
     catch (error) { if (error instanceof ChatGptError) throw new AiError(error.message, error.status); throw error }
   }
   const settings = route.source === 'api' && route.config ? route.config : config || await getAiConfig()
+  return generateApi(prompt, settings, { support: selected === 'support' })
+}
+
+/** Explicit API transport: never consults actor/personal routing or falls back to ChatGPT. */
+export async function generateApi(prompt: Prompt, settings: AiConfig, options: { support?: boolean; signal?: AbortSignal } = {}): Promise<AiResult> {
+  const combined = (signal?: AbortSignal) => AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(signal ? [signal] : []), ...(options.signal ? [options.signal] : [])])
   const model = effectiveModel(settings)
   const pooled = await generateWithCredentialPool(settings, (key, signal) => settings.provider === 'anthropic'
-    ? claude(key, model, prompt, selected === 'support', signal)
-    : openAiCompatible(effectiveBaseUrl(settings), key, model, prompt, settings.provider, signal))
+    ? claude(key, model, prompt, options.support === true, combined(signal))
+    : openAiCompatible(effectiveBaseUrl(settings), key, model, prompt, settings.provider, combined(signal)))
   if (pooled !== null) return { text: pooled, model, provider: settings.provider }
   let apiKey = ''
   try { apiKey = decryptPanelCredential(settings.apiKey) } catch { throw new AiError('کلید API قابل خواندن نیست؛ دوباره آن را ذخیره کنید') }
   if (!apiKey && settings.provider !== 'custom') throw new AiError(`ابتدا کلید API سرویس ${providerById(settings.provider).label} را در تنظیمات دستیار وارد کنید`)
   const text = settings.provider === 'anthropic'
-    ? await claude(apiKey, model, prompt, selected === 'support')
-    : await openAiCompatible(effectiveBaseUrl(settings), apiKey, model, prompt, settings.provider)
+    ? await claude(apiKey, model, prompt, options.support === true, combined())
+    : await openAiCompatible(effectiveBaseUrl(settings), apiKey, model, prompt, settings.provider, combined())
   if (!text.trim()) throw new AiError('پاسخی از هوش مصنوعی دریافت نشد؛ دوباره تلاش کنید', 502)
   return { text, model, provider: settings.provider }
 }
@@ -106,6 +112,10 @@ async function claude(apiKey: string, model: string, prompt: Prompt, support = f
   }
 }
 
+function settingsJson(provider: string) {
+  return { ...(provider !== 'custom' ? { response_format: { type: 'json_object' } } : {}), ...(provider === 'deepseek' ? { thinking: { type: 'disabled' } } : {}), ...(provider === 'qwen' ? { enable_thinking: false } : {}) }
+}
+
 async function openAiCompatible(baseUrl: string, apiKey: string, model: string, prompt: Prompt, provider: string, signal?: AbortSignal): Promise<string> {
   if (!baseUrl) throw new AiError('نشانی سرویس هوش مصنوعی تنظیم نشده است')
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -126,7 +136,7 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
     response = await egressFetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model, max_tokens: prompt.maxTokens, temperature: 0.7, ...reasoning, messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }] }),
+      body: JSON.stringify({ model, max_tokens: prompt.maxTokens, temperature: 0.7, ...reasoning, ...(prompt.json && settingsJson(provider)), messages: [{ role: 'system', content: prompt.system }, { role: 'user', content: prompt.user }] }),
       signal: signal || AbortSignal.timeout(TIMEOUT_MS),
       cache: 'no-store',
     })
@@ -149,6 +159,7 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
   }
   const content = data?.choices?.[0]?.message?.content
   if (content != null && typeof content !== 'string') throw new AiError('قالب پاسخ سرویس هوش مصنوعی با پاسخ متنی سازگار نیست', 502, 'unavailable', false)
+  if (prompt.json && data?.choices?.[0]?.finish_reason === 'length') throw new AiError('پاسخ JSON مدل ناقص شد؛ سقف خروجی را بررسی کنید. درخواست تکرار نشد', 502, 'unavailable', false)
   if (data?.choices?.[0]?.finish_reason === 'content_filter') throw new AiError('سرویس به این درخواست پاسخ نداد؛ موضوع یا متن را تغییر دهید', 422)
   if (data?.choices?.[0]?.finish_reason === 'length' && !content?.trim()) throw new AiError('بودجهٔ توکن مدل پیش از تولید پاسخ تمام شد؛ سقف خروجی یا تنظیم تفکر مدل را بررسی کنید', 502)
   return content || ''

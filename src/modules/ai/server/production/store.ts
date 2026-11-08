@@ -8,6 +8,7 @@ import { parseProduction, productionTool, ProductionError, type ProductionKind, 
 import { randomUUID } from 'node:crypto'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { validateCatalogDraft } from '@/modules/catalog/server/create'
+import { prepareProductionConfig, productionProviders, productionModelAuthority } from './providers'
 type Reader = Prisma.TransactionClient
 export type Batch = NonNullable<Awaited<ReturnType<typeof db.aiProductionBatch.findUnique>>> & { items: Awaited<ReturnType<typeof db.aiProductionItem.findMany>> }
 export async function productionActor(req: NextRequest, kind: ProductionKind, reader: Reader | typeof db = db): Promise<AuthedUser> {
@@ -36,7 +37,7 @@ export async function categories(kind: ProductionKind, config: ProductionConfig,
 }
 export async function productionSettings(req: NextRequest, kind: ProductionKind) {
   await productionActor(req,kind)
-  return{categories:kind==='post'?await db.postCategory.findMany({orderBy:{name:'asc'},select:{id:true,name:true}}):kind==='product'?await db.productCategory.findMany({orderBy:{name:'asc'},select:{id:true,name:true}}):[]}
+  return{providers:await productionProviders(await productionModelAuthority(req)),categories:kind==='post'?await db.postCategory.findMany({orderBy:{name:'asc'},select:{id:true,name:true}}):kind==='product'?await db.productCategory.findMany({orderBy:{name:'asc'},select:{id:true,name:true}}):[]}
 }
 export async function productionList(req: NextRequest, kind: ProductionKind) {
   const actor=await productionActor(req,kind),select={id:true,kind:true,status:true,createdAt:true,_count:{select:{items:true}}} as const
@@ -48,7 +49,7 @@ export async function productionList(req: NextRequest, kind: ProductionKind) {
 }
 export async function productionRead(req: NextRequest,id:unknown) {return view((await owned(req,id)).batch)}
 export async function productionCreate(req: NextRequest, input: unknown, id: unknown) {
-  const{kind,config,seeds}=parseProduction(input);const actor=await productionActor(req,kind)
+  const parsed=parseProduction(input),{kind,seeds}=parsed;const actor=await productionActor(req,kind),config=await prepareProductionConfig(parsed.config,await productionModelAuthority(req))
   if(typeof id!=='string'||!/^[a-f0-9-]{36}$/.test(id))throw new ProductionError('شناسهٔ یکتای درخواست لازم است')
   await categories(kind,config)
   if(kind==='product')for(const seed of seeds){try{await validateCatalogDraft({name:seed.topic,slug:'production-validation',price:seed.price,currency:config.currency,kind:config.productKind,stock:seed.stock,active:false,categoryId:config.categoryIds[0]||null,specifications:JSON.parse(config.specifications)})}catch(e){throw new ProductionError(e instanceof Error?e.message:'مشخصات محصول معتبر نیست')}}

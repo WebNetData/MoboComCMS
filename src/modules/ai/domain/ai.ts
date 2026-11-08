@@ -5,7 +5,7 @@
 // is always treated as untrusted text: it is sanitized before it is stored
 // and nothing is published without an admin pressing a button.
 
-export type AiProviderId = 'gemini' | 'openrouter' | 'groq' | 'anthropic' | 'custom'
+export type AiProviderId = 'gemini' | 'openrouter' | 'groq' | 'anthropic' | 'qwen' | 'deepseek' | 'custom'
 
 export interface AiProvider {
   id: AiProviderId
@@ -23,7 +23,9 @@ export const AI_PROVIDERS: AiProvider[] = [
   { id: 'openrouter', label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'meta-llama/llama-3.3-70b-instruct:free', free: true, keyUrl: 'https://openrouter.ai/keys', note: 'مدل‌هایی که به :free ختم می‌شوند رایگان‌اند (با محدودیت تعداد درخواست).' },
   { id: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', free: true, keyUrl: 'https://console.groq.com/keys', note: 'بسیار سریع؛ سهمیهٔ رایگان روزانه.' },
   { id: 'anthropic', label: 'Anthropic Claude', baseUrl: '', model: 'claude-opus-5', free: false, keyUrl: 'https://platform.claude.com/settings/keys', note: 'پولی بر اساس مصرف؛ جابه‌جایی کلید فقط با فعال‌کردن مجموعهٔ کلیدها و در همان سرویس و مدل است.' },
-  { id: 'custom', label: 'سرویس سازگار با OpenAI', baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:7b', free: true, keyUrl: '', note: 'هر سرویس سازگار با OpenAI، مثلاً Ollama روی سرور خودتان (کاملاً رایگان).' },
+  { id: 'qwen', label: 'Alibaba Qwen', baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus', free: false, keyUrl: 'https://modelstudio.console.alibabacloud.com/', note: 'API منطقهٔ سنگاپور؛ سهمیهٔ آزمایشی و هزینه تابع حساب است. برای منطقه یا دامنهٔ اختصاصی دیگر، سرویس سفارشی را تنظیم کنید.' },
+  { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash', free: false, keyUrl: 'https://platform.deepseek.com/api_keys', note: 'API رسمی متنی با هزینه و محدودیت حساب؛ رایگان‌بودن چت وب به معنی API رایگان نیست.' },
+  { id: 'custom', label: 'سرویس سازگار با OpenAI / مدل محلی', baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:7b', free: true, keyUrl: '', note: 'مثلاً Qwen یا DeepSeek با Ollama روی میزبان خودتان؛ بدون سهمیهٔ تجاریِ مدل محلی، اما محدود به ظرفیت و هزینهٔ سخت‌افزار.' },
 ]
 
 export const providerById = (id: string): AiProvider => AI_PROVIDERS.find((provider) => provider.id === id) || AI_PROVIDERS[0]
@@ -84,7 +86,7 @@ export const effectiveBaseUrl = (config: AiConfig) => (config.provider === 'cust
 
 // ------------------------------------------------------------------ prompts
 
-export interface Prompt { system: string; user: string; maxTokens: number }
+export interface Prompt { system: string; user: string; maxTokens: number; json?: boolean }
 
 /** Editorial style rules so drafts read like a real magazine writer, not a template. */
 export const NATURAL_STYLE = [

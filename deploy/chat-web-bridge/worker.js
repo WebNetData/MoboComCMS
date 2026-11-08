@@ -5,7 +5,7 @@ async function finish(p,result){
   cancelled.delete(p.id)
   await chrome.storage.session.remove('pending')
   try{const tab=await chrome.tabs.get(p.panel);if(new URL(tab.url).origin===p.origin&&/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(new URL(tab.url).pathname))await chrome.tabs.sendMessage(p.panel,{type:'RESULT',id:p.id,...result})}catch{}
-  if(p.chat)await chrome.tabs.remove(p.chat).catch(()=>{})
+  if(p.chat){if(result.keepChat)await chrome.tabs.update(p.chat,{active:true}).catch(()=>{});else await chrome.tabs.remove(p.chat).catch(()=>{})}
 }
 async function handle(m,sender){
   const{origin}=await chrome.storage.local.get('origin')
@@ -20,17 +20,18 @@ async function handle(m,sender){
     await chrome.storage.local.set({origin:u.origin});await chrome.scripting.registerContentScripts([{id:'mobocom-panel',matches:[u.origin+'/admin/posts*',u.origin+'/admin/ai/production*'],js:['panel.js'],runAt:'document_idle'}]);return{ok:true}
   }
   const{pending}=await chrome.storage.session.get('pending')
-  if(m?.type==='CHAT_RESULT'){
+  if(['CHAT_RESULT','CHAT_VISIBLE'].includes(m?.type)){
     if(!pending||sender.tab?.id!==pending.chat||m.id!==pending.id||Date.now()>pending.expires||new URL(sender.url).origin!=='https://chatgpt.com')throw Error('پاسخ متعلق به این درخواست نیست.')
+    if(m.type==='CHAT_VISIBLE'){await chrome.tabs.update(pending.chat,{active:true});return{ok:true}}
     let result={error:'پاسخ پل معتبر نیست.'}
-    if(typeof m.error==='string')result={error:m.error.slice(0,500)}
+    if(typeof m.error==='string')result={error:m.error.slice(0,500),keepChat:m.code==='CHAT_UI'}
     else if(pending.mode==='IMAGE'){if(typeof m.data==='string'&&/^data:image\/webp;base64,[a-z0-9+/]+=*$/i.test(m.data)&&m.data.length<=2800000)result={data:m.data}}
     else if(typeof m.text==='string'&&m.text.trim()&&m.text.length<=60000)result={text:m.text}
     await finish(pending,result);return{ok:true}
   }
   let u;try{u=new URL(sender.url)}catch{throw Error('فرستنده معتبر نیست.')}
   if(sender.id!==chrome.runtime.id||!sender.tab||u.origin!==origin||!/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(u.pathname)||!valid(m?.id))throw Error('این سایت یا صفحه به پل متصل نیست.')
-  if(m.type==='PING')return{ready:true,capabilities:['text','image','production-v1']}
+  if(m.type==='PING')return{ready:true,capabilities:['text','image','production-v1','production-v2']}
   if(m.type==='CANCEL'){if(pending&&pending.panel===sender.tab.id&&pending.id===m.id)await finish(pending,{error:'درخواست لغو شد؛ مصرف احتمالی حساب بازگردانده نمی‌شود.'});return{ok:true}}
   if(!['RUN','IMAGE'].includes(m.type)||typeof m.prompt!=='string'||!m.prompt.trim()||m.prompt.length>120000)throw Error('درخواست پل معتبر نیست.')
   if(pending&&pending.expires>Date.now())throw Error('یک درخواست در پل فعال است؛ تا پایان آن منتظر بمانید.')
@@ -44,8 +45,8 @@ async function handle(m,sender){
     const loadDeadline=Date.now()+20000
     let loaded=false
     while(Date.now()<loadDeadline){if(cancelled.has(p.id))throw Error('لغو شد.');const current=await chrome.tabs.get(tab.id);if(current.status==='complete'&&current.url?.startsWith('https://chatgpt.com/')){loaded=true;break}await new Promise(r=>setTimeout(r,200))}
-    if(!loaded)throw Error('صفحهٔ Chat وب بارگذاری نشد.')
-    await chrome.scripting.executeScript({target:{tabId:tab.id},files:[m.type==='IMAGE'?'image.js':'chat.js']})
+    if(!loaded){await finish(p,{error:'صفحهٔ Chat آماده نشد؛ تب آن باز شد. ورود، اتصال و حالت Chat را بررسی کنید؛ ارسال انجام نشد.',keepChat:true});return{ok:true}}
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['page.js',m.type==='IMAGE'?'image.js':'chat.js']})
     if(cancelled.has(p.id))throw Error('لغو شد.')
     if(m.type==='IMAGE')await chrome.scripting.executeScript({target:{tabId:tab.id},func:(prompt,id,expires)=>{void mobocomChatImage(prompt,id,expires)},args:[m.prompt,m.id,p.expires-1000]})
     else await chrome.scripting.executeScript({target:{tabId:tab.id},func:(prompt,id,expires)=>{void mobocomChatRun(prompt,id,expires)},args:[m.prompt,m.id,p.expires-1000]})
