@@ -1,3 +1,7 @@
+## Personal Chat web writing bridge — owner 2026-11-08
+
+Owner chooses writing inside the MoboCom post form using personal Chat web, explicitly accepts an unofficial browser bridge and account/UI limitations. Use reviewed optional desktop extension/fresh owned tabs, not exported cookies, private web endpoints or a claimed unlimited API. Existing configured API transport remains default; browser choice is explicit, has no paid fallback, and returns suggestions for review/ordinary CMS save. Only the article-writing assistant uses this transport; customer support/engineering never borrow it. Same prompt/parser/sanitizer, canonical identity/permission/module/Origin/rate checks and block-body locks remain. [Scope/evidence](handoffs/CHAT_WEB_BRIDGE.md).
+
 Owner decision2026-11-08: allow multiple API keys for each configured AI provider, using an available key and notifying management about rejection/quota problems. Scope is explicit opt-in within the same provider/model/exact destination; personal ChatGPT failures never purchase API usage. No ambiguous-request replay or external messages. The assistant follows canonical MoboCom skills/architecture and records development in architecture before completion. Existing isolated development, owner merge and exact-artifact deployment approval remain. [Contract](../specs/ai-resilience/SPEC.md).
 
 # MoboCom — Platform decisions in force

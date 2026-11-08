@@ -15,6 +15,7 @@ import { AiError, generate, getAiConfig } from '@/modules/ai/server/client'
 import { queueCommentNotification } from '@/modules/journal/server/comment-notification-intents'
 import { completeOwnerCase } from '@/modules/moderation/server/cases'
 import { autofillPrompt, cleanSchema, parseAutofill } from '@/modules/ai/domain/autofill'
+import { editorAssistPlan, type EditorAssistInput } from './editor-assist'
 
 // Everything the assistant writes is a suggestion: posts are saved as drafts,
 // and replies, product copy and meta descriptions are only stored after an
@@ -130,34 +131,9 @@ export async function applyProductCopy(productId: number, description: unknown) 
  * - source: a new article that uses a pasted source only as research (credited when a URL is given)
  * - excerpt: a meta description for the current content
  */
-export async function assistEditor(input: { mode?: unknown; content?: unknown; title?: unknown; source?: unknown; url?: unknown; keywords?: unknown }) {
-  const { brand, voice } = await context()
-  const content = cleanRichText(String(input.content || '')).slice(0, 60_000)
-  if (input.mode === 'excerpt') {
-    if (plain(content).length < 80) throw new AiError('ابتدا متن نوشته را بنویسید')
-    const result = await generate(metaPrompt({ brand, voice, kind: 'مقاله', title: String(input.title || '').slice(0, 200), content: plain(content) }))
-    return { excerpt: oneLine(result.text, 160), model: result.model }
-  }
-  if (input.mode === 'polish') {
-    if (plain(content).length < 80) throw new AiError('متن ویرایشگر برای بازنویسی خیلی کوتاه است')
-    const result = await generate(polishPrompt({ brand, voice, html: content }))
-    const html = cleanRichText(naturalize(toHtml(parseTagged(result.text).body)))
-    if (plain(html).length < plain(content).length * 0.4) throw new AiError('متن بازنویسی‌شده ناقص برگشت؛ دوباره تلاش کنید', 502)
-    return { content: html, model: result.model }
-  }
-  if (input.mode === 'source') {
-    const source = String(input.source || '').replace(/<[^>]+>/g, ' ').replace(/[ \t]+/g, ' ').trim()
-    if (source.length < 200) throw new AiError('متن منبع را کامل‌تر وارد کنید (حداقل چند پاراگراف)')
-    const result = await generate(sourcePrompt({ brand, voice, source, keywords: String(input.keywords || '').slice(0, 300) }))
-    const { fields, body } = parseTagged(result.text)
-    const html = cleanRichText(naturalize(toHtml(body)) + sourceCredit(String(input.url || '')))
-    if (plain(html).length < 200) throw new AiError('متن تولیدشده خیلی کوتاه بود؛ دوباره تلاش کنید', 502)
-    return {
-      title: oneLine(fields.title || '', 120), slug: slugify(fields.slug || '', ''), excerpt: oneLine(fields.excerpt || plain(html), 160),
-      content: html, model: result.model,
-    }
-  }
-  throw new AiError('حالت نامعتبر')
+export async function assistEditor(input: EditorAssistInput) {
+  const plan = await editorAssistPlan(input)
+  return plan.parse(await generate(plan.prompt))
 }
 
 // ------------------------------------------------------------------ comments

@@ -421,6 +421,13 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
         </div>
       ) : blocksLocked && fl.key === 'content' && editId && editFormat === 'blocks-v1' ? (
         <p className="muted text-sm cms-block-body">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده است و سر جایش است. برای ویرایش آن، افزونهٔ «ویرایشگر بلوکی» را از صفحهٔ افزونه‌ها فعال کنید.' : 'The body of this item is written in blocks and is kept. To edit it, turn the Block editor plugin on.'}</p>
+      ) : fl.type === 'richtext' ? (
+        <RichEditor
+          value={form[fl.key] || ''}
+          onChange={(html) => setForm(current => ({ ...current, [fl.key]: html }))}
+          placeholder={fl.label}
+          dir={fl.dir || (/En$/.test(fl.key) ? 'ltr' : 'rtl')}
+        />
       ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'textarea' ? (
         <textarea id={`${formId}-${fl.key}`} className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
       ) : fl.type === 'checkbox' ? (
