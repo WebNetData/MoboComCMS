@@ -754,6 +754,9 @@
     },
     "1.7.11": {
       "migrations": []
+    },
+    "1.7.12": {
+      "migrations": []
     }
   },
   "unreleased": []
