@@ -3,7 +3,7 @@ chrome.tabs.query({active:true,currentWindow:true}, tabs => {
   const tab=tabs[0]; let url
   try { url=new URL(tab.url) } catch { status.textContent='تب مدیریت موبوکام را باز کنید.'; return }
   const local=['localhost','127.0.0.1'].includes(url.hostname)
-  if (!(url.protocol==='https:' || local&&url.protocol==='http:') || !/^\/admin\/posts(?:\/|$)/.test(url.pathname) || url.hostname==='chatgpt.com') { status.textContent='این کار را روی صفحهٔ مدیریت نوشته‌های موبوکام انجام دهید.'; return }
+  if (!(url.protocol==='https:' || local&&url.protocol==='http:') || !/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(url.pathname) || url.hostname==='chatgpt.com') { status.textContent='این کار را روی صفحهٔ نوشته‌ها یا تولید انبوهٔ موبوکام انجام دهید.'; return }
   document.getElementById('connect').onclick=()=>{
     chrome.permissions.request({origins:[url.origin+'/*']},async granted=>{
       if(!granted){status.textContent='دسترسی سایت داده نشد.';return}

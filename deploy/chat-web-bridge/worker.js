@@ -4,7 +4,7 @@ let queue=Promise.resolve()
 async function finish(p,result){
   cancelled.delete(p.id)
   await chrome.storage.session.remove('pending')
-  try{const tab=await chrome.tabs.get(p.panel);if(new URL(tab.url).origin===p.origin&&/^\/admin\/posts(?:\/|$)/.test(new URL(tab.url).pathname))await chrome.tabs.sendMessage(p.panel,{type:'RESULT',id:p.id,...result})}catch{}
+  try{const tab=await chrome.tabs.get(p.panel);if(new URL(tab.url).origin===p.origin&&/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(new URL(tab.url).pathname))await chrome.tabs.sendMessage(p.panel,{type:'RESULT',id:p.id,...result})}catch{}
   if(p.chat)await chrome.tabs.remove(p.chat).catch(()=>{})
 }
 async function handle(m,sender){
@@ -17,22 +17,26 @@ async function handle(m,sender){
     const u=new URL(m.origin);if(u.origin!==m.origin||!(u.protocol==='https:'||u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname))||u.hostname==='chatgpt.com')throw Error('نشانی معتبر نیست.')
     if(!await chrome.permissions.contains({origins:[u.origin+'/*']}))throw Error('دسترسی سایت لازم است.')
     if(origin&&origin!==u.origin)await chrome.permissions.remove({origins:[origin+'/*']})
-    await chrome.storage.local.set({origin:u.origin});await chrome.scripting.registerContentScripts([{id:'mobocom-panel',matches:[u.origin+'/admin/posts*'],js:['panel.js'],runAt:'document_idle'}]);return{ok:true}
+    await chrome.storage.local.set({origin:u.origin});await chrome.scripting.registerContentScripts([{id:'mobocom-panel',matches:[u.origin+'/admin/posts*',u.origin+'/admin/ai/production*'],js:['panel.js'],runAt:'document_idle'}]);return{ok:true}
   }
   const{pending}=await chrome.storage.session.get('pending')
   if(m?.type==='CHAT_RESULT'){
     if(!pending||sender.tab?.id!==pending.chat||m.id!==pending.id||Date.now()>pending.expires||new URL(sender.url).origin!=='https://chatgpt.com')throw Error('پاسخ متعلق به این درخواست نیست.')
-    const result=typeof m.text==='string'&&m.text.trim()&&m.text.length<=60000?{text:m.text}:typeof m.error==='string'?{error:m.error.slice(0,500)}:{error:'پاسخ پل معتبر نیست.'};await finish(pending,result);return{ok:true}
+    let result={error:'پاسخ پل معتبر نیست.'}
+    if(typeof m.error==='string')result={error:m.error.slice(0,500)}
+    else if(pending.mode==='IMAGE'){if(typeof m.data==='string'&&/^data:image\/webp;base64,[a-z0-9+/]+=*$/i.test(m.data)&&m.data.length<=2800000)result={data:m.data}}
+    else if(typeof m.text==='string'&&m.text.trim()&&m.text.length<=60000)result={text:m.text}
+    await finish(pending,result);return{ok:true}
   }
   let u;try{u=new URL(sender.url)}catch{throw Error('فرستنده معتبر نیست.')}
-  if(sender.id!==chrome.runtime.id||!sender.tab||u.origin!==origin||!/^\/admin\/posts(?:\/|$)/.test(u.pathname)||!valid(m?.id))throw Error('این سایت یا صفحه به پل متصل نیست.')
-  if(m.type==='PING')return{ready:true}
+  if(sender.id!==chrome.runtime.id||!sender.tab||u.origin!==origin||!/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(u.pathname)||!valid(m?.id))throw Error('این سایت یا صفحه به پل متصل نیست.')
+  if(m.type==='PING')return{ready:true,capabilities:['text','image','production-v1']}
   if(m.type==='CANCEL'){if(pending&&pending.panel===sender.tab.id&&pending.id===m.id)await finish(pending,{error:'درخواست لغو شد؛ مصرف احتمالی حساب بازگردانده نمی‌شود.'});return{ok:true}}
-  if(m.type!=='RUN'||typeof m.prompt!=='string'||!m.prompt.trim()||m.prompt.length>120000)throw Error('درخواست پل معتبر نیست.')
+  if(!['RUN','IMAGE'].includes(m.type)||typeof m.prompt!=='string'||!m.prompt.trim()||m.prompt.length>120000)throw Error('درخواست پل معتبر نیست.')
   if(pending&&pending.expires>Date.now())throw Error('یک درخواست در پل فعال است؛ تا پایان آن منتظر بمانید.')
   if(pending)await finish(pending,{error:'مهلت درخواست قبلی تمام شد؛ تکرار نشد.'})
   cancelled.clear()
-  const p={id:m.id,origin,panel:sender.tab.id,chat:null,expires:Date.now()+165000}
+  const p={id:m.id,origin,panel:sender.tab.id,chat:null,mode:m.type,expires:Date.now()+(m.type==='IMAGE'?660000:165000)}
   await chrome.storage.session.set({pending:p})
   try{
     const tab=await chrome.tabs.create({url:'about:blank',active:false});p.chat=tab.id;await chrome.storage.session.set({pending:p})
@@ -41,9 +45,10 @@ async function handle(m,sender){
     let loaded=false
     while(Date.now()<loadDeadline){if(cancelled.has(p.id))throw Error('لغو شد.');const current=await chrome.tabs.get(tab.id);if(current.status==='complete'&&current.url?.startsWith('https://chatgpt.com/')){loaded=true;break}await new Promise(r=>setTimeout(r,200))}
     if(!loaded)throw Error('صفحهٔ Chat وب بارگذاری نشد.')
-    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['chat.js']})
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:[m.type==='IMAGE'?'image.js':'chat.js']})
     if(cancelled.has(p.id))throw Error('لغو شد.')
-    await chrome.scripting.executeScript({target:{tabId:tab.id},func:(prompt,id,expires)=>{void mobocomChatRun(prompt,id,expires)},args:[m.prompt,m.id,p.expires-1000]})
+    if(m.type==='IMAGE')await chrome.scripting.executeScript({target:{tabId:tab.id},func:(prompt,id,expires)=>{void mobocomChatImage(prompt,id,expires)},args:[m.prompt,m.id,p.expires-1000]})
+    else await chrome.scripting.executeScript({target:{tabId:tab.id},func:(prompt,id,expires)=>{void mobocomChatRun(prompt,id,expires)},args:[m.prompt,m.id,p.expires-1000]})
   }catch(e){await finish(p,{error:e?.message==='صفحهٔ Chat وب بارگذاری نشد.'?e.message:'Chat وب باز نشد؛ وارد حساب شوید و اتصال افزونه را بررسی کنید.'})}
   return{ok:true}
 }

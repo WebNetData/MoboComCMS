@@ -1,0 +1,13 @@
+'use client'
+import type { ProductionBatchView } from '@/modules/ai/client/production'
+import css from './Production.module.css'
+const states:Record<string,string>={READY:'آمادهٔ تولید',RUNNING:'در حال تولید',REVIEW:'آمادهٔ بازبینی',SAVED:'پیش‌نویس ذخیره شد',FAILED:'نیازمند بررسی'}
+export default function ProductionItems({batch,busy,onAction}:{batch:ProductionBatchView;busy:boolean;onAction:(action:string,id:string)=>void}) {
+  return <div className="grid gap-4">{batch.items.map(item=><article key={item.id} className={css.item} aria-label={'ردیف '+(item.position+1)}>
+    <div className="flex items-center justify-between gap-2"><h3>{item.position+1}. {item.seed.topic}</h3><span className="badge">{states[item.state]||item.state}</span></div>
+    {item.error&&<p role="status" className="error-text">{item.error}</p>}
+    {item.state==='RUNNING'&&<p className="muted">اگر مرورگر بسته شده، پس از پایان مهلت این درخواست «تلاش مجدد با انتخاب من» را بزنید. پاسخ نامطمئن خودکار تکرار نمی‌شود.</p>}
+    {item.output&&<details><summary>بازبینی متن، توضیح تصویر و تصاویر تولیدشده</summary><h4>{item.output.title}</h4><p className={css.prose}>{item.output.excerpt}</p>{item.output.sections.map((s,i)=><section key={i}><h4>{s.heading}</h4><p className={css.prose}>{s.text}</p><p className="muted">طرح تصویر: {s.imagePrompt}</p></section>)}<div className={css.preview}>{item.images.map(image=><figure key={image.index}><img src={image.url} alt={image.alt}/><figcaption>{image.index===0?'تصویر شاخص':`تصویر داخلی ${image.index}`} · {image.caption}</figcaption></figure>)}</div></details>}
+    <div className="flex flex-wrap gap-2">{(item.state==='FAILED'||item.state==='RUNNING'&&item.expiresAt&&Date.parse(item.expiresAt)<Date.now())&&<button type="button" className="btn btn-ghost btn-sm" disabled={busy||batch.status==='CANCELLED'} onClick={()=>onAction('retry',item.id)}>تلاش مجدد با انتخاب من</button>}{item.state==='REVIEW'&&batch.status!=='CANCELLED'&&<button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={()=>onAction('save',item.id)}>بازبینی کردم؛ ذخیرهٔ پیش‌نویس</button>}{item.saved&&<a className="btn btn-ghost btn-sm" href={item.saved.href}>بازکردن پیش‌نویس برای ویرایش و انتشار</a>}</div>
+  </article>)}</div>
+}

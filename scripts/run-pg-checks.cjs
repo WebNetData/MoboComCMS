@@ -12,6 +12,7 @@ const CHECKS = [
   'ai-routing',
   'ai-resilience',
   'chat-web',
+  'ai-production',
   'chatgpt-admin',
   'content-pdf',
   'automatic-forwarder',

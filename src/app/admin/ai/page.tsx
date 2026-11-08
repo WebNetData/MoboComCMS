@@ -90,6 +90,7 @@ export default function AdminAiPage() {
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <div className="seo-actions"><Link className="btn btn-ghost" href="/admin/ai/operations">دستیار عملیاتی با بررسی و تأیید شما</Link></div>
     <nav className="md-chips seo-filter ai-tabs" aria-label="بخش‌های دستیار">{TABS.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>{item.label}{counts[item.id] ? ` (${counts[item.id]!.toLocaleString('fa-IR')})` : ''}</button>)}</nav>
+    <Link className="btn btn-ghost" href="/admin/ai/production">تولید انبوه با Chat وب · متن و تصویر</Link>
 
     {tab === 'write' && <section className="xm-section">
       <form className="card seo-form" onSubmit={async (event) => {

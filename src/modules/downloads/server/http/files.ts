@@ -1,3 +1,4 @@
+import { importDataImage } from '../image-input'
 import { AUTHOR_PERMISSIONS } from '@/modules/identity/domain/sections'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -64,21 +65,6 @@ async function siteHost(req: NextRequest) {
   try { return new URL(settings.siteUrl || process.env.NEXTAUTH_URL || req.nextUrl.origin).hostname } catch { return req.nextUrl.hostname }
 }
 
-async function importData(dataUrl: string, creator?: number) {
-  const match = /^data:image\/[a-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(dataUrl)
-  if (!match) throw new FileError('تصویر درون‌خطی معتبر نیست')
-  const buffer = Buffer.from(match[1], 'base64')
-  if (buffer.length > 15 * 1024 * 1024) throw new FileError('تصویر بیش از حد بزرگ است', 413)
-  const sharp = (await import('sharp')).default
-  const out = await sharp(buffer, { animated: true, limitInputPixels: 60_000_000 }).rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
-  const file = `${randomUUID()}.webp`
-  const dir = path.join(process.cwd(), 'storage', 'covers')
-  await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(path.join(dir, file), out, { flag: 'wx' })
-  const url = `/api/media/covers/${file}`
-  if (creator) await (await import('@/modules/media/server/library')).registerLocalAsset(url, creator)
-  return url
-}
 
 /**
  * POST /api/admin/content/localize
@@ -96,7 +82,7 @@ export async function POST_localize(req: NextRequest) {
     const section = typeof body.section === 'string' ? body.section : 'posts'
     const library = await import('@/modules/media/server/library')
     const actor = await library.libraryActor(req)
-    const copyAsset = async (url: string, kind: 'image' | 'file') => url.startsWith('data:') ? importData(url, admin.id) : (await library.requestTransfer(actor, { url, kind, section, organization:body.organization&&typeof body.organization==='object'?{...body.organization,video:kind==='file'&&/\.(mp4|webm|mkv|mov)(\?|$)/i.test(url)}:undefined, mode: body.mode || 'immediate', runAt: body.runAt }, req)).url
+    const copyAsset = async (url: string, kind: 'image' | 'file') => url.startsWith('data:') ? importDataImage(url, admin.id) : (await library.requestTransfer(actor, { url, kind, section, organization:body.organization&&typeof body.organization==='object'?{...body.organization,video:kind==='file'&&/\.(mp4|webm|mkv|mov)(\?|$)/i.test(url)}:undefined, mode: body.mode || 'immediate', runAt: body.runAt }, req)).url
     if (typeof body.url === 'string') {
       const url = body.url.trim()
       const local = await copyAsset(url, body.kind === 'file' ? 'file' : 'image')
