@@ -5,14 +5,16 @@ if (!globalThis.__mobocomChatBridge) {
   window.addEventListener('message',event=>{
     const m=event.data
     if(event.source!==window||event.origin!==location.origin||!m||m.channel!==channel||m.direction!=='request'||!valid(m.id)||!/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(location.pathname))return
-    if(!['PING','RUN','IMAGE','CANCEL'].includes(m.type)||['RUN','IMAGE'].includes(m.type)&&(typeof m.prompt!=='string'||m.prompt.length>120000))return
-    chrome.runtime.sendMessage({type:m.type,id:m.id,prompt:m.prompt,provider:m.provider},response=>{
+    if(!['PING','RUN','IMAGE','CANCEL','RESET','RELEASE'].includes(m.type)||['RUN','IMAGE'].includes(m.type)&&(typeof m.prompt!=='string'||m.prompt.length>120000))return
+    chrome.runtime.sendMessage({type:m.type,id:m.id,prompt:m.prompt,provider:m.provider,context:m.context},response=>{
       const error=chrome.runtime.lastError
       if(error||response?.error)window.postMessage({channel,direction:'response',id:m.id,error:response?.error||'افزونه در دسترس نیست؛ صفحه را تازه کنید.'},location.origin)
       else if(m.type==='PING')window.postMessage({channel,direction:'response',id:m.id,ready:true,capabilities:response?.capabilities},location.origin)
+      else if(['RESET','RELEASE'].includes(m.type))window.postMessage({channel,direction:'response',id:m.id,done:response?.ok===true},location.origin)
     })
   })
   chrome.runtime.onMessage.addListener(m=>{
     if(m?.type==='RESULT'&&valid(m.id))window.postMessage({channel,direction:'response',id:m.id,text:m.text,data:m.data,error:m.error},location.origin)
+    if(m?.type==='PROGRESS'&&valid(m.id))window.postMessage({channel,direction:'response',id:m.id,stage:m.stage},location.origin)
   })
 }

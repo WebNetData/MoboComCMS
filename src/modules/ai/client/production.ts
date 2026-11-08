@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { requestChatWeb, requestChatWebImage, checkProductionChat } from './chat-web'
+import { requestChatWeb, requestChatWebImage, checkProductionChat, resetProductionChat, releaseProductionChat } from './chat-web'
 import type { ProductionChoice } from '../domain/production-execution'
 import type { ProductionConfig, ProductionKind, ProductionSeed, ProductionOutput, ProductionImage } from '../domain/production'
 export type ProductionItemView = { id: string; position: number; seed: ProductionSeed; state: string; output: ProductionOutput | null; images: ProductionImage[]; error: string; expiresAt: string | null; saved: { id: number; href: string; title: string } | null }
@@ -30,6 +30,12 @@ export function useProduction(kind: ProductionKind) {
     const result=await productionApi({action,id:current.current.id,version:current.current.version,...extra});receive(result.batch);return result
   },[receive])
   async function create(input: unknown) {if(running.current)return;setBusy(true);setMessage('');try{receive((await productionApi({action:'create',id:crypto.randomUUID(),input})).batch);await refresh()}catch(e){setMessage(e instanceof Error?e.message:'ساخت دسته انجام نشد')}finally{setBusy(false)}}
+  async function releaseIfComplete(itemId:string) {
+    const b=current.current,item=b?.items.find(x=>x.id===itemId)
+    if(!b||item?.state!=='REVIEW')return
+    const c=b.config,usesChat=(c.generation?.text.source||'chat-web')==='chat-web'||(c.cover||c.inline)&&(c.generation?.image.source||'chat-web')==='chat-web'
+    if(usesChat)await releaseProductionChat(b.id+':'+itemId).catch(()=>{})
+  }
   async function run() {
     if(running.current||!current.current)return
     running.current=true;setBusy(true);setMessage('');const control=new AbortController();abort.current=control;let step:Step|undefined
@@ -42,13 +48,15 @@ export function useProduction(kind: ProductionKind) {
         const phase:'text'|'image'=item.output?'image':'text',target=current.current!.config.generation?.[phase]
         if(target?.source==='api'){
           setMessage(`${item.position+1} از ${current.current!.items.length} · ${phase==='text'?'نوشتن متن':'تولید تصویر'} با ${target.provider} · ${target.model}؛ در انتظار پاسخ سرویس…`)
-          const result=await productionApi({action:'generate',id:current.current!.id,version:current.current!.version,itemId:item.id},false,control.signal);receive(result.batch);continue
+          const result=await productionApi({action:'generate',id:current.current!.id,version:current.current!.version,itemId:item.id},false,control.signal);receive(result.batch);await releaseIfComplete(item.id);continue
         }
         const claimed=await command('claim',{itemId:item.id});step=claimed.step;if(!step)throw new Error('مرحلهٔ تولید دریافت نشد')
         setMessage(`${item.position+1} از ${current.current!.items.length} · ${step.phase==='text'?'نوشتن متن':'تولید تصویر '+step.index}`)
-        if(step.phase==='text'){const text=await requestChatWeb(step.prompt,control.signal,true,target?.source==='chat-web'?target.chatProvider:undefined);if(control.signal.aborted)break;await command('text',{itemId:step.itemId,lease:step.lease,text})}
-        else{const data=await requestChatWebImage(step.prompt,control.signal);if(control.signal.aborted)break;const result=await productionApi({id:current.current!.id,version:current.current!.version,itemId:step.itemId,lease:step.lease,index:step.index,data},true);receive(result.batch)}
-        step=undefined
+        const context={conversation:current.current!.id+':'+item.id,operation:step.phase==='text'?'text':'image:'+step.index}
+        const progress=(stage:string)=>setMessage(`${item.position+1} از ${current.current!.items.length} · ${stage==='prepared'?'پیام آماده است؛ ارسال در گفتگوی همین ردیف…':stage==='sent'?'پیام ارسال شد؛ منتظر پاسخ Chat…':'در حال خواندن پاسخ همان درخواست؛ ارسال دوباره انجام نمی‌شود…'}`)
+        if(step.phase==='text'){const text=await requestChatWeb(step.prompt,control.signal,true,target?.source==='chat-web'?target.chatProvider:undefined,context,progress);if(control.signal.aborted)break;await command('text',{itemId:step.itemId,lease:step.lease,text})}
+        else{const data=await requestChatWebImage(step.prompt,control.signal,context,progress);if(control.signal.aborted)break;const result=await productionApi({id:current.current!.id,version:current.current!.version,itemId:step.itemId,lease:step.lease,index:step.index,data},true);receive(result.batch)}
+        step=undefined;await releaseIfComplete(item.id)
       }
       if(!control.signal.aborted&&current.current?.status==='RUNNING'){await command('pause');setMessage('تولید تکمیل شد؛ نتیجه‌ها را بازبینی و به‌صورت پیش‌نویس ذخیره کنید.')}
     }catch(e){
@@ -57,7 +65,7 @@ export function useProduction(kind: ProductionKind) {
     }finally{if(control.signal.aborted&&current.current){try{await refresh(current.current.id);if(current.current?.status==='RUNNING')await command('pause')}catch{setMessage('درخواست مرورگر لغو شد؛ برای تأیید توقف سرور وضعیت را تازه کنید.')}}abort.current=null;running.current=false;setBusy(false)}
   }
   async function stop() {abort.current?.abort();setMessage('در حال توقف؛ متن‌ها و تصاویر تکمیل‌شده حفظ می‌شوند.')}
-  async function act(action:string,itemId?:string){if(running.current)return;setBusy(true);setMessage('');try{await command(action,itemId?{itemId}:{});if(action==='save')setMessage('پیش‌نویس ذخیره شد؛ انتشار خودکار انجام نمی‌شود.')}catch(e){setMessage(e instanceof Error?e.message:'انجام نشد')}finally{setBusy(false)}}
+  async function act(action:string,itemId?:string){if(running.current)return;setBusy(true);setMessage('');try{if(action==='retry-fresh'){if(!itemId||!current.current)throw new Error('ردیف را انتخاب کنید');await resetProductionChat(current.current.id+':'+itemId);action='retry'}await command(action,itemId?{itemId}:{});if(action==='retry')setMessage('ردیف آمادهٔ ادامه است؛ شروع را بزنید. پاسخ آمادهٔ همین مرحله ابتدا بازیابی می‌شود.');if(action==='save')setMessage('پیش‌نویس ذخیره شد؛ انتشار خودکار انجام نمی‌شود.')}catch(e){setMessage(e instanceof Error?e.message:'انجام نشد')}finally{setBusy(false)}}
   async function saveAll(){if(running.current||!current.current)return;setBusy(true);setMessage('');try{for(const row of current.current.items.filter(x=>x.state==='REVIEW'))await command('save',{itemId:row.id});setMessage('ردیف‌های بازبینی‌شده به‌صورت پیش‌نویس ذخیره شدند.')}catch(e){setMessage(e instanceof Error?e.message:'ذخیره متوقف شد؛ موارد موفق دوباره ساخته نمی‌شوند')}finally{setBusy(false)}}
   return{batch,batches,categories,providers,busy,message,setMessage,refresh,create,run,stop,act,saveAll}
 }
