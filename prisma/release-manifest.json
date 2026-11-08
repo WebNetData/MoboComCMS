@@ -751,6 +751,9 @@
           "sha256": "6277307e5d79ce11680b76b10600daaa522427dd05aefd057ccf5309ea709693"
         }
       ]
+    },
+    "1.7.11": {
+      "migrations": []
     }
   },
   "unreleased": []
