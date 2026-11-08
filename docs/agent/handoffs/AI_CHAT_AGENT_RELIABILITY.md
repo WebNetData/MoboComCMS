@@ -178,3 +178,7 @@ Docker Desktop's Linux engine pipe became unavailable before runtime sync, so th
 container sync/Linux rerun and new local HTTP/runtime-hash check did not run; do not
 reuse0.6.6 runtime receipts as0.6.7 proof. No replacement container or daemon restart
 was performed. This does not change the standalone desktop package's verified bytes.
+
+## Operator acceptance — 2026-11-09
+
+The operator confirms0.6.7 now works. This is actual account feedback in addition to the controlled browser evidence. The remaining random slug suffix is explained by deployment state: PR386 is merged, but the operator explicitly upgraded only the desktop bridge, not the VPS web code/build. New drafts receive clean slugs after applying that web fix; existing URLs are retained. Main is reconciled with no runtime changes; PR385 can leave Draft. The Docker/Linux validation limit above is unchanged. No new inference tests, hosted workflow, build or production deployment.
