@@ -1,3 +1,4 @@
+import { configurableAiBase } from '../domain/ai'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { effectiveBaseUrl, type AiConfig } from '../domain/ai'
 import { CREDENTIAL_REASONS, type AiCredentialPool } from '../domain/credentials'
@@ -15,12 +16,20 @@ export async function credentialPoolsView() {
 }
 function selectedPool(pools: AiCredentialPool[], settings: AiConfig) {
   const pool = pools.find(p => p.provider === settings.provider && p.enabled)
-  if (pool && pool.provider === 'custom' && pool.baseUrl !== new URL(effectiveBaseUrl(settings)).toString().replace(/\/+$/, '')) throw new AiError('مقصد کاربرد با مقصد کلیدهای چندگانه یکسان نیست؛ تنظیمات را بررسی کنید', 409)
+  if (pool && configurableAiBase(pool.provider) && pool.baseUrl !== new URL(effectiveBaseUrl(settings)).toString().replace(/\/+$/, '')) throw new AiError('مقصد کاربرد با مقصد کلیدهای چندگانه یکسان نیست؛ تنظیمات را بررسی کنید', 409)
   return pool
 }
 export async function credentialPoolReady(settings: AiConfig) {
   const pool = selectedPool((await readCredentialPools()).pools, settings)
   return pool ? pool.keys.some(k => k.enabled) : null
+}
+/** Read-only metadata requests reuse the same authorized destination and cooldowns. */
+export async function credentialForMetadata(settings: AiConfig) {
+  const pool=selectedPool((await readCredentialPools()).pools,settings)
+  if(!pool)return decryptPanelCredential(settings.apiKey)
+  const health=await readCredentialHealth(),key=pool.keys.find(k=>k.enabled&&!(health[k.id]?.version===k.version&&health[k.id].retryAt>Date.now()))
+  if(!key)throw new AiError('کلید آماده‌ای برای فهرست مدل‌ها نیست',503)
+  return decryptPanelCredential(key.secret)
 }
 /** Only explicit rejected attempts may switch keys, within one fixed provider/model/destination and deadline. */
 export async function generateWithCredentialPool(settings: AiConfig, request: (secret: string, signal: AbortSignal) => Promise<string>): Promise<string | null> {
@@ -52,5 +61,5 @@ export async function generateWithCredentialPool(settings: AiConfig, request: (s
       if (!error.retryCredential) throw error
     }
   }
-  throw new AiError(last ? `کلیدهای مجاز این سرویس پاسخ ندادند؛ ${last.message}` : 'کلید آماده‌ای در این سرویس نیست؛ زمان تلاش بعدی یا تنظیمات کلیدها را بررسی کنید', last?.status || 503)
+  throw new AiError(last ? `کلیدهای مجاز این سرویس پاسخ ندادند؛ ${last.message}` : 'کلید آماده‌ای در این سرویس نیست؛ زمان تلاش بعدی یا تنظیمات کلیدها را بررسی کنید', last?.status || 503, last?.credentialReason || 'rate', last?.retryCredential ?? true)
 }

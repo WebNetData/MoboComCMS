@@ -1,6 +1,7 @@
 const CHANNEL = 'MOBOCOM_CHAT_WEB_V1'
+import type { ChatWebProvider } from '../domain/production-execution'
 
-function exchange(type: 'PING' | 'RUN' | 'IMAGE', prompt: string, signal: AbortSignal) {
+function exchange(type: 'PING' | 'RUN' | 'IMAGE', prompt: string, signal: AbortSignal, provider: ChatWebProvider = 'chatgpt') {
   return new Promise<{ text?: string; data?: string; capabilities?: string[] }>((resolve, reject) => {
     const id = crypto.randomUUID(), timeout = setTimeout(() => fail(type === 'PING' ? 'افزونهٔ پل نصب یا به این سایت متصل نیست؛ راهنما را باز کنید.' : 'مهلت پل تمام شد؛ درخواست خودکار تکرار نشد.'), type === 'PING' ? 2500 : type === 'IMAGE' ? 670000 : 170000)
     const cleanup = () => { clearTimeout(timeout); window.removeEventListener('message', receive); signal.removeEventListener('abort', abort) }
@@ -18,16 +19,17 @@ function exchange(type: 'PING' | 'RUN' | 'IMAGE', prompt: string, signal: AbortS
     }
     if (signal.aborted) { abort(); return }
     window.addEventListener('message', receive); signal.addEventListener('abort', abort, { once: true })
-    window.postMessage({ channel: CHANNEL, direction: 'request', type, id, ...(type !== 'PING' ? { prompt } : {}) }, window.location.origin)
+ window.postMessage({ channel: CHANNEL, direction: 'request', type, id, provider, ...(type !== 'PING' ? { prompt } : {}) }, window.location.origin)
   })
 }
 
 /** Browser-only transport. Never calls an inference API or falls back to one. */
-export async function requestChatWeb(prompt: string, signal: AbortSignal, production = false) {
+export async function requestChatWeb(prompt: string, signal: AbortSignal, production = false, provider: ChatWebProvider = 'chatgpt') {
   if (!prompt.trim() || prompt.length > 120000) throw new Error('درخواست برای پل بیش از حد طولانی است.')
-  const hello = await exchange('PING', '', signal)
+ const hello = await exchange('PING', '', signal, provider)
+ if(provider!=='chatgpt'&&!hello.capabilities?.includes('chat-'+provider))throw new Error('پل نسخهٔ ۰.۴ برای این سرویس لازم است؛ افزونه را ارتقا دهید.')
   if (production && !hello.capabilities?.includes('production-v2')) throw new Error('افزونهٔ پل را به نسخهٔ ۰.۳ یا جدیدتر ارتقا و دوباره به سایت متصل کنید.')
-  return (await exchange('RUN', prompt, signal)).text!
+ return (await exchange('RUN', prompt, signal, provider)).text!
 }
 
 export async function requestChatWebImage(prompt: string, signal: AbortSignal) {
@@ -38,7 +40,8 @@ export async function requestChatWebImage(prompt: string, signal: AbortSignal) {
 }
 
 /** Capability check happens before claiming a persisted generation step. */
-export async function checkProductionChat(signal: AbortSignal) {
-  const hello = await exchange('PING', '', signal)
+export async function checkProductionChat(signal: AbortSignal, provider: ChatWebProvider = 'chatgpt') {
+ const hello = await exchange('PING', '', signal, provider)
+ if(provider!=='chatgpt'&&!hello.capabilities?.includes('chat-'+provider))throw new Error('پل نسخهٔ ۰.۴ برای سرویس چت انتخاب‌شده لازم است؛ هنوز تولیدی انجام نشد.')
   if (!hello.capabilities?.includes('production-v2')) throw new Error('پل Chat وب نسخهٔ ۰.۳ لازم است؛ افزونه را ارتقا و صفحه را تازه کنید. هنوز درخواستی تولید نشده است.')
 }

@@ -6,7 +6,7 @@ if (!globalThis.__mobocomChatBridge) {
     const m=event.data
     if(event.source!==window||event.origin!==location.origin||!m||m.channel!==channel||m.direction!=='request'||!valid(m.id)||!/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(location.pathname))return
     if(!['PING','RUN','IMAGE','CANCEL'].includes(m.type)||['RUN','IMAGE'].includes(m.type)&&(typeof m.prompt!=='string'||m.prompt.length>120000))return
-    chrome.runtime.sendMessage({type:m.type,id:m.id,prompt:m.prompt},response=>{
+    chrome.runtime.sendMessage({type:m.type,id:m.id,prompt:m.prompt,provider:m.provider},response=>{
       const error=chrome.runtime.lastError
       if(error||response?.error)window.postMessage({channel,direction:'response',id:m.id,error:response?.error||'افزونه در دسترس نیست؛ صفحه را تازه کنید.'},location.origin)
       else if(m.type==='PING')window.postMessage({channel,direction:'response',id:m.id,ready:true,capabilities:response?.capabilities},location.origin)

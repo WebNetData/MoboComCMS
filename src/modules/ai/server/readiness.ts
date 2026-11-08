@@ -1,3 +1,4 @@
+import { keylessAi } from '../domain/ai'
 import { effectiveModel, effectiveBaseUrl } from '../domain/ai'
 import { AI_PURPOSES, allowsPersonalAi } from '../domain/routing'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
@@ -25,7 +26,7 @@ export async function aiReadiness(actorId: number) {
       const config = resolved.source === 'api' && resolved.config ? resolved.config : base.status === 'fulfilled' ? base.value : null
       if (!config) throw Error('missing config')
       const pooled = await credentialPoolReady(config)
-      const configured = pooled === null ? config.provider === 'custom' ? !!effectiveBaseUrl(config) : !!decryptPanelCredential(config.apiKey) : pooled
+      const configured = config.provider === 'economy' ? await (await import('./economy')).economyReady() : pooled === null ? keylessAi(config.provider) ? !!effectiveBaseUrl(config) : !!decryptPanelCredential(config.apiKey) : pooled
       return { ...route, readiness: { configured, source: 'api', provider: config.provider, model: effectiveModel(config), message: configured ? 'سرویس و مدل تنظیم شده‌اند؛ اتصال زنده با آزمایش همین کاربرد بررسی می‌شود' : 'کلید API این کاربرد یا پیش‌فرض سایت را تنظیم کنید' } }
     } catch {
       return { ...route, readiness: { configured: false, source: route.effective.source, provider: '', model: '', message: 'تنظیمات این کاربرد قابل خواندن نیست؛ اتصال و کلید ذخیره‌شده را بررسی کنید' } }

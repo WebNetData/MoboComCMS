@@ -35,7 +35,7 @@ export function useProduction(kind: ProductionKind) {
     running.current=true;setBusy(true);setMessage('');const control=new AbortController();abort.current=control;let step:Step|undefined
     try{
       const config=current.current.config,hasWork=current.current.items.some(x=>x.state==='READY')
-      if(hasWork&&((config.generation?.text.source||'chat-web')==='chat-web'||(config.cover||config.inline)&&(config.generation?.image.source||'chat-web')==='chat-web')){setMessage('بررسی نسخه و اتصال پل Chat؛ هنوز درخواستی تولید نشده است…');await checkProductionChat(control.signal)}
+      if(hasWork&&((config.generation?.text.source||'chat-web')==='chat-web'||(config.cover||config.inline)&&(config.generation?.image.source||'chat-web')==='chat-web')){setMessage('بررسی نسخه و اتصال پل Chat؛ هنوز درخواستی تولید نشده است…');await checkProductionChat(control.signal,config.generation?.text.source==='chat-web'?config.generation.text.chatProvider:undefined)}
       await command('start')
       while(!control.signal.aborted){
         const item:ProductionItemView|undefined=current.current!.items.find(x=>x.state==='READY');if(!item)break
@@ -46,7 +46,7 @@ export function useProduction(kind: ProductionKind) {
         }
         const claimed=await command('claim',{itemId:item.id});step=claimed.step;if(!step)throw new Error('مرحلهٔ تولید دریافت نشد')
         setMessage(`${item.position+1} از ${current.current!.items.length} · ${step.phase==='text'?'نوشتن متن':'تولید تصویر '+step.index}`)
-        if(step.phase==='text'){const text=await requestChatWeb(step.prompt,control.signal,true);if(control.signal.aborted)break;await command('text',{itemId:step.itemId,lease:step.lease,text})}
+        if(step.phase==='text'){const text=await requestChatWeb(step.prompt,control.signal,true,target?.source==='chat-web'?target.chatProvider:undefined);if(control.signal.aborted)break;await command('text',{itemId:step.itemId,lease:step.lease,text})}
         else{const data=await requestChatWebImage(step.prompt,control.signal);if(control.signal.aborted)break;const result=await productionApi({id:current.current!.id,version:current.current!.version,itemId:step.itemId,lease:step.lease,index:step.index,data},true);receive(result.batch)}
         step=undefined
       }

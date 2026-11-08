@@ -14,6 +14,7 @@ const CHECKS = [
   'chat-web',
   'ai-production',
   'ai-production-api',
+ 'ai-economy',
   'chatgpt-admin',
   'content-pdf',
   'automatic-forwarder',
