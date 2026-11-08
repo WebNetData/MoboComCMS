@@ -1,0 +1,5 @@
+const{test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+test('owned production extraction accepts complete JSON without a marker and rejects incomplete or competing payloads',()=>{
+ const context={};vm.runInNewContext(fs.readFileSync('deploy/chat-web-bridge/dom-roots.js','utf8')+'\n'+fs.readFileSync('deploy/chat-web-bridge/dom.js','utf8'),context);const dom=context.mobocomChatDom,output={title:'متن کامل',slug:'complete',excerpt:'خلاصه',coverPrompt:'illustration',sections:[{heading:'عنوان',text:'متن دارای { آکولاد } و "نقل قول"',imagePrompt:'image'}]},json=JSON.stringify(output);
+ assert.deepEqual(JSON.parse(dom.productionJson('json\n'+json+'\nCopy response')),output);assert.deepEqual(JSON.parse(dom.productionJson('```json\n'+json+'\n```')),output);assert.equal(dom.productionJson(json.slice(0,-1)),null);assert.equal(dom.productionJson(json+'\n'+json),null);assert.equal(dom.productionJson('{"title":"wrong format"}'),null);assert.equal(dom.productionJson('x'.repeat(90001)),null);assert.equal(dom.completed(json+'\nMOBOCOM_END_owned\nCopy response','MOBOCOM_END_owned'),json);
+});

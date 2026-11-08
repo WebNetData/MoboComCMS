@@ -1,3 +1,5 @@
+Current continuation: [bridge0.6.3 reliability](AI_CHAT_AGENT_RELIABILITY.md) supersedes the0.5 transport limitations below; historical evidence stays dated.
+
 # Chat production recovery — 2026-11-08
 
 Continue AI Production/Standard/Economy owners. Reported1.7.11 complete text was

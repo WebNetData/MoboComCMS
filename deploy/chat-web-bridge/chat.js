@@ -8,13 +8,14 @@ async function mobocomChatRun(prompt,id,expires,provider='chatgpt',options={}){
    const input=provider==='chatgpt'?await page.ready(state):await page.ready(id,state.deadline)
    if(!state.sent){if(state.baseline===undefined)state.baseline=page.turns().length;if(provider==='chatgpt')page.fill(state,input,text);else page.fill(input,text);if(!await dom.notify(state,'prepared',false))throw Error('درخواست متوقف شد؛ ارسال انجام نشد.');if(provider==='chatgpt')await page.send(state,input);else{state.sent=true;await page.send(input,state.deadline);await dom.notify(state,'sent')}}
   }
+  if(provider==='chatgpt'&&!state.confirmed)await page.confirmSent(state)
   let previous='',stable=0,lastProgress=0
   while(Date.now()<state.deadline){
    if(provider==='chatgpt')page.check(state)
-   const all=page.turns(),answer=[...all].slice(state.baseline||0).map(dom.text).join('\n')
+   const all=provider==='chatgpt'?page.responses(state):[...page.turns()].slice(state.baseline||0),answer=all.map(dom.text).join('\n')
    if(answer.length>90000)throw Error('پاسخ Chat بیش از حد بزرگ شد؛ درخواست تکرار نشد.')
-   const result=dom.completed(answer,marker);stable=result&&result===previous?stable+1:0;previous=result
-   if(result&&stable>=2&&page.stopped()){await dom.deliver(state,{text:result},provider==='chatgpt'?page.owns(state):true);return}
+   const marked=dom.completed(answer,marker),result=options.context?(dom.productionJson(marked||answer)||marked):marked;stable=result&&result===previous?stable+1:0;previous=result
+   if(result&&stable>=(marked?2:5)&&(provider==='chatgpt'?page.stopped(state):page.stopped())){await dom.deliver(state,{text:result},provider==='chatgpt'?page.owns(state):true);return}
    if(Date.now()-lastProgress>10000){lastProgress=Date.now();await dom.notify(state,'reading',provider==='chatgpt'?page.owns(state):true)}
    await new Promise(r=>setTimeout(r,500))
   }

@@ -9,7 +9,7 @@ if (!globalThis.__mobocomChatBridge) {
     chrome.runtime.sendMessage({type:m.type,id:m.id,prompt:m.prompt,provider:m.provider,context:m.context},response=>{
       const error=chrome.runtime.lastError
       if(error||response?.error)window.postMessage({channel,direction:'response',id:m.id,error:response?.error||'افزونه در دسترس نیست؛ صفحه را تازه کنید.'},location.origin)
-      else if(m.type==='PING')window.postMessage({channel,direction:'response',id:m.id,ready:true,capabilities:response?.capabilities},location.origin)
+      else if(m.type==='PING')window.postMessage({channel,direction:'response',id:m.id,ready:true,version:response?.version,capabilities:response?.capabilities},location.origin)
       else if(['RESET','RELEASE'].includes(m.type))window.postMessage({channel,direction:'response',id:m.id,done:response?.ok===true},location.origin)
     })
   })

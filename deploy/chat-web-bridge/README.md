@@ -1,6 +1,6 @@
 
 
-## Low-cost routes and personal web chat (0.5)
+## Low-cost routes and personal web chat (0.6)
 
 The Admin economy policy references your existing authorized connections. OpenRouter
 uses only `openrouter/free`; Ollama verifies installed, non-remote models through
@@ -42,3 +42,28 @@ Recovery is restricted to the same panel tab, origin, provider, prompt and opera
 it never scans arbitrary history. Closing the owned tabs/browser can lose recovery.
 Explicit fresh-chat retry may repeat generation. Real-account behavior remains
 operator verification; controlled browser tests do not certify external interfaces.
+
+Bridge0.6/production-v4 persists uncertain dispatch before clicking, confirms the
+exact user marker after asynchronous navigation/hydration and resumes owned reloads
+without resending. Owned complete production JSON may omit its completion marker;
+canonical server validation still applies. Responses use user/turn order and include
+assistant image-tool cards outside their text node. Each picture selects an explicit
+available image control and gets its own request in the same conversation. Visible
+image bytes may be re-read under normal CORS with strict bounds; no hidden inference
+endpoint or account cookie export. Popup diagnostics contain only version, phase,
+counts and image origins; no raw content, account data or signed asset URLs. Account
+compatibility remains operator verification. Reload/reconnect the same extension.
+
+Patch0.6.1 handles boxless visible role containers and semantic conversation labels.
+Diagnostic schema2 distinguishes raw role nodes from rendered turns and reports
+redacted route/layout/control structure without conversation IDs or content. An
+unconfirmed-navigation error may be reported without trusting that path or accepting
+response data; text/images still require an acknowledged owned user turn.
+
+Patch0.6.2 traverses open shadow roots and assigned slots in composed document order.
+It does not open closed roots or cross-origin frames. Thread-title/sidebar markers
+cannot establish ownership; the nonce must belong to a user-role message. Diagnostic
+schema3 reports light/deep role counts and redacted host/layout metadata, never raw
+messages or private attribute values.
+
+Version0.6.4 performs at most one read-only recovery when the already-sent user message hydrates after initial navigation confirmation. It retains the original deadline and never resends that prompt.

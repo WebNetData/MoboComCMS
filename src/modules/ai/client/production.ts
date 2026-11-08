@@ -16,6 +16,7 @@ export async function productionApi(body: Record<string, unknown>, image = false
 export function useProduction(kind: ProductionKind) {
   const [batch, setBatch] = useState<ProductionBatchView | null>(null), [batches,setBatches] = useState<BatchSummary[]>([]), [categories,setCategories] = useState<{id:number;name:string}[]>([]), [busy,setBusy]=useState(false), [message,setMessage]=useState('')
   const [providers,setProviders]=useState<{text:ProductionChoice[];image:ProductionChoice[];message?:string;canSelectModel?:boolean}>({text:[],image:[]})
+  const [bridgeVersion,setBridgeVersion]=useState('')
   const current=useRef(batch), running=useRef(false), abort=useRef<AbortController|null>(null)
   const receive=useCallback((value:ProductionBatchView|null)=>{current.current=value;setBatch(value)},[])
   const refresh=useCallback(async(id?:string)=>{
@@ -30,6 +31,7 @@ export function useProduction(kind: ProductionKind) {
     const result=await productionApi({action,id:current.current.id,version:current.current.version,...extra});receive(result.batch);return result
   },[receive])
   async function create(input: unknown) {if(running.current)return;setBusy(true);setMessage('');try{receive((await productionApi({action:'create',id:crypto.randomUUID(),input})).batch);await refresh()}catch(e){setMessage(e instanceof Error?e.message:'ساخت دسته انجام نشد')}finally{setBusy(false)}}
+  async function checkBridge(){if(running.current)return;setBusy(true);try{const version=await checkProductionChat(AbortSignal.timeout(6000));setBridgeVersion(version);setMessage('پل فعال '+version+' است؛ اتصال تأیید شد و هیچ درخواست تولیدی ارسال نشد.')}catch(e){setBridgeVersion('');setMessage(e instanceof Error?e.message:'خواندن نسخهٔ پل انجام نشد')}finally{setBusy(false)}}
   async function releaseIfComplete(itemId:string) {
     const b=current.current,item=b?.items.find(x=>x.id===itemId)
     if(!b||item?.state!=='REVIEW')return
@@ -41,7 +43,7 @@ export function useProduction(kind: ProductionKind) {
     running.current=true;setBusy(true);setMessage('');const control=new AbortController();abort.current=control;let step:Step|undefined
     try{
       const config=current.current.config,hasWork=current.current.items.some(x=>x.state==='READY')
-      if(hasWork&&((config.generation?.text.source||'chat-web')==='chat-web'||(config.cover||config.inline)&&(config.generation?.image.source||'chat-web')==='chat-web')){setMessage('بررسی نسخه و اتصال پل Chat؛ هنوز درخواستی تولید نشده است…');await checkProductionChat(control.signal,config.generation?.text.source==='chat-web'?config.generation.text.chatProvider:undefined)}
+      if(hasWork&&((config.generation?.text.source||'chat-web')==='chat-web'||(config.cover||config.inline)&&(config.generation?.image.source||'chat-web')==='chat-web')){setMessage('بررسی نسخه و اتصال پل Chat؛ هنوز درخواستی تولید نشده است…');setBridgeVersion(await checkProductionChat(control.signal,config.generation?.text.source==='chat-web'?config.generation.text.chatProvider:undefined))}
       await command('start')
       while(!control.signal.aborted){
         const item:ProductionItemView|undefined=current.current!.items.find(x=>x.state==='READY');if(!item)break
@@ -67,5 +69,5 @@ export function useProduction(kind: ProductionKind) {
   async function stop() {abort.current?.abort();setMessage('در حال توقف؛ متن‌ها و تصاویر تکمیل‌شده حفظ می‌شوند.')}
   async function act(action:string,itemId?:string){if(running.current)return;setBusy(true);setMessage('');try{if(action==='retry-fresh'){if(!itemId||!current.current)throw new Error('ردیف را انتخاب کنید');await resetProductionChat(current.current.id+':'+itemId);action='retry'}await command(action,itemId?{itemId}:{});if(action==='retry')setMessage('ردیف آمادهٔ ادامه است؛ شروع را بزنید. پاسخ آمادهٔ همین مرحله ابتدا بازیابی می‌شود.');if(action==='save')setMessage('پیش‌نویس ذخیره شد؛ انتشار خودکار انجام نمی‌شود.')}catch(e){setMessage(e instanceof Error?e.message:'انجام نشد')}finally{setBusy(false)}}
   async function saveAll(){if(running.current||!current.current)return;setBusy(true);setMessage('');try{for(const row of current.current.items.filter(x=>x.state==='REVIEW'))await command('save',{itemId:row.id});setMessage('ردیف‌های بازبینی‌شده به‌صورت پیش‌نویس ذخیره شدند.')}catch(e){setMessage(e instanceof Error?e.message:'ذخیره متوقف شد؛ موارد موفق دوباره ساخته نمی‌شوند')}finally{setBusy(false)}}
-  return{batch,batches,categories,providers,busy,message,setMessage,refresh,create,run,stop,act,saveAll}
+  return{batch,batches,categories,providers,busy,message,setMessage,refresh,create,run,stop,act,saveAll,bridgeVersion,checkBridge}
 }
