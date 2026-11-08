@@ -1,3 +1,4 @@
+import { keylessAi } from '../../domain/ai'
 import { createHash } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { requirePerm } from '@/modules/identity/server/access'
@@ -11,14 +12,15 @@ import { readCredentialPools } from '../credentials/store'
 import { readAiRoutes, resolveAiRoute } from '../routing'
 
 export const targetOf = (config: ProductionConfig, phase: 'text' | 'image') => config.generation?.[phase] || chatTarget()
-const binding = (config: AiConfig, phase: string) => createHash('sha256').update([phase,config.provider,effectiveBaseUrl(config)].join('\0')).digest('hex')
+const binding = async (config: AiConfig, phase: string) => createHash('sha256').update([phase,config.provider,config.provider === 'economy' ? await (await import('../economy')).economyBinding() : effectiveBaseUrl(config)].join('\0')).digest('hex')
 export const productionModelAuthority = async (req: NextRequest) => !!await requirePerm(req,'settings.manage')
 async function ready(config: AiConfig) {
+  if (config.provider === 'economy') return (await import('../economy')).economyReady()
   const url = new URL(effectiveBaseUrl(config))
   if (!['https:','http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) return false
   const pooled = await credentialPoolReady(config)
   if (pooled !== null) return pooled
-  return config.provider === 'custom' || !!decryptPanelCredential(config.apiKey)
+  return keylessAi(config.provider) || !!decryptPanelCredential(config.apiKey)
 }
 async function configurations(canManage: boolean) {
   const [base,routes,pools] = await Promise.all([getAiConfig(),readAiRoutes(),readCredentialPools()])
@@ -28,6 +30,7 @@ async function configurations(canManage: boolean) {
   if(canManage)configs.set(base.provider,base)
   configs.set(effective.provider,effective)
   if(canManage)for (const pool of pools.pools) if (pool.enabled && pool.keys.some(k=>k.enabled) && !configs.has(pool.provider)) configs.set(pool.provider,{...DEFAULT_AI,provider:pool.provider,baseUrl:pool.baseUrl,model:providerById(pool.provider).model})
+  if(canManage)try{if(await (await import('../economy')).economyReady())configs.set('economy',{...DEFAULT_AI,provider:'economy',model:'auto'})}catch{/* optional economy policy must not hide ordinary API choices */}
   return { configs, image: image.source === 'api' && image.config?.provider === 'custom' ? image.config : null }
 }
 /** Public metadata only; no provider probes or credential envelopes leave this owner. */
@@ -48,7 +51,7 @@ export async function productionProvider(config: ProductionConfig, phase: 'text'
   const current = await configurations(canManage), stored = phase === 'image' ? current.image : current.configs.get(target.provider)
   if (!stored || stored.provider !== target.provider || !await ready(stored)) throw new ProductionError('سرویس انتخاب‌شده آماده نیست؛ تنظیم کاربرد تولید انبوه و کلیدها را بررسی کنید',409)
   if(!canManage && target.model!==effectiveModel(stored))throw new ProductionError('فقط مدیر تنظیمات می‌تواند مدل دیگری انتخاب کند؛ مدل تنظیم‌شدهٔ کاربرد را استفاده کنید',403)
-  if (requireBinding && target.binding !== binding(stored,phase)) throw new ProductionError('مقصد سرویس از زمان ساخت دسته تغییر کرده؛ برای مصرف در مقصد تازه دستهٔ جدید بسازید',409)
+  if (requireBinding && target.binding !== await binding(stored,phase)) throw new ProductionError('مقصد سرویس از زمان ساخت دسته تغییر کرده؛ برای مصرف در مقصد تازه دستهٔ جدید بسازید',409)
   return {...stored,model:target.model}
 }
 export async function prepareProductionConfig(config: ProductionConfig, canManage = false) {
@@ -57,7 +60,7 @@ export async function prepareProductionConfig(config: ProductionConfig, canManag
   for (const phase of ['text','image'] as const) {
     if (phase === 'image' && !config.cover && !config.inline) continue
     const target = generation[phase]
-    if (target.source === 'api') generation[phase] = {...target,binding:binding(await productionProvider(config,phase,false,canManage),phase)}
+    if (target.source === 'api') generation[phase] = {...target,binding:await binding(await productionProvider(config,phase,false,canManage),phase)}
   }
   return {...config,generation}
 }

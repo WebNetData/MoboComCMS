@@ -1,3 +1,4 @@
+import { CHAT_WEB_PROVIDERS, type ChatWebProvider } from './production-execution'
 import { toMinor } from '@/shared/money'
 import { AI_PROVIDERS, type AiProviderId } from './ai'
 import { chatTarget, type ProductionGeneration, type ProductionTarget } from './production-execution'
@@ -16,12 +17,14 @@ export function parseGeneration(value: unknown): ProductionGeneration | undefine
   if (!isRecord(value) || Object.keys(value).some(k => !['text','image','confirmed'].includes(k)) || typeof value.confirmed !== 'boolean') throw new ProductionError('روش تولید معتبر نیست')
   const target = (raw: unknown): ProductionTarget => {
     if (!isRecord(raw)) throw new ProductionError('روش تولید را انتخاب کنید')
-    if (raw.source === 'chat-web' && Object.keys(raw).every(k => k === 'source')) return chatTarget()
+    if (raw.source === 'chat-web' && Object.keys(raw).every(k => ['source','chatProvider'].includes(k)) && (raw.chatProvider === undefined || CHAT_WEB_PROVIDERS.includes(raw.chatProvider as ChatWebProvider))) return raw.chatProvider === undefined ? chatTarget() : {source:'chat-web',chatProvider:raw.chatProvider as ChatWebProvider}
     if (raw.source !== 'api' || Object.keys(raw).some(k => !['source','provider','model','binding'].includes(k)) || !AI_PROVIDERS.some(p => p.id === raw.provider) || typeof raw.model !== 'string' || !/^[\w.:/@-]{1,120}$/.test(raw.model)) throw new ProductionError('سرویس یا شناسهٔ مدل معتبر نیست')
     if (!value.confirmed) throw new ProductionError('مصرف و محدودیت سرویس API را پیش از ساخت دسته تأیید کنید')
     return { source: 'api', provider: raw.provider as AiProviderId, model: raw.model }
   }
-  return { text: target(value.text), image: target(value.image), confirmed: value.confirmed }
+  const image=target(value.image)
+  if(image.source==='chat-web'&&image.chatProvider&&image.chatProvider!=='chatgpt')throw new ProductionError('تولید تصویر چت فقط با ChatGPT پشتیبانی می‌شود')
+  return { text: target(value.text), image, confirmed: value.confirmed }
 }
 export function parseProduction(input: unknown) {
   if (!isRecord(input) || !['post','product','page'].includes(String(input.kind)) || !isRecord(input.config) || !Array.isArray(input.seeds) || input.seeds.length < 1 || input.seeds.length > 50) throw new ProductionError('نوع یا تعداد موارد تولید معتبر نیست (۱ تا ۵۰)')

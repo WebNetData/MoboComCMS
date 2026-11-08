@@ -1,4 +1,5 @@
 'use client'
+import { configurableAiBase } from '@/modules/ai/domain/ai'
 import { useEffect, useRef, useState } from 'react'
 
 type Provider = { id: string; label: string; model: string }
@@ -58,7 +59,7 @@ function RoutingForm({ route, providers, routes, onSaved, onBusy }: { route: Rou
     {source === 'api' && <>
       <label className="studio-field"><span>سرویس API</span><select className="input" value={form.provider} disabled={!!busy} onChange={e => edit({ provider: e.target.value, model: '', baseUrl: '', apiKey: '' })}>{providers.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
       <label className="studio-field"><span>مدل این بخش</span><input className="input" dir="ltr" value={form.model} disabled={!!busy} maxLength={120} placeholder={providers.find(p => p.id === form.provider)?.model || 'Model ID'} onChange={e => edit({ model: e.target.value })} /></label>
-      {form.provider === 'custom' && <label className="studio-field seo-wide"><span>نشانی API سازگار با OpenAI</span><input className="input" type="url" dir="ltr" value={form.baseUrl} disabled={!!busy} maxLength={300} placeholder="https://api.openai.com/v1" onChange={e => edit({ baseUrl: e.target.value })} /></label>}
+      {configurableAiBase(form.provider) && <label className="studio-field seo-wide"><span>نشانی API سازگار با OpenAI</span><input className="input" type="url" dir="ltr" value={form.baseUrl} disabled={!!busy} maxLength={300} placeholder="https://api.openai.com/v1" onChange={e => edit({ baseUrl: e.target.value })} /></label>}
       <label className="studio-field"><span>کلید API این بخش</span><input className="input" type="password" autoComplete="new-password" dir="ltr" value={form.apiKey} disabled={!!busy} maxLength={400} placeholder={route.config?.hasKey ? 'کلید ذخیره شده؛ خالی یعنی حفظ' : 'API key'} onChange={e => edit({ apiKey: e.target.value, clearKey: false })} /></label>
       <label className="studio-switch" style={{ alignSelf: 'end' }}><input type="checkbox" checked={form.clearKey} disabled={!!busy} onChange={e => edit({ clearKey: e.target.checked, apiKey: '' })} />پاک‌کردن کلید ذخیره‌شده</label>
       <p className="muted seo-wide">کلید فقط در سرور نگهداری می‌شود. تغییر سرویس یا نشانی، کلید قبلی را حذف می‌کند؛ برای مقصد تازه کلید مناسب وارد کنید. برای OpenAI API گزینهٔ سازگار با OpenAI را با نشانی رسمی و مدل مجاز حسابتان تنظیم کنید؛ هزینهٔ آن از اتصال شخصی ChatGPT جداست.</p>

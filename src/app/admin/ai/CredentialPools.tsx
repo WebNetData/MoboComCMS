@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { AI_PROVIDERS } from '@/modules/ai/domain/ai'
+import { AI_PROVIDERS, configurableAiBase } from '@/modules/ai/domain/ai'
 
 type Key = { id: string; label: string; enabled: boolean; status: string; reason: string; retryAt: number; lastSuccess: number }
 type Pool = { provider: string; baseUrl: string; enabled: boolean; keys: Key[] }
@@ -25,7 +25,7 @@ export default function CredentialPools() {
     <header className="seo-wide"><h2>کلیدهای پشتیبان هر سرویس</h2><p className="muted">تا شش کلید با ترتیب دلخواه؛ فقط در همان سرویس، مدل و مقصد. با فعال‌کردن مجموعه، جای کلید تکیِ کاربردها را می‌گیرد. اتصال شخصی ChatGPT مستقل می‌ماند.</p></header>
     {notice && <p className={`xm-notice seo-wide${failed ? ' is-error' : ''}`} role={failed ? 'alert' : 'status'}>{notice}</p>}
     {!data ? <div className="seo-wide">{failed ? <button className="btn btn-ghost" type="button" onClick={() => setVersion(v => v + 1)}>دریافت دوبارهٔ کلیدها</button> : <p role="status">در حال دریافت وضعیت کلیدها…</p>}</div> : <>
-      <label className="studio-field seo-wide"><span>سرویس کلیدها</span><select className="input" value={provider} disabled={busy} onChange={event => setProvider(event.target.value)}>{AI_PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+      <label className="studio-field seo-wide"><span>سرویس کلیدها</span><select className="input" value={provider} disabled={busy} onChange={event => setProvider(event.target.value)}>{AI_PROVIDERS.filter(p=>p.id!=='economy').map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
       <div className="seo-actions seo-wide"><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setVersion(v => v + 1)}>تازه‌کردن وضعیت ذخیره‌شده</button><small className="muted">تازه‌کردن، تغییرات ذخیره‌نشدهٔ این فرم را کنار می‌گذارد و درخواست مدل نمی‌فرستد.</small></div>
       <PoolEditor key={`${provider}:${data.revision}:${snapshot}`} pool={data.pools.find(p => p.provider === provider) || { provider, baseUrl: '', enabled: false, keys: [] }} revision={data.revision} onBusy={setBusy} onSaved={next => { setData(next); setNotice('مجموعهٔ کلیدها ذخیره شد؛ کلیدها در مرورگر بازگردانده نمی‌شوند'); setFailed(false) }} />
       <p className="muted seo-wide">وضعیت بر اساس آخرین پاسخ واقعی سرویس است؛ موجودی حساب را استعلام نمی‌کند. کلید ردشده تا زمان تلاش بعدی کنار گذاشته و اعلان داخل پنل مدیر ثبت می‌شود. ایمیل، پیامک و push خودکار ارسال نمی‌شود. timeout، پاسخ ناقص یا رد محتوایی باعث ارسال دوباره نمی‌شوند.</p>
@@ -49,7 +49,7 @@ function PoolEditor({ pool, revision, onSaved, onBusy }: { pool: Pool; revision:
   }
   return <form className="seo-wide seo-form" onSubmit={event => { event.preventDefault(); void save() }}>
     <label className="studio-switch seo-wide"><input type="checkbox" checked={enabled} disabled={busy} onChange={event => setEnabled(event.target.checked)} />استفاده از مجموعهٔ کلیدها برای این سرویس</label>
-    {pool.provider === 'custom' && <label className="studio-field seo-wide"><span>نشانی دقیق مقصد کلیدها</span><input className="input" type="url" dir="ltr" required value={baseUrl} maxLength={300} disabled={busy} onChange={event => setBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1" /><small>باید با مقصد کاربرد یکسان باشد؛ با تغییر مقصد همهٔ کلیدها را دوباره وارد کنید.</small></label>}
+    {configurableAiBase(pool.provider) && <label className="studio-field seo-wide"><span>نشانی دقیق مقصد کلیدها</span><input className="input" type="url" dir="ltr" required value={baseUrl} maxLength={300} disabled={busy} onChange={event => setBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1" /><small>باید با مقصد کاربرد یکسان باشد؛ با تغییر مقصد همهٔ کلیدها را دوباره وارد کنید.</small></label>}
     {keys.map((key, index) => <fieldset className="seo-wide seo-form" key={key.localId}><legend>کلید {index + 1} · {key.label || 'تازه'}</legend>
       <label className="studio-field"><span>نام کلید {index + 1}</span><input className="input" value={key.label} maxLength={60} required disabled={busy} onChange={event => change(index, { label: event.target.value })} /></label>
       <label className="studio-field"><span>API کلید {index + 1}</span><input className="input" type="password" dir="ltr" autoComplete="new-password" maxLength={400} value={key.apiKey} required={!key.id} disabled={busy} placeholder={key.id ? 'ذخیره شده؛ خالی یعنی حفظ' : 'API key'} onChange={event => change(index, { apiKey: event.target.value })} /></label>

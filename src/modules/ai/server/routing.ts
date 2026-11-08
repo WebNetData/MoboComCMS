@@ -1,3 +1,4 @@
+import { configurableAiBase } from '../domain/ai'
 import { db } from '@/platform/database/prisma'
 import { updateJsonSetting } from '@/modules/settings/server'
 import { auditAdminStrict, type AdminAuditInput } from '@/platform/audit/server'
@@ -55,7 +56,7 @@ export async function saveAiRoute(purpose: AiPurpose, input: Record<string, unkn
     let config = old.config
     if (Object.keys(patch).length || (source === 'api' && !config)) {
       const previous = config || { ...DEFAULT_AI }, next = normalizeAiConfig({ ...previous, ...patch, apiKey: '' })
-      if (patch.baseUrl !== undefined && next.provider === 'custom' && patch.baseUrl && !next.baseUrl) throw new AiError('نشانی API معتبر نیست')
+      if (patch.baseUrl !== undefined && configurableAiBase(next.provider) && patch.baseUrl && !next.baseUrl) throw new AiError('نشانی API معتبر نیست')
       if (patch.model !== undefined && patch.model !== next.model) throw new AiError('نام مدل معتبر نیست')
       const replaced = typeof patch.apiKey === 'string' && patch.apiKey.trim() && !patch.apiKey.startsWith('••••')
       const sameDestination = previous.provider === next.provider && previous.baseUrl === next.baseUrl

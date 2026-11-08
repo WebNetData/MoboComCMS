@@ -1,6 +1,7 @@
 name: Checks
 
-# What a pull request must pass before the owner merges it:
+# Manual validation only (owner decision 2026-11-08); PRs use scoped local evidence.
+# Available checks when explicitly dispatched:
 #   check     npm run check: architecture, source, schema parity, release manifest, money, security, audit,
 #             i18n, the unit suites, typecheck. No database is reached; the PostgreSQL client is generated,
 #             because that is the client production runs and the one the code is typed against.
@@ -9,7 +10,6 @@ name: Checks
 #   build     the production build with the PostgreSQL client
 # The browser suite is its own workflow (e2e.yml).
 on:
-  pull_request:
   workflow_dispatch:
 
 permissions:

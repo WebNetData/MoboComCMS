@@ -217,3 +217,5 @@ BackgroundJob even when the HTTP preview is unavailable. Native control-plane
 APIs remain on the retained original service; active-runtime guards prevent
 duplicate scheduled work. See [implementation and evidence](handoffs/AI_ENGINEERING.md)
 and [operator guide](../AI-ENGINEERING-FA.md).
+
+2026-11-08 economy continuation: authorized free-only routing/local catalog/gateway attestation, scoped health and policy bindings under AI; personal browser Chat adapters0.4. See [AI economy evidence](handoffs/AI_ECONOMY.md). Real cloud account/quotas remain operator-verified. Hosted Checks manual-only by owner request.

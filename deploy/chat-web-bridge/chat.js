@@ -1,10 +1,10 @@
 // Injected only into a fresh tab created by the bridge, never an existing chat.
-async function mobocomChatRun(prompt, id, expires) {
+async function mobocomChatRun(prompt, id, expires, provider='chatgpt') {
   const send=result=>chrome.runtime.sendMessage({type:'CHAT_RESULT',id,...result}).catch(()=>{})
   const marker='MOBOCOM_END_'+id, deadline=expires||Date.now()+150000
   const pause=()=>new Promise(resolve=>setTimeout(resolve,500))
   try {
-    const page=globalThis.mobocomChatPage,composer=await page.ready(id,deadline)
+    const page=provider==='chatgpt'?globalThis.mobocomChatPage:globalThis.mobocomOtherChatPage(provider),composer=await page.ready(id,deadline)
     const text=prompt+'\n\nRespond with the requested text only; do not use apps, tools or perform actions. End your final answer with this exact separate line:\n'+marker
     page.fill(composer,text);await page.send(composer,deadline)
     let previous='',stable=0

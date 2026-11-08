@@ -5,7 +5,7 @@
 // is always treated as untrusted text: it is sanitized before it is stored
 // and nothing is published without an admin pressing a button.
 
-export type AiProviderId = 'gemini' | 'openrouter' | 'groq' | 'anthropic' | 'qwen' | 'deepseek' | 'custom'
+export type AiProviderId = 'gemini' | 'openrouter' | 'groq' | 'anthropic' | 'qwen' | 'deepseek' | 'custom' | 'ollama' | 'omniroute' | 'economy'
 
 export interface AiProvider {
   id: AiProviderId
@@ -19,6 +19,9 @@ export interface AiProvider {
 }
 
 export const AI_PROVIDERS: AiProvider[] = [
+  { id: 'economy', label: 'انتخاب خودکار کم‌هزینه', baseUrl: '', model: 'auto', free: true, keyUrl: '', note: 'فقط منابع مجاز در سیاست کم‌هزینه؛ بدون جایگزین پولی. ابتدا سیاست و سرویس‌های زیرمجموعه را تنظیم کنید.' },
+  { id: 'ollama', label: 'Ollama · مدل محلی', baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:7b', free: true, keyUrl: '', note: 'مدل نصب‌شده روی سرور خودتان؛ هزینه و سرعت وابسته به سخت‌افزار است. در Docker، localhost داخل همان کانتینر است.' },
+  { id: 'omniroute', label: 'OmniRoute · درگاه شخصی', baseUrl: 'http://localhost:20128/v1', model: 'auto', free: false, keyUrl: 'https://github.com/cheaper-inference/OmniRoute', note: 'نشانی، کلید Endpoints و مدل درگاه خودتان را وارد کنید؛ رایگان‌بودن وابسته به اتصال‌ها و سیاست درگاه است.' },
   { id: 'gemini', label: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash', free: true, keyUrl: 'https://aistudio.google.com/apikey', note: 'سهمیهٔ رایگان روزانه؛ فارسی خوب. کلید را از Google AI Studio بگیرید.' },
   { id: 'openrouter', label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'meta-llama/llama-3.3-70b-instruct:free', free: true, keyUrl: 'https://openrouter.ai/keys', note: 'مدل‌هایی که به :free ختم می‌شوند رایگان‌اند (با محدودیت تعداد درخواست).' },
   { id: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', free: true, keyUrl: 'https://console.groq.com/keys', note: 'بسیار سریع؛ سهمیهٔ رایگان روزانه.' },
@@ -28,7 +31,9 @@ export const AI_PROVIDERS: AiProvider[] = [
   { id: 'custom', label: 'سرویس سازگار با OpenAI / مدل محلی', baseUrl: 'http://localhost:11434/v1', model: 'qwen2.5:7b', free: true, keyUrl: '', note: 'مثلاً Qwen یا DeepSeek با Ollama روی میزبان خودتان؛ بدون سهمیهٔ تجاریِ مدل محلی، اما محدود به ظرفیت و هزینهٔ سخت‌افزار.' },
 ]
 
-export const providerById = (id: string): AiProvider => AI_PROVIDERS.find((provider) => provider.id === id) || AI_PROVIDERS[0]
+export const providerById = (id: string): AiProvider => AI_PROVIDERS.find((provider) => provider.id === id) || AI_PROVIDERS.find(p => p.id === 'gemini')!
+export const configurableAiBase = (provider: string) => ['custom', 'ollama', 'omniroute'].includes(provider)
+export const keylessAi = (provider: string) => ['custom', 'ollama', 'economy'].includes(provider)
 
 export interface AiConfig {
   provider: AiProviderId
@@ -58,7 +63,7 @@ function cleanBaseUrl(value: unknown): string {
   if (!raw) return ''
   try {
     const url = new URL(raw)
-    return url.protocol === 'https:' || url.protocol === 'http:' ? raw : ''
+    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash ? url.toString().replace(/\/+$/, '') : ''
   } catch {
     return ''
   }
@@ -69,20 +74,20 @@ export function normalizeAiConfig(input: Record<string, unknown>, previous: AiCo
   const provider = providerById(text(input.provider, 20)).id
   const key = text(input.apiKey, 400)
   const model = text(input.model, 120).replace(/[^\w.:/@-]/g, '')
-  const custom = provider === 'custom'
+  const custom = configurableAiBase(provider)
   return {
     provider,
     model,
     // Only a self-hosted endpoint takes a base URL, so a key can't be redirected to another host.
     baseUrl: custom ? cleanBaseUrl(input.baseUrl) : '',
-    apiKey: key && !key.startsWith('••••') ? key : input.apiKey === null ? '' : previous.apiKey,
+    apiKey: provider === 'economy' ? '' : key && !key.startsWith('••••') ? key : input.apiKey === null ? '' : previous.provider === provider && (!custom || cleanBaseUrl(input.baseUrl) === previous.baseUrl) ? previous.apiKey : '',
     voice: text(input.voice, 600) || DEFAULT_AI.voice,
     botName: text(input.botName, 60).replace(/[<>]/g, '') || DEFAULT_AI.botName,
   }
 }
 
 export const effectiveModel = (config: AiConfig) => config.model || providerById(config.provider).model
-export const effectiveBaseUrl = (config: AiConfig) => (config.provider === 'custom' && config.baseUrl) || providerById(config.provider).baseUrl
+export const effectiveBaseUrl = (config: AiConfig) => (configurableAiBase(config.provider) && config.baseUrl) || providerById(config.provider).baseUrl
 
 // ------------------------------------------------------------------ prompts
 

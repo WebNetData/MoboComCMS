@@ -1,6 +1,8 @@
 'use client'
 import Link from '@/components/AppLink'
 import { useCallback, useEffect, useState, useRef } from 'react'
+import { configurableAiBase, keylessAi } from '@/modules/ai/domain/ai'
+import Economy from './Economy'
 import PersonalChatGpt from './PersonalChatGpt'
 import AiRouting from './AiRouting'
 import CredentialPools from './CredentialPools'
@@ -45,7 +47,7 @@ export default function AdminAiPage() {
     const data = await response.json().catch(() => null)
     if (!response.ok) { setMessage({ text: data?.error || 'دریافت اطلاعات ناموفق بود', error: true }); return }
     setConfig(data.config); setProviders(data.providers); setQueues(data.queues); setCategories(data.categories)
-    if (!data.config.hasKey && data.config.provider !== 'custom') setTab('settings')
+    if (!data.config.hasKey && !keylessAi(data.config.provider)) setTab('settings')
   }, [])
   useEffect(() => { void load() }, [load])
 
@@ -174,14 +176,14 @@ export default function AdminAiPage() {
     {tab === 'settings' && <section className="xm-section">
       <PersonalChatGpt />
       <AiRouting />
-      <CredentialPools />
+      <CredentialPools /><Economy />
       <div className="ai-providers">{providers.map((item) => <article key={item.id} className={`card${item.id === config.provider ? ' is-active' : ''}`}><b>{item.label}</b> {item.free ? <span className="badge badge-green">رایگان</span> : <span className="badge">پولی</span>}<p className="muted">{item.note}</p>{item.keyUrl && <a href={item.keyUrl} target="_blank" rel="noreferrer">گرفتن کلید ↗</a>}</article>)}</div>
       <form key={`${config.provider}-${config.apiKey}`} className="card seo-form" onSubmit={saveSettings}>
         <header className="seo-wide"><h2>تنظیمات پیش‌فرض سایت</h2><p className="muted">بخش‌هایی که API مستقل ندارند از این تنظیمات استفاده می‌کنند. اتصال شخصی مدیر فقط در ابزارهای مدیریت و طبق انتخاب همان بخش به کار می‌رود.</p></header>
         <label className="studio-field"><span>سرویس</span><select className="input" name="provider" defaultValue={config.provider} onChange={(e) => setConfig({ ...config, provider: e.target.value, model: '' })}>{providers.map((item) => <option key={item.id} value={item.id}>{item.label}{item.free ? ' (رایگان)' : ''}</option>)}</select></label>
         <label className="studio-field"><span>کلید API {config.hasKey ? `(ذخیره‌شده: ${config.apiKey})` : ''}</span><input className="input" name="apiKey" type="password" dir="ltr" autoComplete="off" placeholder={config.hasKey ? 'برای تغییر، کلید جدید را وارد کنید' : 'API key'}/></label>
         <label className="studio-field"><span>مدل (خالی = پیش‌فرض)</span><input className="input" name="model" dir="ltr" defaultValue={config.model} placeholder={provider?.model}/></label>
-        {config.provider === 'custom' && <label className="studio-field"><span>نشانی سرویس (OpenAI-compatible)</span><input className="input" name="baseUrl" dir="ltr" defaultValue={config.baseUrl} placeholder="http://localhost:11434/v1"/></label>}
+        {configurableAiBase(config.provider) && <label className="studio-field"><span>نشانی سرویس (OpenAI-compatible)</span><input className="input" name="baseUrl" dir="ltr" defaultValue={config.baseUrl} placeholder="http://localhost:11434/v1"/></label>}
         <label className="studio-field"><span>نام حساب پاسخ‌دهنده در تالار</span><input className="input" name="botName" defaultValue={config.botName} maxLength={60}/></label>
         <label className="studio-field seo-wide"><span>لحن و سبک نوشتن برند</span><textarea className="input" name="voice" rows={3} defaultValue={config.voice} maxLength={600}/></label>
         <div className="seo-actions seo-wide"><button type="submit" className="btn btn-primary" disabled={!!busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost" disabled={!!busy} onClick={async () => { const data = await run('test', {}, 'test'); if (data) setMessage({ text: `اتصال برقرار است (${data.model}): ${data.reply}`, error: false }) }}>{busy === 'test' ? 'در حال آزمایش…' : 'آزمایش اتصال'}</button></div>

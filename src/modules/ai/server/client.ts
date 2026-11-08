@@ -1,3 +1,4 @@
+import { keylessAi, configurableAiBase, AI_PROVIDERS } from '../domain/ai'
 import Anthropic from '@anthropic-ai/sdk'
 import { db } from '@/platform/database/prisma'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
@@ -21,7 +22,7 @@ export async function getAiConfig(): Promise<AiConfig> {
   if (!row) return { ...DEFAULT_AI }
   try {
     const stored = JSON.parse(row.value)
-    if (!stored || typeof stored !== 'object' || Array.isArray(stored) || (stored.apiKey !== undefined && typeof stored.apiKey !== 'string')) throw new Error('invalid settings')
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored) || !AI_PROVIDERS.some(p=>p.id===stored.provider) || (stored.apiKey !== undefined && typeof stored.apiKey !== 'string')) throw new Error('invalid settings')
     // Form limits apply to new plaintext input, never to the larger encrypted envelope in storage.
     return { ...normalizeAiConfig({ ...stored, apiKey: '' }), apiKey: stored.apiKey || '' }
   } catch {
@@ -32,6 +33,7 @@ export async function getAiConfig(): Promise<AiConfig> {
 export async function saveAiConfig(input: Record<string, unknown>): Promise<AiConfig> {
   const previous = await getAiConfig()
   const next = normalizeAiConfig(input, previous)
+  if (configurableAiBase(next.provider) && input.baseUrl && !next.baseUrl) throw new AiError('نشانی سرویس معتبر نیست؛ کلید یا نشانی دارای اطلاعات ورود پذیرفته نمی‌شود')
   // A new key is encrypted at rest (AES-256-GCM with PANEL_CREDENTIAL_KEY).
   const stored = { ...next, apiKey: next.apiKey === previous.apiKey ? next.apiKey : encryptPanelCredential(next.apiKey) }
   const value = JSON.stringify(stored)
@@ -54,7 +56,7 @@ export async function publicAiReady(purpose: 'support' | 'prompts') {
   if (route.source === 'personal') return false
   const config = route.source === 'api' && route.config ? route.config : await getAiConfig()
   const pooled = await credentialPoolReady(config)
-  return pooled === null ? config.provider === 'custom' || !!config.apiKey : pooled
+  return config.provider === 'economy' ? (await import('./economy')).economyReady() : pooled === null ? keylessAi(config.provider) || !!config.apiKey : pooled
 }
 
 /** Runs one prompt on the configured provider and returns its text. */
@@ -74,6 +76,7 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
 
 /** Explicit API transport: never consults actor/personal routing or falls back to ChatGPT. */
 export async function generateApi(prompt: Prompt, settings: AiConfig, options: { support?: boolean; signal?: AbortSignal } = {}): Promise<AiResult> {
+  if (settings.provider === 'economy') return (await import('./economy')).generateEconomy(prompt, settings, options, generateApi)
   const combined = (signal?: AbortSignal) => AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(signal ? [signal] : []), ...(options.signal ? [options.signal] : [])])
   const model = effectiveModel(settings)
   const pooled = await generateWithCredentialPool(settings, (key, signal) => settings.provider === 'anthropic'
@@ -82,7 +85,7 @@ export async function generateApi(prompt: Prompt, settings: AiConfig, options: {
   if (pooled !== null) return { text: pooled, model, provider: settings.provider }
   let apiKey = ''
   try { apiKey = decryptPanelCredential(settings.apiKey) } catch { throw new AiError('کلید API قابل خواندن نیست؛ دوباره آن را ذخیره کنید') }
-  if (!apiKey && settings.provider !== 'custom') throw new AiError(`ابتدا کلید API سرویس ${providerById(settings.provider).label} را در تنظیمات دستیار وارد کنید`)
+  if (!apiKey && !keylessAi(settings.provider)) throw new AiError(`ابتدا کلید API سرویس ${providerById(settings.provider).label} را در تنظیمات دستیار وارد کنید`)
   const text = settings.provider === 'anthropic'
     ? await claude(apiKey, model, prompt, options.support === true, combined())
     : await openAiCompatible(effectiveBaseUrl(settings), apiKey, model, prompt, settings.provider, combined())

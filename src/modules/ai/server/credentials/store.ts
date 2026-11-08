@@ -16,7 +16,7 @@ export async function readCredentialPools() {
 }
 export async function saveCredentialPool(raw: Record<string, unknown>, audit: AdminAuditInput) {
   if (!/^[a-f\d]{64}$/i.test(process.env.PANEL_CREDENTIAL_KEY || '')) throw new AiError('کلید رمزگذاری سرور باید پیش از ذخیرهٔ کلیدهای چندگانه تنظیم شود', 503)
-  if (!Number.isSafeInteger(raw.revision) || !AI_PROVIDERS.some(p => p.id === raw.provider) || typeof raw.enabled !== 'boolean' || !Array.isArray(raw.keys) || raw.keys.length > 6) throw new AiError('تنظیم کلیدهای چندگانه معتبر نیست')
+  if (!Number.isSafeInteger(raw.revision) || raw.provider === 'economy' || !AI_PROVIDERS.some(p => p.id === raw.provider) || typeof raw.enabled !== 'boolean' || !Array.isArray(raw.keys) || raw.keys.length > 6) throw new AiError('تنظیم کلیدهای چندگانه معتبر نیست')
   const provider = AI_PROVIDERS.find(p => p.id === raw.provider)!.id
   let baseUrl: string
   try { baseUrl = credentialBase(provider, raw.baseUrl || '') } catch { throw new AiError('نشانی مقصد کلیدها معتبر نیست') }

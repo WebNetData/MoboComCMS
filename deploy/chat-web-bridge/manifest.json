@@ -1,11 +1,28 @@
 {
   "manifest_version": 3,
   "name": "MoboCom Personal Chat Bridge",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Personal, unofficial Chat web writing bridge. Never extracts cookies or uses a paid model API.",
-  "permissions": ["storage", "scripting", "activeTab"],
-  "host_permissions": ["https://chatgpt.com/*"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
-  "background": { "service_worker": "worker.js" },
-  "action": { "default_popup": "popup.html" }
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*",
+    "https://chat.qwen.ai/*",
+    "https://chat.deepseek.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
 }
