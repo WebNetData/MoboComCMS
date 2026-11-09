@@ -5,7 +5,7 @@ import type { CodeBundle, CodeResult, CodeTarget, CodeWarning } from '@/modules/
 import { componentCss, componentScript, componentValues, normalizeComponent, renderComponentHtml } from '@/modules/site/domain/components'
 
 /** A component is previewed as it renders: placeholders filled with field defaults, `selector` as its root, JS with `root`. */
-function asRendered(target: CodeTarget, code: CodeResult): CodeBundle {
+export function asRendered(target: CodeTarget, code: CodeResult): CodeBundle {
   if (target !== 'component') return code
   const def = normalizeComponent({ id: 'cc-preview0', fields: code.fields || [], html: code.html, css: code.css, js: code.js })
   if (!def) return code
@@ -20,7 +20,7 @@ const VARS = ['--primary', '--primary-soft', '--text', '--muted', '--bg', '--car
 const scopeOf = (html: string) => html.match(/mc-x-[a-z0-9]{6,12}/)?.[0] || `mc-x-${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`
 
 /** A sandboxed copy of the page's colours and font, so the preview looks like the site without touching it. */
-function previewDoc(code: CodeBundle) {
+export function previewDoc(code: CodeBundle) {
   const root = getComputedStyle(document.documentElement), body = getComputedStyle(document.body)
   const vars = VARS.map(name => `${name}:${root.getPropertyValue(name).trim()}`).filter(v => !v.endsWith(':')).join(';')
   const escapeScript = (js: string) => js.replace(/<\/script/gi, '<\\/script')
