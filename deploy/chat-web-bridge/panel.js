@@ -4,7 +4,7 @@ if (!globalThis.__mobocomChatBridge) {
   const channel='MOBOCOM_CHAT_WEB_V1', valid=id=>typeof id==='string'&&/^[a-f0-9-]{36}$/.test(id)
   window.addEventListener('message',event=>{
     const m=event.data
-    if(event.source!==window||event.origin!==location.origin||!m||m.channel!==channel||m.direction!=='request'||!valid(m.id)||!/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(location.pathname))return
+    if(event.source!==window||event.origin!==location.origin||!m||m.channel!==channel||m.direction!=='request'||!valid(m.id)||!/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$)|builder(?:\/|$))/.test(location.pathname))return
     if(!['PING','RUN','IMAGE','CANCEL','RESET','RELEASE'].includes(m.type)||['RUN','IMAGE'].includes(m.type)&&(typeof m.prompt!=='string'||m.prompt.length>120000))return
     chrome.runtime.sendMessage({type:m.type,id:m.id,prompt:m.prompt,provider:m.provider,context:m.context},response=>{
       const error=chrome.runtime.lastError

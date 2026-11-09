@@ -1,6 +1,6 @@
 importScripts('providers.js','diagnostics.js')
 const valid=id=>typeof id==='string'&&/^[a-f0-9-]{36}$/.test(id)
-const panelPath=path=>/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$))/.test(path)
+const panelPath=path=>/^\/admin\/(?:posts(?:\/|$)|ai\/production(?:\/|$)|builder(?:\/|$))/.test(path)
 const cancelled=new Set();let queue=Promise.resolve()
 const enqueue=work=>{const task=queue.catch(()=>{}).then(work);queue=task.catch(()=>{});return task}
 const contextOf=value=>{
@@ -116,7 +116,7 @@ async function handle(m,sender){
   const u=new URL(m.origin);if(u.origin!==m.origin||!(u.protocol==='https:'||u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname))||Object.values(mobocomWebProviders).some(p=>p.origin===u.origin))throw Error('نشانی معتبر نیست.')
   if(!await chrome.permissions.contains({origins:[u.origin+'/*']}))throw Error('دسترسی سایت لازم است.')
   if(origin&&origin!==u.origin)await chrome.permissions.remove({origins:[origin+'/*']})
-  await chrome.storage.local.set({origin:u.origin});await chrome.scripting.registerContentScripts([{id:'mobocom-panel',matches:[u.origin+'/admin/posts*',u.origin+'/admin/ai/production*'],js:['panel.js'],runAt:'document_idle'}]);return{ok:true}
+  await chrome.storage.local.set({origin:u.origin});await chrome.scripting.registerContentScripts([{id:'mobocom-panel',matches:[u.origin+'/admin/posts*',u.origin+'/admin/ai/production*',u.origin+'/admin/builder*'],js:['panel.js'],runAt:'document_idle'}]);return{ok:true}
  }
  const url=await panelSender(sender);if(!valid(m?.id))throw Error('شناسهٔ درخواست معتبر نیست.')
  if(m.type==='PING')return{ready:true,version:chrome.runtime.getManifest().version,capabilities:['text','image','production-v1','production-v2','production-v3','production-v4',...Object.keys(mobocomWebProviders).map(p=>'chat-'+p)]}
