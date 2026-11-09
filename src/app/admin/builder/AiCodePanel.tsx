@@ -24,7 +24,9 @@ export function previewDoc(code: CodeBundle) {
   const root = getComputedStyle(document.documentElement), body = getComputedStyle(document.body)
   const vars = VARS.map(name => `${name}:${root.getPropertyValue(name).trim()}`).filter(v => !v.endsWith(':')).join(';')
   const escapeScript = (js: string) => js.replace(/<\/script/gi, '<\\/script')
-  return `<!doctype html><html dir="${document.documentElement.dir || 'rtl'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{${vars}}body{margin:0;padding:16px;background:var(--bg);color:var(--text);font-family:${body.fontFamily}}</style><style>${code.css.replace(/<\/style/gi, '')}</style></head><body>${code.html}<script>${escapeScript(code.js)}</script></body></html>`
+  // A srcdoc frame inherits this page's CSP, so its one script carries the page's nonce; the sandbox still has no origin.
+  const nonce = (document.querySelector('script[nonce]') as HTMLScriptElement | null)?.nonce?.replace(/[^A-Za-z0-9+/=_-]/g, '') || ''
+  return `<!doctype html><html dir="${document.documentElement.dir || 'rtl'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{${vars}}body{margin:0;padding:16px;background:var(--bg);color:var(--text);font-family:${body.fontFamily}}</style><style>${code.css.replace(/<\/style/gi, '')}</style></head><body>${code.html}<script nonce="${nonce}">${escapeScript(code.js)}</script></body></html>`
 }
 
 export default function AiCodePanel({ target, current, L, onApply }: { target: CodeTarget; current: CodeBundle; L: L; onApply: (code: CodeResult) => void }) {

@@ -66,7 +66,7 @@ export default function ComponentsPage() {
         <label className="bld-field"><span>دسته</span><input className="input" maxLength={40} value={editing.category} onChange={e => set('category', e.target.value)} placeholder="مثلاً کارت‌ها" /></label>
         <label className="bld-field"><span>توضیح کوتاه</span><input className="input" maxLength={300} value={editing.description} onChange={e => set('description', e.target.value)} /></label>
       </div>
-      <fieldset className={styles.fields}><legend>فیلدها · در HTML با {'{{field.key}}'} و برای نمایش شرطی با {'{{#field.key}}…{{/field.key}}'}</legend>
+      <fieldset className={styles.fields}><legend>فیلدها · در HTML با <code dir="ltr">{'{{field.key}}'}</code> و برای نمایش شرطی با <code dir="ltr">{'{{#field.key}}…{{/field.key}}'}</code></legend>
         {editing.fields.map((f, i) => <div key={i} className={styles.fieldRow}>
           <input className="input mono" dir="ltr" aria-label="کلید" value={f.key} onChange={e => setField(i, { key: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })} placeholder="key" />
           <input className="input" aria-label="برچسب" value={f.label} onChange={e => setField(i, { label: e.target.value })} placeholder="برچسب" />
