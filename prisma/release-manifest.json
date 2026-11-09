@@ -757,9 +757,15 @@
     },
     "1.7.12": {
       "migrations": []
+    },
+    "1.7.13": {
+      "migrations": [
+        {
+          "name": "20270225120000_ai_invocation_metrics",
+          "sha256": "d0a914c94c5733a42d62ef62b5187c043265a2125621443ed521bde6e20a56fc"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270225120000_ai_invocation_metrics"
-  ]
+  "unreleased": []
 }
