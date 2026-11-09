@@ -1,9 +1,11 @@
 'use client'
 import type { ProductionConfig, ProductionKind } from '@/modules/ai/domain/production'
+import { QUALITY_PROFILES, qualityProfileOf } from '@/modules/ai/domain/production-quality'
 export const initialProductionConfig: ProductionConfig={categoryIds:[],length:'medium',tone:'روشن، کاربردی و دقیق',keywords:'',instruction:'',cover:true,inline:1,imageStyle:'تصویرسازی تحریریه‌ای، بدون نوشته و لوگو',ratio:'landscape',productKind:'PHYSICAL',currency:'IRT',specifications:'{}'}
 export default function ProductionSettings({kind,value,onChange,categories,disabled}:{kind:ProductionKind;value:ProductionConfig;onChange:(value:ProductionConfig)=>void;categories:{id:number;name:string}[];disabled:boolean}) {
   const set=(key:keyof ProductionConfig,next:unknown)=>onChange({...value,[key]:next})
   return <fieldset className="card seo-form" disabled={disabled}><legend>تنظیمات محتوا و تصویر</legend>
+    {kind==='post'&&<label className="studio-field"><span>قواعد کنترل کیفیت</span><select className="select" value={qualityProfileOf(kind,value)} onChange={e=>set('qualityProfile',e.target.value)}>{QUALITY_PROFILES.filter(p=>p.kind===kind).map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select><small>پیش از ذخیره، مشابهت، لینک‌ها، ادعاهای بی‌منبع و هماهنگی تصویر با این قواعد بررسی می‌شود.</small></label>}
     <label className="studio-field"><span>طول متن</span><select className="select" value={value.length} onChange={e=>set('length',e.target.value)}><option value="short">کوتاه</option><option value="medium">متوسط</option><option value="long">بلند</option></select></label>
     <label className="studio-field"><span>لحن</span><input className="input" maxLength={200} value={value.tone} onChange={e=>set('tone',e.target.value)}/></label>
     <label className="studio-field seo-wide"><span>کلمات کلیدی</span><input className="input" maxLength={500} value={value.keywords} onChange={e=>set('keywords',e.target.value)}/></label>

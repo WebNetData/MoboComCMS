@@ -6,7 +6,7 @@ import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
 import { ok,err } from '@/platform/http/response'
 import { ProductionError, type ProductionKind } from '../../domain/production'
-import { productionList,productionRead,productionSettings,productionCreate,productionCommand,productionImage } from '../production'
+import { productionList,productionRead,productionSettings,productionCreate,productionCommand,productionImage,productionQuality } from '../production'
 const reply=(data:unknown)=>{const response=ok(data);response.headers.set('Cache-Control','private, no-store');return response}
 const failure=(e:unknown)=>e instanceof ProductionError||e instanceof JsonBodyError?err(e.message,e.status):(e as {code?:string})?.code==='P2034'?err('دسته هم‌زمان تغییر کرد؛ وضعیت را تازه کنید؛ درخواست مدل تکرار نشد',409):err('عملیات تولید انجام نشد؛ وضعیت را تازه کنید. درخواست مدل خودکار تکرار نشد',503)
 async function access(req:NextRequest,write:boolean) {
@@ -20,7 +20,7 @@ async function access(req:NextRequest,write:boolean) {
 }
 export async function GET(req:NextRequest) {
   const denied=await access(req,false);if(denied)return denied
-  try{const id=req.nextUrl.searchParams.get('id');if(id)return reply({batch:await productionRead(req,id)})
+  try{const id=req.nextUrl.searchParams.get('id'),quality=req.nextUrl.searchParams.get('quality');if(id&&quality)return reply({quality:await productionQuality(req,id,quality)});if(id)return reply({batch:await productionRead(req,id)})
     const kind=req.nextUrl.searchParams.get('kind')||'post';if(!['post','product','page'].includes(kind))throw new ProductionError('نوع تولید معتبر نیست')
     return reply({...await productionSettings(req,kind as ProductionKind),batches:await productionList(req,kind as ProductionKind)})
   }catch(e){return failure(e)}
