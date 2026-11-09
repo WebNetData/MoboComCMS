@@ -48,6 +48,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         setOpen(false)
         menuButton.current?.focus()
       }
@@ -91,9 +92,17 @@ export default function AccountShell({ children }: { children: React.ReactNode }
   const NAV_GROUPS: ShellGroup[] = ([
     { id: 'home', flat: true, title: vpnOn ? L('اشتراک‌ها', 'Subscriptions') : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home',
       items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home', exact: true }] },
+    // MoboCom Cloud has its own group: overview, building, and each family; the older «سرویس‌های من» address stays.
+    { id: 'cloud', caption: L('موبوکام کلاد', 'MoboCom Cloud'), title: L('موبوکام کلاد', 'MoboCom Cloud'), icon: 'cloud', items: hostingOn ? [
+      { href: '/dashboard/cloud', label: L('نمای کلی کلاد', 'Cloud overview'), icon: 'cloud', exact: true },
+      { href: '/dashboard/cloud/new', label: L('ساخت سرور و سرویس', 'Build a service'), icon: 'plus' },
+      { href: '/dashboard/cloud/servers', label: L('سرورهای من', 'My servers'), icon: 'server' },
+      { href: '/dashboard/cloud/hosting', label: L('هاست‌های من', 'My hosting'), icon: 'layers' },
+      { href: '/dashboard/cloud/domains', label: L('دامنه‌های من', 'My domains'), icon: 'globe' },
+      { href: '/dashboard/services', label: L('همهٔ سرویس‌ها', 'All services'), icon: 'activity' },
+    ] : [] },
     { id: 'shopping', caption: L('حساب من', 'My account'), title: L('خرید و پرداخت', 'Orders & billing'), icon: 'bag', items: [
       { href: '/dashboard/order', label: L('سفارش جدید', 'Order services'), icon: 'plus' },
-      ...(hostingOn ? [{ href: '/dashboard/services', label: L('موبوکام کلاد', 'MoboCom Cloud'), icon: 'cloud' }] : []),
       { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },
       { href: '/dashboard/invoices', label: t.myInvoices, icon: 'receipt' },
       { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },

@@ -9,7 +9,7 @@ const TABS: { key: CloudTab | 'mine'; href: string; label: string; icon: string 
   { key: 'hosting', href: '/hosting', label: 'میزبانی وب', icon: 'server' },
   { key: 'servers', href: '/servers', label: 'سرور و ابر', icon: 'cpu' },
   { key: 'domains', href: '/domains', label: 'دامنه', icon: 'globe' },
-  { key: 'mine', href: '/dashboard/services', label: 'سرویس‌های من', icon: 'activity' },
+  { key: 'mine', href: '/dashboard/cloud', label: 'سرویس‌های من', icon: 'activity' },
 ]
 
 /** The MoboCom Cloud bar shared by /cloud, /hosting, /servers and /domains: one section, each page keeps its address. */

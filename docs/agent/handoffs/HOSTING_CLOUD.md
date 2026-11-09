@@ -2,6 +2,10 @@
 
 Spec and slices: [docs/specs/hosting-cloud/SPEC.md](../../specs/hosting-cloud/SPEC.md). Decision: PLATFORM_DECISIONS *Hosting and cloud*.
 
+2026-11-09: [Member Cloud continuation](MEMBER_CLOUD.md) records the dashboard
+menu, family lists, native location wizard and chat-close completion, with scoped
+browser/accessibility and ownership evidence. Continue the existing owners there.
+
 ## MoboCom Cloud — one section (2026-11-04, `feat/mobocom-cloud-2026-11-04` from main `dce11c77`)
 
 Owner: bring hosting, servers and domains together as one section named «موبوکام کلاد», professional and modern.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CLOUD_LOCATIONS, REGION_LABEL, regionOf } from '@/modules/hosting/domain/locations'
 import { FULFILLMENT, HOSTING_CYCLES, HOSTING_KINDS, cyclesFor, kindMeta } from '@/modules/hosting/domain/catalog'
 import { Notice, fa, send, useJson } from '../store/shared'
 import { HostingShell, toman, type AdminProduct, type HostingData } from './shared'
@@ -96,7 +97,7 @@ export default function HostingProductsPage() {
           {!server && <NumberField label="تعداد سایت (۰ = نامحدود)" value={draft.sites} onChange={(value) => set('sites', Number(value))} />}
           {!server && <NumberField label="صندوق ایمیل" value={draft.mailboxes} onChange={(value) => set('mailboxes', Number(value))} />}
           {!server && <NumberField label="پایگاه داده" value={draft.databases} onChange={(value) => set('databases', Number(value))} />}
-          <label className="sa-field"><span>محل سرور</span><input className="input" value={draft.location} maxLength={80} placeholder="مثلاً آلمان، فالکن‌اشتاین" onChange={(event) => set('location', event.target.value)} /></label>
+          <label className="sa-field"><span>محل سرور · دیتاسنتر</span><input className="input" list="hx-cloud-locations" value={draft.location} maxLength={80} placeholder="مثلاً آلمان، فالکن‌اشتاین" onChange={(event) => set('location', event.target.value)} /><datalist id="hx-cloud-locations">{CLOUD_LOCATIONS.map((place) => <option key={place.id} value={place.label}>{REGION_LABEL[place.region]}</option>)}</datalist><small className="muted">{draft.location ? (regionOf(draft.location) === 'IR' ? 'در داشبورد کاربر زیر «سرور ایران» نمایش داده می‌شود.' : 'در داشبورد کاربر زیر «سرور خارج» نمایش داده می‌شود.') : 'از فهرست انتخاب کنید تا در ساخت سرور، ایران یا خارج بودنش درست تشخیص داده شود.'}</small></label>
         </div>
       </section>
 
