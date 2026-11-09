@@ -17,6 +17,10 @@ export const LOOPS = ['float', 'pulse', 'breathe', 'spin', 'wiggle', 'gradient']
 export const SURFACES = ['glass', 'aurora', 'mesh', 'grid', 'dots', 'beam'] as const
 /** What the element's headings wear. */
 export const TEXT_EFFECTS = ['gradient', 'shimmer', 'glow', 'outline'] as const
+/** Scroll and pointer effects: sticking, depth while scrolling, a change while leaving the screen, and following the pointer. */
+export const STICKY = ['top', 'bottom'] as const
+export const SCROLL_FX = ['fade', 'shrink', 'blur', 'rotate'] as const
+export const POINTERS = ['tilt', 'magnet', 'spotlight'] as const
 export const MOBILE_ALIGNS = ['start', 'center', 'end'] as const
 export const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800, 900] as const
 
@@ -41,6 +45,13 @@ export type AdvancedStyle = {
   motion?: typeof MOTIONS[number]
   loop?: typeof LOOPS[number]
   surface?: typeof SURFACES[number]
+  sticky?: typeof STICKY[number]
+  /** Distance from the screen edge while stuck, in px. */
+  stickyOffset?: number
+  /** Depth while scrolling: px the element travels against (negative) or with (positive) the page, −60…60. */
+  parallax?: number
+  scrollFx?: typeof SCROLL_FX[number]
+  pointer?: typeof POINTERS[number]
   textFx?: typeof TEXT_EFFECTS[number]
   zIndex?: number
   minHeight?: number; maxWidth?: number
@@ -91,6 +102,10 @@ export function validateAdvancedStyle(input: unknown): AdvancedStyle | undefined
   const opacity = int(raw.opacity, 0, 100); if (opacity !== null && opacity < 100) out.opacity = opacity
   set('zIndex', int(raw.zIndex, -1, 100), 0); set('minHeight', size(raw.minHeight, 40, 1600)); set('minHeightVh', size(raw.minHeightVh, 10, 100)); set('maxWidth', size(raw.maxWidth, 120, 2400))
   set('alignM', pick(raw.alignM, MOBILE_ALIGNS))
+  set('sticky', pick(raw.sticky, STICKY)); if (out.sticky) set('stickyOffset', int(raw.stickyOffset, 0, 300), 0)
+  set('parallax', int(raw.parallax, -60, 60), 0); set('scrollFx', pick(raw.scrollFx, SCROLL_FX))
+  // The spotlight draws on ::before, which the beam surface already uses.
+  set('pointer', pick(raw.pointer, POINTERS)); if (out.pointer === 'spotlight' && out.surface === 'beam') delete out.pointer
   const classes = (Array.isArray(raw.classes) ? raw.classes : typeof raw.classes === 'string' ? raw.classes.split(/\s+/) : []).filter((name): name is string => typeof name === 'string' && /^[a-zA-Z][\w-]{0,40}$/.test(name) && !/^br-/.test(name)).slice(0, 6)
   if (classes.length) out.classes = [...new Set(classes)]
   const custom = cleanCustomCss(raw.customCss); if (custom) out.customCss = custom
@@ -137,6 +152,8 @@ export function customCssFor(sel: string, css: string | undefined): string {
   if (depth) return ''
   return clean.includes('{') ? clean.replace(/\bselector\b/g, sel) : `${sel} { ${clean} }`
 }
+/** Marks an element the pointer script follows. */
+export const pointerClass = (adv: AdvancedStyle | undefined) => adv?.pointer ? 'br-ptr' : ''
 export const styleClass = (id: string) => (/^[a-zA-Z0-9_-]{1,64}$/.test(id) ? `br-x-${id}` : '')
 
 /**
@@ -185,13 +202,29 @@ export function advancedCss(id: string, adv: AdvancedStyle | undefined): string 
     const before = adv.hover === 'shine' ? ` ${sel} { position: relative; overflow: clip; } ${sel}::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / .28) 50%, transparent 65%) no-repeat; background-size: 250% 100%; background-position: 130% 0; transition: background-position .8s ease; } ${sel}:hover::after { background-position: -30% 0; }` : adv.hover === 'colorize' ? ` ${sel} { filter: grayscale(1); }` : ''
     out.push(`@media (hover: hover) { ${sel} { transition: transform .25s ease, box-shadow .25s ease, filter .25s ease; } ${sel}:hover { ${HOVER_CSS[adv.hover]}; }${before} } @media (prefers-reduced-motion: reduce) { ${sel}, ${sel}:hover { transition: none; transform: none; }${adv.hover === 'shine' ? ` ${sel}::after { transition: none; }` : ''} }`)
   }
-  if (adv.motion || adv.loop) {
-    // The entrance is tied to scrolling where the browser can; the loop runs on its own clock beside it.
+  if (adv.sticky) out.push(`${sel} { position: sticky; ${adv.sticky === 'top' ? 'inset-block-start' : 'inset-block-end'}: ${adv.stickyOffset || 0}px; z-index: ${adv.zIndex || 5}; }`)
+  if (adv.motion || adv.loop || adv.parallax || adv.scrollFx) {
+    // One animation list per element: an entrance and an exit tied to scrolling, depth across the whole pass,
+    // and the loop on its own clock. Where the browser cannot tie animations to scrolling only the loop runs.
     const loop = adv.loop ? `br-loop-${adv.loop} ${LOOP_TIMING[adv.loop]}` : ''
+    const scroll = [
+      adv.motion && { name: `br-in-${adv.motion} linear both`, range: 'entry 0% entry 45%' },
+      adv.parallax && { name: 'br-parallax linear both', range: 'cover 0% cover 100%' },
+      adv.scrollFx && { name: `br-out-${adv.scrollFx} linear forwards`, range: 'exit 0% exit 100%' },
+    ].filter((entry): entry is { name: string; range: string } => !!entry)
     const parts: string[] = []
     if (loop) parts.push(`${sel} { animation: ${loop};${adv.loop === 'gradient' ? ' background-size: 240% 240%;' : ''} }`)
-    if (adv.motion) parts.push(`@supports (animation-timeline: view()) { ${sel} { animation: br-in-${adv.motion} linear both${loop ? `, ${loop}` : ''}; animation-timeline: view()${loop ? ', auto' : ''}; animation-range: entry 0% entry 45%${loop ? ', normal' : ''}; } }`)
+    if (scroll.length) parts.push(`@supports (animation-timeline: view()) { ${sel} {${adv.parallax ? ` --br-plx: ${adv.parallax}px;` : ''} animation: ${[...scroll.map(a => a.name), ...(loop ? [loop] : [])].join(', ')}; animation-timeline: ${[...scroll.map(() => 'view()'), ...(loop ? ['auto'] : [])].join(', ')}; animation-range: ${[...scroll.map(a => a.range), ...(loop ? ['normal'] : [])].join(', ')}; } }`)
     out.push(`@media (prefers-reduced-motion: no-preference) { ${parts.join(' ')} }`)
+  }
+  if (adv.pointer) {
+    // Driven by --mx/--my (0…1) that the builder's pointer script sets; only for a fine pointer and full motion.
+    const css = adv.pointer === 'tilt'
+      ? `${sel} > * { transform: perspective(900px) rotateX(calc((var(--my, .5) - .5) * -10deg)) rotateY(calc((var(--mx, .5) - .5) * 12deg)); transition: transform .2s ease-out; }`
+      : adv.pointer === 'magnet'
+        ? `${sel} > * { translate: calc((var(--mx, .5) - .5) * 16px) calc((var(--my, .5) - .5) * 16px); transition: translate .25s ease-out; }`
+        : `${sel} { position: relative; } ${sel}::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; background: radial-gradient(260px circle at calc(var(--mx, .5) * 100%) calc(var(--my, .5) * 100%), color-mix(in srgb, var(--primary) 24%, transparent), transparent 70%); opacity: var(--ptr-on, 0); transition: opacity .3s ease; }`
+    out.push(`@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) { ${css} }`)
   }
   // Last, so the element's own CSS can override everything above.
   const custom = customCssFor(sel, adv.customCss); if (custom) out.push(custom)
