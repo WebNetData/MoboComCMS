@@ -19,7 +19,8 @@ test('builder AI code: risky patterns and scope leaks are flagged before inserti
   assert.deepEqual(clean, [])
   const risky = c.scanCode({ html: '<div><script src="https://x.example/a.js"></script><img src="https://x.example/p.png" onclick="go()"></div>', css: 'body{margin:0} h1,.x{color:red}', js: 'eval(a); document.cookie; fetch("/x"); localStorage.x=1; location.href="/y"' }, s)
   const titles = risky.map(w => w.title).join('|')
-  for (const t of ['اجرای متن', 'کوکی', 'بیرونی', 'درخواست شبکه', 'ذخیره در مرورگر', 'تغییر یا بازکردن', 'رویداد درون‌خطی', 'بیرون از محدوده', 'ریشهٔ بلوک']) assert(titles.includes(t), t)
+  for (const t of ['اجرای متن', 'کوکی', 'بیرونی', 'درخواست شبکه', 'ذخیره در مرورگر', 'تغییر یا بازکردن', 'رویداد درون‌خطی', 'بیرون از محدوده']) assert(titles.includes(t), t)
+  assert(c.scanCode({ html: '<div>x</div>', css: `.${s} { color: red }`, js: '' }, s).some(w => w.title.includes('ریشهٔ بلوک')), 'scoped CSS without its root')
   assert(risky.some(w => w.level === 'danger'))
 })
 test('chat web bridge 0.6.8 also serves the builder and nothing broader', () => {

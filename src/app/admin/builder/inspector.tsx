@@ -9,6 +9,7 @@ import {
 import CoverField from '@/app/admin/cms/CoverField'
 import AdvancedStyleFields from './advanced-style'
 import AiCodePanel from './AiCodePanel'
+import ComponentFields from './ComponentFields'
 
 type Field = {
   key: string
@@ -485,6 +486,7 @@ function TemplatePicker({ pageId, value, L, onChange }: { pageId: string; value:
 
 function WidgetFields({ widget, pageId, L, onProp, onBusy }: { widget: BuilderWidget; pageId: string; L: L; onProp: (key: string, value: string) => void; onBusy: (busy: boolean) => void }) {
   const fields = FIELDS[widget.type] || []
+  if (widget.type === 'component') return null
   if (!fields.length) return <p className="muted text-sm">{L('This block has no content fields — tune it in the Style section.', 'این بلوک تنظیم محتوایی ندارد؛ از بخش استایل استفاده کنید.')}</p>
   return <>{fields.map((field) => {
     const value = widget.props[field.key] ?? ''
@@ -683,7 +685,8 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
           onChange(next, sel, false)
         }}
       />
-      {widget.type === 'html' && <AiCodePanel target="widget" L={L} current={{ html: widget.props.html || '', css: widget.props.css || '', js: widget.props.js || '' }} onApply={(code) => onChange(patchWidget(doc, ref, { props: { ...widget.props, ...code, advanced: code.js.trim() ? '1' : widget.props.advanced } }), sel, false)} />}
+      {widget.type === 'component' && <ComponentFields L={L} componentId={widget.props.componentId || ''} values={widget.props.values || '{}'} onChange={(next) => onChange(patchWidget(doc, ref, { props: { ...widget.props, ...next } }), sel, false)} />}
+      {widget.type === 'html' && <AiCodePanel target="widget" L={L} current={{ html: widget.props.html || '', css: widget.props.css || '', js: widget.props.js || '' }} onApply={(code) => onChange(patchWidget(doc, ref, { props: { ...widget.props, html: code.html, css: code.css, js: code.js, advanced: code.js.trim() ? '1' : widget.props.advanced } }), sel, false)} />}
       <details className="bld-style" open>
         <summary>{L('Style', 'استایل')}</summary>
         <label className="bld-field"><span>{L('Alignment', 'چیدمان')}</span>
