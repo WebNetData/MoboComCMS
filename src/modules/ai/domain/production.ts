@@ -2,10 +2,11 @@ import { CHAT_WEB_PROVIDERS, type ChatWebProvider } from './production-execution
 import { toMinor } from '@/shared/money'
 import { AI_PROVIDERS, type AiProviderId } from './ai'
 import { chatTarget, type ProductionGeneration, type ProductionTarget } from './production-execution'
+import { qualityProfileFits, type QualityProfile } from './production-quality'
 
 export class ProductionError extends Error { constructor(message: string, readonly status = 400) { super(message) } }
 export type ProductionKind = 'post' | 'product' | 'page'
-export type ProductionConfig = { categoryIds: number[]; length: 'short' | 'medium' | 'long'; tone: string; keywords: string; instruction: string; cover: boolean; inline: number; imageStyle: string; ratio: 'landscape' | 'square' | 'portrait'; productKind: 'PHYSICAL' | 'VIRTUAL'; currency: string; specifications: string; generation?: ProductionGeneration }
+export type ProductionConfig = { categoryIds: number[]; length: 'short' | 'medium' | 'long'; tone: string; keywords: string; instruction: string; cover: boolean; inline: number; imageStyle: string; ratio: 'landscape' | 'square' | 'portrait'; productKind: 'PHYSICAL' | 'VIRTUAL'; currency: string; specifications: string; generation?: ProductionGeneration; qualityProfile?: QualityProfile }
 export type ProductionSeed = { topic: string; facts: string; price: string; stock: number }
 export type ProductionOutput = { title: string; slug: string; excerpt: string; coverPrompt: string; coverDescription?: string; sections: { heading: string; text: string; imagePrompt: string; imageDescription?: string }[] }
 export type ProductionImage = { index: number; url: string; alt: string; caption: string }
@@ -34,6 +35,7 @@ export function parseProduction(input: unknown) {
   const config: ProductionConfig = { categoryIds: [...new Set(c.categoryIds as number[])], length: c.length as ProductionConfig['length'], tone: text(c.tone,200), keywords: text(c.keywords,500), instruction: text(c.instruction,3000), cover:c.cover, inline:Number(c.inline), imageStyle:text(c.imageStyle,1000), ratio:c.ratio as ProductionConfig['ratio'], productKind:c.productKind as ProductionConfig['productKind'], currency:String(c.currency), specifications:'{}' }
   config.specifications = c.specifications === undefined ? '{}' : text(c.specifications,8000)
   const generation = parseGeneration(c.generation); if (generation) config.generation = generation
+  if (c.qualityProfile !== undefined) { if (!qualityProfileFits(kind, c.qualityProfile)) throw new ProductionError('قواعد کنترل کیفیت با نوع محتوا هم‌خوان نیست'); config.qualityProfile = c.qualityProfile }
   let specs:unknown;try{specs=JSON.parse(config.specifications)}catch{throw new ProductionError('مشخصات فنی باید JSON معتبر باشد')};if(!isRecord(specs))throw new ProductionError('مشخصات فنی باید شیء JSON باشد')
   const seeds: ProductionSeed[] = input.seeds.map(value => {
     if (!isRecord(value)) throw new ProductionError('ردیف تولید معتبر نیست')

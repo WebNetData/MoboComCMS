@@ -3,10 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { requestChatWeb, requestChatWebImage, checkProductionChat, resetProductionChat, releaseProductionChat } from './chat-web'
 import type { ProductionChoice } from '../domain/production-execution'
 import type { ProductionConfig, ProductionKind, ProductionSeed, ProductionOutput, ProductionImage } from '../domain/production'
-export type ProductionItemView = { id: string; position: number; seed: ProductionSeed; state: string; output: ProductionOutput | null; images: ProductionImage[]; error: string; expiresAt: string | null; saved: { id: number; href: string; title: string } | null }
+import type { QualityReport } from '../domain/production-quality'
+export type ProductionItemView = { id: string; position: number; version: number; seed: ProductionSeed; state: string; output: ProductionOutput | null; images: ProductionImage[]; error: string; expiresAt: string | null; saved: { id: number; href: string; title: string } | null }
 export type ProductionBatchView = { id: string; kind: ProductionKind; status: string; version: number; config: ProductionConfig; items: ProductionItemView[] }
 type BatchSummary = { id: string; status: string; createdAt: string; _count: { items: number } }
 type Step = { itemId: string; lease: string; phase: 'text' | 'image'; index?: number; prompt: string }
+export async function productionQuality(id: string, itemId: string, signal?: AbortSignal): Promise<QualityReport> {
+  const response = await fetch(`/api/admin/ai/production?id=${encodeURIComponent(id)}&quality=${encodeURIComponent(itemId)}`, { cache: 'no-store', signal: AbortSignal.any([AbortSignal.timeout(20000), ...(signal ? [signal] : [])]) })
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data?.quality) throw new Error(data?.error || 'گزارش کیفیت دریافت نشد')
+  return data.quality
+}
 export async function productionApi(body: Record<string, unknown>, image = false, signal?: AbortSignal) {
   const response = await fetch('/api/admin/ai/production'+(image?'/image':''), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ versionProtocol: 1, ...body }), signal: AbortSignal.any([AbortSignal.timeout(body.action==='generate'?155000:65000),...(signal?[signal]:[])]) })
   const data = await response.json().catch(() => null)
@@ -67,7 +74,7 @@ export function useProduction(kind: ProductionKind) {
     }finally{if(control.signal.aborted&&current.current){try{await refresh(current.current.id);if(current.current?.status==='RUNNING')await command('pause')}catch{setMessage('درخواست مرورگر لغو شد؛ برای تأیید توقف سرور وضعیت را تازه کنید.')}}abort.current=null;running.current=false;setBusy(false)}
   }
   async function stop() {abort.current?.abort();setMessage('در حال توقف؛ متن‌ها و تصاویر تکمیل‌شده حفظ می‌شوند.')}
-  async function act(action:string,itemId?:string){if(running.current)return;setBusy(true);setMessage('');try{if(action==='retry-fresh'){if(!itemId||!current.current)throw new Error('ردیف را انتخاب کنید');await resetProductionChat(current.current.id+':'+itemId);action='retry'}await command(action,itemId?{itemId}:{});if(action==='retry')setMessage('ردیف آمادهٔ ادامه است؛ شروع را بزنید. پاسخ آمادهٔ همین مرحله ابتدا بازیابی می‌شود.');if(action==='save')setMessage('پیش‌نویس ذخیره شد؛ انتشار خودکار انجام نمی‌شود.')}catch(e){setMessage(e instanceof Error?e.message:'انجام نشد')}finally{setBusy(false)}}
-  async function saveAll(){if(running.current||!current.current)return;setBusy(true);setMessage('');try{for(const row of current.current.items.filter(x=>x.state==='REVIEW'))await command('save',{itemId:row.id});setMessage('ردیف‌های بازبینی‌شده به‌صورت پیش‌نویس ذخیره شدند.')}catch(e){setMessage(e instanceof Error?e.message:'ذخیره متوقف شد؛ موارد موفق دوباره ساخته نمی‌شوند')}finally{setBusy(false)}}
+  async function act(action:string,itemId?:string,extra:Record<string,unknown>={}){if(running.current)return;setBusy(true);setMessage('');try{if(action==='retry-fresh'){if(!itemId||!current.current)throw new Error('ردیف را انتخاب کنید');await resetProductionChat(current.current.id+':'+itemId);action='retry'}await command(action,itemId?{itemId,...extra}:{});if(action==='retry')setMessage('ردیف آمادهٔ ادامه است؛ شروع را بزنید. پاسخ آمادهٔ همین مرحله ابتدا بازیابی می‌شود.');if(action==='save')setMessage('پیش‌نویس ذخیره شد؛ انتشار خودکار انجام نمی‌شود.')}catch(e){setMessage(e instanceof Error?e.message:'انجام نشد')}finally{setBusy(false)}}
+  async function saveAll(){if(running.current||!current.current)return;setBusy(true);setMessage('');try{let held=0;for(const row of current.current.items.filter(x=>x.state==='REVIEW')){try{await command('save',{itemId:row.id})}catch(e){if(!(e instanceof Error)||!e.message.includes('کنترل کیفیت'))throw e;held++}}setMessage(held?`ردیف‌های سالم ذخیره شدند؛ ${held.toLocaleString('fa-IR')} ردیف به‌خاطر مورد مسدودکنندهٔ کنترل کیفیت ماند تا جداگانه بررسی شود.`:'ردیف‌های بازبینی‌شده به‌صورت پیش‌نویس ذخیره شدند.')}catch(e){setMessage(e instanceof Error?e.message:'ذخیره متوقف شد؛ موارد موفق دوباره ساخته نمی‌شوند')}finally{setBusy(false)}}
   return{batch,batches,categories,providers,busy,message,setMessage,refresh,create,run,stop,act,saveAll,bridgeVersion,checkBridge}
 }

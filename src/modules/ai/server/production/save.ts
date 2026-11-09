@@ -8,15 +8,19 @@ import { db } from '@/platform/database/prisma'
 import { ProductionError, nextImage, type ProductionKind } from '../../domain/production'
 import { owned, configOf, outputOf, imagesOf, seedOf, productionActor, claimBatch, categories } from './store'
 import { productionHtml, productionDocument } from './document'
+import { itemQuality } from './quality'
 
 /** Content creation, history and exactly-once receipt share the owner's transaction. */
-export async function saveProduction(req: NextRequest,id:unknown,itemId:unknown,version:unknown) {
+export async function saveProduction(req: NextRequest,id:unknown,itemId:unknown,version:unknown,acknowledged=false) {
   const{batch,actor}=await owned(req,id),item=batch.items.find(x=>x.id===itemId)
   if(!item)throw new ProductionError('ردیف پیدا نشد',404)
   if(item.state==='SAVED')return JSON.parse(item.saved)
   if(batch.status==='CANCELLED'||item.state!=='REVIEW'||!item.output)throw new ProductionError('ابتدا تولید و تصاویر ردیف را تکمیل و بازبینی کنید',409)
   const config=configOf(batch),output=outputOf(item),images=imagesOf(item),seed=seedOf(item)
   if(nextImage(config,images)!==undefined)throw new ProductionError('تصاویر انتخاب‌شده کامل نشده‌اند',409)
+  // Checked again at save: the site may have changed since the reviewer read the report.
+  const quality=await itemQuality(batch,item)
+  if(quality.level==='block'&&!acknowledged)throw new ProductionError('کنترل کیفیت مورد مسدودکننده دارد؛ گزارش را بررسی و اصلاح کنید یا آگاهانه تأیید کنید',409)
   let result: Record<string,unknown>={}
   const commit=async(tx:Prisma.TransactionClient,_before:Record<string,unknown>,after:Record<string,unknown>)=>{
     const fresh=(await owned(req,batch.id,tx)).batch
@@ -26,7 +30,7 @@ export async function saveProduction(req: NextRequest,id:unknown,itemId:unknown,
     const update=await tx.aiProductionItem.updateMany({where:{id:item.id,batchId:batch.id,version:item.version,state:'REVIEW'},data:{state:'SAVED',saved:JSON.stringify(result),version:{increment:1}}})
     if(update.count!==1)throw new ProductionError('این ردیف هم‌زمان ذخیره یا تغییر کرد',409)
     const remaining=await tx.aiProductionItem.count({where:{batchId:batch.id,state:{not:'SAVED'}}});if(!remaining)await tx.aiProductionBatch.updateMany({where:{id:batch.id,version:fresh.version+1},data:{status:'DONE'}})
-    await auditAdminStrict({req,actor,action:'ai.production.save',targetType:batch.kind,targetId:String(after.id),metadata:{batchId:batch.id,itemId:item.id}},tx)
+    await auditAdminStrict({req,actor,action:'ai.production.save',targetType:batch.kind,targetId:String(after.id),metadata:{batchId:batch.id,itemId:item.id,quality:{profile:quality.profile,level:quality.level,blocks:quality.findings.filter(f=>f.level==='block').length,warnings:quality.findings.filter(f=>f.level==='warn').length,acknowledged:quality.level==='block'}}},tx)
   }
   const cover=images.find(x=>x.index===0)?.url||''
   // Keep the requested slug. Only an actual collision adds a readable number.
