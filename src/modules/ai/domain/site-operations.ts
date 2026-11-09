@@ -50,9 +50,12 @@ const RULES: { id: string; test: RegExp; title: string; explanation: string; act
   { id: 'conflict', test: /P2002|P2034|unique constraint|serializ|deadlock|40001|40P01/i, title: 'تداخل هم‌زمانی یا رکورد تکراری', explanation: 'دو درخواست هم‌زمان یک رکورد را تغییر داده‌اند؛ اگر پرتکرار است، کد مسیر را باید بررسی کرد.', action: { kind: 'engineering', mode: 'DEVELOP' } },
   { id: 'code', test: /TypeError|ReferenceError|Cannot read propert|is not a function|undefined is not|SyntaxError|RangeError/i, title: 'خطای کد', explanation: 'خطای برنامه‌نویسی در همین مسیر تکرار می‌شود؛ رفع آن در محیط جدا و با PR انجام می‌شود.', action: { kind: 'engineering', mode: 'DEVELOP' } },
 ]
-export const ALLOWED_CAUSES = RULES.map(r => r.id)
+const AI_PROVIDER = { id: 'ai-provider', title: 'سرویس هوش مصنوعی در دسترس نیست', explanation: 'سرویس یا پراکسی خروجی هوش مصنوعی پاسخ نداده است؛ این خطای سرور سایت نیست. مسیر سرویس و پایش را بررسی کنید.', action: { kind: 'settings', href: '/admin/ai/monitoring', label: 'پایش هوش مصنوعی' } as CauseAction }
+export const ALLOWED_CAUSES = [...RULES.map(r => r.id), AI_PROVIDER.id]
 export function probableCause(group: Pick<ErrorGroup, 'source' | 'event' | 'signature'> & { samples?: string[] }): CauseView | null {
   const text = `${group.event} ${group.signature} ${(group.samples || []).join(' ')}`
+  // A failed AI call is about the provider, whatever status code it carries.
+  if (group.source === 'ai') { const credential = /auth|quota|rate|401|403|429/i.test(text) ? RULES.find(r => r.id === 'ai-credential')! : AI_PROVIDER; return { id: credential.id, title: credential.title, explanation: credential.explanation, action: credential.action } }
   const rule = RULES.find(r => r.test.test(text)) || (group.source === 'mail' ? RULES.find(r => r.id === 'mail') : group.source === 'sms' ? RULES.find(r => r.id === 'sms') : undefined)
   return rule ? { id: rule.id, title: rule.title, explanation: rule.explanation, action: rule.action } : null
 }

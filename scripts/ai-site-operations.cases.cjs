@@ -18,6 +18,8 @@ test('site operations: errors group by signature, personal data is removed, caus
   assert(!JSON.stringify(mail).includes('owner@example.com'))
   assert.equal(groups.find(g => g.source === 'job').cause.id, 'migration')
   assert.equal(o.probableCause({ source: 'server', event: 'proxy', signature: '502 Bad Gateway' }).action.mode, 'REPAIR')
+  assert.equal(o.probableCause({ source: 'ai', event: 'ai.support', signature: 'custom unavailable #', samples: ['custom unavailable 502'] }).id, 'ai-provider')
+  assert.equal(o.probableCause({ source: 'ai', event: 'ai.admin', signature: 'gemini quota #' }).id, 'ai-credential')
   assert.match(o.sanitize('token=abc123 call 09121234567 from 10.0.0.1'), /token=<redacted> call <phone> from <ip>/)
   assert(!o.engineeringBrief(mail).includes('example.com'))
 })
