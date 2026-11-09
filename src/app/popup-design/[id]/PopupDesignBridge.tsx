@@ -6,9 +6,11 @@ import { useEffect } from 'react'
 export default function PopupDesignBridge() {
   useEffect(() => {
     if (window.parent === window) return
-    const send = () => window.parent.postMessage({ type: 'mobocom-popup-height', path: location.pathname, height: Math.ceil(document.documentElement.scrollHeight) }, location.origin)
+    // The design's own height: the document is never shorter than the frame, so it could not shrink to fit.
+    const design = document.querySelector('.popup-design') || document.body
+    const send = () => window.parent.postMessage({ type: 'mobocom-popup-height', path: location.pathname, height: Math.ceil(design.getBoundingClientRect().height) }, location.origin)
     const observer = new ResizeObserver(send)
-    observer.observe(document.body)
+    observer.observe(design)
     send()
     const click = (event: MouseEvent) => {
       const link = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
