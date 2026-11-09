@@ -2,6 +2,15 @@
 import { useMemo, useRef, useState } from 'react'
 import { requestChatWeb } from '@/modules/ai/client/chat-web'
 import type { CodeBundle, CodeResult, CodeTarget, CodeWarning } from '@/modules/ai/domain/code-assist'
+import { componentCss, componentScript, componentValues, normalizeComponent, renderComponentHtml } from '@/modules/site/domain/components'
+
+/** A component is previewed as it renders: placeholders filled with field defaults, `selector` as its root, JS with `root`. */
+function asRendered(target: CodeTarget, code: CodeResult): CodeBundle {
+  if (target !== 'component') return code
+  const def = normalizeComponent({ id: 'cc-preview0', fields: code.fields || [], html: code.html, css: code.css, js: code.js })
+  if (!def) return code
+  return { html: `<div class="cc-root cc-preview0" data-cc-instance="preview">${renderComponentHtml(def, componentValues(def, '{}'), { brand: '', locale: 'fa' })}</div>`, css: componentCss(def), js: componentScript(def, 'preview') }
+}
 
 type L = (en: string, fa: string) => string
 type Proposal = { code: CodeResult; warnings: CodeWarning[]; model: string }
@@ -18,7 +27,7 @@ function previewDoc(code: CodeBundle) {
   return `<!doctype html><html dir="${document.documentElement.dir || 'rtl'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{${vars}}body{margin:0;padding:16px;background:var(--bg);color:var(--text);font-family:${body.fontFamily}}</style><style>${code.css.replace(/<\/style/gi, '')}</style></head><body>${code.html}<script>${escapeScript(code.js)}</script></body></html>`
 }
 
-export default function AiCodePanel({ target, current, L, onApply }: { target: CodeTarget; current: CodeBundle; L: L; onApply: (code: CodeBundle) => void }) {
+export default function AiCodePanel({ target, current, L, onApply }: { target: CodeTarget; current: CodeBundle; L: L; onApply: (code: CodeResult) => void }) {
   const [instruction, setInstruction] = useState(''), [transport, setTransport] = useState<'api' | 'chat-web'>('api'), [edit, setEdit] = useState(true)
   const [busy, setBusy] = useState(''), [error, setError] = useState(''), [proposal, setProposal] = useState<Proposal | null>(null), [view, setView] = useState<'preview' | keyof CodeBundle>('preview'), [width, setWidth] = useState(390)
   const scope = useMemo(() => scopeOf(current.html), [current.html])
@@ -70,11 +79,11 @@ export default function AiCodePanel({ target, current, L, onApply }: { target: C
       <div className="bld-ai-tabs" role="tablist">{(target === 'css' ? ['css'] as const : ['preview', 'html', 'css', 'js'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'is-selected' : ''} onClick={() => setView(v)}>{v === 'preview' ? L('Preview', 'پیش‌نمایش') : v.toUpperCase()}</button>)}</div>
       {view === 'preview'
         ? <><div className="bld-ai-sizes">{[390, 820, 1280].map(w => <button key={w} type="button" className={width === w ? 'is-selected' : ''} onClick={() => setWidth(w)}>{w}</button>)}</div>
-          <div className="bld-ai-frame"><iframe title={L('Isolated preview', 'پیش‌نمایش جدا')} sandbox="allow-scripts" srcDoc={previewDoc(proposal.code)} style={{ width }} /></div></>
+          <div className="bld-ai-frame"><iframe title={L('Isolated preview', 'پیش‌نمایش جدا')} sandbox="allow-scripts" srcDoc={previewDoc(asRendered(target, proposal.code))} style={{ width }} /></div></>
         : <textarea className="textarea bld-code mono" dir="ltr" rows={12} value={proposal.code[view]} onChange={e => setProposal({ ...proposal, code: { ...proposal.code, [view]: e.target.value } })} />}
       <p className="muted text-sm">{L('The preview runs in an isolated frame. Inserting only changes this draft; saving still needs your review and the code permission.', 'پیش‌نمایش در قاب جدا اجرا می‌شود و به سایت دسترسی ندارد. «جایگزین کردن» فقط پیش‌نویس همین صفحه را تغییر می‌دهد و با Ctrl+Z برمی‌گردد؛ ذخیره و انتشار با بازبینی شماست.')} · {proposal.model}</p>
       <div className="bld-ai-row">
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => { onApply({ html: proposal.code.html, css: proposal.code.css, js: proposal.code.js }); setProposal(null); setInstruction('') }}>{danger ? L('Insert anyway', 'با آگاهی از هشدارها جایگزین کن') : L('Insert into the block', 'جایگزین کردن در بلوک')}</button>
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => { onApply(proposal.code); setProposal(null); setInstruction('') }}>{danger ? L('Insert anyway', 'با آگاهی از هشدارها جایگزین کن') : L('Insert into the block', 'جایگزین کردن در بلوک')}</button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setProposal(null)}>{L('Discard', 'رد کردن')}</button>
       </div>
     </div>}
