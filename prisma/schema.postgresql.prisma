@@ -5114,3 +5114,28 @@ model AiProductionItem {
   updatedAt DateTime @updatedAt
   @@unique([batchId, position])
 }
+
+/// Sanitized AI call facts only; never prompts, responses, credentials or identities.
+model AiInvocation {
+  id           String    @id @default(uuid())
+  purpose      String
+  kind         String    @default("text")
+  transport    String    @default("api")
+  provider     String
+  model        String
+  status       String    @default("RUNNING")
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  durationMs   Int?
+  attempts     Int       @default(0)
+  inputTokens  Int?
+  outputTokens Int?
+  totalTokens  Int?
+  outcome      String    @default("")
+  errorKind    String    @default("")
+  errorStatus  Int?
+
+  @@index([startedAt])
+  @@index([purpose, startedAt])
+  @@index([status, startedAt])
+}

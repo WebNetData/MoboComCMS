@@ -2,3 +2,6 @@
 export { generate, getAiConfig, publicAiReady, AiError } from './client'
 export type { Prompt, AiConfig } from '../domain/ai'
 export type { AiPurpose } from '../domain/routing'
+
+export { supportOutcome } from './telemetry'
+export type { AiOutcome } from '../domain/telemetry'

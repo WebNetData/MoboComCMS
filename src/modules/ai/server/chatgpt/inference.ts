@@ -1,3 +1,5 @@
+import { observeAi } from '../telemetry'
+import { personalAiPurpose } from '../admin-context'
 import type { Prompt } from '@/modules/ai/domain/ai'
 import { ChatGptError, RESOURCE } from './types'
 import { readState } from './store'
@@ -22,6 +24,10 @@ export async function personalGenerate(id: number, prompt: Prompt) {
   const account = await activeAccount(id)
   const current = await readState(id)
   if (!current.enabled || current.active !== state.active || account.clientId !== state.active || current.model !== state.model || current.accounts.find(a => a.clientId === account.clientId)?.refresh !== account.refresh) throw new ChatGptError('اتصال شخصی هم‌زمان تغییر کرد؛ دوباره تلاش کنید', 409)
-  const response = await fixedFetch(`${RESOURCE}/responses`, { method: 'POST', headers: { Authorization: `Bearer ${account.access}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' }, signal: AbortSignal.timeout(120_000), body: JSON.stringify({ model: state.model, instructions: prompt.system, input: [{ role: 'user', content: prompt.user }], store: false, stream: true }) })
-  return { text: await responseText(response), model: state.model, provider: 'chatgpt-personal' }
+  const observed = await observeAi({ purpose: personalAiPurpose() || 'admin', provider: 'chatgpt-personal', model: state.model, transport: 'personal' }, async attempt => {
+    attempt()
+    const response = await fixedFetch(`${RESOURCE}/responses`, { method: 'POST', headers: { Authorization: `Bearer ${account.access}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' }, signal: AbortSignal.timeout(120_000), body: JSON.stringify({ model: state.model, instructions: prompt.system, input: [{ role: 'user', content: prompt.user }], store: false, stream: true }) })
+    return { text: await responseText(response), model: state.model, provider: 'chatgpt-personal' }
+  })
+  return { ...observed.value, observationId: observed.observationId }
 }

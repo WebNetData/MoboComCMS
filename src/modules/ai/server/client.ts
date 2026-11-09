@@ -1,8 +1,10 @@
+import { observeAi } from './telemetry'
+import { providerUsage, type AiUsage } from '../domain/telemetry'
 import { keylessAi, configurableAiBase, AI_PROVIDERS } from '../domain/ai'
 import Anthropic from '@anthropic-ai/sdk'
 import { db } from '@/platform/database/prisma'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
-import { DEFAULT_AI, effectiveBaseUrl, effectiveModel, normalizeAiConfig, providerById, type AiConfig, type Prompt } from '@/modules/ai/domain/ai'
+import { DEFAULT_AI, effectiveBaseUrl, effectiveModel, normalizeAiConfig, type AiConfig, type Prompt } from '@/modules/ai/domain/ai'
 // The AI providers go through the Server Panel's Xray profile for the "ai" purpose when one is chosen; otherwise directly.
 import { egressFetch, egressRoute } from '@/modules/social/server/egress'
 import { personalAiActor } from './admin-context'
@@ -48,7 +50,7 @@ export function publicAiConfig(config: AiConfig) {
   return { ...config, apiKey: hint, hasKey: !!config.apiKey && hint !== '••••', effectiveModel: effectiveModel(config) }
 }
 
-export interface AiResult { text: string; model: string; provider: string }
+export interface AiResult { text: string; model: string; provider: string; usage?: AiUsage; observationId?: string }
 
 /** Public feature availability follows its own API binding, never an Admin grant. */
 export async function publicAiReady(purpose: 'support' | 'prompts') {
@@ -71,29 +73,36 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
     catch (error) { if (error instanceof ChatGptError) throw new AiError(error.message, error.status); throw error }
   }
   const settings = route.source === 'api' && route.config ? route.config : config || await getAiConfig()
-  return generateApi(prompt, settings, { support: selected === 'support' })
+  return generateApi(prompt, settings, { support: selected === 'support', purpose: selected })
 }
 
 /** Explicit API transport: never consults actor/personal routing or falls back to ChatGPT. */
-export async function generateApi(prompt: Prompt, settings: AiConfig, options: { support?: boolean; signal?: AbortSignal } = {}): Promise<AiResult> {
+export async function generateApi(prompt: Prompt, settings: AiConfig, options: { support?: boolean; signal?: AbortSignal; purpose?: AiPurpose } = {}): Promise<AiResult> {
   if (settings.provider === 'economy') return (await import('./economy')).generateEconomy(prompt, settings, options, generateApi)
-  const combined = (signal?: AbortSignal) => AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(signal ? [signal] : []), ...(options.signal ? [options.signal] : [])])
   const model = effectiveModel(settings)
-  const pooled = await generateWithCredentialPool(settings, (key, signal) => settings.provider === 'anthropic'
-    ? claude(key, model, prompt, options.support === true, combined(signal))
-    : openAiCompatible(effectiveBaseUrl(settings), key, model, prompt, settings.provider, combined(signal)))
-  if (pooled !== null) return { text: pooled, model, provider: settings.provider }
-  let apiKey = ''
-  try { apiKey = decryptPanelCredential(settings.apiKey) } catch { throw new AiError('کلید API قابل خواندن نیست؛ دوباره آن را ذخیره کنید') }
-  if (!apiKey && !keylessAi(settings.provider)) throw new AiError(`ابتدا کلید API سرویس ${providerById(settings.provider).label} را در تنظیمات دستیار وارد کنید`)
-  const text = settings.provider === 'anthropic'
-    ? await claude(apiKey, model, prompt, options.support === true, combined())
-    : await openAiCompatible(effectiveBaseUrl(settings), apiKey, model, prompt, settings.provider, combined())
-  if (!text.trim()) throw new AiError('پاسخی از هوش مصنوعی دریافت نشد؛ دوباره تلاش کنید', 502)
-  return { text, model, provider: settings.provider }
+  const observed = await observeAi({ purpose: options.purpose, provider: settings.provider, model }, async (attempt, usage) => {
+    const combined = (signal?: AbortSignal) => AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(signal ? [signal] : []), ...(options.signal ? [options.signal] : [])])
+    let reported: AiUsage | undefined
+    const call = async (key: string, signal?: AbortSignal) => {
+      attempt()
+      const reply = settings.provider === 'anthropic'
+        ? await claude(key, model, prompt, options.support === true, combined(signal))
+        : await openAiCompatible(effectiveBaseUrl(settings), key, model, prompt, settings.provider, combined(signal))
+      reported = reply.usage; usage(reported)
+      if (!reply.text.trim()) throw new AiError('پاسخی از هوش مصنوعی دریافت نشد؛ درخواست تکرار نشد', 502)
+      return reply.text
+    }
+    const pooled = await generateWithCredentialPool(settings, call)
+    if (pooled !== null) return { text: pooled, model, provider: settings.provider, usage: reported }
+    let apiKey = ''
+    try { apiKey = decryptPanelCredential(settings.apiKey) } catch { throw new AiError('کلید API قابل خواندن نیست؛ دوباره آن را ذخیره کنید') }
+    if (!apiKey && !keylessAi(settings.provider)) throw new AiError('ابتدا کلید API سرویس را در تنظیمات دستیار وارد کنید')
+    return { text: await call(apiKey), model, provider: settings.provider, usage: reported }
+  })
+  return { ...observed.value, observationId: observed.observationId }
 }
 
-async function claude(apiKey: string, model: string, prompt: Prompt, support = false, signal?: AbortSignal): Promise<string> {
+async function claude(apiKey: string, model: string, prompt: Prompt, support = false, signal?: AbortSignal): Promise<{ text: string; usage?: AiUsage }> {
   const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 0, fetch: egressFetch as unknown as typeof fetch })
   try {
     const response = await client.beta.messages.create({
@@ -105,7 +114,7 @@ async function claude(apiKey: string, model: string, prompt: Prompt, support = f
       ...(!support ? { thinking: { type: 'adaptive' as const } } : {}),
     }, { signal })
     if (response.stop_reason === 'refusal') throw new AiError('مدل به این درخواست پاسخ نداد؛ موضوع یا متن را تغییر دهید', 422)
-    return response.content.map((block) => block.type === 'text' ? block.text : '').join('')
+    return { text: response.content.map((block) => block.type === 'text' ? block.text : '').join(''), usage: providerUsage(response.usage, 'anthropic') }
   } catch (error) {
     if (error instanceof AiError) throw error
     if (error instanceof Anthropic.AuthenticationError) throw new AiError('کلید API کلاد نامعتبر است', 401, 'auth')
@@ -119,7 +128,7 @@ function settingsJson(provider: string) {
   return { ...(provider !== 'custom' ? { response_format: { type: 'json_object' } } : {}), ...(provider === 'deepseek' ? { thinking: { type: 'disabled' } } : {}), ...(provider === 'qwen' ? { enable_thinking: false } : {}) }
 }
 
-async function openAiCompatible(baseUrl: string, apiKey: string, model: string, prompt: Prompt, provider: string, signal?: AbortSignal): Promise<string> {
+async function openAiCompatible(baseUrl: string, apiKey: string, model: string, prompt: Prompt, provider: string, signal?: AbortSignal): Promise<{ text: string; usage?: AiUsage }> {
   if (!baseUrl) throw new AiError('نشانی سرویس هوش مصنوعی تنظیم نشده است')
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
@@ -134,7 +143,7 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
   // can spend the entire budget on thinking and look like a failed connection. Other model protocols stay intact.
   const reasoning = provider === 'gemini' && prompt.maxTokens <= 1200 && /^gemini-2\.5-flash(?:$|-)/.test(model) ? { reasoning_effort: 'none' } : {}
   let response: Response
-  let data: { choices?: { message?: { content?: string }; finish_reason?: string }[]; error?: { message?: string; code?: string } | string } | null
+  let data: { usage?: unknown; choices?: { message?: { content?: string }; finish_reason?: string }[]; error?: { message?: string; code?: string } | string } | null
   try {
     response = await egressFetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -165,5 +174,5 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
   if (prompt.json && data?.choices?.[0]?.finish_reason === 'length') throw new AiError('پاسخ JSON مدل ناقص شد؛ سقف خروجی را بررسی کنید. درخواست تکرار نشد', 502, 'unavailable', false)
   if (data?.choices?.[0]?.finish_reason === 'content_filter') throw new AiError('سرویس به این درخواست پاسخ نداد؛ موضوع یا متن را تغییر دهید', 422)
   if (data?.choices?.[0]?.finish_reason === 'length' && !content?.trim()) throw new AiError('بودجهٔ توکن مدل پیش از تولید پاسخ تمام شد؛ سقف خروجی یا تنظیم تفکر مدل را بررسی کنید', 502)
-  return content || ''
+  return { text: content || '', usage: providerUsage(data?.usage) }
 }
