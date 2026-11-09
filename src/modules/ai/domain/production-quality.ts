@@ -100,8 +100,8 @@ export function textChecks(input: QualityInput): QualityFinding[] {
     if (!image) { add({ area: 'images', level: 'block', title: `${name} ساخته نشده`, detail: 'تصاویر انتخاب‌شده کامل نیست.' }); continue }
     if (normalize(image.alt).trim().length < 5) add({ area: 'images', level: 'warn', title: `توضیح جایگزین ${name}`, detail: 'برای دسترس‌پذیری و سئو توضیح کوتاهی از تصویر لازم است.' })
     const section = index === 0 ? `${output.title} ${output.excerpt} ${output.coverPrompt}` : (() => { const s = output.sections[(index - 1) % output.sections.length]; return `${s.heading} ${s.text} ${s.imagePrompt}` })()
-    const described = `${image.alt} ${image.caption} ${index === 0 ? output.coverDescription || '' : output.sections[(index - 1) % output.sections.length]?.imageDescription || ''}`
-    const words = tokens(described), around = tokens(section)
+    // What the image turned out to show, not what was planned: the plan always matches the text.
+    const words = tokens(`${image.alt} ${image.caption}`), around = tokens(section)
     if (words.size >= 3 && ![...words].some(w => around.has(w))) add({ area: 'images', level: 'warn', title: `${name} با متن هم‌خوان نیست`, detail: 'توضیح تصویر هیچ واژهٔ مشترکی با متن همان بخش ندارد؛ تصویر را نگاه کنید.', evidence: clip(image.alt || image.caption) })
   }
   return findings
