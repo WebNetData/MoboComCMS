@@ -29,5 +29,5 @@ test('chat web bridge 0.6.8 also serves the builder and nothing broader', () => 
   const path = new Function('return ' + worker.match(/const panelPath=(path=>[^\n]+)/)[1])()
   for (const ok of ['/admin/builder/home', '/admin/builder', '/admin/posts', '/admin/ai/production']) assert(path(ok), ok)
   for (const no of ['/admin/builders-x', '/admin/settings', '/builder', '/admin/ai/sales']) assert(!path(no), no)
-  assert(panel.includes('builder(?:\/|$)'))
+  assert(panel.includes(String.raw`|builder(?:\/|$))/.test(location.pathname)`))
 })
