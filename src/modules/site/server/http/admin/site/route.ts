@@ -32,13 +32,15 @@ export async function PUT(req: NextRequest) {
   if (value.themes.some(t => bundledThemes.some(b => b.id === t.id))) return err('شناسه قالب با قالب داخلی تداخل دارد')
   // Legacy keys are retained for old site documents, but runtime activation is
   // exclusively owned by the extension manager.
-  if (Object.keys(value.plugins).some(id => !extensionCatalog.some(p => p.id === id))) return err('افزونه در پروژه ثبت نشده است')
   try {
     await updateJsonSetting(SITE_KEY, async (stored, tx) => {
       const actor = await requirePerm(req, 'settings.manage', tx)
       if (!actor) throw new JsonSettingMutationError('forbidden')
       const current = await getSiteConfigFrom(tx, true)
       if (req.headers.has('if-match') && req.headers.get('if-match') !== revision(current)) throw new JsonSettingMutationError('stale')
+      // A retired legacy key must not block an unrelated menu edit. Only the
+      // exact value already stored may survive; new/changed unknown keys fail.
+      if (Object.entries(value.plugins).some(([id, enabled]) => !extensionCatalog.some(p => p.id === id) && (!Object.hasOwn(current.plugins, id) || current.plugins[id] !== enabled))) throw new JsonSettingMutationError('invalid plugin')
       Object.keys(stored).forEach(key => delete stored[key])
       Object.assign(stored, value)
       await recordRevision({ entityType: 'settings-site', entityId: 1, before: siteSettingsSnapshot(current), after: siteSettingsSnapshot(value), actor, client: tx, strict: true })
@@ -46,6 +48,7 @@ export async function PUT(req: NextRequest) {
     })
     return ok({ saved: true, revision: revision(value) })
   } catch (error) {
+    if (error instanceof JsonSettingMutationError && error.message === 'invalid plugin') return err('افزونه در پروژه ثبت نشده است')
     if (error instanceof JsonSettingMutationError && error.message === 'forbidden') return err('دسترسی مجاز نیست', 403)
     if (error instanceof JsonSettingMutationError || (error instanceof Error && error.message.includes('invalid stored'))) return err('تنظیمات تغییر کرده یا نیاز به بررسی دارد؛ صفحه را تازه‌سازی کنید و دوباره ذخیره کنید', 409)
     console.error('[site.update]', error)

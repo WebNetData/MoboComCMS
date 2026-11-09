@@ -1,0 +1,5 @@
+Goal: Visible, editable public MoboCom Cloud mega menu and submenus, then signed1.7.14 prepared for owner merge and stable publication.
+Owner: SiteConfig/SiteLink and existing NavigationBranch/theme consumers; Hosting retains availability/order authority. Risk R3: one-time Settings data migration and release compatibility.
+Scope: Defaults, bounded idempotent stored-navigation backfill, existing module filtering, scoped native/browser checks and release metadata. Preserve custom/nested/hidden Cloud branches, all existing items/order/metadata, data, URLs, previous release assets and module-off behavior.
+Failure cases: malformed JSON/tree,120-entry capacity, nested hidden existing link, repeat migration, owner removal after migration, desktop overflow and mobile disclosures. No runtime reinsertion or new menu system.
+Proof: exact SQL on isolated PostgreSQL, focused menu units, real public/Admin save/reload/native browser desktop/mobile light/dark and module-off filtering, exact signed-source build/HTTPS smoke, previous updater admission/download hashes. Owner merges/deploys; no hosted dispatch without fresh explicit authorization.

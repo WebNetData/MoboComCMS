@@ -49,6 +49,16 @@ async function main() {
     }
     token = { uid: users[0].id, authAt: Date.now() }
     const site = load('src/modules/site/server/http/admin/site/route.ts'), mega = load('src/modules/navigation/server/http/routes.ts'), owner = load('src/modules/navigation/server/megamenu.ts'), settings = load('src/modules/settings/server.ts'), defaults = load('src/modules/site/config/defaults.ts').defaultSite
+    const legacy = { ...structuredClone(defaults), plugins: { ...defaults.plugins, 'owned-retired-plugin': false } }
+    await db.setting.upsert({ where: { key: keys[0] }, create: { key: keys[0], value: JSON.stringify(legacy) }, update: { value: JSON.stringify(legacy) } })
+    const readLegacy = await (await site.GET(request('/api/admin/site'))).json()
+    const editedLegacy = { ...readLegacy.config, navigation: readLegacy.config.navigation.map(link => link.href === '/cloud' ? { ...link, enabled: false } : link) }
+    assert.equal((await site.PUT(request('/api/admin/site', 'PUT', editedLegacy, readLegacy.revision))).status, 200, 'unchanged retired key permits a menu edit')
+    const legacySaved = (await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value
+    for (const plugins of [{ ...editedLegacy.plugins, 'owned-retired-plugin': true }, { ...editedLegacy.plugins, 'owned-new-unknown': false }]) {
+      assert.equal((await site.PUT(request('/api/admin/site', 'PUT', { ...editedLegacy, plugins }))).status, 400)
+      assert.equal((await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value, legacySaved, 'unknown changes preserve stored configuration')
+    }
     await db.setting.upsert({ where: { key: keys[0] }, create: { key: keys[0], value: JSON.stringify(defaults) }, update: { value: JSON.stringify(defaults) } })
     const before = await (await site.GET(request('/api/admin/site'))).json()
     const contact = load('src/modules/site/domain/company-contact.ts').normalizeCompanyContact({phone:'+98 111 222 3333',email:'owner@example.invalid',telegram:'@mobocom',latitude:36.474506,longitude:52.872342,mapEnabled:true})

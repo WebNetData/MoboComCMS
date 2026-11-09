@@ -3,7 +3,7 @@
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
 import { localizeMenu, ThemeNavigationBranch, ThemeNavigationIcon, type PublicMenuLink } from '@/themes/sdk/client'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { DefaultThemeFooter, ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, ThemeWordmark, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import Icon from './icons'
@@ -37,7 +37,7 @@ function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: ()
   useEffect(() => { close() }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return
-    const onEvent = (event: Event) => { if (event instanceof KeyboardEvent ? event.key === 'Escape' : !ref.current?.contains(event.target as Node)) close() }
+    const onEvent = (event: Event) => { if (event instanceof KeyboardEvent ? !event.defaultPrevented && event.key === 'Escape' : !ref.current?.contains(event.target as Node)) close() }
     document.addEventListener('keydown', onEvent)
     document.addEventListener('pointerdown', onEvent)
     return () => { document.removeEventListener('keydown', onEvent); document.removeEventListener('pointerdown', onEvent) }
@@ -144,6 +144,8 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
   const [navAway, setNavAway] = useState(false)
   const header = useRef<HTMLElement>(null)
   const drawer = useRef<HTMLDivElement>(null)
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const closeDrawer = useCallback(() => { setOpen(false); menuButton.current?.focus({ preventScroll: true }) }, [])
   const L = (fa: string, en: string) => site.copy?.[en]?.[locale] || (locale === 'fa' ? fa : en)
   const links = useMemo(() => {
     const items: PublicMenuLink[] = [...localizeMenu(site.navigation, locale), ...(navPages || []).map(page => ({ href: `/p/${page.slug}`, label: locale === 'fa' ? page.title : page.titleEn || page.title }))]
@@ -171,13 +173,13 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
   // The open drawer holds the page still, closes on Escape, and takes the focus.
   useEffect(() => {
     if (!open) return
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    const onKey = (event: KeyboardEvent) => { if (!event.defaultPrevented && event.key === 'Escape') { event.preventDefault(); closeDrawer() } }
     const before = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', onKey)
     drawer.current?.querySelector<HTMLElement>('a, button')?.focus()
     return () => { document.body.style.overflow = before; document.removeEventListener('keydown', onKey) }
-  }, [open])
+  }, [open, closeDrawer])
   const user = session?.user as SessionUser | undefined
   return <>
     <a className="mb-skip" href="#main-content">{L('رفتن به محتوای اصلی', 'Skip to content')}</a>
@@ -190,7 +192,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
           <ThemePluginOutlet slot="site.header-actions" site={site} locale={locale}/>
           <ThemeLangControls locale={locale} theme={theme} compact/>
           <AccountMenu L={L}/>
-          <button type="button" className="mb-menu-button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="mb-mobile-nav" aria-label={open ? L('بستن منو', 'Close menu') : L('باز کردن منو', 'Open menu')}><Icon name={open ? 'close' : 'menu'} size={20}/></button>
+          <button ref={menuButton} type="button" className="mb-menu-button" onClick={() => open ? closeDrawer() : setOpen(true)} aria-expanded={open} aria-controls="mb-mobile-nav" aria-label={open ? L('بستن منو', 'Close menu') : L('باز کردن منو', 'Open menu')}><Icon name={open ? 'close' : 'menu'} size={20}/></button>
         </div>
         <span className="mb-progress" aria-hidden="true"/>
       </div>
@@ -201,9 +203,9 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
     <div className="mb-navbar-space" aria-hidden="true"/>
     {breadcrumbs?.length ? <nav className="mb-container mb-breadcrumbs" aria-label={L('مسیر صفحه', 'Breadcrumb')}><span className="mb-crumbs">{breadcrumbs.map((item, index) => <span key={`${item.label}-${index}`}>{item.href ? <Link href={item.href}>{item.label}</Link> : <strong aria-current="page">{item.label}</strong>}{index < breadcrumbs.length - 1 && <span aria-hidden="true"> / </span>}</span>)}</span></nav> : null}
     {open && <div className="mb-drawer-layer">
-      <button type="button" className="mb-drawer-shade" aria-label={L('بستن منو', 'Close menu')} onClick={() => setOpen(false)}/>
+      <button type="button" className="mb-drawer-shade" aria-label={L('بستن منو', 'Close menu')} onClick={closeDrawer}/>
       <div ref={drawer} id="mb-mobile-nav" className="mb-drawer" role="dialog" aria-modal="true" aria-label={L('منوی سایت', 'Site menu')}>
-        <div className="mb-drawer-head"><Brand/><button type="button" className="mb-menu-button" onClick={() => setOpen(false)} aria-label={L('بستن منو', 'Close menu')}><Icon name="close" size={20}/></button></div>
+        <div className="mb-drawer-head"><Brand/><button type="button" className="mb-menu-button" onClick={closeDrawer} aria-label={L('بستن منو', 'Close menu')}><Icon name="close" size={20}/></button></div>
         <nav className="mb-drawer-nav" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline onNavigate={() => setOpen(false)}><Link href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><i><EntryIcon link={link} size={20}/></i><span>{link.label}</span></Link></ThemeNavigationBranch>)}</nav>
         <div className="mb-drawer-foot">
           {user

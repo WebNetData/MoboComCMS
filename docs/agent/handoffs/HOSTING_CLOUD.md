@@ -2,6 +2,10 @@
 
 Spec and slices: [docs/specs/hosting-cloud/SPEC.md](../../specs/hosting-cloud/SPEC.md). Decision: PLATFORM_DECISIONS *Hosting and cloud*.
 
+2026-11-10: [Public Cloud navigation](CLOUD_PUBLIC_NAVIGATION.md) adds an editable
+header mega menu for fresh and existing installs;1.7.14 backfills only the missing
+branch and preserves owner configuration. Existing theme/Settings owners remain.
+
 2026-11-09: [Member Cloud continuation](MEMBER_CLOUD.md) records the dashboard
 menu, family lists, native location wizard and chat-close completion, with scoped
 browser/accessibility and ownership evidence. Continue the existing owners there.

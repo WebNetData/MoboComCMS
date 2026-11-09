@@ -1,4 +1,5 @@
 import { local as L, type SiteConfig, type SiteSection, type SectionKind, type ContentItem } from './types'
+import { DEFAULT_CLOUD_NAVIGATION } from './cloud-navigation'
 const item = (fa: string, en: string, text: string, english: string, icon: string, href = ''): ContentItem => ({ title: L(fa, en), text: L(text, english), icon, href })
 const section = (kind: SectionKind, eyebrow: string, eyebrowEn: string, title: string, titleEn: string, description: string, descriptionEn: string, items: ContentItem[] = []): SiteSection => ({ id: kind, kind, enabled: true, eyebrow: L(eyebrow, eyebrowEn), title: L(title, titleEn), description: L(description, descriptionEn), items, action: { label: L('بیشتر ببینید', 'Explore more'), href: '/plans' }, formSlug: '' })
 
@@ -6,7 +7,8 @@ export const defaultSite: SiteConfig = {
   version: 1, brand: 'موبوکام', tagline: L('فروشگاه و سرگرمی دیجیتال', 'Digital store & entertainment'),
   announcement: { enabled: true, text: L('با اشتراک ویژهٔ موبوکام، تخفیف فروشگاه و محتوای اختصاصی بگیرید', 'MoboCom VIP: store discounts and members-only content'), link: { label: L('اشتراک ویژه', 'VIP membership'), href: '/vip' } },
   navigation: [
-    { label: L('خانه', 'Home'), href: '/', icon: 'home', menuDisplay: 'mega', menuColumns: 3, children: [{ label: L('درباره ما', 'About us'), href: '/p/about', icon: 'book' }, { label: L('تماس با ما', 'Contact us'), href: '/p/contact', icon: 'chat' }] }, { label: L('فروشگاه', 'Shop'), href: '/products' }, { label: L('مجله', 'Magazine'), href: '/blog' },
+    { label: L('خانه', 'Home'), href: '/', icon: 'home', menuDisplay: 'mega', menuColumns: 3, children: [{ label: L('درباره ما', 'About us'), href: '/p/about', icon: 'book' }, { label: L('تماس با ما', 'Contact us'), href: '/p/contact', icon: 'chat' }] }, { label: L('فروشگاه', 'Shop'), href: '/products' },
+    DEFAULT_CLOUD_NAVIGATION, { label: L('مجله', 'Magazine'), href: '/blog' },
     { label: L('موزیک', 'Music'), href: '/music' }, { label: L('فیلم و سریال', 'Movies & series'), href: '/cinema' }, { label: L('بازی', 'Games'), href: '/games' },
     { label: L('نرم‌افزار', 'Software'), href: '/software' }, { label: L('تالار گفتمان', 'Forum'), href: '/forum' }, { label: L('هنرمندان', 'Artists'), href: '/celebrities', icon: 'users' }, { label: L('کسب‌وکارها', 'Businesses'), href: '/businesses', icon: 'globe' }, { label: L('پرامپت مستر', 'Prompt Master'), href: '/prompts', icon: 'sparkles' }, { label: L('اشتراک ویژه', 'VIP'), href: '/vip' },
   ],
