@@ -67,7 +67,7 @@ export default function SiteOperationsPage() {
           <span className={styles.count}>{n(g.count)}<small>بار</small></span>
           <div><b dir="auto">{g.cause?.title || g.event}</b><span className={styles.meta}>{SOURCES[g.source]} · {g.event} · آخرین: {when(g.lastAt)}</span></div>
         </header>
-        <code dir="ltr" className={styles.sig}>{g.signature}</code>
+        <code dir="auto" className={styles.sig}>{g.signature}</code>
         {g.cause && <p className={styles.cause}><Icon name="lifebuoy" size={16} /> <span><b>علت احتمالی:</b> {g.cause.explanation}</span></p>}
         {f && <p className={styles.ai}><Icon name="sparkles" size={16} /> <span>{f.cause} <small>اطمینان: {CONFIDENCE[f.confidence]}</small></span></p>}
         <details className={styles.evidence}><summary>شواهد</summary>

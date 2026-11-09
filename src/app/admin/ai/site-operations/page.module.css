@@ -24,7 +24,7 @@
 .count { display: grid; place-items: center; flex: 0 0 54px; height: 54px; border-radius: 14px; background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); font-size: 18px; font-weight: 800; line-height: 1.1; }
 .count small { font-size: 10px; font-weight: 600; }
 .meta { overflow: hidden; color: var(--admin-muted-text, var(--muted)); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.sig { display: block; overflow-x: auto; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--text) 5%, transparent); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.sig { display: block; font-family: inherit; unicode-bidi: plaintext; overflow-x: auto; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--text) 5%, transparent); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .cause, .ai { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-size: 13px; line-height: 1.85; }
 .cause svg { flex: none; margin-top: 4px; color: var(--warning); }
 .ai svg { flex: none; margin-top: 4px; color: var(--admin-accent-text, var(--primary)); }
