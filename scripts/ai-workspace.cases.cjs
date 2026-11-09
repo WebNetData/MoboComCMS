@@ -1,5 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),load=require('./connected-source-loader.cjs')()
 const workspace=load('src/modules/ai/domain/workspace.ts')
+require('./ai-page-assistant.cases.cjs')
 test('AI workspace briefs are bounded, expire and stay with the same actor and tool; context carries no query',()=>{
   const now=123456,brief={actor:'41',kind:'builder',instruction:'طرح خدمات موبوکام',source:'/admin/pages',expires:now+600000}
   assert.deepEqual(workspace.workspaceBrief(brief,'41','builder',now),brief)

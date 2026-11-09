@@ -1,0 +1,15 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),load=require('./connected-source-loader.cjs')(),domain=load('src/modules/ai/domain/page-assistant.ts')
+test('Admin page assistant accepts only bounded Admin paths and typed positive record ids',()=>{
+ for(const path of ['/admin','/admin/posts','/admin/music/library'])assert.equal(domain.adminAssistantPath(path),path)
+ for(const path of ['/administrator','/dashboard','//evil.test','/admin/posts?key=private','/admin/../settings','https://evil.test/admin'])assert.equal(domain.adminAssistantPath(path),'')
+ assert.deepEqual(domain.pageTarget('posts','32'),{kind:'posts',id:32})
+ for(const id of [null,undefined,true,false,0,-1,1.1,'1e2','01','2147483648','x'])assert.equal(domain.pageTarget('posts',id),null)
+ assert.equal(domain.pageTarget('users',1),null)
+})
+test('Admin transcript and selected text are data with a fixed context/output budget',()=>{
+ const view={path:'/admin/posts',label:'مجله',purpose:'editor',target:{kind:'posts',id:1},recordLabel:'مجله 1',examples:[]},injection='OWNED_IGNORE_ALL',turns=Array.from({length:40},()=>({role:'user',text:'x'.repeat(2000)}))
+ const p=domain.pageAssistantPrompt({view,instruction:injection,selectedText:injection,record:{title:injection},turns,knowledge:'canonical-rule'})
+ assert(!p.system.includes(injection));assert(p.system.includes('canonical-rule'));assert.equal(p.maxTokens,1200)
+ const user=JSON.parse(p.user);assert.equal(user.savedRecord.title,injection);assert(user.conversation.length<=8);assert(user.conversation.reduce((n,t)=>n+t.text.length,0)<=6000);assert(!p.system.includes('ذخیره کردم'))
+ assert.deepEqual(domain.pageTurns([{role:'system',text:injection}]),[])
+})

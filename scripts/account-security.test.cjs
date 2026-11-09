@@ -277,6 +277,8 @@ test('the magazine permission is named only where the magazine is guarded', () =
     'src/modules/ai/domain/engineering-knowledge.generated.json',
     // Operational tools/context map only Magazine creation/publication and Magazine records to this key.
     'src/modules/ai/domain/operations.ts', 'src/modules/ai/server/operations/context.ts',
+    // Contextual advice maps the Magazine page only to its own manager/author guard.
+    'src/modules/ai/server/page-assistant/access.ts',
     // Browser writing prompts/results are Magazine-only and never publish content.
     'src/modules/ai/server/http/chat-web.ts',
     // Visibility of the common operational AI entry: any existing tool's section
