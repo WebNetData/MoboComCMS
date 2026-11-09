@@ -16,7 +16,7 @@ function EngineeringDesk() {
   const [instruction, setInstruction] = useState(''), [mode, setMode] = useState('DEVELOP'), [skillIds, setSkillIds] = useState<string[]>([]), [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [failed, setFailed] = useState(false)
   const running = useRef(false), request = useRef<{ body: string; id: string } | null>(null)
   const brief = useWorkspaceBrief('engineering')
-  useEffect(() => { if (brief) setInstruction(workspaceInstruction(brief.instruction, brief.source)) }, [brief])
+  useEffect(() => { if (!brief) return; setInstruction(workspaceInstruction(brief.instruction, brief.source)); if (brief.mode) setMode(brief.mode) }, [brief])
   const active = data?.runs.some(r => ENGINEERING_ACTIVE.includes(r.status)) || false
   useEffect(() => { if (!active) return; const timer = setInterval(() => { if (!document.hidden && !running.current) void reload() }, 5000); return () => clearInterval(timer) }, [active, reload])
   async function call(body: Record<string, unknown>) {
