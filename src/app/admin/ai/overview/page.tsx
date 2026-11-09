@@ -14,6 +14,7 @@ const ABOUT: Record<string, [string, string]> = {
   '/admin/ai': ['مقاله، توضیح محصول، پاسخ دیدگاه و تالار و توضیح متا؛ همه اول پیش‌نویس و با تأیید شما.', 'Articles, product copy, replies and meta descriptions — always drafts you approve.'],
   '/admin/ai/operations': ['کارهای پنل را بخواهید؛ دستیار برنامه را پیشنهاد می‌کند و فقط پس از تأیید شما اجرا می‌شود.', 'Ask for Admin work; the assistant proposes a plan and runs only after you confirm.'],
   '/admin/ai/production': ['تولید گروهی متن و تصویر برای مطالب و محصولات با صف و بازبینی.', 'Batch text and image generation for posts and products, queued and reviewed.'],
+  '/admin/ai/sales': ['نتیجهٔ واقعی کمپین‌ها، فرصت کمپین هر دسته، سفارش‌های نیمه‌تمام و پیشنهاد کالای مرتبط.', 'Real campaign results, category opportunities, unpaid orders and related products.'],
   '/admin/ai?tab=settings': ['سرویس پیش‌فرض، کلیدها، مسیریابی هر کاربرد و اتصال شخصی مدیر.', 'Default provider, keys, per-purpose routing and personal connections.'],
   '/admin/ai/monitoring': ['وضعیت درخواست‌ها، خطاها، مصرف گزارش‌شده و کیفیت پاسخ‌های پشتیبانی.', 'Requests, errors, reported usage and support answer quality.'],
 }
