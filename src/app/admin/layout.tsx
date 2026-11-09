@@ -159,13 +159,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/celebrities', label: L('هنرمندان و چهره‌ها', 'Artists and people'), icon: 'users', perm: ['cinema.manage', 'music.manage'] },
       // Its address asks for both the games and the cinema permission, so a manager of one reaches it from neither menu.
       { href: '/admin/studios', label: L('سازندگان و ناشران', 'Studios and publishers'), icon: 'grid', perm: 'settings.manage' },
-      { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
-      { href: '/admin/ai/operations', label: L('دستیار عملیاتی', 'Operational assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.pages', 'cms.products', 'orders.manage', 'settings.manage'] },
-      { href: '/admin/ai/production', label: L('تولید انبوه محتوا و تصویر', 'Bulk content & images'), icon: 'sparkles', perm: ['cms.posts', 'cms.pages', 'cms.products'] },
       { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/watermark', label: L('واترمارک تصاویر', 'Image watermark'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
       { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
+    ] },
+
+    // AI has its own area; extensions add tools with group 'ai'. Addresses and permissions are the ones the AI APIs check.
+    { id: 'ai-overview', flat: true, area: 'ai', order: 1, title: L('نمای کلی هوش مصنوعی', 'AI overview'), icon: 'sparkles', items: [
+      { href: '/admin/ai/overview', label: L('نمای کلی هوش مصنوعی', 'AI overview'), icon: 'sparkles', perm: ['cms.posts', 'cms.pages', 'cms.products', 'forum.moderate', 'orders.manage', 'settings.manage'] },
+    ] },
+    { id: 'ai-tools', area: 'ai', order: 10, title: L('دستیارها و تولید', 'Assistants & generation'), icon: 'bolt', items: [
+      { href: '/admin/ai', label: L('دستیار نویسندگی', 'Writing assistant'), icon: 'pen', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
+      { href: '/admin/ai/operations', label: L('دستیار عملیاتی', 'Operational assistant'), icon: 'terminal', perm: ['cms.posts', 'cms.pages', 'cms.products', 'orders.manage', 'settings.manage'] },
+      { href: '/admin/ai/production', label: L('تولید انبوه محتوا و تصویر', 'Bulk content & images'), icon: 'layers', perm: ['cms.posts', 'cms.pages', 'cms.products'] },
+      ...joining('ai'),
+    ] },
+    { id: 'ai-platform', area: 'ai', order: 20, title: L('سرویس‌ها و پایش', 'Providers & monitoring'), icon: 'cpu', items: [
+      { href: '/admin/ai?tab=settings', label: L('اتصال سرویس‌ها و کلیدها', 'Providers & keys'), icon: 'key', perm: 'settings.manage' },
+      { href: '/admin/ai/monitoring', label: L('پایش و مصرف', 'Monitoring & usage'), icon: 'activity', perm: 'settings.manage' },
     ] },
 
     { id: 'reviews', area: 'community', order: 200, title: L('نظرها و تجربه‌ها', 'Reviews & experiences'), icon: 'sparkles', items: [

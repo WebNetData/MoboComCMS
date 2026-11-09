@@ -25,6 +25,10 @@ html[data-design] .admin-shell.app-shell > .side > .acn-body > .side-nav { displ
 .admin-shell .acn-tab[aria-pressed='true']::before { content: ''; position: absolute; inset-block: 14px; inset-inline-start: -7px; width: 3px; border-start-end-radius: 3px; border-end-end-radius: 3px; background: var(--primary); animation: acn-mark .24s ease-out both; }
 /* The open page's area, while another one is on show: the way back. */
 .admin-shell .acn-tab.has-page[aria-pressed='false']::after { content: ''; position: absolute; top: 9px; inset-inline-end: 15px; width: 7px; height: 7px; border: 1.5px solid var(--bg); border-radius: 50%; background: var(--primary); }
+/* The AI area: a gradient mark that glows while it is on show. */
+.admin-shell .acn-tab[data-area='ai'] .acn-tab-icon { position: relative; color: var(--admin-accent-text); background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 16%, transparent), color-mix(in srgb, #e879f9 14%, transparent)); }
+.admin-shell .acn-tab[data-area='ai'][aria-pressed='true'] .acn-tab-icon { background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 45%, #22d3ee) 55%, color-mix(in srgb, var(--primary) 50%, #e879f9)); color: var(--sds-color-white-1000, #fff); box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--primary) 85%, transparent); }
+.admin-shell .acn-tab[data-area='ai'][aria-pressed='true'] .acn-tab-icon::after { content: ''; position: absolute; inset: -3px; border-radius: 13px; border: 1px solid color-mix(in srgb, var(--primary) 50%, transparent); animation: acn-glow 2.8s ease-out infinite; }
 .admin-shell .acn-ghost { flex: none; height: 58px; border-radius: 12px; background: color-mix(in srgb, var(--text) 6%, transparent); animation: acn-breathe 1.4s ease-in-out infinite; }
 
 /* ---------- the area's list ---------- */
@@ -68,6 +72,7 @@ html[data-design] .admin-shell.app-shell .ws-items:not([hidden]) { animation: ac
 @keyframes acn-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes acn-mark { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes acn-breathe { 50% { opacity: .5; } }
+@keyframes acn-glow { 0% { opacity: .9; transform: scale(.92); } 80%, 100% { opacity: 0; transform: scale(1.18); } }
 
 /* ---------- laptop ---------- */
 @media (max-width: 1200px) {
@@ -84,7 +89,7 @@ html[data-design] .admin-shell.app-shell .ws-items:not([hidden]) { animation: ac
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-shell :is(.acn-groups, .ao-rise > *, .ao-split .chart-bar, .acn-ghost, .acn-tab::before) { animation: none; }
+  .admin-shell :is(.acn-groups, .ao-rise > *, .ao-split .chart-bar, .acn-ghost, .acn-tab::before, .acn-tab-icon::after) { animation: none; }
   html[data-design] .admin-shell.app-shell .ws-items:not([hidden]) { animation: none; }
   .admin-shell :is(.acn-tab, .acn-tab-icon, .ao-area, .ao-kpis .kpi) { transition: none; }
   .admin-shell :is(.acn-tab:hover .acn-tab-icon, .ao-area:hover, .ao-kpis .kpi:hover) { transform: none; }

@@ -1,6 +1,7 @@
 'use client'
 import Link from '@/components/AppLink'
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useState, useRef } from 'react'
+import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { configurableAiBase, keylessAi } from '@/modules/ai/domain/ai'
 import Economy from './Economy'
 import PersonalChatGpt from './PersonalChatGpt'
@@ -22,10 +23,17 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 /** AI writing assistant: every result is a draft or a suggestion the admin edits before publishing. */
-export default function AdminAiPage() {
+export default function Page() { return <Suspense fallback={<p role="status">در حال دریافت دستیار…</p>}><AdminAiPage /></Suspense> }
+
+function AdminAiPage() {
   const [tab, setTab] = useState<Tab>('write')
+  const router = useRouter()
+  const urlTab = useSearchParams().get('tab')
+  // The address names the tab so the Admin menu marks the matching link.
+  useEffect(() => { setTab(TABS.find(item => item.id === urlTab)?.id ?? 'write') }, [urlTab])
+  const selectTab = (id: Tab) => { setTab(id); router.replace(id === 'write' ? '/admin/ai' : `/admin/ai?tab=${id}`, { scroll: false }) }
   useEffect(() => {
-    const callback = () => { if (location.hash.startsWith('#chatgpt_callback=') || new URLSearchParams(location.search).get('tab') === 'settings') setTab('settings') }
+    const callback = () => { if (location.hash.startsWith('#chatgpt_callback=')) setTab('settings') }
     callback(); window.addEventListener('hashchange', callback)
     return () => window.removeEventListener('hashchange', callback)
   }, [])
@@ -92,7 +100,7 @@ export default function AdminAiPage() {
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <Link className="btn btn-ghost" href="/admin/ai/monitoring">پایش مصرف و خطاهای هوش مصنوعی</Link>
     <div className="seo-actions"><Link className="btn btn-ghost" href="/admin/ai/operations">دستیار عملیاتی با بررسی و تأیید شما</Link></div>
-    <nav className="md-chips seo-filter ai-tabs" aria-label="بخش‌های دستیار">{TABS.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>{item.label}{counts[item.id] ? ` (${counts[item.id]!.toLocaleString('fa-IR')})` : ''}</button>)}</nav>
+    <nav className="md-chips seo-filter ai-tabs" aria-label="بخش‌های دستیار">{TABS.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => selectTab(item.id)}>{item.label}{counts[item.id] ? ` (${counts[item.id]!.toLocaleString('fa-IR')})` : ''}</button>)}</nav>
     <Link className="btn btn-ghost" href="/admin/ai/production">تولید انبوه با Chat وب · متن و تصویر</Link>
 
     {tab === 'write' && <section className="xm-section">

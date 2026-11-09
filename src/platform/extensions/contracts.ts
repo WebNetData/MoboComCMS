@@ -40,7 +40,7 @@ export interface ExtensionAdminMenuItem { href: string; label: string; labelEn?:
   heading?: string
 }
 /** The areas of the admin, by the job they serve. A module names its own; without one it sits under system. */
-export const EXTENSION_ADMIN_AREAS = ['content', 'community', 'commerce', 'finance', 'people', 'marketing', 'website', 'system'] as const
+export const EXTENSION_ADMIN_AREAS = ['content', 'ai', 'community', 'commerce', 'finance', 'people', 'marketing', 'website', 'system'] as const
 export type ExtensionAdminArea = typeof EXTENSION_ADMIN_AREAS[number]
 export interface ExtensionAdminMenu { title?: string; titleEn?: string; icon?: string; order?: number; area?: ExtensionAdminArea; items: readonly ExtensionAdminMenuItem[] }
 
