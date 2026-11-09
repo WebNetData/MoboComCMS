@@ -23,7 +23,7 @@ export default function AiCodePanel({ target, current, L, onApply }: { target: C
   const [busy, setBusy] = useState(''), [error, setError] = useState(''), [proposal, setProposal] = useState<Proposal | null>(null), [view, setView] = useState<'preview' | keyof CodeBundle>('preview'), [width, setWidth] = useState(390)
   const scope = useMemo(() => scopeOf(current.html), [current.html])
   const abort = useRef<AbortController | null>(null)
-  const hasCode = !!(current.html || current.css || current.js)
+  const hasCode = !!(current.html || current.css || current.js), cssOnly = target === 'css'
 
   async function call(body: Record<string, unknown>) {
     const response = await fetch('/api/admin/builder/code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: abort.current?.signal })
@@ -44,7 +44,7 @@ export default function AiCodePanel({ target, current, L, onApply }: { target: C
         setBusy('در حال بررسی پاسخ…')
         setProposal(await call({ phase: 'complete', input, text }))
       }
-      setView('preview')
+      setView(target === 'css' ? 'css' : 'preview')
     } catch (e) { if (!abort.current?.signal.aborted) setError(e instanceof Error ? e.message : 'کد ساخته نشد') }
     finally { setBusy('') }
   }
@@ -53,7 +53,7 @@ export default function AiCodePanel({ target, current, L, onApply }: { target: C
   return <details className="bld-ai-code" open={!!proposal}>
     <summary><span aria-hidden="true">✦</span> {L('Write with AI', 'ساخت و ویرایش کد با هوش مصنوعی')}</summary>
     <label className="bld-field"><span>{L('What should it build or change?', 'چه بسازد یا چه چیزی را تغییر دهد؟')}</span>
-      <textarea className="textarea" rows={4} maxLength={3000} value={instruction} placeholder={L('e.g. an animated pricing card with a glowing border', 'مثلاً «کارت قیمت با حاشیهٔ درخشان و انیمیشن ورود؛ سه ستون در دسکتاپ و یک ستون در موبایل»')} onChange={e => setInstruction(e.target.value)} /></label>
+      <textarea className="textarea" rows={4} maxLength={3000} value={instruction} placeholder={cssOnly ? L('e.g. glass background, soft glow on hover', 'مثلاً «پس‌زمینهٔ شیشه‌ای، سایهٔ نرم و درخشش هنگام رفتن نشانگر؛ در موبایل فاصلهٔ کمتر»') : L('e.g. an animated pricing card with a glowing border', 'مثلاً «کارت قیمت با حاشیهٔ درخشان و انیمیشن ورود؛ سه ستون در دسکتاپ و یک ستون در موبایل»')} onChange={e => setInstruction(e.target.value)} /></label>
     <div className="bld-ai-row" role="radiogroup" aria-label={L('Connection', 'روش اتصال')}>
       <label><input type="radio" name={`ai-code-${scope}`} checked={transport === 'api'} onChange={() => setTransport('api')} />{L('Site AI service (API)', 'سرویس هوش مصنوعی سایت (API)')}</label>
       <label><input type="radio" name={`ai-code-${scope}`} checked={transport === 'chat-web'} onChange={() => setTransport('chat-web')} />{L('My Chat web (browser extension)', 'Chat وب شخصی من (افزونهٔ مرورگر)')}</label>
@@ -67,7 +67,7 @@ export default function AiCodePanel({ target, current, L, onApply }: { target: C
     {proposal && <div className="bld-ai-result" aria-live="polite">
       {proposal.code.summary && <p className="bld-ai-summary">{proposal.code.summary}</p>}
       {proposal.warnings.length > 0 && <ul className="bld-ai-warnings">{proposal.warnings.map(w => <li key={w.title} data-level={w.level}><b>{w.title}</b> {w.detail}</li>)}</ul>}
-      <div className="bld-ai-tabs" role="tablist">{(['preview', 'html', 'css', 'js'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'is-selected' : ''} onClick={() => setView(v)}>{v === 'preview' ? L('Preview', 'پیش‌نمایش') : v.toUpperCase()}</button>)}</div>
+      <div className="bld-ai-tabs" role="tablist">{(target === 'css' ? ['css'] as const : ['preview', 'html', 'css', 'js'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'is-selected' : ''} onClick={() => setView(v)}>{v === 'preview' ? L('Preview', 'پیش‌نمایش') : v.toUpperCase()}</button>)}</div>
       {view === 'preview'
         ? <><div className="bld-ai-sizes">{[390, 820, 1280].map(w => <button key={w} type="button" className={width === w ? 'is-selected' : ''} onClick={() => setWidth(w)}>{w}</button>)}</div>
           <div className="bld-ai-frame"><iframe title={L('Isolated preview', 'پیش‌نمایش جدا')} sandbox="allow-scripts" srcDoc={previewDoc(proposal.code)} style={{ width }} /></div></>
