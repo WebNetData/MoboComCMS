@@ -180,6 +180,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
     { id: 'ai-platform', area: 'ai', order: 20, title: L('سرویس‌ها و پایش', 'Providers & monitoring'), icon: 'cpu', items: [
       { href: '/admin/ai?tab=settings', label: L('اتصال سرویس‌ها و کلیدها', 'Providers & keys'), icon: 'key', perm: 'settings.manage' },
+      { href: '/admin/ai/site-operations', label: L('دستیار عملیات سایت', 'Site operations assistant'), icon: 'lifebuoy', perm: 'settings.manage' },
       { href: '/admin/ai/monitoring', label: L('پایش و مصرف', 'Monitoring & usage'), icon: 'activity', perm: 'settings.manage' },
     ] },
 

@@ -16,6 +16,7 @@ const ABOUT: Record<string, [string, string]> = {
   '/admin/ai/production': ['تولید گروهی متن و تصویر برای مطالب و محصولات با صف و بازبینی.', 'Batch text and image generation for posts and products, queued and reviewed.'],
   '/admin/ai/sales': ['نتیجهٔ واقعی کمپین‌ها، فرصت کمپین هر دسته، سفارش‌های نیمه‌تمام و پیشنهاد کالای مرتبط.', 'Real campaign results, category opportunities, unpaid orders and related products.'],
   '/admin/ai?tab=settings': ['سرویس پیش‌فرض، کلیدها، مسیریابی هر کاربرد و اتصال شخصی مدیر.', 'Default provider, keys, per-purpose routing and personal connections.'],
+  '/admin/ai/site-operations': ['خطاهای پرتکرار، علت احتمالی با شواهد و اقدام از مسیر مجاز؛ رفع در محیط جدا با PR.', 'Recurring errors, probable cause with evidence and allowed next steps.'],
   '/admin/ai/monitoring': ['وضعیت درخواست‌ها، خطاها، مصرف گزارش‌شده و کیفیت پاسخ‌های پشتیبانی.', 'Requests, errors, reported usage and support answer quality.'],
 }
 
