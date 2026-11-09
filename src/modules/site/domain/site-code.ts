@@ -16,7 +16,7 @@ export type SiteSnippet = { id: string; name: string; kind: SiteCodeKind; locati
 export type SiteCodeSettings = { enabled: boolean; snippets: SiteSnippet[] }
 
 /** Never run here, whatever a snippet's conditions say. */
-export const PROTECTED_PATHS = ['/admin', '/api', '/login', '/register', '/forgot-password', '/reset-password', '/install', '/builder-preview', '/maintenance'] as const
+export const PROTECTED_PATHS = ['/admin', '/api', '/login', '/register', '/forgot-password', '/reset-password', '/install', '/builder-preview', '/maintenance', '/popup-design'] as const
 
 const pick = <T extends readonly string[]>(value: unknown, list: T, fallback: T[number]): T[number] => (list as readonly unknown[]).includes(value) ? value as T[number] : fallback
 const PATH = /^\/[\p{L}\p{N}/_.~%*-]{0,200}$/u
