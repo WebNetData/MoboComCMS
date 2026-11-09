@@ -765,9 +765,19 @@
           "sha256": "d0a914c94c5733a42d62ef62b5187c043265a2125621443ed521bde6e20a56fc"
         }
       ]
+    },
+    "1.7.14": {
+      "migrations": [
+        {
+          "name": "20270226120000_site_popup_builder_design",
+          "sha256": "5b015a01b86c4a7e6109b4f5b6d45d860c9b3a1857c9e595cbaa550cbd261647"
+        },
+        {
+          "name": "20270227120000_cloud_public_navigation",
+          "sha256": "42ee6ad72ed8cfe51787d3cec525849673bb0b92fb7dcd12fa4fa4a7b503d402"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270226120000_site_popup_builder_design"
-  ]
+  "unreleased": []
 }

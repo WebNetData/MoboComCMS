@@ -26,6 +26,26 @@ const { sectionMenuPreset, mergeMenuPreset } = load('src/modules/navigation/doma
 const contact = load('src/modules/site/domain/company-contact')
 const { activeSectionItem } = load('src/modules/navigation/domain/active-section')
 
+test('cloud menu supplies valid public and member destinations through the shared mega menu', () => {
+  const site = load('src/modules/site/config/defaults').defaultSite
+  const cloud = site.navigation.filter(link => link.href === '/cloud')
+  assert.equal(cloud.length, 1); assert.equal(validateSite(site), true)
+  assert.equal(cloud[0].menuDisplay, 'mega'); assert.equal(cloud[0].menuColumns, 3)
+  assert.deepEqual(cloud[0].children.map(link => link.href), ['/hosting', '/servers', '/domains', '/dashboard/cloud', '/dashboard/cloud/new', '/dashboard/tickets'])
+  const publicCloud = menus.localizeMenu(cloud, 'fa')[0]
+  assert.equal(publicCloud.label, 'موبوکام کلاد'); assert(publicCloud.children.every(link => link.description && link.icon))
+})
+
+test('cloud menu respects module-off and the owners saved visibility without modifying configuration', () => {
+  const site = structuredClone(load('src/modules/site/config/defaults').defaultSite)
+  const { hideDisabledModules } = load('src/modules/site/config/visibility')
+  const runtime = { hosting: { enabled: false, paths: ['/cloud', '/hosting', '/servers', '/domains'] } }, before = JSON.stringify(site)
+  assert.equal(hideDisabledModules(site, runtime).navigation.some(link => link.href === '/cloud'), false)
+  assert.equal(JSON.stringify(site), before)
+  site.navigation.find(link => link.href === '/cloud').enabled = false
+  assert.equal(menus.localizeMenu(site.navigation, 'fa').some(link => link.href === '/cloud'), false)
+})
+
 test('section selection distinguishes query facets and selects only the most specific matching entry', () => {
   const items = [{key:'all',href:'/prompts/library'}, {key:'writing',href:'/prompts/library?category=WRITING'}, {key:'design',href:'/prompts/library?category=DESIGN'}, {key:'writing-images',href:'/prompts/library?category=WRITING&kind=IMAGE'}]
   assert.equal(activeSectionItem(items, '/prompts/library', 'category=WRITING&q=hello&page=2'), 'writing')

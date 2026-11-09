@@ -10,7 +10,7 @@
 
 | فایل | کاربرد |
 | --- | --- |
-| `mobocom-VERSION.mbrelease` | **آپدیت سایت نصب‌شده از پنل وب**؛ مثلاً `mobocom-1.7.13.mbrelease` |
+| `mobocom-VERSION.mbrelease` | **آپدیت سایت نصب‌شده از پنل وب**؛ مثلاً `mobocom-1.7.14.mbrelease` |
 | `mobocom-setup-VERSION.run` | نصب اولیهٔ Ubuntu 22.04/24.04/26.04، Debian 12/13 یا AlmaLinux 9/10 و نصب ابزارهای مورد اعتماد میزبان؛ برای هر آپدیت معمول دوباره اجرا نمی‌شود |
 | `mobocom-setup-VERSION.run.sha256` | بررسی سالم‌بودن فایل نصب؛ اصالت منبع دریافت هم باید بررسی شود |
 | `release-public.pem` | کلید عمومی ناشر؛ کلید خصوصی نیست. کلید مورد اعتماد سرور را صرفاً از روی یک دانلود جدید عوض نکنید |
@@ -18,7 +18,7 @@
 | `INSTALL-FA.md`، `UPGRADE-FA.md` و `RELEASES-FA.md` | راهنمای نصب، آپدیت/بازیابی و همین روند دریافت/انتشار |
 | `Source code (zip)` یا `Source code (tar.gz)` | آرشیو خودکار سورس GitHub؛ **فایل قابل بارگذاری در آپدیتر نیست** |
 
-نسخهٔ فعلی: **[MoboCom 1.7.13](https://github.com/WebNetData/MoboComCMS/releases/tag/v1.7.13)**. نسخهٔ بسته و پنل `1.7.13` است. شامل پل Chat۰.۶.۷، اصلاح نامک تازه، پاسخ مستند پشتیبانی، پایش AI و دستیار داخل صفحهٔ مدیریت است. یک مهاجرت افزایشی برای آمار AI دارد و وابستگی تازه ندارد. [یادداشت نسخه](releases/1.7.13.md) را بخوانید؛ نسخه‌های قبلی بازنویسی نمی‌شوند.
+نسخهٔ فعلی: **[MoboCom 1.7.14](https://github.com/WebNetData/MoboComCMS/releases/tag/v1.7.14)**. نسخهٔ بسته و پنل `1.7.14` است. شامل منو و داشبورد موبوکام کلاد، بهبود دستیار مدیریت و صفحه‌ساز، اجزای قابل‌استفادهٔ مجدد و قالب‌های آرشیو/جست‌وجو/۴۰۴ است. دو مهاجرت افزایشی/حافظ داده دارد و وابستگی تازه ندارد. [یادداشت نسخه](releases/1.7.14.md) را بخوانید؛ نسخه‌های قبلی بازنویسی نمی‌شوند.
 
 ## فایل را چطور روی سایت نصب کنم؟
 
@@ -42,13 +42,13 @@
 برای نصب تازه، فایل `run` همان نسخه را به سرور منتقل و اجرا کنید؛ دامنه، ایمیل، SSL، نام سایت و حساب مدیر در مرورگر وارد می‌شوند:
 
 ```bash
-sudo bash mobocom-setup-1.7.13.run
+sudo bash mobocom-setup-1.7.14.run
 ```
 
 برای نصب قدیمی نیمه‌تمام **پیش از ساخت اولین مدیر**:
 
 ```bash
-sudo bash mobocom-setup-1.7.13.run --resume-uninstalled
+sudo bash mobocom-setup-1.7.14.run --resume-uninstalled
 ```
 
 ادامهٔ نصب با بررسی نبود مدیر/قفل پایان نصب، بکاپ اجباری و حفظ داده‌ها انجام می‌شود. برای سایت نصب‌شده از این گزینه استفاده نکنید. [راهنمای HTTPS اولیه، اثر انگشت گواهی و ادامهٔ نصب](INSTALL-FA.md).
@@ -58,20 +58,20 @@ sudo bash mobocom-setup-1.7.13.run --resume-uninstalled
 این بخش روی کامپیوتر ناشر اجرا می‌شود، نه روی سرور سایت. ابزار بسته‌بندی موجود `scripts/build-release-package.cjs` است؛ سامانه یا workflow دیگری لازم نیست. Git محلی، Node22، Python3 و برای بارگذاری، [GitHub CLI](https://cli.github.com/manual/gh_release_create) لازم‌اند.
 
 1. تغییرات کامل و تست‌شده را انتخاب کنید. برای نسخهٔ پایدار، PR به `main` مرج شود و همان commit نهایی دوباره بررسی شود؛ برای ارزیابی پیش از مرج، برچسب Pre-release اجباری است. مرج‌شدن PR به‌تنهایی فایل انتشار تولید نمی‌کند و نصب روی سرور را تغییر نمی‌دهد.
-2. برای **هر انتشار دارای تغییر کد/رفتار** شمارهٔ نسخه را افزایش دهید؛ مثلاً `1.7.13` به `1.7.14`. نسخهٔ ریشه در `package.json` و `package-lock.json` باید یکسان باشد. مهاجرت‌ها را با manifest موجود تطبیق دهید؛ یک مهاجرت منتشرشده هرگز ویرایش نمی‌شود. سورس را commit کنید. بسته فقط از `HEAD` ثبت‌شده ساخته می‌شود؛ تغییرات ذخیره‌نشده وارد آن نمی‌شوند.
+2. برای **هر انتشار دارای تغییر کد/رفتار** شمارهٔ نسخه را افزایش دهید؛ مثلاً `1.7.14` به `1.7.15`. نسخهٔ ریشه در `package.json` و `package-lock.json` باید یکسان باشد. مهاجرت‌ها را با manifest موجود تطبیق دهید؛ یک مهاجرت منتشرشده هرگز ویرایش نمی‌شود. سورس را commit کنید. بسته فقط از `HEAD` ثبت‌شده ساخته می‌شود؛ تغییرات ذخیره‌نشده وارد آن نمی‌شوند.
 3. بررسی‌های مرتبط، بیلد و تست‌های محلی را روی همان سورس انجام دهید و نتیجهٔ واقعی، محدودیت‌ها و مسیر بازگشت را در handoff و یادداشت انتشار ثبت کنید. بدون اندازه‌گیری موفقیت اعلام نکنید؛ GitHub Actions برای ساخت/بارگذاری این بسته لازم نیست.
 4. با **همان کلید خصوصی ناشر قبلی، خارج از مخزن** بسته بسازید. کلید جدید برای هر نسخه نسازید؛ سرور با کلید دیگری بسته را رد می‌کند. کلید خصوصی در GitHub، Release یا سرور سایت قرار نمی‌گیرد.
 
 مثال Linux، با مسیرهای خودتان و پوشهٔ خروجی جدید/اختصاصی:
 
 ```bash
-node scripts/build-release-package.cjs build /secure/distribution/1.7.14 /secure/offline/mobocom-keys/release-private.pem
+node scripts/build-release-package.cjs build /secure/distribution/1.7.15 /secure/offline/mobocom-keys/release-private.pem
 ```
 
 مثال PowerShell:
 
 ```powershell
-node scripts/build-release-package.cjs build "C:\MoboCom-Releases\1.7.14" "C:\Secure\mobocom-keys\release-private.pem"
+node scripts/build-release-package.cjs build "C:\MoboCom-Releases\1.7.15" "C:\Secure\mobocom-keys\release-private.pem"
 ```
 
 کلید موجود ناشر را استفاده کنید؛ مسیر مثال جای نگهداری کلید واقعی شما را تعیین نمی‌کند. ابزار از نوشتن روی فایل خروجی موجود خودداری می‌کند. اگر `python3` یا `python` در PATH نیست، متغیر `PYTHON` را به executable معتبر بدهید.
@@ -82,15 +82,15 @@ node scripts/build-release-package.cjs build "C:\MoboCom-Releases\1.7.14" "C:\Se
 برای انتشار از CLI، ابتدا `gh auth login` را روی کامپیوتر ناشر انجام دهید. نمونهٔ زیر برای نسخهٔ بعدی است؛ مقدار SHA را با commit واقعی **موجود در GitHub** عوض کنید و notes را در فایل بنویسید:
 
 ```bash
-gh release create v1.7.14 /secure/distribution/1.7.14/mobocom-1.7.14.mbrelease /secure/distribution/1.7.14/mobocom-setup-1.7.14.run /secure/distribution/1.7.14/mobocom-setup-1.7.14.run.sha256 /secure/distribution/1.7.14/release-public.pem docs/INSTALL-FA.md docs/UPGRADE-FA.md docs/RELEASES-FA.md --repo WebNetData/MoboComCMS --target FULL_COMMIT_SHA --title "MoboCom 1.7.14" --notes-file /secure/distribution/1.7.14/notes.md --latest
+gh release create v1.7.15 /secure/distribution/1.7.15/mobocom-1.7.15.mbrelease /secure/distribution/1.7.15/mobocom-setup-1.7.15.run /secure/distribution/1.7.15/mobocom-setup-1.7.15.run.sha256 /secure/distribution/1.7.15/release-public.pem docs/INSTALL-FA.md docs/UPGRADE-FA.md docs/RELEASES-FA.md --repo WebNetData/MoboComCMS --target FULL_COMMIT_SHA --title "MoboCom 1.7.15" --notes-file /secure/distribution/1.7.15/notes.md --latest
 ```
 
-برای انتشار پیش از مرج، به‌جای `--latest` از `--prerelease --latest=false` استفاده کنید. وضعیت پیش‌انتشار فقط نشان GitHub است؛ نسخهٔ داخل بسته همچنان عددی مثل `1.7.14` است. بستهٔ منتشرشده، فایل‌ها و تگ آن را عوض یا با `--clobber` بازنویسی نکنید. اصلاح بعدیِ کد نسخهٔ بالاتر می‌گیرد؛ آپدیتر نسخهٔ مساوی را نمی‌پذیرد. تبدیل همان پیش‌انتشار به پایدار فقط وقتی مجاز است که همان کد/commit بررسی‌شده در `main` حفظ شده باشد؛ در صورت تغییر، بستهٔ جدید با شمارهٔ بالاتر لازم است.
+برای انتشار پیش از مرج، به‌جای `--latest` از `--prerelease --latest=false` استفاده کنید. وضعیت پیش‌انتشار فقط نشان GitHub است؛ نسخهٔ داخل بسته همچنان عددی مثل `1.7.15` است. بستهٔ منتشرشده، فایل‌ها و تگ آن را عوض یا با `--clobber` بازنویسی نکنید. اصلاح بعدیِ کد نسخهٔ بالاتر می‌گیرد؛ آپدیتر نسخهٔ مساوی را نمی‌پذیرد. تبدیل همان پیش‌انتشار به پایدار فقط وقتی مجاز است که همان کد/commit بررسی‌شده در `main` حفظ شده باشد؛ در صورت تغییر، بستهٔ جدید با شمارهٔ بالاتر لازم است.
 
 پس از انتشار، فایل‌ها را دوباره از GitHub دریافت و hash آن‌ها را با خروجی محلی مقایسه کنید. دانلود با حساب دارای دسترسی:
 
 ```bash
-gh release download v1.7.14 --repo WebNetData/MoboComCMS --pattern '*.mbrelease' --pattern '*.run' --pattern '*.sha256' --pattern 'release-public.pem' --dir ./downloaded-1.7.14
+gh release download v1.7.15 --repo WebNetData/MoboComCMS --pattern '*.mbrelease' --pattern '*.run' --pattern '*.sha256' --pattern 'release-public.pem' --dir ./downloaded-1.7.15
 ```
 
 ساخت بسته و بارگذاری Assets از GitHub Actions استفاده نمی‌کند. طبق تصمیم مالک، workflow بررسی PR و مرورگر دستی هستند؛ برای هر PR خودکار اجرا نمی‌شوند. طبق تصمیم مالک، تست مرورگر میزبانی‌شده خودکار تکرار نمی‌شود؛ کاهش مصرف Actions مجوز اعلام نتیجهٔ تست اجرا‌نشده نیست.
