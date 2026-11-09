@@ -8,6 +8,7 @@ import { categoryFilter } from '@/modules/site/server/categories'
 import { categoryDescendants, postCategories } from '@/modules/site/domain/categories'
 import { richTextToPlain } from '@/shared/content/sanitize'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
+import ThemeFrame from '@/components/content/builder/ThemeFrame'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
 import { resolvePlacedPage } from '@/modules/site/server/theme-templates'
@@ -187,6 +188,10 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
       {listed.length ? <LionaGrid stories={listed.map(story)} /> : <div className="journal-empty"><p>{t.noPosts}</p>{(query || category) && <Link href="/blog">{isFa ? 'بازگشت به همه نوشته‌ها' : 'View all stories'} ↗</Link>}</div>}
       {total > 0 && <JournalPagination {...pagination} total={total} category={category} query={query} isFa={isFa} />}
     </div>
+    const ancestry: number[] = []
+    for (let node = currentCategory; node && !ancestry.includes(node.id); node = cats.find((c) => c.id === node!.parentId)) ancestry.push(node.id)
+    const heading = currentCategory ? (isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name) : query ? (isFa ? `نتایج جست‌وجوی «${query}»` : `Results for “${query}”`) : t.blog
+    body = <ThemeFrame type="archive" locale={isFa ? 'fa' : 'en'} context={{ route: 'archive', archiveOf: 'posts', archiveCategoryIds: ancestry }} values={{ title: heading, excerpt: `${total.toLocaleString(isFa ? 'fa-IR' : 'en-US')} ${isFa ? 'مطلب' : 'stories'}`, url: browseUrl(category, 1) }}>{body}</ThemeFrame>
   }
 
   return (
