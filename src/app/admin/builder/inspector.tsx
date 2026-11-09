@@ -8,6 +8,7 @@ import {
   patchColumn, patchSection, patchSectionStyle, patchWidget, removeColumn, type Sel, type WidgetRef, patchAdvanced } from './state'
 import CoverField from '@/app/admin/cms/CoverField'
 import AdvancedStyleFields from './advanced-style'
+import AiCodePanel from './AiCodePanel'
 
 type Field = {
   key: string
@@ -682,6 +683,7 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
           onChange(next, sel, false)
         }}
       />
+      {widget.type === 'html' && <AiCodePanel target="widget" L={L} current={{ html: widget.props.html || '', css: widget.props.css || '', js: widget.props.js || '' }} onApply={(code) => onChange(patchWidget(doc, ref, { props: { ...widget.props, ...code, advanced: code.js.trim() ? '1' : widget.props.advanced } }), sel, false)} />}
       <details className="bld-style" open>
         <summary>{L('Style', 'استایل')}</summary>
         <label className="bld-field"><span>{L('Alignment', 'چیدمان')}</span>

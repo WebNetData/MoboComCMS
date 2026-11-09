@@ -2,6 +2,7 @@
 
 import { WIDGET_LABELS, type BuilderDoc, type BuilderWidget, type WidgetType } from '@/modules/site/domain/builder'
 import type { Sel, WidgetRef } from './state'
+import AiCodePanel from './AiCodePanel'
 
 type L = (en: string, fa: string) => string
 
@@ -119,6 +120,7 @@ export function CodePane({ doc, L, onChange }: { doc: BuilderDoc; L: L; onChange
       </label>
     </div>
     <div className="bld-code-body">
+      <AiCodePanel target="page" L={L} current={{ html: doc.code.html, css: doc.code.css, js: doc.code.js }} onApply={(code) => onChange({ ...doc, code: { ...doc.code, ...code, advanced: code.js.trim() ? true : doc.code.advanced } })} />
       {advanced && <p className="bld-warning">{L('⚠ JavaScript runs for every visitor. Only paste code you trust; every save is audit-logged.', '⚠ جاوااسکریپت برای همه بازدیدکنندگان اجرا می‌شود. فقط کد مورد اعتماد را بگذارید؛ هر ذخیره در لاگ ممیزی ثبت می‌شود.')}</p>}
       <label className="bld-field"><span>HTML</span><textarea className="textarea bld-code mono" dir="ltr" rows={12} value={doc.code.html} placeholder="&lt;section class=&quot;hero&quot;&gt;…&lt;/section&gt;" onChange={(event) => set('html', event.target.value)} /></label>
       <label className="bld-field"><span>CSS</span><textarea className="textarea bld-code mono" dir="ltr" rows={8} value={doc.code.css} placeholder=".hero{padding:4rem 0}" onChange={(event) => set('css', event.target.value)} /></label>
