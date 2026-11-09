@@ -25,6 +25,9 @@ html[data-design] .admin-shell.app-shell > .side > .acn-body > .side-nav { displ
 .admin-shell .acn-tab[aria-pressed='true']::before { content: ''; position: absolute; inset-block: 14px; inset-inline-start: -7px; width: 3px; border-start-end-radius: 3px; border-end-end-radius: 3px; background: var(--primary); animation: acn-mark .24s ease-out both; }
 /* The open page's area, while another one is on show: the way back. */
 .admin-shell .acn-tab.has-page[aria-pressed='false']::after { content: ''; position: absolute; top: 9px; inset-inline-end: 15px; width: 7px; height: 7px; border: 1.5px solid var(--bg); border-radius: 50%; background: var(--primary); }
+/* Every label on one line, so all tabs keep the same height. */
+.admin-shell .acn-tab > span:last-child { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.admin-shell .acn-tab[data-area='ai'] > span:last-child { font-size: 10px; line-height: 16.5px; letter-spacing: -.2px; }
 /* The AI area: a gradient mark that glows while it is on show. */
 .admin-shell .acn-tab[data-area='ai'] .acn-tab-icon { position: relative; color: var(--admin-accent-text); background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 16%, transparent), color-mix(in srgb, #e879f9 14%, transparent)); }
 .admin-shell .acn-tab[data-area='ai'][aria-pressed='true'] .acn-tab-icon { background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 45%, #22d3ee) 55%, color-mix(in srgb, var(--primary) 50%, #e879f9)); color: var(--sds-color-white-1000, #fff); box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--primary) 85%, transparent); }
