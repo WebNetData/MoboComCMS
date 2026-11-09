@@ -4,7 +4,7 @@ import { useHumanCheck } from '@/extensions/sdk/human-check'
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import type { PluginClientModule, PluginProps } from '../types'
 import { usePathname } from '@/platform/routing/navigation'
-import { chatShownOn } from '@/extensions/sdk/livechat'
+import { chatShownOn, chatTextParts } from '@/extensions/sdk/livechat'
 
 type Message = { id: number; sender: 'VISITOR' | 'BOT' | 'AGENT' | 'SYSTEM'; body: string; at: string }
 type State = { places?: string[]; botName: string; welcome: string; online: boolean; offlineMessage: string; askContact: boolean; assistantEnabled?: boolean; continuous?: boolean; ticketUrl?: string; conversation: { status: string; rated: boolean; hasContact: boolean } | null; messages: Message[] }
@@ -14,12 +14,7 @@ const time = (value: string) => new Date(value).toLocaleTimeString('fa-IR', { ho
 
 /** Links to this site in chat text become clickable; everything else stays plain text. */
 function Text({ body }: { body: string }) {
-  const parts = body.split(/(\s\/[a-z0-9/_?=&#-]+|https?:\/\/[^\s]+)/gi)
-  return <>{parts.map((part, index) => {
-    const url = part.trim()
-    if (/^\/(?!\/)[a-z0-9]/i.test(url)) return <a key={index} href={url}> {url}</a>
-    return <span key={index}>{part}</span>
-  })}</>
+  return <>{chatTextParts(body).map((part, index) => part.href ? <a key={index} href={part.href}>{part.text}</a> : <span key={index}>{part.text}</span>)}</>
 }
 
 function LiveChat(_props: PluginProps) {

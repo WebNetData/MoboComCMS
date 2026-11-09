@@ -4,13 +4,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript-api')
 
-function load(relative) {
-  const file = path.resolve(__dirname, '..', `${relative}.ts`)
-  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
-  const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
-  return mod.exports
-}
+const source = require('./connected-source-loader.cjs')()
+function load(relative) { return source(relative + '.ts') }
 const c = load('src/modules/livechat/domain/livechat')
 
 test('customer assistant stays inside MoboCom support and refuses general requests without provider use', () => {
@@ -80,12 +75,12 @@ test('assistant prompt: store facts, customer context and a bounded transcript',
   const turns = Array.from({ length: 30 }, (_, i) => ({ sender: i % 2 ? 'BOT' : 'VISITOR', body: `پیام ${i}` }))
   const p = c.chatPrompt({ brand: 'موبوکام', botName: 'موبو', knowledge: 'ارسال یک‌روزه', customer: 'سفارش ۱۲', turns })
   assert.match(p.system, /موبوکام/)
-  assert.match(p.system, /ارسال یک‌روزه/)
+  assert.match(p.user, /ارسال یک‌روزه/); assert.doesNotMatch(p.system, /ارسال یک‌روزه/)
   assert.match(p.system, /\[HANDOFF\]/)
-  assert.match(p.system, /سفارش ۱۲/)
+  assert.match(p.user, /سفارش ۱۲/); assert.doesNotMatch(p.system, /سفارش ۱۲/)
   assert.doesNotMatch(p.user, /پیام 13\n/)
   assert.match(p.user, /پیام 29/)
-  assert.match(c.chatPrompt({ brand: 'x', botName: 'y', knowledge: '', customer: '', turns: [] }).system, /وارد حساب کاربری نشده/)
+  assert.match(c.chatPrompt({ brand: 'x', botName: 'y', knowledge: '', customer: '', turns: [] }).system, /اطلاعات حساب/)
 })
 
 test('customer segments and timeline order', () => {
@@ -112,3 +107,5 @@ test('visitor isolation and staff-only CRM', () => {
   assert.match(http, /rateLimitHit\(`chat:/)
   assert.match(http, /adminGuard\(req, null, CRM\)/)
 })
+
+require('./ai-grounded-support.cases.cjs')

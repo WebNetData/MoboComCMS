@@ -4,13 +4,15 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { getSettings } from '@/modules/settings/server'
-import { createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server/section-history'
+import { getChatSettings } from './settings'
+import { answerSupport as botAnswer } from './assistant'
+import { supportOutcome } from '@/modules/ai/server/generation'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { publish } from '@/platform/realtime/bus'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { minorToNumber } from '@/shared/money'
 import {
-  CRM_TAG, ChatError, chatPrompt, cleanContact, cleanMessage, customerSegment, normalizeChatSettings, operatorsOnline, parsePlatformBotReply, platformSupportRefusal, timeline, wantsHuman,
+  CRM_TAG, ChatError, cleanContact, cleanMessage, customerSegment, operatorsOnline, timeline, wantsHuman,
   type ChatSettings, type CrmEvent,
 } from '@/modules/livechat/domain/livechat'
 
@@ -21,20 +23,7 @@ import {
  * messages (works behind any proxy, no websockets needed).
  */
 
-const KEY = 'livechat.v1'
-const chatHistory = createSectionSettingsHistory(KEY, 'settings-livechat', normalizeChatSettings, settings => ({ botEnabled: settings.botEnabled, hours: settings.hours.enabled }), { action: 'livechat.settings', targetId: 'livechat' })
-export const chatSettingsState = chatHistory.current
-export const restoreChatSettings = chatHistory.restore
-
-export async function getChatSettings(): Promise<ChatSettings> {
-  // Placement must reflect the saved selection on the next navigation, across route caches.
-  return chatHistory.read()
-}
-
-export async function saveChatSettings(input: unknown, context?: SectionSettingsContext) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ChatError('تنظیمات گفت‌وگو معتبر نیست')
-  return chatHistory.save(input, context)
-}
+export { chatSettingsState, restoreChatSettings, getChatSettings, saveChatSettings } from './settings'
 
 export const chatEnabled = () => isModuleEnabled('livechat')
 
@@ -138,9 +127,10 @@ export async function visitorSend(input: { token: string; userId: number | null;
       const bot = await botAnswer(conversation, settings)
       if (bot) {
         const latestSettings = await getChatSettings()
-        if (!latestSettings.botEnabled || !await isModuleEnabled('ai-assistant') || !await chatEnabled()) return { status: conversation.status, messages: replies }
+        if (!latestSettings.botEnabled || !await isModuleEnabled('ai-assistant') || !await chatEnabled()) { await supportOutcome(bot.observationId, 'superseded'); return { status: conversation.status, messages: replies } }
         const saved = await saveAssistantReply(conversation.id, message, 'BOT', bot.body)
         if (saved) replies.push(publicMessage(saved))
+        await supportOutcome(bot.observationId, saved ? bot.outcome : 'superseded')
         handoff = bot.handoff && !settings.continuous
         botHandedOff = bot.handoff
       } else if (settings.continuous) {
@@ -220,48 +210,6 @@ export async function visitorRate(token: string, userId: number | null, rating: 
 }
 
 // ------------------------------------------------------------------ assistant
-
-/** What the assistant may know about a signed-in customer (their own data only). */
-async function customerFacts(userId: number | null) {
-  if (!userId) return ''
-  const [user, orders, tickets, wallets] = await Promise.all([
-    db.user.findUnique({ where: { id: userId }, select: { name: true } }),
-    db.order.findMany({ where: { userId, productId: { not: null } }, orderBy: { id: 'desc' }, take: 3, select: { id: true, status: true, createdAt: true, totalMinor: true, currency: true, productDelivery: { select: { status: true } }, shipment: { select: { trackingCode: true, carrierName: true } }, lines: { select: { name: true }, take: 3 } } }),
-    db.ticket.count({ where: { userId, status: { not: 'CLOSED' } } }),
-    db.walletAccount.findMany({ where: { userId }, select: { currency: true, balanceMinor: true } }),
-  ])
-  const status: Record<string, string> = { PENDING: 'در انتظار پرداخت', PAID: 'پرداخت‌شده', FAILED: 'ناموفق', REFUNDED: 'بازپرداخت‌شده', CANCELLED: 'لغوشده' }
-  const delivery: Record<string, string> = { PENDING: 'در صف پردازش', PROCESSING: 'در حال آماده‌سازی', PACKED: 'بسته‌بندی شد', SHIPPED: 'ارسال شد', DELIVERED: 'تحویل شد', RETURNED: 'مرجوع شد', CANCELLED: 'لغو شد' }
-  return [
-    `نام: ${user?.name || '—'}`,
-    orders.length ? `آخرین سفارش‌ها:\n${orders.map((order) => `- سفارش ${order.id} (${order.createdAt.toLocaleDateString('fa-IR')}): ${order.lines.map((line) => line.name).join('، ')} — ${status[order.status] || order.status}${order.productDelivery ? ` / ${delivery[order.productDelivery.status] || order.productDelivery.status}` : ''}${order.shipment?.trackingCode ? ` / کد رهگیری ${order.shipment.trackingCode} (${order.shipment.carrierName})` : ''}`).join('\n')}` : 'سفارشی ندارد.',
-    `تیکت باز: ${tickets}`,
-    wallets.length ? `موجودی کیف پول: ${wallets.map((w) => `${minorToNumber(w.balanceMinor, w.currency).toLocaleString('fa-IR')} ${w.currency === 'IRT' ? 'تومان' : w.currency}`).join('، ')}` : '',
-  ].filter(Boolean).join('\n')
-}
-
-async function botAnswer(conversation: Conversation, settings: ChatSettings): Promise<{ body: string; handoff: boolean } | null> {
-  try {
-    if (!await isModuleEnabled('ai-assistant')) return null
-    const [{ generate }, site, turns, customer] = await Promise.all([
-      import('@/modules/ai/server/client'),
-      getSettings(),
-      db.chatMessage.findMany({ where: { conversationId: conversation.id }, orderBy: { id: 'desc' }, take: 16, select: { sender: true, body: true } }),
-      customerFacts(conversation.userId),
-    ])
-    const refusal = platformSupportRefusal(turns.find(turn => turn.sender === 'VISITOR')?.body || '')
-    if (refusal) return { body: refusal, handoff: false }
-    const prompt = chatPrompt({ brand: site.brandName || 'موبوکام', botName: settings.botName, knowledge: settings.knowledge, customer, turns: turns.reverse().filter((turn) => turn.sender !== 'SYSTEM') })
-    // Use the canonical provider deadline; a second shorter race used to strand paid calls and close the bot.
-    const result = await generate(prompt, undefined, 'support')
-    if (!result) return null
-    const reply = parsePlatformBotReply(result.text)
-    return reply.body ? reply : null
-  } catch (error) {
-    logEvent('warn', 'livechat.bot_failed', { conversationId: conversation.id, reason: 'provider_or_context_unavailable' })
-    return null
-  }
-}
 
 // ------------------------------------------------------------------ operators
 

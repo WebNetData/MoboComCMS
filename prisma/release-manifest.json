@@ -759,5 +759,7 @@
       "migrations": []
     }
   },
-  "unreleased": []
+  "unreleased": [
+    "20270225120000_ai_invocation_metrics"
+  ]
 }

@@ -851,3 +851,13 @@ BackgroundJob even when the HTTP preview is unavailable. Native control-plane
 APIs remain on the retained original service; active-runtime guards prevent
 duplicate scheduled work. See [implementation and evidence](handoffs/AI_ENGINEERING.md)
 and [operator guide](../AI-ENGINEERING-FA.md).
+
+## Grounded AI support and invocation monitoring — 2026-11-09
+
+Livechat composes canonical public Search/Content cards, bounded policy passages and
+own-user account facts. Facts remain user data, citation IDs resolve to server URLs,
+and source/identity/settings freshness precedes the existing conditional publication.
+AI owns privacy-minimized AiInvocation observations across server text/personal/image
+transports; unknown usage is nullable and browser Chat quota is not inferred. Existing
+Settings history and settings.manage guard Admin controls/monitoring. No second search,
+identity, ticket, audit or billing system. [Ownership, evidence and rollout](handoffs/AI_GROUNDED_SUPPORT.md).

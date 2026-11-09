@@ -208,3 +208,5 @@ BackgroundJob even when the HTTP preview is unavailable. Native control-plane
 APIs remain on the retained original service; active-runtime guards prevent
 duplicate scheduled work. See [implementation and evidence](handoffs/AI_ENGINEERING.md)
 and [operator guide](../AI-ENGINEERING-FA.md).
+
+AI grounded support2026-11-09: `livechat/server/assistant.ts` composes `knowledge.ts`, canonical public Search/Content and private own-user facts behind the existing Livechat facade. `settings.ts` keeps existing revision/history; `domain/knowledge*` validates bounded sources/citations. AI `server/telemetry.ts` and `monitoring.ts` own additive AiInvocation records and read-only `/api/admin/ai/monitoring` (settings.manage). Existing AI page links `/admin/ai/monitoring`; chat settings add KnowledgeControls. SDK message-links preserves Persian references without external anchors. [Evidence/limits](handoffs/AI_GROUNDED_SUPPORT.md).
