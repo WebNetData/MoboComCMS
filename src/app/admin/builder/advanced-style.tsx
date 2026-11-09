@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useKit } from './kit-panel'
+import AiCodePanel from './AiCodePanel'
 import { BORDER_STYLES, FONT_WEIGHTS, HOVERS, LOOPS, MOBILE_ALIGNS, MOTIONS, SHADOWS, SURFACES, TEXT_EFFECTS, validateAdvancedStyle, type AdvancedStyle, type Box } from '@/modules/site/domain/builder-style'
 
 // The "Advanced" part of the inspector, for a block or a section: spacing per side (with phone values),
@@ -10,6 +11,18 @@ import { BORDER_STYLES, FONT_WEIGHTS, HOVERS, LOOPS, MOBILE_ALIGNS, MOTIONS, SHA
 // the renderer can write.
 
 type L = (en: string, fa: string) => string
+
+/** The element's own CSS; typed freely and stored on leaving the field, so undo history gets one step. */
+function CustomCssField({ value, L, onCommit }: { value: string; L: L; onCommit: (css: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  return <div className="bld-custom-css">
+    <label className="bld-field"><span>{L('Custom CSS', 'CSS اختصاصی این عنصر')}</span>
+      <textarea className="textarea bld-code mono" dir="ltr" rows={6} maxLength={8000} value={draft} placeholder={'selector {\n  backdrop-filter: blur(12px);\n}\nselector:hover { transform: translateY(-4px); }\n@media (max-width: 767px) {\n  selector { padding: 12px; }\n}'} onChange={(event) => setDraft(event.target.value)} onBlur={() => { if (draft !== value) onCommit(draft) }} />
+      <small className="muted text-sm">{L('`selector` is this element. Declarations alone apply to it.', '«selector» یعنی همین عنصر. اگر فقط چند ویژگی بنویسید، مستقیم روی همین عنصر اعمال می‌شوند. آکولادها باید جفت باشند.')}</small>
+    </label>
+    <AiCodePanel target="css" L={L} current={{ html: '', css: value, js: '' }} onApply={(code) => { setDraft(code.css); onCommit(code.css) }} />
+  </div>
+}
 const ZERO: Box = { t: 0, r: 0, b: 0, l: 0 }
 
 function BoxField({ label, value, min, max, onChange, L }: { label: string; value: Box | undefined; min: number; max: number; onChange: (next: Box | undefined) => void; L: L }) {
@@ -139,6 +152,8 @@ export default function AdvancedStyleFields({ value, onChange, L, section = fals
       <label className="bld-field"><span>{L('Stacking order (z-index)', 'ترتیب لایه (z-index)')}</span><input className="input num" dir="ltr" type="number" min={-1} max={100} value={adv.zIndex || ''} placeholder="0" onChange={(event) => number('zIndex', event.target.value)} /></label>
       <label className="bld-field"><span>{L('CSS classes', 'کلاس‌های CSS')}</span><input className="input mono" dir="ltr" defaultValue={(adv.classes || []).join(' ')} placeholder="my-card highlight" onBlur={(event) => patch({ classes: event.target.value.split(/\s+/).filter(Boolean) }, true)} /></label>
     </>}
+
+    <CustomCssField key={adv.customCss || ''} value={adv.customCss || ''} L={L} onCommit={(css) => patch({ customCss: css }, true)} />
 
     {set > 0 && <button type="button" className="btn btn-ghost btn-sm bld-adv-reset" onClick={() => onChange(undefined, true)}>{L('Reset advanced style', 'بازنشانی استایل پیشرفته')}</button>}
   </details>

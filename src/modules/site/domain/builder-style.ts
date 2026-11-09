@@ -49,6 +49,8 @@ export type AdvancedStyle = {
   alignM?: typeof MOBILE_ALIGNS[number]
   /** Extra class names for the theme's own CSS (letters, digits, dash, underscore). */
   classes?: string[]
+  /** The element's own CSS. `selector` stands for this element; declarations alone apply to it directly. */
+  customCss?: string
 }
 
 const HEX = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/
@@ -91,6 +93,7 @@ export function validateAdvancedStyle(input: unknown): AdvancedStyle | undefined
   set('alignM', pick(raw.alignM, MOBILE_ALIGNS))
   const classes = (Array.isArray(raw.classes) ? raw.classes : typeof raw.classes === 'string' ? raw.classes.split(/\s+/) : []).filter((name): name is string => typeof name === 'string' && /^[a-zA-Z][\w-]{0,40}$/.test(name) && !/^br-/.test(name)).slice(0, 6)
   if (classes.length) out.classes = [...new Set(classes)]
+  const custom = cleanCustomCss(raw.customCss); if (custom) out.customCss = custom
   return Object.keys(out).length ? out : undefined
 }
 
@@ -119,6 +122,21 @@ const sides = (prop: string, b: Box) => `${prop}-block: ${b.t}px ${b.b}px; ${pro
 const TEXT = ':is(h1, h2, h3, h4, h5, h6, p, li, blockquote)'
 
 /** The id an element's rules hang on. Only ids of the document's own shape are styled. */
+export const CUSTOM_CSS_MAX = 8000
+/** Element CSS stays inside its own <style>: no tag can close it, and no import, script URL or legacy expression survives. */
+export function cleanCustomCss(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.replace(/</g, '').replace(/@import[^;{]*;?/gi, '').replace(/expression\s*\(/gi, '').replace(/behavior\s*:/gi, '').replace(/(?:java|vb)script\s*:/gi, '').replace(/-moz-binding/gi, '').trim().slice(0, CUSTOM_CSS_MAX)
+}
+/** `selector` → this element; plain declarations are wrapped in its rule. Braces must balance or nothing is written. */
+export function customCssFor(sel: string, css: string | undefined): string {
+  const clean = cleanCustomCss(css)
+  if (!clean) return ''
+  let depth = 0
+  for (const c of clean) { if (c === '{') depth++; else if (c === '}' && --depth < 0) return '' }
+  if (depth) return ''
+  return clean.includes('{') ? clean.replace(/\bselector\b/g, sel) : `${sel} { ${clean} }`
+}
 export const styleClass = (id: string) => (/^[a-zA-Z0-9_-]{1,64}$/.test(id) ? `br-x-${id}` : '')
 
 /**
@@ -175,6 +193,8 @@ export function advancedCss(id: string, adv: AdvancedStyle | undefined): string 
     if (adv.motion) parts.push(`@supports (animation-timeline: view()) { ${sel} { animation: br-in-${adv.motion} linear both${loop ? `, ${loop}` : ''}; animation-timeline: view()${loop ? ', auto' : ''}; animation-range: entry 0% entry 45%${loop ? ', normal' : ''}; } }`)
     out.push(`@media (prefers-reduced-motion: no-preference) { ${parts.join(' ')} }`)
   }
+  // Last, so the element's own CSS can override everything above.
+  const custom = customCssFor(sel, adv.customCss); if (custom) out.push(custom)
   return out.join('\n')
 }
 
