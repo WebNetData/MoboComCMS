@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 
@@ -51,6 +51,7 @@ export default function ShellNav({ groups, isOn, choice, onToggle, onNavigate, o
   // In a long menu the current page's link may sit below the fold of the side column: bring it into view there
   // (only that column scrolls, never the page). Module groups arrive after the first paint, hence the count.
   const marker = useRef<HTMLSpanElement>(null)
+  const navId = useId()
   const current = groups.flatMap((group) => group.items).find((item) => isOn(item.href, item.exact))?.href || ''
   useEffect(() => {
     const column = marker.current?.closest<HTMLElement>('.side-nav, .mobile-drawer')
@@ -73,12 +74,12 @@ export default function ShellNav({ groups, isOn, choice, onToggle, onNavigate, o
       return <div className="ws-part" key={group.id}>
         {caption}
         <div className={`admin-nav-group ws-group ${active ? 'has-active' : ''} ${open ? 'is-open' : ''}`}>
-          <button type="button" className="admin-nav-toggle ws-toggle" aria-expanded={open} onClick={() => onToggle(group.id, !open)}>
+          <button type="button" className="admin-nav-toggle ws-toggle" aria-expanded={open} aria-controls={`${navId}-${group.id}`} onClick={() => onToggle(group.id, !open)}>
             <span className="ws-tile"><Icon name={group.icon} size={18} /></span>
             <span className="ws-label">{group.title}</span>
             <Icon name="chevron" size={14} className="admin-nav-chevron" />
           </button>
-          <div className="admin-nav-items ws-items" hidden={!open}>
+          <div id={`${navId}-${group.id}`} className="admin-nav-items ws-items" hidden={!open}>
             {group.items.map((item) => {
               const on = isOn(item.href, item.exact)
               return <Fragment key={item.href}>

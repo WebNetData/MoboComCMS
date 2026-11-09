@@ -1,19 +1,20 @@
 /* Live chat widget (lc-*), operator console (cc-*), CRM (crm-*). */
 .lc-root { position: fixed; inset-inline-start: 20px; bottom: 20px; z-index: 80; display: grid; justify-items: start; gap: 12px; font-size: .95rem; }
-.lc-bubble { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 52px; padding-inline: 16px 20px; border-radius: 999px; border: 0; background: var(--primary, #6d4df5); color: #fff; font-weight: 800; cursor: pointer; box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--primary, #6d4df5) 80%, transparent); }
+.lc-bubble { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 52px; padding-inline: 16px 20px; border-radius: 999px; border: 0; background: var(--accent-ink, var(--primary, #6d4df5)); color: var(--card, #fff); font-weight: 800; cursor: pointer; box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--primary, #6d4df5) 80%, transparent); }
 .lc-bubble.is-open { width: 52px; padding: 0; justify-content: center; font-size: 1.1rem; }
 .lc-badge { position: absolute; top: -4px; inset-inline-end: -4px; min-width: 22px; height: 22px; border-radius: 99px; background: #ef4444; color: #fff; font-style: normal; font-size: .75rem; display: grid; place-items: center; padding-inline: 5px; }
 .lc-panel { width: min(380px, calc(100vw - 32px)); height: min(600px, calc(100vh - 110px)); display: flex; flex-direction: column; border-radius: 22px; overflow: hidden; background: var(--card, #fff); color: var(--text); border: 1px solid var(--line, rgba(0,0,0,.1)); box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .55); }
-.lc-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: linear-gradient(135deg, var(--primary, #6d4df5), color-mix(in srgb, var(--primary, #6d4df5) 70%, #000)); color: #fff; }
+.lc-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: linear-gradient(135deg, var(--accent-ink, var(--primary, #6d4df5)), color-mix(in srgb, var(--accent-ink, var(--primary, #6d4df5)) 70%, var(--text))); color: var(--card, #fff); }
 .lc-head div { flex: 1; min-width: 0; display: grid; }
-.lc-head small { opacity: .85; font-size: .78rem; display: flex; align-items: center; gap: 6px; }
+.lc-head small { font-size: .78rem; display: flex; align-items: center; gap: 6px; }
 .lc-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .18); }
 .lc-dot { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; display: inline-block; }
 .lc-dot.is-on { background: #4ade80; }
-.lc-close { flex: none; display: grid; place-items: center; padding: 0; border: 0; background: rgba(255, 255, 255, .15); color: #fff; width: 34px; height: 34px; border-radius: 50%; line-height: 1; cursor: pointer; transition: background .15s; }
-.lc-close:hover { background: rgba(255, 255, 255, .26); }
-.lc-close:focus-visible, .lc-bubble:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.lc-close { flex: none; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: inherit; width: 34px; height: 34px; border-radius: 50%; line-height: 1; cursor: pointer; transition: background .15s; }
+.lc-close:hover { background: color-mix(in srgb, var(--text) 14%, transparent); }
+.lc-close:focus-visible, .lc-bubble:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .lc-bubble.is-open { line-height: 1; }
+.lc-close svg, .lc-bubble.is-open > svg { display: block; flex: none; pointer-events: none; }
 .lc-list { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--text, #000) 3%, var(--card, #fff)); }
 .lc-msg { max-width: 84%; padding: 9px 12px; border-radius: 16px; line-height: 1.9; position: relative; }
 .lc-msg p { margin: 0; white-space: pre-wrap; word-break: break-word; }
@@ -41,7 +42,9 @@
 .lc-input button:disabled { opacity: .45; cursor: default; }
 @media (max-width: 560px) {
   .lc-root { inset-inline-start: 12px; bottom: 12px; }
-  .lc-panel { position: fixed; inset: 0; width: 100%; height: 100%; border-radius: 0; }
+  .lc-panel { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; border-radius: 0; }
+  .lc-head { padding-block-start: max(14px, env(safe-area-inset-top)); }
+  .lc-input { padding-block-end: max(12px, env(safe-area-inset-bottom)); }
   .lc-bubble span { display: none; }
   .lc-bubble { width: 52px; padding: 0; justify-content: center; }
   /* The panel fills the screen: its header closes it, so the round button would only cover the message box. */

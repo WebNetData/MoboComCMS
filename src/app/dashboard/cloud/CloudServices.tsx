@@ -13,17 +13,27 @@ export type CloudService = { id: number; label: string; status: string; hostname
 export type CloudDomain = { id: number; name: string; display: string; status: string; expiresAt: string | null; autoRenew: boolean }
 
 /** The member's services and domains from the existing APIs, loaded once per page. */
-export function useCloudData() {
+export function useCloudData(family: 'all' | 'services' | 'domains' = 'all') {
   const [services, setServices] = useState<CloudService[] | null>(null), [domains, setDomains] = useState<CloudDomain[] | null>(null), [failed, setFailed] = useState(false), [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let live = true
+    const controller = new AbortController()
     setFailed(false)
+    setServices(null)
+    setDomains(null)
+    const read = async <T,>(url: string, key: string): Promise<T[]> => {
+      const response = await fetch(url, { cache: 'no-store', signal: controller.signal })
+      if (!response.ok) throw new Error('Cloud list unavailable')
+      const data = await response.json()
+      if (!Array.isArray(data?.[key])) throw new Error('Cloud list invalid')
+      return data[key]
+    }
     Promise.all([
-      fetch('/api/hosting/services', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : Promise.reject(r))),
-      fetch('/api/hosting/domains', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { domains: [] })).catch(() => ({ domains: [] })),
-    ]).then(([s, d]) => { if (live) { setServices(s.services || []); setDomains(d.domains || []) } }).catch(() => { if (live) setFailed(true) })
-    return () => { live = false }
-  }, [attempt])
+      family === 'domains' ? Promise.resolve([]) : read<CloudService>('/api/hosting/services', 'services'),
+      family === 'services' ? Promise.resolve([]) : read<CloudDomain>('/api/hosting/domains', 'domains'),
+    ]).then(([s, d]) => { if (live) { setServices(s); setDomains(d) } }).catch(() => { if (live) setFailed(true) })
+    return () => { live = false; controller.abort() }
+  }, [attempt, family])
   return { services, domains, failed, retry: () => setAttempt((n) => n + 1) }
 }
 
@@ -62,7 +72,7 @@ export function DomainCard({ row }: { row: CloudDomain }) {
 
 /** Heading, create button and list for one family (servers, hosting or domains). */
 export function CloudList({ kind }: { kind: 'servers' | 'hosting' | 'domains' }) {
-  const { services, domains, failed, retry } = useCloudData()
+  const { services, domains, failed, retry } = useCloudData(kind === 'domains' ? 'domains' : 'services')
   const meta = {
     servers: { title: 'سرورهای من', text: 'سرورهای مجازی، ابری و اختصاصی شما در ایران و خارج.', icon: 'server', create: '/dashboard/cloud/new?type=server', cta: 'ساخت سرور' },
     hosting: { title: 'هاست‌های من', text: 'هاست‌های سایت شما با اطلاعات ورود به کنترل‌پنل و تمدید.', icon: 'layers', create: '/dashboard/cloud/new?type=hosting', cta: 'خرید هاست' },
@@ -78,7 +88,7 @@ export function CloudList({ kind }: { kind: 'servers' | 'hosting' | 'domains' })
     </header>
     {failed ? <div className="dt-empty is-bad" role="alert"><Icon name={meta.icon} size={28} /><b>فهرست دریافت نشد</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={retry}>تلاش دوباره</button></div>
       : loading ? <div className="hs-grid" aria-busy="true">{[0, 1, 2].map((n) => <div key={n} className="hs-card is-skeleton" />)}</div>
-      : empty ? <div className="dt-empty cl-empty"><Icon name={meta.icon} size={30} /><b>هنوز موردی ندارید</b><span>چند دقیقه بعد از پرداخت، سرویس این‌جا ظاهر می‌شود.</span><Link className="btn btn-primary" href={meta.create}>{meta.cta}</Link></div>
+      : empty ? <div className="dt-empty cl-empty"><Icon name={meta.icon} size={30} /><b>هنوز موردی ندارید</b><span>پس از سفارش، وضعیت آماده‌سازی و تحویل را از همین بخش پیگیری کنید.</span><Link className="btn btn-primary" href={meta.create}>{meta.cta}</Link></div>
       : <div className="hs-grid">{kind === 'domains' ? domains!.map((row) => <DomainCard key={row.id} row={row} />) : rows!.map((row) => <ServiceCard key={row.id} row={row} />)}</div>}
   </div>
 }

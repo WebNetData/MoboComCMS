@@ -1,7 +1,7 @@
 'use client'
 
 import { useHumanCheck } from '@/extensions/sdk/human-check'
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import type { PluginClientModule, PluginProps } from '../types'
 import { usePathname } from '@/platform/routing/navigation'
 import { chatShownOn, chatTextParts } from '@/extensions/sdk/livechat'
@@ -21,8 +21,36 @@ function LiveChat(_props: PluginProps) {
   const human = useHumanCheck('message')
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [mobile, setMobile] = useState(false)
+  const panelId = useId()
+  const panel = useRef<HTMLElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const close = useCallback(() => {
+    setOpen(false)
+    requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true }))
+  }, [])
   const [state, setState] = useState<State | null>(null)
   const visible = !!state && chatShownOn(state.places || [], pathname)
+  useEffect(() => {
+    if (!open || !visible) return
+    const media = window.matchMedia('(max-width: 560px)')
+    const resize = () => setMobile(media.matches)
+    resize()
+    media.addEventListener('change', resize)
+    panel.current?.querySelector<HTMLButtonElement>('.lc-close')?.focus({ preventScroll: true })
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented) return
+      if (event.key === 'Escape') { event.preventDefault(); close(); return }
+      if (event.key !== 'Tab' || !media.matches) return
+      const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), [tabindex="0"]') || []).filter(element => element.getClientRects().length)
+      const first = controls[0], last = controls[controls.length - 1]
+      if (first && (event.shiftKey ? document.activeElement === first : document.activeElement === last)) {
+        event.preventDefault(); (event.shiftKey ? last : first).focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => { media.removeEventListener('change', resize); document.removeEventListener('keydown', onKeyDown) }
+  }, [open, visible, close])
   const [messages, setMessages] = useState<Message[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [text, setText] = useState('')
@@ -161,11 +189,11 @@ function LiveChat(_props: PluginProps) {
   const showContact = !contactSaved && state.askContact && (current === 'WAITING' || current === 'OPEN')
 
   return <div className="lc-root" dir="rtl">
-    {open && <section className="lc-panel" role="dialog" aria-label="گفت‌وگوی آنلاین">
+    {open && <section ref={panel} id={panelId} className="lc-panel" role="dialog" aria-modal={mobile || undefined} aria-label="گفت‌وگوی آنلاین">
       <header className="lc-head">
         <span className="lc-avatar" aria-hidden="true">{current === 'OPEN' ? '👤' : '✦'}</span>
         <div><b>{current === 'OPEN' || current === 'WAITING' ? 'پشتیبانی آنلاین' : state.botName}</b><small><i className={`lc-dot${state.online ? ' is-on' : ''}`} />{STATUS[current] || (state.online ? 'آنلاین — معمولاً در چند ثانیه پاسخ می‌دهیم' : 'اپراتورها آفلاین؛ دستیار پاسخ می‌دهد')}</small></div>
-        <button type="button" className="lc-close" onClick={() => setOpen(false)} aria-label="بستن گفت‌وگو"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
+        <button type="button" className="lc-close" onClick={close} aria-label="بستن گفت‌وگو"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
       </header>
       <div className="lc-list" ref={list} aria-live="polite">
         <div className="lc-msg is-bot"><p>{state.welcome}</p></div>
@@ -195,7 +223,7 @@ function LiveChat(_props: PluginProps) {
         <button type="submit" disabled={sending || ((!status || status === 'CLOSED') && !human.ready) || !text.trim()} aria-label="ارسال"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12l-11.5 1.9z" transform="rotate(180 12 12)" /></svg></button>
       </form>
     </section>}
-    <button type="button" className={`lc-bubble${open ? ' is-open' : ''}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'بستن گفت‌وگو' : 'گفت‌وگوی آنلاین'}>
+    <button ref={trigger} type="button" className={`lc-bubble${open ? ' is-open' : ''}`} onClick={() => open ? close() : setOpen(true)} aria-expanded={open} aria-controls={panelId} aria-label={open ? 'بستن گفت‌وگو' : 'گفت‌وگوی آنلاین'}>
       {open ? <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> : <><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M5 18.5 3.5 21l.8-4A8 8 0 1 1 7 19.2" /><path d="M8 10h8M8 14h5" /></svg><span>پشتیبانی آنلاین</span></>}
       {unread > 0 && !open && <i className="lc-badge">{unread.toLocaleString('fa-IR')}</i>}
     </button>

@@ -48,6 +48,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         setOpen(false)
         menuButton.current?.focus()
       }
