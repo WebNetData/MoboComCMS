@@ -686,7 +686,7 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
         }}
       />
       {widget.type === 'component' && <ComponentFields L={L} componentId={widget.props.componentId || ''} values={widget.props.values || '{}'} onChange={(next) => onChange(patchWidget(doc, ref, { props: { ...widget.props, ...next } }), sel, false)} />}
-      {widget.type === 'html' && <AiCodePanel target="widget" L={L} current={{ html: widget.props.html || '', css: widget.props.css || '', js: widget.props.js || '' }} onApply={(code) => onChange(patchWidget(doc, ref, { props: { ...widget.props, ...code, advanced: code.js.trim() ? '1' : widget.props.advanced } }), sel, false)} />}
+      {widget.type === 'html' && <AiCodePanel target="widget" L={L} current={{ html: widget.props.html || '', css: widget.props.css || '', js: widget.props.js || '' }} onApply={(code) => onChange(patchWidget(doc, ref, { props: { ...widget.props, html: code.html, css: code.css, js: code.js, advanced: code.js.trim() ? '1' : widget.props.advanced } }), sel, false)} />}
       <details className="bld-style" open>
         <summary>{L('Style', 'استایل')}</summary>
         <label className="bld-field"><span>{L('Alignment', 'چیدمان')}</span>
