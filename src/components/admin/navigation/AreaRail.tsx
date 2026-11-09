@@ -16,7 +16,7 @@ export default function AreaRail({ areas, active, current, loading, fa, onPick }
 }) {
   return <div className="acn-rail" role="group" aria-label={fa ? 'حوزه‌های مدیریت' : 'Admin areas'} aria-busy={loading}>
     {loading ? Array.from({ length: 7 }, (_, index) => <span className="acn-ghost" key={index} />)
-      : areas.map(area => <button key={area.id} type="button" className={`acn-tab ${area.id === current ? 'has-page' : ''}`} aria-pressed={area.id === active} onClick={() => onPick(area.id)}>
+      : areas.map(area => <button key={area.id} type="button" data-area={area.id} className={`acn-tab ${area.id === current ? 'has-page' : ''}`} aria-pressed={area.id === active} onClick={() => onPick(area.id)}>
         <span className="acn-tab-icon"><Icon name={area.icon} size={18} /></span>
         <span>{fa ? area.title : area.titleEn}</span>
       </button>)}

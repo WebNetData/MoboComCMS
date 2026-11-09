@@ -8,6 +8,7 @@ export interface ControlArea { id: string; title: string; titleEn: string; icon:
 export const CONTROL_AREAS: readonly ControlArea[] = [
   { id: 'home', title: 'پیشخوان', titleEn: 'Home', icon: 'home', hint: 'نمای کلی و کارهای امروز', hintEn: 'Overview and today\'s work' },
   { id: 'content', title: 'محتوا', titleEn: 'Content', icon: 'layers', hint: 'مجله، فیلم، موزیک، بازی و نرم‌افزار', hintEn: 'Magazine, film, music, games and software' },
+  { id: 'ai', title: 'هوش مصنوعی', titleEn: 'AI', icon: 'sparkles', hint: 'دستیارها، تولید محتوا، اتصال سرویس‌ها و پایش', hintEn: 'Assistants, generation, providers and monitoring' },
   { id: 'community', title: 'جامعه', titleEn: 'Community', icon: 'users', hint: 'تالار، پروفایل‌ها و نظرها', hintEn: 'Forum, profiles and reviews' },
   { id: 'commerce', title: 'فروش', titleEn: 'Sales', icon: 'bag', hint: 'فروشگاه، اشتراک‌ها و سرویس‌ها', hintEn: 'Store, memberships and services' },
   { id: 'finance', title: 'مالی', titleEn: 'Finance', icon: 'wallet', hint: 'صورتحساب، پرداخت و درگاه‌ها', hintEn: 'Invoices, payments and gateways' },
