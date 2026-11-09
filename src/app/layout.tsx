@@ -92,6 +92,8 @@ import PwaClient from '@/components/pwa/PwaClient'
 import { CompareTray } from '@/components/engage/CompareControls'
 import FormEmbeds from '@/components/site/FormEmbeds'
 import SitePopups from '@/components/site/popups/SitePopups'
+import SiteCode from '@/components/site/SiteCode'
+import { siteCodeForRender } from '@/modules/site/server/site-code'
 import RouteAliasProvider from '@/platform/routing/RouteAliasProvider'
 import { setRouteAliases } from '@/platform/routing/aliases'
 import { loadRoutingState, publicRouteAliases } from '@/modules/site/server/routes'
@@ -170,6 +172,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // The nonce of this response (set by the middleware); the one inline script written here carries it.
   const sent = (await headers()).get('x-nonce')
   const nonce = isNonce(sent) ? sent : undefined
+  const siteCode = await siteCodeForRender()
   // Set by the middleware for the people who run a section that is in maintenance: they see it as it is, and are told.
   const requestHeaders = await headers()
   const previewed = requestHeaders.get('x-maintenance-preview')
@@ -225,7 +228,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AutomaticLinks initialPolicy={forwarderPolicy} />
         <RouteAliasProvider map={routeAliases} permalinks={routing.permalinks}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
-          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /><FormEmbeds /><SitePopups /></ExtensionProvider></SiteProvider></Providers>
+          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /><FormEmbeds /><SitePopups />{siteCode.length > 0 && <SiteCode snippets={siteCode} />}</ExtensionProvider></SiteProvider></Providers>
         </LocaleProvider></RouteAliasProvider>
       </body>
     </html>
