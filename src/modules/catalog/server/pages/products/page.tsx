@@ -4,6 +4,8 @@ import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { resolvePlacedPage } from '@/modules/site/server/theme-templates'
+import type { ReactNode } from 'react'
+import ThemeFrame from '@/components/content/builder/ThemeFrame'
 import { editableFor, isPreview, type BuilderPreview } from '@/modules/site/server/builder-preview'
 import { db } from '@/platform/database/prisma'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
@@ -53,10 +55,20 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
     <ThemeHeader context={SHOP_CONTEXT} theme={theme} locale={locale} navPages={navPages} preview={preview} />
     <SectionBarSlot section="shop" searchValue={query.q} />
     <main className="sx-page">
-      {isStoreFront(query) && query.kind ? <StoreFront kind={query.kind} /> : filtered ? <Listing query={query} /> : <Landing />}
+      {isStoreFront(query) && query.kind ? <StoreFront kind={query.kind} /> : filtered ? <ShopArchive query={query} locale={locale === 'fa' ? 'fa' : 'en'}><Listing query={query} /></ShopArchive> : <Landing />}
     </main>
     <ThemeFooter context={SHOP_CONTEXT} locale={locale} navPages={navPages} preview={preview} />
   </>
+}
+
+/** A filtered shop listing inside the archive theme template that matches its category, when one is published. */
+async function ShopArchive({ query, locale, children }: { query: ShopQuery; locale: 'fa' | 'en'; children: ReactNode }) {
+  const nodes = query.category ? await db.productCategory.findMany({ select: { id: true, slug: true, name: true, parentId: true } }).catch(() => []) : []
+  const ancestry: number[] = []
+  for (let node = nodes.find((c) => c.slug === query.category); node && !ancestry.includes(node.id); node = nodes.find((c) => c.id === node!.parentId)) ancestry.push(node.id)
+  const current = nodes.find((c) => c.slug === query.category)
+  const title = current?.name || (query.q ? (locale === 'fa' ? `نتایج «${query.q}»` : `Results for “${query.q}”`) : locale === 'fa' ? 'فروشگاه' : 'Shop')
+  return <ThemeFrame type="archive" locale={locale} context={{ route: 'archive', archiveOf: 'products', archiveCategoryIds: ancestry }} values={{ title }}>{children}</ThemeFrame>
 }
 
 const STORE_NAME = { VIRTUAL: 'فروشگاه دیجیتال', PHYSICAL: 'فروشگاه فیزیکی' } as const

@@ -677,3 +677,31 @@ export const PAGE_TEMPLATES: BundledTemplate[] = [
   },
   ...LANDING_PAGE_TEMPLATES,
 ]
+
+/** Starting points for templates that frame an owner page: the real content first, then something it lacks. */
+export const OWNER_FRAME_PRESETS: Record<'archive' | 'search' | 'not-found', BundledTemplate[]> = {
+  archive: [{
+    id: 'archive-newsletter', fa: 'فهرست + دعوت به خبرنامه', en: 'List + newsletter call',
+    descFa: 'فهرست واقعی مجله یا فروشگاه، سپس کادر عضویت در خبرنامه؛ تیتر و تعداد را با بلوک «دادهٔ پویا» هم می‌توانید بگذارید.', descEn: 'The real list, then a newsletter call; add the title or count with the dynamic value block.',
+    doc: doc([
+      sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+      sec([col([w('cta', { title: 'تازه‌ها را از دست ندهید', titleEn: 'Never miss what is new', text: 'هر هفته بهترین مطالب و پیشنهادها را در ایمیل خود بگیرید.', textEn: 'Get the best stories and offers in your inbox every week.', label: 'عضویت در خبرنامه', labelEn: 'Join the newsletter', href: '/newsletter' })])], { paddingY: 40 }),
+    ]),
+  }],
+  search: [{
+    id: 'search-help', fa: 'نتایج + راهنمای پیدا کردن', en: 'Results + help',
+    descFa: 'نتایج و فیلترهای واقعی، سپس راهی برای وقتی که چیزی پیدا نشد.', descEn: 'The real results and filters, then a way forward when nothing fits.',
+    doc: doc([
+      sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+      sec([col([w('cta', { title: 'چیزی که می‌خواستید را پیدا نکردید؟', titleEn: 'Did not find it?', text: 'تازه‌ترین مطالب مجله و پیشنهادهای فروشگاه را ببینید.', textEn: 'Browse the latest stories and shop picks.', label: 'مرور مجله', labelEn: 'Browse the journal', href: '/blog' })])], { paddingY: 40 }),
+    ]),
+  }],
+  'not-found': [{
+    id: 'not-found-latest', fa: 'پیام ۴۰۴ + تازه‌ترین مطالب', en: '404 + latest stories',
+    descFa: 'پیام و جست‌وجوی اصلی، سپس تازه‌ترین مطالب مجله تا بازدیدکننده راه تازه‌ای پیدا کند.', descEn: 'The original message and search, then the latest stories as a way forward.',
+    doc: doc([
+      sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+      sec([col([w('posts', { title: 'شاید این‌ها را بخواهید', titleEn: 'You might like', limit: '3' })])], { paddingY: 32 }),
+    ]),
+  }],
+}

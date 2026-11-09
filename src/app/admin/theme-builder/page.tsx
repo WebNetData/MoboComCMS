@@ -17,7 +17,7 @@ type Payload = { templates: ThemeTemplateMeta[]; postCategories: Category[]; pro
 type L = (en: string, fa: string) => string
 const AUTHORING_TYPES = THEME_TEMPLATE_TYPES
 
-const TYPE_GLYPH: Record<ThemeTemplateType, string> = { surface: '▦', header: '▔', footer: '▁', page: '▣', 'single-post': '¶', 'single-product': '◈' }
+const TYPE_GLYPH: Record<ThemeTemplateType, string> = { surface: '▦', header: '▔', footer: '▁', page: '▣', 'single-post': '¶', 'single-product': '◈', archive: '▤', search: '⌕', 'not-found': '⊘' }
 
 /** Which rule kinds a template type offers. */
 const RULE_KINDS: Record<Exclude<ThemeTemplateType, 'page'>, string[]> = {
@@ -26,6 +26,9 @@ const RULE_KINDS: Record<Exclude<ThemeTemplateType, 'page'>, string[]> = {
   footer: ['all', 'home', 'blog', 'shop', 'pages', 'sections', 'section', 'posts', 'post-category', 'products', 'product-kind', 'product-category'],
   'single-post': ['posts', 'post-category', 'post-id'],
   'single-product': ['products', 'product-kind', 'product-category', 'product-id'],
+  archive: ['all', 'blog', 'shop', 'post-category', 'product-category'],
+  search: ['all'],
+  'not-found': ['all'],
 }
 
 const KIND_LABEL = (L: L): Record<string, string> => ({

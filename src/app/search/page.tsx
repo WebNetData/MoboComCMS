@@ -10,6 +10,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { RatingMeter } from '@/components/engage/RatingMeter'
 import SearchAdvancedControls from '@/components/search/SearchAdvancedControls'
 import Icon from '@/components/site/Icon'
+import ThemeFrame from '@/components/content/builder/ThemeFrame'
 import styles from '@/components/search/SearchPage.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -69,6 +70,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
   return (
     <MediaShell section="search">
+      <ThemeFrame type="search" locale="fa" context={{ route: 'search' }} values={{ title: q ? `نتایج جست‌وجو برای «${q}»` : 'جست‌وجو', excerpt: q ? `${num(totalAll)}${more} نتیجه` : '', url: href(data.type) }}>
       <div className={`container ${styles.page}`}>
         <header className={`${styles.hero} ${q ? styles.compactHero : ''}`}>
           <div className={styles.intro}>
@@ -163,6 +165,7 @@ export default async function SearchPage({ searchParams }: Props) {
           </nav>
         )}
       </div>
+      </ThemeFrame>
     </MediaShell>
   )
 }

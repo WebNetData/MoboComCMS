@@ -55,7 +55,7 @@ export async function introducesScripts(pageId: string, doc: BuilderDoc): Promis
 }
 
 export function permFor(pageId: string): Permission {
-  const template = /^tpl-(header|footer|page|post|product|surface)-/.exec(pageId)
+  const template = /^tpl-(header|footer|page|post|product|archive|search|notfound|surface)-/.exec(pageId)
   if (template) {
     if (template[1] === 'surface') return 'settings.manage'
     if (template[1] === 'post') return 'cms.posts'

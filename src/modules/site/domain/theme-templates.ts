@@ -14,7 +14,7 @@
 
 import { isBuilderSurface, surfaceCondition, currentSurfaceScore, type BuilderSurface } from './builder-surfaces'
 
-export const THEME_TEMPLATE_TYPES = ['header', 'footer', 'page', 'single-post', 'single-product', 'surface'] as const
+export const THEME_TEMPLATE_TYPES = ['header', 'footer', 'page', 'single-post', 'single-product', 'archive', 'search', 'not-found', 'surface'] as const
 export type ThemeTemplateType = typeof THEME_TEMPLATE_TYPES[number]
 
 /** Short id fragment used in page ids: tpl-<code>-<suffix>. */
@@ -25,6 +25,9 @@ export const TYPE_CODE: Record<ThemeTemplateType, string> = {
   page: 'page',
   'single-post': 'post',
   'single-product': 'product',
+  archive: 'archive',
+  search: 'search',
+  'not-found': 'notfound',
 }
 const CODE_TYPE = Object.fromEntries(Object.entries(TYPE_CODE).map(([type, code]) => [code, type])) as Record<string, ThemeTemplateType>
 
@@ -35,9 +38,12 @@ export const THEME_TYPE_LABELS: Record<ThemeTemplateType, { fa: string; en: stri
   page: { fa: 'صفحه', en: 'Page', descFa: 'صفحهٔ آزاد: صفحه اصلی، صفحه اصلی مجله، فروشگاه یا یک بخش با آدرس کوتاه (مثل ‎/gaming).', descEn: 'Free page: home, journal landing, shop landing or a section at a short URL (e.g. /gaming).' },
   'single-post': { fa: 'قالب پست', en: 'Single post', descFa: 'چیدمان صفحهٔ مقاله؛ مثلاً برای مجله، فیلم، موزیک یا گیمینگ.', descEn: 'Article page layout — e.g. for news, film, music or gaming.' },
   'single-product': { fa: 'قالب محصول', en: 'Single product', descFa: 'چیدمان صفحهٔ محصول؛ مجزا برای محصولات مجازی، فیزیکی یا هر دسته.', descEn: 'Product page layout — per digital/physical kind or category.' },
+  archive: { fa: 'قالب آرشیو', en: 'Archive', descFa: 'صفحهٔ فهرست مجله یا فروشگاه و صفحهٔ هر دسته؛ فهرست واقعی با بلوک «محتوای اصلی همین بخش» نمایش داده می‌شود.', descEn: 'Journal or shop listing and category pages; the real list renders in the “current content” block.' },
+  search: { fa: 'قالب نتایج جست‌وجو', en: 'Search results', descFa: 'چیدمان صفحهٔ جست‌وجو؛ نتایج و فیلترهای واقعی در بلوک «محتوای اصلی همین بخش».', descEn: 'Search page layout; the real results and filters render in the “current content” block.' },
+  'not-found': { fa: 'قالب صفحهٔ ۴۰۴', en: 'Not found (404)', descFa: 'صفحه‌ای که برای نشانی پیدانشده دیده می‌شود؛ پیام و جست‌وجوی اصلی در بلوک «محتوای اصلی همین بخش».', descEn: 'Shown for missing addresses; the original message and search render in the “current content” block.' },
 }
 
-export const TEMPLATE_PAGE_ID = /^tpl-(header|footer|page|post|product|surface)-[a-z0-9]{4,24}$/
+export const TEMPLATE_PAGE_ID = /^tpl-(header|footer|page|post|product|archive|search|notfound|surface)-[a-z0-9]{4,24}$/
 
 export function templateTypeOf(pageId: string): ThemeTemplateType | null {
   const match = TEMPLATE_PAGE_ID.exec(pageId)
@@ -68,12 +74,17 @@ export function targetAllowed(type: ThemeTemplateType, target: string): boolean 
   if (type === 'single-post') return target === 'all' || target === 'posts' || target.startsWith('post-category:') || target.startsWith('post-id:')
   if (type === 'single-product') return target === 'all' || target === 'products' || target.startsWith('product-category:') || target.startsWith('product-kind:') || target.startsWith('product-id:')
   if (type === 'page') return false
+  if (type === 'archive') return target === 'all' || target === 'blog' || target === 'shop' || target.startsWith('post-category:') || target.startsWith('product-category:')
+  if (type === 'search' || type === 'not-found') return target === 'all'
   return true
 }
 
 /** What is being rendered — used to pick header/footer/single templates. */
 export type RenderContext = {
-  route: 'home' | 'blog' | 'shop' | 'page' | 'section' | 'post' | 'product' | 'surface' | 'other'
+  route: 'home' | 'blog' | 'shop' | 'page' | 'section' | 'post' | 'product' | 'surface' | 'archive' | 'search' | 'not-found' | 'other'
+  /** For an archive: what it lists and the category being listed (with its ancestors). */
+  archiveOf?: 'posts' | 'products'
+  archiveCategoryIds?: number[]
   surface?: BuilderSurface
   entryId?: number
   postId?: number
@@ -89,6 +100,16 @@ export type RenderContext = {
 /** 0 = no match; higher = more specific. */
 export function targetScore(target: string, ctx: RenderContext): number {
   if (ctx.route === 'surface') return currentSurfaceScore(target, ctx.entryId)
+  if (ctx.route === 'archive') {
+    if (target === 'all') return 1
+    if (target === 'blog') return ctx.archiveOf === 'posts' ? 3 : 0
+    if (target === 'shop') return ctx.archiveOf === 'products' ? 3 : 0
+    const [kind, value] = target.split(':')
+    if (kind === 'post-category') return ctx.archiveOf === 'posts' && (ctx.archiveCategoryIds || []).includes(Number(value)) ? 4 : 0
+    if (kind === 'product-category') return ctx.archiveOf === 'products' && (ctx.archiveCategoryIds || []).includes(Number(value)) ? 4 : 0
+    return 0
+  }
+  if (ctx.route === 'search' || ctx.route === 'not-found') return target === 'all' ? 1 : 0
   if (target.startsWith('post-id:')) return ctx.route === 'post' && ctx.postId === Number(target.slice(8)) ? 7 : 0
   if (target.startsWith('product-id:')) return ctx.route === 'product' && ctx.productId === Number(target.slice(11)) ? 7 : 0
   if (target === 'all') return 1

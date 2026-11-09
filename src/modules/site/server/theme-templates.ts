@@ -44,7 +44,7 @@ export function defaultConditions(type: ThemeTemplateType) {
   if (type === 'single-post') return [{ mode: 'include', target: 'posts' }]
   if (type === 'single-product') return [{ mode: 'include', target: 'products' }]
   if (type === 'surface') return [{ mode: 'include', target: 'all' }]
-  if (type === 'header' || type === 'footer') return [{ mode: 'include', target: 'all' }]
+  if (type === 'header' || type === 'footer' || type === 'archive' || type === 'search' || type === 'not-found') return [{ mode: 'include', target: 'all' }]
   return []
 }
 
