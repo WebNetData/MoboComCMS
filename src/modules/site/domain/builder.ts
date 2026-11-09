@@ -16,6 +16,7 @@ export const WIDGET_TYPES = [
   'slides',
   'accordion',
   'flip-box', 'animated-headline', 'before-after', 'timeline', 'team', 'logos', 'marquee', 'steps', 'comparison', 'video-box', 'alert', 'rating',
+  'component',
 ] as const
 export type WidgetType = typeof WIDGET_TYPES[number]
 
@@ -142,6 +143,7 @@ export const WIDGET_LABELS: Record<WidgetType, { fa: string; en: string }> = {
   'video-box': { fa: 'ویدیو با پنجرهٔ بازشو', en: 'Video lightbox' },
   alert: { fa: 'جعبهٔ اعلان', en: 'Notice' },
   rating: { fa: 'امتیاز ستاره‌ای', en: 'Star rating' },
+  component: { fa: 'کامپوننت اختصاصی', en: 'Custom component' },
 }
 
 const string = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
@@ -188,6 +190,7 @@ const WIDGET_PROPS: Record<WidgetType, Record<string, PropRule>> = {
   faq: { items: { json: 24 }, title: TEXT(300), titleEn: TEXT(300) },
   html: { html: TEXT(60000), css: TEXT(40000), js: TEXT(30000), advanced: { enum: ['', '1'] } },
   template: { templateId: { max: 80 } },
+  component: { componentId: { max: 20 }, values: TEXT(20000) },
   hero: {
     eyebrow: TEXT(140), eyebrowEn: TEXT(140), title: TEXT(400), titleEn: TEXT(400), text: TEXT(2000), textEn: TEXT(2000),
     src: { url: 'image' }, alt: TEXT(160), label: TEXT(100), labelEn: TEXT(100), href: { url: 'link' }, secondaryLabel: TEXT(100), secondaryLabelEn: TEXT(100), secondaryHref: { url: 'link' },

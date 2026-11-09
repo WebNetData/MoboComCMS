@@ -83,7 +83,7 @@ export function renderComponentHtml(def: ComponentDef, values: Record<string, st
 export const componentClass = (id: string) => COMPONENT_ID.test(id) ? id : ''
 /** `selector` is the component's root; braces must balance or no CSS is written. */
 export function componentCss(def: ComponentDef) {
-  const css = def.css.replace(/<\/?style/gi, '').replace(/@import[^;{]*;?/gi, '').trim()
+  const css = def.css.replace(/</g, '').replace(/@import[^;{]*;?/gi, '').replace(/expression\s*\(/gi, '').replace(/(?:java|vb)script\s*:/gi, '').trim()
   if (!css) return ''
   let depth = 0
   for (const c of css) { if (c === '{') depth++; else if (c === '}' && --depth < 0) return '' }

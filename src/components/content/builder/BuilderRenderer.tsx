@@ -35,6 +35,10 @@ import BuilderSlides from '@/components/content/builder/BuilderSlides'
 import { getBuilderKit } from '@/modules/site/server/builder-kit'
 import { kitCss } from '@/modules/site/domain/builder-kit'
 import { AnimatedWords, BeforeAfter, VideoBox } from '@/components/content/builder/BuilderBlocks'
+import ComponentScript from '@/components/content/builder/ComponentScript'
+import { componentCss, componentScript, componentValues, renderComponentHtml, type ComponentDef } from '@/modules/site/domain/components'
+import { componentsForRender } from '@/modules/site/server/components'
+import { getSiteConfig } from '@/modules/site/config/store'
 
 export type BuilderLocale = 'fa' | 'en'
 
@@ -54,6 +58,9 @@ type Ctx = {
   landing: LandingData | null
   templates: Map<string, BuilderDoc> | null
   depth: number
+  /** The site's custom components and brand, loaded only when the page places a component. */
+  components?: Map<string, ComponentDef>
+  brand?: string
   values?: BuilderValues
   slots?: BuilderSlots
   nav?: PublicNavigationPage[] | null
@@ -423,6 +430,17 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
       if (props.advanced === '1') return frame(widget, ctx, <AdvancedCode html={props.html || ''} css={props.css || ''} js={props.js || ''} className="br-rich" />)
       return frame(widget, ctx, <div className="br-rich" dangerouslySetInnerHTML={{ __html: cleanWidgetHtml(props.html) }} />, 'br-plain')
     }
+    case 'component': {
+      const def = ctx.components?.get(props.componentId || '')
+      if (!def) return ctx.preview ? <div className="br-widget muted" data-bid={ctx.nested ? undefined : widget.id}>{locale === 'fa' ? 'کامپوننت انتخاب نشده یا حذف شده است' : 'Component not found'}</div> : null
+      const instance = `${def.id}-${widget.id}`.replace(/[^a-zA-Z0-9_-]/g, '')
+      const css = componentCss(def), script = componentScript(def, instance)
+      return frame(widget, ctx, <>
+        {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
+        <div className={`cc-root ${def.id}`} data-cc-instance={instance} dangerouslySetInnerHTML={{ __html: renderComponentHtml(def, componentValues(def, props.values), { brand: ctx.brand || '', locale }) }} />
+        {script && <ComponentScript code={script} />}
+      </>)
+    }
     case 'template': {
       const doc = ctx.templates?.get(props.templateId || '')
       if (!doc || ctx.depth >= 3) return ctx.preview ? <div className="br-widget muted" data-bid={ctx.nested ? undefined : widget.id}>{locale === 'fa' ? 'قالب پیدا نشد' : 'Template not found'}</div> : null
@@ -650,7 +668,10 @@ export default async function BuilderRenderer({ doc: storedDoc, locale, data, sl
       ])
     : null
   const widgets = collectWidgets(doc, templates)
-  const needsData = widgets.some((widget) => DYNAMIC.has(widget.type))
+  const [components, brand] = widgets.some((widget) => widget.type === 'component')
+    ? await Promise.all([componentsForRender(), getSiteConfig().then((site) => site.brand).catch(() => '')])
+    : [undefined, undefined]
+  const needsData =widgets.some((widget) => DYNAMIC.has(widget.type))
   const needsNav = widgets.some((widget) => widget.type === 'nav' || widget.type === 'site-header' || widget.type === 'site-footer')
   const needsTheme = widgets.some((widget) => widget.type === 'site-header')
 
@@ -674,7 +695,7 @@ export default async function BuilderRenderer({ doc: storedDoc, locale, data, sl
   ])
 
   const ctx: Ctx = {
-    locale, landing, templates, depth: 0, slots, values, nav: navPages, preview, nested: !editable, context,
+    locale, landing, templates, components, brand, depth: 0, slots, values, nav: navPages, preview, nested: !editable, context,
     posts: new Map(postResults), products: new Map(productResults), media: new Map(mediaResults), theme: String(theme || 'dark'), modules,
   }
   return <div className="br-doc">{kit && <style>{kit}</style>}{doc.sections.map((section, index) => renderSection(section, ctx, section.id || String(index)))}</div>
