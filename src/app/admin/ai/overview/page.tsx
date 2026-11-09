@@ -15,6 +15,7 @@ const ABOUT: Record<string, [string, string]> = {
   '/admin/ai/operations': ['کارهای پنل را بخواهید؛ دستیار برنامه را پیشنهاد می‌کند و فقط پس از تأیید شما اجرا می‌شود.', 'Ask for Admin work; the assistant proposes a plan and runs only after you confirm.'],
   '/admin/ai/production': ['تولید گروهی متن و تصویر برای مطالب و محصولات با صف و بازبینی.', 'Batch text and image generation for posts and products, queued and reviewed.'],
   '/admin/ai?tab=settings': ['سرویس پیش‌فرض، کلیدها، مسیریابی هر کاربرد و اتصال شخصی مدیر.', 'Default provider, keys, per-purpose routing and personal connections.'],
+  '/admin/ai/site-operations': ['خطاهای پرتکرار، علت احتمالی با شواهد و اقدام از مسیر مجاز؛ رفع در محیط جدا با PR.', 'Recurring errors, probable cause with evidence and allowed next steps.'],
   '/admin/ai/monitoring': ['وضعیت درخواست‌ها، خطاها، مصرف گزارش‌شده و کیفیت پاسخ‌های پشتیبانی.', 'Requests, errors, reported usage and support answer quality.'],
 }
 
