@@ -50,6 +50,7 @@ npm run package:zip -- docs/packages/examples/promo-banner
 - هر فایل slot/page می‌تواند یک رشته باشد یا `{ "fa": …, "en": … }`.
 - `pages[].nav: true` صفحه را به منوی اصلی اضافه می‌کند.
 - `settings` (نوع `text` یا `textarea`) در کارت افزونه قابل ویرایش است و در HTML با `{{settings.key}}` استفاده می‌شود.
+- `components` کامپوننت صفحه‌ساز تعریف می‌کند: `name` (kebab-case)، `title: { fa, en }`، `category` و `description` اختیاری، `template` (فایل .html یا `{ fa, en }`)، `style` (فایل .css؛ `selector` یعنی ریشهٔ کامپوننت) و `fields` با نوع‌های text، textarea، color، number، url، image، select و toggle. در قالب با `{{field.key}}` و برای نمایش شرطی با `{{#field.key}}…{{/field.key}}` استفاده کنید. کامپوننت افزونه جاوااسکریپت ندارد، مقدار فیلدها ایمن‌سازی می‌شود و خروجی از همان پاک‌ساز HTML افزونه‌ها می‌گذرد. نمونه: `docs/packages/examples/promo-banner`.
 
 ### قالب
 
