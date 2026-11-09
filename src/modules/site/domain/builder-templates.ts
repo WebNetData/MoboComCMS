@@ -678,30 +678,30 @@ export const PAGE_TEMPLATES: BundledTemplate[] = [
   ...LANDING_PAGE_TEMPLATES,
 ]
 
-/** Starting points for templates that frame an owner page: a heading from live values, then the real content. */
+/** Starting points for templates that frame an owner page: the real content first, then something it lacks. */
 export const OWNER_FRAME_PRESETS: Record<'archive' | 'search' | 'not-found', BundledTemplate[]> = {
   archive: [{
-    id: 'archive-heading', fa: 'تیتر آرشیو و فهرست', en: 'Archive heading and list',
-    descFa: 'نام دسته یا فهرست و تعداد، سپس همان فهرست واقعی مجله یا فروشگاه', descEn: 'Category or listing name and count, then the real list',
+    id: 'archive-newsletter', fa: 'فهرست + دعوت به خبرنامه', en: 'List + newsletter call',
+    descFa: 'فهرست واقعی مجله یا فروشگاه، سپس کادر عضویت در خبرنامه؛ تیتر و تعداد را با بلوک «دادهٔ پویا» هم می‌توانید بگذارید.', descEn: 'The real list, then a newsletter call; add the title or count with the dynamic value block.',
     doc: doc([
-      sec([col([w('dynamic-value', { field: 'title', as: 'h1', fallback: 'آرشیو' }), w('dynamic-value', { field: 'excerpt', as: 'p', fallback: '' })])], { paddingY: 40 }),
       sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+      sec([col([w('cta', { title: 'تازه‌ها را از دست ندهید', titleEn: 'Never miss what is new', text: 'هر هفته بهترین مطالب و پیشنهادها را در ایمیل خود بگیرید.', textEn: 'Get the best stories and offers in your inbox every week.', label: 'عضویت در خبرنامه', labelEn: 'Join the newsletter', href: '/newsletter' })])], { paddingY: 40 }),
     ]),
   }],
   search: [{
-    id: 'search-heading', fa: 'تیتر جست‌وجو و نتایج', en: 'Search heading and results',
-    descFa: 'عبارت جست‌وجو و تعداد نتایج، سپس نتایج و فیلترهای واقعی', descEn: 'Query and result count, then the real results and filters',
+    id: 'search-help', fa: 'نتایج + راهنمای پیدا کردن', en: 'Results + help',
+    descFa: 'نتایج و فیلترهای واقعی، سپس راهی برای وقتی که چیزی پیدا نشد.', descEn: 'The real results and filters, then a way forward when nothing fits.',
     doc: doc([
-      sec([col([w('dynamic-value', { field: 'title', as: 'h1', fallback: 'جست‌وجو' }), w('dynamic-value', { field: 'excerpt', as: 'p', fallback: '' })])], { paddingY: 40 }),
       sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+      sec([col([w('cta', { title: 'چیزی که می‌خواستید را پیدا نکردید؟', titleEn: 'Did not find it?', text: 'تازه‌ترین مطالب مجله و پیشنهادهای فروشگاه را ببینید.', textEn: 'Browse the latest stories and shop picks.', label: 'مرور مجله', labelEn: 'Browse the journal', href: '/blog' })])], { paddingY: 40 }),
     ]),
   }],
   'not-found': [{
-    id: 'not-found-friendly', fa: 'صفحهٔ ۴۰۴ دوستانه', en: 'Friendly 404',
-    descFa: 'پیام کوتاه و دکمهٔ خانه، سپس پیام و جست‌وجوی اصلی', descEn: 'A short note and a home button, then the original message and search',
+    id: 'not-found-latest', fa: 'پیام ۴۰۴ + تازه‌ترین مطالب', en: '404 + latest stories',
+    descFa: 'پیام و جست‌وجوی اصلی، سپس تازه‌ترین مطالب مجله تا بازدیدکننده راه تازه‌ای پیدا کند.', descEn: 'The original message and search, then the latest stories as a way forward.',
     doc: doc([
-      sec([col([w('heading', { text: 'این صفحه پیدا نشد', textEn: 'This page was not found' }), w('button', { label: 'بازگشت به خانه', labelEn: 'Back home', href: '/', variant: 'primary' })])], { paddingY: 40 }),
       sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+      sec([col([w('posts', { title: 'شاید این‌ها را بخواهید', titleEn: 'You might like', limit: '3' })])], { paddingY: 32 }),
     ]),
   }],
 }
