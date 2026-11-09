@@ -20,6 +20,7 @@ export interface QualityMatch { title: string; href: string; score: number; kind
 export interface QualityReport { profile: QualityProfile; level: QualityLevel; findings: QualityFinding[]; matches: QualityMatch[]; checkedAt: string; areas: Record<QualityArea, QualityLevel> }
 
 const DIGITS: Record<string, string> = { '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9', '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4', '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9' }
+export const faDigits = (value: string | number) => String(value).replace(/d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
 export const normalize = (value: string) => value.normalize('NFKC').replace(/[۰-۹٠-٩]/g, d => DIGITS[d]).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[ً-ٰٟ]/g, '').replace(/‌/g, ' ').toLocaleLowerCase()
 const STOP = new Set('و در به از که این آن با برای را تا یا هم نیز است هست بود شود شد می کند کرد های ها یک بر چه چرا چگونه چطور همه بین روی پس اگر اما ولی the a an and or of to in for on with is are how what why best'.split(' '))
 export const tokens = (value: string) => new Set(normalize(value).split(/[^\p{L}\p{N}]+/u).filter(t => t.length > 1 && !STOP.has(t)))
@@ -58,7 +59,7 @@ const sourceText = ({ seed, config }: QualityInput) => [seed.topic, seed.facts, 
 export function textChecks(input: QualityInput): QualityFinding[] {
   const { output, config, kind } = input, profile = qualityProfileOf(kind, config), findings: QualityFinding[] = []
   const source = sourceText(input), sourceNumbers = new Set(numbersIn(source)), inSource = (pattern: RegExp) => has(pattern, source)
-  const parts = [{ label: 'عنوان', text: output.title }, { label: 'خلاصه', text: output.excerpt }, ...output.sections.map((s, i) => ({ label: `بخش ${i + 1}${s.heading ? ` «${clip(s.heading, 40)}»` : ''}`, text: `${s.heading}\n${s.text}` }))]
+  const parts = [{ label: 'عنوان', text: output.title }, { label: 'خلاصه', text: output.excerpt }, ...output.sections.map((s, i) => ({ label: `بخش ${faDigits(i + 1)}${s.heading ? ` «${clip(s.heading, 40)}»` : ''}`, text: `${s.heading}\n${s.text}` }))]
   const strict = profile === 'product' || profile === 'page'
   const seen = new Set<string>()
   const add = (finding: QualityFinding) => { const key = finding.area + finding.title + finding.evidence; if (!seen.has(key)) { seen.add(key); findings.push(finding) } }
@@ -66,7 +67,7 @@ export function textChecks(input: QualityInput): QualityFinding[] {
   for (const part of parts) for (const sentence of sentences(part.text)) {
     const percent = /[%٪]|درصد|percent/.test(normalize(sentence))
     const unsupported = numbersIn(sentence).filter(n => (n.length > 1 || percent) && !sourceNumbers.has(n) && !YEAR.test(n))
-    if (unsupported.length) add({ area: 'claims', level: strict ? 'block' : 'warn', title: 'عدد یا آماری که در اطلاعات شما نیست', detail: `${part.label}: ${unsupported.slice(0, 3).join('، ')} — منبع بدهید یا حذفش کنید.`, evidence: clip(sentence) })
+    if (unsupported.length) add({ area: 'claims', level: strict ? 'block' : 'warn', title: 'عدد یا آماری که در اطلاعات شما نیست', detail: `${part.label}: ${unsupported.slice(0, 3).map(faDigits).join('، ')} — منبع بدهید یا حذفش کنید.`, evidence: clip(sentence) })
     else if (numbersIn(sentence).some(n => YEAR.test(n) && !sourceNumbers.has(n))) add({ area: 'claims', level: 'warn', title: 'سال یا تاریخ بدون منبع', detail: `${part.label}: تاریخ را با منبع تطبیق دهید.`, evidence: clip(sentence) })
     if (has(CLAIMS, sentence) && !has(CLAIMS, source)) add({ area: 'claims', level: 'warn', title: 'ادعایی که منبع می‌خواهد', detail: `${part.label}: ادعای کلی، رتبه یا نتیجهٔ پژوهش بدون منبع.`, evidence: clip(sentence) })
     if (has(EXPERIENCE, sentence) && !inSource(EXPERIENCE)) add({ area: 'profile', level: 'block', title: 'تجربهٔ شخصی ساختگی', detail: `${part.label}: متن از تست یا تجربه‌ای می‌گوید که در اطلاعات شما نیست.`, evidence: clip(sentence) })
@@ -96,7 +97,7 @@ export function textChecks(input: QualityInput): QualityFinding[] {
 
   const expected = [...(config.cover ? [0] : []), ...Array.from({ length: config.inline }, (_, i) => i + 1)]
   for (const index of expected) {
-    const image = input.images.find(x => x.index === index), name = index === 0 ? 'تصویر شاخص' : `تصویر داخلی ${index}`
+    const image = input.images.find(x => x.index === index), name = index === 0 ? 'تصویر شاخص' : `تصویر داخلی ${faDigits(index)}`
     if (!image) { add({ area: 'images', level: 'block', title: `${name} ساخته نشده`, detail: 'تصاویر انتخاب‌شده کامل نیست.' }); continue }
     if (normalize(image.alt).trim().length < 5) add({ area: 'images', level: 'warn', title: `توضیح جایگزین ${name}`, detail: 'برای دسترس‌پذیری و سئو توضیح کوتاهی از تصویر لازم است.' })
     const section = index === 0 ? `${output.title} ${output.excerpt} ${output.coverPrompt}` : (() => { const s = output.sections[(index - 1) % output.sections.length]; return `${s.heading} ${s.text} ${s.imagePrompt}` })()

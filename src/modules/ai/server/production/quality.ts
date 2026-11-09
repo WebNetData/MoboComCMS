@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { toInternalPath } from '@/platform/routing/aliases'
 import { ProductionError, type ProductionKind } from '../../domain/production'
-import { linksIn, qualityProfileOf, searchWords, similarity, summarize, textChecks, type QualityFinding, type QualityMatch, type QualityReport } from '../../domain/production-quality'
+import { faDigits, linksIn, qualityProfileOf, searchWords, similarity, summarize, textChecks, type QualityFinding, type QualityMatch, type QualityReport } from '../../domain/production-quality'
 import { owned, configOf, outputOf, imagesOf, seedOf, type Batch } from './store'
 
 type Item = Batch['items'][number]
@@ -52,7 +52,7 @@ export async function itemQuality(batch: Batch, item: Item): Promise<QualityRepo
   const matches = await similar(kind, batch, item)
   for (const match of matches) {
     const inBatch = match.kind === 'batch'
-    findings.push({ area: 'similar', level: match.score >= 0.75 && !inBatch ? 'block' : 'warn', title: inBatch ? 'ردیف مشابه در همین دسته' : match.score >= 0.75 ? 'مطلب بسیار مشابه در سایت' : 'مطلب مشابه در سایت', detail: `${Math.round(match.score * 100)}٪ هم‌پوشانی عنوان؛ تکراری بودن یا رقابت با محتوای موجود را بررسی کنید.`, evidence: match.title })
+    findings.push({ area: 'similar', level: match.score >= 0.75 && !inBatch ? 'block' : 'warn', title: inBatch ? 'ردیف مشابه در همین دسته' : match.score >= 0.75 ? 'مطلب بسیار مشابه در سایت' : 'مطلب مشابه در سایت', detail: `${faDigits(Math.round(match.score * 100))}٪ هم‌پوشانی عنوان؛ تکراری بودن یا رقابت با محتوای موجود را بررسی کنید.`, evidence: match.title })
   }
   findings.push(...await links(item))
   return summarize(qualityProfileOf(kind, config), findings, matches)
