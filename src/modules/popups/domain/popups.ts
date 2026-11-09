@@ -12,6 +12,7 @@ export const POPUP_DESIGNS = [
   { id: 'cover', label: 'تصویر بالا', hint: 'تصویر تمام‌عرض بالای متن' },
   { id: 'split', label: 'دو ستونه', hint: 'تصویر کنار متن' },
   { id: 'spotlight', label: 'زمینهٔ رنگی', hint: 'پنجرهٔ تمام‌رنگ با متن روشن' },
+  { id: 'builder', label: 'طراحی با صفحه‌ساز', hint: 'یک قالب ذخیره‌شدهٔ صفحه‌ساز داخل پنجره' },
 ] as const
 export const POPUP_EFFECTS = [
   { id: 'rise', label: 'بالا آمدن' },
@@ -48,11 +49,16 @@ export type PopupAudience = (typeof POPUP_AUDIENCES)[number]['id']
 
 export type PopupInput = {
   title: string; body: string; kind: string; design: string; effect: string; position: string; image: string
+  /** Saved builder template shown inside the popup when the design is `builder`. */
+  templateId: string
   actionLabel: string; actionUrl: string; closeLabel: string; mustConfirm: boolean
   status: PopupStatus; startsAt: Date | null; endsAt: Date | null
   audience: PopupAudience; groupIds: string[]; sections: string[]
   repeatHours: number; maxViews: number; delaySeconds: number; pages: string; priority: number
 }
+
+/** Where a builder-designed popup's content is served; it rechecks who may see the popup. */
+export const popupDesignPath = (id: number, revision: number) => `/popup-design/${id}?r=${revision}`
 
 /** The face of a popup, as the visitor's browser receives it. */
 export type PopupFace = Pick<PopupInput, 'title' | 'body' | 'kind' | 'design' | 'effect' | 'position' | 'image' | 'actionLabel' | 'actionUrl' | 'closeLabel' | 'mustConfirm'>
@@ -102,9 +108,11 @@ export function normalizePopup(raw: Record<string, unknown>, sectionIds: readonl
   if (Boolean(actionUrl) !== Boolean(actionLabel)) throw new PopupError('برای دکمه هم متن و هم نشانی لازم است')
   const design = oneOf(raw.design, POPUP_DESIGNS, 'seal'), image = safeImage(raw.image)
   if ((design === 'cover' || design === 'split') && !image) throw new PopupError('این طرح به تصویر نیاز دارد')
+  const templateId = design === 'builder' ? line(raw.templateId, 80) : ''
+  if (design === 'builder' && !/^[a-zA-Z0-9_-]{1,80}$/.test(templateId)) throw new PopupError('قالب صفحه‌ساز را انتخاب کنید')
   return {
     title, body, kind: oneOf(raw.kind, POPUP_KINDS, 'NOTICE'), design, effect: oneOf(raw.effect, POPUP_EFFECTS, 'rise'), position: oneOf(raw.position, POPUP_POSITIONS, 'center'),
-    image, actionLabel, actionUrl, closeLabel: line(raw.closeLabel, 40), mustConfirm: raw.mustConfirm === true,
+    image, templateId, actionLabel, actionUrl, closeLabel: line(raw.closeLabel, 40), mustConfirm: raw.mustConfirm === true,
     status: (POPUP_STATUSES as readonly string[]).includes(String(raw.status)) ? raw.status as PopupStatus : 'DRAFT',
     startsAt, endsAt, audience, groupIds, sections,
     repeatHours: count(raw.repeatHours, 0, 8760), maxViews: count(raw.maxViews, 0, 100000), delaySeconds: count(raw.delaySeconds, 0, 120),

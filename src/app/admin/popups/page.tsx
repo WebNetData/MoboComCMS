@@ -10,12 +10,12 @@ import { Notice, fa, send, useJson } from '../store/shared'
 import './popups.css'
 
 type Draft = {
-  id?: number; title: string; body: string; kind: string; design: string; effect: string; position: string; image: string
+  id?: number; title: string; body: string; kind: string; design: string; effect: string; position: string; image: string; templateId?: string
   actionLabel: string; actionUrl: string; closeLabel: string; mustConfirm: boolean; status: string; startsAt: string; endsAt: string
   audience: string; groupIds: string[]; sections: string[]; repeatHours: number; maxViews: number; delaySeconds: number; pages: string; priority: number
 }
 type Row = Draft & { id: number; startsAt: string | null; endsAt: string | null; guestViews: number; memberViews: number; people: number; clicks: number }
-type Data = { popups: Row[]; groups: SiteGroup[]; sections: { id: string; label: string }[] }
+type Data = { popups: Row[]; groups: SiteGroup[]; sections: { id: string; label: string }[]; templates?: { id: string; name: string }[] }
 
 const EMPTY: Draft = { title: '', body: '', kind: 'NOTICE', design: 'seal', effect: 'rise', position: 'center', image: '', actionLabel: '', actionUrl: '', closeLabel: '', mustConfirm: false, status: 'DRAFT', startsAt: '', endsAt: '', audience: 'ALL', groupIds: [], sections: [], repeatHours: 24, maxViews: 0, delaySeconds: 2, pages: '', priority: 0 }
 const TONE: Record<string, string> = { ACTIVE: 'is-ok', PAUSED: 'is-info', DRAFT: '' }
@@ -90,6 +90,7 @@ export default function PopupsPage() {
           <Choice legend="نوع پیام" options={POPUP_KINDS} value={draft.kind} onChange={(kind) => fix({ kind })} />
           <Choice legend="طرح" options={POPUP_DESIGNS} value={draft.design} onChange={(design) => fix({ design })} />
           {(draft.design === 'cover' || draft.design === 'split') && <ImageField label="تصویر *" value={draft.image} onChange={(image) => fix({ image })} />}
+          {draft.design === 'builder' && <label className="field"><span>قالب صفحه‌ساز *</span><select className="select" value={draft.templateId || ''} onChange={(event) => fix({ templateId: event.target.value })}><option value="">انتخاب کنید…</option>{(data?.templates || []).map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select><small className="muted">{(data?.templates || []).length ? 'هر طراحی‌ای را که در صفحه‌ساز «به‌عنوان قالب ذخیره» کرده‌اید می‌توانید داخل پنجره نشان دهید؛ عنوان پنجره فقط برای دسترس‌پذیری خوانده می‌شود.' : 'هنوز قالبی ذخیره نشده است؛ در صفحه‌ساز یک بخش یا صفحه را «به‌عنوان قالب ذخیره» کنید.'}</small></label>}
           <Choice legend="افکت ورود" options={POPUP_EFFECTS} value={draft.effect} onChange={(effect) => fix({ effect })} />
           <Choice legend="محل نمایش" options={POPUP_POSITIONS} value={draft.position} onChange={(position) => fix({ position })} />
         </section>

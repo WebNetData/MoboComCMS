@@ -4554,6 +4554,8 @@ model SitePopup {
   effect       String   @default("rise") // rise | zoom | drop | slide | flip
   position     String   @default("center") // center | bottom | corner
   image        String   @default("")
+  /// Saved builder template shown inside the popup when design is "builder".
+  templateId   String   @default("")
   actionLabel  String   @default("")
   actionUrl    String   @default("")
   closeLabel   String   @default("")

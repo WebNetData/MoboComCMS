@@ -8,7 +8,36 @@ import './site-popup.css'
 const LEAVE_MS = 180
 
 /** The popup itself, also drawn in the panel's live preview. */
-export function PopupBody({ popup, onClose, onAction }: { popup: PopupFace; onClose?: () => void; onAction?: () => void }) {
+/** A builder-designed popup: the saved design in a frame sized to its content; its links open in this window. */
+function PopupFrame({ src, title, onAction }: { src: string; title: string; onAction?: () => void }) {
+  const [height, setHeight] = useState(320)
+  const path = src.split('?')[0]
+  useEffect(() => {
+    const listen = (event: MessageEvent) => {
+      const m = event.data as { type?: string; path?: string; height?: number; href?: string } | null
+      if (event.origin !== window.location.origin || !m || m.path !== path) return
+      if (m.type === 'mobocom-popup-height' && typeof m.height === 'number') setHeight(Math.max(120, Math.min(m.height, Math.round(window.innerHeight * 0.8))))
+      if (m.type === 'mobocom-popup-navigate' && typeof m.href === 'string') {
+        const url = new URL(m.href, window.location.href)
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return
+        onAction?.()
+        if (url.origin === window.location.origin) window.location.assign(url.href); else window.open(url.href, '_blank', 'noopener,noreferrer')
+      }
+    }
+    window.addEventListener('message', listen)
+    return () => window.removeEventListener('message', listen)
+  }, [path, onAction])
+  return <iframe className="spp-frame" src={src} title={title} style={{ height }} loading="eager" />
+}
+
+export function PopupBody({ popup, onClose, onAction, frameSrc }: { popup: PopupFace; onClose?: () => void; onAction?: () => void; frameSrc?: string }) {
+  if (popup.design === 'builder') return <div className="spp-card spp-built">
+    {!popup.mustConfirm && <button type="button" className="spp-x" aria-label="بستن" onClick={onClose}><span aria-hidden="true">×</span></button>}
+    <h2 className="sr-only" id="spp-title">{popup.title}</h2>
+    {frameSrc ? <PopupFrame src={frameSrc} title={popup.title} onAction={onAction} /> : <p className="spp-note spp-frame-note">طراحی صفحه‌ساز پس از ذخیره و فعال‌سازی، همین‌جا داخل پنجره نمایش داده می‌شود.</p>}
+    {popup.mustConfirm && <div className="spp-actions"><button type="button" className="spp-go" onClick={onClose}>{popup.closeLabel || 'متوجه شدم'}</button></div>}
+  </div>
+
   const kind = POPUP_KINDS.find((item) => item.id === popup.kind) || POPUP_KINDS[0]
   const pictured = Boolean(popup.image) && (popup.design === 'cover' || popup.design === 'split')
   const external = /^https:/.test(popup.actionUrl)
@@ -31,7 +60,7 @@ export function PopupBody({ popup, onClose, onAction }: { popup: PopupFace; onCl
 }
 
 /** A native dialog: it holds focus, sits above everything, and leaves the page inert. A corner popup does not stop the page. */
-export default function PopupDialog({ popup, onClose, onAction }: { popup: PopupFace; onClose: () => void; onAction: () => void }) {
+export default function PopupDialog({ popup, onClose, onAction, frameSrc }: { popup: PopupFace; onClose: () => void; onAction: () => void; frameSrc?: string }) {
   const box = useRef<HTMLDialogElement>(null)
   const [leaving, setLeaving] = useState(false)
   const corner = popup.position === 'corner'
@@ -54,6 +83,6 @@ export default function PopupDialog({ popup, onClose, onAction }: { popup: Popup
     onCancel={(event) => { event.preventDefault(); if (!popup.mustConfirm) leave() }}
     onClick={(event) => { if (event.target === box.current && !popup.mustConfirm) leave() }}
   >
-    <PopupBody popup={popup} onClose={leave} onAction={onAction} />
+    <PopupBody popup={popup} onClose={leave} onAction={onAction} frameSrc={frameSrc} />
   </dialog>
 }

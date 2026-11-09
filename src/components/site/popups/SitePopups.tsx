@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { usePathname } from '@/platform/routing/navigation'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
-import { fitsPage, isDue, type PopupSeen, type ServedPopup } from '@/modules/popups/domain/popups'
+import { fitsPage, isDue, popupDesignPath, type PopupSeen, type ServedPopup } from '@/modules/popups/domain/popups'
 
 // The window and its styles load only when a popup is really shown, so a visit without one costs a single small request.
 const PopupDialog = dynamic(() => import('./PopupDialog'), { ssr: false })
@@ -35,7 +35,8 @@ export default function SitePopups() {
   const who = (session?.user as { id?: string } | undefined)?.id || 'guest'
 
   useEffect(() => {
-    if (!on || status === 'loading' || popup || !pathname) return
+    // The frame that shows a builder-designed popup never opens popups itself.
+    if (!on || status === 'loading' || popup || !pathname || pathname.startsWith('/popup-design/')) return
     let live = true, timer = 0
     const choose = (popups: ServedPopup[]) => {
       const now = Date.now()
@@ -67,5 +68,5 @@ export default function SitePopups() {
 
   const close = useCallback(() => setPopup(null), [])
   const act = useCallback(() => { if (popup) void send(popup.id, 'click') }, [popup])
-  return popup ? <PopupDialog popup={popup} onClose={close} onAction={act} /> : null
+  return popup ? <PopupDialog popup={popup} frameSrc={popup.design === 'builder' ? popupDesignPath(popup.id, popup.revision) : undefined} onClose={close} onAction={act} /> : null
 }

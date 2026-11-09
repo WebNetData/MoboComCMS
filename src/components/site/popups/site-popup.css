@@ -115,3 +115,10 @@ html[data-theme='dark'] .spp.is-offer { --spp-accent: #3fd0a4; --spp-on: #04261c
   .spp[open] .spp-card { animation: 160ms ease both spp-fade; }
   .spp[open].is-leaving .spp-card { animation: 120ms ease both spp-leave; }
 }
+
+/* A builder-designed popup: the frame carries the design; the card only frames it. */
+.spp-built { position: relative; padding: 0; overflow: hidden; }
+.spp-built .spp-x { z-index: 2; }
+.spp-frame { display: block; width: min(640px, 92vw); max-height: 80vh; border: 0; background: transparent; transition: height .2s ease; }
+.spp-frame-note { padding: 28px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .spp-frame { transition: none; } }
