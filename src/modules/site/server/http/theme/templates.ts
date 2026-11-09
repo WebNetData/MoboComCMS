@@ -11,7 +11,7 @@ import {
 import { THEME_TEMPLATE_TYPES, TYPE_CODE, validatePlacement, type ThemeTemplateType } from '@/modules/site/domain/theme-templates'
 import { SURFACE_PRESETS } from '@/modules/site/domain/builder-surface-presets'
 import { isBuilderSurface } from '@/modules/site/domain/builder-surfaces'
-import { POST_TEMPLATES, PRODUCT_TEMPLATES, THEME_PRESETS, type BundledTemplate } from '@/modules/site/domain/builder-templates'
+import { OWNER_FRAME_PRESETS, POST_TEMPLATES, PRODUCT_TEMPLATES, THEME_PRESETS, type BundledTemplate } from '@/modules/site/domain/builder-templates'
 
 const TYPE_PERMISSION = (type: ThemeTemplateType) => permFor(`tpl-${TYPE_CODE[type]}-xxxx`)
 
@@ -20,6 +20,7 @@ function presetsFor(type: ThemeTemplateType): BundledTemplate[] {
   if (type === 'single-post') return POST_TEMPLATES
   if (type === 'surface') return SURFACE_PRESETS
   if (type === 'single-product') return PRODUCT_TEMPLATES
+  if (type === 'archive' || type === 'search' || type === 'not-found') return OWNER_FRAME_PRESETS[type]
   return THEME_PRESETS[type]
 }
 

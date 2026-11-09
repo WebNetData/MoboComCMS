@@ -677,3 +677,31 @@ export const PAGE_TEMPLATES: BundledTemplate[] = [
   },
   ...LANDING_PAGE_TEMPLATES,
 ]
+
+/** Starting points for templates that frame an owner page: a heading from live values, then the real content. */
+export const OWNER_FRAME_PRESETS: Record<'archive' | 'search' | 'not-found', BundledTemplate[]> = {
+  archive: [{
+    id: 'archive-heading', fa: 'تیتر آرشیو و فهرست', en: 'Archive heading and list',
+    descFa: 'نام دسته یا فهرست و تعداد، سپس همان فهرست واقعی مجله یا فروشگاه', descEn: 'Category or listing name and count, then the real list',
+    doc: doc([
+      sec([col([w('dynamic-value', { field: 'title', as: 'h1', fallback: 'آرشیو' }), w('dynamic-value', { field: 'excerpt', as: 'p', fallback: '' })])], { paddingY: 40 }),
+      sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+    ]),
+  }],
+  search: [{
+    id: 'search-heading', fa: 'تیتر جست‌وجو و نتایج', en: 'Search heading and results',
+    descFa: 'عبارت جست‌وجو و تعداد نتایج، سپس نتایج و فیلترهای واقعی', descEn: 'Query and result count, then the real results and filters',
+    doc: doc([
+      sec([col([w('dynamic-value', { field: 'title', as: 'h1', fallback: 'جست‌وجو' }), w('dynamic-value', { field: 'excerpt', as: 'p', fallback: '' })])], { paddingY: 40 }),
+      sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+    ]),
+  }],
+  'not-found': [{
+    id: 'not-found-friendly', fa: 'صفحهٔ ۴۰۴ دوستانه', en: 'Friendly 404',
+    descFa: 'پیام کوتاه و دکمهٔ خانه، سپس پیام و جست‌وجوی اصلی', descEn: 'A short note and a home button, then the original message and search',
+    doc: doc([
+      sec([col([w('heading', { text: 'این صفحه پیدا نشد', textEn: 'This page was not found' }), w('button', { label: 'بازگشت به خانه', labelEn: 'Back home', href: '/', variant: 'primary' })])], { paddingY: 40 }),
+      sec([col([w('surface-content', {})])], { paddingY: 0, width: 'full' }),
+    ]),
+  }],
+}
