@@ -95,7 +95,7 @@ export default function SmartSalesPage() {
 
     {data?.incomplete && <section className={styles.section} aria-labelledby="sales-pending">
       <header><h2 id="sales-pending">سفارش‌های نیمه‌تمام</h2><Link href="/admin/orders?status=PENDING" className="btn btn-ghost btn-sm">همهٔ سفارش‌های معلق</Link></header>
-      <p className={styles.note}>{n(data.incomplete.count)} سفارش پرداخت‌نشده در ۷ روز اخیر (بیش از یک ساعت مانده) · {money(data.incomplete.value)}. پیگیری را خودتان انجام دهید؛ پیام تبلیغاتی فقط برای کسانی که رضایت داده‌اند. یادآوری خودکار سبد خرید از تنظیمات بازاریابی فروشگاه انجام می‌شود.</p>
+      <p className={styles.note}>{n(data.incomplete.count)} سفارش پرداخت‌نشده در ۷ روز اخیر (بیش از یک ساعت مانده){data.incomplete.count ? ` · ${money(data.incomplete.value)}` : ''}. پیگیری را خودتان انجام دهید؛ پیام تبلیغاتی فقط برای کسانی که رضایت داده‌اند. یادآوری خودکار سبد خرید از تنظیمات بازاریابی فروشگاه انجام می‌شود.</p>
       {data.incomplete.orders.length ? <ul className={styles.orders}>{data.incomplete.orders.map(o => <li key={o.id}>
         <div><b>#{n(o.id)} · {o.customer}</b><span>{o.items.join('، ')}</span></div>
         <span className={styles.meta}>{formatMoney(o.total, o.currency, 'fa-IR')} · {ago(o.createdAt)}</span>
