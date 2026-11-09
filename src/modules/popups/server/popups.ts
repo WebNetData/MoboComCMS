@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { listUserTemplates } from '@/modules/site/server/builder'
 import { logEvent } from '@/platform/observability/logger'
 import type { AuthedUser } from '@/modules/identity/server/access'
 import { sectionsOf, SITE_SECTIONS } from '@/modules/identity/domain/sections'
@@ -71,17 +72,27 @@ export async function recordClick(id: number, user: AuthedUser | null) {
   if (user) await db.sitePopupSeen.updateMany({ where: { popupId: id, userId: user.id }, data: { clicked: true } })
 }
 
+/** The builder template of a live builder popup this viewer is in the audience of; how often it shows stays with the browser/list. */
+export async function builderPopupDesign(user: AuthedUser | null, id: number, now = new Date()) {
+  const row = (await livePopups(now)).find((entry) => entry.id === id && entry.design === 'builder' && entry.templateId)
+  if (!row || !matchesAudience(ruleOf(row), await viewerOf(user, [row]))) return null
+  const template = (await listUserTemplates().catch(() => [])).find((entry) => entry.id === row.templateId)
+  return template ? { title: row.title, doc: template.doc } : null
+}
+
 // ------------------------------------------------------------------ admin
 
 export async function adminPopups() {
-  const [rows, totals, groups] = await Promise.all([
+  const [rows, totals, groups, templates] = await Promise.all([
     db.sitePopup.findMany({ orderBy: [{ updatedAt: 'desc' }] }),
     db.sitePopupSeen.groupBy({ by: ['popupId'], _sum: { views: true }, _count: { _all: true } }),
     siteGroupCatalog(),
+    listUserTemplates().catch(() => []),
   ])
   const sum = new Map(totals.map((row) => [row.popupId, row]))
   return {
     groups, sections: SITE_SECTIONS.map((section) => ({ id: section.id, label: section.label })),
+    templates: templates.map((template) => ({ id: template.id, name: template.name })),
     popups: rows.map((row) => ({
       ...row, groupIds: parseIds<string>(row.groupIds), sections: parseIds<string>(row.sections),
       memberViews: sum.get(row.id)?._sum.views ?? 0, people: sum.get(row.id)?._count._all ?? 0,
