@@ -26,6 +26,9 @@ const RULE_KINDS: Record<Exclude<ThemeTemplateType, 'page'>, string[]> = {
   footer: ['all', 'home', 'blog', 'shop', 'pages', 'sections', 'section', 'posts', 'post-category', 'products', 'product-kind', 'product-category'],
   'single-post': ['posts', 'post-category', 'post-id'],
   'single-product': ['products', 'product-kind', 'product-category', 'product-id'],
+  archive: ['all', 'blog', 'shop', 'post-category', 'product-category'],
+  search: ['all'],
+  'not-found': ['all'],
 }
 
 const KIND_LABEL = (L: L): Record<string, string> => ({
