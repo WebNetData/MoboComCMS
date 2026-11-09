@@ -126,7 +126,7 @@ export const CUSTOM_CSS_MAX = 8000
 /** Element CSS stays inside its own <style>: no tag can close it, and no import, script URL or legacy expression survives. */
 export function cleanCustomCss(value: unknown): string {
   if (typeof value !== 'string') return ''
-  return value.replace(/</g, '').replace(/@import[^;{]*;?/gi, '').replace(/expressions*(/gi, '').replace(/behaviors*:/gi, '').replace(/(?:java|vb)scripts*:/gi, '').replace(/-moz-binding/gi, '').trim().slice(0, CUSTOM_CSS_MAX)
+  return value.replace(/</g, '').replace(/@import[^;{]*;?/gi, '').replace(/expression\s*\(/gi, '').replace(/behavior\s*:/gi, '').replace(/(?:java|vb)script\s*:/gi, '').replace(/-moz-binding/gi, '').trim().slice(0, CUSTOM_CSS_MAX)
 }
 /** `selector` → this element; plain declarations are wrapped in its rule. Braces must balance or nothing is written. */
 export function customCssFor(sel: string, css: string | undefined): string {
@@ -135,7 +135,7 @@ export function customCssFor(sel: string, css: string | undefined): string {
   let depth = 0
   for (const c of clean) { if (c === '{') depth++; else if (c === '}' && --depth < 0) return '' }
   if (depth) return ''
-  return clean.includes('{') ? clean.replace(/selector/g, sel) : `${sel} { ${clean} }`
+  return clean.includes('{') ? clean.replace(/\bselector\b/g, sel) : `${sel} { ${clean} }`
 }
 export const styleClass = (id: string) => (/^[a-zA-Z0-9_-]{1,64}$/.test(id) ? `br-x-${id}` : '')
 
