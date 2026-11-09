@@ -3,3 +3,4 @@ export { productionList, productionCreate, productionRead, productionSettings } 
 export { productionCommand } from './production/commands'
 export { productionImage } from './production/images'
 export { productionGenerate } from './production/generate'
+export { productionQuality } from './production/quality'
