@@ -5,7 +5,9 @@ import { componentValues, type ComponentDef } from '@/modules/site/domain/compon
 
 type L = (en: string, fa: string) => string
 let library: Promise<ComponentDef[]> | null = null
-const loadLibrary = () => (library ||= fetch('/api/admin/components', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => d?.library?.components || []).catch(() => { library = null; return [] }))
+const list = (url: string, pick: (d: { library?: { components?: ComponentDef[] }; components?: ComponentDef[] }) => ComponentDef[] | undefined) => fetch(url, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => (d && pick(d)) || []).catch(() => [] as ComponentDef[])
+/** The site's own components and those enabled packages offer (read-only here like the rest). */
+const loadLibrary = () => (library ||= Promise.all([list('/api/admin/components', d => d.library?.components), list('/api/admin/packages/components', d => d.components)]).then(([own, fromPackages]) => [...own, ...fromPackages]))
 
 /** Picks a site component for the block and edits its field values; the component's code is never edited here. */
 export default function ComponentFields({ componentId, values, L, onChange }: { componentId: string; values: string; L: L; onChange: (props: { componentId: string; values: string }) => void }) {

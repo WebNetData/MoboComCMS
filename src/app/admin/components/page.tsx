@@ -10,12 +10,14 @@ const TYPE_LABELS: Record<ComponentField['type'], string> = { text: 'متن کو
 const blank = (): ComponentDef => ({ id: newComponentId(), name: '', description: '', category: '', fields: [{ key: 'title', label: 'تیتر', type: 'text', default: 'تیتر نمونه', options: [] }], html: '<h3>{{field.title}}</h3>', css: 'selector {\n  padding: 24px;\n  border-radius: 18px;\n  background: var(--card);\n  border: 1px solid var(--border);\n}', js: '' })
 
 export default function ComponentsPage() {
+  const [fromPackages, setFromPackages] = useState<ComponentDef[]>([])
   const [library, setLibrary] = useState<ComponentLibrary | null>(null), [revision, setRevision] = useState(''), [canEdit, setCanEdit] = useState(false)
   const [editing, setEditing] = useState<ComponentDef | null>(null), [message, setMessage] = useState<{ text: string; error: boolean } | null>(null), [busy, setBusy] = useState(false), [width, setWidth] = useState(820)
 
   useEffect(() => {
     fetch('/api/admin/components', { cache: 'no-store' }).then(async r => { const d = await r.json(); if (!r.ok) throw Error(d?.error || 'دریافت نشد'); setLibrary(d.library); setRevision(d.revision); setCanEdit(d.canEdit) })
       .catch(e => setMessage({ text: e instanceof Error ? e.message : 'دریافت نشد', error: true }))
+    fetch('/api/admin/packages/components', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => setFromPackages(d?.components || [])).catch(() => setFromPackages([]))
   }, [])
   useEffect(() => { const found = library?.components.find(c => c.id === location.hash.slice(1)); if (found && canEdit) setEditing(found) }, [library, canEdit])
 
@@ -53,6 +55,10 @@ export default function ComponentsPage() {
       </li>)}</ul>
     </section>)}
     {!library.components.length && <p className={styles.empty}>هنوز کامپوننتی ساخته نشده است.</p>}
+    {fromPackages.length > 0 && <section className={styles.group} aria-label="کامپوننت‌های افزونه‌ها">
+      <h2>از افزونه‌ها و قالب فعال (فقط استفاده؛ ویرایش در ویرایشگر افزونه)</h2>
+      <ul className={styles.cards}>{fromPackages.map(c => <li key={c.id} className={styles.card}><b>{c.name}</b>{c.description && <span>{c.description}</span>}<small>{c.category} · {c.fields.length.toLocaleString('fa-IR')} فیلد</small></li>)}</ul>
+    </section>}
     {canEdit && <button type="button" className="btn btn-primary" disabled={busy || library.components.length >= COMPONENT_MAX} onClick={() => setEditing(blank())}>کامپوننت تازه</button>}
 
     {editing && <form className={styles.editor} onSubmit={e => {

@@ -38,6 +38,7 @@ import { AnimatedWords, BeforeAfter, VideoBox } from '@/components/content/build
 import ComponentScript from '@/components/content/builder/ComponentScript'
 import { componentCss, componentScript, componentValues, renderComponentHtml, type ComponentDef } from '@/modules/site/domain/components'
 import { componentsForRender } from '@/modules/site/server/components'
+import { getPackageComponents, sanitizePackageComponent } from '@/modules/packages/server/components'
 import { getSiteConfig } from '@/modules/site/config/store'
 
 export type BuilderLocale = 'fa' | 'en'
@@ -437,7 +438,7 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
       const css = componentCss(def), script = componentScript(def, instance)
       return frame(widget, ctx, <>
         {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
-        <div className={`cc-root ${def.id}`} data-cc-instance={instance} dangerouslySetInnerHTML={{ __html: renderComponentHtml(def, componentValues(def, props.values), { brand: ctx.brand || '', locale }) }} />
+        <div className={`cc-root ${def.id}`} data-cc-instance={instance} dangerouslySetInnerHTML={{ __html: ((html) => def.package ? sanitizePackageComponent(def.package, html) : html)(renderComponentHtml(def, componentValues(def, props.values), { brand: ctx.brand || '', locale })) }} />
         {script && <ComponentScript code={script} />}
       </>)
     }
@@ -669,7 +670,10 @@ export default async function BuilderRenderer({ doc: storedDoc, locale, data, sl
     : null
   const widgets = collectWidgets(doc, templates)
   const [components, brand] = widgets.some((widget) => widget.type === 'component')
-    ? await Promise.all([componentsForRender(), getSiteConfig().then((site) => site.brand).catch(() => '')])
+    ? await Promise.all([
+      Promise.all([componentsForRender(), getPackageComponents(locale).catch(() => [])]).then(([own, fromPackages]) => new Map([...fromPackages.map((c) => [c.id, c] as const), ...own])),
+      getSiteConfig().then((site) => site.brand).catch(() => ''),
+    ])
     : [undefined, undefined]
   const needsData =widgets.some((widget) => DYNAMIC.has(widget.type))
   const needsNav = widgets.some((widget) => widget.type === 'nav' || widget.type === 'site-header' || widget.type === 'site-footer')
