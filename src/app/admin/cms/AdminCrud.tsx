@@ -7,6 +7,7 @@ import Link from '@/components/AppLink'
 import CoverField from './CoverField'
 import CategoryPicker from './CategoryPicker'
 import AiAutofill from './AiAutofill'
+import { useAiPageRecord } from '@/components/admin/ai/PageContext'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
 import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
 import AdminPagination from './AdminPagination'
@@ -145,6 +146,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   // What a save answered for the reader (an edit kept as a proposal), shown above the list until the next save.
   const [notice, setNotice] = useState('')
   const [showForm, setShowForm] = useState(false)
+  useAiPageRecord(type, editId, showForm)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   // Values the assistant proposed; a field counts as "AI" until the editor changes it.

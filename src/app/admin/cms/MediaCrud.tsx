@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import CoverField from './CoverField'
 import FileUpload, { CopyToServer } from '@/components/admin/FileUpload'
 import AiAutofill from './AiAutofill'
+import { useAiPageRecord } from '@/components/admin/ai/PageContext'
 import PaidAccessPanel from '@/components/admin/PaidAccessPanel'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
 import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
@@ -129,6 +130,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<Record<string, any> | null>(null)
   const [editId, setEditId] = useState<number | null>(null)
+  useAiPageRecord(type, editId, form !== null)
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')

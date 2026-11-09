@@ -2,6 +2,7 @@
 .admin-shell .ai-workspace::backdrop{background:#0008}
 .admin-shell .ai-workspace-body{display:grid;gap:16px;padding:24px;min-width:0}
 .admin-shell .ai-workspace-body>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.admin-shell .ai-workspace-body>header{position:sticky;top:0;z-index:1;padding-block:8px;background:var(--panel,var(--bg));border-bottom:1px solid var(--border)}
 .admin-shell .ai-workspace h2{font-size:1.2rem;margin:0 0 8px}
 .admin-shell .ai-workspace p{line-height:1.9;margin:0}
 .admin-shell .ai-workspace-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px}
@@ -13,3 +14,16 @@
 .admin-shell .ai-workspace-entry{position:fixed;inset-inline-end:20px;bottom:20px;z-index:60}
 .admin-shell .ai-workspace-entry>button{box-shadow:0 4px 16px #0003}
 @media print{.admin-shell .ai-workspace-entry{display:none}}
+.admin-shell .ai-page-assistant,.admin-shell .ai-page-compose{display:grid;gap:16px;min-width:0}
+.admin-shell .ai-page-context{display:grid;gap:6px;padding:12px;border:1px solid var(--border);border-radius:10px}
+.admin-shell .ai-page-context>bdi{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}
+.admin-shell .ai-page-actions,.admin-shell .ai-page-examples{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.admin-shell .ai-page-turns{display:grid;gap:12px;list-style:none;margin:0;padding:2px;max-height:min(42dvh,420px);overflow:auto}
+.admin-shell .ai-page-turn{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:10px;min-width:0;overflow-wrap:anywhere}
+.admin-shell .ai-page-turn.is-user{border-inline-start:3px solid var(--primary)}
+.admin-shell .ai-page-turn p{white-space:pre-wrap;unicode-bidi:plaintext}
+.admin-shell .ai-page-turn>button{justify-self:start}
+.admin-shell .ai-page-compose textarea{width:100%;max-width:100%;resize:vertical}
+.admin-shell .ai-page-compose details>summary{cursor:pointer;padding-block:8px}
+.admin-shell .ai-page-compose details[open]>label{margin-top:12px}
+@media(max-width:600px){.admin-shell .ai-page-actions>button{flex:1 1 auto}.admin-shell .ai-page-examples{display:grid}}

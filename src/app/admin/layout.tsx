@@ -5,6 +5,7 @@ import '../admin-areas.css'
 
 import { useEffect, useRef, useState } from 'react'
 import AdminWorkspace from '@/components/admin/Workspace'
+import { AiPageProvider } from '@/components/admin/ai/PageContext'
 import dynamic from 'next/dynamic'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
@@ -324,6 +325,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const bodyClass = `acn-body ${navState === 'ready' && areas.length < 2 ? 'is-single' : ''}`
 
   return (
+    <AiPageProvider key={`${s.user?.id || ''}:${pathname}`}>
     <div className="app-shell admin-shell">
       <div className="ai-workspace-entry"><AiWorkspace canGo={href => controls.some(group => group.items.some(item => item.href === href))} /></div>
       <aside className="side">
@@ -380,5 +382,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div> : children}</ControlNavigationProvider></main>
       </div>
     </div>
+    </AiPageProvider>
   )
 }

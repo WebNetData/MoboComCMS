@@ -861,3 +861,14 @@ AI owns privacy-minimized AiInvocation observations across server text/personal/
 transports; unknown usage is nullable and browser Chat quota is not inferred. Existing
 Settings history and settings.manage guard Admin controls/monitoring. No second search,
 identity, ticket, audit or billing system. [Ownership, evidence and rollout](handoffs/AI_GROUNDED_SUPPORT.md).
+
+## Contextual Admin AI — 2026-11-09
+
+AI Workspace composes a layout-local kind/id selection from existing CRUD forms
+with guarded page metadata, optional bounded saved-record projections and explicit
+manual text. Existing Identity/section-author guards and per-purpose/personal
+routing remain authoritative; current access/source is rechecked after inference.
+Replies are plain-text advice in memory only. Existing Operations/Builder/Engineering
+own explicit action handoff, review/direct policy and deployment authority. No new
+identity, editor format, mutation engine, chat storage or settings system.
+[Contracts, evidence and limits](handoffs/AI_CONTEXTUAL_ADMIN.md).
