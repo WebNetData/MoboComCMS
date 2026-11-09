@@ -36,6 +36,21 @@ test('bundled example packages are valid', () => {
   }
 })
 
+test('package components: validated templates and styles, stable ids, no script', () => {
+  const { manifest, files } = example('promo-banner')
+  const card = manifest.components[0]
+  assert.equal(parseManifest(manifest, files).components.length, 1)
+  assert.throws(() => parseManifest({ ...manifest, components: [{ ...card, template: 'missing.html' }] }, files), /missing file/)
+  assert.throws(() => parseManifest({ ...manifest, components: [{ ...card, template: 'components/promo-card.css' }] }, files), /.html templates/)
+  assert.throws(() => parseManifest({ ...manifest, components: [card, card] }, files), /duplicate component/)
+  assert.throws(() => parseManifest({ ...manifest, components: [{ ...card, name: 'Bad Name' }] }, files), /kebab-case/)
+  assert.throws(() => parseManifest({ ...manifest, components: [{ ...card, title: { fa: 'x' } }] }, files), /title/)
+  const c = load('src/modules/site/domain/components.ts')
+  assert.equal(c.packageComponentId('promo-banner', 'promo-card'), c.packageComponentId('promo-banner', 'promo-card'))
+  assert.match(c.packageComponentId('promo-banner', 'promo-card'), c.COMPONENT_ID)
+  assert.notEqual(c.packageComponentId('promo-banner', 'promo-card'), c.packageComponentId('other', 'promo-card'))
+})
+
 test('manifests reject unknown slots, missing files, bad ids and code-only fields', () => {
   const { manifest, files } = example('promo-banner')
   assert.throws(() => parseManifest({ ...manifest, id: 'Bad_ID' }, files), /id/)

@@ -10,16 +10,98 @@
   "runtime": "declarative",
   "requiresCore": "^1.0.0",
   "slots": {
-    "home.before-main": { "fa": "slots/banner.fa.html", "en": "slots/banner.en.html" },
-    "miniapp.home": { "fa": "slots/banner.fa.html", "en": "slots/banner.en.html" }
+    "home.before-main": {
+      "fa": "slots/banner.fa.html",
+      "en": "slots/banner.en.html"
+    },
+    "miniapp.home": {
+      "fa": "slots/banner.fa.html",
+      "en": "slots/banner.en.html"
+    }
   },
-  "styles": ["style.css"],
+  "styles": [
+    "style.css"
+  ],
   "pages": [
-    { "slug": "campaign", "title": { "fa": "کمپین ویژه", "en": "Special campaign" }, "file": { "fa": "pages/campaign.fa.html", "en": "pages/campaign.en.html" }, "nav": true }
+    {
+      "slug": "campaign",
+      "title": {
+        "fa": "کمپین ویژه",
+        "en": "Special campaign"
+      },
+      "file": {
+        "fa": "pages/campaign.fa.html",
+        "en": "pages/campaign.en.html"
+      },
+      "nav": true
+    }
   ],
   "settings": [
-    { "key": "headline", "label": "تیتر بنر", "labelEn": "Banner headline", "type": "text", "default": "۳۰٪ تخفیف همهٔ پلن‌ها" },
-    { "key": "headlineEn", "label": "تیتر انگلیسی", "labelEn": "English headline", "type": "text", "default": "30% off every plan" },
-    { "key": "code", "label": "کد تخفیف", "labelEn": "Promo code", "type": "text", "default": "HAPPY30" }
+    {
+      "key": "headline",
+      "label": "تیتر بنر",
+      "labelEn": "Banner headline",
+      "type": "text",
+      "default": "۳۰٪ تخفیف همهٔ پلن‌ها"
+    },
+    {
+      "key": "headlineEn",
+      "label": "تیتر انگلیسی",
+      "labelEn": "English headline",
+      "type": "text",
+      "default": "30% off every plan"
+    },
+    {
+      "key": "code",
+      "label": "کد تخفیف",
+      "labelEn": "Promo code",
+      "type": "text",
+      "default": "HAPPY30"
+    }
+  ],
+  "components": [
+    {
+      "name": "promo-card",
+      "title": {
+        "fa": "کارت تخفیف",
+        "en": "Promo card"
+      },
+      "category": "کمپین",
+      "description": "کارت تخفیف با کد و پیوند اختیاری.",
+      "template": "components/promo-card.html",
+      "style": "components/promo-card.css",
+      "fields": [
+        {
+          "key": "title",
+          "label": "تیتر",
+          "type": "text",
+          "default": "تخفیف ویژه"
+        },
+        {
+          "key": "text",
+          "label": "توضیح",
+          "type": "textarea",
+          "default": "برای همهٔ پلن‌ها تا پایان هفته."
+        },
+        {
+          "key": "code",
+          "label": "کد تخفیف",
+          "type": "text",
+          "default": "HAPPY30"
+        },
+        {
+          "key": "link",
+          "label": "پیوند",
+          "type": "url",
+          "default": "/ext/promo-banner/campaign"
+        },
+        {
+          "key": "label",
+          "label": "متن پیوند",
+          "type": "text",
+          "default": "جزئیات کمپین"
+        }
+      ]
+    }
   ]
 }

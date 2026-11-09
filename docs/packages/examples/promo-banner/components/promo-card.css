@@ -1,0 +1,10 @@
+selector .promo-card {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 14%, var(--card)), var(--card));
+}
+selector .promo-card h3 { margin: 0; }
+selector .promo-code code { padding: 2px 8px; border-radius: 8px; background: var(--primary-soft); }
