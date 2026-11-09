@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useKit } from './kit-panel'
 import AiCodePanel from './AiCodePanel'
-import { BORDER_STYLES, FONT_WEIGHTS, HOVERS, LOOPS, MOBILE_ALIGNS, MOTIONS, SHADOWS, SURFACES, TEXT_EFFECTS, validateAdvancedStyle, type AdvancedStyle, type Box } from '@/modules/site/domain/builder-style'
+import { BORDER_STYLES, FONT_WEIGHTS, HOVERS, LOOPS, MOBILE_ALIGNS, MOTIONS, POINTERS, SCROLL_FX, SHADOWS, STICKY, SURFACES, TEXT_EFFECTS, validateAdvancedStyle, type AdvancedStyle, type Box } from '@/modules/site/domain/builder-style'
 
 // The "Advanced" part of the inspector, for a block or a section: spacing per side (with phone values),
 // typography, background and gradient, border and corners, shadow and opacity, hover and entrance motion,
@@ -143,6 +143,13 @@ export default function AdvancedStyleFields({ value, onChange, L, section = fals
       {choice('hover', L('On hover', 'هنگام رفتن نشانگر روی آن'), HOVERS, { lift: L('Lift', 'بالا آمدن'), zoom: L('Zoom', 'بزرگ‌شدن'), glow: L('Glow', 'درخشش'), dim: L('Dim', 'تیره‌شدن'), tilt: L('3D tilt', 'کج‌شدن سه‌بعدی'), shine: L('Shine', 'برق‌زدن'), ring: L('Ring', 'حلقهٔ نوری'), float: L('Float', 'شناورشدن'), press: L('Press', 'فشرده‌شدن'), colorize: L('Grey to colour', 'خاکستری به رنگی') })}
       {choice('motion', L('Entrance motion', 'حرکت هنگام دیده‌شدن'), MOTIONS, { fade: L('Fade in', 'محوشدن'), up: L('From below', 'از پایین'), down: L('From above', 'از بالا'), start: L('From the start side', 'از ابتدا'), end: L('From the end side', 'از انتها'), zoom: L('Zoom in', 'بزرگ‌نمایی'), flip: L('Flip', 'چرخش کارتی'), blur: L('From blur', 'از تاری'), rotate: L('Rotate in', 'چرخش'), pop: L('Pop', 'جهش') })}
       {choice('loop', L('Continuous motion', 'حرکت پیوسته'), LOOPS, { float: L('Float', 'شناوری'), pulse: L('Pulse', 'تپش'), breathe: L('Breathing glow', 'درخشش نفس‌وار'), spin: L('Slow spin', 'چرخش آرام'), wiggle: L('Wiggle', 'لرزش'), gradient: L('Moving gradient', 'گرادیان متحرک') })}
+      <h4>{L('Scroll and pointer', 'اسکرول و نشانگر')}</h4>
+      {choice('sticky', L('Stick while scrolling', 'چسبیدن هنگام اسکرول'), STICKY, { top: L('To the top', 'به بالای صفحه'), bottom: L('To the bottom', 'به پایین صفحه') })}
+      {adv.sticky && <label className="bld-field"><span>{L('Distance from the edge (px)', 'فاصله از لبه (px)')}</span><input className="input num" dir="ltr" type="number" min={0} max={300} value={adv.stickyOffset || ''} placeholder="0" onChange={(event) => number('stickyOffset', event.target.value)} /></label>}
+      <label className="bld-field"><span>{L('Depth while scrolling (parallax)', 'عمق هنگام اسکرول (پارالاکس)')} · {adv.parallax ? `${adv.parallax}px` : L('off', 'خاموش')}</span><input type="range" min={-60} max={60} step={5} value={adv.parallax || 0} onChange={(event) => number('parallax', event.target.value === '0' ? '' : event.target.value)} /></label>
+      {choice('scrollFx', L('While leaving the screen', 'هنگام خارج شدن از صفحه'), SCROLL_FX, { fade: L('Fade out', 'محو شدن'), shrink: L('Shrink', 'کوچک شدن'), blur: L('Blur', 'تار شدن'), rotate: L('Rotate away', 'چرخیدن') })}
+      {choice('pointer', L('Follow the pointer', 'دنبال کردن نشانگر'), POINTERS, { tilt: L('3D tilt', 'کج‌شدن سه‌بعدی'), magnet: L('Magnet', 'آهنربایی'), spotlight: L('Spotlight', 'نور دنبال‌کننده') })}
+      <small className="muted text-sm">{L('Scroll effects run where the browser supports them; pointer effects only with a mouse. Both stop for visitors who reduce motion.', 'افکت‌های اسکرول در مرورگرهای پشتیبان اجرا می‌شوند و افکت نشانگر فقط با ماوس؛ برای کسی که «کاهش حرکت» را روشن کرده هیچ‌کدام اجرا نمی‌شود.')}</small>
       <p className="muted text-xs">{L('Motion stops for visitors who ask for less of it.', 'برای بازدیدکنندگانی که حرکت کمتر خواسته‌اند، حرکت‌ها خاموش می‌شود.')}</p>
 
       <h4>{L('Layout', 'چیدمان')}</h4>

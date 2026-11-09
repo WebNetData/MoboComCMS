@@ -129,6 +129,12 @@
 @keyframes br-loop-spin { to { rotate: 360deg } }
 @keyframes br-loop-wiggle { 0%, 100% { rotate: 0deg } 25% { rotate: -3deg } 75% { rotate: 3deg } }
 @keyframes br-loop-gradient { 0%, 100% { background-position: 0% 50% } 50% { background-position: 100% 50% } }
+/* Depth while scrolling (--br-plx px over the whole pass) and changes while leaving the screen; only where scroll timelines exist. */
+@keyframes br-parallax { from { translate: 0 calc(var(--br-plx, 0px) * -1) } to { translate: 0 var(--br-plx, 0px) } }
+@keyframes br-out-fade { to { opacity: 0 } }
+@keyframes br-out-shrink { to { scale: .86; opacity: .4 } }
+@keyframes br-out-blur { to { filter: blur(10px); opacity: .5 } }
+@keyframes br-out-rotate { to { rotate: -6deg; opacity: .6 } }
 @keyframes br-aurora { from { transform: translate(0, 0) rotate(0deg) } to { transform: translate(6%, -4%) rotate(12deg) } }
 @property --br-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 @keyframes br-beam { to { --br-angle: 360deg } }

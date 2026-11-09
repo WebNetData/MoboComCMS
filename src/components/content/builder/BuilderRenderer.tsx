@@ -28,7 +28,7 @@ import { toPlayerTracks } from '@/components/media/player-types'
 import Slider from '@/components/site/Slider'
 import { plainText } from '@/shared/text/plain'
 import { builderMediaModule as mediaModule, builderWidgetModule } from '@/modules/site/domain/builder-content'
-import { advancedCss, styleClass, type AdvancedStyle } from '@/modules/site/domain/builder-style'
+import { advancedCss, pointerClass, styleClass, type AdvancedStyle } from '@/modules/site/domain/builder-style'
 import Icon from '@/components/site/Icon'
 import { BuilderCountdown, BuilderCounter, BuilderTabs } from '@/components/content/builder/BuilderInteractive'
 import BuilderSlides from '@/components/content/builder/BuilderSlides'
@@ -36,6 +36,7 @@ import { getBuilderKit } from '@/modules/site/server/builder-kit'
 import { kitCss } from '@/modules/site/domain/builder-kit'
 import { AnimatedWords, BeforeAfter, VideoBox } from '@/components/content/builder/BuilderBlocks'
 import ComponentScript from '@/components/content/builder/ComponentScript'
+import PointerEffects from '@/components/content/builder/PointerEffects'
 import { componentCss, componentScript, componentValues, renderComponentHtml, type ComponentDef } from '@/modules/site/domain/components'
 import { componentsForRender } from '@/modules/site/server/components'
 import { getPackageComponents, sanitizePackageComponent } from '@/modules/packages/server/components'
@@ -157,7 +158,7 @@ const SOCIAL_PATH: Record<string, string> = {
 
 /** The element's own rules (advanced style), written next to it. The CSS is made of bounded numbers, listed choices and hex colours only. */
 const styleTag = (id: string, adv: AdvancedStyle | undefined) => { const css = advancedCss(id, adv); return css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null }
-const advClass = (id: string, adv: AdvancedStyle | undefined) => (adv ? ` ${[styleClass(id), ...(adv.classes || [])].filter(Boolean).join(' ')}` : '')
+const advClass = (id: string, adv: AdvancedStyle | undefined) => (adv ? ` ${[styleClass(id), pointerClass(adv), ...(adv.classes || [])].filter(Boolean).join(' ')}` : '')
 
 function frame(widget: BuilderWidget, ctx: Ctx, node: ReactNode, frameClass = '') {
   const style = widget.style
@@ -702,5 +703,7 @@ export default async function BuilderRenderer({ doc: storedDoc, locale, data, sl
     locale, landing, templates, components, brand, depth: 0, slots, values, nav: navPages, preview, nested: !editable, context,
     posts: new Map(postResults), products: new Map(productResults), media: new Map(mediaResults), theme: String(theme || 'dark'), modules,
   }
-  return <div className="br-doc">{kit && <style>{kit}</style>}{doc.sections.map((section, index) => renderSection(section, ctx, section.id || String(index)))}</div>
+  // The pointer script loads only for a page (or a template it uses) that asks for a pointer effect.
+  const pointer = [doc, ...(templates ? [...templates.values()] : [])].some((entry) => JSON.stringify(entry.sections).includes('"pointer":'))
+  return <div className="br-doc">{kit && <style>{kit}</style>}{doc.sections.map((section, index) => renderSection(section, ctx, section.id || String(index)))}{pointer && <PointerEffects />}</div>
 }
