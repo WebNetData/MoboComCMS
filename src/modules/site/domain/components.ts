@@ -8,7 +8,8 @@
 export const COMPONENT_FIELD_TYPES = ['text', 'textarea', 'color', 'number', 'url', 'image', 'select', 'toggle'] as const
 export type ComponentFieldType = typeof COMPONENT_FIELD_TYPES[number]
 export type ComponentField = { key: string; label: string; type: ComponentFieldType; default: string; options: string[] }
-export type ComponentDef = { id: string; name: string; description: string; category: string; fields: ComponentField[]; html: string; css: string; js: string }
+/** `package` is set at runtime for components a package offers: never stored, rendered through the package sanitizer, no script. */
+export type ComponentDef = { id: string; name: string; description: string; category: string; fields: ComponentField[]; html: string; css: string; js: string; package?: string }
 export type ComponentLibrary = { components: ComponentDef[] }
 export const COMPONENT_MAX = 60
 export const COMPONENT_LIMITS = { html: 60000, css: 40000, js: 30000, fields: 20 } as const
@@ -93,4 +94,10 @@ export function componentCss(def: ComponentDef) {
 export const componentScript = (def: ComponentDef, instance: string) => def.js.trim()
   ? `(function (root) {\n${def.js}\n})(document.querySelector('[data-cc-instance="${instance.replace(/[^a-zA-Z0-9_-]/g, '')}"]'));`
   : ''
+/** Stable id for a package component, so placed blocks keep working across package updates. */
+export function packageComponentId(pkg: string, name: string) {
+  let h = 2166136261
+  for (const c of `${pkg}/${name}`) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) }
+  return `cc-p${(h >>> 0).toString(36).padStart(7, '0')}`
+}
 export const newComponentId = () => `cc-${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`

@@ -19,6 +19,8 @@ export type LocalizedFile = string | { fa?: string; en?: string }
 
 export interface PackageSettingDefinition { key: string; label: string; labelEn?: string; type: 'text' | 'textarea'; default?: string }
 export interface PackagePage { slug: string; title: LocalText; file: LocalizedFile; nav?: boolean }
+/** A builder component a declarative package offers: template and style files, typed fields, no script. */
+export interface PackageComponent { name: string; title: LocalText; category?: string; description?: string; template: LocalizedFile; style?: string; fields?: unknown[] }
 export interface PackagePalette { background: string; surface: string; accent: string; text: string; muted: string; border: string }
 export interface PackageDesign { extends?: string; radius: number; colors: PackagePalette; lightColors?: PackagePalette }
 
@@ -37,6 +39,7 @@ export interface PackageManifest {
   styles?: string[]
   pages?: PackagePage[]
   settings?: PackageSettingDefinition[]
+  components?: PackageComponent[]
   design?: PackageDesign
 }
 
@@ -139,6 +142,23 @@ export function parseManifest(raw: unknown, files: ReadonlySet<string>): Package
       if (!localizedFile(p.file)) fail(`page "${p.slug}" must name an .html file`)
       for (const path of filesOf(p.file as LocalizedFile)) need(path, `page "${p.slug}"`)
       if (p.nav !== undefined && typeof p.nav !== 'boolean') fail(`page "${p.slug}": "nav" must be true or false`)
+    }
+  }
+  if (m.components !== undefined) {
+    if (runtime !== 'declarative') fail('"components" are only for declarative packages')
+    if (!Array.isArray(m.components) || m.components.length > 30) fail('"components" must be a list (max 30)')
+    const names = new Set<string>()
+    for (const entry of m.components as unknown[]) {
+      if (!isRecord(entry) || typeof entry.name !== 'string' || !ID.test(entry.name) || entry.name.length > 40) fail('each component needs a kebab-case "name"')
+      const c = entry as Record<string, unknown>
+      if (names.has(c.name as string)) fail(`duplicate component "${c.name}"`)
+      names.add(c.name as string)
+      if (!isRecord(c.title) || !shortText(c.title.fa, 80) || !shortText(c.title.en, 80)) fail(`component "${c.name}" needs title.fa and title.en`)
+      if (!optionalText(c.category, 40) || !optionalText(c.description, 300)) fail(`component "${c.name}": category or description is too long`)
+      if (!localizedFile(c.template)) fail(`component "${c.name}" must name an .html template`)
+      for (const path of filesOf(c.template as LocalizedFile)) { if (!/\.html?$/.test(path)) fail(`component "${c.name}" must use .html templates`); need(path, `component "${c.name}"`) }
+      if (c.style !== undefined) { if (typeof c.style !== 'string' || !c.style.endsWith('.css')) fail(`component "${c.name}": "style" must be a .css file`); need(c.style as string, `component "${c.name}"`) }
+      if (c.fields !== undefined && (!Array.isArray(c.fields) || c.fields.length > 20)) fail(`component "${c.name}": "fields" must be a list (max 20)`)
     }
   }
   // Code packages declare settings in the build-time extension format, validated by generate-extensions.
