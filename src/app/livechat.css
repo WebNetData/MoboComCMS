@@ -10,7 +10,10 @@
 .lc-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .18); }
 .lc-dot { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; display: inline-block; }
 .lc-dot.is-on { background: #4ade80; }
-.lc-close { border: 0; background: rgba(255, 255, 255, .15); color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
+.lc-close { flex: none; display: grid; place-items: center; padding: 0; border: 0; background: rgba(255, 255, 255, .15); color: #fff; width: 34px; height: 34px; border-radius: 50%; line-height: 1; cursor: pointer; transition: background .15s; }
+.lc-close:hover { background: rgba(255, 255, 255, .26); }
+.lc-close:focus-visible, .lc-bubble:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.lc-bubble.is-open { line-height: 1; }
 .lc-list { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--text, #000) 3%, var(--card, #fff)); }
 .lc-msg { max-width: 84%; padding: 9px 12px; border-radius: 16px; line-height: 1.9; position: relative; }
 .lc-msg p { margin: 0; white-space: pre-wrap; word-break: break-word; }
@@ -41,6 +44,8 @@
   .lc-panel { position: fixed; inset: 0; width: 100%; height: 100%; border-radius: 0; }
   .lc-bubble span { display: none; }
   .lc-bubble { width: 52px; padding: 0; justify-content: center; }
+  /* The panel fills the screen: its header closes it, so the round button would only cover the message box. */
+  .lc-bubble.is-open { display: none; }
 }
 
 /* operator console */

@@ -165,7 +165,7 @@ function LiveChat(_props: PluginProps) {
       <header className="lc-head">
         <span className="lc-avatar" aria-hidden="true">{current === 'OPEN' ? '👤' : '✦'}</span>
         <div><b>{current === 'OPEN' || current === 'WAITING' ? 'پشتیبانی آنلاین' : state.botName}</b><small><i className={`lc-dot${state.online ? ' is-on' : ''}`} />{STATUS[current] || (state.online ? 'آنلاین — معمولاً در چند ثانیه پاسخ می‌دهیم' : 'اپراتورها آفلاین؛ دستیار پاسخ می‌دهد')}</small></div>
-        <button type="button" className="lc-close" onClick={() => setOpen(false)} aria-label="بستن گفت‌وگو">✕</button>
+        <button type="button" className="lc-close" onClick={() => setOpen(false)} aria-label="بستن گفت‌وگو"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
       </header>
       <div className="lc-list" ref={list} aria-live="polite">
         <div className="lc-msg is-bot"><p>{state.welcome}</p></div>
@@ -196,7 +196,7 @@ function LiveChat(_props: PluginProps) {
       </form>
     </section>}
     <button type="button" className={`lc-bubble${open ? ' is-open' : ''}`} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'بستن گفت‌وگو' : 'گفت‌وگوی آنلاین'}>
-      {open ? '✕' : <><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M5 18.5 3.5 21l.8-4A8 8 0 1 1 7 19.2" /><path d="M8 10h8M8 14h5" /></svg><span>پشتیبانی آنلاین</span></>}
+      {open ? <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> : <><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M5 18.5 3.5 21l.8-4A8 8 0 1 1 7 19.2" /><path d="M8 10h8M8 14h5" /></svg><span>پشتیبانی آنلاین</span></>}
       {unread > 0 && !open && <i className="lc-badge">{unread.toLocaleString('fa-IR')}</i>}
     </button>
   </div>
