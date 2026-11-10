@@ -54,6 +54,12 @@ async function main() {
     const refused = answers.find((answer) => !answer.ok)
     assert.ok(refused.retryAfter >= 1 && refused.retryAfter <= 60, 'a refusal says when the window ends')
 
+    // 1b. A lock taken at once from both instances has one owner: what a Google sign-in's state and one-time ticket rely on
+    //     (audit 2026-11-10).
+    const once = key()
+    const takers = await Promise.all(Array.from({ length: 30 }, (_, index) => (index % 2 ? storeA : storeB).lock(once, 10_000)))
+    assert.equal(takers.filter(Boolean).length, 1, 'exactly one instance takes the lock')
+
     // 2. What one instance used is gone for the other.
     const split = key()
     for (let index = 0; index < 3; index += 1) assert.equal((await a.limiter.rateLimitStrict(split, 3, 60_000)).ok, true)
