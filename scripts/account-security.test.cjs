@@ -563,3 +563,52 @@ test('whitespace-only Turnstile credentials cannot select a bypassing provider',
   new Function('require','module','exports',code)(name => name === '@/platform/http/rate-limit' ? { clientIp: () => 'owned' } : require(name), mod, mod.exports)
   try { process.env.TURNSTILE_SECRET_KEY = '   '; assert.equal(mod.exports.turnstileConfigured(), false); process.env.TURNSTILE_SECRET_KEY = 'owned-test-only'; assert.equal(mod.exports.turnstileConfigured(), true) } finally { if (previous === undefined) delete process.env.TURNSTILE_SECRET_KEY; else process.env.TURNSTILE_SECRET_KEY = previous }
 })
+
+test('Google sign-in: claims, the chooser address, settings and the wiring around them', () => {
+  const read = (relative) => fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8').replace(/\r\n/g, '\n')
+  const g = load('src/modules/identity/domain/google-login')
+  const client = '123456789012-abcdefgh12345678.apps.googleusercontent.com', now = 1_800_000_000_000, sec = now / 1000
+  const token = claims => `e30.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`
+  const base = { iss: 'https://accounts.google.com', aud: client, iat: sec, exp: sec + 3600, nonce: 'n1', sub: '1098765', email: 'A@Gmail.com', email_verified: true, name: ' Ali   Reza ', picture: 'https://lh3.googleusercontent.com/a/x' }
+  const check = (claims) => g.checkGoogleClaims(g.decodeIdTokenPayload(token(claims)), { clientId: client, nonce: 'n1', now })
+  const good = check(base)
+  assert.equal(good.ok, true)
+  assert.deepEqual(good.identity, { sub: '1098765', email: 'a@gmail.com', emailVerified: true, name: 'Ali Reza', picture: 'https://lh3.googleusercontent.com/a/x' })
+  assert.equal(check({ ...base, iss: 'accounts.google.com' }).ok, true)
+  for (const [claims, error] of [[{ iss: 'https://evil.example' }, 'ISSUER'], [{ aud: 'other' }, 'AUDIENCE'], [{ aud: [client, 'other'] }, 'AUDIENCE'], [{ exp: sec - 120 }, 'EXPIRED'], [{ iat: sec + 600 }, 'EXPIRED'], [{ nonce: 'n2' }, 'NONCE'], [{ nonce: undefined }, 'NONCE'], [{ sub: 'has space' }, 'SUBJECT']]) {
+    assert.equal(check({ ...base, ...claims }).error, error, JSON.stringify(claims))
+  }
+  assert.equal(check({ ...base, aud: [client, 'other'], azp: client }).ok, true)
+  assert.equal(check({ ...base, email_verified: false }).identity.emailVerified, false)
+  assert.equal(check({ ...base, picture: 'https://evil.example/p.png' }).identity.picture, '')
+  assert.equal(g.checkGoogleClaims(g.decodeIdTokenPayload('not-a-jwt'), { clientId: client, nonce: 'n1', now }).error, 'MALFORMED')
+  assert.equal(g.decodeIdTokenPayload('a.' + 'x'.repeat(9000) + '.c'), null)
+  // The chooser: PKCE S256, scope openid email profile, an account chooser every time.
+  const url = new URL(g.googleAuthorizeUrl({ clientId: client, redirectUri: 'https://site.example/api/login/google/callback', state: 's', nonce: 'n', challenge: 'c', locale: 'fa' }))
+  assert.equal(url.origin + url.pathname, 'https://accounts.google.com/o/oauth2/v2/auth')
+  assert.deepEqual(Object.fromEntries(url.searchParams), { client_id: client, redirect_uri: 'https://site.example/api/login/google/callback', response_type: 'code', scope: 'openid email profile', state: 's', nonce: 'n', code_challenge: 'c', code_challenge_method: 'S256', prompt: 'select_account', hl: 'fa' })
+  // Settings: off by default, sign-up on unless switched off; client IDs look like Google's.
+  assert.deepEqual(g.normalizeGoogleLogin(undefined), { enabled: false, clientId: '', clientSecret: '', signup: true })
+  assert.equal(g.normalizeGoogleLogin({ enabled: 'true' }).enabled, false)
+  assert.equal(g.validGoogleClientId(client), true)
+  assert.equal(g.validGoogleClientId('abc.apps.googleusercontent.com'), false)
+  for (const code of ['unavailable', 'cancelled', 'expired', 'failed', 'unreachable', 'unverified', 'email-exists', 'signup-closed', 'not-allowed', 'already-linked', 'other-google']) assert.ok(g.isGoogleLoginError(code), code)
+  assert.equal(g.isGoogleLoginError('__proto__'), false)
+  // Wiring: the session provider, the routes, the proxy purpose on both sides, history, and an additive migration.
+  const auth = read('src/modules/identity/auth.ts')
+  assert.match(auth, /id: 'google',[\s\S]*?peekGoogleTicket\(credentials\?\.ticket\)[\s\S]*?await secondFactor\(user, credentials\?\.totp\)\s*\n\s*if \(!await consumeGoogleTicket\(credentials\?\.ticket\)\) return null/)
+  assert.match(read('src/app/api/login/google/route.ts'), /GET_start as GET/)
+  assert.match(read('src/app/api/login/google/callback/route.ts'), /GET_callback as GET/)
+  assert.match(read('src/app/api/me/google/route.ts'), /GET_me as GET, DELETE_me as DELETE/)
+  const http = read('src/modules/identity/server/http/google.ts')
+  assert.match(http, /\/login\/google#\$\{new URLSearchParams\(\{ ticket: outcome\.ticket/, 'the ticket travels in the fragment')
+  assert.match(http, /sameSite: 'lax', path: COOKIE_PATH, maxAge: GOOGLE_FLOW_TTL_MS \/ 1000/)
+  assert.match(read('src/modules/social/domain/egress.ts'), /key: 'google',[^\n]*hosts: \['oauth2\.googleapis\.com'\]/)
+  assert.match(read('deploy/ubuntu/xray-config.cjs'), /google: \['full:oauth2\.googleapis\.com'\]/)
+  assert.match(read('src/modules/content/server/http/history.ts'), /type === 'settings-google-login'/)
+  assert.match(read('src/modules/identity/server/http/security.ts'), /view'\) === 'google'\) return sectionSettingsSaveWith/)
+  const sql = read('prisma/migrations/20270301120000_google_login/migration.sql')
+  assert.doesNotMatch(sql, /DROP|UPDATE|DELETE|ALTER COLUMN/i)
+  assert.match(sql, /CREATE UNIQUE INDEX "User_googleId_key" ON "User"\("googleId"\)/)
+  for (const schema of ['prisma/schema.prisma', 'prisma/schema.postgresql.prisma']) assert.match(read(schema), /googleId\s+String\?\s+@unique\n\s+googleEmail\s+String\s+@default\(""\)\n\s+googleLinkedAt DateTime\?/)
+})

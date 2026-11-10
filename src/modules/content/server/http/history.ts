@@ -27,6 +27,11 @@ async function ownerOf(type: string): Promise<Owner | null> {
     const { humanCheckSettingsState, restoreHumanCheckSettings } = await import('@/modules/identity/server/human-check')
     return { perms: ['settings.manage'], module: null, current: humanCheckSettingsState, restore: restoreHumanCheckSettings }
   }
+  if (type === 'settings-google-login') {
+    // Snapshots hold the encrypted client secret only; a restored version is ready only with a secret this server can read.
+    const { googleLoginSettingsState, restoreGoogleLoginSettings } = await import('@/modules/identity/server/google-login')
+    return { perms: ['settings.manage'], module: null, current: googleLoginSettingsState, restore: restoreGoogleLoginSettings }
+  }
   if (type === 'settings-livechat') {
     const { chatSettingsState, restoreChatSettings } = await import('@/modules/livechat/server/livechat')
     return { perms: ['settings.manage', 'support.chat'], module: 'livechat', current: () => chatSettingsState(), restore: restoreChatSettings }

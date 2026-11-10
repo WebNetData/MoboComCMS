@@ -44,6 +44,11 @@ model User {
   telegramName   String          @default("")
   telegramPhoto  String          @default("")
   telegramLinkedAt DateTime?
+  // Google sign-in: the OpenID subject of the Google account this member signs in with (unique), the address
+  // Google reported for it, and when it was connected. Empty for members who never used Google.
+  googleId       String?         @unique
+  googleEmail    String          @default("")
+  googleLinkedAt DateTime?
   subscriptionAlerts Boolean @default(true)
   phoneVerifiedAt DateTime?
   /// Explicit permission for CRM offers, birthday and win-back; legacy members stay opted out.
