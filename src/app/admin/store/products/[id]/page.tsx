@@ -22,6 +22,7 @@ import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
 type Category = { id: number; name: string; parentId: number | null; attributeGroup?: { fields: string; name: string } | null }
+type Attribute = { key: string; label: string; kind: 'text' | 'select' | 'color'; options?: string[]; variant?: boolean }
 type Brand = { id: number; name: string }
 type Form = Record<string, any>
 
@@ -87,11 +88,24 @@ export default function ProductEditorPage() {
 
   const categoryOptions = categories.map((category) => ({ value: String(category.id), label: category.name }))
   const brandOptions = brands.map((brand) => ({ value: String(brand.id), label: brand.name }))
-  // The assistant fills descriptive fields only; price, stock and images stay with the editor.
+  // The main category's attribute group (inherited from the nearest ancestor that has one): specifications and variant attributes.
+  let groupOwner = categories.find((c) => String(c.id) === String(form.categoryId))
+  for (const seen = new Set<number>(); groupOwner && !groupOwner.attributeGroup && groupOwner.parentId && !seen.has(groupOwner.id);) { seen.add(groupOwner.id); groupOwner = categories.find((c) => c.id === groupOwner!.parentId) }
+  let attributes: Attribute[] = []
+  try { attributes = JSON.parse(groupOwner?.attributeGroup?.fields || '[]') } catch { attributes = [] }
+  const specAttributes = attributes.filter((a) => !a.variant).slice(0, 30), variantAttributes = attributes.filter((a) => a.variant).slice(0, 3)
+  const fxMode = form.pricingMode === 'FX', fxCode = form.fxCurrency || 'USD'
+  // The assistant may fill every field of the form; prices and stock only when the source states them. Images stay with the editor.
   const aiFields: AutofillField[] = [
     { key: 'name', label: 'نام فارسی محصول', type: 'text' },
     { key: 'nameEn', label: 'نام انگلیسی محصول', type: 'text', dir: 'ltr' },
     { key: 'slug', label: 'نامک', type: 'slug' },
+    { key: 'sku', label: 'SKU (کد انبار یکتا)', type: 'text', dir: 'ltr', hint: 'فقط حروف لاتین، رقم، نقطه، خط تیره و زیرخط؛ از برند/مدل/ظرفیت بساز، مثل TG-PREM-12M' },
+    { key: 'kind', label: 'نوع محصول', type: 'select', options: [{ value: 'PHYSICAL', label: 'فیزیکی (ارسال پستی)' }, { value: 'VIRTUAL', label: 'مجازی (اکانت، لایسنس، کد، فایل، خدمت)' }] },
+    ...(fxMode
+      ? [{ key: 'fxAmount', label: `قیمت ارزی پایه به ${fxCode}`, type: 'number' as const, hint: 'فقط اگر منبع قیمت ارزی را گفته' }, { key: 'fxCompareAt', label: `قیمت ارزی قبل از تخفیف به ${fxCode}`, type: 'number' as const, hint: 'فقط اگر منبع گفته' }]
+      : [{ key: 'price', label: `قیمت فروش به ${form.currency === 'IRR' ? 'ریال' : 'تومان'}`, type: 'number' as const, hint: 'فقط اگر منبع قیمت را گفته' }, { key: 'compareAtPrice', label: 'قیمت قبل از تخفیف', type: 'number' as const, hint: 'فقط اگر منبع گفته' }]),
+    { key: 'stock', label: 'موجودی (-۱ = نامحدود)', type: 'number', hint: 'فقط اگر منبع موجودی را گفته؛ برای کالای مجازی نامحدود معمولاً -1' },
     ...(categoryOptions.length ? [{ key: 'categoryId', label: 'دسته', type: 'select' as const, options: categoryOptions }] : []),
     ...(brandOptions.length ? [{ key: 'brandId', label: 'برند', type: 'select' as const, options: brandOptions }] : []),
     { key: 'shortDescription', label: 'توضیح کوتاه (یک تا دو جمله)', type: 'textarea' },
@@ -101,14 +115,35 @@ export default function ProductEditorPage() {
     { key: 'faqs', label: 'پرسش‌های متداول خریداران', type: 'records', recordKeys: [{ key: 'question', label: 'پرسش' }, { key: 'answer', label: 'پاسخ' }] },
     { key: 'seoTitle', label: 'عنوان سئو (حداکثر ۶۰ نویسه)', type: 'text' },
     { key: 'seoDescription', label: 'توضیح متا (حداکثر ۱۶۰ نویسه)', type: 'textarea' },
+    { key: 'descriptionEn', label: 'English description', type: 'richtext', dir: 'ltr' },
+    ...specAttributes.map((a, i) => (a.kind !== 'text' && a.options?.length ? { key: `spec${i}`, label: `مشخصه: ${a.label}`, type: 'select' as const, options: a.options.map((o) => ({ value: o, label: o })) } : { key: `spec${i}`, label: `مشخصه: ${a.label}`, type: 'text' as const })),
+    { key: 'variants', label: 'گونه‌های قابل خرید (رنگ، ظرفیت، مدت اشتراک و…)؛ فقط اگر منبع چند گزینهٔ قیمت‌دار دارد', type: 'records', recordKeys: [
+      { key: 'sku', label: 'SKU یکتای گونه (لاتین)' }, { key: 'name', label: 'نام فارسی گونه' }, { key: 'nameEn', label: 'نام انگلیسی گونه' },
+      fxMode ? { key: 'fxAmount', label: `قیمت ارزی گونه به ${fxCode} (خالی = قیمت محصول)` } : { key: 'price', label: 'قیمت گونه' },
+      { key: 'stock', label: 'موجودی گونه (-1 نامحدود)' },
+      ...variantAttributes.map((a, i) => ({ key: `a${i}`, label: `${a.label}${a.options?.length ? ` (یکی از: ${a.options.join('، ')})` : ''}` })),
+    ] },
   ]
   const isAi = (key: string) => key in aiValues && JSON.stringify(form[key]) === JSON.stringify(aiValues[key])
   const aiUsed = Object.keys(aiValues).some(isAi)
   const applyAi = (values: Form, filled: string[]) => {
     setSaved('')
-    const next = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, key === 'weightGrams' ? Number(value) || 0 : value]))
+    // Specifications and variant attributes travel under short keys (spec0, a0…); they go back to their own places here.
+    const specs: Record<string, string> = { ...(typeof form.specifications === 'string' ? (() => { try { return JSON.parse(form.specifications) } catch { return {} } })() : form.specifications || {}) }
+    let specsTouched = false
+    for (const [i, a] of specAttributes.entries()) if (typeof values[`spec${i}`] === 'string') { specs[a.key] = values[`spec${i}`]; specsTouched = true }
+    const plain = Object.fromEntries(Object.entries(values).filter(([key]) => !/^spec\d+$/.test(key)))
+    if (Array.isArray(plain.variants)) plain.variants = plain.variants.map((row: Record<string, string>) => ({
+      sku: String(row.sku || '').trim(), name: String(row.name || '').trim(), nameEn: String(row.nameEn || '').trim(),
+      ...(fxMode ? { fxAmount: String(row.fxAmount || '').replace(/[^\d.]/g, ''), price: Number(form.price) || 1 } : { price: String(row.price || '').replace(/[^\d.]/g, '') }),
+      stock: row.stock === '' || row.stock === undefined || !Number.isFinite(Number(row.stock)) ? -1 : Number(row.stock),
+      attributes: Object.fromEntries(variantAttributes.map((a, i) => [a.key, String(row[`a${i}`] || '').trim()]).filter(([, v]) => v)),
+    }))
+    if (specsTouched) plain.specifications = specs
+    for (const key of ['fxAmount', 'fxCompareAt', 'price', 'compareAtPrice']) if (typeof plain[key] === 'number') plain[key] = String(plain[key])
+    const next = Object.fromEntries(Object.entries(plain).map(([key, value]) => [key, key === 'weightGrams' ? Number(value) || 0 : value]))
     setForm((current) => (current ? { ...current, ...next } : current))
-    setAiValues((current) => { const out = { ...current }; for (const key of Object.keys(next)) { if (filled.includes(key)) out[key] = next[key]; else delete out[key] } return out })
+    setAiValues((current) => { const out = { ...current }; for (const key of Object.keys(next)) { if (filled.includes(key) || (key === 'specifications' && specsTouched)) out[key] = next[key]; else delete out[key] } return out })
   }
   // A new product, one switched to active, or AI-written copy is reviewed before it goes on sale.
   const needsReview = form.active !== false && (isNew || originalActive === false || aiUsed)

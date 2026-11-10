@@ -49,3 +49,19 @@ test('the reviewer chooses draft or live at save; blocked rows stay drafts',()=>
   assert.match(save,/published:publish/,'the choice is audited')
   assert.match(ui,/checked=\{!publish\}/,'draft stays the default');assert.match(ui,/disabled=\{blocked\}/)
 });
+test('product rows carry SKU, specifications, variants and FAQs proposed by the model, cleaned leniently',()=>{
+  const p=source()('src/modules/ai/domain/production.ts')
+  const f=p.parseProductFields({sku:'tg prem/12m',shortDescription:'خلاصه',specifications:{duration:'12 ماه',bad:''},variants:[{sku:'tg-3m',name:'سه ماهه',price:'۱٬۲۰۰٬۰۰۰',stock:'x'},{sku:'',name:'بدون SKU'},{sku:'TG-6M',name:'شش ماهه',price:'2000000',stock:5,attributes:{period:'6'}}],faqs:[{question:'چطور؟',answer:'این‌طور'},{question:'',answer:'x'}]})
+  assert.equal(f.sku,'TG-PREM-12M');assert.deepEqual(f.specifications,{duration:'12 ماه'})
+  assert.deepEqual(f.variants.map(v=>[v.sku,v.price,v.stock]),[['TG-3M','1200000',-1],['TG-6M','2000000',5]]);assert.deepEqual(f.variants[1].attributes,{period:'6'})
+  assert.equal(f.faqs.length,1);assert.equal(p.parseProductFields('x'),undefined)
+  const body={title:'عنوان محصول',slug:'telegram-premium',excerpt:'',coverPrompt:'',sections:[{heading:'h',text:'متن '.repeat(80),imagePrompt:''}]}
+  assert.equal(p.parseProductionOutput(JSON.stringify(body)).product,undefined,'posts and pages stay as they were')
+  assert.equal(p.parseProductionOutput(JSON.stringify({...body,product:{sku:'a-1'}})).product.sku,'A-1')
+  const prompt=p.productionPrompt('product',{...config,currency:'IRT'},{topic:'t',facts:'f',price:'1',stock:0},[],'MoboCom',[{key:'period',label:'مدت',kind:'select',options:['3','6'],variant:true}])
+  assert.match(prompt,/کلید product/);assert.match(prompt,/"attributes":\[\{"key":"period"/)
+  assert.doesNotMatch(p.productionPrompt('post',config,{topic:'t',facts:'f',price:'',stock:0},[],'MoboCom'),/کلید product/)
+  const fs=require('node:fs'),save=fs.readFileSync(require('node:path').join(__dirname,'..','src/modules/ai/server/production/save.ts'),'utf8')
+  assert.match(save,/fits\(specFields, key, value\)/,'only real specification keys and options are saved');assert.match(save,/\.\.\.fixed \}/,'the batch\x27s own specifications win')
+  assert.match(save,/if \(!\(Number\(v\.price\) > 0\)\) continue/,'an unpriced variant is dropped, not a failed save')
+});

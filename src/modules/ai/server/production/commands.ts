@@ -6,6 +6,7 @@ import { auditAdminStrict } from '@/platform/audit/server'
 import { parseProductionOutput, productionPrompt, imagePrompt, nextImage, ProductionError, type ProductionKind } from '../../domain/production'
 import { owned, configOf, outputOf, imagesOf, seedOf, categories, claimBatch, snapshot, view } from './store'
 import { saveProduction } from './save'
+import { attributeGroupForCategory } from '@/modules/catalog/server/product-config'
 import { requireProductionTransport, validateProductionProviders, productionModelAuthority } from './providers'
 import type { ProductionStep } from '../../domain/production-execution'
 
@@ -34,7 +35,7 @@ export async function productionCommand(req: NextRequest,body:Record<string,unkn
       if(batch.status!=='RUNNING'||batch.items.some(x=>x.state==='RUNNING')||item.state!=='READY')throw new ProductionError('دسته متوقف است یا درخواست دیگری فعال است',409)
       const names=await categories(batch.kind as ProductionKind,config,tx),lease=randomUUID(),expiresAt=new Date(Date.now()+12*60*1000),index=item.output?nextImage(config,imagesOf(item)):undefined
       if(item.output&&index===undefined)throw new ProductionError('ردیف آمادهٔ بازبینی است',409)
-      const phase=item.output?'image':'text',prompt=phase==='text'?productionPrompt(batch.kind as ProductionKind,config,seedOf(item),names,brand):imagePrompt(config,outputOf(item),index!)
+      const phase=item.output?'image':'text',prompt=phase==='text'?productionPrompt(batch.kind as ProductionKind,config,seedOf(item),names,brand,batch.kind==='product'?(await attributeGroupForCategory(config.categoryIds[0]||null)).fields:[]):imagePrompt(config,outputOf(item),index!)
       requireProductionTransport(config,phase,transport)
       const updated=await tx.aiProductionItem.updateMany({where:{id:item.id,version:item.version,state:'READY'},data:{state:'RUNNING',lease,expiresAt,version:{increment:1}}});if(updated.count!==1)throw new ProductionError('ردیف هم‌زمان گرفته شد',409)
       return{...await done(),step:{itemId:item.id,lease,phase,index,prompt}}

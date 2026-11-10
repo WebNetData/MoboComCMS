@@ -28,7 +28,7 @@ const EMPTY: Form = {
   requirements: { min: {}, rec: {} }, links: [], version: '', gameSize: '', storeLinks: [], playMain: 0, playExtra: 0, playComplete: 0, seoTitle: '', seoDescription: '',
   terms: { ids: [], primary: null },
 }
-// Fields the assistant may fill from pasted material (never status, media, links or scores).
+// Fields the assistant may fill from pasted material (never the publish decision, media, links or scores).
 const AI_FIELDS: AutofillField[] = [
   { key: 'title', label: 'نام فارسی بازی', type: 'text' },
   { key: 'titleEn', label: 'نام انگلیسی بازی', type: 'text', dir: 'ltr' },
@@ -49,6 +49,9 @@ const AI_FIELDS: AutofillField[] = [
   { key: 'version', label: 'نسخهٔ فایل (در صورت ذکر در منبع)', type: 'text', dir: 'ltr' },
   { key: 'gameSize', label: 'حجم بازی (در صورت ذکر در منبع)', type: 'text', dir: 'ltr' },
   { key: 'playMain', label: 'ساعت تقریبی داستان اصلی', type: 'number' },
+  { key: 'playExtra', label: 'ساعت تقریبی اصلی + جانبی', type: 'number' },
+  { key: 'playComplete', label: 'ساعت تقریبی تکمیل ۱۰۰٪', type: 'number' },
+  { key: 'requirements', label: 'سیستم مورد نیاز کامپیوتر', type: 'records', hint: 'دقیقاً دو ردیف: اول حداقل، دوم پیشنهادی؛ فقط از منبع', recordKeys: [{ key: 'os', label: 'سیستم‌عامل' }, { key: 'cpu', label: 'پردازنده' }, { key: 'gpu', label: 'کارت گرافیک' }, { key: 'ram', label: 'رم' }, { key: 'storage', label: 'فضای ذخیره‌سازی' }, { key: 'directx', label: 'دایرکت‌ایکس' }] },
   { key: 'seoTitle', label: 'عنوان سئو (حداکثر ۶۰ نویسه)', type: 'text' },
   { key: 'seoDescription', label: 'توضیح متا (حداکثر ۱۶۰ نویسه)', type: 'textarea' },
 ]
@@ -152,7 +155,10 @@ export default function GameEditorPage() {
   const aiUsed = Object.keys(aiValues).some(isAi)
   const applyAi = (values: Form, filled: string[]) => {
     setDirty(true); setSaved('')
-    const next = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, key === 'releaseDate' && typeof value === 'string' ? value.slice(0, 10) : value]))
+    const next = Object.fromEntries(Object.entries(values).map(([key, value]) => {
+      if (key === 'requirements' && Array.isArray(value)) { const [min = {}, rec = {}] = value as Record<string, string>[]; return [key, { min: { ...(form?.requirements?.min || {}), ...min }, rec: { ...(form?.requirements?.rec || {}), ...rec } }] }
+      return [key, key === 'releaseDate' && typeof value === 'string' ? value.slice(0, 10) : value]
+    }))
     setForm((current) => (current ? { ...current, ...next } : current))
     setAiValues((current) => { const out = { ...current }; for (const key of Object.keys(next)) { if (filled.includes(key)) out[key] = next[key]; else delete out[key] } return out })
   }

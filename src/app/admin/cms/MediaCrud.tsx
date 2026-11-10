@@ -272,7 +272,10 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       case 'textarea': return [{ ...base, type: 'textarea' }]
       case 'number': return [{ ...base, type: 'number' }]
       case 'checkbox': return [{ ...base, type: 'checkbox' }]
-      case 'date': return [{ ...base, type: 'date' }]
+      case 'date': case 'datetime': return [{ ...base, type: 'date' }]
+      // Lists chosen from known values; the system requirements as two rows (minimum, then recommended).
+      case 'picklist': case 'chips': { const options = (optionsOf(field) || []).filter((o) => o.value !== '').map((o) => ({ value: o.value, label: o.label })); return options.length ? [{ ...base, type: 'multiselect', options }] : [] }
+      case 'requirements': return [{ ...base, type: 'records', hint: 'دقیقاً دو ردیف: اول حداقل، دوم پیشنهادی؛ فقط از منبع', recordKeys: REQ_KEYS.map((k) => ({ key: k.key, label: k.fa })) }]
       case 'select': { const options = (optionsOf(field) || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
       case 'records': return field.recordKeys ? [{ ...base, type: 'records', recordKeys: field.recordKeys.filter((r) => !r.options && !/image|src|url/i.test(r.key)).map((r) => ({ key: r.key, label: r.label })) }] : []
       case 'studio': return [{ ...base, type: 'text' }]
@@ -288,6 +291,9 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       for (const field of fields) {
         if (!(field.key in values)) continue
         const value = values[field.key]
+        if (field.type === 'requirements' && Array.isArray(value)) { const [min = {}, rec = {}] = value as Record<string, string>[]; next[field.key] = { min: { ...(current[field.key]?.min || {}), ...min }, rec: { ...(current[field.key]?.rec || {}), ...rec } }; continue }
+        if (field.type === 'datetime' && typeof value === 'string') { next[field.key] = `${value}T00:00`; continue }
+        if (field.type === 'chips' && Array.isArray(value)) { next[field.key] = value.join(', '); continue }
         next[field.key] = field.type === 'number' || field.type === 'select' ? (value === undefined || value === null ? '' : String(value)) : value
       }
       return next
