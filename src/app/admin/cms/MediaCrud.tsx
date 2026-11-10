@@ -525,8 +525,8 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
   </div>
 }
 
-export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; language?: string; url: string; access: string; platform?: string; architecture?: string; checksum?: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
-const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', access: 'PUBLIC' })
+export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; language?: string; url: string; embedUrl?: string; access: string; platform?: string; architecture?: string; checksum?: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
+const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', embedUrl: '', access: 'PUBLIC' })
 
 function move<T>(list: T[], index: number, delta: number): T[] {
   const next = [...list]
@@ -544,8 +544,8 @@ const PLAYBACK_LABEL: Record<string, [string, string, string]> = {
   none: ['فقط دانلود', 'Download only', ''],
 }
 
-function PlaybackBadge({ url, kind, fa }: { url: string; kind: string; fa: boolean }) {
-  const [label, labelEn, tone] = PLAYBACK_LABEL[playbackKind(url, kind, toEmbedUrl)]
+function PlaybackBadge({ url, embedUrl, kind, fa }: { url: string; embedUrl?: string; kind: string; fa: boolean }) {
+  const [label, labelEn, tone] = PLAYBACK_LABEL[playbackKind(url, kind, toEmbedUrl, embedUrl)]
   return <span className={`mx-play-badge ${tone}`}>{fa ? label : labelEn}</span>
 }
 
@@ -575,8 +575,11 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
             <label><span>{fa ? 'معماری پردازنده' : 'CPU architecture'}</span><input className="input" list="software-architecture-options" dir="ltr" value={row.architecture || ''} onChange={(e) => update(index, { architecture: e.target.value })} placeholder="x64" /></label>
             <label><span>SHA-256</span><input className="input" dir="ltr" value={row.checksum || ''} onChange={(e) => update(index, { checksum: e.target.value })} placeholder="64 hex characters" /></label>
           </div>}
+          {row.kind === 'STREAM' && <div className="mx-link-file">
+            <input aria-label={fa ? 'نشانی Embed (اختیاری)' : 'Optional embed URL'} className="input mx-link-url" dir="ltr" placeholder="https://player.example.com/embed/..." value={row.embedUrl || ''} onChange={(e) => update(index, { embedUrl: e.target.value })} />
+          </div>}
           <div className="mx-link-file">
-            <input aria-label="نشانی فایل" className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
+            <input aria-label="نشانی فایل یا صفحه منبع" className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
             <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
           </div>
           <div className="mx-link-foot">
@@ -585,7 +588,7 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
               {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
               {!!row.sales && <span className="muted text-sm">🛒 {row.sales.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
             </span>}
-            {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
+            {row.url && <PlaybackBadge url={row.url} embedUrl={row.embedUrl} kind={row.kind} fa={fa} />}
             <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
             {!!row.clicks && <span className="muted text-sm" title={fa ? 'تعداد کلیک' : 'Clicks'}>⤓ {row.clicks.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
             <div className="mx-row-tools">
@@ -599,7 +602,7 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
       {!value.length && <p className="mx-links-empty">{fa ? 'هنوز لینکی اضافه نشده. برای هر کیفیت یا نسخه یک لینک دانلود یا پخش بسازید.' : 'No links yet. Add one download or stream link per quality or version.'}</p>}
       <button type="button" className="mx-links-add" onClick={() => onChange([...value, { ...blankLink(), ...(priced ? { price: '' } : {}) }])}>+ {fa ? 'افزودن لینک' : 'Add link'}</button>
       {priced && !compact && <p className="muted text-sm mx-links-hint">{fa ? 'قیمت جدا: لینکی که قیمت دارد جداگانه فروخته می‌شود (مثلاً نسخهٔ 4K گران‌تر)؛ خرید کل مورد آن را باز نمی‌کند. خالی بگذارید تا تابع قیمت یا دسترسی خود مورد باشد. ماژول «فروش محتوا» باید روشن باشد.' : 'Own price: a priced link is sold separately; buying the item does not open it.'}</p>}
-      {!compact && <p className="muted text-sm mx-links-hint">{fa ? 'پخش آنلاین در سایت برای MP4 (H.264/AAC)، WebM و HLS (.m3u8) و لینک‌های یوتیوب/آپارات کار می‌کند. MKV فقط وقتی پخش می‌شود که کدک ویدیو H.264 و صدا AAC باشد (نه x265/HEVC یا AC3/DTS). لینک باید https باشد.' : 'Online playback works for MP4 (H.264/AAC), WebM, HLS (.m3u8) and YouTube/Aparat links. MKV plays only with H.264 + AAC. Links must be https.'}</p>}
+      {!compact && <p className="muted text-sm mx-links-hint">{fa ? 'پخش مستقیم برای MP4 (H.264/AAC)، WebM و HLS (.m3u8) و Embed برای ارائه‌دهنده‌های شناخته‌شده یا نشانی Embed مجاز کار می‌کند. برای HLS، CORS میزبان باید فعال باشد. MKV فقط وقتی پخش می‌شود که کدک ویدیو H.264 و صدا AAC باشد (نه x265/HEVC یا AC3/DTS). لینک باید https باشد.' : 'Direct playback works for MP4 (H.264/AAC), WebM and HLS (.m3u8); known providers and an explicit embed URL use an iframe. HLS hosts must allow browser CORS. MKV plays only with H.264 + AAC. Links must be https.'}</p>}
     </div>
   )
 }
