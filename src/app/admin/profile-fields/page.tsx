@@ -13,6 +13,7 @@ const BUILTIN_NOTE: Record<string, string> = {
   username: 'هیچ‌وقت ضروری نیست؛ اگر خالی بماند نام کاربری پیش‌فرض ساخته می‌شود.',
   email: 'فقط برای حساب‌هایی نشان داده می‌شود که ایمیل واقعی ندارند (ثبت‌نام با پیامک).',
   address: 'استان، شهر، نشانی، پلاک، کد پستی، موبایل گیرنده و پین روی نقشه؛ آدرس پیش‌فرض سفارش‌ها می‌شود.',
+  phone: 'کاربر شمارهٔ موبایلش را با کد پیامکی تأیید می‌کند؛ اگر ضروری باشد، هر کسی که با ایمیل، تلگرام یا راه دیگری ثبت‌نام کرده تا تأیید شماره به صفحهٔ تکمیل مشخصات هدایت می‌شود. تا وقتی ارسال پیامک تنظیم نشده باشد، این مرحله از کاربر خواسته نمی‌شود.',
 }
 
 const slug = (label: string, taken: string[]) => {
@@ -33,11 +34,12 @@ export default function ProfileFieldsPage() {
   const [open, setOpen] = useState<string>('')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [smsReady, setSmsReady] = useState(true)
 
   useEffect(() => {
     fetch('/api/admin/profile-fields', { cache: 'no-store' }).then((r) => r.json().then((data) => ({ ok: r.ok, data }))).then(({ ok, data }) => {
       if (!ok) { setNotice({ tone: 'error', text: data?.error || 'بارگذاری انجام نشد' }); return }
-      setConfig(data.config); setSaved(JSON.stringify(data.config)); setTypes(data.types); setRevision(data.settingsRevision || '')
+      setConfig(data.config); setSaved(JSON.stringify(data.config)); setTypes(data.types); setRevision(data.settingsRevision || ''); setSmsReady(data.smsReady !== false)
     }).catch(() => setNotice({ tone: 'error', text: 'ارتباط برقرار نشد' }))
   }, [])
 
@@ -92,6 +94,7 @@ export default function ProfileFieldsPage() {
             </div>
             {open === field.key && <div className="pf-edit">
               {field.builtin && <p className="sa-hint">{BUILTIN_NOTE[field.builtin]}</p>}
+              {field.builtin === 'phone' && !smsReady && <Notice tone="error">ارسال پیامک هنوز آماده نیست؛ تا تنظیم سرویس پیامک در <a href="/admin/sms">مدیریت پیامک</a>، تأیید موبایل از کاربران خواسته نمی‌شود.</Notice>}
               <div className="sa-grid">
                 <label className="sa-field"><span>عنوان</span><input className="input" value={field.label} maxLength={80} onChange={(e) => update(field.key, { label: e.target.value })} /></label>
                 {!field.builtin && <label className="sa-field"><span>نوع</span><select className="select" value={field.type} onChange={(e) => update(field.key, { type: e.target.value })}>{Object.entries(types).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}

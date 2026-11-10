@@ -7,6 +7,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { parseTelegramWidgetRedirect } from '@/modules/identity/telegram-widget-redirect'
 
+/** Members with required details still missing (a verified mobile, for example) finish them first, as after any sign-in. */
+async function afterSignIn(destination: string) {
+  const status = await fetch('/api/profile/completion', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+  return status?.needsCompletion ? `/welcome?next=${encodeURIComponent(destination)}` : destination
+}
+
 export default function TelegramLoginCallback() {
   const router = useRouter()
   const { locale } = useI18n()
@@ -29,8 +35,7 @@ export default function TelegramLoginCallback() {
       .then((response) => {
         if (response?.error === 'TOTP_REQUIRED') { setPending({ authData: result.authData, destination: result.destination }); return }
         if (!response || response.error) { setError(true); return }
-        router.replace(result.destination)
-        router.refresh()
+        return afterSignIn(result.destination).then((target) => { router.replace(target); router.refresh() })
       })
       .catch(() => setError(true))
   }, [router])
@@ -41,7 +46,7 @@ export default function TelegramLoginCallback() {
     setBusy(true); setTotpError('')
     const response = await signIn('telegram-web', { authData: pending.authData, totp, redirect: false }).catch(() => null)
     setBusy(false)
-    if (response && !response.error) { router.replace(pending.destination); router.refresh(); return }
+    if (response && !response.error) { router.replace(await afterSignIn(pending.destination)); router.refresh(); return }
     if (response?.error === 'TOTP_INVALID') { setTotpError(locale === 'fa' ? 'کد ورود دو مرحله‌ای درست نیست.' : 'The 2-step code is wrong.'); return }
     setPending(null); setError(true)
   }

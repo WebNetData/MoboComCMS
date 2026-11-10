@@ -6,7 +6,7 @@
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'date' | 'email' | 'tel' | 'postalCode' | 'nationalId' | 'url'
 
 /** Built-ins map onto real account data; custom fields live in User.profileData. */
-export type BuiltinKey = 'firstName' | 'lastName' | 'username' | 'email' | 'address'
+export type BuiltinKey = 'firstName' | 'lastName' | 'username' | 'email' | 'address' | 'phone'
 
 export class CompletionError extends Error {
   constructor(message: string, readonly errors: Record<string, string>, readonly status = 422) { super(message) }
@@ -44,6 +44,7 @@ export const BUILTINS: Record<BuiltinKey, { label: string; help: string }> = {
   username: { label: 'نام کاربری', help: 'اگر خالی بماند، نام کاربری پیش‌فرض ساخته می‌شود.' },
   email: { label: 'ایمیل', help: 'برای دریافت فاکتور و اطلاع‌رسانی سفارش‌ها.' },
   address: { label: 'آدرس و موقعیت روی نقشه', help: 'استان، شهر، نشانی، کد پستی و موقعیت روی نقشه؛ آدرس پیش‌فرض ارسال سفارش‌ها می‌شود.' },
+  phone: { label: 'شمارهٔ موبایل تأییدشده', help: 'با کد پیامکی تأیید می‌شود؛ برای ورود با پیامک، بازیابی حساب و اطلاع‌رسانی سفارش‌ها.' },
 }
 
 const builtin = (key: BuiltinKey, required: boolean, enabled = true): FieldDef => ({ key, label: BUILTINS[key].label, type: 'builtin', builtin: key, required, enabled, placeholder: '', help: BUILTINS[key].help, options: [] })
@@ -54,7 +55,7 @@ export const DEFAULT_FIELDS_CONFIG: FieldsConfig = {
   intro: 'برای استفاده از حساب، چند مشخصهٔ ضروری را یک بار تکمیل کنید.',
   // The address is offered, not demanded: a new member may only want to read, review or buy digital goods,
   // and checkout asks for an address whenever an order needs one. The owner can make it required in the admin.
-  fields: [builtin('firstName', true), builtin('lastName', true), builtin('address', false), builtin('email', false), builtin('username', false)],
+  fields: [builtin('firstName', true), builtin('lastName', true), builtin('address', false), builtin('email', false), builtin('username', false), builtin('phone', false, false)],
 }
 
 const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f‪-‮⁦-⁩]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
@@ -128,9 +129,18 @@ export function cleanCustomValue(field: FieldDef, input: unknown): [string | boo
   }
 }
 
-export type MemberState = { firstName: string; lastName: string; hasAddress: boolean; realEmail: boolean; data: Record<string, unknown> }
+export type MemberState = { firstName: string; lastName: string; hasAddress: boolean; realEmail: boolean; phoneVerified: boolean; data: Record<string, unknown> }
 
 const filled = (value: unknown) => value === true || (typeof value === 'string' && value.trim() !== '') || typeof value === 'number'
+
+/**
+ * A required verified mobile is only asked for while SMS codes can be delivered:
+ * without a working provider nobody could ever finish the step.
+ */
+export function withPhoneDelivery(config: FieldsConfig, smsReady: boolean): FieldsConfig {
+  if (smsReady) return config
+  return { ...config, fields: config.fields.map((field) => field.builtin === 'phone' ? { ...field, required: false, enabled: false } : field) }
+}
 
 /** Required fields this member still has to fill. */
 export function missingRequired(config: FieldsConfig, state: MemberState): FieldDef[] {
@@ -141,6 +151,7 @@ export function missingRequired(config: FieldsConfig, state: MemberState): Field
       case 'address': return !state.hasAddress
       case 'email': return !state.realEmail
       case 'username': return false
+      case 'phone': return !state.phoneVerified
       default: return field.type === 'checkbox' ? state.data[field.key] !== true : !filled(state.data[field.key])
     }
   })

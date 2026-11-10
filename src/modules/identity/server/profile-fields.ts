@@ -6,7 +6,8 @@ import { isPhonePlaceholderEmail } from '@/modules/sms/domain/sms'
 import { listAddresses, saveAddress } from '@/modules/shipping/server/shipping'
 import { ShippingError, normalizeMobile } from '@/modules/shipping/domain/shipping'
 import { ProfileError } from '@/modules/identity/domain/profile'
-import { CompletionError, cleanCustomValue, missingRequired, normalizeFieldsConfig, splitName, type FieldsConfig, type MemberState } from '@/modules/identity/domain/profile-fields'
+import { CompletionError, cleanCustomValue, missingRequired, normalizeFieldsConfig, splitName, withPhoneDelivery, type FieldsConfig, type MemberState } from '@/modules/identity/domain/profile-fields'
+import { smsAvailable } from '@/modules/sms/server/sms'
 import { completeFirstAccess, firstAccessFields } from '@/modules/identity/server/first-access'
 export { CompletionError } from '@/modules/identity/domain/profile-fields'
 
@@ -34,20 +35,26 @@ function parseData(raw: string): Record<string, unknown> {
 }
 
 async function loadMember(userId: number) {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, role: true, profileData: true, profileCompletedAt: true, passwordSetupRequired: true } })
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, phoneVerifiedAt: true, role: true, profileData: true, profileCompletedAt: true, passwordSetupRequired: true } })
   if (!user) throw new ProfileError('حساب پیدا نشد', 404)
   const data = parseData(user.profileData)
   const [firstFromName, lastFromName] = splitName(user.name || '')
   const firstName = typeof data.firstName === 'string' ? data.firstName : firstFromName
   const lastName = typeof data.lastName === 'string' ? data.lastName : lastFromName
   const addresses = await listAddresses(userId)
-  const state: MemberState = { firstName, lastName, hasAddress: addresses.length > 0, realEmail: realEmail(user.email), data }
+  const state: MemberState = { firstName, lastName, hasAddress: addresses.length > 0, realEmail: realEmail(user.email), phoneVerified: !!user.phoneVerifiedAt && !!normalizeMobile(user.phone || ''), data }
   return { user, data, state, addresses }
+}
+
+/** The owner's fields as members meet them: a verified mobile is asked for only while SMS can be delivered. */
+async function memberFieldsConfig() {
+  const [config, smsReady] = await Promise.all([getFieldsConfig(), smsAvailable().catch(() => false)])
+  return withPhoneDelivery(config, smsReady)
 }
 
 /** What the completion page needs: enabled fields, current values and what is still missing. */
 export async function completionStatus(userId: number) {
-  const [savedConfig, member, profile] = await Promise.all([getFieldsConfig(), loadMember(userId), ensureUserProfile(userId)])
+  const [savedConfig, member, profile] = await Promise.all([memberFieldsConfig(), loadMember(userId), ensureUserProfile(userId)])
   const needsPasswordSetup = member.user.role !== 'ADMIN' && member.user.passwordSetupRequired
   const config = needsPasswordSetup ? firstAccessFields(savedConfig) : savedConfig
   const missing = missingRequired(config, member.state)
@@ -63,6 +70,7 @@ export async function completionStatus(userId: number) {
       firstName: member.state.firstName, lastName: member.state.lastName, username: profile.username,
       email: member.state.realEmail ? member.user.email : '', emailLocked: member.state.realEmail,
       phone: normalizeMobile(member.user.phone || ''),
+      phoneVerified: member.state.phoneVerified,
       address: defaultAddress ? { id: defaultAddress.id, province: defaultAddress.province, city: defaultAddress.city, address: defaultAddress.address, plaque: defaultAddress.plaque, unit: defaultAddress.unit, postalCode: defaultAddress.postalCode, mobile: defaultAddress.mobile, lat: defaultAddress.lat, lng: defaultAddress.lng } : null,
       custom: Object.fromEntries(config.fields.filter((field) => !field.builtin).map((field) => [field.key, member.data[field.key] ?? (field.type === 'checkbox' ? false : '')])),
     },
@@ -73,7 +81,7 @@ const nameText = (value: unknown) => String(value ?? '').replace(/[\u0000-\u001f
 
 /** Validates and saves the completion form; throws CompletionError with per-field messages. */
 export async function submitCompletion(userId: number, input: Record<string, unknown>) {
-  const [config, member] = await Promise.all([getFieldsConfig(), loadMember(userId)])
+  const [config, member] = await Promise.all([memberFieldsConfig(), loadMember(userId)])
   if (member.user.passwordSetupRequired && member.user.role !== 'ADMIN') {
     await completeFirstAccess(userId, input)
     return { ...await completionStatus(userId), signInRequired: true }
@@ -115,6 +123,11 @@ export async function submitCompletion(userId: number, input: Record<string, unk
         newEmail = email
         break
       }
+      // The mobile is verified by its own SMS step (/api/me/phone); this form never sets it.
+      case 'phone': {
+        if (field.required && !member.state.phoneVerified) errors.phone = 'شمارهٔ موبایل خود را با کد پیامکی تأیید کنید'
+        break
+      }
       case 'address': {
         const raw = value && typeof value === 'object' ? value as Record<string, unknown> : null
         const provided = raw && Object.entries(raw).some(([key, item]) => !['lat', 'lng', 'mobile'].includes(key) && String(item ?? '').trim())
@@ -150,7 +163,7 @@ export async function submitCompletion(userId: number, input: Record<string, unk
 
   const fullName = `${firstName} ${lastName}`.trim()
   const hasAddress = member.state.hasAddress || !!addressInput
-  const stillMissing = missingRequired(config, { firstName, lastName, hasAddress, realEmail: member.state.realEmail || !!newEmail, data })
+  const stillMissing = missingRequired(config, { firstName, lastName, hasAddress, realEmail: member.state.realEmail || !!newEmail, phoneVerified: member.state.phoneVerified, data })
   await db.user.update({
     where: { id: userId },
     data: {

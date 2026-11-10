@@ -36,7 +36,7 @@ test('config: built-ins always present, username never required, broken custom f
     { key: 'job', label: 'شغل', type: 'select', options: ['برنامه‌نویس', 'طراح', 'طراح'] },
   ] })
   assert.equal(c.usernamePrefix, 'shopuser')
-  assert.deepEqual(c.fields.map((x) => x.key), ['username', 'nationalCode', 'job', 'firstName', 'lastName', 'email', 'address'])
+  assert.deepEqual(c.fields.map((x) => x.key), ['username', 'nationalCode', 'job', 'firstName', 'lastName', 'email', 'address', 'phone'])
   assert.equal(c.fields[0].required, false)
   assert.deepEqual(c.fields[2].options, ['برنامه‌نویس', 'طراح'])
   assert.equal(c.fields.find((x) => x.key === 'firstName').enabled, false)
@@ -65,6 +65,23 @@ test('missing required fields per member', () => {
   assert.deepEqual(f.missingRequired(c, state).map((x) => x.key), ['lastName', 'address', 'email', 'agree'])
   assert.deepEqual(f.missingRequired(c, { firstName: 'علی', lastName: 'رضایی', hasAddress: true, realEmail: true, data: { agree: true } }), [])
   assert.deepEqual(f.splitName('  علی   رضایی نژاد '), ['علی', 'رضایی نژاد'])
+})
+
+test('a required verified mobile: missing until verified, and never demanded while SMS cannot be delivered', () => {
+  const saved = f.normalizeFieldsConfig({ fields: [{ builtin: 'firstName', required: true }, { builtin: 'phone', required: true }] })
+  const phone = saved.fields.find((x) => x.builtin === 'phone')
+  assert.equal(phone.required, true)
+  assert.equal(phone.enabled, true)
+  const member = { firstName: 'علی', lastName: '', hasAddress: false, realEmail: true, phoneVerified: false, data: {} }
+  assert.deepEqual(f.missingRequired(saved, member).map((x) => x.key), ['phone'])
+  assert.deepEqual(f.missingRequired(saved, { ...member, phoneVerified: true }), [])
+  const noSms = f.withPhoneDelivery(saved, false)
+  assert.deepEqual(f.missingRequired(noSms, member), [])
+  assert.equal(noSms.fields.find((x) => x.builtin === 'phone').enabled, false)
+  assert.equal(f.withPhoneDelivery(saved, true), saved)
+  // Existing sites gain the field switched off: nobody is suddenly asked for a mobile.
+  const old = f.normalizeFieldsConfig({ fields: [{ builtin: 'firstName', required: true }] }).fields.find((x) => x.builtin === 'phone')
+  assert.deepEqual([old.enabled, old.required], [false, false])
 })
 
 test('map pins must be inside Iran; every province has a centre', () => {

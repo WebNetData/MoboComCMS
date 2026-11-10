@@ -6,6 +6,7 @@ import { decryptPanelCredential, encryptPanelCredential } from '@/modules/provid
 import { legacyNumber, minorToNumber } from '@/shared/money'
 import { MarketingError, giftCardState, giftCode, giftCodeLooksValid, normalizeGiftCode, validGiftAmount } from '@/modules/store/domain/marketing'
 import { GIFT_CURRENCY, getGiftSettings, notify, positive } from '@/modules/store/server/marketing/core'
+import { emailDocument } from '@/modules/mail/domain/email-layout'
 
 const codeHash = (code: string) => createHmac('sha256', authSecret()).update(`gift-card:${code}`).digest('hex')
 
@@ -57,10 +58,19 @@ async function emailGiftCard(code: string, toman: number, name: string, email: s
   if (!(await getSmtp()).enabled) return false
   const brand = settings.brandName || 'موبوکام'
   const site = (settings.siteUrl || process.env.NEXTAUTH_URL || '').replace(/\/+$/, '')
-  const esc = (value: string) => value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`)
   const amount = `${toman.toLocaleString('fa-IR')} تومان`
   const text = `${name ? `${name} عزیز،` : 'سلام،'}\n${from ? `${from} برای شما یک کارت هدیهٔ ${brand} فرستاده است.` : `یک کارت هدیهٔ ${brand} برای شما صادر شد.`}\nمبلغ: ${amount}\nکد: ${code}\n${message ? `پیام: ${message}\n` : ''}برای استفاده وارد حساب خود شوید و در «کارت هدیه» کد را وارد کنید: ${site}/dashboard/gift-cards`
-  const html = `<div dir="rtl" style="font-family:Tahoma,sans-serif;max-width:520px;margin:auto;padding:24px"><div style="border-radius:18px;padding:28px;background:linear-gradient(135deg,#6d4aff,#a855f7);color:#fff"><div style="font-size:14px;opacity:.85">${esc(brand)} · کارت هدیه</div><div style="font-size:30px;font-weight:800;margin:14px 0">${esc(amount)}</div><div style="font-family:monospace;font-size:20px;letter-spacing:2px;background:rgba(255,255,255,.16);padding:10px 14px;border-radius:10px;display:inline-block" dir="ltr">${esc(code)}</div></div><p style="line-height:2">${esc(name ? `${name} عزیز،` : 'سلام،')} ${esc(from ? `${from} برای شما یک کارت هدیه فرستاده است.` : 'یک کارت هدیه برای شما صادر شد.')}</p>${message ? `<blockquote style="border-right:3px solid #a855f7;margin:0;padding:6px 12px;color:#444">${esc(message)}</blockquote>` : ''}<p><a href="${esc(site)}/dashboard/gift-cards" style="display:inline-block;background:#6d4aff;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none">استفاده از کارت هدیه</a></p></div>`
+  const greeting = name ? `${name} عزیز،` : 'سلام،'
+  const html = emailDocument({
+    brand, site, title: from ? `${from} برای شما کارت هدیه فرستاده است` : 'یک کارت هدیه برای شما صادر شد', icon: 'gift', eyebrow: `کارت هدیهٔ ${brand}`,
+    preheader: `کارت هدیهٔ ${amount} — کد: ${code}`, greeting,
+    blocks: [
+      { kind: 'card', label: `${brand} · کارت هدیه`, value: amount, code },
+      ...(message ? [{ kind: 'quote' as const, text: message }] : []),
+      { kind: 'text', text: 'برای استفاده، وارد حساب خود شوید و در بخش «کارت هدیه» این کد را وارد کنید. مبلغ آن به کیف پول شما اضافه می‌شود.' },
+      { kind: 'button', label: 'استفاده از کارت هدیه', href: `${site}/dashboard/gift-cards` },
+    ],
+  })
   const result = await sendMail({ to: email, subject: `کارت هدیهٔ ${amount} از ${brand}`, text, html, source: 'gift-card' })
   return result.ok
 }

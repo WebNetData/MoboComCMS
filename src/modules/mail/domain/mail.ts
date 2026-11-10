@@ -2,6 +2,8 @@
 // and Dovecot read. Pure: validation, the plain-text map formats and the DNS
 // records a domain needs. No I/O here.
 
+import { absoluteUrl, emailDocument, type EmailIcon } from '@/modules/mail/domain/email-layout'
+
 export type SmtpSecurity = 'tls' | 'starttls' | 'none'
 
 export type SmtpSettings = {
@@ -145,51 +147,55 @@ export function readSmtp(stored: Record<string, unknown> | undefined): SmtpSetti
 
 // ---------------------------------------------------------------- notification email
 
-const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const compactLines = (parts: string[]) => parts.filter((line, index, all) => line !== '' || all[index - 1] !== '').join('
+')
+const subjectOf = (title: string, brand: string) => `${title} — ${brand}`.replace(/[
+]+/g, ' ').slice(0, 200)
 
 /** A branded, RTL, table-based email (renders in Gmail, Outlook and phones) plus its text part. */
 export function notificationEmail(input: { brand: string; site: string; name: string; title: string; body?: string; href: string; accent?: string }) {
-  const link = /^https?:\/\//.test(input.href) ? input.href : `${input.site}${input.href}`
+  const link = absoluteUrl(input.site, input.href)
   const settings = `${input.site}/dashboard/profile`
-  const accent = /^#[0-9a-f]{6}$/i.test(input.accent || '') ? input.accent! : '#4b45ee'
   const body = input.body && input.body !== input.title ? input.body : ''
-  const text = [`${input.name} عزیز،`, '', input.title, body, '', `مشاهده: ${link}`, '', input.brand, `برای قطع ایمیل‌های اطلاع‌رسانی: ${settings}`].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n')
-  const html = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head>
-<body style="margin:0;background:#f4f5f7;font-family:Tahoma,Vazirmatn,Arial,sans-serif;color:#1f2937">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb">
-<tr><td style="background:${accent};padding:18px 24px;color:#ffffff;font-size:18px;font-weight:bold;text-align:right">${escapeHtml(input.brand)}</td></tr>
-<tr><td style="padding:28px 24px 8px;text-align:right;font-size:15px;line-height:2">
-<p style="margin:0 0 8px">${escapeHtml(input.name)} عزیز،</p>
-<h1 style="margin:0 0 8px;font-size:19px;line-height:1.8">${escapeHtml(input.title)}</h1>
-${body ? `<p style="margin:0;color:#4b5563">${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : ''}
-</td></tr>
-<tr><td style="padding:16px 24px 28px;text-align:right"><a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:10px;font-weight:bold;font-size:14px">مشاهده جزئیات</a></td></tr>
-<tr><td style="padding:14px 24px;background:#f9fafb;border-top:1px solid #eef0f3;text-align:right;font-size:12px;line-height:2;color:#6b7280">این ایمیل به دلیل فعالیت در حساب کاربری شما در ${escapeHtml(input.brand)} ارسال شده است. برای قطع ایمیل‌های اطلاع‌رسانی به <a href="${escapeHtml(settings)}" style="color:#6b7280">تنظیمات حساب</a> بروید.</td></tr>
-</table></td></tr></table></body></html>`
-  return { subject: `${input.title} — ${input.brand}`.replace(/[\r\n]+/g, ' ').slice(0, 200), text, html, link, settings }
+  const text = compactLines([`${input.name} عزیز،`, '', input.title, body, '', `مشاهده: ${link}`, '', input.brand, `برای قطع ایمیل‌های اطلاع‌رسانی: ${settings}`])
+  const html = emailDocument({
+    brand: input.brand, site: input.site, title: input.title, accent: input.accent, icon: 'bell', eyebrow: 'اطلاع‌رسانی حساب',
+    preheader: body || input.title, greeting: `${input.name} عزیز،`,
+    blocks: [...(body ? [{ kind: 'text' as const, text: body }] : []), { kind: 'button', label: 'مشاهده جزئیات', href: link }],
+    footer: [`این ایمیل به دلیل فعالیت در حساب کاربری شما در ${input.brand} ارسال شده است.`],
+    footerLinks: [['تنظیمات اطلاع‌رسانی', settings]],
+  })
+  return { subject: subjectOf(input.title, input.brand), text, html, link, settings }
 }
 
 /** Transactional security email (password reset, sign-in alerts): one action, no unsubscribe footer. */
-export function actionEmail(input: { brand: string; site: string; name: string; title: string; body: string; href: string; button: string; note?: string; accent?: string }) {
-  const link = /^https?:\/\//.test(input.href) ? input.href : `${input.site}${input.href}`
-  const accent = /^#[0-9a-f]{6}$/i.test(input.accent || '') ? input.accent! : '#4b45ee'
-  const text = [`${input.name} عزیز،`, '', input.title, input.body, '', `${input.button}: ${link}`, '', input.note || '', input.brand].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n')
-  const html = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head>
-<body style="margin:0;background:#f4f5f7;font-family:Tahoma,Vazirmatn,Arial,sans-serif;color:#1f2937">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb">
-<tr><td style="background:${accent};padding:18px 24px;color:#ffffff;font-size:18px;font-weight:bold;text-align:right">${escapeHtml(input.brand)}</td></tr>
-<tr><td style="padding:28px 24px 8px;text-align:right;font-size:15px;line-height:2">
-<p style="margin:0 0 8px">${escapeHtml(input.name)} عزیز،</p>
-<h1 style="margin:0 0 8px;font-size:19px;line-height:1.8">${escapeHtml(input.title)}</h1>
-<p style="margin:0;color:#4b5563">${escapeHtml(input.body).replace(/\n/g, '<br>')}</p>
-</td></tr>
-<tr><td style="padding:16px 24px 20px;text-align:right"><a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:10px;font-weight:bold;font-size:14px">${escapeHtml(input.button)}</a></td></tr>
-<tr><td style="padding:0 24px 24px;text-align:right;font-size:12px;line-height:2;color:#6b7280;direction:ltr;word-break:break-all">${escapeHtml(link)}</td></tr>
-${input.note ? `<tr><td style="padding:14px 24px;background:#f9fafb;border-top:1px solid #eef0f3;text-align:right;font-size:12px;line-height:2;color:#6b7280">${escapeHtml(input.note)}</td></tr>` : ''}
-</table></td></tr></table></body></html>`
-  return { subject: `${input.title} — ${input.brand}`.replace(/[\r\n]+/g, ' ').slice(0, 200), text, html }
+export function actionEmail(input: { brand: string; site: string; name: string; title: string; body: string; href: string; button: string; note?: string; accent?: string; icon?: EmailIcon }) {
+  const link = absoluteUrl(input.site, input.href)
+  const text = compactLines([`${input.name} عزیز،`, '', input.title, input.body, '', `${input.button}: ${link}`, '', input.note || '', input.brand])
+  const html = emailDocument({
+    brand: input.brand, site: input.site, title: input.title, accent: input.accent, icon: input.icon || 'lock', eyebrow: 'امنیت حساب',
+    preheader: input.body.split('
+')[0], greeting: `${input.name} عزیز،`,
+    blocks: [{ kind: 'text', text: input.body }, { kind: 'button', label: input.button, href: link }, { kind: 'link', href: link }, ...(input.note ? [{ kind: 'note' as const, text: input.note }] : [])],
+  })
+  return { subject: subjectOf(input.title, input.brand), text, html }
+}
+
+/** A one-time code email: the code large and copyable, how long it lasts, and what to do if it was not you. */
+export function codeEmail(input: { brand: string; site: string; name?: string; title: string; code: string; intro: string; validity: string; note?: string; href?: string; button?: string; accent?: string }) {
+  const link = input.href ? absoluteUrl(input.site, input.href) : ''
+  const text = compactLines([input.name ? `${input.name} عزیز،` : 'سلام،', '', input.title, input.intro, '', `کد: ${input.code}`, input.validity, '', input.note || '', link ? `${input.button || 'ورود'}: ${link}` : '', input.brand])
+  const html = emailDocument({
+    brand: input.brand, site: input.site, title: input.title, accent: input.accent, icon: 'key', eyebrow: 'کد یک‌بارمصرف',
+    preheader: `کد شما: ${input.code} — ${input.validity}`, greeting: input.name ? `${input.name} عزیز،` : undefined,
+    blocks: [
+      { kind: 'text', text: input.intro },
+      { kind: 'code', code: input.code, caption: input.validity },
+      ...(link ? [{ kind: 'button' as const, label: input.button || 'ورود به حساب', href: link }] : []),
+      ...(input.note ? [{ kind: 'note' as const, text: input.note }] : []),
+    ],
+  })
+  return { subject: subjectOf(input.title, input.brand), text, html }
 }
 
 // ---------------------------------------------------------------- registry files

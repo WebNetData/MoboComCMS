@@ -7,6 +7,7 @@ import { FIELD_TYPES } from '@/modules/identity/domain/profile-fields'
 import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
 import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 import { IRAN_CENTER, PROVINCE_CENTERS } from '@/modules/shipping/domain/shipping'
+import { smsAvailable } from '@/modules/sms/server/sms'
 
 /** GET /api/profile/completion — fields, current values and whether the member must finish first. */
 export async function GET_completion(req: NextRequest) {
@@ -37,8 +38,8 @@ async function adminAllowed(req: NextRequest) {
 /** GET/PUT /api/admin/profile-fields — the registration field builder. */
 export async function GET_fields(req: NextRequest) {
   if (!await adminAllowed(req)) return err('forbidden', 403)
-  const config = await getFieldsConfig()
-  return ok({ config, types: FIELD_TYPES, settingsRevision: sectionSettingsRevision(config) })
+  const [config, smsReady] = await Promise.all([getFieldsConfig(), smsAvailable().catch(() => false)])
+  return ok({ config, types: FIELD_TYPES, settingsRevision: sectionSettingsRevision(config), smsReady })
 }
 
 export async function PUT_fields(req: NextRequest) {
