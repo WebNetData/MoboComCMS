@@ -91,13 +91,15 @@ test('settings are cached and invalidated on writes from anywhere; queue and CDN
 
 test('the strict rate limit: Redis decides, an outage falls back to what this process counted', async () => {
   const { rateLimitStrict } = load('src/platform/http/rate-limit')
-  const before = globalThis.__mobocomKv
+  // kv.ts keeps its store in one process-wide state object (audit 2026-11-10: it can reconnect).
+  const kvState = globalThis.__mobocomKvState
+  const before = kvState.store
   // A stand-in for Redis that already holds hits made through other instances.
   const counts = new Map()
   let down = false, calls = 0
   const fake = { kind: 'redis', hit: async (key) => { calls += 1; if (down) throw new Error('connection lost'); counts.set(key, (counts.get(key) || 0) + 1); return { count: counts.get(key), ttlMs: 42_000 } } }
   try {
-    globalThis.__mobocomKv = Promise.resolve(fake)
+    kvState.store = Promise.resolve(fake)
     counts.set('rls:strict-a', 4)
     assert.deepEqual(await rateLimitStrict('strict-a', 5, 60_000), { ok: true, retryAfter: 0 })
     assert.deepEqual(await rateLimitStrict('strict-a', 5, 60_000), { ok: false, retryAfter: 42 }, 'the shared count refuses although this process saw two hits')
@@ -110,11 +112,11 @@ test('the strict rate limit: Redis decides, an outage falls back to what this pr
     down = false
     // Without Redis the process count is the whole truth and the shared counter is not asked.
     calls = 0
-    globalThis.__mobocomKv = Promise.resolve({ kind: 'memory', hit: async () => { calls += 1; return { count: 1, ttlMs: 1 } } })
+    kvState.store = Promise.resolve({ kind: 'memory', hit: async () => { calls += 1; return { count: 1, ttlMs: 1 } } })
     assert.equal((await rateLimitStrict('strict-d', 1, 60_000)).ok, true)
     assert.equal((await rateLimitStrict('strict-d', 1, 60_000)).ok, false)
     assert.equal(calls, 0)
-  } finally { globalThis.__mobocomKv = before }
+  } finally { kvState.store = before }
 })
 
 test('the memory store counts a hit with the time left in its window', async () => {
@@ -138,4 +140,79 @@ test('every limit that guards a secret is the strict one', () => {
   assert.deepEqual([strict('src/modules/identity/auth.ts'), strict('src/modules/identity/server/account-security.ts'), strict('src/modules/store/server/http/marketing.ts'), strict('src/modules/public-api/server/api-keys.ts')], [6, 6, 3, 1], 'auth.ts: password ×3, SMS code, email code, Google ticket')
   assert.equal(strict('src/modules/identity/server/email-otp.ts'), 1, 'email issuance enforces all three strict buckets')
   assert.equal(strict('src/modules/sms/server/sms.ts'), 2, 'SMS issuance has strict recipient/IP limits')
+})
+
+test("a configured Redis that does not answer: the site falls back, says so, reconnects, and sensitive limits never open (audit 2026-11-10, P1)", async () => {
+  // A stand-in for ioredis on a shared fake server, so two separately loaded "instances" see the same data.
+  const server = { up: false, data: new Map(), ttl: new Map() }
+  class FakeRedis {
+    constructor() { this.handlers = {} }
+    on(event, fn) { this.handlers[event] = fn; return this }
+    async connect() { if (!server.up) throw new Error("connect ECONNREFUSED 127.0.0.1:6379") }
+    disconnect() { this.closed = true }
+    async ping() { if (!server.up) throw new Error("offline"); return "PONG" }
+    multi() {
+      const ops = []
+      const chain = {
+        set: (key, value, _px, ms, nx) => { ops.push(() => { if (nx && server.data.has(key)) return null; server.data.set(key, value); server.ttl.set(key, ms); return "OK" }); return chain },
+        incr: (key) => { ops.push(() => { const n = Number(server.data.get(key) || 0) + 1; server.data.set(key, String(n)); return n }); return chain },
+        pttl: (key) => { ops.push(() => server.ttl.get(key) ?? -1); return chain },
+        exec: async () => { if (!server.up) throw new Error("connection lost"); return ops.map((op) => [null, op()]) },
+      }
+      return chain
+    }
+  }
+  const logs = []
+  const instance = () => {
+    // Each instance is a fresh module graph with its own process-wide state, as a second server would have.
+    const graph = new Map()
+    const mocks = { ioredis: { default: FakeRedis, __esModule: true }, "@/platform/observability/logger": { logEvent: (level, event, fields) => logs.push({ level, event, fields }) } }
+    const own = (relative) => {
+      const file = path.resolve(root, relative + ".ts")
+      if (graph.has(file)) return graph.get(file)
+      const mod = { exports: {} }; graph.set(file, mod.exports)
+      const source = ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
+      new Function("require", "module", "exports", source)((spec) => spec in mocks ? mocks[spec] : spec.startsWith("@/") ? own("src/" + spec.slice(2)) : require(spec), mod, mod.exports)
+      graph.set(file, mod.exports)
+      return mod.exports
+    }
+    const saved = globalThis.__mobocomKvState
+    delete globalThis.__mobocomKvState
+    const kv = own("src/platform/cache/kv"), limits = own("src/platform/http/rate-limit")
+    const state = globalThis.__mobocomKvState
+    globalThis.__mobocomKvState = saved
+    // Run each call of this instance with its own state in place.
+    const within = (fn) => async (...args) => { const outer = globalThis.__mobocomKvState; globalThis.__mobocomKvState = state; try { return await fn(...args) } finally { globalThis.__mobocomKvState = outer } }
+    return { kv: within(kv.kv), health: within(kv.kvHealth), reconnect: within(kv.reconnectKv), strict: within(limits.rateLimitStrict), state }
+  }
+  const before = process.env.REDIS_URL
+  process.env.REDIS_URL = "redis://127.0.0.1:6379"
+  try {
+    const a = instance(), b = instance()
+    // Down at start: each falls back, reports it and keeps trying.
+    assert.equal((await a.kv()).kind, "memory")
+    const health = await a.health()
+    assert.equal(health.degraded, true); assert.ok(health.degradedSince); assert.match(health.lastError, /ECONNREFUSED/)
+    assert.equal(logs.filter((l) => l.event === "kv.redis_unavailable").length, 1, "the outage is logged once, not per call")
+    assert.ok(a.state.timer, "a reconnect is scheduled")
+    clearTimeout(a.state.timer); a.state.timer = null
+    // While down, a limit that guards a secret counts in each instance and stays closed.
+    for (let i = 0; i < 3; i++) assert.equal((await a.strict("login:acc:x", 3, 60_000)).ok, true)
+    assert.equal((await a.strict("login:acc:x", 3, 60_000)).ok, false, "never opens during the outage")
+    // Redis comes back: both instances switch to it and share one limit.
+    server.up = true
+    assert.equal(await a.reconnect(), true); assert.equal(await b.reconnect(), true)
+    assert.equal((await a.kv()).kind, "redis"); assert.equal((await b.health()).degraded, false)
+    assert.ok(logs.some((l) => l.event === "kv.redis_recovered"))
+    const spread = [await a.strict("otp:y", 3, 60_000), await b.strict("otp:y", 3, 60_000), await a.strict("otp:y", 3, 60_000), await b.strict("otp:y", 3, 60_000)]
+    assert.deepEqual(spread.map((r) => r.ok), [true, true, true, false], "the fourth hit is refused whichever instance it reaches")
+    // Redis drops again mid-run: the shared count is unavailable, the local count still limits.
+    server.up = false
+    for (let i = 0; i < 2; i++) await b.strict("pwd:z", 2, 60_000)
+    assert.equal((await b.strict("pwd:z", 2, 60_000)).ok, false, "an outage is not a fresh allowance")
+    assert.ok(logs.some((l) => l.event === "rate_limit.shared_unavailable"))
+    clearTimeout(b.state.timer)
+  } finally {
+    if (before === undefined) delete process.env.REDIS_URL; else process.env.REDIS_URL = before
+  }
 })

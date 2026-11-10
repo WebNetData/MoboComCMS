@@ -103,29 +103,94 @@ class RedisKv implements Kv {
   }
 }
 
-const globalKv = globalThis as unknown as { __mobocomKv?: Promise<Kv> }
+type KvState = {
+  store?: Promise<Kv>
+  /** The in-process store used while a configured Redis does not answer; one per process, kept across retries. */
+  fallback?: MemoryKv
+  /** Since when a configured Redis has not answered (ISO), or null. */
+  degradedSince: string | null
+  attempts: number
+  lastError: string
+  lastWarning: number
+  timer?: ReturnType<typeof setTimeout> | null
+}
+const globalKv = globalThis as unknown as { __mobocomKvState?: KvState }
+const state = (globalKv.__mobocomKvState ??= { degradedSince: null, attempts: 0, lastError: '', lastWarning: 0 })
 
-async function connect(): Promise<Kv> {
-  const url = process.env.REDIS_URL
-  if (!url) return new MemoryKv()
+async function connectRedis(url: string): Promise<RedisKv> {
+  const { default: Redis } = await import('ioredis')
+  const client = new Redis(url, { maxRetriesPerRequest: 2, enableOfflineQueue: false, lazyConnect: true, connectTimeout: 3000 })
+  client.on('error', (error) => logEvent('warn', 'kv.redis_error', { error: error.message }))
   try {
-    const { default: Redis } = await import('ioredis')
-    const client = new Redis(url, { maxRetriesPerRequest: 2, enableOfflineQueue: false, lazyConnect: true, connectTimeout: 3000 })
-    client.on('error', (error) => logEvent('warn', 'kv.redis_error', { error: error.message }))
     await client.connect()
-    logEvent('info', 'kv.redis_connected', {})
-    return new RedisKv(client)
   } catch (error) {
-    // The site keeps working on the in-process store; the monitoring page shows the fallback.
-    logEvent('error', 'kv.redis_unavailable', { error: error instanceof Error ? error.message : String(error) })
-    return new MemoryKv()
+    // A failed attempt leaves no client reconnecting in the background.
+    client.disconnect()
+    throw error
+  }
+  return new RedisKv(client)
+}
+
+/**
+ * A configured Redis that does not answer (audit 2026-11-10). The site keeps working on the in-process store, but not
+ * for ever: it keeps trying (5 s doubling to 1 min) and switches back as soon as Redis answers. While it lasts, a warning
+ * is logged at most every 5 minutes and the monitoring page reports it (kvHealth). Rate limits that guard a secret then
+ * count per instance and never open (rate-limit.ts); a Google sign-in that returns to another instance is refused.
+ */
+function useFallback(error: unknown): Kv {
+  const message = error instanceof Error ? error.message : String(error)
+  const first = !state.degradedSince
+  state.degradedSince ??= new Date().toISOString()
+  state.lastError = message.slice(0, 300)
+  if (first) logEvent('error', 'kv.redis_unavailable', { error: state.lastError })
+  else if (Date.now() - state.lastWarning > 5 * 60_000) logEvent('warn', 'kv.redis_fallback_active', { since: state.degradedSince, attempts: state.attempts, error: state.lastError })
+  if (first || Date.now() - state.lastWarning > 5 * 60_000) state.lastWarning = Date.now()
+  state.fallback ??= new MemoryKv()
+  scheduleReconnect()
+  return state.fallback
+}
+
+function scheduleReconnect() {
+  if (state.timer || !process.env.REDIS_URL) return
+  const delay = Math.min(60_000, 5_000 * 2 ** Math.min(state.attempts, 4))
+  state.timer = setTimeout(() => { state.timer = null; void reconnectKv() }, delay)
+  state.timer.unref?.()
+}
+
+/** One attempt to reach the configured Redis now; true once the site uses it. Also used by tests. */
+export async function reconnectKv(): Promise<boolean> {
+  const url = process.env.REDIS_URL
+  if (!url) return false
+  state.attempts += 1
+  try {
+    const redis = await connectRedis(url)
+    state.store = Promise.resolve(redis)
+    if (state.degradedSince) logEvent('info', 'kv.redis_recovered', { since: state.degradedSince, attempts: state.attempts })
+    else logEvent('info', 'kv.redis_connected', {})
+    state.degradedSince = null; state.attempts = 0; state.lastError = ''; state.fallback = undefined
+    return true
+  } catch (error) {
+    state.store = Promise.resolve(useFallback(error))
+    return false
   }
 }
 
-/** The process-wide store (connected once). */
+async function connect(): Promise<Kv> {
+  if (!process.env.REDIS_URL) return new MemoryKv()
+  await reconnectKv()
+  return state.store!
+}
+
+/** The process-wide store: Redis when configured and answering, otherwise the in-process store. */
 export function kv(): Promise<Kv> {
-  globalKv.__mobocomKv ??= connect()
-  return globalKv.__mobocomKv
+  state.store ??= connect()
+  return state.store
+}
+
+/** What the monitoring page shows: whether Redis is configured, what the site uses now, and since when it falls back. */
+export async function kvHealth() {
+  const store = await kv()
+  return { configured: !!process.env.REDIS_URL, backend: store.kind, degraded: !!process.env.REDIS_URL && store.kind !== 'redis', degradedSince: state.degradedSince, attempts: state.attempts, lastError: state.lastError }
 }
 
 // ------------------------------------------------------------------ read-through cache

@@ -23,6 +23,7 @@ const CHECKS = [
   'content-pdf',
   'automatic-forwarder',
   'human-check',
+  'redis-fallback-signal',
   'permalink-routing',
   'miniapp-feed',
   'import-field-inputs',

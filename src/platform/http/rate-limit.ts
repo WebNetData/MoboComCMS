@@ -16,12 +16,12 @@ import { logEvent } from '@/platform/observability/logger'
 const buckets = new Map<string, { count: number; resetAt: number }>()
 const shared = new Map<string, number>()
 const MAX_BUCKETS = 20_000
-let redis: Kv | null = null
-if (process.env.REDIS_URL && typeof window === 'undefined') void kv().then((store) => { if (store.kind === 'redis') redis = store }).catch(() => undefined)
-
+// The store is asked each time (it resolves at once after the first call): a Redis that answers only after start-up, or
+// again after an outage, is used from then on (audit 2026-11-10; kv.ts reconnects).
 function countShared(key: string, windowMs: number) {
-  if (!redis) return
-  redis.incr(`rl:${key}`, windowMs).then((count) => {
+  if (!process.env.REDIS_URL || typeof window !== 'undefined') return
+  void kv().then((store) => store.kind === 'redis' ? store.incr(`rl:${key}`, windowMs) : null).then((count) => {
+    if (count === null) return
     if (shared.size > MAX_BUCKETS) shared.clear()
     shared.set(key, count)
   }).catch(() => undefined)
