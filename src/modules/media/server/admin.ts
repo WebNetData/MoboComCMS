@@ -24,7 +24,7 @@ import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain
 import { cleanCodes, cleanReleases, cleanStoreLinks, codesOf } from '@/modules/games/domain/games'
 import { knownCodes, knownLinkAudio, knownNames } from '@/modules/vocabulary/server/vocabulary'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
-import { assignTerms, assignmentsFor, projectedTermFields, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
+import { assignTerms, assignmentsFor, projectedTermFields, recountAfterWrite, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { imdbIdentifier } from '@/modules/cinema/domain/metadata'
 import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
@@ -105,7 +105,9 @@ function pickDefined(input: Input): Input {
 }
 const has = (body: Input, key: string) => Object.prototype.hasOwnProperty.call(body, key)
 /** Stored term counts follow what was just saved, in the resource's own taxonomy and any it files into. */
-const recountFor = async (resource: Resource) => { for (const taxonomy of [resource.taxonomy, ...(resource.alsoCounts || [])]) if (taxonomy) await recount(taxonomy).catch(() => undefined) }
+const recountFor = async (resource: Resource, context: { type: string; operation: string; id?: number | string }) => {
+  for (const taxonomy of [resource.taxonomy, ...(resource.alsoCounts || [])]) if (taxonomy) await recountAfterWrite(taxonomy, { operation: context.operation, resource: context.type, id: context.id })
+}
 const when = <T>(body: Input, key: string, fn: (value: unknown) => T): T | undefined => (has(body, key) ? fn(body[key]) : undefined)
 
 /**
@@ -734,7 +736,7 @@ export async function restoreMediaItem(type: string, id: number, values: (curren
     return { before, after }
   }, { isolationLevel: 'Serializable', timeout: 30_000 })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, before, after)
-  await recountFor(resource)
+  await recountFor(resource, { type, operation: 'revision-restore', id })
   return { before, after }
 }
 
@@ -757,7 +759,7 @@ export async function deleteMediaItem(type: string, id: number, decidedById?: nu
 /** Recounts a resource's section categories after many writes. */
 export async function recountMediaTaxonomy(type: string) {
   const resource = RESOURCES[type]
-  if (resource) await recountFor(resource)
+  if (resource) await recountFor(resource, { type, operation: 'recount' })
 }
 
 /** Existing download links of an item (import merges new links with them instead of dropping them). */
@@ -800,7 +802,7 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
         })
         if (!claimed.count) return err('این مورد دیگر در سطل زباله نیست', 409)
         const restored = await resource.delegate(db).findUnique({ where: { id } }) as Record<string, any>
-        await recountFor(resource)
+        await recountFor(resource, { type, operation: 'trash-restore', id })
         if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, held, restored)
         await auditAdmin({ req, actor: admin, action: `media.${type}.restore`, targetType: type, targetId: id, metadata: { label: resource.label(restored), status: restored.status } })
         await tellDecision(type, held, admin.id, 'restored')
@@ -809,7 +811,7 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
       if (body.restore === true) return err('این مورد در سطل زباله نیست', 409)
     }
     const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null, { id: admin.id, email: admin.email }, type==='music-artists'?{audit:(tx,saved)=>auditAdminStrict({req,actor:admin,action:`media.${type}.${mode}`,targetType:type,targetId:saved.id,metadata:{label:resource.label(saved)}},tx)}:{})
-    await recountFor(resource)
+    await recountFor(resource, { type, operation: mode, id: row.id })
     if(type!=='music-artists')await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
     return ok({ id: row.id, slug: row.slug, status: row.status }, mode === 'create' ? 201 : 200)
   } catch (error) {
@@ -834,7 +836,7 @@ export async function DELETE(req: NextRequest) {
     const outcome = await trashOwnItem(type, id, caller.authorId)
     if (outcome === 'refused') return err('حذف این مورد با مدیر بخش است', 403)
     if (outcome !== 'trashed') return outcome === 'missing' ? err('not found', 404) : err('این مورد پیش‌تر به سطل زباله رفته است', 409)
-    await recountFor(resource)
+    await recountFor(resource, { type, operation: 'trash', id })
     await auditAdmin({ req, actor: admin, action: `media.${type}.trash`, targetType: type, targetId: id })
     return ok({ trashed: true })
   }
@@ -847,7 +849,7 @@ export async function DELETE(req: NextRequest) {
       if (deleted.status === TRASHED) await completeTrashCase(tx, type, id, admin.id, 'deleted')
       return deleted
     })
-    await recountFor(resource)
+    await recountFor(resource, { type, operation: 'delete', id })
     await auditAdmin({ req, actor: admin, action: `media.${type}.delete`, targetType: type, targetId: id, metadata: { label: resource.label(row) } })
     if (row.status === TRASHED) await tellDecision(type, row, admin.id, 'deleted')
     if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
@@ -929,7 +931,7 @@ export async function BULK(req: NextRequest) {
             for (const row of rows) if (row.status !== status) await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
         })
-        await recountFor(resource)
+        await recountFor(resource, { type, operation: 'bulk-status', id: rows.map((row) => row.id).join(',').slice(0, 200) })
         const paths: string[] = []
         for (const row of rows) {
           succeeded.push(row.id)

@@ -11,6 +11,7 @@ export const JOB_LABEL: Record<string, string> = {
   'notification.deliver': 'تحویل اعلان کاربر',
   'notification.digest': 'خلاصهٔ روزانهٔ اعلان‌ها',
   'forum.reputation-recount': 'بازشماری اعتبار اعضای تالار',
+  'taxonomy.recount': 'بازشماری تعداد موارد دسته‌بندی‌ها',
   'images.optimize': 'بهینه‌سازی همهٔ تصاویر',
   'images.clear-cache': 'پاک‌کردن کش اندازه‌های تصویر',
   'search.reindex': 'بازسازی کامل نمایهٔ جست‌وجو',
