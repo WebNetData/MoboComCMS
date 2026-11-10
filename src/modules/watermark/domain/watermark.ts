@@ -70,6 +70,23 @@ const OWN_IMAGE = /^\/api\/media\/covers\/([0-9a-f-]{36}\.(?:webp|png|jpg))$/
 /** "/api/media/covers/<id>.png" → "<id>.png" (or "" for anything else). */
 export const fileOfUrl = (url: string) => OWN_IMAGE.exec(String(url || '').split('?')[0])?.[1] || ''
 
+/** Organized pictures in the public file tree (shop/product/…/cover.webp) carry a "files/<path>" key in the usage index. */
+export const ORGANIZED_IMAGE = /\/files\/((?:shop|blog|pages|download)\/[^"'\s?#<>()]+\.(?:webp|png|jpe?g))/g
+export function organizedImageKey(url: string) {
+  const match = /^\/files\/((?:shop|blog|pages|download)\/[^"'\s?#<>()]+\.(?:webp|png|jpe?g))$/i.exec(String(url || '').split('?')[0])
+  if (!match) return ''
+  let key: string
+  try { key = match[1].split('/').map(decodeURIComponent).join('/') } catch { return '' }
+  return key.split('/').every((part) => part && !part.startsWith('.') && !part.includes('\\') &&![...part].some((ch) => ch.charCodeAt(0) < 32)) ? `files/${key}` : ''
+}
+/** One flat, safe cache name stem for any image key (covers keep their own name). */
+export function cacheStem(file: string) {
+  if (!file.startsWith('files/')) return file.replace(/\.\w+$/, '')
+  let hash = 2166136261
+  for (let i = 0; i < file.length; i++) { hash ^= file.charCodeAt(i); hash = Math.imul(hash, 16777619) }
+  return `files-${(hash >>> 0).toString(36)}-${file.length.toString(36)}`
+}
+
 const int = (value: unknown, min: number, max: number, fallback: number) => {
   const n = Math.round(Number(value))
   return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback

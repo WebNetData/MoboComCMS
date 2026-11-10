@@ -22,7 +22,7 @@ import { termProjectionChange } from '@/modules/taxonomy/domain/projection'
 import { CinemaMetadataLookup } from '@/components/admin/CinemaMetadata'
 import { applyCinemaMetadata } from '@/modules/cinema/domain/metadata'
 import { OrganizationScope, useAssetOrganization } from '@/components/media/OrganizationScope'
-import type { AssetOrganization } from '@/modules/downloads/domain/organization'
+import { imageRole, type AssetOrganization } from '@/modules/downloads/domain/organization'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import PeoplePicker from './PeoplePicker'
 import StudioPicker from './StudioPicker'
@@ -456,7 +456,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'select':
       return <select className="select" aria-label={field.label} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>{(options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     case 'image':
-      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.frame ?? (field.key === 'poster' ? 'poster' : 'media')} /></div>
+      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.frame ?? (field.key === 'poster' ? 'poster' : 'media')} role={imageRole(field.key === 'image' ? 'cover' : field.key)} /></div>
     case 'date': case 'datetime':
       return <JalaliDateInput withTime={field.type === 'datetime'} aria-label={field.label} value={value || ''} onChange={onChange} />
     case 'links':

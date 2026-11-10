@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import GalleryUpload from '@/components/media/GalleryUpload'
 
 type Attribute = { key: string; label: string; labelEn: string; kind: 'text' | 'select' | 'color'; options: string[]; required: boolean; variant?: boolean }
 type Category = { id: number; parentId?: number | null; attributeGroup?: { fields: string; name: string } | null }
@@ -28,7 +29,7 @@ export default function ProductExtrasEditor({ form, setForm, categories }: { for
   const fx = form.pricingMode === 'FX'
 
   return <>
-    <div className="grid-column-span-3 store-admin-section"><div className="flex justify-between items-center gap-2"><h2>{fa ? 'گالری تصاویر' : 'Product gallery'}</h2><button aria-label="نشانی" type="button" className="btn btn-ghost" onClick={() => update('gallery', [...gallery, ''])}>+ {fa ? 'تصویر' : 'Image'}</button></div><p className="muted text-sm">{fa ? 'لینک تصویرهای بیشتر را وارد کنید. تصویر اصلی در فیلد بالای فرم قرار دارد.' : 'Add more image URLs. The primary image is configured above.'}</p>{gallery.map((url, index) => <div className="flex gap-2 items-center mt-3" key={index}><input className="input" dir="ltr" value={url} onChange={e => update('gallery', gallery.map((item, i) => i === index ? e.target.value : item))} placeholder="https://…" /><button type="button" className="btn btn-ghost" onClick={() => update('gallery', gallery.filter((_, i) => i !== index))}>{fa ? 'حذف' : 'Remove'}</button></div>)}</div>
+    <div className="grid-column-span-3 store-admin-section"><div className="flex justify-between items-center gap-2"><h2>{fa ? 'گالری تصاویر' : 'Product gallery'}</h2><span className="flex gap-2 items-center"><GalleryUpload fa={fa} onAdded={(urls) => setForm(old => ({ ...old, gallery: [...parsed<string[]>(old.gallery, []).filter(Boolean), ...urls] }))} /><button aria-label="نشانی" type="button" className="btn btn-ghost" onClick={() => update('gallery', [...gallery, ''])}>+ {fa ? 'نشانی تصویر' : 'Image URL'}</button></span></div><p className="muted text-sm">{fa ? 'تصویرهای بیشتر را بارگذاری کنید یا نشانی‌شان را وارد کنید. تصویر اصلی در فیلد بالای فرم قرار دارد.' : 'Add more image URLs. The primary image is configured above.'}</p>{gallery.map((url, index) => <div className="flex gap-2 items-center mt-3" key={index}><input className="input" dir="ltr" value={url} onChange={e => update('gallery', gallery.map((item, i) => i === index ? e.target.value : item))} placeholder="https://…" /><button type="button" className="btn btn-ghost" onClick={() => update('gallery', gallery.filter((_, i) => i !== index))}>{fa ? 'حذف' : 'Remove'}</button></div>)}</div>
     <div className="grid-column-span-3 store-admin-section">
       <h2>{fa ? 'مشخصات محصول' : 'Product specifications'}</h2>
       <p className="muted text-sm">{group ? `${fa ? 'گروه:' : 'Group:'} ${group.name}` : fa ? 'برای نمایش مشخصات، دسته‌ای با گروه مشخصات انتخاب کنید.' : 'Select a category with an attribute group to edit specifications.'}</p>

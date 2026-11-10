@@ -311,6 +311,30 @@ test('organized destinations preserve requested layouts and reject path escapes'
   assert.equal(p({section:'film',title:'Inception',enabled:false},'file'),'')
 })
 
+test('store, journal and page pictures are filed under the item with readable names', () => {
+  const {organizationPath:p,validOrganizationPath:valid,organizedImageName:name,imageRole,parseOrganization}=load('src/modules/downloads/domain/organization.ts')
+  assert.equal(p({section:'shop',slug:'telegram-premium',categorySlug:'Virtual',category:'مجازی'},'image'),'shop/product/Virtual/telegram-premium')
+  assert.equal(p({section:'shop',slug:'',title:'Telegram Premium',category:'مجازی'},'image'),'shop/product/مجازی/Telegram Premium')
+  assert.equal(p({section:'shop',slug:'x'},'image'),'shop/product/Uncategorized/x')
+  assert.equal(p({section:'shop',slug:'x'},'file'),'','store files keep their own download layout')
+  assert.equal(p({section:'shop',slug:'',title:''},'image'),'','an unnamed new product uses the flat store')
+  assert.equal(p({section:'blog',slug:'hello-world',category:'News'},'image'),'blog/News/hello-world')
+  assert.equal(p({section:'pages',slug:'about'},'image'),'pages/about')
+  assert.equal(p({section:'shop',slug:'../../etc',categorySlug:'..'},'image'),'shop/product/Uncategorized/etc')
+  for(const ok of ['shop/product/Virtual/telegram-premium','blog/News/hello','pages/about'])assert.equal(valid(ok),true,ok)
+  for(const bad of ['shop/product/Virtual','shop/other/a/b','shop/product/a/b/c','blog/a','pages/a/b','shop/product/../x','pages/CON'])assert.equal(valid(bad),false,bad)
+  assert.equal(name('cover',1),'cover.webp');assert.equal(name('cover',2),'cover-2.webp');assert.equal(name('gallery',1),'gallery-1.webp');assert.equal(name('content',3),'content-3.webp')
+  assert.equal(imageRole('poster'),'poster');assert.equal(imageRole('../x'),'image')
+  assert.deepEqual(parseOrganization('{"section":"shop","slug":"a","extra":"x","season":"2"}'),{section:'shop',title:undefined,titleEn:undefined,slug:'a',category:undefined,categorySlug:undefined,artist:undefined,album:undefined,quality:undefined,season:undefined,artistImage:false,video:false,personRole:undefined,enabled:undefined})
+  assert.equal(parseOrganization('not json'),undefined);assert.equal(parseOrganization('[]'),undefined);assert.equal(parseOrganization('{}'),undefined)
+  const wm=load('src/modules/watermark/domain/watermark.ts')
+  assert.equal(wm.organizedImageKey('/files/shop/product/Virtual/telegram-premium/cover.webp?w=320'),'files/shop/product/Virtual/telegram-premium/cover.webp')
+  assert.equal(wm.organizedImageKey('/files/blog/%D8%A7%D8%AE%D8%A8%D8%A7%D8%B1/a/cover.webp'),'files/blog/اخبار/a/cover.webp')
+  for(const bad of ['/files/uploads/x.webp','/files/shop/../x.webp','/files/shop/%2e%2e/x.webp','/files/shop/a%00/x.webp','/files/shop/x.pdf'])assert.equal(wm.organizedImageKey(bad),'',bad)
+  assert.match(wm.cacheStem('files/shop/product/a/b/cover.webp'),/^files-[0-9a-z]+-[0-9a-z]+$/)
+  assert.equal(wm.cacheStem('11111111-1111-1111-1111-111111111111.webp'),'11111111-1111-1111-1111-111111111111')
+})
+
 test('shared private images use exclusive private writes and compensate only newly written files', async () => {
   const written = [], removed = []
   let failAt = 2

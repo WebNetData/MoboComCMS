@@ -4,6 +4,8 @@ import LibraryPicker from '@/components/media/LibraryPicker'
 import RemoteCopy from '@/components/media/RemoteCopy'
 import { useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { useAssetOrganization } from '@/components/media/OrganizationScope'
+import type { ImageRole } from '@/modules/downloads/domain/organization'
 
 type Mode = 'cover' | 'section' | 'logo' | 'poster' | 'square' | 'media'
 type Words = { hint: [string, string]; upload: [string, string]; remove: [string, string]; alt: [string, string]; save: [string, string]; empty?: [string, string] }
@@ -18,10 +20,14 @@ const WORDS: Record<Mode, Words> = {
   media: { hint: FORMATS, upload: ['بارگذاری تصویر', 'Upload image'], remove: ['حذف تصویر', 'Remove image'], alt: ['پیش‌نمایش تصویر', 'Image preview'], save: ['تصویر با ذخیرهٔ فرم ثبت می‌شود.', 'The image is kept when the form is saved.'], empty: ['تصویری انتخاب نشده', 'No image yet'] },
 }
 
-export default function CoverField({ value, title, onChange, onBusy, mode = 'cover' }: {
-  value: string; title: string; onChange: (value: string) => void; onBusy: (busy: boolean) => void; mode?: Mode
+/** The readable file name a picture gets inside its item's folder (cover.webp, poster.webp …). */
+const ROLE: Record<Mode, ImageRole> = { cover: 'cover', section: 'image', logo: 'logo', poster: 'poster', square: 'cover', media: 'image' }
+
+export default function CoverField({ value, title, onChange, onBusy, mode = 'cover', role }: {
+  value: string; title: string; onChange: (value: string) => void; onBusy: (busy: boolean) => void; mode?: Mode; role?: ImageRole
 }) {
   const { locale } = useI18n()
+  const organization = useAssetOrganization()
   const fa = locale === 'fa'
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -50,6 +56,8 @@ export default function CoverField({ value, title, onChange, onBusy, mode = 'cov
       if (!blob) throw new Error(fa ? 'تصویر معتبر نیست.' : 'Invalid image.')
       const form = new FormData()
       form.append('file', blob, 'cover.webp')
+      // Inside an item's editor the picture is filed under that item (e.g. shop/product/<category>/<slug>/cover.webp).
+      if (organization) { form.append('organization', JSON.stringify(organization)); form.append('role', role || ROLE[mode]) }
       const response = await fetch('/api/admin/media', { method: 'POST', body: form })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || (fa ? 'بارگذاری ناموفق بود.' : 'Upload failed.'))

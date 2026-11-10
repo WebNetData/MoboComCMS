@@ -146,6 +146,10 @@ export default function ProductEditorPage() {
     setSaved('تغییرات ذخیره شد')
   }
 
+  // Pictures of this product are filed at shop/product/<main category>/<slug>/cover.webp in the Library.
+  const mainCategory = categories.find((c) => String(c.id) === String(form.categoryId)) as (Category & { slug?: string; nameEn?: string }) | undefined
+  const productOrganization = { section: 'shop', title: form.nameEn || form.name, slug: String(form.slug || '').trim(), category: mainCategory?.name, categorySlug: mainCategory?.nameEn || mainCategory?.slug }
+
   const field = (key: string, label: string, props: Record<string, unknown> = {}) => <label className="sa-field"><span>{label}</span><input className="input" value={form[key] ?? ''} onChange={(event) => update(key, event.target.value)} {...props} /></label>
 
   return <StoreShell title={isNew ? 'افزودن محصول' : form.name || 'ویرایش محصول'} actions={<>
@@ -158,7 +162,7 @@ export default function ProductEditorPage() {
     <AiAutofill section="products" fields={aiFields} form={form} onApply={applyAi} />
     <PublishReview open={review} title={form.name} rows={reviewRows} busy={busy} onCancel={() => setReview(false)} onConfirm={() => void save()} />
     <nav className="sa-jump" aria-label="بخش‌های فرم">{SECTIONS.map(([key, label]) => <a key={key} href={`#sa-${key}`}>{label}</a>)}</nav>
-    <OrganizationScope value={{section:'products',title:form.nameEn||form.name,category:categories.find(c=>String(c.id)===String(form.categoryId))?.name}}><form className="sa-editor" onSubmit={(event) => { event.preventDefault(); void save() }}>
+    <OrganizationScope value={productOrganization}><form className="sa-editor" onSubmit={(event) => { event.preventDefault(); void save() }}>
       <div className="sa-stack">
         <section id="sa-general" className="sa-card">
           <header className="sa-card-head"><h2>اطلاعات اصلی</h2></header>
