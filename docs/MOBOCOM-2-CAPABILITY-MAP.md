@@ -65,3 +65,4 @@ Scheduler leases #54 (9300efa) and historical checkout replay #55 (ec0681b) pass
 ## Organized item media and full AI product fields — 2026-11-10
 
 Item pictures live under `/files/shop/product/<category>/<slug>/`, `/files/blog/<category>/<slug>/`, `/files/pages/<slug>/` with readable names and matching Library folders; FX variants price with their own profit; publishing is chosen at save; the assistant fills SKU, specifications and variants. See `docs/agent/handoffs/STORE_MEDIA_PUBLISH_AI.md`.
+Profile photos (artists, cast and crew, celebrities at `/files/celebrities/<slug>/`) and game pictures follow the same rule, and the assistant also fills profile and business editors.

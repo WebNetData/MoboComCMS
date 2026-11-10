@@ -24,12 +24,15 @@ export const AUTOFILL_SECTIONS: Record<string, string> = {
   'music-tracks': 'آهنگ (بخش موزیک)',
   'music-albums': 'آلبوم موسیقی',
   'music-artists': 'هنرمند / خواننده',
+  'cinema-people': 'بازیگر یا کارگردان (بخش فیلم و سریال)',
+  celebrities: 'پروفایل یک هنرمند یا چهرهٔ مشهور (مشترک بین موسیقی و فیلم و سریال)',
   'music-playlists': 'پلی‌لیست موسیقی',
   software: 'نرم‌افزار (بخش دانلود نرم‌افزار، به سبک سافت‌گذار)',
   games: 'بازی (پرتال بازی، به سبک گیم‌آپ)',
   posts: 'مقاله یا خبر مجله',
   pages: 'صفحهٔ سایت',
   products: 'محصول فروشگاه',
+  businesses: 'پروفایل یک کسب‌وکار یا فروشگاه (بخش تجربهٔ خرید)',
 }
 
 const MAX_FIELDS = 60

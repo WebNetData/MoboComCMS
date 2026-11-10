@@ -16,6 +16,7 @@ import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { HEALTH_CHECKS, healthIssues } from '@/modules/games/domain/games'
 import { optionsOf, useSectionLists, type ActiveLists } from '../../cms/useSectionLists'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
+import { OrganizationScope } from '@/components/media/OrganizationScope'
 import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -192,7 +193,8 @@ export default function GameEditorPage() {
     <AiAutofill section="games" fields={aiFieldsOf(vocabulary)} form={form} onApply={applyAi} />
     <PublishReview open={!!review} title={form.title} rows={reviewRows} busy={busy} onCancel={() => setReview(null)} onConfirm={() => void confirmPublish()} />
     <nav className="sa-jump" aria-label="بخش‌های فرم">{SECTIONS.filter(([key]) => key !== 'updates' || !isNew).map(([key, label]) => <a key={key} href={`#${key}`}>{label}</a>)}</nav>
-    <div className="sa-editor">
+    {/* Pictures, review images and download files of this game are filed at download/Game/<first genre>/<English name>/… in the Library. */}
+    <OrganizationScope value={{ section: 'games', title: form.titleEn || form.title, category: list(String(form.genres ?? '').replace(/،/g, ','))[0] }}><div className="sa-editor">
       <div className="sa-stack">
         <section id="info" className="sa-card"><header className="sa-card-head"><h2>اطلاعات بازی</h2></header>
           <div className="sa-grid">
@@ -249,7 +251,7 @@ export default function GameEditorPage() {
         <section id="media" className="sa-card"><header className="sa-card-head"><h2>تصاویر و تریلر</h2></header>
           <div className="sa-stack">
             <div className="sa-field"><span>کاور (عمودی)</span><CoverField value={form.cover} title={form.title} onChange={(v) => update('cover', v)} onBusy={setUploading} mode="poster" /></div>
-            <div className="sa-field"><span>تصویر پس‌زمینه (افقی)</span><CoverField value={form.backdrop} title={form.title} onChange={(v) => update('backdrop', v)} onBusy={setUploading} mode="media" /></div>
+            <div className="sa-field"><span>تصویر پس‌زمینه (افقی)</span><CoverField value={form.backdrop} title={form.title} onChange={(v) => update('backdrop', v)} onBusy={setUploading} mode="media" role="backdrop" /></div>
           </div>
           {field('trailerUrl', 'تریلر (یوتیوب، آپارات، ویمئو یا فایل ویدیو)', { dir: 'ltr', placeholder: 'https://www.aparat.com/v/…' })}
           <div className="sa-field"><span>اسکرین‌شات‌ها</span>
@@ -306,6 +308,6 @@ export default function GameEditorPage() {
           <p className="sa-hint">برای بازی‌های در راه، نقد، نمره و لینک دانلود لازم نیست.</p>
         </section>
       </aside>
-    </div>
+    </div></OrganizationScope>
   </GamesShell>
 }

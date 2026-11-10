@@ -70,3 +70,14 @@ test('prompt lists fields, options and existing values without the source overfl
   assert.ok(!/"year":/.test(p.user.split('منبع:')[0]), 'empty current values are not sent')
   assert.ok(p.user.length < 30_000)
 })
+
+test('profile and business editors have the assistant with their own fields', () => {
+  for (const [section, words] of [['cinema-people', /بازیگر یا کارگردان/], ['celebrities', /پروفایل یک هنرمند/], ['businesses', /کسب‌وکار/], ['music-artists', /هنرمند/]]) {
+    assert.match(a.autofillPrompt({ brand: 'موبوکام', voice: 'صمیمی', section, fields: [{ key: 'name', label: 'نام', type: 'text' }], source: 'x'.repeat(60), current: {} }).system, words, section)
+  }
+  const fs = require('node:fs'), path = require('node:path')
+  const read = file => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  for (const [file, section] of [['src/app/admin/cinema/people/PersonEditor.tsx', 'cinema-people'], ['src/app/admin/celebrities/CelebrityEditor.tsx', 'celebrities'], ['src/app/admin/music/artists/ArtistEditor.tsx', 'music-artists'], ['src/components/businesses/BusinessManager.tsx', 'businesses']]) assert.ok(read(file).includes(`<AiAutofill section="${section}"`), file)
+  assert.match(read('src/app/admin/celebrities/CelebrityEditor.tsx'), /key: `fact\$\{i\}`/, 'every switched-on profile field is offered')
+  assert.match(read('src/modules/ai/server/http/admin.ts'), /'content\.autofill': \{ perm: \[[^\]]*'businesses\.manage'/, 'business managers may use it')
+})

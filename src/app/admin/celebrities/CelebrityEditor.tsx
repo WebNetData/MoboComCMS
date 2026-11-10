@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import FileUpload from '@/components/admin/FileUpload'
+import { OrganizationScope } from '@/components/media/OrganizationScope'
 import ContentEditor from '@/components/editor/ContentEditor'
 import { suggestedCelebritySlug, validCelebritySlug } from '@/modules/celebrities/domain/celebrities'
 import { COUNTRIES, cleanDate } from '@/modules/celebrities/domain/fields'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import Link from '@/components/AppLink'
 import { useSectionLists } from '../cms/useSectionLists'
+import AiAutofill from '../cms/AiAutofill'
+import type { AutofillField } from '@/modules/ai/domain/autofill'
 
 type Works = { titles: number; tracks: number; albums: number }
 type Profile = { id: number; slug: string; name: string; nameEn: string; image: string; bio: string; featured: boolean; works: Works; facts: Record<string, string> }
@@ -53,13 +56,33 @@ export default function CelebrityEditor({ id, onSaved, onClose }: { id: number; 
   }
 
   const { titles, tracks, albums } = form.works
+  // The assistant fills the names, biography and every profile field the owner has switched on (fact0, fact1… in their
+  // order); the page address follows the English name as when typing it. The photo and featured stay with the editor.
+  const aiFields: AutofillField[] = [
+    { key: 'name', label: 'نام نمایشی فارسی هنرمند', type: 'text' },
+    { key: 'nameEn', label: 'نام انگلیسی هنرمند', type: 'text', dir: 'ltr' },
+    { key: 'bio', label: 'بیوگرافی و فعالیت‌های هنری با تیترهای فرعی', type: 'richtext' },
+    ...fields.slice(0, 40).map((field, i): AutofillField => ['DATE', 'BIRTH', 'DEATH'].includes(field.family)
+      ? { key: `fact${i}`, label: `مشخصه: ${field.name}`, type: 'date', hint: 'فقط اگر منبع گفته' }
+      : { key: `fact${i}`, label: `مشخصه: ${field.name}`, type: field.family === 'LONG' ? 'textarea' : field.family === 'NUMBER' ? 'number' : 'text', ...(field.family === 'LINK' ? { dir: 'ltr' as const, hint: 'نشانی کامل با https، فقط اگر منبع گفته' } : field.family === 'COUNTRY' ? { hint: 'نام فارسی کشور، مثل ایران' } : { hint: 'فقط اگر منبع گفته' }) }),
+  ]
+  const aiForm = { name: form.name, nameEn: form.nameEn, bio: form.bio, ...Object.fromEntries(fields.slice(0, 40).map((field, i) => [`fact${i}`, form.facts[field.code] || ''])) }
+  const applyAi = (values: Record<string, unknown>) => setForm((current) => {
+    if (!current) return current
+    const next = { ...current, facts: { ...current.facts } }
+    for (const key of ['name', 'nameEn', 'bio'] as const) if (typeof values[key] === 'string') next[key] = values[key] as string
+    if (typeof values.nameEn === 'string' && !manualSlug.current) next.slug = suggestedCelebritySlug(values.nameEn)
+    fields.slice(0, 40).forEach((field, i) => { const value = values[`fact${i}`]; if (typeof value === 'string' || typeof value === 'number') next.facts[field.code] = String(value) })
+    return next
+  })
   const invalidSlug = form.slug ? !validCelebritySlug(form.slug) : form.id > 0
   return <section className="sa-card sa-form cbx-editor" aria-labelledby="cbx-editor-title">
     <header className="sa-card-head"><h2 id="cbx-editor-title">{form.id ? `پروفایل ${was.name}` : 'هنرمند جدید'}</h2><button type="button" className="sa-link" onClick={onClose}>بستن</button></header>
+    <AiAutofill section="celebrities" fields={aiFields} form={aiForm} onApply={applyAi} />
     <div className="cbx-editor-grid">
       <div className="cbx-editor-photo">
         <span className="cbx-editor-portrait">{form.image ? <img src={form.image} alt="" /> : <i aria-hidden="true">{form.name.slice(0, 1) || '؟'}</i>}</span>
-        <FileUpload section="music" accept="image/*" label="بارگذاری عکس" compact onUploaded={(file) => set({ image: file.url })} />
+        <OrganizationScope value={{ section: 'celebrity', slug: validCelebritySlug(form.slug) ? form.slug : '', title: form.nameEn || form.name }}><FileUpload section="music" accept="image/*" role="avatar" label="بارگذاری عکس" compact onUploaded={(file) => set({ image: file.url })} /></OrganizationScope>
         <label className="sa-field"><span>نشانی عکس</span><input className="input" dir="ltr" value={form.image} onChange={(e) => set({ image: e.target.value })} /></label>
       </div>
       <div className="cbx-editor-fields">

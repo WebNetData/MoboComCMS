@@ -8,9 +8,18 @@ import RemoteCopy from '@/components/media/RemoteCopy'
 import Portrait from '@/components/admin/ProfilePortrait'
 import ProfileMergePanel from '@/components/admin/ProfileMergePanel'
 import { OrganizationScope } from '@/components/media/OrganizationScope'
+import AiAutofill from '../../cms/AiAutofill'
+import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { Notice, send, fa } from '../shared'
 import { ARTISTS_API, type Artist, type Work } from './types'
 import styles from '@/components/admin/ProfileManager.module.css'
+
+// What the assistant may fill on an artist: names and biography. Pictures, featured and merging stay with the editor.
+const AI_FIELDS: AutofillField[] = [
+  { key: 'name', label: 'نام نمایشی فارسی خواننده یا هنرمند', type: 'text' },
+  { key: 'nameEn', label: 'نام لاتین یا نام هنری دیگر', type: 'text', dir: 'ltr' },
+  { key: 'bio', label: 'زندگی‌نامه و فعالیت‌های هنری با تیترهای فرعی', type: 'richtext' },
+]
 
 export default function ArtistEditor({artist,loading,onReload,onSaved,onClose}:{artist:Artist;loading:boolean;onReload:()=>void;onSaved:(id:number)=>void;onClose:()=>void}) {
   const [name,setName]=useState(artist.name),[nameEn,setNameEn]=useState(artist.nameEn),[image,setImage]=useState(artist.image),[cover,setCover]=useState(artist.cover),[bio,setBio]=useState(artist.bio),[featured,setFeatured]=useState(artist.featured)
@@ -30,10 +39,11 @@ export default function ArtistEditor({artist,loading,onReload,onSaved,onClose}:{
     {confirm&&<div className={styles.confirm} role="alert"><p>تغییرات ذخیره نشده است. از تغییرات صرف‌نظر شود؟</p><button type="button" className="btn btn-ghost" onClick={()=>{const action=confirm;setConfirm(null);if(action==='close')onClose();else onReload()}}>بله، صرف‌نظر شود</button><button type="button" className="btn btn-primary" onClick={()=>setConfirm(null)}>ادامهٔ ویرایش</button></div>}
     {!artist.profileCanEdit&&<Notice>این هنرمند مشترک است؛ ویرایش آن با سازنده یا مدیر موزیک است.</Notice>}
     {error&&<Notice tone="error">{error}</Notice>}
+    {artist.profileCanEdit&&<AiAutofill section="music-artists" fields={AI_FIELDS} form={{name,nameEn,bio}} onApply={values=>{if(typeof values.name==='string')setName(values.name);if(typeof values.nameEn==='string')setNameEn(values.nameEn);if(typeof values.bio==='string')setBio(values.bio)}}/>}
     <form onSubmit={e=>{e.preventDefault();void save()}}>
       <fieldset disabled={disabled} className={styles.fields}><legend className="sr-only">مشخصات خواننده</legend>
         <div className={styles.editorGrid}>
-          <OrganizationScope value={{section:'music',artist:nameEn||name,artistImage:true}}><div className="sa-stack"><ArtistImage id="artist-image" label="عکس پروفایل" value={image} name={name} onChange={setImage}/><ArtistImage id="artist-cover" label="کاور صفحهٔ هنرمند" value={cover} name={name} onChange={setCover}/></div></OrganizationScope>
+          <OrganizationScope value={{section:'music',artist:nameEn||name,artistImage:true}}><div className="sa-stack"><ArtistImage id="artist-image" label="عکس پروفایل" role="avatar" value={image} name={name} onChange={setImage}/><ArtistImage id="artist-cover" label="کاور صفحهٔ هنرمند" role="cover" value={cover} name={name} onChange={setCover}/></div></OrganizationScope>
           <div className={styles.biography}>
             <label htmlFor="artist-name">نام نمایشی خواننده</label><input id="artist-name" name="name" className="input" dir="auto" required maxLength={160} value={name} onChange={e=>setName(e.target.value)} autoComplete="off"/>
             <label htmlFor="artist-alias">نام لاتین یا نام هنری دیگر</label><input id="artist-alias" name="nameEn" className="input" dir="auto" maxLength={160} value={nameEn} onChange={e=>setNameEn(e.target.value)} autoComplete="off"/>
@@ -61,11 +71,11 @@ function SaveActions({artist,disabled,busy,onReload}:{artist:Artist;disabled:boo
   return <footer className={styles.saveBar}><button type="submit" className="btn btn-primary" disabled={disabled}>{busy?'در حال ذخیره…':'ذخیرهٔ هنرمند'}</button>{artist.id>0&&<button type="button" className="btn btn-ghost" onClick={onReload}>دریافت نسخهٔ تازه</button>}</footer>
 }
 
-function ArtistImage({id,label,value,name,onChange}:{id:string;label:string;value:string;name:string;onChange:(value:string)=>void}) {
+function ArtistImage({id,label,role,value,name,onChange}:{id:string;label:string;role:'avatar'|'cover';value:string;name:string;onChange:(value:string)=>void}) {
   return <section className={styles.photoPanel} aria-label={`${label}: انتخاب رسانه`}>
     <div className={styles.preview}><Portrait image={value} name={name}/></div>
     <label htmlFor={id}>{label}</label><input id={id} name={id} className="input" dir="ltr" value={value} onChange={e=>onChange(e.target.value)} maxLength={2048} placeholder="https://… یا /files/…" autoComplete="off" spellCheck={false}/>
-    <FileUpload section="music" accept="image/*" label="بارگذاری عکس" onUploaded={file=>onChange(file.url)}/><RemoteCopy section="music" url={value} onCopied={onChange}/>
+    <FileUpload section="music" accept="image/*" role={role} label="بارگذاری عکس" onUploaded={file=>onChange(file.url)}/><RemoteCopy section="music" url={value} onCopied={onChange}/>
     {value&&<button type="button" className="btn btn-ghost btn-sm" onClick={()=>onChange('')}>حذف {label}</button>}
     <small>حذف عکس از پروفایل، فایل اصلی کتابخانه را پاک نمی‌کند.</small>
   </section>

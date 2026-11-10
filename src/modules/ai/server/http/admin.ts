@@ -34,7 +34,7 @@ const ACTIONS: Record<string, { perm: string | string[]; generates: boolean; run
   'editor.assist': { perm: 'cms.posts', generates: true, run: (_admin, body) => assistEditor(body) },
   'meta.apply': { perm: 'cms.posts', generates: false, run: (_admin, body) => applyMeta(id(body.id), body.meta) },
   // Any content editor may auto-fill the form of a section they manage.
-  'content.autofill': { perm: ['cms.posts', 'cms.pages', 'cms.products', 'software.manage', 'games.manage', 'cinema.manage', 'music.manage'], generates: true, run: (_admin, body) => autofillContent(body) },
+  'content.autofill': { perm: ['cms.posts', 'cms.pages', 'cms.products', 'software.manage', 'games.manage', 'cinema.manage', 'music.manage', 'businesses.manage'], generates: true, run: (_admin, body) => autofillContent(body) },
 }
 
 async function anyPerm(req: NextRequest, perms: string[]) {
