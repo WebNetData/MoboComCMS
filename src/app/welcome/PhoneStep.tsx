@@ -78,7 +78,7 @@ export default function PhoneStep({ phone: initialPhone, verified, required, lab
   const shown = display || initialPhone
   // This step lives inside the completion form: Enter acts here instead of submitting the whole page.
   const onEnter = (action: () => void) => (event: KeyboardEvent) => { if (event.key === 'Enter') { event.preventDefault(); action() } }
-  return <section className={`wl-section wl-phone is-${stage}${error && stage !== 'done' ? ' has-error' : ''}`} aria-labelledby="wl-phone-title">
+  return <section className={`wl-section wl-phone is-${stage}${problem || (error && stage === 'enter') ? ' has-error' : ''}`} aria-labelledby="wl-phone-title">
     <div className="wl-phone-card">
       <span className="wl-phone-icon" aria-hidden="true">
         {stage === 'done'
@@ -109,14 +109,15 @@ export default function PhoneStep({ phone: initialPhone, verified, required, lab
           <div className="wl-phone-actions">
             <button type="button" className="btn btn-primary" disabled={busy || code.length < 6} onClick={() => void verify(code)}>{busy ? 'در حال بررسی…' : 'تأیید شماره'}</button>
             {resendIn > 0
-              ? <span className="wl-resend" aria-live="off"><span className="wl-resend-ring" style={{ ['--left' as string]: `${Math.min(100, resendIn / 60 * 100)}%` }} aria-hidden="true" />ارسال دوباره تا {clock(resendIn)}</span>
+              ? <span className="wl-resend" aria-live="off"><span className="wl-resend-ring" style={{ ['--left' as string]: `${Math.min(100, resendIn / 60 * 100)}%` }} aria-hidden="true" />ارسال دوباره تا <bdi dir="ltr">{clock(resendIn)}</bdi></span>
               : <button type="button" className="wl-link" disabled={busy} onClick={() => void send()}>کد را دریافت نکردید؟ ارسال دوباره</button>}
           </div>
         </div>}
 
         {stage === 'done' && <p className="wl-phone-done" role="status">شمارهٔ <bdi dir="ltr" className="wl-phone-number">{shown}</bdi> تأیید شد.</p>}
 
-        {(problem || (error && stage !== 'done')) && <small id="wl-phone-error" className="wl-error" role="alert">{problem || error}</small>}
+        {/* The page's own save error belongs to the first step only; once a code is on its way, this step reports for itself. */}
+        {(problem || (error && stage === 'enter')) && <small id="wl-phone-error" className="wl-error" role="alert">{problem || error}</small>}
       </div>
     </div>
   </section>
