@@ -183,7 +183,7 @@ export function codeEmail(input: { brand: string; site: string; name?: string; t
   const link = input.href ? absoluteUrl(input.site, input.href) : ''
   const text = compactLines([input.name ? `${input.name} عزیز،` : 'سلام،', '', input.title, input.intro, '', `کد: ${input.code}`, input.validity, '', input.note || '', link ? `${input.button || 'ورود'}: ${link}` : '', input.brand])
   const html = emailDocument({
-    brand: input.brand, site: input.site, title: input.title, accent: input.accent, icon: 'key', eyebrow: 'کد یک‌بارمصرف',
+    brand: input.brand, site: input.site, title: input.title, accent: input.accent, icon: 'key', eyebrow: 'امنیت حساب',
     preheader: `کد شما: ${input.code} — ${input.validity}`, greeting: input.name ? `${input.name} عزیز،` : undefined,
     blocks: [
       { kind: 'text', text: input.intro },
