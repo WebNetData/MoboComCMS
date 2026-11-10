@@ -1,5 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
+import { logEvent } from '@/platform/observability/logger'
+import { enqueue } from '@/modules/operations/server/enqueue'
 import { TERM_FACETS, termProjectionChange } from '@/modules/taxonomy/domain/projection'
 import {
   LEGACY_SOURCES, MAX_TERMS, TaxonomyError, assertParent, buildTree, descendants, flatten, normalizeAssignment, slugify, termBySlugs, termPath, validateTerm,
@@ -153,6 +155,27 @@ export async function recount(taxonomy: Taxonomy) {
     const all = new Set<number>()
     for (const id of descendants(terms, term.id)) for (const owner of owners.get(id) || []) all.add(owner)
     if (term.count !== all.size) await db.taxonomyTerm.update({ where: { id: term.id }, data: { count: all.size } })
+  }
+}
+
+/**
+ * Counts after a write (audit 2026-11-10). The write itself already stands: term counts are derived and a later recount
+ * corrects them, so a failed count never undoes a saved item. It is no longer silent either: the failure is logged with
+ * the operation that caused it, and a deduplicated `taxonomy.recount` job retries it with the queue's backoff.
+ */
+export async function recountAfterWrite(taxonomy: Taxonomy, context: { operation: string; resource: string; id?: number | string }): Promise<'counted' | 'queued' | 'lost'> {
+  try {
+    await recount(taxonomy)
+    return 'counted'
+  } catch (error) {
+    logEvent('error', 'taxonomy.recount_failed', { taxonomy, ...context, errorName: error instanceof Error ? error.name : 'Unknown', message: error instanceof Error ? error.message.slice(0, 300) : '' })
+    try {
+      await enqueue('taxonomy.recount', { taxonomy }, { dedupeKey: `taxonomy-recount:${taxonomy}` })
+      return 'queued'
+    } catch (queueError) {
+      logEvent('error', 'taxonomy.recount_unqueued', { taxonomy, ...context, errorName: queueError instanceof Error ? queueError.name : 'Unknown' })
+      return 'lost'
+    }
   }
 }
 

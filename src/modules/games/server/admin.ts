@@ -1,6 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { contentChanged } from '@/modules/content/server/events'
-import { recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
+import { recountAfterWrite, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { validateCover } from '@/shared/content/cover'
 import { cleanLinks, slugOf, splitList } from '@/modules/media/domain/media'
 import { GameError, HEALTH_CHECKS, LIBRARY_STATUSES, healthIssues, normalizeUpdateKind, parseDay, releaseState, type HealthCheck } from '@/modules/games/domain/games'
@@ -192,7 +192,7 @@ export async function bulkGames(input: { ids?: unknown; action?: unknown; value?
       contentChanged({ type: 'game', id: row.id }, row, after)
       await tell(row, 'restored')
     }
-    if (changed) await recount('games').catch(() => undefined)
+    if (changed) await recountAfterWrite('games', { operation: 'bulk-restore', resource: 'games', id: asked.join(',').slice(0, 200) })
     return { changed }
   }
   if (action === 'delete' && scope.authorId) {
@@ -204,7 +204,7 @@ export async function bulkGames(input: { ids?: unknown; action?: unknown; value?
       changed += 1
       contentChanged({ type: 'game', id: row.id }, row, { ...row, status: TRASHED })
     }
-    if (changed) await recount('games').catch(() => undefined)
+    if (changed) await recountAfterWrite('games', { operation: 'bulk-trash', resource: 'games', id: asked.join(',').slice(0, 200) })
     return { changed, trashed: true }
   }
   // A status or flag batch leaves what waits in the trash alone; only the delete below reaches it.
@@ -218,7 +218,7 @@ export async function bulkGames(input: { ids?: unknown; action?: unknown; value?
       for (const id of ids) await removeOwner(tx, 'games', id)
       await tx.gameTitle.deleteMany({ where: { id: { in: ids } } })
     }, { timeout: 60_000 })
-    await recount('games').catch(() => undefined)
+    await recountAfterWrite('games', { operation: 'bulk-delete', resource: 'games', id: ids.join(',').slice(0, 200) })
     for (const row of before) { contentChanged({ type: 'game', id: row.id }, row, null); if (isTrashed(row)) await tell(row, 'deleted') }
     return { changed: before.length }
   }
