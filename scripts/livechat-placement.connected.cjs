@@ -19,6 +19,8 @@ function load(relative) {
     if (Object.hasOwn(mocks, name)) return mocks[name]
     if (name.startsWith('@/') || name.startsWith('.')) {
       const base = name.startsWith('@/') ? path.resolve('src', name.slice(2)) : path.resolve(path.dirname(file), name)
+      // JSON manifests (the extension catalog) are data, not modules.
+      if (base.endsWith('.json')) return JSON.parse(fs.readFileSync(base, 'utf8'))
       return load(fs.existsSync(base + '.ts') ? base + '.ts' : path.join(base, 'index.ts'))
     }
     return require(name)

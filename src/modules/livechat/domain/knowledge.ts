@@ -2,9 +2,9 @@ import { searchTokens, normalizePersian } from '@/shared/text/persian'
 import { parsePlatformBotReply, PLATFORM_SUPPORT_NOTICE } from './livechat'
 import type { AiOutcome } from '@/modules/ai/domain/telemetry'
 
-export { SUPPORT_SOURCE_TYPES, DEFAULT_KNOWLEDGE, normalizeKnowledge } from './knowledge-config'
-export type { KnowledgeSettings, SupportSourceType } from './knowledge-config'
-import type { SupportSourceType } from './knowledge-config'
+export { SUPPORT_SOURCE_TYPES, DEFAULT_KNOWLEDGE, normalizeKnowledge } from '@/modules/livechat/domain/knowledge-config'
+export type { KnowledgeSettings, SupportSourceType } from '@/modules/livechat/domain/knowledge-config'
+import type { SupportSourceType } from '@/modules/livechat/domain/knowledge-config'
 export type SupportSource = { id: number; title: string; href: string; text: string; ref?: { type: SupportSourceType; id: number }; updatedAt?: string }
 export const supportPath = (value: string) => /^\/(?!\/|api(?:\/|$)|admin(?:\/|$))[^\s\\?#]{0,279}$/.test(value) && !value.split('/').includes('..') ? value : ''
 const plain = (text: string, max: number) => text.replace(/<[^>]*>/g, ' ').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)

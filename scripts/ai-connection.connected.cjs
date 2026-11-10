@@ -19,7 +19,8 @@ async function main() {
     })
     const client = load('src/modules/ai/server/client.ts'), credentials = load('src/modules/providers/server/panel-credentials.ts')
     const put = async (key, value) => { const raw = JSON.stringify(value); await db.setting.upsert({ where: { key }, create: { key, value: raw }, update: { value: raw } }); last.set(key, raw); egress.forgetSocialProxySetting() }
-    await put(keys[0], {})
+    // A fresh but valid saved config: the reader refuses one without a known provider as damaged data.
+    await put(keys[0], { provider: 'gemini' })
     await put(keys[1], { profiles: [{ id: 'p1', link: 'synthetic-fixture-only' }], routes: { ai: 'p1' } })
     const apiKey = 'owned-synthetic-ai-key-'.padEnd(400, 'x')
     const saved = await client.saveAiConfig({ provider: 'gemini', apiKey }); last.set(keys[0], (await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value)

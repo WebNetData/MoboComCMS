@@ -23,7 +23,7 @@ function load(relative){
  const file=path.resolve(__dirname,'..',relative);if(cache.has(file))return cache.get(file).exports
  const mod={exports:{}};cache.set(file,mod)
  const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText
- const local=name=>{if(Object.hasOwn(mocks,name))return mocks[name];if(name.startsWith('@/')||name.startsWith('.')){const base=name.startsWith('@/')?path.resolve(__dirname,'../src',name.slice(2)):path.resolve(path.dirname(file),name);for(const ext of ['.ts','.tsx','/index.ts'])if(fs.existsSync(base+ext))return load(path.relative(path.resolve(__dirname,'..'),base+ext))}return require(name)}
+ const local=name=>{if(Object.hasOwn(mocks,name))return mocks[name];if(name.startsWith('@/')||name.startsWith('.')){const base=name.startsWith('@/')?path.resolve(__dirname,'../src',name.slice(2)):path.resolve(path.dirname(file),name);if(base.endsWith('.css'))return {};if(base.endsWith('.json'))return JSON.parse(fs.readFileSync(base,'utf8'));for(const ext of ['.ts','.tsx','/index.ts'])if(fs.existsSync(base+ext))return load(path.relative(path.resolve(__dirname,'..'),base+ext))}return require(name)}
  new Function('require','module','exports',code)(local,mod,mod.exports);return mod.exports
 }
 function find(tree,type){if(!tree||typeof tree!=='object')return null;if(tree.type===type||tree.type?.name===type)return tree;if(Array.isArray(tree))return tree.map(x=>find(x,type)).find(Boolean)||null;return find(tree.props?.children,type)}

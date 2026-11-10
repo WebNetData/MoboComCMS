@@ -82,8 +82,11 @@ test('links that leave the site use the public section address (renamed sections
 test('every section name is managed in one place and shown everywhere', () => {
   const fs = require('node:fs'), path = require('node:path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')
   const ts = require('typescript-api'), src = read('src/modules/site/domain/section-names.ts')
-  const out = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, mod = { exports: {} }
-  new Function('exports', 'module', 'require', out)(mod.exports, mod, require)
+  const compile = (code) => ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  // The label rule lives in the shared layer; resolve its @/ import the way the app does.
+  const localRequire = (specifier) => { if (!specifier.startsWith('@/')) return require(specifier); const dep = { exports: {} }; new Function('exports', 'module', 'require', compile(read(`src/${specifier.slice(2)}.ts`)))(dep.exports, dep, localRequire); return dep.exports }
+  const out = compile(src), mod = { exports: {} }
+  new Function('exports', 'module', 'require', out)(mod.exports, mod, localRequire)
   const { normalizeSectionNames: n, sectionLabel: label } = mod.exports
   assert.deepEqual(n({ journal: { fa: '  مجله  ', en: 'Magazine' }, games: { fa: '', en: '' }, 'Bad Id': { fa: 'x' }, store: { fa: '<b>فروشگاه</b>' }, x: 'str' }), { journal: { fa: 'مجله', en: 'Magazine' }, games: { fa: '', en: '' }, store: { fa: 'b فروشگاه /b', en: '' } }, 'an emptied name stays as an empty entry')
   assert.equal(n({ a1: { fa: 'ک'.repeat(90) } }).a1.fa.length, 60)

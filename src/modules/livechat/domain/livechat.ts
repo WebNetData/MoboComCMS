@@ -1,4 +1,4 @@
-import { DEFAULT_KNOWLEDGE, normalizeKnowledge, type KnowledgeSettings } from './knowledge-config'
+import { DEFAULT_KNOWLEDGE, normalizeKnowledge, type KnowledgeSettings } from '@/modules/livechat/domain/knowledge-config'
 import type { SupportSource } from './knowledge'
 /**
  * Live chat rules: settings, office hours, the assistant prompt, when to hand

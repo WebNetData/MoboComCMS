@@ -1,4 +1,4 @@
-import { DASHBOARD_PARTS, DYNAMIC_FIELDS } from './builder-surfaces'
+import { DASHBOARD_PARTS, DYNAMIC_FIELDS } from '@/modules/site/domain/builder-surfaces'
 import { validatePageBlocks, type PageBlock } from './page-blocks'
 import { validateAdvancedStyle, type AdvancedStyle } from './builder-style'
 

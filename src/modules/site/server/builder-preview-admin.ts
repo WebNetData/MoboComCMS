@@ -1,5 +1,5 @@
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { exactSurfaceExample, surfaceExamples } from './builder-surfaces'
+import { exactSurfaceExample, surfaceExamples } from '@/modules/site/server/builder-surfaces'
 import { db } from '@/platform/database/prisma'
 import { parsePermissions, hasPermission } from '@/modules/identity/rbac'
 import { BUILDER_PAGE_ID, getBuilderDoc, getBuilderDraft, permFor } from '@/modules/site/server/builder'

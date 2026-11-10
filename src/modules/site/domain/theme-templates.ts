@@ -12,7 +12,7 @@
  * page id `tpl-<type>-<suffix>`, so the visual editor edits templates unchanged.
  */
 
-import { isBuilderSurface, surfaceCondition, currentSurfaceScore, type BuilderSurface } from './builder-surfaces'
+import { isBuilderSurface, surfaceCondition, currentSurfaceScore, type BuilderSurface } from '@/modules/site/domain/builder-surfaces'
 
 export const THEME_TEMPLATE_TYPES = ['header', 'footer', 'page', 'single-post', 'single-product', 'archive', 'search', 'not-found', 'surface'] as const
 export type ThemeTemplateType = typeof THEME_TEMPLATE_TYPES[number]

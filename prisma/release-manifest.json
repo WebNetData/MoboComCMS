@@ -777,9 +777,15 @@
           "sha256": "42ee6ad72ed8cfe51787d3cec525849673bb0b92fb7dcd12fa4fa4a7b503d402"
         }
       ]
+    },
+    "1.7.15": {
+      "migrations": [
+        {
+          "name": "20270228120000_variant_fx_markup",
+          "sha256": "9275ef336736b8d7c8a2ddfc14b5c20e05306fab582e527bd6d2bb5e0f21bd48"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270228120000_variant_fx_markup"
-  ]
+  "unreleased": []
 }

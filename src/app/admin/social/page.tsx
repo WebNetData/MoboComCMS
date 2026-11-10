@@ -128,7 +128,7 @@ export default function AdminSocialPage() {
         </div>
       </div>
       {data.log.posts.length ? <ul className="apx-log">{data.log.posts.map((post) => <li key={post.id} className={`is-${post.status.toLowerCase()}`}>
-        <span className="apx-thumb" aria-hidden="true">{post.item?.image ? <img src={post.item.image} alt="" loading="lazy" /> : <Icon name={TYPES.find((t) => t.key === post.itemType)?.icon || 'file'} size={18} />}</span>
+        <span className="apx-thumb" aria-hidden="true">{post.item?.image ? <img src={post.item.image} alt="" loading="lazy" /> : <Icon name={TYPES.find((type) => type.key === post.itemType)?.icon || 'file'} size={18} />}</span>
         <span className="apx-log-main">
           {post.item ? <Link href={post.item.url} target="_blank">{post.item.title}</Link> : <span dir="ltr">{post.itemType}:{post.itemId}</span>}
           <small><Icon name={CHANNEL_ICON[post.channel] || 'megaphone'} size={14} />{CHANNEL_NAME[post.channel] || post.channel}<span aria-hidden="true">·</span>{new Date(post.sentAt || post.nextAttemptAt).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' })}{post.attempts > 1 && <><span aria-hidden="true">·</span>{fa(post.attempts)} تلاش</>}</small>
