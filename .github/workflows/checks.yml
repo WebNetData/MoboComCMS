@@ -1,33 +1,18 @@
-name: Audit isolated production builds
-
-# Temporary validation branch only. Never merge this workflow into main.
+name: Frozen integration production build
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
-  group: audit-production-builds-20261110
+  group: audit-final-build-20261110
   cancel-in-progress: false
-
 jobs:
   build:
-    name: Production build (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include:
-          - label: before
-            revision: 8092e65cad56b331ba693447cb474bac9ba0e049
-          - label: after
-            revision: 3fc2b4edab9964dc471f32fb735d2b88c9ec755e
     env:
       NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: isolated-audit-build-only-secret-20261110
+      NEXTAUTH_SECRET: isolated-frozen-build-only-secret-20261110
       PANEL_CREDENTIAL_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
       DATABASE_URL: postgresql://audit:audit-only@127.0.0.1:5999/unreachable?schema=public
       NODE_OPTIONS: --max-old-space-size=4096
@@ -35,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ matrix.revision }}
+          ref: 87b63304fc3c958f126989b6d7bd4672e546685c
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -43,18 +28,18 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run build
-      - name: Package the exact compiled application for isolated local browser tests
-        env:
-          AUDIT_LABEL: ${{ matrix.label }}
+      - name: Record and package the frozen commit
         run: |
-          git rev-parse HEAD > "$RUNNER_TEMP/source-$AUDIT_LABEL.txt"
-          tar --exclude='.next/cache' -czf "$RUNNER_TEMP/production-$AUDIT_LABEL.tar.gz" .next
-          sha256sum "$RUNNER_TEMP/production-$AUDIT_LABEL.tar.gz" > "$RUNNER_TEMP/production-$AUDIT_LABEL.sha256"
+          git rev-parse HEAD > "$RUNNER_TEMP/source-final.txt"
+          git rev-parse 'HEAD^{tree}' > "$RUNNER_TEMP/tree-final.txt"
+          tar --exclude='.next/cache' -czf "$RUNNER_TEMP/production-final.tar.gz" .next
+          sha256sum "$RUNNER_TEMP/production-final.tar.gz" > "$RUNNER_TEMP/production-final.sha256"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: audit-production-${{ matrix.label }}
+          name: audit-frozen-production-87b63304
           path: |
-            ${{ runner.temp }}/production-${{ matrix.label }}.tar.gz
-            ${{ runner.temp }}/production-${{ matrix.label }}.sha256
-            ${{ runner.temp }}/source-${{ matrix.label }}.txt
+            ${{ runner.temp }}/production-final.tar.gz
+            ${{ runner.temp }}/production-final.sha256
+            ${{ runner.temp }}/source-final.txt
+            ${{ runner.temp }}/tree-final.txt
           retention-days: 3
