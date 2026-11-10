@@ -217,3 +217,22 @@ test('the same code is recognised again without being stored readable', () => {
     else process.env.STORE_DELIVERY_KEY = previous
   }
 })
+
+test('the file store is a front of its own, named and worded from Admin, showing no download address', () => {
+  const store = load('src/modules/store/domain/store.ts')
+  const front = (params) => store.isFileStoreFront(store.parseShopQuery(params))
+  assert.equal(front({ files: '1' }), true)
+  assert.equal(front({ files: '1', kind: 'VIRTUAL' }), true, 'the old door address opens the same front')
+  assert.equal(front({ files: '1', q: 'pdf' }), false, 'a search is the listing')
+  assert.equal(front({ files: '1', category: 'x' }), false)
+  assert.equal(front({ kind: 'VIRTUAL' }), false)
+  assert.equal(store.DEFAULT_STORE_SETTINGS.fileStoreName, 'فروشگاه فایل')
+  assert.equal(store.normalizeStoreSettings({ fileStoreName: '  ' }).fileStoreName, 'فروشگاه فایل')
+  const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')
+  const catalog = read('src/modules/store/server/catalog.ts'), ui = read('src/components/store/FileStore.tsx')
+  assert.match(catalog, /select: \{ productId: true, filename: true, sizeBytes: true \}/, 'cards read only names and sizes of files')
+  assert.doesNotMatch(ui, /storageKey|\/api\/.*download/i, 'the front never links a file itself')
+  assert.match(read('src/modules/catalog/server/pages/products/page.tsx'), /isFileStoreFront\(query\) \? <FileStoreFront \/>/)
+  assert.match(read('src/app/admin/store/settings/page.tsx'), /update\('fileStoreName'/)
+  assert.doesNotMatch(read('src/components/store/file-store.module.css'), /(^|\} )\[data-tone/m, 'CSS Module selectors stay pure')
+})

@@ -974,3 +974,9 @@ Handoff: `docs/agent/handoffs/SECTION_NAMES.md`.
 Owner asked for more professional, attractive article and form designs with effects. Five new article styles dress the
 whole page (header and reading column), and four new form themes join the existing nine; all chosen from Admin like the
 others, motion only with full-motion preference. Handoff: `docs/agent/handoffs/POST_FORM_STYLES.md`.
+
+## File store front — 2026-11-10
+
+Owner wants a «فروشگاه فایل» inside the store for selling files, designed and animated. It is a front of the existing
+store (`/products?files=1`) over existing file products and secure delivery, named and worded from Admin › store
+settings; cards show file kinds, count and size but never file addresses. Handoff: `docs/agent/handoffs/FILE_STORE.md`.
