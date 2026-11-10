@@ -1,4 +1,5 @@
 'use client'
+import SectionName from '@/components/site/SectionName'
 
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
@@ -32,7 +33,7 @@ export default function MyServicesPage() {
 
   return <div className="dt-page hs-page" dir="rtl">
     <header className="dt-head">
-      <div><h1>موبوکام کلاد</h1><p>هاست، سرور، سرویس‌های ابری و دامنه‌های شما؛ وضعیت، اطلاعات ورود و تمدید هر کدام. <Link href="/dashboard/order">خرید سرویس تازه</Link></p></div>
+      <div><h1><SectionName id="hosting" en="MoboCom Cloud">موبوکام کلاد</SectionName></h1><p>هاست، سرور، سرویس‌های ابری و دامنه‌های شما؛ وضعیت، اطلاعات ورود و تمدید هر کدام. <Link href="/dashboard/order">خرید سرویس تازه</Link></p></div>
       <div className="hs-head-actions"><Link className="btn btn-ghost" href="/dashboard/order?category=domains">دامنهٔ تازه</Link><Link className="btn btn-ghost" href="/dashboard/order?category=hosting">هاست تازه</Link><Link className="btn btn-primary" href="/dashboard/order?category=servers">سرور تازه</Link></div>
     </header>
     {failed ? <div className="dt-empty is-bad" role="alert"><Icon name="server" size={28} /><b>فهرست سرویس‌ها دریافت نشد</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setFailed(false); setAttempt((n) => n + 1) }}>تلاش دوباره</button></div>

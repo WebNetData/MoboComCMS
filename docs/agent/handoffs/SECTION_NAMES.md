@@ -37,3 +37,17 @@ the upload names its item.
   changed files; full `tsc` clean.
 - API + browser: games → «سرگرمی»/Play and store → «بازار موبوکام»: server crumb (/games/top), client crumb
   (game detail), store listing, admin menu titles; admin name card; reset to defaults verified.
+
+## Follow-up: renamed MoboCom Cloud (2026-11-10)
+
+Owner renamed «موبوکام کلاد» and the member dashboard, site menu and cloud pages kept the old name.
+- Public site menus (header/footers): `getPublicSiteConfig` applies `withSectionMenuNames` — an entry linking into a
+  section (or under one) whose text is a built-in name (or contains a multi-word built-in name) gets the new name;
+  the saved menu and labels the owner wrote are untouched.
+- Member dashboard: cloud group caption/title and «… من» prompts entry via `sectionNameNow`; dashboard cloud
+  overview/wizard/services headings via `<SectionName>`.
+- Cloud pages: `CloudBar` (brand, last word keeps the accent), `CloudLanding` (eyebrow, proof, steps, why, FAQs),
+  `/cloud` title.
+- Evidence: seo 8 (menu rename cases), navigation 27, site 17, `tsc` clean; browser with «ابر موبوکام»: /cloud 7
+  and /hosting 3 occurrences, 0 old; header menu entry renamed; /dashboard/cloud menu group, crumb and hero renamed.
+  Local name reset.

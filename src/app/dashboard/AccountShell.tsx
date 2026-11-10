@@ -1,4 +1,5 @@
 'use client'
+import { sectionNameNow } from '@/shared/site/section-names'
 
 import '../account-design.css'
 import Spotlight from './Spotlight'
@@ -87,13 +88,16 @@ export default function AccountShell({ children }: { children: React.ReactNode }
   }, [status])
 
   const L = (fa: string, en: string) => (locale === 'fa' ? fa : en)
+  // Section groups carry the names the owner set in Admin › sections.
+  const cloudName = sectionNameNow('hosting', locale === 'fa', { fa: 'موبوکام کلاد', en: 'MoboCom Cloud' })
+  const promptsName = sectionNameNow('prompt-master', locale === 'fa', { fa: 'پرامپت مستر', en: 'Prompt Master' })
   // The account menu, by what a member comes here to do: buy and pay, their own things, people, tools, help.
   // Every entry keeps its address and its module switch; only the grouping and the order are presentation.
   const NAV_GROUPS: ShellGroup[] = ([
     { id: 'home', flat: true, title: vpnOn ? L('اشتراک‌ها', 'Subscriptions') : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home',
       items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home', exact: true }] },
     // MoboCom Cloud has its own group: overview, building, and each family; the older «سرویس‌های من» address stays.
-    { id: 'cloud', caption: L('موبوکام کلاد', 'MoboCom Cloud'), title: L('موبوکام کلاد', 'MoboCom Cloud'), icon: 'cloud', items: hostingOn ? [
+    { id: 'cloud', caption: cloudName, title: cloudName, icon: 'cloud', items: hostingOn ? [
       { href: '/dashboard/cloud', label: L('نمای کلی کلاد', 'Cloud overview'), icon: 'cloud', exact: true },
       { href: '/dashboard/cloud/new', label: L('ساخت سرور و سرویس', 'Build a service'), icon: 'plus' },
       { href: '/dashboard/cloud/servers', label: L('سرورهای من', 'My servers'), icon: 'server' },
@@ -114,7 +118,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
     ] },
     { id: 'mine', title: L('محتوای من', 'My things'), icon: 'bookmark', items: [
       ...(gamesOn || musicOn || reviewsOn || promptsOn ? [{ href: '/dashboard/library', label: L('کتابخانهٔ من', 'My library'), icon: 'book' }] : []),
-      ...(promptsOn ? [{ href: '/dashboard/prompts', label: L('پرامپت مستر من', 'My Prompt Master'), icon: 'sparkles' }] : []),
+      ...(promptsOn ? [{ href: '/dashboard/prompts', label: L(`${promptsName} من`, `My ${promptsName}`), icon: 'sparkles' }] : []),
       ...(gamesOn ? [{ href: '/dashboard/games', label: L('کتابخانهٔ بازی', 'Game library'), icon: 'gamepad' }] : []),
       { href: '/dashboard/collections', label: L('مجموعه‌های من', 'My collections'), icon: 'folder' },
       ...(reviewsOn || storeOn || journalOn ? [{ href: '/dashboard/reviews', label: L('نظرهای من', 'My reviews'), icon: 'star' }] : []),

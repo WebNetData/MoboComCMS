@@ -100,3 +100,27 @@ test('every section name is managed in one place and shown everywhere', () => {
   assert.match(read('src/modules/catalog/server/pages/products/[slug]/page.tsx'), /sectionDisplayName\('store'/)
   assert.match(read('src/app/maintenance/page.tsx'), /sectionDisplayName\(entry\.plugin/)
 })
+
+test('menus and the cloud pages follow a renamed section without changing the saved menu', () => {
+  const fs = require('node:fs'), path = require('node:path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')
+  const ts = require('typescript-api'), mod = { exports: {} }
+  const out = ts.transpileModule(read('src/modules/site/config/menus.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  new Function('exports', 'module', 'require', out)(mod.exports, mod, (n) => n === './types' ? { local: (fa, en) => ({ fa, en }), translate: (t) => t.fa } : require(n))
+  const { withSectionMenuNames: rename } = mod.exports
+  const L = (fa, en) => ({ fa, en })
+  const site = { navigation: [{ href: '/cloud', label: L('موبوکام کلاد', 'MoboCom Cloud'), children: [{ href: '/dashboard/cloud', label: L('پنل موبوکام کلاد', 'Cloud dashboard') }, { href: '/domains', label: L('دامنه', 'Domains') }] }, { href: '/games', label: L('دنیای بازی', 'Games') }], footer: [{ href: '/hosting', label: L('موبوکام کلاد', 'MoboCom Cloud') }] }
+  const sections = [{ id: 'hosting', bases: ['/cloud', '/hosting', '/servers', '/domains'], defaults: { fa: ['موبوکام کلاد'], en: ['MoboCom Cloud'] } }, { id: 'games', bases: ['/games'], defaults: { fa: ['گیم', 'بازی'], en: ['Games'] } }]
+  const next = rename(site, sections, { hosting: { fa: 'ابر موبوکام', en: '' }, games: { fa: 'سرگرمی', en: 'Play' } })
+  assert.equal(next.navigation[0].label.fa, 'ابر موبوکام')
+  assert.equal(next.navigation[0].label.en, 'MoboCom Cloud', 'an empty English name keeps the English text')
+  assert.equal(next.navigation[0].children[0].label.fa, 'پنل ابر موبوکام', 'children of the section entry follow too')
+  assert.equal(next.navigation[0].children[1].label.fa, 'دامنه')
+  assert.equal(next.navigation[1].label.fa, 'دنیای بازی', 'a label the owner wrote is kept')
+  assert.equal(next.footer[0].label.fa, 'ابر موبوکام')
+  assert.equal(site.navigation[0].label.fa, 'موبوکام کلاد', 'the saved menu is not changed')
+  assert.equal(rename(site, sections, {}), site)
+  assert.match(read('src/modules/site/config/store.ts'), /withRenamedSections\(await readPublicSiteConfig\(\)\)/)
+  assert.match(read('src/app/dashboard/AccountShell.tsx'), /caption: cloudName, title: cloudName/)
+  assert.match(read('src/components/hosting/CloudBar.tsx'), /sectionDisplayName\('hosting'/)
+  assert.match(read('src/components/hosting/CloudLanding.tsx'), /chرا \{name\}|چرا \{name\}/)
+})

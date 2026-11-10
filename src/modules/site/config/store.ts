@@ -42,7 +42,19 @@ export const getSiteConfig = cache(() => getSiteConfigFrom(db))
 
 /** Filter only public rendering; keep the editable configuration intact. Track and album links in menus and home
  * sections are given their final address here, so a visitor is not redirected. */
-export const getPublicSiteConfig = cache(async () => withCanonicalContentLinks(await readPublicSiteConfig()))
+export const getPublicSiteConfig = cache(async () => withCanonicalContentLinks(await withRenamedSections(await readPublicSiteConfig())))
+
+/** Menu entries carry the section names the owner set in Admin › sections. */
+async function withRenamedSections<T extends Awaited<ReturnType<typeof readPublicSiteConfig>>>(site: T): Promise<T> {
+  const [{ getSectionNames }, { extensionCatalog }, { withSectionMenuNames }] = await Promise.all([import('@/modules/site/server/section-names'), import('@/extensions/generated/catalog'), import('./menus')])
+  const names = await getSectionNames().catch(() => ({}))
+  if (!Object.keys(names).length) return site
+  const sections = extensionCatalog.filter((m) => m.kind === 'module' && m.publicPaths?.length).map((m) => ({
+    id: m.id, bases: (m.publicPaths || []).filter((p) => /^\/[a-z0-9/-]+$/.test(p)),
+    defaults: { fa: [m.name, m.adminMenu?.title || ''].filter(Boolean), en: [m.nameEn || '', m.adminMenu?.titleEn || ''].filter(Boolean) },
+  }))
+  return withSectionMenuNames(site, sections, names)
+}
 
 async function readPublicSiteConfig() {
   // Menus, the announcement and home sections that lead into a switched-off module are left out of the public copy.
