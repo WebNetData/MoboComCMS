@@ -5,7 +5,7 @@ import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsCont
 import type { RestoreCommit } from '@/modules/content/server/revisions'
 import type { Snapshot } from '@/modules/content/domain/revisions'
 import {
-  DEFAULT_WATERMARK, appearanceKey, fileOfUrl, markSize, normalizeWatermark, placement, shouldWatermark,
+  DEFAULT_WATERMARK, ORGANIZED_IMAGE, appearanceKey, cacheStem, fileOfUrl, organizedImageKey, markSize, normalizeWatermark, placement, shouldWatermark,
   type Role, type Usage, type WatermarkSettings,
 } from '@/modules/watermark/domain/watermark'
 
@@ -101,10 +101,11 @@ async function buildIndex(): Promise<Map<string, Usage>> {
       const rows = await table.findMany({ where: { id: { gt: cursor } }, orderBy: { id: 'asc' }, take: 500, select: Object.fromEntries(['id', ...fields].map((field) => [field, true])) }).catch(() => [])
       if (!rows.length) break
       for (const row of rows) {
-        for (const field of source.main || []) add(fileOfUrl(String(row[field] ?? '')), source.section, 'main')
+        for (const field of source.main || []) add(fileOfUrl(String(row[field] ?? '')) || organizedImageKey(String(row[field] ?? '')), source.section, 'main')
         for (const field of [...(source.lists || []), ...(source.content || [])]) {
           const role: Role = (source.lists || []).includes(field) ? 'main' : 'content'
           for (const match of String(row[field] ?? '').matchAll(FIND)) add(match[1], source.section, role)
+          for (const match of String(row[field] ?? '').matchAll(ORGANIZED_IMAGE)) add(organizedImageKey(`/files/${match[1]}`), source.section, role)
         }
       }
       cursor = rows[rows.length - 1].id
@@ -207,8 +208,8 @@ export async function watermarkedImage(file: string, width: number, original: ()
     const originalWidth = (await sharp(source).metadata().catch(() => ({ width: 0 }))).width || 0
     if (!shouldWatermark(file, originalWidth, settings, usage)) return null
   } else if (!shouldWatermark(file, width, settings, usage)) return null
-  const ext = width ? 'webp' : (file.split('.').pop() as 'webp' | 'png' | 'jpg')
-  const cached = path.join(cacheDir(), `${file.replace(/\.\w+$/, '')}-${width || 'o'}-wm${appearanceKey(settings)}.${ext}`)
+  const ext = width ? 'webp' : (file.split('.').pop()!.replace('jpeg', 'jpg') as 'webp' | 'png' | 'jpg')
+  const cached = path.join(cacheDir(), `${cacheStem(file)}-${width || 'o'}-wm${appearanceKey(settings)}.${ext}`)
   const hit = await fs.readFile(cached).catch(() => null)
   const type = ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : 'image/jpeg'
   if (hit) return { bytes: hit, type }

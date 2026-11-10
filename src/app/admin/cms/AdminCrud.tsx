@@ -5,6 +5,8 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import dynamic from 'next/dynamic'
 import Link from '@/components/AppLink'
 import CoverField from './CoverField'
+import { OrganizationScope, useAssetOrganization } from '@/components/media/OrganizationScope'
+import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 import CategoryPicker from './CategoryPicker'
 import AiAutofill from './AiAutofill'
 import { useAiPageRecord } from '@/components/admin/ai/PageContext'
@@ -354,6 +356,10 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   // The column a phone card leads with: the item's title (a product's is its name).
   const leadKey = tableFields.some((f) => f.key === titleKey) ? titleKey : tableFields.find((f) => f.key === 'name')?.key
   const visibleRows = rows
+  // Article and page pictures are filed under the item: blog/<first category>/<slug>/cover.webp, pages/<slug>/cover.webp.
+  const inheritedOrganization = useAssetOrganization()
+  const firstCategory = type === 'posts' ? fields.find((fl) => fl.key === 'categoryIds')?.options?.find((option) => String(option.value) === String((Array.isArray(form.categoryIds) ? form.categoryIds : [])[0]))?.label : undefined
+  const itemOrganization: AssetOrganization | undefined = type === 'posts' || type === 'pages' ? { section: type === 'posts' ? 'blog' : 'pages', title: String(form.titleEn || form.title || ''), slug: String(form.slug || '').trim(), category: firstCategory } : undefined
   const bulkEnabled = type === 'posts' || type === 'pages'
   const visibleIds = visibleRows.map((row) => Number(row.id))
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
@@ -424,13 +430,13 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       ) : blocksLocked && fl.key === 'content' && editId && editFormat === 'blocks-v1' ? (
         <p className="muted text-sm cms-block-body">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده است و سر جایش است. برای ویرایش آن، افزونهٔ «ویرایشگر بلوکی» را از صفحهٔ افزونه‌ها فعال کنید.' : 'The body of this item is written in blocks and is kept. To edit it, turn the Block editor plugin on.'}</p>
       ) : fl.type === 'richtext' ? (
-        <RichEditor
+        <OrganizationScope value={inheritedOrganization || itemOrganization}><RichEditor
           value={form[fl.key] || ''}
           onChange={(html) => setForm(current => ({ ...current, [fl.key]: html }))}
           placeholder={fl.label}
           dir={fl.dir || (/En$/.test(fl.key) ? 'ltr' : 'rtl')}
-        />
-      ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'textarea' ? (
+        /></OrganizationScope>
+      ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <OrganizationScope value={inheritedOrganization || itemOrganization}><CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} role={fl.key === 'cover' || fl.key === 'image' ? 'cover' : 'image'} /></OrganizationScope> : fl.type === 'textarea' ? (
         <textarea id={`${formId}-${fl.key}`} className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
       ) : fl.type === 'checkbox' ? (
         <label className="flex items-center gap-2 text-sm mx-check" style={{ minHeight: '2.75rem' }}>

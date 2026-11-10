@@ -52,27 +52,30 @@ export function coverFormat(bytes: Uint8Array): 'png' | 'jpg' | 'webp' | null {
   return null
 }
 
+/** Checked, oriented and resized WebP bytes (or, outside `strict`, the original when sharp cannot convert them). */
+export async function encodeCoverImage(bytes: Buffer, options: { strict?: boolean } = {}): Promise<{ output: Buffer; extension: string }> {
+  if (!bytes.length || bytes.length > COVER_MAX_BYTES) throw new CoverImageError('حداکثر حجم تصویر ۱۵ مگابایت است')
+  const extension = coverFormat(bytes)
+  if (!extension) throw new CoverImageError('فقط تصاویر PNG، JPEG و WebP مجاز هستند')
+  try {
+    const sharp = (await import('sharp')).default
+    const output = await sharp(bytes, options.strict ? { animated: true, limitInputPixels: MAX_PIXELS, failOn: 'error' } : { animated: true })
+      .rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
+    return { output, extension: 'webp' }
+  } catch {
+    if (options.strict) throw new CoverImageError('محتوای فایل تصویر معتبر نیست')
+    return { output: bytes, extension }
+  }
+}
+
 /**
  * Stores image bytes and returns their site address. `strict` (untrusted
  * remote files) refuses anything sharp cannot decode; otherwise an upload
  * sharp cannot convert is kept as it came (the admin upload's behaviour).
  */
 export async function storeCoverImage(bytes: Buffer, options: { strict?: boolean } = {}): Promise<string> {
-  if (!bytes.length || bytes.length > COVER_MAX_BYTES) throw new CoverImageError('حداکثر حجم تصویر ۱۵ مگابایت است')
-  const extension = coverFormat(bytes)
-  if (!extension) throw new CoverImageError('فقط تصاویر PNG، JPEG و WebP مجاز هستند')
-  let output: Buffer = bytes
-  let finalExtension: string = extension
-  try {
-    const sharp = (await import('sharp')).default
-    output = await sharp(bytes, options.strict ? { animated: true, limitInputPixels: MAX_PIXELS, failOn: 'error' } : { animated: true })
-      .rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
-    finalExtension = 'webp'
-  } catch {
-    if (options.strict) throw new CoverImageError('محتوای فایل تصویر معتبر نیست')
-    output = bytes
-  }
-  const filename = `${randomUUID()}.${finalExtension}`
+  const { output, extension } = await encodeCoverImage(bytes, options)
+  const filename = `${randomUUID()}.${extension}`
   const directory = join(process.cwd(), 'storage', 'covers')
   await mkdir(directory, { recursive: true })
   await writeFile(join(directory, filename), output, { flag: 'wx' })

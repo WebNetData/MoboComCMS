@@ -11,7 +11,8 @@ const AREAS: { id: QualityArea; label: string }[] = [
 const LEVEL = { pass: 'سالم', warn: 'نیاز به نگاه', block: 'مسدودکننده' } as const
 
 /** The item's quality report; a blocking report needs an explicit, recorded acknowledgement before saving. */
-export default function ProductionQuality({ batchId, itemId, version, busy, onSave }: { batchId: string; itemId: string; version: number; busy: boolean; onSave: (acknowledged: boolean) => void }) {
+export default function ProductionQuality({ batchId, itemId, version, busy, kind, onSave }: { batchId: string; itemId: string; version: number; busy: boolean; kind: string; onSave: (acknowledged: boolean, publish: boolean) => void }) {
+  const [publish, setPublish] = useState(false)
   const [report, setReport] = useState<QualityReport | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(true), [ack, setAck] = useState(false)
   const load = useCallback((signal?: AbortSignal) => {
     setLoading(true); setError('')
@@ -39,7 +40,12 @@ export default function ProductionQuality({ batchId, itemId, version, busy, onSa
     </>}
     <div className={css.actions}>
       {blocked && <label className={css.ack}><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />موارد مسدودکننده را دیدم و پیش‌نویس را با مسئولیت خودم ذخیره می‌کنم؛ این تأیید در گزارش فعالیت ثبت می‌شود.</label>}
-      <button type="button" className="btn btn-primary btn-sm" disabled={busy || loading || !report || blocked && !ack} onClick={() => onSave(blocked)}>بازبینی کردم؛ ذخیرهٔ پیش‌نویس</button>
+      <fieldset className={css.publish} disabled={busy || loading}>
+        <legend>وضعیت پس از ذخیره</legend>
+        <label><input type="radio" name={`publish-${itemId}`} checked={!publish} onChange={() => setPublish(false)} />{kind === 'product' ? 'غیرفعال (پیش‌نویس فروشگاه)' : 'پیش‌نویس'}</label>
+        <label title={blocked ? 'ردیف با مورد مسدودکننده فقط پیش‌نویس ذخیره می‌شود' : undefined}><input type="radio" name={`publish-${itemId}`} checked={publish && !blocked} disabled={blocked} onChange={() => setPublish(true)} />{kind === 'product' ? 'منتشر و فعال در فروشگاه' : 'انتشار فوری'}</label>
+      </fieldset>
+      <button type="button" className="btn btn-primary btn-sm" disabled={busy || loading || !report || blocked && !ack} onClick={() => onSave(blocked, publish && !blocked)}>{publish && !blocked ? (kind === 'product' ? 'بازبینی کردم؛ ذخیره و فعال‌سازی' : 'بازبینی کردم؛ ذخیره و انتشار') : 'بازبینی کردم؛ ذخیرهٔ پیش‌نویس'}</button>
     </div>
   </section>
 }

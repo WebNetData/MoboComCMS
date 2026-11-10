@@ -127,7 +127,7 @@ test('list and VIP prices follow a moved price proportionally', () => {
 test('server: FX product prices follow the product fields and repricing skips unchanged rows', async () => {
   const updates = []
   const products = [
-    { id: 1, currency: 'IRT', priceMinor: 0n, compareAtMinor: 0n, memberPriceMinor: 0n, pricingMode: 'FX', fxCurrency: 'USD', fxAmountMinor: 2000n, fxCompareAtMinor: 2500n, fxMemberMinor: 1800n, markupBps: 1000, markupFixedMinor: 20_000n, variants: [{ id: 10, priceMinor: 1n, compareAtMinor: 0n, memberPriceMinor: 0n, fxAmountMinor: 3000n }] },
+    { id: 1, currency: 'IRT', priceMinor: 0n, compareAtMinor: 0n, memberPriceMinor: 0n, pricingMode: 'FX', fxCurrency: 'USD', fxAmountMinor: 2000n, fxCompareAtMinor: 2500n, fxMemberMinor: 1800n, markupBps: 1000, markupFixedMinor: 20_000n, variants: [{ id: 10, priceMinor: 1n, compareAtMinor: 0n, memberPriceMinor: 0n, fxAmountMinor: 3000n }, { id: 11, priceMinor: 1n, compareAtMinor: 0n, memberPriceMinor: 0n, fxAmountMinor: 0n, markupBps: 0, markupFixedMinor: null }] },
     { id: 2, currency: 'IRT', priceMinor: 2_000_000n, compareAtMinor: 0n, memberPriceMinor: 0n, pricingMode: 'FX', fxCurrency: 'USD', fxAmountMinor: 2000n, fxCompareAtMinor: 0n, fxMemberMinor: 0n, markupBps: 0, markupFixedMinor: 0n, variants: [] },
   ]
   const db = {
@@ -156,6 +156,8 @@ test('server: FX product prices follow the product fields and repricing skips un
   assert.equal(product.data.memberPriceMinor, 2_000_000n)
   const variant = updates.find(([kind]) => kind === 'variant')[1]
   assert.equal(variant.data.priceMinor, 3_320_000n)
+  const ownProfit = updates.find(([kind, args]) => kind === 'variant' && args.where.id === 11)[1]
+  assert.equal(ownProfit.data.priceMinor, 2_020_000n, 'repricing keeps a variant own 0% profit: 20 × 100,000 + product fixed 20,000')
 
   // Product form in FX mode: prices come from the cost, typed prices are ignored
   const applied = await server.applyFxToBody({ pricingMode: 'FX', fxCurrency: 'USD', fxAmount: '9.99', markupPercent: '20', markupFixed: '0', price: '1', variants: [{ sku: 'a', fxAmount: '' }, { sku: 'b', fxAmount: '19.99' }] }, undefined, 'IRT')
@@ -165,6 +167,16 @@ test('server: FX product prices follow the product fields and repricing skips un
   assert.equal(applied.body.variants[1].fxAmountMinor, 1999n)
   assert.equal(applied.fields.pricingMode, 'FX')
   assert.equal(applied.fields.markupBps, 2000)
+  // A variant's own profit replaces the product's beside its own (or the product's) foreign cost; empty boxes inherit.
+  const own = await server.applyFxToBody({ pricingMode: 'FX', fxCurrency: 'USD', fxAmount: '10', markupPercent: '20', markupFixed: '0', variants: [{ sku: 'a', fxAmount: '', markupPercent: '50', markupFixed: '' }, { sku: 'b', fxAmount: '20', markupPercent: '', markupFixed: '5000' }, { sku: 'c', fxAmount: '', markupPercent: '', markupFixed: '' }] }, undefined, 'IRT')
+  assert.equal(own.body.variants[0].price, '1500000', '10 × 100,000 × 1.5')
+  assert.equal(own.body.variants[0].markupBps, 5000)
+  assert.equal(own.body.variants[0].markupFixedMinor, null)
+  assert.equal(own.body.variants[1].price, '2405000', '20 × 100,000 × 1.2 + 5,000')
+  assert.equal(own.body.variants[1].markupBps, null)
+  assert.equal(own.body.variants[1].markupFixedMinor, 5000n)
+  assert.equal(own.body.variants[2].price, '1200000', 'inherits the product profit')
+  await assert.rejects(server.applyFxToBody({ pricingMode: 'FX', fxCurrency: 'USD', fxAmount: '10', variants: [{ sku: 'a', markupPercent: 'abc' }] }, undefined, 'IRT'), /درصد سود/)
   await assert.rejects(server.applyFxToBody({ pricingMode: 'FX', fxCurrency: 'USD', fxAmount: '' }, undefined, 'IRT'), /قیمت ارزی/)
   await assert.rejects(server.applyFxToBody({ pricingMode: 'FX', fxCurrency: 'USD', fxAmount: '10', fxCompareAt: '9' }, undefined, 'IRT'), /قبل از تخفیف/)
   await assert.rejects(server.applyFxToBody({ pricingMode: 'FX', fxCurrency: 'GBP', fxAmount: '10' }, undefined, 'IRT'), /پوند/)

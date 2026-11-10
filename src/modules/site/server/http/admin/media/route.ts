@@ -46,6 +46,14 @@ export async function receiveImage(req: NextRequest, creator?: number) {
     if (!file || typeof file === 'string' || !file.size || file.size > 15 * 1024 * 1024) return err('تصویر باید کمتر از ۱۵ مگابایت باشد', 400)
     const bytes = Buffer.from(await file.arrayBuffer())
     if (!coverFormat(bytes)) return err('فقط تصاویر PNG، JPEG و WebP مجاز هستند', 400)
+    // An item's editor sends who the picture belongs to; the folder and readable name are worked out here, never taken from the browser.
+    const { parseOrganization, imageRole } = await import('@/modules/downloads/domain/organization')
+    const organized = creator ? await import('@/modules/media/server/library/organized-image') : null
+    const destination = organized ? organized.organizedImageDestination(parseOrganization(form.get('organization'))) : ''
+    if (organized && destination && creator) {
+      const stored = await organized.storeOrganizedImage(bytes, destination, imageRole(form.get('role')), creator)
+      return ok({ url: stored.url, assetId: stored.asset.id, revision: stored.asset.revision, folder: destination })
+    }
     // Stored as WebP (max 2400px, EXIF orientation applied) — much smaller pages.
     const url = await storeCoverImage(bytes)
     const asset = creator ? await (await import('@/modules/media/server/library')).registerLocalAsset(url, creator, null, file.name) : null

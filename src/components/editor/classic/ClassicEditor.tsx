@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Editor } from '@tinymce/tinymce-react'
 import type { Editor as TinyEditor } from 'tinymce'
+import { useAssetOrganization } from '@/components/media/OrganizationScope'
+import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 // TinyMCE is served from this site's own bundle (no CDN, no cloud key). Community edition, GPL-2.0-or-later:
 // see docs/agent/PLATFORM_DECISIONS.md §6F. Only plugins of the open-source edition are imported.
 import tinymce from 'tinymce/tinymce'
@@ -79,9 +81,11 @@ function pageFontFaces(): string {
   return rules.join('\n')
 }
 
-async function uploadPicture(file: Blob, name: string): Promise<string> {
+async function uploadPicture(file: Blob, name: string, organization?: AssetOrganization): Promise<string> {
   const form = new FormData()
   form.append('file', file, name)
+  // Pictures pasted into an item's text sit beside its cover: <item folder>/content-1.webp …
+  if (organization) { form.append('organization', JSON.stringify(organization)); form.append('role', 'content') }
   const response = await fetch('/api/admin/media', { method: 'POST', body: form })
   const data = await response.json().catch(() => null)
   if (!response.ok || !data?.url) throw new Error(data?.error || 'بارگذاری تصویر انجام نشد')
@@ -116,6 +120,9 @@ function FormInsert({ onInsert, fa }: { onInsert: (html: string) => void; fa: bo
 
 export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl', minHeight = 260, toolbar = 'full', startIn = 'visual', noMedia = false }: ClassicEditorProps) {
   const { locale } = useI18n()
+  const organization = useAssetOrganization()
+  const organizationRef = useRef(organization)
+  organizationRef.current = organization
   const fa = locale === 'fa'
   const L = (f: string, e: string) => (fa ? f : e)
   const id = useId()
@@ -212,7 +219,7 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
     automatic_uploads: !noMedia,
     paste_data_images: !noMedia,
     images_file_types: 'jpeg,jpg,png,webp,gif',
-    images_upload_handler: (blob: { blob: () => Blob; filename: () => string }) => uploadPicture(blob.blob(), blob.filename()),
+    images_upload_handler: (blob: { blob: () => Blob; filename: () => string }) => uploadPicture(blob.blob(), blob.filename(), organizationRef.current),
     file_picker_types: 'image',
     file_picker_callback: (done: (url: string, meta?: Record<string, string>) => void) => setLibrary({ done }),
     content_style: `${typeof document === 'undefined' ? '' : pageFontFaces()}\nbody { font-family: ${DEFAULT_FONT_STACK}; font-size: 16px; line-height: 2; padding: 6px 10px; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #8884; padding: 6px 10px; }`,

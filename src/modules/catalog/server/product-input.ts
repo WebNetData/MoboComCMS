@@ -157,7 +157,7 @@ export async function saveVariants(tx: any, productId: number, variants: ReturnT
     const priceMinor = toMinor(String(variant.price), variant.currency)
     const memberPriceMinor = variant.memberPrice ? toMinor(String(variant.memberPrice), variant.currency) : 0n
     const compareAtMinor = variant.compareAt ? toMinor(String(variant.compareAt), variant.currency) : 0n
-    const data = { sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, compareAtMinor, fxAmountMinor: variant.fxAmountMinor, stock: variant.stock, active: variant.active }
+    const data = { sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, compareAtMinor, fxAmountMinor: variant.fxAmountMinor, markupBps: variant.markupBps, markupFixedMinor: variant.markupFixedMinor, stock: variant.stock, active: variant.active }
     if (variant.id) {
       const current = await tx.productVariant.findFirst({ where: { id: variant.id, productId } })
       if (!current) throw Error('Variant does not belong to this product')

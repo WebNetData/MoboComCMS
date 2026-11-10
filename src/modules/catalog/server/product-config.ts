@@ -124,7 +124,10 @@ export function validateVariants(input: unknown, fields: AttributeField[], curre
     combinationSet.add(combination)
     // Set only by the FX pricing step (never from a raw JSON body): the variant's own foreign cost.
     const fxAmountMinor = typeof raw?.fxAmountMinor === 'bigint' && raw.fxAmountMinor > 0n ? raw.fxAmountMinor : 0n
-    return { id, sku, name, nameEn, attributes, price, memberPrice, compareAt, fxAmountMinor, stock, active: raw?.active !== false, currency }
+    // Also only from the FX step: the variant's own profit (null = the product's).
+    const markupBps = Number.isSafeInteger(raw?.markupBps) && raw.markupBps >= 0 && raw.markupBps <= 100_000 ? raw.markupBps as number : null
+    const markupFixedMinor = typeof raw?.markupFixedMinor === 'bigint' && raw.markupFixedMinor >= 0n ? raw.markupFixedMinor : null
+    return { id, sku, name, nameEn, attributes, price, memberPrice, compareAt, fxAmountMinor, markupBps, markupFixedMinor, stock, active: raw?.active !== false, currency }
   })
 }
 

@@ -157,6 +157,13 @@ export async function serveLocalFile(req: Request, segments: string[]): Promise<
   // A picture asked at an allowed width (?w=320) is served as a cached WebP copy, like the site's covers: imported
   // posters and backdrops are drawn small far more often than they are downloaded.
   const width = Number(new URL(req.url).searchParams.get('w'))
+  // Organized pictures (shop/product/…/cover.webp) carry the site watermark exactly like the flat image store.
+  if ((req.method === 'GET' || req.method === 'HEAD') && /^(shop|blog|pages|download)$/.test(parts[0]) && /\.(jpe?g|png|webp)$/i.test(name)) {
+    const { watermarkedImage, imageCacheControl } = await import('@/modules/watermark/server/watermark')
+    const sized = IMAGE_WIDTHS.includes(width as (typeof IMAGE_WIDTHS)[number]) ? width : 0
+    const marked = await watermarkedImage(`files/${parts.join('/')}`, sized, () => fs.readFile(file)).catch(() => null)
+    if (marked) return new Response(req.method === 'HEAD' ? null : new Uint8Array(marked.bytes), { headers: { 'Content-Type': marked.type, 'Content-Length': String(marked.bytes.length), 'Cache-Control': await imageCacheControl(), 'X-Content-Type-Options': 'nosniff' } })
+  }
   if ((req.method === 'GET' || req.method === 'HEAD') && IMAGE_WIDTHS.includes(width as (typeof IMAGE_WIDTHS)[number]) && /\.(jpe?g|png|webp|avif)$/i.test(name)) {
     const resized = await resizedImage(file, stat, width).catch(() => null)
     if (resized) return new Response(req.method === 'HEAD' ? null : new Uint8Array(resized), { headers: { 'Content-Type': 'image/webp', 'Content-Length': String(resized.length), 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' } })

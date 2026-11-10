@@ -10,10 +10,12 @@ test('popups: a builder design needs a saved template id; other designs keep non
   const c = source()('src/modules/site/domain/site-code.ts')
   assert.equal(c.isProtectedPath('/popup-design/12'), true, 'site code never runs inside the popup frame')
 })
-test('popups: the builder design column is additive and registered as unreleased', () => {
+test('popups: the builder design column is additive and registered in the release manifest', () => {
   const sql = fs.readFileSync('prisma/migrations/20270226120000_site_popup_builder_design/migration.sql', 'utf8')
   assert.match(sql, /ALTER TABLE "SitePopup" ADD COLUMN "templateId" TEXT NOT NULL DEFAULT ''/)
   assert(!/DROP|DELETE|UPDATE/i.test(sql.replace(/^--.*$/gm, '')))
-  assert(JSON.parse(fs.readFileSync('prisma/release-manifest.json', 'utf8')).unreleased.includes('20270226120000_site_popup_builder_design'))
+  // Unreleased until the owner seals a release; afterwards it belongs to that release.
+  const manifest = JSON.parse(fs.readFileSync('prisma/release-manifest.json', 'utf8'))
+  assert(manifest.unreleased.includes('20270226120000_site_popup_builder_design') || Object.values(manifest.releases).some(r => r.migrations.some(m => m.name === '20270226120000_site_popup_builder_design')))
   for (const schema of ['prisma/schema.prisma', 'prisma/schema.postgresql.prisma']) assert.match(fs.readFileSync(schema, 'utf8'), /model SitePopup \{[\s\S]*?templateId\s+String\s+@default\(""\)/)
 })

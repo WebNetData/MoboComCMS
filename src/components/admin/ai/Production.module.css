@@ -15,3 +15,11 @@
 .item summary { cursor: pointer; padding-block: 8px; }
 .progress { display: block; width: 100%; max-width: 360px; height: 12px; margin-block: 16px; }
 @media(max-width:640px) { .preview { grid-template-columns: minmax(0,1fr); } .item { padding: 16px; } .root { gap: 20px; } }
+
+.product { display: grid; gap: 8px; margin-block: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
+.product dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 13px; }
+.product dt { color: var(--muted); }
+.product dd { margin: 0; overflow-wrap: anywhere; }
+.product table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.product caption { text-align: start; color: var(--muted); font-size: 12px; padding-bottom: 4px; }
+.product th, .product td { padding: 4px 6px; border-top: 1px solid var(--border); text-align: start; }
