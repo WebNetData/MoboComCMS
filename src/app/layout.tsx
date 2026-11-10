@@ -95,6 +95,8 @@ import SitePopups from '@/components/site/popups/SitePopups'
 import SiteCode from '@/components/site/SiteCode'
 import { siteCodeForRender } from '@/modules/site/server/site-code'
 import RouteAliasProvider from '@/platform/routing/RouteAliasProvider'
+import SectionNamesProvider from '@/components/site/SectionNamesProvider'
+import { getSectionNames } from '@/modules/site/server/section-names'
 import { setRouteAliases } from '@/platform/routing/aliases'
 import { loadRoutingState, publicRouteAliases } from '@/modules/site/server/routes'
 import { safeJsonLd } from '@/shared/seo/json-ld'
@@ -179,6 +181,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const siteClosed = requestHeaders.get('x-site-maintenance') === '1'
   const previewSection = isMaintenanceSection(previewed) ? MAINTENANCE_SECTIONS.find((item) => item.id === previewed) : null
   const [jsonLd, siteConfig, extensions, packages, routing, forwarderPolicy] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRoutingState(), getAutomaticForwarderPolicy()])
+  const sectionNames = await getSectionNames().catch(() => ({}))
   const routeAliases = publicRouteAliases(routing.aliases)
   setRouteAliases(routeAliases)
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
@@ -226,10 +229,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PreviewBridge />
         <WebVitals />
         <AutomaticLinks initialPolicy={forwarderPolicy} />
-        <RouteAliasProvider map={routeAliases} permalinks={routing.permalinks}><LocaleProvider locale={locale}>
+        <RouteAliasProvider map={routeAliases} permalinks={routing.permalinks}><SectionNamesProvider names={sectionNames}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
           <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /><FormEmbeds /><SitePopups />{siteCode.length > 0 && <SiteCode snippets={siteCode} />}</ExtensionProvider></SiteProvider></Providers>
-        </LocaleProvider></RouteAliasProvider>
+        </LocaleProvider></SectionNamesProvider></RouteAliasProvider>
       </body>
     </html>
   )

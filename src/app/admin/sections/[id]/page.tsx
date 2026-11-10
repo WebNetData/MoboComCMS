@@ -25,6 +25,7 @@ export default function SectionSettingsPage() {
   const [addresses, setAddresses] = useState<Record<string, string>>({})
   const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [enabled, setEnabled] = useState(true)
+  const [names, setNames] = useState({ fa: '', en: '' })
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const section = data?.section
@@ -33,6 +34,7 @@ export default function SectionSettingsPage() {
     setAddresses(Object.fromEntries(section.bases.map((row) => [row.base, (row.alias || '').replace(/^\//, '')])))
     setSettings(section.settings)
     setEnabled(section.enabled)
+    setNames(section.customName || { fa: '', en: '' })
   }, [section])
   const origin = typeof window === 'undefined' ? '' : window.location.origin
   const invalid = useMemo(() => Object.entries(addresses).find(([, value]) => value && !SEGMENT.test(value.trim().toLowerCase())), [addresses])
@@ -42,7 +44,7 @@ export default function SectionSettingsPage() {
   async function save() {
     if (!section) return
     setBusy(true); setMessage(null)
-    const response = await send<{ section: Section }>('/api/admin/sections', 'POST', { id: section.id, enabled, settings, addresses })
+    const response = await send<{ section: Section }>('/api/admin/sections', 'POST', { id: section.id, enabled, settings, addresses, names })
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
     setMessage({ tone: 'ok', text: 'تنظیمات بخش ذخیره شد' + (Object.values(addresses).some(Boolean) ? '؛ آدرس‌های قدیمی از این پس به آدرس تازه منتقل می‌شوند' : '') })
@@ -60,6 +62,15 @@ export default function SectionSettingsPage() {
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
     <div className="sa-cols">
       <div className="sa-stack">
+        <section className="sa-card">
+          <header className="sa-card-head"><h2>نام بخش</h2><small>خالی = نام پیش‌فرض</small></header>
+          <p className="sa-hint">همه‌جا همین نام دیده می‌شود: مسیر صفحه (breadcrumb)، منوی مدیریت، اطلاعیهٔ تعمیرات و لینک‌های بازگشت به بخش. منوی بالای سایت را در «منوها» جدا می‌چینید.</p>
+          <div className="sa-grid">
+            <label className="sa-field"><span>نام فارسی</span><input className="input" value={names.fa} maxLength={60} placeholder={section.defaultName} onChange={(e) => setNames((current) => ({ ...current, fa: e.target.value }))} /></label>
+            <label className="sa-field"><span>نام انگلیسی</span><input className="input" dir="ltr" value={names.en} maxLength={60} placeholder={section.defaultNameEn || section.defaultName} onChange={(e) => setNames((current) => ({ ...current, en: e.target.value }))} /></label>
+          </div>
+          {(names.fa || names.en) && <button type="button" className="sa-link" onClick={() => setNames({ fa: '', en: '' })}>بازگشت به نام پیش‌فرض ({section.defaultName})</button>}
+        </section>
         {section.bases.length > 0 && <section className="sa-card">
           <header className="sa-card-head"><h2>آدرس بخش</h2><small>مثلاً <bdi dir="ltr">/game</bdi> به‌جای <bdi dir="ltr">/games</bdi></small></header>
           {section.bases.map((row) => {

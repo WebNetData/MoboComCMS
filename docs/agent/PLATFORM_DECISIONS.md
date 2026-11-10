@@ -953,3 +953,11 @@ section's display name is a section setting (`section.name`, default مجله); 
 posts, IndexNow, JSON-LD) uses `toPublicPath`; a section's current address is never kept in its alias history.
 The Telegram/Instagram auto-publishing admin is a status-and-preview desk on project tokens.
 Handoff: `docs/agent/handoffs/MAGAZINE_ADDRESS_SOCIAL.md`.
+
+## Everything is managed from Admin; section names everywhere — 2026-11-10
+
+Owner rule: every section's name and address is fully managed from Admin, and anything we develop must be
+manageable and editable from the Admin panel (no fixed labels, addresses or settings that only code can change).
+Section display names live in one revisioned owner (`site/server/section-names.ts`) and are read everywhere through
+`sectionDisplayName`/`<SectionName>`; new public pages use them instead of literal section words.
+Handoff: `docs/agent/handoffs/SECTION_NAMES.md`.

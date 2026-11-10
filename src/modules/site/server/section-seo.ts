@@ -15,9 +15,8 @@ export async function withSectionSeo(moduleId: string, meta: Metadata): Promise<
   })
 }
 
-/** The name a section is shown under (breadcrumbs, messages): the admin's own name, else the given default. */
+/** The name a section is shown under (breadcrumbs, messages): the owner's name from Admin › sections, else the given default. */
 export async function sectionName(moduleId: string, fa: boolean, fallback: { fa: string; en: string }): Promise<string> {
-  const settings = await getModuleSettings(moduleId).catch(() => ({} as Record<string, unknown>))
-  const pick = (key: string) => (typeof settings[key] === 'string' ? (settings[key] as string).trim().slice(0, 60) : '')
-  return fa ? pick('section.name') || fallback.fa : pick('section.name_en') || pick('section.name') || fallback.en
+  const { sectionDisplayName } = await import('@/modules/site/server/section-names')
+  return sectionDisplayName(moduleId, fa, fallback)
 }

@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
@@ -30,7 +31,7 @@ export default async function FranchisePage({ params }: Props) {
       <section className="gv-fr-hero" style={franchise.image ? { backgroundImage: `url("${encodeURI(franchise.image)}")` } : undefined}>
         <span className="gv-fr-veil" aria-hidden="true" />
         <div className="container gv-fr-inner">
-          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games">بازی</Link> › <Link href="/games/franchises">مجموعه‌ها</Link></nav>
+          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games"><SectionName id="games">بازی</SectionName></Link> › <Link href="/games/franchises">مجموعه‌ها</Link></nav>
           <h1>مجموعهٔ {franchise.title}</h1>
           {franchise.titleEn && <p dir="ltr" className="gv-fr-en">{franchise.titleEn}</p>}
           <div className="gv-fr-stats">

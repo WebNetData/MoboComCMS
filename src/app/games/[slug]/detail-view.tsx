@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import { contentPath as designContentPath } from '@/platform/routing/aliases'
 import type { BuilderPreview } from '@/modules/site/server/builder-preview'
 import { contentRouteParams } from '@/shared/routing/params'
@@ -109,7 +110,7 @@ export default async function GamePage({ params, preview }: Props) {
         <div className="container gm-detail-inner gv-hero-inner">
           <div className="gm-detail-cover">{g.cover ? <img src={g.cover} alt={g.title} /> : <span className="gm-noart"><Icon name="gamepad" size={48} /></span>}</div>
           <div className="gm-detail-info">
-            <nav className="cn-crumbs" aria-label="مسیر صفحه"><Link href="/games">بازی</Link>{term ? term.chain.map((node) => <span key={node.path}> › <Link href={node.path}>{node.name}</Link></span>) : g.platforms[0] && <> › <Link href={`/games/browse?platform=${encodeURIComponent(g.platforms[0])}`}>{g.platforms[0]}</Link></>}</nav>
+            <nav className="cn-crumbs" aria-label="مسیر صفحه"><Link href="/games"><SectionName id="games">بازی</SectionName></Link>{term ? term.chain.map((node) => <span key={node.path}> › <Link href={node.path}>{node.name}</Link></span>) : g.platforms[0] && <> › <Link href={`/games/browse?platform=${encodeURIComponent(g.platforms[0])}`}>{g.platforms[0]}</Link></>}</nav>
             <h1>{g.title}</h1>
             {g.titleEn && g.titleEn !== g.title && <p className="cn-hero-sub" dir="ltr">{g.titleEn}</p>}
             <div className="gv-hero-meta">

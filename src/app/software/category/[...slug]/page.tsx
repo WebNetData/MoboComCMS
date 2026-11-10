@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
@@ -49,7 +50,7 @@ export default async function SoftwareCategoryPage({ params, searchParams }: Pro
       <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa terms={chrome.terms} activeTerm={found.term.id} suggestions={chrome.suggestions} promo={chrome.promo} />}>
         <FolderTiles items={found.children.length ? found.children : found.siblings} />
         <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه">
-          <Link href="/software">نرم‌افزار</Link>
+          <Link href="/software"><SectionName id="software">نرم‌افزار</SectionName></Link>
           {found.chain.slice(0, -1).map((node) => <span key={node.id}><span aria-hidden="true"> › </span><Link href={node.path}>{node.name}</Link></span>)}
           <span aria-hidden="true"> › </span><span aria-current="page">{found.term.name}</span>
         </nav>

@@ -1,4 +1,5 @@
 'use client'
+import SectionName from '@/components/site/SectionName'
 import PdfDownloadButton from '@/components/content/PdfDownloadButton'
 
 import Link from '@/components/AppLink'
@@ -281,7 +282,7 @@ export default function TopicView({ data, categories, focusPost, trail = [], pdf
   return (
     <div className="fx-topic">
       <nav className="fc-crumbs" aria-label="مسیر">
-        <Link href="/forum">انجمن‌ها</Link>
+        <Link href="/forum"><SectionName id="forum">انجمن‌ها</SectionName></Link>
         {(trail.length ? trail : [data.category]).map((step) => <Link key={step.slug} href={step.slug === CLUBS_SECTION ? '/forum/clubs' : `/forum/c/${step.slug}`}>{step.title}</Link>)}
       </nav>
       <header className="tp-head" style={{ ['--cat' as string]: data.category.color }}>

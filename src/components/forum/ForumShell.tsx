@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import Link from '@/components/AppLink'
 import { categoryTree } from '@/modules/forum/domain/tree'
 import type { ReactNode } from 'react'
@@ -76,7 +77,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
       <div className="fx-root">
         <header className="fx-top">
           <div className="container fx-top-inner">
-            <Link href="/forum" className="fx-brand">تالار گفتمان</Link>
+            <Link href="/forum" className="fx-brand"><SectionName id="forum">تالار گفتمان</SectionName></Link>
             <form action="/forum/search" className="fx-search" role="search">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" strokeLinecap="round" /></svg>
               <LiveSearchInput action="/forum/search" placeholder="جست‌وجو در تالار…" />

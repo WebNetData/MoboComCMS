@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
@@ -33,7 +34,7 @@ export default async function SoftwareReleasesPage({ searchParams }: Props) {
   return <MediaShell section="software" search={{ action: '/software/releases', placeholder: 'جست‌وجوی نسخه یا نرم‌افزار…', value: params.q }}>
     <SoftwareStatsStrip stats={chrome.stats} />
     <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa terms={chrome.terms} suggestions={chrome.suggestions} promo={chrome.promo} />}>
-      <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه"><Link href="/software">نرم‌افزار</Link><span aria-hidden="true"> › </span><span aria-current="page">نسخه‌ها</span></nav>
+      <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه"><Link href="/software"><SectionName id="software">نرم‌افزار</SectionName></Link><span aria-hidden="true"> › </span><span aria-current="page">نسخه‌ها</span></nav>
       <header className="sp-list-head"><h1>نسخه‌ها و به‌روزرسانی‌ها</h1><span>{feed.total.toLocaleString('fa-IR')} نسخه</span></header>
       <form className="sp-release-search" action="/software/releases" method="get" role="search">
         {params.software && <input type="hidden" name="software" value={params.software} />}

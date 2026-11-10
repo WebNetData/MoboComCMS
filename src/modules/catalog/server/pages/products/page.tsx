@@ -1,3 +1,4 @@
+import { sectionDisplayName } from '@/modules/site/server/section-names'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
@@ -123,7 +124,7 @@ async function StoreFront({ kind }: { kind: 'PHYSICAL' | 'VIRTUAL' }) {
   const ranked = home.bestselling.filter((card) => card.soldCount > 0)
   return <div className={`container sx-landing sx-store is-${tone}`}>
     {kind === 'VIRTUAL' && <FileStoreDoor settings={home.settings} />}
-    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, { label: STORE_NAME[kind] }]} />
+    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: await sectionDisplayName('store', true, { fa: 'فروشگاه', en: 'Shop' }), href: '/products' }, { label: STORE_NAME[kind] }]} />
     <ShopHero slider={null} stage={stage} stats={stats} deal={deal} fresh={fresh} copy={copy.hero} tone={tone} />
     <QuickRoutes items={copy.quick} />
     <CategoryGrid categories={grid} base={base} />
@@ -192,7 +193,7 @@ async function Listing({ query }: { query: ShopQuery }) {
   ]
 
   return <div className="container sx-listing">
-    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, ...(storeKind ? [{ label: STORE_NAME[storeKind], href: `/products?kind=${storeKind}` }] : []), ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
+    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: await sectionDisplayName('store', true, { fa: 'فروشگاه', en: 'Shop' }), href: '/products' }, ...(storeKind ? [{ label: STORE_NAME[storeKind], href: `/products?kind=${storeKind}` }] : []), ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
     <header className={`sx-lhero${node?.image ? ' has-art' : ''}${storeKind ? ` is-${storeKind === 'VIRTUAL' ? 'digital' : 'physical'}` : ''}`}>
       <span className="sx-lhero-art">{node?.image ? <img src={sized(node.image, 240)} srcSet={srcSet(node.image, 240)} alt="" decoding="async" /> : <StoreIcon name={icon} size={40} />}</span>
       <div className="sx-lhero-copy">

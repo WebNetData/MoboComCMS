@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import { contentPath as designContentPath } from '@/platform/routing/aliases'
 import type { BuilderPreview } from '@/modules/site/server/builder-preview'
 import { contentRouteParams } from '@/shared/routing/params'
@@ -129,7 +130,7 @@ export default async function SoftwarePage({ params, preview }: Props) {
         <div className="container sp-hero-band-inner">
           <span className="sp-hero-icon">{s.icon ? <img src={s.icon} alt="" width={84} height={84} /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>
           <div className="sp-hero-text">
-            <nav className="sp-hero-crumbs" aria-label="مسیر صفحه"><Link href="/software">نرم‌افزار</Link>{term?.chain.map((node) => <span key={node.path}> › <Link href={node.path}>{node.name}</Link></span>)}</nav>
+            <nav className="sp-hero-crumbs" aria-label="مسیر صفحه"><Link href="/software"><SectionName id="software">نرم‌افزار</SectionName></Link>{term?.chain.map((node) => <span key={node.path}> › <Link href={node.path}>{node.name}</Link></span>)}</nav>
             <h1>دانلود <bdi>{name}</bdi>{s.version && <> <bdi dir="ltr">{s.version}</bdi></>}{isFresh(s.updatedAt) && <em className="sp-new">به‌روز شد</em>}{s.access === 'MEMBERS' && <VipBadge fa small />}</h1>
             {s.summary && <p>{s.summary}</p>}
           </div>

@@ -4,6 +4,7 @@ import { MAINTENANCE_MODES, MAINTENANCE_SECTIONS, isMaintenanceSection, noticeOf
 import { getSiteSeo } from '@/modules/site/server/seo'
 import SiteNotice from '@/components/site/maintenance/SiteNotice'
 import { loadMaintenance } from '@/modules/site/server/maintenance'
+import { sectionDisplayName } from '@/modules/site/server/section-names'
 import './maintenance.css'
 
 export const metadata: Metadata = { title: 'در حال به‌روزرسانی', robots: { index: false, follow: false } }
@@ -24,7 +25,9 @@ export default async function MaintenanceNotice({ searchParams }: { searchParams
   const known = isMaintenanceSection(section) ? section : null
   const notice = noticeOf(known ? state[known] : { title: '', message: '' })
   const mode = known ? MAINTENANCE_MODES.find((item) => item.id === state[known].mode)?.label : null
-  const label = known ? MAINTENANCE_SECTIONS.find((item) => item.id === known)?.label : null
+  const entry = known ? MAINTENANCE_SECTIONS.find((item) => item.id === known) : null
+  // The section's own name as the owner set it (Admin › sections), else the built-in label.
+  const label = entry ? await sectionDisplayName(entry.plugin, true, { fa: entry.label }) : null
   return (
     <main className="mnt" dir="rtl">
       <div className="mnt-glow" aria-hidden="true" />
