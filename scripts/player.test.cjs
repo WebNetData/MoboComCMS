@@ -99,4 +99,5 @@ test('media link embed URL validation and explicit embed playback', () => {
   assert.equal(playbackKind('https://cdn.example/video.m3u8', 'STREAM'), 'hls')
   assert.equal(playbackKind('https://cdn.example/video.mp4', 'STREAM'), 'video')
   assert.throws(() => cleanLinks([{ url: 'https://provider.example/watch/123', kind: 'STREAM', embedUrl: 'javascript:alert(1)' }]), /HTTPS/)
+  assert.throws(() => cleanLinks([{ url: 'https://provider.example/watch/123', kind: 'STREAM', embedUrl: 'https://evil.example/embed/123' }]), /Unsupported embed host/)
 })
