@@ -2430,6 +2430,7 @@ model MediaLink {
   subtitle  Boolean  @default(false)
   language  String   @default("") // of a separate subtitle or audio file (kind SUBTITLE | AUDIO): fa, en, ...
   url       String
+  embedUrl  String   @default("") // Optional HTTPS iframe URL for an explicitly approved external embed
   access    String   @default("PUBLIC")
   clicks    Int      @default(0)
   disabled  Boolean  @default(false) // hidden (broken link or copyright takedown)
