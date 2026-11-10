@@ -974,3 +974,8 @@ Handoff: `docs/agent/handoffs/SECTION_NAMES.md`.
 Owner asked for more professional, attractive article and form designs with effects. Five new article styles dress the
 whole page (header and reading column), and four new form themes join the existing nine; all chosen from Admin like the
 others, motion only with full-motion preference. Handoff: `docs/agent/handoffs/POST_FORM_STYLES.md`.
+
+## Next.js 16.4.6 — 2026-11-10
+
+Owner reported 16.4.6 as the current release. Patch update from 16.4.2 (only `next` and its `@next/*` platform
+packages change in the lock; React 19.3.1 and TypeScript 7.0.2 stay). The stack line of 2026-10-19 otherwise holds.
