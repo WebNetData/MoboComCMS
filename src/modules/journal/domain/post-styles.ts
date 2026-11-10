@@ -16,6 +16,11 @@ export const POST_STYLE_BASES = {
   neon: { fa: 'نئون', en: 'Neon', descFa: 'زمینهٔ تیره با شبکهٔ نوری، تیتر درخشان و جلد با قاب نئونی؛ برای فناوری و گیم.', descEn: 'A dark grid, a glowing title and a neon-framed cover; for tech and games.' },
   paper: { fa: 'روزنامه‌ای', en: 'Broadsheet', descFa: 'خط‌های روزنامه بالا و پایین تیتر، خلاصهٔ دوستونه و کاغذ گرم؛ برای خبر و گزارش.', descEn: 'Newspaper rules around the title, a two-column lead and warm paper; for news.' },
   frame: { fa: 'قاب لوکس', en: 'Luxe frame', descFa: 'جلد در قابی با سایهٔ رنگی جابه‌جا، خط ظریف طلایی و تیتر باوقار؛ برای پرتره و مصاحبه.', descEn: 'The cover in an offset colour frame, a fine rule and a poised title; for portraits.' },
+  vogue: { fa: 'مجلهٔ مد', en: 'Vogue', descFa: 'جلد عریض و کارتی که تیتر درشت را روی آن می‌نشاند؛ فصل‌های شماره‌دار و نقل‌قول‌های بزرگ وسط‌چین.', descEn: 'A wide cover plate with the title card overlapping it; numbered chapters and large centred pull quotes.' },
+  glass: { fa: 'شیشهٔ مات', en: 'Frosted glass', descFa: 'جلد بزرگ با تیتر روی قاب شیشه‌ای مات؛ متن و فهرست هم روی صفحه‌های شیشه‌ای با نورهای رنگی ملایم.', descEn: 'A large cover with the title on frosted glass; the reading column on glass panels over soft colour light.' },
+  story: { fa: 'داستان', en: 'Story', descFa: 'جلد سه‌بعدی که با اسکرول صاف می‌شود، تیترهای «فصل ۱، ۲…» در کارت و متنی که هنگام خواندن نمایان می‌شود.', descEn: 'A 3D cover that straightens as you scroll, «Chapter 1, 2…» cards and text that rises in as you read.' },
+  prism: { fa: 'طیف', en: 'Prism', descFa: 'میدان رنگی متحرک، جلد کج در قاب شیشه‌ای با برق عبوری، لینک‌ها و نقل‌قول‌های رنگین‌کمانی.', descEn: 'A moving colour field, a tilted glass-framed cover with a passing glare, spectrum links and quotes.' },
+  ink: { fa: 'جوهری', en: 'Ink', descFa: 'آرام و دقیق: خط‌های ظریف، جلد سیاه‌وسفیدی که با خواندن رنگی می‌شود و تیتر با خط رنگی کنار.', descEn: 'Quiet and exact: fine rules, a black-and-white cover that takes colour as you read, a coloured title rule.' },
 } as const
 export type PostStyleBase = keyof typeof POST_STYLE_BASES
 export const POST_STYLE_BASE_KEYS = Object.keys(POST_STYLE_BASES) as PostStyleBase[]
@@ -131,6 +136,11 @@ const BASE_DEFAULTS: Record<PostStyleBase, Pick<ResolvedPostStyle, 'align' | 'wi
   neon: { align: 'center', width: 'wide', leadIn: false, corners: 'soft' },
   paper: { align: 'center', width: 'wide', leadIn: true, corners: 'sharp' },
   frame: { align: 'start', width: 'wide', leadIn: true, corners: 'soft' },
+  vogue: { align: 'start', width: 'wide', leadIn: true, corners: 'round' },
+  glass: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
+  story: { align: 'start', width: 'wide', leadIn: true, corners: 'round' },
+  prism: { align: 'start', width: 'wide', leadIn: false, corners: 'round' },
+  ink: { align: 'start', width: 'wide', leadIn: true, corners: 'sharp' },
 }
 
 /** A style id (built-in or the owner's) as the page applies it; null for anything else (a layout, or gone). */

@@ -582,7 +582,7 @@ test('designed article templates wear a style and keep the article slots', () =>
     const doc = builder.validateBuilderDoc({ v: 2, mode: 'builder', code: { html: '', css: '', js: '', advanced: false }, sections: [], layout: { header: 'default', footer: 'default', postStyle: bad } })
     assert.deepEqual(doc.layout, { header: 'default', footer: 'default' }, String(bad))
   }
-  assert.equal(Object.keys(postStyles.POST_STYLE_BASES).length, 10)
+  assert.equal(Object.keys(postStyles.POST_STYLE_BASES).length, 15, 'ten designed headers and five whole-page styles (2026-11-10)')
   const pro = templates.POST_TEMPLATES.filter((template) => template.id.startsWith('post-pro-'))
   assert.equal(pro.length, 7)
   for (const template of pro) {
@@ -594,4 +594,23 @@ test('designed article templates wear a style and keep the article slots', () =>
   }
   // older templates keep a plain layout (no style key written)
   assert.equal('postStyle' in templates.POST_TEMPLATES.find((template) => template.id === 'post-classic').doc.layout, false)
+})
+
+test('the five whole-page article styles and four form themes are registered, drawn and motion-safe', () => {
+  const fs = require('node:fs'), path = require('node:path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')
+  const css = read('src/app/journal-post-styles.css'), thumbs = read('src/app/admin/journal/post-styles.module.css'), styles = read('src/modules/journal/domain/post-styles.ts')
+  for (const base of ['vogue', 'glass', 'story', 'prism', 'ink']) {
+    assert.match(styles, new RegExp(`\n  ${base}: \{ fa: '`), base)
+    assert.match(styles, new RegExp(`\n  ${base}: \{ align: `), base + ' defaults')
+    assert.match(css, new RegExp(`data-post-style="${base}"\] \.journal-prose`), base + ' dresses the reading column')
+    assert.match(thumbs, new RegExp(`data-base='${base}'`), base + ' thumbnail')
+  }
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\)[\s\S]*@supports \(animation-timeline: view\(\)\)/, 'scroll effects only with full motion and scroll timelines')
+  const forms = read('src/modules/forms/domain/forms.ts'), formCss = read('src/app/forms-pro.css')
+  for (const theme of ['neon', 'soft', 'prism', 'studio']) {
+    assert.match(forms, new RegExp(`'${theme}'`), theme)
+    assert.match(formCss, new RegExp(`\.pf\.pf-theme-${theme} \{`), theme + ' style')
+    assert.match(formCss, new RegExp(`\.fp-theme\.is-${theme} i`), theme + ' thumbnail')
+  }
+  assert.match(formCss, /@media \(prefers-reduced-motion: reduce\) \{ \.pf\.pf-theme-neon::before, \.pf\.pf-theme-prism \{ animation: none; \} \}/)
 })

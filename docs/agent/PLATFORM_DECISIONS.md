@@ -968,3 +968,9 @@ manageable and editable from the Admin panel (no fixed labels, addresses or sett
 Section display names live in one revisioned owner (`site/server/section-names.ts`) and are read everywhere through
 `sectionDisplayName`/`<SectionName>`; new public pages use them instead of literal section words.
 Handoff: `docs/agent/handoffs/SECTION_NAMES.md`.
+
+## Whole-page article styles and new form themes — 2026-11-10
+
+Owner asked for more professional, attractive article and form designs with effects. Five new article styles dress the
+whole page (header and reading column), and four new form themes join the existing nine; all chosen from Admin like the
+others, motion only with full-motion preference. Handoff: `docs/agent/handoffs/POST_FORM_STYLES.md`.
