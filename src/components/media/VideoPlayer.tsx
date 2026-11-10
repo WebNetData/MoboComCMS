@@ -151,7 +151,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
     return () => window.removeEventListener('keydown', onKey)
   }, [keyboardScope])
 
-  if (playback === 'embed') return <div className="vp-frame"><iframe src={src} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></div>
+  if (playback === 'embed') return <div className="vp-frame"><iframe src={src} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="no-referrer" /></div>
 
   const setRate = (value: number) => { setSpeed(value); if (video.current) video.current.playbackRate = value }
   const pickLevel = (value: number) => { setLevel(value); if (hls.current) hls.current.currentLevel = value }
