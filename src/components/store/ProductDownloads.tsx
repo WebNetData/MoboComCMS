@@ -5,9 +5,9 @@ import s from './ProductFiles.module.css'
 
 type Access = { open: boolean; reason: string; files: { id: number; label: string; filename: string; sizeBytes: string; sha256: string }[] }
 
-export function FileStoreDoor({ settings }: { settings: { showFileStore: boolean; fileStoreTitle: string; fileStoreDescription: string } }) {
+export function FileStoreDoor({ settings }: { settings: { showFileStore: boolean; fileStoreName?: string; fileStoreTitle: string; fileStoreDescription: string } }) {
   if (!settings.showFileStore) return null
-  return <Link className={s.door} href="/products?kind=VIRTUAL&files=1"><span className={s.doorIcon}><Icon name="download" size={31} /></span><div><small>فروشگاه فایل موبوکام</small><h2>{settings.fileStoreTitle}</h2><p>{settings.fileStoreDescription}</p></div><span className={s.doorAction}>کشف فایل‌ها<Icon name="arrow" size={19} /></span></Link>
+  return <Link className={s.door} href="/products?files=1"><span className={s.doorIcon}><Icon name="download" size={31} /></span><div><small>{settings.fileStoreName || 'فروشگاه فایل'}</small><h2>{settings.fileStoreTitle}</h2><p>{settings.fileStoreDescription}</p></div><span className={s.doorAction}>کشف فایل‌ها<Icon name="arrow" size={19} /></span></Link>
 }
 
 export default function ProductDownloads({ access, slug, title, anchor = 'downloads' }: { access: Access; slug: string; title: string; anchor?: string }) {

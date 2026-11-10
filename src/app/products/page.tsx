@@ -17,6 +17,12 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const store = kind === 'VIRTUAL' ? { title: 'فروشگاه محصولات دیجیتال', description: 'خرید لایسنس، گیفت‌کارت، اکانت و اشتراک با تحویل آنی در حساب کاربری؛ ضمانت اصالت و پرداخت امن.' }
     : kind === 'PHYSICAL' ? { title: 'فروشگاه کالای فیزیکی', description: 'خرید کالای اصل با ارسال به سراسر کشور، انتخاب روش و زمان ارسال، ضمانت بازگشت و پرداخت امن.' } : null
   if (store) return { title: store.title, description: store.description, alternates: { canonical: toPublicPath(`/products?kind=${kind}`) } }
+  // The file store is a page of its own: its name and description from the store settings.
+  if (params.files === '1' && Object.keys(params).every((key) => key === 'files' || key === 'kind')) {
+    const { getStoreSettings } = await import('@/modules/store/server/catalog')
+    const settings = await getStoreSettings()
+    return { title: `${settings.fileStoreName} — ${settings.fileStoreTitle}`, description: settings.fileStoreDescription, alternates: { canonical: toPublicPath('/products?files=1') } }
+  }
   const base: Metadata = {
     title: categoryName ? `${categoryName} — فروشگاه` : 'فروشگاه',
     description: categoryName ? `خرید آنلاین ${categoryName}: مقایسهٔ قیمت و مشخصات، ارسال سریع، ضمانت اصالت و پرداخت امن.` : 'خرید آنلاین کالاهای فیزیکی و محصولات دیجیتال با ارسال سریع، ضمانت اصالت و پرداخت امن.',

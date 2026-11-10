@@ -210,6 +210,8 @@ export const isFiltered = (query: ShopQuery) =>
   Boolean(query.q || query.category || query.brands.length || query.min || query.max || query.available || query.discounted || query.kind || query.rating || query.instant || query.files || Object.keys(query.specs).length || query.sort !== 'newest' || query.page > 1)
 
 /** Only the store half is chosen (?kind=…): that half's own front page, not a listing. */
+/** The file store's own front: «files» alone (with or without the digital half). */
+export const isFileStoreFront = (query: ShopQuery) => !!query.files && !isFiltered({ ...query, files: false, kind: '' })
 export const isStoreFront = (query: ShopQuery) => !!query.kind && !isFiltered({ ...query, kind: '' })
 
 // ------------------------------------------------------------------ merchandising settings
@@ -227,6 +229,7 @@ export type StoreSettings = {
   showBrands: boolean
   showCategories: boolean
   showFileStore: boolean
+  fileStoreName: string
   fileStoreTitle: string
   fileStoreDescription: string
   showPriceHistory: boolean
@@ -251,6 +254,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   showBrands: true,
   showCategories: true,
   showFileStore: true,
+  fileStoreName: 'فروشگاه فایل',
   fileStoreTitle: 'فایل‌های کاربردی، آمادهٔ دریافت',
   fileStoreDescription: 'نرم‌افزار، فایل و منابع دیجیتال را انتخاب کنید؛ پس از خرید یا با دسترسی ویژه، از حساب خود دریافت کنید.',
   showPriceHistory: false,
@@ -311,6 +315,7 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     showBrands: raw.showBrands === undefined ? base.showBrands : raw.showBrands === true,
     showCategories: raw.showCategories === undefined ? base.showCategories : raw.showCategories === true,
     showFileStore: raw.showFileStore === undefined ? base.showFileStore : raw.showFileStore === true,
+    fileStoreName: raw.fileStoreName === undefined ? base.fileStoreName ?? DEFAULT_STORE_SETTINGS.fileStoreName : cleanText(raw.fileStoreName, 40) || DEFAULT_STORE_SETTINGS.fileStoreName,
     fileStoreTitle: raw.fileStoreTitle === undefined ? base.fileStoreTitle : cleanText(raw.fileStoreTitle, 80) || DEFAULT_STORE_SETTINGS.fileStoreTitle,
     fileStoreDescription: raw.fileStoreDescription === undefined ? base.fileStoreDescription : cleanText(raw.fileStoreDescription, 240),
     showPriceHistory: raw.showPriceHistory === undefined ? base.showPriceHistory : raw.showPriceHistory === true,
