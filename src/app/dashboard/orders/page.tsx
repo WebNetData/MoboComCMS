@@ -1,3 +1,4 @@
+import '../../account-orders.css'
 import type { Metadata } from 'next'
 import { MyOrdersView } from '@/modules/store/server/pages/my-orders'
 

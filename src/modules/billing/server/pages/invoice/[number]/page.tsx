@@ -155,7 +155,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
                   <td className="num">{line.quantity.toLocaleString(isFa ? 'fa-IR' : 'en-US')}</td>
                   <td className="num">{money(minorToNumber(line.totalMinor, invoice.currency))}</td>
                 </tr>)}
-                {Number(productMeta.shippingMinor || 0) > 0 && <tr><td>{isFa ? 'هزینهٔ ارسال' : 'Shipping'}</td><td className="num">1</td><td className="num">{money(minorToNumber(BigInt(String(productMeta.shippingMinor)), invoice.currency))}</td></tr>}
+                {Number(productMeta.shippingMinor || 0) > 0 && <tr><td>{isFa ? 'هزینهٔ ارسال' : 'Shipping'}</td><td className="num">{isFa ? '۱' : '1'}</td><td className="num">{money(minorToNumber(BigInt(String(productMeta.shippingMinor)), invoice.currency))}</td></tr>}
               </> : <tr>
                 <td>
                   {itemTitle}
@@ -166,7 +166,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
                     </div>
                   )}
                 </td>
-                <td className="num">1</td>
+                <td className="num">{isFa ? '۱' : '1'}</td>
                 <td className="num">{money(invoice.subtotal)}</td>
               </tr>}
             </tbody>

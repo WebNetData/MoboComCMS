@@ -144,3 +144,28 @@ test('the language choice sits in the header with a flag for every offered langu
     assert.ok(flags.includes(`${key}: '`), `names ${code}`)
   }
 })
+
+test('member orders and invoices: one quiet document system, scoped so the mini app and other shells keep theirs', () => {
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const css = read('src/app/account-orders.css'), ui = read('src/app/ui.css'), globals = read('src/app/globals.css')
+  // Every rule of the page stylesheet starts at the member shell, so /miniapp/orders (same views) is untouched.
+  for (const rule of css.replace(/\/\*[\s\S]*?\*\//g, '').match(/^[^@\s}{][^{]*\{/gm)) assert.match(rule, /^(html\[[^\]]+\] )?\.member-shell \.app-main /, rule)
+  for (const route of ['orders/page.tsx', 'orders/[id]/page.tsx', 'invoices/page.tsx', 'invoices/[number]/page.tsx']) assert.match(read(`src/app/dashboard/${route}`), /import '(\.\.\/)+account-orders\.css'/, route)
+  // Where an order stands is shown in words by its pill; the meter beside it is decoration only.
+  const orders = read('src/modules/store/server/pages/my-orders.tsx')
+  assert.match(orders, /<span className="sx-my-meter" aria-hidden="true">/)
+  assert.match(orders, /\{progress\(order\.state\.key\)\}/)
+  // The invoice ledger names its columns once for sight and in every cell for screen readers; filters say when they are on.
+  const invoices = read('src/app/dashboard/invoices/page.tsx')
+  assert.match(invoices, /<div className="iv-ledger-head" aria-hidden="true">/)
+  for (const label of ['شمارهٔ فاکتور: ', 'تاریخ صدور: ', 'مبلغ: ']) assert.ok(invoices.includes(`<span className="sr-only">${label}</span>`), label)
+  assert.equal((invoices.match(/aria-pressed=\{status === /g) || []).length, 4)
+  // The invoice document and its card payment carry no coloured band, gradient total or glow; the bank card is graphite.
+  const sheet = ui.slice(ui.indexOf('/* ---------- invoice sheet'), ui.indexOf('.manual-instructions {'))
+  assert.doesNotMatch(sheet, /#4f46e5|#7c3aed|#312e81|::before \{ inline-size|drop-shadow/)
+  assert.match(sheet, /\.invoice-grand \{[^}]*background: none;/)
+  assert.match(sheet, /\.invoice-page \.card::before \{ content: none; \}/)
+  const transfer = globals.slice(globals.indexOf('.ct-box{'), globals.indexOf('.ct-picked{'))
+  assert.doesNotMatch(transfer, /#4338ca|#7c3aed|#1e1b4b|236,72,153|backdrop-filter/)
+  assert.match(transfer, /\.ct-card\{[^}]*background:linear-gradient\(140deg,#2a2e36/)
+})

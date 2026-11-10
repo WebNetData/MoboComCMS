@@ -1,5 +1,6 @@
 'use client'
 
+import '../../account-orders.css'
 import { useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -58,21 +59,22 @@ export default function CustomerInvoicesPage() {
   const unpaidAmounts = amounts(totals, 'unpaid'), paidAmounts = amounts(totals, 'paid')
   const pick = (value: string) => { setStatus(value); setShown(PAGE); window.history.replaceState(null, '', value ? `?status=${value}` : window.location.pathname) }
 
-  return <div className="dt-page" dir="rtl">
+  return <div className="dt-page iv-page" dir="rtl">
     <header className="dt-head">
       <div><h1>فاکتورهای من</h1><p>هر فاکتور، اینکه برای چیست و قدم بعدی آن؛ پرداخت، مشاهده یا دریافت PDF.</p></div>
       {vpnOn && <Link href="/plans" className="btn btn-primary"><Icon name="plus" size={16} /> خرید پلن</Link>}
     </header>
 
-    <div className="dt-tiles">
-      <button type="button" className={`dt-tile is-warn${status === 'UNPAID' ? ' is-on' : ''}`} onClick={() => pick('UNPAID')}>
-        <span className="dt-tile-icon"><Icon name="clock" size={18} /></span><small>در انتظار پرداخت</small><b className="num">{fa(counts.UNPAID || 0)}</b><em>{unpaidAmounts.join(' · ') || 'بدهی ندارید'}</em>
+    {/* The statement: what is due, what is paid, everything; each one also filters the ledger below. */}
+    <div className="dt-tiles iv-summary">
+      <button type="button" aria-pressed={status === 'UNPAID'} className={`dt-tile is-warn${status === 'UNPAID' ? ' is-on' : ''}`} onClick={() => pick('UNPAID')}>
+        <span className="dt-tile-icon" aria-hidden="true"><Icon name="clock" size={18} /></span><small>در انتظار پرداخت</small><b className="num">{fa(counts.UNPAID || 0)}</b><em>{unpaidAmounts.join(' · ') || 'بدهی ندارید'}</em>
       </button>
-      <button type="button" className={`dt-tile is-ok${status === 'PAID' ? ' is-on' : ''}`} onClick={() => pick('PAID')}>
-        <span className="dt-tile-icon"><Icon name="check" size={18} /></span><small>پرداخت‌شده</small><b className="num">{fa(counts.PAID || 0)}</b><em>{paidAmounts.join(' · ') || '—'}</em>
+      <button type="button" aria-pressed={status === 'PAID'} className={`dt-tile is-ok${status === 'PAID' ? ' is-on' : ''}`} onClick={() => pick('PAID')}>
+        <span className="dt-tile-icon" aria-hidden="true"><Icon name="check" size={18} /></span><small>پرداخت‌شده</small><b className="num">{fa(counts.PAID || 0)}</b><em>{paidAmounts.join(' · ') || '—'}</em>
       </button>
-      <button type="button" className={`dt-tile${status === '' ? ' is-on' : ''}`} onClick={() => pick('')}>
-        <span className="dt-tile-icon"><Icon name="receipt" size={18} /></span><small>همهٔ فاکتورها</small><b className="num">{fa(rows.length)}</b><em>از ابتدای عضویت</em>
+      <button type="button" aria-pressed={status === ''} className={`dt-tile${status === '' ? ' is-on' : ''}`} onClick={() => pick('')}>
+        <span className="dt-tile-icon" aria-hidden="true"><Icon name="receipt" size={18} /></span><small>همهٔ فاکتورها</small><b className="num">{fa(rows.length)}</b><em>از ابتدای عضویت</em>
       </button>
     </div>
 
@@ -84,30 +86,34 @@ export default function CustomerInvoicesPage() {
       : failed ? <div className="dt-empty is-bad" role="alert"><Icon name="receipt" size={28} /><b>فهرست فاکتورها دریافت نشد</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setFailed(false); setLoading(true); setLoadAttempt(attempt => attempt + 1) }}>تلاش دوباره</button></div>
       : !filtered.length ? <div className="dt-empty"><Icon name="receipt" size={30} /><b>{status ? 'فاکتوری با این وضعیت ندارید' : 'هنوز فاکتوری ندارید'}</b><span>{status === 'UNPAID' ? 'همهٔ فاکتورهایتان پرداخت شده‌اند.' : 'فاکتور هر خرید یا شارژ کیف پول این‌جا می‌آید.'}</span></div>
       : <>
-        <ul className="dt-list">{filtered.slice(0, shown).map((invoice) => {
-          const [label, tone] = STATUS[invoice.status] || [invoice.status, '']
-          const due = invoice.status === 'UNPAID'
-          return <li key={invoice.id} className={`dt-row${due ? ' is-due' : ''}`}>
-            <span className={`dt-row-icon ${tone}`} aria-hidden="true"><Icon name={invoice.kind === 'WALLET_TOPUP' ? 'wallet' : 'receipt'} size={18} /></span>
-            <div className="dt-row-main">
-              <Link href={invoice.url} className="dt-row-title">{invoice.title}</Link>
-              {invoice.detail && <p className="dt-row-detail">{invoice.detail}</p>}
-              <small><bdi dir="ltr">{invoice.number}</bdi> · {dayFormat.format(new Date(invoice.issuedAt))}{due && invoice.dueAt ? ` · سررسید ${dayFormat.format(new Date(invoice.dueAt))}` : ''}{invoice.status === 'PAID' && invoice.kind !== 'WALLET_TOPUP' && invoice.deliveryStatus ? ` · ${deliveryLabel(invoice.deliveryStatus)}` : ''}</small>
-              {(invoice.expiresAt || invoice.closedReason) && <span className="dt-row-tags">
-                {invoice.expiresAt && <i className="dt-tag is-time">تا {untilFormat.format(new Date(invoice.expiresAt))} فعال است</i>}
-                {invoice.closedReason && <i className="dt-tag is-bad">بسته‌شده: {CLOSE_REASON_LABEL[invoice.closedReason] || 'قانون خودکار'}</i>}
-              </span>}
-            </div>
-            <div className="dt-row-end">
-              <b className="num">{money(invoice.total, invoice.currency)}</b>
-              <span className={`dt-state ${tone}`}>{label}</span>
+        {/* A ledger: one line per invoice, its columns named once above (sighted readers) and inside each cell (screen readers). */}
+        <div className="iv-ledger">
+          <div className="iv-ledger-head" aria-hidden="true"><span>شرح</span><span>شمارهٔ فاکتور</span><span>تاریخ</span><span>مبلغ</span><span>وضعیت</span><span /></div>
+          <ul className="dt-list iv-rows">{filtered.slice(0, shown).map((invoice) => {
+            const [label, tone] = STATUS[invoice.status] || [invoice.status, '']
+            const due = invoice.status === 'UNPAID'
+            const note = due && invoice.dueAt ? `سررسید ${dayFormat.format(new Date(invoice.dueAt))}` : invoice.status === 'PAID' && invoice.kind !== 'WALLET_TOPUP' && invoice.deliveryStatus ? deliveryLabel(invoice.deliveryStatus) : ''
+            return <li key={invoice.id} className={`dt-row iv-row${due ? ' is-due' : ''}`}>
+              <span className={`dt-row-icon ${tone}`} aria-hidden="true"><Icon name={invoice.kind === 'WALLET_TOPUP' ? 'wallet' : 'receipt'} size={18} /></span>
+              <div className="dt-row-main">
+                <Link href={invoice.url} className="dt-row-title">{invoice.title}</Link>
+                {invoice.detail && <p className="dt-row-detail">{invoice.detail}</p>}
+                {(invoice.expiresAt || invoice.closedReason) && <span className="dt-row-tags">
+                  {invoice.expiresAt && <i className="dt-tag is-time">تا {untilFormat.format(new Date(invoice.expiresAt))} فعال است</i>}
+                  {invoice.closedReason && <i className="dt-tag is-bad">بسته‌شده: {CLOSE_REASON_LABEL[invoice.closedReason] || 'قانون خودکار'}</i>}
+                </span>}
+              </div>
+              <span className="iv-number"><span className="sr-only">شمارهٔ فاکتور: </span><bdi dir="ltr">{invoice.number}</bdi></span>
+              <span className="iv-date"><span className="sr-only">تاریخ صدور: </span>{dayFormat.format(new Date(invoice.issuedAt))}{note && <small>{note}</small>}</span>
+              <b className="num iv-amount"><span className="sr-only">مبلغ: </span>{money(invoice.total, invoice.currency)}</b>
+              <span className="iv-state"><span className={`dt-state ${tone}`}>{label}</span></span>
               <div className="dt-row-actions">
                 {due ? <Link href={invoice.url} className="btn btn-primary btn-sm">پرداخت</Link> : <Link href={invoice.url} className="btn btn-ghost btn-sm">مشاهده</Link>}
                 {invoice.subscriptionId && <Link href={`/dashboard/subscriptions/${invoice.subscriptionId}`} className="btn btn-ghost btn-sm">اشتراک</Link>}
               </div>
-            </div>
-          </li>
-        })}</ul>
+            </li>
+          })}</ul>
+        </div>
         {filtered.length > shown && <button type="button" className="dt-more" onClick={() => setShown((count) => count + PAGE)}>نمایش {fa(Math.min(PAGE, filtered.length - shown))} فاکتور دیگر <small>({fa(filtered.length - shown)} باقی‌مانده)</small></button>}
       </>}
   </div>

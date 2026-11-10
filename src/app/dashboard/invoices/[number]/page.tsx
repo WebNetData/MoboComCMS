@@ -1,3 +1,4 @@
+import '../../../account-orders.css'
 import type { Metadata } from 'next'
 import { serviceOrderingAccess } from '@/modules/account/server/service-ordering'
 import InvoicePage from '@/modules/billing/server/pages/invoice/[number]/page'
