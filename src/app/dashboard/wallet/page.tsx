@@ -71,7 +71,7 @@ export default function WalletPage() {
         <div><dt>{t.totalSpent}</dt><dd className="num">{money(summary.spent)}</dd></div>
         <div><dt>{t.txCount}</dt><dd className="num">{summary.count.toLocaleString(isFa?'fa-IR':'en-US')}</dd></div>
       </dl>
-      <p className="dt-balance-hint"><Icon name="sparkles" size={15} />{t.walletPayHint}</p>
+      <p className="dt-balance-hint">{t.walletPayHint}</p>
     </section>
 
     <div className="dt-split">

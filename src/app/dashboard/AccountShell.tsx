@@ -2,7 +2,6 @@
 import { sectionNameNow } from '@/shared/site/section-names'
 
 import '../account-design.css'
-import Spotlight from './Spotlight'
 import { useEffect, useRef, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
@@ -165,7 +164,8 @@ export default function AccountShell({ children }: { children: React.ReactNode }
 
   const displayName = profileName || session?.user?.name || ''
   const initial = (displayName || session?.user?.email || '?').charAt(0).toUpperCase()
-  const isOn = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href))
+  // A page is current at its own address and below it, never at a sibling that only shares the start (/dashboard/order vs /dashboard/orders).
+  const isOn = (href: string, exact?: boolean) => pathname === href || (!exact && pathname.startsWith(`${href}/`))
   // The deepest matching menu entry names the current page in the top bar.
   const current = NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, group: group.flat ? '' : group.title })))
     .filter((item) => isOn(item.href, item.exact))
@@ -183,7 +183,6 @@ export default function AccountShell({ children }: { children: React.ReactNode }
 
   return (
     <div className="app-shell user-shell member-shell">
-      <Spotlight />
       <aside className="side">
         <Link href="/" className="side-brand">
           <BrandLockup />
@@ -223,7 +222,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
           <div className="dash-top-actions">
             <Link href="/" className="dash-top-link"><Icon name="globe" size={17} /> {locale === 'fa' ? 'مشاهدهٔ سایت' : 'View site'}</Link>
             <ThemeLangControls locale={locale} theme={theme} />
-            <Link href="/dashboard/notifications" className="dash-top-icon" aria-label={locale === 'fa' ? 'اعلان‌ها' : 'Notifications'}><Icon name="bell" size={19} /><NotificationCount /></Link>
+            <Link href="/dashboard/notifications" className="dash-top-icon"><span className="sr-only">{locale === 'fa' ? 'اعلان‌ها' : 'Notifications'}</span><Icon name="bell" size={19} /><NotificationCount /></Link>
             <Link href="/dashboard/profile" className="dash-top-user" aria-label={locale === 'fa' ? 'تنظیمات حساب' : 'Account settings'}><span className="avatar">{session?.user?.image ? <img src={session.user.image} alt="" /> : initial}</span></Link>
           </div>
         </header>
