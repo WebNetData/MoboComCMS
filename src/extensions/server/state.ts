@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { db } from '@/platform/database/prisma'
 import type { Prisma } from '@prisma/client'
 import { extensionById, extensionCatalog } from '@/extensions/generated/catalog'
@@ -135,10 +136,18 @@ async function assertDependencies(manifest: ExtensionManifest, enabling: boolean
   }
 }
 
+const runtimeKeys = () => [...extensionCatalog.map(m => stateKey(m.id)), ...extensionCatalog.flatMap(m => (m.stateSetting ? [m.stateSetting] : [])), 'site.config.v1']
+
+/**
+ * The stored rows, read once per server render. The layout, menus, home page and module guards all ask for the
+ * runtime during one request; they now share one read instead of five. React scopes this to the request, so a
+ * save is seen by the next request exactly as before; transactions and route handlers (no render scope) read fresh.
+ */
+const runtimeRowsForRequest = cache(() => db.setting.findMany({ where: { key: { in: runtimeKeys() } } }))
+
 export async function getPublicExtensionRuntime(reader: StateReader = db): Promise<Record<string, ExtensionPublicState>> {
-  const mirrorKeys = extensionCatalog.flatMap(m => (m.stateSetting ? [m.stateSetting] : []))
   let rows: { key: string; value: string }[] = [], available = true
-  try { rows = await reader.setting.findMany({ where: { key: { in: [...extensionCatalog.map(m => stateKey(m.id)), ...mirrorKeys, 'site.config.v1'] } } }) }
+  try { rows = reader === db ? await runtimeRowsForRequest() : await reader.setting.findMany({ where: { key: { in: runtimeKeys() } } }) }
   catch (error) {
     available = false
     logEvent('warn', 'extensions.runtime_unavailable', { errorName: error instanceof Error ? error.name : 'Unknown' })
