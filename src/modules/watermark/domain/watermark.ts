@@ -70,10 +70,10 @@ const OWN_IMAGE = /^\/api\/media\/covers\/([0-9a-f-]{36}\.(?:webp|png|jpg))$/
 /** "/api/media/covers/<id>.png" → "<id>.png" (or "" for anything else). */
 export const fileOfUrl = (url: string) => OWN_IMAGE.exec(String(url || '').split('?')[0])?.[1] || ''
 
-/** Organized pictures in the public file tree (shop/product/…/cover.webp) carry a "files/<path>" key in the usage index. */
-export const ORGANIZED_IMAGE = /\/files\/((?:shop|blog|pages|download)\/[^"'\s?#<>()]+\.(?:webp|png|jpe?g))/g
+/** Organized pictures in the public file tree (shop/product/…/cover.webp, celebrities/<slug>/avatar.webp) carry a "files/<path>" key in the usage index. */
+export const ORGANIZED_IMAGE = /\/files\/((?:shop|blog|pages|celebrities|download)\/[^"'\s?#<>()]+\.(?:webp|png|jpe?g))/g
 export function organizedImageKey(url: string) {
-  const match = /^\/files\/((?:shop|blog|pages|download)\/[^"'\s?#<>()]+\.(?:webp|png|jpe?g))$/i.exec(String(url || '').split('?')[0])
+  const match = /^\/files\/((?:shop|blog|pages|celebrities|download)\/[^"'\s?#<>()]+\.(?:webp|png|jpe?g))$/i.exec(String(url || '').split('?')[0])
   if (!match) return ''
   let key: string
   try { key = match[1].split('/').map(decodeURIComponent).join('/') } catch { return '' }

@@ -335,6 +335,30 @@ test('store, journal and page pictures are filed under the item with readable na
   assert.equal(wm.cacheStem('11111111-1111-1111-1111-111111111111.webp'),'11111111-1111-1111-1111-111111111111')
 })
 
+test('profile photos and game pictures are filed under their item too', () => {
+  const read = file => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  const {organizationPath:p,validOrganizationPath:valid}=load('src/modules/downloads/domain/organization.ts')
+  assert.equal(p({section:'celebrity',slug:'shadmehr-aghili',title:'Shadmehr Aghili'},'image'),'celebrities/shadmehr-aghili')
+  assert.equal(p({section:'celebrity',slug:'',title:'شادمهر عقیلی'},'image'),'celebrities/شادمهر عقیلی','a new profile without an address uses its name')
+  assert.equal(p({section:'celebrity',slug:'',title:''},'image'),'')
+  assert.equal(p({section:'celebrity',slug:'a'},'file'),'')
+  assert.equal(p({section:'celebrity',slug:'../../etc'},'image'),'celebrities/etc')
+  assert.equal(valid('celebrities/shadmehr-aghili'),true)
+  for(const bad of ['celebrities','celebrities/a/b','celebrities/..','celebrities/CON'])assert.equal(valid(bad),false,bad)
+  assert.equal(p({section:'cinema-person',title:'Christopher Nolan',personRole:'director'},'image'),'download/cinema/images/director/Christopher Nolan')
+  assert.equal(p({section:'cinema-person',title:'Leila Hatami',personRole:'actor'},'image'),'download/cinema/images/actors/Leila Hatami')
+  assert.equal(p({section:'music',artist:'Ebi',artistImage:true},'image'),'download/music/Ebi/image')
+  assert.equal(p({section:'games',title:'Elden Ring',category:'RPG'},'image'),'download/Game/RPG/Elden Ring/images')
+  const wm=load('src/modules/watermark/domain/watermark.ts')
+  assert.equal(wm.organizedImageKey('/files/celebrities/shadmehr-aghili/avatar.webp'),'files/celebrities/shadmehr-aghili/avatar.webp')
+  const files=read('src/modules/downloads/server/files.ts')
+  assert.match(files,/\^\(shop\|blog\|pages\|celebrities\|download\)\$/,'organized celebrity photos are served like the other organized pictures')
+  const upload=read('src/components/admin/FileUpload.tsx')
+  assert.match(upload,/useAssetOrganization\(\)/);assert.match(upload,/accept\?\.startsWith\('image\/'\) \? await uploadOrganizedImage/)
+  assert.match(upload,/response\.status === 403\) return null/,'no picture access keeps the old file upload')
+  for(const [file,scope] of [['src/app/admin/games/[id]/page.tsx',"section: 'games'"],['src/app/admin/cinema/people/PersonEditor.tsx',"section:'cinema-person'"],['src/app/admin/celebrities/CelebrityEditor.tsx',"section: 'celebrity'"],['src/app/admin/music/artists/ArtistEditor.tsx',"section:'music'"]])assert.ok(read(file).includes(scope),file)
+})
+
 test('shared private images use exclusive private writes and compensate only newly written files', async () => {
   const written = [], removed = []
   let failAt = 2

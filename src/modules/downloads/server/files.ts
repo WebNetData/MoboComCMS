@@ -158,7 +158,7 @@ export async function serveLocalFile(req: Request, segments: string[]): Promise<
   // posters and backdrops are drawn small far more often than they are downloaded.
   const width = Number(new URL(req.url).searchParams.get('w'))
   // Organized pictures (shop/product/…/cover.webp) carry the site watermark exactly like the flat image store.
-  if ((req.method === 'GET' || req.method === 'HEAD') && /^(shop|blog|pages|download)$/.test(parts[0]) && /\.(jpe?g|png|webp)$/i.test(name)) {
+  if ((req.method === 'GET' || req.method === 'HEAD') && /^(shop|blog|pages|celebrities|download)$/.test(parts[0]) && /\.(jpe?g|png|webp)$/i.test(name)) {
     const { watermarkedImage, imageCacheControl } = await import('@/modules/watermark/server/watermark')
     const sized = IMAGE_WIDTHS.includes(width as (typeof IMAGE_WIDTHS)[number]) ? width : 0
     const marked = await watermarkedImage(`files/${parts.join('/')}`, sized, () => fs.readFile(file)).catch(() => null)

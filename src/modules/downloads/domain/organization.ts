@@ -19,6 +19,12 @@ export function organizationPath(context: AssetOrganization | undefined, kind: '
     const group=organizationSegment(context.categorySlug)||organizationSegment(context.category,'Uncategorized')
     return context.section==='shop'?`shop/product/${group}/${item}`:context.section==='blog'?`blog/${group}/${item}`:`pages/${item}`
   }
+  // A celebrity's photos follow the profile's public address: celebrities/<slug>.
+  if(context.section==='celebrity') {
+    if(kind!=='image')return ''
+    const item=organizationSegment(context.slug)||title
+    return item?`celebrities/${item}`:''
+  }
   if(!title)return ''
   if(context.section==='film')return `download/movie/${title}${kind==='image'?'/images':''}`
   if(context.section==='cinema-person' && kind==='image' && ['actor','director'].includes(context.personRole || ''))return `download/cinema/images/${context.personRole==='director'?'director':'actors'}/${title}`
@@ -34,6 +40,7 @@ export function validOrganizationPath(raw: unknown): raw is string {
   if(p[0]==='shop')return p.length===4 && p[1]==='product'
   if(p[0]==='blog')return p.length===3
   if(p[0]==='pages')return p.length===2
+  if(p[0]==='celebrities')return p.length===2
   if(p[0]!=='download')return false
   if(p[1]==='film')return p.length===4 && ['images','video'].includes(p[3])
   if(p[1]==='movie')return p.length===3 || p.length===4 && p[3]==='images'

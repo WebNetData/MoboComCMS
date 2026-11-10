@@ -10,6 +10,15 @@ import type { Detail, Profile } from './types'
 import styles from '@/components/admin/ProfileManager.module.css'
 import Portrait from '@/components/admin/ProfilePortrait'
 import ProfileMergePanel from '@/components/admin/ProfileMergePanel'
+import { OrganizationScope } from '@/components/media/OrganizationScope'
+import AiAutofill from '../../cms/AiAutofill'
+import type { AutofillField } from '@/modules/ai/domain/autofill'
+
+// What the assistant may fill on a cast or crew profile: the name and biography. The photo and its lock stay with the editor.
+const AI_FIELDS: AutofillField[] = [
+  { key: 'name', label: 'نام نمایشی (فارسی، مثل نام رایج در سایت‌های فیلم)', type: 'text' },
+  { key: 'bio', label: 'زندگی‌نامه و فعالیت‌های هنری با تیترهای فرعی', type: 'richtext' },
+]
 
 export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{person:Detail;loading:boolean;onReload:()=>void;onSaved:(person:Profile)=>void;onClose:()=>void}) {
   const [name,setName]=useState(person.name),[image,setImage]=useState(person.image),[bio,setBio]=useState(person.bio),[locked,setLocked]=useState(person.imageLocked)
@@ -29,11 +38,13 @@ export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{
     <header className={styles.editorHead}><div><span className={styles.eyebrow}>{person.id?'ویرایش پروفایل':'چهرهٔ جدید'}</span><h2 id="person-editor-title">{person.name||'ثبت بازیگر یا کارگردان'}</h2></div><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>leave('close')}>بستن</button></header>
     {confirm&&<div className={styles.confirm} role="alert"><p>تغییرات ذخیره نشده است. از تغییرات صرف‌نظر شود؟</p><button className="btn btn-ghost" type="button" onClick={()=>{const action=confirm;setConfirm(null);if(action==='close')onClose();else onReload()}}>بله، صرف‌نظر شود</button><button className="btn btn-primary" type="button" onClick={()=>setConfirm(null)}>ادامهٔ ویرایش</button></div>}
     {error&&<Notice tone="error">{error}</Notice>}
+    <AiAutofill section="cinema-people" fields={AI_FIELDS} form={{name,bio}} onApply={values=>{if(typeof values.name==='string')setName(values.name);if(typeof values.bio==='string')setBio(values.bio)}}/>
     <form onSubmit={e=>{e.preventDefault();void save()}}>
       <fieldset disabled={busy||loading} className={styles.fields}>
         <legend className="sr-only">مشخصات عوامل</legend>
         <div className={styles.editorGrid}>
-          <PhotoPanel image={image} name={name} locked={locked} onPhoto={photo} onLock={setLocked}/>
+          {/* Photos are filed at download/cinema/images/<actors|director>/<name>: director only when every credit is directing. */}
+          <OrganizationScope value={{section:'cinema-person',title:name,personRole:person.credits.length&&person.credits.every(credit=>credit.role==='DIRECTOR')?'director':'actor'}}><PhotoPanel image={image} name={name} locked={locked} onPhoto={photo} onLock={setLocked}/></OrganizationScope>
           <div className={styles.biography}>
             <label htmlFor="person-name">نام نمایشی</label><input id="person-name" className="input" dir="auto" required maxLength={120} minLength={2} value={name} onChange={e=>setName(e.target.value)} autoComplete="off"/>
             <small>تغییر نام نمایشی، شناسه و ارتباط با آثار را تغییر نمی‌دهد.</small>
@@ -53,7 +64,7 @@ function PhotoPanel({image,name,locked,onPhoto,onLock}:{image:string;name:string
   return <section className={styles.photoPanel} aria-label="عکس پروفایل">
     <div className={styles.preview}><Portrait image={image} name={name}/></div>
     <label htmlFor="person-image">نشانی عکس</label><input id="person-image" className="input" dir="ltr" value={image} onChange={e=>onPhoto(e.target.value)} maxLength={2048} placeholder="https://… یا /files/…"/>
-    <FileUpload section="cinema" accept="image/*" label="بارگذاری عکس" onUploaded={file=>onPhoto(file.url)}/>
+    <FileUpload section="cinema" accept="image/*" role="avatar" label="بارگذاری عکس" onUploaded={file=>onPhoto(file.url)}/>
     <RemoteCopy section="cinema" url={image} onCopied={onPhoto}/>
     {image&&<button type="button" className="btn btn-ghost btn-sm" onClick={()=>onPhoto('')}>حذف عکس از پروفایل</button>}
     <label className={styles.check}><input type="checkbox" checked={locked} onChange={e=>onLock(e.target.checked)}/>حفظ عکس دستی هنگام دریافت اطلاعات فیلم</label>

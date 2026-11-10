@@ -6,6 +6,8 @@ import { uploadFile, type Uploaded } from './upload-file'
 export { uploadFile, type Uploaded } from './upload-file'
 import LibraryPicker from '@/components/media/LibraryPicker'
 import RemoteCopy from '@/components/media/RemoteCopy'
+import { useAssetOrganization } from '@/components/media/OrganizationScope'
+import type { AssetOrganization, ImageRole } from '@/modules/downloads/domain/organization'
 
 const size = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`
 
@@ -13,7 +15,26 @@ const size = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFi
  * "Upload from computer" button for a file field: the file is stored on this
  * server (download folder) and its address is handed back to fill the field.
  */
-export default function FileUpload({ section, accept, onUploaded, label = 'بارگذاری فایل', compact = false }: { section: string; accept?: string; onUploaded: (file: Uploaded) => void; label?: string; compact?: boolean }) {
+/**
+ * A picture picked inside an item's editor (an OrganizationScope) is filed under that item in the Library, like a cover
+ * field: download/music/<artist>/image/avatar.webp, celebrities/<slug>/avatar.webp … The server works out the folder;
+ * null means the flat file store keeps the upload (no item, other file types, too large, or no picture access).
+ */
+async function uploadOrganizedImage(file: File, organization: AssetOrganization | undefined, role: ImageRole): Promise<Uploaded | null> {
+  if (!organization || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 15 * 1024 * 1024) return null
+  const form = new FormData()
+  form.append('file', file, file.name)
+  form.append('organization', JSON.stringify(organization))
+  form.append('role', role)
+  const response = await fetch('/api/admin/media', { method: 'POST', body: form })
+  const body = await response.json().catch(() => null)
+  if (response.status === 403) return null
+  if (!response.ok || typeof body?.url !== 'string') throw new Error(body?.error || 'بارگذاری تصویر انجام نشد')
+  return { url: body.url, name: String(body.url).split('/').pop() || file.name, size: file.size, path: '' }
+}
+
+export default function FileUpload({ section, accept, onUploaded, label = 'بارگذاری فایل', compact = false, role = 'image' }: { section: string; accept?: string; onUploaded: (file: Uploaded) => void; label?: string; compact?: boolean; role?: ImageRole }) {
+  const organization = useAssetOrganization()
   const input = useRef<HTMLInputElement>(null)
   const abort = useRef<AbortController | null>(null)
   const [state, setState] = useState<{ name: string; sent: number; total: number } | null>(null)
@@ -25,7 +46,8 @@ export default function FileUpload({ section, accept, onUploaded, label = 'با�
     abort.current = new AbortController()
     setState({ name: file.name, sent: 0, total: file.size })
     try {
-      const done = await uploadFile(file, section, (sent) => setState({ name: file.name, sent, total: file.size }), abort.current.signal)
+      const done = (accept?.startsWith('image/') ? await uploadOrganizedImage(file, organization, role) : null)
+        ?? await uploadFile(file, section, (sent) => setState({ name: file.name, sent, total: file.size }), abort.current.signal)
       onUploaded(done)
       setState(null)
     } catch (e) {
