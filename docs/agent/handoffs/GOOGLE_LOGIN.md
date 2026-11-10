@@ -40,3 +40,10 @@ Branch `feat/google-login-2026-11-10` from main `6d81b95c`. Decision record: [PL
 - A real Google round trip (needs the owner's OAuth client and a reachable or proxied Google).
 - A production build. The migration has not been sealed into a release.
 - No security email is sent on connect/disconnect (Telegram linking has none either).
+
+## Audit 2026-11-10 (after merge)
+- A connection now completes only while the member who started it is still signed in; the callback re-reads the session.
+- Disconnecting uses the shared sign-in-methods rule (`identity/{domain,server}/sign-in-methods.ts`), the same as Telegram unlinking: actual ways in, never the account's age, checked under a row lock.
+- A present `azp` must be this client.
+- `google-login` is now registered in `scripts/run-pg-checks.cjs`.
+- Report: `docs/agent/audits/2026-11-10-audit-identity.md`.

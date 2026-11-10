@@ -3,7 +3,8 @@ import { getToken } from 'next-auth/jwt'
 import { authSecret } from '@/platform/config/env'
 import { db } from '@/platform/database/prisma'
 import { hasPermission, parsePermissions } from '@/modules/identity/rbac'
-import { sessionRevoked } from '@/modules/identity/domain/account-security'
+import { sessionRevoked, staffTwoFactorRule } from '@/modules/identity/domain/account-security'
+import { logEvent } from '@/platform/observability/logger'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
 // Match NextAuth's startup secret without importing the authentication-provider graph.
@@ -19,20 +20,28 @@ export interface AuthedUser {
   twoFactor?: boolean
 }
 
-// The "staff must use 2-step sign-in" switch, cached briefly (read on every admin request).
+// The "staff must use 2-step sign-in" switch, cached briefly (read on every admin request). Fail-safe: a policy that
+// cannot be read (database error, corrupt value) holds staff without 2-step back instead of letting them through.
 let policyCache: { at: number; required: boolean } | null = null
 async function adminTwoFactorRequired(reader: Pick<typeof db, 'setting'> = db) {
-  if (reader === db && policyCache && Date.now() - policyCache.at < 30_000) return policyCache.required
-  const row = reader === db
-    ? await reader.setting.findUnique({ where: { key: 'security.policy.v1' } }).catch(() => null)
-    : await reader.setting.findUnique({ where: { key: 'security.policy.v1' } })
-  let required = false
-  try { required = row ? JSON.parse(row.value)?.requireAdmin2fa === true : false } catch {
-    if (reader !== db) throw new Error('Security policy unavailable')
-    required = false
+  const shared = reader === db
+  if (shared && policyCache && Date.now() - policyCache.at < 30_000) return policyCache.required
+  let row: { value: string } | null
+  try {
+    row = await reader.setting.findUnique({ where: { key: 'security.policy.v1' } })
+  } catch (error) {
+    if (!shared) throw new Error('Security policy unavailable')
+    // Not cached: the next request reads again once the database answers.
+    logEvent('warn', 'security.policy.unreadable', { reason: 'read-failed', errorName: error instanceof Error ? error.name : 'Unknown' })
+    return true
   }
-  if (reader === db) policyCache = { at: Date.now(), required }
-  return required
+  const rule = staffTwoFactorRule(row?.value)
+  if (!rule.readable) {
+    if (!shared) throw new Error('Security policy unavailable')
+    logEvent('warn', 'security.policy.unreadable', { reason: 'invalid-value' })
+  }
+  if (shared) policyCache = { at: Date.now(), required: rule.required }
+  return rule.required
 }
 export const clearAdminPolicyCache = () => { policyCache = null }
 
