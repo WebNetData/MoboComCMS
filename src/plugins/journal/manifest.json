@@ -104,6 +104,20 @@
   },
   "settings": [
     {
+      "key": "section.name",
+      "label": "نام بخش (در مسیر صفحه و پیام‌ها؛ خالی = مجله)",
+      "labelEn": "Section name (breadcrumbs and messages; empty = Magazine)",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "section.name_en",
+      "label": "نام انگلیسی بخش",
+      "labelEn": "Section name in English",
+      "type": "text",
+      "public": true
+    },
+    {
       "key": "seo.title",
       "label": "عنوان سئوی صفحهٔ اصلی مجله",
       "labelEn": "journal home SEO title",

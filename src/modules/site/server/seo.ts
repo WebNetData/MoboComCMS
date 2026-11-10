@@ -220,7 +220,8 @@ export function breadcrumbJsonLd(base: string, trail: { name: string; path: stri
       '@type': 'ListItem',
       position: i + 1,
       name: t.name,
-      item: `${base}${t.path}`,
+      // Search engines get the address visitors see (/magazine/… when the journal is published there), not the internal route.
+      item: `${base}${toPublicPath(t.path)}`,
     })),
   }
 }

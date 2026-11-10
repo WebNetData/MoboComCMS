@@ -68,3 +68,14 @@ test('AI crawlers and private paths are declared', () => {
   for (const bot of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']) assert.ok(seo.AI_CRAWLERS.includes(bot), bot)
   for (const path of ['/admin', '/dashboard', '/api/']) assert.ok(seo.PRIVATE_PATHS.includes(path), path)
 })
+
+test('links that leave the site use the public section address (renamed sections such as /magazine)', () => {
+  const fs = require('node:fs'), path = require('node:path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')
+  assert.match(read('src/modules/social/server/social.ts'), /absolute\(base, toPublicPath\(item\.url\)\)/, 'Telegram, Instagram and push links')
+  assert.match(read('src/modules/seo/server/indexnow.ts'), /toPublicPath\(item\.startsWith\('\/'\)/, 'IndexNow submissions')
+  assert.match(read('src/modules/site/server/seo.ts'), /item: `\$\{base\}\$\{toPublicPath\(t\.path\)\}`/, 'breadcrumb JSON-LD')
+  const journal = JSON.parse(read('src/plugins/journal/manifest.json'))
+  assert.deepEqual(journal.settings.slice(0, 2).map(s => s.key), ['section.name', 'section.name_en'], 'the section name is a section setting')
+  for (const page of ['src/modules/site/server/pages/blog/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx']) assert.match(read(page), /sectionName\('journal'/, page)
+  assert.doesNotMatch(read('src/modules/site/server/pages/blog/page.tsx'), /<span>\{t\.blog\}<\/span>/, 'no fixed «وبلاگ» crumb')
+})

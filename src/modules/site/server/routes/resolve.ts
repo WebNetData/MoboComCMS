@@ -24,6 +24,10 @@ export async function resolvePublicRoute(path: string) {
     if (canonical !== path) return { kind: 'redirect' as const, path: canonical }
     return canonical !== match.internal ? { kind: 'rewrite' as const, path: match.internal } : null
   }
-  for (const [base, history] of Object.entries(state.permalinks.aliasHistory)) for (const old of history) if (path === old || path.startsWith(old + '/')) return { kind: 'redirect' as const, path: applySectionAlias(base + path.slice(old.length), state.aliases) }
+  for (const [base, history] of Object.entries(state.permalinks.aliasHistory)) for (const old of history) {
+    // A history entry that is the section's current address (stored before this was prevented) is not an old address.
+    if (old === (state.aliases[base] || base)) continue
+    if (path === old || path.startsWith(old + '/')) { const target = applySectionAlias(base + path.slice(old.length), state.aliases); if (target !== path) return { kind: 'redirect' as const, path: target } }
+  }
   return routeDecision(path, state.aliases)
 }
