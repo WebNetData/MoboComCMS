@@ -79,7 +79,7 @@ export const LINK_AUDIO = ['', 'ORIGINAL', 'DUBBED'] as const
 export const LINK_OWNERS = ['title', 'episode', 'game', 'gameupdate', 'software', 'softwarerelease'] as const
 export type LinkOwner = typeof LINK_OWNERS[number]
 
-export type LinkInput = { label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; language: string; url: string; access: string; sortOrder: number; disabled?: boolean }
+export type LinkInput = { label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; language: string; url: string; embedUrl: string; access: string; sortOrder: number; disabled?: boolean }
 
 /** Validates download/stream links. Only http(s) URLs are accepted. */
 export function cleanLinks(input: unknown, max = 60): LinkInput[] {
@@ -92,6 +92,12 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
     let parsed: URL
     try { parsed = new URL(url) } catch { throw new Error(`لینک نامعتبر / Invalid link: ${url.slice(0, 60)}`) }
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('فقط لینک http/https مجاز است / Only http(s) links are allowed')
+    const embedUrl = String(r.embedUrl || '').trim()
+    if (embedUrl) {
+      let embed: URL
+      try { embed = new URL(embedUrl) } catch { throw new Error('نشانی Embed نامعتبر است / Invalid embed URL') }
+      if (embed.protocol !== 'https:') throw new Error('نشانی Embed باید HTTPS باشد / Embed URL must use HTTPS')
+    }
     const checksum = String(r.checksum || '').trim().toLowerCase()
     if (checksum && !/^[a-f0-9]{64}$/.test(checksum)) throw new Error('SHA-256 فایل باید ۶۴ نویسهٔ هگزادسیمال باشد')
     const kind = (LINK_KINDS as readonly string[]).includes(String(r.kind)) ? String(r.kind) : 'DOWNLOAD'
@@ -110,6 +116,7 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
       subtitle: !track && (r.subtitle === true || r.subtitle === 'true'),
       language: track && String(r.language || '') in TRACK_LANGUAGES ? String(r.language) : '',
       url: url.slice(0, 2000),
+      embedUrl: embedUrl.slice(0, 2000),
       access: r.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC',
       sortOrder: Number.isSafeInteger(Number(r.sortOrder)) ? Number(r.sortOrder) : index,
       // Absent = keep the stored flag (set by broken-link or copyright handling).
@@ -183,9 +190,10 @@ const OTHER_EXT = /\.(avi|wmv|flv|rmvb|ts|zip|rar|7z|iso|exe|apk|dmg|srt|ass)$/i
  * HEVC/AC3/DTS), known video sites as an embed. `none` = download only
  * (archives, AVI, plain http on an https site, …).
  */
-export function playbackKind(rawUrl: string, kind: string, toEmbed: (raw: string) => string = (raw) => raw): PlaybackKind {
+export function playbackKind(rawUrl: string, kind: string, toEmbed: (raw: string) => string = (raw) => raw, explicitEmbedUrl = ''): PlaybackKind {
   // A subtitle or a separate audio file is fetched, never played as the video.
   if (isTrack(kind)) return 'none'
+  if (String(explicitEmbedUrl || '').trim()) { try { if (new URL(explicitEmbedUrl).protocol === 'https:') return 'embed' } catch { /* invalid explicit embed */ } }
   let url: URL
   const raw = String(rawUrl || '').trim(), local = /^\/files\/[^\s<>\\]+$/.test(raw)
   let path: string
