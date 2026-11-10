@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { cache } from 'react'
 import { db } from '@/platform/database/prisma'
 import { parseTemplateIndex, type ThemeTemplateMeta } from '../domain/theme-templates'
 import { createHash } from 'node:crypto'
@@ -6,8 +7,10 @@ import { createHash } from 'node:crypto'
 export const THEME_INDEX_KEY = 'theme.templates.v1'
 export class ThemeIndexError extends Error { constructor(message: string, public status = 409) { super(message) } }
 export const themeIndexRevision = (raw: string | undefined) => createHash('sha256').update(raw || '[]').digest('hex')
+/** The stored index row, read once per server render; a claimed transaction always reads its own. */
+export const themeIndexRowForRequest = cache(() => db.setting.findUnique({ where: { key: THEME_INDEX_KEY } }))
 export async function readThemeIndex(reader: Pick<Prisma.TransactionClient, 'setting'> = db) {
-  const row = await reader.setting.findUnique({ where: { key: THEME_INDEX_KEY } })
+  const row = reader === db ? await themeIndexRowForRequest() : await reader.setting.findUnique({ where: { key: THEME_INDEX_KEY } })
   let raw: unknown
   try { raw = JSON.parse(row?.value || '[]') } catch { throw new ThemeIndexError('فهرست قالب‌ها قابل خواندن نیست؛ دادهٔ قبلی حفظ شد', 503) }
   const list = parseTemplateIndex(row?.value)

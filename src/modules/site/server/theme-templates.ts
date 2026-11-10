@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client'
-import { ThemeIndexError, mutateThemeIndex, THEME_INDEX_KEY } from './theme-index'
+import { ThemeIndexError, mutateThemeIndex, themeIndexRowForRequest } from './theme-index'
 export { THEME_INDEX_KEY, readThemeIndex, mutateThemeIndex, ThemeIndexError } from './theme-index'
 import { db } from '@/platform/database/prisma'
 import { categoryDescendants } from '@/modules/site/domain/categories'
@@ -21,7 +21,7 @@ import { POST_STYLE_BASES, POST_STYLE_BASE_KEYS, builtinStyleId } from '@/module
 const MAX_TEMPLATES = 200
 
 export async function listThemeTemplates(): Promise<ThemeTemplateMeta[]> {
-  const row = await db.setting.findUnique({ where: { key: THEME_INDEX_KEY } }).catch(() => null)
+  const row = await themeIndexRowForRequest().catch(() => null)
   return parseTemplateIndex(row?.value)
 }
 
