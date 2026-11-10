@@ -9,7 +9,7 @@ import { itemCard } from '@/modules/content/server/registry'
 import { siteBase } from '@/modules/site/server/seo'
 import { CHANNELS, type Channel } from '@/modules/social/domain/social'
 import {
-  enqueueAnnouncement, getSocialSettings, processSocialQueue, publicSocialSettings, saveSocialSettings, socialLog, testTelegram,
+  enqueueAnnouncement, getSocialSettings, processSocialQueue, publicSocialSettings, saveSocialSettings, socialLog, socialSample, socialStats, testTelegram,
 } from '@/modules/social/server/social'
 import { db } from '@/platform/database/prisma'
 
@@ -20,8 +20,9 @@ export async function GET(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
   const page = Math.max(1, Number(req.nextUrl.searchParams.get('page')) || 1)
-  const [settings, log, pending] = await Promise.all([getSocialSettings(), socialLog(page), db.socialPost.count({ where: { status: 'PENDING' } })])
-  return ok({ settings: publicSocialSettings(settings), log, pending, base: await siteBase() })
+  const filter = { channel: req.nextUrl.searchParams.get('channel') || '', status: req.nextUrl.searchParams.get('status') || '' }
+  const [settings, log, pending, stats, sample] = await Promise.all([getSocialSettings(), socialLog(page, filter), db.socialPost.count({ where: { status: 'PENDING' } }), socialStats(), socialSample().catch(() => null)])
+  return ok({ settings: publicSocialSettings(settings), log, pending, stats, sample, base: await siteBase() })
 }
 
 export async function PATCH(req: NextRequest) {
