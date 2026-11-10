@@ -381,6 +381,6 @@ export async function saveCinemaWatchProgress(userId: number, linkId: number, po
 /** Which of these links can be watched in the site player (the URLs themselves stay server-side). */
 export async function playableLinks(ids: number[]): Promise<Map<number, PlaybackKind>> {
   if (!ids.length) return new Map()
-  const rows = await db.mediaLink.findMany({ where: { id: { in: ids }, ownerType: { in: ['title', 'episode', 'game'] } }, select: { id: true, url: true, kind: true } }).catch(() => [])
-  return new Map(rows.map((row) => [row.id, playbackKind(row.url, row.kind, toEmbedUrl)]))
+  const rows = await db.mediaLink.findMany({ where: { id: { in: ids }, ownerType: { in: ['title', 'episode', 'game'] } }, select: { id: true, url: true, embedUrl: true, kind: true } }).catch(() => [])
+  return new Map(rows.map((row) => [row.id, playbackKind(row.url, row.kind, toEmbedUrl, row.embedUrl)]))
 }
