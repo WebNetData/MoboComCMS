@@ -284,8 +284,9 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   // Other pages pin their side columns 76px from the top: the bar is never taller than that.
   assert.match(css, /\n\.mb-header \{[^}]*padding-block: 10px 2px;/)
   assert.match(css, /\n\.mb-header-bar \{[^}]*min-height: 62px;/)
-  // Two tiers: the links hang under the header without adding to its height, and a spacer keeps the page clear of them at the top.
-  assert.match(css, /\n\.mb-navbar \{ position: absolute; inset-inline: 0; top: 100%;/)
+  // Two tiers: the links hang under the header without adding to its height (flush with the top row, over the header's
+  // 2px of padding, so the two read as one card), and a spacer keeps the page clear of them at the top.
+  assert.match(css, /\n\.mb-navbar \{ position: absolute; inset-inline: 0; top: calc\(100% - 2px\);/)
   assert.match(client, /<div className="mb-navbar-space" aria-hidden="true"\/>/)
   // Away, the links are hidden from the keyboard too, and focus inside them always brings them back.
   assert.match(css, /\.mb-header\[data-nav-away\] \.mb-navbar \{[^}]*visibility: hidden;/)
@@ -324,9 +325,18 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   assert.match(client, /document\.body\.style\.overflow = 'hidden'/)
   assert.match(client, /return \(\) => \{ document\.body\.style\.overflow = before;/)
   assert.match(client, /role="dialog" aria-modal="true"/)
-  // Motion is dropped for readers who ask for less; the reading line needs a browser that ties it to scrolling.
+  // Motion is dropped for readers who ask for less.
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.mb-pop, \.mb-drawer, \.mb-drawer-shade \{ animation: none; \}/)
-  assert.match(css, /@supports \(animation-timeline: scroll\(\)\)/)
+  // A crafted header, not a generated one (owner, 2026-11-10): no glass, glow, hue gradient or looping motion. The
+  // wordmark carries the colour; the current section is a short accent rule; the main action is the accent with its
+  // own readable ink.
+  for (const gone of ['mb-aurora', 'mb-nav-beat', 'mb-nav-glider', 'mb-progress', 'mb-nav-in .5s', 'saturate(1.9)']) assert.ok(!css.includes(gone), gone)
+  assert.doesNotMatch(client, /mb-nav-glider|mb-progress|data-nav-item/)
+  const headerCss = css.slice(css.indexOf('/* header (2026-11-10)'), css.indexOf('\n.mb-breadcrumbs { margin-top'))
+  assert.ok(headerCss.length > 2000, 'the header block is where the rules expect it')
+  assert.doesNotMatch(headerCss, /#ec4899|backdrop-filter: (?:blur|saturate)|animation: [^;]*infinite|background-clip: text/)
+  assert.match(headerCss, /\.mb-nav-entry\[aria-current=page\]::after[^{]*\{[^}]*height: 2px;[^}]*background: var\(--primary\);/)
+  assert.match(headerCss, /\n\.mb-account \{[^}]*background: var\(--primary\); color: var\(--on-primary\) !important;/)
   // The stylesheet the site loads is the generated one; it must carry the same header.
   assert.ok(read('src/themes/generated.css').includes('.mb-shell { display: contents; }'), 'run scripts/generate-extensions.mjs')
 })
