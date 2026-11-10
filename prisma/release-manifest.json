@@ -785,9 +785,15 @@
           "sha256": "9275ef336736b8d7c8a2ddfc14b5c20e05306fab582e527bd6d2bb5e0f21bd48"
         }
       ]
+    },
+    "1.7.16": {
+      "migrations": [
+        {
+          "name": "20270301120000_google_login",
+          "sha256": "a94545f71f112b27e741f2d21f0f2339a2b70afff4c3238270dd1936b64543ff"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270301120000_google_login"
-  ]
+  "unreleased": []
 }

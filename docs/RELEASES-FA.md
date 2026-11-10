@@ -10,7 +10,7 @@
 
 | فایل | کاربرد |
 | --- | --- |
-| `mobocom-VERSION.mbrelease` | **آپدیت سایت نصب‌شده از پنل وب**؛ مثلاً `mobocom-1.7.15.mbrelease` |
+| `mobocom-VERSION.mbrelease` | **آپدیت سایت نصب‌شده از پنل وب**؛ مثلاً `mobocom-1.7.16.mbrelease` |
 | `mobocom-setup-VERSION.run` | نصب اولیهٔ Ubuntu 22.04/24.04/26.04، Debian 12/13 یا AlmaLinux 9/10 و نصب ابزارهای مورد اعتماد میزبان؛ برای هر آپدیت معمول دوباره اجرا نمی‌شود |
 | `mobocom-setup-VERSION.run.sha256` | بررسی سالم‌بودن فایل نصب؛ اصالت منبع دریافت هم باید بررسی شود |
 | `release-public.pem` | کلید عمومی ناشر؛ کلید خصوصی نیست. کلید مورد اعتماد سرور را صرفاً از روی یک دانلود جدید عوض نکنید |
@@ -18,7 +18,7 @@
 | `INSTALL-FA.md`، `UPGRADE-FA.md` و `RELEASES-FA.md` | راهنمای نصب، آپدیت/بازیابی و همین روند دریافت/انتشار |
 | `Source code (zip)` یا `Source code (tar.gz)` | آرشیو خودکار سورس GitHub؛ **فایل قابل بارگذاری در آپدیتر نیست** |
 
-نسخهٔ فعلی: **[MoboCom 1.7.15](https://github.com/WebNetData/MoboComCMS/releases/tag/v1.7.15)**. نسخهٔ بسته و پنل `1.7.15` است. شامل تأیید پیامکی اجباری موبایل از پنل، قالب یکپارچهٔ ایمیل‌ها، فروشگاه فایل، استایل فرم‌های ارسال مطلب، نام بخش‌ها از مدیریت، قیمت‌گذاری و رسانهٔ فروشگاه و Next.js 16.4.6 است. یک مهاجرت افزایشی برای افزایش قیمت ارزی گونه‌ها دارد. [یادداشت نسخه](releases/1.7.15.md) را بخوانید؛ نسخه‌های قبلی بازنویسی نمی‌شوند.
+نسخهٔ فعلی: **[MoboCom 1.7.16](https://github.com/WebNetData/MoboComCMS/releases/tag/v1.7.16)**. نسخهٔ بسته و پنل `1.7.16` است. شامل ورود Google و اصلاحات امنیت حساب، هدر و داشبورد، سفارش و فاکتور، تشخیص قطع و بازیابی Redis و کاهش CSS عمومی و خواندن تکراری تنظیمات است. یک مهاجرت افزایشی برای اتصال حساب Google دارد. [یادداشت نسخه](releases/1.7.16.md) را بخوانید؛ Guest Cache همچنان خاموش می‌ماند و نسخه‌های قبلی بازنویسی نمی‌شوند.
 
 ## فایل را چطور روی سایت نصب کنم؟
 
@@ -58,20 +58,20 @@ sudo bash mobocom-setup-1.7.15.run --resume-uninstalled
 این بخش روی کامپیوتر ناشر اجرا می‌شود، نه روی سرور سایت. ابزار بسته‌بندی موجود `scripts/build-release-package.cjs` است؛ سامانه یا workflow دیگری لازم نیست. Git محلی، Node22، Python3 و برای بارگذاری، [GitHub CLI](https://cli.github.com/manual/gh_release_create) لازم‌اند.
 
 1. تغییرات کامل و تست‌شده را انتخاب کنید. برای نسخهٔ پایدار، PR به `main` مرج شود و همان commit نهایی دوباره بررسی شود؛ برای ارزیابی پیش از مرج، برچسب Pre-release اجباری است. مرج‌شدن PR به‌تنهایی فایل انتشار تولید نمی‌کند و نصب روی سرور را تغییر نمی‌دهد.
-2. برای **هر انتشار دارای تغییر کد/رفتار** شمارهٔ نسخه را افزایش دهید؛ مثلاً `1.7.15` به `1.7.16`. نسخهٔ ریشه در `package.json` و `package-lock.json` باید یکسان باشد. مهاجرت‌ها را با manifest موجود تطبیق دهید؛ یک مهاجرت منتشرشده هرگز ویرایش نمی‌شود. سورس را commit کنید. بسته فقط از `HEAD` ثبت‌شده ساخته می‌شود؛ تغییرات ذخیره‌نشده وارد آن نمی‌شوند.
+2. برای **هر انتشار دارای تغییر کد/رفتار** شمارهٔ نسخه را افزایش دهید؛ مثلاً `1.7.15` به `1.7.17`. نسخهٔ ریشه در `package.json` و `package-lock.json` باید یکسان باشد. مهاجرت‌ها را با manifest موجود تطبیق دهید؛ یک مهاجرت منتشرشده هرگز ویرایش نمی‌شود. سورس را commit کنید. بسته فقط از `HEAD` ثبت‌شده ساخته می‌شود؛ تغییرات ذخیره‌نشده وارد آن نمی‌شوند.
 3. بررسی‌های مرتبط، بیلد و تست‌های محلی را روی همان سورس انجام دهید و نتیجهٔ واقعی، محدودیت‌ها و مسیر بازگشت را در handoff و یادداشت انتشار ثبت کنید. بدون اندازه‌گیری موفقیت اعلام نکنید؛ GitHub Actions برای ساخت/بارگذاری این بسته لازم نیست.
 4. با **همان کلید خصوصی ناشر قبلی، خارج از مخزن** بسته بسازید. کلید جدید برای هر نسخه نسازید؛ سرور با کلید دیگری بسته را رد می‌کند. کلید خصوصی در GitHub، Release یا سرور سایت قرار نمی‌گیرد.
 
 مثال Linux، با مسیرهای خودتان و پوشهٔ خروجی جدید/اختصاصی:
 
 ```bash
-node scripts/build-release-package.cjs build /secure/distribution/1.7.16 /secure/offline/mobocom-keys/release-private.pem
+node scripts/build-release-package.cjs build /secure/distribution/1.7.17 /secure/offline/mobocom-keys/release-private.pem
 ```
 
 مثال PowerShell:
 
 ```powershell
-node scripts/build-release-package.cjs build "C:\MoboCom-Releases\1.7.16" "C:\Secure\mobocom-keys\release-private.pem"
+node scripts/build-release-package.cjs build "C:\MoboCom-Releases\1.7.17" "C:\Secure\mobocom-keys\release-private.pem"
 ```
 
 کلید موجود ناشر را استفاده کنید؛ مسیر مثال جای نگهداری کلید واقعی شما را تعیین نمی‌کند. ابزار از نوشتن روی فایل خروجی موجود خودداری می‌کند. اگر `python3` یا `python` در PATH نیست، متغیر `PYTHON` را به executable معتبر بدهید.
@@ -82,15 +82,15 @@ node scripts/build-release-package.cjs build "C:\MoboCom-Releases\1.7.16" "C:\Se
 برای انتشار از CLI، ابتدا `gh auth login` را روی کامپیوتر ناشر انجام دهید. نمونهٔ زیر برای نسخهٔ بعدی است؛ مقدار SHA را با commit واقعی **موجود در GitHub** عوض کنید و notes را در فایل بنویسید:
 
 ```bash
-gh release create v1.7.16 /secure/distribution/1.7.16/mobocom-1.7.16.mbrelease /secure/distribution/1.7.16/mobocom-setup-1.7.16.run /secure/distribution/1.7.16/mobocom-setup-1.7.16.run.sha256 /secure/distribution/1.7.16/release-public.pem docs/INSTALL-FA.md docs/UPGRADE-FA.md docs/RELEASES-FA.md --repo WebNetData/MoboComCMS --target FULL_COMMIT_SHA --title "MoboCom 1.7.16" --notes-file /secure/distribution/1.7.16/notes.md --latest
+gh release create v1.7.17 /secure/distribution/1.7.17/mobocom-1.7.17.mbrelease /secure/distribution/1.7.17/mobocom-setup-1.7.17.run /secure/distribution/1.7.17/mobocom-setup-1.7.17.run.sha256 /secure/distribution/1.7.17/release-public.pem docs/INSTALL-FA.md docs/UPGRADE-FA.md docs/RELEASES-FA.md --repo WebNetData/MoboComCMS --target FULL_COMMIT_SHA --title "MoboCom 1.7.17" --notes-file /secure/distribution/1.7.17/notes.md --latest
 ```
 
-برای انتشار پیش از مرج، به‌جای `--latest` از `--prerelease --latest=false` استفاده کنید. وضعیت پیش‌انتشار فقط نشان GitHub است؛ نسخهٔ داخل بسته همچنان عددی مثل `1.7.16` است. بستهٔ منتشرشده، فایل‌ها و تگ آن را عوض یا با `--clobber` بازنویسی نکنید. اصلاح بعدیِ کد نسخهٔ بالاتر می‌گیرد؛ آپدیتر نسخهٔ مساوی را نمی‌پذیرد. تبدیل همان پیش‌انتشار به پایدار فقط وقتی مجاز است که همان کد/commit بررسی‌شده در `main` حفظ شده باشد؛ در صورت تغییر، بستهٔ جدید با شمارهٔ بالاتر لازم است.
+برای انتشار پیش از مرج، به‌جای `--latest` از `--prerelease --latest=false` استفاده کنید. وضعیت پیش‌انتشار فقط نشان GitHub است؛ نسخهٔ داخل بسته همچنان عددی مثل `1.7.17` است. بستهٔ منتشرشده، فایل‌ها و تگ آن را عوض یا با `--clobber` بازنویسی نکنید. اصلاح بعدیِ کد نسخهٔ بالاتر می‌گیرد؛ آپدیتر نسخهٔ مساوی را نمی‌پذیرد. تبدیل همان پیش‌انتشار به پایدار فقط وقتی مجاز است که همان کد/commit بررسی‌شده در `main` حفظ شده باشد؛ در صورت تغییر، بستهٔ جدید با شمارهٔ بالاتر لازم است.
 
 پس از انتشار، فایل‌ها را دوباره از GitHub دریافت و hash آن‌ها را با خروجی محلی مقایسه کنید. دانلود با حساب دارای دسترسی:
 
 ```bash
-gh release download v1.7.16 --repo WebNetData/MoboComCMS --pattern '*.mbrelease' --pattern '*.run' --pattern '*.sha256' --pattern 'release-public.pem' --dir ./downloaded-1.7.16
+gh release download v1.7.17 --repo WebNetData/MoboComCMS --pattern '*.mbrelease' --pattern '*.run' --pattern '*.sha256' --pattern 'release-public.pem' --dir ./downloaded-1.7.17
 ```
 
 ساخت بسته و بارگذاری Assets از GitHub Actions استفاده نمی‌کند. طبق تصمیم مالک، workflow بررسی PR و مرورگر دستی هستند؛ برای هر PR خودکار اجرا نمی‌شوند. طبق تصمیم مالک، تست مرورگر میزبانی‌شده خودکار تکرار نمی‌شود؛ کاهش مصرف Actions مجوز اعلام نتیجهٔ تست اجرا‌نشده نیست.
