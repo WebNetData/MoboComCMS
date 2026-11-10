@@ -9,12 +9,13 @@ import LocationPicker, { type Pin } from '@/components/site/LocationPicker'
 import { PROVINCES } from '@/modules/shipping/domain/shipping'
 import { authEntryHref, safeNext } from '@/modules/identity/domain/continuation'
 import { PasswordInput } from '@/app/login/AuthFields'
+import PhoneStep from './PhoneStep'
 
 type Field = { key: string; label: string; type: string; builtin?: string; required: boolean; placeholder: string; help: string; options: string[] }
 type Address = { province: string; city: string; address: string; plaque: string; unit: string; postalCode: string; mobile: string; lat: number | null; lng: number | null }
 type Status = {
   needsCompletion: boolean; needsPasswordSetup: boolean; missing: string[]; intro: string; fields: Field[]
-  values: { firstName: string; lastName: string; username: string; email: string; emailLocked: boolean; phone: string; address: (Address & { id: number }) | null; custom: Record<string, string | boolean> }
+  values: { firstName: string; lastName: string; username: string; email: string; emailLocked: boolean; phone: string; phoneVerified: boolean; address: (Address & { id: number }) | null; custom: Record<string, string | boolean> }
 }
 
 const EMPTY_ADDRESS: Address = { province: '', city: '', address: '', plaque: '', unit: '', postalCode: '', mobile: '', lat: null, lng: null }
@@ -54,6 +55,11 @@ export default function WelcomePage() {
   const set = (key: string, value: unknown) => { setMessage(''); setValues((current) => ({ ...current, [key]: value })); setErrors((current) => { const copy = { ...current }; delete copy[key]; return copy }) }
   const setAddr = (patch: Partial<Address>) => { setMessage(''); setAddress((current) => ({ ...current, ...patch })); setErrors((current) => { const copy = { ...current }; delete copy.address; return copy }) }
   const has = (builtin: string) => status.fields.find((field) => field.builtin === builtin)
+  const phoneField = has('phone')
+  // A verified mobile changes what is missing; typed values elsewhere on the page stay as they are.
+  const refreshStatus = () => fetch('/api/profile/completion', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((data: Status | null) => {
+    if (data?.values) { setStatus(data); setErrors((current) => { const copy = { ...current }; delete copy.phone; return copy }) }
+  }).catch(() => undefined)
   const personal = status.fields.filter((field) => ['firstName', 'lastName', 'username', 'email'].includes(field.builtin || ''))
   const addressField = has('address')
   const custom = status.fields.filter((field) => !field.builtin)
@@ -93,14 +99,21 @@ export default function WelcomePage() {
   }
 
   const missingCount = status.missing.length
+  const requiredCount = status.fields.filter((field) => field.required).length + (status.needsPasswordSetup ? 1 : 0)
+  const progress = requiredCount ? Math.round(((requiredCount - Math.min(missingCount, requiredCount)) / requiredCount) * 100) : 100
   return <main className="wl" dir="rtl">
     <form className="wl-card" onSubmit={submit} noValidate>
       <header className="wl-head">
         <Link href="/" className="wl-brand"><BrandLockup /></Link>
         <h1>{status.needsCompletion ? 'خوش آمدید! مشخصات خود را تکمیل کنید' : 'مشخصات حساب'}</h1>
         {status.intro && <p>{status.intro}</p>}
-        {status.needsCompletion && <span className="wl-badge">{missingCount.toLocaleString('fa-IR')} مورد ضروری باقی مانده</span>}
+        {status.needsCompletion && <div className="wl-progress">
+          <span className="wl-badge">{missingCount.toLocaleString('fa-IR')} مورد ضروری باقی مانده</span>
+          <span className="wl-meter" role="progressbar" aria-label="پیشرفت تکمیل مشخصات" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ inlineSize: `${progress}%` }} /></span>
+        </div>}
       </header>
+
+      {phoneField && <PhoneStep phone={status.values.phone} verified={status.values.phoneVerified} required={phoneField.required} label={phoneField.label} help={phoneField.help} error={errors.phone} onVerified={() => void refreshStatus()} />}
 
       {personal.length > 0 && <section className="wl-section">
         <h2>مشخصات فردی</h2>

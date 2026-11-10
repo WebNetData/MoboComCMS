@@ -4,7 +4,7 @@ import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { getSmtp, sendMail } from '@/modules/mail/server/mailer'
-import { actionEmail, deliverableEmail, normalizeEmail, isEmail } from '@/modules/mail/domain/mail'
+import { codeEmail, deliverableEmail, normalizeEmail, isEmail } from '@/modules/mail/domain/mail'
 import { OTP_RESEND_MS, OTP_TTL_MS, otpCode, validOtpFormat } from '@/modules/sms/domain/sms'
 import { latinDigits } from '@/shared/text/digits'
 import { getSecurityPolicy, SecurityError } from './account-security'
@@ -46,7 +46,7 @@ export async function requestEmailCode(input: { email: unknown; ip: string }) {
   let delivered = false
   try {
     const settings = await getSettings()
-    const mail = actionEmail({ brand: settings.brandName || 'موبوکام', site: settings.siteUrl || process.env.NEXTAUTH_URL || '', name: 'کاربر', title: 'کد یک‌بارمصرف ورود', body: `کد ورود شما: ${code}\nاین کد دو دقیقه اعتبار دارد. آن را در اختیار دیگران قرار ندهید.`, href: '/login', button: 'ورود به حساب', note: 'اگر این درخواست را نفرستاده‌اید، این ایمیل را نادیده بگیرید.' })
+    const mail = codeEmail({ brand: settings.brandName || 'موبوکام', site: settings.siteUrl || process.env.NEXTAUTH_URL || '', title: 'کد یک‌بارمصرف ورود', code, intro: 'برای ورود به حساب، این کد را در صفحهٔ ورود وارد کنید. آن را در اختیار هیچ‌کس قرار ندهید؛ پشتیبانی هرگز کد شما را نمی‌پرسد.', validity: 'این کد دو دقیقه اعتبار دارد.', href: '/login', button: 'رفتن به صفحهٔ ورود', note: 'اگر این درخواست را نفرستاده‌اید، این ایمیل را نادیده بگیرید؛ بدون این کد کسی وارد حساب شما نمی‌شود.' })
     delivered = (await sendMail({ to: email, ...mail, source: 'login-code' })).ok
   } finally {
     if (!delivered) await db.otpCode.updateMany({ where: { id: row.id, consumedAt: null }, data: { consumedAt: new Date() } })

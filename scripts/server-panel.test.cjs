@@ -184,6 +184,24 @@ test('notification email is escaped, RTL and links to the site; placeholder inbo
   for (const bad of ['989121112233@phone.mobocom.local', 'ai-assistant@bot.mobocom.local', 'x@telegram.local', 'not-an-email']) assert.equal(m.deliverableEmail(bad), false, bad)
 })
 
+test('every branded email shares one layout: dark mode, preheader, escaped content and a copyable code', () => {
+  const code = m.codeEmail({ brand: 'موبوکام', site: 'https://mobocom.net/', title: 'کد ورود', code: '482913', intro: 'کد <script>', validity: 'دو دقیقه', note: 'اگر شما نبودید' })
+  assert.match(code.html, /<meta name="color-scheme" content="light dark">/)
+  assert.match(code.html, /prefers-color-scheme:dark/)
+  assert.match(code.html, /class="em-code" dir="ltr"[^>]*>482913</)
+  assert.match(code.html, /کد &lt;script&gt;/)
+  assert.doesNotMatch(code.html, /<script>/)
+  assert.match(code.html, /url\('https:\/\/mobocom\.net\/fonts\/Vazirmatn-Regular\.ttf'\)/)
+  assert.match(code.text, /کد: 482913/)
+  assert.equal(code.subject, 'کد ورود — موبوکام')
+  // Motion only where the reader allows it; the layout itself never depends on it.
+  assert.match(code.html, /prefers-reduced-motion:no-preference/)
+  const action = m.actionEmail({ brand: 'B', site: 'https://x.test', name: 'N', title: 'T', body: 'line1\nline2', href: '/reset?t=a&b=1', button: 'Go', accent: 'red;background:url(x)' })
+  assert.match(action.html, /href="https:\/\/x\.test\/reset\?t=a&amp;b=1"/)
+  assert.doesNotMatch(action.html, /url\(x\)/)
+  assert.match(action.html, /#4b45ee/)
+})
+
 // ------------------------------------------------------------------ archives and symbolic links
 
 const a = load('src/modules/server-panel/domain/archive')

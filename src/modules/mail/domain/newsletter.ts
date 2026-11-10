@@ -3,6 +3,8 @@
  * email document. Pure functions only.
  */
 
+import { emailDocument } from '@/modules/mail/domain/email-layout'
+
 export class NewsletterError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
 }
@@ -57,20 +59,16 @@ export function trackLinks(html: string, input: { base: string; token: string; s
 
 const esc = (value: string) => value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`)
 
-/** The email document: brand header, hidden preheader, body, unsubscribe footer and the open pixel. */
+/** The email document in the shared MoboCom layout: preheader, greeting, body, unsubscribe footer and the open pixel. */
 export function campaignDocument(input: { brand: string; base: string; subject: string; preheader: string; body: string; token: string; unsubscribeUrl: string; name: string }) {
-  const greeting = input.name ? `<p style="margin:0 0 14px;color:#555">${esc(input.name)} عزیز،</p>` : ''
-  const html = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(input.subject)}</title></head>
-<body style="margin:0;padding:0;background:#f3f1fb;font-family:Tahoma,'Segoe UI',sans-serif">
-<span style="display:none!important;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden">${esc(input.preheader)}</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f1fb"><tr><td align="center" style="padding:24px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
-<tr><td style="padding:18px 24px;background:#5b3df5;color:#ffffff;font-size:18px;font-weight:bold">${esc(input.brand)}</td></tr>
-<tr><td dir="rtl" style="padding:24px;color:#1f1d2b;font-size:15px;line-height:2;text-align:right">${greeting}${input.body}</td></tr>
-<tr><td dir="rtl" style="padding:16px 24px;background:#faf9ff;color:#8a86a3;font-size:12px;line-height:1.9;text-align:center">این ایمیل را چون عضو خبرنامهٔ ${esc(input.brand)} هستید دریافت کرده‌اید.<br><a href="${esc(input.unsubscribeUrl)}" style="color:#5b3df5">لغو عضویت</a> · <a href="${esc(input.base)}" style="color:#5b3df5">${esc(input.base.replace(/^https?:\/\//, ''))}</a></td></tr>
-</table></td></tr></table>
-<img src="${esc(input.base)}/api/newsletter/o/${input.token}.gif" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px">
-</body></html>`
+  const html = emailDocument({
+    brand: input.brand, site: input.base, title: input.subject, preheader: input.preheader, icon: 'mail', eyebrow: `خبرنامهٔ ${input.brand}`,
+    greeting: input.name ? `${input.name} عزیز،` : undefined,
+    blocks: [{ kind: 'html', html: input.body }],
+    footer: [`این ایمیل را چون عضو خبرنامهٔ ${input.brand} هستید دریافت کرده‌اید.`],
+    footerLinks: [['لغو عضویت', input.unsubscribeUrl], [input.base.replace(/^https?:\/\//, ''), input.base]],
+    trailer: `<img src="${esc(input.base)}/api/newsletter/o/${input.token}.gif" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px">`,
+  })
   const text = `${input.subject}\n\n${input.body.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|h[1-6]|li|div)>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\n{3,}/g, '\n\n').trim()}\n\n—\nلغو عضویت: ${input.unsubscribeUrl}`
   return { html, text }
 }

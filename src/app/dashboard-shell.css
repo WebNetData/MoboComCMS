@@ -360,6 +360,54 @@ html[data-design] .user-shell .side-foot { flex-shrink: 0; margin-top: 10px; pad
 .wl-submit { min-width: 180px; }
 @media (max-width: 640px) { .wl-foot { position: sticky; bottom: 0; padding: 12px 0; background: var(--card); } .wl-submit { flex: 1; } }
 .wl-field input[readonly] { opacity: .65; cursor: not-allowed; }
+.wl-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.wl-meter { flex: 1 1 160px; max-inline-size: 280px; block-size: 6px; border-radius: 99px; background: var(--bg-soft); overflow: hidden; }
+.wl-meter > span { display: block; block-size: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), var(--primary-warm, var(--primary))); transition: inline-size .6s cubic-bezier(.2, .8, .2, 1); }
+.wl-link { padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.wl-link:disabled { opacity: .5; cursor: default; }
+.wl-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
+
+/* Verified mobile step: number → SMS code → verified. */
+.wl-phone-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; padding: clamp(14px, 2.4vw, 22px); border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-radius: 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 55%), var(--bg-soft); overflow: hidden; transition: border-color .3s, box-shadow .3s, background .4s; }
+.wl-phone.is-code .wl-phone-card { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent), 0 18px 40px rgb(0 0 0 / .12); }
+.wl-phone.is-done .wl-phone-card { border-color: color-mix(in srgb, var(--success) 55%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--success) 12%, transparent), transparent 60%), var(--bg-soft); }
+.wl-phone.has-error .wl-phone-card { border-color: var(--danger); }
+.wl-phone-icon { display: grid; place-items: center; inline-size: 48px; block-size: 48px; border-radius: 14px; background: var(--primary-soft); color: var(--primary); }
+.wl-phone.is-code .wl-phone-icon { animation: wl-pulse 2.2s ease-in-out infinite; }
+.wl-phone.is-done .wl-phone-icon { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); animation: wl-pop .45s cubic-bezier(.2, 1.4, .4, 1); }
+.wl-phone-check { stroke-dasharray: 24; stroke-dashoffset: 24; animation: wl-draw .5s .15s ease-out forwards; }
+.wl-phone-body { display: grid; gap: 12px; min-width: 0; }
+.wl-phone-body h2 { margin: 0; font-size: 16px; }
+.wl-phone-body .wl-help { margin: 0; }
+.wl-phone-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.wl-phone-input { flex: 1 1 220px; min-width: 0; }
+.wl-phone-input .input { inline-size: 100%; font-size: 16px; letter-spacing: .04em; }
+.wl-phone-code { display: grid; justify-items: start; gap: 14px; animation: wl-rise .35s ease-out; }
+.wl-phone-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.wl-phone-number { font-weight: 800; color: var(--text); unicode-bidi: isolate; }
+.wl-phone-done { margin: 0; color: var(--success); font-weight: 700; font-size: 14px; animation: wl-rise .35s ease-out; }
+.wl-resend { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.wl-resend-ring { inline-size: 16px; block-size: 16px; border-radius: 50%; background: conic-gradient(var(--primary) var(--left, 100%), var(--border) 0); -webkit-mask: radial-gradient(circle, transparent 4.5px, #000 5px); mask: radial-gradient(circle, transparent 4.5px, #000 5px); }
+
+/* Separate code boxes; reused wherever a one-time code is typed. */
+.otp-boxes { display: inline-flex; gap: 8px; }
+.otp-box { inline-size: 48px; block-size: 56px; padding: 0; border: 1.5px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); font: inherit; font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; caret-color: var(--primary); transition: border-color .15s, box-shadow .15s, transform .15s; }
+.otp-box:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); transform: translateY(-1px); }
+.otp-box.is-filled { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); animation: wl-pop .2s ease-out; }
+.otp-box:disabled { opacity: .6; }
+.otp-boxes.is-invalid .otp-box { border-color: var(--danger); }
+.wl-shake { animation: wl-shake .42s cubic-bezier(.36, .07, .19, .97); }
+@media (max-width: 420px) { .otp-boxes { gap: 6px; } .otp-box { inline-size: 42px; block-size: 50px; font-size: 20px; } .wl-phone-card { grid-template-columns: 1fr; } }
+@keyframes wl-pop { 0% { transform: scale(.86); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes wl-draw { to { stroke-dashoffset: 0; } }
+@keyframes wl-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes wl-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 35%, transparent); } 50% { box-shadow: 0 0 0 8px transparent; } }
+@keyframes wl-shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(3px); } 30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .wl-meter > span, .wl-phone-card, .otp-box { transition: none; }
+  .wl-phone.is-code .wl-phone-icon, .wl-phone.is-done .wl-phone-icon, .wl-phone-code, .wl-phone-done, .otp-box.is-filled, .wl-shake { animation: none; }
+  .wl-phone-check { animation: none; stroke-dashoffset: 0; }
+}
 
 /* 2-step sign-in card */
 .tf-card .dash-card-head{align-items:flex-start}
