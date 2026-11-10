@@ -2,6 +2,8 @@
 
 Owner authorized isolated production builds, a private bounded Redis fixture, request-safe Settings deduplication and an Admin-only CSS slice. No merge, release, deployment or production page-cache activation is authorized. The earlier four PRs remain open.
 
+Independent CSS and evidence PR: [#425](https://github.com/WebNetData/MoboComCMS/pull/425), targeting `main`.
+
 ## Reviewed state and ownership
 
 | Slice | Existing owner / PR | Continuation |
@@ -82,3 +84,5 @@ This is a small local fixture, not a production load test, Lighthouse result, fi
 Ignored receipts, scripts, JSON results, logs and screenshots are in the original root `.mobocom/codex-audit-evidence`; test control is `.mobocom/codex-audit-lab.py`. Preserve the active Claude checkout's pre-existing workstate edit, `.serena`, demo assets and old bridge folders. Only task-owned containers/network, synthetic session and temporary artifacts may be cleaned up.
 
 Rollback: revert the CSS commit to restore the original imports and combined invoice file; no migration or data rollback is needed. The pending security/Redis/Settings PRs remain separate. The owner reviews, merges and deploys; no new runtime release has been produced.
+
+Final closure: the **second** complete PostgreSQL batch passed 202/202 on the final combined source, followed by `rate-limit.redis: ok`. Both maintained CSS browser regressions ran and passed without skips. Four task-owned containers, their private network, synthetic session files and TLS keys were removed after verifying their network and read-only bind mounts; evidence and worktrees remain. Original Preview readiness returned 200 after cleanup. PRs #419–#425 were verified open; no merge/release/deployment occurred.
