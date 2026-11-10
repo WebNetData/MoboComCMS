@@ -62,7 +62,9 @@ export async function GET_callback(req: NextRequest) {
   const params = req.nextUrl.searchParams
   if (!(await rateLimitStrict(`login:google:callback:${clientIp(req.headers)}`, 30, 10 * 60_000)).ok) return back('login', 'unreachable')
   try {
-    const outcome = await finishGoogleSignIn({ code: params.get('code'), state: params.get('state'), browserState: req.cookies.get(GOOGLE_FLOW_COOKIE)?.value, error: params.get('error') })
+    // Who is signed in now: a connection belongs only to the member who started it (see finishGoogleSignIn).
+    const current = await requireUser(req).catch(() => null)
+    const outcome = await finishGoogleSignIn({ code: params.get('code'), state: params.get('state'), browserState: req.cookies.get(GOOGLE_FLOW_COOKIE)?.value, error: params.get('error'), currentUserId: current?.id ?? null })
     // The ticket rides in the fragment, which never reaches a server, a log or a referrer.
     const response = outcome.kind === 'linked'
       ? await to(`${PROFILE}?google=linked`)

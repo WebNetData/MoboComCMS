@@ -88,6 +88,8 @@ export function checkGoogleClaims(payload: Record<string, unknown> | null, expec
   if (!GOOGLE_ISSUERS.includes(payload.iss as typeof GOOGLE_ISSUERS[number])) return { ok: false, error: 'ISSUER' }
   const audience = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
   if (!audience.includes(expected.clientId) || (Array.isArray(payload.aud) && payload.aud.length > 1 && payload.azp !== expected.clientId)) return { ok: false, error: 'AUDIENCE' }
+  // OIDC Core 3.1.3.7 step 5: an `azp` that is present names this client.
+  if (payload.azp !== undefined && payload.azp !== expected.clientId) return { ok: false, error: 'AUDIENCE' }
   const exp = Number(payload.exp), iat = Number(payload.iat)
   // A minute of clock difference either way.
   if (!Number.isFinite(exp) || !Number.isFinite(iat) || exp + 60 < now || iat - 60 > now) return { ok: false, error: 'EXPIRED' }

@@ -12,7 +12,7 @@ const memoryKv = {
   async incr(k, w) { const r = live(k); const n = (r ? Number(r.v) : 0) + 1; store.set(k, { v: String(n), e: r?.e ?? Date.now() + w }); return n },
   async hit(k, w) { const count = await this.incr(k, w); return { count, ttlMs: w } }, async lock(k, t) { if (live(k)) return false; store.set(k, { v: '1', e: Date.now() + t }); return true }, async ping() { return 0 },
 }
-let tokenAnswer = null, requests = []
+let tokenAnswer = null, requests = [], smtpOn = false
 const mocks = {
   '@/platform/database/prisma': { db: prisma }, '@/platform/config/env': { authSecret: () => 'owned-google-fixture-secret' },
   '@/platform/cache/kv': { kv: async () => memoryKv, cached: async (k, t, work) => work(), invalidate: async () => {} },
@@ -20,6 +20,8 @@ const mocks = {
   '@/modules/site/server/site-url': { siteBaseUrl: async () => BASE },
   '@/modules/social/server/egress': { egressFetch: async (url, init) => { requests.push({ url: String(url), init }); if (tokenAnswer instanceof Error) throw tokenAnswer; return new Response(JSON.stringify(tokenAnswer.body), { status: tokenAnswer.status || 200 }) } },
   '@/modules/notifications/server/telegram': {}, '@/modules/identity/telegram-account': {},
+  '@/modules/mail/server/mailer': { getSmtp: async () => ({ enabled: smtpOn, host: smtpOn ? 'owned-mail-fixture' : '', fromEmail: 'noreply@example.com' }), sendMail: async () => ({ ok: true }) },
+  '@/modules/sms/server/sms': { smsAvailable: async () => false, otpLoginAvailable: async () => false },
 }
 function load(relative) {
   const file = path.resolve(relative); if (cache.has(file)) return cache.get(file).exports
@@ -40,6 +42,7 @@ function load(relative) {
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
 const idToken = (claims) => `${b64({ alg: 'RS256' })}.${b64(claims)}.c2lnbmF0dXJl`
 const email = (i) => `${stamp}-${i}@example.com`
+const owned = []
 async function main() {
   const before = await prisma.setting.findUnique({ where: { key: KEY } })
   try {
@@ -92,6 +95,11 @@ async function main() {
     const session = await authorize({ ticket: first.ticket })
     assert.equal(session.id, String(created.id))
     assert.equal(await authorize({ ticket: first.ticket }), null)
+    // the same ticket presented twice at once: one session
+    flow = await begin(); answer(flow.nonce, { sub: `${stamp}-sub-1`, email: email(1) })
+    const twin = await finish(flow.state)
+    const pair = await Promise.allSettled([authorize({ ticket: twin.ticket }), authorize({ ticket: twin.ticket })])
+    assert.equal(pair.filter(r => r.status === 'fulfilled' && r.value).length, 1, 'one session from one ticket')
 
     // ---- signing in again finds the same member by the Google account, not by email
     flow = await begin(); answer(flow.nonce, { sub: `${stamp}-sub-1`, email: email('changed') })
@@ -143,18 +151,42 @@ async function main() {
     await prisma.user.update({ where: { id: created.id }, data: { status: 'ACTIVE' } })
 
     // ---- connecting from account settings: by the signed-in member, one Google account each
+    // audit 2026-11-10 (P0): the member who started must still be the one signed in when Google sends the browser back
+    flow = await begin({ intent: 'link', userId: existing.id }); answer(flow.nonce, { sub: `${stamp}-sub-7`, email: email(7) })
+    await fails(finish(flow.state, { currentUserId: null }), 'not-allowed') // signed out in between
+    flow = await begin({ intent: 'link', userId: existing.id }); answer(flow.nonce, { sub: `${stamp}-sub-7`, email: email(7) })
+    await fails(finish(flow.state, { currentUserId: created.id }), 'not-allowed') // someone else signed in in between
+    assert.equal(await prisma.user.count({ where: { googleId: `${stamp}-sub-7` } }), 0, 'nothing was connected')
     flow = await begin({ intent: 'link', userId: existing.id, next: '/dashboard/profile' }); answer(flow.nonce, { sub: `${stamp}-sub-1`, email: email(1) })
-    await fails(finish(flow.state), 'already-linked')
+    await fails(finish(flow.state, { currentUserId: existing.id }), 'already-linked')
     flow = await begin({ intent: 'link', userId: existing.id }); answer(flow.nonce, { sub: `${stamp}-sub-2`, email: 'someone@gmail.com', email_verified: false })
-    assert.equal((await finish(flow.state)).kind, 'linked')
+    assert.equal((await finish(flow.state, { currentUserId: existing.id })).kind, 'linked')
     const linked = await prisma.user.findUnique({ where: { id: existing.id } })
     assert.equal(linked.googleId, `${stamp}-sub-2`); assert.equal(linked.email, email(2), 'the account keeps its own email')
     flow = await begin({ intent: 'link', userId: existing.id }); answer(flow.nonce, { sub: `${stamp}-sub-9`, email: email(9) })
-    await fails(finish(flow.state), 'other-google')
+    await fails(finish(flow.state, { currentUserId: existing.id }), 'other-google')
     await assert.rejects(() => g.startGoogleSignIn({ intent: 'link' }), e => e.code === 'not-allowed')
 
-    // ---- disconnecting only while another way in remains
+    // ---- disconnecting only while another way in remains (audit 2026-11-10, P1: actual ways in, not the account's age)
+    smtpOn = false
     assert.equal((await g.googleConnection(created.id)).canDisconnect, false, 'an account Google made has no other way in')
+    smtpOn = true
+    assert.equal((await g.googleConnection(created.id)).canDisconnect, true, 'while the site can email it a code or a reset link, its own address is a way in')
+    smtpOn = false
+    const old = await prisma.user.create({ data: { email: `tg900${Date.now()}.0123456789abcdef@telegram.local`, name: `${stamp}-old`, passwordHash: 'x', createdAt: new Date('2020-01-01'), googleId: `${stamp}-sub-old`, googleLinkedAt: new Date() } })
+    owned.push(old.id)
+    assert.equal((await g.googleConnection(old.id)).canDisconnect, false, 'an old account without a working way in keeps Google')
+    await assert.rejects(() => g.disconnectGoogle(old.id), e => e.status === 409)
+    await prisma.user.update({ where: { id: old.id }, data: { phoneVerifiedAt: new Date() } })
+    assert.equal((await g.googleConnection(old.id)).canDisconnect, true, 'a verified mobile is a way in')
+    await prisma.user.update({ where: { id: old.id }, data: { phoneVerifiedAt: null, telegramId: `${stamp}-tg` } })
+    // Telegram and Google are each the other's only way in: removed at once, exactly one may go
+    const methods = load('src/modules/identity/server/sign-in-methods.ts')
+    const both = await Promise.allSettled([methods.removeSignInMethod(old.id, 'google'), methods.removeSignInMethod(old.id, 'telegram')])
+    assert.equal(both.filter(r => r.status === 'fulfilled').length, 1, JSON.stringify(both.map(r => r.status)))
+    const left = await prisma.user.findUnique({ where: { id: old.id } })
+    assert.ok(left.googleId || left.telegramId, 'one way in remains')
+    await assert.rejects(() => methods.removeSignInMethod(old.id, left.googleId ? 'google' : 'telegram'), e => e.status === 409)
     await assert.rejects(() => g.disconnectGoogle(created.id), e => e.status === 409)
     assert.equal((await g.googleConnection(existing.id)).canDisconnect, false)
     await prisma.user.update({ where: { id: existing.id }, data: { passwordChangedAt: new Date() } })
@@ -167,7 +199,7 @@ async function main() {
     await assert.rejects(() => g.startGoogleSignIn({ intent: 'login' }), e => e.code === 'unavailable')
     console.log('google-login connected: all checks passed')
   } finally {
-    await prisma.user.deleteMany({ where: { email: { startsWith: stamp } } })
+    await prisma.user.deleteMany({ where: { OR: [{ email: { startsWith: stamp } }, { id: { in: owned } }] } })
     if (before) await prisma.setting.upsert({ where: { key: KEY }, create: before, update: { value: before.value } }); else await prisma.setting.deleteMany({ where: { key: KEY } })
     await prisma.$disconnect()
   }

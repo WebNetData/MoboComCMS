@@ -45,6 +45,8 @@ const CHECKS = [
   'games-editorial',
   'invoice-logo',
   'identity-otp',
+  'google-login',
+  'admin-2fa-policy',
   'sms-settings',
   'mobile-account-entry',
   'vpn-group-access',
