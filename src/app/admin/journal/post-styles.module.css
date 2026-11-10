@@ -194,3 +194,30 @@
 .card[data-current='true'] { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent); }
 .card:focus-within { outline: 2px solid var(--primary); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+
+/* 2026-11-10: five whole-page styles */
+.thumb[data-base='vogue'] .thumbHead { min-height: 30%; padding: 0; border-radius: 0; background: none; }
+.thumb[data-base='vogue'] .thumbPic { position: relative; inset: auto; min-height: 52px; border-radius: 9px; }
+.thumb[data-base='vogue'] .thumbPic::after { content: none; }
+.thumb[data-base='vogue'] .thumbWords { position: relative; margin: -16px 10% 0; padding: 7%; border-radius: 8px; background: var(--card); box-shadow: 0 6px 16px -10px rgb(0 0 0 / .5); }
+.thumb[data-base='vogue'] :is(.thumbTitle, .thumbTitle2) { height: 8px; background: var(--thumb-ink); }
+.thumb[data-base='vogue'] .thumbLead { background: var(--thumb-line); }
+.thumb[data-base='glass'] .thumbHead { min-height: 62%; align-content: end; }
+.thumb[data-base='glass'] .thumbWords { position: relative; padding: 7%; border: 1px solid rgb(255 255 255 / .3); border-radius: 8px; background: rgb(255 255 255 / .16); backdrop-filter: blur(4px); }
+.thumb[data-base='glass'] .thumbBody { padding: 6%; border: 1px solid var(--thumb-line); border-radius: 8px; background: color-mix(in srgb, var(--thumb-accent) 6%, var(--card)); }
+.thumb[data-base='story'] .thumbHead { grid-template-columns: 1fr 1fr; gap: 8%; padding: 7%; background: linear-gradient(140deg, color-mix(in srgb, var(--thumb-accent) 14%, var(--card)), var(--card)); perspective: 200px; }
+.thumb[data-base='story'] .thumbPic { position: relative; grid-column: 2; grid-row: 1; inset: auto; min-height: 100%; border-radius: 7px; transform: rotateY(-14deg); }
+.thumb[data-base='story'] .thumbPic::after { content: none; }
+.thumb[data-base='story'] .thumbWords { grid-column: 1; grid-row: 1; align-content: center; }
+.thumb[data-base='story'] :is(.thumbTitle, .thumbTitle2) { background: var(--thumb-ink); }
+.thumb[data-base='story'] .thumbBody i:first-child { height: 12px; border-radius: 5px; background: color-mix(in srgb, var(--thumb-accent) 18%, transparent); }
+.thumb[data-base='prism'] .thumbHead { grid-template-columns: 1.1fr .9fr; gap: 8%; padding: 7%; background: radial-gradient(60% 70% at 20% 30%, color-mix(in srgb, var(--thumb-accent) 90%, transparent), transparent), radial-gradient(60% 70% at 85% 20%, #ec4899, transparent), radial-gradient(60% 70% at 60% 95%, #22d3ee, transparent), #0b1024; }
+.thumb[data-base='prism'] .thumbPic { position: relative; grid-column: 2; grid-row: 1; inset: auto; min-height: 100%; border: 1px solid rgb(255 255 255 / .5); border-radius: 7px; transform: rotate(-4deg); }
+.thumb[data-base='prism'] .thumbPic::after { content: none; }
+.thumb[data-base='prism'] .thumbWords { grid-column: 1; grid-row: 1; align-content: center; }
+.thumb[data-base='ink'] .thumbHead { grid-template-columns: 1fr .8fr; gap: 8%; padding: 6% 0; border-block: 1px solid var(--text); border-radius: 0; background: none; }
+.thumb[data-base='ink'] .thumbPic { position: relative; grid-column: 2; grid-row: 1; inset: auto; min-height: 100%; border-radius: 0; filter: grayscale(1); }
+.thumb[data-base='ink'] .thumbPic::after { content: none; }
+.thumb[data-base='ink'] .thumbWords { grid-column: 1; grid-row: 1; align-content: center; padding-inline-start: 6px; border-inline-start: 3px solid var(--thumb-accent); }
+.thumb[data-base='ink'] :is(.thumbTitle, .thumbTitle2) { background: var(--thumb-ink); }
+.thumb[data-base='ink'] .thumbLead { background: var(--thumb-line); }

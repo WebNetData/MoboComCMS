@@ -235,3 +235,5 @@ and [operator guide](../AI-ENGINEERING-FA.md).
 2026-11-10 renamed section addresses / auto-publishing desk: FUNCTIONAL scoped slice — journal crumbs use the configurable section name; social, IndexNow and JSON-LD use public addresses; alias revert self-redirect fixed and healed; social admin with channel stats, live previews and template tools. Evidence in `handoffs/MAGAZINE_ADDRESS_SOCIAL.md`.
 
 2026-11-10 section names: FUNCTIONAL scoped slice — revisioned per-section fa/en names edited beside the address in Admin › sections, applied to admin menu, crumbs across sections, store and maintenance; owner rule «everything manageable from Admin» recorded. Evidence in `handoffs/SECTION_NAMES.md`.
+
+2026-11-10 article styles/form themes: FUNCTIONAL scoped slice — five whole-page article styles (vogue, glass, story, prism, ink) and four form themes (neon, soft, prism, studio), selectable in Admin, light/dark/phone checked. Evidence in `handoffs/POST_FORM_STYLES.md`.
