@@ -52,6 +52,22 @@ export function normalizeSecurityPolicy(input: unknown): SecurityPolicy {
   return { requireAdmin2fa: flag('requireAdmin2fa'), emailReset: flag('emailReset'), smsReset: flag('smsReset'), emailOtp: flag('emailOtp') }
 }
 
+/**
+ * The staff 2-step rule as stored. No row means the owner never switched it on; a stored value that cannot be read is
+ * not "switched off" and counts as on (fail-safe, audit 2026-11-10). Staff held back can still turn 2-step on from their
+ * own account settings, which need only a signed-in member.
+ */
+export function staffTwoFactorRule(stored: string | null | undefined): { required: boolean; readable: boolean } {
+  if (stored === null || stored === undefined) return { required: DEFAULT_SECURITY_POLICY.requireAdmin2fa, readable: true }
+  try {
+    const value: unknown = JSON.parse(stored)
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return { required: true, readable: false }
+    return { required: normalizeSecurityPolicy(value).requireAdmin2fa, readable: true }
+  } catch {
+    return { required: true, readable: false }
+  }
+}
+
 /** A session is void once the password changed after it signed in (1s slack for clock rounding). */
 export function sessionRevoked(authAt: unknown, passwordChangedAt: Date | null | undefined) {
   if (!passwordChangedAt) return false

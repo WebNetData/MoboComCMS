@@ -1014,6 +1014,10 @@ redirect after login, in the dashboard and now after Telegram sign-in. Every bra
 sign-in code, newsletter, gift card) is built by `src/modules/mail/domain/email-layout.ts`: tables plus inline
 styles first; fonts, dark mode and motion only as enhancements; accent limited to a validated hex colour.
 
+## Staff 2-step rule fails safe — 2026-11-10
+
+The "staff must use 2-step sign-in" switch (`security.policy.v1`, `requireAdmin2fa`) is read by `adminTwoFactorRequired` in `identity/server/access.ts` through `staffTwoFactorRule` (`identity/domain/account-security.ts`). No row means it was never switched on. A value that cannot be read (corrupt JSON, not an object) or a failed database read is **not** "switched off": staff without 2-step are held back. A failed read is not cached, so the next request decides. Inside a command's transaction an unreadable policy stops the command. Each case logs `security.policy.unreadable`. Held-back staff can still turn 2-step on from their own account settings (`/api/account/two-factor` needs only a signed-in member). Evidence: `scripts/account-security.test.cjs`, `scripts/admin-2fa-policy.connected.cjs`.
+
 ## Google sign-in — 2026-11-10
 
 The owner wants members to sign in and sign up with Google. Identity owns it (`src/modules/identity/{domain,server}/google-login.ts`, `server/http/google.ts`); handoff: [GOOGLE_LOGIN](handoffs/GOOGLE_LOGIN.md).
@@ -1027,5 +1031,5 @@ The owner wants members to sign in and sign up with Google. Identity owns it (`s
 - **Session.** The callback leaves a single-use ticket in the address fragment of `/login/google`. NextAuth provider `google` turns it into the ordinary session only after the 2-step code, so bans, global restrictions and the required-mobile `/welcome` step apply as after any sign-in.
 - **Accounts.** The Google account is its `sub` (`User.googleId`, unique, additive migration `20270301120000_google_login`).
   - A new account is created only for a Google-verified address that no account uses. An address already in use is never joined silently, which would hand a pre-registered address its owner's Google sign-in. The member signs in as always and connects Google from account settings, as with Telegram.
-  - Connecting needs the signed-in member and a same-site start. One Google account per member, and one member per Google account.
-  - Disconnecting needs another way in: a verified mobile, Telegram, a password the member set, or an account older than its Google connection.
+  - Connecting needs the signed-in member and a same-site start, and completes only if the **same member is still signed in** when Google sends the browser back (audit 2026-11-10: signing out, or another member signing in, ends it before Google is asked). One Google account per member, and one member per Google account. A browser that sends no `Sec-Fetch-Site` may start a connection, but it can only connect the Google account its own signed-in member chooses.
+  - **Removing a connected sign-in method needs another actual way in** (`identity/{domain,server}/sign-in-methods.ts`, audit 2026-11-10), for Google and Telegram alike. Ways in: a verified mobile, Telegram, Google, a password the member set (`passwordChangedAt`), or their own deliverable email while the site can send it a sign-in code or reset link. An account's age proves nothing: Telegram, mobile, email-code and Google accounts start with a random password. The check and the removal run in one transaction holding the member's row, so two removals at once cannot leave none.

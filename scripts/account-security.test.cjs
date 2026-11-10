@@ -88,6 +88,7 @@ test('request token access uses the same startup auth secret without loading aut
       if (name === '@/platform/database/prisma') return { db: {} }
       if (name === '@/modules/identity/rbac') return { hasPermission: () => false, parsePermissions: () => null }
       if (name === '@/modules/identity/domain/account-security') return sec
+      if (name === '@/platform/observability/logger') return { logEvent: () => {} }
       if (name === '@/modules/identity/server/authentication-restrictions') return { globalAuthenticationDenied: () => { throw Error('Raw token decoding must not run authorization') } }
       throw Error(`Unexpected access dependency: ${name}`)
     }
@@ -579,6 +580,7 @@ test('Google sign-in: claims, the chooser address, settings and the wiring aroun
     assert.equal(check({ ...base, ...claims }).error, error, JSON.stringify(claims))
   }
   assert.equal(check({ ...base, aud: [client, 'other'], azp: client }).ok, true)
+  assert.equal(check({ ...base, azp: 'another-client' }).error, 'AUDIENCE', 'an azp that is present names this client')
   assert.equal(check({ ...base, email_verified: false }).identity.emailVerified, false)
   assert.equal(check({ ...base, picture: 'https://evil.example/p.png' }).identity.picture, '')
   assert.equal(g.checkGoogleClaims(g.decodeIdTokenPayload('not-a-jwt'), { clientId: client, nonce: 'n1', now }).error, 'MALFORMED')
@@ -611,4 +613,71 @@ test('Google sign-in: claims, the chooser address, settings and the wiring aroun
   assert.doesNotMatch(sql, /DROP|UPDATE|DELETE|ALTER COLUMN/i)
   assert.match(sql, /CREATE UNIQUE INDEX "User_googleId_key" ON "User"\("googleId"\)/)
   for (const schema of ['prisma/schema.prisma', 'prisma/schema.postgresql.prisma']) assert.match(read(schema), /googleId\s+String\?\s+@unique\n\s+googleEmail\s+String\s+@default\(""\)\n\s+googleLinkedAt DateTime\?/)
+})
+
+test('the staff 2-step rule fails safe: unreadable is not "switched off" (audit 2026-11-10, P0)', async () => {
+  // access.ts with a database double; the rest of the module graph is real.
+  let stored = null, failing = false, reads = 0
+  const warnings = []
+  const db = { setting: { findUnique: async () => { reads++; if (failing) throw new Error('connection refused'); return stored === null ? null : { key: 'security.policy.v1', value: stored } } } }
+  const mocks = {
+    '@/platform/database/prisma': { db },
+    '@/platform/config/env': { authSecret: () => 'audit-fixture-secret' },
+    '@/modules/identity/server/authentication-restrictions': { globalAuthenticationDenied: async () => false },
+    '@/platform/observability/logger': { logEvent: (level, event, fields) => warnings.push({ level, event, fields }) },
+    '@/modules/identity/rbac': { hasPermission: () => false, parsePermissions: () => [] },
+  }
+  const file = path.resolve(__dirname, '..', 'src/modules/identity/server/access.ts')
+  const mod = { exports: {} }
+  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
+  new Function('require', 'module', 'exports', source)((name) => mocks[name] || (name.startsWith('@/') ? load(`src/${name.slice(2)}`) : require(name)), mod, mod.exports)
+  const access = mod.exports
+  const admin = { id: 1, email: 'a@example.com', role: 'ADMIN', permissions: null, twoFactor: false }
+  const needs = async () => { access.clearAdminPolicyCache(); return access.adminNeedsTwoFactor(admin) }
+
+  stored = null
+  assert.equal(await needs(), false, 'never switched on: no rule')
+  stored = '{"requireAdmin2fa":false,"emailReset":true}'
+  assert.equal(await needs(), false, 'switched off on purpose')
+  stored = '{"requireAdmin2fa":true}'
+  assert.equal(await needs(), true, 'switched on')
+  assert.equal(await access.adminNeedsTwoFactor({ ...admin, twoFactor: true }), false, 'staff with 2-step pass')
+  assert.equal(await access.adminNeedsTwoFactor({ ...admin, role: 'USER' }), false, 'members are not staff')
+
+  for (const corrupt of ['{"requireAdmin2fa":tru', '[]', '"on"', 'null']) {
+    stored = corrupt
+    assert.equal(await needs(), true, `unreadable policy ${corrupt} counts as on`)
+  }
+  assert.ok(warnings.some((w) => w.level === 'warn' && w.event === 'security.policy.unreadable'), 'an unreadable policy is reported')
+
+  // A failed read holds staff back for that request only: nothing is cached, so the next answer decides.
+  stored = '{"requireAdmin2fa":false}'
+  access.clearAdminPolicyCache(); failing = true
+  assert.equal(await access.adminNeedsTwoFactor(admin), true, 'database error counts as on')
+  failing = false; reads = 0
+  assert.equal(await access.adminNeedsTwoFactor(admin), false, 'the next readable answer decides')
+  assert.equal(reads, 1, 'the failure was not cached')
+
+  // Inside a command's transaction an unreadable policy still stops the command.
+  const tx = { setting: { findUnique: async () => ({ key: 'security.policy.v1', value: '{oops' }) } }
+  await assert.rejects(() => access.adminNeedsTwoFactor(admin, tx), /Security policy unavailable/)
+})
+
+test("sign-in methods: removal only while another actual way in remains (audit 2026-11-10, P1)", () => {
+  const m = load("src/modules/identity/domain/sign-in-methods")
+  const none = { email: "tg1.0123456789abcdef@telegram.local", phoneVerifiedAt: null, telegramId: null, googleId: null, passwordChangedAt: null }
+  const on = { emailCanSignIn: true }, off = { emailCanSignIn: false }
+  assert.deepEqual(m.waysIn(none, on), [], "a placeholder address is no way in")
+  assert.equal(m.mayRemove({ ...none, googleId: "g" }, "google", on), false, "Google is the last way in")
+  assert.equal(m.mayRemove({ ...none, googleId: "g", phoneVerifiedAt: new Date() }, "google", off), true, "a verified mobile remains")
+  assert.equal(m.mayRemove({ ...none, googleId: "g", passwordChangedAt: new Date() }, "google", off), true, "a password the member set remains")
+  assert.equal(m.mayRemove({ ...none, googleId: "g", telegramId: "t" }, "telegram", off), true)
+  assert.equal(m.mayRemove({ ...none, telegramId: "t" }, "telegram", on), false, "the Mini App account keeps Telegram")
+  const real = { ...none, email: "member@gmail.com", googleId: "g" }
+  assert.equal(m.mayRemove(real, "google", off), false, "a real address helps only while the site can email it")
+  assert.equal(m.mayRemove(real, "google", on), true)
+  assert.equal(m.mayRemove({ ...real, email: "989120000000@phone.mobocom.local" }, "google", on), false)
+  assert.equal(m.mayRemove(none, "google", on), false, "nothing to remove")
+  const createdLongAgo = { ...none, googleId: "g", createdAt: new Date("2020-01-01"), googleLinkedAt: new Date() }
+  assert.equal(m.mayRemove(createdLongAgo, "google", off), false, "the age of an account proves no way in")
 })
