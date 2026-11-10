@@ -2,6 +2,8 @@
 
 import '../admin-tidy.css'
 import '../admin-areas.css'
+import '../admin-invoice-desk.css'
+import '../automation.css'
 
 import { useEffect, useRef, useState } from 'react'
 import AdminWorkspace from '@/components/admin/Workspace'
