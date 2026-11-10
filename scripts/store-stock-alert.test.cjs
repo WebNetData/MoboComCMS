@@ -8,7 +8,7 @@ function load(relative, mocks = {}) {
   const source = fs.readFileSync(path.join(__dirname, '..', relative), 'utf8')
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
   const loaded = { exports: {} }
-  new Function('require', 'module', 'exports', compiled)((name) => Object.hasOwn(mocks, name) ? mocks[name] : name.startsWith('@/modules/store/server/marketing/') ? load('src/' + name.slice(2) + '.ts', mocks) : require(name), loaded, loaded.exports)
+  new Function('require', 'module', 'exports', compiled)((name) => Object.hasOwn(mocks, name) ? mocks[name] : (name.startsWith('@/modules/store/server/marketing/') || name.startsWith('@/modules/mail/domain/')) ? load('src/' + name.slice(2) + '.ts', mocks) : require(name), loaded, loaded.exports)
   return loaded.exports
 }
 

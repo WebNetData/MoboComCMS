@@ -3,9 +3,11 @@ function load(relative, mocks = {}) {
   const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, mod = { exports: {} }
   new Function('require', 'module', 'exports', code)(name => {
     if (Object.hasOwn(mocks, name)) return mocks[name]
-    if (name.startsWith('@/')) {
+    // Owners import by @/ path or relative to their own file (./knowledge-config).
+    const target = name.startsWith('@/') ? `src/${name.slice(2)}` : name.startsWith('.') ? path.posix.join(path.posix.dirname(relative), name) : ''
+    if (target) {
       for (const suffix of ['.ts', '/index.ts']) {
-        const candidate = `src/${name.slice(2)}${suffix}`
+        const candidate = `${target}${suffix}`
         if (fs.existsSync(path.join(__dirname, '..', candidate))) return load(candidate, mocks)
       }
     }
