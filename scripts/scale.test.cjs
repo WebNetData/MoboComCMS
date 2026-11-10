@@ -135,7 +135,7 @@ test('every limit that guards a secret is the strict one', () => {
   const loose = walk(path.join(root, 'src')).filter((file) => guarded.test(fs.readFileSync(file, 'utf8')))
   assert.deepEqual(loose.map((file) => path.relative(root, file)), [])
   const strict = (file) => (fs.readFileSync(path.join(root, file), 'utf8').match(/await rateLimitStrict\(/g) || []).length
-  assert.deepEqual([strict('src/modules/identity/auth.ts'), strict('src/modules/identity/server/account-security.ts'), strict('src/modules/store/server/http/marketing.ts'), strict('src/modules/public-api/server/api-keys.ts')], [5, 6, 3, 1])
+  assert.deepEqual([strict('src/modules/identity/auth.ts'), strict('src/modules/identity/server/account-security.ts'), strict('src/modules/store/server/http/marketing.ts'), strict('src/modules/public-api/server/api-keys.ts')], [6, 6, 3, 1], 'auth.ts: password ×3, SMS code, email code, Google ticket')
   assert.equal(strict('src/modules/identity/server/email-otp.ts'), 1, 'email issuance enforces all three strict buckets')
   assert.equal(strict('src/modules/sms/server/sms.ts'), 2, 'SMS issuance has strict recipient/IP limits')
 })

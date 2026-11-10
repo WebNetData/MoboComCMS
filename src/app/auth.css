@@ -158,3 +158,21 @@ html[data-design] .auth-signed-main .auth-signed-admin { color: var(--primary); 
 .auth-signed-switch .link-button { color: var(--danger, #dc2626); font-weight: 700; }
 @media (max-width: 420px) { .auth-signed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .auth-signed-badge::before { animation: none; } .auth-signed-tile, .auth-signed-tile > span { transition: none; } .auth-signed-tile:hover { transform: none; } }
+
+/* ---------- Google sign-in (src/app/login/GoogleLoginButton.tsx) ----------
+   Google's own button: its mark on a neutral surface with a hairline, the label in the text colour. */
+.auth-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 48px; margin: 0 0 16px; padding: 0 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none; transition: background-color .15s ease, border-color .15s ease; }
+.auth-google:hover { border-color: color-mix(in srgb, var(--text) 25%, var(--border)); background: color-mix(in srgb, var(--text) 4%, var(--card)); color: var(--text); }
+.auth-google:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.auth-google svg { flex: none; }
+.auth-google-error { margin: 0 0 16px; }
+.auth-google-mark { display: inline-grid; place-items: center; width: 56px; height: 56px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 50%; background: var(--card); }
+/* the connection in account settings */
+.google-link-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.google-link-who { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.google-link .auth-google.google-link-connect { width: auto; margin: 0; display: inline-flex; }
+/* Admin › security: the address to register with Google */
+.admin-shell .google-setup-steps { display: grid; gap: 8px; margin: 0; padding-inline-start: 20px; }
+.admin-shell .google-redirect { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.admin-shell .google-redirect code { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-soft); font-size: 13px; overflow-wrap: anywhere; user-select: all; }
+@media (prefers-reduced-motion: reduce) { .auth-google { transition: none; } }

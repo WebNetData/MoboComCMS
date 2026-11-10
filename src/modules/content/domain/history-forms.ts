@@ -11,7 +11,7 @@ export const CONFIGURATION_FORMS = [
   ['returns', 'لغو و مرجوعی', '/admin/store/returns'], ['watermark', 'واترمارک تصاویر', '/admin/watermark'],
   ['profile-fields', 'فیلدهای ثبت‌نام', '/admin/profile-fields'], ['trust-seals', 'نمادهای اعتماد', '/admin/trust-seals'],
   ['seo', 'مرکز سئو', '/admin/seo'], ['livechat', 'پشتیبانی آنلاین', '/admin/chat'], ['maintenance', 'حالت تعمیر بخش‌ها', '/admin/maintenance'],
-  ['human-check', 'کپچا و محافظت فرم‌ها', '/admin/security'],
+  ['human-check', 'کپچا و محافظت فرم‌ها', '/admin/security'], ['google-login', 'ورود با گوگل', '/admin/security'],
   ['section-access', 'دسترسی گروه‌ها به بخش‌ها', '/admin/user-groups'],
 ] as const
 export type ConfigurationSection = typeof CONFIGURATION_FORMS[number][0]

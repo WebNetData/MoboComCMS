@@ -5,6 +5,8 @@ import { clientIp } from '@/platform/http/rate-limit'
 import { db } from '@/platform/database/prisma'
 import { requirePerm, requireUser } from '@/modules/identity/server/access'
 import { sectionSettingsAnswer, sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
+import { getGoogleLogin, googleLoginStatus, publicGoogleSettings, saveGoogleLogin } from '@/modules/identity/server/google-login'
 import { getHumanCheck, humanCheckStatus, saveHumanCheck, verifyHuman } from '@/modules/identity/server/human-check'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import {
@@ -77,6 +79,13 @@ export async function POST_two_factor(req: NextRequest) {
 export async function GET_policy(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('forbidden', 403)
   if (req.nextUrl.searchParams.get('view') === 'human-check') return sectionSettingsAnswer(await getHumanCheck(), humanCheckStatus())
+  if (req.nextUrl.searchParams.get('view') === 'google') {
+    // The revision covers the stored (encrypted) secret; the page sees only whether one is saved.
+    const settings = await getGoogleLogin()
+    const response = ok({ ...await googleLoginStatus(), settings: publicGoogleSettings(settings), settingsRevision: sectionSettingsRevision(settings) })
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
+  }
   const [policy, enabled, admins, adminsWith] = await Promise.all([
     getSecurityPolicy(),
     db.user.count({ where: { totpEnabledAt: { not: null } } }),
@@ -91,6 +100,7 @@ export async function PUT_policy(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
   if (req.nextUrl.searchParams.get('view') === 'human-check') return sectionSettingsSaveWith(req, admin, context => saveHumanCheck(body, context), settings => ({ settings, ...humanCheckStatus() }))
+  if (req.nextUrl.searchParams.get('view') === 'google') return sectionSettingsSaveWith(req, admin, context => saveGoogleLogin(body, context), async settings => ({ settings: publicGoogleSettings(settings), ...await googleLoginStatus() }))
   // Turning the staff rule on without 2-step sign-in of your own would lock you out.
   if (body?.policy?.requireAdmin2fa === true && !admin.twoFactor) return err('اول ورود دو مرحله‌ای حساب خودتان را در «تنظیمات حساب» فعال کنید، سپس این گزینه را روشن کنید.', 409)
   const policy = await saveSecurityPolicy(body?.policy)

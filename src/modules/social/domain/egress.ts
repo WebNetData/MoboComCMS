@@ -9,6 +9,7 @@ export const EGRESS_PURPOSES = [
   { key: 'instagram', label: 'اینستاگرام', hint: 'انتشار خودکار پست‌ها', hosts: ['graph.facebook.com', 'graph.instagram.com'], test: 'https://graph.facebook.com/' },
   { key: 'updates', label: 'به‌روزرسانی از GitHub', hint: 'دریافت نسخهٔ تازهٔ سایت (git) در به‌روزرسانی امن', hosts: ['github.com', 'githubusercontent.com'], test: 'https://github.com/' },
   { key: 'ai', label: 'هوش مصنوعی', hint: 'OpenAI، Claude، Gemini، Qwen، DeepSeek، OpenRouter و Groq', hosts: ['openai.com', 'anthropic.com', 'generativelanguage.googleapis.com', 'openrouter.ai', 'groq.com', 'dashscope-intl.aliyuncs.com', 'api.deepseek.com'], test: 'https://api.openai.com/' },
+  { key: 'google', label: 'ورود با گوگل', hint: 'تأیید ورود اعضا با حساب گوگل (سرورهایی که گوگل را مستقیم نمی‌بینند)', hosts: ['oauth2.googleapis.com'], test: 'https://oauth2.googleapis.com/' },
 ] as const
 
 export type EgressPurpose = typeof EGRESS_PURPOSES[number]['key']

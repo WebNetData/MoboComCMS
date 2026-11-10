@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { Suspense, useEffect, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import SubscriptionAlertPreference from '@/components/SubscriptionAlertPreference'
 import TelegramLink from '@/components/TelegramLink'
+import GoogleLink from '@/components/GoogleLink'
 import PhoneVerification from '@/components/PhoneVerification'
 import EmailAlertPreference from '@/components/EmailAlertPreference'
 import PushAlertPreference from '@/components/PushAlertPreference'
@@ -118,6 +119,7 @@ export default function ProfilePage() {
         <PhoneVerification />
         <EmailAlertPreference />
         <PushAlertPreference />
+        <Suspense><GoogleLink /></Suspense>
         <TelegramLink />
         {vpnOn && <SubscriptionAlertPreference />}
       </div>

@@ -996,3 +996,19 @@ through `/api/me/phone` (rate limits, uniqueness, expiry stay in the SMS module)
 redirect after login, in the dashboard and now after Telegram sign-in. Every branded email (notification, security,
 sign-in code, newsletter, gift card) is built by `src/modules/mail/domain/email-layout.ts`: tables plus inline
 styles first; fonts, dark mode and motion only as enhancements; accent limited to a validated hex colour.
+
+## Google sign-in — 2026-11-10
+
+The owner wants members to sign in and sign up with Google. Identity owns it (`src/modules/identity/{domain,server}/google-login.ts`, `server/http/google.ts`); handoff: [GOOGLE_LOGIN](handoffs/GOOGLE_LOGIN.md).
+
+- **Settings in Admin.** Admin › امنیت › «ورود و ثبت‌نام با گوگل» (`settings.manage`, key `security.google-login.v1`): on/off, OAuth client ID, client secret, and whether new accounts may be made.
+  - The secret is encrypted with `PANEL_CREDENTIAL_KEY`, never sent back, and an empty field keeps it.
+  - Saves go through the section-settings history (revision, audit, restore). The card shows the redirect address to register: `<siteUrl>/api/login/google/callback`.
+- **Protocol.** OpenID Connect authorization code with PKCE (S256), a `state` held in Redis/kv and in a 10-minute httpOnly SameSite=Lax cookie on `/api/login/google`, and a `nonce`.
+  - The ID token comes straight from Google's token endpoint over TLS, so its claims are checked (issuer, audience/azp, time, nonce, `sub`) and its signature is not (OIDC Core 3.1.3.7).
+  - The token request uses the egress purpose `google` (`oauth2.googleapis.com`), so a server that cannot reach Google routes it through the Server Panel proxy. The root Xray builder lists the same host.
+- **Session.** The callback leaves a single-use ticket in the address fragment of `/login/google`. NextAuth provider `google` turns it into the ordinary session only after the 2-step code, so bans, global restrictions and the required-mobile `/welcome` step apply as after any sign-in.
+- **Accounts.** The Google account is its `sub` (`User.googleId`, unique, additive migration `20270301120000_google_login`).
+  - A new account is created only for a Google-verified address that no account uses. An address already in use is never joined silently, which would hand a pre-registered address its owner's Google sign-in. The member signs in as always and connects Google from account settings, as with Telegram.
+  - Connecting needs the signed-in member and a same-site start. One Google account per member, and one member per Google account.
+  - Disconnecting needs another way in: a verified mobile, Telegram, a password the member set, or an account older than its Google connection.

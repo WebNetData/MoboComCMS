@@ -159,6 +159,25 @@ export const authOptions: NextAuthOptions = {
         return sessionUser(user)
       },
     }),
+    CredentialsProvider({
+      // Google sign-in (src/modules/identity/server/google-login.ts): the server already checked Google's answer and
+      // left a one-time ticket; it becomes the session only after the 2-step code, and only once.
+      id: 'google',
+      name: 'Google',
+      credentials: { ticket: { label: 'Ticket', type: 'text' }, totp: { label: '2-step code', type: 'text' } },
+      async authorize(credentials, req) {
+        const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
+        if (!(await rateLimitStrict(`login:google:ip:${ip}`, 30, 10 * 60_000)).ok) return null
+        const { peekGoogleTicket, consumeGoogleTicket } = await import('@/modules/identity/server/google-login')
+        const userId = await peekGoogleTicket(credentials?.ticket)
+        if (!userId) return null
+        const user = await db.user.findUnique({ where: { id: userId }, include: { roleRef: true } })
+        if (!user || user.status !== 'ACTIVE') return null
+        await secondFactor(user, credentials?.totp)
+        if (!await consumeGoogleTicket(credentials?.ticket)) return null
+        return sessionUser(user)
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user }) {
