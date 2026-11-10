@@ -55,7 +55,7 @@ Owner now also requests occasional execution without proposal approval and expli
 
 ## AI service/model per purpose — 2026-11-06
 
-Owner requests independent providers/models for each application, for example Gemini support and personal ChatGPT Admin. Existing shared configuration remains the inherited default. Public support and Prompt Master never use an admin’s personal grant; Admin child purposes may inherit Admin or explicitly select their own API/personal route. Explicit API bypasses personal; failures never switch provider. Provider/endpoint changes never forward a retained old key. [Behavior/evidence/operation](handoffs/AI_ROUTING.md).
+Owner requests independent providers/models for each application, for example Gemini support and personal ChatGPT Admin. Existing shared configuration remains the inherited default. Public support and Prompt Master never use an admin’s personal grant; Admin child purposes may inherit Admin or explicitly select their own API/personal route. Explicit API bypasses personal; failures never switch provider. Owner 2026-11-11: "inherit" always means the site's configured provider (e.g. Gemini); an admin's connected personal ChatGPT serves only Admin default or purposes explicitly set to «حساب شخصی ChatGPT» (the earlier implicit precedence of an enabled grant is removed; `ai/server/client.ts` `generate`, `readiness.ts`, guarded by `ai-routing`/`chatgpt-admin`/`ai-readiness` cases). Provider/endpoint changes never forward a retained old key. [Behavior/evidence/operation](handoffs/AI_ROUTING.md).
 
 ## Personal ChatGPT for Admin — 2026-11-06
 

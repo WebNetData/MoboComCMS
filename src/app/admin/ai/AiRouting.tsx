@@ -40,7 +40,7 @@ function RoutingForm({ route, providers, routes, onSaved, onBusy }: { route: Rou
   const running = useRef(false), dirty = sourceChanged || Object.keys(patch).length > 0
   const edit = (values: Partial<typeof form>) => { setForm(current => ({ ...current, ...values })); setPatch(current => ({ ...current, ...values })) }
   const inherited = route.id !== 'admin' && route.personal ? 'پیش‌فرض ابزارهای مدیریت' : 'پیش‌فرض سایت'
-  const effective = route.effective.source === 'personal' ? 'حساب شخصی ChatGPT هر مدیر' : route.effective.source === 'api' ? `${providers.find(p => p.id === route.effective.provider)?.label || route.effective.provider} · ${route.effective.model || 'مدل پیش‌فرض سرویس'}` : route.personal ? 'تنظیمات پیش‌فرض سایت؛ اتصال شخصی فعال مدیر برای ابزارهای مدیریت مقدم است' : 'تنظیمات پیش‌فرض سایت'
+  const effective = route.effective.source === 'personal' ? 'حساب شخصی ChatGPT هر مدیر' : route.effective.source === 'api' ? `${providers.find(p => p.id === route.effective.provider)?.label || route.effective.provider} · ${route.effective.model || 'مدل پیش‌فرض سرویس'}` : 'تنظیمات پیش‌فرض سایت'
   async function run(command: 'save' | 'test') {
     if (running.current) return
     running.current = true; onBusy(true); setBusy(command); setNotice(''); setError(false)

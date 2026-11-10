@@ -22,7 +22,7 @@ export default function PersonalChatGpt() {
       if (command === 'finish') { setModels([]); setHelper(''); setNotice('حساب متصل شد؛ مدل را دریافت و برای مدیریت فعال کنید') }
       else if (command === 'disconnect') { setModels([]); setHelper(''); setNotice(data.revoked ? 'اتصال قطع شد؛ روش اتصال بخش‌های متکی به این حساب را در تنظیمات زیر بررسی کنید' : 'اتصال این سایت قطع شد؛ لغو دسترسی را در تنظیمات ChatGPT هم بررسی کنید. روش اتصال بخش‌های متکی به این حساب را در تنظیمات زیر بررسی کنید') }
       else if (command === 'disable') setNotice('مصرف سهمیهٔ شخصی متوقف شد؛ روش اتصال هر بخش را در تنظیمات زیر بررسی کنید')
-      else if (command === 'save') setNotice('مصرف سهمیهٔ شخصی برای ابزارهای مدیریت فعال شد')
+      else if (command === 'save') setNotice('حساب شخصی آماده شد. برای استفاده، در «سرویس و مدل هر بخش» روش اتصال «پیش‌فرض ابزارهای مدیریت» یا هر بخش دلخواه را «حساب شخصی ChatGPT» بگذارید؛ بخش‌های دیگر با تنظیم پیش‌فرض سایت کار می‌کنند.')
       return data
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'اتصال انجام نشد'); setError(true); return null }
     finally { running.current = false; setBusy(false) }
