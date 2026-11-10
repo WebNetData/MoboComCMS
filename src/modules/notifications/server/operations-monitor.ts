@@ -5,6 +5,7 @@ import { getExtensionState } from '@/extensions/server/state'
 import { listFulfillmentOperations, listPaymentIssues } from '@/modules/fulfillment/server/operations'
 import { bot, telegramConfig } from '@/modules/notifications/server/telegram'
 import { logEvent } from '@/platform/observability/logger'
+import { kvHealth } from '@/platform/cache/kv'
 import { getPanelAdapter, RemnaWaveAdapter } from '@/modules/providers/server/panels'
 import { botText, getBotLocale } from '@/modules/notifications/server/telegram-locale'
 
@@ -59,6 +60,13 @@ export async function sampleMonitoring(settings?: Settings) {
     signals.push({ id: 'database', status: 'critical', title: 'PostgreSQL', titleFa: 'پایگاه‌داده PostgreSQL', detail: 'Database query failed. External uptime monitoring is required for outage alerts.', detailFa: 'ارتباط با پایگاه‌داده قطع است؛ برای هشدار قطعی کامل، پایش بیرونی لازم است.' })
     return { checkedAt, signals, disk }
   }
+
+  // Redis (audit 2026-11-10): configured but not answering means each instance counts limits and keeps sign-in state on its
+  // own until it reconnects (src/platform/cache/kv.ts). Not configured is a one-instance install: nothing to alert.
+  const redis = await kvHealth().catch(() => null)
+  if (!redis?.configured) signals.push({ id: 'redis', status: 'disabled', title: 'Redis', titleFa: 'Redis', detail: 'Not configured (one instance).', detailFa: 'تنظیم نشده (اجرای تک‌نسخه‌ای).' })
+  else if (redis.degraded) signals.push({ id: 'redis', status: 'warning', title: 'Redis', titleFa: 'Redis', detail: `Configured but not answering since ${redis.degradedSince}; using the in-process store and reconnecting (${redis.attempts} tries). Last error: ${redis.lastError}`, detailFa: `تنظیم شده ولی از ${redis.degradedSince} پاسخ نمی‌دهد؛ سایت روی حافظهٔ داخلی همین نسخه کار می‌کند و دوباره وصل می‌شود (${redis.attempts} تلاش). آخرین خطا: ${redis.lastError}` })
+  else signals.push({ id: 'redis', status: 'ok', title: 'Redis', titleFa: 'Redis', detail: 'Shared cache and limits are connected.', detailFa: 'کش و محدودیت مشترک وصل است.' })
 
   try {
     const backup = await db.setting.findUnique({ where: { key: 'operations.backup.config' } })

@@ -7,7 +7,7 @@ type Overview = {
   now: string
   system: { node: string; platform: string; cpus: number; load: number[]; memory: { total: number; free: number; rss: number; heapUsed: number; heapTotal: number }; uptime: number; disk: { total: number; free: number; usedPercent: number } | null; instance: string }
   database: { ok: boolean; pingMs: number; engine: string }
-  cache: { backend: string; pingMs: number; configured: boolean; hits: number; misses: number; errors: number; hitRate: number }
+  cache: { backend: string; pingMs: number; configured: boolean; hits: number; misses: number; errors: number; hitRate: number; degraded?: boolean; degradedSince?: string | null; reconnectAttempts?: number; lastError?: string }
   queue: { counts: Record<string, number>; recent: { id: number; kind: string; label: string; status: string; attempts: number; lastError: string; result: string; createdAt: string; finishedAt: string | null }[] }
   fulfillment: Record<string, number>
   scheduler: { name: string; until: string }[]
@@ -113,7 +113,9 @@ export default function Monitoring() {
     <section className="sa-card sa-form">
       <header className="sa-card-head"><h2>CDN و آمادگی برای ترافیک بالا</h2></header>
       <ul className="mo-checks">
-        <li className={data.cache.backend === 'redis' ? 'is-ok' : 'is-warn'}><b>کش و محدودیت مشترک (Redis):</b> {data.cache.backend === 'redis' ? 'فعال' : 'غیرفعال — برای اجرای چند نسخهٔ برنامه، REDIS_URL را در .env تنظیم کنید.'}</li>
+        <li className={data.cache.backend === 'redis' ? 'is-ok' : data.cache.degraded ? 'is-bad' : 'is-warn'}><b>کش و محدودیت مشترک (Redis):</b> {data.cache.backend === 'redis' ? 'فعال'
+          : data.cache.degraded ? <>تنظیم شده ولی در دسترس نیست{data.cache.degradedSince ? <> از <bdi dir="ltr">{new Date(data.cache.degradedSince).toLocaleString('fa-IR')}</bdi></> : null}؛ سایت روی حافظهٔ داخلی همین نسخه کار می‌کند و خودکار دوباره وصل می‌شود ({fa(data.cache.reconnectAttempts || 0)} تلاش). تا آن زمان محدودیت‌های ورود فقط در همین نسخه شمرده می‌شوند و ورود با گوگلی که به نسخهٔ دیگری برگردد رد می‌شود.{data.cache.lastError ? <> آخرین خطا: <bdi dir="ltr">{data.cache.lastError}</bdi></> : null}</>
+          : 'غیرفعال — برای اجرای چند نسخهٔ برنامه، REDIS_URL را در .env تنظیم کنید.'}</li>
         <li className={data.database.engine === 'PostgreSQL' ? 'is-ok' : 'is-warn'}><b>پایگاه داده:</b> {data.database.engine === 'PostgreSQL' ? 'PostgreSQL (مناسب ترافیک بالا)' : 'SQLite — برای ترافیک بالا به PostgreSQL مهاجرت کنید (راهنمای DEPLOY-FA.md).'}</li>
         <li className={data.cdn.assetPrefix ? 'is-ok' : ''}><b>CDN فایل‌های برنامه:</b> {data.cdn.assetPrefix ? <bdi dir="ltr">{data.cdn.assetPrefix}</bdi> : 'تنظیم نشده (CDN_URL) — با کلادفلر روی کل دامنه هم کافی است.'}</li>
         <li className={data.cdn.mediaCdn ? 'is-ok' : ''}><b>CDN تصاویر:</b> {data.cdn.mediaCdn ? <bdi dir="ltr">{data.cdn.mediaCdn}</bdi> : 'تنظیم نشده (NEXT_PUBLIC_MEDIA_CDN) — تصاویر با کش یک‌ساله از خود سایت سرو می‌شوند.'}</li>
