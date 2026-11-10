@@ -98,7 +98,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
       items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home', exact: true }] },
     // MoboCom Cloud has its own group: overview, building, and each family; the older «سرویس‌های من» address stays.
     { id: 'cloud', caption: cloudName, title: cloudName, icon: 'cloud', items: hostingOn ? [
-      { href: '/dashboard/cloud', label: L('نمای کلی کلاد', 'Cloud overview'), icon: 'cloud', exact: true },
+      { href: '/dashboard/cloud', label: L('نمای کلی', 'Overview'), icon: 'cloud', exact: true },
       { href: '/dashboard/cloud/new', label: L('ساخت سرور و سرویس', 'Build a service'), icon: 'plus' },
       { href: '/dashboard/cloud/servers', label: L('سرورهای من', 'My servers'), icon: 'server' },
       { href: '/dashboard/cloud/hosting', label: L('هاست‌های من', 'My hosting'), icon: 'layers' },
