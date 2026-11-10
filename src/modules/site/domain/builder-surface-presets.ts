@@ -1,6 +1,6 @@
 import { createSection, createWidget, emptyDoc, type BuilderDoc } from './builder'
 import type { BundledTemplate } from './builder-templates'
-import { DASHBOARD_PARTS } from './builder-surfaces'
+import { DASHBOARD_PARTS } from '@/modules/site/domain/builder-surfaces'
 
 function entry(): BuilderDoc {
   const doc = emptyDoc(), hero = createSection(1), body = createSection(1)

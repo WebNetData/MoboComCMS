@@ -1,7 +1,7 @@
 // Real PostgreSQL: who sees a popup and how often, on two connections like two server processes. Every kind of site group
 // is read from its own real rows. Only the module switches are a double. POPUP_FAULT=claim drops the claim on the row;
 // POPUP_FAULT=expired reads a VIP period that has ended as if it were live.
-const fs = require('node:fs'), assert = require('node:assert/strict')
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict')
 const ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), other = new PrismaClient(), prefix = `site-popups-${Date.now()}`, ids = { users: [], popups: [], roles: [], plans: [], forum: [], products: [] }
 const fault = process.env.POPUP_FAULT || ''
@@ -22,7 +22,12 @@ function instance(db) {
     if (fault === 'expired' && file.endsWith('server/site-groups.ts')) text = text.replace(', endsAt: { gt: now } })', ' })')
     new Function('require', 'module', 'exports', ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText)((name) => {
       if (Object.hasOwn(mocks, name)) return mocks[name]
-      if (name.startsWith('@/')) { const base = `src/${name.slice(2)}`; return load(fs.existsSync(`${base}.ts`) ? `${base}.ts` : `${base}/index.ts`) }
+      // Owners import by @/ path or relative to their own file; JSON manifests are data.
+      if (name.startsWith('@/') || name.startsWith('.')) {
+        const base = name.startsWith('@/') ? `src/${name.slice(2)}` : path.relative(process.cwd(), path.resolve(path.dirname(file), name)).split(path.sep).join('/')
+        if (base.endsWith('.json')) return JSON.parse(fs.readFileSync(base, 'utf8'))
+        return load(fs.existsSync(`${base}.ts`) ? `${base}.ts` : `${base}/index.ts`)
+      }
       return require(name)
     }, mod, mod.exports)
     return mod.exports
