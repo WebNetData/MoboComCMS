@@ -79,6 +79,9 @@ export const LINK_AUDIO = ['', 'ORIGINAL', 'DUBBED'] as const
 export const LINK_OWNERS = ['title', 'episode', 'game', 'gameupdate', 'software', 'softwarerelease'] as const
 export type LinkOwner = typeof LINK_OWNERS[number]
 
+const EMBED_HOSTS = new Set(['www.youtube-nocookie.com', 'www.youtube.com', 'youtube.com', 'www.aparat.com', 'aparat.com', 'player.vimeo.com', 'www.namasha.com', 'namasha.com', 'tamasha.com'])
+const allowedEmbedUrl = (value: string) => { try { const url = new URL(value); return url.protocol === 'https:' && EMBED_HOSTS.has(url.hostname.toLowerCase()) } catch { return false } }
+
 export type LinkInput = { label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; language: string; url: string; embedUrl: string; access: string; sortOrder: number; disabled?: boolean }
 
 /** Validates download/stream links. Only http(s) URLs are accepted. */
@@ -96,7 +99,7 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
     if (embedUrl) {
       let embed: URL
       try { embed = new URL(embedUrl) } catch { throw new Error('نشانی Embed نامعتبر است / Invalid embed URL') }
-      if (embed.protocol !== 'https:') throw new Error('نشانی Embed باید HTTPS باشد / Embed URL must use HTTPS')
+      if (embed.protocol !== 'https:' || !EMBED_HOSTS.has(embed.hostname.toLowerCase())) throw new Error('دامنه Embed پشتیبانی نمی‌شود؛ از YouTube، Aparat، Vimeo، Namasha یا Tamasha استفاده کنید / Unsupported embed host')
     }
     const checksum = String(r.checksum || '').trim().toLowerCase()
     if (checksum && !/^[a-f0-9]{64}$/.test(checksum)) throw new Error('SHA-256 فایل باید ۶۴ نویسهٔ هگزادسیمال باشد')
@@ -193,7 +196,7 @@ const OTHER_EXT = /\.(avi|wmv|flv|rmvb|ts|zip|rar|7z|iso|exe|apk|dmg|srt|ass)$/i
 export function playbackKind(rawUrl: string, kind: string, toEmbed: (raw: string) => string = (raw) => raw, explicitEmbedUrl = ''): PlaybackKind {
   // A subtitle or a separate audio file is fetched, never played as the video.
   if (isTrack(kind)) return 'none'
-  if (String(explicitEmbedUrl || '').trim()) { try { if (new URL(explicitEmbedUrl).protocol === 'https:') return 'embed' } catch { /* invalid explicit embed */ } }
+  if (String(explicitEmbedUrl || '').trim() && allowedEmbedUrl(explicitEmbedUrl)) return 'embed'
   let url: URL
   const raw = String(rawUrl || '').trim(), local = /^\/files\/[^\s<>\\]+$/.test(raw)
   let path: string
