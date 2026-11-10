@@ -7,6 +7,8 @@ import GalleryUpload from '@/components/media/GalleryUpload'
 type Attribute = { key: string; label: string; labelEn: string; kind: 'text' | 'select' | 'color'; options: string[]; required: boolean; variant?: boolean }
 type Category = { id: number; parentId?: number | null; attributeGroup?: { fields: string; name: string } | null }
 
+const DECIMAL = new Set(['fxAmount', 'markupPercent', 'markupFixed'])
+
 function parsed<T>(value: unknown, fallback: T): T {
   if (typeof value !== 'string') return (value ?? fallback) as T
   try { return JSON.parse(value) as T } catch { return fallback }
@@ -41,10 +43,10 @@ export default function ProductExtrasEditor({ form, setForm, categories }: { for
       {variants.map((variant, index) => <div className="store-admin-variant" key={variant.id || index}>
         <div className="store-admin-grid">
           {(fx
-            ? [['sku', 'SKU'], ['name', fa ? 'نام گونه' : 'Variant name'], ['nameEn', 'English name'], ['fxAmount', fa ? `قیمت ارزی (${form.fxCurrency || 'USD'}) — خالی = قیمت محصول` : `Cost (${form.fxCurrency || 'USD'}) — empty = product cost`], ['stock', fa ? 'موجودی (-۱ نامحدود)' : 'Stock (-1 unlimited)']] as const
+            ? [['sku', 'SKU'], ['name', fa ? 'نام گونه' : 'Variant name'], ['nameEn', 'English name'], ['fxAmount', fa ? `قیمت ارزی (${form.fxCurrency || 'USD'}) — خالی = قیمت محصول` : `Cost (${form.fxCurrency || 'USD'}) — empty = product cost`], ['markupPercent', fa ? 'درصد سود این گونه (٪) — خالی = سود محصول' : 'Profit % — empty = product'], ['markupFixed', fa ? `سود ثابت این گونه (${form.currency === 'IRR' ? 'ریال' : 'تومان'}) — خالی = سود محصول` : 'Fixed profit — empty = product'], ['stock', fa ? 'موجودی (-۱ نامحدود)' : 'Stock (-1 unlimited)']] as const
             : [['sku', 'SKU'], ['name', fa ? 'نام گونه' : 'Variant name'], ['nameEn', 'English name'], ['price', fa ? 'قیمت' : 'Price'], ['memberPrice', fa ? 'قیمت VIP' : 'VIP price'], ['stock', fa ? 'موجودی (-۱ نامحدود)' : 'Stock (-1 unlimited)']] as const
-          ).map(([key, label]) => <label key={key} data-vip={key === 'memberPrice' ? '' : undefined} className="store-admin-field"><span>{label}</span><input className="input" dir={key === 'fxAmount' ? 'ltr' : undefined} inputMode={key === 'fxAmount' ? 'decimal' : undefined} type={key === 'price' || key === 'memberPrice' || key === 'stock' ? 'number' : 'text'} step={key === 'price' || key === 'memberPrice' ? '.01' : undefined} value={variant[key] ?? ''} onChange={e => update('variants', variants.map((v, i) => i === index ? { ...v, [key]: e.target.value } : v))} /></label>)}
-          {fx ? <VariantFxPrice form={form} amount={String(variant.fxAmount || '')} saved={Number(variant.price) || 0} fa={fa} /> : null}
+          ).map(([key, label]) => <label key={key} data-vip={key === 'memberPrice' ? '' : undefined} className="store-admin-field"><span>{label}</span><input className="input" dir={DECIMAL.has(key) ? 'ltr' : undefined} inputMode={DECIMAL.has(key) ? 'decimal' : undefined} placeholder={key === 'markupPercent' ? String(form.markupPercent || '0') : key === 'markupFixed' ? String(form.markupFixed || '0') : undefined} type={key === 'price' || key === 'memberPrice' || key === 'stock' ? 'number' : 'text'} step={key === 'price' || key === 'memberPrice' ? '.01' : undefined} value={variant[key] ?? ''} onChange={e => update('variants', variants.map((v, i) => i === index ? { ...v, [key]: DECIMAL.has(key) ? e.target.value.replace(/[^\d.]/g, '') : e.target.value } : v))} /></label>)}
+          {fx ? <VariantFxPrice form={form} amount={String(variant.fxAmount || '')} percent={String(variant.markupPercent ?? '')} fixed={String(variant.markupFixed ?? '')} saved={Number(variant.price) || 0} fa={fa} /> : null}
           {fields.filter(field => field.variant).map(field => <label key={field.key} className="store-admin-field"><span>{fa ? field.label : field.labelEn || field.label}</span>{field.kind === 'text' ? <input className="input" value={parsed<Record<string, string>>(variant.attributes, {})[field.key] || ''} onChange={e => update('variants', variants.map((v, i) => i === index ? { ...v, attributes: { ...parsed<Record<string, string>>(v.attributes, {}), [field.key]: e.target.value } } : v))} /> : <select className="select" value={parsed<Record<string, string>>(variant.attributes, {})[field.key] || ''} onChange={e => update('variants', variants.map((v, i) => i === index ? { ...v, attributes: { ...parsed<Record<string, string>>(v.attributes, {}), [field.key]: e.target.value } } : v))}><option value="">—</option>{field.options.map(option => <option key={option}>{option}</option>)}</select>}</label>)}
         </div><button type="button" className="btn btn-ghost" onClick={() => update('variants', variants.filter((_, i) => i !== index))}>{fa ? 'حذف گونه' : 'Remove variant'}</button>
       </div>)}
@@ -57,20 +59,22 @@ export default function ProductExtrasEditor({ form, setForm, categories }: { for
 }
 
 /** Live selling price of one variant of a foreign-currency product (the same server calculation the save uses). */
-function VariantFxPrice({ form, amount, saved, fa }: { form: Record<string, any>; amount: string; saved: number; fa: boolean }) {
+function VariantFxPrice({ form, amount, percent, fixed, saved, fa }: { form: Record<string, any>; amount: string; percent: string; fixed: string; saved: number; fa: boolean }) {
   const [total, setTotal] = useState<string | null>(null)
   const cost = amount.trim() || String(form.fxAmount || '')
   const sell = form.currency === 'IRR' ? 'IRR' : 'IRT'
+  // The variant's own profit when typed, otherwise the product's.
+  const markupPercent = percent.trim() || form.markupPercent, markupFixed = fixed.trim() || form.markupFixed
   useEffect(() => {
     if (!cost) { setTotal(null); return }
     const controller = new AbortController()
     const timer = setTimeout(async () => {
-      const response = await fetch('/api/admin/fx', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ op: 'preview', currency: sell, fxCurrency: form.fxCurrency || 'USD', fxAmount: cost, markupPercent: form.markupPercent, markupFixed: form.markupFixed }) }).catch(() => null)
+      const response = await fetch('/api/admin/fx', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ op: 'preview', currency: sell, fxCurrency: form.fxCurrency || 'USD', fxAmount: cost, markupPercent, markupFixed }) }).catch(() => null)
       const body = await response?.json().catch(() => null)
       setTotal(response?.ok && body?.total ? String(body.total) : null)
     }, 400)
     return () => { clearTimeout(timer); controller.abort() }
-  }, [cost, sell, form.fxCurrency, form.markupPercent, form.markupFixed])
+  }, [cost, sell, form.fxCurrency, markupPercent, markupFixed])
   const unit = sell === 'IRR' ? 'ریال' : 'تومان'
   const shown = total ? Number(total) : saved
   if (!shown) return <p className="muted text-sm">{fa ? 'قیمت ارزی محصول را وارد کنید تا قیمت این گونه محاسبه شود.' : 'Enter the product cost to see this variant price.'}</p>

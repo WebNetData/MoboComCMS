@@ -1029,6 +1029,8 @@ model ProductVariant {
   memberPriceMinor BigInt @default(0)
   compareAtMinor BigInt @default(0)
   fxAmountMinor BigInt @default(0) // foreign cost of this variant when the product is FX-priced; 0 = product cost
+  markupBps   Int? // own profit percentage (basis points) of an FX variant; null = the product's
+  markupFixedMinor BigInt? // own fixed profit (sell-currency minor units) of an FX variant; null = the product's
   image       String @default("") // photo of this variant (shown when it is selected)
   stock       Int @default(-1)
   active      Boolean @default(true)

@@ -199,6 +199,8 @@ export async function rejectPending(code: string) {
 
 type FxFields = { pricingMode: string; fxCurrency: string; fxAmountMinor: bigint; fxCompareAtMinor: bigint; fxMemberMinor: bigint; markupBps: number; markupFixedMinor: bigint; currency: string }
 
+export type VariantMarkup = { markupBps?: number | null; markupFixedMinor?: bigint | null }
+
 const roundFor = (currency: string, roundToman: number) => (currency === 'IRT' || currency === 'TMN' ? roundToman : currency === 'IRR' ? roundToman * 10 : 1)
 
 function priceOf(row: FxFields, amount: bigint, rates: Rates, roundToman: number) {
@@ -214,7 +216,12 @@ export function fxProductPrices(row: FxFields, rates: Rates, roundToman: number)
     priceMinor,
     compareAtMinor: compareAtMinor > priceMinor ? compareAtMinor : 0n,
     memberPriceMinor: memberPriceMinor > 0n && memberPriceMinor < priceMinor ? memberPriceMinor : 0n,
-    variant: (amount: bigint) => (amount > 0n ? priceOf(row, amount, rates, roundToman) : priceMinor),
+    // A variant prices its own foreign cost (0 = the product's) with its own profit when it has one (null = the product's).
+    variant: (amount: bigint, own: VariantMarkup = {}) => {
+      const custom = own.markupBps != null || own.markupFixedMinor != null
+      if (!custom) return amount > 0n ? priceOf(row, amount, rates, roundToman) : priceMinor
+      return priceOf({ ...row, markupBps: own.markupBps ?? row.markupBps, markupFixedMinor: own.markupFixedMinor ?? row.markupFixedMinor }, amount > 0n ? amount : row.fxAmountMinor, rates, roundToman)
+    },
   }
 }
 
@@ -256,6 +263,12 @@ export async function fxProductInput(b: Record<string, any>, existing: Partial<F
   return { fields: { ...fields, repricedAt: new Date() }, prices, fxCurrency }
 }
 
+/** A variant's own profit typed beside its foreign cost; an empty box keeps the product's. */
+export function variantMarkupInput(variant: Record<string, unknown>, sellCurrency: string): { markupBps: number | null; markupFixedMinor: bigint | null } {
+  const percent = String(variant.markupPercent ?? '').trim(), fixed = String(variant.markupFixed ?? '').trim()
+  return { markupBps: percent === '' ? null : percentToBps(percent), markupFixedMinor: fixed === '' ? null : decimalInput(fixed, sellCurrency, 'سود ثابت تنوع') }
+}
+
 /** A variant's foreign cost from its old price relative to the product's (0 = same as the product). */
 export function proportionalCost(productCost: bigint, variantPrice: number, productPrice: number): bigint {
   if (!(productCost > 0n) || !Number.isFinite(variantPrice) || !Number.isFinite(productPrice) || variantPrice <= 0 || productPrice <= 0) return 0n
@@ -280,7 +293,8 @@ export async function applyFxToBody(b: Record<string, any>, existing: Partial<Fx
     body.variants = b.variants.map((variant: Record<string, unknown>) => {
       let own = decimalInput(variant.fxAmount, fx.fxCurrency, 'قیمت ارزی تنوع')
       if (!own && switching) own = proportionalCost(fx.fields.fxAmountMinor, Number(variant.price), oldProduct)
-      return { ...variant, fxAmountMinor: own, price: decimal(prices.variant(own)), compareAtPrice: '', memberPrice: '' }
+      const markup = variantMarkupInput(variant, sellCurrency)
+      return { ...variant, fxAmountMinor: own, ...markup, price: decimal(prices.variant(own, markup)), compareAtPrice: '', memberPrice: '' }
     })
   }
   return { body, fields: fx.fields }
@@ -294,7 +308,7 @@ export async function repriceProducts(filter: { currencies?: string[]; ids?: num
   const [rates, config] = await Promise.all([loadRates(), getFxConfig()])
   const products = await db.product.findMany({
     where: { pricingMode: 'FX', ...(filter.currencies ? { fxCurrency: { in: filter.currencies } } : {}), ...(filter.ids ? { id: { in: filter.ids } } : {}) },
-    select: { id: true, currency: true, priceMinor: true, compareAtMinor: true, memberPriceMinor: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, variants: { select: { id: true, priceMinor: true, compareAtMinor: true, memberPriceMinor: true, fxAmountMinor: true } } },
+    select: { id: true, currency: true, priceMinor: true, compareAtMinor: true, memberPriceMinor: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, variants: { select: { id: true, priceMinor: true, compareAtMinor: true, memberPriceMinor: true, fxAmountMinor: true, markupBps: true, markupFixedMinor: true } } },
   })
   let count = 0
   const byCurrency: Record<string, number> = {}
@@ -308,7 +322,7 @@ export async function repriceProducts(filter: { currencies?: string[]; ids?: num
       try { prices = fxProductPrices(product, rates, config.roundToman) } catch { return null }
       if (prices.priceMinor <= 0n) return null
       const variantUpdates = product.variants.flatMap((variant) => {
-        const priceMinor = prices.variant(variant.fxAmountMinor)
+        const priceMinor = prices.variant(variant.fxAmountMinor, variant)
         if (priceMinor === variant.priceMinor) return []
         return [{ id: variant.id, data: { priceMinor, price: legacyNumber(priceMinor, product.currency), compareAtMinor: scaleAlong(variant.compareAtMinor, variant.priceMinor, priceMinor), memberPriceMinor: scaleAlong(variant.memberPriceMinor, variant.priceMinor, priceMinor) } }]
       })
