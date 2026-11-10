@@ -96,5 +96,7 @@ test('media link embed URL validation and explicit embed playback', () => {
   const [link] = cleanLinks([{ url: 'https://provider.example/watch/123', kind: 'STREAM', embedUrl: 'https://player.provider.example/embed/123' }])
   assert.equal(link.embedUrl, 'https://player.provider.example/embed/123')
   assert.equal(playbackKind(link.url, link.kind, value => value, link.embedUrl), 'embed')
+  assert.equal(playbackKind('https://cdn.example/video.m3u8', 'STREAM'), 'hls')
+  assert.equal(playbackKind('https://cdn.example/video.mp4', 'STREAM'), 'video')
   assert.throws(() => cleanLinks([{ url: 'https://provider.example/watch/123', kind: 'STREAM', embedUrl: 'javascript:alert(1)' }]), /HTTPS/)
 })
