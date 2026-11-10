@@ -5,7 +5,7 @@ async function publicStyles(page: Page) {
   return page.evaluate(() => {
     const sample = document.createElement('div')
     sample.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none'
-    sample.innerHTML = '<button class="btn btn-secondary">نمونه</button><h3 class="h3">نمونه</h3><table class="table"><tbody><tr><th>نمونه</th><td>نمونه</td></tr></tbody></table><div class="sh-sticky-save">نمونه</div>'
+    sample.innerHTML = '<button class="btn btn-secondary">نمونه</button><h3 class="h3">نمونه</h3><table class="table"><tbody><tr><th>نمونه</th><td>نمونه</td></tr></tbody></table><div class="sh-sticky-save">نمونه</div><div class="inv-deadline"><b>مهلت پرداخت</b><div class="inv-deadline-timer"><b>۲ ساعت</b></div></div>'
     document.body.append(sample)
     const result = [...sample.querySelectorAll('*')].map(element => {
       const css = getComputedStyle(element)
@@ -36,6 +36,20 @@ test('Admin styles do not leak into public pages after client navigation', async
     expect(await publicStyles(page)).toEqual(before)
     expect(errors).toEqual([])
   } finally { await context.close() }
+})
+
+test('A fresh guest page keeps shared invoice styling without downloading the Admin desk or automation styles', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'load' })
+  await expect(page.locator('main').first()).toBeVisible()
+  const urls = await page.locator('link[rel="stylesheet"]').evaluateAll(nodes => [...new Set(nodes.map(node => (node as HTMLLinkElement).href))])
+  const styles = await page.evaluate(async urls => Promise.all(urls.map(async url => {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Stylesheet returned ${response.status}`)
+    return response.text()
+  })), urls)
+  expect(styles.join('\n')).toContain('.inv-deadline')
+  expect(styles.join('\n')).not.toContain('.ivd-tiles')
+  expect(styles.join('\n')).not.toContain('.am-recipes')
 })
 
 test('Admin article edit persists and retains its draft on a failed save', async ({ admin, browser, baseURL }) => {
