@@ -33,31 +33,11 @@ type Overview = {
 const fa = (n: number) => n.toLocaleString('fa-IR')
 const todayFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Tehran' })
 
-/** A figure that counts up once when the home opens; it is shown at once to those who ask for less motion. */
-function Count({ value, format = fa }: { value: number; format?: (n: number) => string }) {
-  const calm = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const [shown, setShown] = useState(() => (value > 0 && !calm() ? 0 : value))
-  useEffect(() => {
-    if (!value || calm()) { setShown(value); return }
-    let frame = 0
-    const start = performance.now()
-    const step = (now: number) => { const t = Math.min(1, (now - start) / 900); setShown(Math.round(value * (1 - (1 - t) ** 3))); if (t < 1) frame = requestAnimationFrame(step) }
-    frame = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(frame)
-  }, [value])
-  return <>{format(shown)}</>
-}
 const ago = (iso: string) => { const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000); if (s < 3600) return `${fa(Math.max(1, Math.floor(s / 60)))} دقیقه پیش`; if (s < 86400) return `${fa(Math.floor(s / 3600))} ساعت پیش`; return `${fa(Math.floor(s / 86400))} روز پیش` }
 const dayFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const persianDay = (key: string) => dayFormat.format(new Date(`${key}T12:00:00Z`))
 const STATE: Record<string, [string, string]> = { PENDING: ['در انتظار پرداخت', 'is-warn'], PAID: ['پرداخت‌شده', 'is-ok'], FAILED: ['ناموفق', 'is-bad'], CANCELLED: ['لغوشده', ''], EXPIRED: ['منقضی', ''] }
 const FULFIL: Record<string, string> = { PENDING: 'در صف پردازش', PROCESSING: 'در حال آماده‌سازی', PACKED: 'بسته‌بندی شد', SHIPPED: 'ارسال شد', DELIVERED: 'تحویل شد', CANCELLED: 'لغو شد', RETURNED: 'مرجوع شد' }
-
-function Greeting({ name }: { name: string }) {
-  const hour = new Date().getHours()
-  const part = hour < 5 ? 'شب بخیر' : hour < 12 ? 'صبح بخیر' : hour < 17 ? 'روز بخیر' : hour < 21 ? 'عصر بخیر' : 'شب بخیر'
-  return <>{part}، {name}</>
-}
 
 /** 12-week contribution calendar (Saturday-first weeks), one hue in 5 steps, hover/focus readout. */
 function ActivityGrid({ days, counts }: { days: string[]; counts: number[] }) {
@@ -117,8 +97,8 @@ export default function DashboardHome({ children }: { children?: ReactNode }) {
         </span>
         <div className="ud-hero-copy">
           <span className="ud-today">{todayFormat.format(new Date())}</span>
-          <h1><Greeting name={data.user.name} /></h1>
-          <p>{p.headline || 'به پیشخوان خودتان خوش آمدید'} · <bdi dir="ltr">@{p.username}</bdi>{p.verified && <span className="ud-verified" title="تأییدشده"><Icon name="check" size={12} /></span>}</p>
+          <h1>{data.user.name}</h1>
+          <p>{p.headline && <>{p.headline} · </>}<bdi dir="ltr">@{p.username}</bdi>{p.verified && <span className="ud-verified" title="تأییدشده"><Icon name="check" size={12} /></span>}</p>
           {m.community && <div className="ud-hero-stats"><Link href={`/u/${p.username}?tab=followers`}><b>{fa(p.followers)}</b> دنبال‌کننده</Link><Link href={`/u/${p.username}?tab=following`}><b>{fa(p.following)}</b> دنبال‌شونده</Link><Link href={`/u/${p.username}?tab=posts`}><b>{fa(p.posts)}</b> پست</Link></div>}
         </div>
         <div className="ud-hero-actions">
@@ -136,13 +116,13 @@ export default function DashboardHome({ children }: { children?: ReactNode }) {
 
     <div className="ud-kpis" data-dashboard-part="metrics">
       <Link href="/dashboard/wallet" className="ud-kpi is-wallet">
-        <span className="ud-wallet-top" aria-hidden="true"><span className="ud-wallet-chip" /><Icon name="wallet" size={22} /></span>
-        <small>موجودی کیف پول</small><b className="num"><Count value={main.balance} format={(n) => money(n, main.currency)} /></b>
-        {others.length > 0 ? <span className="ud-kpi-more">{others.map((w) => <i key={w.currency} className="num">{money(w.balance, w.currency)}</i>)}</span> : <span>شارژ و پرداخت با یک لمس<Icon name="arrow" size={15} /></span>}</Link>
-      <Link href="/dashboard/invoices?status=UNPAID" className={`ud-kpi${unpaidCount ? ' is-warn' : ''}`}><span className="ud-kpi-icon" aria-hidden="true"><Icon name="receipt" size={18} /></span><small>فاکتورهای پرداخت‌نشده</small><b className="num"><Count value={unpaidCount} /></b>
+        <span className="ud-kpi-icon" aria-hidden="true"><Icon name="wallet" size={18} /></span>
+        <small>موجودی کیف پول</small><b className="num">{money(main.balance, main.currency)}</b>
+        {others.length > 0 ? <span className="ud-kpi-more">{others.map((w) => <i key={w.currency} className="num">{money(w.balance, w.currency)}</i>)}</span> : <span>شارژ کیف پول<Icon name="arrow" size={15} /></span>}</Link>
+      <Link href="/dashboard/invoices?status=UNPAID" className={`ud-kpi${unpaidCount ? ' is-warn' : ''}`}><span className="ud-kpi-icon" aria-hidden="true"><Icon name="receipt" size={18} /></span><small>فاکتورهای پرداخت‌نشده</small><b className="num">{fa(unpaidCount)}</b>
         <span>{unpaidCount ? unpaid.map((w) => money(w.unpaid, w.currency)).join(' · ') : 'همه پرداخت شده‌اند'}</span></Link>
-      {m.store && <Link href="/dashboard/orders" className="ud-kpi"><span className="ud-kpi-icon" aria-hidden="true"><Icon name="bag" size={18} /></span><small>سفارش‌های در جریان</small><b className="num"><Count value={data.orders.inProgress} /></b><span>پیگیری مرسوله‌ها</span></Link>}
-      <Link href="/dashboard/notifications" className={`ud-kpi${data.inbox.unread ? ' is-hot' : ''}`}><span className="ud-kpi-icon" aria-hidden="true"><Icon name="bell" size={18} /></span><small>اعلان خوانده‌نشده</small><b className="num"><Count value={data.inbox.unread} /></b><span>{m.forum ? `${fa(data.inbox.messages)} پیام خصوصی تازه` : 'صندوق اعلان‌ها'}</span></Link>
+      {m.store && <Link href="/dashboard/orders" className="ud-kpi"><span className="ud-kpi-icon" aria-hidden="true"><Icon name="bag" size={18} /></span><small>سفارش‌های در جریان</small><b className="num">{fa(data.orders.inProgress)}</b><span>پیگیری مرسوله‌ها</span></Link>}
+      <Link href="/dashboard/notifications" className={`ud-kpi${data.inbox.unread ? ' is-hot' : ''}`}><span className="ud-kpi-icon" aria-hidden="true"><Icon name="bell" size={18} /></span><small>اعلان خوانده‌نشده</small><b className="num">{fa(data.inbox.unread)}</b><span>{m.forum ? `${fa(data.inbox.messages)} پیام خصوصی تازه` : 'صندوق اعلان‌ها'}</span></Link>
       {m.membership && <Link href="/vip" className={`ud-kpi${data.vip ? ' is-vip' : ''}`}><span className="ud-kpi-icon" aria-hidden="true"><Icon name="crown" size={18} /></span><small>اشتراک ویژه</small><b>{data.vip ? `${fa(data.vip.daysLeft)} روز` : 'غیرفعال'}</b><span>{data.vip ? `تا ${new Date(data.vip.endsAt).toLocaleDateString('fa-IR')}` : 'مشاهدهٔ پلن‌ها'}</span></Link>}
     </div>
     {data.prompts && <MemberPromptShelf data-dashboard-part="prompts" data={data.prompts} />}

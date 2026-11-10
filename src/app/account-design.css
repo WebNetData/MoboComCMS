@@ -1,134 +1,189 @@
 /* ============================================================
-   Account design: one page header, one card surface, status pills,
-   fields and a quiet entrance for every page of the member dashboard.
-   Loaded by src/app/dashboard/layout.tsx and rooted in .member-shell,
-   so the seller panel and public pages keep their own look. Project
-   tokens only, so both themes and every code theme follow.
+   Account design: the member dashboard's last word on presentation.
+   Loaded by src/app/dashboard/AccountShell.tsx and rooted in .member-shell,
+   so the admin, seller and reseller shells and the public pages keep theirs.
+   Project tokens only, so both themes and every code theme follow.
+
+   2026-11-10 (owner: "it must not look designed by AI"): one quiet system,
+   the same as the site header. Neutral surfaces and hairlines; the member's
+   own cover, portrait and completeness ring are the page's colour; the one
+   accent marks the main action, links and the current page (a 2px rule, the
+   header's section tab). No ambient light, glass, glow, hue gradient, light
+   under the pointer, counting figures, looping or entrance motion, or lifts.
    ============================================================ */
+
+.member-shell {
+  --acc-line: var(--border);
+  --acc-strong: color-mix(in srgb, var(--text) 22%, var(--border));
+  --acc-hover: color-mix(in srgb, var(--text) 5%, transparent);
+  --acc-ground: var(--bg);
+  --acc-radius: 16px;
+}
+html[data-theme='dark'] .member-shell { --acc-hover: color-mix(in srgb, var(--text) 7%, transparent); }
+
+/* ---------- the room: the page's own ground ---------- */
+html[data-design] .member-shell.app-shell > .flex-1 { background: var(--bg); }
+
+/* ---------- the top bar: solid, the path as plain text, one control shape ---------- */
+html[data-design] .member-shell.app-shell .dash-top { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid var(--acc-line); background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.member-shell .dash-crumbs { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted); font-size: 14px; }
+.member-shell .dash-crumbs a { color: var(--muted); }
+.member-shell .dash-crumbs a:hover { color: var(--text); }
+.member-shell .dash-crumbs b { color: var(--text); font-weight: 600; }
+html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon) { min-height: 40px; border: 1px solid var(--acc-line); border-radius: 10px; background: var(--card); color: var(--text); box-shadow: none; transition: border-color .15s ease, background-color .15s ease; }
+html[data-design] .member-shell.app-shell .dash-top-icon { width: 40px; height: 40px; }
+html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon):hover { border-color: var(--acc-strong); background: var(--acc-hover); transform: none; }
+html[data-design] .member-shell.app-shell :is(.dash-top, .mobile-bar) .preference-control { border: 1px solid var(--acc-line); border-radius: 10px; background: var(--card); color: var(--muted); box-shadow: none; }
+html[data-design] .member-shell.app-shell :is(.dash-top, .mobile-bar) .preference-control:hover { border-color: var(--acc-strong); background: var(--acc-hover); color: var(--text); }
+.member-shell .dash-top-user .avatar, html[data-design] .member-shell.app-shell .ws-foot .side-user .avatar { box-shadow: 0 0 0 1px var(--acc-line); }
+.member-shell :is(.dash-top-link, .dash-top-icon, .dash-top-user, .dash-crumbs a):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ---------- the side menu: one surface, quiet captions, the current page as a rule ---------- */
+html[data-design] .member-shell.app-shell > .side { background: var(--card); border-inline-end-color: var(--acc-line); }
+.member-shell .ws-caption { display: block; padding: 20px 10px 8px; color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+.member-shell .ws-caption::after { content: none; }
+.member-shell .ws-tile { border-color: var(--acc-line); background: transparent; color: var(--muted); }
+.member-shell .ws-group.has-active > .ws-toggle .ws-tile, .member-shell .side-link-active.ws-flat .ws-tile { border-color: var(--acc-strong); background: transparent; color: var(--text); box-shadow: none; }
+.member-shell .ws-toggle:hover .ws-tile { border-color: var(--acc-strong); color: var(--text); }
+html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover { background: var(--acc-hover); color: var(--text); padding-inline-start: 10px; }
+html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover .side-icon { transform: none; color: inherit; }
+html[data-design] .member-shell.app-shell :is(.ws-items .side-link.ws-item.side-link-active, .side-link-active.ws-flat) { background: var(--acc-hover) !important; color: var(--text); font-weight: 600; box-shadow: none; }
+.member-shell .ws-item.side-link-active::before { width: 2px; box-shadow: none; background: var(--primary); }
+html[data-design] .member-shell.app-shell .ws-foot .side-user { border: 1px solid var(--acc-line); background: transparent; }
+html[data-design] .member-shell.app-shell .ws-foot .side-user:hover { background: var(--acc-hover); }
 
 /* ---------- page header: one size, one rhythm ---------- */
 html[data-design] .member-shell .app-main :is(.dt-head, .sx-my-head, .sh-book-head, .gc-head, .pw-page-head, .ulib-head, .collections-head, .gv-mylib-head, .pr-head, .nc-header, .np-header, .ticket-ops-header, .dash-page-head) h1 {
   margin: 0;
   font-size: clamp(22px, 1.1vw + 13px, 28px);
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.5;
-  letter-spacing: -.01em;
   text-wrap: balance;
 }
 html[data-design] .member-shell .app-main :is(.dt-head, .sx-my-head, .sh-book-head, .gc-head, .pw-page-head, .ulib-head, .collections-head, .gv-mylib-head, .pr-head, .nc-header, .np-header, .ticket-ops-header, .dash-page-head) h1 + p,
 html[data-design] .member-shell .app-main :is(.dt-head, .sx-my-head, .sh-book-head, .gc-head, .pw-page-head, .ulib-head, .collections-head, .gv-mylib-head, .pr-head, .nc-header, .np-header, .ticket-ops-header, .dash-page-head) > div > p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   max-width: 72ch;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.9;
 }
 
 /* ---------- a number on a line of its own sits under its label, on the right ---------- */
 /* `.num` lets its digits decide the direction, so a figure alone would read from the left edge of a right-to-left card. */
 html[dir='rtl'] .member-shell .app-main .num { text-align: right; }
-.member-shell .app-main .dt-tile { align-content: start; gap: 4px; min-height: 124px; padding: 18px 20px; }
-.member-shell .app-main .dt-tile small { padding-inline-end: 46px; font-size: 13px; }
-.member-shell .app-main .dt-tile b { justify-self: start; margin-top: 4px; font-size: 32px; font-weight: 800; line-height: 1.3; }
-.member-shell .app-main .dt-tile em { margin-top: auto; }
-.member-shell .app-main .dt-tile-icon { width: 40px; height: 40px; border-radius: 13px; }
-.member-shell .app-main .dt-tile.is-on { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone, var(--primary)) 20%, transparent), 0 20px 40px -30px var(--tone, var(--primary)); }
+.member-shell .app-main .num { font-variant-numeric: tabular-nums; }
 
 /* ---------- one card surface ---------- */
-.member-shell .app-main :is(.ud-card, .dt-card, .dash-card, .rq-card, .np-panel, .nc-panel, .gc-grid > *, .ac-layout .card, .dash-split .card, .ticket-ops > .card, .pw-page .card) {
-  border-radius: 20px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--text) 2.5%, var(--card)), var(--card) 140px);
+.member-shell .app-main :is(.ud-card, .ud-hero, .ud-kpi, .dt-card, .dash-card, .rq-card, .np-panel, .nc-panel, .gc-grid > *, .ac-layout .card, .dash-split .card, .ticket-ops > .card, .pw-page .card, .dt-row, .dt-tile, .sx-svc, .sx-my-order, .collections-card) {
+  border-color: var(--acc-line);
+  border-radius: var(--acc-radius);
+  background: var(--card);
+  box-shadow: none;
 }
-html[data-theme='dark'] .member-shell .app-main :is(.ud-card, .dt-card, .dash-card, .rq-card, .np-panel, .nc-panel, .dt-row, .dt-tile, .sx-svc) { box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent); }
-.member-shell .app-main :is(.dt-row, .sx-svc, .ud-card, .rq-card) { transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
-.member-shell .app-main :is(.dt-row, .sx-svc):hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); box-shadow: 0 16px 30px -26px color-mix(in srgb, var(--primary) 80%, transparent); }
+.member-shell .app-main :is(a.ud-kpi, .dt-row, .sx-svc, .sx-my-order, .collections-card, .dt-tile) { transition: border-color .15s ease, background-color .15s ease; }
+.member-shell .app-main :is(a.ud-kpi, .dt-row, .sx-svc, .sx-my-order, .collections-card, .dt-tile):hover { border-color: var(--acc-strong); box-shadow: none; transform: none; }
+
+/* ---------- filter tiles: a number, its label and a plain mark ---------- */
+.member-shell .app-main .dt-tile { align-content: start; gap: 4px; min-height: 120px; padding: 20px; }
+.member-shell .app-main .dt-tile small { padding-inline-end: 44px; color: var(--muted); font-size: 13px; }
+.member-shell .app-main .dt-tile b { justify-self: start; margin-top: 4px; font-size: 28px; font-weight: 600; line-height: 1.3; }
+.member-shell .app-main .dt-tile em { margin-top: auto; }
+.member-shell .app-main .dt-tile-icon { width: 36px; height: 36px; border-radius: 10px; background: transparent; color: var(--muted); }
+.member-shell .app-main .dt-tile.is-on { border-color: var(--tone, var(--primary)); box-shadow: inset 0 0 0 1px var(--tone, var(--primary)); }
+
+/* ---------- the wallet page's balance: a figure on a card, not a coloured slab ---------- */
+.member-shell .app-main .dt-balance { border: 1px solid var(--acc-line); border-radius: var(--acc-radius); background: var(--card); color: var(--text); box-shadow: none; }
+.member-shell .app-main .dt-balance-icon { width: 48px; height: 48px; border: 1px solid var(--acc-line); border-radius: 12px; background: transparent; color: var(--muted); }
+.member-shell .app-main .dt-balance-main small { color: var(--muted); opacity: 1; }
+.member-shell .app-main .dt-balance-main b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .dt-balance-more button { border-color: var(--acc-line); background: transparent; color: var(--text); }
+.member-shell .app-main .dt-balance-stats div { border: 1px solid var(--acc-line); background: var(--acc-ground); }
+.member-shell .app-main .dt-balance-stats dt { color: var(--muted); opacity: 1; }
+.member-shell .app-main .dt-balance-stats dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .dt-balance-hint { padding-top: 12px; border-top: 1px solid var(--acc-line); color: var(--muted); font-size: 13px; opacity: 1; }
 
 /* ---------- status pills carry a dot of their colour ---------- */
 .member-shell .app-main :is(.dt-state, .rq-badge, .sx-svc-state) { display: inline-flex; align-items: center; gap: 6px; }
 .member-shell .app-main :is(.dt-state, .rq-badge, .sx-svc-state)::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
 /* Light pages: the accent and amber that sit on pale tints are deepened to reach 4.5:1. */
 html[data-theme='light'] .member-shell .app-main :is(.sx-state.is-info, .ticket-list-item-top small) { color: color-mix(in srgb, var(--primary) 58%, #000); }
-html[data-theme='light'] .member-shell .app-main :is(.dt-state.is-warn, .rq-badge.is-warn, .sx-svc-state.is-warn) { color: #92400e; }
+html[data-theme='light'] .member-shell .app-main :is(.dt-state.is-warn, .rq-badge.is-warn, .sx-svc-state.is-warn, .ud-state.is-warn) { color: #92400e; }
+html[data-theme='light'] .member-shell .app-main .ud-state.is-ok { color: color-mix(in srgb, var(--success) 58%, #000); }
+html[data-theme='light'] .member-shell .app-main .dt-tx-end .is-in { color: color-mix(in srgb, var(--success) 58%, #000); }
+html[data-theme='light'] .member-shell .app-main .ud-pill { color: var(--accent-ink, var(--primary)) !important; }
+/* A transaction still waiting is told by its status pill, not by fading the row below readable contrast; its amount is not yet
+   money in the wallet, so it reads in the muted colour. */
+.member-shell .app-main .dt-tx li.is-muted { opacity: 1; }
+.member-shell .app-main .dt-tx li.is-muted .dt-tx-end b { color: var(--muted); }
+.member-shell .app-main .ud-state { font-weight: 600; }
 
 /* ---------- fields and buttons ---------- */
-.member-shell .app-main :is(.input, .select, textarea.input) { transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
-.member-shell .app-main :is(.input, .select):hover:not(:focus):not(:disabled) { border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+.member-shell .app-main :is(.input, .select, textarea.input) { transition: border-color .15s ease, box-shadow .15s ease; }
+.member-shell .app-main :is(.input, .select):hover:not(:focus):not(:disabled) { border-color: var(--acc-strong); }
 .member-shell .app-main :is(.input, .select, textarea.input):focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); outline: none; }
-.member-shell .app-main .btn-primary { transition: transform .15s ease, box-shadow .2s ease, filter .15s ease; }
-.member-shell .app-main .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 24px -14px var(--primary); }
-.member-shell .app-main .btn-primary:active:not(:disabled) { transform: none; filter: brightness(.96); }
+.member-shell .app-main .btn-primary { box-shadow: none; transition: background-color .15s ease, transform .1s ease; }
+.member-shell .app-main .btn-primary:hover:not(:disabled) { transform: none; box-shadow: none; }
+.member-shell .app-main .btn-primary:active:not(:disabled) { transform: scale(.98); }
 
-/* ---------- empty states: a soft mark above the words ---------- */
+/* ---------- empty states: a still mark above the words ---------- */
 .member-shell .app-main .dt-empty { position: relative; }
-.member-shell .app-main .dt-empty::before { content: ''; width: 64px; height: 64px; margin-bottom: 4px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, var(--primary) 0 7px, transparent 8px), radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--primary) 22%, transparent) 0 19px, transparent 20px), radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--primary) 10%, transparent) 0 31px, transparent 32px); animation: acc-breathe 3.2s ease-in-out infinite; }
-.member-shell .app-main .dt-empty.is-bad::before { background: radial-gradient(circle at 50% 50%, var(--danger, #dc2626) 0 7px, transparent 8px), radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--danger, #dc2626) 20%, transparent) 0 19px, transparent 20px); animation: none; }
-@keyframes acc-breathe { 50% { transform: scale(1.06); opacity: .85; } }
-
-/* ---------- a page arrives once, top first ---------- */
-.member-shell .app-main > :first-child > :nth-child(-n + 8) { animation: acc-rise .42s cubic-bezier(.2, .7, .2, 1) backwards; }
-.member-shell .app-main > :first-child > :nth-child(2) { animation-delay: 50ms; }
-.member-shell .app-main > :first-child > :nth-child(3) { animation-delay: 100ms; }
-.member-shell .app-main > :first-child > :nth-child(4) { animation-delay: 150ms; }
-.member-shell .app-main > :first-child > :nth-child(n + 5) { animation-delay: 200ms; }
-@keyframes acc-rise { from { opacity: 0; transform: translateY(12px); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .member-shell .app-main > :first-child > *, .member-shell .app-main .dt-empty::before { animation: none; }
-  .member-shell .app-main :is(.dt-row, .sx-svc, .ud-card, .rq-card, .btn-primary, .input, .select) { transition: none; }
-  .member-shell .app-main :is(.dt-row, .sx-svc, .btn-primary):hover { transform: none; }
-}
+.member-shell .app-main .dt-empty::before { content: ''; width: 48px; height: 48px; margin-bottom: 4px; border: 1px solid var(--acc-line); border-radius: 50%; background: radial-gradient(circle, var(--muted) 0 3px, transparent 4px); opacity: .7; }
+.member-shell .app-main .dt-empty.is-bad::before { background: radial-gradient(circle, var(--danger, #dc2626) 0 3px, transparent 4px); }
 
 /* ============================================================
-   The home: a ring of completeness round the picture, the wallet as
-   a card (the page's one bright moment), figures that count up, and
-   section titles with their icon. Then the light under the pointer,
-   the orders list and the collection covers.
+   The home
    ============================================================ */
-@property --p { syntax: '<number>'; inherits: false; initial-value: 0; }
-
-.member-shell .ud-hero-cover { position: relative; height: 140px; }
-.member-shell .ud-hero-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, color-mix(in srgb, var(--card) 92%, transparent)); }
-.member-shell .ud-hero-body { position: relative; }
-.member-shell .ud-ring { position: relative; display: grid; place-items: center; width: 108px; height: 108px; padding: 4px; border-radius: 50%; background: conic-gradient(var(--primary) calc(var(--p) * 1%), color-mix(in srgb, var(--text) 12%, transparent) 0); animation: ud-fill 1.2s cubic-bezier(.2, .7, .2, 1) .15s both; }
-.member-shell .ud-ring .ud-avatar { width: 100px !important; height: 100px !important; box-shadow: 0 0 0 4px var(--card); }
-.member-shell .ud-ring-label { position: absolute; inset-block-end: -6px; left: 50%; translate: -50% 0; padding: 1px 9px; border: 2px solid var(--card); border-radius: 99px; background: var(--primary); color: var(--on-primary, #fff); font-size: 11.5px; font-weight: 800; white-space: nowrap; }
-@keyframes ud-fill { from { --p: 0; } }
-.member-shell .ud-today { color: var(--accent-ink, var(--primary)); font-size: 12.5px; font-weight: 700; }
-.member-shell .ud-hero-copy h1 { font-size: clamp(21px, 1.4vw + 12px, 28px); font-weight: 800; letter-spacing: -.01em; }
+/* the banner: the member's cover, picture and name; an empty cover is a plain band */
+.member-shell .ud-hero { overflow: hidden; }
+.member-shell .ud-hero-cover { position: relative; height: 160px; }
+.member-shell .ud-hero-cover[style*='--ud-seed'] { height: 72px; background-image: none; background-color: var(--acc-ground); border-bottom: 1px solid var(--acc-line); }
+.member-shell .ud-hero-cover:not([style*='--ud-seed'])::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, color-mix(in srgb, var(--card) 70%, transparent)); }
+.member-shell .ud-hero-body { position: relative; padding: 0 24px 20px; }
+/* the completeness ring: the accent fills as much of it as the profile is complete */
+.member-shell .ud-ring { position: relative; display: grid; place-items: center; justify-self: start; width: 104px; height: 104px; padding: 3px; border-radius: 50%; background: conic-gradient(var(--primary) calc(var(--p) * 1%), var(--acc-line) 0); }
+.member-shell .ud-ring .ud-avatar { width: 98px !important; height: 98px !important; box-shadow: 0 0 0 3px var(--card); }
+.member-shell .ud-ring-label { position: absolute; inset-block-end: -8px; left: 50%; translate: -50% 0; padding: 0 8px; border: 1px solid var(--acc-line); border-radius: 99px; background: var(--card); color: var(--text); font-size: 12px; font-weight: 600; line-height: 22px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.member-shell .ud-today { color: var(--muted); font-size: 13px; font-weight: 500; }
+.member-shell .ud-hero-copy h1 { font-size: clamp(22px, 1.2vw + 12px, 28px); font-weight: 600; letter-spacing: 0; }
+.member-shell .ud-hero-copy p { font-size: 14px; }
 .member-shell .ud-verified { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-inline-start: 6px; border-radius: 50%; background: var(--primary); color: var(--on-primary, #fff); vertical-align: -3px; }
-.member-shell .ud-complete { background: color-mix(in srgb, var(--primary) 6%, var(--bg-soft)); border: 1px dashed color-mix(in srgb, var(--primary) 30%, var(--border)); }
-.member-shell .ud-todo { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.member-shell .ud-todo a { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-radius: 99px; background: var(--card); font-size: 12.5px; transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
-.member-shell .ud-todo a:hover { border-color: var(--primary); background: var(--primary); color: var(--on-primary, #fff); }
+.member-shell .ud-hero-stats { gap: 4px 16px; margin-top: 4px; }
+.member-shell .ud-hero-stats a { display: inline-flex; align-items: baseline; gap: 4px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--muted); font-size: 13px; }
+.member-shell .ud-hero-stats a:hover { color: var(--text); }
+.member-shell .ud-hero-stats b { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* what is left to complete: a plain row of links on the page's ground */
+.member-shell .ud-complete { margin: 0 24px 20px; padding: 12px 16px; border: 1px solid var(--acc-line); border-radius: 12px; background: var(--acc-ground); }
+.member-shell .ud-complete p b { font-weight: 600; }
+.member-shell .ud-todo { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.member-shell .ud-todo a { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid var(--acc-line); border-radius: 8px; background: var(--card); color: var(--text); font-size: 13px; transition: border-color .15s ease, background-color .15s ease; }
+.member-shell .ud-todo a svg { color: var(--muted); }
+.member-shell .ud-todo a:hover { border-color: var(--acc-strong); background: var(--acc-hover); color: var(--text); }
 
-/* quick actions: the icon tile takes the accent on hover */
-.member-shell .ud-quick a { transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
-.member-shell .ud-quick a:hover { box-shadow: 0 14px 26px -22px color-mix(in srgb, var(--primary) 90%, transparent); }
-.member-shell .ud-quick span { color: var(--accent-ink, var(--primary)); transition: background-color .18s ease, color .18s ease, transform .18s ease; }
-.member-shell .ud-quick a:hover span { background: var(--primary); color: var(--on-primary, #fff); transform: scale(1.06) rotate(-4deg); }
+/* quick actions: one row of plain links on a single card, not a grid of tiles */
+.member-shell .ud-quick { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border: 1px solid var(--acc-line); border-radius: var(--acc-radius); background: var(--card); }
+.member-shell .ud-quick a { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font-size: 14px; font-weight: 500; transition: background-color .15s ease; }
+.member-shell .ud-quick a:hover { background: var(--acc-hover); border-color: transparent; transform: none; box-shadow: none; }
+.member-shell .ud-quick span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 0; background: none; color: var(--muted); transform: none; }
+.member-shell .ud-quick a:hover span { background: none; color: var(--text); transform: none; }
+.member-shell .ud-quick a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-/* figures */
-.member-shell .ud-kpi { position: relative; align-content: start; gap: 6px; min-height: 132px; padding: 18px; border-radius: 20px; }
-.member-shell .ud-kpi > b { font-size: 26px; font-weight: 800; line-height: 1.4; }
-.member-shell .ud-kpi > span:last-child { color: var(--muted); font-size: 12.5px; }
-.member-shell .ud-kpi-icon { position: absolute; inset-block-start: 16px; inset-inline-end: 16px; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--primary-soft); color: var(--accent-ink, var(--primary)); }
-.member-shell .ud-kpi.is-warn .ud-kpi-icon { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #b45309; }
-html[data-theme='dark'] .member-shell .ud-kpi.is-warn .ud-kpi-icon { color: #fcd34d; }
-.member-shell .ud-kpi.is-hot .ud-kpi-icon::after { content: ''; position: absolute; top: 7px; inset-inline-end: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger, #ef4444); box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger, #ef4444) 60%, transparent); animation: ud-ping 1.8s ease-out infinite; }
-@keyframes ud-ping { 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
-
-/* the wallet card */
-.member-shell .app-main .ud-kpi.is-wallet { overflow: hidden; border: 0; color: #fff; background: radial-gradient(380px 200px at 88% -20%, rgb(255 255 255 / .2), transparent 62%), radial-gradient(300px 180px at 0% 120%, rgb(255 255 255 / .1), transparent 60%), linear-gradient(125deg, color-mix(in srgb, var(--primary) 68%, #0b1020), color-mix(in srgb, var(--primary) 42%, #4c1d95)); box-shadow: 0 26px 48px -30px var(--primary); transition: transform .25s ease, box-shadow .25s ease; }
-.member-shell .app-main .ud-kpi.is-wallet::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / .16) 50%, transparent 65%) no-repeat; background-size: 250% 100%; background-position: 120% 0; pointer-events: none; transition: background-position .9s ease; }
-.member-shell .app-main .ud-kpi.is-wallet:hover { transform: translateY(-3px); box-shadow: 0 32px 56px -30px var(--primary); }
-.member-shell .app-main .ud-kpi.is-wallet:hover::after { background-position: -20% 0; }
-.member-shell .app-main .ud-kpi.is-wallet small, .member-shell .app-main .ud-kpi.is-wallet > span:last-child { color: rgb(255 255 255 / .86); }
-.member-shell .app-main .ud-kpi.is-wallet > b { font-size: clamp(24px, 2.2vw, 32px); }
-.member-shell .app-main .ud-kpi.is-wallet > span:last-child { display: inline-flex; align-items: center; gap: 6px; }
-.member-shell .ud-wallet-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.member-shell .ud-wallet-chip { width: 38px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, #f8e7a1, #d4a944 55%, #f3d675); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .15); }
-.member-shell .app-main .ud-kpi.is-wallet .ud-kpi-more i { background: rgb(255 255 255 / .16); color: #fff; }
+/* figures: a label, a figure and what it leads to; the wallet leads and is wider */
+.member-shell .ud-kpi { position: relative; align-content: start; gap: 4px; min-height: 128px; padding: 20px; }
+.member-shell .ud-kpi > small { padding-inline-end: 40px; color: var(--muted); font-size: 13px; }
+.member-shell .ud-kpi > b { justify-self: start; font-size: 26px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.member-shell .ud-kpi > span:last-child { color: var(--muted); font-size: 13px; }
+.member-shell .ud-kpi-icon { position: absolute; inset-block-start: 20px; inset-inline-end: 20px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 0; background: none; color: var(--muted); }
+.member-shell .ud-kpi.is-warn .ud-kpi-icon, html[data-theme='dark'] .member-shell .ud-kpi.is-warn .ud-kpi-icon { background: none; color: var(--muted); }
+.member-shell .ud-kpi.is-warn > span:last-child { color: #b45309; font-weight: 500; }
+html[data-theme='dark'] .member-shell .ud-kpi.is-warn > span:last-child { color: #fcd34d; }
+/* an unread notice: one still dot beside the bell */
+.member-shell .ud-kpi.is-hot .ud-kpi-icon::after { content: ''; position: absolute; top: -2px; inset-inline-end: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 2px var(--card); }
+.member-shell .app-main .ud-kpi.is-wallet { overflow: visible; border-color: var(--acc-line); background: var(--card); color: var(--text); }
+.member-shell .app-main .ud-kpi.is-wallet::after { content: none; }
+.member-shell .app-main .ud-kpi.is-wallet > b { font-size: clamp(28px, 2.2vw, 36px); }
+.member-shell .app-main .ud-kpi.is-wallet > span:last-child { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-ink, var(--primary)); font-weight: 500; }
+.member-shell .app-main .ud-kpi-more i { background: var(--acc-ground); color: var(--text); font-variant-numeric: tabular-nums; }
 /* The wallet leads the figures: beside four others it spans two rows, otherwise all sit in one row. */
 @media (min-width: 1100px) {
   .member-shell .ud-kpis { grid-template-columns: minmax(0, 1.35fr); grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }
@@ -137,126 +192,51 @@ html[data-theme='dark'] .member-shell .ud-kpi.is-warn .ud-kpi-icon { color: #fcd
 }
 /* On a phone the wallet keeps the full width and the other figures sit two by two. */
 @media (max-width: 700px) {
-  .member-shell .ud-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .member-shell .ud-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .member-shell .ud-kpis > .is-wallet { grid-column: 1 / -1; }
-  .member-shell .ud-kpi { min-height: 0; padding: 14px; }
+  .member-shell .ud-kpi { min-height: 0; padding: 16px; }
   .member-shell .ud-kpi > b { font-size: 22px; }
-  .member-shell .ud-kpi-icon { width: 32px; height: 32px; inset-block-start: 12px; inset-inline-end: 12px; }
-  .member-shell .ud-kpi > small { padding-inline-end: 36px; }
+  .member-shell .ud-kpi-icon { inset-block-start: 16px; inset-inline-end: 16px; }
+  .member-shell .ud-kpi > small { padding-inline-end: 28px; }
+  .member-shell .ud-hero-body { padding-inline: 16px; }
+  .member-shell .ud-complete { margin-inline: 16px; }
 }
-.member-shell .ud-kpi > b { justify-self: start; }
-.member-shell .ud-kpi > small { padding-inline-end: 44px; }
-.member-shell .ud-ring { justify-self: start; }
 
-/* section titles carry their icon */
-.member-shell .ud-card-head h2 { display: flex; align-items: center; gap: 9px; }
-.member-shell .ud-card-head h2 > svg { flex: none; padding: 7px; width: 32px; height: 32px; border-radius: 10px; background: var(--primary-soft); color: var(--accent-ink, var(--primary)); }
+/* section titles: the title, its icon in the text colour of a label */
+.member-shell .ud-card { padding: 20px; }
+.member-shell .ud-card-head h2 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+.member-shell .ud-card-head h2 > svg { flex: none; width: 18px; height: 18px; padding: 0; border-radius: 0; background: none; color: var(--muted); }
+.member-shell .ud-card-head a { color: var(--accent-ink, var(--primary)); font-size: 13px; }
 .member-shell .ud-feed-counts { display: inline-flex; align-items: center; gap: 4px; }
 .member-shell .ud-feed-counts svg:not(:first-child) { margin-inline-start: 8px; }
 .member-shell .ud-pill { display: inline-flex; align-items: center; gap: 6px; }
 
-/* ---------- the light under the pointer (src/app/dashboard/Spotlight.tsx) ---------- */
-.member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card) { position: relative; isolation: isolate; }
-.member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card)::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: var(--spot-o, 0); background: radial-gradient(280px circle at var(--spot-x, 50%) var(--spot-y, 50%), color-mix(in srgb, var(--primary) 13%, transparent), transparent 70%); transition: opacity .3s ease; }
-
 /* ---------- orders: what was bought, beside a stack of its pictures ---------- */
-.member-shell .sx-my-order { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "thumbs top" "thumbs meta"; align-items: center; gap: 8px 18px; padding: 18px 20px; border-radius: 20px; transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
-.member-shell .sx-my-order:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.member-shell .sx-my-order { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "thumbs top" "thumbs meta"; align-items: center; gap: 8px 20px; padding: 20px; }
 .member-shell .sx-my-order-top { grid-area: top; gap: 12px; }
-.member-shell .sx-my-order-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 800; line-height: 1.7; overflow-wrap: anywhere; }
-.member-shell .sx-my-order-title small { color: var(--muted); font-size: 12.5px; font-weight: 600; }
-.member-shell .sx-my-order-meta { grid-area: meta; gap: 6px 10px; }
-.member-shell .sx-my-order-meta div { padding: 3px 10px; border-radius: 99px; background: color-mix(in srgb, var(--text) 5%, transparent); }
+.member-shell .sx-my-order-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.7; overflow-wrap: anywhere; }
+.member-shell .sx-my-order-title small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.member-shell .sx-my-order-meta { grid-area: meta; gap: 8px; }
+.member-shell .sx-my-order-meta div { padding: 2px 10px; border-radius: 8px; background: var(--acc-ground); }
 .member-shell .sx-my-thumbs { grid-area: thumbs; flex-wrap: nowrap; padding: 0; border: 0; }
-.member-shell .sx-my-thumbs li { width: 76px; height: 76px; border: 3px solid var(--card); border-radius: 16px; box-shadow: 0 8px 18px -12px rgb(0 0 0 / .5); transition: margin .25s ease; }
-.member-shell .sx-my-thumbs li + li { margin-inline-start: -46px; }
+.member-shell .sx-my-thumbs li { width: 76px; height: 76px; border: 3px solid var(--card); border-radius: 14px; box-shadow: 0 0 0 1px var(--acc-line); }
+.member-shell .sx-my-thumbs li + li { margin-inline-start: -44px; }
 .member-shell .sx-my-thumbs li:nth-child(n + 4):not(.is-more) { display: none; }
-.member-shell .sx-my-order:hover .sx-my-thumbs li + li { margin-inline-start: -30px; }
 @media (max-width: 640px) {
   .member-shell .sx-my-order { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "meta" "thumbs"; }
   .member-shell .sx-my-thumbs li { width: 60px; height: 60px; }
 }
 
-/* ---------- collection covers: a stack of cards when the collection has no picture ---------- */
-.member-shell .collections-card { align-items: center; border-radius: 20px; transition: border-color .2s ease, transform .2s ease; }
-.member-shell .collections-card:hover { transform: translateY(-2px); }
-.member-shell .collections-cover { position: relative; flex-basis: 92px; min-height: 104px; overflow: visible; border-radius: 14px; background: linear-gradient(150deg, color-mix(in srgb, var(--primary) 30%, var(--card)), color-mix(in srgb, var(--primary) 8%, var(--card))); box-shadow: 6px -6px 0 -1px color-mix(in srgb, var(--primary) 16%, var(--card)), 12px -12px 0 -2px color-mix(in srgb, var(--primary) 8%, var(--card)); color: var(--accent-ink, var(--primary)); }
-.member-shell .collections-cover img { border-radius: 14px; }
+/* ---------- collection covers: a plain stack when the collection has no picture ---------- */
+.member-shell .collections-card { align-items: center; }
+.member-shell .collections-cover { position: relative; flex-basis: 92px; min-height: 104px; overflow: visible; border: 1px solid var(--acc-line); border-radius: 12px; background: var(--acc-ground); box-shadow: 6px -6px 0 -1px var(--card), 6px -6px 0 0 var(--acc-line); color: var(--muted); }
+.member-shell .collections-cover img { border-radius: 12px; }
 
-@media (prefers-reduced-motion: reduce) {
-  .member-shell .ud-ring, .member-shell .ud-kpi.is-hot .ud-kpi-icon::after { animation: none; }
-  .member-shell :is(.ud-quick a, .ud-quick span, .ud-kpi.is-wallet, .sx-my-order, .sx-my-thumbs li, .collections-card) { transition: none; }
-  .member-shell :is(.ud-quick a:hover span, .ud-kpi.is-wallet:hover, .sx-my-order:hover, .collections-card:hover) { transform: none; }
-  .member-shell .app-main .ud-kpi.is-wallet::after { display: none; }
-}
-
-/* ============================================================
-   The member shell: ambient light and a fine dot field behind the
-   pages, a glass top bar, and a side menu with depth. The admin and
-   seller shells keep theirs: everything here starts at .member-shell.
-   ============================================================ */
-
-/* ---------- the room: two soft lights and dots that fade out below the fold ---------- */
-html[data-design] .member-shell.app-shell > .flex-1 {
-  background:
-    radial-gradient(820px 380px at 92% -140px, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
-    radial-gradient(640px 340px at 18% -180px, color-mix(in srgb, #8b5cf6 10%, transparent), transparent 70%),
-    linear-gradient(180deg, transparent 0, var(--bg) 520px),
-    radial-gradient(circle, color-mix(in srgb, var(--text) 13%, transparent) 1px, transparent 1.6px) 0 0 / 22px 22px,
-    var(--bg);
-}
-html[data-theme='light'] .member-shell.app-shell > .flex-1 {
-  background:
-    radial-gradient(820px 380px at 92% -140px, color-mix(in srgb, var(--primary) 12%, transparent), transparent 70%),
-    radial-gradient(640px 340px at 18% -180px, color-mix(in srgb, #8b5cf6 7%, transparent), transparent 70%),
-    linear-gradient(180deg, transparent 0, var(--bg) 520px),
-    radial-gradient(circle, color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1.6px) 0 0 / 22px 22px,
-    var(--bg);
-}
-
-/* ---------- the top bar: glass, the path in a capsule, actions in one set ---------- */
-html[data-design] .member-shell.app-shell .dash-top { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); background: color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter: saturate(1.5) blur(18px); backdrop-filter: saturate(1.5) blur(18px); }
-.member-shell .dash-crumbs { padding: 7px 16px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 99px; background: color-mix(in srgb, var(--card) 70%, transparent); font-size: 13px; }
-.member-shell .dash-crumbs b { color: var(--accent-ink, var(--primary)); }
-html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon) { min-height: 40px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--card) 75%, transparent); transition: border-color .18s ease, color .18s ease, transform .18s ease; }
-html[data-design] .member-shell.app-shell .dash-top-icon { width: 40px; height: 40px; }
-html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon):hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); color: var(--text); transform: translateY(-1px); }
-.member-shell .dash-top-user .avatar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--primary) 75%, transparent); transition: box-shadow .2s ease; }
-.member-shell .dash-top-user:hover .avatar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary), 0 0 18px -2px var(--primary); }
-
-/* ---------- the side menu: depth, a lit current page, captions with a rule ---------- */
-html[data-design] .member-shell.app-shell > .side { background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 7%, var(--card)) 0, color-mix(in srgb, var(--card) 72%, var(--bg)) 320px); border-inline-end-color: color-mix(in srgb, var(--border) 75%, transparent); }
-.member-shell .ws-caption { display: flex; align-items: center; gap: 10px; letter-spacing: 0; color: var(--muted); }
-.member-shell .ws-caption::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--border) 90%, transparent)); }
-html[dir='rtl'] .member-shell .ws-caption::after { background: linear-gradient(270deg, color-mix(in srgb, var(--border) 90%, transparent), transparent); }
-html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item { transition: background-color .18s ease, color .18s ease, padding .18s ease; }
-html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover { padding-inline-start: 14px; }
-html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item .side-icon { transition: transform .18s ease, color .18s ease; }
-html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover .side-icon { transform: scale(1.12); color: var(--accent-ink, var(--primary)); }
-html[data-design] .member-shell.app-shell :is(.ws-items .side-link.ws-item.side-link-active, .side-link-active.ws-flat) { background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 6%, transparent), color-mix(in srgb, var(--primary) 18%, transparent)); color: var(--accent-ink, var(--primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent); }
-html[dir='ltr'] .member-shell :is(.ws-items .side-link.ws-item.side-link-active, .side-link-active.ws-flat) { background: linear-gradient(270deg, color-mix(in srgb, var(--primary) 6%, transparent), color-mix(in srgb, var(--primary) 18%, transparent)) !important; }
-.member-shell .ws-item.side-link-active::before { width: 3px; box-shadow: 0 0 10px 1px color-mix(in srgb, var(--primary) 70%, transparent); }
-.member-shell .ws-group.has-active > .ws-toggle .ws-tile, .member-shell .side-link-active.ws-flat .ws-tile { background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #8b5cf6)); box-shadow: 0 8px 18px -10px var(--primary); }
-.member-shell .ws-toggle:hover .ws-tile { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); color: var(--accent-ink, var(--primary)); }
-html[data-design] .member-shell.app-shell .ws-foot .side-user { border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--card) 80%, transparent); }
-html[data-design] .member-shell.app-shell .ws-foot .side-user .avatar { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px color-mix(in srgb, var(--primary) 70%, transparent); }
-
-/* ---------- cards: see-through in the dark, a lit edge when pointed at ---------- */
-html[data-theme='dark'] .member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .ud-quick a, .dt-card, .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card, .dash-card, .np-panel, .nc-panel) { background-color: color-mix(in srgb, var(--card) 84%, transparent); }
-.member-shell .app-main :is(.ud-card, .ud-kpi:not(.is-wallet), .dt-row, .dt-tile, .rq-card, .sx-svc, .sx-my-order, .collections-card):hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 32%, transparent), 0 20px 40px -30px var(--primary); }
-
-/* ---------- the home banner: a taller cover and the counts as small tiles ---------- */
-.member-shell .ud-hero { border-radius: 26px; }
-.member-shell .ud-hero-cover { height: 170px; }
-.member-shell .ud-hero-stats { gap: 8px; margin-top: 4px; }
-.member-shell .ud-hero-stats a { display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 12px; border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--text) 3%, transparent); transition: border-color .15s ease, color .15s ease; }
-.member-shell .ud-hero-stats a:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
-
+/* ---------- the phone bar: solid ---------- */
 @media (max-width: 900px) {
-  html[data-design] .member-shell.app-shell .mobile-bar { background: color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter: saturate(1.5) blur(18px); backdrop-filter: saturate(1.5) blur(18px); }
-  .member-shell .ud-hero-cover { height: 130px; }
+  html[data-design] .member-shell.app-shell .mobile-bar { border-bottom: 1px solid var(--acc-line); background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .member-shell .ud-hero-cover { height: 128px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon, .ws-items .side-link.ws-item, .ws-items .side-link.ws-item .side-icon) { transition: none; }
-  html[data-design] .member-shell.app-shell :is(.dash-top-link, .dash-top-icon):hover, html[data-design] .member-shell.app-shell .ws-items .side-link.ws-item:hover .side-icon { transform: none; }
+  .member-shell :is(.dash-top-link, .dash-top-icon, .ud-quick a, .ud-todo a, a.ud-kpi, .dt-row, .sx-svc, .sx-my-order, .collections-card, .dt-tile, .btn-primary, .input, .select) { transition: none; }
 }

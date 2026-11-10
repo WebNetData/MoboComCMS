@@ -442,3 +442,26 @@ test('whole-page templates in the page builder and the starter terms (owner, 202
   assert.ok((terms.match(/<h2>/g) || []).length >= 15)
   assert.match(read('prisma/seed.cjs'), /readFileSync\(require\('node:path'\)\.join\(__dirname, 'starter-content', 'terms\.fa\.html'\)/)
 })
+
+test('the member dashboard: one quiet system, and a menu entry is current only at its own address', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const shell = read('src/app/dashboard/AccountShell.tsx'), home = read('src/app/dashboard/OverviewHome.tsx'), css = read('src/app/account-design.css')
+  // /dashboard/order (new order) is not current on /dashboard/orders: a page is current at its address and below it only.
+  assert.match(shell, /const isOn = \(href: string, exact\?: boolean\) => pathname === href \|\| \(!exact && pathname\.startsWith\(`\$\{href\}\/`\)\)/)
+  const isOn = (pathname) => (href, exact) => pathname === href || (!exact && pathname.startsWith(`${href}/`))
+  assert.equal(isOn('/dashboard/orders')('/dashboard/order'), false)
+  assert.equal(isOn('/dashboard/orders/12')('/dashboard/orders'), true)
+  assert.equal(isOn('/dashboard/cloud/servers')('/dashboard/cloud', true), false)
+  // Owner, 2026-11-10: not "designed by AI". No light under the pointer, counting figures or greeting headline; the
+  // member's name is the title. The stylesheet carries no glass, glow, hue gradient, looping or entrance motion.
+  assert.ok(!fs.existsSync(path.resolve(__dirname, '..', 'src/app/dashboard/Spotlight.tsx')))
+  assert.doesNotMatch(shell, /Spotlight/)
+  assert.doesNotMatch(home, /function Count\(|requestAnimationFrame|function Greeting\(|ud-wallet-chip/)
+  assert.match(home, /<h1>\{data\.user\.name\}<\/h1>/)
+  assert.doesNotMatch(css, /backdrop-filter: (?:saturate|blur)|animation:|@keyframes|#8b5cf6|#4c1d95|translateY\(-|spot-[xyo]|0 0 18px|scale\(1\.\d+\)/)
+  // The current page is the header's mark: a 2px accent rule; the wallet's action is the accent ink, not a coloured slab.
+  assert.match(css, /\.member-shell \.ws-item\.side-link-active::before \{ width: 2px; box-shadow: none; background: var\(--primary\); \}/)
+  assert.match(css, /\.member-shell \.app-main \.ud-kpi\.is-wallet \{[^}]*background: var\(--card\);/)
+  assert.match(css, /\.member-shell \.app-main \.dt-balance \{[^}]*background: var\(--card\); color: var\(--text\);/)
+})
