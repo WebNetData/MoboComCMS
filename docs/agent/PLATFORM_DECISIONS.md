@@ -980,3 +980,8 @@ others, motion only with full-motion preference. Handoff: `docs/agent/handoffs/P
 Owner wants a «فروشگاه فایل» inside the store for selling files, designed and animated. It is a front of the existing
 store (`/products?files=1`) over existing file products and secure delivery, named and worded from Admin › store
 settings; cards show file kinds, count and size but never file addresses. Handoff: `docs/agent/handoffs/FILE_STORE.md`.
+
+## Next.js 16.4.6 — 2026-11-10
+
+Owner reported 16.4.6 as the current release. Patch update from 16.4.2 (only `next` and its `@next/*` platform
+packages change in the lock; React 19.3.1 and TypeScript 7.0.2 stay). The stack line of 2026-10-19 otherwise holds.
