@@ -1,0 +1,1 @@
+ALTER TABLE "MediaLink" ADD COLUMN "embedUrl" TEXT NOT NULL DEFAULT '';
