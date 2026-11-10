@@ -117,6 +117,7 @@
 .mo-checks li { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); line-height: 1.9; }
 .mo-checks li.is-ok { border-color: rgba(22, 163, 74, .45); }
 .mo-checks li.is-warn { border-color: rgba(245, 158, 11, .5); }
+.mo-checks li.is-bad { border-color: rgba(220, 38, 38, .6); background: color-mix(in srgb, #dc2626 6%, transparent); }
 .mo-stack { display: grid; gap: 14px; }
 .mo-stack .sa-table { min-width: 0; width: 100%; }
 

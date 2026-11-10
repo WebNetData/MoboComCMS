@@ -1,7 +1,7 @@
 import os from 'node:os'
 import fs from 'node:fs/promises'
 import { db } from '@/platform/database/prisma'
-import { cacheStats, kv } from '@/platform/cache/kv'
+import { cacheStats, kv, kvHealth } from '@/platform/cache/kv'
 import { metricsSnapshot } from '@/platform/observability/metrics'
 import { queueOverview } from '@/modules/operations/server/queue'
 
@@ -76,6 +76,9 @@ export async function monitoringOverview() {
     db.setting.findMany({ where: { key: { startsWith: 'lease.' } } }).catch(() => []),
     vitals(),
   ])
+  // A configured Redis that does not answer: since when, how many tries, the last error (kv.ts reconnects by itself).
+  const { degraded, degradedSince, attempts: reconnectAttempts, lastError } = await kvHealth()
+  const redisFallback = { degraded, degradedSince, reconnectAttempts, lastError }
   const memory = process.memoryUsage()
   const total = cacheStats.hits + cacheStats.misses
   return {
@@ -86,7 +89,7 @@ export async function monitoringOverview() {
       uptime: Math.round(process.uptime()), disk: diskInfo, instance: `${os.hostname()}:${process.pid}`,
     },
     database: db_,
-    cache: { backend: store.kind, pingMs: cachePing, configured: !!process.env.REDIS_URL, hits: cacheStats.hits, misses: cacheStats.misses, errors: cacheStats.errors, hitRate: total ? Math.round((cacheStats.hits / total) * 100) : 0 },
+    cache: { backend: store.kind, pingMs: cachePing, configured: !!process.env.REDIS_URL, ...redisFallback, hits: cacheStats.hits, misses: cacheStats.misses, errors: cacheStats.errors, hitRate: total ? Math.round((cacheStats.hits / total) * 100) : 0 },
     queue,
     fulfillment: Object.fromEntries(fulfillment.map((row) => [row.status, row._count._all])),
     scheduler: leases.map((row) => ({ name: row.key.slice(6), until: row.value })).sort((a, b) => a.name.localeCompare(b.name)),
