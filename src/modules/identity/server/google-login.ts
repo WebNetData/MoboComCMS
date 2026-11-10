@@ -9,6 +9,7 @@ import { createSectionSettingsHistory, type SectionSettingsContext } from '@/mod
 import { RevisionError } from '@/modules/content/server/revisions'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { safeNext } from '@/modules/identity/domain/continuation'
+import { canRemoveSignInMethod, removeSignInMethod } from '@/modules/identity/server/sign-in-methods'
 import {
   GOOGLE_CALLBACK_PATH, GOOGLE_FLOW_TTL_MS, GOOGLE_SETTINGS_KEY, GOOGLE_TICKET_TTL_MS, GOOGLE_TOKEN_URL,
   checkGoogleClaims, decodeIdTokenPayload, googleAuthorizeUrl, normalizeGoogleLogin, validGoogleClientId,
@@ -152,9 +153,12 @@ async function googleIdentity(code: string, flow: Flow, config: Awaited<ReturnTy
 export type GoogleOutcome = { kind: 'ticket'; ticket: string; next: string } | { kind: 'linked'; next: string }
 
 /** Google sent the member back: check everything, then sign in, create the account, or connect it. */
-export async function finishGoogleSignIn(input: { code?: string | null; state?: string | null; browserState?: string | null; error?: string | null }): Promise<GoogleOutcome> {
+export async function finishGoogleSignIn(input: { code?: string | null; state?: string | null; browserState?: string | null; error?: string | null; currentUserId?: number | null }): Promise<GoogleOutcome> {
   const flow = await takeFlow(input.state, input.browserState)
   if (input.error) throw Object.assign(new GoogleLoginFailure('cancelled'), { intent: flow.intent })
+  // A connection completes only for the member who started it and is still signed in in this browser: signing out, or
+  // someone else signing in, before Google sends the browser back ends it (audit 2026-11-10). Checked before Google is asked.
+  if (flow.intent === 'link' && (!input.currentUserId || input.currentUserId !== flow.userId)) throw Object.assign(new GoogleLoginFailure('not-allowed'), { intent: flow.intent })
   try {
     const config = await googleLoginConfig()
     if (!config.ready) throw new GoogleLoginFailure('unavailable')
@@ -229,25 +233,14 @@ export async function connectGoogle(userId: number, identity: GoogleIdentity) {
 
 /** The member's Google connection, for their account settings. */
 export async function googleConnection(userId: number) {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { googleId: true, googleEmail: true, googleLinkedAt: true, createdAt: true, phoneVerifiedAt: true, telegramId: true, passwordChangedAt: true } })
+  const user = await db.user.findUnique({ where: { id: userId }, select: { googleId: true, googleEmail: true, googleLinkedAt: true } })
   if (!user) return null
-  return { linked: Boolean(user.googleId), email: user.googleEmail, linkedAt: user.googleLinkedAt, canDisconnect: Boolean(user.googleId) && hasOtherWayIn(user) }
+  return { linked: Boolean(user.googleId), email: user.googleEmail, linkedAt: user.googleLinkedAt, canDisconnect: Boolean(user.googleId) && await canRemoveSignInMethod(userId, 'google') }
 }
 
-/**
- * Another way into the account than Google: a verified mobile, Telegram, a password the member set, or an account
- * that existed (with its own sign-in) before Google was connected. An account Google created has none of these.
- */
-function hasOtherWayIn(user: { googleLinkedAt: Date | null; createdAt: Date; phoneVerifiedAt: Date | null; telegramId: string | null; passwordChangedAt: Date | null }) {
-  if (user.phoneVerifiedAt || user.telegramId || user.passwordChangedAt) return true
-  return Boolean(user.googleLinkedAt && user.createdAt.getTime() < user.googleLinkedAt.getTime() - 60_000)
-}
-
+/** Disconnects Google while another way in remains (identity/server/sign-in-methods.ts). */
 export async function disconnectGoogle(userId: number) {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { googleId: true, googleLinkedAt: true, createdAt: true, phoneVerifiedAt: true, telegramId: true, passwordChangedAt: true } })
-  if (!user?.googleId) return
-  if (!hasOtherWayIn(user)) throw new RevisionError('پیش از جدا کردن گوگل، شمارهٔ موبایل را تأیید کنید یا رمز عبور بگذارید تا راه ورود دیگری داشته باشید.', 409)
-  await db.user.updateMany({ where: { id: userId, googleId: user.googleId }, data: { googleId: null, googleEmail: '', googleLinkedAt: null } })
+  await removeSignInMethod(userId, 'google')
 }
 
 // ---------- the one-time ticket ----------

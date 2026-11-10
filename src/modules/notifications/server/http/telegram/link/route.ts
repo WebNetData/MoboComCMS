@@ -1,3 +1,5 @@
+import { removeSignInMethod } from '@/modules/identity/server/sign-in-methods'
+import { RevisionError } from '@/modules/content/server/revisions'
 import { offeredLocale } from '@/i18n/policy'
 // Telegram linking, from the customer's side (requires a session):
 //   GET    → link status + a fresh deep link to open in Telegram
@@ -48,10 +50,14 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const auth = await requireUser(req)
   if (!auth) return err('unauthorized', 401)
-  await db.user.update({
-    where: { id: auth.id },
-    data: { telegramId: null, telegramUsername: '', telegramName: '', telegramPhoto: '', telegramLinkedAt: null },
-  })
+  // Only while another way in remains (identity/server/sign-in-methods.ts, audit 2026-11-10): an account the Mini App
+  // made has no other way in until a mobile is verified or a password set.
+  try {
+    await removeSignInMethod(auth.id, 'telegram')
+  } catch (error) {
+    if (error instanceof RevisionError) return err(error.message, error.status)
+    throw error
+  }
   return ok({ unlinked: true })
 }
 
