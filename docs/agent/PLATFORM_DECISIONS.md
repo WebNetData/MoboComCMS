@@ -945,3 +945,11 @@ existing organization owner and are always computed server-side; existing URLs n
 because `/shop/[slug]` is a page route; watermark covers organized images; variant profit is nullable
 (inherit); a blocked AI row is draft-only; the publish decision, access and media stay human.
 Handoff: `docs/agent/handoffs/STORE_MEDIA_PUBLISH_AI.md`.
+
+## Renamed section names/addresses and auto-publishing desk — 2026-11-10
+
+Owner renamed the journal to «مجله» at `/magazine`: breadcrumbs and outward links must follow. Decisions: the
+section's display name is a section setting (`section.name`, default مجله); every link leaving the site (social
+posts, IndexNow, JSON-LD) uses `toPublicPath`; a section's current address is never kept in its alias history.
+The Telegram/Instagram auto-publishing admin is a status-and-preview desk on project tokens.
+Handoff: `docs/agent/handoffs/MAGAZINE_ADDRESS_SOCIAL.md`.
