@@ -985,3 +985,13 @@ settings; cards show file kinds, count and size but never file addresses. Handof
 
 Owner reported 16.4.6 as the current release. Patch update from 16.4.2 (only `next` and its `@next/*` platform
 packages change in the lock; React 19.3.1 and TypeScript 7.0.2 stay). The stack line of 2026-10-19 otherwise holds.
+
+## Required verified mobile and one email look — 2026-11-10
+
+Owner wants SMS verification required for members who joined by email, Telegram or any other way. It is the
+`phone` built-in of the existing profile-fields owner (Admin › فیلدهای ثبت‌نام), not a second gate: off on existing
+sites until the owner enables it, never demanded while SMS cannot be delivered (`withPhoneDelivery`), verified only
+through `/api/me/phone` (rate limits, uniqueness, expiry stay in the SMS module), enforced by the same `/welcome`
+redirect after login, in the dashboard and now after Telegram sign-in. Every branded email (notification, security,
+sign-in code, newsletter, gift card) is built by `src/modules/mail/domain/email-layout.ts`: tables plus inline
+styles first; fonts, dark mode and motion only as enhancements; accent limited to a validated hex colour.
