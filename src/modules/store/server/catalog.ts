@@ -1,3 +1,4 @@
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { audienceClause } from '@/modules/account/server/item-audience'
 import type { Prisma } from '@prisma/client'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
@@ -426,4 +427,45 @@ export function countProductView(id: number) {
 
 export async function brandBySlug(slug: string) {
   return db.productBrand.findUnique({ where: { slug } })
+}
+
+// ------------------------------------------------------------------ file store
+
+/** What a file product's card shows about its files: never a download address, only their kinds, count and size. */
+export type FileCard = ProductCard & { files: { count: number; bytes: number; types: string[] } }
+const FILE_WHERE = { kind: 'VIRTUAL', digitalMode: 'FILES', files: { some: { active: true } } } satisfies Prisma.ProductWhereInput
+const fileType = (name: string) => { const ext = name.split('.').pop()?.toUpperCase() || ''; return /^[A-Z0-9]{2,5}$/.test(ext) && ext !== name.toUpperCase() ? ext : 'FILE' }
+
+async function fileCards(where: Prisma.ProductWhereInput, orderBy: Prisma.ProductOrderByWithRelationInput[], take: number): Promise<FileCard[]> {
+  const list = await productCards({ AND: [FILE_WHERE, where] }, orderBy, take)
+  if (!list.length) return []
+  const rows = await db.productFile.findMany({ where: { productId: { in: list.map((card) => card.id) }, active: true }, select: { productId: true, filename: true, sizeBytes: true } }).catch(() => [])
+  const by = new Map<number, { count: number; bytes: number; types: string[] }>()
+  for (const row of rows) {
+    const entry = by.get(row.productId) || { count: 0, bytes: 0, types: [] }
+    entry.count += 1; entry.bytes += Number(row.sizeBytes)
+    const type = fileType(row.filename); if (!entry.types.includes(type)) entry.types.push(type)
+    by.set(row.productId, entry)
+  }
+  return list.map((card) => ({ ...card, files: by.get(card.id) || { count: 0, bytes: 0, types: [] } }))
+}
+
+/** The file store's own front: its numbers, categories, a spotlight, and new, best-selling and free files. */
+export async function fileStoreHome() {
+  const settings = await getStoreSettings()
+  const [newest, bestselling, popular, total, totals, categories] = await Promise.all([
+    fileCards({}, [{ createdAt: 'desc' }], 12),
+    fileCards({}, [{ soldCount: 'desc' }, { id: 'desc' }], 8),
+    fileCards({}, [{ views: 'desc' }, { id: 'desc' }], 8),
+    db.product.count({ where: { AND: [publicProductWhere, FILE_WHERE] } }).catch(() => 0),
+    db.productFile.aggregate({ where: { active: true, product: { AND: [publicProductWhere, FILE_WHERE] } }, _count: { _all: true }, _sum: { sizeBytes: true } }).catch(() => null),
+    db.productCategory.findMany({ where: { products: { some: { AND: [publicProductWhere, FILE_WHERE] } } }, select: { slug: true, name: true, image: true, _count: { select: { products: { where: { AND: [publicProductWhere, FILE_WHERE] } } } } }, orderBy: { sortOrder: 'asc' }, take: 12 }).catch(() => []),
+  ])
+  const sold = bestselling.reduce((sum, card) => sum + card.soldCount, 0)
+  const spotlight = bestselling.find((card) => card.soldCount > 0 && card.image) || newest.find((card) => card.image) || newest[0] || null
+  return {
+    settings, newest, bestselling: bestselling.filter((card) => card.soldCount > 0), popular: popular.filter((card) => card.views > 0), spotlight,
+    stats: { products: total, files: totals?._count._all || 0, bytes: Number(totals?._sum.sizeBytes || 0), sold },
+    categories: categories.map((row) => ({ slug: row.slug, name: row.name, image: row.image, total: row._count.products })).filter((row) => row.total > 0),
+  }
 }

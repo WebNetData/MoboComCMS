@@ -19,10 +19,11 @@ import {
 } from '@/components/store/Storefront'
 import { CategoryGrid, QuickRoutes, ShopHero, StoreDoors, TopSellers, divisionCopy } from '@/components/store/ShopHome'
 import { FileStoreDoor } from '@/components/store/ProductDownloads'
+import FileStore from '@/components/store/FileStore'
 import { FacetFind, FilterAutoApply, PriceSlider } from '@/components/store/ShopFilters'
 import { colorSwatch } from '@/modules/store/domain/colors'
-import { shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
-import { SHOP_SORTS, SPEC_PARAM, isFiltered, isStoreFront, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
+import { fileStoreHome, shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
+import { SHOP_SORTS, SPEC_PARAM, isFileStoreFront, isFiltered, isStoreFront, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 
 const SHOP_CONTEXT = { route: 'shop' } as const
@@ -56,7 +57,7 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
     <ThemeHeader context={SHOP_CONTEXT} theme={theme} locale={locale} navPages={navPages} preview={preview} />
     <SectionBarSlot section="shop" searchValue={query.q} />
     <main className="sx-page">
-      {isStoreFront(query) && query.kind ? <StoreFront kind={query.kind} /> : filtered ? <ShopArchive query={query} locale={locale === 'fa' ? 'fa' : 'en'}><Listing query={query} /></ShopArchive> : <Landing />}
+      {isFileStoreFront(query) ? <FileStoreFront /> : isStoreFront(query) && query.kind ? <StoreFront kind={query.kind} /> : filtered ? <ShopArchive query={query} locale={locale === 'fa' ? 'fa' : 'en'}><Listing query={query} /></ShopArchive> : <Landing />}
     </main>
     <ThemeFooter context={SHOP_CONTEXT} locale={locale} navPages={navPages} preview={preview} />
   </>
@@ -104,6 +105,16 @@ async function Landing() {
     <ProductRail title="پربازدیدترین‌ها" icon="grid" products={home.popular.filter((card) => card.views > 0).length >= 4 ? home.popular : []} more="/products?sort=views" />
     {empty && <div className="sx-empty"><StoreIcon name="store" size={42} /><b>هنوز کالایی منتشر نشده است</b><small>کالاها را از بخش مدیریت فروشگاه اضافه کنید.</small></div>}
     <TrustStrip />
+  </div>
+}
+
+/** The file store as a store of its own (Admin › store settings: its name, title, description and whether it shows). */
+async function FileStoreFront() {
+  const home = await fileStoreHome()
+  if (!home.settings.showFileStore) return <Listing query={parseShopQuery({ files: '1' })} />
+  return <div className="container">
+    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: await sectionDisplayName('store', true, { fa: 'فروشگاه', en: 'Shop' }), href: '/products' }, { label: home.settings.fileStoreName }]} />
+    <FileStore home={home} />
   </div>
 }
 
