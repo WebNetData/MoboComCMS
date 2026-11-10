@@ -40,6 +40,13 @@ const serviceRow = (row: ServiceOrder) => {
   </li>
 }
 
+/** Where a paid order is on its way, as five short segments with the reached ones filled. The status pill beside it says it in words. */
+const progress = (key: string) => {
+  if (key === 'UNPAID' || key === 'CANCELLED' || key === 'RETURNED' || !isFulfilmentStatus(key)) return null
+  const reached = key === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(key) + 1
+  return <span className="sx-my-meter" aria-hidden="true">{TRACKING_STEPS.map((step, index) => <i key={step.status} className={index < reached ? 'is-on' : undefined} />)}</span>
+}
+
 /** /dashboard/orders — Digikala-style order history with status tabs. */
 export async function MyOrdersView({ tab: tabParam, base = '/dashboard/orders' }: { tab?: string; base?: '/dashboard/orders' | '/miniapp/orders' }) {
   const id = await userId(base)
@@ -58,6 +65,7 @@ export async function MyOrdersView({ tab: tabParam, base = '/dashboard/orders' }
             <span className={`sx-state is-${order.state.tone}`}>{order.state.label}</span>
             <StoreIcon name="chevron" size={18} />
           </div>
+          {progress(order.state.key)}
           <dl className="sx-my-order-meta">
             <div><dt>تاریخ</dt><dd>{persian(order.createdAt)}</dd></div>
             <div><dt>کد سفارش</dt><dd className="num">{fa(order.id)}</dd></div>

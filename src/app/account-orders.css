@@ -1,0 +1,262 @@
+/* ============================================================
+   The member's orders and invoices (owner, 2026-11-10: "elegant, professional, advanced").
+   Imported by the four dashboard routes (src/app/dashboard/{orders,invoices}); every rule starts at
+   .member-shell .app-main and a page wrapper, so the Telegram mini app (which renders the same order
+   views) and the public pages keep their own look, whatever order the stylesheets load in.
+
+   The same quiet system as the header and the dashboard: neutral surfaces and hairlines, one accent
+   for the main action and for where things stand (a 2px rule under the current tab and the reached
+   steps of an order). Figures are tabular; invoice numbers use the mono face of a document.
+   ============================================================ */
+
+.member-shell .app-main :is(.sx-my, .iv-page) {
+  --o-line: var(--border);
+  --o-strong: color-mix(in srgb, var(--text) 22%, var(--border));
+  --o-hover: color-mix(in srgb, var(--text) 4%, transparent);
+  --o-ground: var(--bg);
+  --o-radius: 16px;
+  --o-mono: var(--sds-typography-family-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  --o-warn: #b45309;
+  color: var(--text);
+}
+html[data-theme='dark'] .member-shell .app-main :is(.sx-my, .iv-page) { --o-hover: color-mix(in srgb, var(--text) 6%, transparent); --o-warn: #fcd34d; }
+.member-shell .app-main :is(.sx-my, .iv-page) .num { font-variant-numeric: tabular-nums; }
+
+/* ---------- page head ---------- */
+.member-shell .app-main .sx-my { gap: 20px; }
+.member-shell .app-main .sx-my .sx-my-head { align-items: end; }
+.member-shell .app-main .sx-my .sx-my-head h1 { margin: 4px 0 0; font-size: clamp(22px, 1.1vw + 13px, 28px); font-weight: 600; line-height: 1.5; }
+.member-shell .app-main .sx-my .sx-my-head .sx-link { gap: 4px; color: var(--accent-ink, var(--primary)); font-size: 14px; font-weight: 500; }
+.member-shell .app-main .sx-my .sx-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+
+/* ---------- status tabs: plain labels on a hairline; the current one stands on the accent rule ---------- */
+.member-shell .app-main .sx-my .sx-my-tabs { gap: 4px; border-bottom: 1px solid var(--o-line); scrollbar-width: none; }
+.member-shell .app-main .sx-my .sx-my-tabs::-webkit-scrollbar { display: none; }
+.member-shell .app-main .sx-my .sx-my-tabs a { position: relative; gap: 8px; min-height: 44px; margin: 0; padding: 0 12px; border: 0; border-radius: 8px 8px 0 0; color: var(--muted); font-size: 14px; font-weight: 500; transition: color .15s ease, background-color .15s ease; }
+.member-shell .app-main .sx-my .sx-my-tabs a:hover { color: var(--text); background: var(--o-hover); }
+.member-shell .app-main .sx-my .sx-my-tabs a.is-active { color: var(--text); font-weight: 600; }
+.member-shell .app-main .sx-my .sx-my-tabs a.is-active::after { content: ''; position: absolute; inset-inline: 12px; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; background: var(--primary); }
+.member-shell .app-main .sx-my .sx-my-tabs a span, .member-shell .app-main .sx-my .sx-my-tabs a.is-active span { min-width: 0; padding: 0; border-radius: 0; background: none; color: var(--muted); font-size: 13px; font-weight: 500; }
+.member-shell .app-main .sx-my .sx-my-tabs a:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* ---------- an order: its pictures, what it is, where it stands, and the figures ---------- */
+.member-shell .app-main .sx-my .sx-my-list { gap: 12px; }
+.member-shell .app-main .sx-my .sx-my-order { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "thumbs top" "thumbs meter" "thumbs meta"; align-items: center; gap: 8px 24px; padding: 20px 24px; border: 1px solid var(--o-line); border-radius: var(--o-radius); background: var(--card); box-shadow: none; transform: none; transition: border-color .15s ease; }
+.member-shell .app-main .sx-my .sx-my-order:hover { border-color: var(--o-strong); box-shadow: none; transform: none; }
+.member-shell .app-main .sx-my .sx-my-order:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.member-shell .app-main .sx-my .sx-my-order-top { grid-area: top; display: flex; align-items: center; gap: 12px; }
+.member-shell .app-main .sx-my .sx-my-order-title { flex: 1 1 auto; min-width: 0; font-size: 16px; font-weight: 600; line-height: 1.7; }
+.member-shell .app-main .sx-my .sx-my-order-title small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.member-shell .app-main .sx-my .sx-my-order-top > svg { flex: none; color: var(--muted); }
+/* where the order is on its way: five segments, the reached ones in the accent */
+.member-shell .app-main .sx-my .sx-my-meter { grid-area: meter; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; width: min(100%, 320px); }
+.member-shell .app-main .sx-my .sx-my-meter i { height: 4px; border-radius: 2px; background: var(--o-line); }
+.member-shell .app-main .sx-my .sx-my-meter i.is-on { background: var(--primary); }
+/* the facts in one line, divided by hairlines; the amount last and a little larger */
+.member-shell .app-main .sx-my .sx-my-order-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 0; margin: 0; font-size: 13px; }
+.member-shell .app-main .sx-my .sx-my-order-meta div { display: inline-flex; align-items: baseline; gap: 6px; padding: 0 16px; border-radius: 0; background: none; }
+.member-shell .app-main .sx-my .sx-my-order-meta div:first-child { padding-inline-start: 0; }
+.member-shell .app-main .sx-my .sx-my-order-meta div + div { border-inline-start: 1px solid var(--o-line); }
+.member-shell .app-main .sx-my .sx-my-order-meta dt { color: var(--muted); }
+.member-shell .app-main .sx-my .sx-my-order-meta dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .sx-my .sx-my-order-meta div:last-child dd { font-size: 15px; font-weight: 600; }
+/* the pictures, stacked like cards on a desk */
+.member-shell .app-main .sx-my .sx-my-thumbs { grid-area: thumbs; display: flex; flex-wrap: nowrap; gap: 0; margin: 0; padding: 0; border: 0; }
+.member-shell .app-main .sx-my .sx-my-thumbs li { width: 72px; height: 72px; border: 2px solid var(--card); border-radius: 14px; background: var(--o-ground); box-shadow: 0 0 0 1px var(--o-line); color: var(--muted); }
+.member-shell .app-main .sx-my .sx-my-thumbs li + li { margin-inline-start: -44px; }
+.member-shell .app-main .sx-my .sx-my-thumbs li:nth-child(n + 4):not(.is-more) { display: none; }
+.member-shell .app-main .sx-my .sx-my-thumbs li span { border: 1px solid var(--o-line); font-weight: 600; }
+
+/* status pills: a dot and a word, in tones that read at 4.5:1 on both themes */
+.member-shell .app-main .sx-my .sx-state { gap: 6px; padding: 2px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.member-shell .app-main .sx-my .sx-state::before { width: 6px; height: 6px; }
+.member-shell .app-main .sx-my .sx-state.is-info { color: var(--accent-ink, var(--primary)); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+html[data-theme='light'] .member-shell .app-main .sx-my .sx-state.is-info { color: color-mix(in srgb, var(--primary) 58%, #000); }
+html[data-theme='light'] .member-shell .app-main .sx-my .sx-state.is-ok { color: #047857; }
+html[data-theme='light'] .member-shell .app-main .sx-my .sx-state.is-warn { color: #92400e; }
+
+/* ---------- the other orders: one ledger card, lines divided by hairlines ---------- */
+.member-shell .app-main .sx-my .sx-my-services { gap: 12px; margin-top: 12px; }
+.member-shell .app-main .sx-my .sx-my-services > header h2 { font-size: 18px; font-weight: 600; }
+.member-shell .app-main .sx-my .sx-my-services > header p { font-size: 14px; }
+.member-shell .app-main .sx-my .sx-svc-list { gap: 0; overflow: hidden; border: 1px solid var(--o-line); border-radius: var(--o-radius); background: var(--card); }
+.member-shell .app-main .sx-my .sx-svc { gap: 16px; padding: 16px 20px; border: 0; border-radius: 0; background: transparent; box-shadow: none; transform: none; }
+.member-shell .app-main .sx-my .sx-svc + .sx-svc { border-top: 1px solid var(--o-line); }
+.member-shell .app-main .sx-my .sx-svc:hover { background: var(--o-hover); border-color: transparent; }
+.member-shell .app-main .sx-my .sx-svc-icon { width: 40px; height: 40px; border: 1px solid var(--o-line); border-radius: 10px; background: transparent; color: var(--muted); }
+.member-shell .app-main .sx-my .sx-svc-main b { font-size: 15px; font-weight: 600; }
+.member-shell .app-main .sx-my .sx-svc-main small { font-size: 13px; }
+.member-shell .app-main .sx-my .sx-svc-end { grid-auto-flow: column; align-items: center; gap: 16px; }
+.member-shell .app-main .sx-my .sx-svc-end > :first-child { min-width: 120px; text-align: end; font-weight: 600; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .sx-my .sx-svc-state { font-weight: 600; }
+.member-shell .app-main .sx-my .sx-svc-end .sx-link { min-width: 48px; justify-content: end; font-weight: 500; }
+.member-shell .app-main .sx-my .sx-svc-rest > summary { border: 1px solid var(--o-line); border-radius: 10px; color: var(--text); font-weight: 500; }
+.member-shell .app-main .sx-my .sx-svc-rest > summary:hover { background: var(--o-hover); }
+.member-shell .app-main .sx-my .sx-empty { border: 1px dashed var(--o-line); border-radius: var(--o-radius); }
+
+/* ---------- one order ---------- */
+.member-shell .app-main .sx-my-detail .sx-my-head > div { display: grid; gap: 4px; }
+.member-shell .app-main .sx-my-detail .sx-my-head > div > .sx-link { color: var(--muted); font-size: 13px; }
+.member-shell .app-main .sx-my-detail .sx-my-head > div > .sx-link:hover { color: var(--text); }
+html[dir='rtl'] .member-shell .app-main .sx-my-detail .sx-my-head > div > .sx-link svg { transform: scaleX(-1); }
+/* the facts: a strip of labelled figures, like the head of a document */
+.member-shell .app-main .sx-my-detail .sx-my-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0; padding: 0; overflow: hidden; border: 1px solid var(--o-line); border-radius: var(--o-radius); background: var(--card); }
+.member-shell .app-main .sx-my-detail .sx-my-facts div { display: grid; gap: 4px; align-content: start; padding: 16px 20px; }
+.member-shell .app-main .sx-my-detail .sx-my-facts div + div { border-inline-start: 1px solid var(--o-line); }
+.member-shell .app-main .sx-my-detail .sx-my-facts dt { color: var(--muted); font-size: 13px; }
+.member-shell .app-main .sx-my-detail .sx-my-facts dd { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .sx-my-detail .sx-my-facts .sx-link { font-family: var(--o-mono); font-size: 14px; font-weight: 500; }
+.member-shell .app-main .sx-my-detail .sx-alert.is-warn { padding: 16px 20px; border: 1px solid var(--o-line); border-inline-start: 2px solid #d97706; border-radius: 12px; background: var(--card); }
+/* the way of the order: reached steps and the line between them in the accent, the current one ringed */
+.member-shell .app-main .sx-my-detail .sx-track { padding: 24px 16px 20px; border: 1px solid var(--o-line); border-radius: var(--o-radius); background: var(--card); }
+.member-shell .app-main .sx-my-detail .sx-track li { gap: 10px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.member-shell .app-main .sx-my-detail .sx-track li::before { inset-block-start: 13px; height: 2px; background: var(--o-line); }
+.member-shell .app-main .sx-my-detail .sx-track li.is-done::before { background: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-track-dot { width: 28px; height: 28px; border: 1px solid var(--o-line); background: var(--card); color: var(--muted); font-size: 12px; font-weight: 600; box-shadow: none; }
+.member-shell .app-main .sx-my-detail .sx-track li.is-done .sx-track-dot { border-color: var(--primary); background: var(--primary); color: var(--on-primary, #fff); }
+.member-shell .app-main .sx-my-detail .sx-track li.is-current .sx-track-dot { border: 2px solid var(--primary); background: var(--card); color: var(--text); box-shadow: 0 0 0 4px var(--card); }
+.member-shell .app-main .sx-my-detail .sx-track li.is-current, .member-shell .app-main .sx-my-detail .sx-track li.is-done { color: var(--text); font-weight: 600; }
+/* cards: title, a hairline, then the content */
+.member-shell .app-main .sx-my-detail .sx-my-grid { gap: 20px; grid-template-columns: minmax(0, 1fr) 340px; }
+.member-shell .app-main .sx-my-detail .sx-my-side { gap: 20px; }
+.member-shell .app-main .sx-my-detail .sx-my-card { padding: 20px 24px; border: 1px solid var(--o-line); border-radius: var(--o-radius); background: var(--card); }
+.member-shell .app-main .sx-my-detail .sx-my-card h2 { gap: 8px; margin: 0 0 16px; font-size: 16px; font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-my-card h2 svg { color: var(--muted); }
+.member-shell .app-main .sx-my-detail .sx-my-card h2 small { color: var(--muted); font-weight: 400; }
+.member-shell .app-main .sx-my-detail .sx-my-lines li { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 16px; padding-block: 16px; border-bottom-color: var(--o-line); }
+.member-shell .app-main .sx-my-detail .sx-my-lines li:first-child { padding-top: 0; }
+.member-shell .app-main .sx-my-detail :is(.sx-my-lines img, .sx-my-ph) { border-radius: 12px; background: var(--o-ground); box-shadow: 0 0 0 1px var(--o-line); }
+.member-shell .app-main .sx-my-detail .sx-my-lines div { font-size: 14px; }
+.member-shell .app-main .sx-my-detail .sx-my-lines a { font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-my-lines a:hover { color: var(--accent-ink, var(--primary)); }
+.member-shell .app-main .sx-my-detail .sx-my-lines small { font-size: 13px; }
+.member-shell .app-main .sx-my-detail .sx-my-lines li > .sx-money { font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-my-given { border: 1px solid var(--o-line); background: var(--o-ground); }
+/* the sum: lines of label and figure; the total under a full hairline, larger */
+.member-shell .app-main .sx-my-detail .sx-my-kv { gap: 12px; font-size: 14px; }
+.member-shell .app-main .sx-my-detail .sx-my-kv dd { font-variant-numeric: tabular-nums; text-align: end; }
+.member-shell .app-main .sx-my-detail .sx-my-kv .is-total { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--o-strong); font-size: 16px; font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-my-kv .is-total dt { color: var(--text); }
+html[data-theme='light'] .member-shell .app-main .sx-my-detail .sx-my-kv :is(.is-save, .is-save dt) { color: #047857; }
+/* the history: a line with a dot per event, the newest in the accent */
+.member-shell .app-main .sx-my-detail .sx-timeline { gap: 20px; padding: 0; padding-inline-start: 0; border-inline-start: 0; }
+.member-shell .app-main .sx-my-detail .sx-timeline li { padding-inline-start: 28px; font-size: 14px; }
+.member-shell .app-main .sx-my-detail .sx-timeline li::before { inset-inline-start: 0; inset-block-start: 7px; width: 10px; height: 10px; border: 1px solid var(--o-strong); background: var(--card); }
+.member-shell .app-main .sx-my-detail .sx-timeline li::after { content: ''; position: absolute; inset-inline-start: 5px; inset-block: 21px -16px; width: 1px; background: var(--o-line); }
+.member-shell .app-main .sx-my-detail .sx-timeline li:last-child::after { content: none; }
+.member-shell .app-main .sx-my-detail .sx-timeline li:first-child::before { border-color: var(--primary); background: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-timeline b { font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-timeline time { font-size: 13px; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .sx-my-detail .sx-timeline p { color: var(--muted); }
+
+/* ============================================================
+   Invoices
+   ============================================================ */
+/* the statement: three figures in one card, divided by hairlines; the one in use stands on the accent rule */
+.member-shell .app-main .iv-page .iv-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; overflow: hidden; border: 1px solid var(--o-line); border-radius: var(--o-radius); background: var(--card); }
+.member-shell .app-main .iv-page .iv-summary .dt-tile { position: relative; min-height: 0; padding: 20px 24px; border: 0; border-radius: 0; background: transparent; box-shadow: none; transform: none; transition: background-color .15s ease; }
+.member-shell .app-main .iv-page .iv-summary .dt-tile + .dt-tile { border-inline-start: 1px solid var(--o-line); }
+.member-shell .app-main .iv-page .iv-summary .dt-tile:hover { background: var(--o-hover); border-color: var(--o-line); }
+.member-shell .app-main .iv-page .iv-summary .dt-tile.is-on { border-color: var(--o-line); box-shadow: none; }
+.member-shell .app-main .iv-page .iv-summary .dt-tile.is-on::after { content: ''; position: absolute; inset-inline: 24px; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; background: var(--primary); }
+.member-shell .app-main .iv-page .iv-summary .dt-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.member-shell .app-main .iv-page .iv-summary .dt-tile-icon { width: 20px; height: 20px; inset-block-start: 20px; inset-inline-end: 24px; border: 0; background: none; color: var(--muted); }
+.member-shell .app-main .iv-page .iv-summary .dt-tile small { padding-inline-end: 32px; color: var(--muted); font-size: 13px; }
+.member-shell .app-main .iv-page .iv-summary .dt-tile b { margin-top: 4px; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .iv-page .iv-summary .dt-tile em { color: var(--muted); font-size: 13px; font-style: normal; font-variant-numeric: tabular-nums; }
+.member-shell .app-main .iv-page .iv-summary .dt-tile.is-warn em { color: var(--o-warn); }
+
+/* the filters: one segmented control */
+.member-shell .app-main .iv-page .dt-chips { justify-self: start; gap: 2px; padding: 4px; border: 1px solid var(--o-line); border-radius: 12px; background: var(--o-ground); }
+.member-shell .app-main .iv-page .dt-chips button { gap: 8px; min-height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 500; transition: background-color .15s ease, color .15s ease; }
+.member-shell .app-main .iv-page .dt-chips button:hover { color: var(--text); background: var(--o-hover); }
+.member-shell .app-main .iv-page .dt-chips button.is-on { border: 0; background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 0 0 1px var(--o-line), 0 1px 2px rgb(20 18 43 / .06); }
+.member-shell .app-main .iv-page .dt-chips button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.member-shell .app-main .iv-page .dt-chips i { min-width: 0; padding: 0; border-radius: 0; background: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* the ledger: one card, a quiet head of column names, one line per invoice */
+.member-shell .app-main .iv-page .iv-ledger {
+  --iv-cols: 40px minmax(0, 1.7fr) minmax(150px, .8fr) minmax(130px, .7fr) minmax(130px, .7fr) 120px 150px;
+  container-type: inline-size; overflow: hidden; border: 1px solid var(--o-line); border-radius: var(--o-radius); background: var(--card);
+}
+.member-shell .app-main .iv-page .iv-ledger-head { display: grid; grid-template-columns: var(--iv-cols); gap: 16px; padding: 12px 24px; border-bottom: 1px solid var(--o-line); background: var(--o-ground); color: var(--muted); font-size: 12px; font-weight: 500; }
+.member-shell .app-main .iv-page .iv-ledger-head > :first-child { grid-column: span 2; }
+.member-shell .app-main .iv-page .iv-ledger-head > :nth-child(4) { text-align: end; }
+.member-shell .app-main .iv-page .iv-rows { gap: 0; }
+.member-shell .app-main .iv-page .iv-row { position: relative; grid-template-columns: var(--iv-cols); gap: 16px; padding: 16px 24px; border: 0; border-radius: 0; background: transparent; box-shadow: none; transform: none; transition: background-color .15s ease; }
+.member-shell .app-main .iv-page .iv-row + .iv-row { border-top: 1px solid var(--o-line); }
+.member-shell .app-main .iv-page .iv-row:hover { background: var(--o-hover); border-color: var(--o-line); box-shadow: none; }
+/* an invoice that waits for payment: a short amber rule at its start edge */
+.member-shell .app-main .iv-page .iv-row.is-due { border-inline-start: 0; }
+.member-shell .app-main .iv-page .iv-row.is-due::before { content: ''; position: absolute; inset-inline-start: 0; inset-block: 16px; width: 2px; border-radius: 0 2px 2px 0; background: #d97706; }
+.member-shell .app-main .iv-page .iv-row .dt-row-icon { width: 40px; height: 40px; border: 1px solid var(--o-line); border-radius: 10px; background: transparent; color: var(--muted); }
+.member-shell .app-main .iv-page .iv-row .dt-row-title { font-size: 15px; font-weight: 600; }
+.member-shell .app-main .iv-page .iv-row .dt-row-title:hover { color: var(--accent-ink, var(--primary)); }
+.member-shell .app-main .iv-page .iv-row .dt-row-title:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.member-shell .app-main .iv-page .iv-row .dt-row-detail { font-size: 13px; -webkit-line-clamp: 1; }
+.member-shell .app-main .iv-page .iv-row .dt-tag { font-weight: 500; }
+.member-shell .app-main .iv-page .iv-number { min-width: 0; overflow: hidden; color: var(--muted); font-family: var(--o-mono); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.member-shell .app-main .iv-page .iv-date { display: grid; gap: 2px; font-size: 14px; }
+.member-shell .app-main .iv-page .iv-date small { color: var(--muted); font-size: 12px; }
+.member-shell .app-main .iv-page .iv-row.is-due .iv-date small { color: var(--o-warn); }
+/* end-aligned under its column name; stronger than the dashboard rule that sets a lone figure from the right */
+.member-shell .app-main .iv-page .iv-row .iv-amount.num { font-size: 15px; font-weight: 600; text-align: end; white-space: nowrap; }
+.member-shell .app-main .iv-page .iv-state .dt-state { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.member-shell .app-main .iv-page .iv-state .dt-state::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+html[data-theme='light'] .member-shell .app-main .iv-page .iv-state .dt-state.is-info { color: #5b21b6; }
+.member-shell .app-main .iv-page .iv-row .dt-row-actions { justify-content: end; }
+.member-shell .app-main .iv-page .iv-row .btn-sm { min-height: 36px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: none; }
+.member-shell .app-main .iv-page .iv-row .btn-primary.btn-sm { font-weight: 600; }
+.member-shell .app-main .iv-page .dt-more { border: 1px solid var(--o-line); border-radius: 10px; color: var(--text); font-weight: 500; }
+.member-shell .app-main .iv-page .dt-more:hover { background: var(--o-hover); }
+
+/* a narrow ledger: each invoice a short block, the figures beside the title */
+@container (max-width: 860px) {
+  .member-shell .app-main .iv-page .iv-ledger-head { display: none; }
+  .member-shell .app-main .iv-page .iv-row { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon main amount" "icon number state" "icon date actions"; align-items: center; gap: 4px 16px; padding: 16px 20px; }
+  .member-shell .app-main .iv-page .iv-row > .dt-row-icon { grid-area: icon; align-self: start; }
+  .member-shell .app-main .iv-page .iv-row > .dt-row-main { grid-area: main; }
+  .member-shell .app-main .iv-page .iv-row > .iv-number { grid-area: number; }
+  .member-shell .app-main .iv-page .iv-row > .iv-date { grid-area: date; display: flex; flex-wrap: wrap; gap: 0 8px; color: var(--muted); font-size: 13px; }
+  .member-shell .app-main .iv-page .iv-row > .iv-amount { grid-area: amount; }
+  .member-shell .app-main .iv-page .iv-row > .iv-state { grid-area: state; justify-self: end; }
+  .member-shell .app-main .iv-page .iv-row > .dt-row-actions { grid-area: actions; }
+}
+@container (max-width: 520px) {
+  .member-shell .app-main .iv-page .iv-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "main main" "number amount" "date state" "actions actions"; padding: 16px; }
+  .member-shell .app-main .iv-page .iv-row > .dt-row-icon { display: none; }
+  .member-shell .app-main .iv-page .iv-row > .dt-row-actions { justify-content: stretch; margin-top: 8px; }
+  .member-shell .app-main .iv-page .iv-row > .dt-row-actions .btn { flex: 1; }
+  .member-shell .app-main .iv-page .iv-row .dt-row-title { white-space: normal; }
+}
+
+/* ---------- narrow screens ---------- */
+@media (max-width: 760px) {
+  /* on a phone the statement stays one row of three short figures; the amounts wait in the ledger */
+  .member-shell .app-main .iv-page .iv-summary .dt-tile { padding: 12px 14px; }
+  .member-shell .app-main .iv-page .iv-summary .dt-tile small { padding: 0; font-size: 12px; }
+  .member-shell .app-main .iv-page .iv-summary .dt-tile b { font-size: 22px; }
+  .member-shell .app-main .iv-page .iv-summary :is(.dt-tile-icon, .dt-tile em) { display: none; }
+  .member-shell .app-main .iv-page .iv-summary .dt-tile.is-on::after { inset-inline: 14px; }
+  .member-shell .app-main .iv-page .dt-chips { justify-self: stretch; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .member-shell .app-main .iv-page .dt-chips button { flex: none; }
+}
+@media (max-width: 640px) {
+  .member-shell .app-main .sx-my .sx-my-order { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "meter" "meta" "thumbs"; padding: 16px; }
+  .member-shell .app-main .sx-my .sx-my-thumbs li { width: 56px; height: 56px; }
+  .member-shell .app-main .sx-my .sx-my-thumbs li + li { margin-inline-start: -32px; }
+  .member-shell .app-main .sx-my .sx-svc { grid-template-columns: minmax(0, 1fr); padding: 16px; }
+  .member-shell .app-main .sx-my .sx-svc-end { justify-content: start; justify-items: start; }
+  .member-shell .app-main .sx-my .sx-svc-end > :first-child { min-width: 0; text-align: start; }
+  .member-shell .app-main .sx-my-detail .sx-my-facts div + div { border-inline-start: 0; border-top: 1px solid var(--o-line); }
+  .member-shell .app-main .sx-my-detail .sx-my-grid { grid-template-columns: minmax(0, 1fr); }
+  .member-shell .app-main .sx-my-detail .sx-track { padding-inline: 4px; }
+  .member-shell .app-main .sx-my-detail .sx-track li { font-size: 11px; }
+  .member-shell .app-main .sx-my-detail .sx-my-card { padding: 16px; }
+}
+@media (max-width: 1100px) {
+  .member-shell .app-main .sx-my-detail .sx-my-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .member-shell .app-main :is(.sx-my, .iv-page) :is(.sx-my-order, .sx-my-tabs a, .sx-svc, .dt-tile, .iv-row, .dt-chips button) { transition: none; }
+}
