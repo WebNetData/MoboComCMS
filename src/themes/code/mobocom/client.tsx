@@ -22,7 +22,7 @@ function Brand({ footer = false }: { footer?: boolean }) {
 }
 
 type NavLink = PublicMenuLink
-const EntryIcon = ({ link, size = 17 }: { link: NavLink; size?: number }) => link.icon === undefined ? <Icon name={navIcon(link.href)} size={size}/> : <ThemeNavigationIcon name={link.icon} size={size}/>
+const EntryIcon = ({ link, size = 16 }: { link: NavLink; size?: number }) => link.icon === undefined ? <Icon name={navIcon(link.href)} size={size}/> : <ThemeNavigationIcon name={link.icon} size={size}/>
 
 // The icon of a section, from the first part of its address.
 const NAV_ICONS: Record<string, string> = {
@@ -78,22 +78,12 @@ function PriorityNav({ links, isOn, label, more }: { links: NavLink[]; isOn: (hr
   }, [links])
   useDismiss(nav, open, () => setOpen(false))
   const overflow = links.slice(visible)
-  // A highlight that slides to the link under the pointer (or the one that has the focus).
-  const rail = useRef<HTMLDivElement>(null)
-  const [glide, setGlide] = useState<{ x: number; width: number } | null>(null)
-  const glideTo = (target: EventTarget | null) => {
-    const item = target instanceof Element ? target.closest<HTMLElement>('[data-nav-item]') : null
-    if (!item || !rail.current?.contains(item)) { setGlide(null); return }
-    const itemRect = item.getBoundingClientRect(), railRect = rail.current.getBoundingClientRect()
-    setGlide({ x: itemRect.left - railRect.left + rail.current.scrollLeft, width: itemRect.width })
-  }
   return <nav ref={nav} className="mb-nav" aria-label={label}>
     <div ref={measure} className="mb-nav-measure" aria-hidden="true">{links.map(link => <span key={link.id || link.href}><EntryIcon link={link}/>{link.label}{!!link.children?.length && <b style={{ display: 'inline-block', width: 34 }} aria-hidden="true">⌄</b>}</span>)}</div>
-    <div ref={rail} className="mb-nav-rail" onMouseOver={event => glideTo(event.target)} onFocus={event => glideTo(event.target)} onMouseLeave={() => setGlide(null)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setGlide(null) }}>
-      <span className="mb-nav-glider" aria-hidden="true" data-on={glide ? '' : undefined} style={glide ? { width: glide.width, transform: `translateX(${glide.x}px)` } : undefined}/>
-      {links.slice(0, visible).map(link => <ThemeNavigationBranch key={link.id || link.href} link={link}><Link className="mb-nav-entry" href={link.href} data-nav-item="" aria-current={isOn(link.href) ? 'page' : undefined}><EntryIcon link={link}/><span>{link.label}</span></Link></ThemeNavigationBranch>)}
+    <div className="mb-nav-rail">
+      {links.slice(0, visible).map(link => <ThemeNavigationBranch key={link.id || link.href} link={link}><Link className="mb-nav-entry" href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><EntryIcon link={link}/><span>{link.label}</span></Link></ThemeNavigationBranch>)}
       {overflow.length > 0 && <div className="mb-nav-more">
-        <button type="button" data-nav-item="" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(value => !value)} className={overflow.some(link => isOn(link.href)) ? 'is-active' : ''}><Icon name="grid" size={17}/><span>{more}</span><Icon name="chevron" size={14}/></button>
+        <button type="button" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(value => !value)} className={overflow.some(link => isOn(link.href)) ? 'is-active' : ''}><Icon name="grid" size={16}/><span>{more}</span><Icon name="chevron" size={14}/></button>
         {open && <div className="mb-nav-dropdown mb-pop">{overflow.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline onNavigate={() => setOpen(false)}><Link href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><i><EntryIcon link={link}/></i>{link.label}</Link></ThemeNavigationBranch>)}</div>}
       </div>}
     </div>
@@ -127,9 +117,9 @@ function AccountMenu({ L }: { L: (fa: string, en: string) => string }) {
     </button>
     {open && <div className="mb-user-menu mb-pop" role="menu">
       <div className="mb-user-head">{portrait}<strong>{name}</strong>{real && <small dir="ltr">{real}</small>}<em>{role}</em></div>
-      <div className="mb-user-grid">{tiles.map(([href, icon, label]) => <Link key={href} href={href} role="menuitem"><i><Icon name={icon} size={17}/></i>{label}</Link>)}</div>
-      {user.role === 'ADMIN' && <Link href="/admin" role="menuitem"><i><Icon name="shield" size={17}/></i>{L('پنل مدیریت', 'Admin panel')}</Link>}
-      <button type="button" role="menuitem" className="is-danger" onClick={() => themeSignOut({ callbackUrl: '/' })}><i><Icon name="logout" size={17}/></i>{L('خروج از حساب', 'Log out')}</button>
+      <div className="mb-user-grid">{tiles.map(([href, icon, label]) => <Link key={href} href={href} role="menuitem"><i><Icon name={icon} size={16}/></i>{label}</Link>)}</div>
+      {user.role === 'ADMIN' && <Link href="/admin" role="menuitem"><i><Icon name="shield" size={16}/></i>{L('پنل مدیریت', 'Admin panel')}</Link>}
+      <button type="button" role="menuitem" className="is-danger" onClick={() => themeSignOut({ callbackUrl: '/' })}><i><Icon name="logout" size={16}/></i>{L('خروج از حساب', 'Log out')}</button>
     </div>}
   </div>
 }
@@ -194,7 +184,6 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
           <AccountMenu L={L}/>
           <button ref={menuButton} type="button" className="mb-menu-button" onClick={() => open ? closeDrawer() : setOpen(true)} aria-expanded={open} aria-controls="mb-mobile-nav" aria-label={open ? L('بستن منو', 'Close menu') : L('باز کردن منو', 'Open menu')}><Icon name={open ? 'close' : 'menu'} size={20}/></button>
         </div>
-        <span className="mb-progress" aria-hidden="true"/>
       </div>
       <div className="mb-navbar" onFocus={() => setNavAway(false)}>
         <div className="mb-container mb-navbar-inner"><PriorityNav links={links} isOn={isOn} label={L('ناوبری اصلی', 'Primary navigation')} more={L('بیشتر', 'More')}/></div>
@@ -206,7 +195,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
       <button type="button" className="mb-drawer-shade" aria-label={L('بستن منو', 'Close menu')} onClick={closeDrawer}/>
       <div ref={drawer} id="mb-mobile-nav" className="mb-drawer" role="dialog" aria-modal="true" aria-label={L('منوی سایت', 'Site menu')}>
         <div className="mb-drawer-head"><Brand/><button type="button" className="mb-menu-button" onClick={closeDrawer} aria-label={L('بستن منو', 'Close menu')}><Icon name="close" size={20}/></button></div>
-        <nav className="mb-drawer-nav" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline onNavigate={() => setOpen(false)}><Link href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><i><EntryIcon link={link} size={20}/></i><span>{link.label}</span></Link></ThemeNavigationBranch>)}</nav>
+        <nav className="mb-drawer-nav" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline onNavigate={() => setOpen(false)}><Link href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><i><EntryIcon link={link} size={18}/></i><span>{link.label}</span></Link></ThemeNavigationBranch>)}</nav>
         <div className="mb-drawer-foot">
           {user
             ? <><Link href="/dashboard" className="mb-drawer-cta"><Icon name="grid" size={18}/>{L('پیشخوان من', 'My dashboard')}</Link><button type="button" className="mb-drawer-out" onClick={() => themeSignOut({ callbackUrl: '/' })}><Icon name="logout" size={18}/>{L('خروج', 'Log out')}</button></>
