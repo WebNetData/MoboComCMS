@@ -256,7 +256,7 @@ async function nextPlayableEpisode(episodeId: number, viewer: { userId: number |
     select: { id: true, number: true, airDate: true, season: { select: { number: true } } },
   })
   if (!candidate || (candidate.airDate && candidate.airDate > new Date())) return null
-  const links = await db.mediaLink.findMany({ where: { ownerType: 'episode', ownerId: candidate.id, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, url: true, kind: true, access: true } })
+  const links = await db.mediaLink.findMany({ where: { ownerType: 'episode', ownerId: candidate.id, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, url: true, embedUrl: true, kind: true, access: true } })
   const link = links.find((row) => playbackKind(row.url, row.kind, toEmbedUrl, row.embedUrl) !== 'none')
   if (!link) return null
   const owner = await ownerOf('episode', candidate.id)
@@ -360,8 +360,8 @@ export async function openSubtitle(request: Request, rawId: string) {
 export async function saveCinemaWatchProgress(userId: number, linkId: number, positionSeconds: number, durationSeconds: number) {
   if (!Number.isSafeInteger(linkId) || linkId <= 0 || !Number.isFinite(positionSeconds) || !Number.isFinite(durationSeconds)
     || positionSeconds < 0 || durationSeconds <= 0 || durationSeconds > 86400 || positionSeconds > durationSeconds + 10) return null
-  const link = await db.mediaLink.findUnique({ where: { id: linkId }, select: { id: true, ownerType: true, ownerId: true, disabled: true, access: true, url: true, kind: true } })
-  if (!link || link.disabled || !['title', 'episode'].includes(link.ownerType) || playbackKind(link.url, link.kind, toEmbedUrl) === 'none' || !await isModuleEnabled('cinema')) return null
+  const link = await db.mediaLink.findUnique({ where: { id: linkId }, select: { id: true, ownerType: true, ownerId: true, disabled: true, access: true, url: true, embedUrl: true, kind: true } })
+  if (!link || link.disabled || !['title', 'episode'].includes(link.ownerType) || playbackKind(link.url, link.kind, toEmbedUrl, link.embedUrl) === 'none' || !await isModuleEnabled('cinema')) return null
   const owner = await ownerOf(link.ownerType, link.ownerId)
   if (!owner) return null
   const viewer = await getViewer()
