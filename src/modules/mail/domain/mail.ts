@@ -147,10 +147,8 @@ export function readSmtp(stored: Record<string, unknown> | undefined): SmtpSetti
 
 // ---------------------------------------------------------------- notification email
 
-const compactLines = (parts: string[]) => parts.filter((line, index, all) => line !== '' || all[index - 1] !== '').join('
-')
-const subjectOf = (title: string, brand: string) => `${title} — ${brand}`.replace(/[
-]+/g, ' ').slice(0, 200)
+const compactLines = (parts: string[]) => parts.filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n')
+const subjectOf = (title: string, brand: string) => `${title} — ${brand}`.replace(/[\r\n]+/g, ' ').slice(0, 200)
 
 /** A branded, RTL, table-based email (renders in Gmail, Outlook and phones) plus its text part. */
 export function notificationEmail(input: { brand: string; site: string; name: string; title: string; body?: string; href: string; accent?: string }) {
@@ -174,8 +172,7 @@ export function actionEmail(input: { brand: string; site: string; name: string; 
   const text = compactLines([`${input.name} عزیز،`, '', input.title, input.body, '', `${input.button}: ${link}`, '', input.note || '', input.brand])
   const html = emailDocument({
     brand: input.brand, site: input.site, title: input.title, accent: input.accent, icon: input.icon || 'lock', eyebrow: 'امنیت حساب',
-    preheader: input.body.split('
-')[0], greeting: `${input.name} عزیز،`,
+    preheader: input.body.split('\n')[0], greeting: `${input.name} عزیز،`,
     blocks: [{ kind: 'text', text: input.body }, { kind: 'button', label: input.button, href: link }, { kind: 'link', href: link }, ...(input.note ? [{ kind: 'note' as const, text: input.note }] : [])],
   })
   return { subject: subjectOf(input.title, input.brand), text, html }

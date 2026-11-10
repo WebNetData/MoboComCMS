@@ -8,7 +8,9 @@ function load(relative) {
   const file = path.resolve(__dirname, '..', `${relative}.ts`)
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+  // Shared pure helpers (the email layout) are imported by their @/ path.
+  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
+  new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
 const f = load('src/modules/store/domain/feeds')
