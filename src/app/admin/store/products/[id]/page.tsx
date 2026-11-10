@@ -154,7 +154,7 @@ export default function ProductEditorPage() {
 
   return <StoreShell title={isNew ? 'افزودن محصول' : form.name || 'ویرایش محصول'} actions={<>
     {!isNew && <a href={`/products/${form.slug}`} target="_blank" rel="noreferrer" className="btn btn-ghost">مشاهده در فروشگاه</a>}
-    <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : 'ذخیرهٔ تغییرات'}</button>
+    <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : form.active === false ? 'ذخیرهٔ پیش‌نویس' : 'ذخیرهٔ تغییرات'}</button>
   </>}>
     <Link href="/admin/store/products" className="sa-link sa-back">بازگشت به محصولات</Link>
     {error && <Notice tone="error">{error}</Notice>}
@@ -243,12 +243,16 @@ export default function ProductEditorPage() {
       <aside className="sa-stack sa-editor-side">
         <section className="sa-card">
           <header className="sa-card-head"><h2>انتشار</h2></header>
-          <label className="sa-check"><input type="checkbox" checked={!!form.active} onChange={(event) => update('active', event.target.checked)} />در فروشگاه نمایش داده شود</label>
+          <fieldset className="sa-publish-state">
+            <legend>وضعیت پس از ذخیره</legend>
+            <label className="sa-check"><input type="radio" name="product-state" checked={form.active !== false} onChange={() => update('active', true)} />منتشر و فعال در فروشگاه</label>
+            <label className="sa-check"><input type="radio" name="product-state" checked={form.active === false} onChange={() => update('active', false)} />غیرفعال (پیش‌نویس؛ فقط در مدیریت دیده می‌شود)</label>
+          </fieldset>
           <label className="sa-check"><input type="checkbox" checked={!!form.featured} onChange={(event) => update('featured', event.target.checked)} />محصول ویژه</label>
           {form.kind === 'VIRTUAL' && <label className="sa-check"><input type="checkbox" checked={!!form.isService} onChange={(event) => update('isService', event.target.checked)} />این محصول یک «خدمت» است <small className="sa-sub">در مدیریت، زیر «خدمات» هم نمایش داده می‌شود.</small></label>}
           <label data-vip="" className="sa-field"><span>دسترسی</span><select className="select" value={form.access} onChange={(event) => update('access', event.target.value)}><option value="PUBLIC">همه</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
           {field('sortOrder', 'ترتیب نمایش', { type: 'number' })}
-          <button type="button" className="btn btn-primary w-full" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : 'ذخیره'}</button>
+          <button type="button" className="btn btn-primary w-full" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : form.active === false ? 'ذخیرهٔ پیش‌نویس' : 'ذخیره'}</button>
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>دسته و برند</h2><Link href="/admin/productcats" className="sa-link">مدیریت دسته‌ها</Link></header>

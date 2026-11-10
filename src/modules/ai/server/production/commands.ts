@@ -10,7 +10,7 @@ import { requireProductionTransport, validateProductionProviders, productionMode
 import type { ProductionStep } from '../../domain/production-execution'
 
 export async function productionCommand(req: NextRequest,body:Record<string,unknown>,transport:'chat-web'|'api'='chat-web'): Promise<{batch:ReturnType<typeof view>;step?:ProductionStep;result?:unknown}> {
-  if(body.action==='save'){const result=await saveProduction(req,body.id,body.itemId,body.version,body.acknowledged===true);return{result,batch:view((await owned(req,body.id)).batch)}}
+  if(body.action==='save'){const result=await saveProduction(req,body.id,body.itemId,body.version,body.acknowledged===true,body.publish===true);return{result,batch:view((await owned(req,body.id)).batch)}}
   if(body.action==='start')await validateProductionProviders(configOf((await owned(req,body.id)).batch),await productionModelAuthority(req))
   const brand=(await getSiteSeo('fa')).name
   return db.$transaction(async tx=>{

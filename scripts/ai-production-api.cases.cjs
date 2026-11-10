@@ -40,3 +40,12 @@ test('GPT image protocol omits unsupported legacy response_format while compatib
   await api.generateImageApi('one image',config,'landscape');assert.equal(calls[0].response_format,undefined);assert.equal(calls[0].output_format,'webp');assert.equal(calls[0].quality,'medium');assert.equal(calls[0].size,'1536x1024');
   await api.generateImageApi('one image',{...config,model:'compatible-image'},'square');assert.equal(calls[1].response_format,'b64_json');assert.equal(calls[1].output_format,undefined);assert.equal(calls.length,2);
 });
+test('the reviewer chooses draft or live at save; blocked rows stay drafts',()=>{
+  const fs=require('node:fs'),read=f=>fs.readFileSync(require('node:path').join(__dirname,'..',f),'utf8')
+  const save=read('src/modules/ai/server/production/save.ts'),commands=read('src/modules/ai/server/production/commands.ts'),ui=read('src/components/admin/ai/ProductionQuality.tsx')
+  assert.match(commands,/body\.publish===true/,'only an explicit true publishes')
+  assert.match(save,/if\(publish&&quality\.level==='block'\)throw/,'a blocking finding forbids going live')
+  assert.match(save,/active:publish/);assert.match(save,/status=publish\?'PUBLISHED':'DRAFT'/);assert.doesNotMatch(save,/active:false/)
+  assert.match(save,/published:publish/,'the choice is audited')
+  assert.match(ui,/checked=\{!publish\}/,'draft stays the default');assert.match(ui,/disabled=\{blocked\}/)
+});
