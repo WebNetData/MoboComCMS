@@ -36,3 +36,27 @@ Base: main `620472bc`. Branch `fix/audit-p1-redis-2026-11-10`. Environment: loca
 
 ### Not run
 - A real multi-instance test against a Redis server (`scripts/rate-limit.redis.cjs` needs a Redis 7 server; none runs here, and starting a new container was not authorized for this task). The fake server covers the logic; a real Redis run remains an operational check.
+
+## Follow-up (owner, 2026-11-10): Redis lost while running — **confirmed, fixed** (branch `fix/audit-redis-runtime-2026-11-10`, stacked on #421)
+
+- **Reproduction on #421 with a real Redis 7:**
+  - `scripts/redis-runtime-outage.redis.cjs` was driven by stopping and starting the server mid-run.
+  - The outage was **not detected** within 30 s: `kvHealth().degraded` stayed false and the store still said "redis". There was no fallback state and no alert; operations simply failed.
+  - #421 covered only a Redis missing at start-up.
+- **Change:** `FailoverKv` around the live connection:
+  - it reports "redis" only while ioredis is `ready`, and sends every operation to the in-process store otherwise;
+  - `close` marks the outage at once and logs `kv.redis_lost`; `ready` marks recovery and logs `kv.redis_recovered`;
+  - a real command error on a live connection still throws.
+- **Real Redis result (after):**
+  - detected immediately on stop; recovered 251 ms after start;
+  - strict limits stayed closed during the outage; cache and lock worked on the fallback;
+  - after recovery the count was taken in Redis again (`rls:` key = 4).
+- **Also on real Redis:**
+  - `scripts/rate-limit.redis.cjs` passes, with a new case: 30 concurrent `lock` attempts across two instances give exactly one owner, which the Google state and ticket rely on.
+  - `scripts/scale.test.cjs` 9/9; its fake ioredis now has `status` and `close`/`ready`, plus a runtime drop and return.
+- **Environment:**
+  - temporary `redis:7-alpine` on an `--internal` Docker network, with no published port;
+  - limits: 64 MB memory, 0.5 CPU, read-only root, no persistence;
+  - the app container was attached to that network only for the test.
+- **Run it:** start such a Redis, then from the worktree run `bash ../claude-tools/redis-outage-drive.sh <label>`. It stops and starts the server at the checkpoints the script writes.
+- **Known limit:** each instance's fallback counts are local while Redis is down, so a limit across N instances can admit up to N times its count during an outage; it never opens fully. Counts taken during the outage are not merged back into Redis.

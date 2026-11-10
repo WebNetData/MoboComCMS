@@ -144,11 +144,14 @@ test('every limit that guards a secret is the strict one', () => {
 
 test("a configured Redis that does not answer: the site falls back, says so, reconnects, and sensitive limits never open (audit 2026-11-10, P1)", async () => {
   // A stand-in for ioredis on a shared fake server, so two separately loaded "instances" see the same data.
-  const server = { up: false, data: new Map(), ttl: new Map() }
+  const server = { up: false, data: new Map(), ttl: new Map(), clients: [] }
+  // Like ioredis: `status` is "ready" on a live connection; losing the server emits "close", getting it back "ready".
+  const setUp = (up) => { server.up = up; for (const client of server.clients) if (client.connected) (client.handlers[up ? "ready" : "close"] || (() => {}))() }
   class FakeRedis {
-    constructor() { this.handlers = {} }
+    constructor() { this.handlers = {}; this.connected = false; server.clients.push(this) }
+    get status() { return this.connected && server.up ? "ready" : this.connected ? "reconnecting" : "wait" }
     on(event, fn) { this.handlers[event] = fn; return this }
-    async connect() { if (!server.up) throw new Error("connect ECONNREFUSED 127.0.0.1:6379") }
+    async connect() { if (!server.up) throw new Error("connect ECONNREFUSED 127.0.0.1:6379"); this.connected = true }
     disconnect() { this.closed = true }
     async ping() { if (!server.up) throw new Error("offline"); return "PONG" }
     multi() {
@@ -200,17 +203,22 @@ test("a configured Redis that does not answer: the site falls back, says so, rec
     for (let i = 0; i < 3; i++) assert.equal((await a.strict("login:acc:x", 3, 60_000)).ok, true)
     assert.equal((await a.strict("login:acc:x", 3, 60_000)).ok, false, "never opens during the outage")
     // Redis comes back: both instances switch to it and share one limit.
-    server.up = true
+    setUp(true)
     assert.equal(await a.reconnect(), true); assert.equal(await b.reconnect(), true)
     assert.equal((await a.kv()).kind, "redis"); assert.equal((await b.health()).degraded, false)
     assert.ok(logs.some((l) => l.event === "kv.redis_recovered"))
     const spread = [await a.strict("otp:y", 3, 60_000), await b.strict("otp:y", 3, 60_000), await a.strict("otp:y", 3, 60_000), await b.strict("otp:y", 3, 60_000)]
     assert.deepEqual(spread.map((r) => r.ok), [true, true, true, false], "the fourth hit is refused whichever instance it reaches")
-    // Redis drops again mid-run: the shared count is unavailable, the local count still limits.
-    server.up = false
+    // Redis drops again mid-run: noticed from the connection, the store falls back, the local count still limits.
+    setUp(false)
+    assert.equal((await b.health()).degraded, true, "a runtime outage is reported")
+    assert.ok(logs.some((l) => l.event === "kv.redis_lost"), "and logged at once")
     for (let i = 0; i < 2; i++) await b.strict("pwd:z", 2, 60_000)
     assert.equal((await b.strict("pwd:z", 2, 60_000)).ok, false, "an outage is not a fresh allowance")
-    assert.ok(logs.some((l) => l.event === "rate_limit.shared_unavailable"))
+    // Back again: Redis decides once more.
+    setUp(true)
+    assert.equal((await b.health()).degraded, false); assert.equal((await b.kv()).kind, "redis")
+    assert.ok(logs.some((l) => l.event === "kv.redis_recovered"))
     clearTimeout(b.state.timer)
   } finally {
     if (before === undefined) delete process.env.REDIS_URL; else process.env.REDIS_URL = before

@@ -117,7 +117,7 @@ type KvState = {
 const globalKv = globalThis as unknown as { __mobocomKvState?: KvState }
 const state = (globalKv.__mobocomKvState ??= { degradedSince: null, attempts: 0, lastError: '', lastWarning: 0 })
 
-async function connectRedis(url: string): Promise<RedisKv> {
+async function connectRedis(url: string): Promise<FailoverKv> {
   const { default: Redis } = await import('ioredis')
   const client = new Redis(url, { maxRetriesPerRequest: 2, enableOfflineQueue: false, lazyConnect: true, connectTimeout: 3000 })
   client.on('error', (error) => logEvent('warn', 'kv.redis_error', { error: error.message }))
@@ -128,7 +128,61 @@ async function connectRedis(url: string): Promise<RedisKv> {
     client.disconnect()
     throw error
   }
-  return new RedisKv(client)
+  watchConnection(client)
+  return new FailoverKv(new RedisKv(client), client)
+}
+
+/**
+ * A Redis that was connected and stops answering while the site runs (audit 2026-11-10, owner follow-up). ioredis keeps
+ * reconnecting by itself (at most every 2 s); while it is not ready every operation goes to the in-process store, the
+ * store reports "memory", the outage is logged at once and the monitoring page and the redis signal show it. When the
+ * connection is ready again the site uses Redis again and logs the recovery. A command that fails on a live connection
+ * (a real Redis error) still throws as before.
+ */
+class FailoverKv implements Kv {
+  constructor(private redis: RedisKv, private client: RedisClient) {}
+  get kind(): 'redis' | 'memory' { return this.client.status === 'ready' ? 'redis' : 'memory' }
+  private async run<T>(work: (store: Kv) => Promise<T>): Promise<T> {
+    if (this.client.status !== 'ready') return work(connectionLost('not ready: ' + this.client.status))
+    try {
+      return await work(this.redis)
+    } catch (error) {
+      if (this.client.status === 'ready') throw error
+      return work(connectionLost(error))
+    }
+  }
+  get(key: string) { return this.run((store) => store.get(key)) }
+  set(key: string, value: string, ttlMs: number) { return this.run((store) => store.set(key, value, ttlMs)) }
+  del(key: string) { return this.run((store) => store.del(key)) }
+  delPrefix(prefix: string) { return this.run((store) => store.delPrefix(prefix)) }
+  incr(key: string, windowMs: number) { return this.run((store) => store.incr(key, windowMs)) }
+  hit(key: string, windowMs: number) { return this.run((store) => store.hit(key, windowMs)) }
+  lock(key: string, ttlMs: number) { return this.run((store) => store.lock(key, ttlMs)) }
+  ping() { return this.client.status === 'ready' ? this.redis.ping() : Promise.resolve(-1) }
+}
+
+/** Marks the outage (once) and hands back the in-process store to use meanwhile. */
+function connectionLost(reason: unknown): Kv {
+  const message = reason instanceof Error ? reason.message : String(reason)
+  if (!state.degradedSince) {
+    state.degradedSince = new Date().toISOString(); state.lastError = message.slice(0, 300); state.lastWarning = Date.now()
+    logEvent('error', 'kv.redis_lost', { error: state.lastError })
+  } else if (Date.now() - state.lastWarning > 5 * 60_000) {
+    state.lastWarning = Date.now()
+    logEvent('warn', 'kv.redis_fallback_active', { since: state.degradedSince, error: state.lastError })
+  }
+  state.fallback ??= new MemoryKv()
+  return state.fallback
+}
+
+function watchConnection(client: RedisClient) {
+  // Detected from the connection itself, with or without traffic.
+  client.on('close', () => { connectionLost('connection closed') })
+  client.on('ready', () => {
+    if (!state.degradedSince) return
+    logEvent('info', 'kv.redis_recovered', { since: state.degradedSince })
+    state.degradedSince = null; state.attempts = 0; state.lastError = ''; state.fallback = undefined
+  })
 }
 
 /**
