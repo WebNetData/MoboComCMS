@@ -53,3 +53,31 @@ the review; unfit parts are dropped instead of failing the save. Publish decisio
 - Browser: variant profit boxes and prices, gallery upload to `gallery-1.webp`, publish radio desktop/phone,
   no overflow or page errors. Test rows, files and folders removed.
 - Not run: live watermark on an organized image, a real AI production run with product fields, connected suites.
+
+## Continuation — every section (2026-11-10, branch `feat/store-publish-pricing-media-2026-11-10`)
+
+Owner asked for the four rules "in every section". Survey of current main: draft/live is already chosen at save in
+every editor (media sections, posts/pages, games, prompts, businesses, products); per-variant profit is Store-only by
+nature. Remaining gaps were filled:
+
+- **Media.** `FileUpload` (shared file button) now files a JPG/PNG/WebP picture of ≤15 MB through
+  `POST /api/admin/media` with the surrounding `OrganizationScope` and a role; no scope, other files, larger files or a
+  403 keep the old chunked upload. Scopes added: game editor (`download/Game/<first genre>/<English name>/images`,
+  `poster.webp` / `backdrop.webp`, also its rich editor and links), music artist (`avatar` / `cover` under
+  `download/music/<artist>/image`), cinema person (`download/cinema/images/<actors|director>/<name>/avatar.webp`;
+  director only when every credit is directing) and celebrity (new `celebrities/<slug>` root: address, else name).
+  `celebrities` is added to the organized-path validator, the watermark key and the `/files` watermark branch.
+- **AI fields.** `AiAutofill` added to the cinema person (name, bio), music artist (name, nameEn, bio), celebrity
+  (name, nameEn, bio, every switched-on profile field as `fact<i>`; the slug follows the English name unless typed)
+  and business editor (name, slug while new, website for outside businesses, field, description ≤2000).
+  `AUTOFILL_SECTIONS` gains `cinema-people`, `celebrities`, `businesses`; `content.autofill` accepts `businesses.manage`.
+  Not offered: brands, studios, franchises and store settings (taxonomy/configuration, not content items).
+
+Evidence (local, Linux container): `content-controls` 99/99 and `ai-autofill` (103 together) pass; full `tsc` clean;
+`source`, `security`, `audit`, `extensions` checks pass. `arch:check` fails on `src/shared/site/section-names.ts`,
+identical on plain `origin/main` c7dec8e7 (not this branch). Browser (separate dev container on 3100, owner's DB, no
+owner preview change; `.mobocom/claude-tools/pw-item-media.cjs`): game poster/backdrop at
+`/files/download/Game/Uncategorized/Test Game …/images/{poster,backdrop}.webp` served 200; celebrity, person and artist
+photos at the paths above; mocked AI answers fill the profile and business forms (no model call); celebrity and artist
+editors 390px without horizontal overflow; no page errors. 13 test Library rows and 19 empty test folders removed;
+no profile/game/business was saved. Not run: a real AI model call, live watermark on an organized photo, Doctor.

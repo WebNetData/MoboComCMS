@@ -22,7 +22,8 @@ Explicit `economy` routing extends the existing AI owner: existing authorized co
 2026-11-08 continuation: [Standard production targets](../specs/chat-web-production/STANDARD_MODELS.md) extend the existing AI batch owner. Text and image targets are explicit per batch, with API/resource consent, server-resolved encrypted credentials and pinned destination; API never resolves personal ChatGPT/Codex or falls back to another provider. Qwen/DeepSeek join the existing API registry and AI egress purpose; custom endpoints support local models. Images optionally use the dedicated OpenAI-compatible base64 image route, not text-only models or arbitrary URL downloads. One API step claims version/lease before I/O and completes through canonical draft/Media owners. Bridge0.3 uses bounded shared DOM readiness, fresh owned tabs, one send, explicit Chat selection and visible manual-login/UI failure; old stored batches remain Chat-driven. Model/provider overrides require settings.manage; section staff use only their assigned production API/model, rechecked each step. No migration, dependency, production deploy or free/unlimited claim.
 
 
-Owner requests bulk posts/products and generated cover/inline pictures from personal Chat web inside Admin, while assistant/engineering keep current ChatGPT/Codex routing. Extend the accepted personal desktop bridge; never claim unlimited/free usage or invoke API/Work as fallback. Existing target permissions, Media/Library and canonical draft creation remain; exact product facts/price/stock are human input. Browser-driven production persists progress but does not pretend to run without the browser. Failures require explicit retry; reviewed save is DRAFT/inactive with atomic receipt. [Scenario/evidence](handoffs/AI_PRODUCTION.md). Recovery extends the same owner with bounded origin/panel/provider/prompt/operation receipts, whole-turn extraction and separate images in one conversation per item; fresh generation remains explicit. [Recovery contract/evidence](handoffs/AI_CHAT_RECOVERY.md).
+Owner requests bulk posts/products and generated cover/inline pictures from personal Chat web inside Admin, while assistant/engineering keep current ChatGPT/Codex routing. Extend the accepted personal desktop bridge; never claim unlimited/free usage or invoke API/Work as fallback. Existing target permissions, Media/Library and canonical draft creation remain; exact product facts/price/stock are human input. Browser-driven production persists progress but does not pretend to run without the browser. Failures require explicit retry; reviewed save is DRAFT/inactive with atomic receipt. [Scenario/evidence](handoffs/AI_PRODUCTION.md).
+ Recovery extends the same owner with bounded origin/panel/provider/prompt/operation receipts, whole-turn extraction and separate images in one conversation per item; fresh generation remains explicit. [Recovery contract/evidence](handoffs/AI_CHAT_RECOVERY.md).
 
 ## Personal Chat web writing bridge — owner 2026-11-08
 
@@ -945,6 +946,12 @@ existing organization owner and are always computed server-side; existing URLs n
 because `/shop/[slug]` is a page route; watermark covers organized images; variant profit is nullable
 (inherit); a blocked AI row is draft-only; the publish decision, access and media stay human.
 Handoff: `docs/agent/handoffs/STORE_MEDIA_PUBLISH_AI.md`.
+Continuation (same day, every section): the file-upload button files a picture under its item when its editor gives
+an item scope (game editor, music artist, cinema person, celebrity); celebrities get `celebrities/<slug>` (address,
+else name); a cast/crew photo goes under `director` only when every credit is directing, otherwise `actors`;
+uploads without picture access (403) keep the old file upload. The assistant also fills cinema people, music artists,
+celebrities (names, biography, every switched-on profile field) and businesses (name, new slug, website, field,
+description); `businesses.manage` may call it. Profile photos and publish state stay human.
 
 ## Renamed section names/addresses and auto-publishing desk — 2026-11-10
 
