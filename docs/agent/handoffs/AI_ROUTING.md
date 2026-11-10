@@ -10,8 +10,10 @@ not a new provider service. [Spec](../../specs/ai-routing/SPEC.md),
 
 - `ai/domain/routing.ts` is the closed typed purpose/hierarchy registry and
   existing Admin action/section mapping. Support/Prompt Master inherit the
-  global API; Admin children inherit Admin. Unconfigured Admin preserves
-  PR362 personal-mode precedence. Explicit API overrides personal. Explicit
+  global API; Admin children inherit Admin. Inherit (including an
+  unconfigured Admin) uses the site provider; an enabled personal grant is
+  used only by an explicit personal route (owner 2026-11-11, replacing
+  PR362 implicit precedence). Explicit API overrides personal. Explicit
   personal needs that actor's enabled grant; no error fallback. Unknown
   source/purpose and personal public bindings are rejected.
 - `ai/server/routing.ts` extends canonical Settings at `ai.routing.v1`, using

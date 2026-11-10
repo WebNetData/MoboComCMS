@@ -14,8 +14,8 @@ export async function aiReadiness(actorId: number) {
   return Promise.all(projection.map(async (route, index) => {
     try {
       const purpose = AI_PURPOSES[index].id, resolved = resolveAiRoute(routes, purpose)
-      if (allowsPersonalAi(purpose) && resolved.source === 'inherit' && personal.status === 'rejected') throw Error('personal settings unavailable')
-      const selectedPersonal = allowsPersonalAi(purpose) && (resolved.source === 'personal' || (resolved.source === 'inherit' && personal.status === 'fulfilled' && personal.value.enabled))
+      // Only an explicit personal choice uses the admin's ChatGPT; inherit is the site's configured provider.
+      const selectedPersonal = allowsPersonalAi(purpose) && resolved.source === 'personal'
       if (selectedPersonal) {
         if (personal.status !== 'fulfilled') throw Error('personal settings')
         const s = personal.value, account = s.accounts.find(a => a.clientId === s.active), configured = s.enabled && !!s.model && !!account?.refresh

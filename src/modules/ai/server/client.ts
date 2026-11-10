@@ -9,7 +9,7 @@ import { DEFAULT_AI, effectiveBaseUrl, effectiveModel, normalizeAiConfig, type A
 import { egressFetch, egressRoute } from '@/modules/social/server/egress'
 import { personalAiActor } from './admin-context'
 import { personalAiPurpose } from './admin-context'
-import { allowsPersonalAi, type AiPurpose } from '../domain/routing'
+import type { AiPurpose } from '../domain/routing'
 import { readAiRoutes, resolveAiRoute } from './routing'
 import { AiError } from './error'
 import { credentialPoolReady, generateWithCredentialPool } from './credentials'
@@ -66,10 +66,12 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
   const actor = personalAiActor()
   const selected = purpose || personalAiPurpose() || (actor !== undefined ? 'admin' : undefined)
   const route = selected ? resolveAiRoute(await readAiRoutes(), selected) : { source: 'inherit' as const }
-  if (route.source === 'personal' || (route.source === 'inherit' && actor !== undefined && selected && allowsPersonalAi(selected))) {
+  // Owner 2026-11-11: an admin's personal ChatGPT serves only purposes explicitly set to it (directly or by inheriting
+  // an Admin default set to it). "Inherit" with no such choice means the site's own configured provider, e.g. Gemini.
+  if (route.source === 'personal') {
     if (actor === undefined) throw new AiError('ورود مدیر برای استفاده از حساب شخصی ChatGPT لازم است', 403)
     const { personalGenerate, ChatGptError } = await import('./chatgpt')
-    try { const personal = await personalGenerate(actor, prompt); if (personal) return personal; if (route.source === 'personal') throw new AiError('اتصال شخصی ChatGPT را در تنظیمات حساب خودتان فعال کنید', 409) }
+    try { const personal = await personalGenerate(actor, prompt); if (personal) return personal; throw new AiError('اتصال شخصی ChatGPT را در تنظیمات حساب خودتان فعال کنید', 409) }
     catch (error) { if (error instanceof ChatGptError) throw new AiError(error.message, error.status); throw error }
   }
   const settings = route.source === 'api' && route.config ? route.config : config || await getAiConfig()

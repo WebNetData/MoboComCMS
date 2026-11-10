@@ -15,6 +15,8 @@ const prompt={system:'owned',user:'routing input',maxTokens:200},config={provide
 test('AI purpose API overrides personal Admin; public support/prompts never use that personal account',async()=>{
  const f=fixture();await f.routing.saveAiRoute('support',{source:'api',config:{provider:'gemini',apiKey:'owned-support-key',model:'owned-support'}})
  assert.equal((await f.ctx.withPersonalAi(41,()=>f.client.generate(prompt,config,'support'))).model,'owned-support');assert.equal(f.calls.at(-1).headers.Authorization,'Bearer owned-support-key')
+ assert.equal((await f.ctx.withPersonalAi(41,()=>f.client.generate(prompt,config))).model,'owned-global','Admin inheriting the site default does not take the personal grant')
+ await f.routing.saveAiRoute('admin',{source:'personal'})
  assert.equal((await f.ctx.withPersonalAi(41,()=>f.client.generate(prompt,config))).provider,'chatgpt-personal')
  await f.routing.saveAiRoute('journal',{source:'api',config:{provider:'groq',apiKey:'owned-journal-key',model:'owned-journal'}})
  assert.equal((await f.ctx.withPersonalAi(41,()=>f.client.generate(prompt,config),'journal')).model,'owned-journal');assert.match(f.calls.at(-1).url,/api.groq.com/)

@@ -53,8 +53,10 @@ test('ChatGPT refresh is serialized and personal credentials cannot reach public
  const both=await Promise.allSettled([f.session.activeAccount(11),f.session.activeAccount(11)]);assert.equal(f.refreshes,1);assert(both.some(x=>x.status==='fulfilled'))
  const client=f.load('src/modules/ai/server/client.ts'),context=f.load('src/modules/ai/server/admin-context.ts'),prompt={system:'only admin',user:'owned input',maxTokens:200},config={provider:'gemini',apiKey:'owned-public-key',model:'owned-shared',baseUrl:'',voice:'',botName:''}
  assert.equal((await client.generate(prompt,config)).text,'shared-provider')
+ assert.equal((await context.withPersonalAi(11,()=>client.generate(prompt,config))).text,'shared-provider','an enabled personal grant is not used while Admin inherits the site default')
+ f.rows.set('ai.routing.v1',JSON.stringify({version:1,routes:{admin:{source:'personal'}}}))
  assert.equal((await context.withPersonalAi(11,()=>client.generate(prompt,config))).provider,'chatgpt-personal')
- assert.equal((await context.withPersonalAi(12,()=>client.generate(prompt,config))).text,'shared-provider')
+ const beforeOther=f.requests.length;await assert.rejects(context.withPersonalAi(12,()=>client.generate(prompt,config)),e=>e.status===409,'another admin without a grant uses neither this account nor the API');assert.equal(f.requests.length,beforeOther)
  const personal=f.requests.filter(r=>r.url.endsWith('/responses'));assert.equal(personal.length,1);assert.equal(personal[0].init.headers.Authorization,'Bearer owned-access-secret');assert.deepEqual(JSON.parse(personal[0].init.body),{model:'owned-model',instructions:'only admin',input:[{role:'user',content:'owned input'}],store:false,stream:true})
  await f.store.changeState(11,s=>{s.model=''});const before=f.requests.length;await assert.rejects(context.withPersonalAi(11,()=>client.generate(prompt,config)),/مدل/);assert.equal(f.requests.length,before,'no paid or public fallback')
 })
