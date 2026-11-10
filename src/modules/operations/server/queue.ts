@@ -60,6 +60,13 @@ const HANDLERS: Record<string, { run: Handler }> = {
       return deliverInboxDigest(Number(payload.userId), String(payload.day || ''))
     },
   },
+  // A count that failed right after a save (taxonomy/server/taxonomy.ts recountAfterWrite) is retried here with backoff.
+  'taxonomy.recount': { run: async payload => {
+    const { isTaxonomy } = await import('@/modules/taxonomy/domain/taxonomy')
+    if (!isTaxonomy(payload.taxonomy)) throw new Error('Invalid taxonomy')
+    await (await import('@/modules/taxonomy/server/taxonomy')).recount(payload.taxonomy)
+    return { taxonomy: payload.taxonomy }
+  } },
   'forum.reputation-recount': {
     run: async (payload, job) => {
       const { recountReputation } = await import('@/modules/forum/server/community')

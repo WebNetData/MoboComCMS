@@ -79,3 +79,54 @@ test('assignment keeps valid unique ids and a primary term', () => {
   assert.deepEqual(tx.normalizeAssignment([1], valid), { ids: [1], primary: 1 })
   assert.deepEqual(tx.normalizeAssignment(null, valid), { ids: [], primary: null })
 })
+
+test('a count that fails after a save is logged with its operation and retried by the queue, never swallowed (audit 2026-11-10, P1)', async () => {
+  // taxonomy.ts with database, queue and log doubles: the recount fails on purpose.
+  const logs = [], queued = []
+  let failRead = true, failQueue = false
+  // Every model answers an empty list; reading assignments fails on purpose while failRead is set.
+  const empty = { findMany: async () => [], update: async () => ({}) }
+  const db = new Proxy({
+    taxonomyAssignment: { findMany: async () => { if (failRead) throw Object.assign(new Error('deadlock detected'), { name: 'PrismaClientKnownRequestError' }); return [] } },
+  }, { get: (target, key) => target[key] || empty })
+  const mocks = {
+    '@/platform/database/prisma': { db },
+    '@/platform/observability/logger': { logEvent: (level, event, fields) => logs.push({ level, event, fields }) },
+    '@/modules/operations/server/enqueue': { enqueue: async (kind, payload, options) => { if (failQueue) throw new Error('queue down'); queued.push({ kind, payload, options }); return { id: 1 } } },
+  }
+  // A small loader of its own: '@/', relative paths and the doubles above, each module once.
+  const seen = new Map()
+  const loadOwn = (file) => {
+    if (seen.has(file)) return seen.get(file).exports
+    const own = { exports: {} }; seen.set(file, own)
+    const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
+    new Function('require', 'module', 'exports', code)((name) => {
+      if (mocks[name]) return mocks[name]
+      if (!name.startsWith('@/') && !name.startsWith('.')) return require(name)
+      const base = name.startsWith('@/') ? path.resolve(__dirname, '..', 'src', name.slice(2)) : path.resolve(path.dirname(file), name)
+      return loadOwn(fs.existsSync(base + '.ts') ? base + '.ts' : path.join(base, 'index.ts'))
+    }, own, own.exports)
+    return own.exports
+  }
+  const mod = { exports: loadOwn(path.resolve(__dirname, '..', 'src/modules/taxonomy/server/taxonomy.ts')) }
+  const taxonomy = mod.exports
+
+  assert.equal(await taxonomy.recountAfterWrite('music', { operation: 'update', resource: 'music-tracks', id: 42 }), 'queued')
+  assert.deepEqual(logs[0].fields, { taxonomy: 'music', operation: 'update', resource: 'music-tracks', id: 42, errorName: 'PrismaClientKnownRequestError', message: 'deadlock detected' })
+  assert.equal(logs[0].event, 'taxonomy.recount_failed'); assert.equal(logs[0].level, 'error')
+  assert.deepEqual(queued, [{ kind: 'taxonomy.recount', payload: { taxonomy: 'music' }, options: { dedupeKey: 'taxonomy-recount:music' } }])
+  failQueue = true
+  assert.equal(await taxonomy.recountAfterWrite('games', { operation: 'bulk-delete', resource: 'games', id: '3,4' }), 'lost')
+  assert.equal(logs.at(-1).event, 'taxonomy.recount_unqueued')
+  failRead = false; failQueue = false
+  assert.equal(await taxonomy.recountAfterWrite('software', { operation: 'create', resource: 'software', id: 7 }), 'counted')
+
+  // No caller swallows a count any more; the job kind exists and runs the same recount.
+  for (const owner of ['src/modules/media/server/admin.ts', 'src/modules/games/server/admin.ts']) {
+    const text = fs.readFileSync(path.resolve(__dirname, '..', owner), 'utf8')
+    assert.doesNotMatch(text, /recount\([^)]*\)\.catch\(\(\) => undefined\)/, owner)
+  }
+  assert.equal((fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/media/server/admin.ts'), 'utf8').match(/await recountFor\(resource, \{ type, operation: /g) || []).length, 7)
+  assert.match(fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/operations/domain/job-kinds.ts'), 'utf8'), /'taxonomy\.recount':/)
+  assert.match(fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/operations/server/queue.ts'), 'utf8'), /'taxonomy\.recount': \{ run: async payload => \{\s*const \{ isTaxonomy \}[\s\S]*?\.recount\(payload\.taxonomy\)/)
+})
