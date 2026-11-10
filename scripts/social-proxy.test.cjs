@@ -120,7 +120,7 @@ test('the root helper applies only what Xray accepts, and the installer checks t
     const status = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'status'], { encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: path.join(dir, 'missing'), XRAYCTL_DIR: dir } })
     assert.deepEqual(JSON.parse(status.stdout), { installed: 0, version: '', configured: 0, active: 0, port: 10809, builder: 1 }, 'an old or missing builder reads as version 1')
     const newer = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'status'], { encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: path.join(dir, 'missing'), XRAYCTL_DIR: dir, XRAYCTL_BUILDER: path.join(root, 'deploy/ubuntu/xray-config.cjs') } })
-    assert.equal(JSON.parse(newer.stdout).builder, 2)
+    assert.equal(JSON.parse(newer.stdout).builder, 3)
     // check: Xray tests the profiles, nothing is installed or restarted.
     const check = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'check'], { input: JSON.stringify({ version: 2, profiles: [{ tag: 'p1', outbound: good }], routes: { ai: 'p1' } }), encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: fake, XRAYCTL_BUILDER: path.join(root, 'deploy/ubuntu/xray-config.cjs'), XRAYCTL_DIR: dir } })
     assert.equal(check.status, 0, check.stderr); assert.match(check.stdout, /OK configuration accepted/)
@@ -186,7 +186,12 @@ test('the root builder takes named profiles: each purpose reaches only its own h
     { type: 'field', inboundTag: ['site'], outboundTag: 'drop' },
   ])
   assert.ok(builder.PURPOSES.updates.includes('domain:github.com'))
-  assert.equal(builder.BUILDER_VERSION, 2)
+  assert.equal(builder.BUILDER_VERSION, 3)
+  assert.equal(builder.BUILDER_VERSION, egressDomain.CURRENT_BUILDER, 'the site and the root builder agree on the version')
+  for (const purpose of egressDomain.EGRESS_PURPOSES) {
+    assert.ok(builder.PURPOSES[purpose.key], `the root builder knows ${purpose.key}`)
+    for (const host of purpose.hosts) assert.ok(builder.PURPOSES[purpose.key].some((d) => d === `full:${host}` || d === `domain:${host}` || (d.startsWith('domain:') && host.endsWith(`.${d.slice(7)}`))), `${host} reaches the proxy for ${purpose.key}`)
+  }
   // The panel cannot name hosts, add keys, reuse or invent tags, or weaken an outbound.
   for (const [bad, message] of [
     [{ version: 2, profiles: [{ tag: 'p1', outbound: a }], routes: { anything: 'p1' } }, /not known/],
@@ -223,6 +228,11 @@ test('profiles and purposes: hosts map to purposes, old settings become profile 
   assert.deepEqual(d.helperPayload(settings, out, 1), { kind: 'old-builder' })
   assert.deepEqual(d.helperPayload({ ...settings, routes: { telegram: 'p2', instagram: 'p2' } }, out, 1), { kind: 'v1', body: 'outbound-p2' })
   assert.deepEqual(d.helperPayload({ ...settings, routes: {} }, out, 2), { kind: 'none' })
+  // An installed builder older than the site refuses a purpose it does not know; the site says so before asking it.
+  const google = { ...settings, routes: { ai: 'p2', google: 'p1' } }
+  assert.deepEqual(d.helperPayload(google, out, 2), { kind: 'old-builder' })
+  assert.equal(d.helperPayload(google, out, 3).kind, 'v2')
+  assert.equal(d.helperPayload(settings, out, 2).kind, 'v2', 'routes the old builder knows still apply')
 })
 
 test('the site sends a purpose through the proxy only when that purpose has a profile', async () => {
