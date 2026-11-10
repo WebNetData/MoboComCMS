@@ -293,7 +293,7 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   const nextEpisode = link.ownerType === 'episode' && playback !== 'embed' ? await nextPlayableEpisode(link.ownerId, viewer) : null
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
   // Online playback is browser-to-origin. Do not send media bytes through the CMS host.
-  const src = playback === 'embed' ? (link.embedUrl || toEmbedUrl(link.url)) : link.url
+  const src = playback === 'embed' ? (link.embedUrl || toEmbedUrl(link.url)) : settings ? signOriginUrl(link.url, settings, headers) : link.url
   // The subtitle files of the same film or episode that this viewer may open and the player can show.
   const subtitles: PlayerSubtitle[] = []
   const audioTracks: PlayerAudio[] = []
