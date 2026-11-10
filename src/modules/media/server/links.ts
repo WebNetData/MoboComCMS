@@ -209,7 +209,13 @@ export async function openTrack(request: Request, rawId: string) {
     target = signOriginUrl(target, guard, request.headers)
   }
   await db.musicTrack.update({ where: { id }, data: download ? { downloads: { increment: 1 } } : { plays: { increment: 1 } } }).catch(() => undefined)
-  return fileRedirect(request, target, download, viewer.userId, { title: `${track.artist.name} - ${track.title}`, quality: hq ? 'HQ' : '' }, { title: track.title, artist: track.artist.name, album: track.album?.title, cover: track.cover || track.album?.cover || '' })
+  if (!download) {
+    const response = siteRedirect(target)
+    response.headers.set('Cache-Control', 'private, no-store')
+    response.headers.set('Referrer-Policy', 'no-referrer')
+    return response
+  }
+  return fileRedirect(request, target, true, viewer.userId, { title: `${track.artist.name} - ${track.title}`, quality: hq ? 'HQ' : '' }, { title: track.title, artist: track.artist.name, album: track.album?.title, cover: track.cover || track.album?.cover || '' })
 }
 
 // ------------------------------------------------------------------ online player
@@ -251,7 +257,7 @@ async function nextPlayableEpisode(episodeId: number, viewer: { userId: number |
   })
   if (!candidate || (candidate.airDate && candidate.airDate > new Date())) return null
   const links = await db.mediaLink.findMany({ where: { ownerType: 'episode', ownerId: candidate.id, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, url: true, kind: true, access: true } })
-  const link = links.find((row) => playbackKind(row.url, row.kind, toEmbedUrl) !== 'none')
+  const link = links.find((row) => playbackKind(row.url, row.kind, toEmbedUrl, row.embedUrl) !== 'none')
   if (!link) return null
   const owner = await ownerOf('episode', candidate.id)
   if (!owner || await gate(viewer, [{ ownerType: 'link', ownerId: link.id }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS') !== 'ok') return null
@@ -276,7 +282,7 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   const viewer = await getViewer()
   const access = await gate(viewer, [{ ownerType: 'link', ownerId: id }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS')
   if (access !== 'ok') return { ok: false, reason: access, backPath: owner.path }
-  const playback = playbackKind(link.url, link.kind, toEmbedUrl)
+  const playback = playbackKind(link.url, link.kind, toEmbedUrl, link.embedUrl)
   if (playback === 'none') return { ok: false, reason: 'unplayable', backPath: owner.path }
   const settings = await downloadGuardEnabled() ? await getDownloadSettings() : null
   if (settings?.enforceTokens && checkPageToken(token, `l${id}`, viewer.userId) !== 'ok') return { ok: false, reason: 'expired', backPath: owner.path }
@@ -286,7 +292,8 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   const progress = progressEnabled ? await db.cinemaWatchProgress.findUnique({ where: { userId_ownerType_ownerId: { userId: viewer.userId!, ownerType: link.ownerType, ownerId: link.ownerId } }, select: { positionSeconds: true, completedAt: true } }) : null
   const nextEpisode = link.ownerType === 'episode' && playback !== 'embed' ? await nextPlayableEpisode(link.ownerId, viewer) : null
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
-  const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false, userId: viewer.userId, context: { title: owner.title, label: link.label, quality: link.quality } })
+  // Online playback is browser-to-origin. Do not send media bytes through the CMS host.
+  const src = playback === 'embed' ? (link.embedUrl || toEmbedUrl(link.url)) : link.url
   // The subtitle files of the same film or episode that this viewer may open and the player can show.
   const subtitles: PlayerSubtitle[] = []
   const audioTracks: PlayerAudio[] = []
