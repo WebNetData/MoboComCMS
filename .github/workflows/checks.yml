@@ -22,9 +22,9 @@ jobs:
       matrix:
         include:
           - label: before
-            revision: 8092e65c
+            revision: 8092e65cad56b331ba693447cb474bac9ba0e049
           - label: after
-            revision: 3fc2b4ed
+            revision: 3fc2b4edab9964dc471f32fb735d2b88c9ec755e
     env:
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: isolated-audit-build-only-secret-20261110
