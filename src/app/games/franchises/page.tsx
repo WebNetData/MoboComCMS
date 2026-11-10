@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
@@ -17,7 +18,7 @@ export default async function FranchisesPage() {
     <MediaShell section="games">
       <div className="container gv-page">
         <header className="gv-page-head">
-          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games">بازی</Link> › مجموعه‌ها</nav>
+          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games"><SectionName id="games">بازی</SectionName></Link> › مجموعه‌ها</nav>
           <h1>مجموعه‌های بازی</h1>
           <p>سری‌های محبوب را از اولین نسخه تا تازه‌ترین دنبال کنید.</p>
         </header>

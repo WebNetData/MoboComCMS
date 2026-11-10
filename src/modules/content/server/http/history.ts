@@ -95,6 +95,10 @@ async function ownerOf(type: string): Promise<Owner | null> {
     const { returnSettingsState, restoreReturnSettings } = await import('@/modules/store/server/returns')
     return { perms: ['settings.manage', 'orders.manage'], module: 'store', current: () => returnSettingsState(), restore: restoreReturnSettings }
   }
+  if (type === 'settings-section-names') {
+    const { sectionNamesState, restoreSectionNames } = await import('@/modules/site/server/section-names')
+    return { perms: ['settings.manage'], module: null, current: sectionNamesState, restore: restoreSectionNames }
+  }
   if (type === 'settings-watermark') {
     const { watermarkSettingsState, restoreWatermarkSettings } = await import('@/modules/watermark/server/watermark')
     return { perms: ['settings.manage'], module: null, current: () => watermarkSettingsState(), restore: restoreWatermarkSettings }

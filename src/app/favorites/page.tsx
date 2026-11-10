@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { redirect } from 'next/navigation'
@@ -57,7 +58,7 @@ export default async function FavoritesPage({ searchParams }: { searchParams: Pr
             <h2>{type === 'prompt' ? 'هنوز الگوی پرامپتی ذخیره نکرده‌اید' : type === 'track' ? 'هنوز آهنگی به علاقه‌مندی‌ها اضافه نکرده‌اید' : 'فهرست علاقه‌مندی‌ها خالی است'}</h2>
             <p className="muted">{type === 'prompt' ? 'در صفحهٔ هر الگوی عمومی، روی «علاقه‌مندی» بزنید یا آن را در کالکشن دلخواه نگه دارید.' : type === 'track' ? 'در صفحهٔ هر آهنگ روی «♡ علاقه‌مندی» بزنید تا اینجا نمایش داده شود.' : 'در صفحهٔ هر نرم‌افزار، بازی، فیلم، آلبوم، محصول یا پرامپت روی «♡ علاقه‌مندی» بزنید تا اینجا ذخیره شود.'}</p>
             {type === 'prompt' && <Link href="/prompts/library?view=all" className="btn btn-primary">کشف پرامپت‌ها</Link>}
-            <div className="sr-chips"><Link href="/software">نرم‌افزار</Link><Link href="/games">بازی</Link><Link href="/cinema">فیلم و سریال</Link><Link href="/music">موزیک</Link><Link href="/products">فروشگاه</Link></div>
+            <div className="sr-chips"><Link href="/software"><SectionName id="software">نرم‌افزار</SectionName></Link><Link href="/games"><SectionName id="games">بازی</SectionName></Link><Link href="/cinema"><SectionName id="cinema">فیلم و سریال</SectionName></Link><Link href="/music"><SectionName id="music">موزیک</SectionName></Link><Link href="/products"><SectionName id="store">فروشگاه</SectionName></Link></div>
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { Fragment } from 'react'
@@ -35,7 +36,7 @@ export default async function ComparePage({ searchParams }: Props) {
             <span aria-hidden="true">⚖</span>
             <h2>چیزی برای مقایسه انتخاب نشده</h2>
             <p className="muted">در صفحهٔ هر نرم‌افزار، بازی، فیلم یا محصول روی «⚖ افزودن به مقایسه» بزنید؛ تا ۴ مورد هم‌نوع را می‌توانید کنار هم ببینید.</p>
-            <div className="sr-chips"><Link href="/software">نرم‌افزار</Link><Link href="/games">بازی</Link><Link href="/cinema">فیلم و سریال</Link><Link href="/products">فروشگاه</Link></div>
+            <div className="sr-chips"><Link href="/software"><SectionName id="software">نرم‌افزار</SectionName></Link><Link href="/games"><SectionName id="games">بازی</SectionName></Link><Link href="/cinema"><SectionName id="cinema">فیلم و سریال</SectionName></Link><Link href="/products"><SectionName id="store">فروشگاه</SectionName></Link></div>
           </div>
         ) : (
           <>

@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
@@ -30,7 +31,7 @@ export default async function GamesCalendarPage({ searchParams }: { searchParams
     <MediaShell section="games">
       <div className="container gv-page">
         <header className="gv-page-head">
-          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games">بازی</Link> › تقویم انتشار</nav>
+          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games"><SectionName id="games">بازی</SectionName></Link> › تقویم انتشار</nav>
           <h1>تقویم انتشار بازی‌ها</h1>
           <p>تاریخ عرضهٔ بازی‌ها روی هر پلتفرم، ماه به ماه. روی هر بازی بزنید تا تریلر، اطلاعات و لینک‌ها را ببینید.</p>
         </header>

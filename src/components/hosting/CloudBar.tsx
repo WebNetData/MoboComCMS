@@ -1,3 +1,4 @@
+import { sectionDisplayName } from '@/modules/site/server/section-names'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import './cloud.css'
@@ -13,12 +14,14 @@ const TABS: { key: CloudTab | 'mine'; href: string; label: string; icon: string 
 ]
 
 /** The MoboCom Cloud bar shared by /cloud, /hosting, /servers and /domains: one section, each page keeps its address. */
-export default function CloudBar({ active }: { active: CloudTab }) {
-  return <nav className="cx-bar" aria-label="موبوکام کلاد">
+export default async function CloudBar({ active }: { active: CloudTab }) {
+  // The section's own name (Admin › sections); its last word keeps the accent colour, as «موبوکام کلاد» did.
+  const name = await sectionDisplayName('hosting', true, { fa: 'موبوکام کلاد', en: 'MoboCom Cloud' }), words = name.split(' '), last = words.pop()
+  return <nav className="cx-bar" aria-label={name}>
     <div className="container cx-bar-inner">
-      <Link href="/cloud" className="cx-brand" aria-label="موبوکام کلاد، نمای کلی">
+      <Link href="/cloud" className="cx-brand" aria-label={`${name}، نمای کلی`}>
         <span className="cx-mark" aria-hidden="true"><Icon name="cloud" size={18} /></span>
-        <b>موبوکام <span>کلاد</span></b>
+        <b>{words.length ? `${words.join(' ')} ` : ''}<span>{last}</span></b>
       </Link>
       <ul className="cx-tabs">
         {TABS.map((tab) => <li key={tab.key}>

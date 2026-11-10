@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import { contentPath as designContentPath } from '@/platform/routing/aliases'
 import type { BuilderPreview } from '@/modules/site/server/builder-preview'
 import { contentRouteParams } from '@/shared/routing/params'
@@ -102,7 +103,7 @@ export default async function TitlePage({ params, preview }: Props) {
         <div className="container cn-detail-inner">
           <div className="cn-detail-poster">{ti.poster ? <img src={sized(ti.poster, 320)} srcSet={srcSet(ti.poster, 320)} alt={name} /> : <span className="cn-noart">🎬</span>}{ti.access === 'MEMBERS' && <VipBadge fa={fa} />}</div>
           <div className="cn-detail-info">
-            <nav className="cn-crumbs"><Link href="/cinema">{fa ? 'فیلم و سریال' : 'Cinema'}</Link> / <Link href={ti.format ? `/cinema/browse?format=${ti.format.slug}` : `/cinema/browse?kind=${ti.kind}`}>{formatLabel(ti, fa)}</Link></nav>
+            <nav className="cn-crumbs"><Link href="/cinema"><SectionName id="cinema" fa={fa} en="Cinema">فیلم و سریال</SectionName></Link> / <Link href={ti.format ? `/cinema/browse?format=${ti.format.slug}` : `/cinema/browse?kind=${ti.kind}`}>{formatLabel(ti, fa)}</Link></nav>
             <h1>{name}</h1>
             {ti.originalTitle && ti.originalTitle !== name && <p className="cn-hero-sub" dir="ltr">{ti.originalTitle}{ti.year ? ` (${ti.year}${ti.endYear ? `–${ti.endYear}` : ''})` : ''}</p>}
             <div className="cn-meta">

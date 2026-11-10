@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
@@ -52,7 +53,7 @@ export default async function GamesCategoryPage({ params, searchParams }: Props)
         <header className="gx-genre-head">
           {art && <img src={art} alt="" />}
           <div>
-            <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games">بازی</Link>{found.chain.slice(0, -1).map((node) => <span key={node.id}> › <Link href={node.path}>{node.name}</Link></span>)}</nav>
+            <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games"><SectionName id="games">بازی</SectionName></Link>{found.chain.slice(0, -1).map((node) => <span key={node.id}> › <Link href={node.path}>{node.name}</Link></span>)}</nav>
             <h1>{found.term.seoTitle || `ژانر ${found.term.name}`}</h1>
             <span>{result.total.toLocaleString('fa-IR')} بازی</span>
             {found.term.description && <p>{found.term.description}</p>}

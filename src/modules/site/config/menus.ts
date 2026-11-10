@@ -34,3 +34,33 @@ export function identifyMenu(links: SiteLink[]): SiteLink[] {
 export function identifySiteMenus(site: SiteConfig): SiteConfig {
   return { ...site, navigation: identifyMenu(site.navigation), footer: identifyMenu(site.footer), ...(site.footerExplore ? { footerExplore: identifyMenu(site.footerExplore) } : {}), ...(site.footerAccount ? { footerAccount: identifyMenu(site.footerAccount) } : {}) }
 }
+
+/** A section as menus know it: the addresses it owns and the words it was built with (manifest name, admin title). */
+export type MenuSection = { id: string; bases: string[]; defaults: { fa: string[]; en: string[] } }
+type Rename = { fa: string; en: string }
+
+/**
+ * Menu entries follow a renamed section (Admin › sections) without touching the saved menu: an entry that links into
+ * the section and whose text still carries one of its built-in names gets the new name in place of it
+ * («موبوکام کلاد» → «ابر موبوکام», «پنل موبوکام کلاد» → «پنل ابر موبوکام»). Text the owner wrote in «منوها» is kept.
+ */
+export function withSectionMenuNames<T extends SiteConfig>(site: T, sections: MenuSection[], names: Record<string, Rename>): T {
+  const active = sections.filter((s) => names[s.id]?.fa || names[s.id]?.en)
+  if (!active.length) return site
+  const owner = (href: string) => active.find((s) => s.bases.some((base) => href === base || href.startsWith(base + '/') || href.startsWith(base + '?') || href.startsWith(base + '#')))
+  const swap = (text: string, olds: string[], next: string) => {
+    if (!next || !text) return text
+    const sorted = [...olds].filter(Boolean).sort((a, b) => b.length - a.length)
+    if (sorted.includes(text.trim())) return next
+    // Inside longer text only a name of several words (a proper name like «موبوکام کلاد»), never a common word like «بازی».
+    for (const old of sorted) if (old.trim().includes(' ') && text.includes(old)) return text.split(old).join(next)
+    return text
+  }
+  const walk = (links: SiteLink[], inherited?: MenuSection): SiteLink[] => links.map((link) => {
+    const section = owner(link.href) || inherited
+    const name = section ? names[section.id] : undefined
+    const label = section && name ? { ...link.label, fa: swap(link.label.fa, section.defaults.fa, name.fa), en: swap(link.label.en, section.defaults.en, name.en) } : link.label
+    return { ...link, label, ...(link.children ? { children: walk(link.children, section) } : {}) }
+  })
+  return { ...site, navigation: walk(site.navigation), footer: walk(site.footer), ...(site.footerExplore ? { footerExplore: walk(site.footerExplore) } : {}), ...(site.footerAccount ? { footerAccount: walk(site.footerAccount) } : {}) }
+}

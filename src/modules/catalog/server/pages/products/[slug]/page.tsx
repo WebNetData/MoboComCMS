@@ -1,3 +1,4 @@
+import { sectionDisplayName } from '@/modules/site/server/section-names'
 import type { CheckoutSurface } from '@/modules/checkout/domain/surface'
 import { contentRouteParams } from '@/shared/routing/params'
 import Link from '@/components/AppLink'
@@ -116,7 +117,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
   const categoryChain = product.category ? findCategory(await categoryTree(), product.category.slug)?.chain || [] : []
   const trail = [
     { label: isFa ? 'خانه' : 'Home', href: '/' },
-    { label: isFa ? 'فروشگاه' : 'Shop', href: '/products' },
+    { label: await sectionDisplayName('store', isFa, { fa: 'فروشگاه', en: 'Shop' }), href: '/products' },
     half,
     ...categoryChain.map((node) => ({ label: node.name, href: `${half.href}&category=${encodeURIComponent(node.slug)}` })),
   ]

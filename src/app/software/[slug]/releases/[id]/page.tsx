@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
@@ -37,7 +38,7 @@ export default async function SoftwareReleasePage({ params }: Props) {
   return <MediaShell section="software">
     <SoftwareStatsStrip stats={chrome.stats} />
     <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa terms={chrome.terms} suggestions={chrome.suggestions} promo={chrome.promo} />}>
-      <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه"><Link href="/software">نرم‌افزار</Link><span aria-hidden="true"> › </span><Link href="/software/releases">نسخه‌ها</Link><span aria-hidden="true"> › </span><Link href={`/software/${slug}`}>{release.software.title}</Link><span aria-hidden="true"> › </span><span aria-current="page"><bdi dir="ltr">{release.version}</bdi></span></nav>
+      <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه"><Link href="/software"><SectionName id="software">نرم‌افزار</SectionName></Link><span aria-hidden="true"> › </span><Link href="/software/releases">نسخه‌ها</Link><span aria-hidden="true"> › </span><Link href={`/software/${slug}`}>{release.software.title}</Link><span aria-hidden="true"> › </span><span aria-current="page"><bdi dir="ltr">{release.version}</bdi></span></nav>
       <article className="sp-card sp-release-detail">
         <header className="sp-release-detail-head"><span className="sp-release-archive-icon">{release.software.icon ? <img src={release.software.icon} alt="" /> : release.software.title.slice(0, 1)}</span><div><p>{release.channel === 'BETA' ? 'نسخهٔ آزمایشی' : release.channel === 'NIGHTLY' ? 'نسخهٔ شبانه' : 'نسخهٔ پایدار'}</p><h1>{release.software.title} <bdi dir="ltr">{release.version}</bdi></h1><time dateTime={release.releasedAt.toISOString()}>{date(release.releasedAt)}</time></div></header>
         <div className="sp-release-detail-meta">{release.software.developer && <span>سازنده: {release.software.developerStudioId ? <Link href={`/studios/${release.software.developerStudioId}`}>{release.software.developer}</Link> : release.software.developer}</span>}{release.size && <span>حجم: <bdi dir="ltr">{release.size}</bdi></span>}</div>

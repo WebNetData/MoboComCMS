@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
@@ -53,7 +54,7 @@ export default async function SoftwareBrowsePage({ searchParams }: Props) {
     <MediaShell section="software" search={{ action: '/software/browse', placeholder: 'جست‌وجوی نرم‌افزار…', value: params.q }}>
       <SoftwareStatsStrip stats={chrome.stats} />
       <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa active={{ platform: params.platform, category: params.category }} terms={chrome.terms} suggestions={chrome.suggestions} promo={chrome.promo} />}>
-        <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه"><Link href="/software">نرم‌افزار</Link><span aria-hidden="true"> › </span><span aria-current="page">{heading(params, licenseNames)}</span></nav>
+        <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه"><Link href="/software"><SectionName id="software">نرم‌افزار</SectionName></Link><span aria-hidden="true"> › </span><span aria-current="page">{heading(params, licenseNames)}</span></nav>
         <header className="sp-list-head"><h1>{heading(params, licenseNames)}</h1><span>{feed.total.toLocaleString('fa-IR')} نرم‌افزار</span></header>
         <div className="sp-filters">
           <nav className="md-chips" aria-label="مرتب‌سازی">{sorts.map(([value, label]) => <Link key={value} href={query({ sort: value || undefined, page: undefined })} className={(params.sort || '') === value ? 'is-active' : ''}>{label}</Link>)}</nav>

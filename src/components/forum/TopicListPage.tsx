@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { getForumViewer, topicList, type TopPeriod, type TopicFilter } from '@/modules/forum/server/forum'
@@ -51,7 +52,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
     <ForumShell viewer={viewer} active={navKey} category={category?.slug} wide>
       {category ? <>
         <nav className="fc-crumbs" aria-label="مسیر">
-          <Link href="/forum">انجمن‌ها</Link>
+          <Link href="/forum"><SectionName id="forum">انجمن‌ها</SectionName></Link>
           {trail.map((step, index) => index < trail.length - 1 ? <Link key={step.id} href={step.slug === CLUBS_SECTION ? '/forum/clubs' : `/forum/c/${step.slug}`}>{step.title}</Link> : <span key={step.id} aria-current="page">{step.title}</span>)}
         </nav>
         <header className="fc-head" style={{ ['--cat' as string]: category.color }}>

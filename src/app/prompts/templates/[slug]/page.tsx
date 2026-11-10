@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
@@ -37,7 +38,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ slug:
   const prompt=locked?'':ready&&template.example?template.example:assemblePrompt(normalizeInput({...DEFAULT_INPUT,...defaults,kind,idea:template.example||'ایدهٔ خودتان را با جزئیات توضیح دهید.'}),template)
   const related=relatedData.templates.filter(entry=>entry.id!==template.id).slice(0,4),tags=template.tags.split(/[,،]/).map(v=>v.trim()).filter(Boolean).slice(0,12)
   return <main className={`${s.page} ${g.gallery}`} dir="rtl" data-testid="prompt-detail">{viewer.userId && <MemberLibrarySync />}<ManageBar title="مدیریت الگو" anyOf={['prompts.manage',...(template.createdById===viewer.userId?[authorPermissionOf('prompts.manage')!]:[])]} links={[{href:`/admin/prompts?edit=${template.id}`,label:'ویرایش الگو'}]}/>
-    <nav className={g.breadcrumbs} aria-label="مسیر صفحه"><Link href="/prompts">پرامپت مستر</Link><Icon name="chevron-left" size={13}/><Link href="/prompts/library">کتابخانه</Link><Icon name="chevron-left" size={13}/><span>{KIND_LABEL[kind]}</span></nav>
+    <nav className={g.breadcrumbs} aria-label="مسیر صفحه"><Link href="/prompts"><SectionName id="prompt-master">پرامپت مستر</SectionName></Link><Icon name="chevron-left" size={13}/><Link href="/prompts/library">کتابخانه</Link><Icon name="chevron-left" size={13}/><span>{KIND_LABEL[kind]}</span></nav>
     <div className={g.detailGrid}><section className={g.samplePanel} aria-label="نمونهٔ خروجی"><header className={g.sampleHeader}><span><Icon name={KIND_ICON[kind]} size={17}/>{ready?'نمونهٔ خروجی':'الگوی شخصی‌سازی'}</span><small>{sample.video?'برای پخش کلیک کنید':sample.cover?'تصویر همراه با پرامپت دقیق':'ایده را به کار خودت نزدیک کن'}</small></header><div className={g.sampleStage}><ShowcasePreview sample={sample} kind={kind} title={template.title}/></div><div className={g.sampleNotes}>{sample.caption&&<p>{sample.caption}</p>}{sample.credit&&<small>{sample.credit}</small>}{!ready&&<p>این الگو نمونهٔ بصری ثبت‌شده ندارد؛ در استودیو جزئیات خودت را وارد کن.</p>}{sample.webLayout!=='none'&&sample.result&&<details><summary>ساختار نمونهٔ وب</summary><pre id="prompt-source" className={g.exactPrompt} dir="ltr" tabIndex={0} aria-label="ساختار نمونهٔ وب">{sample.result}</pre></details>}</div></section>
       <section className={g.promptPanel} aria-labelledby="sample-prompt-title">
         <span className={g.detailType}><Icon name={KIND_ICON[kind]} size={15}/>{KIND_LABEL[kind]}</span>

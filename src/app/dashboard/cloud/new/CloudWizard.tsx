@@ -1,4 +1,5 @@
 'use client'
+import SectionName from '@/components/site/SectionName'
 
 import { useMemo } from 'react'
 import Link from '@/components/AppLink'
@@ -45,7 +46,7 @@ export default function CloudWizard({ servers, hosting, gateways, minHours, allo
   return <div className="dt-page cw-page" dir="rtl">
     <header className="cw-hero">
       <span className="cw-orb" aria-hidden="true"><Icon name="cloud" size={28} /></span>
-      <div><p className="cw-eyebrow">موبوکام کلاد</p><h1>ساخت سرویس تازه</h1><p>نوع سرویس، کشور دیتاسنتر و پلن را انتخاب کنید؛ پرداخت با کیف پول یا درگاه و تحویل در «سرویس‌های من».</p></div>
+      <div><p className="cw-eyebrow"><SectionName id="hosting" en="MoboCom Cloud">موبوکام کلاد</SectionName></p><h1>ساخت سرویس تازه</h1><p>نوع سرویس، کشور دیتاسنتر و پلن را انتخاب کنید؛ پرداخت با کیف پول یا درگاه و تحویل در «سرویس‌های من».</p></div>
     </header>
     <ol className="cw-steps" aria-label="مراحل">
       {(what === 'domain' ? ['نوع سرویس', 'جست‌وجو و ثبت دامنه'] : ['نوع سرویس', 'ایران یا خارج', 'پلن و پرداخت']).map((label, i) => <li key={label} className={step > i + 1 ? 'is-done' : step === i + 1 ? 'is-on' : ''} aria-current={step === i + 1 ? 'step' : undefined}><span>{nf(i + 1)}</span>{label}</li>)}

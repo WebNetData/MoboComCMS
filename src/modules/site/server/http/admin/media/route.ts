@@ -47,11 +47,13 @@ export async function receiveImage(req: NextRequest, creator?: number) {
     const bytes = Buffer.from(await file.arrayBuffer())
     if (!coverFormat(bytes)) return err('فقط تصاویر PNG، JPEG و WebP مجاز هستند', 400)
     // An item's editor sends who the picture belongs to; the folder and readable name are worked out here, never taken from the browser.
-    const { parseOrganization, imageRole } = await import('@/modules/downloads/domain/organization')
-    const organized = creator ? await import('@/modules/media/server/library/organized-image') : null
-    const destination = organized ? organized.organizedImageDestination(parseOrganization(form.get('organization'))) : ''
-    if (organized && destination && creator) {
-      const stored = await organized.storeOrganizedImage(bytes, destination, imageRole(form.get('role')), creator)
+    // Only an upload that names its item loads the organizer; every other upload keeps the flat store untouched.
+    const organizationField = form.get('organization')
+    const organizer = creator && typeof organizationField === 'string' && organizationField ? await Promise.all([import('@/modules/downloads/domain/organization'), import('@/modules/media/server/library/organized-image')]) : null
+    const [domain, organized] = organizer || [null, null]
+    const destination = domain && organized ? organized.organizedImageDestination(domain.parseOrganization(organizationField)) : ''
+    if (domain && organized && destination && creator) {
+      const stored = await organized.storeOrganizedImage(bytes, destination, domain.imageRole(form.get('role')), creator)
       return ok({ url: stored.url, assetId: stored.asset.id, revision: stored.asset.revision, folder: destination })
     }
     // Stored as WebP (max 2400px, EXIF orientation applied) — much smaller pages.

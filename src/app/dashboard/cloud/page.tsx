@@ -1,4 +1,5 @@
 'use client'
+import SectionName from '@/components/site/SectionName'
 
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -26,7 +27,7 @@ export default function CloudOverview() {
   return <div className="dt-page cl-page" dir="rtl">
     <header className="cl-hero">
       <span className="cl-orb" aria-hidden="true"><Icon name="cloud" size={30} /></span>
-      <div><p className="cw-eyebrow">موبوکام کلاد</p><h1>زیرساخت شما در یک نگاه</h1><p>سرورهای ایران و خارج، هاست سایت و دامنه‌ها؛ وضعیت، تمدید و ساخت سرویس تازه از همین‌جا.</p></div>
+      <div><p className="cw-eyebrow"><SectionName id="hosting" en="MoboCom Cloud">موبوکام کلاد</SectionName></p><h1>زیرساخت شما در یک نگاه</h1><p>سرورهای ایران و خارج، هاست سایت و دامنه‌ها؛ وضعیت، تمدید و ساخت سرویس تازه از همین‌جا.</p></div>
       <Link className="btn btn-primary cl-hero-cta" href="/dashboard/cloud/new"><Icon name="plus" size={18} />ساخت سرویس تازه</Link>
     </header>
 

@@ -1,3 +1,4 @@
+import SectionName from '@/components/site/SectionName'
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
@@ -31,7 +32,7 @@ export default async function TopGamesPage({ searchParams }: { searchParams: Pro
     <MediaShell section="games">
       <div className="container gv-page">
         <header className="gv-page-head">
-          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games">بازی</Link> › برترین‌ها</nav>
+          <nav className="gx-crumbs" aria-label="مسیر صفحه"><Link href="/games"><SectionName id="games">بازی</SectionName></Link> › برترین‌ها</nav>
           <h1>{heading(params)}</h1>
         </header>
         <div className="gv-filters">

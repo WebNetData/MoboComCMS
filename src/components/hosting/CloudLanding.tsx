@@ -1,3 +1,4 @@
+import { sectionDisplayName } from '@/modules/site/server/section-names'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
@@ -36,6 +37,8 @@ const FAQS: [string, string][] = [
 
 /** MoboCom Cloud (/cloud): every infrastructure product in one place, each linking to its own page. */
 export default async function CloudLanding() {
+  // Everything this page calls the section uses its name from Admin › sections.
+  const name = await sectionDisplayName('hosting', true, { fa: 'موبوکام کلاد', en: 'MoboCom Cloud' }), say = (text: string) => text.split('موبوکام کلاد').join(name)
   const [hosting, servers, tlds, locale, theme, navPages, viewer] = await Promise.all([
     publicHostingCatalog('hosting'), publicHostingCatalog('servers'), publicTlds().catch(() => []), getServerLocale(), getServerTheme(), getPublicNavigationPages(), getViewer(),
   ])
@@ -57,14 +60,14 @@ export default async function CloudLanding() {
         <div className="hx-hero-sky" aria-hidden="true"><span /><span /><span /></div>
         <div className="container hx-hero-inner">
           <div className="hx-hero-copy">
-            <span className="hx-eyebrow"><span className="hx-live" aria-hidden="true" />موبوکام کلاد</span>
+            <span className="hx-eyebrow"><span className="hx-live" aria-hidden="true" />{name}</span>
             <h1>هاست، سرور و دامنه؛ <span className="hx-accent">همه در یک ابر</span></h1>
             <p className="hx-lead">زیرساخت کسب‌وکارت را از یک جا بخر و مدیریت کن: میزبانی وب، سرور مجازی و اختصاصی، سرور ابری با پرداخت ساعتی و دامنه، با یک حساب، یک کیف پول و یک داشبورد.</p>
             <div className="hx-hero-cta">
               <a className="btn btn-primary" href="#family">انتخاب سرویس</a>
               {tlds.length > 0 && <a className="btn btn-ghost" href="#domain">جست‌وجوی دامنه</a>}
             </div>
-            <ul className="cx-proof" aria-label="در موبوکام کلاد">
+            <ul className="cx-proof" aria-label={`در ${name}`}>
               <li><Icon name="layers" size={16} />{nf(live || 4)} خانوادهٔ سرویس</li>
               <li><Icon name="wallet" size={16} />یک کیف پول</li>
               <li><Icon name="clock" size={16} />پرداخت ساعتی</li>
@@ -105,7 +108,7 @@ export default async function CloudLanding() {
         <ol className="cx-steps">
           <li><span className="cx-step-num">۱</span><b>انتخاب</b><p>پلن یا دامنه را انتخاب کن و دورهٔ پرداخت را مشخص کن.</p></li>
           <li><span className="cx-step-num">۲</span><b>پرداخت</b><p>از کیف پول یا درگاه؛ اگر سرویس آماده نشد، مبلغ برمی‌گردد.</p></li>
-          <li><span className="cx-step-num">۳</span><b>مدیریت</b><p>اطلاعات ورود، وضعیت، تمدید و ارتقا در داشبورد «موبوکام کلاد».</p></li>
+          <li><span className="cx-step-num">۳</span><b>مدیریت</b><p>اطلاعات ورود، وضعیت، تمدید و ارتقا در داشبورد «{name}».</p></li>
         </ol>
         <div className="cx-dash" aria-hidden="true">
           <div className="cx-dash-row"><Icon name="server" size={16} /><b dir="ltr">my-site.ir</b><span className="hx-pill">فعال</span></div>
@@ -115,7 +118,7 @@ export default async function CloudLanding() {
       </section>
 
       <section className="container hx-section" aria-labelledby="cx-why-title">
-        <header className="hx-section-head"><h2 id="cx-why-title">چرا موبوکام کلاد</h2></header>
+        <header className="hx-section-head"><h2 id="cx-why-title">چرا {name}</h2></header>
         <div className="hx-feature-grid">{FEATURES.map((feature, index) => <article key={feature.title} className="hx-feature" style={{ ['--i' as string]: index }}>
           <span className="hx-feature-icon"><Icon name={feature.icon} size={22} /></span>
           <h3>{feature.title}</h3>
@@ -125,7 +128,7 @@ export default async function CloudLanding() {
 
       <section className="container hx-section hx-faq" aria-labelledby="cx-faq-title">
         <header className="hx-section-head"><h2 id="cx-faq-title">پرسش‌های پرتکرار</h2></header>
-        {FAQS.map(([question, answer]) => <details key={question}><summary>{question}<Icon name="chevron" size={18} /></summary><p>{answer}</p></details>)}
+        {FAQS.map(([question, answer]) => <details key={question}><summary>{say(question)}<Icon name="chevron" size={18} /></summary><p>{say(answer)}</p></details>)}
       </section>
     </main>
     <ThemeFooter context={{ route: 'other' }} locale={locale} navPages={navPages} />
