@@ -89,3 +89,12 @@ test('restored music queue rejects malformed tracks and clamps position', () => 
   assert.equal(playback.parsePlaybackSession({ queue: [{ ...track, slug: 'آهنگ-تازه' }], index: 0, time: 0 }).queue.length, 1)
   assert.equal(playback.parsePlaybackSession({ queue: [] }), null)
 })
+
+
+test('media link embed URL validation and explicit embed playback', () => {
+  const { cleanLinks, playbackKind } = load('src/modules/media/domain/media')
+  const [link] = cleanLinks([{ url: 'https://provider.example/watch/123', kind: 'STREAM', embedUrl: 'https://player.provider.example/embed/123' }])
+  assert.equal(link.embedUrl, 'https://player.provider.example/embed/123')
+  assert.equal(playbackKind(link.url, link.kind, value => value, link.embedUrl), 'embed')
+  assert.throws(() => cleanLinks([{ url: 'https://provider.example/watch/123', kind: 'STREAM', embedUrl: 'javascript:alert(1)' }]), /HTTPS/)
+})
