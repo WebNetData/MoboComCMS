@@ -1,3 +1,4 @@
+import { sectionName } from '@/modules/site/server/section-seo'
 import { contentRouteParams } from '@/shared/routing/params'
 import { articleBodyWithExcerpt } from '@/modules/site/domain/article-output'
 import { formShortcodes } from '@/modules/forms/domain/embed'
@@ -176,7 +177,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   }
   const trail = [
     { label: isFa ? 'خانه' : 'Home', href: '/' },
-    { label: isFa ? 'مجله' : t.blog, href: '/blog' },
+    { label: await sectionName('journal', isFa, { fa: 'مجله', en: 'Magazine' }), href: '/blog' },
     ...categoryTrail.map((category) => ({ label: isFa ? category.name : category.nameEn || category.name, href: `/blog?category=${encodeURIComponent(category.slug)}` })),
   ]
   const crumbsLd = breadcrumbJsonLd(base, [...trail.map((step) => ({ name: step.label, path: step.href })), { name: title, path: `/blog/${post.slug}` }])

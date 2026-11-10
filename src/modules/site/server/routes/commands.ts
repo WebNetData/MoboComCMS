@@ -28,6 +28,12 @@ export async function saveRouting(input: { aliases?: unknown; aliasPatch?: Recor
         const old = before.aliases[base] || base
         if (old !== (aliases[base] || base)) permalinks.aliasHistory[base] = [...new Set([...(permalinks.aliasHistory[base] || []), old])]
       }
+      // The address a section has now is never one of its old addresses (going back to /blog must not redirect /blog to itself).
+      for (const [base, history] of Object.entries(permalinks.aliasHistory)) {
+        const current = aliases[base] || base, kept = history.filter((path) => path !== current)
+        if (kept.length) permalinks.aliasHistory[base] = kept
+        else delete permalinks.aliasHistory[base]
+      }
       for (const [base, target] of Object.entries(aliases)) for (const [owner, history] of Object.entries(permalinks.aliasHistory)) if (base !== owner && history.includes(target)) throw new RouteAliasError('این آدرس در تاریخچهٔ بخش دیگری رزرو شده است.')
       const invalid = validatePermalinks(permalinks, publicRouteAliases(aliases))
       if (invalid) throw new RouteAliasError(invalid)

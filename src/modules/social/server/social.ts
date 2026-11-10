@@ -5,6 +5,7 @@ import { readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { bot, telegramConfig } from '@/modules/notifications/server/telegram'
 import { siteBase } from '@/modules/site/server/seo'
+import { toPublicPath } from '@/platform/routing/aliases'
 import { itemKey, type ItemRef } from '@/modules/content/domain/items'
 import { itemCard, type ItemCard } from '@/modules/content/server/registry'
 import { broadcast } from '@/modules/push/server/push'
@@ -12,7 +13,7 @@ import { hashtag } from '@/modules/social/domain/social'
 import { socialFetch } from '@/modules/social/server/egress'
 import { socialImage } from '@/modules/social/server/images'
 import {
-  DEFAULT_SOCIAL, MAX_ATTEMPTS, isAnnounceType, normalizeSocialSettings, renderPost, retryDelayMs, withUtm,
+  CHANNELS, DEFAULT_SOCIAL, MAX_ATTEMPTS, isAnnounceType, normalizeSocialSettings, renderPost, retryDelayMs, withUtm,
   type AnnounceType, type Channel, type SocialSettings,
 } from '@/modules/social/domain/social'
 
@@ -151,6 +152,7 @@ export function processSocialQueue(limit = 20): Promise<number> {
       if (!due.length) return 0
       const settings = await getSocialSettings()
       const base = await siteBase()
+      await import('@/modules/site/server/routes/state').then((m) => m.loadRoutingState()).catch(() => null)
       for (const post of due) {
         // Claim the row so a parallel worker cannot send it twice.
         const claimed = await db.socialPost.updateMany({ where: { id: post.id, status: 'PENDING' }, data: { status: 'SENDING', attempts: { increment: 1 } } })
@@ -164,7 +166,8 @@ export function processSocialQueue(limit = 20): Promise<number> {
             await db.socialPost.update({ where: { id: post.id }, data: { status: 'SKIPPED', error: 'مورد منتشر نیست یا حذف شده است' } })
             continue
           }
-          const url = withUtm(absolute(base, item.url), channel, settings.utm)
+          // The address visitors use (a renamed section such as /magazine), never the internal route that would redirect.
+          const url = withUtm(absolute(base, toPublicPath(item.url)), channel, settings.utm)
           const sent = channel === 'TELEGRAM' ? await sendTelegram(settings, item, url, base) : channel === 'INSTAGRAM' ? await sendInstagram(settings, item, url, base) : await sendPush(settings, item, url)
           await db.socialPost.update({ where: { id: post.id }, data: { status: 'SENT', sentAt: new Date(), externalId: sent.externalId, text: sent.text.slice(0, 5000), error: '' } })
         } catch (error) {
@@ -193,8 +196,9 @@ export async function releaseStuckSocialPosts() {
   return count
 }
 
-export async function socialLog(page = 1) {
-  const [total, rows] = await Promise.all([db.socialPost.count(), db.socialPost.findMany({ orderBy: { createdAt: 'desc' }, skip: (page - 1) * 30, take: 30 })])
+export async function socialLog(page = 1, filter: { channel?: string; status?: string } = {}) {
+  const where = { ...(filter.channel && (CHANNELS as readonly string[]).includes(filter.channel) ? { channel: filter.channel } : {}), ...(filter.status && ['PENDING', 'SENDING', 'SENT', 'FAILED', 'SKIPPED'].includes(filter.status) ? { status: filter.status } : {}) }
+  const [total, rows] = await Promise.all([db.socialPost.count({ where }), db.socialPost.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 30, take: 30 })])
   const cards = new Map<string, ItemCard | null>()
   for (const row of rows) {
     const key = `${row.itemType}:${row.itemId}`
@@ -204,7 +208,7 @@ export async function socialLog(page = 1) {
     total, page, pages: Math.ceil(total / 30),
     posts: rows.map((row) => {
       const card = cards.get(`${row.itemType}:${row.itemId}`)
-      return { ...row, item: card ? { title: card.title, url: card.url } : null }
+      return { ...row, item: card ? { title: card.title, url: card.url, image: card.image || '' } : null }
     }),
   }
 }
@@ -216,4 +220,25 @@ export async function testTelegram() {
   const result = await bot('sendMessage', { chat_id: settings.telegram.channel, text: '✅ اتصال موبوکام به این کانال برقرار است.' })
   if (!result.ok) throw new Error(`تلگرام: ${result.description || 'ارسال ناموفق'}. ربات باید مدیر کانال باشد.`)
   return { ok: true }
+}
+
+/** Sent, failed and waiting posts per channel, for the overview cards. */
+export async function socialStats() {
+  const rows = await db.socialPost.groupBy({ by: ['channel', 'status'], _count: { _all: true } })
+  const out: Record<string, Record<string, number>> = {}
+  for (const row of rows) (out[row.channel] ||= {})[row.status] = row._count._all
+  return out
+}
+
+/** A real recent item for the live preview of the post templates (the last announced one, else the newest article). */
+export async function socialSample() {
+  await import('@/modules/site/server/routes/state').then((m) => m.loadRoutingState()).catch(() => null)
+  const recent = await db.socialPost.findMany({ orderBy: { createdAt: 'desc' }, take: 6, select: { itemType: true, itemId: true } })
+  const candidates: ItemRef[] = recent.filter((row) => isAnnounceType(row.itemType)).map((row) => ({ type: row.itemType as AnnounceType, id: row.itemId }))
+  if (!candidates.length) { const post = await db.post.findFirst({ where: { status: 'PUBLISHED' }, orderBy: { publishedAt: 'desc' }, select: { id: true } }); if (post) candidates.push({ type: 'post', id: post.id }) }
+  for (const ref of candidates) {
+    const card = await itemCard(ref).catch(() => null)
+    if (card) return { type: card.type, title: card.title, subtitle: card.subtitle, summary: card.summary, url: toPublicPath(card.url), image: card.image || '' }
+  }
+  return null
 }

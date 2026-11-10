@@ -244,3 +244,11 @@ test('notification kinds of a switched-off module are not offered', () => {
   const kinds = [...load('src/modules/mail/domain/mail').EMAIL_EVENTS, ...load('src/modules/sms/domain/sms').SMS_EVENTS].map((event) => event.id)
   for (const kind of [...kinds, 'FORUM_REPLY', 'COMMUNITY_LIKE']) { const owner = n.notificationModule(kind); if (owner) assert.ok(ids.includes(owner), `${kind} → ${owner}`) }
 })
+
+test('reverting a section address never makes the current address redirect to itself', () => {
+  const fs = require('node:fs'), path = require('node:path'), read = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')
+  const commands = read('src/modules/site/server/routes/commands.ts'), resolve = read('src/modules/site/server/routes/resolve.ts')
+  assert.match(commands, /history\.filter\(\(path\) => path !== current\)/, 'the saved history drops the address the section has now')
+  assert.match(resolve, /if \(old === \(state\.aliases\[base\] \|\| base\)\) continue/, 'stored histories from before the fix are healed when read')
+  assert.match(resolve, /if \(target !== path\) return/, 'a redirect never points at the requested address')
+})

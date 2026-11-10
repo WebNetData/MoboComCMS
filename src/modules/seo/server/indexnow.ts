@@ -1,3 +1,4 @@
+import { toPublicPath } from '@/platform/routing/aliases'
 import { db } from '@/platform/database/prisma'
 import { getSettings } from '@/modules/settings/server'
 import { getSeoConfig, indexNowKey } from './config'
@@ -43,7 +44,9 @@ export async function submitIndexNow(pathsOrUrls: string[], options: { force?: b
     host = url.host
   } catch { return null }
   const now = Date.now()
-  const urls = [...new Set(pathsOrUrls.map((item) => (item.startsWith('http') ? item : `${base}${item.startsWith('/') ? '' : '/'}${item}`)))]
+  // Internal routes (/blog/x) are announced under the address visitors see (/magazine/x).
+  await import('@/modules/site/server/routes/state').then((m) => m.loadRoutingState()).catch(() => null)
+  const urls = [...new Set(pathsOrUrls.map((item) => (item.startsWith('http') ? item : `${base}${toPublicPath(item.startsWith('/') ? item : `/${item}`)}`)))]
     .filter((url) => { try { return new URL(url).host === host } catch { return false } })
     .filter((url) => options.force || now - (recent.get(url) || 0) > 10 * 60_000)
     .slice(0, 10_000)

@@ -14,3 +14,10 @@ export async function withSectionSeo(moduleId: string, meta: Metadata): Promise<
     ...(title || description ? { openGraph: { ...(meta.openGraph || {}), ...(title ? { title } : {}), ...(description ? { description } : {}) } } : {}),
   })
 }
+
+/** The name a section is shown under (breadcrumbs, messages): the admin's own name, else the given default. */
+export async function sectionName(moduleId: string, fa: boolean, fallback: { fa: string; en: string }): Promise<string> {
+  const settings = await getModuleSettings(moduleId).catch(() => ({} as Record<string, unknown>))
+  const pick = (key: string) => (typeof settings[key] === 'string' ? (settings[key] as string).trim().slice(0, 60) : '')
+  return fa ? pick('section.name') || fallback.fa : pick('section.name_en') || pick('section.name') || fallback.en
+}

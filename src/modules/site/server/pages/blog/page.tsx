@@ -1,4 +1,5 @@
 import Link from '@/components/AppLink'
+import { sectionName } from '@/modules/site/server/section-seo'
 import SiteHeader from '@/components/SiteHeader'
 import LionaHome, { LionaGrid, type LionaCategory, type LionaData, type LionaStory } from '@/components/journal/LionaHome'
 import { db } from '@/platform/database/prisma'
@@ -39,6 +40,8 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   const navPages = await db.page.findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } }).catch(() => [])
   const t = dict(locale)
   const isFa = locale === 'fa'
+  // The section's own name (Admin › sections › مجله), not a fixed word: a renamed section reads the same everywhere.
+  const section = await sectionName('journal', isFa, { fa: 'مجله', en: 'Magazine' })
   const query = typeof searchParams.q === 'string' ? searchParams.q.trim().slice(0, 120) : ''
   const category = typeof searchParams.category === 'string' ? searchParams.category : ''
   const pageSize = settings.pageSize
@@ -171,7 +174,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
       <header className="lh-list-head">
         <nav className="lh-crumbs" aria-label={isFa ? 'مسیر صفحه' : 'Breadcrumb'}>
           <ol>
-            <li><Link href="/blog"><Icon name="grid" size={16}/><span>{t.blog}</span></Link></li>
+            <li><Link href="/blog"><Icon name="grid" size={16}/><span>{section}</span></Link></li>
             {currentCategory && <><li className="lh-crumb-separator" aria-hidden="true"><Icon name="arrow" size={13}/></li><li><span aria-current="page">{isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name}</span></li></>}
           </ol>
         </nav>
@@ -190,7 +193,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
     </div>
     const ancestry: number[] = []
     for (let node = currentCategory; node && !ancestry.includes(node.id); node = cats.find((c) => c.id === node!.parentId)) ancestry.push(node.id)
-    const heading = currentCategory ? (isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name) : query ? (isFa ? `نتایج جست‌وجوی «${query}»` : `Results for “${query}”`) : t.blog
+    const heading = currentCategory ? (isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name) : query ? (isFa ? `نتایج جست‌وجوی «${query}»` : `Results for “${query}”`) : section
     body = <ThemeFrame type="archive" locale={isFa ? 'fa' : 'en'} context={{ route: 'archive', archiveOf: 'posts', archiveCategoryIds: ancestry }} values={{ title: heading, excerpt: `${total.toLocaleString(isFa ? 'fa-IR' : 'en-US')} ${isFa ? 'مطلب' : 'stories'}`, url: browseUrl(category, 1) }}>{body}</ThemeFrame>
   }
 
