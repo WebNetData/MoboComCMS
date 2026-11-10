@@ -46,6 +46,13 @@ GitHub already publishes `v1.6.1` from `a93c68e1`, including `.run`/`.mbrelease`
 4. Validate main-domain public sections, login/recovery, section-manager access and content save. For enabled commerce, validate an actual configured payment, delivery and return path. Unconfigured external channels are not passing evidence; keep optional operations disabled until configured.
 5. Verify HTTPS/Origin/CSP, shared strict rate limits, worker scheduling, readiness and operational alerts on the target. Deploy fenced upload writers to every instance before enabling reviewed recovery.
 
+6. **Audit 2026-11-10** ([report](audits/2026-11-10-audit-performance-quality.md)). Still to verify on the target:
+   - Google sign-in with the owner's OAuth client, end to end; on a server in Iran, re-apply the root Xray helper for the `google` purpose first.
+   - AI egress and Google egress, each on its own.
+   - Redis reachable from every instance (a fallback now shows on the monitoring page and as the `redis` signal).
+   - The guest page cache in `balanced` mode.
+   - A production-build measurement of shared CSS and FCP/LCP/CLS before and after the planned CSS slices.
+
 ## Deferred for first launch
 
 Optional reviewed-upload UI/quarantine refinements, advanced editor controls, extra search ordering and broader feature additions are follow-up work unless a launch scenario proves them necessary. Existing incomplete optional operations stay disabled using their existing Control Plane. Repository `archiveRecoveryEnabled` remains default false.
