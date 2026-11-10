@@ -934,3 +934,14 @@ evidence: [AI engineering](handoffs/AI_ENGINEERING.md).
 ## Continuous platform AI and explicit GitHub updates — 2026-11-07
 
 Owner wants the existing AI core integrated and support available for every turn, with optional human/ticket assistance. Default continuous mode does not stop after the old reply cap or a transient model failure; a human-assigned conversation remains exclusive. Public support remains about MoboCom and never uses personal Admin quota. Configuration readiness is not live provider verification. Preserve exact per-request/direct-tool and separate owner-approved production deployment authority. Explicit GitHub package download must use the existing updates network route and original publisher verification; downloading never installs. Keep manual upload and no unsolicited GitHub fetch on package installs. [Scope and actual evidence](handoffs/AI_CORE_SUPPORT_RELIABILITY.md).
+
+## Organized item media, variant profit, publish choice, full AI fields — 2026-11-10
+
+Owner: pictures uploaded for an item are filed by section/category/slug with readable names in the Library
+(e.g. `/files/shop/product/Virtual/telegram-premium/cover.webp`), in every section; each foreign-currency
+variant may carry its own profit percent and fixed profit; the publisher decides draft/inactive or live at
+save; the assistant may fill every data field (SKU, variants, specifications…). Decisions: paths extend the
+existing organization owner and are always computed server-side; existing URLs never move; `/files/` prefix
+because `/shop/[slug]` is a page route; watermark covers organized images; variant profit is nullable
+(inherit); a blocked AI row is draft-only; the publish decision, access and media stay human.
+Handoff: `docs/agent/handoffs/STORE_MEDIA_PUBLISH_AI.md`.
