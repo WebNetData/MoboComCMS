@@ -589,6 +589,8 @@ registered default
 
 Cache resolved settings if needed, with deterministic invalidation.
 
+The audit continuation keeps repeated Extension/Theme/Store/Public API reads within React's request scope; security policy, permissions and secrets must not enter a stale shared cache. Billing's Admin invoice desk and Automation CSS load from the Admin layout; customer invoice-deadline CSS remains shared. Redis runtime loss/recovery, isolated build/browser evidence and the staging-only guest-cache decision are recorded in [the audit continuation](handoffs/AUDIT_PERFORMANCE_CONTINUATION.md).
+
 Maintenance is one existing Setting (`site.maintenance.v1`), not one switch system per section. A partial change claims the exact stored value and re-reads/re-merges after conflict, including concurrent first creation. Writes never use cached or error-fallback reads. Connected check `section-maintenance` proves preservation of different sections and separate fields of one section; no schema change is needed.
 
 Secrets are not normal settings.
