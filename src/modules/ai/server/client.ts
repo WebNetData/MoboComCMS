@@ -62,7 +62,7 @@ export async function publicAiReady(purpose: 'support' | 'prompts') {
 }
 
 /** Runs one prompt on the configured provider and returns its text. */
-export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPurpose): Promise<AiResult> {
+export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPurpose, signal?: AbortSignal): Promise<AiResult> {
   const actor = personalAiActor()
   const selected = purpose || personalAiPurpose() || (actor !== undefined ? 'admin' : undefined)
   const route = selected ? resolveAiRoute(await readAiRoutes(), selected) : { source: 'inherit' as const }
@@ -73,7 +73,7 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
     catch (error) { if (error instanceof ChatGptError) throw new AiError(error.message, error.status); throw error }
   }
   const settings = route.source === 'api' && route.config ? route.config : config || await getAiConfig()
-  return generateApi(prompt, settings, { support: selected === 'support', purpose: selected })
+  return generateApi(prompt, settings, { support: selected === 'support', purpose: selected, signal })
 }
 
 /** Explicit API transport: never consults actor/personal routing or falls back to ChatGPT. */

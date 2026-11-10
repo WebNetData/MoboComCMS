@@ -20,7 +20,9 @@ const id = (value: unknown) => { const number = Number(value); return Number.isS
 // Each action names the permission it needs; generating calls count against a per-admin limit.
 const ACTIONS: Record<string, { perm: string | string[]; generates: boolean; run: Handler }> = {
   test: { perm: 'settings.manage', generates: true, run: async () => {
-    const result = await generate({ system: 'فقط به فارسی جواب بده.', user: 'در یک جملهٔ کوتاه بگو آماده‌ای.', maxTokens: 200 })
+    // Ends well before the reverse proxy's limit (120s in deploy/ubuntu), so an unreachable
+    // provider returns the app's own route diagnostic instead of the proxy's HTML timeout page.
+    const result = await generate({ system: 'فقط به فارسی جواب بده.', user: 'در یک جملهٔ کوتاه بگو آماده‌ای.', maxTokens: 200 }, undefined, undefined, AbortSignal.timeout(45_000))
     return { reply: result.text.trim().slice(0, 300), model: result.model }
   } },
   'post.draft': { perm: 'cms.posts', generates: true, run: (admin, body) => draftPost(admin.id, body) },

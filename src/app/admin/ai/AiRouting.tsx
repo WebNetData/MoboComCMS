@@ -46,7 +46,10 @@ function RoutingForm({ route, providers, routes, onSaved, onBusy }: { route: Rou
     running.current = true; onBusy(true); setBusy(command); setNotice(''); setError(false)
     try {
       const response = await fetch(command === 'save' ? endpoint : '/api/admin/ai', { method: command === 'save' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command === 'save' ? { purpose: route.id, ...(sourceChanged ? { source } : {}), ...(Object.keys(patch).length ? { config: patch } : {}) } : { action: 'test', purpose: route.id }) })
-      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'عملیات انجام نشد')
+      // A reverse proxy or panel can answer with an HTML error page (e.g. 502/504); never parse it as JSON.
+      const body = await response.json().catch(() => null)
+      if (!body) throw new Error(response.status === 502 || response.status === 504 ? `سرور در زمان مجاز پاسخ نداد (HTTP ${response.status})؛ احتمالاً سرور به سرویس هوش مصنوعی دسترسی ندارد. در /admin/server/proxy برای «هوش مصنوعی» یک پیکربندی Xray انتخاب و اعمال کنید` : `پاسخ سرور قابل خواندن نبود (HTTP ${response.status})`)
+      if (!response.ok) throw new Error(body.error || 'عملیات انجام نشد')
       if (command === 'save') onSaved(body.routes)
       else setNotice(`اتصال ${route.label} برقرار است؛ مدل: ${body.model}. ${body.reply}`)
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'عملیات انجام نشد'); setError(true) }
