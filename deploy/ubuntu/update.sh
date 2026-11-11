@@ -64,10 +64,10 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
 
-# Problems that are only found half way through an update are checked before anything changes.
-FREE_MB="$(df -Pm . | awk 'NR==2 {print $4}')"
-if [ "$FREE_MB" -lt "$MIN_FREE_MB" ]; then
-  echo "[update] only ${FREE_MB} MB free; at least ${MIN_FREE_MB} MB is needed to build the new version" >&2
+# Problems that are only found half way through an update are checked before anything changes. The space check
+# estimates the whole build (at least MIN_FREE_MB) and removes old update directories only by policy while short.
+if ! node deploy/ubuntu/update-space.cjs ensure . --lock "$LOCK" --own-lock --min-mb "$MIN_FREE_MB" >/dev/null; then
+  echo "[update] not enough disk space to build the new version; nothing was changed" >&2
   exit 2
 fi
 if [ -z "${UPDATE_RESTART:-}" ] && ! sudo -n -l /usr/bin/systemctl restart mobocom >/dev/null 2>&1; then
@@ -84,8 +84,18 @@ healthy() {
   return 1
 }
 
+GIT_BUILD_SWITCHED=0
+SWITCH_BRANCH=''
+# The checkout moves only after the candidate built; CHECKED_SHA is where it ended, for the guarded rollback.
+switch_code() {
+  local status=0
+  git_build_switch "$SWITCH_BRANCH" || status=$?
+  CHECKED_SHA="$(git rev-parse HEAD)"
+  return "$status"
+}
+
 build_and_start() {
-  git_build_prepare || return 1
+  git_build_prepare "$TARGET_SHA" || return 1
   (
   cd "$GIT_BUILD_STAGE/source" || return 1
   # On a restricted network: an npm mirror that answers, and this version's Prisma engines from GitHub (else nothing).
@@ -95,15 +105,25 @@ build_and_start() {
   "$NPM" ci --include=dev --no-audit --no-fund || return 1
   NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "$BUILD" || return 1
   ) || return 1
+  git_build_validate || return 1
+  switch_code || return 1
   git_build_adopt || return 1
   reset_build_files
   bash -c "$RESTART" || return 1
-  healthy
+  healthy || return 1
+  git_build_mark healthy
 }
 
 rollback() {
-  echo "[update] failed; restoring application commit $PREV" >&2
   reset_build_files
+  if [ "$GIT_BUILD_SWITCHED" = 0 ]; then
+    # Nothing outside the private directory changed: no checkout, stop or restart, so this works on a full disk.
+    clean && [ "$(git rev-parse HEAD)" = "$PREV" ] || { echo '[update] local work appeared during the update; preserved for operator recovery' >&2; return 1; }
+    git_build_discard || echo '[update] the failed candidate directory was kept' >&2
+    echo '[update] the new version was not built; the running site, its code and build were not changed' >&2
+    return 0
+  fi
+  echo "[update] failed; restoring application commit $PREV" >&2
   clean || { echo '[update] local work appeared during the update; preserved for operator recovery' >&2; return 1; }
   [ "$(git rev-parse HEAD)" = "${CHECKED_SHA:-}" ] || { echo '[update] local commit appeared during update; preserved' >&2; return 1; }
   if [ "$PREV_BRANCH" = "$BRANCH" ]; then
@@ -130,10 +150,10 @@ if [ -n "$ROLLBACK_TO$TO_COMMIT" ]; then
   if [ -n "$ROLLBACK_TO" ]; then echo '[update] backing up before going back'; else echo '[update] backing up before code replacement'; fi
   bash -c "$BACKUP"
   clean || { echo '[update] local changes appeared during backup' >&2; exit 2; }
-  if [ -n "$ROLLBACK_TO" ]; then echo "[update] going back to $TARGET"; else echo "[update] switching to $TARGET"; fi
-  git checkout --quiet --detach "$TARGET"
-  CHECKED_SHA="$(git rev-parse HEAD)"
+  if [ -n "$ROLLBACK_TO" ]; then echo "[update] building $TARGET to go back to it"; else echo "[update] building $TARGET"; fi
+  TARGET_SHA="$(git rev-parse --verify "$TARGET^{commit}")"
   if build_and_start; then
+    node deploy/ubuntu/update-space.cjs prune . --lock "$LOCK" --own-lock --current "$(basename "$GIT_BUILD_STAGE")" >/dev/null || echo '[update] cleanup of old update directories skipped' >&2
     remember
     if [ -n "$ROLLBACK_TO" ]; then echo '[update] healthy on the earlier version; database changes were not reversed'; else echo '[update] healthy'; fi
     exit 0
@@ -156,18 +176,12 @@ echo '[update] backing up before code replacement'
 bash -c "$BACKUP"
 clean || { echo '[update] local changes appeared during backup' >&2; exit 2; }
 
-echo "[update] switching to origin/$BRANCH"
-# A safe fast-forward to the verified immutable commit; never discard owner edits.
-git checkout --quiet "$BRANCH"
-if ! git merge --ff-only --quiet "$TARGET_SHA"; then
-  rollback || echo '[update] application rollback failed' >&2
-  exit 1
-fi
-CHECKED_SHA="$TARGET_SHA"
-
-echo '[update] installing, building and restarting'
+# A safe fast-forward to the verified immutable commit, made only after the candidate built; never discard owner edits.
+SWITCH_BRANCH="$BRANCH"
+echo "[update] installing and building origin/$BRANCH apart from the running site, then switching and restarting"
 if build_and_start; then
   remember
+  node deploy/ubuntu/update-space.cjs prune . --lock "$LOCK" --own-lock --current "$(basename "$GIT_BUILD_STAGE")" >/dev/null || echo '[update] cleanup of old update directories skipped' >&2
   echo '[update] healthy'
   exit 0
 fi

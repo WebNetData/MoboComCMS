@@ -49,6 +49,8 @@ finish() {
   if [ "$COMPLETE" = 0 ]; then
     if [ "$ADOPTED" = 1 ]; then
       if python3 "$TOOLS/release-extract.py" undo "$APP" "$HOLD"; then
+        printf 'rolled-back
+' > "$HOLD/status"
         if [ -f "$HOLD/inventory.before" ]; then
           cp "$HOLD/inventory.before" "$STATE/current-files.json"
         else
@@ -78,6 +80,9 @@ if [ -n "${DOWNLOADS_ROOT:-}" ]; then
 fi
 write_state running 'بررسی بستهٔ امضاشده'
 HOLD="$(mktemp -d "$(dirname "$APP")/.package.XXXXXXXX")"
+# State for deploy/ubuntu/update-space.cjs retention: building → adopted → healthy | rolled-back, or failed.
+printf 'building
+' > "$HOLD/status"
 if [ -f "$STATE/current-files.json" ]; then cp "$STATE/current-files.json" "$HOLD/inventory.before"; fi
 cp --no-dereference -- "$STATE/packages/$ID.mbrelease" "$HOLD/release.mbrelease"
 [ ! -L "$HOLD/release.mbrelease" ] || exit 2
@@ -91,8 +96,14 @@ clean() {
   else echo '[release] source inventory missing; operator adoption required' >&2; return 1; fi
 }
 clean || { echo '[release] local changes preserved; update refused' >&2; exit 2; }
-FREE="$(df -Pm "$APP" | awk 'NR==2 {print $4}')"
-[ "$FREE" -ge "${UPDATE_MIN_FREE_MB:-4096}" ] || { echo '[release] insufficient build space' >&2; exit 2; }
+# The whole build is estimated and old update directories are removed by policy only while space is short. A site
+# whose code predates update-space.cjs keeps the plain free-space floor.
+if [ -f "$APP/deploy/ubuntu/update-space.cjs" ]; then
+  node "$APP/deploy/ubuntu/update-space.cjs" ensure "$APP" --lock "$LOCK" --own-lock --current "$(basename "$HOLD")" >/dev/null || { echo '[release] insufficient build space; nothing replaced' >&2; exit 2; }
+else
+  FREE="$(df -Pm "$APP" | awk 'NR==2 {print $4}')"
+  [ "$FREE" -ge "${UPDATE_MIN_FREE_MB:-4096}" ] || { echo '[release] insufficient build space' >&2; exit 2; }
+fi
 python3 "$TOOLS/release-extract.py" extract "$HOLD/payload.tar.gz" "$HOLD/source" "$TARGET"
 write_state running 'آماده‌سازی نسخهٔ جدید در پوشهٔ جدا'
 ( cd "$HOLD/source"; if [ -f deploy/ubuntu/npm-registry.sh ]; then bash deploy/ubuntu/npm-registry.sh || exit 1; fi; if [ -f deploy/ubuntu/prisma-engines.sh ]; then bash deploy/ubuntu/prisma-engines.sh . || exit 1; fi; "${UPDATE_NPM:-npm}" ci --include=dev --no-audit --no-fund; NODE_OPTIONS="--max-old-space-size=${BUILD_MEMORY_MB:-4096}" bash -c "${UPDATE_BUILD:-npm run build:postgres}" )
@@ -107,11 +118,16 @@ clean || exit 2
 write_state running 'راه‌اندازی نسخهٔ جدید'
 bash -c "${UPDATE_STOP:-sudo -n systemctl stop mobocom}"; STOPPED=1
 require_uninstalled || exit 2
+printf 'adopted
+' > "$HOLD/status"
 if python3 "$TOOLS/release-extract.py" adopt "$APP" "$HOLD"; then
   ADOPTED=1
 else
   RESULT=$?
   # If adoption's compensation itself failed, do not start an uncertain code tree.
+  # Compensation succeeded: the previous code is back in place and this directory is only the failed candidate.
+  [ "$RESULT" = 2 ] || printf 'failed
+' > "$HOLD/status"
   if [ "$RESULT" = 2 ]; then
     write_state failed 'جابه‌جایی کد ناموفق؛ اپراتور باید مسیر خصوصی را بررسی کند'
     STOPPED=0
@@ -124,6 +140,8 @@ mv "$HOLD/current-files.json" "$STATE/current-files.json"
 printf '%s package:%s package:%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$CURRENT" "$TARGET" >>"$STATE/history.log"
 write_state done 'به‌روزرسانی بسته کامل شد'
 COMPLETE=1
+printf 'healthy
+' > "$HOLD/status"
 rm -f -- "$STATE/packages/$ID.mbrelease" "$STATE/packages/$ID.json"
 echo "[release] healthy; previous code retained in $HOLD/before; database not rewound"
 }

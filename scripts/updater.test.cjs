@@ -90,6 +90,7 @@ function sandbox() {
   put('deploy/ubuntu/self-update.sh', read('deploy/ubuntu/self-update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/self-update.sh'), 0o755)
   put('deploy/ubuntu/update.sh', read('deploy/ubuntu/update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/update.sh'), 0o755)
   put('deploy/ubuntu/git-build.sh', read('deploy/ubuntu/git-build.sh'))
+  put('deploy/ubuntu/update-space.cjs', read('deploy/ubuntu/update-space.cjs'))
   put('.gitignore', '.next/\nnode_modules/\nstorage/\n.env\n')
   put('deploy/ubuntu/git-fetch.sh', read('deploy/ubuntu/git-fetch.sh'))
   // Files the real build rewrites (Next.js and the extension generator), committed like in the repository.
@@ -554,8 +555,10 @@ test('update script: a new version that does not start is rolled back automatica
 
 test('update script: when even the rollback fails it says so', () => {
   const box = sandbox()
-  const r = runUpdate(box, 'v1.1.0', { UPDATE_BUILD: 'mkdir -p .next node_modules; printf candidate > .next/BUILD_ID; false' })
-  assert.equal(r.state.status, 'failed'); assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+  // A build failure no longer needs a rollback at all; here the candidate builds, but neither it nor the restored
+  // version passes the health check (there is no health file).
+  const r = runUpdate(box, 'v1.1.0')
+  assert.equal(r.state.status, 'failed'); assert.match(r.log, /rollback failed/); assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
 })
 
 test('update script: refuses unsafe or unknown versions and a second run', () => {
@@ -589,4 +592,154 @@ test('wiring: routes, admin page, job, hook and privileges', () => {
   assert.match(service, /isSafeRef/); assert.match(service, /backupConfirmed/); assert.match(service, /safeHookUrl/); assert.match(service, /redirect: 'manual'/)
   assert.match(read('src/modules/notifications/server/jobs-scheduler.ts'), /name: 'updates'/)
   assert.match(read('src/app/admin/layout.tsx'), /\/admin\/updates/)
+})
+
+// ------------------------------------------------------------------ disk space, build isolation and snapshot retention
+
+const SPACE = path.join(root, 'deploy/ubuntu/update-space.cjs')
+const stages = (dir) => fs.readdirSync(dir).filter((n) => /^\.(mobocom-build|package|mobocom-trash)\./.test(n)).sort()
+const reflog = (box) => box.git('reflog', '--format=%H').trim().split('\n').length
+/** A snapshot directory as an earlier update left it. */
+function fakeStage(parent, name, { status, before = 'full', ageDays = 1, kind = 'git' } = {}) {
+  const dir = path.join(parent, name)
+  fs.mkdirSync(path.join(dir, 'before'), { recursive: true })
+  if (kind === 'git') {
+    fs.writeFileSync(path.join(dir, 'previous-commit'), 'a'.repeat(40) + '\n')
+    if (before === 'full' || before === 'next-only') { fs.mkdirSync(path.join(dir, 'before', '.next')); fs.writeFileSync(path.join(dir, 'before', '.next', 'BUILD_ID'), 'old') }
+    if (before === 'full') { fs.mkdirSync(path.join(dir, 'before', 'node_modules')); fs.writeFileSync(path.join(dir, 'before', 'node_modules', 'dep'), 'old') }
+  } else {
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}')
+    if (before === 'full') fs.writeFileSync(path.join(dir, 'before', 'package.json'), '{}')
+  }
+  if (status) fs.writeFileSync(path.join(dir, 'status'), status + '\n')
+  const when = new Date(Date.now() - ageDays * 86_400_000)
+  fs.utimesSync(path.join(dir, kind === 'git' ? 'previous-commit' : 'manifest.json'), when, when)
+  return dir
+}
+function spaceApp() {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'space-')), app = path.join(parent, 'app')
+  fs.mkdirSync(path.join(app, '.next'), { recursive: true }); fs.writeFileSync(path.join(app, '.next', 'BUILD_ID'), 'running')
+  fs.mkdirSync(path.join(app, 'node_modules')); fs.mkdirSync(path.join(app, 'storage', 'update'), { recursive: true })
+  return { parent, app }
+}
+const space = (app, args, env = {}) => spawnSync(process.execPath, [SPACE, args[0], app, ...args.slice(1)], { encoding: 'utf8', env: { ...process.env, ...env } })
+
+test('ENOSPC in npm ci leaves code, build and dependencies untouched; nothing needs restoring and the candidate is removed', () => {
+  for (const manual of [false, true]) {
+    const box = sandbox(), bin = path.join(box.dir, 'bin'), restarted = path.join(box.dir, 'restarted'), stopped = path.join(box.dir, 'stopped')
+    fs.mkdirSync(bin); fs.writeFileSync(path.join(box.dir, manual ? 'manual-healthy' : 'healthy'), 'ok')
+    const npm = path.join(bin, 'npm-enospc')
+    fs.writeFileSync(npm, '#!/bin/sh\nmkdir -p node_modules/half-written\necho "npm ERR! code ENOSPC: no space left on device" >&2\nexit 228\n'); fs.chmodSync(npm, 0o755)
+    const head = box.git('rev-parse', 'HEAD').trim(), entries = reflog(box)
+    const extra = { UPDATE_NPM: npm, UPDATE_RESTART: `touch "${restarted}"`, UPDATE_STOP: `touch "${stopped}"` }
+    const r = manual ? runManualUpdate(box, extra) : runUpdate(box, 'v1.1.0', extra)
+    assert.notEqual(r.code, 0)
+    assert.equal(box.git('rev-parse', 'HEAD').trim(), head, 'the running checkout never moved')
+    assert.equal(reflog(box), entries, 'no checkout was attempted, before or after the failure')
+    assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+    assert.equal(fs.readFileSync(path.join(box.app, '.next', 'BUILD_ID'), 'utf8'), 'previous-build')
+    assert.equal(fs.readFileSync(path.join(box.app, 'node_modules', 'previous-dependency'), 'utf8'), 'kept')
+    assert.equal(fs.existsSync(path.join(box.app, 'node_modules', 'half-written')), false)
+    assert.equal(fs.existsSync(stopped) || fs.existsSync(restarted), false, 'the running site was neither stopped nor restarted')
+    assert.deepEqual(stages(box.dir), [], 'the half-written candidate does not stay on the disk')
+    if (!manual) { assert.equal(r.state.status, 'rolled-back'); assert.match(r.state.step, /دست نخورد/); assert.match(r.log, /ENOSPC/) }
+    else assert.match(r.stderr, /were not changed/)
+    assert.equal(fs.existsSync(path.join(box.dir, 'state', 'lock')), false)
+  }
+})
+
+test('a disk too small for the build stops the tag update before backup, checkout or any directory is made', () => {
+  const box = sandbox(), marker = path.join(box.dir, 'unexpected-backup'), head = box.git('rev-parse', 'HEAD').trim()
+  const r = runUpdate(box, 'v1.1.0', { UPDATE_SPACE_FREE_MB: '10', UPDATE_BACKUP: `touch "${marker}"` })
+  assert.equal(r.code, 2, r.stderr + r.log); assert.equal(r.state.status, 'failed'); assert.match(r.state.step, /فضای دیسک/)
+  assert.match(r.log, /MB free; about \d+ MB is needed/)
+  assert.equal(fs.existsSync(marker), false); assert.equal(box.git('rev-parse', 'HEAD').trim(), head); assert.deepEqual(stages(box.dir), [])
+})
+
+test('a successful update keeps the newest restorable snapshot and anything interrupted, and removes the rest', () => {
+  const box = sandbox(); fs.writeFileSync(path.join(box.dir, 'healthy'), 'ok')
+  fakeStage(box.dir, '.mobocom-build.OLDHEALT', { status: 'healthy', ageDays: 9 })
+  fakeStage(box.dir, '.mobocom-build.LEGACY01', { ageDays: 8 })
+  fakeStage(box.dir, '.mobocom-build.FAILED01', { status: 'failed', before: 'none', ageDays: 7 })
+  fakeStage(box.dir, '.mobocom-build.ADOPTED1', { status: 'adopted', ageDays: 6 })
+  fakeStage(box.dir, '.mobocom-build.PARTIAL1', { before: 'next-only', ageDays: 5 })
+  fakeStage(box.dir, '.package.PKGHEALT', { kind: 'package', status: 'healthy', ageDays: 4 })
+  fs.mkdirSync(path.join(box.dir, '.mobocom-trash.INTERRUPT'))
+  const r = runUpdate(box, 'v1.1.0')
+  assert.equal(r.code, 0, r.stderr + r.log)
+  const left = stages(box.dir), current = left.find((n) => !/ADOPTED1|PARTIAL1|PKGHEALT/.test(n))
+  assert.deepEqual(left.filter((n) => n !== current), ['.mobocom-build.ADOPTED1', '.mobocom-build.PARTIAL1', '.package.PKGHEALT'])
+  assert.equal(fs.readFileSync(path.join(box.dir, current, 'status'), 'utf8').trim(), 'healthy')
+  assert.equal(fs.readFileSync(path.join(box.dir, current, 'before', '.next', 'BUILD_ID'), 'utf8'), 'previous-build', 'the build that ran before stays restorable')
+})
+
+test('a rolled-back candidate is marked so and goes at the next successful update, which keeps its own snapshot', () => {
+  const box = sandbox(), health = path.join(box.dir, 'healthy')
+  const failed = runUpdate(box, 'v1.1.0', { UPDATE_RESTART: `if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi` })
+  assert.equal(failed.state.status, 'rolled-back', failed.log)
+  const [first] = stages(box.dir)
+  assert.equal(fs.readFileSync(path.join(box.dir, first, 'status'), 'utf8').trim(), 'rolled-back')
+  fs.writeFileSync(health, 'ok')
+  const ok = runUpdate(box, 'v1.1.0')
+  assert.equal(ok.code, 0, ok.stderr + ok.log)
+  const left = stages(box.dir)
+  assert.equal(left.length, 1); assert.notEqual(left[0], first)
+})
+
+test('retention: nothing goes while another holder has the lock or the installed build is incomplete; links are never followed', () => {
+  const { parent, app } = spaceApp()
+  fakeStage(parent, '.mobocom-build.OLDONE01', { status: 'healthy', ageDays: 3 }); fakeStage(parent, '.mobocom-build.NEWONE01', { status: 'healthy', ageDays: 1 })
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-')); fs.writeFileSync(path.join(outside, 'precious'), 'x')
+  let linked = true
+  try { fs.symlinkSync(outside, path.join(parent, '.mobocom-build.LINKED01'), 'dir') } catch { linked = false }
+  fs.mkdirSync(path.join(app, 'storage', 'update', 'lock'))
+  let r = space(app, ['list']); assert.equal(r.status, 0, r.stderr)
+  assert(JSON.parse(r.stdout).entries.every((e) => e.protected === 'update-running'))
+  r = space(app, ['prune']); assert.deepEqual(JSON.parse(r.stdout).removed, [])
+  fs.rmdirSync(path.join(app, 'storage', 'update', 'lock')); fs.unlinkSync(path.join(app, '.next', 'BUILD_ID'))
+  r = space(app, ['prune']); assert.deepEqual(JSON.parse(r.stdout).removed, [], 'an incomplete installation keeps every snapshot')
+  fs.writeFileSync(path.join(app, '.next', 'BUILD_ID'), 'running')
+  r = space(app, ['prune']); assert.deepEqual(JSON.parse(r.stdout).removed.map((e) => e.name), ['.mobocom-build.OLDONE01'])
+  assert(fs.existsSync(path.join(parent, '.mobocom-build.NEWONE01')))
+  if (linked) assert.equal(fs.readFileSync(path.join(outside, 'precious'), 'utf8'), 'x', 'a linked snapshot name is not followed')
+  r = space(app, ['prune', '--keep', '0']); assert.equal(r.status, 2); assert.match(r.stderr, /keep must be between 1 and 20/)
+})
+
+test('retention: discard removes only the lock holder\'s never-adopted candidate', () => {
+  const { parent, app } = spaceApp()
+  fakeStage(parent, '.mobocom-build.HASPREV1', { status: 'failed', before: 'full' }); fakeStage(parent, '.mobocom-build.EMPTYFA1', { status: 'building', before: 'none' })
+  let r = space(app, ['discard', '.mobocom-build.EMPTYFA1'])
+  assert.equal(r.status, 2, 'only the lock holder may discard'); assert(fs.existsSync(path.join(parent, '.mobocom-build.EMPTYFA1')))
+  r = space(app, ['discard', '.mobocom-build.HASPREV1', '--own-lock']); assert.equal(r.status, 4); assert(fs.existsSync(path.join(parent, '.mobocom-build.HASPREV1')))
+  r = space(app, ['discard', '.mobocom-build.EMPTYFA1', '--own-lock']); assert.equal(r.status, 0, r.stderr); assert.equal(fs.existsSync(path.join(parent, '.mobocom-build.EMPTYFA1')), false)
+  r = space(app, ['discard', '../app', '--own-lock']); assert.equal(r.status, 2); assert(fs.existsSync(app))
+})
+
+test('retention: ensure removes old snapshots oldest first only while space is short, and says what is missing otherwise', () => {
+  const { parent, app } = spaceApp()
+  for (const [name, age] of [['.mobocom-build.FAILOLD1', 3], ['.mobocom-build.FAILNEW1', 2]]) {
+    const dir = fakeStage(parent, name, { status: 'failed', before: 'none', ageDays: age })
+    fs.mkdirSync(path.join(dir, 'source')); fs.writeFileSync(path.join(dir, 'source', 'blob'), Buffer.alloc(3 * 1024 * 1024, 1))
+  }
+  const need = JSON.parse(space(app, ['list', '--min-mb', '0']).stdout).needBytes
+  const short = Math.floor((need - 1024 * 1024) / (1024 * 1024)) // about 1 MB short: one 3 MB snapshot is enough
+  let r = space(app, ['ensure', '--min-mb', '0'], { UPDATE_SPACE_FREE_MB: String(short) })
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(JSON.parse(r.stdout).removed.map((e) => e.name), ['.mobocom-build.FAILOLD1'])
+  assert(fs.existsSync(path.join(parent, '.mobocom-build.FAILNEW1')), 'the newer one stays once space suffices')
+  r = space(app, ['ensure', '--min-mb', '0'], { UPDATE_SPACE_FREE_MB: '1' })
+  assert.equal(r.status, 3); assert.match(r.stderr, /only \d+ MB free; about \d+ MB is needed to build the new version \(dependencies/)
+})
+
+test('the panel reads and cleans snapshots only through the updater tool, behind the server panel and settings permission', () => {
+  const spaceTs = read('src/modules/updater/server/space.ts'), http = read('src/modules/updater/server/http.ts'), page = read('src/app/admin/updates/page.tsx')
+  assert.match(spaceTs, /'deploy', 'ubuntu', 'update-space\.cjs'/); assert.match(spaceTs, /existsSync\(lockPath\(\)\)/)
+  assert.doesNotMatch(spaceTs, /\brm(Sync)?\(|unlink/, 'the panel never deletes by itself')
+  assert.match(http, /case 'space-prune': \{ const result = await pruneUpdateSpace\(\); await audit\('space-prune'/)
+  assert.match(page, /<UpdateSpace running=/)
+  for (const [script, backup] of [['deploy/ubuntu/self-update.sh', 'step "Backing up before update"'], ['deploy/ubuntu/update.sh', "echo '[update] backing up before code replacement'"]]) {
+    const text = read(script)
+    assert(text.indexOf('update-space.cjs ensure') > 0 && text.indexOf('update-space.cjs ensure') < text.indexOf(backup), `${script} checks space before the backup`)
+    assert.doesNotMatch(text, /git checkout --quiet --detach "\$TARGET(_SHA)?"/, `${script} checks out only through git_build_switch, after the build`)
+  }
 })
