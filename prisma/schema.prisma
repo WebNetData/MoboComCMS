@@ -2439,12 +2439,32 @@ model MediaLink {
   clicks    Int      @default(0)
   disabled  Boolean  @default(false) // hidden (broken link or copyright takedown)
   reports   LinkReport[]
+  /// Subtitles found with this video file (beside it or inside it) and the last look for them (media/server/found-subtitles).
+  foundSubtitles MediaLinkSubtitle[]
+  subtitleScan   String   @default("")
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([ownerType, ownerId])
 }
 
+/// A subtitle that came with one video file: a file of the same name next to it (SIDECAR) or a text track
+/// inside it (EMBEDDED). It belongs to that file only, because another release of the same film is timed differently.
+/// The text is kept here, bounded, and served through the same checks as the video.
+model MediaLinkSubtitle {
+  id        Int       @id @default(autoincrement())
+  linkId    Int
+  link      MediaLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  origin    String // SIDECAR | EMBEDDED
+  source    String // SIDECAR: the file address; EMBEDDED: stream:<index>
+  language  String    @default("")
+  label     String    @default("")
+  format    String // vtt | srt | ass
+  content   String
+  createdAt DateTime  @default(now())
+
+  @@unique([linkId, source])
+}
 /// Bank accounts shown to customers for card-to-card and bank transfers.
 model BankAccount {
   id            Int              @id @default(autoincrement())

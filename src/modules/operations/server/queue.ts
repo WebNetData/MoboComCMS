@@ -32,6 +32,8 @@ const HANDLERS: Record<string, { run: Handler }> = {
   } },
   'media.transfer': { run: async payload => (await import('@/modules/media/server/library')).runTransfer(payload) },
   'media.compatible-audio': { run: async (payload, job) => (await import('@/modules/media/server/library')).runCompatibleAudio(payload, job.id, job.attempts) },
+  'media.subtitle-scan': { run: async (payload, job) => (await import('@/modules/media/server/found-subtitles/scan')).runSubtitleScan(payload, job) },
+  'media.subtitle-backfill': { run: async (payload, job) => (await import('@/modules/media/server/found-subtitles/scan')).runSubtitleBackfill(payload, job) },
   'store.price-drop': {
     run: async (payload, job) => {
       const { deliverProductPriceDrop } = await import('@/modules/catalog/server/price-drop-notifications')

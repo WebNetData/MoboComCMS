@@ -8,6 +8,7 @@ import { CINEMA_RAILS, type CinemaSettings } from '@/modules/cinema/domain/cinem
 import { OrderedPicker, RailsEditor } from '../../cms/SectionAdmin'
 import { CinemaShell, Notice, fa, send, useJson } from '../shared'
 import { CinemaMetadataSettings } from '@/components/admin/CinemaMetadata'
+import CinemaFoundSubtitles from '@/components/admin/CinemaFoundSubtitles'
 
 type Picker = { id: number; title: string; poster: string; kind: string; year: number | null }
 
@@ -67,6 +68,13 @@ export default function CinemaSettingsPage() {
           <label className="sa-check"><input type="checkbox" checked={form.personFollowEnabled} onChange={e => set({ personFollowEnabled: e.target.checked })} />دنبال‌کردن عوامل و اعلان اثر تازه</label>
           <label className="sa-check"><input type="checkbox" checked={form.enableAssSubtitles} onChange={e => set({ enableAssSubtitles: e.target.checked })} />زیرنویس ASS با استایل در پخش‌کننده</label>
           <label className="sa-check"><input type="checkbox" checked={form.enableSeparateAudio} onChange={e => set({ enableSeparateAudio: e.target.checked })} />انتخاب صدای جداگانه در پخش‌کننده</label>
+        </section>
+        <section className="sa-card">
+          <header className="sa-card-head"><h2>زیرنویس همراه فایل</h2><small>کنار فایل یا داخل MKV/MP4</small></header>
+          <label className="sa-check"><input type="checkbox" checked={form.findSubtitles} onChange={e => set({ findSubtitles: e.target.checked })} />یافتن خودکار زیرنویس هر فایل و نمایش آن در پخش‌کننده</label>
+          <p className="sa-sub">فایل زیرنویس هم‌نام در همان پوشه (مثل <bdi dir="ltr">Film.1080p.fa.srt</bdi> کنار <bdi dir="ltr">Film.1080p.mkv</bdi>) و زیرنویس‌های متنی داخل فایل خوانده می‌شوند؛ هر زیرنویس فقط با همان فایل پخش می‌شود. زیرنویس‌های تصویری (PGS/VobSub) قابل نمایش در مرورگر نیستند.</p>
+          <label className="sa-field"><span>سقف حجم فایل برای خواندن زیرنویس داخل آن (گیگابایت)</span><input className="input num" type="number" min={1} max={100} value={form.subtitleScanMaxGB} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ subtitleScanMaxGB: e.target.valueAsNumber }) }} /><small className="sa-sub">زیرنویس داخل فایل لابه‌لای تصویر و صدا قرار دارد و برای برداشتنش کل فایل یک‌بار خوانده می‌شود</small></label>
+          <CinemaFoundSubtitles />
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>تنظیمات دیگر بخش</h2></header>

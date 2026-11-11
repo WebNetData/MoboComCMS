@@ -10,6 +10,9 @@ import {
 import { MAX_SUBTITLE_BYTES, assToWebVtt, decodeSubtitle, playbackKind, playableAudioFile, subtitleFormat, toWebVtt, trackLanguage, trackLinks, type PlaybackKind } from '@/modules/media/domain/media'
 import { getCinemaSettings } from '@/modules/cinema/server/admin'
 import { subtitleBytes } from '@/modules/media/server/subtitle-files'
+import { sortFound, type FoundFormat } from '@/modules/media/domain/found-subtitles'
+import { requestSubtitleScan } from '@/modules/media/server/found-subtitles/request'
+import { logEvent } from '@/platform/observability/logger'
 import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
 import type { FileTags } from '@/modules/downloads/server/clean'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
@@ -215,7 +218,7 @@ export async function openTrack(request: Request, rawId: string) {
 // ------------------------------------------------------------------ online player
 
 /** A subtitle the player can load: served by this site as WebVTT, under the same rules as the file it belongs to. */
-export type PlayerSubtitle = { id: number; language: string; label: string; src: string; format?: 'vtt' | 'srt' | 'ass'; styledSrc?: string }
+export type PlayerSubtitle = { id: number | string; language: string; label: string; src: string; format?: 'vtt' | 'srt' | 'ass'; styledSrc?: string }
 export type PlayerAudio = { id: number; language: string; label: string; src: string }
 
 export type WatchResult =
@@ -301,6 +304,18 @@ export async function watchSource(rawId: string, token: string | null, headers: 
       const src = `/api/media/subtitle/${row.id}${pageToken ? `?t=${encodeURIComponent(pageToken)}` : ''}`
       subtitles.push({ id: row.id, language: row.language, label: row.label || trackLanguage(row.language, true) || 'زیرنویس', src, format, ...(format === 'ass' ? { styledSrc: src + (pageToken ? '&' : '?') + 'format=ass' } : {}) })
     }
+    // Subtitles that came with this very file (beside it or inside it): timed for this release, not for the others.
+    if (policy.findSubtitles === true && (playback === 'video' || playback === 'maybe')) {
+      const query = settings?.enforceTokens && token ? `?t=${encodeURIComponent(token)}` : ''
+      const found = sortFound(await db.mediaLinkSubtitle.findMany({ where: { linkId: id }, select: { id: true, language: true, label: true, format: true } }))
+      for (const row of found) {
+        if (row.format === 'ass' && !policy.enableAssSubtitles) continue
+        const src = `/api/media/subtitle/found/${row.id}${query}`
+        subtitles.push({ id: `f${row.id}`, language: row.language, label: row.label || 'زیرنویس', src, format: row.format as FoundFormat, ...(row.format === 'ass' ? { styledSrc: src + (query ? '&' : '?') + 'format=ass' } : {}) })
+      }
+      // Not looked at yet (or its address changed): queued; what is found appears on a later visit.
+      await requestSubtitleScan(link).catch(error => logEvent('warn', 'media.subtitle_scan_request_failed', { linkId: id, error: String(error instanceof Error ? error.message : error).slice(0, 200) }))
+    }
     if (policy.enableSeparateAudio) for (const row of trackLinks(rows).audio) {
       if (!playableAudioFile(row.url)) continue
       if (await gate(viewer, [{ ownerType: 'link', ownerId: row.id }, ...owner.chain], row.access === 'MEMBERS' || owner.access === 'MEMBERS') !== 'ok') continue
@@ -323,31 +338,64 @@ export async function watchSource(rawId: string, token: string | null, headers: 
  * link route (module, takedown, price or VIP, page token); the file is read by the server, so its address
  * never reaches the browser, and it is converted so a SubRip file plays too.
  */
+const refuseTrack = (error: string, status: number) => NextResponse.json({ error }, { status })
+
+/** The checks every file of a film or episode passes: its section, publication, price or VIP, page token and login rule. */
+async function trackAccess(request: Request, link: { id: number; ownerType: string; ownerId: number; access: string }) {
+  const module = OWNER_MODULE[link.ownerType]
+  const owner = module && await isModuleEnabled(module) ? await ownerOf(link.ownerType, link.ownerId).catch(() => null) : null
+  if (!owner) return { refused: refuseTrack('NOT_FOUND', 404) }
+  const viewer = await getViewer()
+  const access = await gate(viewer, [{ ownerType: 'link', ownerId: link.id }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS')
+  if (access !== 'ok') return { refused: refuseTrack(access === 'login' ? 'LOGIN_REQUIRED' : access === 'buy' ? 'PURCHASE_REQUIRED' : 'MEMBERS_ONLY', access === 'login' ? 401 : access === 'buy' ? 402 : 403) }
+  const settings = await downloadGuardEnabled() ? await getDownloadSettings() : null
+  if (settings?.enforceTokens && checkPageToken(new URL(request.url).searchParams.get('t'), `l${link.id}`, viewer.userId) !== 'ok') return { refused: refuseTrack('EXPIRED', 403) }
+  if (settings?.requireLogin && !viewer.userId) return { refused: refuseTrack('LOGIN_REQUIRED', 401) }
+  return { settings }
+}
+
+/** A subtitle as the player takes it: WebVTT, or the original ASS for the styled renderer; '' when it holds no cue. */
+function subtitleBody(text: string, format: 'vtt' | 'srt' | 'ass', styled: boolean) {
+  const plain = format === 'ass' ? assToWebVtt(text) : ''
+  return format === 'ass' ? plain ? styled ? text : plain : '' : toWebVtt(text, format)
+}
+const subtitleResponse = (body: string, styled: boolean) => new NextResponse(body, { headers: { 'Content-Type': styled ? 'text/plain; charset=utf-8' : 'text/vtt; charset=utf-8', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } })
+
 export async function openSubtitle(request: Request, rawId: string) {
-  const refuse = (error: string, status: number) => NextResponse.json({ error }, { status })
   const id = Number(rawId)
   const link = Number.isSafeInteger(id) && id > 0 ? await db.mediaLink.findUnique({ where: { id } }).catch(() => null) : null
   const format = link && link.kind === 'SUBTITLE' && !link.disabled ? subtitleFormat(link.url) : ''
-  if (!link || !format) return refuse('NOT_FOUND', 404)
-  const module = OWNER_MODULE[link.ownerType]
-  const owner = module && await isModuleEnabled(module) ? await ownerOf(link.ownerType, link.ownerId).catch(() => null) : null
-  if (!owner) return refuse('NOT_FOUND', 404)
-  const viewer = await getViewer()
-  const access = await gate(viewer, [{ ownerType: 'link', ownerId: id }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS')
-  if (access !== 'ok') return refuse(access === 'login' ? 'LOGIN_REQUIRED' : access === 'buy' ? 'PURCHASE_REQUIRED' : 'MEMBERS_ONLY', access === 'login' ? 401 : access === 'buy' ? 402 : 403)
-  const settings = await downloadGuardEnabled() ? await getDownloadSettings() : null
-  if (settings?.enforceTokens && checkPageToken(new URL(request.url).searchParams.get('t'), `l${id}`, viewer.userId) !== 'ok') return refuse('EXPIRED', 403)
-  if (settings?.requireLogin && !viewer.userId) return refuse('LOGIN_REQUIRED', 401)
-  let vtt = ''
+  if (!link || !format) return refuseTrack('NOT_FOUND', 404)
+  const checked = await trackAccess(request, link)
+  if ('refused' in checked) return checked.refused
+  const { settings } = checked
   const styled = format === 'ass' && new URL(request.url).searchParams.get('format') === 'ass'
-  if (format === 'ass' && !(await getCinemaSettings()).enableAssSubtitles) return refuse('NOT_FOUND', 404)
+  if (format === 'ass' && !(await getCinemaSettings()).enableAssSubtitles) return refuseTrack('NOT_FOUND', 404)
+  let vtt = ''
   try {
-    const text = decodeSubtitle(await subtitleBytes(link.url, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, MAX_SUBTITLE_BYTES))
-    const plain = format === 'ass' ? assToWebVtt(text) : ''
-    vtt = format === 'ass' ? plain ? styled ? text : plain : '' : toWebVtt(text, format)
-  } catch { return refuse('UNAVAILABLE', 502) }
-  if (!vtt) return refuse('UNAVAILABLE', 502)
-  return new NextResponse(vtt, { headers: { 'Content-Type': styled ? 'text/plain; charset=utf-8' : 'text/vtt; charset=utf-8', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } })
+    vtt = subtitleBody(decodeSubtitle(await subtitleBytes(link.url, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, MAX_SUBTITLE_BYTES)), format, styled)
+  } catch { return refuseTrack('UNAVAILABLE', 502) }
+  if (!vtt) return refuseTrack('UNAVAILABLE', 502)
+  return subtitleResponse(vtt, styled)
+}
+
+/**
+ * GET /api/media/subtitle/found/:id?t=<token> → a subtitle that came with a video file, under that video's own
+ * rules and page token. Its text was read when the file was looked at; nothing is fetched here.
+ */
+export async function openFoundSubtitle(request: Request, rawId: string) {
+  const id = Number(rawId)
+  const row = Number.isSafeInteger(id) && id > 0 ? await db.mediaLinkSubtitle.findUnique({ where: { id }, include: { link: true } }).catch(() => null) : null
+  const link = row?.link
+  if (!row || !link || link.disabled || !['title', 'episode'].includes(link.ownerType) || !['DOWNLOAD', 'STREAM'].includes(link.kind)) return refuseTrack('NOT_FOUND', 404)
+  const policy = await getCinemaSettings(true)
+  const format = row.format === 'ass' || row.format === 'srt' || row.format === 'vtt' ? row.format : null
+  if (!format || policy.findSubtitles !== true || (format === 'ass' && !policy.enableAssSubtitles)) return refuseTrack('NOT_FOUND', 404)
+  const checked = await trackAccess(request, link)
+  if ('refused' in checked) return checked.refused
+  const styled = format === 'ass' && new URL(request.url).searchParams.get('format') === 'ass'
+  const body = subtitleBody(row.content, format, styled)
+  return body ? subtitleResponse(body, styled) : refuseTrack('UNAVAILABLE', 502)
 }
 
 export async function saveCinemaWatchProgress(userId: number, linkId: number, positionSeconds: number, durationSeconds: number) {

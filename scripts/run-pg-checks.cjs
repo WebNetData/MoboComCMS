@@ -149,6 +149,8 @@ const CHECKS = [
 // Run explicitly on those isolated databases, never the site's database.
 // Web operations needs an empty first-owner database; import compatibility also requires an explicitly disposable DB.
 const OPTIONAL_CHECKS = ['cloud-navigation', 'navigation-control', 'updater-github', 'web-operations', 'installer-host-setup', 'import-content-compat', 'media-archive', 'media-storage', 'content-authoring', 'journal-notification-intents', 'compatible-audio', 'admin-policy-history', 'journal-review-reliability', 'journal-block-proposals']
+// Real ffprobe/ffmpeg with libx264 (as in the Dockerfile) on MKV/MP4 files the check makes; run on a database copy.
+OPTIONAL_CHECKS.push('found-subtitles')
 const REGISTERED = [...CHECKS, ...OPTIONAL_CHECKS]
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/run-pg-checks.cjs')

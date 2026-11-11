@@ -5,6 +5,8 @@ export const JOB_LABEL: Record<string, string> = {
   'journal.editorial-decision': 'اعلان تصمیم سردبیر مجله',
   'media.transfer': 'انتقال فایل به کتابخانه',
   'media.compatible-audio': 'ساخت صدای سازگار AAC',
+  'media.subtitle-scan': 'یافتن زیرنویس کنار و داخل فایل فیلم',
+  'media.subtitle-backfill': 'بررسی زیرنویس همهٔ فایل‌های فیلم و سریال',
   'cinema.person-publication': 'اعلان اثر تازهٔ عوامل سینما',
   'store.price-drop': 'اعلان کاهش قیمت محصول',
   'store.price-history-baseline': 'ثبت نقطهٔ شروع تاریخچهٔ قیمت محصولات',

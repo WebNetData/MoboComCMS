@@ -56,7 +56,8 @@ test('a link with its own price wins over the item; buying the item does not ope
 
 test('wiring: link gate, own-price buy button, admin link editor, saved prices', () => {
   const links = read('src/modules/media/server/links.ts')
-  assert.equal((links.match(/\{ ownerType: 'link', ownerId: id \}, \.\.\.owner\.chain/g) || []).length, 3, 'the download redirect, the player page and the subtitle served to the player each check the link\'s own price first')
+  assert.equal((links.match(/\{ ownerType: 'link', ownerId: id \}, \.\.\.owner\.chain/g) || []).length, 2, 'the download redirect and the player page each check the link\'s own price first')
+  assert.match(links.slice(links.indexOf('async function trackAccess'), links.indexOf('function subtitleBody')), /\{ ownerType: 'link', ownerId: link\.id \}, \.\.\.owner\.chain/, 'so does every subtitle served to the player, added by hand or found with the video (both routes go through trackAccess)')
   const box = read('src/components/media/LinkBox.tsx')
   assert.match(box, /linkPaywalls\(viewer/)
   assert.match(box, /BuyLinkButton/)
