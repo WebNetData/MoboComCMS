@@ -290,6 +290,30 @@ async function main() {
     assert.deepEqual(state.ranged.get(lostUrl).reads, [0, Math.ceil(remoteMkv.length / 2)], 'it continued, it did not start over')
     assert.deepEqual(await leftovers(lost.id), [])
 
+    // ---- reading inside files switched off: only the file beside the video; the video is not read at all, and a copy
+    // under way is dropped
+    state.cinema.readEmbeddedSubtitles = false
+    const besideUrl = `${base}Show.S01E02.720p.mkv?copy=7`
+    state.remote.set(besideUrl, remoteMkv); state.ranged.set(besideUrl, { etag: '"e1"', budget: Math.ceil(remoteMkv.length / 3), reads: [] })
+    const beside = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: besideUrl } })
+    state.fetched.length = 0
+    await run(beside)
+    ;({ rows, scan: state1 } = await scanned(beside))
+    assert.deepEqual([state1.status, rows.map(row => [row.origin, row.language])], ['done', [['SIDECAR', 'fa']]])
+    assert.ok(!state.fetched.includes(besideUrl), 'the video itself is not fetched, not even its start')
+    assert.deepEqual([state.ranged.get(besideUrl).reads, await leftovers(beside.id)], [[], []])
+    state.cinema.readEmbeddedSubtitles = true
+    const midUrl = `${base}Show.S01E02.720p.mkv?copy=8`
+    state.remote.set(midUrl, remoteMkv); state.ranged.set(midUrl, { etag: '"e1"', budget: Math.ceil(remoteMkv.length / 3), reads: [] })
+    const mid = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: midUrl } })
+    await run(mid)
+    assert.equal((await leftovers(mid.id)).length, 2)
+    state.cinema.readEmbeddedSubtitles = false
+    await scan.runSubtitleScan({ linkId: mid.id, key: request.scanKey(midUrl), part: 1 }, job)
+    ;({ rows, scan: state1 } = await scanned(mid))
+    assert.deepEqual([state1.status, rows.map(row => row.origin), await leftovers(mid.id), state.ranged.get(midUrl).reads.length], ['done', ['SIDECAR'], [], 1], 'switched off mid-copy: the copy goes, nothing more is read')
+    state.cinema.readEmbeddedSubtitles = true
+
     // ---- an address that changed while it was looked at; a link removed with its subtitles
     const moved = await link({ kind: 'DOWNLOAD', url: `/files/movies/${seed}/Film.2020.1080p.mkv?v=1` })
     const staleKey = request.scanKey(moved.url)

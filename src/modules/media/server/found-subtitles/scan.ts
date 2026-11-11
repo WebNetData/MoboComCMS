@@ -72,7 +72,9 @@ export async function runSubtitleScan(payload: Record<string, unknown>, job: Job
     const maxBytes = settings.subtitleScanMaxGB * GB
     await sweepAbandonedCopies().catch(() => undefined)
     let embedded: Found[] = []
-    if (source.kind === 'remote') {
+    // Switched off: only files beside the video; nothing is read whole and a copy under way is dropped.
+    if (settings.readEmbeddedSubtitles === false) await discardCopy(linkId, key)
+    else if (source.kind === 'remote') {
       // The track list first (its start only): a file is copied whole only when it holds text subtitles.
       const resumed = await copyStarted(linkId, key)
       if (resumed || (await embeddedTracks(source, maxBytes, notes)).length) {

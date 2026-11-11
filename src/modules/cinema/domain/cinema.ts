@@ -34,6 +34,11 @@ export type CinemaSettings = {
   enableSeparateAudio: boolean
   /** Look for subtitles beside and inside each video file and offer them in the player (media/server/found-subtitles). */
   findSubtitles: boolean
+  /**
+   * Also take out the subtitles inside a video file (MKV/MP4). That reads the whole file once (its traffic, and a
+   * temporary copy on a slow host); off, only subtitle files beside the video are looked for (owner 2026-11-12).
+   */
+  readEmbeddedSubtitles: boolean
   /** The largest video file read whole to take out the subtitles inside it, in GB. */
   subtitleScanMaxGB: number
   /** The site's intro clip before a film or episode in the player ('' = none): an MP4/WebM address. */
@@ -64,6 +69,7 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   enableAssSubtitles: true,
   enableSeparateAudio: true,
   findSubtitles: true,
+  readEmbeddedSubtitles: true,
   subtitleScanMaxGB: 10,
   introUrl: '',
   introSkipAfter: 3,
@@ -86,6 +92,7 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     enableAssSubtitles: raw.enableAssSubtitles !== false,
     enableSeparateAudio: raw.enableSeparateAudio !== false,
     findSubtitles: raw.findSubtitles !== false,
+    readEmbeddedSubtitles: raw.readEmbeddedSubtitles !== false,
     subtitleScanMaxGB: clampInt(raw.subtitleScanMaxGB, 1, 100, d.subtitleScanMaxGB),
     introUrl: introVideoUrl(raw.introUrl),
     introSkipAfter: clampInt(raw.introSkipAfter, 0, 30, d.introSkipAfter),
