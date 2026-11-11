@@ -117,7 +117,8 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
       { key: 'movies', label: 'فیلم‌ها', href: '/cinema/browse?kind=MOVIE', columns: [], features: [] },
       { key: 'series', label: 'سریال‌ها', href: '/cinema/browse?kind=SERIES', columns: [], features: [] },
     ]
-    return { nodes, items, quick: [{ label: 'دوبله فارسی', href: '/cinema/browse?dubbed=1' }, { label: 'برترین‌های IMDb', href: '/cinema/browse?sort=imdb' }, { label: 'تقویم پخش', href: '/cinema/calendar' }], searchCategories: [] }
+    // The advanced search (genre, country, year, actor, director) is reached from every cinema page.
+    return { nodes, items, quick: [{ label: 'جست‌وجوی پیشرفته', href: '/cinema/browse' }, { label: 'دوبله فارسی', href: '/cinema/browse?dubbed=1' }, { label: 'برترین‌های IMDb', href: '/cinema/browse?sort=imdb' }, { label: 'تقویم پخش', href: '/cinema/calendar' }], searchCategories: [] }
   },
 
   async forum(cfg) {

@@ -30,6 +30,7 @@ const HANDLERS: Record<string, { run: Handler }> = {
     if (!result.done) await job.continueWith('cinema.person-publication', { ...payload, cursor: result.cursor }, { dedupeKey: `cinema-person:${payload.personId}:title:${payload.titleId}:after:${result.cursor}` })
     return result
   } },
+  'cinema.people-names': { run: async (payload, job) => (await import('@/modules/cinema/server/metadata/people-names')).runPeopleNamesBackfill(payload, job) },
   'media.transfer': { run: async payload => (await import('@/modules/media/server/library')).runTransfer(payload) },
   'media.compatible-audio': { run: async (payload, job) => (await import('@/modules/media/server/library')).runCompatibleAudio(payload, job.id, job.attempts) },
   'media.subtitle-scan': { run: async (payload, job) => (await import('@/modules/media/server/found-subtitles/scan')).runSubtitleScan(payload, job) },

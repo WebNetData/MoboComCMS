@@ -30,5 +30,5 @@ export function applyCinemaMetadata(current: Record<string, unknown>, values: Re
   }
   return next
 }
-export type CinemaMetadataConfig = { enabled: boolean; provider: 'imdb'|'tmdb'; copyImages: boolean; cinemetaFallback: boolean; peoplePhotos: boolean; tmdbConfigured: boolean; omdbConfigured: boolean; canSaveSecrets: boolean }
+export type CinemaMetadataConfig = { enabled: boolean; provider: 'imdb'|'tmdb'; copyImages: boolean; cinemetaFallback: boolean; peoplePhotos: boolean; persianNames: boolean; persianNamesAi: boolean; tmdbConfigured: boolean; omdbConfigured: boolean; canSaveSecrets: boolean }
 export type CinemaMetadataResult = { fields: Record<string, unknown>; source: string; warnings: string[] }

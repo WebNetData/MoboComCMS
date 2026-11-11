@@ -145,7 +145,7 @@ test('photo-only autofill updates blank pictures in existing cast without replac
 
 test('canonical director credits accept actual IMDb photo URLs containing @',async()=>{
   const {syncCredits}=load('src/modules/cinema/server/people.ts',{'@/platform/database/prisma':{db:{}}});let created
-  const tx={cinemaTitle:{findUnique:async()=>({director:'Christopher Nolan',cast:'[]'})},cinemaPerson:{upsert:async input=>{created=input.create;return{id:1,...input.create}},updateMany:async()=>({count:1})},cinemaCredit:{upsert:async()=>({id:1}),deleteMany:async()=>({count:0})}}
+  const tx={cinemaTitle:{findUnique:async()=>({director:'Christopher Nolan',cast:'[]'})},cinemaPerson:{findUnique:async()=>null,findMany:async()=>[],create:async input=>{created=input.data;return{id:1,profileVersion:0,imageLocked:false,mergedIntoId:null,...input.data}},findUniqueOrThrow:async()=>({id:1,profileVersion:0,imageLocked:false,mergedIntoId:null,...created}),updateMany:async()=>({count:1})},cinemaCredit:{upsert:async()=>({id:1}),deleteMany:async()=>({count:0})}}
   const image='https://m.media-amazon.com/images/M/nolan@@._V1_.jpg';await syncCredits(tx,1,[{name:'Christopher Nolan',image}]);assert.equal(created.image,image)
 })
 

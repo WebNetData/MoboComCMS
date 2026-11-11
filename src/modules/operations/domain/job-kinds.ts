@@ -8,6 +8,7 @@ export const JOB_LABEL: Record<string, string> = {
   'media.subtitle-scan': 'یافتن زیرنویس کنار و داخل فایل فیلم',
   'media.subtitle-backfill': 'بررسی زیرنویس همهٔ فایل‌های فیلم و سریال',
   'cinema.person-publication': 'اعلان اثر تازهٔ عوامل سینما',
+  'cinema.people-names': 'نام فارسی و انگلیسی عوامل فیلم‌های قبلی',
   'store.price-drop': 'اعلان کاهش قیمت محصول',
   'store.price-history-baseline': 'ثبت نقطهٔ شروع تاریخچهٔ قیمت محصولات',
   'notification.deliver': 'تحویل اعلان کاربر',

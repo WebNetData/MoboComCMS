@@ -46,8 +46,9 @@ export async function lookupImdbPage(id: string, cinemetaFallback = false, prefe
   await Promise.all(Array.from({length:Math.min(4,entries.length)},async()=>{
     while(cursor<entries.length){const [personId,persons]=entries[cursor++];try{if(deadline.aborted)throw new Error();const image=parseImdbPerson(await page('name',personId,deadline),personId);if(image)for(const p of persons)p.image=image}catch{ /* Partial metadata is returned with the missing-photo count below. */ }}
   }))
-  result.fields.cast=result.cast.map(({id:_,...p})=>p)
-  result.fields.directorImages=result.directors.map(p=>({name:p.name,image:p.image}))
+  // The IMDb person (nm…) stays with each name: it is who they are, whatever language the name is shown in.
+  result.fields.cast=result.cast.map(({id,...p})=>({...p,...(/^nmd{7,12}$/.test(id)?{imdbId:id}:{})}))
+  result.fields.directorImages=result.directors.map(p=>({name:p.name,image:p.image,...(/^nmd{7,12}$/.test(p.id)?{imdbId:p.id}:{})}))
   const missingCount=[...result.cast,...result.directors].filter(p=>!p.image).length
   if(missingCount)warnings.push(`عکس ${missingCount} نفر از IMDb دریافت نشد؛ اطلاعات موجود حفظ می‌شود`)
   warnings.push('فقط اطلاعات موجود در صفحه استخراج می‌شود؛ نتیجه را قبل از انتشار بازبینی کنید')

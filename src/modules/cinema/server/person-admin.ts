@@ -4,16 +4,16 @@ import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-
 import { normalizePersonName } from '@/modules/cinema/domain/people'
 import { personProfileInput, PersonProfileError } from '@/modules/cinema/domain/person-profile'
 
-const profile = { id:true, name:true, normalizedName:true, bio:true, image:true, imageLocked:true, profileVersion:true, mergedIntoId:true } as const
+const profile = { id:true, name:true, nameEn:true, imdbId:true, normalizedName:true, bio:true, image:true, imageLocked:true, profileVersion:true, mergedIntoId:true } as const
 export async function adminPeople(params: URLSearchParams) {
   let pagination: ReturnType<typeof adminPageParams>
   try { pagination=adminPageParams(params) } catch { throw new PersonProfileError('جست‌وجو یا صفحه‌بندی معتبر نیست') }
   const {size,page,query}=pagination,role=params.get('role') || ''
   if (role && !['CAST','DIRECTOR','PRODUCER','uncredited'].includes(role)) throw new PersonProfileError('نوع عوامل معتبر نیست')
   const q=normalizePersonName(query)
-  const where: Prisma.CinemaPersonWhereInput={mergedIntoId:null,...(q?{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]}:{}),...(role==='uncredited'?{credits:{none:{}}}:role?{credits:{some:{role}}}:{})}
+  const where: Prisma.CinemaPersonWhereInput={mergedIntoId:null,...(q?{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{normalizedNameEn:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]}:{}),...(role==='uncredited'?{credits:{none:{}}}:role?{credits:{some:{role}}}:{})}
   const total=await db.cinemaPerson.count({where}),slice=adminPageSlice(total,page,size)
-  const rows=await db.cinemaPerson.findMany({where,skip:slice.skip,take:slice.take,orderBy:{id:'desc'},select:{id:true,name:true,image:true,imageLocked:true,credits:{select:{role:true}},_count:{select:{credits:{where:{title:{status:'PUBLISHED',publishedAt:{lte:new Date()}}}}}}}})
+  const rows=await db.cinemaPerson.findMany({where,skip:slice.skip,take:slice.take,orderBy:{id:'desc'},select:{id:true,name:true,nameEn:true,image:true,imageLocked:true,credits:{select:{role:true}},_count:{select:{credits:{where:{title:{status:'PUBLISHED',publishedAt:{lte:new Date()}}}}}}}})
   return {people:rows.map(({credits,_count,...person})=>({...person,roles:[...new Set(credits.map(c=>c.role))],creditCount:credits.length,publicCredits:_count.credits})),total,page:slice.page,pages:slice.pages,limit:size}
 }
 /**
@@ -26,7 +26,7 @@ export async function suggestPeople(params: URLSearchParams, authorId: number | 
   if(q.length<2)return {people:[]}
   const rows=await db.cinemaPerson.findMany({
     where:{mergedIntoId:null,AND:[
-      {OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]},
+      {OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{normalizedNameEn:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]},
       ...(authorId?[{credits:{some:{title:{OR:[{status:'PUBLISHED'},{createdById:authorId}]}}}}]:[]),
     ]},
     orderBy:[{credits:{_count:'desc'}},{id:'asc'}],take:12,

@@ -11,7 +11,7 @@ function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
   cache.set(file, mod)
-  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
+  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : specifier.startsWith('.') ? load(path.relative(path.resolve(__dirname, '..'), path.resolve(path.dirname(file), specifier))) : require(specifier))
   new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
@@ -438,4 +438,63 @@ test('artist profile fields keep each kind of value and show dates with ages', (
   // seeds: country, born, died; families decide the input
   const seeds = artistFields.CELEBRITY_LISTS[0].seeds.map((seed) => `${seed[0]}:${seed[3]}`)
   assert.deepEqual(seeds, ['COUNTRY:COUNTRY', 'BIRTH_DATE:BIRTH', 'DEATH_DATE:DEATH'])
+})
+
+test('film people from an import: Persian name shown, Latin name and IMDb person kept', () => {
+  const people = load('src/modules/cinema/domain/people'), names = load('src/modules/cinema/domain/people-names')
+  assert.deepEqual(['Christopher Nolan', 'کریستوفر نولان', 'Bong Joon Ho', 'بونگ Joon', '', '42'].map(people.isLatinName), [true, false, true, false, false, false])
+  assert.deepEqual(['nm0634240', 'nm12', 'tt0816692', ' nm0634240', 42].map(people.validImdbPerson), ['nm0634240', '', '', '', ''])
+  assert.deepEqual(people.cleanIdentities([{ role: 'CAST', name: 'متیو مک‌کانهی', nameEn: 'Matthew McConaughey', imdbId: 'nm0000190' }, { role: 'CAST', name: 'x' }, { role: 'GRIP', name: 'Someone' }, { role: 'DIRECTOR', name: 'کریستوفر نولان', nameEn: 'کریستوفر', imdbId: 'bad' }, 'junk']),
+    [{ role: 'CAST', name: 'متیو مک‌کانهی', nameEn: 'Matthew McConaughey', imdbId: 'nm0000190' }, { role: 'DIRECTOR', name: 'کریستوفر نولان', nameEn: '', imdbId: '' }], 'a Persian «English name» or a malformed IMDb person is not kept')
+  const credits = people.creditsOf({ director: 'کریستوفر نولان', cast: JSON.stringify([{ name: 'متیو مک‌کانهی', nameEn: 'Matthew McConaughey', imdbId: 'nm0000190', role: 'Cooper' }, { name: 'آن هاتاوی', nameEn: 'آن', imdbId: 'x' }]) })
+  assert.deepEqual(credits.map(c => [c.role, c.name, c.nameEn || '', c.imdbId || '']), [['DIRECTOR', 'کریستوفر نولان', '', ''], ['CAST', 'متیو مک‌کانهی', 'Matthew McConaughey', 'nm0000190'], ['CAST', 'آن هاتاوی', '', '']])
+
+  assert.deepEqual(['کریستوفر نولان', ' بونگ  جون-هو ', 'مک‌کانهی', 'Nolan', 'نولان<script>', 'ن', 'كريستوفر'].map(names.persianName), ['کریستوفر نولان', 'بونگ جون-هو', 'مک‌کانهی', '', '', '', 'کریستوفر'], 'Persian letters only; Arabic letter variants become Persian')
+  const labels = names.parsePersianLabels({ results: { bindings: [
+    { imdb: { value: 'nm0634240' }, fa: { value: 'کریستوفر نولان' } },
+    { imdb: { value: 'nm0634240' }, fa: { value: 'کریستوفر نولان' } },
+    { imdb: { value: 'nm0000190' }, fa: { value: 'متیو مک‌کانهی' } },
+    { imdb: { value: 'nm0000190' }, fa: { value: 'متیو مک کانهی' } },
+    { imdb: { value: 'nm0000001' }, fa: { value: 'نپرسیده' } },
+    { imdb: { value: 'nm0004266' }, fa: { value: 'Anne Hathaway' } },
+  ] } }, ['nm0634240', 'nm0000190', 'nm0004266'])
+  assert.deepEqual([...labels], [['nm0634240', 'کریستوفر نولان']], 'two different labels for one person, a person not asked about or a Latin label give nothing')
+  const reply = 'Sure! {"names":[{"en":"Song Kang-ho","fa":"سونگ کانگ-هو"},{"en":"Unknown","fa":"ناشناس"},{"en":"Cho Yeo-jeong","fa":"<b>x</b>"},{"en":"Lee Sun-kyun","fa":"Lee"}]} done'
+  assert.deepEqual([...names.parseNamesReply(reply, ['Song Kang-ho', 'Cho Yeo-jeong', 'Lee Sun-kyun'])], [['Song Kang-ho', 'سونگ کانگ-هو']], 'only names that were asked, only Persian answers')
+  assert.deepEqual([...names.parseNamesReply('not json', ['A B'])], [])
+  assert.equal(names.titlePeopleQuery('tt0816692" } DROP'), '', 'only an exact title identifier enters a query')
+  assert.match(names.titlePeopleQuery('tt0816692'), /wdt:P57[\s\S]*wdt:P162[\s\S]*wdt:P161[\s\S]*"en,mul"/)
+  const onTitle = names.parseTitlePeople({ results: { bindings: [
+    { role: { value: 'DIRECTOR' }, pLabel: { value: 'Christopher Nolan' }, imdb: { value: 'nm0634240' }, fa: { value: 'کریستوفر نولان' } },
+    { role: { value: 'DIRECTOR' }, pLabel: { value: 'Christopher Nolan' }, imdb: { value: 'nm0634240' } },
+    { role: { value: 'CAST' }, pLabel: { value: 'Q25191' }, imdb: { value: 'nm0000003' }, fa: { value: 'بی‌نام' } },
+    { role: { value: 'DIRECTOR' }, pLabel: { value: 'Bong Joon-ho' }, imdb: { value: 'nm0094435' }, fa: { value: 'بونگ جون-هو' } },
+    { role: { value: 'CAST' }, pLabel: { value: 'Same Name' }, imdb: { value: 'nm0000001' }, fa: { value: 'یک' } },
+    { role: { value: 'CAST' }, pLabel: { value: 'Same Name' }, imdb: { value: 'nm0000002' }, fa: { value: 'دو' } },
+    { role: { value: 'PRODUCER' }, pLabel: { value: 'Emma Thomas' }, fa: { value: 'اما توماس' } },
+    { role: { value: 'GRIP' }, pLabel: { value: 'Someone' }, fa: { value: 'کسی' } },
+    { role: { value: 'CAST' }, pLabel: { value: 'آن هاتاوی' }, fa: { value: 'آن هاتاوی' } },
+  ] } })
+  assert.deepEqual([...onTitle], [['DIRECTOR:christopher nolan', { imdbId: 'nm0634240', fa: 'کریستوفر نولان' }], ['DIRECTOR:bong joon ho', { imdbId: 'nm0094435', fa: 'بونگ جون-هو' }], ['PRODUCER:emma thomas', { imdbId: '', fa: 'اما توماس' }]], 'one person per role and name, two people under one name are left out, an item number is no name')
+  assert.equal(names.looseNameKey('Bong Joon Ho'), names.looseNameKey('Bong  Joon-ho'), 'the import\'s spelling finds Wikidata\'s')
+  const prompt = names.namesPrompt(['Song Kang-ho'])
+  assert.ok(prompt.json && /Song Kang-ho/.test(prompt.user) && prompt.maxTokens < 200)
+
+  const fields = { imdbId: 'tt0816692', director: 'Christopher Nolan', producer: 'Emma Thomas, Lynda Obst', directorImages: [{ name: 'Christopher Nolan', image: 'https://m.media-amazon.com/x.jpg', imdbId: 'nm0634240' }],
+    cast: [{ name: 'Matthew McConaughey', role: 'Cooper', imdbId: 'nm0000190' }, { name: 'آن هاتاوی', role: 'Brand' }, { name: 'Unknown Extra', role: 'Pilot' }] }
+  assert.deepEqual(names.latinPeople(fields).map(p => [p.role, p.name, p.imdbId]), [['DIRECTOR', 'Christopher Nolan', 'nm0634240'], ['PRODUCER', 'Emma Thomas', ''], ['PRODUCER', 'Lynda Obst', ''], ['CAST', 'Matthew McConaughey', 'nm0000190'], ['CAST', 'Unknown Extra', '']], 'a name already in Persian needs nothing')
+  const fa = { 'Christopher Nolan': 'کریستوفر نولان', 'Emma Thomas': 'اما توماس', 'Matthew McConaughey': 'متیو مک‌کانهی' }
+  const applied = names.applyPersianNames(fields, p => fa[p.name] || '')
+  assert.equal(applied.fields.director, 'کریستوفر نولان')
+  assert.equal(applied.fields.producer, 'اما توماس، Lynda Obst', 'a name without a Persian one stays as it was')
+  assert.deepEqual(applied.fields.directorImages, [{ name: 'کریستوفر نولان', nameEn: 'Christopher Nolan', image: 'https://m.media-amazon.com/x.jpg', imdbId: 'nm0634240' }])
+  assert.deepEqual(applied.fields.cast.map(r => [r.name, r.nameEn || '', r.role]), [['متیو مک‌کانهی', 'Matthew McConaughey', 'Cooper'], ['آن هاتاوی', '', 'Brand'], ['Unknown Extra', 'Unknown Extra', 'Pilot']])
+  assert.deepEqual(applied.fields.peopleNames, [
+    { role: 'DIRECTOR', name: 'کریستوفر نولان', nameEn: 'Christopher Nolan', imdbId: 'nm0634240' }, { role: 'PRODUCER', name: 'اما توماس', nameEn: 'Emma Thomas', imdbId: '' }, { role: 'PRODUCER', name: 'Lynda Obst', nameEn: 'Lynda Obst', imdbId: '' },
+    { role: 'CAST', name: 'متیو مک‌کانهی', nameEn: 'Matthew McConaughey', imdbId: 'nm0000190' }, { role: 'CAST', name: 'Unknown Extra', nameEn: 'Unknown Extra', imdbId: '' }])
+  assert.deepEqual([applied.named, applied.missing], [3, ['Lynda Obst', 'Unknown Extra']])
+  assert.deepEqual(fields.cast[0].name, 'Matthew McConaughey', 'the import result itself is not changed in place')
+  // The save's own reading of what the import named: each shown name is the same person as its Latin one.
+  assert.equal(people.cleanIdentities(applied.fields.peopleNames).length, 5)
+  assert.deepEqual(people.splitPeopleLine(applied.fields.producer), ['اما توماس', 'Lynda Obst'])
 })

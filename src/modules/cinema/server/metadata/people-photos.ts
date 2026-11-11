@@ -3,22 +3,19 @@ import { parsePhotoIdentities, photoIdentityKey } from '@/modules/cinema/domain/
 import type { CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
 import { storedPersonPhotoStates } from '@/modules/cinema/server/people'
 import { ImdbRateLimit, lookupImdbPersonPhoto } from './imdb'
+import { wikidataSelect } from './wikidata'
 
 type Photo = { name: string; image?: string }
 type Target = { role: CreditRole; person: Photo }
 
-async function titleIdentities(id: string, signal: AbortSignal) {
+/** A title's cast and directors on Wikidata: role and English name → their IMDb person, only when unambiguous. */
+export async function titleIdentities(id: string, signal: AbortSignal) {
   if (!/^tt\d{7,12}$/.test(id)) return new Map<string,string>()
   // Keep person identifiers optional in the query so WDQS starts at the exact work;
+  // many people's Latin name is now their language-neutral ("mul") label, not an English one.
   // the parser still requires a unique valid nm ID before accepting any identity.
-  const query = `SELECT ?work ?person ?personLabel ?imdb ?role ("${id}" AS ?titleId) WHERE { ?work wdt:P345 "${id}" . { ?work wdt:P161 ?person . BIND("CAST" AS ?role) } UNION { ?work wdt:P57 ?person . BIND("DIRECTOR" AS ?role) } OPTIONAL { ?person wdt:P345 ?imdb } SERVICE wikibase:label { bd:serviceParam wikibase:language "en" } } LIMIT 201`
-  const url = new URL('https://query.wikidata.org/sparql'); url.search = new URLSearchParams({ query, format: 'json' }).toString()
-  const response = await fetch(url, { headers: { Accept: 'application/sparql-results+json', 'User-Agent': 'MoboComMetadata/1.0' }, redirect: 'error', cache: 'no-store', signal: AbortSignal.any([signal,AbortSignal.timeout(8000)]) })
-  if (response.status !== 200 || !/application\/(?:sparql-results\+)?json/.test(response.headers.get('content-type') || '') || !response.body) { await response.body?.cancel(); throw new Error('دریافت شناسهٔ عوامل انجام نشد') }
-  const reader = response.body.getReader(), chunks: Uint8Array[] = []; let size = 0
-  try { for (;;) { const { done, value } = await reader.read(); if (done) break; size += value.byteLength; if (size > 256*1024) throw new Error('پاسخ شناسهٔ عوامل بیش از حد بزرگ است'); chunks.push(value) } }
-  finally { await reader.cancel().catch(() => {}) }
-  return parsePhotoIdentities(JSON.parse(Buffer.concat(chunks).toString('utf8')),id)
+  const query = `SELECT ?work ?person ?personLabel ?imdb ?role ("${id}" AS ?titleId) WHERE { ?work wdt:P345 "${id}" . { ?work wdt:P161 ?person . BIND("CAST" AS ?role) } UNION { ?work wdt:P57 ?person . BIND("DIRECTOR" AS ?role) } OPTIONAL { ?person wdt:P345 ?imdb } SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul" } } LIMIT 201`
+  return parsePhotoIdentities(await wikidataSelect(query, signal), id)
 }
 
 /** Exact title/role/name → Wikidata-linked person ID → that ID's public IMDb picture. */

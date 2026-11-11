@@ -19,6 +19,7 @@ export function musicNav(fa: boolean): SectionNavItem[] {
 export function cinemaNav(fa: boolean): SectionNavItem[] {
   return [
     { key: 'home', href: '/cinema', label: fa ? 'خانه' : 'Home' },
+    { key: 'browse', href: '/cinema/browse', label: fa ? 'جست‌وجوی پیشرفته' : 'Advanced search' },
     { key: 'movies', href: '/cinema/browse?kind=MOVIE', label: fa ? 'فیلم‌ها' : 'Movies' },
     { key: 'series', href: '/cinema/browse?kind=SERIES', label: fa ? 'سریال‌ها' : 'Series' },
     { key: 'dubbed', href: '/cinema/browse?dubbed=1', label: fa ? 'دوبله فارسی' : 'Persian dub' },

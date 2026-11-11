@@ -9,6 +9,7 @@ import { PAGE_SIZE, live, publishedNow } from '@/modules/media/server/queries/co
 import { countList } from '@/modules/media/server/queries/shared'
 import { cinemaBrowsePage, cinemaPersonId } from '@/modules/cinema/domain/discovery'
 import { canonicalPersonId } from '@/modules/cinema/server/people'
+import { normalizePersonName } from '@/modules/cinema/domain/people'
 import { audienceClause, opensAudience } from '@/modules/account/server/item-audience'
 
 export type TitleCard = {
@@ -76,6 +77,14 @@ export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: n
   }
 }
 
+/** A name typed in the search finds the titles of the people it names, by their Persian or English name. */
+const personMatch = (q: string) => {
+  const key = normalizePersonName(q).slice(0, 60)
+  const named = [{ normalizedName: { contains: key } }, { displayNameKey: { contains: key } }, { normalizedNameEn: { contains: key } }]
+  // A profile merged into another (an old spelling) still leads to the person it joined.
+  return key.length < 2 ? [] : [{ credits: { some: { person: { OR: [...named, { aliases: { some: { OR: named } } }] } } } }]
+}
+
 export async function browseCinema(input: { format?: string; kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string; producer?: string }) {
   const page = cinemaBrowsePage(input.page)
   const where: any = { ...live(), ...(await audienceClause('title')) }
@@ -93,7 +102,7 @@ export async function browseCinema(input: { format?: string; kind?: string; genr
   const year = Number(input.year)
   if (Number.isSafeInteger(year) && year > 1880) where.year = year
   const q = String(input.q || '').trim().slice(0, 80)
-  if (q) where.OR = [{ title: { contains: q,mode:'insensitive' } }, { titleEn: { contains: q,mode:'insensitive' } }, { originalTitle: { contains: q,mode:'insensitive' } }, { director: { contains: q,mode:'insensitive' } }, { producer: { contains: q,mode:'insensitive' } }]
+  if (q) where.OR = [{ title: { contains: q,mode:'insensitive' } }, { titleEn: { contains: q,mode:'insensitive' } }, { originalTitle: { contains: q,mode:'insensitive' } }, { director: { contains: q,mode:'insensitive' } }, { producer: { contains: q,mode:'insensitive' } }, ...personMatch(q)]
   const orderBy = input.sort === 'imdb' ? [{ imdbRating: 'desc' as const }] : input.sort === 'year' ? [{ year: 'desc' as const }] : input.sort === 'popular' ? [{ views: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
   let unavailable=false
   const stableOrder=[...orderBy,{id:'desc' as const}]

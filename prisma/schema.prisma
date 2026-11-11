@@ -1913,11 +1913,19 @@ model CinemaPerson {
   image          String         @default("")
   bio            String         @default("")
   displayNameKey String         @default("")
+  /// The name in Latin letters (as IMDb gives it) and its matching key; `name` is the Persian display name.
+  nameEn         String         @default("")
+  normalizedNameEn String       @default("")
+  /// The IMDb person (nm…): one person across spellings and languages.
+  imdbId         String?        @unique
   imageLocked    Boolean        @default(false)
   profileVersion Int            @default(0)
   createdAt      DateTime       @default(now())
   credits        CinemaCredit[]
   celebrity      Celebrity?
+
+  @@index([normalizedNameEn])
+  @@index([displayNameKey])
 }
 
 model CinemaCredit {

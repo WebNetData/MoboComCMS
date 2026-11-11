@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
-import { normalizePersonName } from '@/modules/cinema/domain/people'
+import { isLatinName, normalizePersonName } from '@/modules/cinema/domain/people'
 import { live as liveMusic } from '@/modules/media/server/queries/core'
 import { saveMediaItem } from '@/modules/media/server/admin'
 import { savePerson } from '@/modules/cinema/server/person-admin'
@@ -17,7 +17,7 @@ type AuditPerson = (tx: Prisma.TransactionClient, id: number, created: boolean) 
 
 /** What the central editor shows of one person: the profile and what they have published in each section. */
 export async function celebrityProfile(id: number) {
-  const row = await db.celebrity.findUnique({ where: { id }, select: { id: true, slug: true, name: true, featured: true, facts: true, cinemaPersonId: true, musicArtistId: true, cinemaPerson: { select: { name: true, image: true, bio: true } }, musicArtist: { select: { name: true, nameEn: true, image: true, bio: true, slug: true } } } })
+  const row = await db.celebrity.findUnique({ where: { id }, select: { id: true, slug: true, name: true, featured: true, facts: true, cinemaPersonId: true, musicArtistId: true, cinemaPerson: { select: { name: true, nameEn: true, image: true, bio: true } }, musicArtist: { select: { name: true, nameEn: true, image: true, bio: true, slug: true } } } })
   if (!row) throw new CelebrityError('چهره پیدا نشد')
   const music = liveMusic()
   const [titles, tracks, albums] = await Promise.all([
@@ -27,7 +27,7 @@ export async function celebrityProfile(id: number) {
   ])
   return {
     id: row.id, slug: row.slug, featured: row.featured, works: { titles, tracks, albums }, facts: parseFacts(row.facts),
-    name: row.musicArtist?.name || row.cinemaPerson?.name || row.name, nameEn: row.musicArtist?.nameEn || '',
+    name: row.musicArtist?.name || row.cinemaPerson?.name || row.name, nameEn: row.musicArtist?.nameEn || row.cinemaPerson?.nameEn || '',
     image: row.musicArtist?.image || row.cinemaPerson?.image || '', bio: row.musicArtist?.bio || row.cinemaPerson?.bio || '',
   }
 }
@@ -92,15 +92,17 @@ async function saveProfileIn(tx: Prisma.TransactionClient, raw: Record<string, u
   // Refuse known collisions before writing either section's profile.
   if (requested) await checkSlug(tx, requested, row?.id)
 
+  // The film side keeps the same English name (only a Latin one: it is how imports and searches know them).
+  const english = nameEn === '' || isLatinName(nameEn) ? { nameEn } : {}
   let cinemaPersonId = row?.cinemaPersonId ?? null
-  if (cinemaPersonId) await savePerson({ id: cinemaPersonId, profileVersion: row!.cinemaPerson!.profileVersion, name, bio, image, imageLocked: true }, auditPerson, tx)
+  if (cinemaPersonId) await savePerson({ id: cinemaPersonId, profileVersion: row!.cinemaPerson!.profileVersion, name, ...english, bio, image, imageLocked: true }, auditPerson, tx)
   else {
     // Credits already name this person (a film saved before): that record is theirs, unless another entry holds it.
     const known = await tx.cinemaPerson.findUnique({ where: { normalizedName: normalizePersonName(name) }, select: { id: true, profileVersion: true, mergedIntoId: true, celebrity: { select: { id: true } } } })
     if (known && !known.mergedIntoId && (!known.celebrity || known.celebrity.id === row?.id)) {
-      await savePerson({ id: known.id, profileVersion: known.profileVersion, name, bio, image, imageLocked: true }, auditPerson, tx)
+      await savePerson({ id: known.id, profileVersion: known.profileVersion, name, ...english, bio, image, imageLocked: true }, auditPerson, tx)
       cinemaPersonId = known.id
-    } else if (!known) cinemaPersonId = (await savePerson({ name, bio, image, imageLocked: true }, auditPerson, tx)).id
+    } else if (!known) cinemaPersonId = (await savePerson({ name, ...english, bio, image, imageLocked: true }, auditPerson, tx)).id
   }
 
   let musicArtistId = row?.musicArtistId ?? null
