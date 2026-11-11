@@ -5172,6 +5172,8 @@ model AiInvocation {
   inputTokens  Int?
   outputTokens Int?
   totalTokens  Int?
+  cachedInputTokens Int? // of inputTokens, read from the service's own prompt cache
+  cacheWriteTokens  Int? // of inputTokens, written to it (Claude)
   outcome      String    @default("")
   errorKind    String    @default("")
   errorStatus  Int?

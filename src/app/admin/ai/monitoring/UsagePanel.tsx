@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react'
 import { withRecommended, type ModelPrice, type PurposeUsage, type UsagePolicy } from '@/modules/ai/domain/usage'
 import styles from './page.module.css'
 
-type Cost = { total: number; unpricedTokens: number; approximate: boolean; byPurpose: { purpose: string; cost: number; tokens: number }[]; cachedAnswers: number; refusedByCeiling: number; models: { provider: string; model: string }[] }
+type Cost = { total: number; unpricedTokens: number; approximate: boolean; saved: number; cachedInputTokens: number; byPurpose: { purpose: string; cost: number; tokens: number }[]; cachedAnswers: number; refusedByCeiling: number; models: { provider: string; model: string }[] }
 type View = { policy: UsagePolicy; purposes: { id: string; label: string }[]; today: Record<string, { requests: number; tokens: number }>; days: number; cost: Cost }
 const fa = (n: number) => Math.round(n).toLocaleString('fa-IR')
 const usd = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 4 })}`
 const num = (value: string) => { const n = Number(value); return Number.isFinite(n) && n >= 0 ? n : 0 }
+/** An optional cache price: emptied means «not given» (priced as input), which is not the same as 0 (free). */
+const optional = (value: string) => value.trim() === '' ? undefined : num(value)
 
 /**
  * Ceilings, cache times and prices of the site's paid AI (ai/server/usage), next to what they cost in the chosen period.
@@ -39,32 +41,36 @@ export default function UsagePanel({ days }: { days: string }) {
     <header className={styles.row}><h2 id="ai-usage-title">مصرف، سقف و هزینه</h2><small className="sa-sub">{fa(view.days)} روز گذشته</small></header>
     <dl className={styles.metrics}>
       <div><dt>هزینهٔ برآوردی</dt><dd><bdi>{usd(view.cost.total)}</bdi><small>{view.cost.unpricedTokens ? `${fa(view.cost.unpricedTokens)} توکن بدون قیمت ثبت‌شده` : 'همهٔ مدل‌های مصرفی قیمت دارند'}{view.cost.approximate ? ' · بخشی تقریبی' : ''}</small></dd></div>
-      <div><dt>پاسخ از حافظه (بدون هزینه)</dt><dd>{fa(view.cost.cachedAnswers)}</dd></div>
+      <div><dt>پاسخ از حافظه (بدون هزینه)</dt><dd>{fa(view.cost.cachedAnswers)}<small>{view.cost.cachedInputTokens ? <>{fa(view.cost.cachedInputTokens)} توکن ورودی از حافظهٔ پرامپت سرویس{view.cost.saved ? <> · صرفه‌جویی <bdi>{usd(view.cost.saved)}</bdi></> : ''}</> : 'هنوز ورودی‌ای از حافظهٔ پرامپت سرویس خوانده نشده'}</small></dd></div>
       <div><dt>ردشده با سقف روزانه</dt><dd>{fa(view.cost.refusedByCeiling)}</dd></div>
       <div><dt>پرهزینه‌ترین کاربرد</dt><dd className={styles.small}>{view.cost.byPurpose[0] ? <>{label(view.cost.byPurpose[0].purpose)} · <bdi>{usd(view.cost.byPurpose[0].cost)}</bdi></> : '—'}</dd></div>
     </dl>
     <p className="sa-sub">سقف روزانه درخواست‌های API پولی همان کاربرد را از ابتدای امروز (به وقت سایت) می‌شمارد؛ پر که شد، تا فردا درخواستی فرستاده نمی‌شود. «حافظه» یعنی همان درخواستِ دقیقاً تکراری تا این چند ساعت بدون فراخوانی دوباره جواب می‌گیرد؛ برای کارهایی که «دوباره بنویس» در آن‌ها معمول است خاموش بماند. ۰ = بدون سقف / بدون حافظه.</p>
+    <p className="sa-sub">«حافظهٔ پرامپت» دستور ثابت ابتدای درخواست را برای Claude علامت می‌زند تا تکرار آن در پنج دقیقه با قیمت بسیار کمتری خوانده شود؛ برای کاربردهای پرتکرار مثل پشتیبانی روشن باشد. DeepSeek، Gemini، OpenAI و Qwen این کار را خودشان انجام می‌دهند و فقط شمرده می‌شود.</p>
     <div className={styles.tableWrap}><table className="sa-table">
       <caption className="sr-only">سقف و حافظهٔ هر کاربرد</caption>
-      <thead><tr><th scope="col">کاربرد</th><th scope="col">امروز</th><th scope="col">سقف درخواست در روز</th><th scope="col">سقف توکن در روز</th><th scope="col">حافظه (ساعت)</th></tr></thead>
+      <thead><tr><th scope="col">کاربرد</th><th scope="col">امروز</th><th scope="col">سقف درخواست در روز</th><th scope="col">سقف توکن در روز</th><th scope="col">حافظه (ساعت)</th><th scope="col">حافظهٔ پرامپت</th></tr></thead>
       <tbody>{view.purposes.map(p => { const v = form.purposes[p.id as keyof UsagePolicy['purposes']], t = view.today[p.id] || { requests: 0, tokens: 0 }; return <tr key={p.id}>
         <th scope="row">{p.label}</th>
         <td>{fa(t.requests)} درخواست{t.tokens ? ` · ${fa(t.tokens)} توکن` : ''}</td>
         <td><input className="input num" type="number" min={0} aria-label={`سقف درخواست روزانهٔ ${p.label}`} value={v.dailyRequests} onChange={e => setPurpose(p.id, { dailyRequests: num(e.target.value) })} /></td>
         <td><input className="input num" type="number" min={0} aria-label={`سقف توکن روزانهٔ ${p.label}`} value={v.dailyTokens} onChange={e => setPurpose(p.id, { dailyTokens: num(e.target.value) })} /></td>
         <td><input className="input num" type="number" min={0} max={720} aria-label={`حافظهٔ پاسخ ${p.label} به ساعت`} value={v.cacheHours} onChange={e => setPurpose(p.id, { cacheHours: num(e.target.value) })} /></td>
+        <td><input type="checkbox" aria-label={`حافظهٔ پرامپت ${p.label}`} checked={v.promptCache} onChange={e => setPurpose(p.id, { promptCache: e.target.checked })} /></td>
       </tr> })}</tbody>
     </table></div>
     <h3>قیمت مدل‌ها (دلار به ازای یک میلیون توکن)</h3>
-    <p className="sa-sub">قیمت را از صفحهٔ قیمت هر سرویس وارد کنید؛ سهمیهٔ رایگان را ۰ بگذارید. بدون قیمت، هزینهٔ آن مدل «بدون قیمت» شمرده می‌شود و حدس زده نمی‌شود.</p>
+    <p className="sa-sub">قیمت را از صفحهٔ قیمت هر سرویس وارد کنید؛ سهمیهٔ رایگان را ۰ بگذارید. بدون قیمت، هزینهٔ آن مدل «بدون قیمت» شمرده می‌شود و حدس زده نمی‌شود. قیمت «خواندن از حافظه» و «نوشتن در حافظه» اختیاری است؛ خالی یعنی با قیمت ورودی حساب شود.</p>
     <div className={styles.tableWrap}><table className="sa-table">
       <caption className="sr-only">قیمت مدل‌ها</caption>
-      <thead><tr><th scope="col">سرویس</th><th scope="col">مدل</th><th scope="col">ورودی</th><th scope="col">خروجی</th><th scope="col"><span className="sr-only">حذف</span></th></tr></thead>
+      <thead><tr><th scope="col">سرویس</th><th scope="col">مدل</th><th scope="col">ورودی</th><th scope="col">خروجی</th><th scope="col">خواندن از حافظه</th><th scope="col">نوشتن در حافظه</th><th scope="col"><span className="sr-only">حذف</span></th></tr></thead>
       <tbody>{form.prices.map((p, i) => <tr key={i}>
         <td><input className="input" dir="ltr" aria-label="سرویس" value={p.provider} onChange={e => setPrice(i, { provider: e.target.value })} /></td>
         <td><input className="input" dir="ltr" aria-label="مدل" value={p.model} onChange={e => setPrice(i, { model: e.target.value })} /></td>
         <td><input className="input num" type="number" min={0} step="0.001" aria-label={`قیمت ورودی ${p.model}`} value={p.inputPerMillion} onChange={e => setPrice(i, { inputPerMillion: num(e.target.value) })} /></td>
         <td><input className="input num" type="number" min={0} step="0.001" aria-label={`قیمت خروجی ${p.model}`} value={p.outputPerMillion} onChange={e => setPrice(i, { outputPerMillion: num(e.target.value) })} /></td>
+        <td><input className="input num" type="number" min={0} step="0.001" placeholder="—" aria-label={`قیمت خواندن از حافظهٔ ${p.model}`} value={p.cachedPerMillion ?? ''} onChange={e => setPrice(i, { cachedPerMillion: optional(e.target.value) })} /></td>
+        <td><input className="input num" type="number" min={0} step="0.001" placeholder="—" aria-label={`قیمت نوشتن در حافظهٔ ${p.model}`} value={p.cacheWritePerMillion ?? ''} onChange={e => setPrice(i, { cacheWritePerMillion: optional(e.target.value) })} /></td>
         <td><button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm({ ...form, prices: form.prices.filter((_, j) => j !== i) })}>حذف</button></td>
       </tr>)}</tbody>
     </table></div>

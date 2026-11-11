@@ -98,13 +98,15 @@ async function generateApiUncached(prompt: Prompt, settings: AiConfig, options: 
   if (settings.provider === 'economy') return (await import('./economy')).generateEconomy(prompt, settings, options, (p, s, o) => generateApiUncached(p, s, o, policy))
   const model = effectiveModel(settings)
   await enforceCeiling(options.purpose, { provider: settings.provider, model }, policy, options.signal)
+  // Claude caches a prompt only where it is marked; the OpenAI-style services cache a repeated prefix by themselves.
+  const promptCache = !!(options.purpose && policy?.purposes[options.purpose]?.promptCache)
   const observed = await observeAi({ purpose: options.purpose, provider: settings.provider, model }, async (attempt, usage) => {
     const combined = (signal?: AbortSignal) => AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(signal ? [signal] : []), ...(options.signal ? [options.signal] : [])])
     let reported: AiUsage | undefined
     const call = async (key: string, signal?: AbortSignal) => {
       attempt()
       const reply = settings.provider === 'anthropic'
-        ? await claude(key, model, prompt, options.support === true, combined(signal))
+        ? await claude(key, model, prompt, options.support === true, combined(signal), promptCache)
         : await openAiCompatible(effectiveBaseUrl(settings), key, model, prompt, settings.provider, combined(signal))
       reported = reply.usage; usage(reported)
       if (!reply.text.trim()) throw new AiError('پاسخی از هوش مصنوعی دریافت نشد؛ درخواست تکرار نشد', 502)
@@ -120,14 +122,19 @@ async function generateApiUncached(prompt: Prompt, settings: AiConfig, options: 
   return { ...observed.value, observationId: observed.observationId }
 }
 
-async function claude(apiKey: string, model: string, prompt: Prompt, support = false, signal?: AbortSignal): Promise<{ text: string; usage?: AiUsage }> {
+/**
+ * With `promptCache` the system prompt (the stable start of every request of a purpose) is marked for Claude's prompt
+ * cache: a repeat within five minutes reads it at a fraction of the input price; the first write costs a little more,
+ * and a prompt under the model's minimum length is simply not cached.
+ */
+async function claude(apiKey: string, model: string, prompt: Prompt, support = false, signal?: AbortSignal, promptCache = false): Promise<{ text: string; usage?: AiUsage }> {
   const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS, maxRetries: 0, fetch: egressFetch as unknown as typeof fetch })
   try {
     const response = await client.beta.messages.create({
       model,
       // Adaptive thinking shares this budget with the answer.
       max_tokens: support ? prompt.maxTokens : Math.max(prompt.maxTokens, 16000),
-      system: prompt.system,
+      system: promptCache ? [{ type: 'text' as const, text: prompt.system, cache_control: { type: 'ephemeral' as const } }] : prompt.system,
       messages: [{ role: 'user', content: prompt.user }],
       ...(!support ? { thinking: { type: 'adaptive' as const } } : {}),
     }, { signal })
