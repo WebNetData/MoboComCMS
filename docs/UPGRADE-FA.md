@@ -84,7 +84,7 @@ Nginx تازه location بسته با سقف ۵۱۲ مگابایت و streaming 
 
     sudo mobocom update              # آخرین نسخه
     sudo mobocom versions            # نسخه‌های منتشرشده (tagهای vX.Y.Z) و نسخهٔ نصب‌شده
-    sudo mobocom update 1.7.16        # یک نسخهٔ مشخص جدیدتر
+    sudo mobocom update 1.7.17        # یک نسخهٔ مشخص جدیدتر
     sudo mobocom downgrade 1.6.1     # یک نسخهٔ قدیمی‌تر؛ تأیید DOWNGRADE می‌خواهد
     sudo mobocom rollback            # نسخهٔ پیش از آخرین آپدیت
 

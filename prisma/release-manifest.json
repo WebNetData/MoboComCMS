@@ -793,12 +793,27 @@
           "sha256": "a94545f71f112b27e741f2d21f0f2339a2b70afff4c3238270dd1936b64543ff"
         }
       ]
+    },
+    "1.7.17": {
+      "migrations": [
+        {
+          "name": "20270302120000_found_subtitles",
+          "sha256": "a342f31d7f1a9422ff35d6ba858a19a4641741ca9f6a1f3bc1d746203ce64bfd"
+        },
+        {
+          "name": "20270303120000_cinema_people_names",
+          "sha256": "38a85f611e1b4fe8bb843752cc729ea079e98b54084033fd260d706d9c28e313"
+        },
+        {
+          "name": "20270304120000_player_breaks",
+          "sha256": "0c1d7c4e105f68ef963b156bfa0222b9a96378ad14d702dbf7fc1c118aa44c2f"
+        },
+        {
+          "name": "20270305120000_ai_answer_cache",
+          "sha256": "df9981a328f81e6fbb7628b7c16afc1cfc75d41bbed76e12699199f40155241c"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270302120000_found_subtitles",
-    "20270303120000_cinema_people_names",
-    "20270304120000_player_breaks",
-    "20270305120000_ai_answer_cache"
-  ]
+  "unreleased": []
 }
