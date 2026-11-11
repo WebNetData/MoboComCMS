@@ -76,7 +76,8 @@ async function main(){try{
      assert.equal(after.summary,'Owned metadata synopsis');assert.equal(after.imdbRating,8.8);assert.equal(after.director,stamp+' metadata director')
      assert.equal(cast[0].image,'/files/owned-before.webp');assert.equal(cast[0].role,'Existing role');assert.ok(after.credits.some(c=>c.role==='CAST'&&c.person.name===stamp+' metadata actor'));assert.ok(after.credits.some(c=>c.role==='DIRECTOR'&&c.person.name===stamp+' metadata director'))
    }finally{global.fetch=priorFetch}
-   await settings.saveMetadataConfig({peoplePhotos:true})
+   // Photos only here: Persian naming (its own Wikidata request) is proven by cinema-people-names.connected.cjs.
+   await settings.saveMetadataConfig({peoplePhotos:true,persianNames:false})
    try {
      const actor=stamp+' photo actor',director=stamp+' photo director',photo='https://m.media-amazon.com/images/M/MV5BMjI0MTg3MzI0M15BMl5BanBnXkFtZTcwMzQyODU2Mw@@._V1_.jpg',calls=[]
      global.fetch=async(url)=>{const u=String(url);calls.push(u)

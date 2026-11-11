@@ -33,7 +33,7 @@ export default async function CinemaBrowsePage({searchParams}:{searchParams:Prom
     params.producer?publicPersonChoice(cinemaPersonId(params.producer)||-1,'PRODUCER'):null,
     activeFormats().catch(()=>[]),
   ])
-  const active=params.dubbed==='1'?'dubbed':params.sort==='imdb'?'imdb':params.kind==='MOVIE'?'movies':params.kind==='SERIES'?'series':undefined
+  const active=params.dubbed==='1'?'dubbed':params.sort==='imdb'?'imdb':params.kind==='MOVIE'?'movies':params.kind==='SERIES'?'series':'browse'
   return <MediaShell section="cinema" active={active} nav={cinemaNav(fa)} search={{action:'/cinema/browse',placeholder:fa?'جست‌وجوی فیلم و سریال…':'Search films and series…',value:params.q}}>
     <div className={`container cn-discovery ${styles.page}`}>
       <header className={styles.heading}><div><h1>{fa?'فیلم و سریال، به انتخاب شما':'Find your next film or series'}</h1><p>{fa?'نام اثر، بازیگر یا کارگردان را پیدا کنید و نتیجه‌ها را به سلیقهٔ خود محدود کنید.':'Find a title, actor or director and refine the catalogue.'}</p></div><Link className={styles.directoryLink} href="/cinema/people"><Icon name="film" size={18}/>{fa?'بازیگران و کارگردانان':'Actors & directors'}</Link></header>

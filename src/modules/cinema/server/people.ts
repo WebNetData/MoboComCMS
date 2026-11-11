@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
-import { PEOPLE_PAGE, creditsOf, normalizePersonName, type CreditRole } from '@/modules/cinema/domain/people'
+import { PEOPLE_PAGE, cleanIdentities, creditsOf, hasPersianLetters, isLatinName, normalizePersonName, type CreditRole } from '@/modules/cinema/domain/people'
 import { imdbPhoto } from '@/modules/cinema/domain/imdb-page'
 
 type Tx = Prisma.TransactionClient
@@ -19,15 +19,65 @@ export async function storedPersonPictures(names:string[]):Promise<Map<string,st
   return new Map([...await storedPersonPhotoStates(names)].map(([key,value])=>[key,value.image]))
 }
 
+type Person = Awaited<ReturnType<Tx['cinemaPerson']['findUniqueOrThrow']>>
+
+/**
+ * The person a credit names. By IMDb person first; then by any of their keys: the match key they were first saved
+ * under, their display name, their Latin name (so «کریستوفر نولان» and «Christopher Nolan» are one person). Two people
+ * of the same name with different IMDb persons stay two. A newcomer is created. A merged alias leads to its person.
+ */
+async function personFor(tx: Tx, credit: { name: string; image: string; nameEn?: string; imdbId?: string }): Promise<Person> {
+  const key = normalizePersonName(credit.name), keyEn = credit.nameEn ? normalizePersonName(credit.nameEn) : ''
+  const sameImdb = (row: Person | null) => row && (!credit.imdbId || !row.imdbId || row.imdbId === credit.imdbId) ? row : null
+  let found: Person | null = credit.imdbId ? await tx.cinemaPerson.findUnique({ where: { imdbId: credit.imdbId } }) : null
+  if (!found) found = sameImdb(await tx.cinemaPerson.findUnique({ where: { normalizedName: key } }))
+  if (!found && keyEn) found = sameImdb(await tx.cinemaPerson.findUnique({ where: { normalizedName: keyEn } }))
+  if (!found) {
+    const keys = [...new Set([key, keyEn].filter(Boolean))]
+    const candidates = await tx.cinemaPerson.findMany({ where: { OR: keys.flatMap(value => [{ displayNameKey: value }, { normalizedNameEn: value }]) }, orderBy: { id: 'asc' }, take: 5 })
+    found = candidates.find(row => sameImdb(row)) || null
+  }
+  if (!found) {
+    // A same-named person of another IMDb identity holds the plain key: this one's key names its IMDb person too.
+    const taken = await tx.cinemaPerson.findUnique({ where: { normalizedName: key }, select: { id: true } })
+    const normalizedName = taken && credit.imdbId ? `${key} ${credit.imdbId}` : key
+    try {
+      found = await tx.cinemaPerson.create({ data: { name: credit.name, normalizedName, displayNameKey: key, nameEn: credit.nameEn || '', normalizedNameEn: keyEn, imdbId: credit.imdbId || null, image: credit.image } })
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'P2002') throw error
+      found = await tx.cinemaPerson.findUniqueOrThrow({ where: { normalizedName } })
+    }
+  }
+  const person = found.mergedIntoId ? await tx.cinemaPerson.findUniqueOrThrow({ where: { id: found.mergedIntoId } }) : found
+  // Fill what this person lacks; a name shown in Latin letters becomes the Persian one an import brings (the Latin
+  // one is kept as their English name). A profile edited meanwhile keeps its edit (version claim).
+  const data: Prisma.CinemaPersonUpdateManyMutationInput = {}
+  const persian = hasPersianLetters(credit.name) && isLatinName(person.name)
+  const nameEn = person.nameEn || credit.nameEn || (persian ? person.name : '')
+  if (nameEn && nameEn !== person.nameEn) { data.nameEn = nameEn; data.normalizedNameEn = normalizePersonName(nameEn) }
+  if (persian) { data.name = credit.name; data.displayNameKey = key }
+  if (credit.imdbId && !person.imdbId && !await tx.cinemaPerson.findUnique({ where: { imdbId: credit.imdbId }, select: { id: true } })) data.imdbId = credit.imdbId
+  if (!Object.keys(data).length) return person
+  await tx.cinemaPerson.updateMany({ where: { id: person.id, profileVersion: person.profileVersion }, data: { ...data, profileVersion: { increment: 1 } } })
+  return tx.cinemaPerson.findUniqueOrThrow({ where: { id: person.id } })
+}
+
 /**
  * Makes a title's credits say what its director line and cast list say now: people are found by their
  * normalized name or created, credits no longer named are removed. A person left without any credit stays
  * (their address keeps working and they return with their next film). Safe to repeat.
  */
-export async function syncCredits(tx: Tx, titleId: number, directorImages?: unknown) {
+export async function syncCredits(tx: Tx, titleId: number, directorImages?: unknown, identities?: unknown) {
   const title = await tx.cinemaTitle.findUnique({ where: { id: titleId }, select: { director: true, producer: true, cast: true } })
   if (!title) return 0
   const credits = creditsOf(title)
+  // What an import knows of each person (Latin name, IMDb person) reaches the credit that shows their name.
+  const known = new Map(cleanIdentities(identities).map(row => [`${row.role}:${normalizePersonName(row.name)}`, row]))
+  for (const credit of credits) {
+    const identity = known.get(`${credit.role}:${normalizePersonName(credit.name)}`)
+    if (identity?.nameEn && !credit.nameEn) credit.nameEn = identity.nameEn
+    if (identity?.imdbId && !credit.imdbId) credit.imdbId = identity.imdbId
+  }
   if (Array.isArray(directorImages)) for (const credit of credits) {
     if (credit.role !== 'DIRECTOR') continue
     const photo = directorImages.slice(0,8).find(row => row && normalizePersonName(String(row.name || '')) === normalizePersonName(credit.name))
@@ -35,9 +85,7 @@ export async function syncCredits(tx: Tx, titleId: number, directorImages?: unkn
   }
   const keep: number[] = []
   for (const credit of credits) {
-    const normalizedName = normalizePersonName(credit.name)
-    const matched = await tx.cinemaPerson.upsert({ where: { normalizedName }, create: { name: credit.name, normalizedName, image: credit.image }, update: {} })
-    const person = matched.mergedIntoId ? await tx.cinemaPerson.findUniqueOrThrow({ where: { id: matched.mergedIntoId } }) : matched
+    const person = await personFor(tx, credit)
     // Keep an established local picture. Promote an external picture to its local copy with a claim.
     const localCopy=/^\/api\/media\/transfers\/[a-f0-9-]{36}$/.test(credit.image) || /^\/files\/download\/cinema\/images\/(actors|director)\/[^?#]+\.webp$/.test(credit.image)
     if (credit.image && !person.imageLocked && (!person.image || localCopy && /^https:\/\//.test(person.image))) await tx.cinemaPerson.updateMany({ where: { id: person.id, image: person.image, imageLocked:false, profileVersion:person.profileVersion }, data: { image: credit.image,profileVersion:{increment:1} } })
@@ -68,14 +116,15 @@ export async function backfillCredits(limit = 100) {
 
 /** The people credited on a title, by normalized name: the film page links a name it shows to its person. */
 export async function creditLinks(titleId: number): Promise<Map<string, number>> {
-  const rows = await db.cinemaCredit.findMany({ where: { titleId }, select: { person: { select: { id: true, normalizedName: true } } } }).catch(() => [])
-  return new Map(rows.map((row) => [row.person.normalizedName, row.person.id]))
+  const rows = await db.cinemaCredit.findMany({ where: { titleId }, select: { person: { select: { id: true, normalizedName: true, displayNameKey: true, normalizedNameEn: true } } } }).catch(() => [])
+  return new Map(rows.flatMap((row) => [row.person.normalizedName, row.person.displayNameKey, row.person.normalizedNameEn].filter(Boolean).map((key) => [key, row.person.id] as const)))
 }
 
 /** Public presentation reuses canonical people without rewriting a title's stored cast. */
 export async function creditProfiles(titleId:number) {
-  const rows=await db.cinemaCredit.findMany({where:{titleId},select:{person:{select:{id:true,normalizedName:true,image:true,imageLocked:true}}}})
-  return new Map(rows.map(row=>[row.person.normalizedName,row.person]))
+  const rows=await db.cinemaCredit.findMany({where:{titleId},select:{person:{select:{id:true,normalizedName:true,displayNameKey:true,normalizedNameEn:true,image:true,imageLocked:true}}}})
+  // The page finds a person by the name it shows, whichever of their names that is.
+  return new Map(rows.flatMap(row=>[row.person.normalizedName,row.person.displayNameKey,row.person.normalizedNameEn].filter(Boolean).map(key=>[key,row.person] as const)))
 }
 
 /** A person with the published titles they are credited on, newest first, by role. Null when nothing of theirs is public. */
@@ -99,7 +148,7 @@ export async function peopleDirectory(input: { page?: unknown; q?: unknown; role
   const page = Math.max(1, Math.min(500, Math.trunc(Number(input.page)) || 1))
   const q = normalizePersonName(String(input.q ?? '')).slice(0, 60)
   const publicCredit={title:live(now),...(input.role?{role:input.role}:{})}
-  const where = { mergedIntoId: null, credits: { some: publicCredit }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}] } : {}) }
+  const where = { mergedIntoId: null, credits: { some: publicCredit }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{normalizedNameEn:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}] } : {}) }
   const [total, rows] = await Promise.all([
     db.cinemaPerson.count({ where }),
     db.cinemaPerson.findMany({ where, orderBy: [{ credits: { _count: 'desc' } }, { id: 'asc' }], skip: (page - 1) * PEOPLE_PAGE, take: PEOPLE_PAGE, select: { id: true, name: true, image: true, credits: { where: publicCredit, select: { role: true,titleId:true } } } }),
@@ -122,7 +171,7 @@ export async function publicPeopleChoices(input:{q:string;role:CreditRole},now=n
   const q=normalizePersonName(input.q).slice(0,60)
   if(q.length<2)return []
   return db.cinemaPerson.findMany({
-    where:{mergedIntoId:null,credits:{some:{role:input.role,title:live(now)}},OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]},
+    where:{mergedIntoId:null,credits:{some:{role:input.role,title:live(now)}},OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{normalizedNameEn:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]},
     orderBy:[{name:'asc'},{id:'asc'}],take:12,select:{id:true,name:true,image:true},
   })
 }

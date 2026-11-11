@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { normalizePersonName } from '@/modules/cinema/domain/people'
 import { live as liveMusic } from '@/modules/media/server/queries/core'
-import { CELEBRITY_ROLES, celebritySlug, type CelebrityRole } from '@/modules/celebrities/domain/celebrities'
+import { CELEBRITY_ROLES, celebritySlug, suggestedCelebritySlug, type CelebrityRole } from '@/modules/celebrities/domain/celebrities'
 import { parseFacts } from '@/modules/celebrities/domain/fields'
 
 const PAGE = 36
@@ -11,6 +11,43 @@ const liveTitle = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now
 // ------------------------------------------------------------------ building the entries
 
 const unique = (error: unknown) => (error as { code?: string })?.code === 'P2002'
+
+/** A free profile address from an English name ("-2", "-3"… when taken); '' when the name gives none. */
+async function englishSlug(reader: Pick<Prisma.TransactionClient, 'celebrity' | 'celebritySlugAlias'>, nameEn: string, id?: number) {
+  const base = suggestedCelebritySlug(nameEn)
+  if (!base) return ''
+  for (let n = 1; n < 50; n++) {
+    const slug = n === 1 ? base : `${base.slice(0, 76).replace(/-+$/, '')}-${n}`
+    const [entry, alias] = await Promise.all([reader.celebrity.findUnique({ where: { slug }, select: { id: true } }), reader.celebritySlugAlias.findUnique({ where: { slug }, select: { celebrityId: true } })])
+    if ((!entry || entry.id === id) && (!alias || alias.celebrityId === id)) return slug
+  }
+  return ''
+}
+
+/**
+ * A film person's own entry follows their names: it shows their Persian name, and an entry still at its number
+ * address moves to one made from their English name (the number address stays reserved and leads there).
+ * An entry shared with a singer keeps the music side's name and address.
+ */
+async function followCinemaNames() {
+  const rows = await db.celebrity.findMany({ where: { musicArtistId: null, cinemaPerson: { is: { mergedIntoId: null } } }, select: { id: true, slug: true, name: true, cinemaPersonId: true, cinemaPerson: { select: { name: true, nameEn: true } } }, take: 5000 })
+  for (const row of rows) {
+    const person = row.cinemaPerson
+    if (!person || !row.cinemaPersonId) continue
+    const rename = person.name !== row.name
+    const move = row.slug === celebritySlug({ cinemaId: row.cinemaPersonId }) && !!suggestedCelebritySlug(person.nameEn)
+    if (!rename && !move) continue
+    await db.$transaction(async tx => {
+      const data: Prisma.CelebrityUpdateManyMutationInput = rename ? { name: person.name, normalizedName: normalizePersonName(person.name) } : {}
+      const slug = move ? await englishSlug(tx, person.nameEn, row.id) : ''
+      if (slug) data.slug = slug
+      if (!Object.keys(data).length) return
+      // Claimed against the address read: an Admin edit meanwhile wins.
+      if (!(await tx.celebrity.updateMany({ where: { id: row.id, slug: row.slug }, data })).count) return
+      if (slug) { await tx.celebritySlugAlias.deleteMany({ where: { slug, celebrityId: row.id } }); await tx.celebritySlugAlias.create({ data: { slug: row.slug, celebrityId: row.id } }) }
+    }).catch(error => { if (!unique(error)) throw error })
+  }
+}
 let lastSync = 0
 
 /**
@@ -31,7 +68,7 @@ export async function syncCelebrities(): Promise<{ created: number; joined: numb
   await db.celebrity.deleteMany({ where: { cinemaPersonId: null, musicArtistId: null } })
 
   const [people, artists] = await Promise.all([
-    db.cinemaPerson.findMany({ where: { mergedIntoId: null, celebrity: { is: null } }, select: { id: true, name: true }, orderBy: { id: 'asc' }, take: 5000 }),
+    db.cinemaPerson.findMany({ where: { mergedIntoId: null, celebrity: { is: null } }, select: { id: true, name: true, nameEn: true }, orderBy: { id: 'asc' }, take: 5000 }),
     db.musicArtist.findMany({ where: { mergedIntoId: null, celebrity: { is: null } }, select: { id: true, name: true, slug: true }, orderBy: { id: 'asc' }, take: 5000 }),
   ])
   for (const person of people) {
@@ -39,7 +76,7 @@ export async function syncCelebrities(): Promise<{ created: number; joined: numb
     const partner = key ? await db.celebrity.findFirst({ where: { normalizedName: key, cinemaPersonId: null, musicArtistId: { not: null }, keepApart: false }, select: { id: true } }) : null
     try {
       if (partner) { await db.celebrity.update({ where: { id: partner.id }, data: { cinemaPersonId: person.id } }); joined++ }
-      else { await db.celebrity.create({ data: { slug: celebritySlug({ cinemaId: person.id }), name: person.name, normalizedName: key, cinemaPersonId: person.id } }); created++ }
+      else { await db.celebrity.create({ data: { slug: await englishSlug(db, person.nameEn) || celebritySlug({ cinemaId: person.id }), name: person.name, normalizedName: key, cinemaPersonId: person.id } }); created++ }
     } catch (error) { if (!unique(error)) throw error }
   }
   for (const artist of artists) {
@@ -53,6 +90,7 @@ export async function syncCelebrities(): Promise<{ created: number; joined: numb
       created++
     } catch (error) { if (!unique(error)) throw error }
   }
+  await followCinemaNames()
   await refreshScores()
   lastSync = Date.now()
   return { created, joined }

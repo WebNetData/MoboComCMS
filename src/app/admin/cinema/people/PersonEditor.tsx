@@ -21,14 +21,14 @@ const AI_FIELDS: AutofillField[] = [
 ]
 
 export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{person:Detail;loading:boolean;onReload:()=>void;onSaved:(person:Profile)=>void;onClose:()=>void}) {
-  const [name,setName]=useState(person.name),[image,setImage]=useState(person.image),[bio,setBio]=useState(person.bio),[locked,setLocked]=useState(person.imageLocked)
+  const [name,setName]=useState(person.name),[nameEn,setNameEn]=useState(person.nameEn||''),[image,setImage]=useState(person.image),[bio,setBio]=useState(person.bio),[locked,setLocked]=useState(person.imageLocked)
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState<'close'|'reload'|null>(null)
-  const dirty=name!==person.name||image!==person.image||bio!==person.bio||locked!==person.imageLocked
+  const dirty=name!==person.name||nameEn!==(person.nameEn||'')||image!==person.image||bio!==person.bio||locked!==person.imageLocked
   function leave(action:'close'|'reload'){if(dirty){setConfirm(action);return}if(action==='close')onClose();else onReload()}
   function photo(url:string){setImage(url);setLocked(true)}
   async function save(){
     setBusy(true);setError('')
-    const result=await send<{person:Profile}>('/api/admin/cinema/people',person.id?'PATCH':'POST',{...(person.id?{id:person.id,profileVersion:person.profileVersion}:{}),name,image,bio,imageLocked:locked})
+    const result=await send<{person:Profile}>('/api/admin/cinema/people',person.id?'PATCH':'POST',{...(person.id?{id:person.id,profileVersion:person.profileVersion}:{}),name,nameEn,image,bio,imageLocked:locked})
     setBusy(false)
     if(!result.ok){setError(result.error);return}
     onSaved(result.data.person)
@@ -48,6 +48,8 @@ export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{
           <div className={styles.biography}>
             <label htmlFor="person-name">نام نمایشی</label><input id="person-name" className="input" dir="auto" required maxLength={120} minLength={2} value={name} onChange={e=>setName(e.target.value)} autoComplete="off"/>
             <small>تغییر نام نمایشی، شناسه و ارتباط با آثار را تغییر نمی‌دهد.</small>
+            <label htmlFor="person-name-en">نام انگلیسی <small>(اختیاری)</small></label><input id="person-name-en" className="input" dir="ltr" maxLength={120} value={nameEn} onChange={e=>setNameEn(e.target.value)} autoComplete="off" placeholder="Christopher Nolan"/>
+            <small>{person.imdbId?<>شناسهٔ IMDb: <bdi dir="ltr">{person.imdbId}</bdi> · </>:null}جست‌وجو با نام فارسی یا انگلیسی این شخص را پیدا می‌کند.</small>
             <h3>زندگی‌نامه</h3><ContentEditor value={bio} onChange={setBio} assetSection="cinema" minHeight={280} placeholder="زندگی‌نامه و فعالیت‌های هنری…"/>
             <small>{fa(bio.length)} از ۳۰٬۰۰۰ نویسه · نقش بازیگر یا کارگردان از آثار مرتبط مشخص می‌شود.</small>
           </div>

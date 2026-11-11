@@ -28,6 +28,8 @@ export async function lookupCinemaMetadata(raw: unknown, preferredKind?: unknown
   const provider=credentials.provider || (credentials.tmdbToken ? 'tmdb' : 'imdb')
   let result=provider==='imdb' ? await lookupImdbPage(id,credentials.cinemetaFallback !== false,preferredKind) : await lookupTmdbMetadata(id,preferredKind,credentials)
   if (credentials.peoplePhotos === true) result=await (await import('./people-photos')).enrichPeoplePhotos(result)
+  // After the photos (matched by the English names): names in Persian, the English ones kept beside them.
+  if (credentials.persianNames === true) result=await (await import('./people-names')).enrichPeopleNames(result,{ai:credentials.persianNamesAi === true})
   return actor && credentials.copyImages !== false ? (await import('./images')).localizeMetadataImages(result,actor) : result
 }
 async function lookupTmdbMetadata(id: string, preferredKind: unknown, credentials: Awaited<ReturnType<typeof metadataCredentials>>): Promise<CinemaMetadataResult> {
