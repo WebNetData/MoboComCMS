@@ -5,7 +5,7 @@ import { updateJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { parseProxyConfig, ProxyConfigError, type ProxyOutbound } from '@/modules/social/domain/xray-link'
 import {
-  EGRESS_PURPOSES, MAX_PROFILES, helperPayload, isPurpose, nextProfileId, normalizeEgress, normalizeProfileName,
+  CURRENT_BUILDER, EGRESS_PURPOSES, MAX_PROFILES, builderFor, helperPayload, isPurpose, nextProfileId, normalizeEgress, normalizeProfileName,
   type EgressProfile, type EgressPurpose, type EgressSettings,
 } from '@/modules/social/domain/egress'
 import { EGRESS_PROXY_KEY, forgetSocialProxySetting, readEgressSettings, viaProxy } from '@/modules/social/server/egress'
@@ -18,7 +18,10 @@ const MISSING = /password is required|a terminal is required|not allowed|no such
 const PROXY_URL = `http://127.0.0.1:${Number(process.env.SOCIAL_PROXY_PORT || 10809)}`
 /** Read by deploy/ubuntu/git-fetch.sh: the updater's git fetch uses the proxy while "updates" has a profile. */
 const GIT_PROXY_FILE = () => path.join(process.env.UPDATE_STATE_DIR || path.join(process.cwd(), 'storage', 'update'), 'git-proxy')
-const OLD_BUILDER = 'ابزار Xray روی سرور نسخهٔ قدیمی است و فقط یک پیکربندی برای تلگرام و اینستاگرام می‌پذیرد. یک بار این دستور را روی سرور اجرا کنید: sudo bash /opt/mobocom/app/deploy/ubuntu/xray-install.sh'
+const INSTALL = 'sudo bash /opt/mobocom/app/deploy/ubuntu/xray-install.sh'
+const OLD_BUILDER = (builder: number) => builder < 2
+  ? `ابزار Xray روی سرور نسخهٔ قدیمی است و فقط یک پیکربندی برای تلگرام و اینستاگرام می‌پذیرد. یک بار این دستور را روی سرور اجرا کنید: ${INSTALL}`
+  : `ابزار Xray روی سرور از کد سایت قدیمی‌تر است و همهٔ کارهای انتخاب‌شده (مثل «ورود با گوگل») را نمی‌شناسد؛ چیزی تغییر نکرد و پروکسی مثل قبل کار می‌کند. یک بار این دستور را روی سرور اجرا کنید و دوباره اعمال کنید: ${INSTALL}`
 
 export class SocialProxyError extends Error { constructor(message: string, readonly status = 400) { super(message) } }
 
@@ -73,7 +76,8 @@ export async function proxyOverview() {
     ...status,
     profiles: settings.profiles.map(publicProfile),
     routes: settings.routes,
-    purposes: EGRESS_PURPOSES.map(({ key, label, hint }) => ({ key, label, hint })),
+    purposes: EGRESS_PURPOSES.map(({ key, label, hint }) => ({ key, label, hint, builder: builderFor(key) })),
+    currentBuilder: CURRENT_BUILDER,
     appliedAt: settings.appliedAt,
     maxProfiles: MAX_PROFILES,
   }
@@ -83,7 +87,7 @@ export async function proxyOverview() {
 async function applyAndStore(next: EgressSettings) {
   const { service: svc } = await service()
   const payload = helperPayload(next, outboundOf, svc.builder)
-  if (payload.kind === 'old-builder') throw new SocialProxyError(OLD_BUILDER, 409)
+  if (payload.kind === 'old-builder') throw new SocialProxyError(OLD_BUILDER(svc.builder), 409)
   if (payload.kind === 'none') {
     if (svc.configured || svc.active) {
       const stopped = await helper(['disable'])

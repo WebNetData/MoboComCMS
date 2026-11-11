@@ -4,13 +4,14 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Notice, ServerShell, fa, faDate, useServerApi, useServerJson } from '../shared'
 
 type Profile = { id: string; name: string; protocol: string; server: string; label: string; savedAt: string }
-type Purpose = { key: string; label: string; hint: string }
+type Purpose = { key: string; label: string; hint: string; builder?: number }
 type Overview = {
   service: { installed: boolean; version: string; configured: boolean; active: boolean; builder: number }
   helperError: string
   profiles: Profile[]
   routes: Record<string, string>
   purposes: Purpose[]
+  currentBuilder?: number
   appliedAt: string
   maxProfiles: number
 }
@@ -32,6 +33,7 @@ function ServiceCard({ data }: { data: Overview }) {
     <p className="sa-hint">پروکسی فقط روی همین سرور (127.0.0.1) گوش می‌دهد و از بیرون در دسترس نیست. هر کار فقط به نشانی‌های خودش از پیکربندی‌ای که برایش انتخاب کرده‌اید می‌رود؛ هر اتصال دیگری مسدود است و بقیهٔ سایت مثل قبل مستقیم وصل می‌شود.</p>
     {data.helperError && <Notice tone="error">{data.helperError}</Notice>}
     {service.installed && service.builder < 2 && <Notice tone="error">ابزار Xray روی سرور نسخهٔ قدیمی است: فقط یک پیکربندی، آن هم برای تلگرام و اینستاگرام، اعمال می‌شود. برای چند پیکربندی و کاربردهای دیگر یک بار این دستور را روی سرور اجرا کنید: <code dir="ltr">{INSTALL}</code></Notice>}
+    {service.installed && service.builder >= 2 && service.builder < (data.currentBuilder ?? 2) && <Notice tone="error">ابزار Xray روی سرور از کد سایت قدیمی‌تر است: کارهای تازه (مثل «ورود با گوگل») قابل انتخاب نیستند و ممکن است نشانی‌های تازهٔ هوش مصنوعی (Qwen و DeepSeek) از پروکسی رد نشوند. پیکربندی فعلی مثل قبل کار می‌کند. یک بار این دستور را روی سرور اجرا کنید: <code dir="ltr">{INSTALL}</code></Notice>}
     <dl className="sp-proxy-facts">
       <div><dt>نسخه</dt><dd dir="ltr">{service.version || '—'}</dd></div>
       <div><dt>پیکربندی‌ها</dt><dd>{fa(data.profiles.length)} از {fa(data.maxProfiles)}</dd></div>
@@ -109,7 +111,6 @@ function RoutesCard({ data, busy, op }: { data: Overview; busy: string; op: Op }
   const [checks, setChecks] = useState<Record<string, Check>>({})
   useEffect(() => { setRoutesState(data.routes) }, [data.routes])
   const changed = data.purposes.some((p) => (routes[p.key] || '') !== (data.routes[p.key] || ''))
-  const old = data.service.builder < 2
   async function save() {
     const saved = await op<{ routes: Record<string, string> }>({ op: 'routes', routes }, () => 'مسیرها اعمال شد.')
     if (saved) setChecks({})
@@ -125,11 +126,12 @@ function RoutesCard({ data, busy, op }: { data: Overview; busy: string; op: Op }
     <ul className="sp-xr-routes">
       {data.purposes.map((purpose) => {
         const check = checks[purpose.key]
-        const blocked = old && !['telegram', 'instagram'].includes(purpose.key)
+        const blocked = data.service.builder < (purpose.builder ?? (['telegram', 'instagram'].includes(purpose.key) ? 1 : 2))
         return <li key={purpose.key}>
           <div>
             <label htmlFor={`route-${purpose.key}`}><b>{purpose.label}</b></label>
             <span className="sa-hint">{purpose.hint}</span>
+            {blocked && data.service.installed && <span className="sa-hint">نیازمند به‌روزرسانی ابزار Xray روی سرور</span>}
             {check && <span className={`sp-xr-check ${check.ok ? 'is-ok' : 'is-bad'}`} role="status">{check.ok ? `وصل شد (HTTP ${fa(check.status || 0)}، ${fa(check.ms)} میلی‌ثانیه)` : `وصل نشد: ${check.error}`}</span>}
           </div>
           <select id={`route-${purpose.key}`} className="input" value={routes[purpose.key] || ''} disabled={!!busy || blocked} onChange={(event) => setRoutesState((r) => ({ ...r, [purpose.key]: event.target.value }))}>

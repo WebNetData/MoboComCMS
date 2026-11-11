@@ -12,7 +12,9 @@ const PORT = 10809
 const PROTOCOLS = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http']
 const OUTBOUND_KEYS = ['protocol', 'settings', 'streamSettings', 'tag', 'mux']
 const STREAM_KEYS = ['network', 'security', 'tlsSettings', 'realitySettings', 'wsSettings', 'grpcSettings', 'xhttpSettings', 'httpupgradeSettings', 'tcpSettings', 'rawSettings']
-const BUILDER_VERSION = 2
+// Raised whenever PURPOSES gains a purpose or hosts: the site asks for this version before it routes a purpose that
+// needs it, because the installed copy changes only when xray-install.sh runs again (3: "google", Qwen, DeepSeek).
+const BUILDER_VERSION = 3
 // The hosts each purpose may reach. A purpose without a profile, and every other host, is dropped.
 const PURPOSES = {
   telegram: ['domain:telegram.org', 'domain:t.me', 'domain:telegram.me'],

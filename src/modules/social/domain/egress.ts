@@ -20,6 +20,14 @@ export const MAX_PROFILES = 8
 export const PROFILE_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'] as const
 /** Purposes an older root builder (version 1) can carry: one outbound for Telegram and Instagram. */
 export const LEGACY_PURPOSES: readonly EgressPurpose[] = ['telegram', 'instagram']
+/**
+ * BUILDER_VERSION of deploy/ubuntu/xray-config.cjs in this code. The installed root copy changes only when the owner
+ * runs xray-install.sh again, so it can be older than the site; a purpose it does not know makes it refuse everything.
+ */
+export const CURRENT_BUILDER = 3
+/** The first builder version that knows a purpose (and its current hosts). */
+export const PURPOSE_BUILDER: Partial<Record<EgressPurpose, number>> = { google: 3 }
+export const builderFor = (purpose: EgressPurpose) => PURPOSE_BUILDER[purpose] ?? (LEGACY_PURPOSES.includes(purpose) ? 1 : 2)
 
 export const isPurpose = (value: unknown): value is EgressPurpose => EGRESS_PURPOSES.some((p) => p.key === value)
 
@@ -77,6 +85,7 @@ export function helperPayload<T>(settings: EgressSettings, outboundOf: (profile:
   const routes = Object.entries(settings.routes).filter(([, id]) => id) as [EgressPurpose, string][]
   if (!routes.length) return { kind: 'none' }
   const used = settings.profiles.filter((p) => routes.some(([, id]) => id === p.id))
+  if (routes.some(([purpose]) => builderFor(purpose) > builder)) return { kind: 'old-builder' }
   if (builder >= 2) return { kind: 'v2', body: { version: 2, profiles: used.map((p) => ({ tag: p.id, outbound: outboundOf(p) })), routes: Object.fromEntries(routes) } }
   const ids = new Set(routes.map(([, id]) => id))
   if (ids.size !== 1 || routes.some(([purpose]) => !LEGACY_PURPOSES.includes(purpose))) return { kind: 'old-builder' }
