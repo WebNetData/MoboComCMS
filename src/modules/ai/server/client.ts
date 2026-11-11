@@ -14,6 +14,7 @@ import { readAiRoutes, resolveAiRoute } from './routing'
 import { AiError } from './error'
 import { credentialPoolReady, generateWithCredentialPool } from './credentials'
 import { providerJson } from './provider-json'
+import { bounded, cachedAnswer, enforceCeiling, rememberAnswer, usagePolicy } from './usage'
 export { AiError } from './error'
 
 const KEY = 'ai.config.v1'
@@ -78,10 +79,25 @@ export async function generate(prompt: Prompt, config?: AiConfig, purpose?: AiPu
   return generateApi(prompt, settings, { support: selected === 'support', purpose: selected, signal })
 }
 
-/** Explicit API transport: never consults actor/personal routing or falls back to ChatGPT. */
+/**
+ * Explicit API transport: never consults actor/personal routing or falls back to ChatGPT. The same request within the
+ * purpose's cache time is answered from the cache without a provider call (ai/server/usage).
+ */
 export async function generateApi(prompt: Prompt, settings: AiConfig, options: { support?: boolean; signal?: AbortSignal; purpose?: AiPurpose } = {}): Promise<AiResult> {
-  if (settings.provider === 'economy') return (await import('./economy')).generateEconomy(prompt, settings, options, generateApi)
+  // An unreadable usage policy means no ceiling and no cache for this request, never a refused one.
+  const policy = await bounded(usagePolicy(), options.signal)
+  const cache = await cachedAnswer(options.purpose, { purpose: options.purpose || '', provider: settings.provider, model: effectiveModel(settings), baseUrl: effectiveBaseUrl(settings), system: prompt.system, user: prompt.user, maxTokens: prompt.maxTokens, json: prompt.json }, policy, options.signal)
+  if (cache.answer) return { ...cache.answer }
+  const result = await generateApiUncached(prompt, settings, options, policy)
+  await rememberAnswer(cache.key, cache.hours, result)
+  return result
+}
+
+/** One real request, within the purpose's daily ceiling; the economy choice runs its sources through it. */
+async function generateApiUncached(prompt: Prompt, settings: AiConfig, options: { support?: boolean; signal?: AbortSignal; purpose?: AiPurpose } = {}, policy?: Awaited<ReturnType<typeof usagePolicy>> | null): Promise<AiResult> {
+  if (settings.provider === 'economy') return (await import('./economy')).generateEconomy(prompt, settings, options, (p, s, o) => generateApiUncached(p, s, o, policy))
   const model = effectiveModel(settings)
+  await enforceCeiling(options.purpose, { provider: settings.provider, model }, policy, options.signal)
   const observed = await observeAi({ purpose: options.purpose, provider: settings.provider, model }, async (attempt, usage) => {
     const combined = (signal?: AbortSignal) => AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(signal ? [signal] : []), ...(options.signal ? [options.signal] : [])])
     let reported: AiUsage | undefined

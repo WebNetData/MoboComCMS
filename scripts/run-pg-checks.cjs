@@ -143,6 +143,7 @@ const CHECKS = [
   'taxonomy-recount',
   'cinema-people-names',
   'player-breaks',
+  'ai-usage',
 ]
 
 // These invoke optional tools/protocol servers, queue workers or canonical-setting fixtures.

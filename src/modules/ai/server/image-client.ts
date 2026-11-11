@@ -6,10 +6,13 @@ import { effectiveBaseUrl, type AiConfig } from '../domain/ai'
 import { generateWithCredentialPool } from './credentials'
 import { providerJson } from './provider-json'
 import { AiError } from './error'
+import { enforceCeiling } from './usage'
 
 /** Explicit compatible image protocol. URLs are never followed; only bounded inline bytes. */
 export async function generateImageApi(prompt: string, config: AiConfig, ratio: string, signal?: AbortSignal) {
   if (config.provider !== 'custom') throw new AiError('برای تصویر، کاربرد API تصویر را با سرویس سازگار و خروجی base64 تنظیم کنید',409)
+  // Images are the costliest requests: the daily ceiling of «production-image» applies before anything is sent.
+  await enforceCeiling('production-image', { provider: config.provider, model: config.model })
   const observed = await observeAi({ purpose: 'production-image', provider: config.provider, model: config.model, kind: 'image' }, async (attempt, usage) => {
     const request = async (key: string, pooledSignal?: AbortSignal) => {
       attempt()

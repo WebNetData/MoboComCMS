@@ -11,3 +11,16 @@
 .details dd, .outcomes dd { margin: .35rem 0 0; }
 @media (max-width: 800px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 440px) { .metrics { grid-template-columns: 1fr; } }
+
+/* Usage, ceilings and cost (UsagePanel.tsx) */
+.usage { display: grid; gap: 1rem; min-width: 0; }
+/* Grid children may shrink below their content: a wide table scrolls in its own box, the page never does. */
+.usage > * { min-width: 0; }
+.usage h2, .usage h3 { margin: 0; }
+.usage .metrics > div { padding: .75rem 1rem; border: 1px solid var(--sa-line, var(--border)); border-radius: 12px; }
+.small { font-size: 1rem !important; }
+/* Positioned, so the visually hidden caption stays inside the scroll box instead of widening the page (RTL). */
+.tableWrap { position: relative; overflow-x: auto; max-width: 100%; }
+.tableWrap :global(.sa-table) { min-width: 640px; width: 100%; }
+.tableWrap td :global(.input) { min-width: 0; width: 100%; max-width: 160px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
