@@ -32,6 +32,10 @@ export type CinemaSettings = {
   showPersonBiography: boolean
   enableAssSubtitles: boolean
   enableSeparateAudio: boolean
+  /** Look for subtitles beside and inside each video file and offer them in the player (media/server/found-subtitles). */
+  findSubtitles: boolean
+  /** The largest video file read whole to take out the subtitles inside it, in GB. */
+  subtitleScanMaxGB: number
 }
 
 export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
@@ -45,6 +49,8 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   showPersonBiography: true,
   enableAssSubtitles: true,
   enableSeparateAudio: true,
+  findSubtitles: true,
+  subtitleScanMaxGB: 10,
 }
 
 export function normalizeCinemaSettings(input: unknown): CinemaSettings {
@@ -62,6 +68,8 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     showPersonBiography: raw.showPersonBiography !== false,
     enableAssSubtitles: raw.enableAssSubtitles !== false,
     enableSeparateAudio: raw.enableSeparateAudio !== false,
+    findSubtitles: raw.findSubtitles !== false,
+    subtitleScanMaxGB: clampInt(raw.subtitleScanMaxGB, 1, 100, d.subtitleScanMaxGB),
   }
 }
 

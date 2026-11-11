@@ -57,8 +57,11 @@ test('subtitles: what the player can show, and SubRip as WebVTT', () => {
   assert.equal(media.toWebVtt('just text', 'srt'), '')
   assert.equal(media.decodeSubtitle(Uint8Array.from([0xD3, 0xE1, 0xC7, 0xE3])), 'سلام')
   assert.equal(media.decodeSubtitle(new TextEncoder().encode('سلام')), 'سلام')
-  const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/media/server/links.ts'), 'utf8'), served = source.slice(source.indexOf('export async function openSubtitle'), source.indexOf('export async function saveCinemaWatchProgress'))
-  assert.match(served, /await gate\(viewer, \[\{ ownerType: 'link', ownerId: id \}, \.\.\.owner\.chain\]/); assert.match(served, /checkPageToken\(/); assert.match(served, /subtitleBytes/, 'read through the bounded Library/remote subtitle owner')
+  const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/media/server/links.ts'), 'utf8'), checks = source.slice(source.indexOf('async function trackAccess'), source.indexOf('function subtitleBody'))
+  const served = source.slice(source.indexOf('export async function openSubtitle'), source.indexOf('export async function openFoundSubtitle')), found = source.slice(source.indexOf('export async function openFoundSubtitle'), source.indexOf('export async function saveCinemaWatchProgress'))
+  assert.match(checks, /await gate\(viewer, \[\{ ownerType: 'link', ownerId: link\.id \}, \.\.\.owner\.chain\]/); assert.match(checks, /checkPageToken\(new URL\(request\.url\)\.searchParams\.get\('t'\), `l\$\{link\.id\}`/)
+  assert.match(served, /await trackAccess\(request, link\)/); assert.match(served, /subtitleBytes/, 'read through the bounded Library/remote subtitle owner')
+  assert.match(found, /await trackAccess\(request, link\)/, 'a subtitle found with a video passes that video\'s own gate and token')
 })
 
 test('player page keeps the same access rules and quota exemption', () => {
@@ -88,4 +91,37 @@ test('restored music queue rejects malformed tracks and clamps position', () => 
   assert.equal(session.queue[0].access, 'MEMBERS')
   assert.equal(playback.parsePlaybackSession({ queue: [{ ...track, slug: 'آهنگ-تازه' }], index: 0, time: 0 }).queue.length, 1)
   assert.equal(playback.parsePlaybackSession({ queue: [] }), null)
+})
+
+test('subtitles that come with a video file: names beside it, directory listings, stream tags and codecs', () => {
+  const found = load('src/modules/media/domain/found-subtitles')
+  const video = 'Oppenheimer.2023.1080p.BluRay.x264.mkv'
+  const match = name => found.sidecarMatch(video, name)
+  assert.deepEqual(match('Oppenheimer.2023.1080p.BluRay.x264.srt'), { language: '', forced: false, hearing: false }, 'the same name')
+  assert.deepEqual(match('Oppenheimer.2023.1080p.BluRay.x264.fa.srt'), { language: 'fa', forced: false, hearing: false })
+  assert.deepEqual(match('Oppenheimer.2023.1080p.BluRay.x264.Persian.Forced.ass'), { language: 'fa', forced: true, hearing: false })
+  assert.deepEqual(match('Oppenheimer.2023.English.SDH.srt'), { language: 'en', forced: false, hearing: true }, 'one subtitle for every quality of the release')
+  assert.deepEqual(match('oppenheimer.2023.vtt'), { language: '', forced: false, hearing: false }, 'letter case does not matter')
+  for (const other of ['Oppenheimer.2023.1080p.BluRay.x264.mkv', 'Oppenheimer.2023.1080p.BluRay.x264.nfo', 'Oppenheimer.srt', 'Barbie.2023.srt', 'Oppenheimer.2023.1080p.BluRay.x2640.srt', 'Oppenheimer.20.srt']) assert.equal(match(other), null, other)
+  const episode = 'Shogun.S01E02.720p.WEB.mkv'
+  assert.ok(found.sidecarMatch(episode, 'Shogun.S01E02.fa.srt'))
+  assert.equal(found.sidecarMatch(episode, 'Shogun.S01E03.fa.srt'), null, 'another episode')
+  assert.equal(found.sidecarMatch(episode, 'Shogun.S01.fa.srt'), null, 'a season-wide name says too little')
+  assert.equal(found.sidecarMatch('Shogun.2024.S01E02.720p.mkv', 'Shogun.2024.fa.srt'), null, 'a series-wide name is not any one episode\'s subtitle')
+  assert.ok(found.sidecarMatch('Shogun.2024.S01E02.720p.mkv', 'Shogun.2024.S01E02.fa.srt'))
+  assert.ok(found.sidecarMatch('فیلم.دوبله.mkv', 'فیلم.دوبله.fa.srt'), 'Persian file names')
+
+  const listing = '<html><a href="../">../</a><a href="Film.2020.fa.srt">x</a><a href="Film%202020.en.srt">x</a><a href="sub/Film.srt">x</a><a href="https://elsewhere.invalid/Film.srt">x</a><a href="/other/Film.srt">x</a><a href="/movies/2020/Film.2020.mkv?x=1">x</a></html>'
+  assert.deepEqual(found.listingFileNames(listing, 'https://dl.invalid/movies/2020/'), ['Film.2020.fa.srt', 'Film 2020.en.srt', 'Film.2020.mkv'], 'only files in that same folder of that same server')
+  assert.deepEqual(found.sidecarGuesses('Film.2020.mkv'), ['Film.2020.srt', 'Film.2020.fa.srt', 'Film.2020.per.srt', 'Film.2020.ass', 'Film.2020.vtt'])
+
+  assert.deepEqual(['per', 'fas', 'fa', 'eng', 'en-US', 'chi', 'und', '', 'xyz', 'hi'].map(found.subtitleLanguage), ['fa', 'fa', 'fa', 'en', 'en', 'zh', '', '', '', ''], 'ISO 639-1/2 tags; unknown is none')
+  assert.deepEqual(['subrip', 'mov_text', 'webvtt', 'ass', 'ssa', 'hdmv_pgs_subtitle', 'dvd_subtitle', 'eia_608'].map(found.embeddedFormat), ['vtt', 'vtt', 'vtt', 'ass', 'ass', 'image', 'image', ''])
+  assert.equal(found.foundLabel({ language: 'fa', title: 'Persian' }), 'فارسی', 'a title that only repeats the language adds nothing')
+  assert.equal(found.foundLabel({ language: 'en', title: 'SDH <b>', forced: true }), 'انگلیسی · SDH b · فقط گفت‌وگوهای خارجی')
+  assert.equal(found.foundLabel({ language: '', title: '' }), 'زیرنویس')
+  assert.deepEqual(found.sortFound([{ id: 1, language: '' }, { id: 2, language: 'en' }, { id: 3, language: 'fa' }, { id: 4, language: 'fa' }]).map(row => row.id), [3, 4, 2, 1], 'Persian first, then the language list, unknown last')
+  assert.equal(found.readScan('{"key":"abc","status":"done","found":2,"notes":["x"],"at":"t"}').found, 2)
+  assert.equal(found.readScan('nope'), null)
+  assert.equal(found.readScan('{"key":"abc","status":"queued"}'), null)
 })
