@@ -22,3 +22,6 @@ test('Library subtitle bytes enforce real storage boundaries, limits and safe re
     await fs.rm(temp, { recursive: true, force: true })
   }
 })
+
+// The guarded remote reader over several connections, which the subtitle scan uses for whole files.
+require('./remote-ranges.cases.cjs')

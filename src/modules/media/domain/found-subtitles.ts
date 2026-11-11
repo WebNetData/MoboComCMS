@@ -118,6 +118,21 @@ export function foundLabel(input: { language: string; title?: string; forced?: b
   return parts.join(' · ')
 }
 
+/** Cues in a subtitle's text: its SubRip/WebVTT timing lines, or its ASS Dialogue lines. */
+export function cueCount(content: string, format: FoundFormat) {
+  return format === 'ass' ? (content.match(/^Dialogue:/gm) || []).length : (content.match(/-->/g) || []).length
+}
+
+/**
+ * Whether each track a file marks forced really holds only the foreign-language parts: another track of the same file
+ * has at least twice its cues. Many releases mark their full Persian subtitle forced so that players show it by default
+ * (owner 2026-11-12, The.Odyssey.2026.720p.Farsi.Subbed.mkv); that one is not labelled «only foreign dialogue».
+ */
+export function trulyForced(tracks: { forced: boolean; cues: number }[]) {
+  const most = Math.max(0, ...tracks.map(track => track.cues))
+  return tracks.map(track => track.forced && track.cues * 2 <= most)
+}
+
 /** Found subtitles in the order of the language list (unknown last), keeping the order they were found in. */
 export function sortFound<T extends { language: string; id: number }>(rows: T[]): T[] {
   const codes = Object.keys(TRACK_LANGUAGES)
@@ -125,11 +140,27 @@ export function sortFound<T extends { language: string; id: number }>(rows: T[])
   return [...rows].sort((a, b) => place(a.language) - place(b.language) || a.id - b.id)
 }
 
-/** What the last look at a video file found, kept on the link so one address is looked at once. */
-export type SubtitleScan = { key: string; status: 'done' | 'failed'; found: number; notes: string[]; at: string }
+/**
+ * What the last look at a video file found, kept on the link so one address is looked at once. `reading` is a file being
+ * copied over several background jobs (`read` = bytes so far of the whole) before its tracks are taken out.
+ */
+export type SubtitleScan = { key: string; status: 'done' | 'failed' | 'reading'; found: number; notes: string[]; at: string; read?: { bytes: number; total: number } }
+const whole = (value: unknown) => { const n = Number(value); return Number.isSafeInteger(n) && n >= 0 ? n : 0 }
 export function readScan(raw: string): SubtitleScan | null {
   try {
     const value = JSON.parse(raw || 'null') as Partial<SubtitleScan> | null
-    return value && typeof value.key === 'string' && (value.status === 'done' || value.status === 'failed') ? { key: value.key, status: value.status, found: Number(value.found) || 0, notes: Array.isArray(value.notes) ? value.notes.map(String).slice(0, 6) : [], at: String(value.at || '') } : null
+    if (!value || typeof value.key !== 'string' || !(value.status === 'done' || value.status === 'failed' || value.status === 'reading')) return null
+    const read = value.status === 'reading' && value.read && typeof value.read === 'object' ? { bytes: whole(value.read.bytes), total: whole(value.read.total) } : undefined
+    return { key: value.key, status: value.status, found: Number(value.found) || 0, notes: Array.isArray(value.notes) ? value.notes.map(String).slice(0, 6) : [], at: String(value.at || ''), ...(read ? { read } : {}) }
   } catch { return null }
+}
+
+/** A copy that has not moved for this long is taken as stopped (a lost job), and the file is looked at again. */
+export const READING_STALE_MS = 30 * 60_000
+/** Whether this address needs no new look: finished, or being copied and still moving. */
+export function scanSettled(scan: SubtitleScan | null, key: string, now = Date.now()) {
+  if (!scan || scan.key !== key) return false
+  if (scan.status !== 'reading') return true
+  const at = Date.parse(scan.at)
+  return Number.isFinite(at) && now - at < READING_STALE_MS
 }
