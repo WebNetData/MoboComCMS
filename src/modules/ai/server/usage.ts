@@ -35,7 +35,7 @@ export async function usagePolicy(): Promise<UsagePolicy> {
 export async function saveUsagePolicy(input: unknown, context: { req: NextRequest; actor: { id: number; email: string } }): Promise<UsagePolicy> {
   const next = normalizeUsagePolicy(input)
   await writeJsonSetting(KEY, next)
-  await auditAdminStrict({ req: context.req, actor: context.actor, action: 'ai.usage.update', targetType: 'setting', targetId: KEY, metadata: { limited: Object.entries(next.purposes).filter(([, v]) => v.dailyRequests || v.dailyTokens).map(([k]) => k), cached: Object.entries(next.purposes).filter(([, v]) => v.cacheHours).map(([k]) => k), prices: next.prices.length } })
+  await auditAdminStrict({ req: context.req, actor: context.actor, action: 'ai.usage.update', targetType: 'setting', targetId: KEY, metadata: { limited: Object.entries(next.purposes).filter(([, v]) => v.dailyRequests || v.dailyTokens).map(([k]) => k), cached: Object.entries(next.purposes).filter(([, v]) => v.cacheHours).map(([k]) => k), promptCache: Object.entries(next.purposes).filter(([, v]) => v.promptCache).map(([k]) => k), prices: next.prices.length } })
   return next
 }
 
@@ -91,11 +91,11 @@ export async function rememberAnswer(key: string, hours: number, answer: Answer)
 export async function usageCost(since: Date, purpose?: string) {
   const where = { startedAt: { gte: since }, transport: 'api', status: 'SUCCEEDED', ...(purpose ? { purpose } : {}) }
   const [groups, policy, cached, refused] = await Promise.all([
-    db.aiInvocation.groupBy({ by: ['purpose', 'provider', 'model'], where, _sum: { inputTokens: true, outputTokens: true, totalTokens: true } }),
+    db.aiInvocation.groupBy({ by: ['purpose', 'provider', 'model'], where, _sum: { inputTokens: true, outputTokens: true, totalTokens: true, cachedInputTokens: true, cacheWriteTokens: true } }),
     usagePolicy(),
     db.aiInvocation.count({ where: { startedAt: { gte: since }, transport: 'cache', ...(purpose ? { purpose } : {}) } }),
     db.aiInvocation.count({ where: { startedAt: { gte: since }, errorKind: 'limit', ...(purpose ? { purpose } : {}) } }),
   ])
-  const rows: UsageRow[] = groups.map(g => ({ purpose: g.purpose, provider: g.provider, model: g.model, inputTokens: g._sum.inputTokens || 0, outputTokens: g._sum.outputTokens || 0, totalTokens: g._sum.totalTokens || 0 }))
+  const rows: UsageRow[] = groups.map(g => ({ purpose: g.purpose, provider: g.provider, model: g.model, inputTokens: g._sum.inputTokens || 0, outputTokens: g._sum.outputTokens || 0, totalTokens: g._sum.totalTokens || 0, cachedInputTokens: g._sum.cachedInputTokens || 0, cacheWriteTokens: g._sum.cacheWriteTokens || 0 }))
   return { ...estimateCost(rows, policy.prices), cachedAnswers: cached, refusedByCeiling: refused, models: rows.map(r => ({ provider: r.provider, model: r.model })).filter((r, i, all) => all.findIndex(x => x.provider === r.provider && x.model === r.model) === i).slice(0, 50) }
 }
