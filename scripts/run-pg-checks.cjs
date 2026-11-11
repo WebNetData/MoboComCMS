@@ -142,6 +142,7 @@ const CHECKS = [
   'episode-air-alerts', 'cinema-people', 'cinema-people-admin', 'music-artist-profiles', 'celebrity-profile', 'cinema-discovery', 'cinema-formats', 'vocabulary', 'builder-history', 'site-identity-homepages', 'dashboard-service-ordering',
   'taxonomy-recount',
   'cinema-people-names',
+  'player-breaks',
 ]
 
 // These invoke optional tools/protocol servers, queue workers or canonical-setting fixtures.

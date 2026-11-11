@@ -5,8 +5,8 @@ import { logEvent } from '@/platform/observability/logger'
 import { kv } from '@/platform/cache/kv'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import {
-  BUILTIN_PLACEMENTS, cleanPath, dayOf, deviceOf, ineligible, isBot, pickCampaign, pickCreative, shouldEnd,
-  type CampaignView, type ServeContext,
+  BUILTIN_PLACEMENTS, DEFAULT_PLAYER_PACING, cleanPath, creativeFits, dayOf, deviceOf, ineligible, isBot, normalizePlayerPacing, pickCampaign, pickCreative, shouldEnd,
+  type CampaignView, type PlayerPacing, type ServeContext,
 } from '@/modules/ads/domain/ads'
 
 /**
@@ -34,9 +34,11 @@ export interface AdsConfig {
   /** A click from one visitor on one banner counts once in this many minutes. */
   clickDedupeMinutes: number
   notifyAdmins: boolean
+  /** How often the film player stops for an ad. */
+  player: PlayerPacing
 }
 
-export const DEFAULT_ADS: AdsConfig = { enabled: true, hideFor: 'NONE', selfServe: true, label: 'تبلیغ', clickDedupeMinutes: 30, notifyAdmins: true }
+export const DEFAULT_ADS: AdsConfig = { enabled: true, hideFor: 'NONE', selfServe: true, label: 'تبلیغ', clickDedupeMinutes: 30, notifyAdmins: true, player: DEFAULT_PLAYER_PACING }
 
 export async function getAdsConfig(): Promise<AdsConfig> {
   const stored = (await readJsonSetting(CONFIG_KEY)) || {}
@@ -47,6 +49,7 @@ export async function getAdsConfig(): Promise<AdsConfig> {
     label: String(stored.label || DEFAULT_ADS.label).replace(/[<>]/g, '').slice(0, 20) || DEFAULT_ADS.label,
     clickDedupeMinutes: Math.min(1440, Math.max(1, Math.round(Number(stored.clickDedupeMinutes)) || DEFAULT_ADS.clickDedupeMinutes)),
     notifyAdmins: stored.notifyAdmins !== false,
+    player: normalizePlayerPacing(stored.player),
   }
 }
 
@@ -59,6 +62,7 @@ export async function saveAdsConfig(input: Record<string, unknown>): Promise<Ads
     label: input.label === undefined ? previous.label : String(input.label).replace(/[<>]/g, '').trim().slice(0, 20) || DEFAULT_ADS.label,
     clickDedupeMinutes: input.clickDedupeMinutes === undefined ? previous.clickDedupeMinutes : Math.min(1440, Math.max(1, Math.round(Number(input.clickDedupeMinutes)) || previous.clickDedupeMinutes)),
     notifyAdmins: input.notifyAdmins === undefined ? previous.notifyAdmins : !!input.notifyAdmins,
+    player: input.player === undefined ? previous.player : normalizePlayerPacing({ ...previous.player, ...(input.player && typeof input.player === 'object' ? input.player : {}) }),
   }
   await writeJsonSetting(CONFIG_KEY, next)
   invalidateAdsCache()
@@ -68,7 +72,7 @@ export async function saveAdsConfig(input: Record<string, unknown>): Promise<Ads
 // ------------------------------------------------------------------ shared state
 
 interface PlacementRow { key: string; name: string; width: number; height: number; device: string; kind: string; active: boolean; fallbackHtml: string }
-interface CreativeRow { id: number; campaignId: number; kind: string; title: string; imageUrl: string; imageMobileUrl: string; alt: string; linkUrl: string; html: string; text: string; cta: string; weight: number }
+interface CreativeRow { id: number; campaignId: number; kind: string; title: string; imageUrl: string; imageMobileUrl: string; alt: string; linkUrl: string; html: string; text: string; cta: string; videoUrl: string; skipAfter: number; seconds: number; weight: number }
 type CampaignRow = CampaignView & { creatives: CreativeRow[] }
 interface Counter { imp: number; clk: number; req: number; empty: number }
 interface State {
@@ -108,7 +112,7 @@ async function load() {
   ])
   const creatives = new Map<number, CreativeRow>()
   const rows: CampaignRow[] = campaigns.map((c) => {
-    const list = c.creatives.map((x) => ({ id: x.id, campaignId: x.campaignId, kind: x.kind, title: x.title, imageUrl: x.imageUrl, imageMobileUrl: x.imageMobileUrl, alt: x.alt, linkUrl: x.linkUrl, html: x.html, text: x.text, cta: x.cta, weight: x.weight }))
+    const list = c.creatives.map((x) => ({ id: x.id, campaignId: x.campaignId, kind: x.kind, title: x.title, imageUrl: x.imageUrl, imageMobileUrl: x.imageMobileUrl, alt: x.alt, linkUrl: x.linkUrl, html: x.html, text: x.text, cta: x.cta, videoUrl: x.videoUrl, skipAfter: x.skipAfter, seconds: x.seconds, weight: x.weight }))
     for (const item of list) creatives.set(item.id, item)
     return {
       id: c.id, status: c.status, priority: c.priority, startsAt: c.startsAt, endsAt: c.endsAt, placements: json<string[]>(c.placements, []), devices: c.devices, audience: c.audience,
@@ -224,6 +228,10 @@ export interface ServeInput { placement: string; path: string; language: string;
 export interface ServedAd {
   id: number; kind: string; title: string; alt: string; image: string; imageMobile: string; text: string; cta: string; html: string
   click: string; view: string; label: string; width: number; height: number; sticky: boolean
+  /** Where it is shown: a page slot, a break in the film player, or over the playing film. */
+  slot: 'BANNER' | 'PLAYER' | 'OVERLAY'
+  /** In the player: the video, seconds before «رد کردن» (0 = it plays out), how long a picture stays. */
+  video: string; skipAfter: number; seconds: number
 }
 
 const hourInSite = (now: Date) => Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: process.env.SITE_TIMEZONE || 'Asia/Tehran' }).format(now)) % 24
@@ -248,8 +256,11 @@ export async function serveAd(input: ServeInput): Promise<{ ad: ServedAd | null;
   const totals = await today()
   const pending = state().counters
   const ctx = { placement: input.placement, device, path: cleanPath(input.path), language: /^[a-z]{2}(-[A-Za-z]{2})?$/.test(input.language) ? input.language : 'fa', signedIn, vip, now, hour: hourInSite(now) }
+  // Only what this slot can show: a video or a picture in a player break, never a video on a page (ads/domain creativeFits).
+  const slot = placement.kind === 'PLAYER' || placement.kind === 'OVERLAY' ? placement.kind : 'BANNER'
+  const fitting = (campaign: CampaignRow) => campaign.creatives.filter((item) => creativeFits(slot, item.kind))
   const candidates = cache.campaigns.filter((campaign) => {
-    if (!campaign.creatives.length) return false
+    if (!fitting(campaign).length) return false
     const done = totals.get(campaign.id) || { imp: 0, clk: 0 }
     let waitingImp = 0, waitingClk = 0
     for (const [key, row] of pending) { const [d, c] = key.split('|'); if (d === day && Number(c) === campaign.id) { waitingImp += row.imp; waitingClk += row.clk } }
@@ -257,7 +268,7 @@ export async function serveAd(input: ServeInput): Promise<{ ad: ServedAd | null;
     return ineligible({ ...campaign, impressions: campaign.impressions }, context) === ''
   })
   const campaign = pickCampaign(candidates, Math.random())
-  const creative = campaign ? pickCreative(campaign.creatives, Math.random()) : null
+  const creative = campaign ? pickCreative(fitting(campaign), Math.random()) : null
   bump(day, 0, 0, input.placement, 'req')
   if (!campaign || !creative) {
     bump(day, 0, 0, input.placement, 'empty')
@@ -269,6 +280,7 @@ export async function serveAd(input: ServeInput): Promise<{ ad: ServedAd | null;
     ad: {
       id: creative.id, kind: creative.kind, title: creative.title, alt: creative.alt, image: creative.imageUrl, imageMobile: creative.imageMobileUrl, text: creative.text, cta: creative.cta,
       html: creative.kind === 'HTML' ? creative.html.split('{{click_url}}').join(click || '#') : '', click, view, label: config.label, width: placement.width, height: placement.height, sticky: placement.kind === 'STICKY',
+      slot, video: creative.kind === 'VIDEO' ? creative.videoUrl : '', skipAfter: creative.skipAfter, seconds: creative.seconds,
     },
     fallback: '', reserve: placement.width && placement.height ? { width: placement.width, height: placement.height } : null,
   }

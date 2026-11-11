@@ -4,7 +4,8 @@ import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistor
 
 import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
-import { CINEMA_RAILS, type CinemaSettings } from '@/modules/cinema/domain/cinema'
+import { CINEMA_RAILS, introVideoUrl, type CinemaSettings } from '@/modules/cinema/domain/cinema'
+import FileUpload from '@/components/admin/FileUpload'
 import { OrderedPicker, RailsEditor } from '../../cms/SectionAdmin'
 import { CinemaShell, Notice, fa, send, useJson } from '../shared'
 import { CinemaMetadataSettings } from '@/components/admin/CinemaMetadata'
@@ -75,6 +76,18 @@ export default function CinemaSettingsPage() {
           <p className="sa-sub">فایل زیرنویس هم‌نام در همان پوشه (مثل <bdi dir="ltr">Film.1080p.fa.srt</bdi> کنار <bdi dir="ltr">Film.1080p.mkv</bdi>) و زیرنویس‌های متنی داخل فایل خوانده می‌شوند؛ هر زیرنویس فقط با همان فایل پخش می‌شود. زیرنویس‌های تصویری (PGS/VobSub) قابل نمایش در مرورگر نیستند.</p>
           <label className="sa-field"><span>سقف حجم فایل برای خواندن زیرنویس داخل آن (گیگابایت)</span><input className="input num" type="number" min={1} max={100} value={form.subtitleScanMaxGB} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ subtitleScanMaxGB: e.target.valueAsNumber }) }} /><small className="sa-sub">زیرنویس داخل فایل لابه‌لای تصویر و صدا قرار دارد و برای برداشتنش کل فایل یک‌بار خوانده می‌شود</small></label>
           <CinemaFoundSubtitles />
+        </section>
+        <section className="sa-card">
+          <header className="sa-card-head"><h2>اینترو</h2><small>پیش از پخش فیلم و قسمت</small></header>
+          <div className="sa-field">
+            <label htmlFor="cinema-intro">ویدیوی اینتروی سایت (MP4 یا WebM)</label>
+            <input id="cinema-intro" className="input" dir="ltr" value={form.introUrl} onChange={e => set({ introUrl: e.target.value })} placeholder="https://… یا /files/…" />
+            <FileUpload section="cinema" accept="video/mp4,video/webm" label="بارگذاری اینترو" compact onUploaded={file => set({ introUrl: file.url })} />
+            {form.introUrl && !introVideoUrl(form.introUrl) ? <small className="sa-sub" role="alert">فقط نشانی یک فایل MP4 یا WebM پذیرفته می‌شود؛ در غیر این صورت هنگام ذخیره خالی می‌شود.</small> : <small className="sa-sub">خالی = بدون اینترو. پس از تبلیغ پیش از فیلم (اگر باشد) و پیش از خود فیلم پخش می‌شود.</small>}
+          </div>
+          {introVideoUrl(form.introUrl) && <video className="cm-intro-preview" src={form.introUrl} controls muted playsInline preload="metadata" aria-label="پیش‌نمایش اینترو" />}
+          <label className="sa-field"><span>رد کردن اینترو پس از (ثانیه)</span><input className="input num" type="number" min={0} max={30} value={form.introSkipAfter} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ introSkipAfter: e.target.valueAsNumber }) }} /><small className="sa-sub">۰ = تا آخر پخش می‌شود</small></label>
+          <label className="sa-field"><span>دفعات نمایش</span><select className="input" value={form.introFrequency} onChange={e => set({ introFrequency: e.target.value === 'ALWAYS' ? 'ALWAYS' : 'SESSION' })}><option value="SESSION">یک‌بار در هر بازدید (تا بستن مرورگر)</option><option value="ALWAYS">پیش از هر فیلم و قسمت</option></select></label>
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>تنظیمات دیگر بخش</h2></header>

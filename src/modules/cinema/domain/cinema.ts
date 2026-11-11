@@ -36,6 +36,20 @@ export type CinemaSettings = {
   findSubtitles: boolean
   /** The largest video file read whole to take out the subtitles inside it, in GB. */
   subtitleScanMaxGB: number
+  /** The site's intro clip before a film or episode in the player ('' = none): an MP4/WebM address. */
+  introUrl: string
+  /** Seconds before the intro may be skipped (0 = it plays out). */
+  introSkipAfter: number
+  /** Once per browser session, or before every film. */
+  introFrequency: 'SESSION' | 'ALWAYS'
+}
+
+/** An intro the player can play: an MP4 or WebM file at an http(s) address or on this site; '' otherwise. */
+export function introVideoUrl(value: unknown): string {
+  const raw = String(value ?? '').trim()
+  if (!raw || raw.length > 2000 || /[\s<>"'\\\u0000-\u001f]/.test(raw)) return ''
+  if (!/^(https?:\/\/[^/]|\/(?!\/))/i.test(raw)) return ''
+  return /\.(mp4|webm)$/i.test(raw.split(/[?#]/)[0]) ? raw : ''
 }
 
 export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
@@ -51,6 +65,9 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   enableSeparateAudio: true,
   findSubtitles: true,
   subtitleScanMaxGB: 10,
+  introUrl: '',
+  introSkipAfter: 3,
+  introFrequency: 'SESSION',
 }
 
 export function normalizeCinemaSettings(input: unknown): CinemaSettings {
@@ -70,6 +87,9 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     enableSeparateAudio: raw.enableSeparateAudio !== false,
     findSubtitles: raw.findSubtitles !== false,
     subtitleScanMaxGB: clampInt(raw.subtitleScanMaxGB, 1, 100, d.subtitleScanMaxGB),
+    introUrl: introVideoUrl(raw.introUrl),
+    introSkipAfter: clampInt(raw.introSkipAfter, 0, 30, d.introSkipAfter),
+    introFrequency: raw.introFrequency === 'ALWAYS' ? 'ALWAYS' : 'SESSION',
   }
 }
 

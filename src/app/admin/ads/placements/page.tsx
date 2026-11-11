@@ -43,7 +43,7 @@ export default function PlacementsPage() {
         <label className="sa-field"><span>عرض (px)</span><input className="input" type="number" min={0} max={2000} value={draft.width} onChange={(e) => set('width', Number(e.target.value))} /></label>
         <label className="sa-field"><span>ارتفاع (px)</span><input className="input" type="number" min={0} max={2000} value={draft.height} onChange={(e) => set('height', Number(e.target.value))} /></label>
         <label className="sa-field"><span>دستگاه</span><select className="input" value={draft.device} onChange={(e) => set('device', e.target.value)}>{Object.entries(DEVICE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-        <label className="sa-field"><span>نوع</span><select className="input" value={draft.kind} onChange={(e) => set('kind', e.target.value)}><option value="BANNER">بنر داخل صفحه</option><option value="STICKY">چسبیده به پایین صفحه</option></select></label>
+        <label className="sa-field"><span>نوع</span><select className="input" value={draft.kind} onChange={(e) => set('kind', e.target.value)}><option value="BANNER">بنر داخل صفحه</option><option value="STICKY">چسبیده به پایین صفحه</option><option value="PLAYER">پخش‌کنندهٔ فیلم (قبل یا میانه)</option><option value="OVERLAY">روی ویدیو هنگام پخش</option></select></label>
         <label className="sa-field"><span>ترتیب</span><input className="input" type="number" min={0} max={1000} value={draft.sortOrder} onChange={(e) => set('sortOrder', Number(e.target.value))} /></label>
         <label className="sa-check"><input type="checkbox" checked={draft.active} onChange={(e) => set('active', e.target.checked)} /> فعال</label>
       </div>
