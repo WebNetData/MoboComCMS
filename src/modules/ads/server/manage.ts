@@ -3,7 +3,7 @@ import { formatMoney } from '@/shared/money'
 import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import {
-  AdsError, CAMPAIGN_STATUS, campaignFromPackage, ctr, dayOf, fillDays, normalizeCampaign, normalizeCreative, normalizePackage, normalizePlacement,
+  AdsError, CAMPAIGN_STATUS, campaignFromPackage, creativeFits, ctr, dayOf, fillDays, normalizeCampaign, normalizeCreative, normalizePackage, normalizePlacement,
   type CampaignStatus,
 } from '@/modules/ads/domain/ads'
 import { ensureBuiltinPlacements, flushAdStats, getAdsConfig, invalidateAdsCache } from '@/modules/ads/server/serving'
@@ -141,6 +141,9 @@ export async function setCampaignStatus(id: number, status: string, options: { r
   if (status === 'ACTIVE') {
     if (!campaign.creatives.length) throw new AdsError('برای فعال‌کردن، حداقل یک تبلیغ (بنر یا متن) لازم است', 409)
     if (!list(campaign.placements).length) throw new AdsError('جایگاهی انتخاب نشده است', 409)
+    // A campaign whose creatives fit none of its placements would never show (a banner in a player break, a video on a page).
+    const kinds = (await db.adPlacement.findMany({ where: { key: { in: list(campaign.placements) } }, select: { kind: true } })).map((row) => row.kind === 'PLAYER' || row.kind === 'OVERLAY' ? row.kind : 'BANNER')
+    if (!campaign.creatives.some((item) => kinds.some((slot) => creativeFits(slot, item.kind)))) throw new AdsError('هیچ‌کدام از تبلیغ‌های این کمپین در جایگاه‌های انتخاب‌شده نمایش داده نمی‌شود: پخش‌کننده ویدیو یا تصویر می‌خواهد و صفحه‌ها ویدیو نمی‌پذیرند', 409)
     // A bought package starts running the day it is approved.
     if (campaign.packageId && !campaign.approvedAt) {
       const pkg = await db.adPackage.findUnique({ where: { id: campaign.packageId } })

@@ -5,8 +5,9 @@ import Link from '@/components/AppLink'
 import { useParams, useRouter } from '@/platform/routing/navigation'
 import { AdsShell, ImageField, Notice, StatusChip, Trend, fa, faDate, send, useJson, type Day } from '../../shared'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
+import FileUpload from '@/components/admin/FileUpload'
 
-type Creative = { id: number; kind: string; title: string; imageUrl: string; imageMobileUrl: string; alt: string; linkUrl: string; html: string; text: string; cta: string; weight: number; active: boolean; impressions: number; clicks: number; ctr: number }
+type Creative = { id: number; kind: string; title: string; imageUrl: string; imageMobileUrl: string; alt: string; linkUrl: string; html: string; text: string; cta: string; videoUrl: string; skipAfter: number; seconds: number; weight: number; active: boolean; impressions: number; clicks: number; ctr: number }
 type Detail = {
   campaign: {
     id: number; name: string; status: string; priority: number; startsAt: string | null; endsAt: string | null; placements: string[]; devices: string; audience: string; includePaths: string[]; excludePaths: string[]; languages: string[]; hours: string
@@ -15,10 +16,10 @@ type Detail = {
   }
   creatives: Creative[]; series: Day[]; byPlacement: { key: string; impressions: number; clicks: number; ctr: number }[]
 }
-type Placement = { key: string; name: string; description: string; width: number; height: number; device: string; active: boolean }
+type Placement = { key: string; name: string; description: string; width: number; height: number; device: string; active: boolean; kind?: string }
 type Form = { name: string; priority: number; startsAt: string; endsAt: string; placements: string[]; devices: string; audience: string; includePaths: string; excludePaths: string; languages: string; hours: string; maxImpressions: string; maxClicks: string; dailyImpressions: string; dailyClicks: string; note: string; advertiserId: string }
 const EMPTY: Form = { name: '', priority: 5, startsAt: '', endsAt: '', placements: [], devices: 'ALL', audience: 'ALL', includePaths: '', excludePaths: '', languages: '', hours: '', maxImpressions: '', maxClicks: '', dailyImpressions: '', dailyClicks: '', note: '', advertiserId: '' }
-const BLANK: Creative = { id: 0, kind: 'IMAGE', title: '', imageUrl: '', imageMobileUrl: '', alt: '', linkUrl: '', html: '', text: '', cta: '', weight: 1, active: true, impressions: 0, clicks: 0, ctr: 0 }
+const BLANK: Creative = { id: 0, kind: 'IMAGE', title: '', imageUrl: '', imageMobileUrl: '', alt: '', linkUrl: '', html: '', text: '', cta: '', videoUrl: '', skipAfter: 5, seconds: 8, weight: 1, active: true, impressions: 0, clicks: 0, ctr: 0 }
 
 const local = (iso: string | null) => {
   if (!iso) return ''
@@ -30,6 +31,7 @@ const numeric = (value: number) => (value ? String(value) : '')
 
 function Preview({ item }: { item: Creative }) {
   if (item.kind === 'IMAGE') return item.imageUrl ? <img src={item.imageUrl} alt={item.alt || item.title} /> : <span className="sa-sub">تصویر ندارد</span>
+  if (item.kind === 'VIDEO') return item.videoUrl ? <video src={item.videoUrl} poster={item.imageUrl || undefined} controls muted playsInline preload="metadata" style={{ width: '100%', maxHeight: 240, background: '#000' }} /> : <span className="sa-sub">ویدیو ندارد</span>
   if (item.kind === 'TEXT') return <span className="promo-text"><b>{item.title || 'عنوان'}</b>{item.text && <span>{item.text}</span>}{item.cta && <em>{item.cta}</em>}</span>
   return <iframe title="پیش‌نمایش" srcDoc={item.html} sandbox="allow-scripts" style={{ width: '100%', height: 120, border: 0 }} />
 }
@@ -81,7 +83,7 @@ function CreativeEditor({ campaignId, item, places = [], onSaved, onCancel }: { 
     <header className="sa-card-head"><h2>{item.id ? 'ویرایش تبلیغ' : 'تبلیغ تازه'}</h2></header>
     {error && <Notice tone="error">{error}</Notice>}
     <div className="sa-cols">
-      <label className="sa-field"><span>نوع</span><select className="select" value={form.kind} onChange={(e) => set({ kind: e.target.value })}><option value="IMAGE">بنر تصویری</option><option value="TEXT">تبلیغ متنی</option><option value="HTML">کد HTML</option></select></label>
+      <label className="sa-field"><span>نوع</span><select className="select" value={form.kind} onChange={(e) => set({ kind: e.target.value })}><option value="IMAGE">بنر تصویری</option><option value="VIDEO">ویدیوی پخش‌کننده</option><option value="TEXT">تبلیغ متنی</option><option value="HTML">کد HTML</option></select></label>
       <label className="sa-field"><span>عنوان (برای گزارش و متن جایگزین)</span><input className="input" value={form.title} onChange={(e) => set({ title: e.target.value })} maxLength={120} /></label>
       <label className="sa-field"><span>وزن در چرخش (بیشتر = بیشتر نمایش)</span><input className="input" type="number" min={1} max={100} value={form.weight} onChange={(e) => set({ weight: Number(e.target.value) })} /><small className="sa-sub">چند تبلیغ در یک کمپین برای آزمایش A/B به‌نسبت وزن می‌چرخند.</small></label>
     </div>
@@ -90,7 +92,15 @@ function CreativeEditor({ campaignId, item, places = [], onSaved, onCancel }: { 
       <BannerSizeCheck url={form.imageUrl} places={places} />
       <ImageField label="تصویر مخصوص موبایل (اختیاری)" value={form.imageMobileUrl} onChange={(imageMobileUrl) => set({ imageMobileUrl })} />
       <label className="sa-field"><span>متن جایگزین تصویر</span><input className="input" value={form.alt} onChange={(e) => set({ alt: e.target.value })} maxLength={160} /></label>
+      {places.some((place) => place.kind === 'PLAYER') && <label className="sa-field"><span>مدت نمایش در پخش‌کننده (ثانیه)</span><input className="input num" type="number" min={3} max={30} value={form.seconds} onChange={(e) => set({ seconds: Number(e.target.value) })} /><small className="sa-sub">در جایگاه‌های پخش‌کننده، تصویر تمام‌قاب و به این مدت نشان داده می‌شود (۳ تا ۳۰).</small></label>}
     </div>}
+    {form.kind === 'VIDEO' && <div className="sa-cols">
+      <div className="sa-field"><span>فایل ویدیو (MP4 یا WebM) *</span><input className="input" dir="ltr" value={form.videoUrl} onChange={(e) => set({ videoUrl: e.target.value })} placeholder="https://… یا /files/…" aria-label="نشانی ویدیوی تبلیغ" /><FileUpload section="general" accept="video/mp4,video/webm" label="بارگذاری ویدیو" compact onUploaded={(file) => set({ videoUrl: file.url })} /><small className="sa-sub">فقط در جایگاه‌های پخش‌کننده (قبل یا میانهٔ فیلم) پخش می‌شود. کوتاه نگه دارید؛ ۱۵ تا ۳۰ ثانیه معمول است.</small></div>
+      <label className="sa-field"><span>رد کردن پس از (ثانیه)</span><input className="input num" type="number" min={0} max={60} value={form.skipAfter} onChange={(e) => set({ skipAfter: Number(e.target.value) })} /><small className="sa-sub">۰ یعنی بیننده نمی‌تواند رد کند و تبلیغ تا آخر پخش می‌شود.</small></label>
+      <ImageField label="تصویر پیش از بارگذاری ویدیو (اختیاری)" value={form.imageUrl} onChange={(imageUrl) => set({ imageUrl })} />
+      <label className="sa-field"><span>متن دکمهٔ لینک</span><input className="input" value={form.cta} onChange={(e) => set({ cta: e.target.value })} maxLength={40} placeholder="اطلاعات بیشتر" /></label>
+    </div>}
+    {form.kind === 'IMAGE' && places.some((place) => place.kind === 'PLAYER') && <label className="sa-field"><span>رد کردن پس از (ثانیه، در پخش‌کننده)</span><input className="input num" type="number" min={0} max={60} value={form.skipAfter} onChange={(e) => set({ skipAfter: Number(e.target.value) })} /></label>}
     {form.kind === 'TEXT' && <div className="sa-cols">
       <label className="sa-field"><span>متن توضیح</span><textarea className="textarea" rows={3} value={form.text} onChange={(e) => set({ text: e.target.value })} maxLength={200} /></label>
       <label className="sa-field"><span>متن دکمه</span><input className="input" value={form.cta} onChange={(e) => set({ cta: e.target.value })} maxLength={40} placeholder="مشاهده" /></label>
@@ -98,7 +108,7 @@ function CreativeEditor({ campaignId, item, places = [], onSaved, onCancel }: { 
     {form.kind === 'HTML' && <label className="sa-field"><span>کد HTML (داخل قاب امن نمایش داده می‌شود)</span><textarea className="textarea" dir="ltr" rows={7} value={form.html} onChange={(e) => set({ html: e.target.value })} />
       <small className="sa-sub">برای شمردن کلیک، نشانی مقصد را با <code dir="ltr">{'{{click_url}}'}</code> بنویسید: <code dir="ltr">{'<a href="{{click_url}}" target="_blank">…</a>'}</code>. اسکریپت‌های بیرونی (مثل شبکه‌های تبلیغاتی) مجاز نیستند.</small></label>}
     <label className="sa-field"><span>نشانی مقصد (با کلیک)</span><input className="input" dir="ltr" value={form.linkUrl} onChange={(e) => set({ linkUrl: e.target.value })} placeholder="https://example.com/landing" /></label>
-    {form.kind !== 'HTML' && form.imageUrl && <div className="ad-creative-preview"><Preview item={form} /></div>}
+    {form.kind !== 'HTML' && (form.imageUrl || form.videoUrl) && <div className="ad-creative-preview"><Preview item={form} /></div>}
     <label className="sa-check"><input type="checkbox" checked={form.active} onChange={(e) => set({ active: e.target.checked })} /> <span>فعال باشد</span></label>
     <div className="sa-row-actions"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? '…' : 'ذخیرهٔ تبلیغ'}</button><button type="button" className="btn btn-ghost" onClick={onCancel}>انصراف</button></div>
   </form>
@@ -217,7 +227,7 @@ export default function CampaignEditor() {
           {data.creatives.map((item) => <div key={item.id} className={`ad-creative${item.active ? '' : ' is-off'}`}>
             <div className="ad-creative-preview"><Preview item={item} /></div>
             <div>
-              <b>{item.title || (item.kind === 'IMAGE' ? 'بنر' : item.kind === 'TEXT' ? 'تبلیغ متنی' : 'کد HTML')}</b> <small className="sa-sub">وزن {fa(item.weight)}{item.active ? '' : ' · غیرفعال'}</small>
+              <b>{item.title || (item.kind === 'IMAGE' ? 'بنر' : item.kind === 'VIDEO' ? 'ویدیوی پخش‌کننده' : item.kind === 'TEXT' ? 'تبلیغ متنی' : 'کد HTML')}</b> <small className="sa-sub">وزن {fa(item.weight)}{item.active ? '' : ' · غیرفعال'}</small>
               <p className="sa-sub" dir="ltr">{item.linkUrl || '—'}</p>
               <p className="sa-sub">{fa(item.impressions)} نمایش · {fa(item.clicks)} کلیک · نرخ کلیک {item.ctr.toLocaleString('fa-IR')}٪</p>
               <div className="sa-row-actions"><button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(item)}>ویرایش</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => void removeCreative(item.id)}>حذف</button></div>

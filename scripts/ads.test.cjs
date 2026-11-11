@@ -158,3 +158,34 @@ test('a page asks for all its placements in one request: valid keys, each once, 
   assert.match(client, /new URLSearchParams\(\{ ps: placements\.join\(','\)/, 'the slots of a page share one request')
   assert.doesNotMatch(client, /new URLSearchParams\(\{ p: placement/, 'no request per slot')
 })
+
+test('player breaks: what fits a player slot, video creatives, pacing and mid-roll points', () => {
+  // A break shows a video or a picture; over the film a picture or a line; pages never a video, the player never HTML.
+  assert.deepEqual(['VIDEO', 'IMAGE', 'TEXT', 'HTML'].map(kind => a.creativeFits('PLAYER', kind)), [true, true, false, false])
+  assert.deepEqual(['VIDEO', 'IMAGE', 'TEXT', 'HTML'].map(kind => a.creativeFits('OVERLAY', kind)), [false, true, true, false])
+  assert.deepEqual(['VIDEO', 'IMAGE', 'TEXT', 'HTML'].map(kind => a.creativeFits('BANNER', kind)), [false, true, true, true])
+  assert.deepEqual(a.BUILTIN_PLACEMENTS.filter(p => p.kind === 'PLAYER' || p.kind === 'OVERLAY').map(p => [p.key, p.kind]), [['player-preroll', 'PLAYER'], ['player-midroll', 'PLAYER'], ['player-overlay', 'OVERLAY']])
+  assert.deepEqual(['PLAYER', 'OVERLAY', 'STICKY', 'FLOAT'].map(kind => a.normalizePlacement({ key: 'k-1', name: 'x', kind }).kind), ['PLAYER', 'OVERLAY', 'STICKY', 'BANNER'])
+
+  const video = a.normalizeCreative({ kind: 'VIDEO', videoUrl: 'https://cdn.example.com/ad.mp4?v=2', skipAfter: 99, title: 'Spot' }, { admin: false })
+  assert.deepEqual([video.kind, video.videoUrl, video.skipAfter, video.linkUrl], ['VIDEO', 'https://cdn.example.com/ad.mp4?v=2', 60, ''], 'an advertiser may send a video; the link is optional; skip is bounded')
+  assert.equal(a.normalizeCreative({ kind: 'VIDEO', videoUrl: '/files/ads/spot.webm', skipAfter: 0 }, { admin: true }).skipAfter, 0, 'a site file; 0 = no skip')
+  for (const bad of ['', 'https://x.com/ad.mkv', 'javascript:alert(1)//.mp4', 'https://x.com/ad.mp4"onerror=1', '//evil.com/a.mp4']) assert.throws(() => a.normalizeCreative({ kind: 'VIDEO', videoUrl: bad }, { admin: true }), a.AdsError, bad)
+  assert.equal(a.normalizeCreative({ kind: 'IMAGE', imageUrl: '/u.png', linkUrl: 'https://x.com', seconds: 1 }, { admin: false }).seconds, 3, 'a picture in the player stays 3–30 seconds')
+  assert.equal(a.normalizeCreative({ kind: 'IMAGE', imageUrl: '/u.png', linkUrl: 'https://x.com' }, { admin: false }).videoUrl, '', 'no video on anything else')
+  const plain = a.normalizeCreative({ kind: 'VIDEO', videoUrl: '/files/a.mp4' }, { admin: true })
+  assert.deepEqual([plain.skipAfter, plain.seconds, plain.weight], [5, 8, 1], 'what is not given is the default, not 0 (an unskippable ad by accident)')
+  assert.equal(a.normalizeCampaign({ name: 'x', placements: ['side-a'] }, ['side-a']).priority, 5, 'a campaign without a priority is in the middle, not last')
+
+  assert.deepEqual(a.normalizePlayerPacing({ gapMinutes: -5, midrollMinutes: 'x', midrollMinLength: 9999, overlayAfter: 30 }), { gapMinutes: 0, midrollMinutes: 20, midrollMinLength: 600, overlayAfter: 30 })
+  assert.deepEqual(a.normalizePlayerPacing(null), a.DEFAULT_PLAYER_PACING)
+  const pacing = { gapMinutes: 10, midrollMinutes: 20, midrollMinLength: 30, overlayAfter: 15 }
+  assert.deepEqual(a.midrollPoints(100 * 60, pacing), [1200, 2400, 3600, 4800], 'every 20 minutes')
+  assert.deepEqual(a.midrollPoints(61 * 60, pacing), [1200, 2400], 'never in the last two minutes (3600 > 3540)')
+  assert.deepEqual([a.midrollPoints(29 * 60, pacing), a.midrollPoints(NaN, pacing), a.midrollPoints(7200, { ...pacing, midrollMinutes: 0 })], [[], [], []], 'short films, unknown length, switched off')
+  assert.ok(a.midrollPoints(100 * 3600, { ...pacing, midrollMinutes: 1, midrollMinLength: 0 }).length <= 12, 'bounded')
+  const done = new Set([1200])
+  assert.deepEqual([a.crossedPoint([1200, 2400], 2399, 2400.2, new Set()), a.crossedPoint([1200, 2400], 1199, 1201, done), a.crossedPoint([1200, 2400], 100, 2500, new Set()), a.crossedPoint([1200, 2400], 2401, 2399, new Set())], [2400, null, null, null], 'crossed by playing, once; a seek past or back is not a crossing')
+  const now = Date.UTC(2026, 10, 11, 12)
+  assert.deepEqual([a.breakDue(0, now, pacing), a.breakDue(now - 9 * 60_000, now, pacing), a.breakDue(now - 10 * 60_000, now, pacing), a.breakDue(now + 60_000, now, pacing), a.breakDue(now, now, { ...pacing, gapMinutes: 0 })], [true, false, true, true, true], 'the gap between two breaks for one viewer; a clock moved back does not block forever')
+})

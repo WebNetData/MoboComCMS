@@ -3998,7 +3998,7 @@ model AdPlacement {
   width        Int      @default(0)
   height       Int      @default(0)
   device       String   @default("ALL") // ALL | DESKTOP | MOBILE
-  kind         String   @default("BANNER") // BANNER | STICKY
+  kind         String   @default("BANNER") // BANNER | STICKY | PLAYER (a break in the film player) | OVERLAY (over the playing film)
   active       Boolean  @default(true)
   builtin      Boolean  @default(false)
   fallbackHtml String   @default("") // the site's own promotion, shown when no campaign matches
@@ -4063,7 +4063,7 @@ model AdCampaign {
 model AdCreative {
   id             Int        @id @default(autoincrement())
   campaignId     Int
-  kind           String     @default("IMAGE") // IMAGE | HTML | TEXT
+  kind           String     @default("IMAGE") // IMAGE | HTML | TEXT | VIDEO
   title          String     @default("")
   imageUrl       String     @default("")
   imageMobileUrl String     @default("")
@@ -4072,6 +4072,10 @@ model AdCreative {
   html           String     @default("")
   text           String     @default("")
   cta            String     @default("")
+  /// In the film player: the video file (VIDEO), seconds before «رد کردن» (0 = plays out) and how long a picture stays.
+  videoUrl       String     @default("")
+  skipAfter      Int        @default(5)
+  seconds        Int        @default(8)
   weight         Int        @default(1)
   active         Boolean    @default(true)
   impressions    Int        @default(0)

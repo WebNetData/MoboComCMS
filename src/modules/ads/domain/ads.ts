@@ -18,11 +18,24 @@ export const AUDIENCE_LABEL: Record<Audience, string> = { ALL: 'همه', GUEST: 
 export const DEVICES = ['ALL', 'DESKTOP', 'MOBILE'] as const
 export type Device = (typeof DEVICES)[number]
 export const DEVICE_LABEL: Record<Device, string> = { ALL: 'همهٔ دستگاه‌ها', DESKTOP: 'رایانه', MOBILE: 'موبایل' }
-export const CREATIVE_KINDS = ['IMAGE', 'TEXT', 'HTML'] as const
+export const CREATIVE_KINDS = ['IMAGE', 'TEXT', 'HTML', 'VIDEO'] as const
 export type CreativeKind = (typeof CREATIVE_KINDS)[number]
-export const KIND_LABEL: Record<CreativeKind, string> = { IMAGE: 'بنر تصویری', TEXT: 'تبلیغ متنی', HTML: 'کد HTML (فقط مدیر)' }
+export const KIND_LABEL: Record<CreativeKind, string> = { IMAGE: 'بنر تصویری', TEXT: 'تبلیغ متنی', HTML: 'کد HTML (فقط مدیر)', VIDEO: 'ویدیوی پخش‌کننده' }
+export const PLACEMENT_KINDS = ['BANNER', 'STICKY', 'PLAYER', 'OVERLAY'] as const
+export type PlacementKind = (typeof PLACEMENT_KINDS)[number]
+export const PLACEMENT_KIND_LABEL: Record<PlacementKind, string> = { BANNER: 'بنر صفحه', STICKY: 'چسبیده به پایین', PLAYER: 'پخش‌کننده (قبل یا میانهٔ فیلم)', OVERLAY: 'روی ویدیو هنگام پخش' }
 
-export interface PlacementDef { key: string; name: string; description: string; width: number; height: number; device: Device; kind: 'BANNER' | 'STICKY'; sortOrder: number }
+/**
+ * Which creatives a placement can show. A break in the film player shows a video, or a picture for a few seconds; a
+ * banner over the playing film is a picture or a line of text; page slots never get a video. HTML stays on pages.
+ */
+export function creativeFits(slot: string, kind: string): boolean {
+  if (slot === 'PLAYER') return kind === 'VIDEO' || kind === 'IMAGE'
+  if (slot === 'OVERLAY') return kind === 'IMAGE' || kind === 'TEXT'
+  return kind === 'IMAGE' || kind === 'TEXT' || kind === 'HTML'
+}
+
+export interface PlacementDef { key: string; name: string; description: string; width: number; height: number; device: Device; kind: PlacementKind; sortOrder: number }
 
 /** Placements every site starts with; more can be added for custom themes. */
 export const BUILTIN_PLACEMENTS: PlacementDef[] = [
@@ -34,13 +47,19 @@ export const BUILTIN_PLACEMENTS: PlacementDef[] = [
   { key: 'sidebar', name: 'ستون کناری', description: 'ستون کناری قالب‌هایی که آن را دارند', width: 300, height: 250, device: 'DESKTOP', kind: 'BANNER', sortOrder: 6 },
   { key: 'footer-banner', name: 'بالای فوتر', description: 'بالای پایین‌صفحه، در همهٔ صفحه‌ها', width: 728, height: 90, device: 'ALL', kind: 'BANNER', sortOrder: 7 },
   { key: 'sticky-bottom', name: 'چسبیده به پایین (موبایل)', description: 'نوار ثابت پایین صفحه در موبایل، با دکمهٔ بستن', width: 320, height: 50, device: 'MOBILE', kind: 'STICKY', sortOrder: 8 },
+  { key: 'player-preroll', name: 'پخش‌کننده: قبل از فیلم', description: 'ویدیو یا تصویر پیش از شروع فیلم و قسمت، با دکمهٔ رد کردن', width: 1280, height: 720, device: 'ALL', kind: 'PLAYER', sortOrder: 9 },
+  { key: 'player-midroll', name: 'پخش‌کننده: میانهٔ فیلم', description: 'ویدیو یا تصویر در میانهٔ فیلم‌های طولانی، با فاصلهٔ تنظیمات تبلیغات', width: 1280, height: 720, device: 'ALL', kind: 'PLAYER', sortOrder: 10 },
+  { key: 'player-overlay', name: 'پخش‌کننده: روی ویدیو', description: 'بنر کوچک پایین ویدیو هنگام پخش، با دکمهٔ بستن', width: 468, height: 60, device: 'ALL', kind: 'OVERLAY', sortOrder: 11 },
 ]
 
 // ------------------------------------------------------------------ validation
 
 const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
+// A value not given is the fallback (not 0: a missing skip time would make an ad unskippable, a missing priority the lowest).
 const int = (value: unknown, min: number, max: number, fallback: number) => {
-  const n = Math.round(Number(String(value ?? '').replace(/[,٬\s]/g, '')))
+  const raw = String(value ?? '').replace(/[,٬\s]/g, '')
+  if (!raw) return fallback
+  const n = Math.round(Number(raw))
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
 }
 
@@ -106,7 +125,14 @@ export function normalizeCampaign(input: Record<string, unknown>, known: string[
   }
 }
 
-export interface CreativeData { kind: CreativeKind; title: string; imageUrl: string; imageMobileUrl: string; alt: string; linkUrl: string; html: string; text: string; cta: string; weight: number; active: boolean }
+export interface CreativeData { kind: CreativeKind; title: string; imageUrl: string; imageMobileUrl: string; alt: string; linkUrl: string; html: string; text: string; cta: string; videoUrl: string; skipAfter: number; seconds: number; weight: number; active: boolean }
+
+/** An ad video the player can play: an MP4 or WebM file at an http(s) address or on this site. */
+export function adVideoUrl(value: unknown): string {
+  const url = safeUrl(value, { allowPath: true })
+  if (url && !/\.(mp4|webm)$/i.test(url.split(/[?#]/)[0])) throw new AdsError('ویدیوی تبلیغ باید فایل MP4 یا WebM باشد')
+  return url
+}
 
 /** Creative form → clean data. Advertisers can send images and text; HTML is for administrators. */
 export function normalizeCreative(input: Record<string, unknown>, options: { admin: boolean }): CreativeData {
@@ -114,6 +140,7 @@ export function normalizeCreative(input: Record<string, unknown>, options: { adm
   if (kind === 'HTML' && !options.admin) throw new AdsError('کد HTML فقط توسط مدیر ثبت می‌شود')
   const out: CreativeData = {
     kind, title: text(input.title, 120), imageUrl: '', imageMobileUrl: '', alt: text(input.alt, 160), linkUrl: '', html: '', text: text(input.text, 200), cta: text(input.cta, 40),
+    videoUrl: '', skipAfter: int(input.skipAfter, 0, 60, 5), seconds: int(input.seconds, 3, 30, 8),
     weight: int(input.weight, 1, 100, 1), active: input.active !== false,
   }
   if (kind !== 'HTML') out.linkUrl = safeUrl(input.linkUrl)
@@ -129,6 +156,12 @@ export function normalizeCreative(input: Record<string, unknown>, options: { adm
     if (!out.title) throw new AdsError('عنوان تبلیغ متنی را وارد کنید')
     if (!out.linkUrl) throw new AdsError('نشانی مقصد را وارد کنید')
   }
+  if (kind === 'VIDEO') {
+    out.videoUrl = adVideoUrl(input.videoUrl)
+    if (!out.videoUrl) throw new AdsError('فایل ویدیوی تبلیغ را بارگذاری کنید یا نشانی آن را وارد کنید')
+    // The poster shown while the video loads, optional.
+    out.imageUrl = safeUrl(input.imageUrl, { allowPath: true })
+  }
   if (kind === 'HTML') {
     out.html = String(input.html ?? '').slice(0, 20_000)
     if (!out.html.trim()) throw new AdsError('کد HTML را وارد کنید')
@@ -143,7 +176,7 @@ export function normalizePlacement(input: Record<string, unknown>) {
   if (!name) throw new AdsError('نام جایگاه را وارد کنید')
   return {
     key, name, description: text(input.description, 240), width: int(input.width, 0, 2000, 0), height: int(input.height, 0, 2000, 0),
-    device: DEVICES.includes(input.device as Device) ? input.device as Device : 'ALL', kind: input.kind === 'STICKY' ? 'STICKY' as const : 'BANNER' as const,
+    device: DEVICES.includes(input.device as Device) ? input.device as Device : 'ALL', kind: PLACEMENT_KINDS.includes(input.kind as PlacementKind) ? input.kind as PlacementKind : 'BANNER' as PlacementKind,
     active: input.active !== false, fallbackHtml: String(input.fallbackHtml ?? '').slice(0, 10_000), sortOrder: int(input.sortOrder, 0, 1000, 0),
   }
 }
@@ -160,6 +193,44 @@ export function normalizePackage(input: Record<string, unknown>, known: string[]
     priceMinor: BigInt(Math.round(price)), currency: 'IRT', active: input.active !== false, sortOrder: int(input.sortOrder, 0, 1000, 0),
   }
 }
+
+// ------------------------------------------------------------------ breaks in the film player
+
+/** How often the film player stops for an ad (ads settings). */
+export interface PlayerPacing {
+  /** At least this many minutes between two breaks for one viewer (0 = every time). */
+  gapMinutes: number
+  /** A mid-roll every this many minutes of playback (0 = none). */
+  midrollMinutes: number
+  /** Only in films and episodes at least this many minutes long. */
+  midrollMinLength: number
+  /** The overlay banner this many seconds into playback (0 = none). */
+  overlayAfter: number
+}
+export const DEFAULT_PLAYER_PACING: PlayerPacing = { gapMinutes: 10, midrollMinutes: 20, midrollMinLength: 30, overlayAfter: 15 }
+export function normalizePlayerPacing(input: unknown): PlayerPacing {
+  const raw = input && typeof input === 'object' ? input as Record<string, unknown> : {}
+  const d = DEFAULT_PLAYER_PACING
+  // A setting never saved (every site before this) reads as the default, not as 0 (which would switch things off).
+  return { gapMinutes: int(raw.gapMinutes, 0, 1440, d.gapMinutes), midrollMinutes: int(raw.midrollMinutes, 0, 240, d.midrollMinutes), midrollMinLength: int(raw.midrollMinLength, 0, 600, d.midrollMinLength), overlayAfter: int(raw.overlayAfter, 0, 3600, d.overlayAfter) }
+}
+
+/** Where mid-rolls fall in a film of this length (seconds), never in its last two minutes. */
+export function midrollPoints(durationSeconds: number, pacing: PlayerPacing): number[] {
+  if (!pacing.midrollMinutes || !Number.isFinite(durationSeconds) || durationSeconds < Math.max(1, pacing.midrollMinLength) * 60) return []
+  const out: number[] = [], step = pacing.midrollMinutes * 60
+  for (let at = step; at < durationSeconds - 120 && out.length < 12; at += step) out.push(at)
+  return out
+}
+
+/** The mid-roll point playback just crossed by playing on (a jump of more than a few seconds is a seek, not playing). */
+export function crossedPoint(points: number[], from: number, to: number, done: ReadonlySet<number>): number | null {
+  if (!(to > from) || to - from > 5) return null
+  return points.find(point => from < point && point <= to && !done.has(point)) ?? null
+}
+
+/** Whether this viewer may get another break (`last` = ms of their last one, from the device). */
+export const breakDue = (last: number, now: number, pacing: PlayerPacing) => !Number.isFinite(last) || last <= 0 || now - last >= pacing.gapMinutes * 60_000 || now < last
 
 // ------------------------------------------------------------------ device & bots
 

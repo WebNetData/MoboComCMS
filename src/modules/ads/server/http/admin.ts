@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       case 'advertiser.save': { const saved = await saveAdvertiser(body, idOf(body.id) || undefined); await audit('advertiser.save', saved.id, { name: saved.name }); return ok({ id: saved.id }) }
       case 'package.save': { const saved = await savePackage(body, idOf(body.id) || undefined); await audit('package.save', saved.id, { name: saved.name }); return ok({ id: saved.id }) }
       case 'package.delete': { await deletePackage(idOf(body.id)); await audit('package.delete', idOf(body.id)); return ok({ ok: true }) }
-      case 'settings': { const settings = await saveAdsConfig(body.settings || {}); await audit('settings', 'ads', { enabled: settings.enabled, hideFor: settings.hideFor, selfServe: settings.selfServe }); return ok({ settings }) }
+      case 'settings': { const settings = await saveAdsConfig(body.settings || {}); await audit('settings', 'ads', { enabled: settings.enabled, hideFor: settings.hideFor, selfServe: settings.selfServe, player: settings.player }); return ok({ settings }) }
       case 'flush': return ok({ ended: await flushAdStats() })
       default: return err('عملیات نامعتبر است', 400)
     }

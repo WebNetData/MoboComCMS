@@ -5,6 +5,7 @@ import type Hls from 'hls.js'
 import SubtitleControls from '@/components/media/player/SubtitleControls'
 import SeparateAudioControls from '@/components/media/player/SeparateAudioControls'
 import SilentAudioNotice from '@/components/media/player/SilentAudioNotice'
+import PlayerBreaks, { type PlayerBreaksConfig } from '@/components/media/player/PlayerBreaks'
 import type { PlayerAudio, PlayerSubtitle } from '@/modules/media/server/links'
 
 type Props = {
@@ -24,6 +25,8 @@ type Props = {
   subtitlePreference?: string | null
   /** Inline editorial players must never consume shortcuts belonging to another player or editor. */
   keyboardScope?: 'global' | 'focused'
+  /** Ads and the intro around a film or episode (the watch page only). */
+  breaks?: PlayerBreaksConfig | null
 }
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
@@ -44,7 +47,7 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null, keyboardScope = 'global' }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null, keyboardScope = 'global', breaks = null }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const frame = useRef<HTMLDivElement>(null), subtitleLayer = useRef<HTMLDivElement>(null)
   const [externalAudio, setExternalAudio] = useState(false)
@@ -141,7 +144,8 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       const target = event.target as HTMLElement | null
       if (!element || target?.isContentEditable || (target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName))) return
       if (keyboardScope === 'focused' && (!target || !frame.current?.contains(target))) return
-      if (event.key === ' ' || event.key === 'k') { event.preventDefault(); if (element.paused) void element.play().catch(() => setError('network')); else element.pause() }
+      // A start held on purpose (an ad or the intro first: AbortError) is not a failed download.
+      if (event.key === ' ' || event.key === 'k') { event.preventDefault(); if (element.paused) void element.play().catch((reason: unknown) => { if ((reason as { name?: string })?.name !== 'AbortError') setError('network') }); else element.pause() }
       else if (event.key === 'ArrowRight') element.currentTime = Math.min(element.duration || Infinity, element.currentTime + 10)
       else if (event.key === 'ArrowLeft') element.currentTime = Math.max(0, element.currentTime - 10)
       else if (event.key === 'f') { if (document.fullscreenElement) void document.exitFullscreen(); else void frame.current?.requestFullscreen?.() }
@@ -162,9 +166,10 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
         {subtitles.map((track) => <track key={track.id} kind="subtitles" src={track.src} srcLang={track.language || 'und'} label={track.label} />)}
       </video>
       <div className="vp-ass-layer" ref={subtitleLayer} aria-hidden="true" />
+      {breaks && !error && <PlayerBreaks video={video} config={breaks} />}
       {resume > 0 && !error && <div className="vp-resume" role="status">
         <span>از {clock(resume)} ادامه می‌دهید؟</span>
-        <button type="button" onClick={() => { if (video.current) { video.current.currentTime = resume; void video.current.play() } setResume(0) }}>ادامهٔ پخش</button>
+        <button type="button" onClick={() => { if (video.current) { video.current.currentTime = resume; void video.current.play().catch(() => undefined) } setResume(0) }}>ادامهٔ پخش</button>
         <button type="button" className="is-ghost" onClick={() => { write(resumeKey, null); setResume(0) }}>از اول</button>
       </div>}
       {nextEpisode && nextCountdown !== null && !error && <div className="vp-next" role="status">
