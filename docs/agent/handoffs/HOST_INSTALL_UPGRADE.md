@@ -1,5 +1,60 @@
 # Ubuntu host installation and recovery continuation — 2026-10-31
 
+## Update disk space and snapshot retention — 2026-11-11
+
+Branch `fix/updater-disk-space-2026-11-11` from main `c66753c5` (v1.7.16).
+Scope/spec: [disk space and snapshot retention](../../specs/update-build-safety/SPEC.md#disk-space-and-snapshot-retention--2026-11-11).
+
+Owner report: `/opt/mobocom` held about 51 GB, mostly `.mobocom-build.*` left by
+earlier updates. The v1.7.16 update stopped in `npm ci` with ENOSPC; the Git
+rollback failed on the full disk, and the site stayed up only because the old
+process kept running.
+
+- `deploy/ubuntu/update-space.cjs` owns disk checks and retention (`list`, `ensure`,
+  `prune`, `discard`). It runs as the service user; no root helper or sudo rule
+  changed.
+- `git-build.sh`: `git_build_prepare <commit>` exports without checkout; each
+  directory has `status` and `target-commit`; `git_build_switch [branch]` moves the
+  checkout only after validation; `git_build_discard` removes a never-adopted
+  candidate.
+- `self-update.sh` and `update.sh`: `ensure` before backup; build → validate →
+  switch → adopt → restart → health → `healthy`; prune to policy after success. A
+  build failure leaves HEAD, `.next` and `node_modules` as they were and needs no
+  rollback writes. Its state is `rolled-back` with «سایت و کد آن دست نخورد», or
+  `failed` when owner work appeared.
+- `package-update.sh`: status marks, and `ensure` through the installed app's copy
+  of the tool when present; otherwise the old `df` floor.
+- Server Panel: `GET /api/admin/server/updates?view=space` and POST
+  `space-prune` (audited), card «فضای نسخه‌های قبلی» on `/admin/updates`.
+
+Executed evidence:
+- `scripts/updater.test.cjs` in `node:22` (Linux, non-root `node` user, full
+  tree from the branch snapshot): 52 pass, 1 fail. The failure, the package-feed
+  case, cannot load `@prisma/client` in that bare container; it fails the same way
+  on unchanged main (44 pass, 1 fail).
+- New cases: ENOSPC in npm ci for both entry points (HEAD, reflog, build and
+  dependencies unchanged, no stop/restart, candidate removed); short disk stops
+  before backup; post-success retention (keeps the current, adopted, partial and
+  other-kind snapshots, removes the others and trash); rolled-back marking; lock,
+  incomplete-install and symlink protection; discard guards; `ensure` oldest-first
+  only while short.
+- On Windows Git Bash the same file is 51 pass, 2 fail. Both failures (`mv` shim,
+  host backup) also fail on unchanged main there.
+- `tsc --noEmit`: no errors in the changed TypeScript files.
+
+Not verified: `package-update.sh` by execution (its host test skips outside a
+full host; syntax only), the panel card in a browser, a real ENOSPC on a real disk,
+and the first update on the owner's server. An update runs the installed scripts,
+so these protections apply from the update after the one that installs them.
+
+Owner recovery for the current server (manual, once): check that no update runs
+(`ls /opt/mobocom/app/storage/update/lock` must not exist) and that
+`/opt/mobocom/app/.next/BUILD_ID` exists. Then keep the newest `.mobocom-build.*`
+whose `before/.next/BUILD_ID` exists and remove the older ones. After this
+version is installed, the panel card or
+`sudo -u mobocom node /opt/mobocom/app/deploy/ubuntu/update-space.cjs prune /opt/mobocom/app`
+applies the same policy.
+
 ## Preserve Git-update compiled artifacts — 2026-11-05
 
 Branch `fix/retain-update-build-2026-11-05`, from merged main `dc263fbd` (PR357).

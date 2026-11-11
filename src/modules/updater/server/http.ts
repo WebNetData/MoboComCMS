@@ -10,20 +10,23 @@ import { serverGate } from '@/modules/server-panel/server/gate'
 import { deletePackage, startPackage } from './packages'
 import { JsonBodyError, readJsonObject } from '@/platform/http/read-json'
 import { downloadGithubPackage } from './github'
+import { pruneUpdateSpace, updateSpace } from './space'
 
 const failure = (error: unknown) => { if (error instanceof UpdateError) return err(error.message, error.status); throw error }
 
-/** GET → the update status; ?view=progress → only the running update's progress (polled while updating); ?refresh=1 asks the feed again. */
+/** GET → the update status; ?view=progress → only the running update's progress (polled while updating); ?view=space → disk use of
+ * the private update snapshots and their retention; ?refresh=1 asks the feed again. */
 export async function GET(req: NextRequest) {
   const guard = await adminGuard(req, null, ['settings.manage'])
   if ('response' in guard) return guard.response
   try {
     if (req.nextUrl.searchParams.get('view') === 'progress') return ok(runProgress())
+    if (req.nextUrl.searchParams.get('view') === 'space') return ok(await updateSpace())
     return ok(await status(req.nextUrl.searchParams.get('refresh') === '1'))
   } catch (error) { return failure(error) }
 }
 
-/** POST { op: 'apply' | 'hook' | 'migrate' | 'backup' } */
+/** POST { op: 'apply' | 'hook' | 'migrate' | 'backup' | 'space-prune' | … } */
 export async function POST(req: NextRequest) {
   const panel = await serverGate(req)
   if ('response' in panel) return panel.response
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest) {
       case 'hook': { const result = await triggerHook(); await audit('hook'); return ok(result) }
       case 'migrate': { const result = await migrateNow(); await audit('migrate'); return ok(result) }
       case 'backup': return ok({ started: runBackupWorker(true) })
+      case 'space-prune': { const result = await pruneUpdateSpace(); await audit('space-prune', result); return ok(result) }
       default: return err('عملیات نامعتبر است')
     }
   } catch (error) { return failure(error) }

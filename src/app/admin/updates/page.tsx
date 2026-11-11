@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Notice, faDate } from '../store/shared'
 import { ServerShell, useServerApi, useServerJson } from '../server/shared'
 import PackageUpdates from './PackageUpdates'
+import UpdateSpace from './UpdateSpace'
 
 type Release = { version: string; tag: string; notes: string; url: string; publishedAt: string; prerelease: boolean }
 type Run = { status: 'idle' | 'running' | 'done' | 'failed' | 'rolled-back'; step: string; target: string; previous: string; at: string; log: string }
@@ -120,6 +121,8 @@ function UpdatesPanel() {
       {env.method === 'docker' && <div className="upd-howto"><b>این سایت در Docker اجرا می‌شود.</b><p>ایمیج را از میزبان جدید بسازید: در Coolify روی «Redeploy» بزنید (یا برای یک‌کلیکی، آدرس Deploy Webhook را در متغیر <code dir="ltr">UPDATE_DEPLOY_HOOK_URL</code> بگذارید). مهاجرت‌ها هنگام بالا آمدن خودکار اجرا می‌شوند.</p></div>}
       {env.method === 'manual' && <div className="upd-howto"><b>روی این سرور به‌روزرسانی از پنل فعال نیست.</b><p>روی سرور اجرا کنید: <code dir="ltr">bash deploy/ubuntu/update.sh</code>. برای فعال‌کردن دکمهٔ یک‌کلیکی یک بار <code dir="ltr">sudo bash deploy/ubuntu/updater-install.sh</code> را اجرا کنید (نیازمند systemd و پوشهٔ git).</p></div>}
     </section> : env.method !== 'package' && <section className="sa-card"><p className="sa-hint">نسخهٔ جدیدی وجود ندارد. سرور هر ۶ ساعت خودکار بررسی می‌کند و در صورت انتشار نسخهٔ تازه به مدیران اعلان می‌دهد.</p></section>}
+
+    {env.method !== 'docker' && env.method !== 'hook' && <UpdateSpace running={running || !!busy} />}
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>مهاجرت‌های پایگاه داده</h2></header>

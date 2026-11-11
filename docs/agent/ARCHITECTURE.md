@@ -1,3 +1,5 @@
+2026-11-11 Updater disk space and snapshots: `deploy/ubuntu/update-space.cjs` is the one owner of update disk checks and retention of the private sibling directories (`.mobocom-build.*`, `.package.*`), used by `self-update.sh`, `update.sh`, `package-update.sh` and the Server Panel (`updater/server/space.ts`, `/admin/updates`). Git updaters build from an exported target commit and switch the running checkout only after the candidate built (`git_build_switch`). [Spec](../specs/update-build-safety/SPEC.md#disk-space-and-snapshot-retention--2026-11-11), [handoff](handoffs/HOST_INSTALL_UPGRADE.md).
+
 Chat agent2026-11-09: bridge0.6.7 waits through transient routing after an owned send before delivery; transient routes never bind or accept a result. Same-message receipt retries recheck nonce/deadline and never invoke generation. Selected-image and transfer-budget behavior is retained. Operator confirms0.6.7 completion. Clean server slugs are merged in PR386; the VPS web update is still required. [Evidence and rollback](handoffs/AI_CHAT_AGENT_RELIABILITY.md).
 
 ## Authorized economy AI and manual CI — owner2026-11-08

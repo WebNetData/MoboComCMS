@@ -75,7 +75,7 @@ healthy() {
 }
 
 build_and_start() {
-  run git_build_prepare || return 1
+  run git_build_prepare "$TARGET_SHA" || return 1
   (
   cd "$GIT_BUILD_STAGE/source" || return 1
   # The environment file sets NODE_ENV=production, which would leave out the packages the build needs.
@@ -88,12 +88,17 @@ build_and_start() {
   say "$ $BUILD (heap ${BUILD_MEMORY} MB)"
   NODE_OPTIONS="--max-old-space-size=$BUILD_MEMORY" bash -c "$BUILD" >> "$LOG" 2>&1 || return 1
   ) || return 1
+  run git_build_validate || return 1
+  # Only a built candidate changes the running checkout.
+  step "جایگزینی کد با ${REF}"
+  run git_build_switch || return 1
   run git_build_adopt || return 1
   reset_build_files
   step "راه‌اندازی مجدد سرویس"
   runsh "$RESTART" || return 1
   step "بررسی سلامت سرویس"
-  healthy
+  healthy || return 1
+  git_build_mark healthy
 }
 
 BUILD_MEMORY="${BUILD_MEMORY_MB:-4096}"
@@ -117,24 +122,41 @@ if [ "${UPDATE_REQUIRE_SIGNED_TAG:-false}" = "true" ]; then
   run git verify-tag "$REF" || { state failed "امضای نسخه تأیید نشد"; exit 2; }
 fi
 
+# Disk space for the whole build (dependencies, build, source and a margin) before anything is written. Old update
+# directories are removed by policy only while space is short; see deploy/ubuntu/update-space.cjs.
+step "بررسی فضای دیسک"
+run node deploy/ubuntu/update-space.cjs ensure . --lock "$LOCK" --own-lock || { state failed "فضای دیسک برای ساخت نسخهٔ تازه کافی نیست؛ جزئیات در لاگ و فضای نسخه‌های قبلی در همین صفحه"; exit 2; }
+
 step "Backing up before update"
 runsh "$BACKUP" || { state failed "Backup failed before code replacement"; exit 1; }
 if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then state failed "Local work appeared during backup; preserved"; exit 2; fi
 
-step "جایگزینی کد با ${REF}"
-run git checkout --quiet --detach "$TARGET_SHA" || { state failed "تعویض کد ناموفق بود"; exit 1; }
 step "نصب وابستگی‌ها"
+GIT_BUILD_SWITCHED=0
 if build_and_start; then
   printf '%s %s %s
 ' "$(now)" "$PREV" "$TARGET_SHA" >> "$DIR/history.log"
   state done "به‌روزرسانی کامل شد"
   say "done"
+  # Keep the newest snapshot that can restore a previous build (this one); older ones go. Never fails the update.
+  run node deploy/ubuntu/update-space.cjs prune . --lock "$LOCK" --own-lock --current "$(basename "$GIT_BUILD_STAGE")" || say "cleanup of old update directories skipped"
   exit 0
 fi
 
+reset_build_files
+if [ "$GIT_BUILD_SWITCHED" = 0 ]; then
+  # Nothing outside the private directory changed: no checkout, stop or restart is needed, so this works on a full disk.
+  if [ -z "$(git status --porcelain --untracked-files=normal)" ] && [ "$(git rev-parse HEAD)" = "$PREV" ]; then
+    run git_build_discard || say "the failed candidate directory was kept"
+    state rolled-back "نسخهٔ تازه ساخته نشد؛ سایت و کد آن دست نخورد. لاگ را بررسی کنید"
+    say "candidate failed before the switch; nothing to restore"
+    exit 1
+  fi
+  state failed "تغییر محلی هنگام ساخت پیدا شد و حفظ شد؛ نسخهٔ فعلی همچنان اجرا می‌شود"
+  exit 1
+fi
 say "the new version did not start: rolling back to $PREV"
 step "بازگشت به نسخهٔ قبلی"
-reset_build_files
 if [ -z "$(git status --porcelain --untracked-files=normal)" ] && [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] && run git checkout --quiet --detach "$PREV" && run git_build_restore && runsh "$RESTART" && healthy; then
   state rolled-back "نسخهٔ جدید بالا نیامد؛ به نسخهٔ قبلی برگشت"
   say "rolled back"
