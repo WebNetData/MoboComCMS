@@ -5161,7 +5161,7 @@ model AiInvocation {
   id           String    @id @default(uuid())
   purpose      String
   kind         String    @default("text")
-  transport    String    @default("api")
+  transport    String    @default("api") // api | personal | cache (answered from the cache, ai/server/usage)
   provider     String
   model        String
   status       String    @default("RUNNING")
@@ -5179,4 +5179,5 @@ model AiInvocation {
   @@index([startedAt])
   @@index([purpose, startedAt])
   @@index([status, startedAt])
+  @@index([purpose, transport, startedAt])
 }
