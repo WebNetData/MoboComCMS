@@ -21,6 +21,7 @@ export function Money({ value, currency }: { value: number; currency: string }) 
 const TABS = [
   { href: '/admin/store', label: 'داشبورد', exact: true },
   { href: '/admin/store/orders', label: 'سفارش‌ها' },
+  { href: '/admin/store/counter', label: 'فروش حضوری' },
   { href: '/admin/store/returns', label: 'لغو و مرجوعی' },
   { href: '/admin/store/print', label: 'چاپ کارت حضوری' },
   { href: '/admin/store/shipments', label: 'مرسوله‌ها' },

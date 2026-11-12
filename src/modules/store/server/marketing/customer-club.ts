@@ -51,10 +51,11 @@ export async function runLoyaltyAwards(now = new Date(), limit = 500) {
     after = orders[orders.length - 1].id
     const done = new Set((await db.loyaltyEntry.findMany({ where: { orderId: { in: orders.map((order) => order.id) }, kind: 'EARN_ORDER' }, select: { orderId: true } })).map((row) => row.orderId))
     for (const order of orders) {
+      if (order.userId === null) continue
       if (done.has(order.id)) continue
       if (handled++ >= limit) break
       try {
-        if (await awardOrder(settings, order)) awarded++
+        if (await awardOrder(settings, { ...order, userId: order.userId })) awarded++
       } catch (error) {
         logEvent('warn', 'store.loyalty_award_failed', { orderId: order.id, error: String(error) })
       }
@@ -88,20 +89,21 @@ async function awardOrder(settings: LoyaltySettings, order: { id: number; userId
 /** Takes back the points of a refunded part of an order (cancellation or return). */
 export async function reverseOrderPoints(orderId: number, refundedMinor: bigint, key: string) {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { userId: true, totalMinor: true } })
-  if (!order) return
+  if (!order || order.userId === null) return
+  const buyerId = order.userId
   const idempotencyKey = `order:${orderId}:reverse:${key}`
   try {
     await db.$transaction(async (tx) => {
       // Take the member's account row first: a second refund of the same order waits here and then
       // reads the first one's reversal, so two refunds together never take back more than was earned.
-      await tx.loyaltyAccount.updateMany({ where: { userId: order.userId }, data: { balance: { increment: 0 } } })
+      await tx.loyaltyAccount.updateMany({ where: { userId: buyerId }, data: { balance: { increment: 0 } } })
       const entries = await tx.loyaltyEntry.findMany({ where: { orderId }, select: { points: true, kind: true } })
       const earned = entries.filter((row) => row.kind === 'EARN_ORDER').reduce((sum, row) => sum + row.points, 0)
       const reversed = -entries.filter((row) => row.kind === 'REVERSE_ORDER').reduce((sum, row) => sum + row.points, 0)
       const points = Math.min(earned - reversed, reversalPoints(earned, refundedMinor, order.totalMinor))
       if (points <= 0) return
-      await tx.loyaltyEntry.create({ data: { userId: order.userId, points: -points, kind: 'REVERSE_ORDER', note: `برگشت امتیاز سفارش #${orderId}`, orderId, idempotencyKey } })
-      await tx.loyaltyAccount.update({ where: { userId: order.userId }, data: { balance: { decrement: points }, lifetime: { decrement: points } } })
+      await tx.loyaltyEntry.create({ data: { userId: buyerId, points: -points, kind: 'REVERSE_ORDER', note: `برگشت امتیاز سفارش #${orderId}`, orderId, idempotencyKey } })
+      await tx.loyaltyAccount.update({ where: { userId: buyerId }, data: { balance: { decrement: points }, lifetime: { decrement: points } } })
     })
   } catch (error) {
     if ((error as { code?: string }).code !== 'P2002') throw error // this refund's reversal is already recorded

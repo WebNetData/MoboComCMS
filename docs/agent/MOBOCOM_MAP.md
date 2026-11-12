@@ -1,3 +1,5 @@
+Store counter2026-11-12: `/admin/store/counter` → private Store counter HTTP → `store/server/counter-sales.ts` composes Catalog stock/code reservations, Billing settlement and strict Audit. Guest and linked-customer sales use existing Order/Invoice/Payment; product cards and itemized receipts read persisted sales. Source from PR447/main `c09c400e`. [Scenario](../specs/store-counter-sales/SPEC.md), [verified local evidence and rollout limits](handoffs/STORE_COUNTER_SALES.md).
+
 ## Releases 1.7.16–1.7.18 reconciled — 2026-11-12
 
 Continue from owner-merged main `1cd2406e`. Identity/Account and Redis/Settings/Admin performance shipped in 1.7.16. Existing Updater, AI usage/routing, Cinema people/subtitles and Ads player owners extend in 1.7.17. Provider prompt-cache metrics, indexed subtitles/external players, Store specialist delivery/cards/files and Forms repair intake/receipts extend in 1.7.18. The implementation commits, migration seals, maintained checks and outstanding provider/host limits are indexed in the [release engineering reconciliation](audits/2026-11-12-release-1.7.16-1.7.18.md).

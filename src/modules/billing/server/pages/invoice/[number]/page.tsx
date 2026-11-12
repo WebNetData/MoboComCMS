@@ -45,7 +45,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
       plan: { select: { name: true, trafficGB: true, days: true, deviceLimit: true } },
       product: { select: { name: true } },
       gateway: true,
-      order: { select: { id: true, status: true, paymentUrl: true, provider: true, meta: true, lines: { orderBy: { line: 'asc' }, select: { name: true, variantName: true, quantity: true, totalMinor: true } } } },
+      order: { select: { id: true, status: true, paymentUrl: true, provider: true, meta: true, customerName: true, lines: { orderBy: { line: 'asc' }, select: { name: true, variantName: true, quantity: true, totalMinor: true } } } },
       payments: { orderBy: { id: 'desc' }, take: 5 },
     },
   })
@@ -69,7 +69,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
   const due = Math.max(0, Math.round((invoice.total - (invoice.walletApplied || 0)) * 100) / 100)
   const [deliveryJob, deliveredSubscription, creditedTopup, productDelivery] = invoice.status === 'PAID' ? await Promise.all([
     invoice.orderId ? db.fulfillmentJob.findFirst({ where: { orderId: invoice.orderId }, orderBy: { id: 'desc' }, select: { status: true } }) : Promise.resolve(null),
-    invoice.orderId ? db.subscription.findFirst({ where: { orderId: invoice.orderId, userId: invoice.userId }, select: { id: true } }) : Promise.resolve(null),
+    invoice.orderId && invoice.userId !== null ? db.subscription.findFirst({ where: { orderId: invoice.orderId, userId: invoice.userId }, select: { id: true } }) : Promise.resolve(null),
     invoice.kind === 'WALLET_TOPUP' ? db.walletTx.findFirst({ where: { invoiceId: invoice.id, status: 'DONE', type: 'TOPUP' }, select: { id: true } }) : Promise.resolve(null),
     invoice.productId && invoice.orderId ? db.productDelivery.findUnique({ where: { orderId: invoice.orderId }, select: { status: true, trackingCode: true, deliveryNote: true, digitalDelivery: true } }) : Promise.resolve(null),
   ]) : [null, null, null, null]
@@ -133,8 +133,8 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
           <div className="invoice-meta">
             <div>
               <span>{t.billedTo}</span>
-              <b>{invoice.user.name || invoice.user.email}</b>
-              {invoice.user.name && !/\.local$/.test(invoice.user.email) && <small dir="ltr">{invoice.user.email}</small>}
+              <b>{invoice.order?.customerName || invoice.user?.name || invoice.user?.email || 'مشتری حضوری'}</b>
+              {invoice.user?.name && !/\.local$/.test(invoice.user.email) && <small dir="ltr">{invoice.user.email}</small>}
             </div>
             <div><span>{t.issuedAt}</span><b>{fmt(invoice.issuedAt)}</b></div>
             <div><span>{t.dueAt}</span><b>{fmt(invoice.dueAt)}</b></div>

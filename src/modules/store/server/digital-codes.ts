@@ -153,8 +153,8 @@ async function codeLines(orderId: number) {
 }
 
 /** Gives one line the codes it still misses; returns how many it is still short of. Safe to repeat. */
-async function assignLine(orderId: number, item: CodeLine): Promise<number> {
-  return db.$transaction(async (tx) => {
+export async function assignLine(orderId: number, item: CodeLine, client?: import('@prisma/client').Prisma.TransactionClient): Promise<number> {
+  const assign = async (tx: import('@prisma/client').Prisma.TransactionClient) => {
     const have = await tx.productDigitalCode.count({ where: { orderId, orderLine: item.line, returnedAt: null } })
     const need = missingCodes(item.quantity, have)
     if (!need) return 0
@@ -165,7 +165,8 @@ async function assignLine(orderId: number, item: CodeLine): Promise<number> {
     if (!picked.length) return need
     const taken = await tx.productDigitalCode.updateMany({ where: { id: { in: picked.map((row) => row.id) }, orderId: null }, data: { orderId, orderLine: item.line, deliveredAt: new Date() } })
     return need - taken.count
-  })
+  }
+  return client ? assign(client) : db.$transaction(assign)
 }
 
 /**
@@ -311,7 +312,7 @@ export async function replaceCode(input: { productId: number; codeId: number; ac
     return { orderId: old.orderId, userId: order.userId, codeId: picked[0].id, stock: await syncCodeStock(tx, input.productId) }
   })
   await refreshDelivery(result.orderId)
-  await createInboxEvent({
+  if (result.userId !== null) await createInboxEvent({
     userId: result.userId, kind: 'PRODUCT_DELIVERED', dedupeKey: `code-replaced:${result.codeId}`,
     titleEn: 'A code of your order was replaced', titleFa: 'کد سفارش شما جایگزین شد',
     bodyEn: 'The new code is on the order page.', bodyFa: 'کد تازه در صفحهٔ سفارش شماست.', href: `/dashboard/orders/${result.orderId}`,

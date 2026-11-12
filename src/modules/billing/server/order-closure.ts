@@ -45,6 +45,7 @@ export async function cancelUnpaidOrder(orderId: number, description: string): P
  * provider; only the wallet part moves here.
  */
 export async function refundPaidInvoice(invoice: Invoice & { gateway?: { provider: string } | null }, input: { totalMinor: bigint; walletMinor: bigint; by: string; actorId: number }): Promise<{ ok: true } | Refused> {
+  if (input.walletMinor > 0n && invoice.userId === null) return { ok: false, status: 409, message: 'بازپرداخت به کیف پول به حساب مشتری نیاز دارد' }
   const { orderId } = invoice
   const currency = normalizeCurrency(invoice.currency)
   const claim = await db.$transaction(async (tx) => {
@@ -65,7 +66,7 @@ export async function refundPaidInvoice(invoice: Invoice & { gateway?: { provide
   if (claim === 'RETURNS') return { ok: false, status: 409, message: 'این سفارش درخواست لغو یا مرجوعی دارد؛ بازپرداخت را از صفحهٔ همان درخواست انجام دهید' }
   if (claim === 'GONE') return { ok: false, status: 409, message: 'وضعیت فاکتور تغییر کرده است؛ صفحه را تازه کنید' }
 
-  if (input.walletMinor > 0n) await moveWallet({ userId: invoice.userId, amount: legacyNumber(input.walletMinor, currency), currency, type: 'REFUND', description: `refund wallet portion of ${invoice.number}`, invoiceId: invoice.id, orderId, idempotencyKey: `invoice-refund-wallet:${invoice.id}` })
+  if (input.walletMinor > 0n && invoice.userId !== null) await moveWallet({ userId: invoice.userId, amount: legacyNumber(input.walletMinor, currency), currency, type: 'REFUND', description: `refund wallet portion of ${invoice.number}`, invoiceId: invoice.id, orderId, idempotencyKey: `invoice-refund-wallet:${invoice.id}` })
   if (!orderId) return { ok: true }
 
   // The invoice is refunded from here on: what follows closes its order, and a failure is logged rather than undoing that.
@@ -82,7 +83,7 @@ export async function refundPaidInvoice(invoice: Invoice & { gateway?: { provide
   await import('@/modules/store/server/marketing').then((m) => m.reverseOrderPoints(orderId, input.totalMinor, `invoice:${invoice.id}`)).catch((error) => logEvent('warn', 'store.loyalty_reverse_failed', { invoiceId: invoice.id, error: String(error) }))
   const shown = `${minorToNumber(input.totalMinor, currency).toLocaleString('fa-IR')} ${currency === 'IRT' ? 'تومان' : currency}`
   await db.orderEvent.create({ data: { orderId, status: 'REFUNDED', note: `بازپرداخت ${shown} برای فاکتور ${invoice.number} ثبت شد`, visible: true, actorId: input.actorId } })
-  await createInboxEvent({
+  if (invoice.userId !== null) await createInboxEvent({
     userId: invoice.userId, kind: 'ORDER_REFUND', dedupeKey: `invoice-refund:${invoice.id}`,
     titleEn: `Refund of invoice ${invoice.number}`, titleFa: `بازپرداخت فاکتور ${invoice.number}`,
     bodyEn: 'Your order is closed and its refund is recorded.', bodyFa: `بازپرداخت ${shown} ثبت شد و سفارش شما بسته شد.`, href: `/dashboard/orders/${orderId}`,

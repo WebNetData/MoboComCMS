@@ -87,10 +87,10 @@ export async function incompleteOrders(now = new Date()) {
     db.order.findMany({ where, orderBy: { createdAt: 'desc' }, take: 15, select: { id: true, userId: true, totalMinor: true, currency: true, createdAt: true, user: { select: { name: true, marketingOptIn: true } }, lines: { select: { name: true }, take: 2 } } }),
     db.order.groupBy({ by: ['currency'], where, _sum: { totalMinor: true } }),
   ])
-  const later = await db.order.findMany({ where: { userId: { in: [...new Set(rows.map(r => r.userId))] }, status: { in: [...PAID_ORDER_STATUSES] }, createdAt: { gte: new Date(now.getTime() - 7 * day) } }, select: { userId: true, createdAt: true } })
+  const later = await db.order.findMany({ where: { userId: { in: [...new Set(rows.flatMap(r => r.userId === null ? [] : [r.userId]))] }, status: { in: [...PAID_ORDER_STATUSES] }, createdAt: { gte: new Date(now.getTime() - 7 * day) } }, select: { userId: true, createdAt: true } })
   return {
     count, value: money(value.map(v => ({ currency: v.currency, minor: v._sum.totalMinor }))),
-    orders: rows.map(o => ({ id: o.id, userId: o.userId, customer: o.user.name || `#${o.userId}`, marketingOptIn: o.user.marketingOptIn, total: o.totalMinor.toString(), currency: o.currency, createdAt: o.createdAt.toISOString(), items: o.lines.map(l => l.name), boughtSince: later.some(p => p.userId === o.userId && p.createdAt > o.createdAt) })),
+    orders: rows.map(o => ({ id: o.id, userId: o.userId, customer: o.user?.name || 'مشتری حضوری', marketingOptIn: o.user?.marketingOptIn || false, total: o.totalMinor.toString(), currency: o.currency, createdAt: o.createdAt.toISOString(), items: o.lines.map(l => l.name), boughtSince: o.userId !== null && later.some(p => p.userId === o.userId && p.createdAt > o.createdAt) })),
   }
 }
 

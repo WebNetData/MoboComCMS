@@ -339,7 +339,8 @@ export async function storeCustomers(input: { q?: string; page?: number; sort?: 
     where: { ...STORE_ORDER, status: 'PAID', user: userWhere },
     _count: { _all: true }, _sum: { totalMinor: true }, _max: { createdAt: true },
   })
-  const sorted = grouped.sort((a, b) => input.sort === 'recent'
+  const registered = grouped.filter((row): row is typeof row & { userId: number } => row.userId !== null)
+  const sorted = registered.sort((a, b) => input.sort === 'recent'
     ? (b._max.createdAt?.getTime() || 0) - (a._max.createdAt?.getTime() || 0)
     : input.sort === 'orders' ? b._count._all - a._count._all : Number((b._sum.totalMinor || 0n) - (a._sum.totalMinor || 0n)))
   const pageRows = sorted.slice((page - 1) * size, page * size)

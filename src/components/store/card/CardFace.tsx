@@ -64,11 +64,11 @@ function Scratch({ onDone, children }: { onDone: () => void; children: ReactNode
  * product's own), the product, then its rows by place: large (an amount), on the card, and the email part. Rows placed
  * beside the card are left to the caller. Every drawn text carries `data-draw` so the saved image matches it exactly.
  */
-export default function CardFace({ design, brand, product, items, shown, face, photo, tilt = true, copied, onCopy, onReveal }: {
+export default function CardFace({ design, brand, product, items, shown, face, photo, tilt = true, animateSecrets = true, copied, onCopy, onReveal }: {
   design: CardDesign; brand: CardBrand; product: string; items: DeliveryItem[]; shown: boolean
   /** Another preset chosen by the viewer; the product's own design when unset. */ face?: string
   /** A photo from the viewer's own device (stays in the browser). */ photo?: string | null
-  tilt?: boolean; copied?: string; onCopy?: (item: DeliveryItem, key: string) => void; onReveal?: () => void
+  tilt?: boolean; animateSecrets?: boolean; copied?: string; onCopy?: (item: DeliveryItem, key: string) => void; onReveal?: () => void
 }) {
   const preset = presetOf(face || design.preset)
   const own = !face, image = photo || (own ? design.background : '')
@@ -90,9 +90,9 @@ export default function CardFace({ design, brand, product, items, shown, face, p
   const groups = { hero: items.filter((item) => placeOf(item) === 'hero'), card: items.filter((item) => placeOf(item) === 'card'), email: items.filter((item) => placeOf(item) === 'email') }
   const row = (item: DeliveryItem, key: string, big = false) => {
     const hidden = item.secret && !shown && !scratched[key]
-    const value = <button type="button" dir="ltr" className={big ? styles.heroValue : styles.value} data-draw data-value={item.value} aria-label={`کپی ${item.label}`} disabled={!onCopy} onClick={() => onCopy?.(item, key)}>
-      {item.secret ? <Decode value={item.value} shown={!hidden} /> : item.value}
-    </button>
+    const content = item.secret ? (animateSecrets ? <Decode value={item.value} shown={!hidden} /> : hidden ? MASK : item.value) : item.value
+    const value = onCopy ? <button type="button" dir="ltr" className={big ? styles.heroValue : styles.value} data-draw data-value={item.value} aria-label={`کپی ${item.label}`} onClick={() => onCopy(item, key)}>{content}</button>
+      : <span dir="ltr" className={big ? styles.heroValue : styles.value} data-draw data-value={item.value}>{content}</span>
     return <div key={key} className={big ? styles.hero : styles.row}>
       <dt data-draw>{item.label}</dt>
       <dd>

@@ -14,6 +14,7 @@ test('a caller deadline ends an unreachable provider with the app diagnostic bef
  let seen
  const client=loadSource({'./credentials':{credentialPoolReady:async()=>null,generateWithCredentialPool:async()=>null},'./routing':{readAiRoutes:async()=>({}),resolveAiRoute:()=>({source:'inherit'})},'./admin-context':{personalAiActor:()=>undefined,personalAiPurpose:()=>undefined},'@/modules/providers/server/panel-credentials':{decryptPanelCredential:()=>'owned-key'},'@/modules/social/server/egress':{egressRoute:async()=>'direct',egressFetch:(_url,init)=>new Promise((_resolve,reject)=>{seen=init.signal;init.signal.addEventListener('abort',()=>reject(init.signal.reason))})}})('src/modules/ai/server/client.ts')
  const config={provider:'gemini',model:'gemini-2.5-flash',apiKey:'owned',baseUrl:'',voice:'',botName:''},started=Date.now()
- await assert.rejects(client.generate({system:'owned',user:'owned',maxTokens:200},config,undefined,AbortSignal.timeout(50)),e=>e.status===502&&/Xray/.test(e.message))
+ const keepAlive=setInterval(()=>{},1000)
+ try { await assert.rejects(client.generate({system:'owned',user:'owned',maxTokens:200},config,undefined,AbortSignal.timeout(50)),e=>e.status===502&&/Xray/.test(e.message)) } finally { clearInterval(keepAlive) }
  assert(seen.aborted);assert(Date.now()-started<5000)
 })

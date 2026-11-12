@@ -35,7 +35,7 @@ export async function listFulfillmentOperations() {
     return [{
       orderId: order.id,
       invoiceId: invoice.id,
-      user: order.user.email,
+      user: order.user?.email || 'مشتری حضوری',
       item: order.plan?.name || order.product?.name || '—',
       kind: job?.kind || (order.productId ? 'DELIVER_PRODUCT' : isRenewal(order.meta) ? 'RENEW_SUBSCRIPTION' : 'PROVISION_SUBSCRIPTION'),
       amount: invoice.total,

@@ -457,7 +457,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     throw error
   }
 
-  await emitExtensionEvent('order.created', { orderId: order.id, userId: order.userId, planId: order.planId, productId: order.productId, totalMinor: order.totalMinor.toString(), currency: order.currency })
+  await emitExtensionEvent('order.created', { orderId: order.id, userId: command.userId, planId: order.planId, productId: order.productId, totalMinor: order.totalMinor.toString(), currency: order.currency })
 
   if (productId) {
     const reserved = await reserveInventory({ orderId: order.id })

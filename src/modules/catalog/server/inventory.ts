@@ -10,7 +10,7 @@ import { syncCodeStock } from '@/modules/catalog/server/code-stock'
 type Tx = Prisma.TransactionClient
 type StockLine = { line: number; productId: number; variantId: number | null; quantity: number }
 
-class OutOfStock extends Error {}
+export class OutOfStock extends Error {}
 
 const holdFor = (minutes: number | undefined) => new Date(Date.now() + Math.max(5, Math.min(24 * 60, Math.floor(minutes || 30))) * 60_000)
 
@@ -62,7 +62,11 @@ async function run(work: (tx: Tx) => Promise<number>) {
  * Lines that already have a reservation are left as they are.
  */
 export function reserveInventory(input: { orderId: number; holdMinutes?: number }) {
-  return run(async (tx) => {
+  return run((tx) => reserveInventoryInTransaction(tx, input))
+}
+
+/** The same reservation owner inside a larger atomic sale. */
+export async function reserveInventoryInTransaction(tx: Tx, input: { orderId: number; holdMinutes?: number }) {
     const lines = await orderStockLines(tx, input.orderId)
     const existing = await tx.inventoryReservation.findMany({ where: { orderId: input.orderId } })
     if (existing.some((row) => row.status === 'RELEASED')) throw new OutOfStock('inventory reservation was released')
@@ -72,7 +76,6 @@ export function reserveInventory(input: { orderId: number; holdMinutes?: number 
       await tx.inventoryReservation.create({ data: { orderId: input.orderId, line: item.line, productId: item.productId, variantId: taken.variantId, quantity: item.quantity, finite: taken.finite, variantFinite: taken.variantFinite, status: 'HELD', expiresAt: holdFor(input.holdMinutes) } })
     }
     return lines.length
-  })
 }
 
 /**
@@ -105,11 +108,11 @@ export function ensureInventoryReservation(input: { orderId: number; holdMinutes
 }
 
 /** Marks the held stock as sold (after payment). */
-export async function consumeInventoryReservation(orderId: number) {
-  const rows = await db.inventoryReservation.findMany({ where: { orderId } })
+export async function consumeInventoryReservation(orderId: number, client: Tx | typeof db = db) {
+  const rows = await client.inventoryReservation.findMany({ where: { orderId } })
   if (!rows.length) return { ok: true as const, consumed: false }
   if (rows.some((row) => row.status === 'RELEASED')) return { ok: false as const, message: 'inventory reservation was released' }
-  await db.inventoryReservation.updateMany({ where: { orderId, status: 'HELD' }, data: { status: 'CONSUMED' } })
+  await client.inventoryReservation.updateMany({ where: { orderId, status: 'HELD' }, data: { status: 'CONSUMED' } })
   return { ok: true as const, consumed: true }
 }
 

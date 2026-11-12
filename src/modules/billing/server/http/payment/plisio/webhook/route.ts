@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       })
       if (!settlement.ok) throw new Error(settlement.message || 'invoice settlement failed')
 
-      if (invoice.kind === 'WALLET_TOPUP') {
+      if (invoice.kind === 'WALLET_TOPUP' && invoice.userId !== null) {
         const pending = await db.walletTx.findFirst({ where: { invoiceId: invoice.id, type: 'TOPUP' }, orderBy: { id: 'desc' } })
         const credit = await moveWallet({
           userId: invoice.userId,

@@ -6,7 +6,7 @@ import styles from './page.module.css'
 type Cost = { total: number; unpricedTokens: number; approximate: boolean; saved: number; cachedInputTokens: number; byPurpose: { purpose: string; cost: number; tokens: number }[]; cachedAnswers: number; refusedByCeiling: number; models: { provider: string; model: string }[] }
 type View = { policy: UsagePolicy; purposes: { id: string; label: string }[]; today: Record<string, { requests: number; tokens: number }>; days: number; cost: Cost }
 const fa = (n: number) => Math.round(n).toLocaleString('fa-IR')
-const usd = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 4 })}`
+const usd = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(n)
 const num = (value: string) => { const n = Number(value); return Number.isFinite(n) && n >= 0 ? n : 0 }
 /** An optional cache price: emptied means «not given» (priced as input), which is not the same as 0 (free). */
 const optional = (value: string) => value.trim() === '' ? undefined : num(value)
@@ -50,9 +50,9 @@ export default function UsagePanel({ days }: { days: string }) {
     <div className={styles.tableWrap}><table className="sa-table">
       <caption className="sr-only">سقف و حافظهٔ هر کاربرد</caption>
       <thead><tr><th scope="col">کاربرد</th><th scope="col">امروز</th><th scope="col">سقف درخواست در روز</th><th scope="col">سقف توکن در روز</th><th scope="col">حافظه (ساعت)</th><th scope="col">حافظهٔ پرامپت</th></tr></thead>
-      <tbody>{view.purposes.map(p => { const v = form.purposes[p.id as keyof UsagePolicy['purposes']], t = view.today[p.id] || { requests: 0, tokens: 0 }; return <tr key={p.id}>
+      <tbody>{view.purposes.map(p => { const v = form.purposes[p.id as keyof UsagePolicy['purposes']], usage = view.today[p.id] || { requests: 0, tokens: 0 }; return <tr key={p.id}>
         <th scope="row">{p.label}</th>
-        <td>{fa(t.requests)} درخواست{t.tokens ? ` · ${fa(t.tokens)} توکن` : ''}</td>
+        <td>{fa(usage.requests)} درخواست{usage.tokens ? ` · ${fa(usage.tokens)} توکن` : ''}</td>
         <td><input className="input num" type="number" min={0} aria-label={`سقف درخواست روزانهٔ ${p.label}`} value={v.dailyRequests} onChange={e => setPurpose(p.id, { dailyRequests: num(e.target.value) })} /></td>
         <td><input className="input num" type="number" min={0} aria-label={`سقف توکن روزانهٔ ${p.label}`} value={v.dailyTokens} onChange={e => setPurpose(p.id, { dailyTokens: num(e.target.value) })} /></td>
         <td><input className="input num" type="number" min={0} max={720} aria-label={`حافظهٔ پاسخ ${p.label} به ساعت`} value={v.cacheHours} onChange={e => setPurpose(p.id, { cacheHours: num(e.target.value) })} /></td>

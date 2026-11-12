@@ -5,6 +5,15 @@ const path = require('node:path')
 const ts = require('typescript-api')
 const { NextRequest } = require('next/server')
 
+test('counter sale requires explicit received-money confirmation and bounded unambiguous lines', () => {
+ const { readCounterSale } = load('src/modules/store/domain/counter-sales.ts')
+ const valid = { requestId: '11111111-2222-4333-8444-555555555555', confirmed: true, method: 'CASH', lines: [{ productId: 1, quantity: 2, expectedUnitMinor: '9007199254740991' }] }
+ assert.equal(readCounterSale(valid).customerId, null)
+ assert.equal(readCounterSale(valid).lines[0].expectedUnitMinor, '9007199254740991')
+ assert.equal(readCounterSale({ ...valid, customerId: 2, customerName: '  نام\u0000  ', method: 'CARD' }).customerName, 'نام')
+ for (const changed of [{ confirmed: false }, { method: 'WALLET' }, { requestId: 'bad' }, { customerId: -1 }, { lines: [] }, { lines: [...valid.lines, ...valid.lines] }, { lines: [{ ...valid.lines[0], quantity: 1.5 }] }, { lines: [{ ...valid.lines[0], quantity: 100 }] }, { lines: [{ ...valid.lines[0], expectedUnitMinor: '1e3' }] }]) assert.throws(() => readCounterSale({ ...valid, ...changed }))
+})
+
 function load(file, mocks = {}, cache = new Map()) {
   const key = file.replace(/\\/g, '/')
   if (cache.has(key)) return cache.get(key).exports

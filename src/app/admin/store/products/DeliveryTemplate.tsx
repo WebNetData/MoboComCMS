@@ -10,7 +10,7 @@ import styles from './DeliveryTemplate.module.css'
 type Form = Record<string, any>
 const TONE_LABEL: Record<NoticeTone, string> = { info: 'راهنما', warning: 'هشدار', danger: 'مهم و جدی' }
 /** What the preview shows for a row before anything is delivered. */
-const SAMPLE: Record<DeliveryPlace, string> = { hero: '$50', card: 'sample@example.com', email: 'mail@example.com', aside: '—' }
+const SAMPLE: Record<DeliveryPlace, string> = { hero: '۵۰ دلار', card: 'sample@example.com', email: 'mail@example.com', aside: '—' }
 
 /**
  * How this product's deliveries look (store/domain/delivery-details, card-designs): the rows the specialist's form

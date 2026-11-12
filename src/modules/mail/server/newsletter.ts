@@ -141,7 +141,7 @@ async function recipients(audience: Audience): Promise<{ email: string; name: st
   }
   if (audience === 'customers') {
     const buyers = await db.order.findMany({ where: { status: { in: ['PAID', 'COMPLETED'] } }, select: { userId: true }, distinct: ['userId'] })
-    for (const row of await db.user.findMany({ where: { id: { in: buyers.map((b) => b.userId) }, status: 'ACTIVE', emailAlerts: true }, select: { id: true, email: true, name: true } })) add(row.email, row.name || '', row.id)
+    for (const row of await db.user.findMany({ where: { id: { in: buyers.flatMap((b) => b.userId === null ? [] : [b.userId]) }, status: 'ACTIVE', emailAlerts: true }, select: { id: true, email: true, name: true } })) add(row.email, row.name || '', row.id)
   }
   return [...out.values()]
 }

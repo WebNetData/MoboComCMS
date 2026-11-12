@@ -124,7 +124,7 @@ export async function attachFormOrder(submissionId: number, orderId: number) {
 /** A paid form order: the answer becomes paid, goes to staff as open work, and both sides are told. Safe to run twice. */
 export async function fulfillFormOrder(orderId: number): Promise<void> {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, status: true, meta: true, totalMinor: true, currency: true } })
-  if (!order || order.status !== 'PAID') throw new Error('form order is not paid')
+  if (!order || order.status !== 'PAID' || order.userId === null) throw new Error('form order is not paid or has no buyer')
   const meta = parse<Record<string, unknown>>(order.meta || '{}', {})
   const submissionId = Number(meta.submissionId)
   if (meta.kind !== 'form' || !Number.isSafeInteger(submissionId)) throw new Error('form order has no answer')

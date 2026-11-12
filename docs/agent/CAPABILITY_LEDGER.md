@@ -1,3 +1,5 @@
+Store counter sales2026-11-12: FUNCTIONAL, bounded local evidence — guest/linked gift-card and physical/variant sales, exact cash/card settlement, shared stock/code claims, immediate handover and audited persisted receipt/card reprinting compose existing owners. Final non-root full gate1076pass/1existing skip +53compiled +4backup +13Billing, nine native PG suites, production build/traces and8 actual compiled HTTPS desktop/mobile light/dark axe0 views passed, including same-key recovery after lost response/429. Real terminal/printer/provider and production rollout remain operator verification. [Ownership, evidence and rollback](handoffs/STORE_COUNTER_SALES.md).
+
 ## Release reconciliation — 2026-11-12
 
 | Capability | Existing owner | Finding / evidence | Remaining verification |

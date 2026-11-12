@@ -74,15 +74,16 @@ const LINE_INCLUDE = {
  * Called once a store order is paid and handed to fulfilment: counts the sale
  * on each product and opens the timeline. Idempotent (keyed on the PAID event).
  */
-export async function recordStoreSale(orderId: number) {
-  await db.$transaction(async (tx) => {
+export async function recordStoreSale(orderId: number, client?: Prisma.TransactionClient) {
+  const record = async (tx: Prisma.TransactionClient) => {
     if (await tx.orderEvent.findFirst({ where: { orderId, status: 'PAID' }, select: { id: true } })) return
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { productId: true, lines: { select: { productId: true, quantity: true } } } })
     if (!order?.productId) return
     const sold = order.lines.length ? order.lines.filter((line) => line.productId) : [{ productId: order.productId, quantity: 1 }]
     for (const line of sold) await tx.product.updateMany({ where: { id: line.productId! }, data: { soldCount: { increment: line.quantity } } })
     await tx.orderEvent.create({ data: { orderId, status: 'PAID', note: 'پرداخت تأیید شد و سفارش به صف پردازش رفت' } })
-  })
+  }
+  await (client ? record(client) : db.$transaction(record))
 }
 
 /**
@@ -255,10 +256,12 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
   if (q) {
     const id = Number(q.replace(/^#/, ''))
     and.push({ OR: [
-      ...(Number.isSafeInteger(id) && id > 0 ? [{ id }] : []),
+      ...(Number.isSafeInteger(id) && id > 0 && id <= 2_147_483_647 ? [{ id }] : []),
       { user: { email: { contains: q } } },
       { user: { name: { contains: q } } },
       { user: { phone: { contains: q } } },
+      { customerName: { contains: q } },
+      { customerPhone: { contains: q } },
       { lines: { some: { name: { contains: q } } } },
       { productDelivery: { is: { trackingCode: { contains: q } } } },
       { invoice: { is: { number: { contains: q } } } },
@@ -280,7 +283,7 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
     orders: rows.map((order) => {
       const lines = orderLines(order)
       return {
-        id: order.id, assigneeId: order.assigneeId, createdAt: order.createdAt, customer: { id: order.user.id, name: order.user.name, email: order.user.email, phone: order.user.phone },
+        id: order.id, assigneeId: order.assigneeId, createdAt: order.createdAt, saleSource: order.saleSource, customer: { id: order.user?.id ?? null, name: order.customerName || order.user?.name || 'مشتری حضوری', email: order.user?.email || '', phone: order.customerPhone || order.user?.phone || '' },
         state: orderState(order), fulfilment: order.productDelivery?.status || '', schedule: order.productDelivery?.scheduledDate ? [jalaliDayLabel(order.productDelivery.scheduledDate), order.productDelivery.scheduledSlot].filter(Boolean).join(' · ') : '',
         trackingCode: order.productDelivery?.trackingCode || '', invoiceNumber: order.invoice?.number || '',
         total: minorToNumber(order.totalMinor, order.currency), currency: order.currency,
@@ -310,7 +313,7 @@ export async function adminOrder(orderId: number, scope?: OrderWorkScope) {
   const order = await loadAdminOrder(orderId, scope)
   if (!order) return null
   const [history, actors] = await Promise.all([
-    db.order.aggregate({ where: { ...STORE_ORDER, userId: order.userId, status: 'PAID' }, _count: { _all: true }, _sum: { totalMinor: true } }),
+    db.order.aggregate({ where: { ...STORE_ORDER, ...(order.userId === null ? { id: order.id } : { userId: order.userId }), status: 'PAID' }, _count: { _all: true }, _sum: { totalMinor: true } }),
     db.user.findMany({ where: { id: { in: order.events.map((event) => event.actorId).filter((id): id is number => !!id) } }, select: { id: true, name: true, email: true } }),
   ])
   const view = orderDetailView(order)
@@ -324,7 +327,8 @@ export async function adminOrder(orderId: number, scope?: OrderWorkScope) {
     orderStatus: order.status,
     gateway: order.gateway?.name || order.provider,
     hasDigitalDelivery: Boolean(order.productDelivery?.digitalDelivery),
-    customer: { ...order.user, paidOrders: history._count._all, spent: minorToNumber(history._sum.totalMinor || 0n, order.currency) },
+    saleSource: order.saleSource,
+    customer: { ...order.user, id: order.user?.id ?? null, name: order.customerName || order.user?.name || 'مشتری حضوری', email: order.user?.email || '', phone: order.customerPhone || order.user?.phone || '', paidOrders: history._count._all, spent: minorToNumber(history._sum.totalMinor || 0n, order.currency) },
     payments: order.payments.map((payment) => ({ id: payment.id, provider: payment.provider, status: payment.status, amount: minorToNumber(payment.amountMinor, payment.currency), createdAt: payment.createdAt })),
     events: order.events.map((event) => ({ ...view.events.find((row) => row.id === event.id)!, actor: actors.find((actor) => actor.id === event.actorId)?.name || actors.find((actor) => actor.id === event.actorId)?.email || '' })),
   }
@@ -411,7 +415,7 @@ export async function transitionOrder(input: {
     for (const line of lines) await db.product.updateMany({ where: { id: line.productId!, soldCount: { gte: line.quantity } }, data: { soldCount: { decrement: line.quantity } } })
     await db.orderEvent.create({ data: { orderId: input.orderId, status: 'RESTOCK', note: 'موجودی کالاها به انبار برگشت', visible: false, actorId: input.actorId } })
   }
-  if (input.notify !== false) {
+  if (input.notify !== false && delivery.order.userId !== null) {
     await createInboxEvent({
       userId: delivery.order.userId, kind: to === 'DELIVERED' ? 'PRODUCT_DELIVERED' : 'ORDER_STATUS', dedupeKey: `store-order:${input.orderId}:${to}`,
       titleEn: `Order #${input.orderId}: ${to.toLowerCase()}`, titleFa: `سفارش ${input.orderId.toLocaleString('fa-IR')}: ${FULFILMENT_LABEL[to]}`,
@@ -436,7 +440,7 @@ export async function addOrderNote(input: { orderId: number; note: unknown; visi
     await input.commit?.(tx, created)
     return created
   }, input.beforeWrite ? { isolationLevel: 'Serializable' } : undefined)
-  if (input.visible) await createInboxEvent({
+  if (input.visible && order.userId !== null) await createInboxEvent({
     userId: order.userId, kind: 'ORDER_STATUS', dedupeKey: `store-order:${order.id}:note:${event.id}`,
     titleEn: `Message about order #${order.id}`, titleFa: `پیام دربارهٔ سفارش ${order.id.toLocaleString('fa-IR')}`,
     bodyEn: note.slice(0, 200), bodyFa: note.slice(0, 200), href: `/dashboard/orders/${order.id}`,
