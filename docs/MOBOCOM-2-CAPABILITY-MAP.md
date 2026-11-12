@@ -2,6 +2,8 @@
 
 This is an initial code inventory for the owner's 20-capability brief. A module or model appearing here proves an existing starting point, not completion of the requested 2.0 behavior. Update each row after inspecting its routes, permissions, data flow, and UI.
 
+Release continuation2026-11-12 reconciles1.7.16–1.7.18 against merged main `1cd2406e`, including Identity/Account, cache/Settings, safe updates, AI usage/cache, Cinema/Media/player, Store specialist delivery/cards and Forms repair intake/receipts. Use the [engineering reconciliation](agent/audits/2026-11-12-release-1.7.16-1.7.18.md) for the current owners, implementation commits, migration seals and verification limits. The existing rows below retain their original scoped evidence.
+
 | Brief capability | Existing owner or contract | Next gap to resolve |
 | --- | --- | --- |
 | Universal user library | `ItemFavorite`, `GameLibrary`, `UserMusicPlaylist`, `MusicListenHistory`, `CinemaWatchProgress`, `ContentPurchase`, `UserRecentView`, `/favorites`, `/dashboard/library` | A private overview and recent cross-domain feed compose favorites, games, playlists, collections and live purchases. The overview and recently viewed history have responsive SDS-token layouts in dark and light themes. Public forum topics now join the same delayed recent-view tracker; restricted topics remain excluded. Every list of a member (favourites, game shelves, playlists, collections) is now named one way, listed on the library page, and read and written through `/api/me/lists`, each change going through the list's own owner so specialist status and ordering are retained. |

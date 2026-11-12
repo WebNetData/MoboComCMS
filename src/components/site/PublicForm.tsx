@@ -292,10 +292,10 @@ export default function PublicForm({ form, state = 'open', preview = false, head
       })}
     </div>
     {message && <p role={preview ? 'status' : 'alert'} className={preview ? 'muted' : 'error-text'}>{message} {needsLogin && <Link href={`/login?next=${encodeURIComponent(typeof window === 'undefined' ? '/' : window.location.pathname)}`} className="text-link">ورود به حساب</Link>}</p>}
-    {!preview && <div className="pf-full">{human.widget}</div>}
+    {!preview && !counter && <div className="pf-full">{human.widget}</div>}
     <div className="pf-actions">
       {pages.length > 1 && at > 0 && <button type="button" className="btn btn-ghost" onClick={() => setStep(at - 1)}>{conversational ? 'قبلی' : 'مرحلهٔ قبل'}</button>}
-      <button type="submit" disabled={busy || !!uploading || (!preview && last && !human.ready)} className="btn btn-primary">{busy ? '…' : !last ? (conversational ? 'ادامه' : 'مرحلهٔ بعد') : settings?.submitLabel || (paid ? 'تأیید و رفتن به پرداخت' : '') || (locale === 'fa' ? 'ارسال فرم' : 'Send message')} <span aria-hidden="true">{last ? '↗' : '←'}</span></button>
+      <button type="submit" disabled={busy || !!uploading || (!preview && !counter && last && !human.ready)} className="btn btn-primary">{busy ? '…' : !last ? (conversational ? 'ادامه' : 'مرحلهٔ بعد') : settings?.submitLabel || (paid ? 'تأیید و رفتن به پرداخت' : '') || (locale === 'fa' ? 'ارسال فرم' : 'Send message')} <span aria-hidden="true">{last ? '↗' : '←'}</span></button>
     </div>
   </form>
 }

@@ -55,6 +55,7 @@ export default function ServicesAdmin() {
               <p className="sv-who">{form.handlers.length ? <>کارشناسان: <b>{form.handlers.join('، ')}</b></> : 'کارشناس مشخصی ندارد؛ هر کارمندِ دارای دسترسی درخواست‌ها می‌تواند بردارد.'}</p>
               <div className="sv-actions">
                 <Link href={`/admin/forms?form=${form.id}&tab=inbox`} className="btn btn-primary btn-sm">درخواست‌ها{waiting ? ` (${fa(waiting)})` : ''}</Link>
+                {!form.paid && <Link href={`/admin/forms/counter?form=${form.id}`} className="btn btn-ghost btn-sm">ثبت حضوری</Link>}
                 {can.buildForms && <Link href={`/admin/forms?form=${form.id}`} className="btn btn-ghost btn-sm">ویرایش فرم</Link>}
                 {form.published && <Link href={`/forms/${form.slug}`} target="_blank" className="btn btn-ghost btn-sm">مشاهده ↗</Link>}
               </div>

@@ -2,6 +2,38 @@ CRM engagement2026-11-07: continue [the scoped CRM handoff](CRM_ENGAGEMENT.md) f
 
 # Form builder, held work and platform safety — continue existing work
 
+## Repair counter continuation — 2026-11-12
+
+Reviewed release1.7.18/main `1cd2406e`, continuing Claude's merged PR445. Current correction is `.mobocom/repair-counter-audit`, branch `fix/repair-counter-audit-2026-11-12`. The [1.7.16–1.7.18 reconciliation](../audits/2026-11-12-release-1.7.16-1.7.18.md) indexes the releases across the existing owners and records their historical verification limits.
+
+### Implemented correction
+
+- `src/app/admin/forms/page.tsx` exposes «ثبت حضوری» in the header, including the all-forms queue and handler-only accounts. A saved selected free form links directly to its intake. A handler following `?form=<id>&tab=inbox` retains that form's context. The existing unsaved builder confirmation applies to the new link.
+- `src/app/admin/services/page.tsx` exposes the same action on each unpaid form service. `Inbox.tsx` delegates entry to the persistent header.
+- `src/app/admin/forms/counter/page.tsx` reads the existing authorized form list, offers a labelled native picker, includes saved drafts, excludes paid forms and reports loading/empty/failure/retry states. Switching forms remounts answers. The saved panel receives focus and scrolls into view. Configured customer/shop receipts and «مشتری بعدی» use the existing submission DTO.
+- `src/components/site/PublicForm.tsx` omits the public challenge widget and readiness gate in staff-counter mode. The previous disabled condition could hold the staff submit button indefinitely. The public mode keeps its challenge gate.
+- `scripts/forms-counter.connected.cjs`, registered in `scripts/run-pg-checks.cjs`, exercises actual Forms routes/owners against namespaced PostgreSQL fixtures, with real canonical permission checks and an external SMS double. `scripts/forms.test.cjs` includes the staff/public readiness regression.
+
+The owner remains Forms (`domain/forms.ts`, `server/counter.ts`, `server/paid.ts`, existing Site HTTP adapters). Existing `cms.pages`/`forms.handle`, per-form handlers, held work, encrypted secrets, pickup codes and audited shop receipts remain the contracts. This correction needs no schema or API change. Sealed migration `20270310120000_form_work_receipts` belongs to1.7.18.
+
+### Executed evidence
+
+- Existing app container, isolated `/tmp/mobocom-repair-counter-20261112`, no `.env`, Linux UID1000, Node22 and installed Next16.4.6/React19.3.1. A fresh owned PostgreSQL database deployed all191 migrations. The application under test used a separate port, database and private generated Prisma client.
+- `node --test scripts/forms.test.cjs` passed29 tests. `node scripts/forms-counter.connected.cjs` passed draft intake, manager/assigned-handler access, forbidden-handler/section/guest denials, paid/invalid refusal, sealed PIN persistence, private customer/token receipts, shop projection and audit. An isolated removal of the POST scope guard failed with200 versus403 as intended. The guard was restored and the check passed again.
+- TypeScript (`node node_modules/typescript/bin/tsc --noEmit`), `check-architecture.mjs`, `check-source.mjs` (2780 TS/TSX files), `check-security.mjs`, schema parity and `release-migrations.cjs` passed. The manifest reports20 releases and0 unreleased migrations. All43 commits referenced in the reconciliation were confirmed as ancestors of the reviewed main, and its literal source paths exist.
+- Actual Playwright Chromium completed12 scenarios and8 scoped axe scans with0 violations and no horizontal overflow, at1440 and390 in both themes. Covered keyboard entry from the queue, permitted-form selection, cleared answers after switching, deep links from a selected form and Services, paid/foreign form denial, actual403 mutations, failed load/retry/empty list and dirty-builder cancellation. A real counter POST persisted a sealed PIN and opened both customer/shop receipts, with A5 PDFs. Next-customer reset passed. Public mode stayed disabled when its challenge request failed. Saved-result focus/scroll was checked. Page errors were0 in the tested views.
+- React Doctor0.9.17 ran with `--scope files --no-telemetry --no-supply-chain --blocking error` over the five affected React files, with0 errors and21 reviewed warnings. Existing Inbox/PublicForm effect, complexity and lookup findings remain. The counter's post-await state is protected by abort checks, and HTTP status is checked before applying the parsed body.
+
+Local receipts are ignored under `.mobocom/repair-counter-qa/` in the root checkout. The browser runner was adjusted for Next's default localhost development Origin and scoped selectors for its route announcer/footer. These runner changes preserved the product checks.
+
+Final normalized hashes matched all eight affected source/test files between the checkout and the tested Linux copy. The owned test server, database, source, browser sessions and loopback tunnel were removed after verification. The original application's readiness endpoint returned200 afterward.
+
+### Limits and rollback
+
+The integrated1.7.16–1.7.18 suites and a fresh production build were outside this follow-up's executed scope. Real SMS, physical printing, destination-server update and live external providers remain unverified. The existing real-provider limits in release handoffs still apply. Owner merges and deploys.
+
+Rollback reverts the five UI files and associated test/documentation correction. Existing forms, submissions, secrets and receipts retain their data. The earlier repair migration remains sealed and additive.
+
 2026-10-30 continuation: existing Form handler/privacy permissions remain; work edits now claim original assignee/stage/payment and edited reply/read/status values. A deterministic concurrent-take PG test and actual specialist/colleague browser isolation passed. Store specialists extend the existing Order owner with the same held-work principle. [Exact implementation, evidence, migrations and rollback](EDITOR_GROUPS_EXPERTS.md). Do not create another work queue or permission resolver.
 
 This is the handoff for the form builder, the rule that work somebody holds is theirs, and the safety review of October 2026. Another agent continues from here; the files named below are the owners. Nothing here is a claim that a feature is finished for production: each section says what ran and what did not.
@@ -16,7 +48,7 @@ This is the handoff for the form builder, the rule that work somebody holds is t
 6. Robots, spam, brute force and floods are kept out; the platform is checked against being broken into.
 7. Everything is written into the architecture and the skills so another agent can test and continue.
 
-## Where the work is
+## Historical implementation branches
 
 | Pull request | Branch | Holds |
 | --- | --- | --- |
@@ -25,7 +57,7 @@ This is the handoff for the form builder, the rule that work somebody holds is t
 | #172 | `feat/form-builder-advanced` | Persian date, appointments with capacity, repeating rows, signature, quiz, conditional messages, webhooks, conversational layout, per-form handlers |
 | next | `feat/forms-desk-security` | The desk, the work queue, held work (forms and tickets), SMS ceiling, per-account sign-in limit, this handoff |
 
-Each is stacked on the one before; merging the last one brings all of them. Local implementation: the worktree `.mobocom/autonomous-foundation` under the project root (the root checkout holds unrelated owner changes — never reset it).
+These October branches were stacked. Repair work is now merged through release1.7.18 at main `1cd2406e`. Continue the current correction in `.mobocom/repair-counter-audit` on `fix/repair-counter-audit-2026-11-12`. The [release reconciliation](../audits/2026-11-12-release-1.7.16-1.7.18.md) identifies the newer implementation. The root and older worktrees retain separate owner work.
 
 Specs: `docs/specs/store-order-inputs/SPEC.md`, `docs/specs/form-builder/SPEC.md`. Decisions: `docs/agent/PLATFORM_DECISIONS.md` §6L–6O.
 
@@ -125,4 +157,4 @@ Known limits to keep in mind: a webhook's address is resolved before the request
 
 ## Not built
 
-Name and address field groups; attachment kinds beyond PDF and images; a resume link across devices; retries and a delivery log for webhooks; resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop; held-work rules for store orders and for editors of the same section (orders have no holder; content follows section permissions and authorship).
+Name and address field groups; attachment kinds beyond PDF and images; a resume link across devices; retries and a delivery log for webhooks; resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop. Store order holders are implemented in the [editor/groups/experts continuation](EDITOR_GROUPS_EXPERTS.md), extended by the specialist delivery work in1.7.18. Content follows its section permissions and authorship.
