@@ -27,8 +27,8 @@ const REASON: Record<string, { title: string; text: string; action?: { href: str
  * What may play around a film or an episode: ads (the ads module on and enabled; who is exempt is decided when an ad
  * is asked for) and the site's intro (cinema settings). Game trailers and embedded players get neither.
  */
-async function playerBreaks(path: string): Promise<PlayerBreaksConfig | null> {
-  const [adsOn, cinema] = await Promise.all([isModuleEnabled('ads').catch(() => false), getCinemaSettings().catch(() => null)])
+async function playerBreaks(path: string, cinema: Awaited<ReturnType<typeof getCinemaSettings>> | null): Promise<PlayerBreaksConfig | null> {
+  const adsOn = await isModuleEnabled('ads').catch(() => false)
   const config = adsOn ? await getAdsConfig().catch(() => null) : null
   const ads = config?.enabled ? { pacing: config.player, label: config.label } : null
   const intro = cinema?.introUrl ? { src: cinema.introUrl, skipAfter: cinema.introSkipAfter, frequency: cinema.introFrequency } : null
@@ -39,7 +39,8 @@ async function playerBreaks(path: string): Promise<PlayerBreaksConfig | null> {
 export default async function WatchPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> }) {
   const [{ id }, { t }, theme, requestHeaders] = await Promise.all([params, searchParams, getServerTheme(), headers()])
   const result = await watchSource(id, t || null, new Headers(requestHeaders))
-  const breaks = result.ok && result.ownerType !== 'game' && result.playback !== 'embed' ? await playerBreaks(result.backPath) : null
+  const cinema = result.ok && result.playback !== 'embed' ? await getCinemaSettings().catch(() => null) : null
+  const breaks = result.ok && result.ownerType !== 'game' && result.playback !== 'embed' ? await playerBreaks(result.backPath, cinema) : null
   return <>
     <SiteHeader theme={theme} />
     <main className="vp-page" dir="rtl">
@@ -52,7 +53,7 @@ export default async function WatchPage({ params, searchParams }: { params: Prom
             </div>
             <div className="vp-tags">{result.quality && <span dir="ltr">{result.quality}</span>}{result.label && <span>{result.label}</span>}</div>
           </header>
-          <VideoPlayer audioTracks={result.audioTracks} subtitles={result.subtitles} subtitlePreference={result.subtitlePreference} src={result.src} playback={result.playback as 'hls' | 'video' | 'maybe' | 'embed'} poster={result.poster} title={[result.title, result.subtitle].filter(Boolean).join(' — ')} resumeKey={`${result.resumeKey}:${result.id}`} progressLinkId={result.progressEnabled ? result.id : undefined} serverResume={result.serverResume} nextEpisode={result.nextEpisode} downloadHref={result.downloadHref} breaks={breaks} />
+          <VideoPlayer audioTracks={result.audioTracks} subtitles={result.subtitles} subtitlePreference={result.subtitlePreference} src={result.src} playback={result.playback as 'hls' | 'video' | 'maybe' | 'embed'} poster={result.poster} title={[result.title, result.subtitle].filter(Boolean).join(' — ')} resumeKey={`${result.resumeKey}:${result.id}`} progressLinkId={result.progressEnabled ? result.id : undefined} serverResume={result.serverResume} nextEpisode={result.nextEpisode} downloadHref={result.downloadHref} breaks={breaks} externalPlayers={cinema?.externalPlayers} />
         </> : <section className="vp-denied">
           <h1>{REASON[result.reason].title}</h1>
           <p>{REASON[result.reason].text}</p>

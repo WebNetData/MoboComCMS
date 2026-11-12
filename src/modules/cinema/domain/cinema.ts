@@ -2,6 +2,7 @@
 // Pure — shared by the admin API, the public home page and tests.
 
 import { clampInt, normalizeIds, normalizeRails, parseSettingsInput } from '@/shared/section-layout'
+import { DEFAULT_EXTERNAL_PLAYERS, externalPlayerIds, type ExternalPlayerId } from '@/modules/media/domain/external-players'
 
 export const CINEMA_RAILS = {
   hero: 'اسلایدر بالای صفحه',
@@ -52,6 +53,8 @@ export type CinemaSettings = {
   introSkipAfter: number
   /** Once per browser session, or before every film. */
   introFrequency: 'SESSION' | 'ALWAYS'
+  /** Player apps offered under the player to watch the same file in (media/domain/external-players); none hides the row. */
+  externalPlayers: ExternalPlayerId[]
 }
 
 /** An intro the player can play: an MP4 or WebM file at an http(s) address or on this site; '' otherwise. */
@@ -80,6 +83,7 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   introUrl: '',
   introSkipAfter: 3,
   introFrequency: 'SESSION',
+  externalPlayers: [...DEFAULT_EXTERNAL_PLAYERS],
 }
 
 export function normalizeCinemaSettings(input: unknown): CinemaSettings {
@@ -104,6 +108,7 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     introUrl: introVideoUrl(raw.introUrl),
     introSkipAfter: clampInt(raw.introSkipAfter, 0, 30, d.introSkipAfter),
     introFrequency: raw.introFrequency === 'ALWAYS' ? 'ALWAYS' : 'SESSION',
+    externalPlayers: externalPlayerIds(raw.externalPlayers),
   }
 }
 

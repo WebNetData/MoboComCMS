@@ -6,6 +6,8 @@ import SubtitleControls from '@/components/media/player/SubtitleControls'
 import SeparateAudioControls from '@/components/media/player/SeparateAudioControls'
 import SilentAudioNotice from '@/components/media/player/SilentAudioNotice'
 import PlayerBreaks, { type PlayerBreaksConfig } from '@/components/media/player/PlayerBreaks'
+import ExternalPlayers from '@/components/media/player/ExternalPlayers'
+import type { ExternalPlayerId } from '@/modules/media/domain/external-players'
 import type { PlayerAudio, PlayerSubtitle } from '@/modules/media/server/links'
 
 type Props = {
@@ -27,11 +29,14 @@ type Props = {
   keyboardScope?: 'global' | 'focused'
   /** Ads and the intro around a film or episode (the watch page only). */
   breaks?: PlayerBreaksConfig | null
+  /** Player apps to offer the same file to (the watch page only; Admin › فیلم و سریال › تنظیمات). */
+  externalPlayers?: ExternalPlayerId[]
 }
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
 const NO_SUBTITLES: PlayerSubtitle[] = []
 const NO_AUDIO: PlayerAudio[] = []
+const NO_APPS: ExternalPlayerId[] = []
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const clock = (seconds: number) => {
   const s = Math.max(0, Math.floor(seconds))
@@ -47,7 +52,7 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null, keyboardScope = 'global', breaks = null }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null, keyboardScope = 'global', breaks = null, externalPlayers = NO_APPS }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const frame = useRef<HTMLDivElement>(null), subtitleLayer = useRef<HTMLDivElement>(null)
   const [externalAudio, setExternalAudio] = useState(false)
@@ -203,6 +208,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       {pip && <button type="button" onClick={() => { void video.current?.requestPictureInPicture?.().catch(() => undefined) }}>تصویر در تصویر</button>}
       <span className="vp-keys">میان‌بر: Space پخش/توقف · ←/→ ده ثانیه · F تمام‌صفحه</span>
     </div>
+    <ExternalPlayers src={src} title={title} players={externalPlayers} subtitles={subtitles} />
     <SubtitleControls key={`${resumeKey}:subtitles`} video={video} layer={subtitleLayer} tracks={subtitles} preference={subtitlePreference} />
     <SeparateAudioControls key={`${resumeKey}:audio`} video={video} tracks={audioTracks} onActive={setExternalAudio} />
   </div>

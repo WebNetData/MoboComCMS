@@ -129,3 +129,6 @@ test('subtitles that come with a video file: names beside it, directory listings
   assert.equal(found.readScan('nope'), null)
   assert.equal(found.readScan('{"key":"abc","status":"queued"}'), null)
 })
+
+// «پخش در برنامهٔ دیگر»: KMPlayer, MX Player and VLC launch addresses.
+require('./external-players.cases.cjs')

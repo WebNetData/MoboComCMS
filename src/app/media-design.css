@@ -1164,6 +1164,14 @@ html[data-theme="light"] .md-page.md-embed:is(.md-cinema, .md-games) { border: 1
 .vp-bar label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
 .vp-bar select, .vp-bar button { min-height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .vp-keys { margin-inline-start: auto; color: var(--muted); font-size: 12px; }
+/* «پخش در برنامهٔ دیگر» (player/ExternalPlayers.tsx): the bar's own control shape. */
+.vp-apps { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-block-start: 10px; font-size: 13px; }
+.vp-apps-title { color: var(--muted); }
+.vp-apps a, .vp-apps button { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.vp-apps-hint { flex: 1 1 240px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+.vp-apps-address { flex: 1 1 100%; min-width: 0; min-height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--text); font: inherit; font-size: 12px; }
+.vp-apps-status { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+.vp-apps-status:empty { display: none; }
 .vp-denied { max-width: 560px; margin: 48px auto; padding: 32px; text-align: center; border: 1px solid var(--border); border-radius: 18px; background: var(--card); }
 .vp-denied p { color: var(--muted); line-height: 2; }
 .vp-denied div { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
