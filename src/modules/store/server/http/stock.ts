@@ -1,7 +1,8 @@
+import type { Prisma } from '@prisma/client'
 import type { NextRequest } from 'next/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { requirePerm } from '@/modules/identity/server/access'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdminStrict } from '@/platform/audit/server'
 import { StoreError } from '@/modules/store/domain/store'
 import { LocationError } from '@/modules/catalog/server/locations'
 import { listLocations, saveLocation, locationStockView, itemLedger, transferItem, setOnlineReserve } from '@/modules/catalog/server/location-admin'
@@ -39,25 +40,30 @@ export async function GET_stock(req: NextRequest) {
 export async function POST_stock(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
-  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
-  if (!body || typeof body !== 'object') return reply({ error: 'درخواست معتبر نیست' }, 400)
+  const raw = await req.text()
+  if (raw.length > 100_000) return reply({ error: 'درخواست بیش از حد بزرگ است' }, 413)
+  let body: Record<string, unknown> | null
+  try { body = JSON.parse(raw) } catch { return reply({ error: 'درخواست معتبر نیست' }, 400) }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return reply({ error: 'درخواست معتبر نیست' }, 400)
   const op = String(body.op || '')
-  const audit = (action: string, targetId: number, metadata: Record<string, unknown> = {}) => auditAdmin({ req, actor: g.admin, action: `store.stock.${action}`, targetType: 'stock', targetId, metadata })
+  const audit = (action: string, manager = false) => async (tx: Prisma.TransactionClient, targetId: number) => {
+    if (!await requirePerm(req, 'cms.products', tx) && (manager || !await requirePerm(req, 'orders.manage', tx))) throw new StoreError('دسترسی انبار تغییر کرده است', 403)
+    await auditAdminStrict({ req, actor: g.admin, action: `store.stock.${action}`, targetType: 'stock', targetId }, tx)
+  }
   try {
     if (op === 'location.save' || op === 'reserve.set') {
       if (!await requirePerm(req, 'cms.products')) return reply({ error: 'تنظیم انبارها با مدیر محصولات است' }, 403)
-      if (op === 'reserve.set') { const result = await setOnlineReserve(body); await audit('reserve', Number(body.productId), result); return reply(result) }
-      const saved = await saveLocation(body, body.id ? Number(body.id) : undefined)
-      await audit('location', saved.id, { name: saved.name, sellsOnline: saved.sellsOnline, active: saved.active })
+      if (op === 'reserve.set') { const result = await setOnlineReserve(body, audit('reserve', true)); return reply(result) }
+      const saved = await saveLocation(body, body.id ? Number(body.id) : undefined, audit('location', true))
       return reply({ location: saved })
     }
-    if (op === 'transfer') { const result = await transferItem(body, g.admin.id); await audit('transfer', Number(body.productId), { from: body.from, to: body.to, quantity: body.quantity }); return reply(result) }
-    if (op === 'receipt.create') { const result = await createReceipt(body, g.admin.id); if (!result.replayed) await audit('receipt', result.id); return reply(result) }
-    if (op === 'count.start') { const count = await startCount(body, g.admin.id); await audit('count.start', count.id); return reply({ count }) }
-    if (op === 'count.line') return reply({ line: await countLine(body) })
-    if (op === 'count.remove') return reply(await removeCountLine(body))
-    if (op === 'count.post') { const result = await postCount(body, g.admin.id); await audit('count.post', Number(body.countId), { ...result, full: body.full === true }); return reply(result) }
-    if (op === 'count.cancel') { const result = await cancelCount(body); await audit('count.cancel', Number(body.countId)); return reply(result) }
+    if (op === 'transfer') { const result = await transferItem(body, g.admin.id, audit('transfer')); return reply(result) }
+    if (op === 'receipt.create') { const result = await createReceipt(body, g.admin.id, audit('receipt')); return reply(result) }
+    if (op === 'count.start') { const count = await startCount(body, g.admin.id, audit('count.start')); return reply({ count }) }
+    if (op === 'count.line') return reply({ line: await countLine(body, audit('count.line')) })
+    if (op === 'count.remove') return reply(await removeCountLine(body, audit('count.remove')))
+    if (op === 'count.post') { const result = await postCount(body, g.admin.id, audit('count.post')); return reply(result) }
+    if (op === 'count.cancel') { const result = await cancelCount(body, audit('count.cancel')); return reply(result) }
     return reply({ error: 'عملیات انبار معتبر نیست' }, 400)
   } catch (error) { return failure(error) }
 }

@@ -33,10 +33,13 @@ export default function Receipt({ receipt, format }: { receipt: CounterReceipt; 
       { label: 'روش پرداخت', value: METHOD[receipt.method] || 'نقدی' },
       { label: 'صندوق', value: receipt.register || '' },
       { label: 'صندوق‌دار', value: receipt.cashier },
+      ...(receipt.deliveryMode === 'SHIP' ? [{ label: 'تحویل', value: 'ارسال از انبار؛ در صف آماده‌سازی' }, { label: 'نشانی ارسال', value: receipt.shippingAddress || '' }] : []),
     ]}
     lines={receipt.lines.map((line) => ({ name: line.name, variant: line.variant, quantity: line.quantity, unitMinor: line.unitMinor, totalMinor: line.totalMinor }))}
     currency={receipt.currency}
     totalMinor={receipt.totalMinor}
+    discountMinor={receipt.discountMinor}
+    shippingMinor={receipt.shippingMinor}
     payments={payments}
     qr={receipt.qr}
     link={receipt.link}

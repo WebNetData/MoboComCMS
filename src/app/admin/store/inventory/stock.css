@@ -1,4 +1,11 @@
 /* Stock hub (st-): locations, transfers, receiving and counts. Store admin tokens; builds on desk.css (cd-). */
+.admin-shell .st-return fieldset { display: flex; flex-direction: column; gap: 16px; min-inline-size: 0; }
+.admin-shell .st-return .sa-table-wrap { max-inline-size: 100%; overflow-x: auto; }
+.admin-shell .st-return .st-matrix { table-layout: fixed; }
+.admin-shell .st-return .st-matrix :is(th, td) { padding-inline: 8px; overflow-wrap: anywhere; }
+.admin-shell .st-return .st-matrix th:first-child { inline-size: 50%; min-inline-size: 0; }
+.admin-shell .st-return .st-matrix .st-cell { inline-size: 100%; max-inline-size: 76px; }
+.admin-shell .st-return legend { font-size: 16px; font-weight: 600; margin-block-end: 16px; }
 .admin-shell .st-nav { display: flex; gap: 4px; overflow-x: auto; padding: 4px; border: 1px solid var(--sa-line); border-radius: 12px; background: var(--sa-subtle); }
 .admin-shell .st-nav a { padding: 8px 16px; border-radius: 9px; color: var(--sa-muted); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; transition: background-color .16s, color .16s; }
 .admin-shell .st-nav a:hover { color: var(--sa-text); }

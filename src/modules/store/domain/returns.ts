@@ -15,7 +15,7 @@ export const RETURN_STATUS_LABEL: Record<ReturnStatus, string> = {
   REQUESTED: 'در انتظار بررسی',
   APPROVED: 'تأیید شد؛ در انتظار دریافت کالا',
   REJECTED: 'رد شد',
-  REFUNDED: 'مبلغ به کیف پول برگشت',
+  REFUNDED: 'بازپرداخت شد',
   WITHDRAWN: 'لغو درخواست توسط شما',
 }
 
@@ -35,7 +35,8 @@ export const RETURN_REASONS = [
   { key: 'other', label: 'دلیل دیگر', photos: false, forKinds: ['RETURN', 'CANCEL'] },
 ] as const
 
-export const reasonLabel = (key: string) => RETURN_REASONS.find((reason) => reason.key === key)?.label || key
+export const COUNTER_RETURN_REASONS: Record<string, string> = { changed_mind: 'انصراف خریدار', defective: 'معیوب یا خراب', wrong_item: 'کالای اشتباه', exchange: 'تعویض با کالای دیگر', other: 'دلیل دیگر' }
+export const reasonLabel = (key: string) => RETURN_REASONS.find((reason) => reason.key === key)?.label || COUNTER_RETURN_REASONS[key] || key
 export const reasonsFor = (kind: ReturnKind) => RETURN_REASONS.filter((reason) => (reason.forKinds as readonly string[]).includes(kind))
 
 /** Reasons that are only about a delivered code; the others (but "other") are only about goods that were shipped. */

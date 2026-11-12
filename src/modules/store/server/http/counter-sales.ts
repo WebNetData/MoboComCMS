@@ -1,10 +1,13 @@
+import { listLocations } from '@/modules/catalog/server/location-admin'
+import { deliverySchedule } from '@/modules/shipping/server/shipping'
+import { ShippingError } from '@/modules/shipping/domain/shipping'
 import type { NextRequest } from 'next/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { rateLimitStrict, clientIp } from '@/platform/http/rate-limit'
 import { StoreError } from '@/modules/store/domain/store'
-import { counterProducts, counterCustomers, counterReceipt, createCounterSale, counterCustomer, registerSessions, openRegister, closeRegister, adjustRegister, scanCounterProduct,productLabels } from '@/modules/store/server/counter-sales'
+import { counterProducts, counterCustomers, counterReceipt, createCounterSale, quoteCounterSale, counterCustomer, registerSessions, openRegister, closeRegister, adjustRegister, scanCounterProduct,productLabels } from '@/modules/store/server/counter-sales'
 import { db } from '@/platform/database/prisma'
 import { resolvePhoneCustomer, findPhoneCustomer, PhoneCustomerError } from '@/modules/identity/server/phone-customer'
 import { requestOtp, verifyOtp, SmsError } from '@/modules/sms/server/sms'
@@ -13,7 +16,7 @@ import { readCounterSale } from '@/modules/store/domain/counter-sales'
 import { storeSalesReport } from '@/modules/store/server/reports'
 
 const reply = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex' } })
-const failure = (error: unknown) => { if (error instanceof StoreError) return reply({ error: error.message, code: error.code }, error.status); if(error instanceof SmsError || error instanceof MarketingError)return reply({error:error.message},error.status);if(error instanceof PhoneCustomerError)return reply({error:error.message},409);throw error }
+const failure = (error: unknown) => { if (error instanceof StoreError) return reply({ error: error.message, code: error.code }, error.status); if(error instanceof SmsError || error instanceof MarketingError || error instanceof ShippingError)return reply({error:error.message},error.status);if(error instanceof PhoneCustomerError)return reply({error:error.message},409);throw error }
 
 export async function GET_counter(req: NextRequest) {
   const guard = await adminGuard(req, 'store', ['orders.manage'])
@@ -23,6 +26,16 @@ export async function GET_counter(req: NextRequest) {
     // The cashier's open register decides which shelf's units the counter shows.
     const sessionId=Number(params.get('session'))
     const shelf=Number.isSafeInteger(sessionId)&&sessionId>0?(await db.storeRegisterSession.findFirst({where:{id:sessionId,cashierId:guard.admin.id,status:'OPEN'},select:{locationId:true}}))?.locationId??null:null
+    if (params.has('deskOptions')) {
+      const [locations, schedule] = await Promise.all([listLocations(), deliverySchedule()])
+      return reply({ locations: locations.filter(row => row.active && row.kind === 'WAREHOUSE').map(row => ({ id: row.id, name: row.name })), days: schedule.settings.enabled ? schedule.days : [] })
+    }
+    if (params.has('shipLocation')) {
+      const id = Number(params.get('shipLocation'))
+      if (!Number.isSafeInteger(id) || id <= 0 || !await db.stockLocation.count({ where: { id, active: true, kind: 'WAREHOUSE' } })) throw new StoreError('انبار ارسال فعال را انتخاب کنید')
+      if (params.has('scan')) return reply(await scanCounterProduct(params.get('scan') || '', id))
+      return reply({ products: (await counterProducts(params.get('q') || '', undefined, id)).filter(row => row.kind === 'PHYSICAL') })
+    }
     if(params.has('scan'))return reply(await scanCounterProduct(params.get('scan')||'',shelf))
     // Read-only: which account this mobile belongs to; the sale itself creates or links it in its own transaction.
     if(params.has('lookup'))return reply({customer:await findPhoneCustomer(params.get('lookup')||'')})
@@ -66,6 +79,7 @@ export async function POST_counter(req: NextRequest) {
       if(!await requirePerm(req,'orders.manage',tx))throw new StoreError('دسترسی ثبت فروش تغییر کرده است',403)
       await auditAdminStrict({req,actor:guard.admin,action:`store.counter.${String(data.op||'sale').slice(0,40)}`,targetType:'store',targetId:id},tx)
     }
+    if(data.op==='quote') return reply({ quote: await quoteCounterSale(data) })
     if(data.op==='customer.resolve'){
       const customer=await db.$transaction(async tx=>{const row=await resolvePhoneCustomer(tx,data.phone,data.firstName||data.lastName?{firstName:String(data.firstName||''),lastName:String(data.lastName||'')}:String(data.name||''));await audit(tx,row.id);return {id:row.id,name:row.name,phone:row.phone,email:row.email}})
       return reply({customer})

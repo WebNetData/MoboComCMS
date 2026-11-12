@@ -104,6 +104,9 @@ export async function returnToLocations(tx: Tx, item: StockItem & { quantity: nu
   await lockProduct(tx, item.productId)
   const tracked = await trackedItem(tx, item.productId, item.variantId)
   if (!tracked) return false
+  if (!Number.isSafeInteger(item.quantity) || item.quantity <= 0) throw new LocationError('تعداد برگشتی معتبر نیست')
+  if (toLocationId) await activeLocation(tx, toLocationId)
+  if (!toLocationId && allocation.length && allocation.reduce((sum, part) => sum + part.q, 0) !== item.quantity) throw new LocationError('سهم محل‌های رزرو با تعداد کالا تطبیق ندارد', 409)
   const parts = toLocationId ? [{ l: toLocationId, q: item.quantity }] : allocation.length ? allocation : [{ l: await defaultLocationId(tx), q: item.quantity }]
   for (const part of parts) await move(tx, part.l, tracked, part.q, reason, ref)
   await recomputeOnline(tx, tracked.productId)
@@ -183,9 +186,9 @@ export async function applyImportedStock(tx: Tx, productId: number, imported: { 
  * and is rewritten); -1 stops tracking; a new finite count starts tracking in the default location.
  */
 export async function adoptEditorStock(tx: Tx, productId: number, actorId?: number | null) {
+  await lockProduct(tx, productId)
   const product = await tx.product.findUnique({ where: { id: productId }, select: { stock: true, sellerId: true, digitalMode: true, variants: { select: { id: true, stock: true } } } })
   if (!product || product.sellerId || product.digitalMode === 'CODES') return
-  await lockProduct(tx, productId)
   const finiteVariants = product.variants.filter((variant) => variant.stock >= 0)
   const wanted: (StockItem & { typed: number })[] = finiteVariants.length ? finiteVariants.map((variant) => ({ productId, variantId: variant.id, typed: variant.stock })) : product.stock >= 0 ? [{ productId, variantId: null, typed: product.stock }] : []
   const rows = await tx.locationStock.findMany({ where: { productId }, select: { id: true, locationId: true, variantId: true, quantity: true } })

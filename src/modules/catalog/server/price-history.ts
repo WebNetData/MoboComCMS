@@ -13,13 +13,13 @@ export async function lockProductPricing(tx: PricingTransaction, productId: numb
 }
 
 async function publicProductPrices(tx: PricingTransaction, productId: number) {
-  const product = await tx.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, audienceGroups: true, price: true, priceMinor: true, currency: true } })
+  const product = await tx.product.findUnique({ where: { id: productId }, select: { active: true, approval: true, audienceGroups: true, price: true, priceMinor: true, compareAtMinor: true, saleChannel: true, currency: true } })
   const points = new Map<number, PriceObservation>()
   if (!product || !product.active || product.approval !== 'APPROVED') return points
   for (const point of publicPriceObservations(product, [])) points.set(point.variantId, point)
   let cursor = 0
   while (true) {
-    const rows = await tx.productVariant.findMany({ where: { productId, active: true, id: { gt: cursor } }, orderBy: { id: 'asc' }, take: 200, select: { id: true, active: true, price: true, priceMinor: true } })
+    const rows = await tx.productVariant.findMany({ where: { productId, active: true, id: { gt: cursor } }, orderBy: { id: 'asc' }, take: 200, select: { id: true, active: true, price: true, priceMinor: true, compareAtMinor: true } })
     if (!rows.length) break
     for (const point of publicPriceObservations(product, rows)) points.set(point.variantId, point)
     if (rows.length < 200) break

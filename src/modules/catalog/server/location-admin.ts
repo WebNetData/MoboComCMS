@@ -5,6 +5,9 @@ import { lockProduct } from '@/modules/catalog/server/code-stock'
 
 // Admin reads and settings for stock locations (owner: catalog/server/locations for every quantity change).
 
+type Audit = (tx: Prisma.TransactionClient, id: number) => Promise<void>
+const noAudit: Audit = async () => {}
+
 const KINDS = ['WAREHOUSE', 'SHOP'] as const
 const text = (value: unknown, limit: number) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit)
 const positiveId = (value: unknown, label: string) => { const id = Number(value); if (!Number.isSafeInteger(id) || id <= 0) throw new LocationError(`${label} معتبر نیست`); return id }
@@ -19,7 +22,7 @@ export async function listLocations() {
 }
 
 /** Creates or edits a location; changing what sells online rewrites the site counts of every product held there. */
-export async function saveLocation(input: Record<string, unknown>, id?: number) {
+export async function saveLocation(input: Record<string, unknown>, id?: number, audit: Audit = noAudit) {
   const name = text(input.name, 60)
   if (name.length < 2) throw new LocationError('نام محل را بنویسید')
   const kind = KINDS.includes(input.kind as typeof KINDS[number]) ? input.kind as typeof KINDS[number] : 'WAREHOUSE'
@@ -40,6 +43,7 @@ export async function saveLocation(input: Record<string, unknown>, id?: number) 
       const products = await tx.locationStock.findMany({ where: { locationId: saved.id }, distinct: ['productId'], select: { productId: true } })
       for (const { productId } of products) { await lockProduct(tx, productId); await recomputeOnline(tx, productId) }
     }
+    await audit(tx, saved.id)
     return saved
   }, { timeout: 60_000 })
 }
@@ -79,21 +83,22 @@ export async function itemLedger(productId: unknown, variantId: unknown) {
   return rows.map((row) => ({ id: row.id, location: row.location.name, delta: row.delta, balance: row.balance, reason: row.reason, orderId: row.orderId, refType: row.refType, refId: row.refId, note: row.note, actor: actors.find((actor) => actor.id === row.actorId)?.name || '', createdAt: row.createdAt.toISOString() }))
 }
 
-export async function transferItem(input: Record<string, unknown>, actorId: number) {
+export async function transferItem(input: Record<string, unknown>, actorId: number | null, audit: Audit = noAudit) {
   const productId = positiveId(input.productId, 'کالا'), variantId = input.variantId ? positiveId(input.variantId, 'گونه') : null
-  await db.$transaction((tx) => transferStock(tx, { productId, variantId, from: positiveId(input.from, 'مبدأ'), to: positiveId(input.to, 'مقصد'), quantity: Math.floor(Number(input.quantity)) }, { actorId, refType: 'transfer', note: text(input.note, 200) }))
+  await db.$transaction(async (tx) => { await transferStock(tx, { productId, variantId, from: positiveId(input.from, 'مبدأ'), to: positiveId(input.to, 'مقصد'), quantity: Number(input.quantity) }, { actorId, refType: 'transfer', note: text(input.note, 200) }); await audit(tx, productId) })
   return { ok: true }
 }
 
 /** Units kept back from online sale for one product (per tracked item); rewrites its site count. */
-export async function setOnlineReserve(input: Record<string, unknown>) {
-  const productId = positiveId(input.productId, 'کالا'), reserve = Math.floor(Number(input.reserve))
+export async function setOnlineReserve(input: Record<string, unknown>, audit: Audit = noAudit) {
+  const productId = positiveId(input.productId, 'کالا'), reserve = Number(input.reserve)
   if (!Number.isSafeInteger(reserve) || reserve < 0 || reserve > 1_000_000) throw new LocationError('حاشیهٔ فروش آنلاین معتبر نیست')
   await db.$transaction(async (tx) => {
     await lockProduct(tx, productId)
     const changed = await tx.product.updateMany({ where: { id: productId, sellerId: null }, data: { onlineReserve: reserve } })
     if (changed.count !== 1) throw new LocationError('کالا پیدا نشد', 404)
     await recomputeOnline(tx, productId)
+    await audit(tx, productId)
   })
   return { reserve }
 }

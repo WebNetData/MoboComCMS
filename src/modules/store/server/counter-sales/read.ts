@@ -20,9 +20,9 @@ export async function counterProducts(query: string,productId?:number,locationId
   const units = (productId: number, variantId: number | null, fallback: number) => { const key = itemKey(productId, variantId); return shelf?.tracked.has(key) ? shelf.at.get(key) ?? 0 : fallback }
   return rows.map((product) => ({
     id: product.id, name: product.name, kind: product.kind, currency: product.currency, stock: units(product.id, null, product.stock),
-    unitMinor: unitPrice(product, null, false).unitMinor.toString(), maxPerOrder: product.maxPerOrder,
+    unitMinor: unitPrice(product, null, false, new Date(), undefined, 'COUNTER').unitMinor.toString(), maxPerOrder: product.maxPerOrder,
     fields: readOrderFields(product.orderFields),
-    variants: product.variants.map((variant) => ({ id: variant.id, name: variant.name, stock: units(product.id, variant.id, variant.stock), unitMinor: unitPrice(product, variant, false).unitMinor.toString() })),
+    variants: product.variants.map((variant) => ({ id: variant.id, name: variant.name, stock: units(product.id, variant.id, variant.stock), unitMinor: unitPrice(product, variant, false, new Date(), undefined, 'COUNTER').unitMinor.toString() })),
   }))
 }
 
@@ -35,10 +35,10 @@ export async function counterCustomers(query: string) {
 /** Private, persisted receipt. Reading codes is audited by the HTTP owner. */
 export async function counterReceipt(orderId: number) {
   const order = await db.order.findFirst({
-    where: { id: orderId, saleSource: 'COUNTER', status: 'PAID', productDelivery: { is: { status: 'DELIVERED' } } },
+    where: { id: orderId, saleSource: 'COUNTER', status: 'PAID', productDelivery: { is: { status: { notIn: ['CANCELLED', 'RETURNED'] } } } },
     include: { invoice: true, tenders:true,lines: { orderBy: { line: 'asc' }, include: { product: { select: { deliveryTemplate: true } } } }, user: { select: { name: true, phone: true } }, createdBy: { select: { name: true } }, registerSession: { select: { register: true } } },
   })
-  if (!order?.invoice || order.invoice.status !== 'PAID') throw new StoreError('فروش حضوریِ تحویل‌شده پیدا نشد', 404)
+  if (!order?.invoice || order.invoice.status !== 'PAID') throw new StoreError('فروش حضوری پیدا نشد', 404)
   const codes = await db.productDigitalCode.findMany({ where: { orderId, returnedAt: null }, orderBy: { id: 'asc' }, select: { id: true, productId: true, orderLine: true, secret: true } })
   const cards = codes.map((code) => {
     const line = order.lines.find((item) => item.line === code.orderLine && item.productId === code.productId)
@@ -55,6 +55,7 @@ export async function counterReceipt(orderId: number) {
     orderId: order.id, invoiceNumber: order.invoice.number, createdAt: order.createdAt.toISOString(),
     customer: order.customerName || order.user?.name || 'مشتری حضوری', phone: order.customerPhone || order.user?.phone || '', cashier: order.createdBy?.name || '',
     method: ['CASH','CARD','WALLET','SPLIT'].includes(String(meta.counterMethod)) ? String(meta.counterMethod) : 'CASH', reference: String(meta.counterReference || ''),
+    deliveryMode: meta.shippingMode === 'SHIP' ? 'SHIP' as const : 'HANDOVER' as const, subtotalMinor: String(meta.subtotalMinor || ''), discountMinor: String(meta.discountMinor || '0'), shippingMinor: String(meta.shippingMinor || '0'), shippingAddress: meta.shippingAddress && typeof meta.shippingAddress === 'object' ? Object.values(meta.shippingAddress).filter(value => typeof value === 'string').join(' · ') : '',
     currency: order.currency, totalMinor: order.totalMinor.toString(), brand: { title: site.brand || '', logo: site.logo || '' }, seller, register: order.registerSession?.register || '',
     lines: order.lines.map((line) => ({ name: line.name, variant: line.variantName, quantity: line.quantity, unitMinor: line.unitPriceMinor.toString(), totalMinor: line.totalMinor.toString(), kind: line.kind })), cards,
   }

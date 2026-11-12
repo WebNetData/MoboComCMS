@@ -34,7 +34,7 @@ export async function productLabels(query: string,productId?:number){
   if(!qr.has(url))qr.set(url,await QRCode.toDataURL(url,{width:160,margin:1,errorCorrectionLevel:'M'}))
   return {url,qr:qr.get(url)!}
  }
- const price=(product:(typeof rows)[number],variant:(typeof rows)[number]['variants'][number]|null)=>{const value=unitPrice(product,variant,false);return value.unitMinor>0n?formatMoney(value.unitMinor,value.currency,'fa-IR'):''}
+ const price=(product:(typeof rows)[number],variant:(typeof rows)[number]['variants'][number]|null)=>{const value=unitPrice(product,variant,false,new Date(),undefined,'COUNTER');return value.unitMinor>0n?formatMoney(value.unitMinor,value.currency,'fa-IR'):''}
  const labels:{id:string;productId:number;variantId:number|null;name:string;barcode:string;sku:string;price:string;url:string;qr:string}[]=[]
  for(const product of rows){
   if(product.variants.length)for(const variant of product.variants)labels.push({id:`v:${variant.id}`,productId:product.id,variantId:variant.id,name:`${product.name} · ${variant.name}`,barcode:variant.barcode||`MC-V-${variant.id}`,sku:variant.sku,price:price(product,variant),...await link(product.slug,variant.id)})

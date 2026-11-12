@@ -61,8 +61,8 @@ async function giveBack(tx: Tx, row: { orderId: number; productId: number; varia
   if (row.allocation || await trackedItem(tx, row.productId, row.variantId)) {
     if (await returnToLocations(tx, row, readAllocation(row.allocation), reason, { orderId: row.orderId }, toLocationId)) return
   }
-  if (row.finite) await tx.product.updateMany({ where: { id: row.productId }, data: { stock: { increment: row.quantity } } })
-  if (row.variantFinite && row.variantId) await tx.productVariant.updateMany({ where: { id: row.variantId }, data: { stock: { increment: row.quantity } } })
+  if (row.finite) await tx.product.updateMany({ where: { id: row.productId, stock: { gte: 0 } }, data: { stock: { increment: row.quantity } } })
+  if (row.variantFinite && row.variantId) await tx.productVariant.updateMany({ where: { id: row.variantId, stock: { gte: 0 } }, data: { stock: { increment: row.quantity } } })
 }
 
 async function run(work: (tx: Tx) => Promise<number>) {
@@ -133,8 +133,8 @@ export async function consumeInventoryReservation(orderId: number, client: Tx | 
   return { ok: true as const, consumed: true }
 }
 
-async function returnStock(orderId: number, from: 'HELD' | 'CONSUMED', toLocationId?: number | null) {
-  return db.$transaction(async (tx) => {
+async function returnStock(orderId: number, from: 'HELD' | 'CONSUMED', toLocationId?: number | null, transaction?: Tx) {
+  const work = async (tx: Tx) => {
     const rows = await tx.inventoryReservation.findMany({ where: { orderId, status: from } })
     let count = 0
     for (const row of rows) {
@@ -147,17 +147,18 @@ async function returnStock(orderId: number, from: 'HELD' | 'CONSUMED', toLocatio
     // (a code already given to the buyer does not return to the shelf with the order).
     for (const productId of new Set(rows.map((row) => row.productId))) await syncCodeStock(tx, productId)
     return count
-  })
+  }
+  return transaction ? work(transaction) : db.$transaction(work)
 }
 
 /** Returns held stock of an unpaid order to the shelf. */
-export async function releaseInventoryReservation(orderId: number) {
-  return { ok: true as const, released: (await returnStock(orderId, 'HELD')) > 0 }
+export async function releaseInventoryReservation(orderId: number, transaction?: Tx) {
+  return { ok: true as const, released: (await returnStock(orderId, 'HELD', null, transaction)) > 0 }
 }
 
 /** Returns sold stock to the shelf (a paid order cancelled or returned by staff), optionally into one stock location. */
-export function restockConsumedInventory(orderId: number, toLocationId?: number | null) {
-  return returnStock(orderId, 'CONSUMED', toLocationId)
+export function restockConsumedInventory(orderId: number, toLocationId?: number | null, transaction?: Tx) {
+  return returnStock(orderId, 'CONSUMED', toLocationId, transaction)
 }
 
 /** Order states whose stock is sold: the hold waits for delivery and must not expire. */

@@ -71,7 +71,7 @@ export function ItemPicker({ onPick, disabled, label = 'کالا' }: { onPick: (
       <label className="cd-field"><span>بارکد {label}</span><input className="input" dir="ltr" autoComplete="off" placeholder="بارکدخوان را اینجا بزنید" value={scan} disabled={disabled} onChange={(event) => setScan(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void byScan() } }} /></label>
       <label className="cd-field"><span>یا جست‌وجوی نام</span><input className="input" type="search" autoComplete="off" value={query} disabled={disabled} onChange={(event) => setQuery(event.target.value)} /></label>
     </div>
-    {products.length > 0 && <ul className="st-results" role="listbox" aria-label="نتیجهٔ جست‌وجو">{products.slice(0, 8).map((product) => <li key={product.id}>
+    {products.length > 0 && <ul className="st-results" aria-label="نتیجهٔ جست‌وجو">{products.slice(0, 8).map((product) => <li key={product.id}>
       {product.variants.length ? <span className="st-result-name">{product.name}</span> : <button type="button" className="st-result" onClick={() => choose(product, null)}>{product.name}</button>}
       {product.variants.map((variant) => <button type="button" key={variant.id} className="st-result is-variant" onClick={() => choose(product, variant.id)}>{variant.name}</button>)}
     </li>)}</ul>}

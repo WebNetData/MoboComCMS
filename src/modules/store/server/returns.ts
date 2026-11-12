@@ -1,3 +1,4 @@
+import { loadOrder, ledger, lockOrder, notifyCustomer, type LoadedOrder } from './returns/shared'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
@@ -8,21 +9,19 @@ import { logEvent } from '@/platform/observability/logger'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { MultipartError, readMultipart } from '@/platform/http/multipart'
 import { sniffImage } from '@/shared/files/image-type'
-import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { minorToNumber, normalizeCurrency } from '@/shared/money'
 import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
-import { createInboxEvent } from '@/modules/notifications/server/inbox'
-import { moveWallet } from '@/modules/wallet/server/wallet'
-import { releaseInventoryReservation, restockConsumedInventory } from '@/modules/catalog/server/inventory'
-import { StoreError, canMoveTo } from '@/modules/store/domain/store'
+import { refundReturn } from './returns/refunds'
+export { refundReturn, recoverInterruptedRefunds } from './returns/refunds'
+export { counterReturnLookup, createCounterReturn, counterReturnResult } from './returns/counter'
+import { StoreError } from '@/modules/store/domain/store'
 import {
   MAX_RETURN_PHOTOS, MAX_RETURN_PHOTO_BYTES, RETURN_KIND_LABEL, RETURN_STATUS_LABEL, clampRefund, eligibility, normalizeChoices,
   normalizeReturnSettings, reasonLabel, reasonsFor, reasonsForGoods, returnNumber, returnRefundMinor,
   type Eligibility,
   type LineChoice, type RefundLine, type ReturnKind, type ReturnSettings, type ReturnStatus,
 } from '@/modules/store/domain/returns'
-import { transitionOrder } from '@/modules/store/server/orders'
-import { heldCodes, takeBackCodes } from '@/modules/store/server/digital-codes'
-import { syncCodeStock } from '@/modules/catalog/server/code-stock'
+import { heldCodes } from '@/modules/store/server/digital-codes'
 
 // Cancellations and returns. A request is reviewed by staff (or, for a
 // cancellation before shipping, refunded at once when the shop allows it);
@@ -36,10 +35,7 @@ const OPEN: ReturnStatus[] = ['REQUESTED', 'APPROVED']
  * runs under this lock, in a transaction: two requests or two refunds of one order arriving
  * together are handled one after the other and the second sees what the first did.
  */
-async function lockOrder(tx: Prisma.TransactionClient, orderId: number) {
-  if (/^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '')) await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`
-  // SQLite serializes writes through its existing transaction/file lock.
-}
+
 export const returnsDirectory = () => join(process.cwd(), 'storage', 'returns')
 
 export async function getReturnSettings(): Promise<ReturnSettings> {
@@ -59,41 +55,14 @@ const parseJson = <T>(raw: string, fallback: T): T => { try { return JSON.parse(
 const minorOf = (value: unknown) => { try { return BigInt(String(value ?? '0')) } catch { return 0n } }
 const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]/g, '').replace(/[\u0000-\u0008\u000b-\u001f]/g, ' ').trim().slice(0, max)
 
-function loadOrder(orderId: number, userId?: number) {
-  return db.order.findFirst({
-    where: { id: orderId, productId: { not: null }, ...(userId ? { userId } : {}) },
-    include: {
-      lines: { orderBy: { line: 'asc' }, include: { product: { select: { slug: true } } } },
-      productDelivery: { select: { status: true, deliveredAt: true } },
-      invoice: { select: { id: true, number: true, status: true } },
-      returns: { orderBy: { createdAt: 'desc' } },
-      user: { select: { id: true, name: true, email: true, phone: true } },
-    },
-  })
-}
-type LoadedOrder = NonNullable<Awaited<ReturnType<typeof loadOrder>>>
 
-/** How much of the order has already gone back, and which quantities are taken by other requests. */
-function ledger(order: LoadedOrder) {
-  const refunded = order.returns.filter((row) => row.status === 'REFUNDED').reduce((sum, row) => sum + row.refundMinor, 0n)
-  const taken = new Map<number, number>()
-  for (const row of order.returns) {
-    if (!['REQUESTED', 'APPROVED', 'REFUNDED'].includes(row.status)) continue
-    if (row.kind === 'CANCEL') { for (const line of order.lines) taken.set(line.line, line.quantity); continue }
-    for (const choice of parseJson<LineChoice[]>(row.lines, [])) taken.set(choice.line, (taken.get(choice.line) || 0) + choice.quantity)
-  }
-  const lines: RefundLine[] = order.lines.map((line) => ({ line: line.line, quantity: line.quantity, unitPriceMinor: line.unitPriceMinor, totalMinor: line.totalMinor, returnedQuantity: Math.min(line.quantity, taken.get(line.line) || 0) }))
-  const meta = parseJson<Record<string, unknown>>(order.meta, {})
-  const itemsMinor = order.lines.reduce((sum, line) => sum + line.totalMinor, 0n)
-  return { refunded, remaining: order.totalMinor - refunded, lines, itemsMinor, discountMinor: minorOf(meta.discountMinor) }
-}
-
-function requestView(row: { id: number; number: string; kind: string; status: string; reason: string; description: string; photos: string; lines: string; requestedMinor: bigint; refundMinor: bigint; currency: string; adminNote: string; createdAt: Date; decidedAt: Date | null; refundedAt: Date | null; restocked: boolean }, order?: LoadedOrder) {
+function requestView(row: { refundMethod?: string; id: number; number: string; kind: string; status: string; reason: string; description: string; photos: string; lines: string; requestedMinor: bigint; refundMinor: bigint; currency: string; adminNote: string; createdAt: Date; decidedAt: Date | null; refundedAt: Date | null; restocked: boolean }, order?: LoadedOrder) {
   const currency = normalizeCurrency(row.currency, 'IRT')
   const choices = parseJson<LineChoice[]>(row.lines, [])
   return {
+    refundMethod: row.refundMethod || 'WALLET',
     id: row.id, number: row.number, kind: row.kind as ReturnKind, kindLabel: RETURN_KIND_LABEL[row.kind as ReturnKind] || row.kind,
-    status: row.status as ReturnStatus, statusLabel: RETURN_STATUS_LABEL[row.status as ReturnStatus] || row.status,
+    status: row.status as ReturnStatus, statusLabel: row.status === 'REFUNDED' ? row.refundMethod === 'CASH' ? 'وجه نقد برگشت داده شد' : row.refundMethod === 'CARD' ? 'وجه به کارت برگشت داده شد' : 'مبلغ به کیف پول برگشت' : RETURN_STATUS_LABEL[row.status as ReturnStatus] || row.status,
     reason: row.reason, reasonLabel: reasonLabel(row.reason), description: row.description,
     photos: parseJson<string[]>(row.photos, []).map((_, index) => `/api/store/returns/${row.id}/photos/${index}`),
     lines: choices.map((choice) => {
@@ -227,6 +196,11 @@ export async function createReturnRequest(req: NextRequest, userId: number, orde
       await lockOrder(tx, orderId)
       const open = await tx.returnRequest.count({ where: { orderId, status: { in: OPEN } } })
       if (open) throw new StoreError('یک درخواست باز برای این سفارش در حال بررسی است', 409, 'OPEN_REQUEST')
+      const current = await loadOrder(orderId, userId, tx)
+      if (!current || !['PAID', 'COMPLETED'].includes(current.status)) throw new StoreError('وضعیت سفارش تغییر کرده است', 409)
+      const latest = ledger(current)
+      if (kind === 'RETURN' && JSON.stringify(normalizeChoices(choices, latest.lines)) !== JSON.stringify(choices)) throw new StoreError('تعداد قابل مرجوعی تغییر کرده است؛ سفارش را تازه کنید', 409)
+      if (requestedMinor > latest.remaining) throw new StoreError('مبلغ قابل بازپرداخت تغییر کرده است؛ سفارش را تازه کنید', 409)
       const created = await tx.returnRequest.create({ data: {
         number: `tmp-${randomUUID()}`, orderId, userId, kind, reason: reason.key, description, photos: JSON.stringify(saved),
         lines: JSON.stringify(choices), requestedMinor, currency: order.currency,
@@ -300,14 +274,14 @@ export async function adminReturns(input: { tab?: string; q?: string; page?: num
     ...(Number.isSafeInteger(id) && id > 0 ? [{ orderId: id }, { id }] : []),
   ] } : {}] }
   const [rows, total, counts] = await Promise.all([
-    db.returnRequest.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 25, take: 25, include: { order: { select: { id: true, user: { select: { name: true, email: true, phone: true } } } } } }),
+    db.returnRequest.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 25, take: 25, include: { order: { select: { id: true, customerName: true, customerPhone: true, user: { select: { name: true, email: true, phone: true } } } } } }),
     db.returnRequest.count({ where }),
     Promise.all(RETURN_TABS.map((item) => db.returnRequest.count({ where: tabWhere(item.key) }))),
   ])
   return {
     tab, q, page, pages: Math.max(1, Math.ceil(total / 25)),
     counts: Object.fromEntries(RETURN_TABS.map((item, index) => [item.key, counts[index]])),
-    rows: rows.map((row) => ({ ...requestView(row), orderId: row.orderId, customer: row.order.user })),
+    rows: rows.map((row) => ({ ...requestView(row), orderId: row.orderId, customer: row.order.user, customerName: row.order.customerName, customerPhone: row.order.customerPhone })),
   }
 }
 
@@ -323,18 +297,13 @@ export async function adminReturn(id: number) {
     order: {
       id: order.id, status: order.status, fulfilment: order.productDelivery?.status || '', deliveredAt: order.productDelivery?.deliveredAt || null,
       total: minorToNumber(order.totalMinor, currency), refunded: minorToNumber(book.refunded, currency), remaining: minorToNumber(book.remaining > 0n ? book.remaining : 0n, currency),
-      invoiceNumber: order.invoice?.number || '', customer: order.user,
+      invoiceNumber: order.invoice?.number || '', customer: order.user, customerName: order.customerName, customerPhone: order.customerPhone,
     },
     history: order.returns.filter((item) => item.id !== row.id).map((item) => requestView(item, order)),
   }
 }
 
-async function notifyCustomer(row: { id: number; number: string; orderId: number; userId: number }, status: string, title: string, body: string) {
-  await createInboxEvent({
-    userId: row.userId, kind: 'ORDER_REFUND', dedupeKey: `return:${row.id}:${status}`,
-    titleEn: `Request ${row.number}: ${status.toLowerCase()}`, titleFa: title, bodyEn: body, bodyFa: body, href: `/dashboard/orders/${row.orderId}`,
-  }).catch(() => {})
-}
+
 
 /** Approve (the customer sends the item back) or reject with a reason the customer sees. */
 export async function decideReturn(input: { id: number; action: 'approve' | 'reject'; note?: unknown; actorId: number }) {
@@ -349,135 +318,4 @@ export async function decideReturn(input: { id: number; action: 'approve' | 'rej
     ? `درخواست شما تأیید شد.${note ? ` ${note}` : ''} پس از دریافت کالا، مبلغ به کیف پول شما برمی‌گردد.`
     : `درخواست شما رد شد: ${note}`)
   return row
-}
-
-/**
- * Refunds a request to the wallet (amount defaults to what was requested,
- * never more than the order's unrefunded balance). The amount is decided and
- * the status claimed together under the order's lock, so neither two clicks
- * on one request nor two requests of one order can refund more than the order
- * holds. The wallet credit is idempotent per request, and a request that was
- * claimed but never credited (the process stopped in between) is finished by
- * calling this again.
- */
-export async function refundReturn(input: { id: number; actorId: number | null; amount?: unknown; restock?: boolean; note?: unknown }) {
-  const row = await db.returnRequest.findUnique({ where: { id: input.id } })
-  if (!row) throw new StoreError('درخواست پیدا نشد', 404)
-  // Claimed as refunded but no wallet movement recorded: finish that refund with the amount it claimed.
-  const resuming = row.status === 'REFUNDED' && !row.walletTxId && row.refundMinor > 0n
-  if (!resuming && !OPEN.includes(row.status as ReturnStatus)) throw new StoreError('این درخواست قابل بازپرداخت نیست', 409)
-  const order = await loadOrder(row.orderId)
-  if (!order) throw new StoreError('سفارش پیدا نشد', 404)
-  const currency = normalizeCurrency(order.currency, 'IRT')
-  let requested = row.requestedMinor
-  if (input.amount !== undefined && input.amount !== null && String(input.amount).trim() !== '') {
-    try { requested = toMinor(String(input.amount), currency) } catch { throw new StoreError('مبلغ بازپرداخت معتبر نیست') }
-  }
-  const note = plain(input.note, 1000)
-
-  // What the order still holds, not counting this request, read under the lock.
-  const settled = resuming
-    ? { amount: row.refundMinor, before: order.totalMinor - order.returns.filter((other) => other.status === 'REFUNDED' && other.id !== row.id).reduce((sum, other) => sum + other.refundMinor, 0n) }
-    : await db.$transaction(async (tx) => {
-      await lockOrder(tx, row.orderId)
-      const others = await tx.returnRequest.aggregate({ where: { orderId: row.orderId, status: 'REFUNDED', id: { not: row.id } }, _sum: { refundMinor: true } })
-      const before = order.totalMinor - (others._sum.refundMinor || 0n)
-      const amount = clampRefund(requested, before)
-      if (amount <= 0n) throw new StoreError('مبلغی برای بازپرداخت باقی نمانده است')
-      const claimed = await tx.returnRequest.updateMany({ where: { id: row.id, status: row.status }, data: { status: 'REFUNDED', refundMinor: amount, refundedAt: new Date(), decidedBy: input.actorId ?? row.decidedBy, decidedAt: row.decidedAt || new Date(), ...(note ? { adminNote: note } : {}) } })
-      if (claimed.count !== 1) throw new StoreError('وضعیت درخواست تغییر کرده است؛ صفحه را تازه کنید', 409, 'CONFLICT')
-      return { amount, before }
-    })
-  const amount = settled.amount
-  const book = { remaining: settled.before }
-
-  const credit = await moveWallet({
-    userId: row.userId, amount: minorToNumber(amount, currency), currency, type: 'REFUND',
-    description: `${RETURN_KIND_LABEL[row.kind as ReturnKind]} ${row.number} — سفارش ${row.orderId}`,
-    orderId: row.orderId, invoiceId: order.invoice?.id ?? null, adminId: input.actorId, idempotencyKey: `return-refund:${row.id}`,
-  })
-  if (!credit.ok) {
-    // A resumed refund stays claimed, so it is tried again; a new one is released for another attempt.
-    if (!resuming) await db.returnRequest.updateMany({ where: { id: row.id, status: 'REFUNDED', walletTxId: null }, data: { status: row.status, refundMinor: 0n, refundedAt: null } })
-    logEvent('error', 'store.return_refund_failed', { returnId: row.id, message: credit.message })
-    throw new StoreError(`واریز به کیف پول انجام نشد: ${credit.message}`, 502)
-  }
-  await db.returnRequest.update({ where: { id: row.id }, data: { walletTxId: credit.txId } })
-  // The codes that were paid back are void from here on (never back on the shelf). Repeating it takes nothing twice.
-  const choices = parseJson<LineChoice[]>(row.lines, [])
-  const voided = await takeBackCodes(row.orderId, row.kind === 'CANCEL' ? null : choices, { returnId: row.id, note: row.number }).catch((error) => { logEvent('error', 'store.return_codes_failed', { returnId: row.id, error: String(error) }); return 0 })
-  if (resuming && credit.idempotent) {
-    // The money had already been credited; only the record of it was missing. Whether the order-level
-    // effects ran cannot be told from here, and repeating them could restock twice, so they are left.
-    logEvent('warn', 'store.return_refund_record_repaired', { returnId: row.id, orderId: row.orderId })
-    return db.returnRequest.findUniqueOrThrow({ where: { id: row.id } })
-  }
-
-  // Order-level effects: fulfilment state, stock, and a fully refunded order/invoice.
-  const fullyRefunded = book.remaining - amount <= 0n
-  const fulfilment = order.productDelivery?.status || ''
-  const target = row.kind === 'CANCEL' ? 'CANCELLED' : fullyRefunded ? 'RETURNED' : ''
-  const restock = input.restock !== false && !row.restocked
-  if (target && canMoveTo(fulfilment, target)) {
-    await transitionOrder({ orderId: row.orderId, to: target, actorId: input.actorId, notify: false, restock: restock && row.kind === 'CANCEL', note: `${RETURN_KIND_LABEL[row.kind as ReturnKind]} ${row.number}` }).catch((error) => logEvent('warn', 'store.return_transition_failed', { returnId: row.id, error: error instanceof Error ? error.message : String(error) }))
-  } else if (row.kind === 'CANCEL' && restock) {
-    await restockConsumedInventory(row.orderId)
-    // Delivery had not started: the units are still held for this order, not yet sold.
-    await releaseInventoryReservation(row.orderId)
-  }
-  if (restock && row.kind === 'RETURN') await restockLines(row.orderId, parseJson<LineChoice[]>(row.lines, []))
-  if (restock) await db.returnRequest.update({ where: { id: row.id }, data: { restocked: true } })
-  if (fullyRefunded) {
-    await db.order.updateMany({ where: { id: row.orderId, status: { not: 'REFUNDED' } }, data: { status: 'REFUNDED' } })
-    // Only a paid invoice is refunded; one that was never paid (or is refunded already) stays as it is.
-    if (order.invoice) await db.invoice.updateMany({ where: { id: order.invoice.id, status: 'PAID' }, data: { status: 'REFUNDED' } })
-  }
-  // Marketplace sellers give back their share of the refunded part (and get the commission back).
-  await import('@/modules/marketplace/server/marketplace').then((m) => m.reverseSellerShare(row.orderId, amount, `return:${row.id}`, row.kind === 'RETURN' ? parseJson<LineChoice[]>(row.lines, []).map((choice) => choice.line) : undefined)).catch((error) => logEvent('error', 'marketplace.refund_reverse_failed', { returnId: row.id, error: String(error) }))
-  // Customer club points earned on the refunded part go back.
-  await import('@/modules/store/server/marketing').then((m) => m.reverseOrderPoints(row.orderId, amount, `return:${row.id}`)).catch((error) => logEvent('warn', 'store.loyalty_reverse_failed', { returnId: row.id, error: String(error) }))
-  const shown = minorToNumber(amount, currency).toLocaleString('fa-IR')
-  await db.orderEvent.create({ data: { orderId: row.orderId, status: 'REFUNDED', note: `${row.number}: ${shown} ${currency === 'IRT' ? 'تومان' : currency} به کیف پول برگشت${voided ? `؛ ${voided.toLocaleString('fa-IR')} کد باطل شد` : ''}${note ? ` — ${note}` : ''}`, visible: true, actorId: input.actorId } })
-  await notifyCustomer(row, 'REFUNDED', `برگشت وجه ${row.number}`, `${shown} ${currency === 'IRT' ? 'تومان' : currency} بابت ${RETURN_KIND_LABEL[row.kind as ReturnKind]} سفارش ${row.orderId.toLocaleString('fa-IR')} به کیف پول شما واریز شد.`)
-  logEvent('info', 'store.return_refunded', { returnId: row.id, orderId: row.orderId, amount: amount.toString(), currency })
-  return db.returnRequest.findUniqueOrThrow({ where: { id: row.id } })
-}
-
-/**
- * Worker step: refunds that were claimed but never credited because the process stopped in
- * between. Requests marked refunded for at least ten minutes with no wallet movement recorded
- * are finished through the ordinary refund path, which credits once. One that fails is
- * logged and tried again on a later pass.
- */
-export async function recoverInterruptedRefunds(limit = 20, now = new Date()) {
-  const rows = await db.returnRequest.findMany({ where: { status: 'REFUNDED', walletTxId: null, refundMinor: { gt: 0n }, refundedAt: { lte: new Date(now.getTime() - 10 * 60_000) } }, orderBy: { id: 'asc' }, take: Math.max(1, Math.min(100, Math.trunc(limit) || 20)), select: { id: true } })
-  let finished = 0
-  let failed = 0
-  for (const row of rows) {
-    try { await refundReturn({ id: row.id, actorId: null, note: '' }); finished++ } catch (error) {
-      failed++
-      logEvent('error', 'store.return_refund_recovery_failed', { returnId: row.id, error: String(error) })
-    }
-  }
-  return { checked: rows.length, finished, failed }
-}
-
-/** Returned items back on the shelf (finite stock only), line by line. */
-async function restockLines(orderId: number, choices: LineChoice[]) {
-  const reservations = await db.inventoryReservation.findMany({ where: { orderId, status: 'CONSUMED', line: { in: choices.map((choice) => choice.line) } } })
-  const lines = await db.orderLine.findMany({ where: { orderId, line: { in: choices.map((choice) => choice.line) } }, select: { line: true, productId: true, product: { select: { digitalMode: true } } } })
-  for (const choice of choices) {
-    const reservation = reservations.find((row) => row.line === choice.line)
-    const productId = reservation?.productId ?? lines.find((line) => line.line === choice.line)?.productId
-    if (!productId) continue
-    // A product that sells from its code pool has no stock of its own to give back: the returned code is void.
-    if (lines.find((line) => line.line === choice.line)?.product?.digitalMode === 'CODES') {
-      await db.$transaction((tx) => syncCodeStock(tx, productId))
-      await db.product.updateMany({ where: { id: productId, soldCount: { gte: choice.quantity } }, data: { soldCount: { decrement: choice.quantity } } })
-      continue
-    }
-    if (!reservation || reservation.finite) await db.product.updateMany({ where: { id: productId, stock: { gte: 0 } }, data: { stock: { increment: choice.quantity } } })
-    if (reservation?.variantFinite && reservation.variantId) await db.productVariant.updateMany({ where: { id: reservation.variantId }, data: { stock: { increment: choice.quantity } } })
-    await db.product.updateMany({ where: { id: productId, soldCount: { gte: choice.quantity } }, data: { soldCount: { decrement: choice.quantity } } })
-  }
 }

@@ -38,6 +38,7 @@ function instance(client = new PrismaClient()) {
    if (name === '@/modules/wallet/server/wallet') {const real = load('src/modules/wallet/server/wallet.ts'); return {...real, moveWallet: async input => input.userId === state.failWalletFor ? {ok: false, message: 'wallet unavailable'} : real.moveWallet(input)}}
    if (Object.hasOwn(mocks, name)) return mocks[name]
    if (name.startsWith('@/')) {const base = `src/${name.slice(2)}`; return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts')}
+   if (name.startsWith('.')) { const path = require('node:path'); const full = path.resolve(path.dirname(file), name); return load(fs.existsSync(full + '.ts') ? full + '.ts' : full + '/index.ts') }
    return require(name)
   }, mod, mod.exports)
   return mod.exports
@@ -123,7 +124,7 @@ async function main() {
  assert.deepEqual(await one.recoverInterruptedRefunds(), {checked: 0, finished: 0, failed: 0})
  // Credited but the record of it missing: the record is repaired, nothing is paid or restocked again.
  // The database refuses to unlink a paid refund from its wallet row; the crash is staged with the rule lifted for this one statement.
- await prisma.$transaction([prisma.$executeRawUnsafe('ALTER TABLE "ReturnRequest" DISABLE TRIGGER "ReturnRequest_state_rules"'), prisma.returnRequest.update({where: {id: claimed.id}, data: {walletTxId: null}}), prisma.$executeRawUnsafe('ALTER TABLE "ReturnRequest" ENABLE TRIGGER "ReturnRequest_state_rules"')])
+ await prisma.$transaction([prisma.$executeRawUnsafe('ALTER TABLE "ReturnRequest" DISABLE TRIGGER "ReturnRequest_state_rules"'), prisma.returnRequest.update({where: {id: claimed.id}, data: {walletTxId: null}}), prisma.$executeRawUnsafe('SET CONSTRAINTS "ReturnRequest_counter_payment" IMMEDIATE'), prisma.$executeRawUnsafe('ALTER TABLE "ReturnRequest" ENABLE TRIGGER "ReturnRequest_state_rules"')])
  state.effects.length = 0
  assert.deepEqual(await one.recoverInterruptedRefunds(), {checked: 1, finished: 1, failed: 0})
  assert.equal(await wallet(d), 100_000); assert.deepEqual(state.effects, []); assert.ok((await prisma.returnRequest.findUniqueOrThrow({where: {id: claimed.id}})).walletTxId)

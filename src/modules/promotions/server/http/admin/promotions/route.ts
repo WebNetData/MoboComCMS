@@ -13,8 +13,10 @@ function parseDate(value: unknown) {
   return date
 }
 
-function parseInput(body: any) {
+function parseInput(body: any, fallbackChannel = 'ONLINE') {
   const code = promotionCode(body?.code)
+  const salesChannel = String(body?.salesChannel ?? fallbackChannel)
+  if (!['ONLINE', 'COUNTER', 'BOTH'].includes(salesChannel)) throw Error('invalid sales channel')
   const kind = body?.kind === 'FIXED' ? 'FIXED' : 'PERCENT'
   const currency = normalizeCurrency(String(body?.currency || BASE_CURRENCY))
   const value = Number(body?.value)
@@ -28,7 +30,7 @@ function parseInput(body: any) {
   const amountMinor = kind === 'FIXED' ? toMinor(value, currency) : 0n
   const minSubtotalMinor = toMinor(body?.minSubtotal || 0, currency)
   if (amountMinor < 0n || minSubtotalMinor < 0n || amountMinor > 9_000_000_000_000n || minSubtotalMinor > 9_000_000_000_000n) throw Error('invalid amount')
-  return { code, active: body?.active !== false, membersOnly: body?.membersOnly === true, kind, percentBps: kind === 'PERCENT' ? Math.round(value * 100) : 0, amountMinor, currency, planId, membershipPlanId, minSubtotalMinor, maxUses, perUserLimit, startsAt, endsAt }
+  return { code, salesChannel, active: body?.active !== false, membersOnly: body?.membersOnly === true, kind, percentBps: kind === 'PERCENT' ? Math.round(value * 100) : 0, amountMinor, currency, planId, membershipPlanId, minSubtotalMinor, maxUses, perUserLimit, startsAt, endsAt }
 }
 
 export async function GET(req: NextRequest) {
@@ -58,7 +60,7 @@ export async function PATCH(req: NextRequest) {
   const existing = await db.promotion.findUnique({ where: { id } })
   if (!existing) return err('not found', 404)
   let input: ReturnType<typeof parseInput>
-  try { input = parseInput(body) } catch { return err('invalid promotion') }
+  try { input = parseInput(body, existing.salesChannel) } catch { return err('invalid promotion') }
   if (input.maxUses > 0 && input.maxUses < existing.reservedCount) return err('limit is below existing reservations')
   if (input.code !== existing.code && await db.promotion.findUnique({ where: { code: input.code } })) return err('code already exists', 409)
   if (input.planId && !await db.plan.findUnique({ where: { id: input.planId } })) return err('plan not found', 404)
