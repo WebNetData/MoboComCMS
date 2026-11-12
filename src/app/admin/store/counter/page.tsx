@@ -8,12 +8,15 @@ import { fieldsFor } from '@/modules/store/domain/order-inputs'
 import type { CounterProduct, CounterCustomer, CounterLine } from '@/modules/store/domain/counter-sales'
 import { useCounterSale } from './useCounterSale'
 import Receipt from './Receipt'
+import type { SaleDocumentFormat } from '@/components/store/SaleReceiptDocument'
 import CustomerDesk from './CustomerDesk'
 import PaymentDesk, { EMPTY_PAYMENT, paymentRows, type DeskPayment } from './PaymentDesk'
 import DoneMark from '../DoneMark'
 import '../desk.css'
 
 type Item = CounterLine & { product: CounterProduct; variantName: string }
+const PAPER_KEY = 'store.counter.paper.v1'
+const PAPERS: { value: SaleDocumentFormat; label: string }[] = [{ value: 'sheet', label: 'فاکتور A4' }, { value: 'roll', label: 'رول ۸۰ میلی‌متری' }]
 const lineKey = (productId: number, variantId: number | null) => `${productId}:${variantId}`
 const priceOf = (item: Item) => formatMoney(BigInt(item.expectedUnitMinor) * BigInt(item.quantity), item.product.currency, 'fa-IR')
 const maxOf = (item: Item) => Math.min(99, item.product.maxPerOrder || 99)
@@ -48,6 +51,10 @@ export default function CounterSales() {
   // The line last added or counted up; `n` remounts its highlight so a second scan of the same item flashes again.
   const [fresh, setFresh] = useState({ key: '', n: 0 })
   const [confirmed, setConfirmed] = useState(false)
+  // The counter's printer decides the paper; it is a per-browser convenience, so storage failures only mean the default.
+  const [paper, setPaper] = useState<SaleDocumentFormat>('sheet')
+  useEffect(() => { try { if (localStorage.getItem(PAPER_KEY) === 'roll') setPaper('roll') } catch { /* default paper */ } }, [])
+  function choosePaper(value: SaleDocumentFormat) { setPaper(value); try { localStorage.setItem(PAPER_KEY, value) } catch { /* not remembered */ } }
   const product = products.find((item) => item.id === productId)
   const variant = product?.variants.find((item) => item.id === variantId)
   const currency = items[0]?.product.currency || ''
@@ -123,13 +130,15 @@ export default function CounterSales() {
         <div className="cd-done-text"><h2>فروش شمارهٔ <bdi className="cd-num">{sale.orderId.toLocaleString('fa-IR', { useGrouping: false })}</bdi> ثبت شد</h2>
           <p>{sale.receipt ? <>مبلغ دریافت‌شده <b className="cd-num">{formatMoney(BigInt(sale.receipt.totalMinor), sale.receipt.currency, 'fa-IR')}</b> · رسید آمادهٔ چاپ است</> : 'در حال دریافت رسید…'}</p></div>
         <div className="cd-done-actions">
-          <button type="button" className="btn btn-primary" disabled={!sale.receipt} onClick={() => window.print()}>چاپ رسید و کارت‌ها</button>
-          <button type="button" className="btn btn-ghost" onClick={nextSale}>فروش بعدی</button>
+          <fieldset className="cd-seg cd-paper"><legend className="cd-sr">کاغذ چاپ</legend>{PAPERS.map((option) => <label key={option.value} className={paper === option.value ? 'is-on' : ''}><input type="radio" name="counter-paper" value={option.value} checked={paper === option.value} onChange={() => choosePaper(option.value)} />{option.label}</label>)}</fieldset>
+          <button type="button" className="btn btn-primary" disabled={!sale.receipt} onClick={() => window.print()}>{sale.receipt?.cards.length ? 'چاپ رسید و کارت‌ها' : 'چاپ رسید'}</button>
+          {sale.receipt && <Link className="btn btn-ghost" href={`/invoice/${encodeURIComponent(sale.receipt.invoiceNumber)}/official`} target="_blank">صورتحساب رسمی</Link>}
           <Link className="btn btn-ghost" href={`/admin/store/orders/${sale.orderId}`}>جزئیات سفارش</Link>
+          <button type="button" className="btn btn-ghost cd-next" onClick={nextSale}>فروش بعدی</button>
           {!sale.receipt && <button type="button" className="btn btn-ghost" onClick={sale.retryReceipt}>دریافت دوبارهٔ رسید</button>}
         </div>
       </section>
-      {sale.receipt ? <Receipt receipt={sale.receipt} /> : <p className="sa-hint" role="status">در حال دریافت رسید…</p>}
+      {sale.receipt ? <Receipt receipt={sale.receipt} format={paper} /> : <p className="sa-hint" role="status">در حال دریافت رسید…</p>}
     </> : <>
       {sale.uncertain && <section className="sa-card cd-uncertain"><p>پاسخ ثبت فروش قبلی نرسید. پیش از فروش دیگر وضعیت آن را بررسی کنید.</p><div className="sa-row-actions">
         {sale.canRetry && <button type="button" className="btn btn-primary" disabled={sale.busy} onClick={submitSale}>تلاش مجدد همان فروش</button>}

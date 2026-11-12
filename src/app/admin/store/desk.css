@@ -176,30 +176,12 @@
 .admin-shell .cd-pickup-code { display: inline-flex; gap: 6px; direction: ltr; margin-inline-start: 8px; vertical-align: middle; }
 .admin-shell .cd-pickup-code > i { font-style: normal; display: grid; place-items: center; inline-size: 34px; block-size: 42px; border: 1px solid var(--sa-line); border-block-end-width: 2px; border-radius: 8px; background: var(--sa-surface); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 20px; font-weight: 500; }
 
-/* Printed receipt, on screen */
-.admin-shell .counter-receipt { display: grid; gap: 20px; inline-size: min(100%, 760px); margin-inline: auto; padding: 32px; border: 1px solid var(--sa-line); border-radius: 14px; background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 12px 32px -20px rgb(0 0 0 / .25); animation: cd-rise .3s var(--cd-ease) .08s both; }
-.admin-shell .counter-receipt > header { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1.5px dashed var(--cd-tear); padding-bottom: 16px; }
-.admin-shell .counter-receipt h2, .admin-shell .counter-receipt p { margin: 0; }
-.admin-shell .counter-receipt h2 { font-size: 18px; font-weight: 600; }
-.admin-shell .counter-receipt header p, .admin-shell .counter-receipt time { color: var(--sa-muted); font-size: 13px; }
-.admin-shell .counter-receipt header img { max-width: 120px; max-height: 48px; }
-.admin-shell .counter-receipt-meta { display: grid; gap: 8px; margin: 0; font-size: 14px; }
-.admin-shell .counter-receipt-meta div { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.admin-shell .counter-receipt-meta dt { color: var(--sa-muted); }
-.admin-shell .counter-receipt-meta dd { margin: 0; }
-.admin-shell .counter-receipt-tenders { padding-top: 16px; border-top: 1.5px dashed var(--cd-tear); }
-.admin-shell .counter-table-scroll { overflow: auto; }
-.admin-shell .counter-receipt table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.admin-shell .counter-receipt caption { text-align: start; margin-bottom: 12px; font-weight: 600; }
-.admin-shell .counter-receipt th, .admin-shell .counter-receipt td { padding: 12px 8px; border-bottom: 1px solid var(--sa-line); text-align: start; }
-.admin-shell .counter-receipt thead th { color: var(--sa-muted); font-size: 12px; font-weight: 500; }
-.admin-shell .counter-receipt tbody th { font-weight: 500; }
-.admin-shell .counter-receipt .is-end { text-align: end; }
-.admin-shell .counter-receipt tfoot th, .admin-shell .counter-receipt tfoot td { border-bottom: 0; border-top: 1.5px dashed var(--cd-tear); font-size: 16px; font-weight: 600; }
-.admin-shell .counter-receipt th small { display: block; color: var(--sa-muted); font-size: 12px; font-weight: 400; }
-.admin-shell .counter-receipt-qr { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.admin-shell .counter-receipt-qr img { border-radius: 8px; border: 1px solid var(--sa-line); background: #fff; padding: 6px; }
+/* Gift cards printed after the sale document */
 .admin-shell .counter-receipt-card { display: grid; gap: 12px; max-width: 600px; width: 100%; break-inside: avoid; }
+.admin-shell .sr-doc.is-roll .counter-receipt-card { max-width: none; }
+.admin-shell .cd-paper { flex: 0 1 300px; }
+.admin-shell .cd-done-actions .cd-next { margin-inline-start: auto; }
+@media print { .admin-shell .counter-receipt-card { width: 85.6mm; } .admin-shell .sr-doc.is-roll .counter-receipt-card { width: 100%; } }
 
 /* ---------- Registers ---------- */
 .admin-shell .cd-open { display: grid; gap: 16px; padding: 20px; }
@@ -281,20 +263,9 @@
   .admin-shell .cd-inline > .btn { flex: 1 1 100%; }
   .admin-shell .cd-done { grid-template-columns: minmax(0, 1fr); }
   .admin-shell .cd-ticket-total strong { font-size: 24px; }
-  .admin-shell .counter-receipt { padding: 16px; }
-  .admin-shell .counter-receipt th, .admin-shell .counter-receipt td { padding: 8px 4px; font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .admin-shell .cd-line, .admin-shell .cd-flash, .admin-shell .cd-ticket-total strong, .admin-shell .cd-done, .admin-shell .counter-receipt, .admin-shell .cd-check path { animation: none; }
+  .admin-shell .cd-line, .admin-shell .cd-flash, .admin-shell .cd-ticket-total strong, .admin-shell .cd-done, .admin-shell .cd-check path { animation: none; }
   .admin-shell .cd-flash { opacity: 0; }
   .admin-shell .cd-split-bar span, .admin-shell .cd-seg label, .admin-shell .cd-step-mark { transition: none; }
-}
-@media print {
-  @page { margin: 10mm; }
-  body:has(.counter-receipt) *:not(:has(.counter-receipt)):not(.counter-receipt):not(.counter-receipt *) { display: none !important; }
-  body:has(.counter-receipt) :has(.counter-receipt) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; transform: none !important; }
-  .admin-shell .counter-receipt { display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: white; color: #171717; box-shadow: none; animation: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .admin-shell .counter-receipt > *, .admin-shell .counter-receipt-card { margin-bottom: 20px; }
-  .admin-shell .counter-receipt-card { width: 85.6mm; break-inside: avoid; }
-  .admin-shell .counter-table-scroll { overflow: visible; }
 }

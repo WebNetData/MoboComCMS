@@ -5,7 +5,7 @@ import { readOrderFields } from '@/modules/store/domain/order-inputs'
 import { readDeliveryTemplate, type DeliveryItem } from '@/modules/store/domain/delivery-details'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { StoreError } from '@/modules/store/domain/store'
-import { saleReceiptLink } from '@/modules/store/server/sale-receipts'
+import { saleReceiptLink, saleSeller } from '@/modules/store/server/sale-receipts'
 
 export async function counterProducts(query: string,productId?:number) {
   const q = query.trim().slice(0, 80)
@@ -31,7 +31,7 @@ export async function counterCustomers(query: string) {
 export async function counterReceipt(orderId: number) {
   const order = await db.order.findFirst({
     where: { id: orderId, saleSource: 'COUNTER', status: 'PAID', productDelivery: { is: { status: 'DELIVERED' } } },
-    include: { invoice: true, tenders:true,lines: { orderBy: { line: 'asc' }, include: { product: { select: { deliveryTemplate: true } } } }, user: { select: { name: true, phone: true } }, createdBy: { select: { name: true } } },
+    include: { invoice: true, tenders:true,lines: { orderBy: { line: 'asc' }, include: { product: { select: { deliveryTemplate: true } } } }, user: { select: { name: true, phone: true } }, createdBy: { select: { name: true } }, registerSession: { select: { register: true } } },
   })
   if (!order?.invoice || order.invoice.status !== 'PAID') throw new StoreError('فروش حضوریِ تحویل‌شده پیدا نشد', 404)
   const codes = await db.productDigitalCode.findMany({ where: { orderId, returnedAt: null }, orderBy: { id: 'asc' }, select: { id: true, productId: true, orderLine: true, secret: true } })
@@ -44,13 +44,13 @@ export async function counterReceipt(orderId: number) {
   })
   let meta: Record<string, unknown>
   try { meta = JSON.parse(order.meta) } catch { throw new StoreError('اطلاعات فروش قابل خواندن نیست', 409) }
-  const site = await getSiteConfig()
+  const [site, seller] = await Promise.all([getSiteConfig(), saleSeller()])
   return {
     ...await saleReceiptLink(orderId),payments:order.tenders.map(row=>({method:row.method as 'CASH'|'CARD'|'WALLET',amountMinor:row.amountMinor.toString(),reference:row.reference})),
     orderId: order.id, invoiceNumber: order.invoice.number, createdAt: order.createdAt.toISOString(),
     customer: order.customerName || order.user?.name || 'مشتری حضوری', phone: order.customerPhone || order.user?.phone || '', cashier: order.createdBy?.name || '',
     method: ['CASH','CARD','WALLET','SPLIT'].includes(String(meta.counterMethod)) ? String(meta.counterMethod) : 'CASH', reference: String(meta.counterReference || ''),
-    currency: order.currency, totalMinor: order.totalMinor.toString(), brand: { title: site.brand || '', logo: site.logo || '' },
+    currency: order.currency, totalMinor: order.totalMinor.toString(), brand: { title: site.brand || '', logo: site.logo || '' }, seller, register: order.registerSession?.register || '',
     lines: order.lines.map((line) => ({ name: line.name, variant: line.variantName, quantity: line.quantity, unitMinor: line.unitPriceMinor.toString(), totalMinor: line.totalMinor.toString(), kind: line.kind })), cards,
   }
 }
