@@ -1,5 +1,9 @@
 # HappVPN deployable baseline — 2026-09-22
 
+## 1.7.19 — Store desk, shared stock and refreshed AI architecture (2026-11-13)
+
+Merged PR447–454 add counter sales, unified customers/payments/registers/pickup, receipts and shelf QR, location stock/receiving/counts, cross-channel returns, channel discounts and warehouse home delivery. Repair intake continues the existing Forms owner. Seven migrations are sealed; the signed source package includes the refreshed14-document canonical AI knowledge bundle and architecture documents. Direct bank-device integration is deferred. See [release notes](docs/releases/1.7.19.md) for migration, verification and rollback limits.
+
 ## 1.7.0 — MoboCom 1.0.0 Beta (pre-release, 2026-11-03)
 
 The first public beta. Its public name is **MoboCom 1.0.0 Beta**. The package, panel and Git tag carry **1.7.0** (`v1.7.0`), because a release must be numbered above the earlier 1.6.x releases for updates and the migration order to stay correct. Releases everything merged after 1.6.1 (PRs #290–#329).

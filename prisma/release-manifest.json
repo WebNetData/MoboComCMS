@@ -837,15 +837,39 @@
           "sha256": "3a77708dbfabcf0d0de98a487078c510bc732e71f819fd6c0799bfc298cf0d16"
         }
       ]
+    },
+    "1.7.19": {
+      "migrations": [
+        {
+          "name": "20270311120000_store_counter_sales",
+          "sha256": "645cbc7fbfa66d4e87a9a3bb5b9684d927fdaac8f0e5c859b4a002fab8c54d3d"
+        },
+        {
+          "name": "20270312120000_store_unified_desk",
+          "sha256": "c483c237f6282d03b20e7e335f78a53a7a528a50216e6673b60cd3f4a5ab19a0"
+        },
+        {
+          "name": "20270313120000_stock_locations",
+          "sha256": "cb09e6bbf3e45ec7bc6814e9578a469e7a9d0491c68672a63c62fccf34bc38f4"
+        },
+        {
+          "name": "20270313121000_stock_document_integrity",
+          "sha256": "2d7d35d75cf7fc49c58cbbdd64c8960a9e8023ad5f560903946196ae4da645c4"
+        },
+        {
+          "name": "20270314120000_store_counter_returns",
+          "sha256": "271e59bf5f2b8a3a56e046ddb1525f176f2c53c5927c9d91fc2abe690d9775f2"
+        },
+        {
+          "name": "20270315120000_store_discount_channels",
+          "sha256": "fdef630cd49a1bf4d559b17cad056b6a45a7ba06de3a3abd0d8d9c2044ab0ecb"
+        },
+        {
+          "name": "20270315121000_stock_count_versions",
+          "sha256": "7c3654d2055e164df8db4a5c691e1f41c436b300243e6850d9a4079a262286da"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270311120000_store_counter_sales",
-    "20270312120000_store_unified_desk",
-    "20270313120000_stock_locations",
-    "20270313121000_stock_document_integrity",
-    "20270314120000_store_counter_returns",
-    "20270315120000_store_discount_channels",
-    "20270315121000_stock_count_versions"
-  ]
+  "unreleased": []
 }
