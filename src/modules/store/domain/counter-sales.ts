@@ -6,7 +6,7 @@ export const COUNTER_PAYMENT_METHODS = ['CASH', 'CARD', 'WALLET', 'SPLIT'] as co
 export type CounterPaymentMethod = typeof COUNTER_PAYMENT_METHODS[number]
 export type CounterLine = { productId: number; variantId: number | null; quantity: number; expectedUnitMinor: string; inputs: Record<string, string> }
 export type CounterTenderInput = { method: 'CASH' | 'CARD' | 'WALLET'; amountMinor: string; reference: string }
-export type CounterSaleInput = { requestId: string; customerId: number | null; customerName: string; customerPhone: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[]; sessionId?: number | null; payments?: CounterTenderInput[]; walletCode?: string; redeemPoints?: number }
+export type CounterSaleInput = { requestId: string; customerId: number | null; customerName: string; customerPhone: string; customerFirstName?: string; customerLastName?: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[]; sessionId?: number | null; payments?: CounterTenderInput[]; walletCode?: string; redeemPoints?: number }
 export type CounterProduct = { id: number; name: string; kind: string; currency: string; stock: number; unitMinor: string; maxPerOrder: number; fields: OrderField[]; variants: { id: number; name: string; stock: number; unitMinor: string }[] }
 export type CounterCustomer = { id: number; name: string; email: string; phone: string }
 /** Seller block printed on sale receipts: the Admin invoice profile (billing), with the site brand as fallback. */
@@ -57,5 +57,8 @@ export function readCounterSale(input: unknown): CounterSaleInput {
     }
   }
   if ((body.method === 'WALLET' || body.method === 'SPLIT') && !payments.length) throw new StoreError('جزئیات پرداخت لازم است')
-  return { requestId, customerId, customerName: text(body.customerName, 120), customerPhone: text(body.customerPhone, 30), method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines, sessionId, payments, walletCode: text(body.walletCode,8), redeemPoints }
+    // First and last name, like the member profile; together they are the buyer name printed on the invoice.
+  const customerFirstName = text(body.customerFirstName, 40), customerLastName = text(body.customerLastName, 40)
+  const customerName = [customerFirstName, customerLastName].filter(Boolean).join(' ') || text(body.customerName, 120)
+  return { requestId, customerId, customerName, customerPhone: text(body.customerPhone, 30), customerFirstName, customerLastName, method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines, sessionId, payments, walletCode: text(body.walletCode,8), redeemPoints }
 }

@@ -9,13 +9,14 @@ import type { CounterProduct, CounterCustomer, CounterLine } from '@/modules/sto
 import { useCounterSale } from './useCounterSale'
 import Receipt from './Receipt'
 import type { SaleDocumentFormat } from '@/components/store/SaleReceiptDocument'
-import CustomerDesk from './CustomerDesk'
+import CustomerDesk, { EMPTY_BUYER, buyerState, type Buyer } from './CustomerDesk'
 import PaymentDesk, { EMPTY_PAYMENT, paymentRows, type DeskPayment } from './PaymentDesk'
 import DoneMark from '../DoneMark'
 import '../desk.css'
 
 type Item = CounterLine & { product: CounterProduct; variantName: string }
 const PAPER_KEY = 'store.counter.paper.v1'
+const BUYER_NOTE = { linked: 'حساب موجود', new: 'حساب تازه', guest: 'مهمان', invalid: 'موبایل ناقص' } as const
 const PAPERS: { value: SaleDocumentFormat; label: string }[] = [{ value: 'sheet', label: 'فاکتور A4' }, { value: 'roll', label: 'رول ۸۰ میلی‌متری' }]
 const lineKey = (productId: number, variantId: number | null) => `${productId}:${variantId}`
 const priceOf = (item: Item) => formatMoney(BigInt(item.expectedUnitMinor) * BigInt(item.quantity), item.product.currency, 'fa-IR')
@@ -38,8 +39,7 @@ export default function CounterSales() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [attempt, setAttempt] = useState(0)
-  const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
+  const [buyer, setBuyer] = useState<Buyer>(EMPTY_BUYER)
   const [customer, setCustomer] = useState<CounterCustomer | null>(null)
   const [payment, setPayment] = useState<DeskPayment>(EMPTY_PAYMENT)
   const [sessions, setSessions] = useState<{ id: number; register: string; currency: string; status: string; mine: boolean }[] | null>(null)
@@ -61,6 +61,7 @@ export default function CounterSales() {
   const total = items.reduce((sum, item) => sum + BigInt(item.expectedUnitMinor) * BigInt(item.quantity), 0n)
   const units = items.reduce((sum, item) => sum + item.quantity, 0)
   const locked = sale.busy || sale.uncertain
+  const buyerStatus = buyerState(buyer, customer)
   const openSessions = (sessions || []).filter((row) => row.status === 'OPEN' && row.mine)
   let paymentReady = false
   try {
@@ -115,9 +116,9 @@ export default function CounterSales() {
   }
   function changeItem(index: number, patch: Partial<Item>) { setItems(items.map((item, at) => at === index ? { ...item, ...patch } : item)); setConfirmed(false) }
   // A card reference typed before switching to cash must not reach a cash receipt.
-  const payload = () => { const payments = paymentRows(payment, total, currency); return { customerId: customer?.id || null, customerName, customerPhone, sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line) } }
+  const payload = () => { const payments = paymentRows(payment, total, currency); return { customerId: customer?.id || null, customerName: [buyer.firstName.trim(), buyer.lastName.trim()].filter(Boolean).join(' '), customerFirstName: buyer.firstName.trim(), customerLastName: buyer.lastName.trim(), customerPhone: buyer.phone.trim(), sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line) } }
   function submitSale() { try { void sale.submit(payload()) } catch (error) { setLocalError(error instanceof Error ? error.message : 'مبالغ پرداخت معتبر نیست') } }
-  function nextSale() { if (sale.nextSale()) { setItems([]); setConfirmed(false); setCustomer(null); setCustomerName(''); setCustomerPhone(''); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setAttempt((value) => value + 1) } }
+  function nextSale() { if (sale.nextSale()) { setItems([]); setConfirmed(false); setCustomer(null); setBuyer(EMPTY_BUYER); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setAttempt((value) => value + 1) } }
   const addDisabled = !product || !!(product.variants.length && !variant) || items.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)
   const stock = product ? (variant?.stock ?? product.stock) : -1
 
@@ -138,6 +139,7 @@ export default function CounterSales() {
           {!sale.receipt && <button type="button" className="btn btn-ghost" onClick={sale.retryReceipt}>دریافت دوبارهٔ رسید</button>}
         </div>
       </section>
+      {sale.receipt?.seller && !sale.receipt.seller.address && !sale.receipt.seller.phone && <p className="sa-notice cd-profile-hint">نشانی، تلفن و کدهای فروشگاه هنوز روی فاکتور نیستند. آن‌ها را یک بار در <Link className="sa-link" href="/admin/invoice-profile">پروفایل فاکتور</Link> ثبت کنید تا روی همهٔ فاکتورها چاپ شوند.</p>}
       {sale.receipt ? <Receipt receipt={sale.receipt} format={paper} /> : <p className="sa-hint" role="status">در حال دریافت رسید…</p>}
     </> : <>
       {sale.uncertain && <section className="sa-card cd-uncertain"><p>پاسخ ثبت فروش قبلی نرسید. پیش از فروش دیگر وضعیت آن را بررسی کنید.</p><div className="sa-row-actions">
@@ -197,8 +199,8 @@ export default function CounterSales() {
             {sessions && !openSessions.length ? <div className="cd-inline-empty"><p>صندوق بازی به نام شما نیست</p><Link className="btn btn-primary btn-sm" href="/admin/store/registers">بازکردن صندوق</Link></div>
               : <><label htmlFor="counter-session" className="cd-sr">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={(event) => { setSessionId(Number(event.target.value)); setConfirmed(false) }}><option value={0}>{sessions ? 'صندوق باز خود را انتخاب کنید' : 'در حال دریافت صندوق‌ها…'}</option>{openSessions.map((row) => <option key={row.id} value={row.id}>{row.register} · {row.currency}</option>)}</select></>}
           </Step>
-          <Step n={2} title="مشتری" done={!!customer} note={customer ? 'حساب متصل' : 'مهمان'}>
-            <CustomerDesk customer={customer} name={customerName} phone={customerPhone} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onName={setCustomerName} onPhone={setCustomerPhone} />
+          <Step n={2} title="مشتری" done={buyerStatus.kind === 'linked' || (buyerStatus.kind === 'new' && !buyerStatus.problem)} note={BUYER_NOTE[buyerStatus.kind]}>
+            <CustomerDesk customer={customer} buyer={buyer} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onBuyer={(value) => { setBuyer(value); setConfirmed(false) }} />
           </Step>
           <Step n={3} title="دریافت وجه" done={paymentReady}>
             <PaymentDesk value={payment} onChange={(value) => { setPayment(value); setConfirmed(false) }} total={total} currency={currency} customerId={customer?.id || null} />
@@ -212,7 +214,8 @@ export default function CounterSales() {
             <p className="cd-ticket-total"><span>جمع فروش</span><strong key={total.toString()} className="cd-num">{currency ? formatMoney(total, currency, 'fa-IR') : '—'}</strong></p>
           </div>
           <label className="cd-confirm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>کل مبلغ را دریافت کرده‌ام و کالاها اکنون به مشتری تحویل می‌شوند</span></label>
-          <button className="btn btn-primary cd-submit" type="submit" disabled={!items.length || !confirmed || !sessionId || scanBusy || locked}>{sale.busy ? 'در حال ثبت…' : 'ثبت فروش و دریافت رسید'}</button>
+          {buyerStatus.problem && <p className="cd-error" role="status">{buyerStatus.problem}</p>}
+          <button className="btn btn-primary cd-submit" type="submit" disabled={!items.length || !confirmed || !sessionId || scanBusy || locked || !!buyerStatus.problem}>{sale.busy ? 'در حال ثبت…' : 'ثبت فروش و صدور فاکتور'}</button>
         </fieldset>
       </form>
     </>}

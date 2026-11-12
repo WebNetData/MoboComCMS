@@ -12,13 +12,14 @@ These Admin APIs compose current module owners and are not a versioned public in
 | GET `scan` | exact barcode, SKU, `MC-P-id` or `MC-V-id` | one eligible product/variant; ambiguous codes, missing generated IDs and namespace/SKU collisions fail |
 | GET `labels=1`, optional `product`, `q` | valid integer product ID | printable product/variant barcode descriptors; no stock write |
 | GET `customers` / `customer` | customer search / ID | active identity; authorized minimal purchase/repair history, wallet/club projection |
-| POST `op: customer.resolve` | phone, optional name | existing canonical account or a simple unverified account; duplicate-phone identities or stale phone-email aliases after a mobile change fail409 |
+| GET `lookup` | mobile | read-only: `{customer}` of the one active canonical account, with its stored firstName/lastName, or `null`; ambiguous/inactive/stale alias fail409; creates nothing |
+| POST `op: customer.resolve` | phone, optional firstName+lastName (or legacy name) | existing canonical account or a simple unverified account; duplicate-phone identities or stale phone-email aliases after a mobile change fail409 |
 | GET `registers=1` | none | register summaries, live open balances, immutable closed counts and ownership |
 | POST `op: register.open` | requestId, register, currency, openingCashMinor | own OPEN session; one open session per named register |
 | POST `op: register.adjust` | requestId, sessionId, CASH/CARD, signed amountMinor, reason | audited immutable movement on own OPEN session |
 | POST `op: register.close` | sessionId, countedCashMinor, countedCardMinor, optional note | locked expected/count/variance snapshot; same counts replay, altered counts conflict |
 | POST `op: wallet.otp` | customerId | existing SMS OTP challenge bound to cashier/customer; normal resend/account limits apply |
-| POST sale | UUID requestId, confirmed:true, sessionId, customerId/null, optional phone/name, method, payments, walletCode, redeemPoints, lines | paid orderId and replay flag |
+| POST sale | UUID requestId, confirmed:true, sessionId, customerId/null, optional phone, customerFirstName, customerLastName (or legacy customerName), method, payments, walletCode, redeemPoints, lines | paid orderId and replay flag |
 | GET `request` / `order` | actor's request UUID / counter order ID | committed-order recovery / strictly audited private receipt and assigned cards |
 | GET `report=1&days=N` | 1–366 days | currency/channel totals, known-cost margin, separate refunds, employee receipts, bestsellers and low-stock candidates |
 

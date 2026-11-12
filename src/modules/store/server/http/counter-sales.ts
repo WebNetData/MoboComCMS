@@ -6,7 +6,7 @@ import { rateLimitStrict, clientIp } from '@/platform/http/rate-limit'
 import { StoreError } from '@/modules/store/domain/store'
 import { counterProducts, counterCustomers, counterReceipt, createCounterSale, counterCustomer, registerSessions, openRegister, closeRegister, adjustRegister, scanCounterProduct,productLabels } from '@/modules/store/server/counter-sales'
 import { db } from '@/platform/database/prisma'
-import { resolvePhoneCustomer, PhoneCustomerError } from '@/modules/identity/server/phone-customer'
+import { resolvePhoneCustomer, findPhoneCustomer, PhoneCustomerError } from '@/modules/identity/server/phone-customer'
 import { requestOtp, verifyOtp, SmsError } from '@/modules/sms/server/sms'
 import { MarketingError } from '@/modules/store/domain/marketing'
 import { readCounterSale } from '@/modules/store/domain/counter-sales'
@@ -21,6 +21,8 @@ export async function GET_counter(req: NextRequest) {
   const params = req.nextUrl.searchParams
   try {
     if(params.has('scan'))return reply(await scanCounterProduct(params.get('scan')||''))
+    // Read-only: which account this mobile belongs to; the sale itself creates or links it in its own transaction.
+    if(params.has('lookup'))return reply({customer:await findPhoneCustomer(params.get('lookup')||'')})
     if(params.has('labels')){const id=Number(params.get('product'));if(params.has('product')&&(!Number.isSafeInteger(id)||id<=0||id>2_147_483_647))throw new StoreError('محصول معتبر نیست');return reply({labels:await productLabels(params.get('q')||'',id||undefined)})}
     if(params.has('report'))return reply(await storeSalesReport(Number(params.get('days')||30)))
     if(params.has('registers'))return reply({sessions:await registerSessions(guard.admin.id)})
@@ -62,7 +64,7 @@ export async function POST_counter(req: NextRequest) {
       await auditAdminStrict({req,actor:guard.admin,action:`store.counter.${String(data.op||'sale').slice(0,40)}`,targetType:'store',targetId:id},tx)
     }
     if(data.op==='customer.resolve'){
-      const customer=await db.$transaction(async tx=>{const row=await resolvePhoneCustomer(tx,data.phone,String(data.name||''));await audit(tx,row.id);return {id:row.id,name:row.name,phone:row.phone,email:row.email}})
+      const customer=await db.$transaction(async tx=>{const row=await resolvePhoneCustomer(tx,data.phone,data.firstName||data.lastName?{firstName:String(data.firstName||''),lastName:String(data.lastName||'')}:String(data.name||''));await audit(tx,row.id);return {id:row.id,name:row.name,phone:row.phone,email:row.email}})
       return reply({customer})
     }
     if(data.op==='register.open')return reply({session:await openRegister(data,guard.admin.id,audit)})

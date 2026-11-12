@@ -1,5 +1,14 @@
 # Unified Store desk continuation
 
+## Counter buyer and official-style invoice — 2026-11-12
+
+Owner feedback after using #451 on the main app: the receipt looked poor next to the official invoice, and a gift card printed on a page of its own. The cashier must be able to type the buyer's first name, last name and mobile so that an account is created and the invoice is issued in that name. Branch feat/counter-customer-invoice-2026-11-12 from main eefe1d45.
+
+- Identity `phone-customer.ts`: `findPhoneCustomer` (read-only lookup, same ambiguity/inactive/stale-alias refusals) and `resolvePhoneCustomer(tx, phone, {firstName,lastName}|name)`. New accounts get `name = "first last"` plus `profileData.firstName/lastName` (the member-profile convention in `first-access.ts`/`profile-fields.ts`). An existing account keeps its name; only a nameless one receives the staff-typed name. Existing callers (forms counter, SMS login claim) are unchanged.
+- Store: `readCounterSale` accepts `customerFirstName`/`customerLastName` (40 chars each) and composes `customerName`; the sale command passes them to Identity inside its transaction, so the order, invoice and receipt name that customer. GET `lookup=<mobile>` returns the account preview.
+- Counter UI (`CustomerDesk`): mobile, first name and last name. A complete mobile is looked up; a linked account shows wallet/club/history and locks its name fields. Without an account, a note says a new account will be created in this name; the sale cannot be recorded until first and last name are written. No mobile is a guest sale.
+- Document: `SaleReceiptDocument` A4 now uses the official invoice's language: header (logo or initial mark, centred title, number/date/time/barcode box), framed «مشخصات فروشنده» and «مشخصات خریدار و فروش» label: value grids, a fully ruled item table with the unit in its heading, a totals row (words + dark paid amount), «کارت‌ها و کدهای تحویل‌شده» inside the document, terms with payment breakdown and QR, and signature boxes with the paid stamp. The roll prints cards after the total. Old Admin rules that sized cards outside the document were removed.
+
 ## Printed sale documents — 2026-11-12
 
 Owner asked for a professional, attractive printed invoice/receipt for the in-person desk. Branch feat/receipt-print-2026-11-12 from main 37fa3d2e (PR450 merged).

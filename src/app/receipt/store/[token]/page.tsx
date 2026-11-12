@@ -18,9 +18,9 @@ export default async function SaleReceipt({params}:{params:Promise<{token:string
  const state=receipt.invoiceStatus==='REFUNDED'?'REFUNDED':receipt.status,counter=receipt.channel==='COUNTER'
  return <main className="container sr-page" dir="rtl">
   <div className="sr-tools"><h1>{counter?'رسید خرید حضوری شما':'فاکتور خرید شما'}</h1><PrintButton label="چاپ یا ذخیرهٔ PDF"/></div>
-  <SaleReceiptDocument format="sheet" seller={{name:receipt.seller.name||'فروشگاه',logo:receipt.seller.logo,phone:receipt.seller.phone,address:receipt.seller.address}} title={counter?'رسید فروش حضوری':'فاکتور فروش'} number={receipt.number} createdAt={receipt.createdAt}
+  <SaleReceiptDocument format="sheet" seller={{name:receipt.seller.name||'فروشگاه',logo:receipt.seller.logo,phone:receipt.seller.phone,address:receipt.seller.address}} title={counter?'فاکتور فروش حضوری':'فاکتور فروش'} number={receipt.number} createdAt={receipt.createdAt}
    status={{label:LABELS[state]||'سفارش ثبت‌شده',tone:TONE[state]||'muted'}} paid={receipt.invoiceStatus==='PAID'}
-   parties={[{label:'خریدار',value:receipt.customer||''},{label:'نوع خرید',value:counter?'حضوری از فروشگاه':'آنلاین'}]}
+   parties={[{label:'نام خریدار',value:receipt.customer||''},{label:'نوع خرید',value:counter?'حضوری از فروشگاه':'آنلاین'}]}
    lines={receipt.lines.map(line=>({name:line.name,variant:line.variant,quantity:line.quantity,totalMinor:line.totalMinor}))} currency={receipt.currency} totalMinor={receipt.totalMinor} signatures={false}/>
   <p className="sr-help">برای تحویل حضوری، کدی را که به موبایل شما ارسال شده نزد خود نگه دارید و آن را فقط به کارمند فروشگاه بگویید.</p>
  </main>
