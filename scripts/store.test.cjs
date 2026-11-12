@@ -146,6 +146,7 @@ test('variant inventory reservation rejects sold-out options without consuming p
       orderLine: { findMany: async () => [] },
       order: { findUnique: async () => ({ productId: 1, meta: JSON.stringify({ variantId: 3 }) }) },
       inventoryReservation: { findMany: async () => [], create: async ({ data }) => data },
+      locationStock: { findFirst: async () => null }, // this fixture covers the legacy untracked-stock path
       product: { findUnique: async () => ({ id: 1, active: true, stock: 4 }), updateMany: async () => { productDecrements++; return { count: 1 } } },
       productVariant: { findFirst: async () => ({ id: 3, stock: 0 }), updateMany: async () => ({ count: 0 }) },
     }) } catch (error) { productDecrements = 0; throw error } } } },
