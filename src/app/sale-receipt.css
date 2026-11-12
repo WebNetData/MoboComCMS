@@ -37,7 +37,8 @@
 .sr-ids div { display: flex; justify-content: space-between; gap: 8px; padding: 1px 10px; border: 1px solid #d1d5db; border-radius: 4px; }
 .sr-ids dt { color: var(--sr-mute); }
 .sr-ids dd { font-weight: 700; }
-.sr-ids .sr-barcode { display: block; padding: 4px 6px 2px; }
+.sr-ids-box { display: grid; gap: 4px; }
+.sr-barcode { padding: 4px 6px 2px; border: 1px solid #d1d5db; border-radius: 4px; }
 .sr-barcode svg { height: 34px !important; }
 .sr-box h3 { padding: 3px 12px; border: 1px solid var(--sr-rule); border-bottom: 0; background: var(--sr-fill); font-size: 12px; font-weight: 800; text-align: center; }
 .sr-box h3 small { color: var(--sr-mute); font-weight: 500; }
@@ -66,7 +67,7 @@
 .sr-grand span { color: #d1d5db; font-size: 11.5px; }
 .sr-grand b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .sr-cards-box { break-inside: avoid; }
-.sr-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 10px; border: 1px solid var(--sr-rule); }
+.sr-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 70mm), 86mm)); justify-content: center; gap: 12px; padding: 10px; border: 1px solid var(--sr-rule); }
 .sr-cards .counter-receipt-card { display: grid; gap: 6px; width: 100%; max-width: 86mm; justify-self: center; break-inside: avoid; font-size: 11px; }
 .sr-cards .counter-receipt-card ul { padding-inline-start: 18px; color: var(--sr-soft); }
 .sr-foot { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); border: 1px solid var(--sr-rule); break-inside: avoid; }
@@ -127,7 +128,7 @@
 @media screen and (max-width: 760px) {
   .sr-doc.is-sheet { padding: 14px; }
   .sr-head { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
-  .sr-ids { width: 100%; }
+  .sr-ids-box { width: 100%; }
   .sr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sr-field:nth-child(3n + 1) { border-inline-start: 1px solid var(--sr-hair); }
   .sr-field:nth-child(2n + 1) { border-inline-start: 0; }

@@ -1,3 +1,5 @@
+Scoped 2026-11-12 counter buyer names and official-style sale documents extend the existing Store/Identity/Billing owners; see [handoff](agent/handoffs/STORE_COUNTER_SALES.md#counter-buyer-and-official-style-invoice--2026-11-12).
+
 Scoped2026-11-12 unified Store desk expands the existing commerce owners; maturity claims are limited to executed local evidence, with live provider/terminal/printer and production limits retained. See [handoff](agent/handoffs/STORE_COUNTER_SALES.md#unified-desk-expansion--2026-11-12).
 
 # MoboCom 2.0 capability map

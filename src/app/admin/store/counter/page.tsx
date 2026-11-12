@@ -139,6 +139,7 @@ export default function CounterSales() {
           {!sale.receipt && <button type="button" className="btn btn-ghost" onClick={sale.retryReceipt}>دریافت دوبارهٔ رسید</button>}
         </div>
       </section>
+      {sale.receipt?.seller && !sale.receipt.seller.address && !sale.receipt.seller.phone && <p className="sa-notice cd-profile-hint">نشانی، تلفن و کدهای فروشگاه هنوز روی فاکتور نیستند. آن‌ها را یک بار در <Link className="sa-link" href="/admin/invoice-profile">پروفایل فاکتور</Link> ثبت کنید تا روی همهٔ فاکتورها چاپ شوند.</p>}
       {sale.receipt ? <Receipt receipt={sale.receipt} format={paper} /> : <p className="sa-hint" role="status">در حال دریافت رسید…</p>}
     </> : <>
       {sale.uncertain && <section className="sa-card cd-uncertain"><p>پاسخ ثبت فروش قبلی نرسید. پیش از فروش دیگر وضعیت آن را بررسی کنید.</p><div className="sa-row-actions">

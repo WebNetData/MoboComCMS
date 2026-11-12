@@ -3,6 +3,7 @@
 import CardFace from '@/components/store/card/CardFace'
 import SaleReceiptDocument, { type SaleDocumentFormat } from '@/components/store/SaleReceiptDocument'
 import type { CounterReceipt } from '@/modules/store/domain/counter-sales'
+import { displayMobile } from '@/modules/sms/domain/sms'
 import '@/app/sale-receipt.css'
 
 const METHOD: Record<string, string> = { SPLIT: 'ترکیبی', WALLET: 'کیف پول', CARD: 'کارت‌خوان', CASH: 'نقدی' }
@@ -26,7 +27,7 @@ export default function Receipt({ receipt, format }: { receipt: CounterReceipt; 
     paid
     parties={[
       { label: 'نام خریدار', value: receipt.customer },
-      { label: 'موبایل', value: receipt.phone, ltr: true },
+      { label: 'موبایل', value: receipt.phone ? displayMobile(receipt.phone) || receipt.phone : '', ltr: true },
       { label: 'شمارهٔ سفارش', value: receipt.orderId.toLocaleString('fa-IR', { useGrouping: false }) },
       { label: 'روش پرداخت', value: METHOD[receipt.method] || 'نقدی' },
       { label: 'صندوق', value: receipt.register || '' },

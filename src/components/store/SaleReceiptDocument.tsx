@@ -105,12 +105,14 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
         <p>{seller.name}</p>
         {status && <span className={`sr-status is-${status.tone}`}>{status.label}</span>}
       </div>
-      <dl className="sr-ids">
-        <div><dt>شمارهٔ فاکتور</dt><dd dir="ltr">{number}</dd></div>
-        <div><dt>تاریخ</dt><dd className="sr-num">{DATE.format(when)}</dd></div>
-        <div><dt>ساعت</dt><dd className="sr-num">{TIME.format(when)}</dd></div>
+      <div className="sr-ids-box">
+        <dl className="sr-ids">
+          <div><dt>شمارهٔ فاکتور</dt><dd dir="ltr">{number}</dd></div>
+          <div><dt>تاریخ</dt><dd className="sr-num">{DATE.format(when)}</dd></div>
+          <div><dt>ساعت</dt><dd className="sr-num">{TIME.format(when)}</dd></div>
+        </dl>
         <div className="sr-barcode"><Barcode value={number} /></div>
-      </dl>
+      </div>
     </header>
 
     <section className="sr-box">
