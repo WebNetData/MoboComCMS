@@ -102,7 +102,7 @@ test('order line workflow and ratings', () => {
 test('marketplace hooks: checkout lines, paid orders, refunds and seller product rules', () => {
   assert.match(read('src/modules/checkout/server/checkout.ts'), /sellerId: product\.sellerId \?\? null/)
   assert.match(read('src/modules/fulfillment/server/jobs.ts'), /recordMarketplaceSale\(job\.orderId!\)/)
-  assert.match(read('src/modules/store/server/returns.ts'), /reverseSellerShare\(row\.orderId, amount/)
+  assert.match((read('src/modules/store/server/returns.ts') + read('src/modules/store/server/returns/refunds.ts')), /reverseSellerShare\(row\.orderId, amount/)
   assert.match(read('src/modules/billing/server/order-closure.ts'), /reverseSellerShare\(orderId, input\.totalMinor/)
   const server = /* the module is split into parts; the source is read from all of them */ fs.readdirSync(path.resolve(__dirname, '..', 'src/modules/marketplace/server/marketplace')).sort().map((name) => fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/marketplace/server/marketplace', name), 'utf8')).join('\n')
   // Sellers never set active/featured/VIP fields directly, and unapproved products stay offline.

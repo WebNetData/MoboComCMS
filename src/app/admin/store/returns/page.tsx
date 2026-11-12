@@ -9,7 +9,7 @@ import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistor
 type Row = {
   id: number; number: string; kind: 'CANCEL' | 'RETURN'; kindLabel: string; status: string; statusLabel: string; reasonLabel: string
   requested: number; refund: number; currency: string; createdAt: string; orderId: number; photos: string[]
-  lines: { name: string; quantity: number; image: string }[]; customer: { name: string; email: string; phone: string }
+  lines: { name: string; quantity: number; image: string }[]; customerName?: string; customerPhone?: string; customer: { name: string; email: string; phone: string } | null
 }
 type Settings = { enabled: boolean; windowDays: number; cancelBefore: 'PROCESSING' | 'PACKED' | 'SHIPPED'; autoRefundCancel: boolean; requirePhotos: boolean; codeReturnDays: number; policy: string }
 type List = { tab: string; page: number; pages: number; counts: Record<string, number>; tabs: { key: string; label: string }[]; rows: Row[]; settings: Settings; settingsRevision?: string }
@@ -76,7 +76,7 @@ function Returns() {
             <tbody>
               {data?.rows.map((row) => <tr key={row.id} className="is-link" onClick={() => router.push(`/admin/store/returns/${row.id}`)}>
                 <td><Link href={`/admin/store/returns/${row.id}`} className="sa-link num" dir="ltr" onClick={(event) => event.stopPropagation()}>{row.number}</Link><small className="sa-sub">{row.kindLabel} · سفارش {fa(row.orderId)}</small><small className="sa-sub">{faDate(row.createdAt, true)}</small></td>
-                <td><b>{row.customer.name || '—'}</b><small className="sa-sub" dir="ltr">{row.customer.phone || row.customer.email}</small></td>
+                <td><b>{row.customer?.name || row.customerName || 'خریدار مهمان'}</b><small className="sa-sub" dir="ltr">{row.customer?.phone || row.customerPhone || row.customer?.email || ''}</small></td>
                 <td><span className="sa-thumbs">{row.lines.slice(0, 4).map((line, index) => line.image ? <img key={index} src={line.image} alt={line.name} title={`${line.name} × ${line.quantity}`} /> : <span key={index} className="sa-ph" title={line.name} />)}</span><small className="sa-sub num">{fa(row.lines.reduce((sum, line) => sum + line.quantity, 0))} عدد{row.photos.length ? ` · ${fa(row.photos.length)} عکس` : ''}</small></td>
                 <td><small>{row.reasonLabel}</small></td>
                 <td><span className={`sa-state ${RETURN_TONE[row.status] || ''}`}>{row.statusLabel}</span></td>

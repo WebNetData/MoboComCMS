@@ -1,0 +1,2 @@
+/* Coupon identifiers remain readable over the row's light/dark hover surfaces. */
+.admin-shell .store-promotions .ticket-ops-row-top > span:first-child { color: var(--text); }

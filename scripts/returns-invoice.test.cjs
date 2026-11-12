@@ -98,7 +98,7 @@ test('return refunds the paid share of the lines, with the coupon spread over it
 })
 
 test('refunds are claimed once and credited idempotently', () => {
-  const source = read('src/modules/store/server/returns.ts')
+  const source = (read('src/modules/store/server/returns.ts') + read('src/modules/store/server/returns/refunds.ts'))
   assert.match(source, /idempotencyKey: `return-refund:\$\{row\.id\}`/)
   assert.match(source, /updateMany\(\{ where: \{ id: row\.id, status: row\.status \}/, 'status compare-and-set before the wallet credit')
   assert.match(source, /count\(\{ where: \{ orderId, status: \{ in: OPEN \} \} \}\)/, 'one open request per order')

@@ -1,0 +1,84 @@
+/* Stock hub (st-): locations, transfers, receiving and counts. Store admin tokens; builds on desk.css (cd-). */
+.admin-shell .st-return fieldset { display: flex; flex-direction: column; gap: 16px; min-inline-size: 0; }
+.admin-shell .st-return .sa-table-wrap { max-inline-size: 100%; overflow-x: auto; }
+.admin-shell .st-return .st-matrix { table-layout: fixed; }
+.admin-shell .st-return .st-matrix :is(th, td) { padding-inline: 8px; overflow-wrap: anywhere; }
+.admin-shell .st-return .st-matrix th:first-child { inline-size: 50%; min-inline-size: 0; }
+.admin-shell .st-return .st-matrix .st-cell { inline-size: 100%; max-inline-size: 76px; }
+.admin-shell .st-return legend { font-size: 16px; font-weight: 600; margin-block-end: 16px; }
+.admin-shell .st-nav { display: flex; gap: 4px; overflow-x: auto; padding: 4px; border: 1px solid var(--sa-line); border-radius: 12px; background: var(--sa-subtle); }
+.admin-shell .st-nav a { padding: 8px 16px; border-radius: 9px; color: var(--sa-muted); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap; transition: background-color .16s, color .16s; }
+.admin-shell .st-nav a:hover { color: var(--sa-text); }
+.admin-shell .st-nav a.is-on { background: var(--sa-surface); color: var(--sa-text); box-shadow: 0 1px 2px rgb(0 0 0 / .08), inset 0 0 0 1px color-mix(in srgb, var(--sa-text) 9%, transparent); }
+
+.admin-shell .st-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 12px; }
+.admin-shell .st-place { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--sa-line); border-radius: 14px; background: var(--sa-surface); }
+.admin-shell .st-place.is-off { opacity: .6; }
+.admin-shell .st-place header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.admin-shell .st-place h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.admin-shell .st-place-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-shell .st-place-figures { display: flex; gap: 16px; margin: 0; font-size: 13px; }
+.admin-shell .st-place-figures div { display: grid; gap: 2px; }
+.admin-shell .st-place-figures dt { color: var(--sa-muted); font-size: 12px; }
+.admin-shell .st-place-figures dd { margin: 0; font-weight: 600; font-size: 18px; }
+.admin-shell .st-place-add { display: grid; place-items: center; min-height: 140px; border: 1px dashed var(--sa-line); border-radius: 14px; background: none; color: var(--sa-muted); font: inherit; font-size: 14px; cursor: pointer; transition: border-color .16s, color .16s; }
+.admin-shell .st-place-add:hover { border-color: var(--sa-accent); color: var(--sa-accent); }
+.admin-shell .st-form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--sa-line); border-radius: 14px; background: var(--sa-surface); }
+.admin-shell .st-form fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.admin-shell .st-checks { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; }
+.admin-shell .st-checks label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.admin-shell .st-checks input { inline-size: 17px; block-size: 17px; accent-color: var(--sa-accent); }
+.admin-shell .st-form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.admin-shell .st-picker { display: grid; gap: 8px; }
+.admin-shell .st-picker-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-shell .st-results { display: grid; gap: 4px; margin: 0; padding: 6px; list-style: none; border: 1px solid var(--sa-line); border-radius: 12px; background: var(--sa-surface); max-height: 260px; overflow: auto; }
+.admin-shell .st-results li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.admin-shell .st-result-name { padding: 6px 8px; font-size: 13px; font-weight: 500; }
+.admin-shell .st-result { padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: var(--sa-text); font: inherit; font-size: 13px; text-align: start; cursor: pointer; }
+.admin-shell .st-result:hover, .admin-shell .st-result:focus-visible { background: var(--sa-accent-soft); outline: none; }
+.admin-shell .st-result.is-variant { border: 1px solid var(--sa-line); }
+.admin-shell .st-variants { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+.admin-shell .st-picked { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 10px; background: var(--sa-accent-soft); font-size: 14px; }
+.admin-shell .st-picked b { font-weight: 600; }
+
+.admin-shell .st-matrix-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.admin-shell .st-matrix-tools .cd-field { min-width: 200px; flex: 1; }
+.admin-shell .st-matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-shell .st-matrix th, .admin-shell .st-matrix td { padding: 10px; border-bottom: 1px solid var(--sa-line); text-align: start; vertical-align: middle; }
+.admin-shell .st-matrix thead th { color: var(--sa-muted); font-size: 12px; font-weight: 500; white-space: nowrap; background: var(--sa-subtle); }
+.admin-shell .st-matrix thead th small { display: block; font-weight: 400; }
+.admin-shell .st-matrix .is-num { text-align: center; font-variant-numeric: tabular-nums; }
+.admin-shell .st-matrix tbody th { font-weight: 500; min-width: 200px; }
+.admin-shell .st-matrix tbody th small { display: block; color: var(--sa-muted); font-weight: 400; font-size: 12px; }
+.admin-shell .st-matrix tr.is-dirty td, .admin-shell .st-matrix tr.is-dirty th { background: var(--sa-accent-soft); }
+.admin-shell .st-cell { inline-size: 76px; text-align: center; }
+.admin-shell .st-online { font-weight: 600; }
+.admin-shell .st-online.is-out { color: var(--sa-danger); }
+.admin-shell .st-ledger td { padding: 0 10px 14px; background: var(--sa-subtle); }
+.admin-shell .st-ledger table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.admin-shell .st-ledger th, .admin-shell .st-ledger td { padding: 6px 8px; border-bottom: 1px solid var(--sa-line); text-align: start; background: none; }
+.admin-shell .st-delta.is-in { color: var(--sa-ok); }
+.admin-shell .st-delta.is-out { color: var(--sa-danger); }
+.admin-shell .st-savebar { position: sticky; bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--sa-accent) 40%, var(--sa-line)); border-radius: 14px; background: var(--sa-surface); box-shadow: 0 8px 24px -12px rgb(0 0 0 / .25); }
+
+.admin-shell .st-lines { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-shell .st-lines th, .admin-shell .st-lines td { padding: 8px; border-bottom: 1px solid var(--sa-line); text-align: start; vertical-align: middle; }
+.admin-shell .st-lines thead th { color: var(--sa-muted); font-size: 12px; font-weight: 500; }
+.admin-shell .st-lines .input { inline-size: 100%; min-width: 80px; }
+.admin-shell .st-lines .is-num { text-align: center; font-variant-numeric: tabular-nums; }
+.admin-shell .st-variance.is-short { color: var(--sa-danger); font-weight: 600; }
+.admin-shell .st-variance.is-over { color: var(--sa-warn); font-weight: 600; }
+.admin-shell .st-variance.is-even { color: var(--sa-ok); }
+.admin-shell .st-docs { display: grid; gap: 8px; }
+.admin-shell .st-doc { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--sa-line); border-radius: 12px; background: var(--sa-surface); font-size: 13px; }
+.admin-shell .st-doc b { font-weight: 600; }
+.admin-shell .st-doc small { display: block; color: var(--sa-muted); }
+.admin-shell .st-scanmode { display: grid; gap: 12px; padding: 16px; border: 1px solid color-mix(in srgb, var(--sa-accent) 35%, var(--sa-line)); border-radius: 14px; background: var(--sa-surface); }
+.admin-shell .st-last { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--sa-ok) 12%, transparent); color: var(--sa-ok); font-weight: 500; }
+
+@media (max-width: 640px) {
+  .admin-shell .st-picker-row { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell .st-doc { grid-template-columns: minmax(0, 1fr); }
+}
+.admin-shell .sa-sub-title { margin: 0; font-size: 15px; font-weight: 600; }

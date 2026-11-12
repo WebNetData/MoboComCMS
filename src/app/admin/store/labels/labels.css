@@ -1,2 +1,33 @@
-.store-label-sheet{display:flex;gap:12px;flex-wrap:wrap;margin-block:24px}.store-barcode-label{background:#fff;color:#111;display:grid;gap:4px;place-items:center;width:58mm;min-height:32mm;padding:3mm;border:1px solid #ddd;break-inside:avoid;text-align:center}.store-barcode-label b{font-size:12px}.store-barcode-label bdi,.store-barcode-label small{font-size:11px}
-@media print{body:has(.store-label-sheet) *:not(:has(.store-label-sheet)):not(.store-label-sheet):not(.store-label-sheet *){display:none!important}body:has(.store-label-sheet) :has(.store-label-sheet){display:block!important;width:auto!important;max-width:none!important;overflow:visible!important;margin:0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important}.store-label-sheet{display:flex!important;gap:2mm}.store-barcode-label{border:0;margin:0;box-sizing:border-box}@page{margin:5mm}}
+/* Shelf labels (admin/store/labels): 60×35 mm paper, black ink; QR to the public product page. */
+.admin-shell .lb-tools { display: grid; gap: 12px; padding: 20px; }
+.admin-shell .lb-check { display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer; }
+.admin-shell .lb-check input { inline-size: 18px; block-size: 18px; accent-color: var(--sa-accent); }
+.admin-shell .lb-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 8px; }
+.admin-shell .lb-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid var(--sa-line); border-radius: 12px; background: var(--sa-surface); cursor: pointer; }
+.admin-shell .lb-pick:has(input:not([value="0"])) { border-color: color-mix(in srgb, var(--sa-accent) 45%, var(--sa-line)); background: var(--sa-accent-soft); }
+.admin-shell .lb-pick span { display: grid; gap: 2px; min-width: 0; }
+.admin-shell .lb-pick b { font-weight: 500; font-size: 14px; overflow-wrap: anywhere; }
+.admin-shell .lb-pick small { color: var(--sa-muted); font-size: 12px; }
+.admin-shell .lb-pick .input { inline-size: 72px; text-align: center; }
+.admin-shell .lb-preview-title { margin: 8px 0 0; font-size: 15px; font-weight: 600; }
+
+.store-label-sheet { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 8px 24px; }
+.store-shelf-label { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) 20mm; gap: 2mm; align-items: center; width: 60mm; height: 35mm; padding: 2.5mm 3mm; border: 1px solid #d1d5db; border-radius: 2mm; background: #fff; color: #111827; break-inside: avoid; direction: rtl; font-family: var(--font-vazir, Vazirmatn), Tahoma, sans-serif; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.store-shelf-label.is-plain { grid-template-columns: minmax(0, 1fr); }
+.ssl-main { display: grid; gap: 1mm; min-width: 0; align-content: center; }
+.ssl-name { font-size: 9.5pt; font-weight: 700; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ssl-price { font-size: 13pt; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ssl-code { display: grid; justify-items: center; }
+.ssl-code svg { height: 8mm !important; }
+.ssl-code bdi { font-size: 6.5pt; letter-spacing: .06em; }
+.ssl-qr { display: grid; justify-items: center; gap: .5mm; border-inline-start: 1px dashed #d1d5db; padding-inline-start: 2mm; }
+.ssl-qr img { width: 18mm; height: 18mm; }
+.ssl-qr small { font-size: 5.5pt; color: #4b5563; text-align: center; line-height: 1.3; }
+
+@media print {
+  @page shelf-labels { margin: 6mm; }
+  body:has(.store-label-sheet) *:not(:has(.store-label-sheet)):not(.store-label-sheet):not(.store-label-sheet *) { display: none !important; }
+  body:has(.store-label-sheet) :has(.store-label-sheet) { display: block !important; width: auto !important; max-width: none !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+  .store-label-sheet { page: shelf-labels; gap: 2mm; margin: 0; }
+  .store-shelf-label { border-color: #9ca3af; }
+}

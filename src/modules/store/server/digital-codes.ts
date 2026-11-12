@@ -129,8 +129,8 @@ export async function removeCode(productId: number, codeId: number) {
 type CodeLine = { line: number; productId: number; variantId: number | null; quantity: number; name: string; variantName: string; staff?: boolean }
 
 /** The lines of an order whose product delivers codes, and whether the order has anything else in it. */
-async function codeLines(orderId: number) {
-  const order = await db.order.findUnique({
+async function codeLines(orderId: number, client: Prisma.TransactionClient = db) {
+  const order = await client.order.findUnique({
     where: { id: orderId },
     select: { status: true, productId: true, meta: true, assigneeId: true, product: { select: { name: true, kind: true, digitalMode: true, codesWhenEmpty: true } }, lines: { orderBy: { line: 'asc' }, select: { line: true, productId: true, variantId: true, quantity: true, name: true, variantName: true, kind: true, product: { select: { digitalMode: true, codesWhenEmpty: true } } } } },
   })
@@ -214,8 +214,8 @@ export async function deliverDigitalCodes(orderId: number) {
   return { codeLines: order.lines.length, short: 0, delivered: true }
 }
 
-async function deliveredLines(orderId: number, lines: readonly CodeLine[]): Promise<DeliveredLine[]> {
-  const rows = await db.productDigitalCode.findMany({ where: { orderId, returnedAt: null }, orderBy: { id: 'asc' }, select: { orderLine: true, secret: true } })
+async function deliveredLines(orderId: number, lines: readonly CodeLine[], client: Prisma.TransactionClient = db): Promise<DeliveredLine[]> {
+  const rows = await client.productDigitalCode.findMany({ where: { orderId, returnedAt: null }, orderBy: { id: 'asc' }, select: { orderLine: true, secret: true } })
   return lines.map((line) => ({ name: line.name, variantName: line.variantName, codes: rows.filter((row) => row.orderLine === line.line).map((row) => decryptDigitalDelivery(row.secret)) }))
 }
 
@@ -257,13 +257,13 @@ export async function heldCodes(orderId: number): Promise<Map<number, number>> {
  * The delivery text of an order made of code lines only is its codes: after one is taken back or replaced
  * it is written again from the codes the buyer still holds. A delivery typed by staff is left alone.
  */
-async function refreshDelivery(orderId: number) {
-  const delivery = await db.productDelivery.findUnique({ where: { orderId }, select: { digitalDelivery: true } })
+async function refreshDelivery(orderId: number, client: Prisma.TransactionClient = db) {
+  const delivery = await client.productDelivery.findUnique({ where: { orderId }, select: { digitalDelivery: true } })
   if (!delivery?.digitalDelivery) return
-  const order = await codeLines(orderId)
+  const order = await codeLines(orderId, client)
   if (!order || order.other || !order.lines.length) return
-  const text = composeDelivery(await deliveredLines(orderId, order.lines))
-  await db.productDelivery.update({ where: { orderId }, data: { digitalDelivery: text ? encryptDigitalDelivery(text) : '' } })
+  const text = composeDelivery(await deliveredLines(orderId, order.lines, client))
+  await client.productDelivery.update({ where: { orderId }, data: { digitalDelivery: text ? encryptDigitalDelivery(text) : '' } })
 }
 
 /**
@@ -271,8 +271,8 @@ async function refreshDelivery(orderId: number) {
  * means every code of the order (a cancellation). The codes are marked returned, not put on the shelf: the
  * buyer has read them. Of a line, the codes given last go first. Safe to repeat for the same request.
  */
-export async function takeBackCodes(orderId: number, choices: readonly { line: number; quantity: number }[] | null, input: { returnId: number; note: string }): Promise<number> {
-  const taken = await db.$transaction(async (tx) => {
+export async function takeBackCodes(orderId: number, choices: readonly { line: number; quantity: number }[] | null, input: { returnId: number; note: string }, transaction?: Prisma.TransactionClient): Promise<number> {
+  const work = async (tx: Prisma.TransactionClient) => {
     const held = await tx.productDigitalCode.findMany({ where: { orderId, returnedAt: null }, orderBy: { id: 'desc' }, select: { id: true, orderLine: true } })
     if (!held.length) return 0
     let ids = held.map((row) => row.id)
@@ -283,8 +283,9 @@ export async function takeBackCodes(orderId: number, choices: readonly { line: n
     }
     if (!ids.length) return 0
     return (await tx.productDigitalCode.updateMany({ where: { id: { in: ids }, returnedAt: null }, data: { returnedAt: new Date(), returnId: input.returnId, returnNote: input.note.slice(0, 200) } })).count
-  })
-  if (taken) await refreshDelivery(orderId)
+  }
+  const taken = transaction ? await work(transaction) : await db.$transaction(work)
+  if (taken) await refreshDelivery(orderId, transaction)
   return taken
 }
 

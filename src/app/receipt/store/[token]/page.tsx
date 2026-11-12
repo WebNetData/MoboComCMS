@@ -8,7 +8,7 @@ import PrintButton from '@/components/forms/PrintButton'
 import '@/app/sale-receipt.css'
 export const dynamic='force-dynamic'
 export const metadata={title:'فاکتور و وضعیت سفارش',robots:{index:false,follow:false}}
-const LABELS:Record<string,string>={WAITING:'در انتظار آماده‌سازی',READY:'آمادهٔ تحویل از فروشگاه',COLLECTED:'از فروشگاه تحویل گرفته شد',DELIVERED:'تحویل داده شد',PROCESSING:'در حال آماده‌سازی',PAID:'پرداخت‌شده',REFUNDED:'بازپرداخت‌شده'}
+const LABELS:Record<string,string>={PENDING:'در انتظار آماده‌سازی',WAITING:'در انتظار آماده‌سازی',READY:'آمادهٔ تحویل از فروشگاه',COLLECTED:'از فروشگاه تحویل گرفته شد',DELIVERED:'تحویل داده شد',PROCESSING:'در حال آماده‌سازی',PAID:'پرداخت‌شده',REFUNDED:'بازپرداخت‌شده'}
 const TONE:Record<string,'ok'|'warn'|'muted'>={WAITING:'warn',PROCESSING:'warn',READY:'ok',COLLECTED:'ok',DELIVERED:'ok',PAID:'ok',REFUNDED:'muted'}
 /** The customer's QR copy: the same printed document, without stamp, phone, payments, codes or handover proof. */
 export default async function SaleReceipt({params}:{params:Promise<{token:string}>}){
@@ -22,6 +22,6 @@ export default async function SaleReceipt({params}:{params:Promise<{token:string
    status={{label:LABELS[state]||'سفارش ثبت‌شده',tone:TONE[state]||'muted'}} paid={receipt.invoiceStatus==='PAID'}
    parties={[{label:'نام خریدار',value:receipt.customer||''},{label:'نوع خرید',value:counter?'حضوری از فروشگاه':'آنلاین'}]}
    lines={receipt.lines.map(line=>({name:line.name,variant:line.variant,quantity:line.quantity,totalMinor:line.totalMinor}))} currency={receipt.currency} totalMinor={receipt.totalMinor} signatures={false}/>
-  <p className="sr-help">برای تحویل حضوری، کدی را که به موبایل شما ارسال شده نزد خود نگه دارید و آن را فقط به کارمند فروشگاه بگویید.</p>
+  {['WAITING','READY','COLLECTED'].includes(receipt.status)&&<p className="sr-help">برای تحویل حضوری، کدی را که به موبایل شما ارسال شده نزد خود نگه دارید و آن را فقط به کارمند فروشگاه بگویید.</p>}
  </main>
 }

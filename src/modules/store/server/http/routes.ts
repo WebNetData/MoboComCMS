@@ -8,6 +8,7 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { getSettings } from '@/modules/settings/server'
 import { executeCheckout } from '@/modules/checkout/server/checkout'
 import { StoreError } from '@/modules/store/domain/store'
+import { LocationError } from '@/modules/catalog/server/locations'
 import { addProductBundle } from '@/modules/store/server/bundles'
 import { CART_COOKIE, addToCart, cartCheckoutLines, cartView, clearCart, removePurchasedLines, updateCartLine, type CartOwner } from '@/modules/store/server/cart'
 import { getStoreSettings, saveStoreSettings } from '@/modules/store/server/catalog'
@@ -27,6 +28,7 @@ import { opensAudience } from '@/modules/account/server/item-audience'
 
 function failure(error: unknown) {
   if (error instanceof StoreError) return err(error.message, error.status, { code: error.code })
+  if (error instanceof LocationError) return err(error.message, error.status)
   console.error('[store]', error)
   return err('خطای داخلی؛ دوباره تلاش کنید', 500)
 }
@@ -319,7 +321,7 @@ export async function POST_inventory(req: NextRequest) {
   if ('response' in g) return g.response
   const body = (await req.json().catch(() => null)) || {}
   try {
-    const result = await updateStock(body.items)
+    const result = await updateStock(body.items, g.admin.id)
     await auditAdmin({ req, actor: g.admin, action: 'store.inventory.update', targetType: 'product', targetId: 0, metadata: { items: result.updated } })
     return ok(result)
   } catch (error) { return failure(error) }

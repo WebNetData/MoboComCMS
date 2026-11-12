@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { restoreValues, type Snapshot } from '@/modules/content/domain/revisions'
+import { adoptEditorStock } from './locations'
 import { RevisionError, type RestoreCommit } from '@/modules/content/server/revisions'
 import { replaceProductRelationships } from '@/modules/catalog/server/product-relationships'
 import { parseProductRelationships } from '@/modules/catalog/domain/product-relationships'
@@ -31,6 +32,8 @@ export async function restoreProductRevision(id: number, snapshot: Snapshot, com
     const current = await tx.product.findUniqueOrThrow({ where: { id } }), validated = await productInput(data, current)
     const allowed = new Set<string>(FIELDS.filter(key => key !== 'id' && key !== 'updatedAt'))
     await tx.product.update({ where: { id }, data: Object.fromEntries(Object.entries(validated.data).filter(([key]) => allowed.has(key))) })
+    // A restored snapshot carries an old sellable count; location-tracked items keep their real units.
+    await adoptEditorStock(tx, id)
     const after = (await productRevisionState(id, tx))!
     await commit?.(tx, before, after)
     return { before, after }

@@ -5,6 +5,8 @@ const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
   'store-desk',
+  'stock-locations',
+  'store-omnichannel',
   'store-counter',
   'forms-counter',
   'ai-page-assistant',

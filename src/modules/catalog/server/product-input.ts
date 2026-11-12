@@ -131,6 +131,10 @@ async function productMerchandising(b: any, priceMinor: bigint, currency: string
     if (brandId !== null && (!Number.isSafeInteger(brandId) || !await db.productBrand.findUnique({ where: { id: brandId }, select: { id: true } }))) throw Error('Brand not found')
     out.brandId = brandId
   }
+  if (b?.saleChannel !== undefined) {
+    if (!['ONLINE', 'COUNTER', 'BOTH'].includes(String(b.saleChannel))) throw Error('Invalid sale channel')
+    out.saleChannel = String(b.saleChannel)
+  }
   if (b?.compareAtPrice !== undefined) {
     const compareAtMinor = b.compareAtPrice === '' || b.compareAtPrice === null ? 0n : toMinor(String(b.compareAtPrice), currency)
     if (compareAtMinor < 0n || (compareAtMinor > 0n && compareAtMinor <= priceMinor)) throw Error('List price must be higher than the sale price')

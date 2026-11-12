@@ -841,6 +841,11 @@
   },
   "unreleased": [
     "20270311120000_store_counter_sales",
-    "20270312120000_store_unified_desk"
+    "20270312120000_store_unified_desk",
+    "20270313120000_stock_locations",
+    "20270313121000_stock_document_integrity",
+    "20270314120000_store_counter_returns",
+    "20270315120000_store_discount_channels",
+    "20270315121000_stock_count_versions"
   ]
 }

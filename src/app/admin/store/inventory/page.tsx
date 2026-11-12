@@ -4,9 +4,10 @@ import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { Suspense, useState } from 'react'
 import { Notice, Pager, StoreShell, fa, send, useJson } from '../shared'
+import { StockNav } from './StockKit'
 
 type Item = { id: number; name: string; image: string; sku: string; stock: number; lowStockAt: number; active: boolean; held: number; variants: { id: number; name: string; sku: string; stock: number }[] }
-type List = { page: number; pages: number; total: number; lowStockDefault: number; items: Item[] }
+type List = { page: number; pages: number; total: number; lowStockDefault: number; items: Item[]; tracked: string[] }
 type Edit = { productId: number; variantId?: number; stock: number }
 
 function Inventory() {
@@ -41,22 +42,23 @@ function Inventory() {
       <td dir="ltr"><small>{sku || '—'}</small></td>
       <td><span className={`sa-stock ${tone(stock, threshold)}`}>{stock < 0 ? 'نامحدود' : fa(stock)}</span></td>
       <td className="num">{!variantId && product.held ? fa(product.held) : '—'}</td>
-      <td><div className="sa-stepper">
+      <td>{data!.tracked.includes(key(product.id, variantId)) ? <Link className="sa-link" href="/admin/store/inventory/locations">ویرایش در انبارها</Link> : <div className="sa-stepper">
         <button type="button" onClick={() => set(product.id, Math.max(-1, current - 1), variantId)} aria-label="کاهش">−</button>
         <input className="input" type="number" min={-1} value={current} onChange={(event) => set(product.id, Math.floor(Number(event.target.value)), variantId)} aria-label={`موجودی ${label}`} />
         <button type="button" onClick={() => set(product.id, current < 0 ? 1 : current + 1, variantId)} aria-label="افزایش">+</button>
         <button type="button" className="sa-link" onClick={() => set(product.id, -1, variantId)}>نامحدود</button>
-      </div></td>
+      </div>}</td>
     </tr>
   }
 
   const pending = Object.keys(edits).length
   return <StoreShell title="انبار و موجودی" actions={pending > 0 ? <button type="button" className="btn btn-primary" onClick={() => void save()}>ذخیرهٔ {fa(pending)} تغییر</button> : undefined}>
+    <StockNav />
     <nav className="sa-subtabs">{[['', 'همه'], ['tracked', 'دارای موجودی محدود'], ['low', 'رو به اتمام'], ['out', 'ناموجود']].map(([k, l]) => <button key={k} type="button" className={filter === k ? 'is-active' : ''} onClick={() => go({ filter: k, page: '' })}>{l}</button>)}</nav>
     <form className="sa-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); go({ q: search.trim(), page: '' }) }}><input className="input" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="نام یا SKU" aria-label="جست‌وجو" /><button type="submit" className="btn btn-ghost">جست‌وجو</button></form>
     {error && <Notice tone="error">{error}</Notice>}
     {result && <Notice tone={result.tone}>{result.text}</Notice>}
-    <p className="sa-hint">«رزرو» تعداد کالاهایی است که در سفارش‌های پرداخت‌نشده نگه داشته شده‌اند و پس از پرداخت یا انقضا به‌طور خودکار کسر یا آزاد می‌شوند. موجودی ۱- یعنی نامحدود.</p>
+    <p className="sa-hint">«رزرو» تعداد کالاهایی است که در سفارش‌های پرداخت‌نشده نگه داشته شده‌اند و پس از پرداخت یا انقضا به‌طور خودکار کسر یا آزاد می‌شوند. موجودی ۱- یعنی نامحدود. کالاهای دارای انبار، قابل فروش در سایت را نشان می‌دهند و تعدادشان در «انبارها و انتقال» به تفکیک محل ویرایش می‌شود.</p>
     <div className="sa-card sa-table-wrap" aria-busy={loading}>
       <table className="data sa-table"><thead><tr><th>کالا</th><th>SKU</th><th>موجودی</th><th>رزرو</th><th>تنظیم</th></tr></thead>
         <tbody>{data?.items.flatMap((product) => [row(product, product.stock, product.name, product.sku), ...product.variants.map((variant) => row(product, variant.stock, variant.name, variant.sku, variant.id))])}

@@ -1,8 +1,10 @@
+import { discountChannelAllows, type SaleChannel } from '@/modules/promotions/domain/channels'
 import { db } from '@/platform/database/prisma'
 
 export const promotionCode = (value: unknown) => String(value || '').trim().toUpperCase()
 
-export function promotionDiscount(promotion: { active: boolean; kind: string; percentBps: number; amountMinor: bigint; currency: string; planId: number | null; membershipPlanId?: number | null; minSubtotalMinor: bigint; maxUses: number; reservedCount: number; startsAt: Date | null; endsAt: Date | null }, item: { planId: number | null; amountMinor: bigint; currency: string; membershipPlanId?: number | null }, now = new Date()) {
+export function promotionDiscount(promotion: { salesChannel?: string; active: boolean; kind: string; percentBps: number; amountMinor: bigint; currency: string; planId: number | null; membershipPlanId?: number | null; minSubtotalMinor: bigint; maxUses: number; reservedCount: number; startsAt: Date | null; endsAt: Date | null }, item: { channel?: SaleChannel; planId: number | null; amountMinor: bigint; currency: string; membershipPlanId?: number | null }, now = new Date()) {
+  if (!discountChannelAllows(promotion.salesChannel, item.channel || 'ONLINE')) return { ok: false as const, code: 'PROMOTION_CHANNEL' }
   if (!promotion.active || promotion.startsAt && promotion.startsAt > now || promotion.endsAt && promotion.endsAt <= now) return { ok: false as const, code: 'PROMOTION_INACTIVE' }
   if (promotion.planId && promotion.planId !== item.planId) return { ok: false as const, code: 'PROMOTION_SCOPE' }
   if (promotion.membershipPlanId && promotion.membershipPlanId !== item.membershipPlanId) return { ok: false as const, code: 'PROMOTION_SCOPE' }

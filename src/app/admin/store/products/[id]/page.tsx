@@ -28,7 +28,7 @@ type Brand = { id: number; name: string }
 type Form = Record<string, any>
 
 const EMPTY: Form = {
-  name: '', nameEn: '', slug: '', kind: 'PHYSICAL', price: '', compareAtPrice: '', saleEndsAt: '', currency: 'IRT', stock: -1, sku: '', lowStockAt: 0, maxPerOrder: 0,
+  saleChannel: 'BOTH', name: '', nameEn: '', slug: '', kind: 'PHYSICAL', price: '', compareAtPrice: '', saleEndsAt: '', currency: 'IRT', stock: -1, sku: '', lowStockAt: 0, maxPerOrder: 0,
   weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', categoryIds: [], brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
   pricingMode: 'FIXED', fxCurrency: 'USD', fxAmount: '', fxCompareAt: '', fxMemberPrice: '', markupPercent: '', markupFixed: '',
@@ -222,6 +222,7 @@ export default function ProductEditorPage() {
           <div className="sa-grid">
             {field('price', 'قیمت فروش *', { type: 'number', min: 0, step: 'any', required: true })}
             {field('compareAtPrice', 'قیمت قبل از تخفیف (خط‌خورده)', { type: 'number', min: 0, step: 'any' })}
+            <label className="sa-field"><span>کانال قیمت ویژه</span><select className="input" value={form.saleChannel || 'BOTH'} onChange={event => { setForm({ ...form, saleChannel: event.target.value }); }}><option value="ONLINE">فقط سایت</option><option value="COUNTER">فقط مغازه</option><option value="BOTH">سایت و مغازه</option></select><small>با قیمت قبل از تخفیف؛ کانال دیگر همان قیمت قبل از تخفیف را می‌پردازد.</small></label>
             <label className="sa-field"><span>واحد پول</span><select className="select" value={form.currency} onChange={(event) => update('currency', event.target.value)}><option value="IRT">تومان ایران (IRT)</option><option value="IRR">ریال ایران (IRR)</option><option value="USD">دلار</option></select></label>
             <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز (شمارش معکوس)</span><JalaliDateInput withTime className="input" value={form.saleEndsAt} onChange={(value) => update('saleEndsAt', value)} /></label>
             <span data-vip="" style={{ display: 'contents' }}>{field('memberPrice', 'قیمت ویژهٔ اعضای VIP', { type: 'number', min: 0, step: 'any' })}</span>
@@ -242,7 +243,7 @@ export default function ProductEditorPage() {
             {!isNew&&<Link className="sa-link" href={`/admin/store/labels?product=${id}`}>چاپ برچسب بارکد این محصول و گونه‌ها</Link>}
             {codesOn
               ? <label className="sa-field"><span>موجودی</span><input className="input" value={form.stock} readOnly disabled aria-describedby="sa-stock-codes" /><small id="sa-stock-codes" className="sa-sub">برابر با کدهای روی قفسه است (بخش «تحویل خودکار کد»).</small></label>
-              : field('stock', 'موجودی (۱- = نامحدود)', { type: 'number', min: -1 })}
+              : <>{field('stock', 'موجودی قابل فروش در سایت (۱- = نامحدود)', { type: 'number', min: -1, 'aria-describedby': 'sa-stock-places' })}<small id="sa-stock-places" className="sa-sub">برای کالای تازه، این عدد در انبار پیش‌فرض ثبت می‌شود. تعداد کالای دارای انبار در <a className="sa-link" href="/admin/store/inventory/locations">انبارها و انتقال</a> به تفکیک محل تغییر می‌کند؛ ۱- آن را نامحدود می‌کند.</small></>}
             {field('lowStockAt', 'هشدار موجودی کم (۰ = پیش‌فرض فروشگاه)', { type: 'number', min: 0 })}
             {field('maxPerOrder', 'حداکثر تعداد در هر سفارش (۰ = بدون محدودیت)', { type: 'number', min: 0 })}
             {form.kind === 'PHYSICAL' && field('weightGrams', 'وزن بسته (گرم)', { type: 'number', min: 0 })}

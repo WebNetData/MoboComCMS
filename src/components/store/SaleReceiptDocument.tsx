@@ -26,6 +26,8 @@ export type SaleDocumentProps = {
   lines: { name: string; variant?: string; quantity: number; unitMinor?: string; totalMinor: string }[]
   currency: string
   totalMinor: string
+  discountMinor?: string
+  shippingMinor?: string
   payments?: { label: string; amountMinor: string; reference?: string }[]
   qr?: string
   link?: string
@@ -62,6 +64,7 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
   // Figures without the unit, the way the official invoice prints them; the unit is named once in the table heading.
   const plain = (minor: string) => { const [whole, fraction] = minorToDecimal(minor || '0', currency).split('.'); return `${BigInt(whole).toLocaleString('fa-IR')}${fraction ? `٫${faDigits(fraction)}` : ''}` }
   const words = amountInWords(totalMinor, currency)
+  const adjustments = [{ label: 'تخفیف', amount: props.discountMinor || '0', subtract: true }, { label: 'ارسال', amount: props.shippingMinor || '0', subtract: false }].filter(row => /^\d+$/.test(row.amount) && BigInt(row.amount) > 0n)
   const units = lines.reduce((sum, line) => sum + line.quantity, 0)
   const when = new Date(createdAt)
   const ids = (value?: string) => value ? faDigits(value) : ''
@@ -88,6 +91,7 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
       <span className="sr-roll-calc"><span className="sr-num">{fa(line.quantity)}{line.unitMinor && <> × {money(line.unitMinor)}</>}</span><b className="sr-num">{money(line.totalMinor)}</b></span>
     </li>)}</ol>
     <dl className="sr-roll-total">
+      {adjustments.map(row => <div key={row.label}><dt>{row.label}</dt><dd className="sr-num">{row.subtract ? '− ' : ''}{money(row.amount)}</dd></div>)}
       <div className="sr-roll-grand"><dt>{paid ? 'پرداخت‌شده' : 'مبلغ فاکتور'}</dt><dd className="sr-num">{money(totalMinor)}</dd></div>
       {payments.map((row) => <div key={row.label}><dt>{row.label}{row.reference && <> · <bdi dir="ltr">{row.reference}</bdi></>}</dt><dd className="sr-num">{money(row.amountMinor)}</dd></div>)}
     </dl>
@@ -137,7 +141,7 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
           {hasUnit && <td className="sr-col-m">{line.unitMinor ? plain(line.unitMinor) : '—'}</td>}
           <td className="sr-col-m"><b>{plain(line.totalMinor)}</b></td>
         </tr>)}</tbody>
-        <tfoot><tr><td colSpan={2} className="is-label">جمع کل · {fa(lines.length)} ردیف</td><td className="sr-col-q">{fa(units)}</td>{hasUnit && <td />}<td className="sr-col-m">{plain(totalMinor)}</td></tr></tfoot>
+        <tfoot>{adjustments.map(row => <tr key={row.label}><td colSpan={hasUnit ? 4 : 3} className="is-label">{row.label}</td><td className="sr-col-m">{row.subtract ? '− ' : ''}{plain(row.amount)}</td></tr>)}<tr><td colSpan={2} className="is-label">جمع کل · {fa(lines.length)} ردیف</td><td className="sr-col-q">{fa(units)}</td>{hasUnit && <td />}<td className="sr-col-m">{plain(totalMinor)}</td></tr></tfoot>
       </table>
       <div className="sr-total-row">
         {words ? <p className="sr-words"><span>مبلغ به حروف:</span> <b>{words}</b></p> : <span />}

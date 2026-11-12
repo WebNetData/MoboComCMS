@@ -24,7 +24,7 @@ const TABS = [
   { href: '/admin/store/counter', label: 'فروش حضوری' },
   { href: '/admin/store/registers', label: 'صندوق‌ها' },
   { href: '/admin/store/pickup', label: 'تحویل از فروشگاه' },
-  { href: '/admin/store/labels', label: 'برچسب بارکد' },
+  { href: '/admin/store/labels', label: 'برچسب قفسه' },
   { href: '/admin/store/reports', label: 'گزارش یکپارچه' },
   { href: '/admin/store/returns', label: 'لغو و مرجوعی' },
   { href: '/admin/store/print', label: 'چاپ کارت حضوری' },

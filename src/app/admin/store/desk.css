@@ -191,7 +191,7 @@
 /* ---------- Registers ---------- */
 .admin-shell .cd-open { display: grid; gap: 16px; padding: 20px; }
 .admin-shell .cd-open h2 { margin: 0; font-size: 15px; font-weight: 600; }
-.admin-shell .cd-open fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: end; gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.admin-shell .cd-open fieldset { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; align-items: end; gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .admin-shell .cd-sessions { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
 .admin-shell .cd-session { display: grid; gap: 16px; padding: 20px; }
 .admin-shell .cd-session.is-open { border-color: color-mix(in srgb, var(--sa-accent) 35%, var(--sa-line)); }

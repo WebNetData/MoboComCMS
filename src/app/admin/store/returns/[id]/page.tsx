@@ -11,7 +11,8 @@ type Request = {
   photos: string[]; lines: Line[]; requested: number; refund: number; currency: string; adminNote: string; createdAt: string; decidedAt: string | null; refundedAt: string | null; restocked: boolean
 }
 type View = Request & {
-  order: { id: number; status: string; fulfilment: string; deliveredAt: string | null; total: number; refunded: number; remaining: number; invoiceNumber: string; customer: { id: number; name: string; email: string; phone: string } }
+  refundMethod?: string;
+  order: { customerName?: string; customerPhone?: string; id: number; status: string; fulfilment: string; deliveredAt: string | null; total: number; refunded: number; remaining: number; invoiceNumber: string; customer: { id: number; name: string; email: string; phone: string } | null }
   history: Request[]
 }
 
@@ -72,7 +73,7 @@ export default function ReturnDetailPage() {
         <section className="sa-card">
           <header className="sa-card-head"><h2>سفارش <Link href={`/admin/store/orders/${data.order.id}`} className="sa-link num">#{fa(data.order.id)}</Link></h2></header>
           <dl className="rt-facts">
-            <div><dt>مشتری</dt><dd>{data.order.customer.name || data.order.customer.email}<small className="sa-sub" dir="ltr">{data.order.customer.phone || data.order.customer.email}</small></dd></div>
+            <div><dt>مشتری</dt><dd>{data.order.customer?.name || data.order.customerName || data.order.customer?.email || 'خریدار مهمان'}<small className="sa-sub" dir="ltr">{data.order.customer?.phone || data.order.customerPhone || data.order.customer?.email || ''}</small></dd></div>
             <div><dt>مبلغ سفارش</dt><dd><Money value={data.order.total} currency={data.currency} /></dd></div>
             <div><dt>برگشت‌داده‌شده</dt><dd><Money value={data.order.refunded} currency={data.currency} /></dd></div>
             <div><dt>قابل بازپرداخت</dt><dd><Money value={data.order.remaining} currency={data.currency} /></dd></div>
@@ -96,7 +97,7 @@ export default function ReturnDetailPage() {
         </section> : <section className="sa-card">
           <header className="sa-card-head"><h2>نتیجه</h2></header>
           <dl className="rt-facts">
-            {data.status === 'REFUNDED' && <div><dt>واریز به کیف پول</dt><dd><Money value={data.refund} currency={data.currency} /></dd></div>}
+            {data.status === 'REFUNDED' && <div><dt>{data.refundMethod === 'CASH' ? 'برگشت نقد از صندوق' : data.refundMethod === 'CARD' ? 'برگشت به کارت' : 'واریز به کیف پول'}</dt><dd><Money value={data.refund} currency={data.currency} /></dd></div>}
             {data.refundedAt && <div><dt>زمان واریز</dt><dd>{faDate(data.refundedAt, true)}</dd></div>}
             {data.decidedAt && <div><dt>زمان تصمیم</dt><dd>{faDate(data.decidedAt, true)}</dd></div>}
             {data.status === 'REFUNDED' && <div><dt>برگشت به انبار</dt><dd>{data.restocked ? 'بله' : 'خیر'}</dd></div>}

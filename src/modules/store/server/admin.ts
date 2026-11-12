@@ -6,6 +6,7 @@ import { legacyNumber, minorToNumber, normalizeCurrency } from '@/shared/money'
 import { StoreError, validateBrand } from '@/modules/store/domain/store'
 import { getStoreSettings } from '@/modules/store/server/catalog'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
+import { adoptEditorStock, defaultLocationId, setLocationQuantity, trackedItem } from '@/modules/catalog/server/locations'
 import { ADMIN_TABS, adminOrders } from '@/modules/store/server/orders'
 
 const STORE_ORDER: Prisma.OrderWhereInput = { productId: { not: null } }
@@ -186,7 +187,15 @@ export async function bulkProducts(input: { ids: unknown; action: unknown; value
   if (action === 'stock') {
     const stock = Math.floor(Number(input.value))
     if (!Number.isSafeInteger(stock) || stock < -1 || stock > 10_000_000) throw new StoreError('موجودی معتبر نیست')
-    return { changed: (await db.product.updateMany({ where, data: { stock } })).count }
+    // Each product goes through the location owner: tracked items set their main-warehouse units, others their counter.
+    const ids = (await db.product.findMany({ where: { AND: [where, { sellerId: null, digitalMode: { not: 'CODES' } }] }, select: { id: true }, take: 500 })).map((row) => row.id)
+    await db.$transaction(async (tx) => {
+      for (const id of ids) {
+        if (stock >= 0 && await trackedItem(tx, id, null)) await setLocationQuantity(tx, { productId: id, variantId: null, locationId: await defaultLocationId(tx), quantity: stock }, 'ADJUST', { note: 'تغییر گروهی موجودی' })
+        else { await tx.product.update({ where: { id }, data: { stock } }); await adoptEditorStock(tx, id) }
+      }
+    }, { timeout: 60_000 })
+    return { changed: ids.length }
   }
   if (action === 'delete') {
     // Products with orders or invoices stay for the books; they are deactivated instead.
@@ -273,11 +282,16 @@ export async function inventoryList(input: { q?: string; filter?: string; page?:
     db.inventoryReservation.groupBy({ by: ['productId'], where: { status: 'HELD' }, _sum: { quantity: true } }),
   ])
   const heldBy = new Map(held.map((row) => [row.productId, row._sum.quantity || 0]))
-  return { page, pages: Math.max(1, Math.ceil(total / size)), total, lowStockDefault: settings.lowStockDefault, items: rows.map((row) => ({ ...row, held: heldBy.get(row.id) || 0 })) }
+  // Location-tracked items are edited per stock location; the list shows their site count read-only.
+  const tracked = await db.locationStock.findMany({ where: { productId: { in: rows.map((row) => row.id) } }, distinct: ['itemKey'], select: { itemKey: true } })
+  return { page, pages: Math.max(1, Math.ceil(total / size)), total, lowStockDefault: settings.lowStockDefault, items: rows.map((row) => ({ ...row, held: heldBy.get(row.id) || 0 })), tracked: tracked.map((row) => row.itemKey) }
 }
 
-/** Sets stock levels (-1 = unlimited) for products and variants. */
-export async function updateStock(items: unknown) {
+/**
+ * Sets stock levels (-1 = unlimited) for products and variants. A location-tracked item sets its units at the given
+ * stock location (default: the main warehouse) through the location owner, so the ledger and site count stay right.
+ */
+export async function updateStock(items: unknown, actorId?: number) {
   if (!Array.isArray(items) || !items.length || items.length > 200) throw new StoreError('فهرست موجودی نامعتبر است')
   const parsed = items.map((raw) => {
     const row = (raw || {}) as Record<string, unknown>
@@ -287,10 +301,17 @@ export async function updateStock(items: unknown) {
     if (!Number.isSafeInteger(productId) || productId <= 0 || !Number.isSafeInteger(stock) || stock < -1 || stock > 10_000_000 || (variantId !== null && !Number.isSafeInteger(variantId))) throw new StoreError('موجودی معتبر نیست')
     const lowStockAt = row.lowStockAt === undefined ? undefined : Math.floor(Number(row.lowStockAt))
     if (lowStockAt !== undefined && (!Number.isSafeInteger(lowStockAt) || lowStockAt < 0 || lowStockAt > 100_000)) throw new StoreError('حد هشدار موجودی معتبر نیست')
-    return { productId, variantId, stock, lowStockAt }
+    const locationId = row.locationId ? Number(row.locationId) : null
+    if (locationId !== null && (!Number.isSafeInteger(locationId) || locationId <= 0)) throw new StoreError('محل موجودی معتبر نیست')
+    return { productId, variantId, stock, lowStockAt, locationId }
   })
   await db.$transaction(async (tx) => {
     for (const item of parsed) {
+      if (item.stock >= 0 && await trackedItem(tx, item.productId, item.variantId)) {
+        await setLocationQuantity(tx, { productId: item.productId, variantId: item.variantId, locationId: item.locationId || await defaultLocationId(tx), quantity: item.stock }, 'ADJUST', { actorId, note: 'اصلاح از صفحهٔ انبار' })
+        if (item.lowStockAt !== undefined && !item.variantId) await tx.product.update({ where: { id: item.productId }, data: { lowStockAt: item.lowStockAt } })
+        continue
+      }
       if (item.variantId) {
         const changed = await tx.productVariant.updateMany({ where: { id: item.variantId, productId: item.productId }, data: { stock: item.stock } })
         if (changed.count !== 1) throw new StoreError('نوع کالا پیدا نشد', 404)
@@ -298,6 +319,8 @@ export async function updateStock(items: unknown) {
         const changed = await tx.product.updateMany({ where: { id: item.productId }, data: { stock: item.stock, ...(item.lowStockAt !== undefined ? { lowStockAt: item.lowStockAt } : {}) } })
         if (changed.count !== 1) throw new StoreError('محصول پیدا نشد', 404)
       }
+      // A new finite count starts location tracking; -1 ends it.
+      await adoptEditorStock(tx, item.productId, actorId)
     }
   })
   return { updated: parsed.length }

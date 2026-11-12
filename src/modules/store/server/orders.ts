@@ -386,8 +386,9 @@ export async function transitionOrder(input: {
   scope?: OrderWorkScope
   beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>
   commit?: (tx: Prisma.TransactionClient, result: { status: string; trackingCode: string }) => Promise<void>
-}) {
-  const delivery = await db.productDelivery.findUnique({ where: { orderId: input.orderId }, include: { order: { select: { userId: true, status: true, product: { select: { kind: true } }, lines: { select: { kind: true } } } } } })
+}, transaction?: Prisma.TransactionClient) {
+  const client = transaction || db
+  const delivery = await client.productDelivery.findUnique({ where: { orderId: input.orderId }, include: { order: { select: { userId: true, status: true, product: { select: { kind: true } }, lines: { select: { kind: true } } } } } })
   if (!delivery || delivery.order.status !== 'PAID') throw new StoreError('سفارش پرداخت‌شده پیدا نشد', 404, 'ORDER_NOT_FOUND')
   const to = String(input.to) as FulfilmentStatus
   if (!isFulfilmentStatus(to) || !canMoveTo(delivery.status, to)) throw new StoreError(`تغییر وضعیت از «${FULFILMENT_LABEL[delivery.status as FulfilmentStatus] || delivery.status}» به این وضعیت مجاز نیست`, 409, 'BAD_TRANSITION')
@@ -398,7 +399,7 @@ export async function transitionOrder(input: {
   const virtual = delivery.order.lines.length ? delivery.order.lines.every((line) => line.kind !== 'PHYSICAL') : delivery.order.product?.kind !== 'PHYSICAL'
   if (secret && !virtual) throw new StoreError('اطلاعات تحویل دیجیتال فقط برای سفارش‌های مجازی است')
   const encrypted = secret ? encryptDigitalDelivery(secret) : undefined
-  await db.$transaction(async (tx) => {
+  const write = async (tx: Prisma.TransactionClient) => {
     await input.beforeWrite?.(tx)
     await lockOrderWork(tx, input.orderId, input.scope)
     if((to==='DELIVERED'||to==='SHIPPED')&&await tx.storePickup.findFirst({where:{orderId:input.orderId,status:{not:'COLLECTED'}},select:{orderId:true}}))throw new StoreError('این سفارش فقط با کد تحویل مشتری از صف تحویل حضوری بسته می‌شود',409)
@@ -409,12 +410,14 @@ export async function transitionOrder(input: {
     if (changed.count !== 1) throw new StoreError('وضعیت سفارش هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409, 'CONFLICT')
     await tx.orderEvent.create({ data: { orderId: input.orderId, status: to, note: note || (to === 'SHIPPED' && trackingCode ? `کد رهگیری مرسوله: ${trackingCode}` : ''), actorId: input.actorId } })
     await input.commit?.(tx, { status: to, trackingCode })
-  }, input.beforeWrite ? { isolationLevel: 'Serializable' } : undefined)
+  }
+  if (transaction) await write(transaction)
+  else await db.$transaction(write, input.beforeWrite ? { isolationLevel: 'Serializable' } : undefined)
   if ((to === 'CANCELLED' || to === 'RETURNED') && input.restock) {
-    await restockConsumedInventory(input.orderId)
-    const lines = await db.orderLine.findMany({ where: { orderId: input.orderId, productId: { not: null } }, select: { productId: true, quantity: true } })
-    for (const line of lines) await db.product.updateMany({ where: { id: line.productId!, soldCount: { gte: line.quantity } }, data: { soldCount: { decrement: line.quantity } } })
-    await db.orderEvent.create({ data: { orderId: input.orderId, status: 'RESTOCK', note: 'موجودی کالاها به انبار برگشت', visible: false, actorId: input.actorId } })
+    await restockConsumedInventory(input.orderId, null, transaction)
+    const lines = await client.orderLine.findMany({ where: { orderId: input.orderId, productId: { not: null } }, select: { productId: true, quantity: true } })
+    for (const line of lines) await client.product.updateMany({ where: { id: line.productId!, soldCount: { gte: line.quantity } }, data: { soldCount: { decrement: line.quantity } } })
+    await client.orderEvent.create({ data: { orderId: input.orderId, status: 'RESTOCK', note: 'موجودی کالاها به انبار برگشت', visible: false, actorId: input.actorId } })
   }
   if (input.notify !== false && delivery.order.userId !== null) {
     await createInboxEvent({
@@ -423,7 +426,7 @@ export async function transitionOrder(input: {
       bodyEn: trackingCode && to === 'SHIPPED' ? `Tracking code: ${trackingCode}` : 'Open your orders for details.',
       bodyFa: trackingCode && to === 'SHIPPED' ? `کد رهگیری: ${trackingCode}` : 'جزئیات را در بخش سفارش‌های من ببینید.',
       href: `/dashboard/orders/${input.orderId}`,
-    }).catch(() => {})
+    }, transaction).catch((error) => { if (transaction) throw error })
   }
   return { status: to, trackingCode }
 }

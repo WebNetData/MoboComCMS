@@ -178,5 +178,5 @@ test('the states the database accepts are the states the code declares', () => {
   for (const [, state] of rail.matchAll(/'([A-Z_]+)'/g)) assert.ok(allowed('Order_status_check').includes(state), state)
   // Code that closes or reopens money rows claims the state it decided on; the database refuses the rest.
   const unconditional = /\.(invoice|order)\.update\(\{ where: \{ id[^}]*\}, data: \{ status: /
-  for (const file of ['src/modules/checkout/server/checkout.ts', 'src/modules/reseller/server/reseller.ts', 'src/modules/wallet/server/topup.ts', 'src/modules/store/server/returns.ts', 'src/modules/orders/server/http/admin/orders/route.ts', 'src/modules/identity/server/http/admin/users/[id]/route.ts']) assert.doesNotMatch(read(file), unconditional, file)
+  for (const file of ['src/modules/checkout/server/checkout.ts', 'src/modules/reseller/server/reseller.ts', 'src/modules/wallet/server/topup.ts', 'src/modules/store/server/returns.ts', 'src/modules/store/server/returns/refunds.ts', 'src/modules/orders/server/http/admin/orders/route.ts', 'src/modules/identity/server/http/admin/users/[id]/route.ts']) assert.doesNotMatch(read(file), unconditional, file)
 })
