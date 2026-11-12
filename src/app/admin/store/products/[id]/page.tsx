@@ -14,6 +14,7 @@ import type { AutofillField } from '@/modules/ai/domain/autofill'
 import ProductCodes from './Codes'
 import ProductFilesEditor from '@/components/admin/store/ProductFilesEditor'
 import OrderAsk from '../OrderAsk'
+import DeliveryTemplate from '../DeliveryTemplate'
 import CategoryTreePicker from '../CategoryTreePicker'
 import { OrganizationScope } from '@/components/media/OrganizationScope'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
@@ -31,7 +32,7 @@ const EMPTY: Form = {
   weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', categoryIds: [], brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
   pricingMode: 'FIXED', fxCurrency: 'USD', fxAmount: '', fxCompareAt: '', fxMemberPrice: '', markupPercent: '', markupFixed: '',
-  isService: false, orderFields: [], openAmount: false, openCurrencies: '', openMin: '', openMax: '',
+  isService: false, orderFields: [], deliveryTemplate: { card: false, rows: [], note: '', notices: [] }, openAmount: false, openCurrencies: '', openMin: '', openMax: '',
 }
 
 const REVIEW_FIELDS: [string, string, boolean?][] = [['name', 'نام محصول', true], ['nameEn', 'نام انگلیسی'], ['slug', 'نامک'], ['categoryId', 'دسته', true], ['brandId', 'برند'], ['price', 'قیمت', true], ['compareAtPrice', 'قیمت قبل از تخفیف'], ['stock', 'موجودی'], ['image', 'تصویر اصلی', true], ['shortDescription', 'توضیح کوتاه'], ['description', 'توضیحات'], ['warranty', 'گارانتی'], ['faqs', 'پرسش‌های متداول'], ['seoTitle', 'عنوان سئو'], ['seoDescription', 'توضیح متا']]
@@ -247,6 +248,7 @@ export default function ProductEditorPage() {
         </section>
 
         <OrderAsk form={form} update={update} />
+        {form.kind === 'VIRTUAL' && form.digitalMode !== 'FILES' && <DeliveryTemplate form={form} update={update} />}
 
         {!isNew && form.kind === 'VIRTUAL' && form.digitalMode !== 'FILES' && <ProductCodes productId={Number(id)} onStock={(stock, mode) => { setCodesOn(mode === 'CODES'); setForm((current) => current && { ...current, stock, digitalMode: mode === 'CODES' ? 'CODES' : 'MANUAL' }) }} />}
         {!isNew && form.kind === 'VIRTUAL' && <ProductFilesEditor key={`files:${form.digitalMode || 'MANUAL'}`} productId={Number(id)} onMode={mode => { if (form.digitalMode !== mode) { setCodesOn(mode === 'CODES'); setForm(current => ({ ...current, digitalMode: mode, ...(mode === 'FILES' ? { stock: -1 } : {}) })) } }} />}

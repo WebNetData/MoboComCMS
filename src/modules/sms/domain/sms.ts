@@ -62,6 +62,7 @@ export const SMS_EVENTS: SmsEventDef[] = [
   { id: 'ADMIN_RECEIPT', audience: 'admin', label: 'رسید کارت به کارت جدید (مدیر)', vars: ['invoice', 'amount'], template: 'رسید پرداخت جدید برای فاکتور {invoice} به مبلغ {amount} ثبت شد و منتظر تأیید است.' },
   { id: 'ADMIN_ORDER', audience: 'admin', label: 'سفارش پرداخت‌شدهٔ جدید (مدیر)', vars: ['invoice', 'amount'], template: 'سفارش جدید پرداخت شد: فاکتور {invoice} — {amount}' },
   { id: 'ADMIN_TICKET', audience: 'admin', label: 'تیکت جدید (مدیر)', vars: ['subject', 'name'], template: 'تیکت جدید از {name}: {subject}' },
+  { id: 'ADMIN_ORDER_LATE', audience: 'admin', label: 'سفارش دیرکرد (مدیر)', vars: ['order', 'hours'], template: 'سفارش {order} بیش از {hours} ساعت پس از پرداخت هنوز تحویل نشده است.' },
   { id: 'ADMIN_RETURN', audience: 'admin', label: 'درخواست لغو یا مرجوعی (مدیر)', vars: ['order', 'kind', 'name'], template: '{kind} جدید برای سفارش {order} از {name}؛ منتظر بررسی است.' },
 ]
 

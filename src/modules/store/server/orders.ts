@@ -3,6 +3,7 @@ import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
 import { db } from '@/platform/database/prisma'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { encryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
+import { orderDeliveryTemplate } from '@/modules/store/server/delivery-template'
 import { restockConsumedInventory } from '@/modules/catalog/server/inventory'
 import { FULFILMENT_LABEL, StoreError, canMoveTo, isFulfilmentStatus, type FulfilmentStatus } from '@/modules/store/domain/store'
 import { minorToNumber } from '@/shared/money'
@@ -313,7 +314,9 @@ export async function adminOrder(orderId: number, scope?: OrderWorkScope) {
     db.user.findMany({ where: { id: { in: order.events.map((event) => event.actorId).filter((id): id is number => !!id) } }, select: { id: true, name: true, email: true } }),
   ])
   const view = orderDetailView(order)
+  const deliveryTemplate = await orderDeliveryTemplate(order)
   return {
+    deliveryTemplate,
     ...view,
     assigneeId: order.assigneeId,
     canWork: !scope || scope.manager || order.assigneeId === scope.actorId,
@@ -387,7 +390,7 @@ export async function transitionOrder(input: {
   const trackingCode = input.trackingCode === undefined ? delivery.trackingCode : plain(input.trackingCode, 120)
   const note = plain(input.note, 1000)
   const secret = typeof input.digitalDelivery === 'string' ? input.digitalDelivery.trim() : ''
-  if (secret.length > 5000) throw new StoreError('اطلاعات تحویل دیجیتال بیش از حد طولانی است')
+  if (secret.length > 60_000) throw new StoreError('اطلاعات تحویل دیجیتال بیش از حد طولانی است')
   const virtual = delivery.order.lines.length ? delivery.order.lines.every((line) => line.kind !== 'PHYSICAL') : delivery.order.product?.kind !== 'PHYSICAL'
   if (secret && !virtual) throw new StoreError('اطلاعات تحویل دیجیتال فقط برای سفارش‌های مجازی است')
   const encrypted = secret ? encryptDigitalDelivery(secret) : undefined

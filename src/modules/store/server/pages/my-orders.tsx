@@ -12,8 +12,40 @@ import { buyerCodes } from '@/modules/store/server/digital-codes'
 import { orderFileProducts } from '@/modules/store/server/product-files'
 import ProductDownloads from '@/components/store/ProductDownloads'
 import CopyText from '@/components/software/CopyText'
+import DeliveredDetails from '@/components/store/DeliveredDetails'
+import { buyerDelivery, type BuyerDelivery } from '@/modules/store/server/staff-delivery'
+import { buyerDeliveryFiles } from '@/modules/store/server/delivery-files'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
+/** «۳ ساعت پیش» from a moment, at the largest unit that is at least one. */
+const relative = new Intl.RelativeTimeFormat('fa', { numeric: 'auto' })
+const ago = (from: Date, now = Date.now()) => {
+  const minutes = Math.max(1, Math.round((now - from.getTime()) / 60_000)), format = relative
+  return minutes < 60 ? format.format(-minutes, 'minute') : minutes < 48 * 60 ? format.format(-Math.round(minutes / 60), 'hour') : format.format(-Math.round(minutes / 1440), 'day')
+}
+
+/**
+ * A virtual order in a specialist's hands (owner 2026-11-12): where it is — paid, taken, delivered — and when the shop
+ * says it usually arrives. Past that time the buyer is told the team knows (the worker has flagged it to them).
+ */
+function HandoffCard({ delivery }: { delivery: BuyerDelivery }) {
+  const steps = [{ label: 'پرداخت شد', done: true }, { label: delivery.assigned ? 'کارشناس سفارش را برداشته' : 'در صف کارشناس', done: delivery.assigned }, { label: 'تحویل', done: false }]
+  const current = steps.findIndex((step) => !step.done)
+  const late = delivery.hours > 0 && Date.now() - delivery.paidAt.getTime() > delivery.hours * 3_600_000
+  return <section className="sx-my-card sx-handoff" aria-label="وضعیت آماده‌سازی سفارش">
+    <div className="sx-handoff-head">
+      <span className="sx-handoff-icon" aria-hidden="true"><StoreIcon name="clock" size={18} /></span>
+      <div>
+        <h2>{delivery.assigned ? 'کارشناس در حال آماده‌سازی سفارش شماست' : 'سفارش شما به کارشناس سپرده شد'}</h2>
+        <p>{late ? 'آماده‌سازی کمی بیشتر از معمول طول کشیده و کارشناس در جریان است؛ به محض تحویل خبرتان می‌کنیم.' : delivery.hours > 0 ? `معمولاً تا ${fa(delivery.hours)} ساعت پس از پرداخت تحویل می‌شود؛ به محض آماده شدن خبرتان می‌کنیم.` : 'به محض آماده شدن، اطلاعات همین‌جا نشان داده می‌شود و خبرتان می‌کنیم.'}</p>
+      </div>
+    </div>
+    <ol className="sx-handoff-steps">{steps.map((step, index) => <li key={step.label} className={step.done ? 'is-done' : index === current ? 'is-current' : ''} aria-current={index === current ? 'step' : undefined}>
+      <span className="sx-handoff-dot" aria-hidden="true">{step.done ? <StoreIcon name="check" size={12} /> : null}</span>{step.label}
+    </li>)}</ol>
+    <small className="sx-handoff-time">پرداخت: {ago(delivery.paidAt)}</small>
+  </section>
+}
 const persian = (value: Date | string, time = false) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', year: 'numeric', ...(time ? { hour: '2-digit', minute: '2-digit' } : {}), timeZone: 'Asia/Tehran' }).format(new Date(value))
 const persianDay = (day: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))
 const EVENT_LABEL: Record<string, string> = {
@@ -89,8 +121,11 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
   const order = Number.isSafeInteger(id) && id > 0 ? await customerOrder(user, id) : null
   if (!order) notFound()
   const shipment = await orderShipment(order.id).catch(() => null)
-  // Codes delivered by the product's own pool are the buyer's as soon as the order is paid.
-  const codes = await buyerCodes(user, order.id).catch(() => [])
+  // Codes delivered by the product's own pool are the buyer's as soon as the order is paid; a specialist's hand
+  // delivery shows its progress while open and its details once delivered.
+  const [codes, handoff, handedFiles] = await Promise.all([buyerCodes(user, order.id).catch(() => []), buyerDelivery(user, order.id).catch(() => null), buyerDeliveryFiles(user, order.id).catch(() => [])])
+  // Older deliveries of code orders repeat the codes as text: the codes card above already shows them.
+  const delivered = handoff?.details && (handoff.details.structured || !codes.length) && (handoff.details.items.length || handoff.details.note) ? handoff.details : handedFiles.length ? { items: [], note: '' } : null
   const fileProducts = await orderFileProducts(user, order.id)
   const closed = order.fulfilment === 'CANCELLED' || order.fulfilment === 'RETURNED' || order.state.key === 'CANCELLED'
   const step = order.state.key === 'UNPAID' ? -1 : order.fulfilment === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(order.fulfilment || 'PENDING')
@@ -109,6 +144,12 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
     {!closed && step >= 0 && <ol className="sx-track" aria-label="مراحل سفارش">{TRACKING_STEPS.map((item, index) => <li key={item.status} className={index < step ? 'is-done' : index === step ? 'is-current' : ''} aria-current={index === step ? 'step' : undefined}>
       <span className="sx-track-dot">{index < step ? <StoreIcon name="check" size={14} /> : fa(index + 1)}</span><b>{item.label}</b>
     </li>)}</ol>}
+    {handoff && !closed && handoff.status !== 'DELIVERED' && !codes.length && <HandoffCard delivery={handoff} />}
+    {delivered && <section className="sx-my-card sx-delivered" aria-label="اطلاعات تحویل">
+      <h2><StoreIcon name="shield" size={17} />اطلاعات تحویل{handoff?.deliveredAt && <small>تحویل {persian(handoff.deliveredAt, true)}</small>}</h2>
+      {handoff?.note && <p className="sx-dlv-hint">{handoff.note}</p>}
+      <DeliveredDetails orderId={order.id} items={delivered.items} note={delivered.note} files={handedFiles} notices={handoff?.notices} card={handoff?.card} />
+    </section>}
     {codes.length > 0 && <section className="sx-my-card sx-my-codes" aria-label="کدهای خریداری‌شده">
       <h2><StoreIcon name="bolt" size={17} />کدهای شما</h2>
       <p className="sx-my-codes-note">این کدها فقط به شما نشان داده می‌شوند؛ آن‌ها را در اختیار دیگران نگذارید.</p>

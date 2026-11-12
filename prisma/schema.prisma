@@ -328,6 +328,7 @@ model Order {
   lines         OrderLine[]
   events        OrderEvent[]
   returns       ReturnRequest[]
+  deliveryFiles OrderDeliveryFile[]
   shipment      Shipment?
   @@index([assigneeId, status])
 }
@@ -906,6 +907,7 @@ model Product {
   markupBps     Int @default(0) // profit percentage in basis points (1250 = 12.5%)
   // What an order of this product needs from the buyer: validated array of {key, label, labelEn, kind, required, help, options}.
   orderFields   String @default("[]")
+  deliveryTemplate String @default("{}") // VIRTUAL: the specialist form rows, notices and card of its deliveries (store/domain/delivery-details)
   // A service whose foreign amount the buyer types (paying a foreign site): priced from that amount, the live rate and the two markups below.
   openAmount    Boolean @default(false)
   openCurrencies String @default("") // comma list of the currencies the buyer may type, e.g. USD,EUR
@@ -4702,6 +4704,20 @@ model ProductFile {
   active Boolean @default(true)
   createdAt DateTime @default(now())
   @@index([productId, active])
+}
+
+/// A file a specialist hands the buyer of a virtual order (a text file, an archive…); downloadable once delivered.
+model OrderDeliveryFile {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  label String
+  filename String
+  storageKey String @unique
+  sizeBytes BigInt
+  sha256 String
+  createdAt DateTime @default(now())
+  @@index([orderId])
 }
 
 /// A level of VIP with a place in the order. A plan is one price of a tier.
