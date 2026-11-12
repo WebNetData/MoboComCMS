@@ -5,6 +5,7 @@ import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistor
 import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import { CINEMA_RAILS, introVideoUrl, type CinemaSettings } from '@/modules/cinema/domain/cinema'
+import { EXTERNAL_PLAYERS } from '@/modules/media/domain/external-players'
 import FileUpload from '@/components/admin/FileUpload'
 import { OrderedPicker, RailsEditor } from '../../cms/SectionAdmin'
 import { CinemaShell, Notice, fa, send, useJson } from '../shared'
@@ -69,6 +70,11 @@ export default function CinemaSettingsPage() {
           <label className="sa-check"><input type="checkbox" checked={form.personFollowEnabled} onChange={e => set({ personFollowEnabled: e.target.checked })} />دنبال‌کردن عوامل و اعلان اثر تازه</label>
           <label className="sa-check"><input type="checkbox" checked={form.enableAssSubtitles} onChange={e => set({ enableAssSubtitles: e.target.checked })} />زیرنویس ASS با استایل در پخش‌کننده</label>
           <label className="sa-check"><input type="checkbox" checked={form.enableSeparateAudio} onChange={e => set({ enableSeparateAudio: e.target.checked })} />انتخاب صدای جداگانه در پخش‌کننده</label>
+          <fieldset className="sa-fieldset">
+            <legend>پخش در برنامهٔ دیگر (زیر پخش‌کننده)</legend>
+            {EXTERNAL_PLAYERS.map(player => <label key={player.id} className="sa-check"><input type="checkbox" checked={form.externalPlayers.includes(player.id)} onChange={e => set({ externalPlayers: EXTERNAL_PLAYERS.map(p => p.id).filter(id => id === player.id ? e.target.checked : form.externalPlayers.includes(id)) })} /><bdi dir="ltr">{player.label}</bdi></label>)}
+            <small className="sa-sub">روی گوشی، دکمهٔ هر برنامه همان فایل را در آن باز می‌کند (صدای Dolby و زیرنویس داخل MKV را هم پخش می‌کنند)؛ روی کامپیوتر لینک پخش برای KMPlayer یا PotPlayer کپی می‌شود. همه را خاموش کنید تا این ردیف نمایش داده نشود.</small>
+          </fieldset>
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>زیرنویس همراه فایل</h2><small>کنار فایل یا داخل MKV/MP4</small></header>
