@@ -307,3 +307,66 @@ html[data-theme='light'] .member-shell .app-main .iv-page .iv-state .dt-state.is
   .member-shell .app-main .sx-my-detail .sx-handoff-steps li { font-size: 11.5px; }
 }
 @media (prefers-reduced-motion: reduce) { .member-shell .app-main .sx-my-detail .sx-handoff-dot, .member-shell .app-main .sx-my-detail .sx-dlv-value, .member-shell .app-main .sx-my-detail .sx-dlv-actions button, .member-shell .app-main .sx-my-detail .sx-dlv-all, .member-shell .app-main .sx-my-detail .sx-dlv-get { transition: none; } }
+
+/* The product's notices and the delivery card (DeliveredDetails, DeliveryCard). Flat faces with a quiet line pattern,
+   one short entrance, no looping motion. The saved image reads its colours from the card itself. */
+.member-shell .app-main .sx-my-detail .sx-dlv-notices { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+.member-shell .app-main .sx-my-detail .sx-dlv-notices li { padding: 10px 14px; border: 1px solid var(--o-line); border-inline-start: 3px solid var(--primary); border-radius: 10px; background: color-mix(in srgb, var(--primary) 6%, var(--card)); font-size: 13.5px; line-height: 1.9; }
+.member-shell .app-main .sx-my-detail .sx-dlv-notices li.is-warning { border-inline-start-color: #b7791f; background: color-mix(in srgb, #b7791f 8%, var(--card)); }
+.member-shell .app-main .sx-my-detail .sx-dlv-notices li.is-danger { border-inline-start-color: var(--danger, #c0392b); background: color-mix(in srgb, var(--danger, #c0392b) 7%, var(--card)); }
+.member-shell .app-main .sx-my-detail .sx-dcard-stage { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 28px; align-items: center; }
+.member-shell .app-main .sx-my-detail .sx-dcard { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; aspect-ratio: 1.586; min-height: 240px; padding: 22px 24px; border: 1px solid color-mix(in srgb, currentColor 12%, transparent); border-radius: 18px; background-size: cover; background-position: center; box-shadow: 0 1px 2px rgb(0 0 0 / 8%), 0 14px 30px -16px rgb(0 0 0 / 35%); transition: background-color .25s ease, color .25s ease; animation: sx-dcard-in .35s ease-out both; }
+.member-shell .app-main .sx-my-detail .sx-dcard.is-ink { background-color: #1d2230; color: #f5f6f8; }
+.member-shell .app-main .sx-my-detail .sx-dcard.is-slate { background-color: #3a4655; color: #f3f5f7; }
+.member-shell .app-main .sx-my-detail .sx-dcard.is-sage { background-color: #dfe9e1; color: #17251c; }
+.member-shell .app-main .sx-my-detail .sx-dcard.is-sand { background-color: #f1e8da; color: #2a2318; }
+.member-shell .app-main .sx-my-detail .sx-dcard.is-rose { background-color: #f4e3e1; color: #3b1f1c; }
+.member-shell .app-main .sx-my-detail .sx-dcard.is-brand { background-color: color-mix(in srgb, var(--primary) 78%, #000); color: #fff; }
+.member-shell .app-main .sx-my-detail .sx-dcard.is-photo { background-color: #111318; color: #fff; }
+.member-shell .app-main .sx-my-detail .sx-dcard-head { display: flex; align-items: center; gap: 10px; }
+.member-shell .app-main .sx-my-detail .sx-dcard-head img { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; }
+.member-shell .app-main .sx-my-detail .sx-dcard-head b { font-size: 17px; font-weight: 800; }
+.member-shell .app-main .sx-my-detail .sx-dcard-eye { margin-inline-start: auto; padding: 4px 11px; border: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-radius: 999px; background: transparent; color: inherit; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.member-shell .app-main .sx-my-detail .sx-dcard-product { margin-top: -8px; font-size: 13px; opacity: .82; }
+.member-shell .app-main .sx-my-detail .sx-dcard-rows { display: grid; gap: 6px; margin: 0; }
+.member-shell .app-main .sx-my-detail .sx-dcard-rows > div { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; }
+.member-shell .app-main .sx-my-detail .sx-dcard-rows dt { font-size: 12.5px; opacity: .82; }
+.member-shell .app-main .sx-my-detail .sx-dcard-rows dd { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; margin: 0; }
+.member-shell .app-main .sx-my-detail .sx-dcard button[dir="ltr"], .member-shell .app-main .sx-my-detail .sx-dcard-aside button { min-width: 0; padding: 2px 5px; border: 0; border-radius: 6px; background: none; color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; text-align: left; overflow-wrap: anywhere; cursor: copy; transition: background-color .15s ease; }
+.member-shell .app-main .sx-my-detail .sx-dcard button[dir="ltr"]:hover, .member-shell .app-main .sx-my-detail .sx-dcard-aside button:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+.member-shell .app-main .sx-my-detail .sx-dcard button:focus-visible, .member-shell .app-main .sx-my-detail .sx-dcard-aside button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.member-shell .app-main .sx-my-detail .sx-dcard-copied { flex-shrink: 0; font-size: 11px; opacity: .85; }
+.member-shell .app-main .sx-my-detail .sx-dcard-aside { display: grid; gap: 14px; margin: 0; }
+.member-shell .app-main .sx-my-detail .sx-dcard-aside > div { display: grid; gap: 2px; justify-items: start; }
+.member-shell .app-main .sx-my-detail .sx-dcard-aside dt { color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+.member-shell .app-main .sx-my-detail .sx-dcard-aside dd { display: flex; align-items: center; gap: 6px; margin: 0; }
+.member-shell .app-main .sx-my-detail .sx-dcard-aside button { padding-inline: 0; color: var(--text); font-family: inherit; font-size: 15px; font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-dcard-tools { display: grid; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--o-line); }
+.member-shell .app-main .sx-my-detail .sx-dcard-faces { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.member-shell .app-main .sx-my-detail .sx-dcard-face { width: 30px; height: 30px; padding: 0; border: 2px solid var(--card); border-radius: 50%; box-shadow: 0 0 0 1px var(--o-line); cursor: pointer; transition: box-shadow .15s ease; }
+.member-shell .app-main .sx-my-detail .sx-dcard-face.is-ink { background: #1d2230; }
+.member-shell .app-main .sx-my-detail .sx-dcard-face.is-slate { background: #3a4655; }
+.member-shell .app-main .sx-my-detail .sx-dcard-face.is-sage { background: #dfe9e1; }
+.member-shell .app-main .sx-my-detail .sx-dcard-face.is-sand { background: #f1e8da; }
+.member-shell .app-main .sx-my-detail .sx-dcard-face.is-rose { background: #f4e3e1; }
+.member-shell .app-main .sx-my-detail .sx-dcard-face.is-brand { background: color-mix(in srgb, var(--primary) 78%, #000); }
+.member-shell .app-main .sx-my-detail .sx-dcard-face[aria-checked="true"] { box-shadow: 0 0 0 2px var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-dcard-face:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.member-shell .app-main .sx-my-detail .sx-dcard-photo { position: relative; display: inline-flex; align-items: center; min-height: 32px; padding: 0 14px; border: 1px dashed var(--o-line); border-radius: 999px; color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.member-shell .app-main .sx-my-detail .sx-dcard-photo.is-on { border-style: solid; border-color: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-dcard-photo:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.member-shell .app-main .sx-my-detail .sx-dcard-photo input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.member-shell .app-main .sx-my-detail .sx-dcard-private { color: var(--muted); font-size: 12px; }
+.member-shell .app-main .sx-my-detail .sx-dcard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.member-shell .app-main .sx-my-detail .sx-dcard-actions button { min-height: 36px; padding: 0 16px; border: 1px solid var(--o-line); border-radius: 10px; background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s ease; }
+.member-shell .app-main .sx-my-detail .sx-dcard-actions button:hover:not(:disabled) { border-color: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-dcard-actions button.is-primary { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--card)); font-weight: 700; }
+.member-shell .app-main .sx-my-detail .sx-dcard-actions button:disabled { opacity: .6; cursor: progress; }
+.member-shell .app-main .sx-my-detail .sx-dcard-actions button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@keyframes sx-dcard-in { from { opacity: 0; transform: translateY(6px); } }
+@media (max-width: 760px) {
+  .member-shell .app-main .sx-my-detail .sx-dcard-stage { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .member-shell .app-main .sx-my-detail .sx-dcard { aspect-ratio: auto; min-height: 210px; padding: 18px; }
+  .member-shell .app-main .sx-my-detail .sx-dcard-actions button { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .member-shell .app-main .sx-my-detail .sx-dcard { animation: none; transition: none; } .member-shell .app-main .sx-my-detail .sx-dcard-face, .member-shell .app-main .sx-my-detail .sx-dcard-actions button, .member-shell .app-main .sx-my-detail .sx-dcard button { transition: none; } }

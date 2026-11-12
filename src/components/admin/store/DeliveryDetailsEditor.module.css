@@ -13,6 +13,7 @@
 .value { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .icon { flex-shrink: 0; min-height: 34px; padding: 0 9px; border: 1px solid var(--sa-line, var(--border)); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
 .icon:hover { border-color: var(--primary); }
+.flags { display: grid; gap: 4px; }
 .secret { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .remove { width: 32px; height: 32px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
 .remove:hover { color: var(--danger, #b91c1c); border-color: var(--sa-line, var(--border)); }

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import type { DeliveryFileView, DeliveryItem } from '@/modules/store/domain/delivery-details'
+import type { DeliveryFileView, DeliveryItem, DeliveryNotice } from '@/modules/store/domain/delivery-details'
+import DeliveryCard from '@/components/store/DeliveryCard'
 import { formatBytes } from '@/components/media/api'
 
 const MASK = '••••••••••'
@@ -23,20 +24,29 @@ function Row({ item }: { item: DeliveryItem }) {
   </li>
 }
 
-/** What the specialist delivered, on the buyer's order page (store/domain/delivery-details). */
-export default function DeliveredDetails({ orderId, items, note, files = [] }: { orderId: number; items: DeliveryItem[]; note: string; files?: DeliveryFileView[] }) {
+/**
+ * What the specialist delivered, on the buyer's order page (store/domain/delivery-details): the product's notices, then
+ * the delivery as a card (when the product asks for one) or as rows, its files and the note.
+ */
+export default function DeliveredDetails({ orderId, items, note, files = [], notices = [], card = null }: { orderId: number; items: DeliveryItem[]; note: string; files?: DeliveryFileView[]; notices?: DeliveryNotice[]; card?: { product: string; brand: string; logo: string } | null }) {
   const [all, setAll] = useState(false)
+  const lines = items.map((item) => `${item.label}: ${item.value}`).join('\n')
   async function copyAll() {
-    try { await navigator.clipboard.writeText(items.map((item) => `${item.label}: ${item.value}`).join('\n')); setAll(true); setTimeout(() => setAll(false), 1600) } catch { /* clipboard blocked */ }
+    try { await navigator.clipboard.writeText(lines); setAll(true); setTimeout(() => setAll(false), 1600) } catch { /* clipboard blocked */ }
   }
+  const asCard = !!card && items.length > 0
+  // The text file and «copy text» of the card: what was bought, every row, the note and the notices.
+  const text = [card ? [card.product, card.brand].filter(Boolean).join(' — ') : '', lines, note, notices.map((notice) => `• ${notice.text}`).join('\n')].filter(Boolean).join('\n\n')
   return <>
-    {items.length > 0 && <ul className="sx-dlv-rows">{items.map((item, index) => <Row key={`${item.label}-${index}`} item={item} />)}</ul>}
+    {notices.length > 0 && <ul className="sx-dlv-notices" aria-label="نکته‌های مهم">{notices.map((notice, index) => <li key={index} className={`is-${notice.tone}`}>{notice.text}</li>)}</ul>}
+    {asCard && card && <DeliveryCard orderId={orderId} items={items} brand={card} text={text} />}
+    {!asCard && items.length > 0 && <ul className="sx-dlv-rows">{items.map((item, index) => <Row key={`${item.label}-${index}`} item={item} />)}</ul>}
     {files.length > 0 && <ul className="sx-dlv-files" aria-label="فایل‌های تحویل">{files.map((file) => <li key={file.id}>
       <span className="sx-dlv-ext" aria-hidden="true">{(file.filename.split('.').pop() || '').slice(0, 4).toUpperCase() || 'FILE'}</span>
       <span className="sx-dlv-file"><b><bdi>{file.label}</bdi></b><small dir="ltr">{formatBytes(Number(file.sizeBytes))}</small></span>
       <a className="sx-dlv-get" href={`/api/store/orders/${orderId}/files/${file.id}`} download aria-label={`دریافت ${file.label}`}>دریافت</a>
     </li>)}</ul>}
     {note && <p className="sx-dlv-note">{note}</p>}
-    {items.length > 1 && <button type="button" className={`sx-dlv-all${all ? ' is-done' : ''}`} onClick={() => void copyAll()}>{all ? 'همه کپی شد' : 'کپی همهٔ موارد'}</button>}
+    {!asCard && items.length > 1 && <button type="button" className={`sx-dlv-all${all ? ' is-done' : ''}`} onClick={() => void copyAll()}>{all ? 'همه کپی شد' : 'کپی همهٔ موارد'}</button>}
   </>
 }

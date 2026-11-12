@@ -5,14 +5,15 @@
  * note, so nothing written before changes. Pure rules, shared by the Admin form and the buyer's order page.
  */
 
-export type DeliveryItem = { label: string; value: string; secret: boolean }
+/** `aside`: shown beside the delivery card instead of on it (security questions and their answers). */
+export type DeliveryItem = { label: string; value: string; secret: boolean; aside?: boolean }
 export type DeliveryDetails = { items: DeliveryItem[]; note: string }
 
 /** A file handed over with the delivery (store/server/delivery-files), as the buyer and the specialist see it. */
 export type DeliveryFileView = { id: number; label: string; filename: string; sizeBytes: string }
 
 export const MAX_DELIVERY_ITEMS = 12
-const MAX_LABEL = 60
+const MAX_LABEL = 160
 const MAX_VALUE = 4000
 const MAX_NOTE = 2000
 const MARK = 'mobocom-delivery:v1:'
@@ -23,6 +24,7 @@ export const DELIVERY_TEMPLATES: { id: string; label: string; items: Omit<Delive
   { id: 'account-recovery', label: 'اکانت با کد بازیابی', items: [{ label: 'ایمیل', secret: false }, { label: 'رمز عبور', secret: true }, { label: 'کدهای بازیابی', secret: true }] },
   { id: 'license', label: 'کد لایسنس', items: [{ label: 'کد لایسنس', secret: true }] },
   { id: 'link', label: 'لینک دسترسی', items: [{ label: 'لینک', secret: false }] },
+  { id: 'questions', label: 'سؤال‌های امنیتی', items: [{ label: 'سؤال امنیتی ۱', secret: false, aside: true }, { label: 'سؤال امنیتی ۲', secret: false, aside: true }, { label: 'سؤال امنیتی ۳', secret: false, aside: true }] },
 ]
 
 export class DeliveryDetailsError extends Error {}
@@ -41,7 +43,7 @@ export function composeDeliveryDetails(input: { items?: unknown; note?: unknown 
     if (!label && !value.trim()) continue
     if (!label) throw new DeliveryDetailsError('برای هر مقدار یک عنوان بنویسید (مثلاً ایمیل)')
     if (!value.trim()) throw new DeliveryDetailsError(`مقدار «${label}» خالی است`)
-    items.push({ label, value, secret: item.secret === true })
+    items.push({ label, value, secret: item.secret === true, ...(item.aside === true ? { aside: true } : {}) })
   }
   if (items.length > MAX_DELIVERY_ITEMS) throw new DeliveryDetailsError(`حداکثر ${MAX_DELIVERY_ITEMS.toLocaleString('fa-IR')} مورد`)
   const note = clean(input.note, MAX_NOTE)
@@ -56,7 +58,7 @@ export function readDeliveryDetails(text: string): DeliveryDetails & { structure
     const raw = JSON.parse(text.slice(MARK.length)) as { items?: unknown; note?: unknown }
     const items = (Array.isArray(raw.items) ? raw.items : []).slice(0, MAX_DELIVERY_ITEMS).flatMap((row): DeliveryItem[] => {
       const item = row && typeof row === 'object' ? row as Record<string, unknown> : {}
-      return typeof item.label === 'string' && typeof item.value === 'string' ? [{ label: item.label.slice(0, MAX_LABEL), value: item.value.slice(0, MAX_VALUE), secret: item.secret === true }] : []
+      return typeof item.label === 'string' && typeof item.value === 'string' ? [{ label: item.label.slice(0, MAX_LABEL), value: item.value.slice(0, MAX_VALUE), secret: item.secret === true, ...(item.aside === true ? { aside: true } : {}) }] : []
     })
     return { items, note: typeof raw.note === 'string' ? raw.note.slice(0, MAX_NOTE) : '', structured: true }
   } catch { return { items: [], note: '', structured: true } }
@@ -65,4 +67,44 @@ export function readDeliveryDetails(text: string): DeliveryDetails & { structure
 /** The same delivery as plain lines (for the printable invoice). */
 export function deliveryDetailsText(details: DeliveryDetails): string {
   return [...details.items.map((item) => `${item.label}: ${item.value}`), details.note].filter(Boolean).join('\n')
+}
+
+
+// ------------------------------------------------------------------ the product's delivery template
+
+/**
+ * What a product's deliveries look like (owner 2026-11-12, «like an Apple ID card»): the rows the specialist's form
+ * starts with, a default note, notices the buyer reads above what was delivered (turn off Find My…), and whether the
+ * delivery is shown as a card the buyer can save as an image. Stored on `Product.deliveryTemplate` as JSON.
+ */
+export const NOTICE_TONES = ['info', 'warning', 'danger'] as const
+export type NoticeTone = typeof NOTICE_TONES[number]
+export type DeliveryNotice = { tone: NoticeTone; text: string }
+export type DeliveryTemplateRow = { label: string; secret: boolean; aside: boolean }
+export type ProductDeliveryTemplate = { card: boolean; rows: DeliveryTemplateRow[]; note: string; notices: DeliveryNotice[] }
+export const EMPTY_DELIVERY_TEMPLATE: ProductDeliveryTemplate = { card: false, rows: [], note: '', notices: [] }
+export const MAX_DELIVERY_NOTICES = 6
+const MAX_NOTICE = 600
+
+function templateOf(raw: unknown, strict: boolean): ProductDeliveryTemplate {
+  const value = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {}
+  const rows = (Array.isArray(value.rows) ? value.rows : []).flatMap((row): DeliveryTemplateRow[] => {
+    const item = row && typeof row === 'object' ? row as Record<string, unknown> : {}
+    const label = clean(item.label, MAX_LABEL)
+    return label ? [{ label, secret: item.secret === true, aside: item.aside === true }] : []
+  })
+  const notices = (Array.isArray(value.notices) ? value.notices : []).flatMap((row): DeliveryNotice[] => {
+    const item = row && typeof row === 'object' ? row as Record<string, unknown> : {}
+    const text = clean(item.text, MAX_NOTICE)
+    return text ? [{ tone: NOTICE_TONES.includes(item.tone as NoticeTone) ? item.tone as NoticeTone : 'info', text }] : []
+  })
+  if (strict && rows.length > MAX_DELIVERY_ITEMS) throw new DeliveryDetailsError(`الگوی تحویل حداکثر ${MAX_DELIVERY_ITEMS.toLocaleString('fa-IR')} ردیف دارد`)
+  if (strict && notices.length > MAX_DELIVERY_NOTICES) throw new DeliveryDetailsError(`حداکثر ${MAX_DELIVERY_NOTICES.toLocaleString('fa-IR')} پیام مهم`)
+  return { card: value.card === true, rows: rows.slice(0, MAX_DELIVERY_ITEMS), note: clean(value.note, MAX_NOTE), notices: notices.slice(0, MAX_DELIVERY_NOTICES) }
+}
+/** The Admin product form's template, checked before it is saved. */
+export const validateDeliveryTemplate = (raw: unknown) => templateOf(raw, true)
+/** A stored template; anything unreadable is the empty one. */
+export function readDeliveryTemplate(text: string | null | undefined): ProductDeliveryTemplate {
+  try { return templateOf(JSON.parse(text || '{}'), false) } catch { return EMPTY_DELIVERY_TEMPLATE }
 }

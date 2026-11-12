@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useState } from 'react'
-import { DELIVERY_TEMPLATES, MAX_DELIVERY_ITEMS, type DeliveryItem } from '@/modules/store/domain/delivery-details'
+import { DELIVERY_TEMPLATES, MAX_DELIVERY_ITEMS, type DeliveryItem, type ProductDeliveryTemplate } from '@/modules/store/domain/delivery-details'
 import DeliveryFiles from './DeliveryFiles'
 import styles from './DeliveryDetailsEditor.module.css'
 
@@ -9,7 +9,9 @@ export type DeliveryDraft = { items: (DeliveryItem & { id: string })[]; note: st
 export const EMPTY_DELIVERY: DeliveryDraft = { items: [], note: '' }
 
 let counter = 0
-const row = (item: Partial<DeliveryItem> = {}) => ({ id: `d${++counter}`, label: item.label || '', value: item.value || '', secret: item.secret === true })
+const row = (item: Partial<DeliveryItem> = {}) => ({ id: `d${++counter}`, label: item.label || '', value: item.value || '', secret: item.secret === true, aside: item.aside === true })
+/** The product's delivery template as a fresh form: its rows to fill in and its default note. */
+export const draftFromTemplate = (template: ProductDeliveryTemplate): DeliveryDraft => ({ items: template.rows.map((item) => row(item)), note: template.note })
 /** A password a person can still type: no look-alike characters, mixed case, digits and a few symbols. */
 function strongPassword(length = 16) {
   const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnpqrstuvwxyz', '23456789', '@#$%&*-_=+']
@@ -55,7 +57,10 @@ export default function DeliveryDetailsEditor({ orderId, value, onChange, hasPre
             {item.secret && <button type="button" className={styles.icon} aria-pressed={!hidden} aria-label={hidden ? 'نمایش مقدار' : 'پنهان کردن مقدار'} onClick={() => setShown((current) => ({ ...current, [item.id]: !current[item.id] }))}>{hidden ? 'نمایش' : 'پنهان'}</button>}
             {item.secret && <button type="button" className={styles.icon} onClick={() => { set(item.id, { value: strongPassword() }); setShown((current) => ({ ...current, [item.id]: true })) }}>رمز قوی</button>}
           </div>
-          <label className={styles.secret}><input type="checkbox" checked={item.secret} onChange={(event) => set(item.id, { secret: event.target.checked })} />محرمانه</label>
+          <span className={styles.flags}>
+            <label className={styles.secret}><input type="checkbox" checked={item.secret} onChange={(event) => set(item.id, { secret: event.target.checked })} />محرمانه</label>
+            <label className={styles.secret} title="مثل سؤال‌های امنیتی: کنار کارت، نه روی آن"><input type="checkbox" checked={item.aside === true} onChange={(event) => set(item.id, { aside: event.target.checked })} />کنار کارت</label>
+          </span>
           <button type="button" className={styles.remove} aria-label={`حذف ${item.label || 'ردیف'}`} onClick={() => onChange({ ...value, items: value.items.filter((other) => other.id !== item.id) })}>×</button>
         </li>
       })}

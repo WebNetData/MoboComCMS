@@ -8,7 +8,8 @@ import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson
 import ShipmentPanel from './ShipmentPanel'
 import OrderAssignment, { type Assignment } from './OrderAssignment'
 import LineInputs, { type InputLine } from './LineInputs'
-import DeliveryDetailsEditor, { EMPTY_DELIVERY, type DeliveryDraft } from '@/components/admin/store/DeliveryDetailsEditor'
+import DeliveryDetailsEditor, { EMPTY_DELIVERY, draftFromTemplate, type DeliveryDraft } from '@/components/admin/store/DeliveryDetailsEditor'
+import type { ProductDeliveryTemplate } from '@/modules/store/domain/delivery-details'
 import { composeDeliveryDetails } from '@/modules/store/domain/delivery-details'
 
 type Detail = Assignment & {
@@ -18,7 +19,7 @@ type Detail = Assignment & {
   lines: (InputLine & { productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number })[]
   currency: string; itemsTotal: number; listTotal: number; discount: number; discountCode: string; shipping: number; total: number; walletApplied: number
   shippingMethod: { carrierId: string; carrierName: string; eta: string; weightGrams: number; collect?: boolean } | null
-  invoiceNumber: string; invoiceStatus: string; orderStatus: string; gateway: string; hasDigitalDelivery: boolean
+  invoiceNumber: string; invoiceStatus: string; orderStatus: string; gateway: string; hasDigitalDelivery: boolean; deliveryTemplate: ProductDeliveryTemplate | null
   customer: { id: number; name: string; email: string; phone: string; createdAt: string; paidOrders: number; spent: number }
   payments: { id: number; provider: string; status: string; amount: number; createdAt: string }[]
   events: { id: number; status: string; note: string; createdAt: string; visible: boolean; actor: string }[]
@@ -107,7 +108,7 @@ export default function StoreOrderPage() {
 
         {options.length > 0 && <section className="sa-card sa-noprint">
           <header className="sa-card-head"><h2>تغییر وضعیت</h2><small>وضعیت فعلی: {isFulfilmentStatus(data.fulfilment) ? FULFILMENT_LABEL[data.fulfilment] : 'در انتظار ایجاد تحویل'}</small></header>
-          <div className="sa-actions" role="radiogroup" aria-label="وضعیت بعدی">{options.map((status) => <button key={status} type="button" role="radio" aria-checked={to === status} className={`sa-action${to === status ? ' is-selected' : ''}${status === 'CANCELLED' || status === 'RETURNED' ? ' is-danger' : ''}`} onClick={() => setTo(status)}>{ACTION_LABEL[status]}</button>)}</div>
+          <div className="sa-actions" role="radiogroup" aria-label="وضعیت بعدی">{options.map((status) => <button key={status} type="button" role="radio" aria-checked={to === status} className={`sa-action${to === status ? ' is-selected' : ''}${status === 'CANCELLED' || status === 'RETURNED' ? ' is-danger' : ''}`} onClick={() => { setTo(status); if (status === 'DELIVERED' && data.deliveryTemplate && !details.items.length && !details.note) setDetails(draftFromTemplate(data.deliveryTemplate)) }}>{ACTION_LABEL[status]}</button>)}</div>
           {to && <div className="sa-form">
             {(to === 'SHIPPED' || to === 'DELIVERED') && !virtual && <label className="sa-field"><span>کد رهگیری مرسوله</span><input className="input" dir="ltr" value={tracking ?? data.trackingCode} onChange={(event) => setTracking(event.target.value)} maxLength={120} /></label>}
             {virtual && to === 'DELIVERED' && <DeliveryDetailsEditor orderId={data.id} value={details} onChange={setDetails} hasPrevious={data.hasDigitalDelivery} />}

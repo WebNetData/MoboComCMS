@@ -247,4 +247,9 @@ test('delivery details: named items and a note, secrets kept as typed; older fre
   assert.throws(() => d.composeDeliveryDetails({ items: [{ label: '', value: 'x' }] }), /عنوان/)
   assert.throws(() => d.composeDeliveryDetails({ items: [] }), /خالی/)
   assert.ok(d.DELIVERY_TEMPLATES.find(t => t.id === 'account').items.some(i => i.secret))
+  // A security question sits beside the card; the product template keeps rows, notices and the card switch.
+  assert.deepEqual(d.readDeliveryDetails(d.composeDeliveryDetails({ items: [{ label: 'What was your first car?', value: 'Veyron', aside: true }] })).items, [{ label: 'What was your first car?', value: 'Veyron', secret: false, aside: true }])
+  assert.deepEqual(d.validateDeliveryTemplate({ card: true, rows: [{ label: ' Apple ID ' }, { label: '' }], notices: [{ tone: 'loud', text: ' Find My را خاموش کنید ' }, { text: '' }] }), { card: true, rows: [{ label: 'Apple ID', secret: false, aside: false }], note: '', notices: [{ tone: 'info', text: 'Find My را خاموش کنید' }] })
+  assert.throws(() => d.validateDeliveryTemplate({ notices: Array.from({ length: 7 }, () => ({ text: 'x' })) }), /پیام/)
+  assert.deepEqual(d.readDeliveryTemplate('not json'), d.EMPTY_DELIVERY_TEMPLATE)
 })

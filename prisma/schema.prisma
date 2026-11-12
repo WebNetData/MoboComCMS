@@ -907,6 +907,7 @@ model Product {
   markupBps     Int @default(0) // profit percentage in basis points (1250 = 12.5%)
   // What an order of this product needs from the buyer: validated array of {key, label, labelEn, kind, required, help, options}.
   orderFields   String @default("[]")
+  deliveryTemplate String @default("{}") // VIRTUAL: the specialist form rows, notices and card of its deliveries (store/domain/delivery-details)
   // A service whose foreign amount the buyer types (paying a foreign site): priced from that amount, the live rate and the two markups below.
   openAmount    Boolean @default(false)
   openCurrencies String @default("") // comma list of the currencies the buyer may type, e.g. USD,EUR

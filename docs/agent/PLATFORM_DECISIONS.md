@@ -1072,5 +1072,16 @@ The owner wants members to sign in and sign up with Google. Identity owns it (`s
 - **The buyer sees it on their order page** (`components/store/DeliveredDetails`), not only on the invoice. It is decrypted only for the buyer's own PAID virtual order once it is DELIVERED (`store/server/staff-delivery.buyerDelivery`). The line above them is **Store settings › Delivered-details note** (`deliveredNote`, default: change the password after signing in; empty = no line). Secret values stay hidden until the buyer asks; each value has its own copy button. The invoice shows the same items as "label: value" lines.
 - **While a specialist holds it, the buyer sees where it is**: paid, then taken or in queue, then delivered, with the usual delivery time. **Store settings › Specialist delivery time** sets that time in hours (`staffDeliveryHours`, default 24, 0 = off, max 720).
 - **Files with the delivery** (`store/server/delivery-files.ts`, table `OrderDeliveryFile`, additive migration `20270308120000_order_delivery_files`). The specialist can attach up to 20 files (a text file, an archive, anything within the media size limit). They are private blobs (`media/server/private-files`) attached to the order the moment they are uploaded. Only the order's specialist or an orders manager may add or remove them, and each change is audited. The buyer downloads them at `/api/store/orders/:id/files/:fileId`, and only while their own virtual order is DELIVERED; a cancelled or returned order closes them again. Files alone count as a delivery.
+- **Each product has a delivery template** (`Product.deliveryTemplate`, JSON; additive migration `20270309120000_product_delivery_template`; Admin › product › «تحویل به خریدار»). It holds:
+  - the rows the specialist's form starts with (prefilled when they choose «delivered» on an empty form);
+  - a default note;
+  - up to 6 notices (info, warning, danger) shown to the buyer above the delivery and included in its text file;
+  - a **card** switch.
+- **The delivery card** (`components/store/DeliveryCard`):
+  - It shows the site's name and logo, the product, and the rows on the card. Rows marked «beside the card» (security questions) sit next to it.
+  - Secrets are hidden until «show»; clicking a value copies it.
+  - The buyer picks a flat face (no gradients, quiet line pattern) or a photo of their own. The photo stays in their browser and is never uploaded.
+  - The card saves as a PNG drawn on a canvas (1200 px wide). The whole delivery saves as a UTF-8 text file.
+  - The design is MoboCom's own: it borrows the idea of an account card the buyer can keep, not another site's look.
 - **Late orders.** Past that time, the fulfilment worker step `lateDeliveries` alerts **once per order**: it writes a hidden `LATE` order event, sends an inbox note to the specialist who took the order, and sends the admin SMS event `ADMIN_ORDER_LATE` (`{order}`, `{hours}`). The time counts from the invoice payment, or from the order's creation when there is no invoice.
 - Verified locally on a DB copy: tsc, the store tests, and a browser pass (specialist form → buyer page at 1440 light and 390 dark, axe clean, no overflow). **Not run:** the SMS delivery itself, and the worker step against a live schedule.

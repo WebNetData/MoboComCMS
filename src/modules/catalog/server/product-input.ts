@@ -7,6 +7,7 @@ import { attributeGroupForCategory, validateFaqs, validateFields, validateGaller
 import { applyFxToBody } from '@/modules/fx/server/fx'
 import { CATEGORY_KIND_LABEL, productFitsCategory, type CategoryKind } from '@/modules/catalog/domain/category-kind'
 import { validateOrderFields } from '@/modules/store/domain/order-inputs'
+import { validateDeliveryTemplate } from '@/modules/store/domain/delivery-details'
 import { FX_CODES } from '@/modules/fx/domain/fx'
 
 /**
@@ -87,6 +88,7 @@ function productOrdering(b: any, existing: FxExisting | undefined, pricingMode: 
   const out: Record<string, unknown> = {}
   if (b?.isService !== undefined) out.isService = b.isService === true || b.isService === 'true'
   if (b?.orderFields !== undefined) out.orderFields = JSON.stringify(validateOrderFields(b.orderFields))
+  if (b?.deliveryTemplate !== undefined) out.deliveryTemplate = JSON.stringify(validateDeliveryTemplate(b.deliveryTemplate))
   const open = b?.openAmount !== undefined ? b.openAmount === true || b.openAmount === 'true' : existing?.openAmount ?? false
   if (b?.openAmount !== undefined) out.openAmount = open
   if (!open) return out

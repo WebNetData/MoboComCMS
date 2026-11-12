@@ -1,0 +1,26 @@
+/* The product's delivery template (DeliveryTemplate.tsx): Admin tokens, quiet rows, notices marked by a side line. */
+.cardToggle { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--sa-line, var(--border)); border-radius: 10px; cursor: pointer; }
+.cardToggle input { margin-top: 4px; }
+.cardToggle span { display: grid; gap: 2px; }
+.cardToggle small { color: var(--muted); font-size: 12px; line-height: 1.8; }
+.block { display: grid; gap: 8px; }
+.blockHead { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.blockHead b { font-size: 13px; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { min-height: 30px; padding: 0 10px; border: 1px solid var(--sa-line, var(--border)); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color .15s ease; }
+.chip:hover:not(:disabled) { border-color: var(--primary); }
+.chip:disabled { opacity: .5; cursor: not-allowed; }
+.chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.rows { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; }
+.notice { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--sa-line, var(--border)); border-inline-start-width: 3px; border-radius: 10px; }
+.tone_info { border-inline-start-color: var(--primary); }
+.tone_warning { border-inline-start-color: #b7791f; }
+.tone_danger { border-inline-start-color: var(--danger, #b91c1c); }
+@media (max-width: 640px) {
+  .row { grid-template-columns: minmax(0, 1fr) auto; }
+  .row > input { grid-column: 1 / -1; }
+  .notice { grid-template-columns: minmax(0, 1fr) auto; }
+  .notice textarea { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (prefers-reduced-motion: reduce) { .chip { transition: none; } }

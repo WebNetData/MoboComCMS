@@ -148,7 +148,7 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
     {delivered && <section className="sx-my-card sx-delivered" aria-label="اطلاعات تحویل">
       <h2><StoreIcon name="shield" size={17} />اطلاعات تحویل{handoff?.deliveredAt && <small>تحویل {persian(handoff.deliveredAt, true)}</small>}</h2>
       {handoff?.note && <p className="sx-dlv-hint">{handoff.note}</p>}
-      <DeliveredDetails orderId={order.id} items={delivered.items} note={delivered.note} files={handedFiles} />
+      <DeliveredDetails orderId={order.id} items={delivered.items} note={delivered.note} files={handedFiles} notices={handoff?.notices} card={handoff?.card} />
     </section>}
     {codes.length > 0 && <section className="sx-my-card sx-my-codes" aria-label="کدهای خریداری‌شده">
       <h2><StoreIcon name="bolt" size={17} />کدهای شما</h2>
