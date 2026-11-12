@@ -22,8 +22,14 @@ export async function lockProduct(tx: Tx, productId: number) {
  */
 export async function syncCodeStock(tx: Tx, productId: number) {
   await lockProduct(tx, productId)
-  const product = await tx.product.findUnique({ where: { id: productId }, select: { digitalMode: true, stock: true, variants: { select: { id: true, stock: true } } } })
+  const product = await tx.product.findUnique({ where: { id: productId }, select: { digitalMode: true, codesWhenEmpty: true, stock: true, variants: { select: { id: true, stock: true } } } })
   if (!product || product.digitalMode !== 'CODES') return null
+  // Sold without limit: an order the shelf cannot serve goes to a specialist (store/domain/digital-codes CODES_WHEN_EMPTY).
+  if (product.codesWhenEmpty === 'STAFF') {
+    if (product.variants.some((variant) => variant.stock !== -1)) await tx.productVariant.updateMany({ where: { productId }, data: { stock: -1 } })
+    if (product.stock !== -1) await tx.product.update({ where: { id: productId }, data: { stock: -1 } })
+    return -1
+  }
   const [shelf, held, given] = await Promise.all([
     tx.productDigitalCode.groupBy({ by: ['variantId'], where: { productId, orderId: null }, _count: { _all: true } }),
     tx.inventoryReservation.findMany({ where: { productId, status: { in: ['HELD', 'CONSUMED'] } }, select: { orderId: true, line: true, variantId: true, quantity: true, status: true } }),

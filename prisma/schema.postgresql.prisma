@@ -894,6 +894,7 @@ model Product {
   soldCount     Int @default(0)
   faqs          String @default("[]")
   digitalMode   String @default("MANUAL") // VIRTUAL goods: MANUAL (staff delivers each order) | CODES (a code from the pool is delivered on payment)
+  codesWhenEmpty String @default("STOP") // CODES: STOP (stock = codes on the shelf) | STAFF (sold without limit; an order the shelf cannot serve goes to a specialist)
   sellerId      Int? // marketplace seller; null = the site itself
   approval      String @default("APPROVED") // APPROVED | PENDING | REJECTED (seller products are reviewed)
   approvalNote  String @default("")

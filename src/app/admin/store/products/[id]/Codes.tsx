@@ -5,7 +5,7 @@ import Link from '@/components/AppLink'
 import { Notice, fa, faDate, send, useJson } from '../../shared'
 
 type Pool = {
-  kind: string; mode: 'MANUAL' | 'CODES'; stock: number; available: number; delivered: number; returned: number
+  kind: string; mode: 'MANUAL' | 'CODES'; whenEmpty: 'STOP' | 'STAFF'; stock: number; available: number; delivered: number; returned: number
   variants: { id: number; name: string; stock: number }[]
   shelf: { id: number; variant: string; code: string; createdAt: string }[]
   recent: { id: number; variant: string; code: string; orderId: number; deliveredAt: string; returnedAt: string | null; note: string }[]
@@ -15,7 +15,7 @@ type Pool = {
  * The code pool of a virtual product: gift cards, licence keys and the like. With the pool on, a paid
  * order receives its code by itself and the product can only be sold while a code is on the shelf.
  */
-export default function ProductCodes({ productId, onStock }: { productId: number; onStock?: (stock: number) => void }) {
+export default function ProductCodes({ productId, onStock }: { productId: number; onStock?: (stock: number, mode: 'MANUAL' | 'CODES') => void }) {
   const url = `/api/admin/store/products/${productId}/codes`
   const { data, error, reload } = useJson<Pool>(url)
   const [text, setText] = useState('')
@@ -29,7 +29,7 @@ export default function ProductCodes({ productId, onStock }: { productId: number
     setBusy(false)
     if (!result.ok) { setMessage({ tone: 'error', text: result.error }); return false }
     setMessage({ tone: 'ok', text: done(result.data) })
-    if (typeof result.data.stock === 'number') onStock?.(result.data.stock)
+    if (typeof result.data.stock === 'number') onStock?.(result.data.stock, result.data.mode === 'CODES' || result.data.mode === 'MANUAL' ? result.data.mode : data?.mode ?? 'MANUAL')
     await reload()
     return true
   }
@@ -46,16 +46,18 @@ export default function ProductCodes({ productId, onStock }: { productId: number
   if (error) return <section id="sa-codes" className="sa-card"><header className="sa-card-head"><h2>تحویل خودکار کد</h2></header><Notice tone="error">{error}</Notice></section>
   if (!data) return null
   if (data.kind !== 'VIRTUAL') return null
-  const on = data.mode === 'CODES'
+  const on = data.mode === 'CODES', staff = data.whenEmpty === 'STAFF'
   const lines = text.split(/\r?\n/).filter((line) => line.trim()).length
 
   return <section id="sa-codes" className="sa-card">
     <header className="sa-card-head">
       <h2>تحویل خودکار کد</h2>
-      <span className={`sa-state ${on ? (data.available ? 'is-ok' : 'is-bad') : ''}`}>{on ? (data.available ? `${fa(data.available)} کد روی قفسه` : 'قفسه خالی است') : 'تحویل دستی'}</span>
+      <span className={`sa-state ${on ? (data.available ? 'is-ok' : staff ? '' : 'is-bad') : ''}`}>{on ? (data.available ? `${fa(data.available)} کد روی قفسه` : staff ? 'قفسه خالی؛ تحویل با کارشناس' : 'قفسه خالی است') : 'تحویل دستی'}</span>
     </header>
     <p className="sa-sub">{on
-      ? 'با پرداخت هر سفارش، کد از همین قفسه برداشته و به خریدار تحویل می‌شود. موجودی محصول همان تعداد کدهای روی قفسه است و دستی تغییر نمی‌کند.'
+      ? staff
+        ? 'با پرداخت هر سفارش، اگر کدی روی قفسه باشد خودکار تحویل می‌شود؛ اگر نباشد، سفارش در صف سفارش‌ها می‌ماند تا کارشناس آن را بردارد، آماده کند و تحویل دهد. فروش محدود به تعداد کدها نیست.'
+        : 'با پرداخت هر سفارش، کد از همین قفسه برداشته و به خریدار تحویل می‌شود. موجودی محصول همان تعداد کدهای روی قفسه است و دستی تغییر نمی‌کند.'
       : 'الان هر سفارش این محصول را باید کارمند فروشگاه دستی تحویل دهد. اگر کالا کد، لایسنس یا گیفت‌کارت است، قفسهٔ کد را روشن کنید تا تحویل، آنی و خودکار شود.'}</p>
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
     <div className="sa-head-actions">
@@ -63,6 +65,12 @@ export default function ProductCodes({ productId, onStock }: { productId: number
         if (on && !window.confirm('تحویل خودکار خاموش شود؟ کدهای روی قفسه می‌مانند و محصول دوباره با تحویل دستی و بدون محدودیت موجودی فروخته می‌شود.')) return
         void act({ action: 'mode', mode: on ? 'MANUAL' : 'CODES' }, () => on ? 'تحویل خودکار خاموش شد.' : 'تحویل خودکار روشن شد. تا وقتی کدی اضافه نکنید، محصول ناموجود است.')
       }}>{on ? 'خاموش کردن تحویل خودکار' : 'روشن کردن تحویل خودکار'}</button>
+      {on && <label className="sa-field"><span>وقتی کد آماده تمام شد</span>
+        <select className="select" value={data.whenEmpty} disabled={busy} onChange={(event) => void act({ action: 'empty', value: event.target.value }, (result) => result.codesWhenEmpty === 'STAFF' ? 'فروش ادامه دارد؛ سفارش بدون کد به کارشناس سپرده می‌شود.' : 'فروش به تعداد کدهای روی قفسه محدود شد.')}>
+          <option value="STOP">فروش متوقف شود (موجودی = تعداد کدها)</option>
+          <option value="STAFF">فروش ادامه یابد و کارشناس تحویل دهد</option>
+        </select>
+      </label>}
       <small className="sa-sub">دستِ خریداران: {fa(data.delivered)}{data.returned > 0 ? ` · پس‌گرفته‌شده: ${fa(data.returned)}` : ''}</small>
     </div>
 

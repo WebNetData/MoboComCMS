@@ -244,6 +244,32 @@ async function main() {
   assert.deepEqual([await stockOf(gift), await shelf(gift)], [1, 1])
   await prisma.order.update({ where: { id: bought.id }, data: { status: 'REFUNDED' } })
   await assert.rejects(a.codes.replaceCode({ productId: gift.id, codeId: (await prisma.productDigitalCode.findFirstOrThrow({ where: { orderId: bought.id, returnedAt: null } })).id, actorId: null }), /پرداخت‌شده/, 'a refunded order gets no replacement')
+  // ---- sold without limit (owner 2026-11-12, «ChatGPT Plus»): a ready account from the shelf when there is one, otherwise
+  // the order waits for a specialist; the variant on the buyer's own account never has codes and always goes to staff.
+  const plus = await product('chatgpt plus'); await a.codes.setDigitalMode(plus.id, 'CODES')
+  const ready = await prisma.productVariant.create({ data: { productId: plus.id, sku: `${seed}-ready`, name: 'اکانت آماده', priceMinor: 1000n } })
+  const ownAccount = await prisma.productVariant.create({ data: { productId: plus.id, sku: `${seed}-own`, name: 'روی اکانت شما', priceMinor: 1000n } })
+  assert.deepEqual(await a.codes.setCodesWhenEmpty(plus.id, 'STAFF'), { codesWhenEmpty: 'STAFF', stock: -1 })
+  await a.codes.addCodes({ productId: plus.id, variantId: ready.id, text: 'PLUS-ONE' })
+  const variantStock = async () => (await prisma.productVariant.findMany({ where: { productId: plus.id }, orderBy: { id: 'asc' } })).map(row => row.stock)
+  assert.deepEqual([await stockOf(plus), ...(await variantStock())], [-1, -1, -1], 'the shelf does not limit the sale')
+  assert.equal((await a.codes.listCodes(plus.id)).whenEmpty, 'STAFF')
+  const fast = await order(buyer, [[plus, 1, ready.id]]); assert.equal((await a.inventory.reserveInventory({ orderId: fast.id })).ok, true); await pay(fast)
+  assert.deepEqual(await a.codes.deliverDigitalCodes(fast.id), { codeLines: 1, short: 0, delivered: true }, 'a ready account on the shelf goes by itself')
+  const slow = await order(buyer, [[plus, 1, ready.id]]); assert.equal((await a.inventory.reserveInventory({ orderId: slow.id })).ok, true, 'sold with the shelf empty'); await pay(slow)
+  assert.deepEqual(await a.codes.deliverDigitalCodes(slow.id), { codeLines: 1, short: 1, delivered: false, toStaff: 1 })
+  await a.codes.deliverDigitalCodes(slow.id)
+  assert.equal(await prisma.orderEvent.count({ where: { orderId: slow.id, status: 'NEEDS_STAFF', visible: false } }), 1, 'the specialists are told once')
+  assert.equal((await delivery(slow)).status, 'PENDING', 'it waits in the queue of new orders')
+  const mine = await order(buyer, [[plus, 1, ownAccount.id]]); assert.equal((await a.inventory.reserveInventory({ orderId: mine.id })).ok, true); await pay(mine)
+  assert.equal((await a.codes.deliverDigitalCodes(mine.id)).toStaff, 1, 'on the buyer\'s own account: always a specialist')
+  // A specialist takes the slow order; a code added afterwards does not reach it as well (no account twice).
+  await prisma.order.update({ where: { id: slow.id }, data: { assigneeId: buyer.id } })
+  const refilled = await a.codes.addCodes({ productId: plus.id, variantId: ready.id, text: 'PLUS-TWO' })
+  assert.deepEqual([refilled.deliveredWaiting, await codesOf(slow)], [0, []], 'the taken order is the specialist\'s')
+  assert.deepEqual([await stockOf(plus), ...(await variantStock())], [-1, -1, -1])
+  // Back to stopping: the stock is the shelf again, less what open orders still owe (the taken order waits for one).
+  assert.deepEqual(await a.codes.setCodesWhenEmpty(plus.id, 'STOP'), { codesWhenEmpty: 'STOP', stock: 0 })
   console.log('PostgreSQL digital codes: pool, encrypted storage, self-delivery once, the last code under two buyers, shortage and refill, mixed orders, hand-delivered orders, variants, replacing a faulty code, sending a code back by its own window, and a cancellation after a code was read passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {

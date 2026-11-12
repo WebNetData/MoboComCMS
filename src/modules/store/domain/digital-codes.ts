@@ -4,6 +4,15 @@ export const DIGITAL_MODES = ['MANUAL', 'CODES', 'FILES'] as const
 export type DigitalMode = (typeof DIGITAL_MODES)[number]
 export const normalizeDigitalMode = (value: unknown): DigitalMode => (value === 'CODES' ? 'CODES' : value === 'FILES' ? 'FILES' : 'MANUAL')
 
+/**
+ * When the shelf of a code product is empty (owner 2026-11-12, «a ready ChatGPT Plus account»): STOP selling, as before
+ * (stock is the codes on the shelf), or keep selling without limit (STAFF): a code is delivered when there is one, and
+ * an order the shelf cannot serve goes to a specialist, who takes it, makes the account and delivers it by hand.
+ */
+export const CODES_WHEN_EMPTY = ['STOP', 'STAFF'] as const
+export type CodesWhenEmpty = (typeof CODES_WHEN_EMPTY)[number]
+export const normalizeCodesWhenEmpty = (value: unknown): CodesWhenEmpty => (value === 'STAFF' ? 'STAFF' : 'STOP')
+
 export const MAX_CODE_LENGTH = 500
 export const MAX_CODES_PER_REQUEST = 2000
 
