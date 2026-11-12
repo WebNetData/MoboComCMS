@@ -22,7 +22,7 @@ const CONNECTIONS = 6
 type Meta = { total: number; validator: string; runs: number }
 const names = (linkId: number, key: string) => {
   const base = path.join(root(), `${linkId}-${key.replace(/[^a-f0-9]/g, '')}`)
-  return { data: `${base}.part`, meta: `${base}.json` }
+  return { data: `${base}.part`, meta: `${base}.json`, lines: `${base}.lines.json` }
 }
 async function readMeta(file: string): Promise<Meta | null> {
   try {
@@ -32,8 +32,23 @@ async function readMeta(file: string): Promise<Meta | null> {
 }
 
 export async function discardCopy(linkId: number, key: string) {
-  const { data, meta } = names(linkId, key)
-  await Promise.all([fs.rm(data, { force: true }), fs.rm(meta, { force: true })])
+  const { data, meta, lines } = names(linkId, key)
+  await Promise.all([fs.rm(data, { force: true }), fs.rm(meta, { force: true }), fs.rm(lines, { force: true })])
+}
+
+/**
+ * The subtitle lines a look through a file's index has read so far (indexed.ts), kept between its jobs: a few hundred
+ * KB of text at most, never the film. Removed with the copy when the look ends.
+ */
+export function lineProgress(linkId: number, key: string) {
+  const { lines } = names(linkId, key)
+  return {
+    load: async () => { try { const value = JSON.parse(await fs.readFile(lines, 'utf8')); return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, { start: number; end: number; text: string } | null> : null } catch { return null } },
+    save: async (value: Record<string, { start: number; end: number; text: string } | null>) => {
+      await fs.mkdir(root(), { recursive: true, mode: 0o700 })
+      await fs.writeFile(lines, JSON.stringify(value), { mode: 0o600 })
+    },
+  }
 }
 
 /** Whether a copy of this file is under way (its tracks were already seen to be text, so the look goes straight on). */

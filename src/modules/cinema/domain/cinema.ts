@@ -35,10 +35,15 @@ export type CinemaSettings = {
   /** Look for subtitles beside and inside each video file and offer them in the player (media/server/found-subtitles). */
   findSubtitles: boolean
   /**
-   * Also take out the subtitles inside a video file (MKV/MP4). That reads the whole file once (its traffic, and a
-   * temporary copy on a slow host); off, only subtitle files beside the video are looked for (owner 2026-11-12).
+   * Also take out the subtitles inside a video file (MKV). A remote file is read through its own index: only its
+   * subtitle lines, about 2 MB for a film. Off, only subtitle files beside the video are looked for (owner 2026-11-12).
    */
   readEmbeddedSubtitles: boolean
+  /**
+   * When a file's index does not point at its subtitles (or it is not MKV), read the whole file once to take them out:
+   * the file's size in traffic, and a temporary copy on a slow host. Off by default (owner 2026-11-12).
+   */
+  fullReadSubtitles: boolean
   /** The largest video file read whole to take out the subtitles inside it, in GB. */
   subtitleScanMaxGB: number
   /** The site's intro clip before a film or episode in the player ('' = none): an MP4/WebM address. */
@@ -70,6 +75,7 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   enableSeparateAudio: true,
   findSubtitles: true,
   readEmbeddedSubtitles: true,
+  fullReadSubtitles: false,
   subtitleScanMaxGB: 10,
   introUrl: '',
   introSkipAfter: 3,
@@ -93,6 +99,7 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     enableSeparateAudio: raw.enableSeparateAudio !== false,
     findSubtitles: raw.findSubtitles !== false,
     readEmbeddedSubtitles: raw.readEmbeddedSubtitles !== false,
+    fullReadSubtitles: raw.fullReadSubtitles === true,
     subtitleScanMaxGB: clampInt(raw.subtitleScanMaxGB, 1, 100, d.subtitleScanMaxGB),
     introUrl: introVideoUrl(raw.introUrl),
     introSkipAfter: clampInt(raw.introSkipAfter, 0, 30, d.introSkipAfter),

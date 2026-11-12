@@ -7,7 +7,8 @@ import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { FOUND_KINDS, FOUND_OWNERS, scanDedupe, scanKey } from './request'
 import { sidecarSubtitles, type Found } from './sidecar'
 import { SIZE_NOTE, embeddedSubtitles, embeddedTracks } from './embedded'
-import { CopyError, continueCopy, copyStarted, discardCopy, sweepAbandonedCopies } from './copy'
+import { CopyError, continueCopy, copyStarted, discardCopy, lineProgress, sweepAbandonedCopies } from './copy'
+import { indexedSubtitles } from './indexed'
 import { videoSource } from './source'
 
 /** Under the queue's ten-minute stale-lease limit, so a long read is never handed to a second runner. */
@@ -15,6 +16,8 @@ const SCAN_BUDGET_MS = 9 * 60_000
 const GB = 1024 ** 3
 /** Time left in a job below which a whole copy is handed to the next job for its tracks, rather than started on. */
 const EXTRACT_MS = 2 * 60_000
+/** Jobs a read through a file's index may take before it gives what is whole. */
+const MAX_INDEX_RUNS = 20
 const percent = (bytes: number, total: number) => Math.min(99, Math.floor((bytes / Math.max(1, total)) * 100)).toLocaleString('fa-IR')
 
 type Job = { checkpoint: () => Promise<void>; continueWith: (kind: string, payload: Record<string, unknown>, options?: { dedupeKey?: string }) => Promise<unknown> }
@@ -32,10 +35,10 @@ async function record(linkId: number, key: string, scan: Omit<SubtitleScan, 'key
 }
 
 /** A file being copied over several jobs: its progress on the link, so a page view does not start a second copy. */
-async function recordReading(linkId: number, key: string, bytes: number, total: number) {
+async function recordReading(linkId: number, key: string, bytes: number, total: number, note = `در حال خواندن کامل فایل برای زیرنویس داخل آن (${percent(bytes, total)}٪)`) {
   const link = await db.mediaLink.findUnique({ where: { id: linkId }, select: { url: true } })
   if (!link || scanKey(link.url) !== key) return false
-  const scan: SubtitleScan = { key, status: 'reading', found: 0, notes: [`در حال خواندن کامل فایل برای زیرنویس داخل آن (${percent(bytes, total)}٪)`], at: new Date().toISOString(), read: { bytes, total } }
+  const scan: SubtitleScan = { key, status: 'reading', found: 0, notes: [note], at: new Date().toISOString(), read: { bytes, total } }
   await db.mediaLink.update({ where: { id: linkId }, data: { subtitleScan: JSON.stringify(scan) } })
   return true
 }
@@ -75,9 +78,25 @@ export async function runSubtitleScan(payload: Record<string, unknown>, job: Job
     // Switched off: only files beside the video; nothing is read whole and a copy under way is dropped.
     if (settings.readEmbeddedSubtitles === false) await discardCopy(linkId, key)
     else if (source.kind === 'remote') {
-      // The track list first (its start only): a file is copied whole only when it holds text subtitles.
+      // Through the file's own index first: only its subtitle lines are read (about 2 MB for a film).
       const resumed = await copyStarted(linkId, key)
-      if (resumed || (await embeddedTracks(source, maxBytes, notes)).length) {
+      const part = Number(payload.part || 0)
+      const indexed = resumed ? null : await indexedSubtitles(source, { deadline, progress: lineProgress(linkId, key), final: part >= MAX_INDEX_RUNS }, notes)
+      if (indexed && 'pending' in indexed) {
+        // Read in part: the next job continues from the lines this one kept.
+        if (!await recordReading(linkId, key, indexed.pending.done, indexed.pending.total, `در حال خواندن زیرنویس‌های داخل فایل از روی فهرست آن (${percent(indexed.pending.done, indexed.pending.total)}٪)`)) { await discardCopy(linkId, key); return { linkId, skipped: 'changed' } }
+        await job.continueWith('media.subtitle-scan', { linkId, key, part: part + 1 }, { dedupeKey: `${scanDedupe(linkId, key)}:part:${part + 1}` })
+        return { linkId, reading: indexed.pending.done, total: indexed.pending.total }
+      }
+      // The index look is over (its saved lines go); a whole-file copy under way is left to its own jobs.
+      if (!resumed) await discardCopy(linkId, key)
+      if (indexed) embedded = indexed
+      else if (settings.fullReadSubtitles !== true) {
+        await discardCopy(linkId, key)
+        notes.push('زیرنویس داخل این فایل بدون دریافت کل فایل خوانده نمی‌شود و دریافت کامل در تنظیمات خاموش است؛ فایل زیرنویس را کنار ویدئو بگذارید')
+      }
+      // Allowed by the owner: the track list (the file's start), and the whole file copied only when it holds text subtitles.
+      else if (resumed || (await embeddedTracks(source, maxBytes, notes)).length) {
         try {
           const copy = await continueCopy(source.sign(source.url), linkId, key, { maxBytes, timeoutMs: Math.max(30_000, deadline - Date.now() - EXTRACT_MS), checkpoint: job.checkpoint })
           if (!copy.done || deadline - Date.now() < EXTRACT_MS) {

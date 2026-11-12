@@ -20,7 +20,7 @@ const lookup: typeof dns.lookup = ((host: string, options: dns.LookupOptions, ca
 const TOO_LARGE = 'فایل از سقف حجم انتقال بزرگ‌تر است'
 
 /** One GET through the guard, following at most three redirects; every hop is checked. A non-2xx answer is refused. */
-async function open(start: URL, signal: AbortSignal, headers: Record<string, string> = {}, checkpoint?: () => Promise<void>) {
+async function open(start: URL, signal: AbortSignal, headers: Record<string, string> = {}, checkpoint?: () => Promise<void>, agent?: http.Agent) {
   let url = start
   for (let hop = 0; hop <= 3; hop++) {
     const literal = url.hostname.replace(/^\[|\]$/g, '')
@@ -28,7 +28,7 @@ async function open(start: URL, signal: AbortSignal, headers: Record<string, str
     await checkpoint?.()
     const target = url
     const response = await new Promise<http.IncomingMessage>((resolve, reject) => {
-      const req = (target.protocol === 'https:' ? https : http).request(target, { lookup, signal, agent: false, headers: { 'User-Agent': 'MoboCom-Media/1.0', Accept: '*/*', 'Accept-Encoding': 'identity', ...headers } }, resolve)
+      const req = (target.protocol === 'https:' ? https : http).request(target, { lookup, signal, agent: agent ?? false, headers: { 'User-Agent': 'MoboCom-Media/1.0', Accept: '*/*', 'Accept-Encoding': 'identity', ...headers } }, resolve)
       req.on('error', reject); req.end()
     })
     const status = response.statusCode || 0
@@ -75,6 +75,34 @@ function write(sink: Writable, part: Buffer) {
 }
 
 const PART_BYTES = 8 * 1024 * 1024
+
+/**
+ * Connections kept open for many small range reads of one host (the subtitle lines of a file): each new socket still
+ * resolves through the guard, a kept one stays on the address that was checked. Destroy it when done.
+ */
+export function rangeAgents() {
+  const options = { keepAlive: true, maxSockets: 8, lookup } as const
+  const agents = { http: new http.Agent(options), https: new https.Agent(options) }
+  return { for: (url: URL) => url.protocol === 'https:' ? agents.https : agents.http, destroy: () => { agents.http.destroy(); agents.https.destroy() } }
+}
+
+/**
+ * One byte range of a remote file through the guard: exactly those bytes, or an error. A host that answers with the
+ * whole file instead (no ranges) is cut off at once, never read. The last range of a file may be shorter.
+ */
+export async function readRemoteRange(raw: string, from: number, to: number, options: { signal?: AbortSignal; timeoutMs?: number; agents?: ReturnType<typeof rangeAgents> } = {}) {
+  const start = checkRemoteUrl(raw, { allowLoopback: allowLoopback() })
+  const controller = new AbortController(), stop = () => controller.abort()
+  if (options.signal?.aborted) throw new Error('خواندن فایل متوقف شد')
+  options.signal?.addEventListener('abort', stop, { once: true })
+  const timer = setTimeout(stop, options.timeoutMs ?? 20_000)
+  try {
+    const { response, url } = await open(start, controller.signal, { Range: `bytes=${from}-${to}` }, undefined, options.agents?.for(start))
+    const got = response.statusCode === 206 ? contentRange(response) : null
+    if (!got || got.start !== from || got.end > to) { response.destroy(); throw new Error('سرور فایل بخش‌های فایل را جدا نمی‌دهد') }
+    return { bytes: await readExactly(response, got.end - got.start + 1), total: got.total, url: url.toString() }
+  } finally { clearTimeout(timer); options.signal?.removeEventListener('abort', stop) }
+}
 
 /**
  * The file read as consecutive byte ranges over several connections at once and written to `sink` in order, for hosts
