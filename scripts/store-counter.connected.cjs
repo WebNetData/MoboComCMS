@@ -8,6 +8,7 @@ process.env.STORE_DELIVERY_KEY = randomBytes(32).toString('hex')
 const db = new PrismaClient(), stamp = `counter-${Date.now().toString(36)}`
 const users = [], roles = [], products = []
 let viewer, moduleOn = true, failAudit = false, failPayment = false, failCode = false
+let sessionId
 db.$use(async (params, next) => {
   if (failPayment && params.model === 'Payment' && params.action === 'create') throw new Error('injected payment failure')
   const result = await next(params)
@@ -49,7 +50,7 @@ async function fill(productId, count, variantId = null) {
   await db.$transaction((tx) => stock.syncCodeStock(tx, productId))
 }
 const line = (productId, quantity = 1, variantId = null) => ({ productId, quantity, variantId, expectedUnitMinor: '1000', inputs: {} })
-const request = (lines, extra = {}) => ({ requestId: randomUUID(), confirmed: true, method: 'CASH', customerName: 'مشتری حضوری', customerPhone: '09123456789', lines, ...extra })
+const request = (lines, extra = {}) => ({ requestId: randomUUID(), confirmed: true, sessionId,method: 'CASH', customerName: 'مشتری حضوری', customerPhone: '', lines, ...extra })
 async function call(method, query = '', body) {
   const response = await api[method === 'GET' ? 'GET_counter' : 'POST_counter'](new NextRequest(`http://site.invalid/api/admin/store/counter${query}`, { method, headers: { Origin: 'http://site.invalid', 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) }))
   return { status: response.status, body: await response.json() }
@@ -62,6 +63,7 @@ async function main() {
   const gift = await product('gift', 'VIRTUAL'), physical = await product('physical', 'PHYSICAL', 10)
   await fill(gift.id, 8)
   viewer = manager
+  const session=await db.storeRegisterSession.create({data:{requestId:randomUUID(),register:stamp,cashierId:manager.id,currency:'IRT'}});sessionId=session.id
   const selection = await call('GET')
   assert.equal(selection.status, 200)
   assert.ok(!JSON.stringify(selection.body).includes(`${stamp}-gift-`), 'product search reveals no codes')
@@ -100,7 +102,7 @@ async function main() {
   }
   assert.equal((await db.product.findUniqueOrThrow({ where: { id: gift.id } })).stock, 6, 'reprinting takes no code')
   assert.equal((await orderOwner.adminOrder(id)).customer.name, 'مشتری حضوری')
-  assert.ok((await orderOwner.adminOrders({ q: '09123456789' })).orders.some((row) => row.id === id), 'guest snapshots are searchable')
+  assert.ok((await orderOwner.adminOrders({ q: 'مشتری حضوری' })).orders.some((row) => row.id === id), 'guest snapshots are searchable')
   const linked = await call('POST', '', request([line(gift.id)], { customerId: customer.id, method: 'CARD', reference: 'TEST-REF' }))
   assert.equal(linked.status, 200)
   assert.equal((await db.order.findUniqueOrThrow({ where: { id: linked.body.orderId } })).userId, customer.id)
@@ -145,6 +147,7 @@ main().finally(async () => {
   moduleOn = true; failAudit = failPayment = failCode = false
   const orders = await db.order.findMany({ where: { productId: { in: products } }, select: { id: true } })
   const ids = orders.map((row) => row.id)
+  await db.storeTender.deleteMany({where:{orderId:{in:ids}}})
   await db.payment.deleteMany({ where: { orderId: { in: ids } } })
   await db.invoice.deleteMany({ where: { orderId: { in: ids } } })
   await db.inventoryReservation.deleteMany({ where: { orderId: { in: ids } } })
@@ -155,6 +158,7 @@ main().finally(async () => {
   await db.order.deleteMany({ where: { id: { in: ids } } })
   await db.product.deleteMany({ where: { id: { in: products } } })
   await db.auditLog.deleteMany({ where: { actorUserId: { in: users } } })
+  await db.storeRegisterSession.deleteMany({where:{id:sessionId}})
   await db.user.deleteMany({ where: { id: { in: users } } })
   await db.role.deleteMany({ where: { id: { in: roles } } })
   await db.$disconnect()

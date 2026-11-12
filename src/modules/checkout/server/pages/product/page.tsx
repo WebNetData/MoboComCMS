@@ -66,7 +66,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
           variantId: variant?.id || null, variantName: variant?.name || '', inStock,
           currency, price: legacyNumber(itemMinor, currency), regularPrice: legacyNumber(regularMinor, currency), shipping: legacyNumber(shippingMinor, currency),
         }}
-        delivery={{ enabled: schedule.settings.enabled, days: schedule.days }}
+        delivery={{ enabled: schedule.settings.enabled, days: schedule.days, pickup: schedule.settings.pickup }}
         gateways={gateways}
       />
     </main>

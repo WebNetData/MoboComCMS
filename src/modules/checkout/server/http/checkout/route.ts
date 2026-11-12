@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     addressId: Number.isSafeInteger(Number(body?.addressId)) && Number(body?.addressId) > 0 ? Number(body.addressId) : null,
     delivery: body?.delivery && typeof body.delivery === 'object' ? { date: String(body.delivery.date || '').slice(0, 10), slotId: String(body.delivery.slotId || '').slice(0, 20) } : null,
     carrierId: typeof body?.carrierId === 'string' ? body.carrierId.slice(0, 30) : null,
+    shippingMode: body?.shippingMode === 'PICKUP' ? 'PICKUP' : 'SHIP',
     shippingAddress: body?.shippingAddress && typeof body.shippingAddress === 'object' && !Array.isArray(body.shippingAddress) ? body.shippingAddress : undefined,
     username: typeof body?.username === 'string' ? body.username : undefined,
     payWith: body?.payWith === 'wallet' ? 'wallet' : body?.payWith === 'gateway' ? 'gateway' : undefined,

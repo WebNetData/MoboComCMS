@@ -119,7 +119,7 @@ export default function ProductEditorPage() {
     { key: 'descriptionEn', label: 'English description', type: 'richtext', dir: 'ltr' },
     ...specAttributes.map((a, i) => (a.kind !== 'text' && a.options?.length ? { key: `spec${i}`, label: `مشخصه: ${a.label}`, type: 'select' as const, options: a.options.map((o) => ({ value: o, label: o })) } : { key: `spec${i}`, label: `مشخصه: ${a.label}`, type: 'text' as const })),
     { key: 'variants', label: 'گونه‌های قابل خرید (رنگ، ظرفیت، مدت اشتراک و…)؛ فقط اگر منبع چند گزینهٔ قیمت‌دار دارد', type: 'records', recordKeys: [
-      { key: 'sku', label: 'SKU یکتای گونه (لاتین)' }, { key: 'name', label: 'نام فارسی گونه' }, { key: 'nameEn', label: 'نام انگلیسی گونه' },
+      { key: 'barcode', label: 'بارکد گونه' }, { key: 'costPrice', label: 'بهای خرید گونه (خالی = محصول)' }, { key: 'sku', label: 'SKU یکتای گونه (لاتین)' }, { key: 'name', label: 'نام فارسی گونه' }, { key: 'nameEn', label: 'نام انگلیسی گونه' },
       fxMode ? { key: 'fxAmount', label: `قیمت ارزی گونه به ${fxCode} (خالی = قیمت محصول)` } : { key: 'price', label: 'قیمت گونه' },
       { key: 'stock', label: 'موجودی گونه (-1 نامحدود)' },
       ...variantAttributes.map((a, i) => ({ key: `a${i}`, label: `${a.label}${a.options?.length ? ` (یکی از: ${a.options.join('، ')})` : ''}` })),
@@ -135,7 +135,7 @@ export default function ProductEditorPage() {
     for (const [i, a] of specAttributes.entries()) if (typeof values[`spec${i}`] === 'string') { specs[a.key] = values[`spec${i}`]; specsTouched = true }
     const plain = Object.fromEntries(Object.entries(values).filter(([key]) => !/^spec\d+$/.test(key)))
     if (Array.isArray(plain.variants)) plain.variants = plain.variants.map((row: Record<string, string>) => ({
-      sku: String(row.sku || '').trim(), name: String(row.name || '').trim(), nameEn: String(row.nameEn || '').trim(),
+      barcode: String(row.barcode || '').trim(), costPrice: String(row.costPrice ?? ''), sku: String(row.sku || '').trim(), name: String(row.name || '').trim(), nameEn: String(row.nameEn || '').trim(),
       ...(fxMode ? { fxAmount: String(row.fxAmount || '').replace(/[^\d.]/g, ''), price: Number(form.price) || 1 } : { price: String(row.price || '').replace(/[^\d.]/g, '') }),
       stock: row.stock === '' || row.stock === undefined || !Number.isFinite(Number(row.stock)) ? -1 : Number(row.stock),
       attributes: Object.fromEntries(variantAttributes.map((a, i) => [a.key, String(row[`a${i}`] || '').trim()]).filter(([, v]) => v)),
@@ -237,6 +237,9 @@ export default function ProductEditorPage() {
           <header className="sa-card-head"><h2>انبار و ارسال</h2></header>
           <div className="sa-grid">
             {field('sku', 'کد کالا (SKU)', { dir: 'ltr', maxLength: 80 })}
+            {field('barcode', 'بارکد روی بسته (اختیاری)', { dir:'ltr',maxLength:80 })}
+            {field('costPrice', 'بهای خرید هر عدد در واحد پول محصول (اختیاری)', { type:'number',min:0,step:'any' })}
+            {!isNew&&<Link className="sa-link" href={`/admin/store/labels?product=${id}`}>چاپ برچسب بارکد این محصول و گونه‌ها</Link>}
             {codesOn
               ? <label className="sa-field"><span>موجودی</span><input className="input" value={form.stock} readOnly disabled aria-describedby="sa-stock-codes" /><small id="sa-stock-codes" className="sa-sub">برابر با کدهای روی قفسه است (بخش «تحویل خودکار کد»).</small></label>
               : field('stock', 'موجودی (۱- = نامحدود)', { type: 'number', min: -1 })}

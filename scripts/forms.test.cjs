@@ -376,8 +376,9 @@ test('automatic text messages have a ceiling, and a sign-in guess meets a limit 
   assert.match(sms, /if \(today >= SMS_DAILY_PER_PHONE\) \{ await log\('SKIPPED'/)
   // Nothing leaves while the panel is not set up: the ceiling sits after that refusal, before the provider call.
   assert.ok(sms.indexOf("if (!isReady(settings)) {") < sms.indexOf('SMS_DAILY_PER_PHONE) {') && sms.indexOf('SMS_DAILY_PER_PHONE) {') < sms.indexOf('await sendPattern(key'))
-  // Only verified, opted-in numbers get alerts (as before).
-  assert.match(sms, /!user\.smsAlerts \|\| !user\.phoneVerifiedAt/)
+  // Ordinary alerts require verified opt-in; a persisted Store receipt may target its exact snapshot phone.
+  assert.match(sms, /!user\.smsAlerts \|\| \(!user\.phoneVerifiedAt && !counterTarget\)/)
+  assert.match(sms, /storeMessageTarget\(event\)/)
   const auth = source('src/modules/identity/auth.ts')
   assert.ok(auth.includes('rateLimitStrict(`login:account:${email}`, 30, 15 * 60_000)'))
   assert.ok(auth.indexOf('login:account:') < auth.indexOf('db.user.findUnique'), 'the limit is met before the password is looked at')

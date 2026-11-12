@@ -63,7 +63,7 @@ export async function CartCheckoutView({ surface = 'public' }: { surface?: Check
   return <>
     {surface === 'public' && <SiteHeader theme={theme} />}
     <Surface className="container content-surface sh-checkout-page">
-      <CartCheckout surface={surface} cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days }} gateways={gateways} />
+      <CartCheckout surface={surface} cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days, pickup: schedule.settings.pickup }} gateways={gateways} />
     </Surface>
     {surface === 'public' && <SiteFooter />}
   </>

@@ -61,7 +61,7 @@ async function main() {
   assert.equal(listing.body.canBuild, false)
   assert.ok(listing.body.forms.some((item) => item.id === form.id && !item.published), 'saved drafts support counter intake')
   const lock = definitions.encodeDeviceLock({ kind: 'pin', pattern: [], text: '735192' })
-  const values = { name: 'مشتری آزمایشی', mobile: '09123456789', brand: 'سامسونگ', model: 'Galaxy A54', issue: 'سخت‌افزاری', description: 'باتری شارژ نمی‌شود', handover: 'حضوری می‌آورم', consent: true, lock }
+  const values = { name: 'مشتری آزمایشی', mobile: `091${String(Date.now()).slice(-8)}`, brand: 'سامسونگ', model: 'Galaxy A54', issue: 'سخت‌افزاری', description: 'باتری شارژ نمی‌شود', handover: 'حضوری می‌آورم', consent: true, lock }
   const created = await call(answersApi.POST, 'POST', '/submissions', { formId: form.id, values })
   assert.equal(created.status, 200, JSON.stringify(created.body))
   const row = await db.formSubmission.findUniqueOrThrow({ where: { id: created.body.id } })
@@ -72,6 +72,8 @@ async function main() {
   assert.ok(row.receivedAt)
   assert.match(row.pickupCode, /^\d{6}$/)
   assert.ok(row.receiptToken.length >= 20)
+  assert.ok(row.userId, "staff phone links the canonical simple account")
+  users.push(row.userId)
   assert.ok(row.secrets && !row.secrets.includes('735192'))
   assert.equal(JSON.parse(row.data).find((answer) => answer.id === 'lock').value, definitions.SECRET_MASK)
 

@@ -1,10 +1,13 @@
 import { db } from '@/platform/database/prisma'
+import QRCode from 'qrcode'
 import { getSiteConfig } from '@/modules/site/config/store'
 import {
   CONTENT_TYPES, FormsError, SECRET_MASK, answerText, checkSubmission, parseForm, readDeviceLock, stepLabel, visibleFields, workSteps,
   type Answer, type Receipt, type StoredAnswer,
 } from '@/modules/forms/domain/forms'
 import { receiptCodes, revealSecrets, sealSecrets, tellSender } from '@/modules/forms/server/paid'
+import { normalizeMobile } from '@/modules/sms/domain/sms'
+import { resolvePhoneCustomer } from '@/modules/identity/server/phone-customer'
 
 /**
  * Work at the counter (owner 2026-11-12, mobile repair): staff enter a customer who brings the device to the shop, and
@@ -27,11 +30,16 @@ export async function staffSubmit(formId: number, input: { values?: unknown }, a
   const { answers, secrets } = sealSecrets(shown.map((field) => ({ id: field.id, label: field.label, type: field.type, value: values[field.id] as Answer })))
   const steps = workSteps(settings), intake = steps.find((step) => step.receipt)
   const codes = intake ? receiptCodes() : {}
-  const created = await db.formSubmission.create({ data: {
+  const mobile = shown.filter(field => field.type === 'tel' || field.type === 'mobile').map(field => normalizeMobile(values[field.id])).find(Boolean)
+  const created = await db.$transaction(async tx => {
+    const customer = mobile ? await resolvePhoneCustomer(tx,mobile,String(values.name||'')) : null
+    return tx.formSubmission.create({ data: {
+    userId: customer?.id || null,
     formId, data: JSON.stringify(answers), secrets, status: 'READ', read: true, source: 'STAFF', createdById: actor.id, assigneeId: actor.id,
     stage: intake?.key || 'OPEN', ...codes,
   } })
-  if (intake) await tellSender({ id: created.id, title: form.title, data: created.data, userId: null, pickupCode: created.pickupCode, receiptToken: created.receiptToken }, intake).catch(() => undefined)
+  })
+  if (intake) await tellSender({ id: created.id, title: form.title, data: created.data, userId: created.userId, pickupCode: created.pickupCode, receiptToken: created.receiptToken }, intake).catch(() => undefined)
   return { id: created.id, stage: created.stage, pickupCode: created.pickupCode, receiptToken: created.receiptToken }
 }
 
@@ -52,6 +60,7 @@ async function receiptFrom(row: { id: number; data: string; stage: string; creat
     createdAt: row.createdAt.toISOString(), receivedAt: row.receivedAt?.toISOString() || null, stage: row.stage ? stepLabel(settings, row.stage) : '',
     lines, secrets, terms: settings.receipt.terms.split('\n').map((line) => line.trim()).filter(Boolean),
     pickupCode: row.pickupCode, link: row.receiptToken ? `/receipt/${row.receiptToken}` : '', staff, source: row.source,
+    qr:row.receiptToken?await QRCode.toDataURL(new URL(`/receipt/${row.receiptToken}`,process.env.NEXTAUTH_URL||'http://localhost:3000').href,{width:160,margin:2}):'',
   }
 }
 
@@ -70,5 +79,5 @@ export async function receiptByToken(token: string) {
   if (!/^[A-Za-z0-9_-]{20,40}$/.test(token)) return null
   const row = await db.formSubmission.findFirst({ where: { receiptToken: token, status: { not: 'SPAM' } }, select: RECEIPT_SELECT })
   if (!row || !parseForm(row.form).settings!.receipt.enabled) return null
-  return receiptFrom(row, 'customer')
+  return {...await receiptFrom(row, 'customer'),pickupCode:''}
 }

@@ -1,12 +1,11 @@
-import { createHmac, randomBytes, randomInt } from 'node:crypto'
-import bcrypt from 'bcryptjs'
+import { createHmac, randomInt } from 'node:crypto'
 import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
 import { logEvent } from '@/platform/observability/logger'
 import { getSettings } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import {
-  DEFAULT_SMS, OTP_RESEND_MS, OTP_TTL_MS, maskMobile, normalizeMobile, normalizeSmsConfig, otpCode, phoneEmail,
+  DEFAULT_SMS, OTP_RESEND_MS, OTP_TTL_MS, maskMobile, normalizeMobile, normalizeSmsConfig, otpCode,
   renderTemplate, smsEvent, validOtpFormat, type SmsConfig,
 } from '@/modules/sms/domain/sms'
 import { latinDigits } from '@/shared/text/digits'
@@ -130,11 +129,15 @@ export async function notifyUserEvent(event: { userId: number; kind: string; tit
   const setting = config.events[event.kind]
   if (!setting?.enabled || !isReady(config)) return null
   const user = await db.user.findUnique({ where: { id: event.userId }, select: { name: true, phone: true, phoneVerifiedAt: true, smsAlerts: true, status: true } })
-  // Only verified numbers receive alerts, so a mistyped number never gets someone else's messages.
-  if (!user || user.status !== 'ACTIVE' || !user.smsAlerts || !user.phoneVerifiedAt || !normalizeMobile(user.phone)) return null
+  // Ordinary alerts require a verified phone; Store transaction messages additionally bind the saved order and phone.
+  const counterTarget = ['STORE_RECEIPT','STORE_PICKUP_READY'].includes(event.kind) ? await (await import('@/modules/store/server/sale-receipts')).storeMessageTarget(event) : null
+  if(['STORE_RECEIPT','STORE_PICKUP_READY'].includes(event.kind)&&!counterTarget)return null
+  if (!user || user.status !== 'ACTIVE' || !user.smsAlerts || (!user.phoneVerifiedAt && !counterTarget) || !normalizeMobile(user.phone)) return null
+  if(counterTarget && normalizeMobile(counterTarget.phone)!==normalizeMobile(user.phone))return null
   if (!await (await import('@/modules/notifications/server/preferences')).isNotificationChannelEnabled(event.userId, event.kind, 'sms')) return null
   const { brand, site } = await brandVars()
-  const vars = { name: user.name || 'کاربر', title: event.titleFa, body: event.bodyFa || event.titleFa, link: site ? `${site}${event.href}` : event.href, brand }
+  const pickupCode=counterTarget?.codeSecret?(await import('@/modules/catalog/server/digital-delivery')).decryptDigitalDelivery(counterTarget.codeSecret):''
+  const vars = { name: user.name || 'کاربر', title: event.titleFa, body: pickupCode?`سفارش شما آمادهٔ تحویل از فروشگاه است. کد تحویل: ${pickupCode}`:event.bodyFa || event.titleFa, link: site ? `${site}${event.href}` : event.href, brand }
   return sendSms({ phone: user.phone, event: event.kind, userId: event.userId, text: renderTemplate(setting.text, vars), pattern: setting.pattern || undefined, params: Object.fromEntries(def.vars.map((name) => [name, vars[name as keyof typeof vars] || ''])) }, config)
 }
 
@@ -214,7 +217,7 @@ export async function smsCredit() {
 const hashCode = (phone: string, code: string) => createHmac('sha256', authSecret()).update(`otp:${phone}:${code}`).digest('hex')
 
 /** Sends a login or verification code. Throws SmsError with a user-facing message. */
-export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET'
+export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET' | `COUNTER:${number}:${number}`
 
 export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; ip: string; userId?: number }) {
   const phone = normalizeMobile(input.phone)
@@ -260,34 +263,23 @@ export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; i
  * Checks a code once; five wrong tries burn it. Returns the normalized phone.
  * `consume: false` checks without using the code up (sign-in asks for the 2-step code first).
  */
-export async function verifyOtp(input: { phone: unknown; code: unknown; purpose: OtpPurpose; userId?: number; consume?: boolean }) {
+export async function verifyOtp(input: { phone: unknown; code: unknown; purpose: OtpPurpose; userId?: number; consume?: boolean }, client: Pick<typeof db, 'otpCode'> = db) {
   const phone = normalizeMobile(input.phone)
   const code = latinDigits(input.code).trim()
   if (!phone || !validOtpFormat(code)) throw new SmsError('کد وارد شده صحیح نیست')
-  const row = await db.otpCode.findFirst({
+  const row = await client.otpCode.findFirst({
     where: { phone, purpose: input.purpose, ...(input.userId ? { userId: input.userId } : {}) },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   })
-  if (!await claimOtpChallenge(row, hashCode(phone, code), input.consume !== false)) throw new SmsError('کد وارد شده صحیح نیست یا منقضی شده است')
+  if (!await claimOtpChallenge(row, hashCode(phone, code), input.consume !== false, client)) throw new SmsError('کد وارد شده صحیح نیست یا منقضی شده است')
   return phone
 }
 
 /** The account for a verified phone: the one already verified with it, or a new customer account. */
 export async function userForPhone(phone: string) {
-  const existing = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null } }, orderBy: { id: 'asc' }, include: { roleRef: true } })
-  if (existing) {
-    if (existing.status !== 'ACTIVE') return null
-    return db.user.update({ where: { id: existing.id }, data: { lastLoginAt: new Date() }, include: { roleRef: true } })
-  }
-  return db.user.create({
-    data: {
-      email: phoneEmail(phone), phone, phoneVerifiedAt: new Date(), name: '',
-      passwordHash: await bcrypt.hash(randomBytes(24).toString('base64url'), 10), lastLoginAt: new Date(),
-      passwordSetupRequired: true,
-    },
-    include: { roleRef: true },
-  })
+  return (await import('@/modules/identity/server/phone-customer')).claimPhoneLogin(phone)
 }
+
 
 /** Links a verified phone to a signed-in account (profile). */
 export async function attachPhone(userId: number, phone: string) {

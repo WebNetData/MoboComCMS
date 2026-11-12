@@ -1,3 +1,5 @@
+Scoped2026-11-12 unified Store desk expands the existing commerce owners; maturity claims are limited to executed local evidence, with live provider/terminal/printer and production limits retained. See [handoff](agent/handoffs/STORE_COUNTER_SALES.md#unified-desk-expansion--2026-11-12).
+
 # MoboCom 2.0 capability map
 
 This is an initial code inventory for the owner's 20-capability brief. A module or model appearing here proves an existing starting point, not completion of the requested 2.0 behavior. Update each row after inspecting its routes, permissions, data flow, and UI.

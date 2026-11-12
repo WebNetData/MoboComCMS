@@ -124,6 +124,8 @@ const count = (value: unknown, label: string, max = 1_000_000) => {
 /** Store fields: brand, SKU, list price and timed offer, shipping weight, limits and SEO. */
 async function productMerchandising(b: any, priceMinor: bigint, currency: string) {
   const out: Record<string, unknown> = {}
+  if(b?.barcode !== undefined){const barcode=plain(b.barcode,80);if(barcode&&(!/^[\x21-\x7e]+$/.test(barcode)||/^MC-[PV]-/i.test(barcode)))throw Error('بارکد محصول معتبر نیست');out.barcode=barcode}
+  if(b?.costPrice !== undefined){const cost=b.costPrice===''||b.costPrice===null?null:toMinor(String(b.costPrice),currency);if(cost!==null&&cost<0n)throw Error('بهای خرید نمی‌تواند منفی باشد');out.costMinor=cost}
   if (b?.brandId !== undefined) {
     const brandId = b.brandId === '' || b.brandId === null ? null : Number(b.brandId)
     if (brandId !== null && (!Number.isSafeInteger(brandId) || !await db.productBrand.findUnique({ where: { id: brandId }, select: { id: true } }))) throw Error('Brand not found')
@@ -159,7 +161,7 @@ export async function saveVariants(tx: any, productId: number, variants: ReturnT
     const priceMinor = toMinor(String(variant.price), variant.currency)
     const memberPriceMinor = variant.memberPrice ? toMinor(String(variant.memberPrice), variant.currency) : 0n
     const compareAtMinor = variant.compareAt ? toMinor(String(variant.compareAt), variant.currency) : 0n
-    const data = { sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, compareAtMinor, fxAmountMinor: variant.fxAmountMinor, markupBps: variant.markupBps, markupFixedMinor: variant.markupFixedMinor, stock: variant.stock, active: variant.active }
+    const data = { barcode: variant.barcode, costMinor: variant.costMinor, sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, compareAtMinor, fxAmountMinor: variant.fxAmountMinor, markupBps: variant.markupBps, markupFixedMinor: variant.markupFixedMinor, stock: variant.stock, active: variant.active }
     if (variant.id) {
       const current = await tx.productVariant.findFirst({ where: { id: variant.id, productId } })
       if (!current) throw Error('Variant does not belong to this product')

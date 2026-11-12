@@ -1,0 +1,2 @@
+import {code128} from '@/modules/shipping/domain/carriers'
+export default function Barcode({value}:{value:string}){const widths=code128(value);let x=20;const bars=widths.map((width,index)=>{const at=x;x+=width;return index%2===0?<rect key={index} x={at} y={0} width={width} height={50}/>:null});return <svg viewBox={`0 0 ${x+20} 50`} role="img" aria-label={`بارکد ${value}`} preserveAspectRatio="none" style={{width:'100%',height:48,color:'#000',background:'#fff',fill:'currentColor'}}>{bars}</svg>}

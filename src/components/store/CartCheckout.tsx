@@ -15,7 +15,7 @@ import { checkoutCart, type Cart } from '@/modules/store/ui/cart-client'
 import { WEEKDAY_FA, type ScheduleDay } from '@/modules/shipping/domain/shipping'
 import { useCarrierQuotes, type CarrierOption } from './useCarrierQuotes'
 
-type Delivery = { enabled: boolean; days: ScheduleDay[] }
+type Delivery = { enabled: boolean; days: ScheduleDay[]; pickup?: {enabled:boolean;address:string;instructions:string} }
 const ZONE_FA: Record<string, string> = { city: 'درون‌شهری', province: 'درون‌استانی', country: 'برون‌استانی' }
 
 const dayMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', timeZone: 'UTC' })
@@ -32,7 +32,8 @@ const PROMO_MESSAGES: Record<string, string> = {
 /** Cart checkout: delivery address and time (for physical items), discount code, payment. */
 export default function CartCheckout({ cart, delivery, gateways, surface = 'public' }: { surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
   const router = useRouter()
-  const physical = cart.hasPhysical
+  const [pickup,setPickup]=useState(false)
+  const physical = cart.hasPhysical && !pickup
   const { addresses, error: addressError, reload } = useAddresses()
   const [addressId, setAddressId] = useState(0)
   const [chooser, setChooser] = useState(false)
@@ -66,7 +67,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
   const address = addresses?.find((a) => a.id === addressId) || null
   const carrier = carriers?.options.find((o): o is Extract<CarrierOption, { ok: true }> => o.ok && o.carrierId === carrierId) || null
   const needsSchedule = delivery.enabled && (!byCarrier || !!carrier?.scheduled)
-  const shippingFee = byCarrier ? carrier?.fee || 0 : cart.shipping
+  const shippingFee = pickup ? 0 : byCarrier ? carrier?.fee || 0 : cart.shipping
   const day = days.find((d) => d.date === date) || null
   const slot = day?.slots.find((s) => s.id === slotId && s.available) || null
   const total = cart.itemsTotal + shippingFee
@@ -95,6 +96,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
     setBusy(true); setError(null)
     try {
       const result = await checkoutCart({
+        shippingMode: pickup ? 'PICKUP' : 'SHIP',
         surface: surface === 'dashboard' ? 'dashboard' : undefined,
         addressId: physical && address ? address.id : undefined,
         delivery: physical && needsSchedule && slot && day ? { date: day.date, slotId: slot.id } : undefined,
@@ -129,6 +131,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
 
     <div className="sh-checkout-grid">
       <div className="sh-checkout-main">
+        {cart.hasPhysical && delivery.pickup?.enabled && <section className="sh-panel" aria-labelledby="sh-pickup-title"><h2 id="sh-pickup-title">دریافت سفارش</h2><label className="sh-check"><input type="checkbox" checked={pickup} onChange={event=>setPickup(event.target.checked)}/>تحویل حضوری از فروشگاه، بدون هزینهٔ ارسال</label>{pickup&&<><p>{delivery.pickup.address}</p><p>{delivery.pickup.instructions}</p><p>پس از پرداخت و آماده‌شدن سفارش، پیامک کد تحویل ارسال می‌شود. موبایل حساب خود را پیش از پرداخت ثبت کنید.</p></>}</section>}
         {physical && <section className="sh-panel" aria-labelledby="sh-address-title">
           <header className="sh-panel-head">
             <h2 id="sh-address-title">آدرس تحویل سفارش</h2>

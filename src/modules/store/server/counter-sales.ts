@@ -1,2 +1,5 @@
 export { createCounterSale } from './counter-sales/command'
+export { counterCustomer } from './counter-sales/customers'
+export { scanCounterProduct,productLabels } from './counter-sales/barcodes'
+export { registerSessions, openRegister, closeRegister, adjustRegister } from './counter-sales/register'
 export { counterProducts, counterCustomers, counterReceipt } from './counter-sales/read'

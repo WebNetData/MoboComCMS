@@ -95,6 +95,7 @@ export function formatAddress(a: { province: string; city: string; address: stri
 
 export type DeliverySlot = { id: string; label: string; capacity: number }
 export type DeliverySettings = {
+  pickup?: { enabled: boolean; address: string; instructions: string }
   enabled: boolean
   /** Days between the order and the first possible delivery. */
   leadDays: number
@@ -114,6 +115,7 @@ export type DeliverySettings = {
 }
 
 export const DEFAULT_DELIVERY: DeliverySettings = {
+  pickup: { enabled: false, address: '', instructions: '' },
   enabled: true, leadDays: 1, daysAhead: 7, cutoffHour: 14, closedWeekdays: [5], holidays: [],
   slots: [{ id: '09-12', label: '۹ تا ۱۲', capacity: 30 }, { id: '12-15', label: '۱۲ تا ۱۵', capacity: 30 }, { id: '15-18', label: '۱۵ تا ۱۸', capacity: 30 }, { id: '18-21', label: '۱۸ تا ۲۱', capacity: 20 }],
   feeRial: 0, freeOverRial: 0,
@@ -135,6 +137,7 @@ export function normalizeDeliverySettings(input: Record<string, unknown> = {}, p
   const numbers = (value: unknown, fallback: number[]) => (Array.isArray(value) ? [...new Set(value.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))] : fallback)
   const holidays = Array.isArray(input.holidays) ? [...new Set(input.holidays.map(String).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].slice(0, 200) : previous.holidays
   return {
+    pickup: input.pickup && typeof input.pickup === 'object' ? { enabled: (input.pickup as Record<string,unknown>).enabled === true, address: text((input.pickup as Record<string,unknown>).address,500), instructions: text((input.pickup as Record<string,unknown>).instructions,500) } : previous.pickup || { enabled:false,address:'',instructions:'' },
     enabled: typeof input.enabled === 'boolean' ? input.enabled : previous.enabled,
     leadDays: input.leadDays === undefined ? previous.leadDays : int(input.leadDays, 0, 30, 1),
     daysAhead: input.daysAhead === undefined ? previous.daysAhead : int(input.daysAhead, 1, 30, 7),

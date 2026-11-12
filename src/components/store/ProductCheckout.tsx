@@ -12,7 +12,7 @@ type Item = {
   productId: number; slug: string; name: string; image: string; variantId: number | null; variantName: string; inStock: boolean
   currency: string; price: number; regularPrice: number; shipping: number
 }
-type Delivery = { enabled: boolean; days: ScheduleDay[] }
+type Delivery = { enabled: boolean; days: ScheduleDay[]; pickup?: {enabled:boolean;address:string;instructions:string} }
 
 const dayMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', timeZone: 'UTC' })
 const fullDate = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
@@ -22,6 +22,7 @@ const SHIPPING_CODES = new Set(['SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIV
 
 export default function ProductCheckout({ item, delivery, gateways }: { item: Item; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
   const router = useRouter()
+  const [pickup,setPickup]=useState(false)
   const { addresses, error: addressError, reload } = useAddresses()
   const [addressId, setAddressId] = useState(0)
   const [chooser, setChooser] = useState(false)
@@ -46,18 +47,20 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
   const address = addresses?.find((a) => a.id === addressId) || null
   const day = days.find((d) => d.date === date) || null
   const slot = day?.slots.find((s) => s.id === slotId && s.available) || null
-  const total = item.price + item.shipping
+  const shipping = pickup ? 0 : item.shipping
+  const total = item.price + shipping
   const covered = balance >= total
   const locale = 'fa-IR'
   const fmt = (value: number) => money(value, item.currency, locale)
 
   const missing = useMemo(() => {
     if (!item.inStock) return 'این کالا ناموجود است'
+    if (pickup) return ''
     if (!address) return 'یک آدرس تحویل انتخاب کنید'
     if (delivery.enabled && days.length && !slot) return 'زمان ارسال را انتخاب کنید'
     if (delivery.enabled && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
     return ''
-  }, [item.inStock, address, delivery.enabled, days.length, slot])
+  }, [item.inStock, address, delivery.enabled, days.length, slot, pickup])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)
@@ -66,12 +69,12 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
   }
 
   async function pay() {
-    if (missing || !address) return
+    if (missing || (!pickup && !address)) return
     setBusy(true); setError(null)
     try {
       const result = await startCheckout({
-        productId: item.productId, variantId: item.variantId || undefined, addressId: address.id,
-        delivery: slot && day ? { date: day.date, slotId: slot.id } : undefined, gatewayRef: gatewayRef || undefined,
+        productId: item.productId, variantId: item.variantId || undefined, addressId: pickup ? undefined : address?.id, shippingMode:pickup ? 'PICKUP' : 'SHIP',
+        delivery: !pickup && slot && day ? { date: day.date, slotId: slot.id } : undefined, gatewayRef: gatewayRef || undefined,
       })
       if (result.ok) {
         if (result.paid || result.invoiceUrl) router.push(`/payment/result?invoice=${result.invoiceNumber}`)
@@ -95,7 +98,8 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
 
     <div className="sh-checkout-grid">
       <div className="sh-checkout-main">
-        <section className="sh-panel" aria-labelledby="sh-address-title">
+ {delivery.pickup?.enabled&&<section className="sh-panel"><h2>دریافت سفارش</h2><label className="sh-check"><input type="checkbox" checked={pickup} onChange={e=>setPickup(e.target.checked)}/>تحویل حضوری از فروشگاه، بدون هزینهٔ ارسال</label>{pickup&&<><p>{delivery.pickup.address}</p><p>{delivery.pickup.instructions}</p><p>پس از آماده‌شدن سفارش، کد تحویل به موبایل حساب شما پیامک می‌شود.</p></>}</section>}
+        <section className="sh-panel" aria-labelledby="sh-address-title" hidden={pickup}>
           <header className="sh-panel-head">
             <h2 id="sh-address-title">آدرس تحویل سفارش</h2>
             {addresses && addresses.length > 0 && <button type="button" className="sh-link" aria-expanded={chooser} aria-controls="sh-address-list" onClick={() => setChooser((open) => !open)}>{chooser ? 'بستن' : 'تغییر یا ویرایش آدرس'}</button>}
@@ -121,7 +125,7 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
           </div>}
         </section>
 
-        <section className="sh-panel" aria-labelledby="sh-time-title">
+        <section className="sh-panel" aria-labelledby="sh-time-title" hidden={pickup}>
           <header className="sh-panel-head">
             <h2 id="sh-time-title">زمان ارسال</h2>
             {slot && day && <span className="sh-muted">{fullDate.format(asDate(day.date))} · ساعت {slot.label}</span>}
@@ -168,7 +172,7 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
         </div>
         <dl className="sh-totals">
           <div><dt>قیمت کالا</dt><dd>{item.regularPrice > item.price && <s>{fmt(item.regularPrice)}</s>}{fmt(item.price)}</dd></div>
-          <div><dt>هزینهٔ ارسال</dt><dd>{item.shipping > 0 ? fmt(item.shipping) : <span className="sh-free">رایگان</span>}</dd></div>
+          <div><dt>هزینهٔ ارسال</dt><dd>{shipping > 0 ? fmt(shipping) : <span className="sh-free">رایگان</span>}</dd></div>
           {balance > 0 && <div><dt>از کیف پول</dt><dd>−{fmt(Math.min(balance, total))}</dd></div>}
           <div className="sh-total"><dt>مبلغ قابل پرداخت</dt><dd>{fmt(Math.max(0, total - balance))}</dd></div>
         </dl>
@@ -176,7 +180,7 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
           {busy ? 'در حال ثبت سفارش…' : covered ? 'ثبت سفارش و پرداخت از کیف پول' : 'ثبت سفارش و پرداخت'}
         </button>
         {missing && <p className="sh-muted sh-center">{missing}</p>}
-        <p className="sh-fineprint">با ثبت سفارش، زمان ارسال برای شما رزرو می‌شود. سفارش پرداخت‌نشده پس از دو ساعت آزاد می‌شود.</p>
+        <p className="sh-fineprint">{pickup?'کالا پس از پرداخت و آماده‌سازی، با کد تحویل به شما داده می‌شود.':'با ثبت سفارش، زمان ارسال برای شما رزرو می‌شود. سفارش پرداخت‌نشده پس از دو ساعت آزاد می‌شود.'}</p>
         <div ref={errorRef} tabIndex={-1} className="sh-error-slot">
           {error && (SHIPPING_CODES.has(error.code) ? <p className="sh-notice is-error" role="alert">{error.message}</p> : <CheckoutError code={error.code} message={error.message} needed={error.needed} currency={error.currency || item.currency} />)}
         </div>

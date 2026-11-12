@@ -9,6 +9,10 @@ datasource db {
 }
 
 model User {
+  registerAdjustments StoreRegisterAdjustment[] @relation("RegisterAdjuster")
+  collectedStorePickups StorePickup[] @relation("PickupCollector")
+  registerSessions StoreRegisterSession[] @relation("RegisterCashier")
+  closedRegisterSessions StoreRegisterSession[] @relation("RegisterCloser")
   counterSales Order[] @relation("OrderCreator")
   aiProductionBatches AiProductionBatch[]
   aiAssistantProposals AiAssistantProposal[]
@@ -295,6 +299,11 @@ model Plan {
 }
 
 model Order {
+  registerSessionId Int?
+  registerSession StoreRegisterSession? @relation(fields: [registerSessionId], references: [id], onDelete: Restrict)
+  tenders StoreTender[]
+  pickup StorePickup?
+  receiptToken String? @unique
   id            Int            @id @default(autoincrement())
   userId        Int?
   saleSource    String @default("ONLINE")
@@ -858,6 +867,9 @@ model ProductAttributeGroup {
 }
 
 model Product {
+  @@index([barcode])
+  barcode String @default("")
+  costMinor BigInt? // acquisition cost in selling-currency minor units; null = unknown
   files ProductFile[]
   /// Optional VIP adjustment; empty preserves memberPriceMinor semantics.
   vipPricing String @default("")
@@ -1032,6 +1044,9 @@ model ProductDigitalCode {
 }
 
 model ProductVariant {
+  @@index([barcode])
+  barcode String @default("")
+  costMinor BigInt? // acquisition cost in selling-currency minor units; null = unknown
   id          Int @id @default(autoincrement())
   productId   Int
   sku         String @unique
@@ -3133,6 +3148,7 @@ model CartLine {
 
 /// Snapshot of each product line of a store order (price and name at purchase time).
 model OrderLine {
+  unitCostMinor BigInt? // frozen acquisition cost; historical unknowns stay null
   id             Int      @id @default(autoincrement())
   orderId        Int
   line           Int      @default(0)
@@ -5214,4 +5230,74 @@ model AiInvocation {
   @@index([purpose, startedAt])
   @@index([status, startedAt])
   @@index([purpose, transport, startedAt])
+}
+
+/// Store cashier reconciliation; closed sessions retain immutable counted/expected snapshots.
+model StoreRegisterSession {
+  id Int @id @default(autoincrement())
+  requestId String @unique
+  register String
+  cashierId Int
+  cashier User @relation("RegisterCashier", fields: [cashierId], references: [id], onDelete: Restrict)
+  status String @default("OPEN")
+  currency String
+  openingCashMinor BigInt @default(0)
+  expectedCashMinor BigInt @default(0)
+  expectedCardMinor BigInt @default(0)
+  countedCashMinor BigInt?
+  countedCardMinor BigInt?
+  differenceCashMinor BigInt @default(0)
+  differenceCardMinor BigInt @default(0)
+  note String @default("")
+  createdAt DateTime @default(now())
+  closedAt DateTime?
+  closedById Int?
+  closedBy User? @relation("RegisterCloser", fields: [closedById], references: [id], onDelete: Restrict)
+  orders Order[]
+  tenders StoreTender[]
+  adjustments StoreRegisterAdjustment[]
+  @@index([cashierId, status])
+}
+
+model StoreTender {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  sessionId Int?
+  session StoreRegisterSession? @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  method String
+  amountMinor BigInt
+  reference String @default("")
+  createdAt DateTime @default(now())
+  @@unique([orderId, method])
+  @@index([sessionId, method])
+}
+
+/// Explicit audited cash/card movement; wallet refunds never imply drawer movement.
+model StoreRegisterAdjustment {
+  id Int @id @default(autoincrement())
+  requestId String @unique
+  sessionId Int
+  session StoreRegisterSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  actorId Int
+  actor User @relation("RegisterAdjuster", fields: [actorId], references: [id], onDelete: Restrict)
+  method String
+  amountMinor BigInt
+  reason String
+  createdAt DateTime @default(now())
+}
+
+model StorePickup {
+  orderId Int @id
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  status String @default("WAITING")
+  codeHash String
+  codeSecret String
+  attempts Int @default(0)
+  readyAt DateTime?
+  collectedAt DateTime?
+  collectedById Int?
+  collectedBy User? @relation("PickupCollector", fields: [collectedById], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  @@index([status, createdAt])
 }

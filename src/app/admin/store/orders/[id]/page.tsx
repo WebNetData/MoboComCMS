@@ -79,6 +79,7 @@ export default function StoreOrderPage() {
   }
 
   return <StoreShell title={`سفارش #${fa(data.id)}`} actions={<>
+    <Link className="btn btn-ghost" href="/admin/store/pickup">صف تحویل از فروشگاه</Link>
     {data.manager && data.saleSource === 'COUNTER' && data.fulfilment === 'DELIVERED' && data.orderStatus === 'PAID' && <Link className="btn btn-ghost" href={`/admin/store/counter?order=${data.id}`}>رسید و کارت‌های فروش حضوری</Link>}
     {virtual && data.fulfilment === 'DELIVERED' && data.hasDigitalDelivery && <Link className="btn btn-ghost" href={`/admin/store/print?order=${data.id}`}>چاپ کارت</Link>}
     <span className={`sa-state ${STATE_TONE[data.state.tone] || ''}`}>{data.state.label}</span>

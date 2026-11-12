@@ -167,7 +167,7 @@ export async function customerOrder(userId: number, orderId: number) {
     },
   })
   if (!order) return null
-  return orderDetailView(order)
+  return {...orderDetailView(order),pickup:await (await import('@/modules/store/server/pickup')).pickupForCustomer(userId,orderId)}
 }
 
 type DetailOrder = Awaited<ReturnType<typeof loadAdminOrder>>
@@ -401,6 +401,7 @@ export async function transitionOrder(input: {
   await db.$transaction(async (tx) => {
     await input.beforeWrite?.(tx)
     await lockOrderWork(tx, input.orderId, input.scope)
+    if((to==='DELIVERED'||to==='SHIPPED')&&await tx.storePickup.findFirst({where:{orderId:input.orderId,status:{not:'COLLECTED'}},select:{orderId:true}}))throw new StoreError('این سفارش فقط با کد تحویل مشتری از صف تحویل حضوری بسته می‌شود',409)
     const changed = await tx.productDelivery.updateMany({
       where: { id: delivery.id, status: delivery.status },
       data: { status: to, trackingCode, ...(note ? { deliveryNote: note } : {}), ...(encrypted ? { digitalDelivery: encrypted } : {}), deliveredAt: to === 'DELIVERED' ? new Date() : to === 'RETURNED' ? delivery.deliveredAt : null },

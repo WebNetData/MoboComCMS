@@ -49,6 +49,11 @@ export default function AdminDeliveryPage() {
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
 
     <div className="sh-admin-grid">
+      <section className="sh-panel"><header className="sh-panel-head"><h2>تحویل حضوری از فروشگاه</h2></header>
+        <label className="sh-check"><input type="checkbox" checked={s.pickup?.enabled===true} onChange={e=>patch({pickup:{enabled:e.target.checked,address:s.pickup?.address||'',instructions:s.pickup?.instructions||''}})}/>مشتری آنلاین بتواند سفارش را از فروشگاه بگیرد</label>
+        <label className="sh-field"><span>نشانی فروشگاه</span><textarea className="sh-input" maxLength={500} value={s.pickup?.address||''} onChange={e=>patch({pickup:{enabled:s.pickup?.enabled===true,address:e.target.value,instructions:s.pickup?.instructions||''}})}/></label>
+        <label className="sh-field"><span>ساعت مراجعه و راهنمای تحویل</span><textarea className="sh-input" maxLength={500} value={s.pickup?.instructions||''} onChange={e=>patch({pickup:{enabled:s.pickup?.enabled===true,address:s.pickup?.address||'',instructions:e.target.value}})}/></label>
+      </section>
       <section className="sh-panel">
         <header className="sh-panel-head"><h2>قواعد کلی</h2></header>
         <label className="sh-check"><input type="checkbox" checked={s.enabled} onChange={(e) => patch({ enabled: e.target.checked })} />مشتری روز و ساعت ارسال را انتخاب کند</label>
