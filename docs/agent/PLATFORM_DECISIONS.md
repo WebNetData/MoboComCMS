@@ -1083,5 +1083,18 @@ The owner wants members to sign in and sign up with Google. Identity owns it (`s
   - The buyer picks a flat face (no gradients, quiet line pattern) or a photo of their own. The photo stays in their browser and is never uploaded.
   - The card saves as a PNG drawn on a canvas (1200 px wide). The whole delivery saves as a UTF-8 text file.
   - The design is MoboCom's own: it borrows the idea of an account card the buyer can keep, not another site's look.
+- **Card designs, rows by place, in-shop printing** (2026-11-12, follow-up):
+  - Each row of a delivery has a **place**: card, hero (large, e.g. an amount), email (its own part of the card, for an account made with a mailbox) or aside (security questions). Rows saved with the earlier `aside` flag read as aside.
+  - A template row may be for some product options only (`variants`), so «with an email» orders get the email part and the others do not.
+  - **Designs** (`store/domain/card-designs.ts`): eleven original presets (site colour, black-gold, light minimal, royal blue, white four-colour, green, navy, ruby, slate, sand, sage). They are named after the platforms they suit but draw no brand marks.
+  - A product may override the title, logo, background photo and accent colour, and choose how codes are revealed: a «show» button or a **scratch-off** strip.
+  - The face (`components/store/card/CardFace`) is sized in container units, so the buyer's card, the Admin preview and the printed card are one design. A secret shown on screen settles from random characters; the card tilts slightly under the mouse. There is no looping motion, and reduced motion turns both off.
+  - The saved image (`drawCard`) measures the face on the page and draws exactly what is there, with secrets in full.
+  - **«چاپ کارت حضوری»** (`/admin/store/print`, for orders managers and order specialists) builds a card from three sources:
+    - a product, including drafts and hidden products, with its design, the option's rows and its notices;
+    - a delivered order the staff member may work on (read through `GET /api/admin/store/print?order=`, recorded as `store.order.delivery.print`);
+    - by hand.
+  - It prints a delivery sheet or the card alone at 85.6 × 54 mm with a cut line, or saves the image. Nothing typed there is stored.
+  - Not built yet: taking a code from a product's pool for a sale in the shop; that needs an in-store sale record.
 - **Late orders.** Past that time, the fulfilment worker step `lateDeliveries` alerts **once per order**: it writes a hidden `LATE` order event, sends an inbox note to the specialist who took the order, and sends the admin SMS event `ADMIN_ORDER_LATE` (`{order}`, `{hours}`). The time counts from the invoice payment, or from the order's creation when there is no invoice.
 - Verified locally on a DB copy: tsc, the store tests, and a browser pass (specialist form → buyer page at 1440 light and 390 dark, axe clean, no overflow). **Not run:** the SMS delivery itself, and the worker step against a live schedule.

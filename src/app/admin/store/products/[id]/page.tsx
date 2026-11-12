@@ -248,7 +248,7 @@ export default function ProductEditorPage() {
         </section>
 
         <OrderAsk form={form} update={update} />
-        {form.kind === 'VIRTUAL' && form.digitalMode !== 'FILES' && <DeliveryTemplate form={form} update={update} />}
+        {form.kind === 'VIRTUAL' && form.digitalMode !== 'FILES' && <DeliveryTemplate form={form} update={update} onBusy={setUploading} />}
 
         {!isNew && form.kind === 'VIRTUAL' && form.digitalMode !== 'FILES' && <ProductCodes productId={Number(id)} onStock={(stock, mode) => { setCodesOn(mode === 'CODES'); setForm((current) => current && { ...current, stock, digitalMode: mode === 'CODES' ? 'CODES' : 'MANUAL' }) }} />}
         {!isNew && form.kind === 'VIRTUAL' && <ProductFilesEditor key={`files:${form.digitalMode || 'MANUAL'}`} productId={Number(id)} onMode={mode => { if (form.digitalMode !== mode) { setCodesOn(mode === 'CODES'); setForm(current => ({ ...current, digitalMode: mode, ...(mode === 'FILES' ? { stock: -1 } : {}) })) } }} />}

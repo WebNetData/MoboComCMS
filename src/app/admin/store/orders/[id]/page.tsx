@@ -78,6 +78,7 @@ export default function StoreOrderPage() {
   }
 
   return <StoreShell title={`سفارش #${fa(data.id)}`} actions={<>
+    {virtual && data.fulfilment === 'DELIVERED' && data.hasDigitalDelivery && <Link className="btn btn-ghost" href={`/admin/store/print?order=${data.id}`}>چاپ کارت</Link>}
     <span className={`sa-state ${STATE_TONE[data.state.tone] || ''}`}>{data.state.label}</span>
     <button type="button" className="btn btn-ghost" onClick={() => window.print()}>چاپ برگهٔ ارسال</button>
     {data.invoiceNumber && <Link href={`/invoice/${data.invoiceNumber}`} className="btn btn-ghost" target="_blank">فاکتور</Link>}
@@ -108,7 +109,7 @@ export default function StoreOrderPage() {
 
         {options.length > 0 && <section className="sa-card sa-noprint">
           <header className="sa-card-head"><h2>تغییر وضعیت</h2><small>وضعیت فعلی: {isFulfilmentStatus(data.fulfilment) ? FULFILMENT_LABEL[data.fulfilment] : 'در انتظار ایجاد تحویل'}</small></header>
-          <div className="sa-actions" role="radiogroup" aria-label="وضعیت بعدی">{options.map((status) => <button key={status} type="button" role="radio" aria-checked={to === status} className={`sa-action${to === status ? ' is-selected' : ''}${status === 'CANCELLED' || status === 'RETURNED' ? ' is-danger' : ''}`} onClick={() => { setTo(status); if (status === 'DELIVERED' && data.deliveryTemplate && !details.items.length && !details.note) setDetails(draftFromTemplate(data.deliveryTemplate)) }}>{ACTION_LABEL[status]}</button>)}</div>
+          <div className="sa-actions" role="radiogroup" aria-label="وضعیت بعدی">{options.map((status) => <button key={status} type="button" role="radio" aria-checked={to === status} className={`sa-action${to === status ? ' is-selected' : ''}${status === 'CANCELLED' || status === 'RETURNED' ? ' is-danger' : ''}`} onClick={() => { setTo(status); if (status === 'DELIVERED' && data.deliveryTemplate && !details.items.length && !details.note) setDetails(draftFromTemplate(data.deliveryTemplate, data.lines.find((line) => line.kind !== 'PHYSICAL')?.variantName || '')) }}>{ACTION_LABEL[status]}</button>)}</div>
           {to && <div className="sa-form">
             {(to === 'SHIPPED' || to === 'DELIVERED') && !virtual && <label className="sa-field"><span>کد رهگیری مرسوله</span><input className="input" dir="ltr" value={tracking ?? data.trackingCode} onChange={(event) => setTracking(event.target.value)} maxLength={120} /></label>}
             {virtual && to === 'DELIVERED' && <DeliveryDetailsEditor orderId={data.id} value={details} onChange={setDetails} hasPrevious={data.hasDigitalDelivery} />}

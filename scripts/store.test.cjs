@@ -248,8 +248,16 @@ test('delivery details: named items and a note, secrets kept as typed; older fre
   assert.throws(() => d.composeDeliveryDetails({ items: [] }), /خالی/)
   assert.ok(d.DELIVERY_TEMPLATES.find(t => t.id === 'account').items.some(i => i.secret))
   // A security question sits beside the card; the product template keeps rows, notices and the card switch.
-  assert.deepEqual(d.readDeliveryDetails(d.composeDeliveryDetails({ items: [{ label: 'What was your first car?', value: 'Veyron', aside: true }] })).items, [{ label: 'What was your first car?', value: 'Veyron', secret: false, aside: true }])
-  assert.deepEqual(d.validateDeliveryTemplate({ card: true, rows: [{ label: ' Apple ID ' }, { label: '' }], notices: [{ tone: 'loud', text: ' Find My را خاموش کنید ' }, { text: '' }] }), { card: true, rows: [{ label: 'Apple ID', secret: false, aside: false }], note: '', notices: [{ tone: 'info', text: 'Find My را خاموش کنید' }] })
+  assert.deepEqual(d.readDeliveryDetails(d.composeDeliveryDetails({ items: [{ label: 'What was your first car?', value: 'Veyron', place: 'aside' }, { label: 'آدرس ایمیل', value: 'a@b.co', place: 'email' }, { label: 'x', value: 'y', place: 'nowhere' }] })).items, [{ label: 'What was your first car?', value: 'Veyron', secret: false, place: 'aside' }, { label: 'آدرس ایمیل', value: 'a@b.co', secret: false, place: 'email' }, { label: 'x', value: 'y', secret: false }])
+  assert.equal(d.readDeliveryDetails(d.composeDeliveryDetails({ items: [{ label: 'q', value: 'a', aside: true }] })).items[0].place, 'aside', 'rows saved before places read as beside the card')
+  assert.deepEqual(d.validateDeliveryTemplate({ card: true, rows: [{ label: ' Apple ID ' }, { label: '' }], notices: [{ tone: 'loud', text: ' Find My را خاموش کنید ' }, { text: '' }] }), { card: true, rows: [{ label: 'Apple ID', secret: false, place: 'card', variants: [] }], note: '', notices: [{ tone: 'info', text: 'Find My را خاموش کنید' }], design: d.EMPTY_DELIVERY_TEMPLATE.design })
+  // Rows for one option of the product: the email part only for «with an email».
+  const withEmail = d.validateDeliveryTemplate({ rows: [{ label: 'Apple ID' }, { label: 'آدرس ایمیل', place: 'email', variants: ['با ساخت ایمیل'] }] })
+  assert.deepEqual(d.rowsForVariant(withEmail, 'بدون ایمیل').map(r => r.label), ['Apple ID'])
+  assert.deepEqual(d.rowsForVariant(withEmail, 'با ساخت ایمیل').map(r => r.label), ['Apple ID', 'آدرس ایمیل'])
+  const c = require('./connected-source-loader.cjs')()('src/modules/store/domain/card-designs.ts')
+  assert.deepEqual(c.readCardDesign({ preset: 'royal', accent: '#ABCDEF', logo: 'javascript:alert(1)', background: '/media/bg.webp', reveal: 'scratch', title: ' PSN ' }), { preset: 'royal', title: 'PSN', logo: '', background: '/media/bg.webp', accent: '#abcdef', reveal: 'scratch' })
+  assert.equal(c.readCardDesign({ preset: 'nope', accent: 'red' }).preset, 'classic')
   assert.throws(() => d.validateDeliveryTemplate({ notices: Array.from({ length: 7 }, () => ({ text: 'x' })) }), /پیام/)
   assert.deepEqual(d.readDeliveryTemplate('not json'), d.EMPTY_DELIVERY_TEMPLATE)
 })

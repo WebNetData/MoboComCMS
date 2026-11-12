@@ -1,0 +1,53 @@
+/*
+ * The delivery card face (CardFace.tsx). Sized in container units so one card reads the same on a phone, on the
+ * order page and printed at card size. Flat faces, a quiet line pattern, one accent; the only motion is a short
+ * entrance and a pointer tilt that follows the mouse (none with reduced motion).
+ */
+.frame { container-type: inline-size; width: 100%; perspective: 1100px; }
+.face {
+  --dc-rx: 0deg; --dc-ry: 0deg;
+  position: relative; display: flex; flex-direction: column; gap: 3.2cqw; box-sizing: border-box;
+  min-height: calc(100cqw / 1.586); padding: 5.6cqw 6cqw; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--dc-ink) 12%, transparent); border-radius: 4.4cqw;
+  background-color: var(--dc-bg); background-size: cover; background-position: center; color: var(--dc-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%), 0 18px 36px -20px rgb(0 0 0 / 45%);
+  transform: rotateX(var(--dc-rx)) rotateY(var(--dc-ry)); transform-style: preserve-3d;
+  transition: transform .35s cubic-bezier(.2, .7, .2, 1), background-color .25s ease, color .25s ease;
+  animation: dc-in .4s cubic-bezier(.2, .7, .2, 1) both;
+  print-color-adjust: exact; -webkit-print-color-adjust: exact;
+}
+.tilt:hover { transition: transform .08s linear, background-color .25s ease, color .25s ease; }
+.head { display: flex; align-items: center; gap: 3cqw; }
+.logo { width: 9cqw; height: 9cqw; flex-shrink: 0; border-radius: 2cqw; object-fit: contain; }
+.titles { display: grid; gap: .6cqw; min-width: 0; }
+.titles b { font-size: 4.6cqw; font-weight: 800; line-height: 1.3; }
+.titles span { font-size: 3cqw; opacity: .82; line-height: 1.5; }
+.rule { display: block; width: 11cqw; height: .7cqw; margin-top: -1cqw; border-radius: 1cqw; background: var(--dc-accent); }
+.heroes, .rows { display: grid; gap: 1.4cqw; margin: 0; }
+.heroes { margin-top: auto; }
+.hero { display: grid; gap: .4cqw; }
+.hero dt { font-size: 2.8cqw; opacity: .82; }
+.hero dd, .row dd { display: flex; align-items: center; gap: 1.6cqw; min-width: 0; margin: 0; }
+.heroValue { font-size: 8.4cqw !important; font-weight: 800; color: var(--dc-accent) !important; letter-spacing: -.01em; font-family: inherit !important; }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3cqw; align-items: center; }
+.row dt { font-size: 2.9cqw; opacity: .82; }
+.row dd { justify-content: flex-end; }
+.heroes + .rows, .rule + .rows { margin-top: auto; }
+.value, .heroValue {
+  min-width: 0; padding: .3cqw .9cqw; border: 0; border-radius: 1.2cqw; background: none; color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 3.5cqw; font-weight: 600; text-align: left;
+  overflow-wrap: anywhere; cursor: copy; transition: background-color .15s ease;
+}
+.value:disabled, .heroValue:disabled { cursor: text; }
+.value:not(:disabled):hover, .heroValue:not(:disabled):hover { background: color-mix(in srgb, currentColor 11%, transparent); }
+.value:focus-visible, .heroValue:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.copied { flex-shrink: 0; font-size: 2.4cqw; opacity: .85; }
+.email { display: grid; gap: 1.6cqw; padding-top: 2.4cqw; border-top: 1px solid color-mix(in srgb, var(--dc-ink) 20%, transparent); }
+.emailTitle { font-size: 2.5cqw; font-weight: 700; letter-spacing: .04em; color: var(--dc-accent); }
+.stripe { display: flex; height: 2.2cqw; margin: 0 -6cqw -5.6cqw; }
+.stripe i { flex: 1; }
+.scratch { position: relative; display: inline-flex; justify-content: flex-end; min-width: 34cqw; min-height: 6.4cqw; border-radius: 1.2cqw; overflow: hidden; }
+.scratch canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+@keyframes dc-in { from { opacity: 0; transform: translateY(1.4cqw) rotateX(var(--dc-rx)) rotateY(var(--dc-ry)); } }
+@media (prefers-reduced-motion: reduce) { .face { animation: none; transition: none; } .value, .heroValue { transition: none; } }
+@media print { .face { box-shadow: none; animation: none; transform: none; } }
