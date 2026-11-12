@@ -1,0 +1,300 @@
+/* ============================================================
+   Shop desk (cd-): counter sale, registers, shop pickup, unified
+   report, repair intake. Store admin tokens (--sa-*) only; one accent.
+   Signature: the dashed tear line of receipt paper, used only where
+   money is totalled. Motion is one-shot feedback, never looping.
+   ============================================================ */
+
+.admin-shell .sa { --cd-ease: cubic-bezier(.2, .7, .2, 1); --cd-tear: color-mix(in srgb, var(--sa-text) 22%, transparent); --cd-hair: color-mix(in srgb, var(--sa-text) 9%, transparent); }
+.admin-shell .cd-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.admin-shell .cd-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+.admin-shell .cd-meta { color: var(--sa-muted); font-size: 12px; font-weight: 400; }
+.admin-shell .cd-error { margin: 0; color: var(--sa-danger); font-size: 13px; }
+.admin-shell .cd-field { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.admin-shell .cd-field > span, .admin-shell .cd-field > label { color: var(--sa-muted); }
+.admin-shell .cd-field small { color: var(--sa-muted); font-size: 12px; line-height: 1.8; }
+.admin-shell .cd-field .input, .admin-shell .cd-layout .input { width: 100%; min-width: 0; }
+.admin-shell .cd-inline { display: flex; gap: 8px; min-width: 0; }
+.admin-shell .cd-inline > .input { flex: 1; }
+.admin-shell .cd-inline > .btn { flex: none; }
+
+/* Status pill with a still dot (never pulsing) */
+.admin-shell .cd-status { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 12px; background: var(--sa-subtle); color: var(--sa-muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.admin-shell .cd-status::before { content: ''; inline-size: 6px; block-size: 6px; border-radius: 50%; background: currentColor; }
+.admin-shell .cd-status.is-ok { color: var(--sa-ok); background: color-mix(in srgb, var(--sa-ok) 12%, transparent); }
+.admin-shell .cd-status.is-warn { color: var(--sa-warn); background: color-mix(in srgb, var(--sa-warn) 13%, transparent); }
+.admin-shell .cd-status.is-bad { color: var(--sa-danger); background: color-mix(in srgb, var(--sa-danger) 10%, transparent); }
+
+/* Segmented choice (payment method, report period) */
+.admin-shell .cd-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; min-width: 0; margin: 0; padding: 3px; border: 1px solid var(--sa-line); border-radius: 10px; background: var(--sa-subtle); }
+.admin-shell .cd-seg label { position: relative; display: grid; place-items: center; min-block-size: 36px; padding: 0 10px; border-radius: 7px; color: var(--sa-muted); font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color .16s var(--cd-ease), color .16s var(--cd-ease), box-shadow .16s var(--cd-ease); }
+.admin-shell .cd-seg label:hover { color: var(--sa-text); }
+.admin-shell .cd-seg label.is-on { background: var(--sa-surface); color: var(--sa-text); box-shadow: 0 1px 2px rgb(0 0 0 / .08), inset 0 0 0 1px var(--cd-hair); }
+.admin-shell .cd-seg label:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+.admin-shell .cd-seg label:has(input:focus-visible) { outline: 2px solid var(--sa-accent); outline-offset: 1px; }
+.admin-shell .cd-seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: inherit; }
+
+/* One-shot motion */
+@keyframes cd-flash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes cd-tick { from { opacity: .35; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes cd-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes cd-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.admin-shell .cd-check path { stroke-dasharray: 1; stroke-dashoffset: 0; animation: cd-draw .36s var(--cd-ease) both; }
+
+/* ---------- Counter sale ---------- */
+.admin-shell .cd-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 20px; align-items: start; }
+.admin-shell .cd-basket, .admin-shell .cd-bill-panel { display: grid; gap: 20px; min-width: 0; margin: 0; padding: 20px; }
+.admin-shell .cd-basket:disabled, .admin-shell .cd-bill-panel:disabled { opacity: .7; }
+
+.admin-shell .cd-scan { display: grid; gap: 8px; }
+.admin-shell .cd-scan > label { font-size: 14px; font-weight: 600; }
+.admin-shell .cd-scan-field { position: relative; display: flex; gap: 8px; }
+.admin-shell .cd-scan-field .input { flex: 1; block-size: 48px; padding-inline-start: 44px; font-size: 16px; letter-spacing: .04em; }
+.admin-shell .cd-scan-field .btn { flex: none; block-size: 48px; }
+.admin-shell .cd-scan-glyph { position: absolute; inset-inline-start: 14px; inset-block-start: 14px; color: var(--sa-muted); pointer-events: none; transition: color .16s var(--cd-ease); }
+.admin-shell .cd-scan-field:focus-within .cd-scan-glyph { color: var(--sa-accent); }
+.admin-shell .cd-scan-note { margin: 0; min-block-size: 20px; color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-scan-note.is-ok { color: var(--sa-ok); }
+
+.admin-shell .cd-pick { border: 1px solid var(--sa-line); border-radius: 12px; }
+.admin-shell .cd-pick > summary { padding: 12px 16px; font-size: 13px; font-weight: 500; color: var(--sa-muted); cursor: pointer; border-radius: 12px; }
+.admin-shell .cd-pick > summary:hover { color: var(--sa-text); }
+.admin-shell :is(.cd-pick, .cd-tool) > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; }
+.admin-shell :is(.cd-pick, .cd-tool) > summary::-webkit-details-marker { display: none; }
+.admin-shell :is(.cd-pick, .cd-tool) > summary::after { content: ''; inline-size: 7px; block-size: 7px; border-inline-end: 1.5px solid currentColor; border-block-end: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .16s var(--cd-ease); opacity: .7; }
+.admin-shell :is(.cd-pick, .cd-tool)[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.admin-shell :is(.cd-pick, .cd-tool) > summary:focus-visible { outline: 2px solid var(--sa-accent); outline-offset: 2px; }
+.admin-shell .cd-pick[open] > summary { color: var(--sa-text); }
+.admin-shell .cd-pick-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 4px 16px 16px; }
+.admin-shell .cd-field-wide { grid-column: 1 / -1; }
+.admin-shell .cd-pick-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.admin-shell .cd-pick-price { display: flex; align-items: center; gap: 8px; margin: 0; }
+.admin-shell .cd-pick-price .sa-stock { font-weight: 500; }
+
+.admin-shell .cd-lines-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.admin-shell .cd-lines-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.admin-shell .cd-lines { display: grid; margin: 0; padding: 0; list-style: none; border-block-start: 1px solid var(--sa-line); }
+.admin-shell .cd-line { position: relative; display: grid; gap: 12px; padding: 14px 4px; border-block-end: 1px solid var(--sa-line); animation: cd-rise .24s var(--cd-ease) both; }
+.admin-shell .cd-flash { position: absolute; inset: 0; border-radius: 8px; background: var(--sa-accent-soft); pointer-events: none; animation: cd-flash .9s var(--cd-ease) .15s both; }
+.admin-shell .cd-line-main { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(112px, auto) 32px; grid-template-areas: "name qty total remove"; align-items: center; gap: 12px; }
+.admin-shell .cd-line-main > .cd-line-name { grid-area: name; }
+.admin-shell .cd-line-main > .cd-qty { grid-area: qty; }
+.admin-shell .cd-line-main > .cd-line-total { grid-area: total; }
+.admin-shell .cd-line-main > .cd-remove { grid-area: remove; }
+.admin-shell .cd-line-name { display: grid; gap: 2px; min-width: 0; }
+.admin-shell .cd-line-name b { font-weight: 500; font-size: 14px; overflow-wrap: anywhere; }
+.admin-shell .cd-line-name small { color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-line-total { font-weight: 600; text-align: end; white-space: nowrap; }
+.admin-shell .cd-line-fields { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 12px; border-radius: 10px; background: var(--sa-subtle); }
+
+.admin-shell .cd-qty { display: inline-grid; grid-template-columns: 32px 44px 32px; align-items: center; block-size: 36px; border: 1px solid var(--sa-line); border-radius: 9px; background: var(--sa-surface); overflow: hidden; }
+.admin-shell .cd-qty button { block-size: 100%; border: 0; background: none; color: var(--sa-muted); font-size: 17px; line-height: 1; cursor: pointer; transition: background-color .16s var(--cd-ease), color .16s var(--cd-ease); }
+.admin-shell .cd-qty button:hover:not(:disabled) { background: var(--sa-subtle); color: var(--sa-text); }
+.admin-shell .cd-qty button:active:not(:disabled) { transform: scale(.94); }
+.admin-shell .cd-qty button:disabled { opacity: .35; cursor: default; }
+.admin-shell .cd-qty button:focus-visible, .admin-shell .cd-qty input:focus-visible { outline: 2px solid var(--sa-accent); outline-offset: -2px; }
+.admin-shell .cd-qty input { inline-size: 100%; block-size: 100%; border: 0; border-inline: 1px solid var(--sa-line); background: none; color: var(--sa-text); text-align: center; font: inherit; font-weight: 500; -moz-appearance: textfield; appearance: textfield; }
+.admin-shell .cd-qty input::-webkit-inner-spin-button, .admin-shell .cd-qty input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.admin-shell .cd-remove { display: grid; place-items: center; inline-size: 32px; block-size: 32px; border: 0; border-radius: 8px; background: none; color: var(--sa-muted); cursor: pointer; transition: background-color .16s var(--cd-ease), color .16s var(--cd-ease); }
+.admin-shell .cd-remove:hover { background: color-mix(in srgb, var(--sa-danger) 10%, transparent); color: var(--sa-danger); }
+.admin-shell .cd-remove:focus-visible { outline: 2px solid var(--sa-accent); outline-offset: 1px; }
+
+.admin-shell .cd-empty { display: grid; justify-items: center; gap: 6px; padding: 40px 16px; border: 1px dashed var(--sa-line); border-radius: 12px; color: var(--sa-muted); text-align: center; }
+.admin-shell .cd-empty p { margin: 8px 0 0; color: var(--sa-text); font-weight: 500; }
+.admin-shell .cd-empty small { font-size: 12px; }
+
+/* Steps of the bill */
+.admin-shell .cd-step { display: grid; gap: 12px; }
+.admin-shell .cd-step + .cd-step { padding-block-start: 20px; border-block-start: 1px solid var(--sa-line); }
+.admin-shell .cd-step > header { display: flex; align-items: center; gap: 10px; }
+.admin-shell .cd-step h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.admin-shell .cd-step-note { margin-inline-start: auto; color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-step-mark { display: grid; place-items: center; flex: none; inline-size: 24px; block-size: 24px; border-radius: 50%; border: 1px solid var(--sa-line); color: var(--sa-muted); font-size: 12px; font-weight: 500; transition: background-color .2s var(--cd-ease), border-color .2s var(--cd-ease), color .2s var(--cd-ease); }
+.admin-shell .cd-step.is-done .cd-step-mark { border-color: var(--sa-accent); background: var(--sa-accent); color: var(--sa-on-accent); }
+.admin-shell .cd-step-body { display: grid; gap: 12px; min-width: 0; }
+.admin-shell .cd-inline-empty { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; background: color-mix(in srgb, var(--sa-warn) 10%, transparent); }
+.admin-shell .cd-inline-empty p { margin: 0; color: var(--sa-warn); font-size: 13px; font-weight: 500; }
+
+.admin-shell .cd-customer, .admin-shell .cd-payment { display: grid; gap: 12px; min-width: 0; }
+.admin-shell .cd-person { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--sa-line); border-radius: 12px; }
+.admin-shell .cd-avatar { display: grid; place-items: center; flex: none; inline-size: 40px; block-size: 40px; border-radius: 50%; background: var(--sa-accent-soft); color: var(--sa-accent); font-weight: 600; }
+.admin-shell .cd-person-name { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.admin-shell .cd-person-name b { font-weight: 500; overflow-wrap: anywhere; }
+.admin-shell .cd-person-name bdi { color: var(--sa-muted); font-size: 13px; text-align: start; }
+.admin-shell .cd-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 0; }
+.admin-shell .cd-facts div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--sa-subtle); }
+.admin-shell .cd-facts dt { color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-facts dd { margin: 0; font-weight: 500; font-size: 14px; }
+.admin-shell .cd-history summary { font-size: 13px; color: var(--sa-muted); cursor: pointer; }
+.admin-shell .cd-history ul { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; }
+.admin-shell .cd-history li { display: flex; justify-content: space-between; gap: 12px; overflow-wrap: anywhere; }
+
+.admin-shell .cd-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-shell .cd-pair-wide { grid-column: 1 / -1; margin: 0; }
+.admin-shell .cd-otp { display: grid; gap: 12px; padding: 12px; border-radius: 10px; background: var(--sa-subtle); }
+.admin-shell .cd-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 20px; letter-spacing: .4em; text-align: center; }
+
+.admin-shell .cd-split { display: grid; gap: 10px; }
+.admin-shell .cd-split-bar { display: flex; gap: 2px; block-size: 8px; border-radius: 4px; overflow: hidden; background: var(--sa-subtle); }
+.admin-shell .cd-split-bar span { transition: inline-size .24s var(--cd-ease); }
+.admin-shell .cd-split ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.admin-shell .cd-split li { display: flex; align-items: center; gap: 8px; }
+.admin-shell .cd-split li b { margin-inline-start: auto; font-weight: 500; }
+.admin-shell .cd-dot { display: inline-block; inline-size: 8px; block-size: 8px; border-radius: 2px; flex: none; }
+.admin-shell td > .cd-dot { margin-inline-end: 8px; }
+.admin-shell .is-cash { background: color-mix(in srgb, var(--sa-text) 62%, transparent); }
+.admin-shell .is-card { background: var(--sa-accent); }
+.admin-shell .is-wallet { background: color-mix(in srgb, var(--sa-accent) 40%, var(--sa-subtle)); }
+
+/* The running bill: receipt paper with a scalloped foot */
+.admin-shell .cd-ticket { display: grid; gap: 12px; padding: 16px 16px 24px; background: var(--sa-subtle); border-radius: 12px 12px 0 0;
+  -webkit-mask: radial-gradient(circle at 50% 100%, transparent 5px, #000 5.5px) 50% 0 / 14px 100% repeat-x; mask: radial-gradient(circle at 50% 100%, transparent 5px, #000 5.5px) 50% 0 / 14px 100% repeat-x; }
+.admin-shell .cd-ticket-rows { display: grid; gap: 6px; margin: 0; font-size: 13px; }
+.admin-shell .cd-ticket-rows div { display: flex; justify-content: space-between; gap: 12px; }
+.admin-shell .cd-ticket-rows dt { color: var(--sa-muted); }
+.admin-shell .cd-ticket-rows dd { margin: 0; }
+.admin-shell .cd-ticket-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0; padding-block-start: 12px; border-block-start: 1.5px dashed var(--cd-tear); }
+.admin-shell .cd-ticket-total span { color: var(--sa-muted); font-size: 13px; }
+.admin-shell .cd-ticket-total strong { font-size: 28px; font-weight: 600; line-height: 1.3; animation: cd-tick .22s var(--cd-ease) both; }
+
+.admin-shell .cd-confirm { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--sa-line); border-radius: 12px; font-size: 13px; line-height: 1.9; cursor: pointer; transition: background-color .16s var(--cd-ease), border-color .16s var(--cd-ease); }
+.admin-shell .cd-confirm:has(input:checked) { border-color: color-mix(in srgb, var(--sa-accent) 45%, var(--sa-line)); background: var(--sa-accent-soft); }
+.admin-shell .cd-confirm input { inline-size: 18px; block-size: 18px; margin-top: 4px; flex-shrink: 0; accent-color: var(--sa-accent); }
+.admin-shell .cd-submit { inline-size: 100%; min-block-size: 48px; font-size: 15px; }
+.admin-shell .cd-submit:active:not(:disabled) { transform: scale(.985); }
+.admin-shell .cd-uncertain { display: grid; gap: 12px; border-color: color-mix(in srgb, var(--sa-warn) 45%, var(--sa-line)); }
+.admin-shell .cd-uncertain p { margin: 0; color: var(--sa-warn); font-weight: 500; }
+
+/* Sale done */
+.admin-shell .cd-done { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px 20px; align-items: center; padding: 24px; animation: cd-rise .28s var(--cd-ease) both; }
+.admin-shell .cd-done-mark { display: grid; place-items: center; inline-size: 56px; block-size: 56px; border-radius: 50%; background: color-mix(in srgb, var(--sa-ok) 13%, transparent); color: var(--sa-ok); }
+.admin-shell .cd-done-mark .cd-check path { animation-delay: .12s; animation-duration: .45s; }
+.admin-shell .cd-done-text h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.admin-shell .cd-done-text p { margin: 4px 0 0; color: var(--sa-muted); font-size: 14px; }
+.admin-shell .cd-done-text p b { color: var(--sa-text); font-weight: 600; }
+.admin-shell .cd-done-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-shell .cd-pickup-code { display: inline-flex; gap: 6px; direction: ltr; margin-inline-start: 8px; vertical-align: middle; }
+.admin-shell .cd-pickup-code > i { font-style: normal; display: grid; place-items: center; inline-size: 34px; block-size: 42px; border: 1px solid var(--sa-line); border-block-end-width: 2px; border-radius: 8px; background: var(--sa-surface); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 20px; font-weight: 500; }
+
+/* Printed receipt, on screen */
+.admin-shell .counter-receipt { display: grid; gap: 20px; inline-size: min(100%, 760px); margin-inline: auto; padding: 32px; border: 1px solid var(--sa-line); border-radius: 14px; background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 12px 32px -20px rgb(0 0 0 / .25); animation: cd-rise .3s var(--cd-ease) .08s both; }
+.admin-shell .counter-receipt > header { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1.5px dashed var(--cd-tear); padding-bottom: 16px; }
+.admin-shell .counter-receipt h2, .admin-shell .counter-receipt p { margin: 0; }
+.admin-shell .counter-receipt h2 { font-size: 18px; font-weight: 600; }
+.admin-shell .counter-receipt header p, .admin-shell .counter-receipt time { color: var(--sa-muted); font-size: 13px; }
+.admin-shell .counter-receipt header img { max-width: 120px; max-height: 48px; }
+.admin-shell .counter-receipt-meta { display: grid; gap: 8px; margin: 0; font-size: 14px; }
+.admin-shell .counter-receipt-meta div { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-shell .counter-receipt-meta dt { color: var(--sa-muted); }
+.admin-shell .counter-receipt-meta dd { margin: 0; }
+.admin-shell .counter-receipt-tenders { padding-top: 16px; border-top: 1.5px dashed var(--cd-tear); }
+.admin-shell .counter-table-scroll { overflow: auto; }
+.admin-shell .counter-receipt table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin-shell .counter-receipt caption { text-align: start; margin-bottom: 12px; font-weight: 600; }
+.admin-shell .counter-receipt th, .admin-shell .counter-receipt td { padding: 12px 8px; border-bottom: 1px solid var(--sa-line); text-align: start; }
+.admin-shell .counter-receipt thead th { color: var(--sa-muted); font-size: 12px; font-weight: 500; }
+.admin-shell .counter-receipt tbody th { font-weight: 500; }
+.admin-shell .counter-receipt .is-end { text-align: end; }
+.admin-shell .counter-receipt tfoot th, .admin-shell .counter-receipt tfoot td { border-bottom: 0; border-top: 1.5px dashed var(--cd-tear); font-size: 16px; font-weight: 600; }
+.admin-shell .counter-receipt th small { display: block; color: var(--sa-muted); font-size: 12px; font-weight: 400; }
+.admin-shell .counter-receipt-qr { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.admin-shell .counter-receipt-qr img { border-radius: 8px; border: 1px solid var(--sa-line); background: #fff; padding: 6px; }
+.admin-shell .counter-receipt-card { display: grid; gap: 12px; max-width: 600px; width: 100%; break-inside: avoid; }
+
+/* ---------- Registers ---------- */
+.admin-shell .cd-open { display: grid; gap: 16px; padding: 20px; }
+.admin-shell .cd-open h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.admin-shell .cd-open fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: end; gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.admin-shell .cd-sessions { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
+.admin-shell .cd-session { display: grid; gap: 16px; padding: 20px; }
+.admin-shell .cd-session.is-open { border-color: color-mix(in srgb, var(--sa-accent) 35%, var(--sa-line)); }
+.admin-shell .cd-session-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-shell .cd-session-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.admin-shell .cd-session-head p { margin: 2px 0 0; }
+.admin-shell .cd-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.admin-shell .cd-figures div { display: grid; gap: 4px; padding: 12px; border-radius: 10px; background: var(--sa-subtle); min-width: 0; }
+.admin-shell .cd-figures dt { color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-figures dd { margin: 0; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.admin-shell .cd-variance { display: grid; gap: 8px; margin: 0; padding-block-start: 14px; border-block-start: 1.5px dashed var(--cd-tear); font-size: 14px; }
+.admin-shell .cd-variance div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.admin-shell .cd-variance dt { color: var(--sa-muted); }
+.admin-shell .cd-variance dd { margin: 0; font-weight: 600; }
+.admin-shell .cd-variance .is-short { color: var(--sa-danger); }
+.admin-shell .cd-variance .is-over { color: var(--sa-warn); }
+.admin-shell .cd-variance .is-even { color: var(--sa-ok); }
+.admin-shell .cd-session-tools { display: grid; gap: 12px; }
+.admin-shell .cd-tool { border: 1px solid var(--sa-line); border-radius: 12px; }
+.admin-shell .cd-tool > summary { padding: 12px 14px; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 12px; }
+.admin-shell .cd-tool > summary:hover { background: var(--sa-subtle); }
+.admin-shell .cd-tool form, .admin-shell .cd-tool fieldset { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.admin-shell .cd-tool form { padding: 4px 14px 14px; }
+.admin-shell .cd-tool legend { padding: 0; margin-bottom: 4px; color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-tool .btn { justify-self: start; }
+
+/* ---------- Shop pickup ---------- */
+.admin-shell .cd-pickups { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 16px; align-items: start; }
+.admin-shell .cd-pickup { display: grid; gap: 14px; padding: 20px; }
+.admin-shell .cd-pickup.is-ready { border-color: color-mix(in srgb, var(--sa-ok) 40%, var(--sa-line)); }
+.admin-shell .cd-pickup-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-shell .cd-pickup-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.admin-shell .cd-pickup-head p { margin: 2px 0 0; }
+.admin-shell .cd-pickup-items { margin: 0; padding: 12px; border-radius: 10px; background: var(--sa-subtle); font-size: 13px; line-height: 1.9; }
+.admin-shell .cd-collect { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+.admin-shell .cd-collect .cd-code { block-size: 48px; }
+.admin-shell .cd-collect .btn { block-size: 48px; }
+.admin-shell .cd-locked { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--sa-warn) 12%, transparent); color: var(--sa-warn); font-size: 13px; }
+.admin-shell .cd-empty-state { display: grid; justify-items: center; gap: 6px; padding: 48px 16px; border: 1px dashed var(--sa-line); border-radius: 14px; color: var(--sa-muted); text-align: center; font-size: 13px; }
+.admin-shell .cd-empty-state b { color: var(--sa-text); font-weight: 500; font-size: 14px; }
+
+/* ---------- Unified report ---------- */
+.admin-shell .cd-period { inline-size: min(100%, 360px); }
+.admin-shell .cd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.admin-shell .cd-stat { display: grid; gap: 6px; padding: 18px 20px; border: 1px solid var(--sa-line); border-radius: 14px; background: var(--sa-surface); }
+.admin-shell .cd-stat > span { color: var(--sa-muted); font-size: 13px; }
+.admin-shell .cd-stat > b { font-size: 24px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.admin-shell .cd-stat > small { color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-report-pair { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.admin-shell .cd-rank { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; counter-reset: cd-rank; }
+.admin-shell .cd-rank li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 4px 10px; align-items: baseline; counter-increment: cd-rank; font-size: 14px; }
+.admin-shell .cd-rank li::before { content: counter(cd-rank, persian); color: var(--sa-muted); font-size: 12px; }
+.admin-shell .cd-rank-bar { grid-column: 2 / -1; block-size: 4px; border-radius: 2px; background: var(--sa-subtle); overflow: hidden; }
+.admin-shell .cd-rank-bar span { display: block; block-size: 100%; border-radius: 2px; background: color-mix(in srgb, var(--sa-text) 35%, transparent); }
+.admin-shell .cd-rank li:first-child .cd-rank-bar span { background: var(--sa-accent); }
+.admin-shell .cd-low { display: grid; margin: 0; padding: 0; list-style: none; }
+.admin-shell .cd-low li { display: grid; gap: 6px; padding: 10px 0; border-block-end: 1px solid var(--sa-line); font-size: 14px; }
+.admin-shell .cd-low li:last-child { border-block-end: 0; }
+.admin-shell .cd-low-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.admin-shell .cd-low-variants { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-shell .cd-low .sa-stock { font-weight: 500; }
+
+@media (max-width: 1100px) {
+  .admin-shell .cd-layout, .admin-shell .cd-report-pair { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell .cd-open fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .admin-shell .cd-basket, .admin-shell .cd-bill-panel, .admin-shell .cd-session, .admin-shell .cd-pickup, .admin-shell .cd-open, .admin-shell .cd-done { padding: 16px; }
+  .admin-shell .cd-pick-body, .admin-shell .cd-pair, .admin-shell .cd-open fieldset, .admin-shell .cd-collect { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell .cd-line-main { grid-template-columns: auto minmax(0, 1fr) 32px; grid-template-areas: "name name remove" "qty total total"; row-gap: 10px; }
+  .admin-shell .cd-scan-field .btn { padding-inline: 12px; }
+  .admin-shell .cd-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-shell .cd-inline { flex-wrap: wrap; }
+  .admin-shell .cd-inline > .btn { flex: 1 1 100%; }
+  .admin-shell .cd-done { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell .cd-ticket-total strong { font-size: 24px; }
+  .admin-shell .counter-receipt { padding: 16px; }
+  .admin-shell .counter-receipt th, .admin-shell .counter-receipt td { padding: 8px 4px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell .cd-line, .admin-shell .cd-flash, .admin-shell .cd-ticket-total strong, .admin-shell .cd-done, .admin-shell .counter-receipt, .admin-shell .cd-check path { animation: none; }
+  .admin-shell .cd-flash { opacity: 0; }
+  .admin-shell .cd-split-bar span, .admin-shell .cd-seg label, .admin-shell .cd-step-mark { transition: none; }
+}
+@media print {
+  @page { margin: 10mm; }
+  body:has(.counter-receipt) *:not(:has(.counter-receipt)):not(.counter-receipt):not(.counter-receipt *) { display: none !important; }
+  body:has(.counter-receipt) :has(.counter-receipt) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; transform: none !important; }
+  .admin-shell .counter-receipt { display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: white; color: #171717; box-shadow: none; animation: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .admin-shell .counter-receipt > *, .admin-shell .counter-receipt-card { margin-bottom: 20px; }
+  .admin-shell .counter-receipt-card { width: 85.6mm; break-inside: avoid; }
+  .admin-shell .counter-table-scroll { overflow: visible; }
+}

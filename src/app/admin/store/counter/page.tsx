@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { StoreShell } from '../shared'
 import { formatMoney } from '@/shared/money'
@@ -10,10 +10,20 @@ import { useCounterSale } from './useCounterSale'
 import Receipt from './Receipt'
 import CustomerDesk from './CustomerDesk'
 import PaymentDesk, { EMPTY_PAYMENT, paymentRows, type DeskPayment } from './PaymentDesk'
-import './counter.css'
+import DoneMark from '../DoneMark'
+import '../desk.css'
 
 type Item = CounterLine & { product: CounterProduct; variantName: string }
+const lineKey = (productId: number, variantId: number | null) => `${productId}:${variantId}`
 const priceOf = (item: Item) => formatMoney(BigInt(item.expectedUnitMinor) * BigInt(item.quantity), item.product.currency, 'fa-IR')
+const maxOf = (item: Item) => Math.min(99, item.product.maxPerOrder || 99)
+
+function Step({ n, title, done, note, children }: { n: number; title: string; done: boolean; note?: string; children: ReactNode }) {
+  return <section className={`cd-step${done ? ' is-done' : ''}`} aria-labelledby={`cd-step-${n}`}>
+    <header><span className="cd-step-mark" aria-hidden="true">{done ? <DoneMark /> : n.toLocaleString('fa-IR')}</span><h2 id={`cd-step-${n}`}>{title}</h2>{note && <span className="cd-step-note">{note}</span>}</header>
+    <div className="cd-step-body">{children}</div>
+  </section>
+}
 
 export default function CounterSales() {
   const sale = useCounterSale()
@@ -28,16 +38,28 @@ export default function CounterSales() {
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customer, setCustomer] = useState<CounterCustomer | null>(null)
-  const [payment,setPayment]=useState<DeskPayment>(EMPTY_PAYMENT)
-  const [sessions,setSessions]=useState<{id:number;register:string;currency:string;status:string;mine:boolean}[]>([])
-  const [sessionId,setSessionId]=useState(0)
-  const [scan,setScan]=useState(''),[scanBusy,setScanBusy]=useState(false),[localError,setLocalError]=useState('')
+  const [payment, setPayment] = useState<DeskPayment>(EMPTY_PAYMENT)
+  const [sessions, setSessions] = useState<{ id: number; register: string; currency: string; status: string; mine: boolean }[] | null>(null)
+  const [sessionId, setSessionId] = useState(0)
+  const [scan, setScan] = useState('')
+  const [scanBusy, setScanBusy] = useState(false)
+  const [localError, setLocalError] = useState('')
+  const [scanNote, setScanNote] = useState('')
+  // The line last added or counted up; `n` remounts its highlight so a second scan of the same item flashes again.
+  const [fresh, setFresh] = useState({ key: '', n: 0 })
   const [confirmed, setConfirmed] = useState(false)
   const product = products.find((item) => item.id === productId)
   const variant = product?.variants.find((item) => item.id === variantId)
   const currency = items[0]?.product.currency || ''
   const total = items.reduce((sum, item) => sum + BigInt(item.expectedUnitMinor) * BigInt(item.quantity), 0n)
+  const units = items.reduce((sum, item) => sum + item.quantity, 0)
   const locked = sale.busy || sale.uncertain
+  const openSessions = (sessions || []).filter((row) => row.status === 'OPEN' && row.mine)
+  let paymentReady = false
+  try {
+    const rows = paymentRows(payment, total, currency), needsCode = rows.some((row) => row.method === 'WALLET') || payment.points > 0
+    paymentReady = items.length > 0 && rows.length > 0 && (!rows.some((row) => row.method === 'CARD') || !!payment.reference.trim()) && (!needsCode || payment.walletCode.length === 6)
+  } catch { paymentReady = false }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -51,18 +73,29 @@ export default function CounterSales() {
     return () => { clearTimeout(timer); controller.abort() }
   }, [query, attempt])
 
-  useEffect(()=>{const controller=new AbortController();fetch('/api/admin/store/counter?registers=1',{cache:'no-store',signal:controller.signal}).then(async response=>{const data=await response.json();if(!response.ok)throw Error(data.error||'صندوق‌ها دریافت نشدند');if(!controller.signal.aborted)setSessions(data.sessions)}).catch(error=>{if(!controller.signal.aborted)setLocalError(error.message)});return()=>controller.abort()},[sale.orderId,attempt])
+  useEffect(() => { const controller = new AbortController(); fetch('/api/admin/store/counter?registers=1', { cache: 'no-store', signal: controller.signal }).then(async (response) => { const data = await response.json(); if (!response.ok) throw Error(data.error || 'صندوق‌ها دریافت نشدند'); if (!controller.signal.aborted) setSessions(data.sessions) }).catch((error) => { if (!controller.signal.aborted) setLocalError(error.message) }); return () => controller.abort() }, [sale.orderId, attempt])
 
-  async function scanItem(){
-    if(!scan.trim()||scanBusy)return
-    setScanBusy(true);setLocalError('')
-    try{const response=await fetch('/api/admin/store/counter?scan='+encodeURIComponent(scan.trim()),{cache:'no-store'}),body=await response.json();if(!response.ok)throw Error(body.error||'بارکد پیدا نشد')
-      const scanned=body.product as CounterProduct, option=scanned.variants.find(item=>item.id===body.variantId)
-      if(currency&&currency!==scanned.currency)throw Error('واحد پول کالاهای یک فروش باید یکسان باشد')
-      if(body.requiresVariant){setProducts(previous=>[scanned,...previous.filter(item=>item.id!==scanned.id)]);setProductId(scanned.id);setVariantId(0);setLocalError('گزینهٔ کالا را انتخاب و به فروش اضافه کنید')}
-      else setItems(previous=>{const index=previous.findIndex(item=>item.productId===scanned.id&&item.variantId===(option?.id||null));if(index>=0)return previous.map((item,at)=>at===index?{...item,quantity:Math.min(99,scanned.maxPerOrder||99,item.quantity+1)}:item);if(previous.length>=30)return previous;return [...previous,{productId:scanned.id,variantId:option?.id||null,quantity:1,expectedUnitMinor:option?.unitMinor||scanned.unitMinor,inputs:{},product:scanned,variantName:option?.name||''}]})
-      setScan('');setConfirmed(false)
-    }catch(error){setLocalError(error instanceof Error?error.message:'ارتباط برقرار نشد')}finally{setScanBusy(false)}
+  function touched(key: string, name: string, quantity: number) {
+    setFresh((previous) => ({ key, n: previous.n + 1 }))
+    setScanNote(quantity > 1 ? `${name} — تعداد ${quantity.toLocaleString('fa-IR')}` : `${name} به فروش اضافه شد`)
+  }
+
+  async function scanItem() {
+    if (!scan.trim() || scanBusy) return
+    setScanBusy(true); setLocalError(''); setScanNote('')
+    try {
+      const response = await fetch('/api/admin/store/counter?scan=' + encodeURIComponent(scan.trim()), { cache: 'no-store' }), body = await response.json(); if (!response.ok) throw Error(body.error || 'بارکد پیدا نشد')
+      const scanned = body.product as CounterProduct, option = scanned.variants.find((item) => item.id === body.variantId)
+      if (currency && currency !== scanned.currency) throw Error('واحد پول کالاهای یک فروش باید یکسان باشد')
+      if (body.requiresVariant) { setProducts((previous) => [scanned, ...previous.filter((item) => item.id !== scanned.id)]); setProductId(scanned.id); setVariantId(0); setLocalError('گزینهٔ کالا را انتخاب و به فروش اضافه کنید') }
+      else {
+        const key = lineKey(scanned.id, option?.id || null), existing = items.find((item) => lineKey(item.productId, item.variantId) === key)
+        if (!existing && items.length >= 30) throw Error('یک فروش حداکثر ۳۰ ردیف کالا دارد')
+        setItems((previous) => { const index = previous.findIndex((item) => item.productId === scanned.id && item.variantId === (option?.id || null)); if (index >= 0) return previous.map((item, at) => at === index ? { ...item, quantity: Math.min(99, scanned.maxPerOrder || 99, item.quantity + 1) } : item); if (previous.length >= 30) return previous; return [...previous, { productId: scanned.id, variantId: option?.id || null, quantity: 1, expectedUnitMinor: option?.unitMinor || scanned.unitMinor, inputs: {}, product: scanned, variantName: option?.name || '' }] })
+        touched(key, option ? `${scanned.name} · ${option.name}` : scanned.name, existing ? Math.min(99, scanned.maxPerOrder || 99, existing.quantity + 1) : 1)
+      }
+      setScan(''); setConfirmed(false)
+    } catch (error) { setLocalError(error instanceof Error ? error.message : 'ارتباط برقرار نشد') } finally { setScanBusy(false) }
   }
 
   function addItem() {
@@ -70,56 +103,107 @@ export default function CounterSales() {
     const same = items.find((item) => item.productId === product.id && item.variantId === (variant?.id || null))
     if (same) return
     setItems([...items, { productId: product.id, variantId: variant?.id || null, quantity: 1, expectedUnitMinor: variant?.unitMinor || product.unitMinor, inputs: {}, product, variantName: variant?.name || '' }])
+    touched(lineKey(product.id, variant?.id || null), variant ? `${product.name} · ${variant.name}` : product.name, 1)
     setConfirmed(false)
   }
   function changeItem(index: number, patch: Partial<Item>) { setItems(items.map((item, at) => at === index ? { ...item, ...patch } : item)); setConfirmed(false) }
-  const payload = () => ({ customerId: customer?.id || null, customerName, customerPhone, sessionId, method:payment.method, reference:payment.reference, payments:paymentRows(payment,total,currency),walletCode:payment.walletCode,redeemPoints:payment.points, lines: items.map(({ product, variantName, ...line }) => line) })
-  function submitSale(){try{void sale.submit(payload())}catch(error){setLocalError(error instanceof Error?error.message:'مبالغ پرداخت معتبر نیست')}}
-  function nextSale() { if (sale.nextSale()) { setItems([]); setConfirmed(false); setCustomer(null); setCustomerName(''); setCustomerPhone(''); setPayment(EMPTY_PAYMENT); setLocalError(''); setAttempt((value) => value + 1) } }
+  // A card reference typed before switching to cash must not reach a cash receipt.
+  const payload = () => { const payments = paymentRows(payment, total, currency); return { customerId: customer?.id || null, customerName, customerPhone, sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line) } }
+  function submitSale() { try { void sale.submit(payload()) } catch (error) { setLocalError(error instanceof Error ? error.message : 'مبالغ پرداخت معتبر نیست') } }
+  function nextSale() { if (sale.nextSale()) { setItems([]); setConfirmed(false); setCustomer(null); setCustomerName(''); setCustomerPhone(''); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setAttempt((value) => value + 1) } }
+  const addDisabled = !product || !!(product.variants.length && !variant) || items.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)
+  const stock = product ? (variant?.stock ?? product.stock) : -1
 
-  return <StoreShell title="فروش حضوری" actions={<Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link>}>
-    {localError&&<div className="sa-notice is-error" role="alert">{localError}</div>}
+  return <StoreShell title="فروش حضوری" actions={<><Link className="btn btn-ghost" href="/admin/store/registers">صندوق‌ها</Link><Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link></>}>
+    {localError && <div className="sa-notice is-error" role="alert">{localError}</div>}
     {sale.message && <div className="sa-notice is-error" role="alert">{sale.message}</div>}
     {sale.orderId ? <>
-      <section className="sa-card counter-result" role="status"><h2>فروش شمارهٔ {sale.orderId.toLocaleString('fa-IR')} ثبت شده است</h2><div className="sa-row-actions">
-        <button type="button" className="btn btn-primary" disabled={!sale.receipt} onClick={() => window.print()}>چاپ رسید و کارت‌ها</button>
-        <button type="button" className="btn btn-ghost" onClick={nextSale}>فروش بعدی</button>
-        <Link className="btn btn-ghost" href={`/admin/store/orders/${sale.orderId}`}>جزئیات سفارش</Link>
-        {!sale.receipt && <button type="button" className="btn btn-ghost" onClick={sale.retryReceipt}>دریافت دوبارهٔ رسید</button>}
-      </div></section>
-      {sale.receipt ? <Receipt receipt={sale.receipt} /> : <p role="status">در حال دریافت رسید…</p>}
+      <section className="sa-card cd-done" role="status">
+        <span className="cd-done-mark" aria-hidden="true"><DoneMark size={28} /></span>
+        <div className="cd-done-text"><h2>فروش شمارهٔ <bdi className="cd-num">{sale.orderId.toLocaleString('fa-IR', { useGrouping: false })}</bdi> ثبت شد</h2>
+          <p>{sale.receipt ? <>مبلغ دریافت‌شده <b className="cd-num">{formatMoney(BigInt(sale.receipt.totalMinor), sale.receipt.currency, 'fa-IR')}</b> · رسید آمادهٔ چاپ است</> : 'در حال دریافت رسید…'}</p></div>
+        <div className="cd-done-actions">
+          <button type="button" className="btn btn-primary" disabled={!sale.receipt} onClick={() => window.print()}>چاپ رسید و کارت‌ها</button>
+          <button type="button" className="btn btn-ghost" onClick={nextSale}>فروش بعدی</button>
+          <Link className="btn btn-ghost" href={`/admin/store/orders/${sale.orderId}`}>جزئیات سفارش</Link>
+          {!sale.receipt && <button type="button" className="btn btn-ghost" onClick={sale.retryReceipt}>دریافت دوبارهٔ رسید</button>}
+        </div>
+      </section>
+      {sale.receipt ? <Receipt receipt={sale.receipt} /> : <p className="sa-hint" role="status">در حال دریافت رسید…</p>}
     </> : <>
-      {sale.uncertain && <section className="sa-card"><div className="sa-row-actions">
+      {sale.uncertain && <section className="sa-card cd-uncertain"><p>پاسخ ثبت فروش قبلی نرسید. پیش از فروش دیگر وضعیت آن را بررسی کنید.</p><div className="sa-row-actions">
         {sale.canRetry && <button type="button" className="btn btn-primary" disabled={sale.busy} onClick={submitSale}>تلاش مجدد همان فروش</button>}
         <button type="button" className="btn btn-ghost" disabled={sale.busy} onClick={() => void sale.recover()}>بررسی وضعیت فروش قبلی</button>
         <button type="button" className="btn btn-ghost" disabled={sale.busy} onClick={nextSale}>شروع فروش جداگانه</button>
       </div></section>}
-      <form className="counter-layout" onSubmit={(event) => { event.preventDefault(); if (confirmed) submitSale() }}>
-        <fieldset className="sa-card counter-products" disabled={locked}><legend>کالاهای فروش</legend>
-          <label htmlFor="counter-scan">بارکدخوان / بارکد کالا</label><div className="sa-row"><input id="counter-scan" className="input" value={scan} autoComplete="off" dir="ltr" onChange={event=>setScan(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();void scanItem()}}}/><button type="button" className="btn btn-ghost" disabled={scanBusy||!scan.trim()} onClick={()=>void scanItem()}>{scanBusy?'در حال بررسی…':'افزودن با بارکد'}</button></div>
-          <label htmlFor="counter-search">نام یا کد کالا</label><input id="counter-search" className="input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
-          {loading && <p role="status" aria-busy="true">در حال دریافت کالاها…</p>}
-          {loadError && <p role="alert">{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAttempt((value) => value + 1)}>تلاش دوباره</button></p>}
-          {!loading && !loadError && !products.length && <p className="sa-hint">کالای فعال فیزیکی یا محصول دارای انبار کد پیدا نشد.</p>}
-          <label htmlFor="counter-product">کالا</label><select id="counter-product" className="input" value={productId} onChange={(event) => { setProductId(Number(event.target.value)); setVariantId(0) }}><option value={0}>انتخاب کالا</option>{products.map((item) => <option key={item.id} value={item.id}>{item.name}{item.kind === 'PHYSICAL' ? ' · فیزیکی' : ' · انبار کد'}</option>)}</select>
-          {product && product.variants.length > 0 && <><label htmlFor="counter-variant">گزینهٔ کالا</label><select id="counter-variant" className="input" value={variantId} onChange={(event) => setVariantId(Number(event.target.value))}><option value={0}>انتخاب گزینه</option>{product.variants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></>}
-          {product && <p className="sa-hint">قیمت واحد {formatMoney(BigInt(variant?.unitMinor || product.unitMinor), product.currency, 'fa-IR')}{(variant?.stock ?? product.stock) >= 0 ? ` · موجودی ${(variant?.stock ?? product.stock).toLocaleString('fa-IR')}` : ''}</p>}
-          <button type="button" className="btn btn-ghost" disabled={!product || !!(product.variants.length && !variant) || items.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)} onClick={addItem}>افزودن به فروش</button>
-          {items.map((item, index) => <section key={`${item.productId}:${item.variantId}`} className="counter-item" aria-label={item.product.name}>
-            <header><h2>{item.product.name}{item.variantName && <small>{item.variantName}</small>}</h2><button type="button" className="btn btn-ghost btn-sm" aria-label={`حذف ${item.product.name}`} onClick={() => { setItems(items.filter((_, at) => at !== index)); setConfirmed(false) }}>حذف</button></header>
-            <label htmlFor={`quantity-${index}`}>تعداد</label><input id={`quantity-${index}`} className="input" type="number" min={1} max={Math.min(99, item.product.maxPerOrder || 99)} required value={item.quantity} onChange={(event) => changeItem(index, { quantity: Math.max(1, Math.min(99, Number(event.target.value) || 1)) })} />
-            <p>{priceOf(item)}</p>
-            {fieldsFor(item.product.fields, item.variantName).map((field) => <label className="counter-field" key={field.key}>{field.label}{field.required ? ' *' : ''}<input className="input" type={field.kind === 'secret' ? 'password' : field.kind === 'email' ? 'email' : 'text'} autoComplete="off" required={field.required} value={item.inputs[field.key] || ''} onChange={(event) => changeItem(index, { inputs: { ...item.inputs, [field.key]: event.target.value } })} />{field.help && <small>{field.help}</small>}</label>)}
-          </section>)}
-          {!items.length && <p className="sa-hint">کالاهای تحویلی را به فروش اضافه کنید.</p>}
+      <form className="cd-layout" onSubmit={(event) => { event.preventDefault(); if (confirmed) submitSale() }}>
+        <fieldset className="sa-card cd-basket" disabled={locked}><legend className="cd-sr">کالاهای فروش</legend>
+          <div className="cd-scan">
+            <label htmlFor="counter-scan">بارکد کالا</label>
+            <div className="cd-scan-field">
+              <svg className="cd-scan-glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10 8v8M13 8v8M17 8v8" /></svg>
+              <input id="counter-scan" className="input" value={scan} autoComplete="off" dir="ltr" placeholder="بارکدخوان را اینجا بزنید" aria-describedby="counter-scan-note" onChange={(event) => setScan(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void scanItem() } }} />
+              <button type="button" className="btn btn-ghost" disabled={scanBusy || !scan.trim()} onClick={() => void scanItem()}>{scanBusy ? 'در حال بررسی…' : 'افزودن'}</button>
+            </div>
+            <p id="counter-scan-note" className={`cd-scan-note${scanNote ? ' is-ok' : ''}`} role="status">{scanBusy ? 'در حال خواندن بارکد…' : scanNote || 'Enter کالا یا گونهٔ دقیق را اضافه می‌کند'}</p>
+          </div>
+
+          <details className="cd-pick" open={!items.length || !!product}>
+            <summary>انتخاب دستی کالا</summary>
+            <div className="cd-pick-body">
+              <label className="cd-field cd-field-wide"><span>نام یا کد کالا</span><input id="counter-search" className="input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+              <label className="cd-field"><span>کالا</span><select id="counter-product" className="input" value={productId} onChange={(event) => { setProductId(Number(event.target.value)); setVariantId(0) }}><option value={0}>{loading ? 'در حال دریافت کالاها…' : 'انتخاب کالا'}</option>{products.map((item) => <option key={item.id} value={item.id}>{item.name}{item.kind === 'PHYSICAL' ? ' · فیزیکی' : ' · انبار کد'}</option>)}</select></label>
+              {product && product.variants.length > 0 && <label className="cd-field"><span>گزینهٔ کالا</span><select id="counter-variant" className="input" value={variantId} onChange={(event) => setVariantId(Number(event.target.value))}><option value={0}>انتخاب گزینه</option>{product.variants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+              {loadError && <p className="cd-field-wide" role="alert">{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAttempt((value) => value + 1)}>تلاش دوباره</button></p>}
+              {!loading && !loadError && !products.length && <p className="sa-hint cd-field-wide">کالای فعال فیزیکی یا محصول دارای انبار کد پیدا نشد.</p>}
+              <div className="cd-pick-foot cd-field-wide">
+                {product ? <p className="cd-pick-price"><b className="cd-num">{formatMoney(BigInt(variant?.unitMinor || product.unitMinor), product.currency, 'fa-IR')}</b>{stock >= 0 && <span className={`sa-stock${stock === 0 ? ' is-out' : stock <= 3 ? ' is-low' : ''}`}>موجودی {stock.toLocaleString('fa-IR')}</span>}</p> : <span />}
+                <button type="button" className="btn btn-ghost" disabled={addDisabled} onClick={addItem}>افزودن به فروش</button>
+              </div>
+            </div>
+          </details>
+
+          <div className="cd-lines-head"><h2>کالاهای این فروش</h2>{items.length > 0 && <span className="cd-meta">{items.length.toLocaleString('fa-IR')} ردیف · {units.toLocaleString('fa-IR')} عدد</span>}</div>
+          {items.length ? <ol className="cd-lines">{items.map((item, index) => {
+            const key = lineKey(item.productId, item.variantId), fields = fieldsFor(item.product.fields, item.variantName)
+            return <li key={key} className="cd-line" aria-label={item.product.name}>
+              {fresh.key === key && <span key={fresh.n} className="cd-flash" aria-hidden="true" />}
+              <div className="cd-line-main">
+                <div className="cd-line-name"><b>{item.product.name}</b><small>{item.variantName && <>{item.variantName} · </>}{item.product.kind === 'PHYSICAL' ? 'کالای فیزیکی' : 'کارت از انبار کد'} · واحد {formatMoney(BigInt(item.expectedUnitMinor), item.product.currency, 'fa-IR')}</small></div>
+                <div className="cd-qty" role="group" aria-label={`تعداد ${item.product.name}`}>
+                  <button type="button" aria-label="یکی بیشتر" disabled={item.quantity >= maxOf(item)} onClick={() => changeItem(index, { quantity: Math.min(maxOf(item), item.quantity + 1) })}>+</button>
+                  <input id={`quantity-${index}`} aria-label="تعداد" className="cd-num" type="number" inputMode="numeric" min={1} max={maxOf(item)} required value={item.quantity} onChange={(event) => changeItem(index, { quantity: Math.max(1, Math.min(99, Number(event.target.value) || 1)) })} />
+                  <button type="button" aria-label="یکی کمتر" disabled={item.quantity <= 1} onClick={() => changeItem(index, { quantity: Math.max(1, item.quantity - 1) })}>−</button>
+                </div>
+                <b className="cd-line-total cd-num">{priceOf(item)}</b>
+                <button type="button" className="cd-remove" aria-label={`حذف ${item.product.name}`} onClick={() => { setItems(items.filter((_, at) => at !== index)); setConfirmed(false) }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
+              </div>
+              {fields.length > 0 && <div className="cd-line-fields">{fields.map((field) => <label className="cd-field" key={field.key}><span>{field.label}{field.required ? ' *' : ''}</span><input className="input" type={field.kind === 'secret' ? 'password' : field.kind === 'email' ? 'email' : 'text'} autoComplete="off" required={field.required} value={item.inputs[field.key] || ''} onChange={(event) => changeItem(index, { inputs: { ...item.inputs, [field.key]: event.target.value } })} />{field.help && <small>{field.help}</small>}</label>)}</div>}
+            </li>
+          })}</ol> : <div className="cd-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10 8v8M13 8v8M17 8v8" /></svg><p>هنوز کالایی اضافه نشده است</p><small>بارکد را بخوانید یا کالا را دستی انتخاب کنید</small></div>}
         </fieldset>
-        <fieldset className="sa-card counter-payment" disabled={locked}><legend>مشتری و دریافت وجه</legend>
-          <label htmlFor="counter-session">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={event=>{setSessionId(Number(event.target.value));setConfirmed(false)}}><option value={0}>صندوق باز خود را انتخاب کنید</option>{sessions.filter(row=>row.status==='OPEN'&&row.mine).map(row=><option key={row.id} value={row.id}>{row.register} · {row.currency}</option>)}</select><Link className="sa-link" href="/admin/store/registers">بازکردن / بستن صندوق</Link>
-          <CustomerDesk customer={customer} name={customerName} phone={customerPhone} onCustomer={value=>{setCustomer(value);setConfirmed(false)}} onName={setCustomerName} onPhone={setCustomerPhone}/>
-          <PaymentDesk value={payment} onChange={value=>{setPayment(value);setConfirmed(false)}} total={total} currency={currency} customerId={customer?.id||null}/>
-          <p className="counter-total">جمع فروش <strong>{currency ? formatMoney(total, currency, 'fa-IR') : '—'}</strong></p>
-          <label className="counter-confirm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />کل مبلغ را دریافت کرده‌ام و کالاها اکنون به مشتری تحویل می‌شوند</label>
-          <button className="btn btn-primary" type="submit" disabled={!items.length || !confirmed || !sessionId || scanBusy || locked}>{sale.busy ? 'در حال ثبت…' : 'ثبت فروش و دریافت رسید'}</button>
+
+        <fieldset className="sa-card cd-bill-panel" disabled={locked}><legend className="cd-sr">مشتری و دریافت وجه</legend>
+          <Step n={1} title="صندوق" done={!!sessionId} note={sessionId ? openSessions.find((row) => row.id === sessionId)?.currency : undefined}>
+            {sessions && !openSessions.length ? <div className="cd-inline-empty"><p>صندوق بازی به نام شما نیست</p><Link className="btn btn-primary btn-sm" href="/admin/store/registers">بازکردن صندوق</Link></div>
+              : <><label htmlFor="counter-session" className="cd-sr">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={(event) => { setSessionId(Number(event.target.value)); setConfirmed(false) }}><option value={0}>{sessions ? 'صندوق باز خود را انتخاب کنید' : 'در حال دریافت صندوق‌ها…'}</option>{openSessions.map((row) => <option key={row.id} value={row.id}>{row.register} · {row.currency}</option>)}</select></>}
+          </Step>
+          <Step n={2} title="مشتری" done={!!customer} note={customer ? 'حساب متصل' : 'مهمان'}>
+            <CustomerDesk customer={customer} name={customerName} phone={customerPhone} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onName={setCustomerName} onPhone={setCustomerPhone} />
+          </Step>
+          <Step n={3} title="دریافت وجه" done={paymentReady}>
+            <PaymentDesk value={payment} onChange={(value) => { setPayment(value); setConfirmed(false) }} total={total} currency={currency} customerId={customer?.id || null} />
+          </Step>
+
+          <div className="cd-ticket">
+            <dl className="cd-ticket-rows">
+              <div><dt>ردیف کالا</dt><dd className="cd-num">{items.length.toLocaleString('fa-IR')}</dd></div>
+              <div><dt>تعداد</dt><dd className="cd-num">{units.toLocaleString('fa-IR')}</dd></div>
+            </dl>
+            <p className="cd-ticket-total"><span>جمع فروش</span><strong key={total.toString()} className="cd-num">{currency ? formatMoney(total, currency, 'fa-IR') : '—'}</strong></p>
+          </div>
+          <label className="cd-confirm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>کل مبلغ را دریافت کرده‌ام و کالاها اکنون به مشتری تحویل می‌شوند</span></label>
+          <button className="btn btn-primary cd-submit" type="submit" disabled={!items.length || !confirmed || !sessionId || scanBusy || locked}>{sale.busy ? 'در حال ثبت…' : 'ثبت فروش و دریافت رسید'}</button>
         </fieldset>
       </form>
     </>}

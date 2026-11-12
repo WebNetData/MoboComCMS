@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import PublicForm from '@/components/site/PublicForm'
 import type { FormDefinition } from '@/modules/forms/domain/forms'
+import DoneMark from '../../store/DoneMark'
+import '../../store/desk.css'
 
 type Saved = { id: number; pickupCode: string; receiptToken: string }
 
@@ -67,10 +69,12 @@ export default function CounterPage() {
       </select>
     </section>}
     {!loading && !error && !forms.length && <p className="sa-hint">فرم غیرپرداختی برای پذیرش حضوری در دسترس شما نیست. مدیر فرم‌ها می‌تواند فرم تعمیر موبایل را بسازد و دسترسی آن را به شما بدهد.</p>}
-    {saved && <section ref={savedPanel} className="sa-card ct-saved" role="status" tabIndex={-1}>
-      <header className="sa-card-head"><h2>پذیرش شمارهٔ {saved.id.toLocaleString('fa-IR', { useGrouping: false })} ثبت شد</h2></header>
-      {saved.pickupCode && <p>کد تحویل مشتری: <b dir="ltr" className="ct-code">{saved.pickupCode}</b> <small className="sa-hint">روی رسید مشتری چاپ می‌شود؛ بدون آن دستگاه تحویل داده نمی‌شود.</small></p>}
-      <div className="sa-row-actions">
+    {saved && <section ref={savedPanel} className="sa-card ct-saved cd-done" role="status" tabIndex={-1}>
+      <span className="cd-done-mark" aria-hidden="true"><DoneMark size={28} /></span>
+      <div className="cd-done-text"><h2>پذیرش شمارهٔ <bdi className="cd-num">{saved.id.toLocaleString('fa-IR', { useGrouping: false })}</bdi> ثبت شد</h2>
+        {saved.pickupCode ? <p>کد تحویل مشتری <b dir="ltr" className="cd-pickup-code"><span className="cd-sr">{saved.pickupCode}</span>{saved.pickupCode.split('').map((digit, index) => <i key={index} aria-hidden="true">{digit}</i>)}</b></p> : <p>در میز کار این فرم قرار گرفت.</p>}
+        {saved.pickupCode && <p className="sa-hint">روی رسید مشتری چاپ می‌شود؛ بدون آن دستگاه تحویل داده نمی‌شود.</p>}</div>
+      <div className="cd-done-actions">
         {form?.settings?.receipt.enabled && saved.receiptToken && <>
           <a className="btn btn-primary" href={`/admin/forms/receipt/${saved.id}?copy=customer`} target="_blank" rel="noopener">چاپ رسید مشتری</a>
           <a className="btn btn-ghost" href={`/admin/forms/receipt/${saved.id}?copy=shop`} target="_blank" rel="noopener">چاپ رسید مغازه</a>
