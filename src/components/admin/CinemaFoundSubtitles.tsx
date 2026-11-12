@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 
-type Status = { links: number; scanned: number; failed: number; withSubtitles: number; sidecar: number; embedded: number; waiting: number; notes: { text: string; links: number }[]; ffmpeg: boolean }
+type Status = { links: number; scanned: number; failed: number; reading?: number; withSubtitles: number; sidecar: number; embedded: number; waiting: number; notes: { text: string; links: number }[]; ffmpeg: boolean }
 const fa = (value: number) => value.toLocaleString('fa-IR')
 
 /** What the look for subtitles beside and inside film files found, and a way to start it over the existing links. */
@@ -24,8 +24,8 @@ export default function CinemaFoundSubtitles() {
   }
   return <div className="sa-found-subtitles">
     {status ? <>
-      <p className="sa-sub">{fa(status.scanned)} از {fa(status.links)} فایل بررسی شده · {fa(status.withSubtitles)} فایل زیرنویس دارد ({fa(status.sidecar)} زیرنویس کنار ویدئو، {fa(status.embedded)} زیرنویس داخل فایل){status.failed ? ` · ${fa(status.failed)} فایل خوانده نشد` : ''}{status.waiting ? ` · ${fa(status.waiting)} کار در صف` : ''}</p>
-      {!status.ffmpeg && <p className="sa-sub">ffmpeg روی سرور نصب نیست: فقط فایل‌های زیرنویس کنار ویدئو پیدا می‌شوند، نه زیرنویس داخل فایل.</p>}
+      <p className="sa-sub">{fa(status.scanned)} از {fa(status.links)} فایل بررسی شده · {fa(status.withSubtitles)} فایل زیرنویس دارد ({fa(status.sidecar)} زیرنویس کنار ویدئو، {fa(status.embedded)} زیرنویس داخل فایل){status.failed ? ` · ${fa(status.failed)} فایل خوانده نشد` : ''}{status.reading ? ` · ${fa(status.reading)} فایل در حال خواندن کامل (در چند کار پشت سر هم)` : ''}{status.waiting ? ` · ${fa(status.waiting)} کار در صف` : ''}</p>
+      {!status.ffmpeg && <p className="sa-sub">ffmpeg روی سرور نصب نیست: زیرنویس داخل فایل‌های کتابخانهٔ خود سایت و «دریافت کامل» خوانده نمی‌شود. خواندن از روی فهرست فایل‌های MKV سرورهای دانلود به ffmpeg نیاز ندارد.</p>}
       {status.notes.length > 0 && <ul className="sa-sub">{status.notes.map(note => <li key={note.text}>{note.text} ({fa(note.links)} فایل)</li>)}</ul>}
     </> : <p className="sa-sub">در حال خواندن وضعیت…</p>}
     <p className="sa-sub">هر فایل در اولین پخش خودکار بررسی می‌شود. برای لینک‌های قبلی، بررسی را یک‌بار اجرا کنید.</p>

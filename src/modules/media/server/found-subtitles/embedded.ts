@@ -4,20 +4,25 @@ import path from 'node:path'
 import { Writable } from 'node:stream'
 import { streamPublicFile } from '@/modules/downloads/server/remote'
 import { MAX_SUBTITLE_BYTES } from '@/modules/media/domain/media'
-import { MAX_FOUND_PER_ORIGIN, embeddedFormat, foundLabel, subtitleLanguage, type FoundFormat } from '@/modules/media/domain/found-subtitles'
+import { MAX_FOUND_PER_ORIGIN, cueCount, embeddedFormat, foundLabel, subtitleLanguage, trulyForced, type FoundFormat } from '@/modules/media/domain/found-subtitles'
 import { INPUT_LIMITS, MediaToolError, runMediaTool } from './tools'
 import { subtitleText, type Found } from './sidecar'
 import type { VideoSource } from './source'
 
 /** The start of a file holds its track list (MKV, and MP4 prepared for the web); reading more is not needed to see it. */
 const PROBE_BYTES = 64 * 1024 * 1024
+/**
+ * Connections for reading a whole remote file: hosts often limit one connection (about 4 MB/s from Arvan storage, owner
+ * 2026-11-12), and a 1.7 GB film must be read within one background job. Six keep at most 48 MB in memory.
+ */
+const READ_CONNECTIONS = 6
 type Stream = { index: number; format: FoundFormat; language: string; title: string; forced: boolean; hearing: boolean }
 
 /** The file for the tool: a local path, or the remote file fed through stdin (only its first `stopAfter` bytes when given). */
 function input(source: VideoSource, maxBytes: number, timeoutMs: number, stopAfter = 0) {
   if (source.kind === 'local') return { path: source.file, feed: undefined }
   return { path: 'pipe:0', feed: (stdin: Writable) => {
-    if (!stopAfter) return streamPublicFile(source.sign(source.url), stdin, { maxBytes, timeoutMs })
+    if (!stopAfter) return streamPublicFile(source.sign(source.url), stdin, { maxBytes, timeoutMs, parallel: READ_CONNECTIONS })
     let sent = 0
     const head = new Writable({
       write(chunk: Buffer, _encoding, done) {
@@ -37,14 +42,16 @@ function input(source: VideoSource, maxBytes: number, timeoutMs: number, stopAft
 }
 const tooLarge = (error: unknown) => /حجم/.test(String((error as Error | null)?.message || ''))
 
-const SIZE = 'فایل از سقف حجم بررسی زیرنویس (تنظیمات فیلم و سریال) بزرگ‌تر است'
+export const SIZE_NOTE = 'فایل از سقف حجم بررسی زیرنویس (تنظیمات فیلم و سریال) بزرگ‌تر است'
+const SIZE = SIZE_NOTE
 const NOTE: Record<MediaToolError['reason'], string> = {
   missing: 'ffmpeg/ffprobe روی سرور نصب نیست؛ زیرنویس داخل فایل خوانده نشد',
-  timeout: 'خواندن زیرنویس داخل فایل در زمان مجاز تمام نشد',
+  timeout: 'خواندن زیرنویس داخل فایل در زمان مجاز تمام نشد (سرعت دریافت از سرور فایل کم است)؛ فایل زیرنویس را کنار ویدیو بگذارید یا جدا اضافه کنید',
   failed: 'فهرست ترک‌های فایل خوانده نشد (فرمت ناشناخته، یا MP4 که فهرستش در انتهای فایل است)',
 }
 
-async function probe(source: VideoSource, maxBytes: number, notes: string[]): Promise<Stream[]> {
+/** The text subtitle tracks a file lists at its start (its first 64 MB at most are read). */
+export async function embeddedTracks(source: VideoSource, maxBytes: number, notes: string[]): Promise<Stream[]> {
   const from = input(source, maxBytes, 45_000, PROBE_BYTES)
   let stdout = ''
   try {
@@ -71,9 +78,10 @@ async function probe(source: VideoSource, maxBytes: number, notes: string[]): Pr
  * containers subtitle lines are spread through the file beside the picture and sound.
  */
 export async function embeddedSubtitles(source: VideoSource, options: { maxBytes: number; deadline: number }, notes: string[]): Promise<Found[]> {
-  const streams = await probe(source, options.maxBytes, notes)
+  const streams = await embeddedTracks(source, options.maxBytes, notes)
   if (!streams.length) return []
-  const timeoutMs = Math.min(7 * 60_000, options.deadline - Date.now())
+  // The rest of the job's time, less a moment to record what was found.
+  const timeoutMs = Math.min(8 * 60_000, options.deadline - Date.now() - 15_000)
   if (timeoutMs < 30_000) { notes.push(NOTE.timeout); return [] }
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'mobocom-subs-'))
   try {
@@ -87,13 +95,14 @@ export async function embeddedSubtitles(source: VideoSource, options: { maxBytes
     catch (error) { notes.push(error instanceof MediaToolError && tooLarge(error.feedError) ? SIZE : NOTE[error instanceof MediaToolError ? error.reason : 'failed']); return [] }
     // A file cut short (size limit, dropped connection) would give subtitles that stop half-way: keep none.
     if (feedError) { notes.push(tooLarge(feedError) ? SIZE : 'فایل کامل از سرور دانلود دریافت نشد'); return [] }
-    const found: Found[] = []
+    const taken: { stream: Stream; content: string }[] = []
     for (const { stream, file } of outputs) {
       const stat = await fs.stat(file).catch(() => null)
       if (!stat || stat.size === 0 || stat.size > MAX_SUBTITLE_BYTES) continue
       const content = subtitleText(await fs.readFile(file), stream.format)
-      if (content) found.push({ origin: 'EMBEDDED', source: `stream:${stream.index}`, language: stream.language, label: foundLabel(stream), format: stream.format, content })
+      if (content) taken.push({ stream, content })
     }
-    return found
+    const forced = trulyForced(taken.map(({ stream, content }) => ({ forced: stream.forced, cues: cueCount(content, stream.format) })))
+    return taken.map(({ stream, content }, at): Found => ({ origin: 'EMBEDDED', source: `stream:${stream.index}`, language: stream.language, label: foundLabel({ ...stream, forced: forced[at] }), format: stream.format, content }))
   } finally { await fs.rm(work, { recursive: true, force: true }) }
 }

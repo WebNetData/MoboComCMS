@@ -6,7 +6,7 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), fsp = req
 const { Readable } = require('node:stream'), { pipeline } = require('node:stream/promises')
 const ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `fsub${Date.now()}`
-const state = { viewer: { userId: null, member: false }, guard: true, cinema: { enableAssSubtitles: true, enableSeparateAudio: false, findSubtitles: true, subtitleScanMaxGB: 10 }, remote: new Map(), drop: new Map(), fetched: [], root: '' }
+const state = { viewer: { userId: null, member: false }, guard: true, cinema: { enableAssSubtitles: true, enableSeparateAudio: false, findSubtitles: true, fullReadSubtitles: true, subtitleScanMaxGB: 10 }, remote: new Map(), drop: new Map(), ranged: new Map(), indexed: new Set(), rangeBytes: 0, rangeFailAfter: Infinity, fetched: [], root: '' }
 const cache = new Map()
 function load(file) {
   const full = path.resolve(file.endsWith('.ts') || file.endsWith('.tsx') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : fs.existsSync(`${file}.tsx`) ? `${file}.tsx` : path.join(file, 'index.ts'))
@@ -28,10 +28,34 @@ function load(file) {
     if (name === '@/modules/identity/server/access') return { requireUser: async () => (state.viewer.userId ? { id: state.viewer.userId } : null) }
     if (name === '@/modules/downloads/server/files') return { filesRoot: () => state.root, fetchRemoteBytes: async (url, max) => { state.fetched.push(url); const file = state.remote.get(url); if (file === undefined) throw new Error('unreachable (404)'); const bytes = Buffer.isBuffer(file) ? file : Buffer.from(file); if (bytes.length > max) throw new Error('too large'); return bytes } }
     // The guarded transport, as the scan uses it: the size limit is refused up front like a Content-Length would be.
-    if (name === '@/modules/downloads/server/remote') return { streamPublicFile: async (url, sink, options) => {
+    if (name === '@/modules/downloads/server/remote') return {
+      // Single byte ranges, for hosts in state.indexed; any other host answers as one without ranges.
+      rangeAgents: () => ({ for: () => undefined, destroy: () => {} }),
+      readRemoteRange: async (url, from, to) => {
+        const file = state.remote.get(url)
+        if (!Buffer.isBuffer(file) || !state.indexed.has(url)) throw new Error('سرور فایل بخش‌های فایل را جدا نمی‌دهد')
+        // A host that stops answering for now, part-way through the lines.
+        if (state.rangeFailAfter-- <= 0) throw new Error('socket hang up')
+        const bytes = file.subarray(from, Math.min(to + 1, file.length)); state.rangeBytes += bytes.length
+        return { bytes, total: file.length, url }
+      },
+      streamPublicFile: async (url, sink, options) => {
       state.fetched.push(url); const file = state.remote.get(url)
       if (!Buffer.isBuffer(file)) { sink.destroy(); throw new Error('دریافت فایل انجام نشد (404)') }
       if (file.length > options.maxBytes) { sink.destroy(); throw new Error('فایل از سقف حجم انتقال بزرگ‌تر است') }
+      // A slow host that serves byte ranges: each job gets `budget` bytes before its time is up, then continues from there.
+      const host = state.ranged.get(url)
+      if (host && (options.parallel > 1 || options.resume)) {
+        const from = options.resume?.from || 0
+        if (options.resume && (options.resume.validator !== host.etag || options.resume.total !== file.length)) { sink.destroy(); throw Object.assign(new Error('فایل هنگام دریافت تغییر کرد'), { changed: true }) }
+        host.reads.push(from)
+        await options.onStart?.({ total: file.length, validator: host.etag })
+        const end = Math.min(file.length, from + host.budget)
+        await new Promise((resolve, reject) => sink.write(file.subarray(from, end), error => error ? reject(error) : resolve()))
+        if (end < file.length) { sink.destroy(); throw Object.assign(new Error('This operation was aborted'), { name: 'AbortError' }) }
+        await new Promise(resolve => sink.end(resolve))
+        return { bytes: end - from, total: file.length, validator: host.etag }
+      }
       // A connection that drops part-way: what arrived is passed on, then the transfer fails.
       const drop = state.drop.get(url)
       const end = drop ?? file.length
@@ -101,7 +125,7 @@ async function main() {
     assert.match(rows.find(row => row.source === 'stream:1').content, /سلام از داخل فایل/)
     assert.match(rows.find(row => row.source === 'stream:2').content, /\[Events\][\s\S]*Hello inside/, 'ASS keeps its styles')
     assert.equal(rows.find(row => row.language === 'ar').content.trim().split('\n').pop(), 'سلام', 'a Windows-1256 file is read as what it is')
-    assert.equal(rows.find(row => row.source === 'stream:2').label, 'انگلیسی · SDH · فقط گفت‌وگوهای خارجی')
+    assert.equal(rows.find(row => row.source === 'stream:2').label, 'انگلیسی · SDH', 'marked forced, yet as long as the other track: a full subtitle, not only the foreign parts')
 
     // ---- the player is offered them for this file, Persian first, through the site with this file's token
     page = await watch(local)
@@ -222,6 +246,137 @@ async function main() {
     assert.deepEqual(rows.map(row => row.origin), ['SIDECAR'], 'nothing from inside a file that did not arrive whole')
     assert.match(state1.notes.join(' '), /فایل کامل از سرور دانلود دریافت نشد/)
 
+    // ---- a host too slow for one job: the file is copied in parts over several jobs, then its tracks are taken out
+    const copies = path.join(process.cwd(), 'storage', 'tmp', 'subtitle-scan')
+    const leftovers = async id => (await fsp.readdir(copies).catch(() => [])).filter(name => name.startsWith(`${id}-`))
+    const slowUrl = `${base}Show.S01E02.720p.mkv?copy=4`
+    state.remote.set(slowUrl, remoteMkv); state.ranged.set(slowUrl, { etag: '"e1"', budget: Math.ceil(remoteMkv.length / 3), reads: [] })
+    const slow = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: slowUrl } })
+    const slowKey = request.scanKey(slowUrl)
+    job.continued.length = 0
+    let step = await run(slow)
+    assert.ok(step.reading > 0 && step.total === remoteMkv.length, JSON.stringify(step))
+    ;({ rows, scan: state1 } = await scanned(slow))
+    assert.deepEqual([state1.status, state1.read.total, rows.length], ['reading', remoteMkv.length, 0], 'progress kept on the link; nothing offered yet')
+    assert.match(state1.notes[0], /در حال خواندن کامل فایل/)
+    assert.deepEqual(job.continued.map(row => [row.kind, row.payload.part, row.options.dedupeKey]), [['media.subtitle-scan', 1, `${request.scanDedupe(slow.id, slowKey)}:part:1`]], 'the next part is queued by this job')
+    assert.equal((await leftovers(slow.id)).length, 2, 'a private copy and its facts')
+    // While it is copied: a page view queues nothing more, and a second look started anew leaves the copy to its jobs.
+    await watch(slow)
+    assert.equal(await prisma.backgroundJob.count({ where: { dedupeKey: request.scanDedupe(slow.id, slowKey) } }), 0)
+    assert.deepEqual(await run(slow), { linkId: slow.id, skipped: 'reading' })
+    assert.equal((await scan.foundSubtitleStatus()).reading, 1)
+    step = await scan.runSubtitleScan({ linkId: slow.id, key: slowKey, part: 1 }, job)
+    assert.ok(step.reading > 0)
+    step = await scan.runSubtitleScan({ linkId: slow.id, key: slowKey, part: 2 }, job)
+    assert.deepEqual([step.embedded, step.sidecar], [2, 1], JSON.stringify(step))
+    assert.deepEqual(state.ranged.get(slowUrl).reads, [0, Math.ceil(remoteMkv.length / 3), 2 * Math.ceil(remoteMkv.length / 3)], 'each job continues where the last one stopped; the track list was read once')
+    ;({ rows, scan: state1 } = await scanned(slow))
+    assert.equal(state1.status, 'done')
+    assert.deepEqual(rows.map(row => [row.origin, row.language]).sort(), [['EMBEDDED', 'en'], ['EMBEDDED', 'fa'], ['SIDECAR', 'fa']].sort())
+    assert.match(rows.find(row => row.source === 'stream:1').content, /سلام از داخل فایل/)
+    assert.deepEqual(await leftovers(slow.id), [], 'the copy is removed')
+    // The file is replaced on the server part-way: refused, not stitched; the copy goes and the look says so.
+    const swapUrl = `${base}Show.S01E02.720p.mkv?copy=5`
+    state.remote.set(swapUrl, remoteMkv); state.ranged.set(swapUrl, { etag: '"e1"', budget: Math.ceil(remoteMkv.length / 3), reads: [] })
+    const swap = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: swapUrl } })
+    await run(swap)
+    state.ranged.get(swapUrl).etag = '"e2"'
+    await scan.runSubtitleScan({ linkId: swap.id, key: request.scanKey(swapUrl), part: 1 }, job)
+    ;({ rows, scan: state1 } = await scanned(swap))
+    assert.deepEqual([state1.status, rows.map(row => row.origin)], ['done', ['SIDECAR']])
+    assert.match(state1.notes.join(' '), /عوض شد/)
+    assert.deepEqual(await leftovers(swap.id), [])
+    // A copy that stopped moving (a lost job) is looked at again on the next view, continuing from its copy.
+    const lostUrl = `${base}Show.S01E02.720p.mkv?copy=6`
+    state.remote.set(lostUrl, remoteMkv); state.ranged.set(lostUrl, { etag: '"e1"', budget: Math.ceil(remoteMkv.length / 2), reads: [] })
+    const lost = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: lostUrl } })
+    await run(lost)
+    const lostScan = (await scanned(lost)).scan
+    await prisma.mediaLink.update({ where: { id: lost.id }, data: { subtitleScan: JSON.stringify({ ...lostScan, at: new Date(Date.now() - 31 * 60_000).toISOString() }) } })
+    await watch(lost)
+    assert.equal(await prisma.backgroundJob.count({ where: { dedupeKey: request.scanDedupe(lost.id, request.scanKey(lostUrl)) } }), 1, 'queued again once it stopped moving')
+    step = await run(lost)
+    assert.equal(step.embedded, 2, JSON.stringify(step))
+    assert.deepEqual(state.ranged.get(lostUrl).reads, [0, Math.ceil(remoteMkv.length / 2)], 'it continued, it did not start over')
+    assert.deepEqual(await leftovers(lost.id), [])
+
+    // ---- reading inside files switched off: only the file beside the video; the video is not read at all, and a copy
+    // under way is dropped
+    state.cinema.readEmbeddedSubtitles = false
+    const besideUrl = `${base}Show.S01E02.720p.mkv?copy=7`
+    state.remote.set(besideUrl, remoteMkv); state.ranged.set(besideUrl, { etag: '"e1"', budget: Math.ceil(remoteMkv.length / 3), reads: [] })
+    const beside = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: besideUrl } })
+    state.fetched.length = 0
+    await run(beside)
+    ;({ rows, scan: state1 } = await scanned(beside))
+    assert.deepEqual([state1.status, rows.map(row => [row.origin, row.language])], ['done', [['SIDECAR', 'fa']]])
+    assert.ok(!state.fetched.includes(besideUrl), 'the video itself is not fetched, not even its start')
+    assert.deepEqual([state.ranged.get(besideUrl).reads, await leftovers(beside.id)], [[], []])
+    state.cinema.readEmbeddedSubtitles = true
+    const midUrl = `${base}Show.S01E02.720p.mkv?copy=8`
+    state.remote.set(midUrl, remoteMkv); state.ranged.set(midUrl, { etag: '"e1"', budget: Math.ceil(remoteMkv.length / 3), reads: [] })
+    const mid = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: midUrl } })
+    await run(mid)
+    assert.equal((await leftovers(mid.id)).length, 2)
+    state.cinema.readEmbeddedSubtitles = false
+    await scan.runSubtitleScan({ linkId: mid.id, key: request.scanKey(midUrl), part: 1 }, job)
+    ;({ rows, scan: state1 } = await scanned(mid))
+    assert.deepEqual([state1.status, rows.map(row => row.origin), await leftovers(mid.id), state.ranged.get(midUrl).reads.length], ['done', ['SIDECAR'], [], 1], 'switched off mid-copy: the copy goes, nothing more is read')
+    state.cinema.readEmbeddedSubtitles = true
+
+    // ---- through the file's own index: only its subtitle lines are read, not the film; nothing is kept on disk
+    const { buildMkv } = require('./mkv-fixture.cjs')
+    const indexedMkv = buildMkv({ tracks: [{ number: 2, codec: 'S_TEXT/UTF8', language: 'per', name: 'HEXDL.COM', forced: true }, { number: 3, codec: 'S_TEXT/UTF8', language: 'eng' }], lines: { 2: Array.from({ length: 30 }, (_, i) => ({ start: 1000 + i * 1500, duration: 1200, text: `خط ${i + 1}` })), 3: Array.from({ length: 30 }, (_, i) => ({ start: 1100 + i * 1500, duration: 1200, text: `line ${i + 1}` })) }, filler: 512 * 1024 }).file
+    for (const full of [false, true]) {
+      state.cinema.fullReadSubtitles = full
+      const indexedUrl = `${base}Show.S01E02.720p.mkv?indexed=${full}`
+      state.remote.set(indexedUrl, indexedMkv); state.indexed.add(indexedUrl); state.rangeBytes = 0; state.fetched.length = 0
+      const indexedLink = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: indexedUrl } })
+      step = await run(indexedLink)
+      ;({ rows, scan: state1 } = await scanned(indexedLink))
+      assert.deepEqual([state1.status, rows.map(row => [row.origin, row.source, row.language, row.format]).sort()], ['done', [['EMBEDDED', 'stream:2', 'fa', 'srt'], ['EMBEDDED', 'stream:3', 'en', 'srt'], ['SIDECAR', `${base}Show.S01E02.fa.srt`, 'fa', 'srt']].sort()], JSON.stringify(state1))
+      assert.match(rows.find(row => row.source === 'stream:2').content, /00:00:01,000 --> 00:00:02,200\nخط 1/)
+      assert.ok(!state.fetched.includes(indexedUrl), 'the video is never streamed, whatever the whole-read switch says')
+      assert.ok(state.rangeBytes < indexedMkv.length / 10, `${state.rangeBytes} of ${indexedMkv.length} bytes`)
+      assert.deepEqual(await leftovers(indexedLink.id), [])
+      const offered = (await watch(indexedLink)).subtitles.map(row => row.language)
+      assert.deepEqual(offered, ['fa', 'fa', 'en'], 'the player offers them')
+    }
+    // The host stops answering part-way: the lines read are kept, the next job continues, and the film is still not read.
+    state.cinema.fullReadSubtitles = false
+    const laterUrl = `${base}Show.S01E02.720p.mkv?later=1`
+    state.remote.set(laterUrl, indexedMkv); state.indexed.add(laterUrl); state.fetched.length = 0
+    const later = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: laterUrl } })
+    state.rangeFailAfter = 6; job.continued.length = 0
+    step = await run(later)
+    assert.ok(step.reading > 0 && step.reading < step.total, JSON.stringify(step))
+    ;({ rows, scan: state1 } = await scanned(later))
+    assert.deepEqual([state1.status, rows.length], ['reading', 0])
+    assert.match(state1.notes[0], /از روی فهرست آن/)
+    assert.deepEqual(job.continued.map(row => row.payload.part), [1])
+    assert.equal((await leftovers(later.id)).length, 1, 'only the lines read so far are kept (a small file), no copy of the film')
+    state.rangeFailAfter = Infinity
+    step = await scan.runSubtitleScan({ linkId: later.id, key: request.scanKey(laterUrl), part: 1 }, job)
+    ;({ rows, scan: state1 } = await scanned(later))
+    assert.deepEqual([state1.status, rows.filter(row => row.origin === 'EMBEDDED').map(row => [row.language, (row.content.match(/-->/g) || []).length]).sort()], ['done', [['en', 30], ['fa', 30]]])
+    assert.ok(!state.fetched.includes(laterUrl))
+    assert.deepEqual(await leftovers(later.id), [])
+    state.cinema.fullReadSubtitles = true
+
+    // A file whose index does not point at its subtitles, with the whole read off (the default): nothing is fetched of
+    // the video and the owner is told why; the file beside it still counts.
+    state.cinema.fullReadSubtitles = false
+    const noIndexUrl = `${base}Show.S01E02.720p.mkv?noindex=1`
+    state.remote.set(noIndexUrl, remoteMkv); state.ranged.set(noIndexUrl, { etag: '"e1"', budget: remoteMkv.length, reads: [] }); state.fetched.length = 0
+    const noIndex = await prisma.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'DOWNLOAD', url: noIndexUrl } })
+    await run(noIndex)
+    ;({ rows, scan: state1 } = await scanned(noIndex))
+    assert.deepEqual([state1.status, rows.map(row => row.origin)], ['done', ['SIDECAR']])
+    assert.match(state1.notes.join(' '), /دریافت کامل در تنظیمات خاموش است/)
+    assert.ok(!state.fetched.includes(noIndexUrl) && !state.ranged.get(noIndexUrl).reads.length, 'not even the start of the video for ffprobe')
+    state.cinema.fullReadSubtitles = true
+
     // ---- an address that changed while it was looked at; a link removed with its subtitles
     const moved = await link({ kind: 'DOWNLOAD', url: `/files/movies/${seed}/Film.2020.1080p.mkv?v=1` })
     const staleKey = request.scanKey(moved.url)
@@ -240,7 +395,7 @@ async function main() {
     await assert.rejects(scan.runSubtitleBackfill({ cursor: 0, run: 'bad run!' }, job), /Invalid/)
     const status = await scan.foundSubtitleStatus()
     assert.ok(status.scanned >= 5 && status.withSubtitles >= 4 && status.embedded >= 3 && status.sidecar >= 3, JSON.stringify(status))
-    console.log('PostgreSQL found subtitles: Library and remote files beside the video (index and guesses), MKV/MP4 text tracks through real ffprobe/ffmpeg, ASS styles, Windows-1256, size limit, missing tools, address changes, the video\'s own gate/token/publication/takedown, Admin switches, one queued look per address and the backfill passed')
+    console.log('PostgreSQL found subtitles: Library and remote files beside the video (index and guesses), MKV/MP4 text tracks through real ffprobe/ffmpeg, ASS styles, Windows-1256, size limit, missing tools, address changes, the video\'s own gate/token/publication/takedown, Admin switches, one queued look per address, the backfill, and a slow host copied over several jobs (continued, replaced part-way, stopped and resumed, copy removed) passed')
   } finally {
     await fsp.rm(temp, { recursive: true, force: true })
   }
