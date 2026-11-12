@@ -813,13 +813,31 @@
           "sha256": "df9981a328f81e6fbb7628b7c16afc1cfc75d41bbed76e12699199f40155241c"
         }
       ]
+    },
+    "1.7.18": {
+      "migrations": [
+        {
+          "name": "20270306120000_ai_prompt_cache_tokens",
+          "sha256": "cc13e3b7cd62c53520087f8f3be87387c1126a9003cb9d10f03a1d57a1215eae"
+        },
+        {
+          "name": "20270307120000_codes_when_empty",
+          "sha256": "009e42566cbec6fc724f8a241de08d5de46e4d377e9544bfc6ce02494be7e50c"
+        },
+        {
+          "name": "20270308120000_order_delivery_files",
+          "sha256": "e7bc6a88576e3e29d964da2d05f8ec660d36e8651a8151f03cecf49446257dca"
+        },
+        {
+          "name": "20270309120000_product_delivery_template",
+          "sha256": "534bc4ad6a9724f68d208592b199e16ad297d057410b056127038d0b2e24c3c3"
+        },
+        {
+          "name": "20270310120000_form_work_receipts",
+          "sha256": "3a77708dbfabcf0d0de98a487078c510bc732e71f819fd6c0799bfc298cf0d16"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270306120000_ai_prompt_cache_tokens",
-    "20270307120000_codes_when_empty",
-    "20270308120000_order_delivery_files",
-    "20270309120000_product_delivery_template",
-    "20270310120000_form_work_receipts"
-  ]
+  "unreleased": []
 }
