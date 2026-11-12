@@ -1431,6 +1431,12 @@ model FormSubmission {
   secretsErasedAt DateTime?
   score       Int     @default(0) // quiz points, and the most that could be had
   scoreMax    Int     @default(0)
+  // Work at the counter (forms work steps and receipts, 2026-11-12)
+  source      String  @default("") // '' (sent on the site) | STAFF (entered by staff for a customer in the shop)
+  createdById Int?
+  pickupCode  String  @default("") // asked before a step marked «pickup»; printed on the customer's receipt
+  receiptToken String @default("") // the customer's copy of the receipt at /receipt/<token>
+  receivedAt  DateTime?
   createdAt DateTime @default(now())
   form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
   uploads   FormUpload[]
@@ -1439,6 +1445,7 @@ model FormSubmission {
   @@index([formId, createdAt])
   @@index([formId, status])
   @@index([userId])
+  @@index([receiptToken])
   @@index([orderId])
   @@index([formId, stage])
 }

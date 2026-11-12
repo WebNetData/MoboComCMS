@@ -5,6 +5,7 @@ import type { FormDefinition, FormSettings } from '@/modules/forms/domain/forms'
 import { dateTimeLocal, settingsOf } from './shared'
 import { PaymentStylePanels } from './ProPanels'
 import { AdvancedSettings } from './AdvancedPanels'
+import { WorkPanels } from './WorkPanels'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 /** Form details, access rules, schedule, notifications and spam rules. */
@@ -27,6 +28,7 @@ export default function SettingsPanel({ form, onChange }: { form: FormDefinition
 
     <PaymentStylePanels s={s} set={set} fields={form.fields} />
     <AdvancedSettings form={form} s={s} set={set} />
+    <WorkPanels form={form} s={s} set={set} />
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>بعد از ارسال</h2></header>

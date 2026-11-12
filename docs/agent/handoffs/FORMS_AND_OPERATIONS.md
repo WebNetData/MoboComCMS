@@ -42,6 +42,7 @@ Specs: `docs/specs/store-order-inputs/SPEC.md`, `docs/specs/form-builder/SPEC.md
 | Admin | `src/app/admin/forms/` — `page.tsx` (forms, queue), `Builder.tsx`, `SettingsPanel.tsx`, `ProPanels.tsx`, `AdvancedPanels.tsx`, `Inbox.tsx` (the desk) |
 | Sender's page | `src/components/site/MyRequests.tsx` → `/dashboard/requests` |
 | Checkout kind `form` | `src/modules/checkout/server/checkout.ts` (`formSubmissionId`), `src/modules/fulfillment/server/jobs.ts` (`FORM_PAID`) |
+| Work steps, device lock, counter entry, receipts (2026-11-12) | domain `forms.ts` (`normalizeWorkflow`, `readDeviceLock`, `Receipt`), `server/paid.ts` (`workOnSubmission` pickup and receipt, `tellSender`), `server/counter.ts`, `components/forms/DeviceLockInput.tsx`, `ReceiptSheet.tsx`, admin `WorkPanels.tsx`, `counter/`, `receipt/[id]/`, public `/receipt/[token]` |
 | Tickets held by somebody | `src/modules/support/server/department-access.ts` (`heldByAnother`) |
 
 ## Invoices (admin)

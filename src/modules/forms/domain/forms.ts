@@ -5,7 +5,7 @@ export class FormsError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
 }
 
-export const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'radio', 'checkboxes', 'number', 'date', 'url', 'rating', 'file', 'heading', 'paragraph', 'time', 'slider', 'hidden', 'secret', 'mobile', 'national', 'price', 'fxamount', 'total', 'jdate', 'slot', 'repeater', 'signature'] as const
+export const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'radio', 'checkboxes', 'number', 'date', 'url', 'rating', 'file', 'heading', 'paragraph', 'time', 'slider', 'hidden', 'secret', 'mobile', 'national', 'price', 'fxamount', 'total', 'jdate', 'slot', 'repeater', 'signature', 'devicelock'] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 
 export const FIELD_LABEL: Record<FieldType, string> = {
@@ -13,7 +13,7 @@ export const FIELD_LABEL: Record<FieldType, string> = {
   number: 'عدد', date: 'تاریخ', url: 'نشانی وب', rating: 'امتیاز عددی', file: 'ضمیمهٔ فایل', heading: 'عنوان بخش', paragraph: 'متن توضیحی',
   time: 'ساعت', slider: 'نوار لغزنده', hidden: 'فیلد پنهان', secret: 'رمز / اطلاعات محرمانه', mobile: 'موبایل ایران', national: 'کد ملی',
   price: 'هزینهٔ ثابت', fxamount: 'مبلغ ارزی (نرخ روز)', total: 'جمع قابل پرداخت',
-  jdate: 'تاریخ شمسی', slot: 'نوبت (روز و ساعت با ظرفیت)', repeater: 'ردیف‌های تکرارشونده', signature: 'امضا',
+  jdate: 'تاریخ شمسی', slot: 'نوبت (روز و ساعت با ظرفیت)', repeater: 'ردیف‌های تکرارشونده', signature: 'امضا', devicelock: 'قفل دستگاه (الگو، پین یا رمز)',
 }
 /** Types that show text only and never carry an answer. */
 export const CONTENT_TYPES: FieldType[] = ['heading', 'paragraph', 'price', 'total']
@@ -79,6 +79,10 @@ export interface FormSettings {
   handlers: number[]
   /** This form is a service the site sells or performs (it is listed under Services in the admin). */
   service: boolean
+  /** The form's own work steps, each with what the sender is told (empty = the four standard stages). */
+  workflow: WorkStep[]
+  /** Printed receipts: the shop's copy (everything) and the customer's (chosen fields, terms, stamp and signature). */
+  receipt: ReceiptSettings
 }
 // The last four are designed looks (owner, 2026-10-28): a colour panel beside the fields, a colour heading band,
 // always dark, and a spacious one with a gold rule.
@@ -104,7 +108,7 @@ export const DEFAULT_SETTINGS: FormSettings = {
   steps: [], notifyEmails: [], notifyInbox: true, autoReply: { enabled: false, subject: '', body: '' }, requireLogin: false, oncePerUser: false,
   opensAt: '', closesAt: '', maxSubmissions: 0, redirectUrl: '', submitLabel: '', closedMessage: '', spamLinks: 3,
   payment: { enabled: false, label: '', invoiceTitle: '', invoiceText: '' }, style: DEFAULT_STYLE,
-  notifications: [], confirmations: [], webhooks: [], saveDraft: false, quiz: { enabled: false, passScore: 0, showResult: true }, handlers: [], service: false,
+  notifications: [], confirmations: [], webhooks: [], saveDraft: false, quiz: { enabled: false, passScore: 0, showResult: true }, handlers: [], service: false, workflow: [], receipt: { enabled: false, title: '', terms: '', customerFields: [] },
 }
 
 const RESERVED = ['__proto__', 'constructor', 'prototype', 'website']
@@ -206,6 +210,7 @@ export function normalizeSettings(input: unknown): FormSettings {
   const handlers = [...new Set((Array.isArray(raw.handlers) ? raw.handlers : []).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 50)
   return {
     notifications, confirmations, webhooks, saveDraft: raw.saveDraft === true, handlers, service: raw.service === true,
+    workflow: normalizeWorkflow(raw.workflow), receipt: normalizeReceipt(raw.receipt),
     quiz: { enabled: quiz.enabled === true, passScore: int(quiz.passScore, 0, 1_000_000, 0), showResult: quiz.showResult !== false },
     payment: { enabled: paid, label: str(payment.label, 40), invoiceTitle: str(payment.invoiceTitle, 120), invoiceText: str(payment.invoiceText, 500) }, style: normalizeStyle(raw.style),
     steps, notifyEmails: emails, notifyInbox: raw.notifyInbox !== false,
@@ -381,6 +386,12 @@ function checkOne(f: FormField, input: unknown): [Answer, string] {
     return [items, '']
   }
   if (f.type === 'hidden') return [f.value || '', '']
+  if (f.type === 'devicelock') {
+    const lock = readDeviceLock(String(input ?? ''))
+    if (!input || lock.kind === 'none') return [input ? encodeDeviceLock(lock) : '', f.required && !input ? `${label} الزامی است` : '']
+    const problem = deviceLockProblem(lock)
+    return problem ? ['', `${label}: ${problem}`] : [encodeDeviceLock(lock), '']
+  }
   if (input !== undefined && typeof input !== 'string' && typeof input !== 'number') return ['', `مقدار ${label} معتبر نیست`]
   // A password is kept exactly as typed.
   let value = f.type === 'secret' ? String(input ?? '').replace(/[\u0000-\u001f\u007f]/g, '') : String(input ?? '').trim()
@@ -609,6 +620,77 @@ export function toCsv(columns: { id: string; label: string }[], rows: { id: numb
   return `﻿${lines.join('\r\n')}\r\n`
 }
 
+// ------------------------------------------------------------------ work steps, receipts and device locks
+
+/**
+ * A form's own work steps (owner 2026-11-12, mobile repair: approved → bring or send the device → received with a
+ * receipt → in repair → ready → handed back). OPEN, DONE and REJECTED always exist and keep their meaning; the steps
+ * between are the form's. Each step may tell the sender (inbox, and SMS to the form's mobile answer), issue the
+ * receipt (`receipt`), or ask for the customer's pickup code before it is set (`pickup`: «no receipt, no device»).
+ */
+export interface WorkStep { key: string; label: string; message: string; sms: boolean; receipt: boolean; pickup: boolean }
+export interface ReceiptSettings { enabled: boolean; title: string; terms: string; customerFields: string[] }
+const STEP_KEY = /^[A-Z][A-Z0-9_]{1,23}$/
+const baseStep = (key: Stage): WorkStep => ({ key, label: STAGE_LABEL[key], message: '', sms: false, receipt: false, pickup: false })
+export function normalizeWorkflow(input: unknown): WorkStep[] {
+  const rows = Array.isArray(input) ? input.slice(0, 12) : []
+  if (!rows.length) return []
+  const steps: WorkStep[] = []
+  for (const item of rows) {
+    const raw = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>
+    const key = str(raw.key, 24).toUpperCase(), label = str(raw.label, 60)
+    if (!STEP_KEY.test(key) || !label) throw new FormsError('هر مرحلهٔ کار عنوان و شناسهٔ لاتین معتبر (مثل RECEIVED) می‌خواهد')
+    if (steps.some((step) => step.key === key)) throw new FormsError(`شناسهٔ مرحلهٔ «${key}» تکراری است`)
+    steps.push({ key, label, message: String(raw.message ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 400), sms: raw.sms === true, receipt: raw.receipt === true, pickup: raw.pickup === true })
+  }
+  // The three fixed stages are always there: first OPEN, last DONE and REJECTED.
+  const fixed = (key: Stage) => steps.find((step) => step.key === key) || baseStep(key)
+  return [fixed('OPEN'), ...steps.filter((step) => !(STAGES as readonly string[]).includes(step.key) || step.key === 'IN_PROGRESS'), fixed('DONE'), fixed('REJECTED')]
+}
+export function normalizeReceipt(input: unknown): ReceiptSettings {
+  const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
+  const fields = [...new Set((Array.isArray(raw.customerFields) ? raw.customerFields : []).map((id) => str(id, 40)).filter(Boolean))].slice(0, 40)
+  return { enabled: raw.enabled === true, title: str(raw.title, 80), terms: String(raw.terms ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 6000), customerFields: fields }
+}
+/** The steps an answer moves through: the form's own, or the four standard stages. */
+export const workSteps = (settings?: Pick<FormSettings, 'workflow'>): WorkStep[] => settings?.workflow?.length ? settings.workflow : STAGES.map(baseStep)
+export const stepLabel = (settings: Pick<FormSettings, 'workflow'> | undefined, stage: string) => workSteps(settings).find((step) => step.key === stage)?.label || STAGE_LABEL[stage as Stage] || stage
+
+/**
+ * A phone's lock as staff need it to test the repair: a pattern on the 3×3 grid (dots 1–9, row by row), a PIN, a
+ * password, or a pattern and a code together. Stored as «kind|1,5,9|text» and encrypted like any secret answer.
+ */
+export const LOCK_KINDS = ['none', 'pattern', 'pin', 'password', 'mixed'] as const
+export type LockKind = (typeof LOCK_KINDS)[number]
+export const LOCK_LABEL: Record<LockKind, string> = { none: 'بدون قفل', pattern: 'الگو', pin: 'پین (عددی)', password: 'رمز', mixed: 'الگو و رمز' }
+export type DeviceLock = { kind: LockKind; pattern: number[]; text: string }
+export function readDeviceLock(value: string): DeviceLock {
+  const [kind = 'none', dots = '', ...rest] = String(value || '').split('|')
+  return { kind: (LOCK_KINDS as readonly string[]).includes(kind) ? kind as LockKind : 'none', pattern: dots.split(',').map(Number).filter((dot) => Number.isInteger(dot) && dot >= 1 && dot <= 9).slice(0, 9), text: rest.join('|').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 64) }
+}
+export const encodeDeviceLock = (lock: DeviceLock) => `${lock.kind}|${lock.kind === 'pattern' || lock.kind === 'mixed' ? lock.pattern.join(',') : ''}|${lock.kind === 'pin' || lock.kind === 'password' || lock.kind === 'mixed' ? lock.text : ''}`
+export function deviceLockProblem(lock: DeviceLock): string {
+  const needsPattern = lock.kind === 'pattern' || lock.kind === 'mixed'
+  if (needsPattern && (lock.pattern.length < 4 || new Set(lock.pattern).size !== lock.pattern.length)) return 'الگو باید دست‌کم از ۴ نقطهٔ متفاوت بگذرد'
+  if (lock.kind === 'pin' && !/^\d{4,16}$/.test(lock.text)) return 'پین باید ۴ تا ۱۶ رقم باشد'
+  if ((lock.kind === 'password' || lock.kind === 'mixed') && !lock.text) return 'رمز را بنویسید'
+  return ''
+}
+/** The lock in words, for the shop's receipt and the desk. */
+export function deviceLockText(value: string): string {
+  const lock = readDeviceLock(value)
+  if (lock.kind === 'none') return LOCK_LABEL.none
+  return [lock.pattern.length ? `الگو: ${lock.pattern.join('-')}` : '', lock.text ? `${lock.kind === 'pin' ? 'پین' : 'رمز'}: ${lock.text}` : ''].filter(Boolean).join(' · ')
+}
+
+/** A printed receipt (forms/server/counter): the shop's copy or the customer's. */
+export type ReceiptLine = { label: string; value: string; pattern?: number[] }
+export type Receipt = {
+  copy: 'shop' | 'customer'; number: number; title: string; form: string; brand: { title: string; logo: string }
+  createdAt: string; receivedAt: string | null; stage: string; lines: ReceiptLine[]; secrets: ReceiptLine[]; terms: string[]
+  pickupCode: string; link: string; staff: string; source: string
+}
+
 // ------------------------------------------------------------------ ready-made forms
 
 const field = (id: string, label: string, type: FieldType, extra: Partial<FormField> = {}): FormField => ({ id, label, type, required: false, options: [], ...extra })
@@ -651,6 +733,42 @@ export const TEMPLATES: { id: string; name: string; description: string; build: 
       field('site', 'نشانی سایت', 'url', { required: true, step: 'account' }), field('username', 'نام کاربری یا ایمیل حساب', 'text', { required: true, step: 'account', width: 'half' }),
       field('password', 'رمز عبور حساب', 'secret', { required: true, step: 'account', width: 'half' }), field('mobile', 'موبایل برای هماهنگی', 'mobile', { required: true, step: 'account' }),
       field('details', 'توضیحات و اطلاعات حساب', 'textarea', { step: 'account' }),
+    ] }),
+  },
+  {
+    id: 'mobile-repair', name: 'تعمیر موبایل', description: 'درخواست تعمیر نرم‌افزاری یا سخت‌افزاری با مدل، ایراد، وضعیت ظاهری و قفل گوشی؛ مراحل تأیید، دریافت دستگاه با رسید و تحویل با کد.',
+    build: () => ({ slug: 'mobile-repair', title: 'درخواست تعمیر موبایل', description: 'مدل گوشی و ایراد آن را بنویسید؛ پس از بررسی خبر می‌دهیم که دستگاه را بیاورید یا ارسال کنید.', published: false, successText: 'درخواست شما ثبت شد؛ پس از بررسی با پیامک خبرتان می‌کنیم.', settings: { ...DEFAULT_SETTINGS, service: true, notifyInbox: true,
+      workflow: normalizeWorkflow([
+        { key: 'OPEN', label: 'در انتظار بررسی' },
+        { key: 'APPROVED', label: 'تأیید شد؛ دستگاه را بیاورید یا ارسال کنید', message: 'درخواست تعمیر شما تأیید شد. گوشی را به فروشگاه بیاورید یا ارسال کنید.', sms: true },
+        { key: 'RECEIVED', label: 'دستگاه دریافت شد', message: 'گوشی شما دریافت شد. رسید: {receipt} — کد تحویل: {code}', sms: true, receipt: true },
+        { key: 'REPAIRING', label: 'در حال تعمیر' },
+        { key: 'READY', label: 'آماده تحویل', message: 'گوشی شما آماده است؛ با رسید و کد تحویل مراجعه کنید.', sms: true },
+        { key: 'DONE', label: 'تحویل داده شد', pickup: true },
+        { key: 'REJECTED', label: 'رد شد' },
+      ]),
+      receipt: { enabled: true, title: 'رسید پذیرش دستگاه', customerFields: ['name', 'mobile', 'brand', 'model', 'imei', 'issue', 'parts', 'description', 'condition', 'accessories'], terms: [
+        'فقط ایراد(های) ثبت‌شده در همین رسید بررسی و تعمیر می‌شود؛ هر ایراد دیگری که هنگام پذیرش ثبت نشده، بر عهدهٔ تعمیرگاه نیست.',
+        'وضعیت ظاهری دستگاه و قطعات همراه، همان است که در این رسید نوشته شده و به امضای مشتری رسیده است.',
+        'دستگاه فقط با ارائهٔ همین رسید و کد تحویل بازگردانده می‌شود؛ گم شدن رسید را فوراً خبر دهید.',
+        'مسئولیت اطلاعات داخل دستگاه با مشتری است؛ در تعمیر نرم‌افزاری ممکن است اطلاعات پاک شود.',
+        'دستگاه آب‌خورده، ضربه‌خورده یا پیش‌تر بازشده ممکن است در حین تعمیر دچار ایراد دیگری شود و تعمیرگاه مسئولیتی ندارد.',
+        'هزینهٔ نهایی پس از عیب‌یابی اعلام و فقط با تأیید مشتری انجام می‌شود.',
+        'دستگاهی که تا ۳۰ روز پس از اعلام «آماده تحویل» دریافت نشود، مشمول هزینهٔ نگهداری است و پس از آن تعمیرگاه مسئولیتی در قبال آن ندارد.',
+        'گارانتی فقط برای قطعهٔ تعویض‌شده و همان ایراد است و با باز شدن دستگاه در جای دیگر یا آسیب فیزیکی باطل می‌شود.',
+      ].map((line, index) => `${(index + 1).toLocaleString('fa-IR')}. ${line}`).join('\n') } }, fields: [
+      field('name', 'نام و نام خانوادگی', 'text', { required: true, width: 'half' }), field('mobile', 'موبایل', 'mobile', { required: true, width: 'half' }),
+      field('brand', 'برند گوشی', 'select', { required: true, width: 'half', options: ['اپل (آیفون)', 'سامسونگ', 'شیائومی', 'هواوی', 'آنر', 'نوکیا', 'موتورولا', 'سایر'] }),
+      field('model', 'مدل دقیق', 'text', { required: true, width: 'half', placeholder: 'مثلاً iPhone 13 Pro یا Galaxy A54' }),
+      field('imei', 'IMEI یا شمارهٔ سریال', 'text', { width: 'half', help: 'با شمارهٔ *#06# نشان داده می‌شود' }),
+      field('issue', 'نوع ایراد', 'radio', { required: true, width: 'half', options: ['نرم‌افزاری', 'سخت‌افزاری', 'هر دو', 'نمی‌دانم'] }),
+      field('parts', 'بخش‌های دارای ایراد', 'checkboxes', { options: ['صفحه‌نمایش (LCD)', 'تاچ', 'باتری', 'سوکت شارژ', 'دوربین', 'اسپیکر یا میکروفون', 'دکمه‌ها', 'بدنه یا قاب', 'برد', 'آنتن یا سیم‌کارت', 'نرم‌افزار یا فلش', 'سایر'] }),
+      field('description', 'شرح ایراد', 'textarea', { required: true, placeholder: 'از کی و چطور پیش آمد؟ آیا ضربه خورده یا آب خورده است؟' }),
+      field('condition', 'وضعیت ظاهری هنگام تحویل', 'textarea', { help: 'خط و خش، شکستگی، تاب برداشتن، رنگ‌رفتگی…' }),
+      field('accessories', 'همراه دستگاه', 'checkboxes', { options: ['سیم‌کارت', 'کارت حافظه', 'قاب', 'شارژر', 'جعبه'] }),
+      field('lock', 'قفل گوشی', 'devicelock', { help: 'برای آزمایش پس از تعمیر لازم است؛ رمزنگاری می‌شود و یک هفته پس از پایان کار پاک می‌شود.' }),
+      field('handover', 'روش تحویل دستگاه', 'radio', { required: true, options: ['حضوری می‌آورم', 'ارسال پستی یا پیک'] }),
+      field('consent', 'قوانین خدمات تعمیر را خواندم و می‌پذیرم', 'checkbox', { required: true }),
     ] }),
   },
   {

@@ -9,7 +9,7 @@ import { sniffImage } from '@/shared/files/image-type'
 import { sendMail } from '@/modules/mail/server/mailer'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import {
-  CONTENT_TYPES, FormsError, STATUSES, TEMPLATES, checkSubmission, formState, looksSpam, normalizeForm, parseForm, toCsv, visibleFields,
+  CONTENT_TYPES, DEFAULT_SETTINGS, FormsError, STATUSES, TEMPLATES, checkSubmission, formState, looksSpam, normalizeForm, normalizeSettings, parseForm, toCsv, visibleFields, workSteps,
   type Answer, type FormDefinition, type PriceLine, type StoredAnswer, type SubmissionStatus,
 } from '@/modules/forms/domain/forms'
 import { minorToNumber } from '@/shared/money'
@@ -258,10 +258,14 @@ const where = (query: SubmissionQuery) => ({
   ...(query.from || query.to ? { createdAt: { ...(query.from && !Number.isNaN(Date.parse(query.from)) ? { gte: new Date(query.from) } : {}), ...(query.to && !Number.isNaN(Date.parse(query.to)) ? { lte: new Date(`${query.to}T23:59:59.999Z`) } : {}) } } : {}),
 })
 
-const view = (row: { formId: number; form?: { title: string } | null; id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; amountMinor: bigint; currency: string; pricing: string; payStatus: string; paidAt: Date | null; orderId: number | null; stage: string; assigneeId: number | null; reply: string; secrets: string; secretsErasedAt: Date | null; score: number; scoreMax: number; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
+/** A form's stored settings, read for a list (an unreadable one is the defaults). */
+const normalizeSettingsSafe = (text?: string) => { try { return normalizeSettings(JSON.parse(text || '{}')) } catch { return DEFAULT_SETTINGS } }
+const view = (row: { formId: number; form?: { title: string; settings?: string } | null; source?: string; receivedAt?: Date | null; id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; amountMinor: bigint; currency: string; pricing: string; payStatus: string; paidAt: Date | null; orderId: number | null; stage: string; assigneeId: number | null; reply: string; secrets: string; secretsErasedAt: Date | null; score: number; scoreMax: number; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
   amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY, lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null, orderId: row.orderId,
   stage: row.stage, assigneeId: row.assigneeId, assignee: row.assigneeId ? users.get(row.assigneeId) || `کاربر ${row.assigneeId}` : '', reply: row.reply, hasSecrets: !!row.secrets, secretsErasedAt: row.secretsErasedAt?.toISOString() || null, score: row.score, scoreMax: row.scoreMax,
   formId: row.formId, formTitle: row.form?.title || '',
+  ...(() => { const settings = normalizeSettingsSafe(row.form?.settings); return { steps: workSteps(settings).map((step) => ({ key: step.key, label: step.label, pickup: step.pickup, receipt: step.receipt })), receipt: settings.receipt.enabled } })(),
+  source: row.source || '', receivedAt: row.receivedAt?.toISOString() || null,
   id: row.id, status: row.status, note: row.note, userId: row.userId, user: row.userId ? users.get(row.userId) || `کاربر ${row.userId}` : '', createdAt: row.createdAt.toISOString(),
   answers: parse<StoredAnswer[]>(row.data, []), files: (row.uploads || []).map((u) => ({ id: String(u.id), name: u.originalName, size: u.size })),
 })
@@ -275,7 +279,7 @@ async function userNames(ids: (number | null)[]) {
 export async function listSubmissions(query: SubmissionQuery) {
   const page = Math.max(1, query.page || 1)
   const [rows, total, groups] = await Promise.all([
-    db.formSubmission.findMany({ where: where(query), orderBy: { createdAt: 'desc' }, skip: (page - 1) * PAGE, take: PAGE, include: { form: { select: { title: true } }, uploads: { select: { id: true, originalName: true, size: true } } } }),
+    db.formSubmission.findMany({ where: where(query), orderBy: { createdAt: 'desc' }, skip: (page - 1) * PAGE, take: PAGE, include: { form: { select: { title: true, settings: true } }, uploads: { select: { id: true, originalName: true, size: true } } } }),
     db.formSubmission.count({ where: where(query) }),
     db.formSubmission.groupBy({ by: ['status'], where: { formId: query.formIds ? { in: query.formIds } : query.formId, ...visible(query) }, _count: { _all: true } }),
   ])
@@ -283,8 +287,11 @@ export async function listSubmissions(query: SubmissionQuery) {
   // How much work waits, by stage, for the tiles above the list.
   const stages = await db.formSubmission.groupBy({ by: ['stage', 'payStatus'], where: { formId: query.formIds ? { in: query.formIds } : query.formId, status: { not: 'SPAM' }, ...visible(query) }, _count: { _all: true } })
   const work = { OPEN: 0, IN_PROGRESS: 0, DONE: 0, REJECTED: 0, UNPAID: 0 } as Record<string, number>
-  for (const group of stages) { if (group.payStatus === 'UNPAID') work.UNPAID += group._count._all; else if (group.stage in work) work[group.stage] += group._count._all }
-  return { work, rows: rows.map((r) => view(r, users)), total, page, pages: Math.max(1, Math.ceil(total / PAGE)), counts: Object.fromEntries(groups.map((g) => [g.status, g._count._all])) as Record<string, number> }
+  for (const group of stages) { if (group.payStatus === 'UNPAID') work.UNPAID += group._count._all; else if (group.stage) work[group.stage] = (work[group.stage] || 0) + group._count._all }
+  // One form: its own steps for the tiles (the queue of every form keeps the standard four).
+  const one = query.formId ? await db.siteForm.findUnique({ where: { id: query.formId }, select: { settings: true } }) : null
+  const steps = one ? workSteps(normalizeSettingsSafe(one.settings)).map((step) => ({ key: step.key, label: step.label })) : null
+  return { work, steps, rows: rows.map((r) => view(r, users)), total, page, pages: Math.max(1, Math.ceil(total / PAGE)), counts: Object.fromEntries(groups.map((g) => [g.status, g._count._all])) as Record<string, number> }
 }
 
 export async function updateSubmissions(ids: number[], patch: { status?: unknown; note?: unknown }) {

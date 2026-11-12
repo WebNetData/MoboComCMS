@@ -336,7 +336,7 @@ test('work somebody holds is theirs: a colleague of the same standing neither re
   assert.match(paid, /if \(!manager && row\.assigneeId && row\.assigneeId !== actor\.id\) throw new FormsError\(OTHERS_WORK, 403\)/)
   assert.match(paid, /if \(!manager && patch\.assignTo !== undefined && Number\(patch\.assignTo\) !== actor\.id\) throw new FormsError\(/)
   assert.match(route, /\{ await assertMayHandleSubmission\(id, admin, builder\); await assertOwnWork\(id, admin, builder\) \}/)
-  assert.match(route, /return ok\(await workOnSubmission\(one, admin, body\.work, builder\)\)/)
+  assert.match(route, /const work = await workOnSubmission\(one, admin, body\.work, builder\)/)
   // The check comes before any of the actions it guards.
   const patchBody = route.slice(route.indexOf('export async function PATCH'), route.indexOf('export async function DELETE'))
   for (const action of ['editSubmission(', 'workOnSubmission(', 'revealSecrets(', 'eraseSecrets(', 'updateSubmissions(']) assert.ok(patchBody.indexOf('assertOwnWork(') < patchBody.indexOf(action), action)
@@ -446,4 +446,27 @@ test('form shortcodes become placeholders, never inside code, never for a bad ad
   assert.match(route, /const found = await publicFormBySlug\(slug\)\s+if \(!found\) return err\('فرم پیدا نشد', 404\)\s+return ok\(\{ form: publicForm\(found\.form\), state: found\.state \}\)/)
   for (const page of ['src/modules/site/server/pages/p/[slug]/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx']) assert.match(fs.readFileSync(path.resolve(root, page), 'utf8'), /formShortcodes\(/, page)
   assert.match(fs.readFileSync(path.resolve(root, 'src/app/layout.tsx'), 'utf8'), /<FormEmbeds \/>/)
+})
+
+test('mobile repair: a device lock is checked and kept as given; a form has its own work steps around the fixed three', () => {
+  const lock = field('lock', 'devicelock', { required: true })
+  assert.equal(plain(f.checkSubmission([lock], { lock: 'pattern|1,5,9,6|' })).values.lock, 'pattern|1,5,9,6|')
+  assert.match(plain(f.checkSubmission([lock], { lock: 'pattern|1,2|' })).errors.lock, /۴ نقطه/)
+  assert.match(plain(f.checkSubmission([lock], { lock: 'pin||12a' })).errors.lock, /پین/)
+  assert.equal(plain(f.checkSubmission([lock], { lock: 'mixed|1,2,3,6|0000' })).values.lock, 'mixed|1,2,3,6|0000')
+  assert.equal(plain(f.checkSubmission([lock], { lock: 'none||' })).values.lock, 'none||', 'no lock is an answer too')
+  assert.match(plain(f.checkSubmission([lock], {})).errors.lock, /الزامی/)
+  assert.equal(f.deviceLockText('mixed|1,2,3,6|0000'), 'الگو: 1-2-3-6 · رمز: 0000')
+  // Steps: OPEN first, DONE and REJECTED last, whatever order they were given in; keys are unique.
+  const steps = f.normalizeWorkflow([{ key: 'ready', label: 'آماده' }, { key: 'DONE', label: 'تحویل', pickup: true }, { key: 'RECEIVED', label: 'دریافت', receipt: true, sms: true, message: 'کد: {code}' }])
+  assert.deepEqual(steps.map((step) => step.key), ['OPEN', 'READY', 'RECEIVED', 'DONE', 'REJECTED'])
+  assert.equal(steps.find((step) => step.key === 'DONE').pickup, true)
+  assert.throws(() => f.normalizeWorkflow([{ key: 'A1', label: 'x' }, { key: 'A1', label: 'y' }]), /تکراری/)
+  assert.equal(f.stepLabel({ workflow: steps }, 'RECEIVED'), 'دریافت')
+  assert.equal(f.stepLabel({ workflow: [] }, 'DONE'), f.STAGE_LABEL.DONE, 'a form without its own steps keeps the standard four')
+  // The ready-made repair form is a valid form with a receipt and a pickup step.
+  const repair = f.normalizeForm(f.TEMPLATES.find((t) => t.id === 'mobile-repair').build())
+  assert.ok(repair.settings.receipt.enabled && repair.settings.receipt.terms.length > 100)
+  assert.ok(repair.settings.workflow.some((step) => step.receipt) && repair.settings.workflow.some((step) => step.pickup))
+  assert.ok(repair.fields.some((item) => item.type === 'devicelock'))
 })

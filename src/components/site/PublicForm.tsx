@@ -1,4 +1,5 @@
 'use client'
+import DeviceLockInput from '@/components/forms/DeviceLockInput'
 import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 
 import { useHumanCheck } from '@/components/HumanCheck'
@@ -35,7 +36,11 @@ const CLOSED: Record<Exclude<FormState, 'open'>, string> = { soon: 'این فر�
  * A published form: steps with progress, fields that appear by condition, per-field errors,
  * file attachments and the anti-spam honeypot. Answers are checked here with the same rules the server applies.
  */
-export default function PublicForm({ form, state = 'open', preview = false, headingLevel = 2, surface = 'public' }: { surface?: CheckoutSurface; form: FormDefinition; state?: FormState; preview?: boolean; headingLevel?: 1 | 2 }) {
+/**
+ * `counter`: staff fill the form for a customer in the shop (forms/server/counter): it is sent to the desk's own
+ * route, without the human check, and the caller is handed the new answer (its receipt and pickup code).
+ */
+export default function PublicForm({ form, state = 'open', preview = false, headingLevel = 2, surface = 'public', counter }: { surface?: CheckoutSurface; form: FormDefinition; state?: FormState; preview?: boolean; headingLevel?: 1 | 2; counter?: { formId: number; onSaved: (saved: { id: number; pickupCode: string; receiptToken: string }) => void } }) {
   const { locale } = useI18n()
   const human = useHumanCheck('form', locale)
   const uid = useId()
@@ -124,7 +129,7 @@ export default function PublicForm({ form, state = 'open', preview = false, head
   }, [keepDraft, draftKey])
   useEffect(() => {
     if (!keepDraft || sent) return
-    const skip = new Set(form.fields.filter((f) => ['secret', 'file', 'signature', 'slot'].includes(f.type)).map((f) => f.id))
+    const skip = new Set(form.fields.filter((f) => ['secret', 'devicelock', 'file', 'signature', 'slot'].includes(f.type)).map((f) => f.id))
     const timer = window.setTimeout(() => { try { window.localStorage.setItem(draftKey, JSON.stringify(Object.fromEntries(Object.entries(answers).filter(([id]) => !skip.has(id))))) } catch { /* storage full or blocked */ } }, 500)
     return () => window.clearTimeout(timer)
   }, [answers, keepDraft, sent, draftKey, form.fields])
@@ -175,13 +180,16 @@ export default function PublicForm({ form, state = 'open', preview = false, head
       if (bad) setStep(Math.max(0, pages.findIndex((page) => page.includes(bad))))
       return
     }
-    if (busy || !human.ready) return
+    if (busy || (!counter && !human.ready)) return
     setBusy(true); setMessage(''); setNeedsLogin(false)
     const honeypot = new FormData(event.currentTarget).get('website')
     try {
-      const res = await fetch(`/api/forms/${form.slug}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: answers, website: honeypot, humanCheck: human.token }) })
+      const res = counter
+        ? await fetch('/api/admin/forms/submissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ formId: counter.formId, values: answers }) })
+        : await fetch(`/api/forms/${form.slug}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: answers, website: honeypot, humanCheck: human.token }) })
       const result = await res.json()
       if (!res.ok) { if (res.status === 401) setNeedsLogin(true); throw new Error(result.error) }
+      if (counter) { counter.onSaved(result); return }
       setMessage(result.message); setSent(true); dropDraft()
       if (result.quiz) setQuiz(result.quiz)
       if (result.pay) { setPay({ submissionId: result.pay.submissionId, lines: result.pay.lines || [], total: result.pay.amount, label: result.pay.label || '' }); return }
@@ -240,6 +248,7 @@ export default function PublicForm({ form, state = 'open', preview = false, head
           case 'jdate': control = <JalaliDatePicker id={id} value={(value as string) || ''} onChange={(next) => set(f.id, next)} invalid={!!error} describedBy={describedBy} />; break
           case 'slot': control = <SlotPicker slug={form.slug} field={f} value={(value as string) || ''} onChange={(next) => set(f.id, next)} preview={preview} />; break
           case 'repeater': control = <Repeater field={f} value={(value as string[]) || []} onChange={(rows) => set(f.id, rows)} />; break
+          case 'devicelock': control = <DeviceLockInput id={id} value={(value as string) || ''} onChange={(next) => set(f.id, next)} invalid={!!error} />; break
           case 'signature': control = <SignaturePad signed={((value as string[]) || []).length > 0} busy={uploading === f.id} onSave={(file) => void upload(f, file)} onClear={() => { setUploads((u) => ({ ...u, [f.id]: [] })); set(f.id, []) }} />; break
           case 'file': {
             const files = uploads[f.id] || []

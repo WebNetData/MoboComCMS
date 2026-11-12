@@ -4,7 +4,8 @@ export type SavedForm = FormDefinition & { id: number; createdAt: string; update
 export type Template = { id: string; name: string; description: string; form: Omit<FormDefinition, 'id'> }
 export type Row = { formId: number; formTitle: string; id: number; status: SubmissionStatus; note: string; userId: number | null; user: string; createdAt: string; answers: { id: string; label: string; type?: FieldType; value: string | boolean | string[] }[]; files: { id: string; name: string; size: number }[]
   amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; orderId: number | null
-  stage: string; assigneeId: number | null; assignee: string; reply: string; hasSecrets: boolean; secretsErasedAt: string | null; score: number; scoreMax: number }
+  stage: string; assigneeId: number | null; assignee: string; reply: string; hasSecrets: boolean; secretsErasedAt: string | null; score: number; scoreMax: number
+  steps: { key: string; label: string; pickup: boolean; receipt: boolean }[]; receipt: boolean; source: string; receivedAt: string | null }
 
 export const blankForm = (): FormDefinition => ({
   slug: '', title: '', description: '', published: false, successText: 'پیام شما با موفقیت ثبت شد. به‌زودی بررسی می‌کنیم.', settings: { ...DEFAULT_SETTINGS },

@@ -1,0 +1,46 @@
+/* Receipts of work taken in at the counter (components/forms/ReceiptSheet). Paper colours on screen too, A5 in print. */
+.rc-page { display: grid; gap: 14px; justify-items: center; padding: 20px 16px 40px; }
+.rc-tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.rc-sheet { box-sizing: border-box; width: 100%; max-width: 148mm; display: grid; gap: 12px; padding: 10mm; border-radius: 6px; background: #fff; color: #1b1d22; font-size: 12.5px; line-height: 1.8; box-shadow: 0 1px 3px rgb(0 0 0 / 14%); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.rc-head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-bottom: 10px; border-bottom: 2px solid #1b1d22; }
+.rc-brand { display: grid; justify-items: center; gap: 2px; min-width: 70px; }
+.rc-brand img { width: 40px; height: 40px; object-fit: contain; }
+.rc-brand b { font-size: 13px; }
+.rc-title h1 { margin: 0; font-size: 16px; }
+.rc-copy { display: inline-block; margin-top: 2px; padding: 0 8px; border: 1px solid #1b1d22; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.is-shop .rc-copy { border-color: #b42318; color: #b42318; }
+.rc-number { display: grid; justify-items: center; padding: 4px 10px; border: 1px solid #c9ccd3; border-radius: 8px; }
+.rc-number small { color: #5d636e; font-size: 10.5px; }
+.rc-number b { font-size: 20px; letter-spacing: .04em; }
+.rc-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px 12px; margin: 0; }
+.rc-meta div, .rc-lines div { display: flex; gap: 6px; min-width: 0; }
+.rc-meta dt, .rc-lines dt { flex-shrink: 0; color: #5d636e; }
+.rc-meta dt::after, .rc-lines dt::after { content: ':'; }
+.rc-meta dd, .rc-lines dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.rc-lines { display: grid; gap: 2px; margin: 0; padding: 8px 10px; border: 1px solid #dfe1e6; border-radius: 8px; }
+.rc-secret { display: grid; gap: 6px; padding: 8px 10px; border: 1.5px dashed #b42318; border-radius: 8px; }
+.rc-secret > b { color: #b42318; font-size: 12px; }
+.rc-secret-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rc-secret-row code { font-family: inherit; font-size: 13px; font-weight: 700; }
+.rc-pattern { width: 72px; height: 72px; direction: ltr; }
+.rc-pattern line { stroke: #1b1d22; stroke-width: 3; stroke-linecap: round; }
+.rc-pattern circle { fill: #fff; stroke: #8a9099; stroke-width: 1.5; }
+.rc-pattern circle.is-on { fill: #1b1d22; stroke: #1b1d22; }
+.rc-pattern text { font-size: 8px; font-weight: 700; fill: #b42318; }
+.rc-code { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; padding: 8px 10px; border: 2px solid #1b1d22; border-radius: 8px; }
+.rc-code div { display: grid; justify-items: center; }
+.rc-code small { color: #5d636e; font-size: 10.5px; }
+.rc-code b { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 22px; letter-spacing: .16em; }
+.rc-code p { margin: 0; font-size: 11.5px; }
+.rc-terms { display: grid; gap: 2px; font-size: 10.5px; line-height: 1.75; }
+.rc-terms ol { margin: 0; padding-inline-start: 18px; }
+.rc-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+.rc-sign div { display: flex; align-items: flex-end; min-height: 26mm; padding: 6px 8px; border: 1px solid #c9ccd3; border-radius: 8px; }
+.rc-sign span { color: #5d636e; font-size: 10.5px; }
+@media (max-width: 560px) { .rc-sheet { padding: 16px; } .rc-head { grid-template-columns: 1fr auto; } .rc-brand { display: none; } }
+@media print {
+  @page { size: A5; margin: 8mm; }
+  body *:not(:has(.rc-sheet)):not(.rc-sheet):not(.rc-sheet *) { display: none !important; }
+  body :has(.rc-sheet) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; transform: none !important; }
+  .rc-sheet { max-width: none; padding: 0; box-shadow: none; border-radius: 0; }
+}

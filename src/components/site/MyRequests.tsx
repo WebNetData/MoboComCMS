@@ -11,7 +11,7 @@ import { SECRET_MASK, STAGE_LABEL, answerText, type Answer, type Stage } from '@
 
 type Request = {
   id: number; form: string; slug: string; createdAt: string; answers: { label: string; type: string; value: Answer }[]
-  amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; stage: string; reply: string
+  amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; stage: string; stageLabel?: string; receiptToken?: string; reply: string
 }
 const fa = (n: number) => Math.round(n).toLocaleString('fa-IR')
 const whenFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Tehran' })
@@ -87,10 +87,10 @@ export default function MyRequests() {
             <div className="rq-title"><h2>{row.form}</h2><small><span>شمارهٔ <b className="num">{fa(row.id)}</b></span><span>{when(row.createdAt)}</span>{row.slug && <Link href={row.amount > 0 ? `/dashboard/order/forms/${encodeURIComponent(row.slug)}` : `/forms/${row.slug}`} className="text-link">ثبت دوباره</Link>}</small></div>
             <div className="rq-badges">
               {row.amount > 0 && <span className={`rq-badge ${unpaid ? 'is-warn' : 'is-good'}`}>{unpaid ? 'در انتظار پرداخت' : 'پرداخت‌شده'}</span>}
-              {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{STAGE_LABEL[row.stage as Stage]}</span>}
+              {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{row.stageLabel || STAGE_LABEL[row.stage as Stage]}</span>}{row.receiptToken && <a className="text-link rq-receipt" href={`/receipt/${row.receiptToken}`} target="_blank">رسید دستگاه</a>}
             </div>
           </div>
-          {row.stage && row.stage !== 'REJECTED' && <ol className="rq-track" aria-label="مراحل انجام">{TRACK.map((stage, index) => {
+          {row.stage && row.stage !== 'REJECTED' && TRACK.includes(row.stage as Stage) && <ol className="rq-track" aria-label="مراحل انجام">{TRACK.map((stage, index) => {
             const passed = index < at || (complete && index === at), now = index === at && !complete
             return <li key={stage} className={passed ? 'is-done' : now ? 'is-now' : ''} aria-current={now ? 'step' : undefined}>
               <span className="rq-step" aria-hidden="true">{passed ? <Icon name="check" size={14} /> : fa(index + 1)}</span>

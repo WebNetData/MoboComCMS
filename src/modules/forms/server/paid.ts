@@ -6,9 +6,10 @@ import { decryptDigitalDelivery, encryptDigitalDelivery } from '@/modules/catalo
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { formStaff, releaseSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
 import {
-  FormsError, SECRET_MASK, STAGES, STAGE_LABEL, parseForm, parseFxAnswer, priceLines, visibleFields,
-  type Answer, type FormDefinition, type PriceLine, type Stage, type StoredAnswer,
+  FormsError, SECRET_MASK, deviceLockText, parseForm, parseFxAnswer, priceLines, stepLabel, visibleFields, workSteps,
+  type Answer, type FormDefinition, type PriceLine, type StoredAnswer, type WorkStep,
 } from '@/modules/forms/domain/forms'
+import { randomBytes, randomInt } from 'node:crypto'
 import { mergeTags } from '@/modules/forms/domain/advanced'
 
 // Paid forms and the work on an answer: the bill, the payment through the site's own checkout,
@@ -43,7 +44,7 @@ export async function billFor(form: FormDefinition, values: Record<string, Answe
 
 /** Splits the answers into what is stored readable and what is stored encrypted (passwords). */
 export function sealSecrets(answers: StoredAnswer[]): { answers: StoredAnswer[]; secrets: string } {
-  const hidden = answers.filter((answer) => answer.type === 'secret' && typeof answer.value === 'string' && answer.value)
+  const hidden = answers.filter((answer) => (answer.type === 'secret' || answer.type === 'devicelock') && typeof answer.value === 'string' && answer.value)
   if (!hidden.length) return { answers, secrets: '' }
   return {
     answers: answers.map((answer) => (hidden.includes(answer) ? { ...answer, value: SECRET_MASK } : answer)),
@@ -58,7 +59,8 @@ export async function revealSecrets(submissionId: number) {
   if (!row.secrets) return []
   let values: Record<string, string> = {}
   try { values = JSON.parse(decryptDigitalDelivery(row.secrets)) } catch { throw new FormsError('این اطلاعات قابل خواندن نیست', 409) }
-  return parse<StoredAnswer[]>(row.data, []).filter((answer) => answer.type === 'secret' && values[answer.id]).map((answer) => ({ id: answer.id, label: answer.label, value: values[answer.id] }))
+  return parse<StoredAnswer[]>(row.data, []).filter((answer) => (answer.type === 'secret' || answer.type === 'devicelock') && values[answer.id])
+    .map((answer) => ({ id: answer.id, label: answer.label, value: values[answer.id], type: answer.type, text: answer.type === 'devicelock' ? deviceLockText(values[answer.id]) : values[answer.id] }))
 }
 
 export async function eraseSecrets(submissionId: number) {
@@ -166,21 +168,36 @@ export async function assertOwnWork(submissionId: number, actor: { id: number },
   if (row.assigneeId && row.assigneeId !== actor.id) throw new FormsError(OTHERS_WORK, 403)
 }
 
-export async function workOnSubmission(submissionId: number, actor: { id: number }, patch: { stage?: unknown; take?: unknown; reply?: unknown; assignTo?: unknown }, manager = false) {
+export async function workOnSubmission(submissionId: number, actor: { id: number }, patch: { stage?: unknown; take?: unknown; reply?: unknown; assignTo?: unknown; pickupCode?: unknown; override?: unknown }, manager = false) {
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
   if (!manager && row.assigneeId && row.assigneeId !== actor.id) throw new FormsError(OTHERS_WORK, 403)
   // Handing work to somebody else is a manager's decision; anybody may take what nobody holds.
   if (!manager && patch.assignTo !== undefined && Number(patch.assignTo) !== actor.id) throw new FormsError('سپردن کار به همکار دیگر با مدیر فرم‌ها است', 403)
   if (row.payStatus === 'UNPAID') throw new FormsError('این درخواست هنوز پرداخت نشده است', 409)
-  const data: { stage?: string; assigneeId?: number | null; reply?: string; read?: boolean; status?: string } = {}
+  const data: { stage?: string; assigneeId?: number | null; reply?: string; read?: boolean; status?: string; pickupCode?: string; receiptToken?: string; receivedAt?: Date } = {}
+  const settings = parseForm(row.form).settings
+  const steps = workSteps(settings)
+  let overridden = ''
   if (patch.stage !== undefined) {
-    if (!STAGES.includes(patch.stage as Stage)) throw new FormsError('وضعیت کار معتبر نیست')
-    data.stage = patch.stage as string
+    const step = steps.find((item) => item.key === patch.stage)
+    if (!step) throw new FormsError('وضعیت کار معتبر نیست')
+    data.stage = step.key
     // Whoever starts the work owns it unless somebody already does.
-    if (patch.stage === 'IN_PROGRESS' && !row.assigneeId) data.assigneeId = actor.id
+    if (step.key !== 'OPEN' && step.key !== 'REJECTED' && !row.assigneeId) data.assigneeId = actor.id
+    // «No receipt, no device»: the customer's pickup code, or a manager who records why it was handed over without it.
+    if (step.pickup && row.pickupCode && step.key !== row.stage) {
+      const typed = String(patch.pickupCode ?? '').replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/\D/g, '')
+      const reason = String(patch.override ?? '').trim().slice(0, 300)
+      if (typed !== row.pickupCode) {
+        if (!manager || reason.length < 5) throw new FormsError(manager ? 'کد تحویل درست نیست؛ اگر رسید گم شده، دلیل تحویل بدون کد را بنویسید' : 'کد تحویل روی رسید مشتری درست نیست؛ بدون رسید، دستگاه تحویل داده نمی‌شود', 403)
+        overridden = reason
+      }
+    }
+    // The step that takes the device in issues the receipt: its link and the code asked when it is handed back.
+    if (step.receipt && !row.receiptToken) Object.assign(data, receiptCodes())
   }
-  if (patch.take === true) { data.assigneeId = actor.id; if (row.stage === 'OPEN' || !row.stage) data.stage = 'IN_PROGRESS' }
+  if (patch.take === true) { data.assigneeId = actor.id; if ((row.stage === 'OPEN' || !row.stage) && steps.some((item) => item.key === 'IN_PROGRESS')) data.stage = 'IN_PROGRESS' }
   if (patch.take === false) data.assigneeId = null
   if (patch.assignTo !== undefined) {
     // Handing the work to a named member of staff: an account of the admin area, and one the form allows.
@@ -196,7 +213,7 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   if (row.status === 'NEW') { data.status = 'READ'; data.read = true }
   const changed = await db.formSubmission.updateMany({ where: { id: row.id, assigneeId: row.assigneeId, stage: row.stage, payStatus: row.payStatus, ...(data.reply !== undefined ? { reply: row.reply } : {}), ...(data.read !== undefined ? { read: row.read } : {}), ...(data.status !== undefined ? { status: row.status } : {}) }, data })
   if (changed.count !== 1) throw new FormsError('درخواست هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409)
-  const stage = (data.stage || row.stage) as Stage | ''
+  const stage = data.stage || row.stage
   if (data.stage && data.stage !== row.stage) {
     if (data.stage === 'REJECTED') await releaseSlots(row.id)
     void sendFormWebhooks(parseForm(row.form), 'stage', { entryId: row.id, stage: data.stage }).catch(() => undefined)
@@ -207,21 +224,43 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   if (row.userId && ((data.stage && data.stage !== row.stage) || (data.reply && data.reply !== row.reply))) {
     await createInboxEvent({
       userId: row.userId, kind: 'FORM', dedupeKey: `form:work:${row.id}:${stage}:${(data.reply ?? row.reply).length}`,
-      titleFa: `درخواست شما در «${row.form.title.slice(0, 80)}»: ${stage ? STAGE_LABEL[stage] : 'به‌روز شد'}`, titleEn: 'Your request was updated',
+      titleFa: `درخواست شما در «${row.form.title.slice(0, 80)}»: ${stage ? stepLabel(settings, stage) : 'به‌روز شد'}`, titleEn: 'Your request was updated',
       bodyFa: (data.reply || 'جزئیات را در «درخواست‌های من» ببینید.').slice(0, 300), bodyEn: '', href: '/dashboard/requests',
     }).catch(() => undefined)
   }
-  return { stage, assigneeId: data.assigneeId === undefined ? row.assigneeId : data.assigneeId, reply: data.reply ?? row.reply }
+  const moved = data.stage && data.stage !== row.stage ? steps.find((item) => item.key === data.stage) : undefined
+  if (moved) await tellSender({ id: row.id, title: row.form.title, data: row.data, userId: row.userId, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken }, moved).catch(() => undefined)
+  return { stage, assigneeId: data.assigneeId === undefined ? row.assigneeId : data.assigneeId, reply: data.reply ?? row.reply, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken, overridden }
+}
+
+/** A new receipt: the token of the customer's copy, and the six-digit code asked when the device is handed back. */
+export const receiptCodes = () => ({ receiptToken: randomBytes(18).toString('base64url'), pickupCode: String(randomInt(100000, 1000000)), receivedAt: new Date() })
+
+/**
+ * What a sender is told when their answer reaches a step that says something: the step's message (merge tags
+ * {code} — the pickup code, {receipt} — the link to their receipt, {id}) by SMS to the form's mobile answer
+ * (customers in the shop often have no account). Inbox messages are sent by the caller for signed-in senders.
+ */
+export async function tellSender(row: { id: number; title: string; data: string; userId: number | null; pickupCode: string; receiptToken: string }, step: WorkStep) {
+  if (!step.sms || !step.message) return
+  const answers = parse<StoredAnswer[]>(row.data, [])
+  const phone = answers.find((answer) => answer.type === 'mobile' && typeof answer.value === 'string' && answer.value)?.value
+  if (typeof phone !== 'string') return
+  const name = answers.find((answer) => answer.id === 'name' && typeof answer.value === 'string')?.value
+  const { notifyPhone, siteLink } = await import('@/modules/sms/server/sms')
+  const receipt = row.receiptToken ? await siteLink(`/receipt/${row.receiptToken}`) : ''
+  const message = step.message.replace(/\{code\}/g, row.pickupCode || '—').replace(/\{receipt\}/g, receipt).replace(/\{id\}/g, String(row.id))
+  await notifyPhone('FORM_STAGE', phone, { name: typeof name === 'string' && name ? name : 'مشتری', form: row.title.slice(0, 60), stage: step.label, message, link: receipt }, row.userId)
 }
 
 /** A signed-in sender's own answers, newest first: what they sent (passwords masked), the bill, and where the work stands. */
 export async function myRequests(userId: number) {
-  const rows = await db.formSubmission.findMany({ where: { userId, status: { not: 'SPAM' } }, orderBy: { createdAt: 'desc' }, take: 60, include: { form: { select: { title: true, slug: true, settings: true } } } })
+  const rows = await db.formSubmission.findMany({ where: { userId, status: { not: 'SPAM' } }, orderBy: { createdAt: 'desc' }, take: 60, include: { form: { select: { id: true, slug: true, title: true, description: true, fields: true, published: true, successText: true, settings: true } } } })
   return rows.map((row) => ({
     id: row.id, form: row.form.title, slug: row.form.slug, createdAt: row.createdAt.toISOString(),
     answers: parse<StoredAnswer[]>(row.data, []).map((answer) => ({ label: answer.label, type: answer.type || 'text', value: (answer.type === 'file' || answer.type === 'signature') && Array.isArray(answer.value) ? `${answer.value.length.toLocaleString('fa-IR')} فایل` : answer.value })),
     amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY,
     lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null,
-    stage: row.stage, reply: row.reply, score: row.score, scoreMax: row.scoreMax,
+    stage: row.stage, stageLabel: row.stage ? stepLabel(parseForm(row.form).settings, row.stage) : '', receiptToken: row.receiptToken, reply: row.reply, score: row.score, scoreMax: row.scoreMax,
   }))
 }
