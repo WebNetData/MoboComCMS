@@ -34,7 +34,7 @@ const TIME = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digi
 const fa = (value: number) => value.toLocaleString('fa-IR')
 
 /** Amount in Persian words for Iranian currencies (whole units); other currencies print figures only. */
-export function amountInWords(minor: string, currency: string) {
+function amountInWords(minor: string, currency: string) {
   const code = currency.toUpperCase()
   try {
     if (code === 'IRT' || code === 'TMN') return `${persianWords(BigInt(minor))} تومان`
