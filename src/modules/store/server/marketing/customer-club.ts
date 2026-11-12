@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { moveWallet } from '@/modules/wallet/server/wallet'
@@ -7,6 +8,30 @@ import { getLoyaltySettings, notify, positive } from '@/modules/store/server/mar
 import { cleanText } from '@/modules/store/server/marketing/gift-cards'
 import { runStockAlerts } from '@/modules/store/server/marketing/back-in-stock'
 import { runCartRecovery } from '@/modules/store/server/marketing/abandoned-carts'
+import { minorToDecimal } from '@/shared/money'
+
+/** Counter composes the same points ledger/rules inside its financial transaction. */
+export async function counterClub(tx: Prisma.TransactionClient, input: { userId: number; orderId: number; totalMinor: bigint; currency: string; redeem: number; key: string }, phase: 'REDEEM' | 'EARN') {
+  const settings = await getLoyaltySettings()
+  if (phase === 'REDEEM') {
+    if (!input.redeem) return 0n
+    if (!settings.enabled || input.currency !== 'IRT' || !settings.pointValueToman || input.redeem < settings.minRedeem) throw new MarketingError('تبدیل این تعداد امتیاز برای فروش تومانی فعال نیست')
+    const changed=await tx.loyaltyAccount.updateMany({where:{userId:input.userId,balance:{gte:input.redeem}},data:{balance:{decrement:input.redeem}}})
+    if(changed.count!==1)throw new MarketingError('امتیاز کافی ندارید',409)
+    const creditMinor=redeemValue(settings,input.redeem)
+    const entry=await tx.loyaltyEntry.create({data:{userId:input.userId,orderId:input.orderId,kind:'REDEEM',points:-input.redeem,note:'تبدیل امتیاز در صندوق به اعتبار کیف پول',idempotencyKey:`${input.key}:points`}})
+    const credit=await moveWallet({userId:input.userId,amount:minorToDecimal(creditMinor,'IRT'),currency:'IRT',type:'LOYALTY',orderId:input.orderId,idempotencyKey:`loyalty:redeem:${entry.id}`},tx)
+    if(!credit.ok)throw new MarketingError(credit.message||'تبدیل امتیاز انجام نشد',409)
+    return creditMinor
+  }
+  if(!settings.enabled || !settings.since || new Date(settings.since)>new Date())return 0n
+  const account=await tx.loyaltyAccount.findUnique({where:{userId:input.userId}})
+  const points=pointsFor(settings,tomanOf(input.totalMinor,input.currency),tierFor(settings,account?.lifetime||0).tier.multiplier)
+  if(await tx.loyaltyEntry.findUnique({where:{idempotencyKey:`order:${input.orderId}`}}))return 0n
+  await tx.loyaltyEntry.create({data:{userId:input.userId,orderId:input.orderId,points,kind:'EARN_ORDER',note:`خرید حضوری #${input.orderId}`,idempotencyKey:`order:${input.orderId}`}})
+  await tx.loyaltyAccount.upsert({where:{userId:input.userId},create:{userId:input.userId,balance:points,lifetime:points},update:{balance:{increment:points},lifetime:{increment:points}}})
+  return BigInt(points)
+}
 
 /** Adds a ledger entry once per key and keeps the account totals in step. */
 async function addPoints(userId: number, points: number, kind: string, key: string, note: string, orderId: number | null = null) {

@@ -51,7 +51,7 @@ export const emptyCart = () => call('DELETE')
 const KEY = 'mc.cart.checkout.key'
 
 /** Places the order for the whole cart. The idempotency key survives a lost response. */
-export async function checkoutCart(payload: { surface?: 'dashboard'; addressId?: number; delivery?: { date: string; slotId: string }; carrierId?: string; gatewayRef?: string; discountCode?: string; payWith?: 'wallet' | 'gateway' }) {
+export async function checkoutCart(payload: { surface?: 'dashboard'; addressId?: number; delivery?: { date: string; slotId: string }; carrierId?: string; shippingMode?: 'SHIP'|'PICKUP';gatewayRef?: string; discountCode?: string; payWith?: 'wallet' | 'gateway' }) {
   let key = ''
   try { key = sessionStorage.getItem(KEY) || '' } catch { key = '' }
   if (!key) {

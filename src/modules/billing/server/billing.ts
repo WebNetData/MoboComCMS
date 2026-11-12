@@ -80,13 +80,13 @@ export function invoiceDue(invoice: { totalMinor?: bigint; walletAppliedMinor?: 
 }
 
 export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput, client: Prisma.TransactionClient | typeof db = db) {
-  if (input.userId === null && (input.saleSource !== 'COUNTER' || !input.orderId || input.walletApplied)) throw new Error('counter invoice requires an order and no wallet credit')
   const currency = normalizeCurrency(input.currency || BASE_CURRENCY)
   const subtotalMinor = toMinor(input.subtotal, currency)
   const discountMinor = toMinor(input.discount || 0, currency)
   const taxMinor = toMinor(input.tax || 0, currency)
   const totalMinor = invoiceTotalMinor(subtotalMinor, discountMinor, taxMinor)
   const walletAppliedMinor = toMinor(input.walletApplied || 0, currency)
+  if (input.userId === null && (input.saleSource !== 'COUNTER' || !input.orderId || walletAppliedMinor !== 0n)) throw new Error('counter invoice requires an order and no wallet credit')
   if (walletAppliedMinor < 0n || walletAppliedMinor > totalMinor) throw new Error('invalid wallet credit on invoice')
   const dueDays = Math.max(0, Math.min(365, Number(input.dueDays ?? 1) || 0))
 
@@ -126,6 +126,8 @@ export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput, c
 }
 
 export interface MarkPaidInput {
+  /** Trusted composed settlement only: separate externally received portions, summing to amount. */
+  allocations?: { provider: 'CASH' | 'CARD'; amountMinor: bigint; reference: string }[]
   invoiceId: number
   gatewayId?: number | null
   providerTxnId?: string
@@ -206,9 +208,11 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
       })
     }
 
-    if (amountMinor > 0n) {
-      const provider = input.provider || gateway?.provider || 'MANUAL'
-      const providerTxnId = input.providerTxnId || ''
+    const allocations = input.allocations || (amountMinor > 0n ? [{ provider: input.provider || gateway?.provider || 'MANUAL', amountMinor, reference: input.providerTxnId || '' }] : [])
+    if (input.allocations && (allocations.some(row => row.amountMinor <= 0n) || allocations.reduce((sum,row)=>sum+row.amountMinor,0n) !== amountMinor || new Set(allocations.map(row=>row.provider)).size !== allocations.length)) throw new Error('invalid payment allocations')
+    for (const allocation of allocations) {
+      const provider = allocation.provider
+      const providerTxnId = allocation.reference
       await tx.payment.create({
         data: {
           userId: invoice.userId,
@@ -218,13 +222,13 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
           provider,
           providerTxnId,
           eventKey: `invoice:${invoice.id}:payment:${provider}:${providerTxnId || 'manual'}`,
-          amount: legacyNumber(amountMinor, currency),
-          amountMinor,
+          amount: legacyNumber(allocation.amountMinor, currency),
+          amountMinor: allocation.amountMinor,
           currency,
           cryptoCurrency: input.cryptoCurrency || '',
           cryptoAmount: input.cryptoAmount || '',
-          fee: legacyNumber(feeMinor, currency),
-          feeMinor,
+          fee: legacyNumber(input.allocations ? 0n : feeMinor, currency),
+          feeMinor: input.allocations ? 0n : feeMinor,
           status: 'CONFIRMED',
           raw: JSON.stringify(input.raw ?? {}),
           confirmedAt: now,

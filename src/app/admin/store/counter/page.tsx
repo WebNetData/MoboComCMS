@@ -5,9 +5,11 @@ import Link from '@/components/AppLink'
 import { StoreShell } from '../shared'
 import { formatMoney } from '@/shared/money'
 import { fieldsFor } from '@/modules/store/domain/order-inputs'
-import type { CounterProduct, CounterCustomer, CounterLine, CounterPaymentMethod } from '@/modules/store/domain/counter-sales'
+import type { CounterProduct, CounterCustomer, CounterLine } from '@/modules/store/domain/counter-sales'
 import { useCounterSale } from './useCounterSale'
 import Receipt from './Receipt'
+import CustomerDesk from './CustomerDesk'
+import PaymentDesk, { EMPTY_PAYMENT, paymentRows, type DeskPayment } from './PaymentDesk'
 import './counter.css'
 
 type Item = CounterLine & { product: CounterProduct; variantName: string }
@@ -25,11 +27,11 @@ export default function CounterSales() {
   const [attempt, setAttempt] = useState(0)
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
-  const [customerQuery, setCustomerQuery] = useState('')
-  const [customers, setCustomers] = useState<CounterCustomer[]>([])
   const [customer, setCustomer] = useState<CounterCustomer | null>(null)
-  const [method, setMethod] = useState<CounterPaymentMethod>('CASH')
-  const [reference, setReference] = useState('')
+  const [payment,setPayment]=useState<DeskPayment>(EMPTY_PAYMENT)
+  const [sessions,setSessions]=useState<{id:number;register:string;currency:string;status:string;mine:boolean}[]>([])
+  const [sessionId,setSessionId]=useState(0)
+  const [scan,setScan]=useState(''),[scanBusy,setScanBusy]=useState(false),[localError,setLocalError]=useState('')
   const [confirmed, setConfirmed] = useState(false)
   const product = products.find((item) => item.id === productId)
   const variant = product?.variants.find((item) => item.id === variantId)
@@ -49,16 +51,19 @@ export default function CounterSales() {
     return () => { clearTimeout(timer); controller.abort() }
   }, [query, attempt])
 
-  useEffect(() => {
-    if (customerQuery.trim().length < 2) { setCustomers([]); return }
-    const controller = new AbortController()
-    const timer = setTimeout(() => {
-      fetch(`/api/admin/store/counter?customers=${encodeURIComponent(customerQuery)}`, { cache: 'no-store', signal: controller.signal })
-        .then(async (response) => { if (response.ok) { const body = await response.json(); if (!controller.signal.aborted) setCustomers(body.customers) } })
-        .catch(() => { if (!controller.signal.aborted) setCustomers([]) })
-    }, 250)
-    return () => { clearTimeout(timer); controller.abort() }
-  }, [customerQuery])
+  useEffect(()=>{const controller=new AbortController();fetch('/api/admin/store/counter?registers=1',{cache:'no-store',signal:controller.signal}).then(async response=>{const data=await response.json();if(!response.ok)throw Error(data.error||'صندوق‌ها دریافت نشدند');if(!controller.signal.aborted)setSessions(data.sessions)}).catch(error=>{if(!controller.signal.aborted)setLocalError(error.message)});return()=>controller.abort()},[sale.orderId,attempt])
+
+  async function scanItem(){
+    if(!scan.trim()||scanBusy)return
+    setScanBusy(true);setLocalError('')
+    try{const response=await fetch('/api/admin/store/counter?scan='+encodeURIComponent(scan.trim()),{cache:'no-store'}),body=await response.json();if(!response.ok)throw Error(body.error||'بارکد پیدا نشد')
+      const scanned=body.product as CounterProduct, option=scanned.variants.find(item=>item.id===body.variantId)
+      if(currency&&currency!==scanned.currency)throw Error('واحد پول کالاهای یک فروش باید یکسان باشد')
+      if(body.requiresVariant){setProducts(previous=>[scanned,...previous.filter(item=>item.id!==scanned.id)]);setProductId(scanned.id);setVariantId(0);setLocalError('گزینهٔ کالا را انتخاب و به فروش اضافه کنید')}
+      else setItems(previous=>{const index=previous.findIndex(item=>item.productId===scanned.id&&item.variantId===(option?.id||null));if(index>=0)return previous.map((item,at)=>at===index?{...item,quantity:Math.min(99,scanned.maxPerOrder||99,item.quantity+1)}:item);if(previous.length>=30)return previous;return [...previous,{productId:scanned.id,variantId:option?.id||null,quantity:1,expectedUnitMinor:option?.unitMinor||scanned.unitMinor,inputs:{},product:scanned,variantName:option?.name||''}]})
+      setScan('');setConfirmed(false)
+    }catch(error){setLocalError(error instanceof Error?error.message:'ارتباط برقرار نشد')}finally{setScanBusy(false)}
+  }
 
   function addItem() {
     if (!product || (product.variants.length && !variant)) return
@@ -68,10 +73,12 @@ export default function CounterSales() {
     setConfirmed(false)
   }
   function changeItem(index: number, patch: Partial<Item>) { setItems(items.map((item, at) => at === index ? { ...item, ...patch } : item)); setConfirmed(false) }
-  const payload = () => ({ customerId: customer?.id || null, customerName, customerPhone, method, reference, lines: items.map(({ product, variantName, ...line }) => line) })
-  function nextSale() { if (sale.nextSale()) { setItems([]); setConfirmed(false); setCustomer(null); setCustomerName(''); setCustomerPhone(''); setCustomerQuery(''); setReference(''); setAttempt((value) => value + 1) } }
+  const payload = () => ({ customerId: customer?.id || null, customerName, customerPhone, sessionId, method:payment.method, reference:payment.reference, payments:paymentRows(payment,total,currency),walletCode:payment.walletCode,redeemPoints:payment.points, lines: items.map(({ product, variantName, ...line }) => line) })
+  function submitSale(){try{void sale.submit(payload())}catch(error){setLocalError(error instanceof Error?error.message:'مبالغ پرداخت معتبر نیست')}}
+  function nextSale() { if (sale.nextSale()) { setItems([]); setConfirmed(false); setCustomer(null); setCustomerName(''); setCustomerPhone(''); setPayment(EMPTY_PAYMENT); setLocalError(''); setAttempt((value) => value + 1) } }
 
   return <StoreShell title="فروش حضوری" actions={<Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link>}>
+    {localError&&<div className="sa-notice is-error" role="alert">{localError}</div>}
     {sale.message && <div className="sa-notice is-error" role="alert">{sale.message}</div>}
     {sale.orderId ? <>
       <section className="sa-card counter-result" role="status"><h2>فروش شمارهٔ {sale.orderId.toLocaleString('fa-IR')} ثبت شده است</h2><div className="sa-row-actions">
@@ -83,12 +90,13 @@ export default function CounterSales() {
       {sale.receipt ? <Receipt receipt={sale.receipt} /> : <p role="status">در حال دریافت رسید…</p>}
     </> : <>
       {sale.uncertain && <section className="sa-card"><div className="sa-row-actions">
-        {sale.canRetry && <button type="button" className="btn btn-primary" disabled={sale.busy} onClick={() => void sale.submit(payload())}>تلاش مجدد همان فروش</button>}
+        {sale.canRetry && <button type="button" className="btn btn-primary" disabled={sale.busy} onClick={submitSale}>تلاش مجدد همان فروش</button>}
         <button type="button" className="btn btn-ghost" disabled={sale.busy} onClick={() => void sale.recover()}>بررسی وضعیت فروش قبلی</button>
         <button type="button" className="btn btn-ghost" disabled={sale.busy} onClick={nextSale}>شروع فروش جداگانه</button>
       </div></section>}
-      <form className="counter-layout" onSubmit={(event) => { event.preventDefault(); if (confirmed) void sale.submit(payload()) }}>
+      <form className="counter-layout" onSubmit={(event) => { event.preventDefault(); if (confirmed) submitSale() }}>
         <fieldset className="sa-card counter-products" disabled={locked}><legend>کالاهای فروش</legend>
+          <label htmlFor="counter-scan">بارکدخوان / بارکد کالا</label><div className="sa-row"><input id="counter-scan" className="input" value={scan} autoComplete="off" dir="ltr" onChange={event=>setScan(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();void scanItem()}}}/><button type="button" className="btn btn-ghost" disabled={scanBusy||!scan.trim()} onClick={()=>void scanItem()}>{scanBusy?'در حال بررسی…':'افزودن با بارکد'}</button></div>
           <label htmlFor="counter-search">نام یا کد کالا</label><input id="counter-search" className="input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
           {loading && <p role="status" aria-busy="true">در حال دریافت کالاها…</p>}
           {loadError && <p role="alert">{loadError} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAttempt((value) => value + 1)}>تلاش دوباره</button></p>}
@@ -106,16 +114,12 @@ export default function CounterSales() {
           {!items.length && <p className="sa-hint">کالاهای تحویلی را به فروش اضافه کنید.</p>}
         </fieldset>
         <fieldset className="sa-card counter-payment" disabled={locked}><legend>مشتری و دریافت وجه</legend>
-          <label htmlFor="counter-customer-search">حساب مشتری، در صورت وجود</label><input id="counter-customer-search" className="input" placeholder="نام، ایمیل یا موبایل" value={customerQuery} onChange={(event) => setCustomerQuery(event.target.value)} />
-          {customers.length > 0 && <select className="input" aria-label="انتخاب حساب مشتری" value={customer?.id || 0} onChange={(event) => { const next = customers.find((item) => item.id === Number(event.target.value)) || null; setCustomer(next); if (next) { setCustomerName(next.name); setCustomerPhone(next.phone) } }}><option value={0}>بدون حساب سایت</option>{customers.map((item) => <option value={item.id} key={item.id}>{item.name || item.email} · {item.phone || item.email}</option>)}</select>}
-          {customer && <p>{customer.name || customer.email} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCustomer(null)}>فروش بدون حساب</button></p>}
-          <label htmlFor="counter-customer-name">نام مشتری، اختیاری</label><input id="counter-customer-name" className="input" maxLength={120} value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
-          <label htmlFor="counter-customer-phone">موبایل، اختیاری</label><input id="counter-customer-phone" className="input" type="tel" maxLength={30} value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} />
-          <label htmlFor="counter-method">روش دریافت وجه</label><select id="counter-method" className="input" value={method} onChange={(event) => { setMethod(event.target.value as CounterPaymentMethod); setConfirmed(false) }}><option value="CASH">نقدی</option><option value="CARD">کارت‌خوان</option></select>
-          <label htmlFor="counter-reference">شمارهٔ پیگیری، اختیاری</label><input id="counter-reference" className="input" maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} />
+          <label htmlFor="counter-session">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={event=>{setSessionId(Number(event.target.value));setConfirmed(false)}}><option value={0}>صندوق باز خود را انتخاب کنید</option>{sessions.filter(row=>row.status==='OPEN'&&row.mine).map(row=><option key={row.id} value={row.id}>{row.register} · {row.currency}</option>)}</select><Link className="sa-link" href="/admin/store/registers">بازکردن / بستن صندوق</Link>
+          <CustomerDesk customer={customer} name={customerName} phone={customerPhone} onCustomer={value=>{setCustomer(value);setConfirmed(false)}} onName={setCustomerName} onPhone={setCustomerPhone}/>
+          <PaymentDesk value={payment} onChange={value=>{setPayment(value);setConfirmed(false)}} total={total} currency={currency} customerId={customer?.id||null}/>
           <p className="counter-total">جمع فروش <strong>{currency ? formatMoney(total, currency, 'fa-IR') : '—'}</strong></p>
           <label className="counter-confirm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />کل مبلغ را دریافت کرده‌ام و کالاها اکنون به مشتری تحویل می‌شوند</label>
-          <button className="btn btn-primary" type="submit" disabled={!items.length || !confirmed || locked}>{sale.busy ? 'در حال ثبت…' : 'ثبت فروش و دریافت رسید'}</button>
+          <button className="btn btn-primary" type="submit" disabled={!items.length || !confirmed || !sessionId || scanBusy || locked}>{sale.busy ? 'در حال ثبت…' : 'ثبت فروش و دریافت رسید'}</button>
         </fieldset>
       </form>
     </>}

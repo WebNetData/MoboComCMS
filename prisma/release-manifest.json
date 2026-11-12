@@ -840,6 +840,7 @@
     }
   },
   "unreleased": [
-    "20270311120000_store_counter_sales"
+    "20270311120000_store_counter_sales",
+    "20270312120000_store_unified_desk"
   ]
 }

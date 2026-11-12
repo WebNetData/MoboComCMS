@@ -73,7 +73,46 @@
         "label": "فروش حضوری",
         "labelEn": "Counter sales",
         "icon": "wallet",
-        "permissions": ["orders.manage"]
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/registers",
+        "label": "صندوق‌ها",
+        "labelEn": "Cash registers",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/pickup",
+        "label": "تحویل از فروشگاه",
+        "labelEn": "Store collection",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage",
+          "store.orders.handle"
+        ]
+      },
+      {
+        "href": "/admin/store/labels",
+        "label": "برچسب بارکد",
+        "labelEn": "Barcode labels",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/reports",
+        "label": "گزارش یکپارچه",
+        "labelEn": "Unified sales report",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
       },
       {
         "href": "/admin/store/returns",

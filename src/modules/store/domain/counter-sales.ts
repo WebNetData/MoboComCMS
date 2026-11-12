@@ -2,15 +2,16 @@ import { StoreError } from '@/modules/store/domain/store'
 import type { OrderField } from '@/modules/store/domain/order-inputs'
 import type { DeliveryItem, ProductDeliveryTemplate } from '@/modules/store/domain/delivery-details'
 
-export const COUNTER_PAYMENT_METHODS = ['CASH', 'CARD'] as const
+export const COUNTER_PAYMENT_METHODS = ['CASH', 'CARD', 'WALLET', 'SPLIT'] as const
 export type CounterPaymentMethod = typeof COUNTER_PAYMENT_METHODS[number]
 export type CounterLine = { productId: number; variantId: number | null; quantity: number; expectedUnitMinor: string; inputs: Record<string, string> }
-export type CounterSaleInput = { requestId: string; customerId: number | null; customerName: string; customerPhone: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[] }
+export type CounterTenderInput = { method: 'CASH' | 'CARD' | 'WALLET'; amountMinor: string; reference: string }
+export type CounterSaleInput = { requestId: string; customerId: number | null; customerName: string; customerPhone: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[]; sessionId?: number | null; payments?: CounterTenderInput[]; walletCode?: string; redeemPoints?: number }
 export type CounterProduct = { id: number; name: string; kind: string; currency: string; stock: number; unitMinor: string; maxPerOrder: number; fields: OrderField[]; variants: { id: number; name: string; stock: number; unitMinor: string }[] }
 export type CounterCustomer = { id: number; name: string; email: string; phone: string }
 export type CounterReceipt = {
   orderId: number; invoiceNumber: string; createdAt: string; customer: string; phone: string; cashier: string; method: string; reference: string; currency: string; totalMinor: string
-  brand: { title: string; logo: string }
+  brand: { title: string; logo: string }; link?: string; qr?: string; payments?: CounterTenderInput[]
   lines: { name: string; variant: string; quantity: number; unitMinor: string; totalMinor: string; kind: string }[]
   cards: { id: number; product: string; items: DeliveryItem[]; template: ProductDeliveryTemplate }[]
 }
@@ -40,5 +41,19 @@ export function readCounterSale(input: unknown): CounterSaleInput {
     const inputs = Object.fromEntries(Object.keys(values).sort().slice(0, 12).map((key) => [key, String(values[key] ?? '')]))
     return { productId, variantId, quantity, expectedUnitMinor, inputs }
   })
-  return { requestId, customerId, customerName: text(body.customerName, 120), customerPhone: text(body.customerPhone, 30), method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines }
+  const sessionId = body.sessionId == null ? null : Number(body.sessionId), redeemPoints = Number(body.redeemPoints || 0)
+  if ((sessionId !== null && !positive(sessionId)) || !Number.isSafeInteger(redeemPoints) || redeemPoints < 0 || redeemPoints > 1_000_000_000) throw new StoreError('صندوق یا تعداد امتیاز معتبر نیست')
+  const payments: CounterTenderInput[] = []
+  if (body.payments !== undefined) {
+    if (!Array.isArray(body.payments) || !body.payments.length || body.payments.length > 3) throw new StoreError('روش‌های پرداخت را مشخص کنید')
+    for (const raw of body.payments) {
+      const item = raw as Record<string, unknown>, method = String(item?.method), amountMinor = String(item?.amountMinor ?? '')
+      if (!['CASH','CARD','WALLET'].includes(method) || !/^\d{1,16}$/.test(amountMinor) || BigInt(amountMinor) <= 0n || payments.some(item => item.method === method)) throw new StoreError('مبلغ و روش پرداخت معتبر نیست')
+      const reference = text(item.reference,120)
+      if (method === 'CARD' && !reference) throw new StoreError('شمارهٔ پیگیری کارت‌خوان را وارد کنید')
+      payments.push({ method: method as CounterTenderInput['method'], amountMinor, reference })
+    }
+  }
+  if ((body.method === 'WALLET' || body.method === 'SPLIT') && !payments.length) throw new StoreError('جزئیات پرداخت لازم است')
+  return { requestId, customerId, customerName: text(body.customerName, 120), customerPhone: text(body.customerPhone, 30), method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines, sessionId, payments, walletCode: text(body.walletCode,8), redeemPoints }
 }

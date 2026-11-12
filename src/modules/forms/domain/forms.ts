@@ -688,7 +688,7 @@ export type ReceiptLine = { label: string; value: string; pattern?: number[] }
 export type Receipt = {
   copy: 'shop' | 'customer'; number: number; title: string; form: string; brand: { title: string; logo: string }
   createdAt: string; receivedAt: string | null; stage: string; lines: ReceiptLine[]; secrets: ReceiptLine[]; terms: string[]
-  pickupCode: string; link: string; staff: string; source: string
+  pickupCode: string; link: string; staff: string; source: string; qr?: string
 }
 
 // ------------------------------------------------------------------ ready-made forms

@@ -34,6 +34,8 @@ export interface SmsEventDef {
 
 // User events mirror the customer inbox (notifications); admin events alert staff.
 export const SMS_EVENTS: SmsEventDef[] = [
+  { id: 'STORE_RECEIPT', audience: 'user', label: 'فاکتور فروش حضوری', vars: ['name','title','body','link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
+  { id: 'STORE_PICKUP_READY', audience: 'user', label: 'سفارش آمادهٔ تحویل از فروشگاه', vars: ['name','title','body','link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'FORM_STAGE', audience: 'user', label: 'مرحلهٔ کار درخواست (مشتری، مثل تعمیر)', vars: ['name', 'form', 'stage', 'message', 'link'], template: '{name} عزیز، {form}: {stage}\n{message}\n{brand}' },
   { id: 'CRM_BIRTHDAY', audience: 'user', label: 'تبریک تولد', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'CRM_OFFER', audience: 'user', label: 'پیشنهاد و تخفیف موردعلاقه', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
@@ -96,7 +98,7 @@ export const DEFAULT_SMS: SmsConfig = {
   otpParam: 'code',
   otpText: 'کد ورود شما به {brand}: {code}\nاین کد را در اختیار دیگران قرار ندهید.',
   adminPhones: [],
-  events: Object.fromEntries(SMS_EVENTS.map((event) => [event.id, { enabled: ['PAYMENT_PAID', 'RECEIPT_REJECTED', 'PRODUCT_DELIVERED', 'TICKET_REPLY', 'ADMIN_RECEIPT'].includes(event.id), text: event.template, pattern: '' }])),
+  events: Object.fromEntries(SMS_EVENTS.map((event) => [event.id, { enabled: ['STORE_RECEIPT','STORE_PICKUP_READY','PAYMENT_PAID', 'RECEIPT_REJECTED', 'PRODUCT_DELIVERED', 'TICKET_REPLY', 'ADMIN_RECEIPT'].includes(event.id), text: event.template, pattern: '' }])),
 }
 
 const clean = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u0009\u000b-\u001f<>]/g, '').trim().slice(0, max)

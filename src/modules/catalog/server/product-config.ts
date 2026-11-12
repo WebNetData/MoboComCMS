@@ -1,6 +1,7 @@
 import { cleanRichText } from '@/shared/content/sanitize'
 import { db } from '@/platform/database/prisma'
 import { validateCover } from '@/shared/content/cover'
+import { toMinor } from '@/shared/money'
 
 export type AttributeField = {
   key: string
@@ -108,6 +109,10 @@ export function validateVariants(input: unknown, fields: AttributeField[], curre
   return input.map((raw) => {
     const id = Number(raw?.id) || undefined
     const sku = String(raw?.sku || '').trim().slice(0, 80)
+    const barcode = raw?.barcode === undefined ? undefined : String(raw.barcode || '').trim().slice(0,80)
+    if(barcode && (!/^[\x21-\x7e]+$/.test(barcode) || /^MC-[PV]-/i.test(barcode)))throw Error('بارکد گونه معتبر نیست')
+    const costMinor = raw?.costPrice === undefined ? undefined : raw.costPrice === '' || raw.costPrice === null ? null : toMinor(String(raw.costPrice),currency)
+    if(costMinor != null && costMinor < 0n)throw Error('بهای خرید نمی‌تواند منفی باشد')
     const name = String(raw?.name || '').trim().slice(0, 120)
     const nameEn = String(raw?.nameEn || '').trim().slice(0, 120)
     const price = Number(raw?.price)
@@ -127,7 +132,7 @@ export function validateVariants(input: unknown, fields: AttributeField[], curre
     // Also only from the FX step: the variant's own profit (null = the product's).
     const markupBps = Number.isSafeInteger(raw?.markupBps) && raw.markupBps >= 0 && raw.markupBps <= 100_000 ? raw.markupBps as number : null
     const markupFixedMinor = typeof raw?.markupFixedMinor === 'bigint' && raw.markupFixedMinor >= 0n ? raw.markupFixedMinor : null
-    return { id, sku, name, nameEn, attributes, price, memberPrice, compareAt, fxAmountMinor, markupBps, markupFixedMinor, stock, active: raw?.active !== false, currency }
+    return { id, sku, barcode, costMinor,name, nameEn, attributes, price, memberPrice, compareAt, fxAmountMinor, markupBps, markupFixedMinor, stock, active: raw?.active !== false, currency }
   })
 }
 

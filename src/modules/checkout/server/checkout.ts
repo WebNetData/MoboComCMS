@@ -78,6 +78,7 @@ export interface CheckoutCommand {
   delivery?: { date?: string; slotId?: string } | null
   /** Chosen shipping carrier (when carriers are enabled); the cheapest available one otherwise. */
   carrierId?: string | null
+  shippingMode?: 'SHIP' | 'PICKUP'
   /** Legacy inline address; still accepted from API clients. */
   shippingAddress?: { recipient?: string; phone?: string; country?: string; city?: string; postalCode?: string; address?: string }
   username?: string
@@ -173,7 +174,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let carrier: Awaited<ReturnType<typeof checkoutCarrier>> = null
   // Foreign currencies the price followed: a typed foreign amount, a product priced by the rate, a form's foreign amount.
   const fxCodes: string[] = []
-  const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string; sellerId: number | null; inputs: string; openAmountMinor: bigint; openCurrency: string; openRate: string }[] = []
+  const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string; sellerId: number | null; inputs: string; openAmountMinor: bigint; openCurrency: string; openRate: string; unitCostMinor?: bigint | null }[] = []
 
   if (formSubmissionId) {
     try {
@@ -297,13 +298,20 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       orderLines.push({
         line: index, productId: product.id, variantId: variant?.id ?? null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku,
         image: product.image, kind: product.kind, quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: price.unitMinor * BigInt(quantity), currency: price.currency,
-        sellerId: product.sellerId ?? null, inputs: sealed, openAmountMinor, openCurrency, openRate,
+        sellerId: product.sellerId ?? null, inputs: sealed, openAmountMinor, openCurrency, openRate, unitCostMinor: variant?.costMinor ?? product.costMinor,
       })
       if (index === 0) meta = { kind: 'product', productId: product.id, productName: product.name, variantId: variant?.id || null, variantName: variant?.name || '', variantSku: variant?.sku || '', variantAttributes: variant?.attributes || '{}' }
     }
     const physical = orderLines.some((line) => line.kind === 'PHYSICAL')
     let shippingAddress: Record<string, string> | undefined
-    if (physical) {
+    if (physical && command.shippingMode === 'PICKUP') {
+      const pickup = (await getDeliverySettings()).pickup
+      if(!pickup?.enabled || !pickup.address.trim())return fail(409,'PICKUP_DISABLED','تحویل حضوری در حال حاضر فعال نیست')
+      const customer=await db.user.findUnique({where:{id:command.userId},select:{phone:true,name:true}})
+    if(!customer?.phone || !(await import('@/modules/sms/domain/sms')).normalizeMobile(customer.phone))return fail(400,'PICKUP_PHONE_REQUIRED','برای پیامک تحویل، ابتدا موبایل معتبر را در حساب خود ثبت کنید')
+      meta={...meta,shippingMode:'PICKUP',pickupAddress:pickup.address,pickupInstructions:pickup.instructions}
+    }
+    if (physical && command.shippingMode !== 'PICKUP') {
       const deliverySettings = await getDeliverySettings()
       try {
         if (command.addressId) shippingAddress = await addressSnapshot(command.userId, Number(command.addressId))
@@ -357,7 +365,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     amount = legacyNumber(amountMinor, currency)
   }
   // Shipping is charged on what the customer pays for the item (after discounts) and is never discounted itself.
-  if (productId && meta.productKind === 'PHYSICAL' && carrier) {
+  if (productId && meta.productKind === 'PHYSICAL' && carrier && command.shippingMode !== 'PICKUP') {
     // Re-priced on what the customer pays for the items (free-shipping thresholds count after discounts).
     const physicalLines = orderLines.filter((line) => line.kind === 'PHYSICAL')
     const dest = meta.shippingAddress as Record<string, string> | undefined
@@ -371,7 +379,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     meta = { ...meta, shipping: { carrierId: carrier.carrierId, carrierName: carrier.name, zone: carrier.zone, weightGrams: carrier.weightGrams, eta: carrier.eta, ...(carrier.collect ? { collect: true } : {}) } }
     amountMinor += shippingMinor
     amount = legacyNumber(amountMinor, currency)
-  } else if (productId && meta.productKind === 'PHYSICAL') {
+  } else if (productId && meta.productKind === 'PHYSICAL' && command.shippingMode !== 'PICKUP') {
     shippingMinor = (await tierStanding(command.userId))?.freeShipping ? 0n : shippingFeeMinor(await getDeliverySettings(), currency, amountMinor)
     amountMinor += shippingMinor
     amount = legacyNumber(amountMinor, currency)
@@ -431,6 +439,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
         if (usedByCustomer >= promotion.perUserLimit) throw Error('PROMOTION_USER_LIMIT')
       }
       const created = await tx.order.create({ data: {
+        ...(command.shippingMode==='PICKUP' && meta.productKind==='PHYSICAL'?{receiptToken:(await import('node:crypto')).randomBytes(24).toString('hex'),customerPhone:(await tx.user.findUniqueOrThrow({where:{id:command.userId},select:{phone:true}})).phone}:{}),
         userId: command.userId,
         planId,
         productId,
@@ -445,6 +454,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       } })
       if (delivery) await bookDelivery(tx, created.id, delivery.date, delivery.slot.id)
       for (const line of orderLines) await tx.orderLine.create({ data: { ...line, orderId: created.id } })
+      if(command.shippingMode==='PICKUP' && meta.productKind==='PHYSICAL')await (await import('@/modules/store/server/pickup')).createStorePickup(tx,created.id)
       if (orderLines.length) await tx.orderEvent.create({ data: { orderId: created.id, status: 'PENDING', note: 'سفارش ثبت شد' } })
       if (promotion) await tx.promotionRedemption.create({ data: { promotionId: promotion.id, userId: command.userId, orderId: created.id } })
       return created

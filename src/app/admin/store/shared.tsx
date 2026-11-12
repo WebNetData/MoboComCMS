@@ -22,6 +22,10 @@ const TABS = [
   { href: '/admin/store', label: 'داشبورد', exact: true },
   { href: '/admin/store/orders', label: 'سفارش‌ها' },
   { href: '/admin/store/counter', label: 'فروش حضوری' },
+  { href: '/admin/store/registers', label: 'صندوق‌ها' },
+  { href: '/admin/store/pickup', label: 'تحویل از فروشگاه' },
+  { href: '/admin/store/labels', label: 'برچسب بارکد' },
+  { href: '/admin/store/reports', label: 'گزارش یکپارچه' },
   { href: '/admin/store/returns', label: 'لغو و مرجوعی' },
   { href: '/admin/store/print', label: 'چاپ کارت حضوری' },
   { href: '/admin/store/shipments', label: 'مرسوله‌ها' },
@@ -41,7 +45,7 @@ export function StoreShell({ title, actions, children }: { title: string; action
   const permissions = (session?.user as { permissions?: string[] } | undefined)?.permissions || []
   const specialist = permissions.includes('store.orders.handle') && !permissions.includes('orders.manage')
   return <div className="sa" dir="rtl">
-    <nav className="sa-tabs" aria-label="بخش‌های فروشگاه">{TABS.filter(tab => !specialist || tab.href === '/admin/store/orders' || tab.href === '/admin/store/print').map((tab) => {
+    <nav className="sa-tabs" aria-label="بخش‌های فروشگاه">{TABS.filter(tab => !specialist || tab.href === '/admin/store/orders' || tab.href === '/admin/store/print' || tab.href === '/admin/store/pickup').map((tab) => {
       const on = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
       return <Link key={tab.href} href={tab.href} className={on ? 'is-active' : ''} aria-current={on ? 'page' : undefined}>{tab.label}</Link>
     })}</nav>

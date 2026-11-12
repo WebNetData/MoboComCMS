@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
@@ -13,6 +13,12 @@ import { StoreError } from '@/modules/store/domain/store'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { readCounterSale, type CounterSaleInput } from '@/modules/store/domain/counter-sales'
 import { legacyNumber, minorToDecimal } from '@/shared/money'
+import { resolvePhoneCustomer, PhoneCustomerError } from '@/modules/identity/server/phone-customer'
+import { normalizeMobile } from '@/modules/sms/domain/sms'
+import { lockRegister } from './register'
+import { counterPayments, payCounterWallet } from './payment'
+import { counterClub } from '@/modules/store/server/marketing'
+import { createInboxEvent } from '@/modules/notifications/server/inbox'
 
 type Tx = Prisma.TransactionClient
 type Commit = (tx: Tx, orderId: number) => Promise<void>
@@ -26,8 +32,11 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
     if (replay.saleSource !== 'COUNTER' || replay.status !== 'PAID' || meta.counterFingerprint !== fingerprint) throw new StoreError('این شناسه قبلاً برای فروش دیگری استفاده شده است؛ فروش قبلی را بررسی کنید', 409, 'REQUEST_CONFLICT')
     return { orderId: replay.id, replayed: true }
   }
-  const customer = input.customerId ? await tx.user.findFirst({ where: { id: input.customerId, status: 'ACTIVE' }, select: { id: true, name: true, phone: true } }) : null
+  const customer = input.customerPhone ? await resolvePhoneCustomer(tx,input.customerPhone,input.customerName) : input.customerId ? await tx.user.findFirst({ where: { id: input.customerId, status: 'ACTIVE' }, select: { id: true, name: true, phone: true } }) : null
+  if(input.customerId && customer?.id !== input.customerId) throw new StoreError('شمارهٔ موبایل با حساب انتخاب‌شده تطبیق ندارد',409)
   if (input.customerId && !customer) throw new StoreError('مشتری انتخاب‌شده فعال نیست', 409)
+  if(!input.sessionId)throw new StoreError('ابتدا نوبت صندوق را باز کنید',409,'REGISTER_REQUIRED')
+  await lockRegister(tx,input.sessionId,actorId)
   const productIds = [...new Set(input.lines.map((line) => line.productId))].sort((a, b) => a - b)
   for (const id of productIds) await lockProduct(tx, id)
   const products = await tx.product.findMany({ where: { id: { in: productIds } }, include: { variants: { where: { active: true } } } })
@@ -47,18 +56,21 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
     if (product.digitalMode === 'CODES' && (available.get(product.id)?.get(variant?.id || null) || 0) < wanted.quantity) throw new StoreError(`کد آمادهٔ «${product.name}» کافی نیست؛ کدهای رزروشدهٔ سایت قابل فروش دوباره نیستند`, 409, 'OUT_OF_STOCK')
     const amount = price.unitMinor * BigInt(wanted.quantity)
     totalMinor += amount
-    return { line, productId: product.id, variantId: variant?.id || null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku, image: product.image, kind: product.kind, quantity: wanted.quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: amount, currency, inputs: sealAnswers(validateAnswers(validateOrderFields(product.orderFields), variant?.name || '', wanted.inputs)) }
+    return { line, productId: product.id, variantId: variant?.id || null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku, image: product.image, kind: product.kind, quantity: wanted.quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: amount, currency, unitCostMinor: variant?.costMinor ?? product.costMinor, inputs: sealAnswers(validateAnswers(validateOrderFields(product.orderFields), variant?.name || '', wanted.inputs)) }
   })
   if (totalMinor > 9_000_000_000_000_000n) throw new StoreError('مبلغ فروش بیش از حد مجاز است')
+  await lockRegister(tx,input.sessionId,actorId,currency)
+  const payments=counterPayments(input,totalMinor)
   const order = await tx.order.create({ data: {
-    userId: customer?.id || null, createdById: actorId, assigneeId: actorId, saleSource: 'COUNTER', customerName: input.customerName || customer?.name || '', customerPhone: input.customerPhone || customer?.phone || '',
+    registerSessionId:input.sessionId,receiptToken:randomBytes(24).toString('hex'),userId: customer?.id || null, createdById: actorId, assigneeId: actorId, saleSource: 'COUNTER', customerName: input.customerName || customer?.name || '', customerPhone: normalizeMobile(input.customerPhone || customer?.phone || '') || '',
     productId: lines[0].productId, status: 'PENDING', provider: 'MANUAL', idempotencyKey: key, totalMinor, totalAmount: legacyNumber(totalMinor, currency), currency,
     meta: JSON.stringify({ kind: 'product', counterFingerprint: fingerprint, counterMethod: input.method, counterReference: input.reference, source: 'COUNTER' }),
     lines: { create: lines },
   } })
   await reserveInventoryInTransaction(tx, { orderId: order.id })
-  const invoice = await createInvoiceForOrder({ orderId: order.id, userId: order.userId, saleSource: 'COUNTER', productId: order.productId, subtotal: minorToDecimal(totalMinor, currency), currency, createdBy: actorId, idempotencyKey: `${key}:invoice` }, tx)
-  const paid = await markInvoicePaid({ invoiceId: invoice.id, provider: 'MANUAL', providerTxnId: `counter:${order.id}`, amount: minorToDecimal(totalMinor, currency), raw: { source: 'COUNTER', actorId, method: input.method, reference: input.reference } }, tx)
+  const wallet=await payCounterWallet(tx,input,customer,actorId,order.id,totalMinor,currency,key)
+  const invoice = await createInvoiceForOrder({ orderId: order.id, userId: order.userId, saleSource: 'COUNTER', productId: order.productId, subtotal: minorToDecimal(totalMinor, currency), walletApplied:minorToDecimal(wallet,currency),currency, createdBy: actorId, idempotencyKey: `${key}:invoice` }, tx)
+  const paid = await markInvoicePaid({ invoiceId: invoice.id, allocations:payments.filter(row=>row.method!=='WALLET').map(row=>({provider:row.method as 'CASH'|'CARD',amountMinor:BigInt(row.amountMinor),reference:row.reference||`counter:${order.id}`})),amount: minorToDecimal(totalMinor-wallet, currency), raw: { source: 'COUNTER', actorId, method: input.method, reference: input.reference } }, tx)
   if (!paid.ok) throw new StoreError(paid.message, 409)
   for (const line of lines) {
     if (products.find((product) => product.id === line.productId)?.digitalMode !== 'CODES') continue
@@ -68,6 +80,9 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
   if (!consumed.ok) throw new StoreError(consumed.message, 409)
   await tx.productDelivery.create({ data: { orderId: order.id, status: 'DELIVERED', deliveredAt: new Date(), deliveryNote: 'تحویل حضوری در فروشگاه' } })
   await recordStoreSale(order.id, tx)
+  await tx.storeTender.createMany({data:payments.map(row=>({orderId:order.id,sessionId:input.sessionId,method:row.method,amountMinor:BigInt(row.amountMinor),reference:row.reference}))})
+  if(customer)await counterClub(tx,{userId:customer.id,orderId:order.id,totalMinor,currency,redeem:0,key},'EARN')
+  if(customer&&order.customerPhone)await createInboxEvent({userId:customer.id,kind:'STORE_RECEIPT',dedupeKey:`counter:receipt:${order.id}`,titleFa:`فاکتور خرید حضوری ${invoice.number}`,titleEn:'Counter purchase invoice',bodyFa:'رسید و وضعیت خرید شما',href:`/receipt/store/${order.receiptToken}`,channels:['sms']},tx)
   await tx.orderEvent.create({ data: { orderId: order.id, status: 'DELIVERED', actorId, note: 'فروش و تحویل حضوری' } })
   for (const id of productIds) await syncCodeStock(tx, id)
   await commit(tx, order.id)
@@ -87,6 +102,7 @@ export async function createCounterSale(raw: unknown, actorId: number, authorize
       if (retryable && attempt < 3) continue
       if (retryable) throw new StoreError('ثبت هم‌زمان فروش ممکن نشد؛ با همان درخواست دوباره تلاش کنید', 503)
       if (error instanceof OutOfStock) throw new StoreError('موجودی کالا هم‌زمان تغییر کرد؛ فروش ثبت نشد', 409, 'OUT_OF_STOCK')
+      if(error instanceof PhoneCustomerError)throw new StoreError(error.message,409)
       asStoreError(error)
     }
   }

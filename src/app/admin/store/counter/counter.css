@@ -7,6 +7,10 @@
 .admin-shell .counter-item h2 { margin: 0; font-size: 16px; }
 .admin-shell .counter-item small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
 .admin-shell .counter-field { display: grid; gap: 8px; }
+.admin-shell .counter-customer, .admin-shell .counter-payment-method { display:grid;gap:12px;min-width:0;padding-block:12px;border-top:1px solid var(--border); }
+.admin-shell .counter-customer h2, .admin-shell .counter-payment-method h2 {font-size:16px;margin:0;}
+.admin-shell .counter-customer details {overflow-wrap:anywhere;}
+.admin-shell .counter-customer ul {padding-inline-start:20px;display:grid;gap:8px;}
 .admin-shell .counter-total { display: grid; gap: 8px; padding-block: 16px; border-block: 1px solid var(--border); }
 .admin-shell .counter-total strong { font-size: 24px; }
 .admin-shell .counter-confirm { display: flex; gap: 12px; align-items: start; line-height: 1.9; }

@@ -12,13 +12,15 @@ export default function Receipt({ receipt }: { receipt: CounterReceipt }) {
     <header><div>{receipt.brand.logo && <img src={receipt.brand.logo} alt="" />}<h2>{receipt.brand.title || 'فروشگاه'}</h2><p>رسید فروش حضوری <bdi>{receipt.invoiceNumber}</bdi></p></div><time dateTime={receipt.createdAt}>{date.format(new Date(receipt.createdAt))}</time></header>
     <dl className="counter-receipt-meta">
       <div><dt>مشتری</dt><dd>{receipt.customer}{receipt.phone && <bdi> · {receipt.phone}</bdi>}</dd></div>
-      <div><dt>دریافت وجه</dt><dd>{receipt.method === 'CARD' ? 'کارت‌خوان' : 'نقدی'}{receipt.reference && <bdi> · {receipt.reference}</bdi>}</dd></div>
+      <div><dt>دریافت وجه</dt><dd>{receipt.method === 'SPLIT' ? 'ترکیبی' : receipt.method === 'WALLET' ? 'کیف پول' : receipt.method === 'CARD' ? 'کارت‌خوان' : 'نقدی'}{receipt.reference && <bdi> · {receipt.reference}</bdi>}</dd></div>
       {receipt.cashier && <div><dt>صندوق‌دار</dt><dd>{receipt.cashier}</dd></div>}
     </dl>
     <div className="counter-table-scroll"><table><caption>کالاهای تحویل‌شده</caption><thead><tr><th scope="col">کالا</th><th scope="col">تعداد</th><th scope="col">قیمت واحد</th><th scope="col">مبلغ</th></tr></thead>
       <tbody>{receipt.lines.map((line, index) => <tr key={index}><th scope="row">{line.name}{line.variant && <small>{line.variant}</small>}</th><td>{line.quantity.toLocaleString('fa-IR')}</td><td>{money(line.unitMinor)}</td><td>{money(line.totalMinor)}</td></tr>)}</tbody>
       <tfoot><tr><th scope="row" colSpan={3}>جمع پرداخت‌شده</th><td>{money(receipt.totalMinor)}</td></tr></tfoot>
     </table></div>
+    {receipt.payments && <dl className="counter-receipt-meta">{receipt.payments.map(payment=><div key={payment.method}><dt>{payment.method==='CASH'?'نقد':payment.method==='CARD'?'کارت‌خوان':'کیف پول'}</dt><dd>{money(payment.amountMinor)}{payment.reference&&<bdi> · {payment.reference}</bdi>}</dd></div>)}</dl>}
+    {receipt.qr&&<div><img src={receipt.qr} alt="QR فاکتور و وضعیت سفارش" width={140} height={140}/>{receipt.link&&<p><a href={receipt.link}>فاکتور و وضعیت سفارش</a></p>}</div>}
     {receipt.cards.map((card, index) => <section className="counter-receipt-card" key={card.id} aria-label={`کارت ${(index + 1).toLocaleString('fa-IR')} ${card.product}`}>
       <CardFace design={card.template.design} brand={receipt.brand} product={card.product} items={card.items} shown tilt={false} animateSecrets={false} />
       {card.template.notices.length > 0 && <ul>{card.template.notices.map((notice, index) => <li key={index}>{notice.text}</li>)}</ul>}
