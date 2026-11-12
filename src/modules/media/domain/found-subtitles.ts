@@ -1,3 +1,4 @@
+import { readMediaInfo, type MediaInfo } from './media-info'
 import { TRACK_LANGUAGES, subtitleFormat, trackLanguage } from './media'
 
 /**
@@ -144,14 +145,15 @@ export function sortFound<T extends { language: string; id: number }>(rows: T[])
  * What the last look at a video file found, kept on the link so one address is looked at once. `reading` is a file being
  * copied over several background jobs (`read` = bytes so far of the whole) before its tracks are taken out.
  */
-export type SubtitleScan = { key: string; status: 'done' | 'failed' | 'reading'; found: number; notes: string[]; at: string; read?: { bytes: number; total: number } }
+export type SubtitleScan = { key: string; status: 'done' | 'failed' | 'reading'; found: number; notes: string[]; at: string; read?: { bytes: number; total: number }; media?: MediaInfo }
 const whole = (value: unknown) => { const n = Number(value); return Number.isSafeInteger(n) && n >= 0 ? n : 0 }
 export function readScan(raw: string): SubtitleScan | null {
   try {
     const value = JSON.parse(raw || 'null') as Partial<SubtitleScan> | null
     if (!value || typeof value.key !== 'string' || !(value.status === 'done' || value.status === 'failed' || value.status === 'reading')) return null
     const read = value.status === 'reading' && value.read && typeof value.read === 'object' ? { bytes: whole(value.read.bytes), total: whole(value.read.total) } : undefined
-    return { key: value.key, status: value.status, found: Number(value.found) || 0, notes: Array.isArray(value.notes) ? value.notes.map(String).slice(0, 6) : [], at: String(value.at || ''), ...(read ? { read } : {}) }
+    const media = readMediaInfo(value.media)
+    return { key: value.key, status: value.status, found: Number(value.found) || 0, notes: Array.isArray(value.notes) ? value.notes.map(String).slice(0, 6) : [], at: String(value.at || ''), ...(read ? { read } : {}), ...(media ? { media } : {}) }
   } catch { return null }
 }
 

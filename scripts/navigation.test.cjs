@@ -337,6 +337,18 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   assert.doesNotMatch(headerCss, /#ec4899|backdrop-filter: (?:blur|saturate)|animation: [^;]*infinite|background-clip: text/)
   assert.match(headerCss, /\.mb-nav-entry\[aria-current=page\]::after[^{]*\{[^}]*height: 2px;[^}]*background: var\(--primary\);/)
   assert.match(headerCss, /\n\.mb-account \{[^}]*background: var\(--primary\); color: var\(--on-primary\) !important;/)
+  // The menus' link panel and the section bars follow the same rules (2026-11-12): a solid surface, one accent, no
+  // glass, second hue, gradient or entrance and sliding motion; the current item carries the 2px accent rule.
+  const branchCss = read('src/components/site/NavigationBranch.module.css')
+  assert.doesNotMatch(branchCss, /backdrop-filter|gradient\(|#22d3ee|animation|@keyframes|translateX\(/)
+  assert.match(branchCss, /\.floating \{[^}]*background: var\(--card\);/)
+  const sectionBar = read('src/app/media-design.css').match(/\.md-subnav[^\n]*/g).join('\n')
+  assert.doesNotMatch(sectionBar, /backdrop-filter|rgba\(/)
+  assert.match(sectionBar, /\.md-subnav-links a\.is-active \{[^}]*box-shadow: inset 0 -2px 0 var\(--md-accent\);/)
+  const megaBar = read('src/app/megamenu.css')
+  assert.doesNotMatch(megaBar, /#ec4899|backdrop-filter|@keyframes|translateY\(-|scale\(1\.0/)
+  assert.match(megaBar, /\.mm-bar-home\.is-active, \.mm-bar-link\.is-active \{[^}]*box-shadow: inset 0 -2px 0 var\(--mm-accent\);/)
+  for (const theme of ['src/themes/code/mobocom/theme.css', 'src/themes/generated.css']) assert.match(read(theme), /\.mm-bar-wrap::before \{[^}]*background: var\(--bg\); \}/, theme)
   // The stylesheet the site loads is the generated one; it must carry the same header.
   assert.ok(read('src/themes/generated.css').includes('.mb-shell { display: contents; }'), 'run scripts/generate-extensions.mjs')
 })

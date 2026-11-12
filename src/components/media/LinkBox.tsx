@@ -2,7 +2,8 @@ import Link from '@/components/AppLink'
 import { groupLinks, isTrack, trackLanguage, trackLinks } from '@/modules/media/domain/media'
 import { getViewer } from '@/modules/membership/server/membership'
 import { linkHref } from '@/modules/downloads/server/guard'
-import { playableLinks } from '@/modules/media/server/links'
+import { linkMediaInfo, playableLinks } from '@/modules/media/server/links'
+import { mediaNotes } from '@/modules/media/domain/media-info'
 import { DownloadNotice, ReportLinkButton } from '@/components/media/DownloadExtras'
 import { linkPaywalls } from '@/modules/paywall/server/paywall'
 import { getPlaybackPrefs } from '@/modules/media/server/playback-prefs'
@@ -27,11 +28,13 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
   const [prefs, audioList] = await Promise.all([getPlaybackPrefs(viewer.userId), allLists('media').then((lists) => lists.AUDIO || [])])
   const order = audioOrder(prefs, audioList.map((entry) => entry.code))
   const audioEntry = new Map(audioList.map((entry) => [entry.code, entry]))
-  const [hrefs, playable, ownPrices] = await Promise.all([
+  const [hrefs, playable, ownPrices, media] = await Promise.all([
     Promise.all(links.map(async (link) => [link.id, await linkHref(link.id, viewer.userId)] as const)).then((rows) => new Map(rows)),
     playableLinks(links.map((link) => link.id)),
     // Links sold on their own (e.g. a 4K file) — their price replaces the item's.
     linkPaywalls(viewer, links.map((link) => link.id)),
+    // What each file holds, known once its subtitles were looked for: sound a browser cannot play, subtitles inside.
+    linkMediaInfo(links.filter((link) => !isTrack(link.kind)).map((link) => link.id)),
   ])
   // The in-site player reuses the download token (same link, same viewer).
   const watchHref = (id: number) => { const token = new URL(hrefs.get(id) || '/', 'http://x').searchParams.get('t'); return `/watch/${id}${token ? `?t=${encodeURIComponent(token)}` : ''}` }
@@ -68,6 +71,7 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
                       {(link.platform || link.architecture) && <span dir="ltr">{[link.platform, link.architecture].filter(Boolean).join(' · ')}</span>}
                       {compact && link.audio.startsWith('DUBBED') && <span>{fa ? audioEntry.get(link.audio)?.name || 'دوبله' : 'Dubbed'}</span>}
                       {link.subtitle && <span>{fa ? 'زیرنویس فارسی' : 'Persian subs'}</span>}
+                      {media.has(link.id) && mediaNotes(media.get(link.id)!, fa).map((note) => <span key={note.text} className={note.warn ? 'md-warn' : undefined}>{note.text}</span>)}
                       {vipLocked && <span className="vip-chip is-small">♛ VIP</span>}
                       {own && (own.open ? <span className="md-own is-open">{own.reason === 'purchased' ? '✓ خریداری‌شده' : '♛ رایگان برای شما'}</span> : <span className="md-own">فروش جداگانه</span>)}
                     </small>

@@ -34,7 +34,7 @@ html[data-theme="light"] .md-games {
   color: var(--gx-text);
 }
 html[data-theme="light"] .md-games .mm-bar-wrap { --mm-surface: #fff; --mm-soft: #f1f2f7; --mm-line: rgba(17, 24, 39, .08); --mm-text: #141826; --mm-muted: #5b6275; }
-html[data-theme="light"] :is(.md-cinema, .md-games) .md-subnav-wrap { background: rgba(255, 255, 255, .86); }
+html[data-theme="light"] :is(.md-cinema, .md-games) .md-subnav-wrap { background: #fff; }
 
 /* ---------- shared: depth, chips, search ---------- */
 html[data-theme="light"] :is(.md-cinema, .md-games) :is(.md-links-group, .rv-section, .gv-card, .gx-hero-panel, .gx-posts-side, .gx-posts :is(.gx-post-lead, .gx-post-card), .gx-platform-card) { box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 18px 40px -30px rgba(20, 24, 40, .38); }
