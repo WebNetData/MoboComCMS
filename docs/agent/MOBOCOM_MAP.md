@@ -1,4 +1,4 @@
-Store counter2026-11-12: `/admin/store/counter` → private Store counter HTTP → `store/server/counter-sales.ts` composes Catalog stock/code reservations, Billing settlement and strict Audit. Guest and linked-customer sales use existing Order/Invoice/Payment; product cards and itemized receipts read persisted sales. Source from PR447/main `c09c400e`. [Scenario](../specs/store-counter-sales/SPEC.md), [evidence and pending release checks](handoffs/STORE_COUNTER_SALES.md).
+Store counter2026-11-12: `/admin/store/counter` → private Store counter HTTP → `store/server/counter-sales.ts` composes Catalog stock/code reservations, Billing settlement and strict Audit. Guest and linked-customer sales use existing Order/Invoice/Payment; product cards and itemized receipts read persisted sales. Source from PR447/main `c09c400e`. [Scenario](../specs/store-counter-sales/SPEC.md), [verified local evidence and rollout limits](handoffs/STORE_COUNTER_SALES.md).
 
 ## Releases 1.7.16–1.7.18 reconciled — 2026-11-12
 
