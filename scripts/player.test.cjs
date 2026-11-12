@@ -132,3 +132,14 @@ test('subtitles that come with a video file: names beside it, directory listings
 
 // «پخش در برنامهٔ دیگر»: KMPlayer, MX Player and VLC launch addresses.
 require('./external-players.cases.cjs')
+
+test('link notes: what a file holds, said beside its link before anyone presses play', () => {
+  const info = require('./connected-source-loader.cjs')()('src/modules/media/domain/media-info.ts')
+  const odyssey = info.mediaInfo([{ type: 1, codec: 'V_MPEG4/ISO/AVC', language: 'und' }, { type: 2, codec: 'A_EAC3', language: 'eng' }, { type: 17, codec: 'S_TEXT/UTF8', language: 'per' }], ['per', 'eng'])
+  assert.deepEqual(odyssey, { video: 'H.264', audio: [{ codec: 'E-AC3', language: 'en' }], subtitles: ['fa', 'en'] })
+  assert.deepEqual(info.mediaNotes(odyssey).map(n => [n.text, !!n.warn]), [['صدای E-AC3: در مرورگر پخش نمی‌شود؛ با KMPlayer یا VLC', true], ['زیرنویس داخل فایل: فارسی، انگلیسی', false]])
+  const dubbed = info.mediaInfo([{ type: 1, codec: 'V_MPEGH/ISO/HEVC', language: '' }, { type: 2, codec: 'A_AAC', language: 'per' }, { type: 2, codec: 'A_AC3', language: 'eng' }], [])
+  assert.deepEqual(info.mediaNotes(dubbed).map(n => n.text), ['HEVC (x265): همهٔ مرورگرها پخش نمی‌کنند', 'صدا: فارسی، انگلیسی'], 'one playable sound track is enough; no warning about the AC3 one')
+  assert.equal(info.readMediaInfo({ video: 'H.264<script>', audio: [{ codec: 'AAC', language: 'fa' }], subtitles: ['fa', '<b>'] }).video, 'H.264script')
+  assert.equal(info.readMediaInfo('junk'), null)
+})

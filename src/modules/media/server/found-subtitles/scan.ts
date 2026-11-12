@@ -3,6 +3,8 @@ import { enqueue } from '@/modules/operations/server/enqueue'
 import { getCinemaSettings } from '@/modules/cinema/server/admin'
 import { playbackKind } from '@/modules/media/domain/media'
 import { readScan, scanSettled, type SubtitleScan } from '@/modules/media/domain/found-subtitles'
+import { mediaInfo, type MediaInfo } from '@/modules/media/domain/media-info'
+import { textCodec } from '@/modules/media/domain/matroska'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { FOUND_KINDS, FOUND_OWNERS, scanDedupe, scanKey } from './request'
 import { sidecarSubtitles, type Found } from './sidecar'
@@ -35,10 +37,10 @@ async function record(linkId: number, key: string, scan: Omit<SubtitleScan, 'key
 }
 
 /** A file being copied over several jobs: its progress on the link, so a page view does not start a second copy. */
-async function recordReading(linkId: number, key: string, bytes: number, total: number, note = `در حال خواندن کامل فایل برای زیرنویس داخل آن (${percent(bytes, total)}٪)`) {
+async function recordReading(linkId: number, key: string, bytes: number, total: number, media: MediaInfo | undefined, note = `در حال خواندن کامل فایل برای زیرنویس داخل آن (${percent(bytes, total)}٪)`) {
   const link = await db.mediaLink.findUnique({ where: { id: linkId }, select: { url: true } })
   if (!link || scanKey(link.url) !== key) return false
-  const scan: SubtitleScan = { key, status: 'reading', found: 0, notes: [note], at: new Date().toISOString(), read: { bytes, total } }
+  const scan: SubtitleScan = { key, status: 'reading', found: 0, notes: [note], at: new Date().toISOString(), read: { bytes, total }, ...(media ? { media } : {}) }
   await db.mediaLink.update({ where: { id: linkId }, data: { subtitleScan: JSON.stringify(scan) } })
   return true
 }
@@ -75,16 +77,18 @@ export async function runSubtitleScan(payload: Record<string, unknown>, job: Job
     const maxBytes = settings.subtitleScanMaxGB * GB
     await sweepAbandonedCopies().catch(() => undefined)
     let embedded: Found[] = []
+    // What the file holds (its track list), when it was read for the subtitles: shown beside the link.
+    let media: MediaInfo | undefined
     // Switched off: only files beside the video; nothing is read whole and a copy under way is dropped.
     if (settings.readEmbeddedSubtitles === false) await discardCopy(linkId, key)
     else if (source.kind === 'remote') {
       // Through the file's own index first: only its subtitle lines are read (about 2 MB for a film).
       const resumed = await copyStarted(linkId, key)
       const part = Number(payload.part || 0)
-      const indexed = resumed ? null : await indexedSubtitles(source, { deadline, progress: lineProgress(linkId, key), final: part >= MAX_INDEX_RUNS }, notes)
+      const indexed = resumed ? null : await indexedSubtitles(source, { deadline, progress: lineProgress(linkId, key), final: part >= MAX_INDEX_RUNS, onTracks: tracks => { media = mediaInfo(tracks, tracks.filter(t => { const f = textCodec(t.codec); return f && f !== 'image' }).map(t => t.language)) } }, notes)
       if (indexed && 'pending' in indexed) {
         // Read in part: the next job continues from the lines this one kept.
-        if (!await recordReading(linkId, key, indexed.pending.done, indexed.pending.total, `در حال خواندن زیرنویس‌های داخل فایل از روی فهرست آن (${percent(indexed.pending.done, indexed.pending.total)}٪)`)) { await discardCopy(linkId, key); return { linkId, skipped: 'changed' } }
+        if (!await recordReading(linkId, key, indexed.pending.done, indexed.pending.total, media, `در حال خواندن زیرنویس‌های داخل فایل از روی فهرست آن (${percent(indexed.pending.done, indexed.pending.total)}٪)`)) { await discardCopy(linkId, key); return { linkId, skipped: 'changed' } }
         await job.continueWith('media.subtitle-scan', { linkId, key, part: part + 1 }, { dedupeKey: `${scanDedupe(linkId, key)}:part:${part + 1}` })
         return { linkId, reading: indexed.pending.done, total: indexed.pending.total }
       }
@@ -100,7 +104,7 @@ export async function runSubtitleScan(payload: Record<string, unknown>, job: Job
         try {
           const copy = await continueCopy(source.sign(source.url), linkId, key, { maxBytes, timeoutMs: Math.max(30_000, deadline - Date.now() - EXTRACT_MS), checkpoint: job.checkpoint })
           if (!copy.done || deadline - Date.now() < EXTRACT_MS) {
-            if (!await recordReading(linkId, key, copy.bytes, copy.total)) { await discardCopy(linkId, key); return { linkId, skipped: 'changed' } }
+            if (!await recordReading(linkId, key, copy.bytes, copy.total, media)) { await discardCopy(linkId, key); return { linkId, skipped: 'changed' } }
             const part = Number(payload.part || 0) + 1
             await job.continueWith('media.subtitle-scan', { linkId, key, part }, { dedupeKey: `${scanDedupe(linkId, key)}:part:${part}` })
             return { linkId, reading: copy.bytes, total: copy.total }
@@ -123,7 +127,7 @@ export async function runSubtitleScan(payload: Record<string, unknown>, job: Job
     const sidecars = await sidecarSubtitles(source, new Set(manual.map(row => row.url)), notes)
     await job.checkpoint()
     const found = [...sidecars, ...embedded]
-    await record(linkId, key, { status: 'done', found: found.length, notes: notes.slice(0, 6) }, found)
+    await record(linkId, key, { status: 'done', found: found.length, notes: notes.slice(0, 6), ...(media ? { media } : {}) }, found)
     return { linkId, found: found.length, sidecar: sidecars.length, embedded: embedded.length }
   } catch (error) {
     // A lease that changed belongs to another runner; anything else is this file's answer until it is looked at again.

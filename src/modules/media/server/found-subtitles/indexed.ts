@@ -42,7 +42,7 @@ const itemKey = (line: Line) => `${line.track}:${line.time}:${line.cluster}:${li
  * the lines already read (each a few dozen bytes; nothing of the film is kept). `final` (the last job allowed) gives
  * what is whole instead.
  */
-export async function indexedSubtitles(source: Extract<VideoSource, { kind: 'remote' }>, options: { deadline: number; progress?: LineProgress; final?: boolean }, notes: string[]): Promise<IndexedResult> {
+export async function indexedSubtitles(source: Extract<VideoSource, { kind: 'remote' }>, options: { deadline: number; progress?: LineProgress; final?: boolean; onTracks?: (tracks: Track[]) => void }, notes: string[]): Promise<IndexedResult> {
   const agents = rangeAgents(), controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), Math.max(1000, options.deadline - Date.now()))
   let spent = 0
@@ -80,6 +80,7 @@ export async function indexedSubtitles(source: Extract<VideoSource, { kind: 'rem
       if (!el || el.id !== ID.Tracks || el.size > 4 * 1024 * 1024) return null
       tracks = readTracks((await read(head.segmentStart + at, head.segmentStart + at + el.header + el.size - 1)).bytes)
     }
+    options.onTracks?.(tracks)
     const subtitles = tracks.filter(track => track.type === 0x11 || track.codec.startsWith('S_'))
     const text = subtitles.filter(track => { const format = textCodec(track.codec); return format && format !== 'image' && track.encoding !== 'unsupported' })
     const pictures = subtitles.filter(track => textCodec(track.codec) === 'image').length

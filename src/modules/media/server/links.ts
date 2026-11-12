@@ -10,8 +10,9 @@ import {
 import { MAX_SUBTITLE_BYTES, assToWebVtt, decodeSubtitle, playbackKind, playableAudioFile, subtitleFormat, toWebVtt, trackLanguage, trackLinks, type PlaybackKind } from '@/modules/media/domain/media'
 import { getCinemaSettings } from '@/modules/cinema/server/admin'
 import { subtitleBytes } from '@/modules/media/server/subtitle-files'
-import { sortFound, type FoundFormat } from '@/modules/media/domain/found-subtitles'
-import { requestSubtitleScan } from '@/modules/media/server/found-subtitles/request'
+import { readScan, sortFound, type FoundFormat } from '@/modules/media/domain/found-subtitles'
+import { requestSubtitleScan, scanKey } from '@/modules/media/server/found-subtitles/request'
+import type { MediaInfo } from '@/modules/media/domain/media-info'
 import { logEvent } from '@/platform/observability/logger'
 import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
 import type { FileTags } from '@/modules/downloads/server/clean'
@@ -420,6 +421,15 @@ export async function saveCinemaWatchProgress(userId: number, linkId: number, po
 }
 
 /** Which of these links can be watched in the site player (the URLs themselves stay server-side). */
+/** What each film file holds, from the last look at its current address (media-info), for the notes beside the link. */
+export async function linkMediaInfo(ids: number[]): Promise<Map<number, MediaInfo>> {
+  if (!ids.length) return new Map()
+  const rows = await db.mediaLink.findMany({ where: { id: { in: ids }, ownerType: { in: ['title', 'episode'] } }, select: { id: true, url: true, subtitleScan: true } }).catch(() => [])
+  const info = new Map<number, MediaInfo>()
+  for (const row of rows) { const scan = readScan(row.subtitleScan); if (scan?.media && scan.key === scanKey(row.url)) info.set(row.id, scan.media) }
+  return info
+}
+
 export async function playableLinks(ids: number[]): Promise<Map<number, PlaybackKind>> {
   if (!ids.length) return new Map()
   const rows = await db.mediaLink.findMany({ where: { id: { in: ids }, ownerType: { in: ['title', 'episode', 'game'] } }, select: { id: true, url: true, kind: true } }).catch(() => [])
