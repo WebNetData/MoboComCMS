@@ -1,5 +1,15 @@
 # Unified Store desk continuation
 
+## Printed sale documents — 2026-11-12
+
+Owner asked for a professional, attractive printed invoice/receipt for the in-person desk. Branch feat/receipt-print-2026-11-12 from main 37fa3d2e (PR450 merged).
+
+- One presentational owner `src/components/store/SaleReceiptDocument.tsx` with `src/app/sale-receipt.css` (prefix `sr-`, paper colours in both themes) renders two papers: an A4 invoice (`sheet`) and an 80 mm thermal roll (`roll`). Named print pages: `@page sr-sheet` A4 with 12 mm margins, `@page sr-roll`. Print isolates the document; gift cards print after it.
+- Seller block comes from the existing Admin invoice profile (`/admin/invoice-profile`, billing `getBrandedInvoiceProfile`) through Store's `saleSeller()`: name, logo, address, phone, postal code, national ID, economic code, registration number, stamp and footer note. No new setting. The receipt also shows the register name, a Code128 barcode of the invoice number (existing `Barcode`), the QR, amount in Persian words for IRT/IRR (billing `persianWords`), a "paid" stamp, and seller/buyer signature lines on A4.
+- The counter's done screen has a paper switch (remembered per browser in localStorage `store.counter.paper.v1`) and a link to the existing official invoice `/invoice/<number>/official`.
+- The customer's QR page `/receipt/store/<token>` renders the same A4 document with a status pill and a print/PDF button. It deliberately passes only the public business identity (name, logo, phone, address): no stamp, buyer phone, payments, codes or handover proof.
+- Evidence: actual toman sale on the disposable DB copy; A4 and roll on screen and as Chromium print PDFs (A4 595×842 pt and 80 mm, each one page); dark/390 Admin and the public page at 1440/390. Gift-card receipts could not render on that second preview because it has no `STORE_DELIVERY_KEY` (secrets are not copied); this is environmental. In-container `tsc` passed with no errors.
+
 ## Desk design pass — 2026-11-12
 
 The owner asked for an attractive, professional look on the in-person sale/service screens. Branch feat/store-desk-design-2026-11-12 from main 3a43239b (PR449). Presentation only, plus two receipt-honesty fixes; no API, schema, permission or URL change.

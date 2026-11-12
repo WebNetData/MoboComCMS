@@ -1,0 +1,138 @@
+/* ============================================================
+   Sale receipt document (components/store/SaleReceiptDocument, sr-).
+   Paper colours on screen in both themes, like a real sheet. Two papers:
+   A4 invoice (.is-sheet) and 80 mm thermal roll (.is-roll). One ink, one
+   green for the "paid" stamp; everything prints in black and white too.
+   ============================================================ */
+
+.sr-stage { --sr-ink: #16181d; --sr-soft: #4a505c; --sr-mute: #6b717d; --sr-line: #e3e5ea; --sr-fill: #f4f5f7; --sr-paid: #17603d;
+  display: grid; justify-items: center; min-width: 0; animation: sr-rise .32s cubic-bezier(.2, .7, .2, 1) .06s both; }
+.sr-stage.is-roll { filter: drop-shadow(0 1px 1px rgb(0 0 0 / .08)) drop-shadow(0 14px 24px rgb(0 0 0 / .18)); }
+@keyframes sr-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.sr-doc { position: relative; box-sizing: border-box; width: 100%; min-width: 0; background: #fff; color: var(--sr-ink); font-size: 13px; line-height: 1.8; text-align: start; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.sr-doc *, .sr-doc *::before, .sr-doc *::after { box-sizing: border-box; }
+.sr-doc p, .sr-doc h2, .sr-doc dl, .sr-doc dd, .sr-doc ol { margin: 0; }
+.sr-doc img { display: block; }
+.sr-doc a { color: inherit; }
+.sr-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+.sr-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-seller-contact span + span::before, .sr-seller-ids span + span::before { content: '·'; margin-inline: 6px; color: var(--sr-mute); }
+.sr-status { display: inline-block; padding: 1px 10px; border-radius: 10px; background: var(--sr-fill); font-size: 11.5px; font-weight: 500; }
+.sr-status.is-ok { background: #e6f4ec; color: #17603d; }
+.sr-status.is-warn { background: #fdf1dc; color: #7a4a00; }
+.sr-words { color: var(--sr-soft); font-size: 11.5px; line-height: 1.9; }
+.sr-note { padding: 10px 12px; border-radius: 6px; background: var(--sr-fill); color: var(--sr-soft); font-size: 11.5px; line-height: 1.9; white-space: pre-line; }
+.sr-thanks { text-align: center; color: var(--sr-soft); font-size: 12px; }
+
+/* ---------- A4 invoice ---------- */
+.sr-doc.is-sheet { display: grid; gap: 22px; max-width: 210mm; padding: 14mm 14mm 12mm; border-top: 5px solid var(--sr-ink); border-radius: 3px; box-shadow: 0 1px 2px rgb(0 0 0 / .06), 0 22px 44px -26px rgb(0 0 0 / .4); }
+.sr-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; padding-bottom: 18px; border-bottom: 1.5px solid var(--sr-ink); }
+.sr-seller { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
+.sr-seller img { width: 64px; height: 64px; object-fit: contain; flex: none; }
+.sr-seller-name { display: block; font-size: 20px; font-weight: 600; line-height: 1.5; }
+.sr-seller p { margin-top: 2px; color: var(--sr-soft); font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.sr-title { display: grid; justify-items: end; gap: 8px; min-width: 220px; }
+.sr-title h2 { font-size: 22px; font-weight: 600; line-height: 1.4; }
+.sr-id { display: grid; grid-template-columns: auto auto; gap: 1px 14px; font-size: 12px; }
+.sr-id div { display: contents; }
+.sr-id dt { color: var(--sr-mute); }
+.sr-id dd { font-weight: 500; text-align: end; }
+.sr-barcode { width: 210px; }
+.sr-barcode svg { height: 38px !important; }
+.sr-parties { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--sr-line); border-radius: 8px; background: var(--sr-line); }
+.sr-parties div { display: grid; gap: 1px; padding: 10px 14px; background: #fff; min-width: 0; }
+/* The last cell runs to the end of its row, so an odd count never leaves an empty grey cell. */
+.sr-parties div:last-child { grid-column-end: -1; }
+.sr-parties dt { color: var(--sr-mute); font-size: 11px; }
+.sr-parties dd { font-weight: 500; overflow-wrap: anywhere; }
+.sr-items { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.sr-items thead th { padding: 9px 10px; background: var(--sr-fill); color: var(--sr-soft); font-size: 11.5px; font-weight: 500; text-align: start; border-block: 1px solid var(--sr-line); }
+.sr-items tbody td, .sr-items tbody th { padding: 11px 10px; border-bottom: 1px solid var(--sr-line); vertical-align: top; text-align: start; }
+.sr-items tbody th { font-weight: 500; }
+.sr-items tbody th small { display: block; color: var(--sr-mute); font-size: 11.5px; font-weight: 400; }
+.sr-items tbody tr:nth-child(even) td, .sr-items tbody tr:nth-child(even) th { background: #fafafb; }
+.sr-items .sr-col-n { width: 48px; text-align: center; color: var(--sr-mute); }
+.sr-items .sr-col-q { width: 64px; text-align: center; }
+.sr-items .sr-col-m { width: 132px; text-align: end; white-space: nowrap; }
+.sr-sum { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 300px); gap: 28px; align-items: start; }
+.sr-sum-side { display: grid; gap: 14px; justify-items: start; }
+.sr-qr { display: flex; gap: 12px; align-items: center; }
+.sr-qr img { flex: none; padding: 4px; border: 1px solid var(--sr-line); border-radius: 6px; }
+.sr-qr p { display: grid; gap: 2px; color: var(--sr-mute); font-size: 11.5px; line-height: 1.8; }
+.sr-qr b { color: var(--sr-ink); font-size: 12.5px; font-weight: 600; }
+.sr-qr a { font-size: 11.5px; }
+.sr-paid { display: inline-grid; justify-items: center; padding: 4px 16px 3px; border: 3px double var(--sr-paid); border-radius: 8px; color: var(--sr-paid); font-size: 18px; font-weight: 600; line-height: 1.5; transform: rotate(-8deg); transform-origin: center; }
+.sr-paid small { font-size: 10px; font-weight: 500; }
+.sr-totals { display: grid; gap: 10px; }
+.sr-totals dl { display: grid; gap: 6px; font-size: 12.5px; }
+.sr-totals dl div { display: flex; justify-content: space-between; gap: 12px; }
+.sr-totals dt { color: var(--sr-soft); }
+.sr-totals dt small { display: block; color: var(--sr-mute); font-size: 11px; }
+.sr-totals dd { font-weight: 500; white-space: nowrap; }
+.sr-grand { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; border-radius: 8px; background: var(--sr-ink); color: #fff; }
+.sr-grand span { font-size: 12.5px; color: #d5d8de; white-space: nowrap; }
+.sr-grand b { font-size: 22px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+.sr-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.sr-sign div { display: flex; flex-direction: column; justify-content: space-between; align-items: center; gap: 6px; min-height: 28mm; padding-top: 6px; border-bottom: 1px solid #b9bdc6; }
+.sr-sign span { color: var(--sr-mute); font-size: 11px; }
+.sr-sign img { max-width: 42mm; max-height: 22mm; object-fit: contain; }
+.sr-doc.is-sheet .sr-thanks { padding-top: 12px; border-top: 1px dashed #d3d6dc; }
+
+/* ---------- 80 mm thermal roll ---------- */
+.sr-doc.is-roll { display: grid; gap: 10px; width: 80mm; max-width: 100%; padding: 7mm 5mm 11mm; font-size: 12px; line-height: 1.7;
+  -webkit-mask: radial-gradient(circle at 50% 100%, transparent 4.5px, #000 5px) 50% 0 / 12px 100% repeat-x; mask: radial-gradient(circle at 50% 100%, transparent 4.5px, #000 5px) 50% 0 / 12px 100% repeat-x; }
+.sr-roll-head { display: grid; justify-items: center; gap: 2px; text-align: center; }
+.sr-roll-head img { width: 48px; height: 48px; object-fit: contain; filter: grayscale(1); margin-bottom: 4px; }
+.sr-roll-head b { font-size: 16px; font-weight: 600; }
+.sr-roll-head p { color: var(--sr-soft); font-size: 10.5px; line-height: 1.7; }
+.sr-roll-title { padding-block: 6px; border-block: 1px dashed var(--sr-ink); text-align: center; font-size: 13px; font-weight: 600; }
+.sr-roll-meta { display: grid; gap: 1px; font-size: 11px; }
+.sr-roll-meta div, .sr-roll-total div { display: flex; justify-content: space-between; gap: 8px; }
+.sr-roll-meta dt { color: var(--sr-soft); flex: none; }
+.sr-roll-meta dd { text-align: end; overflow-wrap: anywhere; }
+.sr-roll-items { display: grid; gap: 8px; padding: 8px 0 0; border-top: 1px dashed var(--sr-ink); list-style: none; }
+.sr-roll-name { display: block; font-weight: 500; }
+.sr-roll-name small { display: block; color: var(--sr-soft); font-size: 10.5px; font-weight: 400; }
+.sr-roll-calc { display: flex; justify-content: space-between; gap: 8px; color: var(--sr-soft); font-size: 11px; }
+.sr-roll-calc b { color: var(--sr-ink); font-weight: 600; }
+.sr-roll-total { display: grid; gap: 2px; padding-top: 8px; border-top: 1px dashed var(--sr-ink); font-size: 11px; }
+.sr-roll-total dt { color: var(--sr-soft); }
+.sr-roll-total .sr-roll-grand { padding-bottom: 4px; font-size: 15px; font-weight: 600; }
+.sr-roll-total .sr-roll-grand dt { color: var(--sr-ink); }
+.sr-doc.is-roll .sr-words { text-align: center; font-size: 10.5px; }
+.sr-roll-code { display: grid; justify-items: center; gap: 0; padding-top: 8px; border-top: 1px dashed var(--sr-ink); }
+.sr-roll-code svg { height: 40px !important; }
+.sr-roll-code bdi { font-size: 10.5px; letter-spacing: .08em; }
+.sr-roll-qr { display: grid; justify-items: center; gap: 4px; text-align: center; color: var(--sr-soft); font-size: 10.5px; }
+.sr-doc.is-roll .sr-thanks { font-weight: 500; color: var(--sr-ink); }
+.sr-doc.is-roll .sr-note { padding: 0; background: none; text-align: center; font-size: 10.5px; }
+
+/* Customer's QR page (app/receipt/store/[token]) */
+.sr-page { display: grid; gap: 16px; padding-block: 24px 48px; }
+.sr-tools, .sr-help { width: min(100%, 210mm); margin-inline: auto; }
+.sr-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sr-tools h1 { margin: 0; font-size: 20px; font-weight: 600; }
+.sr-help { margin-block: 0; color: var(--muted); font-size: 13px; line-height: 1.9; text-align: center; }
+
+@media (max-width: 640px) {
+  .sr-doc.is-sheet { padding: 20px 16px; gap: 18px; font-size: 12.5px; }
+  .sr-head, .sr-sum { grid-template-columns: minmax(0, 1fr); }
+  .sr-title { justify-items: start; min-width: 0; }
+  .sr-id dd { text-align: start; }
+  .sr-barcode { width: 180px; }
+  .sr-items .sr-col-n { display: none; }
+  .sr-items .sr-col-m { width: auto; }
+  .sr-items thead th, .sr-items tbody td, .sr-items tbody th { padding: 8px 6px; }
+  .sr-sign { gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .sr-stage { animation: none; } }
+@media print {
+  @page sr-sheet { size: A4; margin: 12mm; }
+  @page sr-roll { margin: 2mm 3mm; }
+  body:has(.sr-doc) *:not(:has(.sr-doc)):not(.sr-doc):not(.sr-doc *) { display: none !important; }
+  body:has(.sr-doc) :has(.sr-doc) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; transform: none !important; filter: none !important; animation: none !important; }
+  .sr-doc { box-shadow: none !important; border-radius: 0 !important; -webkit-mask: none !important; mask: none !important; }
+  .sr-doc.is-sheet { page: sr-sheet; max-width: none; padding: 0; border-top: 0; }
+  .sr-doc.is-roll { page: sr-roll; width: 74mm; padding: 0; }
+  .sr-items tr, .sr-sum, .sr-sign, .sr-parties { break-inside: avoid; }
+}

@@ -3,6 +3,14 @@ import { randomBytes } from 'node:crypto'
 import { db } from '@/platform/database/prisma'
 import { siteLink } from '@/modules/sms/server/sms'
 import { StoreError } from '@/modules/store/domain/store'
+import { getBrandedInvoiceProfile } from '@/modules/billing/server/official-invoice'
+import type { SaleSeller } from '@/modules/store/domain/counter-sales'
+
+/** The seller printed on receipts comes from the Admin invoice profile; nothing here is a second settings owner. */
+export async function saleSeller(): Promise<SaleSeller> {
+  const profile=await getBrandedInvoiceProfile()
+  return {name:profile.sellerName,logo:profile.logo,phone:profile.phone,address:[...new Set([profile.province,profile.city].map(part=>part.trim()).filter(Boolean)),profile.address.trim()].filter(Boolean).join('، '),postalCode:profile.postalCode,economicCode:profile.economicCode,nationalId:profile.nationalId,registrationNo:profile.registrationNo,stamp:profile.stamp,note:profile.footerNote}
+}
 
 export async function saleReceiptLink(orderId: number) {
   let row=await db.order.findUnique({where:{id:orderId},select:{receiptToken:true}})
@@ -17,7 +25,9 @@ export async function publicSaleReceipt(token: string) {
   if(!/^[a-f0-9]{48}$/.test(token))return null
   const row=await db.order.findFirst({where:{receiptToken:token,status:{in:['PAID','REFUNDED']}},include:{invoice:true,lines:{orderBy:{line:'asc'}},productDelivery:{select:{status:true}},pickup:{select:{status:true}}}})
   if(!row?.invoice || !['PAID','REFUNDED'].includes(row.invoice.status))return null
-  return {number:row.invoice.number,createdAt:row.createdAt.toISOString(),channel:row.saleSource,status:row.pickup?.status||row.productDelivery?.status||row.status,invoiceStatus:row.invoice.status,customer:row.customerName,currency:row.currency,totalMinor:row.totalMinor.toString(),lines:row.lines.map(line=>({name:line.name,variant:line.variantName,quantity:line.quantity,totalMinor:line.totalMinor.toString()}))}
+  // Public business identity only: no stamp image, registration identifiers stay on the printed copy.
+  const seller=await saleSeller()
+  return {seller:{name:seller.name,logo:seller.logo,phone:seller.phone,address:seller.address},number:row.invoice.number,createdAt:row.createdAt.toISOString(),channel:row.saleSource,status:row.pickup?.status||row.productDelivery?.status||row.status,invoiceStatus:row.invoice.status,customer:row.customerName,currency:row.currency,totalMinor:row.totalMinor.toString(),lines:row.lines.map(line=>({name:line.name,variant:line.variantName,quantity:line.quantity,totalMinor:line.totalMinor.toString()}))}
 }
 
 /** Notification routing is bound to a persisted sale and its original destination; arbitrary inbox text cannot choose a phone. */
