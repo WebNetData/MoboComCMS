@@ -105,7 +105,7 @@ async function main() {
   assert.equal(linked.status, 200)
   assert.equal((await db.order.findUniqueOrThrow({ where: { id: linked.body.orderId } })).userId, customer.id)
   assert.equal((await codes.buyerCodes(customer.id, linked.body.orderId)).length, 1)
-  await assert.rejects(db.invoice.create({ data: { number: `${stamp}-wrong-buyer`, orderId: linked.body.orderId, userId: null, saleSource: 'COUNTER', subtotalMinor: 1n, totalMinor: 1n } }), /Invoice_counter_buyer_match|buyer must match/)
+  await assert.rejects(db.invoice.create({ data: { number: `${stamp}-wrong-buyer`, orderId: linked.body.orderId, userId: null, saleSource: 'COUNTER', subtotalMinor: 1n, totalMinor: 1n } }), /counter invoice must belong to the same counter buyer/)
 
   for (const [kind, setFailure] of [['audit', (value) => { failAudit = value }], ['payment', (value) => { failPayment = value }], ['code', (value) => { failCode = value }]]) {
     const before = await db.product.findUniqueOrThrow({ where: { id: gift.id } })

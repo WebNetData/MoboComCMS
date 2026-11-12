@@ -256,7 +256,7 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
   if (q) {
     const id = Number(q.replace(/^#/, ''))
     and.push({ OR: [
-      ...(Number.isSafeInteger(id) && id > 0 ? [{ id }] : []),
+      ...(Number.isSafeInteger(id) && id > 0 && id <= 2_147_483_647 ? [{ id }] : []),
       { user: { email: { contains: q } } },
       { user: { name: { contains: q } } },
       { user: { phone: { contains: q } } },
