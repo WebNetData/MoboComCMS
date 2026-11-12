@@ -1,5 +1,16 @@
 # Unified Store desk continuation
 
+## Desk design pass — 2026-11-12
+
+The owner asked for an attractive, professional look on the in-person sale/service screens. Branch feat/store-desk-design-2026-11-12 from main 3a43239b (PR449). Presentation only, plus two receipt-honesty fixes; no API, schema, permission or URL change.
+
+- One stylesheet `src/app/admin/store/desk.css` (prefix `cd-`, rooted in `.admin-shell`, Store `--sa-*` tokens only) replaces `counter/counter.css` and is imported by counter, registers, pickup, reports and the repair counter (`admin/forms/counter`). `DoneMark.tsx` is the shared drawn check.
+- Counter: scanner field with a live status line; the added or counted-up line flashes once; manual picking folds away once lines exist; quantity stepper; numbered steps (register, customer, payment) marked done; segmented payment method; cash/card/wallet split bar; a receipt-paper ticket (scalloped edge, dashed tear line) holding the total, which ticks once when it changes; a success panel with a once-drawn check above the persisted receipt.
+- Registers sort open shifts first and show variance as a toned shortage, surplus or no difference (difference = counted − expected). Pickup cards carry status pills and a wide code input. The report has per-channel stat tiles, a period segment, ranked top sellers with thin bars and stock pills. Repair intake shows the pickup code as digit boxes.
+- Owner rule kept: no glass, glow, hue gradients or looping motion. Every animation runs once and is off under reduced motion; transitions name their properties.
+- Fixes: a card reference typed before switching to cash is no longer sent (it printed "cash · reference" on the receipt); receipt separators sit outside `bdi`.
+- Evidence: actual flow on a disposable DB copy (open/close register with a −10 variance, two scans plus a manual add, split then cash sale, receipt); 24 views at 1440/390 light/dark with axe 0, no overflow; repair intake success panel. React Doctor on 10 files: 0 errors, 15 warnings reviewed (existing effect/key/export patterns; deliberate repeated stat tiles). Typecheck shows no errors in the changed files (other errors are the root checkout's older Prisma client).
+
 ## Unified desk expansion — 2026-11-12
 
 The owner expanded the basic sale request to a unified shop/site desk. PR448 was owner-merged at main26cc38b5 during implementation. Continue checkout .mobocom/store-counter-sales on feat/store-unified-desk-2026-11-12 from that fresh main; publish a separate follow-up PR to main. Preserve other worktrees; owner merges/deploys, no hosted dispatch.
