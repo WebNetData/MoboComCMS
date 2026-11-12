@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { addCodes, listCodes, removeCode, replaceCode, setDigitalMode } from '@/modules/store/server/digital-codes'
+import { addCodes, listCodes, removeCode, replaceCode, setCodesWhenEmpty, setDigitalMode } from '@/modules/store/server/digital-codes'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
@@ -289,12 +289,13 @@ export async function POST_productCodes(req: NextRequest, { params }: IdContext)
     const action = String(body.action || '')
     let result: Record<string, unknown>
     if (action === 'mode') result = await setDigitalMode(id, body.mode)
+    else if (action === 'empty') result = await setCodesWhenEmpty(id, body.value)
     else if (action === 'add') result = await addCodes({ productId: id, variantId: body.variantId, text: body.text })
     else if (action === 'remove') result = await removeCode(id, positiveId(body.codeId))
     else if (action === 'replace') result = await replaceCode({ productId: id, codeId: positiveId(body.codeId), actorId: g.admin.id, note: body.note })
     else return err('عملیات ناشناخته است', 400)
     // The codes themselves are never written to the audit log.
-    await auditAdmin({ req, actor: g.admin, action: `store.product.codes.${action}`, targetType: 'product', targetId: id, metadata: action === 'add' ? { added: Number(result.added) || 0 } : action === 'mode' ? { mode: String(result.mode) } : { codeId: positiveId(body.codeId) } })
+    await auditAdmin({ req, actor: g.admin, action: `store.product.codes.${action}`, targetType: 'product', targetId: id, metadata: action === 'add' ? { added: Number(result.added) || 0 } : action === 'mode' ? { mode: String(result.mode) } : action === 'empty' ? { codesWhenEmpty: String(result.codesWhenEmpty) } : { codeId: positiveId(body.codeId) } })
     return ok(result)
   } catch (error) {
     // No encryption key configured: say so instead of a bare server error.

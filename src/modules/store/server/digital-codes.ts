@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { logEvent } from '@/platform/observability/logger'
 import { decryptDigitalDelivery, digitalFingerprint, encryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import { StoreError } from '@/modules/store/domain/store'
-import { composeDelivery, maskCode, missingCodes, normalizeDigitalMode, parseCodes, type DeliveredLine, type DigitalMode } from '@/modules/store/domain/digital-codes'
+import { composeDelivery, maskCode, missingCodes, normalizeCodesWhenEmpty, normalizeDigitalMode, parseCodes, type DeliveredLine, type DigitalMode } from '@/modules/store/domain/digital-codes'
 import { transitionOrder } from '@/modules/store/server/orders'
 import { lockProduct, openOrders, syncCodeStock } from '@/modules/catalog/server/code-stock'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
@@ -56,6 +56,18 @@ export async function setDigitalMode(productId: number, value: unknown, client: 
   return { mode, stock: -1 }
 }
 
+/** What a code product does when its shelf is empty: stop selling, or keep selling and hand the order to a specialist. */
+export async function setCodesWhenEmpty(productId: number, value: unknown) {
+  const codesWhenEmpty = normalizeCodesWhenEmpty(value)
+  return db.$transaction(async (tx) => {
+    await lockProduct(tx, productId)
+    const product = await codeProduct(productId, tx)
+    if (product.kind !== 'VIRTUAL') throw new StoreError('این گزینه فقط برای محصول مجازی است')
+    await tx.product.update({ where: { id: productId }, data: { codesWhenEmpty } })
+    return { codesWhenEmpty, stock: (await syncCodeStock(tx, productId)) ?? -1 }
+  })
+}
+
 /** Adds pasted codes to the pool. A code the product already has (on the shelf or delivered) is skipped and counted. */
 export async function addCodes(input: { productId: number; variantId?: unknown; text: unknown }) {
   const product = await codeProduct(input.productId)
@@ -85,7 +97,7 @@ export async function addCodes(input: { productId: number; variantId?: unknown; 
 
 /** The pool of one product for staff: counts, the shelf (masked) and the latest deliveries. */
 export async function listCodes(productId: number) {
-  const product = await db.product.findUnique({ where: { id: productId }, select: { id: true, kind: true, digitalMode: true, stock: true, variants: { where: { active: true }, orderBy: { id: 'asc' }, select: { id: true, name: true, stock: true } } } })
+  const product = await db.product.findUnique({ where: { id: productId }, select: { id: true, kind: true, digitalMode: true, codesWhenEmpty: true, stock: true, variants: { where: { active: true }, orderBy: { id: 'asc' }, select: { id: true, name: true, stock: true } } } })
   if (!product) throw new StoreError('محصول پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
   const [available, delivered, shelf, recent] = await Promise.all([
     db.productDigitalCode.count({ where: { productId, orderId: null } }),
@@ -97,7 +109,7 @@ export async function listCodes(productId: number) {
   const masked = (secret: string) => { try { return maskCode(decryptDigitalDelivery(secret)) } catch { return '••••' } }
   const variantName = (id: number | null) => product.variants.find((variant) => variant.id === id)?.name || ''
   return {
-    kind: product.kind, mode: normalizeDigitalMode(product.digitalMode), stock: product.stock, available, delivered, returned,
+    kind: product.kind, mode: normalizeDigitalMode(product.digitalMode), whenEmpty: normalizeCodesWhenEmpty(product.codesWhenEmpty), stock: product.stock, available, delivered, returned,
     variants: product.variants,
     shelf: shelf.map((row) => ({ id: row.id, variant: variantName(row.variantId), code: masked(row.secret), createdAt: row.createdAt })),
     recent: recent.map((row) => ({ id: row.id, variant: variantName(row.variantId), code: masked(row.secret), orderId: row.orderId, deliveredAt: row.deliveredAt, returnedAt: row.returnedAt, note: row.returnNote })),
@@ -114,27 +126,28 @@ export async function removeCode(productId: number, codeId: number) {
   })
 }
 
-type CodeLine = { line: number; productId: number; variantId: number | null; quantity: number; name: string; variantName: string }
+type CodeLine = { line: number; productId: number; variantId: number | null; quantity: number; name: string; variantName: string; staff?: boolean }
 
 /** The lines of an order whose product delivers codes, and whether the order has anything else in it. */
 async function codeLines(orderId: number) {
   const order = await db.order.findUnique({
     where: { id: orderId },
-    select: { status: true, productId: true, meta: true, product: { select: { name: true, kind: true, digitalMode: true } }, lines: { orderBy: { line: 'asc' }, select: { line: true, productId: true, variantId: true, quantity: true, name: true, variantName: true, kind: true, product: { select: { digitalMode: true } } } } },
+    select: { status: true, productId: true, meta: true, assigneeId: true, product: { select: { name: true, kind: true, digitalMode: true, codesWhenEmpty: true } }, lines: { orderBy: { line: 'asc' }, select: { line: true, productId: true, variantId: true, quantity: true, name: true, variantName: true, kind: true, product: { select: { digitalMode: true, codesWhenEmpty: true } } } } },
   })
   if (!order) return null
   if (!order.lines.length) {
     // Older single-item orders carry their product on the order itself, as line 0.
-    if (!order.productId || !order.product) return { status: order.status, lines: [] as CodeLine[], other: true }
+    if (!order.productId || !order.product) return { status: order.status, assigneeId: order.assigneeId, lines: [] as CodeLine[], other: true }
     let meta: Record<string, unknown> = {}
     try { meta = JSON.parse(order.meta || '{}') } catch { /* legacy row */ }
     const codes = order.product.kind === 'VIRTUAL' && order.product.digitalMode === 'CODES'
-    return { status: order.status, lines: codes ? [{ line: 0, productId: order.productId, variantId: Number(meta.variantId) || null, quantity: 1, name: order.product.name, variantName: '' }] : [], other: !codes }
+    return { status: order.status, assigneeId: order.assigneeId, lines: codes ? [{ line: 0, productId: order.productId, variantId: Number(meta.variantId) || null, quantity: 1, name: order.product.name, variantName: '', staff: order.product.codesWhenEmpty === 'STAFF' }] : [], other: !codes }
   }
   const isCode = (line: (typeof order.lines)[number]) => Boolean(line.productId && line.kind !== 'PHYSICAL' && line.product?.digitalMode === 'CODES')
   return {
     status: order.status,
-    lines: order.lines.filter(isCode).map((line) => ({ line: line.line, productId: line.productId!, variantId: line.variantId, quantity: Math.max(1, line.quantity), name: line.name, variantName: line.variantName })),
+    assigneeId: order.assigneeId,
+    lines: order.lines.filter(isCode).map((line) => ({ line: line.line, productId: line.productId!, variantId: line.variantId, quantity: Math.max(1, line.quantity), name: line.name, variantName: line.variantName, staff: line.product?.codesWhenEmpty === 'STAFF' })),
     other: order.lines.some((line) => !isCode(line)),
   }
 }
@@ -166,8 +179,20 @@ export async function deliverDigitalCodes(orderId: number) {
   const order = await codeLines(orderId)
   if (!order || order.status !== 'PAID' || !order.lines.length) return { codeLines: 0, short: 0, delivered: false }
   if (!(await openOrders(db, [orderId])).has(orderId)) return { codeLines: order.lines.length, short: 0, delivered: false }
-  let short = 0
-  for (const item of order.lines) short += await assignLine(orderId, item)
+  let short = 0, toStaff = 0
+  for (const item of order.lines) {
+    // A specialist who took the order makes and delivers the account; a code arriving later does not reach it too.
+    if (item.staff && order.assigneeId) { toStaff++; continue }
+    const missing = await assignLine(orderId, item)
+    short += missing
+    if (missing && item.staff) toStaff++
+  }
+  if (toStaff) {
+    // Sold without limit and the shelf could not serve it: the order waits in the specialists' queue (taken, made, delivered by hand).
+    const noted = await db.orderEvent.findFirst({ where: { orderId, status: 'NEEDS_STAFF' }, select: { id: true } })
+    if (!noted) await db.orderEvent.create({ data: { orderId, status: 'NEEDS_STAFF', note: 'کد آماده برای این سفارش نبود؛ کارشناس سفارش را بردارد، آماده کند و تحویل دهد', visible: false } })
+    return { codeLines: order.lines.length, short, delivered: false, toStaff }
+  }
   if (short) {
     logEvent('error', 'store.codes_short', { orderId, short })
     const noted = await db.orderEvent.findFirst({ where: { orderId, status: 'CODES_SHORT' }, select: { id: true } })
@@ -205,7 +230,8 @@ export async function deliverWaitingOrders(productId: number, limit = 50) {
   let delivered = 0
   for (const orderId of orders) {
     const result = await deliverDigitalCodes(orderId)
-    if (!result.short && result.codeLines) delivered++
+    // One a specialist handles is not counted as served by the refill.
+    if (!result.short && !("toStaff" in result && result.toStaff) && result.codeLines) delivered++
     await db.$transaction((tx) => syncCodeStock(tx, productId))
   }
   return { delivered }
