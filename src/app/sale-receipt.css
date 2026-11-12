@@ -7,7 +7,7 @@
    one ink, a green "paid" stamp; prints in black and white too.
    ============================================================ */
 
-.sr-stage { --sr-ink: #111827; --sr-soft: #374151; --sr-mute: #4b5563; --sr-rule: #9ca3af; --sr-hair: #e5e7eb; --sr-fill: #f3f4f6; --sr-paid: #17603d;
+.sr-stage { --sr-ink: #111827; --sr-soft: #374151; --sr-mute: #4b5563; --sr-rule: #9ca3af; --sr-hair: #e5e7eb; --sr-fill: #f3f4f6; --sr-paid: #17603d; --sr-brand: #1e3a8a; --sr-brand-soft: #eef2fb;
   display: grid; justify-items: center; min-width: 0; animation: sr-rise .32s cubic-bezier(.2, .7, .2, 1) .06s both; }
 .sr-stage.is-roll { filter: drop-shadow(0 1px 1px rgb(0 0 0 / .08)) drop-shadow(0 14px 24px rgb(0 0 0 / .18)); }
 @keyframes sr-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -28,17 +28,32 @@
 
 /* ---------- A4 invoice ---------- */
 .sr-doc.is-sheet { display: grid; gap: 10px; max-width: 210mm; padding: 12mm 12mm 10mm; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 12px 40px rgb(15 23 42 / .08); }
-.sr-head { display: grid; grid-template-columns: 120px minmax(0, 1fr) 210px; align-items: center; gap: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--sr-ink); }
-.sr-brand img { max-width: 120px; max-height: 70px; object-fit: contain; }
-.sr-title { display: grid; justify-items: center; gap: 2px; text-align: center; min-width: 0; }
-.sr-title h2 { font-size: 20px; font-weight: 800; line-height: 1.5; }
-.sr-title p { color: var(--sr-mute); font-size: 12px; }
+/* Letterhead: shop on the right, the document on the left, contact details on a brand band underneath */
+.sr-letterhead { display: grid; grid-template-columns: minmax(0, 1fr) 230px; align-items: center; gap: 24px; padding-bottom: 12px; }
+.sr-org { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.sr-org img { max-width: 150px; max-height: 72px; object-fit: contain; flex: none; }
+.sr-org .sr-mark { width: 64px; height: 64px; font-size: 30px; border-radius: 16px; background: var(--sr-brand); flex: none; }
+.sr-org > div { display: grid; gap: 2px; min-width: 0; padding-inline-start: 16px; border-inline-start: 1px solid var(--sr-hair); }
+.sr-org-name { font-size: 24px; font-weight: 800; line-height: 1.4; color: var(--sr-ink); overflow-wrap: anywhere; }
+.sr-org-tag { color: var(--sr-mute); font-size: 12px; line-height: 1.8; }
+.sr-docbox { display: grid; gap: 5px; }
+.sr-doctitle { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--sr-brand); }
+.sr-doctitle h2 { color: var(--sr-brand); font-size: 22px; font-weight: 800; line-height: 1.4; }
+.sr-badge { padding: 0 10px; border: 1px solid var(--sr-brand); border-radius: 999px; color: var(--sr-brand); font-size: 11px; font-weight: 700; line-height: 1.9; white-space: nowrap; }
+.sr-docbox .sr-status { justify-self: start; margin-top: 0; }
+.sr-contact { display: flex; flex-wrap: wrap; gap: 2px 20px; padding: 7px 14px; border-top: 4px solid var(--sr-brand); background: var(--sr-brand-soft); font-size: 11px; line-height: 1.9; }
+.sr-contact div { display: flex; gap: 6px; min-width: 0; }
+.sr-contact dt { color: var(--sr-mute); }
+.sr-contact dd { color: var(--sr-ink); font-weight: 600; overflow-wrap: anywhere; }
+.sr-contact.is-empty { padding: 0; height: 4px; }
+.sr-docfoot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 7px 14px; border-top: 2px solid var(--sr-brand); color: var(--sr-soft); font-size: 11px; }
+.sr-docfoot span { color: var(--sr-ink); font-weight: 700; }
 .sr-ids { display: grid; gap: 4px; }
-.sr-ids div { display: flex; justify-content: space-between; gap: 8px; padding: 1px 10px; border: 1px solid #d1d5db; border-radius: 4px; }
+.sr-ids div { display: flex; justify-content: space-between; gap: 8px; padding: 1px 2px; border-bottom: 1px dashed #d1d5db; }
 .sr-ids dt { color: var(--sr-mute); }
 .sr-ids dd { font-weight: 700; }
 .sr-ids-box { display: grid; gap: 4px; }
-.sr-barcode { padding: 4px 6px 2px; border: 1px solid #d1d5db; border-radius: 4px; }
+.sr-barcode { padding: 2px 0 0; }
 .sr-barcode svg { height: 34px !important; }
 .sr-box h3 { padding: 3px 12px; border: 1px solid var(--sr-rule); border-bottom: 0; background: var(--sr-fill); font-size: 12px; font-weight: 800; text-align: center; }
 .sr-box h3 small { color: var(--sr-mute); font-weight: 500; }
@@ -63,8 +78,8 @@
 .sr-total-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; border: 1px solid var(--sr-rule); border-top: 0; }
 .sr-words { align-self: center; padding: 6px 12px; }
 .sr-words span { color: var(--sr-mute); }
-.sr-grand { display: flex; align-items: baseline; gap: 14px; padding: 6px 16px; background: var(--sr-ink); color: #fff; white-space: nowrap; }
-.sr-grand span { color: #d1d5db; font-size: 11.5px; }
+.sr-grand { display: flex; align-items: baseline; gap: 14px; padding: 6px 16px; background: var(--sr-brand); color: #fff; white-space: nowrap; }
+.sr-grand span { color: #dbe3f6; font-size: 11.5px; }
 .sr-grand b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .sr-cards-box { break-inside: avoid; }
 .sr-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 70mm), 86mm)); justify-content: center; gap: 12px; padding: 10px; border: 1px solid var(--sr-rule); }
@@ -83,7 +98,6 @@
 .sr-sign img { max-width: 36mm; max-height: 22mm; object-fit: contain; }
 .sr-paid { display: inline-grid; justify-items: center; margin-top: 4px; padding: 3px 14px 2px; border: 3px double var(--sr-paid); border-radius: 8px; color: var(--sr-paid); font-size: 16px; font-style: normal; font-weight: 800; line-height: 1.5; transform: rotate(-8deg); }
 .sr-paid small { font-size: 10px; font-weight: 600; }
-.sr-doc.is-sheet .sr-thanks { font-size: 11.5px; }
 
 /* ---------- 80 mm thermal roll ---------- */
 .sr-doc.is-roll { display: grid; gap: 10px; width: 80mm; max-width: 100%; padding: 7mm 5mm 11mm; font-size: 12px; line-height: 1.7;
@@ -115,7 +129,9 @@
 .sr-roll-code svg { height: 40px !important; }
 .sr-roll-code bdi { font-size: 10.5px; letter-spacing: .08em; }
 .sr-roll-qr { display: grid; justify-items: center; gap: 4px; text-align: center; color: var(--sr-soft); font-size: 10.5px; }
-.sr-doc.is-roll .sr-thanks { font-weight: 700; color: var(--sr-ink); }
+.sr-doc.is-roll .sr-thanks { display: grid; gap: 2px; font-weight: 700; color: var(--sr-ink); }
+.sr-doc.is-roll .sr-thanks bdi { font-weight: 400; font-size: 10.5px; color: var(--sr-soft); }
+.sr-roll-tag { font-style: normal; }
 .sr-doc.is-roll .sr-note { text-align: center; font-size: 10.5px; }
 
 /* Customer's QR page (app/receipt/store/[token]) */
@@ -127,8 +143,8 @@
 
 @media screen and (max-width: 760px) {
   .sr-doc.is-sheet { padding: 14px; }
-  .sr-head { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
-  .sr-ids-box { width: 100%; }
+  .sr-letterhead { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .sr-org img { max-width: 110px; max-height: 56px; } .sr-org-name { font-size: 20px; }
   .sr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sr-field:nth-child(3n + 1) { border-inline-start: 1px solid var(--sr-hair); }
   .sr-field:nth-child(2n + 1) { border-inline-start: 0; }

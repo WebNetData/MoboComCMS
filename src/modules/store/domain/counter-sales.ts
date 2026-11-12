@@ -10,7 +10,7 @@ export type CounterSaleInput = { requestId: string; customerId: number | null; c
 export type CounterProduct = { id: number; name: string; kind: string; currency: string; stock: number; unitMinor: string; maxPerOrder: number; fields: OrderField[]; variants: { id: number; name: string; stock: number; unitMinor: string }[] }
 export type CounterCustomer = { id: number; name: string; email: string; phone: string }
 /** Seller block printed on sale receipts: the Admin invoice profile (billing), with the site brand as fallback. */
-export type SaleSeller = { name: string; logo: string; phone: string; address: string; postalCode: string; economicCode: string; nationalId: string; registrationNo: string; stamp: string; note: string }
+export type SaleSeller = { name: string; logo: string; phone: string; address: string; postalCode: string; economicCode: string; nationalId: string; registrationNo: string; stamp: string; note: string; tagline?: string; website?: string }
 export type CounterReceipt = {
   orderId: number; invoiceNumber: string; createdAt: string; customer: string; phone: string; cashier: string; method: string; reference: string; currency: string; totalMinor: string
   brand: { title: string; logo: string }; link?: string; qr?: string; payments?: CounterTenderInput[]; seller?: SaleSeller; register?: string

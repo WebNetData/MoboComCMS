@@ -11,11 +11,13 @@ import { persianWords } from '@/modules/billing/domain/official-invoice'
  * the public page passes no stamp, phone, payments or cards.
  */
 export type SaleDocumentFormat = 'sheet' | 'roll'
-export type SaleDocumentSeller = { name: string; logo: string; phone?: string; address?: string; postalCode?: string; economicCode?: string; nationalId?: string; registrationNo?: string; stamp?: string; note?: string }
+export type SaleDocumentSeller = { name: string; logo: string; phone?: string; address?: string; postalCode?: string; economicCode?: string; nationalId?: string; registrationNo?: string; stamp?: string; note?: string; tagline?: string; website?: string }
 export type SaleDocumentProps = {
   format: SaleDocumentFormat
   seller: SaleDocumentSeller
   title: string
+  /** A short label beside the title, e.g. the sales channel. */
+  badge?: string
   number: string
   createdAt: string
   status?: { label: string; tone: 'ok' | 'warn' | 'muted' }
@@ -55,7 +57,7 @@ function Field({ label, value, ltr, wide }: { label: string; value?: string; ltr
 }
 
 export default function SaleReceiptDocument(props: SaleDocumentProps) {
-  const { format, seller, title, number, createdAt, status, paid, parties, lines, currency, totalMinor, payments = [], qr, link, signatures = true, cards } = props
+  const { format, seller, title, badge, number, createdAt, status, paid, parties, lines, currency, totalMinor, payments = [], qr, link, signatures = true, cards } = props
   const money = (minor: string) => formatMoney(BigInt(minor || '0'), currency, 'fa-IR')
   // Figures without the unit, the way the official invoice prints them; the unit is named once in the table heading.
   const plain = (minor: string) => { const [whole, fraction] = minorToDecimal(minor || '0', currency).split('.'); return `${BigInt(whole).toLocaleString('fa-IR')}${fraction ? `٫${faDigits(fraction)}` : ''}` }
@@ -69,6 +71,7 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
     <header className="sr-roll-head">
       {seller.logo ? <img src={seller.logo} alt="" /> : <span className="sr-mark" aria-hidden="true">{seller.name.trim().charAt(0)}</span>}
       <b>{seller.name}</b>
+      {seller.tagline && <p className="sr-roll-tag">{seller.tagline}</p>}
       {seller.address && <p>{seller.address}</p>}
       {contact.length > 0 && <p className="sr-seller-contact">{contact}</p>}
       {seller.economicCode && <p>کد اقتصادی <bdi>{ids(seller.economicCode)}</bdi></p>}
@@ -92,41 +95,31 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
     {cards && <section className="sr-roll-cards" aria-label="کارت‌های تحویل‌شده">{cards}</section>}
     <div className="sr-roll-code"><Barcode value={number} /><bdi className="sr-num">{number}</bdi></div>
     {qr && <div className="sr-roll-qr"><img src={qr} width={116} height={116} alt="QR فاکتور و وضعیت سفارش" /><span>برای دیدن فاکتور و وضعیت سفارش اسکن کنید</span></div>}
-    <p className="sr-thanks">از خرید شما سپاسگزاریم</p>
+    <p className="sr-thanks">از خرید شما سپاسگزاریم{seller.website && <bdi dir="ltr">{seller.website}</bdi>}</p>
     {seller.note && <p className="sr-note">{seller.note}</p>}
   </article></div>
 
   const hasUnit = lines.some((line) => line.unitMinor)
+  const contactRows = ([['نشانی', seller.address, false], ['تلفن', seller.phone, true], ['وب‌سایت', seller.website, true], ['کد پستی', ids(seller.postalCode), false], ['کد اقتصادی', ids(seller.economicCode), false], ['شناسهٔ ملی', ids(seller.nationalId), false], ['شمارهٔ ثبت', ids(seller.registrationNo), false]] as [string, string | undefined, boolean][]).filter((row): row is [string, string, boolean] => !!row[1])
   return <div className="sr-stage is-sheet"><article className="sr-doc is-sheet" dir="rtl" aria-label={`${title} ${number}`}>
-    <header className="sr-head">
-      <div className="sr-brand">{seller.logo ? <img src={seller.logo} alt="" /> : <span className="sr-mark" aria-hidden="true">{seller.name.trim().charAt(0)}</span>}</div>
-      <div className="sr-title">
-        <h2>{title}</h2>
-        <p>{seller.name}</p>
-        {status && <span className={`sr-status is-${status.tone}`}>{status.label}</span>}
+    {/* Letterhead: the shop on the right, the document on the left, contact details on a brand band underneath. */}
+    <header className="sr-letterhead">
+      <div className="sr-org">
+        {seller.logo ? <img src={seller.logo} alt="" /> : <span className="sr-mark" aria-hidden="true">{seller.name.trim().charAt(0)}</span>}
+        <div><b className="sr-org-name">{seller.name}</b>{seller.tagline && <p className="sr-org-tag">{seller.tagline}</p>}</div>
       </div>
-      <div className="sr-ids-box">
+      <div className="sr-docbox">
+        <div className="sr-doctitle"><h2>{title}</h2>{badge && <span className="sr-badge">{badge}</span>}</div>
         <dl className="sr-ids">
-          <div><dt>شمارهٔ فاکتور</dt><dd dir="ltr">{number}</dd></div>
+          <div><dt>شماره</dt><dd dir="ltr">{number}</dd></div>
           <div><dt>تاریخ</dt><dd className="sr-num">{DATE.format(when)}</dd></div>
           <div><dt>ساعت</dt><dd className="sr-num">{TIME.format(when)}</dd></div>
         </dl>
         <div className="sr-barcode"><Barcode value={number} /></div>
+        {status && <span className={`sr-status is-${status.tone}`}>{status.label}</span>}
       </div>
     </header>
-
-    <section className="sr-box">
-      <h3>مشخصات فروشنده</h3>
-      <div className="sr-grid">
-        <Field label="نام فروشگاه" value={seller.name} />
-        {seller.phone && <Field label="تلفن" value={seller.phone} ltr />}
-        {seller.economicCode && <Field label="کد اقتصادی" value={ids(seller.economicCode)} />}
-        {seller.nationalId && <Field label="شناسهٔ ملی" value={ids(seller.nationalId)} />}
-        {seller.registrationNo && <Field label="شمارهٔ ثبت" value={ids(seller.registrationNo)} />}
-        {seller.postalCode && <Field label="کد پستی" value={ids(seller.postalCode)} />}
-        {seller.address && <Field label="نشانی" value={seller.address} wide />}
-      </div>
-    </section>
+    {contactRows.length > 0 ? <dl className="sr-contact">{contactRows.map(([label, value, ltr]) => <div key={label}><dt>{label}</dt><dd>{ltr ? <bdi dir="ltr">{value}</bdi> : value}</dd></div>)}</dl> : <div className="sr-contact is-empty" aria-hidden="true" />}
 
     <section className="sr-box">
       <h3>مشخصات خریدار و فروش</h3>
@@ -169,6 +162,6 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
         <div><span>امضای خریدار</span></div>
       </div> : <div className="sr-sign is-single"><div>{paid && <i className="sr-paid" aria-hidden="true">پرداخت شد<small>{DATE.format(when)}</small></i>}</div></div>}
     </section>
-    <p className="sr-thanks">از خرید شما سپاسگزاریم{seller.name ? ` — ${seller.name}` : ''}</p>
+    <footer className="sr-docfoot"><span>از خرید شما سپاسگزاریم</span>{seller.website && <bdi dir="ltr">{seller.website}</bdi>}{seller.phone && <bdi dir="ltr">{seller.phone}</bdi>}</footer>
   </article></div>
 }
