@@ -21,6 +21,8 @@ export type BuyerDelivery = {
   deliveredAt: Date | null
   /** What the shop promises (0 = nothing said). */
   hours: number
+  /** Store setting deliveredNote: the line shown above the details (empty = none). */
+  note: string
   details: (DeliveryDetails & { structured: boolean }) | null
 }
 
@@ -37,8 +39,8 @@ export async function buyerDelivery(userId: number, orderId: number): Promise<Bu
   if (status === 'DELIVERED' && order.productDelivery?.digitalDelivery) {
     try { details = readDeliveryDetails(decryptDigitalDelivery(order.productDelivery.digitalDelivery)) } catch { details = null }
   }
-  const { staffDeliveryHours } = await getStoreSettings()
-  return { status, assigned: order.assigneeId !== null, paidAt: order.invoice?.paidAt || order.createdAt, deliveredAt: order.productDelivery?.deliveredAt || null, hours: staffDeliveryHours, details }
+  const { staffDeliveryHours, deliveredNote } = await getStoreSettings()
+  return { status, assigned: order.assigneeId !== null, paidAt: order.invoice?.paidAt || order.createdAt, deliveredAt: order.productDelivery?.deliveredAt || null, hours: staffDeliveryHours, note: deliveredNote, details }
 }
 
 /**

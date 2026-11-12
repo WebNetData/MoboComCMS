@@ -146,7 +146,7 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
     {handoff && !closed && handoff.status !== 'DELIVERED' && !codes.length && <HandoffCard delivery={handoff} />}
     {delivered && <section className="sx-my-card sx-delivered" aria-label="اطلاعات تحویل">
       <h2><StoreIcon name="shield" size={17} />اطلاعات تحویل{handoff?.deliveredAt && <small>تحویل {persian(handoff.deliveredAt, true)}</small>}</h2>
-      <p className="sx-dlv-hint">این اطلاعات فقط به شما نشان داده می‌شود. اگر اکانت است، پس از ورود رمز را عوض کنید و آن را با کسی در میان نگذارید.</p>
+      {handoff?.note && <p className="sx-dlv-hint">{handoff.note}</p>}
       <DeliveredDetails items={delivered.items} note={delivered.note} />
     </section>}
     {codes.length > 0 && <section className="sx-my-card sx-my-codes" aria-label="کدهای خریداری‌شده">
