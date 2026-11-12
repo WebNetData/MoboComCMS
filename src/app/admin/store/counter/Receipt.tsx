@@ -21,7 +21,8 @@ export default function Receipt({ receipt, format }: { receipt: CounterReceipt; 
   return <SaleReceiptDocument
     format={format}
     seller={seller}
-    title="فاکتور فروش حضوری"
+    title="فاکتور فروش"
+    badge="فروش حضوری"
     number={receipt.invoiceNumber}
     createdAt={receipt.createdAt}
     paid

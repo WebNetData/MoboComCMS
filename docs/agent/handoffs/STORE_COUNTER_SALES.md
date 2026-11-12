@@ -1,5 +1,14 @@
 # Unified Store desk continuation
 
+## Invoice letterhead — 2026-11-12
+
+Owner: the centred «فاکتور فروش حضوری» title looked poor; the invoice needs a professional letterhead. Branch feat/invoice-letterhead-2026-11-12 from main 15263202 (PR452 merged).
+
+- A4 header is now a letterhead: logo (or an initial mark) and the shop name with the Admin site tagline on the right; on the left a document box with the title «فاکتور فروش», a channel badge («فروش حضوری»/«فروش آنلاین»), number, date, time and barcode.
+- A brand band (navy #1e3a8a, paper colour, both themes) carries address, phone, website, postal code, economic code, national ID and registration number from the invoice profile. The separate one-line seller box was removed; the official invoice keeps the full legal seller grid.
+- The footer repeats the band with thanks, website and phone; the paid amount uses the brand colour. The roll adds the tagline and website.
+- Data: Store `saleSeller()` adds `tagline` (site config, Admin appearance) and `website` (site link host). The public QR copy receives both; they are public identity.
+
 ## Counter buyer and official-style invoice — 2026-11-12
 
 Owner feedback after using #451 on the main app: the receipt looked poor next to the official invoice, and a gift card printed on a page of its own. The cashier must be able to type the buyer's first name, last name and mobile so that an account is created and the invoice is issued in that name. Branch feat/counter-customer-invoice-2026-11-12 from main eefe1d45.
