@@ -63,7 +63,7 @@ export async function hostingQuote(input: { productId: number; cycle: string; ho
 /** After payment: the service exists once per order, then is created on its system or waits for staff. */
 export async function fulfillHostingOrder(orderId: number) {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, status: true, meta: true, currency: true } })
-  if (!order || order.status !== 'PAID') throw new Error('hosting order is not paid')
+  if (!order || order.status !== 'PAID' || order.userId === null) throw new Error('hosting order is not paid or has no buyer')
   const meta = parseMeta(order.meta)
   const productId = Number(meta.hostingProductId)
   if (meta.kind !== 'hosting' || !productId || !cycleMeta(String(meta.cycle))) throw new Error('hosting order has no product')

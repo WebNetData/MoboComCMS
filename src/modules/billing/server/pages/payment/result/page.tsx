@@ -62,7 +62,7 @@ export default async function PaymentResultPage({
 
   const fulfillment = view?.orderId ? await db.fulfillmentJob.findFirst({ where: { orderId: view.orderId }, orderBy: { id: 'desc' }, select: { status: true } }) : null
   const productDelivery = view?.productId && view.orderId ? await db.productDelivery.findUnique({ where: { orderId: view.orderId }, select: { status: true } }) : null
-  const topup = view?.kind === 'WALLET_TOPUP' ? await db.walletTx.findFirst({ where: { invoiceId: view.id, userId: view.userId, type: 'TOPUP', status: 'DONE' }, select: { status: true } }) : null
+  const topup = view?.kind === 'WALLET_TOPUP' && view.userId !== null ? await db.walletTx.findFirst({ where: { invoiceId: view.id, userId: view.userId, type: 'TOPUP', status: 'DONE' }, select: { status: true } }) : null
 
   const state = view ? paymentResultState(view.status, view.order?.status, searchParams.failed === '1') : 'pending'
   const paid = state === 'paid'

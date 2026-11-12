@@ -173,7 +173,7 @@ export async function updateShipment(input: { id: number; status?: unknown; trac
     await transitionOrder({ orderId: shipment.orderId, to: orderTarget, actorId: input.actorId, trackingCode: code || shipment.waybill, note: orderTarget === 'SHIPPED' ? `تحویل ${shipment.carrierName} شد — کد رهگیری ${code || shipment.waybill}` : '' }).catch((error) => logEvent('warn', 'shipment.transition_failed', { orderId: shipment.orderId, error: String(error) }))
   } else if (codeChanged && code) {
     await db.productDelivery.updateMany({ where: { orderId: shipment.orderId }, data: { trackingCode: code } })
-    await createInboxEvent({
+    if (shipment.order.userId !== null) await createInboxEvent({
       userId: shipment.order.userId, kind: 'ORDER_STATUS', dedupeKey: `shipment:${shipment.id}:code:${code}`,
       titleEn: `Tracking code for order #${shipment.orderId}`, titleFa: `کد رهگیری سفارش ${shipment.orderId.toLocaleString('fa-IR')}`,
       bodyEn: `${shipment.carrierName}: ${code}`, bodyFa: `${shipment.carrierName}: ${code}`, href: `/dashboard/orders/${shipment.orderId}`,

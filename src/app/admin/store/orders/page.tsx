@@ -7,7 +7,7 @@ import { Money, Notice, Pager, StoreShell, STATE_TONE, fa, faDate, useJson } fro
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Row = {
-  id: number; createdAt: string; customer: { id: number; name: string; email: string; phone: string }; state: { label: string; tone: string }
+  id: number; createdAt: string; customer: { id: number | null; name: string; email: string; phone: string }; state: { label: string; tone: string }
   fulfilment: string; schedule: string; trackingCode: string; invoiceNumber: string; total: number; currency: string; items: number; physical: boolean
   preview: { name: string; image: string; quantity: number }[]
 }

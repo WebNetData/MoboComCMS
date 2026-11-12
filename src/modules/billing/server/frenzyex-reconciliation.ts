@@ -139,7 +139,7 @@ export async function settleFrenzyInvoice(input: {
   })
   if (!settlement.ok) return { ok: false as const, message: settlement.message || 'invoice settlement failed' }
 
-  if (invoice.kind === 'WALLET_TOPUP') {
+  if (invoice.kind === 'WALLET_TOPUP' && invoice.userId !== null) {
     // Reuse the durable pending top-up row when possible. If an operator had
     // already marked that row failed, use a fixed idempotency key instead.
     const ledger = await db.walletTx.findFirst({ where: { invoiceId: invoice.id, type: 'TOPUP' }, orderBy: { id: 'desc' } })

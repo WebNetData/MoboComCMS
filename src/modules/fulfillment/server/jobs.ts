@@ -209,7 +209,7 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
   if (job.kind === 'PROVISION_SUBSCRIPTION') {
     if (!job.orderId) throw new Error('provision job has no orderId')
     const order = await db.order.findUnique({ where: { id: job.orderId } })
-    if (!order?.planId) throw new Error('order/plan not found')
+    if (!order?.planId || order.userId === null) throw new Error('order/plan/buyer not found')
     const existing = await db.subscription.findFirst({ where: { orderId: order.id } })
     if (existing && existing.status === 'ACTIVE' && existing.username !== 'pending') return
     const result = await provisionFromOrder({ orderId: order.id, userId: order.userId, planId: order.planId })
@@ -303,7 +303,7 @@ export async function processFulfillmentJob(jobId: number) {
     })
     if (job.invoiceId) {
       const invoice = await db.invoice.findUnique({ where: { id: job.invoiceId }, select: { number: true, userId: true, status: true } }).catch(() => null)
-      if (invoice?.status === 'PAID') await createInboxEvent({
+      if (invoice?.status === 'PAID' && invoice.userId !== null) await createInboxEvent({
         userId: invoice.userId, kind: 'DELIVERY_DELAYED', dedupeKey: `fulfillment:${job.id}:delayed`,
         titleEn: 'Service activation delayed', titleFa: 'فعال‌سازی سرویس با تأخیر روبه‌رو شد',
         bodyEn: `Payment for invoice ${invoice.number} is confirmed. We are retrying delivery.`,
@@ -402,6 +402,7 @@ export async function recoverPaidWalletTopups(limit = 20) {
   let credited = 0
   let failed = 0
   for (const invoice of invoices) {
+    if (invoice.userId === null) continue
     if (credited + failed >= Math.max(1, Math.min(limit, 100))) break
     const pending = byInvoice.get(invoice.id)
     if (pending?.status === 'DONE') continue

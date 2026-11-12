@@ -113,6 +113,7 @@ export async function GET(req: NextRequest) {
   for (const invoice of salesInvoices) {
     const value = invoiceMinor(invoice, currency)
     if (invoice.planId) planRevenue.set(invoice.planId, (planRevenue.get(invoice.planId) || 0n) + value)
+    if (invoice.userId === null) continue
     const current = topCustomers.get(invoice.userId) || { email: invoice.user?.email || '—', name: invoice.user?.name || '', amountMinor: 0n, count: 0 }
     current.amountMinor += value
     current.count += 1

@@ -69,6 +69,13 @@
         ]
       },
       {
+        "href": "/admin/store/counter",
+        "label": "فروش حضوری",
+        "labelEn": "Counter sales",
+        "icon": "wallet",
+        "permissions": ["orders.manage"]
+      },
+      {
         "href": "/admin/store/returns",
         "label": "لغو و مرجوعی",
         "labelEn": "Returns & cancellations",

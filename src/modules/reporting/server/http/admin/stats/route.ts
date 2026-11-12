@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     },
     recentOrders: recentOrders.map((o) => ({
       id: o.id,
-      user: o.user.email,
+      user: o.user?.email || 'مشتری حضوری',
       plan: o.plan?.name || '-',
       amount: o.totalAmount,
       currency: o.currency,

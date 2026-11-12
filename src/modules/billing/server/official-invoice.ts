@@ -44,14 +44,14 @@ export async function officialInvoice(number: string, viewer: { id: number; admi
       plan: { select: { name: true } },
       product: { select: { name: true, sku: true } },
       gateway: { select: { name: true, provider: true } },
-      order: { select: { id: true, meta: true, lines: { orderBy: { line: 'asc' }, select: { name: true, variantName: true, sku: true, quantity: true, unitPriceMinor: true, listPriceMinor: true, totalMinor: true } }, productDelivery: { select: { address: true } } } },
+      order: { select: { id: true, meta: true, customerName: true, customerPhone: true, lines: { orderBy: { line: 'asc' }, select: { name: true, variantName: true, sku: true, quantity: true, unitPriceMinor: true, listPriceMinor: true, totalMinor: true } }, productDelivery: { select: { address: true } } } },
     },
   })
   if (!invoice || (!viewer.admin && invoice.userId !== viewer.id)) return null
   const [profile, nationalId, address] = await Promise.all([
     getBrandedInvoiceProfile(),
-    memberNationalId(invoice.userId).catch(() => ''),
-    db.userAddress.findFirst({ where: { userId: invoice.userId }, orderBy: [{ isDefault: 'desc' }, { id: 'desc' }] }),
+    invoice.userId === null ? '' : memberNationalId(invoice.userId).catch(() => ''),
+    invoice.userId === null ? null : db.userAddress.findFirst({ where: { userId: invoice.userId }, orderBy: [{ isDefault: 'desc' }, { id: 'desc' }] }),
   ])
   const currency = normalizeCurrency(invoice.currency, 'IRT')
   const meta = parse(invoice.order?.meta)
@@ -84,14 +84,14 @@ export async function officialInvoice(number: string, viewer: { id: number; admi
     walletApplied: invoice.walletAppliedMinor > 0n ? shown(invoice.walletAppliedMinor) : '',
     seller: profile,
     buyer: {
-      name: invoice.user.name || str(shipTo?.recipient) || invoice.user.email,
+      name: invoice.order?.customerName || invoice.user?.name || str(shipTo?.recipient) || invoice.user?.email || 'مشتری حضوری',
       nationalId,
-      phone: str(shipTo?.phone) || invoice.user.phone || address?.mobile || '',
+      phone: invoice.order?.customerPhone || str(shipTo?.phone) || invoice.user?.phone || address?.mobile || '',
       province: str(shipTo?.province) || address?.province || '',
       city: str(shipTo?.city) || address?.city || '',
       address: str(shipTo?.address) || address?.address || '',
       postalCode: str(shipTo?.postalCode) || address?.postalCode || '',
-      email: /@(phone|bot)\.mobocom\.local$|\.local$/.test(invoice.user.email) ? '' : invoice.user.email,
+      email: /@(phone|bot)\.mobocom\.local$|\.local$/.test(invoice.user?.email || '') ? '' : invoice.user?.email || '',
     },
     unitLabel,
     vatPercent: vatBps / 100,

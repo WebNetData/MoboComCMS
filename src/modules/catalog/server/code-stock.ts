@@ -30,6 +30,20 @@ export async function syncCodeStock(tx: Tx, productId: number) {
     if (product.stock !== -1) await tx.product.update({ where: { id: productId }, data: { stock: -1 } })
     return -1
   }
+  const available = await availableCodeStock(tx, productId)
+  const free = (variantId: number | null) => available.get(variantId) || 0
+  let total = free(null)
+  for (const variant of product.variants) {
+    const stock = free(variant.id)
+    total += stock
+    if (variant.stock !== stock) await tx.productVariant.update({ where: { id: variant.id }, data: { stock } })
+  }
+  if (product.stock !== total) await tx.product.update({ where: { id: productId }, data: { stock: total } })
+  return total
+}
+
+/** Actual free codes after outstanding online holds, including products with staff fallback. Caller holds Product. */
+export async function availableCodeStock(tx: Tx, productId: number) {
   const [shelf, held, given] = await Promise.all([
     tx.productDigitalCode.groupBy({ by: ['variantId'], where: { productId, orderId: null }, _count: { _all: true } }),
     tx.inventoryReservation.findMany({ where: { productId, status: { in: ['HELD', 'CONSUMED'] } }, select: { orderId: true, line: true, variantId: true, quantity: true, status: true } }),
@@ -40,15 +54,7 @@ export async function syncCodeStock(tx: Tx, productId: number) {
   const owed = new Map<number | null, number>()
   // A hold is an open checkout; a sold unit still counts while its paid order waits for delivery.
   for (const row of held) if (row.status === 'HELD' || open.has(row.orderId)) owed.set(row.variantId, (owed.get(row.variantId) || 0) + missingCodes(row.quantity, givenTo.get(`${row.orderId}:${row.line}`) || 0))
-  const free = (variantId: number | null) => Math.max(0, (shelf.find((row) => row.variantId === variantId)?._count._all || 0) - (owed.get(variantId) || 0))
-  let total = free(null)
-  for (const variant of product.variants) {
-    const stock = free(variant.id)
-    total += stock
-    if (variant.stock !== stock) await tx.productVariant.update({ where: { id: variant.id }, data: { stock } })
-  }
-  if (product.stock !== total) await tx.product.update({ where: { id: productId }, data: { stock: total } })
-  return total
+  return new Map(shelf.map((row) => [row.variantId, Math.max(0, row._count._all - (owed.get(row.variantId) || 0))]))
 }
 
 /**

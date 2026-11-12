@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
 import { maskSecret } from '@/modules/billing/server/gateways'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { bpsAmount, formatMoney, legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
@@ -35,9 +36,9 @@ async function announcePaidOrder(orderId: number) {
 }
 
 /** Atomic monotonic sequence, safe under concurrent invoice creation. */
-export async function nextInvoiceNumber(): Promise<string> {
+export async function nextInvoiceNumber(client: Prisma.TransactionClient | typeof db = db): Promise<string> {
   const year = new Date().getFullYear()
-  const counter = await db.invoiceSequence.upsert({
+  const counter = await client.invoiceSequence.upsert({
     where: { year },
     create: { year, value: 1 },
     update: { value: { increment: 1 } },
@@ -49,7 +50,8 @@ export async function nextInvoiceNumber(): Promise<string> {
 
 export interface CreateInvoiceForOrderInput {
   orderId?: number | null
-  userId: number
+  userId: number | null
+  saleSource?: 'ONLINE' | 'COUNTER'
   planId?: number | null
   productId?: number | null
   subtotal: number | string
@@ -77,7 +79,8 @@ export function invoiceDue(invoice: { totalMinor?: bigint; walletAppliedMinor?: 
   return Math.max(0, invoice.total - (invoice.walletApplied || 0))
 }
 
-export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput) {
+export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput, client: Prisma.TransactionClient | typeof db = db) {
+  if (input.userId === null && (input.saleSource !== 'COUNTER' || !input.orderId || input.walletApplied)) throw new Error('counter invoice requires an order and no wallet credit')
   const currency = normalizeCurrency(input.currency || BASE_CURRENCY)
   const subtotalMinor = toMinor(input.subtotal, currency)
   const discountMinor = toMinor(input.discount || 0, currency)
@@ -88,14 +91,15 @@ export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput) {
   const dueDays = Math.max(0, Math.min(365, Number(input.dueDays ?? 1) || 0))
 
   if (input.idempotencyKey) {
-    const existing = await db.invoice.findUnique({ where: { idempotencyKey: input.idempotencyKey } })
+    const existing = await client.invoice.findUnique({ where: { idempotencyKey: input.idempotencyKey } })
     if (existing) return existing
   }
 
-  return db.invoice.create({
+  return client.invoice.create({
     data: {
-      number: await nextInvoiceNumber(),
+      number: await nextInvoiceNumber(client),
       userId: input.userId,
+      saleSource: input.saleSource || 'ONLINE',
       orderId: input.orderId ?? null,
       planId: input.planId || null,
       productId: input.productId || null,
@@ -139,8 +143,8 @@ export interface MarkPaidInput {
  * Atomically claims an invoice for settlement. Repeated callbacks return
  * `alreadyPaid` and never duplicate ledger rows or order settlement.
  */
-export async function markInvoicePaid(input: MarkPaidInput) {
-  const result = await db.$transaction(async (tx) => {
+export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.TransactionClient) {
+  const settle = async (tx: Prisma.TransactionClient) => {
     const invoice = await tx.invoice.findUnique({ where: { id: input.invoiceId } })
     if (!invoice) return { ok: false as const, message: 'invoice not found' }
     if (invoice.status === 'PAID') return { ok: true as const, alreadyPaid: true, invoice }
@@ -229,27 +233,29 @@ export async function markInvoicePaid(input: MarkPaidInput) {
     }
 
     if (invoice.orderId) {
-      await tx.order.update({
-        where: { id: invoice.orderId },
+      const paidOrder = await tx.order.updateMany({
+        where: { id: invoice.orderId, status: 'PENDING' },
         data: {
           status: 'PAID',
           paidCrypto: input.cryptoCurrency || undefined,
           paidAmount: input.cryptoAmount || String(legacyNumber(totalPaidMinor, currency)),
         },
       })
+      if (paidOrder.count !== 1 && (await tx.order.findUnique({ where: { id: invoice.orderId }, select: { status: true } }))?.status !== 'PAID') throw new Error('order is no longer payable')
       await tx.promotionRedemption.updateMany({ where: { orderId: invoice.orderId, status: 'RESERVED' }, data: { status: 'USED' } })
     }
 
     const settled = await tx.invoice.findUnique({ where: { id: invoice.id } })
     return { ok: true as const, alreadyPaid: false, invoice: settled || invoice }
-  })
-  if (result.ok && !result.alreadyPaid) {
+  }
+  const result = await (client ? settle(client) : db.$transaction(settle))
+  if (!client && result.ok && !result.alreadyPaid) {
     await invoicePaidEvent(result.invoice).catch(error => logEvent('error', 'inbox.payment_failed', { invoiceId: result.invoice.id, error }))
     logEvent('info', 'payment.settled', { invoiceId: result.invoice.id, orderId: result.invoice.orderId, userId: result.invoice.userId, totalMinor: result.invoice.paidAmountMinor, currency: result.invoice.currency })
     void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_ORDER', { invoice: result.invoice.number, amount: formatMoney(result.invoice.paidAmountMinor, result.invoice.currency, 'fa-IR') }))
       .catch(error => logEvent('error', 'sms.admin_failed', { invoiceId: result.invoice.id, error }))
     if (result.invoice.orderId) await announcePaidOrder(result.invoice.orderId)
-    await emitExtensionEvent('payment.completed', { invoiceId: result.invoice.id, orderId: result.invoice.orderId, userId: result.invoice.userId, totalMinor: result.invoice.paidAmountMinor.toString(), currency: result.invoice.currency })
+    if (result.invoice.userId !== null) await emitExtensionEvent('payment.completed', { invoiceId: result.invoice.id, orderId: result.invoice.orderId, userId: result.invoice.userId, totalMinor: result.invoice.paidAmountMinor.toString(), currency: result.invoice.currency })
     const { awardReferralForInvoice } = await import('@/modules/referrals/server/referrals')
     await awardReferralForInvoice(result.invoice.id).catch(error => logEvent('error', 'referral.reward_failed', { invoiceId: result.invoice.id, message: error instanceof Error ? error.message : 'unknown' }))
   }
@@ -290,6 +296,7 @@ export async function releaseInvoiceCredit(invoiceId: number, description?: stri
   const currency = normalizeCurrency(invoice.currency)
   const creditMinor = invoice.walletAppliedMinor || toMinor(invoice.walletApplied || 0, currency)
   if (creditMinor <= 0n) return { ok: true as const, released: 0 }
+  if (invoice.userId === null) return { ok: false as const, message: 'wallet credit requires an account', released: 0 }
   if (invoice.status === 'PAID') return { ok: false as const, message: 'a paid invoice keeps its credit', released: 0 }
 
   const move = await moveWallet({

@@ -46,8 +46,8 @@
 @media print {
   @page { margin: 10mm; }
   /* Only the sheet: everything that neither holds it nor sits in it is left out, and what holds it adds nothing. */
-  body *:not(:has(.pc-print)):not(.pc-print):not(.pc-print *) { display: none !important; }
-  body :has(.pc-print) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; transform: none !important; }
+  body:has(.pc-print) *:not(:has(.pc-print)):not(.pc-print):not(.pc-print *) { display: none !important; }
+  body:has(.pc-print) :has(.pc-print) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; transform: none !important; }
   .pc-print { width: 140mm; margin: 0 auto; padding: 0; border-radius: 0; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .pc-print.is-card { width: auto; justify-items: start; padding: 2mm; }
   .pc-card { break-inside: avoid; }

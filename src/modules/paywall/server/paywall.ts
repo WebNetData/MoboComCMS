@@ -147,7 +147,7 @@ export async function quoteContent(key: { ownerType: OwnerType; ownerId: number 
 /** Grants a paid content order (fulfilment job). Safe to run more than once. */
 export async function fulfillContentOrder(orderId: number): Promise<void> {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, status: true, meta: true, totalMinor: true, currency: true } })
-  if (!order || order.status !== 'PAID') throw new Error('content order is not paid')
+  if (!order || order.status !== 'PAID' || order.userId === null) throw new Error('content order is not paid or has no buyer')
   let meta: Record<string, unknown> = {}
   try { meta = JSON.parse(order.meta || '{}') } catch { /* ignore */ }
   const ownerType = String(meta.ownerType || '') as OwnerType

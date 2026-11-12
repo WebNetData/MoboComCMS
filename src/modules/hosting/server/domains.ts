@@ -142,7 +142,8 @@ export async function domainOrderQuote(request: DomainOrderRequest) {
 /** After payment: the domain row (once per order, one live row per name) and a registry task for staff. */
 export async function fulfillDomainOrder(orderId: number) {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, status: true, meta: true, currency: true } })
-  if (!order || order.status !== 'PAID') throw new Error('domain order is not paid')
+  if (!order || order.status !== 'PAID' || order.userId === null) throw new Error('domain order is not paid or has no buyer')
+  const buyerId = order.userId
   const meta = parseMeta(order.meta)
   if (meta.kind !== 'domain') throw new Error('not a domain order')
   let domain = await db.domain.findUnique({ where: { orderId } })
@@ -150,7 +151,7 @@ export async function fulfillDomainOrder(orderId: number) {
     try {
       domain = await db.$transaction(async (tx) => {
         const created = await tx.domain.create({ data: {
-          userId: order.userId, tldId: Number(meta.tldId), name: String(meta.name), kind: String(meta.action) === 'TRANSFER' ? 'TRANSFER' : 'REGISTER', years: Number(meta.years) || 1,
+          userId: buyerId, tldId: Number(meta.tldId), name: String(meta.name), kind: String(meta.action) === 'TRANSFER' ? 'TRANSFER' : 'REGISTER', years: Number(meta.years) || 1,
           renewMinor: BigInt(String(meta.renewMinor)), currency: order.currency, orderId, handle: String(meta.handle || ''), authCode: String(meta.authCode || ''),
         } })
         await tx.domainAction.create({ data: { domainId: created.id, actor: 'SYSTEM', kind: created.kind, status: 'WAITING', idempotencyKey: `order:${orderId}`, detail: `${created.kind === 'TRANSFER' ? 'انتقال' : 'ثبت'} در رجیستری${meta.availability === 'unknown' ? ' (وضعیت آزاد بودن بررسی نشد)' : ''}` } })

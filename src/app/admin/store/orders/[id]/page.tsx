@@ -20,7 +20,8 @@ type Detail = Assignment & {
   currency: string; itemsTotal: number; listTotal: number; discount: number; discountCode: string; shipping: number; total: number; walletApplied: number
   shippingMethod: { carrierId: string; carrierName: string; eta: string; weightGrams: number; collect?: boolean } | null
   invoiceNumber: string; invoiceStatus: string; orderStatus: string; gateway: string; hasDigitalDelivery: boolean; deliveryTemplate: ProductDeliveryTemplate | null
-  customer: { id: number; name: string; email: string; phone: string; createdAt: string; paidOrders: number; spent: number }
+  saleSource: string
+  customer: { id: number | null; name: string; email: string; phone: string; createdAt: string; paidOrders: number; spent: number }
   payments: { id: number; provider: string; status: string; amount: number; createdAt: string }[]
   events: { id: number; status: string; note: string; createdAt: string; visible: boolean; actor: string }[]
 }
@@ -78,6 +79,7 @@ export default function StoreOrderPage() {
   }
 
   return <StoreShell title={`سفارش #${fa(data.id)}`} actions={<>
+    {data.manager && data.saleSource === 'COUNTER' && data.fulfilment === 'DELIVERED' && data.orderStatus === 'PAID' && <Link className="btn btn-ghost" href={`/admin/store/counter?order=${data.id}`}>رسید و کارت‌های فروش حضوری</Link>}
     {virtual && data.fulfilment === 'DELIVERED' && data.hasDigitalDelivery && <Link className="btn btn-ghost" href={`/admin/store/print?order=${data.id}`}>چاپ کارت</Link>}
     <span className={`sa-state ${STATE_TONE[data.state.tone] || ''}`}>{data.state.label}</span>
     <button type="button" className="btn btn-ghost" onClick={() => window.print()}>چاپ برگهٔ ارسال</button>
@@ -139,7 +141,7 @@ export default function StoreOrderPage() {
 
       <aside className="sa-stack">
         <section className="sa-card">
-          <header className="sa-card-head"><h2>مشتری</h2><span className="sa-row"><Link href={`/admin/tickets?new=1&user=${encodeURIComponent(data.customer.email)}&subject=${encodeURIComponent('دربارهٔ سفارش شما')}`} className="sa-link">ارسال تیکت به مشتری</Link><Link href={`/admin/users?q=${encodeURIComponent(data.customer.email)}`} className="sa-link">پروفایل</Link></span></header>
+          <header className="sa-card-head"><h2>مشتری{data.customer.id === null ? ' حضوری بدون حساب' : ''}</h2>{data.customer.id !== null && <span className="sa-row"><Link href={`/admin/tickets?new=1&user=${encodeURIComponent(data.customer.email)}&subject=${encodeURIComponent('دربارهٔ سفارش شما')}`} className="sa-link">ارسال تیکت به مشتری</Link><Link href={`/admin/users?q=${encodeURIComponent(data.customer.email)}`} className="sa-link">پروفایل</Link></span>}</header>
           <dl className="sa-kv"><div><dt>نام</dt><dd>{data.customer.name || '—'}</dd></div><div><dt>ایمیل</dt><dd dir="ltr">{data.customer.email}</dd></div>{data.customer.phone && <div><dt>موبایل</dt><dd dir="ltr">{data.customer.phone}</dd></div>}<div><dt>سفارش‌های موفق</dt><dd className="num">{fa(data.customer.paidOrders)}</dd></div><div><dt>مجموع خرید</dt><dd><Money value={data.customer.spent} currency={data.currency} /></dd></div></dl>
         </section>
         {data.address && <section className="sa-card sa-label">

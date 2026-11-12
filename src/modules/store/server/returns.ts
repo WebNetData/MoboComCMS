@@ -245,7 +245,7 @@ export async function createReturnRequest(req: NextRequest, userId: number, orde
   if (kind === 'CANCEL' && settings.autoRefundCancel && !held.size) {
     await refundReturn({ id: row.id, actorId: null, restock: true, note: 'لغو پیش از ارسال؛ بازپرداخت خودکار' })
   } else {
-    void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_RETURN', { order: String(orderId), kind: RETURN_KIND_LABEL[kind], name: order.user.name || order.user.email }))
+    void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_RETURN', { order: String(orderId), kind: RETURN_KIND_LABEL[kind], name: order.user?.name || order.user?.email || 'مشتری حضوری' }))
       .catch((error) => logEvent('error', 'sms.admin_failed', { error }))
   }
   return db.returnRequest.findUniqueOrThrow({ where: { id: row.id } })

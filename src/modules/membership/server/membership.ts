@@ -113,21 +113,22 @@ export async function revokeOrderMembership(orderId: number) {
   await db.membershipGift.updateMany({ where: { orderId, revokedAt: null }, data: { revokedAt: now } })
   await db.membershipApplication.updateMany({ where: { orderId, status: 'PENDING' }, data: { status: 'REJECTED', decidedAt: now } })
   const order = await db.order.findUnique({ where: { id: orderId }, select: { userId: true } })
-  if (order) await (await import('@/modules/membership/server/extras')).syncOwnerTeams(order.userId, now)
+  if (order?.userId) await (await import('@/modules/membership/server/extras')).syncOwnerTeams(order.userId, now)
   return count
 }
 
 /** Grants a paid VIP plan order (fulfillment job). Everything it needs was frozen on the order at checkout. */
 export async function fulfillMembershipOrder(orderId: number, options: { approved?: boolean } = {}): Promise<void> {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, status: true, meta: true, totalMinor: true, currency: true } })
-  if (!order || order.status !== 'PAID') throw new Error('membership order is not paid')
+  if (!order || order.status !== 'PAID' || order.userId === null) throw new Error('membership order is not paid or has no buyer')
   let meta: Record<string, unknown> = {}
   try { meta = JSON.parse(order.meta || '{}') } catch { /* ignore */ }
   const planId = Number(meta.membershipPlanId)
   const days = Number(meta.days)
   if (!planId || (!days && meta.billing === 'DAYS')) throw new Error('membership order has no plan')
   const extras = await import('@/modules/membership/server/extras')
-  if (meta.gift === true) { await extras.openGift(order, meta); return }
+  const memberOrder = { ...order, userId: order.userId }
+  if (meta.gift === true) { await extras.openGift(memberOrder, meta); return }
   if (meta.requiresApproval === true && !options.approved) { await extras.openApplication({ userId: order.userId, planId, orderId: order.id }); return }
   const now = new Date()
   const upgradeFrom = Array.isArray(meta.upgradeFrom) ? meta.upgradeFrom.filter((id): id is number => Number.isSafeInteger(id)) : []
@@ -139,7 +140,7 @@ export async function fulfillMembershipOrder(orderId: number, options: { approve
   await grantMembership({ userId: order.userId, days, source: 'PURCHASE', kind: trial ? 'TRIAL' : 'PERIOD', period, amountMinor: value > 0n ? value : 0n, currency: order.currency, planId, orderId: order.id, dedupeKey: `order:${order.id}` })
   // After the grant and on every repeat, so a job stopped between the two finishes the swap and nobody is left with neither.
   if (upgradeFrom.length) await db.userMembership.updateMany({ where: { id: { in: upgradeFrom }, userId: order.userId, revokedAt: null, orderId: { not: order.id } }, data: { revokedAt: now } })
-  if (Number(meta.seats) > 0) await extras.openTeam(order, planId, Number(meta.seats), String(meta.planName || ''))
+  if (Number(meta.seats) > 0) await extras.openTeam(memberOrder, planId, Number(meta.seats), String(meta.planName || ''))
   await extras.syncOwnerTeams(order.userId, now)
 }
 
@@ -147,7 +148,7 @@ export async function fulfillMembershipOrder(orderId: number, options: { approve
 export async function grantGiftForOrder(orderId: number): Promise<void> {
   if (!await isModuleEnabled('membership')) return
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, status: true, planId: true, productId: true } })
-  if (!order || order.status !== 'PAID') return
+  if (!order || order.status !== 'PAID' || order.userId === null) return
   const days = order.planId
     ? (await db.plan.findUnique({ where: { id: order.planId }, select: { vipGiftDays: true } }))?.vipGiftDays || 0
     : order.productId ? (await db.product.findUnique({ where: { id: order.productId }, select: { vipGiftDays: true } }))?.vipGiftDays || 0 : 0

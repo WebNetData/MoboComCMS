@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest) {
     try { encrypted = encryptDigitalDelivery(secret) } catch (error) { return err(error instanceof Error ? error.message : 'Encryption unavailable', 503) }
   }
   const updated = await db.productDelivery.update({ where: { id }, data: { status, trackingCode, deliveryNote, ...(encrypted ? { digitalDelivery: encrypted } : {}), deliveredAt: status === 'DELIVERED' ? delivery.deliveredAt || new Date() : null }, select: { id: true, orderId: true, status: true, trackingCode: true, deliveryNote: true, deliveredAt: true } })
-  if (status === 'DELIVERED' && delivery.status !== 'DELIVERED') await createInboxEvent({
+  if (status === 'DELIVERED' && delivery.status !== 'DELIVERED' && delivery.order.userId !== null) await createInboxEvent({
     userId: delivery.order.userId, kind: 'PRODUCT_DELIVERED', dedupeKey: `product-delivery:${id}:delivered`,
     titleEn: 'Your product is ready', titleFa: 'محصول شما تحویل شد',
     bodyEn: `Order #${delivery.orderId} has been marked delivered. View your invoice for details.`,

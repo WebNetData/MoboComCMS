@@ -83,7 +83,8 @@ export async function deliverInboxCopy(notificationId: number, channel: string) 
   return { sent: delivered.sent > 0 }
 }
 
-export async function invoicePaidEvent(invoice: { id: number; number: string; userId: number; kind: string }) {
+export async function invoicePaidEvent(invoice: { id: number; number: string; userId: number | null; kind: string }) {
+  if (invoice.userId === null) return null
   return createInboxEvent({
     userId: invoice.userId, kind: 'PAYMENT_PAID', dedupeKey: `invoice:${invoice.id}:paid`,
     titleEn: 'Payment confirmed', titleFa: 'پرداخت تأیید شد',
@@ -104,6 +105,7 @@ export async function syncRecentInvoiceEvents() {
   const existing = await db.userNotification.findMany({ where: { dedupeKey: { in: keys } }, select: { dedupeKey: true } })
   const sent = new Set(existing.map(row => row.dedupeKey))
   for (const invoice of invoices) {
+    if (invoice.userId === null) continue
     const key = `invoice:${invoice.id}:${invoice.status === 'PAID' ? 'paid' : 'closed'}`
     if (sent.has(key)) continue
     if (invoice.status === 'PAID') await invoicePaidEvent(invoice)

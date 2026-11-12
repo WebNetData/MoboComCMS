@@ -53,7 +53,7 @@ async function settleAttribution(attribution: Attribution): Promise<boolean> {
 /** A reward is issued once, for the referred account's first real paid invoice. */
 export async function awardReferralForInvoice(invoiceId: number) {
   const invoice = await db.invoice.findUnique({ where: { id: invoiceId }, select: { id: true, userId: true, orderId: true, status: true, kind: true, totalMinor: true, currency: true } })
-  if (!invoice || invoice.status !== 'PAID' || invoice.kind !== 'BILLING' || invoice.totalMinor <= 0n || !invoice.orderId) return
+  if (!invoice || invoice.userId === null || invoice.status !== 'PAID' || invoice.kind !== 'BILLING' || invoice.totalMinor <= 0n || !invoice.orderId) return
   const attribution = await db.referralAttribution.findUnique({ where: { referredUserId: invoice.userId } })
   if (attribution) await settleAttribution(attribution)
 }
@@ -69,7 +69,7 @@ export async function recoverReferralRewards(days = 14) {
   const buyers = new Set<number>()
   for (let after = 0, pages = 0; pages < 4; pages++) {
     const page = await db.invoice.findMany({ where: { ...paidPurchase, paidAt: { gte: since }, id: { gt: after } }, orderBy: { id: 'asc' }, take: 500, select: { id: true, userId: true } })
-    for (const row of page) buyers.add(row.userId)
+    for (const row of page) if (row.userId !== null) buyers.add(row.userId)
     if (page.length < 500) break
     after = page[page.length - 1].id
   }

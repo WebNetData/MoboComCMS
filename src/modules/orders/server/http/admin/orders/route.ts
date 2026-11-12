@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
   return ok(
     orders.map((o) => ({
       id: o.id,
-      user: o.user.email,
-      userName: o.user.name,
+      user: o.user?.email || '',
+      userName: o.customerName || o.user?.name || 'مشتری حضوری',
       plan: o.plan?.name || '-',
       amount: o.totalAmount,
       currency: o.currency,

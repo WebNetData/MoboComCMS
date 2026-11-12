@@ -9,6 +9,7 @@ datasource db {
 }
 
 model User {
+  counterSales Order[] @relation("OrderCreator")
   aiProductionBatches AiProductionBatch[]
   aiAssistantProposals AiAssistantProposal[]
   aiEngineeringRuns AiEngineeringRun[]
@@ -295,7 +296,12 @@ model Plan {
 
 model Order {
   id            Int            @id @default(autoincrement())
-  userId        Int
+  userId        Int?
+  saleSource    String @default("ONLINE")
+  createdById   Int?
+  createdBy     User? @relation("OrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  customerName  String @default("")
+  customerPhone String @default("")
   assigneeId Int?
   assignee User? @relation("OrderAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   planId        Int?
@@ -313,7 +319,7 @@ model Order {
   meta          String         @default("{}")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @default(now()) @updatedAt
-  user          User           @relation("OrderBuyer", fields: [userId], references: [id])
+  user          User?          @relation("OrderBuyer", fields: [userId], references: [id], onDelete: Restrict)
   plan          Plan?          @relation(fields: [planId], references: [id])
   product       Product?       @relation(fields: [productId], references: [id])
   items         OrderItem[]
@@ -331,6 +337,7 @@ model Order {
   deliveryFiles OrderDeliveryFile[]
   shipment      Shipment?
   @@index([assigneeId, status])
+  @@index([saleSource, createdAt])
 }
 
 model OrderItem {
@@ -1126,7 +1133,8 @@ model Gateway {
 model Invoice {
   id            Int       @id @default(autoincrement())
   number        String    @unique
-  userId        Int
+  userId        Int?
+  saleSource    String @default("ONLINE")
   orderId       Int?      @unique
   planId        Int?
   productId     Int?
@@ -1168,7 +1176,7 @@ model Invoice {
   paidAt        DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
-  user          User      @relation(fields: [userId], references: [id])
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
   order         Order?    @relation(fields: [orderId], references: [id])
   plan          Plan?     @relation(fields: [planId], references: [id])
   product       Product?  @relation(fields: [productId], references: [id])

@@ -44,7 +44,7 @@ export async function stampFxInvoice(invoiceId: number, codes: string[]) {
   } catch (error) { logEvent('error', 'invoice.fx_stamp_failed', { invoiceId, error }) }
 }
 
-type Closable = { id: number; number: string; userId: number; orderId: number | null; status: string; fxRates?: string }
+type Closable = { id: number; number: string; userId: number | null; orderId: number | null; status: string; fxRates?: string }
 
 /** Where the customer can order again after an invoice was closed. */
 async function againHref(orderId: number | null) {
@@ -81,7 +81,7 @@ export async function closeInvoice(invoice: Closable, reason: 'FX_RATE' | 'EXPIR
     }
   }
   const message = closeMessage(reason, invoice.number, jump, Boolean(invoice.fxRates))
-  await createInboxEvent({ userId: invoice.userId, kind: 'INVOICE', dedupeKey: `invoice:closed:${invoice.id}`, titleFa: message.title, titleEn: 'Your invoice was closed', bodyFa: message.body, bodyEn: '', href }).catch(() => undefined)
+  if (invoice.userId !== null) await createInboxEvent({ userId: invoice.userId, kind: 'INVOICE', dedupeKey: `invoice:closed:${invoice.id}`, titleFa: message.title, titleEn: 'Your invoice was closed', bodyFa: message.body, bodyEn: '', href }).catch(() => undefined)
   logEvent('info', 'invoice.closed_by_rule', { invoiceId: invoice.id, reason, action, jump })
   return true
 }

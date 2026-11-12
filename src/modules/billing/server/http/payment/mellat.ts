@@ -85,7 +85,7 @@ export async function POST_callback(req: NextRequest) {
   }
 
   // A wallet top-up is credited now (the durable pending row is reused, so a replay never credits twice).
-  if (invoice.kind === 'WALLET_TOPUP') {
+  if (invoice.kind === 'WALLET_TOPUP' && invoice.userId !== null) {
     const ledger = await db.walletTx.findFirst({ where: { invoiceId: invoice.id, type: 'TOPUP' }, orderBy: { id: 'desc' } })
     const reusableTxId = ledger && ledger.status !== 'FAILED' ? ledger.id : null
     const credit = await moveWallet({

@@ -1,3 +1,5 @@
+Store counter sales2026-11-12: IMPLEMENTED, FINAL VALIDATION PENDING — guest/linked gift-card and physical/variant sales, exact cash/card settlement, shared inventory/code claims, immediate delivery and audited reprinting compose the existing owners. Nine native suites and8 actual themed/responsive axe0 browser views passed on the earlier tested source. Final follow-ups, complete gate, build and QA cleanup remain pending after local Docker stopped responding. [Exact evidence and limits](handoffs/STORE_COUNTER_SALES.md).
+
 ## Release reconciliation — 2026-11-12
 
 | Capability | Existing owner | Finding / evidence | Remaining verification |
