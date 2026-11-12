@@ -35,8 +35,9 @@ export const AUTOFILL_SECTIONS: Record<string, string> = {
   businesses: 'پروفایل یک کسب‌وکار یا فروشگاه (بخش تجربهٔ خرید)',
 }
 
-const MAX_FIELDS = 60
-const MAX_SOURCE = 24_000
+// Bounds against abuse only, far above any real form or source (owner 2026-11-12: no word or character limits).
+const MAX_FIELDS = 150
+const MAX_SOURCE = 120_000
 
 /** Fields the model may fill; anything else (images, links, ids…) is left to the editor. */
 export function cleanSchema(input: unknown): AutofillField[] {
@@ -54,7 +55,7 @@ export function cleanSchema(input: unknown): AutofillField[] {
     const recordKeys = Array.isArray(row.recordKeys) ? row.recordKeys.slice(0, 8).map((r) => ({ key: String((r as Record<string, unknown>)?.key || ''), label: String((r as Record<string, unknown>)?.label || '').slice(0, 60) })).filter((r) => /^[a-zA-Z][a-zA-Z0-9_]{0,30}$/.test(r.key)) : undefined
     if ((type === 'select' || type === 'multiselect') && !options?.length) continue
     if (type === 'records' && !recordKeys?.length) continue
-    out.push({ key, label: String(row.label || key).slice(0, 120), type, options, recordKeys, hint: row.hint ? String(row.hint).slice(0, 200) : undefined, dir: row.dir === 'ltr' ? 'ltr' : undefined })
+    out.push({ key, label: String(row.label || key).slice(0, 120), type, options, recordKeys, hint: row.hint ? String(row.hint).slice(0, 1000) : undefined, dir: row.dir === 'ltr' ? 'ltr' : undefined })
   }
   return out
 }
@@ -83,13 +84,17 @@ export function autofillPrompt(input: { brand: string; voice: string; section: s
       '- متن‌های فارسی را روان، دقیق و سئوشده بنویس؛ نام‌های خاص انگلیسی را در فیلدهای لاتین به انگلیسی بنویس.\n' +
       '- خروجی فقط یک شیء JSON داخل تگ <json>…</json> باشد؛ هیچ متن دیگری ننویس.\n' +
       '- برای هر فیلد فقط نوعِ خواسته‌شده را برگردان. برای انتخابی‌ها فقط از «مقادیر مجاز» استفاده کن.\n' +
+      '- همهٔ فیلدها را پر کن؛ هر فیلدی که از منبع یا دانستهٔ قطعی برمی‌آید باید مقدار بگیرد و هیچ فیلدی را بی‌دلیل خالی نگذار.\n' +
+      '- محدودیت طول نداری: متن‌های بلند و توضیحی (چندخطی و HTML) را کامل، دقیق و ساختارمند بنویس، به اندازه‌ای که منبع اجازه می‌دهد؛ برای HTML از تیترهای h2/h3، پاراگراف و فهرست استفاده کن و چیزی را خلاصه یا حذف نکن. فیلدهای جدولی (آرایهٔ شیء) را با همهٔ ردیف‌هایی که در منبع هست پر کن.\n' +
+      '- فیلدهای کوتاه (عنوان، نامک، توضیح متا) را دقیق و کامل بنویس و نکتهٔ هر فیلد را رعایت کن.\n' +
       '- در کلید ویژهٔ "_notes" در یک یا دو جملهٔ فارسی بگو چه چیزی را نتوانستی از منبع دربیاوری تا ویراستار بررسی کند.\n' +
       NATURAL_STYLE,
     user:
       `فیلدهای فرم:\n${input.fields.map(describe).join('\n')}\n\n` +
-      (filled.length ? `مقادیری که ویراستار از قبل وارد کرده (تغییرشان نده مگر اشتباه باشد):\n${JSON.stringify(Object.fromEntries(filled)).slice(0, 4000)}\n\n` : '') +
+      (filled.length ? `مقادیری که ویراستار از قبل وارد کرده (تغییرشان نده مگر اشتباه باشد):\n${JSON.stringify(Object.fromEntries(filled)).slice(0, 40_000)}\n\n` : '') +
       `منبع:\n"""\n${input.source.slice(0, MAX_SOURCE)}\n"""`,
-    maxTokens: 6000,
+    // As much as the common providers return in one answer (DeepSeek stops at 8K); Claude is given more by the client.
+    maxTokens: 8192,
   }
 }
 
@@ -123,10 +128,10 @@ const text = (value: unknown, max: number) => (typeof value === 'string' || type
 export function cleanValue(field: AutofillField, value: unknown): unknown {
   if (value === null || value === undefined) return undefined
   switch (field.type) {
-    case 'text': { const v = text(value, 300).replace(/\s+/g, ' '); return v || undefined }
+    case 'text': { const v = text(value, 2000).replace(/\s+/g, ' '); return v || undefined }
     case 'slug': { const v = text(value, 120).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); return v || undefined }
-    case 'textarea': { const v = text(value, 8000); return v || undefined }
-    case 'richtext': { const v = safeHtml(text(value, 60_000)); return v.replace(/<[^>]+>/g, '').trim() ? v : undefined }
+    case 'textarea': { const v = text(value, 100_000); return v || undefined }
+    case 'richtext': { const v = safeHtml(text(value, 200_000)); return v.replace(/<[^>]+>/g, '').trim() ? v : undefined }
     case 'number': { const n = Number(latinDigits(String(value)).replace(/[,٬\s]/g, '')); return Number.isFinite(n) ? n : undefined }
     case 'checkbox': return value === true || value === 'true' ? true : value === false || value === 'false' ? false : undefined
     case 'date': { const v = latinDigits(text(value, 30)); return /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) ? v : undefined }
@@ -142,9 +147,9 @@ export function cleanValue(field: AutofillField, value: unknown): unknown {
     }
     case 'records': {
       if (!Array.isArray(value)) return undefined
-      const rows = value.slice(0, 40).map((item) => {
+      const rows = value.slice(0, 500).map((item) => {
         const row = (item || {}) as Record<string, unknown>
-        return Object.fromEntries((field.recordKeys || []).map((r) => [r.key, text(row[r.key], 400)]))
+        return Object.fromEntries((field.recordKeys || []).map((r) => [r.key, text(row[r.key], 5000)]))
       }).filter((row) => Object.values(row).some(Boolean))
       return rows.length ? rows : undefined
     }
@@ -161,5 +166,5 @@ export function parseAutofill(textOut: string, fields: AutofillField[]): Autofil
     const cleaned = cleanValue(field, raw[field.key])
     if (cleaned !== undefined) values[field.key] = cleaned
   }
-  return { values, filled: Object.keys(values), notes: text(raw._notes, 600) }
+  return { values, filled: Object.keys(values), notes: text(raw._notes, 2000) }
 }

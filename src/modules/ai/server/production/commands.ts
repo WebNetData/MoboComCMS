@@ -49,7 +49,9 @@ export async function productionCommand(req: NextRequest,body:Record<string,unkn
     requireProductionTransport(config,'text',transport)
     const output=parseProductionOutput(body.text)
     if(output.sections.length<config.inline)throw new ProductionError('تعداد بخش‌ها برای تصاویر داخلی کافی نیست',422)
-    if(config.cover&&output.coverPrompt.length<3||output.sections.slice(0,config.inline).some(s=>s.imagePrompt.length<3))throw new ProductionError('پرامپت تصاویر انتخاب‌شده کامل برنگشت؛ هیچ تصویری درخواست نشد',422)
+    // The owner's own image prompt does not need the AI's idea unless it asks for it ({پیشنهاد}).
+    const needsIdea=!config.imageSubject||/\{(پیشنهاد|ai)\}/.test(config.imageSubject)
+    if(needsIdea&&(config.cover&&output.coverPrompt.length<3||output.sections.slice(0,config.inline).some(s=>s.imagePrompt.length<3)))throw new ProductionError('پرامپت تصاویر انتخاب‌شده کامل برنگشت؛ هیچ تصویری درخواست نشد',422)
     await tx.aiProductionItem.updateMany({where:{id:item.id,lease:item.lease,version:item.version},data:{output:JSON.stringify(output),state:nextImage(config,[])===undefined?'REVIEW':'READY',lease:null,expiresAt:null,error:'',version:{increment:1}}});return done()
   },{isolationLevel:'Serializable',timeout:30000})
 }

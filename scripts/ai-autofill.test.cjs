@@ -68,7 +68,10 @@ test('prompt lists fields, options and existing values without the source overfl
   assert.match(p.user, /"SERIES"=سریال/)
   assert.match(p.user, /"title":"تلقین"/)
   assert.ok(!/"year":/.test(p.user.split('منبع:')[0]), 'empty current values are not sent')
-  assert.ok(p.user.length < 30_000)
+  assert.ok(p.user.includes('x'.repeat(50_000)), 'a long source is sent whole (owner 2026-11-12: no length limits)')
+  const huge = a.autofillPrompt({ brand: 'موبوکام', voice: 'صمیمی', section: 'cinema-titles', fields: FIELDS, source: 'x'.repeat(500_000), current: {} })
+  assert.ok(huge.user.length < 125_000, 'only an abusive source is bounded')
+  assert.match(huge.system, /محدودیت طول نداری/)
 })
 
 test('profile and business editors have the assistant with their own fields', () => {
