@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import PublicForm from '@/components/site/PublicForm'
 import type { FormDefinition } from '@/modules/forms/domain/forms'
@@ -12,30 +12,69 @@ type Saved = { id: number; pickupCode: string; receiptToken: string }
  * and the answer is taken in at once at the step that issues the receipt. Then the two receipts are printed.
  */
 export default function CounterPage() {
-  const [form, setForm] = useState<FormDefinition | null>(null)
+  const [forms, setForms] = useState<FormDefinition[]>([])
+  const [formId, setFormId] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState<Saved | null>(null)
+  const savedPanel = useRef<HTMLElement>(null)
   const [round, setRound] = useState(0)
   useEffect(() => {
+    const controller = new AbortController()
     const id = Number(new URLSearchParams(window.location.search).get('form'))
-    fetch('/api/admin/forms', { cache: 'no-store' })
+    setLoading(true)
+    setError('')
+    setForms([])
+    setFormId(0)
+    fetch('/api/admin/forms', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}))
-        const found = (body.forms || []).find((item: FormDefinition) => item.id === id)
-        if (found) setForm(found); else setError(response.ok ? 'این فرم پیدا نشد یا به شما سپرده نشده است' : body.error || 'فرم خوانده نشد')
+        if (controller.signal.aborted) return
+        if (!response.ok) throw new Error(body.error || 'فرم‌ها خوانده نشدند')
+        const available: FormDefinition[] = body.forms || []
+        const eligible = available.filter((item) => !item.settings?.payment.enabled)
+        setForms(eligible)
+        if (id) {
+          const found = available.find((item) => item.id === id)
+          if (!found) setError('این فرم پیدا نشد یا به شما سپرده نشده است')
+          else if (found.settings?.payment.enabled) setError('فرم پرداختی را مشتری خودش در سایت ارسال و پرداخت می‌کند')
+          else setFormId(id)
+        } else if (eligible.length === 1) setFormId(eligible[0].id!)
       })
-      .catch(() => setError('فرم خوانده نشد'))
-  }, [])
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'فرم‌ها خوانده نشدند')
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [attempt])
+  useEffect(() => {
+    if (!saved) return
+    savedPanel.current?.focus({ preventScroll: true })
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [saved])
+  const form = forms.find((item) => item.id === formId)
 
   return <div className="sa" dir="rtl">
     <header className="sa-head"><h1>ثبت حضوری{form ? ` — ${form.title}` : ''}</h1>{form && <div className="sa-head-actions"><Link className="btn btn-ghost" href={`/admin/forms?form=${form.id}&tab=inbox`}>میز کار این فرم</Link></div>}</header>
-    {error && <p className="sa-hint" role="alert">{error}</p>}
-    {saved && <section className="sa-card ct-saved" role="status">
+    {loading && <p className="sa-hint" role="status" aria-busy="true">در حال دریافت فرم‌ها…</p>}
+    {error && <div className="sa-notice is-error" role="alert"><p>{error}</p><button type="button" className="btn btn-ghost btn-sm" onClick={() => setAttempt((value) => value + 1)}>تلاش دوباره</button></div>}
+    {!loading && forms.length > 0 && !saved && <section className="sa-card">
+      <label htmlFor="counter-form">فرم پذیرش</label>
+      <select id="counter-form" className="input" value={formId} onChange={(event) => { setFormId(Number(event.target.value)); setError(''); setRound((value) => value + 1) }}>
+        <option value={0}>فرم را انتخاب کنید</option>
+        {forms.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+      </select>
+    </section>}
+    {!loading && !error && !forms.length && <p className="sa-hint">فرم غیرپرداختی برای پذیرش حضوری در دسترس شما نیست. مدیر فرم‌ها می‌تواند فرم تعمیر موبایل را بسازد و دسترسی آن را به شما بدهد.</p>}
+    {saved && <section ref={savedPanel} className="sa-card ct-saved" role="status" tabIndex={-1}>
       <header className="sa-card-head"><h2>پذیرش شمارهٔ {saved.id.toLocaleString('fa-IR', { useGrouping: false })} ثبت شد</h2></header>
       {saved.pickupCode && <p>کد تحویل مشتری: <b dir="ltr" className="ct-code">{saved.pickupCode}</b> <small className="sa-hint">روی رسید مشتری چاپ می‌شود؛ بدون آن دستگاه تحویل داده نمی‌شود.</small></p>}
       <div className="sa-row-actions">
-        <a className="btn btn-primary" href={`/admin/forms/receipt/${saved.id}?copy=customer`} target="_blank">چاپ رسید مشتری</a>
-        <a className="btn btn-ghost" href={`/admin/forms/receipt/${saved.id}?copy=shop`} target="_blank">چاپ رسید مغازه</a>
+        {form?.settings?.receipt.enabled && saved.receiptToken && <>
+          <a className="btn btn-primary" href={`/admin/forms/receipt/${saved.id}?copy=customer`} target="_blank" rel="noopener">چاپ رسید مشتری</a>
+          <a className="btn btn-ghost" href={`/admin/forms/receipt/${saved.id}?copy=shop`} target="_blank" rel="noopener">چاپ رسید مغازه</a>
+        </>}
         <button type="button" className="btn btn-ghost" onClick={() => { setSaved(null); setRound((value) => value + 1) }}>مشتری بعدی</button>
       </div>
     </section>}

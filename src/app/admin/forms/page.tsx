@@ -36,8 +36,12 @@ export default function FormsAdmin() {
     if (!r.ok) throw new Error('دریافت فرم‌ها ممکن نشد؛ دسترسی مدیریت صفحات لازم است.')
     const data: { forms: SavedForm[]; templates: Template[]; canBuild?: boolean; me?: number } = await r.json()
     setForms(data.forms); setTemplates(data.templates); setCanBuild(data.canBuild !== false); setMe(data.me || 0)
-    // Somebody who only works on answers starts at the queue of all their forms.
-    if (data.canBuild === false) setQueue(true)
+    // Handlers start at the queue, while a link to a particular form keeps its context.
+    if (data.canBuild === false) {
+      const wanted = new URLSearchParams(window.location.search)
+      const selected = data.forms.some((item) => item.id === Number(wanted.get('form')))
+      setQueue(wanted.get('tab') === 'queue' || !selected)
+    }
     return data.forms
   }, [])
   useEffect(() => {
@@ -88,10 +92,14 @@ export default function FormsAdmin() {
 
   if (loading) return <div className="sa" dir="rtl"><div className="sa-skeleton" aria-busy="true" /></div>
   const saved = forms.find((f) => f.id === form?.id)
+  const counterForm = !queue && saved && !settingsOf(saved).payment.enabled ? saved : null
   return <div className="sa fb-page" dir="rtl">
     <header className="sa-head"><div><h1>{canBuild ? 'فرم‌ساز' : 'درخواست‌های فرم'}</h1><p className="sa-hint">{canBuild ? 'فرم بسازید، پاسخ‌ها را در «صف کار» یا زبانهٔ «پاسخ‌ها»ی هر فرم پیگیری کنید.' : 'درخواست‌هایی که به شما سپرده شده؛ هر کدام را بردارید، انجام دهید و به کاربر خبر بدهید.'}</p></div>
-      <div className="sa-head-actions" hidden={!canBuild}><button type="button" className="btn btn-ghost" onClick={() => setPicking(true)}>+ فرم تازه</button>
-        <button type="button" className="btn btn-primary" disabled={busy || !form || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : dirty ? 'ذخیرهٔ فرم' : 'ذخیره شد'}</button></div></header>
+      <div className="sa-head-actions">
+        {forms.some((item) => !settingsOf(item).payment.enabled) && <Link className="btn btn-ghost" href={counterForm ? `/admin/forms/counter?form=${counterForm.id}` : '/admin/forms/counter'} onClick={(event) => { if (!confirmLeave()) event.preventDefault() }}>ثبت حضوری</Link>}
+        {canBuild && <><button type="button" className="btn btn-ghost" onClick={() => setPicking(true)}>+ فرم تازه</button>
+          <button type="button" className="btn btn-primary" disabled={busy || !form || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : dirty ? 'ذخیرهٔ فرم' : 'ذخیره شد'}</button></>}
+      </div></header>
     {notice && <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`sa-notice ${notice.tone === 'error' ? 'is-error' : 'is-ok'}`}>{notice.text}</div>}
 
     {picking && <section className="sa-card fb-templates" aria-label="شروع فرم تازه">

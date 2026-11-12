@@ -37,7 +37,19 @@ The owner asked for a Gravity-Forms-class builder that any part of the site can 
 - The public form never receives the templates (`publicForm`).
 - Tests: `scripts/invoice-subject.test.cjs`; browser `.mobocom/claude-tools/pw-invoice.cjs <top-up invoice number>` (11 checks).
 
-## Still not built
+## Repair intake and counter navigation — 2026-11-12
+
+- **Existing implementation**. PR445 (`37e7c290`, released in1.7.18) adds the `mobile-repair` template, `devicelock` field, per-form work steps, pickup verification and customer/shop receipts. `forms/server/counter.ts` owns staff intake and receipt projections. `forms/server/paid.ts` owns work transitions and sealed answers. Additive migration `20270310120000_form_work_receipts` is sealed in1.7.18.
+- **Outcome**. A receptionist can start a customer's repair from Forms, its all-forms queue or Services, enter the existing repair form, save the intake and open both receipts.
+- **Actors**. `cms.pages` managers or `forms.handle` staff. The existing GET `/api/admin/forms` filters by `mayHandle`. POST `/api/admin/forms/submissions` repeats `assertMayHandleForm` before `staffSubmit` and audits `forms.staff_entry`. The normal Origin policy applies. A form assigned to another handler stays outside this actor's list and rejects a direct submission.
+- **Entry and states**. The Forms header links directly to the saved selected non-paid form, or to the counter picker from the queue. Each non-paid service card links to its form. The picker uses the authorized list, includes saved drafts, excludes paid forms and auto-selects only a sole eligible form. Loading, empty, invalid/unavailable form and retry states are visible. Selecting another form remounts its answers. Unsaved builder changes keep the existing leave guard.
+- **Data and privacy**. Intake uses the existing staff submission, with `source=STAFF`, canonical actor `createdById` and assignee, masked lock/password answers and encrypted secrets. Customer receipts exclude secrets. Shop receipt reads are audited. Existing paid-form rejection and pickup/holder rules remain enforced by their owners. Counter entry is available to saved free forms as supported by the existing handler. Receipt links appear after save when receipts are configured.
+- **Change envelope**. UI navigation/picker and engineering records only. Existing FormDefinition, submission/receipt DTOs, permissions, routes and migration seals remain the contracts. This correction adds no configuration or extension registry. Use current Admin tokens, labelled native selection, RTL and responsive controls.
+- **Staff submit state**. Counter mode renders no public human-check widget and its submit button follows staff pending/upload state. The existing server-side staff authentication and per-form scope authorize the request. Public form submission still requires its configured human check. A source regression in `scripts/forms.test.cjs` and the real counter browser submit cover the two entry modes.
+- **Acceptance**. `scripts/forms-counter.connected.cjs` registered in `scripts/run-pg-checks.cjs` exercises the actual Forms routes against PostgreSQL with manager, assigned handler, other handler and guest. Check draft intake, paid-form denial, sealed lock persistence, receipt privacy and audit. Actual browser checks must cover queue/header/service links, selected-form navigation, picker change, retry/empty/error states, successful save and both receipts at1440/390 in light/dark. `scripts/forms.test.cjs`, TypeScript, architecture, source, migration manifest and affected React Doctor complete the scoped checks. Executed outcomes belong in the handoff.
+- **Rollback**. Revert navigation/picker files. Retain stored submissions and the release's additive schema.
+
+## Remaining builder gaps
 
 Name and address groups; attachment kinds beyond PDF and images; a resume link that works across devices (drafts live in one browser); retries and a delivery log for webhooks; resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop.
 

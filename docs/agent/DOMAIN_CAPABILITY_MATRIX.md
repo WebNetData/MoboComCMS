@@ -1,3 +1,5 @@
+Scoped review2026-11-12 reconciles releases1.7.16–1.7.18 with merged main `1cd2406e`. Identity/Account, Platform, AI, Cinema/Media/Ads, Store and Forms retain their existing owners. The [release engineering reconciliation](audits/2026-11-12-release-1.7.16-1.7.18.md) records implementation commits, stored-data compatibility, maintained checks and provider/host gaps. The Forms counter entry had a verified WEAK_UX gap in the queue and now has explicit header/service navigation and form selection. Current follow-up evidence is in the [Forms handoff](handoffs/FORMS_AND_OPERATIONS.md#repair-counter-continuation--2026-11-12). Broad domain maturity cells below retain their original assessed scope.
+
 Scoped2026-11-07: continuous opt-in CRM engagement is **Functional (bounded local)** in existing Livechat/Identity/Automation/Notification/Store owners. Four closed journey types, retention-independent idempotency/caps, native PostgreSQL and actual Admin/member browser evidence do not certify whole CRM, general multistep automation or real provider rollout. [Exact scope and evidence](handoffs/CRM_ENGAGEMENT.md).
 
 # Domain capability maturity matrix

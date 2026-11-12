@@ -470,3 +470,10 @@ test('mobile repair: a device lock is checked and kept as given; a form has its 
   assert.ok(repair.settings.workflow.some((step) => step.receipt) && repair.settings.workflow.some((step) => step.pickup))
   assert.ok(repair.fields.some((item) => item.type === 'devicelock'))
 })
+
+test('staff counter submission is independent of the public human check', () => {
+  const source = fs.readFileSync(path.resolve(root, 'src/components/site/PublicForm.tsx'), 'utf8')
+  assert.match(source, /!preview && !counter && <div className="pf-full">\{human\.widget\}/)
+  assert.match(source, /disabled=\{busy \|\| !!uploading \|\| \(!preview && !counter && last && !human\.ready\)\}/)
+  assert.match(source, /if \(busy \|\| \(!counter && !human\.ready\)\) return/)
+})

@@ -85,7 +85,6 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
 
   const work = data?.work || {}
   return <div className="dk">
-    {!queue && <p className="dk-counter"><a className="btn btn-primary btn-sm" href={`/admin/forms/counter?form=${formId}`}>+ ثبت حضوری</a><small className="sa-hint">مشتری در مغازه است: اطلاعات و قفل گوشی را خودتان وارد کنید و رسید بدهید.</small></p>}
     <div className="dk-tiles" role="group" aria-label="وضعیت کارها">
       {(data?.steps ? [...data.steps.map((step): [string, string] => [step.key, step.label]), ['UNPAID', 'پرداخت‌نشده'] as [string, string]] : TILES).map(([key, label]) => <button key={key} type="button" className={`dk-tile ${STAGE_TONE[key] || 'is-info'}`} aria-pressed={stage === key} onClick={() => filter(() => setStage(stage === key ? '' : key))}><b className="num">{fa(work[key] || 0)}</b><span>{label}</span></button>)}
     </div>
