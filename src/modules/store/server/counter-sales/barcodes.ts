@@ -1,6 +1,10 @@
 import { db } from '@/platform/database/prisma'
 import { StoreError } from '@/modules/store/domain/store'
 import { counterProducts } from './read'
+import QRCode from 'qrcode'
+import { siteLink } from '@/modules/sms/server/sms'
+import { unitPrice } from '@/modules/store/server/pricing'
+import { formatMoney } from '@/shared/money'
 
 export async function scanCounterProduct(raw: string) {
  const value=raw.trim(),system=value.match(/^MC-([PV])-(\d{1,9})$/i)
@@ -21,7 +25,20 @@ export async function scanCounterProduct(raw: string) {
  return {product,variantId,requiresVariant:product.variants.length>0&&!variantId}
 }
 
+/** Shelf labels: barcode for the scanner, retail price, and a QR to the public product page (reviews, specs, online stock). */
 export async function productLabels(query: string,productId?:number){
  const rows=await db.product.findMany({where:{active:true,...(productId?{id:productId}:query?{OR:[{name:{contains:query.slice(0,80)}},{sku:{contains:query.slice(0,80)}}]}:{})},include:{variants:{where:{active:true},orderBy:{id:'asc'}}},orderBy:{id:'desc'},take:40})
- return rows.flatMap<{id:string;productId:number;variantId:number|null;name:string;barcode:string;sku:string}>(product=>product.variants.length?product.variants.map(variant=>({id:`v:${variant.id}`,productId:product.id,variantId:variant.id,name:`${product.name} · ${variant.name}`,barcode:variant.barcode||`MC-V-${variant.id}`,sku:variant.sku})): [{id:`p:${product.id}`,productId:product.id,variantId:null,name:product.name,barcode:product.barcode||`MC-P-${product.id}`,sku:product.sku}])
+ const qr=new Map<string,string>()
+ const link=async(slug:string,variantId:number|null)=>{
+  const url=await siteLink(`/products/${encodeURIComponent(slug)}${variantId?`?variant=${variantId}`:''}`)
+  if(!qr.has(url))qr.set(url,await QRCode.toDataURL(url,{width:160,margin:1,errorCorrectionLevel:'M'}))
+  return {url,qr:qr.get(url)!}
+ }
+ const price=(product:(typeof rows)[number],variant:(typeof rows)[number]['variants'][number]|null)=>{const value=unitPrice(product,variant,false);return value.unitMinor>0n?formatMoney(value.unitMinor,value.currency,'fa-IR'):''}
+ const labels:{id:string;productId:number;variantId:number|null;name:string;barcode:string;sku:string;price:string;url:string;qr:string}[]=[]
+ for(const product of rows){
+  if(product.variants.length)for(const variant of product.variants)labels.push({id:`v:${variant.id}`,productId:product.id,variantId:variant.id,name:`${product.name} · ${variant.name}`,barcode:variant.barcode||`MC-V-${variant.id}`,sku:variant.sku,price:price(product,variant),...await link(product.slug,variant.id)})
+  else labels.push({id:`p:${product.id}`,productId:product.id,variantId:null,name:product.name,barcode:product.barcode||`MC-P-${product.id}`,sku:product.sku,price:price(product,null),...await link(product.slug,null)})
+ }
+ return labels
 }
