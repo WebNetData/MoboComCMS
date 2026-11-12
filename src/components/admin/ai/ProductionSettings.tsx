@@ -1,5 +1,5 @@
 'use client'
-import type { ProductionConfig, ProductionKind } from '@/modules/ai/domain/production'
+import { IMAGE_SUBJECT_SUGGESTIONS, MAX_INLINE_IMAGES, type ProductionConfig, type ProductionKind } from '@/modules/ai/domain/production'
 import { QUALITY_PROFILES, qualityProfileOf } from '@/modules/ai/domain/production-quality'
 export const initialProductionConfig: ProductionConfig={categoryIds:[],length:'medium',tone:'روشن، کاربردی و دقیق',keywords:'',instruction:'',cover:true,inline:1,imageStyle:'تصویرسازی تحریریه‌ای، بدون نوشته و لوگو',ratio:'landscape',productKind:'PHYSICAL',currency:'IRT',specifications:'{}'}
 export default function ProductionSettings({kind,value,onChange,categories,disabled}:{kind:ProductionKind;value:ProductionConfig;onChange:(value:ProductionConfig)=>void;categories:{id:number;name:string}[];disabled:boolean}) {
@@ -14,9 +14,15 @@ export default function ProductionSettings({kind,value,onChange,categories,disab
     {kind==='product'&&<><label className="studio-field"><span>نوع محصول</span><select className="select" value={value.productKind} onChange={e=>set('productKind',e.target.value)}><option value="PHYSICAL">فیزیکی</option><option value="VIRTUAL">مجازی</option></select></label><label className="studio-field"><span>ارز قیمت‌های واردشده</span><select className="select" value={value.currency} onChange={e=>set('currency',e.target.value)}>{['IRT','IRR','USD','EUR','GBP','AED'].map(x=><option key={x}>{x}</option>)}</select></label></>}
     <label className="flex items-center gap-2"><input type="checkbox" checked={value.cover} onChange={e=>set('cover',e.target.checked)}/>تولید تصویر شاخص</label>
     {kind==='product'&&<label className="studio-field seo-wide"><span>مشخصات فنی قطعی مشترک · JSON با کلید فیلدهای دسته</span><textarea className="textarea" rows={3} dir="ltr" maxLength={8000} value={value.specifications} onChange={e=>set('specifications',e.target.value)}/><small>مشخصات الزامی دسته قبل از تولید کنترل می‌شوند؛ مقدار نامعلوم را حدس نزنید.</small></label>}
-    <label className="studio-field"><span>تعداد تصویر داخل محتوا</span><select className="select" value={value.inline} onChange={e=>set('inline',Number(e.target.value))}>{[0,1,2,3].map(x=><option key={x} value={x}>{x}</option>)}</select></label>
+    <label className="studio-field"><span>تعداد تصویر داخل محتوا</span><input className="input num" type="number" min={0} max={MAX_INLINE_IMAGES} value={value.inline} onChange={e=>set('inline',Math.min(MAX_INLINE_IMAGES,Math.max(0,Math.floor(Number(e.target.value)||0))))}/><small>تا {MAX_INLINE_IMAGES.toLocaleString('fa-IR')} تصویر؛ متن به همین تعداد بخش نوشته می‌شود و هر تصویر یک درخواست جداست.</small></label>
     <label className="studio-field"><span>نسبت تصویر</span><select className="select" value={value.ratio} onChange={e=>set('ratio',e.target.value)}><option value="landscape">افقی ۱۶:۹</option><option value="square">مربع ۱:۱</option><option value="portrait">عمودی ۳:۴</option></select></label>
     <label className="studio-field seo-wide"><span>سبک و راهنمای تصویر</span><textarea className="textarea" rows={2} maxLength={1000} value={value.imageStyle} onChange={e=>set('imageStyle',e.target.value)}/></label>
+    <div className="studio-field seo-wide">
+      <label htmlFor="production-image-subject">موضوع تصویر (پرامپت خودتان)</label>
+      <textarea id="production-image-subject" className="textarea" rows={3} maxLength={2000} value={value.imageSubject||''} placeholder="خالی = هوش مصنوعی برای هر تصویر خودش موضوع پیشنهاد می‌دهد" onChange={e=>set('imageSubject',e.target.value)}/>
+      <small>{'{عنوان}'} عنوان محتوا، {'{بخش}'} عنوان بخشی که تصویر در آن است و {'{پیشنهاد}'} ایدهٔ خود هوش مصنوعی برای همان تصویر را جایگزین می‌کند.</small>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="پیشنهادهای موضوع تصویر">{IMAGE_SUBJECT_SUGGESTIONS.map(s=><button key={s} type="button" className="btn btn-ghost btn-sm" onClick={()=>set('imageSubject',s)}>{s}</button>)}</div>
+    </div>
     <p className="muted seo-wide">تصاویر، تصویرسازی هوش مصنوعی‌اند و به‌عنوان عکس واقعی و تأییدشدهٔ محصول معرفی نمی‌شوند. برای هر تصویر یک درخواست جدا از مسیر تصویر انتخاب‌شدهٔ همین دسته ارسال می‌شود.</p>
   </fieldset>
 }
