@@ -25,10 +25,10 @@ async function totals(tx: Pick<Tx,'storeTender'|'storeRegisterAdjustment'>, sess
 }
 
 export async function registerSessions(actorId: number) {
-  const rows=await db.storeRegisterSession.findMany({orderBy:{id:'desc'},take:40,include:{cashier:{select:{name:true}},_count:{select:{orders:true}}}})
-  return Promise.all(rows.map(async row=>{
+  const rows=await db.storeRegisterSession.findMany({orderBy:{id:'desc'},take:40,include:{cashier:{select:{name:true}},location:{select:{name:true}},_count:{select:{orders:true}}}})
+  return Promise.all(rows.map(async ({location,...row})=>{
     const balance=row.status==='OPEN'?await totals(db,row.id):null
-    return {...view(row),cashier:row.cashier.name,orders:row._count.orders,mine:row.cashierId===actorId,
+    return {...view(row),cashier:row.cashier.name,location:location?.name||'',orders:row._count.orders,mine:row.cashierId===actorId,
       ...(balance?{expectedCashMinor:(row.openingCashMinor+balance.cash).toString(),expectedCardMinor:balance.card.toString(),walletMinor:balance.wallet.toString()}:{}),
     }
   }))
@@ -38,10 +38,15 @@ export async function openRegister(raw: Record<string, unknown>, actorId: number
   const requestId=uuid(raw.requestId), register=String(raw.register||'').trim().slice(0,60), currency=String(raw.currency||'IRT')
   if(!register || !['IRT','IRR','USD','EUR','AED','GBP','TRY','CAD','AUD'].includes(currency)) throw new StoreError('نام صندوق و واحد پول را انتخاب کنید')
   const openingCashMinor=money(raw.openingCashMinor)
+  const wanted=raw.locationId?Number(raw.locationId):null
+  if(wanted!==null && (!Number.isSafeInteger(wanted)||wanted<=0)) throw new StoreError('محل موجودی صندوق معتبر نیست')
   try { return await db.$transaction(async tx=>{
     const previous=await tx.storeRegisterSession.findUnique({where:{requestId}})
     if(previous) {if(previous.cashierId!==actorId || previous.register!==register || previous.openingCashMinor!==openingCashMinor || previous.currency!==currency)throw new StoreError('شناسهٔ درخواست قبلاً استفاده شده است',409);return view(previous)}
-    const row=await tx.storeRegisterSession.create({data:{requestId,register,cashierId:actorId,currency,openingCashMinor}})
+    // The register sells from one stock location: the chosen one, else the first shop, else the main warehouse.
+    const location=wanted?await tx.stockLocation.findFirst({where:{id:wanted,active:true},select:{id:true}}):await tx.stockLocation.findFirst({where:{active:true,kind:'SHOP'},orderBy:[{sortOrder:'asc'},{id:'asc'}],select:{id:true}})||await tx.stockLocation.findFirst({where:{isDefault:true},select:{id:true}})
+    if(wanted && !location) throw new StoreError('محل موجودی صندوق پیدا نشد یا غیرفعال است',404)
+    const row=await tx.storeRegisterSession.create({data:{requestId,register,cashierId:actorId,currency,openingCashMinor,locationId:location?.id??null}})
     await audit(tx,row.id);return view(row)
   }) } catch(error){if((error as {code?:string}).code==='P2002')throw new StoreError('این صندوق باز است؛ ابتدا همان نوبت را ببندید',409);throw error}
 }

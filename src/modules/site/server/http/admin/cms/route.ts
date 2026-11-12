@@ -21,6 +21,7 @@ import { parseJson, validateFields } from '@/modules/catalog/server/product-conf
 import { assertKindFits, cascadeCategoryKind, kindForCategory } from '@/modules/catalog/server/category-kind'
 import { CategoryKindError } from '@/modules/catalog/domain/category-kind'
 import { productInput, saveVariants } from '@/modules/catalog/server/product-input'
+import { adoptEditorStock } from '@/modules/catalog/server/locations'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { fxFormFields } from '@/modules/fx/server/fx'
 import { bpsToPercent } from '@/modules/fx/domain/fx'
@@ -394,6 +395,7 @@ export async function PATCH(req: NextRequest) {
         if (b?.categoryIds !== undefined) await replaceExtraCategories(tx, id, await validateExtraCategories(tx, b.categoryIds, row.categoryId, row.kind))
         else if (row.categoryId) await tx.productCategoryAssignment.deleteMany({ where: { productId: id, categoryId: row.categoryId } })
         if (input.variants) await saveVariants(tx, id, input.variants)
+        await adoptEditorStock(tx, id, admin.id)
         if (relationships) await replaceProductRelationships(tx, id, relationships)
         if (bundles) await replaceProductBundles(tx, id, bundles)
         await capturePublicProductPrices(tx, id, pricesBefore)

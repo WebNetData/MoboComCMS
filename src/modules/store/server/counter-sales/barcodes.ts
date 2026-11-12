@@ -6,7 +6,7 @@ import { siteLink } from '@/modules/sms/server/sms'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { formatMoney } from '@/shared/money'
 
-export async function scanCounterProduct(raw: string) {
+export async function scanCounterProduct(raw: string, locationId?: number|null) {
  const value=raw.trim(),system=value.match(/^MC-([PV])-(\d{1,9})$/i)
  if(!value)throw new StoreError('بارکد را اسکن یا وارد کنید')
  if(value.length>80)throw new StoreError('بارکد بیش از حد طولانی است')
@@ -20,7 +20,7 @@ export async function scanCounterProduct(raw: string) {
  products.forEach(row=>add(row.id,null));variants.forEach(row=>add(row.productId,row.id))
  if(candidates.size!==1)throw new StoreError(candidates.size?'بارکد یا کد انبار تکراری است؛ محصول را دستی انتخاب کنید':'بارکد پیدا نشد',candidates.size?409:404)
  const {productId,variantId}=[...candidates.values()][0]
- const product=(await counterProducts('',productId))[0]
+ const product=(await counterProducts('',productId,locationId))[0]
  if(!product)throw new StoreError('این کالا برای فروش حضوری فعال نیست',404)
  return {product,variantId,requiresVariant:product.variants.length>0&&!variantId}
 }

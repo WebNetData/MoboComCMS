@@ -42,7 +42,7 @@ export default function CounterSales() {
   const [buyer, setBuyer] = useState<Buyer>(EMPTY_BUYER)
   const [customer, setCustomer] = useState<CounterCustomer | null>(null)
   const [payment, setPayment] = useState<DeskPayment>(EMPTY_PAYMENT)
-  const [sessions, setSessions] = useState<{ id: number; register: string; currency: string; status: string; mine: boolean }[] | null>(null)
+  const [sessions, setSessions] = useState<{ id: number; register: string; currency: string; status: string; mine: boolean; location?: string }[] | null>(null)
   const [sessionId, setSessionId] = useState(0)
   const [scan, setScan] = useState('')
   const [scanBusy, setScanBusy] = useState(false)
@@ -73,13 +73,13 @@ export default function CounterSales() {
     const controller = new AbortController()
     const timer = setTimeout(() => {
       setLoading(true); setLoadError('')
-      fetch(`/api/admin/store/counter?q=${encodeURIComponent(query)}`, { cache: 'no-store', signal: controller.signal })
+      fetch(`/api/admin/store/counter?q=${encodeURIComponent(query)}&session=${sessionId}`, { cache: 'no-store', signal: controller.signal })
         .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'کالاها دریافت نشدند'); if (!controller.signal.aborted) setProducts(body.products) })
         .catch((error: unknown) => { if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : 'ارتباط با سرور برقرار نشد') })
         .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     }, query ? 250 : 0)
     return () => { clearTimeout(timer); controller.abort() }
-  }, [query, attempt])
+  }, [query, attempt, sessionId])
 
   useEffect(() => { const controller = new AbortController(); fetch('/api/admin/store/counter?registers=1', { cache: 'no-store', signal: controller.signal }).then(async (response) => { const data = await response.json(); if (!response.ok) throw Error(data.error || 'صندوق‌ها دریافت نشدند'); if (!controller.signal.aborted) setSessions(data.sessions) }).catch((error) => { if (!controller.signal.aborted) setLocalError(error.message) }); return () => controller.abort() }, [sale.orderId, attempt])
 
@@ -92,7 +92,7 @@ export default function CounterSales() {
     if (!scan.trim() || scanBusy) return
     setScanBusy(true); setLocalError(''); setScanNote('')
     try {
-      const response = await fetch('/api/admin/store/counter?scan=' + encodeURIComponent(scan.trim()), { cache: 'no-store' }), body = await response.json(); if (!response.ok) throw Error(body.error || 'بارکد پیدا نشد')
+      const response = await fetch('/api/admin/store/counter?scan=' + encodeURIComponent(scan.trim()) + '&session=' + sessionId, { cache: 'no-store' }), body = await response.json(); if (!response.ok) throw Error(body.error || 'بارکد پیدا نشد')
       const scanned = body.product as CounterProduct, option = scanned.variants.find((item) => item.id === body.variantId)
       if (currency && currency !== scanned.currency) throw Error('واحد پول کالاهای یک فروش باید یکسان باشد')
       if (body.requiresVariant) { setProducts((previous) => [scanned, ...previous.filter((item) => item.id !== scanned.id)]); setProductId(scanned.id); setVariantId(0); setLocalError('گزینهٔ کالا را انتخاب و به فروش اضافه کنید') }
@@ -197,7 +197,7 @@ export default function CounterSales() {
         <fieldset className="sa-card cd-bill-panel" disabled={locked}><legend className="cd-sr">مشتری و دریافت وجه</legend>
           <Step n={1} title="صندوق" done={!!sessionId} note={sessionId ? openSessions.find((row) => row.id === sessionId)?.currency : undefined}>
             {sessions && !openSessions.length ? <div className="cd-inline-empty"><p>صندوق بازی به نام شما نیست</p><Link className="btn btn-primary btn-sm" href="/admin/store/registers">بازکردن صندوق</Link></div>
-              : <><label htmlFor="counter-session" className="cd-sr">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={(event) => { setSessionId(Number(event.target.value)); setConfirmed(false) }}><option value={0}>{sessions ? 'صندوق باز خود را انتخاب کنید' : 'در حال دریافت صندوق‌ها…'}</option>{openSessions.map((row) => <option key={row.id} value={row.id}>{row.register} · {row.currency}</option>)}</select></>}
+              : <><label htmlFor="counter-session" className="cd-sr">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={(event) => { setSessionId(Number(event.target.value)); setConfirmed(false) }}><option value={0}>{sessions ? 'صندوق باز خود را انتخاب کنید' : 'در حال دریافت صندوق‌ها…'}</option>{openSessions.map((row) => <option key={row.id} value={row.id}>{row.register} · {row.currency}{row.location ? ` · ${row.location}` : ''}</option>)}</select></>}
           </Step>
           <Step n={2} title="مشتری" done={buyerStatus.kind === 'linked' || (buyerStatus.kind === 'new' && !buyerStatus.problem)} note={BUYER_NOTE[buyerStatus.kind]}>
             <CustomerDesk customer={customer} buyer={buyer} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onBuyer={(value) => { setBuyer(value); setConfirmed(false) }} />

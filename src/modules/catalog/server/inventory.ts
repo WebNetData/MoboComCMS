@@ -1,6 +1,8 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { syncCodeStock } from '@/modules/catalog/server/code-stock'
+import { OutOfStock, takeFromLocations, returnToLocations, readAllocation, trackedItem } from '@/modules/catalog/server/locations'
+export { OutOfStock }
 
 // Stock is held per order line while an invoice is open, so concurrent
 // checkouts cannot oversell the last unit. Store orders list their lines in
@@ -10,7 +12,6 @@ import { syncCodeStock } from '@/modules/catalog/server/code-stock'
 type Tx = Prisma.TransactionClient
 type StockLine = { line: number; productId: number; variantId: number | null; quantity: number }
 
-export class OutOfStock extends Error {}
 
 const holdFor = (minutes: number | undefined) => new Date(Date.now() + Math.max(5, Math.min(24 * 60, Math.floor(minutes || 30))) * 60_000)
 
@@ -24,8 +25,11 @@ async function orderStockLines(tx: Tx, orderId: number): Promise<StockLine[]> {
   return [{ line: 0, productId: order.productId, variantId: Number(meta.variantId) || null, quantity: 1 }]
 }
 
-/** Takes stock for one line; throws OutOfStock when it cannot. */
-async function takeStock(tx: Tx, item: StockLine) {
+/**
+ * Takes stock for one line; throws OutOfStock when it cannot. Location-tracked items take from stock locations
+ * (the given one for the counter, online locations otherwise); untracked items keep the plain counters.
+ */
+async function takeStock(tx: Tx, item: StockLine, place: { locationId?: number | null; orderId?: number } = {}) {
   let product = await tx.product.findUnique({ where: { id: item.productId }, select: { id: true, active: true, stock: true, digitalMode: true } })
   if (!product || !product.active) throw new OutOfStock('product unavailable')
   // A product that delivers codes sells what its pool holds: its stock is recomputed, under its row lock, before it is taken from.
@@ -35,6 +39,10 @@ async function takeStock(tx: Tx, item: StockLine) {
   }
   const variant = item.variantId ? await tx.productVariant.findFirst({ where: { id: item.variantId, productId: product.id, active: true }, select: { id: true, stock: true } }) : null
   if (item.variantId && !variant) throw new OutOfStock('variant unavailable')
+  if (product.digitalMode !== 'CODES') {
+    const allocation = await takeFromLocations(tx, { productId: product.id, variantId: variant?.id ?? null, quantity: item.quantity }, place)
+    if (allocation) return { finite: product.stock >= 0, variantFinite: Boolean(variant && variant.stock >= 0), variantId: variant?.id ?? null, allocation: JSON.stringify(allocation) }
+  }
   const finite = product.stock >= 0
   const variantFinite = Boolean(variant && variant.stock >= 0)
   if (variantFinite) {
@@ -45,7 +53,16 @@ async function takeStock(tx: Tx, item: StockLine) {
     const changed = await tx.product.updateMany({ where: { id: product.id, stock: { gte: item.quantity } }, data: { stock: { decrement: item.quantity } } })
     if (changed.count !== 1) throw new OutOfStock('out of stock')
   }
-  return { finite, variantFinite, variantId: variant?.id ?? null }
+  return { finite, variantFinite, variantId: variant?.id ?? null, allocation: '' }
+}
+
+/** Puts one reservation's units back: to its stock locations when tracked, otherwise to the plain counters. */
+async function giveBack(tx: Tx, row: { orderId: number; productId: number; variantId: number | null; quantity: number; finite: boolean; variantFinite: boolean; allocation: string }, reason: 'RELEASE' | 'RESTOCK', toLocationId?: number | null) {
+  if (row.allocation || await trackedItem(tx, row.productId, row.variantId)) {
+    if (await returnToLocations(tx, row, readAllocation(row.allocation), reason, { orderId: row.orderId }, toLocationId)) return
+  }
+  if (row.finite) await tx.product.updateMany({ where: { id: row.productId }, data: { stock: { increment: row.quantity } } })
+  if (row.variantFinite && row.variantId) await tx.productVariant.updateMany({ where: { id: row.variantId }, data: { stock: { increment: row.quantity } } })
 }
 
 async function run(work: (tx: Tx) => Promise<number>) {
@@ -65,15 +82,15 @@ export function reserveInventory(input: { orderId: number; holdMinutes?: number 
   return run((tx) => reserveInventoryInTransaction(tx, input))
 }
 
-/** The same reservation owner inside a larger atomic sale. */
-export async function reserveInventoryInTransaction(tx: Tx, input: { orderId: number; holdMinutes?: number }) {
+/** The same reservation owner inside a larger atomic sale; the counter passes its register's stock location. */
+export async function reserveInventoryInTransaction(tx: Tx, input: { orderId: number; holdMinutes?: number; locationId?: number | null }) {
     const lines = await orderStockLines(tx, input.orderId)
     const existing = await tx.inventoryReservation.findMany({ where: { orderId: input.orderId } })
     if (existing.some((row) => row.status === 'RELEASED')) throw new OutOfStock('inventory reservation was released')
     for (const item of lines) {
       if (existing.some((row) => row.line === item.line)) continue
-      const taken = await takeStock(tx, item)
-      await tx.inventoryReservation.create({ data: { orderId: input.orderId, line: item.line, productId: item.productId, variantId: taken.variantId, quantity: item.quantity, finite: taken.finite, variantFinite: taken.variantFinite, status: 'HELD', expiresAt: holdFor(input.holdMinutes) } })
+      const taken = await takeStock(tx, item, { locationId: input.locationId, orderId: input.orderId })
+      await tx.inventoryReservation.create({ data: { orderId: input.orderId, line: item.line, productId: item.productId, variantId: taken.variantId, quantity: item.quantity, finite: taken.finite, variantFinite: taken.variantFinite, allocation: taken.allocation, status: 'HELD', expiresAt: holdFor(input.holdMinutes) } })
     }
     return lines.length
 }
@@ -98,8 +115,8 @@ export function ensureInventoryReservation(input: { orderId: number; holdMinutes
         const extended = await tx.inventoryReservation.updateMany({ where: { id: row.id, status: 'HELD' }, data: { expiresAt: holdFor(input.holdMinutes) } })
         if (extended.count) continue
       }
-      const taken = await takeStock(tx, item)
-      const data = { productId: item.productId, variantId: taken.variantId, quantity: item.quantity, finite: taken.finite, variantFinite: taken.variantFinite, status: 'HELD', expiresAt: holdFor(input.holdMinutes) }
+      const taken = await takeStock(tx, item, { orderId: input.orderId })
+      const data = { productId: item.productId, variantId: taken.variantId, quantity: item.quantity, finite: taken.finite, variantFinite: taken.variantFinite, allocation: taken.allocation, status: 'HELD', expiresAt: holdFor(input.holdMinutes) }
       if (row) await tx.inventoryReservation.update({ where: { id: row.id }, data })
       else await tx.inventoryReservation.create({ data: { ...data, orderId: input.orderId, line: item.line } })
     }
@@ -116,7 +133,7 @@ export async function consumeInventoryReservation(orderId: number, client: Tx | 
   return { ok: true as const, consumed: true }
 }
 
-async function returnStock(orderId: number, from: 'HELD' | 'CONSUMED') {
+async function returnStock(orderId: number, from: 'HELD' | 'CONSUMED', toLocationId?: number | null) {
   return db.$transaction(async (tx) => {
     const rows = await tx.inventoryReservation.findMany({ where: { orderId, status: from } })
     let count = 0
@@ -124,8 +141,7 @@ async function returnStock(orderId: number, from: 'HELD' | 'CONSUMED') {
       const changed = await tx.inventoryReservation.updateMany({ where: { id: row.id, status: from }, data: { status: 'RELEASED' } })
       if (changed.count !== 1) continue
       count++
-      if (row.finite) await tx.product.updateMany({ where: { id: row.productId }, data: { stock: { increment: row.quantity } } })
-      if (row.variantFinite && row.variantId) await tx.productVariant.updateMany({ where: { id: row.variantId }, data: { stock: { increment: row.quantity } } })
+      await giveBack(tx, row, from === 'HELD' ? 'RELEASE' : 'RESTOCK', toLocationId)
     }
     // A product that sells from its code pool has no stock of its own: what came back is whatever its pool says now
     // (a code already given to the buyer does not return to the shelf with the order).
@@ -139,9 +155,9 @@ export async function releaseInventoryReservation(orderId: number) {
   return { ok: true as const, released: (await returnStock(orderId, 'HELD')) > 0 }
 }
 
-/** Returns sold stock to the shelf (a paid order cancelled or returned by staff). */
-export function restockConsumedInventory(orderId: number) {
-  return returnStock(orderId, 'CONSUMED')
+/** Returns sold stock to the shelf (a paid order cancelled or returned by staff), optionally into one stock location. */
+export function restockConsumedInventory(orderId: number, toLocationId?: number | null) {
+  return returnStock(orderId, 'CONSUMED', toLocationId)
 }
 
 /** Order states whose stock is sold: the hold waits for delivery and must not expire. */
@@ -176,8 +192,7 @@ export async function releaseExpiredReservations(limit = 100) {
         const changed = await tx.inventoryReservation.updateMany({ where: { id: row.id, status: 'HELD', expiresAt: { lt: now } }, data: { status: 'RELEASED' } })
         if (changed.count !== 1) continue
         count++
-        if (row.finite) await tx.product.updateMany({ where: { id: row.productId }, data: { stock: { increment: row.quantity } } })
-        if (row.variantFinite && row.variantId) await tx.productVariant.updateMany({ where: { id: row.variantId }, data: { stock: { increment: row.quantity } } })
+        await giveBack(tx, row, 'RELEASE')
       }
       return count ? 1 : 0
     })

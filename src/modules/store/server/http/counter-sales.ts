@@ -20,7 +20,10 @@ export async function GET_counter(req: NextRequest) {
   if ('response' in guard) return guard.response
   const params = req.nextUrl.searchParams
   try {
-    if(params.has('scan'))return reply(await scanCounterProduct(params.get('scan')||''))
+    // The cashier's open register decides which shelf's units the counter shows.
+    const sessionId=Number(params.get('session'))
+    const shelf=Number.isSafeInteger(sessionId)&&sessionId>0?(await db.storeRegisterSession.findFirst({where:{id:sessionId,cashierId:guard.admin.id,status:'OPEN'},select:{locationId:true}}))?.locationId??null:null
+    if(params.has('scan'))return reply(await scanCounterProduct(params.get('scan')||'',shelf))
     // Read-only: which account this mobile belongs to; the sale itself creates or links it in its own transaction.
     if(params.has('lookup'))return reply({customer:await findPhoneCustomer(params.get('lookup')||'')})
     if(params.has('labels')){const id=Number(params.get('product'));if(params.has('product')&&(!Number.isSafeInteger(id)||id<=0||id>2_147_483_647))throw new StoreError('محصول معتبر نیست');return reply({labels:await productLabels(params.get('q')||'',id||undefined)})}
@@ -44,7 +47,7 @@ export async function GET_counter(req: NextRequest) {
       return reply({ receipt })
     }
     if (params.has('customers')) return reply({ customers: await counterCustomers(params.get('customers') || '') })
-    return reply({ products: await counterProducts(params.get('q') || '') })
+    return reply({ products: await counterProducts(params.get('q') || '', undefined, shelf) })
   } catch (error) { return failure(error) }
 }
 

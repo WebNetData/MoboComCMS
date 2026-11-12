@@ -6,18 +6,23 @@ import { readDeliveryTemplate, type DeliveryItem } from '@/modules/store/domain/
 import { unitPrice } from '@/modules/store/server/pricing'
 import { StoreError } from '@/modules/store/domain/store'
 import { saleReceiptLink, saleSeller } from '@/modules/store/server/sale-receipts'
+import { unitsAt } from '@/modules/catalog/server/location-admin'
+import { itemKey } from '@/modules/catalog/server/locations'
 
-export async function counterProducts(query: string,productId?:number) {
+/** Counter catalogue; with a stock location, tracked items show the units on that location's shelf. */
+export async function counterProducts(query: string,productId?:number,locationId?:number|null) {
   const q = query.trim().slice(0, 80)
   const rows = await db.product.findMany({
     where: { ...(productId?{id:productId}:{}),active: true, sellerId: null, openAmount: false, OR: [{ kind: 'PHYSICAL' }, { kind: 'VIRTUAL', digitalMode: 'CODES' }], ...(q ? { AND: [{ OR: [{ name: { contains: q } }, { sku: { contains: q } }, {barcode:{contains:q}}, { variants: { some: { sku: { contains: q } } } }] }] } : {}) },
     include: { variants: { where: { active: true }, orderBy: { id: 'asc' } } }, orderBy: { id: 'desc' }, take: 30,
   })
+  const shelf = locationId ? await unitsAt(locationId, rows.map((row) => row.id)) : null
+  const units = (productId: number, variantId: number | null, fallback: number) => { const key = itemKey(productId, variantId); return shelf?.tracked.has(key) ? shelf.at.get(key) ?? 0 : fallback }
   return rows.map((product) => ({
-    id: product.id, name: product.name, kind: product.kind, currency: product.currency, stock: product.stock,
+    id: product.id, name: product.name, kind: product.kind, currency: product.currency, stock: units(product.id, null, product.stock),
     unitMinor: unitPrice(product, null, false).unitMinor.toString(), maxPerOrder: product.maxPerOrder,
     fields: readOrderFields(product.orderFields),
-    variants: product.variants.map((variant) => ({ id: variant.id, name: variant.name, stock: variant.stock, unitMinor: unitPrice(product, variant, false).unitMinor.toString() })),
+    variants: product.variants.map((variant) => ({ id: variant.id, name: variant.name, stock: units(product.id, variant.id, variant.stock), unitMinor: unitPrice(product, variant, false).unitMinor.toString() })),
   }))
 }
 

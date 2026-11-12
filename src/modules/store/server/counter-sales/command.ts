@@ -59,7 +59,7 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
     return { line, productId: product.id, variantId: variant?.id || null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku, image: product.image, kind: product.kind, quantity: wanted.quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: amount, currency, unitCostMinor: variant?.costMinor ?? product.costMinor, inputs: sealAnswers(validateAnswers(validateOrderFields(product.orderFields), variant?.name || '', wanted.inputs)) }
   })
   if (totalMinor > 9_000_000_000_000_000n) throw new StoreError('مبلغ فروش بیش از حد مجاز است')
-  await lockRegister(tx,input.sessionId,actorId,currency)
+  const register=await lockRegister(tx,input.sessionId,actorId,currency)
   const payments=counterPayments(input,totalMinor)
   const order = await tx.order.create({ data: {
     registerSessionId:input.sessionId,receiptToken:randomBytes(24).toString('hex'),userId: customer?.id || null, createdById: actorId, assigneeId: actorId, saleSource: 'COUNTER', customerName: input.customerName || customer?.name || '', customerPhone: normalizeMobile(input.customerPhone || customer?.phone || '') || '',
@@ -67,7 +67,8 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
     meta: JSON.stringify({ kind: 'product', counterFingerprint: fingerprint, counterMethod: input.method, counterReference: input.reference, source: 'COUNTER' }),
     lines: { create: lines },
   } })
-  await reserveInventoryInTransaction(tx, { orderId: order.id })
+  // Units come from the register's stock location (the shop shelf), not from the warehouses the site sells from.
+  await reserveInventoryInTransaction(tx, { orderId: order.id, locationId: register.locationId })
   const wallet=await payCounterWallet(tx,input,customer,actorId,order.id,totalMinor,currency,key)
   const invoice = await createInvoiceForOrder({ orderId: order.id, userId: order.userId, saleSource: 'COUNTER', productId: order.productId, subtotal: minorToDecimal(totalMinor, currency), walletApplied:minorToDecimal(wallet,currency),currency, createdBy: actorId, idempotencyKey: `${key}:invoice` }, tx)
   const paid = await markInvoicePaid({ invoiceId: invoice.id, allocations:payments.filter(row=>row.method!=='WALLET').map(row=>({provider:row.method as 'CASH'|'CARD',amountMinor:BigInt(row.amountMinor),reference:row.reference||`counter:${order.id}`})),amount: minorToDecimal(totalMinor-wallet, currency), raw: { source: 'COUNTER', actorId, method: input.method, reference: input.reference } }, tx)
@@ -101,7 +102,7 @@ export async function createCounterSale(raw: unknown, actorId: number, authorize
       const retryable = ['P2034', 'P2002'].includes(String(failure?.code)) || (failure?.code === 'P2010' && ['40001', '40P01'].includes(String(failure.meta?.code)))
       if (retryable && attempt < 3) continue
       if (retryable) throw new StoreError('ثبت هم‌زمان فروش ممکن نشد؛ با همان درخواست دوباره تلاش کنید', 503)
-      if (error instanceof OutOfStock) throw new StoreError('موجودی کالا هم‌زمان تغییر کرد؛ فروش ثبت نشد', 409, 'OUT_OF_STOCK')
+      if (error instanceof OutOfStock) throw new StoreError('موجودی کالا در محل این صندوق کافی نیست یا هم‌زمان تغییر کرد؛ فروش ثبت نشد', 409, 'OUT_OF_STOCK')
       if(error instanceof PhoneCustomerError)throw new StoreError(error.message,409)
       asStoreError(error)
     }

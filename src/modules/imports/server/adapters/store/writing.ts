@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { assertFieldSelections } from '@/modules/imports/server/field-inputs'
 import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
+import { applyImportedStock } from '@/modules/catalog/server/locations'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { validateFields, validateSpecifications } from '@/modules/catalog/server/product-config'
@@ -225,6 +226,8 @@ async function applyProduct(item: SourceItem, planned: Plan, ctx: ImportContext,
     if (existing) await claimImportUpdate(tx, ctx, 'product', existing.id)
     let productId: number
     const pricesBefore = existing ? await prepareProductPriceCapture(tx, existing.id) : new Map()
+    // Counts this import wrote; stock locations take them as main-warehouse units (catalog/server/locations).
+    const imported = { product: typeof row.stock === 'number' ? row.stock as number : undefined, variants: new Map<number, number>() }
     if (!existing) {
       row.slug = await uniqueSlug(tx, toText(data.values.slug, 100) || latinSlug(data.values.titleEn || data.values.title, 80) || latinSlug(data.values.sku, 60) || `product-${suffixOf(planned.sourceKey || planned.title)}`, 'product')
       row.approval = 'APPROVED'
@@ -263,6 +266,7 @@ async function applyProduct(item: SourceItem, planned: Plan, ctx: ImportContext,
           const owner = await tx.productVariant.findUnique({ where: { sku: vp.sku }, select: { productId: true } })
           if (owner) { messages.push({ level: 'error', text: `SKU تنوع «${vp.sku}» متعلق به محصول دیگری است؛ این تنوع ساخته نشد` }); continue }
           const created = await tx.productVariant.create({ data: { productId, sku: vp.sku, name: vp.name, attributes: JSON.stringify(vp.attributes), ...v } as never })
+          if (typeof v.stock === 'number') imported.variants.set(created.id, v.stock as number)
           changes.push({ kind: 'created', entity: 'productVariant', id: created.id, stamp: JSON.stringify(snapshot(created as Record<string, unknown>, VARIANT_TRACKED)) })
           counters.variantsCreated = (counters.variantsCreated || 0) + 1
           if (vp.externalId) await saveIdentity(tx, ctx, E.variant, vp.externalId, created.id)
@@ -276,6 +280,7 @@ async function applyProduct(item: SourceItem, planned: Plan, ctx: ImportContext,
           if (Object.keys(v).length) {
             const before = snapshot(match as unknown as Record<string, unknown>, Object.keys(v))
             const updated = await tx.productVariant.update({ where: { id: match.id }, data: v as never })
+            if (typeof v.stock === 'number') imported.variants.set(match.id, v.stock as number)
             changes.push({ kind: 'updated', entity: 'productVariant', id: match.id, before, after: snapshot(updated as unknown as Record<string, unknown>, Object.keys(v)) })
             counters.variantsUpdated = (counters.variantsUpdated || 0) + 1
           }
@@ -301,6 +306,7 @@ async function applyProduct(item: SourceItem, planned: Plan, ctx: ImportContext,
         }
       }
     }
+    await applyImportedStock(tx, productId, imported)
     await capturePublicProductPrices(tx, productId, pricesBefore)
     return { id: productId, writtenAt: (await tx.product.findUniqueOrThrow({ where: { id: productId }, select: { updatedAt: true } })).updatedAt.toISOString(), contentFingerprint: (await importContentState('store', productId, tx))?.fingerprint }
   }, { timeout: 30_000, ...(ctx.settings.protectEdits ? { isolationLevel: 'Serializable' as const } : {}) }).catch((error) => { changes.length = mark; throw error })

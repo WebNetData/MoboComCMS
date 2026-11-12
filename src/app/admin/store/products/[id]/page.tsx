@@ -242,7 +242,7 @@ export default function ProductEditorPage() {
             {!isNew&&<Link className="sa-link" href={`/admin/store/labels?product=${id}`}>چاپ برچسب بارکد این محصول و گونه‌ها</Link>}
             {codesOn
               ? <label className="sa-field"><span>موجودی</span><input className="input" value={form.stock} readOnly disabled aria-describedby="sa-stock-codes" /><small id="sa-stock-codes" className="sa-sub">برابر با کدهای روی قفسه است (بخش «تحویل خودکار کد»).</small></label>
-              : field('stock', 'موجودی (۱- = نامحدود)', { type: 'number', min: -1 })}
+              : <>{field('stock', 'موجودی قابل فروش در سایت (۱- = نامحدود)', { type: 'number', min: -1, 'aria-describedby': 'sa-stock-places' })}<small id="sa-stock-places" className="sa-sub">برای کالای تازه، این عدد در انبار پیش‌فرض ثبت می‌شود. تعداد کالای دارای انبار در <a className="sa-link" href="/admin/store/inventory/locations">انبارها و انتقال</a> به تفکیک محل تغییر می‌کند؛ ۱- آن را نامحدود می‌کند.</small></>}
             {field('lowStockAt', 'هشدار موجودی کم (۰ = پیش‌فرض فروشگاه)', { type: 'number', min: 0 })}
             {field('maxPerOrder', 'حداکثر تعداد در هر سفارش (۰ = بدون محدودیت)', { type: 'number', min: 0 })}
             {form.kind === 'PHYSICAL' && field('weightGrams', 'وزن بسته (گرم)', { type: 'number', min: 0 })}

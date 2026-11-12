@@ -867,6 +867,8 @@ model ProductAttributeGroup {
 }
 
 model Product {
+  onlineReserve Int @default(0) // units kept back from online sale (shop shelf safety)
+  locationStocks LocationStock[]
   @@index([barcode])
   barcode String @default("")
   costMinor BigInt? // acquisition cost in selling-currency minor units; null = unknown
@@ -1044,6 +1046,7 @@ model ProductDigitalCode {
 }
 
 model ProductVariant {
+  locationStocks LocationStock[]
   @@index([barcode])
   barcode String @default("")
   costMinor BigInt? // acquisition cost in selling-currency minor units; null = unknown
@@ -1367,6 +1370,7 @@ model FulfillmentJob {
 /// Reserves finite stock while an invoice is open so concurrent checkouts
 /// cannot oversell the last unit.
 model InventoryReservation {
+  allocation String @default("") // JSON [{l:locationId,q:quantity}] taken from stock locations; "" = legacy/untracked
   id        Int      @id @default(autoincrement())
   orderId   Int
   line      Int      @default(0) // order line index; single-item orders use 0
@@ -5234,6 +5238,8 @@ model AiInvocation {
 
 /// Store cashier reconciliation; closed sessions retain immutable counted/expected snapshots.
 model StoreRegisterSession {
+  locationId Int?
+  location StockLocation? @relation(fields: [locationId], references: [id], onDelete: Restrict)
   id Int @id @default(autoincrement())
   requestId String @unique
   register String
@@ -5300,4 +5306,126 @@ model StorePickup {
   collectedBy User? @relation("PickupCollector", fields: [collectedById], references: [id], onDelete: Restrict)
   createdAt DateTime @default(now())
   @@index([status, createdAt])
+}
+
+/// A place that holds stock: a warehouse or a shop. Locations that sell online feed Product/Variant.stock
+/// (the site's sellable count); the counter sells from its register's location. Owner: catalog/server/locations.
+model StockLocation {
+  id          Int      @id @default(autoincrement())
+  name        String
+  kind        String   @default("WAREHOUSE") // WAREHOUSE | SHOP
+  sellsOnline Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  address     String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  stocks      LocationStock[]
+  movements   StockMovement[]
+  registers   StoreRegisterSession[]
+  receipts    StockReceipt[]
+  counts      StockCount[]
+}
+
+/// Units of one product or variant available at one location (held units are already taken out).
+model LocationStock {
+  id         Int             @id @default(autoincrement())
+  locationId Int
+  location   StockLocation   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  productId  Int
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId  Int?
+  variant    ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  itemKey    String // "productId:variantId" with 0 for none
+  quantity   Int             @default(0)
+  bin        String          @default("") // shelf or bin code
+  updatedAt  DateTime        @default(now()) @updatedAt
+
+  @@unique([locationId, itemKey])
+  @@index([productId])
+}
+
+/// Append-only ledger of every change to a location's quantity.
+model StockMovement {
+  id         Int           @id @default(autoincrement())
+  locationId Int
+  location   StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  productId  Int
+  variantId  Int?
+  delta      Int
+  balance    Int // location quantity after this movement
+  reason     String // INIT | HOLD | RELEASE | RESTOCK | TRANSFER | RECEIPT | COUNT | ADJUST
+  orderId    Int?
+  refType    String        @default("")
+  refId      Int?
+  actorId    Int?
+  note       String        @default("")
+  createdAt  DateTime      @default(now())
+
+  @@index([locationId, createdAt])
+  @@index([productId, createdAt])
+  @@index([refType, refId])
+}
+
+/// Goods received into a location from a supplier; posting adds stock and updates the moving-average cost.
+model StockReceipt {
+  id             Int                @id @default(autoincrement())
+  number         String             @unique
+  requestId      String             @unique
+  locationId     Int
+  location       StockLocation      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  supplier       String             @default("")
+  reference      String             @default("")
+  note           String             @default("")
+  currency       String             @default("IRT")
+  totalCostMinor BigInt             @default(0)
+  actorId        Int?
+  createdAt      DateTime           @default(now())
+  lines          StockReceiptLine[]
+}
+
+model StockReceiptLine {
+  id            Int          @id @default(autoincrement())
+  receiptId     Int
+  receipt       StockReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  productId     Int
+  variantId     Int?
+  name          String
+  quantity      Int
+  unitCostMinor BigInt?
+
+  @@index([receiptId])
+}
+
+/// A stock count of one location: lines are scanned while OPEN; posting sets each counted item to its count.
+model StockCount {
+  id         Int              @id @default(autoincrement())
+  locationId Int
+  location   StockLocation    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  status     String           @default("OPEN") // OPEN | POSTED | CANCELLED
+  note       String           @default("")
+  actorId    Int?
+  postedById Int?
+  createdAt  DateTime         @default(now())
+  postedAt   DateTime?
+  lines      StockCountLine[]
+
+  @@index([locationId, status])
+}
+
+model StockCountLine {
+  id        Int        @id @default(autoincrement())
+  countId   Int
+  count     StockCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  productId Int
+  variantId Int?
+  itemKey   String
+  name      String
+  counted   Int
+  expected  Int? // location quantity when posted
+  delta     Int?
+  updatedAt DateTime   @default(now()) @updatedAt
+
+  @@unique([countId, itemKey])
 }
