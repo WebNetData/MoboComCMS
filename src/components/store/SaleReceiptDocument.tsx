@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
 import Barcode from '@/components/store/Barcode'
-import { formatMoney } from '@/shared/money'
+import { formatMoney, minorToDecimal } from '@/shared/money'
+import { iranianUnit } from '@/shared/money/format'
 import { persianWords } from '@/modules/billing/domain/official-invoice'
 
 /**
  * A printed sale document (app/sale-receipt.css, prefix sr-). One component for the counter receipt in Admin and the
- * customer's QR page, in two papers: an A4 invoice ("sheet") or an 80 mm thermal roll ("roll"). Callers decide what is
- * private: the public page passes no stamp, phone, payments or codes.
+ * customer's QR page, in two papers: an A4 invoice ("sheet") in the official invoice's ruled style, or an 80 mm thermal
+ * roll ("roll"). Gift cards print inside the document, never on a page of their own. Callers decide what is private:
+ * the public page passes no stamp, phone, payments or cards.
  */
 export type SaleDocumentFormat = 'sheet' | 'roll'
 export type SaleDocumentSeller = { name: string; logo: string; phone?: string; address?: string; postalCode?: string; economicCode?: string; nationalId?: string; registrationNo?: string; stamp?: string; note?: string }
@@ -18,7 +20,7 @@ export type SaleDocumentProps = {
   createdAt: string
   status?: { label: string; tone: 'ok' | 'warn' | 'muted' }
   paid?: boolean
-  parties: { label: string; value: string; ltr?: boolean }[]
+  parties: { label: string; value: string; ltr?: boolean; wide?: boolean }[]
   lines: { name: string; variant?: string; quantity: number; unitMinor?: string; totalMinor: string }[]
   currency: string
   totalMinor: string
@@ -26,12 +28,17 @@ export type SaleDocumentProps = {
   qr?: string
   link?: string
   signatures?: boolean
-  children?: ReactNode
+  cards?: ReactNode
 }
 
-const DATE = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Tehran' })
+const DATE = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran' })
+const LONG_DATE = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Tehran' })
 const TIME = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' })
+const FA = '۰۱۲۳۴۵۶۷۸۹'
 const fa = (value: number) => value.toLocaleString('fa-IR')
+const faDigits = (value: string) => value.replace(/\d/g, (digit) => FA[Number(digit)])
+const OTHER_UNITS: Record<string, string> = { USD: 'دلار', EUR: 'یورو', AED: 'درهم', TRY: 'لیر', GBP: 'پوند' }
+const unitOf = (currency: string) => iranianUnit(currency, 'fa-IR') || OTHER_UNITS[currency.toUpperCase()] || currency.toUpperCase()
 
 /** Amount in Persian words for Iranian currencies (whole units); other currencies print figures only. */
 function amountInWords(minor: string, currency: string) {
@@ -43,27 +50,28 @@ function amountInWords(minor: string, currency: string) {
   return ''
 }
 
-function Ids({ seller }: { seller: SaleDocumentSeller }) {
-  const ids = [[seller.nationalId, 'شناسهٔ ملی'], [seller.economicCode, 'کد اقتصادی'], [seller.registrationNo, 'شمارهٔ ثبت']].filter(([value]) => value)
-  if (!ids.length) return null
-  return <p className="sr-seller-ids">{ids.map(([value, label]) => <span key={label}>{label} <bdi>{value}</bdi></span>)}</p>
+function Field({ label, value, ltr, wide }: { label: string; value?: string; ltr?: boolean; wide?: boolean }) {
+  return <div className={`sr-field${wide ? ' is-wide' : ''}`}><span>{label}:</span><b dir={ltr ? 'ltr' : undefined}>{value || '—'}</b></div>
 }
 
 export default function SaleReceiptDocument(props: SaleDocumentProps) {
-  const { format, seller, title, number, createdAt, status, paid, parties, lines, currency, totalMinor, payments = [], qr, link, signatures = true, children } = props
+  const { format, seller, title, number, createdAt, status, paid, parties, lines, currency, totalMinor, payments = [], qr, link, signatures = true, cards } = props
   const money = (minor: string) => formatMoney(BigInt(minor || '0'), currency, 'fa-IR')
+  // Figures without the unit, the way the official invoice prints them; the unit is named once in the table heading.
+  const plain = (minor: string) => { const [whole, fraction] = minorToDecimal(minor || '0', currency).split('.'); return `${BigInt(whole).toLocaleString('fa-IR')}${fraction ? `٫${faDigits(fraction)}` : ''}` }
   const words = amountInWords(totalMinor, currency)
   const units = lines.reduce((sum, line) => sum + line.quantity, 0)
   const when = new Date(createdAt)
+  const ids = (value?: string) => value ? faDigits(value) : ''
   const contact = [seller.phone && <span key="phone">تلفن <bdi dir="ltr">{seller.phone}</bdi></span>, seller.postalCode && <span key="postal">کد پستی <bdi>{seller.postalCode}</bdi></span>].filter(Boolean)
 
   if (format === 'roll') return <div className="sr-stage is-roll"><article className="sr-doc is-roll" dir="rtl" aria-label={`${title} ${number}`}>
     <header className="sr-roll-head">
-      {seller.logo && <img src={seller.logo} alt="" />}
+      {seller.logo ? <img src={seller.logo} alt="" /> : <span className="sr-mark" aria-hidden="true">{seller.name.trim().charAt(0)}</span>}
       <b>{seller.name}</b>
       {seller.address && <p>{seller.address}</p>}
       {contact.length > 0 && <p className="sr-seller-contact">{contact}</p>}
-      <Ids seller={seller} />
+      {seller.economicCode && <p>کد اقتصادی <bdi>{ids(seller.economicCode)}</bdi></p>}
     </header>
     <p className="sr-roll-title">{title}</p>
     <dl className="sr-roll-meta">
@@ -81,73 +89,84 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
       {payments.map((row) => <div key={row.label}><dt>{row.label}{row.reference && <> · <bdi dir="ltr">{row.reference}</bdi></>}</dt><dd className="sr-num">{money(row.amountMinor)}</dd></div>)}
     </dl>
     {words && <p className="sr-words">{words}</p>}
+    {cards && <section className="sr-roll-cards" aria-label="کارت‌های تحویل‌شده">{cards}</section>}
     <div className="sr-roll-code"><Barcode value={number} /><bdi className="sr-num">{number}</bdi></div>
-    {qr && <div className="sr-roll-qr"><img src={qr} width={120} height={120} alt="QR فاکتور و وضعیت سفارش" /><span>برای دیدن فاکتور و وضعیت سفارش اسکن کنید</span></div>}
+    {qr && <div className="sr-roll-qr"><img src={qr} width={116} height={116} alt="QR فاکتور و وضعیت سفارش" /><span>برای دیدن فاکتور و وضعیت سفارش اسکن کنید</span></div>}
     <p className="sr-thanks">از خرید شما سپاسگزاریم</p>
     {seller.note && <p className="sr-note">{seller.note}</p>}
-    {children}
   </article></div>
 
+  const hasUnit = lines.some((line) => line.unitMinor)
   return <div className="sr-stage is-sheet"><article className="sr-doc is-sheet" dir="rtl" aria-label={`${title} ${number}`}>
     <header className="sr-head">
-      <div className="sr-seller">
-        {seller.logo && <img src={seller.logo} alt="" />}
-        <div>
-          <b className="sr-seller-name">{seller.name}</b>
-          {seller.address && <p>{seller.address}</p>}
-          {contact.length > 0 && <p className="sr-seller-contact">{contact}</p>}
-          <Ids seller={seller} />
-        </div>
-      </div>
+      <div className="sr-brand">{seller.logo ? <img src={seller.logo} alt="" /> : <span className="sr-mark" aria-hidden="true">{seller.name.trim().charAt(0)}</span>}</div>
       <div className="sr-title">
         <h2>{title}</h2>
-        <dl className="sr-id">
-          <div><dt>شمارهٔ فاکتور</dt><dd><bdi className="sr-num">{number}</bdi></dd></div>
-          <div><dt>تاریخ</dt><dd>{DATE.format(when)}</dd></div>
-          <div><dt>ساعت</dt><dd className="sr-num">{TIME.format(when)}</dd></div>
-        </dl>
-        <div className="sr-barcode"><Barcode value={number} /></div>
+        <p>{seller.name}</p>
+        {status && <span className={`sr-status is-${status.tone}`}>{status.label}</span>}
       </div>
+      <dl className="sr-ids">
+        <div><dt>شمارهٔ فاکتور</dt><dd dir="ltr">{number}</dd></div>
+        <div><dt>تاریخ</dt><dd className="sr-num">{DATE.format(when)}</dd></div>
+        <div><dt>ساعت</dt><dd className="sr-num">{TIME.format(when)}</dd></div>
+        <div className="sr-barcode"><Barcode value={number} /></div>
+      </dl>
     </header>
 
-    <dl className="sr-parties">
-      {parties.filter((row) => row.value).map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.ltr ? <bdi dir="ltr">{row.value}</bdi> : row.value}</dd></div>)}
-      {status && <div><dt>وضعیت</dt><dd><span className={`sr-status is-${status.tone}`}>{status.label}</span></dd></div>}
-    </dl>
-
-    <table className="sr-items">
-      <caption className="sr-sr">اقلام فاکتور</caption>
-      <thead><tr><th scope="col" className="sr-col-n">ردیف</th><th scope="col">شرح کالا</th><th scope="col" className="sr-col-q">تعداد</th>{lines.some((line) => line.unitMinor) && <th scope="col" className="sr-col-m">مبلغ واحد</th>}<th scope="col" className="sr-col-m">مبلغ کل</th></tr></thead>
-      <tbody>{lines.map((line, index) => <tr key={`${index}:${line.name}`}>
-        <td className="sr-col-n sr-num">{fa(index + 1)}</td>
-        <th scope="row">{line.name}{line.variant && <small>{line.variant}</small>}</th>
-        <td className="sr-col-q sr-num">{fa(line.quantity)}</td>
-        {lines.some((row) => row.unitMinor) && <td className="sr-col-m sr-num">{line.unitMinor ? money(line.unitMinor) : ''}</td>}
-        <td className="sr-col-m sr-num">{money(line.totalMinor)}</td>
-      </tr>)}</tbody>
-    </table>
-
-    <section className="sr-sum">
-      <div className="sr-sum-side">
-        {qr && <div className="sr-qr"><img src={qr} width={104} height={104} alt="QR فاکتور و وضعیت سفارش" /><p><b>فاکتور در گوشی شما</b><span>برای دیدن فاکتور و وضعیت سفارش، کد را با دوربین گوشی اسکن کنید.</span>{link && <a href={link}>مشاهدهٔ آنلاین</a>}</p></div>}
-        {paid && <span className="sr-paid" aria-hidden="true">پرداخت شد<small>{DATE.format(when)}</small></span>}
-        {seller.note && <p className="sr-note">{seller.note}</p>}
-      </div>
-      <div className="sr-totals">
-        <dl>
-          <div><dt>تعداد اقلام</dt><dd className="sr-num">{fa(lines.length)} ردیف · {fa(units)} عدد</dd></div>
-          {payments.map((row) => <div key={row.label}><dt>{row.label}{row.reference && <small>پیگیری <bdi dir="ltr">{row.reference}</bdi></small>}</dt><dd className="sr-num">{money(row.amountMinor)}</dd></div>)}
-        </dl>
-        <div className="sr-grand"><span>{paid ? 'مبلغ پرداخت‌شده' : 'مبلغ فاکتور'}</span><b className="sr-num">{money(totalMinor)}</b></div>
-        {words && <p className="sr-words">به حروف: {words}</p>}
+    <section className="sr-box">
+      <h3>مشخصات فروشنده</h3>
+      <div className="sr-grid">
+        <Field label="نام فروشگاه" value={seller.name} />
+        {seller.phone && <Field label="تلفن" value={seller.phone} ltr />}
+        {seller.economicCode && <Field label="کد اقتصادی" value={ids(seller.economicCode)} />}
+        {seller.nationalId && <Field label="شناسهٔ ملی" value={ids(seller.nationalId)} />}
+        {seller.registrationNo && <Field label="شمارهٔ ثبت" value={ids(seller.registrationNo)} />}
+        {seller.postalCode && <Field label="کد پستی" value={ids(seller.postalCode)} />}
+        {seller.address && <Field label="نشانی" value={seller.address} wide />}
       </div>
     </section>
 
-    {signatures && <footer className="sr-sign">
-      <div><span>مهر و امضای فروشنده</span>{seller.stamp && <img src={seller.stamp} alt="" />}</div>
-      <div><span>امضای خریدار</span></div>
-    </footer>}
+    <section className="sr-box">
+      <h3>مشخصات خریدار و فروش</h3>
+      <div className="sr-grid">{parties.map((row) => <Field key={row.label} label={row.label} value={row.value} ltr={row.ltr} wide={row.wide} />)}</div>
+    </section>
+
+    <section className="sr-box">
+      <h3>شرح کالا و خدمات <small>(مبالغ به {unitOf(currency)})</small></h3>
+      <table className="sr-items">
+        <thead><tr><th className="sr-col-n">ردیف</th><th className="is-desc">شرح کالا یا خدمات</th><th className="sr-col-q">تعداد</th>{hasUnit && <th className="sr-col-m">مبلغ واحد</th>}<th className="sr-col-m">مبلغ کل</th></tr></thead>
+        <tbody>{lines.map((line, index) => <tr key={`${index}:${line.name}`}>
+          <td className="sr-col-n">{fa(index + 1)}</td>
+          <td className="is-desc"><b>{line.name}</b>{line.variant && <small>{line.variant}</small>}</td>
+          <td className="sr-col-q">{fa(line.quantity)}</td>
+          {hasUnit && <td className="sr-col-m">{line.unitMinor ? plain(line.unitMinor) : '—'}</td>}
+          <td className="sr-col-m"><b>{plain(line.totalMinor)}</b></td>
+        </tr>)}</tbody>
+        <tfoot><tr><td colSpan={2} className="is-label">جمع کل · {fa(lines.length)} ردیف</td><td className="sr-col-q">{fa(units)}</td>{hasUnit && <td />}<td className="sr-col-m">{plain(totalMinor)}</td></tr></tfoot>
+      </table>
+      <div className="sr-total-row">
+        {words ? <p className="sr-words"><span>مبلغ به حروف:</span> <b>{words}</b></p> : <span />}
+        <p className="sr-grand"><span>{paid ? 'مبلغ پرداخت‌شده' : 'مبلغ قابل پرداخت'}</span><b>{money(totalMinor)}</b></p>
+      </div>
+    </section>
+
+    {cards && <section className="sr-box sr-cards-box">
+      <h3>کارت‌ها و کدهای تحویل‌شده</h3>
+      <div className="sr-cards">{cards}</div>
+    </section>}
+
+    <section className="sr-foot">
+      <div className="sr-terms">
+        {payments.length > 0 && <p><b>نحوهٔ پرداخت:</b> {payments.map((row, index) => <span key={row.label}>{index > 0 && '، '}{row.label} {money(row.amountMinor)}{row.reference && <> (پیگیری <bdi dir="ltr">{row.reference}</bdi>)</>}</span>)}</p>}
+        {paid && <p><b>وضعیت:</b> پرداخت‌شده در {LONG_DATE.format(when)} ساعت {TIME.format(when)}</p>}
+        {seller.note && <p className="sr-note">{seller.note}</p>}
+        {qr && <div className="sr-qr"><img src={qr} width={92} height={92} alt="QR فاکتور و وضعیت سفارش" /><p><b>فاکتور در گوشی شما</b>کد را با دوربین گوشی اسکن کنید تا فاکتور و وضعیت سفارش را ببینید.{link && <a href={link}>مشاهدهٔ آنلاین</a>}</p></div>}
+      </div>
+      {signatures ? <div className="sr-sign">
+        <div><span>مهر و امضای فروشنده</span>{seller.stamp && <img src={seller.stamp} alt="مهر فروشنده" />}{paid && <i className="sr-paid" aria-hidden="true">پرداخت شد<small>{DATE.format(when)}</small></i>}</div>
+        <div><span>امضای خریدار</span></div>
+      </div> : <div className="sr-sign is-single"><div>{paid && <i className="sr-paid" aria-hidden="true">پرداخت شد<small>{DATE.format(when)}</small></i>}</div></div>}
+    </section>
     <p className="sr-thanks">از خرید شما سپاسگزاریم{seller.name ? ` — ${seller.name}` : ''}</p>
-    {children}
   </article></div>
 }

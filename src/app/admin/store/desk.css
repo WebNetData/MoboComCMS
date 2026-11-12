@@ -120,7 +120,15 @@
 .admin-shell .cd-avatar { display: grid; place-items: center; flex: none; inline-size: 40px; block-size: 40px; border-radius: 50%; background: var(--sa-accent-soft); color: var(--sa-accent); font-weight: 600; }
 .admin-shell .cd-person-name { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .admin-shell .cd-person-name b { font-weight: 500; overflow-wrap: anywhere; }
-.admin-shell .cd-person-name bdi { color: var(--sa-muted); font-size: 13px; text-align: start; }
+.admin-shell .cd-person-name span { color: var(--sa-muted); font-size: 12px; }
+/* Buyer: mobile first (it finds the account), then first and last name as the member profile keeps them */
+.admin-shell .cd-buyer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-shell .cd-buyer-phone { grid-column: 1 / -1; }
+.admin-shell .cd-buyer input[readonly] { background: var(--sa-subtle); color: var(--sa-muted); }
+.admin-shell .cd-buyer-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--sa-subtle); color: var(--sa-muted); font-size: 13px; line-height: 1.9; }
+.admin-shell .cd-buyer-note.is-new { background: var(--sa-accent-soft); color: var(--sa-text); }
+.admin-shell .cd-buyer-note.is-new b { font-weight: 600; }
+.admin-shell .cd-buyer-note.is-invalid { background: color-mix(in srgb, var(--sa-warn) 10%, transparent); color: var(--sa-warn); }
 .admin-shell .cd-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 0; }
 .admin-shell .cd-facts div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--sa-subtle); }
 .admin-shell .cd-facts dt { color: var(--sa-muted); font-size: 12px; }
@@ -177,11 +185,8 @@
 .admin-shell .cd-pickup-code > i { font-style: normal; display: grid; place-items: center; inline-size: 34px; block-size: 42px; border: 1px solid var(--sa-line); border-block-end-width: 2px; border-radius: 8px; background: var(--sa-surface); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 20px; font-weight: 500; }
 
 /* Gift cards printed after the sale document */
-.admin-shell .counter-receipt-card { display: grid; gap: 12px; max-width: 600px; width: 100%; break-inside: avoid; }
-.admin-shell .sr-doc.is-roll .counter-receipt-card { max-width: none; }
 .admin-shell .cd-paper { flex: 0 1 300px; }
 .admin-shell .cd-done-actions .cd-next { margin-inline-start: auto; }
-@media print { .admin-shell .counter-receipt-card { width: 85.6mm; } .admin-shell .sr-doc.is-roll .counter-receipt-card { width: 100%; } }
 
 /* ---------- Registers ---------- */
 .admin-shell .cd-open { display: grid; gap: 16px; padding: 20px; }

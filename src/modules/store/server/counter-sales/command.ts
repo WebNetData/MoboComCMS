@@ -32,7 +32,7 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
     if (replay.saleSource !== 'COUNTER' || replay.status !== 'PAID' || meta.counterFingerprint !== fingerprint) throw new StoreError('این شناسه قبلاً برای فروش دیگری استفاده شده است؛ فروش قبلی را بررسی کنید', 409, 'REQUEST_CONFLICT')
     return { orderId: replay.id, replayed: true }
   }
-  const customer = input.customerPhone ? await resolvePhoneCustomer(tx,input.customerPhone,input.customerName) : input.customerId ? await tx.user.findFirst({ where: { id: input.customerId, status: 'ACTIVE' }, select: { id: true, name: true, phone: true } }) : null
+  const customer = input.customerPhone ? await resolvePhoneCustomer(tx,input.customerPhone,{firstName:input.customerFirstName,lastName:input.customerLastName,name:input.customerName}) : input.customerId ? await tx.user.findFirst({ where: { id: input.customerId, status: 'ACTIVE' }, select: { id: true, name: true, phone: true } }) : null
   if(input.customerId && customer?.id !== input.customerId) throw new StoreError('شمارهٔ موبایل با حساب انتخاب‌شده تطبیق ندارد',409)
   if (input.customerId && !customer) throw new StoreError('مشتری انتخاب‌شده فعال نیست', 409)
   if(!input.sessionId)throw new StoreError('ابتدا نوبت صندوق را باز کنید',409,'REGISTER_REQUIRED')
