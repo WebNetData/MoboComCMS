@@ -244,6 +244,11 @@ export type StoreSettings = {
   badges: string[]
   /** Free-text note under the cart total (return policy, shipping note…). */
   cartNote: string
+  /**
+   * Hours within which a specialist delivers a virtual order by hand (0 = say nothing): told to the buyer while it is
+   * made, and past it the order is flagged to the team (store/server/staff-delivery).
+   */
+  staffDeliveryHours: number
 }
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
@@ -267,6 +272,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   showProductBundles: false,
   badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
   cartNote: '',
+  staffDeliveryHours: 24
 }
 
 const cleanText = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
@@ -328,6 +334,7 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     showProductBundles: raw.showProductBundles === undefined ? base.showProductBundles : raw.showProductBundles === true,
     badges,
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
+    staffDeliveryHours: (() => { const hours = raw.staffDeliveryHours === undefined ? base.staffDeliveryHours ?? DEFAULT_STORE_SETTINGS.staffDeliveryHours : Math.floor(Number(raw.staffDeliveryHours)); return Number.isSafeInteger(hours) && hours >= 0 && hours <= 720 ? hours : base.staffDeliveryHours ?? DEFAULT_STORE_SETTINGS.staffDeliveryHours })(),
   }
 }
 

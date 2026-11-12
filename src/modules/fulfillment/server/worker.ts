@@ -47,7 +47,8 @@ export async function runFulfillmentWorker(limit = 20, requestId?: string) {
   const inputsErased = await eraseFinishedOrderInputs().catch(failedStep('orderInputs', -1))
   // Products that deliver codes: stock follows the pool again if something else wrote the stock column.
   const codeStock = await syncAllCodeStock().catch(failedStep('codeStock', { checked: 0, changed: 0, failed: 1 }))
+  const lateDeliveries = await (await import('@/modules/store/server/staff-delivery')).alertLateDeliveries().catch(failedStep('lateDeliveries', { checked: 0, alerted: 0 }))
   const warn = Boolean(payments.failed || payments.untracked || topups.failed || referrals.failed || refunds.failed || voidCredit.failed || recovered.failed || hosting.failed || saleRecords.failed || fulfillment.failed || inbox.checked < 0 || alerts.failed || resellerDeliveries < 0 || releasedReservations < 0)
-  logEvent(warn ? 'warn' : 'info', 'worker.batch', { requestId, limit, payments, topups, referrals, refunds, voidCredit, recovered, hosting, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations, inputsErased, codeStock })
-  return { payments, topups, referrals, refunds, voidCredit, recovered, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations, codeStock }
+  logEvent(warn ? 'warn' : 'info', 'worker.batch', { requestId, limit, payments, topups, referrals, refunds, voidCredit, recovered, hosting, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations, inputsErased, codeStock, lateDeliveries })
+  return { payments, topups, referrals, refunds, voidCredit, recovered, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations, codeStock, lateDeliveries }
 }

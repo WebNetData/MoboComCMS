@@ -260,3 +260,41 @@ html[data-theme='light'] .member-shell .app-main .iv-page .iv-state .dt-state.is
 @media (prefers-reduced-motion: reduce) {
   .member-shell .app-main :is(.sx-my, .iv-page) :is(.sx-my-order, .sx-my-tabs a, .sx-svc, .dt-tile, .iv-row, .dt-chips button) { transition: none; }
 }
+
+/* A virtual order in a specialist's hands, and what they delivered (my-orders HandoffCard, DeliveredDetails).
+   The page's own card, line and accent; motion only as a short one-time change of state. */
+.member-shell .app-main .sx-my-detail .sx-handoff { display: grid; gap: 16px; }
+.member-shell .app-main .sx-my-detail .sx-handoff-head { display: flex; gap: 14px; align-items: flex-start; }
+.member-shell .app-main .sx-my-detail .sx-handoff-icon { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border: 1px solid var(--o-line); border-radius: 12px; color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, var(--card)); }
+.member-shell .app-main .sx-my-detail .sx-handoff h2 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
+.member-shell .app-main .sx-my-detail .sx-handoff-head p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.9; }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps li { position: relative; display: grid; justify-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; text-align: center; }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps li + li::before { content: ''; position: absolute; inset-block-start: 11px; inset-inline-end: 50%; width: 100%; height: 2px; background: var(--o-line); z-index: 0; }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps li.is-done + li::before { background: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-handoff-dot { position: relative; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--o-line); border-radius: 50%; background: var(--card); color: var(--on-primary, #fff); transition: background-color .25s ease, border-color .25s ease; }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps li.is-done { color: var(--text); font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps li.is-done .sx-handoff-dot { border-color: var(--primary); background: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps li.is-current { color: var(--text); font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-handoff-steps li.is-current .sx-handoff-dot { border: 2px solid var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-handoff-time { color: var(--muted); font-size: 12px; }
+.member-shell .app-main .sx-my-detail .sx-delivered h2 small { margin-inline-start: auto; font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.member-shell .app-main .sx-my-detail .sx-dlv-hint { margin: -6px 0 14px; color: var(--muted); font-size: 12.5px; line-height: 1.9; }
+.member-shell .app-main .sx-my-detail .sx-dlv-rows { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.member-shell .app-main .sx-my-detail .sx-dlv-row { display: grid; grid-template-columns: minmax(90px, auto) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--o-line); border-radius: 12px; background: color-mix(in srgb, var(--text) 2%, var(--card)); }
+.member-shell .app-main .sx-my-detail .sx-dlv-label { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.member-shell .app-main .sx-my-detail .sx-dlv-value { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; color: var(--text); background: none; padding: 0; transition: opacity .2s ease; }
+.member-shell .app-main .sx-my-detail .sx-dlv-value.is-hidden { letter-spacing: .12em; color: var(--muted); }
+.member-shell .app-main .sx-my-detail .sx-dlv-actions { display: inline-flex; gap: 6px; }
+.member-shell .app-main .sx-my-detail .sx-dlv-actions button, .member-shell .app-main .sx-my-detail .sx-dlv-all { min-height: 32px; padding: 0 12px; border: 1px solid var(--o-line); border-radius: 9px; background: var(--card); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+.member-shell .app-main .sx-my-detail .sx-dlv-actions button:hover, .member-shell .app-main .sx-my-detail .sx-dlv-all:hover { border-color: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-dlv-actions button.is-done, .member-shell .app-main .sx-my-detail .sx-dlv-all.is-done { border-color: var(--primary); color: var(--primary); }
+.member-shell .app-main .sx-my-detail .sx-dlv-actions button:focus-visible, .member-shell .app-main .sx-my-detail .sx-dlv-all:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.member-shell .app-main .sx-my-detail .sx-dlv-note { margin: 12px 0 0; padding: 12px 14px; border-inline-start: 2px solid var(--primary); border-radius: 10px; border-start-start-radius: 0; border-end-start-radius: 0; background: color-mix(in srgb, var(--primary) 5%, var(--card)); font-size: 13.5px; line-height: 2; white-space: pre-wrap; }
+.member-shell .app-main .sx-my-detail .sx-dlv-all { margin-top: 12px; }
+@media (max-width: 640px) {
+  .member-shell .app-main .sx-my-detail .sx-dlv-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .member-shell .app-main .sx-my-detail .sx-dlv-value { grid-column: 1 / -1; grid-row: 2; }
+  .member-shell .app-main .sx-my-detail .sx-handoff-steps li { font-size: 11.5px; }
+}
+@media (prefers-reduced-motion: reduce) { .member-shell .app-main .sx-my-detail .sx-handoff-dot, .member-shell .app-main .sx-my-detail .sx-dlv-value, .member-shell .app-main .sx-my-detail .sx-dlv-actions button, .member-shell .app-main .sx-my-detail .sx-dlv-all { transition: none; } }

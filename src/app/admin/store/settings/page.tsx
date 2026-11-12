@@ -64,6 +64,7 @@ export default function StoreSettingsPage() {
         <div className="sa-grid">
           <label className="sa-field"><span>عنوان باند تخفیف</span><input className="input" value={form.offerTitle} onChange={(event) => update('offerTitle', event.target.value)} /></label>
           <label className="sa-field"><span>آستانهٔ «موجودی رو به اتمام»</span><input className="input" type="number" min={0} value={form.lowStockDefault} onChange={(event) => update('lowStockDefault', Number(event.target.value))} /></label>
+          <label className="sa-field"><span>زمان تحویل کارشناس برای سفارش‌های مجازی (ساعت)</span><input className="input" type="number" min={0} max={720} value={form.staffDeliveryHours} onChange={(event) => update('staffDeliveryHours', Number(event.target.value))} /><small className="sa-sub">به خریدار گفته می‌شود سفارش معمولاً تا این مدت تحویل می‌شود؛ اگر بگذرد، به کارشناس سفارش و (با پیامک «سفارش دیرکرد») به مدیران خبر داده می‌شود. ۰ = خاموش.</small></label>
         </div>
         <label className="sa-check"><input type="checkbox" checked={form.showCategories} onChange={(event) => update('showCategories', event.target.checked)} />نمایش «خرید بر اساس دسته‌بندی»</label>
         <label className="sa-check"><input type="checkbox" checked={form.showFileStore} onChange={(event) => update('showFileStore', event.target.checked)} />نمایش ورودی و صفحهٔ فروشگاه فایل</label>

@@ -387,7 +387,7 @@ export async function transitionOrder(input: {
   const trackingCode = input.trackingCode === undefined ? delivery.trackingCode : plain(input.trackingCode, 120)
   const note = plain(input.note, 1000)
   const secret = typeof input.digitalDelivery === 'string' ? input.digitalDelivery.trim() : ''
-  if (secret.length > 5000) throw new StoreError('اطلاعات تحویل دیجیتال بیش از حد طولانی است')
+  if (secret.length > 60_000) throw new StoreError('اطلاعات تحویل دیجیتال بیش از حد طولانی است')
   const virtual = delivery.order.lines.length ? delivery.order.lines.every((line) => line.kind !== 'PHYSICAL') : delivery.order.product?.kind !== 'PHYSICAL'
   if (secret && !virtual) throw new StoreError('اطلاعات تحویل دیجیتال فقط برای سفارش‌های مجازی است')
   const encrypted = secret ? encryptDigitalDelivery(secret) : undefined

@@ -236,3 +236,15 @@ test('the file store is a front of its own, named and worded from Admin, showing
   assert.match(read('src/app/admin/store/settings/page.tsx'), /update\('fileStoreName'/)
   assert.doesNotMatch(read('src/components/store/file-store.module.css'), /(^|\} )\[data-tone/m, 'CSS Module selectors stay pure')
 })
+
+test('delivery details: named items and a note, secrets kept as typed; older free text reads as a note', () => {
+  const d = require('./connected-source-loader.cjs')()('src/modules/store/domain/delivery-details.ts')
+  const text = d.composeDeliveryDetails({ items: [{ label: ' ایمیل ', value: ' plus@example.com ' }, { label: 'رمز عبور', value: ' p@ss word ', secret: true }, { label: '', value: '' }], note: 'پس از ورود رمز را عوض کنید' })
+  assert.deepEqual(d.readDeliveryDetails(text), { items: [{ label: 'ایمیل', value: 'plus@example.com', secret: false }, { label: 'رمز عبور', value: ' p@ss word ', secret: true }], note: 'پس از ورود رمز را عوض کنید', structured: true })
+  assert.equal(d.deliveryDetailsText(d.readDeliveryDetails(text)), 'ایمیل: plus@example.com\nرمز عبور:  p@ss word \nپس از ورود رمز را عوض کنید')
+  assert.deepEqual(d.readDeliveryDetails('کد لایسنس: ABC'), { items: [], note: 'کد لایسنس: ABC', structured: false }, 'free text written before stays as it was')
+  assert.throws(() => d.composeDeliveryDetails({ items: [{ label: 'ایمیل', value: '' }] }), /خالی/)
+  assert.throws(() => d.composeDeliveryDetails({ items: [{ label: '', value: 'x' }] }), /عنوان/)
+  assert.throws(() => d.composeDeliveryDetails({ items: [] }), /خالی/)
+  assert.ok(d.DELIVERY_TEMPLATES.find(t => t.id === 'account').items.some(i => i.secret))
+})

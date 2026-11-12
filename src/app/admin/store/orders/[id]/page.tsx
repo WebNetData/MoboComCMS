@@ -8,6 +8,8 @@ import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson
 import ShipmentPanel from './ShipmentPanel'
 import OrderAssignment, { type Assignment } from './OrderAssignment'
 import LineInputs, { type InputLine } from './LineInputs'
+import DeliveryDetailsEditor, { EMPTY_DELIVERY, type DeliveryDraft } from '@/components/admin/store/DeliveryDetailsEditor'
+import { composeDeliveryDetails } from '@/modules/store/domain/delivery-details'
 
 type Detail = Assignment & {
   id: number; createdAt: string; state: { key: string; label: string; tone: string }; fulfilment: string; trackingCode: string; deliveryNote: string
@@ -33,7 +35,7 @@ export default function StoreOrderPage() {
   const [to, setTo] = useState<FulfilmentStatus | ''>('')
   const [tracking, setTracking] = useState<string | null>(null)
   const [note, setNote] = useState('')
-  const [digital, setDigital] = useState('')
+  const [details, setDetails] = useState<DeliveryDraft>(EMPTY_DELIVERY)
   const [notify, setNotify] = useState(true)
   const [restock, setRestock] = useState(true)
   const [message, setMessage] = useState('')
@@ -52,11 +54,16 @@ export default function StoreOrderPage() {
   async function move() {
     if (!to) return
     if ((to === 'CANCELLED' || to === 'RETURNED') && !window.confirm(`سفارش «${ACTION_LABEL[to]}» شود؟ این تغییر برگشت‌پذیر نیست.`)) return
+    // The specialist's delivery, checked here first so a missing value is said before anything is sent.
+    let digitalDelivery: string | undefined
+    if (virtual && to === 'DELIVERED' && (details.items.length || details.note.trim())) {
+      try { digitalDelivery = composeDeliveryDetails(details) } catch (error) { setResult({ tone: 'error', text: error instanceof Error ? error.message : 'اطلاعات تحویل معتبر نیست' }); return }
+    }
     setBusy(true); setResult(null)
-    const response = await send<Detail>(`/api/admin/store/orders/${id}`, 'POST', { action: 'status', to, trackingCode: tracking ?? undefined, note, digitalDelivery: digital || undefined, notify, restock: data?.manager === true && restock })
+    const response = await send<Detail>(`/api/admin/store/orders/${id}`, 'POST', { action: 'status', to, trackingCode: tracking ?? undefined, note, digitalDelivery, notify, restock: data?.manager === true && restock })
     setBusy(false)
     if (!response.ok) { setResult({ tone: 'error', text: response.error }); return }
-    setData(response.data); setTo(''); setNote(''); setDigital(''); setTracking(null)
+    setData(response.data); setTo(''); setNote(''); setDetails(EMPTY_DELIVERY); setTracking(null)
     setResult({ tone: 'ok', text: 'وضعیت سفارش به‌روز شد' + (notify ? ' و به مشتری اطلاع داده شد' : '') })
   }
 
@@ -103,7 +110,7 @@ export default function StoreOrderPage() {
           <div className="sa-actions" role="radiogroup" aria-label="وضعیت بعدی">{options.map((status) => <button key={status} type="button" role="radio" aria-checked={to === status} className={`sa-action${to === status ? ' is-selected' : ''}${status === 'CANCELLED' || status === 'RETURNED' ? ' is-danger' : ''}`} onClick={() => setTo(status)}>{ACTION_LABEL[status]}</button>)}</div>
           {to && <div className="sa-form">
             {(to === 'SHIPPED' || to === 'DELIVERED') && !virtual && <label className="sa-field"><span>کد رهگیری مرسوله</span><input className="input" dir="ltr" value={tracking ?? data.trackingCode} onChange={(event) => setTracking(event.target.value)} maxLength={120} /></label>}
-            {virtual && to === 'DELIVERED' && <label className="sa-field"><span>اطلاعات تحویل دیجیتال (رمزنگاری می‌شود و فقط مشتری می‌بیند){data.hasDigitalDelivery && ' — قبلاً ثبت شده'}</span><textarea className="input" rows={4} value={digital} onChange={(event) => setDigital(event.target.value)} placeholder="کد لایسنس، لینک دانلود، اطلاعات حساب…" /></label>}
+            {virtual && to === 'DELIVERED' && <DeliveryDetailsEditor value={details} onChange={setDetails} hasPrevious={data.hasDigitalDelivery} />}
             <label className="sa-field"><span>توضیح برای مشتری (اختیاری)</span><textarea className="input" rows={2} value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} /></label>
             <label className="sa-check"><input type="checkbox" checked={notify} onChange={(event) => setNotify(event.target.checked)} />اطلاع‌رسانی به مشتری (اعلان، پیامک و پوش)</label>
             {(to === 'CANCELLED' || to === 'RETURNED') && <label className="sa-check"><input type="checkbox" checked={restock} onChange={(event) => setRestock(event.target.checked)} />بازگرداندن موجودی کالاها به انبار</label>}

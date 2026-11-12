@@ -16,6 +16,7 @@ import { parseFxRates } from '@/modules/billing/domain/invoice-rules'
 import { getInvoiceRules } from '@/modules/billing/server/invoice-rules'
 import InvoiceDeadline from '@/components/billing/InvoiceDeadline'
 import { decryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
+import { deliveryDetailsText, readDeliveryDetails } from '@/modules/store/domain/delivery-details'
 import CardTransferBox from '@/components/billing/CardTransferBox'
 import { IRANIAN_BANKS, formatCard, formatSheba, transferAmounts } from '@/modules/billing/domain/card-transfer'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
@@ -79,7 +80,8 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
   const subject = invoiceSubject({ kind: invoice.kind, title: invoice.title, detail: invoice.detail, planName: invoice.plan?.name, productName: invoice.product?.name, meta: productMeta, siteName: settings.brandName || 'موبوکام', amountText: money(invoice.subtotal), notes: invoice.notes })
   const itemTitle = isFa ? subject.title : invoice.plan?.name || invoice.product?.name || t.invoice
   let digitalDelivery = ''
-  try { if (productDelivery?.status === 'DELIVERED') digitalDelivery = decryptDigitalDelivery(productDelivery.digitalDelivery) } catch { /* Lost encryption key: hide unreadable ciphertext. */ }
+  // A specialist's structured delivery prints as labelled lines; older free text as it was written.
+  try { if (productDelivery?.status === 'DELIVERED') digitalDelivery = deliveryDetailsText(readDeliveryDetails(decryptDigitalDelivery(productDelivery.digitalDelivery))) } catch { /* Lost encryption key: hide unreadable ciphertext. */ }
   const cardTransfer = invoice.gateway?.provider === 'CARD_TRANSFER'
   const [bankAccounts, receipts] = cardTransfer ? await Promise.all([
     db.bankAccount.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
