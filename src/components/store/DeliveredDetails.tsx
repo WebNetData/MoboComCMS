@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { DeliveryFileView, DeliveryItem, DeliveryNotice } from '@/modules/store/domain/delivery-details'
 import DeliveryCard from '@/components/store/DeliveryCard'
+import type { DeliveryCardData } from '@/modules/store/domain/card-designs'
 import { formatBytes } from '@/components/media/api'
 
 const MASK = '••••••••••'
@@ -28,7 +29,7 @@ function Row({ item }: { item: DeliveryItem }) {
  * What the specialist delivered, on the buyer's order page (store/domain/delivery-details): the product's notices, then
  * the delivery as a card (when the product asks for one) or as rows, its files and the note.
  */
-export default function DeliveredDetails({ orderId, items, note, files = [], notices = [], card = null }: { orderId: number; items: DeliveryItem[]; note: string; files?: DeliveryFileView[]; notices?: DeliveryNotice[]; card?: { product: string; brand: string; logo: string } | null }) {
+export default function DeliveredDetails({ orderId, items, note, files = [], notices = [], card = null }: { orderId: number; items: DeliveryItem[]; note: string; files?: DeliveryFileView[]; notices?: DeliveryNotice[]; card?: DeliveryCardData | null }) {
   const [all, setAll] = useState(false)
   const lines = items.map((item) => `${item.label}: ${item.value}`).join('\n')
   async function copyAll() {
@@ -36,10 +37,10 @@ export default function DeliveredDetails({ orderId, items, note, files = [], not
   }
   const asCard = !!card && items.length > 0
   // The text file and «copy text» of the card: what was bought, every row, the note and the notices.
-  const text = [card ? [card.product, card.brand].filter(Boolean).join(' — ') : '', lines, note, notices.map((notice) => `• ${notice.text}`).join('\n')].filter(Boolean).join('\n\n')
+  const text = [card ? [card.product, card.brand.title].filter(Boolean).join(' — ') : '', lines, note, notices.map((notice) => `• ${notice.text}`).join('\n')].filter(Boolean).join('\n\n')
   return <>
     {notices.length > 0 && <ul className="sx-dlv-notices" aria-label="نکته‌های مهم">{notices.map((notice, index) => <li key={index} className={`is-${notice.tone}`}>{notice.text}</li>)}</ul>}
-    {asCard && card && <DeliveryCard orderId={orderId} items={items} brand={card} text={text} />}
+    {asCard && card && <DeliveryCard orderId={orderId} items={items} card={card} text={text} />}
     {!asCard && items.length > 0 && <ul className="sx-dlv-rows">{items.map((item, index) => <Row key={`${item.label}-${index}`} item={item} />)}</ul>}
     {files.length > 0 && <ul className="sx-dlv-files" aria-label="فایل‌های تحویل">{files.map((file) => <li key={file.id}>
       <span className="sx-dlv-ext" aria-hidden="true">{(file.filename.split('.').pop() || '').slice(0, 4).toUpperCase() || 'FILE'}</span>

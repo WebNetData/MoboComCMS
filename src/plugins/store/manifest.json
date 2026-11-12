@@ -59,6 +59,16 @@
         ]
       },
       {
+        "href": "/admin/store/print",
+        "label": "چاپ کارت حضوری",
+        "labelEn": "Print a delivery card",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage",
+          "store.orders.handle"
+        ]
+      },
+      {
         "href": "/admin/store/returns",
         "label": "لغو و مرجوعی",
         "labelEn": "Returns & cancellations",

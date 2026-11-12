@@ -8,6 +8,7 @@ import { getStoreSettings } from '@/modules/store/server/catalog'
 import { orderDeliveryTemplate } from '@/modules/store/server/delivery-template'
 import { getSiteConfig } from '@/modules/site/config/store'
 import type { DeliveryNotice } from '@/modules/store/domain/delivery-details'
+import type { DeliveryCardData } from '@/modules/store/domain/card-designs'
 
 /**
  * Virtual orders a specialist delivers by hand (owner 2026-11-12): what the buyer sees while it is made and once it is
@@ -29,7 +30,7 @@ export type BuyerDelivery = {
   details: (DeliveryDetails & { structured: boolean }) | null
   /** From the product's delivery template: notices above the delivery, and whether it is shown as a card. */
   notices: DeliveryNotice[]
-  card: { product: string; brand: string; logo: string } | null
+  card: DeliveryCardData | null
 }
 
 /** The hand delivery of the buyer's own paid virtual order; null for any other order. */
@@ -46,7 +47,7 @@ export async function buyerDelivery(userId: number, orderId: number): Promise<Bu
     try { details = readDeliveryDetails(decryptDigitalDelivery(order.productDelivery.digitalDelivery)) } catch { details = null }
   }
   const [{ staffDeliveryHours, deliveredNote }, template, site] = await Promise.all([getStoreSettings(), orderDeliveryTemplate(order), getSiteConfig()])
-  const card = template?.card ? { product: order.lines[0]?.name || order.product?.name || '', brand: site.brand || '', logo: site.logo || '' } : null
+  const card = template?.card ? { product: order.lines[0]?.name || order.product?.name || '', brand: { title: site.brand || '', logo: site.logo || '' }, design: template.design } : null
   return { status, assigned: order.assigneeId !== null, paidAt: order.invoice?.paidAt || order.createdAt, deliveredAt: order.productDelivery?.deliveredAt || null, hours: staffDeliveryHours, note: deliveredNote, details, notices: template?.notices || [], card }
 }
 

@@ -1,0 +1,54 @@
+/* «چاپ کارت حضوری» (admin/store/print): controls beside a live sheet; only the sheet is printed, at real size. */
+.pc-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 520px); gap: 20px; align-items: start; }
+.pc-controls { display: grid; gap: 14px; min-width: 0; }
+.pc-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.pc-source { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--sa-line, var(--border)); border-radius: 10px; background: var(--card); color: var(--text); font: inherit; text-align: start; cursor: pointer; transition: border-color .15s ease; }
+.pc-source small { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.pc-source:hover { border-color: var(--primary); }
+.pc-source[aria-checked="true"] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.pc-source:focus-visible, .pc-results button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.pc-pick, .pc-order { display: grid; gap: 10px; margin-bottom: 12px; }
+.pc-order { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+.pc-results { display: grid; gap: 4px; max-height: 240px; margin: 0; padding: 0; overflow: auto; list-style: none; }
+.pc-results button { display: flex; gap: 8px; align-items: center; width: 100%; padding: 8px 10px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 13.5px; text-align: start; cursor: pointer; }
+.pc-results button:hover { background: color-mix(in srgb, var(--primary) 6%, var(--card)); }
+.pc-results button[aria-pressed="true"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--card)); }
+.pc-results button span { flex: 1; min-width: 0; }
+.pc-tag { flex-shrink: 0; padding: 1px 8px; border: 1px solid var(--sa-line, var(--border)); border-radius: 999px; color: var(--muted); font-size: 11px; }
+.pc-tag.is-card { border-color: var(--primary); color: var(--text); }
+.pc-empty { padding: 8px 10px; color: var(--muted); font-size: 13px; }
+.pc-message { margin: 0 0 10px; color: var(--danger, #b91c1c); font-size: 13px; }
+.pc-notices { display: grid; gap: 8px; }
+.pc-preview { position: sticky; top: 12px; padding: 18px; border: 1px dashed var(--sa-line, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--text) 3%, var(--card)); }
+
+/* The sheet itself: paper colours on screen too, so what is seen is what prints. */
+.pc-print { display: grid; gap: 14px; padding: 22px; border-radius: 8px; background: #fff; color: #1d1f24; box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }
+.pc-print.is-card { justify-items: center; padding: 28px 16px; }
+.pc-sheet-head { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding-bottom: 10px; border-bottom: 1px solid #e3e5ea; }
+.pc-sheet-head b { font-size: 17px; }
+.pc-sheet-head span { grid-column: 1; color: #555b66; font-size: 12.5px; }
+.pc-sheet-head small { grid-column: 2; grid-row: 1 / 3; align-self: center; color: #555b66; font-size: 12px; }
+.pc-card { width: 100%; }
+.pc-print.is-card .pc-card { width: 85.6mm; outline: 1px dashed #9aa1ad; outline-offset: 1.5mm; border-radius: 4mm; }
+.pc-aside { display: grid; gap: 8px; margin: 0; padding: 12px 14px; border: 1px solid #e3e5ea; border-radius: 10px; }
+.pc-aside div { display: grid; gap: 1px; }
+.pc-aside dt { color: #555b66; font-size: 12px; }
+.pc-aside dd { margin: 0; font-size: 14px; font-weight: 700; text-align: start; }
+.pc-sheet-notices { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.pc-sheet-notices li { padding: 8px 12px; border: 1px solid #e3e5ea; border-inline-start: 3px solid #2563eb; border-radius: 8px; font-size: 12.5px; line-height: 1.9; }
+.pc-sheet-notices li.is-warning { border-inline-start-color: #b7791f; }
+.pc-sheet-notices li.is-danger { border-inline-start-color: #c0392b; }
+.pc-sheet-note { margin: 0; padding: 10px 12px; border-radius: 8px; background: #f4f5f7; font-size: 12.5px; line-height: 2; white-space: pre-wrap; }
+.pc-sheet-foot { padding-top: 8px; border-top: 1px solid #e3e5ea; color: #6a707b; font-size: 11px; text-align: center; }
+@media (max-width: 1100px) { .pc-layout { grid-template-columns: minmax(0, 1fr); } .pc-preview { position: static; } }
+@media (prefers-reduced-motion: reduce) { .pc-source { transition: none; } }
+
+@media print {
+  @page { margin: 10mm; }
+  /* Only the sheet: everything that neither holds it nor sits in it is left out, and what holds it adds nothing. */
+  body *:not(:has(.pc-print)):not(.pc-print):not(.pc-print *) { display: none !important; }
+  body :has(.pc-print) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; transform: none !important; }
+  .pc-print { width: 140mm; margin: 0 auto; padding: 0; border-radius: 0; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .pc-print.is-card { width: auto; justify-items: start; padding: 2mm; }
+  .pc-card { break-inside: avoid; }
+}
