@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react'
 import { DELIVERY_TEMPLATES, MAX_DELIVERY_ITEMS, type DeliveryItem } from '@/modules/store/domain/delivery-details'
+import DeliveryFiles from './DeliveryFiles'
 import styles from './DeliveryDetailsEditor.module.css'
 
 export type DeliveryDraft = { items: (DeliveryItem & { id: string })[]; note: string }
@@ -22,7 +23,7 @@ function strongPassword(length = 16) {
  * What the specialist hands the buyer of a virtual order (store/domain/delivery-details): named items the buyer copies
  * one by one, secret ones hidden on their side until they ask, and a note. Encrypted when the order is marked delivered.
  */
-export default function DeliveryDetailsEditor({ value, onChange, hasPrevious }: { value: DeliveryDraft; onChange: (next: DeliveryDraft) => void; hasPrevious?: boolean }) {
+export default function DeliveryDetailsEditor({ orderId, value, onChange, hasPrevious }: { orderId: number; value: DeliveryDraft; onChange: (next: DeliveryDraft) => void; hasPrevious?: boolean }) {
   const [shown, setShown] = useState<Record<string, boolean>>({})
   const noteId = useId()
   const set = (id: string, patch: Partial<DeliveryItem>) => onChange({ ...value, items: value.items.map((item) => item.id === id ? { ...item, ...patch } : item) })
@@ -61,5 +62,6 @@ export default function DeliveryDetailsEditor({ value, onChange, hasPrevious }: 
     </ul> : <p className={styles.empty}>یکی از الگوها را بزنید یا ردیف اضافه کنید. می‌توانید فقط توضیح هم بنویسید.</p>}
     <label className={styles.note} htmlFor={noteId}>توضیح برای خریدار <small>(اختیاری، مثلاً مراحل ورود)</small></label>
     <textarea id={noteId} className="input" rows={3} maxLength={2000} value={value.note} onChange={(event) => onChange({ ...value, note: event.target.value })} />
+    <DeliveryFiles orderId={orderId} />
   </div>
 }

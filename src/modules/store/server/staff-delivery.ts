@@ -11,7 +11,7 @@ import { getStoreSettings } from '@/modules/store/server/catalog'
  * delivered, and a word to the team when one waits longer than the shop promises (`staffDeliveryHours`).
  */
 
-const VIRTUAL: Prisma.OrderWhereInput = { AND: [{ lines: { none: { kind: 'PHYSICAL' } } }, { OR: [{ lines: { some: {} } }, { product: { is: { kind: { not: 'PHYSICAL' } } } }] }] }
+export const VIRTUAL_ORDER: Prisma.OrderWhereInput = { AND: [{ lines: { none: { kind: 'PHYSICAL' } } }, { OR: [{ lines: { some: {} } }, { product: { is: { kind: { not: 'PHYSICAL' } } } }] }] }
 
 export type BuyerDelivery = {
   status: string
@@ -29,7 +29,7 @@ export type BuyerDelivery = {
 /** The hand delivery of the buyer's own paid virtual order; null for any other order. */
 export async function buyerDelivery(userId: number, orderId: number): Promise<BuyerDelivery | null> {
   const order = await db.order.findFirst({
-    where: { id: orderId, userId, status: 'PAID', ...VIRTUAL },
+    where: { id: orderId, userId, status: 'PAID', ...VIRTUAL_ORDER },
     select: { assigneeId: true, createdAt: true, invoice: { select: { paidAt: true } }, productDelivery: { select: { status: true, digitalDelivery: true, deliveredAt: true } } },
   })
   if (!order) return null
@@ -53,7 +53,7 @@ export async function alertLateDeliveries(limit = 50, now = new Date()) {
   const cutoff = new Date(now.getTime() - hours * 3_600_000)
   const rows = await db.order.findMany({
     where: {
-      status: 'PAID', ...VIRTUAL,
+      status: 'PAID', ...VIRTUAL_ORDER,
       productDelivery: { is: { status: { in: ['PENDING', 'PROCESSING'] } } },
       OR: [{ invoice: { is: { paidAt: { lte: cutoff } } } }, { invoice: { is: null }, createdAt: { lte: cutoff } }],
       events: { none: { status: 'LATE' } },

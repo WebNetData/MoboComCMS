@@ -14,6 +14,7 @@ import ProductDownloads from '@/components/store/ProductDownloads'
 import CopyText from '@/components/software/CopyText'
 import DeliveredDetails from '@/components/store/DeliveredDetails'
 import { buyerDelivery, type BuyerDelivery } from '@/modules/store/server/staff-delivery'
+import { buyerDeliveryFiles } from '@/modules/store/server/delivery-files'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
 /** «۳ ساعت پیش» from a moment, at the largest unit that is at least one. */
@@ -122,9 +123,9 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
   const shipment = await orderShipment(order.id).catch(() => null)
   // Codes delivered by the product's own pool are the buyer's as soon as the order is paid; a specialist's hand
   // delivery shows its progress while open and its details once delivered.
-  const [codes, handoff] = await Promise.all([buyerCodes(user, order.id).catch(() => []), buyerDelivery(user, order.id).catch(() => null)])
+  const [codes, handoff, handedFiles] = await Promise.all([buyerCodes(user, order.id).catch(() => []), buyerDelivery(user, order.id).catch(() => null), buyerDeliveryFiles(user, order.id).catch(() => [])])
   // Older deliveries of code orders repeat the codes as text: the codes card above already shows them.
-  const delivered = handoff?.details && (handoff.details.structured || !codes.length) && (handoff.details.items.length || handoff.details.note) ? handoff.details : null
+  const delivered = handoff?.details && (handoff.details.structured || !codes.length) && (handoff.details.items.length || handoff.details.note) ? handoff.details : handedFiles.length ? { items: [], note: '' } : null
   const fileProducts = await orderFileProducts(user, order.id)
   const closed = order.fulfilment === 'CANCELLED' || order.fulfilment === 'RETURNED' || order.state.key === 'CANCELLED'
   const step = order.state.key === 'UNPAID' ? -1 : order.fulfilment === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(order.fulfilment || 'PENDING')
@@ -147,7 +148,7 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
     {delivered && <section className="sx-my-card sx-delivered" aria-label="اطلاعات تحویل">
       <h2><StoreIcon name="shield" size={17} />اطلاعات تحویل{handoff?.deliveredAt && <small>تحویل {persian(handoff.deliveredAt, true)}</small>}</h2>
       {handoff?.note && <p className="sx-dlv-hint">{handoff.note}</p>}
-      <DeliveredDetails items={delivered.items} note={delivered.note} />
+      <DeliveredDetails orderId={order.id} items={delivered.items} note={delivered.note} files={handedFiles} />
     </section>}
     {codes.length > 0 && <section className="sx-my-card sx-my-codes" aria-label="کدهای خریداری‌شده">
       <h2><StoreIcon name="bolt" size={17} />کدهای شما</h2>

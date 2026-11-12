@@ -110,7 +110,7 @@ export default function StoreOrderPage() {
           <div className="sa-actions" role="radiogroup" aria-label="وضعیت بعدی">{options.map((status) => <button key={status} type="button" role="radio" aria-checked={to === status} className={`sa-action${to === status ? ' is-selected' : ''}${status === 'CANCELLED' || status === 'RETURNED' ? ' is-danger' : ''}`} onClick={() => setTo(status)}>{ACTION_LABEL[status]}</button>)}</div>
           {to && <div className="sa-form">
             {(to === 'SHIPPED' || to === 'DELIVERED') && !virtual && <label className="sa-field"><span>کد رهگیری مرسوله</span><input className="input" dir="ltr" value={tracking ?? data.trackingCode} onChange={(event) => setTracking(event.target.value)} maxLength={120} /></label>}
-            {virtual && to === 'DELIVERED' && <DeliveryDetailsEditor value={details} onChange={setDetails} hasPrevious={data.hasDigitalDelivery} />}
+            {virtual && to === 'DELIVERED' && <DeliveryDetailsEditor orderId={data.id} value={details} onChange={setDetails} hasPrevious={data.hasDigitalDelivery} />}
             <label className="sa-field"><span>توضیح برای مشتری (اختیاری)</span><textarea className="input" rows={2} value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} /></label>
             <label className="sa-check"><input type="checkbox" checked={notify} onChange={(event) => setNotify(event.target.checked)} />اطلاع‌رسانی به مشتری (اعلان، پیامک و پوش)</label>
             {(to === 'CANCELLED' || to === 'RETURNED') && <label className="sa-check"><input type="checkbox" checked={restock} onChange={(event) => setRestock(event.target.checked)} />بازگرداندن موجودی کالاها به انبار</label>}

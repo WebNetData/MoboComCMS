@@ -8,6 +8,9 @@
 export type DeliveryItem = { label: string; value: string; secret: boolean }
 export type DeliveryDetails = { items: DeliveryItem[]; note: string }
 
+/** A file handed over with the delivery (store/server/delivery-files), as the buyer and the specialist see it. */
+export type DeliveryFileView = { id: number; label: string; filename: string; sizeBytes: string }
+
 export const MAX_DELIVERY_ITEMS = 12
 const MAX_LABEL = 60
 const MAX_VALUE = 4000

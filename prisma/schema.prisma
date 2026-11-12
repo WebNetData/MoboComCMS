@@ -328,6 +328,7 @@ model Order {
   lines         OrderLine[]
   events        OrderEvent[]
   returns       ReturnRequest[]
+  deliveryFiles OrderDeliveryFile[]
   shipment      Shipment?
   @@index([assigneeId, status])
 }
@@ -4702,6 +4703,20 @@ model ProductFile {
   active Boolean @default(true)
   createdAt DateTime @default(now())
   @@index([productId, active])
+}
+
+/// A file a specialist hands the buyer of a virtual order (a text file, an archive…); downloadable once delivered.
+model OrderDeliveryFile {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  label String
+  filename String
+  storageKey String @unique
+  sizeBytes BigInt
+  sha256 String
+  createdAt DateTime @default(now())
+  @@index([orderId])
 }
 
 /// A level of VIP with a place in the order. A plan is one price of a tier.

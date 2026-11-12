@@ -20,9 +20,27 @@
 .note { font-size: 13px; font-weight: 600; }
 .note small { color: var(--muted); font-weight: 400; }
 .chip:focus-visible, .icon:focus-visible, .remove:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* Files for the buyer (DeliveryFiles.tsx): a quiet drop area, one row per file, progress as a thin line. */
+.files { display: grid; gap: 8px; }
+.drop { position: relative; display: grid; gap: 4px; justify-items: center; padding: 18px 14px; border: 1px dashed var(--sa-line, var(--border)); border-radius: 10px; background: var(--card); text-align: center; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+.drop:hover, .dropOver { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
+.drop:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.drop small { color: var(--muted); font-size: 12px; line-height: 1.8; }
+.dropTitle { font-size: 13px; font-weight: 600; }
+.dropTitle u { color: var(--primary); text-underline-offset: 3px; }
+.fileInput { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.fileList { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.fileRow { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--sa-line, var(--border)); border-radius: 10px; background: var(--card); }
+.fileBadge { display: grid; place-items: center; height: 30px; border-radius: 7px; background: color-mix(in srgb, var(--primary) 9%, var(--card)); color: var(--primary); font-size: 10.5px; font-weight: 700; letter-spacing: .02em; }
+.fileName { display: grid; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.fileSize { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.fileError { margin: 0; color: var(--danger, #b91c1c); font-size: 12px; }
+.progress { grid-column: 3 / -1; width: 96px; height: 4px; overflow: hidden; border-radius: 4px; background: var(--sa-line, var(--border)); }
+.progress i { display: block; height: 100%; background: var(--primary); transform-origin: right; transition: transform .2s linear; }
+.remove:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 @media (max-width: 640px) {
   .row { grid-template-columns: minmax(0, 1fr) auto; }
   .row > input { grid-column: 1 / -1; }
   .valueBox { grid-column: 1 / -1; }
 }
-@media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .chip, .drop, .progress i { transition: none; } }
