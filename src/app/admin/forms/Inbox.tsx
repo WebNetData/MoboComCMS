@@ -7,7 +7,7 @@ import { WorkPanel } from './ProPanels'
 import { EditAndAssign, FieldStatsView } from './AdvancedPanels'
 
 type Stats = { series: { day: string; count: number }[]; counts: Record<string, number> }
-type Page = { rows: Row[]; total: number; page: number; pages: number; counts: Record<string, number>; work: Record<string, number> }
+type Page = { rows: Row[]; total: number; page: number; pages: number; counts: Record<string, number>; work: Record<string, number>; steps?: { key: string; label: string }[] | null }
 const fa = (n: number) => n.toLocaleString('fa-IR')
 const when = (iso: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Tehran' }).format(new Date(iso))
 const kb = (size: number) => (size >= 1048576 ? `${(size / 1048576).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت` : `${fa(Math.max(1, Math.round(size / 1024)))} کیلوبایت`)
@@ -85,8 +85,9 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
 
   const work = data?.work || {}
   return <div className="dk">
+    {!queue && <p className="dk-counter"><a className="btn btn-primary btn-sm" href={`/admin/forms/counter?form=${formId}`}>+ ثبت حضوری</a><small className="sa-hint">مشتری در مغازه است: اطلاعات و قفل گوشی را خودتان وارد کنید و رسید بدهید.</small></p>}
     <div className="dk-tiles" role="group" aria-label="وضعیت کارها">
-      {TILES.map(([key, label]) => <button key={key} type="button" className={`dk-tile ${STAGE_TONE[key]}`} aria-pressed={stage === key} onClick={() => filter(() => setStage(stage === key ? '' : key))}><b className="num">{fa(work[key] || 0)}</b><span>{label}</span></button>)}
+      {(data?.steps ? [...data.steps.map((step): [string, string] => [step.key, step.label]), ['UNPAID', 'پرداخت‌نشده'] as [string, string]] : TILES).map(([key, label]) => <button key={key} type="button" className={`dk-tile ${STAGE_TONE[key] || 'is-info'}`} aria-pressed={stage === key} onClick={() => filter(() => setStage(stage === key ? '' : key))}><b className="num">{fa(work[key] || 0)}</b><span>{label}</span></button>)}
     </div>
 
     <div className="dk-bar">
@@ -118,7 +119,7 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
             <span className="dk-card-top"><b className="num">#{fa(item.id)}</b>{queue && <em>{item.formTitle}</em>}<time>{when(item.createdAt)}</time></span>
             <span className="dk-card-text">{summary(item)}{item.files.length ? ` 📎${fa(item.files.length)}` : ''}</span>
             <span className="dk-card-foot">
-              {item.payStatus === 'UNPAID' ? <i className="dk-pill is-muted">پرداخت‌نشده</i> : item.stage ? <i className={`dk-pill ${STAGE_TONE[item.stage] || ''}`}>{STAGE_LABEL[item.stage as Stage]}</i> : null}
+              {item.payStatus === 'UNPAID' ? <i className="dk-pill is-muted">پرداخت‌نشده</i> : item.stage ? <i className={`dk-pill ${STAGE_TONE[item.stage] || 'is-info'}`}>{item.steps?.find((step) => step.key === item.stage)?.label || STAGE_LABEL[item.stage as Stage] || item.stage}</i> : null}
               {item.amount > 0 && <i className="dk-pill num">{fa(item.amount)} ت</i>}
               <small>{item.assignee ? `در دست ${item.assigneeId === me ? 'شما' : item.assignee}` : item.user || 'مهمان'}</small>
             </span>
@@ -133,7 +134,7 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
           <header className="dk-head">
             <div><h3>درخواست <span className="num">#{fa(row.id)}</span>{queue && <small> · {row.formTitle}</small>}</h3><p>{row.user || 'مهمان'} · {when(row.createdAt)}</p></div>
             <div className="dk-head-pills">
-              {row.payStatus === 'UNPAID' ? <i className="dk-pill is-muted">پرداخت‌نشده</i> : row.stage ? <i className={`dk-pill ${STAGE_TONE[row.stage] || ''}`}>{STAGE_LABEL[row.stage as Stage]}</i> : null}
+              {row.payStatus === 'UNPAID' ? <i className="dk-pill is-muted">پرداخت‌نشده</i> : row.stage ? <i className={`dk-pill ${STAGE_TONE[row.stage] || 'is-info'}`}>{row.steps?.find((step) => step.key === row.stage)?.label || STAGE_LABEL[row.stage as Stage] || row.stage}</i> : null}
               <button type="button" className="btn btn-ghost btn-sm dk-close" onClick={() => setOpen(null)} aria-label="بستن جزئیات">بستن</button>
             </div>
           </header>

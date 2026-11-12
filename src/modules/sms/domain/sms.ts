@@ -34,6 +34,7 @@ export interface SmsEventDef {
 
 // User events mirror the customer inbox (notifications); admin events alert staff.
 export const SMS_EVENTS: SmsEventDef[] = [
+  { id: 'FORM_STAGE', audience: 'user', label: 'مرحلهٔ کار درخواست (مشتری، مثل تعمیر)', vars: ['name', 'form', 'stage', 'message', 'link'], template: '{name} عزیز، {form}: {stage}\n{message}\n{brand}' },
   { id: 'CRM_BIRTHDAY', audience: 'user', label: 'تبریک تولد', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'CRM_OFFER', audience: 'user', label: 'پیشنهاد و تخفیف موردعلاقه', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'CRM_WINBACK', audience: 'user', label: 'پیشنهاد بازگشت مشتری', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },

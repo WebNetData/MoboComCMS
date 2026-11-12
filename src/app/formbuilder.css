@@ -162,3 +162,18 @@
 .rp-public h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); }
 .rp-public .rp-price { font-size: 22px; font-weight: 800; }
 .rp-buy { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); max-width: 460px; }
+
+/* Work steps and receipts of a form (admin/forms/WorkPanels, ProPanels WorkPanel, counter page). */
+.fb-work { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.fb-work-step { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--sa-line, var(--border)); border-radius: 10px; }
+.fb-work-head { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.fb-work-tools { display: inline-flex; gap: 8px; }
+.fb-work-flags { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.fb-work-foot { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-top: 10px; }
+.fb-work-fields { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.fp-pickup { display: grid; gap: 8px; margin-top: 8px; padding: 10px 12px; border: 1px dashed var(--primary); border-radius: 10px; }
+.fp-receipts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.dk-counter { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 12px; }
+.ct-saved p { margin: 0 0 10px; }
+.ct-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 20px; letter-spacing: .14em; }
+@media (max-width: 640px) { .fb-work-head { grid-template-columns: minmax(0, 1fr); } }

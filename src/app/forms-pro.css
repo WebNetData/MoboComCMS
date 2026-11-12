@@ -370,6 +370,7 @@ html[dir='rtl'] .rq-fact dd { text-align: right; }
 .dk-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .dk-card-foot small { margin-inline-start: auto; color: var(--muted); font-size: 11.5px; }
 .dk-pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 99px; font-style: normal; font-size: 11.5px; font-weight: 700; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+.dk-pill.is-info { background: color-mix(in srgb, var(--primary) 12%, transparent); color: color-mix(in srgb, var(--primary) 62%, var(--text)); }
 .dk-pill.is-warn { background: color-mix(in srgb, #d97706 15%, transparent); color: #b45309; }
 .dk-pill.is-good { background: color-mix(in srgb, #16a34a 14%, transparent); color: #15803d; }
 .dk-pill.is-bad { background: color-mix(in srgb, #dc2626 13%, transparent); color: #b91c1c; }

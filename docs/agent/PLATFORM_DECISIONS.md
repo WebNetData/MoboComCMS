@@ -1098,3 +1098,27 @@ The owner wants members to sign in and sign up with Google. Identity owns it (`s
   - Not built yet: taking a code from a product's pool for a sale in the shop; that needs an in-store sale record.
 - **Late orders.** Past that time, the fulfilment worker step `lateDeliveries` alerts **once per order**: it writes a hidden `LATE` order event, sends an inbox note to the specialist who took the order, and sends the admin SMS event `ADMIN_ORDER_LATE` (`{order}`, `{hours}`). The time counts from the invoice payment, or from the order's creation when there is no invoice.
 - Verified locally on a DB copy: tsc, the store tests, and a browser pass (specialist form → buyer page at 1440 light and 390 dark, axe clean, no overflow). **Not run:** the SMS delivery itself, and the worker step against a live schedule.
+
+## Mobile repair on the forms module: work steps, device lock, counter and receipts — 2026-11-12
+
+Owner: a mobile repair service. Customers send software or hardware problems online; on approval they are told to bring or send the phone, and they get a receipt once the shop has it. Walk-in customers are entered by staff, with the phone's lock (pattern, PIN or password), and get a printed receipt carrying the service terms. The shop's copy holds the sensitive data. The device is not handed back without the receipt.
+
+- **It is built on the forms module**, not beside it (forms handoff rule). It reuses the desk, handlers, held work, secrets (encrypted, read through an audited action, erased a week after the work ends), «my requests» and automation. The ready-made form **«تعمیر موبایل»** brings fields, steps, receipt and terms; everything stays editable in the builder.
+- **Field `devicelock`** (`forms/domain/forms.ts`, `components/forms/DeviceLockInput`):
+  - Kinds: no lock, a pattern on the 3×3 grid (drawn, or tapped dot by dot, keyboard too), a PIN, a password, or a pattern and a code.
+  - Stored as `kind|1,5,9|text` and sealed with the secrets. It is never kept in the browser draft.
+- **Per-form work steps** (`settings.workflow`): OPEN, DONE and REJECTED always exist and keep their meaning (secret erasure, «my requests»); the steps between are the form's. A step may:
+  - send its message by inbox and by the SMS event **`FORM_STAGE`** to the form's mobile answer (`sms/server/sms.notifyPhone`; off until enabled in SMS settings). Merge tags: `{code}`, `{receipt}`, `{id}`;
+  - issue the **receipt**: a token for `/receipt/<token>` and a six-digit **pickup code**;
+  - require that **pickup code** before it is set. A forms manager may hand over without it only with a written reason, recorded as `forms.pickup_override`.
+  - Forms without steps keep the four standard stages.
+- **Counter** (`forms/server/counter.ts`, `/admin/forms/counter?form=`, button «ثبت حضوری» on a form's desk):
+  - Staff fill the form for the customer through PublicForm's `counter` mode: same checks, no human check, no draft.
+  - The answer (`source: STAFF`, `createdById`) starts at the receipt step.
+  - Recorded as `forms.staff_entry`.
+- **Receipts** (`settings.receipt`, `components/forms/ReceiptSheet`, `/admin/forms/receipt/<id>?copy=`, A5 print):
+  - **Customer copy**: the chosen fields, the terms, the pickup code, and the shop's stamp and signature.
+  - **Shop copy**: every answer, the device lock (with the pattern drawn), and the customer's signature under the terms. Opening it is recorded as `forms.receipt_shop`.
+  - The desk does not show the pickup code; only the customer's copy carries it.
+- Additive migration `20270310120000_form_work_receipts` (FormSubmission `source`, `createdById`, `pickupCode`, `receiptToken`, `receivedAt`).
+- Not built: linking a walk-in customer to an existing account by mobile (their copy is the SMS link and the paper); a QR code on the receipt; costs and parts used on a repair (the paid-form bill is for online payment, not for a shop quote); taking a gift-card code from a product's pool for an in-shop sale (next).

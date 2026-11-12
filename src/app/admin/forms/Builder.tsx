@@ -12,7 +12,7 @@ const GROUPS: { title: string; types: FormField['type'][] }[] = [
   { title: 'مقدار', types: ['slider', 'rating'] },
   { title: 'انتخاب', types: ['select', 'radio', 'checkboxes', 'checkbox'] },
   { title: 'قیمت و پرداخت', types: ['fxamount', 'price', 'total'] },
-  { title: 'پیشرفته', types: ['repeater', 'signature', 'file', 'hidden'] },
+  { title: 'پیشرفته', types: ['repeater', 'signature', 'devicelock', 'file', 'hidden'] },
   { title: 'محتوا', types: ['heading', 'paragraph'] },
 ]
 

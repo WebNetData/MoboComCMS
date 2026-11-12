@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CHOICE_TYPES, FX_CURRENCIES, STAGES, STAGE_LABEL, THEMES, THEME_LABEL, type FormField, type FormSettings, type FormStyle, type Stage } from '@/modules/forms/domain/forms'
+import { CHOICE_TYPES, FX_CURRENCIES, THEMES, THEME_LABEL, type FormField, type FormSettings, type FormStyle } from '@/modules/forms/domain/forms'
 import type { Row } from './shared'
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
@@ -77,11 +77,14 @@ type Api = <T>(url: string, method: 'GET' | 'PATCH' | 'DELETE', body?: unknown) 
 /** One answer as a piece of work: its bill and payment, who has it, where it stands, the reply to its sender, and its passwords. */
 export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Api; onChanged: () => void; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
   const [reply, setReply] = useState(row.reply)
-  const [secrets, setSecrets] = useState<{ id: string; label: string; value: string }[] | null>(null)
+  const [secrets, setSecrets] = useState<{ id: string; label: string; value: string; text?: string }[] | null>(null)
+  const [pickup, setPickup] = useState<{ key: string; label: string } | null>(null)
+  const [code, setCode] = useState('')
+  const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const unpaid = row.payStatus === 'UNPAID'
 
-  async function work(body: { stage?: Stage; take?: boolean; reply?: string }, done: string) {
+  async function work(body: { stage?: string; take?: boolean; reply?: string; pickupCode?: string; override?: string }, done: string) {
     setBusy(true)
     const result = await api('/api/admin/forms/submissions', 'PATCH', { id: row.id, work: body })
     setBusy(false)
@@ -90,7 +93,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
   }
   async function reveal() {
     setBusy(true)
-    const result = await api<{ secrets: { id: string; label: string; value: string }[] }>('/api/admin/forms/submissions', 'PATCH', { id: row.id, secrets: 'reveal' })
+    const result = await api<{ secrets: { id: string; label: string; value: string; text?: string }[] }>('/api/admin/forms/submissions', 'PATCH', { id: row.id, secrets: 'reveal' })
     setBusy(false)
     if (result.ok) setSecrets(result.data.secrets); else onNotice('error', result.error)
   }
@@ -110,7 +113,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
     </div>}
     {(row.hasSecrets || row.secretsErasedAt) && <div className="fp-secrets">
       <b>اطلاعات محرمانه</b>
-      {secrets ? <ul className="fp-secret-list">{secrets.map((secret) => <li key={secret.id}><span>{secret.label}</span><code dir="ltr">{secret.value}</code><button type="button" className="sa-link" onClick={() => void navigator.clipboard.writeText(secret.value).then(() => onNotice('ok', 'کپی شد.')).catch(() => undefined)}>کپی</button></li>)}</ul> : null}
+      {secrets ? <ul className="fp-secret-list">{secrets.map((secret) => <li key={secret.id}><span>{secret.label}</span><code dir="ltr">{secret.text || secret.value}</code><button type="button" className="sa-link" onClick={() => void navigator.clipboard.writeText(secret.value).then(() => onNotice('ok', 'کپی شد.')).catch(() => undefined)}>کپی</button></li>)}</ul> : null}
       {row.hasSecrets ? <div className="sa-row-actions">
         {!secrets && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void reveal()}>نمایش اطلاعات محرمانه</button>}
         <button type="button" className="sa-link is-danger" onClick={() => void erase()}>پاک‌کردن</button>
@@ -120,7 +123,13 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
     <div className="fp-stage">
       <b>وضعیت کار</b>
       {unpaid ? <p className="sa-hint">تا پرداخت انجام نشود، کار روی این درخواست شروع نمی‌شود.</p> : <>
-        <div className="ad-range" role="group" aria-label="وضعیت کار">{STAGES.map((stage) => <button key={stage} type="button" aria-pressed={row.stage === stage} disabled={busy} onClick={() => void work({ stage }, `وضعیت: ${STAGE_LABEL[stage]}`)}>{STAGE_LABEL[stage]}</button>)}</div>
+        <div className="ad-range" role="group" aria-label="وضعیت کار">{row.steps.map((step) => <button key={step.key} type="button" aria-pressed={row.stage === step.key} disabled={busy} onClick={() => { if (step.pickup && row.receivedAt && row.stage !== step.key) { setPickup(step); setCode(''); setReason('') } else void work({ stage: step.key }, `وضعیت: ${step.label}`) }}>{step.label}</button>)}</div>
+        {pickup && <div className="fp-pickup" role="group" aria-label="کد تحویل">
+          <label className="sa-field"><span>کد تحویل روی رسید مشتری</span><input className="input" dir="ltr" inputMode="numeric" maxLength={6} autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} /></label>
+          <label className="sa-field"><span>رسید ندارد؟ دلیل تحویل بدون کد <small className="sa-sub">فقط مدیر؛ با نام شما ثبت می‌شود</small></span><input className="input" maxLength={300} value={reason} placeholder="مثلاً رسید گم شده؛ کارت ملی بررسی شد" onChange={(e) => setReason(e.target.value)} /></label>
+          <div className="sa-row-actions"><button type="button" className="btn btn-primary btn-sm" disabled={busy || (!code && reason.trim().length < 5)} onClick={() => void work({ stage: pickup.key, pickupCode: code, override: reason }, `وضعیت: ${pickup.label}`).then(() => setPickup(null))}>تحویل دستگاه</button><button type="button" className="sa-link" onClick={() => setPickup(null)}>انصراف</button></div>
+        </div>}
+        {row.receipt && row.receivedAt && <p className="sa-row-actions fp-receipts"><a className="btn btn-ghost btn-sm" href={`/admin/forms/receipt/${row.id}?copy=customer`} target="_blank">رسید مشتری</a><a className="btn btn-ghost btn-sm" href={`/admin/forms/receipt/${row.id}?copy=shop`} target="_blank">رسید مغازه</a>{row.source === 'STAFF' && <small className="sa-hint">ثبت حضوری</small>}</p>}
         <p className="sa-hint">{row.assignee ? <>در دست: <b>{row.assignee}</b> </> : 'هنوز کسی این کار را برنداشته است. '}<button type="button" className="sa-link" disabled={busy} onClick={() => void work({ take: true }, 'این درخواست به شما سپرده شد.')}>من انجام می‌دهم</button>{row.assignee && <> · <button type="button" className="sa-link" disabled={busy} onClick={() => void work({ take: false }, 'آزاد شد.')}>آزاد کن</button></>}</p>
         {row.userId ? <>
           <label className="sa-field"><span>پیام به کاربر (در «درخواست‌های من» و صندوق پیام او)</span><textarea className="input" rows={2} maxLength={2000} value={reply} onChange={(e) => setReply(e.target.value)} dir="auto" /></label>

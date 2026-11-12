@@ -138,6 +138,23 @@ export async function notifyUserEvent(event: { userId: number; kind: string; tit
   return sendSms({ phone: user.phone, event: event.kind, userId: event.userId, text: renderTemplate(setting.text, vars), pattern: setting.pattern || undefined, params: Object.fromEntries(def.vars.map((name) => [name, vars[name as keyof typeof vars] || ''])) }, config)
 }
 
+/** An address on this site as a full link, for a message read outside it. */
+export async function siteLink(path: string) { const { site } = await brandVars(); return site ? `${site}${path}` : path }
+
+/**
+ * A customer alert to a number typed into a form (a customer in the shop may have no account), when the event is on.
+ * The same daily ceiling and repeat guard apply as for every automatic message (sendSms).
+ */
+export async function notifyPhone(eventId: string, phone: string, values: Record<string, string>, userId: number | null = null) {
+  const def = smsEvent(eventId)
+  const config = await getSmsConfig()
+  const setting = config.events[eventId]
+  if (!def || def.audience !== 'user' || !setting?.enabled || !isReady(config) || !normalizeMobile(phone)) return false
+  const { brand } = await brandVars()
+  const vars: Record<string, string> = { ...values, brand }
+  return sendSms({ phone, event: eventId, userId, text: renderTemplate(setting.text, vars), pattern: setting.pattern || undefined, params: Object.fromEntries(def.vars.map((name) => [name, vars[name] || ''])) }, config)
+}
+
 /** Staff alert to every admin mobile in the SMS settings. */
 export async function notifyAdmins(eventId: string, values: Record<string, string>) {
   const def = smsEvent(eventId)

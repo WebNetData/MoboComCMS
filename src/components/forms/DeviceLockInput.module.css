@@ -1,0 +1,23 @@
+/* The device-lock answer (DeviceLockInput.tsx): kind chips, a 3×3 pattern pad and a code field; one accent. */
+.lock { display: grid; gap: 12px; }
+.kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.kind { min-height: 34px; padding: 0 12px; border: 1px solid var(--border, #d9dce3); border-radius: 999px; background: var(--card, #fff); color: var(--text, #1d1f24); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+.kind:hover { border-color: var(--pf-accent, var(--primary, #2563eb)); }
+.kind[aria-checked="true"] { border-color: var(--pf-accent, var(--primary, #2563eb)); background: color-mix(in srgb, var(--pf-accent, var(--primary, #2563eb)) 10%, var(--card, #fff)); }
+.kind:focus-visible, .dot:focus-visible, .clear:focus-visible { outline: 2px solid var(--pf-accent, var(--primary, #2563eb)); outline-offset: 2px; }
+.patternRow { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.pad { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); width: 168px; height: 168px; padding: 9px; box-sizing: border-box; border: 1px solid var(--border, #d9dce3); border-radius: 16px; background: var(--card, #fff); touch-action: none; user-select: none; direction: ltr; }
+.pad svg { position: absolute; inset: 9px; width: calc(100% - 18px); height: calc(100% - 18px); pointer-events: none; }
+.pad line { stroke: var(--pf-accent, var(--primary, #2563eb)); stroke-width: 5; stroke-linecap: round; opacity: .55; }
+.dot { position: relative; display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: pointer; }
+.dot i { display: grid; place-items: center; width: 18px; height: 18px; border: 2px solid color-mix(in srgb, var(--text, #1d1f24) 35%, transparent); border-radius: 50%; color: #fff; font-size: 10px; font-style: normal; font-weight: 700; transition: transform .15s ease, background-color .15s ease, border-color .15s ease; }
+.dot[aria-pressed="true"] i { width: 24px; height: 24px; border-color: var(--pf-accent, var(--primary, #2563eb)); background: var(--pf-accent, var(--primary, #2563eb)); }
+.patternSide { display: grid; gap: 6px; justify-items: start; }
+.sequence { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; font-weight: 700; }
+.patternSide small { color: var(--muted, #6a707b); font-size: 12px; }
+.clear { min-height: 32px; padding: 0 12px; border: 1px solid var(--border, #d9dce3); border-radius: 9px; background: var(--card, #fff); color: var(--text, #1d1f24); font: inherit; font-size: 12.5px; cursor: pointer; }
+.clear:disabled { opacity: .5; cursor: default; }
+.textRow { display: flex; gap: 8px; align-items: center; max-width: 360px; }
+.textRow input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.lock[data-invalid] .pad { border-color: var(--danger, #c0392b); }
+@media (prefers-reduced-motion: reduce) { .kind, .dot i { transition: none; } }
