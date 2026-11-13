@@ -30,6 +30,8 @@ export const PERMISSIONS = [
   'media.manage',
   // Apply code packages and edit built-in plugin/theme source (full server trust).
   'extensions.code',
+  // Discount codes for every channel (store, counter, VIP, VPN), apart from the VPN plans that used to be their only key.
+  'promotions.manage',
 ] as const
 
 export type CorePermission = (typeof PERMISSIONS)[number]
@@ -61,7 +63,7 @@ export const FULL_ACCESS = '*'
  * test. **Every core permission added from now on goes in this list** (leaving one out takes the extension
  * permissions away from every general manager, which is what happened with `forms.handle` in October 2026).
  */
-export const CORE_ADDED_LATER: readonly string[] = ['forms.handle', 'automation.manage', 'media.manage']
+export const CORE_ADDED_LATER: readonly string[] = ['forms.handle', 'automation.manage', 'media.manage', 'promotions.manage']
 const holdsEveryOriginal = (listed: string[]) => PERMISSIONS.filter((permission) => !CORE_ADDED_LATER.includes(permission)).every((permission) => listed.includes(permission))
 
 /**

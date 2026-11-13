@@ -251,7 +251,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
     // Discounts and referrals serve the shop, VIP and VPN alike.
     { id: 'offers', area: 'marketing', order: 20, title: L('تخفیف و معرفی', 'Offers & referrals'), icon: 'bolt', items: [
-      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
+      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: ['promotions.manage', 'plans.manage'] },
       { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
     ] },
     // Customer engagement and automation reach customers by rule: marketing work, not system settings.

@@ -42,7 +42,7 @@ export const STAFF_ROLE_TEMPLATES: readonly StaffRoleTemplate[] = [
   { id: 'site-deputy', title: 'معاون کل سایت', job: 'همان دسترسی مدیر کل برای جانشین؛ نقش مدیر کل را نمی‌تواند تغییر دهد', category: 'management', permissions: [], fullAccess: true },
   { id: 'backup', title: 'جانشین مدیر محتوا و تنظیمات', job: 'همهٔ بخش‌های محتوا، صفحه‌ها، محصولات و تنظیمات؛ بدون مالی، کاربران و نقش‌ها', category: 'management', permissions: ['cms.pages', 'cms.posts', 'cms.products', 'settings.manage', ...SECTION_MANAGERS] },
 
-  { id: 'store-manager', title: 'مدیر فروشگاه', job: 'محصولات، انبار، سفارش‌ها، فروش حضوری، مرجوعی و گزارش فروش', category: 'sales', permissions: ['cms.products', 'orders.manage'] },
+  { id: 'store-manager', title: 'مدیر فروشگاه', job: 'محصولات، انبار، سفارش‌ها، فروش حضوری، مرجوعی، کدهای تخفیف و گزارش فروش', category: 'sales', permissions: ['cms.products', 'orders.manage', 'promotions.manage'] },
   { id: 'cashier', title: 'صندوق‌دار مغازه', job: 'پیشخوان فروش حضوری، صندوق و شیفت خودش و چاپ برچسب قفسه؛ بدون مرجوعی، گزارش و سفارش‌های دیگر', category: 'sales', permissions: ['instore.sell'], module: 'instore' },
   { id: 'order-specialist', title: 'کارشناس سفارش', job: 'فقط سفارش‌هایی که به او سپرده می‌شود: آماده‌سازی، تحویل در فروشگاه و چاپ کارت', category: 'sales', permissions: ['store.orders.handle'], module: 'store' },
 
@@ -74,7 +74,8 @@ export const CORE_PERMISSION_LABELS: Record<string, string> = {
   'finance.manage': 'امور مالی و هزینه‌ها',
   'invoices.manage': 'صورتحساب‌ها و رسیدها',
   'gateways.manage': 'درگاه‌ها و حساب‌های بانکی',
-  'plans.manage': 'پلن‌ها و کدهای تخفیف',
+  'plans.manage': 'پلن‌های VPN، فروش حجمی و اکانت آزمایشی (و کدهای تخفیف)',
+  'promotions.manage': 'کدهای تخفیف و پیشنهادها',
   'panels.manage': 'پنل‌های VPN',
   'tickets.handle': 'تیکت‌ها',
   'tickets.departments.manage': 'دپارتمان‌های تیکت',

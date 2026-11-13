@@ -22,8 +22,8 @@
     "icon": "lifebuoy",
     "order": 60,
     "items": [
-      { "href": "/admin/chat", "label": "گفت‌وگوی آنلاین", "labelEn": "Live chat", "icon": "chat", "permissions": ["support.chat", "tickets.manage", "settings.manage"] },
-      { "href": "/admin/crm", "label": "پروندهٔ مشتریان (CRM)", "labelEn": "Customers (CRM)", "icon": "shield", "permissions": ["users.manage", "support.chat", "tickets.manage", "settings.manage"] }
+      { "href": "/admin/chat", "label": "گفت‌وگوی آنلاین", "labelEn": "Live chat", "icon": "chat", "permissions": ["support.chat", "tickets.handle", "settings.manage"] },
+      { "href": "/admin/crm", "label": "پروندهٔ مشتریان (CRM)", "labelEn": "Customers (CRM)", "icon": "shield", "permissions": ["users.manage", "support.chat", "tickets.handle", "settings.manage"] }
     ]
   }
 }
