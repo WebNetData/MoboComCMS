@@ -6,6 +6,8 @@ import { ALL_PERMISSIONS, FULL_ACCESS, ROLE_PRESETS, isFullAccess, parsePermissi
 import { actorHasFullAccess } from '@/modules/identity/server/staff-guard'
 import type { AuthedUser } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
+import { staffTemplate } from '@/modules/identity/domain/staff-roles'
+import { randomBytes } from 'node:crypto'
 
 /**
  * A role is shaped only up to what its maker holds: someone with "roles" but not full access can neither make
@@ -27,7 +29,8 @@ const FIXED_SLUGS = ['admin', 'reseller']
 export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'roles.manage')
   if (!admin) return err('forbidden', 403)
-  const roles = await db.role.findMany({ include: { _count: { select: { users: true } } }, orderBy: { id: 'asc' } })
+  // Who holds each role (the first few), so the owner sees the team, not only counts.
+  const roles = await db.role.findMany({ include: { _count: { select: { users: true } }, users: { select: { id: true, name: true, email: true }, orderBy: { id: 'asc' }, take: 6 } }, orderBy: { id: 'asc' } })
   return ok({ roles, allPermissions: ALL_PERMISSIONS, presets: ROLE_PRESETS })
 }
 
@@ -35,12 +38,16 @@ export async function POST(req: NextRequest) {
   const admin = await requirePerm(req, 'roles.manage')
   if (!admin) return err('forbidden', 403)
   const b = await req.json().catch(() => null)
-  const name = String(b?.name || '').trim().toLowerCase()
-  if (!name) return err('نام نقش الزامی است')
+  // A ready role (identity/domain/staff-roles) is made in one click under its own slug and title; a custom role needs
+  // only its title, its slug is made up when none is given.
+  const template = b?.template ? staffTemplate(String(b.template)) : undefined
+  if (b?.template && !template) return err('الگوی نقش شناخته نشد')
+  const name = String(b?.name || template?.id || `role-${randomBytes(3).toString('hex')}`).trim().toLowerCase()
+  if (!template && !String(b?.nameFa || '').trim()) return err('عنوان نقش را بنویسید')
   if (!ROLE_SLUG.test(name)) return err('نامک نقش باید با حرف لاتین کوچک شروع شود و فقط حرف، عدد و خط تیره داشته باشد (مثل form-operator)')
   const exists = await db.role.findUnique({ where: { name } })
-  if (exists) return err('این نقش قبلاً ساخته شده')
-  const preset = String(b?.preset || '')
+  if (exists) return err(template ? `نقش «${template.title}» قبلاً ساخته شده است` : 'این نقش قبلاً ساخته شده', 409)
+  const preset = String(template?.id || b?.preset || '')
   const perms: string = Array.isArray(b?.permissions) && b.permissions.length
     ? b.permissions.join(',')
     : preset === 'admin' || preset === 'site-deputy'
@@ -50,8 +57,8 @@ export async function POST(req: NextRequest) {
       : ''
   const refusal = roleRefusal(admin, perms)
   if (refusal) return err(refusal, 403)
-  const role = await db.role.create({ data: { name, nameFa: String(b?.nameFa || '').trim().slice(0, 80), nameEn: String(b?.nameEn || name).trim().slice(0, 80), permissions: perms } })
-  await auditAdmin({ req, actor: admin, action: 'role.create', targetType: 'role', targetId: role.id, metadata: { name: role.name, permissions: role.permissions } })
+  const role = await db.role.create({ data: { name, nameFa: String(b?.nameFa || template?.title || '').trim().slice(0, 80), nameEn: String(b?.nameEn || name).trim().slice(0, 80), permissions: perms } })
+  await auditAdmin({ req, actor: admin, action: 'role.create', targetType: 'role', targetId: role.id, metadata: { name: role.name, permissions: role.permissions, template: template?.id } })
   return ok(role)
 }
 

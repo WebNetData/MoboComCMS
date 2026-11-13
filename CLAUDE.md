@@ -16,6 +16,10 @@ For business/Trustpilot-style experiences, read docs/agent/handoffs/BUSINESS_EXP
 
 For the form builder, automation rules, staff queues, work that somebody holds (forms and tickets), SMS limits and the October 2026 safety review, read docs/agent/handoffs/FORMS_AND_OPERATIONS.md first. It names the owners, the rules that must keep holding, what ran and what is still untested. Extend the forms module; do not build a second form, payment or queue system beside it.
 
+## Admin organization, staff roles and modular features continuation
+
+For the Admin menu (areas, groups, labels, tabs), staff roles and member groups, or putting a feature in its own module, read docs/agent/handoffs/ADMIN_ORGANIZATION.md first: its rules (by job, never change an address or permission while moving a link, a switchable feature is a module whose code stays with its data owner, tabs from the filtered menu, roles in identity/domain/staff-roles.ts) and its ordered next slices. Continue them; do not invent a parallel menu, role or permission registry.
+
 <!-- mobocom-engineering-skills:start -->
 ## Supporting engineering skills
 

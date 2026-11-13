@@ -1,4 +1,5 @@
 import { extensionPermissionIds } from '@/extensions/generated/catalog'
+import { STAFF_ROLE_TEMPLATES } from '@/modules/identity/domain/staff-roles'
 
 // Core capabilities. Extensions may append namespaced capabilities through their manifest.
 export const PERMISSIONS = [
@@ -45,36 +46,11 @@ export const FORMERLY_OPENED_BY_POSTS = ['music.manage', 'cinema.manage', 'games
 /** Permissions that let their holder edit some content, and so upload a picture for it. */
 export const CONTENT_EDIT_PERMISSIONS = ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'prompts.manage'] as const
 
-export const ROLE_PRESETS: Record<string, string[]> = {
-  admin: [...ALL_PERMISSIONS],
-  'site-deputy': [...ALL_PERMISSIONS],
-  'form-specialist': ['dashboard.view', 'forms.handle'],
-  'order-specialist': ['dashboard.view', 'store.orders.handle'],
-  // The shop's cashier: the in-store desk only (plugins/instore), no returns, reports or other orders.
-  cashier: ['dashboard.view', 'instore.sell'],
-  accountant: ['dashboard.view', 'finance.manage', 'invoices.manage', 'orders.manage'],
-  support: ['dashboard.view', 'users.manage', 'subs.manage', 'orders.manage', 'invoices.manage', 'tickets.handle'],
-  reseller: ['dashboard.view', 'subs.manage'],
-  backup: ['dashboard.view', 'cms.pages', 'cms.posts', 'cms.products', 'settings.manage', ...FORMERLY_OPENED_BY_POSTS],
-  // One part of the site each: the manager of a section gets that section and nothing else.
-  'music-manager': ['dashboard.view', 'music.manage'],
-  'cinema-manager': ['dashboard.view', 'cinema.manage'],
-  'games-manager': ['dashboard.view', 'games.manage'],
-  'software-manager': ['dashboard.view', 'software.manage'],
-  'forum-manager': ['dashboard.view', 'forum.moderate'],
-  'store-manager': ['dashboard.view', 'cms.products', 'orders.manage'],
-  'magazine-manager': ['dashboard.view', 'cms.posts'],
-  // Every content section at once, for an editor-in-chief.
-  'content-manager': ['dashboard.view', 'cms.posts', ...FORMERLY_OPENED_BY_POSTS],
-}
+/** The ready roles, by job (identity/domain/staff-roles): every one opens the panel; the two full ones hold everything. */
+export const ROLE_PRESETS: Record<string, string[]> = Object.fromEntries(STAFF_ROLE_TEMPLATES.map((template) => [template.id, template.fullAccess ? [...ALL_PERMISSIONS] : ['dashboard.view', ...template.permissions]]))
 
 /** What the role form calls each preset. */
-export const ROLE_PRESET_LABELS: Record<string, string> = {
-  'site-deputy': 'معاون کل سایت (همهٔ بخش‌ها)', 'form-specialist': 'کارشناس فرم (فقط فرم‌های مجاز)', 'order-specialist': 'کارشناس سفارش (فقط کارهای مجاز)', cashier: 'صندوق‌دار مغازه (فقط فروش حضوری)',
-  admin: 'مدیر کل (همهٔ دسترسی‌ها)', accountant: 'حسابدار', support: 'پشتیبان', reseller: 'نماینده', backup: 'جانشین مدیر محتوا و تنظیمات',
-  'music-manager': 'مدیر موزیک', 'cinema-manager': 'مدیر فیلم و سریال', 'games-manager': 'مدیر بازی', 'software-manager': 'مدیر نرم‌افزار',
-  'forum-manager': 'مدیر تالار گفتمان', 'store-manager': 'مدیر فروشگاه (محصولات و سفارش‌ها)', 'magazine-manager': 'مدیر مجله (نوشته‌ها، دسته‌ها و دیدگاه‌ها)', 'content-manager': 'مدیر محتوا (مجله و همهٔ بخش‌های محتوایی)',
-}
+export const ROLE_PRESET_LABELS: Record<string, string> = Object.fromEntries(STAFF_ROLE_TEMPLATES.map((template) => [template.id, template.title]))
 
 /** Stored as the whole permission list: every capability, including ones plugins add later. */
 export const FULL_ACCESS = '*'

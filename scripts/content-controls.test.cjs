@@ -1676,7 +1676,8 @@ test('admin pages label themselves in Persian, every permission has a Persian na
   for (const file of walk('src/app/admin')) assert.doesNotMatch(read(file), /(eyebrow|kicker)[a-z-]*">[A-Z][A-Z0-9 ·&/-]{2,}</, file)
   // Roles: each core permission reads by a Persian name, without emoji.
   const permissions = [...read('src/modules/identity/rbac.ts').match(/export const PERMISSIONS = \[([\s\S]*?)\] as const/)[1].matchAll(/'([a-z.]+)'/g)].map((m) => m[1])
-  const roles = read('src/app/admin/roles/page.tsx'), labels = roles.match(/const PERM_LABELS: Record<string, string> = \{([\s\S]*?)\n\}/)[1]
+  // The names live with the ready staff roles (identity/domain/staff-roles); the roles page reads them from there.
+  const labels = read('src/modules/identity/domain/staff-roles.ts').match(/export const CORE_PERMISSION_LABELS: Record<string, string> = \{([\s\S]*?)\n\}/)[1]
   for (const permission of permissions) assert.match(labels, new RegExp(`'${permission.replace(/\./g, '\.')}': '[^']*[\u0600-\u06FF]`), permission)
   assert.doesNotMatch(labels, /\p{Extended_Pictographic}/u)
   // The shared CRUD list shows an option's label, never its stored code, and formats numbers.

@@ -1,0 +1,26 @@
+/* Staff roles (admin/roles): the team's roles, ready roles by job, a custom role. Admin tokens only. */
+.rl .sa-card { margin-block-end: 16px; }
+.rl-muted { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.9; }
+.rl-roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.rl-role { display: grid; align-content: start; gap: 10px; min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.rl-role.is-editing { grid-column: 1 / -1; border-color: var(--primary); }
+.rl-role-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.rl-role-head h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1rem; }
+.rl-tag { padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: .72rem; font-weight: 500; }
+.rl-count { flex: none; padding: 2px 10px; border-radius: 999px; background: var(--bg); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.rl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.rl-chips li { padding: 2px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: .78rem; line-height: 1.9; }
+.rl-chips .rl-more { border-style: dashed; color: var(--muted); }
+.rl-members { margin: 0; font-size: .84rem; line-height: 1.9; }
+.rl-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rl-edit { display: grid; gap: 12px; }
+.rl-edit-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.rl-category + .rl-category { margin-block-start: 18px; }
+.rl-category h3 { margin: 0 0 10px; font-size: .95rem; }
+.rl-category h3 small { margin-inline-start: 8px; color: var(--muted); font-size: .8rem; font-weight: 400; }
+.rl-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.rl-templates > li { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+.rl-templates p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.9; }
+.rl-templates .btn, .rl-made { justify-self: start; }
+.rl-made { padding: 2px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); font-size: .8rem; }
+.rl-custom { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; align-items: end; }

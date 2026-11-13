@@ -48,7 +48,7 @@ function GroupEditor({ draft, onCancel, onSaved, say }: { draft: Draft; onCancel
       <label><input type="checkbox" checked={form.showBadge} onChange={(event) => set('showBadge', event.target.checked)} /><span>نمایش زیر نام کاربر<small>نام گروه در کادر زیر نام اعضا در تالار دیده می‌شود</small></span></label>
       <label><input type="checkbox" checked={form.active} onChange={(event) => set('active', event.target.checked)} /><span>فعال<small>گروه غیرفعال هیچ دسترسی و مزیتی نمی‌دهد</small></span></label>
     </fieldset>
-    <p className="sa-hint">این گروه دسترسی به پنل مدیریت نمی‌دهد؛ مدیران با <Link href="/admin/section-managers">مدیران بخش‌ها</Link> تعیین می‌شوند.</p>
+    <p className="sa-hint">این گروه دسترسی به پنل مدیریت نمی‌دهد؛ کارکنان (صندوق‌دار، کارشناس فرم، پشتیبان و…) با <Link href="/admin/roles">نقش‌ها و دسترسی کارکنان</Link> و مدیران هر بخش با <Link href="/admin/section-managers">مدیران بخش‌ها</Link> تعیین می‌شوند.</p>
     <div className="ug-actions">
       <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ گروه'}</button>
       <button type="button" className="btn btn-ghost" onClick={onCancel}>انصراف</button>
@@ -151,7 +151,7 @@ export default function UserGroupsPage() {
 
   return <div className="sa ug" dir="rtl">
     <header className="sa-head">
-      <div><h1>گروه‌های کاربری</h1><p className="sa-hint">برای هر گروه تعیین کنید چه مزایایی بگیرد و چه بخش‌هایی را ببیند. برای یک محصول، مطلب، فیلم یا بازی هم از صفحهٔ ویرایش همان مورد مخاطب انتخاب کنید.</p></div>
+      <div><h1>گروه‌های اعضا و مشتریان</h1><p className="sa-hint">برای هر گروه تعیین کنید چه مزایایی بگیرد و چه بخش‌هایی را ببیند. برای یک محصول، مطلب، فیلم یا بازی هم از صفحهٔ ویرایش همان مورد مخاطب انتخاب کنید.</p></div>
       {!draft && <div className="sa-head-actions"><button type="button" className="btn btn-primary" onClick={() => { setNotice(null); setDraft({ ...EMPTY }) }}>گروه تازه</button></div>}
     </header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
