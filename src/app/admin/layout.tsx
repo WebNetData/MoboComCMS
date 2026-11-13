@@ -154,13 +154,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'moderation', flat: true, area: 'home', order: 3, title: L('صف بررسی', 'Moderation queue'), icon: 'flag', items: [{ href: '/admin/moderation', label: L('صف بررسی', 'Moderation queue'), icon: 'flag', perm: [...QUEUE_PERMISSIONS] }] },
     { id: 'directory', flat: true, area: 'home', order: 4, title: L('همهٔ ابزارها', 'All tools'), icon: 'grid', items: [{ href: '/admin/site-management', label: L('همهٔ ابزارها', 'All tools'), icon: 'grid' }] },
 
-    { id: 'content', area: 'content', order: 200, title: L('ابزارهای مشترک', 'Shared tools'), icon: 'layers', items: [
+    // Content: each section's own group (journal 20 … prompts 75, from its manifest), then what every section shares.
+    { id: 'content', area: 'content', order: 190, title: L('کتابخانه و منابع مشترک', 'Library & shared resources'), icon: 'layers', items: [
       { href: '/admin/media', label: L('کتابخانهٔ رسانه', 'Media library'), icon: 'image', perm: ['media.manage', 'settings.manage', 'prompts.manage', 'cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'journal.author', 'music.author', 'cinema.author', 'games.author', 'software.author', 'prompts.author'] },
       { href: '/admin/taxonomy', label: L('دسته‌بندی و زیردسته‌ها', 'Categories'), icon: 'grid', perm: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage'] },
       { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'prompts.manage'] },
       { href: '/admin/celebrities', label: L('هنرمندان و چهره‌ها', 'Artists and people'), icon: 'users', perm: ['cinema.manage', 'music.manage'] },
       // Its address asks for both the games and the cinema permission, so a manager of one reaches it from neither menu.
       { href: '/admin/studios', label: L('سازندگان و ناشران', 'Studios and publishers'), icon: 'grid', perm: 'settings.manage' },
+    ] },
+    { id: 'content-protection', area: 'content', order: 195, title: L('تصویر، دانلود و حق نشر', 'Images, downloads & rights'), icon: 'shield', items: [
       { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/watermark', label: L('واترمارک تصاویر', 'Image watermark'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
@@ -228,7 +231,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
 
     { id: 'people', area: 'people', order: 10, title: L('کاربران', 'Users'), icon: 'users', items: [
-      { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },
+      { href: '/admin/users', label: L('همهٔ کاربران و مشتریان', 'All users & customers'), icon: 'devices', perm: 'users.manage' },
       { href: '/admin/user-groups', label: L('گروه‌های اعضا و مشتریان', 'Member groups'), icon: 'devices', perm: 'users.manage' },
       { href: '/admin/profile-fields', label: L('فیلدهای ثبت‌نام و مشخصات', 'Registration fields'), icon: 'sliders', perm: ['users.manage', 'settings.manage'] },
     ] },
@@ -250,6 +253,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'offers', area: 'marketing', order: 20, title: L('تخفیف و معرفی', 'Offers & referrals'), icon: 'bolt', items: [
       { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
       { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
+    ] },
+    // Customer engagement and automation reach customers by rule: marketing work, not system settings.
+    { id: 'engagement', area: 'marketing', order: 25, title: L('ارتباط با مشتری و اتوماسیون', 'Engagement & automation'), icon: 'mail', items: [
+      { href: '/admin/crm/engagement', label: L('ارتباط با مشتری', 'Customer engagement'), icon: 'mail', perm: 'automation.manage' },
+      { href: '/admin/automation', label: L('اتوماسیون', 'Automation'), icon: 'sparkles', perm: 'automation.manage' },
     ] },
     { id: 'messages', area: 'marketing', order: 30, title: L('پیام‌رسانی', 'Messaging'), icon: 'chat', items: [
       { href: '/admin/newsletter', label: L('خبرنامه و کمپین ایمیلی', 'Newsletter & campaigns'), icon: 'chat', perm: 'settings.manage' },
@@ -278,15 +286,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/trust-seals', label: L('نمادهای اعتماد', 'Trust seals'), icon: 'shield', perm: 'settings.manage' },
     ] },
 
-    { id: 'settings', area: 'system', order: 10, title: L('تنظیمات و نگهداری', 'Settings & upkeep'), icon: 'sliders', items: [
+    // System: the site's basic settings, updates and data, health, security, connections, extensions and the server.
+    { id: 'settings', area: 'system', order: 10, title: L('تنظیمات پایه', 'Basic settings'), icon: 'sliders', items: [
       { href: '/admin/settings', label: L('تنظیمات عمومی و امکانات', 'General settings & features'), icon: 'sliders', perm: 'settings.manage' },
       { href: '/admin/sections', label: L('همهٔ بخش‌ها و آدرس‌ها', 'All sections & addresses'), icon: 'grid', perm: 'settings.manage', exact: true },
       { href: '/admin/permalinks', label: L('پیوندهای یکتا', 'Permalinks'), icon: 'link', perm: 'settings.manage' },
       { href: '/admin/maintenance', label: L('حالت تعمیر سایت و بخش‌ها', 'Maintenance mode'), icon: 'shield', perm: 'settings.manage' },
+    ] },
+    { id: 'upkeep', area: 'system', order: 15, title: L('به‌روزرسانی و داده‌ها', 'Updates & data'), icon: 'sparkles', items: [
       { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/imports', label: L('ورود گروهی اطلاعات', 'Bulk import'), icon: 'grid', perm: 'imports.manage' },
-      { href: '/admin/crm/engagement', label: L('ارتباط با مشتری', 'Customer engagement'), icon: 'mail', perm: 'automation.manage' },
-      { href: '/admin/automation', label: L('اتوماسیون', 'Automation'), icon: 'sparkles', perm: 'automation.manage' },
     ] },
     { id: 'health', area: 'system', order: 20, title: L('سلامت و پایش', 'Health & monitoring'), icon: 'chart', items: [
       { href: '/admin/monitoring', label: L('پایش سرعت و سلامت سرور', 'Performance & health'), icon: 'shield', perm: 'settings.manage' },
