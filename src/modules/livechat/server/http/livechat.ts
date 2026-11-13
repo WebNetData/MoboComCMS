@@ -116,7 +116,9 @@ export async function GET_visitorStream(req: NextRequest) {
 
 // ------------------------------------------------------------------ operators
 
-const AGENT = ['support.chat', 'tickets.manage', 'settings.manage']
+// Ticket staff answer chat too. 'tickets.manage' was written here until 2026-11-13; no such permission exists, so it
+// opened nothing (the core one is tickets.handle).
+const AGENT = ['support.chat', 'tickets.handle', 'settings.manage']
 
 /** GET /api/admin/chat — ?view=list&status=&q= | ?id=&since= | ?view=stats | ?view=settings */
 export async function GET_agent(req: NextRequest) {
@@ -169,7 +171,7 @@ export async function PUT_agent(req: NextRequest) {
 
 // ------------------------------------------------------------------ CRM
 
-const CRM = ['users.manage', 'support.chat', 'tickets.manage', 'settings.manage']
+const CRM = ['users.manage', 'support.chat', 'tickets.handle', 'settings.manage']
 
 /** GET /api/admin/crm — ?q=&tag=&segment= search | ?id= customer file. */
 export async function GET_crm(req: NextRequest) {

@@ -38,12 +38,23 @@ Owner, 2026-11-13: «سیستم اصولی و مرتب باید توسعه دا�
 - **IA, same branch:** content shared tools split in two; CRM engagement and automation moved to Marketing; System settings split into basic settings and updates and data; the users list has one name.
 - **Evidence:** tsc; the layout and manifest tests listed above pass. Remaining failures are environmental only: the app copy lacks `deploy/ubuntu/git-build.sh` and `xray-config.cjs`. Browser checks as owner covered the roles page (1440 light, 390 dark, axe 0, no overflow), the tools directory, and the Sales and desk screens. Not run: the Admin as a cashier or form specialist; creating staff users in the owner's database was refused.
 
+- **Discount codes and live chat permissions (branch fix/promotions-chat-permissions-2026-11-13):**
+  - New core permission `promotions.manage` («کدهای تخفیف و پیشنهادها»). It is in `CORE_ADDED_LATER`, so a full role stored without it still parses as full access (checked against the owner's stored admin role).
+  - The promotions API and menu accept `promotions.manage` or `plans.manage`, so nobody loses access; `orders.manage` alone is still refused. The ready role «مدیر فروشگاه» now holds `promotions.manage`. Existing store-manager roles do not get it automatically; give it in /admin/roles.
+  - Live chat: `tickets.manage`, which never existed and opened nothing, is now `tickets.handle` in the manifest and in the AGENT and CRM guards. Ticket staff can read and answer chat and open the CRM file; chat settings still need `settings.manage` or `support.chat`.
+  - Evidence: tsc; account-security, content-controls, routes, livechat and realtime-links tests (only the environmental Google case fails); stubbed guard check (promotions.manage 200, plans.manage 200, orders.manage 403, none 403); live anonymous 403 and owner 200.
+  - Local note: the owner test cookie expires; remake it with `.mobocom/claude-tools/mk-session.cjs`.
+
+- **Team directory:**
+  - /admin/team («کارکنان», first in Team) lists every staff member grouped by role, with a warning group for staff without a role (full access).
+  - An existing account is found by email or mobile (`findPhoneCustomer`) and joins with a required role. A role changes in place; «خروج از کارکنان» keeps the account as a member.
+  - API `/api/admin/team` (`identity/server/http/admin/team/route.ts`, roles.manage): every change goes through `accountChangeRefusal` and an optimistic `updateMany`, and is audited (`team.add`, `team.role`, `team.remove`). A role is always required; one's own row is locked; accounts are never created here.
+  - Evidence: tsc; account-security, content-controls, routes and navigation tests; security and audit gates. Live: anonymous 403; owner list (7 staff, 0 without a role) and find. Refusals checked without changes: no role → refused; already staff → 409. Browser at 1440 light and 390 dark: axe 0, no overflow, no page errors. No add, role change or removal was run against the owner's data.
+
 ## Next slices (in order)
 
-1. **Discount codes guard.** `/admin/promotions` and its API ask `plans.manage`, a VPN permission, so a store manager (`orders.manage`) cannot reach store coupons. Give promotions their own permission (`promotions.manage`) or accept `orders.manage` for store-channel codes. Existing roles must keep access, with a role-migration test.
-2. **Live chat permission typo.** `plugins/livechat/manifest.json` lists `tickets.manage`, which is not a permission (the core one is `tickets.handle`). Decide with the owner whether ticket handlers should see chat, then fix the manifest and its API guard together.
-3. **Team directory.** Add a list of staff (role ADMIN) grouped by role, with role change and «افزودن کارمند» (an existing account by mobile or email). Merge «مدیران و نویسندگان بخش‌ها» into it as a tab. Reuse the users API's `accountChangeRefusal`, add a `roleId` filter to the users list, and audit every change.
-4. **Section menus.** Every content manifest's items should follow one order: dashboard, items, add, taxonomy, home page, settings and address. Settings history links should not repeat under every item.
-5. **Single-link groups in Marketing** (SEO, popups, links) and **AI** («فروش و مشتری»): fold them into neighbours through their manifests or order, without changing addresses.
-6. **Website and services:** the form builder sits under Website while service work is under Sales. Add a link from «خدمات» to the builder for service forms; do not move the builder.
-7. **Run as each ready role** once the owner provides test accounts: cashier, form specialist, order specialist, chat agent, section managers. Record what each sees.
+1. **Section managers inside the team page.** Show «مدیران و نویسندگان بخش‌ها» as a tab of /admin/team, reusing its page and API (`identity/server/http/admin/section-managers`). Add a `roleId` filter to the users list so «همهٔ کاربران و مشتریان» can show one role's people.
+2. **Section menus.** Every content manifest's items should follow one order: dashboard, items, add, taxonomy, home page, settings and address. Settings history links should not repeat under every item.
+3. **Single-link groups in Marketing** (SEO, popups, links) and **AI** («فروش و مشتری»): fold them into neighbours through their manifests or order, without changing addresses.
+4. **Website and services:** the form builder sits under Website while service work is under Sales. Add a link from «خدمات» to the builder for service forms; do not move the builder.
+5. **Run as each ready role** once the owner provides test accounts: cashier, form specialist, order specialist, chat agent, section managers. Record what each sees.

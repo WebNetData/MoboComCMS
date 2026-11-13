@@ -6,6 +6,12 @@ import { auditAdmin } from '@/platform/audit/server'
 import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { promotionCode } from '@/modules/promotions/server/promotions'
 
+/**
+ * Discount codes have their own permission (promotions.manage, owner 2026-11-13): a store manager makes store and
+ * counter codes without holding the VPN plans. plans.manage, their only key until then, still opens them.
+ */
+const promotionsAdmin = async (req: NextRequest) => await requirePerm(req, 'promotions.manage') || await requirePerm(req, 'plans.manage')
+
 function parseDate(value: unknown) {
   if (value == null || value === '') return null
   const date = new Date(String(value))
@@ -34,13 +40,13 @@ function parseInput(body: any, fallbackChannel = 'ONLINE') {
 }
 
 export async function GET(req: NextRequest) {
-  if (!await requirePerm(req, 'plans.manage')) return err('forbidden', 403)
+  if (!await promotionsAdmin(req)) return err('forbidden', 403)
   const [rows, plans, vipPlans] = await Promise.all([db.promotion.findMany({ orderBy: { id: 'desc' }, take: 300 }), db.plan.findMany({ select: { id: true, name: true, nameEn: true }, orderBy: { sort: 'asc' } }), db.membershipPlan.findMany({ select: { id: true, name: true }, orderBy: { sortOrder: 'asc' } })])
   return ok({ vipPlans, promotions: rows.map(row => ({ ...row, amountMinor: undefined, minSubtotalMinor: undefined, value: row.kind === 'PERCENT' ? row.percentBps / 100 : legacyNumber(row.amountMinor, row.currency), minSubtotal: legacyNumber(row.minSubtotalMinor, row.currency) })), plans })
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requirePerm(req, 'plans.manage')
+  const admin = await promotionsAdmin(req)
   if (!admin) return err('forbidden', 403)
   let input: ReturnType<typeof parseInput>
   try { input = parseInput(await req.json()) } catch { return err('invalid promotion') }
@@ -52,7 +58,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const admin = await requirePerm(req, 'plans.manage')
+  const admin = await promotionsAdmin(req)
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
   const id = Number(body?.id)
