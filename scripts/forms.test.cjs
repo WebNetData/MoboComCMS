@@ -475,6 +475,10 @@ test('mobile repair: a device lock is checked and kept as given; a form has its 
   assert.ok(computer.settings.receipt.enabled && computer.settings.workflow.some((step) => step.receipt) && computer.settings.workflow.some((step) => step.pickup))
   for (const id of computer.settings.receipt.customerFields) assert.ok(computer.fields.some((item) => item.id === id), id)
   assert.equal(computer.fields.find((item) => item.id === 'password').type, 'secret')
+  // Both repair forms hand the device back only with the repair's paid counter invoice (or a manager's recorded reason).
+  assert.equal(f.normalizeWorkflow([{ key: 'DONE', label: 'تحویل', pickup: true, invoice: true }]).find((step) => step.key === 'DONE').invoice, true)
+  assert.equal(f.normalizeWorkflow([{ key: 'DONE', label: 'تحویل' }]).find((step) => step.key === 'DONE').invoice, false)
+  for (const id of ['mobile-repair', 'computer-repair']) assert.equal(f.normalizeForm(f.TEMPLATES.find((t) => t.id === id).build()).settings.workflow.find((step) => step.key === 'DONE').invoice, true, id)
 })
 
 test('staff counter submission is independent of the public human check', () => {

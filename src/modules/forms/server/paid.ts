@@ -11,6 +11,7 @@ import {
 } from '@/modules/forms/domain/forms'
 import { randomBytes, randomInt } from 'node:crypto'
 import { mergeTags } from '@/modules/forms/domain/advanced'
+import { invoicePaid, repairInvoice } from '@/modules/forms/server/repair-invoice'
 
 // Paid forms and the work on an answer: the bill, the payment through the site's own checkout,
 // the secrets a sender hands over, and the stage staff move an answer through.
@@ -178,7 +179,7 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   const data: { stage?: string; assigneeId?: number | null; reply?: string; read?: boolean; status?: string; pickupCode?: string; receiptToken?: string; receivedAt?: Date } = {}
   const settings = parseForm(row.form).settings
   const steps = workSteps(settings)
-  let overridden = ''
+  let overridden = '', withoutInvoice = ''
   if (patch.stage !== undefined) {
     const step = steps.find((item) => item.key === patch.stage)
     if (!step) throw new FormsError('وضعیت کار معتبر نیست')
@@ -193,6 +194,12 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
         if (!manager || reason.length < 5) throw new FormsError(manager ? 'کد تحویل درست نیست؛ اگر رسید گم شده، دلیل تحویل بدون کد را بنویسید' : 'کد تحویل روی رسید مشتری درست نیست؛ بدون رسید، دستگاه تحویل داده نمی‌شود', 403)
         overridden = reason
       }
+    }
+    // «Paid before it goes back»: the repair's counter invoice, or a manager who records why it leaves without one (warranty, free work).
+    if (step.invoice && step.key !== row.stage && !invoicePaid(await repairInvoice(row.repairOrderId))) {
+      const reason = String(patch.override ?? '').trim().slice(0, 300)
+      if (!manager || reason.length < 5) throw new FormsError(manager ? 'فاکتور تعمیر پرداخت نشده است؛ اگر دستگاه بدون فاکتور تحویل می‌شود (گارانتی یا رایگان)، دلیلش را بنویسید' : 'فاکتور تعمیر هنوز صادر یا پرداخت نشده است؛ بدون فاکتور پرداخت‌شده، دستگاه تحویل داده نمی‌شود', 403)
+      withoutInvoice = reason
     }
     // The step that takes the device in issues the receipt: its link and the code asked when it is handed back.
     if (step.receipt && !row.receiptToken) Object.assign(data, receiptCodes())
@@ -230,7 +237,7 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   }
   const moved = data.stage && data.stage !== row.stage ? steps.find((item) => item.key === data.stage) : undefined
   if (moved) await tellSender({ id: row.id, title: row.form.title, data: row.data, userId: row.userId, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken }, moved).catch(() => undefined)
-  return { stage, assigneeId: data.assigneeId === undefined ? row.assigneeId : data.assigneeId, reply: data.reply ?? row.reply, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken, overridden }
+  return { stage, assigneeId: data.assigneeId === undefined ? row.assigneeId : data.assigneeId, reply: data.reply ?? row.reply, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken, overridden, withoutInvoice }
 }
 
 /** A new receipt: the token of the customer's copy, and the six-digit code asked when the device is handed back. */

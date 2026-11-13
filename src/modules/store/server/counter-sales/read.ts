@@ -58,5 +58,6 @@ export async function counterReceipt(orderId: number) {
     deliveryMode: meta.shippingMode === 'SHIP' ? 'SHIP' as const : 'HANDOVER' as const, subtotalMinor: String(meta.subtotalMinor || ''), discountMinor: String(meta.discountMinor || '0'), shippingMinor: String(meta.shippingMinor || '0'), shippingAddress: meta.shippingAddress && typeof meta.shippingAddress === 'object' ? Object.values(meta.shippingAddress).filter(value => typeof value === 'string').join(' · ') : '',
     currency: order.currency, totalMinor: order.totalMinor.toString(), brand: { title: site.brand || '', logo: site.logo || '' }, seller, register: order.registerSession?.register || '',
     lines: order.lines.map((line) => ({ name: line.name, variant: line.variantName, quantity: line.quantity, unitMinor: line.unitPriceMinor.toString(), totalMinor: line.totalMinor.toString(), kind: line.kind })), cards,
+    ...(() => { const repair = meta.repair as { submissionId?: unknown } | undefined, id = Number(repair?.submissionId); return Number.isSafeInteger(id) && id > 0 ? { repair: { id } } : {} })(),
   }
 }

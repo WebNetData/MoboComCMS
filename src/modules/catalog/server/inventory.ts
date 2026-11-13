@@ -16,8 +16,9 @@ type StockLine = { line: number; productId: number; variantId: number | null; qu
 const holdFor = (minutes: number | undefined) => new Date(Date.now() + Math.max(5, Math.min(24 * 60, Math.floor(minutes || 30))) * 60_000)
 
 async function orderStockLines(tx: Tx, orderId: number): Promise<StockLine[]> {
-  const lines = await tx.orderLine.findMany({ where: { orderId, productId: { not: null } }, orderBy: { line: 'asc' }, select: { line: true, productId: true, variantId: true, quantity: true } })
-  if (lines.length) return lines.map((row) => ({ line: row.line, productId: row.productId!, variantId: row.variantId, quantity: Math.max(1, row.quantity) }))
+  // Lines without a product (a repair's work at the counter) hold no stock; only an order with no lines at all is a legacy single-product order.
+  const lines = await tx.orderLine.findMany({ where: { orderId }, orderBy: { line: 'asc' }, select: { line: true, productId: true, variantId: true, quantity: true } })
+  if (lines.length) return lines.flatMap((row) => row.productId ? [{ line: row.line, productId: row.productId, variantId: row.variantId, quantity: Math.max(1, row.quantity) }] : [])
   const order = await tx.order.findUnique({ where: { id: orderId }, select: { productId: true, meta: true } })
   if (!order?.productId) return []
   let meta: Record<string, unknown> = {}

@@ -12,7 +12,7 @@ let viewer = null
 const load = require('./connected-source-loader.cjs')({
   '@/platform/database/prisma': { db },
   'next-auth/jwt': { getToken: async () => viewer ? { uid: viewer.id, authAt: new Date().toISOString() } : null },
-  '@/extensions/server/modules': { isModuleEnabled: async () => true },
+  '@/extensions/server/modules': { isModuleEnabled: async () => true, moduleGuard: async () => null },
   '@/platform/observability/logger': { logEvent() {}, requestIdFrom: () => stamp },
   '@/modules/sms/server/sms': { notifyPhone: async () => {}, siteLink: async (route) => `http://site.invalid${route}` },
   react: { ...require('react'), cache: (fn) => fn },

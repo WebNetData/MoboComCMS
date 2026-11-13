@@ -16,7 +16,7 @@ export async function priceCounterLines(tx: Prisma.TransactionClient, input: Cou
   const available = new Map<number, Map<number | null, number>>()
   for (const product of products.filter((item) => item.digitalMode === 'CODES')) available.set(product.id, await availableCodeStock(tx, product.id))
   let currency = '', totalMinor = 0n
-  const lines = input.lines.map((wanted, line) => {
+  const stocked = input.lines.map((wanted, line) => {
     const product = products.find((item) => item.id === wanted.productId)
     if (!product?.active || product.sellerId || product.openAmount || !(product.kind === 'PHYSICAL' || (product.kind === 'VIRTUAL' && product.digitalMode === 'CODES'))) throw new StoreError('این کالا برای فروش حضوری آماده نیست', 409)
     const variant = wanted.variantId ? product.variants.find((item) => item.id === wanted.variantId) || null : null
@@ -31,6 +31,17 @@ export async function priceCounterLines(tx: Prisma.TransactionClient, input: Cou
     totalMinor += amount
     return { line, productId: product.id, variantId: variant?.id || null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku, image: product.image, kind: product.kind, quantity: wanted.quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: amount, currency, unitCostMinor: variant?.costMinor ?? product.costMinor, inputs: sealAnswers(validateAnswers(validateOrderFields(product.orderFields), variant?.name || '', wanted.inputs)) }
   })
+  // A repair's work and the parts not kept in stock follow the goods: priced by staff, no stock, never returned to a shelf.
+  const lines: (Omit<typeof stocked[number], 'productId' | 'unitCostMinor'> & { productId: number | null; unitCostMinor: bigint | null })[] = [...stocked]
+  if (input.repair) {
+    if (currency && currency !== input.repair.currency) throw new StoreError('واحد پول کالاها و فاکتور تعمیر باید یکسان باشد')
+    currency = input.repair.currency
+    for (const work of input.repair.work) {
+      const unit = BigInt(work.unitMinor), amount = unit * BigInt(work.quantity)
+      totalMinor += amount
+      lines.push({ line: lines.length, productId: null, variantId: null, name: work.name, variantName: '', sku: '', image: '', kind: work.part ? 'PART' : 'SERVICE', quantity: work.quantity, unitPriceMinor: unit, listPriceMinor: unit, totalMinor: amount, currency, unitCostMinor: null, inputs: '' })
+    }
+  }
   if (totalMinor > 9_000_000_000_000_000n) throw new StoreError('مبلغ فروش بیش از حد مجاز است')
   return { products, lines, subtotalMinor: totalMinor, currency }
 }
