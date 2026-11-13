@@ -940,9 +940,11 @@ html[data-design="mobocom"] .journal-crumb-pill { display: inline-flex; flex-wra
 /* inside a section, its own bar follows the reader under the fixed header; columns that pin themselves make room for it */
 @media (min-width: 861px) {
   html[data-design="mobocom"] .mm-bar-wrap { position: sticky; top: 74px; z-index: 36; }
-  /* a veil behind the riding bar, so the page does not show through the gap between it and the header */
-  html[data-design="mobocom"] .mm-bar-wrap::before { content: ""; position: absolute; inset: -14px 0 -16px; z-index: -1; background: var(--bg); }
-  html[data-design="mobocom"]:has(.mm-bar-wrap) :is(.cm-aside, .cm-side-nav, .cr-aside, .fx-side, .fx-timeline, .fb-side, .gv-aside, .cn-filters, .gm-aside, .sw-aside, .fr-aside, .sp-aside, .sp-tabs, .sh-summary, .store-purchase-card, .rv-summary, .qa-ask) { top: 152px; }
+  /* a veil behind the riding bar, so the page does not show through the gap between it and the header; it ends at the bar so it never covers what follows */
+  html[data-design="mobocom"] .mm-bar-wrap::before { content: ""; position: absolute; inset: -14px 0 0; z-index: -1; background: var(--bg); }
+  html[data-design="mobocom"]:has(.mm-bar-wrap) :is(.cm-aside, .cm-side-nav, .cr-aside, .fx-side, .fx-timeline, .fb-side, .gv-aside, .cn-filters, .gm-aside, .sw-aside, .fr-aside, .sp-aside, .sp-tabs, .sh-summary, .store-purchase-card, .rv-summary, .qa-ask, .gv-secnav, .cm-tabs, .store-tab-list) { top: 152px; }
+  /* the forum's own header would slide under the riding bar; the bar is the section's header here, so it scrolls with the page */
+  html[data-design="mobocom"]:has(.mm-bar-wrap) .fx-top { position: relative; }
   html[data-design="mobocom"]:has(.mm-bar-wrap) :is(.gv-section, .gv-anchor) { scroll-margin-top: 156px; }
 }
 
