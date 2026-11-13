@@ -78,8 +78,9 @@ export async function recordStoreSale(orderId: number, client?: Prisma.Transacti
   const record = async (tx: Prisma.TransactionClient) => {
     if (await tx.orderEvent.findFirst({ where: { orderId, status: 'PAID' }, select: { id: true } })) return
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { productId: true, lines: { select: { productId: true, quantity: true } } } })
-    if (!order?.productId) return
-    const sold = order.lines.length ? order.lines.filter((line) => line.productId) : [{ productId: order.productId, quantity: 1 }]
+    // A counter repair invoice may hold only work (lines without a product); it is still a recorded sale.
+    if (!order || (!order.productId && !order.lines.length)) return
+    const sold = order.lines.length ? order.lines.filter((line) => line.productId) : [{ productId: order.productId!, quantity: 1 }]
     for (const line of sold) await tx.product.updateMany({ where: { id: line.productId! }, data: { soldCount: { increment: line.quantity } } })
     await tx.orderEvent.create({ data: { orderId, status: 'PAID', note: 'پرداخت تأیید شد و سفارش به صف پردازش رفت' } })
   }

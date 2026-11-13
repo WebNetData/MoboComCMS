@@ -15,6 +15,7 @@ import type { SaleDocumentFormat } from '@/components/store/SaleReceiptDocument'
 import CustomerDesk, { EMPTY_BUYER, buyerState, type Buyer } from './CustomerDesk'
 import PaymentDesk, { EMPTY_PAYMENT, paymentRows, type DeskPayment } from './PaymentDesk'
 import DoneMark from '../DoneMark'
+import RepairDesk, { newWorkRow, workIncomplete, workLines, workTotal, type RepairInfo, type WorkRow } from './RepairDesk'
 import '../desk.css'
 
 type Item = CounterLine & { product: CounterProduct; variantName: string }
@@ -62,12 +63,35 @@ export default function CounterSales() {
   const [paper, setPaper] = useState<SaleDocumentFormat>('sheet')
   useEffect(() => { try { if (localStorage.getItem(PAPER_KEY) === 'roll') setPaper('roll') } catch { /* default paper */ } }, [])
   function choosePaper(value: SaleDocumentFormat) { setPaper(value); try { localStorage.setItem(PAPER_KEY, value) } catch { /* not remembered */ } }
+  // A repair invoiced here (`?repair=<id>` from the forms desk): the work and bought-in parts typed by staff, beside parts from stock.
+  const [repairId, setRepairId] = useState(0)
+  const [repair, setRepair] = useState<RepairInfo | null>(null)
+  const [work, setWork] = useState<WorkRow[]>([])
+  useEffect(() => { const id = Number(new URLSearchParams(window.location.search).get('repair')); if (Number.isSafeInteger(id) && id > 0) setRepairId(id) }, [])
+  useEffect(() => {
+    if (!repairId) return
+    const controller = new AbortController()
+    fetch(`/api/admin/store/counter?repair=${repairId}`, { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const body = await response.json()
+        if (!response.ok) throw new Error(body.error || 'درخواست تعمیر خوانده نشد')
+        if (controller.signal.aborted) return
+        const info = body.repair as RepairInfo, [firstName = '', ...rest] = info.customerName.split(/\s+/).filter(Boolean)
+        setRepair(info); setWork((rows) => rows.length ? rows : [newWorkRow(false)])
+        setBuyer((current) => current.phone || current.firstName ? current : { phone: info.phone, firstName, lastName: rest.join(' ') })
+      })
+      .catch((error: unknown) => { if (!controller.signal.aborted) setLocalError(error instanceof Error ? error.message : 'درخواست تعمیر خوانده نشد') })
+    return () => controller.abort()
+  }, [repairId])
   const product = products.find((item) => item.id === productId)
   const variant = product?.variants.find((item) => item.id === variantId)
-  const currency = items[0]?.product.currency || ''
-  const subtotal = items.reduce((sum, item) => sum + BigInt(item.expectedUnitMinor) * BigInt(item.quantity), 0n)
+  const currency = items[0]?.product.currency || (repair ? (sessions || []).find((row) => row.id === sessionId)?.currency || '' : '')
+  const repairLines = repair ? workLines(work, currency) : []
+  const repairInput = repair ? { repair: { submissionId: repair.id, currency, work: repairLines } } : {}
+  const hasLines = items.length > 0 || repairLines.length > 0
+  const subtotal = items.reduce((sum, item) => sum + BigInt(item.expectedUnitMinor) * BigInt(item.quantity), 0n) + (repair ? workTotal(work, currency) : 0n)
   const needsQuote = !!discountCode.trim() || shipment.enabled
-  const quote = useCounterQuote(needsQuote && items.length ? { lines: items.map(({ product, variantName, ...line }) => line), customerId: customer?.id || null, customerPhone: buyer.phone.trim(), discountCode, shipment: shipmentInput(shipment), attempt: quoteAttempt } : null)
+  const quote = useCounterQuote(needsQuote && hasLines ? { lines: items.map(({ product, variantName, ...line }) => line), ...repairInput, customerId: customer?.id || null, customerPhone: buyer.phone.trim(), discountCode, shipment: shipmentInput(shipment), attempt: quoteAttempt } : null)
   const total = quote.quote ? BigInt(quote.quote.totalMinor) : subtotal
   const quoteReady = !needsQuote || !!quote.quote
   const sourceQuery = shipment.enabled && shipment.locationId ? `&shipLocation=${shipment.locationId}` : ''
@@ -78,7 +102,7 @@ export default function CounterSales() {
   let paymentReady = false
   try {
     const rows = paymentRows(payment, total, currency), needsCode = rows.some((row) => row.method === 'WALLET') || payment.points > 0
-    paymentReady = items.length > 0 && rows.length > 0 && (!rows.some((row) => row.method === 'CARD') || !!payment.reference.trim()) && (!needsCode || payment.walletCode.length === 6)
+    paymentReady = hasLines && rows.length > 0 && (!rows.some((row) => row.method === 'CARD') || !!payment.reference.trim()) && (!needsCode || payment.walletCode.length === 6)
   } catch { paymentReady = false }
 
   useEffect(() => {
@@ -128,14 +152,14 @@ export default function CounterSales() {
   }
   function changeItem(index: number, patch: Partial<Item>) { setItems(items.map((item, at) => at === index ? { ...item, ...patch } : item)); setConfirmed(false) }
   // A card reference typed before switching to cash must not reach a cash receipt.
-  const payload = () => { const payments = paymentRows(payment, total, currency); return { ...(discountCode.trim() ? { discountCode } : {}), ...(shipment.enabled ? { shipment: shipmentInput(shipment) } : {}), ...(needsQuote && quote.quote ? { expectedTotalMinor: quote.quote.totalMinor } : {}), customerId: customer?.id || null, customerName: [buyer.firstName.trim(), buyer.lastName.trim()].filter(Boolean).join(' '), customerFirstName: buyer.firstName.trim(), customerLastName: buyer.lastName.trim(), customerPhone: buyer.phone.trim(), sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line) } }
+  const payload = () => { const payments = paymentRows(payment, total, currency); return { ...(discountCode.trim() ? { discountCode } : {}), ...(shipment.enabled ? { shipment: shipmentInput(shipment) } : {}), ...(needsQuote && quote.quote ? { expectedTotalMinor: quote.quote.totalMinor } : {}), customerId: customer?.id || null, customerName: [buyer.firstName.trim(), buyer.lastName.trim()].filter(Boolean).join(' '), customerFirstName: buyer.firstName.trim(), customerLastName: buyer.lastName.trim(), customerPhone: buyer.phone.trim(), sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line), ...repairInput } }
   function submitSale() { try { void sale.submit(payload()) } catch (error) { setLocalError(error instanceof Error ? error.message : 'مبالغ پرداخت معتبر نیست') } }
-  function nextSale() { if (sale.nextSale()) { setItems([]); setDiscountCode(''); setShipment(EMPTY_SHIPMENT); setConfirmed(false); setCustomer(null); setBuyer(EMPTY_BUYER); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setAttempt((value) => value + 1) } }
-  const addDisabled = !product || !!(product.variants.length && !variant) || items.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)
+  function nextSale() { if (sale.nextSale()) { setItems([]); setDiscountCode(''); setShipment(EMPTY_SHIPMENT); setConfirmed(false); setCustomer(null); setBuyer(EMPTY_BUYER); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setRepair(null); setRepairId(0); setWork([]); setAttempt((value) => value + 1) } }
+  const addDisabled = !product || !!(product.variants.length && !variant) || items.length + work.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)
   const stock = product ? (variant?.stock ?? product.stock) : -1
 
 // Registers and returns are tabs of the desk; the store's order list only for someone who may open it (not a cashier).
-return <StoreShell title="فروش حضوری" actions={ordersReachable ? <Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link> : undefined}>
+return <StoreShell title={repair ? 'فاکتور تعمیر' : 'فروش حضوری'} actions={ordersReachable ? <Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link> : undefined}>
     {localError && <div className="sa-notice is-error" role="alert">{localError}</div>}
     {sale.message && <div className="sa-notice is-error" role="alert">{sale.message}</div>}
     {sale.orderId ? <>
@@ -148,6 +172,7 @@ return <StoreShell title="فروش حضوری" actions={ordersReachable ? <Link 
           <button type="button" className="btn btn-primary" disabled={!sale.receipt} onClick={() => window.print()}>{sale.receipt?.cards.length ? 'چاپ رسید و کارت‌ها' : 'چاپ رسید'}</button>
           {sale.receipt && <Link className="btn btn-ghost" href={`/invoice/${encodeURIComponent(sale.receipt.invoiceNumber)}/official`} target="_blank">صورتحساب رسمی</Link>}
           <Link className="btn btn-ghost" href={`/admin/store/orders/${sale.orderId}`}>جزئیات سفارش</Link>
+          {repair && <Link className="btn btn-ghost" href={`/admin/forms?form=${repair.formId}&tab=inbox`}>بازگشت به درخواست تعمیر</Link>}
           <button type="button" className="btn btn-ghost cd-next" onClick={nextSale}>فروش بعدی</button>
           {!sale.receipt && <button type="button" className="btn btn-ghost" onClick={sale.retryReceipt}>دریافت دوبارهٔ رسید</button>}
         </div>
@@ -162,6 +187,7 @@ return <StoreShell title="فروش حضوری" actions={ordersReachable ? <Link 
       </div></section>}
       <form className="cd-layout" onSubmit={(event) => { event.preventDefault(); if (confirmed) submitSale() }}>
         <fieldset className="sa-card cd-basket" disabled={locked}><legend className="cd-sr">کالاهای فروش</legend>
+          {repair && <RepairDesk repair={repair} rows={work} onRows={(rows) => { setWork(rows); setConfirmed(false) }} currency={currency} stockLines={items.length} />}
           <div className="cd-scan">
             <label htmlFor="counter-scan">بارکد کالا</label>
             <div className="cd-scan-field">
@@ -187,7 +213,7 @@ return <StoreShell title="فروش حضوری" actions={ordersReachable ? <Link 
             </div>
           </details>
 
-          <div className="cd-lines-head"><h2>کالاهای این فروش</h2>{items.length > 0 && <span className="cd-meta">{items.length.toLocaleString('fa-IR')} ردیف · {units.toLocaleString('fa-IR')} عدد</span>}</div>
+          <div className="cd-lines-head"><h2>{repair ? 'قطعه‌های تعویض‌شده از انبار' : 'کالاهای این فروش'}</h2>{items.length > 0 && <span className="cd-meta">{items.length.toLocaleString('fa-IR')} ردیف · {units.toLocaleString('fa-IR')} عدد</span>}</div>
           {items.length ? <ol className="cd-lines">{items.map((item, index) => {
             const key = lineKey(item.productId, item.variantId), fields = fieldsFor(item.product.fields, item.variantName)
             return <li key={key} className="cd-line" aria-label={item.product.name}>
@@ -222,15 +248,15 @@ return <StoreShell title="فروش حضوری" actions={ordersReachable ? <Link 
 
           <div className="cd-ticket">
             <dl className="cd-ticket-rows">
-              <div><dt>ردیف کالا</dt><dd className="cd-num">{items.length.toLocaleString('fa-IR')}</dd></div>
+              <div><dt>ردیف کالا</dt><dd className="cd-num">{(items.length + repairLines.length).toLocaleString('fa-IR')}</dd></div>
               {quote.quote && <><div><dt>جمع کالاها</dt><dd>{formatMoney(BigInt(quote.quote.subtotalMinor), currency, 'fa-IR')}</dd></div><div><dt>تخفیف</dt><dd>{formatMoney(BigInt(quote.quote.discountMinor), currency, 'fa-IR')}</dd></div><div><dt>ارسال</dt><dd>{formatMoney(BigInt(quote.quote.shippingMinor), currency, 'fa-IR')}</dd></div></>}
               <div><dt>تعداد</dt><dd className="cd-num">{units.toLocaleString('fa-IR')}</dd></div>
             </dl>
             <p className="cd-ticket-total"><span>جمع فروش</span><strong key={total.toString()} className="cd-num">{currency ? formatMoney(total, currency, 'fa-IR') : '—'}</strong></p>
           </div>
-          <label className="cd-confirm"><input type="checkbox" checked={confirmed && quoteReady} disabled={!quoteReady} onChange={(event) => setConfirmed(event.target.checked)} /><span>{shipment.enabled ? 'کل مبلغ را دریافت کرده‌ام؛ سفارش باید از انبار به نشانی مشتری ارسال شود' : 'کل مبلغ را دریافت کرده‌ام و کالاها اکنون به مشتری تحویل می‌شوند'}</span></label>
+          <label className="cd-confirm"><input type="checkbox" checked={confirmed && quoteReady} disabled={!quoteReady} onChange={(event) => setConfirmed(event.target.checked)} /><span>{repair ? 'کل مبلغ فاکتور تعمیر را از مشتری دریافت کرده‌ام' : shipment.enabled ? 'کل مبلغ را دریافت کرده‌ام؛ سفارش باید از انبار به نشانی مشتری ارسال شود' : 'کل مبلغ را دریافت کرده‌ام و کالاها اکنون به مشتری تحویل می‌شوند'}</span></label>
           {buyerStatus.problem && <p className="cd-error" role="status">{buyerStatus.problem}</p>}
-          <button className="btn btn-primary cd-submit" type="submit" disabled={!items.length || !confirmed || !quoteReady || !sessionId || scanBusy || locked || !!buyerStatus.problem}>{sale.busy ? 'در حال ثبت…' : shipment.enabled ? 'ثبت سفارش ارسالی و صدور فاکتور' : 'ثبت فروش و صدور فاکتور'}</button>
+          <button className="btn btn-primary cd-submit" type="submit" disabled={!hasLines || (!!repair && workIncomplete(work, currency)) || !confirmed || !quoteReady || !sessionId || scanBusy || locked || !!buyerStatus.problem}>{sale.busy ? 'در حال ثبت…' : repair ? 'ثبت و صدور فاکتور تعمیر' : shipment.enabled ? 'ثبت سفارش ارسالی و صدور فاکتور' : 'ثبت فروش و صدور فاکتور'}</button>
         </fieldset>
       </form>
     </>}

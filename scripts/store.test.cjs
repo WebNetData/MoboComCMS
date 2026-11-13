@@ -14,6 +14,23 @@ test('counter sale requires explicit received-money confirmation and bounded una
  for (const changed of [{ confirmed: false }, { method: 'WALLET' }, { requestId: 'bad' }, { customerId: -1 }, { lines: [] }, { lines: [...valid.lines, ...valid.lines] }, { lines: [{ ...valid.lines[0], quantity: 1.5 }] }, { lines: [{ ...valid.lines[0], quantity: 100 }] }, { lines: [{ ...valid.lines[0], expectedUnitMinor: '1e3' }] }]) assert.throws(() => readCounterSale({ ...valid, ...changed }))
 })
 
+test('a repair invoice carries staff-priced work and may have no stock line', () => {
+  const { readCounterSale, repairLineNote } = load('src/modules/store/domain/counter-sales.ts')
+  const base = { requestId: '11111111-2222-4333-8444-555555555555', confirmed: true, method: 'CASH', lines: [] }
+  const repair = { submissionId: 7, currency: 'irt', work: [{ name: ' تعویض باتری ', part: true, quantity: 1, unitMinor: '2500000' }, { name: 'اجرت', quantity: 2, unitMinor: '0' }] }
+  assert.deepEqual(readCounterSale({ ...base, repair }).repair, { submissionId: 7, currency: 'IRT', work: [{ name: 'تعویض باتری', part: true, quantity: 1, unitMinor: '2500000' }, { name: 'اجرت', part: false, quantity: 2, unitMinor: '0' }] })
+  assert.equal(readCounterSale({ ...base, lines: [{ productId: 1, quantity: 1, expectedUnitMinor: '5' }] }).repair, undefined)
+  assert.throws(() => readCounterSale(base), /۳۰/)
+  const many = (count) => Array.from({ length: count }, () => ({ name: 'اجرت', quantity: 1, unitMinor: '1' }))
+  for (const work of [[{ name: 'x', quantity: 1, unitMinor: '1' }], [{ name: 'اجرت', quantity: 0, unitMinor: '1' }], [{ name: 'اجرت', quantity: 1, unitMinor: '-5' }], [{ name: 'اجرت', quantity: 1, unitMinor: '1.5' }], many(31)]) assert.throws(() => readCounterSale({ ...base, repair: { ...repair, work } }), JSON.stringify(work).slice(0, 60))
+  for (const changed of [{ submissionId: 0 }, { currency: 'تومان' }]) assert.throws(() => readCounterSale({ ...base, repair: { ...repair, ...changed } }))
+  // Goods and work share the thirty rows of one sale.
+  assert.throws(() => readCounterSale({ ...base, lines: Array.from({ length: 20 }, (_, i) => ({ productId: i + 1, quantity: 1, expectedUnitMinor: '1' })), repair: { ...repair, work: many(11) } }), /۳۰/)
+  assert.equal(repairLineNote('SERVICE', ''), 'اجرت و کار انجام‌شده')
+  assert.equal(repairLineNote('PART', ''), 'قطعهٔ تعویض‌شده')
+  assert.equal(repairLineNote('PHYSICAL', '۲۵۶ گیگ'), 'قطعهٔ تعویض‌شده · ۲۵۶ گیگ')
+})
+
 function load(file, mocks = {}, cache = new Map()) {
   const key = file.replace(/\\/g, '/')
   if (cache.has(key)) return cache.get(key).exports

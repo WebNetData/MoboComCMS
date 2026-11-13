@@ -3,7 +3,7 @@
 import { CONTENT_TYPES, STAGES, STAGE_LABEL, type FormDefinition, type FormSettings, type WorkStep } from '@/modules/forms/domain/forms'
 
 const FIXED = STAGES as readonly string[]
-const blank = (key: string, label: string): WorkStep => ({ key, label, message: '', sms: false, receipt: false, pickup: false })
+const blank = (key: string, label: string): WorkStep => ({ key, label, message: '', sms: false, receipt: false, pickup: false, invoice: false })
 
 /**
  * The form's own work steps and its receipts (forms domain: workflow, receipt). Steps between «waiting» and
@@ -38,6 +38,7 @@ export function WorkPanels({ form, s, set }: { form: FormDefinition; s: FormSett
           <label className="sa-check"><input type="checkbox" checked={step.sms} onChange={(event) => setStep(index, { sms: event.target.checked })} />پیامک به مشتری</label>
           {step.key !== 'OPEN' && step.key !== 'REJECTED' && <label className="sa-check"><input type="checkbox" checked={step.receipt} onChange={(event) => setStep(index, { receipt: event.target.checked })} />صدور رسید و کد تحویل</label>}
           {step.key !== 'OPEN' && step.key !== 'REJECTED' && <label className="sa-check"><input type="checkbox" checked={step.pickup} onChange={(event) => setStep(index, { pickup: event.target.checked })} />فقط با کد تحویل مشتری</label>}
+          {step.key !== 'OPEN' && step.key !== 'REJECTED' && <label className="sa-check"><input type="checkbox" checked={step.invoice} onChange={(event) => setStep(index, { invoice: event.target.checked })} />فقط با فاکتور تعمیر پرداخت‌شده</label>}
         </div>
       </li>)}</ol>}
       {own && <div className="fb-work-foot">

@@ -1466,6 +1466,7 @@ model FormSubmission {
   pickupCode  String  @default("") // asked before a step marked «pickup»; printed on the customer's receipt
   receiptToken String @default("") // the customer's copy of the receipt at /receipt/<token>
   receivedAt  DateTime?
+  repairOrderId Int? @unique // the in-shop sale that invoiced this repair (parts and work done; 2026-11-13)
   createdAt DateTime @default(now())
   form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
   uploads   FormUpload[]

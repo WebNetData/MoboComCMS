@@ -254,6 +254,19 @@
 .admin-shell .cd-low-variants { display: flex; flex-wrap: wrap; gap: 6px; }
 .admin-shell .cd-low .sa-stock { font-weight: 500; }
 
+/* A repair invoiced at the counter: its facts, then the work and bought-in parts as typed rows (RepairDesk). */
+.admin-shell .cd-repair { display: grid; gap: 12px; padding-block-end: 20px; border-block-end: 1px solid var(--sa-line); }
+.admin-shell .cd-repair-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.admin-shell .cd-repair-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.admin-shell .cd-repair-head p { margin: 4px 0 0; color: var(--sa-muted); font-size: 13px; overflow-wrap: anywhere; }
+.admin-shell .cd-work { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.admin-shell .cd-work-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px 140px minmax(104px, auto) 32px; grid-template-areas: "name name name name name" "type qty price total remove"; align-items: end; gap: 10px; padding: 12px 0; border-block-end: 1px solid var(--sa-line); }
+.admin-shell .cd-work-row > .cd-work-name { grid-area: name; }
+.admin-shell .cd-work-row > .cd-work-type { grid-area: type; }
+.admin-shell .cd-work-row > .cd-work-q { grid-area: qty; }
+.admin-shell .cd-work-row > .cd-work-price { grid-area: price; }
+.admin-shell .cd-work-row > .cd-line-total { grid-area: total; padding-block-end: 10px; }
+.admin-shell .cd-work-row > .cd-remove { grid-area: remove; margin-block-end: 6px; }
 @media (max-width: 1100px) {
   .admin-shell .cd-layout, .admin-shell .cd-report-pair { grid-template-columns: minmax(0, 1fr); }
   .admin-shell .cd-open fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -262,6 +275,8 @@
   .admin-shell .cd-basket, .admin-shell .cd-bill-panel, .admin-shell .cd-session, .admin-shell .cd-pickup, .admin-shell .cd-open, .admin-shell .cd-done { padding: 16px; }
   .admin-shell .cd-pick-body, .admin-shell .cd-pair, .admin-shell .cd-open fieldset, .admin-shell .cd-collect { grid-template-columns: minmax(0, 1fr); }
   .admin-shell .cd-line-main { grid-template-columns: auto minmax(0, 1fr) 32px; grid-template-areas: "name name remove" "qty total total"; row-gap: 10px; }
+  .admin-shell .cd-work-row { grid-template-columns: 76px minmax(0, 1fr) auto; grid-template-areas: "name name name" "type type remove" "qty price total"; }
+  .admin-shell .cd-work-row > .cd-remove { justify-self: end; }
   .admin-shell .cd-scan-field .btn { padding-inline: 12px; }
   .admin-shell .cd-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-shell .cd-inline { flex-wrap: wrap; }

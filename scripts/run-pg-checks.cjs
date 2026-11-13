@@ -9,6 +9,7 @@ const CHECKS = [
   'store-omnichannel',
   'store-counter',
   'forms-counter',
+  'repair-invoice',
   'ai-page-assistant',
   'ai-telemetry',
   'ai-grounded-support',

@@ -30,7 +30,7 @@ export async function publicSaleReceipt(token: string) {
   if(!row?.invoice || !['PAID','REFUNDED'].includes(row.invoice.status))return null
   // Public business identity only: no stamp image, registration identifiers stay on the printed copy.
   const seller=await saleSeller()
-  return {seller:{name:seller.name,logo:seller.logo,phone:seller.phone,address:seller.address,tagline:seller.tagline,website:seller.website},number:row.invoice.number,createdAt:row.createdAt.toISOString(),channel:row.saleSource,status:row.pickup?.status||row.productDelivery?.status||row.status,invoiceStatus:row.invoice.status,customer:row.customerName,currency:row.currency,totalMinor:row.totalMinor.toString(),lines:row.lines.map(line=>({name:line.name,variant:line.variantName,quantity:line.quantity,totalMinor:line.totalMinor.toString()}))}
+  return {seller:{name:seller.name,logo:seller.logo,phone:seller.phone,address:seller.address,tagline:seller.tagline,website:seller.website},number:row.invoice.number,createdAt:row.createdAt.toISOString(),channel:row.saleSource,status:row.pickup?.status||row.productDelivery?.status||row.status,invoiceStatus:row.invoice.status,customer:row.customerName,currency:row.currency,totalMinor:row.totalMinor.toString(),repair:(()=>{try{return !!JSON.parse(row.meta||'{}').repair}catch{return false}})(),lines:row.lines.map(line=>({name:line.name,variant:line.variantName,kind:line.kind,quantity:line.quantity,totalMinor:line.totalMinor.toString()}))}
 }
 
 /** Notification routing is bound to a persisted sale and its original destination; arbitrary inbox text cannot choose a phone. */

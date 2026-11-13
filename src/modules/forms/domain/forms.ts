@@ -628,10 +628,10 @@ export function toCsv(columns: { id: string; label: string }[], rows: { id: numb
  * between are the form's. Each step may tell the sender (inbox, and SMS to the form's mobile answer), issue the
  * receipt (`receipt`), or ask for the customer's pickup code before it is set (`pickup`: «no receipt, no device»).
  */
-export interface WorkStep { key: string; label: string; message: string; sms: boolean; receipt: boolean; pickup: boolean }
+export interface WorkStep { key: string; label: string; message: string; sms: boolean; receipt: boolean; pickup: boolean; /** reached only once the repair's counter invoice is paid (a manager may record why not) */ invoice: boolean }
 export interface ReceiptSettings { enabled: boolean; title: string; terms: string; customerFields: string[] }
 const STEP_KEY = /^[A-Z][A-Z0-9_]{1,23}$/
-const baseStep = (key: Stage): WorkStep => ({ key, label: STAGE_LABEL[key], message: '', sms: false, receipt: false, pickup: false })
+const baseStep = (key: Stage): WorkStep => ({ key, label: STAGE_LABEL[key], message: '', sms: false, receipt: false, pickup: false, invoice: false })
 export function normalizeWorkflow(input: unknown): WorkStep[] {
   const rows = Array.isArray(input) ? input.slice(0, 12) : []
   if (!rows.length) return []
@@ -641,7 +641,7 @@ export function normalizeWorkflow(input: unknown): WorkStep[] {
     const key = str(raw.key, 24).toUpperCase(), label = str(raw.label, 60)
     if (!STEP_KEY.test(key) || !label) throw new FormsError('هر مرحلهٔ کار عنوان و شناسهٔ لاتین معتبر (مثل RECEIVED) می‌خواهد')
     if (steps.some((step) => step.key === key)) throw new FormsError(`شناسهٔ مرحلهٔ «${key}» تکراری است`)
-    steps.push({ key, label, message: String(raw.message ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 400), sms: raw.sms === true, receipt: raw.receipt === true, pickup: raw.pickup === true })
+    steps.push({ key, label, message: String(raw.message ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 400), sms: raw.sms === true, receipt: raw.receipt === true, pickup: raw.pickup === true, invoice: raw.invoice === true })
   }
   // The three fixed stages are always there: first OPEN, last DONE and REJECTED.
   const fixed = (key: Stage) => steps.find((step) => step.key === key) || baseStep(key)
@@ -744,7 +744,7 @@ export const TEMPLATES: { id: string; name: string; description: string; build: 
         { key: 'RECEIVED', label: 'دستگاه دریافت شد', message: 'گوشی شما دریافت شد. رسید: {receipt} — کد تحویل: {code}', sms: true, receipt: true },
         { key: 'REPAIRING', label: 'در حال تعمیر' },
         { key: 'READY', label: 'آماده تحویل', message: 'گوشی شما آماده است؛ با رسید و کد تحویل مراجعه کنید.', sms: true },
-        { key: 'DONE', label: 'تحویل داده شد', pickup: true },
+        { key: 'DONE', label: 'تحویل داده شد', pickup: true, invoice: true },
         { key: 'REJECTED', label: 'رد شد' },
       ]),
       receipt: { enabled: true, title: 'رسید پذیرش دستگاه', customerFields: ['name', 'mobile', 'brand', 'model', 'imei', 'issue', 'parts', 'description', 'condition', 'accessories'], terms: [
@@ -781,7 +781,7 @@ export const TEMPLATES: { id: string; name: string; description: string; build: 
         { key: 'QUOTED', label: 'عیب‌یابی شد؛ منتظر تأیید هزینه', message: 'عیب‌یابی دستگاه شما انجام شد. برای شنیدن هزینه و تأیید تعمیر با ما تماس بگیرید.', sms: true },
         { key: 'REPAIRING', label: 'در حال تعمیر' },
         { key: 'READY', label: 'آماده تحویل', message: 'دستگاه شما آماده است؛ با رسید و کد تحویل مراجعه کنید.', sms: true },
-        { key: 'DONE', label: 'تحویل داده شد', pickup: true },
+        { key: 'DONE', label: 'تحویل داده شد', pickup: true, invoice: true },
         { key: 'REJECTED', label: 'رد شد' },
       ]),
       receipt: { enabled: true, title: 'رسید پذیرش دستگاه', customerFields: ['name', 'mobile', 'device', 'brand', 'model', 'serial', 'issue', 'parts', 'description', 'condition', 'accessories', 'data'], terms: [

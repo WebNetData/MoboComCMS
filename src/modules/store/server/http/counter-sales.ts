@@ -15,9 +15,11 @@ import { requestOtp, verifyOtp, SmsError } from '@/modules/sms/server/sms'
 import { MarketingError } from '@/modules/store/domain/marketing'
 import { readCounterSale } from '@/modules/store/domain/counter-sales'
 import { storeSalesReport } from '@/modules/store/server/reports'
+import { FormsError } from '@/modules/forms/domain/forms'
+import { linkRepairOrder, repairForInvoice } from '@/modules/forms/server/repair-invoice'
 
 const reply = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex' } })
-const failure = (error: unknown) => { if (error instanceof StoreError) return reply({ error: error.message, code: error.code }, error.status); if(error instanceof SmsError || error instanceof MarketingError || error instanceof ShippingError)return reply({error:error.message},error.status);if(error instanceof PhoneCustomerError)return reply({error:error.message},409);throw error }
+const failure = (error: unknown) => { if (error instanceof StoreError) return reply({ error: error.message, code: error.code }, error.status); if (error instanceof FormsError) return reply({ error: error.message, code: 'REPAIR' }, error.status); if(error instanceof SmsError || error instanceof MarketingError || error instanceof ShippingError)return reply({error:error.message},error.status);if(error instanceof PhoneCustomerError)return reply({error:error.message},409);throw error }
 
 /**
  * The in-store desk is its own module (plugins/instore, owner 2026-11-13) over the store's catalogue, stock and orders:
@@ -26,6 +28,8 @@ const failure = (error: unknown) => { if (error instanceof StoreError) return re
  */
 const DESK = ['orders.manage', 'instore.sell'] as const
 const stillSelling = async (req: NextRequest, tx: Parameters<typeof requirePerm>[2]) => !!(await requirePerm(req, 'orders.manage', tx) || await requirePerm(req, 'instore.sell', tx))
+// Invoicing a repair is also working on it: a forms manager, or a handler the form is given to (forms owns the rule).
+const repairActor = async (req: NextRequest, id: number, tx?: Parameters<typeof requirePerm>[2]) => ({ id, builder: !!await requirePerm(req, 'cms.pages', tx), handler: !!await requirePerm(req, 'forms.handle', tx) })
 
 export async function GET_counter(req: NextRequest) {
   const params = req.nextUrl.searchParams
@@ -50,6 +54,8 @@ export async function GET_counter(req: NextRequest) {
     if(params.has('scan'))return reply(await scanCounterProduct(params.get('scan')||'',shelf))
     // Read-only: which account this mobile belongs to; the sale itself creates or links it in its own transaction.
     if(params.has('lookup'))return reply({customer:await findPhoneCustomer(params.get('lookup')||'')})
+    // The repair the counter is about to invoice: who, which device, and any earlier invoice.
+    if(params.has('repair'))return reply({repair:await repairForInvoice(Number(params.get('repair')),await repairActor(req,guard.admin.id))})
     if(params.has('labels')){const id=Number(params.get('product'));if(params.has('product')&&(!Number.isSafeInteger(id)||id<=0||id>2_147_483_647))throw new StoreError('محصول معتبر نیست');return reply({labels:await productLabels(params.get('q')||'',id||undefined)})}
     if(params.has('report'))return reply(await storeSalesReport(Number(params.get('days')||30)))
     if(params.has('registers'))return reply({sessions:await registerSessions(guard.admin.id)})
@@ -120,9 +126,15 @@ export async function POST_counter(req: NextRequest) {
         await verifyOtp({phone:customer.phone,userId:sale.customerId,code:sale.walletCode,purpose:`COUNTER:${guard.admin.id}:${sale.customerId}`,consume:false})
       }
     }
+    const repair = sale.repair
+    if (repair) await repairForInvoice(repair.submissionId, await repairActor(req, guard.admin.id))
     const result = await createCounterSale(body, guard.admin.id, async (tx) => {
       if (!(await stillSelling(req, tx))) throw new StoreError('دسترسی ثبت فروش تغییر کرده است', 403)
-    }, async (tx, orderId) => { await auditAdminStrict({ req, actor: guard.admin, action: 'store.counter.sale', targetType: 'order', targetId: orderId, metadata: { source: 'COUNTER' } }, tx) })
+      if (repair) await repairForInvoice(repair.submissionId, await repairActor(req, guard.admin.id, tx), tx)
+    }, async (tx, orderId) => {
+      if (repair) await linkRepairOrder(tx, repair.submissionId, orderId)
+      await auditAdminStrict({ req, actor: guard.admin, action: 'store.counter.sale', targetType: 'order', targetId: orderId, metadata: { source: 'COUNTER', ...(repair ? { repair: repair.submissionId } : {}) } }, tx)
+    })
     return reply(result)
   } catch (error) { return failure(error) }
 }

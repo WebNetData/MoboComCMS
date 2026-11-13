@@ -21,6 +21,7 @@ import { lockRegister } from './register'
 import { counterPayments, payCounterWallet } from './payment'
 import { counterClub } from '@/modules/store/server/marketing'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { repairWorkProduct } from './repair'
 
 type Tx = Prisma.TransactionClient
 type Commit = (tx: Tx, orderId: number) => Promise<void>
@@ -48,8 +49,8 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
   const payments=counterPayments(input,totalMinor)
   const order = await tx.order.create({ data: {
     registerSessionId:input.sessionId,receiptToken:randomBytes(24).toString('hex'),userId: customer?.id || null, createdById: actorId, assigneeId: actorId, saleSource: 'COUNTER', customerName: input.customerName || customer?.name || '', customerPhone: normalizeMobile(input.customerPhone || customer?.phone || '') || '',
-    productId: lines[0].productId, status: 'PENDING', provider: 'MANUAL', idempotencyKey: key, totalMinor, totalAmount: legacyNumber(totalMinor, currency), currency,
-    meta: JSON.stringify({ kind: 'product', counterFingerprint: fingerprint, counterMethod: input.method, counterReference: input.reference, source: 'COUNTER', productKind: lines.some(line => line.kind === 'PHYSICAL') ? 'PHYSICAL' : 'VIRTUAL', subtotalMinor: subtotalMinor.toString(), discountCode: input.discountCode || '', discountMinor: discountMinor.toString(), shippingMinor: shippingMinor.toString(), ...totals.shipping }),
+    productId: lines.find((line) => line.productId)?.productId ?? await repairWorkProduct(tx, currency), status: 'PENDING', provider: 'MANUAL', idempotencyKey: key, totalMinor, totalAmount: legacyNumber(totalMinor, currency), currency,
+    meta: JSON.stringify({ kind: 'product', counterFingerprint: fingerprint, counterMethod: input.method, counterReference: input.reference, source: 'COUNTER', productKind: lines.some(line => line.kind === 'PHYSICAL') ? 'PHYSICAL' : 'VIRTUAL', subtotalMinor: subtotalMinor.toString(), discountCode: input.discountCode || '', discountMinor: discountMinor.toString(), shippingMinor: shippingMinor.toString(), ...totals.shipping, ...(input.repair ? { repair: { submissionId: input.repair.submissionId } } : {}) }),
     lines: { create: lines },
   } })
   if (totals.promotion && customer) await redeemCounterPromotion(tx, totals.promotion, order.id, customer.id)
@@ -61,8 +62,10 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
   const paid = await markInvoicePaid({ invoiceId: invoice.id, allocations:payments.filter(row=>row.method!=='WALLET').map(row=>({provider:row.method as 'CASH'|'CARD',amountMinor:BigInt(row.amountMinor),reference:row.reference||`counter:${order.id}`})),amount: minorToDecimal(totalMinor-wallet, currency), raw: { source: 'COUNTER', actorId, method: input.method, reference: input.reference } }, tx)
   if (!paid.ok) throw new StoreError(paid.message, 409)
   for (const line of lines) {
-    if (products.find((product) => product.id === line.productId)?.digitalMode !== 'CODES') continue
-    if (await assignLine(order.id, line, tx)) throw new StoreError('کد آماده هم‌زمان فروخته شد؛ فروش ثبت نشد', 409, 'OUT_OF_STOCK')
+    // A repair's work lines have no product and never take a code.
+    const productId = line.productId
+    if (!productId || products.find((product) => product.id === productId)?.digitalMode !== 'CODES') continue
+    if (await assignLine(order.id, { ...line, productId }, tx)) throw new StoreError('کد آماده هم‌زمان فروخته شد؛ فروش ثبت نشد', 409, 'OUT_OF_STOCK')
   }
   const consumed = await consumeInventoryReservation(order.id, tx)
   if (!consumed.ok) throw new StoreError(consumed.message, 409)
@@ -70,8 +73,8 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
   await recordStoreSale(order.id, tx)
   await tx.storeTender.createMany({data:payments.map(row=>({orderId:order.id,sessionId:input.sessionId,method:row.method,amountMinor:BigInt(row.amountMinor),reference:row.reference}))})
   if(customer)await counterClub(tx,{userId:customer.id,orderId:order.id,totalMinor,currency,redeem:0,key},'EARN')
-  if(customer&&order.customerPhone)await createInboxEvent({userId:customer.id,kind:'STORE_RECEIPT',dedupeKey:`counter:receipt:${order.id}`,titleFa:`فاکتور خرید حضوری ${invoice.number}`,titleEn:'Counter purchase invoice',bodyFa:'رسید و وضعیت خرید شما',href:`/receipt/store/${order.receiptToken}`,channels:['sms']},tx)
-  await tx.orderEvent.create({ data: { orderId: order.id, status: input.shipment ? 'PENDING' : 'DELIVERED', actorId, note: input.shipment ? 'پرداخت در مغازه؛ در انتظار ارسال از انبار' : 'فروش و تحویل حضوری' } })
+  if(customer&&order.customerPhone)await createInboxEvent({userId:customer.id,kind:'STORE_RECEIPT',dedupeKey:`counter:receipt:${order.id}`,titleFa:input.repair?`فاکتور تعمیر ${invoice.number}`:`فاکتور خرید حضوری ${invoice.number}`,titleEn:'Counter purchase invoice',bodyFa:'رسید و وضعیت خرید شما',href:`/receipt/store/${order.receiptToken}`,channels:['sms']},tx)
+  await tx.orderEvent.create({ data: { orderId: order.id, status: input.shipment ? 'PENDING' : 'DELIVERED', actorId, note: input.shipment ? 'پرداخت در مغازه؛ در انتظار ارسال از انبار' : input.repair ? `فاکتور تعمیر شمارهٔ ${input.repair.submissionId}` : 'فروش و تحویل حضوری' } })
   for (const product of products) await syncCodeStock(tx, product.id)
   await commit(tx, order.id)
   return { orderId: order.id, replayed: false }

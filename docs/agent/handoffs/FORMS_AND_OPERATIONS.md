@@ -2,6 +2,10 @@ CRM engagement2026-11-07: continue [the scoped CRM handoff](CRM_ENGAGEMENT.md) f
 
 # Form builder, held work and platform safety — continue existing work
 
+## Repair invoice at the counter — 2026-11-13
+
+Branch `feat/repair-invoice-2026-11-13` from main `898a0a6f`. A repair is invoiced through the Store counter sale (parts from stock, staff-priced work and bought-in parts) and linked by `FormSubmission.repairOrderId`; a step marked `invoice` hands the device back only with that invoice paid (or a manager's recorded reason). Decision and owners: PLATFORM_DECISIONS «Repair invoice at the counter». Check: `scripts/repair-invoice.connected.cjs` (registered in `run-pg-checks.cjs`). `forms-counter.connected.cjs` now mocks `moduleGuard` (it failed on main since the in-store module's guard). `store-counter.connected.cjs` still fails on main: its register has no stock location (pre-existing, untouched).
+
 ## Repair counter continuation — 2026-11-12
 
 Reviewed release1.7.18/main `1cd2406e`, continuing Claude's merged PR445. Current correction is `.mobocom/repair-counter-audit`, branch `fix/repair-counter-audit-2026-11-12`. The [1.7.16–1.7.18 reconciliation](../audits/2026-11-12-release-1.7.16-1.7.18.md) indexes the releases across the existing owners and records their historical verification limits.

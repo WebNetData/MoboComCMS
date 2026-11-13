@@ -77,6 +77,8 @@ export async function PATCH(req: NextRequest) {
       const work = await workOnSubmission(one, admin, body.work, builder)
       // A device handed back without the customer's code: who did it and why stays on record.
       if (work.overridden) await auditAdmin({ req, actor: admin, action: 'forms.pickup_override', targetType: 'form_submission', targetId: String(one), metadata: { reason: work.overridden } })
+      // A repair handed back without its paid invoice (warranty, free work): who decided and why stays on record.
+      if (work.withoutInvoice) await auditAdmin({ req, actor: admin, action: 'forms.pickup_without_invoice', targetType: 'form_submission', targetId: String(one), metadata: { reason: work.withoutInvoice } })
       return ok(work)
     }
     if (body.secrets === 'reveal') {
