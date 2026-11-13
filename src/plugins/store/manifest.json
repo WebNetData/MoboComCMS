@@ -48,7 +48,16 @@
         "exact": true
       },
       {
-        "heading": "سفارش و ارسال",
+        "href": "/admin/store/reports",
+        "label": "گزارش فروش (آنلاین و حضوری)",
+        "labelEn": "Sales report (online & in-store)",
+        "icon": "chart",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "heading": "سفارش و تحویل",
         "href": "/admin/store/orders",
         "label": "سفارش‌ها",
         "labelEn": "Orders",
@@ -59,37 +68,9 @@
         ]
       },
       {
-        "href": "/admin/store/print",
-        "label": "چاپ کارت حضوری",
-        "labelEn": "Print a delivery card",
-        "icon": "wallet",
-        "permissions": [
-          "orders.manage",
-          "store.orders.handle"
-        ]
-      },
-      {
-        "href": "/admin/store/counter",
-        "label": "فروش حضوری",
-        "labelEn": "Counter sales",
-        "icon": "wallet",
-        "permissions": [
-          "orders.manage"
-        ]
-      },
-      {
-        "href": "/admin/store/registers",
-        "label": "صندوق‌ها",
-        "labelEn": "Cash registers",
-        "icon": "wallet",
-        "permissions": [
-          "orders.manage"
-        ]
-      },
-      {
         "href": "/admin/store/pickup",
-        "label": "تحویل از فروشگاه",
-        "labelEn": "Store collection",
+        "label": "تحویل سفارش در فروشگاه",
+        "labelEn": "Order collection in store",
         "icon": "wallet",
         "permissions": [
           "orders.manage",
@@ -97,27 +78,19 @@
         ]
       },
       {
-        "href": "/admin/store/labels",
-        "label": "برچسب بارکد",
-        "labelEn": "Barcode labels",
+        "href": "/admin/store/print",
+        "label": "چاپ کارت برای تحویل حضوری",
+        "labelEn": "Print a card for in-person delivery",
         "icon": "wallet",
         "permissions": [
-          "orders.manage"
-        ]
-      },
-      {
-        "href": "/admin/store/reports",
-        "label": "گزارش یکپارچه",
-        "labelEn": "Unified sales report",
-        "icon": "wallet",
-        "permissions": [
-          "orders.manage"
+          "orders.manage",
+          "store.orders.handle"
         ]
       },
       {
         "href": "/admin/store/returns",
-        "label": "لغو و مرجوعی",
-        "labelEn": "Returns & cancellations",
+        "label": "لغو و مرجوعی سفارش‌ها",
+        "labelEn": "Order returns & cancellations",
         "icon": "wallet",
         "permissions": [
           "orders.manage"
@@ -142,27 +115,7 @@
         ]
       },
       {
-        "href": "/admin/shipping-carriers",
-        "label": "شرکت‌های حمل و تعرفهٔ ارسال",
-        "labelEn": "Carriers & shipping rates",
-        "icon": "sliders",
-        "permissions": [
-          "orders.manage",
-          "settings.manage"
-        ]
-      },
-      {
-        "href": "/admin/delivery",
-        "label": "زمان‌بندی و هزینهٔ ارسال",
-        "labelEn": "Delivery schedule",
-        "icon": "sliders",
-        "permissions": [
-          "orders.manage",
-          "settings.manage"
-        ]
-      },
-      {
-        "heading": "کاتالوگ",
+        "heading": "کالا و انبار",
         "href": "/admin/store/products",
         "label": "محصولات",
         "labelEn": "Products",
@@ -217,18 +170,7 @@
         ]
       },
       {
-        "href": "/admin/store/currency",
-        "label": "نرخ ارز و قیمت ارزی",
-        "labelEn": "Exchange rates & FX pricing",
-        "icon": "wallet",
-        "permissions": [
-          "cms.products",
-          "orders.manage",
-          "settings.manage"
-        ]
-      },
-      {
-        "heading": "مشتریان",
+        "heading": "مشتریان و بازاریابی",
         "href": "/admin/store/customers",
         "label": "مشتریان",
         "labelEn": "Customers",
@@ -248,7 +190,27 @@
         ]
       },
       {
-        "heading": "تنظیمات",
+        "href": "/admin/store/marketing",
+        "label": "باشگاه مشتریان، کارت هدیه و سبد رهاشده",
+        "labelEn": "Loyalty & gift cards",
+        "icon": "bolt",
+        "permissions": [
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/feeds",
+        "label": "ترب، ایمالز و فید قیمت",
+        "labelEn": "Price-comparison feeds",
+        "icon": "grid",
+        "permissions": [
+          "settings.manage",
+          "cms.products"
+        ]
+      },
+      {
+        "heading": "تنظیمات فروشگاه",
         "href": "/admin/store/settings",
         "label": "ویترین فروشگاه",
         "labelEn": "Storefront",
@@ -256,6 +218,37 @@
         "permissions": [
           "settings.manage",
           "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/shipping-carriers",
+        "label": "شرکت‌های حمل و تعرفهٔ ارسال",
+        "labelEn": "Carriers & shipping rates",
+        "icon": "sliders",
+        "permissions": [
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/delivery",
+        "label": "زمان‌بندی و هزینهٔ ارسال",
+        "labelEn": "Delivery schedule",
+        "icon": "sliders",
+        "permissions": [
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/currency",
+        "label": "نرخ ارز و قیمت ارزی",
+        "labelEn": "Exchange rates & FX pricing",
+        "icon": "wallet",
+        "permissions": [
+          "cms.products",
+          "orders.manage",
+          "settings.manage"
         ]
       },
       {

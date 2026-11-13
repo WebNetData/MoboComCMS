@@ -3,6 +3,7 @@ import { deliverySchedule } from '@/modules/shipping/server/shipping'
 import { ShippingError } from '@/modules/shipping/domain/shipping'
 import type { NextRequest } from 'next/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
+import { moduleGuard } from '@/extensions/server/modules'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { rateLimitStrict, clientIp } from '@/platform/http/rate-limit'
@@ -18,10 +19,20 @@ import { storeSalesReport } from '@/modules/store/server/reports'
 const reply = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex' } })
 const failure = (error: unknown) => { if (error instanceof StoreError) return reply({ error: error.message, code: error.code }, error.status); if(error instanceof SmsError || error instanceof MarketingError || error instanceof ShippingError)return reply({error:error.message},error.status);if(error instanceof PhoneCustomerError)return reply({error:error.message},409);throw error }
 
+/**
+ * The in-store desk is its own module (plugins/instore, owner 2026-11-13) over the store's catalogue, stock and orders:
+ * it answers only while both are on, and a cashier (instore.sell) may sell, run their shift and print labels. The
+ * unified sales report belongs to the store and stays with order managers.
+ */
+const DESK = ['orders.manage', 'instore.sell'] as const
+const stillSelling = async (req: NextRequest, tx: Parameters<typeof requirePerm>[2]) => !!(await requirePerm(req, 'orders.manage', tx) || await requirePerm(req, 'instore.sell', tx))
+
 export async function GET_counter(req: NextRequest) {
-  const guard = await adminGuard(req, 'store', ['orders.manage'])
-  if ('response' in guard) return guard.response
   const params = req.nextUrl.searchParams
+  const report = params.has('report')
+  const guard = await adminGuard(req, 'store', report ? ['orders.manage'] : DESK)
+  if ('response' in guard) return guard.response
+  if (!report) { const off = await moduleGuard('instore'); if (off) return off }
   try {
     // The cashier's open register decides which shelf's units the counter shows.
     const sessionId=Number(params.get('session'))
@@ -42,6 +53,8 @@ export async function GET_counter(req: NextRequest) {
     if(params.has('labels')){const id=Number(params.get('product'));if(params.has('product')&&(!Number.isSafeInteger(id)||id<=0||id>2_147_483_647))throw new StoreError('محصول معتبر نیست');return reply({labels:await productLabels(params.get('q')||'',id||undefined)})}
     if(params.has('report'))return reply(await storeSalesReport(Number(params.get('days')||30)))
     if(params.has('registers'))return reply({sessions:await registerSessions(guard.admin.id)})
+    // Where a register stands, for a cashier who does not manage stock (same rows as the stock API's list).
+    if(params.has('registerLocations'))return reply({locations:(await listLocations()).map(row=>({id:row.id,name:row.name,kind:row.kind,active:row.active}))})
     if(params.has('customer')){
       const id=Number(params.get('customer'));if(!Number.isSafeInteger(id)||id<=0||id>2_147_483_647)throw new StoreError('مشتری معتبر نیست')
       return reply(await counterCustomer(id,{id:guard.admin.id,builder:!!await requirePerm(req,'cms.pages'),handler:!!await requirePerm(req,'forms.handle')}))
@@ -65,8 +78,10 @@ export async function GET_counter(req: NextRequest) {
 }
 
 export async function POST_counter(req: NextRequest) {
-  const guard = await adminGuard(req, 'store', ['orders.manage'])
+  const guard = await adminGuard(req, 'store', DESK)
   if ('response' in guard) return guard.response
+  const off = await moduleGuard('instore')
+  if (off) return off
   const limit = await rateLimitStrict(`counter-sale:${guard.admin.id}`, 60, 60_000)
   if (!limit.ok) return reply({ error: 'درخواست‌های ثبت فروش زیاد است؛ کمی بعد دوباره تلاش کنید' }, 429)
   const raw = await req.text()
@@ -76,7 +91,7 @@ export async function POST_counter(req: NextRequest) {
   try {
     const data=body&&typeof body==='object'?body as Record<string,unknown>:{}
     const audit=async(tx: Parameters<typeof resolvePhoneCustomer>[0],id:number)=>{
-      if(!await requirePerm(req,'orders.manage',tx))throw new StoreError('دسترسی ثبت فروش تغییر کرده است',403)
+      if(!await stillSelling(req,tx))throw new StoreError('دسترسی ثبت فروش تغییر کرده است',403)
       await auditAdminStrict({req,actor:guard.admin,action:`store.counter.${String(data.op||'sale').slice(0,40)}`,targetType:'store',targetId:id},tx)
     }
     if(data.op==='quote') return reply({ quote: await quoteCounterSale(data) })
@@ -106,7 +121,7 @@ export async function POST_counter(req: NextRequest) {
       }
     }
     const result = await createCounterSale(body, guard.admin.id, async (tx) => {
-      if (!(await requirePerm(req, 'orders.manage', tx))) throw new StoreError('دسترسی ثبت فروش تغییر کرده است', 403)
+      if (!(await stillSelling(req, tx))) throw new StoreError('دسترسی ثبت فروش تغییر کرده است', 403)
     }, async (tx, orderId) => { await auditAdminStrict({ req, actor: guard.admin, action: 'store.counter.sale', targetType: 'order', targetId: orderId, metadata: { source: 'COUNTER' } }, tx) })
     return reply(result)
   } catch (error) { return failure(error) }

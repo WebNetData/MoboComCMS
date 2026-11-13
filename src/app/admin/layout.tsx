@@ -191,8 +191,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/businesses', label: L('تجربهٔ خرید و کسب‌وکارها', 'Business experiences'), icon: 'sparkles', perm: ['businesses.manage'] },
     ] },
 
-    { id: 'orders', area: 'commerce', order: 90, title: L('سفارش‌های سایت', 'Site orders'), icon: 'grid', items: [
-      { href: '/admin/orders', label: L('همهٔ سفارش‌ها', 'All orders'), icon: 'grid', perm: 'orders.manage' },
+    // Sales, by how the work reaches you: the shop desk (plugins/instore, 5), the online store (plugins/store, 10), every
+    // order of the site in one list (20), services done for customers (25), then subscriptions, content sales and VPN.
+    { id: 'orders', area: 'commerce', order: 20, title: L('همهٔ سفارش‌ها', 'All orders'), icon: 'grid', items: [
+      { href: '/admin/orders', label: L('سفارش‌های همهٔ بخش‌ها', 'Orders of every section'), icon: 'grid', perm: 'orders.manage' },
       { href: '/admin/operations', label: L('مرکز عملیات سفارش', 'Order operations'), icon: 'shield', perm: 'orders.manage' },
     ] },
     { id: 'vpn', area: 'commerce', order: 92, title: L('سرویس VPN', 'VPN service'), icon: 'globe', items: [
@@ -203,12 +205,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/panels', label: t.panels, icon: 'shield', perm: 'panels.manage' },
       { href: '/admin/happ', label: L('اتصال Happ', 'Happ connection'), icon: 'devices', perm: 'settings.manage' },
       { href: '/admin/connection-guide', label: L('راهنمای اتصال', 'Connection guide'), icon: 'devices', perm: 'settings.manage' },
-      ...joining('vpn'),
-    ] },
-    { id: 'services', area: 'commerce', order: 94, title: L('خدمات و نمایندگان', 'Services & resellers'), icon: 'bolt', items: [
-      { href: '/admin/services', label: L('خدمات', 'Services'), icon: 'bolt', perm: ['cms.pages', 'forms.handle', 'orders.manage', 'cms.products'] },
+      // Resellers sell VPN accounts (plugins/reseller requires vpn): they belong with the service they sell.
       { href: '/admin/resellers', label: t.resellers, icon: 'globe', perm: 'resellers.manage' },
       { href: '/admin/reseller-sales', label: L('فروش نمایندگان', 'Reseller sales'), icon: 'wallet', perm: 'resellers.manage' },
+      ...joining('vpn'),
+    ] },
+    { id: 'services', area: 'commerce', order: 25, title: L('خدمات', 'Services'), icon: 'bolt', items: [
+      { href: '/admin/services', label: L('خدمات و کارهای در انتظار', 'Services & waiting work'), icon: 'bolt', perm: ['cms.pages', 'forms.handle', 'orders.manage', 'cms.products'] },
     ] },
 
     { id: 'finance', area: 'finance', order: 10, title: t.finance, icon: 'wallet', items: [

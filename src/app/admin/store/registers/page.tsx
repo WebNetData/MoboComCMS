@@ -27,7 +27,7 @@ function SessionCard({row,reload}:{row:Session;reload:()=>Promise<void>}){
  </section>
 }
 export default function Registers(){
- const {data,error,reload,loading}=useJson<{sessions:Session[]}>('/api/admin/store/counter?registers=1'),stock=useJson<{locations:{id:number;name:string;kind:string;active:boolean}[]}>('/api/admin/store/stock?locations=1'),[locationId,setLocationId]=useState(0),[register,setRegister]=useState('صندوق اصلی'),[currency,setCurrency]=useState('IRT'),[cash,setCash]=useState('0'),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),key=useRef('')
+ const {data,error,reload,loading}=useJson<{sessions:Session[]}>('/api/admin/store/counter?registers=1'),stock=useJson<{locations:{id:number;name:string;kind:string;active:boolean}[]}>('/api/admin/store/counter?registerLocations=1'),[locationId,setLocationId]=useState(0),[register,setRegister]=useState('صندوق اصلی'),[currency,setCurrency]=useState('IRT'),[cash,setCash]=useState('0'),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),key=useRef('')
  async function open(event:React.FormEvent){event.preventDefault();if(busy)return;setBusy(true);setMessage('');try{key.current||=crypto.randomUUID();const result=await send('/api/admin/store/counter','POST',{op:'register.open',requestId:key.current,register,currency,locationId:locationId||undefined,openingCashMinor:toMinor(cash,currency).toString()});if(!result.ok)throw Error(result.error);key.current='';await reload()}catch(error){setMessage(error instanceof Error?error.message:'صندوق باز نشد');await reload()}finally{setBusy(false)}}
  // Open shifts first (the cashier's own before others'), then the closed history in the server's order.
  const rank=(row:Session)=>row.status==='OPEN'?(row.mine?0:1):2

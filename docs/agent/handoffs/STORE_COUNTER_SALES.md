@@ -2,6 +2,16 @@
 
 PR preparation2026-11-13: owner explicitly requested publication to `main` for owner merge. Branch `feat/store-omnichannel-2026-11-13` also contains the existing letterhead PR #453 ancestor and shelf-label QR commit; preserve that open PR. Additional affected `marketplace`/`packages` tests passed19/19 as UID1000 against `/src` with installed dependencies from `/app`. Host dependencies were unavailable and `/app` held stale package-example docs; the successful check used the actual checkout's examples. No hosted workflow, merge or production deployment was invoked.
 
+## In-store module — 2026-11-13
+
+Owner: in-person sales and services should have been a plugin (the project is modular), and the Admin must be ordered so staff and owner are not confused. Branch feat/instore-plugin-2026-11-13 from main 553b9483.
+
+- New module `src/plugins/instore/manifest.json` (on by default). Its menu group «فروش و خدمات حضوری» is first in the Sales area: پیشخوان فروش حضوری, پذیرش حضوری خدمات و تعمیر, صندوق‌ها و شیفت‌ها, مرجوعی و تعویض حضوری, برچسب بارکد قفسه. The store manifest no longer lists these; its own 23 links are grouped (orders and delivery, goods and stock, customers and marketing, settings).
+- Guards: `GET_counter` (all but `report`), `POST_counter`, both counter-return handlers and the Forms staff-entry POST call `moduleGuard('instore')`. Receipts already issued (forms receipt GET, public QR pages) keep working with the module off.
+- Cashier: `instore.sell` (preset `cashier`). Sale, quote, customer resolve, register open/close/adjust, wallet OTP, labels and the new `registerLocations` read accept it; the report and counter returns do not. In-transaction rechecks accept `orders.manage` or `instore.sell`.
+- Tabs: `StoreShell` shows the store's 15 tabs or the desk's 5, each only if its link is in the person's filtered Admin menu (`useControlNavigation`). The earlier session-based specialist filter read a permission list the session never carries.
+- Evidence: scoped tsc; account-security/routes/content-controls/ads tests (one unrelated failure: the app copy lacks `deploy/ubuntu/xray-config.cjs`); guard composition checked with stubbed guards (report needs orders.manage and works with the desk off; desk 404 while off; cashier accepted); live anonymous 403 and owner 200; browser as owner at 1440: Sales area order, desk and store tabs, current tab marked, axe 0, no page errors; React Doctor 0 errors. Not run: a real cashier account in the browser (creating a staff user in the owner's DB was refused) and the PG desk suites.
+
 ## Local development runtime — owner directive 2026-11-13
 
 Continue development only on the existing `mobocom-app` at `http://localhost:3000`, using this `.mobocom/store-desk-design` checkout. Root `.mobocom/local-preview.compose.yml` now selects it. The same app service was recreated with its original image, environment/session configuration, local `mobocom` database, storage and dependency/cache volumes; demo reseeding was disabled. The auxiliary `mobocom-omni-preview` container on3001 was removed, retaining its database and named volumes. Other source checkouts and owner work were preserved.

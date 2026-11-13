@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
+import { moduleGuard } from '@/extensions/server/modules'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
@@ -15,6 +16,9 @@ const failure = (error: unknown) => {
 export async function GET_counter_returns(req: NextRequest) {
   const g = await adminGuard(req, 'store', ['orders.manage'])
   if ('response' in g) return g.response
+  // An in-store return refunds money: order managers only, inside the in-store module (plugins/instore).
+  const off = await moduleGuard('instore')
+  if (off) return off
   try {
     const requestId = req.nextUrl.searchParams.get('request')
     return requestId ? reply({ result: await counterReturnResult(requestId, g.admin.id) }) : reply({ order: await counterReturnLookup(req.nextUrl.searchParams.get('invoice') || '') })
@@ -23,6 +27,9 @@ export async function GET_counter_returns(req: NextRequest) {
 export async function POST_counter_returns(req: NextRequest) {
   const g = await adminGuard(req, 'store', ['orders.manage'])
   if ('response' in g) return g.response
+  // An in-store return refunds money: order managers only, inside the in-store module (plugins/instore).
+  const off = await moduleGuard('instore')
+  if (off) return off
   if (!(await rateLimitStrict(`counter-return:${g.admin.id}`, 30, 60_000)).ok) return reply({ error: 'درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید' }, 429)
   const raw = await req.text()
   if (raw.length > 20_000) return reply({ error: 'درخواست بیش از حد بزرگ است' }, 413)
