@@ -1777,6 +1777,9 @@
 /* What a post's format adds (PostFormat): a video or the guest above the body, the review summary or source below. */
 .jp-format-video { margin: 0 0 22px; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000; }
 .jp-format-video iframe, .jp-format-video video { display: block; width: 100%; height: 100%; border: 0; }
+/* A video file keeps its own shape (a vertical one stays vertical) and never grows taller than the screen. */
+.jp-format-video:has(> video) { aspect-ratio: auto; width: fit-content; max-width: 100%; margin-inline: auto; }
+.jp-format-video > video { width: auto; max-width: 100%; height: auto; max-height: 75vh; }
 .jp-format-guest { display: grid; gap: 2px; margin: 0 0 22px; padding: 14px 18px; border-inline-start: 4px solid var(--ln-accent, var(--primary)); border-radius: 12px; background: var(--ln-soft, var(--primary-soft)); }
 .jp-format-guest strong { font-size: 1.1rem; }
 .jp-format-guest > span { color: var(--muted); font-size: .9rem; }

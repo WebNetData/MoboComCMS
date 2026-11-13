@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { EditorialMedia } from '@/shared/media/editorial'
 import { embedOf } from '@/shared/media/editorial'
 import InlineAudioPlayer from './InlineAudioPlayer'
@@ -12,9 +12,20 @@ const providers: Record<string, string> = { youtube: 'یوتیوب', aparat: 'آ
 const resumeKey = (src: string) => { let hash = 2166136261; for (const c of src) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619); return 'editorial-video:'+String(hash >>> 0) }
 export default function EditorialPlayer({ media }: { media: EditorialMedia }) {
   const [opened, setOpened] = useState(false)
+  // A file's own width and height decide its frame, so a vertical video is not boxed into the chosen or default ratio.
+  const [shape, setShape] = useState<[number, number] | null>(null), box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const node = box.current
+    if (!node || media.kind !== 'video') return
+    const read = () => { const video = node.querySelector('video'); if (video?.videoWidth && video.videoHeight) setShape([video.videoWidth, video.videoHeight]) }
+    read()
+    node.addEventListener('loadedmetadata', read, true)
+    return () => node.removeEventListener('loadedmetadata', read, true)
+  }, [media.kind, media.src])
   if (media.kind === 'audio') return <InlineAudioPlayer key={media.src} media={media} />
   const title = media.title || 'ویدیو', provider = embedOf(media.src)?.provider || ''
-  return <div className="mc-video" style={{ '--mc-ratio': media.ratio.replace(':', ' / ') } as React.CSSProperties}>
+  const [w, h] = shape || media.ratio.split(':').map(Number)
+  return <div ref={box} className={h > w ? 'mc-video mc-video-portrait' : 'mc-video'} style={{ '--mc-ratio': `${w} / ${h}`, '--mc-rw': w, '--mc-rh': h } as React.CSSProperties}>
     <div className="mc-video-head"><span><Icon name="video" size={17} />{title}</span>{provider && <a href={media.src} target="_blank" rel="noopener noreferrer">{providers[provider]} ↗</a>}</div>
     {media.kind === 'video' ? (
       <VideoPlayer key={media.src} src={media.src} playback="video" title={title} poster={media.poster} resumeKey={resumeKey(media.src)} keyboardScope="focused" />
