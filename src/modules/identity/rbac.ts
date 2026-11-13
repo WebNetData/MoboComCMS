@@ -50,6 +50,8 @@ export const ROLE_PRESETS: Record<string, string[]> = {
   'site-deputy': [...ALL_PERMISSIONS],
   'form-specialist': ['dashboard.view', 'forms.handle'],
   'order-specialist': ['dashboard.view', 'store.orders.handle'],
+  // The shop's cashier: the in-store desk only (plugins/instore), no returns, reports or other orders.
+  cashier: ['dashboard.view', 'instore.sell'],
   accountant: ['dashboard.view', 'finance.manage', 'invoices.manage', 'orders.manage'],
   support: ['dashboard.view', 'users.manage', 'subs.manage', 'orders.manage', 'invoices.manage', 'tickets.handle'],
   reseller: ['dashboard.view', 'subs.manage'],
@@ -68,7 +70,7 @@ export const ROLE_PRESETS: Record<string, string[]> = {
 
 /** What the role form calls each preset. */
 export const ROLE_PRESET_LABELS: Record<string, string> = {
-  'site-deputy': 'معاون کل سایت (همهٔ بخش‌ها)', 'form-specialist': 'کارشناس فرم (فقط فرم‌های مجاز)', 'order-specialist': 'کارشناس سفارش (فقط کارهای مجاز)',
+  'site-deputy': 'معاون کل سایت (همهٔ بخش‌ها)', 'form-specialist': 'کارشناس فرم (فقط فرم‌های مجاز)', 'order-specialist': 'کارشناس سفارش (فقط کارهای مجاز)', cashier: 'صندوق‌دار مغازه (فقط فروش حضوری)',
   admin: 'مدیر کل (همهٔ دسترسی‌ها)', accountant: 'حسابدار', support: 'پشتیبان', reseller: 'نماینده', backup: 'جانشین مدیر محتوا و تنظیمات',
   'music-manager': 'مدیر موزیک', 'cinema-manager': 'مدیر فیلم و سریال', 'games-manager': 'مدیر بازی', 'software-manager': 'مدیر نرم‌افزار',
   'forum-manager': 'مدیر تالار گفتمان', 'store-manager': 'مدیر فروشگاه (محصولات و سفارش‌ها)', 'magazine-manager': 'مدیر مجله (نوشته‌ها، دسته‌ها و دیدگاه‌ها)', 'content-manager': 'مدیر محتوا (مجله و همهٔ بخش‌های محتوایی)',

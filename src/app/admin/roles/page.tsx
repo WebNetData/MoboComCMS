@@ -23,6 +23,7 @@ const PERM_LABELS: Record<string, string> = {
   'subs.manage': 'اشتراک‌ها',
   'orders.manage': 'مدیریت سفارش‌ها',
   'store.orders.handle': 'کارشناس سفارش‌های مجاز',
+  'instore.sell': 'صندوق‌دار فروش حضوری',
   'plans.manage': 'پلن‌ها',
   'panels.manage': 'پنل‌های VPN',
   'tickets.handle': 'تیکت‌ها',

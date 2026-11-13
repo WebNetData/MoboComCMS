@@ -1,0 +1,85 @@
+{
+  "id": "instore",
+  "name": "فروش و خدمات حضوری",
+  "nameEn": "In-store sales & services",
+  "description": "میز کار مغازه: فروش حضوری با بارکد و صندوق، شیفت و حساب صندوق، مرجوعی و تعویض حضوری، برچسب قفسه و پذیرش حضوری خدمات و تعمیر با رسید. فروش حضوری از کالا و انبار فروشگاه استفاده می‌کند؛ پذیرش خدمات از فرم‌ساز.",
+  "descriptionEn": "The shop desk: counter sales with barcode and register, register shifts, in-store returns and exchanges, shelf labels, and service/repair intake with receipts. Counter sales use the store's catalogue and stock; service intake uses the form builder.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "wallet",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "adminPaths": [
+    "/admin/store/counter",
+    "/admin/store/registers",
+    "/admin/store/labels",
+    "/admin/forms/counter"
+  ],
+  "adminMenu": {
+    "area": "commerce",
+    "title": "فروش و خدمات حضوری",
+    "titleEn": "In-store sales & services",
+    "icon": "wallet",
+    "order": 5,
+    "items": [
+      {
+        "href": "/admin/store/counter",
+        "label": "پیشخوان فروش حضوری",
+        "labelEn": "Counter sale",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage",
+          "instore.sell"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/forms/counter",
+        "label": "پذیرش حضوری خدمات و تعمیر",
+        "labelEn": "Service & repair intake",
+        "icon": "chat",
+        "permissions": [
+          "cms.pages",
+          "forms.handle"
+        ]
+      },
+      {
+        "href": "/admin/store/registers",
+        "label": "صندوق‌ها و شیفت‌ها",
+        "labelEn": "Registers & shifts",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage",
+          "instore.sell"
+        ]
+      },
+      {
+        "href": "/admin/store/counter/returns",
+        "label": "مرجوعی و تعویض حضوری",
+        "labelEn": "In-store returns",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/labels",
+        "label": "برچسب بارکد قفسه",
+        "labelEn": "Shelf barcode labels",
+        "icon": "grid",
+        "permissions": [
+          "orders.manage",
+          "instore.sell"
+        ]
+      }
+    ]
+  },
+  "permissions": [
+    {
+      "id": "instore.sell",
+      "label": "صندوق‌دار فروش حضوری (فروش، شیفت صندوق و برچسب؛ بدون مرجوعی و گزارش)"
+    }
+  ]
+}

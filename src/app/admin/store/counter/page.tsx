@@ -4,6 +4,7 @@ import { useCounterQuote } from './useCounterQuote'
 
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
+import { useControlNavigation } from '@/components/admin/navigation/ControlNavigation'
 import { StoreShell } from '../shared'
 import { formatMoney } from '@/shared/money'
 import { fieldsFor } from '@/modules/store/domain/order-inputs'
@@ -33,6 +34,7 @@ function Step({ n, title, done, note, children }: { n: number; title: string; do
 
 export default function CounterSales() {
   const sale = useCounterSale()
+  const ordersReachable = useControlNavigation().groups.some(group => group.items.some(item => item.href === '/admin/store/orders'))
   const [query, setQuery] = useState('')
   const [products, setProducts] = useState<CounterProduct[]>([])
   const [productId, setProductId] = useState(0)
@@ -132,7 +134,8 @@ export default function CounterSales() {
   const addDisabled = !product || !!(product.variants.length && !variant) || items.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)
   const stock = product ? (variant?.stock ?? product.stock) : -1
 
-return <StoreShell title="فروش حضوری" actions={<><Link className="btn btn-ghost" href="/admin/store/counter/returns">مرجوعی با فاکتور</Link><Link className="btn btn-ghost" href="/admin/store/registers">صندوق‌ها</Link><Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link></>}>
+// Registers and returns are tabs of the desk; the store's order list only for someone who may open it (not a cashier).
+return <StoreShell title="فروش حضوری" actions={ordersReachable ? <Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link> : undefined}>
     {localError && <div className="sa-notice is-error" role="alert">{localError}</div>}
     {sale.message && <div className="sa-notice is-error" role="alert">{sale.message}</div>}
     {sale.orderId ? <>

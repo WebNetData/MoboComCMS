@@ -1,6 +1,6 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useControlNavigation } from '@/components/admin/navigation/ControlNavigation'
 import Link from '@/components/AppLink'
 import { usePathname } from '@/platform/routing/navigation'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
@@ -18,37 +18,50 @@ export function Money({ value, currency }: { value: number; currency: string }) 
   return <span className="sa-money"><b className="num">{unit ? Math.round(value).toLocaleString('fa-IR') : new Intl.NumberFormat('fa-IR', { style: 'currency', currency }).format(value)}</b>{unit && <small>{unit}</small>}</span>
 }
 
-const TABS = [
+type Tab = { href: string; label: string; exact?: boolean }
+// The store's own screens, in the order of its Admin menu (plugins/store).
+const STORE_TABS: Tab[] = [
   { href: '/admin/store', label: 'داشبورد', exact: true },
+  { href: '/admin/store/reports', label: 'گزارش فروش' },
   { href: '/admin/store/orders', label: 'سفارش‌ها' },
-  { href: '/admin/store/counter', label: 'فروش حضوری' },
-  { href: '/admin/store/registers', label: 'صندوق‌ها' },
-  { href: '/admin/store/pickup', label: 'تحویل از فروشگاه' },
-  { href: '/admin/store/labels', label: 'برچسب قفسه' },
-  { href: '/admin/store/reports', label: 'گزارش یکپارچه' },
+  { href: '/admin/store/pickup', label: 'تحویل در فروشگاه' },
+  { href: '/admin/store/print', label: 'چاپ کارت تحویل' },
   { href: '/admin/store/returns', label: 'لغو و مرجوعی' },
-  { href: '/admin/store/print', label: 'چاپ کارت حضوری' },
   { href: '/admin/store/shipments', label: 'مرسوله‌ها' },
   { href: '/admin/store/products', label: 'محصولات' },
   { href: '/admin/store/inventory', label: 'انبار' },
   { href: '/admin/store/brands', label: 'برندها' },
   { href: '/admin/store/customers', label: 'مشتریان' },
-  { href: '/admin/store/marketing', label: 'بازاریابی و وفاداری' },
+  { href: '/admin/store/marketing', label: 'باشگاه و کارت هدیه' },
   { href: '/admin/store/feeds', label: 'ترب و ایمالز' },
   { href: '/admin/store/currency', label: 'نرخ ارز' },
   { href: '/admin/store/settings', label: 'ویترین' },
 ]
+// The shop desk's screens (plugins/instore), in the order of its Admin menu.
+const INSTORE_TABS: Tab[] = [
+  { href: '/admin/store/counter', label: 'پیشخوان فروش', exact: true },
+  { href: '/admin/store/registers', label: 'صندوق‌ها و شیفت‌ها' },
+  { href: '/admin/store/counter/returns', label: 'مرجوعی حضوری' },
+  { href: '/admin/store/labels', label: 'برچسب قفسه' },
+  { href: '/admin/forms/counter', label: 'پذیرش خدمات و تعمیر' },
+]
+const INSTORE_PATHS = ['/admin/store/counter', '/admin/store/registers', '/admin/store/labels']
 
 export function StoreShell({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
   const pathname = usePathname()
-  const { data: session } = useSession()
-  const permissions = (session?.user as { permissions?: string[] } | undefined)?.permissions || []
-  const specialist = permissions.includes('store.orders.handle') && !permissions.includes('orders.manage')
+  // A tab is shown only when its link is in this person's Admin menu: the layout has already applied their
+  // permissions and which modules are on (a cashier sees the desk, their register and labels; a specialist their work).
+  const { groups, loading } = useControlNavigation()
+  const reachable = new Set(groups.flatMap(group => group.items.map(item => item.href)))
+  const instore = INSTORE_PATHS.some(path => pathname === path || pathname.startsWith(`${path}/`))
+  const tabs = loading ? [] : (instore ? INSTORE_TABS : STORE_TABS).filter(tab => reachable.has(tab.href))
+  // The deepest matching tab is the current one (the desk and its returns share a prefix).
+  const current = tabs.filter(tab => tab.exact ? pathname === tab.href : pathname === tab.href || pathname.startsWith(`${tab.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]
   return <div className="sa" dir="rtl">
-    <nav className="sa-tabs" aria-label="بخش‌های فروشگاه">{TABS.filter(tab => !specialist || tab.href === '/admin/store/orders' || tab.href === '/admin/store/print' || tab.href === '/admin/store/pickup').map((tab) => {
-      const on = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
+    {tabs.length > 1 && <nav className="sa-tabs" aria-label={instore ? 'فروش و خدمات حضوری' : 'بخش‌های فروشگاه'}>{tabs.map(tab => {
+      const on = tab === current
       return <Link key={tab.href} href={tab.href} className={on ? 'is-active' : ''} aria-current={on ? 'page' : undefined}>{tab.label}</Link>
-    })}</nav>
+    })}</nav>}
     <header className="sa-head"><h1>{title}</h1>{actions && <div className="sa-head-actions">{actions}</div>}</header>
     {children}
   </div>

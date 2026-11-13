@@ -8,6 +8,7 @@ import { assertOwnWork, eraseSecrets, revealSecrets, workOnSubmission } from '@/
 import { listForms } from '@/modules/forms/server/service'
 import { assertMayHandleForm, assertMayHandleSubmission, editSubmission, formFieldStats, mayHandle } from '@/modules/forms/server/advanced'
 import { receiptOf, staffSubmit } from '@/modules/forms/server/counter'
+import { moduleGuard } from '@/extensions/server/modules'
 
 /** Whoever builds forms, or whoever is given the answers to work on. */
 const staff = async (req: NextRequest) => await requirePerm(req, 'cms.pages') || await requirePerm(req, 'forms.handle')
@@ -110,7 +111,10 @@ export async function DELETE(req: NextRequest) {
 }
 
 /** POST { formId, values } — a customer in the shop, entered by staff on the desk (recorded). */
+/** Staff entry of a customer in the shop: the in-store module's service intake (plugins/instore). Printing a receipt already taken stays open. */
 export async function POST(req: NextRequest) {
+  const off = await moduleGuard('instore')
+  if (off) return off
   const admin = await staff(req)
   if (!admin) return err('دسترسی مجاز نیست', 403)
   const body = await req.json().catch(() => null)
