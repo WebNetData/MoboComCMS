@@ -470,6 +470,11 @@ test('mobile repair: a device lock is checked and kept as given; a form has its 
   assert.ok(repair.settings.receipt.enabled && repair.settings.receipt.terms.length > 100)
   assert.ok(repair.settings.workflow.some((step) => step.receipt) && repair.settings.workflow.some((step) => step.pickup))
   assert.ok(repair.fields.some((item) => item.type === 'devicelock'))
+  // The computer and laptop form has the same receipt and pickup; its receipt lists only its own fields and its password is sealed.
+  const computer = f.normalizeForm(f.TEMPLATES.find((t) => t.id === 'computer-repair').build())
+  assert.ok(computer.settings.receipt.enabled && computer.settings.workflow.some((step) => step.receipt) && computer.settings.workflow.some((step) => step.pickup))
+  for (const id of computer.settings.receipt.customerFields) assert.ok(computer.fields.some((item) => item.id === id), id)
+  assert.equal(computer.fields.find((item) => item.id === 'password').type, 'secret')
 })
 
 test('staff counter submission is independent of the public human check', () => {
