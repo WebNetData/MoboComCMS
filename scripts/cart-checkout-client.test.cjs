@@ -14,6 +14,36 @@ function fixture(replies, cartReply = {cart: {count: 7}}) {
  return {checkout: () => mod.exports.checkoutCart({}), keys, events, store}
 }
 const tick = () => new Promise(resolve => setImmediate(resolve))
+
+test('cart checkout waits for session resolution and retains authenticated/guest destinations', () => {
+ const source = ts.transpileModule(fs.readFileSync('src/components/store/CartPage.tsx', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX}}).outputText
+ for (const status of ['loading', 'authenticated', 'unauthenticated']) {
+  const routes = [], mod = {exports: {}}
+  new Function('require', 'module', 'exports', source)(name => {
+   if (name === 'react') return {useState: initial => [initial, () => {}]}
+   if (name === 'next-auth/react') return {useSession: () => ({status})}
+   if (name === '@/platform/routing/navigation') return {useRouter: () => ({push: value => routes.push(value)})}
+   if (name === '@/modules/checkout/domain/surface') return {checkoutPath: value => value}
+   if (name.startsWith('@/')) return {}
+   return require(name)
+  }, mod, mod.exports)
+  const tree = mod.exports.default({initial: {lines: [{id: 1, name: 'Synthetic', slug: 'synthetic', attributes: {}, kind: 'PHYSICAL', quantity: 1, maxQuantity: 2, unitPrice: 10, lineTotal: 10, listPrice: 10, currency: 'IRT'}], currency: 'IRT', count: 1, itemsTotal: 10, listTotal: 10, saving: 0, hasPhysical: false}, note: ''})
+  const buttons = []
+  function walk(node) {
+   if (!node || typeof node !== 'object') return
+   if (Array.isArray(node)) return node.forEach(walk)
+   if (node.type === 'button' && ['تکمیل سفارش', 'تأیید و تکمیل سفارش'].includes(node.props.children)) buttons.push(node)
+   walk(node.props?.children)
+  }
+  walk(tree)
+  assert.equal(buttons.length, 2, 'both desktop and mobile checkout controls are covered')
+  for (const button of buttons) {
+   assert.equal(button.props.disabled, status === 'loading')
+   button.props.onClick()
+  }
+  assert.deepEqual(routes, status === 'loading' ? [] : Array(2).fill(status === 'authenticated' ? '/checkout/cart' : '/login?next=%2Fcheckout%2Fcart'))
+ }
+})
 test('server failure retains the key for replay and success refreshes the real current badge', async () => {
  const f = fixture([{status: 503, body: {error: 'unavailable'}}, {status: 200, body: {orderId: 21, replayed: true}}])
  assert.equal((await f.checkout()).ok, false); assert.equal((await f.checkout()).ok, true); await tick()

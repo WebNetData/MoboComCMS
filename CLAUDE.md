@@ -1,6 +1,6 @@
 # Claude workflow — MoboCom
 
-Read and follow [AGENTS.md](AGENTS.md) for the shared repository invariants, owner decisions and tool routing. It is the canonical root guidance; this file does not duplicate it.
+Read and follow [AGENTS.md](AGENTS.md) for the shared repository invariants, owner decisions and tool routing. It is the canonical root guidance; this file does not duplicate it. Start and finish each development slice through the same [session bootstrap](docs/agent/SESSION_BOOTSTRAP.md) used by Codex; there is no Claude-specific architecture or work ledger.
 
 Use the existing `.claude/skills/mobocom-*` workflows for this agent. Audit current implementation before adding anything; continue the existing batch. Read only relevant architecture/contracts via [MASTER_PROMPT](docs/agent/MASTER_PROMPT.md). For frontend design follow [FRONTEND_QUALITY](docs/agent/FRONTEND_QUALITY.md): preserve the approved surfaces, use Figma SDS and React Doctor, and actually verify affected UI in a browser.
 
@@ -32,7 +32,7 @@ For requested interface design, styling, polish or redesign, use `unslop` with t
 
 For tasks involving site-wide architecture, Admin organization, extensibility, themes or plugins, follow the shared quality contract at `docs/agent/WHOLE_SITE_QUALITY_STANDARD.md` and the scoped start brief `docs/agent/WHOLE_SITE_EXECUTION_PROMPT.md`. Existing `AGENTS.md` remains the shared root source of repository invariants; do not duplicate or override it here.
 
-Before proposing work, inspect the live branch/worktree, relevant owners, approved UI baselines and current handoffs; distinguish evidence from planned contracts. First deliver read-only inventory, gaps, target IA/architecture and a small-slice roadmap. Apply only an authorized slice, validate with project checks and real browser evidence for UI, and report unrun checks. Preserve protected design, data, URL, permission and module lifecycle contracts. Reuse existing theme, extension, settings and vocabulary owners; no unrestricted server code edits from Admin.
+Inspect the resolved branch/worktree, relevant owners, approved UI baselines and current handoff; distinguish evidence from planned contracts. A read-only whole-site inventory/blueprint is required only for an explicit whole-site audit request. For an already-authorized feature, continue its bounded slice through the shared session bootstrap without reopening approval. Validate with project checks and actual browser evidence for UI; report unrun checks. Preserve protected design, data, URL, permission and module lifecycle contracts. Reuse existing theme, extension, settings and vocabulary owners; no unrestricted server code edits from Admin.
 
 Scope and already-granted authorization come from the current user request. Read the adoption note before running a whole-site brief; use existing status documents and do not reopen approval for an authorized slice.
 <!-- mobocom-whole-site-quality:claude:end -->

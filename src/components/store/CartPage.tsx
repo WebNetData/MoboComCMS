@@ -42,6 +42,7 @@ export default function CartPage({ initial, note, surface = 'public' }: { surfac
   }
 
   function proceed() {
+    if (status === 'loading') return
     router.push(status === 'authenticated' ? checkoutPath('/checkout/cart', surface) : `/login?next=${encodeURIComponent('/checkout/cart')}`)
   }
 
@@ -99,7 +100,7 @@ export default function CartPage({ initial, note, surface = 'public' }: { surfac
       </dl>
       {cart.hasPhysical && cart.freeShipping?.length ? <FreeShippingProgress offers={cart.freeShipping} total={cart.itemsTotal} currency={cart.currency} /> : null}
       {cart.hasPhysical && <p className="sx-cart-hint"><StoreIcon name="truck" size={16} />{cart.shippingByAddress ? 'هزینهٔ ارسال بر اساس شهر، وزن و روش ارسال (پست، تیپاکس، پیک…) در مرحلهٔ بعد محاسبه می‌شود' : cart.shipping > 0 ? <>هزینهٔ ارسال: <Amount value={cart.shipping} currency={cart.currency} /> (در مرحلهٔ بعد محاسبه می‌شود)</> : 'ارسال این سفارش رایگان است'}</p>}
-      <button type="button" className="sx-btn is-primary is-block is-large" onClick={proceed} disabled={cart.blocked || busy !== null}>تأیید و تکمیل سفارش</button>
+      <button type="button" className="sx-btn is-primary is-block is-large" onClick={proceed} disabled={cart.blocked || busy !== null || status === 'loading'} aria-busy={status === 'loading'}>تأیید و تکمیل سفارش</button>
       {cart.blocked && !cart.overLimit && <p className="sx-cart-hint is-warn">برای ادامه، کالاهای دارای هشدار را حذف یا اصلاح کنید.</p>}
       {note && <p className="sx-cart-hint">{note}</p>}
       <p className="sx-cart-fine">کالاهای سبد رزرو نشده‌اند؛ برای ثبت سفارش، مراحل خرید را تکمیل کنید.</p>
@@ -107,7 +108,7 @@ export default function CartPage({ initial, note, surface = 'public' }: { surfac
 
     <div className="sx-cart-sticky" aria-hidden={false}>
       <div><small>جمع سبد خرید</small><Amount value={cart.itemsTotal} currency={cart.currency} /></div>
-      <button type="button" className="sx-btn is-primary" onClick={proceed} disabled={cart.blocked || busy !== null}>تکمیل سفارش</button>
+      <button type="button" className="sx-btn is-primary" onClick={proceed} disabled={cart.blocked || busy !== null || status === 'loading'} aria-busy={status === 'loading'}>تکمیل سفارش</button>
     </div>
   </div>
 }

@@ -155,7 +155,7 @@
 .sx-qf a.is-on svg { color: inherit; }
 
 @media (min-width: 761px) {
-  .sx-listing .sx-filters { top: 8px; border-radius: 20px; padding: 16px; }
+  .sx-listing .sx-filters:not(:modal) { top: 8px; border-radius: 20px; padding: 16px; }
 }
 
 @media (max-width: 1200px) {

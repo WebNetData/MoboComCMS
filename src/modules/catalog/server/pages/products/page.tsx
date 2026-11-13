@@ -20,7 +20,7 @@ import {
 import { CategoryGrid, QuickRoutes, ShopHero, StoreDoors, TopSellers, divisionCopy } from '@/components/store/ShopHome'
 import { FileStoreDoor } from '@/components/store/ProductDownloads'
 import FileStore from '@/components/store/FileStore'
-import { FacetFind, FilterAutoApply, PriceSlider } from '@/components/store/ShopFilters'
+import { ClearFilterDraft, FacetFind, FilterAutoApply, FilterDialogClose, PriceSlider, ShopFilterDialog, ShopFilterTrigger } from '@/components/store/ShopFilters'
 import { colorSwatch } from '@/modules/store/domain/colors'
 import { fileStoreHome, shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
 import { SHOP_SORTS, SPEC_PARAM, isFileStoreFront, isFiltered, isStoreFront, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
@@ -221,10 +221,10 @@ async function Listing({ query }: { query: ShopQuery }) {
       <span className="sx-subcat-art">{child.image ? <img src={sized(child.image, 96)} alt="" loading="lazy" /> : <StoreIcon name="box" size={22} />}</span><span>{child.name}</span><small className="num">{fa(child.total)}</small>
     </Link>)}</nav>}
 
-    <input type="checkbox" id="sx-filters-toggle" className="sx-filters-toggle" hidden />
     <div className="sx-listing-grid">
-      <aside className="sx-filters" aria-label="فیلترها">
-        <div className="sx-filters-top"><b><StoreIcon name="filter" size={18} />فیلترها</b>{chips.length > 0 && <Link href={home}>حذف همه</Link>}<label htmlFor="sx-filters-toggle" className="sx-filters-close" aria-label="بستن فیلترها"><StoreIcon name="x" size={20} /></label></div>
+      <ShopFilterDialog key={shopQueryString(query)} id="sx-filter-dialog" formId="sx-filter-form">
+        <div className="sx-filters-top"><b id="sx-filter-dialog-title"><StoreIcon name="filter" size={18} />فیلترها</b>{chips.length > 0 && <Link href={home} className="sx-filter-clear-link">حذف همه</Link>}<ClearFilterDraft formId="sx-filter-form" /><FilterDialogClose dialogId="sx-filter-dialog" /></div>
+        <div className="sx-filter-content">
         <form action="/products" method="get" id="sx-filter-form">
           {query.q && <input type="hidden" name="q" value={query.q} />}
           {query.category && <input type="hidden" name="category" value={query.category} />}
@@ -236,7 +236,7 @@ async function Listing({ query }: { query: ShopQuery }) {
           </details>
           {result.brands.length > 0 && <details className="sx-facet" open>
             <summary>برند {query.brands.length > 0 && <small className="sx-facet-on num">{fa(query.brands.length)}</small>}</summary>
-            {result.brands.length > 8 && <FacetFind target="sx-brand-list" label="جست‌وجوی برند" />}
+            {result.brands.length > 8 && <FacetFind target="sx-brand-list" label="جست‌وجوی برند" formId="sx-filter-form" />}
             <div className="sx-checks" id="sx-brand-list">{result.brands.slice(0, 30).map((brand) => <label key={brand.id}>
               <input type="checkbox" name="brand" value={brand.slug} defaultChecked={query.brands.includes(brand.slug)} />
               <span>{brand.name}</span><small className="num">{fa(brand.count)}</small>
@@ -250,14 +250,14 @@ async function Listing({ query }: { query: ShopQuery }) {
             </div>}
             {result.priceSteps.length > 0 && <div className="sx-price-steps">{result.priceSteps.map((step) => {
               const on = query.min === step.min && query.max === step.max
-              return <Link key={`${step.min}-${step.max}`} href={`/products${shopQueryString(query, on ? { min: 0, max: 0 } : { min: step.min, max: step.max })}`} className={on ? 'is-on' : ''} aria-current={on ? 'true' : undefined}>
+                return <Link key={`${step.min}-${step.max}`} href={`/products${shopQueryString(query, on ? { min: 0, max: 0 } : { min: step.min, max: step.max })}`} className={on ? 'is-on' : ''} aria-current={on ? 'true' : undefined} data-filter-price-step>
                 {step.min && step.max ? `${fa(step.min)} تا ${fa(step.max)}` : step.max ? `تا ${fa(step.max)}` : `از ${fa(step.min)}`}
               </Link>
             })}</div>}
           </details>
           {result.specFacets.map((facet) => <details key={facet.key} className="sx-facet" open={!!query.specs[facet.key] || result.specFacets.indexOf(facet) < 3}>
             <summary>{facet.label} {query.specs[facet.key] && <small className="sx-facet-on num">{fa(query.specs[facet.key].length)}</small>}</summary>
-            {facet.values.length > 8 && <FacetFind target={`sx-spec-${facet.key}`} label={`جست‌وجو در ${facet.label}`} />}
+            {facet.values.length > 8 && <FacetFind target={`sx-spec-${facet.key}`} label={`جست‌وجو در ${facet.label}`} formId="sx-filter-form" />}
             <div className="sx-checks" id={`sx-spec-${facet.key}`}>{facet.values.map((item) => <label key={item.value} className={item.count ? '' : 'is-empty'}>
               <input type="checkbox" name={`${SPEC_PARAM}${facet.key}`} value={item.value} defaultChecked={query.specs[facet.key]?.includes(item.value)} />
               {facet.color && <i className="sx-dot" style={{ background: colorSwatch(item.value) || 'var(--sx-subtle)' }} aria-hidden="true" />}<span>{item.value}</span><small className="num">{fa(item.count)}</small>
@@ -284,14 +284,15 @@ async function Listing({ query }: { query: ShopQuery }) {
             <label className="sx-switch"><input type="checkbox" name="discounted" value="1" defaultChecked={query.discounted} /><span>فقط کالاهای تخفیف‌دار</span><small className="num">{fa(result.toggles.discounted)}</small></label>
             {storeKind !== 'PHYSICAL' && (result.toggles.instant > 0 || query.instant) && <label className="sx-switch"><input type="checkbox" name="instant" value="1" defaultChecked={query.instant} /><span>فقط تحویل آنی</span><small className="num">{fa(result.toggles.instant)}</small></label>}
           </div>
-          <button type="submit" className="sx-btn is-primary is-block">اعمال فیلترها</button>
         </form>
         <FilterAutoApply formId="sx-filter-form" />
-      </aside>
+        </div>
+        <div className="sx-filter-actions"><button type="submit" form="sx-filter-form" className="sx-btn is-primary is-block">اعمال فیلترها</button></div>
+      </ShopFilterDialog>
 
       <section className="sx-results" aria-label="نتایج">
         <div className="sx-toolbar">
-          <label htmlFor="sx-filters-toggle" className="sx-btn sx-filters-open"><StoreIcon name="filter" size={16} />فیلترها{chips.length > 0 && <span className="num">{fa(chips.length)}</span>}</label>
+          <ShopFilterTrigger dialogId="sx-filter-dialog" count={chips.length} />
           <nav className="sx-sorts" aria-label="مرتب‌سازی">
             <span><StoreIcon name="sort" size={16} />مرتب‌سازی:</span>
             {SHOP_SORTS.map((sort) => <Link key={sort.key} href={`/products${shopQueryString(query, { sort: sort.key })}`} className={query.sort === sort.key ? 'is-active' : ''} aria-current={query.sort === sort.key ? 'true' : undefined}>{sort.label}</Link>)}

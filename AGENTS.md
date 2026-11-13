@@ -1,5 +1,7 @@
 # AGENTS.md — MoboCom — platform mandate 2026-10-10
 
+Claude, Codex and delegated agents use the same [session bootstrap](docs/agent/SESSION_BOOTSTRAP.md), architecture, decisions and feature handoffs. Resolve the requested feature's authoritative checkout before editing; record every coherent development slice there before handing it off.
+
 Use the repo-local `mobocom-*` skills for scoped workflows.
 
 ## Non-negotiable repository invariants
