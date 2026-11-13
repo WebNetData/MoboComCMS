@@ -6,6 +6,7 @@ import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import { CINEMA_RAILS, introVideoUrl, type CinemaSettings } from '@/modules/cinema/domain/cinema'
 import { EXTERNAL_PLAYERS } from '@/modules/media/domain/external-players'
+import { SUBTITLE_BACKGROUNDS, SUBTITLE_COLORS, SUBTITLE_EDGES, SUBTITLE_SIZES, type SubtitleStyle } from '@/modules/media/domain/playback-prefs'
 import FileUpload from '@/components/admin/FileUpload'
 import { OrderedPicker, RailsEditor } from '../../cms/SectionAdmin'
 import { CinemaShell, Notice, fa, send, useJson } from '../shared'
@@ -87,6 +88,17 @@ export default function CinemaSettingsPage() {
           <label className="sa-check"><input type="checkbox" checked={form.fullReadSubtitles} disabled={!form.findSubtitles || !form.readEmbeddedSubtitles || form.embeddedInBrowser} onChange={e => set({ fullReadSubtitles: e.target.checked })} />اگر فهرست فایل جای زیرنویس‌ها را نداشت، کل فایل دریافت شود</label>
           <p className="sa-sub">به اندازهٔ حجم هر فایل ترافیک مصرف می‌کند و اگر سرور فایل کند باشد، یک نسخهٔ موقت روی هارد می‌سازد که بعد پاک می‌شود. پیشنهاد: خاموش.</p>
           {form.findSubtitles && form.readEmbeddedSubtitles && !form.embeddedInBrowser && form.fullReadSubtitles && <label className="sa-field"><span>سقف حجم فایل برای دریافت کامل (گیگابایت)</span><input className="input num" type="number" min={1} max={100} value={form.subtitleScanMaxGB} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ subtitleScanMaxGB: e.target.valueAsNumber }) }} /><small className="sa-sub">فقط برای دریافت کامل؛ خواندن از روی فهرست به حجم فایل بستگی ندارد</small></label>}
+          <label className="sa-check"><input type="checkbox" checked={form.viewerSubtitleFiles} onChange={e => set({ viewerSubtitleFiles: e.target.checked })} />بیننده بتواند فایل زیرنویس خودش را از دستگاهش به پخش‌کننده بدهد</label>
+          <p className="sa-sub">فایل SRT، VTT یا ASS فقط در مرورگر بیننده خوانده می‌شود و به سایت فرستاده نمی‌شود.</p>
+          <fieldset className="sa-fieldset">
+            <legend>ظاهر پیش‌فرض زیرنویس در پخش‌کننده</legend>
+            <label className="sa-field"><span>اندازه</span><select className="input" value={form.subtitleStyle.size} onChange={e => set({ subtitleStyle: { ...form.subtitleStyle, size: e.target.value as SubtitleStyle['size'] } })}>{Object.entries(SUBTITLE_SIZES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+            <label className="sa-field"><span>رنگ</span><select className="input" value={form.subtitleStyle.color} onChange={e => set({ subtitleStyle: { ...form.subtitleStyle, color: e.target.value as SubtitleStyle['color'] } })}>{Object.entries(SUBTITLE_COLORS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select></label>
+            <label className="sa-field"><span>پس‌زمینه</span><select className="input" value={form.subtitleStyle.background} onChange={e => set({ subtitleStyle: { ...form.subtitleStyle, background: e.target.value as SubtitleStyle['background'] } })}>{Object.entries(SUBTITLE_BACKGROUNDS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+            <label className="sa-field"><span>لبهٔ نوشته</span><select className="input" value={form.subtitleStyle.edge} onChange={e => set({ subtitleStyle: { ...form.subtitleStyle, edge: e.target.value as SubtitleStyle['edge'] } })}>{Object.entries(SUBTITLE_EDGES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+            <label className="sa-field"><span>فاصله از پایین تصویر (درصد)</span><input className="input num" type="number" min={2} max={40} value={form.subtitleStyle.position} onChange={e => { if (Number.isFinite(e.target.valueAsNumber)) set({ subtitleStyle: { ...form.subtitleStyle, position: e.target.valueAsNumber } }) }} /></label>
+            <small className="sa-sub">هر بیننده از منوی تنظیمات پخش ظاهر خودش را انتخاب می‌کند؛ انتخاب اعضا با حسابشان و انتخاب مهمان روی دستگاهش می‌ماند. زیرنویس ASS با استایل خودش نمایش داده می‌شود.</small>
+          </fieldset>
           <CinemaFoundSubtitles />
         </section>
         <section className="sa-card">

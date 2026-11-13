@@ -24,7 +24,7 @@ export async function GET_playbackPrefs(req: NextRequest) {
   return ok(await getPlaybackPrefs(user.id))
 }
 
-/** PUT /api/media/playback-prefs { audio?, subtitle? } — changes what is sent, keeps the rest. */
+/** PUT /api/media/playback-prefs { audio?, subtitle?, subtitleStyle? } — changes what is sent, keeps the rest. */
 export async function PUT_playbackPrefs(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)

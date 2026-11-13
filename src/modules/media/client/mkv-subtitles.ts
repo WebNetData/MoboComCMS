@@ -1,5 +1,5 @@
 import { ID, blockText, cueText, elements, readBlock, readCues, readHead, readTracks, textCodec, type Line, type TextCodec, type Track } from '@/modules/media/domain/matroska'
-import { foundLabel, subtitleLanguage, sortFound, trulyForced } from '@/modules/media/domain/found-subtitles'
+import { foundLabel, languageCode, sortFound, trulyForced } from '@/modules/media/domain/found-subtitles'
 
 /**
  * The text subtitles inside an MKV, read by the viewer's browser straight from the file's host (owner 2026-11-13: the
@@ -97,8 +97,9 @@ export async function openMkvSubtitles(src: string, signal: AbortSignal): Promis
   const ms = (value: number) => value * head.timestampScale / 1_000_000
   const forced = trulyForced([...plans.values()].map(plan => ({ forced: plan.track.forced, cues: plan.lines.length })))
   const offered = sortFound([...plans.values()].map((plan, at) => {
-    const language = subtitleLanguage(plan.track.language)
-    return { id: plan.track.number, number: plan.track.number, language, label: foundLabel({ language, title: plan.track.name, forced: forced[at], hearing: plan.track.hearing }), format: plan.format }
+    // Any language the track names, not only the site's list (owner 2026-11-13).
+    const language = languageCode(plan.track.language)
+    return { id: plan.track.number, number: plan.track.number, language, label: foundLabel({ language, tag: plan.track.language, title: plan.track.name, forced: forced[at], hearing: plan.track.hearing }), format: plan.format }
   })).map(({ number, language, label, format }) => ({ number, language, label, format }))
 
   // Where a line's block is depends on its cluster's header size: 12 bytes from mkvmerge, other sizes from other
