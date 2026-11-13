@@ -1,23 +1,26 @@
 ---
 name: mobocom-extensions
 description: Design or implement MoboCom modules, plugins, provider adapters, themes, per-module themes, module lifecycle, Solution Packs or extension APIs without forking or coupling the core.
+model: sonnet
 ---
 
 # Extension workflow
 
-Use `docs/agent/DEVSTACK.md` for scoped dependency graph/structural checks. Follow canonical public addresses even when generic performance advice suggests direct imports. Review introduced edges against the existing baseline; preserve dynamic registries when interpreting Knip candidates.
+Read only what the task touches; open large docs at the named heading (Grep the heading, then Read with offset/limit), never whole.
+- `docs/agent/ARCHITECTURE.md`: §3 Core does not depend on optional modules, §4 Registries, §5 Module manifest, §6 Module lifecycle, §10 Extension architecture, §11 UI extension slots, §12 Theme architecture, §13 Solution Packs; §9 Entity ownership when an extension acts as a user.
+- `docs/agent/PLATFORM_DECISIONS.md`: §9 Platform mandate adoption, plus Grep for the module/plugin id. Never read it whole (~200 KB).
+- `docs/agent/DEVSTACK.md`: only when running dependency-graph/Knip checks.
 
-1. Read extension + architecture + identity references as relevant.
-2. Extend existing registries; do not create parallel registries.
-3. Core boots with optional modules disabled.
-4. Disable preserves data; uninstall and purge are separate.
-5. Validate dependency/version/extension API compatibility before activation.
-6. Plugins use public contracts/events/slots/providers, not private module/database internals.
-7. Server plugins are trusted executable code; use narrow privileged install/update permissions + audit.
-8. Themes contain presentation, not business rules, and resolve module theme → site theme → core fallback.
-9. Solution Packs configure businesses; they do not fork MoboCom.
-10. Any extension representing/acting as a human user references canonical MoboCom UserId.
-11. Add lifecycle/compatibility tests and contract gates where external plugins rely on a stable API.
+## Rules
+1. Extend existing registries, state, packages, navigation and the global theme owner; never a parallel registry.
+2. Core boots with every optional module off.
+3. Install and activate are separate; validate dependency/version/extension-API compatibility before activation; operations are claimed, idempotent, with failure compensation.
+4. Deactivate rejects direct access and reconciles queued work; disable and uninstall keep data; purge needs explicit authorization.
+5. Plugins use public contracts/events/slots/providers only. Server plugins are trusted code (ordinary build/deploy, narrow install/update permission + audit); declarative packages use validated host contributions.
+6. Themes are presentation only: module theme → site theme → core fallback, with CSS isolation.
+7. Solution Packs configure businesses, never fork MoboCom. Anything acting as a user references the canonical UserId.
+8. Follow canonical public addresses; review new import edges against the baseline; dynamic registries explain Knip candidates.
+9. Add lifecycle/compatibility tests, and contract gates where external plugins rely on a stable API.
 
 ## This repository
 - A plugin is `src/plugins/<id>/manifest.json`; run `npm run extensions:generate` after changing one. `requires` makes a module effectively off when what it needs is off.
@@ -27,12 +30,6 @@ Use `docs/agent/DEVSTACK.md` for scoped dependency graph/structural checks. Foll
 - VPN, reseller and marketplace are set aside by the owner: keep them working behind their switches, do not extend them unasked.
 - The block editor is the plugin `block-editor` (on by default); off, the forms fall back to the old editor and documents are kept. A module adds block types with `registerModuleBlocks` (`src/modules/editor/server/documents.ts`); a block of a module that is off is kept in the document and shown as unsupported, never dropped.
 - A plugin that adds a section with public pages adds it to `MAINTENANCE_SECTIONS` (`src/modules/site/domain/maintenance.ts`) so it can be put in maintenance by itself.
-
-## Platform mandate routing — 2026-10-10
-
-Read current repository root instructions, then task-relevant sections of `docs/agent/ARCHITECTURE.md` and `PLATFORM_DECISIONS.md`. The canonical contracts, domain matrix and roadmap are linked there; read only the affected scope. If the repository is unavailable, use the fallback from `references/architecture.md` and do not infer current implementation from it.
-
-Installation and activation are separate. Extend existing state/packages/navigation with claimed, idempotent operations and failure compensation. Deactivation rejects direct access and reconciles queued work; uninstall preserves data and purge needs explicit authorization. Trusted code uses ordinary build/deploy; declarative packages use validated host contributions. Independent module themes extend the current global theme owner with compatibility/fallback/CSS isolation, not a competing registry.
 
 <!-- mobocom-business-skill:start -->
 ## Business experiences routing
