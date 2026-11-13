@@ -129,3 +129,28 @@ test('indexed subtitles: a read the job cannot finish is kept and continued by t
   const last = await indexedSubtitles(source('later.mkv'), { deadline: Date.now() + 45_000 + 400, progress, final: true }, [])
   assert.ok(last === null || Array.isArray(last), 'final: no pending')
 })
+
+test('browser reader: only the lines near the playing time, straight from the file host; ASS as plain cue text', async () => {
+  const { openMkvSubtitles } = load('src/modules/media/client/mkv-subtitles.ts')
+  const long = Array.from({ length: 120 }, (_, i) => ({ start: 2000 + i * 1400, duration: 1100, text: i === 3 ? '<i>...یک {\an8}چهره</i>' : `خط ${i + 1}` }))
+  const built = buildMkv({ tracks, lines: { 2: long, 3: en }, length: 180_000 })
+  files.set('/watch.mkv', built.file); reset()
+  const reader = await openMkvSubtitles(`${base}/watch.mkv`, new AbortController().signal)
+  assert.deepEqual(reader.tracks.map(t => [t.number, t.language, t.format]), [[2, 'fa', 'srt'], [3, 'en', 'ass']])
+  const persian = [], english = []
+  await reader.ensure(2, 0, cue => persian.push(cue))
+  assert.equal(persian.length, long.filter(line => line.start <= 90_000).length, 'the next 90 seconds only')
+  assert.deepEqual([persian[0].start, persian[0].end, persian[3].text], [2, 3.1, '<i>...یک چهره</i>'])
+  const requests = state.requests
+  await reader.ensure(2, 0, cue => persian.push(cue))
+  assert.equal(state.requests, requests, 'lines already read are not asked again')
+  await reader.ensure(2, 91_000, cue => persian.push(cue))
+  assert.equal(persian.length, long.length)
+  await reader.ensure(3, 0, cue => english.push(cue))
+  assert.deepEqual(english.map(cue => cue.text), ['Hello 0', 'Hello 1', 'Hello 2', 'Hello 3'], 'zlib ASS lines without override tags')
+  assert.ok(state.sent < built.file.length / 10, `read ${state.sent} of ${built.file.length} bytes`)
+  reset(); state.ranges = false
+  await assert.rejects(openMkvSubtitles(`${base}/watch.mkv`, new AbortController().signal), 'a host without ranges is not read whole')
+  reset()
+  assert.equal(await openMkvSubtitles(`${base}/clip.mp4`, new AbortController().signal), null)
+})

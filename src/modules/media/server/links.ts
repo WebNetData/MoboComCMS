@@ -223,7 +223,7 @@ export type PlayerSubtitle = { id: number | string; language: string; label: str
 export type PlayerAudio = { id: number; language: string; label: string; src: string }
 
 export type WatchResult =
-  | { ok: true; ownerType: string; subtitlePreference: string | null; subtitles: PlayerSubtitle[]; audioTracks: PlayerAudio[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
+  | { ok: true; ownerType: string; subtitlePreference: string | null; subtitles: PlayerSubtitle[]; embeddedSubtitles: boolean; audioTracks: PlayerAudio[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
   | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'buy' | 'expired' | 'unplayable'; backPath: string }
 
 async function watchOwner(ownerType: string, ownerId: number) {
@@ -294,6 +294,8 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   // The subtitle files of the same film or episode that this viewer may open and the player can show.
   const subtitles: PlayerSubtitle[] = []
   const audioTracks: PlayerAudio[] = []
+  // The subtitles inside this MKV are read by the viewer's browser straight from the file's host (no traffic here).
+  let embeddedSubtitles = false
   if (playback !== 'embed' && link.ownerType !== 'game') {
     const policy = await getCinemaSettings(true)
     const rows = await db.mediaLink.findMany({ where: { ownerType: link.ownerType, ownerId: link.ownerId, kind: { in: ['SUBTITLE', 'AUDIO'] }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, language: true, label: true, url: true, access: true } })
@@ -308,8 +310,11 @@ export async function watchSource(rawId: string, token: string | null, headers: 
     // Subtitles that came with this very file (beside it or inside it): timed for this release, not for the others.
     if (policy.findSubtitles === true && (playback === 'video' || playback === 'maybe')) {
       const query = settings?.enforceTokens && token ? `?t=${encodeURIComponent(token)}` : ''
-      const found = sortFound(await db.mediaLinkSubtitle.findMany({ where: { linkId: id }, select: { id: true, language: true, label: true, format: true } }))
+      embeddedSubtitles = policy.readEmbeddedSubtitles && policy.embeddedInBrowser && /\.(mkv|webm)$/i.test(link.url.split(/[?#]/)[0])
+      const found = sortFound(await db.mediaLinkSubtitle.findMany({ where: { linkId: id }, select: { id: true, language: true, label: true, format: true, origin: true } }))
       for (const row of found) {
+        // Read by an earlier server look; the browser now reads the same tracks itself.
+        if (embeddedSubtitles && row.origin === 'EMBEDDED') continue
         if (row.format === 'ass' && !policy.enableAssSubtitles) continue
         const src = `/api/media/subtitle/found/${row.id}${query}`
         subtitles.push({ id: `f${row.id}`, language: row.language, label: row.label || 'زیرنویس', src, format: row.format as FoundFormat, ...(row.format === 'ass' ? { styledSrc: src + (query ? '&' : '?') + 'format=ass' } : {}) })
@@ -326,7 +331,7 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   // The member's own choice of subtitle, kept with the account; null for a visitor (the device remembers theirs).
   const subtitlePreference = viewer.userId ? (await getPlaybackPrefs(viewer.userId)).subtitle : null
   return {
-    ok: true, ownerType: link.ownerType, subtitlePreference, subtitles, audioTracks, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
+    ok: true, ownerType: link.ownerType, subtitlePreference, subtitles, embeddedSubtitles, audioTracks, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
     label: link.label, quality: link.quality,
     downloadHref: link.kind === 'DOWNLOAD' ? (settings?.enforceTokens && token ? `/api/media/link/${id}?t=${encodeURIComponent(token)}` : `/api/media/link/${id}`) : '',
     resumeKey: `watch:${link.ownerType}:${link.ownerId}`,

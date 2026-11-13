@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type Hls from 'hls.js'
 import SubtitleControls from '@/components/media/player/SubtitleControls'
 import SeparateAudioControls from '@/components/media/player/SeparateAudioControls'
 import SilentAudioNotice from '@/components/media/player/SilentAudioNotice'
 import PlayerBreaks, { type PlayerBreaksConfig } from '@/components/media/player/PlayerBreaks'
 import ExternalPlayers from '@/components/media/player/ExternalPlayers'
+import { useMkvSubtitles } from '@/components/media/player/useMkvSubtitles'
 import type { ExternalPlayerId } from '@/modules/media/domain/external-players'
 import type { PlayerAudio, PlayerSubtitle } from '@/modules/media/server/links'
 
@@ -22,6 +23,8 @@ type Props = {
   downloadHref?: string
   /** Subtitle files of this film or episode, served by the site as WebVTT. */
   subtitles?: PlayerSubtitle[]
+  /** Read the text subtitles inside this MKV in the viewer's browser, straight from the file's host (Admin › فیلم و سریال › تنظیمات). */
+  embeddedSubtitles?: boolean
   audioTracks?: PlayerAudio[]
   /** The signed-in member's choice kept with the account ('' = never chose); null for a visitor. */
   subtitlePreference?: string | null
@@ -52,10 +55,12 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null, keyboardScope = 'global', breaks = null, externalPlayers = NO_APPS }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, embeddedSubtitles = false, audioTracks = NO_AUDIO, subtitlePreference = null, keyboardScope = 'global', breaks = null, externalPlayers = NO_APPS }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const frame = useRef<HTMLDivElement>(null), subtitleLayer = useRef<HTMLDivElement>(null)
   const [externalAudio, setExternalAudio] = useState(false)
+  const embedded = useMkvSubtitles(video, src, embeddedSubtitles && playback !== 'hls' && playback !== 'embed')
+  const allSubtitles = useMemo(() => embedded.length ? [...subtitles, ...embedded] : subtitles, [subtitles, embedded])
   const hls = useRef<Hls | null>(null)
   const [error, setError] = useState<'' | 'codec' | 'network'>('')
   const [levels, setLevels] = useState<{ index: number; height: number }[]>([])
@@ -168,7 +173,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
   return <div className="vp" ref={frame} role={keyboardScope === 'focused' ? 'group' : undefined} tabIndex={keyboardScope === 'focused' ? 0 : undefined} aria-label={keyboardScope === 'focused' ? title : undefined}>
     <div className="vp-frame">
       <video ref={video} controls={!externalAudio} playsInline preload="metadata" poster={poster || undefined} aria-label={title}>
-        {subtitles.map((track) => <track key={track.id} kind="subtitles" src={track.src} srcLang={track.language || 'und'} label={track.label} />)}
+        {subtitles.map((track) => <track key={track.id} id={`vp-sub-${track.id}`} kind="subtitles" src={track.src} srcLang={track.language || 'und'} label={track.label} />)}
       </video>
       <div className="vp-ass-layer" ref={subtitleLayer} aria-hidden="true" />
       {breaks && !error && <PlayerBreaks video={video} config={breaks} />}
@@ -209,7 +214,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       <span className="vp-keys">میان‌بر: Space پخش/توقف · ←/→ ده ثانیه · F تمام‌صفحه</span>
     </div>
     <ExternalPlayers src={src} title={title} players={externalPlayers} subtitles={subtitles} />
-    <SubtitleControls key={`${resumeKey}:subtitles`} video={video} layer={subtitleLayer} tracks={subtitles} preference={subtitlePreference} />
+    <SubtitleControls key={`${resumeKey}:subtitles`} video={video} layer={subtitleLayer} tracks={allSubtitles} preference={subtitlePreference} />
     <SeparateAudioControls key={`${resumeKey}:audio`} video={video} tracks={audioTracks} onActive={setExternalAudio} />
   </div>
 }
