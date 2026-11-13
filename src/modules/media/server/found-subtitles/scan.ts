@@ -81,6 +81,11 @@ export async function runSubtitleScan(payload: Record<string, unknown>, job: Job
     let media: MediaInfo | undefined
     // Switched off: only files beside the video; nothing is read whole and a copy under way is dropped.
     if (settings.readEmbeddedSubtitles === false) await discardCopy(linkId, key)
+    // Read by the viewer's browser: the server takes only the track list (the file's start) for the link's notes.
+    else if (settings.embeddedInBrowser !== false) {
+      await discardCopy(linkId, key)
+      if (source.kind === 'remote') await indexedSubtitles(source, { deadline, tracksOnly: true, onTracks: tracks => { media = mediaInfo(tracks, tracks.filter(t => { const f = textCodec(t.codec); return f && f !== 'image' }).map(t => t.language)) } }, notes)
+    }
     else if (source.kind === 'remote') {
       // Through the file's own index first: only its subtitle lines are read (about 2 MB for a film).
       const resumed = await copyStarted(linkId, key)

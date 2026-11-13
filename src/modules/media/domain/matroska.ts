@@ -1,12 +1,12 @@
-import { inflateSync } from 'node:zlib'
-
 /**
  * Just enough Matroska (MKV/WebM) to find a file's subtitle lines through its own index, without reading the file:
  * the track list near its start and the Cues, which for each text subtitle line give its time, its duration and
  * where its block is (mkvmerge writes them for every subtitle line). Owner 2026-11-12: a film's subtitles must not
  * cost the server the film's traffic or disk; both owner files (1.7 GB and 13.7 GB) are read in about 2 MB this way.
  * Everything here works on bytes already fetched and is bounded; nothing is trusted beyond what it checks.
+ * No Node API: the viewer's browser reads the same file with it (components/media/player/mkv-subtitles, owner 2026-11-13).
  */
+const UTF8 = new TextDecoder('utf-8')
 
 export const ID = {
   EBML: 0x1A45DFA3, DocType: 0x4282, Segment: 0x18538067, SeekHead: 0x114D9B74, Seek: 0x4DBB, SeekID: 0x53AB, SeekPosition: 0x53AC,
@@ -48,7 +48,7 @@ export function* elements(buf: Uint8Array, from = 0, to = buf.length): Generator
 
 const end = (buf: Uint8Array, el: Element) => Math.min(buf.length, el.start + el.size)
 const uint = (buf: Uint8Array, el: Element) => { let v = 0; for (let i = 0; i < Math.min(el.size, 8); i++) v = v * 256 + buf[el.start + i]; return v }
-const text = (buf: Uint8Array, el: Element) => Buffer.from(buf.subarray(el.start, end(buf, el))).toString('utf8').replace(/\u0000+$/, '')
+const text = (buf: Uint8Array, el: Element) => UTF8.decode(buf.subarray(el.start, end(buf, el))).replace(/\u0000+$/, '')
 const children = (buf: Uint8Array, el: Element) => elements(buf, el.start, end(buf, el))
 
 export type TextCodec = 'srt' | 'ass' | 'vtt'
@@ -187,13 +187,26 @@ export function readBlock(buf: Uint8Array, track: Track): { payload: Uint8Array;
   return { payload: buf.subarray(block.start + number.length + 3, end(buf, block)), duration, complete: true, size }
 }
 
-/** A block's bytes as they were before muxing (zlib or a stripped header), or null when they cannot be. */
-export function blockText(payload: Uint8Array, track: Track): string | null {
-  let bytes: Uint8Array = payload
+/**
+ * A block's bytes as they were before muxing (zlib or a stripped header), or null when they cannot be. `inflate` undoes
+ * zlib (node:zlib on the server; the browser inflates first and hands the result); without it a zlib block is null.
+ */
+export function blockText(payload: Uint8Array, track: Track, inflate?: (bytes: Uint8Array) => Uint8Array | null): string | null {
+  let bytes: Uint8Array | null = payload
   if (track.encoding === 'unsupported') return null
-  if (track.encoding?.kind === 'zlib') { try { bytes = inflateSync(payload, { maxOutputLength: 64 * 1024 }) } catch { return null } }
-  if (track.encoding?.kind === 'prefix') bytes = Buffer.concat([track.encoding.bytes, payload])
-  return new TextDecoder('utf-8').decode(bytes).replace(/\u0000+$/, '')
+  if (track.encoding?.kind === 'zlib') { try { bytes = inflate ? inflate(payload) : null } catch { bytes = null } }
+  if (track.encoding?.kind === 'prefix') { const prefix = track.encoding.bytes; bytes = new Uint8Array(prefix.length + payload.length); bytes.set(prefix); bytes.set(payload, prefix.length) }
+  return bytes ? UTF8.decode(bytes).replace(/\u0000+$/, '') : null
+}
+
+/**
+ * One line's words for the browser's own subtitle display (a VTTCue): an ASS block's text field without its override
+ * tags and with its line breaks; SubRip/WebVTT kept with only <i>, <b> and <u> (a cue would read other tags as markup).
+ */
+export function cueText(format: TextCodec, raw: string): string {
+  let words = raw
+  if (format === 'ass') { const parts = raw.split(','); words = parts.length >= 9 ? parts.slice(8).join(',') : raw; words = words.replace(/\\N/gi, '\n').replace(/\\h/g, ' ') }
+  return words.replace(/\{[^}]*\}/g, '').replace(/<(?!\/?[ibu]>)[^>]*>/gi, '').replace(/&(?![a-z]+;|#\d+;)/gi, '&amp;').replace(/\r\n?/g, '\n').trim()
 }
 
 const clock = (ms: number, separator: ',' | '.') => {

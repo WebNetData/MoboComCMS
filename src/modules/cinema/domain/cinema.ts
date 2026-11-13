@@ -41,6 +41,12 @@ export type CinemaSettings = {
    */
   readEmbeddedSubtitles: boolean
   /**
+   * Read them in the viewer's browser, straight from the file's host (CORS and byte ranges), only the lines near where
+   * the film is playing: the site's server spends no traffic on them and reads only the file's track list for its notes.
+   * Off, the server reads them through the index as before (owner 2026-11-13).
+   */
+  embeddedInBrowser: boolean
+  /**
    * When a file's index does not point at its subtitles (or it is not MKV), read the whole file once to take them out:
    * the file's size in traffic, and a temporary copy on a slow host. Off by default (owner 2026-11-12).
    */
@@ -78,6 +84,7 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   enableSeparateAudio: true,
   findSubtitles: true,
   readEmbeddedSubtitles: true,
+  embeddedInBrowser: true,
   fullReadSubtitles: false,
   subtitleScanMaxGB: 10,
   introUrl: '',
@@ -103,6 +110,7 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     enableSeparateAudio: raw.enableSeparateAudio !== false,
     findSubtitles: raw.findSubtitles !== false,
     readEmbeddedSubtitles: raw.readEmbeddedSubtitles !== false,
+    embeddedInBrowser: raw.embeddedInBrowser !== false,
     fullReadSubtitles: raw.fullReadSubtitles === true,
     subtitleScanMaxGB: clampInt(raw.subtitleScanMaxGB, 1, 100, d.subtitleScanMaxGB),
     introUrl: introVideoUrl(raw.introUrl),
