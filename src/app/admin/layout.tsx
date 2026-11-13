@@ -229,12 +229,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     { id: 'people', area: 'people', order: 10, title: L('کاربران', 'Users'), icon: 'users', items: [
       { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },
-      { href: '/admin/user-groups', label: L('گروه‌های کاربری', 'User groups'), icon: 'devices', perm: 'users.manage' },
+      { href: '/admin/user-groups', label: L('گروه‌های اعضا و مشتریان', 'Member groups'), icon: 'devices', perm: 'users.manage' },
       { href: '/admin/profile-fields', label: L('فیلدهای ثبت‌نام و مشخصات', 'Registration fields'), icon: 'sliders', perm: ['users.manage', 'settings.manage'] },
     ] },
     { id: 'team', area: 'people', order: 20, title: L('تیم و دسترسی‌ها', 'Team & access'), icon: 'shield', items: [
+      // Staff: a role per job first (identity/domain/staff-roles), then who manages or writes for each section.
+      { href: '/admin/roles', label: L('نقش‌ها و دسترسی کارکنان', 'Staff roles & access'), icon: 'shield', perm: 'roles.manage' },
       { href: '/admin/section-managers', label: L('مدیران و نویسندگان بخش‌ها', 'Section managers and authors'), icon: 'shield', perm: 'roles.manage' },
-      { href: '/admin/roles', label: t.rolesPermissions, icon: 'shield', perm: 'roles.manage' },
     ] },
     { id: 'support', area: 'people', order: 30, title: L('پشتیبانی', 'Support'), icon: 'chat', items: [
       { href: '/admin/tickets', label: t.tickets, icon: 'chat', perm: 'tickets.handle' },
