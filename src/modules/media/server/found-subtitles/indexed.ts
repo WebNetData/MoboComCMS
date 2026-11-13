@@ -184,7 +184,7 @@ export async function indexedSubtitles(source: Extract<VideoSource, { kind: 'rem
     const forced = trulyForced(taken.map(({ plan, cues }) => ({ forced: plan.track.forced, cues })))
     taken.forEach(({ plan, content }, at) => {
       const language = subtitleLanguage(plan.track.language)
-      found.push({ origin: 'EMBEDDED', source: `stream:${plan.track.number}`, language, label: foundLabel({ language, title: plan.track.name, forced: forced[at], hearing: plan.track.hearing }), format: plan.format, content })
+      found.push({ origin: 'EMBEDDED', source: `stream:${plan.track.number}`, language, label: foundLabel({ language, tag: plan.track.language, title: plan.track.name, forced: forced[at], hearing: plan.track.hearing }), format: plan.format, content })
     })
     return found
   } catch (error) {

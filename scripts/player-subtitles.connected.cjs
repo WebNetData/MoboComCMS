@@ -69,11 +69,14 @@ async function main() {
   assert.equal((await watch()).subtitlePreference, null, 'a visitor: the device remembers')
   state.viewer = { userId: member.id, member: false }
   assert.equal((await watch()).subtitlePreference, '', 'a member who never chose')
-  assert.deepEqual(await (await put({ subtitle: 'en' })).json(), { audio: '', subtitle: 'en' })
-  assert.deepEqual(await (await put({ audio: 'ORIGINAL' })).json(), { audio: 'ORIGINAL', subtitle: 'en' }, 'what is not sent is kept')
+  assert.deepEqual(await (await put({ subtitle: 'en' })).json(), { audio: '', subtitle: 'en', subtitleStyle: null })
+  assert.deepEqual(await (await put({ audio: 'ORIGINAL' })).json(), { audio: 'ORIGINAL', subtitle: 'en', subtitleStyle: null }, 'what is not sent is kept')
   assert.equal((await watch()).subtitlePreference, 'en')
-  assert.deepEqual(await (await put({ subtitle: 'klingon', audio: 'LOUD' })).json(), { audio: '', subtitle: '' }, 'an unknown language or side is no preference')
-  assert.deepEqual(await (await put({ subtitle: 'off' })).json(), { audio: '', subtitle: 'off' })
+  assert.deepEqual(await (await put({ subtitle: 'klingon', audio: 'LOUD' })).json(), { audio: '', subtitle: '', subtitleStyle: null }, 'an unknown language or side is no preference')
+  assert.deepEqual(await (await put({ subtitle: 'off' })).json(), { audio: '', subtitle: 'off', subtitleStyle: null })
+  // The subtitle look is kept with the account; unknown values fall back to the default look, the rest is kept.
+  assert.deepEqual((await (await put({ subtitleStyle: { size: 'XL', color: 'YELLOW', background: 'GLOW', edge: 'OUTLINE', position: 99 } })).json()).subtitleStyle, { size: 'XL', color: 'YELLOW', background: 'NONE', edge: 'OUTLINE', position: 40 })
+  assert.equal((await (await put({ subtitle: 'fa' })).json()).subtitleStyle.size, 'XL', 'a language change keeps the look')
   assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: member.id } })).playbackPrefs, '{"audio":"","subtitle":"off"}')
   assert.equal((await prefs.PUT_playbackPrefs({ headers: new Headers({ origin: 'https://elsewhere.invalid', host: 'site.invalid' }), json: async () => ({ subtitle: 'fa' }) })).status, 403, 'not from another site')
   const releases = [{ audio: 'DUBBED', quality: '1080p' }, { audio: 'ORIGINAL', quality: '1080p' }, { audio: '', quality: '720p' }]

@@ -120,6 +120,9 @@ test('subtitles that come with a video file: names beside it, directory listings
   assert.equal(found.foundLabel({ language: 'fa', title: 'Persian' }), 'فارسی', 'a title that only repeats the language adds nothing')
   assert.equal(found.foundLabel({ language: 'en', title: 'SDH <b>', forced: true }), 'انگلیسی · SDH b · فقط گفت‌وگوهای خارجی')
   assert.equal(found.foundLabel({ language: '', title: '' }), 'زیرنویس')
+  // A language outside the site's list is still named (Matroska writes ISO 639-2, often the bibliographic code).
+  assert.deepEqual(['swe', 'dut', 'pt-BR', 'und', 'HEXDL.COM', 'ger'].map(found.languageCode), ['sv', 'nl', 'pt-BR', '', '', 'de'])
+  assert.equal(found.foundLabel({ language: '', tag: 'swe', title: 'HEXDL.COM' }), 'سوئدی · HEXDL.COM')
   assert.deepEqual([found.cueCount('WEBVTT\n\n00:01.000 --> 00:02.000\na\n\n00:03.000 --> 00:04.000\nb\n', 'vtt'), found.cueCount('[Events]\nDialogue: 0,a\nDialogue: 0,b\nComment: c\n', 'ass')], [2, 2])
   assert.deepEqual(found.trulyForced([{ forced: true, cues: 1400 }, { forced: false, cues: 1450 }]), [false, false], 'a full Persian track marked forced is not «only foreign dialogue»')
   assert.deepEqual(found.trulyForced([{ forced: true, cues: 40 }, { forced: false, cues: 1450 }]), [true, false], 'a short forced track beside a full one is')

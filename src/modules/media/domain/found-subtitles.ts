@@ -109,8 +109,33 @@ export function embeddedFormat(codec: string): FoundFormat | 'image' | '' {
 }
 
 /** The name the player shows: the language, then what kind of subtitle it is; the stream's own title only when it says more. */
-export function foundLabel(input: { language: string; title?: string; forced?: boolean; hearing?: boolean }): string {
-  const language = trackLanguage(input.language, true)
+/** ISO 639-2 bibliographic codes (as Matroska writes them) that are not also language subtags. */
+const BIBLIOGRAPHIC: Record<string, string> = { alb: 'sq', arm: 'hy', baq: 'eu', bur: 'my', chi: 'zh', cze: 'cs', dut: 'nl', fre: 'fr', geo: 'ka', ger: 'de', gre: 'el', ice: 'is', mac: 'mk', mao: 'mi', may: 'ms', per: 'fa', rum: 'ro', slo: 'sk', tib: 'bo', wel: 'cy' }
+let names: Intl.DisplayNames | null | undefined
+/**
+ * Any language tag (ISO 639-1/2/3 or BCP 47, as a track or file names it) as a short code, so a subtitle in a language
+ * outside the site's list is still known: 'swe' → 'sv', 'pt-BR' → 'pt-BR'. '' for und/zxx/mis/mul or nonsense.
+ */
+export function languageCode(tag: string): string {
+  const known = subtitleLanguage(tag)
+  if (known) return known
+  const raw = String(tag || '').trim().replace(/_/g, '-')
+  const [first, ...rest] = raw.toLowerCase().split('-')
+  if (!/^[a-z]{2,3}$/.test(first) || ['und', 'zxx', 'mis', 'mul', 'qaa'].includes(first)) return ''
+  try { return Intl.getCanonicalLocales([BIBLIOGRAPHIC[first] || first, ...rest].join('-'))[0] || '' } catch { return '' }
+}
+/** A language's name in Persian for any code languageCode gives; '' when the browser or server does not know it. */
+export function languageName(tag: string): string {
+  const code = languageCode(tag)
+  if (!code) return ''
+  if (TRACK_LANGUAGES[code]) return TRACK_LANGUAGES[code].fa
+  if (names === undefined) { try { names = new Intl.DisplayNames(['fa'], { type: 'language', fallback: 'none' }) } catch { names = null } }
+  try { return names?.of(code) || '' } catch { return '' }
+}
+
+/** `tag`: the track's own language tag, named even when it is not one of the site's languages. */
+export function foundLabel(input: { language: string; tag?: string; title?: string; forced?: boolean; hearing?: boolean }): string {
+  const language = trackLanguage(input.language, true) || (input.tag ? languageName(input.tag) : '')
   const title = String(input.title || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 60)
   const parts = [language || title || 'زیرنویس']
   if (language && title && !subtitleLanguage(title)) parts.push(title)

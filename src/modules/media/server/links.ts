@@ -18,6 +18,7 @@ import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
 import type { FileTags } from '@/modules/downloads/server/clean'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { getPlaybackPrefs } from '@/modules/media/server/playback-prefs'
+import type { SubtitleStyle } from '@/modules/media/domain/playback-prefs'
 import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
 import { opensAudience, opensItem } from '@/modules/account/server/item-audience'
 import { userOpensSection } from '@/modules/account/server/section-access'
@@ -223,7 +224,7 @@ export type PlayerSubtitle = { id: number | string; language: string; label: str
 export type PlayerAudio = { id: number; language: string; label: string; src: string }
 
 export type WatchResult =
-  | { ok: true; ownerType: string; subtitlePreference: string | null; subtitles: PlayerSubtitle[]; embeddedSubtitles: boolean; audioTracks: PlayerAudio[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
+  | { ok: true; ownerType: string; subtitlePreference: string | null; subtitleStyle: SubtitleStyle | null; subtitles: PlayerSubtitle[]; embeddedSubtitles: boolean; audioTracks: PlayerAudio[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
   | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'buy' | 'expired' | 'unplayable'; backPath: string }
 
 async function watchOwner(ownerType: string, ownerId: number) {
@@ -329,9 +330,10 @@ export async function watchSource(rawId: string, token: string | null, headers: 
     }
   }
   // The member's own choice of subtitle, kept with the account; null for a visitor (the device remembers theirs).
-  const subtitlePreference = viewer.userId ? (await getPlaybackPrefs(viewer.userId)).subtitle : null
+  const prefs = viewer.userId ? await getPlaybackPrefs(viewer.userId) : null
+  const subtitlePreference = prefs ? prefs.subtitle : null
   return {
-    ok: true, ownerType: link.ownerType, subtitlePreference, subtitles, embeddedSubtitles, audioTracks, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
+    ok: true, ownerType: link.ownerType, subtitlePreference, subtitleStyle: prefs?.subtitleStyle ?? null, subtitles, embeddedSubtitles, audioTracks, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
     label: link.label, quality: link.quality,
     downloadHref: link.kind === 'DOWNLOAD' ? (settings?.enforceTokens && token ? `/api/media/link/${id}?t=${encodeURIComponent(token)}` : `/api/media/link/${id}`) : '',
     resumeKey: `watch:${link.ownerType}:${link.ownerId}`,

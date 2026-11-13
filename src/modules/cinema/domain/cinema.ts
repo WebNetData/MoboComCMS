@@ -3,6 +3,7 @@
 
 import { clampInt, normalizeIds, normalizeRails, parseSettingsInput } from '@/shared/section-layout'
 import { DEFAULT_EXTERNAL_PLAYERS, externalPlayerIds, type ExternalPlayerId } from '@/modules/media/domain/external-players'
+import { DEFAULT_SUBTITLE_STYLE, normalizeSubtitleStyle, type SubtitleStyle } from '@/modules/media/domain/playback-prefs'
 
 export const CINEMA_RAILS = {
   hero: 'اسلایدر بالای صفحه',
@@ -59,6 +60,10 @@ export type CinemaSettings = {
   introSkipAfter: number
   /** Once per browser session, or before every film. */
   introFrequency: 'SESSION' | 'ALWAYS'
+  /** How subtitles look in the player until a viewer chooses their own (the viewer's choice is kept with them). */
+  subtitleStyle: SubtitleStyle
+  /** Viewers may open a subtitle file of their own from their device (read in their browser; nothing is uploaded). */
+  viewerSubtitleFiles: boolean
   /** Player apps offered under the player to watch the same file in (media/domain/external-players); none hides the row. */
   externalPlayers: ExternalPlayerId[]
 }
@@ -91,6 +96,8 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   introSkipAfter: 3,
   introFrequency: 'SESSION',
   externalPlayers: [...DEFAULT_EXTERNAL_PLAYERS],
+  subtitleStyle: DEFAULT_SUBTITLE_STYLE,
+  viewerSubtitleFiles: true,
 }
 
 export function normalizeCinemaSettings(input: unknown): CinemaSettings {
@@ -117,6 +124,8 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     introSkipAfter: clampInt(raw.introSkipAfter, 0, 30, d.introSkipAfter),
     introFrequency: raw.introFrequency === 'ALWAYS' ? 'ALWAYS' : 'SESSION',
     externalPlayers: externalPlayerIds(raw.externalPlayers),
+    subtitleStyle: normalizeSubtitleStyle(raw.subtitleStyle),
+    viewerSubtitleFiles: raw.viewerSubtitleFiles !== false,
   }
 }
 
