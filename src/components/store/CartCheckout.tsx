@@ -22,7 +22,7 @@ const dayMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric',
 const fullDate = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const asDate = (day: string) => new Date(`${day}T12:00:00Z`)
 /** Codes whose server message is already written for the customer. */
-const PLAIN_CODES = new Set(['NO_CARRIER', 'CARRIER_UNAVAILABLE', 'SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'CART_FULL', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED'])
+const PLAIN_CODES = new Set(['NETWORK_ERROR', 'CHECKOUT_RESPONSE_INVALID', 'NO_CARRIER', 'CARRIER_UNAVAILABLE', 'SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'CART_FULL', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED'])
 const PROMO_MESSAGES: Record<string, string> = {
   PROMOTION_INVALID: 'کد تخفیف نامعتبر است', PROMOTION_NOT_FOUND: 'کد تخفیف پیدا نشد', PROMOTION_INACTIVE: 'این کد تخفیف فعال نیست یا منقضی شده',
   PROMOTION_SCOPE: 'این کد برای این سفارش قابل استفاده نیست', PROMOTION_MINIMUM: 'مبلغ سفارش به حداقل لازم برای این کد نرسیده', PROMOTION_EXHAUSTED: 'ظرفیت استفاده از این کد تمام شده',
@@ -36,6 +36,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
   const physical = cart.hasPhysical && !pickup
   const { addresses, error: addressError, reload } = useAddresses()
   const [addressId, setAddressId] = useState(0)
+  const [addressRefreshing, setAddressRefreshing] = useState(false)
   const [chooser, setChooser] = useState(false)
   const [dialog, setDialog] = useState<{ open: boolean; edit: SavedAddress | null }>({ open: false, edit: null })
   const [days, setDays] = useState(delivery.days)
@@ -49,7 +50,9 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
   const [error, setError] = useState<{ code: string; message: string; needed: number; currency?: string } | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
   const byCarrier = !!cart.shippingByAddress
-  const { carriers, error: carrierError, retry: retryCarriers } = useCarrierQuotes(addressId, physical && byCarrier)
+  const address = addresses?.find((a) => a.id === addressId) || null
+  const quoteContext = JSON.stringify([address?.province || '', address?.city || ''])
+  const { carriers, error: carrierError, retry: retryCarriers } = useCarrierQuotes(addressId, physical && byCarrier && !addressRefreshing && !addressError, quoteContext)
   const [carrierId, setCarrierId] = useState('')
 
   useEffect(() => { let alive = true; fetchWalletBalance(cart.currency).then((value) => alive && setBalance(value)); return () => { alive = false } }, [cart.currency])
@@ -64,7 +67,6 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
     setCarrierId(current => carriers.options.some(o => o.ok && o.carrierId === current) ? current : (carriers.options.find(o => o.ok)?.carrierId || ''))
   }, [carriers])
 
-  const address = addresses?.find((a) => a.id === addressId) || null
   const carrier = carriers?.options.find((o): o is Extract<CarrierOption, { ok: true }> => o.ok && o.carrierId === carrierId) || null
   const needsSchedule = delivery.enabled && (!byCarrier || !!carrier?.scheduled)
   const shippingFee = pickup ? 0 : byCarrier ? carrier?.fee || 0 : cart.shipping
@@ -76,6 +78,8 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
   const missing = useMemo(() => {
     if (cart.blocked) return 'سبد خرید شما نیاز به بازبینی دارد'
     if (!physical) return ''
+    if (addressRefreshing) return 'در حال تازه‌سازی آدرس…'
+    if (addressError) return 'برای ادامه، آدرس‌ها را دوباره دریافت کنید'
     if (!address) return 'یک آدرس تحویل انتخاب کنید'
     if (byCarrier && carrierError) return 'برای ادامه، هزینهٔ ارسال را دوباره دریافت کنید'
     if (byCarrier && !carriers) return 'در حال محاسبهٔ هزینهٔ ارسال…'
@@ -83,7 +87,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
     if (needsSchedule && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
     if (needsSchedule && !slot) return 'زمان ارسال را انتخاب کنید'
     return ''
-  }, [cart.blocked, physical, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
+  }, [cart.blocked, physical, addressRefreshing, addressError, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)
@@ -112,7 +116,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
       }
       if (result.code === 'DELIVERY_SLOT_FULL' || result.code === 'DELIVERY_SLOT_INVALID') { setSlotId(''); await refreshSchedule() }
       if (result.code === 'ADDRESS_NOT_FOUND') await reload()
-      if (result.code === 'CARRIER_UNAVAILABLE' || result.code === 'NO_CARRIER') setCarrierId('')
+      if (result.code === 'CARRIER_UNAVAILABLE' || result.code === 'NO_CARRIER') { setCarrierId(''); retryCarriers() }
       if (PROMO_MESSAGES[result.code]) setCodeOpen(true)
       setError({ code: result.code, message: PROMO_MESSAGES[result.code] || result.message, needed: result.needed, currency: result.currency })
     } catch {
@@ -248,7 +252,10 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
     </div>
 
     <AddressDialog open={dialog.open} initial={dialog.edit} onClose={() => setDialog({ open: false, edit: null })} onSaved={async (saved) => {
-      setDialog({ open: false, edit: null }); await reload(); setAddressId(saved.id); setChooser(false)
+      setAddressRefreshing(true)
+      setDialog({ open: false, edit: null })
+      try { await reload(); setAddressId(saved.id); setChooser(false) }
+      finally { setAddressRefreshing(false) }
     }} />
   </div>
 }

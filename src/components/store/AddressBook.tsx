@@ -10,6 +10,14 @@ export type SavedAddress = {
   lat?: number | null; lng?: number | null
 }
 
+function isSavedAddress(value: unknown): value is SavedAddress {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const address = value as Record<string, unknown>
+  return typeof address.id === 'number' && Number.isSafeInteger(address.id) && address.id > 0
+    && ['title', 'recipient', 'mobile', 'province', 'city', 'address', 'plaque', 'unit', 'postalCode'].every((key) => typeof address[key] === 'string')
+    && typeof address.isDefault === 'boolean'
+}
+
 type Draft = Omit<SavedAddress, 'id'>
 const EMPTY: Draft = { title: '', recipient: '', mobile: '', province: '', city: '', address: '', plaque: '', unit: '', postalCode: '', isDefault: false, lat: null, lng: null }
 const TITLES = ['خانه', 'محل کار', 'منزل والدین']
@@ -29,7 +37,8 @@ export function useAddresses() {
   const [error, setError] = useState('')
   const reload = useCallback(async () => {
     const result = await request<{ addresses: SavedAddress[] }>('/api/addresses')
-    if (result.ok) { setAddresses(result.data.addresses); setError('') } else { setError(result.error); setAddresses((current) => current || []) }
+    if (result.ok && Array.isArray(result.data?.addresses) && result.data.addresses.every(isSavedAddress)) { setAddresses(result.data.addresses); setError('') }
+    else { setError(result.ok ? 'آدرس‌ها به‌درستی دریافت نشدند. دوباره تلاش کنید.' : result.error); setAddresses((current) => current || []) }
   }, [])
   useEffect(() => { void reload() }, [reload])
   return { addresses, error, reload }
