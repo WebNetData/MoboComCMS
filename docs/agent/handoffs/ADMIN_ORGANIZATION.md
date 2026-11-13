@@ -45,9 +45,15 @@ Owner, 2026-11-13: «سیستم اصولی و مرتب باید توسعه دا�
   - Evidence: tsc; account-security, content-controls, routes, livechat and realtime-links tests (only the environmental Google case fails); stubbed guard check (promotions.manage 200, plans.manage 200, orders.manage 403, none 403); live anonymous 403 and owner 200.
   - Local note: the owner test cookie expires; remake it with `.mobocom/claude-tools/mk-session.cjs`.
 
+- **Team directory:**
+  - /admin/team («کارکنان», first in Team) lists every staff member grouped by role, with a warning group for staff without a role (full access).
+  - An existing account is found by email or mobile (`findPhoneCustomer`) and joins with a required role. A role changes in place; «خروج از کارکنان» keeps the account as a member.
+  - API `/api/admin/team` (`identity/server/http/admin/team/route.ts`, roles.manage): every change goes through `accountChangeRefusal` and an optimistic `updateMany`, and is audited (`team.add`, `team.role`, `team.remove`). A role is always required; one's own row is locked; accounts are never created here.
+  - Evidence: tsc; account-security, content-controls, routes and navigation tests; security and audit gates. Live: anonymous 403; owner list (7 staff, 0 without a role) and find. Refusals checked without changes: no role → refused; already staff → 409. Browser at 1440 light and 390 dark: axe 0, no overflow, no page errors. No add, role change or removal was run against the owner's data.
+
 ## Next slices (in order)
 
-1. **Team directory.** Add a list of staff (role ADMIN) grouped by role, with role change and «افزودن کارمند» (an existing account by mobile or email). Merge «مدیران و نویسندگان بخش‌ها» into it as a tab. Reuse the users API's `accountChangeRefusal`, add a `roleId` filter to the users list, and audit every change.
+1. **Section managers inside the team page.** Show «مدیران و نویسندگان بخش‌ها» as a tab of /admin/team, reusing its page and API (`identity/server/http/admin/section-managers`). Add a `roleId` filter to the users list so «همهٔ کاربران و مشتریان» can show one role's people.
 2. **Section menus.** Every content manifest's items should follow one order: dashboard, items, add, taxonomy, home page, settings and address. Settings history links should not repeat under every item.
 3. **Single-link groups in Marketing** (SEO, popups, links) and **AI** («فروش و مشتری»): fold them into neighbours through their manifests or order, without changing addresses.
 4. **Website and services:** the form builder sits under Website while service work is under Sales. Add a link from «خدمات» to the builder for service forms; do not move the builder.

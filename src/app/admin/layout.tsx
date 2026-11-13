@@ -236,7 +236,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/profile-fields', label: L('فیلدهای ثبت‌نام و مشخصات', 'Registration fields'), icon: 'sliders', perm: ['users.manage', 'settings.manage'] },
     ] },
     { id: 'team', area: 'people', order: 20, title: L('تیم و دسترسی‌ها', 'Team & access'), icon: 'shield', items: [
-      // Staff: a role per job first (identity/domain/staff-roles), then who manages or writes for each section.
+      // Staff: who works here (the team directory), the roles by job (identity/domain/staff-roles), then who manages or writes for each section.
+      { href: '/admin/team', label: L('کارکنان', 'Staff'), icon: 'users', perm: 'roles.manage' },
       { href: '/admin/roles', label: L('نقش‌ها و دسترسی کارکنان', 'Staff roles & access'), icon: 'shield', perm: 'roles.manage' },
       { href: '/admin/section-managers', label: L('مدیران و نویسندگان بخش‌ها', 'Section managers and authors'), icon: 'shield', perm: 'roles.manage' },
     ] },
