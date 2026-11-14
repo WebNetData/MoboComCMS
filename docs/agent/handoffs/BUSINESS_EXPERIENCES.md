@@ -1,5 +1,9 @@
 # Business experiences — continue existing work
 
+## Directory filter correction — 2026-11-14
+
+Owner screenshot reported directory filter layout. Current correction from merged main1147e518 is in .mobocom/public-ui-regressions / fix/public-ui-regressions-2026-11-14: equal responsive widths,48px aligned controls/icon/reset and URL-backed default reset after client navigation. Existing Business sources themselves were unchanged1.7.19→1.7.20; no verified global/Admin CSS leak was found. Business permissions, data and moderation remain unchanged. [Exact files, actual browser/native checks, failures and continuation](PLATFORM_INTEGRATION.md#public-ui-regression-correction--2026-11-14). Do not recreate the Business module or rewrite its approved design.
+
 ## Launch review colour correction — 2026-11-02
 
 PR297 release review reproduced two light-theme directory contrast failures at1440/390: activity navigation used the raw primary colour on the page (2.93:1); the local primary button darkened its background while keeping text computed for the original primary (4.01:1). `BusinessExperience.module.css` now uses semantic accent ink for those links and the canonical primary/on-primary pair for buttons, including hover. No layout, API, permission, score, provider, schema or data change. Existing wide/protected design and shared tokens remain.

@@ -62,10 +62,12 @@ async function main(){
    await Promise.all([page.waitForURL('**/search?q=platformnebula&type=game'),correction.click()]);await expect(page.getByRole('heading',{name:'PlatformNebula',exact:true})).toBeVisible({timeout:60000})
    }
    if(!done('connections')){
-   await visit(fixture.productPath,()=>expect(page.getByText('مطالب و رویدادهای مرتبط',{exact:true})).toBeVisible({timeout:120000}))
-   await page.getByText('مطالب و رویدادهای مرتبط',{exact:true}).click()
-   await expect(page.getByRole('link',{name:'راهنمای آزمایشی بازی و کالا',exact:true})).toBeVisible({timeout:60000})
-   await capture('connections','details[open]')
+    await visit(fixture.productPath,()=>expect(page.locator('.ea-actions').first()).toBeVisible({timeout:120000}))
+    await expect(page.getByText('مطالب و رویدادهای مرتبط',{exact:true})).toHaveCount(0)
+    const timeline=await context.request.get(`/api/items/timeline?item=product:${fixture.productId}`)
+    assert.equal(timeline.status(),200)
+    assert((await timeline.json()).events.some(event=>event.title==='راهنمای آزمایشی بازی و کالا'),'the existing public relationship API remains available without injecting UI into the hero')
+    await capture('connections','.ea-actions')
    }
    await context.close()
   }
