@@ -93,3 +93,12 @@ Scope and already-granted authorization come from the current user request. Read
 ## AI connection and Xray continuation
 
 For Gemini/AI connection failures, encrypted AI settings or proxy deadlines, read `docs/agent/handoffs/AI_CONNECTION.md` first. Continue the existing AI client and Social egress owners; preserve explicit per-purpose routing, fixed host allowlists and root-helper ownership. Local fixtures do not establish destination-server or live-provider readiness.
+
+<!-- mobocom-agent-orchestration:start -->
+Follow [the shared agent orchestration](docs/agent/AGENT_ORCHESTRATION.md)
+alongside SESSION_BOOTSTRAP and the existing mobocom skills. Keep small/sequential
+tasks with the lead; delegate only independent bounded work with explicit file
+ownership. Sol leads, Terra implements, Luna maps/tests/documents; sensitive
+decisions return to Sol. Shared architecture/workstate and required real evidence
+remain authoritative for both Claude and Codex.
+<!-- mobocom-agent-orchestration:end -->
