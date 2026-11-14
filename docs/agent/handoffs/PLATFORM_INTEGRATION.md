@@ -1,5 +1,19 @@
 # Connected platform journeys — 2026-11-14
 
+## Published pull request — 2026-11-14
+
+Owner requested a PR for all development through the current slice.
+[PR #468](https://github.com/WebNetData/MoboComCMS/pull/468) is open, non-draft and targets main
+from `feat/platform-integration-2026-11-14`. It contains platform journeys,
+launch corrections and purchase guides; source/evidence head `8b534e15`,
+followed by this documentation-only publication receipt. Fresh main remains
+`68746778`; full72-file range review retained history, Gitleaks0 and the
+local Semgrep rule on40 TS/TSX targets returned0. The42 recorded scoped
+axe0 views/native checks are earlier executed branch evidence, not new full
+release runs. Owner merges/deploys; real content/provider/printer/restore gaps
+remain. No workflow was dispatched. Earlier local-only statuses are historical.
+
+
 ادامهٔ اجرایی امکانات پایهٔ افتتاح در
 [Store launch basics](STORE_LAUNCH_BASICS.md) ثبت شده است: اصلاحات محدود
 فهرست کالا، درگاه، ارسال و صندوق، شواهد تازهٔ محلی و حدود تأیید. پیشنهادهای

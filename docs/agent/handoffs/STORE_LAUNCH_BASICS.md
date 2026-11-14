@@ -1,5 +1,18 @@
 # Store opening basics — 2026-11-14
 
+## Published pull request — 2026-11-14
+
+Opening basics `5712455d` and purchase guidance `c7ff51e8` are included
+with the platform journeys in [PR #468](https://github.com/WebNetData/MoboComCMS/pull/468),
+open/non-draft to main from `feat/platform-integration-2026-11-14`. Source/evidence
+head `8b534e15` is followed only by this publication-status receipt; no
+application source or validation baseline changed. Complete PR-range review:
+72files, Gitleaks0, scoped Semgrep40targets0, whitespace/knowledge consistent.
+Owner merges/deploys; contact/policy content and real provider/printer/restore
+requirements below remain unresolved. No hosted workflow was dispatched.
+Earlier unpushed/local-only status entries are historical checkpoints.
+
+
 ## Essential pages and purchasing information — continuation 2026-11-14
 
 Implementation/evidence committed locally as `c7ff51e8` (20 files); clean
