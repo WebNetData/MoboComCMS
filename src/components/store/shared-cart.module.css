@@ -1,0 +1,19 @@
+.page { padding-block: 32px; }
+.page h1 { margin: 0 0 16px; font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.6; }
+.page h2 { margin: 0; font-size: 1.125rem; line-height: 1.7; }
+.page p { line-height: 1.9; }
+.intro { margin: 0; color: var(--muted); max-width: 75ch; }
+.lines { display: grid; gap: 16px; padding: 0; margin: 24px 0; list-style: none; }
+.card { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
+.lines .card { display: grid; justify-items: start; gap: 12px; }
+.lines p { margin: 0; }
+.quantity { display: grid; gap: 8px; width: min(100%, 18rem); }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 20px; }
+.confirmation { display: flex; align-items: baseline; gap: 10px; width: 100%; line-height: 1.9; }
+.confirmation input { flex: 0 0 auto; }
+.shareControl { margin-block: 24px; }
+.shareControl summary { cursor: pointer; font-weight: 700; }
+.shareControl > :not(summary) { margin-block-start: 16px; }
+.shareControl label { display: grid; gap: 8px; }
+.shareControl p { line-height: 1.9; color: var(--muted); }
+@media (max-width: 640px) { .card { padding: 16px; }.actions { align-items: stretch; flex-direction: column; } }

@@ -1,0 +1,16 @@
+.desk { display: grid; gap: 20px; min-width: 0; }
+.desk h1 { margin: 0; font-size: clamp(1.4rem, 2vw, 1.75rem); line-height: 1.6; }
+.desk h2 { margin: 0; font-size: 1.125rem; line-height: 1.7; }
+.desk p { margin: 0; line-height: 1.9; }
+.desk > header { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.desk > header p { margin-top: 8px; color: var(--muted); }
+.desk > button { justify-self: start; }
+.desk label { display: block; margin-bottom: 6px; }
+.stack { display: grid; gap: 16px; min-width: 0; }
+.card { display: grid; gap: 12px; min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
+.card form { padding-top: 12px; border-top: 1px solid var(--border); }
+.card small { color: var(--muted); line-height: 1.9; }
+.card summary { cursor: pointer; }
+.card :global(.btn) { justify-self: start; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 16px; }
+@media (max-width: 640px) { .card { padding: 16px; } }

@@ -7,8 +7,15 @@ assert.equal(new URL(process.env.DATABASE_URL).pathname, '/mobocom_demand_test_2
 assert.equal(fixture.baseURL, 'https://localhost:3123')
 assert.equal(process.env.MOBOCOM_ISOLATED_FIXTURE, '1')
 const qualityOnly = process.env.DEMAND_PHASE === 'quality'
-const evidence = qualityOnly ? JSON.parse(fs.readFileSync(path.join(output, 'result.json'))) : { complete: false, operations: [], views: [], pageErrors: [] }
+const healthOnly = process.env.DEMAND_PHASE === 'health'
+const visualOnly = process.env.DEMAND_PHASE === 'visual' || healthOnly
+const evidence = qualityOnly || visualOnly ? JSON.parse(fs.readFileSync(path.join(output, 'result.json'))) : { complete: false, operations: [], views: [], pageErrors: [] }
 if (qualityOnly) assert.equal(evidence.operations.length, 2, 'Complete request/cart journeys before quality continuation')
+if (visualOnly) {
+  assert(evidence.operations.includes('source owner revoked share; recipient refused'), 'Complete business journeys before visual continuation')
+  evidence.views = evidence.views.filter(view => !(healthOnly ? ['link-health'] : ['link-health', 'request-admin', 'shared-cart']).includes(view.name))
+  evidence.complete = false
+}
 fs.mkdirSync(output, { recursive: true })
 const record = () => fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(evidence, null, 2))
 async function main() {
@@ -24,6 +31,7 @@ async function main() {
     async function visit(url) { const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); assert.equal(response.status(), 200); await expect(page.getByRole('button', { name: /^حالت کم‌مصرف/ }).first()).toBeEnabled() }
     async function post(url, data) { const response = await context.request.post(url, { headers: { Origin: fixture.baseURL }, data }); return { status: response.status(), body: await response.json() } }
     async function capture(name, root = page.locator('main')) {
+      if (evidence.views.some(view => view.name === name && view.width === width && view.theme === theme && !view.overflow && !view.violations.length)) return
       await expect(root).toBeVisible(); await page.evaluate(() => document.fonts.ready)
       await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') })
       const violations = await root.evaluate(async element => (await window.axe.run(element, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) })))
@@ -35,8 +43,41 @@ async function main() {
     }
     return { context, page, visit, post, capture }
   }
+  async function capturePresentation(sharePath, demandId) {
+    for (const [width, theme] of [[1440, 'light'], [1440, 'dark'], [390, 'dark']]) {
+      const view = await open('staff', width, theme)
+      await view.visit('/admin/downloads/health')
+      await expect(view.page.getByLabel('فاصلهٔ بررسی، ساعت')).toHaveValue('12')
+      await view.capture('link-health', view.page.getByRole('region', { name: 'پایش سلامت لینک‌ها', exact: true }))
+      if (healthOnly) { await view.context.close(); continue }
+      await view.visit('/admin/content-requests')
+      await view.page.getByLabel('بخش', { exact: true }).selectOption('games')
+      await expect(view.page.locator(`#demand-${demandId}`)).toBeVisible()
+      await view.capture('request-admin', view.page.getByRole('region', { name: 'میزکار درخواست کالا و محتوا' }))
+      await view.visit(sharePath)
+      await expect(view.page.getByRole('checkbox', { name: /قیمت‌های فعلی/ })).toBeEnabled()
+      await view.capture('shared-cart')
+      await view.context.close()
+    }
+    if (healthOnly) return
+    const dark = await open('buyer', 1440, 'dark')
+    await dark.visit('/games')
+    await dark.page.getByRole('region', { name: 'درخواست کالا یا محتوا', exact: true }).getByRole('button', { name: /ثبت درخواست/ }).click()
+    await dark.page.getByRole('dialog').locator('input').fill('بازی ساختگی بررسی ظاهر فرم')
+    await dark.capture('request-dialog', dark.page.getByRole('dialog'))
+    await dark.context.close()
+  }
   try {
     const buyer = await open('buyer')
+    if (visualOnly) {
+      const demand = healthOnly ? null : await db.contentDemand.findFirstOrThrow({ where: { status: 'FULFILLED', supporters: { some: { userId: fixture.buyerId } } }, orderBy: { id: 'desc' } })
+      const share = healthOnly ? null : await buyer.post('/api/cart/share', { title: 'ترکیب پیشنهادی لپ‌تاپ ساختگی' })
+      if (share) assert.equal(share.status, 201)
+      await capturePresentation(share?.body.href || '', demand?.id || 0)
+      if (share) assert.equal((await buyer.post('/api/cart/share', { action: 'revoke', id: share.body.id, version: share.body.version })).status, 200)
+      assert.deepEqual(evidence.pageErrors, [])
+      evidence.complete = true; record(); console.log('Completed scoped presentation acceptance without repeating business writes'); return
+    }
     const recipient = await open('recipient', 390, 'dark'), staff = await open('staff')
     let demand, sharePath
     if (qualityOnly) {
@@ -118,16 +159,7 @@ async function main() {
     assert.equal(JSON.parse((await db.setting.findUniqueOrThrow({ where: { key: 'downloads.health.v1' } })).value).enabled, false)
     assert.equal(await db.backgroundJob.count({ where: { kind: 'downloads.health' } }), 0)
     evidence.operations.push('health default-off + revisioned settings save + inventory refresh + edit link; no external probes')
-    for (const [width, theme] of [[1440, 'dark'], [390, 'dark']]) {
-      const view = await open('staff', width, theme)
-      await view.visit('/admin/downloads/health'); await expect(view.page.getByLabel('فاصلهٔ بررسی، ساعت')).toHaveValue('12')
-      await view.capture('link-health', view.page.getByRole('region', { name: 'پایش سلامت لینک‌ها', exact: true }))
-      await view.visit('/admin/content-requests'); await view.page.getByLabel('بخش', { exact: true }).selectOption('games')
-      await expect(view.page.locator(`#demand-${demand.id}`)).toBeVisible()
-      await view.capture('request-admin', view.page.getByRole('region', { name: 'میزکار درخواست کالا و محتوا' }))
-      await view.visit(sharePath); await expect(view.page.getByRole('checkbox', { name: /قیمت‌های فعلی/ })).toBeEnabled(); await view.capture('shared-cart')
-      await view.context.close()
-    }
+    await capturePresentation(sharePath, demand.id)
     await buyer.visit('/cart'); await buyer.page.getByText('اشتراک‌گذاری ترکیب سبد', { exact: true }).click()
     await buyer.page.getByRole('button', { name: 'مدیریت لینک‌های ساخته‌شده' }).click()
     await buyer.page.getByRole('button', { name: 'لغو دسترسی این لینک' }).first().click()
