@@ -9,6 +9,10 @@ hosted workflow, real payment/provider test or customer message was performed.
 Preserve unrelated root/autonomous-foundation/repair/bank worktrees and every
 saved proposal in [the platform handoff](PLATFORM_INTEGRATION.md).
 
+Implementation and shared evidence are committed locally as `5712455d`
+(22 files); the worktree was clean after that commit. This final documentation
+receipt records its identity. Nothing has been pushed or published.
+
 ## Implemented slice and ownership
 
 - Store domain `sellableStock` now supplies the same existing aggregate cap to
