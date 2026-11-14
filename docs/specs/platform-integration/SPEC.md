@@ -5,6 +5,11 @@ Owner authorized all six proposed platform journeys; continue incrementally in
 from `main` `337831b3`. Prior Store PR467 and autonomous-foundation's uncommitted
 Admin extension-state snapshot remain independent; do not overwrite them.
 
+Final integration: owner-merged Store PR467/main`68746778` is now included under
+local implementation commit`96ac5736`. Both histories and check registrations
+are preserved; the directly affected native/type/gate scope passed on the
+new200-migration baseline. The handoff records actual browser/cleanup evidence.
+
 ## Read-only inventory and target
 
 | Journey | Existing owner/evidence | Observation and bounded target |

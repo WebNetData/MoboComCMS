@@ -1,9 +1,35 @@
 # Connected platform journeys — 2026-11-14
 
+## Integrated with owner-merged Store PR467 — 2026-11-14
+
+The owner merged Store PR467 while this work was being finalized. The complete
+platform slice is now committed locally as `96ac5736` on top of `main`
+`68746778`, branch `feat/platform-integration-2026-11-14`; final evidence notes
+are a follow-up local documentation commit. Nothing is pushed or deployed.
+Earlier uncommitted/base337831b3 entries below are historical checkpoints.
+
+Rebase conflicts were confined to shared prepend-only workstate/architecture/
+map/ledger/decisions, connected-check registration and generated knowledge.
+Exact baseline-suffix checks preserved both complete histories; both suites'
+registrations remain, and knowledge was regenerated from the existing14docs.
+All29platform runtime source hashes are unchanged by the rebase. Fresh
+PostgreSQL now applies200migrations, including the owner's Store migration.
+All six directly related native scripts passed on that empty database as
+UID1000 without `.env`; integrated TypeScript, architecture, source/import and
+security gates also passed. This repeats only the affected integration scope,
+not the full release or unrelated Store suites. Three updated Store-page
+connection views at1440light/dark and390dark passed real related-article loading,
+scoped axe0 and overflow0; the other15unchanged captures are retained. The
+resumed runner again passed limited-staff/member/guest denials. Final native
+receipt reconfirmed29source hashes, zero money rows and unchanged service work.
+The second task runtime/database/private sessions/TLS were then removed;
+original readiness/session both returned200. Ignored `integrated-main.json`,
+`final-proof.json`, `browser/result.json` and `cleanup.json` are the final receipts.
+
 ## Final local evidence and cleanup — 2026-11-14
 
-All six bounded journeys above are implemented and verified locally;47changed
-files remain uncommitted in the named branch. No PR/push/merge/deploy was made
+All six bounded journeys are implemented and verified locally;47changed
+files were preserved in the local implementation commit. No PR/push/merge/deploy was made
 for this batch. Owner can review this checkout; future Claude/Codex sessions
 continue the same shared spec/handoff rather than reconstructing missing files
 from the older root or autonomous-foundation branch.
@@ -58,9 +84,9 @@ can extend additional workdesk queues or run real-provider/release acceptance.
 
 Owner authorized all six proposed journeys, then asked to continue. Authoritative
 checkout: `.mobocom/platform-integration`, branch
-`feat/platform-integration-2026-11-14`, based on owner-merged `main` `337831b3`.
-Implementation is local/uncommitted. Store PR467 remains independent; its remote
-merge/closure status was not rechecked in this batch. Preserve root, repair,
+`feat/platform-integration-2026-11-14`, initially from `main` `337831b3`.
+The final integration above includes owner-merged Store PR467; its earlier
+independent/uncommitted status is historical. Preserve root, repair,
 bank-checkout and autonomous-foundation's unrelated changes.
 [Inventory, blueprint and acceptance](../../specs/platform-integration/SPEC.md).
 
