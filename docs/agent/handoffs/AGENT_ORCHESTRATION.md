@@ -119,3 +119,7 @@ Local Git commit and redacted diff scan are recorded next; no remote publication
 ## Local Git receipt
 
 Implementation `900b8a5aee919eda315cf9ca1f48bb4807ac05d5` contains26 scoped files. Redacted staged Gitleaks and diff check passed; no remote push/PR/merge/deploy. The local Git exclude ignores .codex/config.toml, so only the reviewed portable template in this isolated branch was explicitly staged; the original root local MCP config was never staged or copied into Git. Seven installer tests, exact backup/prefix/unrelated-setting verification, skill mirrors, architecture gate, native config.load and14-document knowledge check remain the executed evidence. Source gate dependency gap and whole-doctor TERM=dumb failure remain recorded, not reclassified. Original root local installation is ready; open a new trusted-project Codex session for defaults/role discovery.
+
+## PR authorization — 2026-11-14
+
+Owner now explicitly requests publishing the completed slice as a PR and will merge. This supersedes earlier local-only notes. Prepared from900b8a5a/e1790ce2 against fetched main1147e518; no divergence. Existing seven installer tests/config-load/backup/architecture/knowledge evidence is reused, not rerun or relabelled. Fresh installer --check reports no pending changes; diff --check against main passed. Source-import dependency and doctor terminal limitations remain. No hosted workflow, merge, release or deployment is authorized by this publication.
