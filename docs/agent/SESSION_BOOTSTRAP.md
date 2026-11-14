@@ -34,3 +34,7 @@ Continue one authorized feature slice from its current handoff and run its relev
 
 For business/Trustpilot-style experiences, read docs/agent/handoffs/BUSINESS_EXPERIENCES.md first and the business ownership section of docs/agent/ARCHITECTURE.md. Resolve the authoritative branch/worktree before editing: the implementation may be ahead of this checkout. Continue it; do not rebuild from missing files here. The handoff records verified checks and remaining work, not whole-feature completion.
 <!-- mobocom-business-continuation:end -->
+
+<!-- mobocom-agent-orchestration:start -->
+Team routing: [AGENT_ORCHESTRATION](AGENT_ORCHESTRATION.md). Use the same policy for Claude and Codex; retain this bootstrap and existing handoffs.
+<!-- mobocom-agent-orchestration:end -->

@@ -4,6 +4,14 @@ Canonical integration of the owner's 2026-10-10 tooling request. The [original a
 
 ## Workflow and context budget
 
+Owner-adopted2026-11-14 team routing: [AGENT_ORCHESTRATION](AGENT_ORCHESTRATION.md)
+defines Sol lead, bounded Terra implementation, Luna mapping/checks/docs and
+on-demand Sol review/security/architecture. Repository `.codex` files contain
+the executable role/model defaults; `scripts/configure-mobocom-agents.py` merges
+them into a checkout without replacing MCP/provider/permission settings. Claude
+uses the same responsibilities and shared handoffs through the existing skill.
+Do not spawn for small/sequential work or treat the three-subagent cap as a quota.
+
 Audit the current slice → select its existing owner → inspect the smallest relevant scope → implement → run focused checks → review the diff → update verified facts. Continue partially implemented capabilities. Use `mobocom-audit`, then `mobocom-spec` for substantial scenarios, then `mobocom-develop`; contracts/extensions/release are scoped supporting skills.
 
 | Need | First tool | Stop/expand rule |

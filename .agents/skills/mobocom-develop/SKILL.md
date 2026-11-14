@@ -106,3 +106,9 @@ For editorial review/proposals, use `docs/agent/handoffs/JOURNAL_REVIEW_RELIABIL
 Read task-relevant sections of `docs/agent/WHOLE_SITE_QUALITY_STANDARD.md` under the current architecture/owner decisions. For the affected slice use sections5/6/10/12: reuse owner services and typed Admin controls; continue already-authorized implementation after audit without another approval loop.
 The shared execution brief is for an explicit whole-site task; this routing does not start one.
 <!-- mobocom-whole-site-quality-skill:end -->
+
+<!-- mobocom-agent-orchestration:start -->
+For delegated work, follow `docs/agent/AGENT_ORCHESTRATION.md` in the
+resolved checkout: explicit ownership, model routing, bounded checks and Sol
+escalation. Keep the existing architecture and shared handoff/workstate.
+<!-- mobocom-agent-orchestration:end -->
