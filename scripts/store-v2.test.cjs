@@ -12,7 +12,8 @@ function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
   cache.set(file, mod)
-  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
+  const localRequire = (specifier) => specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`)
+    : specifier.startsWith('.') ? load(path.relative(path.resolve(__dirname, '..'), path.resolve(path.dirname(file), specifier))) : require(specifier)
   new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
@@ -331,4 +332,49 @@ test('the ready category tree: unique, valid addresses; every child in its paren
   }
   assert.deepEqual([...new Set(template.CATEGORY_TEMPLATE.map((root) => root.kind))].sort(), ['PHYSICAL', 'VIRTUAL'], 'both stores get a tree')
   assert.ok(template.CATEGORY_TEMPLATE.every((root) => root.description), 'every top category has a description for its page')
+})
+
+const warranty = load('src/modules/store/domain/warranty')
+const custody = load('src/modules/store/domain/custody')
+
+test('warranty dates and staff-entered provider/conditions validate without inferring coverage', () => {
+  const record = warranty.parseWarrantyDraft({ orderLineId: 42, unitIndex: 0, warrantyStartsAt: '2026-11-14', warrantyEndsAt: '2027-11-13', provider: '  Vendor  ', conditions: 'Keep receipt' })
+  assert.equal(record.orderLineId, 42)
+  assert.equal(record.warrantyStartsAt.toISOString(), '2026-11-14T00:00:00.000Z')
+  assert.equal(record.provider, 'Vendor')
+  assert.equal(record.conditions, 'Keep receipt')
+})
+
+test('warranty entry refuses invalid dates, reversed ranges, missing names and out-of-range unit references', () => {
+  const valid = { orderLineId: 42, unitIndex: 0, warrantyStartsAt: '2026-11-14', warrantyEndsAt: '2027-11-13', provider: 'Vendor', conditions: 'Keep receipt' }
+  for (const patch of [
+    { warrantyStartsAt: '2026-02-30' },
+    { warrantyEndsAt: '2026-01-01' },
+    { provider: ' ' },
+    { conditions: '' },
+    { orderLineId: 0 },
+    { unitIndex: 99 },
+  ]) assert.throws(() => warranty.parseWarrantyDraft({ ...valid, ...patch }))
+})
+
+test('warranty edits require a claimed revision and keep sale identifiers out of editable input', () => {
+  const update = warranty.parseWarrantyUpdate({ expectedUpdatedAt: '2026-11-14T10:00:00.000Z', warrantyStartsAt: '2026-11-14', warrantyEndsAt: '2027-11-13', provider: 'Vendor', conditions: 'Keep receipt', serial: 'forged' })
+  assert.equal(update.expectedUpdatedAt.toISOString(), '2026-11-14T10:00:00.000Z')
+  assert.equal('serial' in update, false)
+  assert.throws(() => warranty.parseWarrantyUpdate({ expectedUpdatedAt: 'bad', warrantyStartsAt: '2026-11-14', warrantyEndsAt: '2027-11-13', provider: 'Vendor', conditions: 'Keep receipt' }))
+})
+
+test('custody actions require explicit physical identity, health or exit confirmation', () => {
+  const base = { segmentIndex: 2, expectedUpdatedAt: '2026-11-14T10:00:00.000Z' }
+  assert.equal(custody.parseCustodyAction({ ...base, action: 'REPAIR', formSubmissionId: 10, identityConfirmed: true }).action, 'REPAIR')
+  assert.equal(custody.parseCustodyAction({ ...base, action: 'SCRAP', physicalReleaseConfirmed: true }).action, 'SCRAP')
+  assert.equal(custody.parseCustodyAction({ ...base, action: 'SUPPLIER_RETURN', physicalReleaseConfirmed: true }).action, 'SUPPLIER_RETURN')
+  assert.equal(custody.parseCustodyAction({ ...base, action: 'RESTOCK', destinationLocationId: 5, healthConfirmed: true }).action, 'RESTOCK')
+  for (const action of [
+    { action: 'REPAIR', formSubmissionId: 10 },
+    { action: 'SCRAP' },
+    { action: 'RESTOCK', destinationLocationId: 5 },
+    { action: 'RESTOCK', healthConfirmed: true },
+    { action: 'DAMAGE' },
+  ]) assert.throws(() => custody.parseCustodyAction({ ...base, ...action }))
 })

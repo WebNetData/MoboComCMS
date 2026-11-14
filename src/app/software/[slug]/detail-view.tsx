@@ -5,7 +5,7 @@ import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
 import { getSoftware } from '@/modules/media/server/queries'
 import { softwarePortalChrome } from '@/modules/media/server/software-portal'
@@ -28,12 +28,15 @@ import { safeJsonLd } from '@/shared/seo/json-ld'
 import { RatingMeter } from '@/components/engage/RatingMeter'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { shareCard } from '@/modules/site/server/seo'
+import { resolveCanonicalAliasSlug } from '@/modules/content/server/canonical-alias'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }>; preview?: BuilderPreview }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await contentRouteParams(params)
+  const canonical = await resolveCanonicalAliasSlug('software', slug)
+  if (canonical) redirect(canonical)
   const data = await getSoftware(slug)
   if (!data) return {}
   const s = data.software
@@ -57,6 +60,8 @@ const n = (value: number) => value.toLocaleString('fa-IR')
 export default async function SoftwarePage({ params, preview }: Props) {
   await requireModule('software')
   const [{ slug }, viewer] = await Promise.all([contentRouteParams(params), getViewer()])
+  const canonical = await resolveCanonicalAliasSlug('software', slug)
+  if (canonical) redirect(canonical)
   const [data, chrome] = await Promise.all([getSoftware(slug), softwarePortalChrome()])
   if (!data) notFound()
   const s = data.software

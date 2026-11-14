@@ -52,14 +52,26 @@ function Titles() {
     if (!action || !selected.length) return
     if (action === 'delete' && !window.confirm(mine ? `${fa(selected.length)} بازی به سطل زباله می‌رود و از سایت برداشته می‌شود؛ حذف نهایی یا بازگردانی با مدیر بخش بازی است. ادامه می‌دهید؟` : `${fa(selected.length)} بازی همراه با لینک‌ها و آپدیت‌هایشان حذف شود؟ این کار برگشت‌پذیر نیست.`)) return
     let changed = 0
+    const failed: { id: number; reason: string }[] = []
     for (let index = 0; index < selected.length; index += 500) {
-      const response = await send<{ changed: number }>('/api/admin/games/list', 'POST', { ids: selected.slice(index, index + 500), action, value })
+      const response = await send<{ changed: number; failed?: { id: number; reason: string }[] }>('/api/admin/games/list', 'POST', { ids: selected.slice(index, index + 500), action, value })
       if (!response.ok) { setSelected(selected.slice(index)); setResult({ tone: 'error', text: `${fa(changed)} بازی به‌روز شد؛ ${response.error}` }); void reload(); return }
       changed += response.data.changed
+      failed.push(...(response.data.failed || []))
     }
-    setResult({ tone: 'ok', text: action === 'delete' && mine ? `${fa(changed)} بازی به سطل زباله رفت و منتظر تصمیم مدیر بخش است` : `${fa(changed)} بازی ${action === 'delete' ? 'حذف' : action === 'restore' ? 'بازگردانی' : 'به‌روز'} شد` })
-    setSelected([])
-    setAction(''); setValue('')
+    if (failed.length) {
+      const details = failed.slice(0, 5).map((item) => {
+        const title = data?.games.find((game) => game.id === item.id)?.title
+        return `${title || `#${item.id}`}: ${item.reason}`
+      })
+      const more = failed.length > details.length ? ` و ${fa(failed.length - details.length)} مورد دیگر` : ''
+      setResult({ tone: 'error', text: `${fa(changed)} بازی تغییر کرد؛ ${fa(failed.length)} مورد انجام نشد: ${details.join('؛ ')}${more}` })
+      setSelected(failed.map((item) => item.id))
+    } else {
+      setResult({ tone: 'ok', text: action === 'delete' && mine ? `${fa(changed)} بازی به سطل زباله رفت و منتظر تصمیم مدیر بخش است` : `${fa(changed)} بازی ${action === 'delete' ? 'حذف' : action === 'restore' ? 'بازگردانی' : 'به‌روز'} شد` })
+      setSelected([])
+      setAction(''); setValue('')
+    }
     void reload()
   }
 

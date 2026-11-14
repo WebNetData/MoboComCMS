@@ -43,6 +43,8 @@ import { hostingAddonQuote, type AddonRequest } from '@/modules/hosting/server/a
 import { domainOrderQuote, domainRenewQuote, type DomainOrderRequest } from '@/modules/hosting/server/domains'
 
 export interface CheckoutCommand {
+  /** Store-owned reviewed proposal; discount/lines remain server-resolved. */
+  storeQuotation?: { id: number; fingerprint: string }
   userId: number
   email?: string | null
   planId?: number | null
@@ -361,13 +363,21 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     if (many) meta = { ...meta, variantId: null, variantName: '', variantSku: '', variantAttributes: '{}' }
   }
   if (amountMinor <= 0n) return fail(400, 'INVALID_PRICE', 'item price must be greater than zero')
+  let quotation: Awaited<ReturnType<typeof import('@/modules/store/server/quotations').checkQuotation>> | null = null
+  if (command.storeQuotation) {
+    try {
+      if (!orderLines.length || command.discountCode) return fail(400, 'QUOTATION_INVALID', 'پیشنهاد با کد تخفیف یا نوع خرید دیگری ترکیب نمی‌شود')
+      quotation = await (await import('@/modules/store/server/quotations')).checkQuotation(db, { ...command.storeQuotation, userId: command.userId, lines: orderLines, currency, subtotalMinor: amountMinor, channel: 'ONLINE' })
+    } catch (error) { if (error instanceof StoreError) return fail(error.status, error.code, error.message); throw error }
+  }
   if (command.expectedQuote) {
     const quoted = command.expectedQuote
     if (typeof quoted.amountMinor !== 'string' || !/^\d{1,14}$/.test(quoted.amountMinor) || typeof quoted.currency !== 'string') return fail(400, 'BAD_QUOTE', 'قیمت نمایش‌داده‌شده معتبر نیست')
     if (BigInt(quoted.amountMinor) !== amountMinor || quoted.currency !== currency) return fail(409, 'PRICE_CHANGED', 'قیمت یا شرایط عضویت تغییر کرده است؛ صفحه را تازه کنید و قیمت جدید را ببینید')
   }
   const subtotalMinor = amountMinor
-  let discountMinor = 0n
+  let discountMinor = quotation?.discountMinor || 0n
+  if (quotation) { amountMinor -= discountMinor; amount = legacyNumber(amountMinor, currency) }
   let promotion: Awaited<ReturnType<typeof db.promotion.findUnique>> = null
   const code = promotionCode(command.discountCode)
   // A typed foreign amount is money passed on, not a margin: a discount code does not cut into it.
@@ -454,6 +464,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   try {
     order = await db.$transaction(async tx => {
       if (productId) await assertStoreAcceptsOrders(tx)
+      const lockedQuotation = command.storeQuotation ? await (await import('@/modules/store/server/quotations')).checkQuotation(tx, { ...command.storeQuotation, userId: command.userId, lines: orderLines, currency, subtotalMinor, channel: 'ONLINE' }) : null
       if (promotion) {
         const claimed = await tx.promotion.updateMany({ where: { id: promotion.id, active: true, reservedCount: promotion.reservedCount }, data: { reservedCount: { increment: 1 } } })
         if (claimed.count !== 1) throw Error('PROMOTION_CONFLICT')
@@ -476,6 +487,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       } })
       if (delivery) await bookDelivery(tx, created.id, delivery.date, delivery.slot.id)
       for (const line of orderLines) await tx.orderLine.create({ data: { ...line, orderId: created.id } })
+      if (lockedQuotation) await (await import('@/modules/store/server/quotations')).claimQuotation(tx, lockedQuotation, created.id)
       if(command.shippingMode==='PICKUP' && meta.productKind==='PHYSICAL')await (await import('@/modules/store/server/pickup')).createStorePickup(tx,created.id)
       if (orderLines.length) await tx.orderEvent.create({ data: { orderId: created.id, status: 'PENDING', note: 'سفارش ثبت شد' } })
       if (promotion) await tx.promotionRedemption.create({ data: { promotionId: promotion.id, userId: command.userId, orderId: created.id } })
@@ -517,6 +529,13 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   })
   // A price that followed a rate holds for a while only (see billing/server/invoice-rules.ts).
   if (fxCodes.length && !invoice.fxRates) await stampFxInvoice(invoice.id, fxCodes)
+  if (quotation) {
+    const current = await db.invoice.findUniqueOrThrow({ where: { id: invoice.id }, select: { expiresAt: true } })
+    if (!current.expiresAt || current.expiresAt > quotation.expiresAt) {
+      const claimed = await db.invoice.updateMany({ where: { id: invoice.id, status: 'UNPAID', expiresAt: current.expiresAt }, data: { expiresAt: quotation.expiresAt } })
+      if (claimed.count !== 1) throw new StoreError('وضعیت فاکتور پیشنهاد تغییر کرده است', 409)
+    }
+  }
 
   if (creditMinor > 0n) {
     const debit = await moveWallet({

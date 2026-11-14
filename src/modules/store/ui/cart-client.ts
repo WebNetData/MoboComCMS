@@ -51,21 +51,22 @@ export const emptyCart = () => call('DELETE')
 const KEY = 'mc.cart.checkout.key'
 
 /** Places the order for the whole cart. The idempotency key survives a lost response. */
-export async function checkoutCart(payload: { gift?: { enabled: boolean; recipient: string; message: string; wrap: boolean }; surface?: 'dashboard'; addressId?: number; delivery?: { date: string; slotId: string }; carrierId?: string; shippingMode?: 'SHIP'|'PICKUP';gatewayRef?: string; discountCode?: string; payWith?: 'wallet' | 'gateway' }) {
+export async function checkoutCart(payload: { gift?: { enabled: boolean; recipient: string; message: string; wrap: boolean }; surface?: 'dashboard'; addressId?: number; delivery?: { date: string; slotId: string }; carrierId?: string; shippingMode?: 'SHIP'|'PICKUP';gatewayRef?: string; discountCode?: string; payWith?: 'wallet' | 'gateway' }, quotation?: { token: string; fingerprint: string }) {
+  const storageKey = quotation ? `mc.quotation.${quotation.token}.checkout.key` : KEY
   let key = ''
-  try { key = sessionStorage.getItem(KEY) || '' } catch { key = '' }
+  try { key = sessionStorage.getItem(storageKey) || '' } catch { key = '' }
   if (!key) {
     key = newIdempotencyKey('web')
-    try { sessionStorage.setItem(KEY, key) } catch { /* private mode */ }
+    try { sessionStorage.setItem(storageKey, key) } catch { /* private mode */ }
   }
-  const response = await fetch('/api/cart/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(payload) })
+  const response = await fetch(quotation ? `/api/store/quotations/${encodeURIComponent(quotation.token)}/checkout` : '/api/cart/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify({ ...payload, ...(quotation ? { confirmed: true, fingerprint: quotation.fingerprint } : {}) }) })
   const data = await response.json().catch(() => null)
   const validSuccess = response.ok && Number.isSafeInteger(data?.orderId) && data.orderId > 0
   // Unresolved outcomes must retry the same order, including malformed replies.
   if (validSuccess || (response.status >= 400 && response.status < 500 && String(data?.code || '') !== 'GATEWAY_AMBIGUOUS')) {
-    try { sessionStorage.removeItem(KEY) } catch { /* private mode */ }
+    try { sessionStorage.removeItem(storageKey) } catch { /* private mode */ }
   }
-  if (validSuccess) void loadCart().then(result => { if (result.ok) broadcast(result.cart) })
+  if (validSuccess && !quotation) void loadCart().then(result => { if (result.ok) broadcast(result.cart) })
   return {
     ok: validSuccess,
     code: response.ok && !validSuccess ? 'CHECKOUT_RESPONSE_INVALID' : String(data?.code || ''),

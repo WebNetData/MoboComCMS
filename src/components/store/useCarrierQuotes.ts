@@ -8,7 +8,7 @@ export type CarrierOption =
 type Quote = { addressId: number; context: string; options: CarrierOption[]; weightGrams: number }
 
 /** Quotes belong to the selected address and destination; late replies cannot change its price. */
-export function useCarrierQuotes(addressId: number, enabled: boolean, context = '') {
+export function useCarrierQuotes(addressId: number, enabled: boolean, context = '', quotationToken = '') {
   const [quote, setQuote] = useState<Quote | null>(null)
   const [failure, setFailure] = useState<{ addressId: number; context: string; message: string } | null>(null)
   const [attempt, setAttempt] = useState(0)
@@ -19,7 +19,7 @@ export function useCarrierQuotes(addressId: number, enabled: boolean, context = 
     const controller = new AbortController()
     async function load() {
       try {
-        const response = await fetch(`/api/shipping/quotes?addressId=${addressId}`, { cache: 'no-store', signal: controller.signal })
+        const response = await fetch(`/api/shipping/quotes?addressId=${addressId}${quotationToken ? `&quotation=${encodeURIComponent(quotationToken)}` : ''}`, { cache: 'no-store', signal: controller.signal })
         const body = await response.json()
         if (!response.ok || !Array.isArray(body?.options) || !Number.isFinite(body.weightGrams) || body.options.some((o: CarrierOption) => !o || typeof o.ok !== 'boolean' || typeof o.carrierId !== 'string')) throw new Error('QUOTES_UNAVAILABLE')
         if (!controller.signal.aborted) setQuote({ addressId, context, options: body.options, weightGrams: body.weightGrams })
@@ -29,7 +29,7 @@ export function useCarrierQuotes(addressId: number, enabled: boolean, context = 
     }
     void load()
     return () => controller.abort()
-  }, [addressId, context, enabled, attempt])
+  }, [addressId, context, enabled, attempt, quotationToken])
 
   const active = enabled && !!addressId
   return {

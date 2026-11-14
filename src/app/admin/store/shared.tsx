@@ -24,6 +24,7 @@ const STORE_TABS: Tab[] = [
   { href: '/admin/store', label: 'داشبورد', exact: true },
   { href: '/admin/store/reports', label: 'گزارش فروش' },
   { href: '/admin/store/orders', label: 'سفارش‌ها' },
+  { href: '/admin/store/quotations', label: 'پیش‌فاکتورها' },
   { href: '/admin/store/pickup', label: 'تحویل در فروشگاه' },
   { href: '/admin/store/print', label: 'چاپ کارت تحویل' },
   { href: '/admin/store/returns', label: 'لغو و مرجوعی' },

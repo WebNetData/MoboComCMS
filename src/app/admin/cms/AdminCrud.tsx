@@ -11,6 +11,7 @@ import CategoryPicker from './CategoryPicker'
 import AiAutofill from './AiAutofill'
 import { useAiPageRecord } from '@/components/admin/ai/PageContext'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
+import { postIssues } from '@/modules/journal/domain/journal'
 import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
 import AdminPagination from './AdminPagination'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
@@ -283,6 +284,16 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
     const value = previewValue(form[fl.key], fl.optionsFromRows?.(optionRows || rows, editId) || fl.options)
     return { key: fl.key, label: fl.label, value, state: !value && fl.required ? 'missing' : isAi(fl.key) ? 'ai' : value ? 'ok' : 'empty' }
   })
+  if (type === 'posts') {
+    const categoryCount = Array.isArray(form.categoryIds) ? form.categoryIds.length : Number(form.categoryId) > 0 ? 1 : 0
+    const labels: Record<string, string> = { cover: 'تصویر روی جلد', excerpt: 'چکیده (حداقل ۳۰ نویسه)', category: 'دسته‌بندی', short: 'متن مقاله (حداقل ۱۵۰ واژه)' }
+    for (const issue of postIssues({ cover: String(form.cover || ''), excerpt: String(form.excerpt || ''), content: String(form.content || ''), categories: categoryCount })) {
+      const index = reviewRows.findIndex((row) => row.key === issue)
+      const missing = { key: issue, label: labels[issue], value: '', state: 'missing' as const, href: '#cms-entry-form' }
+      if (index >= 0) reviewRows[index] = { ...reviewRows[index], label: labels[issue], state: 'missing', href: missing.href }
+      else reviewRows.push(missing)
+    }
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -488,7 +499,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       {bulkEnabled && <><BulkActions count={selected.size} canPublish fa={fa} busy={bulkBusy} progress={bulkProgress} onApply={applyBulk} onClear={() => setSelected(new Set())} />{bulkMsg && <p className={bulkMsg.tone === 'err' ? 'error-text cms-bulk-message' : 'cms-bulk-message'} role="status">{bulkMsg.text}</p>}</>}
 
       {showForm && (
-        <form onSubmit={save} className={sectioned ? `card mb-6 mx-form cms-sectioned-form${sideColumn ? ' has-aside' : ''}` : 'card mb-6 grid-3 items-end'}>
+        <form id="cms-entry-form" onSubmit={save} className={sectioned ? `card mb-6 mx-form cms-sectioned-form${sideColumn ? ' has-aside' : ''}` : 'card mb-6 grid-3 items-end'}>
           {sideColumn ? <>
             <div className="cms-form-main">
               {aiFields.length > 0 && !mine && <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />}

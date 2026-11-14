@@ -1,3 +1,4 @@
+import SiteImage from '@/components/media/SiteImage'
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import type { ProductCard, ShopDivision } from '@/modules/store/server/catalog'
@@ -114,7 +115,7 @@ export function CategoryGrid({ categories, base = '/products?' }: { categories: 
     <Slider as="nav" className="sx-catgrid" label="دسته‌بندی‌های فروشگاه">
       {categories.map((category) => <div key={category.slug} className="sx-catcard">
         <Link href={link(category.slug)} className="sx-catcard-main">
-          <span className="sx-catcard-art">{category.image ? <img src={sized(category.image, 240)} srcSet={srcSet(category.image, 240)} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={40} />}</span>
+          <span className="sx-catcard-art">{category.image ? <SiteImage source={category.image} requestWidth={240} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={40} />}</span>
           <b>{category.name}</b>
           <small className="num">{fa(category.total)} کالا</small>
         </Link>

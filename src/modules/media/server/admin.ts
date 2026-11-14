@@ -5,6 +5,8 @@ import { syncCredits } from '@/modules/cinema/server/people'
 import { resolveTitleFormat } from '@/modules/cinema/server/formats'
 import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
+import { mediaPublicationIssues } from '@/modules/media/domain/publication'
+import { assertCanonicalSourceSlugAvailable } from '@/modules/content/server/canonical-alias'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
@@ -647,6 +649,14 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   const expected=type==='music-artists'&&id?artistExpectedUpdate(body):null
   const write = async (tx: Tx) => {
     await options.beforeWrite?.(tx)
+    if (id && data.status === 'PUBLISHED' && existing?.status !== 'PUBLISHED') {
+      const current = await resource.delegate(tx).findUnique({ where: { id } })
+      if (!current || current.status !== existing.status || (current.updatedAt && existing.updatedAt && new Date(current.updatedAt).getTime() !== new Date(existing.updatedAt).getTime())) throw new Error('محتوا هم‌زمان تغییر کرده است؛ پیش از انتشار دوباره آن را بررسی کنید')
+    }
+    if (typeof data.slug === 'string' && data.slug !== existing?.slug) {
+      const aliasKind = type === 'cinema-titles' ? 'cinema' : type === 'games' ? 'game' : type === 'software' ? 'software' : null
+      if (aliasKind) await assertCanonicalSourceSlugAvailable(aliasKind, data.slug, id || 0, tx)
+    }
     if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
     // Codes of the owner's managed lists: a game's modes and localisations, a software title's licence. A code the
     // item already had stays even when inactive; an unknown licence keeps the one it had (a new title: free).
@@ -690,6 +700,10 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     if (type === 'games' || type === 'software') await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', saved, existing)
     if (type === 'music-tracks') await scheduleTrackRelease(tx, saved, existing)
     if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
+    if (saved.status === 'PUBLISHED' && existing?.status !== 'PUBLISHED') {
+      const issues = await mediaPublicationIssuesIn(tx, type, saved)
+      if (issues.length) throw new Error(`پیش از انتشار این موارد را تکمیل کنید: ${issues.map(issue => issue.label).join('، ')}`)
+    }
     if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
     await options.afterWrite?.(tx, saved.id)
     if (type === 'cinema-titles') await schedulePeoplePublication(tx, saved, existing as { id: number; status: string; publishedAt: Date } | null)
@@ -700,6 +714,24 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   const row = options.client ? await write(options.client) : await db.$transaction(write, { timeout: 30_000, ...(options.beforeWrite ? { isolationLevel: 'Serializable' as const } : {}) })
   if (!options.client && MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
   return { row, existing }
+}
+
+async function mediaPublicationIssuesIn(tx: Tx, type: string, row: Record<string, any>) {
+  const related: { links?: number; seasons?: number; episodes?: number; episodesWithoutLinks?: number; albumCover?: string } = {}
+  if (type === 'cinema-titles') {
+    const seasons = await tx.cinemaSeason.findMany({ where: { titleId: row.id }, select: { episodes: { select: { id: true } } } })
+    const episodeIds = seasons.flatMap(season => season.episodes.map(episode => episode.id))
+    const [links, episodeLinks] = await Promise.all([
+      tx.mediaLink.count({ where: { ownerType: 'title', ownerId: row.id } }),
+      episodeIds.length ? tx.mediaLink.groupBy({ by: ['ownerId'], where: { ownerType: 'episode', ownerId: { in: episodeIds } } }).then(rows => rows.length) : Promise.resolve(0),
+    ])
+    related.links = links; related.seasons = seasons.length; related.episodes = episodeIds.length; related.episodesWithoutLinks = episodeIds.length - episodeLinks
+  } else if (type === 'games' || type === 'software') {
+    related.links = await tx.mediaLink.count({ where: { ownerType: type === 'games' ? 'game' : 'software', ownerId: row.id } })
+  } else if (type === 'music-tracks' && row.albumId) {
+    related.albumCover = (await tx.musicAlbum.findUnique({ where: { id: row.albumId }, select: { cover: true } }))?.cover || ''
+  }
+  return mediaPublicationIssues(type, row, related)
 }
 
 /** One item as it is stored, for readers outside this file that know its kind by name. */
@@ -919,21 +951,40 @@ export async function BULK(req: NextRequest) {
       for (const row of found) if (row.status === TRASHED) failed.push({ id: row.id, reason: 'in the trash' })
       if (rows.length) {
         const status = action === 'publish' ? 'PUBLISHED' : 'DRAFT'
-        await db.$transaction(async (tx) => {
-          await resource.delegate(tx).updateMany({ where: { id: { in: rows.map((row) => row.id) }, status: { not: TRASHED } }, data: { status } })
+        const approvedIds = await db.$transaction(async (tx) => {
+          const permission = caller.authorId ? AUTHORED[type]?.permission : resource.perms.find(perm => admin.permissions === null || admin.permissions.includes(perm))
+          if (!permission || !await requirePerm(req, permission, tx)) throw new Error('دسترسی انتشار تغییر کرده است')
+          const eligible: Record<string, any>[] = []
+          for (const before of rows) {
+            const row = await resource.delegate(tx).findFirst({ where: { id: before.id, ...own } })
+            if (!row || row.status === TRASHED || (row.updatedAt && before.updatedAt && new Date(row.updatedAt).getTime() !== new Date(before.updatedAt).getTime())) { failed.push({ id: before.id, reason: 'محتوا هم‌زمان تغییر کرده است؛ دوباره بررسی کنید' }); continue }
+            if (status === 'PUBLISHED' && row.status !== 'PUBLISHED') {
+              const issues = await mediaPublicationIssuesIn(tx, type, row)
+              if (issues.length) { failed.push({ id: row.id, reason: issues.map(issue => issue.label).join('، ') }); continue }
+            }
+            eligible.push(row)
+          }
+          if (!eligible.length) return [] as number[]
+          for (const row of eligible) {
+            const claimed = await resource.delegate(tx).updateMany({ where: { id: row.id, status: row.status, ...(row.updatedAt ? { updatedAt: row.updatedAt } : {}), ...own }, data: { status } })
+            if (claimed.count !== 1) throw new Error('محتوا هم‌زمان تغییر کرده است؛ دوباره بررسی کنید')
+          }
           if (type === 'music-tracks' && status === 'PUBLISHED') {
-            for (const row of rows) if (row.status !== 'PUBLISHED') await scheduleTrackRelease(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
+            for (const row of eligible) if (row.status !== 'PUBLISHED') await scheduleTrackRelease(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
           if (type === 'cinema-titles' && status === 'PUBLISHED') {
-            for (const row of rows) if (row.status !== 'PUBLISHED') await schedulePeoplePublication(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
+            for (const row of eligible) if (row.status !== 'PUBLISHED') await schedulePeoplePublication(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
           if (type === 'games' || type === 'software') {
-            for (const row of rows) if (row.status !== status) await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
+            for (const row of eligible) if (row.status !== status) await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
-        })
-        await recountFor(resource, { type, operation: 'bulk-status', id: rows.map((row) => row.id).join(',').slice(0, 200) })
+          await auditAdminStrict({ req, actor: admin, action: 'media.bulk.publish-state', targetType: type, targetId: type, metadata: { ids: eligible.map(row => row.id), status } }, tx)
+          return eligible.map(row => row.id)
+        }, { isolationLevel: 'Serializable', timeout: 30_000 })
+        const successfulRows = rows.filter(row => approvedIds.includes(row.id))
+        await recountFor(resource, { type, operation: 'bulk-status', id: successfulRows.map((row) => row.id).join(',').slice(0, 200) })
         const paths: string[] = []
-        for (const row of rows) {
+        for (const row of successfulRows) {
           succeeded.push(row.id)
           if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, row, { ...row, status })
           if (action === 'publish') { const path = publicPathFor(type, { ...row, status }); if (path) paths.push(path) }

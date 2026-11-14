@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
-export type ReviewRow = { key: string; label: string; value: string; state: 'ok' | 'empty' | 'ai' | 'missing' }
+export type ReviewRow = { key: string; label: string; value: string; state: 'ok' | 'empty' | 'ai' | 'missing'; href?: string }
 
 /** Plain-text preview of a form value for the review list. */
 export function previewValue(value: unknown, options?: { value: string; label: string }[]): string {
@@ -53,7 +53,7 @@ export default function PublishReview({ open, title, rows, onCancel, onConfirm, 
     {ai.length > 0 && <p className="pr-note">فیلدهای «پیشنهاد AI» را یک بار دیگر بخوانید؛ هوش مصنوعی ممکن است اشتباه کند.</p>}
     <dl className="pr-list">{rows.map((row) => <div key={row.key} className={`pr-row is-${row.state}`}>
       <dt>{row.label}{row.state === 'ai' && <em>پیشنهاد AI</em>}</dt>
-      <dd dir="auto">{row.value || (row.state === 'missing' ? 'ضروری — خالی' : '—')}</dd>
+      <dd dir="auto">{row.state === 'missing' && row.href ? <a href={row.href} onClick={onCancel}>{row.value || 'ضروری — تکمیل لازم است'} ↗</a> : row.value || (row.state === 'missing' ? 'ضروری — خالی' : '—')}</dd>
     </div>)}</dl>
     <footer className="pr-foot">
       <button type="button" className="btn btn-ghost" onClick={onCancel}>بازگشت و ویرایش</button>

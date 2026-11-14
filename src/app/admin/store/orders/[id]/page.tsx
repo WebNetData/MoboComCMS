@@ -11,6 +11,7 @@ import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson
 import ShipmentPanel from './ShipmentPanel'
 import OrderAssignment, { type Assignment } from './OrderAssignment'
 import LineInputs, { type InputLine } from './LineInputs'
+import WarrantyPanel from './WarrantyPanel'
 import DeliveryDetailsEditor, { EMPTY_DELIVERY, draftFromTemplate, type DeliveryDraft } from '@/components/admin/store/DeliveryDetailsEditor'
 import type { ProductDeliveryTemplate } from '@/modules/store/domain/delivery-details'
 import { composeDeliveryDetails } from '@/modules/store/domain/delivery-details'
@@ -98,6 +99,7 @@ export default function StoreOrderPage() {
       <div className="sa-stack">
         {!virtual && <PackingPanel orderId={data.id} onChanged={() => void reload()} />}
         {!virtual && data.manager && <DeliveryChangePanel orderId={data.id} />}
+        {data.manager && !virtual && data.orderStatus === 'PAID' && <WarrantyPanel orderId={data.id} />}
         {data.orderStatus === 'PAID' && <OrderAssignment id={data.id} work={data} onChanged={() => void reload()} />}
         <section className="sa-card">
           <header className="sa-card-head"><h2>کالاها</h2><small className="num">{fa(data.lines.reduce((sum, line) => sum + line.quantity, 0))} عدد</small></header>

@@ -14,7 +14,10 @@ process.env.NEXTAUTH_SECRET ||= randomBytes(32).toString('hex')
 
 const db = new PrismaClient(), stamp = `return-inspection-${Date.now()}-${randomBytes(3).toString('hex')}`
 const users = [], roles = [], products = [], ownLocations = []
+const ownForms = []
+let priorRepairForm = null
 let viewer, manager, cashier, buyer, otherBuyer, sessionId, shelf, quarantine, createdQuarantine = false
+let repairForm
 let failAuditAction = ''
 db.$use(async (params, next) => {
   const result = await next(params)
@@ -31,11 +34,17 @@ const load = require('./connected-source-loader.cjs')({
   '@/modules/automation/server/engine': { emitAutomation: async () => {} },
   '@/modules/notifications/server/inbox': { createInboxEvent: async () => null },
   '@/modules/sms/server/sms': { SmsError, siteLink: path => `http://site.invalid${path}`, notifyAdmins: async () => {}, notifyUserEvent: async () => null },
+  '@/modules/forms/server/paid': { receiptCodes: () => ({}), revealSecrets: async () => [], sealSecrets: answers => ({ answers, secrets: '' }), tellSender: async () => {} },
   '@/platform/observability/logger': { logEvent() {}, requestIdFrom: () => stamp },
 })
 const sales = load('src/modules/store/server/counter-sales.ts')
 const returns = load('src/modules/store/server/returns.ts')
 const locations = load('src/modules/catalog/server/locations.ts')
+const custody = load('src/modules/store/server/returns/custody.ts')
+const warranties = load('src/modules/store/server/warranties.ts')
+const warrantyDomain = load('src/modules/store/domain/warranty.ts')
+const { TEMPLATES } = load('src/modules/forms/domain/forms.ts')
+const formsCounter = load('src/modules/forms/server/counter.ts')
 const { requirePerm } = load('src/modules/identity/server/access.ts')
 const { auditAdminStrict } = load('src/platform/audit/server.ts')
 const { StoreError } = load('src/modules/store/domain/store.ts')
@@ -48,6 +57,8 @@ const authorizeExchange = async tx => {
   if (!await requirePerm(req, 'orders.manage', tx)) throw new StoreError('exchange manager permission refused', 403)
 }
 const audit = action => (tx, id) => auditAdminStrict({ req, actor: viewer, action, targetType: action === 'store.return.inspect' ? 'return' : 'store', targetId: id }, tx)
+const warrantyAudit = (tx, id) => auditAdminStrict({ req, actor: viewer, action: 'store.warranty.create', targetType: 'store-warranty-device', targetId: id }, tx)
+const warrantyUpdateAudit = (tx, id) => auditAdminStrict({ req, actor: viewer, action: 'store.warranty.update', targetType: 'store-warranty-device', targetId: id }, tx)
 const line = (product, quantity = 1, variantId = null) => ({ productId: product.id, variantId, quantity, expectedUnitMinor: product.priceMinor.toString(), inputs: {} })
 const saleInput = (lines, extra = {}) => ({ requestId: randomUUID(), confirmed: true, packingConfirmed: true, method: 'CASH', sessionId, customerId: buyer.id, customerName: buyer.name, customerPhone: '', lines, ...extra })
 const sell = input => sales.createCounterSale(input, viewer.id, authorize, audit('store.counter.sale'), authorizeExchange)
@@ -93,6 +104,10 @@ async function snapshot() {
     payments: await db.payment.findMany({ where: { order: fixtureOrders }, orderBy: { id: 'asc' } }),
     tenders: await db.storeTender.findMany({ where: { order: fixtureOrders }, orderBy: { id: 'asc' } }),
     returns: await db.returnRequest.findMany({ where: { order: fixtureOrders }, orderBy: { id: 'asc' } }),
+    custody: await db.returnCustodyResolution.findMany({ where: { returnRequest: { order: fixtureOrders } }, orderBy: { id: 'asc' } }),
+    orderEvents: await db.orderEvent.findMany({ where: { order: fixtureOrders }, orderBy: { id: 'asc' } }),
+    warranties: await db.storeWarrantyDevice.findMany({ where: { orderLine: { order: fixtureOrders } }, orderBy: { id: 'asc' } }),
+    formSubmissions: await db.formSubmission.findMany({ where: { createdById: { in: users } }, orderBy: { id: 'asc' } }),
     adjustments: await db.storeRegisterAdjustment.findMany({ where: { actorId: { in: users } }, orderBy: { id: 'asc' } }),
     audits: await db.auditLog.findMany({ where: { actorUserId: { in: users } }, orderBy: { id: 'asc' } }),
     packing: await db.orderPackingCheck.findMany({ where: { completedById: { in: users } }, orderBy: { orderId: 'asc' } }),
@@ -178,6 +193,24 @@ async function main() {
   await unchanged(() => returns.inspectReturn(inspection, audit('store.return.inspect')), refusal(409), 'inspection replay refused')
   assert.deepEqual(await gross(sourceSale.orderId), sourceGross)
 
+  // A manager's supplier-return decision releases exactly the damaged Q quantity through the existing stock ledger.
+  const damagedSegmentIndex = inspected.inspection.segments.findIndex(part => part.disposition === 'DAMAGED')
+  const damagedSegment = inspected.inspection.segments[damagedSegmentIndex]
+  const custodyBefore = await returns.adminReturn(refunded.id)
+  const custodyInput = { id: refunded.id, actorId: manager.id, segmentIndex: damagedSegmentIndex, action: 'SUPPLIER_RETURN', expectedUpdatedAt: new Date(custodyBefore.inspection.updatedAt), note: 'fixture manager confirmed supplier return', physicalReleaseConfirmed: true }
+  const custodyAudit = (tx, id, status, resolution) => auditAdminStrict({ req, actor: viewer, action: 'store.return.custody.resolve', targetType: 'return-custody', targetId: id, metadata: { returnId: refunded.id, segmentIndex: damagedSegmentIndex, status, resolution } }, tx)
+  failAuditAction = 'store.return.custody.resolve'
+  try { await unchanged(() => custody.resolveReturnCustody(custodyInput, custodyAudit), /injected strict audit failure/, 'custody strict-audit rollback') } finally { failAuditAction = '' }
+  assert.equal(await balance(original.id, quarantine.id), damagedSegment.quantity, 'failed custody resolution keeps the full segment in Q')
+  const scrapped = await custody.resolveReturnCustody(custodyInput, custodyAudit)
+  assert.equal(scrapped.status, 'SUPPLIER_RETURN')
+  assert.equal(scrapped.resolution, 'SUPPLIER_RETURN')
+  assert.equal(scrapped.quantity, damagedSegment.quantity)
+  assert.equal(await balance(original.id, quarantine.id), 0, 'manager-confirmed scrap releases the physical segment from Q')
+  assert.equal((await db.stockMovement.findMany({ where: { productId: original.id, refType: 'return-custody', refId: refunded.id } })).reduce((sum, row) => sum + row.delta, 0), -damagedSegment.quantity)
+  assert.equal(await db.auditLog.count({ where: { action: 'store.return.custody.resolve', targetId: String(scrapped.id) } }), 1)
+  await unchanged(() => custody.resolveReturnCustody(custodyInput, custodyAudit), refusal(409), 'terminal custody decision replay refused')
+
   // Exchange is a complete new paid sale; it never nets away either sale's money records.
   const exchangeBody = saleInput([line(replacement)], { exchangeReturnId: refunded.id })
   await unchanged(() => sales.createCounterSale(exchangeBody, manager.id, authorize, audit('store.counter.sale')), refusal(403), 'exchange requires manager callback')
@@ -222,8 +255,48 @@ async function main() {
   assert.equal(await balance(unlimited.id, quarantine.id), 0)
   assert.equal(await balance(unlimited.id, shelf.id), 1)
   assert.equal((await db.product.findUniqueOrThrow({ where: { id: unlimited.id } })).stock, -1, 'healthy inspection does not replace unlimited stock with a finite cache')
+  buyer = await db.user.update({ where: { id: buyer.id }, data: { phone: '09120000001' } })
+  otherBuyer = await db.user.update({ where: { id: otherBuyer.id }, data: { phone: '09120000002' } })
+  const repairDefinition = TEMPLATES.find(item => item.id === 'mobile-repair').build()
+  repairForm = await db.siteForm.findUnique({ where: { slug: 'mobile-repair' } })
+  if (!repairForm) {
+    repairForm = await db.siteForm.create({ data: { slug: repairDefinition.slug, title: repairDefinition.title, description: repairDefinition.description, fields: JSON.stringify(repairDefinition.fields), settings: JSON.stringify({ ...repairDefinition.settings, handlers: [manager.id] }), published: false, successText: repairDefinition.successText } })
+    ownForms.push(repairForm.id)
+  } else {
+    priorRepairForm = { title: repairForm.title, description: repairForm.description, fields: repairForm.fields, settings: repairForm.settings, published: repairForm.published, successText: repairForm.successText }
+    repairForm = await db.siteForm.update({ where: { id: repairForm.id }, data: { title: repairDefinition.title, description: repairDefinition.description, fields: JSON.stringify(repairDefinition.fields), settings: JSON.stringify({ ...repairDefinition.settings, handlers: [manager.id] }), published: false, successText: repairDefinition.successText } })
+  }
   const later = await product('received-after-refund')
-  const laterSale = await sell(saleInput([line(later)]))
+  const laterSerial = `${stamp}-serial`, laterImei = '359881234567890'
+  const laterSale = await sell(saleInput([{ ...line(later), deviceIdentifiers: [{ serial: laterSerial, imei: laterImei }] }]))
+  const laterLine = await db.orderLine.findFirstOrThrow({ where: { orderId: laterSale.orderId }, orderBy: { line: 'asc' } })
+  const warrantyDraft = warrantyDomain.parseWarrantyDraft({ orderLineId: laterLine.id, unitIndex: 0, warrantyStartsAt: '2026-01-01', warrantyEndsAt: '2027-01-01', provider: 'Fixture vendor', conditions: 'Fixture staff-entered terms' })
+  const warrantyInput = { ...warrantyDraft, orderId: laterSale.orderId, actorId: manager.id }
+  failAuditAction = 'store.warranty.create'
+  try { await unchanged(() => warranties.createWarrantyDevice(warrantyInput, warrantyAudit), /injected strict audit failure/, 'warranty create strict-audit rollback') } finally { failAuditAction = '' }
+  const warrantyDevice = await warranties.createWarrantyDevice(warrantyInput, warrantyAudit)
+  assert.equal(warrantyDevice.serial, laterSerial, 'warranty copies the immutable sale serial snapshot')
+  assert.equal(warrantyDevice.imei, laterImei, 'warranty copies the immutable sale IMEI snapshot')
+  assert.equal((await warranties.customerWarrantyDevices(buyer.id)).some(row => row.id === warrantyDevice.id), true)
+  assert.equal((await warranties.customerWarrantyDevices(otherBuyer.id)).some(row => row.id === warrantyDevice.id), false, 'another canonical customer cannot read the warranty')
+  assert.equal((await warranties.adminWarrantyDevices(laterSale.orderId)).lines[0].devices[0].warranty.id, warrantyDevice.id)
+  await unchanged(() => warranties.createWarrantyDevice(warrantyInput, warrantyAudit), refusal(409), 'duplicate warranty unit refused')
+  const staleWarrantyUpdate = { id: warrantyDevice.id, expectedUpdatedAt: new Date(warrantyDevice.updatedAt.getTime() - 1000), warrantyStartsAt: warrantyDevice.warrantyStartsAt, warrantyEndsAt: warrantyDevice.warrantyEndsAt, provider: 'Changed', conditions: 'Changed', actorId: manager.id }
+  await unchanged(() => warranties.updateWarrantyDevice(staleWarrantyUpdate, warrantyUpdateAudit), refusal(409), 'stale warranty edit refused')
+  const currentWarrantyUpdate = warrantyDomain.parseWarrantyUpdate({ expectedUpdatedAt: warrantyDevice.updatedAt.toISOString(), warrantyStartsAt: '2026-01-01', warrantyEndsAt: '2027-01-01', provider: 'Updated fixture vendor', conditions: 'Updated fixture conditions' })
+  failAuditAction = 'store.warranty.update'
+  try { await unchanged(() => warranties.updateWarrantyDevice({ ...currentWarrantyUpdate, id: warrantyDevice.id, actorId: manager.id }, warrantyUpdateAudit), /injected strict audit failure/, 'warranty update strict-audit rollback') } finally { failAuditAction = '' }
+  const editedWarranty = await warranties.updateWarrantyDevice({ ...currentWarrantyUpdate, id: warrantyDevice.id, actorId: manager.id }, warrantyUpdateAudit)
+  assert.equal(editedWarranty.provider, 'Updated fixture vendor')
+
+  const repairValues = { name: buyer.name, mobile: buyer.phone, brand: 'اپل (آیفون)', model: 'Fixture phone', imei: laterImei, issue: 'سخت‌افزاری', description: 'Fixture repair issue', handover: 'حضوری می‌آورم', consent: true }
+  const formSubmission = await formsCounter.staffSubmit(repairForm.id, { values: repairValues, storeWarrantyDeviceId: warrantyDevice.id }, { id: manager.id })
+  const linkedForm = await db.formSubmission.findUniqueOrThrow({ where: { id: formSubmission.id } })
+  assert.equal(linkedForm.storeWarrantyDeviceId, warrantyDevice.id, 'staff repair intake persists the warranty relation')
+  assert.equal(linkedForm.userId, buyer.id, 'staff repair intake resolves to the same canonical buyer')
+  await unchanged(() => formsCounter.staffSubmit(repairForm.id, { values: { ...repairValues, mobile: otherBuyer.phone }, storeWarrantyDeviceId: warrantyDevice.id }, { id: manager.id }), error => error?.status === 403, 'foreign customer cannot attach a warranty repair')
+  await unchanged(() => formsCounter.staffSubmit(repairForm.id, { values: { ...repairValues, imei: '359881234567891' }, storeWarrantyDeviceId: warrantyDevice.id }, { id: manager.id }), error => error?.status === 409, 'repair intake refuses an IMEI mismatch')
+
   const laterReturn = await takeReturn(returnInput(laterSale.orderId, 1, { restock: false }))
   const priorMoney = await gross(laterSale.orderId)
   let lateView = await returns.adminReturn(laterReturn.id)
@@ -235,12 +308,35 @@ async function main() {
   assert.equal(lateView.inspection.status, 'PENDING'); assert.equal(await balance(later.id, quarantine.id), 1)
   await unchanged(() => returns.receiveReturnGoods(receiveInput, audit('store.return.receive')), refusal(409), 'late receipt replay')
   assert.deepEqual(await gross(laterSale.orderId), priorMoney, 'late receipt changes no money records')
-  console.log('PASS Store return inspection PostgreSQL: real counter/standalone refunds, legacy product/variant and unlimited stock, quarantine custody/guarded allocation-register-transfer-count-receipt, complete mixed dispositions, stale/replay and late receipt refusal/rollback; manager-only same-buyer/currency exchange with independent gross invoices/payments/tenders and one replacement link')
+  const damagedLate = await returns.inspectReturn(await inspectionInput(laterReturn.id, [damaged()]), audit('store.return.inspect'))
+  const repairSegmentIndex = damagedLate.inspection.segments.findIndex(part => part.disposition === 'DAMAGED')
+  const repairCustodyInput = { id: laterReturn.id, actorId: manager.id, segmentIndex: repairSegmentIndex, action: 'REPAIR', expectedUpdatedAt: new Date(damagedLate.inspection.updatedAt), note: 'fixture repair handoff', formSubmissionId: formSubmission.id, identityConfirmed: true, formsManager: false }
+  const custodyAuditLater = (tx, id, status, resolution) => auditAdminStrict({ req, actor: viewer, action: 'store.return.custody.resolve', targetType: 'return-custody', targetId: id, metadata: { returnId: laterReturn.id, segmentIndex: repairSegmentIndex, status, resolution } }, tx)
+  viewer = cashier
+  await unchanged(() => custody.resolveReturnCustody({ ...repairCustodyInput, actorId: cashier.id }, custodyAuditLater), refusal(403), 'unassigned staff cannot claim a repair Form')
+  viewer = manager
+  const repairCustody = await custody.resolveReturnCustody(repairCustodyInput, custodyAuditLater)
+  assert.equal(repairCustody.status, 'REPAIR')
+  assert.equal(repairCustody.formSubmissionId, formSubmission.id)
+  assert.equal(await balance(later.id, quarantine.id), 1, 'repair routing keeps the unit in quarantine')
+  await db.formSubmission.update({ where: { id: formSubmission.id }, data: { stage: 'DONE' } })
+  const restocked = await custody.resolveReturnCustody({ id: laterReturn.id, actorId: manager.id, segmentIndex: repairSegmentIndex, action: 'RESTOCK', expectedUpdatedAt: repairCustody.updatedAt, note: 'fixture health check passed', healthConfirmed: true, destinationLocationId: shelf.id, formsManager: false }, custodyAuditLater)
+  assert.equal(restocked.status, 'RESTOCKED')
+  assert.equal(restocked.resolution, 'RESTOCK')
+  assert.equal(await balance(later.id, quarantine.id), 0)
+  assert.equal(await balance(later.id, shelf.id), 1)
+  await unchanged(() => custody.resolveReturnCustody({ id: laterReturn.id, actorId: manager.id, segmentIndex: repairSegmentIndex, action: 'RESTOCK', expectedUpdatedAt: restocked.updatedAt, note: 'replay', healthConfirmed: true, destinationLocationId: shelf.id, formsManager: false }, custodyAuditLater), refusal(409), 'terminal repaired custody replay refused')
+  console.log('PASS Store return inspection PostgreSQL: refunds/quarantine and final supplier return; repair Form intake tied to sold IMEI and canonical customer, warranty snapshot/customer isolation/stale and audit rollback; repair custody stays in Q then Forms DONE + manager health confirmation restocks via the location ledger; exchanges and return audit/replay safeguards')
 }
 
 async function cleanup() {
   failAuditAction = ''
   const ids = (await db.order.findMany({ where: { createdById: { in: users } }, select: { id: true } })).map(row => row.id)
+  await db.returnCustodyResolution.deleteMany({ where: { returnRequest: { orderId: { in: ids } } } })
+  await db.formSubmission.deleteMany({ where: { createdById: { in: users } } })
+  await db.storeWarrantyDevice.deleteMany({ where: { orderLine: { orderId: { in: ids } } } })
+  if (priorRepairForm && repairForm) await db.siteForm.update({ where: { id: repairForm.id }, data: priorRepairForm })
+  if (ownForms.length) await db.siteForm.deleteMany({ where: { id: { in: ownForms } } })
   await db.returnRequest.deleteMany({ where: { orderId: { in: ids } } })
   await db.walletTx.deleteMany({ where: { userId: { in: users } } })
   await db.walletAccount.deleteMany({ where: { userId: { in: users } } })

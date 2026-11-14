@@ -14,6 +14,7 @@ import { assignLine } from '@/modules/store/server/digital-codes'
 import { recordStoreSale } from '@/modules/store/server/orders'
 import { asStoreError } from '@/modules/store/server/order-inputs'
 import { StoreError } from '@/modules/store/domain/store'
+import { claimQuotation } from '@/modules/store/server/quotations'
 import { recordCounterPacking } from '@/modules/store/server/packing'
 import { readCounterSale, type CounterSaleInput } from '@/modules/store/domain/counter-sales'
 import { legacyNumber, minorToDecimal } from '@/shared/money'
@@ -57,6 +58,7 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
     meta: JSON.stringify({ kind: 'product', counterFingerprint: fingerprint, counterMethod: input.method, counterReference: input.reference, source: 'COUNTER', productKind: lines.some(line => line.kind === 'PHYSICAL') ? 'PHYSICAL' : 'VIRTUAL', subtotalMinor: subtotalMinor.toString(), discountCode: input.discountCode || '', discountMinor: discountMinor.toString(), shippingMinor: shippingMinor.toString(), ...totals.shipping, ...(input.repair ? { repair: { submissionId: input.repair.submissionId } } : {}) }),
     lines: { create: lines },
   } })
+  if (totals.quotation) await claimQuotation(tx, totals.quotation, order.id)
   if (totals.promotion && customer) await redeemCounterPromotion(tx, totals.promotion, order.id, customer.id)
   if (totals.delivery) await bookDelivery(tx, order.id, totals.delivery.date, totals.delivery.slot.id)
   // Units come from the register's stock location (the shop shelf), not from the warehouses the site sells from.
@@ -101,8 +103,8 @@ export async function createCounterSale(raw: unknown, actorId: number, authorize
     try {
       return await db.$transaction(async (tx) => {
         await authorize(tx)
-        if (input.exchangeReturnId) {
-          if (!authorizeExchange) throw new StoreError('اتصال تعویض فقط با مدیر سفارش‌ها است', 403)
+        if (input.exchangeReturnId || input.quotation) {
+          if (!authorizeExchange) throw new StoreError('اتصال پیش‌فاکتور یا تعویض فقط با مدیر سفارش‌ها است', 403)
           await authorizeExchange(tx)
         }
         return writeSale(tx, input, actorId, commit)

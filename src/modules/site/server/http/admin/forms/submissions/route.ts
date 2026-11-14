@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
   const builder = Boolean(await requirePerm(req, 'cms.pages'))
   try {
     await assertMayHandleForm(formId, admin, builder)
-    const created = await staffSubmit(formId, { values: body.values }, admin)
+    const created = await staffSubmit(formId, { values: body.values, storeWarrantyDeviceId: body.storeWarrantyDeviceId }, admin)
     await auditAdmin({ req, actor: admin, action: 'forms.staff_entry', targetType: 'form_submission', targetId: String(created.id), metadata: { formId } })
     return ok(created)
   } catch (error) { return failure(error) }

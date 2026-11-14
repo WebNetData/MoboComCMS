@@ -1,11 +1,38 @@
 import { db } from '@/platform/database/prisma'
 import { parseJson } from '@/modules/catalog/server/product-config'
+import type { Prisma } from '@prisma/client'
 
 export type CatalogQualityIssue = 'photo' | 'specifications' | 'price' | 'variants' | 'health' | 'warranty'
 export type CatalogQualityRow = { id: number; slug: string; name: string; active: boolean; kind: string; issues: CatalogQualityIssue[]; editHref: string }
 export type CatalogQualityPage = { rows: CatalogQualityRow[]; total: number; throughId: number; nextAfter: number | null; limit: number }
 
 export const CATALOG_QUALITY_PAGE_SIZE = 50
+
+/** Required purchase information used by both the quality report and the Store publication gate. */
+export function catalogPublicationIssues(row: { image: string | null; gallery: string; condition: string; healthReport: string; warranty: string; priceMinor: bigint; specifications: string; category: { attributeGroup: { fields: string } | null } | null; variants: { id: number }[] }): CatalogQualityIssue[] {
+  const rawFields = parseJson<unknown>(row.category?.attributeGroup?.fields, [])
+  const fields = (Array.isArray(rawFields) ? rawFields : []).filter((field): field is { key?: string; required?: boolean; variant?: boolean } => !!field && typeof field === 'object')
+  const rawSpecs = parseJson<unknown>(row.specifications, {})
+  const specs: Record<string, unknown> = rawSpecs && typeof rawSpecs === 'object' && !Array.isArray(rawSpecs) ? rawSpecs as Record<string, unknown> : {}
+  const filledSpecs = fields.filter(field => !field.variant && field.key && String(specs[field.key] ?? '').trim())
+  const requiredSpecsMissing = fields.some(field => !field.variant && field.required && field.key && !String(specs[field.key] ?? '').trim())
+  const requiredVariantsMissing = fields.some(field => field.variant && field.required) && row.variants.length === 0
+  const rawGallery = parseJson<unknown>(row.gallery, [])
+  const gallery = Array.isArray(rawGallery) ? rawGallery.filter((image): image is string => typeof image === 'string') : []
+  return [
+    !row.image?.trim() && !gallery.some(image => image.trim()) ? 'photo' : null,
+    requiredSpecsMissing || (fields.some(field => !field.variant) && !filledSpecs.length) ? 'specifications' : null,
+    row.priceMinor <= 0n ? 'price' : null,
+    requiredVariantsMissing ? 'variants' : null,
+    row.condition !== 'NEW' && !row.healthReport.trim() ? 'health' : null,
+    row.condition !== 'NEW' && !row.warranty.trim() ? 'warranty' : null,
+  ].filter((issue): issue is CatalogQualityIssue => issue !== null)
+}
+
+export async function catalogPublicationIssuesById(client: Prisma.TransactionClient, id: number) {
+  const row = await client.product.findUnique({ where: { id }, select: { image: true, gallery: true, condition: true, healthReport: true, warranty: true, priceMinor: true, specifications: true, category: { select: { attributeGroup: { select: { fields: true } } } }, variants: { where: { active: true }, select: { id: true } } } })
+  return row ? catalogPublicationIssues(row) : ['price'] as CatalogQualityIssue[]
+}
 
 /** A bounded ID-cursor scan; `throughId` fixes the upper edge for subsequent pages. */
 export async function readCatalogQuality(afterId = 0, throughId?: number): Promise<CatalogQualityPage> {
@@ -23,24 +50,7 @@ export async function readCatalogQuality(afterId = 0, throughId?: number): Promi
   const hasMore = rows.length > CATALOG_QUALITY_PAGE_SIZE
   const pageRows = rows.slice(0, CATALOG_QUALITY_PAGE_SIZE)
   const qualityRows = pageRows.map(row => {
-    const rawFields = parseJson<unknown>(row.category?.attributeGroup?.fields, [])
-    const fields = (Array.isArray(rawFields) ? rawFields : []).filter((field): field is { key?: string; required?: boolean; variant?: boolean } => !!field && typeof field === 'object')
-    const rawSpecs = parseJson<unknown>(row.specifications, {})
-    const specs: Record<string, unknown> = rawSpecs && typeof rawSpecs === 'object' && !Array.isArray(rawSpecs) ? rawSpecs as Record<string, unknown> : {}
-    const filledSpecs = fields.filter(field => !field.variant && field.key && String(specs[field.key] ?? '').trim())
-    const requiredSpecsMissing = fields.some(field => !field.variant && field.required && field.key && !String(specs[field.key] ?? '').trim())
-    const requiredVariantsMissing = fields.some(field => field.variant && field.required) && row.variants.length === 0
-    const rawGallery = parseJson<unknown>(row.gallery, [])
-    const gallery = Array.isArray(rawGallery) ? rawGallery.filter((image): image is string => typeof image === 'string') : []
-    const needsConditionDisclosure = row.condition !== 'NEW'
-    const issues: CatalogQualityIssue[] = [
-      !row.image?.trim() && !gallery.some(image => image.trim()) ? 'photo' : null,
-      requiredSpecsMissing || (fields.some(field => !field.variant) && !filledSpecs.length) ? 'specifications' : null,
-      row.priceMinor <= 0n ? 'price' : null,
-      requiredVariantsMissing ? 'variants' : null,
-      needsConditionDisclosure && !row.healthReport.trim() ? 'health' : null,
-      needsConditionDisclosure && !row.warranty.trim() ? 'warranty' : null,
-    ].filter((issue): issue is CatalogQualityIssue => issue !== null)
+    const issues = catalogPublicationIssues(row)
     return { id: row.id, slug: row.slug, name: row.name, active: row.active, kind: row.kind, issues, editHref: `/admin/store/products/${row.id}` }
   })
   return { rows: qualityRows, total, throughId: upper, nextAfter: hasMore ? pageRows.at(-1)?.id ?? null : null, limit: CATALOG_QUALITY_PAGE_SIZE }

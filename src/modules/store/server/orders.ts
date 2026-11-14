@@ -174,7 +174,22 @@ export async function customerOrder(userId: number, orderId: number) {
     },
   })
   if (!order) return null
-  return {...orderDetailView(order),pickup:await (await import('@/modules/store/server/pickup')).pickupForCustomer(userId,orderId)}
+  const view = orderDetailView(order)
+  const warranties = await (await import('@/modules/store/server/warranties')).customerWarrantyDevicesForOrder(userId, orderId)
+  return {
+    ...view,
+    lines: view.lines.map(line => ({
+      ...line,
+      warranties: warranties.filter(device => device.orderLineId === line.lineId).map(device => ({
+        id: device.id, unitIndex: device.unitIndex, serial: device.serial, imei: device.imei,
+        warrantyStartsAt: device.warrantyStartsAt.toISOString(), warrantyEndsAt: device.warrantyEndsAt.toISOString(),
+        provider: device.provider, conditions: device.conditions,
+        tickets: device.tickets.map(ticket => ({ id: ticket.id, subject: ticket.subject, status: ticket.status, updatedAt: ticket.updatedAt.toISOString() })),
+        repairs: device.repairs.map(repair => ({ id: repair.id, stage: repair.stage, status: repair.status, createdAt: repair.createdAt.toISOString() })),
+      })),
+    })),
+    pickup: await (await import('@/modules/store/server/pickup')).pickupForCustomer(userId, orderId),
+  }
 }
 
 type DetailOrder = Awaited<ReturnType<typeof loadAdminOrder>>

@@ -8,6 +8,7 @@ import type { PlayerTrack } from './player-types'
 import TrackActions from './TrackActions'
 import { readPlaybackSession, sourceUrl, trackSource, writePlaybackSession } from './playback-session'
 import { sized, srcSet } from '@/shared/media/image'
+import { useLowData } from '@/components/site/LowDataProvider'
 
 const PLAYER_ICONS: Record<string, React.ReactNode> = {
   play: <path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" stroke="none" />,
@@ -64,6 +65,7 @@ function writePref(key: string, value: string) {
  */
 export default function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const { locale } = useI18n()
+  const { enabled: lowData } = useLowData()
   const fa = locale === 'fa'
   const audio = useRef<HTMLAudioElement | null>(null)
   const restoredTrackId = useRef<number | null>(null)
@@ -206,33 +208,33 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
     if (current?.id === restoredTrackId.current) return
     if (current) {
       if (audio.current && reportedTrackId.current === Number(audio.current.dataset.trackId) && !audio.current.ended) syncProgress()
-      resumeAt.current = 0; setTime(0); load(current, hq)
+      resumeAt.current = 0; setTime(0); load(current, hq && !lowData)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, index, queue])
+  }, [current?.id, index, queue, lowData])
 
   const play = useCallback((tracks: PlayerTrack[], start = 0) => {
     if (!tracks.length) return
     restoredTrackId.current = null
     const same = current && tracks[start]?.id === current.id
     if (same && audio.current) {
-      if (!audio.current.getAttribute('src')) void load(current, hq)
+      if (!audio.current.getAttribute('src')) void load(current, hq && !lowData)
       else if (audio.current.paused) audio.current.play().then(() => setPlaying(true)).catch(() => undefined)
       else audio.current.pause()
       return
     }
     setQueue(tracks)
     setIndex(Math.max(0, Math.min(start, tracks.length - 1)))
-  }, [current, hq, load])
+  }, [current, hq, lowData, load])
 
   const toggle = useCallback(() => {
     const el = audio.current
     if (!el || !current) return
     restoredTrackId.current = null
-    if (!el.getAttribute('src')) void load(current, hq)
+    if (!el.getAttribute('src')) void load(current, hq && !lowData)
     else if (el.paused) el.play().then(() => setPlaying(true)).catch(() => undefined)
     else el.pause()
-  }, [current, hq, load])
+  }, [current, hq, lowData, load])
 
   const next = useCallback(() => {
     if (!queue.length) return
@@ -325,7 +327,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
             </div>
             <div className="mu-player-side">
               <TrackActions trackId={current.id} title={current.title} />
-              {current.hasHq && <button type="button" className={`mu-hq${hq ? ' is-on' : ''}`} onClick={() => { const on = !hq; setHq(on); writePref('mu.hq', on ? '1' : '0'); load(current, on) }} title={fa ? 'کیفیت ۳۲۰' : '320 kbps'}>320</button>}
+              {current.hasHq && <button type="button" className={`mu-hq${hq && !lowData ? ' is-on' : ''}`} aria-pressed={hq && !lowData} disabled={lowData && !hq} onClick={() => { const on = lowData ? false : !hq; setHq(on); writePref('mu.hq', on ? '1' : '0'); load(current, on) }} title={lowData ? (fa ? 'کیفیت بالای قبلی را می‌توانید خاموش کنید' : 'Turn off the previously selected high quality') : fa ? 'کیفیت ۳۲۰' : '320 kbps'}>320</button>}
               <button type="button" className="mu-ic" onClick={() => void download(current)} aria-label={fa ? 'دانلود' : 'Download'} title={fa ? 'دانلود' : 'Download'}><PlayerIcon name="download" /></button>
               <button type="button" className={`mu-ic${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} title={fa ? 'صف پخش' : 'Queue'} aria-expanded={showQueue}><PlayerIcon name="queue" /></button>
               <input className="mu-volume" dir="ltr" type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); writePref('mu.volume', String(v)) }} aria-label={fa ? 'صدا' : 'Volume'} />
@@ -350,7 +352,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
                 <li key={`${track.id}-${i}`} className={i === index ? 'is-current' : i < index ? 'is-played' : ''}>
                   <button type="button" onClick={() => play(queue, i)} aria-current={i === index ? 'true' : undefined}>
                     <i className="mu-queue-no">{i === index && playing ? <span className="mu-eq" aria-hidden="true"><b /><b /><b /></span> : (i + 1).toLocaleString(fa ? 'fa-IR' : 'en-US')}</i>
-                    {track.cover ? <img src={track.cover} alt="" loading="lazy" /> : <span className="mu-player-noart"><PlayerIcon name="note" size={16} /></span>}<span><b>{track.title}</b><small>{track.artist}</small></span>{track.access === 'MEMBERS' && <em className="vip-dot">VIP</em>}
+                    {track.cover ? <img src={sized(track.cover, 160, lowData)} alt="" loading="lazy" srcSet={lowData ? undefined : srcSet(track.cover, 160)} /> : <span className="mu-player-noart"><PlayerIcon name="note" size={16} /></span>}<span><b>{track.title}</b><small>{track.artist}</small></span>{track.access === 'MEMBERS' && <em className="vip-dot">VIP</em>}
                   </button>
                 </li>
               ))}</ol>

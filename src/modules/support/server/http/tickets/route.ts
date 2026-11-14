@@ -4,14 +4,15 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requireUser } from '@/modules/identity/server/access'
 import { sanitizeMessage, richTextToPlain } from '@/shared/content/sanitize'
-import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { issueTypes, reportDevices } from '@/modules/support/domain/incidents'
 import { validateAnswers, parseFields } from '@/modules/support/domain/department-config'
 import { getUserLocale } from '@/modules/notifications/server/telegram-locale'
 import { planName } from '@/modules/catalog/domain/plan-locale'
-import { ticketSlaDueAt } from '@/modules/support/domain/ticket-operations'
 import { safeHappLink } from '@/modules/subscriptions/server/happ-protocol'
 import { parseTicketSubmission, removeTicketFiles, saveTicketFiles, ticketAttachmentRows, TicketUploadError } from '@/modules/support/server/ticket-attachments'
+import { createSupportTicket } from '@/modules/support/server/create-ticket'
+import { customerWarrantyDevices, ownedWarrantyDeviceForSupport } from '@/modules/store/server/warranties'
+import { moduleGuard } from '@/extensions/server/modules'
 
 export async function GET(req: NextRequest) {
   const user = await requireUser(req)
@@ -25,7 +26,9 @@ export async function GET(req: NextRequest) {
       db.ticketDepartment.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
     ])
     const products = [...new Map(orders.filter(o => o.product).map(o => [o.product!.id, { id: o.product!.id, name: locale === 'fa' ? o.product!.name : (o.product!.nameEn || `Product #${o.product!.id}`) }])).values()]
-    return ok({ subscriptions: subscriptions.map(s => ({ id: s.id, name: planName(s.plan, locale), username: s.username, expiresAt: s.expiresAt })), products, orders: supportOrders.map(o => ({ id: o.id, createdAt: o.createdAt, status: o.status, lines: o.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) })), departments: departments.map(d => ({ slug: d.slug, name: locale === 'fa' ? d.nameFa : d.nameEn, description: locale === 'fa' ? d.descriptionFa : d.descriptionEn, requiresSubscription: d.requiresSubscription, requiresProduct: d.requiresProduct, fields: parseFields(d.fields) })) })
+    const storeOff = await moduleGuard('store')
+    const warrantyDevices = storeOff ? [] : await customerWarrantyDevices(user.id)
+    return ok({ subscriptions: subscriptions.map(s => ({ id: s.id, name: planName(s.plan, locale), username: s.username, expiresAt: s.expiresAt })), products, orders: supportOrders.map(o => ({ id: o.id, createdAt: o.createdAt, status: o.status, lines: o.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) })), warrantyDevices, departments: departments.map(d => ({ slug: d.slug, name: locale === 'fa' ? d.nameFa : d.nameEn, description: locale === 'fa' ? d.descriptionFa : d.descriptionEn, requiresSubscription: d.requiresSubscription, requiresProduct: d.requiresProduct, fields: parseFields(d.fields) })) })
   }
   const tickets = await db.ticket.findMany({
     where: { userId: user.id },
@@ -70,6 +73,16 @@ export async function POST(req: NextRequest) {
   let report: { subscriptionId: number; subscriptionUsername: string; subscriptionLink: string; device: string; issueType: string } | undefined
   let productId: number | undefined
   let orderId: number | undefined
+  let storeWarrantyDeviceId: number | undefined
+  if (body?.storeWarrantyDeviceId != null) {
+    const warrantyId = Number(body.storeWarrantyDeviceId)
+    if (!Number.isSafeInteger(warrantyId) || warrantyId <= 0) return err(L('Warranty device not found.', 'دستگاه ضمانت پیدا نشد.'), 404)
+    const warranty = await ownedWarrantyDeviceForSupport(user.id, warrantyId)
+    if (!warranty || (body?.orderId != null && Number(body.orderId) !== warranty.orderId) || (body?.productId != null && Number(body.productId) !== warranty.productId)) return err(L('Warranty device not found.', 'دستگاه ضمانت پیدا نشد.'), 404)
+    storeWarrantyDeviceId = warranty.id
+    orderId = warranty.orderId
+    productId = warranty.productId || undefined
+  }
   if (body?.orderId != null) {
     if (!Number.isSafeInteger(body.orderId) || body.orderId <= 0) return err(L('Order not found.', 'سفارش پیدا نشد.'), 404)
     const order = await db.order.findFirst({
@@ -78,6 +91,7 @@ export async function POST(req: NextRequest) {
     })
     // The same response for missing and non-owned IDs avoids confirming another buyer's order.
     if (!order) return err(L('Order not found.', 'سفارش پیدا نشد.'), 404)
+    if (orderId != null && orderId !== order.id) return err(L('Warranty device not found.', 'دستگاه ضمانت پیدا نشد.'), 404)
     orderId = order.id
     if (body?.productId != null && ![order.productId, ...order.lines.map(line => line.productId)].includes(body.productId)) return err(L('Select a product from this order.', 'یک محصول از همین سفارش انتخاب کنید.'))
   }
@@ -92,6 +106,7 @@ export async function POST(req: NextRequest) {
   } else if (departmentConfig.requiresProduct) {
     if (!Number.isSafeInteger(body?.productId) || body.productId <= 0) return err(L('Select a purchased product.', 'یک محصول خریداری‌شده انتخاب کنید.'))
     if (orderId != null) {
+      if (productId != null && productId !== body.productId) return err(L('Select a product from this warranty device.', 'محصول باید با دستگاه ضمانت یکی باشد.'))
       productId = body.productId
     } else {
       const order = await db.order.findFirst({ where: { userId: user.id, productId: body.productId, status: 'PAID', product: { active: true } }, select: { id: true, productId: true } })
@@ -106,29 +121,12 @@ export async function POST(req: NextRequest) {
   try { await saveTicketFiles(files) }
   catch { return err('Could not save attachments / ذخیرهٔ پیوست‌ها ممکن نشد', 500) }
   let ticket: { id: number; priority: string }
-  try { ticket = await db.ticket.create({
-    data: {
-      userId: user.id,
-      subject,
-      priority,
-      lastCustomerAt: new Date(),
-      slaDueAt: ticketSlaDueAt(priority),
-      department,
-      customFields: JSON.stringify(customFields),
-      productId,
-      orderId,
-      ...report,
-      messages: {
-        create: { userId: user.id, fromAdmin: false, body: message, ...(files.length ? { attachments: { create: ticketAttachmentRows(files) } } : {}) },
-      },
-    },
-    include: { messages: true },
+  try { ticket = await createSupportTicket({
+    userId: user.id, subject, priority, department, customFields, orderId, productId, storeWarrantyDeviceId,
+    ...report, message, attachments: ticketAttachmentRows(files),
   }) } catch {
     await removeTicketFiles(files)
     return err('Could not create ticket / ثبت تیکت ممکن نشد', 500)
   }
-  await emitExtensionEvent('ticket.created', { ticketId: ticket.id, userId: user.id, priority: ticket.priority })
-  await (await import('@/modules/automation/server/engine')).emitAutomation('ticket.opened', `ticket:${ticket.id}`, user.id, { ticket_id: ticket.id, department, priority: ticket.priority, subject })
-  void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_TICKET', { subject: String(subject).slice(0, 60), name: user.email })).catch(() => {})
   return ok({ id: ticket.id })
 }

@@ -1,9 +1,9 @@
+import SiteImage from '@/components/media/SiteImage'
 import { contentPath } from '@/platform/routing/aliases'
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { scoreBand } from '@/modules/media/domain/media'
 import Slider from '@/components/site/Slider'
-import { sized, srcSet } from '@/shared/media/image'
 import { formatLabel } from '@/modules/cinema/domain/formats'
 
 /** Presentational building blocks shared by the music, cinema and games sections. */
@@ -58,7 +58,7 @@ export function PosterCard({ item, fa, rank }: Fa & { item: TitleLike; rank?: nu
     <Link href={`/cinema/${item.slug}`} className="cn-poster">
       {rank !== undefined && <span className="cn-rank" aria-hidden="true">{rank}</span>}
       <span className="cn-poster-art">
-        {item.poster ? <img src={sized(item.poster, 320)} srcSet={srcSet(item.poster, 320)} alt={name} loading="lazy" /> : <span className="cn-noart">🎬</span>}
+        {item.poster ? <SiteImage source={item.poster} requestWidth={320} alt={name} loading="lazy" /> : <span className="cn-noart">🎬</span>}
         <span className="cn-poster-badges">
           {item.access === 'MEMBERS' && <VipBadge fa={fa} small />}
           {item.dubbed && <span className="cn-badge is-dub">{fa ? 'دوبله' : 'Dub'}</span>}
@@ -93,7 +93,7 @@ export function AlbumCard({ album, fa }: Fa & { album: AlbumLike }) {
   return (
     <Link href={contentPath('album', album.slug, { artist: album.artist.slug })} className="mu-album">
       <span className="mu-album-art">
-        {album.cover ? <img src={sized(album.cover, 320)} srcSet={srcSet(album.cover, 320)} alt={name} loading="lazy" /> : <span className="mu-noart">♪</span>}
+        {album.cover ? <SiteImage source={album.cover} requestWidth={320} alt={name} loading="lazy" /> : <span className="mu-noart">♪</span>}
         {album.access === 'MEMBERS' && <VipBadge fa={fa} small />}
         <span className="mu-album-play" aria-hidden="true">▶</span>
       </span>
@@ -108,7 +108,7 @@ export function ArtistBubble({ artist, fa }: Fa & { artist: ArtistLike }) {
   const name = fa ? artist.name : artist.nameEn || artist.name
   return (
     <Link href={`/music/artist/${artist.slug}`} className="mu-artist">
-      <span>{artist.image ? <img src={sized(artist.image, 200)} srcSet={srcSet(artist.image, 200)} alt={name} loading="lazy" /> : <i>{name.slice(0, 1)}</i>}</span>
+      <span>{artist.image ? <SiteImage source={artist.image} requestWidth={200} alt={name} loading="lazy" /> : <i>{name.slice(0, 1)}</i>}</span>
       <b>{name}</b>
     </Link>
   )
@@ -120,7 +120,7 @@ export function PlaylistCard({ playlist, fa, index = 0 }: Fa & { playlist: Playl
   const name = fa ? playlist.title : playlist.titleEn || playlist.title
   return (
     <Link href={`/music/playlist/${playlist.slug}`} className={`mu-playlist tone-${index % 6}`}>
-      {playlist.cover ? <img src={sized(playlist.cover, 320)} srcSet={srcSet(playlist.cover, 320)} alt="" loading="lazy" /> : null}
+      {playlist.cover ? <SiteImage source={playlist.cover} requestWidth={320} alt="" loading="lazy" /> : null}
       <span className="mu-playlist-body">
         <small>{fa ? 'پلی‌لیست' : 'Playlist'} · {n(playlist.trackCount, fa)} {fa ? 'آهنگ' : 'tracks'}</small>
         <b>{name}</b>
@@ -152,7 +152,7 @@ export function GameCard({ game, fa }: Fa & { game: GameLike }) {
   return (
     <Link href={`/games/${game.slug}`} className="gm-card">
       <span className="gm-card-art">
-        {game.cover ? <img src={sized(game.cover, 320)} srcSet={srcSet(game.cover, 320)} alt={name} loading="lazy" /> : <span className="gm-noart">🎮</span>}
+        {game.cover ? <SiteImage source={game.cover} requestWidth={320} alt={name} loading="lazy" /> : <span className="gm-noart">🎮</span>}
         <ScoreBadge score={game.score} fa={fa} />
         {game.access === 'MEMBERS' && <VipBadge fa={fa} small />}
       </span>
@@ -188,7 +188,7 @@ export function SoftwareCard({ item, fa }: Fa & { item: SoftwareLike }) {
   const name = fa ? item.title : item.titleEn || item.title
   return (
     <Link href={`/software/${item.slug}`} className="sw-card">
-      <span className="sw-icon">{item.icon ? <img src={sized(item.icon, 160)} srcSet={srcSet(item.icon, 160)} alt="" loading="lazy" /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>
+      <span className="sw-icon">{item.icon ? <SiteImage source={item.icon} requestWidth={160} alt="" loading="lazy" /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>
       <span className="sw-card-body">
         <b>{name}</b>
         <small dir="ltr">{[item.version && `v${item.version}`, item.developer].filter(Boolean).join(' · ')}</small>

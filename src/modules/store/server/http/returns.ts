@@ -12,6 +12,10 @@ import {
 } from '@/modules/store/server/returns'
 import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
 import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
+import { parseCustodyAction } from '@/modules/store/domain/custody'
+import { resolveReturnCustody } from '@/modules/store/server/returns/custody'
+import { assertMayHandleSubmission } from '@/modules/forms/server/advanced'
+import { FormsError } from '@/modules/forms/domain/forms'
 
 const positiveId = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
 type IdContext = { params: Promise<{ id: string }> }
@@ -141,5 +145,29 @@ export async function POST_return_inspection(req: NextRequest, { params }: IdCon
       ? await receiveReturnGoods({ id, actorId: g.admin.id, expectedUpdatedAt: body.expectedUpdatedAt }, audit)
       : await inspectReturn({ id, actorId: g.admin.id, expectedUpdatedAt: body.expectedUpdatedAt, lines: body.lines }, audit)
     return ok(result)
+  } catch (error) { return failure(error) }
+}
+
+/** POST /api/admin/store/returns/:id/custody — manager decision for one inspected non-healthy segment. */
+export async function POST_return_custody(req: NextRequest, { params }: IdContext) {
+  const g = await returnsAdmin(req)
+  if ('response' in g) return g.response
+  const id = positiveId((await params).id)
+  if (!id) return err('invalid id')
+  const body = (await req.json().catch(() => null)) || {}
+  try {
+    const input = parseCustodyAction(body)
+    const formsManager = Boolean(await requirePerm(req, 'cms.pages'))
+    if (input.action === 'REPAIR') {
+      if (!formsManager && !await requirePerm(req, 'forms.handle')) return err('برای اتصال فرم تعمیر، دسترسی پاسخ‌گویی به همان فرم لازم است', 403)
+      try { await assertMayHandleSubmission(input.formSubmissionId, { id: g.admin.id }, formsManager) }
+      catch (error) { if (error instanceof FormsError) return err(error.message, error.message.includes('پیدا') ? 404 : 403); throw error }
+    }
+    const result = await resolveReturnCustody({ ...input, id, actorId: g.admin.id, formsManager }, async (tx, targetId, status, resolution) => {
+      if (!await requirePerm(req, 'orders.manage', tx)) throw new StoreError('دسترسی مدیریت سفارش‌ها تغییر کرده است', 403)
+      if (input.action === 'REPAIR' && !formsManager && !await requirePerm(req, 'forms.handle', tx)) throw new StoreError('دسترسی فرم تعمیر تغییر کرده است', 403)
+      await auditAdminStrict({ req, actor: g.admin, action: 'store.return.custody.resolve', targetType: 'return-custody', targetId, metadata: { returnId: id, segmentIndex: input.segmentIndex, status, resolution } }, tx)
+    })
+    return ok({ resolution: result, return: await adminReturn(id) })
   } catch (error) { return failure(error) }
 }

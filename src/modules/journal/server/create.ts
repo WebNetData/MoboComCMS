@@ -6,7 +6,7 @@ import { postRevisionState } from '@/modules/site/server/revision-state'
 import { contentChanged } from '@/modules/content/server/events'
 import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from './item-links'
 import { postFormatInput } from './formats'
-import { publicationDateInput } from '../domain/journal'
+import { postIssues, publicationDateInput } from '../domain/journal'
 
 /** Shared creation transaction for the CMS and reviewed assistant commands. */
 export async function createJournalPost(input: Record<string, unknown>, fields: Record<string, unknown>, actor: { id: number; email: string }, commit?: RestoreCommit) {
@@ -17,6 +17,10 @@ export async function createJournalPost(input: Record<string, unknown>, fields: 
     if (links) await validatePostItemLinks(tx, links)
     const created = await tx.post.create({ data: { ...fields, ...format, ...(input.publishedAt !== undefined ? { publishedAt: publicationDateInput(input.publishedAt) } : {}), access: normalizeAccess(input.access), authorId: actor.id, categoryId: ids[0] || null, categories: { create: ids.map(categoryId => ({ categoryId })) } } as any })
     if (links) await replacePostItemLinks(tx, created.id, links)
+    if (created.status === 'PUBLISHED') {
+      const issues = postIssues({ cover: created.cover, excerpt: created.excerpt, content: created.content, categories: ids.length })
+      if (issues.length) throw new Error(`پیش از انتشار مقاله این موارد را تکمیل کنید: ${issues.join('، ')}`)
+    }
     const after = (await postRevisionState(created.id, tx))!
     await recordRevision({ entityType: 'posts', entityId: created.id, before: null, after, actor, client: tx, strict: true })
     await commit?.(tx, {}, after)

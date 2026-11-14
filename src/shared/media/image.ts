@@ -20,9 +20,9 @@ const CDN = (process.env.NEXT_PUBLIC_MEDIA_CDN || '').replace(/\/+$/, '')
 /** The address of a resizable site image (the media CDN fronts covers only), or null for any other address. */
 const base = (value: string) => (OWN.test(value) ? `${CDN}${value}` : PROFILE.test(value) || STORED.test(value) || TRANSFER.test(value) ? value : null)
 
-export function sized(src: string | null | undefined, width: number): string {
+export function sized(src: string | null | undefined, width: number, lowData = false): string {
   const value = String(src || ''), own = base(value)
-  return own ? `${own}?w=${snapWidth(width)}` : value
+  return own ? `${own}?w=${snapWidth(lowData ? Math.min(width, 320) : width)}` : value
 }
 
 /** srcset for 1× and 2× screens (empty when the image is not a site image). */

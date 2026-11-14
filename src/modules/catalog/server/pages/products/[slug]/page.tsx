@@ -4,7 +4,7 @@ import { contentRouteParams } from '@/shared/routing/params'
 import Link from '@/components/AppLink'
 import ManageBar from '@/components/admin/ManageBar'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import BuyBox from '@/components/store/BuyBox'
@@ -49,6 +49,7 @@ import { groupDeal } from '@/modules/account/server/user-groups'
 import { productFileAccess } from '@/modules/store/server/product-files'
 import ProductDownloads from '@/components/store/ProductDownloads'
 import { publishedPageLinks } from '@/modules/site/server/public-pages'
+import { resolveCanonicalAliasSlug } from '@/modules/content/server/canonical-alias'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -58,6 +59,10 @@ async function loadProduct(slug: string, preview = false) {
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await contentRouteParams(paramsPromise)
+  if (await isStoreEnabled()) {
+    const canonical = await resolveCanonicalAliasSlug('product', params.slug)
+    if (canonical) redirect(canonical)
+  }
   const product = await loadProduct(params.slug)
   if (!product || !product.active || product.approval !== 'APPROVED' || !await opensAudience(product.audienceGroups, 'product')) return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
@@ -81,6 +86,10 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
 
 export default async function ProductPage({ params: paramsPromise, preview, surface = 'public' }: { params: Promise<{ slug: string }>; preview?: BuilderPreview; surface?: CheckoutSurface }) {
   const params = await contentRouteParams(paramsPromise)
+  if (!isPreview(preview) && await isStoreEnabled()) {
+    const canonical = await resolveCanonicalAliasSlug('product', params.slug)
+    if (canonical) redirect(canonical)
+  }
   const [locale, theme, requestHeaders] = await Promise.all([getServerLocale(), getServerTheme(), headers()])
   const t = dict(locale)
   const isFa = locale === 'fa'

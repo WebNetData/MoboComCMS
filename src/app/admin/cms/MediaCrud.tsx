@@ -28,6 +28,8 @@ import PeoplePicker from './PeoplePicker'
 import StudioPicker from './StudioPicker'
 import { optionsOf, useSectionLists } from './useSectionLists'
 import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
+import CanonicalAliasPanel from './CanonicalAliasPanel'
+import { mediaPublicationIssues } from '@/modules/media/domain/publication'
 
 // Loaded only when a form with a formatted field is opened.
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -305,6 +307,19 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
     const value = previewValue(form[field.key], optionsOf(field))
     return { key: field.key, label: field.label, value, state: !value && field.required ? 'missing' : aiKeys.has(field.key) ? 'ai' : value ? 'ok' : 'empty' }
   }) : []
+  const reviewRelated = form ? {
+    links: Array.isArray(form.links) ? form.links.filter((link: any) => link && typeof link === 'object' && String(link.url || link.href || '').trim()).length : 0,
+    seasons: Array.isArray(form.seasons) ? form.seasons.length : 0,
+    episodes: Array.isArray(form.seasons) ? form.seasons.reduce((n: number, season: any) => n + (Array.isArray(season?.episodes) ? season.episodes.length : 0), 0) : 0,
+    episodesWithoutLinks: Array.isArray(form.seasons) ? form.seasons.reduce((n: number, season: any) => n + (Array.isArray(season?.episodes) ? season.episodes.filter((episode: any) => !Array.isArray(episode?.links) || !episode.links.some((link: any) => link && String(link.url || link.href || '').trim())).length : 0), 0) : 0,
+  } : {}
+  const essentials = form ? mediaPublicationIssues(type, form, reviewRelated) : []
+  for (const issue of essentials) {
+    const existing = reviewRows.findIndex((row) => row.key === issue.key)
+    const row = { key: issue.key, label: issue.label, value: '', state: 'missing' as const, href: `#mx-field-${issue.key}` }
+    if (existing >= 0) reviewRows[existing] = { ...reviewRows[existing], label: issue.label, state: 'missing', href: row.href }
+    else reviewRows.push(row)
+  }
   const tableFields = fields.filter((f) => f.table)
   const visible = rows
   /** A manager puts a trashed item back as it was. */
@@ -363,7 +378,8 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
 
       {form && (
         <form onSubmit={save} className="card mb-6 mx-form">
-          <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="mx-form-history" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
+        <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="mx-form-history" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
+        {editId && !mine && ['cinema-titles', 'games', 'software'].includes(type) && <CanonicalAliasPanel kind={type === 'cinema-titles' ? 'cinema' : type === 'games' ? 'game' : 'software'} sourceId={editId} />}
           <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
           {type === 'cinema-titles' && !mine && <CinemaMetadataLookup key={editId ?? 'new'} value={form.imdbId} kind={form.kind} onApply={(values, replace) => { setForm(current => current ? applyCinemaMetadata(current,values,replace,!editId) : current);setAiKeys(current=>new Set([...current,...Object.keys(values)])) }} />}
           {sections.map((section) => {
@@ -444,7 +460,7 @@ const WIDE_TYPES = new Set(['textarea', 'image', 'links', 'records', 'seasons', 
 
 /** One field of the form: its label (with the AI-suggestion mark), its input and its hint. */
 function FieldBox({ field, value, ai, organization, options, fa, onBusy, titleHint, onChange }: { field: MediaField; value: any; ai: boolean; organization?: AssetOrganization; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string; onChange: (value: unknown, projected?: Record<string, string>) => void }) {
-  return <div className={`mx-field${field.wide || WIDE_TYPES.has(field.type || '') ? ' is-wide' : ''}${ai ? ' is-ai' : ''}`}>
+  return <div id={`mx-field-${field.key}`} className={`mx-field${field.wide || WIDE_TYPES.has(field.type || '') ? ' is-wide' : ''}${ai ? ' is-ai' : ''}`}>
     {field.type !== 'checkbox' && <span className="label">{field.label}{field.required ? ' *' : ''}{ai && <span className="ai-badge">پیشنهاد AI</span>}</span>}
     <OrganizationScope value={organization ? { ...organization, quality: field.key === 'audioHqUrl' ? '320' : field.key === 'audioUrl' ? '128' : undefined, video: field.key === 'trailerUrl' } : undefined}><FieldInput field={field} value={value} onChange={onChange} options={options} fa={fa} onBusy={onBusy} titleHint={titleHint} /></OrganizationScope>
     {field.hint && <small className="muted mx-hint">{field.hint}</small>}

@@ -16,7 +16,7 @@ const REPAIR_LINE_NOTE: Record<string, string> = { PHYSICAL: 'قطعهٔ تعو�
 export const repairLineNote = (kind: string, variant: string) => [REPAIR_LINE_NOTE[kind], variant].filter(Boolean).join(' · ')
 export type CounterTenderInput = { method: 'CASH' | 'CARD' | 'WALLET'; amountMinor: string; reference: string }
 export type CounterShipment = { locationId: number; address: AddressInput; date: string; slotId: string; carrierId: string }
-export type CounterSaleInput = { shipment?: CounterShipment; discountCode?: string; expectedTotalMinor?: string; warningFingerprint?: string; requestId: string; customerId: number | null; customerName: string; customerPhone: string; customerFirstName?: string; customerLastName?: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[]; sessionId?: number | null; payments?: CounterTenderInput[]; walletCode?: string; redeemPoints?: number; repair?: CounterRepair; exchangeReturnId?: number; packingConfirmed?: boolean }
+export type CounterSaleInput = { quotation?: { id: number; fingerprint: string }; shipment?: CounterShipment; discountCode?: string; expectedTotalMinor?: string; warningFingerprint?: string; requestId: string; customerId: number | null; customerName: string; customerPhone: string; customerFirstName?: string; customerLastName?: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[]; sessionId?: number | null; payments?: CounterTenderInput[]; walletCode?: string; redeemPoints?: number; repair?: CounterRepair; exchangeReturnId?: number; packingConfirmed?: boolean }
 export type CounterProduct = { id: number; name: string; kind: string; currency: string; stock: number; unitMinor: string; maxPerOrder: number; fields: OrderField[]; variants: { id: number; name: string; stock: number; unitMinor: string }[] }
 export type CounterCustomer = { id: number; name: string; email: string; phone: string }
 /** Seller block printed on sale receipts: the Admin invoice profile (billing), with the site brand as fallback. */
@@ -122,5 +122,11 @@ export function readCounterSale(input: unknown): CounterSaleInput {
   }
   const exchangeReturnId = body.exchangeReturnId == null ? undefined : Number(body.exchangeReturnId)
   if (exchangeReturnId !== undefined && !positive(exchangeReturnId)) throw new StoreError('شناسهٔ مرجوعی معتبر نیست')
-  return { requestId, customerId, customerName, customerPhone: text(body.customerPhone, 30), customerFirstName, customerLastName, method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines, sessionId, payments, walletCode: text(body.walletCode,8), redeemPoints, ...(discountCode ? { discountCode } : {}), ...(shipment ? { shipment } : {}), ...(repair ? { repair } : {}), ...(expectedTotalMinor !== undefined ? { expectedTotalMinor } : {}), ...(warningFingerprint ? { warningFingerprint } : {}), ...(exchangeReturnId ? { exchangeReturnId } : {}), ...(body.packingConfirmed === true ? { packingConfirmed: true } : {}) }
+  let quotation: CounterSaleInput['quotation']
+  if (body.quotation !== undefined) {
+    const value = body.quotation as Record<string, unknown>, id = Number(value?.id), fingerprint = String(value?.fingerprint || '')
+    if (!Number.isSafeInteger(id) || id < 1 || !/^[a-f0-9]{64}$/.test(fingerprint) || repair || exchangeReturnId || discountCode || redeemPoints) throw new StoreError('پیش‌فاکتور با این نوع فروش ترکیب نمی‌شود')
+    quotation = { id, fingerprint }
+  }
+  return { ...(quotation ? { quotation } : {}), requestId, customerId, customerName, customerPhone: text(body.customerPhone, 30), customerFirstName, customerLastName, method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines, sessionId, payments, walletCode: text(body.walletCode,8), redeemPoints, ...(discountCode ? { discountCode } : {}), ...(shipment ? { shipment } : {}), ...(repair ? { repair } : {}), ...(expectedTotalMinor !== undefined ? { expectedTotalMinor } : {}), ...(warningFingerprint ? { warningFingerprint } : {}), ...(exchangeReturnId ? { exchangeReturnId } : {}), ...(body.packingConfirmed === true ? { packingConfirmed: true } : {}) }
 }

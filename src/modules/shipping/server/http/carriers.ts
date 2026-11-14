@@ -12,9 +12,11 @@ import {
   adminShipment, adminShipments, createShipment, shipmentsForLabels, getCarrierSettings, orderShipment, publicTracking, quoteOptions, saveCarrierSettings, updateShipment,
 } from '@/modules/shipping/server/carriers'
 import { tierStanding } from '@/modules/membership/server/tiers'
+import { quotationByToken, quotationPreview } from '@/modules/store/server/quotations'
+import { StoreError } from '@/modules/store/domain/store'
 
 function failure(error: unknown) {
-  if (error instanceof ShippingError) return err(error.message, error.status, { code: error.code })
+  if (error instanceof ShippingError || error instanceof StoreError) return err(error.message, error.status, { code: error.code })
   console.error('[shipping.carriers]', error)
   return err('خطای داخلی؛ دوباره تلاش کنید', 500)
 }
@@ -29,10 +31,18 @@ export async function GET_quotes(req: NextRequest) {
   if (!user) return err('ابتدا وارد حساب خود شوید', 401)
   const address = await db.userAddress.findFirst({ where: { id: positiveId(req.nextUrl.searchParams.get('addressId')), userId: user.id }, select: { province: true, city: true } })
   if (!address) return err('آدرس پیدا نشد', 404)
-  const cart = await cartView({ userId: user.id, token: req.cookies.get(CART_COOKIE)?.value || null })
+  let cart
+  const quotationToken = req.nextUrl.searchParams.get('quotation')
+  if (quotationToken) {
+    const row = await quotationByToken(quotationToken)
+    if (!row || row.userId !== user.id) return err('پیشنهاد برای این حساب در دسترس نیست', 404)
+    const preview = await quotationPreview(quotationToken)
+    if (!preview?.available || !preview.cart) return err(preview?.reason || 'پیشنهاد قابل پرداخت نیست', 409)
+    cart = preview.cart
+  } else cart = await cartView({ userId: user.id, token: req.cookies.get(CART_COOKIE)?.value || null })
   const physical = cart.lines.filter((line) => line.kind === 'PHYSICAL')
   const currency = normalizeCurrency(cart.currency, 'IRT')
-  const itemMinor = physical.reduce((sum, line) => sum + toMinor(line.lineTotal, currency), 0n)
+  const itemMinor = quotationToken ? toMinor(cart.itemsTotal, currency) : physical.reduce((sum, line) => sum + toMinor(line.lineTotal, currency), 0n)
   const priced = await quoteOptions({ memberFree: (await tierStanding(user.id))?.freeShipping, lines: physical.map((line) => ({ productId: line.productId, quantity: line.quantity })), dest: address, itemMinor, currency })
   return ok({ enabled: priced.enabled, weightGrams: priced.weightGrams, currency, options: priced.options.map((item) => item.ok ? { ...item, feeMinor: item.feeMinor.toString() } : item) })
 }

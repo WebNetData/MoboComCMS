@@ -12,17 +12,18 @@ import { TicketAttachmentList, TicketAttachmentPicker, ticketFormBody, type Tick
 
 type Ticket = { id: number; subject: string; status: string; department: string; priority: string; subscriptionId: number | null; productId: number | null; updatedAt: string; messageCount: number }
 type OrderContext = { id: number; status: string; createdAt: string; currency: string; totalAmount: number; lines: { line: number; name: string; variantName: string; quantity: number }[] }
-type Detail = Ticket & { userAvatar?: string; device: string | null; issueType: string | null; subscriptionUsername: string; subscriptionLink: string; order: OrderContext | null; customFields: Record<string, string | boolean>; messages: { id: number; fromAdmin: boolean; body: string; createdAt: string; attachments: TicketAttachmentView[] }[] }
+type Detail = Ticket & { userAvatar?: string; device: string | null; issueType: string | null; subscriptionUsername: string; subscriptionLink: string; order: OrderContext | null; warrantyDevice: { id: number; orderId: number; name: string; variantName: string; serial: string; imei: string; warrantyStartsAt: string; warrantyEndsAt: string; provider: string; conditions: string } | null; customFields: Record<string, string | boolean>; messages: { id: number; fromAdmin: boolean; body: string; createdAt: string; attachments: TicketAttachmentView[] }[] }
 type Department = { slug: string; name: string; description: string; requiresSubscription: boolean; requiresProduct: boolean; fields: TicketField[] }
 type SupportOrder = { id: number; status: string; createdAt: string; lines: { line: number; name: string; variantName: string; quantity: number }[] }
-type Options = { subscriptions: { id: number; name: string; username: string }[]; products: { id: number; name: string }[]; orders: SupportOrder[]; departments: Department[] }
+type SupportWarrantyDevice = { id: number; orderId: number; line: number; name: string; variantName: string; productId: number | null; serial: string; imei: string; warrantyStartsAt: string; warrantyEndsAt: string; provider: string; conditions: string }
+type Options = { subscriptions: { id: number; name: string; username: string }[]; products: { id: number; name: string }[]; orders: SupportOrder[]; warrantyDevices: SupportWarrantyDevice[]; departments: Department[] }
 
 export default function TicketCenter({ mini = false }: { mini?: boolean }) {
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const L = (en: string, persian: string) => fa ? persian : en
   const [tickets, setTickets] = useState<Ticket[]>([])
-  const [options, setOptions] = useState<Options>({ subscriptions: [], products: [], orders: [], departments: [] })
+  const [options, setOptions] = useState<Options>({ subscriptions: [], products: [], orders: [], warrantyDevices: [], departments: [] })
   const [selected, setSelected] = useState<number | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [compose, setCompose] = useState(false)
@@ -31,6 +32,7 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
   const [subscriptionId, setSubscriptionId] = useState('')
   const [productId, setProductId] = useState('')
   const [orderId, setOrderId] = useState('')
+  const [warrantyDeviceId, setWarrantyDeviceId] = useState('')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [reply, setReply] = useState('')
@@ -74,9 +76,18 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
     const params = new URLSearchParams(window.location.search)
     const orderParam = Number(params.get('order'))
     if (Number.isSafeInteger(orderParam) && orderParam > 0) { setOrderId(String(orderParam)); setCompose(true) }
+    const warrantyParam = Number(params.get('warrantyDevice'))
+    if (Number.isSafeInteger(warrantyParam) && warrantyParam > 0) { setWarrantyDeviceId(String(warrantyParam)); setCompose(true) }
     const id = Number(params.get('ticket'))
     if (Number.isSafeInteger(id) && id > 0) void openTicket(id)
   }, [refresh, loadOptions, openTicket])
+
+  useEffect(() => {
+    const selectedWarranty = options.warrantyDevices.find(item => String(item.id) === warrantyDeviceId)
+    if (!selectedWarranty) return
+    setOrderId(String(selectedWarranty.orderId))
+    if (selectedWarranty.productId) setProductId(String(selectedWarranty.productId))
+  }, [warrantyDeviceId, options.warrantyDevices])
 
   const filtered = useMemo(() => tickets.filter(t => filter === 'ALL' || t.status === filter), [tickets, filter])
   const selectedDepartment = options.departments.find(d => d.slug === department)
@@ -91,10 +102,10 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
     if (selectedDepartment?.requiresProduct && !productId) return setError(L('Select a purchased product.', 'محصول خریداری‌شده را انتخاب کنید.'))
     setBusy(true); setError('')
     try {
-      const response = await fetch('/api/tickets', { method: 'POST', ...ticketFormBody({ department, subject, message, priority, customFields, ...(orderId ? { orderId: Number(orderId) } : {}), ...(selectedDepartment?.requiresSubscription ? { subscriptionId: Number(subscriptionId), device, issueType } : {}), ...(selectedDepartment?.requiresProduct ? { productId: Number(productId) } : {}) }, createFiles) })
+      const response = await fetch('/api/tickets', { method: 'POST', ...ticketFormBody({ department, subject, message, priority, customFields, ...(orderId ? { orderId: Number(orderId) } : {}), ...(warrantyDeviceId ? { storeWarrantyDeviceId: Number(warrantyDeviceId) } : {}), ...(selectedDepartment?.requiresSubscription ? { subscriptionId: Number(subscriptionId), device, issueType } : {}), ...(selectedDepartment?.requiresProduct ? { productId: Number(productId) } : {}) }, createFiles) })
       const data = await response.json().catch(() => null)
       if (!response.ok) throw Error(data?.error || L('Could not create ticket.', 'ثبت تیکت ممکن نشد.'))
-      setSubject(''); setMessage(''); setCreateFiles([]); setDepartment(''); setCustomFields({}); setSubscriptionId(''); setProductId(''); setOrderId(''); setPriority('normal'); setCompose(false)
+      setSubject(''); setMessage(''); setCreateFiles([]); setDepartment(''); setCustomFields({}); setSubscriptionId(''); setProductId(''); setOrderId(''); setWarrantyDeviceId(''); setPriority('normal'); setCompose(false)
       await refresh(); await openTicket(data.id)
     } catch (e) { setError(e instanceof Error ? e.message : L('Could not create ticket.', 'ثبت تیکت ممکن نشد.')) }
     finally { setBusy(false) }
@@ -120,6 +131,7 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
       <aside className="ticket-list-pane"><div className="ticket-list-head"><h2>{L('Your tickets', 'تیکت‌های شما')}</h2><span>{tickets.length}</span></div><div className="ticket-filters" role="group" aria-label={L('Filter tickets', 'فیلتر تیکت‌ها')}>{[['ALL', L('All', 'همه')], ['OPEN', L('Awaiting reply', 'در انتظار پاسخ')], ['PENDING', L('Answered', 'پاسخ داده شده')], ['CLOSED', L('Closed', 'بسته')]].map(([key, label]) => <button type="button" key={key} className={filter === key ? 'is-active' : ''} onClick={() => setFilter(key)}>{label}</button>)}</div><div className="ticket-list-scroll">{loading && <p className="ticket-empty">{L('Loading tickets…', 'در حال دریافت تیکت‌ها…')}</p>}{!loading && filtered.length === 0 && <p className="ticket-empty">{L('No tickets in this view yet.', 'هنوز تیکتی در این بخش ندارید.')}</p>}{filtered.map(ticket => <button type="button" key={ticket.id} className={`ticket-list-item ${selected === ticket.id && !compose ? 'is-active' : ''}`} onClick={() => void openTicket(ticket.id)}><div className="ticket-list-item-top"><small>#{ticket.id} · {labelFor(ticket.department)}</small><StatusBadge value={ticket.status} /></div><strong>{ticket.subject}</strong><span>{date(ticket.updatedAt)} · {ticket.messageCount} {L('messages', 'پیام')}</span></button>)}</div></aside>
       <div className="ticket-main-pane">{compose ? <form className="ticket-compose" onSubmit={createTicket}><div className="ticket-pane-head"><div><span className="ticket-eyebrow">{L('NEW REQUEST', 'درخواست جدید')}</span><h2>{L('Create a ticket', 'ثبت تیکت')}</h2></div><button type="button" className="ticket-close" onClick={() => setCompose(false)} aria-label={L('Close form', 'بستن فرم')}>×</button></div><p className="ticket-intro">{L('Select a department so your request reaches the right team.', 'دپارتمان را انتخاب کنید تا درخواست شما به تیم درست برسد.')}</p>
         <label className="ticket-field"><span className="ticket-field-label">{L('Related order', 'سفارش مرتبط')} <small>{L('(optional)', '(اختیاری)')}</small></span><select className="input" value={orderId} onChange={e => setOrderId(e.target.value)}><option value="">{L('No order selected', 'بدون انتخاب سفارش')}</option>{options.orders.map(order => <option key={order.id} value={order.id}>#{order.id} · {new Date(order.createdAt).toLocaleDateString(fa ? 'fa-IR' : 'en-US')} · {order.lines.map(line => `${line.name}${line.variantName ? ` (${line.variantName})` : ''}${line.quantity > 1 ? ` ×${line.quantity}` : ''}`).join(', ') || L('Order', 'سفارش')}</option>)}</select><small className="ticket-field-note">{L('Only your own orders are listed. The selected order and its saved item names will be attached to the ticket.', 'فقط سفارش‌های خودتان نمایش داده می‌شود. سفارش و نام ذخیره‌شدهٔ کالاهای آن به تیکت پیوست می‌شود.')}</small></label>
+        {options.warrantyDevices.length > 0 && <label className="ticket-field"><span className="ticket-field-label">{L('Related warranty device', 'دستگاه دارای ضمانت')} <small>{L('(optional)', '(اختیاری)')}</small></span><select className="input" value={warrantyDeviceId} onChange={event => setWarrantyDeviceId(event.target.value)}><option value="">{L('No warranty device selected', 'بدون انتخاب دستگاه ضمانت')}</option>{options.warrantyDevices.map(item => <option value={item.id} key={item.id}>#{item.orderId} · {item.name}{item.variantName ? ` · ${item.variantName}` : ''}{item.serial ? ` · Serial ${item.serial}` : ''}{item.imei ? ` · IMEI ${item.imei}` : ''}</option>)}</select><small className="ticket-field-note">{L('Choose a device from your paid orders. The case will be linked to its saved sale and identifiers.', 'دستگاهی را از سفارش‌های پرداخت‌شدهٔ خود انتخاب کنید. تیکت به فروش و شناسه‌های ثبت‌شدهٔ آن وصل می‌شود.')}</small></label>}
         <div className="ticket-departments">{options.departments.map(item => <button type="button" key={item.slug} className={`ticket-department ${department === item.slug ? 'is-active' : ''}`} onClick={() => { setDepartment(item.slug); setCustomFields({}); setError('') }}><span className="ticket-department-mark">✦</span><strong>{item.name}</strong><small>{item.description}</small></button>)}</div>
         {selectedDepartment?.requiresSubscription && <><label className="ticket-field"><span className="ticket-field-label">{L('Affected subscription', 'اشتراک موردنظر')} <span className="ticket-required" aria-hidden="true">*</span></span><select className="input" required value={subscriptionId} onChange={e => setSubscriptionId(e.target.value)}><option value="">{L('Select an active subscription', 'اشتراک فعال را انتخاب کنید')}</option>{options.subscriptions.map(s => <option value={s.id} key={s.id}>#{s.id} · {s.name} · {s.username}</option>)}</select></label><small className="ticket-field-note">{L('The subscription username and link are attached automatically for support.', 'نام کاربری و لینک اشتراک به‌صورت خودکار برای پشتیبانی ثبت می‌شود.')}</small>{options.subscriptions.length === 0 && <p className="ticket-field-note">{L('No active subscription is available. Sales and general support remain open.', 'اشتراک فعالی پیدا نشد. دپارتمان‌های فروش و پشتیبانی عمومی در دسترس هستند.')}</p>}<div className="ticket-form-grid"><label className="ticket-field"><span className="ticket-field-label">{L('Device', 'دستگاه')}</span><select className="input" value={device} onChange={e => setDevice(e.target.value)}>{reportDevices.map(value => <option key={value} value={value}>{deviceLabel(value, locale)}</option>)}</select></label><label className="ticket-field"><span className="ticket-field-label">{L('Issue type', 'نوع مشکل')}</span><select className="input" value={issueType} onChange={e => setIssueType(e.target.value)}>{issueTypes.map(value => <option key={value} value={value}>{issueLabel(value, locale)}</option>)}</select></label></div></>}
         {selectedDepartment?.requiresProduct && <><label className="ticket-field"><span className="ticket-field-label">{L('Affected product', 'محصول موردنظر')} <span className="ticket-required" aria-hidden="true">*</span></span><select className="input" required value={productId} onChange={e => setProductId(e.target.value)}><option value="">{L('Select a purchased product', 'محصول خریداری‌شده را انتخاب کنید')}</option>{options.products.map(p => <option value={p.id} key={p.id}>#{p.id} · {p.name}</option>)}</select></label>{options.products.length === 0 && <p className="ticket-field-note">{L('No purchased active product is available.', 'محصول خریداری‌شدهٔ فعالی پیدا نشد.')}</p>}</>}

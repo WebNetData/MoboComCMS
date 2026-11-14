@@ -5,11 +5,13 @@ import { counterPromotion } from '@/modules/promotions/server/counter'
 import { getDeliverySettings, validateDelivery } from '@/modules/shipping/server/shipping'
 import { checkoutCarrier } from '@/modules/shipping/server/carriers'
 import { shippingFeeMinor } from '@/modules/shipping/domain/shipping'
+import { checkQuotation } from '@/modules/store/server/quotations'
 import { tierStanding } from '@/modules/membership/server/tiers'
 
 /** One server quote for a counter handover or a warehouse shipment; coupons never discount postage. */
 export async function counterTotals(tx: Prisma.TransactionClient, input: CounterSaleInput, customerId: number | null, lines: { productId: number | null; kind: string; quantity: number }[], subtotalMinor: bigint, currency: string) {
-  const { promotion, discountMinor } = await counterPromotion(tx, { code: input.discountCode, userId: customerId, pendingAccount: !!input.customerPhone, amountMinor: subtotalMinor, currency })
+  const quotation = input.quotation ? await checkQuotation(tx, { ...input.quotation, userId: customerId || 0, lines, subtotalMinor, currency, channel: 'COUNTER' }) : null
+  const { promotion, discountMinor } = quotation ? { promotion: null, discountMinor: quotation.discountMinor } : await counterPromotion(tx, { code: input.discountCode, userId: customerId, pendingAccount: !!input.customerPhone, amountMinor: subtotalMinor, currency })
   const afterDiscount = subtotalMinor - discountMinor
   let shippingMinor = 0n
   let shipping: Record<string, unknown> | null = null
@@ -29,5 +31,5 @@ export async function counterTotals(tx: Prisma.TransactionClient, input: Counter
   }
   const totalMinor = afterDiscount + shippingMinor
   if (totalMinor <= 0n) throw new StoreError('مبلغ پرداختنی باید بیشتر از صفر باشد')
-  return { promotion, subtotalMinor, discountMinor, shippingMinor, totalMinor, currency, shipping, delivery }
+  return { quotation, promotion, subtotalMinor, discountMinor, shippingMinor, totalMinor, currency, shipping, delivery }
 }

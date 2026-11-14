@@ -31,7 +31,8 @@ const PROMO_MESSAGES: Record<string, string> = {
 }
 
 /** Cart checkout: delivery address and time (for physical items), discount code, payment. */
-export default function CartCheckout({ cart, delivery, gateways, giftOptions, orderPauseNotice = '', surface = 'public' }: { orderPauseNotice?: string; giftOptions?: { enabled: boolean; wrapEnabled: boolean }; surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
+export default function CartCheckout({ quotation, cart, delivery, gateways, giftOptions, orderPauseNotice = '', surface = 'public' }: { quotation?: { token: string; fingerprint: string }; orderPauseNotice?: string; giftOptions?: { enabled: boolean; wrapEnabled: boolean }; surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
+  const [quotationReviewed, setQuotationReviewed] = useState(false)
   const router = useRouter()
   const counted = useRef(false)
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, or
   const byCarrier = !!cart.shippingByAddress
   const address = addresses?.find((a) => a.id === addressId) || null
   const quoteContext = JSON.stringify([address?.province || '', address?.city || ''])
-  const { carriers, error: carrierError, retry: retryCarriers } = useCarrierQuotes(addressId, physical && byCarrier && !addressRefreshing && !addressError, quoteContext)
+  const { carriers, error: carrierError, retry: retryCarriers } = useCarrierQuotes(addressId, physical && byCarrier && !addressRefreshing && !addressError, quoteContext, quotation?.token || '')
   const [carrierId, setCarrierId] = useState('')
 
   useEffect(() => { let alive = true; fetchWalletBalance(cart.currency).then((value) => alive && setBalance(value)); return () => { alive = false } }, [cart.currency])
@@ -84,6 +85,7 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, or
   const covered = balance >= total
 
   const missing = useMemo(() => {
+    if (quotation && !quotationReviewed) return 'قیمت و شرایط فعلی پیش‌فاکتور را تأیید کنید'
     if (orderPauseNotice) return orderPauseNotice
     if (cart.blocked) return 'سبد خرید شما نیاز به بازبینی دارد'
     if (cart.hasPhysical && giftOptions?.enabled && gift.enabled && !gift.recipient.trim()) return 'نام گیرندهٔ هدیه را وارد کنید'
@@ -97,7 +99,7 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, or
     if (needsSchedule && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
     if (needsSchedule && !slot) return 'زمان ارسال را انتخاب کنید'
     return ''
-  }, [orderPauseNotice, cart.blocked, cart.hasPhysical, giftOptions?.enabled, gift.enabled, gift.recipient, physical, addressRefreshing, addressError, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
+  }, [quotation, quotationReviewed, orderPauseNotice, cart.blocked, cart.hasPhysical, giftOptions?.enabled, gift.enabled, gift.recipient, physical, addressRefreshing, addressError, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)
@@ -118,7 +120,7 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, or
         carrierId: physical && byCarrier && carrier ? carrier.carrierId : undefined,
         gatewayRef: gatewayRef || undefined,
         discountCode: code.trim() || undefined,
-      })
+      }, quotation)
       if (result.ok) {
         const destination = checkoutDestination(result, surface)
         if (destination) {
@@ -141,7 +143,7 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, or
 
   return <div className="sh-checkout sx-checkout" dir="rtl">
     <ol className="sh-steps" aria-label="مراحل خرید">
-      <li className="is-done"><Link href={checkoutPath('/cart', surface)}>سبد خرید</Link></li>
+      <li className="is-done"><Link href={quotation ? `/quote/${quotation.token}` : checkoutPath('/cart', surface)}>{quotation ? 'پیش‌فاکتور' : 'سبد خرید'}</Link></li>
       <li className="is-current" aria-current="step">{physical ? 'آدرس و زمان ارسال' : 'بازبینی سفارش'}</li>
       <li>پرداخت</li>
     </ol>
@@ -242,17 +244,17 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, or
       </div>
 
       <aside className="sh-summary" aria-labelledby="sh-summary-title">
-        <h2 id="sh-summary-title">خلاصهٔ سفارش <small className="num">({cart.count.toLocaleString('fa-IR')} کالا)</small></h2>
+        <>{quotation && <label className="sh-check"><input type="checkbox" checked={quotationReviewed} onChange={event => setQuotationReviewed(event.target.checked)} disabled={busy} />قیمت فعلی، تخفیف و شرایط پیش‌فاکتور را بررسی و تأیید کردم</label>}</><h2 id="sh-summary-title">خلاصهٔ سفارش <small className="num">({cart.count.toLocaleString('fa-IR')} کالا)</small></h2>
         <dl className="sh-totals">
           <div><dt>قیمت کالاها</dt><dd><Amount value={cart.listTotal} currency={cart.currency} /></dd></div>
-          {cart.saving > 0 && <div className="sx-save-row"><dt>سود شما</dt><dd>−<Amount value={cart.saving} currency={cart.currency} /></dd></div>}
+          {cart.saving > 0 && <div className="sx-save-row"><dt>{quotation ? 'تخفیف فروشنده' : 'سود شما'}</dt><dd>−<Amount value={cart.saving} currency={cart.currency} /></dd></div>}
           {physical && <div><dt>هزینهٔ ارسال{carrier && <small className="sh-muted"> ({carrier.name})</small>}</dt><dd>{byCarrier && !carrier ? <span className="sh-muted">—</span> : carrier?.collect ? <span className="sh-collect">پس‌کرایه{shippingFee > 0 && <> + <Amount value={shippingFee} currency={cart.currency} /></>}</span> : shippingFee > 0 ? <Amount value={shippingFee} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}</dd></div>}
           {balance > 0 && <div><dt>از کیف پول</dt><dd>−<Amount value={Math.min(balance, total)} currency={cart.currency} /></dd></div>}
           <div className="sh-total"><dt>مبلغ قابل پرداخت</dt><dd><Amount value={Math.max(0, total - balance)} currency={cart.currency} /></dd></div>
         </dl>
         <div className="sx-code">
-          {!codeOpen ? <button type="button" className="sh-link" onClick={() => setCodeOpen(true)}><StoreIcon name="percent" size={15} />کد تخفیف دارید؟</button>
-            : <label><span>کد تخفیف</span><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} dir="ltr" maxLength={32} placeholder="CODE" /><small>تخفیف هنگام ثبت سفارش اعمال و در فاکتور نمایش داده می‌شود.</small></label>}
+          {!quotation && (!codeOpen ? <button type="button" className="sh-link" onClick={() => setCodeOpen(true)}><StoreIcon name="percent" size={15} />کد تخفیف دارید؟</button>
+            : <label><span>کد تخفیف</span><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} dir="ltr" maxLength={32} placeholder="CODE" /><small>تخفیف هنگام ثبت سفارش اعمال و در فاکتور نمایش داده می‌شود.</small></label>)}
         </div>
         <button type="button" className="sh-btn sh-btn-primary sh-pay" disabled={busy || !!missing} onClick={() => void pay()}>
           {busy ? 'در حال ثبت سفارش…' : covered ? 'ثبت سفارش و پرداخت از کیف پول' : 'ثبت سفارش و پرداخت'}

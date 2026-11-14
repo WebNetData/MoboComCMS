@@ -4,7 +4,7 @@ import { db } from '@/platform/database/prisma'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { recordRevision } from '@/modules/content/server/revisions'
 import { postRevisionState } from '@/modules/site/server/revision-state'
-import { PENDING_REVIEW, approvalPublishedAt } from '@/modules/journal/domain/journal'
+import { PENDING_REVIEW, approvalPublishedAt, postIssues } from '@/modules/journal/domain/journal'
 import { claimPostWrite, type PostWriteState } from './review-state'
 import { queueReviewDecision } from './review-notifications'
 
@@ -15,6 +15,12 @@ export function changePostStates(input: { rows: Row[]; status: 'PUBLISHED' | 'DR
   return db.$transaction(async tx => {
     const changed: { before: Row; after: Post }[] = [], failed: { id: number; reason: string }[] = []
     for (const row of input.rows) {
+      if (input.status === 'PUBLISHED' && row.status !== 'PUBLISHED') {
+        const content = await tx.post.findUnique({ where: { id: row.id }, select: { cover: true, excerpt: true, content: true, categoryId: true, _count: { select: { categories: true } } } })
+        if (!content) { failed.push({ id: row.id, reason: 'نوشته پیدا نشد' }); continue }
+        const issues = postIssues({ ...content, categories: content._count.categories + (content.categoryId ? 1 : 0) })
+        if (issues.length) { failed.push({ id: row.id, reason: `پیش از انتشار تکمیل کنید: ${issues.join('، ')}` }); continue }
+      }
       if (!await claimPostWrite(tx, row)) { failed.push({ id: row.id, reason: 'نوشته هم‌زمان تغییر کرده است؛ صفحه را تازه کنید' }); continue }
       const reviewing = row.status === PENDING_REVIEW
       const before = reviewing ? await postRevisionState(row.id, tx) : null

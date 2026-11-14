@@ -17,7 +17,8 @@
     "/checkout/product",
     "/cart",
     "/checkout/cart",
-    "/track"
+    "/track",
+    "/quote"
   ],
   "adminPaths": [
     "/admin/store",
@@ -65,6 +66,15 @@
         "permissions": [
           "orders.manage",
           "store.orders.handle"
+        ]
+      },
+      {
+        "href": "/admin/store/quotations",
+        "label": "پیش‌فاکتورهای فروش",
+        "labelEn": "Sales quotations",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
         ]
       },
       {
