@@ -80,7 +80,7 @@ async function paidMixedOrder(customerId, serviceId, goodsId, { status = 'PAID',
   await db.invoice.create({ data: { number: `INV-${stamp}-${order.id}`, userId: customerId, orderId: order.id, subtotal: Number(total), subtotalMinor: total, total: Number(total), totalMinor: total, currency: 'IRT', status: invoiceStatus } })
   return order.id
 }
-const sale = (who, submissionId, lines, workLines) => ({ requestId: randomUUID(), confirmed: true, sessionId: who.sessionId, method: 'CASH', customerName: 'علی رضایی', customerPhone: '', lines, repair: { submissionId, currency: 'IRT', work: workLines } })
+const sale = (who, submissionId, lines, workLines) => ({ requestId: randomUUID(), confirmed: true, packingConfirmed: true, sessionId: who.sessionId, method: 'CASH', customerName: 'علی رضایی', customerPhone: '', lines, repair: { submissionId, currency: 'IRT', work: workLines } })
 const WORK = [{ name: 'تعویض SSD و نصب ویندوز', part: false, quantity: 1, unitMinor: '500' }, { name: 'باتری لپ‌تاپ', part: true, quantity: 1, unitMinor: '2000' }]
 
 async function main() {

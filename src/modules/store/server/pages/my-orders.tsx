@@ -1,4 +1,7 @@
 import Link from '@/components/AppLink'
+import { ReorderPanel } from '@/components/store/ReorderPanel'
+import { ORDER_OPERATIONS_LABEL } from '@/modules/store/domain/order-events'
+import DeliveryChangePanel from '@/components/store/DeliveryChangePanel'
 import { notFound, redirect } from 'next/navigation'
 import { getViewer } from '@/modules/membership/server/membership'
 import { CUSTOMER_TABS, customerOrder, customerOrders, customerServiceOrders, type CustomerTab } from '@/modules/store/server/orders'
@@ -49,6 +52,7 @@ function HandoffCard({ delivery }: { delivery: BuyerDelivery }) {
 const persian = (value: Date | string, time = false) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', year: 'numeric', ...(time ? { hour: '2-digit', minute: '2-digit' } : {}), timeZone: 'Asia/Tehran' }).format(new Date(value))
 const persianDay = (day: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))
 const EVENT_LABEL: Record<string, string> = {
+  ...ORDER_OPERATIONS_LABEL,
   PAID: 'پرداخت شد', NOTE: 'پیام فروشگاه', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش',
   CANCEL_REQUESTED: 'درخواست لغو', RETURN_REQUESTED: 'درخواست مرجوعی', RETURN_APPROVED: 'مرجوعی تأیید شد', RETURN_REJECTED: 'درخواست رد شد',
   RETURN_WITHDRAWN: 'درخواست لغو شد', REFUNDED: 'برگشت وجه به کیف پول',
@@ -144,6 +148,8 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
     {order.gift && <section className="sx-my-card"><h2>سفارش هدیه</h2><p>برای {order.gift.recipient}{order.gift.wrap ? ' · با بسته‌بندی هدیه' : ''}</p>{order.gift.message && <p dir="auto">{order.gift.message}</p>}{order.invoiceStatus === 'PAID' && <Link className="sx-link" href={`/dashboard/orders/${order.id}/gift`}>مشاهده و چاپ رسید هدیه بدون قیمت</Link>}</section>}
     {order.pickup&&<section className="sx-my-card"><h2>تحویل از فروشگاه</h2><p>{order.pickup.status==='READY'?'سفارش آمادهٔ مراجعه است':order.pickup.status==='COLLECTED'?'سفارش از فروشگاه تحویل گرفته شد':'پس از آماده‌شدن سفارش پیامک ارسال می‌شود'}</p>{order.pickup.code&&<p>کد تحویل: <strong dir="ltr">{order.pickup.code}</strong></p>}</section>}
     {order.paymentUrl && <div className="sx-alert is-warn"><span>این سفارش هنوز پرداخت نشده است.</span><a href={order.paymentUrl} className="sx-btn is-primary">پرداخت سفارش</a></div>}
+    <ReorderPanel orderId={order.id} />
+    <DeliveryChangePanel orderId={order.id} />
     {!closed && step >= 0 && <ol className="sx-track" aria-label="مراحل سفارش">{TRACKING_STEPS.map((item, index) => <li key={item.status} className={index < step ? 'is-done' : index === step ? 'is-current' : ''} aria-current={index === step ? 'step' : undefined}>
       <span className="sx-track-dot">{index < step ? <StoreIcon name="check" size={14} /> : fa(index + 1)}</span><b>{item.label}</b>
     </li>)}</ol>}

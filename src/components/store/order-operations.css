@@ -1,0 +1,12 @@
+.sx-reorder,.sx-delivery-change{display:grid;gap:16px;min-width:0}
+.sx-reorder .sx-panel-head{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sx-reorder-lines{display:grid;gap:14px;list-style:none;padding:0;margin:0}
+.sx-reorder-line{display:grid;gap:8px;border-block-start:1px solid var(--border);padding-block-start:14px;min-width:0}
+.sx-reorder-choice{display:flex;align-items:start;gap:10px}
+.sx-reorder-choice input{margin-block-start:5px;flex-shrink:0}
+.sx-reorder-choice label{display:grid;gap:5px;overflow-wrap:anywhere;min-width:0}
+.sx-reorder-meta,.sx-reorder-issue,.sx-reorder-result{font-size:.88em;line-height:1.9}
+.sx-reorder-name{font-weight:650}
+.sx-delivery-change form,.sx-delivery-change ol{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.sx-delivery-change li{border-block-start:1px solid var(--border);padding-block-start:12px}
+.sx-delivery-change select,.sx-delivery-change textarea{width:100%;min-width:0}

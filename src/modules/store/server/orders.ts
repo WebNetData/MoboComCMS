@@ -1,4 +1,5 @@
 import { readGiftOrder } from '@/modules/store/domain/gift-order'
+import { assertOrderDispatchReady } from '@/modules/store/server/packing'
 import { deviceIdentifiers, type DeviceIdentifier } from '@/modules/store/domain/device-identifiers'
 import { getStoreSettings } from '@/modules/store/server/catalog'
 import type { Prisma } from '@prisma/client'
@@ -432,6 +433,7 @@ export async function transitionOrder(input: {
   const write = async (tx: Prisma.TransactionClient) => {
     await input.beforeWrite?.(tx)
     await lockOrderWork(tx, input.orderId, input.scope)
+    if (['PACKED', 'SHIPPED', 'DELIVERED'].includes(to)) await assertOrderDispatchReady(tx, input.orderId)
     if((to==='DELIVERED'||to==='SHIPPED')&&await tx.storePickup.findFirst({where:{orderId:input.orderId,status:{not:'COLLECTED'}},select:{orderId:true}}))throw new StoreError('این سفارش فقط با کد تحویل مشتری از صف تحویل حضوری بسته می‌شود',409)
     const changed = await tx.productDelivery.updateMany({
       where: { id: delivery.id, status: delivery.status },

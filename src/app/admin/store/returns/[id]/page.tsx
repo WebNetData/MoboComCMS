@@ -1,4 +1,6 @@
 'use client'
+import InspectionPanel from './InspectionPanel'
+import ExchangeSummary from './ExchangeSummary'
 
 import Link from '@/components/AppLink'
 import { useParams } from '@/platform/routing/navigation'
@@ -11,6 +13,7 @@ type Request = {
   photos: string[]; lines: Line[]; requested: number; refund: number; currency: string; adminNote: string; createdAt: string; decidedAt: string | null; refundedAt: string | null; restocked: boolean
 }
 type View = Request & {
+  exchange?: { replacementOrderId: number | null; refundMinor: string; replacementTotalMinor: string | null; replacementInvoice: string; replacementLines: { name: string; variantName: string; quantity: number }[] } | null
   refundMethod?: string;
   order: { customerName?: string; customerPhone?: string; id: number; status: string; fulfilment: string; deliveredAt: string | null; total: number; refunded: number; remaining: number; invoiceNumber: string; customer: { id: number; name: string; email: string; phone: string } | null }
   history: Request[]
@@ -18,7 +21,7 @@ type View = Request & {
 
 export default function ReturnDetailPage() {
   const params = useParams<{ id: string }>()
-  const { data, error, setData } = useJson<View>(`/api/admin/store/returns/${params.id}`)
+  const { data, error, setData, reload } = useJson<View>(`/api/admin/store/returns/${params.id}`)
   const [note, setNote] = useState('')
   const [amount, setAmount] = useState('')
   const [restock, setRestock] = useState(true)
@@ -43,6 +46,8 @@ export default function ReturnDetailPage() {
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
     <div className="sa-cols">
       <div className="sa-stack">
+        {data.kind === 'RETURN' && data.status === 'REFUNDED' && <InspectionPanel returnId={data.id} onChanged={() => void reload()} />}
+        {data.exchange && <section className="sa-card" aria-label="اسناد تعویض کالا"><header className="sa-card-head"><h2>تعویض کالا</h2></header><ExchangeSummary data={data.exchange} currency={data.currency} /><p className="sa-hint">مرجوعی و فروش جایگزین دو سند مالی مرتبط دارند.</p><Link className="btn" href={data.exchange.replacementOrderId ? `/admin/store/orders/${data.exchange.replacementOrderId}` : `/admin/store/counter?exchange=${data.id}`}>{data.exchange.replacementOrderId ? 'مشاهدهٔ فروش جایگزین' : 'ثبت فروش کالای جایگزین'}</Link></section>}
         <section className="sa-card">
           <header className="sa-card-head"><h2>درخواست مشتری</h2><span className={`sa-state ${RETURN_TONE[data.status] || ''}`}>{data.statusLabel}</span></header>
           <dl className="rt-facts">
@@ -91,7 +96,7 @@ export default function ReturnDetailPage() {
           </div>}
           <hr className="rt-sep" />
           <label className="sa-field"><span>مبلغ بازپرداخت به کیف پول (خالی = مبلغ درخواستی)</span><input className="input num" inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder={String(data.requested)} /></label>
-          <label className="sa-check"><input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />کالا سالم است؛ موجودی به انبار برگردد</label>
+          <label className="sa-check"><input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />کالاهای انتخاب‌شده دریافت شدند؛ کالای فیزیکی برای بررسی به قرنطینه برود</label>
           <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void act('refund')}>{data.kind === 'RETURN' ? 'کالا دریافت شد — واریز به کیف پول' : 'لغو سفارش و واریز به کیف پول'}</button>
           <p className="sa-hint">حداکثر تا مبلغ باقی‌ماندهٔ سفارش واریز می‌شود و هر درخواست فقط یک بار بازپرداخت می‌شود.</p>
         </section> : <section className="sa-card">

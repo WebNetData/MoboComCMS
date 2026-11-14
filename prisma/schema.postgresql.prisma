@@ -9,6 +9,9 @@ datasource db {
 }
 
 model User {
+  deliveryChangesRequested OrderDeliveryChange[] @relation("DeliveryChangeRequester")
+  deliveryChangesDecided OrderDeliveryChange[] @relation("DeliveryChangeDecider")
+  packingChecks OrderPackingCheck[] @relation("OrderPackingVerifier")
   registerAdjustments StoreRegisterAdjustment[] @relation("RegisterAdjuster")
   collectedStorePickups StorePickup[] @relation("PickupCollector")
   registerSessions StoreRegisterSession[] @relation("RegisterCashier")
@@ -299,6 +302,9 @@ model Plan {
 }
 
 model Order {
+  deliveryChanges OrderDeliveryChange[]
+  packingCheck OrderPackingCheck?
+  exchangeReturn ReturnRequest? @relation("ExchangeReplacement")
   supportTickets Ticket[]
   registerSessionId Int?
   registerSession StoreRegisterSession? @relation(fields: [registerSessionId], references: [id], onDelete: Restrict)
@@ -348,6 +354,43 @@ model Order {
   shipment      Shipment?
   @@index([assigneeId, status])
   @@index([saleSource, createdAt])
+}
+
+model OrderDeliveryChange {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  openOrderKey Int? @unique
+  status String @default("REQUESTED")
+  oldAddress String
+  newAddress String
+  originalDeliveryUpdatedAt DateTime
+  fromFeeMinor BigInt
+  newFeeMinor BigInt
+  currency String
+  reason String @default("")
+  reviewNote String @default("")
+  requestedById Int
+  requester User @relation("DeliveryChangeRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  decidedById Int?
+  decider User? @relation("DeliveryChangeDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  requestedAt DateTime @default(now())
+  decidedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  @@index([orderId, requestedAt])
+}
+
+model OrderPackingCheck {
+  orderId Int @id
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  snapshot String
+  checks String
+  note String @default("")
+  completedById Int
+  verifier User @relation("OrderPackingVerifier", fields: [completedById], references: [id], onDelete: Restrict)
+  completedAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model OrderItem {
@@ -3478,6 +3521,10 @@ model PasswordReset {
 
 /// Customer cancellation (before shipping) or return (after delivery) of a store order; refunds go to the wallet.
 model ReturnRequest {
+  replacementOrderId Int? @unique
+  replacementOrder Order? @relation("ExchangeReplacement", fields: [replacementOrderId], references: [id], onDelete: SetNull)
+  inspectionStatus String @default("NOT_REQUIRED")
+  inspectionLines String @default("[]")
   id          Int       @id @default(autoincrement())
   number      String    @unique
   orderId     Int
@@ -5334,6 +5381,7 @@ model StorePickup {
 /// A place that holds stock: a warehouse or a shop. Locations that sell online feed Product/Variant.stock
 /// (the site's sellable count); the counter sells from its register's location. Owner: catalog/server/locations.
 model StockLocation {
+  isQuarantine Boolean @default(false)
   purchases StockPurchase[]
   id          Int      @id @default(autoincrement())
   name        String

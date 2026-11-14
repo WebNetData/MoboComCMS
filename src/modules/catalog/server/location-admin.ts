@@ -27,14 +27,16 @@ export async function saveLocation(input: Record<string, unknown>, id?: number, 
   if (name.length < 2) throw new LocationError('نام محل را بنویسید')
   const kind = KINDS.includes(input.kind as typeof KINDS[number]) ? input.kind as typeof KINDS[number] : 'WAREHOUSE'
   const sortOrder = Math.max(0, Math.min(1000, Math.floor(Number(input.sortOrder) || 0)))
-  const data = { name, kind, sellsOnline: input.sellsOnline !== false, active: input.active !== false, sortOrder, address: text(input.address, 300) }
+  let data = { name, kind, sellsOnline: input.sellsOnline !== false, active: input.active !== false, sortOrder, address: text(input.address, 300) }
   return db.$transaction(async (tx) => {
     const before = id ? await tx.stockLocation.findUnique({ where: { id } }) : null
+    if (before?.isQuarantine) data = { ...data, kind: 'WAREHOUSE', sellsOnline: false, active: true }
     if (id && !before) throw new LocationError('محل موجودی پیدا نشد', 404)
     if (before?.isDefault && !data.active) throw new LocationError('انبار پیش‌فرض را نمی‌توان غیرفعال کرد؛ ابتدا محل دیگری را پیش‌فرض کنید')
     if (id && !data.active && await tx.storeRegisterSession.count({ where: { locationId: id, status: 'OPEN' } })) throw new LocationError('صندوق بازی از این محل می‌فروشد؛ ابتدا آن را ببندید', 409)
     const saved = id ? await tx.stockLocation.update({ where: { id }, data }) : await tx.stockLocation.create({ data })
     if (input.isDefault === true && !saved.isDefault) {
+      if (saved.isQuarantine) throw new LocationError('قرنطینه نمی‌تواند انبار پیش‌فرض فروش باشد', 409)
       if (!saved.active) throw new LocationError('محل غیرفعال نمی‌تواند پیش‌فرض باشد')
       await tx.stockLocation.updateMany({ where: { isDefault: true }, data: { isDefault: false } })
       await tx.stockLocation.update({ where: { id: saved.id }, data: { isDefault: true } })

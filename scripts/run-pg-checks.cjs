@@ -4,6 +4,10 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'store-delivery-changes',
+  'store-packing',
+  'store-reorder',
+  'store-return-inspection',
   'store-opening-controls',
   'store-device-support',
   'store-launch-basics',

@@ -1,3 +1,5 @@
+Next authorized continuation: [Store order operations](STORE_ORDER_OPERATIONS.md) adds fixed-charge address amendments, packing, quarantine/inspection, connected replacement sales and reorder on top of the sealed opening controls below. Real opening data/provider readiness remains explicit in that handoff.
+
 # Store opening controls — 2026-11-14
 
 Owner authorized the nine selected opening basics and repeated continuation.

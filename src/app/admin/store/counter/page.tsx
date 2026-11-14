@@ -1,6 +1,7 @@
 'use client'
 import FulfilmentDesk, { EMPTY_SHIPMENT, shipmentInput, type DeskShipment } from './FulfilmentDesk'
 import { useCounterQuote } from './useCounterQuote'
+import ExchangePanel, { type ExchangeContext } from './ExchangePanel'
 
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
@@ -59,6 +60,17 @@ export default function CounterSales() {
   // The line last added or counted up; `n` remounts its highlight so a second scan of the same item flashes again.
   const [fresh, setFresh] = useState({ key: '', n: 0 })
   const [confirmed, setConfirmed] = useState(false)
+  const [packingConfirmed, setPackingConfirmed] = useState(false)
+  const [exchangeId, setExchangeId] = useState(0)
+  const [exchange, setExchange] = useState<ExchangeContext | null>(null)
+  useEffect(() => { const value = Number(new URLSearchParams(window.location.search).get('exchange')); if (Number.isSafeInteger(value) && value > 0) setExchangeId(value) }, [])
+  useEffect(() => { setPackingConfirmed(false) }, [items, shipment.enabled])
+  useEffect(() => {
+    if (!exchange) return
+    const [firstName = '', ...names] = exchange.customerName.split(/\s+/)
+    setBuyer({ firstName, lastName: names.join(' '), phone: exchange.customerPhone })
+    setCustomer(exchange.customerId ? { id: exchange.customerId, name: exchange.customerName, phone: exchange.customerPhone, email: '' } : null)
+  }, [exchange])
   // The counter's printer decides the paper; it is a per-browser convenience, so storage failures only mean the default.
   const [paper, setPaper] = useState<SaleDocumentFormat>('sheet')
   useEffect(() => { try { if (localStorage.getItem(PAPER_KEY) === 'roll') setPaper('roll') } catch { /* default paper */ } }, [])
@@ -98,6 +110,8 @@ export default function CounterSales() {
   const sourceQuery = shipment.enabled && shipment.locationId ? `&shipLocation=${shipment.locationId}` : ''
   const units = items.reduce((sum, item) => sum + item.quantity, 0)
   const locked = sale.busy || sale.uncertain
+  const needsPacking = !shipment.enabled && items.some(item => item.product.kind === 'PHYSICAL')
+  const exchangeBlocked = !!exchangeId && (!exchange || !!exchange.replacementOrderId || (!!currency && currency !== exchange.currency))
   const buyerStatus = buyerState(buyer, customer)
   const openSessions = (sessions || []).filter((row) => row.status === 'OPEN' && row.mine)
   let paymentReady = false
@@ -153,14 +167,15 @@ export default function CounterSales() {
   }
   function changeItem(index: number, patch: Partial<Item>) { if (patch.deviceIdentifiers?.every(id => !id.serial.trim() && !id.imei.trim())) patch.deviceIdentifiers = undefined; setItems(items.map((item, at) => at === index ? { ...item, ...patch } : item)); setConfirmed(false) }
   // A card reference typed before switching to cash must not reach a cash receipt.
-  const payload = () => { const payments = paymentRows(payment, total, currency); return { ...(discountCode.trim() ? { discountCode } : {}), ...(shipment.enabled ? { shipment: shipmentInput(shipment) } : {}), ...(needsQuote && quote.quote ? { expectedTotalMinor: quote.quote.totalMinor, warningFingerprint: confirmed ? quote.quote.warningFingerprint || undefined : undefined } : {}), customerId: customer?.id || null, customerName: [buyer.firstName.trim(), buyer.lastName.trim()].filter(Boolean).join(' '), customerFirstName: buyer.firstName.trim(), customerLastName: buyer.lastName.trim(), customerPhone: buyer.phone.trim(), sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line), ...repairInput } }
+  const payload = () => { const payments = paymentRows(payment, total, currency); return { ...(exchangeId ? { exchangeReturnId: exchangeId } : {}), ...(needsPacking ? { packingConfirmed } : {}), ...(discountCode.trim() ? { discountCode } : {}), ...(shipment.enabled ? { shipment: shipmentInput(shipment) } : {}), ...(needsQuote && quote.quote ? { expectedTotalMinor: quote.quote.totalMinor, warningFingerprint: confirmed ? quote.quote.warningFingerprint || undefined : undefined } : {}), customerId: customer?.id || null, customerName: [buyer.firstName.trim(), buyer.lastName.trim()].filter(Boolean).join(' '), customerFirstName: buyer.firstName.trim(), customerLastName: buyer.lastName.trim(), customerPhone: buyer.phone.trim(), sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line), ...repairInput } }
   function submitSale() { try { void sale.submit(payload()) } catch (error) { setLocalError(error instanceof Error ? error.message : 'مبالغ پرداخت معتبر نیست') } }
-  function nextSale() { if (sale.nextSale()) { setItems([]); setDiscountCode(''); setShipment(EMPTY_SHIPMENT); setConfirmed(false); setCustomer(null); setBuyer(EMPTY_BUYER); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setRepair(null); setRepairId(0); setWork([]); setAttempt((value) => value + 1) } }
+  function nextSale() { if (sale.nextSale()) { setItems([]); setExchangeId(0); setExchange(null); setPackingConfirmed(false); setDiscountCode(''); setShipment(EMPTY_SHIPMENT); setConfirmed(false); setCustomer(null); setBuyer(EMPTY_BUYER); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setRepair(null); setRepairId(0); setWork([]); setAttempt((value) => value + 1) } }
   const addDisabled = !product || !!(product.variants.length && !variant) || items.length + work.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)
   const stock = product ? (variant?.stock ?? product.stock) : -1
 
 // Registers and returns are tabs of the desk; the store's order list only for someone who may open it (not a cashier).
 return <StoreShell title={repair ? 'فاکتور تعمیر' : 'فروش حضوری'} actions={ordersReachable ? <Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link> : undefined}>
+    {exchangeId > 0 && <ExchangePanel returnId={exchangeId} total={total} currency={currency} onLoaded={setExchange} />}
     {localError && <div className="sa-notice is-error" role="alert">{localError}</div>}
     {sale.message && <div className="sa-notice is-error" role="alert">{sale.message}</div>}
     {sale.orderId ? <>
@@ -186,7 +201,7 @@ return <StoreShell title={repair ? 'فاکتور تعمیر' : 'فروش حضو�
         <button type="button" className="btn btn-ghost" disabled={sale.busy} onClick={() => void sale.recover()}>بررسی وضعیت فروش قبلی</button>
         <button type="button" className="btn btn-ghost" disabled={sale.busy} onClick={nextSale}>شروع فروش جداگانه</button>
       </div></section>}
-      <form className="cd-layout" onSubmit={(event) => { event.preventDefault(); if (confirmed) submitSale() }}>
+      <form className="cd-layout" onSubmit={(event) => { event.preventDefault(); if (confirmed && (!needsPacking || packingConfirmed) && !exchangeBlocked) submitSale() }}>
         <fieldset className="sa-card cd-basket" disabled={locked}><legend className="cd-sr">کالاهای فروش</legend>
           {repair && <RepairDesk repair={repair} rows={work} onRows={(rows) => { setWork(rows); setConfirmed(false) }} currency={currency} stockLines={items.length} />}
           <div className="cd-scan">
@@ -241,7 +256,7 @@ return <StoreShell title={repair ? 'فاکتور تعمیر' : 'فروش حضو�
               : <><label htmlFor="counter-session" className="cd-sr">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={(event) => { setSessionId(Number(event.target.value)); setConfirmed(false) }}><option value={0}>{sessions ? 'صندوق باز خود را انتخاب کنید' : 'در حال دریافت صندوق‌ها…'}</option>{openSessions.map((row) => <option key={row.id} value={row.id}>{row.register} · {row.currency}{row.location ? ` · ${row.location}` : ''}</option>)}</select></>}
           </Step>
           <Step n={2} title="مشتری" done={buyerStatus.kind === 'linked' || (buyerStatus.kind === 'new' && !buyerStatus.problem)} note={BUYER_NOTE[buyerStatus.kind]}>
-            <CustomerDesk customer={customer} buyer={buyer} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onBuyer={(value) => { setBuyer(value); setConfirmed(false) }} />
+            <fieldset className="gateway-controls" disabled={!!exchangeId}><legend className="sr-only">مشتری فروش</legend><CustomerDesk customer={customer} buyer={buyer} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onBuyer={(value) => { setBuyer(value); setConfirmed(false) }} /></fieldset>
           </Step>
           <Step n={3} title="تخفیف و تحویل" done={quoteReady}><FulfilmentDesk value={shipment} onChange={value => { setShipment(value); setConfirmed(false) }} discountCode={discountCode} onDiscount={value => { setDiscountCode(value); setConfirmed(false) }} />{quote.loading && <p className="sa-hint" role="status">در حال بررسی مبلغ و ارسال…</p>}{quote.error && <p className="cd-error" role="alert">{quote.error} <button className="sa-link" type="button" onClick={() => setQuoteAttempt(value => value + 1)}>تلاش دوباره</button></p>}</Step>
           <Step n={4} title="دریافت وجه" done={paymentReady}>
@@ -257,9 +272,10 @@ return <StoreShell title={repair ? 'فاکتور تعمیر' : 'فروش حضو�
             <p className="cd-ticket-total"><span>جمع فروش</span><strong key={total.toString()} className="cd-num">{currency ? formatMoney(total, currency, 'fa-IR') : '—'}</strong></p>
           </div>
           {!!quote.quote?.warnings?.length && <div className="cd-error" role="alert"><b>قیمت فروش نیاز به بررسی دارد</b><ul>{quote.quote.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul><p>با تأیید دریافت وجه، این هشدارها را نیز می‌پذیرید.</p></div>}
+          {needsPacking && <label className="cd-confirm"><input type="checkbox" checked={packingConfirmed} onChange={event => setPackingConfirmed(event.target.checked)} /><span>مدل، رنگ و گونه، تعداد، سریال یا IMEI موجود و لوازم همراه همهٔ کالاها را کنترل کرده‌ام</span></label>}
           <label className="cd-confirm"><input type="checkbox" checked={confirmed && quoteReady} disabled={!quoteReady} onChange={(event) => setConfirmed(event.target.checked)} /><span>{repair ? 'کل مبلغ فاکتور تعمیر را از مشتری دریافت کرده‌ام' : shipment.enabled ? 'کل مبلغ را دریافت کرده‌ام؛ سفارش باید از انبار به نشانی مشتری ارسال شود' : 'کل مبلغ را دریافت کرده‌ام و کالاها اکنون به مشتری تحویل می‌شوند'}</span></label>
           {buyerStatus.problem && <p className="cd-error" role="status">{buyerStatus.problem}</p>}
-          <button className="btn btn-primary cd-submit" type="submit" disabled={!hasLines || (!!repair && workIncomplete(work, currency)) || !confirmed || !quoteReady || !sessionId || scanBusy || locked || !!buyerStatus.problem}>{sale.busy ? 'در حال ثبت…' : repair ? 'ثبت و صدور فاکتور تعمیر' : shipment.enabled ? 'ثبت سفارش ارسالی و صدور فاکتور' : 'ثبت فروش و صدور فاکتور'}</button>
+          <button className="btn btn-primary cd-submit" type="submit" disabled={!hasLines || (!!repair && workIncomplete(work, currency)) || !confirmed || !quoteReady || !sessionId || scanBusy || locked || !!buyerStatus.problem || (needsPacking && !packingConfirmed) || exchangeBlocked}>{sale.busy ? 'در حال ثبت…' : repair ? 'ثبت و صدور فاکتور تعمیر' : shipment.enabled ? 'ثبت سفارش ارسالی و صدور فاکتور' : 'ثبت فروش و صدور فاکتور'}</button>
         </fieldset>
       </form>
     </>}

@@ -1,12 +1,13 @@
 import type { NextRequest } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { requirePerm, requireUser } from '@/modules/identity/server/access'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { StoreError } from '@/modules/store/domain/store'
 import {
-  RETURN_TABS, adminReturn, adminReturns, createReturnRequest, customerReturnInfo, decideReturn, getReturnSettings, refundReturn,
+  RETURN_TABS, adminReturn, adminReturns, createReturnRequest, customerReturnInfo, decideReturn, getReturnSettings, inspectReturn, receiveReturnGoods, refundReturn,
   returnPhoto, saveReturnSettings, withdrawReturn,
 } from '@/modules/store/server/returns'
 import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
@@ -121,5 +122,24 @@ export async function POST_return(req: NextRequest, { params }: IdContext) {
     } else return err('unknown action')
     await auditAdmin({ req, actor: g.admin, action: `store.return.${body.action}`, targetType: 'return', targetId: id })
     return ok(await adminReturn(id))
+  } catch (error) { return failure(error) }
+}
+
+/** POST /api/admin/store/returns/:id/inspection â€” claim and classify every returned physical unit. */
+export async function POST_return_inspection(req: NextRequest, { params }: IdContext) {
+  const g = await returnsAdmin(req)
+  if ('response' in g) return g.response
+  const id = positiveId((await params).id)
+  if (!id) return err('invalid id')
+  const body = (await req.json().catch(() => null)) || {}
+  try {
+    const audit = async (tx: Prisma.TransactionClient, targetId: number) => {
+      if (!await requirePerm(req, 'orders.manage', tx)) throw new StoreError('دسترسی مدیریت سفارش‌ها تغییر کرده است', 403)
+      await auditAdminStrict({ req, actor: g.admin, action: body.action === 'receive' ? 'store.return.receive' : 'store.return.inspect', targetType: 'return', targetId }, tx)
+    }
+    const result = body.action === 'receive'
+      ? await receiveReturnGoods({ id, actorId: g.admin.id, expectedUpdatedAt: body.expectedUpdatedAt }, audit)
+      : await inspectReturn({ id, actorId: g.admin.id, expectedUpdatedAt: body.expectedUpdatedAt, lines: body.lines }, audit)
+    return ok(result)
   } catch (error) { return failure(error) }
 }

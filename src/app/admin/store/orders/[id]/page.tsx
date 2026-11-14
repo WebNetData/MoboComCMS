@@ -1,4 +1,7 @@
 'use client'
+import PackingPanel from './PackingPanel'
+import DeliveryChangePanel from './DeliveryChangePanel'
+import { ORDER_OPERATIONS_LABEL } from '@/modules/store/domain/order-events'
 
 import Link from '@/components/AppLink'
 import { useParams } from 'next/navigation'
@@ -27,7 +30,7 @@ type Detail = Assignment & {
   events: { id: number; status: string; note: string; createdAt: string; visible: boolean; actor: string }[]
 }
 
-const EVENT_LABEL: Record<string, string> = { PAID: 'پرداخت تأیید شد', NOTE: 'یادداشت', RESTOCK: 'بازگشت به انبار', INPUTS_ERASED: 'پاک‌شدن اطلاعات خریدار', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش' }
+const EVENT_LABEL: Record<string, string> = { ...ORDER_OPERATIONS_LABEL, PAID: 'پرداخت تأیید شد', NOTE: 'یادداشت', RESTOCK: 'بازگشت به انبار', INPUTS_ERASED: 'پاک‌شدن اطلاعات خریدار', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش' }
 const ACTION_LABEL: Record<FulfilmentStatus, string> = {
   PENDING: 'بازگشت به انتظار', PROCESSING: 'شروع پردازش', PACKED: 'بسته‌بندی شد', SHIPPED: 'ارسال شد', DELIVERED: 'تحویل داده شد', CANCELLED: 'لغو سفارش', RETURNED: 'ثبت مرجوعی',
 }
@@ -93,6 +96,8 @@ export default function StoreOrderPage() {
 
     <div className="sa-cols">
       <div className="sa-stack">
+        {!virtual && <PackingPanel orderId={data.id} onChanged={() => void reload()} />}
+        {!virtual && data.manager && <DeliveryChangePanel orderId={data.id} />}
         {data.orderStatus === 'PAID' && <OrderAssignment id={data.id} work={data} onChanged={() => void reload()} />}
         <section className="sa-card">
           <header className="sa-card-head"><h2>کالاها</h2><small className="num">{fa(data.lines.reduce((sum, line) => sum + line.quantity, 0))} عدد</small></header>

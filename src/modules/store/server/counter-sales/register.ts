@@ -44,7 +44,7 @@ export async function openRegister(raw: Record<string, unknown>, actorId: number
     const previous=await tx.storeRegisterSession.findUnique({where:{requestId}})
     if(previous) {if(previous.cashierId!==actorId || previous.register!==register || previous.openingCashMinor!==openingCashMinor || previous.currency!==currency || (wanted!==null && previous.locationId!==wanted))throw new StoreError('شناسهٔ درخواست قبلاً استفاده شده است',409);return view(previous)}
     // The register sells from one stock location: the chosen one, else the first shop, else the main warehouse.
-    const location=wanted?await tx.stockLocation.findFirst({where:{id:wanted,active:true},select:{id:true}}):await tx.stockLocation.findFirst({where:{active:true,kind:'SHOP'},orderBy:[{sortOrder:'asc'},{id:'asc'}],select:{id:true}})||await tx.stockLocation.findFirst({where:{isDefault:true},select:{id:true}})
+    const location=wanted?await tx.stockLocation.findFirst({where:{id:wanted,active:true,isQuarantine:false},select:{id:true}}):await tx.stockLocation.findFirst({where:{active:true,kind:'SHOP',isQuarantine:false},orderBy:[{sortOrder:'asc'},{id:'asc'}],select:{id:true}})||await tx.stockLocation.findFirst({where:{isDefault:true,active:true,isQuarantine:false},select:{id:true}})
     if(!location) throw new StoreError('محل موجودی صندوق پیدا نشد یا غیرفعال است',404)
     const row=await tx.storeRegisterSession.create({data:{requestId,register,cashierId:actorId,currency,openingCashMinor,locationId:location?.id??null}})
     await audit(tx,row.id);return view(row)

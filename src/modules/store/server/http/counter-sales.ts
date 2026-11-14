@@ -43,11 +43,11 @@ export async function GET_counter(req: NextRequest) {
     const shelf=Number.isSafeInteger(sessionId)&&sessionId>0?(await db.storeRegisterSession.findFirst({where:{id:sessionId,cashierId:guard.admin.id,status:'OPEN'},select:{locationId:true}}))?.locationId??null:null
     if (params.has('deskOptions')) {
       const [locations, schedule] = await Promise.all([listLocations(), deliverySchedule()])
-      return reply({ locations: locations.filter(row => row.active && row.kind === 'WAREHOUSE').map(row => ({ id: row.id, name: row.name })), days: schedule.settings.enabled ? schedule.days : [] })
+      return reply({ locations: locations.filter(row => row.active && !row.isQuarantine && row.kind === 'WAREHOUSE').map(row => ({ id: row.id, name: row.name })), days: schedule.settings.enabled ? schedule.days : [] })
     }
     if (params.has('shipLocation')) {
       const id = Number(params.get('shipLocation'))
-      if (!Number.isSafeInteger(id) || id <= 0 || !await db.stockLocation.count({ where: { id, active: true, kind: 'WAREHOUSE' } })) throw new StoreError('انبار ارسال فعال را انتخاب کنید')
+      if (!Number.isSafeInteger(id) || id <= 0 || !await db.stockLocation.count({ where: { id, active: true, isQuarantine: false, kind: 'WAREHOUSE' } })) throw new StoreError('انبار ارسال فعال را انتخاب کنید')
       if (params.has('scan')) return reply(await scanCounterProduct(params.get('scan') || '', id))
       return reply({ products: (await counterProducts(params.get('q') || '', undefined, id)).filter(row => row.kind === 'PHYSICAL') })
     }
@@ -134,6 +134,8 @@ export async function POST_counter(req: NextRequest) {
     }, async (tx, orderId) => {
       if (repair) await linkRepairOrder(tx, repair.submissionId, orderId)
       await auditAdminStrict({ req, actor: guard.admin, action: 'store.counter.sale', targetType: 'order', targetId: orderId, metadata: { source: 'COUNTER', ...(repair ? { repair: repair.submissionId } : {}) } }, tx)
+    }, async tx => {
+      if (!await requirePerm(req, 'orders.manage', tx)) throw new StoreError('اتصال تعویض فقط با مدیر سفارش‌ها است', 403)
     })
     return reply(result)
   } catch (error) { return failure(error) }

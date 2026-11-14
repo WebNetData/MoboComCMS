@@ -4,7 +4,7 @@ import { logEvent } from '@/platform/observability/logger'
 import { minorToNumber, minorToDecimal, normalizeCurrency, toMinor } from '@/shared/money'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { releaseInventoryReservation, restockConsumedInventory } from '@/modules/catalog/server/inventory'
-import { returnToLocations, trackedItem, readAllocation } from '@/modules/catalog/server/locations'
+import { returnToLocations, receiveQuarantineStock, trackedItem, readAllocation } from '@/modules/catalog/server/locations'
 import { syncCodeStock } from '@/modules/catalog/server/code-stock'
 import { lockRegister } from '@/modules/store/server/counter-sales/register'
 import { StoreError, canMoveTo } from '@/modules/store/domain/store'
@@ -115,8 +115,12 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
     // Delivery had not started: the units are still held for this order, not yet sold.
     await releaseInventoryReservation(row.orderId, transaction)
   }
-  if (restock && row.kind === 'RETURN') await restockLines(row.orderId, parseJson<LineChoice[]>(row.lines, []), row.restockLocationId, transaction, row.id)
-  if (restock) await client.returnRequest.update({ where: { id: row.id }, data: { restocked: true } })
+  if (restock && row.kind === 'RETURN') {
+    const choices = parseJson<LineChoice[]>(row.lines, [])
+    await restockLines(row.orderId, choices, row.restockLocationId, transaction, row.id, true, input.actorId)
+    const physical = await client.orderLine.count({ where: { orderId: row.orderId, line: { in: choices.map((choice) => choice.line) }, kind: 'PHYSICAL' } })
+    await client.returnRequest.update({ where: { id: row.id }, data: { restocked: true, ...(physical ? { inspectionStatus: 'PENDING' } : {}) } })
+  } else if (restock) await client.returnRequest.update({ where: { id: row.id }, data: { restocked: true } })
   if (fullyRefunded) {
     await client.order.updateMany({ where: { id: row.orderId, status: order.status }, data: { status: 'REFUNDED' } })
     // Only a paid invoice is refunded; one that was never paid (or is refunded already) stays as it is.
@@ -153,7 +157,15 @@ export async function recoverInterruptedRefunds(limit = 20, now = new Date()) {
  * Returned items back on the shelf (finite stock only), line by line. Location-tracked items go to toLocationId
  * (the counter that took them back) or to the first location they were taken from.
  */
-async function restockLines(orderId: number, choices: LineChoice[], toLocationId?: number | null, transaction?: Prisma.TransactionClient, returnId?: number) {
+export async function receivePhysicalReturn(tx: Prisma.TransactionClient, row: { id: number; orderId: number; lines: string }, actorId: number) {
+  const choices = parseJson<LineChoice[]>(row.lines, [])
+  const physical = await tx.orderLine.findMany({ where: { orderId: row.orderId, kind: 'PHYSICAL' }, select: { line: true } })
+  const selected = choices.filter(choice => physical.some(line => line.line === choice.line))
+  if (!selected.length) throw new StoreError('کالای فیزیکی برای دریافت وجود ندارد', 409)
+  await restockLines(row.orderId, selected, null, tx, row.id, true, actorId)
+}
+
+async function restockLines(orderId: number, choices: LineChoice[], toLocationId?: number | null, transaction?: Prisma.TransactionClient, returnId?: number, quarantinePhysical = false, actorId?: number | null) {
   const client = transaction || db
   const run = <T>(work: (tx: Prisma.TransactionClient) => Promise<T>) => transaction ? work(transaction) : db.$transaction(work)
   const reservations = await client.inventoryReservation.findMany({ where: { orderId, status: 'CONSUMED', line: { in: choices.map((choice) => choice.line) } } })
@@ -164,6 +176,12 @@ async function restockLines(orderId: number, choices: LineChoice[], toLocationId
     const reservation = reservations.find((row) => row.line === choice.line)
     const productId = reservation?.productId ?? lines.find((line) => line.line === choice.line)?.productId
     if (!productId) continue
+    const orderLine = lines.find((line) => line.line === choice.line)
+    if (quarantinePhysical && orderLine?.kind === 'PHYSICAL' && orderLine.product?.digitalMode !== 'CODES') {
+      await run((tx) => receiveQuarantineStock(tx, { productId, variantId: reservation?.variantId ?? orderLine.variantId ?? null, quantity: choice.quantity }, { orderId, refType: 'return', refId: returnId, actorId }))
+      await client.product.updateMany({ where: { id: productId, soldCount: { gte: choice.quantity } }, data: { soldCount: { decrement: choice.quantity } } })
+      continue
+    }
     // A product that sells from its code pool has no stock of its own to give back: the returned code is void.
     if (lines.find((line) => line.line === choice.line)?.product?.digitalMode === 'CODES') {
       await run((tx) => syncCodeStock(tx, productId))
@@ -181,6 +199,7 @@ async function restockLines(orderId: number, choices: LineChoice[], toLocationId
     await client.product.updateMany({ where: { id: productId, soldCount: { gte: choice.quantity } }, data: { soldCount: { decrement: choice.quantity } } })
   }
 }
+
 
 export async function refundFollowups(row: { id: number; number: string; orderId: number; userId: number | null; kind: string; lines: string; currency: string; refundMethod: string }, amount: bigint) {
   // Marketplace sellers give back their share of the refunded part (and get the commission back).

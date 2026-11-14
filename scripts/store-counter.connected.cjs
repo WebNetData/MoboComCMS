@@ -50,7 +50,7 @@ async function fill(productId, count, variantId = null) {
   await db.$transaction((tx) => stock.syncCodeStock(tx, productId))
 }
 const line = (productId, quantity = 1, variantId = null) => ({ productId, quantity, variantId, expectedUnitMinor: '1000', inputs: {} })
-const request = (lines, extra = {}) => ({ requestId: randomUUID(), confirmed: true, sessionId,method: 'CASH', customerName: 'مشتری حضوری', customerPhone: '', lines, ...extra })
+const request = (lines, extra = {}) => ({ requestId: randomUUID(), confirmed: true, packingConfirmed: true, sessionId,method: 'CASH', customerName: 'مشتری حضوری', customerPhone: '', lines, ...extra })
 async function call(method, query = '', body) {
   const response = await api[method === 'GET' ? 'GET_counter' : 'POST_counter'](new NextRequest(`http://site.invalid/api/admin/store/counter${query}`, { method, headers: { Origin: 'http://site.invalid', 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) }))
   return { status: response.status, body: await response.json() }
