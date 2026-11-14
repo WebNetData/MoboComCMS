@@ -12,7 +12,9 @@ import { getRawToken } from '@/modules/identity/server/access'
 export async function GET_admin(req: NextRequest) {
   const guard = await adminGuard(req, null, ['settings.manage'])
   if ('response' in guard) return guard.response
-  return ok(await monitoringOverview())
+  const response = ok(await monitoringOverview())
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }
 
 /** POST {op: 'job', kind} | {op: 'retry', id} | {op: 'purge-cdn'} */

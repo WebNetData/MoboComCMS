@@ -18,6 +18,11 @@ function load(relative) {
 }
 
 const store = load('src/modules/store/domain/store')
+test('Admin and storefront stock respect product caps even with unlimited variants', () => {
+  for (const [parent, variants, expected] of [[3,10,3],[3,-1,3],[-1,10,10],[-1,-1,-1],[0,10,0],[10,0,0],[3,null,3],[-1,null,-1]]) {
+    assert.equal(store.sellableStock(parent, variants), expected)
+  }
+})
 const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
 
 test('fulfilment workflow allows forward moves and blocks invalid ones', () => {

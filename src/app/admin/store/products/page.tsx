@@ -1,4 +1,5 @@
 'use client'
+import { sellableStock } from '@/modules/store/domain/store'
 
 import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
@@ -15,7 +16,7 @@ type List = { page: number; pages: number; total: number; counts: { all: number;
 const BULK: [string, string][] = [['activate', 'فعال‌سازی'], ['deactivate', 'غیرفعال‌سازی'], ['feature', 'ویژه کردن'], ['unfeature', 'حذف از ویژه'], ['category', 'تغییر دسته'], ['brand', 'تغییر برند'], ['price', 'تغییر قیمت (٪)'], ['discount', 'تخفیف گروهی (٪)'], ['clear-discount', 'حذف تخفیف'], ['stock', 'تنظیم موجودی'], ['delete', 'حذف']]
 
 function stockLabel(product: Product) {
-  const stock = product.variantStock ?? product.stock
+  const stock = sellableStock(product.stock, product.variantStock)
   if (product.stock === 0 || stock === 0) return <span className="sa-stock is-out">ناموجود</span>
   if (stock < 0) return <span className="sa-stock">نامحدود</span>
   return <span className={`sa-stock${stock <= 3 ? ' is-low' : ''}`}>{fa(stock)}</span>
@@ -87,7 +88,7 @@ function Products() {
           {data?.products.map((product) => <tr key={product.id} className={selected.includes(product.id) ? 'is-selected' : ''}>
             <td><input type="checkbox" aria-label={`انتخاب ${product.name}`} checked={selected.includes(product.id)} onChange={() => setSelected((list) => list.includes(product.id) ? list.filter((id) => id !== product.id) : [...list, product.id])} /></td>
             <td className="sa-card-main"><div className="sa-product-cell">{product.image ? <img src={product.image} alt="" /> : <span className="sa-ph" />}<span><Link href={`/admin/store/products/${product.id}`} className="sa-link"><b>{product.name}</b></Link><small className="sa-sub">{product.kind === 'PHYSICAL' ? 'فیزیکی' : 'دیجیتال'}{product.sku && <> · <bdi dir="ltr">{product.sku}</bdi></>}{product.variants.length > 0 && ` · ${fa(product.variants.length)} تنوع`}{product.access === 'MEMBERS' && <span data-vip=""> · VIP</span>}</small></span></div></td>
-            <td data-label="قیمت">{product.listPrice > 0 && <s className="sa-was"><Money value={product.listPrice} currency={product.currency} /></s>}<Money value={product.price} currency={product.currency} /></td>
+            <td data-label="قیمت">{product.variants.length ? <><small className="sa-sub">قیمت گونه‌ها از</small><Money value={Math.min(...product.variants.map(variant => variant.price))} currency={product.currency} /><small className="sa-sub">قیمت پایه: <Money value={product.price} currency={product.currency} /></small></> : <>{product.listPrice > 0 && <s className="sa-was"><Money value={product.listPrice} currency={product.currency} /></s>}<Money value={product.price} currency={product.currency} /></>}</td>
             <td data-label="موجودی">{stockLabel(product)}</td>
             <td data-label="دسته / برند"><small>{product.category || '—'}</small><small className="sa-sub">{product.brand}</small></td>
             <td className="num" data-label="فروش"><small>{fa(product.soldCount)} فروش</small><small className="sa-sub">{fa(product.views)} بازدید</small></td>

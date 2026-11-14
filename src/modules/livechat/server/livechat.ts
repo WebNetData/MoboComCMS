@@ -326,9 +326,10 @@ export async function crmSnapshot(userId: number) {
 }
 
 /** The full customer file: profile, value, tags, notes and one timeline of everything. */
-export async function crmProfile(userId: number) {
+export async function crmProfile(userId: number, actor?: import('@/modules/identity/server/access').AuthedUser) {
   const snapshot = await crmSnapshot(userId)
   if (!snapshot) throw new ChatError('مشتری پیدا نشد', 404)
+  const services = await (await import('@/modules/forms/server/customer-history')).customerServiceHistory(userId, actor)
   const [orders, tickets, chats, walletTx, returns, reviews, notes, subscriptions, addresses] = await Promise.all([
     db.order.findMany({ where: { userId }, orderBy: { id: 'desc' }, take: 60, select: { id: true, status: true, createdAt: true, totalMinor: true, currency: true, meta: true, productDelivery: { select: { status: true } }, lines: { select: { name: true, quantity: true }, take: 4 }, plan: { select: { name: true } } } }),
     db.ticket.findMany({ where: { userId }, orderBy: { id: 'desc' }, take: 40, select: { id: true, subject: true, status: true, createdAt: true, department: true } }),
@@ -346,6 +347,7 @@ export async function crmProfile(userId: number) {
   const money = (minor: bigint, currency: string) => `${minorToNumber(minor, currency).toLocaleString('fa-IR')} ${currency === 'IRT' ? 'تومان' : currency === 'IRR' ? 'ریال' : currency}`
   const ORDER: Record<string, [string, CrmEvent['tone']]> = { PAID: ['پرداخت‌شده', 'ok'], PENDING: ['در انتظار پرداخت', 'warn'], FAILED: ['ناموفق', 'bad'], REFUNDED: ['بازپرداخت', 'bad'], CANCELLED: ['لغو', 'bad'] }
   const events: CrmEvent[] = [
+    ...services.rows.map((row): CrmEvent => ({ at: new Date(row.createdAt), kind: 'service', title: `خدمات #${row.id}: ${row.title}`, detail: [row.stage, row.assignee ? `مسئول: ${row.assignee}` : 'بدون مسئول'].filter(Boolean).join(' · '), href: row.href, tone: '' })),
     { at: new Date(snapshot.createdAt), kind: 'signup', title: 'ثبت‌نام در سایت', detail: '', href: '', tone: '' },
     ...orders.map((order): CrmEvent => ({ at: order.createdAt, kind: 'order', title: `سفارش #${order.id} — ${(ORDER[order.status] || [order.status])[0]}`, detail: `${order.lines.map((l) => `${l.name}${l.quantity > 1 ? ` ×${l.quantity}` : ''}`).join('، ') || order.plan?.name || ''} · ${money(order.totalMinor, order.currency)}`, href: `/admin/store/orders/${order.id}`, tone: (ORDER[order.status] || ['', ''])[1] })),
     ...tickets.map((ticket): CrmEvent => ({ at: ticket.createdAt, kind: 'ticket', title: `تیکت #${ticket.id}: ${ticket.subject}`, detail: ticket.status === 'CLOSED' ? 'بسته' : ticket.status === 'PENDING' ? 'در انتظار پاسخ' : 'باز', href: `/admin/tickets/${ticket.id}`, tone: ticket.status === 'CLOSED' ? '' : 'warn' })),
@@ -357,7 +359,7 @@ export async function crmProfile(userId: number) {
     ...notes.map((note): CrmEvent => ({ at: note.createdAt, kind: 'note', title: `یادداشت ${authorName.get(note.adminId) || 'مدیر'}`, detail: note.body, href: '', tone: '' })),
   ]
   return {
-    customer: snapshot, subscriptions,
+    customer: snapshot, subscriptions, services,
     cities: [...new Set(addresses.map((a) => a.city).filter(Boolean))],
     notes: notes.map((note) => ({ id: note.id, body: note.body, author: authorName.get(note.adminId) || '', createdAt: note.createdAt.toISOString() })),
     timeline: timeline(events).map((event) => ({ ...event, at: event.at.toISOString() })),

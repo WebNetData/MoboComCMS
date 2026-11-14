@@ -1,4 +1,5 @@
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
+import { sellableStock } from '@/modules/store/domain/store'
 import { audienceClause } from '@/modules/account/server/item-audience'
 import type { Prisma } from '@prisma/client'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
@@ -24,7 +25,7 @@ const SETTINGS_KEY = 'store.merchandising.v1'
 
 export async function getStoreSettings(): Promise<StoreSettings> {
   const stored = await readJsonSetting(SETTINGS_KEY)
-  return stored ? normalizeStoreSettings(stored, DEFAULT_STORE_SETTINGS) : structuredClone(DEFAULT_STORE_SETTINGS)
+  return normalizeStoreSettings(stored ?? {}, DEFAULT_STORE_SETTINGS)
 }
 
 const storefrontHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-storefront', raw => normalizeStoreSettings(raw || {}, DEFAULT_STORE_SETTINGS), settings => ({ slides: settings.slides.length, banners: settings.banners.length }), { action: 'store.settings.update', targetId: 0 })
@@ -85,7 +86,7 @@ function toCard(row: CardRow, rating: { rating: number; count: number } | undefi
   const best = options.reduce((low, option) => (option.unitMinor < low.unitMinor ? option : low))
   const variantStock = row.variants.length ? (row.variants.some((variant) => variant.stock < 0) ? -1 : row.variants.reduce((sum, variant) => sum + Math.max(0, variant.stock), 0)) : -1
   const inStock = row.stock !== 0 && (!row.variants.length || row.variants.some((variant) => variant.stock !== 0))
-  const stock = row.stock >= 0 ? (variantStock >= 0 ? Math.min(row.stock, variantStock) : row.stock) : variantStock
+  const stock = sellableStock(row.stock, variantStock)
   const threshold = row.lowStockAt || lowStockDefault
   return {
     id: row.id, slug: row.slug, name: row.name, image: row.image, brand: row.brand?.name || '', category: row.category?.name || '', kind: row.kind, instant: deliversInstantly(row),

@@ -8,6 +8,7 @@ import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import Icon from '@/components/site/Icon'
 import AdminPromptOverview from '@/components/prompts/AdminPromptOverview'
+import DailyWorkdesk from '@/components/admin/DailyWorkdesk'
 import { useControlNavigation } from '@/components/admin/navigation/ControlNavigation'
 import { controlAreas } from '@/components/admin/navigation/groups'
 
@@ -49,12 +50,15 @@ export default function AdminDashboard() {
 
   if (failed) {
     return (
+ <div className="ao-rise">
+ <DailyWorkdesk />
       <div className="card admin-load-error">
         <p>{isFa ? 'خطا در دریافت آمار داشبورد.' : 'Failed to load dashboard stats.'}</p>
         <button type="button" className="btn btn-primary" onClick={() => load()}>
           {isFa ? 'تلاش مجدد' : 'Retry'}
         </button>
       </div>
+ </div>
     )
   }
 
@@ -74,6 +78,7 @@ export default function AdminDashboard() {
 
   if (limited) return <div className="ao-rise">
     <header className="ao-hero"><div><h1>{t.dashboard}</h1><p>{isFa ? 'بخش‌هایی که مدیریت آن‌ها با شماست' : 'The sections you manage'}</p></div></header>
+ <DailyWorkdesk />
     {areaMap}
     <AdminPromptOverview />
   </div>
@@ -113,6 +118,8 @@ export default function AdminDashboard() {
           {canGo('/admin/invoices') && <Link href="/admin/invoices" className="btn btn-primary">{t.addInvoice}</Link>}
         </div>
       </header>
+
+ <DailyWorkdesk />
 
       <section className="card admin-attention mb-8" aria-label={isFa ? 'نیازمند توجه' : 'Needs attention'}>
         <div className="admin-attention-head">

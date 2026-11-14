@@ -13,6 +13,7 @@ import { LocationError } from '@/modules/catalog/server/locations'
 import { addProductBundle } from '@/modules/store/server/bundles'
 import { CART_COOKIE, addToCart, cartCheckoutLines, cartView, clearCart, removePurchasedLines, updateCartLine, type CartOwner } from '@/modules/store/server/cart'
 import { getStoreSettings, saveStoreSettings } from '@/modules/store/server/catalog'
+import { publishedPageOptions } from '@/modules/site/server/public-pages'
 import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
 import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 import { markCartRecovered } from '@/modules/store/server/marketing'
@@ -386,7 +387,7 @@ export async function GET_storeSettings(req: NextRequest) {
   const g = await adminGuard(req, 'store', ['settings.manage', 'cms.products'])
   if ('response' in g) return g.response
   const settings = await getStoreSettings()
-  return ok({ settings, settingsRevision: sectionSettingsRevision(settings) })
+  return ok({ settings, settingsRevision: sectionSettingsRevision(settings), purchaseGuidePages: await publishedPageOptions() })
 }
 
 export async function POST_storeSettings(req: NextRequest) {

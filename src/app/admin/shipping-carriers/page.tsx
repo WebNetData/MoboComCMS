@@ -1,15 +1,16 @@
 'use client'
 
 import Link from '@/components/AppLink'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Notice } from '../store/shared'
 import FreeRules from './FreeRules'
 import CarrierEditor, { carrierSummary } from './CarrierEditor'
 import { PROVINCES } from '@/modules/shipping/domain/shipping'
 import { CARRIER_PRESETS, ZONE_LABEL, etaLabel, presetCarrier, quotes, type Carrier, type CarrierSettings } from '@/modules/shipping/domain/carriers'
+import { latinDigits } from '@/shared/text/digits'
 
 const rial = (value: number) => value.toLocaleString('fa-IR')
-const num = (value: string) => Math.max(0, Math.round(Number(value.replace(/[^\d]/g, '')) || 0))
+const num = (value: string) => Math.max(0, Math.round(Number(latinDigits(value).replace(/[^\d]/g, '')) || 0))
 
 /** Carriers (Post, Tipax, Chapar, Alopeyk, own courier), rate tables by zone and weight, and a live price check. */
 export default function ShippingCarriersPage() {
@@ -18,19 +19,31 @@ export default function ShippingCarriersPage() {
   const [open, setOpen] = useState('')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const pending = useRef(false)
+  const request = useRef<AbortController | null>(null)
+  const [loading, setLoading] = useState(true)
   const [preset, setPreset] = useState('blank')
   const [sim, setSim] = useState({ province: 'اصفهان', city: 'اصفهان', grams: '1500', itemRial: '20000000' })
 
-  useEffect(() => {
-    fetch('/api/admin/shipping/carriers', { cache: 'no-store' }).then((r) => r.json().then((data) => ({ ok: r.ok, data }))).then(({ ok, data }) => {
-      if (!ok) { setNotice({ tone: 'error', text: data?.error || 'بارگذاری انجام نشد' }); return }
-      setSettings(data.settings); setSaved(JSON.stringify(data.settings))
-    }).catch(() => setNotice({ tone: 'error', text: 'ارتباط برقرار نشد' }))
+  const load = useCallback(async () => {
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current = controller
+    setLoading(true); setNotice(null)
+    try {
+      const response = await fetch('/api/admin/shipping/carriers', { cache: 'no-store', signal: controller.signal })
+      const data = await response.json()
+      if (!response.ok || !data.settings || !Array.isArray(data.settings.carriers)) throw new Error(data?.error || 'بارگذاری انجام نشد')
+      if (!controller.signal.aborted) { setSettings(data.settings); setSaved(JSON.stringify(data.settings)) }
+    } catch (error) {
+      if (!controller.signal.aborted) setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'ارتباط برقرار نشد' })
+    } finally { if (!controller.signal.aborted) setLoading(false) }
   }, [])
+  useEffect(() => { void load(); return () => request.current?.abort() }, [load])
 
   const preview = useMemo(() => settings ? quotes(settings, { dest: { province: sim.province, city: sim.city }, weightGrams: num(sim.grams), itemRial: num(sim.itemRial) }) : [], [settings, sim])
 
-  if (!settings) return <div className="sa" dir="rtl">{notice ? <Notice tone="error">{notice.text}</Notice> : <div className="sa-skeleton" />}</div>
+  if (!settings) return <div className="sa" dir="rtl"><header className="sa-head"><h1>شرکت‌های حمل و تعرفهٔ ارسال</h1></header>{notice ? <Notice tone="error">{notice.text} <button type="button" className="sa-link" disabled={loading} onClick={() => void load()}>تلاش دوباره</button></Notice> : <p role="status" aria-busy="true">در حال دریافت تنظیمات ارسال…</p>}</div>
   const dirty = JSON.stringify(settings) !== saved
   const setCarrier = (id: string, patch: Partial<Carrier>) => setSettings({ ...settings, carriers: settings.carriers.map((item) => item.id === id ? { ...item, ...patch } : item) })
   const origin = { province: settings.originProvince, city: settings.originCity }
@@ -43,13 +56,15 @@ export default function ShippingCarriersPage() {
   }
 
   async function save() {
-    if (!settings) return
+    if (!settings || pending.current) return
+    pending.current = true
     setBusy(true); setNotice(null)
+    try {
     const response = await fetch('/api/admin/shipping/carriers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
-    setBusy(false)
-    if (!response?.ok) { setNotice({ tone: 'error', text: data?.error || 'ذخیره انجام نشد' }); return }
+    if (!response?.ok || !data?.settings || !Array.isArray(data.settings.carriers)) { setNotice({ tone: 'error', text: data?.error || 'نتیجهٔ ذخیره دریافت نشد؛ تنظیمات نوشته‌شده حفظ شده‌اند.' }); return }
     setSettings(data.settings); setSaved(JSON.stringify(data.settings)); setNotice({ tone: 'ok', text: 'ذخیره شد؛ از همین حالا در تکمیل سفارش اعمال می‌شود.' })
+    } finally { pending.current = false; setBusy(false) }
   }
 
   return <div className="sa" dir="rtl">
@@ -59,7 +74,7 @@ export default function ShippingCarriersPage() {
     </header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 
-    <div className="sa-cols">
+    <fieldset disabled={busy} className="gateway-controls"><legend className="sr-only">تنظیمات و محاسبهٔ ارسال</legend><div className="sa-cols">
       <div className="sa-stack">
         <section className="sa-card sa-form">
           <header className="sa-card-head"><h2>تنظیمات کلی</h2></header>
@@ -107,6 +122,6 @@ export default function ShippingCarriersPage() {
           {item.ok ? <><span>{ZONE_LABEL[item.zone]} · {etaLabel(item.etaMin, item.etaMax)}</span><strong>{item.collect ? (item.feeRial ? `پس‌کرایه + ${rial(item.feeRial)} ریال` : 'پس‌کرایه') : item.free ? 'رایگان' : `${rial(item.feeRial)} ریال`}</strong>{item.freeBy && <small className="sa-sub">{item.freeBy}</small>}</> : <span>{item.reason}</span>}
         </li>)}{!preview.length && <li className="is-off">هیچ روش ارسالی فعال نیست.</li>}</ul>
       </section>
-    </div>
+    </div></fieldset>
   </div>
 }

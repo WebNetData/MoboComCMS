@@ -1,10 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Notice, fa } from '../store/shared'
+import Link from '@/components/AppLink'
+import type { HealthAction } from '@/modules/operations/domain/health'
+import type { BackupHealth } from '@/modules/notifications/domain/backup-health'
 
 type Overview = {
   now: string
+  health: HealthAction[]
+  backup: BackupHealth
   system: { node: string; platform: string; cpus: number; load: number[]; memory: { total: number; free: number; rss: number; heapUsed: number; heapTotal: number }; uptime: number; disk: { total: number; free: number; usedPercent: number } | null; instance: string }
   database: { ok: boolean; pingMs: number; engine: string }
   cache: { backend: string; pingMs: number; configured: boolean; hits: number; misses: number; errors: number; hitRate: number; degraded?: boolean; degradedSince?: string | null; reconnectAttempts?: number; lastError?: string }
@@ -26,19 +31,30 @@ const vitalValue = (kind: string, value: number) => (kind === 'CLS' ? value.toLo
 const JOBS = [['images.optimize', 'بهینه‌سازی همهٔ تصاویر'], ['images.clear-cache', 'پاک‌کردن کش اندازهٔ تصاویر'], ['search.reindex', 'بازسازی نمایهٔ جست‌وجو']] as const
 const STATUS: Record<string, [string, string]> = { QUEUED: ['در صف', 'is-info'], RUNNING: ['در حال اجرا', 'is-warn'], DONE: ['انجام شد', 'is-ok'], FAILED: ['ناموفق', 'is-bad'] }
 
-function Meter({ value, warn = 75, bad = 90 }: { value: number; warn?: number; bad?: number }) {
-  return <span className={`mo-meter ${value >= bad ? 'is-bad' : value >= warn ? 'is-warn' : 'is-ok'}`} role="meter" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${Math.min(100, value)}%` }} /></span>
+function Meter({ value, label, warn = 75, bad = 90 }: { value: number; label: string; warn?: number; bad?: number }) {
+  return <span className={`mo-meter ${value >= bad ? 'is-bad' : value >= warn ? 'is-warn' : 'is-ok'}`} role="meter" aria-label={label} aria-valuenow={Math.min(100, value)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${Math.min(100, value)}%` }} /></span>
 }
 
 export default function Monitoring() {
   const [data, setData] = useState<Overview | null>(null)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState('')
+  const [loadError, setLoadError] = useState(false)
+  const request = useRef<AbortController | null>(null)
   const load = useCallback(async () => {
-    const response = await fetch('/api/admin/performance', { cache: 'no-store' }).catch(() => null)
-    if (response?.ok) setData(await response.json())
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current = controller
+    try {
+      const response = await fetch('/api/admin/performance', { cache: 'no-store', signal: controller.signal })
+      if (!response.ok) throw new Error('Monitoring unavailable')
+      const next = await response.json() as Overview
+      if (!controller.signal.aborted) { setData(next); setLoadError(false) }
+    } catch {
+      if (!controller.signal.aborted) setLoadError(true)
+    }
   }, [])
-  useEffect(() => { void load(); const timer = setInterval(() => void load(), 15_000); return () => clearInterval(timer) }, [load])
+  useEffect(() => { void load(); const timer = setInterval(() => void load(), 15_000); return () => { clearInterval(timer); request.current?.abort() } }, [load])
   async function act(body: Record<string, unknown>, done: string) {
     setBusy(String(body.kind || body.op)); setNotice(null)
     const response = await fetch('/api/admin/performance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
@@ -47,18 +63,31 @@ export default function Monitoring() {
     setNotice(response?.ok ? { tone: 'ok', text: body.op === 'purge-cdn' ? `کش CDN پاک شد: ${(result?.zones || []).join('، ')}` : done } : { tone: 'error', text: result?.error || 'انجام نشد' })
     void load()
   }
-  if (!data) return <div className="sa"><div className="sa-skeleton" aria-busy="true" /></div>
+  if (!data) return <div className="sa">{loadError ? <Notice tone="error">دریافت وضعیت سلامت ناموفق بود. <button type="button" className="sa-link" onClick={() => void load()}>تلاش دوباره</button></Notice> : <p role="status" aria-busy="true">در حال دریافت وضعیت سلامت…</p>}</div>
   const s = data.system
   const memUsed = Math.round(((s.memory.total - s.memory.free) / s.memory.total) * 100)
   const loadPct = Math.round((s.load[0] / Math.max(1, s.cpus)) * 100)
-  return <div className="sa" dir="rtl">
+  return <div className="sa monitoring-overview" dir="rtl">
     <header className="sa-head"><div><h1>پایش سرعت و سلامت سرور</h1><p className="sa-hint">به‌روزرسانی خودکار هر ۱۵ ثانیه · نمونهٔ {s.instance} · روشن از {uptime(s.uptime)} پیش</p></div></header>
+    {loadError && <Notice tone="error">به‌روزرسانی ناموفق بود؛ اطلاعات زیر مربوط به {clock(data.now)} است. <button type="button" className="sa-link" onClick={() => void load()}>تلاش دوباره</button></Notice>}
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 
+    <section className="sa-card" aria-labelledby="monitoring-actions-title">
+      <header className="sa-card-head"><h2 id="monitoring-actions-title">سلامت عملیاتی و اقدام‌های لازم</h2><small className="sa-sub">آخرین دریافت: {clock(data.now)}</small></header>
+      <ul className="mo-checks">
+        {(data.health || []).map(item => <li key={item.id} className={item.tone === 'danger' ? 'is-bad' : item.tone === 'warning' ? 'is-warn' : 'is-ok'}>
+          <b>{item.title}</b><p>{item.detail}</p><Link className="sa-link" href={item.href}>{item.action}</Link>
+        </li>)}
+      </ul>
+      {data.backup?.latestAt && <p className="sa-hint">آخرین فایل ثبت‌شده: {clock(data.backup.latestAt)} · آزمون بازیابی همان فایل: {data.backup.restoreTest === 'passed' ? 'موفق ثبت شده' : data.backup.restoreTest === 'failed' ? 'ناموفق ثبت شده' : 'تأیید نشده'}</p>}
+      <div className="sa-row"><Link className="btn btn-ghost" href="/admin/extensions">وضعیت و وابستگی افزونه‌ها</Link><Link className="btn btn-ghost" href="/admin/updates">بررسی سازگاری به‌روزرسانی</Link><Link className="btn btn-ghost" href="/admin/operations">رسیدگی به تحویل سفارش‌ها</Link></div>
+      <p className="sa-hint">این نما فقط وضعیت را می‌خواند؛ تلاش دوباره، آزمون بازیابی و به‌روزرسانی از ابزارهای مجاز هر بخش انجام می‌شوند.</p>
+    </section>
+
     <div className="sa-kpis">
-      <div className="sa-kpi"><small>بار پردازنده ({fa(s.cpus)} هسته)</small><b className="num">{fa(loadPct)}٪</b><Meter value={loadPct} warn={70} bad={100} /><span className="sa-sub">میانگین ۱/۵/۱۵ دقیقه: {s.load.map((n) => n.toLocaleString('fa-IR')).join(' / ')}</span></div>
-      <div className="sa-kpi"><small>حافظه</small><b className="num">{fa(memUsed)}٪</b><Meter value={memUsed} /><span className="sa-sub">برنامه: {MB(s.memory.rss)} از {GB(s.memory.total)}</span></div>
-      <div className="sa-kpi"><small>دیسک</small><b className="num">{s.disk ? `${fa(s.disk.usedPercent)}٪` : '—'}</b>{s.disk && <Meter value={s.disk.usedPercent} />}<span className="sa-sub">{s.disk ? `${GB(s.disk.free)} آزاد` : 'نامشخص'}</span></div>
+      <div className="sa-kpi"><small>بار پردازنده ({fa(s.cpus)} هسته)</small><b className="num">{fa(loadPct)}٪</b><Meter label="بار پردازنده" value={loadPct} warn={70} bad={100} /><span className="sa-sub">میانگین ۱/۵/۱۵ دقیقه: {s.load.map((n) => n.toLocaleString('fa-IR')).join(' / ')}</span></div>
+      <div className="sa-kpi"><small>حافظه</small><b className="num">{fa(memUsed)}٪</b><Meter label="مصرف حافظه" value={memUsed} /><span className="sa-sub">برنامه: {MB(s.memory.rss)} از {GB(s.memory.total)}</span></div>
+      <div className="sa-kpi"><small>دیسک</small><b className="num">{s.disk ? `${fa(s.disk.usedPercent)}٪` : '—'}</b>{s.disk && <Meter label="مصرف دیسک" value={s.disk.usedPercent} />}<span className="sa-sub">{s.disk ? `${GB(s.disk.free)} آزاد` : 'نامشخص'}</span></div>
       <div className="sa-kpi"><small>پایگاه داده ({data.database.engine})</small><b className={data.database.ok ? '' : 'mo-bad'}>{data.database.ok ? `${data.database.pingMs.toLocaleString('fa-IR')} ms` : 'قطع'}</b><span className="sa-sub">{fa(data.runtime.queries)} کوئری · میانگین {data.runtime.avgQueryMs.toLocaleString('fa-IR')} ms</span></div>
       <div className="sa-kpi"><small>کش ({data.cache.backend === 'redis' ? 'Redis' : 'حافظهٔ داخلی'})</small><b className="num">{fa(data.cache.hitRate)}٪ برخورد</b><span className="sa-sub">{data.cache.configured && data.cache.backend !== 'redis' ? '⚠ Redis تنظیم شده ولی در دسترس نیست' : data.cache.backend === 'redis' ? `پینگ ${data.cache.pingMs.toLocaleString('fa-IR')} ms` : 'برای چند سرور، REDIS_URL را تنظیم کنید'}</span></div>
     </div>
@@ -75,7 +104,7 @@ export default function Monitoring() {
     </section>
 
     <div className="mo-stack">
-      <section className="sa-card sa-table-wrap">
+      <section className="sa-card sa-table-wrap" id="monitoring-jobs">
         <header className="sa-card-head"><h2>صف کارهای سنگین</h2><small className="sa-sub">{Object.entries(data.queue.counts).map(([k, v]) => `${(STATUS[k] || [k])[0]}: ${fa(v)}`).join(' · ') || 'خالی'}</small></header>
         <div className="sa-row">{JOBS.map(([kind, label]) => <button key={kind} type="button" className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => void act({ op: 'job', kind }, `«${label}» در صف قرار گرفت و در پس‌زمینه اجرا می‌شود.`)}>{busy === kind ? '…' : label}</button>)}</div>
         <table className="data sa-table"><thead><tr><th>کار</th><th>وضعیت</th><th>زمان</th><th /></tr></thead><tbody>

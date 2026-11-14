@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 
@@ -53,7 +53,7 @@ const EMPTY = {
   fiat: 'TMN',
   currencies: '',
   feePercent: '',
-  minAmount: '',
+  minAmount: '0',
   instructions: '',
   active: true,
   isDefault: false,
@@ -71,32 +71,47 @@ export default function AdminGatewaysPage() {
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(false)
   const [testing, setTesting] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [working, setWorking] = useState(false)
+  const pending = useRef(false)
+  const request = useRef<AbortController | null>(null)
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/admin/gateways')
-    if (res.ok) {
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current = controller
+    setLoading(true); setLoadError('')
+    try {
+      const res = await fetch('/api/admin/gateways', { cache: 'no-store', signal: controller.signal })
       const data = await res.json()
-      setGateways(data.gateways || [])
-      setProviders(data.providers || [])
-    }
+      if (!res.ok || !Array.isArray(data.gateways) || !Array.isArray(data.providers)) throw new Error(data?.error || 'دریافت تنظیمات درگاه انجام نشد')
+      if (!controller.signal.aborted) { setGateways(data.gateways); setProviders(data.providers) }
+    } catch (error) {
+      if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : 'ارتباط با سرور برقرار نشد')
+    } finally { if (!controller.signal.aborted) setLoading(false) }
   }, [])
 
   useEffect(() => {
-    load()
+    void load()
+    return () => request.current?.abort()
   }, [load])
 
   const meta = (key: string) => providers.find((p) => p.key === key)
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
+    if (pending.current || loading || loadError) return
+    pending.current = true; setWorking(true)
     setMsg('')
+    try {
     const res = await fetch('/api/admin/gateways', {
       method: editId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editId ? { ...form, id: editId } : form),
     })
     const data = await res.json().catch(() => null)
-    if (!res.ok) {
+    if (!res.ok || !data?.id) {
       setMsgOk(false)
       setMsg(data?.error || t.errGeneric)
       return
@@ -106,24 +121,34 @@ export default function AdminGatewaysPage() {
     setEditId(null)
     setShowForm(false)
     setForm(EMPTY)
-    load()
+    await load()
+    } catch { setMsgOk(false); setMsg('ارتباط قطع شد؛ نتیجهٔ ذخیره مشخص نیست. پیش از ثبت دوباره، فهرست درگاه‌ها را تازه‌سازی و بررسی کنید.') }
+    finally { pending.current = false; setWorking(false) }
   }
 
   async function patch(id: number, body: Record<string, unknown>) {
+    if (pending.current) return
+    pending.current = true; setWorking(true)
     setMsg('')
+    try {
     const res = await fetch('/api/admin/gateways', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ...body }),
     })
     const data = await res.json().catch(() => null)
-    setMsgOk(res.ok)
-    if (!res.ok) setMsg(data?.error || t.errGeneric)
-    load()
+    setMsgOk(res.ok && !!data?.id)
+    if (!res.ok || !data?.id) setMsg(data?.error || t.errGeneric)
+    await load()
+    } catch { setMsgOk(false); setMsg('ارتباط قطع شد؛ وضعیت درگاه را پیش از تغییر دوباره، تازه‌سازی کنید.') }
+    finally { pending.current = false; setWorking(false) }
   }
 
   async function remove(id: number) {
+    if (pending.current) return
     if (!confirm(t.confirmDelete)) return
+    pending.current = true; setWorking(true)
+    try {
     const res = await fetch(`/api/admin/gateways?id=${id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => null)
     if (!res.ok) {
@@ -133,21 +158,27 @@ export default function AdminGatewaysPage() {
       setMsgOk(true)
       setMsg(t.gatewayDeactivatedInUse)
     }
-    load()
+    await load()
+    } catch { setMsgOk(false); setMsg('ارتباط قطع شد؛ وضعیت حذف یا غیرفعال‌شدن درگاه را با تازه‌سازی فهرست بررسی کنید.') }
+    finally { pending.current = false; setWorking(false) }
   }
 
   async function test(gw: Gateway) {
+    if (pending.current) return
+    pending.current = true; setWorking(true)
     setTesting(gw.id)
     setMsg('')
+    try {
     const res = await fetch('/api/admin/gateways', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: gw.id }),
     })
     const data = await res.json().catch(() => null)
-    setTesting(null)
-    setMsgOk(Boolean(data?.ok))
-    setMsg(data?.ok ? `${t.gwConnected} ${data?.detail || ''}` : `${t.gwFailed} ${data?.message || ''}`)
+    setMsgOk(res.ok && Boolean(data?.ok))
+    setMsg(res.ok && data?.ok ? `${t.gwConnected} ${data?.detail || ''}` : `${t.gwFailed} ${data?.message || ''}`)
+    } catch { setMsgOk(false); setMsg('نتیجهٔ بررسی اتصال دریافت نشد؛ دوباره تلاش کنید.') }
+    finally { pending.current = false; setWorking(false); setTesting(null) }
   }
 
   function edit(gw: Gateway) {
@@ -184,11 +215,18 @@ export default function AdminGatewaysPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link href="/admin/finance" className="btn btn-ghost">{t.financeAdmin}</Link>
-          <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(EMPTY); setShowForm((v) => !v) }}>
+          <button type="button" className="btn btn-ghost" disabled={working || loading} onClick={() => void load()}>تازه‌سازی فهرست</button>
+          <button className="btn btn-primary" disabled={working || loading || !!loadError} onClick={() => { setEditId(null); setForm(EMPTY); setShowForm((v) => !v) }}>
             {showForm ? t.cancel : `+ ${t.addGateway}`}
           </button>
         </div>
       </div>
+
+      {loadError && <div className="card mb-6" role="alert"><p>{loadError}</p><button type="button" className="btn btn-ghost" onClick={() => void load()} disabled={loading || working}>تلاش دوباره</button></div>}
+      {loading && <p role="status" aria-busy="true">در حال دریافت درگاه‌ها…</p>}
+      {!loading && !loadError && !gateways.length && <p className="card mb-6">هنوز درگاهی ثبت نشده است؛ برای دریافت وجه آنلاین، روش پرداخت موردنظر را اضافه و تنظیم کنید.</p>}
+      {msg && <p role="status" className={`${msgOk ? 'success-text' : 'error-text'} mb-4`}>{msg}</p>}
+      <fieldset disabled={working || loading || !!loadError} className="gateway-controls">
 
       <div className="card mb-6">
         <b>{isFa ? 'چند درگاه هم‌زمان' : 'Multiple active gateways'}</b>
@@ -318,8 +356,6 @@ export default function AdminGatewaysPage() {
         </form>
       )}
 
-      {msg && <p className={`${msgOk ? 'success-text' : 'error-text'} mb-4`}>{msg}</p>}
-
       {gateways.length > 0 && !gateways.some((g) => g.active && g.usable) && (
         <div className="card mb-6" style={{ borderColor: 'var(--warning)' }}>
           <b>⚠ {t.gwNoneUsable}</b>
@@ -358,7 +394,7 @@ export default function AdminGatewaysPage() {
             {g.currencies && <div className="muted text-xs mt-2 num" dir="ltr">{t.cryptoCurrencies}: {g.currencies}</div>}
 
             <div className="flex gap-2 flex-wrap mt-4">
-              <button className="btn btn-ghost imp-py-1-5" disabled={testing === g.id} onClick={() => test(g)}>
+              <button className="btn btn-ghost imp-py-1-5" disabled={working} onClick={() => test(g)}>
                 {testing === g.id ? t.testing : `🔌 ${t.testGateway}`}
               </button>
               <button className="btn btn-ghost imp-py-1-5" onClick={() => edit(g)}>✏️ {t.edit}</button>
@@ -372,13 +408,8 @@ export default function AdminGatewaysPage() {
             </div>
           </div>
         ))}
-        {gateways.length === 0 && (
-          <div className="card text-center py-10">
-            <p className="muted mb-3">{t.noGateways}</p>
-            <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ {t.addGateway}</button>
-          </div>
-        )}
       </div>
+      </fieldset>
     </div>
   )
 }

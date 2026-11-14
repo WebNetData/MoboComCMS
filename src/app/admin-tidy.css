@@ -182,7 +182,10 @@ html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-
 
 /* Actions under a page's title (e.g. the settings History link). */
 :where(.admin-shell) .xm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.admin-shell .livechat-settings .crm-filters button.is-active{background:color-mix(in srgb,var(--primary) 12%,var(--card));color:var(--text);border-color:var(--primary)}
+.admin-shell :is(.livechat-settings,.crm-customer-file) .crm-filters button.is-active{background:color-mix(in srgb,var(--primary) 12%,var(--card));color:var(--text);border-color:var(--primary)}
+.admin-shell .monitoring-overview .mo-bad{color:var(--admin-danger-text)}
+.admin-shell .gateway-controls{border:0;padding:0;margin:0;min-width:0}
+.admin-shell .cr-row.is-off{opacity:1}
 
 /* Customers list: the actions on one line; on a phone each customer is a card (email and name on top, labelled facts,
    then the actions) instead of a table that hides most of its columns. */

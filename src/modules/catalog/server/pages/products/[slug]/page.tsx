@@ -46,6 +46,7 @@ import { opensAudience } from '@/modules/account/server/item-audience'
 import { groupDeal } from '@/modules/account/server/user-groups'
 import { productFileAccess } from '@/modules/store/server/product-files'
 import ProductDownloads from '@/components/store/ProductDownloads'
+import { publishedPageLinks } from '@/modules/site/server/public-pages'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -138,6 +139,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
 
   const [viewer, vipOn, storeSettings, related, deliverySettings, checkoutGateways, loyalty] = await Promise.all([getViewer(), isModuleEnabled('membership'), getStoreSettings(), relatedProducts(product), getDeliverySettings(), listCheckoutGateways(product.currency).catch(() => []), getLoyaltySettings()])
   const installments = checkoutGateways.filter((gateway) => isInstallmentGateway(gateway.provider)).map((gateway) => ({ label: customerGatewayLabel(gateway), count: installmentConfig(gateway.config).installments }))
+  const purchaseGuides = await publishedPageLinks(storeSettings.purchaseGuidePageIds)
   if (!isPreview(preview)) countProductView(product.id)
   const deal = await groupDeal(viewer.userId, [product.id])
   const regular = unitPrice(product, null, viewer.member, undefined, deal)
@@ -193,6 +195,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
         variants={buyVariants} axes={variantAxes}
         vip={{ enabled: vipOn, member: viewer.member, access: product.access, giftDays: vipOn ? product.vipGiftDays : 0 }}
         warranty={product.warranty} badges={storeSettings.badges} shipping={shippingNote}
+        purchaseGuides={purchaseGuides}
         installments={installments} club={loyalty.enabled && loyalty.earnPoints > 0 ? { earnPoints: loyalty.earnPoints, earnStepToman: loyalty.earnStepToman } : null}
         orderFields={readOrderFields(product.orderFields)}
         open={product.openAmount ? { currencies: openCurrenciesOf(product), min: product.openMinMinor > 0n ? (Number(product.openMinMinor) / 100).toString() : '', max: product.openMaxMinor > 0n ? (Number(product.openMaxMinor) / 100).toString() : '' } : null}

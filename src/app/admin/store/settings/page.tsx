@@ -6,10 +6,12 @@ import CoverField from '../../cms/CoverField'
 import type { StoreSettings } from '@/modules/store/domain/store'
 import { Notice, StoreShell, send, useJson } from '../shared'
 import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
+import PurchaseGuides from './PurchaseGuides'
+import type { PublicPageLink } from '@/modules/site/server/public-pages'
 
 /** Storefront merchandising: landing slides, promo banners, offer title, badges and thresholds. */
 export default function StoreSettingsPage() {
-  const { data, error } = useJson<{ settings: StoreSettings; settingsRevision?: string }>('/api/admin/store/settings')
+  const { data, error } = useJson<{ settings: StoreSettings; settingsRevision?: string; purchaseGuidePages: PublicPageLink[] }>('/api/admin/store/settings')
   const [revision, setRevision] = useState('')
   const [form, setForm] = useState<StoreSettings | null>(null)
   const [busy, setBusy] = useState(false)
@@ -36,6 +38,7 @@ export default function StoreSettingsPage() {
   return <StoreShell title="ویترین فروشگاه" actions={<><SectionSettingsHistoryLink section="storefront" /><Link href="/products" target="_blank" className="btn btn-ghost">پیش‌نمایش</Link><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
     {result && <Notice tone={result.tone}>{result.text}</Notice>}
     <div className="sa-stack">
+      <PurchaseGuides ids={form.purchaseGuidePageIds} pages={data?.purchaseGuidePages || []} disabled={busy} onChange={ids => update('purchaseGuidePageIds', ids)} />
       <section className="sa-card">
         <header className="sa-card-head"><h2>اسلایدر صفحهٔ اصلی فروشگاه</h2><button type="button" className="btn btn-ghost btn-sm" disabled={form.slides.length >= 8} onClick={() => update('slides', [...form.slides, { image: '', title: '', subtitle: '', href: '', cta: '' }])}>+ اسلاید</button></header>
         <p className="sa-hint">بدون اسلاید، بخش معرفی فروشگاه نمایش داده می‌شود. اندازهٔ پیشنهادی تصویر: ۱۶۰۰×۵۰۰.</p>

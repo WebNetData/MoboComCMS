@@ -4,6 +4,8 @@ import { db } from '@/platform/database/prisma'
 import { cacheStats, kv, kvHealth } from '@/platform/cache/kv'
 import { metricsSnapshot } from '@/platform/observability/metrics'
 import { queueOverview } from '@/modules/operations/server/queue'
+import { backupHealth } from '@/modules/notifications/server/backup-status'
+import { healthActions } from '@/modules/operations/domain/health'
 
 /**
  * The monitoring page: server health (CPU, memory, disk), database and cache
@@ -70,11 +72,13 @@ async function database() {
 
 export async function monitoringOverview() {
   const store = await kv()
-  const [db_, diskInfo, cachePing, queue, fulfillment, leases, perf] = await Promise.all([
+  const [db_, diskInfo, cachePing, queue, fulfillment, leases, perf, backup, stalledJobs] = await Promise.all([
     database(), disk(), store.ping(), queueOverview(),
     db.fulfillmentJob.groupBy({ by: ['status'], _count: { _all: true } }).catch(() => []),
     db.setting.findMany({ where: { key: { startsWith: 'lease.' } } }).catch(() => []),
     vitals(),
+    backupHealth(),
+    db.backgroundJob.count({ where: { status: 'RUNNING', lockedAt: { lt: new Date(Date.now() - 10 * 60_000) } } }),
   ])
   // A configured Redis that does not answer: since when, how many tries, the last error (kv.ts reconnects by itself).
   const { degraded, degradedSince, attempts: reconnectAttempts, lastError } = await kvHealth()
@@ -83,6 +87,8 @@ export async function monitoringOverview() {
   const total = cacheStats.hits + cacheStats.misses
   return {
     now: new Date().toISOString(),
+    backup,
+    health: healthActions({ database: db_.ok, cacheDegraded: degraded, failedJobs: queue.counts.FAILED || 0, stalledJobs, backup }),
     system: {
       node: process.version, platform: `${os.type()} ${os.release()}`, cpus: os.cpus().length, load: os.loadavg().map((n) => Math.round(n * 100) / 100),
       memory: { total: os.totalmem(), free: os.freemem(), rss: memory.rss, heapUsed: memory.heapUsed, heapTotal: memory.heapTotal },

@@ -56,13 +56,13 @@ export async function POST(req: NextRequest) {
   const provider = PROVIDERS.some((item) => item.key === requestedProvider) ? requestedProvider : 'PLISIO'
   const makeDefault = b?.isDefault === true
 
-  if (makeDefault) await db.gateway.updateMany({ data: { isDefault: false } })
-
   const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
   const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b?.feePercent) || 0) * 100)))
   let minAmountMinor: bigint
   try { minAmountMinor = toMinor(String(b?.minAmount ?? '0'), fiat) } catch (e) { return err(e instanceof Error ? e.message : 'invalid minimum') }
-  const gw = await db.gateway.create({
+  const gw = await db.$transaction(async tx => {
+    if (makeDefault) await tx.gateway.updateMany({ data: { isDefault: false } })
+    return tx.gateway.create({
     data: {
       name,
       provider,
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       isDefault: makeDefault,
       sortOrder: Number(b?.sortOrder) || 0,
     },
+    })
   })
   return ok(sanitize(gw))
 }
@@ -129,12 +130,13 @@ export async function PATCH(req: NextRequest) {
     } catch (e) { return err(e instanceof Error ? e.message : 'invalid minimum') }
   }
 
-  if (b?.isDefault === true) {
-    await db.gateway.updateMany({ data: { isDefault: false } })
-    data.isDefault = true
-  }
-
-  const gw = await db.gateway.update({ where: { id }, data })
+  const gw = await db.$transaction(async tx => {
+    if (b?.isDefault === true) {
+      await tx.gateway.updateMany({ data: { isDefault: false } })
+      data.isDefault = true
+    }
+    return tx.gateway.update({ where: { id }, data })
+  })
   return ok(sanitize(gw))
 }
 

@@ -11,6 +11,14 @@ type Dashboard = {
   worst: { id: number; title: string; cover: string; issues: string[] }[]
   topViewed: { id: number; slug: string; title: string; cover: string; views: number; comments: number }[]
   scheduledList: { id: number; title: string; cover: string; at: string }[]
+ editorialCalendar: {
+  days: { day: string; count: number; posts: { id: number; title: string; cover: string; at: string; issues: { key: string; label: string }[] }[] }[]
+  scheduledCount: number
+  checkedCount: number
+  limit: number
+  hasMore: boolean
+  quality: { id: number; title: string; at: string; issues: { key: string; label: string }[] }[]
+ }
   pending: { id: number; body: string; author: string; post: string; createdAt: string }[]
   categories: { name: string; count: number }[]
   authors: { name: string; posts: number; views: number }[]
@@ -58,10 +66,22 @@ export default function JournalDashboardPage() {
             <header className="sa-card-head"><h2>پربازدیدترین مطالب</h2></header>
             {data.topViewed.length ? <ul className="sa-rank">{data.topViewed.map((row) => <li key={row.id}>{row.cover ? <img src={row.cover} alt="" /> : <span className="sa-ph" />}<span className="sa-grow"><a href={`/blog/${row.slug}`} target="_blank" rel="noreferrer"><b>{row.title}</b></a><small className="num">{fa(row.views)} بازدید · {fa(row.comments)} دیدگاه</small></span></li>)}</ul> : <p className="sa-hint">هنوز مطلبی منتشر نشده است.</p>}
           </section>
-          {data.scheduledList.length > 0 && <section className="sa-card">
-            <header className="sa-card-head"><h2>انتشارهای زمان‌بندی‌شده</h2></header>
-            <ul className="sa-rank">{data.scheduledList.map((row) => <li key={row.id}>{row.cover ? <img src={row.cover} alt="" /> : <span className="sa-ph" />}<span className="sa-grow"><b>{row.title}</b><small>{faDate(row.at)}</small></span></li>)}</ul>
-          </section>}
+          <section className="sa-card">
+            <header className="sa-card-head"><h2>تقویم انتشار ۱۴ روز آینده</h2><Link href="/admin/posts?state=scheduled" className="sa-link">همه زمان‌بندی‌ها</Link></header>
+            {data.editorialCalendar.scheduledCount === 0 ? <p className="sa-hint">برای ۱۴ روز آینده انتشاری زمان‌بندی نشده است.</p> : <>
+              {data.editorialCalendar.hasMore && <p className="sa-hint">جزئیات {fa(data.editorialCalendar.checkedCount)} مورد از {fa(data.editorialCalendar.scheduledCount)} انتشار نزدیک نمایش داده شده است؛ شمار هر روز کامل است.</p>}
+              <div className="sa-stack">{data.editorialCalendar.days.filter((day) => day.count > 0).map((day) => <section key={day.day}>
+                <header className="sa-card-head"><h3>{faDate(`${day.day}T12:00:00.000Z`)}</h3><small>{fa(day.count)} انتشار</small></header>
+                {day.posts.length ? <ul className="sa-rows">{day.posts.map((row) => <li key={row.id}><Link href={`/admin/posts?edit=${row.id}`}>
+                  {row.cover ? <img src={row.cover} alt="" className="ga-thumb" /> : <span className="sa-ph" />}
+                  <span className="sa-grow"><b>{row.title}</b><small>{faDate(row.at)}</small></span>
+                  <span className="sa-link">ویرایش</span>
+                </Link></li>)}</ul> : <p className="sa-hint">جزئیات این روز در نمونهٔ محدود نمایش داده نشده است.</p>}
+              </section>)}</div>
+              <p className="sa-hint">از {fa(data.editorialCalendar.checkedCount)} موردِ بررسی‌شده، {fa(data.editorialCalendar.quality.length)} مورد یکی از شاخص‌های موجود کیفیت را ندارند.</p>
+              {data.editorialCalendar.quality.length > 0 && <ul className="sa-rows">{data.editorialCalendar.quality.map((row) => <li key={row.id}><Link href={`/admin/posts?edit=${row.id}`}><span className="sa-grow"><b>{row.title}</b><small>{faDate(row.at)} · {row.issues.map((issue) => issue.label).join('، ')}</small></span><span className="sa-link">بررسی</span></Link></li>)}</ul>}
+            </>}
+          </section>
           <section className="sa-card">
             <header className="sa-card-head"><h2>دسته‌بندی‌ها</h2><Link href="/admin/postcats" className="sa-link">مدیریت</Link></header>
             {data.categories.length ? <ul className="sx-bars">{data.categories.map((row) => <li key={row.name}><span>{row.name}</span><span className="sx-bar" aria-hidden="true"><i style={{ width: `${(row.count / maxCat) * 100}%` }} /></span><b className="num">{fa(row.count)}</b></li>)}</ul> : <p className="sa-hint">مطلبی دسته‌بندی نشده است.</p>}

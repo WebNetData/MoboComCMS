@@ -6,6 +6,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { runBackupWorker, runBackupScript, backupRunning } from '@/modules/notifications/server/backup-scheduler'
+import { listBackupManifests } from '@/modules/notifications/server/backup-status'
 const KEY = 'operations.backup.config'
 const STATE = 'operations.backup.state'
 const ID = /^backup-\d{13}-[a-f0-9]{12}$/
@@ -13,22 +14,6 @@ const defaults = { enabled:false, telegramEnabled:false, chatId:'', retentionDay
 
 function backupDir() {
   return path.resolve(process.env.BACKUP_DIR || 'storage/backups')
-}
-
-/** Manifests written by the worker; newest first, bounded for the panel. */
-async function listBackups() {
-  const dir = backupDir()
-  let files: string[] = []
-  try { files = await fs.readdir(dir) } catch { return [] }
-  const items = []
-  for (const file of files) {
-    if (!file.endsWith('.json') || !ID.test(file.slice(0, -5))) continue
-    try {
-      const meta = JSON.parse(await fs.readFile(path.join(dir, file), 'utf8'))
-      if (meta?.id === file.slice(0, -5) && Number.isFinite(Date.parse(meta.createdAt))) items.push(meta)
-    } catch {}
-  }
-  return items.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 50)
 }
 
 async function mergeState(patch: Record<string, unknown>) {
@@ -46,7 +31,7 @@ function parseResult(stdout: string) {
 
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req,'settings.manage')) return err('forbidden',403)
-  const [config,state,backups] = await Promise.all([db.setting.findUnique({where:{key:KEY}}),db.setting.findUnique({where:{key:STATE}}),listBackups()])
+  const [config,state,backups] = await Promise.all([db.setting.findUnique({where:{key:KEY}}),db.setting.findUnique({where:{key:STATE}}),listBackupManifests()])
   return ok({
     config: config ? JSON.parse(config.value) : defaults,
     state: state ? JSON.parse(state.value) : null,
