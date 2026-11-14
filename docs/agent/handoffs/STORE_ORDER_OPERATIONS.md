@@ -4,8 +4,10 @@ Owner authorized opening catalog/settings + a controlled purchase, delivery
 amendments, connected exchange, return quarantine, packing/handoff checklist and
 reorder. Authoritative checkout `.mobocom/platform-integration`, branch
 `feat/store-opening-controls-2026-11-14`, base sealed opening controls
-`faa556fbdfe1f92afcbb12ca9f7d3d77767f85e9`. This batch is **locally implemented and verified**; the local commit receipt follows below.
-No publication or deployment is authorized by this continuation.
+`faa556fbdfe1f92afcbb12ca9f7d3d77767f85e9`. This batch is **locally implemented and verified**.
+Implementation/evidence commit: `24c38b1592b3d4fff25c5c5221152aec27e56fe0`
+(66 files); the worktree was clean after that commit. This status-only receipt
+follows it. No publication or deployment is authorized by this continuation.
 Preserve other checkouts and prior `e7811335`/`faa556fb` receipts.
 [Compact spec](../../specs/store-order-operations/SPEC.md) ·
 [Operator guide](../../STORE-OPENING-FA.md).
