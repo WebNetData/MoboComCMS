@@ -25,7 +25,7 @@ const SETTINGS_KEY = 'store.merchandising.v1'
 
 export async function getStoreSettings(): Promise<StoreSettings> {
   const stored = await readJsonSetting(SETTINGS_KEY)
-  return stored ? normalizeStoreSettings(stored, DEFAULT_STORE_SETTINGS) : structuredClone(DEFAULT_STORE_SETTINGS)
+  return normalizeStoreSettings(stored ?? {}, DEFAULT_STORE_SETTINGS)
 }
 
 const storefrontHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-storefront', raw => normalizeStoreSettings(raw || {}, DEFAULT_STORE_SETTINGS), settings => ({ slides: settings.slides.length, banners: settings.banners.length }), { action: 'store.settings.update', targetId: 0 })

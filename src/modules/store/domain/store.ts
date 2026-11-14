@@ -250,6 +250,8 @@ export type StoreSettings = {
   giftWrapEnabled: boolean
   /** Trust badges under the product buy box. */
   badges: string[]
+  /** Owner-selected CMS Pages shown beside purchasing information; public pages only. */
+  purchaseGuidePageIds: number[]
   /** Free-text note under the cart total (return policy, shipping note…). */
   cartNote: string
   /**
@@ -283,6 +285,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   giftOrdersEnabled: false,
   giftWrapEnabled: false,
   badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
+  purchaseGuidePageIds: [],
   cartNote: '',
   staffDeliveryHours: 24,
   deliveredNote: 'این اطلاعات فقط به شما نشان داده می‌شود. اگر اکانت است، پس از ورود رمز را عوض کنید و آن را با کسی در میان نگذارید.'
@@ -348,6 +351,7 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     giftOrdersEnabled: raw.giftOrdersEnabled === undefined ? base.giftOrdersEnabled : raw.giftOrdersEnabled === true,
     giftWrapEnabled: raw.giftWrapEnabled === undefined ? base.giftWrapEnabled : raw.giftWrapEnabled === true,
     badges,
+    purchaseGuidePageIds: raw.purchaseGuidePageIds === undefined ? base.purchaseGuidePageIds ?? [] : [...new Set(list(raw.purchaseGuidePageIds).filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0))].slice(0, 6),
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
     deliveredNote: raw.deliveredNote === undefined ? base.deliveredNote ?? DEFAULT_STORE_SETTINGS.deliveredNote : cleanText(raw.deliveredNote, 300),
     staffDeliveryHours: (() => { const hours = raw.staffDeliveryHours === undefined ? base.staffDeliveryHours ?? DEFAULT_STORE_SETTINGS.staffDeliveryHours : Math.floor(Number(raw.staffDeliveryHours)); return Number.isSafeInteger(hours) && hours >= 0 && hours <= 720 ? hours : base.staffDeliveryHours ?? DEFAULT_STORE_SETTINGS.staffDeliveryHours })(),

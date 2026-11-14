@@ -1,5 +1,90 @@
 # Store opening basics — 2026-11-14
 
+## Essential pages and purchasing information — continuation 2026-11-14
+
+Owner accepted the five proposed opening basics, with essential pages and
+product information first. Same authoritative checkout/branch; this continuation
+starts after `5712455d` / documentation receipt `e95f513`. Local development only;
+no owner data, deployment settings, publication or provider was changed.
+
+### Implemented and verified
+
+- Existing Store merchandising settings add `purchaseGuidePageIds`: up to6
+  ordered, unique positive numeric CMS Page IDs, default empty. The existing
+  storefront settings form selects/reorders/removes published pages; existing
+  revision claims, history, audit, `settings.manage`/`cms.products` and Store
+  module guards remain. Draft titles/content are not supplied to Store managers.
+- Site owns `server/public-pages.ts`: minimal public title/address projections,
+  current publication and slug resolution, preserved order. Draft/deleted Pages
+  disappear from public links without destroying the saved selection; a public
+  optional read failure omits links. Admin read failure still fails visibly.
+- Catalog's product page supplies these links to the existing BuyBox. The
+  «پیش از خرید بخوانید» navigation uses current Store tokens, keyboard focus and
+  ordinary canonical Page links. Empty configuration produces no extra panel.
+  Native selects have explicit labels so option text is not their field name.
+- The first empty storefront settings save exposed an existing revision bug:
+  the read returned the default object in a different key order from the write's
+  normalization. `getStoreSettings` now always uses the same normalizer; the
+  normal current revision succeeds and a stale one is still refused. No claim
+  check or history rule was weakened.
+- No migration/dependency, second Page store, policy engine, notification system
+  or readiness dashboard. Old settings/snapshots remain readable. The private
+  settings GET adds only published Page options; public API contracts are intact.
+
+Fresh disposable `mobocom_guides_test_20261114`,200 migrations, private Prisma,
+no `.env`, UID1000. Registered `store-purchase-guides.connected.cjs` passed real
+Store-only staff access, no draft-title leak, first/current save, stale409,
+ordered public projection, slug/draft/delete changes and injected read failures.
+Removing publication filtering in the disposable source made the private-title
+assertion fail; original source was restored and the suite passed. The initial
+fault attempt lacked write ownership after Docker copy; only the exact temporary
+file was assigned UID1000 before repeating. Product source was never faulted.
+
+`store-v2.test.cjs`:17 passed. Final TS7, source2874, architecture and security
+gates passed. Semgrep local rule scanned8 TS/TSX files with0 findings; its existing
+rule-path warning remains. Doctor's3-page review:0 blocking errors/17 reviewed
+warnings; final new-selector review:0 errors/2 bounded lookup warnings (six
+selected IDs), no suppression. Other warnings concern existing BuyBox effects,
+numeric inputs, formatters and settings editor lists, not new guide behavior.
+
+Actual `store-purchase-guides.browser.cjs`: Admin selected and saved5 synthetic
+published pages, then product → legal guide by keyboard → footer → contact,
+configured phone/hours and guest403.12 actual1440light/dark and390dark captures:
+scoped axe0, overflow0, page errors0. Four representative images were inspected.
+The empty configuration baseline has no panel. An initial cold navigation failed
+with transport retries; an over-broad select label was fixed explicitly. The
+hours assertion originally expected a separate text node although its parent
+also contains the label; the assertion was corrected. Resumed capture kept the
+already-proven saved settings rather than repeating the write. This is combined
+evidence, not a whole-site or uninterrupted full-suite claim.
+
+Final proof matched all9 application source hashes; five selected guides and
+the fixture's1 user/6 Pages were retained after native cleanup, money rows0.
+Task preview's3 exact-cwd processes and verified tunnel stopped; named disposable
+DB/runtime/private client/env/sessions/TLS/archive removed; original app readiness
+and session both200. Ignored receipts: `var/purchase-guides-20261114/`.
+Changed20-file payload passed redacted Gitleaks with0 findings; whitespace and
+generated14-document knowledge consistency passed. Graphify has no corpus in
+this worktree; no graph/runtime inference was claimed. Exact source owners and
+the executed native/browser gates are the evidence.
+
+### Five requested basics: current scope and remaining work
+
+| Area | Verified state | Remaining |
+| --- | --- | --- |
+| Essential pages/contact/footer | CMS Pages/company/legal templates and navigation already existed; synthetic published pages, footer/contact paths and phone/hours exercised here. | Real phone/address/hours and approved warranty/return text were requested asynchronously and not supplied. No real Page was overwritten/published. |
+| Product information | Existing product warranty/specifications/delivery facts plus newly configured Page guides, persisted and browsed. | Real photos/specifications/terms need the owner's catalog data. Existing hard-coded TrustStrip seven-day returns/support wording in `components/store/Storefront.tsx` remains unmodified pending policy reconciliation; guide links do not certify those promises. |
+| Order confirmation/tracking | Source audit: `store/server/pages/my-orders.tsx` and existing customer-order owner provide status, invoice, delivery timeline and ReturnPanel. Prior Store/launch evidence remains attributed below. | No new order-purchase browser rerun in this Page-link slice. |
+| Essential notifications | Source audit: Billing settlement → `invoicePaidEvent`/deduped durable inbox/channel jobs and `ADMIN_ORDER` SMS; Store transition and Shipping tracking emit customer events. Existing Admin notifications/SMS settings remain owners. | Actual SMS/email delivery and intended staff recipients were not configured or sent. Source presence is not provider proof. |
+| Public navigation/mobile | Existing header/footer discovery and related fixture paths exercised at both themes/widths; no parallel menu/configuration. | No complete production link/empty-section/search crawl claimed. Existing Search evidence is historical. Owner menu choices are preserved. |
+
+Continue with the missing real content values and the existing Pages/Studio
+owners. Do not infer their approval from «ادامه بده», invent a phone/guarantee or
+publish seed sample policy. Rollback this scoped source slice while retaining
+Page, Settings and revision rows; older readers ignore the optional IDs.
+
+## Earlier launch setup slice
+
 Owner authorized the existing launch essentials after explicitly deferring the
 advanced proposal backlog. Continue the authoritative checkout
 `.mobocom/platform-integration`, branch `feat/platform-integration-2026-11-14`,

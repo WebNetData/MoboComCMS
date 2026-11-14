@@ -1,5 +1,29 @@
 # Opening basics — 2026-11-14
 
+## Authorized continuation: essential pages and purchase guidance
+
+Owner accepted essential public pages, product information, order clarity,
+notifications and public navigation review. Continue CMS Pages/company templates,
+Store merchandising/settings history and existing public navigation; published
+legal text and contact values belong to the owner. Missing real contact/policy
+content is requested asynchronously; do not invent it or publish a new promise.
+
+Verified bounded gap: product purchasing information has warranty/delivery facts
+and configurable badges but no owner-selectable route to the full CMS purchase
+documents. Extend existing StoreSettings with up to6 ordered Page IDs, default
+empty. Store managers see only published Page titles/addresses; existing CMS
+permissions retain drafts/editing. Resolve current slug/publication on each
+product request, omit draft/deleted Pages, preserve stored selections and history.
+No second Page store, readiness dashboard or hard-coded support/refund promise.
+
+Existing storefront Admin adds the selector beside its own settings; buy-box
+layout/tokens/URLs remain intact. Empty configuration adds no public panel.
+Acceptance: real settings permission/revision/persistence, ordered public-only
+links, draft/delete/slug changes, stale-write refusal; actual Admin save and
+public product → guide/contact/footer navigation at1440 light/dark and390.
+Audit remaining proposed basics through their current owners and record
+existing/source-verified versus newly executed/provider-dependent evidence.
+
 Owner selected essentials for opening the site, not the preserved advanced
 backlog. Continue `.mobocom/platform-integration` and existing Catalog, Store,
 Billing, Shipping, Forms, Identity and Notifications owners. The earlier

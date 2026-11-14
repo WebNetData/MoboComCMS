@@ -18,6 +18,7 @@ import { toMinor } from '@/shared/money'
 import { variantOption } from '@/modules/store/domain/store'
 import { useSite } from '@/components/site/SiteProvider'
 import { fieldsFor, type OrderField } from '@/modules/store/domain/order-inputs'
+import type { PublicPageLink } from '@/modules/site/server/public-pages'
 
 export type BuyVariant = { id: number; name: string; attributes: Record<string, string>; price: number; listPrice: number; memberPrice: number; stock: number; limit: number; image?: string }
 
@@ -49,6 +50,7 @@ export type BuyBoxProps = {
   warranty: string
   badges: string[]
   shipping: string
+  purchaseGuides?: PublicPageLink[]
   /** Active installment gateways ("خرید اقساطی") and their shown number of parts. */
   installments?: { label: string; count: number }[]
   /** Customer club earning rule (points per spent Toman), when the club is on. */
@@ -297,6 +299,7 @@ export default function BuyBox(props: BuyBoxProps) {
       {error && <CheckoutError code={error.code} message={error.message} needed={error.needed} currency={error.currency || props.currency} />}
     </div>
 
+    {!!props.purchaseGuides?.length && <nav className="sx-purchase-guides" aria-label="راهنمای خرید"><h2>پیش از خرید بخوانید</h2><ul>{props.purchaseGuides.map(page => <li key={page.id}><Link href={page.href}>{page.title}</Link></li>)}</ul></nav>}
     {props.badges.length > 0 && <ul className="sx-badges">{props.badges.map((badge) => <li key={badge}><StoreIcon name="check" size={14} />{badge}</li>)}</ul>}
   </div>
 }
