@@ -18,7 +18,8 @@
     "/cart",
     "/checkout/cart",
     "/track",
-    "/quote"
+    "/quote",
+    "/shared-cart"
   ],
   "adminPaths": [
     "/admin/store",

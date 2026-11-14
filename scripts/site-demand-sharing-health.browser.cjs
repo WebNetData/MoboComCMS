@@ -1,0 +1,172 @@
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict')
+const { chromium, expect: originalExpect } = require('@playwright/test')
+const { PrismaClient } = require(process.env.DEMAND_PRISMA || '@prisma/client')
+const expect = originalExpect.configure({ timeout: 60000 }), db = new PrismaClient()
+const fixture = JSON.parse(fs.readFileSync(process.env.DEMAND_FIXTURE)), output = process.env.DEMAND_OUTPUT
+assert.equal(new URL(process.env.DATABASE_URL).pathname, '/mobocom_demand_test_20261114')
+assert.equal(fixture.baseURL, 'https://localhost:3123')
+assert.equal(process.env.MOBOCOM_ISOLATED_FIXTURE, '1')
+const qualityOnly = process.env.DEMAND_PHASE === 'quality'
+const healthOnly = process.env.DEMAND_PHASE === 'health'
+const visualOnly = process.env.DEMAND_PHASE === 'visual' || healthOnly
+const evidence = qualityOnly || visualOnly ? JSON.parse(fs.readFileSync(path.join(output, 'result.json'))) : { complete: false, operations: [], views: [], pageErrors: [] }
+if (qualityOnly) assert.equal(evidence.operations.length, 2, 'Complete request/cart journeys before quality continuation')
+if (visualOnly) {
+  assert(evidence.operations.includes('source owner revoked share; recipient refused'), 'Complete business journeys before visual continuation')
+  evidence.views = evidence.views.filter(view => !(healthOnly ? ['link-health'] : ['link-health', 'request-admin', 'shared-cart']).includes(view.name))
+  evidence.complete = false
+}
+fs.mkdirSync(output, { recursive: true })
+const record = () => fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(evidence, null, 2))
+async function main() {
+  const browser = await chromium.launch({ headless: true })
+  const contexts = []
+  async function open(role, width = 1440, theme = 'light') {
+    const context = await browser.newContext({ baseURL: fixture.baseURL, ignoreHTTPSErrors: true, viewport: { width, height: 1000 }, locale: 'fa-IR', timezoneId: 'Asia/Tehran', reducedMotion: 'reduce', colorScheme: theme })
+    contexts.push(context)
+    await context.addCookies([...(fixture[role + 'Cookies'] || []), { name: 'theme', value: theme, url: fixture.baseURL }])
+    await context.route('**/*', route => new URL(route.request().url()).origin === fixture.baseURL ? route.continue() : route.abort())
+    const page = await context.newPage()
+    page.on('pageerror', error => { evidence.pageErrors.push(error.message.replace(/[a-f0-9]{48}/g, '[private]')); record() })
+    async function visit(url) { const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 }); assert.equal(response.status(), 200); await expect(page.getByRole('button', { name: /^حالت کم‌مصرف/ }).first()).toBeEnabled() }
+    async function post(url, data) { const response = await context.request.post(url, { headers: { Origin: fixture.baseURL }, data }); return { status: response.status(), body: await response.json() } }
+    async function capture(name, root = page.locator('main')) {
+      if (evidence.views.some(view => view.name === name && view.width === width && view.theme === theme && !view.overflow && !view.violations.length)) return
+      await expect(root).toBeVisible(); await page.evaluate(() => document.fonts.ready)
+      await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') })
+      const violations = await root.evaluate(async element => (await window.axe.run(element, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] } })).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) })))
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)
+      evidence.views.push({ name, width, theme, violations, overflow }); record()
+      await page.screenshot({ path: path.join(output, `${name}-${width}-${theme}.png`), fullPage: true, animations: 'disabled' })
+      assert.deepEqual(violations, [], name + ' accessibility'); assert.equal(overflow, false, name + ' overflow')
+      console.log(`${name} ${width}/${theme} passed`)
+    }
+    return { context, page, visit, post, capture }
+  }
+  async function capturePresentation(sharePath, demandId) {
+    for (const [width, theme] of [[1440, 'light'], [1440, 'dark'], [390, 'dark']]) {
+      const view = await open('staff', width, theme)
+      await view.visit('/admin/downloads/health')
+      await expect(view.page.getByLabel('فاصلهٔ بررسی، ساعت')).toHaveValue('12')
+      await view.capture('link-health', view.page.getByRole('region', { name: 'پایش سلامت لینک‌ها', exact: true }))
+      if (healthOnly) { await view.context.close(); continue }
+      await view.visit('/admin/content-requests')
+      await view.page.getByLabel('بخش', { exact: true }).selectOption('games')
+      await expect(view.page.locator(`#demand-${demandId}`)).toBeVisible()
+      await view.capture('request-admin', view.page.getByRole('region', { name: 'میزکار درخواست کالا و محتوا' }))
+      await view.visit(sharePath)
+      await expect(view.page.getByRole('checkbox', { name: /قیمت‌های فعلی/ })).toBeEnabled()
+      await view.capture('shared-cart')
+      await view.context.close()
+    }
+    if (healthOnly) return
+    const dark = await open('buyer', 1440, 'dark')
+    await dark.visit('/games')
+    await dark.page.getByRole('region', { name: 'درخواست کالا یا محتوا', exact: true }).getByRole('button', { name: /ثبت درخواست/ }).click()
+    await dark.page.getByRole('dialog').locator('input').fill('بازی ساختگی بررسی ظاهر فرم')
+    await dark.capture('request-dialog', dark.page.getByRole('dialog'))
+    await dark.context.close()
+  }
+  try {
+    const buyer = await open('buyer')
+    if (visualOnly) {
+      const demand = healthOnly ? null : await db.contentDemand.findFirstOrThrow({ where: { status: 'FULFILLED', supporters: { some: { userId: fixture.buyerId } } }, orderBy: { id: 'desc' } })
+      const share = healthOnly ? null : await buyer.post('/api/cart/share', { title: 'ترکیب پیشنهادی لپ‌تاپ ساختگی' })
+      if (share) assert.equal(share.status, 201)
+      await capturePresentation(share?.body.href || '', demand?.id || 0)
+      if (share) assert.equal((await buyer.post('/api/cart/share', { action: 'revoke', id: share.body.id, version: share.body.version })).status, 200)
+      assert.deepEqual(evidence.pageErrors, [])
+      evidence.complete = true; record(); console.log('Completed scoped presentation acceptance without repeating business writes'); return
+    }
+    const recipient = await open('recipient', 390, 'dark'), staff = await open('staff')
+    let demand, sharePath
+    if (qualityOnly) {
+      demand = await db.contentDemand.findFirstOrThrow({ where: { status: 'FULFILLED', supporters: { some: { userId: fixture.buyerId } } }, orderBy: { id: 'desc' } })
+      const link = await buyer.post('/api/cart/share', { title: 'ترکیب پیشنهادی لپ‌تاپ ساختگی' }); assert.equal(link.status, 201); sharePath = link.body.href
+    } else {
+    const requestTitle = `بازی درخواستی ساختگی مرورگر ${Date.now()}`
+    await buyer.visit('/search?q=demand-absent-synthetic-item&type=game')
+    const callout = buyer.page.getByRole('region', { name: 'درخواست کالا یا محتوا', exact: true })
+    await expect(callout).toBeVisible(); await callout.getByRole('button', { name: /ثبت درخواست/ }).click()
+    const dialog = buyer.page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.locator('input').fill(requestTitle)
+    await dialog.getByLabel(/جزئیات برای تشخیص/).fill('نسخهٔ رایانه؛ توضیح خصوصی ساختگی')
+    await buyer.capture('request-dialog', dialog)
+    await dialog.getByRole('button', { name: 'بررسی درخواست‌های مشابه' }).click()
+    await dialog.getByRole('button', { name: 'تأیید و ثبت درخواست' }).click()
+    await expect(dialog.getByRole('heading', { name: 'درخواست ثبت شد' })).toBeVisible()
+    demand = await db.contentDemand.findFirstOrThrow({ where: { title: requestTitle } })
+    await recipient.visit('/games')
+    await recipient.page.getByRole('region', { name: 'درخواست کالا یا محتوا', exact: true }).getByRole('button', { name: /ثبت درخواست/ }).click()
+    const joinDialog = recipient.page.getByRole('dialog')
+    await joinDialog.locator('input').fill(demand.title)
+    await joinDialog.getByRole('button', { name: 'بررسی درخواست‌های مشابه' }).click()
+    await expect(joinDialog.getByRole('button', { name: 'تأیید و ثبت درخواست' })).toBeDisabled()
+    await joinDialog.getByRole('checkbox').check()
+    await recipient.capture('request-join', joinDialog)
+    await joinDialog.getByRole('button', { name: 'تأیید و ثبت درخواست' }).click()
+    await expect(joinDialog.getByRole('heading', { name: 'درخواست ثبت شد' })).toBeVisible()
+    assert.equal(await db.contentDemandSupporter.count({ where: { demandId: demand.id } }), 2)
+    await staff.visit('/admin/content-requests')
+    await staff.page.getByLabel('بخش', { exact: true }).selectOption('games')
+    const row = staff.page.locator(`#demand-${demand.id}`)
+    await expect(row).toBeVisible(); await row.getByLabel('تصمیم', { exact: true }).selectOption('FULFILLED')
+    await row.getByLabel('شناسهٔ مورد آماده‌شده').fill(String(fixture.gameId))
+    await row.getByLabel('پاسخ به درخواست‌کنندگان').fill('این بازی در فهرست آماده است')
+    await row.getByRole('button', { name: 'ثبت تصمیم', exact: true }).click()
+    await expect(row.getByRole('link', { name: /مشاهدهٔ بازی/ })).toBeVisible()
+    await staff.capture('request-admin', staff.page.getByRole('region', { name: 'میزکار درخواست کالا و محتوا' }))
+    await buyer.visit('/dashboard/content-requests')
+    await expect(buyer.page.locator(`#demand-${demand.id}`).getByRole('link', { name: /مشاهدهٔ بازی ساختگی/ })).toBeVisible()
+    evidence.operations.push('request create + explicit join + staff fulfillment + owned target tracking')
+    await buyer.context.request.delete('/api/cart', { headers: { Origin: fixture.baseURL } })
+    await recipient.context.request.delete('/api/cart', { headers: { Origin: fixture.baseURL } })
+    const added = await buyer.post('/api/cart', { productId: fixture.productId, quantity: 2 }); assert.equal(added.status, 200)
+    await buyer.visit('/cart')
+    await buyer.page.getByText('اشتراک‌گذاری ترکیب سبد', { exact: true }).click()
+    await buyer.page.getByLabel('عنوان عمومی لینک').fill('ترکیب پیشنهادی لپ‌تاپ ساختگی')
+    await buyer.page.getByRole('button', { name: 'ساخت لینک سبد' }).click()
+    const link = buyer.page.getByRole('link', { name: 'مشاهدهٔ سبد مشترک' })
+    await expect(link).toBeVisible(); sharePath = await link.getAttribute('href')
+    await recipient.visit(sharePath)
+    await expect(recipient.page.getByRole('heading', { name: 'ترکیب پیشنهادی لپ‌تاپ ساختگی' })).toBeVisible()
+    const qty = recipient.page.getByRole('spinbutton', { name: /^تعداد/ })
+    await qty.fill('3')
+    await expect(recipient.page.getByRole('button', { name: 'افزودن انتخاب‌ها به سبد خودم' })).toBeDisabled()
+    await recipient.page.getByRole('button', { name: 'بررسی دوبارهٔ قیمت و موجودی' }).click()
+    await expect(recipient.page.getByRole('checkbox', { name: /قیمت‌های فعلی/ })).toBeEnabled()
+    await recipient.capture('shared-cart')
+    await recipient.page.getByRole('checkbox', { name: /قیمت‌های فعلی/ }).check()
+    await recipient.page.getByRole('button', { name: 'افزودن انتخاب‌ها به سبد خودم' }).click()
+    await expect(recipient.page.getByRole('heading', { name: 'کالاها به سبد شما اضافه شدند' })).toBeVisible()
+    const source = await db.cart.findFirstOrThrow({ where: { userId: fixture.buyerId } }), dest = await db.cart.findFirstOrThrow({ where: { userId: fixture.recipientId } })
+    assert.equal((await db.cartLine.findFirstOrThrow({ where: { cartId: source.id } })).quantity, 2)
+    assert.equal((await db.cartLine.findFirstOrThrow({ where: { cartId: dest.id } })).quantity, 3)
+    await staff.visit('/admin/store/quotations?shared=' + sharePath.split('/').at(-1))
+    await staff.page.getByRole('button', { name: 'جایگزینی کالاهای پیش‌نویس با این ترکیب' }).click()
+    await expect(staff.page.getByRole('button', { name: 'حذف لپ‌تاپ ساختگی اشتراک سبد' })).toBeVisible()
+    evidence.operations.push('cart share UI + recipient quantity/review/import + sender preserved + quotation draft selection')
+    }
+    await staff.visit('/admin/downloads/health')
+    await expect(staff.page.getByRole('checkbox', { name: 'پایش دوره‌ای فعال باشد' })).not.toBeChecked()
+    await staff.page.getByLabel('فاصلهٔ بررسی، ساعت').fill('12')
+    await staff.page.getByRole('button', { name: 'ذخیرهٔ برنامه' }).click()
+    await expect(staff.page.getByText('تنظیمات ذخیره شد', { exact: true })).toBeVisible()
+    await staff.page.getByRole('button', { name: 'افزودن منابع تازه به فهرست بررسی' }).click()
+    await expect(staff.page.getByRole('cell', { name: /^بازی ساختگی درخواست مشتری/ })).toBeVisible()
+    await staff.capture('link-health', staff.page.getByRole('region', { name: 'پایش سلامت لینک‌ها', exact: true }))
+    assert.equal(JSON.parse((await db.setting.findUniqueOrThrow({ where: { key: 'downloads.health.v1' } })).value).enabled, false)
+    assert.equal(await db.backgroundJob.count({ where: { kind: 'downloads.health' } }), 0)
+    evidence.operations.push('health default-off + revisioned settings save + inventory refresh + edit link; no external probes')
+    await capturePresentation(sharePath, demand.id)
+    await buyer.visit('/cart'); await buyer.page.getByText('اشتراک‌گذاری ترکیب سبد', { exact: true }).click()
+    await buyer.page.getByRole('button', { name: 'مدیریت لینک‌های ساخته‌شده' }).click()
+    await buyer.page.getByRole('button', { name: 'لغو دسترسی این لینک' }).first().click()
+    const revoked = await recipient.context.request.get('/api/cart/share/' + sharePath.split('/').at(-1)); assert.equal(revoked.status(), 404)
+    evidence.operations.push('source owner revoked share; recipient refused')
+    assert.deepEqual(evidence.pageErrors, [])
+    evidence.complete = true; record(); console.log('Demand/shared-cart/link-health browser journeys passed')
+  } finally { record(); for (const context of contexts) await context.close(); await browser.close(); await db.$disconnect() }
+}
+main().catch(error => { console.error(error); process.exitCode = 1 })

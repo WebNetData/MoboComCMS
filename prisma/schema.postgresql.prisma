@@ -9,6 +9,9 @@ datasource db {
 }
 
 model User {
+  demandDecisions ContentDemand[] @relation("DemandDecision")
+  demandSupport ContentDemandSupporter[]
+
   quotations StoreQuotation[] @relation("QuotationCustomer")
   createdQuotations StoreQuotation[] @relation("QuotationCreator")
   createdWarrantyDevices StoreWarrantyDevice[] @relation("WarrantyCreator")
@@ -798,6 +801,8 @@ model PostCategory {
 }
 
 model Post {
+  contentDemands ContentDemand[]
+
   /// Site group keys that may see this item, as JSON; empty for everyone.
   audienceGroups String @default("")
   id          Int           @id @default(autoincrement())
@@ -927,6 +932,8 @@ model ProductAttributeGroup {
 }
 
 model Product {
+  contentDemands ContentDemand[]
+
   custodyResolutions ReturnCustodyResolution[]
   canonicalSource ContentCanonicalAlias? @relation("ProductAliasSource")
   canonicalTargets ContentCanonicalAlias[] @relation("ProductAliasTarget")
@@ -1691,6 +1698,8 @@ model MusicArtist {
 }
 
 model MusicAlbum {
+  contentDemands ContentDemand[]
+
   /// Site group keys that may see this item, as JSON; empty for everyone.
   audienceGroups String @default("")
   id          Int          @id @default(autoincrement())
@@ -1741,6 +1750,9 @@ model MusicCredit {
 }
 
 model MusicTrack {
+  contentDemands ContentDemand[]
+  linkHealth DownloadLinkHealth[]
+
   /// Site group keys that may see this item, as JSON; empty for everyone.
   audienceGroups String @default("")
   id          Int         @id @default(autoincrement())
@@ -1939,6 +1951,8 @@ model UserCollectionReaction {
 // ---------------------------------------------------------------- Film & series
 
 model CinemaTitle {
+  contentDemands ContentDemand[]
+
   canonicalSource ContentCanonicalAlias? @relation("CinemaAliasSource")
   canonicalTargets ContentCanonicalAlias[] @relation("CinemaAliasTarget")
 
@@ -2193,6 +2207,8 @@ model Vocabulary {
 }
 
 model GameTitle {
+  contentDemands ContentDemand[]
+
   canonicalSource ContentCanonicalAlias? @relation("GameAliasSource")
   canonicalTargets ContentCanonicalAlias[] @relation("GameAliasTarget")
 
@@ -2324,6 +2340,8 @@ model GameLibrary {
 /// Software downloads (Windows/macOS/Linux/Android/iOS). Base and versioned
 /// MediaLink rows use ownerType "software" and "softwarerelease" respectively.
 model SoftwareTitle {
+  contentDemands ContentDemand[]
+
   canonicalSource ContentCanonicalAlias? @relation("SoftwareAliasSource")
   canonicalTargets ContentCanonicalAlias[] @relation("SoftwareAliasTarget")
 
@@ -2487,6 +2505,8 @@ model ForumCategory {
 }
 
 model ForumThread {
+  contentDemands ContentDemand[]
+
   id             Int           @id @default(autoincrement())
   itemType       String?
   itemId         Int?
@@ -2554,6 +2574,8 @@ model ForumPost {
 /// Download / stream links for films, episodes and games. URLs are never sent to
 /// the browser; visitors go through /api/media/link/<id>, which checks VIP access.
 model MediaLink {
+  health DownloadLinkHealth?
+
   id        Int      @id @default(autoincrement())
   ownerType String // title | episode | game | software
   ownerId   Int
@@ -3207,6 +3229,9 @@ model ProductBrand {
 
 /// Shopping cart: one per signed-in customer, or per browser (token cookie) for guests.
 model Cart {
+  sharedSelections SharedCart[]
+  sharedImports SharedCartImport[]
+
   id        Int        @id @default(autoincrement())
   token     String     @unique
   userId    Int?       @unique
@@ -5709,4 +5734,99 @@ model ContentCanonicalAlias {
   updatedAt DateTime @default(now()) @updatedAt
   active Boolean @default(true)
   @@index([kind, active])
+}
+
+
+model ContentDemand {
+  id Int @id @default(autoincrement())
+  section String
+  title String
+  normalizedTitle String
+  status String @default("OPEN")
+  version Int @default(1)
+  decisionNote String @default("")
+  decidedById Int?
+  decidedBy User? @relation("DemandDecision", fields: [decidedById], references: [id], onDelete: Restrict)
+  productId Int?
+  product Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
+  cinemaTitleId Int?
+  cinemaTitle CinemaTitle? @relation(fields: [cinemaTitleId], references: [id], onDelete: Restrict)
+  gameId Int?
+  game GameTitle? @relation(fields: [gameId], references: [id], onDelete: Restrict)
+  softwareId Int?
+  software SoftwareTitle? @relation(fields: [softwareId], references: [id], onDelete: Restrict)
+  trackId Int?
+  track MusicTrack? @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  albumId Int?
+  album MusicAlbum? @relation(fields: [albumId], references: [id], onDelete: Restrict)
+  postId Int?
+  post Post? @relation(fields: [postId], references: [id], onDelete: Restrict)
+  threadId Int?
+  thread ForumThread? @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  supporters ContentDemandSupporter[]
+  @@unique([section, normalizedTitle])
+  @@index([section, status, updatedAt])
+}
+
+model ContentDemandSupporter {
+  demandId Int
+  demand ContentDemand @relation(fields: [demandId], references: [id], onDelete: Restrict)
+  userId Int
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note String @default("")
+  createdAt DateTime @default(now())
+  @@id([demandId, userId])
+  @@index([userId, createdAt])
+}
+
+model SharedCart {
+  id Int @id @default(autoincrement())
+  tokenHash String @unique
+  sourceCartId Int?
+  sourceCart Cart? @relation(fields: [sourceCartId], references: [id], onDelete: SetNull)
+  title String
+  lines String
+  expiresAt DateTime
+  revokedAt DateTime?
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  imports SharedCartImport[]
+  @@index([sourceCartId, createdAt])
+}
+
+model SharedCartImport {
+  id Int @id @default(autoincrement())
+  shareId Int
+  share SharedCart @relation(fields: [shareId], references: [id], onDelete: Restrict)
+  cartId Int
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  requestId String
+  fingerprint String
+  createdAt DateTime @default(now())
+  @@unique([cartId, requestId])
+}
+
+model DownloadLinkHealth {
+  id Int @id @default(autoincrement())
+  sourceKey String @unique
+  linkId Int? @unique
+  link MediaLink? @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  trackId Int?
+  track MusicTrack? @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  quality String @default("")
+  sourceHash String
+  status String @default("PENDING")
+  httpStatus Int @default(0)
+  detail String @default("")
+  failureCount Int @default(0)
+  checkedAt DateTime?
+  lastSuccessAt DateTime?
+  nextCheckAt DateTime @default(now())
+  leaseUntil DateTime?
+  leaseToken String @default("")
+  updatedAt DateTime @default(now()) @updatedAt
+  @@unique([trackId, quality])
+  @@index([nextCheckAt, leaseUntil])
 }

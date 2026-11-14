@@ -90,7 +90,7 @@ export default function AdminDownloadsPage() {
   const setHost = (index: number, patch: Partial<Host>) => setSettings({ ...settings, hosts: settings.hosts.map((host, i) => (i === index ? { ...host, ...patch } : host)) })
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">دانلودها</span><h1>محافظت از لینک دانلود</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">دانلودها</span><h1>محافظت از لینک دانلود</h1><Link className="btn btn-ghost" href="/admin/downloads/health">پایش سلامت لینک‌ها</Link>
       <p>امروز {fa(data.stats.today)} دانلود · {fa(data.stats.openReports)} گزارش باز · {fa(data.stats.disabledLinks)} لینک غیرفعال. لینک‌های سایت امضاشده و موقت‌اند و لینک کپی‌شده در کانال‌ها و سایت‌های دیگر بعد از {fa(Math.round(settings.tokenTtlMinutes / 60 * 10) / 10)} ساعت کار نمی‌کند.</p></div>
     </header>
     <nav className="tb-tabs" role="tablist" aria-label="بخش‌ها">

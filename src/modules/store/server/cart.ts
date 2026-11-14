@@ -348,6 +348,19 @@ export async function addCartComponents(owner: CartOwner, requests: CartAddition
   return { token: cart.token, limited: false }
 }
 
+/** Reviewed shared selections use the same strict cart write, with a transactional replay/version check. */
+export async function addReviewedCartSelection(owner: CartOwner, requests: CartAddition[], beforeWrite: (tx: Prisma.TransactionClient, cartId: number) => Promise<boolean>) {
+  if (!requests.length || requests.length > 50 || new Set(requests.map(row => `${row.productId}:${row.variantId || 0}`)).size !== requests.length) throw new StoreError('انتخاب سبد معتبر نیست')
+  const member = owner.userId ? await isMember(owner.userId) : false
+  const opens = await opensMembersOnly(owner.userId, member), cart = await ensureCart(owner)
+  await db.$transaction(async tx => {
+    await lockCart(tx, cart.id, { ...owner, token: cart.token })
+    if (!await beforeWrite(tx, cart.id)) return
+    await writeCartAdditions(tx, cart.id, { ...owner, token: cart.token }, requests, true, opens)
+  }, { isolationLevel: 'Serializable' })
+  return { token: cart.token }
+}
+
 /** Adds (or increases) a line. Returns the cart token. */
 export async function addToCart(owner: CartOwner, input: { productId: unknown; variantId?: unknown; quantity?: unknown; inputs?: unknown; openAmount?: unknown }) {
   const productId = Number(input.productId)

@@ -274,6 +274,8 @@ test('the magazine permission is named only where the magazine is guarded', () =
   assert.deepEqual(files.sort(), [
     // The typed audience registry maps only posts to the Magazine permission; each other type has its own.
     'src/modules/account/domain/item-audience.ts',
+    // Demand registry maps Magazine requests only to the existing Magazine manager permission.
+    'src/modules/support/domain/demand.ts',
     // Read-only canonical documentation bundled for the engineering assistant; not an authorization consumer.
     'src/modules/ai/domain/engineering-knowledge.generated.json',
     // Operational tools/context map only Magazine creation/publication and Magazine records to this key.

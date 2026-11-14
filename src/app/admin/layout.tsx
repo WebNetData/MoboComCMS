@@ -158,6 +158,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'content', area: 'content', order: 190, title: L('کتابخانه و منابع مشترک', 'Library & shared resources'), icon: 'layers', items: [
       { href: '/admin/media', label: L('کتابخانهٔ رسانه', 'Media library'), icon: 'image', perm: ['media.manage', 'settings.manage', 'prompts.manage', 'cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'journal.author', 'music.author', 'cinema.author', 'games.author', 'software.author', 'prompts.author'] },
       { href: '/admin/taxonomy', label: L('دسته‌بندی و زیردسته‌ها', 'Categories'), icon: 'grid', perm: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage'] },
+      { href: '/admin/content-requests', label: L('درخواست کالا و محتوا', 'Product & content requests'), icon: 'search', perm: ['cms.posts', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'forum.moderate'] },
       { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'prompts.manage'] },
       { href: '/admin/celebrities', label: L('هنرمندان و چهره‌ها', 'Artists and people'), icon: 'users', perm: ['cinema.manage', 'music.manage'] },
       // Its address asks for both the games and the cinema permission, so a manager of one reaches it from neither menu.
@@ -166,6 +167,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: 'content-protection', area: 'content', order: 195, title: L('تصویر، دانلود و حق نشر', 'Images, downloads & rights'), icon: 'shield', items: [
       { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/watermark', label: L('واترمارک تصاویر', 'Image watermark'), icon: 'sparkles', perm: 'settings.manage' },
+      { href: '/admin/downloads/health', label: L('سلامت لینک‌های دانلود و پخش', 'Download & playback health'), icon: 'activity', perm: 'downloads.manage' },
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
       { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
     ] },

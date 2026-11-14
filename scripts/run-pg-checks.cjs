@@ -7,6 +7,7 @@ const CHECKS = [
   'content-publication',
   'content-canonical-alias',
   'support-page-problems',
+  'site-demand-sharing-health',
   'store-quotations',
   'store-delivery-changes',
   'store-packing',

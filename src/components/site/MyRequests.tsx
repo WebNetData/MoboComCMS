@@ -70,6 +70,7 @@ export default function MyRequests() {
 
   return <div className="rq-page dt-page">
     <header className="dt-head"><div><h1>درخواست‌های من</h1><p>فرم‌هایی که فرستاده‌اید، وضعیت انجام کار و پیام‌های کارشناس.</p></div></header>
+    <p><Link className="btn btn-ghost" href="/dashboard/content-requests">درخواست کالا و محتوا</Link></p>
     {error && <div className="dt-empty is-bad" role="alert"><b>{error}</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={() => { setError(''); setRows(null); setLoadAttempt(attempt => attempt + 1) }}>تلاش دوباره</button></div>}
     {!rows && !error && <div className="dt-skeleton" role="status" aria-label="در حال دریافت درخواست‌ها" aria-busy="true"><i /><i /><i /></div>}
     {rows && !rows.length && <div className="dt-empty"><b>هنوز درخواستی نفرستاده‌اید</b><span>درخواست‌هایی که با فرم‌های سایت می‌فرستید، با وضعیت و پاسخ کارشناس این‌جا می‌آیند.</span></div>}

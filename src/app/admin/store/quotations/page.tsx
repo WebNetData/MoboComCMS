@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import SharedSelection from './SharedSelection'
 import Link from '@/components/AppLink'
 import { StoreShell, Notice, send, useJson, faDate } from '../shared'
 import { formatMoney } from '@/shared/money'
@@ -44,6 +45,7 @@ export default function QuotationsPage() {
     try { const result = await send('/api/admin/store/quotations', 'POST', { action: 'cancel', id: row.id, updatedAt: row.updatedAt }); if (!result.ok) setError(result.error); else await list.reload() } finally { setBusy(false) }
   }
   return <StoreShell title="پیش‌فاکتورهای فروش">
+    <SharedSelection onImport={setRows} />
     <section className="sa-card"><header className="sa-card-head"><h2>پیشنهاد تازه</h2></header><p className="sa-hint">قیمت و موجودی هنگام پذیرش دوباره بررسی می‌شود. ایجاد پیشنهاد وجهی دریافت و موجودی رزرو نمی‌کند.</p>
       <form onSubmit={create}><fieldset disabled={busy} className="gateway-controls"><legend className="sr-only">مشخصات پیش‌فاکتور</legend>
         <label className="sa-field"><span>عنوان پیشنهاد</span><input className="input" value={title} maxLength={120} required onChange={event => setTitle(event.target.value)} /></label>
