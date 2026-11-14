@@ -286,3 +286,5 @@ Rollback removes the added read models/panels while preserving all original
 links, orders, customer records, form submissions, queues, histories and settings.
 There is no migration to roll back. Owner merges/deploys. Before continuing,
 read the final evidence below and the active workstate; preserve unrelated work.
+
+Published correction [PR #474](https://github.com/WebNetData/MoboComCMS/pull/474) targets main from fix/public-ui-regressions-2026-11-14. Initial verified source head `bc8128691caba9360bd8fb1c1a3b548db1ff493c`, OPEN/non-draft/MERGEABLE; this following receipt changes only handoff/workstate. Gitleaks over the staged14-file correction returned0, final diff check passed. Initial ordinary Git push failed to connect; one scoped HTTP/1.1 retry succeeded. Connected GitHub PR tool failed transport; existing GCM-backed gh created and verified the PR without exposing credentials. Owner merges/deploys; no Actions or release replacement.
