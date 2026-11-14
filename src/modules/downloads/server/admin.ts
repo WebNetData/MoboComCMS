@@ -74,16 +74,7 @@ export async function resolveLinkReports(linkId: number, action: 'fixed' | 'dism
 export async function probeLink(linkId: number): Promise<{ ok: boolean; status: number; detail: string; size?: string }> {
   const link = await db.mediaLink.findUnique({ where: { id: linkId }, select: { url: true } })
   if (!link) throw new DownloadError('لینک پیدا نشد', 404)
-  const attempt = async (method: 'HEAD' | 'GET') => fetch(link.url, { method, redirect: 'follow', signal: AbortSignal.timeout(10_000), headers: method === 'GET' ? { range: 'bytes=0-0' } : undefined })
-  try {
-    let response = await attempt('HEAD')
-    if (response.status === 405 || response.status === 403) response = await attempt('GET')
-    const length = Number(response.headers.get('content-range')?.split('/')[1] || response.headers.get('content-length') || 0)
-    const size = length > 0 ? `${(length / 1024 / 1024).toFixed(length > 1024 ** 3 ? 0 : 1)} MB` : undefined
-    return { ok: response.ok, status: response.status, detail: response.ok ? 'فایل در دسترس است' : `سرور پاسخ ${response.status} داد`, size }
-  } catch (error) {
-    return { ok: false, status: 0, detail: error instanceof Error && error.name === 'TimeoutError' ? 'پاسخی در ۱۰ ثانیه نیامد' : 'اتصال به سرور فایل ناموفق بود' }
-  }
+  return (await import('@/modules/downloads/server/remote')).probePublicFile(link.url)
 }
 
 /** Download numbers for the admin page: daily series, top items and today's total. */

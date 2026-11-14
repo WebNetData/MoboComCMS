@@ -11,6 +11,7 @@ import { RatingMeter } from '@/components/engage/RatingMeter'
 import SearchAdvancedControls from '@/components/search/SearchAdvancedControls'
 import Icon from '@/components/site/Icon'
 import ThemeFrame from '@/components/content/builder/ThemeFrame'
+import ContentRequest from '@/components/site/ContentRequest'
 import styles from '@/components/search/SearchPage.module.css'
 
 export const dynamic = 'force-dynamic'
@@ -138,6 +139,7 @@ export default async function SearchPage({ searchParams }: Props) {
         ) : q && data.tokens.length > 0 ? (
           <section className={styles.empty} aria-label="بدون نتیجه">
             <span className={styles.emptyIcon}><Icon name="search" size={32} /></span>
+            <ContentRequest compact query={q} section={({ product: 'store', title: 'cinema', game: 'games', software: 'software', track: 'music', album: 'music', post: 'magazine', thread: 'forum' } as Record<string, string>)[data.type]} />
             <h2>چیزی برای «<bdi>{q}</bdi>» پیدا نشد</h2>
             {correction && <p>منظورتان <Link href={`/search?q=${encodeURIComponent(correction)}${data.type !== 'all' ? `&type=${data.type}` : ''}`}><bdi>{correction}</bdi></Link> بود؟</p>}
             <p>{hasFacets(data.facets) ? <>با این فیلترها نتیجه‌ای نیست. <Link href={facetHref(NO_FACETS)} rel="nofollow">فیلترها را بردارید</Link>.</> : 'املای دیگری امتحان کنید، عبارت کوتاه‌تری بنویسید یا نام انگلیسی را جست‌وجو کنید.'}</p>

@@ -4,6 +4,7 @@ import { usePathname } from '@/platform/routing/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { usePromptPlacement } from './usePromptPlacement'
+import { normalizeTrackedPath } from '@/modules/analytics/domain/analytics'
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 
@@ -64,7 +65,7 @@ export default function PwaClient() {
 
   // Page-view beacon (on every client-side navigation).
   useEffect(() => {
-    if (!analyticsOn || isPrivate) return
+    if (!analyticsOn || isPrivate || !normalizeTrackedPath(pathname)) return
     const params = new URLSearchParams(window.location.search)
     const payload = JSON.stringify({ p: pathname, r: document.referrer, u: params.get('utm_source') || '' })
     const sent = navigator.sendBeacon?.('/api/analytics/collect', new Blob([payload], { type: 'text/plain' }))

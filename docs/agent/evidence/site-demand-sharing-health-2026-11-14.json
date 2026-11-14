@@ -1,0 +1,162 @@
+{
+  "date": "2026-11-14",
+  "branch": "feat/site-requests-shared-cart-link-health-2026-11-14",
+  "base": "cbb469f5",
+  "status": "IMPLEMENTED_FINAL_VALIDATION_INCOMPLETE",
+  "blocker": "Docker Desktop Linux engine unavailable during final browser continuation; no daemon reset attempted",
+  "migration": "20270321120000_site_demand_sharing_health",
+  "appliedMigrationCount": 204,
+  "earlierLinux": {
+    "isolated": true,
+    "uid": 1000,
+    "envFile": false,
+    "connectedDemandPassed": true,
+    "fullTypesPassedBeforeFinalEdits": true,
+    "accountTests": 35,
+    "architectureAndScopedGatesPassed": true
+  },
+  "browser": {
+    "complete": false,
+    "operations": [
+      "request create + explicit join + staff fulfillment + owned target tracking",
+      "cart share UI + recipient quantity/review/import + sender preserved + quotation draft selection"
+    ],
+    "views": [
+      {
+        "name": "request-dialog",
+        "width": 1440,
+        "theme": "light",
+        "violations": [],
+        "overflow": false
+      },
+      {
+        "name": "request-join",
+        "width": 390,
+        "theme": "dark",
+        "violations": [],
+        "overflow": false
+      },
+      {
+        "name": "request-admin",
+        "width": 1440,
+        "theme": "light",
+        "violations": [],
+        "overflow": false
+      },
+      {
+        "name": "shared-cart",
+        "width": 390,
+        "theme": "dark",
+        "violations": [],
+        "overflow": false
+      }
+    ],
+    "pageErrors": [],
+    "remaining": [
+      "health themed responsive views",
+      "shared-cart desktop themed views",
+      "remaining request themed views",
+      "browser revocation"
+    ]
+  },
+  "finalSource": {
+    "hostSha256Only": {
+      "prisma/release-manifest.json": "b104439f5dc01cdf0e85dd38f96094fe8b1c109e9aaeee5eeb37dc073215d6d0",
+      "prisma/schema.postgresql.prisma": "6df33c10fad1ea1e9da3318eee30f596e85d9fa1051bdd566397cb240c4daaf8",
+      "prisma/schema.prisma": "02a64417ad83db92173e4dbc29666ba1ec2301557093821ef6b5f81c2bddc60d",
+      "scripts/account-security.test.cjs": "132471530d4a22f37484b0c6265df66ef86573e5e089d03ffe682f5580710968",
+      "scripts/run-pg-checks.cjs": "6560c922ee3d58e8d29899bfb4cd5218aebc200ffed50691dc315aeab11c39a6",
+      "src/app/admin/downloads/page.tsx": "e6947132ef4464668699d0dd8c75adb9fafa8b32c2d3241ba66d60b00db68294",
+      "src/app/admin/layout.tsx": "87742f9c84f20a578674821f12a4e9fcad6091adf4eb0f9b6a9442a04ba229a6",
+      "src/app/admin/store/quotations/page.tsx": "2506e2990bc296cf1ef757ba4a9d72ba616a58d9e3c9c85fab7dbe76ba2932b9",
+      "src/app/dashboard/AccountShell.tsx": "a8699d51298e7d79528e82e616ce1d24e4c1d2d75065c748c5b1940d4237c35f",
+      "src/app/search/page.tsx": "6c4d5ff6be3204384f3aefd3df1e0ba22d5d42db40775b69610f93b8636473c1",
+      "src/components/pwa/PwaClient.tsx": "658900b6635ab495ca41961ae37a6422c62a1efc28a63bfd602a0bb88cb5be0b",
+      "src/components/site/MyRequests.tsx": "f5bc00f9c9f08b76f1539296cb9eafa0dc47492b6845fac0db598875a25aa4c9",
+      "src/components/site/SiteUtilityControls.tsx": "6431a872e8fdce991f8bf0b7811b8e220bb632c3ee917517304019ff7fc7e541",
+      "src/components/store/CartPage.tsx": "6688d6d8acb398f21a104b9e12699b3cdadcc15420e0a8801108fc224a106c3c",
+      "src/modules/ai/domain/engineering-knowledge.generated.json": "8c061dd8c3632f94d59af237408f1049c7460217b140d08e6c2dc9259a6e36b2",
+      "src/modules/analytics/domain/analytics.ts": "f428d6125e8834d0edf87657e3a0f35c863b3cde05a45f6e96b70a7bc5ae15c6",
+      "src/modules/downloads/server/admin.ts": "ad9a0e68202267bd713380c54dd63f52dd1291f726c9bb18f5d51f49c568d51d",
+      "src/modules/downloads/server/remote.ts": "926b2547676fa1c9e45a190747159b5971351818d3ac9361dee24a184ea5cc26",
+      "src/modules/notifications/server/jobs-scheduler.ts": "54c056998f59558bef1b503d3f8c622e462c807f52e973f3467f2f9ba6bd9cec",
+      "src/modules/operations/domain/job-kinds.ts": "0ae4586324144de15ebd6a557a0bbcea5f02e30151ae5a93d4919fbb11820ba4",
+      "src/modules/operations/server/queue.ts": "7116fac431c3f717756fb108d3701deee759ddb2bc8f2fdfb6f8853b11c400b1",
+      "src/modules/store/server/cart.ts": "39be80215ec05fc9007bf64137889f09385873dd36ee7b493bff42f7a8e0809f",
+      "src/plugins/store/manifest.json": "612db9d611b2c7b6fba15ab1ed5b93633559da020fe371904abebb556eabc4d9",
+      "prisma/migrations/20270321120000_site_demand_sharing_health/migration.sql": "815e360c12e8d4c2ed0081b1601eae418d6e3ae15d912d706e92f8cba05b8505",
+      "scripts/site-demand-sharing-health.browser.cjs": "d45d73d5d6eac844406f7b644e65d2bde4bdc48861a7521fbc32064091dd6793",
+      "scripts/site-demand-sharing-health.connected.cjs": "75fac0145605703b84f6ac276e5ada8a04abacbe6b53cc92dcf20b4c4386a1d2",
+      "scripts/site-demand-sharing-health.fixture.cjs": "bd871c2f8b0065751070553f0c42579275f4601d3257eef08fb772a50bcb9b06",
+      "src/app/admin/content-requests/page.tsx": "4d0232f4f640cdbd640152e64573a78375230e26145a444c6aff6459ddbb49d7",
+      "src/app/admin/downloads/health/page.tsx": "2a6b25f19033f49b4c156915087200f87651310f184f90c187f27e48c8b1559b",
+      "src/app/admin/store/quotations/SharedSelection.tsx": "bcbd3070d04c5e0296853642aa3ff34b76397a5833acb83f14323026c0de5831",
+      "src/app/api/admin/downloads/health/route.ts": "1568ca617ce1e9c27f02cb3da46dbd0e8b34ef6183ece2fcddc24e60afdd94f1",
+      "src/app/api/cart/share/[token]/route.ts": "19396cd1f6b2963f0598417e5b677d574111e8aaed8f4629af82fb25260c1a96",
+      "src/app/api/cart/share/route.ts": "d21848df0d9906e4b12c7c13ec1e005d53ba3417fbe12863a7e6314215d17fbb",
+      "src/app/api/support/requests/route.ts": "067785aaa7e4135242a06237b6ea94c15095ffc83021d46c948ef1b412e8b74c",
+      "src/app/dashboard/content-requests/page.tsx": "003b7ece36c3bfa2a943481f66e48591a66899cbffba94706b6531212ebb2b30",
+      "src/app/shared-cart/[token]/page.tsx": "7a2706a17fc3b75640dfc93a18665d799e1e9446fed809667d1086bf7351cc2a",
+      "src/components/site/ContentRequest.tsx": "a5c9e669b3b6486534df9b54f44052cf10b8efe682c3474ae498e649e58444a8",
+      "src/components/site/DemandDesk.tsx": "1af745beb0e927d0220b8510ba56c0977c20a7680c972b24a6d46f2da07b3420",
+      "src/components/site/content-request.module.css": "8b753f8822c64862f714a8b528f48624847d42236590d13ae50e81ac85737283",
+      "src/components/store/SharedCart.tsx": "ae6d85ca3dcf866e78a8dc39b133a73939a500e9c52ef95a3e112ed55cc089ab",
+      "src/modules/downloads/domain/health.ts": "11c10db44fa0a96da8d823a2e03ed70920dd0e4e352ed26f7a44f04b6aee662b",
+      "src/modules/downloads/server/health.ts": "b30642e9d2b768a5833f1c6c6d9bd0c295ebe101c8436712549c4b0c02210766",
+      "src/modules/downloads/server/health/http.ts": "00adda5a309a8d1ce35df2506dcf45bc7511f7ec7947aa7bb3bb94a1dcefe626",
+      "src/modules/downloads/server/health/settings.ts": "6ece304c5edf625fa9d65eb7fde5233aba22a3ad340062db009cdab896aabd34",
+      "src/modules/downloads/server/health/sources.ts": "df4355cb28533ff2557ea7565ee400a1b384180ff98ff60f8566846f9863a74a",
+      "src/modules/downloads/server/health/worker.ts": "59de7a57eab4ff594a1e8914883cf4fdb52bff8277522749ce0e9f55f8acdc78",
+      "src/modules/store/server/http/shared-cart.ts": "8c127a7dd00ec8aca0c303904ead045939df219f4c7e97cf6f976d865b5f5c92",
+      "src/modules/store/server/shared-cart.ts": "61cffd8e7be69e50ae23f2f26b6c066d1b4349f13cfe1f98f6c1571412992c72",
+      "src/modules/store/server/shared-cart/commands.ts": "807a1b188794eec6651846f59ded716556a6e57c0f4f3bfe098a0c85e63cdc96",
+      "src/modules/store/server/shared-cart/read.ts": "d5fcd406e2d2914693b6a90fdeb26706d2bf9942f96114f685b054a06c44e0ef",
+      "src/modules/support/domain/demand.ts": "5898499bc2b1709353780868e5dd9dfb007270c45fd99f47a061ca43d137e9bf",
+      "src/modules/support/server/demand.ts": "c55759cdd5d3588010e7fcb6d3316d9fef2a5f20ab275d7752c9a9bad0656a17",
+      "src/modules/support/server/demand/commands.ts": "63b8320a7324f7fae019e2909f26acb788ab8834e41366bc803690a039a50530",
+      "src/modules/support/server/demand/http.ts": "e3fc7c4e08215f300d51418b155f25721e22758615be904899aa651bbba05e3e",
+      "src/modules/support/server/demand/targets.ts": "4c2f9d7ce9d230ba03a307454ea007814d6880c93d0fc086f6bebe74bcd67e15"
+    },
+    "runtimeComparison": false,
+    "fullTypes": false,
+    "connectedNative": false,
+    "criticalMutationRestore": false
+  },
+  "host": {
+    "exactSyntaxParser": "5.9.3",
+    "syntaxImport": true,
+    "architecture": true,
+    "schemaParity": true,
+    "migrationManifest": true,
+    "securityInvariants": true,
+    "auditInvariants": true,
+    "moneyUI": true,
+    "moneyPrimitives": true,
+    "wholeTypes": "FAILED: missing unrelated editor/media dependencies and AI monitoring Prisma diagnostics"
+  },
+  "reactDoctor": {
+    "affectedTsx": 17,
+    "blockingErrors": 0,
+    "warnings": 49
+  },
+  "security": {
+    "scope": "existing local single dynamic-code rule plus redacted changed/new Gitleaks",
+    "findings": 0
+  },
+  "cleanup": {
+    "hostTunnelConfirmedAlreadyExited": true,
+    "taskDatabaseDropped": false,
+    "privateRuntimeRemoved": false,
+    "originalReadinessRechecked": false,
+    "reason": "Engine unavailable; preserve exact task identities for recovery"
+  },
+  "production": {
+    "liveProvider": false,
+    "externalNotifications": false,
+    "pr": false,
+    "push": false,
+    "merge": false,
+    "deploy": false
+  },
+  "handoff": "docs/agent/handoffs/SITE_DEMAND_SHARING_HEALTH.md"
+}

@@ -19,6 +19,34 @@ const lookup: typeof dns.lookup = ((host: string, options: dns.LookupOptions, ca
 
 const TOO_LARGE = 'فایل از سقف حجم انتقال بزرگ‌تر است'
 
+/** Metadata only. Every socket/hop uses the existing private-network guard; bodies are destroyed at headers. */
+export async function probePublicFile(raw: string, hosts?: readonly string[]) {
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 8000)
+  async function attempt(start: string, method: 'HEAD' | 'GET') {
+    let url = checkRemoteUrl(start, { allowLoopback: allowLoopback() })
+    for (let hop = 0; hop <= 3; hop++) {
+      if (hosts && !hosts.includes(url.hostname.toLowerCase())) throw new Error('میزبان خارج از فهرست مجاز است')
+      const literal = url.hostname.replace(/^\[|\]$/g, '')
+      if (net.isIP(literal) && refused(literal)) throw new Error('شبکهٔ داخلی مجاز نیست')
+      const response = await new Promise<http.IncomingMessage>((resolve, reject) => {
+        const request = (url.protocol === 'https:' ? https : http).request(url, { method, lookup, signal: controller.signal, agent: false, headers: { 'User-Agent': 'MoboCom-LinkHealth/1.0', 'Accept-Encoding': 'identity', ...(method === 'GET' ? { Range: 'bytes=0-0' } : {}) } }, resolve)
+        request.on('error', reject); request.end()
+      })
+      const status = response.statusCode || 0, location = response.headers.location, mime = String(response.headers['content-type'] || '').split(';')[0]
+      response.destroy()
+      if (status >= 300 && status < 400) { if (!location || hop === 3) throw new Error('تغییر مسیر بیش از حد مجاز'); url = checkRemoteUrl(new URL(location, url).toString(), { allowLoopback: allowLoopback() }); continue }
+      return { status, mime }
+    }
+    throw new Error('تغییر مسیر نامعتبر')
+  }
+  try {
+    let result = await attempt(raw, 'HEAD')
+    if ([405, 501].includes(result.status)) result = await attempt(raw, 'GET')
+    const ok = result.status >= 200 && result.status < 300 && !['text/html', 'application/json'].includes(result.mime)
+    return { ok, status: result.status, detail: ok ? 'پاسخ سرور موفق بود؛ پخش و دریافت کامل بررسی نشده است' : result.status >= 200 && result.status < 300 ? 'سرور به‌جای فایل، صفحه یا پاسخ متنی برگرداند' : `سرور پاسخ ${result.status} داد` }
+  } catch { return { ok: false, status: 0, detail: controller.signal.aborted ? 'پاسخ در مهلت بررسی دریافت نشد' : 'نشانی یا اتصال ایمن قابل بررسی نیست' } } finally { clearTimeout(timer) }
+}
+
 /** One GET through the guard, following at most three redirects; every hop is checked. A non-2xx answer is refused. */
 async function open(start: URL, signal: AbortSignal, headers: Record<string, string> = {}, checkpoint?: () => Promise<void>, agent?: http.Agent) {
   let url = start

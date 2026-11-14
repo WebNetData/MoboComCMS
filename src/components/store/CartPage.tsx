@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react'
 import { StoreIcon } from '@/components/store/StoreIcons'
 import { emptyCart, setLineQuantity, type Cart } from '@/modules/store/ui/cart-client'
 import { iranianUnit } from '@/shared/money/format'
+import { ShareCartControl } from './SharedCart'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
 
@@ -60,6 +61,7 @@ export default function CartPage({ initial, note, surface = 'public' }: { surfac
         <button type="button" className="sx-link is-danger" onClick={() => void clear()} disabled={busy !== null}><StoreIcon name="trash" size={16} />حذف همه</button>
       </header>
       {error && <p className="sx-alert" role="alert">{error}</p>}
+      {surface === 'public' && <ShareCartControl />}
       {!!cart.overLimit && <p className="sx-cart-hint is-warn" role="status">سبد خرید بیش از حد مجاز ردیف دارد؛ برای ادامهٔ خرید {fa(cart.overLimit)} ردیف را حذف کنید.</p>}
       {!!cart.waiting && <p className="sx-cart-hint is-warn" role="status">سبد خرید پر است. {fa(cart.waiting)} کالا که پیش از ورود انتخاب کرده بودید نگه داشته شده و با خالی شدن جا به سبد اضافه می‌شود.</p>}
       <ul className="sx-cart-lines">

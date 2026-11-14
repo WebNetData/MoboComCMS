@@ -876,6 +876,7 @@
     "20270317120000_store_experiences",
     "20270318120000_store_opening_controls",
     "20270319120000_store_order_operations",
-    "20270320120000_platform_opening_completion"
+    "20270320120000_platform_opening_completion",
+    "20270321120000_site_demand_sharing_health"
   ]
 }

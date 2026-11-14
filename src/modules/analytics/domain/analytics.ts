@@ -1,6 +1,6 @@
 /** Pure rules for cookie-free analytics: which paths count, bots, devices and traffic sources. */
 
-const SKIP = /^\/(admin|api|_next|studio|builder-preview|reseller|invoice|payment|checkout|login|register|dashboard)(\/|$)/
+const SKIP = /^\/(admin|api|_next|studio|builder-preview|reseller|invoice|payment|checkout|login|register|dashboard|shared-cart|quote)(\/|$)/
 
 /** Public page path to count, or '' to ignore (private areas, assets, junk). */
 export function normalizeTrackedPath(value: unknown): string {
