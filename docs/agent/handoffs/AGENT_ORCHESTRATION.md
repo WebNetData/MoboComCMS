@@ -123,3 +123,7 @@ Implementation `900b8a5aee919eda315cf9ca1f48bb4807ac05d5` contains26 scoped file
 ## PR authorization — 2026-11-14
 
 Owner now explicitly requests publishing the completed slice as a PR and will merge. This supersedes earlier local-only notes. Prepared from900b8a5a/e1790ce2 against fetched main1147e518; no divergence. Existing seven installer tests/config-load/backup/architecture/knowledge evidence is reused, not rerun or relabelled. Fresh installer --check reports no pending changes; diff --check against main passed. Source-import dependency and doctor terminal limitations remain. No hosted workflow, merge, release or deployment is authorized by this publication.
+
+## Published PR and concurrent main reconciliation
+
+[PR #475](https://github.com/WebNetData/MoboComCMS/pull/475) is OPEN/non-draft to main. Initial published head7c47893e reported CONFLICTING after owner concurrently merged PR473 (stable1.7.20 publication receipt) into main d4e7e941. Merged that main into this feature branch, preserving its complete stable release workstate and adding the current agent-policy status above it; no product/config changes or schema conflicts. Existing local proof was not rerun for this documentation-only reconciliation. No self-merge to main, Actions or deploy. Final remote mergeability verification follows.
