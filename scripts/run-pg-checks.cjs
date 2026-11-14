@@ -4,8 +4,11 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'store-catalog-experiences',
+  'store-gift',
   'store-desk',
   'stock-locations',
+  'stock-purchases',
   'store-omnichannel',
   'store-counter',
   'forms-counter',
@@ -72,7 +75,7 @@ const CHECKS = [
   'business-authority',
   'business-requests-migration',
   'fulfillment-recovery-window', 'seo-entities', 'content-revisions',
-  'money-state-rules', 'order-closure', 'site-popups', 'user-groups', 'vip-memberships', 'product-bundles', 'editor-page-documents', 'section-maintenance', 'invoice-void-settle', 'invoice-viewer-access', 'import-provenance', 'admin-saved-views', 'item-timeline',
+  'money-state-rules', 'order-closure', 'site-popups', 'user-groups', 'vip-memberships', 'product-bundles', 'editor-page-documents', 'section-maintenance', 'invoice-void-settle', 'mellat-callback', 'invoice-viewer-access', 'import-provenance', 'admin-saved-views', 'item-timeline',
   'return-refund-integrity',
   'journal-admin-filters',
   'journal-review',

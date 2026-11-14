@@ -50,6 +50,7 @@ import { parseProductRelationships } from '@/modules/catalog/domain/product-rela
 import { parseProductBundles } from '@/modules/catalog/domain/product-bundles'
 import { replaceProductBundles } from '@/modules/catalog/server/product-bundles'
 import { replaceProductRelationships } from '@/modules/catalog/server/product-relationships'
+import { replaceDeviceCompatibility } from '@/modules/catalog/server/device-compatibility'
 
 const PERM_MAP: Record<string, Permission> = {
   pages: 'cms.pages',
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
   }
 
   const model = MODELS[type]()
-  const include = type === 'posts' ? { editProposal: true, category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, extraCategories: { select: { categoryId: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, bundles: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }] } } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
+  const include = type === 'posts' ? { editProposal: true, category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, extraCategories: { select: { categoryId: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, deviceCompatibility: { orderBy: [{ deviceModel: 'asc' as const }, { id: 'asc' as const }] }, bundles: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }] } } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
   const orderBy = type === 'pages' ? [{ sortOrder: 'asc' as const }, { id: 'asc' as const }] : { id: 'desc' as const }
   // ?id= narrows the listing to one row (the store product editor loads a single product).
   const onlyId = Number(req.nextUrl.searchParams.get('id')) || 0
@@ -382,7 +383,7 @@ export async function PATCH(req: NextRequest) {
       }, { isolationLevel: 'Serializable' }))
     }
     if (type === 'products') {
-      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, audienceGroups: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, openAmount: true, openCurrencies: true, openMinMinor: true, openMaxMinor: true } })
+      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, condition: true, active: true, approval: true, audienceGroups: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, openAmount: true, openCurrencies: true, openMinMinor: true, openMaxMinor: true } })
       const revisionBefore = await productRevisionState(id)
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
@@ -397,6 +398,7 @@ export async function PATCH(req: NextRequest) {
         if (input.variants) await saveVariants(tx, id, input.variants)
         await adoptEditorStock(tx, id, admin.id)
         if (relationships) await replaceProductRelationships(tx, id, relationships)
+        if (b?.deviceCompatibility !== undefined) await replaceDeviceCompatibility(tx, id, b.deviceCompatibility)
         if (bundles) await replaceProductBundles(tx, id, bundles)
         await capturePublicProductPrices(tx, id, pricesBefore)
         await recordRevision({ entityType: 'products', entityId: id, before: revisionBefore, after: (await productRevisionState(id, tx))!, actor: admin, client: tx, strict: true })

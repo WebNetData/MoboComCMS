@@ -6,14 +6,17 @@ import { RevisionError, type RestoreCommit } from '@/modules/content/server/revi
 import { replaceProductRelationships } from '@/modules/catalog/server/product-relationships'
 import { parseProductRelationships } from '@/modules/catalog/domain/product-relationships'
 import { productInput } from '@/modules/catalog/server/product-input'
+import { replaceDeviceCompatibility } from './device-compatibility'
 
 // Catalogue content only. Restoring a description must never rewind stock, money, orders or seller ownership.
 const FIELDS = ['id', 'updatedAt', 'slug', 'name', 'nameEn', 'description', 'shortDescription', 'image', 'gallery', 'categoryId', 'brandId', 'warranty', 'faqs', 'specifications', 'seoTitle', 'seoDescription', 'weightGrams', 'featured', 'active'] as const
+const CONDITION_FIELDS = ['condition', 'conditionGrade', 'conditionNotes', 'healthReport'] as const
 export async function productRevisionState(id: number, tx: Prisma.TransactionClient = db): Promise<Record<string, unknown> | null> {
   const row = await tx.product.findUnique({ where: { id } })
   if (!row) return null
   const relationships = await tx.productRelationship.findMany({ where: { productId: id }, orderBy: [{ position: 'asc' }, { id: 'asc' }], select: { kind: true, targetId: true } })
-  return { ...Object.fromEntries(FIELDS.map(key => [key, row[key]])), __relations: JSON.stringify({ version: 1, relationships }) }
+  const deviceCompatibility = await tx.productDeviceCompatibility.findMany({ where: { productId: id }, orderBy: [{ deviceModel: 'asc' }, { id: 'asc' }], select: { deviceModel: true, status: true, note: true, source: true } })
+  return { ...Object.fromEntries(FIELDS.map(key => [key, row[key]])), ...Object.fromEntries(CONDITION_FIELDS.map(key => [key, row[key]])), __relations: JSON.stringify({ version: 2, relationships, deviceCompatibility }) }
 }
 
 export async function restoreProductRevision(id: number, snapshot: Snapshot, commit?: RestoreCommit) {
@@ -26,11 +29,12 @@ export async function restoreProductRevision(id: number, snapshot: Snapshot, com
     if (!claimed.count) throw new RevisionError('محصول هم‌زمان تغییر کرده است', 409)
     if (raw !== undefined) {
       const relations = JSON.parse(String(raw))
-      if (relations.version !== 1) throw new RevisionError('نسخهٔ روابط محصول معتبر نیست', 422)
+      if (relations.version !== 1 && relations.version !== 2) throw new RevisionError('نسخهٔ روابط محصول معتبر نیست', 422)
       await replaceProductRelationships(tx, id, parseProductRelationships(relations.relationships, id))
+      if (relations.version === 2) await replaceDeviceCompatibility(tx, id, relations.deviceCompatibility)
     }
     const current = await tx.product.findUniqueOrThrow({ where: { id } }), validated = await productInput(data, current)
-    const allowed = new Set<string>(FIELDS.filter(key => key !== 'id' && key !== 'updatedAt'))
+    const allowed = new Set<string>([...FIELDS.filter(key => key !== 'id' && key !== 'updatedAt'), ...CONDITION_FIELDS])
     await tx.product.update({ where: { id }, data: Object.fromEntries(Object.entries(validated.data).filter(([key]) => allowed.has(key))) })
     // A restored snapshot carries an old sellable count; location-tracked items keep their real units.
     await adoptEditorStock(tx, id)

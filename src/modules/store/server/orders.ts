@@ -1,3 +1,5 @@
+import { readGiftOrder } from '@/modules/store/domain/gift-order'
+import { getStoreSettings } from '@/modules/store/server/catalog'
 import type { Prisma } from '@prisma/client'
 import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
 import { db } from '@/platform/database/prisma'
@@ -190,6 +192,7 @@ function orderDetailView(order: NonNullable<DetailOrder> | (OrderWithLines & {
     id: order.id,
     createdAt: order.createdAt,
     state: orderState(order),
+    gift: readGiftOrder(meta.gift),
     fulfilment: order.productDelivery?.status || '',
     trackingCode: order.productDelivery?.trackingCode || '',
     deliveryNote: order.productDelivery?.deliveryNote || '',
@@ -248,12 +251,30 @@ function adminWhere(tab: AdminTab): Prisma.OrderWhereInput {
   }
 }
 
-export async function adminOrders(input: { tab?: string; q?: string; page?: number; kind?: string; date?: string }, scope?: OrderWorkScope) {
+const WORK_ACTIVE: Prisma.OrderWhereInput = { status: 'PAID', OR: [{ productDelivery: { is: null } }, { productDelivery: { is: { status: { in: ['PENDING', 'PROCESSING', 'PACKED', 'SHIPPED'] } } } }] }
+
+function workWhere(view: string, scope: OrderWorkScope | undefined, overdueCutoff: Date | null): Prisma.OrderWhereInput | null {
+  if (!['all', 'pending', 'mine', 'unassigned', 'overdue'].includes(view)) return null
+  const conditions: Prisma.OrderWhereInput[] = [WORK_ACTIVE]
+  if (view === 'mine') {
+    if (!scope) return null
+    conditions.push({ assigneeId: scope.actorId })
+  } else if (view === 'unassigned') conditions.push({ assigneeId: null })
+  else if (view === 'overdue') conditions.push(overdueCutoff ? { OR: [{ invoice: { is: { paidAt: { lt: overdueCutoff } } } }, { AND: [{ OR: [{ invoice: { is: null } }, { invoice: { is: { paidAt: null } } }] }, { createdAt: { lt: overdueCutoff } }] }] } : { id: -1 })
+  else if (view === 'pending') conditions.push({ OR: [{ productDelivery: { is: null } }, { productDelivery: { is: { status: 'PENDING' } } }] })
+  return { AND: conditions }
+}
+
+export async function adminOrders(input: { tab?: string; q?: string; page?: number; kind?: string; date?: string; work?: string }, scope?: OrderWorkScope) {
+  const { staffDeliveryHours: overdueHours } = await getStoreSettings()
+  const overdueCutoff = overdueHours > 0 ? new Date(Date.now() - overdueHours * 3_600_000) : null
   const tab = (ADMIN_TABS.some((item) => item.key === input.tab) ? input.tab : 'all') as AdminTab
   const q = String(input.q || '').trim().slice(0, 80)
   const page = Math.max(1, Math.min(1000, Math.floor(Number(input.page) || 1)))
   const size = 25
   const and: Prisma.OrderWhereInput[] = [adminWhere(tab), orderVisibility(scope)]
+  const selectedWork = workWhere(String(input.work || ''), scope, overdueCutoff)
+  if (selectedWork) and.push(selectedWork)
   if (q) {
     const id = Number(q.replace(/^#/, ''))
     and.push({ OR: [
@@ -270,21 +291,26 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(String(input.date || ''))) and.push({ productDelivery: { is: { scheduledDate: String(input.date) } } })
   const where = { AND: and }
-  const [rows, total, counts] = await Promise.all([
+  const [rows, total, counts, workCounts] = await Promise.all([
     db.order.findMany({
       where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * size, take: size,
-      include: { ...LINE_INCLUDE, user: { select: { id: true, name: true, email: true, phone: true } }, productDelivery: { select: { status: true, scheduledDate: true, scheduledSlot: true, trackingCode: true } }, invoice: { select: { number: true, status: true } } },
+      include: { ...LINE_INCLUDE, assignee: { select: { id: true, name: true } }, user: { select: { id: true, name: true, email: true, phone: true } }, productDelivery: { select: { status: true, scheduledDate: true, scheduledSlot: true, trackingCode: true } }, invoice: { select: { number: true, status: true } } },
     }),
     db.order.count({ where }),
     Promise.all(ADMIN_TABS.map((item) => db.order.count({ where: { AND: [adminWhere(item.key), orderVisibility(scope)] } }))),
+    Promise.all(['all', 'pending', 'mine', 'unassigned', 'overdue'].map(view => {
+      const where = workWhere(view, scope, overdueCutoff)
+      return where ? db.order.count({ where: { AND: [STORE_ORDER, orderVisibility(scope), where] } }) : Promise.resolve(0)
+    })),
   ])
   return {
-    tab, q, page, pages: Math.max(1, Math.ceil(total / size)), total,
+    tab, q, page, pages: Math.max(1, Math.ceil(total / size)), total, work: String(input.work || ''), overdueHours,
     counts: Object.fromEntries(ADMIN_TABS.map((item, index) => [item.key, counts[index]])) as Record<AdminTab, number>,
+    workCounts: Object.fromEntries(['all', 'pending', 'mine', 'unassigned', 'overdue'].map((key, index) => [key, workCounts[index]])),
     orders: rows.map((order) => {
       const lines = orderLines(order)
       return {
-        id: order.id, assigneeId: order.assigneeId, createdAt: order.createdAt, saleSource: order.saleSource, customer: { id: order.user?.id ?? null, name: order.customerName || order.user?.name || 'مشتری حضوری', email: order.user?.email || '', phone: order.customerPhone || order.user?.phone || '' },
+        id: order.id, assigneeId: order.assigneeId, assigneeName: order.assignee?.name || '', createdAt: order.createdAt, saleSource: order.saleSource, customer: { id: order.user?.id ?? null, name: order.customerName || order.user?.name || 'مشتری حضوری', email: order.user?.email || '', phone: order.customerPhone || order.user?.phone || '' },
         state: orderState(order), fulfilment: order.productDelivery?.status || '', schedule: order.productDelivery?.scheduledDate ? [jalaliDayLabel(order.productDelivery.scheduledDate), order.productDelivery.scheduledSlot].filter(Boolean).join(' · ') : '',
         trackingCode: order.productDelivery?.trackingCode || '', invoiceNumber: order.invoice?.number || '',
         total: minorToNumber(order.totalMinor, order.currency), currency: order.currency,

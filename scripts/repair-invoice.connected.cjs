@@ -6,13 +6,14 @@ const { randomUUID, randomBytes } = require('node:crypto')
 const { PrismaClient } = require('@prisma/client')
 const { NextRequest } = require('next/server')
 
-assert(/test|check/i.test(new URL(process.env.DATABASE_URL).pathname), 'disposable database required')
+assert(/test|check|store_experiences_/i.test(new URL(process.env.DATABASE_URL).pathname), 'disposable database required')
 process.env.STORE_DELIVERY_KEY = randomBytes(32).toString('hex')
 const db = new PrismaClient(), stamp = `repair-${Date.now().toString(36)}`
 const users = [], roles = [], products = [], forms = [], sessions = [], orders = [], places = []
 let viewer, shelfId
 class SmsError extends Error {}
-const load = require('./connected-source-loader.cjs')({
+const sourceLoader = require('./connected-source-loader.cjs')
+const mocks = {
   '@/platform/database/prisma': { db },
   'next-auth/jwt': { getToken: async () => viewer ? { uid: viewer.id, authAt: new Date().toISOString() } : null },
   '@/extensions/server/modules': { moduleGuard: async () => null, isModuleEnabled: async () => true },
@@ -20,11 +21,23 @@ const load = require('./connected-source-loader.cjs')({
   '@/platform/http/rate-limit': { rateLimitStrict: async () => ({ ok: true }), clientIp: () => '127.0.0.1' },
   '@/modules/sms/server/sms': { notifyPhone: async () => {}, siteLink: async (route) => `http://site.invalid${route}`, requestOtp: async () => ({}), verifyOtp: async () => {}, SmsError },
   react: { ...require('react'), cache: (fn) => fn },
-})
+}
+const load = sourceLoader(mocks)
+const auditFault = { enabled: false }
+const auditMock = {
+  auditAdmin: async () => undefined,
+  auditAdminStrict: async (input, client) => {
+    const row = await client.auditLog.create({ data: { actorUserId: input.actor.id, actorEmail: input.actor.email, action: input.action, targetType: input.targetType, targetId: String(input.targetId ?? ''), requestId: stamp, ip: '127.0.0.1', metadata: JSON.stringify(input.metadata || {}) } })
+    if (auditFault.enabled) throw Error('strict audit fault')
+    return row
+  },
+}
+const loadAuditFailure = sourceLoader({ ...mocks, '@/platform/audit/server': auditMock })
 const definitions = load('src/modules/forms/domain/forms.ts')
 const service = load('src/modules/forms/server/service.ts')
 const counterApi = load('src/modules/store/server/http/counter-sales.ts')
 const answersApi = load('src/modules/site/server/http/admin/forms/submissions/route.ts')
+const answersApiAuditFailure = loadAuditFailure('src/modules/site/server/http/admin/forms/submissions/route.ts')
 const returns = load('src/modules/store/server/returns/counter.ts')
 const stock = load('src/modules/catalog/server/locations.ts')
 const balance = async (productId) => (await db.locationStock.findFirst({ where: { productId, locationId: shelfId } }))?.quantity ?? 0
@@ -49,6 +62,23 @@ async function counter(method, query = '', body) {
 async function work(id, step) {
   const response = await answersApi.PATCH(new NextRequest('http://site.invalid/api/admin/forms/submissions', { method: 'PATCH', headers: { Origin: 'http://site.invalid', 'Content-Type': 'application/json' }, body: JSON.stringify({ id, work: step }) }))
   return { status: response.status, body: await response.json() }
+}
+async function attachOrder(submissionId, orderId) {
+  const response = await answersApi.PATCH(new NextRequest('http://site.invalid/api/admin/forms/submissions', { method: 'PATCH', headers: { Origin: 'http://site.invalid', 'Content-Type': 'application/json' }, body: JSON.stringify({ id: submissionId, attachPaidServiceOrder: true, orderId }) }))
+  return { status: response.status, body: await response.json() }
+}
+async function attachOrderWithAuditFailure(submissionId, orderId) {
+  const response = await answersApiAuditFailure.PATCH(new NextRequest('http://site.invalid/api/admin/forms/submissions', { method: 'PATCH', headers: { Origin: 'http://site.invalid', 'Content-Type': 'application/json' }, body: JSON.stringify({ id: submissionId, attachPaidServiceOrder: true, orderId }) }))
+  return { status: response.status, body: await response.json() }
+}
+async function paidMixedOrder(customerId, serviceId, goodsId, { status = 'PAID', invoiceStatus = 'PAID', includeGoods = true, customerPhone = '' } = {}) {
+  const lines = [{ line: 0, productId: serviceId, name: 'نصب سیستم‌عامل', kind: 'VIRTUAL', quantity: 1, unitPriceMinor: 1000n, totalMinor: 1000n, currency: 'IRT' }]
+  let total = 1000n
+  if (includeGoods) { lines.push({ line: 1, productId: goodsId, name: 'SSD', kind: 'PHYSICAL', quantity: 1, unitPriceMinor: 2000n, totalMinor: 2000n, currency: 'IRT' }); total += 2000n }
+  const order = await db.order.create({ data: { userId: customerId, customerPhone, productId: goodsId, status, totalAmount: Number(total), totalMinor: total, currency: 'IRT', meta: JSON.stringify({ kind: 'product', serviceProductIds: [serviceId] }), lines: { create: lines } } })
+  orders.push(order.id)
+  await db.invoice.create({ data: { number: `INV-${stamp}-${order.id}`, userId: customerId, orderId: order.id, subtotal: Number(total), subtotalMinor: total, total: Number(total), totalMinor: total, currency: 'IRT', status: invoiceStatus } })
+  return order.id
 }
 const sale = (who, submissionId, lines, workLines) => ({ requestId: randomUUID(), confirmed: true, sessionId: who.sessionId, method: 'CASH', customerName: 'علی رضایی', customerPhone: '', lines, repair: { submissionId, currency: 'IRT', work: workLines } })
 const WORK = [{ name: 'تعویض SSD و نصب ویندوز', part: false, quantity: 1, unitMinor: '500' }, { name: 'باتری لپ‌تاپ', part: true, quantity: 1, unitMinor: '2000' }]
@@ -140,7 +170,56 @@ async function main() {
   const free = await work(third.id, { stage: 'DONE', pickupCode: '123456', override: 'تعمیر در گارانتی و رایگان' })
   assert.equal(free.status, 200, JSON.stringify(free.body))
   assert.equal(await db.auditLog.count({ where: { action: 'forms.pickup_without_invoice', targetId: String(third.id) } }), 1)
-  console.log('PASS Repair invoice: handler/manager access and cashier denial, stock part + work + bought-in part paid in one sale, link to the repair, receipt kinds, one paid invoice per repair, work not returnable, handover gated by the paid invoice, work-only sale recorded, manager handover without invoice audited')
+
+  // Reuse an already-paid online bundle invoice for the repair without issuing another order or changing shipment state.
+  const customer = await db.user.create({ data: { name: 'علی رضایی', email: `${stamp}-buyer@example.invalid`, phone: '09120000000', passwordHash: 'fixture-only' } })
+  users.push(customer.id)
+  const wrongCustomer = await db.user.create({ data: { name: 'مشتری دیگر', email: `${stamp}-other@example.invalid`, phone: '09121111111', passwordHash: 'fixture-only' } })
+  users.push(wrongCustomer.id)
+  const serviceProduct = await db.product.create({ data: { slug: `${stamp}-install`, sku: `${stamp}-install`, name: 'نصب و راه‌اندازی', kind: 'VIRTUAL', isService: true, active: true, price: 1000, priceMinor: 1000n, currency: 'IRT' } })
+  const goodsProduct = await db.product.create({ data: { slug: `${stamp}-ssd-bundle`, sku: `${stamp}-ssd-bundle`, name: 'SSD همراه نصب', kind: 'PHYSICAL', active: true, price: 2000, priceMinor: 2000n, currency: 'IRT', stock: 5 } })
+  products.push(serviceProduct.id, goodsProduct.id)
+  const wrongOrderId = await paidMixedOrder(wrongCustomer.id, serviceProduct.id, goodsProduct.id)
+  const wrongRepair = await repairRow(form.id, { userId: customer.id })
+  viewer = manager
+  assert.equal((await attachOrder(wrongRepair.id, wrongOrderId)).status, 403, 'a paid mixed order for another canonical user is refused')
+  assert.equal((await db.formSubmission.findUniqueOrThrow({ where: { id: wrongRepair.id } })).repairOrderId, null)
+
+  const unpaidOrderId = await paidMixedOrder(customer.id, serviceProduct.id, goodsProduct.id, { invoiceStatus: 'UNPAID' })
+  const unpaidRepair = await repairRow(form.id, { userId: customer.id })
+  assert.equal((await attachOrder(unpaidRepair.id, unpaidOrderId)).status, 404, 'an unpaid invoice is refused')
+
+  const goodsOnlyOrderId = await paidMixedOrder(customer.id, serviceProduct.id, goodsProduct.id, { includeGoods: false })
+  const goodsOnlyRepair = await repairRow(form.id, { userId: customer.id })
+  assert.equal((await attachOrder(goodsOnlyRepair.id, goodsOnlyOrderId)).status, 409, 'a service-only order is not a goods+service bundle')
+
+  const mixedOrderId = await paidMixedOrder(customer.id, serviceProduct.id, goodsProduct.id)
+  const formsOnlyRepair = await repairRow(form.id, { userId: customer.id })
+  viewer = handler
+  assert.equal((await attachOrder(formsOnlyRepair.id, mixedOrderId)).status, 403, 'forms handlers also need orders.manage to attach a Store invoice')
+  assert.equal((await db.formSubmission.findUniqueOrThrow({ where: { id: formsOnlyRepair.id } })).repairOrderId, null)
+  const mixedRepair = await repairRow(form.id, { userId: customer.id })
+  viewer = manager
+  const attached = await attachOrder(mixedRepair.id, mixedOrderId)
+  assert.equal(attached.status, 200, JSON.stringify(attached.body))
+  assert.equal(attached.body.orderId, mixedOrderId)
+  assert.equal((await db.formSubmission.findUniqueOrThrow({ where: { id: mixedRepair.id } })).repairOrderId, mixedOrderId)
+  assert.equal((await db.order.findUniqueOrThrow({ where: { id: mixedOrderId } })).status, 'PAID', 'linking does not change Store order or shipment state')
+  assert.equal(await db.auditLog.count({ where: { action: 'forms.repair_order.attach', targetId: String(mixedRepair.id), actorUserId: manager.id } }), 1, 'the cross-domain link is strictly audited in its transaction')
+  const duplicateRepair = await repairRow(form.id, { userId: customer.id })
+  assert.equal((await attachOrder(duplicateRepair.id, mixedOrderId)).status, 409, 'one Store invoice cannot be attached to two repairs')
+  assert.equal(await db.invoice.count({ where: { orderId: mixedOrderId } }), 1, 'linking reuses the existing single invoice')
+  const guestOrderId = await paidMixedOrder(customer.id, serviceProduct.id, goodsProduct.id)
+  const guestRepair = await repairRow(form.id, { userId: null })
+  assert.equal((await attachOrder(guestRepair.id, guestOrderId)).status, 200, 'a guest repair may match only through the normalized customer mobile')
+  const faultOrderId = await paidMixedOrder(customer.id, serviceProduct.id, goodsProduct.id)
+  const faultRepair = await repairRow(form.id, { userId: customer.id })
+  auditFault.enabled = true
+  await assert.rejects(attachOrderWithAuditFailure(faultRepair.id, faultOrderId), /strict audit fault/)
+  auditFault.enabled = false
+  assert.equal((await db.formSubmission.findUniqueOrThrow({ where: { id: faultRepair.id } })).repairOrderId, null, 'audit failure rolls back the repair link')
+  assert.equal(await db.auditLog.count({ where: { action: 'forms.repair_order.attach', targetId: String(faultRepair.id) } }), 0, 'audit failure rolls back the strict audit row')
+  console.log('PASS Repair invoice: counter sale, repair eligibility and handover gates, plus audited attachment of an existing paid mixed goods/service order with canonical/normalized-mobile customer matching, permission/payment/content/uniqueness refusals, and unchanged Store shipment state')
 }
 
 main().finally(async () => {

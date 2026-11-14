@@ -109,10 +109,11 @@ export const mellatSettle = (c: MellatCredentials, r: Ref) => refCall('bpSettleR
 export const mellatReversal = (c: MellatCredentials, r: Ref) => refCall('bpReversalRequest', c, r)
 
 /** Auto-submitting page that posts the RefId to the bank (the bank requires a POST). */
-export function mellatStartPage(refId: string, mobile?: string) {
+export function mellatStartPage(refId: string, mobile?: string, nonce?: string) {
   const safe = xmlEscape(refId)
+  const scriptNonce = nonce ? ` nonce="${xmlEscape(nonce)}"` : ''
   return `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>انتقال به درگاه بانک ملت</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Tahoma,Vazirmatn,sans-serif;background:#f4f5f7;color:#1f2937}.box{text-align:center;padding:32px;border-radius:16px;background:#fff;box-shadow:0 10px 40px #0001;max-width:360px}.spin{width:36px;height:36px;margin:0 auto 16px;border:4px solid #e5e7eb;border-top-color:#c2185b;border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}button{margin-top:16px;padding:10px 22px;border:0;border-radius:10px;background:#c2185b;color:#fff;font:inherit;cursor:pointer}</style></head>
 <body><form class="box" id="f" method="post" action="${MELLAT_START_URL}"><div class="spin"></div><p>در حال انتقال به درگاه امن بانک ملت…</p><input type="hidden" name="RefId" value="${safe}">${mobile ? `<input type="hidden" name="MobileNo" value="${xmlEscape(mobile.replace(/^0/, '98'))}">` : ''}<button type="submit">اگر منتقل نشدید، اینجا بزنید</button></form>
-<script>document.getElementById('f').submit()</script></body></html>`
+<script${scriptNonce}>document.getElementById('f').submit()</script></body></html>`
 }

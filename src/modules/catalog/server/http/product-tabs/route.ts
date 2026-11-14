@@ -15,6 +15,7 @@ import { readFrequentlyBoughtProducts } from '@/modules/catalog/server/frequentl
 import { readEditorialProductCards } from '@/modules/catalog/server/product-relationship-read'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { opensAudience } from '@/modules/account/server/item-audience'
+import { normalizeDeviceModel } from '@/modules/catalog/domain/device-compatibility'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -26,6 +27,14 @@ export async function GET(req: NextRequest, { params }: Context) {
   const tab = req.nextUrl.searchParams.get('tab') || 'description'
   const pageRaw = Number(req.nextUrl.searchParams.get('page') || 1)
   const page = Number.isSafeInteger(pageRaw) ? Math.min(1000, Math.max(1, pageRaw)) : 1
+  if (tab === 'device-compatibility') {
+    const normalizedModel = normalizeDeviceModel(req.nextUrl.searchParams.get('model')?.slice(0, 120))
+    const match = normalizedModel ? await db.productDeviceCompatibility.findUnique({
+      where: { productId_normalizedModel: { productId: product.id, normalizedModel } },
+      select: { deviceModel: true, status: true, note: true },
+    }) : null
+    return ok({ recorded: !!match, compatible: match?.status === 'COMPATIBLE', status: match?.status || null, note: match?.note || '', deviceModel: match?.deviceModel || null })
+  }
   if (tab === 'price-history') {
     const rawVariant = req.nextUrl.searchParams.get('variantId')
     if (rawVariant !== null && !/^\d+$/.test(rawVariant)) return err('not found', 404)

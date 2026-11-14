@@ -81,6 +81,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
   const [pickup, setPickup] = useState<{ key: string; label: string; pickup: boolean; invoice: boolean } | null>(null)
   const [code, setCode] = useState('')
   const [reason, setReason] = useState('')
+  const [paidOrderId, setPaidOrderId] = useState('')
   const [busy, setBusy] = useState(false)
   const unpaid = row.payStatus === 'UNPAID'
   // A repair is invoiced at the shop counter (parts and work); the step that hands the device back may ask for it paid.
@@ -106,6 +107,18 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
     const result = await api('/api/admin/forms/submissions', 'PATCH', { id: row.id, secrets: 'erase' })
     onNotice(result.ok ? 'ok' : 'error', result.ok ? 'اطلاعات محرمانه پاک شد.' : result.error)
     if (result.ok) { setSecrets(null); onChanged() }
+  }
+  async function attachPaidOrder() {
+    if (busy) return
+    const orderId = Number(paidOrderId)
+    if (!Number.isSafeInteger(orderId) || orderId <= 0) { onNotice('error', 'شمارهٔ سفارش معتبر نیست'); return }
+    setBusy(true)
+    try {
+      const result = await api<{ orderId: number }>('/api/admin/forms/submissions', 'PATCH', { id: row.id, attachPaidServiceOrder: true, orderId })
+      onNotice(result.ok ? 'ok' : 'error', result.ok ? `سفارش پرداخت‌شده به تعمیر ${fa(row.id)} وصل شد.` : result.error)
+      if (result.ok) { setPaidOrderId(''); onChanged() }
+    } catch { onNotice('error', 'ارتباط برقرار نشد؛ وضعیت تعمیر را دوباره دریافت کنید.') }
+    finally { setBusy(false) }
   }
 
   return <div className="fp-work">
@@ -136,7 +149,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
         </div>}
         {invoiceStep && (row.repairInvoice || (!finished && (row.receivedAt || !row.receipt))) && <p className="sa-row-actions fp-receipts">
           {invoiced ? <><span className="sa-state is-info">فاکتور تعمیر پرداخت شد</span><a className="btn btn-ghost btn-sm" href={`/invoice/${encodeURIComponent(row.repairInvoice!.number)}/official`} target="_blank">فاکتور <bdi>{row.repairInvoice!.number}</bdi></a><a className="btn btn-ghost btn-sm" href={`/admin/store/counter?order=${row.repairInvoice!.orderId}`}>رسید صندوق</a></>
-            : !finished && <a className="btn btn-primary btn-sm" href={`/admin/store/counter?repair=${row.id}`}>صدور فاکتور تعمیر (قطعه‌ها و اجرت)</a>}
+            : !finished && <><a className="btn btn-primary btn-sm" href={`/admin/store/counter?repair=${row.id}`}>صدور فاکتور تعمیر (قطعه‌ها و اجرت)</a>{row.canAttachPaidServiceOrder && <span className="sa-row-actions"><label className="sa-field"><span>اتصال سفارش مختلطِ پرداخت‌شده (خدمت و کالا)</span><input className="input" type="number" min={1} step={1} value={paidOrderId} disabled={busy} onChange={(event) => setPaidOrderId(event.target.value)} aria-label="شمارهٔ سفارش مختلط پرداخت‌شده" /></label><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !paidOrderId.trim()} onClick={() => void attachPaidOrder()}>اتصال به این تعمیر</button></span>}</>}
         </p>}
         {row.receipt && row.receivedAt && <p className="sa-row-actions fp-receipts"><a className="btn btn-ghost btn-sm" href={`/admin/forms/receipt/${row.id}?copy=customer`} target="_blank">رسید مشتری</a><a className="btn btn-ghost btn-sm" href={`/admin/forms/receipt/${row.id}?copy=shop`} target="_blank">رسید مغازه</a>{row.source === 'STAFF' && <small className="sa-hint">ثبت حضوری</small>}</p>}
         <p className="sa-hint">{row.assignee ? <>در دست: <b>{row.assignee}</b> </> : 'هنوز کسی این کار را برنداشته است. '}<button type="button" className="sa-link" disabled={busy} onClick={() => void work({ take: true }, 'این درخواست به شما سپرده شد.')}>من انجام می‌دهم</button>{row.assignee && <> · <button type="button" className="sa-link" disabled={busy} onClick={() => void work({ take: false }, 'آزاد شد.')}>آزاد کن</button></>}</p>

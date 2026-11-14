@@ -58,12 +58,12 @@ export async function CartCheckoutView({ surface = 'public' }: { surface?: Check
   if (!who.userId) redirect(`/login?next=${encodeURIComponent('/checkout/cart')}`)
   const cart = await cartView(who)
   if (!cart.lines.length || cart.blocked) redirect(checkoutPath('/cart', surface))
-  const [schedule, gateways, theme] = await Promise.all([deliverySchedule(), checkoutGatewayOptions(cart.currency), getServerTheme()])
+  const [schedule, gateways, theme, store] = await Promise.all([deliverySchedule(), checkoutGatewayOptions(cart.currency), getServerTheme(), getStoreSettings()])
   const Surface = surface === 'dashboard' ? 'section' : 'main'
   return <>
     {surface === 'public' && <SiteHeader theme={theme} />}
     <Surface className="container content-surface sh-checkout-page">
-      <CartCheckout surface={surface} cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days, pickup: schedule.settings.pickup }} gateways={gateways} />
+      <CartCheckout giftOptions={{ enabled: store.giftOrdersEnabled, wrapEnabled: store.giftWrapEnabled }} surface={surface} cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days, pickup: schedule.settings.pickup }} gateways={gateways} />
     </Surface>
     {surface === 'public' && <SiteFooter />}
   </>

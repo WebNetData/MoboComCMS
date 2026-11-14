@@ -6,7 +6,7 @@ export type Row = { formId: number; formTitle: string; id: number; status: Submi
   amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; orderId: number | null
   stage: string; assigneeId: number | null; assignee: string; reply: string; hasSecrets: boolean; secretsErasedAt: string | null; score: number; scoreMax: number
   steps: { key: string; label: string; pickup: boolean; receipt: boolean; invoice: boolean }[]; receipt: boolean; source: string; receivedAt: string | null
-  repairInvoice: { orderId: number; number: string; status: string } | null }
+  repairInvoice: { orderId: number; number: string; status: string } | null; canAttachPaidServiceOrder?: boolean }
 
 export const blankForm = (): FormDefinition => ({
   slug: '', title: '', description: '', published: false, successText: 'پیام شما با موفقیت ثبت شد. به‌زودی بررسی می‌کنیم.', settings: { ...DEFAULT_SETTINGS },

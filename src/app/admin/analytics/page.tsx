@@ -6,6 +6,7 @@ type Top = { value: string; count: number }
 type Point = { day: string; visitors: number; views: number; signups: number; sales: number; downloads: number }
 type Data = {
   days: number
+  storeFunnel: { productPageViews: number; cartEvents: number; checkoutEvents: number; paidInvoices: number }
   summary: { visitors: number; views: number; pagesPerVisit: number; visitorsChange: number | null; viewsChange: number | null; sales: number; salesChange: number | null; revenue: string[]; signups: number; signupsChange: number | null; downloads: number; downloadsChange: number | null; reviews: number; favorites: number; pushSubscribers: number }
   series: Point[]; pages: { path: string; title: string; views: number }[]
   sources: Top[]; devices: Top[]; browsers: Top[]; os: Top[]; landing: Top[]; searches: Top[]; emptySearches: Top[]
@@ -57,6 +58,16 @@ export default function AdminAnalyticsPage() {
     {error && <div className="xm-notice is-error" role="alert">{error}</div>}
     {!data && !error && <div className="tb-empty">در حال بارگذاری…</div>}
     {data && s && <>
+      <section className="card an-list" aria-labelledby="store-funnel-title">
+        <h2 id="store-funnel-title">قیف خرید فروشگاه</h2>
+        <p className="muted">شمار رویدادهای تجمیعی در این بازه؛ مراحل نمایانگر بازدیدکنندهٔ یکتا یا گروه پیوسته نیستند.</p>
+        <div className="an-kpis">
+          <div className="card"><span>بازدید صفحهٔ کالا</span><strong>{fa(data.storeFunnel.productPageViews)}</strong></div>
+          <div className="card"><span>رویداد افزودن به سبد</span><strong>{fa(data.storeFunnel.cartEvents)}</strong></div>
+          <div className="card"><span>رویداد آغاز پرداخت</span><strong>{fa(data.storeFunnel.checkoutEvents)}</strong></div>
+          <div className="card"><span>فاکتورهای پرداخت‌شدهٔ فروشگاه</span><strong>{fa(data.storeFunnel.paidInvoices)}</strong></div>
+        </div>
+      </section>
       <div className="an-kpis">
         <div className="card"><span>بازدیدکنندهٔ یکتا</span><strong>{fa(s.visitors)}</strong><Change value={s.visitorsChange} /></div>
         <div className="card"><span>بازدید صفحه</span><strong>{fa(s.views)}</strong><Change value={s.viewsChange} /><small className="muted">{s.pagesPerVisit.toLocaleString('fa-IR')} صفحه در هر بازدید</small></div>

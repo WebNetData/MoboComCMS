@@ -1,10 +1,11 @@
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { FormsError, answerText, parseForm, stepLabel, workSteps, type StoredAnswer } from '@/modules/forms/domain/forms'
 import { mayHandle } from '@/modules/forms/server/advanced'
+import { normalizeMobile } from '@/modules/sms/domain/sms'
 
-// A repair is invoiced at the shop counter (owner 2026-11-13): the Store's counter sale lists the parts and the work
-// done and takes the money; Forms keeps which sale belongs to which repair and asks for it before the device goes back.
+// Store owns the sale and payment; Forms links the one paid Store order to this repair and gates handing the device back.
+// In-shop sales may include parts and work; a matching paid mixed goods/service checkout can also be attached.
 
 type Client = Prisma.TransactionClient | typeof db
 export type RepairActor = { id: number; builder: boolean; handler: boolean }
@@ -53,4 +54,55 @@ export async function linkRepairOrder(tx: Prisma.TransactionClient, id: number, 
   if (invoicePaid(await repairInvoice(row.repairOrderId, tx))) throw new FormsError('این تعمیر هم‌زمان فاکتور پرداخت‌شده گرفت', 409)
   const changed = await tx.formSubmission.updateMany({ where: { id, repairOrderId: row.repairOrderId }, data: { repairOrderId: orderId } })
   if (changed.count !== 1) throw new FormsError('درخواست تعمیر هم‌زمان تغییر کرد؛ دوباره تلاش کنید', 409)
+}
+
+/** Links an already-paid mixed Store order to an eligible repair; no order, invoice or payment is created here. */
+export async function attachPaidServiceOrder(tx: Prisma.TransactionClient, id: number, orderId: number, actor: RepairActor) {
+  if (/^postgres/.test(process.env.DATABASE_URL || '')) await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "FormSubmission" WHERE "id" = ${id} FOR UPDATE`)
+  const repair = await tx.formSubmission.findUnique({ where: { id }, select: { id: true, userId: true, data: true, stage: true, assigneeId: true, receivedAt: true, repairOrderId: true } })
+  if (!repair) throw new FormsError('درخواست تعمیر پیدا نشد', 404)
+  await repairForInvoice(id, actor, tx)
+  if (/^postgres/.test(process.env.DATABASE_URL || '')) {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`)
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "orderId" = ${orderId} FOR UPDATE`)
+  }
+  const order = await tx.order.findFirst({
+    where: { id: orderId, productId: { not: null }, status: 'PAID' },
+    select: { id: true, userId: true, customerPhone: true, meta: true, invoice: { select: { orderId: true, status: true } }, user: { select: { phone: true } }, lines: { select: { productId: true, kind: true, sellerId: true } } },
+  })
+  if (!order || order.invoice?.status !== 'PAID' || order.invoice.orderId !== order.id) throw new FormsError('سفارش و فاکتور پرداخت‌شده پیدا نشد', 404)
+  let serviceProductIds: number[] = []
+  try {
+    const meta = JSON.parse(order.meta || '{}') as { serviceProductIds?: unknown }
+    if (Array.isArray(meta.serviceProductIds)) serviceProductIds = meta.serviceProductIds.map(Number).filter((value) => Number.isSafeInteger(value) && value > 0)
+  } catch { /* older orders have no frozen service snapshot */ }
+  const service = order.lines.some((line) => line.kind === 'VIRTUAL' && line.productId !== null && line.sellerId === null && serviceProductIds.includes(line.productId))
+  const goods = order.lines.some((line) => line.kind === 'PHYSICAL' && line.productId !== null && line.sellerId === null)
+  if (!service || !goods) throw new FormsError('سفارش باید خدمت و کالای فیزیکی فروشگاه را با هم داشته باشد', 409)
+
+  if (repair.userId !== null && order.userId !== null) {
+    if (repair.userId !== order.userId) throw new FormsError('خریدار سفارش با مشتری این تعمیر یکسان نیست', 403)
+  } else {
+    let repairPhone = ''
+    try {
+      const answers = JSON.parse(repair.data) as StoredAnswer[]
+      const answer = answers.find((item) => item.type === 'mobile' || item.type === 'tel')
+      repairPhone = answer ? normalizeMobile(answerText(answer.value)) : ''
+    } catch { /* unparseable historical answers cannot establish customer match */ }
+    const orderPhone = normalizeMobile(order.userId !== null ? order.user?.phone || '' : order.customerPhone)
+    if (!repairPhone || !orderPhone || repairPhone !== orderPhone) throw new FormsError('موبایل خریدار سفارش با مشتری این تعمیر تطبیق ندارد', 403)
+  }
+
+  let changed: { count: number }
+  try {
+    changed = await tx.formSubmission.updateMany({
+      where: { id, repairOrderId: repair.repairOrderId, stage: repair.stage, assigneeId: repair.assigneeId, receivedAt: repair.receivedAt, userId: repair.userId },
+      data: { repairOrderId: order.id },
+    })
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2002') throw new FormsError('این سفارش قبلاً به تعمیر دیگری وصل شده است', 409)
+    throw error
+  }
+  if (changed.count !== 1) throw new FormsError('درخواست تعمیر هم‌زمان تغییر کرد؛ دوباره تلاش کنید', 409)
+  return { submissionId: id, orderId: order.id }
 }

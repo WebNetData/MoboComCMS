@@ -23,12 +23,17 @@ export async function analyticsDashboard(days = 30) {
   const previous = lastDays(days, new Date(Date.now() - days * 86_400_000))
   const from = new Date(Date.now() - days * 86_400_000)
   const prevFrom = new Date(Date.now() - 2 * days * 86_400_000)
+  const funnelFrom = new Date(`${range[0]}T00:00:00+03:30`)
+  const funnelTo = new Date(new Date(`${range[range.length - 1]}T00:00:00+03:30`).getTime() + 86_400_000)
 
-  const [totals, prevTotals, pages, dims, invoices, prevInvoices, users, prevUsers, downloads, prevDownloads, reviews, favorites, pushSubs, docs] = await Promise.all([
+  const [totals, prevTotals, pages, dims, productPages, storeInvoices, invoices, prevInvoices, users, prevUsers, downloads, prevDownloads, reviews, favorites, pushSubs, docs] = await Promise.all([
     db.analyticsDaily.findMany({ where: { path: '*', day: { in: range } } }),
     db.analyticsDaily.findMany({ where: { path: '*', day: { in: previous } } }),
     db.analyticsDaily.groupBy({ by: ['path'], where: { day: { in: range }, NOT: { path: '*' } }, _sum: { views: true }, orderBy: { _sum: { views: 'desc' } }, take: 15 }),
     db.analyticsDimension.findMany({ where: { day: { in: range } }, select: { dim: true, value: true, count: true } }),
+    db.analyticsDaily.findMany({ where: { day: { in: range }, path: { startsWith: '/products/' } }, select: { views: true } }),
+    // Online funnel only: in-shop counter sales never passed through the product page, cart or checkout.
+    db.invoice.count({ where: { status: 'PAID', saleSource: 'ONLINE', paidAt: { gte: funnelFrom, lt: funnelTo }, OR: [{ productId: { not: null } }, { order: { is: { OR: [{ productId: { not: null } }, { lines: { some: { productId: { not: null } } } }] } } }] } }),
     db.invoice.findMany({ where: { status: 'PAID', paidAt: { gte: from } }, select: { paidAt: true, paidAmountMinor: true, totalMinor: true, currency: true } }),
     db.invoice.count({ where: { status: 'PAID', paidAt: { gte: prevFrom, lt: from } } }),
     db.user.findMany({ where: { createdAt: { gte: from } }, select: { createdAt: true } }),
@@ -67,6 +72,8 @@ export async function analyticsDashboard(days = 30) {
 
   const titles = new Map(docs.map((doc) => [doc.url, doc.title]))
   const dim = (name: string, limit?: number) => top(dims.filter((row) => row.dim === name), limit)
+  const funnelEvents = new Map<string, number>()
+  for (const event of dim('store-funnel-events')) funnelEvents.set(event.value, event.count)
 
   return {
     days,
@@ -78,6 +85,13 @@ export async function analyticsDashboard(days = 30) {
       signups: users.length, signupsChange: change(users.length, prevUsers),
       downloads: downloads.length, downloadsChange: change(downloads.length, prevDownloads),
       reviews, favorites, pushSubscribers: pushSubs,
+    },
+    storeFunnel: {
+      // These are aggregate stage counts, not unique people or a joined cohort.
+      productPageViews: productPages.reduce((sum, row) => sum + row.views, 0),
+      cartEvents: funnelEvents.get('cart') || 0,
+      checkoutEvents: funnelEvents.get('checkout') || 0,
+      paidInvoices: storeInvoices,
     },
     series,
     pages: pages.map((row) => ({ path: row.path, title: titles.get(row.path) || '', views: row._sum.views || 0 })),

@@ -46,6 +46,19 @@ test('an order and its invoice close together, and staff credit is in the site c
   assert.match(read('src/modules/fulfillment/server/jobs.ts'), /\['REFUNDED', 'CANCELLED'\]\.includes\(order\.status\)/, 'a closed order is not delivered')
 })
 
+test('bank result routing preserves bounded failure context through login and dashboard returns', () => {
+  const target = paymentResultTarget({ invoice: 'MB-2026-000023', failed: '1', reason: '<خطای بانک>&order=99#details' })
+  const url = new URL(target.href, 'https://example.invalid')
+  assert.equal(url.pathname, '/payment/result')
+  assert.equal(url.searchParams.get('invoice'), 'MB-2026-000023')
+  assert.equal(url.searchParams.get('failed'), '1')
+  assert.equal(url.searchParams.get('reason'), 'خطای بانک&order=99#details')
+  assert.equal(url.searchParams.has('order'), false)
+  assert.equal(new URL(paymentResultTarget({ order: '23', failed: '1', reason: 'x'.repeat(300) }).href, url).searchParams.get('reason').length, 240)
+  for (const reason of [null, {}, ['bad']]) assert.equal(new URL(paymentResultTarget({ order: '23', failed: '1', reason }).href, url).searchParams.has('reason'), false)
+  assert.equal(paymentResultTarget({ order: '23', failed: '0', reason: 'ignored' }).href, '/payment/result?order=23')
+})
+
 test('a wallet top-up says what it is and for how much', () => {
   assert.deepEqual(invoiceSubject({ ...base, kind: 'WALLET_TOPUP' }), { title: 'افزایش موجودی کیف پول موبوکام', detail: 'افزایش موجودی حساب کاربری پلتفرم موبوکام به مبلغ ۱٬۰۰۰٬۰۰۰ تومان' })
 })

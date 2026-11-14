@@ -14,6 +14,7 @@ function load(relative) {
   return mod.exports
 }
 const f = load('src/modules/store/domain/feeds')
+const dc = load('src/modules/catalog/domain/device-compatibility')
 const n = load('src/modules/mail/domain/newsletter')
 const img = load('src/shared/media/image')
 
@@ -44,6 +45,20 @@ test('feeds: settings, toman conversion and Torob/Emalls shapes', () => {
   assert.match(xml, /<g:price>230000000 IRR<\/g:price>/); assert.match(xml, /<g:sale_price>215000000 IRR<\/g:sale_price>/)
   assert.match(xml, /توضیح &lt;کوتاه&gt; &amp; ساده/); assert.match(xml, /فروشگاه &amp; من/)
   assert.match(xml, /<g:product_type>کالای دیجیتال &gt; موبایل<\/g:product_type>/)
+})
+
+test('store catalogue: exact normalized device models and merchant condition feed values', () => {
+  assert.equal(dc.normalizeDeviceModel('سامسونگ A55 ١٢٨'), dc.normalizeDeviceModel('سامسونگ A55 ۱۲۸'))
+  assert.equal(dc.normalizeDeviceModel('Galaxy A55'), dc.normalizeDeviceModel('  GALAXY   A55 '))
+  assert.notEqual(dc.normalizeDeviceModel('Galaxy A55'), dc.normalizeDeviceModel('Galaxy A55s'), 'models do not use fuzzy matching')
+  const row = dc.parseDeviceCompatibilityRows([{ deviceModel: 'Galaxy A55', status: 'COMPATIBLE', note: '', source: '' }])[0]
+  assert.equal(row.normalizedModel, 'galaxy a55')
+  assert.throws(() => dc.parseDeviceCompatibilityRows([{ deviceModel: 'Galaxy A55', status: 'COMPATIBLE' }, { deviceModel: ' galaxy   a55 ', status: 'INCOMPATIBLE' }]), /unique/)
+  assert.throws(() => dc.parseDeviceCompatibilityRows([{ deviceModel: 'Galaxy A55', status: 'MAYBE' }]), /status/)
+  for (const [condition, expected] of [['NEW', 'new'], ['OPEN_BOX', 'used'], ['USED', 'used'], ['REFURBISHED', 'refurbished']]) {
+    const xml = f.xmlFeed([{ ...product, condition }], { title: 'Shop', url: 'https://mobocom.net' })
+    assert.match(xml, new RegExp(`<g:condition>${expected}</g:condition>`))
+  }
 })
 
 test('newsletter: validation, tracking and document', () => {

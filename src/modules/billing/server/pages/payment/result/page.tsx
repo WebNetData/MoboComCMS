@@ -54,7 +54,7 @@ export default async function PaymentResultPage({
 
   const allowed = Boolean(invoice && viewerId && (invoice.userId === viewerId || isAdmin))
   const view = allowed && invoice ? invoice : null
-  if (view?.userId === viewerId && surface === 'public' && storedCheckoutSurface(view.order?.meta) === 'dashboard') redirect(checkoutPath(resultHref, 'dashboard') + (searchParams.failed === '1' ? '&failed=1' : ''))
+  if (view?.userId === viewerId && surface === 'public' && storedCheckoutSurface(view.order?.meta) === 'dashboard') redirect(checkoutPath(resultHref, 'dashboard'))
 
   const subscription = view?.orderId
     ? await db.subscription.findFirst({ where: { orderId: view.orderId }, select: { id: true, username: true, expiresAt: true } })
@@ -71,7 +71,7 @@ export default async function PaymentResultPage({
   const delivered = Boolean(view?.productId ? productDelivery?.status === 'DELIVERED' : subscription || fulfillment?.status === 'DONE' || (view?.kind === 'WALLET_TOPUP' && topup?.status === 'DONE') || (paid && !view?.orderId && view?.kind !== 'WALLET_TOPUP'))
 
   const title = !viewerId ? (isFa ? 'برای مشاهده نتیجه وارد شوید' : 'Sign in to view the result') : !view ? (isFa ? 'فاکتور در حساب شما پیدا نشد' : 'Invoice not found in your account') : refunded ? (isFa ? 'پرداخت مسترد شده است' : 'Payment refunded') : failed ? t.paymentFailedTitle : paid ? t.paymentSuccessTitle : t.paymentPendingTitle
-  const body = !viewerId ? (isFa ? 'پس از ورود، وضعیت پرداخت و تحویل در فاکتور شما نمایش داده می‌شود.' : 'After signing in, your invoice will show the payment and delivery status.') : !view ? (isFa ? 'فاکتورهای حساب خود را بررسی کنید.' : 'Check your account invoices.') : refunded ? (isFa ? 'برگشت وجه این پرداخت ثبت شده است. جزئیات را در فاکتور و گردش حساب خود بررسی کنید.' : 'A refund has been recorded for this payment. Check your invoice and account transactions for details.') : failed ? t.paymentFailedBody : paid && !delivered ? (view.productId ? isFa ? 'پرداخت تأیید شد. سفارش در صف آماده‌سازی و تحویل فروشگاه است؛ وضعیت را در فاکتور ببینید.' : 'Payment is confirmed. Your store order is awaiting fulfillment; follow its status on the invoice.' : isFa ? 'پرداخت تأیید شده است. سرویس یا اعتبار کیف پول در حال آماده‌سازی است؛ وضعیت این فاکتور را دوباره بررسی کنید.' : 'Payment is confirmed. Your service or wallet credit is still being prepared; check this invoice again.') : paid ? t.paymentSuccessBody : t.paymentPendingBody
+  const body = !viewerId ? (isFa ? 'پس از ورود، وضعیت پرداخت و تحویل در فاکتور شما نمایش داده می‌شود.' : 'After signing in, your invoice will show the payment and delivery status.') : !view ? (isFa ? 'فاکتورهای حساب خود را بررسی کنید.' : 'Check your account invoices.') : refunded ? (isFa ? 'برگشت وجه این پرداخت ثبت شده است. جزئیات را در فاکتور و گردش حساب خود بررسی کنید.' : 'A refund has been recorded for this payment. Check your invoice and account transactions for details.') : failed ? (isFa ? 'پرداخت موفق ثبت نشده است. پیش از تلاش دوباره، وضعیت فاکتور و حساب بانکی خود را بررسی کنید.' : 'A successful payment has not been recorded. Check your invoice and bank account before trying again.') : paid && !delivered ? (view.productId ? isFa ? 'پرداخت تأیید شد. سفارش در صف آماده‌سازی و تحویل فروشگاه است؛ وضعیت را در فاکتور ببینید.' : 'Payment is confirmed. Your store order is awaiting fulfillment; follow its status on the invoice.' : isFa ? 'پرداخت تأیید شده است. سرویس یا اعتبار کیف پول در حال آماده‌سازی است؛ وضعیت این فاکتور را دوباره بررسی کنید.' : 'Payment is confirmed. Your service or wallet credit is still being prepared; check this invoice again.') : paid ? t.paymentSuccessBody : t.paymentPendingBody
   const icon = refunded ? '↩' : failed ? '⚠️' : paid ? '✅' : '⏳'
   // Paid content (an article or a download): straight back to the item once access is granted.
   let orderMeta: Record<string, unknown> = {}
@@ -133,8 +133,8 @@ export default async function PaymentResultPage({
             {view && <Link href={checkoutPath(`/invoice/${view.number}`, surface)} className="btn btn-ghost">{t.viewInvoice}</Link>}
             {view?.productId && view.orderId && <Link href={`/dashboard/orders/${view.orderId}`} className="btn btn-ghost">{isFa ? 'پیگیری سفارش' : 'Track order'}</Link>}
             {view && paid && !delivered && <Link href={checkoutPath(`/payment/result?invoice=${encodeURIComponent(view.number)}`, surface)} className="btn btn-ghost">{isFa ? 'بررسی دوباره وضعیت' : 'Check status again'}</Link>}
-            {view && !paid && view.status === 'UNPAID' && <Link href={checkoutPath(`/invoice/${view.number}`, surface)} className="btn btn-ghost">{isFa ? 'ادامه پرداخت' : 'Resume payment'}</Link>}
-            {failed && <Link href={view?.kind === 'WALLET_TOPUP' ? '/dashboard/wallet' : await isModuleEnabled('vpn') ? '/plans' : '/dashboard/invoices'} className="btn btn-ghost">{t.tryAgain}</Link>}
+            {view && !paid && view.status === 'UNPAID' && <Link href={checkoutPath(`/invoice/${view.number}`, surface)} className="btn btn-ghost">{failed ? t.tryAgain : isFa ? 'ادامه پرداخت' : 'Resume payment'}</Link>}
+            {failed && (!view || view.status !== 'UNPAID') && <Link href={view?.kind === 'WALLET_TOPUP' ? '/dashboard/wallet' : await isModuleEnabled('vpn') ? '/plans' : '/dashboard/invoices'} className="btn btn-ghost">{t.tryAgain}</Link>}
           </div>
         </div>
       </Surface>

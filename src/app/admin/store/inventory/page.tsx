@@ -47,7 +47,7 @@ function Inventory() {
         <input className="input" type="number" min={-1} value={current} onChange={(event) => set(product.id, Math.floor(Number(event.target.value)), variantId)} aria-label={`موجودی ${label}`} />
         <button type="button" onClick={() => set(product.id, current < 0 ? 1 : current + 1, variantId)} aria-label="افزایش">+</button>
         <button type="button" className="sa-link" onClick={() => set(product.id, -1, variantId)}>نامحدود</button>
-      </div>}</td>
+      </div>}{stock >= 0 && stock <= threshold && <div><Link className="sa-link" href={`/admin/store/inventory/purchases?product=${product.id}${variantId ? `&variant=${variantId}` : ''}`}>سفارش تأمین</Link></div>}</td>
     </tr>
   }
 

@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
   const refs = parts.map(ref => ({ type: 'product' as const, id: Number(ref.slice(8)) }))
   const query = String(params.get('q') || '').trim().slice(0, 100)
   const [found, selected] = await Promise.all([searchItemCards(query.length >= 2 ? query : '', ['product'], 20), itemCards(refs)])
-  const card = (row: { type: string; id: number; title: string; titleEn?: string; url: string; image: string }) => ({ type: row.type, id: row.id, title: row.title, titleEn: row.titleEn || '', url: row.url, image: row.image })
+  const itemRows = [...found, ...selected.values()]
+  const products = await db.product.findMany({ where: { id: { in: [...new Set(itemRows.filter(row => row.type === 'product').map(row => row.id))] } }, select: { id: true, kind: true, isService: true } })
+  const productById = new Map(products.map(product => [product.id, product] as const))
+  const card = (row: { type: string; id: number; title: string; titleEn?: string; url: string; image: string }) => ({ type: row.type, id: row.id, title: row.title, titleEn: row.titleEn || '', url: row.url, image: row.image, ...(row.type === 'product' ? { kind: productById.get(row.id)?.kind || '', isService: productById.get(row.id)?.kind === 'VIRTUAL' && productById.get(row.id)?.isService === true } : {}) })
   const choices = params.get('variants') === '1' ? await db.product.findMany({ where: { ...publicProductWhere, id: { in: refs.map(ref => ref.id) } }, select: { id: true, variants: { where: { active: true }, orderBy: { id: 'asc' }, select: { id: true, name: true } } } }) : undefined
   return ok({ matches: found.filter(row => row.id !== sourceId).map(card), selected: [...selected.values()].filter(row => row.id !== sourceId).map(card), ...(choices ? { variantChoices: choices } : {}) })
 }

@@ -6,6 +6,9 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import ProductExtrasEditor from './ProductExtrasEditor'
 import ProductRelationshipsEditor from './ProductRelationshipsEditor'
 import ProductBundlesEditor from './ProductBundlesEditor'
+import ProductConditionEditor from './ProductConditionEditor'
+import ProductDeviceCompatibilityEditor from './ProductDeviceCompatibilityEditor'
+import ProductQualityPanel from './ProductQualityPanel'
 
 export default function AdminProductsPage() {
   const { t, locale } = useI18n()
@@ -46,12 +49,12 @@ export default function AdminProductsPage() {
   ]
 
   return (
-    <AdminCrud
+    <div className="sa sa-stack"><ProductQualityPanel /><AdminCrud
       type="products"
       fields={fields}
       extraRows={(row) => ({ categoryId: row.category?.name || '—' })}
-      editorExtraKeys={['specifications', 'variants', 'faqs', 'gallery', 'relationships', 'bundles']}
-      renderEditorExtra={(form, setForm, editId) => <><ProductExtrasEditor form={form} setForm={setForm} categories={cats} /><ProductRelationshipsEditor form={form} setForm={setForm} sourceId={editId} /><ProductBundlesEditor form={form} setForm={setForm} sourceId={editId} /></>}
-    />
+      editorExtraKeys={['specifications', 'variants', 'faqs', 'gallery', 'relationships', 'bundles', 'condition', 'conditionGrade', 'conditionNotes', 'healthReport', 'deviceCompatibility']}
+      renderEditorExtra={(form, setForm, editId) => <><ProductConditionEditor form={form} setForm={setForm} /><ProductDeviceCompatibilityEditor form={form} setForm={setForm} /><ProductExtrasEditor form={form} setForm={setForm} categories={cats} /><ProductRelationshipsEditor form={form} setForm={setForm} sourceId={editId} /><ProductBundlesEditor form={form} setForm={setForm} sourceId={editId} /></>}
+    /></div>
   )
 }

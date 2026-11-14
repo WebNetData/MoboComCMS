@@ -4,7 +4,7 @@ const clientModule=process.env.ANALYTICS_TEST_CLIENT||'@prisma/client';
 const {PrismaClient,Prisma}=require(clientModule);
 const nativeErrors=[],logs=[],prisma=new PrismaClient({log:[{emit:'event',level:'error'}]});
 prisma.$on('error',event=>nativeErrors.push(event));
-const seed=`analytics-${Date.now()}-${require('node:crypto').randomUUID()}`,days=[];
+const seed=`analytics-${Date.now()}-${require('node:crypto').randomUUID()}`,days=[],dashboardProducts=[],dashboardInvoices=[],dashboardOrders=[],dashboardUsers=[],savedDashboardDims=[];
 let day=seed,enabled=true,faultAt=0,transactions=0,batchCalls=0;
 const db=new Proxy(prisma,{get(target,key){
  if(key==='$executeRaw')return (...args)=>{
@@ -26,7 +26,7 @@ const db=new Proxy(prisma,{get(target,key){
 }});
 const mocks={
  '@/platform/database/prisma':{db},'@/extensions/server/modules':{isModuleEnabled:async()=>enabled},
- '@/shared/time/day':{tehranDay:()=>day},'@/platform/config/env':{authSecret:()=>`fixture-only-${seed}`},
+ '@/shared/time/day':{tehranDay:date=>date?new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(date):day,lastDays:(count,end=new Date())=>Array.from({length:count},(_,i)=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(end.getTime()-(count-i-1)*86400000)))},'@/platform/config/env':{authSecret:()=>`fixture-only-${seed}`},
  '@/platform/http/rate-limit':{clientIp:headers=>headers.get('x-forwarded-for')||'127.0.0.1',rateLimitHit:()=>({ok:true})},
  '@/platform/observability/logger':{logEvent:(...args)=>logs.push(args)},
  '@/modules/identity/server/admin-guard':{},'@/modules/analytics/server/dashboard':{},
@@ -105,9 +105,23 @@ async function main(){
  assert.equal((await route.POST_collect(request())).status,204);
  assert.equal((await prisma.analyticsDaily.findUniqueOrThrow({where:{day_path:{day,path:'*'}}})).views,2);
  assert.equal((await prisma.analyticsDaily.findUniqueOrThrow({where:{day_path:{day,path:'*'}}})).visitors,1);
+ const dashboard=require('./connected-source-loader.cjs')({'@/platform/database/prisma':{db:prisma}})('src/modules/analytics/server/dashboard.ts').analyticsDashboard
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
+ const yesterday=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()-86400000))
+ day=today
+ const before=await dashboard(7)
+ for(const [d,increment] of [[today,3],[yesterday,4]]){const key={day:d,dim:'store-funnel-events',value:'cart'},prior=await prisma.analyticsDimension.findUnique({where:{day_dim_value:key}});savedDashboardDims.push({key,count:prior?.count??null});await prisma.analyticsDimension.upsert({where:{day_dim_value:key},create:{...key,count:increment},update:{count:{increment}}})}
+ const product=await prisma.product.create({data:{name:`${seed}-product`,slug:`${seed}-product`,sku:`${seed}-product`,kind:'PHYSICAL',active:true,price:1000,priceMinor:1000n,costMinor:500n,currency:'IRT',stock:1}});dashboardProducts.push(product.id)
+ const buyer=await prisma.user.create({data:{email:`${seed}@example.invalid`,passwordHash:'fixture-only'}});dashboardUsers.push(buyer.id)
+ const counter=await prisma.order.create({data:{userId:buyer.id,createdById:buyer.id,saleSource:'COUNTER',productId:product.id,status:'PAID',totalAmount:0,totalMinor:0n,currency:'IRT'}});dashboardOrders.push(counter.id)
+ const paidAt=new Date(`${yesterday}T12:00:00+03:30`),createdOld=new Date(Date.now()-30*86400000),paidOutside=new Date(Date.now()-30*86400000)
+ for(const [suffix,productId,paid,created,saleSource] of [['paid-by-paidAt',product.id,paidAt,createdOld,'ONLINE'],['unpaid-in-range',product.id,paidOutside,new Date(),'ONLINE'],['non-store',null,paidAt,new Date(),'ONLINE'],['counter-sale',product.id,paidAt,new Date(),'COUNTER']]){const row=await prisma.invoice.create({data:{number:`${seed}-${suffix}`,userId:buyer.id,productId,saleSource,...(saleSource==='COUNTER'?{orderId:counter.id}:{}),status:'PAID',paidAt:paid,createdAt:created}});dashboardInvoices.push(row.id)}
+ const after=await dashboard(7)
+ assert.equal(after.storeFunnel.cartEvents-before.storeFunnel.cartEvents,7,'dashboard sums stage events across two Tehran days')
+ assert.equal(after.storeFunnel.paidInvoices-before.storeFunnel.paidInvoices,1,'Store paid invoices use paidAt in range and exclude non-Store and counter-sale invoices')
  console.log('Analytics integrity: concurrent views/one visitor, historical counts, daily hash rotation, zero duplicate DB errors, all-or-nothing failure/retry, search counters and actual HTTP handler passed');
 }
 main().catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{
- try{const where={day:{in:days}};await prisma.analyticsDimension.deleteMany({where});await prisma.analyticsDaily.deleteMany({where});await prisma.analyticsVisitor.deleteMany({where});}
+ try{for(const row of savedDashboardDims){if(row.count===null)await prisma.analyticsDimension.deleteMany({where:row.key});else await prisma.analyticsDimension.update({where:{day_dim_value:row.key},data:{count:row.count}})}await prisma.invoice.deleteMany({where:{id:{in:dashboardInvoices}}});await prisma.order.deleteMany({where:{id:{in:dashboardOrders}}});await prisma.product.deleteMany({where:{id:{in:dashboardProducts}}});await prisma.user.deleteMany({where:{id:{in:dashboardUsers}}});const where={day:{in:days}};await prisma.analyticsDimension.deleteMany({where});await prisma.analyticsDaily.deleteMany({where});await prisma.analyticsVisitor.deleteMany({where});}
  finally{await prisma.$disconnect();}
 });

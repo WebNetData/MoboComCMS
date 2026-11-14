@@ -67,6 +67,16 @@ export async function recordSearch(normalizedQuery: string, results: number) {
   })
 }
 
+/** Records an aggregate Store funnel event. These are event counts, not visitors or a cohort. */
+export async function recordStoreFunnelEvent(stage: 'cart' | 'checkout', headers: Headers): Promise<boolean> {
+  if (!await isModuleEnabled('analytics').catch(() => false) || !await isModuleEnabled('store').catch(() => false)) return false
+  if (classifyUserAgent(headers.get('user-agent') || '').bot) return false
+  const day = tehranDay()
+  const value = stage
+  await db.$executeRaw(Prisma.sql`INSERT INTO "AnalyticsDimension" ("day", "dim", "value", "count") VALUES (${day}, 'store-funnel-events', ${value}, 1) ON CONFLICT ("day", "dim", "value") DO UPDATE SET "count" = "AnalyticsDimension"."count" + 1`)
+  return true
+}
+
 /** Keeps visitor hashes for 2 days (they only dedupe the current day) and counters for `days`. */
 export async function pruneAnalytics(days = 400) {
   const today = tehranDay()

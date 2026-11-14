@@ -140,6 +140,7 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
       {order.invoiceNumber && <div><dt>فاکتور</dt><dd><Link href={`/invoice/${order.invoiceNumber}`} className="sx-link num">{order.invoiceNumber}</Link></dd></div>}
       {order.trackingCode && <div><dt>کد رهگیری مرسوله</dt><dd className="num" dir="ltr">{order.trackingCode}</dd></div>}
     </dl>
+    {order.gift && <section className="sx-my-card"><h2>سفارش هدیه</h2><p>برای {order.gift.recipient}{order.gift.wrap ? ' · با بسته‌بندی هدیه' : ''}</p>{order.gift.message && <p dir="auto">{order.gift.message}</p>}{order.invoiceStatus === 'PAID' && <Link className="sx-link" href={`/dashboard/orders/${order.id}/gift`}>مشاهده و چاپ رسید هدیه بدون قیمت</Link>}</section>}
     {order.pickup&&<section className="sx-my-card"><h2>تحویل از فروشگاه</h2><p>{order.pickup.status==='READY'?'سفارش آمادهٔ مراجعه است':order.pickup.status==='COLLECTED'?'سفارش از فروشگاه تحویل گرفته شد':'پس از آماده‌شدن سفارش پیامک ارسال می‌شود'}</p>{order.pickup.code&&<p>کد تحویل: <strong dir="ltr">{order.pickup.code}</strong></p>}</section>}
     {order.paymentUrl && <div className="sx-alert is-warn"><span>این سفارش هنوز پرداخت نشده است.</span><a href={order.paymentUrl} className="sx-btn is-primary">پرداخت سفارش</a></div>}
     {!closed && step >= 0 && <ol className="sx-track" aria-label="مراحل سفارش">{TRACKING_STEPS.map((item, index) => <li key={item.status} className={index < step ? 'is-done' : index === step ? 'is-current' : ''} aria-current={index === step ? 'step' : undefined}>

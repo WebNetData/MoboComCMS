@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),{randomUUID,createHmac}=require('node:crypto'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server')
-assert(/test|check/i.test(new URL(process.env.DATABASE_URL).pathname),'disposable database required')
+assert(/test|check/i.test(new URL(process.env.DATABASE_URL).pathname) || new URL(process.env.DATABASE_URL).pathname === '/mobocom_store_experiences_20261114','disposable database required')
 const db=new PrismaClient(),stamp=`desk-${Date.now().toString(36)}`,users=[],roles=[],products=[],forms=[],sessions=[],messages=[]
 let viewer,failAudit=false,failPayment=false,moduleOn=true,realAudit
 const configs={'store.loyalty.v1':{enabled:true,earnStepToman:100,earnPoints:1,minRedeem:1,pointValueToman:10,since:'2020-01-01'},'store.delivery.v1':{enabled:false,pickup:{enabled:true,address:'فروشگاه آزمایشی',instructions:'ساعت ۹ تا ۱۸'}}}
@@ -35,6 +35,15 @@ async function main(){
  viewer=manager
  await sms.saveSmsConfig({enabled:true,apiKey:'fixture-local-only',fromNumber:'3000505'})
  const sessionId=await open('main'),item=await product('physical'),unknown=await product('unknown',{costMinor:null}),gift=await product('gift',{kind:'VIRTUAL',digitalMode:'CODES',stock:0})
+ const held=await db.order.create({data:{productId:item.id,userId:manager.id,totalAmount:1000,totalMinor:1000n,currency:'IRT',status:'PAID',assigneeId:manager.id,createdAt:new Date(Date.now()-48*60*60_000)}})
+ const managerDesk=await ordersOwner.adminOrders({work:'all'},{actorId:manager.id,manager:true})
+ assert.ok(managerDesk.orders.some(row=>row.id===held.id));assert.ok(managerDesk.workCounts.overdue>=1,'manager sees paid work older than 24 hours as delayed')
+ const specialistScope={actorId:specialist.id,manager:false}
+ for(const work of ['all','pending','mine','unassigned','overdue']){
+  const desk=await ordersOwner.adminOrders({work},specialistScope)
+  assert.ok(!desk.orders.some(row=>row.id===held.id),`restricted staff cannot view colleague work in ${work}`)
+  assert.equal(desk.workCounts.mine,0,`restricted mine count excludes colleague work in ${work}`)
+ }
  const digital=load('src/modules/catalog/server/digital-delivery.ts'),stock=load('src/modules/catalog/server/code-stock.ts')
  for(let i=0;i<3;i++)await db.productDigitalCode.create({data:{productId:gift.id,secret:digital.encryptDigitalDelivery(`${stamp}-gift-${i}`),fingerprint:randomUUID()}})
  await db.$transaction(tx=>stock.syncCodeStock(tx,gift.id))

@@ -1,5 +1,6 @@
 'use client'
 
+import GiftOptions, { type GiftChoice } from './GiftOptions'
 import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 
 
@@ -22,7 +23,7 @@ const dayMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric',
 const fullDate = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const asDate = (day: string) => new Date(`${day}T12:00:00Z`)
 /** Codes whose server message is already written for the customer. */
-const PLAIN_CODES = new Set(['NETWORK_ERROR', 'CHECKOUT_RESPONSE_INVALID', 'NO_CARRIER', 'CARRIER_UNAVAILABLE', 'SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'CART_FULL', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED'])
+const PLAIN_CODES = new Set(['NETWORK_ERROR', 'CHECKOUT_RESPONSE_INVALID', 'NO_CARRIER', 'CARRIER_UNAVAILABLE', 'SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'CART_FULL', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED', 'GIFT_INVALID', 'GIFT_UNAVAILABLE', 'GIFT_WRAP_UNAVAILABLE'])
 const PROMO_MESSAGES: Record<string, string> = {
   PROMOTION_INVALID: 'کد تخفیف نامعتبر است', PROMOTION_NOT_FOUND: 'کد تخفیف پیدا نشد', PROMOTION_INACTIVE: 'این کد تخفیف فعال نیست یا منقضی شده',
   PROMOTION_SCOPE: 'این کد برای این سفارش قابل استفاده نیست', PROMOTION_MINIMUM: 'مبلغ سفارش به حداقل لازم برای این کد نرسیده', PROMOTION_EXHAUSTED: 'ظرفیت استفاده از این کد تمام شده',
@@ -30,8 +31,15 @@ const PROMO_MESSAGES: Record<string, string> = {
 }
 
 /** Cart checkout: delivery address and time (for physical items), discount code, payment. */
-export default function CartCheckout({ cart, delivery, gateways, surface = 'public' }: { surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
+export default function CartCheckout({ cart, delivery, gateways, giftOptions, surface = 'public' }: { giftOptions?: { enabled: boolean; wrapEnabled: boolean }; surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
   const router = useRouter()
+  const counted = useRef(false)
+  useEffect(() => {
+    if (counted.current) return
+    counted.current = true
+    void fetch('/api/analytics/collect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ e: 'store.checkout' }), keepalive: true }).catch(() => {})
+  }, [])
+  const [gift, setGift] = useState<GiftChoice>({ enabled: false, recipient: '', message: '', wrap: false })
   const [pickup,setPickup]=useState(false)
   const physical = cart.hasPhysical && !pickup
   const { addresses, error: addressError, reload } = useAddresses()
@@ -77,6 +85,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
 
   const missing = useMemo(() => {
     if (cart.blocked) return 'سبد خرید شما نیاز به بازبینی دارد'
+    if (cart.hasPhysical && giftOptions?.enabled && gift.enabled && !gift.recipient.trim()) return 'نام گیرندهٔ هدیه را وارد کنید'
     if (!physical) return ''
     if (addressRefreshing) return 'در حال تازه‌سازی آدرس…'
     if (addressError) return 'برای ادامه، آدرس‌ها را دوباره دریافت کنید'
@@ -87,7 +96,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
     if (needsSchedule && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
     if (needsSchedule && !slot) return 'زمان ارسال را انتخاب کنید'
     return ''
-  }, [cart.blocked, physical, addressRefreshing, addressError, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
+  }, [cart.blocked, cart.hasPhysical, giftOptions?.enabled, gift.enabled, gift.recipient, physical, addressRefreshing, addressError, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)
@@ -101,6 +110,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
     try {
       const result = await checkoutCart({
         shippingMode: pickup ? 'PICKUP' : 'SHIP',
+        gift: cart.hasPhysical && giftOptions?.enabled && gift.enabled ? { ...gift, wrap: giftOptions.wrapEnabled && gift.wrap } : undefined,
         surface: surface === 'dashboard' ? 'dashboard' : undefined,
         addressId: physical && address ? address.id : undefined,
         delivery: physical && needsSchedule && slot && day ? { date: day.date, slotId: slot.id } : undefined,
@@ -109,9 +119,11 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
         discountCode: code.trim() || undefined,
       })
       if (result.ok) {
-        if (surface === 'dashboard') { const destination = checkoutDestination(result, surface); if (destination) window.location.assign(destination) }
-        else if (result.paid || result.invoiceUrl) router.push(`/payment/result?invoice=${result.invoiceNumber}`)
-        else if (result.paymentUrl) window.location.href = result.paymentUrl
+        const destination = checkoutDestination(result, surface)
+        if (destination) {
+          if (surface === 'dashboard' || (!result.paid && result.paymentUrl)) window.location.assign(destination)
+          else router.push(destination)
+        }
         return
       }
       if (result.code === 'DELIVERY_SLOT_FULL' || result.code === 'DELIVERY_SLOT_INVALID') { setSlotId(''); await refreshSchedule() }
@@ -135,6 +147,7 @@ export default function CartCheckout({ cart, delivery, gateways, surface = 'publ
 
     <div className="sh-checkout-grid">
       <div className="sh-checkout-main">
+        {cart.hasPhysical && giftOptions?.enabled && <GiftOptions value={gift} onChange={setGift} wrapEnabled={giftOptions.wrapEnabled} disabled={busy} />}
         {cart.hasPhysical && delivery.pickup?.enabled && <section className="sh-panel" aria-labelledby="sh-pickup-title"><h2 id="sh-pickup-title">دریافت سفارش</h2><label className="sh-check"><input type="checkbox" checked={pickup} onChange={event=>setPickup(event.target.checked)}/>تحویل حضوری از فروشگاه، بدون هزینهٔ ارسال</label>{pickup&&<><p>{delivery.pickup.address}</p><p>{delivery.pickup.instructions}</p><p>پس از پرداخت و آماده‌شدن سفارش، پیامک کد تحویل ارسال می‌شود. موبایل حساب خود را پیش از پرداخت ثبت کنید.</p></>}</section>}
         {physical && <section className="sh-panel" aria-labelledby="sh-address-title">
           <header className="sh-panel-head">

@@ -868,6 +868,12 @@ model ProductAttributeGroup {
 }
 
 model Product {
+  condition String @default("NEW")
+  conditionGrade String @default("")
+  conditionNotes String @default("")
+  healthReport String @default("")
+  deviceCompatibility ProductDeviceCompatibility[]
+  purchaseLines StockPurchaseLine[]
   saleChannel String @default("BOTH")
   onlineReserve Int @default(0) // units kept back from online sale (shop shelf safety)
   locationStocks LocationStock[]
@@ -1048,6 +1054,7 @@ model ProductDigitalCode {
 }
 
 model ProductVariant {
+  purchaseLines StockPurchaseLine[]
   locationStocks LocationStock[]
   @@index([barcode])
   barcode String @default("")
@@ -5322,6 +5329,7 @@ model StorePickup {
 /// A place that holds stock: a warehouse or a shop. Locations that sell online feed Product/Variant.stock
 /// (the site's sellable count); the counter sells from its register's location. Owner: catalog/server/locations.
 model StockLocation {
+  purchases StockPurchase[]
   id          Int      @id @default(autoincrement())
   name        String
   kind        String   @default("WAREHOUSE") // WAREHOUSE | SHOP
@@ -5382,6 +5390,7 @@ model StockMovement {
 
 /// Goods received into a location from a supplier; posting adds stock and updates the moving-average cost.
 model StockReceipt {
+  purchaseReceipt StockPurchaseReceipt?
   id             Int                @id @default(autoincrement())
   number         String             @unique
   fingerprint String @default("")
@@ -5443,4 +5452,67 @@ model StockCountLine {
   updatedAt DateTime   @default(now()) @updatedAt
 
   @@unique([countId, itemKey])
+}
+
+/// Explicit merchant-entered device compatibility, never inferred from a sale.
+model ProductDeviceCompatibility {
+  id Int @id @default(autoincrement())
+  productId Int
+  deviceModel String
+  normalizedModel String
+  status String @default("COMPATIBLE")
+  note String @default("")
+  source String @default("")
+  updatedAt DateTime @default(now()) @updatedAt
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@unique([productId, normalizedModel])
+  @@index([normalizedModel])
+}
+
+/// Supplier order; actual stock enters only through the existing posted receipt.
+model StockPurchase {
+  id Int @id @default(autoincrement())
+  number String @unique
+  requestId String @unique
+  fingerprint String
+  supplier String
+  locationId Int
+  status String @default("OPEN")
+  version Int @default(0)
+  currency String @default("IRT")
+  totalCostMinor BigInt
+  expectedAt DateTime?
+  note String @default("")
+  actorId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  lines StockPurchaseLine[]
+  receipts StockPurchaseReceipt[]
+  @@index([status, expectedAt])
+}
+
+model StockPurchaseLine {
+  id Int @id @default(autoincrement())
+  purchaseId Int
+  productId Int
+  variantId Int?
+  itemKey String
+  name String
+  quantity Int
+  receivedQuantity Int @default(0)
+  unitCostMinor BigInt
+  purchase StockPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  @@unique([purchaseId, itemKey])
+}
+
+model StockPurchaseReceipt {
+  id Int @id @default(autoincrement())
+  purchaseId Int
+  receiptId Int @unique
+  purchase StockPurchase @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  receipt StockReceipt @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+  @@index([purchaseId])
 }

@@ -52,6 +52,7 @@ export type FeedProduct = {
   price: number
   oldPrice: number
   available: boolean
+  condition: 'NEW' | 'OPEN_BOX' | 'USED' | 'REFURBISHED'
   category: string
   categoryPath: string[]
   brand: string
@@ -128,7 +129,7 @@ export function xmlFeed(products: FeedProduct[], shop: { title: string; url: str
     product.brand ? `<g:brand>${xml(product.brand)}</g:brand>` : '',
     product.sku ? `<g:mpn>${xml(product.sku)}</g:mpn>` : '',
     `<g:product_type>${xml(product.categoryPath.join(' > ') || product.category)}</g:product_type>`,
-    '<g:condition>new</g:condition>',
+    `<g:condition>${product.condition === 'USED' || product.condition === 'OPEN_BOX' ? 'used' : product.condition === 'REFURBISHED' ? 'refurbished' : 'new'}</g:condition>`,
     '</item>',
   ].filter(Boolean).join(''))
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0"><channel><title>${xml(shop.title)}</title><link>${xml(shop.url)}</link><description>${xml(shop.title)}</description>\n${items.join('\n')}\n</channel></rss>\n`

@@ -15,7 +15,7 @@ const text = (value: unknown, limit: number) => String(value ?? '').replace(/[\u
 const id = (value: unknown, label: string) => { const n = Number(value); if (!Number.isSafeInteger(n) || n <= 0) throw new LocationError(`${label} معتبر نیست`); return n }
 const optionalId = (value: unknown, label: string) => value === undefined || value === null || value === '' || value === 0 ? null : id(value, label)
 
-async function ownItem(productId: number, variantId: number | null, client: Prisma.TransactionClient = db) {
+export async function ownItem(productId: number, variantId: number | null, client: Prisma.TransactionClient = db) {
   const product = await client.product.findUnique({ where: { id: productId }, select: { id: true, name: true, currency: true, sellerId: true, digitalMode: true, variants: { where: { active: true }, select: { id: true, name: true } } } })
   if (!product || product.sellerId || product.digitalMode === 'CODES') throw new LocationError('این کالا موجودی انبار ندارد (انبار کد یا کالای فروشنده)')
   const variant = variantId ? product.variants.find((row) => row.id === variantId) : null
@@ -30,7 +30,7 @@ async function ownItem(productId: number, variantId: number | null, client: Pris
  * Posts received goods: units are added at the location and, when a unit cost is given, the item's acquisition cost
  * becomes the moving average of what was on hand and what arrived. Same requestId = same receipt (safe retry).
  */
-export async function createReceipt(input: Record<string, unknown>, actorId: number | null, audit: Audit = noAudit) {
+export async function createReceipt(input: Record<string, unknown>, actorId: number | null, audit: Audit = noAudit, client?: Prisma.TransactionClient) {
   const requestId = text(input.requestId, 80)
   if (!/^[0-9a-f-]{36}$/i.test(requestId)) throw new LocationError('شناسهٔ ثبت معتبر نیست؛ صفحه را تازه کنید')
   const locationId = id(input.locationId, 'محل دریافت')
@@ -38,7 +38,7 @@ export async function createReceipt(input: Record<string, unknown>, actorId: num
   if (!raw.length || raw.length > 200) throw new LocationError('از ۱ تا ۲۰۰ ردیف کالا ثبت کنید')
   const requestLines = raw.map(value => { const row = (value || {}) as Record<string, unknown>; return { productId: id(row.productId, 'کالا'), variantId: optionalId(row.variantId, 'گونه'), quantity: Number(row.quantity), unitCost: String(row.unitCost ?? '').trim() } })
   const fingerprint = createHash('sha256').update(JSON.stringify({ locationId, supplier: text(input.supplier, 120), reference: text(input.reference, 80), note: text(input.note, 500), lines: requestLines })).digest('hex')
-  const previous = await db.stockReceipt.findUnique({ where: { requestId } })
+  const previous = await (client || db).stockReceipt.findUnique({ where: { requestId } })
   if (previous) {
     if (previous.actorId !== actorId || previous.fingerprint !== fingerprint) throw new LocationError('شناسهٔ رسید قبلاً با اطلاعات دیگری ثبت شده است', 409)
     return { id: previous.id, replayed: true }
@@ -48,7 +48,7 @@ export async function createReceipt(input: Record<string, unknown>, actorId: num
     const row = (value || {}) as Record<string, unknown>
     const productId = id(row.productId, 'کالا'), variantId = optionalId(row.variantId, 'گونه'), quantity = Number(row.quantity)
     if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 1_000_000) throw new LocationError('تعداد دریافتی معتبر نیست')
-    const owned = await ownItem(productId, variantId)
+    const owned = await ownItem(productId, variantId, client || db)
     const cost = String(row.unitCost ?? '').trim()
     let unitCostMinor: bigint | null = null
     if (cost) { try { unitCostMinor = toMinor(cost, owned.product.currency) } catch { throw new LocationError(`بهای خرید «${owned.name}» معتبر نیست`) } if (unitCostMinor < 0n) throw new LocationError('بهای خرید منفی نمی‌شود') }
@@ -80,6 +80,7 @@ export async function createReceipt(input: Record<string, unknown>, actorId: num
     await audit(tx, receipt.id)
     return { id: receipt.id, replayed: false }
   }
+  if (client) return write(client)
   try { return await db.$transaction(write, { timeout: 60_000 }) }
   catch (error) {
     if ((error as { code?: string }).code !== 'P2002') throw error

@@ -27,6 +27,7 @@ export async function saveFeedSettings(input: unknown) {
 export const PER_PAGE = 100
 
 type Filter = { ids?: number[]; slugs?: string[] }
+const FEED_CONDITIONS = new Set(['NEW', 'OPEN_BOX', 'USED', 'REFURBISHED'])
 
 async function where(settings: FeedSettings, filter: Filter = {}) {
   const excluded = settings.excludeCategories.length ? (await db.productCategory.findMany({ where: { slug: { in: settings.excludeCategories } }, select: { id: true } })).map((row) => row.id) : []
@@ -81,6 +82,7 @@ export async function feedProducts(settings: FeedSettings, page: number, filter:
       image: images[0] || '', images,
       price, oldPrice: best && best.listMinor > best.unitMinor ? toToman(best.listMinor, best.currency) || 0 : 0,
       available, category: product.category?.name || '', categoryPath: path, brand: product.brand?.name || '',
+      condition: FEED_CONDITIONS.has(product.condition) ? product.condition as FeedProduct['condition'] : 'NEW',
       description: product.shortDescription || richTextToPlain(product.description, 1000),
       guarantee: product.warranty || '', specs, createdAt: product.createdAt, updatedAt: product.updatedAt, sku: product.sku,
     })

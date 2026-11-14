@@ -14,7 +14,7 @@ import type { GroupDeal } from '@/modules/account/domain/user-groups'
 type Definition = NonNullable<Awaited<ReturnType<typeof productBundleDefinition>>>
 export type ProductBundleCard = {
   id: number; name: string; nameEn: string; currency: string; total: number; buyable: boolean; issue: string
-  components: { productId: number; variantId: number | null; slug: string; name: string; nameEn: string; image: string; variantName: string; quantity: number; unitPrice: number; total: number }[]
+  components: { productId: number; variantId: number | null; slug: string; name: string; nameEn: string; image: string; isService: boolean; variantName: string; quantity: number; unitPrice: number; total: number }[]
 }
 
 function bundleCard(definition: Definition, member: boolean, opens: boolean, deal?: GroupDeal | null): ProductBundleCard | null {
@@ -34,7 +34,8 @@ function bundleCard(definition: Definition, member: boolean, opens: boolean, dea
     if (product.access === 'MEMBERS' && !opens) issue = 'MEMBERS_ONLY'
     else if (!issue && (quantity > lineLimit(product.stock, variant?.stock ?? null, product.maxPerOrder) || totals.get(product.id)! > lineLimit(product.stock, null, product.maxPerOrder))) issue = 'QUANTITY_LIMIT'
     const minor = price.unitMinor * BigInt(quantity); totalMinor += minor
-    components.push({ productId: product.id, variantId: variant?.id ?? null, slug: product.slug, name: product.name, nameEn: product.nameEn, image: product.image, variantName: variant?.name || '', quantity, unitPrice: minorToNumber(price.unitMinor, currency), total: minorToNumber(minor, currency) })
+    const isService = product.kind === 'VIRTUAL' && product.isService
+    components.push({ productId: product.id, variantId: variant?.id ?? null, slug: product.slug, name: isService ? `${product.name} (خدمت)` : product.name, nameEn: isService ? `${product.nameEn || product.name} (Service)` : product.nameEn, image: product.image, isService, variantName: variant?.name || '', quantity, unitPrice: minorToNumber(price.unitMinor, currency), total: minorToNumber(minor, currency) })
   }
   return { id: definition.id, name: definition.name, nameEn: definition.nameEn, components, currency, total: minorToNumber(totalMinor, currency), buyable: !issue, issue }
 }

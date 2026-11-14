@@ -1,0 +1,7 @@
+@media print {
+  body:has(.gift-receipt) * { visibility: hidden; }
+  body:has(.gift-receipt) .gift-receipt,
+  body:has(.gift-receipt) .gift-receipt * { visibility: visible; color: #111 !important; background: transparent !important; box-shadow: none !important; }
+  body:has(.gift-receipt) .gift-receipt { position: absolute; inset: 0; width: 100%; margin: 0; padding: 16mm; }
+  body:has(.gift-receipt) .gift-receipt button { display: none; }
+}

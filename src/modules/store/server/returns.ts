@@ -198,8 +198,12 @@ export async function createReturnRequest(req: NextRequest, userId: number, orde
       if (open) throw new StoreError('یک درخواست باز برای این سفارش در حال بررسی است', 409, 'OPEN_REQUEST')
       const current = await loadOrder(orderId, userId, tx)
       if (!current || !['PAID', 'COMPLETED'].includes(current.status)) throw new StoreError('وضعیت سفارش تغییر کرده است', 409)
+      const currentHeld = await heldCodes(orderId, tx)
+      const currentAllowed = orderEligibility(current, settings, currentHeld)
+      if (kind === 'CANCEL' ? !currentAllowed.cancel : !currentAllowed.return) throw new StoreError(currentAllowed.reason || 'شرایط لغو یا مرجوعی تغییر کرده است؛ سفارش را تازه کنید', 409, 'NOT_ALLOWED')
       const latest = ledger(current)
-      if (kind === 'RETURN' && JSON.stringify(normalizeChoices(choices, latest.lines)) !== JSON.stringify(choices)) throw new StoreError('تعداد قابل مرجوعی تغییر کرده است؛ سفارش را تازه کنید', 409)
+      const currentUnits = returnableUnits(current, latest.lines, currentHeld, currentAllowed.goods)
+      if (kind === 'RETURN' && JSON.stringify(normalizeChoices(choices, latest.lines.map(line => ({ ...line, returnedQuantity: line.quantity - (currentUnits.get(line.line) || 0) })))) !== JSON.stringify(choices)) throw new StoreError('تعداد قابل مرجوعی تغییر کرده است؛ سفارش را تازه کنید', 409)
       if (requestedMinor > latest.remaining) throw new StoreError('مبلغ قابل بازپرداخت تغییر کرده است؛ سفارش را تازه کنید', 409)
       const created = await tx.returnRequest.create({ data: {
         number: `tmp-${randomUUID()}`, orderId, userId, kind, reason: reason.key, description, photos: JSON.stringify(saved),

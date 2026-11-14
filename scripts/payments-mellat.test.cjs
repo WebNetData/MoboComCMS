@@ -43,4 +43,13 @@ test('the start page posts the escaped RefId to the bank', () => {
   assert.match(html, /action="https:\/\/bpm\.shaparak\.ir\/pgwchannel\/startpay\.mellat"/)
   assert.doesNotMatch(html, /<script>x<\/script>/)
   assert.match(html, /name="RefId" value="AB12&quot;&gt;&lt;script&gt;/)
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i)
+})
+
+test('the start page applies an escaped CSP nonce only when supplied', () => {
+  const html = m.mellatStartPage('AB12', undefined, 'n&"<tag>')
+  assert.match(html, /<script nonce="n&amp;&quot;&lt;tag&gt;">document\.getElementById\('f'\)\.submit\(\)<\/script>/)
+  assert.match(html, /action="https:\/\/bpm\.shaparak\.ir\/pgwchannel\/startpay\.mellat"/)
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i)
+  assert.doesNotMatch(m.mellatStartPage('AB12'), /<script\s+nonce=/i)
 })
