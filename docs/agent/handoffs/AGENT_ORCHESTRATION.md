@@ -115,3 +115,7 @@ later evidence there. Root runtime knowledge/product files remain unchanged.
 Source workstate/map/ledger/decisions/architecture and both skills link the same
 policy; the generated runtime knowledge was refreshed only in this branch.
 Local Git commit and redacted diff scan are recorded next; no remote publication.
+
+## Local Git receipt
+
+Implementation `900b8a5aee919eda315cf9ca1f48bb4807ac05d5` contains26 scoped files. Redacted staged Gitleaks and diff check passed; no remote push/PR/merge/deploy. The local Git exclude ignores .codex/config.toml, so only the reviewed portable template in this isolated branch was explicitly staged; the original root local MCP config was never staged or copied into Git. Seven installer tests, exact backup/prefix/unrelated-setting verification, skill mirrors, architecture gate, native config.load and14-document knowledge check remain the executed evidence. Source gate dependency gap and whole-doctor TERM=dumb failure remain recorded, not reclassified. Original root local installation is ready; open a new trusted-project Codex session for defaults/role discovery.
