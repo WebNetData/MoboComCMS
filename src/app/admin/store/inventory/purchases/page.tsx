@@ -1,4 +1,6 @@
 'use client'
+
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from '@/platform/routing/navigation'
 import { formatMoney } from '@/shared/money'
@@ -85,7 +87,7 @@ function Purchases() {
       <fieldset disabled={busy}>
         <label className="cd-field"><span>محل دریافت</span><select className="input" value={target} onChange={event => { setLocationId(Number(event.target.value)); changed() }}>{active.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
         <label className="cd-field"><span>تأمین‌کننده <b aria-hidden="true">*</b></span><input className="input" maxLength={120} required value={supplier} onChange={event => { setSupplier(event.target.value); changed() }} /></label>
-        <label className="cd-field"><span>موعد مورد انتظار، اختیاری</span><input className="input" type="date" value={expectedAt} onChange={event => { setExpectedAt(event.target.value); changed() }} /></label>
+      <label className="cd-field"><span>موعد مورد انتظار، اختیاری</span><JalaliDateInput className="input" value={expectedAt} onChange={value => { setExpectedAt(value); changed() }} /></label>
         <label className="cd-field"><span>توضیح، اختیاری</span><input className="input" maxLength={500} value={note} onChange={event => { setNote(event.target.value); changed() }} /></label>
       </fieldset>
       <ItemPicker onPick={add} disabled={busy} />

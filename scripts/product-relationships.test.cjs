@@ -76,8 +76,12 @@ test('Catalog picker retains cms.products, bounds refs and filters source throug
     '@/modules/identity/server/admin-guard': { adminGuard: async (req, moduleId, permissions) => { assert.deepEqual(permissions, ['cms.products']); return denied ? { response: { status: 403 } } : { admin: { id: 1 } } } },
     '@/platform/http/response': { err: (error, status) => ({ error, status }), ok: body => body },
     '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
-    // The route imports the database client for its variant lookup; without this the real client starts in the background.
-    '@/platform/database/prisma': { db: {} },
+    // The route projects registry cards through Product metadata; variants are only queried when requested.
+    '@/platform/database/prisma': { db: { product: { findMany: async args => {
+      assert.deepEqual(args.where.id.in, [1, 2])
+      assert.deepEqual(args.select, { id: true, kind: true, isService: true })
+      return [{ id: 1, kind: 'PHYSICAL', isService: false }, { id: 2, kind: 'VIRTUAL', isService: true }]
+    } } } },
     '@/modules/content/server/registry': {
       searchItemCards: async (q, types, take) => { lookups++; assert.deepEqual(types, ['product']); assert.equal(take, 20); return [1, 2].map(id => ({ id, type: 'product', title: `P${id}`, url: `/products/p${id}`, image: '' })) },
       itemCards: async () => new Map(),
@@ -88,5 +92,8 @@ test('Catalog picker retains cms.products, bounds refs and filters source throug
   denied = false
   assert.equal((await handler(req('refs=product:2,product:2'))).status, 400)
   assert.equal((await handler(req('refs=game:2'))).status, 400)
-  assert.deepEqual((await handler(req('sourceId=1&q=Product'))).matches.map(row => row.id), [2])
+  const matches = (await handler(req('sourceId=1&q=Product'))).matches
+  assert.deepEqual(matches.map(row => row.id), [2])
+  assert.equal(matches[0].kind, 'VIRTUAL')
+  assert.equal(matches[0].isService, true)
 })

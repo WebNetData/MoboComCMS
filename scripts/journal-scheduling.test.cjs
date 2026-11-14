@@ -80,14 +80,15 @@ test('admin post create and edit preserve schedules and reject ambiguous dates',
     '@/modules/membership/domain/membership': { normalizeAccess: () => 'PUBLIC' },
     '@/shared/content/sanitize': { cleanRichText: value => value, richTextToPlain: value => value },
     '@/shared/content/cover': { validateCover: value => value },
-    '@/modules/site/server/categories': { validateCategorySelection: async () => [] },
+    '@/modules/site/server/categories': { validateCategorySelection: async () => [3] },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
     '@/modules/content/server/revisions': { RevisionError: load('src/modules/content/server/revisions.ts', { '@/platform/database/prisma': { db }, '@/platform/observability/logger': { logEvent() {} } }).RevisionError, recordRevision: async input => { assert.equal(input.client, db); assert.equal(input.strict, true); revisions.push(input) } },
   }
   for (const name of ['@/modules/site/server/page-layout', '@/shared/money', '@/modules/site/domain/categories', '@/modules/catalog/server/product-config', '@/modules/catalog/server/product-input', '@/modules/fx/server/fx', '@/modules/content/server/bulk', '@/platform/audit/server', '@/modules/seo/server/indexnow']) mocks[name] = {}
   const route = load('src/modules/site/server/http/admin/cms/route.ts', mocks)
   const request = (method, body) => new NextRequest('http://localhost/api/admin/cms?type=posts', { method, body: JSON.stringify(body) })
-  assert.equal((await route.POST(request('POST', { slug: 'scheduled', title: 'Scheduled article', status: 'PUBLISHED', publishedAt: scheduled }))).status, 200)
+  const publishablePost = { slug: 'scheduled', title: 'Scheduled article', status: 'PUBLISHED', publishedAt: scheduled, cover: '/uploads/scheduled-cover.jpg', excerpt: 'A descriptive summary that exceeds the minimum length.', content: Array(151).fill('article').join(' '), categoryIds: ['3'] }
+  assert.equal((await route.POST(request('POST', publishablePost))).status, 200)
   assert.equal(created.publishedAt.toISOString(), scheduled)
   assert.equal((await route.PATCH(request('PATCH', { id: 7, title: 'Edited only' }))).status, 200)
   assert.equal(Object.hasOwn(updated, 'publishedAt'), false, 'old clients and unrelated edits keep the stored schedule')

@@ -869,14 +869,35 @@
           "sha256": "7c3654d2055e164df8db4a5c691e1f41c436b300243e6850d9a4079a262286da"
         }
       ]
+    },
+    "1.7.20": {
+      "migrations": [
+        {
+          "name": "20270316120000_form_repair_invoice",
+          "sha256": "e632568ebea33a163d2a0a24fd4b21f364df0876d36e3729d07997bded4202b1"
+        },
+        {
+          "name": "20270317120000_store_experiences",
+          "sha256": "0bd275efb0b42f647df6bf10f7da3a4c1315318517b8c0546853a70913baca90"
+        },
+        {
+          "name": "20270318120000_store_opening_controls",
+          "sha256": "04202a086e6d96f28d2d6891cddea6379616c55cc74c844c654beba372b52291"
+        },
+        {
+          "name": "20270319120000_store_order_operations",
+          "sha256": "7b9ea83f8da4f7b47e5bbd26e652ff6277fb8833da6db89e065d1d0ff78fe7fb"
+        },
+        {
+          "name": "20270320120000_platform_opening_completion",
+          "sha256": "b53b2a70e6f3269c4292404b0baaef9ba83d9d5df3418a120b675d1e430ed804"
+        },
+        {
+          "name": "20270321120000_site_demand_sharing_health",
+          "sha256": "815e360c12e8d4c2ed0081b1601eae418d6e3ae15d912d706e92f8cba05b8505"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270316120000_form_repair_invoice",
-    "20270317120000_store_experiences",
-    "20270318120000_store_opening_controls",
-    "20270319120000_store_order_operations",
-    "20270320120000_platform_opening_completion",
-    "20270321120000_site_demand_sharing_health"
-  ]
+  "unreleased": []
 }

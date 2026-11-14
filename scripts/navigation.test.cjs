@@ -425,7 +425,7 @@ test('page design templates: about, contact with its form, legal documents, chos
   for (const link of ['new=1&companyPanel=about', 'new=1&companyPanel=contact&formSlug=contact', 'new=1&companyPanel=legal']) assert.ok(admin.includes(link), link)
   const seed = read('prisma/seed.cjs')
   assert.match(seed, /contact: \{ companyPanel: 'contact', formSlug: 'contact' \}, terms: \{ companyPanel: 'legal' \}, refund: \{ companyPanel: 'legal' \}/)
-  assert.match(seed, /if \(!await prisma\.siteForm\.findUnique\(\{ where: \{ slug: 'contact' \}/)
+  assert.match(seed, /if \(seedDemoData && !await prisma\.siteForm\.findUnique\(\{ where: \{ slug: 'contact' \}/, 'the starter form is created only for explicit demo seeding when absent')
   assert.doesNotMatch(seed, /showInNav: true/, 'starter pages do not join the header by themselves')
   // The breadcrumb is one capsule, in the theme and its bundle alike.
   for (const file of ['src/themes/code/mobocom/theme.css', 'src/themes/generated.css']) assert.match(read(file), /\.mb-crumbs \{ display: inline-flex;/, file)

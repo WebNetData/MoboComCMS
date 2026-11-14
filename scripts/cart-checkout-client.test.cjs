@@ -53,6 +53,7 @@ test('cart checkout waits for session resolution and retains authenticated/guest
    if (name === 'next-auth/react') return {useSession: () => ({status})}
    if (name === '@/platform/routing/navigation') return {useRouter: () => ({push: value => routes.push(value)})}
    if (name === '@/modules/checkout/domain/surface') return {checkoutPath: value => value}
+   if (name === './SharedCart') return {ShareCartControl: () => null}
    if (name.startsWith('@/')) return {}
    return require(name)
   }, mod, mod.exports)
