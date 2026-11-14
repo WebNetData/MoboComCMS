@@ -78,6 +78,12 @@ export const MAX_CART_LINES = 50
 export const MAX_LINE_QUANTITY = 30
 
 /** Highest quantity one cart line may hold, from stock (-1 = unlimited) and the per-order limit (0 = none). */
+/** Same sellable stock in Admin and storefront; -1 means unlimited only when neither scope caps it. */
+export function sellableStock(stock: number, variantStock: number | null): number {
+  const variants = variantStock ?? -1
+  return stock >= 0 ? (variants >= 0 ? Math.min(stock, variants) : stock) : variants
+}
+
 export function lineLimit(stock: number, variantStock: number | null, maxPerOrder: number): number {
   let limit = MAX_LINE_QUANTITY
   if (stock >= 0) limit = Math.min(limit, stock)

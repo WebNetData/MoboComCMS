@@ -63,7 +63,9 @@ async function main() {
   const gift = await product('gift', 'VIRTUAL'), physical = await product('physical', 'PHYSICAL', 10)
   await fill(gift.id, 8)
   viewer = manager
-  const session=await db.storeRegisterSession.create({data:{requestId:randomUUID(),register:stamp,cashierId:manager.id,currency:'IRT'}});sessionId=session.id
+  const opened=await call('POST','',{op:'register.open',requestId:randomUUID(),register:stamp,currency:'IRT',openingCashMinor:'0'})
+  assert.equal(opened.status,200,JSON.stringify(opened.body));sessionId=Number(opened.body.session.id)
+  assert(opened.body.session.locationId,'the real register command selects a valid stock location')
   const selection = await call('GET')
   assert.equal(selection.status, 200)
   assert.ok(!JSON.stringify(selection.body).includes(`${stamp}-gift-`), 'product search reveals no codes')
