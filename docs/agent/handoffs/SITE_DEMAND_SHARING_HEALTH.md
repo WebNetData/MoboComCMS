@@ -255,3 +255,19 @@ Rollback disables the health setting/job producer and removes UI exposure while
 retaining the additive tables/history. Revoke exposed shares. Do not drop tables,
 rewrite orders, revert identity relations or purge supporter/audit history. Read
 [the Persian operator guide](../../SITE-DEMAND-SHARING-HEALTH-FA.md).
+
+## Published PR receipt — 2026-11-14
+
+[PR #471](https://github.com/WebNetData/MoboComCMS/pull/471) is OPEN/non-draft, targeting main from
+feat/site-requests-shared-cart-link-health-2026-11-14. The GitHub connector verified the initial
+published head e2866c8060057934482aabe4b15c91e4a2cf9c7f as mergeable and unmerged.
+This following documentation-only receipt records publication; source, migration
+and executed validation are unchanged. The PR description links the exact
+validated commit, including the explicit54-file checksum/three-CSS coverage limit.
+
+Owner requested this publication and retains merge/deploy control. No hosted
+workflow was dispatched, no merge/deployment/provider send ran, and no tests
+were rerun merely for publication. Fresh main remained cbb469f5; the final
+67-file feature diff passed the redacted pre-publication secret scan.
+The proposed saved-search/new-result alerts remain unimplemented and outside
+this PR. This receipt supersedes earlier local-only/no-PR status notes.

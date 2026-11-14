@@ -219,11 +219,23 @@
   "production": {
     "liveProvider": false,
     "externalNotifications": false,
-    "pr": false,
-    "push": false,
+    "pr": true,
+    "push": true,
     "merge": false,
     "deploy": false
   },
   "handoff": "docs/agent/handoffs/SITE_DEMAND_SHARING_HEALTH.md",
-  "canonicalKnowledgeDocuments": 14
+  "canonicalKnowledgeDocuments": 14,
+  "publication": {
+    "number": 471,
+    "url": "https://github.com/WebNetData/MoboComCMS/pull/471",
+    "state": "OPEN",
+    "draft": false,
+    "base": "main",
+    "headBranch": "feat/site-requests-shared-cart-link-health-2026-11-14",
+    "initialHead": "e2866c8060057934482aabe4b15c91e4a2cf9c7f",
+    "initialMergeable": true,
+    "merged": false,
+    "receipt": "following documentation-only commit; implementation/evidence unchanged"
+  }
 }
