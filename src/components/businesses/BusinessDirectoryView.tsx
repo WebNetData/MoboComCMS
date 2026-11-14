@@ -15,7 +15,7 @@ export function BusinessDirectoryHero({ data, suggestions }: { data: Directory; 
       <p>پشت هر خرید، یک تجربه هست. فروشگاه‌های دیگر و فروشندگان موبوکام را بشناسید؛ از کیفیت سفارش تا برخورد پشتیبانی.</p>
       <form method="get" action="/businesses" className={styles.search} role="search" aria-label="جست‌وجوی کسب‌وکارها">
         <input type="hidden" name="kind" value={data.kind} /><input type="hidden" name="category" value={data.category} />
-        <label>نام کسب‌وکار یا نشانی سایت<span className={styles.searchInput}><Icon name="search" size={22} /><input name="q" type="search" defaultValue={data.q} maxLength={100} placeholder="دنبال کدام کسب‌وکار می‌گردید؟" /></span></label>
+        <label>نام کسب‌وکار یا نشانی سایت<span className={styles.searchInput}><Icon name="search" size={22} /><input key={data.q} name="q" type="search" defaultValue={data.q} maxLength={100} placeholder="دنبال کدام کسب‌وکار می‌گردید؟" /></span></label>
         <button className="btn btn-primary" type="submit">جست‌وجوی کسب‌وکار <Icon name="arrow" size={18} /></button>
       </form>
       <div className={styles.heroLinks}><a href="#business-results">کشف کسب‌وکارها <Icon name="chevron" size={16} /></a>{suggestions && <a href="#suggest-business"><Icon name="plus" size={16} /> معرفی کسب‌وکار</a>}<Link href="/dashboard/reviews">تجربه‌های من</Link></div>
