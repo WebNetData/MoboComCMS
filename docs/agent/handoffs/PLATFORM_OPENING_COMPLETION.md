@@ -236,3 +236,15 @@ only those blank lines were normalized after runtime checks. Generated knowledge
 was refreshed from14 canonical documents and checked. The supplementary batch
 hash gap above remains explicitly UNVERIFIED. No PR, push, merge, hosted workflow
 or deployment was performed. Owner reviews/merges/deploys.
+
+## PR preparation — owner request 2026-11-14
+
+Owner explicitly requested a PR and will merge. This supersedes the earlier
+no-publication authorization note for this branch. Prepared from implementation
+3e0a0268 and receipt51bdc113; fetched origin/main 35704026
+remains an ancestor, with no divergence. Existing executed local proof is reused;
+no runtime/test stack was recreated and no hosted workflow dispatched.
+The PR body includes migration/rollback,190 Doctor warnings, synthetic-provider
+limits and the unverified supplementary batch hash. Verified WebNetData through
+existing Git Credential Manager; no credentials printed, persisted or reconfigured.
+Publication URL/head receipt follows after GitHub confirms creation.
