@@ -6,6 +6,10 @@ Authoritative checkout: `.mobocom/platform-integration`, branch
 (owner merged PR468). This is a new local slice; other dirty worktrees were preserved.
 Scope/acceptance: [spec](../../specs/store-opening-controls/SPEC.md).
 
+Local implementation/evidence sealed in `e7811335b21b2bdeb2bb2de4592ae8512f98297e`
+(64 files); worktree clean after that commit. This status-only receipt follows
+the implementation. No push, PR, hosted workflow or deployment was performed.
+
 ## Implemented ownership and behavior
 
 | Request | Source owners and final behavior |
