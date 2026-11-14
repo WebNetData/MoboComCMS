@@ -1,0 +1,11 @@
+# Release 1.7.20 — local preparation 2026-11-14
+
+Owner explicitly requests a local build and published1.7.20 release for updating their installation; GitHub Actions quota is exhausted. No hosted workflow dispatch. Base owner-merged main cf8ce09ccf31eda74de7ca84eae3973936b25c23 includes PR471 and previous PR456–470. Checkout .mobocom/release-1.7.20, branch release/1.7.20; other worktrees preserved.
+
+Preparation changes only version/root lock metadata, guides/release notes, workstate and seals the six already-merged additive migrations as1.7.20. No dependency, migration SQL or application behavior change. Keep the original Ed25519 publisher key/fingerprint70ccde101ede265fc88789302b1a3303692883defc030593ddcc6672b67a1f93 outside Git/containers; never rotate or replace older release assets/tags.
+
+Required before publication: run local release gates and one exact committed-source Linux production build in a private workspace inside existing mobocom-app; validate signed extraction/installer and prior-updater admission, preserve-data migration and production smoke; download published artifacts and reverify hashes/signature. These release-specific results are pending at this preparation commit. Existing feature evidence is reused, not re-labelled as a new full release check. Stable/latest requires owner-merged metadata and matching source. Owner installs on their server; this task publishes distribution only.
+
+Private receipts/artifacts: var/release-1720 in this worktree, .mobocom/release-1.7.20-dist, and /tmp/mobocom-release-1720 in the existing app container. Never ship secrets, generated clients, .env, local sample content or test identities. Source package retains canonical architecture/decisions/map/ledger and integrity-checked14-document AI knowledge. mbrelease ships source; destination updater performs its own Linux build. Cleanup only exact task paths/processes/database after successful evidence and source comparison.
+
+Known scope limits: real bank/SMS/email/playback/printer, destination-host operational restore/install and whole-site production readiness are not certified by local feature tests. Preserve old money/stock history and additive tables on code rollback. Rollback does not automatically restore an old database over newer transactions.
