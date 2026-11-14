@@ -23,7 +23,7 @@ export type SaleDocumentProps = {
   status?: { label: string; tone: 'ok' | 'warn' | 'muted' }
   paid?: boolean
   parties: { label: string; value: string; ltr?: boolean; wide?: boolean }[]
-  lines: { name: string; variant?: string; quantity: number; unitMinor?: string; totalMinor: string }[]
+  lines: { name: string; variant?: string; quantity: number; unitMinor?: string; totalMinor: string; deviceIdentifiers?: { serial: string; imei: string }[] }[]
   currency: string
   totalMinor: string
   discountMinor?: string
@@ -87,7 +87,7 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
       {status && <div><dt>وضعیت</dt><dd>{status.label}</dd></div>}
     </dl>
     <ol className="sr-roll-items">{lines.map((line, index) => <li key={`${index}:${line.name}`}>
-      <span className="sr-roll-name">{line.name}{line.variant && <small>{line.variant}</small>}</span>
+      <span className="sr-roll-name">{line.name}{line.variant && <small>{line.variant}</small>}{line.deviceIdentifiers?.map((id, at) => <small dir="ltr" key={at}>{[id.serial && `Serial: ${id.serial}`, id.imei && `IMEI: ${id.imei}`].filter(Boolean).join(' · ')}</small>)}</span>
       <span className="sr-roll-calc"><span className="sr-num">{fa(line.quantity)}{line.unitMinor && <> × {money(line.unitMinor)}</>}</span><b className="sr-num">{money(line.totalMinor)}</b></span>
     </li>)}</ol>
     <dl className="sr-roll-total">
@@ -136,7 +136,7 @@ export default function SaleReceiptDocument(props: SaleDocumentProps) {
         <thead><tr><th className="sr-col-n">ردیف</th><th className="is-desc">شرح کالا یا خدمات</th><th className="sr-col-q">تعداد</th>{hasUnit && <th className="sr-col-m">مبلغ واحد</th>}<th className="sr-col-m">مبلغ کل</th></tr></thead>
         <tbody>{lines.map((line, index) => <tr key={`${index}:${line.name}`}>
           <td className="sr-col-n">{fa(index + 1)}</td>
-          <td className="is-desc"><b>{line.name}</b>{line.variant && <small>{line.variant}</small>}</td>
+          <td className="is-desc"><b>{line.name}</b>{line.variant && <small>{line.variant}</small>}{line.deviceIdentifiers?.map((id, at) => <small dir="ltr" key={at}>{[id.serial && `Serial: ${id.serial}`, id.imei && `IMEI: ${id.imei}`].filter(Boolean).join(' · ')}</small>)}</td>
           <td className="sr-col-q">{fa(line.quantity)}</td>
           {hasUnit && <td className="sr-col-m">{line.unitMinor ? plain(line.unitMinor) : '—'}</td>}
           <td className="sr-col-m"><b>{plain(line.totalMinor)}</b></td>

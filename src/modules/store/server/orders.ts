@@ -1,4 +1,6 @@
 import { readGiftOrder } from '@/modules/store/domain/gift-order'
+import { assertOrderDispatchReady } from '@/modules/store/server/packing'
+import { deviceIdentifiers, type DeviceIdentifier } from '@/modules/store/domain/device-identifiers'
 import { getStoreSettings } from '@/modules/store/server/catalog'
 import type { Prisma } from '@prisma/client'
 import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
@@ -33,6 +35,7 @@ export type OrderLineView = {
   productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number
   /** The order line itself (0 for an order from before carts). */
   lineId: number
+  deviceIdentifiers: DeviceIdentifier[]
   /** What the buyer gave for this line. A password is masked here for everybody; staff reveal it with a recorded click. */
   inputs: OrderLineInput[]
   inputsErasedAt: Date | null
@@ -42,7 +45,7 @@ export type OrderLineView = {
 
 type OrderWithLines = {
   id: number; totalMinor: bigint; currency: string; meta: string
-  lines: { id?: number; inputs?: string; inputsErasedAt?: Date | null; openAmountMinor?: bigint; openCurrency?: string; openRate?: string; productId: number | null; name: string; variantName: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; product: { slug: string } | null }[]
+  lines: { id?: number; deviceIdentifiers?: string; inputs?: string; inputsErasedAt?: Date | null; openAmountMinor?: bigint; openCurrency?: string; openRate?: string; productId: number | null; name: string; variantName: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; product: { slug: string } | null }[]
   product: { slug: string; name: string; image: string; kind: string } | null
 }
 
@@ -53,6 +56,7 @@ export function orderLines(order: OrderWithLines): OrderLineView[] {
     productId: line.productId, slug: line.product?.slug || '', name: line.name, variantName: line.variantName, image: line.image, kind: line.kind,
     quantity: line.quantity, unitPrice: minorToNumber(line.unitPriceMinor, cur), listPrice: line.listPriceMinor ? minorToNumber(line.listPriceMinor, cur) : 0, total: minorToNumber(line.totalMinor, cur),
     lineId: line.id || 0,
+    deviceIdentifiers: deviceIdentifiers(line.deviceIdentifiers),
     inputs: maskAnswers(openAnswers(line.inputs)).map((answer) => ({ key: answer.key, label: answer.label, value: answer.value, secret: answer.kind === 'secret' })),
     inputsErasedAt: line.inputsErasedAt || null,
     openAmount: line.openAmountMinor && line.openAmountMinor > 0n ? { amount: (Number(line.openAmountMinor) / 100).toFixed(2), currency: line.openCurrency || '', rate: line.openRate || '' } : null,
@@ -63,7 +67,7 @@ export function orderLines(order: OrderWithLines): OrderLineView[] {
   return [{
     productId: Number(meta.productId) || null, slug: order.product.slug, name: order.product.name, variantName: String(meta.variantName || ''), image: order.product.image,
     kind: order.product.kind, quantity: 1, unitPrice: minorToNumber(itemMinor, cur), listPrice: 0, total: minorToNumber(itemMinor, cur),
-    lineId: 0, inputs: [], inputsErasedAt: null, openAmount: null,
+    lineId: 0, deviceIdentifiers: [], inputs: [], inputsErasedAt: null, openAmount: null,
   }]
 }
 
@@ -429,6 +433,7 @@ export async function transitionOrder(input: {
   const write = async (tx: Prisma.TransactionClient) => {
     await input.beforeWrite?.(tx)
     await lockOrderWork(tx, input.orderId, input.scope)
+    if (['PACKED', 'SHIPPED', 'DELIVERED'].includes(to)) await assertOrderDispatchReady(tx, input.orderId)
     if((to==='DELIVERED'||to==='SHIPPED')&&await tx.storePickup.findFirst({where:{orderId:input.orderId,status:{not:'COLLECTED'}},select:{orderId:true}}))throw new StoreError('این سفارش فقط با کد تحویل مشتری از صف تحویل حضوری بسته می‌شود',409)
     const changed = await tx.productDelivery.updateMany({
       where: { id: delivery.id, status: delivery.status },

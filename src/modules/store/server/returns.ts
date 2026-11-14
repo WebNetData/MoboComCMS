@@ -22,6 +22,7 @@ import {
   type LineChoice, type RefundLine, type ReturnKind, type ReturnSettings, type ReturnStatus,
 } from '@/modules/store/domain/returns'
 import { heldCodes } from '@/modules/store/server/digital-codes'
+import { inspectReturnState, receiveReturnState } from './returns/inspection'
 
 // Cancellations and returns. A request is reviewed by staff (or, for a
 // cancellation before shipping, refunded at once when the shop allows it);
@@ -290,7 +291,7 @@ export async function adminReturns(input: { tab?: string; q?: string; page?: num
 }
 
 export async function adminReturn(id: number) {
-  const row = await db.returnRequest.findUnique({ where: { id } })
+  const row = await db.returnRequest.findUnique({ where: { id }, include: { replacementOrder: { select: { totalMinor: true, invoice: { select: { number: true } }, lines: { select: { name: true, variantName: true, quantity: true } } } } } })
   if (!row) return null
   const order = await loadOrder(row.orderId)
   if (!order) return null
@@ -303,11 +304,33 @@ export async function adminReturn(id: number) {
       total: minorToNumber(order.totalMinor, currency), refunded: minorToNumber(book.refunded, currency), remaining: minorToNumber(book.remaining > 0n ? book.remaining : 0n, currency),
       invoiceNumber: order.invoice?.number || '', customer: order.user, customerName: order.customerName, customerPhone: order.customerPhone,
     },
+    exchange: row.kind === 'RETURN' && row.status === 'REFUNDED' ? {
+      returnId: row.id, orderId: row.orderId, customerId: order.userId,
+      customerName: order.customerName || order.user?.name || '', customerPhone: order.customerPhone || order.user?.phone || '',
+      currency, refundMinor: row.refundMinor.toString(), replacementOrderId: row.replacementOrderId,
+      replacementTotalMinor: row.replacementOrder?.totalMinor.toString() || null,
+      replacementInvoice: row.replacementOrder?.invoice?.number || '',
+      replacementLines: row.replacementOrder?.lines || [],
+    } : null,
+    inspection: {
+      status: row.inspectionStatus,
+      canReceive: row.kind === 'RETURN' && row.status === 'REFUNDED' && !row.restocked && order.lines.some(line => line.kind === 'PHYSICAL'),
+      updatedAt: row.updatedAt.toISOString(),
+      lines: requestView(row, order).lines.filter((line) => order.lines.find((entry) => entry.line === line.line)?.kind === 'PHYSICAL').map((line) => ({ ...line, productId: order.lines.find((entry) => entry.line === line.line)?.productId ?? null, variantId: order.lines.find((entry) => entry.line === line.line)?.variantId ?? null, quarantineQuantity: row.inspectionStatus === 'PENDING' ? line.quantity : 0 })),
+      segments: parseJson<Array<Record<string, unknown>>>(row.inspectionLines, []),
+    },
     history: order.returns.filter((item) => item.id !== row.id).map((item) => requestView(item, order)),
   }
 }
 
-
+export async function inspectReturn(...args: Parameters<typeof inspectReturnState>) {
+  await inspectReturnState(...args)
+  return adminReturn(args[0].id)
+}
+export async function receiveReturnGoods(...args: Parameters<typeof receiveReturnState>) {
+  await receiveReturnState(...args)
+  return adminReturn(args[0].id)
+}
 
 /** Approve (the customer sends the item back) or reject with a reason the customer sees. */
 export async function decideReturn(input: { id: number; action: 'approve' | 'reject'; note?: unknown; actorId: number }) {

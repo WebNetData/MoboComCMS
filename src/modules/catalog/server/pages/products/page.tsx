@@ -1,4 +1,6 @@
 import { sectionDisplayName } from '@/modules/site/server/section-names'
+import OrderPauseNotice from '@/components/store/OrderPauseNotice'
+import { orderPauseMessage } from '@/modules/store/server/order-acceptance'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
@@ -15,14 +17,14 @@ import StoreSlider from '@/components/store/StoreSlider'
 import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import { sized, srcSet } from '@/shared/media/image'
 import {
-  BannerGrid, BrandStrip, Crumbs, DIGITAL_TRUST, OfferBand, ProductGrid, ProductRail, TrustStrip,
+  BannerGrid, BrandStrip, Crumbs, OfferBand, ProductGrid, ProductRail, TrustStrip,
 } from '@/components/store/Storefront'
 import { CategoryGrid, QuickRoutes, ShopHero, StoreDoors, TopSellers, divisionCopy } from '@/components/store/ShopHome'
 import { FileStoreDoor } from '@/components/store/ProductDownloads'
 import FileStore from '@/components/store/FileStore'
 import { ClearFilterDraft, FacetFind, FilterAutoApply, FilterDialogClose, PriceSlider, ShopFilterDialog, ShopFilterTrigger } from '@/components/store/ShopFilters'
 import { colorSwatch } from '@/modules/store/domain/colors'
-import { fileStoreHome, shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
+import { fileStoreHome, getStoreSettings, shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
 import { SHOP_SORTS, SPEC_PARAM, isFileStoreFront, isFiltered, isStoreFront, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 
@@ -84,6 +86,7 @@ async function Landing() {
   const empty = !home.newest.length
   const ranked = home.bestselling.filter((card) => card.soldCount > 0)
   return <div className="container sx-landing">
+    <OrderPauseNotice message={orderPauseMessage(home.settings)} />
     {home.settings.slides.length > 0 && <StoreSlider slides={home.settings.slides} />}
     <header className="sx-gate-head">
       <h1>فروشگاه موبوکام</h1>
@@ -104,7 +107,7 @@ async function Landing() {
     <ProductRail title="تازه‌ترین کالاها" icon="star" products={home.newest} more="/products?sort=newest&page=1" />
     <ProductRail title="پربازدیدترین‌ها" icon="grid" products={home.popular.filter((card) => card.views > 0).length >= 4 ? home.popular : []} more="/products?sort=views" />
     {empty && <div className="sx-empty"><StoreIcon name="store" size={42} /><b>هنوز کالایی منتشر نشده است</b><small>کالاها را از بخش مدیریت فروشگاه اضافه کنید.</small></div>}
-    <TrustStrip />
+    <TrustStrip items={home.settings.servicePromises} />
   </div>
 }
 
@@ -113,6 +116,7 @@ async function FileStoreFront() {
   const home = await fileStoreHome()
   if (!home.settings.showFileStore) return <Listing query={parseShopQuery({ files: '1' })} />
   return <div className="container">
+    <OrderPauseNotice message={orderPauseMessage(home.settings)} />
     <Crumbs items={[{ label: 'خانه', href: '/' }, { label: await sectionDisplayName('store', true, { fa: 'فروشگاه', en: 'Shop' }), href: '/products' }, { label: home.settings.fileStoreName }]} />
     <FileStore home={home} />
   </div>
@@ -134,6 +138,7 @@ async function StoreFront({ kind }: { kind: 'PHYSICAL' | 'VIRTUAL' }) {
   const grid = home.division.categories.map((category) => ({ slug: category.slug, name: category.name, image: category.image, total: category.total, children: category.children }))
   const ranked = home.bestselling.filter((card) => card.soldCount > 0)
   return <div className={`container sx-landing sx-store is-${tone}`}>
+    <OrderPauseNotice message={orderPauseMessage(home.settings)} />
     {kind === 'VIRTUAL' && <FileStoreDoor settings={home.settings} />}
     <Crumbs items={[{ label: 'خانه', href: '/' }, { label: await sectionDisplayName('store', true, { fa: 'فروشگاه', en: 'Shop' }), href: '/products' }, { label: STORE_NAME[kind] }]} />
     <ShopHero slider={null} stage={stage} stats={stats} deal={deal} fresh={fresh} copy={copy.hero} tone={tone} />
@@ -147,7 +152,7 @@ async function StoreFront({ kind }: { kind: 'PHYSICAL' | 'VIRTUAL' }) {
     <ProductRail title="پربازدیدها" icon="grid" products={home.popular.filter((card) => card.views > 0).length >= 4 ? home.popular : []} more={`${base}&sort=views`} />
     {!home.division.total && <div className="sx-empty"><StoreIcon name={kind === 'VIRTUAL' ? 'bolt' : 'truck'} size={42} /><b>هنوز کالایی در {STORE_NAME[kind]} منتشر نشده است</b><Link href={copy.other.href} className="sx-btn">{copy.other.label}</Link></div>}
     <Link href={copy.other.href} className="sx-store-switch"><StoreIcon name={kind === 'VIRTUAL' ? 'truck' : 'bolt'} size={22} /><span><small>به فروشگاه دیگر سر بزنید</small><b>{copy.other.label}</b></span><StoreIcon name="chevron" size={18} /></Link>
-    <TrustStrip items={kind === 'VIRTUAL' ? DIGITAL_TRUST : undefined} />
+    <TrustStrip items={home.settings.servicePromises} />
   </div>
 }
 
@@ -162,7 +167,7 @@ function CategoryLinks({ nodes, query, active, depth = 0 }: { nodes: CategoryNod
 }
 
 async function Listing({ query }: { query: ShopQuery }) {
-  const result = await shopListing(query)
+  const [result, settings] = await Promise.all([shopListing(query), getStoreSettings()])
   const node = result.category?.node
   const rootKind = result.category?.chain[0]?.kind
   const storeKind = query.kind || (rootKind === 'PHYSICAL' || rootKind === 'VIRTUAL' ? rootKind : '')
@@ -204,6 +209,7 @@ async function Listing({ query }: { query: ShopQuery }) {
   ]
 
   return <div className="container sx-listing">
+    <OrderPauseNotice message={orderPauseMessage(settings)} />
     <Crumbs items={[{ label: 'خانه', href: '/' }, { label: await sectionDisplayName('store', true, { fa: 'فروشگاه', en: 'Shop' }), href: '/products' }, ...(storeKind ? [{ label: STORE_NAME[storeKind], href: `/products?kind=${storeKind}` }] : []), ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
     <header className={`sx-lhero${node?.image ? ' has-art' : ''}${storeKind ? ` is-${storeKind === 'VIRTUAL' ? 'digital' : 'physical'}` : ''}`}>
       <span className="sx-lhero-art">{node?.image ? <img src={sized(node.image, 240)} srcSet={srcSet(node.image, 240)} alt="" decoding="async" /> : <StoreIcon name={icon} size={40} />}</span>

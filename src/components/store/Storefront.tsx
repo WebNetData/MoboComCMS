@@ -2,6 +2,7 @@ import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
 import type { ProductCard, ShopDivision } from '@/modules/store/server/catalog'
 import type { StoreTile } from '@/modules/store/domain/store'
+import { DEFAULT_STORE_PROMISES } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import Countdown from '@/components/store/Countdown'
@@ -210,23 +211,12 @@ export function BannerGrid({ banners }: { banners: StoreTile[] }) {
   })}</section>
 }
 
-const TRUST: { icon: StoreIconName; title: string; text: string }[] = [
-  { icon: 'truck', title: 'ارسال سریع', text: 'انتخاب روز و ساعت تحویل' },
-  { icon: 'card', title: 'پرداخت امن', text: 'درگاه بانکی و کیف پول' },
-  { icon: 'return', title: 'ضمانت بازگشت', text: 'هفت روز ضمانت بازگشت کالا' },
-  { icon: 'shield', title: 'ضمانت اصالت', text: 'تضمین اصل بودن کالا' },
-  { icon: 'headset', title: 'پشتیبانی', text: 'هفت روز هفته پاسخ‌گو هستیم' },
-]
+const TRUST = DEFAULT_STORE_PROMISES
 
-export const DIGITAL_TRUST: { icon: StoreIconName; title: string; text: string }[] = [
-  { icon: 'bolt', title: 'تحویل آنلاین', text: 'بدون ارسال پستی، در حساب شما' },
-  { icon: 'shield', title: 'ضمانت اصالت', text: 'کد اصل از منبع معتبر' },
-  { icon: 'card', title: 'پرداخت امن', text: 'درگاه بانکی و کیف پول' },
-  { icon: 'return', title: 'جایگزینی کد', text: 'کد نامعتبر عوض می‌شود' },
-  { icon: 'headset', title: 'پشتیبانی فعال‌سازی', text: 'تا فعال شدن کنار شما' },
-]
+export const DIGITAL_TRUST = DEFAULT_STORE_PROMISES
 
 export function TrustStrip({ items = TRUST }: { items?: { icon: StoreIconName; title: string; text: string }[] }) {
+  if (!items.length) return null
   return <section className="sx-trust" aria-label="خدمات فروشگاه">{items.map((item) => <div key={item.title}><StoreIcon name={item.icon} size={28} /><span><b>{item.title}</b><small>{item.text}</small></span></div>)}</section>
 }
 

@@ -51,6 +51,7 @@ export type BuyBoxProps = {
   badges: string[]
   shipping: string
   purchaseGuides?: PublicPageLink[]
+  orderPauseNotice?: string
   /** Active installment gateways ("خرید اقساطی") and their shown number of parts. */
   installments?: { label: string; count: number }[]
   /** Customer club earning rule (points per spent Toman), when the club is on. */
@@ -222,6 +223,7 @@ export default function BuyBox(props: BuyBoxProps) {
     </fieldset>}
 
     <div className="sx-buy-card">
+      {props.orderPauseNotice && <p className="sx-buy-msg" role="status">{props.orderPauseNotice}</p>}
       <ul className="sx-buy-facts">
         <li><StoreIcon name="store" size={18} /><span>{props.seller ? <Link href={props.seller.href}><b>{props.seller.name}</b></Link> : <b>فروشگاه {site.brand}</b>}<small>{props.seller ? props.seller.label : 'فروشندهٔ رسمی'}</small></span></li>
         {props.warranty && <li><StoreIcon name="shield" size={18} /><span>{props.warranty}</span></li>}
@@ -293,7 +295,7 @@ export default function BuyBox(props: BuyBoxProps) {
                 <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} aria-label="کاهش تعداد"><StoreIcon name="minus" size={16} /></button>
               </div>}
               <button type="button" className="sx-btn is-primary is-block is-large" disabled={!!busy || status === 'loading'} onClick={() => void addCart()}>{busy === 'cart' ? 'در حال افزودن…' : 'افزودن به سبد خرید'}</button>
-              {props.kind !== 'PHYSICAL' && !open && !(props.orderFields || []).length && <button type="button" className="sx-btn is-block" disabled={!!busy || status === 'loading'} onClick={() => void buyNow()}>{busy === 'buy' ? 'در حال انتقال…' : 'خرید فوری'}</button>}
+              {props.kind !== 'PHYSICAL' && !open && !(props.orderFields || []).length && <button type="button" className="sx-btn is-block" disabled={!!busy || status === 'loading' || !!props.orderPauseNotice} onClick={() => void buyNow()}>{busy === 'buy' ? 'در حال انتقال…' : 'خرید فوری'}</button>}
             </div>)}
       {message && <p className="sx-buy-msg" role="alert">{message}</p>}
       {error && <CheckoutError code={error.code} message={error.message} needed={error.needed} currency={error.currency || props.currency} />}

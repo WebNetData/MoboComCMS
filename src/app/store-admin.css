@@ -411,6 +411,9 @@ html[data-theme='light'] .sa { --sa-warn: #8a5300; }
 .rt-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .rt-lines li { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 12px; }
 .rt-lines img, .rt-lines .sa-ph { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; }
+.rt-inspection > li { grid-template-columns: minmax(0, 1fr); }
+.rt-inspection > li > div { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.rt-inspection p { margin: 0; }
 .rt-h3 { margin: 16px 0 8px; font-size: 14px; }
 .rt-photos { display: flex; flex-wrap: wrap; gap: 8px; }
 .rt-photos button { padding: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: zoom-in; background: none; }

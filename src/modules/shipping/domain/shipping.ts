@@ -5,7 +5,7 @@
  */
 
 export class ShippingError extends Error {
-  constructor(message: string, public status = 400, public code = 'SHIPPING_INVALID') { super(message) }
+  constructor(message: string, public status = 400, public code = 'SHIPPING_INVALID', public field?: keyof AddressInput) { super(message) }
 }
 
 export const PROVINCES = [
@@ -71,12 +71,12 @@ export function validateAddress(input: Record<string, unknown>): AddressInput {
   const city = text(input.city, 60)
   const address = text(input.address, 400)
   const postalCode = normalizePostalCode(input.postalCode)
-  if (recipient.length < 3) throw new ShippingError('نام و نام خانوادگی گیرنده را وارد کنید')
-  if (!mobile) throw new ShippingError('شمارهٔ موبایل گیرنده معتبر نیست (مثل ۰۹۱۲۱۲۳۴۵۶۷)')
-  if (!(PROVINCES as readonly string[]).includes(province)) throw new ShippingError('استان را از فهرست انتخاب کنید')
-  if (city.length < 2) throw new ShippingError('شهر را وارد کنید')
-  if (address.length < 10) throw new ShippingError('نشانی دقیق پستی را وارد کنید (خیابان، کوچه، …)')
-  if (!postalCode) throw new ShippingError('کد پستی ده‌رقمی معتبر نیست')
+  if (recipient.length < 3) throw new ShippingError('نام و نام خانوادگی گیرنده را وارد کنید', 400, 'SHIPPING_INVALID', 'recipient')
+  if (!mobile) throw new ShippingError('شمارهٔ موبایل گیرنده معتبر نیست (مثل ۰۹۱۲۱۲۳۴۵۶۷)', 400, 'SHIPPING_INVALID', 'mobile')
+  if (!(PROVINCES as readonly string[]).includes(province)) throw new ShippingError('استان را از فهرست انتخاب کنید', 400, 'SHIPPING_INVALID', 'province')
+  if (city.length < 2) throw new ShippingError('شهر را وارد کنید', 400, 'SHIPPING_INVALID', 'city')
+  if (address.length < 10) throw new ShippingError('نشانی دقیق پستی را وارد کنید (خیابان، کوچه، …)', 400, 'SHIPPING_INVALID', 'address')
+  if (!postalCode) throw new ShippingError('کد پستی ده‌رقمی معتبر نیست', 400, 'SHIPPING_INVALID', 'postalCode')
   if ((input.lat !== undefined && input.lat !== null && input.lat !== '') && !normalizeCoordinates(input.lat, input.lng)) throw new ShippingError('موقعیت انتخاب‌شده روی نقشه باید داخل ایران باشد')
   const pin = normalizeCoordinates(input.lat, input.lng)
   return {

@@ -1,5 +1,6 @@
 import { validateGiftOrder } from '@/modules/store/domain/gift-order'
 import { getStoreSettings } from '@/modules/store/server/catalog'
+import { assertStoreAcceptsOrders } from '@/modules/store/server/order-acceptance'
 import { db } from '@/platform/database/prisma'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
@@ -150,6 +151,9 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   const content = command.contentKey ? parseContentKey(command.contentKey) : null
   if (command.contentKey && !content) return fail(400, 'BAD_ITEM', 'invalid content key')
   if (productId && !await isStoreEnabled()) return fail(403, 'STORE_DISABLED', 'فروشگاه در حال حاضر غیرفعال است')
+  if (productId) {
+    try { await assertStoreAcceptsOrders() } catch (error) { if (error instanceof StoreError) return fail(error.status, error.code, error.message); throw error }
+  }
   const formSubmissionId = Number(command.formSubmissionId) || null
   const hostingProductId = Number(command.hostingProductId) || null
   const hostingRenewServiceId = Number(command.hostingRenewServiceId) || null
@@ -449,6 +453,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let order
   try {
     order = await db.$transaction(async tx => {
+      if (productId) await assertStoreAcceptsOrders(tx)
       if (promotion) {
         const claimed = await tx.promotion.updateMany({ where: { id: promotion.id, active: true, reservedCount: promotion.reservedCount }, data: { reservedCount: { increment: 1 } } })
         if (claimed.count !== 1) throw Error('PROMOTION_CONFLICT')
@@ -481,6 +486,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     if (replayAfterRace) return replayAfterRace
     if (error instanceof Error && error.message.startsWith('PROMOTION_')) return fail(409, error.message, 'discount code could not be reserved; please retry')
     if (error instanceof ShippingError) return fail(error.status, error.code, error.message)
+    if (error instanceof StoreError) return fail(error.status, error.code, error.message)
     throw error
   }
 

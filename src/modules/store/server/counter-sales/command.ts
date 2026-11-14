@@ -1,4 +1,5 @@
 import { priceCounterLines } from './quote'
+import { counterPriceWarnings } from './warnings'
 import { counterTotals } from './totals'
 import { redeemCounterPromotion } from '@/modules/promotions/server/counter'
 import { bookDelivery } from '@/modules/shipping/server/shipping'
@@ -13,6 +14,7 @@ import { assignLine } from '@/modules/store/server/digital-codes'
 import { recordStoreSale } from '@/modules/store/server/orders'
 import { asStoreError } from '@/modules/store/server/order-inputs'
 import { StoreError } from '@/modules/store/domain/store'
+import { recordCounterPacking } from '@/modules/store/server/packing'
 import { readCounterSale, type CounterSaleInput } from '@/modules/store/domain/counter-sales'
 import { legacyNumber, minorToDecimal } from '@/shared/money'
 import { resolvePhoneCustomer, PhoneCustomerError } from '@/modules/identity/server/phone-customer'
@@ -43,6 +45,8 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
   const { products, lines, subtotalMinor, currency } = await priceCounterLines(tx, input)
   const totals = await counterTotals(tx, input, customer?.id || null, lines, subtotalMinor, currency)
   const { totalMinor, discountMinor, shippingMinor } = totals
+  const warnings = await counterPriceWarnings(tx, lines, subtotalMinor, discountMinor, currency)
+  if (warnings.warnings.length && input.warningFingerprint !== warnings.warningFingerprint) throw new StoreError('هشدار قیمت را در مبلغ نهایی بررسی و تأیید کنید؛ قیمت یا بهای خرید ممکن است تغییر کرده باشد', 409, 'PRICE_WARNING_REQUIRED')
   if ((input.discountCode || input.shipment || input.expectedTotalMinor !== undefined) && input.expectedTotalMinor !== totalMinor.toString()) throw new StoreError('مبلغ نهایی تغییر کرده است؛ مبلغ را دوباره بررسی و تأیید کنید', 409, 'PRICE_CHANGED')
   const register=await lockRegister(tx,input.sessionId,actorId,currency)
   if (!register.locationId) throw new StoreError('محل موجودی صندوق مشخص نیست؛ صندوق را ببندید و با محل فعال باز کنید', 409)
@@ -70,22 +74,39 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
   const consumed = await consumeInventoryReservation(order.id, tx)
   if (!consumed.ok) throw new StoreError(consumed.message, 409)
   await tx.productDelivery.create({ data: { orderId: order.id, status: input.shipment ? 'PENDING' : 'DELIVERED', deliveredAt: input.shipment ? null : new Date(), deliveryNote: input.shipment ? 'پرداخت در مغازه؛ ارسال از انبار' : 'تحویل حضوری در فروشگاه' } })
+  if (!input.shipment) await recordCounterPacking(tx, order.id, actorId, input.packingConfirmed === true)
   await recordStoreSale(order.id, tx)
   await tx.storeTender.createMany({data:payments.map(row=>({orderId:order.id,sessionId:input.sessionId,method:row.method,amountMinor:BigInt(row.amountMinor),reference:row.reference}))})
   if(customer)await counterClub(tx,{userId:customer.id,orderId:order.id,totalMinor,currency,redeem:0,key},'EARN')
   if(customer&&order.customerPhone)await createInboxEvent({userId:customer.id,kind:'STORE_RECEIPT',dedupeKey:`counter:receipt:${order.id}`,titleFa:input.repair?`فاکتور تعمیر ${invoice.number}`:`فاکتور خرید حضوری ${invoice.number}`,titleEn:'Counter purchase invoice',bodyFa:'رسید و وضعیت خرید شما',href:`/receipt/store/${order.receiptToken}`,channels:['sms']},tx)
   await tx.orderEvent.create({ data: { orderId: order.id, status: input.shipment ? 'PENDING' : 'DELIVERED', actorId, note: input.shipment ? 'پرداخت در مغازه؛ در انتظار ارسال از انبار' : input.repair ? `فاکتور تعمیر شمارهٔ ${input.repair.submissionId}` : 'فروش و تحویل حضوری' } })
   for (const product of products) await syncCodeStock(tx, product.id)
+  if (input.exchangeReturnId) {
+    const returned = await tx.returnRequest.findUnique({ where: { id: input.exchangeReturnId }, include: { order: { select: { userId: true, customerPhone: true, customerName: true } } } })
+    if (!returned || returned.kind !== 'RETURN' || returned.status !== 'REFUNDED' || returned.replacementOrderId !== null) throw new StoreError('مرجوعی برای اتصال فروش جایگزین در دسترس نیست', 409)
+    if (returned.currency !== currency) throw new StoreError('واحد پول فروش جایگزین باید با مرجوعی یکسان باشد', 409)
+    const sameBuyer = returned.userId ? returned.userId === order.userId : !order.userId && returned.order.customerPhone === order.customerPhone && returned.order.customerName === order.customerName
+    if (!sameBuyer) throw new StoreError('فروش جایگزین باید برای همان مشتری سفارش قبلی ثبت شود', 409)
+    const linked = await tx.returnRequest.updateMany({ where: { id: returned.id, kind: 'RETURN', status: 'REFUNDED', replacementOrderId: null }, data: { replacementOrderId: order.id } })
+    if (linked.count !== 1) throw new StoreError('این مرجوعی قبلاً به فروش جایگزین دیگری متصل شده است', 409)
+  }
   await commit(tx, order.id)
   return { orderId: order.id, replayed: false }
 }
 
 /** The existing financial/stock owners commit together. The request callback rechecks authority in this transaction. */
-export async function createCounterSale(raw: unknown, actorId: number, authorize: (tx: Tx) => Promise<void>, commit: Commit) {
+export async function createCounterSale(raw: unknown, actorId: number, authorize: (tx: Tx) => Promise<void>, commit: Commit, authorizeExchange?: (tx: Tx) => Promise<void>) {
   const input = readCounterSale(raw)
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      return await db.$transaction(async (tx) => { await authorize(tx); return writeSale(tx, input, actorId, commit) }, { isolationLevel: 'Serializable', timeout: 15000 })
+      return await db.$transaction(async (tx) => {
+        await authorize(tx)
+        if (input.exchangeReturnId) {
+          if (!authorizeExchange) throw new StoreError('اتصال تعویض فقط با مدیر سفارش‌ها است', 403)
+          await authorizeExchange(tx)
+        }
+        return writeSale(tx, input, actorId, commit)
+      }, { isolationLevel: 'Serializable', timeout: 15000 })
     } catch (error) {
       const failure = error as { code?: string; meta?: { code?: string } }
       // Prisma exposes PostgreSQL serialization/deadlock failures from raw locks as P2010.

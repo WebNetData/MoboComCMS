@@ -1,0 +1,33 @@
+const assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server')
+assert(/test|check/i.test(new URL(process.env.DATABASE_URL).pathname),'disposable database required')
+const db=new PrismaClient(),stamp='packing-'+Date.now(),ids={users:[],orders:[],products:[],roles:[]};let viewer=null
+const load=require('./connected-source-loader.cjs')({'@/platform/database/prisma':{db},react:{...require('react'),cache:fn=>fn},'next-auth/jwt':{getToken:async()=>viewer?{uid:String(viewer.id),authAt:Date.now()}:null},'@/extensions/server/modules':{isModuleEnabled:async()=>true,moduleGuard:async()=>null},'@/extensions/server/runtime':{emitExtensionEvent:async()=>{}},'@/modules/notifications/server/inbox':{createInboxEvent:async()=>{}}})
+const packing=load('src/modules/store/server/packing.ts'),orders=load('src/modules/store/server/orders.ts'),api=load('src/modules/store/server/http/packing.ts'),domain=load('src/modules/store/domain/packing.ts')
+const req=(id,method,body)=>new NextRequest('http://localhost/api/admin/store/orders/'+id+'/packing',{method,headers:{Origin:'http://localhost','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),context=id=>({params:Promise.resolve({id:String(id)})})
+async function main(){
+ const role=await db.role.create({data:{name:stamp,permissions:JSON.stringify(['store.orders.handle'])}});ids.roles.push(role.id)
+ for(const [name,roleName,roleId]of [['manager','ADMIN',null],['handler','ADMIN',role.id],['buyer','CUSTOMER',null]]){const row=await db.user.create({data:{email:stamp+name+'@example.invalid',passwordHash:'!',role:roleName,roleId}});ids.users.push(row.id)}
+ const [manager,handler,buyer]=await Promise.all(ids.users.map(id=>db.user.findUniqueOrThrow({where:{id}})))
+ const product=await db.product.create({data:{slug:stamp,name:'دستگاه کنترل بسته',kind:'PHYSICAL',currency:'IRT',priceMinor:1000n,price:1000,stock:5}});ids.products.push(product.id)
+ const order=await db.order.create({data:{userId:buyer.id,productId:product.id,status:'PAID',totalAmount:2000,totalMinor:2000n,currency:'IRT',lines:{create:{line:0,productId:product.id,name:'مدل ثبت‌شده',variantName:'آبی',kind:'PHYSICAL',quantity:2,currency:'IRT',unitPriceMinor:1000n,totalMinor:2000n,deviceIdentifiers:JSON.stringify([{serial:'PACK-1',imei:''},{serial:'PACK-2',imei:''}])}},productDelivery:{create:{status:'PENDING',address:'{}'}}}});ids.orders.push(order.id)
+ await assert.rejects(orders.transitionOrder({orderId:order.id,to:'SHIPPED',actorId:manager.id,notify:false}),error=>error.code==='PACKING_REQUIRED')
+ viewer=manager;let state=await(await api.GET(req(order.id,'GET'),context(order.id))).json();assert.equal(state.lines[0].devices[1].serial,'PACK-2')
+ const checks=state.lines.map(line=>({line:line.line,...Object.fromEntries(domain.PACKING_CHECKS.map(item=>[item.key,true]))}))
+ const payload={snapshot:state.snapshot,revision:state.revision,checks,note:'لوازم داخل جعبه بررسی شد'}
+ assert.equal((await api.POST(req(order.id,'POST',{...payload,checks:[{...checks[0],devices:false}]}),context(order.id))).status,400)
+ viewer=handler;assert.equal((await api.POST(req(order.id,'POST',payload),context(order.id))).status,403)
+ viewer=buyer;assert.equal((await api.GET(req(order.id,'GET'),context(order.id))).status,403)
+ viewer=manager;let saved=await api.POST(req(order.id,'POST',payload),context(order.id));assert.equal(saved.status,200);assert((await saved.json()).completed.current)
+ assert.equal((await api.POST(req(order.id,'POST',payload),context(order.id))).status,409,'stale checklist revision')
+ await db.orderLine.updateMany({where:{orderId:order.id},data:{variantName:'مشکی'}})
+ await assert.rejects(orders.transitionOrder({orderId:order.id,to:'SHIPPED',actorId:manager.id,notify:false}),error=>error.code==='PACKING_REQUIRED')
+ state=await packing.orderPacking(order.id,{actorId:manager.id,manager:true});saved=await api.POST(req(order.id,'POST',{...payload,snapshot:state.snapshot,revision:state.revision}),context(order.id));assert.equal(saved.status,200)
+ const delivery=await db.productDelivery.findUniqueOrThrow({where:{orderId:order.id}})
+ await db.orderDeliveryChange.create({data:{orderId:order.id,openOrderKey:order.id,oldAddress:'{}',newAddress:'{}',originalDeliveryUpdatedAt:delivery.updatedAt,fromFeeMinor:0n,newFeeMinor:0n,currency:'IRT',requestedById:buyer.id}})
+ await assert.rejects(orders.transitionOrder({orderId:order.id,to:'SHIPPED',actorId:manager.id,notify:false}),error=>error.code==='DELIVERY_CHANGE_PENDING')
+ await db.orderDeliveryChange.updateMany({where:{orderId:order.id,status:'REQUESTED'},data:{status:'WITHDRAWN',openOrderKey:null}})
+ await orders.transitionOrder({orderId:order.id,to:'SHIPPED',actorId:manager.id,notify:false});assert.equal((await db.productDelivery.findUniqueOrThrow({where:{orderId:order.id}})).status,'SHIPPED')
+ assert.equal((await db.product.findUniqueOrThrow({where:{id:product.id}})).stock,5);assert.equal(await db.payment.count({where:{orderId:order.id}}),0)
+ console.log('Packing PostgreSQL passed: incomplete/missing/stale checklist, held-work/customer denials, exact device snapshot/actor, pending-address dispatch block, successful dispatch without financial/stock writes')
+}
+main().finally(async()=>{await db.orderDeliveryChange.deleteMany({where:{orderId:{in:ids.orders}}});await db.auditLog.deleteMany({where:{actorUserId:{in:ids.users}}});await db.orderPackingCheck.deleteMany({where:{orderId:{in:ids.orders}}});await db.orderEvent.deleteMany({where:{orderId:{in:ids.orders}}});await db.productDelivery.deleteMany({where:{orderId:{in:ids.orders}}});await db.orderLine.deleteMany({where:{orderId:{in:ids.orders}}});await db.order.deleteMany({where:{id:{in:ids.orders}}});await db.product.deleteMany({where:{id:{in:ids.products}}});await db.user.deleteMany({where:{id:{in:ids.users}}});await db.role.deleteMany({where:{id:{in:ids.roles}}});await db.$disconnect()}).catch(error=>{console.error(error);process.exitCode=1})

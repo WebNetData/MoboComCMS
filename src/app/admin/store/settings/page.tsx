@@ -7,6 +7,7 @@ import type { StoreSettings } from '@/modules/store/domain/store'
 import { Notice, StoreShell, send, useJson } from '../shared'
 import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 import PurchaseGuides from './PurchaseGuides'
+import ServicePromises from './ServicePromises'
 import type { PublicPageLink } from '@/modules/site/server/public-pages'
 
 /** Storefront merchandising: landing slides, promo banners, offer title, badges and thresholds. */
@@ -39,6 +40,9 @@ export default function StoreSettingsPage() {
     {result && <Notice tone={result.tone}>{result.text}</Notice>}
     <div className="sa-stack">
       <PurchaseGuides ids={form.purchaseGuidePageIds} pages={data?.purchaseGuidePages || []} disabled={busy} onChange={ids => update('purchaseGuidePageIds', ids)} />
+      <section className="sa-card"><header className="sa-card-head"><h2>پذیرش سفارش جدید</h2></header><label className="sa-check"><input type="checkbox" disabled={busy} checked={form.ordersPaused} onChange={event => update('ordersPaused', event.target.checked)} />توقف موقت سفارش آنلاین</label><p className="sa-hint">ویترین، سبد خرید و پیگیری سفارش‌های قبلی فعال می‌مانند؛ سفارش آنلاین جدید ثبت نمی‌شود. فروش حضوری و پرداخت فاکتورهای قبلی مستقل‌اند.</p><label className="sa-field"><span>پیام توقف سفارش برای مشتری</span><textarea className="input" rows={2} maxLength={300} disabled={busy} value={form.orderPauseNotice} onChange={event => update('orderPauseNotice', event.target.value)} /></label></section>
+      <ServicePromises items={form.servicePromises} busy={busy} onChange={items => update('servicePromises', items)} />
+      <section className="sa-card"><header className="sa-card-head"><h2>هشدار قیمت فروش حضوری</h2></header><label className="sa-field"><span>آستانهٔ هشدار تخفیف (درصد)</span><input className="input" type="number" min={0} max={100} step={1} disabled={busy} value={form.counterDiscountWarningPercent} onChange={event => update('counterDiscountWarningPercent', Number(event.target.value))} /></label><p className="sa-hint">صفر، هشدار درصد تخفیف را خاموش می‌کند. هشدار فروش زیر بهای خرید ثبت‌شده مستقل است؛ بهای خرید نامعلوم، صفر فرض نمی‌شود.</p></section>
       <section className="sa-card">
         <header className="sa-card-head"><h2>اسلایدر صفحهٔ اصلی فروشگاه</h2><button type="button" className="btn btn-ghost btn-sm" disabled={form.slides.length >= 8} onClick={() => update('slides', [...form.slides, { image: '', title: '', subtitle: '', href: '', cta: '' }])}>+ اسلاید</button></header>
         <p className="sa-hint">بدون اسلاید، بخش معرفی فروشگاه نمایش داده می‌شود. اندازهٔ پیشنهادی تصویر: ۱۶۰۰×۵۰۰.</p>
@@ -91,7 +95,6 @@ export default function StoreSettingsPage() {
         <button type="button" className="btn btn-ghost" disabled={baselineBusy || busy} onClick={() => void baseline()}>{baselineBusy ? 'در حال ثبت کار…' : 'شروع ثبت قیمت‌های فعلی'}</button>
         <p className="sa-hint">برای محصولات قبلی یک نقطه از قیمت فعلی ثبت می‌کند؛ قیمت‌های گذشته بازسازی نمی‌شوند. پیشرفت کار در مدیریت عملکرد و صف کارها قابل پیگیری است.</p>
         <label className="sa-field"><span>یادداشت زیر سبد خرید (قوانین مرجوعی، زمان ارسال…)</span><textarea className="input" rows={2} maxLength={300} value={form.cartNote} onChange={(event) => update('cartNote', event.target.value)} /></label>
-        <label className="sa-field"><span>نشان‌های اعتماد زیر جعبهٔ خرید (هر خط یک مورد، حداکثر ۶)</span><textarea className="input" rows={4} value={form.badges.join('\n')} onChange={(event) => update('badges', event.target.value.split('\n').slice(0, 6))} /></label>
       </section>
       <section className="sa-card sa-links">
         <header className="sa-card-head"><h2>تنظیمات مرتبط</h2></header>

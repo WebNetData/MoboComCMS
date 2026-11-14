@@ -30,7 +30,7 @@ const balance = async (productId, locationId) => (await db.locationStock.findFir
     await stock.transferStock(tx, { productId: product.id, variantId: null, from: home, to: shelf.id, quantity: 4 })
   })
   const sell = async extra => {
-    const result = await sales.createCounterSale({ requestId: randomUUID(), confirmed: true, sessionId: session.id, method: 'CASH', lines: [{ productId: product.id, variantId: null, quantity: 2, expectedUnitMinor: '1000', inputs: {} }], ...extra }, actor.id, noop, noop)
+    const result = await sales.createCounterSale({ requestId: randomUUID(), confirmed: true, packingConfirmed: true, sessionId: session.id, method: 'CASH', lines: [{ productId: product.id, variantId: null, quantity: 2, expectedUnitMinor: '1000', inputs: {} }], ...extra }, actor.id, noop, noop)
     orders.push(result.orderId)
     return db.order.findUniqueOrThrow({ where: { id: result.orderId }, include: { invoice: true } })
   }
@@ -38,7 +38,7 @@ const balance = async (productId, locationId) => (await db.locationStock.findFir
   const lookup = await returns.counterReturnLookup(guest.invoice.number)
   assert.equal(lookup.hasAccount, false); assert.equal(lookup.lines[0].returnable, 2)
   assert.equal(await balance(product.id, shelf.id), 2); assert.equal(await balance(product.id, home), 6)
-  const payload = { requestId: randomUUID(), orderId: guest.id, sessionId: session.id, refund: 'CASH', reason: 'exchange', lines: [{ line: 0, quantity: 1 }], expectedRefundMinor: '1000', confirmed: true, restock: true }
+  const payload = { requestId: randomUUID(), orderId: guest.id, sessionId: session.id, refund: 'CASH', reason: 'exchange', lines: [{ line: 0, quantity: 1 }], expectedRefundMinor: '1000', confirmed: true, packingConfirmed: true, restock: true }
   await assert.rejects(returns.createCounterReturn(payload, actor.id, noop, async () => { throw Error('audit-fault') }), /audit-fault/)
   assert.equal(await db.returnRequest.count({ where: { orderId: guest.id } }), 0)
   assert.equal(await db.storeRegisterAdjustment.count({ where: { sessionId: session.id } }), 0)
@@ -73,7 +73,7 @@ const balance = async (productId, locationId) => (await db.locationStock.findFir
   assert.equal(recheck.refundMinor, '2000')
   // Shared coupons reserve the same global/customer capacity as the website and freeze the actual discounted amount.
   const promo = await db.promotion.create({ data: { code: `OMNI_${Date.now()}`, kind: 'PERCENT', percentBps: 1000, currency: 'IRT', salesChannel: 'BOTH', maxUses: 1, perUserLimit: 1 } }); promotions.push(promo.id)
-  const discounted = { requestId: randomUUID(), sessionId: session.id, confirmed: true, method: 'CASH', customerId: buyer.id, discountCode: promo.code, expectedTotalMinor: '1800', lines: [{ productId: product.id, variantId: null, quantity: 2, expectedUnitMinor: '1000', inputs: {} }] }
+  const discounted = { requestId: randomUUID(), sessionId: session.id, confirmed: true, packingConfirmed: true, method: 'CASH', customerId: buyer.id, discountCode: promo.code, expectedTotalMinor: '1800', lines: [{ productId: product.id, variantId: null, quantity: 2, expectedUnitMinor: '1000', inputs: {} }] }
   const quote = await sales.quoteCounterSale(discounted)
   assert.equal(quote.totalMinor, '1800'); assert.equal(quote.discountMinor, '200')
   await assert.rejects(sales.createCounterSale({ ...discounted, expectedTotalMinor: '2000' }, actor.id, noop, noop), error => error.code === 'PRICE_CHANGED')

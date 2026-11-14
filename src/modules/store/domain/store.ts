@@ -224,6 +224,16 @@ export const isStoreFront = (query: ShopQuery) => !!query.kind && !isFiltered({ 
 
 export type StoreSlide = { image: string; title: string; subtitle: string; href: string; cta: string }
 export type StoreTile = { image: string; title: string; href: string }
+export const STORE_PROMISE_ICONS = ['truck', 'card', 'return', 'shield', 'headset', 'bolt', 'check'] as const
+export type StorePromise = { icon: typeof STORE_PROMISE_ICONS[number]; title: string; text: string }
+export const DEFAULT_STORE_PROMISES: StorePromise[] = [
+  { icon: 'truck', title: 'روش ارسال', text: 'روش و هزینهٔ ارسال در تکمیل سفارش مشخص می‌شود' },
+  { icon: 'card', title: 'روش پرداخت', text: 'روش پرداخت را در تکمیل سفارش انتخاب کنید' },
+  { icon: 'return', title: 'شرایط مرجوعی', text: 'پیش از خرید، شرایط مرجوعی را بررسی کنید' },
+  { icon: 'shield', title: 'شرایط ضمانت', text: 'شرایط ضمانت هر کالا را در صفحهٔ آن بخوانید' },
+  { icon: 'headset', title: 'پشتیبانی', text: 'پیگیری از مرکز پشتیبانی حساب کاربری' },
+]
+export const DEFAULT_ORDER_PAUSE_NOTICE = 'پذیرش سفارش جدید موقتاً متوقف است. سفارش‌های قبلی از حساب کاربری قابل پیگیری‌اند.'
 export type StoreSettings = {
   /** Shop landing hero carousel. */
   slides: StoreSlide[]
@@ -250,6 +260,11 @@ export type StoreSettings = {
   giftWrapEnabled: boolean
   /** Trust badges under the product buy box. */
   badges: string[]
+  servicePromises: StorePromise[]
+  ordersPaused: boolean
+  orderPauseNotice: string
+  /** Warn cashier at or above this order discount percentage; 0 disables that warning. */
+  counterDiscountWarningPercent: number
   /** Owner-selected CMS Pages shown beside purchasing information; public pages only. */
   purchaseGuidePageIds: number[]
   /** Free-text note under the cart total (return policy, shipping note…). */
@@ -284,7 +299,11 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   showProductBundles: false,
   giftOrdersEnabled: false,
   giftWrapEnabled: false,
-  badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
+  badges: [],
+  servicePromises: DEFAULT_STORE_PROMISES,
+  ordersPaused: false,
+  orderPauseNotice: '',
+  counterDiscountWarningPercent: 20,
   purchaseGuidePageIds: [],
   cartNote: '',
   staffDeliveryHours: 24,
@@ -325,6 +344,12 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     return { image: safeImage(item.image), title: cleanText(item.title, 60), href: safeLink(item.href) }
   }).filter((banner) => banner.image)
   const badges = raw.badges === undefined ? base.badges : list(raw.badges).map((badge) => cleanText(badge, 40)).filter(Boolean).slice(0, 6)
+  const promises = raw.servicePromises === undefined
+    ? raw.badges === undefined ? base.servicePromises ?? DEFAULT_STORE_PROMISES : badges.map(title => ({ icon: 'check' as const, title, text: '' }))
+    : list(raw.servicePromises).slice(0, 6).map(value => {
+      const item = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+      return { icon: STORE_PROMISE_ICONS.includes(item.icon as StorePromise['icon']) ? item.icon as StorePromise['icon'] : 'check' as const, title: cleanText(item.title, 60), text: cleanText(item.text, 160) }
+    }).filter(item => item.title)
   const low = raw.lowStockDefault === undefined ? base.lowStockDefault : Math.floor(Number(raw.lowStockDefault))
   const historyDays = raw.priceHistoryDays === undefined ? base.priceHistoryDays : Number(raw.priceHistoryDays)
   const purchaseDays = raw.frequentlyBoughtDays === undefined ? base.frequentlyBoughtDays : Number(raw.frequentlyBoughtDays)
@@ -351,6 +376,10 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     giftOrdersEnabled: raw.giftOrdersEnabled === undefined ? base.giftOrdersEnabled : raw.giftOrdersEnabled === true,
     giftWrapEnabled: raw.giftWrapEnabled === undefined ? base.giftWrapEnabled : raw.giftWrapEnabled === true,
     badges,
+    servicePromises: promises,
+    ordersPaused: raw.ordersPaused === undefined ? base.ordersPaused ?? false : raw.ordersPaused === true,
+    orderPauseNotice: raw.orderPauseNotice === undefined ? base.orderPauseNotice ?? '' : cleanText(raw.orderPauseNotice, 300),
+    counterDiscountWarningPercent: (() => { const value = raw.counterDiscountWarningPercent === undefined ? base.counterDiscountWarningPercent ?? 20 : Number(raw.counterDiscountWarningPercent); return Number.isFinite(value) && value >= 0 && value <= 100 ? Math.round(value) : base.counterDiscountWarningPercent ?? 20 })(),
     purchaseGuidePageIds: raw.purchaseGuidePageIds === undefined ? base.purchaseGuidePageIds ?? [] : [...new Set(list(raw.purchaseGuidePageIds).filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0))].slice(0, 6),
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
     deliveredNote: raw.deliveredNote === undefined ? base.deliveredNote ?? DEFAULT_STORE_SETTINGS.deliveredNote : cleanText(raw.deliveredNote, 300),

@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { assertOrderDispatchReady } from '@/modules/store/server/packing'
 import { logEvent } from '@/platform/observability/logger'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
@@ -127,6 +128,9 @@ export async function createShipment(input: { orderId: number; carrier?: unknown
   const sender = await senderProfile(settings)
 
   const shipment = await db.$transaction(async (tx) => {
+    await assertOrderDispatchReady(tx, order.id)
+    const current = await tx.order.findUnique({ where: { id: order.id }, select: { status: true, productDelivery: { select: { status: true, address: true } } } })
+    if (current?.status !== 'PAID' || !['PENDING', 'PROCESSING', 'PACKED'].includes(current.productDelivery?.status || '') || current.productDelivery?.address !== order.productDelivery?.address) throw new ShippingError('اطلاعات تحویل هم‌زمان تغییر کرده است؛ سفارش را تازه کنید', 409, 'CONFLICT')
     const created = await tx.shipment.create({ data: {
       orderId: order.id, waybill: `tmp-${order.id}-${Date.now()}`, carrier: carrier.id, carrierName: carrier.name, trackingCode, weightGrams: weight, parcels,
       feeMinor, costMinor: cost, currency, sender: JSON.stringify(sender), receiver: JSON.stringify(receiver), note, createdBy: input.actorId,
@@ -161,24 +165,26 @@ export async function updateShipment(input: { id: number; status?: unknown; trac
     if (status === 'DELIVERED') data.deliveredAt = new Date()
   }
   if (!Object.keys(data).length && !note) return shipment
-  const changed = await db.shipment.updateMany({ where: { id: shipment.id, status: shipment.status }, data })
-  if (changed.count !== 1) throw new ShippingError('وضعیت بارنامه هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409, 'CONFLICT')
   const code = (data.trackingCode as string | undefined) ?? shipment.trackingCode
-  if (status || codeChanged || note) await db.shipmentEvent.create({ data: { shipmentId: shipment.id, status: status || (codeChanged ? 'CODE' : 'NOTE'), note: note || (codeChanged ? `کد رهگیری ${shipment.carrierName}: ${code}` : ''), location, actorId: input.actorId } })
-
-  // Keep the order's fulfilment in step with the parcel.
-  const fulfilment = shipment.order.productDelivery?.status || ''
   const orderTarget = status === 'PICKED_UP' || status === 'IN_TRANSIT' || status === 'OUT_FOR_DELIVERY' ? 'SHIPPED' : status === 'DELIVERED' ? 'DELIVERED' : ''
-  if (orderTarget && canMoveTo(fulfilment, orderTarget)) {
-    await transitionOrder({ orderId: shipment.orderId, to: orderTarget, actorId: input.actorId, trackingCode: code || shipment.waybill, note: orderTarget === 'SHIPPED' ? `تحویل ${shipment.carrierName} شد — کد رهگیری ${code || shipment.waybill}` : '' }).catch((error) => logEvent('warn', 'shipment.transition_failed', { orderId: shipment.orderId, error: String(error) }))
-  } else if (codeChanged && code) {
-    await db.productDelivery.updateMany({ where: { orderId: shipment.orderId }, data: { trackingCode: code } })
-    if (shipment.order.userId !== null) await createInboxEvent({
+  await db.$transaction(async tx => {
+    if (orderTarget) await assertOrderDispatchReady(tx, shipment.orderId)
+    const current = await tx.productDelivery.findUnique({ where: { orderId: shipment.orderId }, include: { order: { select: { status: true } } } })
+    if (orderTarget && (!current || current.order.status !== 'PAID' || (current.status !== orderTarget && !canMoveTo(current.status, orderTarget)))) throw new ShippingError('سفارش در وضعیت قابل ارسال یا تحویل نیست', 409, 'CONFLICT')
+    const changed = await tx.shipment.updateMany({ where: { id: shipment.id, status: shipment.status }, data })
+    if (changed.count !== 1) throw new ShippingError('وضعیت بارنامه هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409, 'CONFLICT')
+    if (status || codeChanged || note) await tx.shipmentEvent.create({ data: { shipmentId: shipment.id, status: status || (codeChanged ? 'CODE' : 'NOTE'), note: note || (codeChanged ? `کد رهگیری ${shipment.carrierName}: ${code}` : ''), location, actorId: input.actorId } })
+    if (orderTarget && current && current.status !== orderTarget) {
+      await transitionOrder({ orderId: shipment.orderId, to: orderTarget, actorId: input.actorId, trackingCode: code || shipment.waybill, note: orderTarget === 'SHIPPED' ? `تحویل ${shipment.carrierName} شد — کد رهگیری ${code || shipment.waybill}` : '' }, tx)
+    } else if (codeChanged && code) {
+      await tx.productDelivery.updateMany({ where: { orderId: shipment.orderId, status: current?.status }, data: { trackingCode: code } })
+      if (shipment.order.userId !== null) await createInboxEvent({
       userId: shipment.order.userId, kind: 'ORDER_STATUS', dedupeKey: `shipment:${shipment.id}:code:${code}`,
       titleEn: `Tracking code for order #${shipment.orderId}`, titleFa: `کد رهگیری سفارش ${shipment.orderId.toLocaleString('fa-IR')}`,
       bodyEn: `${shipment.carrierName}: ${code}`, bodyFa: `${shipment.carrierName}: ${code}`, href: `/dashboard/orders/${shipment.orderId}`,
-    }).catch(() => undefined)
-  }
+      }, tx)
+    }
+  })
   return db.shipment.findUniqueOrThrow({ where: { id: shipment.id } })
 }
 

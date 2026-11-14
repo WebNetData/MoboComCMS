@@ -15,5 +15,5 @@ export default function ErrorPage({ reset }: { error: Error & { digest?: string 
   return <SiteFeedback label={fa ? 'وقفه در بارگذاری' : 'Loading interrupted'} icon="clock" alert
     title={fa ? 'این صفحه فعلاً در دسترس نیست.' : 'A brief interruption.'}
     description={fa ? 'بارگذاری کامل نشد. دوباره تلاش کنید یا به صفحهٔ اصلی بازگردید.' : 'We couldn’t load this page. Try again, or return to your home page.'}
-  ><button type="button" className="btn btn-primary" disabled={pending} aria-busy={pending} onClick={retry}>{pending ? (fa ? 'در حال تلاش…' : 'Trying again…') : (fa ? 'تلاش دوباره' : 'Try again')}</button><Link className="btn btn-ghost" href="/">{fa ? 'صفحهٔ اصلی' : 'Back to home'}</Link></SiteFeedback>
+  ><button type="button" className="btn btn-primary" disabled={pending} aria-busy={pending} onClick={retry}>{pending ? (fa ? 'در حال تلاش…' : 'Trying again…') : (fa ? 'تلاش دوباره' : 'Try again')}</button><Link className="btn btn-ghost" href="/">{fa ? 'صفحهٔ اصلی' : 'Back to home'}</Link><Link className="btn btn-ghost" href="/dashboard/orders">{fa ? 'پیگیری سفارش‌ها' : 'Track orders'}</Link></SiteFeedback>
 }

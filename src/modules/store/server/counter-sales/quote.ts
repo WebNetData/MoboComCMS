@@ -8,6 +8,7 @@ import { readCounterSale, type CounterSaleInput } from '@/modules/store/domain/c
 import { StoreError } from '@/modules/store/domain/store'
 import { findPhoneCustomer } from '@/modules/identity/server/phone-customer'
 import { counterTotals } from './totals'
+import { counterPriceWarnings } from './warnings'
 
 export async function priceCounterLines(tx: Prisma.TransactionClient, input: CounterSaleInput) {
   const productIds = [...new Set(input.lines.map((line) => line.productId))].sort((a, b) => a - b)
@@ -28,8 +29,9 @@ export async function priceCounterLines(tx: Prisma.TransactionClient, input: Cou
     currency = price.currency
     if (product.digitalMode === 'CODES' && (available.get(product.id)?.get(variant?.id || null) || 0) < wanted.quantity) throw new StoreError(`کد آمادهٔ «${product.name}» کافی نیست؛ کدهای رزروشدهٔ سایت قابل فروش دوباره نیستند`, 409, 'OUT_OF_STOCK')
     const amount = price.unitMinor * BigInt(wanted.quantity)
+    if (wanted.deviceIdentifiers?.length && product.kind !== 'PHYSICAL') throw new StoreError('سریال دستگاه فقط برای کالای فیزیکی ثبت می‌شود')
     totalMinor += amount
-    return { line, productId: product.id, variantId: variant?.id || null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku, image: product.image, kind: product.kind, quantity: wanted.quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: amount, currency, unitCostMinor: variant?.costMinor ?? product.costMinor, inputs: sealAnswers(validateAnswers(validateOrderFields(product.orderFields), variant?.name || '', wanted.inputs)) }
+    return { line, productId: product.id, variantId: variant?.id || null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku, image: product.image, kind: product.kind, quantity: wanted.quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: amount, currency, unitCostMinor: variant?.costMinor ?? product.costMinor, deviceIdentifiers: JSON.stringify(wanted.deviceIdentifiers || []), inputs: sealAnswers(validateAnswers(validateOrderFields(product.orderFields), variant?.name || '', wanted.inputs)) }
   })
   // A repair's work and the parts not kept in stock follow the goods: priced by staff, no stock, never returned to a shelf.
   const lines: (Omit<typeof stocked[number], 'productId' | 'unitCostMinor'> & { productId: number | null; unitCostMinor: bigint | null })[] = [...stocked]
@@ -39,7 +41,7 @@ export async function priceCounterLines(tx: Prisma.TransactionClient, input: Cou
     for (const work of input.repair.work) {
       const unit = BigInt(work.unitMinor), amount = unit * BigInt(work.quantity)
       totalMinor += amount
-      lines.push({ line: lines.length, productId: null, variantId: null, name: work.name, variantName: '', sku: '', image: '', kind: work.part ? 'PART' : 'SERVICE', quantity: work.quantity, unitPriceMinor: unit, listPriceMinor: unit, totalMinor: amount, currency, unitCostMinor: null, inputs: '' })
+      lines.push({ line: lines.length, productId: null, variantId: null, name: work.name, variantName: '', sku: '', image: '', kind: work.part ? 'PART' : 'SERVICE', quantity: work.quantity, unitPriceMinor: unit, listPriceMinor: unit, totalMinor: amount, currency, unitCostMinor: null, deviceIdentifiers: '[]', inputs: '' })
     }
   }
   if (totalMinor > 9_000_000_000_000_000n) throw new StoreError('مبلغ فروش بیش از حد مجاز است')
@@ -53,6 +55,6 @@ export async function quoteCounterSale(raw: unknown) {
   return db.$transaction(async tx => {
     const base = await priceCounterLines(tx, input)
     const totals = await counterTotals(tx, input, userId, base.lines, base.subtotalMinor, base.currency)
-    return { subtotalMinor: totals.subtotalMinor.toString(), discountMinor: totals.discountMinor.toString(), shippingMinor: totals.shippingMinor.toString(), totalMinor: totals.totalMinor.toString(), currency: totals.currency }
+    return { subtotalMinor: totals.subtotalMinor.toString(), discountMinor: totals.discountMinor.toString(), shippingMinor: totals.shippingMinor.toString(), totalMinor: totals.totalMinor.toString(), currency: totals.currency, ...await counterPriceWarnings(tx, base.lines, base.subtotalMinor, totals.discountMinor, base.currency) }
   }, { timeout: 15000 })
 }

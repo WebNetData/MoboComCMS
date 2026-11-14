@@ -8,6 +8,7 @@ import { lockRegister } from '@/modules/store/server/counter-sales/register'
 import { heldCodes } from '@/modules/store/server/digital-codes'
 import { refundReturn, refundFollowups } from './refunds'
 import { loadOrder, ledger, lockOrder } from './shared'
+import { deviceIdentifiers } from '@/modules/store/domain/device-identifiers'
 
 const clean = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, max)
 const result = (row: { id: number; number: string; orderId: number; refundMinor: bigint; currency: string; refundMethod: string }) => ({ id: row.id, number: row.number, orderId: row.orderId, refundMinor: row.refundMinor.toString(), currency: row.currency, method: row.refundMethod })
@@ -35,7 +36,7 @@ export async function counterReturnLookup(raw: string) {
     lines: order.lines.map(line => {
       const entry = book.lines.find(row => row.line === line.line)!
       const left = Math.max(0, line.quantity - entry.returnedQuantity)
-      return { line: line.line, name: line.name, variant: line.variantName, quantity: line.quantity, returned: entry.returnedQuantity,
+      return { line: line.line, name: line.name, variant: line.variantName, quantity: line.quantity, returned: entry.returnedQuantity, deviceIdentifiers: deviceIdentifiers(line.deviceIdentifiers),
         returnable: line.kind === 'PHYSICAL' ? left : Math.min(left, held.get(line.line) || 0),
         unitMinor: line.unitPriceMinor.toString(), totalMinor: line.totalMinor.toString(), code: held.has(line.line) }
     }),

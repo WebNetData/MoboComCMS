@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   if (!user) return err('unauthorized', 401)
   const id = Number(params.id)
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid ticket id', 400)
-  const ticket = await db.ticket.findUnique({ where: { id }, include: { user: { select: { name: true, email: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, subscription: { select: { username: true, subToken: true } }, messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } } })
+  const ticket = await db.ticket.findUnique({ where: { id }, include: { user: { select: { name: true, email: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, subscription: { select: { username: true, subToken: true } }, order: { select: { id: true, status: true, createdAt: true, currency: true, totalAmount: true, lines: { orderBy: { line: 'asc' }, select: { line: true, name: true, variantName: true, quantity: true } } } }, messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } } })
   if (!ticket) return err('not found', 404)
   const staffView = user.role === 'ADMIN' && req.nextUrl.searchParams.get('asCustomer') !== '1'
   if (staffView) {
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     departmentName: departmentConfig ? { fa: departmentConfig.nameFa, en: departmentConfig.nameEn } : { fa: ticket.department, en: ticket.department },
     departmentFields: parseFields(departmentConfig?.fields || '[]'),
     productId: ticket.productId,
+    order: ticket.order ? { id: ticket.order.id, status: ticket.order.status, createdAt: ticket.order.createdAt, currency: ticket.order.currency, totalAmount: ticket.order.totalAmount, lines: ticket.order.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) } : null,
     customFields: JSON.parse(ticket.customFields || '{}'),
     userId: ticket.userId,
     user: ticket.user.email,

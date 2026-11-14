@@ -18,6 +18,13 @@ function load(relative) {
 }
 
 const store = load('src/modules/store/domain/store')
+test('store promises keep saved statements editable and new defaults avoid invented durations', () => {
+  const settings = store.normalizeStoreSettings({})
+  assert(!JSON.stringify(settings.servicePromises).includes('هفت روز'))
+  assert.deepEqual(store.normalizeStoreSettings({badges:['شرایط قدیمی مالک']}).servicePromises,[{icon:'check',title:'شرایط قدیمی مالک',text:''}])
+  assert.deepEqual(store.normalizeStoreSettings({servicePromises:[]}).servicePromises,[])
+  assert.equal(store.normalizeStoreSettings({ordersPaused:'true'}).ordersPaused,false)
+})
 test('Admin and storefront stock respect product caps even with unlimited variants', () => {
   for (const [parent, variants, expected] of [[3,10,3],[3,-1,3],[-1,10,10],[-1,-1,-1],[0,10,0],[10,0,0],[3,null,3],[-1,null,-1]]) {
     assert.equal(store.sellableStock(parent, variants), expected)

@@ -1,5 +1,10 @@
 # Store opening basics — 2026-11-14
 
+Current continuation: [nine opening controls](STORE_OPENING_CONTROLS.md), branch
+`feat/store-opening-controls-2026-11-14` from owner-merged PR468/main66e09d04.
+That handoff supersedes the old pending hard-coded service-strip issue below;
+historical execution/PR receipts are retained as recorded at their date.
+
 ## Published pull request — 2026-11-14
 
 Opening basics `5712455d` and purchase guidance `c7ff51e8` are included

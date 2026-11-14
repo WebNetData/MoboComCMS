@@ -7,6 +7,7 @@ import { consumeInventoryReservation } from '@/modules/catalog/server/inventory'
 import { lockOrderWork, orderVisibility, type OrderWorkScope } from '@/modules/store/server/order-work'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { StoreError } from '@/modules/store/domain/store'
+import { assertOrderDispatchReady } from '@/modules/store/server/packing'
 
 const digest=(id:number,code:string)=>createHmac('sha256',authSecret()).update(`store-pickup:${id}:${code}`).digest('hex')
 export async function createStorePickup(tx: Prisma.TransactionClient,orderId:number){
@@ -37,6 +38,7 @@ export async function movePickup(input:{orderId:number;actorId:number;scope:Orde
    if(changed.count!==1)throw new StoreError('کد هم‌زمان تغییر کرده است',409)
    if(row.order.userId&&row.order.receiptToken)await createInboxEvent({userId:row.order.userId,kind:'STORE_PICKUP_READY',dedupeKey:`pickup:reissue:${input.orderId}:${codeHash}`,titleFa:'کد تازهٔ تحویل سفارش شما',titleEn:'New collection code',bodyFa:'کد قبلی دیگر معتبر نیست.',href:`/receipt/store/${row.order.receiptToken}`,channels:['sms','push']},tx)
   }else if(input.action==='ready'){
+   await assertOrderDispatchReady(tx,input.orderId)
    if(row.status==='COLLECTED')throw new StoreError('این سفارش تحویل گرفته شده است',409)
    if(row.status==='READY')return {ok:true}
    const consumed=await consumeInventoryReservation(input.orderId,tx);if(!consumed.ok)throw new StoreError(consumed.message,409)
@@ -44,6 +46,7 @@ export async function movePickup(input:{orderId:number;actorId:number;scope:Orde
    if(changed.count!==1)throw new StoreError('وضعیت سفارش تغییر کرده است',409)
    if(row.order.userId&&row.order.receiptToken)await createInboxEvent({userId:row.order.userId,kind:'STORE_PICKUP_READY',dedupeKey:`pickup:ready:${input.orderId}`,titleFa:'سفارش شما آمادهٔ تحویل از فروشگاه است',titleEn:'Ready for store collection',bodyFa:'برای مراجعه، کد تحویل پیامک‌شده را همراه داشته باشید.',href:`/receipt/store/${row.order.receiptToken}`,channels:['sms','push']},tx)
   }else{
+   await assertOrderDispatchReady(tx,input.orderId)
    if(row.status!=='READY'||row.attempts>=10)throw new StoreError('سفارش آماده نیست، قبلاً تحویل شده یا تلاش‌های کد بیش از حد است',409)
    const code=String(input.code||'').replace(/[۰-۹]/g,x=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x)))
    const matched=/^\d{6}$/.test(code)&&timingSafeEqual(Buffer.from(row.codeHash,'hex'),Buffer.from(digest(input.orderId,code),'hex'))
