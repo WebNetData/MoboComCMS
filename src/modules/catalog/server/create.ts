@@ -8,6 +8,7 @@ import { replaceExtraCategories, validateExtraCategories } from './product-categ
 import { capturePublicProductPrices } from './price-history'
 import { productRevisionState } from './revision-state'
 import { adoptEditorStock } from './locations'
+import { replaceDeviceCompatibility } from './device-compatibility'
 
 /** Validate an inactive draft before a browser-driven producer spends account usage. */
 export async function validateCatalogDraft(body: Record<string, unknown>) { await productInput(body) }
@@ -22,6 +23,7 @@ export async function createCatalogProduct(body: Record<string, unknown>, actor:
     if (input.variants) await saveVariants(tx, created.id, input.variants)
     await adoptEditorStock(tx, created.id, actor.id)
     if (relationships) await replaceProductRelationships(tx, created.id, relationships)
+    if (body.deviceCompatibility !== undefined) await replaceDeviceCompatibility(tx, created.id, body.deviceCompatibility)
     await capturePublicProductPrices(tx, created.id, new Map())
     const after = (await productRevisionState(created.id, tx))!
     await recordRevision({ entityType: 'products', entityId: created.id, before: null, after, actor, client: tx, strict: true })

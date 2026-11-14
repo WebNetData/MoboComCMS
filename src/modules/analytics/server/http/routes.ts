@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
-import { recordPageview } from '@/modules/analytics/server/collect'
+import { recordPageview, recordStoreFunnelEvent } from '@/modules/analytics/server/collect'
 import { analyticsDashboard } from '@/modules/analytics/server/dashboard'
 import { logEvent } from '@/platform/observability/logger'
 
@@ -10,9 +10,15 @@ import { logEvent } from '@/platform/observability/logger'
 export async function POST_collect(req: NextRequest) {
   if (!rateLimitHit(`analytics:${clientIp(req.headers)}`, 120, 60_000).ok) return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } })
   const text = (await req.text().catch(() => '')).slice(0, 2000)
-  let body: { p?: unknown; r?: unknown; u?: unknown } = {}
+  let body: { p?: unknown; r?: unknown; u?: unknown; e?: unknown } = {}
   try { body = JSON.parse(text) } catch { return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } }) }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } })
+  if (body.e === 'store.cart' || body.e === 'store.checkout') {
+    await recordStoreFunnelEvent(body.e === 'store.cart' ? 'cart' : 'checkout', req.headers).catch(error => {
+      logEvent('error', 'analytics.collection_failed', { phase: 'store-funnel', errorName: error instanceof Error ? error.name : 'unknown' })
+    })
+    return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } })
+  }
   await recordPageview({ path: body.p, referrer: body.r, utm: body.u, headers: req.headers, host: req.headers.get('host') || '' }).catch(error => {
     logEvent('error', 'analytics.collection_failed', { phase: 'pageview', errorName: error instanceof Error ? error.name : 'unknown' })
   })

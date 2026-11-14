@@ -17,6 +17,7 @@ import { ItemActionBar } from '@/components/engage/Engagement'
 import ProductTabs from '@/components/ProductTabs'
 import ProductBundles from '@/components/store/ProductBundles'
 import ProductGallery from '@/components/ProductGallery'
+import DeviceCompatibilityLookup from '@/components/store/DeviceCompatibilityLookup'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 import { db } from '@/platform/database/prisma'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
@@ -105,6 +106,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
   const htmlFa = cleanRichText(product.description)
   const htmlEn = cleanRichText(product.descriptionEn || product.description)
   const html = isFa ? htmlFa : htmlEn
+  const conditionLabels: Record<string, string> = { NEW: isFa ? 'نو' : 'New', OPEN_BOX: isFa ? 'جعبه‌باز' : 'Open box', USED: isFa ? 'کارکرده' : 'Used', REFURBISHED: isFa ? 'بازسازی‌شده' : 'Refurbished' }
   const activeVariants = product.variants.filter(variant => variant.active)
   const fields = await attributeFieldsForCategory(product.categoryId)
   const specificationValues = parseJson<Record<string, string>>(product.specifications, {})
@@ -154,6 +156,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
   })
   const shippingNote = deliverySettings.enabled ? 'ارسال با انتخاب روز و ساعت تحویل' : 'ارسال توسط فروشگاه'
   const galleryNode = <ProductGallery images={[product.image, ...parseJson<string[]>(product.gallery, [])]} alt={name} productId={product.id} />
+  const conditionNode = product.kind === 'PHYSICAL' ? <section className="sx-pinfo-specs" aria-labelledby="product-condition-title"><h2 id="product-condition-title">{isFa ? 'وضعیت و سلامت کالا' : 'Condition and item health'}</h2><ul><li><span>{isFa ? 'وضعیت' : 'Condition'}</span><b>{conditionLabels[product.condition] || product.condition}</b></li>{product.condition !== 'NEW' && product.conditionGrade && <li><span>{isFa ? 'درجهٔ ظاهری' : 'Grade'}</span><b>{product.conditionGrade}</b></li>}</ul>{product.condition !== 'NEW' && product.conditionNotes && <p>{product.conditionNotes}</p>}{product.condition !== 'NEW' && product.healthReport && <p>{product.healthReport}</p>}</section> : null
   const infoNode = (
     <div className="sx-pinfo">
       <div className="sx-pinfo-top">
@@ -162,6 +165,8 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
       </div>
       <h1>{name}</h1>
       {product.nameEn && isFa && <p className="sx-pinfo-en" dir="ltr">{product.nameEn}</p>}
+      {conditionNode}
+      {product.kind === 'PHYSICAL' && <DeviceCompatibilityLookup slug={product.slug} isFa={isFa} />}
       <div className="sx-pinfo-stats">
         {reviewCount > 0 && <a href="#store-tab-reviews"><StoreIcon name="star" size={15} /><b className="num">{(reviewScore._avg.rating || 0).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}</b><small className="num">({reviewCount.toLocaleString('fa-IR')} دیدگاه)</small></a>}
         {questionCount > 0 && <a href="#store-tab-questions"><StoreIcon name="chevron" size={13} />{questionCount.toLocaleString('fa-IR')} پرسش</a>}

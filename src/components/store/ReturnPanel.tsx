@@ -1,14 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useRouter } from '@/platform/routing/navigation'
 import { StoreIcon } from '@/components/store/StoreIcons'
+import { reasonsForGoods } from '@/modules/store/domain/returns'
 import { Money } from '@/components/store/Storefront'
 
 type Reason = { key: string; label: string; photos: boolean }
 type Line = { line: number; name: string; variantName: string; image: string; kind: string; quantity: number; returnable: number; code: boolean; off: string; unitRefund: number }
 type Request = {
-  id: number; number: string; kind: 'CANCEL' | 'RETURN'; kindLabel: string; status: string; statusLabel: string; reasonLabel: string; description: string
+  refundMethod?: string; id: number; number: string; kind: 'CANCEL' | 'RETURN'; kindLabel: string; status: string; statusLabel: string; reasonLabel: string; description: string
   photos: string[]; lines: { line: number; quantity: number; name: string }[]; requested: number; refund: number; currency: string; adminNote: string; createdAt: string
 }
 type Info = {
@@ -19,7 +20,8 @@ type Info = {
 
 const TONE: Record<string, string> = { REQUESTED: 'is-warn', APPROVED: 'is-info', REFUNDED: 'is-ok', REJECTED: 'is-bad', WITHDRAWN: '' }
 const fa = (value: number) => value.toLocaleString('fa-IR')
-const persian = (value: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Tehran' }).format(new Date(value))
+const dateFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Tehran' })
+const persian = (value: string) => dateFormat.format(new Date(value))
 
 /** Cancel (before shipping) or return (after delivery) from the order page, with the request history. */
 export default function ReturnPanel({ orderId }: { orderId: number }) {
@@ -33,14 +35,27 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const load = useCallback(() => fetch(`/api/store/orders/${orderId}/returns`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then(setInfo).catch(() => null), [orderId])
-  useEffect(() => { void load() }, [load])
-  const previews = useMemo(() => photos.map((file) => URL.createObjectURL(file)), [photos])
-  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews])
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/store/orders/${orderId}/returns`, { cache: 'no-store', signal })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.eligibility || !Array.isArray(data?.lines) || !Array.isArray(data?.requests)) throw Error('اطلاعات لغو و مرجوعی دریافت نشد؛ دوباره تلاش کنید.')
+      if (!signal?.aborted) { setInfo(data); setLoadError('') }
+    } catch { if (!signal?.aborted) setLoadError('اطلاعات لغو و مرجوعی دریافت نشد؛ دوباره تلاش کنید.') }
+    finally { if (!signal?.aborted) setLoading(false) }
+  }, [orderId])
+  useEffect(() => { const controller = new AbortController(); setInfo(null); void load(controller.signal); return () => controller.abort() }, [load])
+  const [previews, setPreviews] = useState<string[]>([])
+  useEffect(() => { const urls = photos.map(file => URL.createObjectURL(file)); setPreviews(urls); return () => urls.forEach(url => URL.revokeObjectURL(url)) }, [photos])
 
-  if (!info) return null
-  const reasons = mode ? info.reasons[mode] : []
+  if (!info) return <section className="sx-my-card rp" aria-label="لغو و مرجوعی">{loadError ? <><p role="alert">{loadError}</p><button type="button" className="sx-btn" disabled={loading} onClick={() => void load()}>دریافت دوباره</button></> : <p role="status">در حال دریافت اطلاعات لغو و مرجوعی…</p>}</section>
+  const selectedLines = info.lines.filter(line => (chosen[line.line] || 0) > 0)
+  const allowedReasons = new Set(reasonsForGoods('RETURN', { physical: selectedLines.some(line => line.kind === 'PHYSICAL' && !line.code), codes: selectedLines.some(line => line.code) }).map(item => item.key as string))
+  const reasons = mode ? info.reasons[mode].filter(item => mode !== 'RETURN' || allowedReasons.has(item.key)) : []
   const selectedReason = reasons.find((item) => item.key === reason)
   const estimate = mode === 'CANCEL' ? info.cancelRefund : info.lines.reduce((sum, line) => sum + line.unitRefund * (chosen[line.line] || 0), 0)
   const needsPhotos = mode === 'RETURN' && info.requirePhotos && !!selectedReason?.photos
@@ -51,8 +66,8 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (!mode) return
-    if (!reason) { setError('دلیل را انتخاب کنید.'); return }
+    if (!mode || busy) return
+    if (!selectedReason) { setError('دلیل را انتخاب کنید.'); return }
     if (mode === 'RETURN' && !Object.values(chosen).some((quantity) => quantity > 0)) { setError('کالا و تعداد مرجوعی را انتخاب کنید.'); return }
     if (needsPhotos && !photos.length) { setError('برای این دلیل، دست‌کم یک عکس از کالا بفرستید.'); return }
     setBusy(true); setError('')
@@ -70,10 +85,11 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
   }
 
   async function withdraw(id: number) {
-    if (!window.confirm('درخواست لغو شود؟')) return
+    if (busy || !window.confirm('درخواست لغو شود؟')) return
+    setBusy(true); setError('')
     const response = await fetch(`/api/store/returns/${id}`, { method: 'DELETE' }).catch(() => null)
-    if (!response?.ok) { const data = await response?.json().catch(() => null); setError(data?.error || 'انجام نشد'); return }
-    await load(); router.refresh()
+    if (!response?.ok) { const data = await response?.json().catch(() => null); setError(data?.error || 'انجام نشد'); setBusy(false); return }
+    await load(); setBusy(false); router.refresh()
   }
 
   const canAct = info.eligibility.cancel || info.eligibility.return
@@ -81,25 +97,28 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
 
   return <section className="sx-my-card rp" aria-labelledby="rp-title">
     <h2 id="rp-title"><StoreIcon name="receipt" size={17} />لغو و مرجوعی</h2>
+    {loadError && <div role="alert"><p>{loadError}</p><button type="button" className="rp-link" disabled={loading || busy} onClick={() => void load()}>دریافت دوبارهٔ وضعیت</button></div>}
+    {error && <p className="rp-error" role="alert">{error}</p>}
     {done && <p className="rp-done" role="status">{done}</p>}
 
     {info.requests.length > 0 && <ul className="rp-requests">{info.requests.map((item) => <li key={item.id}>
       <div className="rp-req-head"><b>{item.kindLabel} <span className="num" dir="ltr">{item.number}</span></b><span className={`sx-state ${TONE[item.status] || ''}`}>{item.statusLabel}</span></div>
       <small>{persian(item.createdAt)} · {item.reasonLabel}{item.lines.length > 0 && item.kind === 'RETURN' ? ` · ${item.lines.map((line) => `${line.name} (${fa(line.quantity)})`).join('، ')}` : ''}</small>
-      {item.status === 'REFUNDED' ? <p className="rp-refund"><StoreIcon name="check" size={14} /><Money amount={item.refund} currency={item.currency} /> به کیف پول شما واریز شد.</p>
+      {item.status === 'REFUNDED' ? <p className="rp-refund"><StoreIcon name="check" size={14} /><Money amount={item.refund} currency={item.currency} /> {item.refundMethod === 'CASH' ? 'به‌صورت نقدی برگشت داده شد.' : item.refundMethod === 'CARD' ? 'به کارت برگشت داده شد.' : 'به کیف پول شما واریز شد.'}</p>
         : item.status !== 'REJECTED' && item.status !== 'WITHDRAWN' && <p className="rp-muted">مبلغ قابل بازپرداخت: <Money amount={item.requested} currency={item.currency} /></p>}
       {item.adminNote && <p className="rp-note"><b>پیام فروشگاه:</b> {item.adminNote}</p>}
-      {item.status === 'REQUESTED' && <button type="button" className="rp-link" onClick={() => void withdraw(item.id)}>لغو این درخواست</button>}
+      {item.status === 'REQUESTED' && <button type="button" className="rp-link" disabled={busy || loading} onClick={() => void withdraw(item.id)}>لغو این درخواست</button>}
     </li>)}</ul>}
 
     {!mode && canAct && <div className="rp-actions">
-      {info.eligibility.cancel && <button type="button" className="sx-btn" onClick={() => start('CANCEL')}>لغو سفارش</button>}
-      {info.eligibility.return && <button type="button" className="sx-btn" onClick={() => start('RETURN')}>درخواست مرجوعی کالا</button>}
+      {info.eligibility.cancel && <button type="button" className="sx-btn" disabled={busy || loading} onClick={() => start('CANCEL')}>لغو سفارش</button>}
+      {info.eligibility.return && <button type="button" className="sx-btn" disabled={busy || loading} onClick={() => start('RETURN')}>درخواست مرجوعی کالا</button>}
       {info.eligibility.return && info.eligibility.returnUntil && <small className="rp-muted">مهلت مرجوعی تا {persian(info.eligibility.returnUntil)}</small>}
     </div>}
     {!mode && !canAct && info.eligibility.reason && <p className="rp-muted">{info.eligibility.reason}</p>}
 
     {mode && <form className="rp-form" onSubmit={submit}>
+      <fieldset disabled={busy || loading} className="rp-controls"><legend className="sr-only">اطلاعات درخواست</legend>
       <h3>{mode === 'CANCEL' ? 'لغو سفارش' : 'درخواست مرجوعی'}</h3>
       {mode === 'RETURN' && <fieldset className="rp-lines">
         <legend>کدام کالا و چند عدد؟</legend>
@@ -137,11 +156,11 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
         <Money amount={estimate} currency={info.currency} />
       </div>
       {mode === 'RETURN' && info.policy && info.lines.some((line) => !line.code && (chosen[line.line] || 0) > 0) && <p className="rp-policy">{info.policy}</p>}
-      {error && <p className="rp-error" role="alert">{error}</p>}
       <div className="rp-actions">
         <button type="button" className="sx-btn" onClick={() => setMode('')}>انصراف</button>
-        <button className="sx-btn is-primary" disabled={busy}>{busy ? 'در حال ثبت…' : mode === 'CANCEL' ? 'لغو سفارش' : 'ثبت درخواست مرجوعی'}</button>
+        <button type="submit" className="sx-btn is-primary" disabled={busy}>{busy ? 'در حال ثبت…' : mode === 'CANCEL' ? 'لغو سفارش' : 'ثبت درخواست مرجوعی'}</button>
       </div>
+      </fieldset>
     </form>}
   </section>
 }

@@ -11,6 +11,7 @@ export function StockNav() {
     { href: '/admin/store/inventory', label: 'موجودی کالاها', exact: true },
     { href: '/admin/store/inventory/locations', label: 'انبارها و انتقال' },
     { href: '/admin/store/inventory/receive', label: 'ورود کالا' },
+    { href: '/admin/store/inventory/purchases', label: 'خرید از تأمین‌کننده' },
     { href: '/admin/store/inventory/count', label: 'انبارگردانی' },
   ]
   return <nav className="st-nav" aria-label="بخش‌های انبار">{tabs.map((tab) => {

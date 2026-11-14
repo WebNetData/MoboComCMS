@@ -204,7 +204,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
     pageVersion.current = undefined
     const f: Record<string, any> = {}
     for (const fl of fields) f[fl.key] = fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : fl.type === 'select' ? (fl.formOptions || fl.options)?.[0]?.value || '' : ''
-    for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' || key === 'bundles' ? [] : {}
+    for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' || key === 'bundles' || key === 'deviceCompatibility' ? [] : key === 'condition' ? 'NEW' : key === 'conditionGrade' || key === 'conditionNotes' || key === 'healthReport' ? '' : {}
     setForm(f)
     initialDateValues.current = {}
     setEditFormat('legacy')

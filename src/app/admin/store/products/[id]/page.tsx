@@ -6,6 +6,7 @@ import { useParams, useRouter } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import CoverField from '../../../cms/CoverField'
 import ProductExtrasEditor from '../../../products/ProductExtrasEditor'
+import ProductDeviceCompatibilityEditor from '../../../products/ProductDeviceCompatibilityEditor'
 import { Notice, StoreShell, fa, send } from '../../shared'
 import AiAutofill from '../../../cms/AiAutofill'
 import FxPricing from '../FxPricing'
@@ -29,7 +30,7 @@ type Form = Record<string, any>
 
 const EMPTY: Form = {
   saleChannel: 'BOTH', name: '', nameEn: '', slug: '', kind: 'PHYSICAL', price: '', compareAtPrice: '', saleEndsAt: '', currency: 'IRT', stock: -1, sku: '', lowStockAt: 0, maxPerOrder: 0,
-  weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', categoryIds: [], brandId: '', access: 'PUBLIC',
+  weightGrams: 0, warranty: '', condition: 'NEW', conditionGrade: '', conditionNotes: '', healthReport: '', deviceCompatibility: [], shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', categoryIds: [], brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
   pricingMode: 'FIXED', fxCurrency: 'USD', fxAmount: '', fxCompareAt: '', fxMemberPrice: '', markupPercent: '', markupFixed: '',
   isService: false, orderFields: [], deliveryTemplate: { card: false, rows: [], note: '', notices: [] }, openAmount: false, openCurrencies: '', openMin: '', openMax: '',
@@ -247,6 +248,12 @@ export default function ProductEditorPage() {
             {field('lowStockAt', 'هشدار موجودی کم (۰ = پیش‌فرض فروشگاه)', { type: 'number', min: 0 })}
             {field('maxPerOrder', 'حداکثر تعداد در هر سفارش (۰ = بدون محدودیت)', { type: 'number', min: 0 })}
             {form.kind === 'PHYSICAL' && field('weightGrams', 'وزن بسته (گرم)', { type: 'number', min: 0 })}
+            {form.kind === 'PHYSICAL' && <label className="sa-field"><span>وضعیت کالا</span><select className="select" value={form.condition || 'NEW'} onChange={event => update('condition', event.target.value)}><option value="NEW">نو</option><option value="OPEN_BOX">جعبه‌باز</option><option value="USED">کارکرده</option><option value="REFURBISHED">بازسازی‌شده</option></select><small className="sa-sub">وضعیت واقعی کالا را برای خریدار و فید فروشگاه ثبت کنید.</small></label>}
+            {form.kind === 'PHYSICAL' && form.condition !== 'NEW' && <>
+              <label className="sa-field"><span>درجهٔ ظاهری (اختیاری)</span><select className="select" value={form.conditionGrade || ''} onChange={event => update('conditionGrade', event.target.value)}><option value="">ثبت نشده</option><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></label>
+              {field('conditionNotes', 'توضیح وضعیت ظاهری', { maxLength: 500 })}
+              <label className="sa-field"><span>گزارش سلامت کالا</span><textarea className="input" rows={3} maxLength={1200} value={form.healthReport || ''} onChange={event => update('healthReport', event.target.value)} /><small className="sa-sub">نتیجهٔ بررسی‌های انجام‌شده را دقیق بنویسید؛ بررسی ثبت‌نشده به‌صورت خودکار تأیید نمی‌شود.</small></label>
+            </>}
             {field('warranty', 'گارانتی / ضمانت', { maxLength: 160, placeholder: 'گارانتی ۱۸ ماهه' })}
           </div>
         </section>
@@ -265,6 +272,7 @@ export default function ProductEditorPage() {
         <section id="sa-attributes" className="sa-card sa-extras">
           <header className="sa-card-head"><h2>گالری، مشخصات، تنوع‌ها و پرسش‌های متداول</h2></header>
           <ProductExtrasEditor form={form} setForm={setForm as never} categories={categories} />
+          <ProductDeviceCompatibilityEditor form={form} setForm={setForm as never} />
         </section>
 
         <section id="sa-seo" className="sa-card">

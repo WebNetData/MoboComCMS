@@ -6,7 +6,7 @@ import type { ProductBundleInput } from '@/modules/catalog/domain/product-bundle
 type DraftBundle = Omit<ProductBundleInput, 'components'> & { clientKey?: string; components: (ProductBundleInput['components'][number] & { clientKey?: string })[] }
 
 type VariantChoice = { id: number; name: string }
-type Details = { id: number; title: string; titleEn: string }
+type Details = { id: number; title: string; titleEn: string; isService?: boolean }
 function BundleEditor({ bundle, sourceId, variants, update }: { bundle: DraftBundle; sourceId: number; variants: VariantChoice[]; update: (next: DraftBundle) => void }) {
   const { locale } = useI18n(), fa = locale === 'fa'
   const inputId = useId()
@@ -33,9 +33,10 @@ function BundleEditor({ bundle, sourceId, variants, update }: { bundle: DraftBun
     {bundle.components.map((component, index) => {
       const detail = details.find(row => row.id === component.productId), options = component.productId === sourceId ? variants : choices.find(row => row.id === component.productId)?.variants || []
       const name = component.productId === sourceId ? (fa ? 'محصول اصلی' : 'Source product') : (fa ? detail?.title : detail?.titleEn || detail?.title) || `#${component.productId ?? '?'}`
+      const displayName = detail?.isService ? `${name} (${fa ? 'خدمت' : 'Service'})` : name
       const pending = component.productId !== sourceId && loading
       const replace = (change: Partial<typeof component>) => update({ ...bundle, components: bundle.components.map((row, i) => i === index ? { ...row, ...change } : row) })
-      return <fieldset className="card" aria-label={name} key={component.clientKey || `${component.productId}:${component.variantId || 0}`}><legend>{name}</legend>
+      return <fieldset className="card" aria-label={displayName} key={component.clientKey || `${component.productId}:${component.variantId || 0}`}><legend>{displayName}</legend>
         <label htmlFor={`${inputId}-${index}-variant`}>{fa ? 'گونهٔ ثابت بسته' : 'Fixed bundle variant'}</label><select id={`${inputId}-${index}-variant`} className="input" disabled={component.productId !== sourceId && (loading || failed)} value={component.variantId || ''} onChange={event => replace({ variantId: Number(event.target.value) || null })}>
           <option value="">{pending ? (fa ? 'در حال دریافت…' : 'Loading…') : options.length ? (fa ? 'گونه را انتخاب کنید' : 'Select a variant') : (fa ? 'بدون گونه' : 'No variant')}</option>
           {component.variantId && !options.some(variant => variant.id === component.variantId) && <option value={component.variantId}>#{component.variantId} — {pending ? (fa ? 'در حال دریافت…' : 'Loading…') : (fa ? 'در دسترس نیست' : 'Unavailable')}</option>}

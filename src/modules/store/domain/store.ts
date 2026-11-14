@@ -240,6 +240,8 @@ export type StoreSettings = {
   frequentlyBoughtMinimumBuyers: number
   showProductRelationships: boolean
   showProductBundles: boolean
+  giftOrdersEnabled: boolean
+  giftWrapEnabled: boolean
   /** Trust badges under the product buy box. */
   badges: string[]
   /** Free-text note under the cart total (return policy, shipping note…). */
@@ -272,6 +274,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   frequentlyBoughtMinimumBuyers: 3,
   showProductRelationships: false,
   showProductBundles: false,
+  giftOrdersEnabled: false,
+  giftWrapEnabled: false,
   badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
   cartNote: '',
   staffDeliveryHours: 24,
@@ -335,6 +339,8 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     frequentlyBoughtMinimumBuyers: Number.isSafeInteger(purchaseBuyers) && purchaseBuyers >= 3 && purchaseBuyers <= 100 ? purchaseBuyers : base.frequentlyBoughtMinimumBuyers,
     showProductRelationships: raw.showProductRelationships === undefined ? base.showProductRelationships : raw.showProductRelationships === true,
     showProductBundles: raw.showProductBundles === undefined ? base.showProductBundles : raw.showProductBundles === true,
+    giftOrdersEnabled: raw.giftOrdersEnabled === undefined ? base.giftOrdersEnabled : raw.giftOrdersEnabled === true,
+    giftWrapEnabled: raw.giftWrapEnabled === undefined ? base.giftWrapEnabled : raw.giftWrapEnabled === true,
     badges,
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
     deliveredNote: raw.deliveredNote === undefined ? base.deliveredNote ?? DEFAULT_STORE_SETTINGS.deliveredNote : cleanText(raw.deliveredNote, 300),

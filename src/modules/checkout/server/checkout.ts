@@ -1,3 +1,5 @@
+import { validateGiftOrder } from '@/modules/store/domain/gift-order'
+import { getStoreSettings } from '@/modules/store/server/catalog'
 import { db } from '@/platform/database/prisma'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
@@ -78,6 +80,7 @@ export interface CheckoutCommand {
   delivery?: { date?: string; slotId?: string } | null
   /** Chosen shipping carrier (when carriers are enabled); the cheapest available one otherwise. */
   carrierId?: string | null
+  gift?: unknown
   shippingMode?: 'SHIP' | 'PICKUP'
   /** Legacy inline address; still accepted from API clients. */
   shippingAddress?: { recipient?: string; phone?: string; country?: string; city?: string; postalCode?: string; address?: string }
@@ -301,8 +304,22 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
         sellerId: product.sellerId ?? null, inputs: sealed, openAmountMinor, openCurrency, openRate, unitCostMinor: variant?.costMinor ?? product.costMinor,
       })
       if (index === 0) meta = { kind: 'product', productId: product.id, productName: product.name, variantId: variant?.id || null, variantName: variant?.name || '', variantSku: variant?.sku || '', variantAttributes: variant?.attributes || '{}' }
+      if (product.isService && product.kind === 'VIRTUAL') {
+        const ids = Array.isArray(meta.serviceProductIds) ? meta.serviceProductIds as number[] : []
+        meta = { ...meta, serviceProductIds: [...new Set([...ids, product.id])] }
+      }
     }
     const physical = orderLines.some((line) => line.kind === 'PHYSICAL')
+    try {
+      if (command.gift != null) {
+        const settings = await getStoreSettings()
+        const gift = validateGiftOrder(command.gift, { enabled: settings.giftOrdersEnabled, wrapEnabled: settings.giftWrapEnabled, physical })
+        if (gift) meta = { ...meta, gift }
+      }
+    } catch (error) {
+      if (error instanceof StoreError) return fail(error.status, error.code, error.message)
+      throw error
+    }
     let shippingAddress: Record<string, string> | undefined
     if (physical && command.shippingMode === 'PICKUP') {
       const pickup = (await getDeliverySettings()).pickup

@@ -15,6 +15,35 @@ function fixture(replies, cartReply = {cart: {count: 7}}) {
 }
 const tick = () => new Promise(resolve => setImmediate(resolve))
 
+test('the actual cart checkout sends unpaid bank payments to the gateway before its invoice', async () => {
+ const source = ts.transpileModule(fs.readFileSync('src/components/store/CartCheckout.tsx', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX}}).outputText
+ const surfaceOwner = require('./connected-source-loader.cjs')()('src/modules/checkout/domain/surface.ts')
+ const giftOptions = require('./connected-source-loader.cjs')()('src/components/store/GiftOptions.tsx')
+ for (const surface of ['public', 'dashboard']) for (const scenario of [
+  {paid: false, paymentUrl: 'https://bank.example.invalid/pay', invoiceUrl: '/invoice/MB-TEST', expected: 'https://bank.example.invalid/pay', full: true},
+  {paid: false, paymentUrl: '', invoiceUrl: '/invoice/MB-TEST', expected: surface === 'dashboard' ? '/dashboard/invoices/MB-TEST' : '/invoice/MB-TEST', full: surface === 'dashboard'},
+  {paid: true, paymentUrl: 'https://bank.example.invalid/old', invoiceUrl: '/invoice/MB-TEST', expected: surface === 'dashboard' ? '/dashboard/payment/result?invoice=MB-TEST' : '/payment/result?invoice=MB-TEST', full: surface === 'dashboard'},
+ ]) {
+  const navigations = [], mod = {exports: {}}
+  new Function('require', 'module', 'exports', 'window', source)(name => {
+   if (name === 'react') return {useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}], useMemo: fn => fn(), useEffect: () => {}, useRef: () => ({current: null})}
+   if (name === '@/platform/routing/navigation') return {useRouter: () => ({push: url => navigations.push({url, full: false})})}
+   if (name === '@/modules/checkout/domain/surface') return surfaceOwner
+   if (name === '@/modules/store/ui/cart-client') return {checkoutCart: async () => ({ok: true, invoiceNumber: 'MB-TEST', ...scenario})}
+   if (name === '@/components/store/AddressBook') return {useAddresses: () => ({addresses: [], error: '', reload: async () => {}})}
+   if (name === './useCarrierQuotes') return {useCarrierQuotes: () => ({carriers: null, error: '', retry: () => {}})}
+   if (name === './GiftOptions') return giftOptions
+   if (name.startsWith('@/')) return {}
+   return require(name)
+  }, mod, mod.exports, {location: {assign: url => navigations.push({url, full: true})}})
+  const tree = mod.exports.default({surface, cart: {lines: [], currency: 'IRT', count: 1, itemsTotal: 100, listTotal: 100, saving: 0, shipping: 0, hasPhysical: false, blocked: false}, delivery: {enabled: false, days: []}, gateways: []})
+  let pay
+  function walk(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(walk); if (node.type === 'button' && node.props.className?.includes('sh-pay')) pay = node; walk(node.props?.children) }
+  walk(tree); assert.ok(pay); pay.props.onClick(); await tick()
+  assert.deepEqual(navigations, [{url: scenario.expected, full: scenario.full}], `${surface}: ${JSON.stringify(scenario)}`)
+ }
+})
+
 test('cart checkout waits for session resolution and retains authenticated/guest destinations', () => {
  const source = ts.transpileModule(fs.readFileSync('src/components/store/CartPage.tsx', 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX}}).outputText
  for (const status of ['loading', 'authenticated', 'unauthenticated']) {

@@ -42,7 +42,7 @@ export async function productCategoryConfig(categoryId: unknown) {
 
 type FxExisting = { digitalMode?: string; openAmount?: boolean; openCurrencies?: string; openMinMinor?: bigint; openMaxMinor?: bigint; pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
 
-export async function productInput(input: any, existing?: { price: number; currency: string; categoryId: number | null; specifications: string; faqs: string; gallery: string; kind: string; stock: number } & FxExisting) {
+export async function productInput(input: any, existing?: { price: number; currency: string; categoryId: number | null; specifications: string; faqs: string; gallery: string; kind: string; stock: number; condition?: string } & FxExisting) {
   const currency = normalizeCurrency(input?.currency ?? existing?.currency ?? 'IRT')
   // A foreign-currency product: its prices are computed from the cost and the live rate.
   const fx = await applyFxToBody(input || {}, existing, currency)
@@ -60,6 +60,20 @@ export async function productInput(input: any, existing?: { price: number; curre
   const gallery = validateGallery(b?.gallery ?? existing?.gallery ?? [])
   const variants = b?.variants === undefined ? undefined : validateVariants(b.variants, category.fields, currency)
   const data = sanitizeProduct(pick(b, ['slug', 'name', 'nameEn', 'description', 'descriptionEn', 'image', 'active', 'featured', 'sortOrder']))
+  if (b?.condition !== undefined) {
+    const condition = String(b.condition)
+    if (!['NEW', 'OPEN_BOX', 'USED', 'REFURBISHED'].includes(condition)) throw Error('Invalid product condition')
+    data.condition = condition
+  }
+  if (b?.conditionGrade !== undefined) {
+    const grade = String(b.conditionGrade || '')
+    if (!['', 'A', 'B', 'C'].includes(grade)) throw Error('Invalid product condition grade')
+    data.conditionGrade = grade
+  }
+  if (b?.conditionNotes !== undefined) data.conditionNotes = plain(b.conditionNotes, 500)
+  if (b?.healthReport !== undefined) data.healthReport = plain(b.healthReport, 1200)
+  // Condition describes a physical item only; the editors hide it for other kinds, so a kind change resets it to NEW.
+  if (kind !== 'PHYSICAL' && (data.condition !== undefined || String(existing?.condition ?? 'NEW') !== 'NEW')) { data.condition = 'NEW'; data.conditionGrade = '' }
   if (data.image !== undefined) data.image = validateCover(data.image)
   if (existing?.digitalMode === 'FILES' && (kind !== 'VIRTUAL' || b.openAmount === true || b.isService === true)) throw Error('برای تغییر این محصول، ابتدا تحویل فایل را خاموش کنید')
   // VIP: member-only access, member price (must undercut the regular price) and gift days.

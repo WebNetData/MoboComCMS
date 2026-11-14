@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { recordStoreFunnelEvent } from '@/modules/analytics/server/collect'
 import { addCodes, listCodes, removeCode, replaceCode, setCodesWhenEmpty, setDigitalMode } from '@/modules/store/server/digital-codes'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
@@ -68,6 +69,7 @@ export async function POST_cart(req: NextRequest) {
     if (body.bundleId !== undefined && (body.productId !== undefined || body.variantId !== undefined || body.quantity !== undefined)) throw new StoreError('یک کالا یا یک بسته را انتخاب کنید')
     const added = body.bundleId === undefined ? await addToCart(who, body) : await addProductBundle(who, body.bundleId)
     const view = await cartView({ ...who, token: added.token })
+    await recordStoreFunnelEvent('cart', req.headers).catch(() => false)
     return withCart({ cart: view, limited: added.limited }, view.token || added.token)
   } catch (error) { return failure(error) }
 }
@@ -153,6 +155,7 @@ export async function POST_cartCheckout(req: NextRequest) {
     delivery: body.delivery && typeof body.delivery === 'object' ? { date: String(body.delivery.date || '').slice(0, 10), slotId: String(body.delivery.slotId || '').slice(0, 20) } : null,
     carrierId: typeof body?.carrierId === 'string' ? body.carrierId.slice(0, 30) : null,
     shippingMode: body?.shippingMode === 'PICKUP' ? 'PICKUP' : 'SHIP',
+    gift: body.gift,
     payWith: body.payWith === 'wallet' ? 'wallet' : body.payWith === 'gateway' ? 'gateway' : undefined,
     gatewayRef: typeof body.gatewayRef === 'string' ? body.gatewayRef.trim() : undefined,
     discountCode: typeof body.discountCode === 'string' ? body.discountCode : undefined,
@@ -193,7 +196,7 @@ export async function GET_orders(req: NextRequest) {
   const g = await orderWorker(req)
   if ('response' in g) return g.response
   const params = req.nextUrl.searchParams
-  return ok(await adminOrders({ tab: params.get('tab') || 'all', q: params.get('q') || '', page: Number(params.get('page')) || 1, date: params.get('date') || '' }, { actorId: g.admin.id, manager: (g.admin.roleId == null || !!g.admin.permissions?.includes('orders.manage')) }))
+  return ok(await adminOrders({ tab: params.get('tab') || 'all', q: params.get('q') || '', page: Number(params.get('page')) || 1, date: params.get('date') || '', work: params.get('work') || '' }, { actorId: g.admin.id, manager: (g.admin.roleId == null || !!g.admin.permissions?.includes('orders.manage')) }))
 }
 
 /** GET /api/admin/store/orders/:id */

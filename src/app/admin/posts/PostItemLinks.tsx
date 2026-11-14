@@ -5,7 +5,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import { ITEM_LABEL, LINKABLE, type ItemType } from '@/modules/content/domain/items'
 
 type Link = { type: string; id: number }
-type Card = { type: string; id: number; title: string; titleEn?: string; url: string; image: string }
+type Card = { type: string; id: number; title: string; titleEn?: string; url: string; image: string; isService?: boolean }
 
 /** English copy for the picker; Persian labels come from the shared content registry. */
 const EN: Record<string, string> = {
@@ -59,7 +59,10 @@ export default function PostItemLinks({ form, setForm, endpoint = '/api/admin/jo
   function remove(link: Link) {
     setForm((current) => ({ ...current, itemLinks: (Array.isArray(current.itemLinks) ? current.itemLinks : []).filter((entry: Link) => linkKey(entry) !== linkKey(link)) }))
   }
-  const cardTitle = (card: Card) => fa ? card.title : card.titleEn || card.title
+  const cardTitle = (card: Card) => {
+    const title = fa ? card.title : card.titleEn || card.title
+    return card.type === 'product' && card.isService ? `${title} (${fa ? 'خدمت' : 'Service'})` : title
+  }
   const label = (ref: Link) => { const card = details[linkKey(ref)]; return card ? cardTitle(card) : `#${ref.id}` }
 
   const title = heading ? (fa ? heading.fa : heading.en) : fa ? 'محتوای مرتبط' : 'Related content'

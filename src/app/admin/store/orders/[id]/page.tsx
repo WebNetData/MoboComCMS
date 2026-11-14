@@ -13,6 +13,7 @@ import type { ProductDeliveryTemplate } from '@/modules/store/domain/delivery-de
 import { composeDeliveryDetails } from '@/modules/store/domain/delivery-details'
 
 type Detail = Assignment & {
+  gift: { recipient: string; message: string; wrap: boolean } | null
   id: number; createdAt: string; state: { key: string; label: string; tone: string }; fulfilment: string; trackingCode: string; deliveryNote: string
   address: { title: string; recipient: string; phone: string; postalCode: string; address: string; lat: number | null; lng: number | null } | null
   schedule: { date: string; slot: string } | null
@@ -145,6 +146,7 @@ export default function StoreOrderPage() {
           <header className="sa-card-head"><h2>مشتری{data.customer.id === null ? ' حضوری بدون حساب' : ''}</h2>{data.customer.id !== null && <span className="sa-row"><Link href={`/admin/tickets?new=1&user=${encodeURIComponent(data.customer.email)}&subject=${encodeURIComponent('دربارهٔ سفارش شما')}`} className="sa-link">ارسال تیکت به مشتری</Link><Link href={`/admin/users?q=${encodeURIComponent(data.customer.email)}`} className="sa-link">پروفایل</Link></span>}</header>
           <dl className="sa-kv"><div><dt>نام</dt><dd>{data.customer.name || '—'}</dd></div><div><dt>ایمیل</dt><dd dir="ltr">{data.customer.email}</dd></div>{data.customer.phone && <div><dt>موبایل</dt><dd dir="ltr">{data.customer.phone}</dd></div>}<div><dt>سفارش‌های موفق</dt><dd className="num">{fa(data.customer.paidOrders)}</dd></div><div><dt>مجموع خرید</dt><dd><Money value={data.customer.spent} currency={data.currency} /></dd></div></dl>
         </section>
+        {data.gift && <section className="sa-card"><h2>سفارش هدیه</h2><p>گیرنده: {data.gift.recipient}</p>{data.gift.message && <p dir="auto">{data.gift.message}</p>}<p>{data.gift.wrap ? 'با بسته‌بندی هدیهٔ رایگان' : 'بدون بسته‌بندی هدیه'}</p><p className="sa-hint">رسید همراه هدیه بدون قیمت آماده شود؛ فاکتور مالی برای خریدار است.</p></section>}
         {data.address && <section className="sa-card sa-label">
           <header className="sa-card-head"><h2>آدرس ارسال</h2></header>
           <p>{data.address.address}</p>

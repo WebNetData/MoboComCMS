@@ -20,8 +20,8 @@ export async function GET_start(req: NextRequest) {
   if (!/^[A-Za-z0-9]{6,40}$/.test(ref)) return new Response('invalid reference', { status: 400 })
   const invoice = await db.invoice.findFirst({ where: { providerTxnId: ref }, select: { status: true, number: true, gateway: { select: { provider: true } } } })
   if (!invoice || invoice.gateway?.provider !== 'MELLAT') return new Response('payment not found', { status: 404 })
-  if (invoice.status === 'PAID') return redirect(req, `/invoice/${invoice.number}`)
-  return new Response(mellatStartPage(ref), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
+  if (!['DRAFT', 'UNPAID'].includes(invoice.status)) return redirect(req, `/invoice/${invoice.number}`)
+  return new Response(mellatStartPage(ref, undefined, req.headers.get('x-nonce') || undefined), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
 }
 
 function field(form: FormData | null, name: string) {
@@ -71,8 +71,10 @@ export async function POST_callback(req: NextRequest) {
   if (verify.network) verify = await mellatInquiry(credentials, refs)
   if (verify.code !== '0' && verify.code !== '43') {
     await finishInbox(inbox.id, 'FAILED', `verify ${verify.code}: ${verify.message}`)
-    // An unverified payment is returned to the card by the bank automatically.
-    return redirect(req, failed(`${verify.message} — در صورت کسر مبلغ، ظرف ۷۲ ساعت به حساب شما بازمی‌گردد`))
+    const verificationMessage = verify.network
+      ? `${verify.message} — وضعیت پرداخت از سوی بانک تأیید نشد؛ فاکتور و حساب خود را بررسی کنید و با پشتیبانی تماس بگیرید.`
+      : `${verify.message} — در صورت کسر مبلغ، ظرف ۷۲ ساعت به حساب شما بازمی‌گردد`
+    return redirect(req, failed(verificationMessage))
   }
 
   // 2. Confirm on our side (stock reservation, invoice paid, fulfilment).
@@ -81,7 +83,11 @@ export async function POST_callback(req: NextRequest) {
     const reversal = await mellatReversal(credentials, refs)
     await finishInbox(inbox.id, 'FAILED', `settlement ${settled.message}; reversal ${reversal.code}`)
     logEvent('error', 'mellat.reversed', { invoiceId: invoice.id, reason: settled.message, reversal: reversal.code })
-    return redirect(req, failed(`سفارش ثبت نشد (${settled.message}). مبلغ به کارت شما بازگردانده شد`))
+    const reversalConfirmed = !reversal.network && (reversal.code === '0' || reversal.code === '48')
+    const reversalMessage = reversalConfirmed
+      ? 'برگشت تراکنش از سوی بانک تأیید شد.'
+      : 'برگشت تراکنش از سوی بانک تأیید نشد؛ وضعیت فاکتور و حساب خود را بررسی کنید و با پشتیبانی تماس بگیرید.'
+    return redirect(req, failed(`سفارش ثبت نشد (${settled.message}). ${reversalMessage}`))
   }
 
   // A wallet top-up is credited now (the durable pending row is reused, so a replay never credits twice).

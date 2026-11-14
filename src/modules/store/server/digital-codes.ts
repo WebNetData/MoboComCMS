@@ -248,8 +248,8 @@ export async function buyerCodes(userId: number, orderId: number): Promise<Deliv
 }
 
 /** Codes of an order the buyer still holds, per line: what a code line can send back. */
-export async function heldCodes(orderId: number): Promise<Map<number, number>> {
-  const rows = await db.productDigitalCode.groupBy({ by: ['orderLine'], where: { orderId, returnedAt: null }, _count: { _all: true } })
+export async function heldCodes(orderId: number, client: Prisma.TransactionClient = db): Promise<Map<number, number>> {
+  const rows = await client.productDigitalCode.groupBy({ by: ['orderLine'], where: { orderId, returnedAt: null }, _count: { _all: true } })
   return new Map(rows.map((row) => [row.orderLine ?? 0, row._count._all]))
 }
 
