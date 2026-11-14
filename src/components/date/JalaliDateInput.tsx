@@ -128,7 +128,7 @@ export default function JalaliDateInput({ value, defaultValue = '', onChange, wi
         </span>
         <button type="button" className="jdate-nav" onClick={() => move(1)} aria-label="ماه بعد"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m15 6-6 6 6 6" /></svg></button>
       </header>
-      <div className="jdate-grid" role="grid" aria-label={`${JALALI_MONTHS[view.jm - 1]} ${fa(view.jy)}`}>
+      <div className="jdate-grid" role="group" aria-label={`${JALALI_MONTHS[view.jm - 1]} ${fa(view.jy)}`}>
         {JALALI_WEEKDAYS.map((name) => <span key={name} className="jdate-week" aria-hidden="true">{name}</span>)}
         {Array.from({ length: column(first) }, (_, index) => <span key={`pad-${index}`} aria-hidden="true" />)}
         {Array.from({ length }, (_, index) => {

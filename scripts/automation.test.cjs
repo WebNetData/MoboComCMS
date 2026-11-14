@@ -100,5 +100,5 @@ test('the engine is wired: permission, scheduler, events, safeguards', () => {
   assert.match(read('src/modules/billing/server/billing.ts'), /emitAutomation\('order\.paid'/)
   assert.match(read('src/modules/forms/server/service.ts'), /emitAutomation\(name, `form:/)
   assert.match(read('src/modules/identity/server/http/register/route.ts'), /emitAutomation\('user\.registered'/)
-  assert.match(read('src/modules/support/server/http/tickets/route.ts'), /emitAutomation\('ticket\.opened'/)
+  assert.match(read('src/modules/support/server/create-ticket.ts'), /emitAutomation\('ticket\.opened'/, 'the canonical ticket creation service announces new tickets')
 })

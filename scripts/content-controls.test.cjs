@@ -779,7 +779,7 @@ function load(file, mocks = {}, cache = new Map()) {
   const absolute = path.resolve(__dirname, '..', file)
   if (cache.has(absolute)) return cache.get(absolute).exports
   const mod = { exports: {} }; cache.set(absolute, mod)
-  const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText
+  const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { fileName: absolute, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const localRequire = name => {
     if (Object.hasOwn(mocks, name)) return mocks[name]
     // These scenarios isolate maintenance/CSP; native user-groups checks cover the additional access policy.
@@ -882,6 +882,7 @@ test('disabled storefront blocks new product checkout before inventory or paymen
 
 test('direct checkout rejects an active product awaiting approval before payment access', async () => {
   const db = {
+    setting: { findUnique: async () => null },
     order: { findUnique: async () => null },
     product: { findUnique: async () => ({ id: 7, active: true, approval: 'PENDING', name: 'Awaiting approval', variants: [] }) },
   }

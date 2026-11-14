@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 import Link from '@/components/AppLink'
 import { fa, faDate, Notice, send, useJson } from '../../shared'
 
@@ -55,7 +56,7 @@ export default function WarrantyPanel({ orderId }: { orderId: number }) {
           <Link href={`/admin/forms/counter?warrantyDevice=${warranty.id}`} className="btn btn-ghost">ثبت پذیرش تعمیر از مسیر Forms</Link>
         </>}
         {editing === key && <form className="sa-form" onSubmit={event => void save(event, line.id, device.unitIndex, warranty, key)}>
-          <div className="sa-row"><label className="sa-field"><span>شروع ضمانت</span><input className="input" type="date" required value={draft.warrantyStartsAt} onChange={event => setDraft(key, { warrantyStartsAt: event.target.value })} /></label><label className="sa-field"><span>پایان ضمانت</span><input className="input" type="date" required value={draft.warrantyEndsAt} onChange={event => setDraft(key, { warrantyEndsAt: event.target.value })} /></label></div>
+          <div className="sa-row"><label className="sa-field"><span>شروع ضمانت</span><JalaliDateInput className="input" required value={draft.warrantyStartsAt} onChange={value => setDraft(key, { warrantyStartsAt: value })} /></label><label className="sa-field"><span>پایان ضمانت</span><JalaliDateInput className="input" required value={draft.warrantyEndsAt} onChange={value => setDraft(key, { warrantyEndsAt: value })} /></label></div>
           <label className="sa-field"><span>ارائه‌دهنده</span><input className="input" required minLength={2} maxLength={160} value={draft.provider} onChange={event => setDraft(key, { provider: event.target.value })} /></label>
           <label className="sa-field"><span>شرایط اعلام‌شده</span><textarea className="input" required minLength={2} maxLength={2000} rows={3} value={draft.conditions} onChange={event => setDraft(key, { conditions: event.target.value })} /></label>
           <div className="sa-row"><button className="btn btn-primary" disabled={busy}>{busy ? 'در حال ثبت…' : 'ذخیرهٔ اطلاعات'}</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditing('')}>انصراف</button></div>

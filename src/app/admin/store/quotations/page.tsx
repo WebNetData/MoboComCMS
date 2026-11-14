@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 import SharedSelection from './SharedSelection'
 import Link from '@/components/AppLink'
 import { StoreShell, Notice, send, useJson, faDate } from '../shared'
@@ -59,7 +60,7 @@ export default function QuotationsPage() {
           <label className="sa-field"><span>تعداد</span><input className="input" inputMode="numeric" value={quantity} onChange={event => setQuantity(event.target.value)} /></label></div>
         <button type="button" className="btn" onClick={add} disabled={!product}>افزودن به پیشنهاد</button>
         <ul>{rows.map(row => <li key={`${row.productId}:${row.variantId || 0}`}>{row.name} · {row.quantity.toLocaleString('fa-IR')} عدد <button className="btn btn-ghost" type="button" onClick={() => setRows(current => current.filter(item => item !== row))} aria-label={`حذف ${row.name}`}>حذف</button></li>)}</ul>
-        <div className="sa-grid"><label className="sa-field"><span>تخفیف فروشنده، به واحد پول کالاها</span><input className="input" inputMode="decimal" value={discount} onChange={event => setDiscount(event.target.value)} /></label><label className="sa-field"><span>اعتبار تا تاریخ و ساعت</span><input className="input" type="datetime-local" value={expires} required onChange={event => setExpires(event.target.value)} /></label></div>
+    <div className="sa-grid"><label className="sa-field"><span>تخفیف فروشنده، به واحد پول کالاها</span><input className="input" inputMode="decimal" value={discount} onChange={event => setDiscount(event.target.value)} /></label><label className="sa-field"><span>اعتبار تا تاریخ و ساعت</span><JalaliDateInput withTime className="input" value={expires} required onChange={setExpires} /></label></div>
         <button className="btn btn-primary" disabled={!customer || !rows.length || !expires}>{busy ? 'در حال ثبت…' : 'ثبت و ساخت لینک پیش‌فاکتور'}</button>
       </fieldset></form>
       {error && <Notice tone="error">{error}</Notice>}{href && <p role="status">پیشنهاد ثبت شد. <Link href={href}>مشاهده و اشتراک‌گذاری لینک پیش‌فاکتور</Link></p>}
