@@ -2,10 +2,12 @@ import { validateAddress, type AddressInput } from '@/modules/shipping/domain/sh
 import { StoreError } from '@/modules/store/domain/store'
 import type { OrderField } from '@/modules/store/domain/order-inputs'
 import type { DeliveryItem, ProductDeliveryTemplate } from '@/modules/store/domain/delivery-details'
+import { latinDigits } from '@/shared/text/digits'
 
 export const COUNTER_PAYMENT_METHODS = ['CASH', 'CARD', 'WALLET', 'SPLIT'] as const
 export type CounterPaymentMethod = typeof COUNTER_PAYMENT_METHODS[number]
-export type CounterLine = { productId: number; variantId: number | null; quantity: number; expectedUnitMinor: string; inputs: Record<string, string> }
+export type CounterDeviceIdentifier = { serial: string; imei: string }
+export type CounterLine = { productId: number; variantId: number | null; quantity: number; expectedUnitMinor: string; inputs: Record<string, string>; deviceIdentifiers?: CounterDeviceIdentifier[] }
 /** A repair invoiced at the counter (owner 2026-11-13): work done and parts not kept in stock, priced by staff; parts from stock stay ordinary lines. */
 export type CounterWorkLine = { name: string; part: boolean; quantity: number; unitMinor: string }
 export type CounterRepair = { submissionId: number; currency: string; work: CounterWorkLine[] }
@@ -14,7 +16,7 @@ const REPAIR_LINE_NOTE: Record<string, string> = { PHYSICAL: 'قطعهٔ تعو�
 export const repairLineNote = (kind: string, variant: string) => [REPAIR_LINE_NOTE[kind], variant].filter(Boolean).join(' · ')
 export type CounterTenderInput = { method: 'CASH' | 'CARD' | 'WALLET'; amountMinor: string; reference: string }
 export type CounterShipment = { locationId: number; address: AddressInput; date: string; slotId: string; carrierId: string }
-export type CounterSaleInput = { shipment?: CounterShipment; discountCode?: string; expectedTotalMinor?: string; requestId: string; customerId: number | null; customerName: string; customerPhone: string; customerFirstName?: string; customerLastName?: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[]; sessionId?: number | null; payments?: CounterTenderInput[]; walletCode?: string; redeemPoints?: number; repair?: CounterRepair }
+export type CounterSaleInput = { shipment?: CounterShipment; discountCode?: string; expectedTotalMinor?: string; warningFingerprint?: string; requestId: string; customerId: number | null; customerName: string; customerPhone: string; customerFirstName?: string; customerLastName?: string; method: CounterPaymentMethod; reference: string; lines: CounterLine[]; sessionId?: number | null; payments?: CounterTenderInput[]; walletCode?: string; redeemPoints?: number; repair?: CounterRepair }
 export type CounterProduct = { id: number; name: string; kind: string; currency: string; stock: number; unitMinor: string; maxPerOrder: number; fields: OrderField[]; variants: { id: number; name: string; stock: number; unitMinor: string }[] }
 export type CounterCustomer = { id: number; name: string; email: string; phone: string }
 /** Seller block printed on sale receipts: the Admin invoice profile (billing), with the site brand as fallback. */
@@ -23,7 +25,7 @@ export type CounterReceipt = {
   orderId: number; invoiceNumber: string; createdAt: string; customer: string; phone: string; cashier: string; method: string; reference: string; currency: string; totalMinor: string
   deliveryMode?: 'SHIP' | 'HANDOVER'; subtotalMinor?: string; discountMinor?: string; shippingMinor?: string; shippingAddress?: string;
   brand: { title: string; logo: string }; link?: string; qr?: string; payments?: CounterTenderInput[]; seller?: SaleSeller; register?: string
-  lines: { name: string; variant: string; quantity: number; unitMinor: string; totalMinor: string; kind: string }[]
+  lines: { name: string; variant: string; quantity: number; unitMinor: string; totalMinor: string; kind: string; deviceIdentifiers?: CounterDeviceIdentifier[] }[]
   /** the repair this sale invoiced (its form answer number) */
   repair?: { id: number }
   cards: { id: number; product: string; items: DeliveryItem[]; template: ProductDeliveryTemplate }[]
@@ -57,6 +59,7 @@ export function readCounterSale(input: unknown): CounterSaleInput {
   const repair = readRepair(body.repair)
   if (!Array.isArray(body.lines) || body.lines.length + (repair?.work.length || 0) > 30 || (!body.lines.length && !repair?.work.length)) throw new StoreError('از ۱ تا ۳۰ ردیف کالا انتخاب کنید')
   const seen = new Set<string>()
+  const seenDeviceIds = new Set<string>()
   const lines = body.lines.map((raw): CounterLine => {
     const line = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
     const productId = Number(line.productId), variantId = line.variantId == null ? null : Number(line.variantId), quantity = Number(line.quantity)
@@ -68,7 +71,24 @@ export function readCounterSale(input: unknown): CounterSaleInput {
     if (!/^\d{1,16}$/.test(expectedUnitMinor)) throw new StoreError('قیمت کالا را دوباره دریافت کنید')
     const values = line.inputs && typeof line.inputs === 'object' && !Array.isArray(line.inputs) ? line.inputs as Record<string, unknown> : {}
     const inputs = Object.fromEntries(Object.keys(values).sort().slice(0, 12).map((key) => [key, String(values[key] ?? '')]))
-    return { productId, variantId, quantity, expectedUnitMinor, inputs }
+    let deviceIdentifiers: CounterDeviceIdentifier[] | undefined
+    if (line.deviceIdentifiers !== undefined) {
+      if (!Array.isArray(line.deviceIdentifiers) || line.deviceIdentifiers.length !== quantity) throw new StoreError('برای هر واحد فروخته‌شده، سریال یا IMEI را وارد کنید')
+      deviceIdentifiers = line.deviceIdentifiers.map((rawId): CounterDeviceIdentifier => {
+        const id = rawId && typeof rawId === 'object' ? rawId as Record<string, unknown> : {}
+        const serial = text(id.serial, 80), imei = latinDigits(text(id.imei, 32)).replace(/\s/g, '')
+        if (!serial && !imei) throw new StoreError('سریال یا IMEI هر دستگاه را وارد کنید')
+        if (/[<>]/.test(serial) || String(id.serial ?? '').length > 80) throw new StoreError('سریال باید متن ساده و حداکثر ۸۰ نویسه باشد')
+        if (imei && !/^[0-9]{15}$/.test(imei)) throw new StoreError('IMEI باید ۱۵ رقم باشد')
+        for (const value of [serial, imei].filter(Boolean)) {
+          const key = value.toLowerCase()
+          if (seenDeviceIds.has(key)) throw new StoreError('سریال یا IMEI در همین فروش تکراری است')
+          seenDeviceIds.add(key)
+        }
+        return { serial, imei }
+      })
+    }
+    return { productId, variantId, quantity, expectedUnitMinor, inputs, ...(deviceIdentifiers ? { deviceIdentifiers } : {}) }
   })
   const sessionId = body.sessionId == null ? null : Number(body.sessionId), redeemPoints = Number(body.redeemPoints || 0)
   if ((sessionId !== null && !positive(sessionId)) || !Number.isSafeInteger(redeemPoints) || redeemPoints < 0 || redeemPoints > 1_000_000_000) throw new StoreError('صندوق یا تعداد امتیاز معتبر نیست')
@@ -90,6 +110,8 @@ export function readCounterSale(input: unknown): CounterSaleInput {
   const discountCode = text(body.discountCode, 32).toUpperCase()
   const expectedTotalMinor = body.expectedTotalMinor === undefined ? undefined : String(body.expectedTotalMinor)
   if (expectedTotalMinor !== undefined && !/^\d{1,16}$/.test(expectedTotalMinor)) throw new StoreError('مبلغ نمایش‌داده‌شده معتبر نیست')
+  const warningFingerprint = body.warningFingerprint === undefined ? undefined : text(body.warningFingerprint, 64)
+  if (warningFingerprint !== undefined && !/^[a-f0-9]{64}$/.test(warningFingerprint)) throw new StoreError('تأیید هشدار معتبر نیست')
   let shipment: CounterShipment | undefined
   if (body.shipment !== undefined && body.shipment !== null) {
     const raw = body.shipment as Record<string, unknown>
@@ -98,5 +120,5 @@ export function readCounterSale(input: unknown): CounterSaleInput {
     try { shipment = { locationId, address: validateAddress((raw.address || {}) as Record<string, unknown>), date: text(raw.date, 10), slotId: text(raw.slotId, 40), carrierId: text(raw.carrierId, 60) } }
     catch (error) { throw new StoreError(error instanceof Error ? error.message : 'نشانی ارسال معتبر نیست') }
   }
-  return { requestId, customerId, customerName, customerPhone: text(body.customerPhone, 30), customerFirstName, customerLastName, method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines, sessionId, payments, walletCode: text(body.walletCode,8), redeemPoints, ...(discountCode ? { discountCode } : {}), ...(shipment ? { shipment } : {}), ...(repair ? { repair } : {}), ...(expectedTotalMinor !== undefined ? { expectedTotalMinor } : {}) }
+  return { requestId, customerId, customerName, customerPhone: text(body.customerPhone, 30), customerFirstName, customerLastName, method: body.method as CounterPaymentMethod, reference: text(body.reference, 120), lines, sessionId, payments, walletCode: text(body.walletCode,8), redeemPoints, ...(discountCode ? { discountCode } : {}), ...(shipment ? { shipment } : {}), ...(repair ? { repair } : {}), ...(expectedTotalMinor !== undefined ? { expectedTotalMinor } : {}), ...(warningFingerprint ? { warningFingerprint } : {}) }
 }

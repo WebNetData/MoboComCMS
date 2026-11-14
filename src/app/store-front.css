@@ -298,6 +298,9 @@
 .sx-purchase-guides ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .sx-purchase-guides a { color: var(--sx-accent); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; overflow-wrap: anywhere; }
 .sx-purchase-guides a:focus-visible { outline: 2px solid var(--sx-accent); outline-offset: 4px; border-radius: 2px; }
+.sx-pause-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; margin-block: 16px; border: 1px solid var(--sx-line); border-radius: var(--sx-radius); background: var(--sx-subtle); }
+.sx-pause-notice p { margin: 0; }
+.sx-pause-notice a { color: var(--sx-accent); text-decoration: underline; text-underline-offset: 3px; }
 .sx-product .store-tabs-section { margin-top: 8px; }
 
 /* ---------- cart ---------- */

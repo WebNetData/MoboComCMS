@@ -7,6 +7,8 @@ import { getServerTheme } from '@/i18n/server'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import ProductCheckout from '@/components/store/ProductCheckout'
+import { getStoreSettings } from '@/modules/store/server/catalog'
+import { orderPauseMessage } from '@/modules/store/server/order-acceptance'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { isPublishedProduct } from '@/modules/catalog/domain/product-publication'
 import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
@@ -53,7 +55,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
 
   const currency = normalizeCurrency(product.currency)
   const { regularMinor, unitMinor: itemMinor } = unitPrice(product, variant, viewer.member, undefined, await groupDeal(viewer.userId, [product.id]))
-  const [schedule, gateways] = await Promise.all([deliverySchedule(), checkoutGatewayOptions(currency)])
+  const [schedule, gateways, store] = await Promise.all([deliverySchedule(), checkoutGatewayOptions(currency), getStoreSettings()])
   const shippingMinor = (await tierStanding(viewer.userId))?.freeShipping ? 0n : shippingFeeMinor(schedule.settings, currency, itemMinor)
   const inStock = product.stock !== 0 && (!variant || variant.stock !== 0)
 
@@ -61,6 +63,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
     <SiteHeader theme={await getServerTheme()} />
     <main className="container content-surface sh-checkout-page">
       <ProductCheckout
+        orderPauseNotice={orderPauseMessage(store)}
         item={{
           productId: product.id, slug: product.slug, name: product.name, image: product.image,
           variantId: variant?.id || null, variantName: variant?.name || '', inStock,

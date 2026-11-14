@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import ManageBar from '@/components/admin/ManageBar'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import BuyBox from '@/components/store/BuyBox'
 import { StoreIcon } from '@/components/store/StoreIcons'
@@ -12,6 +13,7 @@ import { Crumbs, ProductRail, TrustStrip } from '@/components/store/Storefront'
 import { categoryTree, countProductView, findCategory, getStoreSettings, relatedProducts } from '@/modules/store/server/catalog'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { lineLimit } from '@/modules/store/domain/store'
+import { orderPauseMessage } from '@/modules/store/server/order-acceptance'
 import { getDeliverySettings } from '@/modules/shipping/server/shipping'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import ProductTabs from '@/components/ProductTabs'
@@ -63,21 +65,23 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
   const name = isFa ? product.name : product.nameEn || product.name
   const raw = isFa ? product.description : product.descriptionEn || product.description
   const activeVariants = product.variants.filter(variant => variant.active)
-  const displayPrice = activeVariants.length ? Math.min(...activeVariants.map(variant => variant.price)) : product.price
+  const publicPrices = activeVariants.length ? activeVariants.map(variant => unitPrice(product, variant, false)) : [unitPrice(product, null, false)]
+  const displayPrice = Math.min(...publicPrices.map(price => minorToNumber(price.unitMinor, price.currency)))
   return pageMeta({
     title: product.seoTitle || name,
     description: product.seoDescription || product.shortDescription.slice(0, 160) || richTextToPlain(raw, 160) || `${name} — ${formatAmount(displayPrice, product.currency, isFa ? 'fa-IR' : 'en-US')}`,
     path: `/products/${product.slug}`,
     image: product.image || undefined,
     type: 'product',
+    noIndex: !!product.audienceGroups,
     locale,
-    keywords: [name, isFa ? 'خرید' : 'buy', 'VPN', 'MoboComCMS'],
+    keywords: [name, isFa ? 'خرید' : 'buy', product.brand?.name || '', product.category?.name || ''].filter(Boolean),
   })
 }
 
 export default async function ProductPage({ params: paramsPromise, preview, surface = 'public' }: { params: Promise<{ slug: string }>; preview?: BuilderPreview; surface?: CheckoutSurface }) {
   const params = await contentRouteParams(paramsPromise)
-  const [locale, theme] = await Promise.all([getServerLocale(), getServerTheme()])
+  const [locale, theme, requestHeaders] = await Promise.all([getServerLocale(), getServerTheme(), headers()])
   const t = dict(locale)
   const isFa = locale === 'fa'
 
@@ -128,8 +132,9 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
   const productLd = productJsonLd({
     name,
     description: richTextToPlain(html, 300),
-    price: activeVariants.length ? Math.min(...activeVariants.map(variant => variant.price)) : product.price,
+    price: Math.min(...(activeVariants.length ? activeVariants.map(variant => unitPrice(product, variant, false)) : [unitPrice(product, null, false)]).map(price => minorToNumber(price.unitMinor, price.currency))),
     currency: product.currency,
+    brand: product.brand?.name,
     image: product.image || undefined,
     url: `${base}/products/${product.slug}`,
     inStock,
@@ -194,7 +199,8 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
         saleEndsAt={product.saleEndsAt && regular.listMinor ? product.saleEndsAt.toISOString() : null}
         variants={buyVariants} axes={variantAxes}
         vip={{ enabled: vipOn, member: viewer.member, access: product.access, giftDays: vipOn ? product.vipGiftDays : 0 }}
-        warranty={product.warranty} badges={storeSettings.badges} shipping={shippingNote}
+        warranty={product.warranty} badges={storeSettings.servicePromises.map(item => item.title)} shipping={shippingNote}
+        orderPauseNotice={orderPauseMessage(storeSettings)}
         purchaseGuides={purchaseGuides}
         installments={installments} club={loyalty.enabled && loyalty.earnPoints > 0 ? { earnPoints: loyalty.earnPoints, earnStepToman: loyalty.earnStepToman } : null}
         orderFields={readOrderFields(product.orderFields)}
@@ -212,7 +218,7 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
       {purchaseNode}
     </section>
   )
-  const uspNode = <TrustStrip />
+  const uspNode = <TrustStrip items={storeSettings.servicePromises} />
   const tabsNode = <>{fileAccess && <ProductDownloads access={fileAccess} slug={product.slug} title={name} />}{storeSettings.showProductBundles && <ProductBundles slug={product.slug} />}<ProductTabs slug={product.slug} descriptionFa={htmlFa} descriptionEn={htmlEn} rating={reviewScore._avg.rating || 0} reviewCount={reviewCount} questionCount={questionCount} showPriceHistory={storeSettings.showPriceHistory} showFrequentlyBoughtTogether={storeSettings.showFrequentlyBoughtTogether} showProductRelationships={storeSettings.showProductRelationships} historyVariants={buyVariants.map(({ id, name }) => ({ id, name }))} /></>
   const slots = {
     'product-hero': heroNode,
@@ -230,8 +236,8 @@ export default async function ProductPage({ params: paramsPromise, preview, surf
   const chromeDoc = layoutDoc || builderDoc
   const breadcrumbsNode = <Crumbs items={[...trail, { label: name }]} />
   const ldNodes = <>
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productLd) }} />
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbs) }} />
+    <script nonce={requestHeaders.get('x-nonce') || undefined} suppressHydrationWarning type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productLd) }} />
+    <script nonce={requestHeaders.get('x-nonce') || undefined} suppressHydrationWarning type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbs) }} />
   </>
   return (
     <>

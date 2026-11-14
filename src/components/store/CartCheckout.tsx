@@ -31,7 +31,7 @@ const PROMO_MESSAGES: Record<string, string> = {
 }
 
 /** Cart checkout: delivery address and time (for physical items), discount code, payment. */
-export default function CartCheckout({ cart, delivery, gateways, giftOptions, surface = 'public' }: { giftOptions?: { enabled: boolean; wrapEnabled: boolean }; surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
+export default function CartCheckout({ cart, delivery, gateways, giftOptions, orderPauseNotice = '', surface = 'public' }: { orderPauseNotice?: string; giftOptions?: { enabled: boolean; wrapEnabled: boolean }; surface?: CheckoutSurface; cart: Cart; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
   const router = useRouter()
   const counted = useRef(false)
   useEffect(() => {
@@ -84,6 +84,7 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, su
   const covered = balance >= total
 
   const missing = useMemo(() => {
+    if (orderPauseNotice) return orderPauseNotice
     if (cart.blocked) return 'سبد خرید شما نیاز به بازبینی دارد'
     if (cart.hasPhysical && giftOptions?.enabled && gift.enabled && !gift.recipient.trim()) return 'نام گیرندهٔ هدیه را وارد کنید'
     if (!physical) return ''
@@ -96,7 +97,7 @@ export default function CartCheckout({ cart, delivery, gateways, giftOptions, su
     if (needsSchedule && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
     if (needsSchedule && !slot) return 'زمان ارسال را انتخاب کنید'
     return ''
-  }, [cart.blocked, cart.hasPhysical, giftOptions?.enabled, gift.enabled, gift.recipient, physical, addressRefreshing, addressError, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
+  }, [orderPauseNotice, cart.blocked, cart.hasPhysical, giftOptions?.enabled, gift.enabled, gift.recipient, physical, addressRefreshing, addressError, address, byCarrier, carrierError, carriers, carrier, needsSchedule, days.length, slot])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)

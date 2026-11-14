@@ -18,13 +18,14 @@ export async function GET(req: NextRequest) {
   if (!user) return err('unauthorized', 401)
   if (req.nextUrl.searchParams.get('view') === 'options') {
     const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
-    const [subscriptions, orders, departments] = await Promise.all([
+    const [subscriptions, orders, supportOrders, departments] = await Promise.all([
       db.subscription.findMany({ where: { userId: user.id, status: 'ACTIVE', expiresAt: { gt: new Date() } }, include: { plan: true }, orderBy: { createdAt: 'desc' } }),
       db.order.findMany({ where: { userId: user.id, status: 'PAID', productId: { not: null }, product: { active: true } }, include: { product: true }, orderBy: { createdAt: 'desc' } }),
+      db.order.findMany({ where: { userId: user.id }, include: { lines: { orderBy: { line: 'asc' }, select: { line: true, name: true, variantName: true, quantity: true } } }, orderBy: { createdAt: 'desc' } }),
       db.ticketDepartment.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
     ])
     const products = [...new Map(orders.filter(o => o.product).map(o => [o.product!.id, { id: o.product!.id, name: locale === 'fa' ? o.product!.name : (o.product!.nameEn || `Product #${o.product!.id}`) }])).values()]
-    return ok({ subscriptions: subscriptions.map(s => ({ id: s.id, name: planName(s.plan, locale), username: s.username, expiresAt: s.expiresAt })), products, departments: departments.map(d => ({ slug: d.slug, name: locale === 'fa' ? d.nameFa : d.nameEn, description: locale === 'fa' ? d.descriptionFa : d.descriptionEn, requiresSubscription: d.requiresSubscription, requiresProduct: d.requiresProduct, fields: parseFields(d.fields) })) })
+    return ok({ subscriptions: subscriptions.map(s => ({ id: s.id, name: planName(s.plan, locale), username: s.username, expiresAt: s.expiresAt })), products, orders: supportOrders.map(o => ({ id: o.id, createdAt: o.createdAt, status: o.status, lines: o.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) })), departments: departments.map(d => ({ slug: d.slug, name: locale === 'fa' ? d.nameFa : d.nameEn, description: locale === 'fa' ? d.descriptionFa : d.descriptionEn, requiresSubscription: d.requiresSubscription, requiresProduct: d.requiresProduct, fields: parseFields(d.fields) })) })
   }
   const tickets = await db.ticket.findMany({
     where: { userId: user.id },
@@ -68,6 +69,18 @@ export async function POST(req: NextRequest) {
   if (subject.length > 200 || message.length > 12000) return err('پیام بیش از حد طولانی است / Message too long')
   let report: { subscriptionId: number; subscriptionUsername: string; subscriptionLink: string; device: string; issueType: string } | undefined
   let productId: number | undefined
+  let orderId: number | undefined
+  if (body?.orderId != null) {
+    if (!Number.isSafeInteger(body.orderId) || body.orderId <= 0) return err(L('Order not found.', 'سفارش پیدا نشد.'), 404)
+    const order = await db.order.findFirst({
+      where: { id: body.orderId, userId: user.id },
+      select: { id: true, productId: true, lines: { select: { productId: true } } },
+    })
+    // The same response for missing and non-owned IDs avoids confirming another buyer's order.
+    if (!order) return err(L('Order not found.', 'سفارش پیدا نشد.'), 404)
+    orderId = order.id
+    if (body?.productId != null && ![order.productId, ...order.lines.map(line => line.productId)].includes(body.productId)) return err(L('Select a product from this order.', 'یک محصول از همین سفارش انتخاب کنید.'))
+  }
   if (departmentConfig.requiresSubscription) {
     if (!Number.isSafeInteger(body?.subscriptionId) || body.subscriptionId <= 0) return err(L('Select an active subscription.', 'یک اشتراک فعال انتخاب کنید.'))
     const subscription = await db.subscription.findFirst({ where: { id: body.subscriptionId, userId: user.id, status: 'ACTIVE', expiresAt: { gt: new Date() } }, select: { id: true, username: true, subToken: true } })
@@ -78,9 +91,14 @@ export async function POST(req: NextRequest) {
     report = { subscriptionId: subscription.id, subscriptionUsername: subscription.username, subscriptionLink: await safeHappLink(subscription.subToken), device, issueType }
   } else if (departmentConfig.requiresProduct) {
     if (!Number.isSafeInteger(body?.productId) || body.productId <= 0) return err(L('Select a purchased product.', 'یک محصول خریداری‌شده انتخاب کنید.'))
-    const order = await db.order.findFirst({ where: { userId: user.id, productId: body.productId, status: 'PAID', product: { active: true } }, select: { productId: true } })
-    if (!order?.productId) return err(L('Purchased active product not found.', 'محصول خریداری‌شدهٔ فعال پیدا نشد.'), 404)
-    productId = order.productId
+    if (orderId != null) {
+      productId = body.productId
+    } else {
+      const order = await db.order.findFirst({ where: { userId: user.id, productId: body.productId, status: 'PAID', product: { active: true } }, select: { id: true, productId: true } })
+      if (!order?.productId) return err(L('Purchased active product not found.', 'محصول خریداری‌شدهٔ فعال پیدا نشد.'), 404)
+      productId = order.productId
+      orderId = order.id
+    }
   } else if (body?.subscriptionId != null || body?.productId != null) {
     return err(L('This department does not require a service.', 'برای این دپارتمان انتخاب سرویس لازم نیست.'))
   }
@@ -98,6 +116,7 @@ export async function POST(req: NextRequest) {
       department,
       customFields: JSON.stringify(customFields),
       productId,
+      orderId,
       ...report,
       messages: {
         create: { userId: user.id, fromAdmin: false, body: message, ...(files.length ? { attachments: { create: ticketAttachmentRows(files) } } : {}) },

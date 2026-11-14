@@ -11,7 +11,7 @@ import {
 } from '@/modules/shipping/server/shipping'
 
 function failure(error: unknown) {
-  if (error instanceof ShippingError) return err(error.message, error.status, { code: error.code })
+  if (error instanceof ShippingError) return err(error.message, error.status, { code: error.code, ...(error.field ? { field: error.field } : {}) })
   console.error('[shipping]', error)
   return err('خطای داخلی؛ دوباره تلاش کنید', 500)
 }

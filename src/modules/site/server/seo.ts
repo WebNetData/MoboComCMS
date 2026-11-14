@@ -181,19 +181,24 @@ export function articleJsonLd(input: {
   }
 }
 
-export function productJsonLd(input: { name: string; description: string; price: number; currency?: string; image?: string; url: string; inStock?: boolean; rating?: number; reviewCount?: number }) {
+export function productJsonLd(input: { name: string; description: string; price: number; currency?: string; brand?: string; image?: string; url: string; inStock?: boolean; rating?: number; reviewCount?: number }) {
+  const currency = normalizeCurrency(input.currency || 'USD')
+  const amount = toMinor(String(input.price), currency)
+  // Toman is an internal display currency; structured offers use the ISO rial.
+  const offerCurrency = currency === 'IRT' ? 'IRR' : currency
+  const offerAmount = currency === 'IRT' ? amount * 10n : amount
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: input.name,
     description: input.description,
     image: input.image ? [input.image] : undefined,
-    brand: { '@type': 'Brand', name: 'MoboComCMS' },
+    brand: input.brand ? { '@type': 'Brand', name: input.brand } : undefined,
     aggregateRating: input.reviewCount && input.rating ? { '@type': 'AggregateRating', ratingValue: input.rating.toFixed(1), reviewCount: input.reviewCount, bestRating: 5, worstRating: 1 } : undefined,
     offers: {
       '@type': 'Offer',
-      price: minorToDecimal(toMinor(String(input.price), normalizeCurrency(input.currency || 'USD')), normalizeCurrency(input.currency || 'USD')),
-      priceCurrency: normalizeCurrency(input.currency || 'USD'),
+      price: minorToDecimal(offerAmount, offerCurrency),
+      priceCurrency: offerCurrency,
       availability: input.inStock === false ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
       url: input.url,
     },

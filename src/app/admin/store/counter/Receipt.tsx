@@ -36,7 +36,7 @@ export default function Receipt({ receipt, format }: { receipt: CounterReceipt; 
       { label: 'صندوق‌دار', value: receipt.cashier },
       ...(receipt.deliveryMode === 'SHIP' ? [{ label: 'تحویل', value: 'ارسال از انبار؛ در صف آماده‌سازی' }, { label: 'نشانی ارسال', value: receipt.shippingAddress || '' }] : []),
     ]}
-    lines={receipt.lines.map((line) => ({ name: line.name, variant: receipt.repair ? repairLineNote(line.kind, line.variant) : line.variant, quantity: line.quantity, unitMinor: line.unitMinor, totalMinor: line.totalMinor }))}
+    lines={receipt.lines.map((line) => ({ name: line.name, variant: receipt.repair ? repairLineNote(line.kind, line.variant) : line.variant, quantity: line.quantity, unitMinor: line.unitMinor, totalMinor: line.totalMinor, deviceIdentifiers: line.deviceIdentifiers }))}
     currency={receipt.currency}
     totalMinor={receipt.totalMinor}
     discountMinor={receipt.discountMinor}

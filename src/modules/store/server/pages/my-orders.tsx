@@ -104,8 +104,9 @@ export async function MyOrdersView({ tab: tabParam, base = '/dashboard/orders' }
             <div><dt>مبلغ</dt><dd><Money amount={order.total} currency={order.currency} /></dd></div>
           </dl>
           <ul className="sx-my-thumbs" aria-label="کالاها">{order.lines.slice(0, 6).map((line, index) => <li key={index} title={line.name}>{line.image ? <img src={line.image} alt={line.name} loading="lazy" /> : <StoreIcon name="box" size={22} />}{line.quantity > 1 && <span className="num">{fa(line.quantity)}</span>}</li>)}{order.lines.length > 6 && <li className="is-more num">+{fa(order.lines.length - 6)}</li>}</ul>
-        </Link>
-      </li>)}</ul>}
+ </Link>
+ <Link href={`/dashboard/tickets?order=${order.id}`} className="sx-link">دربارهٔ این سفارش پشتیبانی می‌خواهم</Link>
+ </li>)}</ul>}
     {services.length > 0 && <section className="sx-my-services">
       <header><h2>خدمات، درخواست‌ها و اشتراک‌ها</h2><p>سفارش‌هایی که کالای فروشگاه نیستند: پرداخت سایت خارجی، فرم‌های پولی، اشتراک ویژه و پلن‌ها.</p></header>
       <ul className="sx-svc-list">{services.slice(0, 10).map(serviceRow)}</ul>
@@ -168,6 +169,7 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
           {line.image ? <img src={line.image} alt="" loading="lazy" /> : <span className="sx-my-ph"><StoreIcon name="box" size={24} /></span>}
           <div>{line.slug ? <Link href={`/products/${line.slug}`}>{line.name}</Link> : <b>{line.name}</b>}{line.variantName && <small>{line.variantName}</small>}<small className="num">{fa(line.quantity)} عدد × <Money amount={line.unitPrice} currency={order.currency} /></small></div>
           <Money amount={line.total} currency={order.currency} />
+          {!!line.deviceIdentifiers.length && <ul aria-label="شناسهٔ دستگاه‌های فروخته‌شده">{line.deviceIdentifiers.map((id, at) => <li key={at} dir="ltr">{[id.serial && `Serial: ${id.serial}`, id.imei && `IMEI: ${id.imei}`].filter(Boolean).join(' · ')}</li>)}</ul>}
           {(line.openAmount || line.inputs.length > 0 || line.inputsErasedAt) && <div className="sx-my-given">
             {line.openAmount && <p>مبلغ پرداخت در سایت مقصد: <b className="num" dir="ltr">{line.openAmount.amount} {line.openAmount.currency}</b></p>}
             {line.inputs.length > 0 && <dl>{line.inputs.map((answer) => <div key={answer.key}><dt>{answer.label}</dt><dd dir="auto">{answer.value}</dd></div>)}</dl>}

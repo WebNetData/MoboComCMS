@@ -299,6 +299,7 @@ model Plan {
 }
 
 model Order {
+  supportTickets Ticket[]
   registerSessionId Int?
   registerSession StoreRegisterSession? @relation(fields: [registerSessionId], references: [id], onDelete: Restrict)
   tenders StoreTender[]
@@ -593,6 +594,8 @@ model ResellerBotUpdate {
 }
 
 model Ticket {
+  orderId Int?
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   subscriptionId Int?
   subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   subscriptionUsername String @default("")
@@ -620,6 +623,7 @@ model Ticket {
   messages  TicketMessage[]
   @@index([department, status, updatedAt])
   @@index([assignedToId, status])
+  @@index([orderId])
 }
 
 model TicketDepartment {
@@ -3162,6 +3166,7 @@ model CartLine {
 
 /// Snapshot of each product line of a store order (price and name at purchase time).
 model OrderLine {
+  deviceIdentifiers String @default("[]") // sold-device snapshots, one entry per identified physical unit
   unitCostMinor BigInt? // frozen acquisition cost; historical unknowns stay null
   id             Int      @id @default(autoincrement())
   orderId        Int

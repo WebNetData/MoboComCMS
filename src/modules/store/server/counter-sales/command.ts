@@ -1,4 +1,5 @@
 import { priceCounterLines } from './quote'
+import { counterPriceWarnings } from './warnings'
 import { counterTotals } from './totals'
 import { redeemCounterPromotion } from '@/modules/promotions/server/counter'
 import { bookDelivery } from '@/modules/shipping/server/shipping'
@@ -43,6 +44,8 @@ async function writeSale(tx: Tx, input: CounterSaleInput, actorId: number, commi
   const { products, lines, subtotalMinor, currency } = await priceCounterLines(tx, input)
   const totals = await counterTotals(tx, input, customer?.id || null, lines, subtotalMinor, currency)
   const { totalMinor, discountMinor, shippingMinor } = totals
+  const warnings = await counterPriceWarnings(tx, lines, subtotalMinor, discountMinor, currency)
+  if (warnings.warnings.length && input.warningFingerprint !== warnings.warningFingerprint) throw new StoreError('هشدار قیمت را در مبلغ نهایی بررسی و تأیید کنید؛ قیمت یا بهای خرید ممکن است تغییر کرده باشد', 409, 'PRICE_WARNING_REQUIRED')
   if ((input.discountCode || input.shipment || input.expectedTotalMinor !== undefined) && input.expectedTotalMinor !== totalMinor.toString()) throw new StoreError('مبلغ نهایی تغییر کرده است؛ مبلغ را دوباره بررسی و تأیید کنید', 409, 'PRICE_CHANGED')
   const register=await lockRegister(tx,input.sessionId,actorId,currency)
   if (!register.locationId) throw new StoreError('محل موجودی صندوق مشخص نیست؛ صندوق را ببندید و با محل فعال باز کنید', 409)

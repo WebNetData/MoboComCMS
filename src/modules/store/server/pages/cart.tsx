@@ -15,6 +15,8 @@ import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { getViewer } from '@/modules/membership/server/membership'
 import { CART_COOKIE, cartView } from '@/modules/store/server/cart'
 import { getStoreSettings, productCards } from '@/modules/store/server/catalog'
+import { orderPauseMessage } from '@/modules/store/server/order-acceptance'
+import OrderPauseNotice from '@/components/store/OrderPauseNotice'
 import { deliverySchedule } from '@/modules/shipping/server/shipping'
 import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
 
@@ -37,13 +39,14 @@ export async function CartView({ surface = 'public' }: { surface?: CheckoutSurfa
     getStoreSettings(),
     db.page.findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } }).catch(() => []),
   ])
-  if (surface === 'dashboard') return <div className="dt-page sx-page sx-cart-page"><CartPage initial={cart} note={settings.cartNote} surface={surface} /></div>
+  if (surface === 'dashboard') return <div className="dt-page sx-page sx-cart-page"><OrderPauseNotice message={orderPauseMessage(settings)} /><CartPage initial={cart} note={settings.cartNote} surface={surface} /></div>
   const inCart = cart.lines.map((line) => line.productId)
   const suggestions = await productCards({ id: { notIn: inCart }, stock: { not: 0 } }, [{ soldCount: 'desc' }, { id: 'desc' }], 12)
   return <>
     <ThemeHeader context={SHOP_CONTEXT} theme={theme} locale={locale} navPages={navPages} />
     <SectionBarSlot section="shop" />
     <main className="container sx-page sx-cart-page">
+      <OrderPauseNotice message={orderPauseMessage(settings)} />
       <CartPage initial={cart} note={settings.cartNote} />
       <ProductRail title={cart.lines.length ? 'پیشنهاد برای خرید بعدی' : 'پرفروش‌ترین کالاها'} icon="star" products={suggestions} more="/products?sort=bestselling" />
     </main>
@@ -63,7 +66,7 @@ export async function CartCheckoutView({ surface = 'public' }: { surface?: Check
   return <>
     {surface === 'public' && <SiteHeader theme={theme} />}
     <Surface className="container content-surface sh-checkout-page">
-      <CartCheckout giftOptions={{ enabled: store.giftOrdersEnabled, wrapEnabled: store.giftWrapEnabled }} surface={surface} cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days, pickup: schedule.settings.pickup }} gateways={gateways} />
+      <CartCheckout orderPauseNotice={orderPauseMessage(store)} giftOptions={{ enabled: store.giftOrdersEnabled, wrapEnabled: store.giftWrapEnabled }} surface={surface} cart={cart} delivery={{ enabled: schedule.settings.enabled, days: schedule.days, pickup: schedule.settings.pickup }} gateways={gateways} />
     </Surface>
     {surface === 'public' && <SiteFooter />}
   </>

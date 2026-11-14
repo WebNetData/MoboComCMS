@@ -20,7 +20,7 @@ const asDate = (day: string) => new Date(`${day}T12:00:00Z`)
 /** Codes whose server message is already written for the customer. */
 const SHIPPING_CODES = new Set(['SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY'])
 
-export default function ProductCheckout({ item, delivery, gateways }: { item: Item; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
+export default function ProductCheckout({ item, delivery, gateways, orderPauseNotice = '' }: { orderPauseNotice?: string; item: Item; delivery: Delivery; gateways: CheckoutGatewayChoice[] }) {
   const router = useRouter()
   const [pickup,setPickup]=useState(false)
   const { addresses, error: addressError, reload } = useAddresses()
@@ -54,13 +54,14 @@ export default function ProductCheckout({ item, delivery, gateways }: { item: It
   const fmt = (value: number) => money(value, item.currency, locale)
 
   const missing = useMemo(() => {
+    if (orderPauseNotice) return orderPauseNotice
     if (!item.inStock) return 'این کالا ناموجود است'
     if (pickup) return ''
     if (!address) return 'یک آدرس تحویل انتخاب کنید'
     if (delivery.enabled && days.length && !slot) return 'زمان ارسال را انتخاب کنید'
     if (delivery.enabled && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
     return ''
-  }, [item.inStock, address, delivery.enabled, days.length, slot, pickup])
+  }, [orderPauseNotice, item.inStock, address, delivery.enabled, days.length, slot, pickup])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)

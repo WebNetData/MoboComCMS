@@ -21,11 +21,13 @@ const sh = load('src/modules/shipping/domain/shipping')
 const valid = { title: 'خانه', recipient: 'علی رضایی', mobile: '۰۹۱۲ ۱۲۳ ۴۵۶۷', province: 'تهران', city: 'تهران', address: 'خیابان ولیعصر، کوچهٔ بهار', plaque: '۱۲', unit: '3', postalCode: '1345678901' }
 
 test('mobile numbers normalize from common spellings', () => {
+  assert.equal(sh.normalizeMobile('٠٩١٢١٢٣٤٥٦٧'), '09121234567')
   for (const input of ['09121234567', '+989121234567', '00989121234567', '9121234567', '۰۹۱۲۱۲۳۴۵۶۷', '0912-123 4567']) assert.equal(sh.normalizeMobile(input), '09121234567', input)
   for (const input of ['0212345678', '0912123456', '08121234567', '']) assert.equal(sh.normalizeMobile(input), '', input)
 })
 
 test('postal codes need ten digits without 0 or 2 in the first five', () => {
+  assert.equal(sh.normalizePostalCode('١٣٤٥٦٧٨٩٠١'), '1345678901')
   assert.equal(sh.normalizePostalCode('۱۳۴۵۶-۷۸۹۰۱'), '1345678901')
   assert.equal(sh.normalizePostalCode('1204567890'), '')
   assert.equal(sh.normalizePostalCode('123456789'), '')

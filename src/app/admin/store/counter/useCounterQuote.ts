@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-type Quote = { subtotalMinor: string; discountMinor: string; shippingMinor: string; totalMinor: string; currency: string }
+type Quote = { subtotalMinor: string; discountMinor: string; shippingMinor: string; totalMinor: string; currency: string; warnings: string[]; warningFingerprint: string }
 /** Quote state is bound to the exact draft; a previous answer cannot confirm changed lines or an address. */
 export function useCounterQuote(draft: Record<string, unknown> | null) {
   const key = draft ? JSON.stringify(draft) : ''

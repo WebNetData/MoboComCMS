@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { MAX_ADDRESSES, PROVINCES, formatAddress } from '@/modules/shipping/domain/shipping'
+import { MAX_ADDRESSES, PROVINCES, formatAddress, validateAddress, ShippingError } from '@/modules/shipping/domain/shipping'
 import LocationPicker from '@/components/site/LocationPicker'
 
 export type SavedAddress = {
@@ -23,11 +23,11 @@ const EMPTY: Draft = { title: '', recipient: '', mobile: '', province: '', city:
 const TITLES = ['خانه', 'محل کار', 'منزل والدین']
 const fa = (value: string) => value.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
 
-async function request<T>(url: string, init?: RequestInit): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+async function request<T>(url: string, init?: RequestInit): Promise<{ ok: true; data: T } | { ok: false; error: string; field?: keyof Draft }> {
   const response = await fetch(url, { cache: 'no-store', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } }).catch(() => null)
   const body = await response?.json().catch(() => null)
   if (!response) return { ok: false, error: 'ارتباط برقرار نشد؛ اتصال اینترنت را بررسی کنید' }
-  if (!response.ok) return { ok: false, error: body?.error || 'انجام نشد؛ دوباره تلاش کنید' }
+  if (!response.ok) return { ok: false, error: body?.error || 'انجام نشد؛ دوباره تلاش کنید', field: body?.field }
   return { ok: true, data: body as T }
 }
 
@@ -63,25 +63,39 @@ export function AddressForm({ initial, onSaved, onCancel }: { initial?: SavedAdd
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const id = useId()
+  const formRef = useRef<HTMLFormElement>(null)
+  const pending = useRef(false)
+  const [invalid, setInvalid] = useState<keyof Draft | null>(null)
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((current) => ({ ...current, [key]: value }))
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+    if (pending.current) return
+    let input: Draft
+    try { input = validateAddress(draft) } catch (error) {
+      if (error instanceof ShippingError) { setError(error.message); setInvalid(error.field || null); if (error.field) formRef.current?.querySelector<HTMLElement>(`[name="${error.field}"]`)?.focus(); return }
+      throw error
+    }
+    pending.current = true; setInvalid(null)
     setBusy(true); setError('')
+    try {
     const result = initial
-      ? await request<{ address: SavedAddress }>(`/api/addresses/${initial.id}`, { method: 'PATCH', body: JSON.stringify(draft) })
-      : await request<{ address: SavedAddress }>('/api/addresses', { method: 'POST', body: JSON.stringify(draft) })
-    setBusy(false)
-    if (result.ok) onSaved(result.data.address)
-    else setError(result.error)
+      ? await request<{ address: SavedAddress }>(`/api/addresses/${initial.id}`, { method: 'PATCH', body: JSON.stringify(input) })
+      : await request<{ address: SavedAddress }>('/api/addresses', { method: 'POST', body: JSON.stringify(input) })
+    if (result.ok && isSavedAddress(result.data?.address)) onSaved(result.data.address)
+    else if (!result.ok) { setError(result.error); setInvalid(result.field || null); if (result.field) formRef.current?.querySelector<HTMLElement>(`[name="${result.field}"]`)?.focus() }
+    else setError('آدرس ذخیره‌شده به‌درستی دریافت نشد؛ پیش از ثبت دوباره، فهرست آدرس‌ها را بررسی کنید')
+    } finally { pending.current = false; setBusy(false) }
   }
 
-  const field = (key: keyof Draft, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => <label className="sh-field" htmlFor={`${id}-${key}`}>
-    <span>{label}</span>
-    <input id={`${id}-${key}`} className="sh-input" value={String(draft[key])} onChange={(e) => set(key, e.target.value as never)} {...props} />
-  </label>
+  const field = (key: keyof Draft, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => <div className="sh-field">
+    <label htmlFor={`${id}-${key}`}>{label}</label>
+    <input id={`${id}-${key}`} name={key} className="sh-input" aria-invalid={invalid === key || undefined} aria-describedby={invalid === key ? `${id}-field-error` : undefined} value={String(draft[key])} onChange={(e) => { set(key, e.target.value as never); if (invalid === key) { setInvalid(null); setError('') } }} {...props} />
+    {invalid === key && <small className="sh-error" id={`${id}-field-error`}>{error}</small>}
+  </div>
 
-  return <form className="sh-form" onSubmit={submit} noValidate>
+  return <form ref={formRef} className="sh-form" onSubmit={submit} noValidate>
+    <fieldset disabled={busy} className="sh-form-controls"><legend className="sr-only">اطلاعات آدرس</legend>
     <fieldset className="sh-title-picker">
       <legend>عنوان آدرس</legend>
       <div className="sh-chips">
@@ -90,13 +104,14 @@ export function AddressForm({ initial, onSaved, onCancel }: { initial?: SavedAdd
       </div>
     </fieldset>
     <div className="sh-grid">
-      <label className="sh-field" htmlFor={`${id}-province`}>
-        <span>استان</span>
-        <select id={`${id}-province`} className="sh-input" value={draft.province} required onChange={(e) => set('province', e.target.value)}>
+      <div className="sh-field">
+        <label htmlFor={`${id}-province`}>استان</label>
+        <select id={`${id}-province`} name="province" className="sh-input" aria-invalid={invalid === 'province' || undefined} aria-describedby={invalid === 'province' ? `${id}-field-error` : undefined} value={draft.province} required onChange={(e) => { set('province', e.target.value); setInvalid(null); setError('') }}>
           <option value="">انتخاب استان</option>
           {PROVINCES.map((province) => <option key={province} value={province}>{province}</option>)}
         </select>
-      </label>
+        {invalid === 'province' && <small className="sh-error" id={`${id}-field-error`}>{error}</small>}
+      </div>
       {field('city', 'شهر', { required: true, autoComplete: 'address-level2', maxLength: 60 })}
       <div className="sh-span">{field('address', 'نشانی پستی', { required: true, autoComplete: 'street-address', maxLength: 400, placeholder: 'خیابان، کوچه، نام ساختمان' })}</div>
       {field('plaque', 'پلاک', { inputMode: 'numeric', maxLength: 10, dir: 'ltr' })}
@@ -110,11 +125,11 @@ export function AddressForm({ initial, onSaved, onCancel }: { initial?: SavedAdd
       <LocationPicker value={draft.lat != null && draft.lng != null ? { lat: draft.lat, lng: draft.lng } : null} onChange={(pin) => setDraft((current) => ({ ...current, lat: pin?.lat ?? null, lng: pin?.lng ?? null }))} province={draft.province} city={draft.city} street={draft.address} />
     </fieldset>
     <label className="sh-check"><input type="checkbox" checked={draft.isDefault} onChange={(e) => set('isDefault', e.target.checked)} />آدرس پیش‌فرض برای ارسال سفارش‌ها</label>
-    {error && <p className="sh-error" role="alert">{error}</p>}
+    {error && <p className="sh-error" role="alert">{invalid ? 'فیلد مشخص‌شده را اصلاح کنید؛ اطلاعات فرم حفظ شده است.' : error}</p>}
     <div className="sh-actions">
       <button type="submit" className="sh-btn sh-btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : initial ? 'ذخیرهٔ تغییرات' : 'ثبت آدرس'}</button>
       {onCancel && <button type="button" className="sh-btn sh-btn-ghost" onClick={onCancel}>انصراف</button>}
-    </div>
+    </div></fieldset>
   </form>
 }
 

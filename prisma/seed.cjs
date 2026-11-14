@@ -35,8 +35,6 @@ async function main() {
         roleId: adminRole?.id,
       },
     })
-  } else {
-    admin = await prisma.user.update({ where: { id: admin.id }, data: { role: 'ADMIN', roleId: adminRole?.id } })
   }
 
   let demoCustomerPassword = ''
@@ -64,6 +62,8 @@ async function main() {
     }
   }
 
+  // Example providers and plans are never part of a normal installation.
+  if (seedDemoData) {
   // --- Panels ---
   // Found by name, not by id: on a database that has held rows before, a new panel does not get id 1.
   const panel = async (data) => (await prisma.panel.findFirst({ where: { name: data.name }, orderBy: { id: 'asc' } })) || prisma.panel.create({ data })
@@ -79,6 +79,7 @@ async function main() {
   for (const p of plans) {
     const exists = await prisma.plan.findFirst({ where: { name: p.name } })
     if (!exists) await prisma.plan.create({ data: p })
+  }
   }
 
   // --- Pages (page builder demo) ---
@@ -129,7 +130,7 @@ async function main() {
   ]
   // The starter contact form (the form builder's «تماس با ما» template), made only when missing; the owner edits it in
   // «فرم‌ها و پاسخ‌ها». The starter contact page shows it beside the ways to reach the team.
-  if (!await prisma.siteForm.findUnique({ where: { slug: 'contact' }, select: { id: true } })) await prisma.siteForm.create({ data: {
+  if (seedDemoData && !await prisma.siteForm.findUnique({ where: { slug: 'contact' }, select: { id: true } })) await prisma.siteForm.create({ data: {
     slug: 'contact', title: 'تماس با ما', description: 'پیام خود را بنویسید؛ در اولین فرصت پاسخ می‌دهیم.', published: true, successText: 'پیام شما ثبت شد. به‌زودی پاسخ می‌دهیم.',
     fields: JSON.stringify([
       { id: 'name', label: 'نام و نام خانوادگی', type: 'text', required: true, options: [], width: 'half' },
@@ -141,13 +142,17 @@ async function main() {
   // Starter pages and their design template («قالب طراحی صفحه»): about, contact with its form, legal documents.
   const starterLayout = { about: { companyPanel: 'about' }, contact: { companyPanel: 'contact', formSlug: 'contact' }, terms: { companyPanel: 'legal' }, refund: { companyPanel: 'legal' }, privacy: { companyPanel: 'legal' } }
   for (const p of pages) {
+    const isLegal = ['terms', 'privacy', 'refund'].includes(p.slug)
+    if (!seedDemoData && !isLegal) continue
     // Seed new starter pages only. An existing page or its layout is the owner's content.
     if (!await prisma.page.findUnique({ where: { slug: p.slug }, select: { id: true } })) await prisma.$transaction(async tx => {
-      const page = await tx.page.create({ data: p })
-      if (starterLayout[p.slug]) await tx.setting.create({ data: { key: `page.layout.${page.id}`, value: JSON.stringify(starterLayout[p.slug]) } })
+      // Legal starters are review material, never an approved public policy.
+      const page = await tx.page.create({ data: { ...p, ...(isLegal ? { status: 'DRAFT' } : {}) } })
+      if (starterLayout[p.slug]) await tx.setting.upsert({ where: { key: `page.layout.${page.id}` }, update: {}, create: { key: `page.layout.${page.id}`, value: JSON.stringify(starterLayout[p.slug]) } })
     })
   }
 
+  if (seedDemoData) {
   // --- Post categories & posts ---
   const catNews = await prisma.postCategory.upsert({ where: { slug: 'news' }, update: {}, create: { slug: 'news', name: 'اخبار', nameEn: 'News' } })
   const catGuide = await prisma.postCategory.upsert({ where: { slug: 'guides' }, update: {}, create: { slug: 'guides', name: 'آموزش', nameEn: 'Guides' } })
@@ -315,6 +320,7 @@ async function main() {
       },
     })
   }
+  }
 
   // --- Demo bookkeeping: costs + invoices for already paid orders ---
   if (seedDemoData && (await prisma.expense.count()) === 0) {
@@ -362,7 +368,8 @@ async function main() {
     }
   }
 
-  const paidOrders = seedDemoData ? await prisma.order.findMany({ where: { status: 'PAID' }, orderBy: { id: 'asc' }, take: 30 }) : []
+  // Even an explicit demo run must not fabricate invoices for real paid orders.
+  const paidOrders = seedDemoData ? await prisma.order.findMany({ where: { status: 'PAID', providerTxnId: { startsWith: 'demo-txn-' }, user: { email: 'customer@example.com' } }, orderBy: { id: 'asc' }, take: 30 }) : []
   let seq = await prisma.invoice.count()
   const year = new Date().getFullYear()
   for (const order of paidOrders) {
@@ -414,6 +421,7 @@ async function main() {
     })
   }
 
+  if (seedDemoData) {
   // --- Forum boards (created once; admins manage them afterwards) ---
   // Three levels: sections hold forums, and a forum may hold subforums.
   const boards = [
@@ -447,6 +455,7 @@ async function main() {
     }
     await plant(boards, null)
   }
+  }
 
   // --- Settings ---
   const settings = [
@@ -454,14 +463,16 @@ async function main() {
     { key: 'brandTagline', value: 'فروشگاه و سرگرمی دیجیتال' },
     // MoboCom sells physical and digital products out of the box.
     { key: 'storeEnabled', value: 'true' },
-    { key: 'supportTelegram', value: '@MoboComCMS' },
+    { key: 'supportTelegram', value: seedDemoData ? '@MoboComCMS' : '' },
     { key: 'supportEmail', value: '' },
     { key: 'siteUrl', value: process.env.NEXTAUTH_URL || 'http://localhost:3000' },
     { key: 'usdRateToman', value: String(process.env.FRENZYEX_USD_RATE_TOMAN || '0').trim() || '0' },
     { key: 'themeColor', value: '#4b45ee' },
-    { key: 'statsUsers', value: '50000' },
-    { key: 'statsServers', value: '120' },
-    { key: 'statsCountries', value: '30' },
+    ...(seedDemoData ? [
+      { key: 'statsUsers', value: '50000' },
+      { key: 'statsServers', value: '120' },
+      { key: 'statsCountries', value: '30' },
+    ] : []),
   ]
   for (const s of settings) {
     await prisma.setting.upsert({ where: { key: s.key }, update: {}, create: s })

@@ -6,6 +6,7 @@
  * converted. Currency is always explicit and normalized to ISO-like uppercase.
  */
 import { BASE_CURRENCY } from '@/shared/money/base'
+import { latinDigits } from '@/shared/text/digits'
 
 export { BASE_CURRENCY }
 export type CurrencyCode = string
@@ -56,7 +57,7 @@ export function currencyScale(currency: CurrencyCode): bigint {
 export function toMinor(value: string | number | bigint, currency: CurrencyCode): bigint {
   if (typeof value === 'bigint') return value
   const exp = currencyExponent(currency)
-  const raw = typeof value === 'number' ? numberToDecimal(value) : String(value).trim()
+  const raw = typeof value === 'number' ? numberToDecimal(value) : latinDigits(String(value).trim()).replace(/٫/g, '.')
   if (!/^-?\d+(?:\.\d+)?$/.test(raw)) throw new Error('invalid money amount')
   const negative = raw.startsWith('-')
   const unsigned = negative ? raw.slice(1) : raw

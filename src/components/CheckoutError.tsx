@@ -6,7 +6,7 @@ import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 export default function CheckoutError({
   code,
-  message: _message,
+  message,
   needed = 0,
   currency = BASE_CURRENCY,
 }: {
@@ -17,7 +17,9 @@ export default function CheckoutError({
 }) {
   const { t, locale } = useI18n()
   const text =
-    code === 'INSUFFICIENT_FUNDS' || code === 'WALLET_FAILED'
+    code === 'STORE_ORDERS_PAUSED'
+      ? message
+      : code === 'INSUFFICIENT_FUNDS' || code === 'WALLET_FAILED'
       ? `${t.walletInsufficient}${needed > 0 ? ` (${formatCurrency(needed, currency, locale === 'fa' ? 'fa-IR' : 'en-US')})` : ''}`
       : code === 'NO_GATEWAY' || code === 'GATEWAY_CURRENCY_MISMATCH'
         ? t.noGatewayConfigured
