@@ -334,6 +334,7 @@
 .sx-cart-summary dd { margin: 0; }
 .sx-cart-summary .is-save, .sx-save-row { color: var(--sx-deal); }
 .sx-cart-summary .is-save dt, .sx-save-row dt { color: var(--sx-deal); }
+.sx-checkout .sx-save-row, .sx-checkout .sx-save-row dt { color: var(--sx-danger); }
 .sx-cart-summary .is-total { padding-top: 12px; border-top: 1px solid var(--sx-line); font-weight: 800; }
 .sx-cart-summary .is-total dt { color: var(--sx-text); }
 /* Free shipping in the cart: offers reached, and the next one with what is left and a bar. */

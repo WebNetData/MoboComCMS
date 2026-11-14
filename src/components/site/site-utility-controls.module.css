@@ -1,0 +1,31 @@
+.controls {
+  width: min(100% - 2rem, 78rem);
+  margin: 0 auto 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .75rem;
+  color: var(--site-muted, var(--muted));
+  font-size: .8125rem;
+}
+
+.hint {
+  margin: 0;
+  max-width: 38rem;
+}
+
+.report { display: flex; align-items: center; }
+.dialog { width: min(34rem, calc(100vw - 2rem)); max-height: min(90vh, 42rem); padding: 1.25rem; border: 1px solid var(--site-border, var(--border)); border-radius: var(--site-radius, 12px); background: var(--site-surface, var(--surface)); color: var(--site-text, var(--text)); }
+.dialog::backdrop { background: rgb(0 0 0 / .55); }
+.dialog form { display: grid; gap: 1rem; }
+.dialog h2, .dialog p { margin: 0; }
+.kinds { display: grid; gap: .5rem; border: 0; padding: 0; }
+.kinds legend { margin-bottom: .5rem; font-weight: 700; }
+.kinds label { display: flex; align-items: center; gap: .5rem; min-height: 2.5rem; }
+.note { display: grid; gap: .5rem; font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+@media (max-width: 40rem) {
+  .controls { align-items: flex-start; flex-direction: column; }
+  .report { width: 100%; }
+}

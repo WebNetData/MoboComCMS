@@ -75,6 +75,19 @@ test('player page keeps the same access rules and quota exemption', () => {
   assert.doesNotMatch(watch, /logDownload/, 'watching does not use the daily download quota')
 })
 
+test('low-data sizing bounds supported local covers', () => {
+  const images = load('src/shared/media/image')
+  const cover = '/api/media/covers/00000000-0000-0000-0000-000000000000.webp'
+  assert.equal(images.sized(cover, 900, true), cover + '?w=320')
+  let lowData = true
+  const React = require('react'), { renderToStaticMarkup } = require('react-dom/server')
+  const SiteImage = require('./connected-source-loader.cjs')({ '@/components/site/LowDataProvider': { useLowData: () => ({ enabled: lowData }) } })('src/components/media/SiteImage.tsx').default
+  const compact = renderToStaticMarkup(React.createElement(SiteImage, { source: cover, requestWidth: 900, alt: '', loading: 'lazy' }))
+  assert.match(compact, /\?w=320/); assert.doesNotMatch(compact, /srcset=/i)
+  lowData = false
+  const standard = renderToStaticMarkup(React.createElement(SiteImage, { source: cover, requestWidth: 900, alt: '', loading: 'lazy' }))
+  assert.match(standard, /\?w=960/); assert.match(standard, /srcset=/i)
+})
 test('music source keeps quality and access checks behind the protected track route', () => {
   const track = { id: 42, hasHq: true }
   assert.equal(playback.sourceUrl(playback.trackSource(track, false)), '/api/media/track/42')

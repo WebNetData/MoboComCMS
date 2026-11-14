@@ -9,6 +9,13 @@ datasource db {
 }
 
 model User {
+  quotations StoreQuotation[] @relation("QuotationCustomer")
+  createdQuotations StoreQuotation[] @relation("QuotationCreator")
+  createdWarrantyDevices StoreWarrantyDevice[] @relation("WarrantyCreator")
+  updatedWarrantyDevices StoreWarrantyDevice[] @relation("WarrantyUpdater")
+  custodyApprovals ReturnCustodyResolution[] @relation("CustodyApprover")
+  canonicalAliasReviews ContentCanonicalAlias[] @relation("CanonicalAliasReviewer")
+
   deliveryChangesRequested OrderDeliveryChange[] @relation("DeliveryChangeRequester")
   deliveryChangesDecided OrderDeliveryChange[] @relation("DeliveryChangeDecider")
   packingChecks OrderPackingCheck[] @relation("OrderPackingVerifier")
@@ -302,6 +309,8 @@ model Plan {
 }
 
 model Order {
+  quotation StoreQuotation?
+
   deliveryChanges OrderDeliveryChange[]
   packingCheck OrderPackingCheck?
   exchangeReturn ReturnRequest? @relation("ExchangeReplacement")
@@ -637,6 +646,9 @@ model ResellerBotUpdate {
 }
 
 model Ticket {
+  storeWarrantyDeviceId Int?
+  storeWarrantyDevice StoreWarrantyDevice? @relation(fields: [storeWarrantyDeviceId], references: [id], onDelete: Restrict)
+
   orderId Int?
   order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   subscriptionId Int?
@@ -915,6 +927,10 @@ model ProductAttributeGroup {
 }
 
 model Product {
+  custodyResolutions ReturnCustodyResolution[]
+  canonicalSource ContentCanonicalAlias? @relation("ProductAliasSource")
+  canonicalTargets ContentCanonicalAlias[] @relation("ProductAliasTarget")
+
   condition String @default("NEW")
   conditionGrade String @default("")
   conditionNotes String @default("")
@@ -1101,6 +1117,8 @@ model ProductDigitalCode {
 }
 
 model ProductVariant {
+  custodyResolutions ReturnCustodyResolution[]
+
   purchaseLines StockPurchaseLine[]
   locationStocks LocationStock[]
   @@index([barcode])
@@ -1492,6 +1510,10 @@ model FormBooking {
 }
 
 model FormSubmission {
+  storeWarrantyDeviceId Int?
+  storeWarrantyDevice StoreWarrantyDevice? @relation(fields: [storeWarrantyDeviceId], references: [id], onDelete: Restrict)
+  custodyResolutions ReturnCustodyResolution[]
+
   id        Int      @id @default(autoincrement())
   formId    Int
   data      String
@@ -1917,6 +1939,9 @@ model UserCollectionReaction {
 // ---------------------------------------------------------------- Film & series
 
 model CinemaTitle {
+  canonicalSource ContentCanonicalAlias? @relation("CinemaAliasSource")
+  canonicalTargets ContentCanonicalAlias[] @relation("CinemaAliasTarget")
+
   /// Site group keys that may see this item, as JSON; empty for everyone.
   audienceGroups String @default("")
   id            Int            @id @default(autoincrement())
@@ -2168,6 +2193,9 @@ model Vocabulary {
 }
 
 model GameTitle {
+  canonicalSource ContentCanonicalAlias? @relation("GameAliasSource")
+  canonicalTargets ContentCanonicalAlias[] @relation("GameAliasTarget")
+
   /// Site group keys that may see this item, as JSON; empty for everyone.
   audienceGroups String @default("")
   id           Int       @id @default(autoincrement())
@@ -2296,6 +2324,9 @@ model GameLibrary {
 /// Software downloads (Windows/macOS/Linux/Android/iOS). Base and versioned
 /// MediaLink rows use ownerType "software" and "softwarerelease" respectively.
 model SoftwareTitle {
+  canonicalSource ContentCanonicalAlias? @relation("SoftwareAliasSource")
+  canonicalTargets ContentCanonicalAlias[] @relation("SoftwareAliasTarget")
+
   /// Site group keys that may see this item, as JSON; empty for everyone.
   audienceGroups String @default("")
   id           Int       @id @default(autoincrement())
@@ -3209,6 +3240,8 @@ model CartLine {
 
 /// Snapshot of each product line of a store order (price and name at purchase time).
 model OrderLine {
+  warrantyDevices StoreWarrantyDevice[]
+
   deviceIdentifiers String @default("[]") // sold-device snapshots, one entry per identified physical unit
   unitCostMinor BigInt? // frozen acquisition cost; historical unknowns stay null
   id             Int      @id @default(autoincrement())
@@ -3521,6 +3554,8 @@ model PasswordReset {
 
 /// Customer cancellation (before shipping) or return (after delivery) of a store order; refunds go to the wallet.
 model ReturnRequest {
+  custodyResolutions ReturnCustodyResolution[]
+
   replacementOrderId Int? @unique
   replacementOrder Order? @relation("ExchangeReplacement", fields: [replacementOrderId], references: [id], onDelete: SetNull)
   inspectionStatus String @default("NOT_REQUIRED")
@@ -5381,6 +5416,8 @@ model StorePickup {
 /// A place that holds stock: a warehouse or a shop. Locations that sell online feed Product/Variant.stock
 /// (the site's sellable count); the counter sells from its register's location. Owner: catalog/server/locations.
 model StockLocation {
+  custodyResolutions ReturnCustodyResolution[]
+
   isQuarantine Boolean @default(false)
   purchases StockPurchase[]
   id          Int      @id @default(autoincrement())
@@ -5568,4 +5605,108 @@ model StockPurchaseReceipt {
   purchase StockPurchase @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
   receipt StockReceipt @relation(fields: [receiptId], references: [id], onDelete: Restrict)
   @@index([purchaseId])
+}
+
+model StoreQuotation {
+  id Int @id @default(autoincrement())
+  token String @unique
+  userId Int
+  customer User @relation("QuotationCustomer", fields: [userId], references: [id], onDelete: Restrict)
+  createdById Int
+  creator User @relation("QuotationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  title String
+  status String @default("OPEN")
+  currency String
+  subtotalMinor BigInt
+  discountMinor BigInt @default(0)
+  lines String
+  expiresAt DateTime
+  orderId Int? @unique
+  order Order? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  convertedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+model StoreWarrantyDevice {
+  id Int @id @default(autoincrement())
+  orderLineId Int
+  orderLine OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
+  unitIndex Int
+  serial String @default("")
+  imei String @default("")
+  warrantyStartsAt DateTime
+  warrantyEndsAt DateTime
+  provider String
+  conditions String
+  createdById Int
+  creator User @relation("WarrantyCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById Int
+  updater User @relation("WarrantyUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  tickets Ticket[]
+  repairs FormSubmission[]
+  @@unique([orderLineId, unitIndex])
+  @@index([warrantyEndsAt])
+}
+
+model ReturnCustodyResolution {
+  id Int @id @default(autoincrement())
+  returnRequestId Int
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Restrict)
+  segmentIndex Int
+  productId Int
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId Int?
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  quantity Int
+  resolution String
+  status String
+  formSubmissionId Int?
+  formSubmission FormSubmission? @relation(fields: [formSubmissionId], references: [id], onDelete: Restrict)
+  destinationLocationId Int?
+  destination StockLocation? @relation(fields: [destinationLocationId], references: [id], onDelete: Restrict)
+  note String
+  confirmedById Int
+  approver User @relation("CustodyApprover", fields: [confirmedById], references: [id], onDelete: Restrict)
+  confirmedAt DateTime @default(now())
+  releasedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  @@unique([returnRequestId, segmentIndex])
+  @@index([status, confirmedAt])
+}
+
+model ContentCanonicalAlias {
+  id Int @id @default(autoincrement())
+  kind String
+  productSourceId Int? @unique
+  productSource Product? @relation("ProductAliasSource", fields: [productSourceId], references: [id], onDelete: Restrict)
+  productTargetId Int?
+  productTarget Product? @relation("ProductAliasTarget", fields: [productTargetId], references: [id], onDelete: Restrict)
+  cinemaSourceId Int? @unique
+  cinemaSource CinemaTitle? @relation("CinemaAliasSource", fields: [cinemaSourceId], references: [id], onDelete: Restrict)
+  cinemaTargetId Int?
+  cinemaTarget CinemaTitle? @relation("CinemaAliasTarget", fields: [cinemaTargetId], references: [id], onDelete: Restrict)
+  gameSourceId Int? @unique
+  gameSource GameTitle? @relation("GameAliasSource", fields: [gameSourceId], references: [id], onDelete: Restrict)
+  gameTargetId Int?
+  gameTarget GameTitle? @relation("GameAliasTarget", fields: [gameTargetId], references: [id], onDelete: Restrict)
+  softwareSourceId Int? @unique
+  softwareSource SoftwareTitle? @relation("SoftwareAliasSource", fields: [softwareSourceId], references: [id], onDelete: Restrict)
+  softwareTargetId Int?
+  softwareTarget SoftwareTitle? @relation("SoftwareAliasTarget", fields: [softwareTargetId], references: [id], onDelete: Restrict)
+  sourcePath String @unique
+  targetPath String
+  sourceVersion DateTime
+  targetVersion DateTime
+  reviewedByUserId Int
+  reviewer User @relation("CanonicalAliasReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  reviewedAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  active Boolean @default(true)
+  @@index([kind, active])
 }

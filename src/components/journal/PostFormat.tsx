@@ -1,5 +1,7 @@
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import type { FormatData } from '@/modules/journal/domain/formats'
+import LowDataEmbed from '@/components/media/LowDataEmbed'
+import VideoPlayer from '@/components/media/VideoPlayer'
 
 // What a post's format adds to its page: above the body, a video's player or an interview's guest; below it, a
 // review's score, verdict, pros and cons, or a news item's source. Only the post's own family's facts arrive here.
@@ -12,9 +14,9 @@ export function PostFormatLead({ facts, title, fa }: { facts: FormatData; title:
   const embed = video ? toEmbedUrl(video) : ''
   return <>
     {video && (embed !== video
-      ? <figure className="jp-format-video"><iframe src={embed} title={fa ? `ویدیوی ${title}` : `${title} video`} loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></figure>
+      ? <figure className="jp-format-video"><LowDataEmbed src={embed} title={fa ? `ویدیوی ${title}` : `${title} video`} /></figure>
       : VIDEO_FILE.test(video) || video.startsWith('/')
-        ? <figure className="jp-format-video"><video src={video} controls preload="metadata" aria-label={fa ? `ویدیوی ${title}` : `${title} video`} /></figure>
+        ? <figure className="jp-format-video"><VideoPlayer src={video} playback="video" title={fa ? `ویدیوی ${title}` : `${title} video`} resumeKey={`journal-format:${video}`} ownSubtitles={false} /></figure>
         : <p className="jp-format-line"><a href={video} target="_blank" rel="noopener noreferrer nofollow">{fa ? 'تماشای ویدیو' : 'Watch the video'} ↗</a></p>)}
     {facts.guestName && <aside className="jp-format-guest" aria-label={fa ? 'مهمان این گفت‌وگو' : 'Guest'}>
       <span className="jp-format-kicker">{fa ? 'گفت‌وگو با' : 'In conversation with'}</span>

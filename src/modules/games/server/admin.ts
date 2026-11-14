@@ -8,6 +8,7 @@ import { scheduleGameUpdateRelease } from '@/modules/games/server/release-notifi
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
 import { knownLinkAudio } from '@/modules/vocabulary/server/vocabulary'
+import { mediaPublicationIssues } from '@/modules/media/domain/publication'
 
 // Games admin: dashboard, catalogue list with health checks and bulk actions,
 // franchises, updates/DLC with their download links, release planning.
@@ -222,9 +223,34 @@ export async function bulkGames(input: { ids?: unknown; action?: unknown; value?
     for (const row of before) { contentChanged({ type: 'game', id: row.id }, row, null); if (isTrashed(row)) await tell(row, 'deleted') }
     return { changed: before.length }
   }
+  if (action === 'publish') {
+    const failed: { id: number; reason: string }[] = []
+    const published: typeof before = []
+    for (const row of before) {
+      try {
+        const result = await db.$transaction(async tx => {
+          const current = await tx.gameTitle.findFirst({ where: { id: row.id, ...ownGames(scope) } })
+          if (!current || isTrashed(current)) return { ok: false as const, reason: 'بازی هم‌زمان تغییر کرده یا در سطل زباله است؛ فهرست را تازه کنید' }
+          const links = await tx.mediaLink.count({ where: { ownerType: 'game', ownerId: row.id, disabled: false } })
+          const issues = mediaPublicationIssues('games', current, { links })
+          if (issues.length) return { ok: false as const, reason: `پیش از انتشار تکمیل کنید: ${issues.map(issue => issue.label).join('، ')}` }
+          const claim = await tx.gameTitle.updateMany({ where: { id: row.id, status: current.status, updatedAt: current.updatedAt, ...ownGames(scope) }, data: { status: 'PUBLISHED' } })
+          if (!claim.count) return { ok: false as const, reason: 'بازی هم‌زمان تغییر کرده است؛ فهرست را تازه کنید' }
+          const after = await tx.gameTitle.findUnique({ where: { id: row.id } })
+          return after ? { ok: true as const, before: current, after } : { ok: false as const, reason: 'بازی پیدا نشد؛ فهرست را تازه کنید' }
+        }, { isolationLevel: 'Serializable' })
+        if (!result.ok) { failed.push({ id: row.id, reason: result.reason }); continue }
+        published.push(result.before)
+        contentChanged({ type: 'game', id: row.id }, result.before, result.after)
+      } catch {
+        failed.push({ id: row.id, reason: 'بازی یا پیوندهای آن هم‌زمان تغییر کردند؛ فهرست را تازه کنید و دوباره بررسی کنید' })
+      }
+    }
+    if (published.length) await recountAfterWrite('games', { operation: 'bulk-publish', resource: 'games', id: published.map(row => row.id).join(',').slice(0, 200) })
+    return { changed: published.length, failed }
+  }
   let data: Record<string, unknown>
   switch (action) {
-    case 'publish': data = { status: 'PUBLISHED' }; break
     case 'draft': data = { status: 'DRAFT' }; break
     case 'feature': data = { featured: true }; break
     case 'unfeature': data = { featured: false }; break

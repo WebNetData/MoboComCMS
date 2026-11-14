@@ -5,7 +5,7 @@ import { contentRouteParams } from '@/shared/routing/params'
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getGame } from '@/modules/media/server/queries'
 import { gamePageExtras } from '@/modules/games/server/portal'
@@ -32,6 +32,7 @@ import { toPublicPath } from '@/platform/routing/aliases'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { shareCard } from '@/modules/site/server/seo'
+import { resolveCanonicalAliasSlug } from '@/modules/content/server/canonical-alias'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }>; preview?: BuilderPreview }
@@ -40,6 +41,8 @@ const REQ_LABELS: Record<string, string> = { os: 'سیستم‌عامل', cpu: '
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await contentRouteParams(params)
+  const canonical = await resolveCanonicalAliasSlug('game', slug)
+  if (canonical) redirect(canonical)
   const data = await getGame(slug)
   if (!data) return {}
   const g = data.game
@@ -56,6 +59,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function GamePage({ params, preview }: Props) {
   await requireModule('games')
   const [{ slug }, viewer] = await Promise.all([contentRouteParams(params), getViewer()])
+  const canonical = await resolveCanonicalAliasSlug('game', slug)
+  if (canonical) redirect(canonical)
   const data = await getGame(slug)
   if (!data) notFound()
   const { game: g } = data

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from '@/components/site/Icon'
 import { POPUP_KINDS, type PopupFace } from '@/modules/popups/domain/popups'
+import LowDataEmbed from '@/components/media/LowDataEmbed'
 import './site-popup.css'
 
 const LEAVE_MS = 180
@@ -27,7 +28,7 @@ function PopupFrame({ src, title, onAction }: { src: string; title: string; onAc
     window.addEventListener('message', listen)
     return () => window.removeEventListener('message', listen)
   }, [path, onAction])
-  return <iframe className="spp-frame" src={src} title={title} style={{ height }} loading="eager" />
+  return <LowDataEmbed className="spp-frame" src={src} title={title} style={{ height }} allow="" loading="eager" />
 }
 
 export function PopupBody({ popup, onClose, onAction, frameSrc }: { popup: PopupFace; onClose?: () => void; onAction?: () => void; frameSrc?: string }) {

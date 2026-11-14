@@ -1,3 +1,4 @@
+import SiteImage from '@/components/media/SiteImage'
 import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
 import type { ProductCard, ShopDivision } from '@/modules/store/server/catalog'
@@ -8,7 +9,7 @@ import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import Countdown from '@/components/store/Countdown'
 import TileActions from '@/components/store/TileActions'
 import Slider from '@/components/site/Slider'
-import { sized, srcSet } from '@/shared/media/image'
+import { sized } from '@/shared/media/image'
 import { RatingMeter } from '@/components/engage/RatingMeter'
 
 // Storefront building blocks (Digikala-style commerce on the SDS tokens):
@@ -49,7 +50,7 @@ export function ProductTile({ product, rank }: { product: ProductCard; rank?: nu
   return <article className={`sx-tile${product.inStock ? '' : ' is-out'}${deal ? ' has-deal' : ''}`}>
     <Link href={href} className="sx-tile-link">
       <span className="sx-tile-art">
-        {product.image ? <img src={sized(product.image, 320)} srcSet={srcSet(product.image, 320)} alt="" loading="lazy" decoding="async" /> : <span className="sx-tile-ph"><StoreIcon name="box" size={40} /></span>}
+        {product.image ? <SiteImage source={product.image} requestWidth={320} alt="" loading="lazy" decoding="async" /> : <span className="sx-tile-ph"><StoreIcon name="box" size={40} /></span>}
         {rank !== undefined && <span className="sx-rank num">{fa(rank)}</span>}
         {deal && <span className="sx-tile-off"><b className="num">{fa(product.discount)}٪</b><small>تخفیف</small></span>}
         {product.vipOnly && <span className="sx-flag is-vip">VIP</span>}
@@ -116,7 +117,7 @@ export function OfferBand({ title, products }: { title: string; products: Produc
         const saving = Math.max(0, Math.round(product.listPrice - product.price))
         return <Link role="listitem" key={product.id} href={`/products/${product.slug}`} className="sx-offer">
           <span className="sx-offer-art">
-            {product.image ? <img src={sized(product.image, 320)} srcSet={srcSet(product.image, 320)} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={36} />}
+            {product.image ? <SiteImage source={product.image} requestWidth={320} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={36} />}
             {product.discount > 0 && <em className="sx-offer-off"><span className="num">{fa(product.discount)}٪</span><small>تخفیف</small></em>}
             {product.kind === 'VIRTUAL' && <span className="sx-flag is-digital"><StoreIcon name="bolt" size={12} />{product.instant ? 'تحویل آنی' : 'تحویل دیجیتال'}</span>}
           </span>

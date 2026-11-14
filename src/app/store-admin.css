@@ -343,12 +343,12 @@ html[data-theme='light'] .sa { --sa-warn: #8a5300; }
 .pr-x { width: 36px; height: 36px; flex: none; border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--muted); cursor: pointer; }
 .pr-summary { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 0; }
 .pr-summary span { padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; }
-.pr-summary .is-ok { background: color-mix(in srgb, #16a34a 14%, transparent); color: #15803d; }
+.pr-summary .is-ok { background: color-mix(in srgb, #16a34a 14%, transparent); color: var(--text); }
 .pr-summary .is-ai { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); }
 .pr-summary .is-empty { background: var(--bg-soft, #f4f5f8); color: var(--muted); }
-.pr-summary .is-missing { background: color-mix(in srgb, #dc2626 14%, transparent); color: #dc2626; }
+.pr-summary .is-missing { background: color-mix(in srgb, #dc2626 14%, transparent); color: var(--text); }
 .pr-alert, .pr-note { margin: 10px 20px 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.9; }
-.pr-alert { background: color-mix(in srgb, #dc2626 10%, transparent); color: #b91c1c; }
+.pr-alert { background: color-mix(in srgb, #dc2626 10%, transparent); color: var(--text); }
 .pr-note { background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .pr-list { flex: 1; margin: 12px 0 0; padding: 0 20px; overflow: auto; }
 .pr-row { display: grid; grid-template-columns: minmax(110px, 26%) 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
@@ -356,7 +356,8 @@ html[data-theme='light'] .sa { --sa-warn: #8a5300; }
 .pr-row dt em { display: block; margin-top: 2px; color: var(--primary); font-style: normal; font-size: 11px; font-weight: 700; }
 .pr-row dd { margin: 0; line-height: 1.9; overflow-wrap: anywhere; }
 .pr-row.is-empty dd { color: var(--muted); }
-.pr-row.is-missing dd { color: #dc2626; font-weight: 700; }
+.pr-row.is-missing dd { color: var(--text); font-weight: 700; }
+.pr-row.is-missing a { text-decoration: underline; text-underline-offset: .2em; }
 .pr-row.is-ai { background: color-mix(in srgb, var(--primary) 5%, transparent); }
 .pr-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); }
 @media (max-width: 620px) { .pr-row { grid-template-columns: 1fr; gap: 4px; } }

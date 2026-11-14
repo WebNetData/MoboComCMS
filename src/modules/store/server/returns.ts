@@ -291,7 +291,10 @@ export async function adminReturns(input: { tab?: string; q?: string; page?: num
 }
 
 export async function adminReturn(id: number) {
-  const row = await db.returnRequest.findUnique({ where: { id }, include: { replacementOrder: { select: { totalMinor: true, invoice: { select: { number: true } }, lines: { select: { name: true, variantName: true, quantity: true } } } } } })
+  const row = await db.returnRequest.findUnique({ where: { id }, include: {
+    replacementOrder: { select: { totalMinor: true, invoice: { select: { number: true } }, lines: { select: { name: true, variantName: true, quantity: true } } } },
+    custodyResolutions: { orderBy: { segmentIndex: 'asc' }, include: { formSubmission: { select: { id: true, stage: true, status: true, form: { select: { title: true, slug: true } } } }, destination: { select: { id: true, name: true } } } },
+  } })
   if (!row) return null
   const order = await loadOrder(row.orderId)
   if (!order) return null
@@ -318,6 +321,12 @@ export async function adminReturn(id: number) {
       updatedAt: row.updatedAt.toISOString(),
       lines: requestView(row, order).lines.filter((line) => order.lines.find((entry) => entry.line === line.line)?.kind === 'PHYSICAL').map((line) => ({ ...line, productId: order.lines.find((entry) => entry.line === line.line)?.productId ?? null, variantId: order.lines.find((entry) => entry.line === line.line)?.variantId ?? null, quarantineQuantity: row.inspectionStatus === 'PENDING' ? line.quantity : 0 })),
       segments: parseJson<Array<Record<string, unknown>>>(row.inspectionLines, []),
+      custodyResolutions: row.custodyResolutions.map(item => ({
+        id: item.id, segmentIndex: item.segmentIndex, quantity: item.quantity, resolution: item.resolution, status: item.status,
+        formSubmissionId: item.formSubmissionId, form: item.formSubmission ? { id: item.formSubmission.id, stage: item.formSubmission.stage, status: item.formSubmission.status, title: item.formSubmission.form.title, slug: item.formSubmission.form.slug } : null,
+        destinationLocationId: item.destinationLocationId, destinationName: item.destination?.name || '', note: item.note,
+        confirmedAt: item.confirmedAt.toISOString(), releasedAt: item.releasedAt?.toISOString() || null, updatedAt: item.updatedAt.toISOString(),
+      })),
     },
     history: order.returns.filter((item) => item.id !== row.id).map((item) => requestView(item, order)),
   }

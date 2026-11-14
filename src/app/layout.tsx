@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { readableInk, textShade } from '@/shared/color/contrast'
+import { LowDataProvider } from '@/components/site/LowDataProvider'
+import SiteUtilityControls from '@/components/site/SiteUtilityControls'
 import './globals.css'
 import './editorial-decorations.css'
 import './studio.css'
@@ -180,6 +182,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const siteClosed = requestHeaders.get('x-site-maintenance') === '1'
   const previewSection = isMaintenanceSection(previewed) ? MAINTENANCE_SECTIONS.find((item) => item.id === previewed) : null
   const [jsonLd, siteConfig, extensions, packages, routing, forwarderPolicy] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRoutingState(), getAutomaticForwarderPolicy()])
+  const lowDataEnabled = (await cookies()).get('mobocom-low-data')?.value === '1'
   const sectionNames = await getSectionNames().catch(() => ({}))
   const routeAliases = publicRouteAliases(routing.aliases)
   setRouteAliases(routeAliases)
@@ -211,7 +214,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (design.extends === 'orbital') Object.assign(tokens, { '--orbital-blue': design.colors.accent, '--hp-radius': `${design.radius}px`, ...(theme === 'dark' ? { '--orbital-bg': design.colors.background, '--orbital-surface': design.colors.surface, '--orbital-text': design.colors.text, '--orbital-muted': design.colors.muted, '--orbital-border': design.colors.border } : {}) })
 
   return (
-    <html lang={locale} dir={translated || dirOf(locale)} data-translated={translated || undefined} data-theme={theme} data-design={resolveCodeThemeId(site)} data-vip={pathDisabled('/vip', extensions) ? 'off' : undefined} style={tokens} suppressHydrationWarning>
+    <html lang={locale} dir={translated || dirOf(locale)} data-translated={translated || undefined} data-theme={theme} data-design={resolveCodeThemeId(site)} data-vip={pathDisabled('/vip', extensions) ? 'off' : undefined} data-low-data={lowDataEnabled ? 'on' : undefined} style={tokens} suppressHydrationWarning>
       <head>
         {locales.length > 1 && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />}
         {packages?.css ? <style data-packages dangerouslySetInnerHTML={{ __html: packages.css }} /> : null}
@@ -230,7 +233,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AutomaticLinks initialPolicy={forwarderPolicy} />
         <RouteAliasProvider map={routeAliases} permalinks={routing.permalinks}><SectionNamesProvider names={sectionNames}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
-          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /><FormEmbeds /><SitePopups />{siteCode.length > 0 && <SiteCode snippets={siteCode} />}</ExtensionProvider></SiteProvider></Providers>
+          <LowDataProvider initialEnabled={lowDataEnabled}><Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<SiteUtilityControls /><PwaClient /><CompareTray /><FormEmbeds /><SitePopups />{siteCode.length > 0 && <SiteCode snippets={siteCode} />}</ExtensionProvider></SiteProvider></Providers></LowDataProvider>
         </LocaleProvider></SectionNamesProvider></RouteAliasProvider>
       </body>
     </html>

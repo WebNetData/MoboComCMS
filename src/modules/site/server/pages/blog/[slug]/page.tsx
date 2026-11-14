@@ -47,6 +47,9 @@ import { pictureOf } from '@/modules/identity/domain/picture'
 import { sized, srcSet } from '@/shared/media/image'
 import { opensAudience } from '@/modules/account/server/item-audience'
 import { hasRule, ruleRefusal } from '@/modules/membership/server/rules'
+import { PostFormatLead } from '@/components/journal/PostFormat'
+import { factsFor } from '@/modules/journal/domain/formats'
+import { incrementPostViews } from '@/modules/journal/server/views'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -101,7 +104,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
   const now = new Date()
   if (!post || (!isPreview(preview) && (!isPublishedPost(post, now) || !await opensAudience(post.audienceGroups, 'post')))) notFound()
 
-  if (!isPreview(preview)) await db.post.update({ where: { id: post.id }, data: { views: { increment: 1 } } })
+  if (!isPreview(preview)) await incrementPostViews({ id: post.id })
   // Members-only articles: guests get a teaser and a VIP call to action; the post's own
   // builder layout is skipped so premium blocks never render for non-members.
   // Paid articles (paywall module) work the same way: a teaser and the buy box until bought.
@@ -239,6 +242,7 @@ export default async function PostPage({ params: paramsPromise, preview, askedSt
       <ArticleRail title={title} fa={isFa} />
       <div className="jp-main">
       <ArticleToc />
+      {!locked && post.format === 'VIDEO' && <PostFormatLead facts={factsFor('VIDEO', post.formatData)} title={title} fa={isFa} />}
       <article
         id="article-body"
         className={`prose journal-prose${locked ? ' vip-teaser' : ''}${articleBlocks !== null ? ' mcb-document' : ''}`}

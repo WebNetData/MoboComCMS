@@ -1148,6 +1148,9 @@ html[data-theme="light"] .md-page.md-embed:is(.md-cinema, .md-games) { border: 1
 .vp-tags span { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; }
 .vp { display: grid; gap: 10px; }
 .vp-frame { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgb(0 0 0 / .35); }
+.vp-low-data { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 1rem; text-align: center; background: var(--site-surface, #111); color: var(--site-text, #fff); }
+.vp-low-data p { margin: 0; max-width: 42rem; }
+.mc-low-data-embed { display: grid; place-items: center; width: 100%; min-height: 12rem; aspect-ratio: 16 / 9; padding: 1rem; background: var(--site-surface, #111); color: var(--site-text, #fff); }
 .vp-frame video, .vp-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: #000; }
 .vp-resume { position: absolute; inset-inline: 16px; inset-block-start: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; background: rgb(0 0 0 / .72); color: #fff; font-size: 13px; backdrop-filter: blur(6px); }
 .vp-resume button, .vp-error button, .vp-error a { padding: 7px 14px; border: 0; border-radius: 9px; background: #fff; color: #111; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }

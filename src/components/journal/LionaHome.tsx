@@ -1,7 +1,8 @@
+import SiteImage from '@/components/media/SiteImage'
 import Link from '@/components/AppLink'
 import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import TabSwitch from '@/components/site/TabSwitch'
-import { sized, srcSet } from '@/shared/media/image'
+import { sized } from '@/shared/media/image'
 import { Icon, type IconName } from '@/components/media/PortalIcons'
 
 // Journal landing in the Liona layouts (home-2 / home-4 / home-5): cinematic
@@ -43,7 +44,7 @@ function Head({ title, sub, more, icon = 'sparkle' }: { title: string; sub?: str
 /** Image card with the text under the picture (trending, news grid). */
 function Card({ story, excerpt = true }: { story: LionaStory; excerpt?: boolean }) {
   return <Link href={href(story)} className="lh-card">
-    <span className="lh-card-art"><img src={sized(story.cover, 400)} srcSet={srcSet(story.cover, 400)} alt="" loading="lazy" decoding="async" /><Badge category={story.category} /></span>
+    <span className="lh-card-art"><SiteImage source={story.cover} requestWidth={400} alt="" loading="lazy" decoding="async" /><Badge category={story.category} /></span>
     <span className="lh-card-body">
       <b>{story.title}</b>
       {excerpt && story.excerpt && <em>{story.excerpt}</em>}

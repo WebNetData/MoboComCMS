@@ -21,6 +21,8 @@ import { parseJson, validateFields } from '@/modules/catalog/server/product-conf
 import { assertKindFits, cascadeCategoryKind, kindForCategory } from '@/modules/catalog/server/category-kind'
 import { CategoryKindError } from '@/modules/catalog/domain/category-kind'
 import { productInput, saveVariants } from '@/modules/catalog/server/product-input'
+import { assertCanonicalSourceSlugAvailable } from '@/modules/content/server/canonical-alias'
+import { catalogPublicationIssuesById } from '@/modules/catalog/server/quality'
 import { adoptEditorStock } from '@/modules/catalog/server/locations'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { fxFormFields } from '@/modules/fx/server/fx'
@@ -36,7 +38,7 @@ import { postRevisionState } from '@/modules/site/server/revision-state'
 import { productRevisionState } from '@/modules/catalog/server/revision-state'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
-import { PENDING_REVIEW, PostReviewError, approvalPublishedAt, authorReviewRefusal, livePostWhere, parseAdminPostFilters, postFormStatus, publicationDateInput, type PostFormStatus } from '@/modules/journal/domain/journal'
+import { PENDING_REVIEW, PostReviewError, approvalPublishedAt, authorReviewRefusal, livePostWhere, parseAdminPostFilters, postFormStatus, postIssues, publicationDateInput, type PostFormStatus } from '@/modules/journal/domain/journal'
 import { decidePostProposal, decidePostReview, proposalView, proposePostEdit, reviewingAuthorPosts } from '@/modules/journal/server/review'
 import { claimPostWrite, type PostWriteState } from '@/modules/journal/server/review-state'
 import { changePostStates } from '@/modules/journal/server/review-bulk'
@@ -383,13 +385,14 @@ export async function PATCH(req: NextRequest) {
       }, { isolationLevel: 'Serializable' }))
     }
     if (type === 'products') {
-      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, condition: true, active: true, approval: true, audienceGroups: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, openAmount: true, openCurrencies: true, openMinMinor: true, openMaxMinor: true } })
+      const current = await db.product.findUnique({ where: { id }, select: { slug: true, price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, condition: true, active: true, approval: true, audienceGroups: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, openAmount: true, openCurrencies: true, openMinMinor: true, openMaxMinor: true } })
       const revisionBefore = await productRevisionState(id)
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
       const relationships = b?.relationships === undefined ? null : parseProductRelationships(b.relationships, id)
       const bundles = b?.bundles === undefined ? null : parseProductBundles(b.bundles, id)
       const saved = await db.$transaction(async tx => {
+        if (typeof b?.slug === 'string' && b.slug !== current.slug) await assertCanonicalSourceSlugAvailable('product', b.slug, id, tx)
         const pricesBefore = await prepareProductPriceCapture(tx, id)
         const row = await tx.product.update({ where: { id }, data: input.data as any })
         // The ticks beside the main category; a main category that was also ticked is not kept twice.
@@ -400,6 +403,10 @@ export async function PATCH(req: NextRequest) {
         if (relationships) await replaceProductRelationships(tx, id, relationships)
         if (b?.deviceCompatibility !== undefined) await replaceDeviceCompatibility(tx, id, b.deviceCompatibility)
         if (bundles) await replaceProductBundles(tx, id, bundles)
+        if (row.active && !current.active) {
+          const issues = await catalogPublicationIssuesById(tx, id)
+          if (issues.length) throw new Error(`پیش از انتشار کالا این موارد را تکمیل کنید: ${issues.join('، ')}`)
+        }
         await capturePublicProductPrices(tx, id, pricesBefore)
         await recordRevision({ entityType: 'products', entityId: id, before: revisionBefore, after: (await productRevisionState(id, tx))!, actor: admin, client: tx, strict: true })
         return row
@@ -423,6 +430,11 @@ export async function PATCH(req: NextRequest) {
         if (itemLinks) await validatePostItemLinks(tx, itemLinks, id)
         const row = await tx.post.update({ where: { id }, data })
         if (itemLinks) await replacePostItemLinks(tx, id, itemLinks)
+        if (row.status === 'PUBLISHED' && postWriteState?.status !== 'PUBLISHED') {
+          const categoryCount = await tx.postCategoryAssignment.count({ where: { postId: id } })
+          const issues = postIssues({ cover: row.cover, excerpt: row.excerpt, content: row.content, categories: categoryCount + (row.categoryId ? 1 : 0) })
+          if (issues.length) throw new PostReviewError(`پیش از انتشار مقاله این موارد را تکمیل کنید: ${issues.join('، ')}`, 422)
+        }
         await recordRevision({ entityType: 'posts', entityId: id, before, after: (await postRevisionState(id, tx))!, actor: admin, client: tx, strict: true })
         if (reviewed) {
           await queueReviewDecision(tx, { authorId: reviewed.authorId, decidedById: admin.id, postId: id, title: row.title, decision: reviewed.decision })

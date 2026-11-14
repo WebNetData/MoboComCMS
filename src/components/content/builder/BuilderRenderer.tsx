@@ -12,6 +12,7 @@ import { getBuilderPosts, getBuilderProducts, postQueryKey, productQueryKey, typ
 import { getServerTheme } from '@/i18n/server'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
+import LowDataEmbed from '@/components/media/LowDataEmbed'
 import { getModuleStates } from '@/extensions/server/modules'
 import { SOCIAL_NETWORKS, toEmbedUrl, type BuilderCode, type BuilderDoc, type BuilderSection, type BuilderWidget, type SlotWidgetType } from '@/modules/site/domain/builder'
 import { BUNDLED_TEMPLATES } from '@/modules/site/domain/builder-templates'
@@ -241,7 +242,7 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
       const src = safeHref(toEmbedUrl(props.url || ''))
       if (!props.url || src === '#' || !/^https:\/\//.test(src)) return ctx.preview ? frame(widget, ctx, <div className="br-img-ph br-video-ph">{locale === 'fa' ? 'نشانی ویدیو را وارد کنید' : 'Add a video URL'}</div>) : null
       return frame(widget, ctx, <div className="br-video" style={radius}>
-        <iframe src={src} title={props.title || 'Video'} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
+        <LowDataEmbed src={src} title={props.title || 'Video'} allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" />
       </div>)
     }
     case 'stats':

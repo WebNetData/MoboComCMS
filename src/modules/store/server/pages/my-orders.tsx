@@ -176,6 +176,17 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
           <div>{line.slug ? <Link href={`/products/${line.slug}`}>{line.name}</Link> : <b>{line.name}</b>}{line.variantName && <small>{line.variantName}</small>}<small className="num">{fa(line.quantity)} عدد × <Money amount={line.unitPrice} currency={order.currency} /></small></div>
           <Money amount={line.total} currency={order.currency} />
           {!!line.deviceIdentifiers.length && <ul aria-label="شناسهٔ دستگاه‌های فروخته‌شده">{line.deviceIdentifiers.map((id, at) => <li key={at} dir="ltr">{[id.serial && `Serial: ${id.serial}`, id.imei && `IMEI: ${id.imei}`].filter(Boolean).join(' · ')}</li>)}</ul>}
+          {!!line.warranties?.length && <div className="sx-my-given" aria-label="اطلاعات ضمانت ثبت‌شده">
+            {line.warranties.map((warranty: { id: number; unitIndex: number; serial: string; imei: string; warrantyStartsAt: string; warrantyEndsAt: string; provider: string; conditions: string; tickets: { id: number; subject: string; status: string; updatedAt: string }[]; repairs: { id: number; stage: string; status: string; createdAt: string }[] }) => <section key={warranty.id}>
+              <b>اطلاعات ضمانت ثبت‌شده · دستگاه {fa(warranty.unitIndex + 1)}</b>
+              <dl><div><dt>ارائه‌دهنده</dt><dd>{warranty.provider}</dd></div><div><dt>شروع ضمانت</dt><dd>{persian(warranty.warrantyStartsAt, true)}</dd></div><div><dt>پایان ضمانت</dt><dd>{persian(warranty.warrantyEndsAt, true)}</dd></div></dl>
+              <p>{warranty.conditions}</p>
+              {(warranty.serial || warranty.imei) && <small dir="ltr">{[warranty.serial && `Serial: ${warranty.serial}`, warranty.imei && `IMEI: ${warranty.imei}`].filter(Boolean).join(' · ')}</small>}
+              {warranty.tickets.length > 0 && <ul aria-label="گفتگوهای پشتیبانی این دستگاه">{warranty.tickets.map(ticket => <li key={ticket.id}><Link href={`/dashboard/tickets?ticket=${ticket.id}`}>تیکت #{fa(ticket.id)} · {ticket.subject} · {ticket.status}</Link></li>)}</ul>}
+              {warranty.repairs.length > 0 && <ul aria-label="درخواست‌های تعمیر این دستگاه">{warranty.repairs.map(repair => <li key={repair.id}>درخواست تعمیر #{fa(repair.id)} · {repair.stage || repair.status || 'ثبت‌شده'}</li>)}</ul>}
+              <Link href={`/dashboard/tickets?warrantyDevice=${warranty.id}`} className="sx-link">ثبت تیکت دربارهٔ این دستگاه</Link>
+            </section>)}
+          </div>}
           {(line.openAmount || line.inputs.length > 0 || line.inputsErasedAt) && <div className="sx-my-given">
             {line.openAmount && <p>مبلغ پرداخت در سایت مقصد: <b className="num" dir="ltr">{line.openAmount.amount} {line.openAmount.currency}</b></p>}
             {line.inputs.length > 0 && <dl>{line.inputs.map((answer) => <div key={answer.key}><dt>{answer.label}</dt><dd dir="auto">{answer.value}</dd></div>)}</dl>}

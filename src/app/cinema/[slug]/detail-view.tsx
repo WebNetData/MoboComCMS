@@ -7,7 +7,7 @@ import { creditProfiles } from '@/modules/cinema/server/people'
 import { creditsOf, normalizePersonName } from '@/modules/cinema/domain/people'
 import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getTitle } from '@/modules/media/server/queries'
 import { getViewer } from '@/modules/membership/server/membership'
@@ -30,12 +30,15 @@ import { formatLabel } from '@/modules/cinema/domain/formats'
 import { sized, srcSet } from '@/shared/media/image'
 import type { CSSProperties } from 'react'
 import { shareCard } from '@/modules/site/server/seo'
+import { resolveCanonicalAliasSlug } from '@/modules/content/server/canonical-alias'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }>; preview?: BuilderPreview }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const [{ slug }, locale] = await Promise.all([contentRouteParams(params), getServerLocale()])
+  const canonical = await resolveCanonicalAliasSlug('cinema', slug)
+  if (canonical) redirect(canonical)
   const data = await getTitle(slug)
   if (!data) return {}
   const fa = locale === 'fa'
@@ -53,6 +56,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function TitlePage({ params, preview }: Props) {
   await requireModule('cinema')
   const [{ slug }, locale, viewer] = await Promise.all([contentRouteParams(params), getServerLocale(), getViewer()])
+  const canonical = await resolveCanonicalAliasSlug('cinema', slug)
+  if (canonical) redirect(canonical)
   const data = await getTitle(slug)
   if (!data) notFound()
   const fa = locale === 'fa'

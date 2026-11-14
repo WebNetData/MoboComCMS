@@ -8,6 +8,7 @@ import {
 import { receiptCodes, revealSecrets, sealSecrets, tellSender } from '@/modules/forms/server/paid'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import { resolvePhoneCustomer } from '@/modules/identity/server/phone-customer'
+import { latinDigits } from '@/shared/text/digits'
 
 /**
  * Work at the counter (owner 2026-11-12, mobile repair): staff enter a customer who brings the device to the shop, and
@@ -18,7 +19,7 @@ import { resolvePhoneCustomer } from '@/modules/identity/server/phone-customer'
 const parse = <T,>(text: string, fallback: T): T => { try { return JSON.parse(text) as T } catch { return fallback } }
 
 /** A customer in the shop, entered by staff: the same checks as the public form; the device is taken in at once. */
-export async function staffSubmit(formId: number, input: { values?: unknown }, actor: { id: number }) {
+export async function staffSubmit(formId: number, input: { values?: unknown; storeWarrantyDeviceId?: unknown }, actor: { id: number }) {
   const row = await db.siteForm.findUnique({ where: { id: formId } })
   if (!row) throw new FormsError('فرم پیدا نشد', 404)
   const form = parseForm(row), settings = form.settings!
@@ -33,10 +34,29 @@ export async function staffSubmit(formId: number, input: { values?: unknown }, a
   const mobile = shown.filter(field => field.type === 'tel' || field.type === 'mobile').map(field => normalizeMobile(values[field.id])).find(Boolean)
   const created = await db.$transaction(async tx => {
     const customer = mobile ? await resolvePhoneCustomer(tx,mobile,String(values.name||'')) : null
+    let storeWarrantyDeviceId: number | undefined
+    if (input.storeWarrantyDeviceId != null && input.storeWarrantyDeviceId !== '') {
+      const warrantyId = Number(input.storeWarrantyDeviceId)
+      if (!Number.isSafeInteger(warrantyId) || warrantyId <= 0 || !['mobile-repair', 'computer-repair'].includes(form.slug)) throw new FormsError('پیوند دستگاه ضمانت فقط به پذیرش تعمیر دستگاه متصل می‌شود')
+      const device = await tx.storeWarrantyDevice.findUnique({
+        where: { id: warrantyId },
+        include: { orderLine: { include: { order: { select: { userId: true, customerPhone: true, status: true } } } } },
+      })
+      if (!device || device.orderLine.order.status !== 'PAID' || device.orderLine.kind !== 'PHYSICAL') throw new FormsError('دستگاه ضمانت از یک کالای فیزیکیِ سفارش پرداخت‌شده باشد', 404)
+      const ownerMatches = device.orderLine.order.userId !== null
+        ? device.orderLine.order.userId === customer?.id
+        : Boolean(mobile && normalizeMobile(device.orderLine.order.customerPhone) === mobile)
+      if (!ownerMatches) throw new FormsError('شمارهٔ مشتری با مالک دستگاه ضمانت تطبیق ندارد', 403)
+      const serial = String(values.serial || '').trim()
+      const imei = latinDigits(String(values.imei || '')).replace(/\s/g, '')
+      const identifiers = [device.serial && serial && device.serial.replace(/[\s-]/g, '').toUpperCase() === serial.replace(/[\s-]/g, '').toUpperCase(), device.imei && imei && latinDigits(device.imei).replace(/\s/g, '') === imei].filter(Boolean)
+      if (!identifiers.length || !identifiers.some(Boolean)) throw new FormsError('شمارهٔ سریال یا IMEI پذیرش با تصویر فروش دستگاه ضمانت تطبیق ندارد', 409)
+      storeWarrantyDeviceId = device.id
+    }
     return tx.formSubmission.create({ data: {
     userId: customer?.id || null,
     formId, data: JSON.stringify(answers), secrets, status: 'READ', read: true, source: 'STAFF', createdById: actor.id, assigneeId: actor.id,
-    stage: intake?.key || 'OPEN', ...codes,
+    stage: intake?.key || 'OPEN', storeWarrantyDeviceId, ...codes,
   } })
   })
   if (intake) await tellSender({ id: created.id, title: form.title, data: created.data, userId: created.userId, pickupCode: created.pickupCode, receiptToken: created.receiptToken }, intake).catch(() => undefined)

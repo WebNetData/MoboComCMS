@@ -147,6 +147,19 @@ export async function disposeQuarantineStock(tx: Tx, item: StockItem & { quantit
   await move(tx, locationId, inventoryItem, 0, 'ADJUST', { ...ref, note: ref.note || 'ثبت وضعیت کالای غیرقابل‌فروش در قرنطینه' })
 }
 
+/** A confirmed supplier return or scrap physically leaves quarantine through the same append-only stock ledger. */
+export async function releaseQuarantineStock(tx: Tx, item: StockItem & { quantity: number }, ref: Ref = {}) {
+  if (!Number.isSafeInteger(item.quantity) || item.quantity <= 0) throw new LocationError('تعداد خروج از قرنطینه معتبر نیست')
+  await lockProduct(tx, item.productId)
+  const { item: checked } = await itemOf(tx, item.productId, item.variantId)
+  const inventoryItem = await trackedItem(tx, checked.productId, checked.variantId) || checked
+  const locationId = await quarantineLocationId(tx)
+  const stored = await tx.locationStock.findUnique({ where: { locationId_itemKey: { locationId, itemKey: itemKey(inventoryItem.productId, inventoryItem.variantId) } } })
+  if (!stored || stored.quantity < item.quantity) throw new LocationError('موجودی قرنطینه برای خروج کافی نیست', 409)
+  await move(tx, locationId, inventoryItem, -item.quantity, 'ADJUST', { ...ref, refType: 'return-custody', note: ref.note || 'خروج فیزیکی کالای قرنطینه‌شده پس از تأیید مدیر' })
+  await recomputeOnline(tx, inventoryItem.productId, true)
+}
+
 async function itemOf(tx: Tx, productId: number, variantId: number | null) {
   const product = await tx.product.findUnique({ where: { id: productId }, select: { id: true, sellerId: true, digitalMode: true, name: true } })
   if (!product) throw new LocationError('کالا پیدا نشد', 404)

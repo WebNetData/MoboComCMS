@@ -18,6 +18,8 @@ import { optionsOf, useSectionLists, type ActiveLists } from '../../cms/useSecti
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import { OrganizationScope } from '@/components/media/OrganizationScope'
 import ItemAudiencePanel from '@/components/admin/ItemAudiencePanel'
+import CanonicalAliasPanel from '../../cms/CanonicalAliasPanel'
+import { mediaPublicationIssues } from '@/modules/media/domain/publication'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -175,6 +177,14 @@ export default function GameEditorPage() {
     const value = previewValue(form[key])
     return { key, label, value, state: !value && required ? 'missing' : isAi(key) ? 'ai' : value ? 'ok' : 'empty' }
   }) : []
+  const publicationIssues = form ? mediaPublicationIssues('games', form, { links: (form.links as LinkRow[]).filter((link) => link.url && !link.disabled).length }) : []
+  const issueSections: Record<string, string> = { title: 'info', cover: 'media', platforms: 'info', summary: 'review', links: 'download', requirements: 'requirements' }
+  for (const issue of publicationIssues) {
+    const index = reviewRows.findIndex((row) => row.key === issue.key)
+    const row = { key: issue.key, label: issue.label, value: '', state: 'missing' as const, href: `#${issueSections[issue.key] || 'info'}` }
+    if (index >= 0) reviewRows[index] = { ...reviewRows[index], label: issue.label, state: 'missing', href: row.href }
+    else reviewRows.push(row)
+  }
   if (!form) return <GamesShell title="ویرایش بازی">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</GamesShell>
   const field = (key: string, label: string, props: Record<string, unknown> = {}) => <label className="sa-field"><span>{label}</span><input className="input" value={form[key] ?? ''} onChange={(e) => update(key, e.target.value)} {...props} /></label>
   const platforms = list(form.platforms)
@@ -302,6 +312,7 @@ export default function GameEditorPage() {
           <div className="sa-row"><span className={`sa-state ${form.status === 'PUBLISHED' ? 'is-ok' : ''}`}>{form.status === 'PUBLISHED' ? 'منتشرشده' : 'پیش‌نویس'}</span>{form.score !== '' && <span className="ga-score num">{fa(Number(form.score))}</span>}</div>
           <label className="sa-field"><span>وضعیت</span><select className="select" value={form.status} onChange={(e) => update('status', e.target.value)}><option value="DRAFT">پیش‌نویس</option><option value="PUBLISHED">منتشرشده</option></select></label>
         </section>
+        {!isNew && <CanonicalAliasPanel kind="game" sourceId={Number(id)} />}
         <section className="sa-card">
           <header className="sa-card-head"><h2>چک‌لیست صفحه</h2><small className="num">{fa(Object.keys(HEALTH_CHECKS).length - issues.length)}/{fa(Object.keys(HEALTH_CHECKS).length)}</small></header>
           <ul className="ga-checklist">{Object.entries(HEALTH_CHECKS).map(([key, label]) => <li key={key} className={issues.includes(key as keyof typeof HEALTH_CHECKS) ? 'is-missing' : 'is-ok'}>{issues.includes(key as keyof typeof HEALTH_CHECKS) ? '○' : '✓'} {label.replace('بدون ', '')}</li>)}</ul>

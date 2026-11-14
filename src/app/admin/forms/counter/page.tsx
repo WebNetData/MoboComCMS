@@ -16,6 +16,7 @@ type Saved = { id: number; pickupCode: string; receiptToken: string }
 export default function CounterPage() {
   const [forms, setForms] = useState<FormDefinition[]>([])
   const [formId, setFormId] = useState(0)
+  const [storeWarrantyDeviceId, setStoreWarrantyDeviceId] = useState(0)
   const [loading, setLoading] = useState(true)
   const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState('')
@@ -25,24 +26,28 @@ export default function CounterPage() {
   useEffect(() => {
     const controller = new AbortController()
     const id = Number(new URLSearchParams(window.location.search).get('form'))
+    const rawWarrantyId = Number(new URLSearchParams(window.location.search).get('warrantyDevice'))
+    const warrantyId = Number.isSafeInteger(rawWarrantyId) && rawWarrantyId > 0 ? rawWarrantyId : 0
     setLoading(true)
     setError('')
     setForms([])
     setFormId(0)
+    setStoreWarrantyDeviceId(Number.isSafeInteger(warrantyId) && warrantyId > 0 ? warrantyId : 0)
     fetch('/api/admin/forms', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}))
         if (controller.signal.aborted) return
         if (!response.ok) throw new Error(body.error || 'فرم‌ها خوانده نشدند')
         const available: FormDefinition[] = body.forms || []
-        const eligible = available.filter((item) => !item.settings?.payment.enabled)
+        const eligible = available.filter((item) => !item.settings?.payment.enabled && (!warrantyId || ['mobile-repair', 'computer-repair'].includes(item.slug || '')))
         setForms(eligible)
         if (id) {
-          const found = available.find((item) => item.id === id)
+          const found = eligible.find((item) => item.id === id)
           if (!found) setError('این فرم پیدا نشد یا به شما سپرده نشده است')
           else if (found.settings?.payment.enabled) setError('فرم پرداختی را مشتری خودش در سایت ارسال و پرداخت می‌کند')
           else setFormId(id)
         } else if (eligible.length === 1) setFormId(eligible[0].id!)
+        else if (warrantyId && !eligible.length) setError('فرم تعمیر غیرپرداختی برای پیوند دستگاه ضمانت در دسترس نیست')
       })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'فرم‌ها خوانده نشدند')
@@ -82,6 +87,6 @@ export default function CounterPage() {
         <button type="button" className="btn btn-ghost" onClick={() => { setSaved(null); setRound((value) => value + 1) }}>مشتری بعدی</button>
       </div>
     </section>}
-    {form && !saved && <PublicForm key={round} form={{ ...form, description: 'اطلاعات مشتری و دستگاه را وارد کنید. قفل گوشی رمزنگاری می‌شود و یک هفته پس از پایان کار پاک می‌شود.', settings: form.settings && { ...form.settings, saveDraft: false } }} counter={{ formId: form.id!, onSaved: setSaved }} />}
+    {form && !saved && <PublicForm key={round} form={{ ...form, description: 'اطلاعات مشتری و دستگاه را وارد کنید. قفل گوشی رمزنگاری می‌شود و یک هفته پس از پایان کار پاک می‌شود.', settings: form.settings && { ...form.settings, saveDraft: false } }} counter={{ formId: form.id!, ...(storeWarrantyDeviceId ? { storeWarrantyDeviceId } : {}), onSaved: setSaved }} />}
   </div>
 }

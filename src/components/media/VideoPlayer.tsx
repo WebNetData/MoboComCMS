@@ -13,6 +13,8 @@ import { useMkvSubtitles } from '@/components/media/player/useMkvSubtitles'
 import type { ExternalPlayerId } from '@/modules/media/domain/external-players'
 import { DEFAULT_SUBTITLE_STYLE, type SubtitleStyle } from '@/modules/media/domain/playback-prefs'
 import type { PlayerAudio, PlayerSubtitle } from '@/modules/media/server/links'
+import { useLowData } from '@/components/site/LowDataProvider'
+import { useI18n } from '@/i18n/LocaleProvider'
 
 type Props = {
   src: string
@@ -64,6 +66,10 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
 export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, embeddedSubtitles = false, audioTracks = NO_AUDIO, subtitlePreference = null, subtitleStyle = null, defaultSubtitleStyle = DEFAULT_SUBTITLE_STYLE, ownSubtitles = true, keyboardScope = 'global', breaks = null, externalPlayers = NO_APPS }: Props) {
+  const { enabled: lowData } = useLowData()
+  const { locale } = useI18n()
+  const isFa = locale === 'fa'
+  const [mediaRequested, setMediaRequested] = useState(false)
   const video = useRef<HTMLVideoElement>(null)
   const frame = useRef<HTMLDivElement>(null), subtitleLayer = useRef<HTMLDivElement>(null)
   const [externalAudio, setExternalAudio] = useState(false)
@@ -93,6 +99,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
   useEffect(() => {
     const element = video.current
     if (!element || playback === 'embed') return
+    if (lowData && !mediaRequested) { setError(''); setLevels([]); return }
     setError(''); setLevels([])
     let cancelled = false
     const saved = serverResume == null ? read(resumeKey) : serverResume
@@ -119,7 +126,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       }).catch(() => setError('network'))
     }
     return () => { cancelled = true; hls.current?.destroy(); hls.current = null; element.removeAttribute('src'); element.load() }
-  }, [src, playback, resumeKey, serverResume, attempt])
+  }, [src, playback, resumeKey, serverResume, attempt, lowData, mediaRequested])
 
   // Remember the position every few seconds; forget it near the end.
   useEffect(() => {
@@ -181,18 +188,19 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
     return () => window.removeEventListener('keydown', onKey)
   }, [keyboardScope])
 
-  if (playback === 'embed') return <div className="vp-frame"><iframe src={src} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></div>
+  if (playback === 'embed') return <div className="vp-frame">{lowData && !mediaRequested ? <div className="vp-low-data"><p>{title}</p><button type="button" className="btn btn-primary" onClick={() => setMediaRequested(true)}>{isFa ? 'بارگذاری ویدیو' : 'Load video'}</button></div> : <iframe src={src} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />}</div>
 
   const setRate = (value: number) => { setSpeed(value); if (video.current) video.current.playbackRate = value }
   const pickLevel = (value: number) => { setLevel(value); if (hls.current) hls.current.currentLevel = value }
 
   return <div className="vp" ref={frame} role={keyboardScope === 'focused' ? 'group' : undefined} tabIndex={keyboardScope === 'focused' ? 0 : undefined} aria-label={keyboardScope === 'focused' ? title : undefined}>
     <div className="vp-frame" ref={stage}>
-      <video ref={video} playsInline preload="metadata" poster={poster || undefined} aria-label={title}>
+      <video ref={video} playsInline preload={lowData ? 'none' : 'metadata'} poster={lowData && !mediaRequested ? undefined : poster || undefined} aria-label={title}>
         {[...subtitles, ...subs.own].map((track) => <track key={track.id} id={`vp-sub-${track.id}`} kind="subtitles" src={track.src} srcLang={track.language || 'und'} label={track.label} />)}
       </video>
       <div className="vp-ass-layer" ref={subtitleLayer} aria-hidden="true" />
       <SubtitleOverlay video={video} track={subs.active} style={subs.style} delay={subs.delay} />
+      {lowData && !mediaRequested && <div className="vp-low-data"><p>{title} · {isFa ? 'برای کاهش مصرف داده، ویدیو خودکار دریافت نمی‌شود.' : 'Video loading is paused to save data.'}</p><button type="button" className="btn btn-primary" onClick={() => setMediaRequested(true)}>{isFa ? 'بارگذاری ویدیو' : 'Load video'}</button></div>}
       {!error && <PlayerControls video={video} stage={stage} subs={subs} allowOwnFiles={ownSubtitles} levels={levels} level={level} onLevel={pickLevel} speed={speed} onSpeed={setRate} canPip={pip} externalAudio={externalAudio} />}
       {breaks && !error && <PlayerBreaks video={video} config={breaks} />}
       {resume > 0 && !error && <div className="vp-resume" role="status">

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   if (!user) return err('unauthorized', 401)
   const id = Number(params.id)
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid ticket id', 400)
-  const ticket = await db.ticket.findUnique({ where: { id }, include: { user: { select: { name: true, email: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, subscription: { select: { username: true, subToken: true } }, order: { select: { id: true, status: true, createdAt: true, currency: true, totalAmount: true, lines: { orderBy: { line: 'asc' }, select: { line: true, name: true, variantName: true, quantity: true } } } }, messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } } })
+  const ticket = await db.ticket.findUnique({ where: { id }, include: { user: { select: { name: true, email: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, subscription: { select: { username: true, subToken: true } }, storeWarrantyDevice: { select: { id: true, serial: true, imei: true, warrantyStartsAt: true, warrantyEndsAt: true, provider: true, conditions: true, orderLine: { select: { orderId: true, name: true, variantName: true } } } }, order: { select: { id: true, status: true, createdAt: true, currency: true, totalAmount: true, lines: { orderBy: { line: 'asc' }, select: { line: true, name: true, variantName: true, quantity: true } } } }, messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } } })
   if (!ticket) return err('not found', 404)
   const staffView = user.role === 'ADMIN' && req.nextUrl.searchParams.get('asCustomer') !== '1'
   if (staffView) {
@@ -44,6 +44,13 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     subscriptionLink: ticket.subscriptionLink || (ticket.subscription ? await safeHappLink(ticket.subscription.subToken) : ''),
     device: ticket.device,
     issueType: ticket.issueType,
+    warrantyDevice: ticket.storeWarrantyDevice ? {
+      id: ticket.storeWarrantyDevice.id, orderId: ticket.storeWarrantyDevice.orderLine.orderId,
+      name: ticket.storeWarrantyDevice.orderLine.name, variantName: ticket.storeWarrantyDevice.orderLine.variantName,
+      serial: ticket.storeWarrantyDevice.serial, imei: ticket.storeWarrantyDevice.imei,
+      warrantyStartsAt: ticket.storeWarrantyDevice.warrantyStartsAt, warrantyEndsAt: ticket.storeWarrantyDevice.warrantyEndsAt,
+      provider: ticket.storeWarrantyDevice.provider, conditions: ticket.storeWarrantyDevice.conditions,
+    } : null,
     assignedToId: staffView ? ticket.assignedToId : undefined,
     slaDueAt: staffView ? ticket.slaDueAt : undefined,
     firstResponseAt: staffView ? ticket.firstResponseAt : undefined,

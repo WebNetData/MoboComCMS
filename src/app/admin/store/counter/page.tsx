@@ -1,9 +1,10 @@
 'use client'
 import FulfilmentDesk, { EMPTY_SHIPMENT, shipmentInput, type DeskShipment } from './FulfilmentDesk'
 import { useCounterQuote } from './useCounterQuote'
+import QuotationPanel, { type QuotationContext } from './QuotationPanel'
 import ExchangePanel, { type ExchangeContext } from './ExchangePanel'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { useControlNavigation } from '@/components/admin/navigation/ControlNavigation'
 import { StoreShell } from '../shared'
@@ -61,6 +62,14 @@ export default function CounterSales() {
   const [fresh, setFresh] = useState({ key: '', n: 0 })
   const [confirmed, setConfirmed] = useState(false)
   const [packingConfirmed, setPackingConfirmed] = useState(false)
+  const [quotationId, setQuotationId] = useState(0)
+  const [quotation, setQuotation] = useState<QuotationContext | null>(null)
+  useEffect(() => { const id = Number(new URLSearchParams(window.location.search).get('quotation')); if (Number.isSafeInteger(id) && id > 0) setQuotationId(id) }, [])
+  const applyQuotation = useCallback((value: QuotationContext) => {
+    setQuotation(value); setItems(value.items); setCustomer(value.customer)
+    const [firstName = '', ...rest] = value.customer.name.split(/\s+/)
+    setBuyer({ firstName, lastName: rest.join(' '), phone: value.customer.phone }); setDiscountCode(''); setConfirmed(false)
+  }, [])
   const [exchangeId, setExchangeId] = useState(0)
   const [exchange, setExchange] = useState<ExchangeContext | null>(null)
   useEffect(() => { const value = Number(new URLSearchParams(window.location.search).get('exchange')); if (Number.isSafeInteger(value) && value > 0) setExchangeId(value) }, [])
@@ -103,7 +112,7 @@ export default function CounterSales() {
   const hasLines = items.length > 0 || repairLines.length > 0
   const subtotal = items.reduce((sum, item) => sum + BigInt(item.expectedUnitMinor) * BigInt(item.quantity), 0n) + (repair ? workTotal(work, currency) : 0n)
   const needsQuote = hasLines
-  const quote = useCounterQuote(needsQuote && hasLines ? { lines: items.map(({ product, variantName, ...line }) => line), ...repairInput, customerId: customer?.id || null, customerPhone: buyer.phone.trim(), discountCode, shipment: shipmentInput(shipment), attempt: quoteAttempt } : null)
+  const quote = useCounterQuote(needsQuote && hasLines ? { ...(quotation ? { quotation: { id: quotation.id, fingerprint: quotation.fingerprint } } : {}), lines: items.map(({ product, variantName, ...line }) => line), ...repairInput, customerId: customer?.id || null, customerPhone: buyer.phone.trim(), discountCode, shipment: shipmentInput(shipment), attempt: quoteAttempt } : null)
   const total = quote.quote ? BigInt(quote.quote.totalMinor) : subtotal
   const quoteReady = !needsQuote || !!quote.quote
   useEffect(() => { setConfirmed(false) }, [quote.quote?.warningFingerprint, quote.quote?.totalMinor])
@@ -111,7 +120,7 @@ export default function CounterSales() {
   const units = items.reduce((sum, item) => sum + item.quantity, 0)
   const locked = sale.busy || sale.uncertain
   const needsPacking = !shipment.enabled && items.some(item => item.product.kind === 'PHYSICAL')
-  const exchangeBlocked = !!exchangeId && (!exchange || !!exchange.replacementOrderId || (!!currency && currency !== exchange.currency))
+  const exchangeBlocked = (!!exchangeId && (!exchange || !!exchange.replacementOrderId || (!!currency && currency !== exchange.currency))) || (!!quotationId && (!quotation || !!exchangeId || !!repairId))
   const buyerStatus = buyerState(buyer, customer)
   const openSessions = (sessions || []).filter((row) => row.status === 'OPEN' && row.mine)
   let paymentReady = false
@@ -167,14 +176,15 @@ export default function CounterSales() {
   }
   function changeItem(index: number, patch: Partial<Item>) { if (patch.deviceIdentifiers?.every(id => !id.serial.trim() && !id.imei.trim())) patch.deviceIdentifiers = undefined; setItems(items.map((item, at) => at === index ? { ...item, ...patch } : item)); setConfirmed(false) }
   // A card reference typed before switching to cash must not reach a cash receipt.
-  const payload = () => { const payments = paymentRows(payment, total, currency); return { ...(exchangeId ? { exchangeReturnId: exchangeId } : {}), ...(needsPacking ? { packingConfirmed } : {}), ...(discountCode.trim() ? { discountCode } : {}), ...(shipment.enabled ? { shipment: shipmentInput(shipment) } : {}), ...(needsQuote && quote.quote ? { expectedTotalMinor: quote.quote.totalMinor, warningFingerprint: confirmed ? quote.quote.warningFingerprint || undefined : undefined } : {}), customerId: customer?.id || null, customerName: [buyer.firstName.trim(), buyer.lastName.trim()].filter(Boolean).join(' '), customerFirstName: buyer.firstName.trim(), customerLastName: buyer.lastName.trim(), customerPhone: buyer.phone.trim(), sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line), ...repairInput } }
+  const payload = () => { const payments = paymentRows(payment, total, currency); return { ...(quotation ? { quotation: { id: quotation.id, fingerprint: quotation.fingerprint } } : {}), ...(exchangeId ? { exchangeReturnId: exchangeId } : {}), ...(needsPacking ? { packingConfirmed } : {}), ...(discountCode.trim() ? { discountCode } : {}), ...(shipment.enabled ? { shipment: shipmentInput(shipment) } : {}), ...(needsQuote && quote.quote ? { expectedTotalMinor: quote.quote.totalMinor, warningFingerprint: confirmed ? quote.quote.warningFingerprint || undefined : undefined } : {}), customerId: customer?.id || null, customerName: [buyer.firstName.trim(), buyer.lastName.trim()].filter(Boolean).join(' '), customerFirstName: buyer.firstName.trim(), customerLastName: buyer.lastName.trim(), customerPhone: buyer.phone.trim(), sessionId, method: payment.method, reference: payments.some((row) => row.method === 'CARD') ? payment.reference : '', payments, walletCode: payment.walletCode, redeemPoints: payment.points, lines: items.map(({ product, variantName, ...line }) => line), ...repairInput } }
   function submitSale() { try { void sale.submit(payload()) } catch (error) { setLocalError(error instanceof Error ? error.message : 'مبالغ پرداخت معتبر نیست') } }
-  function nextSale() { if (sale.nextSale()) { setItems([]); setExchangeId(0); setExchange(null); setPackingConfirmed(false); setDiscountCode(''); setShipment(EMPTY_SHIPMENT); setConfirmed(false); setCustomer(null); setBuyer(EMPTY_BUYER); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setRepair(null); setRepairId(0); setWork([]); setAttempt((value) => value + 1) } }
+  function nextSale() { if (sale.nextSale()) { setItems([]); setQuotationId(0); setQuotation(null); setExchangeId(0); setExchange(null); setPackingConfirmed(false); setDiscountCode(''); setShipment(EMPTY_SHIPMENT); setConfirmed(false); setCustomer(null); setBuyer(EMPTY_BUYER); setPayment(EMPTY_PAYMENT); setLocalError(''); setScanNote(''); setRepair(null); setRepairId(0); setWork([]); setAttempt((value) => value + 1) } }
   const addDisabled = !product || !!(product.variants.length && !variant) || items.length + work.length >= 30 || items.some((item) => item.productId === product.id && item.variantId === (variant?.id || null)) || !!(currency && currency !== product.currency)
   const stock = product ? (variant?.stock ?? product.stock) : -1
 
 // Registers and returns are tabs of the desk; the store's order list only for someone who may open it (not a cashier).
 return <StoreShell title={repair ? 'فاکتور تعمیر' : 'فروش حضوری'} actions={ordersReachable ? <Link className="btn btn-ghost" href="/admin/store/orders">سفارش‌های ثبت‌شده</Link> : undefined}>
+    {quotationId > 0 && <QuotationPanel id={quotationId} onLoaded={applyQuotation} />}
     {exchangeId > 0 && <ExchangePanel returnId={exchangeId} total={total} currency={currency} onLoaded={setExchange} />}
     {localError && <div className="sa-notice is-error" role="alert">{localError}</div>}
     {sale.message && <div className="sa-notice is-error" role="alert">{sale.message}</div>}
@@ -256,7 +266,7 @@ return <StoreShell title={repair ? 'فاکتور تعمیر' : 'فروش حضو�
               : <><label htmlFor="counter-session" className="cd-sr">نوبت صندوق</label><select id="counter-session" className="input" value={sessionId} required onChange={(event) => { setSessionId(Number(event.target.value)); setConfirmed(false) }}><option value={0}>{sessions ? 'صندوق باز خود را انتخاب کنید' : 'در حال دریافت صندوق‌ها…'}</option>{openSessions.map((row) => <option key={row.id} value={row.id}>{row.register} · {row.currency}{row.location ? ` · ${row.location}` : ''}</option>)}</select></>}
           </Step>
           <Step n={2} title="مشتری" done={buyerStatus.kind === 'linked' || (buyerStatus.kind === 'new' && !buyerStatus.problem)} note={BUYER_NOTE[buyerStatus.kind]}>
-            <fieldset className="gateway-controls" disabled={!!exchangeId}><legend className="sr-only">مشتری فروش</legend><CustomerDesk customer={customer} buyer={buyer} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onBuyer={(value) => { setBuyer(value); setConfirmed(false) }} /></fieldset>
+            <fieldset className="gateway-controls" disabled={!!exchangeId || !!quotationId}><legend className="sr-only">مشتری فروش</legend><CustomerDesk customer={customer} buyer={buyer} onCustomer={(value) => { setCustomer(value); setConfirmed(false) }} onBuyer={(value) => { setBuyer(value); setConfirmed(false) }} /></fieldset>
           </Step>
           <Step n={3} title="تخفیف و تحویل" done={quoteReady}><FulfilmentDesk value={shipment} onChange={value => { setShipment(value); setConfirmed(false) }} discountCode={discountCode} onDiscount={value => { setDiscountCode(value); setConfirmed(false) }} />{quote.loading && <p className="sa-hint" role="status">در حال بررسی مبلغ و ارسال…</p>}{quote.error && <p className="cd-error" role="alert">{quote.error} <button className="sa-link" type="button" onClick={() => setQuoteAttempt(value => value + 1)}>تلاش دوباره</button></p>}</Step>
           <Step n={4} title="دریافت وجه" done={paymentReady}>
