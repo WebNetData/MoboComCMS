@@ -2,6 +2,9 @@
 
 ## Essential pages and purchasing information — continuation 2026-11-14
 
+Implementation/evidence committed locally as `c7ff51e8` (20 files); clean
+worktree after commit. Final documentation receipt records this identity.
+
 Owner accepted the five proposed opening basics, with essential pages and
 product information first. Same authoritative checkout/branch; this continuation
 starts after `5712455d` / documentation receipt `e95f513`. Local development only;
