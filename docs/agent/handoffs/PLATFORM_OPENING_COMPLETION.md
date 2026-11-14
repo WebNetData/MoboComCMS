@@ -248,3 +248,18 @@ The PR body includes migration/rollback,190 Doctor warnings, synthetic-provider
 limits and the unverified supplementary batch hash. Verified WebNetData through
 existing Git Credential Manager; no credentials printed, persisted or reconfigured.
 Publication URL/head receipt follows after GitHub confirms creation.
+
+## Published PR receipt — 2026-11-14
+
+[PR #470](https://github.com/WebNetData/MoboComCMS/pull/470) is OPEN, ready for owner review,
+targeting main from feat/platform-opening-completion-2026-11-14. GitHub verified published
+head c7def89be51886182553cf0b4af044c91ea488dd as MERGEABLE/CLEAN; this following
+commit only records publication. The source implementation and recorded local
+validation were not changed or rerun. No hosted workflow, merge or deploy was
+performed. This receipt supersedes earlier local-only/publication-pending notes.
+
+Next proposal, not yet approved for implementation: extend the existing manual
+Downloads probe into scheduled, quota-bounded file/link health checks through
+existing Jobs/Operations and the current download report queue. Show last
+success/error and an actionable owner edit link. Reuse controlled outbound
+access; do not add a second reporting system or fetch whole media unnecessarily.
