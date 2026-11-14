@@ -1,3 +1,5 @@
+Published on owner request2026-11-14: [PR469](https://github.com/WebNetData/MoboComCMS/pull/469), OPEN/non-draft, `feat/store-opening-controls-2026-11-14` → `main`; verified MERGEABLE at publication. Covers opening controls e7811335/faa556fb and order operations24c38b15/0ef60815,112 files. Reviewed source head0ef60815360f0d55a0c21e21dbc2ba4ab30f9996; complete-range redacted Gitleaks0 and Semgrep72 targets0. Existing local PostgreSQL/browser evidence is recorded below; no rerun of runtime tests or hosted workflow dispatch for publication. This documentation-only receipt follows the reviewed source. Owner merges/deploys; real opening data and live provider/printer/restore checks remain pending.
+
 # Store order operations — active continuation 2026-11-14
 
 Owner authorized opening catalog/settings + a controlled purchase, delivery
