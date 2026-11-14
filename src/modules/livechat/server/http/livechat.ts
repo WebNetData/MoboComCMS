@@ -179,7 +179,11 @@ export async function GET_crm(req: NextRequest) {
   if ('response' in guard) return guard.response
   const q = req.nextUrl.searchParams
   try {
-    if (q.get('id')) return ok(await crmProfile(idOf(q.get('id'))))
+    if (q.get('id')) {
+      const response = ok(await crmProfile(idOf(q.get('id')), guard.admin))
+      response.headers.set('Cache-Control', 'private, no-store')
+      return response
+    }
     return ok(await crmSearch({ q: q.get('q') || '', tag: q.get('tag') || '', segment: q.get('segment') || '' }))
   } catch (error) { return failure(error) }
 }

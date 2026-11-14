@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { requireModule } from '@/extensions/server/modules'
-import { MAX_SCANNED_MATCHES, searchSite } from '@/modules/search/server/search'
+import { MAX_SCANNED_MATCHES, searchSite, suggestSearchCorrection } from '@/modules/search/server/search'
 import { NO_FACETS, facetParams, hasFacets, type SearchFacets } from '@/modules/search/domain/facets'
 import { ITEM_LABEL, type ItemType } from '@/modules/content/domain/items'
 import { normalizePersian } from '@/shared/text/persian'
@@ -51,6 +51,9 @@ export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams
   const data = await searchSite({ q: params.q, type: params.type, page: params.page, cursor: params.cursor, facets: params })
   const q = data.query
+  const correction = q && !data.hits.length && data.total === 0 && !hasFacets(data.facets) && !params.cursor && (!params.page || Number(params.page) === 1)
+    ? await suggestSearchCorrection(q, data.type)
+    : null
   const narrowed = facetParams(data.facets)
   const href = (type: string, page = 1) => `/search?q=${encodeURIComponent(q)}${type !== 'all' ? `&type=${type}` : ''}${narrowed ? `&${narrowed}` : ''}${page > 1 ? `&page=${page}` : ''}`
   // The same search with one facet changed (the page starts again from the first).
@@ -136,6 +139,7 @@ export default async function SearchPage({ searchParams }: Props) {
           <section className={styles.empty} aria-label="بدون نتیجه">
             <span className={styles.emptyIcon}><Icon name="search" size={32} /></span>
             <h2>چیزی برای «<bdi>{q}</bdi>» پیدا نشد</h2>
+            {correction && <p>منظورتان <Link href={`/search?q=${encodeURIComponent(correction)}${data.type !== 'all' ? `&type=${data.type}` : ''}`}><bdi>{correction}</bdi></Link> بود؟</p>}
             <p>{hasFacets(data.facets) ? <>با این فیلترها نتیجه‌ای نیست. <Link href={facetHref(NO_FACETS)} rel="nofollow">فیلترها را بردارید</Link>.</> : 'املای دیگری امتحان کنید، عبارت کوتاه‌تری بنویسید یا نام انگلیسی را جست‌وجو کنید.'}</p>
             <div className={styles.chips}>{SUGGESTED.map(({ term }) => <Link key={term} href={`/search?q=${encodeURIComponent(term)}`}>{term}</Link>)}</div>
           </section>

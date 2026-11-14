@@ -6,6 +6,7 @@ import { dimensionsFor } from '@/modules/reviews/domain/dimensions'
 import PdfDownload from '@/components/content/PdfDownload'
 import ItemActions from '@/components/engage/ItemActions'
 import RecentViewTracker from '@/components/engage/RecentViewTracker'
+import ItemHistory from '@/components/engage/ItemHistory'
 import ReviewForm from '@/components/engage/ReviewForm'
 import ReviewList from '@/components/engage/ReviewList'
 import { RATING_LABELS, RatingMeter, ratingTone } from '@/components/engage/RatingMeter'
@@ -23,7 +24,7 @@ export async function ItemActionBar({ item, title, image, followLabel, favoriteL
   const canCompare = compareOn && COMPARABLE.includes(item.type)
   const viewer = await getViewer()
   const data = canFavorite ? await itemEngagement(item, viewer.userId) : null
-  return <><ItemActions pdf={pdf ? <PdfDownload item={itemKey(item)}/> : undefined} item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} favoriteLabels={favoriteLabels} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
+  return <><ItemActions pdf={pdf ? <PdfDownload item={itemKey(item)}/> : undefined} item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} favoriteLabels={favoriteLabels} /><ItemHistory key={itemKey(item)} item={itemKey(item)} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
 }
 
 /**

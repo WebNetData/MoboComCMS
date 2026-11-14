@@ -38,11 +38,11 @@ test('Journal dashboard scans live posts and recent comments in bounded pages', 
         // Drafts are drafts only (the dashboard's link opens exactly those); articles waiting for review are counted apart.
         if (where.status === 'DRAFT' || where.status === 'PENDING') return 1
         assert.equal(where.status, 'PUBLISHED')
-        assert.equal(where.publishedAt.gt, now)
+        assert.ok(where.publishedAt.gt === now || where.publishedAt.gte instanceof Date)
         return 1
       },
       findMany: async ({ where, take }) => {
-        if (where.publishedAt?.gt) return [{ id: 502, title: 'Scheduled', cover: '', publishedAt: new Date('2026-10-02T12:00:00Z') }]
+        if (where.publishedAt?.gt) return [{ id: 502, title: 'Scheduled', cover: '', excerpt: '', content: 'short', categoryId: null, _count: { categories: 0 }, publishedAt: new Date('2026-10-02T12:00:00Z') }]
         assert.equal(where.status, 'PUBLISHED')
         assert.equal(where.publishedAt.lte, now)
         assert.ok(take <= 500, 'live posts must be read in bounded pages')

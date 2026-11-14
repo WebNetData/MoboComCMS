@@ -12,6 +12,7 @@ import { closedSectionPlugins } from '@/modules/site/server/maintenance'
 import { searchIndexPage, enabledItemTypes, searchIndexCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { recordSearch } from '@/modules/analytics/server/collect'
 import { RankedWindow } from '@/modules/search/domain/ranked-window'
+import { correctionFromTitle, typoCandidateTerms } from '@/modules/search/domain/typo-correction'
 import { compareSearchBoundary, decodeSearchCursor, encodeSearchCursor, searchCursorScope } from './cursor'
 import { NO_FACETS, facetKey, meetsRating, normalizeFacets, sinceDate, type SearchFacets, type SearchFacetInput } from '@/modules/search/domain/facets'
 import { ratingsOfItems, dimensionRatingsOfItems, type ItemRating } from '@/modules/reviews/server/ratings'
@@ -242,6 +243,47 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   })
   if (input.log !== false && current === 1 && !cursor) void recordSearch(phrase, matchedTotal)
   return { facets, query, tokens, type, hits, total, page: current, pages, capped, counts, totalPages, nextCursor, previousCursor, cursorReset }
+}
+
+/**
+ * Offers one explicit title-based spelling correction for the public search page.
+ * Candidate lookup is trigram-filtered and capped; current cards and the ordinary
+ * search path recheck publication, module, maintenance and visibility rules.
+ */
+export async function suggestSearchCorrection(q: unknown, requestedType: unknown = 'all'): Promise<string | null> {
+  const tokens = searchTokens(q)
+  const terms = typoCandidateTerms(tokens)
+  if (!tokens.length || !terms.length || !await isModuleEnabled('search')) return null
+
+  const closed = await closedSectionPlugins()
+  const types = (await enabledItemTypes()).filter((item) => item === 'studio' ? !(closed.has('games') && closed.has('software')) : !closed.has(ITEM_MODULE[item]))
+  const type = types.includes(requestedType as ItemType) ? requestedType as ItemType : null
+  const rows = await db.searchDocument.findMany({
+    where: {
+      itemType: { in: type ? [type] : types },
+      publishedAt: { lte: new Date() },
+      OR: terms.map((term) => ({ text: { contains: term } })),
+    },
+    select: { itemType: true, itemId: true },
+    orderBy: [{ boost: 'desc' }, { publishedAt: 'desc' }],
+    take: SUGGESTION_CANDIDATES,
+  })
+  if (!rows.length) return null
+
+  const cards = await itemCards(rows.map((row) => ({ type: row.itemType as ItemType, id: row.itemId })))
+  const corrections = new Set<string>()
+  for (const row of rows) {
+    const card = cards.get(`${row.itemType}:${row.itemId}`)
+    if (!card) continue
+    const correction = correctionFromTitle(tokens, normalizePersian(card.title))
+    if (correction) corrections.add(correction)
+    if (corrections.size > 1) return null
+  }
+
+  const [correction] = corrections
+  if (!correction) return null
+  const verified = await searchSite({ q: correction, type: type || undefined, log: false })
+  return verified.total > 0 ? correction : null
 }
 
 /** Autocomplete: the best few hits across all types. */

@@ -14,7 +14,19 @@ export const journalSettingsState = () => settingsHistory().current()
 export const restoreJournalSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
 const DAY = 86_400_000
 const DASHBOARD_PAGE = 500
+const EDITORIAL_WINDOW_DAYS = 14
+const EDITORIAL_SCHEDULE_LIMIT = 50
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+const addCalendarDays = (day: string, amount: number) => {
+  const [year, month, date] = day.split('-').map(Number)
+  const next = new Date(Date.UTC(year, month - 1, date + amount))
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`
+}
+const tehranDayBounds = (day: string) => {
+  // Tehran is UTC+03:30; this is used only for upcoming dates, outside historical DST transitions.
+  const start = new Date(`${day}T00:00:00.000+03:30`)
+  return { start, end: new Date(start.getTime() + DAY) }
+}
 
 /** The list's narrowing as query conditions: a category also matches its sub-categories and secondary placements. */
 export async function adminPostFilterWhere(filters: AdminPostFilters, now = new Date()): Promise<Prisma.PostWhereInput[]> {
@@ -48,15 +60,25 @@ export async function saveJournalSettings(input: unknown, context?: SectionSetti
 
 export async function journalDashboard(now = new Date()) {
   const since = new Date(now.getTime() - 30 * DAY)
-  const [categories, pending, pendingRecent, drafts, scheduled, scheduledPosts, reviewWaiting, proposals] = await Promise.all([
+  const calendarStart = tehranDay(now)
+  const calendarDays = Array.from({ length: EDITORIAL_WINDOW_DAYS }, (_, index) => addCalendarDays(calendarStart, index))
+  const calendarEnd = tehranDayBounds(addCalendarDays(calendarStart, EDITORIAL_WINDOW_DAYS)).start
+  const [categories, pending, pendingRecent, drafts, scheduled, scheduledListPosts, scheduledPosts, reviewWaiting, proposals, scheduledWindowCount, scheduledDayCounts] = await Promise.all([
     db.postCategory.findMany({ select: { id: true, name: true } }),
     db.postComment.count({ where: { status: 'PENDING' } }),
     db.postComment.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, body: true, createdAt: true, user: { select: { name: true } }, post: { select: { title: true } } } }),
     db.post.count({ where: { status: 'DRAFT' } }),
     db.post.count({ where: { status: 'PUBLISHED', publishedAt: { gt: now } } }),
     db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { gt: now } }, orderBy: [{ publishedAt: 'asc' }, { id: 'asc' }], take: 6, select: { id: true, title: true, cover: true, publishedAt: true } }),
+    db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { gt: now, lt: calendarEnd } }, orderBy: [{ publishedAt: 'asc' }, { id: 'asc' }], take: EDITORIAL_SCHEDULE_LIMIT + 1, select: { id: true, title: true, cover: true, excerpt: true, content: true, publishedAt: true, categoryId: true, _count: { select: { categories: true } } } }),
     db.post.count({ where: { status: 'PENDING' } }),
     db.postEditProposal.count(),
+    db.post.count({ where: { status: 'PUBLISHED', publishedAt: { gt: now, lt: calendarEnd } } }),
+    Promise.all(calendarDays.map((day) => {
+      const bounds = tehranDayBounds(day)
+      const publishedAt = day === calendarStart ? { gt: now, lt: bounds.end } : { gte: bounds.start, lt: bounds.end }
+      return db.post.count({ where: { status: 'PUBLISHED', publishedAt } })
+    })),
   ])
   const health = Object.fromEntries(Object.keys(JOURNAL_HEALTH).map((key) => [key, 0])) as Record<JournalHealth, number>
   const worst: { id: number; title: string; cover: string; issues: JournalHealth[] }[] = []
@@ -118,6 +140,23 @@ export async function journalDashboard(now = new Date()) {
     if (rows.length < DASHBOARD_PAGE) break
     commentCursor = rows[rows.length - 1].id
   }
+  const boundedScheduledPosts = scheduledPosts.slice(0, EDITORIAL_SCHEDULE_LIMIT)
+  const scheduledByDay = new Map(calendarDays.map((day, index) => [day, { day, count: scheduledDayCounts[index], posts: [] as { id: number; title: string; cover: string; at: string; issues: { key: JournalHealth; label: string }[] }[] }]))
+  const scheduledQuality: { id: number; title: string; at: string; issues: { key: JournalHealth; label: string }[] }[] = []
+  for (const post of boundedScheduledPosts) {
+    const day = tehranDay(post.publishedAt)
+    const group = scheduledByDay.get(day)
+    if (!group) continue
+    const issues = postIssues({ cover: post.cover, excerpt: post.excerpt, content: post.content, categories: post._count.categories + (post.categoryId ? 1 : 0) }).map((key) => ({ key, label: JOURNAL_HEALTH[key] }))
+    group.posts.push({
+      id: post.id,
+      title: post.title,
+      cover: post.cover,
+      at: post.publishedAt.toISOString(),
+      issues,
+    })
+    if (issues.length) scheduledQuality.push({ id: post.id, title: post.title, at: post.publishedAt.toISOString(), issues })
+  }
   return {
     kpis: {
       published, drafts, scheduled, views, posts30, reviewWaiting, proposals,
@@ -127,7 +166,15 @@ export async function journalDashboard(now = new Date()) {
     health: Object.entries(health).map(([key, count]) => ({ key, label: JOURNAL_HEALTH[key as JournalHealth], count })).filter((row) => row.count).sort((a, b) => b.count - a.count),
     worst,
     topViewed,
-    scheduledList: scheduledPosts.map((post) => ({ id: post.id, title: post.title, cover: post.cover, at: post.publishedAt.toISOString() })),
+    scheduledList: scheduledListPosts.map((post) => ({ id: post.id, title: post.title, cover: post.cover, at: post.publishedAt.toISOString() })),
+    editorialCalendar: {
+      days: [...scheduledByDay.values()],
+      scheduledCount: scheduledWindowCount,
+      checkedCount: boundedScheduledPosts.length,
+      limit: EDITORIAL_SCHEDULE_LIMIT,
+      hasMore: scheduledWindowCount > boundedScheduledPosts.length,
+      quality: scheduledQuality,
+    },
     pending: pendingRecent.map((comment) => ({ id: comment.id, body: comment.body.slice(0, 140), author: comment.user.name || 'کاربر', post: comment.post.title, createdAt: comment.createdAt.toISOString() })),
     categories: [...byCategory].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, count]) => ({ name: catName.get(id) || `#${id}`, count })),
     authors: [...authors].sort((a, b) => b[1].posts - a[1].posts).slice(0, 6).map(([name, row]) => ({ name, ...row })),

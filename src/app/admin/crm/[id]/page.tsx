@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useParams } from '@/platform/routing/navigation'
 import { Notice, fa, faDate } from '../../store/shared'
+import type { CustomerServiceHistory } from '@/modules/forms/domain/customer-history'
 
 type Event = { at: string; kind: string; title: string; detail: string; href: string; tone: string }
 type Profile = {
@@ -12,9 +13,10 @@ type Profile = {
   notes: { id: number; body: string; author: string; createdAt: string }[]
   timeline: Event[]
   counts: Record<string, number>
+  services: CustomerServiceHistory
 }
 const ICON: Record<string, string> = { order: '🛒', ticket: '🎫', chat: '💬', wallet: '👛', return: '↩️', note: '📝', review: '⭐', signup: '👋' }
-const KINDS = [['', 'همه'], ['order', 'سفارش‌ها'], ['ticket', 'تیکت‌ها'], ['chat', 'گفت‌وگوها'], ['wallet', 'کیف پول'], ['return', 'مرجوعی'], ['review', 'نظرها'], ['note', 'یادداشت‌ها'], ['communication', 'ارتباط‌های بازاریابی']] as const
+const KINDS = [['', 'همه'], ['order', 'سفارش‌ها'], ['ticket', 'تیکت‌ها'], ['chat', 'گفت‌وگوها'], ['wallet', 'کیف پول'], ['return', 'مرجوعی'], ['review', 'نظرها'], ['note', 'یادداشت‌ها'], ['communication', 'ارتباط‌های بازاریابی'], ['service', 'خدمات و تعمیرات']] as const
 
 async function post(body: Record<string, unknown>) {
   const response = await fetch('/api/admin/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
@@ -30,19 +32,28 @@ export default function CustomerFile() {
   const [kind, setKind] = useState('')
   const [note, setNote] = useState('')
   const [tag, setTag] = useState('')
+  const request = useRef<AbortController | null>(null)
   const load = useCallback(async () => {
-    const response = await fetch(`/api/admin/crm?id=${id}`, { cache: 'no-store' }).catch(() => null)
-    const body = await response?.json().catch(() => null)
-    if (response?.ok) setData(body); else setError(body?.error || 'بارگذاری نشد')
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current = controller
+    try {
+      const response = await fetch(`/api/admin/crm?id=${id}`, { cache: 'no-store', signal: controller.signal })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body?.error || 'بارگذاری نشد')
+      if (!controller.signal.aborted) { setData(body); setError('') }
+    } catch (cause) {
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'بارگذاری نشد')
+    }
   }, [id])
-  useEffect(() => { void load() }, [load])
-  if (error) return <div className="sa"><Notice tone="error">{error}</Notice></div>
+  useEffect(() => { setData(null); setError(''); setNote(''); setTag(''); setKind(''); void load(); return () => request.current?.abort() }, [load])
+  if (error) return <div className="sa"><Notice tone="error">{error} <button type="button" className="sa-link" onClick={() => void load()}>تلاش دوباره</button></Notice></div>
   if (!data) return <div className="sa"><div className="sa-skeleton" aria-busy="true" /></div>
   const c = data.customer
   async function addNote(event: FormEvent) { event.preventDefault(); const result = await post({ id: c.id, note }); if (result.ok) { setNote(''); void load() } else setError(result.error) }
   async function toggleTag(value: string, on: boolean) { const result = await post({ id: c.id, tag: value, on }); if (result.ok) { setTag(''); void load() } else setError(result.error) }
   const events = kind ? data.timeline.filter((event) => event.kind === kind) : data.timeline
-  return <div className="sa" dir="rtl">
+  return <div className="sa crm-customer-file" dir="rtl">
     <header className="sa-head crm-head">
       <span className="crm-avatar" aria-hidden="true">{(c.name || c.email).slice(0, 1)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -65,7 +76,7 @@ export default function CustomerFile() {
 
     <div className="sa-editor">
       <section className="sa-card">
-        <header className="sa-card-head"><h2>تاریخچهٔ کامل</h2><div className="crm-filters">{KINDS.map(([value, label]) => <button key={value} type="button" className={kind === value ? 'is-active' : ''} aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}</div></header>
+        <header className="sa-card-head"><h2>تاریخچهٔ اخیر مشتری</h2><div className="crm-filters">{KINDS.filter(([value]) => value !== 'service' || data.services?.status === 'available').map(([value, label]) => <button key={value} type="button" className={kind === value ? 'is-active' : ''} aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}</div></header>
         <ol className="crm-timeline">{events.map((event, index) => <li key={`${event.kind}-${index}`} className={event.tone ? `is-${event.tone}` : ''}>
           <span className="crm-ico" aria-hidden="true">{ICON[event.kind] || '•'}</span>
           <div>{event.href ? <Link className="sa-link" href={event.href}><b>{event.title}</b></Link> : <b>{event.title}</b>}{event.detail && <p>{event.detail}</p>}</div>
@@ -73,6 +84,13 @@ export default function CustomerFile() {
         </li>)}{!events.length && <li><span /><p className="sa-empty">موردی نیست.</p><span /></li>}</ol>
       </section>
       <aside className="sa-editor-side sa-stack">
+        <section className="sa-card" aria-labelledby="crm-services-title">
+          <header className="sa-card-head"><h2 id="crm-services-title">خدمات و تعمیرات</h2></header>
+          {data.services?.status === 'restricted' ? <p className="sa-hint">برای مشاهدهٔ سابقهٔ خدمات به دسترسی رسیدگی به فرم مربوط نیاز دارید.</p>
+            : data.services?.status === 'unavailable' ? <Notice tone="error">سابقهٔ خدمات دریافت نشد. <button type="button" className="sa-link" onClick={() => void load()}>تلاش دوباره</button></Notice>
+            : data.services?.rows.length ? <><ul className="sl-reviews">{data.services.rows.slice(0, 5).map(row => <li key={row.id}><Link className="sa-link" href={row.href}>{row.title} · #{fa(row.id)}</Link><p>{row.stage}{row.assignee ? ` · مسئول: ${row.assignee}` : ''}</p><small className="sa-sub">{faDate(row.createdAt)}</small></li>)}</ul><p className="sa-hint">حداکثر ۳۰ درخواست اخیر در محدودهٔ دسترسی شما؛ جزئیات در فیلتر «خدمات و تعمیرات» تاریخچه است.{data.services.hasMore ? ' سابقهٔ بیشتری در بخش خدمات وجود دارد.' : ''}</p></>
+            : <p className="sa-empty">درخواست خدمات مرتبط و قابل مشاهده‌ای ثبت نشده است.</p>}
+        </section>
         <form className="sa-card sa-form" onSubmit={addNote}>
           <header className="sa-card-head"><h2>یادداشت داخلی</h2></header>
           <textarea className="textarea" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="فقط برای همکاران قابل مشاهده است" aria-label="یادداشت" />
