@@ -2,6 +2,8 @@ import { createHmac } from 'node:crypto'
 import dns from 'node:dns/promises'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
+import { repairPhone, repairConflict } from './repair-access'
+import { repairEvent } from './repair-work'
 import { logEvent } from '@/platform/observability/logger'
 import { isPrivateAddress } from '@/modules/server-panel/domain/downloads'
 import { parsePermissions } from '@/modules/identity/rbac'
@@ -140,7 +142,15 @@ export async function editSubmission(submissionId: number, input: unknown) {
     if (at >= 0) answers[at] = next; else answers.push(next)
     changed.push(field.id)
   }
-  await db.formSubmission.update({ where: { id: row.id }, data: { data: JSON.stringify(answers) } })
+  const serialized = JSON.stringify(answers), contactChanged = repairPhone(row.data) !== repairPhone(serialized)
+  await db.$transaction(async tx => {
+    const saved = await tx.formSubmission.updateMany({ where: { id: row.id, data: row.data, assigneeId: row.assigneeId, stage: row.stage, status: row.status, payStatus: row.payStatus, repairVersion: row.repairVersion, estimateRevision: row.estimateRevision }, data: { data: serialized, repairVersion: { increment: 1 }, ...(contactChanged && row.estimateRevision ? { estimateRevision: { increment: 1 } } : {}) } })
+    if (saved.count !== 1) throw repairConflict()
+    if (contactChanged && row.estimateRevision) {
+      await tx.repairEstimate.updateMany({ where: { submissionId: row.id, version: row.estimateRevision, supersededAt: null }, data: { supersededAt: new Date() } })
+      await repairEvent(tx, row, 'CONTACT', 'اطلاعات پذیرش به‌روز شد', 'برای دریافت رضایت مشتری، برآورد تازه لازم است')
+    }
+  })
   return { changed, answers }
 }
 

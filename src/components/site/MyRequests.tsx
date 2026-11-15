@@ -8,15 +8,17 @@ import Icon from '@/components/site/Icon'
 import CheckoutError from '@/components/CheckoutError'
 import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/client'
 import { SECRET_MASK, STAGE_LABEL, answerText, type Answer, type Stage } from '@/modules/forms/domain/forms'
+import type { CustomerRepairWorkView } from '@/modules/forms/domain/repair-work'
 
 type Request = {
   id: number; form: string; slug: string; createdAt: string; answers: { label: string; type: string; value: Answer }[]
-  amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; stage: string; stageLabel?: string; receiptToken?: string; reply: string
+  amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; stage: string; stageLabel?: string; receiptToken?: string; reply: string; repair: CustomerRepairWorkView | null
 }
 const fa = (n: number) => Math.round(n).toLocaleString('fa-IR')
 const whenFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Tehran' })
 const when = (iso: string) => whenFormat.format(new Date(iso))
 const TRACK: Stage[] = ['OPEN', 'IN_PROGRESS', 'DONE']
+const REPAIR_STATUS = { PENDING: 'در انتظار پاسخ', APPROVED: 'تأیید شده', REJECTED: 'رد شده' }
 const TONE: Record<string, string> = { OPEN: 'is-warn', IN_PROGRESS: '', DONE: 'is-good', REJECTED: 'is-bad' }
 const PAGE = 10
 /** Which filter a request falls under: to pay, being worked on, done, rejected, or just sent. */
@@ -91,9 +93,10 @@ export default function MyRequests() {
               {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{row.stageLabel || STAGE_LABEL[row.stage as Stage]}</span>}
             </div>
           </div>
-          {(row.slug || row.receiptToken) && <div className="rq-actions">
+          {(row.slug || row.receiptToken || row.repair) && <div className="rq-actions">
             {row.slug && <Link href={row.amount > 0 ? `/dashboard/order/forms/${encodeURIComponent(row.slug)}` : `/forms/${row.slug}`} className="rq-action">ثبت دوباره</Link>}
             {row.receiptToken && <a className="rq-action" href={`/receipt/${row.receiptToken}`} target="_blank" rel="noopener noreferrer">رسید دستگاه</a>}
+            {row.repair && <Link href="/repair-status" className="rq-action">پیگیری و تأیید هزینه</Link>}
           </div>}
           {row.stage && row.stage !== 'REJECTED' && TRACK.includes(row.stage as Stage) && <ol className="rq-track" aria-label="مراحل انجام">{TRACK.map((stage, index) => {
             const passed = index < at || (complete && index === at), now = index === at && !complete
@@ -102,6 +105,7 @@ export default function MyRequests() {
               <span className="rq-step-label">{STAGE_LABEL[stage]}</span>
             </li>
           })}</ol>}
+          {row.repair && <div className="rq-reply"><div><b>برنامهٔ تعمیر</b><p>موعد: {row.repair.dueAt ? when(row.repair.dueAt) : 'ثبت نشده'}{row.repair.overdue && ' — گذشته از موعد'}</p>{row.repair.estimate && <p>برآورد: {BigInt(row.repair.estimate.amountMinor).toLocaleString('fa-IR')} تومان — {REPAIR_STATUS[row.repair.estimate.status]}</p>}</div></div>}
           {row.reply && <div className="rq-reply"><span className="rq-reply-icon" aria-hidden="true"><Icon name="chat" size={18} /></span><div><b>پیام کارشناس</b><p>{row.reply}</p></div></div>}
           {shownAnswers.length > 0 && <details className="rq-sent">
             <summary><Icon name="layers" size={17} /><span>اطلاعاتی که فرستادید</span><small>{fa(shownAnswers.length)} مورد</small><Icon name="chevron" size={16} className="rq-sent-chevron" /></summary>

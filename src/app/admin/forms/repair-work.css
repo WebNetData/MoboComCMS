@@ -1,0 +1,6 @@
+.admin-shell .repair-work { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; min-width: 0; overflow-wrap: anywhere; }
+.admin-shell .repair-work h3, .admin-shell .repair-work h4, .admin-shell .repair-work p { margin: 0; }
+.admin-shell .repair-work button { min-height: 44px; justify-self: start; }
+.admin-shell .repair-work .btn-ghost:hover { color: var(--accent-ink, var(--text)); }
+.admin-shell .repair-work ol { display: grid; gap: 8px; padding-inline-start: 24px; margin: 0; }
+.admin-shell .repair-work textarea { overflow-wrap: anywhere; }

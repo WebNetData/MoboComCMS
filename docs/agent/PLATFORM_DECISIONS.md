@@ -1179,3 +1179,14 @@ sales. Extend existing Forms receipts/SMS challenges and settings; keep handover
 authorization separate from status lookup, preserve old QR receipts and the canonical
 identity. Keep the current local Docker app on port3000 for review. [Implemented scope
 and evidence](handoffs/SMS_SETTINGS_RETENTION.md).
+
+### Repair estimate approval and promised delivery — owner2026-11-15
+
+The owner accepts the proposed next slice: customer approval of repair cost, delivery
+due date and customer-visible history. Continue existing Forms receipts/tracking and
+SMS; Store stays the final invoice/payment owner. Implementation binds consent to an
+immutable current estimate and verified transaction phone, retains prior decisions,
+and requires renewed approval for higher repair cost. Legacy unquoted work remains;
+rejected repair has an explicit unrepaired-return path with existing custody/payment
+controls. No separate identity, queue or unrestricted AI operation. Keep Docker3000
+available for owner review. [Implemented scope/evidence](handoffs/FORMS_AND_OPERATIONS.md#repair-estimate-consent-promised-delivery-and-public-history--2026-11-15).

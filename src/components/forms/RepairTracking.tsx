@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useHumanCheck } from '@/components/HumanCheck'
+import type { CustomerRepairWorkView } from '@/modules/forms/domain/repair-work'
+import RepairApproval from './RepairApproval'
 
-type TrackingView = { number: number; title: string; stage: string; stageLabel: string; createdAt: string; receivedAt: string | null; reply: string; steps: { key: string; label: string; current: boolean }[] }
+export type TrackingView = { repair?: CustomerRepairWorkView; number: number; title: string; stage: string; stageLabel: string; createdAt: string; receivedAt: string | null; reply: string; steps: { key: string; label: string; current: boolean }[] }
 type Response = { request?: TrackingView; message?: string; expiresIn?: number; resendIn?: number; error?: string; code?: string }
 type Method = 'manual' | 'phone'
 
@@ -81,6 +83,7 @@ export default function RepairTracking() {
       <p>شمارهٔ پذیرش {result.number.toLocaleString('fa-IR')}</p><h2 id="repair-result-title">{result.title}</h2><p>وضعیت فعلی: <strong>{result.stageLabel}</strong></p>
       {(result.receivedAt || result.createdAt) && <p>تاریخ پذیرش: {date(result.receivedAt || result.createdAt)}</p>}
       {result.steps.length > 0 && <ol className="repair-tracking__steps">{result.steps.map(step => <li key={step.key} className={step.current ? 'is-current' : ''} aria-current={step.current ? 'step' : undefined}>{step.label}{step.current && <span> — وضعیت فعلی</span>}</li>)}</ol>}
+      {result.repair && <RepairApproval key={`${result.number}:${result.repair.estimate?.id ?? 0}:${result.repair.estimate?.version ?? 0}`} number={result.number} repair={result.repair} onUpdated={setResult} />}
       {result.reply && <div className="repair-tracking__reply"><h3>پیام مجموعه</h3><p dir="auto">{result.reply}</p></div>}
     </section>}
   </div>

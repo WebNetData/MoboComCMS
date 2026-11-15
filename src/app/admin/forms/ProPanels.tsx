@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CHOICE_TYPES, FX_CURRENCIES, THEMES, THEME_LABEL, type FormField, type FormSettings, type FormStyle } from '@/modules/forms/domain/forms'
 import type { Row } from './shared'
+import RepairWorkPanel from './RepairWorkPanel'
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 const num = (value: string) => (value === '' ? undefined : Number(value))
@@ -137,6 +138,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
         <small className="sa-hint">مشاهده با نام شما ثبت می‌شود.</small>
       </div> : <p className="sa-hint">اطلاعات محرمانهٔ این پاسخ پاک شده است.</p>}
     </div>}
+    {row.repairEligible && <RepairWorkPanel key={row.id} id={row.id} />}
     <div className="fp-stage">
       <b>وضعیت کار</b>
       {unpaid ? <p className="sa-hint">تا پرداخت انجام نشود، کار روی این درخواست شروع نمی‌شود.</p> : <>

@@ -63,9 +63,13 @@ export async function duplicateForm(id: number) {
 }
 
 export async function deleteForm(id: number) {
-  const uploads = await db.formUpload.findMany({ where: { formId: id }, select: { id: true } })
+  const uploads = await db.$transaction(async tx => {
+    if (await tx.repairEstimate.count({ where: { submission: { formId: id } } })) throw new FormsError('این فرم سابقهٔ برآورد و رضایت مشتری دارد؛ آن را بایگانی یا غیرفعال کنید', 409)
+    const files = await tx.formUpload.findMany({ where: { formId: id }, select: { id: true } })
+    await tx.siteForm.deleteMany({ where: { id } })
+    return files
+  })
   await removeFiles(uploads.map((u) => u.id))
-  await db.siteForm.delete({ where: { id } }).catch(() => undefined)
 }
 
 export function templateList() {
@@ -266,6 +270,7 @@ const view = (row: { formId: number; form?: { title: string; settings?: string }
   formId: row.formId, formTitle: row.form?.title || '',
   ...(() => { const settings = normalizeSettingsSafe(row.form?.settings); return { steps: workSteps(settings).map((step) => ({ key: step.key, label: step.label, pickup: step.pickup, receipt: step.receipt, invoice: step.invoice })), receipt: settings.receipt.enabled } })(),
   repairInvoice: row.repairOrderId && invoices.has(row.repairOrderId) ? { orderId: row.repairOrderId, ...invoices.get(row.repairOrderId)! } : null,
+  repairEligible: !!row.receivedAt && !!normalizeSettingsSafe(row.form?.settings).service && !!normalizeSettingsSafe(row.form?.settings).receipt.enabled,
   source: row.source || '', receivedAt: row.receivedAt?.toISOString() || null,
   id: row.id, status: row.status, note: row.note, userId: row.userId, user: row.userId ? users.get(row.userId) || `کاربر ${row.userId}` : '', createdAt: row.createdAt.toISOString(),
   answers: parse<StoredAnswer[]>(row.data, []), files: (row.uploads || []).map((u) => ({ id: String(u.id), name: u.originalName, size: u.size })),
@@ -317,9 +322,14 @@ export async function updateSubmissions(ids: number[], patch: { status?: unknown
 export async function deleteSubmissions(ids: number[]) {
   const list = [...new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 200)
   if (!list.length) throw new FormsError('پاسخی انتخاب نشده است')
-  const uploads = await db.formUpload.findMany({ where: { submissionId: { in: list } }, select: { id: true } })
-  await removeFiles(uploads.map((u) => u.id))
-  return (await db.formSubmission.deleteMany({ where: { id: { in: list } } })).count
+  const removed = await db.$transaction(async tx => {
+    if (await tx.repairEstimate.count({ where: { submissionId: { in: list } } })) throw new FormsError('پاسخ دارای سابقهٔ برآورد و رضایت مشتری حذف نمی‌شود؛ بایگانی کنید', 409)
+    const uploads = await tx.formUpload.findMany({ where: { submissionId: { in: list } }, select: { id: true } })
+    const result = await tx.formSubmission.deleteMany({ where: { id: { in: list } } })
+    return { count: result.count, uploads }
+  })
+  await removeFiles(removed.uploads.map(u => u.id))
+  return removed.count
 }
 
 export async function exportCsv(query: SubmissionQuery) {

@@ -191,3 +191,9 @@ adds no runtime behavior; recorded PG/browser checks are reused, not represented
 as rerun. Docker readiness was checked again and returned200. Owner merges/deploys;
 no hosted workflow, real customer SMS, main merge or production release is performed.
 PR: https://github.com/WebNetData/MoboComCMS/pull/476.
+
+Repair consent continuation2026-11-15: separate decision-bound OTP reuses the shared
+challenge owner with a trusted transactional beforeIssue check and post-commit
+provider delivery. Public Admin revision is omitted, templates/keys/limits remain.
+Full contracts, migration206, actual PG/browser evidence and rollback are in
+[Forms handoff](FORMS_AND_OPERATIONS.md#repair-estimate-consent-promised-delivery-and-public-history--2026-11-15).

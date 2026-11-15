@@ -32,3 +32,9 @@
 .repair-tracking__reply { padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
 .repair-tracking__reply h3 { margin: 0; font-size: 1rem; }
 .repair-tracking__reply p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.repair-approval { display: grid; gap: 16px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); min-width: 0; overflow-wrap: anywhere; }
+.repair-approval h3, .repair-approval p { margin: 0; }
+.repair-approval__estimate { padding: 16px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+.repair-approval fieldset { display: flex; flex-wrap: wrap; gap: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.repair-approval fieldset label { display: inline-flex; align-items: center; min-height: 44px; gap: 8px; }
+.repair-approval__history { display: grid; gap: 12px; margin: 0; padding-inline-start: 24px; overflow-wrap: anywhere; }

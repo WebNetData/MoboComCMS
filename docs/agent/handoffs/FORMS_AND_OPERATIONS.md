@@ -265,3 +265,124 @@ on205 migrations, and exact browser fixture users/forms/challenges are0. Existin
 image `675416b1f3e7` and local container `mobocom-app` on port3000 are retained with
 skip-seed; the final source slice is committed with this handoff on the SMS branch.
 No real provider send or hosted/production action occurred.
+
+
+## Repair estimate consent, promised delivery and public history — 2026-11-15
+
+Owner requested implementing the proposed repair cost approval + due date + customer
+history after PR476. That PR is merged at main `fa2bd2af`; continue its implementation
+in the same `.mobocom/sms-platform` checkout on
+`feat/repair-approval-timeline-2026-11-15`. Earlier PR476 publication/local-only notes
+are historical. This is a new local feature slice, not an update to the merged PR.
+
+Forms now owns `RepairEstimate` immutable version/IRT amount/description/validity
+snapshots and typed `RepairEvent` business history. `FormSubmission` adds revision,
+current estimate revision and due date. Store remains the final invoice, payment
+and stock owner. No parallel identity, audit service, job queue or provider. Shared
+digitalFingerprint binds the current transaction phone/receipt using the existing
+business credential key, not a login-session secret. Preserve existing encryption
+keys during adoption. Canonical strict audit records staff writes; anonymous OTP
+decisions are the immutable business consent receipt, never attributed to a User.
+
+Staff GET/PATCH `/api/admin/forms/repair` checks canonical `cms.pages`/`forms.handle`,
+current form/held-work authority, fresh in-transaction permissions, explicit Origin,
+bounded body, strict limits and revision claims. Replacement keeps the old decision
+and marks its snapshot superseded. Plain phone corrections join the row/version
+claim and supersede applicable consent, including phone-away-then-back. Deadline
+changes append a real date event. No historical stage timeline is fabricated.
+
+`/repair-status` now shows current offer, promised date, overdue badge and latest100
+typed public business events (with truncation notice). `/dashboard/requests` shows
+the due date/current estimate and links to tracking. Public projections omit staff,
+private answers, PIN, handover/receipt secrets, contact hashes, internal notes and
+Admin revisions. Keeping revisions private also avoids turning generic issuance
+into a phone-match oracle. Paper tracking remains read-only. Separate decision OTP
+purpose binds submission + immutable estimate id/version + APPROVED/REJECTED.
+The shared OTP owner's trusted `beforeIssue` callback checks and claims current
+eligibility within challenge creation; provider I/O remains after commit. Consumption
+and conditional decision claim commit together; wrong attempts commit too. Global
+SMS limits/repair templates and existing no-debug/no-raw-code rules remain intact.
+
+Once an estimate exists, actual stage changes require its current approval; OPEN,
+QUOTED, REJECTED and pure intake remain available. `take:true`, Automation's manager
+path and custom progress keys use the same gate. A rejected estimate permits
+unrepaired pickup with existing pickup/invoice-or-recorded-manager-reason controls;
+the customer history explicitly says returned without repair. An already-approved
+offer remains valid after its reply deadline. A current approved IRT amount caps the
+final repair invoice; a higher price requires a new offer/consent. New work without
+an estimate keeps legacy behavior. Estimate publication is refused on a paid invoice.
+
+Migration `20270323120000_repair_consent_history` is additive/unreleased and registered
+in the manifest. Both schemas stay aligned. PostgreSQL constrains amount/currency,
+revision and decision shape and protects immutable offer/decision fields. Estimate
+FK Restrict and ordinary form/submission deletion guards preserve consent; deletion
+commits before filesystem cleanup so a competing estimate cannot lose attachments.
+Explicit existing Forms deletion still governs nonfinancial timelines.
+
+Executed: fresh206-migration PostgreSQL with isolated generated client/source,
+Linux UID1000/no.env; repair-approval native passed current roles/JWT/holders,
+audit rollback, immutable/replaced/expired quote, due/overdue, generic issuance,
+purpose separation, five committed wrong attempts, concurrent decision/replacement,
+one-shot consume, actual HTTP Origin/body/HumanCheck/rate/access denials, take/custom
+stage/invoice gates, unrepaired return, phone invalidation, private history and
+deletion retention. Repair tracking, counter and invoice regressions passed; the
+actual over-cap Store sale rolled back orders/invoices/payments/reservations/stock.
+45 scoped Forms/payments units, full types/source/architecture/security/audit,
+schema/money-schema/manifest passed. A deliberate omitted approval-stage guard in
+an isolated source copy failed the suite. The running source was never mutated.
+
+Private local source/database backups preceded app adoption. On populated local
+PostgreSQL, migration206 preserved hashes of prior submission contents and order
+states/amounts; new revision/due fields retained zero/null defaults. Existing image,
+storage, seed opt-out and port3000 remain. Actual browser33 desktop/mobile light/dark
+views passed scoped axe0/overflow0/pageerrors0: persisted Admin quote/due, preapproval
+stage refusal, real lookup/OTP decisions, rejected/wrong-code paths, customer account,
+fresh status and draft-preserving simulated409. Only SMS code issuance was intercepted
+to seed private synthetic challenges; HumanCheck, OTP validation, SQL and mutations
+were real. No real recipient/provider send. A label-stability defect after editing
+the estimate textarea, corrupted Persian follow-up labels and light hover contrast
+were corrected; final main flow passed. Harness now waits for completed conflict
+reload and respects mobile master/detail instead of clicking a hidden list.
+
+React Doctor: five components,0 errors/19 reviewed warnings (existing ProPanels and
+MyRequests findings, bounded stateful form complexity, abort-guarded current-id
+initial fetch). No suppression or dependency change. One-rule scoped Semgrep on14
+server targets found0; this is not a general security certification. Graphify query
+still refused the existing out-of-corpus CredentialPools.tsx; Serena manual calls
+timed out, so exact source and actual checks supplied evidence. No fresh graph claim.
+Four further desktop/mobile light/dark pairs verified long unbroken descriptions
+and a persisted overdue date in Admin and customer tracking: no scoped axe findings
+or horizontal overflow. Redacted Gitleaks scanned44 explicit changed/new files and
+found0. Exact synthetic browser users/forms/challenges and their owned notification
+jobs were removed; the disposable PostgreSQL test database was dropped. Cleanup
+receipts show0 remaining fixture users/forms/challenges and0 provider sends by task.
+Final restarted-source receipt follows below. No hosted workflow, production
+build/release, merge or deployment.
+
+Rollback retains additive consent records. Do not run an older mutation path that
+ignores active consent: retain the gate or freeze affected repair writes until
+compatible code returns. Do not rewind the database or reset historical decisions.
+Spec: `docs/specs/sms-platform/REPAIR_APPROVAL.md`.
+
+Final local receipt2026-11-15: restarted the existing `mobocom-app` container on
+127.0.0.1:3000, preserving image675416b1f3e7, storage, source bind and seed opt-out.
+All36 changed source/schema/check file hashes match `/app` after restart. Readiness,
+repair tracking, auth session, Admin Forms and homepage returned200; anonymous
+Admin repair access returned403. PostgreSQL reports206 applied migrations and0
+owned fixture users/forms/challenges or disposable test databases. Safe receipts,
+screenshots and private rollback backups remain ignored under `var/repair-approval`.
+
+## Repair approval PR publication — owner request2026-11-15
+
+The owner requested publication of development through this slice and retains
+merge/deploy control. Fetched `origin/main` remains fa2bd2af, the direct parent of
+implementation7f2b1c58; no conflicting or unrelated checkout work was included.
+[PR477](https://github.com/WebNetData/MoboComCMS/pull/477) is OPEN and non-draft,
+targeting `main` from `feat/repair-approval-timeline-2026-11-15`. GitHub confirmed
+initial published head7f2b1c58cbd80bc456df19cf47e6d8063de4940f,44 changed files.
+This following documentation receipt records publication without changing the
+implementation or its previously executed evidence. Earlier local-only/no-new-PR
+notes are historical. Existing PG/browser/security receipts were inspected, not
+rerun or represented as fresh checks. PR description includes migration, rollback,
+19 reviewed Doctor warnings and live-provider/production limits. Docker app3000
+is still running; no hosted workflow, provider call, merge or deployment was made.
