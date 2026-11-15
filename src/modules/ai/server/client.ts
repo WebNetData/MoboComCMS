@@ -166,7 +166,7 @@ async function openAiCompatible(baseUrl: string, apiKey: string, model: string, 
       : 'مسیر مستقیم: برای استفاده از Xray، در /admin/server/proxy یک پیکربندی برای «هوش مصنوعی» انتخاب و اعمال کنید'
   // Gemini 2.5 Flash's default thinking shares max_tokens with the answer. Short editor/meta/test requests
   // can spend the entire budget on thinking and look like a failed connection. Other model protocols stay intact.
-  const reasoning = provider === 'gemini' && prompt.maxTokens <= 1200 && /^gemini-2\.5-flash(?:$|-)/.test(model) ? { reasoning_effort: 'none' } : {}
+  const reasoning = provider === 'gemini' && prompt.maxTokens <= 1200 && /^gemini-2\.5-flash(?:$|-)/.test(model) ? { reasoning_effort: 'none' } : provider === 'gemini' && prompt.json && /^gemini-3(?:\.|-)/.test(model) ? { reasoning_effort: 'low' } : {}
   let response: Response
   let data: { usage?: unknown; choices?: { message?: { content?: string }; finish_reason?: string }[]; error?: { message?: string; code?: string } | string } | null
   try {

@@ -77,7 +77,12 @@ export type Receipt = 'sent' | 'notSent' | 'waiting' | 'failed'
 export function receiptOf(job: { status: string; result: string }): Receipt {
   if (job.status === 'FAILED') return 'failed'
   if (job.status !== 'DONE') return 'waiting'
-  try { return (JSON.parse(job.result || 'null') as { sent?: unknown } | null)?.sent === true ? 'sent' : 'notSent' } catch { return 'notSent' }
+  try {
+    const result = JSON.parse(job.result || 'null') as { sent?: unknown; delivery?: string } | null
+    if (result?.delivery === 'FAILED' || result?.delivery === 'UNKNOWN') return 'failed'
+    if (result?.delivery === 'SENDING') return 'waiting'
+    return result?.sent === true ? 'sent' : 'notSent'
+  } catch { return 'notSent' }
 }
 
 export const CHANNELS = ['sms', 'email', 'push'] as const

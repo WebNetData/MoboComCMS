@@ -1,24 +1,30 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { richTextToPlain } from '@/shared/content/sanitize'
-import { AI_TOOLS, AiOperationError, type AiOperation } from '../../domain/operations'
+import { AI_TOOLS, CATEGORY_TOOLS, AiOperationError, type AiOperation, type OperationPageContext } from '../../domain/operations'
+import { categoryContext, categoryPreview } from './categories'
+import { menuContext, menuPreview } from './menus'
 import { FULFILMENT_LABEL, canMoveTo } from '@/modules/store/domain/store'
 import { productInput } from '@/modules/catalog/server/product-input'
 import { validateCategorySelection } from '@/modules/site/server/categories'
 
-export async function operationsContext(allowed: string[]) {
+export async function operationsContext(allowed: string[], page?: OperationPageContext | null) {
   const permissions = new Set(AI_TOOLS.filter(t => allowed.includes(t.id)).map(t => t.permission))
   const [posts, pages, products, orders, postCategories, productCategories] = await Promise.all([
-    permissions.has('cms.posts') ? db.post.findMany({ take: 20, orderBy: { updatedAt: 'desc' }, select: { id: true, title: true, status: true, slug: true } }) : [],
+    allowed.some(t => t === 'post.create' || t === 'post.publish') ? db.post.findMany({ take: 20, orderBy: { updatedAt: 'desc' }, select: { id: true, title: true, status: true, slug: true } }) : [],
     permissions.has('cms.pages') ? db.page.findMany({ take: 10, orderBy: { updatedAt: 'desc' }, select: { id: true, title: true, status: true, slug: true } }) : [],
-    permissions.has('cms.products') ? db.product.findMany({ take: 20, orderBy: { updatedAt: 'desc' }, select: { id: true, name: true, slug: true, currency: true, priceMinor: true, stock: true, active: true } }).then(rows => rows.map(r => ({ ...r, priceMinor: r.priceMinor.toString() }))) : [],
+    allowed.includes('product.create') ? db.product.findMany({ take: 20, orderBy: { updatedAt: 'desc' }, select: { id: true, name: true, slug: true, currency: true, priceMinor: true, stock: true, active: true } }).then(rows => rows.map(r => ({ ...r, priceMinor: r.priceMinor.toString() }))) : [],
     permissions.has('orders.manage') ? db.order.findMany({ take: 20, orderBy: { updatedAt: 'desc' }, where: { productId: { not: null } }, select: { id: true, status: true, currency: true, totalMinor: true, productDelivery: { select: { status: true } } } }).then(rows => rows.map(r => ({ ...r, totalMinor: r.totalMinor.toString() }))) : [],
-    permissions.has('cms.posts') ? db.postCategory.findMany({ take: 50, orderBy: { id: 'asc' }, select: { id: true, name: true } }) : [],
-    permissions.has('cms.products') ? db.productCategory.findMany({ take: 50, orderBy: { id: 'asc' }, select: { id: true, name: true, kind: true } }) : [],
+    allowed.includes('post.create') ? db.postCategory.findMany({ take: 50, orderBy: { id: 'asc' }, select: { id: true, name: true } }) : [],
+    allowed.includes('product.create') ? db.productCategory.findMany({ take: 50, orderBy: { id: 'asc' }, select: { id: true, name: true, kind: true } }) : [],
   ])
-  return { posts, pages, products, orders, postCategories, productCategories, note: 'فقط همین فهرست محدود دیده شده؛ نبودن در فهرست به معنی نبودن در سایت نیست. پول به واحد خرد است؛ قیمت محصول تازه باید مقدار اعشاری دقیق با ارز از کاربر باشد.' }
+  const categories = Object.fromEntries(await Promise.all(allowed.filter(t => CATEGORY_TOOLS.includes(t)).map(async tool => [tool, await categoryContext(tool)])))
+  const navigation = allowed.includes('navigation.menu') && page?.menu && (page.menu !== 'section' || page.section) ? await menuContext(db, page) : undefined
+  return { page, posts, pages, products, orders, postCategories, productCategories, categories, navigation, publicPaths: ['/', '/blog', '/products', '/software', '/games', '/music', '/cinema', '/forum'], note: 'فقط همین فهرست محدود دیده شده؛ نبودن در فهرست به معنی نبودن در سایت نیست. برای ویرایش منو شناسهٔ دقیق از navigation لازم است؛ اگر هدف منو مشخص نیست سؤال کنید. پول به واحد خرد است؛ قیمت محصول تازه باید مقدار اعشاری دقیق با ارز از کاربر باشد.' }
 }
 export async function operationPreview(op: AiOperation, reader: Prisma.TransactionClient | typeof db = db) {
+  if (CATEGORY_TOOLS.includes(op.tool)) return categoryPreview(op, reader)
+  if (op.tool === 'navigation.menu') return menuPreview(op, reader)
   const a = op.args, id = Number(a.id)
   if (op.tool.endsWith('.create')) {
     const where = { slug: String(a.slug) }, existing = op.tool === 'post.create' ? await reader.post.findUnique({ where, select: { id: true } }) : op.tool === 'page.create' ? await reader.page.findUnique({ where, select: { id: true } }) : await reader.product.findUnique({ where, select: { id: true } })

@@ -31,6 +31,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [sentTo, setSentTo] = useState('')
+  const [deliveryNotice, setDeliveryNotice] = useState('')
   const [resendIn, setResendIn] = useState(0)
   // 2-step sign-in: set once the first factor passed and the account asks for its code.
   const [twoStep, setTwoStep] = useState<'' | CodeProvider>('')
@@ -59,7 +60,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
 
   async function requestCode(e?: React.FormEvent) {
     e?.preventDefault()
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setDeliveryNotice('')
     try {
       if (turnstileRequired && !turnstileToken) { setError(fa ? 'لطفاً اعتبارسنجی امنیتی را کامل کنید.' : 'Please complete the security check.'); return }
       const res = await fetch(mode === 'email' ? '/api/login/email-code' : '/api/sms/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, email, turnstileToken }) })
@@ -67,6 +68,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
       setTurnstileReset((value) => value + 1)
       if (!res.ok) { setError(data?.error || t.errGeneric); return }
       setSentTo(data.display || (mode === 'email' ? email : phone)); setResendIn(Number(data.resendIn) || 60); setCode('')
+      setDeliveryNotice(data.delivery === 'UNKNOWN' ? (fa ? 'نتیجهٔ ارسال هنوز مشخص نیست؛ اگر کد به شما رسید آن را وارد کنید. درخواست دوباره تا پایان زمان انتظار فعال نمی‌شود.' : 'Delivery is unconfirmed. Enter the code if it arrives; wait for the resend timer before requesting another.') : '')
     } catch { setError(t.errGeneric); setTurnstileReset(value => value + 1) } finally { setLoading(false) }
   }
 
@@ -112,7 +114,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
     <p className="auth-form-eyebrow">{fa ? 'خوش آمدید' : 'WELCOME BACK'}</p>
     <h1>{intent === 'register' ? (fa ? 'ثبت‌نام و ورود' : 'Create an account or sign in') : t.loginTitle}</h1>
   </>
-  const choose = (value: typeof mode) => { setMode(value); setSentTo(''); setCode(''); setTwoStep(''); setTotp(''); setError(''); setTurnstileReset(v => v + 1) }
+  const choose = (value: typeof mode) => { setMode(value); setSentTo(''); setDeliveryNotice(''); setCode(''); setTwoStep(''); setTotp(''); setError(''); setTurnstileReset(v => v + 1) }
   const switcher = intent !== 'register' && (otp || emailOtp) && <div className="auth-mode" role="group" aria-label={fa ? 'روش ورود' : 'Sign-in method'}>
     {otp && <button type="button" aria-pressed={mode === 'phone'} disabled={loading} className={mode === 'phone' ? 'is-active' : ''} onClick={() => choose('phone')}>{fa ? 'موبایل' : 'Mobile'}</button>}
     {emailOtp && <button type="button" aria-pressed={mode === 'email'} disabled={loading} className={mode === 'email' ? 'is-active' : ''} onClick={() => choose('email')}>{fa ? 'ایمیل' : 'Email'}</button>}
@@ -142,6 +144,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
     <form onSubmit={sentTo ? verifyCode : requestCode} className="auth-form" aria-busy={loading}>
       {heading}
       <p className="auth-form-intro" id="login-code-help" role={sentTo ? 'status' : undefined}>{sentTo ? <>{fa ? 'کد ۶ رقمی ارسال‌شده به ' : 'Enter the 6-digit code sent to '}<bdi dir="ltr" className="auth-code-recipient">{sentTo}</bdi>{fa ? ' را وارد کنید. کد دو دقیقه اعتبار دارد.' : '. It expires in two minutes.'}</> : (fa ? 'بدون رمز عبور وارد شوید؛ اگر حساب ندارید، پس از تأیید کد ساخته می‌شود.' : 'Sign in without a password. A new account is created only after you verify the code.')}</p>
+      {deliveryNotice && <p className="muted" role="status">{deliveryNotice}</p>}
       {switcher}
       {!sentTo ? <>
         <div className="mb-4">
@@ -155,7 +158,7 @@ export default function LoginForm({ telegramLogin, otp = false, emailOtp = false
         <label className="label" htmlFor="login-code">{fa ? 'کد تأیید' : 'Verification code'}</label>
         <input id="login-code" className="input auth-otp" type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} value={code} onChange={(e) => setCode(latinDigits(e.target.value).replace(/\D/g, ''))} required autoFocus aria-describedby={`login-code-help${error ? ' login-code-error' : ''}`} aria-invalid={!!error} />
         <div className="auth-otp-actions">
-          <button type="button" className="link-button" disabled={loading} onClick={() => { setSentTo(''); setCode(''); setError(''); setTurnstileReset(v => v + 1) }}>{fa ? (mode === 'email' ? 'ویرایش ایمیل' : 'ویرایش شماره') : 'Change recipient'}</button>
+          <button type="button" className="link-button" disabled={loading} onClick={() => { setSentTo(''); setDeliveryNotice(''); setCode(''); setError(''); setTurnstileReset(v => v + 1) }}>{fa ? (mode === 'email' ? 'ویرایش ایمیل' : 'ویرایش شماره') : 'Change recipient'}</button>
           <button type="button" className="link-button" disabled={resendIn > 0 || loading || (turnstileRequired && !turnstileToken)} onClick={() => void requestCode()}>{resendIn > 0 ? (fa ? `ارسال دوباره تا ${resendIn.toLocaleString('fa-IR')} ثانیه` : `Resend in ${resendIn}s`) : (fa ? 'ارسال دوبارهٔ کد' : 'Resend code')}</button>
         </div>
         <HumanCheck surface="entry" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />

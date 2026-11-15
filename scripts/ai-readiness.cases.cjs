@@ -18,3 +18,13 @@ test('a caller deadline ends an unreachable provider with the app diagnostic bef
  try { await assert.rejects(client.generate({system:'owned',user:'owned',maxTokens:200},config,undefined,AbortSignal.timeout(50)),e=>e.status===502&&/Xray/.test(e.message)) } finally { clearInterval(keepAlive) }
  assert(seen.aborted);assert(Date.now()-started<5000)
 })
+
+test('Gemini structured operation requests bound reasoning without changing the configured model or retrying',async()=>{
+ const bodies=[]
+ const client=loadSource({'./credentials':{credentialPoolReady:async()=>null,generateWithCredentialPool:async()=>null},'./routing':{readAiRoutes:async()=>({}),resolveAiRoute:()=>({source:'inherit'})},'./admin-context':{personalAiActor:()=>undefined,personalAiPurpose:()=>undefined},'@/modules/providers/server/panel-credentials':{decryptPanelCredential:()=>'owned-key'},'@/modules/social/server/egress':{egressRoute:async()=>'direct',egressFetch:async(_url,init)=>{bodies.push(JSON.parse(init.body));return Response.json({choices:[{message:{content:'{"actions":[]}'}}]})}}})('src/modules/ai/server/client.ts')
+ const config={provider:'gemini',model:'gemini-3.1-flash-lite',apiKey:'owned',baseUrl:'',voice:'',botName:''}
+ await client.generate({system:'Return JSON',user:'Prepare a reviewed plan',json:true,maxTokens:4000},config,'operations')
+ assert.equal(bodies.length,1);assert.equal(bodies[0].model,config.model);assert.equal(bodies[0].reasoning_effort,'low');assert.deepEqual(bodies[0].response_format,{type:'json_object'});assert.equal(bodies[0].max_tokens,4000)
+ await client.generate({system:'Give advice',user:'A different ordinary request',maxTokens:2000},config,'operations')
+ assert.equal(bodies.length,2);assert.equal(bodies[1].reasoning_effort,undefined);assert.equal(bodies[1].response_format,undefined)
+})

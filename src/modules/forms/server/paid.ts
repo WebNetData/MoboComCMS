@@ -12,6 +12,7 @@ import {
 import { randomBytes, randomInt } from 'node:crypto'
 import { mergeTags } from '@/modules/forms/domain/advanced'
 import { invoicePaid, repairInvoice } from '@/modules/forms/server/repair-invoice'
+import { queueFormStageSms } from './stage-sms'
 
 // Paid forms and the work on an answer: the bill, the payment through the site's own checkout,
 // the secrets a sender hands over, and the stage staff move an answer through.
@@ -218,9 +219,18 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   if (patch.reply !== undefined) data.reply = String(patch.reply).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 2000)
   if (!Object.keys(data).length) throw new FormsError('تغییری ارسال نشده است')
   if (row.status === 'NEW') { data.status = 'READ'; data.read = true }
-  const changed = await db.formSubmission.updateMany({ where: { id: row.id, assigneeId: row.assigneeId, stage: row.stage, payStatus: row.payStatus, ...(data.reply !== undefined ? { reply: row.reply } : {}), ...(data.read !== undefined ? { read: row.read } : {}), ...(data.status !== undefined ? { status: row.status } : {}) }, data })
-  if (changed.count !== 1) throw new FormsError('درخواست هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409)
   const stage = data.stage || row.stage
+  const moved = data.stage && data.stage !== row.stage ? steps.find(item => item.key === data.stage) : undefined
+  await db.$transaction(async tx => {
+    const changed = await tx.formSubmission.updateMany({ where: { id: row.id, assigneeId: row.assigneeId, stage: row.stage, payStatus: row.payStatus, data: row.data, userId: row.userId, pickupCode: row.pickupCode, receiptToken: row.receiptToken, ...(data.reply !== undefined ? { reply: row.reply } : {}), ...(data.read !== undefined ? { read: row.read } : {}), ...(data.status !== undefined ? { status: row.status } : {}) }, data })
+    if (changed.count !== 1) throw new FormsError('درخواست هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409)
+    if (moved) await queueFormStageSms({ id: row.id, title: row.form.title, data: row.data, userId: row.userId, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken }, moved, tx)
+    if (row.userId && (moved || (data.reply && data.reply !== row.reply))) await createInboxEvent({
+      userId: row.userId, kind: 'FORM', dedupeKey: `form:work:${row.id}:${randomBytes(16).toString('hex')}`,
+      titleFa: `درخواست شما در «${row.form.title.slice(0, 80)}»: ${stage ? stepLabel(settings, stage) : 'به‌روز شد'}`, titleEn: 'Your request was updated',
+      bodyFa: (data.reply || 'جزئیات را در «درخواست‌های من» ببینید.').slice(0, 300), bodyEn: '', href: '/dashboard/requests',
+    }, tx)
+  })
   if (data.stage && data.stage !== row.stage) {
     if (data.stage === 'REJECTED') await releaseSlots(row.id)
     void sendFormWebhooks(parseForm(row.form), 'stage', { entryId: row.id, stage: data.stage }).catch(() => undefined)
@@ -228,15 +238,6 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   if (data.assigneeId && data.assigneeId !== row.assigneeId && data.assigneeId !== actor.id) {
     await createInboxEvent({ userId: data.assigneeId, kind: 'FORM', dedupeKey: `form:assigned:${row.id}:${data.assigneeId}`, titleFa: `یک درخواست در «${row.form.title.slice(0, 80)}» به شما سپرده شد`, titleEn: 'A form request was assigned to you', bodyFa: `شمارهٔ ${row.id.toLocaleString('fa-IR')}`, bodyEn: '', href: `/admin/forms?form=${row.formId}&tab=inbox` }).catch(() => undefined)
   }
-  if (row.userId && ((data.stage && data.stage !== row.stage) || (data.reply && data.reply !== row.reply))) {
-    await createInboxEvent({
-      userId: row.userId, kind: 'FORM', dedupeKey: `form:work:${row.id}:${stage}:${(data.reply ?? row.reply).length}`,
-      titleFa: `درخواست شما در «${row.form.title.slice(0, 80)}»: ${stage ? stepLabel(settings, stage) : 'به‌روز شد'}`, titleEn: 'Your request was updated',
-      bodyFa: (data.reply || 'جزئیات را در «درخواست‌های من» ببینید.').slice(0, 300), bodyEn: '', href: '/dashboard/requests',
-    }).catch(() => undefined)
-  }
-  const moved = data.stage && data.stage !== row.stage ? steps.find((item) => item.key === data.stage) : undefined
-  if (moved) await tellSender({ id: row.id, title: row.form.title, data: row.data, userId: row.userId, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken }, moved).catch(() => undefined)
   return { stage, assigneeId: data.assigneeId === undefined ? row.assigneeId : data.assigneeId, reply: data.reply ?? row.reply, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken, overridden, withoutInvoice }
 }
 
@@ -249,15 +250,7 @@ export const receiptCodes = () => ({ receiptToken: randomBytes(18).toString('bas
  * (customers in the shop often have no account). Inbox messages are sent by the caller for signed-in senders.
  */
 export async function tellSender(row: { id: number; title: string; data: string; userId: number | null; pickupCode: string; receiptToken: string }, step: WorkStep) {
-  if (!step.sms || !step.message) return
-  const answers = parse<StoredAnswer[]>(row.data, [])
-  const phone = answers.find((answer) => answer.type === 'mobile' && typeof answer.value === 'string' && answer.value)?.value
-  if (typeof phone !== 'string') return
-  const name = answers.find((answer) => answer.id === 'name' && typeof answer.value === 'string')?.value
-  const { notifyPhone, siteLink } = await import('@/modules/sms/server/sms')
-  const receipt = row.receiptToken ? await siteLink(`/receipt/${row.receiptToken}`) : ''
-  const message = step.message.replace(/\{code\}/g, row.pickupCode || '—').replace(/\{receipt\}/g, receipt).replace(/\{id\}/g, String(row.id))
-  await notifyPhone('FORM_STAGE', phone, { name: typeof name === 'string' && name ? name : 'مشتری', form: row.title.slice(0, 60), stage: step.label, message, link: receipt }, row.userId)
+  return queueFormStageSms(row, step)
 }
 
 /** A signed-in sender's own answers, newest first: what they sent (passwords masked), the bill, and where the work stands. */

@@ -369,16 +369,14 @@ test('work somebody holds is theirs: a colleague of the same standing neither re
 })
 
 test('automatic text messages have a ceiling, and a sign-in guess meets a limit on the account itself', () => {
-  const sms = source('src/modules/sms/server/sms.ts')
-  assert.match(sms, /export const SMS_DAILY_PER_PHONE = 12/)
-  assert.match(sms, /if \(kind !== 'OTP' && !\['MANUAL', 'TEST'\]\.includes\(input\.event\)\) \{/)
-  assert.match(sms, /if \(same > 0\) \{ await log\('SKIPPED'/)
-  assert.match(sms, /if \(today >= SMS_DAILY_PER_PHONE\) \{ await log\('SKIPPED'/)
-  // Nothing leaves while the panel is not set up: the ceiling sits after that refusal, before the provider call.
-  assert.ok(sms.indexOf("if (!isReady(settings)) {") < sms.indexOf('SMS_DAILY_PER_PHONE) {') && sms.indexOf('SMS_DAILY_PER_PHONE) {') < sms.indexOf('await sendPattern(key'))
+  const delivery = source('src/modules/sms/server/sms/delivery.ts')
+  const notifications = source('src/modules/sms/server/sms/notifications.ts')
+  assert.match(delivery, /export const SMS_DAILY_PER_PHONE = 12/)
+  // The connected SMS suite proves the concurrent ceiling and replay rules against PostgreSQL.
+  assert.ok(delivery.indexOf('await serializable(') < delivery.indexOf('sendPattern('), 'a database reservation precedes provider I/O')
   // Ordinary alerts require verified opt-in; a persisted Store receipt may target its exact snapshot phone.
-  assert.match(sms, /!user\.smsAlerts \|\| \(!user\.phoneVerifiedAt && !counterTarget\)/)
-  assert.match(sms, /storeMessageTarget\(event\)/)
+  assert.match(notifications, /!user\.smsAlerts \|\| \(!user\.phoneVerifiedAt && !counterTarget\)/)
+  assert.match(notifications, /storeMessageTarget\(event\)/)
   const auth = source('src/modules/identity/auth.ts')
   assert.ok(auth.includes('rateLimitStrict(`login:account:${email}`, 30, 15 * 60_000)'))
   assert.ok(auth.indexOf('login:account:') < auth.indexOf('db.user.findUnique'), 'the limit is met before the password is looked at')
@@ -486,4 +484,16 @@ test('staff counter submission is independent of the public human check', () => 
   assert.match(source, /!preview && !counter && <div className="pf-full">\{human\.widget\}/)
   assert.match(source, /disabled=\{busy \|\| !!uploading \|\| \(!preview && !counter && last && !human\.ready\)\}/)
   assert.match(source, /if \(busy \|\| \(!counter && !human\.ready\)\) return/)
+})
+
+test('repair paper code binds receipt and submission independently of pickup', () => {
+  const crypto = require('node:crypto')
+  const { repairTrackingCode, parseTrackingCode, matchesTrackingCode } = require('./connected-source-loader.cjs')({})('src/modules/forms/server/tracking-code.ts')
+  const token = 'abcdefghijklmnopqrstuvwx', code = repairTrackingCode(37, token)
+  const digest = crypto.createHash('sha256').update(`mobocom:repair-tracking:v1:37:${token}`).digest('hex').slice(0, 20).toUpperCase()
+  assert.equal(code.split('-').slice(1).join(''), digest)
+  assert(matchesTrackingCode(parseTrackingCode(code.toLowerCase()), token))
+  assert.equal(matchesTrackingCode(parseTrackingCode(code), 'zyxwvutsrqponmlkjihgfedc'), false)
+  assert.equal(parseTrackingCode('37-123456'), null)
+  assert.equal(repairTrackingCode(0, token), '')
 })

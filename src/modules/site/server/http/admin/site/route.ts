@@ -3,18 +3,13 @@ import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { getSiteConfig, SITE_KEY } from '@/modules/site/config/store'
+import { getSiteConfig } from '@/modules/site/config/store'
 import { validateSite } from '@/modules/site/config/validation'
 import { bundledThemes } from '@/themes/registry'
 import { extensionCatalog } from '@/extensions/generated/catalog'
-import { createHash } from 'node:crypto'
-import { getSiteConfigFrom } from '@/modules/site/config/store'
-import { updateJsonSetting, JsonSettingMutationError } from '@/modules/settings/server'
-import { auditAdminStrict } from '@/platform/audit/server'
-import { recordRevision } from '@/modules/content/server/revisions'
-import { siteSettingsSnapshot } from '@/modules/site/config/history'
+import { JsonSettingMutationError } from '@/modules/settings/server'
+import { siteMenuRevision as revision, updateSiteConfiguration } from '@/modules/navigation/server/assistant-menu'
 import { originIsThisSite } from '@/platform/http/origin-policy'
-const revision = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('دسترسی مجاز نیست', 403)
   const config = await getSiteConfig()
@@ -33,18 +28,11 @@ export async function PUT(req: NextRequest) {
   // Legacy keys are retained for old site documents, but runtime activation is
   // exclusively owned by the extension manager.
   try {
-    await updateJsonSetting(SITE_KEY, async (stored, tx) => {
-      const actor = await requirePerm(req, 'settings.manage', tx)
-      if (!actor) throw new JsonSettingMutationError('forbidden')
-      const current = await getSiteConfigFrom(tx, true)
-      if (req.headers.has('if-match') && req.headers.get('if-match') !== revision(current)) throw new JsonSettingMutationError('stale')
+    await updateSiteConfiguration(req, req.headers.get('if-match') ?? undefined, current => {
       // A retired legacy key must not block an unrelated menu edit. Only the
       // exact value already stored may survive; new/changed unknown keys fail.
       if (Object.entries(value.plugins).some(([id, enabled]) => !extensionCatalog.some(p => p.id === id) && (!Object.hasOwn(current.plugins, id) || current.plugins[id] !== enabled))) throw new JsonSettingMutationError('invalid plugin')
-      Object.keys(stored).forEach(key => delete stored[key])
-      Object.assign(stored, value)
-      await recordRevision({ entityType: 'settings-site', entityId: 1, before: siteSettingsSnapshot(current), after: siteSettingsSnapshot(value), actor, client: tx, strict: true })
-      await auditAdminStrict({ req, actor, action: 'site.update', targetType: 'setting', targetId: SITE_KEY }, tx)
+      return value
     })
     return ok({ saved: true, revision: revision(value) })
   } catch (error) {

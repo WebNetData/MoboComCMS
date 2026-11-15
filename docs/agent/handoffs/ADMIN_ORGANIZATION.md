@@ -58,3 +58,10 @@ Owner, 2026-11-13: «سیستم اصولی و مرتب باید توسعه دا�
 3. **Single-link groups in Marketing** (SEO, popups, links) and **AI** («فروش و مشتری»): fold them into neighbours through their manifests or order, without changing addresses.
 4. **Website and services:** the form builder sits under Website while service work is under Sales. Add a link from «خدمات» to the builder for service forms; do not move the builder.
 5. **Run as each ready role** once the owner provides test accounts: cashier, form specialist, order specialist, chat agent, section managers. Record what each sees.
+
+
+## User directory and guarded removal — 2026-11-15
+
+On `feat/admin-ai-integration-2026-11-15`, the users list/detail presents the phone identifier for Admin use and hides the synthetic email; canonical numeric identity and authentication remain unchanged. A real deletion was exercised only for an empty account. The server checks all relations plus seven one-to-one records and wallet state, preserving history and returning 409 when linked data remains. The mutation requires `users.manage`, Origin, explicit confirmation, a fresh state claim, self/staff protections and audit. Four current user views passed scoped axe with zero findings, and the browser flow verified deletion. Do not generalize this to deleting accounts with history.
+
+Final connected users checks, full types and repository source/architecture/security/audit gates passed. No production/customer deletion, hosted workflow, PR, merge or deployment. Continue in `.mobocom/admin-ai-integration` and retain local backup/restore evidence privately.

@@ -16,6 +16,7 @@ import { createPage, updatePage } from '@/modules/site/server/page-commands'
 import { legacyNumber, minorToDecimal } from '@/shared/money'
 import { validateCover } from '@/shared/content/cover'
 import { validateCategoryParent, validateCategorySelection } from '@/modules/site/server/categories'
+import { createCategory } from '@/modules/site/server/category-commands'
 import { postCategories } from '@/modules/site/domain/categories'
 import { parseJson, validateFields } from '@/modules/catalog/server/product-config'
 import { assertKindFits, cascadeCategoryKind, kindForCategory } from '@/modules/catalog/server/category-kind'
@@ -241,17 +242,7 @@ export async function POST(req: NextRequest) {
       return ok(row)
     }
     if (type === 'postcats' || type === 'productcats') {
-      if (type === 'postcats') return ok(await db.$transaction(async tx => tx.postCategory.create({ data: {
-        ...pick(b, ['slug', 'name', 'nameEn']), parentId: await validateCategoryParent(tx, b?.parentId),
-      } as any }), { isolationLevel: 'Serializable' }))
-      const parentId = await productCategoryParent(b?.parentId), attributeGroupId = await productCategoryGroup(b?.attributeGroupId)
-      // A category is born in a half of the shop: its parent's, or the one chosen for a root.
-      const row = await db.$transaction(async tx => {
-        const kind = await kindForCategory(tx, { parentId, asked: b?.kind })
-        await assertKindFits(tx, { kind, attributeGroupId })
-        return tx.productCategory.create({ data: { ...pick(b, ['slug', 'name', 'nameEn']), ...productCategoryExtras(b), parentId, attributeGroupId, kind } as any })
-      }, { isolationLevel: 'Serializable' })
-      return ok(row)
+      return ok(await db.$transaction(tx => createCategory(tx, type, b || {}), { isolationLevel: 'Serializable' }))
     }
     if (type === 'productgroups') return ok(await db.productAttributeGroup.create({ data: productGroupInput(b) }))
     if (type === 'products') return ok(await createCatalogProduct(b || {}, admin))

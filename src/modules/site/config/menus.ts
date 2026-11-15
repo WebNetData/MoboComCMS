@@ -28,8 +28,12 @@ export function filterSiteMenus<T extends SiteConfig>(site: T, allowed: (link: S
 }
 
 /** Client editing identity for old flat documents; persisted only on an explicit save. */
-export function identifyMenu(links: SiteLink[]): SiteLink[] {
-  return links.map(link => ({ ...link, id: link.id || crypto.randomUUID(), ...(link.children ? { children: identifyMenu(link.children) } : {}) }))
+export function identifyMenu(links: SiteLink[], idFactory: (link: SiteLink, path: number[]) => string = () => crypto.randomUUID()): SiteLink[] {
+  const walk = (items: SiteLink[], parent: number[]): SiteLink[] => items.map((link, index) => {
+    const path = [...parent, index]
+    return { ...link, id: link.id || idFactory(link, path), ...(link.children ? { children: walk(link.children, path) } : {}) }
+  })
+  return walk(links, [])
 }
 export function identifySiteMenus(site: SiteConfig): SiteConfig {
   return { ...site, navigation: identifyMenu(site.navigation), footer: identifyMenu(site.footer), ...(site.footerExplore ? { footerExplore: identifyMenu(site.footerExplore) } : {}), ...(site.footerAccount ? { footerAccount: identifyMenu(site.footerAccount) } : {}) }

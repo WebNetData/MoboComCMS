@@ -5,10 +5,12 @@ import {
   CONTENT_TYPES, FormsError, SECRET_MASK, answerText, checkSubmission, parseForm, readDeviceLock, stepLabel, visibleFields, workSteps,
   type Answer, type Receipt, type StoredAnswer,
 } from '@/modules/forms/domain/forms'
-import { receiptCodes, revealSecrets, sealSecrets, tellSender } from '@/modules/forms/server/paid'
+import { receiptCodes, revealSecrets, sealSecrets } from '@/modules/forms/server/paid'
+import { queueFormStageSms } from './stage-sms'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import { resolvePhoneCustomer } from '@/modules/identity/server/phone-customer'
 import { latinDigits } from '@/shared/text/digits'
+import { repairTrackingCode } from './tracking-code'
 
 /**
  * Work at the counter (owner 2026-11-12, mobile repair): staff enter a customer who brings the device to the shop, and
@@ -53,13 +55,14 @@ export async function staffSubmit(formId: number, input: { values?: unknown; sto
       if (!identifiers.length || !identifiers.some(Boolean)) throw new FormsError('شمارهٔ سریال یا IMEI پذیرش با تصویر فروش دستگاه ضمانت تطبیق ندارد', 409)
       storeWarrantyDeviceId = device.id
     }
-    return tx.formSubmission.create({ data: {
+    const entry = await tx.formSubmission.create({ data: {
     userId: customer?.id || null,
     formId, data: JSON.stringify(answers), secrets, status: 'READ', read: true, source: 'STAFF', createdById: actor.id, assigneeId: actor.id,
     stage: intake?.key || 'OPEN', storeWarrantyDeviceId, ...codes,
   } })
+    if (intake) await queueFormStageSms({ id: entry.id, title: form.title, data: entry.data, userId: entry.userId, pickupCode: entry.pickupCode, receiptToken: entry.receiptToken }, intake, tx)
+    return entry
   })
-  if (intake) await tellSender({ id: created.id, title: form.title, data: created.data, userId: created.userId, pickupCode: created.pickupCode, receiptToken: created.receiptToken }, intake).catch(() => undefined)
   return { id: created.id, stage: created.stage, pickupCode: created.pickupCode, receiptToken: created.receiptToken }
 }
 
@@ -80,6 +83,7 @@ async function receiptFrom(row: { id: number; data: string; stage: string; creat
     createdAt: row.createdAt.toISOString(), receivedAt: row.receivedAt?.toISOString() || null, stage: row.stage ? stepLabel(settings, row.stage) : '',
     lines, secrets, terms: settings.receipt.terms.split('\n').map((line) => line.trim()).filter(Boolean),
     pickupCode: row.pickupCode, link: row.receiptToken ? `/receipt/${row.receiptToken}` : '', staff, source: row.source,
+    trackingCode: settings.service && settings.receipt.enabled ? repairTrackingCode(row.id, row.receiptToken) : '', trackingUrl: new URL('/repair-status', process.env.NEXTAUTH_URL || 'http://localhost:3000').href,
     qr:row.receiptToken?await QRCode.toDataURL(new URL(`/receipt/${row.receiptToken}`,process.env.NEXTAUTH_URL||'http://localhost:3000').href,{width:160,margin:2}):'',
   }
 }

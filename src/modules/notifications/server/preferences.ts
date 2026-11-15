@@ -6,7 +6,7 @@ import { isMarketingKind } from '@/modules/automation/domain/engagement'
 export type NotificationChannel = 'sms' | 'email' | 'push'
 type KindLabel = { kind: string; labelEn: string; labelFa: string }
 
-// Inbox-only kinds do not have an SMS/email template; account push is their external copy.
+// Inbox labels are retained even when a provider later adds a template; channels derive below.
 const INBOX_ONLY: KindLabel[] = [
   { kind: 'ORDER_STATUS', labelEn: 'Order status', labelFa: 'وضعیت سفارش' },
   { kind: 'FOLLOWED_UPDATE', labelEn: 'Followed content update', labelFa: 'محتوای دنبال‌شده' },

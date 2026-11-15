@@ -44,12 +44,12 @@ async function uniqueSlug(tx: Tx, taxonomy: Taxonomy, slug: string, exceptId: nu
   return candidate
 }
 
-export async function saveTerm(taxonomy: Taxonomy, input: Record<string, unknown>, id: number | null = null) {
+export async function saveTerm(taxonomy: Taxonomy, input: Record<string, unknown>, id: number | null = null, client?: Tx) {
   const data = validateTerm(input)
   const facet = String(input.facet ?? '')
   if (facet && facet !== 'none' && !Object.hasOwn(TERM_FACETS[taxonomy], facet)) throw new TaxonomyError('فیلد مرتبط با این دسته معتبر نیست')
   const mapping = Object.hasOwn(input, 'facet') ? { facet } : {}
-  return db.$transaction(async (tx) => {
+  const save = async (tx: Tx) => {
     const nodes = await tx.taxonomyTerm.findMany({ where: { taxonomy }, select: { id: true, parentId: true } })
     if (id !== null && !nodes.some((node) => node.id === id)) throw new TaxonomyError('دسته پیدا نشد', 404)
     if (id === null && nodes.length >= MAX_TERMS) throw new TaxonomyError('به سقف تعداد دسته‌ها رسیده‌اید')
@@ -59,7 +59,8 @@ export async function saveTerm(taxonomy: Taxonomy, input: Record<string, unknown
     return id === null
       ? tx.taxonomyTerm.create({ data: { ...data, ...mapping, slug, sortOrder, taxonomy } })
       : tx.taxonomyTerm.update({ where: { id }, data: { ...data, ...mapping, slug, sortOrder } })
-  })
+  }
+  return client ? save(client) : db.$transaction(save)
 }
 
 /** Deletes a term; its children move up to the deleted term's parent. */

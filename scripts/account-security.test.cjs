@@ -279,7 +279,9 @@ test('the magazine permission is named only where the magazine is guarded', () =
     // Read-only canonical documentation bundled for the engineering assistant; not an authorization consumer.
     'src/modules/ai/domain/engineering-knowledge.generated.json',
     // Operational tools/context map only Magazine creation/publication and Magazine records to this key.
-    'src/modules/ai/domain/operations.ts', 'src/modules/ai/server/operations/context.ts',
+    'src/modules/ai/domain/operations.ts',
+    // Category tools map only Magazine categories to cms.posts; every other section keeps its own key.
+    'src/modules/ai/domain/admin-operations.ts',
     // Contextual advice maps the Magazine page only to its own manager/author guard.
     'src/modules/ai/server/page-assistant/access.ts',
     // Browser writing prompts/results are Magazine-only and never publish content.
@@ -684,4 +686,13 @@ test("sign-in methods: removal only while another actual way in remains (audit 2
   assert.equal(m.mayRemove(none, "google", on), false, "nothing to remove")
   const createdLongAgo = { ...none, googleId: "g", createdAt: new Date("2020-01-01"), googleLinkedAt: new Date() }
   assert.equal(m.mayRemove(createdLongAgo, "google", off), false, "the age of an account proves no way in")
+})
+
+test('administrative identifiers hide generated addresses and prefer normalized mobile numbers', () => {
+  const { userIdentifier } = load('src/modules/identity/domain/identifier')
+  assert.equal(userIdentifier({ id: 1, phone: '۰۹۱۲۳۴۵۶۷۸۹', email: 'real@example.com' }), '+989123456789')
+  assert.equal(userIdentifier({ id: 2, email: ' person@example.com ' }), 'person@example.com')
+  assert.equal(userIdentifier({ id: 3, email: '989123456789@phone.mobocom.local' }), 'کاربر #3')
+  assert.equal(userIdentifier({ id: 4, email: 'tg1.0123456789abcdef@telegram.local' }), 'کاربر #4')
+  assert.equal(userIdentifier({ id: 5, email: 'user@mobocom.local' }), 'کاربر #5')
 })

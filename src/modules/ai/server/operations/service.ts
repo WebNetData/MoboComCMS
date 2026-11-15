@@ -6,7 +6,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { moduleGuard } from '@/extensions/server/modules'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { richTextToPlain } from '@/shared/content/sanitize'
-import { AI_TOOLS, AiOperationError, operationModule, operationPrompt, operationText, parseOperation, parseOperationPlan, toolById } from '../../domain/operations'
+import { AI_TOOLS, AiOperationError, bindOperationInstruction, operationModule, operationPageTools, operationPrompt, operationText, parseOperation, parseOperationContext, parseOperationPlan, toolById, type OperationPageContext } from '../../domain/operations'
 import { readOperationsPolicy } from './policy'
 import { operationPreview, operationsContext } from './context'
 import { generate } from '../client'
@@ -21,17 +21,22 @@ export async function operationsActor(req: NextRequest) {
   return actor ? { actor, tools, configure: !!configure } : null
 }
 const dto = (p: { id: number; batchId: string; executionMode: string; tool: string; reason: string; preview: string; status: string; result: string; expiresAt: Date; updatedAt: Date; createdAt: Date }) => ({ id: p.id, batchId: p.batchId, executionMode: p.executionMode, tool: p.tool, reason: p.reason, preview: JSON.parse(p.preview), status: p.status, result: JSON.parse(p.result), expiresAt: p.expiresAt.toISOString(), updatedAt: p.updatedAt.toISOString(), createdAt: p.createdAt.toISOString() })
-export async function operationsView(req: NextRequest) {
+export async function operationsView(req: NextRequest, rawContext?: unknown) {
   const access = await operationsActor(req); if (!access) throw new AiOperationError('دسترسی به دستیار عملیاتی ندارید', 403)
-  const policy = await readOperationsPolicy(), proposals = await db.aiAssistantProposal.findMany({ where: { createdById: access.actor.id, tool: { in: access.tools } }, orderBy: { id: 'desc' }, take: 30 })
-  return { tools: AI_TOOLS.filter(t => access.tools.includes(t.id) && policy.allowed.includes(t.id)), directTools: access.tools.filter(t => policy.allowed.includes(t) && policy.directAllowed.includes(t)), proposals: proposals.map(dto), canConfigure: access.configure, policy: access.configure ? policy : { enabled: policy.enabled, maxProposals: policy.maxProposals }, reviewByDefault: true }
+  const context = parseOperationContext(rawContext, message => { throw new AiOperationError(message) })
+  const scoped = context ? operationPageTools(context) : [], visible = access.tools.filter(t => !scoped.length || scoped.includes(t))
+  const policy = await readOperationsPolicy(), proposals = await db.aiAssistantProposal.findMany({ where: { createdById: access.actor.id, tool: { in: visible } }, orderBy: { id: 'desc' }, take: 30 })
+  return { actorId: access.actor.id, context, tools: AI_TOOLS.filter(t => visible.includes(t.id) && policy.allowed.includes(t.id)), unavailableTools: AI_TOOLS.filter(t => visible.includes(t.id) && !policy.allowed.includes(t.id)).map(t => ({ id: t.id, label: t.label })), directTools: visible.filter(t => policy.allowed.includes(t) && policy.directAllowed.includes(t)), proposals: proposals.map(dto), canConfigure: access.configure, policy: access.configure ? policy : { enabled: policy.enabled, maxProposals: policy.maxProposals }, reviewByDefault: true }
 }
-export async function proposeOperations(req: NextRequest, raw: unknown, directRequestId?: string) {
-  const instruction = operationText(raw, 5, 4000), access = await operationsActor(req)
+export async function proposeOperations(req: NextRequest, raw: unknown, directRequestId?: string, rawContext?: unknown) {
+  const text = operationText(raw, 5, 4000), access = await operationsActor(req)
   if (!access) throw new AiOperationError('دسترسی ندارید', 403)
-  const policy = await readOperationsPolicy(), allowed = access.tools.filter(t => policy.allowed.includes(t) && (!directRequestId || policy.directAllowed.includes(t)))
-  if (!policy.enabled || !allowed.length) throw new AiOperationError('دستیار عملیاتی یا ابزارهای مجاز فعال نیستند', 409)
-  const context = await operationsContext(allowed), result = await withPersonalAi(access.actor.id, () => generate(operationPrompt(instruction, allowed, context, policy.maxProposals)), 'operations')
+  const page = parseOperationContext(rawContext, message => { throw new AiOperationError(message) })
+  const scoped = page ? operationPageTools(page) : []
+  const policy = await readOperationsPolicy(), allowed = access.tools.filter(t => policy.allowed.includes(t) && (!scoped.length || scoped.includes(t)) && (!directRequestId || policy.directAllowed.includes(t)))
+  if (!policy.enabled || !allowed.length) throw new AiOperationError('دستیار عملیاتی یا ابزارهای مجاز این بخش فعال نیستند؛ سیاست ابزارها را بررسی کنید', 409)
+  const instruction = bindOperationInstruction(text, page)
+  const context = await operationsContext(allowed, page), result = await withPersonalAi(access.actor.id, () => generate(operationPrompt(instruction, allowed, context, policy.maxProposals)), 'operations')
   const actions = parseOperationPlan(result.text, allowed, policy.maxProposals)
   for (const op of actions) if (op.tool === 'post.create') op.args.excerpt = richTextToPlain(String(op.args.excerpt), 300)
   const previews = await Promise.all(actions.map(op => operationPreview(op)))
@@ -42,20 +47,22 @@ export async function proposeOperations(req: NextRequest, raw: unknown, directRe
     for (let index = 0; index < actions.length; index++) {
       const op = actions[index]
       const module = operationModule(op.tool); if (module && await moduleGuard(module, tx)) throw new AiOperationError('بخش مربوط به پیشنهاد غیرفعال شده است', 409)
-      if (!await requirePerm(req, toolById(op.tool)!.permission)) throw new AiOperationError('مجوز شما تغییر کرده است', 403)
+      const currentActor = await requirePerm(req, toolById(op.tool)!.permission, tx)
+      if (!currentActor || currentActor.id !== access.actor.id) throw new AiOperationError('مجوز یا حساب شما تغییر کرده است', 403)
       const row = await tx.aiAssistantProposal.create({ data: { createdById: access.actor.id, batchId, requestKey: directRequestId ? `${access.actor.id}:${directRequestId}:${index}` : null, executionMode: directRequestId ? 'DIRECT' : 'REVIEW', instruction, tool: op.tool, reason: op.reason, arguments: JSON.stringify(op.args), preview: JSON.stringify(previews[index].preview), snapshot: JSON.stringify(previews[index].snapshot), expiresAt, model: result.model } })
       await auditAdminStrict({ req, actor: access.actor, action: 'ai.operation.proposed', targetType: 'ai-proposal', targetId: row.id, metadata: { tool: op.tool, executionMode: row.executionMode, batchId } }, tx)
     }
   }, { isolationLevel: 'Serializable', timeout: 30_000 })
-  return operationsView(req)
+  return operationsView(req, page)
 }
-export async function decideOperation(req: NextRequest, input: Record<string, unknown>) {
-  return applyProposal(req, input, false)
+export async function decideOperation(req: NextRequest, input: Record<string, unknown>, rawContext?: unknown) {
+  const context = parseOperationContext(rawContext, message => { throw new AiOperationError(message) })
+  return applyProposal(req, input, false, context)
 }
 export async function executeDirectProposal(req: NextRequest, row: { id: number; updatedAt: Date }) {
   return applyProposal(req, { id: row.id, updatedAt: row.updatedAt.toISOString(), action: 'approve', approved: true }, true)
 }
-async function applyProposal(req: NextRequest, input: Record<string, unknown>, direct: boolean) {
+async function applyProposal(req: NextRequest, input: Record<string, unknown>, direct: boolean, context?: OperationPageContext | null) {
   if (!Number.isSafeInteger(input.id) || Number(input.id) < 1 || typeof input.updatedAt !== 'string' || typeof input.action !== 'string' || !['approve', 'reject'].includes(input.action)) throw new AiOperationError('درخواست بررسی معتبر نیست')
   if (input.action === 'approve' && input.approved !== true) throw new AiOperationError('پیشنهاد را بررسی و اجرای همین موارد را تأیید کنید')
   const row = await db.aiAssistantProposal.findUnique({ where: { id: Number(input.id) } })
@@ -63,7 +70,7 @@ async function applyProposal(req: NextRequest, input: Record<string, unknown>, d
   const actor = await requirePerm(req, toolById(row.tool)!.permission)
   if (!actor || row.createdById !== actor.id) throw new AiOperationError('این پیشنهاد یا ابزار در دسترس شما نیست', 403)
   if (direct && row.executionMode !== 'DIRECT') throw new AiOperationError('این پیشنهاد به تأیید جداگانه نیاز دارد', 403)
-  if (row.status === 'APPLIED' && input.action === 'approve') return operationsView(req)
+  if (row.status === 'APPLIED' && input.action === 'approve') return operationsView(req, context)
   if (row.status !== 'PROPOSED' || row.updatedAt.toISOString() !== input.updatedAt || row.expiresAt.getTime() <= Date.now()) throw new AiOperationError('پیشنهاد منقضی، بررسی‌شده یا تغییرکرده است', 409)
   const op = parseOperation({ tool: row.tool, reason: row.reason, args: JSON.parse(row.arguments) })
   const guard = async (tx: Prisma.TransactionClient) => {
@@ -71,7 +78,8 @@ async function applyProposal(req: NextRequest, input: Record<string, unknown>, d
     if (await moduleGuard('ai-assistant', tx) || !policy.enabled || !policy.allowed.includes(op.tool)) throw new AiOperationError('اجرای این ابزار غیرفعال شده است', 409)
     if (direct && !policy.directAllowed.includes(op.tool)) throw new AiOperationError('اجازهٔ اجرای مستقیم این ابزار برداشته شده است', 409)
     const module = operationModule(op.tool); if (module && await moduleGuard(module, tx)) throw new AiOperationError('بخش مربوط به این ابزار غیرفعال شده است', 409)
-    if (!await requirePerm(req, toolById(op.tool)!.permission)) throw new AiOperationError('مجوز اجرای این ابزار تغییر کرده است', 403)
+    const currentActor = await requirePerm(req, toolById(op.tool)!.permission, tx)
+    if (!currentActor || currentActor.id !== actor.id) throw new AiOperationError('مجوز یا حساب اجرای این ابزار تغییر کرده است', 403)
     const claimed = await tx.aiAssistantProposal.updateMany({ where: { id: row.id, createdById: actor.id, status: 'PROPOSED', updatedAt: row.updatedAt, expiresAt: { gt: new Date() } }, data: { status: input.action === 'reject' ? 'REJECTED' : 'APPLIED', decidedAt: new Date() } })
     if (claimed.count !== 1) throw new AiOperationError('پیشنهاد هم‌زمان بررسی شد؛ نتیجهٔ ثبت‌شده را ببینید', 409)
   }
@@ -86,5 +94,5 @@ async function applyProposal(req: NextRequest, input: Record<string, unknown>, d
     const applied = await db.aiAssistantProposal.findFirst({ where: { id: row.id, createdById: actor.id, status: 'APPLIED' } })
     if (input.action !== 'approve' || !applied) throw e
   }
-  return operationsView(req)
+  return operationsView(req, context)
 }

@@ -53,7 +53,7 @@ export async function createInboxEvent(event: InboxEvent, client?: Prisma.Transa
 }
 
 /** Queue handler: each channel retries independently without repeating a successful channel. */
-export async function deliverInboxCopy(notificationId: number, channel: string) {
+export async function deliverInboxCopy(notificationId: number, channel: string, delivery: { attempts?: number } = {}) {
   if (!Number.isSafeInteger(notificationId) || notificationId <= 0 || !['sms', 'email', 'push'].includes(channel)) throw new Error('invalid notification delivery')
   const event = await db.userNotification.findUnique({ where: { id: notificationId } })
   if (!event) return { skipped: 'removed' }
@@ -66,10 +66,9 @@ export async function deliverInboxCopy(notificationId: number, channel: string) 
     if (!policy.allowed) return { skipped: policy.reason }
   }
   if (channel === 'sms') {
-    const { notifyUserEvent } = await import('@/modules/sms/server/sms')
-    const sent = await notifyUserEvent(event)
-    if (sent === false) throw new Error('SMS provider rejected notification')
-    return { sent: sent === true }
+    const { notifyUserEventResult } = await import('@/modules/sms/server/sms')
+    const result = await notifyUserEventResult(event, { deliveryKey: `notification:${event.id}:sms`, legacyAttempt: Number(delivery.attempts || 0) > 1 })
+    return result ? { sent: result.sent, delivery: result.status, logId: result.logId } : { sent: false }
   }
   if (channel === 'email') {
     const { notifyUserEmail } = await import('@/modules/mail/server/mailer')

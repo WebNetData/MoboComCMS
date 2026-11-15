@@ -1,3 +1,48 @@
+# PR476 consolidation — owner request2026-11-15
+
+The owner requests a PR for all development through repair tracking. Publish the
+SMS checkout's existing four-commit continuation through `13a5190d`, plus this
+publication record, to the existing open PR476 targeting `main`; its prior head
+`72c03dd5` is an ancestor. Retain `feat/sms-platform-2026-11-15` as the authoritative
+local checkout and publish the same head under its remote branch and the existing
+PR branch `feat/admin-ai-integration-2026-11-15`. This consolidates the previously
+separate local SMS/repair work into PR476. Earlier boundary statements below are
+historical. Owner merges/deploys. Reuse executed source/PG/browser evidence in the
+SMS/Forms handoffs; no new product changes, real SMS, hosted workflow or deployment.
+Docker app3000 remains available; no unrelated checkout or private fixture is staged.
+
+# Current continuation — receipt tracking and SMS purpose texts — 2026-11-15
+
+Continue `.mobocom/sms-platform`, branch `feat/sms-platform-2026-11-15` from local
+`3fba96c9`. Receipt status by derived printed code or shared single-use `REPAIR:id`
+OTP, minimal private customer DTO and strict guards; independent OTP texts and ready
+service/sale presets extend existing Forms/SMS settings. No migration or second
+identity. Connected PG205/no.env/UID1000, 45 units, types/gates, proof-removal mutant
+and scoped Semgrep passed. Actual28 themed/responsive browser views axe0/overflow0/errors0, one-page sample A5,
+Gitleaks31files0 and exact fixture/test-DB cleanup passed. Final restart evidence is in
+[SMS handoff](../docs/agent/handoffs/SMS_SETTINGS_RETENTION.md); PR476 is earlier work.
+Final23 source/check hashes match the restarted app; readiness/routes200, migration205
+and browser fixtures0. Local Docker3000 retained, no real SMS or production deployment.
+
+# Current continuation - transactional SMS and request actions - 2026-11-15
+
+Authoritative checkout `.mobocom/sms-platform`, branch `feat/sms-platform-2026-11-15` based on `72c03dd5`. Prior Admin AI/users work is PR476, recorded OPEN/MERGEABLE to `main`; owner merges. This SMS slice is separate and not in PR476. Existing SMS/Notifications/Identity/Store/Forms owners remain on the local app3000 with data/skip-seed preserved. Final fixture cleanup, source hashes and readiness are recorded in SMS_SETTINGS_RETENTION.md; no real SMS or production rollout.
+
+Eight focused SMS parts add durable dedupe/content claims (additive unreleased migration 205), bounded serializable per-phone delivery pressure, terminal UNKNOWN handling without automatic resend, settings revision CAS/audit and retained encrypted key, filtered/redacted reports, default-off Store status alerts, transactional encrypted Forms stage intents, capped eligible broadcasts and guarded OTP issuance. Existing queue, challenge consumption, TOTP, identity and opt-in remain authoritative. Request repeat/receipt actions retain routes, focus, 44px targets, responsive/theme/RTL behavior. This is bounded current-module coverage, not proof of custom SMS behavior across every module.
+
+Executed: isolated migration-205 PostgreSQL checks, UID1000/no `.env`, recording provider only; core/workflow/SMS settings/OTP/mobile entry/Forms counter/notification policy passed. 43 Forms/payments and 10 scale/inbox units passed; type/source/architecture/security/audit/schema-parity/money-schema/manifest checks passed. Sixteen current 1440/390 light/dark browser views passed scoped axe0/overflow0/pageErrors0; simulated draft-preserving409 and load503/retry passed. Doctor4 UI files0 errors/8 reviewed warnings; one-rule Semgrep18 targets0. Gitleaks and root's final cleanup/restart/checks were still pending at entry; do not claim complete. Populated migration preserved prior rows in isolated schema and rolled back; isolated removed-guard fault was detected. No real SMS/customer send, provider certification, production release, hosted workflow, SMS PR, merge or deployment. Full evidence/limits: `docs/agent/handoffs/SMS_SETTINGS_RETENTION.md` and `FORMS_AND_OPERATIONS.md`.
+
+
+# Current continuation — 2026-11-15
+
+Continue `.mobocom/admin-ai-integration`, branch `feat/admin-ai-integration-2026-11-15` based on `39a19818` plus prior small frontend fixes. See `docs/agent/handoffs/AI_OPERATIONS.md` (scoped category/menu continuation), `docs/agent/handoffs/ADMIN_ORGANIZATION.md` (guarded user removal) and `docs/agent/handoffs/PLATFORM_INTEGRATION.md` (platform integration).
+
+Bounded AI operations propose changes for seven existing taxonomy namespaces and existing menu items/icons using explicit approval, existing opt-in, stale guards and audit. User identity remains canonical; Admin displays the phone identifier and hides the synthetic email. Browser deletion covered only an empty account; linked history is guarded. Current user views passed scoped axe with zero findings. Earlier scoped source/native/security/type/unit and themed AI checks passed. The provider produced one category proposal (id3) and one menu proposal (id4), with separate controlled browser approvals persisted two categories and one menu link with its book icon. Gemini 2.5 returned 404, Gemini 3.8 timed out; the existing API configuration selected Gemini 3.1 Flash Lite retaining the configured key. Final current AI browser: eight light/dark desktop/mobile views axe0/overflow0/pageerrors0; advisory handoff and software-only scope passed. Keep app on localhost:3000 in the existing container and preserve private local source/database backups. No production, hosted workflow, PR, merge or deployment.
+
+---
+
+Screenshot frontend fixes2026-11-15: `.mobocom/frontend-small-fixes`, fix/frontend-small-fixes-2026-11-15 from fetched main58a67c81; four presentation files fix workdesk list/hover/wrapping/bidi and low-data layout/light contrast/description. Six actual component-browser views with synthetic transport/providers passed scoped axe0/overflow0/errors0, keyboard/toggle/cookie/dialog/retry; full Admin-page acceptance not rerun. PG204/no-env/UID1000 workdesk, full types/source/architecture passed; four runtime hashes matched; Doctor0errors/2reviewed existing warnings. Exact task DB/runtime/private client removed; local uncommitted, no PR/deploy. Continue docs/agent/handoffs/PLATFORM_INTEGRATION.md#screenshot-frontend-corrections--2026-11-15; prior work/history retained.
+
 PR475 synchronized after owner merged PR4742026-11-14: https://github.com/WebNetData/MoboComCMS/pull/475, chore/agent-orchestration-2026-11-14 to main. Merge main005d8852 preserves all validated UI corrections and complete release/history records below. Agent policy remains Sol/Terra/Luna,7 roles+3 compatibility names, max3 spawned threads and preserved local MCP/provider/permissions;7 setup tests/config load/backup/skills/architecture/knowledge checks recorded. Regenerate shared knowledge from the combined canonical docs; source dependency/doctor terminal limits remain. No hosted Actions, main self-merge, deployment or model benchmark. Continue docs/agent/handoffs/AGENT_ORCHESTRATION.md.
 
 PR474 conflict correction2026-11-14: owner requested resolving merge blockage; synchronized feature branch with owner-merged release receipt main d4e7e941. Shared workstate retains both UI acceptance below and complete stable1.7.20 history. No UI/source behavior changed by this reconciliation; prior checks reused, owner merges.

@@ -85,12 +85,16 @@ export default function MyRequests() {
         return <article key={row.id} className={`rq-card ${tone}`}>
           <div className="rq-head">
             <span className="rq-icon" aria-hidden="true"><Icon name="file" size={20} /></span>
-            <div className="rq-title"><h2>{row.form}</h2><small><span>شمارهٔ <b className="num">{fa(row.id)}</b></span><span>{when(row.createdAt)}</span>{row.slug && <Link href={row.amount > 0 ? `/dashboard/order/forms/${encodeURIComponent(row.slug)}` : `/forms/${row.slug}`} className="text-link">ثبت دوباره</Link>}</small></div>
+            <div className="rq-title"><h2>{row.form}</h2><small><span>شمارهٔ <b className="num">{fa(row.id)}</b></span><span>{when(row.createdAt)}</span></small></div>
             <div className="rq-badges">
               {row.amount > 0 && <span className={`rq-badge ${unpaid ? 'is-warn' : 'is-good'}`}>{unpaid ? 'در انتظار پرداخت' : 'پرداخت‌شده'}</span>}
-              {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{row.stageLabel || STAGE_LABEL[row.stage as Stage]}</span>}{row.receiptToken && <a className="text-link rq-receipt" href={`/receipt/${row.receiptToken}`} target="_blank">رسید دستگاه</a>}
+              {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{row.stageLabel || STAGE_LABEL[row.stage as Stage]}</span>}
             </div>
           </div>
+          {(row.slug || row.receiptToken) && <div className="rq-actions">
+            {row.slug && <Link href={row.amount > 0 ? `/dashboard/order/forms/${encodeURIComponent(row.slug)}` : `/forms/${row.slug}`} className="rq-action">ثبت دوباره</Link>}
+            {row.receiptToken && <a className="rq-action" href={`/receipt/${row.receiptToken}`} target="_blank" rel="noopener noreferrer">رسید دستگاه</a>}
+          </div>}
           {row.stage && row.stage !== 'REJECTED' && TRACK.includes(row.stage as Stage) && <ol className="rq-track" aria-label="مراحل انجام">{TRACK.map((stage, index) => {
             const passed = index < at || (complete && index === at), now = index === at && !complete
             return <li key={stage} className={passed ? 'is-done' : now ? 'is-now' : ''} aria-current={now ? 'step' : undefined}>

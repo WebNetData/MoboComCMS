@@ -15,6 +15,7 @@ import { getPanelAdapter } from '@/modules/providers/server/panels'
 import { auditAdmin } from '@/platform/audit/server'
 import { provisionSubscription } from '@/modules/subscriptions/server/provision'
 import { pictureOf } from '@/modules/identity/domain/picture'
+import { userIdentifier } from '@/modules/identity/domain/identifier'
 
 
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
@@ -69,6 +70,9 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
       id: user.id,
       email: user.email,
       name: user.name,
+      identifier: userIdentifier(user),
+      phoneVerifiedAt: user.phoneVerifiedAt,
+      updatedAt: user.updatedAt,
       avatar: pictureOf(user),
       phone: user.phone,
       telegramId: user.telegramId,

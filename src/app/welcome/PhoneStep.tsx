@@ -31,6 +31,7 @@ export default function PhoneStep({ phone: initialPhone, verified, required, lab
   const [resendIn, setResendIn] = useState(0)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
+  const [deliveryNotice, setDeliveryNotice] = useState('')
   const [shake, setShake] = useState(0)
   const verifying = useRef(false)
 
@@ -48,11 +49,12 @@ export default function PhoneStep({ phone: initialPhone, verified, required, lab
 
   async function send() {
     if (busy) return
-    setBusy(true); setProblem('')
+    setBusy(true); setProblem(''); setDeliveryNotice('')
     const { ok, data } = await call('POST', { phone })
     setBusy(false)
     if (!ok) { setProblem(data?.error || 'ارسال کد انجام نشد؛ دوباره تلاش کنید.'); return }
     setDisplay(data.display || phone); setCode(''); setResendIn(Number(data.resendIn) || 60); setStage('code')
+    setDeliveryNotice(data.delivery === 'UNKNOWN' ? 'نتیجهٔ ارسال مشخص نیست؛ اگر کد رسید آن را وارد کنید. تا پایان زمان انتظار، درخواست تازه ثبت نکنید.' : '')
   }
 
   const verify = useCallback(async (value: string) => {
@@ -102,6 +104,7 @@ export default function PhoneStep({ phone: initialPhone, verified, required, lab
         </>}
 
         {stage === 'code' && <div className="wl-phone-code" onKeyDown={onEnter(() => void verify(code))}>
+          {deliveryNotice && <p className="wl-help" role="status">{deliveryNotice}</p>}
           <p className="wl-help">کد ۶ رقمی ارسال‌شده به <bdi dir="ltr" className="wl-phone-number">{shown}</bdi> را وارد کنید. <button type="button" className="wl-link" onClick={() => { setStage('enter'); setProblem('') }}>تغییر شماره</button></p>
           <div key={shake} className={shake ? 'wl-shake' : undefined}>
             <OtpCodeInput value={code} onChange={(value) => { setCode(value); setProblem('') }} onComplete={(value) => void verify(value)} disabled={busy} invalid={!!problem} label={`کد ارسال‌شده به ${shown}`} autoFocus />

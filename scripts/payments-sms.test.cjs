@@ -9,7 +9,7 @@ function load(relative) {
   if (cache[relative]) return cache[relative]
   const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
-  const req = (name) => name.startsWith('@/') ? load(`src/${name.slice(2)}.ts`) : require(name)
+  const req = (name) => name.startsWith('@/') ? load(`src/${name.slice(2)}.ts`) : name.startsWith('.') ? load(path.join(path.dirname(relative), name + '.ts').replaceAll('\\', '/')) : require(name)
   new Function('require', 'module', 'exports', source)(req, mod, mod.exports)
   return (cache[relative] = mod.exports)
 }
@@ -93,7 +93,7 @@ test('IPPanel requests follow the Edge API (webservice, pattern, credit)', async
   }
   try {
     const text = await ippanel.sendText('KEY', '+983000505', ['+989121234567'], 'سلام')
-    assert.deepEqual(text, { ok: true, id: '1123544244', error: '' })
+    assert.deepEqual(text, { ok: true, id: '1123544244', error: '', unknown: false })
     assert.equal(calls[0].url, 'https://edge.ippanel.com/v1/api/send')
     assert.equal(calls[0].init.headers.Authorization, 'KEY')
     assert.deepEqual(JSON.parse(calls[0].init.body), { sending_type: 'webservice', from_number: '+983000505', message: 'سلام', params: { recipients: ['+989121234567'] } })
@@ -101,7 +101,7 @@ test('IPPanel requests follow the Edge API (webservice, pattern, credit)', async
     assert.equal(pattern.ok, true)
     assert.deepEqual(JSON.parse(calls[1].init.body), { sending_type: 'pattern', from_number: '+983000505', code: 'otp-code', recipients: ['+989121234567'], params: { code: '123456' } })
     const failed = await ippanel.sendPattern('KEY', '+983000505', '+989121234567', 'bad', {})
-    assert.deepEqual(failed, { ok: false, id: '', error: 'الگو یافت نشد' })
+    assert.deepEqual(failed, { ok: false, id: '', error: 'IPPanel HTTP 422', unknown: false })
     const balance = await ippanel.credit('KEY')
     assert.equal(calls[3].url, 'https://edge.ippanel.com/v1/api/payment/credit/mine')
     assert.equal(balance.credit, 1234.5)
@@ -112,13 +112,26 @@ test('IPPanel requests follow the Edge API (webservice, pattern, credit)', async
 
 function smsSettingsFixture() {
   let row = null, readError = false, writes = 0
-  const modules = new Map(), logs = [], delivered = []
+  const logs = [], delivered = []
   const db = {
     setting: {
       findUnique: async () => { if (readError) throw Error('owned database read failure'); return row },
-      upsert: async ({ create, update }) => { writes++; row = row ? { ...row, ...update } : create; return row },
+      create: async ({ data }) => { writes++; row = { ...data }; return row },
+      updateMany: async ({ where, data }) => {
+        if (!row || row.value !== where.value) return { count: 0 }
+        writes++; row = { ...row, ...data }; return { count: 1 }
+      },
     },
-    smsLog: { create: async ({ data }) => { logs.push(data); return data } },
+    smsLog: {
+      count: async () => 0,
+      create: async ({ data }) => { const log = { ...data, id: logs.length + 1 }; logs.push(log); return log },
+      updateMany: async ({ where, data }) => {
+        const log = logs.find(item => item.id === where.id && item.status === where.status)
+        if (!log) return { count: 0 }
+        Object.assign(log, data); return { count: 1 }
+      },
+    },
+    $transaction: async (run) => run(db),
   }
   const mocks = {
     '@/platform/database/prisma': { db }, '@/platform/config/env': { authSecret: () => 'owned-test-secret' },
@@ -126,15 +139,22 @@ function smsSettingsFixture() {
     '@/modules/identity/server/otp-challenge': {}, '@/platform/http/rate-limit': {},
     '@/modules/sms/server/ippanel': { sendText: async (key, from, phones, text) => { delivered.push({ key, from, phones, text }); return { ok: true, id: 'owned-offline-send' } }, credit: async () => ({ ok: true, credit: 1200 }) },
   }
-  function source(relative) {
-    if (modules.has(relative)) return modules.get(relative).exports
-    const mod = { exports: {} }; modules.set(relative, mod)
-    const compiled = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
-    new Function('require', 'module', 'exports', compiled)(name => Object.hasOwn(mocks, name) ? mocks[name] : name.startsWith('@/') ? source(`src/${name.slice(2)}.ts`) : require(name), mod, mod.exports)
-    return mod.exports
-  }
+  const source = require('./connected-source-loader.cjs')(mocks)
   return { owner: source('src/modules/sms/server/sms.ts'), delivered, logs, get value() { return row?.value }, get writes() { return writes }, corrupt: value => { row = { key: 'sms.config.v1', value } }, failRead: () => { readError = true } }
 }
+
+test('unconfigured SMS never reports an OTP as delivered, including development', async () => {
+  const prior = process.env.NODE_ENV
+  process.env.NODE_ENV = 'development'
+  try {
+    const fixture = smsSettingsFixture()
+    assert.equal(await fixture.owner.smsAvailable(), false)
+    assert.equal(await fixture.owner.otpLoginAvailable(), false)
+    await assert.rejects(fixture.owner.requestOtp({ phone: '09121234567', purpose: 'LOGIN', ip: 'owned-readiness-test' }), error => error.status === 502)
+    assert.equal(fixture.delivered.length, 0)
+    assert.equal(fixture.logs.length, 0, 'a challenge is refused before reserving a delivery')
+  } finally { if (prior === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = prior }
+})
 
 test('SMS settings keep the complete encrypted API key through save, reload, masked resave and delivery', async () => {
   const prior = process.env.PANEL_CREDENTIAL_KEY; process.env.PANEL_CREDENTIAL_KEY = '4b'.repeat(32)
@@ -146,7 +166,7 @@ test('SMS settings keep the complete encrypted API key through save, reload, mas
     assert.equal(read.apiKey, saved.apiKey); assert.equal(visible.apiKey, '••••kkkk'); assert.equal(visible.ready, true); assert.equal(visible.fromNumber, '+983000505')
     await owner.saveSmsConfig({ ...visible, apiKey: '' })
     const again = await owner.getSmsConfig(); assert.equal(again.apiKey, saved.apiKey); assert.equal(again.fromNumber, '+983000505'); assert.equal(again.enabled, true)
-    assert.deepEqual(await owner.broadcast({ to: 'phone', phone: '09121234567', text: 'پیام آزمایشی محلی' }), { sent: 1, total: 1 })
+    assert.deepEqual(await owner.broadcast({ to: 'phone', phone: '09121234567', text: 'پیام آزمایشی محلی' }), { sent: 1, unknown: 0, total: 1 })
     assert.equal(fixture.delivered[0].key, apiKey); assert.equal(fixture.delivered[0].from, '+983000505')
   } finally { if (prior === undefined) delete process.env.PANEL_CREDENTIAL_KEY; else process.env.PANEL_CREDENTIAL_KEY = prior }
 })
@@ -252,4 +272,45 @@ test('the wallet page leads to the plans only while the VPN section is on', () =
   assert.equal((page.match(/href="\/plans"/g) || []).length, 1)
   assert.match(page, /\{vpnOn \? <Link href="\/plans"/)
   assert.match(page, /\{vpnOn \? t\.walletSub : /)
+})
+
+test('SMS event grouping keeps order status with store events', () => {
+  assert.equal(sms.smsEventGroup('ORDER_STATUS'), 'store')
+  assert.equal(sms.smsEventGroup('FORM_STAGE'), 'services')
+  assert.equal(sms.smsEventGroup('PAYMENT_PAID'), 'billing')
+})
+
+test('IPPanel distinguishes definitive rejection from uncertain delivery', async () => {
+  const original = global.fetch
+  try {
+    const send = () => ippanel.sendText('synthetic', '+983000505', ['+989120000000'], 'test')
+    global.fetch = async () => { throw Error('offline') }
+    assert.equal((await send()).unknown, true)
+    global.fetch = async () => new Response('bad json', { status: 200 })
+    assert.equal((await send()).unknown, true)
+    global.fetch = async () => new Response(JSON.stringify({ meta: { status: true }, data: {} }), { status: 200 })
+    assert.equal((await send()).unknown, true)
+    global.fetch = async () => new Response(JSON.stringify({ meta: { status: false, message: 'secret provider detail' } }), { status: 422 })
+    const rejection = await send()
+    assert.equal(rejection.ok, false); assert.equal(!!rejection.unknown, false)
+    assert(!rejection.error.includes('secret provider detail'))
+    global.fetch = async () => new Response(JSON.stringify({ meta: { status: false } }), { status: 503 })
+    assert.equal((await send()).unknown, true)
+  } finally { global.fetch = original }
+})
+
+test('repair OTP template is purpose scoped and falls back to the global template', () => {
+  const templates = load('src/modules/sms/domain/templates.ts')
+  const preset = templates.SMS_READY_TEMPLATES.find(item => item.id === 'otp-repair')
+  for (const variable of ['{code}', '{service}', '{brand}']) assert(preset.text.includes(variable))
+  assert.equal(templates.otpGroup('REPAIR:42'), 'repair')
+  assert.equal(templates.otpGroup('LOGIN'), 'login')
+  assert.equal(templates.otpGroup('RESET'), 'reset')
+  assert.equal(templates.otpGroup('REPAIR:0'), 'login')
+  const override = { text: preset.text, pattern: '', param: 'code' }
+  const configured = sms.normalizeSmsConfig({ ...sms.DEFAULT_SMS, otpText: 'global {code}', otpTemplates: { repair: override }, otpTemplateOverrides: { repair: true } })
+  assert.equal(configured.otpTemplates.repair.text, preset.text)
+  const cleared = sms.normalizeSmsConfig({ ...configured, otpTemplateOverrides: { repair: false } }, configured)
+  assert.equal(cleared.otpTemplates.repair, undefined)
+  assert.equal(cleared.otpText, 'global {code}')
 })

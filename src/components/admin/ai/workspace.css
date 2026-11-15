@@ -27,3 +27,14 @@
 .admin-shell .ai-page-compose details>summary{cursor:pointer;padding-block:8px}
 .admin-shell .ai-page-compose details[open]>label{margin-top:12px}
 @media(max-width:600px){.admin-shell .ai-page-actions>button{flex:1 1 auto}.admin-shell .ai-page-examples{display:grid}}
+.admin-shell .ai-operation-preview{display:grid;gap:12px;min-width:0}
+.admin-shell .ai-operation-preview section{min-width:0;border:1px solid var(--border);border-radius:10px;padding:12px}
+.admin-shell .ai-operation-preview h4{margin:0 0 8px}
+.admin-shell .ai-operation-preview>details{border:1px solid var(--border);border-radius:10px;padding:12px;min-width:0}
+.admin-shell .ai-operation-preview>details>summary{cursor:pointer;font-weight:600;padding-block:4px}
+.admin-shell .ai-operation-preview>details[open]>summary{margin-bottom:12px}
+.admin-shell .ai-operation-preview-list{display:grid;gap:8px;margin:0;padding-inline-start:24px;overflow-wrap:anywhere}
+.admin-shell .ai-operation-preview-list dl{display:grid;gap:4px;margin:0}
+.admin-shell .ai-operation-preview-list dl>div{display:flex;gap:8px;flex-wrap:wrap}
+.admin-shell .ai-operation-preview-list dt{font-weight:600}
+.admin-shell .ai-operation-preview-list dd{margin:0}

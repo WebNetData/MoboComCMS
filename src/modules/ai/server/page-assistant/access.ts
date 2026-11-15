@@ -6,9 +6,13 @@ import { adminAssistantPath, pageTarget, type PageRecordKind, type PageTarget } 
 import type { AiPurpose } from '../../domain/routing'
 import { AiError } from '../error'
 
-type Area = { label: string; prefix: string; module?: string; permission?: string; purpose: AiPurpose; kinds?: PageRecordKind[]; examples: string[] }
+type Area = { label: string; prefix: string; module?: string; permission?: string; anyPermissions?: string[]; purpose: AiPurpose; kinds?: PageRecordKind[]; examples: string[] }
 const content = (prefix: string, label: string, module: string | undefined, permission: string, purpose: AiPurpose, ...kinds: PageRecordKind[]): Area => ({ prefix, label, module, permission, purpose, kinds, examples: ['برای بهترشدن این محتوا چه پیشنهادی داری؟', 'عنوان و خلاصهٔ مناسب پیشنهاد بده', 'برای آماده‌سازی انتشار چه چیزهایی را بررسی کنم؟'] })
 const AREAS: Area[] = [
+  { prefix: '/admin/postcats', label: 'دسته‌بندی مطالب مجله', module: 'journal', permission: 'cms.posts', purpose: 'operations', examples: ['دسته‌های مناسب برای موضوع‌های مجله پیشنهاد بده', 'ساخت چند دستهٔ تازه را در ابزار اجرایی آماده کن'] },
+  { prefix: '/admin/productcats', label: 'دسته‌بندی فروشگاه', module: 'store', permission: 'cms.products', purpose: 'operations', examples: ['برای کالاهای فروشگاه دسته‌بندی پیشنهاد بده', 'عنوان دسته‌های فعلی را چطور بهتر کنم؟'] },
+  { prefix: '/admin/taxonomy', label: 'دسته‌بندی بخش‌های سایت', anyPermissions: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage'], purpose: 'operations', examples: ['برای همین بخش دسته‌های مناسب پیشنهاد بده', 'برای ساخت دسته‌ها، درخواست را در ابزار اجرایی آماده کن'] },
+  { prefix: '/admin/menus', label: 'منوها و آیکن‌های ناوبری', permission: 'settings.manage', purpose: 'operations', examples: ['چند لینک مرتبط با آیکن مناسب برای منوی هدر پیشنهاد بده', 'ویرایش یک مورد از منوی فعلی را در ابزار اجرایی آماده کن'] },
   content('/admin/posts', 'نوشته‌های مجله', 'journal', 'cms.posts', 'editor', 'posts'),
   content('/admin/pages', 'صفحه‌های سایت', undefined, 'cms.pages', 'pages', 'pages'),
   content('/admin/products', 'محصولات فروشگاه', 'store', 'cms.products', 'store', 'products'),
@@ -32,7 +36,8 @@ export async function pageAssistantAccess(req: NextRequest, input: { path?: unkn
   const area: Area = AREAS.find(a => at(path, a.prefix)) || { prefix: '/admin', label: settingsAreas.some(key => at(path, '/admin/' + key)) ? 'تنظیمات سایت' : 'راهنمای مدیریت موبوکام', permission: settingsAreas.some(key => at(path, '/admin/' + key)) ? 'settings.manage' : undefined, purpose: 'admin', examples: ['در این بخش چه کاری می‌توانم انجام بدهم؟', 'برای انجام این کار از کدام ابزار موبوکام استفاده کنم؟'] }
   if (area.module && await moduleGuard(area.module)) throw new AiError('بخش مربوط به این صفحه غیرفعال است', 423)
   const scope = area.permission ? await requireContentScope(req, area.permission, authorPermissionOf(area.permission)) : null
-  const actor = scope?.admin || (!area.permission ? await requireAdmin(req) : null)
+  let actor = scope?.admin || (!area.permission && !area.anyPermissions ? await requireAdmin(req) : null)
+  if (area.anyPermissions) for (const permission of area.anyPermissions) { const found = await requirePerm(req, permission); if (found) { actor = found; break } }
   if (!actor) throw new AiError('دسترسی به دستیار این بخش ندارید', 403)
   const raw = input.target as Partial<PageTarget> | undefined
   let target = raw ? pageTarget(raw.kind, raw.id) : null

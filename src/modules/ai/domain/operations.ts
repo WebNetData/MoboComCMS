@@ -1,4 +1,7 @@
 import { toMinor } from '@/shared/money'
+import { ADMIN_AI_TOOLS, CATEGORY_TOOLS, OPERATION_ICON_NAMES, parseCategoryArgs, parseMenuArgs } from './admin-operations'
+export { CATEGORY_TOOLS, OPERATION_ICON_NAMES, bindOperationInstruction, operationContextForPage, operationPageTools, parseOperationContext } from './admin-operations'
+export type { CategoryChange, MenuChange, OperationPageContext } from './admin-operations'
 
 export class AiOperationError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
@@ -10,11 +13,12 @@ export const AI_TOOLS = [
   { id: 'product.create', label: 'ساخت محصول', permission: 'cms.products' },
   { id: 'order.note', label: 'یادداشت داخلی سفارش', permission: 'orders.manage' },
   { id: 'order.transition', label: 'پیشبرد سفارش پرداخت‌شده', permission: 'orders.manage' },
+  ...ADMIN_AI_TOOLS,
 ] as const
 export type AiTool = typeof AI_TOOLS[number]['id']
-export type AiOperation = { tool: AiTool; reason: string; args: Record<string, string | number | boolean> }
+export type AiOperation = { tool: AiTool; reason: string; args: Record<string, unknown> }
 export const toolById = (id: unknown) => AI_TOOLS.find(t => t.id === id)
-export const operationModule = (tool: string) => tool.startsWith('post.') ? 'journal' : tool.startsWith('product.') || tool.startsWith('order.') ? 'store' : null
+export const operationModule = (tool: string) => tool.startsWith('post.') ? 'journal' : tool.startsWith('product.') || tool.startsWith('order.') ? 'store' : tool.endsWith('.categories') ? tool.split('.')[0] === 'music-language' ? 'music' : tool.split('.')[0] : null
 export const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 export function operationText(value: unknown, min: number, max: number) {
   if (typeof value !== 'string' || value.length > max || value.trim().length < min || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) throw new AiOperationError('متن پیشنهاد معتبر نیست')
@@ -24,13 +28,16 @@ const positiveId = (v: unknown) => { if (!Number.isSafeInteger(v) || Number(v) <
 export function parseOperation(raw: unknown): AiOperation {
   if (!isObject(raw) || !toolById(raw.tool) || !isObject(raw.args) || Object.keys(raw).some(k => !['tool', 'reason', 'args'].includes(k))) throw new AiOperationError('فرمان پیشنهادشده پشتیبانی نمی‌شود')
   const tool = raw.tool as AiTool, a = raw.args, args: AiOperation['args'] = {}, reason = operationText(raw.reason, 2, 500)
-  const keys: Record<AiTool, string[]> = {
+  const invalid = (message: string): never => { throw new AiOperationError(message) }
+  if (CATEGORY_TOOLS.includes(tool)) return { tool, reason, args: parseCategoryArgs(a, invalid) }
+  if (tool === 'navigation.menu') return { tool, reason, args: parseMenuArgs(a, invalid) }
+  const keys: Partial<Record<AiTool, string[]>> = {
     'post.create': ['title', 'slug', 'excerpt', 'body', 'status', 'categoryId'],
     'page.create': ['title', 'slug', 'body', 'status'], 'post.publish': ['id'],
     'product.create': ['name', 'slug', 'body', 'price', 'currency', 'kind', 'stock', 'active', 'categoryId'],
     'order.note': ['id', 'note'], 'order.transition': ['id', 'status', 'note', 'trackingCode'],
   }
-  if (Object.keys(a).some(k => !keys[tool].includes(k))) throw new AiOperationError('فیلد غیرمجاز در پیشنهاد است')
+  if (!keys[tool] || Object.keys(a).some(k => !keys[tool]!.includes(k))) throw new AiOperationError('فیلد غیرمجاز در پیشنهاد است')
   if (tool.endsWith('.create')) {
     const name = tool === 'product.create' ? 'name' : 'title'; args[name] = operationText(a[name], 3, 160)
     args.slug = operationText(a.slug, 3, 100)
@@ -72,6 +79,11 @@ export function operationPrompt(instruction: string, allowed: readonly string[],
     user: JSON.stringify({ instruction, allowed, maxActions, schemas: { 'post.create': { title: 'متن', slug: 'latin-slug', excerpt: '', body: 'پاراگراف‌ها', status: 'DRAFT', categoryId: 'optional existing numeric id' }, 'page.create': { title: 'متن', slug: 'latin-slug', body: 'پاراگراف‌ها', status: 'DRAFT' }, 'post.publish': { id: 'existing numeric id' }, 'product.create': { name: 'متن', slug: 'latin-slug', body: 'توضیحات', price: 'exact decimal string from user', currency: 'IRT|IRR|USD|EUR|GBP|AED', kind: 'PHYSICAL|VIRTUAL', stock: 0, active: false, categoryId: 'optional existing numeric id' }, 'order.note': { id: 'existing numeric id', note: 'internal only' }, 'order.transition': { id: 'existing numeric id', status: 'PROCESSING|PACKED|SHIPPED|DELIVERED', note: '', trackingCode: '' } }, context }), maxTokens: 8000,
   }
   const input = JSON.parse(prompt.user)
+  for (const tool of CATEGORY_TOOLS) input.schemas[tool] = { entries: [{ id: 'optional existing numeric id for rename; omit to create', name: 'نام فارسی', slug: 'required-new-latin-slug; never change existing URL', parentId: 'optional existing numeric parent or null; never change existing parent', ...(tool !== 'post.categories' ? { description: 'optional plain text; omitted keeps current', icon: 'optional supported icon name; omitted keeps current' } : {}) }] }
+  input.schemas['navigation.menu'] = { menu: 'header|footer|footerExplore|footerAccount|section', section: 'required only for section, select known section id', items: [{ id: 'optional existing stable id for update; omit for add', label: 'عنوان فارسی', href: 'existing known public site-relative path or explicit user HTTPS URL', icon: 'supported icon name', enabled: 'optional boolean; omit to keep visibility', children: 'optional nested patches; omitted keeps all existing children' }] }
+  input.icons = OPERATION_ICON_NAMES
+  if (allowed.includes('navigation.menu')) input.menuPatchExample = { actions: [{ tool: 'navigation.menu', reason: 'درخواست افزودن لینک مجله', args: { menu: 'header', items: [{ label: 'مجله', href: '/blog', icon: 'book' }] } }], note: 'این نمونهٔ شکل داده است؛ فقط تغییرهای درخواست‌شده را برگردان. لینک‌ها، آیکن‌ها و شاخه‌های قبلی را در patch کپی نکن؛ میزبان همهٔ آن‌ها را نگه می‌دارد.' }
+  prompt.system += ' برای دسته‌ها از ابزار دستهٔ همان بخش استفاده کن، نه ساخت مطلب. تا دوازده دستهٔ مستقل در entries یک پیشنهاد قرار می‌گیرند؛ برای نام و نشانی تازه پیشنهاد مرتبط بده ولی شناسه یا والد موجود را اختراع نکن. نشانی و والد دستهٔ موجود را عوض نکن. در منو فقط موارد درخواست‌شده را اضافه یا با شناسهٔ موجود ویرایش کن؛ هیچ مورد یا شاخهٔ موجودی حذف نمی‌شود. برای آیکن فقط نام‌های icons و برای لینک فقط مسیرهای واقعی context یا نشانی صریح کاربر را انتخاب کن؛ مسیر نامعلوم را سؤال کن. برای لینک بیرونی جزئیات ورود، توکن، اطلاعات خصوصی یا URL جعلی نساز. برای style/قالب/هویت/پول/سرویس‌های فاقد ابزار صادقانه ابزار موجود و مسیر درست را توضیح بده و ادعای اجرا نکن.'
   for (const tool of Object.keys(input.schemas)) if (!allowed.includes(tool)) delete input.schemas[tool]
-  return { ...prompt, user: JSON.stringify(input) }
+  return { ...prompt, user: JSON.stringify(input), json: true, maxTokens: 4000 }
 }

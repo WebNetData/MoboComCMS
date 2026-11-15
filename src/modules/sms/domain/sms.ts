@@ -1,5 +1,6 @@
 // SMS (IPPanel): phone numbers, settings, event templates and OTP rules (pure).
 
+import { OTP_GROUPS, type OtpTemplates } from './templates'
 import { latinDigits } from '@/shared/text/digits'
 
 /** Iranian mobile in E.164 (+989xxxxxxxxx), or '' when invalid. Accepts 09…, 9…, 989…, +989…, 00989…, Persian digits. */
@@ -34,6 +35,7 @@ export interface SmsEventDef {
 
 // User events mirror the customer inbox (notifications); admin events alert staff.
 export const SMS_EVENTS: SmsEventDef[] = [
+  { id: 'ORDER_STATUS', audience: 'user', label: 'تغییر وضعیت سفارش و محصول', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {title}\n{body}\n{link}\n{brand}' },
   { id: 'STORE_RECEIPT', audience: 'user', label: 'فاکتور فروش حضوری', vars: ['name','title','body','link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
   { id: 'STORE_PICKUP_READY', audience: 'user', label: 'سفارش آمادهٔ تحویل از فروشگاه', vars: ['name','title','body','link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'FORM_STAGE', audience: 'user', label: 'مرحلهٔ کار درخواست (مشتری، مثل تعمیر)', vars: ['name', 'form', 'stage', 'message', 'link'], template: '{name} عزیز، {form}: {stage}\n{message}\n{brand}' },
@@ -71,6 +73,24 @@ export const SMS_EVENTS: SmsEventDef[] = [
 
 export const smsEvent = (id: string) => SMS_EVENTS.find((event) => event.id === id)
 
+export const SMS_GROUPS = [
+  { id: 'store', label: 'فروشگاه و محصول' },
+  { id: 'services', label: 'خدمات و درخواست‌ها' },
+  { id: 'billing', label: 'پرداخت و اشتراک' },
+  { id: 'support', label: 'پشتیبانی' },
+  { id: 'engagement', label: 'ارتباط با مشتری' },
+  { id: 'system', label: 'مدیریت و سایر بخش‌ها' },
+] as const
+
+export function smsEventGroup(id: string): typeof SMS_GROUPS[number]['id'] {
+  if (id.startsWith('FORM_')) return 'services'
+  if (/^(STORE_|PRODUCT_|ORDER_|STOCK_|CART_|GIFT_|LOYALTY|ADMIN_ORDER|ADMIN_RETURN)/.test(id)) return 'store'
+  if (/^(PAYMENT_|RECEIPT_|SUBSCRIPTION_|MEMBERSHIP|CONTENT_PURCHASE|ADMIN_RECEIPT)/.test(id)) return 'billing'
+  if (/^(TICKET_|ADMIN_TICKET|LIVECHAT)/.test(id)) return 'support'
+  if (id.startsWith('CRM_')) return 'engagement'
+  return 'system'
+}
+
 export interface SmsEventSetting { enabled: boolean; text: string; pattern: string }
 
 export interface SmsConfig {
@@ -84,6 +104,7 @@ export interface SmsConfig {
   otpPattern: string
   otpParam: string
   otpText: string
+  otpTemplates: OtpTemplates
   /** Staff mobiles for admin alerts. */
   adminPhones: string[]
   events: Record<string, SmsEventSetting>
@@ -97,6 +118,7 @@ export const DEFAULT_SMS: SmsConfig = {
   otpPattern: '',
   otpParam: 'code',
   otpText: 'کد ورود شما به {brand}: {code}\nاین کد را در اختیار دیگران قرار ندهید.',
+  otpTemplates: {},
   adminPhones: [],
   events: Object.fromEntries(SMS_EVENTS.map((event) => [event.id, { enabled: ['STORE_RECEIPT','STORE_PICKUP_READY','PAYMENT_PAID', 'RECEIPT_REJECTED', 'PRODUCT_DELIVERED', 'TICKET_REPLY', 'ADMIN_RECEIPT'].includes(event.id), text: event.template, pattern: '' }])),
 }
@@ -121,6 +143,15 @@ export function normalizeSmsConfig(input: Record<string, any>, previous: SmsConf
     const raw = input.events?.[event.id] || previous.events[event.id] || DEFAULT_SMS.events[event.id]
     events[event.id] = { enabled: raw?.enabled === true, text: clean(raw?.text, 500) || event.template, pattern: clean(raw?.pattern, 60).replace(/[^\w-]/g, '') }
   }
+  const otpTemplates: OtpTemplates = {}
+  for (const { id } of OTP_GROUPS) {
+    const supplied = input.otpTemplates && typeof input.otpTemplates === 'object'
+    const flags = input.otpTemplateOverrides && typeof input.otpTemplateOverrides === 'object' ? input.otpTemplateOverrides : null
+    const raw = supplied ? input.otpTemplates[id] : previous.otpTemplates?.[id]
+    if (flags ? flags[id] !== true : !raw) continue
+    if (!raw || typeof raw !== 'object') continue
+    otpTemplates[id] = { text: clean(raw.text, 300), pattern: clean(raw.pattern, 60).replace(/[^\w-]/g, ''), param: clean(raw.param, 30).replace(/[^\w]/g, '') || 'code' }
+  }
   const phones = Array.isArray(input.adminPhones) ? input.adminPhones : String(input.adminPhones || '').split(/[\s,،]+/)
   return {
     enabled: input.enabled === true,
@@ -130,6 +161,7 @@ export function normalizeSmsConfig(input: Record<string, any>, previous: SmsConf
     otpPattern: clean(input.otpPattern, 60).replace(/[^\w-]/g, ''),
     otpParam: clean(input.otpParam, 30).replace(/[^\w]/g, '') || 'code',
     otpText: clean(input.otpText, 300) || DEFAULT_SMS.otpText,
+    otpTemplates,
     adminPhones: [...new Set(phones.map(normalizeMobile).filter(Boolean))].slice(0, 10),
     events,
   }

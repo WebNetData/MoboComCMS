@@ -2693,7 +2693,7 @@ model SmsLog {
   event      String   @default("")
   kind       String   @default("TEXT") // TEXT | PATTERN | OTP
   body       String   @default("")
-  status     String   @default("SENT") // SENT | FAILED | SKIPPED
+  status     String   @default("SENT") // SENT (provider accepted) | FAILED | SKIPPED | SENDING | UNKNOWN
   providerId String   @default("")
   error      String   @default("")
   userId     Int?
@@ -2701,6 +2701,9 @@ model SmsLog {
 
   @@index([createdAt])
   @@index([phone, createdAt])
+  dedupeKey  String?  @unique
+  contentHash String  @default("") // HMAC of the full delivery payload; never the code itself
+
 }
 
 /// Forum profile (Discourse-style): public handle, bio, trust level and counters.
