@@ -225,7 +225,9 @@ test('a product category belongs to one half of the shop: a root decides, everyt
   // The saves use those rules inside one transaction, and a child never keeps a half of its own.
   const server = read('src/modules/catalog/server/category-kind.ts'), route = read('src/modules/site/server/http/admin/cms/route.ts'), input = read('src/modules/catalog/server/product-input.ts')
   assert.match(server, /if \(input\.parentId != null\) \{\n    const parent = await tx\.productCategory\.findUnique/)
-  assert.match(route, /const kind = await kindForCategory\(tx, \{ parentId, asked: b\?\.kind \}\)\n        await assertKindFits\(tx, \{ kind, attributeGroupId \}\)/)
+  const create = read('src/modules/site/server/category-commands.ts')
+  assert.match(route, /db\.\$transaction\(tx => createCategory\(tx, type, b \|\| \{\}\), \{ isolationLevel: 'Serializable' \}\)/)
+  assert.match(create, /const kind = await kindForCategory\(tx, \{ parentId, asked: b\.kind \}\)\n  await assertKindFits\(tx, \{ kind, attributeGroupId \}\)\n  return tx\.productCategory\.create/)
   assert.match(route, /await assertKindFits\(tx, \{ id, kind, attributeGroupId: data\.attributeGroupId as number \| null \| undefined \}\)/)
   assert.match(route, /if \(kind !== current\.kind\) await cascadeCategoryKind\(tx, id, kind\)/)
   assert.match(route, /if \(e instanceof CategoryKindError \|\| e instanceof ProductCategoryError\) return err\(e\.message, e\.status\)/)

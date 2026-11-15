@@ -26,3 +26,26 @@ cookies, private keys, local sample data, generated clients or private runtime.
 Canonical14-document AI knowledge and architecture remain shipped. mbrelease is
 signed source; destination makes its own Linux build. Record actual results,
 failed attempts, exact signed commit and cleanup before handing off.
+
+Release validation corrections: shared JalaliDateInput replaces the newly added
+native datetime-local in RepairWorkPanel, retaining device-local ISO conversion
+and mutation contract. Three test-only loaders/source-location assertions now
+follow existing relative/JSON imports and canonical transactional category helper;
+no assertion/guard was removed. Doctor0.9.17 on RepairWorkPanel:0 errors/five
+reviewed existing fetch/complexity advisories. No package dependency change.
+
+Fresh private npm ci (ignore scripts) passed in165s; private PostgreSQL client
+generated. Actual204→207 upgrade preserved populated legacy SmsLog/FormSubmission/
+SitePopup rows byte-equivalent excluding added columns, identity/Setting and
+wallet123456 minor units; all new defaults correct.15 scoped native PG suites
+passed (SMS delivery/settings/workflows, repair approval/tracking/invoice, modular
+capabilities/module availability, admin users/AI admin/AI operations, popups,
+Media, package CRUD/integrity). First run inherited production NEXTAUTH_URL and
+five token-cookie fixtures were403; test runner changed only its own test env to
+the fixtures' HTTP cookie contract and rerun passed. Production guards unchanged.
+
+Initial canonical check1104 cases:1062pass/41fail/1skip.36 failures required
+missing Git tooling; the remaining failures were the three obsolete loaders/
+source assertions and native repair date field above. Git/PostgreSQL CLI installed
+in the existing local container for release tests; source/deps/app3000 untouched.
+Final canonical check/build/browser/artifact results remain pending below.
