@@ -4,18 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript-api')
 
-const cache = new Map()
-function load(relative) {
-  let file = path.resolve(__dirname, '..', relative.endsWith('.ts') ? relative : `${relative}.ts`)
-  if (!fs.existsSync(file)) file = file.slice(0, -3) + '/index.ts'
-  if (cache.has(file)) return cache.get(file).exports
-  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
-  const mod = { exports: {} }
-  cache.set(file, mod)
-  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
-  new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
-  return mod.exports
-}
+const load = require('./connected-source-loader.cjs')()
 const read = (relative) => fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8')
 
 const sec = load('src/modules/identity/domain/account-security')

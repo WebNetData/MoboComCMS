@@ -1,3 +1,38 @@
+# Release1.7.21 local build — owner2026-11-15
+
+Current acceptance supersedes the historical resource checkpoint below: owner
+authorized cleanup;13 verified WSL crash dumps removed (13027106784 bytes),
+Docker transport and original app3000 readiness200 recovered. Final committed
+fe1e1ad1 production build passed251s/UID1000/no.env/heap6144MB. All4298 build
+inputs matched (only two expected Next-written files afterward). Production
+browser12 themed desktop/mobile views passed axe0/no overflow/page errors, real
+due-date save, Escape/focus, guest403 and close/copy clearance. Selected-day dark
+contrast and text-popup close spacing fixed. Canonical1104+53+4+14 and15 PG suites,
+populated204→207 preservation passed. Final sign/extract/current+old verifier and
+immutable release upload/re-download remain pending. PR480 remains owner-merged
+before stable/latest; no Actions/destination deploy or personal/DB deletion.
+
+Resource checkpoint: release1.7.21 is UNPUBLISHED; draftPR480 contains preparation
+b3dc145e + calendar/test fix77a8baf5. Canonical1104+53+4+14 and15 native PG suites,
+204→207 populated data preservation passed. Production heap attempts failed;
+Windows C:0/D:<1GB and Docker Desktop transport stalled. Only two reproducible
+task tar files removed (~97MB now free); owner asked to free10GB C:. Same existing
+container-internal readiness200, Windows localhost unavailable; no replacement/
+volume reset. Private isolated DB/env/deps preserved for continuation. Do not
+claim build/release/signature/browser passed. Exact next action, limits and source
+receipts are in [release handoff](../docs/agent/handoffs/RELEASE_1_7_21.md#resource-stop-and-exact-continuation--2026-11-15).
+Original publisher matches; no new tag/asset/Actions/destination deployment.
+
+Authoritative release checkout `.mobocom/release-1.7.21`, branch release/1.7.21,
+base owner-merged main0c5ed5fe/PR479. Owner requests a local production build and
+published1.7.21 for updating, explicitly no GitHub Actions. Matching root/lock
+version, guides and three existing migrations sealed; no dependency/SQL changes.
+Fresh private Linux deps/check/PG/production build/browser/artifact proof pending.
+Keep publisher key/fingerprint and immutable prior releases; stable/latest follows
+owner-merged metadata and verified source. No destination deploy. Preserve current
+mobocom-app/3000 and unrelated worktrees. Continue
+[release handoff](../docs/agent/handoffs/RELEASE_1_7_21.md); do not claim pending checks passed.
+
 # PR479 publication — owner request2026-11-15
 
 [PR479](https://github.com/WebNetData/MoboComCMS/pull/479) is open, non-draft,

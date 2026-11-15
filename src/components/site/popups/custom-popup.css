@@ -41,6 +41,7 @@ html[data-theme='dark'] .spp-card.spp-campaign.spp-custom[data-palette='auto'][d
 .spp-card.spp-campaign.spp-custom[data-layout='background'][data-button='outline'] .spp-go { background:#171a20; }
 .spp-custom .spp-campaign-highlight strong { color:var(--campaign-ink); }
 .spp-custom .spp-go, .spp-custom .spp-stay, .spp-custom .spp-x, .spp-custom .spp-coupon button { min-height:44px; }
+.spp-custom[data-layout='text']:has(> .spp-x) .spp-campaign-copy { padding-block-start:64px; }
 
 @media (max-width:640px) {
   dialog.spp:has(.spp-custom) { width:calc(100vw - 24px); }

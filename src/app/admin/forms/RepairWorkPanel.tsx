@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import type { RepairWorkView } from '@/modules/forms/domain/repair-work'
 import { latinDigits } from '@/shared/text/digits'
-import { dateTimeLocal } from './shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
+import { localDateTime } from '@/shared/time/jalali'
 import './repair-work.css'
 
 const formatter = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Tehran' })
@@ -31,7 +32,7 @@ function RepairWorkPanelForSubmission({ id }: { id: number }) {
       const data = await response.json()
       if (signal?.aborted) return
       if (!response.ok) { setError(data.error || 'دریافت اطلاعات تعمیر انجام نشد'); return }
-      setView(data); if (!preserveDraft) setDue(dateTimeLocal(data.dueAt || ''))
+      setView(data); if (!preserveDraft) setDue(localDateTime(data.dueAt || ''))
       setConflict(false)
     } catch { if (!signal?.aborted) setError('ارتباط با سرور برقرار نشد') } finally { if (!signal?.aborted) setBusy(false) }
   }
@@ -58,7 +59,7 @@ function RepairWorkPanelForSubmission({ id }: { id: number }) {
       <p>موعد فعلی: {view.dueAt ? when(view.dueAt) : 'ثبت نشده'} {view.overdue && '— گذشته از موعد'}</p>
       {view.estimate && <div><b>برآورد فعلی: {BigInt(view.estimate.amountMinor).toLocaleString('fa-IR')} تومان — {status[view.estimate.status]}</b><p dir="auto">{view.estimate.description}</p><p>اعتبار تا {when(view.estimate.expiresAt)}</p></div>}
       {view.canEdit ? <>
-        <label className="sa-field"><span>موعد تعمیر (زمان محلی دستگاه شما)</span><input className="input" type="datetime-local" disabled={busy} value={due} onChange={e => setDue(e.target.value)} /></label>
+        <label className="sa-field"><span>موعد تعمیر (زمان محلی دستگاه شما)</span><JalaliDateInput withTime className="input" disabled={busy} value={due} onChange={setDue} /></label>
         <button type="button" className="btn btn-ghost" disabled={busy || conflict} onClick={() => { const d = due ? new Date(due) : null; if (d && Number.isNaN(d.getTime())) { setError('موعد معتبر نیست'); return }; void save({ dueAt: d?.toISOString() ?? null }) }}>ذخیره موعد</button>
         <label className="sa-field"><span>مبلغ برآورد (تومان، عدد صحیح)</span><input className="input" dir="ltr" inputMode="numeric" maxLength={12} disabled={busy} value={amount} onChange={e => setAmount(latinDigits(e.target.value))} /></label>
         <div className="sa-field"><label htmlFor={`repair-estimate-description-${id}`}>شرح برآورد</label><textarea id={`repair-estimate-description-${id}`} className="input" rows={3} maxLength={1500} disabled={busy} value={description} onChange={e => setDescription(e.target.value)} /></div>
