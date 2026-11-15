@@ -371,3 +371,18 @@ repair tracking, auth session, Admin Forms and homepage returned200; anonymous
 Admin repair access returned403. PostgreSQL reports206 applied migrations and0
 owned fixture users/forms/challenges or disposable test databases. Safe receipts,
 screenshots and private rollback backups remain ignored under `var/repair-approval`.
+
+## Repair approval PR publication — owner request2026-11-15
+
+The owner requested publication of development through this slice and retains
+merge/deploy control. Fetched `origin/main` remains fa2bd2af, the direct parent of
+implementation7f2b1c58; no conflicting or unrelated checkout work was included.
+[PR477](https://github.com/WebNetData/MoboComCMS/pull/477) is OPEN and non-draft,
+targeting `main` from `feat/repair-approval-timeline-2026-11-15`. GitHub confirmed
+initial published head7f2b1c58cbd80bc456df19cf47e6d8063de4940f,44 changed files.
+This following documentation receipt records publication without changing the
+implementation or its previously executed evidence. Earlier local-only/no-new-PR
+notes are historical. Existing PG/browser/security receipts were inspected, not
+rerun or represented as fresh checks. PR description includes migration, rollback,
+19 reviewed Doctor warnings and live-provider/production limits. Docker app3000
+is still running; no hosted workflow, provider call, merge or deployment was made.

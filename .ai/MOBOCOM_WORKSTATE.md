@@ -1,3 +1,13 @@
+# Repair approval PR publication — owner request2026-11-15
+
+[PR477](https://github.com/WebNetData/MoboComCMS/pull/477) is OPEN/non-draft to main
+from feat/repair-approval-timeline-2026-11-15. Implementation7f2b1c58 is based directly
+on fetched main fa2bd2af; this following documentation receipt records publication.
+Existing local PG/browser/security evidence is retained, not rerun. The PR includes
+migration/rollback and provider limits. Docker app3000 remains running. Owner merges
+and deploys; no hosted workflow or real provider send. Earlier local-only notes are
+historical. [Forms receipt](../docs/agent/handoffs/FORMS_AND_OPERATIONS.md#repair-approval-pr-publication--owner-request2026-11-15).
+
 # Current continuation — repair consent/due/history — 2026-11-15
 
 PR476 merged at main fa2bd2af. Current authoritative checkout remains
