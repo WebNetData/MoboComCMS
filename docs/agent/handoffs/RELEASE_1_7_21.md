@@ -1,5 +1,22 @@
 # Release 1.7.21 — local preparation2026-11-15
 
+## Recovery and production verification checkpoint
+
+This checkpoint supersedes the historical resource stop below. Owner authorized
+cache cleanup. Removed only13 verified `wsl-crash-*.dmp` files from the Windows
+Temp/wsl-crashes directory (13027106784 bytes); preserved text reports, personal
+files, backups, Docker images/volumes and all databases. C: then had14203330560
+bytes free. Restarted only verified Docker Desktop executables; normal Docker
+API29.8.1 and the original container/localhost3000 readiness200 recovered.
+
+Production build passed as UID1000/no.env in288s, heap6144MB, core dumps disabled
+for the build child. All4298 non-document inputs matched77a8baf5 before build;
+afterward only expected Next-written tsconfig.json/next-env.d.ts differed.
+The first actual production browser run passed light repair/popup/public views
+but found insufficient selected-day contrast in the dark calendar. The shared
+calendar now uses its existing darkened-primary/white done-button pairing for
+selected days. A fresh committed-source build and full browser rerun are pending.
+
 Owner explicitly requests a local-system build and published1.7.21 for updating
 their installation, without GitHub Actions. PR479 is owner-merged at main
 0c5ed5fef57cfd11d2c6f03601142a8a35fe7e9a; release includes PR473–479 after1.7.20.

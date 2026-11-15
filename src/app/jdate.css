@@ -34,7 +34,7 @@
 .jdate-day:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); }
 .jdate-day.is-friday { color: color-mix(in srgb, var(--danger) 80%, var(--text)); }
 .jdate-day.is-today { box-shadow: inset 0 0 0 1.5px var(--primary); font-weight: 800; }
-.jdate-day.is-picked, .jdate-day.is-picked:hover:not(:disabled) { background: var(--primary); color: #fff; font-weight: 800; box-shadow: 0 8px 18px -10px var(--primary); }
+.jdate-day.is-picked, .jdate-day.is-picked:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 55%, var(--sds-color-black-1000, #000)); color: #fff; font-weight: 800; box-shadow: 0 8px 18px -10px var(--primary); }
 .jdate-day:disabled { opacity: .3; cursor: not-allowed; }
 
 .jdate-time { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--bg-soft); }
