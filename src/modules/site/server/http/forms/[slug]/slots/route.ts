@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
@@ -7,6 +8,7 @@ import { slotAvailability } from '@/modules/forms/server/advanced'
 
 /** GET /api/forms/<slug>/slots?field=&date=YYYY-MM-DD — the open days of an appointment field and the turns of one day with the seats left. */
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const params = await paramsPromise
   if (!rateLimitHit(`form-slots:${params.slug}:${clientIp(req.headers)}`, 90, 60_000).ok) return err('کمی بعد دوباره تلاش کنید', 429)
   const found = await publicFormBySlug(params.slug)

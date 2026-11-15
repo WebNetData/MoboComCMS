@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
@@ -11,6 +12,7 @@ const failure = (error: unknown) => { if (error instanceof FormsError) return er
 
 /** GET /api/admin/forms → { forms, templates } */
 export async function GET(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const builder = await requirePerm(req, 'cms.pages')
   const reader = builder || await requirePerm(req, 'forms.handle')
   if (!reader) return err('دسترسی مجاز نیست', 403)
@@ -24,6 +26,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/admin/forms — a form to save, or { op: 'duplicate' | 'delete', id }. */
 export async function POST(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const admin = await requirePerm(req, 'cms.pages')
   if (!admin) return err('دسترسی مجاز نیست', 403)
   const raw = await req.text()

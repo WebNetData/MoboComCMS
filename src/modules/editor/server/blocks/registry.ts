@@ -22,5 +22,5 @@ export const moduleBlockRenderer = (type: string) => renderers.get(type)
 export function editorRegistry(): BlockRegistry { return createRegistry([...MODULE_BLOCKS, ...extra]) }
 export async function activeEditorRegistry(): Promise<BlockRegistry> {
   const states = await getModuleStates()
-  return createRegistry([...MODULE_BLOCKS, ...extra].filter(definition => !definition.owner || states[definition.owner] === true))
+  return createRegistry([...MODULE_BLOCKS, ...extra].filter(definition => !definition.owner || states[definition.owner] === true), Object.keys(states).filter(id => states[id] === false))
 }

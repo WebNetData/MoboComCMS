@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { randomUUID } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
@@ -12,7 +13,8 @@ const answersOf = (data: string): StoredAnswer[] => { try { const value = JSON.p
 const mobileOf = (data: string) => answersOf(data).filter(answer => ['mobile', 'tel'].includes(answer.type || '')).map(answer => normalizeMobile(answer.value)).find(Boolean) || ''
 
 /** A stage and its minimal encrypted message intent commit together; no provider I/O in the transaction. */
-export async function queueFormStageSms(row: StageRow, step: WorkStep, client: Pick<Prisma.TransactionClient, 'backgroundJob'> = db) {
+export async function queueFormStageSms(row: StageRow, step: WorkStep, client: Pick<Prisma.TransactionClient, 'backgroundJob' | 'setting'> = db) {
+  if (!await formsAvailable(client)) return null
   if (!step.sms || !step.message) return null
   const phone = mobileOf(row.data)
   if (!phone) return null
@@ -24,6 +26,7 @@ export async function queueFormStageSms(row: StageRow, step: WorkStep, client: P
 
 /** Transactional contact supplied for this request never becomes a verified identity or marketing opt-in. */
 export async function deliverFormStageSms(payload: Record<string, unknown>, job: { id: number; attempts: number }) {
+  if (!await formsAvailable()) return { sent: false, skipped: 'module-disabled' }
   const id = Number(payload.submissionId), key = String(payload.intent || '')
   if (!Number.isSafeInteger(id) || id <= 0 || !key.startsWith(`form-stage:${id}:`) || key.length > 100 || typeof payload.sealed !== 'string') throw new Error('Invalid form SMS intent')
   const snapshot = JSON.parse(decryptDigitalDelivery(payload.sealed)) as Snapshot

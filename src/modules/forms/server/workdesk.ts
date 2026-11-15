@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { db } from '@/platform/database/prisma'
 import type { AuthedUser } from '@/modules/identity/server/access'
 import { hasPermission } from '@/modules/identity/rbac'
@@ -6,6 +7,7 @@ import { mayHandle } from '@/modules/forms/server/advanced'
 
 /** Minimal queue projection includes custom workflow stages; never reads customer answers or device secrets. */
 export async function formWorkdesk(actor: AuthedUser) {
+  if (!await formsAvailable()) return { count: 0, items: [] }
   const builder = actor.permissions === null || hasPermission(actor.permissions, 'cms.pages')
   if (actor.role !== 'ADMIN' || (!builder && !hasPermission(actor.permissions || [], 'forms.handle'))) throw new Error('Form access denied')
   const forms = await db.siteForm.findMany({ select: { id: true, title: true, settings: true } })

@@ -1,0 +1,14 @@
+{
+  "id": "automation",
+  "name": "اتوماسیون و ارتباط خودکار با مشتری",
+  "nameEn": "Automation and customer engagement",
+  "description": "قوانین خودکار، رویدادها و ارتباط برنامه‌ریزی‌شده با مشتری. هنگام غیرفعال‌بودن، قوانین و ارسال‌های مرتبط اجرا نمی‌شوند و تنظیمات و سوابق حفظ می‌شوند.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "sparkles",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "adminPaths": ["/admin/automation", "/admin/crm/engagement"]
+}

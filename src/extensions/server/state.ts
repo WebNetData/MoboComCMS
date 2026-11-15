@@ -180,12 +180,16 @@ export async function getPublicExtensionRuntime(reader: StateReader = db): Promi
 }
 
 export async function listExtensionAdminState() {
-  const result = []
-  for (const manifest of extensionCatalog) {
-    const state = await getExtensionState(manifest.id)
-    const settings = { ...state.settings }
-    for (const def of manifest.settings || []) if (def.type === 'secret' && settings[def.key]) settings[def.key] = '••••••••'
-    result.push({ manifest, state: { enabled: state.enabled, settings } })
-  }
-  return result
+  return db.$transaction(async tx => {
+    const runtime = await getPublicExtensionRuntime(tx), result = []
+    for (const manifest of extensionCatalog) {
+      let requested: ExtensionStoredState = { enabled: false, settings: {} }, unavailable = false
+      try { requested = await storedExtensionState(manifest.id, tx, true) } catch { unavailable = true }
+      const settings = { ...requested.settings }
+      for (const def of manifest.settings || []) if (def.type === 'secret' && settings[def.key]) settings[def.key] = '••••••••'
+      const blockedBy = (manifest.requires || []).filter(id => runtime[id]?.enabled !== true)
+      result.push({ manifest, state: { enabled: runtime[manifest.id]?.enabled === true, requestedEnabled: requested.enabled, blockedBy, unavailable, settings } })
+    }
+    return result
+  }, { isolationLevel: 'Serializable', timeout: 15000 })
 }

@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -26,6 +27,7 @@ const parse = <T>(text: string, fallback: T): T => { try { return JSON.parse(tex
 // ------------------------------------------------------------------ forms
 
 export async function listForms() {
+  if (!await formsAvailable()) return []
   const [rows, groups] = await Promise.all([
     db.siteForm.findMany({ orderBy: { updatedAt: 'desc' } }),
     db.formSubmission.groupBy({ by: ['formId', 'status'], _count: { _all: true } }),
@@ -38,12 +40,16 @@ export async function listForms() {
 }
 
 export async function saveForm(input: unknown) {
+  await assertFormsAvailable()
   const form = normalizeForm(input)
   // A form is given only to people who can open its answers.
   await assertHandlersCanWork(form.settings?.handlers || [])
   const data = { slug: form.slug, title: form.title, description: form.description, fields: JSON.stringify(form.fields), published: form.published, successText: form.successText, settings: JSON.stringify(form.settings) }
   try {
-    const row = form.id ? await db.siteForm.update({ where: { id: form.id }, data }) : await db.siteForm.create({ data })
+    const row = await db.$transaction(async tx => {
+      await assertFormsAvailable(tx)
+      return form.id ? tx.siteForm.update({ where: { id: form.id }, data }) : tx.siteForm.create({ data })
+    })
     return parseForm(row)
   } catch (error) {
     const code = (error as { code?: string }).code
@@ -54,16 +60,22 @@ export async function saveForm(input: unknown) {
 }
 
 export async function duplicateForm(id: number) {
+  await assertFormsAvailable()
   const row = await db.siteForm.findUnique({ where: { id } })
   if (!row) throw new FormsError('فرم پیدا نشد', 404)
   let slug = `${row.slug}-copy`.slice(0, 78)
   for (let n = 2; await db.siteForm.findUnique({ where: { slug }, select: { id: true } }); n++) slug = `${row.slug.slice(0, 70)}-copy${n}`
-  const copy = await db.siteForm.create({ data: { slug, title: `${row.title} (کپی)`.slice(0, 150), description: row.description, fields: row.fields, published: false, successText: row.successText, settings: row.settings } })
+  const copy = await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
+    return tx.siteForm.create({ data: { slug, title: `${row.title} (کپی)`.slice(0, 150), description: row.description, fields: row.fields, published: false, successText: row.successText, settings: row.settings } })
+  })
   return parseForm(copy)
 }
 
 export async function deleteForm(id: number) {
+  await assertFormsAvailable()
   const uploads = await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
     if (await tx.repairEstimate.count({ where: { submission: { formId: id } } })) throw new FormsError('این فرم سابقهٔ برآورد و رضایت مشتری دارد؛ آن را بایگانی یا غیرفعال کنید', 409)
     const files = await tx.formUpload.findMany({ where: { formId: id }, select: { id: true } })
     await tx.siteForm.deleteMany({ where: { id } })
@@ -78,6 +90,7 @@ export function templateList() {
 
 /** The published form for the public page (`null` when it does not exist or is a draft), with what visitors need to know about it. */
 export async function publicFormBySlug(slug: string) {
+  if (!await formsAvailable()) return null
   const row = await db.siteForm.findUnique({ where: { slug } })
   if (!row?.published) return null
   const form = parseForm(row)
@@ -88,6 +101,7 @@ export async function publicFormBySlug(slug: string) {
 
 /** Published paid services for the member desk; never expose private form settings. */
 export async function publishedOrderForms(foreign = false) {
+  if (!await formsAvailable()) return []
   const rows = await db.siteForm.findMany({ where: { published: true }, orderBy: { id: 'desc' }, take: 100 })
   return rows.map(parseForm).filter(form => form.settings?.payment.enabled && (!foreign || form.fields.some(field => field.type === 'fxamount')))
     .map(form => ({ slug: form.slug, title: form.title, description: form.description }))
@@ -107,6 +121,7 @@ function sniffUpload(bytes: Buffer): { extension: string; mimeType: string } | n
 
 /** One file for a "file" field, kept until the form is submitted (or a day passes). */
 export async function uploadFile(slug: string, file: File, ip: string) {
+  await assertFormsAvailable()
   const row = await db.siteForm.findUnique({ where: { slug } })
   if (!row?.published) throw new FormsError('فرم در دسترس نیست', 404)
   const form = parseForm(row)
@@ -117,14 +132,21 @@ export async function uploadFile(slug: string, file: File, ip: string) {
   const type = sniffUpload(bytes)
   if (!type) throw new FormsError('فایل باید PDF، JPG، PNG یا WebP باشد')
   const id = `${randomUUID()}.${type.extension}`
+  await assertFormsAvailable()
   await mkdir(formsDirectory(), { recursive: true })
   await writeFile(join(formsDirectory(), id), bytes, { flag: 'wx', mode: 0o600 })
   const name = String(file.name || 'file').replace(/[\u0000-\u001f<>"\\/]/g, '_').slice(0, 120)
-  await db.formUpload.create({ data: { id, formId: row.id, originalName: name, mimeType: type.mimeType, size: bytes.length } })
+  try {
+    await db.$transaction(async tx => {
+      await assertFormsAvailable(tx)
+      await tx.formUpload.create({ data: { id, formId: row.id, originalName: name, mimeType: type.mimeType, size: bytes.length } })
+    })
+  } catch (error) { await unlink(join(formsDirectory(), id)).catch(() => undefined); throw error }
   return { id, name, size: bytes.length }
 }
 
 export async function readUpload(id: string) {
+  await assertFormsAvailable()
   if (!/^[0-9a-f-]{36}\.(png|jpg|webp|pdf)$/.test(id)) return null
   const row = await db.formUpload.findUnique({ where: { id } })
   if (!row) return null
@@ -147,6 +169,7 @@ const ipHash = (ip: string) => createHash('sha256').update(`${authSecret()}:form
 export interface Submitter { userId: number | null; ip: string }
 
 export async function submitForm(slug: string, input: { values: unknown; website?: unknown }, who: Submitter) {
+  await assertFormsAvailable()
   const found = await publicFormBySlug(slug)
   if (!found) throw new FormsError('فرم در دسترس نیست', 404)
   const { form, state } = found
@@ -181,6 +204,7 @@ export async function submitForm(slug: string, input: { values: unknown; website
   const money = bill ? { amountMinor: bill.totalMinor, currency: bill.currency, pricing: JSON.stringify(bill.lines), payStatus: 'UNPAID' } : {}
   const score = settings.quiz.enabled ? scoreOf(form.fields, values) : null
   const store = () => db.$transaction(async (tx) => {
+    await assertFormsAvailable(tx)
     const created = await tx.formSubmission.create({ data: { formId: form.id!, data: JSON.stringify(answers), status: spam ? 'SPAM' : 'NEW', userId: who.userId, ipHash: ipHash(who.ip), secrets, stage: spam || paid ? '' : 'OPEN', score: score?.score ?? 0, scoreMax: score?.max ?? 0, ...money } })
     if (fileIds.length) await tx.formUpload.updateMany({ where: { id: { in: fileIds } }, data: { submissionId: created.id } })
     // An appointment takes its seat with the answer, or the answer is not stored at all.
@@ -212,6 +236,7 @@ export async function submitForm(slug: string, input: { values: unknown; website
 }
 
 async function notify(form: FormDefinition, submissionId: number, answers: StoredAnswer[], userId: number | null) {
+  if (!await formsAvailable()) return
   const settings = form.settings!
   const lines = answers.map((a) => `${a.label}: ${Array.isArray(a.value) ? (a.type === 'file' ? `${a.value.length} فایل` : a.value.join('، ')) : typeof a.value === 'boolean' ? (a.value ? 'بله' : 'خیر') : a.value || '—'}`)
   if (settings.notifyInbox) {
@@ -224,21 +249,26 @@ async function notify(form: FormDefinition, submissionId: number, answers: Store
   }
   const subject = `پاسخ تازه در «${form.title}»`
   const text = `${subject}\n\n${lines.join('\n')}\n\nشناسه: #${submissionId}${userId ? `\nکاربر: ${userId}` : ''}`
-  for (const to of settings.notifyEmails) await sendMail({ to, subject, text, source: 'forms' })
+  for (const to of settings.notifyEmails) {
+    if (!await formsAvailable()) return
+    await sendMail({ to, subject, text, source: 'forms' })
+  }
   if (settings.autoReply.enabled) {
     const email = answers.find((a) => a.type === 'email' && typeof a.value === 'string' && a.value)
-    if (email) await sendMail({ to: String(email.value), subject: settings.autoReply.subject || `دریافت پیام شما — ${form.title}`, text: settings.autoReply.body || form.successText, source: 'forms' })
+    if (email && await formsAvailable()) await sendMail({ to: String(email.value), subject: settings.autoReply.subject || `دریافت پیام شما — ${form.title}`, text: settings.autoReply.body || form.successText, source: 'forms' })
   }
 }
 
 /** A form answer, for the automation rules that start from it. */
 export async function emitFormEvent(name: 'form.submitted' | 'form.paid', form: Pick<FormDefinition, 'id' | 'slug' | 'title'>, submissionId: number, userId: number | null, amount: number) {
+  if (!await formsAvailable()) return
   const { emitAutomation } = await import('@/modules/automation/server/engine')
   await emitAutomation(name, `form:${submissionId}`, userId, { submission_id: submissionId, form_id: form.id ?? 0, form_slug: form.slug, form_title: form.title, amount })
 }
 
 /** The bill of what a visitor has typed so far (the page shows it while they fill the form). */
 export async function quoteForm(slug: string, input: unknown) {
+  await assertFormsAvailable()
   const found = await publicFormBySlug(slug)
   if (!found || !found.form.settings?.payment.enabled) throw new FormsError('فرم در دسترس نیست', 404)
   const { values } = checkSubmission(found.form.fields, input)
@@ -283,6 +313,7 @@ async function userNames(ids: (number | null)[]) {
 }
 
 export async function listSubmissions(query: SubmissionQuery) {
+  await assertFormsAvailable()
   const page = Math.max(1, query.page || 1)
   const [rows, total, groups] = await Promise.all([
     db.formSubmission.findMany({ where: where(query), orderBy: { createdAt: 'desc' }, skip: (page - 1) * PAGE, take: PAGE, include: { form: { select: { title: true, settings: true } }, uploads: { select: { id: true, originalName: true, size: true } } } }),
@@ -304,6 +335,7 @@ export async function listSubmissions(query: SubmissionQuery) {
 }
 
 export async function updateSubmissions(ids: number[], patch: { status?: unknown; note?: unknown }) {
+  await assertFormsAvailable()
   const list = [...new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 200)
   if (!list.length) throw new FormsError('پاسخی انتخاب نشده است')
   const data: { status?: string; read?: boolean; note?: string } = {}
@@ -314,15 +346,20 @@ export async function updateSubmissions(ids: number[], patch: { status?: unknown
   }
   if (patch.note !== undefined) { if (list.length !== 1) throw new FormsError('یادداشت برای یک پاسخ ثبت می‌شود'); data.note = String(patch.note).slice(0, 1000) }
   if (!Object.keys(data).length) throw new FormsError('تغییری ارسال نشده است')
-  const result = await db.formSubmission.updateMany({ where: { id: { in: list } }, data })
+  const result = await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
+    return tx.formSubmission.updateMany({ where: { id: { in: list } }, data })
+  })
   if (!result.count) throw new FormsError('پاسخ پیدا نشد', 404)
   return result.count
 }
 
 export async function deleteSubmissions(ids: number[]) {
+  await assertFormsAvailable()
   const list = [...new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 200)
   if (!list.length) throw new FormsError('پاسخی انتخاب نشده است')
   const removed = await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
     if (await tx.repairEstimate.count({ where: { submissionId: { in: list } } })) throw new FormsError('پاسخ دارای سابقهٔ برآورد و رضایت مشتری حذف نمی‌شود؛ بایگانی کنید', 409)
     const uploads = await tx.formUpload.findMany({ where: { submissionId: { in: list } }, select: { id: true } })
     const result = await tx.formSubmission.deleteMany({ where: { id: { in: list } } })
@@ -333,6 +370,7 @@ export async function deleteSubmissions(ids: number[]) {
 }
 
 export async function exportCsv(query: SubmissionQuery) {
+  await assertFormsAvailable()
   const form = await db.siteForm.findUnique({ where: { id: query.formId } })
   if (!form) throw new FormsError('فرم پیدا نشد', 404)
   const def = parseForm(form)
@@ -345,6 +383,7 @@ export async function exportCsv(query: SubmissionQuery) {
 
 /** Submissions per day for the last `days`, and totals. */
 export async function formStats(formId: number, days = 30) {
+  await assertFormsAvailable()
   const since = new Date(Date.now() - days * 86_400_000)
   const [recent, groups] = await Promise.all([
     db.formSubmission.findMany({ where: { formId, createdAt: { gte: since }, status: { not: 'SPAM' } }, select: { createdAt: true }, take: 50_000 }),

@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import PublicForm from '@/components/site/PublicForm'
 import { normalizeForm, publicForm, type FormDefinition } from '@/modules/forms/domain/forms'
 import { formShortcode } from '@/modules/forms/domain/embed'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import Builder from './Builder'
 import Inbox from './Inbox'
 import SettingsPanel from './SettingsPanel'
@@ -15,6 +16,7 @@ const TABS: [Tab, string][] = [['build', 'ساخت فرم'], ['settings', 'تن�
 const fa = (n: number) => n.toLocaleString('fa-IR')
 
 export default function FormsAdmin() {
+  const instoreOn = useModuleEnabled('instore')
   const [forms, setForms] = useState<SavedForm[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
   const [form, setForm] = useState<FormDefinition | null>(null)
@@ -96,7 +98,7 @@ export default function FormsAdmin() {
   return <div className="sa fb-page" dir="rtl">
     <header className="sa-head"><div><h1>{canBuild ? 'فرم‌ساز' : 'درخواست‌های فرم'}</h1><p className="sa-hint">{canBuild ? 'فرم بسازید، پاسخ‌ها را در «صف کار» یا زبانهٔ «پاسخ‌ها»ی هر فرم پیگیری کنید.' : 'درخواست‌هایی که به شما سپرده شده؛ هر کدام را بردارید، انجام دهید و به کاربر خبر بدهید.'}</p></div>
       <div className="sa-head-actions">
-        {forms.some((item) => !settingsOf(item).payment.enabled) && <Link className="btn btn-ghost" href={counterForm ? `/admin/forms/counter?form=${counterForm.id}` : '/admin/forms/counter'} onClick={(event) => { if (!confirmLeave()) event.preventDefault() }}>ثبت حضوری</Link>}
+        {instoreOn && forms.some((item) => !settingsOf(item).payment.enabled) && <Link className="btn btn-ghost" href={counterForm ? `/admin/forms/counter?form=${counterForm.id}` : '/admin/forms/counter'} onClick={(event) => { if (!confirmLeave()) event.preventDefault() }}>ثبت حضوری</Link>}
         {canBuild && <><button type="button" className="btn btn-ghost" onClick={() => setPicking(true)}>+ فرم تازه</button>
           <button type="button" className="btn btn-primary" disabled={busy || !form || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : dirty ? 'ذخیرهٔ فرم' : 'ذخیره شد'}</button></>}
       </div></header>

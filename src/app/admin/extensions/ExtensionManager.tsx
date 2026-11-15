@@ -5,6 +5,8 @@ import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
 import PackageManager from './PackageManager'
+import { useRouter } from '@/platform/routing/navigation'
+import './extensions.css'
 
 type SettingDef = { key: string; label: string; labelEn?: string; description?: string; descriptionEn?: string; type: string; options?: { label: string; value: string }[] }
 type Manifest = {
@@ -12,7 +14,7 @@ type Manifest = {
   capabilities?: string[]; settings?: SettingDef[]; adminNavigation?: { href: string; label: string; labelEn?: string }[]
   requires?: string[]; publicPaths?: string[]; adminPaths?: string[]; category?: string; icon?: string
 }
-type ExtensionRow = { manifest: Manifest; state: { enabled: boolean; settings: Record<string, unknown> } }
+type ExtensionRow = { manifest: Manifest; state: { enabled: boolean; requestedEnabled?: boolean; blockedBy?: string[]; unavailable?: boolean; settings: Record<string, unknown> } }
 
 /** Every manifest category, in the order the owner meets them: the site's sections first, platform services last. */
 const CATEGORIES: { key: string; fa: string; en: string }[] = [
@@ -26,6 +28,7 @@ const haystack = (m: Manifest) => [m.name, m.nameEn, m.id, m.description, m.desc
 
 export default function ExtensionManager({ embedded = false }: { embedded?: boolean }) {
   const { locale } = useI18n()
+  const router = useRouter()
   const fa = locale === 'fa'
   const L = useCallback((en: string, persian: string) => (fa ? persian : en), [fa])
   const [rows, setRows] = useState<ExtensionRow[]>([])
@@ -58,7 +61,7 @@ export default function ExtensionManager({ embedded = false }: { embedded?: bool
       setMessage({ text: 'enabled' in patch
         ? (patch.enabled ? L(`${row.manifest.nameEn || row.manifest.name} is on.`, `«${row.manifest.name}» فعال شد.`) : L(`${row.manifest.nameEn || row.manifest.name} is off. Nothing was deleted.`, `«${row.manifest.name}» غیرفعال شد. داده‌ای حذف نشد.`))
         : L('Settings saved.', 'تنظیمات ذخیره شد.'), error: false })
-      if ('enabled' in patch) window.dispatchEvent(new Event('happ:modules-changed'))
+      if ('enabled' in patch) { window.dispatchEvent(new Event('happ:modules-changed')); router.refresh() }
     } catch (error) { setMessage({ text: error instanceof Error ? error.message : L('Could not save.', 'ذخیره ناموفق بود.'), error: true }) }
     finally { setBusy('') }
   }
@@ -93,7 +96,7 @@ export default function ExtensionManager({ embedded = false }: { embedded?: bool
     // The server refuses to turn off a module an enabled module needs; the switch says so instead of failing.
     const locked = on && dependents.length > 0
     const manage = on && !m.adminNavigation?.length ? (m.adminPaths || [])[0] : undefined
-    const expanded = open === m.id
+    const expanded = on && open === m.id
     return <article className={`xm-card${on ? ' is-on' : ''}${m.kind === 'module' ? ' is-module' : ''}`} key={m.id} aria-busy={busy === m.id}>
       <div className="xm-card-head">
         <span className="xm-icon" aria-hidden="true"><Icon name={m.icon || (m.kind === 'module' ? 'grid' : 'sparkles')} size={22} /></span>
@@ -102,33 +105,36 @@ export default function ExtensionManager({ embedded = false }: { embedded?: bool
           <small dir="ltr">{m.id} · v{m.version}{m.kind === 'module' ? ` · ${categoryLabel(m.category)}` : ''}</small>
         </div>
         <label className="xm-switch" title={locked ? L(`On while ${dependents.map(d => name(d.manifest)).join(', ')} needs it`, `تا «${dependents.map(d => name(d.manifest)).join('، ')}» روشن است خاموش نمی‌شود`) : on ? L('Turn off', 'غیرفعال‌کردن') : L('Turn on', 'فعال‌کردن')}>
-          <input type="checkbox" checked={on} disabled={busy === m.id || locked} onChange={e => void toggle(row, e.target.checked)} />
+          <input type="checkbox" aria-label={`${name(m)} — ${L('activation', 'فعال‌سازی')}`} checked={row.state.requestedEnabled ?? on} disabled={!!busy || locked} onChange={e => void toggle(row, e.target.checked)} />
           <span>{on ? L('On', 'فعال') : L('Off', 'غیرفعال')}</span>
         </label>
       </div>
       <p className="xm-desc">{fa ? m.description : m.descriptionEn || m.description}</p>
       <div className="xm-meta">
+        <span className="xm-chip is-muted">{L('Included in this build', 'نصب‌شده همراه این نسخه')}</span>
+        {row.state.unavailable && <span className="xm-chip is-warn">{L('Stored configuration needs recovery', 'تنظیمات ذخیره‌شده نیازمند بازیابی است')}</span>}
+        {!!row.state.requestedEnabled && !on && <span className="xm-chip is-warn">{L('Activation requested; dependency unavailable', 'فعال‌سازی درخواست شده؛ وابستگی در دسترس نیست')}</span>}
         {(m.publicPaths || []).map(path => <span className="xm-chip" dir="ltr" key={path}>{path}</span>)}
         {(m.requires || []).map(id => <span className={`xm-chip${missing.includes(id) ? ' is-warn' : ''}`} key={id}>{L('needs', 'نیازمند')} {byId.get(id) ? name(byId.get(id)!.manifest) : id}</span>)}
         {dependents.length > 0 && <span className="xm-chip">{L('used by', 'مورد استفادهٔ')} {dependents.map(d => name(d.manifest)).join('، ')}</span>}
         {m.kind !== 'module' && (m.capabilities || []).map(capability => <span className="xm-chip is-muted" key={capability}>{capability}</span>)}
       </div>
-      {(!!m.settings?.length || (on && !!m.adminNavigation?.length) || !!manage) && <div className="xm-foot">
+      {on && (!!m.settings?.length || !!m.adminNavigation?.length || !!manage) && <div className="xm-foot">
         {manage && <Link className="btn btn-ghost btn-sm" href={manage}>{L('Manage section', 'مدیریت بخش')} ↗</Link>}
         {on && (m.adminNavigation || []).map(item => <Link className="btn btn-ghost btn-sm" href={item.href} key={item.href}>{fa ? item.label : item.labelEn || item.label} ↗</Link>)}
         {!!m.settings?.length && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : m.id)}>{expanded ? L('Hide settings', 'بستن تنظیمات') : L('Settings', 'تنظیمات')}</button>}
       </div>}
-      {m.id === 'businesses' && <SectionSettingsHistoryLink section="businesses" />}
+      {on && m.id === 'businesses' && <SectionSettingsHistoryLink section="businesses" />}
       {expanded && !!m.settings?.length && <div className="xm-settings">{m.settings.map(def => <label className="studio-field" key={def.key}><span>{fa ? def.label : def.labelEn || def.label}</span>{def.type === 'boolean' ? <input type="checkbox" checked={Boolean(row.state.settings[def.key])} disabled={busy === m.id} onChange={e => void save(row, { settings: { [def.key]: e.target.checked } })}/> : def.type === 'select' ? <select className="input" value={String(row.state.settings[def.key] ?? '')} disabled={busy === m.id} onChange={e => void save(row, { settings: { [def.key]: e.target.value } })}>{def.options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : def.type === 'textarea' ? <textarea className="input" value={String(row.state.settings[def.key] ?? '')} disabled={busy === m.id} onChange={e => edit(m.id, def.key, e.target.value)} onBlur={e => void save(row, { settings: { [def.key]: e.target.value } })}/> : <input className="input" type={def.type === 'secret' ? 'password' : def.type === 'number' ? 'number' : 'text'} value={String(row.state.settings[def.key] ?? '')} disabled={busy === m.id} onChange={e => edit(m.id, def.key, def.type === 'number' ? Number(e.target.value) : e.target.value)} onBlur={e => void save(row, { settings: { [def.key]: def.type === 'number' ? Number(e.target.value) : e.target.value } })}/>}{def.description && <small className="muted">{fa ? def.description : def.descriptionEn || def.description}</small>}</label>)}</div>}
     </article>
   }
 
-  return <div className="xm-page" dir={fa ? 'rtl' : 'ltr'}>
+  return <div className="xm-page extension-manager" dir={fa ? 'rtl' : 'ltr'}>
     {!embedded && <header className="tb-hero">
       <div>
         <span className="tb-eyebrow">ماژول‌ها و افزونه‌ها</span>
         <h1>{L('Modules & extensions', 'ماژول‌ها و افزونه‌ها')}</h1>
-        <p>{L('Every major part of the site is a module you can switch on or off. Turning a module off hides its pages, menus and blocks — its data stays untouched.', 'هر بخش اصلی سایت یک ماژول است که می‌توانید روشن یا خاموش کنید. با خاموش‌کردن، صفحه‌ها، منوها و بلوک‌های آن پنهان می‌شوند و داده‌هایش دست‌نخورده می‌ماند.')}</p>
+        <p>{L('Manage installed capabilities and their dependencies. Deactivation withdraws their pages, menus and settings while retaining data. Installation and activation are separate.', 'قابلیت‌های نصب‌شده و وابستگی‌هایشان را مدیریت کنید. غیرفعال‌سازی، صفحه‌ها، منوها و تنظیمات همان قابلیت را کنار می‌گذارد و داده‌ها را نگه می‌دارد. نصب و فعال‌سازی دو مرحلهٔ جدا هستند.')}</p>
       </div>
     </header>}
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}

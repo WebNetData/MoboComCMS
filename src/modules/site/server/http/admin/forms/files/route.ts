@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import { NextRequest } from 'next/server'
 import { err } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
@@ -7,6 +8,7 @@ import { FormsError } from '@/modules/forms/domain/forms'
 
 /** GET ?id=<stored name> — an attachment of a submission, for those who build forms and those who handle that form's answers. */
 export async function GET(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const builder = await requirePerm(req, 'cms.pages')
   const reader = builder || await requirePerm(req, 'forms.handle')
   if (!reader) return err('دسترسی مجاز نیست', 403)

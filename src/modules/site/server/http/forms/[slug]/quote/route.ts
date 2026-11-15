@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
@@ -6,6 +7,7 @@ import { quoteForm } from '@/modules/forms/server/service'
 
 /** POST /api/forms/<slug>/quote — { values } → the bill of what was typed so far (the server prices it again on submit and at checkout). */
 export async function POST(req: NextRequest, { params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const params = await paramsPromise
   if (!rateLimitHit(`form-quote:${params.slug}:${clientIp(req.headers)}`, 60, 60_000).ok) return err('کمی بعد دوباره تلاش کنید', 429)
   const raw = await req.text()

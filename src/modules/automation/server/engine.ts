@@ -1,3 +1,5 @@
+import { automationAvailable, assertAutomationAvailable } from '@/modules/automation/server/availability'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { createHmac, randomBytes } from 'node:crypto'
 import dns from 'node:dns/promises'
 import { db } from '@/platform/database/prisma'
@@ -19,6 +21,11 @@ import {
 // enabled rules, each rule run once per subject (or again after its cooldown), every run written down.
 
 const parse = <T,>(value: string, fallback: T): T => { try { return JSON.parse(value) as T } catch { return fallback } }
+const triggerModule = (name: string) => name.startsWith('form.') ? 'forms' : ['cart.abandoned', 'stock.low'].includes(name) ? 'store' : name.startsWith('subscription.') ? 'vpn' : null
+export async function triggerAvailable(name: string) {
+  const owner = triggerModule(name)
+  return !owner || await isModuleEnabled(owner, db)
+}
 
 // ------------------------------------------------------------------ rules
 
@@ -27,6 +34,7 @@ export function ruleOf(row: { id: number; name: string; description: string; ena
 }
 
 export async function saveRule(input: unknown) {
+  await assertAutomationAvailable()
   const rule = normalizeRule(input)
   const data = { name: rule.name, description: rule.description, enabled: rule.enabled, trigger: rule.trigger, wait: rule.wait, conditions: JSON.stringify(rule.conditions), logic: rule.logic, actions: JSON.stringify(rule.actions), cooldownHours: rule.cooldownHours }
   const row = rule.id ? await db.automationRule.update({ where: { id: rule.id }, data }) : await db.automationRule.create({ data })
@@ -35,16 +43,19 @@ export async function saveRule(input: unknown) {
 }
 
 export async function deleteRule(id: number) {
+  await assertAutomationAvailable()
   await db.automationRule.delete({ where: { id } }).catch(() => undefined)
   enabledTriggers = null
 }
 
 export async function listRules() {
+  await assertAutomationAvailable()
   const rows = await db.automationRule.findMany({ orderBy: [{ enabled: 'desc' }, { id: 'desc' }] })
   return rows.map((row) => ({ ...ruleOf(row), runCount: row.runCount, lastRunAt: row.lastRunAt?.toISOString() || null }))
 }
 
 export async function recentRuns(ruleId?: number, take = 60) {
+  await assertAutomationAvailable()
   const rows = await db.automationRun.findMany({ where: ruleId ? { ruleId } : {}, orderBy: { id: 'desc' }, take, include: { rule: { select: { name: true } } } })
   return rows.map((row) => ({ id: row.id, ruleId: row.ruleId, rule: row.rule.name, subject: row.subjectKey, status: row.status, detail: row.detail, at: row.createdAt.toISOString() }))
 }
@@ -65,6 +76,7 @@ async function triggersInUse() {
  */
 export async function emitAutomation(name: string, subjectKey: string, userId: number | null, payload: Facts) {
   try {
+    if (!await automationAvailable() || !await triggerAvailable(name)) return
     if (!(await triggersInUse()).has(name)) return
     await db.automationEvent.create({ data: { name, subjectKey: subjectKey.slice(0, 120), userId, payload: JSON.stringify(payload) } })
   } catch (error) { logEvent('warn', 'automation.emit_failed', { name, error }) }
@@ -93,6 +105,7 @@ type Subject = { key: string; userId: number | null; facts: Facts }
 
 /** Runs one rule for one subject when its conditions hold and its cooldown allows. Returns whether it ran. */
 async function runRule(rule: Rule, trigger: TriggerDef, subject: Subject, now = new Date()): Promise<boolean> {
+  if (!await automationAvailable() || !await triggerAvailable(rule.trigger)) return false
   const facts = { ...(await siteFacts()), ...(await userFacts(subject.userId)), ...subject.facts }
   if (!conditionsHold(rule.conditions, rule.logic, facts)) return false
   const last = await db.automationRun.findFirst({ where: { ruleId: rule.id!, subjectKey: subject.key }, orderBy: { id: 'desc' }, select: { createdAt: true } })
@@ -127,6 +140,7 @@ async function staffIds(to: string, facts: Facts): Promise<number[]> {
 }
 
 async function runAction(rule: Rule, action: Action, index: number, subject: Subject, facts: Facts): Promise<string> {
+  await assertAutomationAvailable(); if (!await triggerAvailable(rule.trigger) || ['assign_form', 'set_form_stage'].includes(action.type) && !await isModuleEnabled('forms', db)) throw new AutomationError('ماژول مقصد غیرفعال است', 404)
   const p = action.params
   const say = (template: string) => renderMessage(template, facts)
   const stamp = `auto:${rule.id}:${subject.key}:${index}:${Date.now().toString(36)}`
@@ -140,6 +154,7 @@ async function runAction(rule: Rule, action: Action, index: number, subject: Sub
     case 'email_user': {
       const email = String(facts.user_email || '')
       if (!email) throw new AutomationError('ایمیل کاربر نیست')
+      await assertAutomationAvailable()
       const sent = await sendMail({ to: email, subject: say(p.subject), text: say(p.text), source: 'automation' })
       if (!sent.ok) throw new AutomationError(`ایمیل نرفت: ${sent.error}`)
       return 'ایمیل کاربر'
@@ -159,12 +174,15 @@ async function runAction(rule: Rule, action: Action, index: number, subject: Sub
       await db.promotion.create({ data: { code, active: true, kind: 'PERCENT', percentBps: Math.round(Number(p.percent) * 100), currency: BASE_CURRENCY, maxUses: 1, perUserLimit: 1, startsAt: now, endsAt: new Date(now.getTime() + Number(p.days) * 86_400_000) } })
       const withCode = { ...facts, code }
       await createInboxEvent({ userId: subject.userId, kind: 'AUTOMATION', dedupeKey: stamp, titleFa: renderMessage(p.title || 'کد تخفیف شما', withCode).slice(0, 200), titleEn: '', bodyFa: renderMessage(p.text, withCode).slice(0, 500), bodyEn: '', href: '/cart' })
-      if (facts.user_email) await sendMail({ to: String(facts.user_email), subject: renderMessage(p.title || 'کد تخفیف شما', withCode), text: renderMessage(p.text, withCode), source: 'automation' }).catch(() => undefined)
+      if (facts.user_email && await automationAvailable()) await sendMail({ to: String(facts.user_email), subject: renderMessage(p.title || 'کد تخفیف شما', withCode), text: renderMessage(p.text, withCode), source: 'automation' }).catch(() => undefined)
       return `کد تخفیف ${code}`
     }
     case 'notify_staff': {
       const ids = await staffIds(p.to, facts)
-      for (const id of ids) await createInboxEvent({ userId: id, kind: 'AUTOMATION', dedupeKey: `${stamp}:${id}`, titleFa: say(p.title).slice(0, 200), titleEn: '', bodyFa: say(p.text).slice(0, 500), bodyEn: '', href: staffHref(facts) }).catch(() => undefined)
+      for (const id of ids) {
+        if (!await automationAvailable()) break
+        await createInboxEvent({ userId: id, kind: 'AUTOMATION', dedupeKey: `${stamp}:${id}`, titleFa: say(p.title).slice(0, 200), titleEn: '', bodyFa: say(p.text).slice(0, 500), bodyEn: '', href: staffHref(facts) }).catch(() => undefined)
+      }
       return `اعلان به ${ids.length.toLocaleString('fa-IR')} کارمند`
     }
     case 'email_staff': {
@@ -175,7 +193,7 @@ async function runAction(rule: Rule, action: Action, index: number, subject: Sub
     case 'sms_admins': {
       const config = await getSmsConfig()
       let sent = 0
-      for (const phone of config.adminPhones) if (await sendSms({ phone, event: 'AUTOMATION_ADMIN', text: say(p.text) }, config)) sent++
+      for (const phone of config.adminPhones) { if (!await automationAvailable()) break; if (await sendSms({ phone, event: 'AUTOMATION_ADMIN', text: say(p.text) }, config)) sent++ }
       return `پیامک مدیر: ${sent.toLocaleString('fa-IR')}`
     }
     case 'assign_form': return assignForm(Number(facts.submission_id), Number(facts.form_id))
@@ -259,6 +277,7 @@ async function postWebhook(raw: string, secret: string, event: string, payload: 
   const addresses = /^[\d.]+$|:/.test(host) ? [host] : (await dns.lookup(host, { all: true })).map((row) => row.address)
   if (!addresses.length || addresses.some(isPrivateAddress)) throw new AutomationError('نشانی وب‌هوک عمومی نیست')
   const body = JSON.stringify({ event, sentAt: new Date().toISOString(), ...payload })
+  await assertAutomationAvailable()
   const response = await fetch(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(6000), headers: { 'content-type': 'application/json', 'user-agent': 'MoboCom-Automation/1', 'x-mobocom-event': event, ...(secret ? { 'x-mobocom-signature': `sha256=${createHmac('sha256', secret).update(body).digest('hex')}` } : {}) }, body })
   if (!response.ok) throw new AutomationError(`وب‌هوک پاسخ ${response.status} داد`)
   return 'وب‌هوک'
@@ -275,6 +294,7 @@ const tehran = (now: Date) => {
 
 /** What a scan or schedule finds now, as subjects for the rule. */
 async function subjectsFor(rule: Rule, now: Date): Promise<Subject[]> {
+  if (!await triggerAvailable(rule.trigger)) return []
   const wait = rule.wait
   switch (rule.trigger) {
     case 'user.inactive': {
@@ -337,6 +357,7 @@ export async function reportFacts(from: Date, to: Date): Promise<Facts> {
  * schedules. A failing rule is written down and the others go on.
  */
 export async function processAutomation(now = new Date()) {
+  if (!await automationAvailable()) return { events: 0, runs: 0 }
   const rows = await db.automationRule.findMany({ where: { enabled: true } })
   if (!rows.length) return { events: 0, runs: 0 }
   const rules = rows.map(ruleOf)
@@ -344,6 +365,8 @@ export async function processAutomation(now = new Date()) {
   let runs = 0, events = 0
   const pending = await db.automationEvent.findMany({ where: { processedAt: null }, orderBy: { id: 'asc' }, take: 100 })
   for (const event of pending) {
+    if (!await automationAvailable()) break
+    if (!await triggerAvailable(event.name)) continue // Keep pending work without effect until its owner returns.
     // Claimed once, so two servers never run the same event.
     const claimed = await db.automationEvent.updateMany({ where: { id: event.id, processedAt: null }, data: { processedAt: now } })
     if (!claimed.count) continue
@@ -370,6 +393,7 @@ export async function processAutomation(now = new Date()) {
 
 /** What a rule would find right now, without doing anything (the builder's "try it"). */
 export async function previewRule(input: unknown, now = new Date()) {
+  await assertAutomationAvailable()
   const rule = normalizeRule(input)
   const trigger = triggerOf(rule.trigger)!
   if (trigger.kind === 'event') {

@@ -1,3 +1,19 @@
+# Current commercial modularity correction —2026-11-15
+
+Owner reiterates optional commercial capabilities, complete off-state withdrawal,
+advanced existing lifecycle management and retention. Continue `.mobocom/sms-platform`
+on `fix/modular-capability-isolation-2026-11-15`, base main274ada62 after PR477 merge.
+Implemented Forms/Automation boundaries, current audited extension management and
+retained uploaded uninstall in canonical owners. Actual PG206/no.env/UID1000,
+critical guard mutant, prior repair/package/CRM regressions and types/scoped gates
+passed;26 actual themed/responsive browser views passed scoped axe0/overflow0/errors0.
+Exact synthetic fixtures and task database removed; prior switches restored with
+claims, package-index cleanup preserves unrelated entries/revision. Final local
+source/runtime receipt is in the handoff. [Authoritative handoff and remaining gaps](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md),
+[scenario](../docs/specs/commercial-modularity/SPEC.md). No new PR, provider send,
+hosted workflow or production deployment. Earlier branch/local-only notes are
+history; do not rebuild merged PR477 or unrelated worktrees.
+
 # Repair approval PR publication — owner request2026-11-15
 
 [PR477](https://github.com/WebNetData/MoboComCMS/pull/477) is OPEN/non-draft to main

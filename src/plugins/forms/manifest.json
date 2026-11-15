@@ -1,0 +1,15 @@
+{
+  "id": "forms",
+  "name": "فرم‌ها، خدمات و تعمیرات",
+  "nameEn": "Forms, services and repairs",
+  "description": "فرم‌ساز، درخواست خدمات، نوبت‌دهی، پذیرش و رسید تعمیر، برآورد و تأیید هزینه و پیگیری مشتری. غیرفعال‌سازی دسترسی و ارسال‌های این بخش را می‌بندد و سوابق و پرداخت‌های قبلی را نگه می‌دارد.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "chat",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/forms", "/receipt", "/repair-status", "/dashboard/requests", "/dashboard/order/forms"],
+  "adminPaths": ["/admin/forms"]
+}

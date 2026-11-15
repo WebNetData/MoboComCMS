@@ -148,4 +148,13 @@ export function assertUniqueExtensionIds(manifests: readonly ExtensionManifest[]
       permissions.add(permission.id)
     }
   }
+  const visited = new Set<string>(), visiting = new Set<string>()
+  const visit = (id: string) => {
+    if (visiting.has(id)) throw new Error(`Extension dependency cycle: ${[...visiting, id].join(' -> ')}`)
+    if (visited.has(id)) return
+    visiting.add(id)
+    for (const dependency of manifests.find(manifest => manifest.id === id)?.requires || []) visit(dependency)
+    visiting.delete(id); visited.add(id)
+  }
+  for (const manifest of manifests) visit(manifest.id)
 }

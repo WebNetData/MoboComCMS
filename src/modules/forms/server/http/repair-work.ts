@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import type { NextRequest } from 'next/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { err, ok } from '@/platform/http/response'
@@ -14,6 +15,7 @@ async function staff(req: NextRequest) {
 }
 const failure = (error: unknown) => protect(error instanceof FormsError || error instanceof JsonBodyError ? err(error.message, error.status) : err('دریافت یا ثبت اطلاعات تعمیر ممکن نشد', 503))
 export async function GET(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const access = await staff(req)
   if (!access) return protect(err('دسترسی مجاز نیست', 403))
   const id = Number(req.nextUrl.searchParams.get('id'))
@@ -21,6 +23,7 @@ export async function GET(req: NextRequest) {
   try { return protect(ok(await getRepairWork(id, access.actor))) } catch (error) { return failure(error) }
 }
 export async function PATCH(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   if (!req.headers.get('origin') || mutationOrigin({ origin: req.headers.get('origin'), secFetchSite: req.headers.get('sec-fetch-site'), referer: req.headers.get('referer'), hasCookies: !!req.headers.get('cookie'), hosts: [req.headers.get('host'), req.nextUrl.host] }) !== 'allow') return protect(err('مبدأ درخواست معتبر نیست', 403))
   const access = await staff(req)
   if (!access) return protect(err('دسترسی مجاز نیست', 403))

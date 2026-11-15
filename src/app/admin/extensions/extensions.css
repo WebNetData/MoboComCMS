@@ -1,0 +1,6 @@
+.admin-shell .extension-manager .xm-filter button { min-block-size: 44px; }
+.admin-shell .extension-manager .xm-filter button.is-active { color: var(--accent-ink, var(--text)); }
+.admin-shell .extension-manager .xm-switch { min-block-size: 44px; }
+.admin-shell .extension-manager .xm-foot .btn { min-block-size: 44px; }
+.admin-shell .extension-manager .xm-card { min-inline-size: 0; overflow-wrap: anywhere; }
+html[data-theme='light'] .admin-shell .extension-manager .xm-chip.is-warn { color: #92400e; }

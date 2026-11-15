@@ -1,3 +1,4 @@
+import { automationAvailable, assertAutomationAvailable } from '@/modules/automation/server/availability'
 /** Public notification-policy boundary. No queue, transport or financial side effects. */
 import { db } from '@/platform/database/prisma';
 import { engagementAudience } from './engagement/audience';
@@ -14,6 +15,7 @@ export async function engagementDeliveryPolicy(event: {
   reason: string;
   deferUntil?: Date;
 }> {
+  if (!await automationAvailable()) return { allowed: false, reason: 'module-disabled' }
   const settings = await getEngagementSettings();
   if (!settings.enabled || !isMarketingKind(event.kind)) return {
     allowed: false,

@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { db } from '@/platform/database/prisma'
 import { minorToNumber, toMinor } from '@/shared/money'
 import { quoteForeignAmount } from '@/modules/fx/server/fx'
@@ -28,6 +29,7 @@ export type Bill = { lines: PriceLine[]; total: number; totalMinor: bigint; curr
 
 /** The bill of these answers, now: fixed costs, priced options and typed foreign amounts at today's rate. */
 export async function billFor(form: FormDefinition, values: Record<string, Answer | undefined>): Promise<Bill> {
+  await assertFormsAvailable()
   const quotes = new Map<string, { amount: number; rate: number }>()
   for (const field of visibleFields(form.fields, values)) {
     if (field.type !== 'fxamount') continue
@@ -59,6 +61,7 @@ export function sealSecrets(answers: StoredAnswer[]): { answers: StoredAnswer[];
 
 /** The passwords of one answer, for the member of staff doing the work. The route records who looked. */
 export async function revealSecrets(submissionId: number) {
+  await assertFormsAvailable()
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, select: { secrets: true, data: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
   if (!row.secrets) return []
@@ -69,6 +72,7 @@ export async function revealSecrets(submissionId: number) {
 }
 
 export async function eraseSecrets(submissionId: number) {
+  await assertFormsAvailable()
   const done = await db.formSubmission.updateMany({ where: { id: submissionId, secrets: { not: '' } }, data: { secrets: '', secretsErasedAt: new Date() } })
   if (!done.count) throw new FormsError('اطلاعات محرمانه‌ای برای پاک‌کردن نمانده است', 409)
 }
@@ -101,6 +105,7 @@ const valuesOf = (answers: StoredAnswer[]) => Object.fromEntries(answers.map((an
  * moment, and stored on the answer — so a rate that moved changes the price before the sender pays.
  */
 export async function formCheckoutQuote(submissionId: number, userId: number) {
+  await assertFormsAvailable()
   const row = await db.formSubmission.findFirst({ where: { id: submissionId, userId }, include: { form: true } })
   if (!row) throw new FormsError('این درخواست در حساب شما نیست', 404)
   if (row.payStatus === 'PAID') throw new FormsError('این درخواست قبلاً پرداخت شده است', 409)
@@ -112,7 +117,10 @@ export async function formCheckoutQuote(submissionId: number, userId: number) {
   const answers = parse<StoredAnswer[]>(row.data, [])
   const fxCurrencies = form.fields.filter((field) => field.type === 'fxamount').map((field) => parseFxAnswer(answers.find((answer) => answer.id === field.id)?.value)?.currency || '').filter(Boolean)
   if (bill.totalMinor <= 0n) throw new FormsError('مبلغی برای پرداخت محاسبه نشد', 409)
-  await db.formSubmission.update({ where: { id: row.id }, data: { amountMinor: bill.totalMinor, currency: bill.currency, pricing: JSON.stringify(bill.lines) } })
+  await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
+    await tx.formSubmission.update({ where: { id: row.id }, data: { amountMinor: bill.totalMinor, currency: bill.currency, pricing: JSON.stringify(bill.lines) } })
+  })
   // What the invoice says: the form's own title and description, filled from this answer (passwords are stored masked).
   // Each answer is set apart (first-strong isolate), so an address or "25.00 USD" reads correctly inside Persian text.
   const isolate = (answer: StoredAnswer): StoredAnswer => (typeof answer.value === 'string' && answer.value ? { ...answer, value: `\u2068${answer.value}\u2069` } : answer)
@@ -135,6 +143,8 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
   if (meta.kind !== 'form' || !Number.isSafeInteger(submissionId)) throw new Error('form order has no answer')
   const paid = await db.formSubmission.updateMany({ where: { id: submissionId, userId: order.userId, payStatus: 'UNPAID' }, data: { payStatus: 'PAID', paidAt: new Date(), stage: 'OPEN', orderId: order.id, amountMinor: order.totalMinor, currency: order.currency } })
   if (!paid.count) return
+  // Financial reconciliation survives deactivation; optional communications do not.
+  if (!await formsAvailable()) return
   const title = String(meta.formTitle || '').slice(0, 80)
   // The form's own notifications and webhooks hear about a paid request now (they were held back until the money came).
   const stored = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
@@ -167,6 +177,7 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
  */
 export const OTHERS_WORK = 'این درخواست در دست همکار دیگری است؛ فقط خود او یا مدیر فرم‌ها می‌تواند آن را تغییر دهد'
 export async function assertOwnWork(submissionId: number, actor: { id: number }, manager: boolean) {
+  await assertFormsAvailable()
   if (manager) return
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, select: { assigneeId: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
@@ -174,6 +185,7 @@ export async function assertOwnWork(submissionId: number, actor: { id: number },
 }
 
 export async function workOnSubmission(submissionId: number, actor: { id: number }, patch: { stage?: unknown; take?: unknown; reply?: unknown; assignTo?: unknown; pickupCode?: unknown; override?: unknown }, manager = false) {
+  await assertFormsAvailable()
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
   if (!manager && row.assigneeId && row.assigneeId !== actor.id) throw new FormsError(OTHERS_WORK, 403)
@@ -226,6 +238,7 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   const moved = data.stage && data.stage !== row.stage ? steps.find(item => item.key === data.stage) : undefined
   data.repairVersion = { increment: 1 }
   await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
     const unrepairedReturn = await assertRepairStage(tx, row, data.stage, steps)
     const changed = await tx.formSubmission.updateMany({ where: { id: row.id, repairVersion: row.repairVersion, estimateRevision: row.estimateRevision, assigneeId: row.assigneeId, stage: row.stage, payStatus: row.payStatus, data: row.data, userId: row.userId, pickupCode: row.pickupCode, receiptToken: row.receiptToken, ...(data.reply !== undefined ? { reply: row.reply } : {}), ...(data.read !== undefined ? { read: row.read } : {}), ...(data.status !== undefined ? { status: row.status } : {}) }, data })
     if (changed.count !== 1) throw new FormsError('درخواست هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409)
@@ -259,11 +272,13 @@ export const receiptCodes = () => ({ receiptToken: randomBytes(18).toString('bas
  * (customers in the shop often have no account). Inbox messages are sent by the caller for signed-in senders.
  */
 export async function tellSender(row: { id: number; title: string; data: string; userId: number | null; pickupCode: string; receiptToken: string }, step: WorkStep) {
+  if (!await formsAvailable()) return
   return queueFormStageSms(row, step)
 }
 
 /** A signed-in sender's own answers, newest first: what they sent (passwords masked), the bill, and where the work stands. */
 export async function myRequests(userId: number) {
+  if (!await formsAvailable()) return []
   const rows = await db.formSubmission.findMany({ where: { userId, status: { not: 'SPAM' } }, orderBy: { createdAt: 'desc' }, take: 60, include: { form: true } })
   return Promise.all(rows.map(async (row) => ({
     id: row.id, form: row.form.title, slug: row.form.slug, createdAt: row.createdAt.toISOString(),

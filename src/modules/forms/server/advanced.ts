@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { createHmac } from 'node:crypto'
 import dns from 'node:dns/promises'
 import type { Prisma } from '@prisma/client'
@@ -25,6 +26,7 @@ const tehranClock = (now = new Date()) => new Intl.DateTimeFormat('en-GB', { tim
 
 /** The open days of an appointment field, and for one day its turns with the seats left. */
 export async function slotAvailability(form: FormDefinition, fieldId: string, date: string, now = new Date()) {
+  await assertFormsAvailable()
   const field = form.fields.find((item) => item.id === fieldId && item.type === 'slot')
   if (!field || !form.id) throw new FormsError('این فیلد نوبت ندارد', 404)
   const rule = field.slot || DEFAULT_SLOT
@@ -46,6 +48,7 @@ export async function slotAvailability(form: FormDefinition, fieldId: string, da
  * else fails the transaction, and the caller tries the whole answer again.
  */
 export async function bookSlots(tx: Prisma.TransactionClient, form: FormDefinition, shown: FormField[], values: Record<string, Answer>, submissionId: number, now = new Date()) {
+  await assertFormsAvailable(tx)
   for (const field of shown) {
     if (field.type !== 'slot' || !values[field.id]) continue
     const rule = field.slot || DEFAULT_SLOT
@@ -68,10 +71,14 @@ export const releaseSlots = (submissionId: number) => db.formBooking.deleteMany(
 
 /** The extra notifications whose conditions hold, with their merge tags filled in. */
 export async function sendFormNotifications(form: FormDefinition, context: MergeContext, values: Record<string, Answer | undefined>) {
+  if (!await formsAvailable()) return
   for (const item of dueNotifications(form.settings!, values)) {
     const subject = mergeTags(item.subject || `پاسخ تازه در «{form_title}»`, context).replace(/[\r\n]+/g, ' ').slice(0, 200)
     const text = mergeTags(item.body || '{all_fields}', context)
-    for (const to of recipients(item.to, context.answers)) await sendMail({ to, subject, text, source: 'forms' }).catch((error) => logEvent('error', 'forms.notification_failed', { form: form.slug, error }))
+    for (const to of recipients(item.to, context.answers)) {
+      if (!await formsAvailable()) return
+      await sendMail({ to, subject, text, source: 'forms' }).catch((error) => logEvent('error', 'forms.notification_failed', { form: form.slug, error }))
+    }
   }
 }
 
@@ -86,11 +93,13 @@ async function assertPublicHook(raw: string) {
 
 /** Tells the form's webhooks about an event. Passwords are never in the payload; the body is signed with the hook's secret. */
 export async function sendFormWebhooks(form: Pick<FormDefinition, 'id' | 'slug' | 'title' | 'settings'>, event: FormWebhook['events'][number], payload: Record<string, unknown>) {
+  if (!await formsAvailable()) return
   const hooks = (form.settings?.webhooks || []).filter((hook) => hook.events.includes(event))
   for (const hook of hooks) {
     const body = JSON.stringify({ event, form: { id: form.id, slug: form.slug, title: form.title }, sentAt: new Date().toISOString(), ...payload })
     try {
       const url = await assertPublicHook(hook.url)
+      if (!await formsAvailable()) return
       const response = await fetch(url, {
         method: 'POST', redirect: 'error', signal: AbortSignal.timeout(6000),
         headers: { 'content-type': 'application/json', 'user-agent': 'MoboCom-Forms/1', 'x-mobocom-event': event, ...(hook.secret ? { 'x-mobocom-signature': `sha256=${createHmac('sha256', hook.secret).update(body).digest('hex')}` } : {}) },
@@ -108,6 +117,7 @@ export const webhookAnswers = (answers: StoredAnswer[]) => Object.fromEntries(an
 
 /** `viewer`: a handler, whose figures leave out what colleagues have taken. */
 export async function formFieldStats(formId: number, viewer?: number) {
+  await assertFormsAvailable()
   const form = await db.siteForm.findUnique({ where: { id: formId } })
   if (!form) throw new FormsError('فرم پیدا نشد', 404)
   const rows = await db.formSubmission.findMany({ where: { formId, status: { not: 'SPAM' }, ...(viewer ? { OR: [{ assigneeId: null }, { assigneeId: viewer }] } : {}) }, select: { data: true, score: true, scoreMax: true }, orderBy: { id: 'desc' }, take: 5000 })
@@ -122,6 +132,7 @@ export async function formFieldStats(formId: number, viewer?: number) {
 
 /** A member of staff corrects plain answers of a stored submission (a typo in a name or a phone number). */
 export async function editSubmission(submissionId: number, input: unknown) {
+  await assertFormsAvailable()
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new FormsError('اطلاعات ویرایش معتبر نیست')
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
@@ -144,6 +155,7 @@ export async function editSubmission(submissionId: number, input: unknown) {
   }
   const serialized = JSON.stringify(answers), contactChanged = repairPhone(row.data) !== repairPhone(serialized)
   await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
     const saved = await tx.formSubmission.updateMany({ where: { id: row.id, data: row.data, assigneeId: row.assigneeId, stage: row.stage, status: row.status, payStatus: row.payStatus, repairVersion: row.repairVersion, estimateRevision: row.estimateRevision }, data: { data: serialized, repairVersion: { increment: 1 }, ...(contactChanged && row.estimateRevision ? { estimateRevision: { increment: 1 } } : {}) } })
     if (saved.count !== 1) throw repairConflict()
     if (contactChanged && row.estimateRevision) {
@@ -163,6 +175,7 @@ export async function editSubmission(submissionId: number, input: unknown) {
 export const mayHandle = (form: Pick<FormDefinition, 'settings'>, user: { id: number }, builder: boolean) => builder || !!form.settings?.handlers.includes(user.id)
 
 export async function assertMayHandleForm(formId: number, user: { id: number }, builder: boolean) {
+  await assertFormsAvailable()
   if (builder) return
   const form = await db.siteForm.findUnique({ where: { id: formId } })
   if (!form || !mayHandle(parseForm(form), user, false)) throw new FormsError('این فرم به شما سپرده نشده است', 403)
@@ -173,6 +186,7 @@ export async function assertMayHandleForm(formId: number, user: { id: number }, 
  * answers are theirs alone (owner, 2026-10-28: privacy) — only a manager still opens it.
  */
 export async function assertMayHandleSubmission(submissionId: number, user: { id: number }, builder: boolean) {
+  await assertFormsAvailable()
   if (builder) return
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, select: { formId: true, assigneeId: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
@@ -193,6 +207,7 @@ export async function formRecipients(handlers: number[]) {
  * is never left to a person who cannot get in.
  */
 export async function formStaff() {
+  await assertFormsAvailable()
   const rows = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE' }, select: { id: true, name: true, email: true, roleId: true, roleRef: { select: { name: true, nameFa: true, permissions: true } } }, orderBy: { id: 'asc' }, take: 500 })
   return rows.flatMap((row) => {
     const held = row.roleId == null ? null : parsePermissions(row.roleRef?.permissions || '')

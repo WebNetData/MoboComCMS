@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { FormsError, answerText, parseForm, stepLabel, workSteps, type StoredAnswer } from '@/modules/forms/domain/forms'
@@ -30,6 +31,7 @@ export const invoicePaid = (invoice: RepairInvoice | null) => invoice?.status ==
  * manager, or a named handler of the form while no colleague holds the work (the same rule as the answers' desk).
  */
 export async function repairForInvoice(id: number, actor: RepairActor, client: Client = db): Promise<RepairForInvoice> {
+  await assertFormsAvailable(client)
   if (!Number.isSafeInteger(id) || id <= 0) throw new FormsError('شمارهٔ تعمیر معتبر نیست')
   const row = await client.formSubmission.findUnique({ where: { id }, select: { id: true, data: true, stage: true, assigneeId: true, receivedAt: true, repairOrderId: true, form: true } })
   if (!row) throw new FormsError('درخواست تعمیر پیدا نشد', 404)
@@ -50,6 +52,7 @@ export async function repairForInvoice(id: number, actor: RepairActor, client: C
 
 /** Inside the sale's transaction: this sale is now the repair's invoice. A refunded or void earlier sale may be replaced. */
 export async function linkRepairOrder(tx: Prisma.TransactionClient, id: number, orderId: number) {
+  await assertFormsAvailable(tx)
   const order = await tx.order.findUnique({ where: { id: orderId }, select: { totalMinor: true, currency: true } })
   if (!order) throw new FormsError('فاکتور تعمیر پیدا نشد', 404)
   await assertRepairInvoiceConsent(tx, id, order.totalMinor, order.currency)
@@ -62,6 +65,7 @@ export async function linkRepairOrder(tx: Prisma.TransactionClient, id: number, 
 
 /** Links an already-paid mixed Store order to an eligible repair; no order, invoice or payment is created here. */
 export async function attachPaidServiceOrder(tx: Prisma.TransactionClient, id: number, orderId: number, actor: RepairActor) {
+  await assertFormsAvailable(tx)
   if (/^postgres/.test(process.env.DATABASE_URL || '')) await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "FormSubmission" WHERE "id" = ${id} FOR UPDATE`)
   const repair = await tx.formSubmission.findUnique({ where: { id }, select: { id: true, userId: true, data: true, stage: true, assigneeId: true, receivedAt: true, repairOrderId: true } })
   if (!repair) throw new FormsError('درخواست تعمیر پیدا نشد', 404)

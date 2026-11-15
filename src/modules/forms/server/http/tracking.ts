@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import { createHmac } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { authSecret } from '@/platform/config/env'
@@ -18,6 +19,7 @@ const err = (...args: Parameters<typeof apiError>) => privateResponse(apiError(.
 async function limit(key: string, count: number, ms: number) { if (!(await rateLimitStrict(key, count, ms)).ok) throw new RepairTrackingError('تعداد تلاش‌ها زیاد است؛ کمی بعد دوباره تلاش کنید', 429) }
 
 export async function POST(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   if (!req.headers.get('origin') || mutationOrigin({ origin: req.headers.get('origin'), secFetchSite: req.headers.get('sec-fetch-site'), referer: req.headers.get('referer'), hasCookies: !!req.headers.get('cookie'), hosts: [req.headers.get('host'), req.nextUrl.host] }) !== 'allow') return err('مبدأ درخواست معتبر نیست', 403)
   try {
     const ip = clientIp(req.headers)

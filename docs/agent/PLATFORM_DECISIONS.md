@@ -1190,3 +1190,17 @@ and requires renewed approval for higher repair cost. Legacy unquoted work remai
 rejected repair has an explicit unrepaired-return path with existing custody/payment
 controls. No separate identity, queue or unrestricted AI operation. Keep Docker3000
 available for owner review. [Implemented scope/evidence](handoffs/FORMS_AND_OPERATIONS.md#repair-estimate-consent-promised-delivery-and-public-history--2026-11-15).
+
+### Commercial modular platform — owner reaffirmation2026-11-15
+
+Owner reiterates that customer-specific capabilities must be optional modules or
+plugins installable through the platform and withdrawn from ordinary Admin/public
+settings, routes, APIs, AI tools and jobs when inactive. Data survives deactivation
+and uninstall; purge is separate explicit authority. Continue current extension,
+package, Settings/AuthZ/Audit/Jobs owners and public contracts; do not build a second
+registry or expose arbitrary executable source as a runtime installer. Shared
+Identity/authentication and financial reconciliation remain Core. First corrective
+slice gives existing Forms/repairs and Automation coherent switches, truthful
+management and retained uploaded uninstall. Defaults preserve current installations;
+commercial provisioning/distribution is subsequent work, not an activation grant.
+[Implemented scope, actual evidence and phased continuation](handoffs/COMMERCIAL_MODULARITY.md).

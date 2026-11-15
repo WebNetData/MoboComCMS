@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { db } from '@/platform/database/prisma'
 import { FormsError, workSteps } from '../../domain/forms'
 import { toMinor } from '@/shared/money'
@@ -11,6 +12,7 @@ import { repairEvent } from './history'
 export async function changeRepairWork(id: number, actor: RepairActor, input: Record<string, unknown>, audit: Pick<AdminAuditInput, 'req' | 'actor'>) {
   if (!Number.isSafeInteger(input.revision) || Number(input.revision) < 0) throw new FormsError('نسخهٔ پرونده معتبر نیست')
   return db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
     const builder = await requirePerm(audit.req, 'cms.pages', tx), handler = builder || await requirePerm(audit.req, 'forms.handle', tx)
     if (!handler || handler.id !== actor.id) throw new FormsError('دسترسی شما تغییر کرده است', 403)
     const { row } = await requireRepair(id, { id: handler.id, builder: !!builder, handler: true }, tx)
@@ -53,6 +55,7 @@ export async function changeRepairWork(id: number, actor: RepairActor, input: Re
 
 /** Called after all work patch paths resolve, inside the same state-claim transaction. */
 export async function assertRepairStage(tx: RepairClient, row: RepairRow, next: string | undefined, steps: ReturnType<typeof workSteps>) {
+  await assertFormsAvailable(tx)
   if (!row.estimateRevision || !next || next === row.stage) return
   const target = steps.find(s => s.key === next)
   if (['OPEN', 'QUOTED', 'REJECTED'].includes(next) || (target?.receipt && !target.pickup && !target.invoice)) return
@@ -62,6 +65,7 @@ export async function assertRepairStage(tx: RepairClient, row: RepairRow, next: 
 }
 
 export async function assertRepairInvoiceConsent(tx: RepairClient, id: number, totalMinor: bigint, currency: string) {
+  await assertFormsAvailable(tx)
   const row = await tx.formSubmission.findUnique({ where: { id }, include: { form: true } })
   if (!row?.estimateRevision) return
   const estimate = await currentEstimate(row, tx)

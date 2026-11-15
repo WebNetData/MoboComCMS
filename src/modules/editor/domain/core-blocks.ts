@@ -66,15 +66,15 @@ export const CORE_BLOCKS: BlockDefinition[] = [
     fields: { audience: { kind: 'enum', values: ['vip', 'signed-in'], default: 'vip' }, minRank: { kind: 'int', min: 0, max: 99, default: 0 }, message: { kind: 'string', max: 200, role: 'text' } },
     children: { allowed: 'any' } },
   // A form of the form builder, placed in the text (owner, 2026-10-28); the page mounts the live form into it.
-  { type: 'content.form', version: 1, category: 'content', kind: 'static', icon: 'form', label: { fa: 'فرم', en: 'Form' },
+  { type: 'content.form', version: 1, owner: 'forms', category: 'content', kind: 'static', icon: 'form', label: { fa: 'فرم', en: 'Form' },
     fields: { form: { kind: 'string', max: 80 } } },
   { type: 'content.faq', version: 1, category: 'content', kind: 'static', icon: 'faq', label: { fa: 'پرسش‌های پرتکرار', en: 'FAQ' },
     fields: { items: { kind: 'list', max: 60, item: { question: { kind: 'string', max: 300, role: 'text' }, answer: { kind: 'richText' } } }, open: { kind: 'enum', values: ['none', 'first', 'all'], default: 'none' } } },
 ]
 
 /** A registry holding the core blocks; modules and extensions add theirs to it. */
-export function createRegistry(extra: readonly BlockDefinition[] = []): BlockRegistry {
+export function createRegistry(extra: readonly BlockDefinition[] = [], inactiveOwners: readonly string[] = []): BlockRegistry {
   const registry = new BlockRegistry()
-  for (const definition of [...CORE_BLOCKS, ...extra]) registry.register(definition)
+  for (const definition of [...CORE_BLOCKS, ...extra]) if (!definition.owner || !inactiveOwners.includes(definition.owner)) registry.register(definition)
   return registry
 }

@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { db } from '@/platform/database/prisma'
 import { requestOtp, verifyOtp, SmsError } from '@/modules/sms/server/sms'
 import { OTP_RESEND_MS, OTP_TTL_MS } from '@/modules/sms/domain/sms'
@@ -13,6 +14,7 @@ const purpose = (input: Input) => `REPAIR_DECISION:${input.number}:${input.estim
 const generic = () => ({ message: 'اگر اطلاعات با برآورد جاری و شمارهٔ پذیرش مطابقت داشته باشد، کد ثبت پاسخ به همان شماره پیامک می‌شود.', expiresIn: OTP_TTL_MS / 1000, resendIn: OTP_RESEND_MS / 1000 })
 const denied = () => new FormsError('کد یا اطلاعات برآورد معتبر نیست؛ وضعیت پرونده را دوباره دریافت کنید', 403)
 async function pending(input: Input, tx: RepairClient = db) {
+  if (!await formsAvailable(tx)) return null
   if (!['APPROVED', 'REJECTED'].includes(input.decision)) return null
   const row = await tx.formSubmission.findUnique({ where: { id: input.number }, select: REPAIR_SELECT })
   if (!eligibleRepair(row) || row.payStatus === 'UNPAID' || ['DONE', 'REJECTED'].includes(row.stage) || repairPhone(row.data) !== input.phone) return null

@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { db } from '@/platform/database/prisma'
 import { latinDigits } from '@/shared/text/digits'
 import { OTP_RESEND_MS, OTP_TTL_MS } from '@/modules/sms/domain/sms'
@@ -14,6 +15,7 @@ export function trackingNumber(value: unknown): number | null {
   return /^[1-9]\d{0,9}$/.test(input) && Number(input) <= 2147483647 ? Number(input) : null
 }
 async function receiptRow(id: number, client: RepairClient = db) {
+  if (!await formsAvailable(client)) return null
   const row = await client.formSubmission.findUnique({ where: { id }, select: REPAIR_SELECT })
   return eligibleRepair(row) ? row : null
 }
@@ -35,6 +37,7 @@ export async function requestRepairCode(input: { number: number; phone: string; 
 }
 export async function verifyRepairCode(input: { number: number; phone: string; code: unknown }) {
   const outcome = await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
     const row = await receiptRow(input.number, tx)
     if (!row || repairPhone(row.data) !== input.phone) return null
     try { await verifyOtp({ phone: input.phone, code: input.code, purpose: `REPAIR:${row.id}` }, tx) }

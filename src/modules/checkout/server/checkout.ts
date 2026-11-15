@@ -25,6 +25,7 @@ import { answersComplete, readOrderFields } from '@/modules/store/domain/order-i
 import { openAmountPrice, openAnswers } from '@/modules/store/server/order-inputs'
 import { StoreError } from '@/modules/store/domain/store'
 import { attachFormOrder, formCheckoutQuote } from '@/modules/forms/server/paid'
+import { assertFormsAvailable } from '@/modules/forms/server/availability'
 import { FormsError } from '@/modules/forms/domain/forms'
 import { stampFxInvoice } from '@/modules/billing/server/invoice-rules'
 import { quoteContent } from '@/modules/paywall/server/paywall'
@@ -463,6 +464,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let order
   try {
     order = await db.$transaction(async tx => {
+      if (formSubmissionId) await assertFormsAvailable(tx)
       if (productId) await assertStoreAcceptsOrders(tx)
       const lockedQuotation = command.storeQuotation ? await (await import('@/modules/store/server/quotations')).checkQuotation(tx, { ...command.storeQuotation, userId: command.userId, lines: orderLines, currency, subtotalMinor, channel: 'ONLINE' }) : null
       if (promotion) {
@@ -499,6 +501,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     if (error instanceof Error && error.message.startsWith('PROMOTION_')) return fail(409, error.message, 'discount code could not be reserved; please retry')
     if (error instanceof ShippingError) return fail(error.status, error.code, error.message)
     if (error instanceof StoreError) return fail(error.status, error.code, error.message)
+    if (error instanceof FormsError) return fail(error.status, 'FORM_REQUEST', error.message)
     throw error
   }
 

@@ -5,6 +5,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { minorToNumber } from '@/shared/money'
 import { listForms } from '@/modules/forms/server/service'
 import { formStaff, mayHandle } from '@/modules/forms/server/advanced'
+import { isModuleEnabled } from '@/extensions/server/modules'
 
 /**
  * GET /api/admin/services — everything the site performs as a service, in one place: forms marked as a service
@@ -13,10 +14,12 @@ import { formStaff, mayHandle } from '@/modules/forms/server/advanced'
  * order and catalogue staff see the products.
  */
 export async function GET(req: NextRequest) {
-  const builder = await requirePerm(req, 'cms.pages')
-  const handler = builder || await requirePerm(req, 'forms.handle')
-  const orders = await requirePerm(req, 'orders.manage')
-  const catalog = await requirePerm(req, 'cms.products')
+  const formsOn = await isModuleEnabled('forms'), storeOn = await isModuleEnabled('store')
+  if (!formsOn && !storeOn) return err('این قابلیت غیرفعال است', 404)
+  const builder = formsOn ? await requirePerm(req, 'cms.pages') : null
+  const handler = builder || (formsOn ? await requirePerm(req, 'forms.handle') : null)
+  const orders = storeOn ? await requirePerm(req, 'orders.manage') : null
+  const catalog = storeOn ? await requirePerm(req, 'cms.products') : null
   if (!handler && !orders && !catalog) return err('دسترسی مجاز نیست', 403)
 
   const forms = handler ? (await listForms()).filter((form) => form.settings?.service && mayHandle(form, handler, Boolean(builder))) : []

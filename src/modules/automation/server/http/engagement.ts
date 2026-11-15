@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import type { NextRequest } from 'next/server';
 import { db } from '@/platform/database/prisma';
 import { err, ok } from '@/platform/http/response';
@@ -27,6 +28,7 @@ const fail = (error: unknown) => {
 };
 const sameOrigin = (req: NextRequest) => !!req.headers.get('origin') && originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host);
 export async function GET(req: NextRequest) {
+  const disabled = await moduleGuard('automation'); if (disabled) return disabled
   if (!(await guard(req))) return err('برای این بخش دسترسی مدیریت کاربران و اتوماسیون لازم است', 403);
   try {
     if (req.nextUrl.searchParams.get('products') === '1') {
@@ -65,6 +67,7 @@ export async function GET(req: NextRequest) {
   }
 }
 export async function PUT(req: NextRequest) {
+  const disabled = await moduleGuard('automation'); if (disabled) return disabled
   if (!sameOrigin(req)) return err('درخواست باید از همین سایت باشد', 403);
   const actor = await guard(req);
   if (!actor) return err('دسترسی کافی نیست', 403);
@@ -88,6 +91,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 export async function POST(req: NextRequest) {
+  const disabled = await moduleGuard('automation'); if (disabled) return disabled
   if (!sameOrigin(req)) return err('درخواست باید از همین سایت باشد', 403);
   const actor = await guard(req);
   if (!actor) return err('دسترسی کافی نیست', 403);

@@ -11,13 +11,20 @@ function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
   cache.set(file, mod)
-  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
+  const localRequire = (specifier) => specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : specifier.startsWith('.') ? load(path.relative(path.resolve(__dirname, '..'), path.resolve(path.dirname(file), specifier))) : require(specifier)
   new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
 
 const r = load('src/shared/routing/aliases')
 const contracts = load('src/platform/extensions/contracts')
+
+test('extension dependency cycles are rejected before catalog activation',()=>{
+ const module=(id,requires=[])=>({id,name:id,kind:'module',version:'1.0.0',apiVersion:1,requires})
+ assert.throws(()=>contracts.assertUniqueExtensionIds([module('alpha',['beta']),module('beta',['alpha'])]),/cycle/)
+ assert.throws(()=>contracts.assertUniqueExtensionIds([module('alpha',['alpha'])]),/cycle/)
+ assert.doesNotThrow(()=>contracts.assertUniqueExtensionIds([module('alpha',['beta']),module('beta')]))
+})
 
 const map = { '/games': '/game', '/forum': '/discourse' }
 const p = load('src/shared/routing/permalinks')

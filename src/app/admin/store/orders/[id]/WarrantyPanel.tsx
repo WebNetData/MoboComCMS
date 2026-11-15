@@ -1,5 +1,6 @@
 'use client'
 
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { useState } from 'react'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import Link from '@/components/AppLink'
@@ -13,6 +14,7 @@ const blank: Draft = { warrantyStartsAt: '', warrantyEndsAt: '', provider: '', c
 const draftFrom = (row?: Warranty | null): Draft => row ? { warrantyStartsAt: row.warrantyStartsAt.slice(0, 10), warrantyEndsAt: row.warrantyEndsAt.slice(0, 10), provider: row.provider, conditions: row.conditions } : blank
 
 export default function WarrantyPanel({ orderId }: { orderId: number }) {
+  const formsOn = useModuleEnabled('forms'), instoreOn = useModuleEnabled('instore')
   const { data, error, reload } = useJson<View>(`/api/admin/store/orders/${orderId}/warranties`)
   const [editing, setEditing] = useState<string>('')
   const [drafts, setDrafts] = useState<Record<string, Draft>>({})
@@ -52,8 +54,8 @@ export default function WarrantyPanel({ orderId }: { orderId: number }) {
         {(device.serial || device.imei) && <p className="num" dir="ltr">{[device.serial && `Serial: ${device.serial}`, device.imei && `IMEI: ${device.imei}`].filter(Boolean).join(' · ')}</p>}
         {warranty && editing !== key && <><dl className="sa-kv"><div><dt>ارائه‌دهنده</dt><dd>{warranty.provider}</dd></div><div><dt>شروع</dt><dd>{faDate(warranty.warrantyStartsAt)}</dd></div><div><dt>پایان</dt><dd>{faDate(warranty.warrantyEndsAt)}</dd></div></dl><p>{warranty.conditions}</p>
           {!!warranty.tickets.length && <p>تیکت‌ها: {warranty.tickets.map(ticket => <Link key={ticket.id} href={`/admin/tickets?ticket=${ticket.id}`} className="sa-link">#{fa(ticket.id)} · {ticket.status} </Link>)}</p>}
-          {!!warranty.repairs.length && <p>درخواست‌های تعمیر: {warranty.repairs.map(repair => <Link key={repair.id} href={`/admin/forms?submission=${repair.id}`} className="sa-link">#{fa(repair.id)} · {repair.stage || repair.status} </Link>)}</p>}
-          <Link href={`/admin/forms/counter?warrantyDevice=${warranty.id}`} className="btn btn-ghost">ثبت پذیرش تعمیر از مسیر Forms</Link>
+          {formsOn && !!warranty.repairs.length && <p>درخواست‌های تعمیر: {warranty.repairs.map(repair => <Link key={repair.id} href={`/admin/forms?submission=${repair.id}`} className="sa-link">#{fa(repair.id)} · {repair.stage || repair.status} </Link>)}</p>}
+          {formsOn && instoreOn && <Link href={`/admin/forms/counter?warrantyDevice=${warranty.id}`} className="btn btn-ghost">ثبت پذیرش تعمیر</Link>}
         </>}
         {editing === key && <form className="sa-form" onSubmit={event => void save(event, line.id, device.unitIndex, warranty, key)}>
           <div className="sa-row"><label className="sa-field"><span>شروع ضمانت</span><JalaliDateInput className="input" required value={draft.warrantyStartsAt} onChange={value => setDraft(key, { warrantyStartsAt: value })} /></label><label className="sa-field"><span>پایان ضمانت</span><JalaliDateInput className="input" required value={draft.warrantyEndsAt} onChange={value => setDraft(key, { warrantyEndsAt: value })} /></label></div>

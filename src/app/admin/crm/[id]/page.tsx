@@ -1,5 +1,6 @@
 'use client'
 
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useParams } from '@/platform/routing/navigation'
@@ -26,6 +27,7 @@ async function post(body: Record<string, unknown>) {
 
 /** The 360° customer file: value, segment, tags, notes and one timeline of orders, tickets, chats, wallet and more. */
 export default function CustomerFile() {
+  const formsOn = useModuleEnabled('forms')
   const { id } = useParams<{ id: string }>()
   const [data, setData] = useState<Profile | null>(null)
   const [error, setError] = useState('')
@@ -84,13 +86,13 @@ export default function CustomerFile() {
         </li>)}{!events.length && <li><span /><p className="sa-empty">موردی نیست.</p><span /></li>}</ol>
       </section>
       <aside className="sa-editor-side sa-stack">
-        <section className="sa-card" aria-labelledby="crm-services-title">
+        {formsOn && <section className="sa-card" aria-labelledby="crm-services-title">
           <header className="sa-card-head"><h2 id="crm-services-title">خدمات و تعمیرات</h2></header>
           {data.services?.status === 'restricted' ? <p className="sa-hint">برای مشاهدهٔ سابقهٔ خدمات به دسترسی رسیدگی به فرم مربوط نیاز دارید.</p>
             : data.services?.status === 'unavailable' ? <Notice tone="error">سابقهٔ خدمات دریافت نشد. <button type="button" className="sa-link" onClick={() => void load()}>تلاش دوباره</button></Notice>
             : data.services?.rows.length ? <><ul className="sl-reviews">{data.services.rows.slice(0, 5).map(row => <li key={row.id}><Link className="sa-link" href={row.href}>{row.title} · #{fa(row.id)}</Link><p>{row.stage}{row.assignee ? ` · مسئول: ${row.assignee}` : ''}</p><small className="sa-sub">{faDate(row.createdAt)}</small></li>)}</ul><p className="sa-hint">حداکثر ۳۰ درخواست اخیر در محدودهٔ دسترسی شما؛ جزئیات در فیلتر «خدمات و تعمیرات» تاریخچه است.{data.services.hasMore ? ' سابقهٔ بیشتری در بخش خدمات وجود دارد.' : ''}</p></>
             : <p className="sa-empty">درخواست خدمات مرتبط و قابل مشاهده‌ای ثبت نشده است.</p>}
-        </section>
+        </section>}
         <form className="sa-card sa-form" onSubmit={addNote}>
           <header className="sa-card-head"><h2>یادداشت داخلی</h2></header>
           <textarea className="textarea" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="فقط برای همکاران قابل مشاهده است" aria-label="یادداشت" />
