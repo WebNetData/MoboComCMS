@@ -1,3 +1,20 @@
+# Current continuation — repair consent/due/history — 2026-11-15
+
+PR476 merged at main fa2bd2af. Current authoritative checkout remains
+`.mobocom/sms-platform`, now `feat/repair-approval-timeline-2026-11-15`.
+Owner-authorized Forms estimate/decision OTP, due/overdue and customer history are
+implemented with additive206 migration, immutable quote/decision constraints,
+canonical staff/holder guards and Store invoice cap. Existing local data hashes
+were preserved after private backup. Connected PG206/no.env/UID1000, actual HTTP,
+counter/invoice rollback,45 units/types/gates and33 real themed/responsive browser
+views passed. Four paired long-text/overdue checks passed; scoped redacted secret
+scan found0. Exact fixtures and disposable test database were cleaned. Final local
+restart receipt is recorded in [Forms handoff](../docs/agent/handoffs/FORMS_AND_OPERATIONS.md#repair-estimate-consent-promised-delivery-and-public-history--2026-11-15).
+No real SMS/customer send, hosted workflow, production release or new PR.
+Final restart passed: mobocom-app remains on127.0.0.1:3000 with the same image,
+36 matching source/schema/check hashes,206 migrations, readiness/tracking/Admin
+Forms/homepage200 and anonymous repair403. Local implementation is reviewable.
+
 # PR476 consolidation — owner request2026-11-15
 
 The owner requests a PR for all development through repair tracking. Publish the

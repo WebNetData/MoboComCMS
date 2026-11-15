@@ -9,6 +9,8 @@ import { verifyHuman } from '@/modules/identity/server/human-check'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import { parseTrackingCode } from '../tracking-code'
 import { RepairTrackingError, lookupRepair, requestRepairCode, trackingNumber, verifyRepairCode } from '../tracking'
+import { requestEstimateCode, decideEstimate } from '../repair-work'
+import { FormsError } from '../../domain/forms'
 
 const privateResponse = <T extends Response>(out: T) => { out.headers.set('Cache-Control', 'private, no-store'); out.headers.set('Referrer-Policy', 'no-referrer'); return out }
 const response = (value: unknown) => privateResponse(ok(value))
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
     const ip = clientIp(req.headers)
     await limit(`repair:tracking:ip:${ip}`, 30, 10 * 60_000)
     const body = await readJsonObject(req, 3000)
-    if (!['lookup', 'request-code', 'verify-code'].includes(String(body.action))) throw new RepairTrackingError('روش پیگیری معتبر نیست')
+    if (!['lookup', 'request-code', 'verify-code', 'request-decision-code', 'decide-estimate'].includes(String(body.action))) throw new RepairTrackingError('روش پیگیری معتبر نیست')
     if (!await verifyHuman(body.humanCheck, req.headers, 'entry')) return err('بررسی امنیتی را کامل کنید', 400, { code: 'HUMAN_CHECK' })
     const number = body.action === 'lookup' ? parseTrackingCode(body.trackingCode)?.id : trackingNumber(body.number)
     if (!number) throw new RepairTrackingError('شمارهٔ پذیرش یا کد پیگیری معتبر نیست')
@@ -30,6 +32,18 @@ export async function POST(req: NextRequest) {
     const phone = normalizeMobile(body.phone)
     if (!phone) throw new RepairTrackingError('شمارهٔ موبایل معتبر نیست')
     const contact = createHmac('sha256', authSecret()).update(`repair-tracking:${phone}`).digest('hex')
+    if (body.action === 'request-decision-code' || body.action === 'decide-estimate') {
+      const estimateId = Number(body.estimateId)
+      if (!Number.isSafeInteger(estimateId) || estimateId <= 0 || !['APPROVED', 'REJECTED'].includes(String(body.decision))) throw new RepairTrackingError('برآورد یا پاسخ معتبر نیست')
+      const decision = body.decision as 'APPROVED' | 'REJECTED'
+      if (body.action === 'request-decision-code') {
+        await limit(`repair:decision:request:${number}:${contact}`, 1, 60000)
+        await limit(`repair:decision:send:${contact}`, 5, 3600000)
+        return response(await requestEstimateCode({ number, phone, estimateId, decision, ip }))
+      }
+      await limit(`repair:decision:verify:${number}:${contact}`, 10, 600000)
+      return response({ request: await decideEstimate({ number, phone, estimateId, decision, code: body.code }) })
+    }
     if (body.action === 'request-code') {
       await limit(`repair:tracking:request:${number}:${contact}`, 1, 60_000)
       await limit(`repair:tracking:send:${contact}`, 5, 60 * 60_000)
@@ -38,7 +52,7 @@ export async function POST(req: NextRequest) {
     await limit(`repair:tracking:verify:${number}:${contact}`, 10, 10 * 60_000)
     return response({ request: await verifyRepairCode({ number, phone, code: body.code }) })
   } catch (error) {
-    if (error instanceof RepairTrackingError || error instanceof JsonBodyError) return err(error.message, error.status)
+    if (error instanceof RepairTrackingError || error instanceof JsonBodyError || error instanceof FormsError) return err(error.message, error.status)
     return err('پیگیری در این لحظه ممکن نشد؛ دوباره تلاش کنید', 503)
   }
 }

@@ -3,6 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { FormsError, answerText, parseForm, stepLabel, workSteps, type StoredAnswer } from '@/modules/forms/domain/forms'
 import { mayHandle } from '@/modules/forms/server/advanced'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
+import { assertRepairInvoiceConsent } from './repair-work'
 
 // Store owns the sale and payment; Forms links the one paid Store order to this repair and gates handing the device back.
 // In-shop sales may include parts and work; a matching paid mixed goods/service checkout can also be attached.
@@ -49,6 +50,9 @@ export async function repairForInvoice(id: number, actor: RepairActor, client: C
 
 /** Inside the sale's transaction: this sale is now the repair's invoice. A refunded or void earlier sale may be replaced. */
 export async function linkRepairOrder(tx: Prisma.TransactionClient, id: number, orderId: number) {
+  const order = await tx.order.findUnique({ where: { id: orderId }, select: { totalMinor: true, currency: true } })
+  if (!order) throw new FormsError('فاکتور تعمیر پیدا نشد', 404)
+  await assertRepairInvoiceConsent(tx, id, order.totalMinor, order.currency)
   const row = await tx.formSubmission.findUnique({ where: { id }, select: { repairOrderId: true } })
   if (!row) throw new FormsError('درخواست تعمیر پیدا نشد', 404)
   if (invoicePaid(await repairInvoice(row.repairOrderId, tx))) throw new FormsError('این تعمیر هم‌زمان فاکتور پرداخت‌شده گرفت', 409)
@@ -68,9 +72,10 @@ export async function attachPaidServiceOrder(tx: Prisma.TransactionClient, id: n
   }
   const order = await tx.order.findFirst({
     where: { id: orderId, productId: { not: null }, status: 'PAID' },
-    select: { id: true, userId: true, customerPhone: true, meta: true, invoice: { select: { orderId: true, status: true } }, user: { select: { phone: true } }, lines: { select: { productId: true, kind: true, sellerId: true } } },
+    select: { id: true, userId: true, customerPhone: true, meta: true, totalMinor: true, currency: true, invoice: { select: { orderId: true, status: true } }, user: { select: { phone: true } }, lines: { select: { productId: true, kind: true, sellerId: true } } },
   })
   if (!order || order.invoice?.status !== 'PAID' || order.invoice.orderId !== order.id) throw new FormsError('سفارش و فاکتور پرداخت‌شده پیدا نشد', 404)
+  await assertRepairInvoiceConsent(tx, id, order.totalMinor, order.currency)
   let serviceProductIds: number[] = []
   try {
     const meta = JSON.parse(order.meta || '{}') as { serviceProductIds?: unknown }

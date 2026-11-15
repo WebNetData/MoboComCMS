@@ -1,4 +1,5 @@
 import { createHmac, randomInt } from 'node:crypto'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
 import { OTP_RESEND_MS, OTP_TTL_MS, normalizeMobile, otpCode, renderTemplate, validOtpFormat } from '@/modules/sms/domain/sms'
@@ -15,9 +16,9 @@ import { SmsError } from './error'
 const hashCode = (phone: string, code: string) => createHmac('sha256', authSecret()).update(`otp:${phone}:${code}`).digest('hex')
 
 /** Sends a login or verification code. Throws SmsError with a user-facing message. */
-export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET' | `COUNTER:${number}:${number}` | `REPAIR:${number}`
+export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET' | `COUNTER:${number}:${number}` | `REPAIR:${number}` | `REPAIR_DECISION:${number}:${number}:APPROVED` | `REPAIR_DECISION:${number}:${number}:REJECTED`
 
-export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; ip: string; userId?: number; context?: { service?: string } }) {
+export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; ip: string; userId?: number; context?: { service?: string }; beforeIssue?: (client: Prisma.TransactionClient) => Promise<void> }) {
   const phone = normalizeMobile(input.phone)
   if (!phone) throw new SmsError('شمارهٔ موبایل معتبر نیست (مثل ۰۹۱۲۱۲۳۴۵۶۷)')
   const config = await getSmsConfig()
@@ -28,6 +29,7 @@ export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; i
   const now = Date.now()
   const code = otpCode((max) => randomInt(max))
   const row = await serializable(async tx => {
+    if (input.beforeIssue) await input.beforeIssue(tx)
     const [last, recentPhone, recentIp] = await Promise.all([
       tx.otpCode.findFirst({ where: { phone, purpose: input.purpose }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
       tx.otpCode.count({ where: { phone, createdAt: { gt: new Date(now - 3_600_000) } } }),

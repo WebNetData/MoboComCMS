@@ -304,6 +304,8 @@ test('repair OTP template is purpose scoped and falls back to the global templat
   const preset = templates.SMS_READY_TEMPLATES.find(item => item.id === 'otp-repair')
   for (const variable of ['{code}', '{service}', '{brand}']) assert(preset.text.includes(variable))
   assert.equal(templates.otpGroup('REPAIR:42'), 'repair')
+  assert.equal(templates.otpGroup('REPAIR_DECISION:42:7:APPROVED'), 'repair')
+  assert.equal(templates.otpGroup('REPAIR_DECISION:42:7:REJECTED'), 'repair')
   assert.equal(templates.otpGroup('LOGIN'), 'login')
   assert.equal(templates.otpGroup('RESET'), 'reset')
   assert.equal(templates.otpGroup('REPAIR:0'), 'login')

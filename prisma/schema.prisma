@@ -1550,6 +1550,11 @@ model FormSubmission {
   receiptToken String @default("") // the customer's copy of the receipt at /receipt/<token>
   receivedAt  DateTime?
   repairOrderId Int? @unique // the in-shop sale that invoiced this repair (parts and work done; 2026-11-13)
+  repairVersion Int @default(0)
+  estimateRevision Int @default(0)
+  repairDueAt DateTime?
+  repairEstimates RepairEstimate[]
+  repairEvents RepairEvent[]
   createdAt DateTime @default(now())
   form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
   uploads   FormUpload[]
@@ -1561,6 +1566,40 @@ model FormSubmission {
   @@index([receiptToken])
   @@index([orderId])
   @@index([formId, stage])
+}
+
+
+// Forms-owned repair consent snapshots; Store remains the final invoice owner.
+model RepairEstimate {
+  id Int @id @default(autoincrement())
+  submissionId Int
+  version Int
+  amountMinor BigInt
+  currency String @default("IRT")
+  description String
+  status String @default("PENDING")
+  contactHash String
+  receiptHash String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  decidedAt DateTime?
+  supersededAt DateTime?
+  submission FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+
+  @@unique([submissionId, version])
+}
+
+// Business timeline, distinct from security AuditLog; no secret answers or staff metadata.
+model RepairEvent {
+  id Int @id @default(autoincrement())
+  submissionId Int
+  kind String
+  label String
+  detail String @default("")
+  createdAt DateTime @default(now())
+  submission FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, id])
 }
 
 model FormUpload {

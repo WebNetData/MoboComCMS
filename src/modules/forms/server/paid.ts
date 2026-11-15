@@ -13,6 +13,9 @@ import { randomBytes, randomInt } from 'node:crypto'
 import { mergeTags } from '@/modules/forms/domain/advanced'
 import { invoicePaid, repairInvoice } from '@/modules/forms/server/repair-invoice'
 import { queueFormStageSms } from './stage-sms'
+import { assertRepairStage, repairEvent, repairWorkView } from './repair-work'
+import { eligibleRepair } from './repair-access'
+import { customerRepairWork } from '../domain/repair-work'
 
 // Paid forms and the work on an answer: the bill, the payment through the site's own checkout,
 // the secrets a sender hands over, and the stage staff move an answer through.
@@ -177,7 +180,7 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   // Handing work to somebody else is a manager's decision; anybody may take what nobody holds.
   if (!manager && patch.assignTo !== undefined && Number(patch.assignTo) !== actor.id) throw new FormsError('سپردن کار به همکار دیگر با مدیر فرم‌ها است', 403)
   if (row.payStatus === 'UNPAID') throw new FormsError('این درخواست هنوز پرداخت نشده است', 409)
-  const data: { stage?: string; assigneeId?: number | null; reply?: string; read?: boolean; status?: string; pickupCode?: string; receiptToken?: string; receivedAt?: Date } = {}
+  const data: { stage?: string; assigneeId?: number | null; reply?: string; read?: boolean; status?: string; pickupCode?: string; receiptToken?: string; receivedAt?: Date; repairVersion?: { increment: number } } = {}
   const settings = parseForm(row.form).settings
   const steps = workSteps(settings)
   let overridden = '', withoutInvoice = ''
@@ -221,9 +224,15 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   if (row.status === 'NEW') { data.status = 'READ'; data.read = true }
   const stage = data.stage || row.stage
   const moved = data.stage && data.stage !== row.stage ? steps.find(item => item.key === data.stage) : undefined
+  data.repairVersion = { increment: 1 }
   await db.$transaction(async tx => {
-    const changed = await tx.formSubmission.updateMany({ where: { id: row.id, assigneeId: row.assigneeId, stage: row.stage, payStatus: row.payStatus, data: row.data, userId: row.userId, pickupCode: row.pickupCode, receiptToken: row.receiptToken, ...(data.reply !== undefined ? { reply: row.reply } : {}), ...(data.read !== undefined ? { read: row.read } : {}), ...(data.status !== undefined ? { status: row.status } : {}) }, data })
+    const unrepairedReturn = await assertRepairStage(tx, row, data.stage, steps)
+    const changed = await tx.formSubmission.updateMany({ where: { id: row.id, repairVersion: row.repairVersion, estimateRevision: row.estimateRevision, assigneeId: row.assigneeId, stage: row.stage, payStatus: row.payStatus, data: row.data, userId: row.userId, pickupCode: row.pickupCode, receiptToken: row.receiptToken, ...(data.reply !== undefined ? { reply: row.reply } : {}), ...(data.read !== undefined ? { read: row.read } : {}), ...(data.status !== undefined ? { status: row.status } : {}) }, data })
     if (changed.count !== 1) throw new FormsError('درخواست هم‌زمان تغییر کرد؛ صفحه را تازه کنید', 409)
+    if (eligibleRepair(row)) {
+      if (moved) await repairEvent(tx, row, 'STAGE', 'وضعیت کار تغییر کرد', moved.label + (unrepairedReturn ? ' — دستگاه بدون انجام تعمیر بازگردانده شد' : ''))
+      if (data.reply !== undefined && data.reply !== row.reply) await repairEvent(tx, row, 'REPLY', 'پیام مجموعه', data.reply || 'پیام قبلی برداشته شد')
+    }
     if (moved) await queueFormStageSms({ id: row.id, title: row.form.title, data: row.data, userId: row.userId, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken }, moved, tx)
     if (row.userId && (moved || (data.reply && data.reply !== row.reply))) await createInboxEvent({
       userId: row.userId, kind: 'FORM', dedupeKey: `form:work:${row.id}:${randomBytes(16).toString('hex')}`,
@@ -255,12 +264,13 @@ export async function tellSender(row: { id: number; title: string; data: string;
 
 /** A signed-in sender's own answers, newest first: what they sent (passwords masked), the bill, and where the work stands. */
 export async function myRequests(userId: number) {
-  const rows = await db.formSubmission.findMany({ where: { userId, status: { not: 'SPAM' } }, orderBy: { createdAt: 'desc' }, take: 60, include: { form: { select: { id: true, slug: true, title: true, description: true, fields: true, published: true, successText: true, settings: true } } } })
-  return rows.map((row) => ({
+  const rows = await db.formSubmission.findMany({ where: { userId, status: { not: 'SPAM' } }, orderBy: { createdAt: 'desc' }, take: 60, include: { form: true } })
+  return Promise.all(rows.map(async (row) => ({
     id: row.id, form: row.form.title, slug: row.form.slug, createdAt: row.createdAt.toISOString(),
     answers: parse<StoredAnswer[]>(row.data, []).map((answer) => ({ label: answer.label, type: answer.type || 'text', value: (answer.type === 'file' || answer.type === 'signature') && Array.isArray(answer.value) ? `${answer.value.length.toLocaleString('fa-IR')} فایل` : answer.value })),
     amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY,
     lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null,
     stage: row.stage, stageLabel: row.stage ? stepLabel(parseForm(row.form).settings, row.stage) : '', receiptToken: row.receiptToken, reply: row.reply, score: row.score, scoreMax: row.scoreMax,
-  }))
+    repair: eligibleRepair(row) ? customerRepairWork(await repairWorkView(row)) : null,
+  })))
 }

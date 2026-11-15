@@ -30,5 +30,6 @@ export function otpGroup(purpose: string): OtpGroup {
   if (purpose === 'RESET') return 'reset'
   if (/^COUNTER:[1-9]\d*:[1-9]\d*$/.test(purpose)) return 'counter'
   if (/^REPAIR:[1-9]\d*$/.test(purpose)) return 'repair'
+  if (/^REPAIR_DECISION:[1-9]\d*:[1-9]\d*:(APPROVED|REJECTED)$/.test(purpose)) return 'repair'
   return 'login'
 }

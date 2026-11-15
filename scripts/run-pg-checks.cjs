@@ -81,6 +81,7 @@ const CHECKS = [
   'sms-delivery',
   'sms-workflows',
   'repair-tracking',
+  'repair-approval',
   'mobile-account-entry',
   'vpn-group-access',
   'digital-content-pricing',

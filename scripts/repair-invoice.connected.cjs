@@ -40,6 +40,7 @@ const answersApi = load('src/modules/site/server/http/admin/forms/submissions/ro
 const answersApiAuditFailure = loadAuditFailure('src/modules/site/server/http/admin/forms/submissions/route.ts')
 const returns = load('src/modules/store/server/returns/counter.ts')
 const stock = load('src/modules/catalog/server/locations.ts')
+const repairAccess = load('src/modules/forms/server/repair-access.ts')
 const balance = async (productId) => (await db.locationStock.findFirst({ where: { productId, locationId: shelfId } }))?.quantity ?? 0
 
 async function user(label, permissions) {
@@ -115,6 +116,15 @@ async function main() {
   assert.equal(early.status, 403, JSON.stringify(early.body))
 
   // The invoice: a part from stock, work and a bought-in part, paid at the register in one transaction.
+  const capped = await repairRow(form.id)
+  const now = new Date()
+  await db.repairEstimate.create({ data: { submissionId: capped.id, version: 1, amountMinor: 3499n, currency: 'IRT', description: 'Approved repair cap', status: 'APPROVED', contactHash: repairAccess.repairHash('contact', '+989120000000'), receiptHash: repairAccess.repairHash('receipt', capped.receiptToken), decidedAt: now, expiresAt: new Date(now.getTime() + 86400000) } })
+  await db.formSubmission.update({ where: { id: capped.id }, data: { estimateRevision: 1 } })
+  const beforeCap = { orders: await db.order.count(), invoices: await db.invoice.count(), payments: await db.payment.count(), reservations: await db.inventoryReservation.count(), movements: await db.stockMovement.count(), balance: await balance(ssd.id) }
+  const overCap = await counter('POST', '', sale(handler, capped.id, [{ productId: ssd.id, variantId: null, quantity: 1, expectedUnitMinor: '1000', inputs: {} }], WORK))
+  assert.equal(overCap.status, 409, JSON.stringify(overCap.body))
+  assert.deepEqual({ orders: await db.order.count(), invoices: await db.invoice.count(), payments: await db.payment.count(), reservations: await db.inventoryReservation.count(), movements: await db.stockMovement.count(), balance: await balance(ssd.id) }, beforeCap, 'refused over-cap sale rolls back money and stock')
+  assert.equal((await db.formSubmission.findUniqueOrThrow({ where: { id: capped.id } })).repairOrderId, null)
   const created = await counter('POST', '', sale(handler, first.id, [{ productId: ssd.id, variantId: null, quantity: 1, expectedUnitMinor: '1000', inputs: {} }], WORK))
   assert.equal(created.status, 200, JSON.stringify(created.body))
   const orderId = created.body.orderId
@@ -236,6 +246,7 @@ main().finally(async () => {
   await db.stockMovement.deleteMany({ where: { productId: { in: products } } })
   await db.locationStock.deleteMany({ where: { productId: { in: products } } })
   await db.product.deleteMany({ where: { OR: [{ id: { in: products } }, { slug: 'repair-work' }] } })
+  await db.repairEstimate.deleteMany({ where: { submissionId: { in: subs.map(row => row.id) } } })
   await db.formSubmission.deleteMany({ where: { id: { in: subs.map((row) => row.id) } } })
   await db.siteForm.deleteMany({ where: { id: { in: forms } } })
   await db.auditLog.deleteMany({ where: { actorUserId: { in: users } } })
