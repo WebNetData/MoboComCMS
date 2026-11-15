@@ -9,7 +9,7 @@ function load(relative) {
   if (cache[relative]) return cache[relative]
   const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
-  const req = (name) => name.startsWith('@/') ? load(`src/${name.slice(2)}.ts`) : require(name)
+  const req = (name) => name.startsWith('@/') ? load(`src/${name.slice(2)}.ts`) : name.startsWith('.') ? load(path.join(path.dirname(relative), name + '.ts').replaceAll('\\', '/')) : require(name)
   new Function('require', 'module', 'exports', source)(req, mod, mod.exports)
   return (cache[relative] = mod.exports)
 }
@@ -297,4 +297,20 @@ test('IPPanel distinguishes definitive rejection from uncertain delivery', async
     global.fetch = async () => new Response(JSON.stringify({ meta: { status: false } }), { status: 503 })
     assert.equal((await send()).unknown, true)
   } finally { global.fetch = original }
+})
+
+test('repair OTP template is purpose scoped and falls back to the global template', () => {
+  const templates = load('src/modules/sms/domain/templates.ts')
+  const preset = templates.SMS_READY_TEMPLATES.find(item => item.id === 'otp-repair')
+  for (const variable of ['{code}', '{service}', '{brand}']) assert(preset.text.includes(variable))
+  assert.equal(templates.otpGroup('REPAIR:42'), 'repair')
+  assert.equal(templates.otpGroup('LOGIN'), 'login')
+  assert.equal(templates.otpGroup('RESET'), 'reset')
+  assert.equal(templates.otpGroup('REPAIR:0'), 'login')
+  const override = { text: preset.text, pattern: '', param: 'code' }
+  const configured = sms.normalizeSmsConfig({ ...sms.DEFAULT_SMS, otpText: 'global {code}', otpTemplates: { repair: override }, otpTemplateOverrides: { repair: true } })
+  assert.equal(configured.otpTemplates.repair.text, preset.text)
+  const cleared = sms.normalizeSmsConfig({ ...configured, otpTemplateOverrides: { repair: false } }, configured)
+  assert.equal(cleared.otpTemplates.repair, undefined)
+  assert.equal(cleared.otpText, 'global {code}')
 })

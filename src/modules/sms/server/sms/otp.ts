@@ -2,6 +2,7 @@ import { createHmac, randomInt } from 'node:crypto'
 import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
 import { OTP_RESEND_MS, OTP_TTL_MS, normalizeMobile, otpCode, renderTemplate, validOtpFormat } from '@/modules/sms/domain/sms'
+import { otpGroup } from '@/modules/sms/domain/templates'
 import { latinDigits } from '@/shared/text/digits'
 import { claimOtpChallenge } from '@/modules/identity/server/otp-challenge'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
@@ -14,9 +15,9 @@ import { SmsError } from './error'
 const hashCode = (phone: string, code: string) => createHmac('sha256', authSecret()).update(`otp:${phone}:${code}`).digest('hex')
 
 /** Sends a login or verification code. Throws SmsError with a user-facing message. */
-export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET' | `COUNTER:${number}:${number}`
+export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET' | `COUNTER:${number}:${number}` | `REPAIR:${number}`
 
-export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; ip: string; userId?: number }) {
+export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; ip: string; userId?: number; context?: { service?: string } }) {
   const phone = normalizeMobile(input.phone)
   if (!phone) throw new SmsError('شمارهٔ موبایل معتبر نیست (مثل ۰۹۱۲۱۲۳۴۵۶۷)')
   const config = await getSmsConfig()
@@ -42,10 +43,12 @@ export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; i
     return tx.otpCode.create({ data: { phone, purpose: input.purpose, codeHash: hashCode(phone, code), userId: input.userId ?? null, expiresAt: new Date(now + OTP_TTL_MS), ip: input.ip.slice(0, 64) } })
   })
   const { brand } = await brandVars()
+  const template = config.otpTemplates?.[otpGroup(input.purpose)] || { text: config.otpText, pattern: config.otpPattern, param: config.otpParam }
+  const service = String(input.context?.service ?? '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 80)
   const delivery = await sendSmsResult({
     deliveryKey: `otp:${row.id}`, phone, event: `OTP_${input.purpose}`, kind: 'OTP', userId: input.userId,
-    text: renderTemplate(config.otpText, { code, brand }),
-    pattern: config.otpPattern || undefined, params: { [config.otpParam || 'code']: code },
+    text: renderTemplate(template.text, { code, brand, service }),
+    pattern: template.pattern || undefined, params: { [template.param || 'code']: code },
   }, config)
   if (delivery.status === 'UNKNOWN' || delivery.status === 'SENDING') return { phone, expiresIn: OTP_TTL_MS / 1000, resendIn: OTP_RESEND_MS / 1000, delivery: 'UNKNOWN' as const, notice: 'وضعیت ارسال نامشخص است؛ پیش از درخواست دوباره پیامک خود را بررسی کنید.' }
   if (!delivery.sent) {

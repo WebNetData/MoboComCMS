@@ -79,3 +79,95 @@ Eight additional actual browser views checked Login/PhoneStep unknown-delivery w
 Both new suites are registered in run-pg-checks. The exact disposable PostgreSQL database, browser users/form/entries/logs and500 queued recipients were removed after private receipts were saved. Actual local SMS credentials, choices and data were preserved; new ORDER_STATUS and FORM_STAGE are offered in /admin/sms and remain opt-in. Real IPPanel acceptance/handset delivery still requires an operator's explicit test/activation; no real customer send was used as development evidence. Final source hashes/readiness after restart are recorded below by the lead. On rollback disable sending first, retain the additive columns and intent tombstones, and never roll back to a sender that blindly repeats an unknown attempt.
 
 Final acceptance:41 affected source/schema/check hashes matched the running container; readiness/session/Admin SMS/homepage returned200 and migration count205, synthetic users/logs0. Follow-up removed the explicit debug-code path entirely: SMS readiness is required in every environment, no raw OTP logging,43 scoped Forms/payments units and full types passed. This follow-up changes no configured-provider flow. Current source is committed locally on the SMS branch; prior PR476 remains its separate owner-merge boundary. The container is retained on localhost3000; no release/hosted run or real SMS. Final restart is verified after the follow-up before handoff.
+
+
+## Repair receipt tracking and purpose-specific OTP — 2026-11-15
+
+Continue `.mobocom/sms-platform`, `feat/sms-platform-2026-11-15` from local
+`3fba96c9`. The owner requests a printed repair status code, OTP access and editable
+ready SMS texts for service/sales. This slice extends Forms and the shared SMS OTP
+owner. No new identity, challenge table, queue, migration or dependency is added.
+Prior Admin AI/users PR476 remains separate for owner merge; this slice is local.
+
+- `/repair-status` and POST `/api/repair-tracking` offer a dedicated printed
+  status-only code or receipt number plus its first current normalized transaction
+  mobile/tel. A versioned 80-bit derivation from the existing random receipt token
+  prints separately from the six-digit handover secret. Constant-time comparison
+  checks current token, service/receipt enablement and non-SPAM status. Previous
+  receipt QR links remain valid; old paper numbers can use OTP without a backfill.
+- Exact `REPAIR:id` challenges reuse hashed OTP, expiry, shared issuance limits,
+  five committed failed attempts and single-use consumption. Verification rechecks
+  current contact/receipt in its serializable transaction. Expected wrong-code
+  errors are handled inside that transaction so increments commit. Generic issuance
+  responses do not distinguish matches, misses, disabled or uncertain delivery.
+  No account/verified-phone update, persistent tracking session or credential URL.
+- The dedicated customer DTO includes bounded title, current stage/label, received
+  and created dates, customer reply and label-only steps. It never projects answers,
+  locks, staff, pickup/receipt secrets, settings or money documents. Explicit Origin,
+  HumanCheck, 3000-byte body, strict IP/receipt/contact limits and no-store responses
+  protect the route. Each successful OTP authorizes only its response.
+- `/admin/sms` adds independent login, verification, reset, counter and repair
+  overrides with previews and draft-only ready texts. Shared encrypted settings,
+  revision CAS, audit, allowed variables and global fallback remain authoritative.
+  Approved pattern text stays in IPPanel; the local free-text preset does not
+  rewrite it. Repair `{service}` comes from the trusted current form title.
+
+Executed on actual isolated PostgreSQL205, Linux UID1000, no `.env`: registered
+repair-tracking, SMS settings, core delivery and workflow suites passed; 45 scoped
+Forms/payments units and full types/source/architecture/security/audit passed.
+The new suite covers changed/rotated/wrong paper proof, handover-code rejection,
+private DTO, current receipt/phone gates, generic send outcomes, purpose separation,
+five committed failures, concurrent one-shot consume, no identity effects, template
+persistence/masked roundtrip/fallback and HTTP guards. Provider functions were
+recorders. Removing the proof check in an isolated source copy was detected; the
+running source was unchanged. One-rule scoped Semgrep on eight targets found0.
+React Doctor on four affected components returned0 errors/eight reviewed warnings:
+three complexity, existing void-handled reload, duplicated label composition and
+three stable receipt print-row index keys. No suppression or identity redesign.
+
+Final browser, printing, secret scan, exact fixture cleanup and restart receipts
+are appended after they execute. No real customer SMS/provider acceptance, physical
+printer, hosted workflow, production build/release, merge or deployment is claimed.
+Rollback this source slice retains existing receipt tokens, global SMS settings and
+challenge data; purpose overrides are additive stored settings, with global fallback.
+Operational provider activation/pattern approval remains an operator action.
+
+### Repair tracking final local acceptance — 2026-11-15
+
+Actual app3000 browser:28 scoped views at1440/390 light/dark passed axe0,
+horizontal overflow0 and page errors0. Both paper lookups and OTP verification
+reached the real API/database with actual HumanCheck; only request-code issuance
+was intercepted to create a private synthetic challenge without provider I/O.
+Wrong-code403, correct-code200/cleared input, resend cooldown, minimal result and
+focus, receipt tracking link/code and hidden handover secret, repair/counter presets
+and simulated revision409 preserving drafts passed. Each viewport represented a
+distinct synthetic client IP; real rate guards were retained. Native issuance and
+template writes separately used recording providers against isolated PostgreSQL.
+No real provider response or handset delivery is established by this browser run.
+
+Final A5 PDF was rendered and visually inspected: one page for the standard
+three-field fixture, code/QR side by side, readable URL and signature boxes. Print
+canvas stays white in dark theme. Long real answers/terms may require extra pages;
+no content is hidden or scaled to force every receipt onto one sheet. No physical
+printer was used. Light-text contrast and ready-text hover contrast were corrected
+with existing accent-ink tokens after actual axe findings. The harness corrected
+print-media leakage and waited for actual HumanCheck readiness before typing to
+avoid pre-hydration lost input; final run passed. Docker Desktop had stopped between
+turns; it was restarted using its CLI, preserving the app/image and PostgreSQL data.
+
+Final native tracking/header privacy, types/source/security/audit passed. Success
+and error responses both carry private/no-store and no-referrer. React Doctor
+remains0 errors/eight reviewed warnings, and redacted Gitleaks scanned31 explicit
+changed/new files with0 findings and no ignore changes. All exact browser fixtures
+(users/forms/OTP) and the dedicated test database were removed after receipts were
+saved under ignored `var/repair-tracking/`; app settings and user data were retained.
+Final source hashes and readiness after restart are appended below. This is a local
+source slice on the SMS branch, separate from prior PR476; no hosted workflow,
+real SMS, physical-print certification, production release, merge or deployment.
+
+Final restart receipt:23 affected source/check hashes matched the running container;
+ready, repair-status, session, Admin SMS and homepage returned200. PostgreSQL remains
+on205 migrations, and exact browser fixture users/forms/challenges are0. Existing
+image `675416b1f3e7` and local container `mobocom-app` on port3000 are retained with
+skip-seed; the final source slice is committed with this handoff on the SMS branch.
+No real provider send or hosted/production action occurred.

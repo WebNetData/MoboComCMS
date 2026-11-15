@@ -1170,3 +1170,12 @@ The owner requests category creation suggestions and menu additions/edits with i
 ### Transactional SMS continuation — owner2026-11-15
 
 The owner requests advanced SMS throughout existing Store/services and verification-code flows, plus correction of the unstyled request repeat action. Extend current SMS/Notifications/Forms/Store/Identity/Operations owners. Reserve a durable attempt before contacting the provider; an unknown outcome is never blindly retried. New order-status events remain opt-in and existing mutes persist; a phone supplied for a transaction does not become verified identity or marketing consent. Keep existing local Docker mobocom-app on port3000 for review. Prior Admin AI/users slice is PR476 for owner merge. No real customer SMS or production rollout is part of local verification. [Scope/evidence](handoffs/SMS_SETTINGS_RETENTION.md).
+
+### Printed repair status and SMS texts — owner2026-11-15
+
+The owner requests entering a code printed on the repair receipt or a one-time SMS
+code to see device status, and editable ready messages appropriate to services and
+sales. Extend existing Forms receipts/SMS challenges and settings; keep handover
+authorization separate from status lookup, preserve old QR receipts and the canonical
+identity. Keep the current local Docker app on port3000 for review. [Implemented scope
+and evidence](handoffs/SMS_SETTINGS_RETENTION.md).

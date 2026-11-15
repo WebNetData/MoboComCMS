@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { db } from '@/platform/database/prisma'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { DEFAULT_SMS, normalizeSmsConfig, smsEvent, type SmsConfig } from '@/modules/sms/domain/sms'
+import { OTP_GROUPS } from '@/modules/sms/domain/templates'
 import { auditAdminStrict, type AdminAuditInput } from '@/platform/audit/server'
 import { serializable } from './transaction'
 import { SmsError } from './error'
@@ -49,7 +50,14 @@ export async function saveSmsConfig(input: Record<string, unknown>, context?: Pi
       const allowed = new Set([...(smsEvent(id)?.vars || []), 'brand'])
       for (const match of event.text.matchAll(/\{(\w+)\}/g)) if (!allowed.has(match[1])) throw new SmsError(`متغیر نامعتبر در الگوی ${id}: ${match[1]}`)
     }
+    if (next.otpText !== previous.otpText && !next.otpText.includes('{code}')) throw new SmsError('متن کد باید شامل {code} باشد')
     if (next.otpText !== previous.otpText) for (const match of next.otpText.matchAll(/\{(\w+)\}/g)) if (!['code', 'brand'].includes(match[1])) throw new SmsError(`متغیر نامعتبر در الگوی کد: ${match[1]}`)
+    for (const { id } of OTP_GROUPS) {
+      const template = next.otpTemplates[id]
+      if (!template || JSON.stringify(template) === JSON.stringify(previous.otpTemplates?.[id])) continue
+      if (!template.text.includes('{code}')) throw new SmsError(`متن کد ${id} باید شامل {code} باشد`)
+      for (const match of template.text.matchAll(/\{([^{}]+)\}/g)) if (!['code', 'brand', 'service'].includes(match[1])) throw new SmsError(`متغیر نامعتبر در الگوی کد ${id}: ${match[1]}`)
+    }
     const stored = { ...next, apiKey: next.apiKey === previous.apiKey ? next.apiKey : encryptPanelCredential(next.apiKey) }
     const value = JSON.stringify(stored)
     if (row) {
@@ -71,7 +79,9 @@ export function apiKeyOf(config: SmsConfig) {
 export function publicSmsConfig(config: SmsConfig) {
   const key = apiKeyOf(config)
   const problems = [!config.enabled && 'پیامک فعال نیست', !key && 'کلید API قابل استفاده نیست', !config.fromNumber && 'شماره خط ارسال وارد نشده است'].filter((value): value is string => !!value)
-  return { ...config, apiKey: key ? `••••${key.slice(-4)}` : '', hasKey: !!key, ready: isReady(config), otpReady: isReady(config) && config.otpLogin, revision: revisionOf(config), problems }
+  const otpTemplates = Object.fromEntries(OTP_GROUPS.map(({ id }) => [id, config.otpTemplates?.[id] || { text: config.otpText, pattern: config.otpPattern, param: config.otpParam }]))
+  const otpTemplateOverrides = Object.fromEntries(OTP_GROUPS.map(({ id }) => [id, !!config.otpTemplates?.[id]]))
+  return { ...config, otpTemplates, otpTemplateOverrides, apiKey: key ? `••••${key.slice(-4)}` : '', hasKey: !!key, ready: isReady(config), otpReady: isReady(config) && config.otpLogin, revision: revisionOf(config), problems }
 }
 
 export const isReady = (config: SmsConfig) => config.enabled && !!apiKeyOf(config) && !!config.fromNumber

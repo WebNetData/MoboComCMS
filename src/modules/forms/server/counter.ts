@@ -10,6 +10,7 @@ import { queueFormStageSms } from './stage-sms'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import { resolvePhoneCustomer } from '@/modules/identity/server/phone-customer'
 import { latinDigits } from '@/shared/text/digits'
+import { repairTrackingCode } from './tracking-code'
 
 /**
  * Work at the counter (owner 2026-11-12, mobile repair): staff enter a customer who brings the device to the shop, and
@@ -82,6 +83,7 @@ async function receiptFrom(row: { id: number; data: string; stage: string; creat
     createdAt: row.createdAt.toISOString(), receivedAt: row.receivedAt?.toISOString() || null, stage: row.stage ? stepLabel(settings, row.stage) : '',
     lines, secrets, terms: settings.receipt.terms.split('\n').map((line) => line.trim()).filter(Boolean),
     pickupCode: row.pickupCode, link: row.receiptToken ? `/receipt/${row.receiptToken}` : '', staff, source: row.source,
+    trackingCode: settings.service && settings.receipt.enabled ? repairTrackingCode(row.id, row.receiptToken) : '', trackingUrl: new URL('/repair-status', process.env.NEXTAUTH_URL || 'http://localhost:3000').href,
     qr:row.receiptToken?await QRCode.toDataURL(new URL(`/receipt/${row.receiptToken}`,process.env.NEXTAUTH_URL||'http://localhost:3000').href,{width:160,margin:2}):'',
   }
 }

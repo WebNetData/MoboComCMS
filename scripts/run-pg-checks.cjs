@@ -80,6 +80,7 @@ const CHECKS = [
   'sms-settings',
   'sms-delivery',
   'sms-workflows',
+  'repair-tracking',
   'mobile-account-entry',
   'vpn-group-access',
   'digital-content-pricing',

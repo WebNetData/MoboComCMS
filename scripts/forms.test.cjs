@@ -485,3 +485,15 @@ test('staff counter submission is independent of the public human check', () => 
   assert.match(source, /disabled=\{busy \|\| !!uploading \|\| \(!preview && !counter && last && !human\.ready\)\}/)
   assert.match(source, /if \(busy \|\| \(!counter && !human\.ready\)\) return/)
 })
+
+test('repair paper code binds receipt and submission independently of pickup', () => {
+  const crypto = require('node:crypto')
+  const { repairTrackingCode, parseTrackingCode, matchesTrackingCode } = require('./connected-source-loader.cjs')({})('src/modules/forms/server/tracking-code.ts')
+  const token = 'abcdefghijklmnopqrstuvwx', code = repairTrackingCode(37, token)
+  const digest = crypto.createHash('sha256').update(`mobocom:repair-tracking:v1:37:${token}`).digest('hex').slice(0, 20).toUpperCase()
+  assert.equal(code.split('-').slice(1).join(''), digest)
+  assert(matchesTrackingCode(parseTrackingCode(code.toLowerCase()), token))
+  assert.equal(matchesTrackingCode(parseTrackingCode(code), 'zyxwvutsrqponmlkjihgfedc'), false)
+  assert.equal(parseTrackingCode('37-123456'), null)
+  assert.equal(repairTrackingCode(0, token), '')
+})

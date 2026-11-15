@@ -40,6 +40,10 @@ export default function ReceiptSheet({ receipt }: { receipt: Receipt }) {
       <div><small>کد تحویل دستگاه</small><b dir="ltr">{receipt.pickupCode}</b></div>
       <p>دستگاه فقط با ارائهٔ همین رسید و کد تحویل بازگردانده می‌شود. این کد را به کسی جز تحویل‌گیرندهٔ دستگاه ندهید.</p>
     </section>}
+    {customer && receipt.trackingCode && <section className="rc-tracking" aria-label="کد پیگیری تعمیرات">
+      <strong>کد پیگیری تعمیرات</strong><bdi dir="ltr">{receipt.trackingCode}</bdi>
+      <p>برای پیگیری به <bdi dir="ltr" className="rc-tracking-url">{receipt.trackingUrl || '/repair-status'}</bdi> بروید و این کد را وارد کنید؛ یا با شمارهٔ همراه ثبت‌شده روی رسید پیگیری کنید.</p>
+    </section>}
     {customer&&receipt.qr&&<section className="rc-code"><img src={receipt.qr} width={110} height={110} alt="QR پیگیری وضعیت تعمیر"/><p>برای دیدن وضعیت تعمیر با گوشی اسکن کنید. {receipt.link&&<a href={receipt.link}>پیگیری وضعیت</a>}</p></section>}
     {receipt.terms.length > 0 && <section className="rc-terms"><b>قوانین و شرایط</b><ol>{receipt.terms.map((term, index) => <li key={index}>{term.replace(/^[۰-۹\d]+[.)-]\s*/, '')}</li>)}</ol></section>}
     <footer className="rc-sign">

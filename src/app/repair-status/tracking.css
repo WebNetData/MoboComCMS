@@ -1,0 +1,34 @@
+.repair-tracking { width: min(100% - 32px, 760px); margin: 0 auto; padding: 32px 0 72px; color: var(--text); }
+.repair-tracking__crumb { color: var(--muted); font-size: .875rem; }
+.repair-tracking__crumb a { color: inherit; }
+.repair-tracking__intro { margin: 36px 0 24px; }
+.repair-tracking__intro p { margin: 0 0 8px; color: var(--accent-ink, var(--primary)); font-weight: 700; }
+.repair-tracking__intro h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 5vw, 2.3rem); }
+.repair-tracking__intro span { color: var(--muted); }
+.repair-tracking__card { padding: clamp(20px, 4vw, 32px); border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
+.repair-tracking__methods { display: flex; gap: 8px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 24px; }
+.repair-tracking__methods button { flex: 1; min-height: 44px; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+.repair-tracking__methods button[aria-pressed="true"] { background: var(--primary-soft); color: var(--accent-ink, var(--primary)); font-weight: 700; }
+.repair-tracking form { display: grid; gap: 16px; }
+.repair-tracking__field { display: grid; gap: 6px; }
+.repair-tracking__field label { font-weight: 700; }
+.repair-tracking__field p { margin: 0; color: var(--muted); font-size: .875rem; }
+.repair-tracking__field input { box-sizing: border-box; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; text-align: left; }
+.repair-tracking__field input[readonly] { opacity: .75; }
+.repair-tracking__submit { min-height: 48px; padding: 10px 18px; border: 0; border-radius: 8px; background: var(--primary); color: var(--on-primary); font: inherit; font-weight: 700; cursor: pointer; }
+.repair-tracking__link { justify-self: start; min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: var(--accent-ink, var(--primary)); font: inherit; text-decoration: underline; cursor: pointer; }
+.repair-tracking button:disabled { opacity: .65; cursor: not-allowed; }
+.repair-tracking :is(button, input, a):focus-visible, .repair-tracking__result:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.repair-tracking__error, .repair-tracking__message { margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.repair-tracking__error { color: var(--sds-color-text-danger-default); border-color: var(--sds-color-border-danger-default); }
+.repair-tracking__result { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); }
+.repair-tracking__result > p:first-child { color: var(--muted); font-size: .875rem; }
+.repair-tracking__result h2 { margin: 4px 0 16px; font-size: 1.25rem; }
+.repair-tracking__result p { margin: 8px 0; }
+.repair-tracking__steps { display: grid; gap: 8px; margin: 20px 0; padding-inline-start: 24px; }
+.repair-tracking__steps li { padding-inline-start: 4px; }
+.repair-tracking__steps .is-current { color: var(--accent-ink, var(--primary)); font-weight: 700; }
+.repair-tracking__steps span { font-size: .875rem; }
+.repair-tracking__reply { padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.repair-tracking__reply h3 { margin: 0; font-size: 1rem; }
+.repair-tracking__reply p { white-space: pre-wrap; overflow-wrap: anywhere; }

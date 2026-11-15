@@ -1,3 +1,16 @@
+# Current continuation — receipt tracking and SMS purpose texts — 2026-11-15
+
+Continue `.mobocom/sms-platform`, branch `feat/sms-platform-2026-11-15` from local
+`3fba96c9`. Receipt status by derived printed code or shared single-use `REPAIR:id`
+OTP, minimal private customer DTO and strict guards; independent OTP texts and ready
+service/sale presets extend existing Forms/SMS settings. No migration or second
+identity. Connected PG205/no.env/UID1000, 45 units, types/gates, proof-removal mutant
+and scoped Semgrep passed. Actual28 themed/responsive browser views axe0/overflow0/errors0, one-page sample A5,
+Gitleaks31files0 and exact fixture/test-DB cleanup passed. Final restart evidence is in
+[SMS handoff](../docs/agent/handoffs/SMS_SETTINGS_RETENTION.md); PR476 is earlier work.
+Final23 source/check hashes match the restarted app; readiness/routes200, migration205
+and browser fixtures0. Local Docker3000 retained, no real SMS or production deployment.
+
 # Current continuation - transactional SMS and request actions - 2026-11-15
 
 Authoritative checkout `.mobocom/sms-platform`, branch `feat/sms-platform-2026-11-15` based on `72c03dd5`. Prior Admin AI/users work is PR476, recorded OPEN/MERGEABLE to `main`; owner merges. This SMS slice is separate and not in PR476. Existing SMS/Notifications/Identity/Store/Forms owners remain on the local app3000 with data/skip-seed preserved. Final fixture cleanup, source hashes and readiness are recorded in SMS_SETTINGS_RETENTION.md; no real SMS or production rollout.

@@ -1,10 +1,11 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { OTP_GROUPS, SMS_READY_TEMPLATES, type OtpGroup, type OtpTemplate } from '@/modules/sms/domain/templates'
 import { latinDigits } from '@/shared/text/digits'
 import './sms.css'
 
 type EventSetting = { enabled: boolean; text: string; pattern: string }
-type Config = { revision: string; problems: string[]; otpReady: boolean; enabled: boolean; apiKey: string; hasKey: boolean; ready: boolean; fromNumber: string; otpLogin: boolean; otpPattern: string; otpParam: string; otpText: string; adminPhones: string[]; events: Record<string, EventSetting> }
+type Config = { revision: string; problems: string[]; otpReady: boolean; enabled: boolean; apiKey: string; hasKey: boolean; ready: boolean; fromNumber: string; otpLogin: boolean; otpPattern: string; otpParam: string; otpText: string; otpTemplates: Record<OtpGroup, OtpTemplate>; otpTemplateOverrides: Record<OtpGroup, boolean>; adminPhones: string[]; events: Record<string, EventSetting> }
 type EventDef = { id: string; group: string; audience: 'user' | 'admin'; label: string; vars: string[]; template: string }
 type Log = { id: number; phone: string; event: string; kind: string; body: string; status: string; error: string; providerId: string | null; createdAt: string }
 type Tab = 'settings' | 'events' | 'send' | 'log'
@@ -14,6 +15,7 @@ const GROUPS: Record<string, string> = { store: 'فروشگاه', services: 'خ�
 
 /** IPPanel SMS: connection, OTP login, per-event alerts, manual messages and the send log. */
 export default function SmsPage() {
+  const [otpGroup, setOtpGroup] = useState<OtpGroup>('login')
   const [filters, setFilters] = useState({ status: '', event: '', phone: '', days: '30', page: 1 })
   const [pagination, setPagination] = useState({ page: 1, total: 0, pages: 1 })
   const [search, setSearch] = useState('')
@@ -84,6 +86,7 @@ export default function SmsPage() {
   }
 
   if (!config) return <div className="xm-page" dir="rtl">{message ? <div className="xm-notice is-error" role="alert">{message.text}<button type="button" className="btn btn-ghost" onClick={() => void load()}>تلاش دوباره</button></div> : <div className="tb-empty" role="status">در حال بارگذاری…</div>}</div>
+  const setOtpTemplate = (patch: Partial<OtpTemplate>) => editConfig({ ...config, otpTemplates: { ...config.otpTemplates, [otpGroup]: { ...config.otpTemplates[otpGroup], ...patch } } })
   const setEvent = (id: string, patch: Partial<EventSetting>) => editConfig({ ...config, events: { ...config.events, [id]: { ...config.events[id], ...patch } } })
 
   return <div className="xm-page ai-page sms-page" dir="rtl">
@@ -104,6 +107,20 @@ export default function SmsPage() {
       <label className="studio-field"><span>کد پترن OTP (پیشنهادی — سریع و بدون صف بررسی)</span><input className="input" dir="ltr" value={config.otpPattern} onChange={(e) => editConfig({ ...config, otpPattern: e.target.value })} placeholder="کد پترن تأییدشده در IPPanel" /></label>
       <label className="studio-field"><span>نام متغیر کد در پترن</span><input className="input" dir="ltr" value={config.otpParam} onChange={(e) => editConfig({ ...config, otpParam: e.target.value })} placeholder="code" /></label>
       <label className="studio-field seo-wide"><span>متن پیامک OTP (وقتی پترن ندارید) — متغیرها: {'{code}'} و {'{brand}'}</span><textarea className="input" rows={2} value={config.otpText} onChange={(e) => editConfig({ ...config, otpText: e.target.value })} /></label>
+      <div className="sms-otp-templates seo-wide">
+        <h3>متن اختصاصی کد تأیید</h3>
+        <p className="muted">هر کاربرد می‌تواند متن و پترن خود را داشته باشد. تا زمان انتخاب متن اختصاصی، تنظیمات عمومی بالا استفاده می‌شود.</p>
+        <label className="studio-field"><span>کاربرد کد</span><select className="input" value={otpGroup} onChange={e => setOtpGroup(e.target.value as OtpGroup)}>{OTP_GROUPS.map(group => <option key={group.id} value={group.id}>{group.label}</option>)}</select></label>
+        <label className="studio-switch"><input type="checkbox" checked={config.otpTemplateOverrides[otpGroup]} onChange={e => editConfig({ ...config, otpTemplateOverrides: { ...config.otpTemplateOverrides, [otpGroup]: e.target.checked } })} />استفاده از تنظیمات اختصاصی برای این کاربرد</label>
+        {config.otpTemplateOverrides[otpGroup] && <>
+          <label className="studio-field"><span>متن پیامک — {'{code}'}، {'{brand}'} و {'{service}'}</span><textarea className="input" rows={3} value={config.otpTemplates[otpGroup].text} onChange={e => setOtpTemplate({ text: e.target.value })} /></label>
+          <button type="button" className="btn btn-ghost" onClick={() => { const preset = SMS_READY_TEMPLATES.find(item => 'group' in item && item.group === otpGroup); if (preset) setOtpTemplate({ text: preset.text }) }}>اعمال متن آماده</button>
+          <div className="sms-preview"><b>پیش‌نمایش با دادهٔ نمونه</b><p>{config.otpTemplates[otpGroup].text.replace(/\{(\w+)\}/g, (_match, key: string) => ({ code: '۱۲۳۴۵۶', brand: 'موبوکام', service: 'تعمیر دستگاه' } as Record<string, string>)[key] || '')}</p></div>
+          <label className="studio-field"><span>کد پترن تأییدشده در IPPanel</span><input className="input" dir="ltr" value={config.otpTemplates[otpGroup].pattern} onChange={e => setOtpTemplate({ pattern: e.target.value })} /></label>
+          <label className="studio-field"><span>نام متغیر کد در پترن</span><input className="input" dir="ltr" value={config.otpTemplates[otpGroup].param} onChange={e => setOtpTemplate({ param: e.target.value })} /></label>
+          <small>متن پترن در پنل IPPanel مدیریت می‌شود؛ متن آماده فقط متن آزاد این فرم را تغییر می‌دهد. ذخیره با دکمهٔ پایین انجام می‌شود.</small>
+        </>}
+      </div>
       <div className="seo-actions seo-wide">
         <button type="button" className="btn btn-primary" disabled={!!busy} onClick={() => void save()}>ذخیرهٔ تنظیمات</button>
         <button type="button" className="btn btn-ghost" disabled={!!busy || !config.hasKey} onClick={() => void post('credit', {}, 'اتصال برقرار است. اعتبار پنل: {credit} ریال')}>{busy === 'credit' ? 'در حال بررسی…' : 'بررسی اتصال و اعتبار'}</button>
@@ -123,6 +140,7 @@ export default function SmsPage() {
             <label className="studio-switch"><input type="checkbox" checked={!!setting?.enabled} onChange={(e) => setEvent(event.id, { enabled: e.target.checked })} /><b>{event.label}</b></label><small>{event.audience === 'user' ? 'گیرنده: مشتری' : 'گیرنده: مدیران'}</small>
             {setting?.enabled && <>
               <label className="studio-field"><span>متن — متغیرها: {[...event.vars, 'brand'].map((name) => `{${name}}`).join(' ')}</span><textarea className="input" rows={3} value={setting.text} onChange={(e) => setEvent(event.id, { text: e.target.value })} /></label>
+              {SMS_READY_TEMPLATES.filter(item => 'event' in item && item.event === event.id).map(item => <button key={item.id} type="button" className="btn btn-ghost" onClick={() => setEvent(event.id, { text: item.text })}>اعمال متن آماده: {item.label}</button>)}
               <div className="sms-preview"><b>پیش‌نمایش با دادهٔ نمونه</b><p>{setting.text.replace(/\{(\w+)\}/g, (_match, key: string) => ({ name: 'مشتری نمونه', brand: 'موبوکام', title: 'وضعیت سفارش شما تغییر کرد', body: 'سفارش برای تحویل آماده شد.', link: 'https://example.com/dashboard', form: 'درخواست تعمیر', stage: 'آمادهٔ تحویل', message: 'جزئیات را در درخواست‌های من ببینید.', invoice: '۱۲۳۴', order: '۱۲۳۴', amount: '۵۰۰٬۰۰۰ تومان', hours: '۲۴', subject: 'پیگیری سفارش', kind: 'درخواست مرجوعی' } as Record<string, string>)[key] || 'نمونه')}</p><small>محتوای پترن در پنل ارائه‌دهنده نگهداری می‌شود.</small></div>
               <label className="studio-field"><span>یا کد پترن (اختیاری)</span><input className="input" dir="ltr" value={setting.pattern} onChange={(e) => setEvent(event.id, { pattern: e.target.value })} /></label>
             </>}

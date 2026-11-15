@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import ReceiptSheet from '@/components/forms/ReceiptSheet'
 import PrintButton from '@/components/forms/PrintButton'
+import Link from '@/components/AppLink'
 import { receiptByToken } from '@/modules/forms/server/counter'
 import '@/app/receipt.css'
 
@@ -12,5 +13,5 @@ export const metadata: Metadata = { title: 'رسید پذیرش', robots: { inde
 export default async function ReceiptPage({ params }: { params: Promise<{ token: string }> }) {
   const receipt = await receiptByToken((await params).token)
   if (!receipt) notFound()
-  return <main className="rc-page"><div className="rc-tools"><PrintButton /></div><ReceiptSheet receipt={receipt} /></main>
+  return <main className="rc-page"><div className="rc-tools"><PrintButton />{receipt.trackingCode && <Link href="/repair-status" className="btn btn-ghost">پیگیری تعمیرات</Link>}</div><ReceiptSheet receipt={receipt} /></main>
 }
