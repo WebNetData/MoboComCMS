@@ -897,11 +897,23 @@
           "sha256": "815e360c12e8d4c2ed0081b1601eae418d6e3ae15d912d706e92f8cba05b8505"
         }
       ]
+    },
+    "1.7.21": {
+      "migrations": [
+        {
+          "name": "20270322120000_sms_delivery_claims",
+          "sha256": "8e545a2fd6b67163af53cb2ad9c2a38dc20a7efe4ceb1f963cd2f7f01d06ef75"
+        },
+        {
+          "name": "20270323120000_repair_consent_history",
+          "sha256": "a34bfb3ebab930eb8a5bceab0ccd03355dda0bfc4c787053de057b5d86987c81"
+        },
+        {
+          "name": "20270324120000_popup_campaign_presentation",
+          "sha256": "4c36f37d3a811053b88790f4e63cd91c60264ff68637af071cdebcfa36e3780d"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270322120000_sms_delivery_claims",
-    "20270323120000_repair_consent_history",
-    "20270324120000_popup_campaign_presentation"
-  ]
+  "unreleased": []
 }

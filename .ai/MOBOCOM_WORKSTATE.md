@@ -1,3 +1,15 @@
+# Release1.7.21 local build — owner2026-11-15
+
+Authoritative release checkout `.mobocom/release-1.7.21`, branch release/1.7.21,
+base owner-merged main0c5ed5fe/PR479. Owner requests a local production build and
+published1.7.21 for updating, explicitly no GitHub Actions. Matching root/lock
+version, guides and three existing migrations sealed; no dependency/SQL changes.
+Fresh private Linux deps/check/PG/production build/browser/artifact proof pending.
+Keep publisher key/fingerprint and immutable prior releases; stable/latest follows
+owner-merged metadata and verified source. No destination deploy. Preserve current
+mobocom-app/3000 and unrelated worktrees. Continue
+[release handoff](../docs/agent/handoffs/RELEASE_1_7_21.md); do not claim pending checks passed.
+
 # PR479 publication — owner request2026-11-15
 
 [PR479](https://github.com/WebNetData/MoboComCMS/pull/479) is open, non-draft,
