@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import Icon from '@/components/site/Icon'
 import { POPUP_KINDS, type PopupFace } from '@/modules/popups/domain/popups'
 import LowDataEmbed from '@/components/media/LowDataEmbed'
+import { isCampaignDesign } from '@/modules/popups/domain/campaigns'
+import CampaignContent from './CampaignContent'
 import './site-popup.css'
 
 const LEAVE_MS = 180
@@ -31,10 +33,11 @@ function PopupFrame({ src, title, onAction }: { src: string; title: string; onAc
   return <LowDataEmbed className="spp-frame" src={src} title={title} style={{ height }} allow="" loading="eager" />
 }
 
-export function PopupBody({ popup, onClose, onAction, frameSrc }: { popup: PopupFace; onClose?: () => void; onAction?: () => void; frameSrc?: string }) {
+export function PopupBody({ popup, onClose, onAction, frameSrc, titleId = 'spp-title' }: { popup: PopupFace; onClose?: () => void; onAction?: (event?: React.MouseEvent<HTMLAnchorElement>) => void; frameSrc?: string; titleId?: string }) {
+  if (isCampaignDesign(popup.design)) return <CampaignContent key={`${popup.design}:${popup.image}`} popup={popup} variant={popup.design} titleId={titleId} onClose={onClose} onAction={onAction} />
   if (popup.design === 'builder') return <div className="spp-card spp-built">
     {!popup.mustConfirm && <button type="button" className="spp-x" aria-label="بستن" onClick={onClose}><span aria-hidden="true">×</span></button>}
-    <h2 className="sr-only" id="spp-title">{popup.title}</h2>
+    <h2 className="sr-only" id={titleId}>{popup.title}</h2>
     {frameSrc ? <PopupFrame src={frameSrc} title={popup.title} onAction={onAction} /> : <p className="spp-note spp-frame-note">طراحی صفحه‌ساز پس از ذخیره و فعال‌سازی، همین‌جا داخل پنجره نمایش داده می‌شود.</p>}
     {popup.mustConfirm && <div className="spp-actions"><button type="button" className="spp-go" onClick={onClose}>{popup.closeLabel || 'متوجه شدم'}</button></div>}
   </div>
@@ -50,7 +53,7 @@ export function PopupBody({ popup, onClose, onAction, frameSrc }: { popup: Popup
         {popup.design === 'seal' || popup.design === 'spotlight' ? <span className="spp-seal"><Icon name={kind.icon} size={26} /></span> : null}
         <span className="spp-tag">{kind.label}</span>
       </span>
-      <h2 className="spp-title" id="spp-title">{popup.title}</h2>
+      <h2 className="spp-title" id={titleId}>{popup.title}</h2>
       {popup.body && <p className="spp-note">{popup.body}</p>}
       <div className="spp-actions">
         {popup.actionUrl && <a className="spp-go" href={popup.actionUrl} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined} onClick={onAction}>{popup.actionLabel}</a>}
@@ -61,8 +64,9 @@ export function PopupBody({ popup, onClose, onAction, frameSrc }: { popup: Popup
 }
 
 /** A native dialog: it holds focus, sits above everything, and leaves the page inert. A corner popup does not stop the page. */
-export default function PopupDialog({ popup, onClose, onAction, frameSrc }: { popup: PopupFace; onClose: () => void; onAction: () => void; frameSrc?: string }) {
+export default function PopupDialog({ popup, onClose, onAction, frameSrc }: { popup: PopupFace; onClose: () => void; onAction: (event?: React.MouseEvent<HTMLAnchorElement>) => void; frameSrc?: string }) {
   const box = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
   const [leaving, setLeaving] = useState(false)
   const corner = popup.position === 'corner'
 
@@ -71,7 +75,7 @@ export default function PopupDialog({ popup, onClose, onAction, frameSrc }: { po
     if (!dialog || dialog.open) return
     const before = document.activeElement as HTMLElement | null
     if (corner) { dialog.show(); if (before && before !== document.body) before.focus({ preventScroll: true }); else (document.activeElement as HTMLElement | null)?.blur() } else { dialog.showModal(); dialog.querySelector<HTMLElement>('.spp-go')?.focus({ preventScroll: true }) }
-    return () => { if (dialog.open) dialog.close() }
+    return () => { if (dialog.open) dialog.close(); if (before?.isConnected) before.focus({ preventScroll: true }) }
   }, [corner])
 
   const leave = () => { setLeaving(true); window.setTimeout(onClose, LEAVE_MS) }
@@ -79,11 +83,11 @@ export default function PopupDialog({ popup, onClose, onAction, frameSrc }: { po
   return <dialog
     ref={box}
     role={popup.kind === 'WARNING' ? 'alertdialog' : 'dialog'}
-    aria-labelledby="spp-title"
+    aria-labelledby={titleId}
     className={`spp is-${popup.kind.toLowerCase()} look-${popup.design} at-${popup.position} fx-${popup.effect}${leaving ? ' is-leaving' : ''}`}
     onCancel={(event) => { event.preventDefault(); if (!popup.mustConfirm) leave() }}
     onClick={(event) => { if (event.target === box.current && !popup.mustConfirm) leave() }}
   >
-    <PopupBody popup={popup} onClose={leave} onAction={onAction} frameSrc={frameSrc} />
+    <PopupBody popup={popup} titleId={titleId} onClose={leave} onAction={onAction} frameSrc={frameSrc} />
   </dialog>
 }

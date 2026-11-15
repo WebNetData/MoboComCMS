@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
-import { PopupBody } from '@/components/site/popups/PopupDialog'
+import PopupDialog, { PopupBody } from '@/components/site/popups/PopupDialog'
+import { EMPTY_PRESENTATION, POPUP_CAMPAIGNS, isCampaignDesign, type PopupPresentation, type CampaignDesign } from '@/modules/popups/domain/campaigns'
+import CampaignGallery from './CampaignGallery'
 import { POPUP_AUDIENCES, POPUP_DESIGNS, POPUP_EFFECTS, POPUP_KINDS, POPUP_POSITIONS, POPUP_REPEATS, POPUP_STATUS_LABEL, frequencyLabel } from '@/modules/popups/domain/popups'
 import { SITE_GROUP_FAMILIES, type SiteGroup } from '@/modules/account/domain/site-groups'
 import { ImageField } from '../ads/shared'
@@ -13,6 +15,7 @@ type Draft = {
   id?: number; title: string; body: string; kind: string; design: string; effect: string; position: string; image: string; templateId?: string
   actionLabel: string; actionUrl: string; closeLabel: string; mustConfirm: boolean; status: string; startsAt: string; endsAt: string
   audience: string; groupIds: string[]; sections: string[]; repeatHours: number; maxViews: number; delaySeconds: number; pages: string; priority: number
+  presentation?: PopupPresentation
 }
 type Row = Draft & { id: number; startsAt: string | null; endsAt: string | null; guestViews: number; memberViews: number; people: number; clicks: number }
 type Data = { popups: Row[]; groups: SiteGroup[]; sections: { id: string; label: string }[]; templates?: { id: string; name: string }[] }
@@ -21,7 +24,7 @@ const EMPTY: Draft = { title: '', body: '', kind: 'NOTICE', design: 'seal', effe
 const TONE: Record<string, string> = { ACTIVE: 'is-ok', PAUSED: 'is-info', DRAFT: '' }
 
 function Choice({ legend, options, value, onChange }: { legend: string; options: readonly { id: string; label: string; hint?: string }[]; value: string; onChange: (id: string) => void }) {
-  return <fieldset className="pm-choice"><legend>{legend}</legend><div>{options.map((option) => <label key={option.id} className={value === option.id ? 'is-on' : ''} title={option.hint}><input type="radio" checked={value === option.id} onChange={() => onChange(option.id)} /><span>{option.label}</span></label>)}</div></fieldset>
+  return <fieldset className="pm-choice"><legend>{legend}</legend><div>{options.map((option) => <label key={option.id} className={value === option.id ? 'is-on' : ''} title={option.hint}><input type="radio" name={legend} checked={value === option.id} onChange={() => onChange(option.id)} /><span>{option.label}</span></label>)}</div></fieldset>
 }
 
 function Chips<T extends string | number>({ legend, options, value, onChange }: { legend: string; options: { id: T; label: string }[]; value: T[]; onChange: (next: T[]) => void }) {
@@ -34,6 +37,11 @@ export default function PopupsPage() {
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [replay, setReplay] = useState(0)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const chooseCampaign = (id: CampaignDesign) => {
+    const preset = POPUP_CAMPAIGNS.find(item => item.id === id)!
+    setNotice(null); setDraft({ ...EMPTY, title: preset.title, body: preset.body, kind: 'OFFER', design: preset.id, effect: preset.effect, actionLabel: preset.actionLabel, actionUrl: preset.actionUrl, closeLabel: 'فعلاً نه', presentation: { ...preset.presentation } }); setReplay(value => value + 1)
+  }
 
   const audienceName = useMemo(() => (row: Row) => {
     if (row.audience === 'GROUPS') return (data?.groups || []).filter((group) => row.groupIds.includes(group.key)).map((group) => group.label).join('، ') || 'گروه حذف‌شده'
@@ -70,6 +78,7 @@ export default function PopupsPage() {
     </header>
     {error && <Notice tone="error">{error}</Notice>}
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
+    {!draft && <CampaignGallery onChoose={chooseCampaign} />}
 
     {draft && <div className="pm-editor">
       <div className="pm-form">
@@ -89,6 +98,11 @@ export default function PopupsPage() {
           <header className="sa-card-head"><h2>ظاهر و افکت</h2></header>
           <Choice legend="نوع پیام" options={POPUP_KINDS} value={draft.kind} onChange={(kind) => fix({ kind })} />
           <Choice legend="طرح" options={POPUP_DESIGNS} value={draft.design} onChange={(design) => fix({ design })} />
+          {isCampaignDesign(draft.design) && <>
+            <div className="pm-row">{([{ key: 'badge', label: 'برچسب بالای عنوان', max: 80 }, { key: 'highlight', label: 'عبارت یا عدد برجسته', max: 24 }, { key: 'highlightLabel', label: 'توضیح عدد برجسته', max: 40 }, { key: 'detail', label: 'مزیت یا شرایط کوتاه', max: 180 }, { key: 'code', label: 'کد پیشنهاد (اختیاری)', max: 40 }, { key: 'footnote', label: 'توضیح زیر دکمه (اختیاری)', max: 180 }] as const).map(field => <label key={field.key} className="sa-field"><span>{field.label}</span><input className="input" dir={field.key === 'code' ? 'auto' : undefined} maxLength={field.max} value={draft.presentation?.[field.key] ?? ''} onChange={event => set('presentation', { ...EMPTY_PRESENTATION, ...draft.presentation, [field.key]: event.target.value })} /></label>)}</div>
+            <ImageField label="تصویر اختصاصی (اختیاری)" value={draft.image} onChange={image => fix({ image })} />
+            <p className="sa-hint">بدون تصویر، طرح گرافیکی آماده نمایش داده می‌شود. عبارت برجسته مثلاً «تا ۷۸٪» است؛ صحت پیشنهاد و اعتبار کد را پیش از انتشار بررسی کنید.</p>
+          </>}
           {(draft.design === 'cover' || draft.design === 'split') && <ImageField label="تصویر *" value={draft.image} onChange={(image) => fix({ image })} />}
           {draft.design === 'builder' && <label className="field"><span>قالب صفحه‌ساز *</span><select className="select" value={draft.templateId || ''} onChange={(event) => fix({ templateId: event.target.value })}><option value="">انتخاب کنید…</option>{(data?.templates || []).map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select><small className="muted">{(data?.templates || []).length ? 'هر طراحی‌ای را که در صفحه‌ساز «به‌عنوان قالب ذخیره» کرده‌اید می‌توانید داخل پنجره نشان دهید؛ عنوان پنجره فقط برای دسترس‌پذیری خوانده می‌شود.' : 'هنوز قالبی ذخیره نشده است؛ در صفحه‌ساز یک بخش یا صفحه را «به‌عنوان قالب ذخیره» کنید.'}</small></label>}
           <Choice legend="افکت ورود" options={POPUP_EFFECTS} value={draft.effect} onChange={(effect) => fix({ effect })} />
@@ -134,13 +148,14 @@ export default function PopupsPage() {
       </div>
 
       <aside className="pm-preview" aria-label="پیش‌نمایش">
-        <div className="pm-preview-head"><h2>پیش‌نمایش</h2><button type="button" className="btn btn-ghost btn-sm" onClick={() => setReplay((value) => value + 1)}>پخش دوبارهٔ افکت</button></div>
+        <div className="pm-preview-head"><h2>پیش‌نمایش</h2><div><button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreviewOpen(true)}>نمایش در اندازهٔ واقعی</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setReplay((value) => value + 1)}>پخش دوبارهٔ افکت</button></div></div>
         <div className="pm-stage">
           <div key={replay} className={`spp spp-inline is-${draft.kind.toLowerCase()} look-${draft.design} at-center fx-${draft.effect}`} data-open="">
-            <PopupBody popup={{ ...draft, title: draft.title || 'عنوان اطلاعیه', body: draft.body || 'متن اطلاعیه اینجا نمایش داده می‌شود.' }} />
+            <PopupBody popup={{ ...draft, title: draft.title || 'عنوان اطلاعیه', body: draft.body || 'متن اطلاعیه اینجا نمایش داده می‌شود.' }} onAction={event => event?.preventDefault()} />
           </div>
         </div>
       </aside>
+      {previewOpen && <PopupDialog popup={{ ...draft, title: draft.title || 'عنوان اطلاعیه' }} onClose={() => setPreviewOpen(false)} onAction={event => event?.preventDefault()} />}
     </div>}
 
     {!draft && <section className="sa-card" aria-label="فهرست پاپ‌آپ‌ها">

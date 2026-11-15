@@ -1,3 +1,21 @@
+# Popup campaign designs — owner2026-11-15
+
+Continue `.mobocom/sms-platform`, `feat/popup-campaign-designs-2026-11-15` on local
+UI commit9e44b764/mainaa20d05a. Existing Popups adds three editable compositions,
+gallery/full-size preview, own-image fallback, coupon feedback and bounded typed
+presentation; no discount engine/shared owner/permission changes. Additive207th
+migration applied locally after backup; fresh UID1000/no-env PostgreSQL,4 popup
+cases, types/source/architecture/schema/release checks,24 scoped browser views
+axe0 plus real six-field typing/save/reload accepted. Exact synthetic fixtures
+removed and prior module state restored. Final18 runtime source hashes match
+after same-container/image/port/mount restart; home/readiness/session/public200,
+guest Admin403, zero synthetic rows; Gitleaks0. Isolated DB/private env and session
+cookies removed, private pre-change backup preserved. Canonical14-document AI
+knowledge checked. Exact scope, failed harness attempts and rollback are in the
+[handoff](../docs/agent/handoffs/POPUP_BUILDER_DESIGN.md#campaign-designs-continuation--owner2026-11-15).
+Existing mobocom-app/3000 remains the preview; preserve older root/worktrees and
+unrelated .serena. No PR/merge/hosted workflow/production release for this slice.
+
 # Current whole-site visual consistency — owner2026-11-15
 
 Continue `.mobocom/sms-platform`, branch fix/site-ui-consistency-2026-11-15 from

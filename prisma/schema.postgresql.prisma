@@ -4804,6 +4804,8 @@ model SitePopup {
   image        String   @default("")
   /// Saved builder template shown inside the popup when design is "builder".
   templateId   String   @default("")
+  /// Validated optional campaign presentation; never a discount/checkout rule.
+  presentation String   @default("{}")
   actionLabel  String   @default("")
   actionUrl    String   @default("")
   closeLabel   String   @default("")

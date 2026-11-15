@@ -12,7 +12,6 @@ function instance(db) {
     '@/platform/database/prisma': { db },
     '@/platform/observability/logger': { logEvent: () => {} },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/extensions/generated/catalog': { extensionPermissionIds: ['popups.manage'] },
   }
   const load = (file) => {
     if (cache.has(file)) return cache.get(file).exports
@@ -44,6 +43,18 @@ async function main() {
   const make = async (fields) => { one.forgetLivePopups(); two.forgetLivePopups(); const row = await one.savePopup({ title: `${prefix} ${ids.popups.length}`, status: 'ACTIVE', ...fields }, null); ids.popups.push(row.id); return row }
   const sees = async (user, id, now = new Date()) => { one.forgetLivePopups(); return (await one.popupsFor(user, now)).some((popup) => popup.id === id) }
   const show = (user, id, now) => { one.forgetLivePopups(); return one.recordSeen(id, user, now) }
+
+  // New faces use the same durable owner, projection and audience; old rows need no backfill.
+  for (const design of ['campaign', 'ticket', 'membership']) {
+    const saved = await make({ design, presentation: { badge: 'پیشنهاد آزمایشی', highlight: 'تا ۷۸٪', highlightLabel: 'تخفیف', code: 'TEST-ONLY', detail: 'شرایط نمونه' } })
+    const stored = await other.sitePopup.findUnique({ where: { id: saved.id } })
+    assert.equal(JSON.parse(stored.presentation).code, 'TEST-ONLY', 'presentation persists across connections')
+    const delivered = (await two.popupsFor(null)).find(p => p.id === saved.id)
+    assert.equal(delivered.design, design); assert.equal(delivered.presentation.highlight, 'تا ۷۸٪'); assert.equal(delivered.presentation.detail, 'شرایط نمونه')
+    const edited = await one.savePopup({ id: saved.id, title: saved.title, design, status: 'PAUSED', presentation: { code: 'NEW-CODE', highlight: 'انتخاب شما' } }, null)
+    assert.equal(edited.status, 'PAUSED'); assert.equal(JSON.parse(edited.presentation).badge, '', 'clearing a copy field stays cleared')
+    assert.equal(await sees(null, saved.id), false, 'paused campaigns are not served')
+  }
 
   // Every 24 hours, ten times in all.
   const ali = await member('ali'), start = new Date()
