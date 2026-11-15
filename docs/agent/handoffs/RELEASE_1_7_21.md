@@ -1,5 +1,19 @@
 # Release 1.7.21 — local preparation2026-11-15
 
+Current acceptance: final production build from fe1e1ad1 passed in251s as
+UID1000/no.env, heap6144MB,112 pages/928 trace manifests. All12 actual production
+desktop1440/mobile390 light/dark popup-preview/repair-calendar/public-popup views
+passed scoped axe with0 violations, no horizontal overflow or page errors.
+Real repair due-date PATCH200, returned dueAt, Escape/focus restoration and guest
+Admin403 passed. Rendered close/copy bounding-box clearance passed; inspected the
+final mobile public popup and dark calendar images. Source proof includes all4298
+non-document inputs and all CSS; only two expected Next-written files differ
+after build. Subsequent release receipt/docs changes do not change those inputs.
+Canonical checks/15 scoped PG suites and migration preservation below remain
+accepted; the two final CSS-only fixes were validated by final build/browser.
+Signing/publication/re-download evidence is the next step. Historical resource
+and pending statements below are superseded by this current acceptance.
+
 ## Recovery and production verification checkpoint
 
 This checkpoint supersedes the historical resource stop below. Owner authorized

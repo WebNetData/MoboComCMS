@@ -1,5 +1,17 @@
 # Release1.7.21 local build — owner2026-11-15
 
+Current acceptance supersedes the historical resource checkpoint below: owner
+authorized cleanup;13 verified WSL crash dumps removed (13027106784 bytes),
+Docker transport and original app3000 readiness200 recovered. Final committed
+fe1e1ad1 production build passed251s/UID1000/no.env/heap6144MB. All4298 build
+inputs matched (only two expected Next-written files afterward). Production
+browser12 themed desktop/mobile views passed axe0/no overflow/page errors, real
+due-date save, Escape/focus, guest403 and close/copy clearance. Selected-day dark
+contrast and text-popup close spacing fixed. Canonical1104+53+4+14 and15 PG suites,
+populated204→207 preservation passed. Final sign/extract/current+old verifier and
+immutable release upload/re-download remain pending. PR480 remains owner-merged
+before stable/latest; no Actions/destination deploy or personal/DB deletion.
+
 Resource checkpoint: release1.7.21 is UNPUBLISHED; draftPR480 contains preparation
 b3dc145e + calendar/test fix77a8baf5. Canonical1104+53+4+14 and15 native PG suites,
 204→207 populated data preservation passed. Production heap attempts failed;
