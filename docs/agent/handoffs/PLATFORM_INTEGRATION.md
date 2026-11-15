@@ -292,3 +292,53 @@ Published correction [PR #474](https://github.com/WebNetData/MoboComCMS/pull/474
 ## PR474 merge-conflict correction — 2026-11-14
 
 Owner reports PR474 cannot merge. Fetched main d4e7e941 (owner-merged PR473 release receipt); the only conflict is .ai/MOBOCOM_WORKSTATE.md, where both branches wrote the first status paragraph. Merge main into fix/public-ui-regressions-2026-11-14, retain the complete incoming stable1.7.20 record/history plus the UI correction acceptance summary. Keep the merged release handoff unchanged. No product/source/CSS/test code differs from the previously validated UI source during this reconciliation, so existing scoped browser/PG/types evidence is reused. Diff check, knowledge integrity, redacted changed-diff scan and remote mergeability are verified for publication. No hosted workflow, self-merge to main, deployment or release asset changes.
+
+## Screenshot frontend corrections — 2026-11-15
+
+Owner supplied DailyWorkdesk and low-data utility screenshots and authorized small
+frontend fixes. Authoritative checkout: `.mobocom/frontend-small-fixes`, branch
+`fix/frontend-small-fixes-2026-11-15`, fetched main `58a67c81`; local uncommitted
+slice. Other worktrees and existing edits are preserved.
+
+- `DailyWorkdesk.tsx` and new `daily-workdesk.module.css` replace the UA list
+  marker/global moving card hover with contained, keyboard-focusable queue rows.
+  Headers wrap; grid tracks shrink; long titles/details wrap. Counts are localized;
+  timestamp and assignee have separate wrapping groups and bidi isolation.
+  Empty/unavailable/retry states and server access/queue composition are retained.
+- `SiteUtilityControls.tsx` and `site-utility-controls.module.css` group the toggle
+  with its description, add spacing/separation and mobile stacking, and associate
+  the hint through `useId`/`aria-describedby`. Hint text now uses the current
+  theme's `--muted`; the previous dark-only site token failed light contrast.
+  Existing SDS/MoboCom colors, fonts, native controls and cookie behavior remain.
+
+Executed evidence, retained in ignored `var/frontend-small-fixes/`:
+
+- Playwright/Edge runs the actual affected React components and LowDataProvider
+  with all root stylesheet imports, bundled fonts and the MoboCom manifest tokens.
+  Six before/after views: 1440 dark/light, 390 dark/light, 320 dark, 1440 English.
+  Providers/navigation and workdesk transport use explicit synthetic fixtures;
+  this is component browser acceptance, not a full authenticated Admin-page run.
+  All six final views: scoped axe0, horizontal overflow0, page errors0. Verified
+  long mixed-script titles, empty/unavailable queues, stable hover, keyboard focus,
+  low-data on/off and cookie writes, report dialog Escape and workdesk failure/retry.
+  Desktop dark and mobile light final screenshots were visually inspected.
+- React Doctor two affected TSX, files scope, telemetry/supply-chain disabled,
+  blocking error: exit0, zero errors/two reviewed existing warnings (workdesk
+  complexity and loading reset, which is already in abort-fenced `finally`).
+- Fresh disposable PostgreSQL, 204 migrations, no `.env`, Linux UID1000:
+  `platform-workdesk.connected.cjs` passed actual Forms assignment, Support
+  department/held scope, permission denial, module-off and Store delegation.
+  Full TypeScript, source/import and architecture checks passed. Four changed
+  source SHA256 values matched the executed runtime byte-for-byte.
+- First source transfer ran before archive completion and failed EOF; it was
+  replaced only after completion. Installed Prisma schema comparison then refused
+  reuse; a private generated client was used without changing the app's client.
+  Initial browser harness selector/font/token setup failures were corrected;
+  final captures use actual stylesheet/font/theme inputs. Serena initialization
+  timed out, so precise source search and patch edits were used.
+- Exact disposable database/runtime/private client/source archive were removed
+  after saving receipts. Original localhost3000 readiness and session both returned
+  200 afterward; final diff whitespace check passed. No new application dependency, schema, API, permission,
+  provider send, hosted workflow, PR, merge or deployment. Rollback reverts these
+  four presentation files; there is no data rollback. Existing page-wide and
+  production/provider acceptance are outside this bounded correction.

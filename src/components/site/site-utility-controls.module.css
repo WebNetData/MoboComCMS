@@ -1,20 +1,42 @@
+.utility {
+  margin-block-start: 1.5rem;
+  padding-block: 1.25rem;
+  border-block-start: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+
 .controls {
   width: min(100% - 2rem, 78rem);
-  margin: 0 auto 1.25rem;
+  margin-inline: auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: .75rem;
-  color: var(--site-muted, var(--muted));
+  gap: 1rem 1.5rem;
+  color: var(--muted);
   font-size: .8125rem;
 }
+
+.lowData {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-width: 0;
+  max-width: 48rem;
+}
+
+.lowData > button { flex-shrink: 0; }
 
 .hint {
   margin: 0;
   max-width: 38rem;
+  min-width: 0;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 
-.report { display: flex; align-items: center; }
+.report { display: flex; align-items: center; margin-inline-end: auto; }
 .dialog { width: min(34rem, calc(100vw - 2rem)); max-height: min(90vh, 42rem); padding: 1.25rem; border: 1px solid var(--site-border, var(--border)); border-radius: var(--site-radius, 12px); background: var(--site-surface, var(--surface)); color: var(--site-text, var(--text)); }
 .dialog::backdrop { background: rgb(0 0 0 / .55); }
 .dialog form { display: grid; gap: 1rem; }
@@ -27,5 +49,6 @@
 
 @media (max-width: 40rem) {
   .controls { align-items: flex-start; flex-direction: column; }
+  .lowData { align-items: flex-start; flex-direction: column; }
   .report { width: 100%; }
 }
