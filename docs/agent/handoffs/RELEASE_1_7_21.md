@@ -15,7 +15,14 @@ afterward only expected Next-written tsconfig.json/next-env.d.ts differed.
 The first actual production browser run passed light repair/popup/public views
 but found insufficient selected-day contrast in the dark calendar. The shared
 calendar now uses its existing darkened-primary/white done-button pairing for
-selected days. A fresh committed-source build and full browser rerun are pending.
+selected days. The next compile passed but Next's TypeScript file write failed
+because the task's tar extraction left two build-written files root-owned; their
+ownership was corrected, without source/guard changes. The complete committed
+ed89d192 build then passed in236s,112 pages/928 trace manifests. Production browser
+passed12 themed desktop/mobile views, scoped axe0, no overflow/page errors, real
+date PATCH200, Escape/focus return and guest Admin403. Image review found the
+text-only mobile popup's close button overlapped its badge; reserve64px above its
+copy only when that layout has a close button. Final build/browser rerun pending.
 
 Owner explicitly requests a local-system build and published1.7.21 for updating
 their installation, without GitHub Actions. PR479 is owner-merged at main
