@@ -21,3 +21,6 @@
 
 /* Grid min-content must not push the shared Studio banners beyond a phone. */
 .tg-feed,.tg-feed>section,.tg-feed-banner>*{min-width:0;max-width:100%}.tg-feed-banner h2,.tg-feed-banner p{overflow-wrap:anywhere;white-space:normal}
+
+/* Shared notification/support views inherit the Mini App readable accent. */
+.tg-app :is(.nc-tabs button.is-active, .ticket-filters button.is-active) { color: var(--tg-accent-ink); }

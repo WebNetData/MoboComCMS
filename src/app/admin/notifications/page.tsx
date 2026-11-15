@@ -50,7 +50,7 @@ export default function AdminNotificationsPage() {
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>رسید تحویل ({fa(receipts.days)} روز اخیر)</h2><span className="sa-sub">{fa(receipts.total)} نسخه</span></header>
-      <div className="sa-table-wrap"><table className="data sa-table" style={{ minWidth: 0 }}>
+      <div className="sa-table-wrap" tabIndex={0} role="region" aria-label="رسید تحویل اعلان‌ها"><table className="data sa-table" style={{ minWidth: 0 }}>
         <thead><tr><th>کانال</th><th>رسید</th><th>فرستاده نشد</th><th>در صف</th><th>ناموفق</th></tr></thead>
         <tbody>
           {rows.map(([key, counts]) => <tr key={key}><td>{CHANNEL[key]}</td><td className="num">{fa(counts.sent)}</td><td className="num">{fa(counts.notSent)}</td><td className="num">{fa(counts.waiting)}</td><td className="num">{counts.failed ? <b style={{ color: 'var(--sa-danger)' }}>{fa(counts.failed)}</b> : fa(0)}</td></tr>)}

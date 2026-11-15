@@ -1,3 +1,65 @@
+# PR479 publication — owner request2026-11-15
+
+[PR479](https://github.com/WebNetData/MoboComCMS/pull/479) is open, non-draft,
+targeting main from feat/popup-campaign-designs-2026-11-15. Fresh main remains
+aa20d05a; implementation commits9e44b764/4283b64e/a692bd0a include site consistency,
+campaign presets and custom popup authoring. The full52-file publication range
+passed redacted Gitleaks with no private files;24 available prior source hashes
+were unchanged. Existing local PG/browser evidence is reused, not rerun. Owner
+merges/deploys; no hosted workflow, runtime change or merge in publication.
+[Scope, exact checks and rollback](../docs/agent/handoffs/POPUP_BUILDER_DESIGN.md#pr-publication--owner2026-11-15).
+Earlier local-only/no-PR statements below are historical.
+
+# Custom popup authoring — owner2026-11-15
+
+Continue `.mobocom/sms-platform`, `feat/popup-campaign-designs-2026-11-15` on
+local campaign4283b64e/UI9e44b764/mainaa20d05a. Custom design uses existing Popups
+presentation/editor/Media/native dialog, four layouts/eight bounded choices,
+image/text/action and unpublished saved-copy reuse; no migration/new canvas.
+Popup-only image upload is a trusted narrow Media purpose, current permissions/
+2FA/module rechecked; ordinary library/foreign organization/off-state denied.
+Five popup units, fresh207-migration native popups+Media, two detected/restored
+faults, types/source/architecture and22 actual themed/edge browser views passed.
+Actual CTA navigation/click count passed; exact synthetic rows/owned image bytes,
+test DB/env/session cookies cleaned, prior module state restored. Final15 source
+hashes match after same-container/image/port/mount restart; guest home/readiness/
+session/public200 and Admin403. Gitleaks21files0, canonical knowledge and whitespace
+checked. Complete evidence/limits/rollback are in the existing
+[handoff](../docs/agent/handoffs/POPUP_BUILDER_DESIGN.md#custom-authoring-continuation--owner2026-11-15).
+Preserve same Docker mobocom-app/3000, older root/worktrees, .serena and private
+backups. No new PR/hosted workflow/merge/production release for this request.
+
+# Popup campaign designs — owner2026-11-15
+
+Continue `.mobocom/sms-platform`, `feat/popup-campaign-designs-2026-11-15` on local
+UI commit9e44b764/mainaa20d05a. Existing Popups adds three editable compositions,
+gallery/full-size preview, own-image fallback, coupon feedback and bounded typed
+presentation; no discount engine/shared owner/permission changes. Additive207th
+migration applied locally after backup; fresh UID1000/no-env PostgreSQL,4 popup
+cases, types/source/architecture/schema/release checks,24 scoped browser views
+axe0 plus real six-field typing/save/reload accepted. Exact synthetic fixtures
+removed and prior module state restored. Final18 runtime source hashes match
+after same-container/image/port/mount restart; home/readiness/session/public200,
+guest Admin403, zero synthetic rows; Gitleaks0. Isolated DB/private env and session
+cookies removed, private pre-change backup preserved. Canonical14-document AI
+knowledge checked. Exact scope, failed harness attempts and rollback are in the
+[handoff](../docs/agent/handoffs/POPUP_BUILDER_DESIGN.md#campaign-designs-continuation--owner2026-11-15).
+Existing mobocom-app/3000 remains the preview; preserve older root/worktrees and
+unrelated .serena. No PR/merge/hosted workflow/production release for this slice.
+
+# Current whole-site visual consistency — owner2026-11-15
+
+Continue `.mobocom/sms-platform`, branch fix/site-ui-consistency-2026-11-15 from
+main aa20d05a after owner merged PR478. The owner requests actual cross-site visual
+inspection and fixes, preserving approved MoboCom identity and module boundaries.
+Existing presentation owners only; no schema/money/permissions/settings change.
+Canonical [scenario](../docs/specs/site-ui-consistency/SPEC.md) and
+[handoff](../docs/agent/handoffs/SITE_UI_CONSISTENCY.md) record source343-page inventory,
+executed browser coverage, real contrast/keyboard/assistant findings, failed harness
+attempts and final acceptance/cleanup receipts. Docker mobocom-app/port3000 remains
+the preview; unrelated root/worktree/tool state is preserved. No PR/merge/hosted
+workflow/production deployment for this slice. Earlier PR478-open notes are history.
+
 # Commercial modularity PR publication — owner request2026-11-15
 
 [PR478](https://github.com/WebNetData/MoboComCMS/pull/478) is open, non-draft, targeting

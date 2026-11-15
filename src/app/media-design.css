@@ -98,6 +98,7 @@
 .cn-cal-text b, .cn-cal-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cn-cal-text small { color: var(--md-muted); }
 .cn-cal-vip { flex: none; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 700; color: var(--vip-gold, var(--md-accent)); border: 1px solid currentColor; }
+html[data-theme='light'] .cn-cal-vip { color: color-mix(in srgb, var(--vip-gold) 45%, var(--md-text)); }
 @media (min-width: 900px) { .md-rail { grid-auto-columns: calc((100% - 5 * 16px) / 6); } }
 
 .md-chips { display: flex; flex-wrap: wrap; gap: 8px; }

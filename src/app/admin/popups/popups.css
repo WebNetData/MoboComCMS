@@ -34,3 +34,34 @@
   .pm-stage { min-height: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .pm-stage .spp-card { animation: none; } }
+
+/* Popups-owned template library: source illustrations, editable draft copy. */
+.admin-shell .pm-gallery { display:grid; gap:20px; margin-block:8px 28px; }
+.admin-shell .pm-gallery > header { display:flex; justify-content:space-between; align-items:end; gap:20px; flex-wrap:wrap; }
+.admin-shell .pm-kicker { display:block; margin-bottom:8px; color:var(--admin-accent-text); font-size:12px; font-weight:600; }
+.admin-shell .pm-gallery h2 { max-width:650px; margin:0; font-size:24px; line-height:1.7; text-wrap:balance; }
+.admin-shell .pm-gallery > header p { max-width:700px; margin:8px 0 0; color:var(--muted); font-size:13px; line-height:2; }
+.admin-shell .pm-gallery-count { padding:6px 12px; border:1px solid var(--border); border-radius:10px; color:var(--muted); font-size:12px; }
+.admin-shell .pm-gallery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.admin-shell .pm-preset { min-width:0; overflow:hidden; border:1px solid var(--border); border-radius:20px; background:var(--card); }
+.admin-shell .pm-preset-art { position:relative; display:grid; place-items:center; height:240px; overflow:hidden; color:#fff; background:radial-gradient(ellipse at 70% 0,#b3352c88,transparent 80%),#2c0b13; }
+.admin-shell .pm-preset-art > svg { width:220px; height:275px; margin-top:-20px; }
+.admin-shell .pm-preset-art > span { position:absolute; inset-inline:12px; bottom:14px; text-align:center; font-size:12px; font-weight:650; text-shadow:0 1px 5px #000; }
+.admin-shell .preset-ticket .pm-preset-art { background:radial-gradient(ellipse at 50% 0,#1a729088,transparent 80%),#08283d; }
+.admin-shell .preset-membership .pm-preset-art { background:radial-gradient(ellipse at 50% 0,#a48a4f55,transparent 80%),#151c19; color:#f5dba4; }
+.admin-shell .pm-preset-copy { display:grid; gap:8px; padding:20px; }
+.admin-shell .pm-preset h3 { margin:0; font-size:18px; }
+.admin-shell .pm-preset p { min-height:48px; margin:0; color:var(--muted); font-size:13px; line-height:1.9; }
+.admin-shell .pm-preset .btn { justify-content:space-between; min-height:44px; margin-top:8px; }
+.admin-shell .pm-preview-head { flex-wrap:wrap; }
+.admin-shell .pm-preview-head > div { display:flex; flex-wrap:wrap; gap:8px; }
+.admin-shell .pm-choice label { min-height:44px; }
+.admin-shell .pm-stage .spp-campaign { grid-template-columns:minmax(0,1fr); }
+.admin-shell .pm-stage .spp-campaign-art { height:190px; min-height:0; }
+.admin-shell .pm-stage .spp-campaign-art > svg { height:245px; }
+.admin-shell .pm-stage .spp-campaign-copy { padding:28px 22px 20px; }
+.admin-shell .pm-stage .spp-campaign .spp-title { font-size:22px; }
+.admin-shell .pm-stage .spp-campaign-highlight strong { font-size:46px; }
+.admin-shell .pm-stage .fx-reveal .spp-card { animation-name:spp-cinematic; }
+@media(max-width:760px) { .admin-shell .pm-gallery-grid { grid-template-columns:minmax(0,1fr); }.admin-shell .pm-gallery h2 { font-size:21px; }.admin-shell .pm-preset-art { height:220px; } }
+@media(prefers-reduced-motion:reduce) { .admin-shell .pm-stage .fx-reveal .spp-card { animation:none; } }

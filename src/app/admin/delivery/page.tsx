@@ -79,7 +79,7 @@ export default function AdminDeliveryPage() {
 
     <section className="sh-panel">
       <header className="sh-panel-head"><h2>بازه‌های زمانی ارسال</h2><button type="button" className="sh-btn sh-btn-ghost" disabled={s.slots.length >= 12} onClick={() => patch({ slots: [...s.slots, { id: `slot-${s.slots.length + 1}`, label: '', capacity: 20 }] })}>+ بازهٔ جدید</button></header>
-      <div className="sh-table-wrap"><table className="sh-table">
+      <div className="sh-table-wrap" tabIndex={0} role="region" aria-label="بازه‌های زمانی ارسال"><table className="sh-table">
         <thead><tr><th scope="col">عنوان نمایشی</th><th scope="col">شناسه (لاتین)</th><th scope="col">ظرفیت هر روز</th><th scope="col"><span className="sr-only">حذف</span></th></tr></thead>
         <tbody>{s.slots.map((slot, index) => <tr key={index}>
           <td><input className="sh-input" aria-label="عنوان نمایشی" placeholder="۹ تا ۱۲" value={slot.label} onChange={(e) => setSlot(index, { label: e.target.value })} /></td>
@@ -104,7 +104,7 @@ export default function AdminDeliveryPage() {
 
     <section className="sh-panel">
       <header className="sh-panel-head"><h2>ظرفیت روزهای پیش رو</h2><span className="sh-muted">بر اساس سفارش‌های ثبت‌شده</span></header>
-      {days.length ? <div className="sh-table-wrap"><table className="sh-table sh-capacity">
+      {days.length ? <div className="sh-table-wrap" tabIndex={0} role="region" aria-label="ظرفیت روزهای پیش رو"><table className="sh-table sh-capacity">
         <thead><tr><th scope="col">روز</th>{s.slots.map((slot) => <th key={slot.id} scope="col">{slot.label}</th>)}</tr></thead>
         <tbody>{days.map((day) => <tr key={day.date}><th scope="row">{persianDate(day.date, true)}</th>{day.slots.map((slot) => {
           const capacity = s.slots.find((row) => row.id === slot.id)?.capacity || 0

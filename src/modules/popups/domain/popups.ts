@@ -1,5 +1,6 @@
 // Announcement popups: what a popup says and looks like, who sees it, and how often. Pure, shared by the server and the browser.
 import { isSiteGroupKey } from '@/modules/account/domain/site-groups'
+import { popupPresentation, type PopupPresentation } from './campaigns'
 
 export const POPUP_KINDS = [
   { id: 'NOTICE', label: 'اطلاعیه', icon: 'bell' },
@@ -8,13 +9,18 @@ export const POPUP_KINDS = [
   { id: 'OFFER', label: 'پیشنهاد ویژه', icon: 'gift' },
 ] as const
 export const POPUP_DESIGNS = [
+  { id: 'custom', label: 'طراحی دلخواه', hint: 'عکس، متن، چیدمان و دکمه‌های انتخابی شما' },
   { id: 'seal', label: 'مهر', hint: 'نشان بزرگ بالای متن' },
   { id: 'cover', label: 'تصویر بالا', hint: 'تصویر تمام‌عرض بالای متن' },
   { id: 'split', label: 'دو ستونه', hint: 'تصویر کنار متن' },
   { id: 'spotlight', label: 'زمینهٔ رنگی', hint: 'پنجرهٔ تمام‌رنگ با متن روشن' },
+  { id: 'campaign', label: 'جشنوارهٔ هدیه', hint: 'تصویر بزرگ و پیشنهاد برجسته' },
+  { id: 'ticket', label: 'بلیت پیشنهاد', hint: 'بلیت دیجیتال و کد قابل کپی' },
+  { id: 'membership', label: 'دعوت ویژه', hint: 'کارت طلایی عضویت و خدمات' },
   { id: 'builder', label: 'طراحی با صفحه‌ساز', hint: 'یک قالب ذخیره‌شدهٔ صفحه‌ساز داخل پنجره' },
 ] as const
 export const POPUP_EFFECTS = [
+  { id: 'reveal', label: 'ظهور سینمایی' },
   { id: 'rise', label: 'بالا آمدن' },
   { id: 'zoom', label: 'بزرگ‌شدن' },
   { id: 'drop', label: 'پایین آمدن' },
@@ -51,6 +57,7 @@ export type PopupInput = {
   title: string; body: string; kind: string; design: string; effect: string; position: string; image: string
   /** Saved builder template shown inside the popup when the design is `builder`. */
   templateId: string
+  presentation: PopupPresentation
   actionLabel: string; actionUrl: string; closeLabel: string; mustConfirm: boolean
   status: PopupStatus; startsAt: Date | null; endsAt: Date | null
   audience: PopupAudience; groupIds: string[]; sections: string[]
@@ -61,7 +68,7 @@ export type PopupInput = {
 export const popupDesignPath = (id: number, revision: number) => `/popup-design/${id}?r=${revision}`
 
 /** The face of a popup, as the visitor's browser receives it. */
-export type PopupFace = Pick<PopupInput, 'title' | 'body' | 'kind' | 'design' | 'effect' | 'position' | 'image' | 'actionLabel' | 'actionUrl' | 'closeLabel' | 'mustConfirm'>
+export type PopupFace = Pick<PopupInput, 'title' | 'body' | 'kind' | 'design' | 'effect' | 'position' | 'image' | 'actionLabel' | 'actionUrl' | 'closeLabel' | 'mustConfirm'> & { presentation?: PopupPresentation }
 
 /** What the browser needs to place and repeat a popup. Audience is decided on the server and never sent. */
 export type ServedPopup = PopupFace & { id: number; revision: number; repeatHours: number; maxViews: number; delaySeconds: number; pages: string; audience: PopupAudience }
@@ -112,7 +119,7 @@ export function normalizePopup(raw: Record<string, unknown>, sectionIds: readonl
   if (design === 'builder' && !/^[a-zA-Z0-9_-]{1,80}$/.test(templateId)) throw new PopupError('قالب صفحه‌ساز را انتخاب کنید')
   return {
     title, body, kind: oneOf(raw.kind, POPUP_KINDS, 'NOTICE'), design, effect: oneOf(raw.effect, POPUP_EFFECTS, 'rise'), position: oneOf(raw.position, POPUP_POSITIONS, 'center'),
-    image, templateId, actionLabel, actionUrl, closeLabel: line(raw.closeLabel, 40), mustConfirm: raw.mustConfirm === true,
+    image, templateId, presentation: popupPresentation(raw.presentation), actionLabel, actionUrl, closeLabel: line(raw.closeLabel, 40), mustConfirm: raw.mustConfirm === true,
     status: (POPUP_STATUSES as readonly string[]).includes(String(raw.status)) ? raw.status as PopupStatus : 'DRAFT',
     startsAt, endsAt, audience, groupIds, sections,
     repeatHours: count(raw.repeatHours, 0, 8760), maxViews: count(raw.maxViews, 0, 100000), delaySeconds: count(raw.delaySeconds, 0, 120),

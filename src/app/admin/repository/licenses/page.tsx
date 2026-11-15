@@ -43,7 +43,7 @@ export default function LicensesPage() {
       <div className="ad-range" role="group" aria-label="وضعیت">{[['', 'همه'], ['ACTIVE', 'فعال'], ['REVOKED', 'باطل']].map(([k, label]) => <button key={k} type="button" aria-pressed={status === k} onClick={() => { setStatus(k); setPage(1) }}>{label}</button>)}</div>
       <input className="input" type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="ایمیل، یادداشت، ۵ نویسهٔ آخر کلید یا نشانی سایت…" aria-label="جست‌وجو" />
     </div>
-    <section className="sa-card sa-table-wrap">
+    <section className="sa-card sa-table-wrap" tabIndex={0} aria-label="لایسنس‌های صادرشده">
       <table className="data sa-table" style={{ minWidth: 820 }}><thead><tr><th>لایسنس</th><th>محصول</th><th>خریدار</th><th>سایت‌ها</th><th>به‌روزرسانی تا</th><th /></tr></thead><tbody>
         {data?.rows.map((l) => <tr key={l.id}>
           <td><code dir="ltr">{l.key}</code> {l.status === 'REVOKED' && <span className="sa-state is-bad">باطل</span>}<small className="sa-sub">{faDate(l.createdAt)}{l.paid ? ` · ${l.paid}` : ' · هدیه'}{l.note && !l.note.startsWith('buy:') ? ` · ${l.note}` : ''}</small></td>

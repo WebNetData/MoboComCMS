@@ -1,3 +1,5 @@
+Popup authoring2026-11-15: existing Popups owner has three campaign presets plus custom image/text/button composition and editable unpublished copies; eight bounded choices live in optional SitePopup.presentation.custom, no further migration/editor. Same module/permissions/audiences, Media upload and existing free builder. Upload-only popup staff purpose checks current identity/2FA/permission/module without granting ordinary library access. Local native PG/purpose faults and22 scoped custom browser views accepted, following earlier24 campaign views. Checkout .mobocom/sms-platform, feat/popup-campaign-designs-2026-11-15 on campaign4283b64e/UI9e44b764. [Exact evidence, limits and rollback](handoffs/POPUP_BUILDER_DESIGN.md#custom-authoring-continuation--owner2026-11-15).
+
 Agent orchestration2026-11-14: repository .codex/config.toml +10 role files; shared docs/agent/AGENT_ORCHESTRATION.md + bootstrap/AGENTS and mirrored mobocom-develop references. Safe project installer scripts/configure-mobocom-agents.py retains MCP/provider/permission settings and exact backups. Authoritative continuation .mobocom/agent-orchestration / chore/agent-orchestration-2026-11-14. [Evidence and next action](handoffs/AGENT_ORCHESTRATION.md).
 
 Site demand/sharing/health2026-11-14: Support CTA/empty Search → /dashboard/content-requests and section-scoped /admin/content-requests; existing Cart → /shared-cart/[token] → recipient Cart/quotation draft; Downloads → /admin/downloads/health → existing Jobs/report repair queue. Local implementation/acceptance completed in .mobocom/platform-integration, branch feat/site-requests-shared-cart-link-health-2026-11-14. [Source, proof, limits and next action](handoffs/SITE_DEMAND_SHARING_HEALTH.md).
@@ -275,3 +277,9 @@ withdraw Forms/Automation contributions. Extensions state/contracts and current
 ExtensionManager own effective/requested state and cycle/audit checks. Packages
 store/persistence own retained uninstalledAt; runtime/editor/assets use the filtered
 loader. [Exact changed scope and continuation](handoffs/COMMERCIAL_MODULARITY.md).
+
+Site UI consistency2026-11-15: existing scoped Admin presentation owns readable
+labels/statuses, named keyboard-scroll table regions and a mobile header AI trigger;
+Cinema/Forum/Games/Mini App owners keep their presentation and fix observed light
+surface contrast/link names. No new registry/schema/business settings. [Actual
+route inventory, browser evidence and limits](handoffs/SITE_UI_CONSISTENCY.md).

@@ -39,7 +39,7 @@ export default function AdvertisersPage() {
       <div className="sa-row-actions"><button type="button" className="btn btn-primary" onClick={() => void save()}>ذخیره</button><button type="button" className="btn btn-ghost" onClick={() => setDraft(null)}>انصراف</button></div>
     </section>}
     <div className="sa-filters"><input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="جست‌وجوی نام، شرکت یا ایمیل…" aria-label="جست‌وجو" /></div>
-    <section className="sa-card sa-table-wrap">
+    <section className="sa-card sa-table-wrap" tabIndex={0} aria-label="فهرست تبلیغ‌دهندگان">
       <table className="data sa-table" style={{ minWidth: 760 }}><thead><tr><th>تبلیغ‌دهنده</th><th>تماس</th><th>کمپین</th><th>نمایش</th><th>کلیک</th><th>هزینه‌کرد</th><th /></tr></thead><tbody>
         {data?.advertisers.map((row) => <tr key={row.id}>
           <td><b>{row.company || row.name}</b> {row.status === 'BLOCKED' && <span className="sa-state is-bad">مسدود</span>}<small className="sa-sub">{row.company ? row.name : ''}{row.userId ? ` · کاربر ${fa(row.userId)}` : ''}</small></td>

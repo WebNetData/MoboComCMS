@@ -1,5 +1,235 @@
 # Builder-designed popups — 2026-11-09
 
+## PR publication — owner2026-11-15
+
+[PR479](https://github.com/WebNetData/MoboComCMS/pull/479) is open and non-draft,
+head `feat/popup-campaign-designs-2026-11-15`, base `main`/aa20d05a. Includes all
+three previously local commits: site consistency9e44b764, campaign presets4283b64e
+and custom authoringa692bd0a. Owner explicitly requested publication and will
+merge. This record supersedes earlier local-only/no-PR statements.
+
+Fresh fetch confirmed main unchanged with no integration delta or pre-existing
+open head PR. Range52 files excludes `.serena/`, private fixtures, screenshots,
+cookies, environments and backups; redacted Gitleaks over all52 files found0
+leaks. Compared24 source hashes available in the campaign/custom receipts, with
+later checked sources taking precedence; no drift. Earlier UI and native/browser
+proof below remains the actual implementation evidence, not a new test run.
+The PR describes the additive migration, optional-module behavior, scoped upload
+authority, failed attempts, rollback and unassessed production/provider surfaces.
+No hosted workflow dispatch, merge, deployment or local runtime change was
+performed for publication; same mobocom-app/3000 preview remains.
+
+## Custom authoring continuation — owner2026-11-15
+
+Current checkout/branch remains `.mobocom/sms-platform` /
+`feat/popup-campaign-designs-2026-11-15`, parent local campaign commit4283b64e,
+which itself retains UI9e44b764/mainaa20d05a. Owner now requests creating their own
+popup with image/text/button for notices/news/warnings/offers. This is another
+bounded local Popups slice; previous campaign acceptance below is historical.
+
+`domain/custom.ts` owns eight enum-only composition choices: split/top/background/
+text, auto/dark/light palette, four accessible accents, start/center alignment,
+compact/wide width, cover/contain image fit, solid/outline button, nine icon
+choices including none. Optional `presentation.custom` uses the existing JSON
+column and normalized projection. Existing copy bounds, safe URL/image rules,
+kind/audience/schedule/frequency/counters, permissions and module lifecycle remain.
+No new schema/migration or editor/document format. Shared `CampaignContent`
+renders the custom composition, message-icon fallback and existing copy/feedback;
+`custom-popup.css` scopes all choices and forces a readable dark text panel over
+background images. Custom selects have stable accessible names.
+
+Admin extends the existing draft form, image upload, full-size/live previews and
+save/publish. Explicit «طراحی دلخواه» starts an unpublished custom draft. «ساخت
+نمونهٔ مشابه» copies a saved popup into a new unpublished draft, clearing its ID
+and scheduling dates; original rows/counters remain. Existing saved page-builder
+templates remain the advanced free-layout path, without a second canvas.
+
+Related upload defect: legacy `/api/admin/media` listed `popups.manage`, but
+ordinary Media Library admission rejected popup-only staff. The route now checks
+normal content/media/settings/author permissions first, then an enabled-popup
+fallback. Trusted `LibraryActor.purpose='popup-upload'` rechecks the current
+canonical identity, 2FA, current popup permission and dependency-aware module state
+through the same reader. Normal library/transfer/settings access is unchanged;
+no addition to `CONTENT_EDIT_PERMISSIONS`. Popup-scoped uploads reject foreign
+section organization metadata before storage. LibraryError maps to its actual
+HTTP status; Origin and bounded image validation remain. This is a scoped Media
+consumer, not a Popups storage owner. Mid-upload revocation is not certified.
+
+Executed so far: fresh207-migration isolated PostgreSQL, own client, UID1000/no
+`.env`; five popup unit cases, native site-popups round trips for four custom
+kinds/layouts, draft-copy/pause and old audiences/frequency/concurrency; native
+Media Library suite including current popup permission/revocation/module-off,
+normal manager unaffected and ordinary library denied. Deliberately dropping
+custom projection and removing upload's module-off check both failed their
+native tests; exact source restored. Final TypeScript/source/architecture passed.
+Media's first run used production NODE_ENV and refused its test loopback port;
+the accepted existing transport suite runs NODE_ENV=test with its own loopback
+fixture, without relaxing production network policy. Fault test's first write
+was denied because docker-copied isolated file belonged to root; only that test
+file was chowned before UID1000 rerun. Running app was not faulted.
+
+React Doctor0.9.17: four affected files,0 errors/13 reviewed advisories (same
+lookup/complexity/repeat-radio/native-dialog callback/click set as earlier slice);
+no suppression. Scoped Semgrep five files/one local rule,0 findings. Read-only
+mapping confirmed existing owners; independent security review found no concrete
+hole in the bounded upload changes. Its source review is not runtime evidence.
+Actual Edge acceptance:22 scoped views, axe0/no document overflow/no page errors:
+Admin entry/full-size preview, all four custom layouts at1440/390 light/dark,
+missing-image icon fallback, legacy red campaign, long text/mixed40-character code
+and mobile-light editor. Real invalid image400 feedback → valid PNG upload →
+keyboard Persian copy and eight style controls → draft save/reload with own image
+→ duplicate saved as a distinct DRAFT, original unchanged. Preview CTA stayed on
+the editor; Escape restored focus. Warning role is alertdialog, other kinds dialog.
+Popup-only editor uploaded successfully, ordinary library/settings403, foreign
+section organization403, member403; actual module-off public/Admin404 and
+popup-only upload403. Synthetic switch returned on before final cleanup.
+
+Initial exact-label browser waits exposed select labels containing option text;
+stable aria labels fixed that. An early navigation trace included login during
+blocked background requests; a focused reproduction did not reproduce that as a
+product session defect. Harness permits local auth session refresh and waits for
+actual image decode before visual acceptance. A later legacy-campaign contrast
+failure was real: red CTA accent changed from #ef2944 to #d81d39 before the final
+accepted run. Earlier partial browser runs are not whole-run passes. Final
+CustomDesignFields Doctor rerun has0 findings.
+
+Final delivery: actual custom primary action navigated to `/products` and
+incremented the same popup's click counter. Exact synthetic popups/page/accounts/
+role/audit and owned MediaAsset rows were removed; their validated UUID cover
+files were unlinked nonrecursively. Prior Popups state restored transactionally.
+The isolated `mobocom_custom_popup_test_20261115` DB was dropped after confirming
+no sessions and a different running database; private test env and host/container
+fixture cookies removed. Ignored screenshots/receipts stay under
+`var/custom-popup-20261115`; pre-change recovery backups from the parent slice
+remain private. Do not commit/upload these files.
+
+All15 changed runtime/test/generated-source hashes match both `/src` and `/app`
+after final normal restart. Same container/image/port bindings/mounts confirmed;
+207 applied migrations and zero synthetic users/pages. Final guest home,
+`/api/health/ready`, empty session and empty public popup list200; direct Admin403.
+Redacted Gitleaks scanned21 reviewed source/doc files,0 leaks; canonical14-document
+knowledge checked and diff whitespace clean. Source was recorded on the current
+local branch; no new PR, provider message, production build/release, hosted
+workflow, merge or external deployment.
+
+Rollback: stop custom popups or disable Popups, retaining all JSON/data. Pause
+custom records before using a reader that predates this design, and do not edit
+them with that reader because it cannot retain custom metadata. Revert only
+reviewed source while preserving subsequent changes. The normal Media path and
+existing builder/templates remain available. Operator entry is `/admin/popups`
+→ «طراحی دلخواه»; draft/edit/preview before explicit publish. No required work
+remains in this bounded slice; real provider delivery and mid-upload revocation
+were not assessed and are not represented as passed.
+
+## Campaign designs continuation — owner2026-11-15
+
+Checkout `.mobocom/sms-platform`, branch `feat/popup-campaign-designs-2026-11-15`,
+stacked on local visual-consistency commit `9e44b764`; fetched main `aa20d05a`
+after owner merged PR478. This slice is local implementation, not a new PR,
+release or production deployment. The earlier builder evidence below remains
+historical. [Scenario](../../specs/popup-campaign-designs/SPEC.md).
+
+Popups keeps its existing identity, audiences, scheduling, frequency, counters,
+permissions, module guard, builder frame and route. New `domain/campaigns.ts`
+owns three typed presentation presets (red gift, blue ticket, gold membership)
+and bounded plain-text badge/highlight/label/detail/code/footnote normalization.
+`CampaignGallery` creates editable drafts only; `CampaignContent`, isolated CSS
+and local decorative `CampaignArtwork` extend the same native dialog. Optional
+Media image failures fall back to artwork. Existing Admin form edits all copy,
+image and action, includes a full-size preview and retains keyboard spaces while
+typing. Preview actions do not navigate away. Unique dialog title IDs and focus
+restoration also cover the existing designs. Effects run once, respect reduced
+motion, and contain no invented timer or commercial discount rule. Coupon copy
+is presentation; real discount validity belongs to Commerce.
+
+Both Prisma schemas add `SitePopup.presentation` TEXT with `{}` default through
+registered migration `20270324120000_popup_campaign_presentation`. Existing
+`popups.manage`/`settings.manage`, Origin/write guards and disable behavior remain
+authoritative. No new module registry, shared service, dependency or theme fork.
+
+Executed local evidence:
+
+- Fresh isolated PostgreSQL `mobocom_popup_campaign_test_20261115`: all207
+  migrations, own generated client, UID1000, no `.env`. `site-popups.connected.cjs`
+  passed two-connection campaign round trips/clear/pause plus existing audiences,
+  frequency, expiry, groups and concurrent claims. Deliberately dropping served
+  presentation failed that test; source was restored exactly. Four popup unit
+  cases passed (`node --test --test-name-pattern=popup scripts/popup-builder.cases.cjs
+  scripts/content-controls.test.cjs`). The former manual domain test loader and
+  incomplete generated-catalog mock were corrected for the real dependencies.
+- TypeScript, `check-source.mjs`, `check-architecture.mjs`, schema parity and
+  release-migration checks passed. Final Admin raw-input correction was copied
+  into the isolated source and TypeScript passed again.
+- Actual Edge/Playwright:17 scoped views with axe0, no horizontal overflow or
+  page errors: gallery desktop-dark/mobile-light; three full-size previews; all
+  three actual public dialogs at1440/390 in both themes. Real Admin draft save,
+  reload, selection, Escape/focus restoration and copy success/failure feedback
+  passed. Clipboard is a controlled browser stub, not OS clipboard certification.
+  Member direct Admin request403, popup-only editor200 and unrelated settings403.
+  Actual module-off public/Admin APIs404 and no public dialog; original setting
+  restored by a claim after testing.
+- Seven additional real public cases passed axe/overflow: long text/40-character
+  mixed code, broken-image fallback, own local image, required confirmation
+  (Escape retained dialog), nonmodal corner, legacy seal and normal-motion reveal.
+  Actual CTA navigated to `/products`, incremented click and guest-view counters.
+  Final six new fields received sequential Persian keyboard text with spaces,
+  saved as a real draft and reloaded unchanged; preview Escape passed again.
+- React Doctor0.9.17: five affected files,0 errors/13 reviewed advisories; final
+  Admin-only rerun0 errors/8 advisories. Remaining existing lookup/complexity,
+  duplicate JSX, repeat-radio names and native-dialog click/callback diagnostics
+  were not suppressed. New composition complexity is bounded and browser checked.
+  Independent read-only reviewer found no remaining actionable defect.
+- Scoped Semgrep:4 popup files/1 local dynamic-code rule,0 findings. This is
+  limited static analysis, not a complete security certification.
+
+Failed attempts retained honestly: the broad content-controls run was99/102
+before fixing the popup loader; unrelated missing `network-earth.webp` test
+fixture and existing RepairWorkPanel source assertion remain outside this slice.
+The accepted popup-only run is4/4, not a claimed full-suite pass. Initial browser
+checks exposed CSS specificity/import ordering and focus restoration; both fixed
+before accepted runs. A synthetic editor role initially used JSON instead of the
+existing CSV contract; only the fixture was corrected. The synthetic public page
+rule initially used its visible permalink, while current SitePopups compares
+canonical `/p/<slug>`; corrected the fixture, leaving routing semantics unchanged.
+Serena initial-instructions retry stalled; manual was already loaded earlier and
+bounded exact-source/diff review continued. First Semgrep config path failed;
+the actual root-local configuration rerun passed.
+
+Local adoption: private source/container/PostgreSQL backups were taken before
+normal restart applied migration207 on existing `mobocom-app`/port3000. Image,
+storage, env and readonly `/src` bind are preserved. Pre/post old-popup fingerprint
+matched, but this local database had **zero existing popup rows**, so populated
+popup-upgrade proof is not claimed. Native tests exercise legacy empty inputs.
+Owned synthetic campaigns, page, users, role and audit rows were removed; exact
+prior Popups setting restored transactionally. Ignored `var/popup-campaigns`
+contains screenshots/nonsecret receipts/private backup; never publish private
+cookies, database dump or generated environment files.
+
+Rollback: pause the affected campaigns or disable Popups without deleting data.
+Older compatible code ignores the additive presentation column; keep it and all
+stored copy. Restore only reviewed source after preserving subsequent edits;
+the private database backup is recovery material, never an automatic whole-data
+reset. No real commercial campaign, provider message, hosted workflow, production
+build, PR, merge or external deployment was performed. Future publishing should
+retain the local UI parent commit and target main; owner merges/deploys.
+
+Final local adoption receipt: all18 changed runtime/schema/test/generated-source
+files match exact source hashes in both `/src` and `/app` after normal restart.
+Same container ID, image, port bindings and mounts confirmed;207 completed
+migrations, zero synthetic users/pages. Final guest browser home200/no popup,
+readiness `/api/health/ready`200, session200/empty, public list200/empty and direct
+Admin API403 passed. First smoke used nonexistent `/api/health` (404), then assumed
+anonymous401 instead of existing403; corrected harness expectations, not guards.
+Gitleaks8.30.1 scanned the23 reviewed source/doc files with redaction,0 leaks.
+Canonical14-document AI knowledge refreshed and checked; diff whitespace clean.
+The exact isolated test database was dropped only after confirming no sessions
+and a different running DB; its private environment and host/container fixture
+cookies were removed. Private pre-change recovery backups remain ignored.
+No additional feature work is pending in this slice; next operator action is
+reviewing templates in `/admin/popups`, customizing a draft, and publishing only
+a real campaign with valid commercial conditions. Future PR must include its
+local UI parent; this request did not publish one.
+
 Branch `feat/popup-builder-design-2026-11-09`, stacked on PR400 → PR399 → PR398. Completes slice 5 of the
 MoboCom "Elementor Pro" request. Owner merges/deploys.
 

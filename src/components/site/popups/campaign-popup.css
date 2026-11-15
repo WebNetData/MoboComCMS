@@ -1,0 +1,74 @@
+/* Three Popups-owned campaign compositions. Their palette is isolated from the
+   page; customer images and copy remain editable through the existing module. */
+.spp:is(.look-campaign,.look-ticket,.look-membership) { width: min(900px, calc(100vw - 40px)); }
+.spp-card.spp-campaign { --campaign-bg:#141416; --campaign-text:#f7f7fa; --campaign-muted:#c3c0c7; --campaign-line:#ffffff25; --campaign-accent:#d81d39; --campaign-on:#fff; --campaign-soft:#ef29441a; --campaign-ink:#ff8d9b; display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr); direction:ltr; border:1px solid var(--campaign-line); border-radius:26px; background:var(--campaign-bg); color:var(--campaign-text); }
+.spp-campaign > * { min-width:0; }
+.spp-campaign-art { position:relative; display:grid; place-items:center; min-height:490px; overflow:hidden; background:radial-gradient(ellipse at 75% 25%,#aa271e88,transparent 66%),linear-gradient(160deg,#230d12,#4c1315 60%,#180d11); }
+.spp-campaign-art > svg { width:100%; height:100%; max-height:540px; }
+.spp-campaign-art > img { display:block; width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+.spp-art-caption { position:absolute; inset-inline:16px; bottom:20px; text-align:center; font:600 9px/1.6 var(--font-inter),sans-serif; letter-spacing:.08em; color:#f6d8d6; }
+.spp-campaign-copy { display:flex; flex-direction:column; justify-content:center; gap:18px; padding:50px 32px 28px; direction:rtl; text-align:start; }
+.spp-campaign .spp-x { inline-size:44px; block-size:44px; top:12px; right:12px; left:auto; border:1px solid var(--campaign-line); border-radius:50%; background:var(--campaign-bg); color:var(--campaign-text); }
+.spp-campaign-badge { display:flex; align-items:center; gap:8px; color:var(--campaign-ink); font-size:12px; line-height:1.8; font-weight:600; overflow-wrap:anywhere; }
+.spp-campaign-badge i { flex:none; width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 0 4px var(--campaign-soft); }
+.spp-campaign .spp-title { color:var(--campaign-text); font-size:clamp(22px,2.5vw,30px); line-height:1.65; font-weight:750; overflow-wrap:anywhere; }
+.spp-campaign-highlight { display:flex; align-items:center; flex-wrap:wrap; gap:8px 16px; }
+.spp-campaign-highlight strong { max-inline-size:100%; color:var(--campaign-accent); font-size:clamp(38px,5.3vw,72px); line-height:1.3; letter-spacing:-.025em; font-weight:850; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.spp-campaign-highlight > span { max-width:130px; font-size:20px; font-weight:650; line-height:1.6; overflow-wrap:anywhere; }
+.spp-campaign .spp-note { color:var(--campaign-muted); font-size:13px; line-height:2.1; }
+.spp-campaign-detail { display:flex; align-items:flex-start; gap:8px; margin:0; padding:12px 14px; border:1px solid var(--campaign-line); border-radius:12px; background:var(--campaign-soft); color:var(--campaign-text); font-size:12px; line-height:1.9; overflow-wrap:anywhere; }
+.spp-campaign-detail svg { flex:none; margin-top:3px; color:var(--campaign-ink); }
+.spp-campaign .spp-actions { display:grid; gap:8px; margin:0; }
+.spp-campaign .spp-go { gap:12px; min-height:50px; padding:12px 20px; background:var(--campaign-accent); color:var(--campaign-on); border:0; line-height:1.8; }
+.spp-campaign .spp-go svg { flex:none; margin-inline-start:auto; }
+.spp-campaign .spp-go:hover { background:color-mix(in srgb,var(--campaign-accent) 88%,#000); }
+.spp-campaign .spp-stay { justify-self:center; min-height:44px; border:0; background:transparent; color:var(--campaign-muted); padding:6px 20px; font-size:12px; }
+.spp-campaign-footnote { margin:0; color:var(--campaign-muted); font-size:11px; line-height:1.9; text-align:center; overflow-wrap:anywhere; }
+.spp-campaign :is(.spp-go,.spp-stay,.spp-x,.spp-coupon button):focus-visible { outline:2px solid var(--campaign-ink); outline-offset:3px; }
+.spp-coupon { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:10px 12px; border:1px dashed var(--campaign-ink); border-radius:12px; background:var(--campaign-soft); }
+.spp-coupon > span { color:var(--campaign-muted); font-size:11px; }
+.spp-coupon code { flex:1; min-width:0; user-select:all; overflow-wrap:anywhere; font:650 16px/1.7 ui-monospace,monospace; color:var(--campaign-text); }
+.spp-coupon button { display:flex; align-items:center; gap:6px; min-height:44px; padding:8px; border:0; border-radius:8px; background:transparent; color:var(--campaign-ink); font:inherit; font-size:12px; cursor:pointer; }
+.spp-copy-feedback { margin:0; color:var(--campaign-ink); font-size:12px; line-height:1.8; overflow-wrap:anywhere; }
+.spp-copy-feedback:empty { display:none; }
+
+.spp-card.campaign-ticket { --campaign-bg:#eff7fd; --campaign-text:#112a40; --campaign-muted:#4a6378; --campaign-line:#b9d2e4; --campaign-accent:#095f96; --campaign-ink:#095f96; --campaign-soft:#0b75aa0d; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); }
+.campaign-ticket .spp-campaign-art { min-height:440px; background:radial-gradient(ellipse at 50% 45%,#278abb60,transparent 70%),#08283d; border-inline-end:1px dashed #78b9db88; }
+.campaign-ticket .spp-campaign-art::before,.campaign-ticket .spp-campaign-art::after { content:''; position:absolute; z-index:1; right:-16px; width:32px; height:32px; border-radius:50%; background:var(--campaign-bg); border:1px solid var(--campaign-line); }
+.campaign-ticket .spp-campaign-art::before { top:-16px; }.campaign-ticket .spp-campaign-art::after { bottom:-16px; }
+.campaign-ticket .spp-art-caption { color:#acd6ed; }
+.spp-card.campaign-membership { --campaign-bg:#151818; --campaign-text:#faf4e7; --campaign-muted:#c9c4b5; --campaign-line:#d5ba7a38; --campaign-accent:#e6c67e; --campaign-on:#241d0e; --campaign-ink:#e6c67e; --campaign-soft:#e6c67e0c; }
+.campaign-membership .spp-campaign-art { background:radial-gradient(ellipse at 55% 40%,#9f7d3655,transparent 70%),linear-gradient(150deg,#24251e,#111614); }
+.campaign-membership .spp-art-caption { color:#d8c38f; }
+.campaign-membership .spp-go { box-shadow:inset 0 1px #fff6; }
+
+/* Effects run once. No looping sparkle, timer or artificial urgency. */
+.spp[open].fx-reveal .spp-card { animation-name:spp-cinematic; animation-duration:560ms; }
+.spp[open] .spp-campaign-art > svg { animation:spp-art-arrive 800ms var(--spp-ease) both; }
+.spp[open] .spp-campaign-copy > * { animation:spp-line 400ms 100ms var(--spp-ease) both; }
+.spp[open] .spp-campaign-copy > :nth-child(n+3) { animation-delay:180ms; }
+@keyframes spp-cinematic { from { opacity:0; transform:translateY(18px) scale(.96); } }
+@keyframes spp-art-arrive { from { opacity:0; transform:translateY(20px) rotate(-3deg) scale(.95); } }
+@media(max-width:640px) {
+  .spp:is(.look-campaign,.look-ticket,.look-membership) { width:calc(100vw - 24px); }
+  .spp .spp-campaign { grid-template-columns:minmax(0,1fr); border-radius:22px; }
+  .spp-campaign-art,.campaign-ticket .spp-campaign-art { min-height:0; height:210px; }
+  .spp-campaign-art > svg { width:210px; height:262px; }
+  .spp-art-caption { bottom:12px; font-size:8px; }
+  .spp-campaign-copy { padding:24px 22px 18px; gap:14px; }
+  .spp-campaign .spp-title { font-size:22px; }
+  .spp-campaign-highlight strong { font-size:46px; }
+  .spp-campaign-highlight > span { font-size:17px; }
+  .campaign-ticket .spp-campaign-art { border-inline-end:0; border-bottom:1px dashed #78b9db88; }
+  .campaign-ticket .spp-campaign-art::before,.campaign-ticket .spp-campaign-art::after { top:auto; bottom:-16px; }
+  .campaign-ticket .spp-campaign-art::before { left:-16px; right:auto; }
+}
+.spp.at-corner .spp-campaign { grid-template-columns:minmax(0,1fr); }
+.spp.at-corner .spp-campaign-art { min-height:0; height:180px; }
+.spp.at-corner .spp-campaign-art > svg { height:240px; }
+.spp.at-corner .spp-campaign-copy { padding:24px; }
+.spp.at-corner .spp-campaign-highlight strong { font-size:42px; }
+@media(prefers-reduced-motion:reduce) {
+  .spp[open] :is(.spp-campaign-art > svg,.spp-campaign-copy > *) { animation:none; }
+  .spp[open].fx-reveal .spp-card { animation:160ms ease both spp-fade; }
+}

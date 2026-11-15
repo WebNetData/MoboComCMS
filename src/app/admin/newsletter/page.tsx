@@ -136,7 +136,7 @@ function Campaigns({ onEdit }: { onEdit: (draft: Draft) => void }) {
       <div className="sa-kpi"><small>کمپین‌ها</small><b className="num">{fa(data.campaigns.length)}</b></div>
     </div>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
-    <section className="sa-card sa-table-wrap">
+    <section className="sa-card sa-table-wrap" tabIndex={0} aria-label="کمپین‌های خبرنامه">
       <table className="data sa-table" style={{ minWidth: 820 }}><thead><tr><th>کمپین</th><th>گیرندگان</th><th>وضعیت</th><th>ارسال</th><th>باز شده</th><th>کلیک</th><th /></tr></thead><tbody>
         {data.campaigns.map((row) => { const [label, tone] = STATUS[row.status] || [row.status, '']; return <tr key={row.id}>
           <td><b>{row.subject}</b><br /><small className="sa-hint">{faDate(row.createdAt)}</small></td>
@@ -156,7 +156,7 @@ function Campaigns({ onEdit }: { onEdit: (draft: Draft) => void }) {
         {!data.campaigns.length && <tr><td colSpan={7} className="sa-empty">هنوز کمپینی نساخته‌اید.</td></tr>}
       </tbody></table>
     </section>
-    {report && <section className="sa-card sa-table-wrap">
+    {report && <section className="sa-card sa-table-wrap" tabIndex={0} aria-label="گزارش کمپین خبرنامه">
       <header className="sa-card-head"><h2>گزارش «{report.campaign.subject}»</h2><button type="button" className="btn btn-ghost btn-sm" onClick={() => setReport(null)}>بستن</button></header>
       <p className="sa-hint">ارسال‌شده {fa(report.statuses.SENT || 0)} · در صف {fa(report.statuses.PENDING || 0)} · ناموفق {fa(report.statuses.FAILED || 0)}</p>
       <table className="data sa-table" style={{ minWidth: 560 }}><thead><tr><th>ایمیل</th><th>وضعیت</th><th>بازشدن</th><th>کلیک</th></tr></thead><tbody>
@@ -178,7 +178,7 @@ function Subscribers() {
   const [notice, setNotice] = useState<Tone>(null)
   if (error) return <Notice tone="error">{error}</Notice>
   return <div className="sa-cols nl-subs">
-    <section className="sa-card sa-table-wrap">
+    <section className="sa-card sa-table-wrap" tabIndex={0} aria-label="عضوهای خبرنامه">
       <header className="sa-card-head">
         <h2>عضوها</h2>
         <div className="sa-toolbar">

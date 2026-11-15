@@ -6,6 +6,7 @@ import { sectionsOf, SITE_SECTIONS } from '@/modules/identity/domain/sections'
 import { ALL_PERMISSIONS } from '@/modules/identity/rbac'
 import { siteGroupCatalog, siteGroupsOf } from '@/modules/account/server/site-groups'
 import { isDue, isLive, matchesAudience, normalizePopup, parseIds, type PopupViewer, type ServedPopup } from '@/modules/popups/domain/popups'
+import { popupPresentation } from '@/modules/popups/domain/campaigns'
 
 type Row = Awaited<ReturnType<typeof db.sitePopup.findMany>>[number]
 
@@ -36,6 +37,7 @@ async function viewerOf(user: AuthedUser | null, rows: Row[]): Promise<PopupView
 const serve = (row: Row): ServedPopup => ({
   id: row.id, revision: row.revision, title: row.title, body: row.body, kind: row.kind, design: row.design, effect: row.effect, position: row.position, image: row.image,
   actionLabel: row.actionLabel, actionUrl: row.actionUrl, closeLabel: row.closeLabel, mustConfirm: row.mustConfirm,
+  presentation: popupPresentation(row.presentation),
   repeatHours: row.repeatHours, maxViews: row.maxViews, delaySeconds: row.delaySeconds, pages: row.pages, audience: row.audience as ServedPopup['audience'],
 })
 
@@ -94,7 +96,7 @@ export async function adminPopups() {
     groups, sections: SITE_SECTIONS.map((section) => ({ id: section.id, label: section.label })),
     templates: templates.map((template) => ({ id: template.id, name: template.name })),
     popups: rows.map((row) => ({
-      ...row, groupIds: parseIds<string>(row.groupIds), sections: parseIds<string>(row.sections),
+      ...row, presentation: popupPresentation(row.presentation), groupIds: parseIds<string>(row.groupIds), sections: parseIds<string>(row.sections),
       memberViews: sum.get(row.id)?._sum.views ?? 0, people: sum.get(row.id)?._count._all ?? 0,
     })),
   }
@@ -102,7 +104,7 @@ export async function adminPopups() {
 
 export async function savePopup(raw: Record<string, unknown>, actorId: number) {
   const data = normalizePopup(raw, SITE_SECTIONS.map((section) => section.id))
-  const fields = { ...data, groupIds: JSON.stringify(data.groupIds), sections: JSON.stringify(data.sections) }
+  const fields = { ...data, presentation: JSON.stringify(data.presentation), groupIds: JSON.stringify(data.groupIds), sections: JSON.stringify(data.sections) }
   const id = Number(raw.id) || 0
   const saved = id ? await db.sitePopup.update({ where: { id }, data: fields }) : await db.sitePopup.create({ data: { ...fields, createdBy: actorId } })
   forgetLivePopups()

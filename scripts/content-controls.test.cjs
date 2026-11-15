@@ -1770,7 +1770,7 @@ const normalizePopupKeys = ({ normalizePopup }) => normalizePopup({ title: 'یک
 test('announcement popups: how often, who, and where', () => {
   const compile = (file) => ts.transpileModule(fs.readFileSync(path.join(process.cwd(), file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const groups = { exports: {} }; new Function('require', 'module', 'exports', compile('src/modules/account/domain/site-groups.ts'))(require, groups, groups.exports)
-  const mod = { exports: {} }; new Function('require', 'module', 'exports', compile('src/modules/popups/domain/popups.ts'))((name) => name === '@/modules/account/domain/site-groups' ? groups.exports : require(name), mod, mod.exports)
+  const mod = { exports: load('src/modules/popups/domain/popups.ts') }
   const { isSiteGroupKey, idsOf } = groups.exports
   for (const key of ['vip', 'buyers', 'subscribers', 'sellers', 'resellers', 'role:4', 'vip-plan:2', 'forum:9', 'crm:مشتری ویژه']) assert.equal(isSiteGroupKey(key), true, key)
   for (const key of ['', 'x', 'role:', 'role:abc', 'crm:', 'forum:1;drop', 7, null]) assert.equal(isSiteGroupKey(key), false, String(key))

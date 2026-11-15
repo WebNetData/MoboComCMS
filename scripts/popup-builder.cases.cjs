@@ -1,4 +1,34 @@
 const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), source = require('./connected-source-loader.cjs')
+
+test('popups: custom authoring retains bounded choices and rejects executable style/link input', () => {
+  const load = source(), p = load('src/modules/popups/domain/popups.ts'), c = load('src/modules/popups/domain/custom.ts')
+  for (const kind of p.POPUP_KINDS) for (const layout of c.CUSTOM_LAYOUTS) {
+    const row = p.normalizePopup({ title: 'پیام من', kind: kind.id, design: 'custom', actionLabel: 'جزئیات', actionUrl: '/products', presentation: { custom: { layout: layout.id, buttonIcon: 'bell', palette: 'light', buttonStyle: 'outline' } } }, [])
+    assert.equal(row.design, 'custom'); assert.equal(row.kind, kind.id); assert.equal(row.status, 'DRAFT')
+    assert.equal(row.presentation.custom.layout, layout.id); assert.equal(row.presentation.custom.buttonIcon, 'bell'); assert.equal(row.presentation.custom.palette, 'light'); assert.equal(row.presentation.custom.buttonStyle, 'outline')
+  }
+  assert.deepEqual(c.customPopupStyle({ layout: '<script>', palette: 'url(https://example.invalid)', accent: '#fff', align: 'unsafe', width: 999999, imageFit: 'fixed', buttonStyle: 'style=evil', buttonIcon: '<svg>', css: 'position:fixed' }), c.DEFAULT_CUSTOM_STYLE)
+  assert.deepEqual(c.customPopupStyle(null), c.DEFAULT_CUSTOM_STYLE)
+  const row = p.normalizePopup({ title: 'پیام من', design: 'custom', presentation: { custom: { css: '<script>', layout: 'text' } } }, [])
+  assert.equal(row.presentation.custom.css, undefined)
+  assert.throws(() => p.normalizePopup({ title: 'پیام من', design: 'custom', actionLabel: 'اجرا', actionUrl: 'javascript:alert(1)' }, []), /نشانی/)
+})
+test('popup campaign copy is bounded plain data, legacy inputs keep empty presentation', () => {
+  const p = source()('src/modules/popups/domain/popups.ts'), c = source()('src/modules/popups/domain/campaigns.ts')
+  const old = p.normalizePopup({ title: 'اطلاعیهٔ قدیمی' }, [])
+  assert.deepEqual(old.presentation, c.EMPTY_PRESENTATION)
+  for (const preset of c.POPUP_CAMPAIGNS) {
+    const next = p.normalizePopup({ ...preset, title: preset.title, design: preset.id, presentation: { ...preset.presentation, highlight: 'تا ۷۸٪', code: 'SPRING-20', unsafe: '<script>' } }, [])
+    assert.equal(next.design, preset.id); assert.equal(next.presentation.highlight, 'تا ۷۸٪'); assert.equal(next.presentation.code, 'SPRING-20')
+    assert.equal(next.status, 'DRAFT', 'a sample never publishes itself'); assert.equal(next.templateId, ''); assert.equal(next.presentation.unsafe, undefined)
+  }
+  assert.deepEqual(c.popupPresentation('{broken'), c.EMPTY_PRESENTATION)
+  assert.deepEqual(c.popupPresentation([]), c.EMPTY_PRESENTATION)
+  assert.equal(c.popupPresentation({ code: 123, badge: 'a'.repeat(200), highlight: 'x'.repeat(90), detail: '\u0000a\nb' }).badge.length, 80)
+  assert.equal(c.popupPresentation({ highlight: 'x'.repeat(90) }).highlight.length, 24)
+  assert.equal(c.popupPresentation({ code: 123 }).code, '')
+  assert.equal(c.popupPresentation({ detail: '\u0000a\nb' }).detail, 'a b')
+})
 test('popups: a builder design needs a saved template id; other designs keep none', () => {
   const p = source()('src/modules/popups/domain/popups.ts')
   assert(p.POPUP_DESIGNS.some(d => d.id === 'builder'))

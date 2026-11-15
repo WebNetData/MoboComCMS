@@ -147,7 +147,7 @@ export default function OptimizationPage() {
         </div>
       </section>
 
-      <section className="sa-card sa-table-wrap">
+      <section className="sa-card sa-table-wrap" tabIndex={0} aria-label="پربازدیدترین صفحه‌های کش‌شده">
         <header className="sa-card-head"><h2>پربازدیدترین صفحه‌های کش‌شده</h2></header>
         <table className="data sa-table"><thead><tr><th>مسیر</th><th>بازدید</th><th>حجم</th><th>سن</th><th>ساخت</th></tr></thead><tbody>
           {report.top.map((row) => <tr key={row.path}><td dir="ltr" className="op-path">{row.path}{row.status === 404 && <small> (۴۰۴)</small>}</td><td className="num">{fa(row.hits)}</td><td className="num">{fa(row.kb)} KB</td><td className="num">{seconds(row.ageSeconds)}</td><td className="num">{fa(row.fillMs)} ms</td></tr>)}
