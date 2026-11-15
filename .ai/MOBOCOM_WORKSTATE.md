@@ -1,5 +1,16 @@
 # Release1.7.21 local build — owner2026-11-15
 
+Resource checkpoint: release1.7.21 is UNPUBLISHED; draftPR480 contains preparation
+b3dc145e + calendar/test fix77a8baf5. Canonical1104+53+4+14 and15 native PG suites,
+204→207 populated data preservation passed. Production heap attempts failed;
+Windows C:0/D:<1GB and Docker Desktop transport stalled. Only two reproducible
+task tar files removed (~97MB now free); owner asked to free10GB C:. Same existing
+container-internal readiness200, Windows localhost unavailable; no replacement/
+volume reset. Private isolated DB/env/deps preserved for continuation. Do not
+claim build/release/signature/browser passed. Exact next action, limits and source
+receipts are in [release handoff](../docs/agent/handoffs/RELEASE_1_7_21.md#resource-stop-and-exact-continuation--2026-11-15).
+Original publisher matches; no new tag/asset/Actions/destination deployment.
+
 Authoritative release checkout `.mobocom/release-1.7.21`, branch release/1.7.21,
 base owner-merged main0c5ed5fe/PR479. Owner requests a local production build and
 published1.7.21 for updating, explicitly no GitHub Actions. Matching root/lock

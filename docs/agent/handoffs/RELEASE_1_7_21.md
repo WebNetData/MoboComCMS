@@ -48,4 +48,69 @@ Initial canonical check1104 cases:1062pass/41fail/1skip.36 failures required
 missing Git tooling; the remaining failures were the three obsolete loaders/
 source assertions and native repair date field above. Git/PostgreSQL CLI installed
 in the existing local container for release tests; source/deps/app3000 untouched.
-Final canonical check/build/browser/artifact results remain pending below.
+Final canonical check passed in78s as UID1000 with no.env/database credentials:
+site1104/1104, connected53/53, backup4/4 and billing14/14, with full types and
+architecture/source/schema/money/security/audit/i18n/generated gates. The second
+attempt had13 failures: one last source-assertion edit had not yet reached the
+runtime, and12 updater health fixtures required missing curl; Git/curl/Python/PG
+CLI were supplied without changing guards. The third complete run is accepted.
+No test was skipped in that accepted canonical run.
+
+All4298 non-document build/source inputs matched the committed source before
+production compilation, including all CSS. The first build invocation coincided
+with Windows memory exhaustion while static scanners ran; Docker exec was
+interrupted and no completed build result existed. Existing container recovered
+with its source/storage; no source failure was inferred. Build and scanners now
+run sequentially. No scanners from that failed attempt are claimed passed.
+Final production/browser/artifact results remain pending below.
+
+## Resource stop and exact continuation —2026-11-15
+
+Release remains **unpublished**; [PR480](https://github.com/WebNetData/MoboComCMS/pull/480)
+is a draft for the prepared version/seal/calendar/test fixes. No tag or release
+asset was created. Completed gates above remain valid; production build has not
+passed and must not be represented as ready for updating.
+
+Observed local failures: Docker Desktop exec transport was interrupted twice;
+the standard desktop restart timed out while its processes remained active.
+Existing Linux app namespace was verified and a task-only WSL/nsenter transport
+continued as UID1000 in the same container (PID686 at this checkpoint). Small
+independent runners are ignored under var/release-1721; verify current process
+identity before reusing that PID. Production heap2560/3584/4096 attempts then
+reported Node heap OOM; the last detached4096 attempt exited1 after219s. No
+completed BUILD_ID/production smoke/signature claim. A user-turn interruption
+also lost a foreground tool session; detached build results are authoritative.
+
+Windows C: was independently measured at0 bytes free, D: at767033344 bytes.
+Host file writes returned ENOSPC, explaining truncated task helpers and failed
+file copies; memory pressure and file failures must not be labelled source bugs.
+Deleted only two exact reproducible release tar archives (source.tar and
+build-source.tar, each54169600 bytes) after verifying their resolved paths under
+this task workspace. About97MB became free; recovery backups/private prior
+artifacts/user files remain. Source tar copies inside the isolated runtime still
+exist. Owner was asked to free at least10GB on C: before continuation.
+
+Existing container-internal app readiness200 was checked through the same
+namespace; Windows localhost3000 was unavailable after Docker Desktop's failed
+restart. Recover Desktop transport/port after disk is available; never replace
+the app image/container/volumes or reset the working database. Isolated release
+database mobocom_release_1721_check, private environments/dependencies and sentinel
+fixtures are retained for continuation, not installed on the user's live DB.
+
+Sequential low-memory static rerun: Semgrep one calendar component/one local
+rule0 findings; Gitleaks over prepared changed files exited1 with one reviewed
+finding in account-security.test.cjs:147. It is the existing RFC6238 test vector
+(base32 of ASCII12345678901234567890), already in main, not a live credential.
+No ignore/baseline changed and this scan is not called0 findings. Earlier parallel
+scanners failed under Windows memory pressure; they are not successful scans.
+
+Next exact actions after space recovery: verify task source/runtime and current
+container identity; restore normal Docker transport/localhost3000; run detached
+production build with adequate heap (review5–6GB plus actual available memory,
+no check bypass), then scoped production repair-calendar/popup/browser. Record
+results and compare4298 build inputs; finish release notes/PR480, same original
+publisher signed package/extraction/old-updater verifier and installer syntax.
+Owner merges release metadata before stable/latest. Download every uploaded
+asset and reverify hashes/signature. Clean only owned task runtime/DB/private
+cookies after acceptance. No GitHub Actions, destination deployment, private-key
+copy, tag mutation or published-release replacement is authorized or performed.
