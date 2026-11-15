@@ -1,0 +1,52 @@
+/* Custom choices are scoped to this composition and never affect campaign presets. */
+dialog.spp:has(.spp-custom[data-width='compact']) { width:min(560px, calc(100vw - 40px)); }
+dialog.spp:has(.spp-custom[data-width='wide']) { width:min(900px, calc(100vw - 40px)); }
+.spp-card.spp-campaign.spp-custom {
+  --campaign-bg:var(--bg, #fff); --campaign-text:var(--text, #171717);
+  --campaign-muted:var(--muted, #555); --campaign-line:var(--border, #d5d5d5);
+  --campaign-accent:#1758ad; --campaign-on:#fff; --campaign-ink:#1758ad;
+  --campaign-soft:color-mix(in srgb, var(--campaign-ink) 10%, transparent);
+}
+.spp-card.spp-campaign.spp-custom[data-palette='dark'] { --campaign-bg:#191b20; --campaign-text:#f7f7f9; --campaign-muted:#c7c9d0; --campaign-line:#535660; }
+.spp-card.spp-campaign.spp-custom[data-palette='light'] { --campaign-bg:#fff; --campaign-text:#171b23; --campaign-muted:#505866; --campaign-line:#c8cdd5; }
+.spp-card.spp-campaign.spp-custom[data-accent='red'] { --campaign-accent:#a91d35; --campaign-ink:#a91d35; }
+.spp-card.spp-campaign.spp-custom[data-accent='amber'] { --campaign-accent:#775000; --campaign-ink:#775000; }
+.spp-card.spp-campaign.spp-custom[data-accent='green'] { --campaign-accent:#126239; --campaign-ink:#126239; }
+.spp-card.spp-campaign.spp-custom[data-palette='dark'] { --campaign-ink:#9fc5ff; }
+.spp-card.spp-campaign.spp-custom[data-palette='dark'][data-accent='red'] { --campaign-ink:#ffb2bf; }
+.spp-card.spp-campaign.spp-custom[data-palette='dark'][data-accent='amber'] { --campaign-ink:#f2d18a; }
+.spp-card.spp-campaign.spp-custom[data-palette='dark'][data-accent='green'] { --campaign-ink:#9ee0b9; }
+html[data-theme='dark'] .spp-card.spp-campaign.spp-custom[data-palette='auto'] { --campaign-ink:#9fc5ff; }
+html[data-theme='dark'] .spp-card.spp-campaign.spp-custom[data-palette='auto'][data-accent='red'] { --campaign-ink:#ffb2bf; }
+html[data-theme='dark'] .spp-card.spp-campaign.spp-custom[data-palette='auto'][data-accent='amber'] { --campaign-ink:#f2d18a; }
+html[data-theme='dark'] .spp-card.spp-campaign.spp-custom[data-palette='auto'][data-accent='green'] { --campaign-ink:#9ee0b9; }
+.spp-custom .spp-campaign-art { background:var(--campaign-soft); color:var(--campaign-ink); }
+.spp-custom .spp-campaign-art > svg { width:80px; height:80px; }
+.spp-custom-placeholder { display:grid; justify-items:center; gap:16px; padding:32px; font-size:15px; font-weight:600; }
+.spp-card.spp-campaign.spp-custom[data-width='compact'] { grid-template-columns:minmax(0,1fr); }
+.spp-custom[data-width='compact'] .spp-campaign-art { min-height:0; height:220px; }
+.spp-custom[data-fit='contain'] .spp-campaign-art > img { object-fit:contain; }
+.spp-card.spp-campaign.spp-custom[data-layout='top'], .spp-card.spp-campaign.spp-custom[data-layout='text'] { grid-template-columns:minmax(0,1fr); }
+.spp-custom[data-layout='top'] .spp-campaign-art { min-height:0; height:240px; }
+.spp-custom[data-layout='text'] .spp-campaign-art { min-height:0; height:100px; }
+.spp-custom[data-layout='text'] .spp-campaign-art > img { display:none; }
+.spp-card.spp-campaign.spp-custom[data-layout='background'] { grid-template-columns:minmax(0,1fr); position:relative; }
+.spp-custom[data-layout='background'] .spp-campaign-art { position:absolute; inset:0; height:100%; }
+.spp-custom[data-layout='background'] .spp-campaign-copy { position:relative; margin:64px 24px 24px; border-radius:16px; background:#171a20; --campaign-text:#f7f7f9; --campaign-muted:#c7c9d0; --campaign-line:#535660; --campaign-ink:#fff; }
+.spp-custom[data-align='center'] .spp-campaign-copy { text-align:center; align-items:center; }
+.spp-custom[data-align='center'] :is(.spp-actions,.spp-coupon) { width:100%; }
+.spp-custom[data-align='center'] .spp-campaign-highlight { justify-content:center; }
+.spp-card.spp-campaign.spp-custom[data-button='outline'] .spp-go { border:2px solid var(--campaign-ink); background:var(--campaign-bg); color:var(--campaign-ink); }
+.spp-card.spp-campaign.spp-custom[data-button='outline'] .spp-go:hover { background:var(--campaign-soft); }
+.spp-card.spp-campaign.spp-custom[data-layout='background'][data-button='outline'] .spp-go { background:#171a20; }
+.spp-custom .spp-campaign-highlight strong { color:var(--campaign-ink); }
+.spp-custom .spp-go, .spp-custom .spp-stay, .spp-custom .spp-x, .spp-custom .spp-coupon button { min-height:44px; }
+
+@media (max-width:640px) {
+  dialog.spp:has(.spp-custom) { width:calc(100vw - 24px); }
+  .spp .spp-card.spp-campaign.spp-custom { grid-template-columns:minmax(0,1fr); }
+  .spp-custom[data-layout='split'] .spp-campaign-art { min-height:0; height:210px; }
+}
+.admin-shell .pm-stage .spp-card.spp-campaign.spp-custom[data-layout='split'] { grid-template-columns:minmax(0,1fr); }
+dialog.spp.at-corner:has(.spp-custom) { width:min(380px,calc(100vw - 32px)); }
+.spp.at-corner .spp-card.spp-campaign.spp-custom { grid-template-columns:minmax(0,1fr); }

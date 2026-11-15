@@ -1,6 +1,9 @@
+import { customPopupStyle, type CustomPopupStyle } from './custom'
+
 /** Presentation belongs to Popups; coupon text never creates a commerce discount. */
 export type PopupPresentation = {
   badge: string; highlight: string; highlightLabel: string; detail: string; code: string; footnote: string
+  custom?: CustomPopupStyle
 }
 export const EMPTY_PRESENTATION: PopupPresentation = { badge: '', highlight: '', highlightLabel: '', detail: '', code: '', footnote: '' }
 export const CAMPAIGN_DESIGNS = ['campaign', 'ticket', 'membership'] as const
@@ -11,7 +14,7 @@ const text = (value: unknown, max: number) => typeof value === 'string' ? value.
 export function popupPresentation(value: unknown): PopupPresentation {
   if (typeof value === 'string') { try { value = JSON.parse(value) } catch { value = null } }
   const row = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-  return { badge: text(row.badge, 80), highlight: text(row.highlight, 24), highlightLabel: text(row.highlightLabel, 40), detail: text(row.detail, 180), code: text(row.code, 40), footnote: text(row.footnote, 180) }
+  return { badge: text(row.badge, 80), highlight: text(row.highlight, 24), highlightLabel: text(row.highlightLabel, 40), detail: text(row.detail, 180), code: text(row.code, 40), footnote: text(row.footnote, 180), ...(row.custom && typeof row.custom === 'object' && !Array.isArray(row.custom) ? { custom: customPopupStyle(row.custom) } : {}) }
 }
 
 /** Samples are local drafting material. Choosing one never publishes it. */

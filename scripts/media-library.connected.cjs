@@ -6,9 +6,22 @@ function load(relative){const file=path.resolve(__dirname,'..',relative);if(cach
 const req={headers:new Headers({origin:'http://localhost:3000',host:'localhost:3000','user-agent':'owned-media-test'}),nextUrl:new URL('http://localhost:3000/api/admin/media/library')}
 async function main(){let server;const previous=process.env.IMPORT_ALLOW_LOOPBACK;try{
  process.env.IMPORT_ALLOW_LOOPBACK='1'
- for(const [name,permissions]of [['manager','media.manage,settings.manage'],['author','journal.author'],['other','journal.author'],['denied','dashboard.view']]){const role=await db.role.create({data:{name:stamp+name,permissions}});roles.push(role.id);const user=await db.user.create({data:{email:stamp+name+'@example.invalid',name:stamp+name,passwordHash:'owned-fixture',role:'ADMIN',roleId:role.id,totpEnabledAt:new Date()}});users.push(user.id)}
+ for(const [name,permissions]of [['manager','media.manage,settings.manage'],['author','journal.author'],['other','journal.author'],['denied','dashboard.view'],['popup','popups.manage']]){const role=await db.role.create({data:{name:stamp+name,permissions}});roles.push(role.id);const user=await db.user.create({data:{email:stamp+name+'@example.invalid',name:stamp+name,passwordHash:'owned-fixture',role:'ADMIN',roleId:role.id,totpEnabledAt:new Date()}});users.push(user.id)}
  const actor={id:users[0],authAt:new Date()},writer={id:users[1],authAt:new Date()},other={id:users[2],authAt:new Date()}
  const lib=load('src/modules/media/server/library.ts'),commands=load('src/modules/media/server/library/commands.ts')
+ const popupKey='extension.popups.state.v1',popupBefore=await db.setting.findUnique({where:{key:popupKey}}),popupActor={id:users[4],authAt:new Date(),purpose:'popup-upload'}
+ try{
+  await db.setting.upsert({where:{key:popupKey},create:{key:popupKey,value:JSON.stringify({enabled:true,settings:{}})},update:{value:JSON.stringify({enabled:true,settings:{}})}})
+  await assert.rejects(()=>lib.currentLibraryUser({id:users[4],authAt:new Date()}),/دسترسی/)
+  const uploader=await lib.currentLibraryUser(popupActor);assert.equal(uploader.id,users[4]);assert.equal(uploader.manageLibrary,false);assert.equal(uploader.configureLibrary,false);assert.equal(uploader.serverTools,false)
+  await assert.rejects(()=>lib.currentLibraryUser({id:users[3],authAt:new Date(),purpose:'popup-upload'}),/اختیار/)
+  await db.setting.update({where:{key:popupKey},data:{value:JSON.stringify({enabled:false,settings:{}})}})
+  await assert.rejects(()=>lib.currentLibraryUser(popupActor),/اختیار/)
+  assert.equal((await lib.currentLibraryUser(actor)).manageLibrary,true,'normal media managers unaffected by popup off')
+  await db.setting.update({where:{key:popupKey},data:{value:JSON.stringify({enabled:true,settings:{}})}})
+  await db.role.update({where:{id:roles[4]},data:{permissions:'dashboard.view'}})
+  await assert.rejects(()=>lib.currentLibraryUser(popupActor),/اختیار/)
+ }finally{await db.role.update({where:{id:roles[4]},data:{permissions:'popups.manage'}});if(popupBefore)await db.setting.upsert({where:{key:popupKey},create:popupBefore,update:{value:popupBefore.value}});else await db.setting.deleteMany({where:{key:popupKey}})}
  const create=async(a,name,parentId=null)=>{const r=await commands.libraryCommand(a,{action:'folder.create',name,parentId},req);folders.push(r.id);return r}
  const root=await create(actor,stamp),child=await create(actor,'child',root.id)
  await assert.rejects(()=>commands.libraryCommand(actor,{action:'folder.update',id:root.id,name:root.name,parentId:child.id,revision:0},req),/خودش/)

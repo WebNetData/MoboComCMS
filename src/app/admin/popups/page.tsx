@@ -5,6 +5,8 @@ import JalaliDateInput from '@/components/date/JalaliDateInput'
 import PopupDialog, { PopupBody } from '@/components/site/popups/PopupDialog'
 import { EMPTY_PRESENTATION, POPUP_CAMPAIGNS, isCampaignDesign, type PopupPresentation, type CampaignDesign } from '@/modules/popups/domain/campaigns'
 import CampaignGallery from './CampaignGallery'
+import CustomDesignFields from './CustomDesignFields'
+import { DEFAULT_CUSTOM_STYLE, customPopupStyle } from '@/modules/popups/domain/custom'
 import { POPUP_AUDIENCES, POPUP_DESIGNS, POPUP_EFFECTS, POPUP_KINDS, POPUP_POSITIONS, POPUP_REPEATS, POPUP_STATUS_LABEL, frequencyLabel } from '@/modules/popups/domain/popups'
 import { SITE_GROUP_FAMILIES, type SiteGroup } from '@/modules/account/domain/site-groups'
 import { ImageField } from '../ads/shared'
@@ -42,6 +44,8 @@ export default function PopupsPage() {
     const preset = POPUP_CAMPAIGNS.find(item => item.id === id)!
     setNotice(null); setDraft({ ...EMPTY, title: preset.title, body: preset.body, kind: 'OFFER', design: preset.id, effect: preset.effect, actionLabel: preset.actionLabel, actionUrl: preset.actionUrl, closeLabel: 'فعلاً نه', presentation: { ...preset.presentation } }); setReplay(value => value + 1)
   }
+  const createCustom = () => { setNotice(null); setDraft({ ...EMPTY, design: 'custom', closeLabel: 'متوجه شدم', presentation: { ...EMPTY_PRESENTATION, custom: { ...DEFAULT_CUSTOM_STYLE } } }); setReplay(value => value + 1) }
+  const duplicate = (row: Row) => { edit(row); setDraft(current => current ? { ...current, id: undefined, status: 'DRAFT', startsAt: '', endsAt: '' } : current); setNotice({ tone: 'ok', text: 'یک نسخهٔ قابل ویرایش آماده شد؛ تا زمان ذخیره و انتشار نمایش داده نمی‌شود.' }) }
 
   const audienceName = useMemo(() => (row: Row) => {
     if (row.audience === 'GROUPS') return (data?.groups || []).filter((group) => row.groupIds.includes(group.key)).map((group) => group.label).join('، ') || 'گروه حذف‌شده'
@@ -74,7 +78,7 @@ export default function PopupsPage() {
   return <div className="sa pm" dir="rtl">
     <header className="sa-head">
       <div><h1>پاپ‌آپ اطلاعیه</h1><p className="sa-hint">اطلاعیه، خبر یا هشدار مهم را برای گروهی که می‌خواهید و با تعداد نمایش دلخواه نشان دهید.</p></div>
-      {!draft && <div className="sa-head-actions"><button type="button" className="btn btn-primary" onClick={() => { setNotice(null); setDraft({ ...EMPTY }); setReplay((value) => value + 1) }}>پاپ‌آپ تازه</button></div>}
+      {!draft && <div className="sa-head-actions"><button type="button" className="btn btn-primary" onClick={createCustom}>طراحی دلخواه</button><button type="button" className="btn btn-ghost" onClick={() => { setNotice(null); setDraft({ ...EMPTY }); setReplay((value) => value + 1) }}>پاپ‌آپ تازه</button></div>}
     </header>
     {error && <Notice tone="error">{error}</Notice>}
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
@@ -98,10 +102,11 @@ export default function PopupsPage() {
           <header className="sa-card-head"><h2>ظاهر و افکت</h2></header>
           <Choice legend="نوع پیام" options={POPUP_KINDS} value={draft.kind} onChange={(kind) => fix({ kind })} />
           <Choice legend="طرح" options={POPUP_DESIGNS} value={draft.design} onChange={(design) => fix({ design })} />
-          {isCampaignDesign(draft.design) && <>
+          {draft.design === 'custom' && <CustomDesignFields value={customPopupStyle(draft.presentation?.custom)} onChange={custom => set('presentation', { ...EMPTY_PRESENTATION, ...draft.presentation, custom })} />}
+          {(draft.design === 'custom' || isCampaignDesign(draft.design)) && <>
             <div className="pm-row">{([{ key: 'badge', label: 'برچسب بالای عنوان', max: 80 }, { key: 'highlight', label: 'عبارت یا عدد برجسته', max: 24 }, { key: 'highlightLabel', label: 'توضیح عدد برجسته', max: 40 }, { key: 'detail', label: 'مزیت یا شرایط کوتاه', max: 180 }, { key: 'code', label: 'کد پیشنهاد (اختیاری)', max: 40 }, { key: 'footnote', label: 'توضیح زیر دکمه (اختیاری)', max: 180 }] as const).map(field => <label key={field.key} className="sa-field"><span>{field.label}</span><input className="input" dir={field.key === 'code' ? 'auto' : undefined} maxLength={field.max} value={draft.presentation?.[field.key] ?? ''} onChange={event => set('presentation', { ...EMPTY_PRESENTATION, ...draft.presentation, [field.key]: event.target.value })} /></label>)}</div>
             <ImageField label="تصویر اختصاصی (اختیاری)" value={draft.image} onChange={image => fix({ image })} />
-            <p className="sa-hint">بدون تصویر، طرح گرافیکی آماده نمایش داده می‌شود. عبارت برجسته مثلاً «تا ۷۸٪» است؛ صحت پیشنهاد و اعتبار کد را پیش از انتشار بررسی کنید.</p>
+            <p className="sa-hint">{draft.design === 'custom' ? 'عکس خودتان را انتخاب کنید؛ بدون عکس، نشان نوع پیام نمایش داده می‌شود. متن و دکمه‌ها را در بخش متن وارد کنید؛ بخش‌های اختیاری خالی نمایش داده نمی‌شوند.' : 'بدون تصویر، طرح گرافیکی آماده نمایش داده می‌شود. عبارت برجسته مثلاً «تا ۷۸٪» است؛ صحت پیشنهاد و اعتبار کد را پیش از انتشار بررسی کنید.'}</p>
           </>}
           {(draft.design === 'cover' || draft.design === 'split') && <ImageField label="تصویر *" value={draft.image} onChange={(image) => fix({ image })} />}
           {draft.design === 'builder' && <label className="field"><span>قالب صفحه‌ساز *</span><select className="select" value={draft.templateId || ''} onChange={(event) => fix({ templateId: event.target.value })}><option value="">انتخاب کنید…</option>{(data?.templates || []).map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select><small className="muted">{(data?.templates || []).length ? 'هر طراحی‌ای را که در صفحه‌ساز «به‌عنوان قالب ذخیره» کرده‌اید می‌توانید داخل پنجره نشان دهید؛ عنوان پنجره فقط برای دسترس‌پذیری خوانده می‌شود.' : 'هنوز قالبی ذخیره نشده است؛ در صفحه‌ساز یک بخش یا صفحه را «به‌عنوان قالب ذخیره» کنید.'}</small></label>}
@@ -172,6 +177,7 @@ export default function PopupsPage() {
           <td className="num">{fa(row.clicks)}</td>
           <td><div className="pm-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => edit(row)}>ویرایش</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => duplicate(row)}>ساخت نمونهٔ مشابه</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void run({ op: 'status', id: row.id, status: row.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }, row.status === 'ACTIVE' ? 'پاپ‌آپ متوقف شد.' : 'پاپ‌آپ فعال شد.')}>{row.status === 'ACTIVE' ? 'توقف' : 'فعال‌سازی'}</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => restart(row)}>نمایش دوباره به همه</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove(row)}>حذف</button>

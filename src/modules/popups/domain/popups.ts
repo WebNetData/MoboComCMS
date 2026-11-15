@@ -9,6 +9,7 @@ export const POPUP_KINDS = [
   { id: 'OFFER', label: 'پیشنهاد ویژه', icon: 'gift' },
 ] as const
 export const POPUP_DESIGNS = [
+  { id: 'custom', label: 'طراحی دلخواه', hint: 'عکس، متن، چیدمان و دکمه‌های انتخابی شما' },
   { id: 'seal', label: 'مهر', hint: 'نشان بزرگ بالای متن' },
   { id: 'cover', label: 'تصویر بالا', hint: 'تصویر تمام‌عرض بالای متن' },
   { id: 'split', label: 'دو ستونه', hint: 'تصویر کنار متن' },

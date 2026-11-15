@@ -56,6 +56,20 @@ async function main() {
     assert.equal(await sees(null, saved.id), false, 'paused campaigns are not served')
   }
 
+  for (const [kind, layout] of [['NOTICE', 'split'], ['NEWS', 'top'], ['WARNING', 'background'], ['OFFER', 'text']]) {
+    const saved = await make({ design: 'custom', kind, image: '/og.svg', actionLabel: 'جزئیات', actionUrl: '/products', presentation: { badge: 'پیام من', custom: { layout, palette: 'dark', accent: 'green', buttonStyle: 'outline', buttonIcon: 'bell', css: '<script>' } } })
+    two.forgetLivePopups()
+    const delivered = (await two.popupsFor(null)).find(row => row.id === saved.id)
+    assert.equal(delivered.kind, kind); assert.equal(delivered.presentation.custom.layout, layout); assert.equal(delivered.presentation.custom.buttonIcon, 'bell'); assert.equal(delivered.presentation.custom.buttonStyle, 'outline')
+    const stored = await other.sitePopup.findUnique({ where: { id: saved.id } })
+    assert.equal(JSON.parse(stored.presentation).custom.css, undefined)
+    const copy = await make({ ...stored, id: undefined, status: 'DRAFT', presentation: JSON.parse(stored.presentation) })
+    assert.notEqual(copy.id, saved.id); assert.equal(copy.status, 'DRAFT'); assert.equal(JSON.parse(copy.presentation).custom.layout, layout)
+    assert.equal(await sees(null, copy.id), false, 'reusing a design never publishes the copy')
+    await one.setPopupStatus(saved.id, 'PAUSED'); two.forgetLivePopups()
+    assert.equal((await two.popupsFor(null)).some(row => row.id === saved.id), false)
+  }
+
   // Every 24 hours, ten times in all.
   const ali = await member('ali'), start = new Date()
   const daily = await make({ repeatHours: 24, maxViews: 10 })

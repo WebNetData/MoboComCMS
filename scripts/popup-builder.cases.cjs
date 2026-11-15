@@ -1,4 +1,18 @@
 const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), source = require('./connected-source-loader.cjs')
+
+test('popups: custom authoring retains bounded choices and rejects executable style/link input', () => {
+  const load = source(), p = load('src/modules/popups/domain/popups.ts'), c = load('src/modules/popups/domain/custom.ts')
+  for (const kind of p.POPUP_KINDS) for (const layout of c.CUSTOM_LAYOUTS) {
+    const row = p.normalizePopup({ title: 'پیام من', kind: kind.id, design: 'custom', actionLabel: 'جزئیات', actionUrl: '/products', presentation: { custom: { layout: layout.id, buttonIcon: 'bell', palette: 'light', buttonStyle: 'outline' } } }, [])
+    assert.equal(row.design, 'custom'); assert.equal(row.kind, kind.id); assert.equal(row.status, 'DRAFT')
+    assert.equal(row.presentation.custom.layout, layout.id); assert.equal(row.presentation.custom.buttonIcon, 'bell'); assert.equal(row.presentation.custom.palette, 'light'); assert.equal(row.presentation.custom.buttonStyle, 'outline')
+  }
+  assert.deepEqual(c.customPopupStyle({ layout: '<script>', palette: 'url(https://example.invalid)', accent: '#fff', align: 'unsafe', width: 999999, imageFit: 'fixed', buttonStyle: 'style=evil', buttonIcon: '<svg>', css: 'position:fixed' }), c.DEFAULT_CUSTOM_STYLE)
+  assert.deepEqual(c.customPopupStyle(null), c.DEFAULT_CUSTOM_STYLE)
+  const row = p.normalizePopup({ title: 'پیام من', design: 'custom', presentation: { custom: { css: '<script>', layout: 'text' } } }, [])
+  assert.equal(row.presentation.custom.css, undefined)
+  assert.throws(() => p.normalizePopup({ title: 'پیام من', design: 'custom', actionLabel: 'اجرا', actionUrl: 'javascript:alert(1)' }, []), /نشانی/)
+})
 test('popup campaign copy is bounded plain data, legacy inputs keep empty presentation', () => {
   const p = source()('src/modules/popups/domain/popups.ts'), c = source()('src/modules/popups/domain/campaigns.ts')
   const old = p.normalizePopup({ title: 'اطلاعیهٔ قدیمی' }, [])

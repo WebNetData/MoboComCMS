@@ -1,7 +1,7 @@
 /* Three Popups-owned campaign compositions. Their palette is isolated from the
    page; customer images and copy remain editable through the existing module. */
 .spp:is(.look-campaign,.look-ticket,.look-membership) { width: min(900px, calc(100vw - 40px)); }
-.spp-card.spp-campaign { --campaign-bg:#141416; --campaign-text:#f7f7fa; --campaign-muted:#c3c0c7; --campaign-line:#ffffff25; --campaign-accent:#ef2944; --campaign-on:#fff; --campaign-soft:#ef29441a; --campaign-ink:#ff8d9b; display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr); direction:ltr; border:1px solid var(--campaign-line); border-radius:26px; background:var(--campaign-bg); color:var(--campaign-text); }
+.spp-card.spp-campaign { --campaign-bg:#141416; --campaign-text:#f7f7fa; --campaign-muted:#c3c0c7; --campaign-line:#ffffff25; --campaign-accent:#d81d39; --campaign-on:#fff; --campaign-soft:#ef29441a; --campaign-ink:#ff8d9b; display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr); direction:ltr; border:1px solid var(--campaign-line); border-radius:26px; background:var(--campaign-bg); color:var(--campaign-text); }
 .spp-campaign > * { min-width:0; }
 .spp-campaign-art { position:relative; display:grid; place-items:center; min-height:490px; overflow:hidden; background:radial-gradient(ellipse at 75% 25%,#aa271e88,transparent 66%),linear-gradient(160deg,#230d12,#4c1315 60%,#180d11); }
 .spp-campaign-art > svg { width:100%; height:100%; max-height:540px; }

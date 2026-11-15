@@ -34,7 +34,7 @@ function PopupFrame({ src, title, onAction }: { src: string; title: string; onAc
 }
 
 export function PopupBody({ popup, onClose, onAction, frameSrc, titleId = 'spp-title' }: { popup: PopupFace; onClose?: () => void; onAction?: (event?: React.MouseEvent<HTMLAnchorElement>) => void; frameSrc?: string; titleId?: string }) {
-  if (isCampaignDesign(popup.design)) return <CampaignContent key={`${popup.design}:${popup.image}`} popup={popup} variant={popup.design} titleId={titleId} onClose={onClose} onAction={onAction} />
+  if (popup.design === 'custom' || isCampaignDesign(popup.design)) return <CampaignContent key={`${popup.design}:${popup.image}`} popup={popup} variant={popup.design} titleId={titleId} onClose={onClose} onAction={onAction} />
   if (popup.design === 'builder') return <div className="spp-card spp-built">
     {!popup.mustConfirm && <button type="button" className="spp-x" aria-label="بستن" onClick={onClose}><span aria-hidden="true">×</span></button>}
     <h2 className="sr-only" id={titleId}>{popup.title}</h2>

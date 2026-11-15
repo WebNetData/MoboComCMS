@@ -1,3 +1,22 @@
+# Custom popup authoring — owner2026-11-15
+
+Continue `.mobocom/sms-platform`, `feat/popup-campaign-designs-2026-11-15` on
+local campaign4283b64e/UI9e44b764/mainaa20d05a. Custom design uses existing Popups
+presentation/editor/Media/native dialog, four layouts/eight bounded choices,
+image/text/action and unpublished saved-copy reuse; no migration/new canvas.
+Popup-only image upload is a trusted narrow Media purpose, current permissions/
+2FA/module rechecked; ordinary library/foreign organization/off-state denied.
+Five popup units, fresh207-migration native popups+Media, two detected/restored
+faults, types/source/architecture and22 actual themed/edge browser views passed.
+Actual CTA navigation/click count passed; exact synthetic rows/owned image bytes,
+test DB/env/session cookies cleaned, prior module state restored. Final15 source
+hashes match after same-container/image/port/mount restart; guest home/readiness/
+session/public200 and Admin403. Gitleaks21files0, canonical knowledge and whitespace
+checked. Complete evidence/limits/rollback are in the existing
+[handoff](../docs/agent/handoffs/POPUP_BUILDER_DESIGN.md#custom-authoring-continuation--owner2026-11-15).
+Preserve same Docker mobocom-app/3000, older root/worktrees, .serena and private
+backups. No new PR/hosted workflow/merge/production release for this request.
+
 # Popup campaign designs — owner2026-11-15
 
 Continue `.mobocom/sms-platform`, `feat/popup-campaign-designs-2026-11-15` on local

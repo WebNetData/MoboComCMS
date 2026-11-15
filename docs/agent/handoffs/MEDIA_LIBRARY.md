@@ -1,5 +1,14 @@
 # Shared media library — continuation, 2026-10-17
 
+Popup consumer2026-11-15: `/api/admin/media` retains normal content/settings/media
+authority first; enabled popup-only staff receive trusted `popup-upload` purpose.
+`currentLibraryUser` rechecks current canonical identity/2FA, popup permission and
+module using its reader. This admits flat image registration only at the trusted
+route, rejects foreign organization metadata and grants no ordinary library,
+transfer/settings or library-management authority. Native current-role/off checks
+and actual scoped upload/refusal passed. No storage/schema/Identity owner changes.
+[Current checkout, acceptance limits and rollback](POPUP_BUILDER_DESIGN.md#custom-authoring-continuation--owner2026-11-15).
+
 Editorial follow-up2026-10-28: written-content editors reuse this Library for video, music, podcast and voice files. Continue [EDITOR_MEDIA](EDITOR_MEDIA.md) for the insertion dialog, typed canonical blocks, lightweight adapter, player composition, current evidence and limits. No second asset store/queue or default remote copying was added.
 
 ## Authoritative source / ownership
