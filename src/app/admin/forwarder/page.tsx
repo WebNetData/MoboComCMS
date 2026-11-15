@@ -107,7 +107,7 @@ export default function ForwarderAdminPage() {
 
         <section className="sa-card">
           <header className="sa-card-head"><h2>لینک‌ها</h2><form role="search" onSubmit={(e) => { e.preventDefault(); setPage(1); void load() }}><input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="جست‌وجوی نامک یا مقصد" aria-label="جست‌وجو" /></form></header>
-          <div className="sa-table-wrap">
+          <div className="sa-table-wrap" tabIndex={0} role="region" aria-label="فهرست لینک‌های کوتاه">
             <table className="data sa-table">
               <thead><tr><th>نامک</th><th>مقصد</th><th>بازدید</th><th>وضعیت</th><th /></tr></thead>
               <tbody>

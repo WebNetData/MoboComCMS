@@ -294,3 +294,12 @@ strict authority/audit and retained-package scenarios passed; original repair an
 package regressions passed. Optional-domain coverage beyond inspected surfaces,
 commercial distribution/version dependencies and recoverable code apply remain
 PARTIAL/UNVERIFIED;44 catalog entries do not certify every site capability.
+
+Site UI consistency2026-11-15: FUNCTIONAL bounded local presentation correction.
+Actual340 static-route attempts;48 final themed/responsive views passed scoped
+axe0/overflow0/errors0; real keyboard/click and public-navigation isolation passed. Source inventory343 static pages; browser audit reached Admin,
+public/account, Mini App and existing content details; inactive/external/redirect
+states are recorded separately. Scoped contrast, keyboard-scroll and mobile
+assistant obstruction fixes preserve owners/data/protected layouts. Final accepted
+counts and remaining limits: [handoff](handoffs/SITE_UI_CONSISTENCY.md). Not a
+whole-site WCAG, live-provider or production-readiness certification.

@@ -394,6 +394,7 @@
 .gv-ranked-copy a:hover b { color: var(--gx-red); }
 .gv-ranked-copy small { color: var(--gx-muted); font-size: 12px; }
 .gv-ranked-copy p { display: -webkit-box; margin: 0; overflow: hidden; color: #c4c8d4; font-size: 12.5px; line-height: 1.9; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+html[data-theme='light'] :is(.gv-ranked-copy p, .gv-notes, .gv-score-copy > p) { color: var(--gx-muted); }
 .gv-member-chip { display: inline-grid; place-items: center; min-width: 52px; height: 40px; padding-inline: 8px; border-radius: 10px; background: rgba(29, 233, 182, .15); color: #7ff5d6; font-size: 16px; font-weight: 900; }
 .gv-member-chip small { font-size: 10px; opacity: .7; }
 

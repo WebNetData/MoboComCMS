@@ -1404,3 +1404,7 @@ body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-do
 .lv-note { margin: 0; font-size: 13px; }
 @media (max-width: 640px) { .lv-identity { grid-template-columns: minmax(0, 1fr) 84px; } .lv-identity > :first-child, .lv-identity > :last-child { grid-column: 1 / -1; } }
 .role-edit { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+
+/* Light-surface text keeps the forum's existing accent and group hues. */
+html[data-theme='light'] .fb-newest a { color: color-mix(in srgb, var(--md-accent) 50%, var(--md-text)); }
+html[data-theme='light'] .fg-join { color: color-mix(in srgb, var(--g) 50%, var(--md-text)); }

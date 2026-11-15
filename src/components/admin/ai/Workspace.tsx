@@ -7,6 +7,7 @@ import { AI_WORKSPACE_EVENT, workspaceKey, workspacePath, type AiWorkspaceKind }
 import { operationContextForPage, operationPageTools } from '@/modules/ai/domain/operations'
 import { useAiPageSelection } from './PageContext'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import Icon from '@/components/site/Icon'
 import './workspace.css'
 
 const Operations = dynamic(() => import('./Operations'), { loading: () => <p role="status">در حال دریافت ابزارهای دستیار…</p> })
@@ -39,7 +40,7 @@ export default function AiWorkspace({ canGo }: { canGo: (href: string) => boolea
   }
   if (!enabled || !canGo('/admin')) return null
   return <>
-    <button ref={trigger} type="button" className="btn btn-primary" aria-haspopup="dialog" onClick={() => { setInstruction(''); setContent(scoped); setMode(scoped ? 'tools' : 'chat'); setOpen(true) }}>دستیار هوش مصنوعی</button>
+    <button ref={trigger} type="button" className="btn btn-primary ai-workspace-trigger" aria-label="دستیار هوش مصنوعی" aria-haspopup="dialog" onClick={() => { setInstruction(''); setContent(scoped); setMode(scoped ? 'tools' : 'chat'); setOpen(true) }}><Icon name="sparkles" size={18} /><span>دستیار هوش مصنوعی</span></button>
     <dialog ref={dialog} className="ai-workspace" aria-labelledby="ai-workspace-title" onCancel={event => { event.preventDefault(); close() }} onClose={() => setOpen(false)}>
       {open && <div className="ai-workspace-body" dir="rtl">
         <header><div><h2 id="ai-workspace-title">دستیار شما در همین بخش</h2><p>دربارهٔ صفحهٔ فعلی بپرسید یا درخواست را در ابزارهای موجود ادامه بدهید.</p></div><button type="button" className="btn btn-ghost btn-sm" onClick={close}>بستن دستیار</button></header>

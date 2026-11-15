@@ -48,7 +48,7 @@ export default function PackagesPage() {
       <fieldset className="ad-choices"><legend>جایگاه‌های بسته</legend>{data?.placements.map((p) => <label key={p.key} className="sa-check"><input type="checkbox" checked={draft.placements.includes(p.key)} onChange={() => toggle(p.key)} /> {p.name}{p.width && p.height ? <small dir="ltr"> {p.width}×{p.height}</small> : null}</label>)}</fieldset>
       <div className="sa-row-actions"><button type="button" className="btn btn-primary" onClick={() => void save()}>ذخیره</button><button type="button" className="btn btn-ghost" onClick={() => setDraft(null)}>انصراف</button></div>
     </section>}
-    <section className="sa-card sa-table-wrap">
+    <section className="sa-card sa-table-wrap" tabIndex={0} aria-label="فهرست بسته‌های فروش تبلیغ">
       <table className="data sa-table" style={{ minWidth: 760 }}><thead><tr><th>بسته</th><th>جایگاه‌ها</th><th>مدت</th><th>سقف نمایش</th><th>قیمت</th><th>فروخته‌شده</th><th /></tr></thead><tbody>
         {data?.packages.map((row) => <tr key={row.id}>
           <td><b>{row.name}</b> {!row.active && <span className="sa-state">غیرفعال</span>}<small className="sa-sub">{row.description}</small></td>

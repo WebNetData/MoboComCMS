@@ -19,6 +19,22 @@ html[data-theme='light'] .admin-shell { --admin-accent-text: color-mix(in srgb, 
    the accent, so it takes white there, like the main buttons. */
 html[data-theme='light'] .admin-shell .sa { --sa-on-accent: var(--sds-color-white-1000, #fff); }
 .admin-shell :is(.text-link, .studio-tabs .active, .studio-notice:not(.studio-error)) { color: var(--admin-accent-text); }
+/* These compact Admin labels use the readable accent rather than the public
+   brand fill. Keep the public versions and their protected theme unchanged. */
+.admin-shell :is(.mx-tag, .mx-tabs-link, .ticket-eyebrow, .ivd-tag:not(.is-fx, .is-time, .is-closed), .store-delivery-slot, .tx-actions .sh-link:not(.is-danger)) { color: var(--admin-accent-text); }
+.admin-shell .tx-actions .sh-link.is-danger { color: var(--admin-danger-text); }
+.admin-shell .tx-count { color: var(--admin-muted-text); }
+.admin-shell :is(.tb-overview-card > a, .xm-filter button.is-active) { color: var(--admin-accent-text); }
+.admin-shell :is(.ticket-ops-pane-title > span, .ticket-ops-row-top > span:first-child) { color: var(--admin-accent-text); }
+.admin-shell .ivd-status.is-unpaid { color: color-mix(in srgb, #b45309 65%, var(--text)); }
+.admin-shell .an-change.is-up { color: color-mix(in srgb, var(--en-ok) 65%, var(--text)); }
+.admin-shell .an-change.is-down { color: var(--admin-danger-text); }
+.admin-shell .crm-filters button.is-active { background: var(--admin-action-surface); color: var(--sds-color-white-1000, #fff); }
+.admin-shell .xm-notice.is-error { color: var(--admin-danger-text); }
+/* Inactive is a state label, not disabled text: keep descriptions and actions
+   readable so an administrator can still inspect or reactivate the capability. */
+.admin-shell :is(.pf-row, .sh-card).is-off { opacity: 1; border-style: dashed; }
+.admin-shell :is(.sa-table-wrap, .sh-table-wrap)[tabindex="0"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 /* The managed lists page (every section's lists): the active list tab and the delete action read in light mode too. */
 .admin-shell .cf-tabs button.is-active { color: var(--admin-accent-text); }
 .admin-shell .cf-tools .is-danger { color: var(--admin-danger-text); }

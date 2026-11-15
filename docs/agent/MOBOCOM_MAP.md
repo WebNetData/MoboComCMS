@@ -275,3 +275,9 @@ withdraw Forms/Automation contributions. Extensions state/contracts and current
 ExtensionManager own effective/requested state and cycle/audit checks. Packages
 store/persistence own retained uninstalledAt; runtime/editor/assets use the filtered
 loader. [Exact changed scope and continuation](handoffs/COMMERCIAL_MODULARITY.md).
+
+Site UI consistency2026-11-15: existing scoped Admin presentation owns readable
+labels/statuses, named keyboard-scroll table regions and a mobile header AI trigger;
+Cinema/Forum/Games/Mini App owners keep their presentation and fix observed light
+surface contrast/link names. No new registry/schema/business settings. [Actual
+route inventory, browser evidence and limits](handoffs/SITE_UI_CONSISTENCY.md).

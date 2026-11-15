@@ -21,6 +21,7 @@
 .small { font-size: 1rem !important; }
 /* Positioned, so the visually hidden caption stays inside the scroll box instead of widening the page (RTL). */
 .tableWrap { position: relative; overflow-x: auto; max-width: 100%; }
+.tableWrap:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .tableWrap :global(.sa-table) { min-width: 640px; width: 100%; }
 .tableWrap td :global(.input) { min-width: 0; width: 100%; max-width: 160px; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }

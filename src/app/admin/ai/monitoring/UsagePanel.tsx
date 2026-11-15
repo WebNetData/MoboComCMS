@@ -47,7 +47,7 @@ export default function UsagePanel({ days }: { days: string }) {
     </dl>
     <p className="sa-sub">سقف روزانه درخواست‌های API پولی همان کاربرد را از ابتدای امروز (به وقت سایت) می‌شمارد؛ پر که شد، تا فردا درخواستی فرستاده نمی‌شود. «حافظه» یعنی همان درخواستِ دقیقاً تکراری تا این چند ساعت بدون فراخوانی دوباره جواب می‌گیرد؛ برای کارهایی که «دوباره بنویس» در آن‌ها معمول است خاموش بماند. ۰ = بدون سقف / بدون حافظه.</p>
     <p className="sa-sub">«حافظهٔ پرامپت» دستور ثابت ابتدای درخواست را برای Claude علامت می‌زند تا تکرار آن در پنج دقیقه با قیمت بسیار کمتری خوانده شود؛ برای کاربردهای پرتکرار مثل پشتیبانی روشن باشد. DeepSeek، Gemini، OpenAI و Qwen این کار را خودشان انجام می‌دهند و فقط شمرده می‌شود.</p>
-    <div className={styles.tableWrap}><table className="sa-table">
+    <div className={styles.tableWrap} tabIndex={0} role="region" aria-label="سقف و حافظهٔ هر کاربرد"><table className="sa-table">
       <caption className="sr-only">سقف و حافظهٔ هر کاربرد</caption>
       <thead><tr><th scope="col">کاربرد</th><th scope="col">امروز</th><th scope="col">سقف درخواست در روز</th><th scope="col">سقف توکن در روز</th><th scope="col">حافظه (ساعت)</th><th scope="col">حافظهٔ پرامپت</th></tr></thead>
       <tbody>{view.purposes.map(p => { const v = form.purposes[p.id as keyof UsagePolicy['purposes']], usage = view.today[p.id] || { requests: 0, tokens: 0 }; return <tr key={p.id}>
@@ -61,7 +61,7 @@ export default function UsagePanel({ days }: { days: string }) {
     </table></div>
     <h3>قیمت مدل‌ها (دلار به ازای یک میلیون توکن)</h3>
     <p className="sa-sub">قیمت را از صفحهٔ قیمت هر سرویس وارد کنید؛ سهمیهٔ رایگان را ۰ بگذارید. بدون قیمت، هزینهٔ آن مدل «بدون قیمت» شمرده می‌شود و حدس زده نمی‌شود. قیمت «خواندن از حافظه» و «نوشتن در حافظه» اختیاری است؛ خالی یعنی با قیمت ورودی حساب شود.</p>
-    <div className={styles.tableWrap}><table className="sa-table">
+    <div className={styles.tableWrap} tabIndex={0} role="region" aria-label="قیمت مدل‌های هوش مصنوعی"><table className="sa-table">
       <caption className="sr-only">قیمت مدل‌ها</caption>
       <thead><tr><th scope="col">سرویس</th><th scope="col">مدل</th><th scope="col">ورودی</th><th scope="col">خروجی</th><th scope="col">خواندن از حافظه</th><th scope="col">نوشتن در حافظه</th><th scope="col"><span className="sr-only">حذف</span></th></tr></thead>
       <tbody>{form.prices.map((p, i) => <tr key={i}>

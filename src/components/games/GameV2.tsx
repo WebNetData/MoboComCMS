@@ -188,7 +188,7 @@ export function UpcomingList({ games }: { games: Game[] }) {
 export function RankedList({ rows, by }: { rows: { game: Game; verdict: string; member: { value: number | null; count: number } }[]; by: 'critics' | 'members' }) {
   return <ol className="gv-ranked">{rows.map((row, index) => <li key={row.game.id}>
     <span className="gv-rank num">{fa(index + 1)}</span>
-    <Link href={`/games/${row.game.slug}`} className="gv-ranked-art">{row.game.cover ? <img src={row.game.cover} alt="" loading="lazy" /> : <Icon name="gamepad" size={22} />}</Link>
+    <Link href={`/games/${row.game.slug}`} className="gv-ranked-art" aria-label={row.game.title}>{row.game.cover ? <img src={row.game.cover} alt="" loading="lazy" /> : <Icon name="gamepad" size={22} />}</Link>
     <div className="gv-ranked-copy">
       <Link href={`/games/${row.game.slug}`}><b>{row.game.title}</b></Link>
       <small>{[row.game.releaseDate ? new Date(row.game.releaseDate).getUTCFullYear().toLocaleString('fa-IR', { useGrouping: false }) : '', row.game.developer, row.game.platforms.slice(0, 4).join('، ')].filter(Boolean).join(' · ')}</small>

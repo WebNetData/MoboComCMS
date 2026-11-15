@@ -1,3 +1,16 @@
+# Current whole-site visual consistency — owner2026-11-15
+
+Continue `.mobocom/sms-platform`, branch fix/site-ui-consistency-2026-11-15 from
+main aa20d05a after owner merged PR478. The owner requests actual cross-site visual
+inspection and fixes, preserving approved MoboCom identity and module boundaries.
+Existing presentation owners only; no schema/money/permissions/settings change.
+Canonical [scenario](../docs/specs/site-ui-consistency/SPEC.md) and
+[handoff](../docs/agent/handoffs/SITE_UI_CONSISTENCY.md) record source343-page inventory,
+executed browser coverage, real contrast/keyboard/assistant findings, failed harness
+attempts and final acceptance/cleanup receipts. Docker mobocom-app/port3000 remains
+the preview; unrelated root/worktree/tool state is preserved. No PR/merge/hosted
+workflow/production deployment for this slice. Earlier PR478-open notes are history.
+
 # Commercial modularity PR publication — owner request2026-11-15
 
 [PR478](https://github.com/WebNetData/MoboComCMS/pull/478) is open, non-draft, targeting
