@@ -342,3 +342,10 @@ Executed evidence, retained in ignored `var/frontend-small-fixes/`:
   provider send, hosted workflow, PR, merge or deployment. Rollback reverts these
   four presentation files; there is no data rollback. Existing page-wide and
   production/provider acceptance are outside this bounded correction.
+
+
+## AI administration integration continuation — 2026-11-15
+
+The current checkout is `.mobocom/admin-ai-integration`, branch `feat/admin-ai-integration-2026-11-15` based on `39a19818` plus prior small frontend fixes. AI category operations cover seven existing taxonomy namespaces; menu operations modify existing menu owners and support icons. Changes remain explicit-approval/opt-in and use stale guards and audit. The user directory shows the phone identifier in Admin while retaining canonical numeric identity/auth; deletion is limited to empty accounts and guards linked history. The shared public low-data strip and toggle were removed; media preferences and provider configuration remain. These Admin contextual tools do not imply arbitrary edits across every Admin domain.
+
+Local app uses the existing `mobocom-app` container on port 3000 with this checkout mounted, skip-seed enabled, and local additive migrations 198→204. The actual configured provider's Gemini 2.5 attempt returned 404 and Gemini 3.8 timed out; the existing API configuration selected Gemini 3.1 Flash Lite with the key retained. One category proposal (id3) and one menu proposal (id4) were obtained and separate controlled browser approvals persisted two categories and one menu link with its book icon. Earlier scoped native, source, architecture, security, type and unit checks passed; earlier themed AI views and four current user views passed scoped axe with zero findings. Final current AI browser and checks passed; detailed scope is recorded in AI_OPERATIONS.md. No production, hosted, push, PR, merge or deployment evidence is claimed.

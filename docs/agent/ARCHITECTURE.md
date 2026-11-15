@@ -913,3 +913,5 @@ Replies are plain-text advice in memory only. Existing Operations/Builder/Engine
 own explicit action handoff, review/direct policy and deployment authority. No new
 identity, editor format, mutation engine, chat storage or settings system.
 [Contracts, evidence and limits](handoffs/AI_CONTEXTUAL_ADMIN.md).
+
+Admin AI2026-11-15 extends the same operational owner with seven category tools and navigation.menu (14 total). Existing Journal/Store category and Taxonomy commands execute categories; Navigation Site/MegaMenu revision writers execute bounded stable-ID menu patches with canonical icons. Allowlisted page hints scope context, not authorization; fresh actor, owner policy, immutable review and atomic strict audit remain required. Users administration adds display-only phone identifiers and guarded deletion of empty accounts; canonical numeric identity and retained histories remain unchanged. [Current evidence and local runtime](handoffs/AI_OPERATIONS.md).

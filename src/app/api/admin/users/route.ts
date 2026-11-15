@@ -1,1 +1,1 @@
-export { GET, POST, PATCH } from '@/modules/identity/server/http/admin/users/route'
+export { GET, POST, PATCH, DELETE } from '@/modules/identity/server/http/admin/users/route'

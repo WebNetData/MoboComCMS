@@ -1,4 +1,7 @@
-const paths: Record<string, React.ReactNode> = {
+import { isIconName, type IconName } from '@/shared/icons'
+export { ICON_NAMES } from '@/shared/icons'
+
+const paths: Record<IconName, React.ReactNode> = {
   copy: <><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></>,
   download: <><path d="M12 3v12m-5-5 5 5 5-5" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></>,
   play: <path d="m8 4 12 8-12 8V4Z" />,
@@ -80,7 +83,6 @@ const paths: Record<string, React.ReactNode> = {
   close: <path d="M6 6l12 12M18 6 6 18"/>,
   cloud: <path d="M7 18h10.500a4.500 4.500 0 0 0 .4-8.980A6 6 0 0 0 6.300 10.100 4 4 0 0 0 7 18Z"/>,
 }
-export const ICON_NAMES = Object.keys(paths)
 export default function Icon({ name = 'shield', size = 22, className = '' }: { name?: string; size?: number; className?: string }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">{paths[name] || paths.shield}</svg>
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">{paths[isIconName(name) ? name : 'shield']}</svg>
 }

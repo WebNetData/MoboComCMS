@@ -1,39 +1,13 @@
-.utility {
-  margin-block-start: 1.5rem;
-  padding-block: 1.25rem;
-  border-block-start: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
+.utility { display: none; }
+
+.utility:has(.report) {
+  display: block;
+  margin-block: 1.5rem;
 }
 
 .controls {
   width: min(100% - 2rem, 78rem);
   margin-inline: auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem 1.5rem;
-  color: var(--muted);
-  font-size: .8125rem;
-}
-
-.lowData {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  min-width: 0;
-  max-width: 48rem;
-}
-
-.lowData > button { flex-shrink: 0; }
-
-.hint {
-  margin: 0;
-  max-width: 38rem;
-  min-width: 0;
-  line-height: 1.8;
-  overflow-wrap: anywhere;
 }
 
 .report { display: flex; align-items: center; margin-inline-end: auto; }
@@ -48,7 +22,5 @@
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 
 @media (max-width: 40rem) {
-  .controls { align-items: flex-start; flex-direction: column; }
-  .lowData { align-items: flex-start; flex-direction: column; }
   .report { width: 100%; }
 }

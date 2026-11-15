@@ -4,13 +4,17 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { requirePerm } from '@/modules/identity/server/access'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { JsonBodyError, readJsonObject } from '@/platform/http/read-json'
+import { mutationOrigin } from '@/platform/http/origin-policy'
 import { AiError } from '../error'
-import { AiOperationError } from '../../domain/operations'
+import { AiOperationError, parseOperationContext } from '../../domain/operations'
 import { decideOperation, operationsActor, operationsView, proposeOperations } from '../operations/service'
 import { saveOperationsPolicy } from '../operations/policy'
 import { runDirectOperations } from '../operations/direct'
 
 const response = (value: unknown) => { const out = ok(value); out.headers.set('Cache-Control', 'private, no-store'); return out }
+const originAllowed = (req: NextRequest) => mutationOrigin({ origin: req.headers.get('origin'), secFetchSite: req.headers.get('sec-fetch-site'), referer: req.headers.get('referer'), hasCookies: true, hosts: [req.headers.get('host'), req.nextUrl.host] }) === 'allow'
+function actorChanged() { const out = err('حساب مدیر تغییر کرده است؛ دستیار را دوباره باز کنید', 409); out.headers.set('X-Ai-Actor-Changed', '1'); return out }
+function pageContext(req: NextRequest) { const query = req.nextUrl.searchParams; return parseOperationContext(query.has('path') ? Object.fromEntries(['path', 'taxonomy', 'menu', 'section'].filter(k => query.has(k)).map(k => [k, query.get(k)])) : undefined, message => { throw new AiOperationError(message) }) }
 function failure(error: unknown) {
   if (error instanceof AiError || error instanceof AiOperationError || error instanceof JsonBodyError) return err(error.message, error.status)
   const e = error as { code?: string; status?: number; message?: string }
@@ -22,25 +26,29 @@ function failure(error: unknown) {
 }
 export async function GET(req: NextRequest) {
   const off = await moduleGuard('ai-assistant'); if (off) return off
-  try { return response(await operationsView(req)) } catch (e) { return failure(e) }
+  try { return response(await operationsView(req, pageContext(req))) } catch (e) { return failure(e) }
 }
 export async function POST(req: NextRequest) {
+  if (!originAllowed(req)) return err('مبدأ درخواست معتبر نیست', 403)
   const off = await moduleGuard('ai-assistant'); if (off) return off
   const access = await operationsActor(req); if (!access) return err('forbidden', 403)
   if (!(await rateLimitStrict(`ai:operations:requests:${access.actor.id}`, 90, 10 * 60_000)).ok) return err('تعداد درخواست‌های بررسی زیاد است؛ کمی بعد تلاش کنید', 429)
   try {
+    const context = pageContext(req)
     const input = await readJsonObject(req, 10_000)
+    if (input.expectedActorId !== access.actor.id) return actorChanged()
     if (input.action === 'propose' || input.action === 'run-direct') {
       if (!(await rateLimitStrict(`ai:operations:plan:${access.actor.id}`, 10, 10 * 60_000)).ok) return err('سقف تولید پیشنهاد پر شده است؛ پیشنهادهای فعلی را بررسی کنید', 429)
-      return response(input.action === 'run-direct' ? await runDirectOperations(req, input) : await proposeOperations(req, input.instruction))
+      return response(input.action === 'run-direct' ? await runDirectOperations(req, input) : await proposeOperations(req, input.instruction, undefined, input.context))
     }
-    if (input.action === 'approve' || input.action === 'reject') return response(await decideOperation(req, input))
+    if (input.action === 'approve' || input.action === 'reject') return response(await decideOperation(req, input, context))
     return err('unknown action', 404)
   } catch (e) { return failure(e) }
 }
 export async function PUT(req: NextRequest) {
+  if (!originAllowed(req)) return err('مبدأ درخواست معتبر نیست', 403)
   const off = await moduleGuard('ai-assistant'); if (off) return off
   const actor = await requirePerm(req, 'settings.manage'); if (!actor) return err('forbidden', 403)
   if (!(await rateLimitStrict(`ai:operations-policy:${actor.id}`, 20, 60_000)).ok) return err('درخواست‌های تنظیم زیاد است', 429)
-  try { const input = await readJsonObject(req, 4_000); await saveOperationsPolicy(input.policy, { req, actor, action: 'ai.operation.policy', targetType: 'setting', targetId: 'ai.operations.v1' }); return response(await operationsView(req)) } catch (e) { return failure(e) }
+  try { const input = await readJsonObject(req, 4_000); if (input.expectedActorId !== actor.id) return actorChanged(); await saveOperationsPolicy(input.policy, { req, actor, action: 'ai.operation.policy', targetType: 'setting', targetId: 'ai.operations.v1' }); return response(await operationsView(req)) } catch (e) { return failure(e) }
 }

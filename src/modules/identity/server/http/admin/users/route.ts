@@ -9,6 +9,13 @@ import { walletBalancesForUsers } from '@/modules/wallet/server/wallet'
 import bcrypt from 'bcryptjs'
 import { auditAdmin } from '@/platform/audit/server'
 import { pictureOf } from '@/modules/identity/domain/picture'
+import { userIdentifier } from '@/modules/identity/domain/identifier'
+import { normalizeMobile } from '@/modules/sms/domain/sms'
+import { latinDigits } from '@/shared/text/digits'
+import { mutationOrigin } from '@/platform/http/origin-policy'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
+import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
+import { deleteEmptyUser, DeleteUserError } from '@/modules/identity/server/delete-user'
 
 export async function GET(req: NextRequest) {
   const admin =
@@ -18,19 +25,19 @@ export async function GET(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   const q = req.nextUrl.searchParams.get('q') || ''
   const slim = req.nextUrl.searchParams.get('slim') === '1'
+  const phone = normalizeMobile(q)
+  const where = q ? { OR: [{ email: { contains: q } }, { name: { contains: q } }, { phone: { contains: phone ? phone.slice(-10) : latinDigits(q) } }] } : undefined
   if (slim) {
     const basic = await db.user.findMany({
-      where: q ? { OR: [{ email: { contains: q } }, { name: { contains: q } }] } : undefined,
-      select: { id: true, email: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } },
+      where,
+      select: { id: true, email: true, name: true, phone: true, phoneVerifiedAt: true, updatedAt: true, telegramPhoto: true, userProfile: { select: { avatar: true } } },
       orderBy: { createdAt: 'desc' },
       take: 200,
     })
-    return ok({ users: basic.map((u) => ({ id: u.id, email: u.email, name: u.name, avatar: pictureOf(u), role: 'CUSTOMER', status: 'ACTIVE', orders: 0, subs: 0, tickets: 0 })), roles: [] })
+    return ok({ users: basic.map((u) => ({ id: u.id, email: u.email, name: u.name, phone: u.phone, phoneVerifiedAt: u.phoneVerifiedAt, identifier: userIdentifier(u), updatedAt: u.updatedAt, avatar: pictureOf(u), role: 'CUSTOMER', status: 'ACTIVE', orders: 0, subs: 0, tickets: 0 })), roles: [] })
   }
   const users = await db.user.findMany({
-    where: q
-      ? { OR: [{ email: { contains: q } }, { name: { contains: q } }] }
-      : undefined,
+    where,
     include: {
       roleRef: true,
       userProfile: { select: { avatar: true } },
@@ -49,6 +56,10 @@ export async function GET(req: NextRequest) {
       id: u.id,
       email: u.email,
       name: u.name,
+      phone: u.phone,
+      phoneVerifiedAt: u.phoneVerifiedAt,
+      identifier: userIdentifier(u),
+      updatedAt: u.updatedAt,
       avatar: pictureOf(u),
       role: u.role,
       roleId: u.roleId,
@@ -116,4 +127,17 @@ export async function PATCH(req: NextRequest) {
   const user = await db.user.update({ where: { id }, data })
   await auditAdmin({ req, actor: admin, action: 'user.update', targetType: 'user', targetId: user.id, metadata: { fields: Object.keys(data), status: user.status, role: user.role, roleId: user.roleId } })
   return ok({ id: user.id, status: user.status, role: user.role })
+}
+
+export async function DELETE(req: NextRequest) {
+  if (mutationOrigin({ origin: req.headers.get('origin'), secFetchSite: req.headers.get('sec-fetch-site'), referer: req.headers.get('referer'), hasCookies: true, hosts: [req.headers.get('host'), req.nextUrl.host] }) !== 'allow') return err('مبدأ درخواست معتبر نیست', 403)
+  const actor = await requirePerm(req, 'users.manage')
+  if (!actor) return err('forbidden', 403)
+  if (!(await rateLimitStrict(`admin:user-delete:${actor.id}`, 20, 10 * 60_000)).ok) return err('تعداد درخواست‌های حذف زیاد است؛ کمی بعد تلاش کنید', 429)
+  try { return ok(await deleteEmptyUser(req, await readJsonObject(req, 2000))) }
+  catch (error) {
+    if (error instanceof DeleteUserError || error instanceof JsonBodyError) return err(error.message, error.status)
+    if (['P2003', 'P2014', 'P2034'].includes(String((error as { code?: string }).code))) return err('کاربر دارای سابقه است یا هم‌زمان تغییر کرده؛ فهرست را تازه کنید و در صورت نیاز حساب را غیرفعال کنید', 409)
+    return err('حذف کاربر ثبت نشد؛ دوباره فهرست را بررسی کنید', 503)
+  }
 }

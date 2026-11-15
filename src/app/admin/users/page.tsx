@@ -6,10 +6,16 @@ import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import { userIdentifier } from '@/modules/identity/domain/identifier'
+import DeleteUser from '@/components/admin/users/DeleteUser'
 
 interface UserRow {
   id: number
   email: string
+ phone?: string | null
+ phoneVerifiedAt?: string | null
+ identifier?: string
+ updatedAt: string
   name: string
   role: string
   roleId: number | null
@@ -126,6 +132,8 @@ export default function AdminUsersPage() {
         <div className="flex gap-2">
           <input
             className="input imp-w-56"
+            type="search"
+            aria-label={locale === 'fa' ? 'جست‌وجوی کاربران با نام، موبایل یا ایمیل' : 'Search users by name, phone or email'}
             placeholder={t.search}
             value={q}
             onChange={(e) => {
@@ -180,7 +188,7 @@ export default function AdminUsersPage() {
             <thead>
               <tr>
                 <th>#</th>
-                <th>{t.emailLabel}</th>
+ <th>{locale === 'fa' ? 'شناسه کاربر' : 'User identifier'}</th>
                 <th>{t.nameLabel}</th>
                 <th>{t.role}</th>
                 <th>{t.status}</th>
@@ -194,12 +202,12 @@ export default function AdminUsersPage() {
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="num crm-id">{u.id}</td>
-                  <td dir="ltr" className="crm-email"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.email}</Link></td>
+ <td className="crm-email"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}><bdi dir="ltr">{u.identifier || userIdentifier(u)}</bdi></Link>{u.phone && !u.phoneVerifiedAt && <span className="muted text-xs"> {locale === 'fa' ? '(تأییدنشده)' : '(unverified)'}</span>}</td>
                   <td className="crm-name"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.name || '—'}</Link></td>
                   <td data-label={t.role}>
                     {u.role === 'ADMIN' ? (
                       <select
-                        aria-label={`${locale === 'fa' ? 'نقش' : 'Role'} ${u.name || u.email}`}
+ aria-label={`${locale === 'fa' ? 'نقش' : 'Role'} ${u.name || u.identifier || userIdentifier(u)}`}
                         className="select !min-h-0 !py-1"
                         style={{ minWidth: 120, fontSize: '0.8rem' }}
                         value={u.roleId || ''}
@@ -228,6 +236,7 @@ export default function AdminUsersPage() {
                         {u.status === 'BANNED' ? t.unban : t.ban}
                       </button>
                       <button className="badge badge-purple" onClick={() => openNotes(u)}>{t.viewNotes}</button>
+ <DeleteUser user={{ id: u.id, identifier: u.identifier || userIdentifier(u), updatedAt: u.updatedAt }} className="badge badge-red" onDeleted={() => { if (selected?.id === u.id) setSelected(null); load(q) }} />
                     </div>
                   </td>
                 </tr>
@@ -239,7 +248,7 @@ export default function AdminUsersPage() {
         <div className="card self-start crm-notes">
           {selected && (
             <>
-              <div className="crm-notes-head"><h3 className="font-bold mb-1">{selected.name || selected.email}</h3><button type="button" className="crm-notes-close" aria-label={locale === 'fa' ? 'بستن یادداشت‌ها' : 'Close notes'} onClick={() => setSelected(null)}>×</button></div>
+ <div className="crm-notes-head"><h3 className="font-bold mb-1">{selected.name || selected.identifier || userIdentifier(selected)}</h3><button type="button" className="crm-notes-close" aria-label={locale === 'fa' ? 'بستن یادداشت‌ها' : 'Close notes'} onClick={() => setSelected(null)}>×</button></div>
               <p className="muted mb-4">
                 <span className="num">{selected.orders}</span> {t.ordersShort}{vpnOn && <> · <span className="num">{selected.subs}</span> {t.subsShort}</>} · <span className="num">{selected.tickets}</span> {t.ticketsShort}
               </p>

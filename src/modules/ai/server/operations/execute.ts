@@ -8,13 +8,17 @@ import { changePostStates } from '@/modules/journal/server/review-bulk'
 import { contentChanged } from '@/modules/content/server/events'
 import { addOrderNote, transitionOrder } from '@/modules/store/server/orders'
 import type { EditorActor } from '@/modules/editor/server/documents'
-import { AiOperationError, type AiOperation } from '../../domain/operations'
+import { AiOperationError, CATEGORY_TOOLS, type AiOperation } from '../../domain/operations'
+import { executeCategoryOperation } from './categories'
+import { executeMenuOperation } from './menus'
 import { assertOperationSnapshot } from './context'
 import { operationDocument } from './document'
 
 type Guard = (tx: Prisma.TransactionClient) => Promise<void>
 type Commit = (tx: Prisma.TransactionClient, result: Record<string, unknown>) => Promise<void>
 export async function executeOperation(req: NextRequest, actor: { id: number; email: string; roleId?: number | null; permissions?: string[] | null }, op: AiOperation, snapshot: string, guard: Guard, commit: Commit) {
+  if (CATEGORY_TOOLS.includes(op.tool)) return executeCategoryOperation(req, actor, op, snapshot, guard, commit)
+  if (op.tool === 'navigation.menu') return executeMenuOperation(req, actor, op, snapshot, guard, commit)
   const a = op.args, id = Number(a.id)
   if (op.tool === 'post.create' || op.tool === 'page.create') {
     const writer: EditorActor = { ...actor, roleId: actor.roleId ?? null, permissions: actor.permissions ?? null }, document = await operationDocument(String(a.body), writer)

@@ -1,13 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import GlobalRestrictions from '@/components/admin/GlobalRestrictions'
 import UserGroupsEditor from '@/components/admin/UserGroupsEditor'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
+import { userIdentifier } from '@/modules/identity/domain/identifier'
+import DeleteUser from '@/components/admin/users/DeleteUser'
 
 interface Detail {
   profileFields?: { completedAt: string | null; missing: string[]; rows: { label: string; value: string }[] } | null
@@ -17,6 +19,9 @@ interface Detail {
     name: string
     avatar?: string
     phone: string
+ phoneVerifiedAt?: string | null
+ identifier?: string
+ updatedAt: string
     telegramId: string | null
     telegramUsername: string
     telegramLinkedAt: string | null
@@ -46,6 +51,7 @@ type Tab = 'overview' | 'wallet' | 'subs' | 'billing' | 'crm'
 
 export default function AdminCustomerPage() {
   const { id } = useParams<{ id: string }>()
+ const router = useRouter()
   const { t, locale } = useI18n()
   const isFa = locale === 'fa'
   const [data, setData] = useState<Detail | null>(null)
@@ -102,6 +108,7 @@ export default function AdminCustomerPage() {
 
   if (!data) return <p className="muted">{t.loading}</p>
   const u = data.user
+ const identifier = u.identifier || userIdentifier(u)
   const selectedPlan = data.plans.find((plan) => plan.id === newPlanId)
   const currencyOptions = [...new Set([BASE_CURRENCY, ...u.walletBalances.map((b) => b.currency), ...u.lifetimePaidByCurrency.map((b) => b.currency), ...data.invoices.map((i) => i.currency), ...data.orders.map((o) => o.currency), ...data.wallet.map((w) => w.currency)])].sort()
 
@@ -117,15 +124,16 @@ export default function AdminCustomerPage() {
     <div>
       <div className="appbar">
         <div className="flex items-center gap-3">
-          <span className="avatar" style={{ background: 'var(--primary)' }}>{u.avatar ? <img src={u.avatar} alt="" /> : (u.name || u.email).charAt(0).toUpperCase()}</span>
+ <span className="avatar" style={{ background: 'var(--primary)' }}>{u.avatar ? <img src={u.avatar} alt="" /> : (u.name || identifier).charAt(0).toUpperCase()}</span>
           <div>
-            <h1 className="h2">{u.name || u.email}</h1>
-            <p className="muted" dir="ltr">{u.email} · <span className="num">#{u.id}</span></p>
+ <h1 className="h2">{u.name || identifier}</h1>
+ <p className="muted"><bdi dir="ltr">{identifier}</bdi>{u.phone && !u.phoneVerifiedAt && <> {isFa ? '(تأییدنشده)' : '(unverified)'}</>} · <span className="num">#{u.id}</span></p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge value={u.status} />
           {u.role === 'ADMIN' && <span className="badge badge-purple">{u.roleName || t.stADMIN}</span>}
+ <DeleteUser user={{ id: u.id, identifier, updatedAt: u.updatedAt }} onDeleted={() => router.push('/admin/users')} />
           <Link href="/admin/users" className="btn btn-ghost">← {t.customers}</Link>
         </div>
       </div>

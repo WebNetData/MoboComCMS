@@ -8,6 +8,7 @@ import '../automation.css'
 import { useEffect, useRef, useState } from 'react'
 import AdminWorkspace from '@/components/admin/Workspace'
 import { AiPageProvider } from '@/components/admin/ai/PageContext'
+import { AI_TOOLS } from '@/modules/ai/domain/operations'
 import dynamic from 'next/dynamic'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
@@ -178,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
     { id: 'ai-tools', area: 'ai', order: 10, title: L('دستیارها و تولید', 'Assistants & generation'), icon: 'bolt', items: [
       { href: '/admin/ai', label: L('دستیار نویسندگی', 'Writing assistant'), icon: 'pen', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
-      { href: '/admin/ai/operations', label: L('دستیار عملیاتی', 'Operational assistant'), icon: 'terminal', perm: ['cms.posts', 'cms.pages', 'cms.products', 'orders.manage', 'settings.manage'] },
+      { href: '/admin/ai/operations', label: L('دستیار عملیاتی', 'Operational assistant'), icon: 'terminal', perm: [...new Set(AI_TOOLS.map(tool => tool.permission))] },
       { href: '/admin/ai/production', label: L('تولید انبوه محتوا و تصویر', 'Bulk content & images'), icon: 'layers', perm: ['cms.posts', 'cms.pages', 'cms.products'] },
       ...joining('ai'),
     ] },

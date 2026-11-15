@@ -277,3 +277,5 @@ and [operator guide](../AI-ENGINEERING-FA.md).
 2026-11-10 article styles/form themes: FUNCTIONAL scoped slice — five whole-page article styles (vogue, glass, story, prism, ink) and four form themes (neon, soft, prism, studio), selectable in Admin, light/dark/phone checked. Evidence in `handoffs/POST_FORM_STYLES.md`.
 
 2026-11-10 file store front: FUNCTIONAL scoped slice — designed `/products?files=1` front (hero, numbers, categories, spotlight, newest/best-selling file tiles, delivery steps) with Admin-editable name/title/description/switch. Evidence in `handoffs/FILE_STORE.md`.
+
+Admin AI2026-11-15: bounded category/menu commands extend the existing six tools to14, with page-scoped review, relevant icons and real Gemini category/menu proposal evidence. Controlled browser approvals persisted; final themed/a11y results and checks are recorded in [AI handoff](handoffs/AI_OPERATIONS.md). Users: phone identifier display and permanent deletion for empty accounts only, protecting existing histories; [evidence](handoffs/ADMIN_ORGANIZATION.md). Local Windows Docker mobocom-app remains port3000; no full-site autonomous-edit claim.
