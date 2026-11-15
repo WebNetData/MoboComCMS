@@ -172,3 +172,16 @@ final-source receipt). Nonsecret var/modular-isolation/final-runtime.json record
 runtime evidence. This checkpoint is
 local development; the owner still merges and deploys. Do not infer commercial
 distribution/version compatibility completion from this first corrected slice.
+
+## PR publication — owner request2026-11-15
+
+[PR478](https://github.com/WebNetData/MoboComCMS/pull/478) was opened non-draft to
+main from fix/modular-capability-isolation-2026-11-15, implementation c2d82426 based
+on freshly fetched main274ada62 (0 behind/1 implementation commit ahead at opening).
+The body records scope, previously executed PostgreSQL/browser/security evidence,
+retained data/rollback rules and outstanding commercial lifecycle work. This
+following documentation-only receipt records publication; no application code or
+runtime configuration changed and no test rerun is claimed. The existing local
+Docker preview remains on3000. No hosted workflow dispatch, merge or production
+deployment was performed; owner merges and deploys. Earlier no-PR notes describe
+the pre-publication checkpoint.

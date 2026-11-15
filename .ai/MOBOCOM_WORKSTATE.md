@@ -1,3 +1,14 @@
+# Commercial modularity PR publication — owner request2026-11-15
+
+[PR478](https://github.com/WebNetData/MoboComCMS/pull/478) is open, non-draft, targeting
+main from fix/modular-capability-isolation-2026-11-15. Implementation c2d82426 is based
+on fetched main274ada62 after PR477. This documentation-only receipt records the
+owner-authorized publication; prior local PG/browser/security evidence is reused,
+not rerun. Remaining commercial distribution/compatibility gaps and rollback are
+included in the PR and [handoff](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md#pr-publication--owner-request2026-11-15).
+The owner merges/deploys; no hosted workflow dispatch or runtime change for publication.
+The earlier local-only/no-PR note below is historical.
+
 # Current commercial modularity correction —2026-11-15
 
 Owner reiterates optional commercial capabilities, complete off-state withdrawal,
