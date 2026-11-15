@@ -1,0 +1,11 @@
+.admin-shell .sms-page .sms-tools { display:flex; flex-wrap:wrap; align-items:end; gap:12px; padding:16px; }
+.admin-shell .sms-page .sms-tools .studio-field { flex:1 1 170px; min-width:0; }
+.admin-shell .sms-page .sms-preview { padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--bg-soft); overflow-wrap:anywhere; }
+.admin-shell .sms-page .sms-preview p { white-space:pre-wrap; }
+.admin-shell .sms-page .sms-report { display:grid; gap:12px; }
+.admin-shell .sms-page .sms-pagination { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:12px; }
+.admin-shell .sms-page :is(.btn, .ai-tabs button, .sms-tools input, .sms-tools select) { min-height:44px; }
+.admin-shell .sms-page :is(button, input, select, textarea, [tabindex]):focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+.admin-shell .sms-page .sms-report .table-wrap { max-width:100%; overflow-x:auto; }
+.admin-shell .sms-page .sms-report .sms-log-body { overflow-wrap:anywhere; min-width:160px; }
+@media (max-width:600px) { .admin-shell .sms-page .sms-tools .studio-field { flex-basis:100%; } .admin-shell .sms-page .seo-actions .btn { width:100%; } }

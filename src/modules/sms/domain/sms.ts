@@ -34,6 +34,7 @@ export interface SmsEventDef {
 
 // User events mirror the customer inbox (notifications); admin events alert staff.
 export const SMS_EVENTS: SmsEventDef[] = [
+  { id: 'ORDER_STATUS', audience: 'user', label: 'تغییر وضعیت سفارش و محصول', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {title}\n{body}\n{link}\n{brand}' },
   { id: 'STORE_RECEIPT', audience: 'user', label: 'فاکتور فروش حضوری', vars: ['name','title','body','link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
   { id: 'STORE_PICKUP_READY', audience: 'user', label: 'سفارش آمادهٔ تحویل از فروشگاه', vars: ['name','title','body','link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'FORM_STAGE', audience: 'user', label: 'مرحلهٔ کار درخواست (مشتری، مثل تعمیر)', vars: ['name', 'form', 'stage', 'message', 'link'], template: '{name} عزیز، {form}: {stage}\n{message}\n{brand}' },
@@ -70,6 +71,24 @@ export const SMS_EVENTS: SmsEventDef[] = [
 ]
 
 export const smsEvent = (id: string) => SMS_EVENTS.find((event) => event.id === id)
+
+export const SMS_GROUPS = [
+  { id: 'store', label: 'فروشگاه و محصول' },
+  { id: 'services', label: 'خدمات و درخواست‌ها' },
+  { id: 'billing', label: 'پرداخت و اشتراک' },
+  { id: 'support', label: 'پشتیبانی' },
+  { id: 'engagement', label: 'ارتباط با مشتری' },
+  { id: 'system', label: 'مدیریت و سایر بخش‌ها' },
+] as const
+
+export function smsEventGroup(id: string): typeof SMS_GROUPS[number]['id'] {
+  if (id.startsWith('FORM_')) return 'services'
+  if (/^(STORE_|PRODUCT_|ORDER_|STOCK_|CART_|GIFT_|LOYALTY|ADMIN_ORDER|ADMIN_RETURN)/.test(id)) return 'store'
+  if (/^(PAYMENT_|RECEIPT_|SUBSCRIPTION_|MEMBERSHIP|CONTENT_PURCHASE|ADMIN_RECEIPT)/.test(id)) return 'billing'
+  if (/^(TICKET_|ADMIN_TICKET|LIVECHAT)/.test(id)) return 'support'
+  if (id.startsWith('CRM_')) return 'engagement'
+  return 'system'
+}
 
 export interface SmsEventSetting { enabled: boolean; text: string; pattern: string }
 

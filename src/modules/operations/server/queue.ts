@@ -18,6 +18,8 @@ type Handler = (payload: Record<string, unknown>, job: {
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { run: Handler }> = {
+  'sms.broadcast': { run: async (payload, job) => (await import('@/modules/sms/server/broadcast')).deliverBroadcast(payload, job.attempts) },
+  'forms.stage-sms': { run: async (payload, job) => (await import('@/modules/forms/server/stage-sms')).deliverFormStageSms(payload, job) },
   'support.demand-fulfilled': { run: async (payload, job) => {
     const result = await (await import('@/modules/support/server/demand')).deliverDemandFulfilled(payload)
     if (!result.done) await job.continueWith('support.demand-fulfilled', { ...payload, cursor: result.cursor }, { dedupeKey: `demand:${payload.demandId}:${payload.version}:after:${result.cursor}` })
@@ -58,9 +60,9 @@ const HANDLERS: Record<string, { run: Handler }> = {
     },
   },
   'notification.deliver': {
-    run: async (payload) => {
+    run: async (payload, job) => {
       const { deliverInboxCopy } = await import('@/modules/notifications/server/inbox')
-      return deliverInboxCopy(Number(payload.notificationId), String(payload.channel || ''))
+      return deliverInboxCopy(Number(payload.notificationId), String(payload.channel || ''), { attempts: job.attempts })
     },
   },
   'notification.digest': {

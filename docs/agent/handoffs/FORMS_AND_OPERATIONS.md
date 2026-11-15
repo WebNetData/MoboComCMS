@@ -162,3 +162,14 @@ Known limits to keep in mind: a webhook's address is resolved before the request
 ## Not built
 
 Name and address field groups; attachment kinds beyond PDF and images; a resume link across devices; retries and a delivery log for webhooks; resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop. Store order holders are implemented in the [editor/groups/experts continuation](EDITOR_GROUPS_EXPERTS.md), extended by the specialist delivery work in1.7.18. Content follows its section permissions and authorship.
+
+
+## Transactional SMS and request actions - 2026-11-15
+
+Continue `.mobocom/sms-platform`, branch `feat/sms-platform-2026-11-15` from `72c03dd5`. Existing Form and Operations owners remain authoritative. Form-stage SMS creates an encrypted, minimal intent in the same transaction as the stage change, with no provider call in that transaction. Delivery rechecks current answer phone, status/payment, stage configuration, pickup/receipt state, newest job and current consent/preferences. It neither promotes a submitted phone to verified identity nor treats it as marketing consent. Stale, expired, disabled or changed work is skipped.
+
+Store order-status alerts are default-off and remain subject to Store module state, user preferences and mutes. Broadcasts cap at 500 recipients and recheck eligibility. Durable SMS claims use migration 205; a repeated key/content mismatch conflicts, and an ambiguous provider result is terminal `UNKNOWN` with no automatic resend. OTP keeps its existing challenge-consumption/TOTP ownership; unknown delivery preserves the challenge with a visible warning and never logs the code. Unconfigured delivery is not reported as successful.
+
+The request-card repeat and receipt actions were kept in the existing component/design: separate actions, visible focus and 44px targets, responsive wrapping, preserved routes, scoped theme and RTL behavior. Sixteen current browser views across SMS settings/events/reports/request surfaces at desktop/mobile and light/dark passed scoped axe0, overflow0 and page errors0. Simulated 409 draft preservation and 503/load retry passed; providerCalls was 0. Connected isolated native PostgreSQL checks covered SMS settings, OTP/mobile entry, Forms counter/stage and notification policy with recording doubles; 43 Forms/payments units and 10 scale/inbox units passed. These checks do not establish handset delivery or production provider behavior. See `SMS_SETTINGS_RETENTION.md` for full checks, limitations and continuation.
+
+No full production release, real customer SMS, hosted workflow, merge or deployment is claimed. Final fixture cleanup, redacted Gitleaks0, source/type/gate checks and restart evidence are recorded in SMS_SETTINGS_RETENTION.md.

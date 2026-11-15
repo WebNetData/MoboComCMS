@@ -8,7 +8,7 @@ test('inbox replay preserves its owner and delivery distinguishes retryable prov
   let failMail = true, pushFailure = 'none'
   const mocks = {
     '@/platform/database/prisma': { db: { userNotification: { findUnique: async ({ where }) => where.id === 1 || where.dedupeKey === 'one' ? event : null } } },
-    '@/modules/sms/server/sms': { notifyUserEvent: async () => { deliveries.sms++; return true } },
+    '@/modules/sms/server/sms': { notifyUserEventResult: async () => { deliveries.sms++; return { status: 'SENT', sent: true, logId: 1 } } },
     '@/modules/mail/server/mailer': { notifyUserEmail: async () => { deliveries.mail++; return failMail ? false : true } },
     '@/modules/push/server/push': { pushToUser: async () => { deliveries.push++; return { sent: pushFailure === 'none' ? 1 : 0, failed: pushFailure === 'none' ? 0 : 1, retryable: pushFailure === 'transient' ? 1 : 0 } } },
   }

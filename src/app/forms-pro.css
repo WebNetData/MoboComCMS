@@ -106,8 +106,11 @@
 .rq-title small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); font-size: 12.5px; }
 .rq-title small > * + *::before { content: ''; display: inline-block; width: 4px; height: 4px; margin-inline-end: 12px; border-radius: 50%; background: color-mix(in srgb, var(--muted) 60%, transparent); vertical-align: middle; }
 .rq-title small b { color: var(--text); font-weight: 700; }
-/* A link in the meta line sits on the line like the rest (some shared rules make links tall touch targets). */
-.rq-title small > a { display: inline; min-height: 0; padding: 0; line-height: inherit; }
+/* Request actions stay separate from the metadata. */
+.rq-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rq-action { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; max-width: 100%; padding: 8px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); font-size: 13px; font-weight: 700; line-height: 1.6; text-align: center; text-decoration: none; }
+.rq-action:hover { border-color: var(--primary); color: var(--primary); }
+.rq-page :is(.rq-action, .rq-copy, .rq-sent > summary):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .rq-badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .rq-badge { padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 .rq-badge.is-warn { background: color-mix(in srgb, #d97706 14%, transparent); color: #b45309; }
@@ -147,11 +150,11 @@ html[data-theme='dark'] .rq-badge.is-bad { color: #fca5a5; }
 .rq-sent[open] .rq-answers { animation: rq-open .25s ease-out; }
 @keyframes rq-open { from { opacity: 0; transform: translateY(-6px); } }
 .rq-fact { position: relative; display: grid; align-content: start; gap: 4px; min-width: 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--border) 85%, transparent); border-radius: 13px; background: var(--card); }
-.rq-fact dt { padding-inline-end: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.rq-fact dt { padding-inline-end: 42px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .rq-fact dd { margin: 0; color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.8; overflow-wrap: anywhere; unicode-bidi: plaintext; }
 html[dir='rtl'] .rq-fact dd { text-align: right; }
 .rq-fact dd.is-secret { letter-spacing: .2em; color: var(--muted); }
-.rq-copy { position: absolute; top: 8px; inset-inline-end: 8px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
+.rq-copy { position: absolute; top: 2px; inset-inline-end: 2px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
 .rq-fact:hover .rq-copy, .rq-copy:focus-visible { opacity: 1; }
 .rq-copy:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 @media (hover: none) { .rq-copy { opacity: 1; } }
@@ -170,6 +173,7 @@ html[dir='rtl'] .rq-fact dd { text-align: right; }
   .rq-icon { width: 38px; height: 38px; }
   .rq-track li { font-size: 11px; }
   .rq-answers { padding-inline: 10px; }
+  .rq-actions .rq-action { flex: 1 1 auto; }
   .rq-pay .btn { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .rq-track li.is-now .rq-step, .rq-sent[open] .rq-answers { animation: none; } .rq-sent-chevron, .rq-step { transition: none; } }

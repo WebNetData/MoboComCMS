@@ -139,7 +139,7 @@ test('every limit that guards a secret is the strict one', () => {
   const strict = (file) => (fs.readFileSync(path.join(root, file), 'utf8').match(/await rateLimitStrict\(/g) || []).length
   assert.deepEqual([strict('src/modules/identity/auth.ts'), strict('src/modules/identity/server/account-security.ts'), strict('src/modules/store/server/http/marketing.ts'), strict('src/modules/public-api/server/api-keys.ts')], [6, 6, 3, 1], 'auth.ts: password ×3, SMS code, email code, Google ticket')
   assert.equal(strict('src/modules/identity/server/email-otp.ts'), 1, 'email issuance enforces all three strict buckets')
-  assert.equal(strict('src/modules/sms/server/sms.ts'), 2, 'SMS issuance has strict recipient/IP limits')
+  assert.equal(strict('src/modules/sms/server/sms/otp.ts'), 2, 'SMS issuance has strict recipient/IP limits')
 })
 
 test("a configured Redis that does not answer: the site falls back, says so, reconnects, and sensitive limits never open (audit 2026-11-10, P1)", async () => {

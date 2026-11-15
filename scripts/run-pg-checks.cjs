@@ -78,6 +78,8 @@ const CHECKS = [
   'admin-2fa-policy',
   'admin-users',
   'sms-settings',
+  'sms-delivery',
+  'sms-workflows',
   'mobile-account-entry',
   'vpn-group-access',
   'digital-content-pricing',

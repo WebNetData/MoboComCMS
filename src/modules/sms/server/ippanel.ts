@@ -5,11 +5,11 @@
 const BASE_URL = 'https://edge.ippanel.com/v1'
 const TIMEOUT_MS = 15_000
 
-export interface IppanelResult { ok: boolean; id: string; error: string }
+export interface IppanelResult { ok: boolean; id: string; error: string; unknown?: boolean }
 
 type Envelope = { data?: { message_outbox_ids?: number[]; credit?: number } | null; meta?: { status?: boolean; message?: string } }
 
-async function call(apiKey: string, path: string, init: { method: 'GET' | 'POST'; body?: unknown }): Promise<{ ok: boolean; body: Envelope | null; error: string }> {
+async function call(apiKey: string, path: string, init: { method: 'GET' | 'POST'; body?: unknown }): Promise<{ ok: boolean; body: Envelope | null; error: string; unknown?: boolean }> {
   let response: Response
   try {
     response = await fetch(`${BASE_URL}${path}`, {
@@ -20,25 +20,30 @@ async function call(apiKey: string, path: string, init: { method: 'GET' | 'POST'
       cache: 'no-store',
     })
   } catch {
-    return { ok: false, body: null, error: 'اتصال به IPPanel برقرار نشد' }
+    return { ok: false, body: null, error: 'اتصال به IPPanel برقرار نشد', unknown: true }
   }
   const body = await response.json().catch(() => null) as Envelope | null
   const ok = response.ok && body?.meta?.status === true
-  return { ok, body, error: ok ? '' : (body?.meta?.message || `IPPanel HTTP ${response.status}`).slice(0, 300) }
+  return { ok, body, error: ok ? '' : `IPPanel HTTP ${response.status}`, unknown: response.status >= 500 || (!ok && body?.meta?.status !== false && !(response.status >= 400 && response.status < 500 && body?.meta)) }
 }
 
-const outboxId = (body: Envelope | null) => String(body?.data?.message_outbox_ids?.[0] ?? '')
+const outboxId = (body: Envelope | null) => {
+  const id = body?.data?.message_outbox_ids?.[0]
+  return typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? String(id) : ''
+}
 
 /** Plain text ("webservice") message to one or more recipients. */
 export async function sendText(apiKey: string, from: string, recipients: string[], message: string): Promise<IppanelResult> {
   const res = await call(apiKey, '/api/send', { method: 'POST', body: { sending_type: 'webservice', from_number: from, message, params: { recipients } } })
-  return { ok: res.ok, id: outboxId(res.body), error: res.error }
+  const id = outboxId(res.body)
+  return { ok: res.ok && !!id, id, error: res.error || (id ? '' : 'IPPanel acknowledgement missing'), unknown: res.unknown || (res.ok && !id) }
 }
 
 /** Approved pattern to a single recipient (delivered fast, not queued for review). */
 export async function sendPattern(apiKey: string, from: string, recipient: string, code: string, params: Record<string, string>): Promise<IppanelResult> {
   const res = await call(apiKey, '/api/send', { method: 'POST', body: { sending_type: 'pattern', from_number: from, code, recipients: [recipient], params } })
-  return { ok: res.ok, id: outboxId(res.body), error: res.error }
+  const id = outboxId(res.body)
+  return { ok: res.ok && !!id, id, error: res.error || (id ? '' : 'IPPanel acknowledgement missing'), unknown: res.unknown || (res.ok && !id) }
 }
 
 /** Account credit (Rial), used by the admin "test connection" button. */
