@@ -1,5 +1,18 @@
 # Release1.7.21 local build — owner2026-11-15
 
+Published stable/latest [v1.7.21](https://github.com/WebNetData/MoboComCMS/releases/tag/v1.7.21).
+Owner merged PR480/mainbcdfbdc7; signed aab4a85b18bb5f8cf3de1c2d52de512d851b111a
+is an ancestor. Local build251s/UID1000, canonical1175 cases,15 native PG suites,
+populated204→207 preservation and12 production browser views passed as scoped
+below.4817 signed files/safe extraction/14-document knowledge/installer syntax,
+current+1.7.20 verifier and all10 draft+published downloads passed; GitHub latest,
+tag and asset digests match. Mbrelease SHA256209cbf10406c9cab7f8407e92ba7b2e3f25267a33ebb8c36eaffc0f9b7a20375.
+Owned preview/tunnel/runtime/private cookies/TLS and isolated release DB removed;
+same app3000/image/DB preserved, final ready/session/public200/Admin403. About13GB
+of authorized WSL crash dumps removed. No Actions/destination install/asset or key
+replacement. Complete publication receipt in the release handoff supersedes all
+historical pending/resource stops below. Use mbrelease via /admin/updates.
+
 Current acceptance supersedes the historical resource checkpoint below: owner
 authorized cleanup;13 verified WSL crash dumps removed (13027106784 bytes),
 Docker transport and original app3000 readiness200 recovered. Final committed

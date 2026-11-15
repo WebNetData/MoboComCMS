@@ -1,5 +1,37 @@
 # Release 1.7.21 — local preparation2026-11-15
 
+## Published stable/latest —2026-11-15
+
+[Release1.7.21](https://github.com/WebNetData/MoboComCMS/releases/tag/v1.7.21)
+is published stable and latest. Owner merged PR480 at mainbcdfbdc7; immutable
+signed commit/tag aab4a85b18bb5f8cf3de1c2d52de512d851b111a is verified as its
+ancestor. The final built source is fe1e1ad1; the signed commit adds only the
+accepted-check receipt/docs and all4298 non-document build inputs still match.
+No self-merge, GitHub Actions, asset replacement or destination installation.
+
+Original Ed25519 publisher and both current/1.7.20 verifiers accepted the package.
+Full4817-file inventory matched committed Git; safe extraction, embedded installer
+package/key,14-document knowledge and installer bash syntax passed. All10 draft
+assets and all10 published assets were independently downloaded and size/SHA256/
+signature-verified. Interrupted transfers were resumed locally with bounded Range
+requests; immutable remote assets were not changed. GitHub latest/tag/asset digest
+metadata independently matches the same commit and local receipt.
+Update package SHA256:
+`209cbf10406c9cab7f8407e92ba7b2e3f25267a33ebb8c36eaffc0f9b7a20375`.
+Use `mobocom-1.7.21.mbrelease` through `/admin/updates`; `.run` is a fresh installer.
+Destination still builds the signed source for its own Linux environment.
+
+Stopped only the owned preview/tunnel, dropped only mobocom_release_1721_check,
+removed /tmp/mobocom-release-1721 and host task cookies/TLS/private environments.
+Publisher key, recovery backups, personal files and original DB/image/volumes
+remain. Same container b1d99ebb8765/image675416b1 remains running on3000; final
+Windows readiness `/api/health/ready`, auth session and public popups200, guest
+Admin popups403. An earlier helper used non-existent `/api/ready`; corrected to
+the existing owner endpoint, without application changes. Private signed output,
+download hashes/publication receipt and screenshots remain ignored under the
+release task/distribution directory. No real provider or destination VM claim.
+All historical pending/resource statements below are now superseded.
+
 Current acceptance: final production build from fe1e1ad1 passed in251s as
 UID1000/no.env, heap6144MB,112 pages/928 trace manifests. All12 actual production
 desktop1440/mobile390 light/dark popup-preview/repair-calendar/public-popup views
