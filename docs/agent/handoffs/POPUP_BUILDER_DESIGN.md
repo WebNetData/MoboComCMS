@@ -1,5 +1,24 @@
 # Builder-designed popups — 2026-11-09
 
+## PR publication — owner2026-11-15
+
+[PR479](https://github.com/WebNetData/MoboComCMS/pull/479) is open and non-draft,
+head `feat/popup-campaign-designs-2026-11-15`, base `main`/aa20d05a. Includes all
+three previously local commits: site consistency9e44b764, campaign presets4283b64e
+and custom authoringa692bd0a. Owner explicitly requested publication and will
+merge. This record supersedes earlier local-only/no-PR statements.
+
+Fresh fetch confirmed main unchanged with no integration delta or pre-existing
+open head PR. Range52 files excludes `.serena/`, private fixtures, screenshots,
+cookies, environments and backups; redacted Gitleaks over all52 files found0
+leaks. Compared24 source hashes available in the campaign/custom receipts, with
+later checked sources taking precedence; no drift. Earlier UI and native/browser
+proof below remains the actual implementation evidence, not a new test run.
+The PR describes the additive migration, optional-module behavior, scoped upload
+authority, failed attempts, rollback and unassessed production/provider surfaces.
+No hosted workflow dispatch, merge, deployment or local runtime change was
+performed for publication; same mobocom-app/3000 preview remains.
+
 ## Custom authoring continuation — owner2026-11-15
 
 Current checkout/branch remains `.mobocom/sms-platform` /

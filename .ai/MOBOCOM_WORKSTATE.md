@@ -1,3 +1,15 @@
+# PR479 publication — owner request2026-11-15
+
+[PR479](https://github.com/WebNetData/MoboComCMS/pull/479) is open, non-draft,
+targeting main from feat/popup-campaign-designs-2026-11-15. Fresh main remains
+aa20d05a; implementation commits9e44b764/4283b64e/a692bd0a include site consistency,
+campaign presets and custom popup authoring. The full52-file publication range
+passed redacted Gitleaks with no private files;24 available prior source hashes
+were unchanged. Existing local PG/browser evidence is reused, not rerun. Owner
+merges/deploys; no hosted workflow, runtime change or merge in publication.
+[Scope, exact checks and rollback](../docs/agent/handoffs/POPUP_BUILDER_DESIGN.md#pr-publication--owner2026-11-15).
+Earlier local-only/no-PR statements below are historical.
+
 # Custom popup authoring — owner2026-11-15
 
 Continue `.mobocom/sms-platform`, `feat/popup-campaign-designs-2026-11-15` on
