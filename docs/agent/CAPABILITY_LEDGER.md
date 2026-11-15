@@ -285,3 +285,12 @@ SMS2026-11-15: FUNCTIONAL bounded local continuation. Durable once-attempt claim
 Repair tracking2026-11-15: FUNCTIONAL local continuation — printed status capability, current receipt/contact OTP, private status projection and five independently editable OTP template groups; no migration. Actual connected PostgreSQL, 45 units, type/gates and isolated proof-removal detection passed. Actual28 themed/responsive browser views passed axe0/overflow0/errors0; standard sample A5 fits one page. Exact cleanup and local runtime receipts are in the [SMS handoff](handoffs/SMS_SETTINGS_RETENTION.md); no real provider delivery certification.
 
 Repair consent2026-11-15: FUNCTIONAL local slice — immutable versioned estimate approval/refusal, promised due date/overdue, customer business history, actual-stage/phone/invoice claims and consent retention. Connected PG206/no.env/UID1000, canonical-role/OTP/Store rollback checks,45 units/gates and33 themed/responsive browser views passed, plus4 paired long-text/overdue checks. Fixture/test-database cleanup completed; scoped redacted secret scan found0. Real provider delivery remains unverified; final local restart receipt follows [Forms evidence](handoffs/FORMS_AND_OPERATIONS.md#repair-estimate-consent-promised-delivery-and-public-history--2026-11-15).
+
+Commercial modularity2026-11-15: FUNCTIONAL bounded local slice;26 actual responsive/themed browser
+views passed scoped axe0/overflow0/errors0, including retained uninstall/reinstall.
+Exact scope, cleanup and runtime [handoff](handoffs/COMMERCIAL_MODULARITY.md). Real PG206
+off-state routes/domain/effects, financial continuation, delayed validation/DNS/mail,
+strict authority/audit and retained-package scenarios passed; original repair and
+package regressions passed. Optional-domain coverage beyond inspected surfaces,
+commercial distribution/version dependencies and recoverable code apply remain
+PARTIAL/UNVERIFIED;44 catalog entries do not certify every site capability.

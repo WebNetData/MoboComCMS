@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { db } from '@/platform/database/prisma'
 import type { AuthedUser } from '@/modules/identity/server/access'
 import { hasPermission } from '@/modules/identity/rbac'
@@ -7,6 +8,7 @@ import type { CustomerServiceHistory } from '@/modules/forms/domain/customer-his
 
 /** Minimal service context for CRM. Canonical user link only; answers, locks and receipt/pickup tokens are never selected. */
 export async function customerServiceHistory(userId: number, actor?: AuthedUser): Promise<CustomerServiceHistory> {
+  if (!await formsAvailable()) return { status: 'restricted', rows: [], hasMore: false }
   const empty: CustomerServiceHistory = { status: 'restricted', rows: [], hasMore: false }
   if (!Number.isSafeInteger(userId) || userId <= 0 || actor?.role !== 'ADMIN') return empty
   const builder = actor.permissions === null || hasPermission(actor.permissions, 'cms.pages')

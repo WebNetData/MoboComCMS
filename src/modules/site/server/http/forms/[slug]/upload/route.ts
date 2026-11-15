@@ -1,3 +1,4 @@
+import { moduleGuard } from '@/extensions/server/modules'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp } from '@/platform/http/rate-limit'
@@ -6,6 +7,7 @@ import { uploadFile } from '@/modules/forms/server/service'
 
 /** POST /api/forms/<slug>/upload — one file for a "file" field (multipart, field name "file"). */
 export async function POST(req: NextRequest, { params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const params = await paramsPromise
   const origin = req.headers.get('origin')
   if (origin && origin !== req.nextUrl.origin && origin !== process.env.NEXTAUTH_URL) return err('درخواست غیرمجاز', 403)

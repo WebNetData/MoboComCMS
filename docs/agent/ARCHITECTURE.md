@@ -921,3 +921,10 @@ SMS2026-11-15: the existing SMS facade now owns focused settings/delivery/OTP/no
 Repair tracking2026-11-15: Forms owns `/repair-status` and bounded POST `/api/repair-tracking`. A status-only paper capability derives from its existing random receipt token; SMS owns exact `REPAIR:id` single-use challenges and purpose-specific template overrides in existing settings. Minimal customer projection, current contact/receipt checks, no persistent public auth identity or second shared service. [Evidence](handoffs/SMS_SETTINGS_RETENTION.md).
 
 Repair consent2026-11-15: Forms owns revisioned immutable RepairEstimate and typed public RepairEvent, not Store invoices or security AuditLog. Existing transaction-phone OTP uses an exact decision purpose and shared trusted beforeIssue hook; current source/version claims protect consent, stage, contact edits, deadline and final invoice cap. Existing canonical staff audit/Identity/Jobs remain; no new shared system. [Contracts/evidence](handoffs/FORMS_AND_OPERATIONS.md#repair-estimate-consent-promised-delivery-and-public-history--2026-11-15).
+
+Commercial modularity2026-11-15: Forms/services/repair and Automation/CRM engagement
+join the existing extension registry as optional modules; domain owners stay intact.
+Forms-off blocks admission/effects while Core reconciles already-paid obligations.
+Uploaded uninstall retains a private tombstoned aggregate; ordinary package readers
+exclude it and validated reinstall stays inactive. Admin distinguishes requested and
+effective state; lifecycle controls remain Core. [Scope, evidence and remaining gaps](handoffs/COMMERCIAL_MODULARITY.md).

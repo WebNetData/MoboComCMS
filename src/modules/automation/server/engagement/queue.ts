@@ -1,3 +1,4 @@
+import { automationAvailable, assertAutomationAvailable } from '@/modules/automation/server/availability'
 import { db } from '@/platform/database/prisma';
 import { createInboxEvent } from '@/modules/notifications/server/inbox';
 import { getSettings } from '@/modules/settings/server';
@@ -16,6 +17,7 @@ export async function queueEngagement(journeyId: string, userId: number, now = n
   for (let attempt = 0;; attempt++) {
     try {
       return await db.$transaction(async tx => {
+        if (!await automationAvailable(tx)) return { queued: false, reason: 'module-disabled' }
         const settings = await getEngagementSettings(tx),
           journey = settings.journeys.find(item => item.id === journeyId);
         if (!settings.enabled || !journey?.enabled) return {

@@ -33,6 +33,7 @@ export function hideDisabledModules<T extends SiteConfig>(site: T, runtime: Runt
     ...filterSiteMenus(site, (link) => !off(link.href) && !speaks(link.label)),
     announcement,
     sections: site.sections.map((section) => {
+      if (section.kind === 'form' && runtime.forms?.enabled === false) return { ...section, enabled: false }
       // A section that is about the module (its heading says so, or it is a call to action leading there) goes whole.
       if (speaks(section.eyebrow, section.title) || (section.kind === 'cta' && off(section.action.href))) return { ...section, enabled: false }
       const items = section.items.filter((item) => !off(item.href) && !speaks(item.title))

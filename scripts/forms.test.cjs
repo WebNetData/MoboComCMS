@@ -331,7 +331,7 @@ test('appointments cannot be overbooked, hooks go only to public https addresses
 test('work somebody holds is theirs: a colleague of the same standing neither reads nor changes it', () => {
   const paid = source('src/modules/forms/server/paid.ts'), route = source('src/modules/site/server/http/admin/forms/submissions/route.ts'), files = source('src/modules/site/server/http/admin/forms/files/route.ts')
   // Form answers: every change of an answer passes the holder check, unless the actor manages forms.
-  assert.match(paid, /export async function assertOwnWork\(submissionId: number, actor: \{ id: number \}, manager: boolean\) \{\s+if \(manager\) return/)
+  assert.match(paid, /export async function assertOwnWork\(submissionId: number, actor: \{ id: number \}, manager: boolean\) \{\s+await assertFormsAvailable\(\)\s+if \(manager\) return/)
   assert.match(paid, /if \(row\.assigneeId && row\.assigneeId !== actor\.id\) throw new FormsError\(OTHERS_WORK, 403\)/)
   assert.match(paid, /if \(!manager && row\.assigneeId && row\.assigneeId !== actor\.id\) throw new FormsError\(OTHERS_WORK, 403\)/)
   assert.match(paid, /if \(!manager && patch\.assignTo !== undefined && Number\(patch\.assignTo\) !== actor\.id\) throw new FormsError\(/)
@@ -404,7 +404,7 @@ test('a form is given only to staff who can open form answers', () => {
   assert.match(server, /if \(!manager && !held!\.includes\('forms\.handle'\)\) return \[\]/)
   // Saving a form checks its handlers against that list, before anything is written.
   assert.match(server, /export async function assertHandlersCanWork\(ids: number\[\]\)/)
-  assert.ok(service.indexOf('await assertHandlersCanWork(form.settings?.handlers || [])') > -1 && service.indexOf('await assertHandlersCanWork(') < service.indexOf('db.siteForm.update({ where: { id: form.id }, data })'))
+  assert.ok(service.indexOf('await assertHandlersCanWork(form.settings?.handlers || [])') > -1 && service.indexOf('await assertHandlersCanWork(') < service.indexOf('tx.siteForm.update({ where: { id: form.id }, data })'))
   // Work is handed only to somebody on that list.
   assert.match(paid, /\(await formStaff\(\)\)\.find\(\(person\) => person\.id === to\) \|\| null/)
 })

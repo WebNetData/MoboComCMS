@@ -9,7 +9,7 @@ type Manifest = {
   kind: 'plugin' | 'theme'; runtime: 'declarative' | 'code'; slots?: Record<string, unknown>; pages?: { slug: string; title: { fa: string; en: string } }[]; settings?: Setting[]
 }
 export type PackageRow = {
-  id: string; manifest: Manifest; enabled: boolean; settings: Record<string, string>; files: { path: string; bytes: number; editable: boolean }[]
+  id: string; manifest: Manifest; uninstalledAt?: string; enabled: boolean; settings: Record<string, string>; files: { path: string; bytes: number; editable: boolean }[]
   bytes: number; updatedAt: string; revisions: number; codeStatus?: 'staged' | 'applied'; active?: boolean
 }
 
@@ -65,8 +65,8 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
   const patch = (row: PackageRow, body: Record<string, unknown>, success: string) =>
     call(row.id, () => fetch(`/api/admin/packages/${row.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), success)
   const remove = (row: PackageRow) => {
-    if (!window.confirm(L(`Delete ${row.manifest.name}? Its files and settings are removed. Export it first if you may need it again.`, `«${row.manifest.name}» حذف شود؟ فایل‌ها و تنظیماتش پاک می‌شود. اگر بعداً لازمش دارید، اول خروجی بگیرید.`))) return
-    void call(row.id, () => fetch(`/api/admin/packages/${row.id}`, { method: 'DELETE' }), L('Package deleted.', 'بسته حذف شد.'))
+    if (!window.confirm(L(`Uninstall ${row.manifest.name}? Its files, settings and history are retained privately. Reinstall with a validated package upload.`, `«${row.manifest.name}» حذف نصب شود؟ فایل‌ها، تنظیمات و سوابق به‌صورت خصوصی حفظ می‌شوند. نصب دوباره با بارگذاری بستهٔ معتبر انجام می‌شود.`))) return
+    void call(row.id, () => fetch(`/api/admin/packages/${row.id}`, { method: 'DELETE' }), L('Uninstalled; data retained.', 'حذف نصب شد؛ داده‌ها حفظ شدند.'))
   }
   const name = (m: Manifest) => (fa ? m.name : m.nameEn || m.name)
   async function apply(row: PackageRow) {
@@ -98,30 +98,33 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
     {!rows.length ? <div className="tb-empty">{L('No packages uploaded yet. Sample packages live in docs/packages/examples.', 'هنوز بسته‌ای آپلود نشده است. نمونه‌ها در docs/packages/examples هستند.')}</div>
       : <div className="xm-grid">{rows.map(row => {
         const m = row.manifest
-        const expanded = open === row.id
+        const installed = !row.uninstalledAt
+        const active = installed && (row.enabled || !!row.active)
+        const expanded = active && open === row.id
         const isCode = m.runtime === 'code'
         return <article key={row.id} className={`xm-card${row.enabled || row.active ? ' is-on' : ''}`} aria-busy={busy === row.id}>
           <div className="xm-card-head">
             <span className="xm-icon" aria-hidden="true"><Icon name={m.kind === 'theme' ? 'palette' : isCode ? 'code' : 'sparkles'} size={22}/></span>
             <div className="xm-title"><h3>{name(m)}</h3><small dir="ltr">{m.id} · v{m.version}{m.author ? ` · ${m.author}` : ''}</small></div>
-            {m.kind === 'plugin' && !isCode && <label className="xm-switch"><input type="checkbox" checked={row.enabled} disabled={busy === row.id} onChange={event => void patch(row, { enabled: event.target.checked }, event.target.checked ? L('Plugin is on.', 'افزونه فعال شد.') : L('Plugin is off.', 'افزونه غیرفعال شد.'))}/><span>{row.enabled ? L('On', 'فعال') : L('Off', 'غیرفعال')}</span></label>}
-            {m.kind === 'theme' && !isCode && (row.active ? <span className="xm-chip">{L('Active theme', 'قالب فعال')}</span> : <button type="button" className="btn btn-primary btn-sm" disabled={busy === row.id} onClick={() => void patch(row, { activate: true }, L('Theme activated.', 'قالب فعال شد.'))}>{L('Activate', 'فعال‌سازی')}</button>)}
+            {installed && m.kind === 'plugin' && !isCode && <label className="xm-switch"><input type="checkbox" aria-label={`${name(m)} — ${L('activation', 'فعال‌سازی')}`} checked={row.enabled} disabled={busy === row.id} onChange={event => void patch(row, { enabled: event.target.checked }, event.target.checked ? L('Plugin is on.', 'افزونه فعال شد.') : L('Plugin is off.', 'افزونه غیرفعال شد.'))}/><span>{row.enabled ? L('On', 'فعال') : L('Off', 'غیرفعال')}</span></label>}
+            {installed && m.kind === 'theme' && !isCode && (row.active ? <span className="xm-chip">{L('Active theme', 'قالب فعال')}</span> : <button type="button" className="btn btn-primary btn-sm" disabled={busy === row.id} onClick={() => void patch(row, { activate: true }, L('Theme activated.', 'قالب فعال شد.'))}>{L('Activate', 'فعال‌سازی')}</button>)}
           </div>
           {(fa ? m.description : m.descriptionEn || m.description) && <p className="xm-desc">{fa ? m.description : m.descriptionEn || m.description}</p>}
           <div className="xm-meta">
             <span className="xm-chip is-muted">{m.kind === 'theme' ? L('theme', 'قالب') : L('plugin', 'افزونه')}</span>
             <span className={`xm-chip${isCode ? ' is-warn' : ' is-muted'}`}>{isCode ? (row.codeStatus === 'applied' ? L('code · applied', 'کددار · اعمال‌شده') : L('code · needs rebuild', 'کددار · نیازمند build')) : L('instant', 'نصب فوری')}</span>
             {Object.keys(m.slots || {}).map(slot => <span className="xm-chip is-muted" dir="ltr" key={slot}>{slot}</span>)}
-            {(m.pages || []).map(page => <a className="xm-chip" dir="ltr" key={page.slug} href={`/ext/${m.id}/${page.slug}`} target="_blank" rel="noreferrer">/ext/{m.id}/{page.slug}</a>)}
+            {(active ? m.pages || [] : []).map(page => <a className="xm-chip" dir="ltr" key={page.slug} href={`/ext/${m.id}/${page.slug}`} target="_blank" rel="noreferrer">/ext/{m.id}/{page.slug}</a>)}
             <span className="xm-chip is-muted">{row.files.length} {L('files', 'فایل')} · {kb(row.bytes)}</span>
           </div>
-          <div className="xm-foot">
+          {installed && <div className="xm-foot">
             <Link className="btn btn-ghost btn-sm" href={`/admin/extensions/editor?package=${row.id}`}><Icon name="code" size={15}/> {L('Editor', 'ویرایشگر')}</Link>
-            {!!m.settings?.length && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : row.id)}>{expanded ? L('Hide settings', 'بستن تنظیمات') : L('Settings', 'تنظیمات')}</button>}
+            {active && !!m.settings?.length && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : row.id)}>{expanded ? L('Hide settings', 'بستن تنظیمات') : L('Settings', 'تنظیمات')}</button>}
             {code && m.runtime === 'code' && <button type="button" className="btn btn-primary btn-sm" disabled={busy === row.id || !code?.ready || !code?.owner || row.codeStatus === 'applied'} title={!code?.ready ? code?.detail : !code?.owner ? L('Needs the extensions.code permission', 'نیازمند دسترسی extensions.code') : undefined} onClick={() => void apply(row)}>{row.codeStatus === 'applied' ? L('Applied', 'اعمال‌شده') : L('Apply & rebuild', 'اعمال و build')}</button>}
             <a className="btn btn-ghost btn-sm" href={`/api/admin/packages/${row.id}/export`}>{L('Export .zip', 'خروجی zip')}</a>
-            <button type="button" className="btn btn-ghost btn-sm" disabled={busy === row.id} onClick={() => remove(row)}>{L('Delete', 'حذف')}</button>
-          </div>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy || active || row.codeStatus === 'applied'} title={active ? L('Deactivate first', 'ابتدا غیرفعال کنید') : row.codeStatus === 'applied' ? L('Source removal requires a reviewed build/deploy', 'حذف سورس به build/deploy بازبینی‌شده نیاز دارد') : undefined} onClick={() => remove(row)}>{L('Uninstall; retain data', 'حذف نصب با حفظ داده‌ها')}</button>
+          </div>}
+          {!installed && <p className="xm-desc" role="status">{L('Uninstalled; settings, files and history retained privately. Upload a validated package to reinstall; it stays inactive.', 'حذف نصب شده؛ تنظیمات، فایل‌ها و سوابق خصوصی حفظ شده‌اند. برای نصب دوباره بستهٔ معتبر بارگذاری کنید؛ فعال‌سازی جداگانه است.')}</p>}
           {expanded && <form className="xm-settings" onSubmit={event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); void patch(row, { settings: data }, L('Settings saved.', 'تنظیمات ذخیره شد.')) }}>
             {m.settings!.map(setting => <label className="studio-field" key={setting.key}><span>{fa ? setting.label : setting.labelEn || setting.label}</span>{setting.type === 'textarea' ? <textarea className="input" name={setting.key} defaultValue={row.settings[setting.key] ?? ''}/> : <input className="input" name={setting.key} defaultValue={row.settings[setting.key] ?? ''}/>}</label>)}
             <button type="submit" className="btn btn-primary btn-sm" disabled={busy === row.id}>{L('Save settings', 'ذخیرهٔ تنظیمات')}</button>

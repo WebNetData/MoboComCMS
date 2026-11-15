@@ -1,5 +1,6 @@
 'use client'
 
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 
@@ -13,6 +14,7 @@ const fa = (n: number) => Math.round(n).toLocaleString('fa-IR')
  * service — with the work waiting on each, and one click to the place where that work is done.
  */
 export default function ServicesAdmin() {
+  const instoreOn = useModuleEnabled('instore')
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -33,10 +35,10 @@ export default function ServicesAdmin() {
       </div></header>
 
     <div className="sv-tiles">
-      <div className="sv-tile is-warn"><b className="num">{fa(totals.open)}</b><span>درخواست در انتظار کارشناس</span></div>
-      <div className="sv-tile is-info"><b className="num">{fa(totals.inProgress)}</b><span>درخواست در حال انجام</span></div>
-      <div className="sv-tile is-muted"><b className="num">{fa(totals.unpaid)}</b><span>درخواست پرداخت‌نشده</span></div>
-      <div className="sv-tile is-good"><b className="num">{fa(totals.orders)}</b><span>سفارش خدمت، منتظر انجام</span></div>
+      {can.forms && <div className="sv-tile is-warn"><b className="num">{fa(totals.open)}</b><span>درخواست در انتظار کارشناس</span></div>}
+      {can.forms && <div className="sv-tile is-info"><b className="num">{fa(totals.inProgress)}</b><span>درخواست در حال انجام</span></div>}
+      {can.forms && <div className="sv-tile is-muted"><b className="num">{fa(totals.unpaid)}</b><span>درخواست پرداخت‌نشده</span></div>}
+      {(can.orders || can.catalog) && <div className="sv-tile is-good"><b className="num">{fa(totals.orders)}</b><span>سفارش خدمت، منتظر انجام</span></div>}
     </div>
 
     {can.forms && <section className="sv-section" aria-labelledby="sv-forms">
@@ -55,7 +57,7 @@ export default function ServicesAdmin() {
               <p className="sv-who">{form.handlers.length ? <>کارشناسان: <b>{form.handlers.join('، ')}</b></> : 'کارشناس مشخصی ندارد؛ هر کارمندِ دارای دسترسی درخواست‌ها می‌تواند بردارد.'}</p>
               <div className="sv-actions">
                 <Link href={`/admin/forms?form=${form.id}&tab=inbox`} className="btn btn-primary btn-sm">درخواست‌ها{waiting ? ` (${fa(waiting)})` : ''}</Link>
-                {!form.paid && <Link href={`/admin/forms/counter?form=${form.id}`} className="btn btn-ghost btn-sm">ثبت حضوری</Link>}
+                {!form.paid && instoreOn && <Link href={`/admin/forms/counter?form=${form.id}`} className="btn btn-ghost btn-sm">ثبت حضوری</Link>}
                 {can.buildForms && <Link href={`/admin/forms?form=${form.id}`} className="btn btn-ghost btn-sm">ویرایش فرم</Link>}
                 {form.published && <Link href={`/forms/${form.slug}`} target="_blank" className="btn btn-ghost btn-sm">مشاهده ↗</Link>}
               </div>

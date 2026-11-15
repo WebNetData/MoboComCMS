@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { OTP_GROUPS, SMS_READY_TEMPLATES, type OtpGroup, type OtpTemplate } from '@/modules/sms/domain/templates'
 import { latinDigits } from '@/shared/text/digits'
 import './sms.css'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 type EventSetting = { enabled: boolean; text: string; pattern: string }
 type Config = { revision: string; problems: string[]; otpReady: boolean; enabled: boolean; apiKey: string; hasKey: boolean; ready: boolean; fromNumber: string; otpLogin: boolean; otpPattern: string; otpParam: string; otpText: string; otpTemplates: Record<OtpGroup, OtpTemplate>; otpTemplateOverrides: Record<OtpGroup, boolean>; adminPhones: string[]; events: Record<string, EventSetting> }
@@ -15,7 +16,10 @@ const GROUPS: Record<string, string> = { store: 'فروشگاه', services: 'خ�
 
 /** IPPanel SMS: connection, OTP login, per-event alerts, manual messages and the send log. */
 export default function SmsPage() {
-  const [otpGroup, setOtpGroup] = useState<OtpGroup>('login')
+  const formsOn = useModuleEnabled('forms'), instoreOn = useModuleEnabled('instore')
+  const otpGroups = OTP_GROUPS.filter(group => group.id !== 'repair' || formsOn).filter(group => group.id !== 'counter' || instoreOn)
+  const [selectedOtpGroup, setOtpGroup] = useState<OtpGroup>('login')
+  const otpGroup = otpGroups.some(group => group.id === selectedOtpGroup) ? selectedOtpGroup : 'login'
   const [filters, setFilters] = useState({ status: '', event: '', phone: '', days: '30', page: 1 })
   const [pagination, setPagination] = useState({ page: 1, total: 0, pages: 1 })
   const [search, setSearch] = useState('')
@@ -110,7 +114,7 @@ export default function SmsPage() {
       <div className="sms-otp-templates seo-wide">
         <h3>متن اختصاصی کد تأیید</h3>
         <p className="muted">هر کاربرد می‌تواند متن و پترن خود را داشته باشد. تا زمان انتخاب متن اختصاصی، تنظیمات عمومی بالا استفاده می‌شود.</p>
-        <label className="studio-field"><span>کاربرد کد</span><select className="input" value={otpGroup} onChange={e => setOtpGroup(e.target.value as OtpGroup)}>{OTP_GROUPS.map(group => <option key={group.id} value={group.id}>{group.label}</option>)}</select></label>
+        <label className="studio-field"><span>کاربرد کد</span><select className="input" value={otpGroup} onChange={e => setOtpGroup(e.target.value as OtpGroup)}>{otpGroups.map(group => <option key={group.id} value={group.id}>{group.label}</option>)}</select></label>
         <label className="studio-switch"><input type="checkbox" checked={config.otpTemplateOverrides[otpGroup]} onChange={e => editConfig({ ...config, otpTemplateOverrides: { ...config.otpTemplateOverrides, [otpGroup]: e.target.checked } })} />استفاده از تنظیمات اختصاصی برای این کاربرد</label>
         {config.otpTemplateOverrides[otpGroup] && <>
           <label className="studio-field"><span>متن پیامک — {'{code}'}، {'{brand}'} و {'{service}'}</span><textarea className="input" rows={3} value={config.otpTemplates[otpGroup].text} onChange={e => setOtpTemplate({ text: e.target.value })} /></label>

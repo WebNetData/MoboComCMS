@@ -1,3 +1,5 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { db } from '@/platform/database/prisma'
 import QRCode from 'qrcode'
 import { getSiteConfig } from '@/modules/site/config/store'
@@ -22,6 +24,8 @@ const parse = <T,>(text: string, fallback: T): T => { try { return JSON.parse(te
 
 /** A customer in the shop, entered by staff: the same checks as the public form; the device is taken in at once. */
 export async function staffSubmit(formId: number, input: { values?: unknown; storeWarrantyDeviceId?: unknown }, actor: { id: number }) {
+  await assertFormsAvailable()
+  if (!await isModuleEnabled('instore', db)) throw new FormsError('پذیرش حضوری غیرفعال است', 404)
   const row = await db.siteForm.findUnique({ where: { id: formId } })
   if (!row) throw new FormsError('فرم پیدا نشد', 404)
   const form = parseForm(row), settings = form.settings!
@@ -35,6 +39,8 @@ export async function staffSubmit(formId: number, input: { values?: unknown; sto
   const codes = intake ? receiptCodes() : {}
   const mobile = shown.filter(field => field.type === 'tel' || field.type === 'mobile').map(field => normalizeMobile(values[field.id])).find(Boolean)
   const created = await db.$transaction(async tx => {
+    await assertFormsAvailable(tx)
+    if (!await isModuleEnabled('instore', tx)) throw new FormsError('پذیرش حضوری غیرفعال است', 404)
     const customer = mobile ? await resolvePhoneCustomer(tx,mobile,String(values.name||'')) : null
     let storeWarrantyDeviceId: number | undefined
     if (input.storeWarrantyDeviceId != null && input.storeWarrantyDeviceId !== '') {
@@ -92,6 +98,7 @@ const RECEIPT_SELECT = { id: true, data: true, stage: true, createdAt: true, rec
 
 /** A receipt for staff to print. The shop's copy reads the encrypted answers: the route records who asked. */
 export async function receiptOf(submissionId: number, copy: 'shop' | 'customer') {
+  await assertFormsAvailable()
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, select: RECEIPT_SELECT })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
   if (!parseForm(row.form).settings!.receipt.enabled) throw new FormsError('رسید برای این فرم روشن نیست؛ از تنظیمات فرم روشنش کنید', 409)
@@ -100,6 +107,7 @@ export async function receiptOf(submissionId: number, copy: 'shop' | 'customer')
 
 /** The customer's copy behind the link in their SMS; nothing else of the answer. */
 export async function receiptByToken(token: string) {
+  if (!await formsAvailable()) return null
   if (!/^[A-Za-z0-9_-]{20,40}$/.test(token)) return null
   const row = await db.formSubmission.findFirst({ where: { receiptToken: token, status: { not: 'SPAM' } }, select: RECEIPT_SELECT })
   if (!row || !parseForm(row.form).settings!.receipt.enabled) return null

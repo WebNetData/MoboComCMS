@@ -5,7 +5,7 @@ import DomainSearch from '@/components/hosting/DomainSearch'
 import { publicHostingCatalog } from '@/modules/hosting/server/catalog'
 import { hourlyMinHours } from '@/modules/hosting/domain/services'
 import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
-import { getModuleSettings } from '@/extensions/server/modules'
+import { isModuleEnabled, getModuleSettings } from '@/extensions/server/modules'
 import { serviceOrderingAccess } from '@/modules/account/server/service-ordering'
 import { memberServiceCards } from '@/modules/store/server/catalog'
 import { publishedOrderForms } from '@/modules/forms/server/service'
@@ -25,7 +25,8 @@ type Query = { category?: string; q?: string; page?: string }
 
 export default async function OrderDesk({ searchParams }: { searchParams: Promise<Query> }) {
   const [access, input] = await Promise.all([serviceOrderingAccess(), searchParams]), family = families.find(row => row.id === input.category)
-  const allowed = !family || family.owner === 'forms' || access[family.owner]
+  const formsOn = await isModuleEnabled('forms')
+  const allowed = !family || (family.owner === 'forms' ? formsOn : access[family.owner])
   const q = typeof input.q === 'string' ? input.q.trim().slice(0, 80) : ''
   let content
   if (!allowed) content = <section className="do-empty"><h2>این بخش فعلاً در دسترس شما نیست</h2><p>از سرویس‌های در دسترس انتخاب کنید یا از پشتیبانی حساب خود راهنمایی بگیرید.</p><Link className="btn btn-ghost" href="/dashboard/tickets">پشتیبانی</Link></section>
@@ -42,6 +43,6 @@ export default async function OrderDesk({ searchParams }: { searchParams: Promis
       {!products?.items.length && !shownForms.length && <section className="do-empty"><h2>{q ? 'خدمتی با این عبارت پیدا نشد' : 'هنوز خدمتی در این بخش عرضه نشده است'}</h2><p>{q ? 'عبارت کوتاه‌تری جست‌وجو کنید یا دستهٔ دیگری را انتخاب کنید.' : 'خدمات پس از انتشار توسط مدیریت اینجا قابل سفارش می‌شوند؛ برای درخواست اختصاصی با پشتیبانی صحبت کنید.'}</p><Link className="btn btn-ghost" href="/dashboard/tickets">درخواست راهنمایی</Link></section>}
       {products && products.pages > 1 && <nav className="do-pager" aria-label="صفحه‌های خدمات">{products.page > 1 ? <Link className="btn btn-ghost" href={`?category=${family.id}&q=${encodeURIComponent(q)}&page=${products.page - 1}`}>صفحهٔ قبل</Link> : <span />}<span>{products.page.toLocaleString('fa-IR')} از {products.pages.toLocaleString('fa-IR')}</span>{products.page < products.pages && <Link className="btn btn-ghost" href={`?category=${family.id}&q=${encodeURIComponent(q)}&page=${products.page + 1}`}>صفحهٔ بعد</Link>}</nav>}
     </>
-  } else content = <div className="do-grid">{families.filter(row => row.owner === 'forms' || access[row.owner]).map(row => <article className="do-card" key={row.id}><span className="do-icon" aria-hidden="true"><Icon name={row.icon} size={24} /></span><h2>{row.title}</h2><p>{row.text}</p><Link className="btn btn-primary" href={`?category=${row.id}`}>انتخاب {row.title}</Link></article>)}</div>
-  return <div className="dt-page do-page" dir="rtl"><header className="do-head"><div><h1>{family?.title || 'سفارش جدید'}</h1><p>{family?.text || 'خدمت را انتخاب کنید، اطلاعات را کامل کنید و پیش از پرداخت مبلغ را ببینید؛ وضعیت سفارش در همین داشبورد در دسترس است.'}</p></div><div className="do-links">{family && <Link className="btn btn-ghost" href="/dashboard/order">همهٔ خدمات</Link>}<Link className="btn btn-ghost" href="/dashboard/orders">سفارش‌های من</Link><Link className="btn btn-ghost" href="/dashboard/requests">درخواست‌های من</Link></div></header><OrderTrail />{content}</div>
+  } else content = <div className="do-grid">{families.filter(row => row.owner === 'forms' ? formsOn : access[row.owner]).map(row => <article className="do-card" key={row.id}><span className="do-icon" aria-hidden="true"><Icon name={row.icon} size={24} /></span><h2>{row.title}</h2><p>{row.text}</p><Link className="btn btn-primary" href={`?category=${row.id}`}>انتخاب {row.title}</Link></article>)}</div>
+  return <div className="dt-page do-page" dir="rtl"><header className="do-head"><div><h1>{family?.title || 'سفارش جدید'}</h1><p>{family?.text || 'خدمت را انتخاب کنید، اطلاعات را کامل کنید و پیش از پرداخت مبلغ را ببینید؛ وضعیت سفارش در همین داشبورد در دسترس است.'}</p></div><div className="do-links">{family && <Link className="btn btn-ghost" href="/dashboard/order">همهٔ خدمات</Link>}<Link className="btn btn-ghost" href="/dashboard/orders">سفارش‌های من</Link>{formsOn && <Link className="btn btn-ghost" href="/dashboard/requests">درخواست‌های من</Link>}</div></header><OrderTrail />{content}</div>
 }

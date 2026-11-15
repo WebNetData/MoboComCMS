@@ -31,4 +31,7 @@ else
   node prisma/seed.cjs
 fi
 # Use Webpack for this branch-changing checkout; avoid carrying the large persistent Turbopack cache.
+# The modular Admin compiles many route trees in one review; keep the dev worker from
+# restarting at Node's small default heap. An explicit operator setting still wins.
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=6144}"
 exec npx next dev --webpack -p 3000 -H 0.0.0.0

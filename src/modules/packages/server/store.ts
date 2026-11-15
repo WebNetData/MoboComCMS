@@ -2,7 +2,7 @@ import { extensionCatalog } from '@/extensions/generated/catalog'
 import { codeThemeCatalog } from '@/themes/generated/catalog'
 import { bundledThemes } from '@/themes/registry'
 import type { Prisma } from '@prisma/client'
-import { getSiteConfig } from '@/modules/site/config/store'
+import { getSiteConfig, getSiteConfigFrom } from '@/modules/site/config/store'
 import { readZip, writeZip, ZipError } from '@/modules/packages/domain/zip'
 import {
   PACKAGE_LIMITS, PackageError, isEditable, isTextFile, normalizeEntries, validPackagePath,
@@ -23,6 +23,8 @@ export interface StoredPackage {
   settings: Record<string, string>
   installedAt: string
   updatedAt: string
+  /** Retained uninstall: bytes/settings/history stay private; ordinary readers return null. */
+  uninstalledAt?: string
   revisions: PackageRevision[]
   /** Code packages: 'staged' until applied to the source tree and rebuilt. */
   codeStatus?: 'staged' | 'applied'
@@ -36,6 +38,7 @@ export interface PackageSummary {
   bytes: number
   installedAt: string
   updatedAt: string
+  uninstalledAt?: string
   revisions: number
   codeStatus?: StoredPackage['codeStatus']
   active?: boolean
@@ -43,7 +46,7 @@ export interface PackageSummary {
 
 export { fileText, fileBuffer } from './store/files'
 import { fileBytes, fileBuffer, manifestFrom, settingDefaults, totalBytes } from './store/files'
-import { loadPackageFrom, mustLoad, packageTransaction, readIndex, rowKey, savePackage, writeIndex } from './store/persistence'
+import { loadPackageFrom, mustLoad, packageTransaction, readIndex, savePackage, writeIndex } from './store/persistence'
 import { syncSiteTheme } from './store/themes'
 import { writeFile, deleteFile } from './store/editor'
 import { applyEnabled, applySettings } from './store/fields'
@@ -128,7 +131,7 @@ async function persistEntries(entries: Map<string, Buffer>, actor: string, note?
   return packageTransaction(async tx => {
     const current = await packageCommandActor(context, tx, sourceId ? 'extensions.code' : 'settings.manage')
     const author = current?.email ?? actor
-    const previous = await loadPackageFrom(manifest.id, tx, true)
+    const previous = await loadPackageFrom(manifest.id, tx, true, true)
     if (sourceId && previous) {
       await auditPackageCommand(tx, context, current, 'code.import', sourceId)
       return { pkg: previous, upgraded: false }
@@ -140,7 +143,7 @@ async function persistEntries(entries: Map<string, Buffer>, actor: string, note?
       : [{ at: now, path: '*', content: null, actor: author, note: note || `install ${manifest.version}` }]
     const pkg: StoredPackage = {
       manifest, files,
-      enabled: manifest.runtime === 'code' ? false : previous?.enabled ?? false,
+      enabled: manifest.runtime === 'code' || previous?.uninstalledAt ? false : previous?.enabled ?? false,
       settings: settingDefaults(manifest, previous?.settings),
       installedAt: previous?.installedAt || now, updatedAt: now, revisions,
       ...(manifest.runtime === 'code' ? { codeStatus: 'staged' as const } : {}),
@@ -158,7 +161,7 @@ export async function listPackages(): Promise<PackageSummary[]> {
   const [ids, site] = await Promise.all([packageIds(), getSiteConfig()])
   const result: PackageSummary[] = []
   for (const id of ids) {
-    const pkg = await loadPackage(id)
+    const pkg = await loadPackageFrom(id, undefined, false, true)
     if (pkg) result.push(summarize(pkg, site.themeId))
   }
   return result.sort((a, b) => a.manifest.name.localeCompare(b.manifest.name))
@@ -168,6 +171,7 @@ export function summarize(pkg: StoredPackage, activeThemeId?: string): PackageSu
     id: pkg.manifest.id, manifest: pkg.manifest, enabled: pkg.enabled, settings: pkg.settings,
     files: Object.entries(pkg.files).map(([path, file]) => ({ path, bytes: fileBytes(file), editable: isEditable(path) })).sort((a, b) => a.path.localeCompare(b.path)),
     bytes: totalBytes(pkg.files), installedAt: pkg.installedAt, updatedAt: pkg.updatedAt, revisions: pkg.revisions.length,
+    ...(pkg.uninstalledAt ? { uninstalledAt: pkg.uninstalledAt } : {}),
     ...(pkg.codeStatus ? { codeStatus: pkg.codeStatus } : {}),
     ...(pkg.manifest.kind === 'theme' ? { active: activeThemeId === pkg.manifest.id } : {}),
   }
@@ -197,12 +201,15 @@ export async function savePackageSettings(id: string, input: Record<string, unkn
 export async function deletePackage(id: string, context?: PackageCommandContext) {
   return packageTransaction(async tx => {
     const current = await packageCommandActor(context, tx)
-    const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
-    // Code packages never entered Site Studio; applied source stays in the repository.
+    const pkg = await loadPackageFrom(id, tx, true, true)
+    if (!pkg) throw new PackageError(`package "${id}" is not installed`)
+    if (pkg.uninstalledAt) return
+    if (pkg.enabled || pkg.manifest.kind === 'theme' && (await getSiteConfigFrom(tx, true)).themeId === id) throw new PackageError('ابتدا بسته را غیرفعال کنید یا قالب دیگری انتخاب کنید؛ داده‌ای حذف نشد')
+    if (pkg.manifest.runtime === 'code' && pkg.codeStatus === 'applied') throw new PackageError('حذف کد اعمال‌شده به نسخهٔ بازبینی‌شده و build/deploy نیاز دارد؛ رسید اعمال حفظ شد')
     if (pkg.manifest.kind === 'theme' && pkg.manifest.runtime === 'declarative') await syncSiteTheme(tx, null, { removeId: id })
-    await tx.setting.deleteMany({ where: { key: rowKey(id) } })
-    await writeIndex(tx, ids => ids.delete(id))
-    await auditPackageCommand(tx, context, current, 'delete', id)
+    pkg.enabled = false; pkg.uninstalledAt = new Date().toISOString(); pkg.updatedAt = pkg.uninstalledAt
+    await savePackage(tx, pkg)
+    await auditPackageCommand(tx, context, current, 'uninstall', id, { retained: true })
   })
 }
 

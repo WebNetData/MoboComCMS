@@ -41,7 +41,7 @@ export async function writeIndex(reader: PackageReader, mutate: (ids: Set<string
 }
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
-export async function loadPackageFrom(id: string, reader: PackageReader = db, strict = false): Promise<StoredPackage | null> {
+export async function loadPackageFrom(id: string, reader: PackageReader = db, strict = false, includeUninstalled = false): Promise<StoredPackage | null> {
   if (!/^[a-z][a-z0-9-]{1,49}$/.test(id)) return null
   const row = await reader.setting.findUnique({ where: { key: rowKey(id) } })
   if (!row) return null
@@ -51,11 +51,12 @@ export async function loadPackageFrom(id: string, reader: PackageReader = db, st
       || !['plugin', 'theme'].includes(String(pkg.manifest.kind)) || !['code', 'declarative'].includes(String(pkg.manifest.runtime))
       || !record(pkg.files) || !record(pkg.settings)
       || typeof pkg.enabled !== 'boolean' || typeof pkg.installedAt !== 'string' || typeof pkg.updatedAt !== 'string'
+      || pkg.uninstalledAt !== undefined && (typeof pkg.uninstalledAt !== 'string' || !Number.isFinite(Date.parse(pkg.uninstalledAt)) || pkg.enabled !== false)
       || !Array.isArray(pkg.revisions) || !Object.values(pkg.settings).every(value => typeof value === 'string')
       || !Object.values(pkg.files).every(file => record(file) && (typeof file.text === 'string' || typeof file.base64 === 'string'))
       || !pkg.revisions.every(revision => record(revision) && typeof revision.at === 'string' && typeof revision.path === 'string'
         && (revision.content === null || typeof revision.content === 'string') && typeof revision.actor === 'string' && typeof revision.note === 'string')) throw new Error('invalid stored package')
-    return pkg as unknown as StoredPackage
+    return pkg.uninstalledAt && !includeUninstalled ? null : pkg as unknown as StoredPackage
   } catch {
     if (strict) throw new PackageError(`package "${id}" has invalid stored data; repair it before changing it`)
     return null

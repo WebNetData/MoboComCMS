@@ -6,6 +6,8 @@ import { sendPattern, sendText } from '@/modules/sms/server/ippanel'
 import { getSmsConfig, apiKeyOf, isReady } from './settings'
 import { serializable } from './transaction'
 import { SmsError } from './error'
+import { isModuleEnabled } from '@/extensions/server/modules'
+import { notificationModule } from '@/modules/notifications/domain/event-modules'
 
 /** The most automatic alerts one number receives in a day. */
 export const SMS_DAILY_PER_PHONE = 12
@@ -17,6 +19,7 @@ const deliveryResult = (status: SmsDeliveryStatus, logId: number | null): SmsDel
 
 /** Reserve before calling the provider; a keyed delivery is never attempted twice. */
 export async function sendSmsResult(input: SendInput, config?: SmsConfig): Promise<SmsDeliveryResult> {
+  const owner = input.event.startsWith('OTP_REPAIR') ? 'forms' : input.event.startsWith('OTP_COUNTER:') ? 'instore' : notificationModule(input.event)
   const settings = config || await getSmsConfig()
   const phone = normalizeMobile(input.phone) || String(input.phone).slice(0, 20)
   const validPhone = !!normalizeMobile(input.phone)
@@ -41,7 +44,7 @@ export async function sendSmsResult(input: SendInput, config?: SmsConfig): Promi
         const prior = await tx.smsLog.findUnique({ where: { dedupeKey: key } })
         if (prior) return { id: prior.id, status: 'EXISTING' }
       }
-      let reason = !validPhone ? 'شماره موبایل نامعتبر' : !isReady(settings) ? 'پنل پیامک تنظیم نشده است' : ''
+      let reason = owner && !await isModuleEnabled(owner, tx) ? 'ماژول غیرفعال است' : !validPhone ? 'شماره موبایل نامعتبر' : !isReady(settings) ? 'پنل پیامک تنظیم نشده است' : ''
       if (!reason && kind !== 'OTP' && !['MANUAL', 'TEST'].includes(input.event)) {
         const active = ['SENDING', 'SENT', 'UNKNOWN']
         const [same, today] = await Promise.all([
@@ -65,6 +68,10 @@ export async function sendSmsResult(input: SendInput, config?: SmsConfig): Promi
   }
   if (reservation.status === 'UNKNOWN') return deliveryResult('UNKNOWN', reservation.id)
   if (reservation.status === 'SKIPPED') {
+    return deliveryResult('SKIPPED', reservation.id)
+  }
+  if (owner && !await isModuleEnabled(owner, db)) {
+    await db.smsLog.updateMany({ where: { id: reservation.id, status: 'SENDING' }, data: { status: 'SKIPPED', error: 'ماژول پیش از ارسال غیرفعال شد' } })
     return deliveryResult('SKIPPED', reservation.id)
   }
   const result = await (input.pattern

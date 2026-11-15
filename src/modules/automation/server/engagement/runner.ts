@@ -1,3 +1,4 @@
+import { automationAvailable, assertAutomationAvailable } from '@/modules/automation/server/availability'
 import { db } from '@/platform/database/prisma';
 import { logEvent } from '@/platform/observability/logger';
 import { getEngagementSettings, journeyVersion } from './settings';
@@ -11,6 +12,7 @@ type Cursor = {
 };
 /** The scheduler already owns its lease. Cursor claims are still safe if a lease expires mid-batch. */
 export async function runCrmEngagement(now = new Date()) {
+  if (!await automationAvailable()) return { scanned: 0, queued: 0, skipped: 'module-disabled' }
   const settings = await getEngagementSettings();
   if (!settings.enabled || !inEngagementWindow(settings, now)) return {
     scanned: 0,

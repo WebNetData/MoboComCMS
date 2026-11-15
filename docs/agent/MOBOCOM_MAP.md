@@ -268,3 +268,10 @@ SMS2026-11-15: /admin/sms and sms/server/http/admin.ts expose grouped templates,
 Repair tracking2026-11-15: `forms/server/tracking.ts`, `tracking-code.ts` and `http/tracking.ts` back `/repair-status`; ReceiptSheet prints a separate status code, old QR remains. `sms/domain/templates.ts` defines five OTP purpose presets and ready service/sale messages; `/admin/sms` edits existing settings. [Continuation](handoffs/SMS_SETTINGS_RETENTION.md).
 
 Repair consent2026-11-15: forms/server/repair-work is the public address for read/commands/consent/history parts; repair-access.ts provides current source/contact bindings. GET/PATCH /api/admin/forms/repair and existing tracking decision actions expose minimized DTOs. RepairWorkPanel, RepairApproval and MyRequests extend current UI. Additive migration20270323120000_repair_consent_history; [handoff](handoffs/FORMS_AND_OPERATIONS.md#repair-estimate-consent-promised-delivery-and-public-history--2026-11-15).
+
+Commercial modularity2026-11-15: plugins/forms + plugins/automation declare consumed
+module paths; owner availability helpers, HTTP/domain/effect and server-layout guards
+withdraw Forms/Automation contributions. Extensions state/contracts and current
+ExtensionManager own effective/requested state and cycle/audit checks. Packages
+store/persistence own retained uninstalledAt; runtime/editor/assets use the filtered
+loader. [Exact changed scope and continuation](handoffs/COMMERCIAL_MODULARITY.md).

@@ -1,4 +1,5 @@
 'use client'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import DeviceLockInput from '@/components/forms/DeviceLockInput'
 import { checkoutDestination, checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 
@@ -40,7 +41,12 @@ const CLOSED: Record<Exclude<FormState, 'open'>, string> = { soon: 'این فر�
  * `counter`: staff fill the form for a customer in the shop (forms/server/counter): it is sent to the desk's own
  * route, without the human check, and the caller is handed the new answer (its receipt and pickup code).
  */
-export default function PublicForm({ form, state = 'open', preview = false, headingLevel = 2, surface = 'public', counter }: { surface?: CheckoutSurface; form: FormDefinition; state?: FormState; preview?: boolean; headingLevel?: 1 | 2; counter?: { formId: number; storeWarrantyDeviceId?: number; onSaved: (saved: { id: number; pickupCode: string; receiptToken: string }) => void } }) {
+export default function PublicForm(props: Parameters<typeof ActivePublicForm>[0]) {
+  const enabled = useModuleEnabled('forms')
+  return enabled ? <ActivePublicForm {...props} /> : null
+}
+
+function ActivePublicForm({ form, state = 'open', preview = false, headingLevel = 2, surface = 'public', counter }: { surface?: CheckoutSurface; form: FormDefinition; state?: FormState; preview?: boolean; headingLevel?: 1 | 2; counter?: { formId: number; storeWarrantyDeviceId?: number; onSaved: (saved: { id: number; pickupCode: string; receiptToken: string }) => void } }) {
   const { locale } = useI18n()
   const human = useHumanCheck('form', locale)
   const uid = useId()

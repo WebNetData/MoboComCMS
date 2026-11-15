@@ -5,6 +5,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { adminOrders } from '@/modules/store/server/orders'
 import { formWorkdesk } from '@/modules/forms/server/workdesk'
 import { allowedDepartmentSlugs, managesTickets } from '@/modules/support/server/department-access'
+import { isModuleEnabled } from '@/extensions/server/modules'
 
 export type WorkdeskItem = { id: string; title: string; href: string; updatedAt: string; assigneeId: number | null; detail?: string }
 export type WorkdeskQueue = { key: 'store' | 'forms' | 'support'; available: boolean; reason?: 'disabled' | 'forbidden' | 'unavailable'; count?: number; items?: WorkdeskItem[] }
@@ -32,7 +33,9 @@ export async function adminWorkdesk(req: NextRequest): Promise<WorkdeskQueue[]> 
   }
 
   const formActor = formsBuilder || formsHandler
-  if (!formActor) {
+  if (!await isModuleEnabled('forms')) {
+    // An inactive capability contributes no queue or setup prompt to this shared desk.
+  } else if (!formActor) {
     tasks.push(Promise.resolve(unavailable('forms', 'forbidden')))
   } else {
     tasks.push(formWorkdesk(formActor).then(result => ({ key: 'forms' as const, available: true, ...result })).catch(() => unavailable('forms', 'unavailable')))

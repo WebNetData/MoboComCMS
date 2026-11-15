@@ -1,5 +1,6 @@
 'use client'
 
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname } from '@/platform/routing/navigation'
@@ -25,10 +26,11 @@ const load = (slug: string) => {
  */
 export default function FormEmbeds() {
   const pathname = usePathname()
+  const formsOn = useModuleEnabled('forms')
   const [mounts, setMounts] = useState<Mount[]>([])
   useEffect(() => {
     const scan = () => {
-      const nodes = [...document.querySelectorAll('[data-mc-form],figure[data-mc-media]')].filter((node) => !node.hasAttribute('data-mc-mounted') && !(node.hasAttribute('data-mc-media') && pathname?.startsWith('/admin')))
+      const nodes = [...document.querySelectorAll('[data-mc-form],figure[data-mc-media]')].filter((node) => (formsOn || !node.hasAttribute('data-mc-form')) && !node.hasAttribute('data-mc-mounted') && !(node.hasAttribute('data-mc-media') && pathname?.startsWith('/admin')))
       if (!nodes.length) { setMounts(connected); return }
       const fresh: Mount[] = []
       for (const node of nodes) {
@@ -60,6 +62,6 @@ export default function FormEmbeds() {
     const observer = new MutationObserver(() => { window.clearTimeout(timer); timer = window.setTimeout(scan, 80) })
     observer.observe(document.body, { childList: true, subtree: true })
     return () => { observer.disconnect(); window.clearTimeout(timer) }
-  }, [pathname])
-  return <>{mounts.filter((mount) => (mount.media || mount.form) && mount.node.isConnected).map((mount) => createPortal(mount.media ? <EditorialPlayer media={mount.media} /> : <PublicForm form={mount.form!} state={mount.state} />, mount.node, `content-${mount.id}`))}</>
+  }, [pathname, formsOn])
+  return <>{mounts.filter((mount) => (mount.media || formsOn && mount.form) && mount.node.isConnected).map((mount) => createPortal(mount.media ? <EditorialPlayer media={mount.media} /> : <PublicForm form={mount.form!} state={mount.state} />, mount.node, `content-${mount.id}`))}</>
 }

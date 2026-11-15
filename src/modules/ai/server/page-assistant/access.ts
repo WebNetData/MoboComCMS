@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { requireAdmin, requireContentScope, requirePerm } from '@/modules/identity/server/access'
 import { authorPermissionOf } from '@/modules/identity/domain/sections'
-import { moduleGuard } from '@/extensions/server/modules'
+import { moduleGuard, disabledAdminPaths } from '@/extensions/server/modules'
 import { adminAssistantPath, pageTarget, type PageRecordKind, type PageTarget } from '../../domain/page-assistant'
 import type { AiPurpose } from '../../domain/routing'
 import { AiError } from '../error'
@@ -33,6 +33,7 @@ export async function pageAssistantAccess(req: NextRequest, input: { path?: unkn
   const path = adminAssistantPath(input.path)
   if (!path) throw new AiError('مسیر صفحهٔ مدیریت معتبر نیست', 422)
   const off = await moduleGuard('ai-assistant'); if (off) throw new AiError('دستیار هوش مصنوعی غیرفعال است', 423)
+  if ((await disabledAdminPaths()).some(prefix => at(path, prefix))) throw new AiError('بخش مربوط به این صفحه غیرفعال است', 423)
   const area: Area = AREAS.find(a => at(path, a.prefix)) || { prefix: '/admin', label: settingsAreas.some(key => at(path, '/admin/' + key)) ? 'تنظیمات سایت' : 'راهنمای مدیریت موبوکام', permission: settingsAreas.some(key => at(path, '/admin/' + key)) ? 'settings.manage' : undefined, purpose: 'admin', examples: ['در این بخش چه کاری می‌توانم انجام بدهم؟', 'برای انجام این کار از کدام ابزار موبوکام استفاده کنم؟'] }
   if (area.module && await moduleGuard(area.module)) throw new AiError('بخش مربوط به این صفحه غیرفعال است', 423)
   const scope = area.permission ? await requireContentScope(req, area.permission, authorPermissionOf(area.permission)) : null

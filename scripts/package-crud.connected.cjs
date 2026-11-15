@@ -19,7 +19,7 @@ async function main(){try{
  ['write','package.file.write',change=>http.putFileRoute(req('PUT',{path:'a.txt',content:'new-content'}),context(change))],
  ['file-delete','package.file.delete',change=>http.deleteFileRoute(req('DELETE',null,'/files?path=a.txt'),context(change))],
  ['restore','package.file.restore',change=>http.restoreRoute(req('POST',{index:0}),context(change))],
- ['delete','package.delete',change=>http.deleteRoute(req('DELETE'),context(change))],
+ ['delete','package.uninstall',change=>http.deleteRoute(req('DELETE'),context(change))],
  ['upload','package.upgrade',change=>upload(change)],
  ];
  const selected=process.argv.find(arg=>arg.startsWith('--case='))?.slice(7);if(selected&&!actions.some(item=>item[0]===selected))throw Error('Unknown CRUD case');
@@ -34,9 +34,9 @@ async function main(){try{
   auditFault=false;await prisma.user.update({where:{id:actor.id},data:{status:'ACTIVE'}});const defaults=load('src/modules/site/config/defaults.ts').defaultSite;await prisma.setting.upsert({where:{key:siteKey},create:{key:siteKey,value:JSON.stringify(defaults)},update:{value:JSON.stringify(defaults)}});
   const theme={...JSON.parse(fs.readFileSync('docs/packages/examples/ocean-theme/manifest.json','utf8')),id:themeId};await owner.installEntries(new Map([['manifest.json',Buffer.from(JSON.stringify(theme))],['theme.css',Buffer.from('p{}')]]),actor.email);await owner.activateTheme(themeId);
   const storedTheme=await prisma.setting.findUniqueOrThrow({where:{key:themeKey}}),storedSite=await prisma.setting.findUniqueOrThrow({where:{key:siteKey}}),storedIndex=await prisma.setting.findUniqueOrThrow({where:{key:indexKey}});identity.clearAdminPolicyCache();
-  const themeCalls=[()=>http.putFileRoute(req('PUT',{path:'manifest.json',content:JSON.stringify({...theme,design:{...theme.design,radius:12}})},'',themeId),context(null,themeId)),()=>http.deleteRoute(req('DELETE',null,'',themeId),context(null,themeId))];
+  const themeCalls=[()=>http.putFileRoute(req('PUT',{path:'manifest.json',content:JSON.stringify({...theme,design:{...theme.design,radius:12}})},'',themeId),context(null,themeId))];
   for(const invoke of themeCalls){auditFault=true;assert.equal((await invoke()).status,500);auditFault=false;assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key:themeKey}}),storedTheme);assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key:siteKey}}),storedSite);assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key:indexKey}}),storedIndex);assert.equal(await prisma.auditLog.count({where:{targetType:'package',targetId:themeId}}),0)}
-  console.log('ok direct theme manifest/delete audit rollback includes Site Config selection');
+  assert.equal((await http.deleteRoute(req('DELETE',null,'',themeId),context(null,themeId))).status,400,'active theme uninstall refused');assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key:siteKey}}),storedSite);console.log('ok direct theme manifest audit rollback and active-uninstall refusal preserve Site Config selection');
  }
  console.log('Actual package CRUD '+(selected||'all direct commands')+': '+(process.argv.includes('--authority-only')?'authority-only case':'authority/audit rollback and allowed execution'));
  }finally{auditFault=false;await prisma.auditLog.deleteMany({where:{targetType:'package',targetId:{in:[id,themeId]}}});await prisma.setting.deleteMany({where:{key:{in:[key,themeKey]}}});for(const[key,row]of[[indexKey,indexBefore],[policyKey,policyBefore],[siteKey,siteBefore]]){if(row)await prisma.setting.upsert({where:{key},create:{key,value:row.value},update:{value:row.value}});else await prisma.setting.deleteMany({where:{key}})}if(actor)await prisma.user.deleteMany({where:{id:actor.id,email:actor.email}});await prisma.$disconnect()}}

@@ -1,3 +1,4 @@
+import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
 import { db } from '@/platform/database/prisma'
 import { FormsError, parseForm } from '../../domain/forms'
 import type { RepairWorkView } from '../../domain/repair-work'
@@ -7,6 +8,7 @@ import { eligibleRepair, publicRepairText, REPAIR_SELECT, repairHash, repairPhon
 export type RepairActor = { id: number; builder: boolean; handler: boolean }
 export const currentEstimate = (row: RepairRow, client: RepairClient = db) => row.estimateRevision ? client.repairEstimate.findUnique({ where: { submissionId_version: { submissionId: row.id, version: row.estimateRevision } } }) : Promise.resolve(null)
 export async function requireRepair(id: number, actor: RepairActor, client: RepairClient = db) {
+  await assertFormsAvailable(client)
   const row = await client.formSubmission.findUnique({ where: { id }, select: REPAIR_SELECT })
   if (!eligibleRepair(row)) throw new FormsError('پروندهٔ تعمیر قابل پیگیری پیدا نشد', 404)
   if (!actor.builder && (!actor.handler || !mayHandle(parseForm(row.form), actor, false))) throw new FormsError('دسترسی این فرم را ندارید', 403)

@@ -21,6 +21,7 @@ const ids = (body: Record<string, unknown>) => (Array.isArray(body.ids) ? body.i
 
 /** GET ?formId=&status=&q=&from=&to=&page= — answers; &export=csv downloads them; &view=stats gives the daily chart. */
 export async function GET(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const reader = await staff(req)
   if (!reader) return err('دسترسی مجاز نیست', 403)
   const builder = Boolean(await requirePerm(req, 'cms.pages'))
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
  *   { id, answers: { fieldId: value } } — staff correct plain answers (recorded)
  */
 export async function PATCH(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const admin = await staff(req)
   if (!admin) return err('دسترسی مجاز نیست', 403)
   const body = await req.json().catch(() => null)
@@ -123,6 +125,7 @@ export async function PATCH(req: NextRequest) {
 
 /** DELETE { ids } */
 export async function DELETE(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const admin = await requirePerm(req, 'cms.pages')
   if (!admin) return err('دسترسی مجاز نیست', 403)
   const body = await req.json().catch(() => null)
@@ -137,6 +140,7 @@ export async function DELETE(req: NextRequest) {
 /** POST { formId, values } — a customer in the shop, entered by staff on the desk (recorded). */
 /** Staff entry of a customer in the shop: the in-store module's service intake (plugins/instore). Printing a receipt already taken stays open. */
 export async function POST(req: NextRequest) {
+  const disabled = await moduleGuard('forms'); if (disabled) return disabled
   const off = await moduleGuard('instore')
   if (off) return off
   const admin = await staff(req)
