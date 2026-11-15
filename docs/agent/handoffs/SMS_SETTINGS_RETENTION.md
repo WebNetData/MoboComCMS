@@ -171,3 +171,23 @@ on205 migrations, and exact browser fixture users/forms/challenges are0. Existin
 image `675416b1f3e7` and local container `mobocom-app` on port3000 are retained with
 skip-seed; the final source slice is committed with this handoff on the SMS branch.
 No real provider send or hosted/production action occurred.
+
+## Owner-authorized PR476 consolidation — 2026-11-15
+
+The owner requests a pull request for all work completed so far. GitHub PR476 was
+verified open, unmerged and mergeable, with head `72c03dd5`; fetched `origin/main`
+remains `58a67c81`, an ancestor of the four current feature commits through
+`13a5190d`. Consolidate the local transactional SMS/repair slice into this existing
+PR to `main`, rather than an overlapping PR. Publish the same final head under
+`feat/sms-platform-2026-11-15` and PR476's existing
+`feat/admin-ai-integration-2026-11-15` remote branch by normal fast-forward push.
+Authoritative local source and Docker mount remain `.mobocom/sms-platform`.
+
+The rewritten PR describes AI/users/UI, transactional SMS, the additive unreleased
+`20270322120000_sms_delivery_claims` migration, repair code/OTP, purpose templates,
+actual per-slice checks, provider/print limits and rollback. Previous statements
+that SMS was local/separate describe the earlier handoff boundary. This publication
+adds no runtime behavior; recorded PG/browser checks are reused, not represented
+as rerun. Docker readiness was checked again and returned200. Owner merges/deploys;
+no hosted workflow, real customer SMS, main merge or production release is performed.
+PR: https://github.com/WebNetData/MoboComCMS/pull/476.

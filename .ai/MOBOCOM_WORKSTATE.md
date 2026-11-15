@@ -1,3 +1,16 @@
+# PR476 consolidation — owner request2026-11-15
+
+The owner requests a PR for all development through repair tracking. Publish the
+SMS checkout's existing four-commit continuation through `13a5190d`, plus this
+publication record, to the existing open PR476 targeting `main`; its prior head
+`72c03dd5` is an ancestor. Retain `feat/sms-platform-2026-11-15` as the authoritative
+local checkout and publish the same head under its remote branch and the existing
+PR branch `feat/admin-ai-integration-2026-11-15`. This consolidates the previously
+separate local SMS/repair work into PR476. Earlier boundary statements below are
+historical. Owner merges/deploys. Reuse executed source/PG/browser evidence in the
+SMS/Forms handoffs; no new product changes, real SMS, hosted workflow or deployment.
+Docker app3000 remains available; no unrelated checkout or private fixture is staged.
+
 # Current continuation — receipt tracking and SMS purpose texts — 2026-11-15
 
 Continue `.mobocom/sms-platform`, branch `feat/sms-platform-2026-11-15` from local
