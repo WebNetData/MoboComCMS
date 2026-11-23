@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-23",
+  "scope": "local integration of owner-merged MoboComPay with package lifecycle, manager polish and Solution Packs",
+  "localFeatureTip": "f6429ce7",
+  "ownerMergedMain": "e2b6c51b",
+  "ownerMergedPR": 481,
+  "branch": "feat/pay-extension-sync-2026-11-23",
+  "status": "locally-merged-and-verified-with-recorded-limits",
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "17.11 (Debian 17.11-1.pgdg13+2)",
+    "uid": 1000,
+    "dotenv": false,
+    "databaseSuperuser": false,
+    "migrations": 209
+  },
+  "sourceIntegration": {
+    "ownerPayBillingWalletSchemaUnchanged": true,
+    "conflicts": "five canonical document histories preserved plus regenerated AI bundle",
+    "catalogEntries": 45,
+    "codeThemes": 4,
+    "aiDocuments": 14,
+    "newFinancialMigration": false
+  },
+  "units": {
+    "passed": 145,
+    "failed": 0,
+    "skipped": 0
+  },
+  "connected": [
+    "solution-packs with actual MoboComPay manifest/settings/roles/off replay",
+    "mobocom-pay",
+    "pay-shared-checkout",
+    "package-command",
+    "extension-state-integrity",
+    "repository-install"
+  ],
+  "static": [
+    "full TypeScript",
+    "3085 source/import targets",
+    "architecture",
+    "schema parity",
+    "money primitives/schema/UI",
+    "release manifest (2 unreleased)",
+    "security invariants",
+    "audit invariants"
+  ],
+  "browser": {
+    "views": 10,
+    "widths": [
+      1440,
+      390
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "scopedAxeViolations": 0,
+    "horizontalOverflow": false,
+    "pageErrors": 0,
+    "realActions": [
+      "Pay default-off/on card",
+      "inert pack preview",
+      "explicit pack apply",
+      "incoming remains off",
+      "independent settings/manage/settle roles",
+      "module-off404",
+      "receipt replay never reactivates"
+    ],
+    "completedInResumedPhases": true
+  },
+  "maintainedE2e": {
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "retries": 0,
+    "seconds": 24.3,
+    "earlierNextDevManifestReadFailureNotCounted": true
+  },
+  "reactDoctor": {
+    "version": "0.9.17",
+    "components": 3,
+    "blockingErrors": 0,
+    "reviewedWarnings": 5,
+    "suppressionAdded": false
+  },
+  "securityScans": {
+    "semgrepSourceTargets": 74,
+    "semgrepFindings": 0,
+    "semgrepErrors": 0,
+    "scopedLocalRuleOnly": true,
+    "gitleaksNamedFiles": 103,
+    "gitleaksExit": 1,
+    "gitleaksFindings": 1,
+    "triage": {
+      "findings": 1,
+      "triagedKnownPublicFixture": 1,
+      "newSecretFindings": 0,
+      "file": "scripts/account-security.test.cjs",
+      "line": 147,
+      "rule": "generic-api-key",
+      "classification": "unchanged RFC6238 known-answer TOTP test vector",
+      "ownerMergedMain": "e2b6c51b",
+      "wholeTestMatchesOwnerMain": true,
+      "fixtureLineSha256": "15ce38ee1b6291553ba749c700b893fc9c18804b447fa91a98e089e663ab630d",
+      "suppressionAdded": false
+    },
+    "redacted": true,
+    "baselineSuppressionAdded": false
+  },
+  "sourceParity": {
+    "inputs": 4215,
+    "contentMismatches": 0,
+    "unexpectedSourceFiles": 0,
+    "lineEndingOnlyDifferences": 0,
+    "manifestSha256": "133d022c22d5ab3c7bf014c7c8b7f224b1acebe671e1c6eb668d4d7c4b793ceb"
+  },
+  "cleanup": {
+    "ownedRuntimeAndPrivatePrismaRemoved": true,
+    "ownedDatabaseAbsent": true,
+    "ownedRoleRemoved": true,
+    "hostPrivateStateAndTracesRemoved": true,
+    "originalReadiness": 200,
+    "originalSession": 200
+  },
+  "notClaimed": [
+    "production build",
+    "live bank/SMS/gateway/Telegram calls",
+    "new provider setup",
+    "original database migration",
+    "automatic Pay incoming or financial permission grants",
+    "hosted workflow",
+    "push/PR/hosted-main merge/deployment"
+  ]
+}

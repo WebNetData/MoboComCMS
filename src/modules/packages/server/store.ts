@@ -2,8 +2,11 @@ import { extensionCatalog } from '@/extensions/generated/catalog'
 import { codeThemeCatalog } from '@/themes/generated/catalog'
 import { bundledThemes } from '@/themes/registry'
 import type { Prisma } from '@prisma/client'
+import { assertPackageIdle, type CodeApplyOperation } from '@/modules/packages/domain/apply-operation'
+import { assertPackageCompatibility, assertStoredPackageCompatibility } from './compatibility'
 import { getSiteConfig, getSiteConfigFrom } from '@/modules/site/config/store'
 import { readZip, writeZip, ZipError } from '@/modules/packages/domain/zip'
+import type { SolutionApplyReceipt } from '@/modules/packages/domain/solution-receipt'
 import {
   PACKAGE_LIMITS, PackageError, isEditable, isTextFile, normalizeEntries, validPackagePath,
   type PackageManifest,
@@ -28,6 +31,8 @@ export interface StoredPackage {
   revisions: PackageRevision[]
   /** Code packages: 'staged' until applied to the source tree and rebuilt. */
   codeStatus?: 'staged' | 'applied'
+  codeApply?: CodeApplyOperation
+  solutionApply?: SolutionApplyReceipt
 }
 export interface PackageSummary {
   id: string
@@ -42,6 +47,8 @@ export interface PackageSummary {
   revisions: number
   codeStatus?: StoredPackage['codeStatus']
   active?: boolean
+  codeApply?: Pick<CodeApplyOperation, 'id' | 'mode' | 'phase' | 'deploy' | 'intent'>
+  solutionApply?: SolutionApplyReceipt
 }
 
 export { fileText, fileBuffer } from './store/files'
@@ -76,6 +83,8 @@ export async function activateTheme(id: string) {
   return packageTransaction(async tx => {
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
     if (pkg.manifest.kind !== 'theme') throw new PackageError('only theme packages can be activated as the site theme')
+    assertPackageIdle(pkg)
+    await assertStoredPackageCompatibility(pkg, tx, true)
     await syncSiteTheme(tx, pkg.manifest, { activate: true })
     await writeIndex(tx, () => {})
   })
@@ -137,15 +146,18 @@ async function persistEntries(entries: Map<string, Buffer>, actor: string, note?
       return { pkg: previous, upgraded: false }
     }
     if (previous && previous.manifest.kind !== manifest.kind) throw new PackageError(`"${manifest.id}" is already installed as a ${previous.manifest.kind}`)
+    if (previous) assertPackageIdle(previous)
+    await assertPackageCompatibility(manifest, tx, previous?.enabled === true || manifest.kind === 'theme' && (await getSiteConfigFrom(tx, true)).themeId === manifest.id)
     const now = new Date().toISOString()
     const revisions: PackageRevision[] = previous
       ? [{ at: now, path: '*', content: null, actor: author, note: note || `upgrade ${previous.manifest.version} → ${manifest.version}` }, ...previous.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)
       : [{ at: now, path: '*', content: null, actor: author, note: note || `install ${manifest.version}` }]
     const pkg: StoredPackage = {
       manifest, files,
-      enabled: manifest.runtime === 'code' || previous?.uninstalledAt ? false : previous?.enabled ?? false,
+      enabled: manifest.solutionPack || manifest.runtime === 'code' || previous?.uninstalledAt ? false : previous?.enabled ?? false,
       settings: settingDefaults(manifest, previous?.settings),
       installedAt: previous?.installedAt || now, updatedAt: now, revisions,
+      ...(previous?.solutionApply ? { solutionApply: previous.solutionApply } : {}),
       ...(manifest.runtime === 'code' ? { codeStatus: 'staged' as const } : {}),
     }
     if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(tx, manifest)
@@ -173,6 +185,8 @@ export function summarize(pkg: StoredPackage, activeThemeId?: string): PackageSu
     bytes: totalBytes(pkg.files), installedAt: pkg.installedAt, updatedAt: pkg.updatedAt, revisions: pkg.revisions.length,
     ...(pkg.uninstalledAt ? { uninstalledAt: pkg.uninstalledAt } : {}),
     ...(pkg.codeStatus ? { codeStatus: pkg.codeStatus } : {}),
+    ...(pkg.solutionApply ? { solutionApply: pkg.solutionApply } : {}),
+    ...(pkg.codeApply ? { codeApply: { id: pkg.codeApply.id, mode: pkg.codeApply.mode, phase: pkg.codeApply.phase, deploy: pkg.codeApply.deploy, intent: pkg.codeApply.intent } } : {}),
     ...(pkg.manifest.kind === 'theme' ? { active: activeThemeId === pkg.manifest.id } : {}),
   }
 }
@@ -180,6 +194,8 @@ export function summarize(pkg: StoredPackage, activeThemeId?: string): PackageSu
 export async function setPackageEnabled(id: string, enabled: boolean, reader?: Prisma.TransactionClient) {
   const work = async (tx: Prisma.TransactionClient) => {
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    assertPackageIdle(pkg)
+    if (enabled) await assertStoredPackageCompatibility(pkg, tx, true)
     applyEnabled(pkg, enabled)
     pkg.updatedAt = new Date().toISOString()
     await savePackage(tx, pkg)
@@ -191,6 +207,7 @@ export async function setPackageEnabled(id: string, enabled: boolean, reader?: P
 export async function savePackageSettings(id: string, input: Record<string, unknown>) {
   return packageTransaction(async tx => {
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    assertPackageIdle(pkg)
     applySettings(pkg, input)
     pkg.updatedAt = new Date().toISOString()
     await savePackage(tx, pkg)
@@ -204,6 +221,7 @@ export async function deletePackage(id: string, context?: PackageCommandContext)
     const pkg = await loadPackageFrom(id, tx, true, true)
     if (!pkg) throw new PackageError(`package "${id}" is not installed`)
     if (pkg.uninstalledAt) return
+    assertPackageIdle(pkg)
     if (pkg.enabled || pkg.manifest.kind === 'theme' && (await getSiteConfigFrom(tx, true)).themeId === id) throw new PackageError('ابتدا بسته را غیرفعال کنید یا قالب دیگری انتخاب کنید؛ داده‌ای حذف نشد')
     if (pkg.manifest.runtime === 'code' && pkg.codeStatus === 'applied') throw new PackageError('حذف کد اعمال‌شده به نسخهٔ بازبینی‌شده و build/deploy نیاز دارد؛ رسید اعمال حفظ شد')
     if (pkg.manifest.kind === 'theme' && pkg.manifest.runtime === 'declarative') await syncSiteTheme(tx, null, { removeId: id })

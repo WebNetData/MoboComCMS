@@ -4,6 +4,8 @@ import { loadPackageFrom, mustLoad, packageTransaction, savePackage, writeIndex 
 import { applyEnabled, applySettings } from './fields'
 import { syncSiteTheme } from './themes'
 import { packageCommandActor, auditPackageCommand } from './authority'
+import { assertPackageIdle } from '@/modules/packages/domain/apply-operation'
+import { assertStoredPackageCompatibility } from '../compatibility'
 
 export type PackagePatch = { enabled?: boolean; settings?: Record<string, unknown>; activate?: true }
 
@@ -12,6 +14,8 @@ export async function patchPackage(id: string, input: PackagePatch, context: Pic
   return packageTransaction(async tx => {
     const actor = await packageCommandActor(context, tx)
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    assertPackageIdle(pkg)
+    if (input.enabled === true || input.activate) await assertStoredPackageCompatibility(pkg, tx, true)
     if (input.enabled !== undefined) applyEnabled(pkg, input.enabled)
     if (input.settings !== undefined) applySettings(pkg, input.settings)
     if (input.activate) {

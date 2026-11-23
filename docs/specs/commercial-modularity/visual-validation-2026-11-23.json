@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-23",
+  "scope": "extension and theme management visual polish",
+  "base": "1f25d3a75701bedb00e55d723098286633ea406e",
+  "branch": "fix/extensions-manager-polish-2026-11-23",
+  "status": "locally-verified-with-recorded-limits",
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "17.11",
+    "migrations": 206,
+    "uid": 1000,
+    "dotenv": false,
+    "databaseSuperuser": false
+  },
+  "units": {
+    "passed": 33,
+    "failed": 0,
+    "skipped": 0
+  },
+  "connected": [
+    "package-command",
+    "extension-state-integrity"
+  ],
+  "static": [
+    "full TypeScript",
+    "3027 source/import targets",
+    "architecture",
+    "44 extensions and 4 code themes generated",
+    "14 canonical AI documents"
+  ],
+  "browser": {
+    "views": 13,
+    "widths": [
+      1440,
+      390
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "scopedAxeViolations": 0,
+    "horizontalOverflow": false,
+    "pageErrors": 0,
+    "realActions": [
+      "toggle",
+      "package settings persistence",
+      "source cancellation",
+      "keyboard disclosure and chooser",
+      "filters and reset",
+      "reduced motion",
+      "guest and foreign Origin refusal",
+      "embedded Studio",
+      "single-language policy preserved"
+    ],
+    "maintainedE2e": {
+      "passed": 1,
+      "failed": 0,
+      "retries": 0,
+      "checks": [
+        "keyboard filters/disclosures",
+        "client navigation public style isolation"
+      ]
+    }
+  },
+  "reactDoctor": {
+    "version": "0.9.17",
+    "components": 5,
+    "blockingErrors": 0,
+    "reviewedWarnings": 9,
+    "suppressionAdded": false
+  },
+  "securityScans": {
+    "semgrepSourceTargets": 7,
+    "semgrepFindings": 0,
+    "semgrepErrors": 0,
+    "gitleaksNamedFiles": 15,
+    "gitleaksFindings": 0,
+    "redacted": true,
+    "scopedLocalRuleOnly": true
+  },
+  "sourceParity": {
+    "inputs": 4135,
+    "contentMismatches": 0,
+    "unexpectedSourceFiles": 0,
+    "generatedCrLfLfOnly": 7,
+    "manifestSha256": "7153d5f147b719a79ad1afb598a5c505bbcf88e8e266ee18c7e71d3ad10625ba",
+    "postFreezeWhitespaceOnlyChange": {
+      "file": "src/app/admin/extensions/package-types.ts",
+      "change": "remove trailing blank line only for git whitespace check",
+      "beforeSha256": "c0e863eb27ba238a6b7575478cd9a882d77a215caa1383b89ef9f56c353afb2f",
+      "afterSha256": "2f4dff373c3a9b07bd55c455127b452aba49d9a9ea6662bc72115475bdb8d568"
+    }
+  },
+  "cleanup": {
+    "ownedRuntimeRemoved": true,
+    "ownedDatabaseAbsent": true,
+    "ownedRoleRemoved": true,
+    "hostPrivateFilesAndTracesRemoved": true,
+    "originalReadiness": 200,
+    "originalSession": 200
+  },
+  "notClaimed": [
+    "full production build",
+    "production deployment",
+    "live provider send",
+    "hosted workflow",
+    "whole-site redesign",
+    "full accessibility certification",
+    "English locale rendering",
+    "Storybook execution"
+  ]
+}

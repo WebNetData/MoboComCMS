@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-23",
+  "scope": "package compatibility and recoverable trusted source apply",
+  "base": "bcdfbdc7",
+  "branch": "feat/package-lifecycle-recovery-2026-11-23",
+  "status": "functional-local-with-recorded-limits",
+  "environment": { "node": "22.23.3", "postgres": "17.11", "migrations": 206, "uid": 1000, "dotenv": false, "databaseSuperuser": false },
+  "units": { "passed": 181, "failed": 0, "skipped": 0 },
+  "connected": ["package-apply", "package-command", "package-source", "package-integrity", "package-crud", "package-authority", "repository-install", "extension-state-integrity", "module-availability"],
+  "static": ["full TypeScript", "3022 source/import targets", "architecture", "security invariants", "audit invariants", "44 extensions and 4 code themes generated", "7 registry outputs checked", "14 canonical AI documents"],
+  "browser": { "views": 8, "widths": [1440, 390], "themes": ["light", "dark"], "scopedAxeViolations": 0, "horizontalOverflow": false, "pageErrors": 0, "realActions": ["upload and incompatible refusal", "resume", "replay", "cancel", "guest and scoped permission refusal", "foreign Origin refusal", "invalid action refusal"], "completedInResumedPhases": true },
+  "reactDoctor": { "version": "0.9.17", "components": 2, "blockingErrors": 0, "reviewedWarnings": 8, "suppressionAdded": false },
+  "securityScans": { "semgrepSourceTargets": 24, "semgrepFindings": 0, "semgrepErrors": 0, "gitleaksNamedFiles": 49, "gitleaksFindings": 0, "redacted": true, "scopedLocalRuleOnly": true },
+  "deliberateFault": { "pendingMutationGuardRemovalDetected": true, "restoredBytesAndAcceptance": true },
+  "sourceParity": { "inputs": 4056, "contentMismatches": 0, "unexpectedSourceFiles": 0, "generatedCrLfLfOnly": 7, "manifestSha256": "49e887471f0be482e3a97d5cec17f6255a8e67825611bf68fd10561f29d4b508" },
+  "cleanup": { "ownedRuntimeRemoved": true, "ownedDatabaseAbsent": true, "ownedRoleRemoved": true, "hostPrivateFilesRemoved": true, "originalReadiness": 200, "originalSession": 200 },
+  "notClaimed": ["full production build", "live GitHub or deploy webhook", "production deployment", "hosted workflow", "whole-platform maturity", "cross-namespace automatic local takeover"]
+}

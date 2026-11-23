@@ -1,10 +1,13 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { createHash } from 'node:crypto'
 import { PACKAGE_LIMITS, PackageError, validPackagePath } from '@/modules/packages/domain/format'
-import { commitDirectory, listDirectory, readBlob, validGitTarget, GitApplyError, type FetchLike, type GitTarget } from '@/modules/packages/domain/github'
-import { builtinKind, fileBuffer, installEntries, installSourceEntries, loadSourcePackage, loadPackage, markCodeApplied, type StoredPackage, type PackageCommandContext } from './store'
+import { prepareDirectoryCommit, publishDirectoryCommit, assertGitPlanCancellable, listDirectory, readBlob, validGitTarget, GitApplyError, type FetchLike, type GitTarget } from '@/modules/packages/domain/github'
+import { builtinKind, installEntries, installSourceEntries, loadSourcePackage, loadPackage, type StoredPackage, type PackageCommandContext } from './store'
+import { beginApply, applyStep, finishApply, packageFiles, withApplyRunner } from './code-apply/operation'
+import { applyLocal, cancelLocal, localBefore, readLocalTree } from './code-apply/local'
+import { assertPackageCompatibility } from './compatibility'
+import type { CodeApplyOperation } from '@/modules/packages/domain/apply-operation'
 
 // Code packages are trusted TypeScript. They never run from the database: they
 // are written into the source tree and go live only through a normal build,
@@ -20,11 +23,17 @@ import { builtinKind, fileBuffer, installEntries, installSourceEntries, loadSour
 
 export type ApplyMode = 'git' | 'local' | 'off'
 export interface ApplyStatus { mode: ApplyMode; ready: boolean; detail: string; repo?: string; branch?: string; deployHook: boolean }
+interface ApplyResult { pkg: StoredPackage; mode: 'git' | 'local'; changed: boolean; commit?: string; url?: string; deploy: CodeApplyOperation['deploy'] | null }
 
 function gitTarget(): Partial<GitTarget> {
   return { token: process.env.PACKAGE_GIT_TOKEN || '', repo: process.env.PACKAGE_GIT_REPO || '', branch: process.env.PACKAGE_GIT_BRANCH || 'main', apiBase: process.env.PACKAGE_GIT_API || undefined }
 }
 const sourceRoot = () => path.join(process.cwd(), 'src')
+function applyTarget(status: ApplyStatus) {
+  return createHash('sha256').update(JSON.stringify({ mode: status.mode,
+    destination: status.mode === 'git' ? { repo: status.repo, branch: status.branch, api: gitTarget().apiBase || 'https://api.github.com' } : process.cwd(),
+    webhook: process.env.PACKAGE_DEPLOY_WEBHOOK || '' })).digest('hex')
+}
 
 export async function applyStatus(): Promise<ApplyStatus> {
   const mode = (process.env.PACKAGE_APPLY_MODE || 'off') as ApplyMode
@@ -48,61 +57,105 @@ export function sourceDirectory(kind: 'plugin' | 'theme', id: string) {
   return kind === 'theme' ? `src/themes/code/${id}` : `src/plugins/${id}`
 }
 
-async function triggerDeploy() {
+async function triggerDeploy(fetcher: FetchLike) {
   const url = process.env.PACKAGE_DEPLOY_WEBHOOK
   if (!url) return null
-  const response = await fetch(url, { method: 'GET', headers: process.env.PACKAGE_DEPLOY_TOKEN ? { Authorization: `Bearer ${process.env.PACKAGE_DEPLOY_TOKEN}` } : {}, signal: AbortSignal.timeout(15000) }).catch(() => null)
-  return response?.ok ? 'deployment triggered' : `deploy webhook failed${response ? ` (${response.status})` : ''}`
-}
-
-async function writeLocal(directory: string, files: Map<string, Buffer>) {
-  const root = path.join(process.cwd(), directory)
-  if (!root.startsWith(sourceRoot() + path.sep)) throw new PackageError('invalid target directory')
-  await fs.mkdir(root, { recursive: true })
-  const existing = await walk(root)
-  for (const file of existing) if (!files.has(file)) await fs.rm(path.join(root, file))
-  for (const [file, data] of files) {
-    const target = path.join(root, file)
-    if (!target.startsWith(root + path.sep)) throw new PackageError(`invalid path ${file}`)
-    await fs.mkdir(path.dirname(target), { recursive: true })
-    await fs.writeFile(target, data)
-  }
-  await promisify(execFile)(process.execPath, ['scripts/generate-extensions.mjs'], { cwd: process.cwd(), timeout: 60_000 })
-}
-
-async function walk(root: string, prefix = ''): Promise<string[]> {
-  const entries = await fs.readdir(path.join(root, prefix), { withFileTypes: true }).catch(() => [])
-  const out: string[] = []
-  for (const entry of entries) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name
-    if (entry.isDirectory()) out.push(...await walk(root, relative))
-    else out.push(relative)
-  }
-  return out
+  const response = await fetcher(url, { method: 'GET', headers: process.env.PACKAGE_DEPLOY_TOKEN ? { Authorization: `Bearer ${process.env.PACKAGE_DEPLOY_TOKEN}` } : {}, signal: AbortSignal.timeout(15000) }).catch(() => null)
+  return !response ? 'unknown' as const : response.ok ? 'accepted' as const : 'failed' as const
 }
 
 /** Put a staged code package into the source tree (git commit or local write). */
-export async function applyCodePackage(id: string, actor: string, fetcher: FetchLike = fetch as unknown as FetchLike) {
-  const pkg = await loadPackage(id)
-  if (!pkg) throw new PackageError(`package "${id}" is not installed`)
-  if (pkg.manifest.runtime !== 'code') throw new PackageError('only code packages are applied through a build')
+export async function applyCodePackage(id: string, actor: string, fetcher: FetchLike = fetch as unknown as FetchLike, context?: PackageCommandContext): Promise<ApplyResult> {
   const status = await applyStatus()
   if (!status.ready) throw new PackageError(`code packages cannot be applied yet: ${status.detail}`)
-  const directory = sourceDirectory(pkg.manifest.kind, pkg.manifest.id)
-  const files = new Map(Object.keys(pkg.files).sort().map(file => [file, fileBuffer(pkg, file)!]))
-  if (status.mode === 'git') {
+  const target = applyTarget(status)
+  const pkg = await beginApply(id, target, status.mode as 'git' | 'local', actor, context)
+  const operation = pkg.codeApply!
+  if (operation.intent === 'cancel' && operation.phase !== 'cancelled') return cancelCodeApply(id, actor, fetcher, context)
+  const result = (current: StoredPackage, replay = false) => ({ pkg: current, mode: operation.mode,
+    changed: !replay && (current.codeApply?.git?.changed ?? true), commit: current.codeApply?.git?.commit,
+    url: current.codeApply?.git?.url, deploy: current.codeApply?.deploy ?? null })
+  if (operation.phase === 'applied') return result(pkg, true)
+  const directory = sourceDirectory(pkg.manifest.kind, id), files = packageFiles(pkg)
+  return withApplyRunner(id, operation, context, async (fence, runner) => {
+    let current = await applyStep(id, operation, context, runner, () => false)
+    const selected = current.codeApply!
+    if (selected.intent === 'cancel') return compensateApply(current, actor, fetcher, context, fence, runner)
+    await assertPackageCompatibility(current.manifest)
+    await fence()
     try {
-      const result = await commitDirectory(gitTarget() as GitTarget, directory, [...files].map(([file, data]) => ({ path: file, data })), `${pkg.manifest.name} ${pkg.manifest.version}: apply code package from admin (${actor})`, fetcher)
-      const deploy = result.changed ? await triggerDeploy() : null
-      const note = result.changed ? `applied as commit ${result.commit.slice(0, 7)}${deploy ? ` · ${deploy}` : ''}` : 'applied (no changes)'
-      return { pkg: await markCodeApplied(id, actor, note, pkg), commit: result.commit, url: result.url, changed: result.changed, deploy, mode: status.mode }
+      if (operation.mode === 'git') {
+        if (!selected.git) {
+          const plan = await prepareDirectoryCommit(gitTarget() as GitTarget, directory, [...files].map(([file, data]) => ({ path: file, data })),
+            `${pkg.manifest.name} ${pkg.manifest.version}: code apply ${operation.id} (${actor})`, fetcher)
+          current = await applyStep(id, operation, context, runner, (_pkg, op) => {
+            if (op.git) return false
+            op.git = plan; op.phase = 'planned'; return true
+          })
+        }
+        await fence()
+        await assertPackageCompatibility(pkg.manifest)
+        await publishDirectoryCommit(gitTarget() as GitTarget, current.codeApply!.git!, fetcher)
+      } else {
+        if (!selected.local) {
+          const before = await localBefore(directory)
+          current = await applyStep(id, operation, context, runner, (_pkg, op) => {
+            if (op.local) return false
+            op.local = { before }; op.phase = 'planned'; return true
+          })
+        }
+        await applyLocal(directory, operation.id, current.codeApply!.local!.before, files, fence)
+      }
+      current = await applyStep(id, operation, context, runner, (_pkg, op) => { if (op.phase === 'applied') return false; op.phase = 'effect'; return true })
+      if (operation.mode === 'git' && current.codeApply!.git!.changed && process.env.PACKAGE_DEPLOY_WEBHOOK && !current.codeApply!.deploy) {
+        await fence()
+        current = await applyStep(id, operation, context, runner, (_pkg, op) => { if (op.deploy) return false; op.deploy = 'claimed'; return true }, 'code.deploy.request')
+        const deploy = await triggerDeploy(fetcher)
+        current = await applyStep(id, operation, context, runner, (_pkg, op) => { op.deploy = deploy || 'failed'; return true })
+      }
+      current = await finishApply(id, operation, actor, context, runner)
+      return result(current)
     } catch (error) {
       if (error instanceof GitApplyError) throw new PackageError(error.message)
       throw error
     }
-  }
-  await writeLocal(directory, files)
-  return { pkg: await markCodeApplied(id, actor, 'written to the local source tree', pkg), changed: true, mode: status.mode, deploy: null }
+  })
+}
+
+/** Explicit compensation; it never reverts a published Git commit or overwrites
+ * source edited after this operation. Cancellation itself is durable/replayable. */
+export async function cancelCodeApply(id: string, actor: string, fetcher: FetchLike = fetch as unknown as FetchLike, context?: PackageCommandContext): Promise<ApplyResult> {
+  const pkg = await loadPackage(id), operation = pkg?.codeApply
+  if (!pkg || !operation) throw new PackageError('هیچ عملیات اعمالی برای بازیابی وجود ندارد')
+  const status = await applyStatus()
+  if (operation.target !== applyTarget(status)) throw new PackageError('برای بازیابی باید مقصد همان عملیات برقرار باشد')
+  if (operation.phase === 'applied') throw new PackageError('اعمال کامل شده است؛ لغو، سورس منتشرشده را برنمی‌گرداند')
+  if (operation.phase === 'cancelled') return { pkg, mode: operation.mode, changed: false, deploy: null }
+  return withApplyRunner(id, operation, context, async (fence, runner) => {
+    const fresh = await applyStep(id, operation, context, runner, () => false)
+    return compensateApply(fresh, actor, fetcher, context, fence, runner)
+  })
+}
+
+async function compensateApply(pkg: StoredPackage, actor: string, fetcher: FetchLike, context: PackageCommandContext | undefined,
+  fence: () => Promise<void>, runner: string): Promise<ApplyResult> {
+  const operation = pkg.codeApply!, id = pkg.manifest.id
+    try {
+      await fence()
+      if (operation.mode === 'git') await assertGitPlanCancellable(gitTarget() as GitTarget, operation.git, fetcher)
+      await applyStep(id, operation, context, runner, (_pkg, op) => {
+        if (op.intent === 'cancel') return false
+        op.intent = 'cancel'; return true
+      }, 'code.cancel.prepare')
+      if (operation.mode === 'local' && operation.local) await cancelLocal(sourceDirectory(pkg.manifest.kind, id), operation.id, operation.local.before, packageFiles(pkg), fence)
+      const cancelled = await applyStep(id, operation, context, runner, (current, op) => {
+        op.phase = 'cancelled'; current.codeStatus = 'staged'; current.updatedAt = new Date().toISOString()
+        current.revisions = [{ at: current.updatedAt, path: '*', content: null, actor,
+          note: `code apply cancelled ${op.id}; source/plan reconciled, data retained` }, ...current.revisions]
+        return true
+      }, 'code.cancel')
+      return { pkg: cancelled, mode: operation.mode, changed: false, deploy: null }
+    } catch (error) { if (error instanceof GitApplyError) throw new PackageError(error.message); throw error }
 }
 
 /**
@@ -123,7 +176,7 @@ export async function importBuiltinSource(id: string, actor: string, fetcher: Fe
     for (const file of listing.files) files.set(file.path.slice(directory.length + 1), await readBlob(gitTarget() as GitTarget, file.sha, fetcher))
   } else {
     const root = path.join(process.cwd(), directory)
-    for (const file of await walk(root)) files.set(file, await fs.readFile(path.join(root, file)))
+    for (const [file, bytes] of await readLocalTree(root)) files.set(file, bytes)
   }
   if (!files.has('manifest.json')) throw new PackageError(`the source of "${id}" is not available on this server; configure PACKAGE_APPLY_MODE=git`)
   const skipped = [...files.keys()].filter(file => !validPackagePath(file, 'code'))

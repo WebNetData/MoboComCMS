@@ -21,12 +21,67 @@ const { parseManifest, validPackagePath, normalizeEntries, PACKAGE_LIMITS } = lo
 const { sanitizePackageHtml, sanitizePackageCss, renderPlaceholders } = load('src/modules/packages/domain/sanitize.ts')
 const { readZip, writeZip } = load('src/modules/packages/domain/zip.ts')
 
+test('customer Solution Pack examples retain their configuration across the distributable ZIP', () => {
+  for (const id of ['solution-editorial', 'solution-shop-services']) {
+    const folder = path.resolve(__dirname, '../examples/packages', id)
+    const manifest = Buffer.from(fs.readFileSync(path.join(folder, 'manifest.json')))
+    const archive = writeZip(new Map([['manifest.json', manifest], ['README.md', fs.readFileSync(path.join(folder, 'README.md'))]]))
+    const entries = normalizeEntries(readZip(archive, PACKAGE_LIMITS))
+    const parsed = parseManifest(JSON.parse(entries.get('manifest.json').toString()), new Set(entries.keys()))
+    assert.equal(parsed.id, id)
+    assert.equal(parsed.solutionPack.apiVersion, 1)
+    assert.equal(parsed.runtime, 'declarative')
+    assert.ok(parsed.solutionPack.modules.length >= 2)
+  }
+})
+
+test('bounded JSON keeps strict empty defaults and explicitly supports legacy empty apply requests', async () => {
+  const { readJsonObject } = load('src/platform/http/read-json.ts')
+  const request = body => new Request('http://owned.invalid/apply', { method: 'POST', ...(body !== undefined ? { body } : {}) })
+  await assert.rejects(() => readJsonObject(request()), /خالی/)
+  assert.deepEqual(await readJsonObject(request(), 1024, { allowEmpty: true }), {})
+  assert.deepEqual(await readJsonObject(request(''), 1024, { allowEmpty: true }), {})
+  await assert.rejects(() => readJsonObject(request('{'), 1024, { allowEmpty: true }), /JSON/)
+  await assert.rejects(() => readJsonObject(request('x'.repeat(1025)), 1024, { allowEmpty: true }), error => error.status === 413)
+})
+
 const BASE = '/api/public/packages/demo/files'
 const example = dir => {
   const root = path.join(__dirname, '..', 'docs/packages/examples', dir)
   const walk = folder => fs.readdirSync(folder, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(folder, entry.name)) : [path.relative(root, path.join(folder, entry.name)).split(path.sep).join('/')])
   return { manifest: JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')), files: new Set(walk(root)) }
 }
+
+test('solution packs are bounded declarative configuration without rendered contributions', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../examples/packages/solution-editorial/manifest.json'), 'utf8'))
+  const files = new Set(['manifest.json'])
+  const parsed = parseManifest(manifest, files)
+  assert.deepEqual(parsed.solutionPack.modules.map(module => module.id), ['journal', 'block-editor'])
+  assert.deepEqual(parsed.solutionPack.recommendations, ['promo-banner'])
+  const pack = manifest.solutionPack
+  const withPack = solutionPack => ({ ...manifest, solutionPack })
+  for (const invalid of [
+    null, { ...pack, apiVersion: 2 }, { ...pack, role: 'admin' }, { ...pack, modules: [] },
+    { ...pack, modules: Array(31).fill(pack.modules[0]) },
+    { ...pack, modules: [pack.modules[0], pack.modules[0]] },
+    { ...pack, modules: [{ id: 'journal', version: '^1.0.0-beta' }] },
+    { ...pack, modules: [{ id: 'journal', secret: 'x' }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { 'seo.title': 'x'.repeat(2001) } }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { 'seo.title': { value: 'x' } } }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { 'seo.title': Infinity } }] },
+    { ...pack, modules: [{ id: 'journal', defaults: JSON.parse('{"__proto__":true}') }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { constructor: true } }] },
+    { ...pack, recommendations: ['same', 'same'] },
+    { ...pack, recommendations: ['Bad_ID'] },
+  ]) assert.throws(() => parseManifest(withPack(invalid), files), /solutionPack/)
+  for (const key of ['slots', 'styles', 'pages', 'settings', 'components', 'design']) {
+    assert.throws(() => parseManifest({ ...manifest, [key]: [] }, files), /solutionPack/)
+  }
+  assert.throws(() => parseManifest({ ...manifest, kind: 'theme' }, files), /solutionPack/)
+  assert.throws(() => parseManifest({ ...manifest, runtime: 'code' }, files), /solutionPack/)
+  const defaults = { 'seo.title': 'مجله', 'posts.enabled': true, 'posts.max-length': 500 }
+  assert.deepEqual({ ...parseManifest(withPack({ apiVersion: 1, modules: [{ id: 'journal', defaults }] }), files).solutionPack.modules[0].defaults }, defaults)
+})
 
 test('bundled example packages are valid', () => {
   for (const dir of ['promo-banner', 'ocean-theme']) {
@@ -56,7 +111,10 @@ test('manifests reject unknown slots, missing files, bad ids and code-only field
   assert.throws(() => parseManifest({ ...manifest, id: 'Bad_ID' }, files), /id/)
   assert.throws(() => parseManifest({ ...manifest, slots: { 'admin.secret': 'slots/banner.fa.html' } }, files), /unknown slot/)
   assert.throws(() => parseManifest({ ...manifest, styles: ['missing.css'] }, files), /missing file/)
-  assert.throws(() => parseManifest({ ...manifest, requiresCore: '^2.0.0' }, files), /core version/)
+  assert.equal(parseManifest({ ...manifest, requiresCore: '^2.0.0', requires: ['store'] }, files).requiresCore, '^2.0.0')
+  assert.deepEqual(parseManifest({ ...manifest, requires: ['store'] }, files).requires, ['store'])
+  for (const range of ['^01.0.0', '1.0', '^1.0.0-beta', '9007199254740992.0.0']) assert.throws(() => parseManifest({ ...manifest, requiresCore: range }, files), /requiresCore/)
+  assert.throws(() => parseManifest({ ...manifest, requires: ['Bad_ID'] }, files), /requires/)
   assert.throws(() => parseManifest({ ...manifest, design: { radius: 4 } }, files), /only allowed for themes/)
   const theme = example('ocean-theme')
   assert.throws(() => parseManifest({ ...theme.manifest, design: { ...theme.manifest.design, colors: { ...theme.manifest.design.colors, accent: 'red;x:y' } } }, theme.files), /colors/)
@@ -135,6 +193,19 @@ test('code packages need apiVersion and may carry build-time settings', () => {
   assert.equal(validPackagePath('client.tsx', 'declarative'), false)
 })
 
+test('extension compatibility checks the declared module version and capabilities', () => {
+  const { compatibilityIssue } = load('src/platform/extensions/compatibility.ts')
+  const catalog = [{ id: 'store', kind: 'module', version: '0.2.4', capabilities: ['api', 'events'] }]
+  const manifest = { id: 'example', requiresCore: '^1.0.0', requires: ['store'], dependencyVersions: { store: '^0.2.3' }, requiresCapabilities: { store: ['api'] } }
+  assert.equal(compatibilityIssue(manifest, catalog, '1.7.0'), null)
+  assert.match(compatibilityIssue(manifest, [], '1.7.0'), /missing/)
+  assert.match(compatibilityIssue(manifest, [{ ...catalog[0], kind: 'plugin' }], '1.7.0'), /missing/)
+  assert.match(compatibilityIssue(manifest, [{ ...catalog[0], version: '0.3.0' }], '1.7.0'), /requires store/)
+  assert.match(compatibilityIssue(manifest, [{ ...catalog[0], capabilities: [] }], '1.7.0'), /lacks capabilities/)
+  assert.match(compatibilityIssue(manifest, catalog, '2.0.0'), /requires core/)
+  assert.match(compatibilityIssue({ id: 'example', dependencyVersions: { store: '^0.2.3' } }, catalog, '1.7.0'), /listed in requires/)
+})
+
 test('every migration belongs to exactly one release, and a shipped one is never edited', () => {
   const { verify, seal, readMigrations, compareVersions } = require('./release-migrations.cjs')
   const m = (name, sha256 = name) => ({ name, sha256 })
@@ -164,8 +235,10 @@ test('every migration belongs to exactly one release, and a shipped one is never
 
 test('the states the database accepts are the states the code declares', () => {
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
-  const sql = read('prisma/migrations/20261216120000_money_state_rules/migration.sql')
-  const allowed = (constraint) => { const m = sql.match(new RegExp('"' + constraint + '" CHECK \\("\\w+" IN \\(([^)]*)\\)\\)')); assert.ok(m, constraint); return m[1].split(',').map((value) => value.trim().replace(/'/g, '')).sort() }
+  // Resolve the final installed constraint after additive migrations widen a vocabulary.
+  const migrations = path.resolve(__dirname, '../prisma/migrations')
+  const sql = fs.readdirSync(migrations).sort().filter(name => fs.existsSync(path.join(migrations, name, 'migration.sql'))).map(name => read(`prisma/migrations/${name}/migration.sql`)).join('\n')
+  const allowed = (constraint) => { const m = [...sql.matchAll(new RegExp('"' + constraint + '" CHECK \\("\\w+" IN \\(([^)]*)\\)\\)', 'g'))].at(-1); assert.ok(m, constraint); return m[1].split(',').map((value) => value.trim().replace(/'/g, '')).sort() }
   const union = (source, name) => { const m = source.match(new RegExp('type ' + name + ' = ([^\\n]+)')); assert.ok(m, name); return [...m[1].matchAll(/'([A-Z_]*)'/g)].map((x) => x[1]).sort() }
   const list = (source, name) => { const m = source.match(new RegExp(name + ' = \\[([^\\]]+)\\]')); assert.ok(m, name); return [...m[1].matchAll(/'([A-Z_]*)'/g)].map((x) => x[1]).sort() }
   // A wallet row type or an invoice state added in code needs a migration that lets the database accept it.

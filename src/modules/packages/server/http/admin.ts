@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
-import { requirePerm, type AuthedUser } from '@/modules/identity/server/access'
+import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
+import { requirePerm } from '@/modules/identity/server/access'
 import { getSiteConfig } from '@/modules/site/config/store'
 import { PACKAGE_LIMITS, PackageError, isEditable } from '@/modules/packages/domain/format'
 import {
   deletePackage, deletePackageFile, exportPackage, fileText, installPackage, listPackages, loadPackage,
   restoreRevision, patchPackage, PackageAuthorityError, summarize, writePackageFile,
 } from '@/modules/packages/server/store'
-import { applyCodePackage, applyStatus, importBuiltinSource } from '@/modules/packages/server/code-apply'
+import { applyCodePackage, cancelCodeApply, applyStatus, importBuiltinSource } from '@/modules/packages/server/code-apply'
 import { extensionCatalog } from '@/extensions/generated/catalog'
 import { codeThemeCatalog } from '@/themes/generated/catalog'
 
@@ -22,13 +22,12 @@ async function guard(req: NextRequest) {
   return requirePerm(req, PERMISSION)
 }
 function failure(error: unknown) {
+  if (error instanceof JsonBodyError) return err(error.message, error.status)
   if (error instanceof PackageAuthorityError) return err('forbidden', 403)
   if (error instanceof PackageError) return err(error.message, 400)
   console.error('[packages]', error)
   return err('package operation failed', 500)
 }
-const audit = (req: NextRequest, actor: AuthedUser, action: string, id: string, metadata: Record<string, unknown> = {}) =>
-  auditAdmin({ req, actor, action: `package.${action}`, targetType: 'package', targetId: id, metadata })
 
 async function readUpload(req: NextRequest): Promise<Buffer> {
   const limit = PACKAGE_LIMITS.uploadBytes + 64 * 1024
@@ -169,8 +168,10 @@ export async function applyRoute(req: NextRequest, { params }: Ctx) {
   if (!actor) return err('the extensions.code permission is required to apply code packages', 403)
   const { id } = await params
   try {
-    const result = await applyCodePackage(id, actor.email)
-    await audit(req, actor, 'code.apply', id, { mode: result.mode, commit: 'commit' in result ? result.commit : undefined, changed: result.changed })
+    const body = await readJsonObject(req, 1024, { allowEmpty: true })
+    if (body && (Object.keys(body).some(key => key !== 'action') || body.action !== undefined && body.action !== 'cancel')) return err('invalid apply action', 400)
+    const result = body?.action === 'cancel' ? await cancelCodeApply(id, actor.email, undefined, { req, actor })
+      : await applyCodePackage(id, actor.email, undefined, { req, actor })
     return ok({ package: summarize(result.pkg), mode: result.mode, changed: result.changed, commit: 'commit' in result ? result.commit : undefined, url: 'url' in result ? result.url : undefined, deploy: result.deploy })
   } catch (error) { return failure(error) }
 }

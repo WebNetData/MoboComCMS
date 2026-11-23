@@ -3,7 +3,8 @@
 
 export interface GitTarget { token: string; repo: string; branch: string; apiBase?: string }
 export interface GitFile { path: string; data: Buffer }
-export type FetchLike = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown>; text(): Promise<string> }>
+export type FetchLike = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown>; text(): Promise<string> }>
+import type { GitApplyPlan } from './apply-operation'
 
 export class GitApplyError extends Error {}
 
@@ -19,6 +20,7 @@ function client(target: GitTarget, fetcher: FetchLike) {
   return async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
     const response = await fetcher(`${base}/repos/${target.repo}${path}`, {
       method,
+      signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Bearer ${target.token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json', 'User-Agent': 'MoboComCMS-packages' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     })
@@ -52,7 +54,7 @@ export async function readBlob(target: GitTarget, sha: string, fetcher: FetchLik
  * The ref update is a fast-forward, so a concurrent push makes it fail
  * instead of silently discarding someone else's work.
  */
-export async function commitDirectory(target: GitTarget, directory: string, files: GitFile[], message: string, fetcher: FetchLike) {
+export async function prepareDirectoryCommit(target: GitTarget, directory: string, files: GitFile[], message: string, fetcher: FetchLike): Promise<GitApplyPlan> {
   const call = client(target, fetcher)
   const { headSha, baseTree, files: existing } = await listDirectory(target, directory, fetcher)
   const prefix = directory.replace(/\/?$/, '/')
@@ -64,8 +66,42 @@ export async function commitDirectory(target: GitTarget, directory: string, file
   }
   for (const file of existing) if (!wanted.has(file.path)) entries.push({ path: file.path, mode: '100644', type: 'blob', sha: null })
   const tree = await call<{ sha: string }>('POST', '/git/trees', { base_tree: baseTree, tree: entries })
-  if (tree.sha === baseTree) return { commit: headSha, changed: false }
+  if (tree.sha === baseTree) return { head: headSha, commit: headSha, changed: false }
   const commit = await call<{ sha: string; html_url?: string }>('POST', '/git/commits', { message, tree: tree.sha, parents: [headSha] })
-  await call('PATCH', `/git/refs/heads/${target.branch}`, { sha: commit.sha, force: false })
-  return { commit: commit.sha, url: commit.html_url || `https://github.com/${target.repo}/commit/${commit.sha}`, changed: true }
+  return { head: headSha, commit: commit.sha, url: commit.html_url || `https://github.com/${target.repo}/commit/${commit.sha}`, changed: true }
+}
+
+/** Reconcile the recorded commit before retrying an uncertain branch update.
+ * Never create a replacement commit or force over a concurrent push. */
+export async function publishDirectoryCommit(target: GitTarget, plan: GitApplyPlan, fetcher: FetchLike) {
+  const call = client(target, fetcher)
+  const ref = await call<{ object: { sha: string } }>('GET', `/git/ref/heads/${target.branch}`)
+  if (ref.object.sha === plan.commit) return
+  if (ref.object.sha !== plan.head) {
+    const comparison = await call<{ status: string }>('GET', `/compare/${plan.commit}...${ref.object.sha}`)
+    if (comparison.status === 'ahead' || comparison.status === 'identical') return
+    throw new GitApplyError('the branch changed concurrently; the recorded apply commit is not on this branch')
+  }
+  await call('PATCH', `/git/refs/heads/${target.branch}`, { sha: plan.commit, force: false })
+}
+
+/** A diverged ref cannot fast-forward to the old plan even if an old request
+ * eventually arrives. At the old head, a lost update remains ambiguous. */
+export async function assertGitPlanCancellable(target: GitTarget, plan: GitApplyPlan | undefined, fetcher: FetchLike) {
+  if (!plan || !plan.changed) return
+  const call = client(target, fetcher)
+  const ref = await call<{ object: { sha: string } }>('GET', `/git/ref/heads/${target.branch}`)
+  if (ref.object.sha === plan.commit) throw new GitApplyError('این commit ثبت شده است؛ عملیات را ادامه دهید. لغو، commit منتشرشده را برنمی‌گرداند')
+  if (ref.object.sha !== plan.head) {
+    const comparison = await call<{ status: string }>('GET', `/compare/${plan.commit}...${ref.object.sha}`)
+    if (comparison.status === 'diverged') return
+  }
+  throw new GitApplyError('نتیجهٔ اعمال گیت برای لغو قطعی نیست؛ ابتدا وضعیت شاخه و commit ثبت‌شده را بررسی کنید')
+}
+
+export async function commitDirectory(target: GitTarget, directory: string, files: GitFile[], message: string, fetcher: FetchLike) {
+  const plan = await prepareDirectoryCommit(target, directory, files, message, fetcher)
+  // Existing one-shot API keeps its original call sequence for trusted callers.
+  if (plan.changed) await client(target, fetcher)('PATCH', `/git/refs/heads/${target.branch}`, { sha: plan.commit, force: false })
+  return { commit: plan.commit, url: plan.url, changed: plan.changed }
 }

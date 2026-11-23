@@ -1,3 +1,5 @@
+import { compatibilityIssue, isCompatibilityRange } from './compatibility'
+
 export const EXTENSION_API_VERSION = 1 as const
 
 export type ExtensionKind = 'plugin' | 'module' | 'theme' | 'integration'
@@ -76,6 +78,8 @@ export interface ExtensionManifest {
   // ---- feature modules (kind: 'module') -------------------------------
   /** Modules that must be enabled for this module or plugin to work; it counts as off while one of them is off. */
   requires?: readonly string[]
+  dependencyVersions?: Readonly<Record<string, string>>
+  requiresCapabilities?: Readonly<Record<string, readonly ExtensionCapability[]>>
   /** Public URL prefixes owned by the module; they 404 and leave menus while it is off. */
   publicPaths?: readonly string[]
   /** Core admin routes owned by the module; hidden from the admin menu while it is off. */
@@ -92,12 +96,19 @@ export interface ExtensionManifest {
 const EXTENSION_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const SETTING_KEY = /^[a-z][a-z0-9._-]{0,79}$/
 const PERMISSION_ID = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/
+const CAPABILITIES = new Set(['ui', 'admin', 'api', 'events', 'jobs', 'settings', 'storage'])
+const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 
 export function assertValidExtensionManifest(manifest: ExtensionManifest) {
   if (!EXTENSION_ID.test(manifest.id)) throw new Error(`Invalid extension id "${manifest.id}". Use lowercase kebab-case.`)
   if (!manifest.name.trim()) throw new Error(`Extension "${manifest.id}" has no name.`)
   if (!/^\d+\.\d+\.\d+(?:[-+].+)?$/.test(manifest.version)) throw new Error(`Extension "${manifest.id}" must use a semantic version.`)
   if (manifest.apiVersion !== EXTENSION_API_VERSION) throw new Error(`Extension "${manifest.id}" targets unsupported API version ${manifest.apiVersion}.`)
+  if (manifest.capabilities !== undefined && (!Array.isArray(manifest.capabilities) || manifest.capabilities.length > CAPABILITIES.size || !manifest.capabilities.every(capability => CAPABILITIES.has(capability)))) throw new Error(`Extension "${manifest.id}" has invalid capabilities.`)
+  if (manifest.requiresCore !== undefined && !isCompatibilityRange(manifest.requiresCore)) throw new Error(`Extension "${manifest.id}" has invalid requiresCore.`)
+  if (manifest.requires !== undefined && (!Array.isArray(manifest.requires) || manifest.requires.length > 100 || !manifest.requires.every(id => typeof id === 'string' && id.length <= 50 && EXTENSION_ID.test(id)))) throw new Error(`Extension "${manifest.id}" has invalid requires.`)
+  if (manifest.dependencyVersions !== undefined && (!record(manifest.dependencyVersions) || Object.keys(manifest.dependencyVersions).length > 100 || !Object.entries(manifest.dependencyVersions).every(([id, range]) => manifest.requires?.includes(id) && isCompatibilityRange(range)))) throw new Error(`Extension "${manifest.id}" has invalid dependencyVersions.`)
+  if (manifest.requiresCapabilities !== undefined && (!record(manifest.requiresCapabilities) || Object.keys(manifest.requiresCapabilities).length > 100 || !Object.entries(manifest.requiresCapabilities).every(([id, capabilities]) => manifest.requires?.includes(id) && Array.isArray(capabilities) && capabilities.length <= CAPABILITIES.size && capabilities.every(capability => typeof capability === 'string' && CAPABILITIES.has(capability))))) throw new Error(`Extension "${manifest.id}" has invalid requiresCapabilities.`)
   for (const setting of manifest.settings || []) {
     if (!SETTING_KEY.test(setting.key)) throw new Error(`Extension "${manifest.id}" has invalid setting key "${setting.key}".`)
     if (setting.type === 'select' && (!setting.options || setting.options.length === 0)) throw new Error(`Select setting "${setting.key}" must define options.`)
@@ -133,7 +144,7 @@ export function pathDisabled(href: string, runtime: Readonly<Record<string, Exte
   return Object.values(runtime).some((state) => !state.enabled && (state.paths || []).some((prefix) => path === prefix || path.startsWith(`${prefix}/`)))
 }
 
-export function assertUniqueExtensionIds(manifests: readonly ExtensionManifest[]) {
+export function assertUniqueExtensionIds(manifests: readonly ExtensionManifest[], coreVersion?: string) {
   const seen = new Set<string>()
   const permissions = new Set<string>()
   for (const manifest of manifests) {
@@ -141,8 +152,11 @@ export function assertUniqueExtensionIds(manifests: readonly ExtensionManifest[]
     if (seen.has(manifest.id)) throw new Error(`Duplicate extension id: ${manifest.id}`)
     seen.add(manifest.id)
     for (const dependency of manifest.requires || []) {
-      if (!manifests.some((other) => other.id === dependency && other.kind === 'module')) throw new Error(`Extension "${manifest.id}" requires missing module "${dependency}"`)
+      if (dependency === manifest.id) throw new Error(`Extension dependency cycle: ${manifest.id} -> ${manifest.id}`)
+      if (!manifests.some(other => other.id === dependency && other.kind === 'module')) throw new Error(`Extension "${manifest.id}" requires missing module "${dependency}"`)
     }
+    const issue = compatibilityIssue(coreVersion === undefined ? { ...manifest, requiresCore: undefined } : manifest, manifests, coreVersion || '')
+    if (issue) throw new Error(issue)
     for (const permission of manifest.permissions || []) {
       if (permissions.has(permission.id)) throw new Error(`Duplicate extension permission: ${permission.id}`)
       permissions.add(permission.id)

@@ -76,12 +76,98 @@ remain Core-owned recovery controls while ordinary module settings disappear.
 
 ## Subsequent roadmap and rollback
 
-Continue real-core compatibility and dependency versions using existing semantics;
-claimed recoverable trusted-code apply and queued-work lifecycle reconciliation;
-then remaining commercial capability boundaries, customer Solution Packs and
-distribution/entitlement contracts. These are pending, not delivered by manifests.
+### Package compatibility and recoverable code apply — owner2026-11-23
+
+Continue on `.mobocom/package-lifecycle`, branch
+`feat/package-lifecycle-recovery-2026-11-23`, from fetched main `bcdfbdc7`.
+Owner authorized this implementation after the continuation proposal. Existing
+Packages aggregate/index, Identity, strict Audit and generated extension catalogs
+remain owners; no new registry, identity, executable runtime or destructive migration.
+
+Change envelope: validate actual core/dependency contracts before installation,
+editing, activation and trusted source apply. Persist a package-bound operation
+ID, exact file fingerprint and nonsecret target before effects. Plan a Git commit
+before changing the branch; reconcile its identity after an uncertain response.
+Local apply retains the previous directory and prepares the complete replacement;
+interrupted swaps are reconciled against the recorded fingerprints, never guessed.
+Pending operations prevent package edits/upgrade/uninstall. Repeated apply resumes
+the same operation and does not duplicate final history or deployment notification.
+Every privileged phase uses current extensions.code authority and strict Audit;
+database retry callbacks contain no filesystem/network effects. An unknown webhook
+outcome is retained and never automatically resent. Trusted code still needs the
+ordinary reviewed build/deploy; apply is not a production-ready certificate.
+
+Acceptance: registered `package-apply.connected.cjs` on disposable PostgreSQL,
+without .env/non-root; concurrency, authority revocation, audit rollback, pending
+edit refusal, interrupted local swap and Git response loss/recovery, target drift,
+unchanged retry and current-version/dependency rejection. Deliberately remove a
+critical guard in private test source, observe failure, restore and pass. Scoped
+package/extension regressions, types/source/architecture/security checks and real
+manager browser light/dark/mobile with scoped axe/visual review. Rollback retains
+operation receipts, backup directories and package data; unresolved operations
+must be reconciled before downgrade or mutation. No hosted workflow, provider send,
+PR publication, merge or production deployment is part of this task.
+
+The bounded2026-11-23 slice above implements consumed core/module compatibility
+and recoverable trusted-source apply. Continue wider queued-work lifecycle and
+commercial capability boundaries, customer Solution Packs and distribution/
+entitlement contracts. Multi-host process-death proof remains operator-owned;
+manifests do not certify independently deployed extensions or live providers.
 
 Rollback keeps canonical data. Never downgrade to a package reader that republishes
 retained-uninstalled rows or a repair mutation that bypasses consent. Keep the
 guards or freeze affected writes until compatible code is restored. Reactivation
 is explicit; preserve existing keys, money and historical records.
+
+## Solution Packs and commercial distribution — owner2026-11-23
+
+Continue `feat/solution-packs-distribution-2026-11-23` from9da4d6ac in
+`.mobocom/package-lifecycle`. Source audit found no executable Solution Pack;
+the architecture describes the target. Existing Packages owns ZIP/parser/storage/
+revisions and Repository already owns signed releases, acquisition entitlement,
+download integrity and install. Reuse them; no new product kind, license service,
+identity, database migration or executable installer. Graphify refresh failed the
+existing out-of-corpus CredentialPools.tsx; exact source supplied this inventory.
+
+Version1 is a strictly validated `solutionPack` contribution on a declarative
+plugin: named built-in modules, compatible versions, typed nonsecret setting
+defaults and advisory extension recommendations. Other runtime contributions,
+unknown fields, arbitrary Setting keys, secret defaults and specialized business
+policy history writes refuse. Roles, theme/navigation/content publication and
+dependent paid extensions retain their existing explicit owners; this contract
+does not silently import them or grant their entitlements.
+
+An installed pack remains inert. settings.manage staff previews its current plan,
+including modules to enable, missing-only defaults and preserved settings. No
+undeclared disabled dependency is silently enabled. Explicit POST applies the
+reviewed hash in one serializable transaction through the existing extension
+writer, current canonical actor and strict Audit. Recheck source/config/catalog;
+a stale plan refuses409. Unreadable state refuses without fallback writes.
+An additive validated receipt in the same package aggregate makes concurrent
+replays idempotent; upgrade/reinstall/uninstall retain receipts and Audit history.
+No filesystem/network/provider effect runs inside a retry callback.
+
+Repository PLUGIN acquisition remains the same signed ZIP/manifest identity,
+SHA/size/version/current site/config/entitlement admission. A pack purchase grants
+that pack's distribution, never other paid products. Existing license behavior is
+acquisition/update authorization, not continuous module DRM. Uninstall/revocation
+never undoes customer configuration, deletes data or disables included modules.
+
+Admin extends the existing scoped manager with a review panel, truthful receipt,
+keyboard controls and busy/error/stale feedback under SDS/MoboCom tokens. No new
+Admin directory or public visual change. Provide real customer example archives
+through the current examples workflow and vendor publishing instructions.
+
+Acceptance: strict parser/ZIP/export/reimport and repository units; registered
+`solution-packs.connected.cjs` on fresh PostgreSQL/no.env/UID1000 for actual preview,
+apply, atomic Audit rollback, current authority, stale state/source, concurrent
+replay, dependency/schema refusal, preserved settings/data and retained receipt.
+Deliberately break a critical guard and observe failure, then restore/pass.
+Existing package-command/extension-state/repository install checks, full types,
+source/architecture and scoped security; actual1440 light/dark and390 browser
+preview/apply/error/replay plus axe/focus and guest/Origin refusals. Doctor reviews
+affected components. No live purchase/provider, hosted workflow, merge or deploy.
+
+Rollback withdraws the pack UI/commands; keep existing configured modules/settings
+and receipts. Before downgrading, retain/export package receipts and do not install
+an older writer that silently discards them. No automatic configuration reversal.

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { compatibilityIssue, isCompatibilityRange } from '../src/platform/extensions/compatibility.ts'
 
 const root = process.cwd()
 const pluginsDir = path.join(root, 'src/plugins')
@@ -13,25 +14,18 @@ const coreVersion = String(pkg.version || '0.0.0')
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)(?:[-+].+)?$/
 function versionTuple(value) { const m = String(value).match(SEMVER); if (!m) throw new Error(`Invalid semantic version: ${value}`); return m.slice(1,4).map(Number) }
-function assertCoreRange(range, id) {
-  if (!range) return
-  const core = versionTuple(coreVersion)
-  if (range.startsWith('^')) {
-    const wanted = versionTuple(range.slice(1))
-    if (core[0] !== wanted[0] || core[1] < wanted[1] || (core[1] === wanted[1] && core[2] < wanted[2])) throw new Error(`${id} requires core ${range}, current is ${coreVersion}`)
-    return
-  }
-  const exact = versionTuple(range)
-  if (core.some((part, i) => part !== exact[i])) throw new Error(`${id} requires core ${range}, current is ${coreVersion}`)
-}
+const capabilities = new Set(['ui','admin','api','events','jobs','settings','storage'])
+const record = value => !!value && typeof value === 'object' && !Array.isArray(value)
 function validateManifest(manifest, expectedKind, file) {
   if (!ID.test(String(manifest.id || ''))) throw new Error(`${file}: invalid id`)
   const kinds = Array.isArray(expectedKind) ? expectedKind : [expectedKind]
   if (!kinds.includes(manifest.kind)) throw new Error(`${file}: kind must be ${kinds.join(' or ')}`)
   if (manifest.apiVersion !== 1) throw new Error(`${file}: unsupported apiVersion`)
   versionTuple(manifest.version)
-  assertCoreRange(manifest.requiresCore, manifest.id)
-  const capabilities = new Set(['ui','admin','api','events','jobs','settings','storage'])
+  if (manifest.requiresCore !== undefined && !isCompatibilityRange(manifest.requiresCore)) throw new Error(`${file}: invalid requiresCore`)
+  if (manifest.requires !== undefined && (!Array.isArray(manifest.requires) || manifest.requires.length > 100 || !manifest.requires.every(id => typeof id === 'string' && id.length <= 50 && ID.test(id)))) throw new Error(`${file}: invalid requires`)
+  if (manifest.dependencyVersions !== undefined && (!record(manifest.dependencyVersions) || Object.keys(manifest.dependencyVersions).length > 100 || !Object.entries(manifest.dependencyVersions).every(([id, range]) => manifest.requires?.includes(id) && isCompatibilityRange(range)))) throw new Error(`${file}: invalid dependencyVersions`)
+  if (manifest.requiresCapabilities !== undefined && (!record(manifest.requiresCapabilities) || Object.keys(manifest.requiresCapabilities).length > 100 || !Object.entries(manifest.requiresCapabilities).every(([id, values]) => manifest.requires?.includes(id) && Array.isArray(values) && values.length <= capabilities.size && values.every(value => typeof value === 'string' && capabilities.has(value))))) throw new Error(`${file}: invalid requiresCapabilities`)
   for (const capability of manifest.capabilities || []) if (!capabilities.has(capability)) throw new Error(`${file}: unknown capability ${capability}`)
   const settingKeys = new Set()
   for (const setting of manifest.settings || []) {
@@ -66,6 +60,21 @@ function packages(dir) {
 // Feature modules (kind "module") ship with Core and live next to plugins so one
 // manager activates both; their code stays in src/modules and checks the flag.
 const plugins = packages(pluginsDir).map(x => { validateManifest(x.manifest, ['plugin', 'module'], x.file); return ({ ...x, client: fs.existsSync(path.join(pluginsDir, x.dir, 'client.tsx')), server: fs.existsSync(path.join(pluginsDir, x.dir, 'server.ts')) }) })
+const themes = packages(themesDir).map(x => { validateManifest(x.manifest, 'theme', x.file); return ({ ...x, client: fs.existsSync(path.join(themesDir, x.dir, 'client.tsx')), home: fs.existsSync(path.join(themesDir, x.dir, 'home.tsx')), css: fs.existsSync(path.join(themesDir, x.dir, 'theme.css')) }) })
+const catalog = plugins.map(x => x.manifest)
+for (const { manifest, file } of [...plugins, ...themes]) {
+  const issue = compatibilityIssue(manifest, catalog, coreVersion)
+  if (issue) throw new Error(`${file}: ${issue}`)
+}
+const visited = new Set(), visiting = new Set()
+function visit(id) {
+  if (visiting.has(id)) throw new Error(`Extension dependency cycle: ${[...visiting, id].join(' -> ')}`)
+  if (visited.has(id)) return
+  visiting.add(id)
+  for (const dependency of catalog.find(manifest => manifest.id === id)?.requires || []) visit(dependency)
+  visiting.delete(id); visited.add(id)
+}
+for (const manifest of catalog) visit(manifest.id)
 const catalogImports = plugins.map((x, i) => `import m${i} from '@/plugins/${x.dir}/manifest.json'`).join('\n')
 emit(path.join(extensionOut, 'catalog.ts'), `${catalogImports}\nimport { assertUniqueExtensionIds, type ExtensionManifest } from '@/platform/extensions/contracts'\n\nexport const extensionCatalog = [${plugins.map((_, i) => `m${i}`).join(', ')}] as unknown as readonly ExtensionManifest[]\nassertUniqueExtensionIds(extensionCatalog)\nexport const extensionById = new Map(extensionCatalog.map((manifest) => [manifest.id, manifest]))\nexport const extensionPermissionIds = extensionCatalog.flatMap((manifest) => (manifest.permissions || []).map((permission) => permission.id))\n`)
 const clientPlugins = plugins.filter(x => x.client)
@@ -73,7 +82,6 @@ emit(path.join(extensionOut, 'client-registry.ts'), `${clientPlugins.map((x,i)=>
 const serverPlugins = plugins.filter(x => x.server)
 emit(path.join(extensionOut, 'server-registry.ts'), `${serverPlugins.map((x,i)=>`import { plugin as s${i} } from '@/plugins/${x.dir}/server'`).join('\n')}\nimport type { PluginServerModule } from '@/extensions/server/types'\nexport const serverPlugins: Readonly<Record<string, PluginServerModule>> = {\n  ${serverPlugins.map((x,i)=>`'${x.dir}': s${i}`).join(',\n  ')}\n}\n`)
 
-const themes = packages(themesDir).map(x => { validateManifest(x.manifest, 'theme', x.file); return ({ ...x, client: fs.existsSync(path.join(themesDir, x.dir, 'client.tsx')), home: fs.existsSync(path.join(themesDir, x.dir, 'home.tsx')), css: fs.existsSync(path.join(themesDir, x.dir, 'theme.css')) }) })
 for (const { manifest } of themes) {
   if (manifest.kind !== 'theme' || !manifest.design || manifest.design.id !== manifest.id) throw new Error(`Theme ${manifest.id} must declare kind=theme and a matching design manifest`)
 }

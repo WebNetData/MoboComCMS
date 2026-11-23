@@ -37,6 +37,14 @@ Existing document/PDF/presentation/spreadsheet skills and the system skill creat
 
 ## Default interface design — 2026-11-02
 
+Owner refinement2026-11-23: use Unslop together with task-relevant OpenDesign
+guidance for requested MoboCom interface work. Read the selected original skill,
+preserve SDS/MoboCom identity and owners, and record which guidance was actually
+used. Prefer restrained functional motion, reduced-motion support and real
+before/after browser evidence. This does not install the OpenDesign application,
+replace the design system, authorize external uploads or restyle unrelated pages.
+Current application: [extension management polish](handoffs/COMMERCIAL_MODULARITY.md#extension-management-visual-polish--2026-11-23).
+
 Owner preference: use `unslop` for each requested interface design, styling, polish or redesign task, including new screens. Inspect the actual surface, state a product-specific direction briefly and work through the relevant spacing/color/icon/copy/type/layout/detail/visual/motion passes. Continue authorized implementation without an extra generic approval loop. This preference does not initiate a site redesign or authorize changing unrelated screens.
 
 Pinned source: [heydamir/unslop](https://github.com/heydamir/unslop/tree/a6f121eee5f29c2f74976b75456feae8b66afb3a/skills/unslop), by Damir Sokolovsky, CC-BY-4.0. The original credit, bundled references/images, scripts and license are retained. Adaptations broaden the trigger to the owner's preference and add the MoboCom integration block; hashes are in the existing lock. Approved MoboCom logos/colors/effects, Persian typography/RTL, SDS semantic tokens, both themes and the established wide page layout override generic upstream aesthetic examples. No automatic removal of approved gradients/branding, new design-system document or component-library replacement.

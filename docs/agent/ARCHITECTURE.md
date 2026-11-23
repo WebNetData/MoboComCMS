@@ -1,3 +1,5 @@
+Package lifecycle2026-11-23: existing Packages aggregate/index and Settings own recoverable trusted source-apply receipts/claims; Platform Extension contracts own consumed core/module version/capability compatibility. Canonical Identity and strict Audit guard each phase. Local compensation retains old source, Git recovery never forces or guesses an unknown external outcome. No registry/schema/identity replacement. [Bounded scope, evidence and operational limits](handoffs/COMMERCIAL_MODULARITY.md#package-compatibility-and-recoverable-source-apply--2026-11-23).
+
 Pay collection integration2026-11-23: `Invoice.kind=PAY_COLLECTION` is the canonical guest collection document (null User/Order/product, no wallet application), uniquely owned by PayPayment. Shared provider callbacks and PaymentReceipt settle through markInvoicePaid, composing exact-once Pay Wallet credit/journal/audit in the same transaction. Canonical SMS OTP issues payment/browser-scoped proof without login/User creation; Pay persists encrypted phone/hash/last4. No second gateway, identity, receipt store, queue or Telegram client. Fixed+percentage/cap/bearer and provider/total snapshots are immutable per payment. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#shared-gateways-and-verified-payer-checkout--owner-continuation-2026-11-23).
 
 Payment gateway presentation2026-11-23: account navigation remains AccountShell/ShellNav-owned; Admin navigation is declared by the existing Pay manifest in Finance. Whitelisted path views compose the same Pay components and module guards. Reports reuse Billing read models/CSV and canonical Wallet provenance; no second wallet, navigation framework or authorization resolver. [Evidence](handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23).
@@ -613,6 +615,19 @@ SolutionPack
 ```
 
 This is how MoboCom adapts to many business types while remaining one product.
+
+Implemented bounded v1 (2026-11-23): a strictly validated `solutionPack` on an
+existing declarative plugin provisions declared built-in capabilities and typed,
+nonsecret missing-only defaults after an explicit state/source-bound preview.
+Packages owns the one-time retained receipt; Extensions owns schema/mirrors and
+its transaction-capable state writer; Repository owns existing signed free/paid
+acquisition and update entitlement. Canonical Identity and strict Audit commit
+with the configuration. No separate pack registry/license service or code fork.
+Recommendations do not install or grant other paid products. Uninstall/revocation
+does not reverse customer configuration. Roles/theme/navigation/starter content
+in the target above remain later explicit owner composition, not v1 behavior.
+[Contracts, local evidence and rollback](handoffs/COMMERCIAL_MODULARITY.md#solution-packs-and-signed-commercial-distribution--2026-11-23).
+
 
 ## 14. Settings architecture
 

@@ -1,3 +1,14 @@
+## Integration with Extensions and Solution Packs — owner2026-11-23
+
+Owner-merged PR481 / main e2b6c51b is combined locally with package lifecycle,
+manager polish and Solution Pack tip f6429ce7 in `.mobocom/package-lifecycle`,
+`feat/pay-extension-sync-2026-11-23`. Pay source/schema/provider contracts remain
+unchanged; default-off Pay is in the shared catalog, explicit pack activation
+does not enable incoming or grant financial permissions. Native Pay/shared-checkout
+and compound provisioning checks passed; exact integration/browser/final receipts
+and rollback limits are in [the shared commercial handoff](COMMERCIAL_MODULARITY.md#mobocompay-synchronization--owner2026-11-23).
+This is local branch synchronization, not hosted-main merge or live deployment.
+
 # MoboComPay — merchant collection and reviewed settlements
 
 ## Pull request preparation — owner request 2026-11-23

@@ -16,6 +16,42 @@ async function publicStyles(page: Page) {
   })
 }
 
+test('Extension management keeps keyboard filters, disclosures and public styles intact', async ({ admin, browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, storageState: await admin.storageState(), viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' })
+  const page = await context.newPage(), errors = watchErrors(page)
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await expect(page.locator('main').first()).toBeVisible()
+    const before = await publicStyles(page)
+    await page.goto('/admin/extensions', { waitUntil: 'domcontentloaded' })
+    const manager = page.locator('.extension-manager')
+    await expect(manager.locator('.xm-card').first()).toBeVisible()
+    const search = manager.getByRole('searchbox')
+    await search.fill('e2e-no-such-capability-93821')
+    await expect(manager.locator('.xm-group')).toHaveCount(0)
+    await manager.getByRole('button', { name: /پاک‌کردن فیلترها|Clear filters/ }).click()
+    await expect(manager.locator('.xm-group article').first()).toBeVisible()
+    const details = manager.locator('.xm-details').first()
+    await details.locator('summary').focus()
+    await page.keyboard.press('Enter')
+    await expect(details).toHaveAttribute('open', '')
+    await page.keyboard.press('Enter')
+    await expect(details).not.toHaveAttribute('open')
+    await expect(manager.locator('#uploaded-packages')).toBeVisible()
+    expect(await manager.locator('.xm-card').first().evaluate(element => getComputedStyle(element).transitionDuration)).toBe('0s')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
+    await page.evaluate(() => Object.assign(window, { __extensionNavigationProof: 'same-document' }))
+    const home = page.locator('.dash-top-link[href="/"]')
+    await home.evaluate(element => element.removeAttribute('target'))
+    await home.click()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('.admin-shell')).toHaveCount(0)
+    expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__extensionNavigationProof)).toBe('same-document')
+    expect(await publicStyles(page)).toEqual(before)
+    expect(errors).toEqual([])
+  } finally { await context.close() }
+})
+
 test('Admin styles do not leak into public pages after client navigation', async ({ admin, browser, baseURL }) => {
   const context = await browser.newContext({ baseURL, storageState: await admin.storageState() })
   const page = await context.newPage(), errors = watchErrors(page)

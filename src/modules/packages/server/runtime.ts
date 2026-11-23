@@ -3,6 +3,9 @@ import { getSiteConfig } from '@/modules/site/config/store'
 import { fileFor, type LocalText, type PackageSlot } from '@/modules/packages/domain/format'
 import { renderPlaceholders, sanitizePackageCss, sanitizePackageHtml } from '@/modules/packages/domain/sanitize'
 import { fileText, loadPackage, packageIds, packageRevision, type StoredPackage } from './store'
+import { getPublicExtensionRuntime } from '@/extensions/server/state'
+import { publicPackageCompatible } from './compatibility'
+import type { ExtensionPublicState } from '@/platform/extensions/contracts'
 
 export interface PackageSlotContent { id: string; html: string }
 export interface PublicPackageRuntime {
@@ -18,11 +21,11 @@ export const packagePagePath = (id: string, slug: string) => `/ext/${id}/${slug}
 // revision; any install/edit/toggle bumps the revision and invalidates it.
 const memo = new Map<string, PublicPackageRuntime>()
 
-async function activePackages(activeThemeId: string): Promise<StoredPackage[]> {
+async function activePackages(activeThemeId: string, runtime: Readonly<Record<string, ExtensionPublicState>>): Promise<StoredPackage[]> {
   const result: StoredPackage[] = []
   for (const id of await packageIds()) {
     const pkg = await loadPackage(id)
-    if (!pkg || pkg.manifest.runtime !== 'declarative') continue
+    if (!pkg || pkg.manifest.runtime !== 'declarative' || !publicPackageCompatible(pkg, runtime)) continue
     if (pkg.manifest.kind === 'plugin' ? pkg.enabled : pkg.manifest.id === activeThemeId) result.push(pkg)
   }
   return result
@@ -36,12 +39,13 @@ function renderFile(pkg: StoredPackage, path: string, brand: string, locale: str
 
 export const getPackageRuntime = cache(async (locale: string): Promise<PublicPackageRuntime> => {
   const [rev, site] = await Promise.all([packageRevision(), getSiteConfig()])
-  const key = `${rev}:${locale}:${site.themeId}:${site.brand}`
+  const dependencies = await getPublicExtensionRuntime()
+  const key = `${rev}:${locale}:${site.themeId}:${site.brand}:${Object.entries(dependencies).filter(([, state]) => state.enabled).map(([id]) => id).join(',')}`
   const cached = memo.get(key)
   if (cached) return cached
   const runtime: PublicPackageRuntime = { slots: {}, css: '', nav: [] }
   const css: string[] = []
-  for (const pkg of await activePackages(site.themeId)) {
+  for (const pkg of await activePackages(site.themeId, dependencies)) {
     const id = pkg.manifest.id
     for (const [slot, file] of Object.entries(pkg.manifest.slots || {}) as [PackageSlot, NonNullable<StoredPackage['manifest']['slots']>[PackageSlot]][]) {
       const html = file ? renderFile(pkg, fileFor(file, locale), site.brand, locale) : ''
@@ -64,6 +68,7 @@ export async function getPackagePage(id: string, slug: string, locale: string) {
   const site = await getSiteConfig()
   const pkg = await loadPackage(id)
   if (!pkg || pkg.manifest.runtime !== 'declarative') return null
+  if (!publicPackageCompatible(pkg, await getPublicExtensionRuntime())) return null
   if (pkg.manifest.kind === 'plugin' ? !pkg.enabled : site.themeId !== id) return null
   const page = pkg.manifest.pages?.find(item => item.slug === slug)
   if (!page) return null

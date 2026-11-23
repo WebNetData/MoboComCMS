@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-23",
+  "scope": "Solution Pack v1 and existing signed commercial acquisition",
+  "base": "9da4d6ac",
+  "branch": "feat/solution-packs-distribution-2026-11-23",
+  "status": "functional-local-with-recorded-limits",
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "17.11 (Debian 17.11-1.pgdg13+2)",
+    "uid": 1000,
+    "dotenv": false,
+    "databaseSuperuser": false,
+    "migrations": 206
+  },
+  "units": {
+    "passed": 48,
+    "failed": 0,
+    "skipped": 0
+  },
+  "connected": [
+    "solution-packs",
+    "repository-install",
+    "repository-entitlement",
+    "repository-license-map (all50 scenarios)",
+    "package-command",
+    "extension-state-integrity"
+  ],
+  "static": [
+    "full TypeScript",
+    "3033 source/import targets",
+    "architecture",
+    "security invariants",
+    "audit invariants",
+    "44 extensions and4 code themes generated",
+    "14 canonical AI documents"
+  ],
+  "browser": {
+    "views": 11,
+    "widths": [
+      1440,
+      390
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "scopedAxeViolations": 0,
+    "horizontalOverflow": false,
+    "pageErrors": 0,
+    "realActions": [
+      "chooser ZIP upload",
+      "inert installation",
+      "preview and keyboard defaults/receipt",
+      "stale409",
+      "typed missing-only defaults",
+      "atomic apply",
+      "same-artifact replay",
+      "retained uninstall/reinstall",
+      "guest/section-only/foreign Origin denial",
+      "settings-only preview"
+    ]
+  },
+  "maintainedE2e": {
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "retries": 0,
+    "seconds": 37.7,
+    "checks": [
+      "review/confirmation/one-time receipt replay",
+      "same-document public style isolation"
+    ]
+  },
+  "reactDoctor": {
+    "version": "0.9.17",
+    "components": 3,
+    "blockingErrors": 0,
+    "reviewedWarnings": 5,
+    "suppressionAdded": false
+  },
+  "commercialAcquisition": {
+    "signedFreePack": true,
+    "signedPaidPack": true,
+    "cryptography": "actual Ed25519 over archive SHA/size and release identity",
+    "vendorResponses": "controlled service double",
+    "databaseAndOwners": "actual PostgreSQL and current production owner functions",
+    "continuousModuleDrm": false,
+    "recommendationsGrantOtherProducts": false
+  },
+  "securityScans": {
+    "semgrepSourceTargets": 16,
+    "semgrepFindings": 0,
+    "semgrepErrors": 0,
+    "gitleaksNamedFiles": 38,
+    "gitleaksFindings": 0,
+    "redacted": true,
+    "scopedLocalRuleOnly": true
+  },
+  "deliberateFault": {
+    "stalePlanGuardFaultDetected": true,
+    "originalBytesRestored": true,
+    "restoredAcceptance": true,
+    "sourceSha256": "212f89b4f957d0c923b53e15e3934144f12934b0895a04016382911a3824202b"
+  },
+  "sourceParity": {
+    "inputs": 4156,
+    "includesExamples": true,
+    "contentMismatches": 0,
+    "unexpectedSourceFiles": 0,
+    "generatedCrLfLfOnly": 7,
+    "manifestSha256": "008fb188d43c46b1c2ef2b19f8acb24e979e1cc447b866125f718286953a7636"
+  },
+  "cleanup": {
+    "ownedRuntimeRemoved": true,
+    "ownedDatabaseAbsent": true,
+    "ownedRoleRemoved": true,
+    "hostPrivateFilesAndTracesRemoved": true,
+    "originalReadiness": 200,
+    "originalSession": 200
+  },
+  "notClaimed": [
+    "full production build",
+    "live vendor publish/download/purchase",
+    "external provider send",
+    "hosted workflow",
+    "push/PR/merge/deploy",
+    "continuous module licensing",
+    "automatic role/theme/navigation/starter content composition",
+    "whole-site accessibility certification",
+    "Storybook execution"
+  ]
+}

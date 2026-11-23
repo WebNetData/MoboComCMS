@@ -6,7 +6,8 @@ const ts = require('typescript-api')
 
 const cache = new Map()
 function load(relative) {
-  const file = path.resolve(__dirname, '..', relative.endsWith('.ts') ? relative : `${relative}.ts`)
+ const file = path.resolve(__dirname, '..', path.extname(relative) ? relative : `${relative}.ts`)
+ if (file.endsWith('.json')) return JSON.parse(fs.readFileSync(file, 'utf8'))
   if (cache.has(file)) return cache.get(file).exports
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
@@ -139,7 +140,11 @@ test('every bundled module menu is valid and each section links to its settings 
     const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
     contracts.assertValidExtensionManifest(manifest)
     // Public sections link to their settings page; admin-only tools (server panel) have none.
-    if (manifest.adminMenu && manifest.publicPaths?.length && !PUBLIC_TOOLS.has(manifest.id)) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
+    if (manifest.id === 'mobocom-pay') {
+      // Pay settings have their own financial owner, not the generic content-section editor.
+      assert.ok(manifest.adminMenu.items.some(item => item.href === '/admin/mobocom-pay/settings' && item.permissions?.includes('mobocom-pay.manage')), 'Pay links to its guarded financial settings')
+      assert.ok(fs.existsSync(path.resolve(__dirname, '../src/app/admin/mobocom-pay/[view]/page.tsx')))
+    } else if (manifest.adminMenu && manifest.publicPaths?.length && !PUBLIC_TOOLS.has(manifest.id)) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
   }
 })
 
@@ -158,7 +163,7 @@ function loadState(manifests, settings) {
   }
   const mocks = { '@/platform/database/prisma': { db }, '@/platform/observability/logger': { logEvent: () => {} }, '@/extensions/generated/catalog': { extensionCatalog: manifests, extensionById: new Map(manifests.map((m) => [m.id, m])) }, '@/extensions/generated/server-registry': { serverPlugins: {} } }
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)((specifier) => mocks[specifier] || require(specifier), mod, mod.exports)
+ new Function('require', 'module', 'exports', source)((specifier) => mocks[specifier] || (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier)), mod, mod.exports)
   return mod.exports
 }
 const manifestOf = (id) => JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'src/plugins', id, 'manifest.json'), 'utf8'))

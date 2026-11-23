@@ -7,9 +7,11 @@ const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 function load(relative) {
-  const source = ts.transpileModule(fs.readFileSync(path.resolve(root, relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const file = path.resolve(root, relative)
+  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+  const localRequire = name => name.startsWith('.') ? load(path.relative(root, path.resolve(path.dirname(file), `${name}.ts`))) : require(name)
+  new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
 const r = load('src/modules/repository/domain/repository.ts')
@@ -111,6 +113,7 @@ test("another site's catalog is never trusted as-is", () => {
   assert.equal(list[1].latest, null, 'a release with a bad version or checksum is dropped'); assert.equal(list[1].free, true, 'an unreadable price is not a price')
   assert.deepEqual(r.normalizeCatalog('nope'), []); assert.deepEqual(r.normalizeCatalog({ products: 5 }), [])
   assert.equal(r.coreSatisfies('^1.2.0', '1.5.0'), true); assert.equal(r.coreSatisfies('^1.6.0', '1.5.0'), false); assert.equal(r.coreSatisfies('^2.0.0', '1.5.0'), false); assert.equal(r.coreSatisfies('', '1.0.0'), true); assert.equal(r.coreSatisfies('weird', '1.0.0'), false)
+  for (const [range, version, expected] of [['1.2.0', '1.2.1', false], ['1.2.0', '1.2.0', true], ['^0.2.3', '0.2.9', true], ['^0.2.3', '0.3.0', false], ['^0.0.3', '0.0.4', false], ['^0.0.3', '0.0.3', true], ['^1.2.0', '1.3.0-rc.1', false], ['^01.2.0', '1.2.0', false], ['^9007199254740992.0.0', '1.0.0', false]]) assert.equal(r.coreSatisfies(range, version), expected, `${range} ${version}`)
 })
 
 test('wiring: public API is gated and signed, downloads check the license, the client verifies everything', () => {

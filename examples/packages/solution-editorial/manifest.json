@@ -1,0 +1,17 @@
+{
+  "id": "solution-editorial",
+  "name": "بستهٔ راه‌اندازی مجله",
+  "description": "پیکربندی پیشنهادی مجله و ویرایشگر بلوکی؛ اعمال آن نیاز به بررسی و تأیید مدیر دارد.",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "runtime": "declarative",
+  "requiresCore": "^1.0.0",
+  "solutionPack": {
+    "apiVersion": 1,
+    "modules": [
+      { "id": "journal", "version": "^1.0.0" },
+      { "id": "block-editor", "version": "^1.0.0" }
+    ],
+    "recommendations": ["promo-banner"]
+  }
+}

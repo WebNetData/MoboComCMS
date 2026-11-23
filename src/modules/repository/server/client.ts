@@ -8,7 +8,7 @@ import { installPackage, loadPackage, setPackageEnabled, PackageAuthorityError, 
 import { auditAdminStrict } from '@/platform/audit/server'
 import { invalidate } from '@/platform/cache/kv'
 import { moduleGuard } from '@/extensions/server/modules'
-import { PackageError } from '@/modules/packages/domain/format'
+import { PackageError, PackageCompatibilityError } from '@/modules/packages/domain/format'
 import {
   RepoError, certificateProblem, compareVersions, coreSatisfies, isCertificate, normalizeCatalog, normalizeLicenseKey, normalizeSiteHost, safeRepositoryUrl,
   type Certificate, type CatalogProduct,
@@ -280,6 +280,7 @@ export async function installFromRepository(slug: string, actor: string, context
     await invalidate('settings:').catch(() => undefined)
     return { version: pkg.manifest.version, upgraded, runtime: pkg.manifest.runtime, kind: pkg.manifest.kind }
   } catch (error) {
+    if (error instanceof PackageCompatibilityError) throw new RepoError(error.message, 409)
     if (error instanceof PackageError) throw new RepoError(error.message)
     throw error
   }
