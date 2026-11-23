@@ -1,3 +1,16 @@
+# Extension management visual polish — 2026-11-23
+
+Owner selected extension/theme management for Unslop/OpenDesign refinement.
+Current `.mobocom/package-lifecycle` / `fix/extensions-manager-polish-2026-11-23`
+from1f25d3a7 preserves the prior source-apply/backend owners. Scoped card/filter/
+upload/receipt UI, short reduced-motion-aware effects and13 actual browser views
+passed (scoped axe0/overflow0/page errors0); real toggle/settings/cancel persist.
+Full types/source3027/architecture/33 units passed; Doctor0 errors/9 reviewed
+warnings. Native PG, maintained E2E1/0, final4135-input source parity and owned
+cleanup passed; original app health/session200. Final receipt is recorded in
+[the existing handoff](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md#extension-management-visual-polish--2026-11-23).
+No PR/push/merge/deploy/provider send; retain prior history and root owner work.
+
 # Package lifecycle continuation — 2026-11-23
 
 Owner-authorized compatibility/recoverable source apply is implemented in

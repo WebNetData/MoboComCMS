@@ -5,8 +5,9 @@ capabilities are optional modules/plugins; inactive contributions must disappear
 from ordinary Admin/public settings and direct server/worker entry points, retaining
 data. This reinforces the existing architecture, not a new shared system.
 
-Current continuation is `.mobocom/package-lifecycle`, branch
-`feat/package-lifecycle-recovery-2026-11-23`, based on fetched main `bcdfbdc7`.
+Current visual continuation is `.mobocom/package-lifecycle`, branch
+`fix/extensions-manager-polish-2026-11-23`, based on local source-apply commit
+`1f25d3a7` (the preceding implementation remains on its feature branch).
 Use the2026-11-23 package compatibility/source-apply section below. The original
 2026-11-15 isolation implementation used `.mobocom/sms-platform`, branch
 `fix/modular-capability-isolation-2026-11-15`, base main274ada62 after owner merge
@@ -335,3 +336,149 @@ cleanup receipts are appended below only after they execute.
   Redacted Gitleaks scanned49 named changed/new files:0 findings. No baseline or
   suppression was changed. Local Git records this bounded implementation only;
   there is no full production build, live provider/commit/deploy or hosted workflow.
+
+
+## Extension management visual polish — 2026-11-23
+
+Owner said the appearance was disordered and explicitly selected **extension and
+theme management** for refinement, requesting Unslop/OpenDesign guidance. Current
+checkout `.mobocom/package-lifecycle`, branch
+`fix/extensions-manager-polish-2026-11-23`, base `1f25d3a7`. Preserve that prior
+compatibility/recovery implementation, canonical owners, module switches and the
+protected public/Studio identity. No package/backend/schema/business-rule change.
+
+### Observed problems and direction
+
+Actual before captures at1440 light/dark and390 dark showed densely packed
+route/capability/dependency pills, variable card action heights, tall upload chrome,
+a cramped source selector and full technical receipts wrapping through the card.
+Source confirmed that the shared global xm grid uses300px minimum tracks; its
+selectors are also used by Studio themes and the package editor. The previous
+manager stylesheet supplied only six overrides, not a coherent layout.
+
+Product: staff configure installed site capabilities. Character: calm, precise,
+operational. World: a workspace of understandable sections and reliable controls.
+Moments: selected filter/action and actionable recovery state carry the accent.
+Signature: concise effective state with keyboard-accessible dependency/receipt
+disclosure. Keep the existing MoboCom purple accent, Persian typography/RTL,
+SDS semantic surfaces, wide Admin shell and current light/dark themes.
+
+### Implemented surface
+
+- Compact overview, real installed/effective counts and an in-page package anchor.
+  Search, module-category select, state filter and result count have a clear
+  hierarchy; no-results state provides reset. Counts reflect the filters' actual
+  scope instead of counting only modules while filtering plugins too.
+- Built-in cards have aligned40px icons, readable names/version, balanced padding
+  and consistent footers. Dependency/compatibility/recovery warnings remain visible;
+  full paths/capabilities/dependent names move into native keyboard disclosures.
+  Requested/effective state, dependency locks and section-only settings remain.
+- Uploaded cards have separated primary/secondary actions, full non-truncated
+  technical receipts inside native details, visible pending/uncertain/failed deploy
+  feedback and retained confirmations. Package settings, activation, export,
+  uninstall and recovery use the same endpoints/guards as before.
+- The uploader has a real keyboard file-chooser button and compact drag feedback;
+  pending/initial-load/error states explain unavailable actions. Internal source
+  selection is a labelled full-width control in a disclosure. Editor access and
+  receipts stay available according to existing authority/state.
+- Internal card/receipt/type files split presentation behind the same public
+  ExtensionManager/PackageManager addresses; PackageRow export stays compatible
+  with the existing editor consumer. All CSS is rooted in
+  `.admin-shell .extension-manager`, including embedded Studio management, leaving
+  Studio theme cards/public consumers untouched.
+- Functional motion uses only short transform feedback (160ms card/action hover
+  and switch thumb). No decorative loop, layout animation or new motion library.
+  `prefers-reduced-motion` disables transitions; keyboard focus remains visible.
+
+### Applied guidance and attribution
+
+Used the repository-pinned [Unslop](https://github.com/heydamir/unslop), by
+Damir Sokolovsky, CC-BY-4.0, plus installed baseline-ui, fixing-accessibility,
+fixing-motion-performance, UI/UX Pro Max and selected Vercel render rules under
+MoboCom engineering constraints. Reviewed OpenDesign's original
+[motion follow-up](https://github.com/nexu-io/open-design/blob/main/skills/emilkowalski-motion/SKILL.md)
+and [design-review catalogue](https://github.com/nexu-io/open-design/blob/main/skills/design-review/SKILL.md):
+restrained meaningful motion, reduced-motion fallback and before/after evidence.
+The catalogue is not a claim of executing/installing the full gstack workflow.
+OpenDesign skills list identifies its own licensing; no app/CLI/provider was
+installed, no source uploaded and no replacement design system/dependency added.
+Owner's ongoing preference is recorded in ENGINEERING_SKILLS, not global config.
+
+### Actual acceptance and limits
+
+Private source/database and synthetic manager/settings-only sessions were prepared
+from immutable before source1f25d3a7, then current files were copied into the same
+task runtime. PostgreSQL206 migrations, Linux UID1000/NOSUPERUSER/no.env; original
+app3000 and root/autonomous work remain untouched.
+
+Actual Edge/Playwright accepted13 scoped views covering1440 light/dark,390 dark,
+receipt, search/empty, settings, cancelled, embedded Studio and the fixed-Persian
+language policy. Scoped axe0, overflow false, page errors0 in every accepted view.
+Keyboard disclosure/chooser, current server toggle, package settings persistence,
+native cancellation, state/category/search/reset, guest and foreign-Origin refusal
+passed. Hover and reduced-motion computed behavior passed. The deployed language
+policy is Persian-only, so English-cookie refusal preserves RTL; English locale
+rendering is not claimed. Before/after screenshots and actual final desktop/mobile
+views were inspected; automatic axe alone was not treated as visual approval.
+
+Earlier harness failures remain failures: exact text-label matching included
+select option text; controlled checkbox `setChecked` checked before the async
+server result; a test incorrectly expected English in a single-language install.
+Corrected observed selectors/waits/acceptance expectation without weakening
+server or visual checks. Native toggle/settings/cancel checks remained real writes
+on the disposable database. No provider/network effect was sent externally.
+
+React Doctor0.9.17 reviewed five affected components:0 blocking errors/9 reviewed
+warnings (component complexity, preserved numeric-input semantics, error-payload
+parsing and existing client form). No suppression or framework upgrade. Full
+TypeScript,3027 source/import, architecture and33 selected routes/package units
+passed. Further native/maintained-browser/freeze/security/cleanup receipts follow
+only after they execute. Storybook is absent in this checkout; actual browser
+states supply the visual proof rather than claiming an unrun story.
+
+This is a bounded Admin visual refinement, not whole-site redesign, build/release,
+production deployment or broad accessibility certification. Application rollback
+to1f25d3a7 restores the previous presentation without schema/data reversal. Root
+owner work and the existing provider/release limits remain intact. Next commercial
+Solution Packs/distribution stays separate. Nonsecret proof lives ignored under
+`var/extensions-polish-20261123`; private sessions are removed during final cleanup.
+
+### Visual polish final freeze and cleanup
+
+- Maintained Playwright regression in `e2e/tests/admin-presentation.spec.ts`
+  passed1/failed0/retries0 in Edge (22.8s): keyboard search/reset/disclosure,
+  reduced motion, no overflow, actual same-document AppLink navigation and equal
+  computed public styles after leaving Admin. The first390px attempt could not
+  click the desktop-only navigation link; the final regression uses1440px and
+  mobile remains covered by the separate accepted390px views. No failed run is
+  counted as a pass.
+- Actual PostgreSQL package-command and extension-state-integrity checks passed;
+  full TypeScript passed again after removing synthetic source and generating
+  the canonical44 extension/4 theme registries. The first post-fixture checks
+  failed on a stale generated browser-recovery import; normal regeneration fixed
+  it. The first final hash also detected a stale runtime documentation input to
+  AI knowledge; copied the current canonical map, regenerated and matched all4135
+  source/check/schema/config inputs:0 content mismatches/0 unexpected source files,
+  seven generated files differing only by CRLF/LF. Manifest SHA256:
+  `7153d5f147b719a79ad1afb598a5c505bbcf88e8e266ee18c7e71d3ad10625ba`.
+- After source/browser/E2E receipts passed, stopped the exact-cwd preview, verified
+  realpath and no owned active preview, removed only
+  `/tmp/mobocom-extensions-polish-20261123` and its exact bridge. Dropped only the
+  task database `mobocom_extensions_polish_test_20261123` and its NOSUPERUSER role.
+  Removed host DB/session files, synthetic E2E state/traces and source archive.
+  Original app3000 readiness/session were actually rechecked200; no owner work,
+  content, settings, Docker volume or original process was removed/restarted.
+- Existing local Semgrep rule over7 source targets and redacted Gitleaks over15
+  named changed/new files reported0 findings/0 errors. The sandboxed Semgrep
+  attempt failed initializing the Windows certificate store; the same local rule
+  succeeded outside that restriction with metrics/version checks off. No rule,
+  suppression or baseline was weakened. This remains a scoped scan.
+- Machine-readable evidence is
+  [visual-validation-2026-11-23.json](../../specs/commercial-modularity/visual-validation-2026-11-23.json).
+  Nonsecret screenshots/logs remain ignored in the task proof directory. Local Git
+  records only this bounded UI slice; no PR/push/merge/deploy or hosted workflow.
+
+- Final staged whitespace check found one extra blank line at EOF in the new
+  `package-types.ts`; removed only that blank line. Before/after hashes are in
+  the visual receipt. All other source remains the verified content; no semantic
+  source change followed validation. Final scoped scans and staged diff check pass.

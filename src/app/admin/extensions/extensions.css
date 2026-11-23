@@ -1,6 +1,140 @@
+/* Scope to this manager: Studio themes and public pages share the xm names. */
+.admin-shell .extension-manager {
+  --xm-muted: var(--admin-muted-text, var(--muted));
+  --xm-accent: var(--admin-accent-text, var(--primary));
+  --xm-line: var(--border);
+  --xm-surface: var(--card);
+  --xm-soft: var(--bg-soft);
+  --xm-radius: var(--sds-size-radius-400, 1rem);
+  display: grid; gap: 32px; min-inline-size: 0; padding-block-end: 32px; color: var(--text);
+}
+.admin-shell .extension-manager :is(h1,h2,h3,p) { margin: 0; }
+.admin-shell .extension-manager :is(button,input,select,textarea,a,summary):focus-visible { outline: 2px solid var(--xm-accent); outline-offset: 4px; }
+.admin-shell .extension-manager .btn { min-block-size: 44px; white-space: normal; line-height: 1.6; }
+.admin-shell .extension-manager :is(.input,select,textarea) { min-inline-size: 0; inline-size: 100%; }
+.admin-shell .extension-manager .xm-overview { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; border: 1px solid var(--xm-line); border-inline-start: 3px solid var(--xm-accent); border-radius: var(--xm-radius); background: var(--xm-surface); }
+.admin-shell .extension-manager .xm-overview-copy { display: grid; gap: 12px; min-inline-size: 0; }
+.admin-shell .extension-manager .xm-eyebrow { font-size: .75rem; font-weight: 500; color: var(--xm-accent); }
+.admin-shell .extension-manager .xm-overview h1 { font-size: clamp(1.5rem,2.4vw,2rem); font-weight: 600; line-height: 1.6; }
+.admin-shell .extension-manager .xm-overview p { max-inline-size: 64ch; font-size: .875rem; line-height: 1.9; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-upload-link { flex-shrink: 0; display: inline-flex; gap: 8px; align-items: center; }
+.admin-shell .extension-manager .xm-overview-counts { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; color: var(--xm-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+.admin-shell .extension-manager .xm-overview-counts span { display: inline-flex; gap: 6px; align-items: center; }
+.admin-shell .extension-manager .xm-overview-counts strong { color: var(--text); font-weight: 600; }
+.admin-shell .extension-manager .xm-overview-counts i { inline-size: 6px; block-size: 6px; border-radius: 50%; background: var(--xm-accent); }
+.admin-shell .extension-manager .xm-toolbar { display: grid; gap: 16px; padding: 20px; border: 1px solid var(--xm-line); border-radius: var(--xm-radius); background: var(--xm-surface); }
+.admin-shell .extension-manager .xm-toolbar-fields { display: grid; grid-template-columns: minmax(0,1fr) minmax(180px,240px); gap: 16px; align-items: end; }
+.admin-shell .extension-manager .xm-search { position: relative; display: flex; align-items: center; min-inline-size: 0; }
+.admin-shell .extension-manager .xm-search > svg { position: absolute; inset-inline-start: 14px; color: var(--xm-muted); pointer-events: none; }
+.admin-shell .extension-manager .xm-search input { min-block-size: 48px; padding-inline: 44px 12px; font-size: .875rem; background: var(--xm-soft); }
+.admin-shell .extension-manager .xm-category { display: grid; gap: 6px; font-size: .75rem; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-category select { min-block-size: 48px; padding-inline: 12px 36px; color: var(--text); }
+.admin-shell .extension-manager .xm-toolbar-bottom { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.admin-shell .extension-manager .xm-filter { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--xm-line); border-radius: 12px; background: var(--xm-soft); }
+.admin-shell .extension-manager .xm-filter button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-block-size: 40px; padding: 8px 16px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--xm-muted); font-size: .8125rem; font-weight: 500; cursor: pointer; }
+.admin-shell .extension-manager .xm-filter button span { padding: 0; background: none; color: inherit; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.admin-shell .extension-manager .xm-filter button.is-active { background: var(--xm-surface); border-color: var(--xm-line); color: var(--xm-accent); }
+.admin-shell .extension-manager .xm-result-count { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--xm-muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.admin-shell .extension-manager .xm-result-count button { background: none; border: none; padding: 8px 0; min-block-size: 40px; color: var(--xm-accent); font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.admin-shell .extension-manager .xm-section { display: grid; gap: 20px; scroll-margin-block-start: 88px; }
+.admin-shell .extension-manager .xm-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.admin-shell .extension-manager .xm-section-heading > div { display: grid; gap: 4px; }
+.admin-shell .extension-manager .xm-section h2 { font-size: 1.125rem; font-weight: 600; line-height: 1.8; }
+.admin-shell .extension-manager .xm-section-heading p { font-size: .8125rem; line-height: 1.8; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-section-count { min-inline-size: 32px; padding: 4px 8px; text-align: center; font-size: .8125rem; color: var(--xm-muted); border: 1px solid var(--xm-line); border-radius: 8px; font-variant-numeric: tabular-nums; }
+.admin-shell .extension-manager .xm-group { display: grid; gap: 12px; }
+.admin-shell .extension-manager .xm-group + .xm-group { margin-block-start: 8px; }
+.admin-shell .extension-manager .xm-group > h3 { display: flex; align-items: center; gap: 8px; font-size: .8125rem; font-weight: 500; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-group > h3::after { content: ''; block-size: 1px; background: var(--xm-line); flex: 1; margin-inline-start: 4px; }
+.admin-shell .extension-manager .xm-group > h3 > span { padding: 0; background: none; color: inherit; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.admin-shell .extension-manager :is(.xm-grid,.pm-grid) { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill,minmax(min(100%,360px),1fr)); align-items: stretch; }
+.admin-shell .extension-manager .pm-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,400px),1fr)); }
+.admin-shell .extension-manager .xm-card { display: flex; flex-direction: column; gap: 12px; min-inline-size: 0; padding: 20px; border: 1px solid var(--xm-line); border-radius: var(--xm-radius); background: var(--xm-surface); box-shadow: none; overflow-wrap: anywhere; }
+.admin-shell .extension-manager .xm-card.is-on { border-color: color-mix(in srgb,var(--xm-accent) 32%,var(--xm-line)); box-shadow: inset 0 2px 0 color-mix(in srgb,var(--xm-accent) 40%,transparent); }
+.admin-shell .extension-manager .xm-card-head { display: flex; align-items: flex-start; gap: 12px; min-inline-size: 0; }
+.admin-shell .extension-manager .xm-icon { display: grid; place-items: center; inline-size: 40px; block-size: 40px; flex: 0 0 40px; border-radius: 12px; background: color-mix(in srgb,var(--xm-accent) 8%,var(--xm-surface)); color: var(--xm-accent); }
+.admin-shell .extension-manager .xm-card.is-on .xm-icon { color: var(--xm-accent); background: color-mix(in srgb,var(--xm-accent) 10%,var(--xm-surface)); }
+.admin-shell .extension-manager .xm-title { flex: 1; min-inline-size: 0; display: grid; gap: 4px; }
+.admin-shell .extension-manager .xm-title h3 { font-size: .9375rem; font-weight: 600; line-height: 1.8; color: var(--text); }
+.admin-shell .extension-manager .xm-title small { font-size: .6875rem; line-height: 1.7; color: var(--xm-muted); text-align: start; unicode-bidi: plaintext; }
+.admin-shell .extension-manager .xm-desc { font-size: .8125rem; line-height: 1.95; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-switch { display: flex; flex-direction: column; gap: 4px; align-items: center; flex: 0 0 auto; min-block-size: 44px; font-size: .6875rem; font-weight: 500; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-card.is-on .xm-switch { color: var(--xm-accent); }
+.admin-shell .extension-manager .xm-switch input { inline-size: 36px; block-size: 22px; background: var(--xm-soft); border-color: var(--xm-line); transition: none; }
+.admin-shell .extension-manager .xm-switch input::after { inline-size: 16px; block-size: 16px; inset-inline-start: 2px; background: var(--xm-muted); transition: transform 160ms ease-out; }
+.admin-shell .extension-manager .xm-switch input:checked { background: var(--admin-action-surface); border-color: var(--admin-action-surface); }
+.admin-shell .extension-manager .xm-switch input:checked::after { inset-inline-start: 2px; transform: translateX(14px); background: var(--sds-color-white-1000); }
+.admin-shell .extension-manager[dir='rtl'] .xm-switch input:checked::after { transform: translateX(-14px); }
+.admin-shell .extension-manager .xm-switch input:disabled { cursor: not-allowed; }
+.admin-shell .extension-manager .xm-switch-note { font-size: .75rem; line-height: 1.8; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-card-state { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.admin-shell .extension-manager .xm-chip { display: inline-flex; padding: 3px 8px; border: 1px solid var(--xm-line); border-radius: 6px; font-size: .6875rem; font-weight: 400; line-height: 1.8; background: transparent; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-chip.is-muted { color: var(--xm-muted); }
+.admin-shell .extension-manager :is(.xm-alert,.pm-recovery) { padding: 12px; border: 1px solid color-mix(in srgb,var(--xm-accent) 25%,var(--xm-line)); border-radius: 10px; background: color-mix(in srgb,var(--xm-accent) 5%,var(--xm-surface)); color: var(--text); font-size: .75rem; line-height: 1.9; }
+.admin-shell .extension-manager .xm-chip.is-warn { color: var(--text); border-color: color-mix(in srgb,var(--xm-accent) 30%,var(--xm-line)); background: color-mix(in srgb,var(--xm-accent) 6%,var(--xm-surface)); }
+.admin-shell .extension-manager :is(.xm-details,.pm-receipt) { margin-block-start: auto; border-block-start: 1px solid var(--xm-line); padding-block-start: 8px; }
+.admin-shell .extension-manager :is(.xm-details,.pm-receipt,.pm-code) > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-block-size: 40px; cursor: pointer; list-style: none; font-size: .75rem; font-weight: 500; color: var(--xm-muted); }
+.admin-shell .extension-manager :is(.xm-details,.pm-receipt,.pm-code) > summary::-webkit-details-marker { display: none; }
+.admin-shell .extension-manager :is(.xm-details,.pm-receipt,.pm-code) > summary::after { content: ''; inline-size: 7px; block-size: 7px; flex: 0 0 7px; border-inline-end: 1.5px solid currentColor; border-block-end: 1.5px solid currentColor; transform: rotate(45deg); margin-inline-end: 4px; }
+.admin-shell .extension-manager :is(.xm-details,.pm-receipt,.pm-code)[open] > summary::after { transform: rotate(225deg); }
+.admin-shell .extension-manager :is(.xm-facts,.pm-receipt dl) { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 8px 16px; margin: 8px 0 4px; padding: 12px; border-radius: 8px; background: var(--xm-soft); font-size: .75rem; line-height: 1.9; }
+.admin-shell .extension-manager :is(.xm-facts,.pm-receipt dl) dt { color: var(--xm-muted); }
+.admin-shell .extension-manager :is(.xm-facts,.pm-receipt dl) dd { margin: 0; min-inline-size: 0; overflow-wrap: anywhere; }
+.admin-shell .extension-manager :is(.xm-foot,.pm-actions) { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block-start: 12px; border-block-start: 1px solid var(--xm-line); margin-block-start: auto; }
+.admin-shell .extension-manager :is(.xm-foot,.pm-actions) .btn { flex: 0 1 auto; font-size: .75rem; padding: 8px 12px; border-radius: 8px; }
+.admin-shell .extension-manager .xm-settings { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 0; padding-block-start: 16px; border-block-start: 1px solid var(--xm-line); }
+.admin-shell .extension-manager .xm-settings .studio-field { min-inline-size: 0; font-size: .8125rem; }
+.admin-shell .extension-manager .xm-settings textarea { min-block-size: 100px; }
+.admin-shell .extension-manager .xm-notice { display: flex; gap: 12px; padding: 16px; border-radius: 12px; border: 1px solid var(--xm-line); background: var(--xm-surface); font-size: .8125rem; line-height: 1.9; color: var(--text); }
+.admin-shell .extension-manager .xm-notice.is-error { color: var(--admin-danger-text); border-color: color-mix(in srgb,var(--danger) 30%,var(--xm-line)); }
+.admin-shell .extension-manager :is(.xm-empty,.xm-loading,.pm-loading) { display: grid; justify-items: center; gap: 12px; padding: 24px; border: 1px dashed var(--xm-line); border-radius: var(--xm-radius); color: var(--xm-muted); font-size: .8125rem; line-height: 1.9; background: var(--xm-surface); text-align: center; }
+.admin-shell .extension-manager .xm-page-note { display: flex; justify-content: center; gap: 8px; align-items: center; font-size: .75rem; line-height: 1.9; color: var(--xm-muted); }
+.admin-shell .extension-manager .xm-page-note svg { flex-shrink: 0; }
+.admin-shell .extension-manager .pm-drop { display: grid; grid-template-columns: 40px minmax(0,1fr) auto; align-items: center; gap: 16px; padding: 20px; border: 1px dashed var(--xm-line); border-radius: var(--xm-radius); background: var(--xm-surface); cursor: default; text-align: start; }
+.admin-shell .extension-manager .pm-drop > svg { justify-self: center; color: var(--xm-accent); }
+.admin-shell .extension-manager .pm-drop strong { font-size: .875rem; font-weight: 600; }
+.admin-shell .extension-manager .pm-drop small { display: block; color: var(--xm-muted); font-size: .75rem; line-height: 1.9; margin-block-start: 4px; }
+.admin-shell .extension-manager .pm-drop > small { grid-column: 2 / -1; margin: 0; }
+.admin-shell .extension-manager .pm-drop.is-drag { border-color: var(--xm-accent); background: color-mix(in srgb,var(--xm-accent) 8%,var(--xm-surface)); }
+.admin-shell .extension-manager .pm-code { display: block; margin: 0; padding: 8px 16px; border: 1px solid var(--xm-line); border-radius: 12px; background: var(--xm-surface); }
+.admin-shell .extension-manager .pm-code[open] { padding-block-end: 16px; }
+.admin-shell .extension-manager .pm-code > .xm-chip { margin-block: 8px; }
+.admin-shell .extension-manager .pm-code > small { display: block; font-size: .75rem; line-height: 1.9; color: var(--xm-muted); }
+.admin-shell .extension-manager .pm-builtin { display: grid; gap: 8px; margin-block-start: 8px; font-size: .75rem; }
+.admin-shell .extension-manager .pm-builtin select { min-block-size: 44px; }
+.admin-shell .extension-manager .pm-facts { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--xm-muted); font-size: .75rem; line-height: 1.9; }
+.admin-shell .extension-manager .pm-facts a { color: var(--xm-accent); }
+.admin-shell .extension-manager .pm-recovery { display: grid; gap: 8px; }
+.admin-shell .extension-manager .pm-actions > .btn:disabled { cursor: not-allowed; }
+.admin-shell .extension-manager .pm-actions { display: grid; gap: 8px; }
+.admin-shell .extension-manager :is(.pm-actions-main,.pm-actions-secondary) { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.admin-shell .extension-manager .pm-actions-secondary { border-block-start: 1px solid var(--xm-line); padding-block-start: 8px; }
 .admin-shell .extension-manager .xm-filter button { min-block-size: 44px; }
-.admin-shell .extension-manager .xm-filter button.is-active { color: var(--accent-ink, var(--text)); }
-.admin-shell .extension-manager .xm-switch { min-block-size: 44px; }
-.admin-shell .extension-manager .xm-foot .btn { min-block-size: 44px; }
-.admin-shell .extension-manager .xm-card { min-inline-size: 0; overflow-wrap: anywhere; }
-html[data-theme='light'] .admin-shell .extension-manager .xm-chip.is-warn { color: #92400e; }
+.admin-shell .extension-manager :is(.xm-details,.pm-receipt,.pm-code) > summary { min-block-size: 44px; }
+.admin-shell .extension-manager .xm-title small { font-size: .75rem; }
+.admin-shell .extension-manager .xm-chip { font-size: .75rem; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .admin-shell .extension-manager .xm-card { transition: transform 160ms ease-out; }
+  .admin-shell .extension-manager .xm-card:hover { transform: translateY(-2px); }
+  .admin-shell .extension-manager :is(.xm-upload-link,.pm-drop > .btn) { transition: transform 160ms ease-out; }
+  .admin-shell .extension-manager :is(.xm-upload-link,.pm-drop > .btn):hover { transform: translateY(-1px); }
+}
+@media (max-width: 640px) {
+  .admin-shell .extension-manager { gap: 24px; }
+  .admin-shell .extension-manager .xm-overview { padding: 20px; align-items: stretch; flex-direction: column; gap: 16px; }
+  .admin-shell .extension-manager .xm-overview h1 { font-size: 1.375rem; }
+  .admin-shell .extension-manager .xm-upload-link { align-self: flex-start; }
+  .admin-shell .extension-manager .xm-toolbar { padding: 16px; }
+  .admin-shell .extension-manager .xm-toolbar-fields { grid-template-columns: 1fr; gap: 12px; }
+  .admin-shell .extension-manager .xm-filter { inline-size: 100%; }
+  .admin-shell .extension-manager .xm-filter button { flex: 1; padding-inline: 8px; }
+  .admin-shell .extension-manager :is(.xm-grid,.pm-grid) { grid-template-columns: minmax(0,1fr); }
+  .admin-shell .extension-manager .xm-card { padding: 16px; }
+  .admin-shell .extension-manager .xm-section-heading p { max-inline-size: 32ch; }
+  .admin-shell .extension-manager .pm-drop { padding: 16px; grid-template-columns: 32px minmax(0,1fr); gap: 12px; }
+  .admin-shell .extension-manager .pm-drop > .btn { grid-column: 1 / -1; inline-size: 100%; }
+  .admin-shell .extension-manager .pm-drop > small { grid-column: 1 / -1; }
+  .admin-shell .extension-manager :is(.xm-facts,.pm-receipt dl) { grid-template-columns: 1fr; gap: 4px; }
+  .admin-shell .extension-manager :is(.xm-facts,.pm-receipt dl) dd + dt { margin-block-start: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .admin-shell .extension-manager .xm-switch input::after { transition: none; } }
