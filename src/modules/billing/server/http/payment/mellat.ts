@@ -42,8 +42,9 @@ export async function POST_callback(req: NextRequest) {
   if (!/^[A-Za-z0-9]{6,40}$/.test(refId)) return redirect(req, '/payment/result?failed=1')
   const invoice = await db.invoice.findFirst({ where: { providerTxnId: refId }, include: { gateway: true } })
   if (!invoice || invoice.gateway?.provider !== 'MELLAT') return redirect(req, '/payment/result?failed=1')
-  const done = invoice.orderId ? `/payment/result?order=${invoice.orderId}` : `/invoice/${invoice.number}`
-  const failed = (reason: string) => `${invoice.orderId ? `/payment/result?order=${invoice.orderId}&failed=1` : `/invoice/${invoice.number}?failed=1`}&reason=${encodeURIComponent(reason)}`
+  const collection = invoice.kind === 'PAY_COLLECTION' ? await db.payPayment.findUnique({ where: { invoiceId: invoice.id }, select: { id: true } }) : null
+  const done = collection ? `/pay/${collection.id}` : invoice.orderId ? `/payment/result?order=${invoice.orderId}` : `/invoice/${invoice.number}`
+  const failed = (reason: string) => `${done}${done.includes('?') ? '&' : '?'}failed=1&reason=${encodeURIComponent(reason)}`
   if (invoice.status === 'PAID') return redirect(req, done)
 
   // The bank's order id embeds this invoice's number (see mellatOrderId).

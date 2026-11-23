@@ -51,8 +51,9 @@ async function handle(req: NextRequest, context: { params: Promise<{ provider: s
   if (!/^[A-Za-z0-9-]{3,40}$/.test(number)) return redirect(req, '/payment/result?failed=1')
   const invoice = await db.invoice.findUnique({ where: { number }, include: { gateway: true, order: { include: { lines: true } } } })
   if (!invoice || invoice.gateway?.provider !== provider || !invoice.providerTxnId) return redirect(req, '/payment/result?failed=1')
-  const done = invoice.orderId ? `/payment/result?order=${invoice.orderId}` : `/invoice/${invoice.number}`
-  const failed = (reason: string) => `${invoice.orderId ? `/payment/result?order=${invoice.orderId}&failed=1` : `/invoice/${invoice.number}?failed=1`}&reason=${encodeURIComponent(reason)}`
+  const collection = invoice.kind === 'PAY_COLLECTION' ? await db.payPayment.findUnique({ where: { invoiceId: invoice.id }, select: { id: true } }) : null
+  const done = collection ? `/pay/${collection.id}` : invoice.orderId ? `/payment/result?order=${invoice.orderId}` : `/invoice/${invoice.number}`
+  const failed = (reason: string) => `${done}${done.includes('?') ? '&' : '?'}failed=1&reason=${encodeURIComponent(reason)}`
   if (invoice.status === 'PAID') return redirect(req, done)
   // A token posted back must be the one we created (SnappPay sends it along).
   if (values.paymentToken && values.paymentToken !== invoice.providerTxnId) return redirect(req, failed('شناسهٔ پرداخت با فاکتور مطابقت ندارد'))

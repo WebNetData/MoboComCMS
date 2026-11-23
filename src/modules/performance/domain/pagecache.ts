@@ -40,7 +40,7 @@ export const PRESETS: Record<Exclude<CacheMode, 'off' | 'custom'>, Pick<PageCach
 }
 
 export const DEFAULT_INCLUDE = ['/', '/blog', '/journal', '/products', '/shop', '/software', '/games', '/cinema', '/music', '/plans', '/forum', '/p/', '/ext/']
-export const DEFAULT_EXCLUDE = ['/api', '/admin', '/dashboard', '/seller', '/checkout', '/cart', '/login', '/register', '/forgot-password', '/reset-password', '/account', '/invoice', '/payment', '/miniapp', '/dl', '/files', '/watch', '/search', '/track', '/forwarder', '/builder-preview', '/install', '/_next']
+export const DEFAULT_EXCLUDE = ['/api', '/admin', '/dashboard', '/seller', '/checkout', '/cart', '/login', '/register', '/forgot-password', '/reset-password', '/account', '/invoice', '/payment', '/pay', '/miniapp', '/dl', '/files', '/watch', '/search', '/track', '/forwarder', '/builder-preview', '/install', '/_next']
 
 export const DEFAULT_PAGECACHE: PageCacheConfig = {
   mode: 'off', ...PRESETS.balanced, include: DEFAULT_INCLUDE, exclude: DEFAULT_EXCLUDE, overrides: [{ prefix: '/', ttl: 30 }],

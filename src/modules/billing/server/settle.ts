@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { markInvoicePaid } from '@/modules/billing/server/billing'
 import { enqueueOrderFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
 import { ensureInventoryReservation } from '@/modules/catalog/server/inventory'
+import { PayError } from '@/modules/billing/domain/pay'
 
 export interface ManualSettlement {
   invoiceId: number
@@ -31,6 +32,12 @@ export async function settleInvoiceManually(input: ManualSettlement): Promise<{ 
     amount: input.amount,
     feeBps: invoice.gateway?.feeBps ?? Math.round((invoice.gateway?.feePercent || 0) * 100), provider: invoice.gateway?.provider || 'MANUAL',
     raw: input.raw,
+  }).catch(error => {
+    // A Pay policy refusal happened inside the atomic transaction; the verified
+    // provider callback can use its existing reversal path. Unknown commit errors
+    // are not called a refusal and must never trigger an assumed refund.
+    if (error instanceof PayError) return { ok: false as const, message: error.message }
+    throw error
   })
   if (!res.ok) return { ok: false, status: 400, message: res.message || 'failed' }
   const job = invoice.orderId ? await enqueueOrderFulfillment({ orderId: invoice.orderId, invoiceId: invoice.id, planId: invoice.planId, productId: invoice.productId }) : null

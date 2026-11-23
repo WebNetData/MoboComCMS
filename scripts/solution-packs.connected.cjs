@@ -3,9 +3,9 @@ const fs = require('node:fs'), path = require('node:path'), ts = require('typesc
 const { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server')
 if (process.argv.includes('--single-connection')) { const url = new URL(process.env.DATABASE_URL); url.searchParams.set('connection_limit', '1'); process.env.DATABASE_URL = url.toString() }
 const prisma = new PrismaClient(), id = `owned-solution-${Date.now()}`, packageKey = `package.${id}.v1`, indexKey = 'packages.index.v1', policyKey = 'security.policy.v1', siteKey = 'site.config.v1'
-const stateKeys = ['extension.store.state.v1', 'storeEnabled', 'extension.reviews.state.v1', 'extension.businesses.state.v1']
-const cache = new Map(), authAt = Date.now() - 5000, snapshots = new Map(); let actor, auditFault = false, signedIn = true
-const catalog = ['store', 'reviews', 'businesses'].map(name => require(`../src/plugins/${name}/manifest.json`))
+const stateKeys = ['extension.store.state.v1', 'storeEnabled', 'extension.reviews.state.v1', 'extension.businesses.state.v1', 'extension.mobocom-pay.state.v1', 'billing.mobocom-pay.v1']
+const cache = new Map(), authAt = Date.now() - 5000, snapshots = new Map(); let actor, payRole, auditFault = false, signedIn = true
+const catalog = ['store', 'reviews', 'businesses', 'mobocom-pay'].map(name => require(`../src/plugins/${name}/manifest.json`))
 // A synthetic secret definition exercises the real owner's secret exclusion without
 // introducing a secret-bearing production manifest or storing a real credential.
 catalog.find(item => item.id === 'store').settings.push({ key: 'owned.secret', label: 'Fixture secret', type: 'secret' })
@@ -56,6 +56,8 @@ async function main() {
     await put(stateKeys[1], 'false')
     await put(stateKeys[2], JSON.stringify({ enabled: false, settings: {} }))
     await put(stateKeys[3], JSON.stringify({ enabled: false, settings: {} }))
+    await put(stateKeys[4], JSON.stringify({ enabled: false, settings: {} }))
+    await put(stateKeys[5], JSON.stringify(load('src/modules/billing/domain/pay-policy.ts').defaults()))
     const store = load('src/modules/packages/server/store.ts'), solution = load('src/modules/packages/server/solution-packs.ts'), http = load('src/modules/packages/server/http/solution.ts')
     const manifest = { id, name: 'Owned solution', version: '1.0.0', kind: 'plugin', runtime: 'declarative', solutionPack: { apiVersion: 1, modules: [
       { id: 'businesses' }, { id: 'reviews' }, { id: 'store', defaults: { 'seo.title': 'do not overwrite', 'seo.description': 'suggested description' } },
@@ -146,15 +148,63 @@ async function main() {
     assert.deepEqual(replay.receipt, dependentApply.receipt, 'identical artifact returns historical receipt')
     assert.deepEqual(await rows(), afterOff, 'replay never re-enables target or undeclared disabled dependency')
     assert.deepEqual(await audits(), auditAfterOff, 'replay creates no new audit')
+
+    // MoboComPay uses the same extension owner, but its financial settings and
+    // Pay-specific permissions remain owned by Billing and Identity respectively.
+    const payPack = { ...manifest, version: '1.0.2', solutionPack: { apiVersion: 1, modules: [{ id: 'mobocom-pay', version: '^1.0.0' }] } }
+    await assert.rejects(upload({ ...payPack, solutionPack: { apiVersion: 1, modules: [{ id: 'mobocom-pay', defaults: { incomingEnabled: true } }] } }), /invalid default key/, 'financial camelCase fields are not a module default contract')
+    await upload({ ...payPack, solutionPack: { apiVersion: 1, modules: [{ id: 'mobocom-pay', defaults: { 'incoming.enabled': true } }] } })
+    const payBeforeInvalid = await rows()
+    await assert.rejects(solution.previewSolutionPack(id, context), 'a pack cannot alter Pay incoming configuration via an undeclared default')
+    assert.deepEqual(await rows(), payBeforeInvalid, 'invalid Pay defaults never change module or billing settings')
+    await upload(payPack)
+    const payRowsBefore = await rows(), payAuditsBefore = await audits()
+    const paySettingsBefore = await prisma.setting.findUniqueOrThrow({ where: { key: stateKeys[5] } })
+    const paySettings = JSON.parse(paySettingsBefore.value)
+    assert.equal(paySettings.incomingEnabled, false); assert.equal(paySettings.providerId, '')
+    const payPlan = await solution.previewSolutionPack(id, context)
+    assert.equal(payPlan.modules.find(item => item.id === 'mobocom-pay').enabled, false)
+    assert.deepEqual(await rows(), payRowsBefore, 'install and preview never enable MoboComPay or change its settings')
+    assert.deepEqual(await audits(), payAuditsBefore)
+
+    payRole = await prisma.role.create({ data: { name: `${id}-pay-only`, permissions: 'mobocom-pay.manage' } })
+    await prisma.user.update({ where: { id: actor.id }, data: { roleId: payRole.id } })
+    try {
+      assert.equal((await get()).status, 403, 'Pay management alone cannot preview a Solution Pack')
+      assert.equal((await post(payPlan.token)).status, 403, 'Pay management alone cannot apply a Solution Pack')
+      await assert.rejects(solution.applySolutionPack(id, payPlan.token, context), /forbidden/, 'the transactional owner rechecks current settings.manage')
+      assert.deepEqual(await rows(), payRowsBefore, 'refused Pay-only actor cannot change the plan or settings')
+    } finally { await prisma.user.update({ where: { id: actor.id }, data: { roleId: null } }) }
+
+    const usersBeforePay = await prisma.user.findMany({ orderBy: { id: 'asc' }, select: { id: true, role: true, roleId: true } })
+    const rolesBeforePay = await prisma.role.findMany({ orderBy: { id: 'asc' }, select: { id: true, permissions: true } })
+    const merchantsBeforePay = await prisma.payMerchant.count()
+    const payApply = await solution.applySolutionPack(id, payPlan.token, context)
+    assert.equal(payApply.alreadyApplied, false)
+    assert.equal(JSON.parse((await prisma.setting.findUniqueOrThrow({ where: { key: stateKeys[4] } })).value).enabled, true)
+    assert.deepEqual(await prisma.setting.findUniqueOrThrow({ where: { key: stateKeys[5] } }), paySettingsBefore, 'provisioning does not activate incoming or modify canonical Pay settings')
+    assert.equal(await prisma.payMerchant.count(), merchantsBeforePay, 'module provisioning creates no merchants')
+    assert.deepEqual(await prisma.user.findMany({ orderBy: { id: 'asc' }, select: { id: true, role: true, roleId: true } }), usersBeforePay, 'module provisioning grants no user roles')
+    assert.deepEqual(await prisma.role.findMany({ orderBy: { id: 'asc' }, select: { id: true, permissions: true } }), rolesBeforePay, 'module provisioning grants no role permissions')
+    const extensionOwner = load('src/extensions/server/state.ts')
+    await extensionOwner.saveExtensionState('mobocom-pay', { enabled: false })
+    const payAfterDisable = await rows(), auditsAfterDisable = await audits()
+    const payReplay = await solution.applySolutionPack(id, payPlan.token, context)
+    assert.equal(payReplay.alreadyApplied, true)
+    assert.deepEqual(payReplay.receipt, payApply.receipt, 'receipt is retained after disabling Pay')
+    assert.deepEqual(await rows(), payAfterDisable, 'replay never re-enables Pay or changes billing settings')
+    assert.deepEqual(await audits(), auditsAfterDisable, 'Pay replay creates no new audit')
+
     const bad = JSON.parse((await prisma.setting.findUniqueOrThrow({ where: { key: packageKey } })).value); bad.solutionApply = { fingerprint: 'broken' }
     await put(packageKey, JSON.stringify(bad)); await assert.rejects(solution.previewSolutionPack(id, context), /invalid stored data/)
     assert.equal((await prisma.setting.findUniqueOrThrow({ where: { key: packageKey } })).value, JSON.stringify(bad), 'corrupt receipt preserved')
-    console.log('Actual PG Solution Pack: inert install/preview, dependency order, preserved defaults, stale preview, Identity/Origin, strict Audit rollback, mirrors, idempotent apply and retained receipt.')
+    console.log('Actual PG Solution Pack: inert install/preview, dependency order, preserved defaults, stale preview, Identity/Origin, strict Audit rollback, mirrors, idempotent apply and retained receipt; MoboComPay settings/permissions remain separate.')
   } finally {
     auditFault = false; signedIn = true
     if (actor) await prisma.auditLog.deleteMany({ where: { actorUserId: actor.id } })
     for (const [key, row] of snapshots) { if (row) await put(key, row.value); else await prisma.setting.deleteMany({ where: { key } }) }
     if (actor) await prisma.user.deleteMany({ where: { id: actor.id, email: actor.email } })
+    if (payRole) await prisma.role.deleteMany({ where: { id: payRole.id, name: payRole.name } })
     await prisma.$disconnect()
   }
 }

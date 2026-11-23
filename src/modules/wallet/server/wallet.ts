@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
-export type WalletTxType = 'TOPUP' | 'PURCHASE' | 'REFUND' | 'ADMIN_CREDIT' | 'ADMIN_DEBIT' | 'RENEWAL' | 'REFERRAL' | 'GIFT_CARD' | 'LOYALTY'
+export type WalletTxType = 'TOPUP' | 'PURCHASE' | 'REFUND' | 'ADMIN_CREDIT' | 'ADMIN_DEBIT' | 'RENEWAL' | 'REFERRAL' | 'GIFT_CARD' | 'LOYALTY' | 'PAY_CREDIT' | 'PAY_RESERVE' | 'PAY_RELEASE'
 
 export interface WalletMoveInput {
   userId: number
@@ -18,6 +18,10 @@ export interface WalletMoveInput {
   idempotencyKey?: string | null
   /** Reuse/settle an existing pending ledger row (for gateway top-ups). */
   txId?: number | null
+  /** Verified merchant proceeds and their reservations. Ordinary credits never become withdrawable. */
+  funds?: 'WITHDRAWABLE'
+  /** Full cancellation of one original purchase reservation; provenance is restored once. */
+  reversalOfId?: number
 }
 
 export interface WalletMoveResult {
@@ -57,6 +61,9 @@ export async function moveWallet(input: WalletMoveInput, transaction?: Prisma.Tr
     return { ok: false, message: error instanceof Error ? error.message : 'invalid amount' }
   }
   if (amountMinor === 0n) return { ok: false, message: 'amount must not be zero' }
+  if (['PAY_CREDIT', 'PAY_RESERVE', 'PAY_RELEASE'].includes(input.type) && (!input.funds || input.currency !== 'IRR' || (input.type === 'PAY_RESERVE' ? amountMinor >= 0n : amountMinor <= 0n))) return { ok: false, message: 'invalid merchant proceeds movement' }
+  if (input.funds && (!['PAY_CREDIT', 'PAY_RESERVE', 'PAY_RELEASE'].includes(input.type) || input.txId || input.status && input.status !== 'DONE')) return { ok: false, message: 'invalid withdrawable movement' }
+  if (input.reversalOfId && (input.type !== 'REFUND' || amountMinor <= 0n || input.funds || input.txId || input.status && input.status !== 'DONE')) return { ok: false, message: 'invalid wallet reversal' }
 
   // Composed callers own retry/rollback of their whole transaction; never nest or retry a part.
   if (transaction) return moveInTransaction(transaction, input, currency, amountMinor)
@@ -80,6 +87,7 @@ async function moveInTransaction(tx: Prisma.TransactionClient, input: WalletMove
   if (input.idempotencyKey) {
     const previous = await tx.walletTx.findUnique({ where: { idempotencyKey: input.idempotencyKey } })
     if (previous?.status === 'DONE') {
+      if (input.funds && (previous.userId !== input.userId || previous.currency !== currency || previous.type !== input.type || previous.amountMinor !== amountMinor || previous.withdrawableDeltaMinor !== amountMinor)) throw new Error('withdrawable idempotency collision')
       return {
         ok: true,
         currency: previous.currency,
@@ -91,8 +99,21 @@ async function moveInTransaction(tx: Prisma.TransactionClient, input: WalletMove
     }
   }
 
-  const account = await ensureAccount(tx, input.userId, currency)
-  if (!account) return { ok: false, message: 'user not found' }
+  const found = await ensureAccount(tx, input.userId, currency)
+  if (!found) return { ok: false, message: 'user not found' }
+  // Acquire the canonical account's write lock before reading either balance. A no-op
+  // update is portable to both supported databases and locks until this transaction ends.
+  await tx.walletAccount.updateMany({ where: { id: found.id }, data: { balanceMinor: { increment: 0n } } })
+  const account = await tx.walletAccount.findUniqueOrThrow({ where: { id: found.id } })
+  const withdrawableBefore = account.withdrawableMinor
+  let restoredWithdrawable = 0n
+  if (input.reversalOfId) {
+    const original = await tx.walletTx.findUnique({ where: { id: input.reversalOfId }, include: { reversedBy: true } })
+    if (!original || original.userId !== input.userId || original.currency !== currency || original.type !== 'PURCHASE' || original.status !== 'DONE' || original.amountMinor !== -amountMinor) return { ok: false, message: 'original purchase reservation does not match' }
+    if (original.reversedBy) return { ok: true, currency, balance: legacyNumber(account.balanceMinor, currency), balanceMinor: account.balanceMinor, txId: original.reversedBy.id, idempotent: true }
+    restoredWithdrawable = -original.withdrawableDeltaMinor
+    if (restoredWithdrawable < 0n || restoredWithdrawable > amountMinor) throw new Error('invalid original proceeds')
+  }
 
   // When settling a pending top-up, atomically claim exactly that row once.
   // This protects against a signed callback and the recovery poller racing.
@@ -132,13 +153,16 @@ async function moveInTransaction(tx: Prisma.TransactionClient, input: WalletMove
 
   if (amountMinor < 0n) {
     const debit = -amountMinor
+    if (input.funds && withdrawableBefore < debit) return { ok: false, message: 'insufficient withdrawable balance' }
+    const remaining = account.balanceMinor - debit
+    const withdrawableMinor = input.funds ? withdrawableBefore - debit : withdrawableBefore < remaining ? withdrawableBefore : remaining
     const changed = await tx.walletAccount.updateMany({
       where: { id: account.id, balanceMinor: { gte: debit } },
-      data: { balanceMinor: { decrement: debit } },
+      data: { balanceMinor: { decrement: debit }, withdrawableMinor },
     })
     if (changed.count !== 1) return { ok: false, message: 'insufficient wallet balance' }
   } else {
-    await tx.walletAccount.update({ where: { id: account.id }, data: { balanceMinor: { increment: amountMinor } } })
+    await tx.walletAccount.update({ where: { id: account.id }, data: { balanceMinor: { increment: amountMinor }, ...(input.funds || restoredWithdrawable ? { withdrawableMinor: { increment: input.funds ? amountMinor : restoredWithdrawable } } : {}) } })
   }
 
   const updated = await tx.walletAccount.findUnique({ where: { id: account.id } })
@@ -152,6 +176,8 @@ async function moveInTransaction(tx: Prisma.TransactionClient, input: WalletMove
     amountMinor,
     balanceAfter: balance,
     balanceAfterMinor: updated.balanceMinor,
+    withdrawableDeltaMinor: updated.withdrawableMinor - withdrawableBefore,
+    withdrawableAfterMinor: updated.withdrawableMinor,
     currency,
     type: input.type,
     status: input.status || 'DONE',
@@ -160,6 +186,7 @@ async function moveInTransaction(tx: Prisma.TransactionClient, input: WalletMove
     invoiceId: input.invoiceId ?? null,
     adminId: input.adminId ?? null,
     idempotencyKey: input.idempotencyKey || null,
+    reversalOfId: input.reversalOfId || null,
   }
 
   let txId = input.txId ?? null

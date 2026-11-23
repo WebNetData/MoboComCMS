@@ -246,7 +246,7 @@ export function checkoutGatewayRef(gateway: Pick<GatewayRuntime, 'id' | 'provide
 }
 
 export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provider' | 'fiat'>) {
-  if (gateway.provider === 'FRENZYEX') return ['USD', 'TMN', 'IRT']
+  if (gateway.provider === 'FRENZYEX') return ['USD', 'TMN', 'IRT', 'IRR']
   if (gateway.provider === 'CARD_TRANSFER') return ['IRR', 'IRT', 'TMN']
   if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD']
   if (isInstallmentGateway(gateway.provider)) return ['IRR', 'IRT', 'TMN']
@@ -336,7 +336,7 @@ export async function gatewayById(id: number | null | undefined) {
 
 export function gatewayAcceptsCheckoutCurrency(gateway: GatewayRuntime, currencyInput: string) {
   const currency = normalizeCurrency(currencyInput)
-  if (gateway.provider === 'FRENZYEX') return currency === 'USD' || currency === 'TMN' || currency === 'IRT'
+  if (gateway.provider === 'FRENZYEX') return currency === 'USD' || currency === 'TMN' || currency === 'IRT' || currency === 'IRR'
   if (gateway.provider === 'CARD_TRANSFER') return currency === 'IRR' || currency === 'IRT' || currency === 'TMN'
   if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD'].includes(currency)
   if (isInstallmentGateway(gateway.provider)) return ['IRR', 'IRT', 'TMN'].includes(currency)
@@ -361,6 +361,8 @@ export interface GatewayInvoiceInput {
   successUrl: string
   failUrl: string
   channel?: 'web' | 'telegram'
+  /** An embedded merchant checkout must never fall back to a different bot. */
+  allowBotRedirect?: boolean
   /** Installment providers: the customer's mobile and the basket. */
   mobile?: string
   items?: { id: string; name: string; count: number; unitAmount: number }[]
@@ -383,6 +385,11 @@ export interface GatewayInvoiceResult {
 
 async function frenzyAmountToman(amount: number, currencyInput: string): Promise<bigint> {
   const currency = normalizeCurrency(currencyInput)
+  if (currency === 'IRR') {
+    const rial = toMinor(amount, 'IRR')
+    if (rial % 10n !== 0n) throw new Error('مبلغ ریالی باید مضرب ده باشد')
+    return rial / 10n
+  }
   if (currency === 'TMN' || currency === 'IRT') return toMinor(amount, 'TMN')
   if (currency !== 'USD') throw new Error(`FrenzyEx cannot convert ${currency} to Toman`)
 
@@ -437,9 +444,12 @@ export async function createGatewayInvoice(
       providerAmount: Number(amountToman),
       providerCurrency: 'TMN',
     }
-    const paymentUrl = input.channel === 'telegram'
+    const paymentUrl = input.allowBotRedirect === false
+      ? (res.checkoutUrl || res.payUrl)
+      : input.channel === 'telegram'
       ? (res.botPayUrl || res.checkoutUrl || res.payUrl)
       : (res.checkoutUrl || res.payUrl || res.botPayUrl)
+    if (!paymentUrl && input.allowBotRedirect === false) return { ok: false, ambiguous: true, txnId: res.requestId, message: 'درگاه نشانی وب معتبر ارائه نکرد', providerAmount: Number(amountToman), providerCurrency: 'TMN' }
     return {
       ok: true,
       txnId: res.requestId,

@@ -1,3 +1,18 @@
+# Pay / Extensions synchronization — 2026-11-23
+
+Owner requests sync after merging Pay PR481. Integration checkout
+`.mobocom/package-lifecycle`, branch `feat/pay-extension-sync-2026-11-23` combines
+f6429ce7 with freshly fetched main e2b6c51b. Both document histories retained;
+45-entry catalog/AI knowledge regenerated. Compound Pay provisioning/current roles/
+off replay and both native Pay checks passed, along with package/state/repository
+regressions,145 units, types/architecture/source/schema/money/security/Audit gates.
+10 browser scopes,2 final E2E and4215-input exact parity passed. Owned runtime,
+private Prisma/DB/role/session state removed; original health/session200. Final
+receipt (including unchanged public TOTP scanner fixture) is recorded in
+[the shared handoff](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md#mobocompay-synchronization--owner2026-11-23).
+No original DB migration, live provider, new fee/financial rule, hosted workflow,
+push/PR/main merge or deployment. Preserve root/autonomous/IDE configuration.
+
 # Solution Packs / commercial distribution — 2026-11-23
 
 Owner chose architecture phase2. Continue `.mobocom/package-lifecycle` /
@@ -40,6 +55,16 @@ host secrets removed, original app readiness/session200. Final source/scans/clea
 receipt is in [the existing handoff](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md#package-compatibility-and-recoverable-source-apply--2026-11-23).
 No PR/push/merge/deploy/provider send; preserve root/autonomous work and existing
 history below. Next commercial Solution Packs/distribution remains separate.
+
+MoboComPay PR preparation2026-11-23: owner authorized push and PR to main, retaining merge/deploy. Fresh origin/main has0 missing commits; feature tipdb6dcbaa and aggregate diff check pass. Publication includes all Pay slices and both additive migrations, with prior executed evidence/activation limits retained. Continue docs/agent/handoffs/MOBOCOM_PAY.md#pull-request-preparation--owner-request-2026-11-23; GitHub records PR URL/state.
+
+MoboComPay shared checkout2026-11-23: same local feat/mobocom-pay-2026-11-23 frome317a80e; canonical active Gateways + real PAY_COLLECTION Invoice, scoped phone OTP/no customer identity, canonical guest receipts/manual+bank matching, exactly-once journal/Wallet, merchant/customer fee side and total fixed+percent cap. PG209 fresh/populated208 upgrade, two detected/restored faults,180 scoped units/full types/gates,29 actual themed/mobile axe0 scopes, Hurl7/Spectral0 and real scoped-role/consumer checks recorded. Live providers, external merchant fulfillment and deployment remain unverified. Continue docs/agent/handoffs/MOBOCOM_PAY.md#shared-gateways-and-verified-payer-checkout--owner-continuation-2026-11-23.
+
+MoboComPay independent navigation2026-11-23: continued local feat/mobocom-pay-2026-11-23 from005f1346. Separate «درگاه پرداخت» ShellNav/Finance groups, whitelisted per-view addresses, scoped responsive themed panels/reports, canonical Wallet explanation and role-filtered Admin navigation. Full private Linux UID1000/no-env types,45 units, source/architecture, React Doctor0 errors and26 real PG-backed browser scopes axe0/overflow0/errors0; provider/deployment limits unchanged. Continue docs/agent/handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23.
+
+Final MoboComPay local delivery2026-11-23: product commit321a1238,180 scoped tests/PG208/populated upgrade/full types/contracts and19 final browser scopes passed; all owned test databases/container/private sessions removed. Original app3236 source files matched its current mount, and same-code local restart restored Windows readiness/session200. No live bank/provider, hosted workflow, PR, merge or deploy. See docs/agent/handoffs/MOBOCOM_PAY.md.
+
+MoboComPay2026-11-23: local merchant collection/reviewed IRR/TRX/USDT-TRON settlement implementation in `.mobocom/mobocom-pay` / `feat/mobocom-pay-2026-11-23`, base origin/main bcdfbdc7. Billing/Wallet/Public API/Identity/Settings/Audit/Notifications reused; opt-in default-off; bank-attested attribution required, selected bank adapter and additional networks pending. Native PG208/populated upgrade/180 scoped tests/types/contracts/actual themed/mobile browser evidence recorded in docs/agent/handoffs/MOBOCOM_PAY.md; final source hashes and cleaned disposable fixtures are recorded there; code is prepared on the named local feature branch. No live service/provider/production/PR/merge/deploy claim. Preserve root and autonomous-foundation work.
 
 # Release1.7.21 local build — owner2026-11-15
 

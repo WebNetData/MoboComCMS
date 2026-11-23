@@ -192,6 +192,7 @@ export async function PATCH(req: NextRequest) {
   if (!id) return err('invalid id')
   const invoice = await db.invoice.findUnique({ where: { id }, include: { gateway: true } })
   if (!invoice) return err('not found', 404)
+  if (invoice.kind === 'PAY_COLLECTION') return err('رسید پرداخت پذیرنده را از درگاه پرداخت بررسی کنید؛ تغییر مستقیم سند مجاز نیست', 409)
   const currency = normalizeCurrency(invoice.currency)
   const action = String(b?.action || 'update')
 

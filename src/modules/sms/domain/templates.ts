@@ -26,7 +26,7 @@ export const SMS_READY_TEMPLATES = [
 ] as const
 
 export function otpGroup(purpose: string): OtpGroup {
-  if (purpose === 'VERIFY') return 'verify'
+  if (purpose === 'VERIFY' || /^PAY_CHECKOUT:[a-f0-9]{32}:[a-f0-9]{32}$/.test(purpose)) return 'verify'
   if (purpose === 'RESET') return 'reset'
   if (/^COUNTER:[1-9]\d*:[1-9]\d*$/.test(purpose)) return 'counter'
   if (/^REPAIR:[1-9]\d*$/.test(purpose)) return 'repair'

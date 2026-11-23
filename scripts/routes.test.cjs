@@ -140,7 +140,11 @@ test('every bundled module menu is valid and each section links to its settings 
     const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
     contracts.assertValidExtensionManifest(manifest)
     // Public sections link to their settings page; admin-only tools (server panel) have none.
-    if (manifest.adminMenu && manifest.publicPaths?.length && !PUBLIC_TOOLS.has(manifest.id)) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
+    if (manifest.id === 'mobocom-pay') {
+      // Pay settings have their own financial owner, not the generic content-section editor.
+      assert.ok(manifest.adminMenu.items.some(item => item.href === '/admin/mobocom-pay/settings' && item.permissions?.includes('mobocom-pay.manage')), 'Pay links to its guarded financial settings')
+      assert.ok(fs.existsSync(path.resolve(__dirname, '../src/app/admin/mobocom-pay/[view]/page.tsx')))
+    } else if (manifest.adminMenu && manifest.publicPaths?.length && !PUBLIC_TOOLS.has(manifest.id)) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
   }
 })
 

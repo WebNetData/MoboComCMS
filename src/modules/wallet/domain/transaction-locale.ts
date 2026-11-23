@@ -1,4 +1,7 @@
 const labels: Record<string, { en: string; fa: string }> = {
+  PAY_CREDIT: { en: 'MoboComPay proceeds', fa: 'درآمد تأییدشدهٔ موبوکام‌پی' },
+  PAY_RESERVE: { en: 'MoboComPay settlement reserve', fa: 'رزرو تسویهٔ موبوکام‌پی' },
+  PAY_RELEASE: { en: 'MoboComPay reserve released', fa: 'بازگشت رزرو تسویهٔ موبوکام‌پی' },
   TOPUP: { en: 'Wallet top-up', fa: 'شارژ کیف پول' },
   PURCHASE: { en: 'Purchase', fa: 'خرید' },
   REFUND: { en: 'Refund', fa: 'بازپرداخت' },

@@ -24,6 +24,12 @@ export async function GET_image(req: NextRequest, { params }: { params: Promise<
   if (!user) return err('unauthorized', 401)
   const id = Number((await params).id)
   if (!Number.isSafeInteger(id) || id <= 0) return err('not found', 404)
+  const { db } = await import('@/platform/database/prisma')
+  const collection = await db.paymentReceipt.findUnique({ where: { id }, select: { invoice: { select: { kind: true } } } })
+  if (collection?.invoice.kind === 'PAY_COLLECTION') {
+    try { return await (await import('@/modules/billing/server/pay')).payReceiptImage(req, id) }
+    catch { return err('not found', 404) }
+  }
   const staff = user.role === 'ADMIN' && Boolean(await requirePerm(req, 'invoices.manage'))
   const file = await receiptImage(id, { id: user.id, staff })
   if (!file) return err('not found', 404)

@@ -62,7 +62,7 @@ export interface CreateInvoiceForOrderInput {
   notes?: string
   status?: InvoiceStatus
   createdBy?: number | null
-  kind?: 'BILLING' | 'WALLET_TOPUP'
+  kind?: 'BILLING' | 'WALLET_TOPUP' | 'PAY_COLLECTION'
   walletApplied?: number | string
   idempotencyKey?: string | null
   dueDays?: number
@@ -86,7 +86,9 @@ export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput, c
   const taxMinor = toMinor(input.tax || 0, currency)
   const totalMinor = invoiceTotalMinor(subtotalMinor, discountMinor, taxMinor)
   const walletAppliedMinor = toMinor(input.walletApplied || 0, currency)
-  if (input.userId === null && (input.saleSource !== 'COUNTER' || !input.orderId || walletAppliedMinor !== 0n)) throw new Error('counter invoice requires an order and no wallet credit')
+  const collection = input.kind === 'PAY_COLLECTION'
+  if (collection && (input.userId !== null || input.orderId || input.planId || input.productId || walletAppliedMinor !== 0n || currency !== 'IRR' || input.saleSource === 'COUNTER')) throw new Error('invalid merchant collection invoice')
+  if (!collection && input.userId === null && (input.saleSource !== 'COUNTER' || !input.orderId || walletAppliedMinor !== 0n)) throw new Error('counter invoice requires an order and no wallet credit')
   if (walletAppliedMinor < 0n || walletAppliedMinor > totalMinor) throw new Error('invalid wallet credit on invoice')
   const dueDays = Math.max(0, Math.min(365, Number(input.dueDays ?? 1) || 0))
 
@@ -160,6 +162,7 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
     const totalPaidMinor = creditMinor + amountMinor
     const totalMinor = invoice.totalMinor || toMinor(invoice.total, currency)
     if (totalPaidMinor < totalMinor) return { ok: false as const, message: 'invoice is not fully paid' }
+    if (invoice.kind === 'PAY_COLLECTION' && (amountMinor !== totalMinor || creditMinor !== 0n)) return { ok: false as const, message: 'merchant payment requires the exact total' }
     const feeBps = Number.isInteger(input.feeBps) ? Number(input.feeBps) : Math.round((Number(input.feePercent) || 0) * 100)
     const feeMinor = bpsAmount(amountMinor, feeBps)
     const now = new Date()
@@ -249,6 +252,7 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
       await tx.promotionRedemption.updateMany({ where: { orderId: invoice.orderId, status: 'RESERVED' }, data: { status: 'USED' } })
     }
 
+    if (invoice.kind === 'PAY_COLLECTION') await (await import('@/modules/billing/server/pay')).creditPayInvoice(tx, invoice.id)
     const settled = await tx.invoice.findUnique({ where: { id: invoice.id } })
     return { ok: true as const, alreadyPaid: false, invoice: settled || invoice }
   }
@@ -295,27 +299,21 @@ export async function recoverVoidInvoiceCredit(limit = 20, now = new Date()) {
 }
 
 export async function releaseInvoiceCredit(invoiceId: number, description?: string) {
-  const invoice = await db.invoice.findUnique({ where: { id: invoiceId } })
-  if (!invoice) return { ok: false as const, message: 'invoice not found', released: 0 }
-  const currency = normalizeCurrency(invoice.currency)
-  const creditMinor = invoice.walletAppliedMinor || toMinor(invoice.walletApplied || 0, currency)
-  if (creditMinor <= 0n) return { ok: true as const, released: 0 }
-  if (invoice.userId === null) return { ok: false as const, message: 'wallet credit requires an account', released: 0 }
-  if (invoice.status === 'PAID') return { ok: false as const, message: 'a paid invoice keeps its credit', released: 0 }
-
-  const move = await moveWallet({
-    userId: invoice.userId,
-    amount: legacyNumber(creditMinor, currency),
-    currency,
-    type: 'REFUND',
-    description: description || `credit released for ${invoice.number}`,
-    orderId: invoice.orderId,
-    invoiceId: invoice.id,
-    idempotencyKey: `invoice-credit-release:${invoice.id}`,
+  return db.$transaction(async tx => {
+    const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } })
+    if (!invoice) return { ok: false as const, message: 'invoice not found', released: 0 }
+    const currency = normalizeCurrency(invoice.currency)
+    const creditMinor = invoice.walletAppliedMinor || toMinor(invoice.walletApplied || 0, currency)
+    if (creditMinor <= 0n) return { ok: true as const, released: 0 }
+    if (invoice.userId === null) return { ok: false as const, message: 'wallet credit requires an account', released: 0 }
+    if (invoice.status === 'PAID') return { ok: false as const, message: 'a paid invoice keeps its credit', released: 0 }
+    const claimed = await tx.invoice.updateMany({ where: { id: invoice.id, status: invoice.status, walletAppliedMinor: invoice.walletAppliedMinor }, data: { walletApplied: 0, walletAppliedMinor: 0n, ...(invoice.status === 'UNPAID' || invoice.status === 'DRAFT' ? { status: 'VOID', paymentUrl: '' } : {}) } })
+    if (claimed.count !== 1) return { ok: false as const, message: 'invoice credit changed', released: 0 }
+    const original = await tx.walletTx.findFirst({ where: { invoiceId: invoice.id, userId: invoice.userId, currency, type: 'PURCHASE', status: 'DONE', amountMinor: -creditMinor }, orderBy: { id: 'asc' } })
+    const move = await moveWallet({ userId: invoice.userId, amount: creditMinor.toString(), currency, type: 'REFUND', description: description || 'credit released for ' + invoice.number, orderId: invoice.orderId, invoiceId: invoice.id, idempotencyKey: 'invoice-credit-release:' + invoice.id, reversalOfId: original?.id }, tx)
+    if (!move.ok) throw new Error(move.message || 'wallet credit release failed')
+    return { ok: true as const, released: minorToNumber(creditMinor, currency), balance: move.balance, currency }
   })
-  if (!move.ok) return { ok: false as const, message: move.message, released: 0 }
-  await db.invoice.update({ where: { id: invoice.id }, data: { walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
-  return { ok: true as const, released: minorToNumber(creditMinor, currency), balance: move.balance, currency }
 }
 
 export async function recordProviderEvent(input: {

@@ -235,8 +235,10 @@ test('every migration belongs to exactly one release, and a shipped one is never
 
 test('the states the database accepts are the states the code declares', () => {
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
-  const sql = read('prisma/migrations/20261216120000_money_state_rules/migration.sql')
-  const allowed = (constraint) => { const m = sql.match(new RegExp('"' + constraint + '" CHECK \\("\\w+" IN \\(([^)]*)\\)\\)')); assert.ok(m, constraint); return m[1].split(',').map((value) => value.trim().replace(/'/g, '')).sort() }
+  // Resolve the final installed constraint after additive migrations widen a vocabulary.
+  const migrations = path.resolve(__dirname, '../prisma/migrations')
+  const sql = fs.readdirSync(migrations).sort().filter(name => fs.existsSync(path.join(migrations, name, 'migration.sql'))).map(name => read(`prisma/migrations/${name}/migration.sql`)).join('\n')
+  const allowed = (constraint) => { const m = [...sql.matchAll(new RegExp('"' + constraint + '" CHECK \\("\\w+" IN \\(([^)]*)\\)\\)', 'g'))].at(-1); assert.ok(m, constraint); return m[1].split(',').map((value) => value.trim().replace(/'/g, '')).sort() }
   const union = (source, name) => { const m = source.match(new RegExp('type ' + name + ' = ([^\\n]+)')); assert.ok(m, name); return [...m[1].matchAll(/'([A-Z_]*)'/g)].map((x) => x[1]).sort() }
   const list = (source, name) => { const m = source.match(new RegExp(name + ' = \\[([^\\]]+)\\]')); assert.ok(m, name); return [...m[1].matchAll(/'([A-Z_]*)'/g)].map((x) => x[1]).sort() }
   // A wallet row type or an invoice state added in code needs a migration that lets the database accept it.

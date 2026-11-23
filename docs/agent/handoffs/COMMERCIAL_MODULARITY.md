@@ -5,9 +5,9 @@ capabilities are optional modules/plugins; inactive contributions must disappear
 from ordinary Admin/public settings and direct server/worker entry points, retaining
 data. This reinforces the existing architecture, not a new shared system.
 
-Current Solution Pack continuation is `.mobocom/package-lifecycle`, branch
-`feat/solution-packs-distribution-2026-11-23`, based on visual-polish commit
-`9da4d6ac` (the preceding implementation remains on its feature branch).
+Current Pay synchronization is `.mobocom/package-lifecycle`, branch
+`feat/pay-extension-sync-2026-11-23`, combining Solution Pack tip `f6429ce7`
+with owner-merged main `e2b6c51b` / PR481. Prior branches/commits are retained.
 Use the2026-11-23 package compatibility/source-apply section below. The original
 2026-11-15 isolation implementation used `.mobocom/sms-platform`, branch
 `fix/modular-capability-isolation-2026-11-15`, base main274ada62 after owner merge
@@ -618,3 +618,113 @@ in `var/solution-packs-20261123`; private state is removed during final cleanup.
   Nonsecret sample ZIPs, screenshots/logs and hash/fault receipts remain ignored
   under `var/solution-packs-20261123`. Broader role/theme/navigation/starter content
   composition still needs its later versioned contract and explicit owner commands.
+
+## MoboComPay synchronization — owner2026-11-23
+
+Owner reported adding/merging MoboComPay and explicitly requested synchronizing
+all prior package/lifecycle/manager/Solution Pack work. Fresh fetch confirmed
+origin/main e2b6c51b (PR481),6 upstream commits versus3 local feature commits.
+The resolved checkout is `.mobocom/package-lifecycle`, integration branch
+`feat/pay-extension-sync-2026-11-23` from f6429ce7. Local merge brings the owner’s
+Pay implementation into the feature branch; it is not a merge/push to hosted main.
+Root/autonomous-foundation and the open private IDE config remain untouched.
+
+### Preserved owners and compatibility fixes
+
+- Source merged without conflicts; five canonical document prefixes conflicted
+  because both branches added independent history. Preserved both full histories
+  and regenerated the existing14-document AI bundle. Regenerated45 extension/module
+  entries plus4 code themes: Pay remains default-off, ordinary module/version/API1,
+  with the canonical Finance menu and independent manage/settle permissions.
+- Original Pay source, two schema mirrors and additive migration/manifest bytes
+  remain the owner-merged implementation. Billing/Wallet/shared Gateway/receipt/
+  OTP/Identity owners and withdrawable provenance stay intact. No new money state,
+  wallet, gateway, permission resolver, schema or migration was invented.
+- Added native Pay integration to the existing Solution Pack acceptance. Actual
+  manifest/catalog verifies inert upload/preview, explicit module activation,
+  rejection of financial defaults, unchanged Pay settings/incoming=false/provider
+  unset, no new merchant or role grants, current Pay-only role denied provisioning,
+  later disable and historical replay without reactivation/new Audit. Existing
+  atomicity/concurrency/lifecycle assertions and fixture cleanup remain.
+- Corrected two stale regression assumptions exposed by the merged catalog:
+  package money vocabulary now compares code against the final migration-defined
+  constraint (still exact equality), including additive PAY_CREDIT/RESERVE/RELEASE.
+  The menu test verifies Pay’s actual dedicated settings route and manage permission
+  instead of demanding a generic content-section editor. Other sections retain
+  their original settings-link checks. No historic SQL or baseline was weakened.
+
+### Executed evidence and limitations
+
+Docker Desktop was stopped; started it hidden and reused the original app/image.
+Prepared a new private source/runtime and a NOSUPERUSER disposable PostgreSQL DB.
+Generated a private Prisma5.22 client for the Pay schema without changing /app
+dependencies or migrating the original site database. Linux UID1000/no.env.
+Actual final migration count/environment/source parity and cleanup follow below.
+
+Registered mobocom-pay and pay-shared-checkout native checks passed on the merged
+source, as did compound solution-packs, package-command, extension-state-integrity
+and signed repository-install checks. Native bank/SMS/provider boundaries remain
+controlled doubles; no real financial/provider call. The first new negative
+fixture tried camelCase incomingEnabled, rejected by the strict parser before
+the expected preview stage; asserted that parser refusal and added an allowed-form
+undeclared key to prove host-schema refusal too. Corrected acceptance passed.
+
+145 selected package/repository/example/routes/payments/returns/navigation/account
+units passed after correcting the two stale assumptions; initial143/145 is retained
+as a failure. Full TypeScript,3085-source syntax/import, architecture, schema parity,
+money primitives/schema/UI, migration manifest (two unreleased), security and
+Audit invariant gates passed. No production build or full-platform pass claim.
+
+Actual Edge/Playwright accepted10 scopes at1440 light/dark and390 dark: Pay card
+off/on in the polished manager, real Solution Pack review/apply and unchanged Pay
+financial settings. All scoped axe0/overflow0/page-errors0; screenshots inspected.
+Current settings-only, Pay-manage-only and settle-only accounts retain independent
+server permissions; module-off returns404; receipt replay leaves it off. The
+settlement projection intentionally returns settings with bank IDs/provider
+redacted; the initial test expected complete omission and was corrected to that
+existing contract, not by changing Pay source. Browser acceptance completed in
+resumed phases with the accepted screenshot matrix retained.
+
+React Doctor on3 manager components returned0 blocking errors/5 reviewed inherited
+warnings with no suppression. No React component changed in this sync; the actual
+merged views and isolation regression supply UI proof. Initial maintained E2E had
+an unrelated concurrent Next dev manifest-read500 during parallel browser/compiler
+activity; final serialized rerun is recorded below, never counted as an initial
+pass. No product retry/bypass was added for that dev failure.
+
+Pay incoming/bank readiness stays default-off and requires the original provider,
+SMS/encryption/callback/live-host validation. Existing Pay settlement and older
+Wallet rollback constraints apply: after financial activity retain compatible
+code/schema/history and forward-fix, never downgrade the withdrawable-aware Wallet.
+The prior package UI, compatibility, trusted source recovery, Solution Pack signed
+acquisition and retained provisioning contracts remain. Broader role/theme/content
+composition and live commercial distribution remain separate.
+
+### Pay synchronization final receipt
+
+- Exact environment verified Node22.23.3, PostgreSQL17.11,209 migrations, UID1000,
+  no.env and NOSUPERUSER. Private Prisma5.22 generation matched the merged schema;
+  /app dependencies and original site database were not regenerated/migrated.
+- Final maintained E2E serialized run passed2/failed0/skipped0/retries0 (24.3s).
+  The earlier Next dev manifest-read failure is not a pass. All10 accepted browser
+  scopes remain axe0/no overflow/no page errors. Doctor0 errors/5 inherited warnings.
+- Matched4215 source/check/schema/config/example inputs:0 content mismatches,
+  0 unexpected files and0 line-ending-only differences. Manifest SHA256
+  `133d022c22d5ab3c7bf014c7c8b7f224b1acebe671e1c6eb668d4d7c4b793ceb`.
+  Pay/Billing/Wallet/components/routes and both schema/migration trees remain
+  byte-identical to owner-merged origin/main. This is source parity, not a build.
+- Scoped Semgrep over74 source targets:0 findings/errors. Redacted Gitleaks over103
+  changed/new files exits1 with one unchanged public Base32/TOTP known-answer
+  fixture in account-security.test.cjs line147. The entire test matches merged
+  main after line-ending normalization, and the fixture matches its RFC6238
+  derivation/assertion; verified line hash is in the receipt. This is the same
+  preexisting fixture documented by Pay’s handoff, not a live key. No suppression
+  or baseline change; do not describe Gitleaks as0 findings.
+- Verified source/browser/E2E receipts before stopping the exact-cwd preview and
+  exact bridge. Removed only /tmp/mobocom-pay-sync-20261123, its private client,
+  mobocom_pay_test_sync_20261123 and its owned role. Removed host private DB/session/
+  E2E state/traces and source archive. Original readiness/session rechecked200.
+  Nonsecret screenshots/logs remain ignored under var/pay-sync-20261123.
+- [Machine-readable receipt](../../specs/commercial-modularity/pay-sync-validation-2026-11-23.json).
+  Local integration only; no remote-main merge, push, PR, provider call, original
+  DB migration or deployment. Keep Pay-compatible Wallet after financial activity.
