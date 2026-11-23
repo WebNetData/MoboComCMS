@@ -1,6 +1,6 @@
 // Real PostgreSQL: a page, and a magazine article, written as a MoboCom document. The service is the real one; the site-wide switch is kept in
 // memory so the check never switches the plugin of the local site. Pages are namespaced and removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `editor-doc-${Date.now()}`
 const plugin = {on: true}, changes = []
 const mocks = {
@@ -14,12 +14,15 @@ const mocks = {
  '@/extensions/server/modules': {isModuleEnabled: async id => id === 'block-editor' ? plugin.on : true, getModuleStates: async () => ({store: true, journal: true, cinema: true, music: true, games: true, software: true, forum: true})},
 }
 const cache = new Map()
-const load = file => {
+const load = input => {
+ const base = path.resolve(input), file = [base, base + '.ts', base + '.tsx', base + '.json', path.join(base, 'index.ts')].find(p => fs.existsSync(p) && fs.statSync(p).isFile())
+ if (!file) throw Error('Missing source ' + base)
+ if (file.endsWith('.json')) return JSON.parse(fs.readFileSync(file, 'utf8'))
  if (cache.has(file)) return cache.get(file).exports
  const mod = {exports: {}}; cache.set(file, mod)
- new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022}}).outputText)(name => {
+ new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true}}).outputText)(name => {
   if (Object.hasOwn(mocks, name)) return mocks[name]
-  if (name.startsWith('@/')) {const base = `src/${name.slice(2)}`; return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts')}
+  if (name.startsWith('@/') || name.startsWith('.')) return load(name.startsWith('@/') ? path.resolve('src', name.slice(2)) : path.resolve(path.dirname(file), name))
   return require(name)
  }, mod, mod.exports)
  return mod.exports

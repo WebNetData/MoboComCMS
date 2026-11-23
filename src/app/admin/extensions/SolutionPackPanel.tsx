@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { SolutionPlan } from '@/modules/packages/domain/solution-plan'
 import type { SolutionApplyReceipt } from '@/modules/packages/domain/solution-receipt'
+import { SolutionComposition, SolutionCompositionReceipt } from './SolutionComposition'
 
 type Props = { id: string; receipt?: SolutionApplyReceipt; onApplied: () => void }
 
@@ -45,11 +46,12 @@ export default function SolutionPackPanel({ id, receipt, onApplied }: Props) {
         {!!target.preserved.length && <small>{target.preserved.length.toLocaleString('fa-IR')} تنظیم ذخیره‌شده حفظ می‌شود.</small>}
         {!!Object.keys(target.defaults).length && <details><summary>پیش‌فرض‌های جدید ({Object.keys(target.defaults).length.toLocaleString('fa-IR')})</summary><dl>{Object.entries(target.defaults).map(([key, value]) => <div key={key}><dt dir="ltr">{key}</dt><dd>{typeof value === 'boolean' ? value ? 'بله' : 'خیر' : String(value)}</dd></div>)}</dl></details>}
       </li>)}</ul>
+      {plan.composition && <SolutionComposition composition={plan.composition} completed={!!applied}/>}
       {!!plan.recommendations.length && <p>افزونه‌های پیشنهادی: <bdi dir="ltr">{plan.recommendations.join('، ')}</bdi>. دریافت و مجوز هرکدام جداست؛ خودکار نصب نمی‌شوند.</p>}
       <p>حذف بسته یا لغو لایسنس، پیکربندی و داده‌های ایجادشده را برنمی‌گرداند.</p>
-      {plan.receipt && <details className="pm-solution-receipt"><summary>رسید آخرین پیکربندی</summary><dl><div><dt>زمان ثبت</dt><dd>{new Date(plan.receipt.appliedAt).toLocaleString('fa-IR')}</dd></div><div><dt>ماژول‌ها</dt><dd><bdi dir="ltr">{plan.receipt.modules.join('، ')}</bdi></dd></div><div><dt>پیش‌فرض‌های ثبت‌شده</dt><dd>{plan.receipt.defaultKeys.length.toLocaleString('fa-IR')}</dd></div></dl></details>}
+      {plan.receipt && <details className="pm-solution-receipt"><summary>رسید آخرین پیکربندی</summary><dl><div><dt>زمان ثبت</dt><dd>{new Date(plan.receipt.appliedAt).toLocaleString('fa-IR')}</dd></div><div><dt>ماژول‌ها</dt><dd><bdi dir="ltr">{plan.receipt.modules.join('، ')}</bdi></dd></div><div><dt>پیش‌فرض‌های ثبت‌شده</dt><dd>{plan.receipt.defaultKeys.length.toLocaleString('fa-IR')}</dd></div>{plan.receipt.composition && <SolutionCompositionReceipt composition={plan.receipt.composition}/>}</dl></details>}
       {applied ? <p role="status" className="pm-solution-success">{saved ? 'پیکربندی با موفقیت ثبت شد.' : 'این نسخه قبلاً اعمال شده است؛ تنظیمات فعلی دوباره تغییر نمی‌کنند.'}</p> : <>
-        <label className="pm-solution-confirm"><input type="checkbox" checked={confirmed} disabled={busy || stale} onChange={event => setConfirmed(event.target.checked)}/><span>فعال‌سازی ماژول‌ها و پیش‌فرض‌های این فهرست را تأیید می‌کنم.</span></label>
+        <label className="pm-solution-confirm"><input type="checkbox" checked={confirmed} disabled={busy || stale} onChange={event => setConfirmed(event.target.checked)}/><span>{plan.composition ? 'موارد و تغییرات این فهرست را بررسی و تأیید می‌کنم.' : 'فعال‌سازی ماژول‌ها و پیش‌فرض‌های این فهرست را تأیید می‌کنم.'}</span></label>
         <button type="button" className="btn btn-primary btn-sm" disabled={busy || !confirmed || stale} onClick={() => void apply()}>{busy ? 'در حال ثبت…' : 'اعمال پیکربندی بررسی‌شده'}</button>
       </>}
     </>}</div>

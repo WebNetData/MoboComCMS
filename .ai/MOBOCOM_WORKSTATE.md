@@ -1,3 +1,37 @@
+# PR483 published — owner request2026-11-24
+
+[PR483](https://github.com/WebNetData/MoboComCMS/pull/483) is open/non-draft to main
+from feat/solution-packs-v2-2026-11-23. Includes Solution Pack v2 eafa47f7 and
+prebuild audit f1bcb885 with explicit unresolved findings/test/readiness limits.
+Original MoboCom Custom retained. No hosted workflow, merge or deployment.
+Owner reviews/merges; [publication receipt](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md#pr483-publication--owner2026-11-24).
+
+# Whole-site prebuild audit / PR requested — 2026-11-24
+
+Owner requested whole-site inspection before build, then publication through this point.
+Source eafa47f7 on feat/solution-packs-v2-2026-11-23 over merged main78fe059c.
+Inventory433 pages/491 API handlers/74 owners/45 extensions;3 actual PostgreSQL
+reproductions (CRM department metadata, CRM IRR projection, playlist metadata),
+1109/1111 units and5 legacy connected fixture failures remain open. Current
+Custom theme retained.75 page-load captures include loading shells, so broad
+Admin UI acceptance is explicitly unverified. No feature fix/build/deploy.
+[Full audit, matrix, priorities, evidence limits and next slice](../docs/agent/audits/2026-11-24-whole-site-prebuild.md).
+
+# Solution Pack v2 composition — completed2026-11-24
+
+Owner selected roadmap item2 after PR482 merged. Authoritative checkout
+`.mobocom/package-lifecycle`, branch `feat/solution-packs-v2-2026-11-23`, base
+main78fe059c. Version2 composes existing SiteConfig theme/menu defaults, canonical
+role definitions and canonical document draft pages; explicit review, current
+permissions, atomic history/Audit and stable bindings preserve customer edits,
+rename/deletion and v1 interim upgrades. No User assignment/publication/migration.
+Native PostgreSQL scenarios/regressions,138 units,3 maintained E2E and9 actual
+light/dark/mobile axe0 views passed; source/types/architecture/security/Audit and
+Doctor evidence and final cleanup are in [the shared handoff](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md#solution-pack-v2-composition--completed2026-11-24).
+Local engineering slice only; no push/PR/merge/deploy/provider action. Next
+independent work: production build/upgrade and commercial distribution rehearsal.
+Root/autonomous work and IDE configuration remain preserved.
+
 # PR482 published — owner request2026-11-23
 
 Owner requested push/PR and retains merge/deploy. Non-draft

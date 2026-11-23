@@ -17,7 +17,7 @@ import { auditAdminStrict } from '@/platform/audit/server'
 export const siteMenuRevision = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 
 /** Shared site configuration writer: the exact stored aggregate is claimed by Settings. */
-export async function updateSiteConfiguration(req: NextRequest, expected: string | undefined, change: (current: SiteConfig) => SiteConfig, beforeCommit?: (tx: Prisma.TransactionClient, next: SiteConfig, current: SiteConfig) => Promise<void>) {
+export async function updateSiteConfiguration(req: NextRequest, expected: string | undefined, change: (current: SiteConfig) => SiteConfig, beforeCommit?: (tx: Prisma.TransactionClient, next: SiteConfig, current: SiteConfig) => Promise<void>, options: { transaction?: Prisma.TransactionClient } = {}) {
   return updateJsonSetting(SITE_KEY, async (stored, tx) => {
     const actor = await requirePerm(req, 'settings.manage', tx)
     if (!actor) throw new JsonSettingMutationError('forbidden')
@@ -31,7 +31,7 @@ export async function updateSiteConfiguration(req: NextRequest, expected: string
     await auditAdminStrict({ req, actor, action: 'site.update', targetType: 'setting', targetId: SITE_KEY }, tx)
     await beforeCommit?.(tx, next, current)
     return next
-  })
+  }, options)
 }
 
 export type MenuChange = { id?: string; label: string; href: string; icon: string; enabled?: boolean; children?: MenuChange[] }

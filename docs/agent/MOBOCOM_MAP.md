@@ -1,3 +1,7 @@
+Whole-site prebuild audit2026-11-24:433 pages,491 API handlers,74 domain owner folders and45 extensions at eafa47f7. Existing source/handoffs reconciled; current gaps belong to Support/CRM, Music playlist projection and existing data/delivery owners, not new shared systems. [Inventory/matrix/blueprint/priorities and executed evidence](audits/2026-11-24-whole-site-prebuild.md). Current Custom theme preserved; no build/deploy or product fix.
+
+Solution Pack v2 /2026-11-24: existing package aggregate coordinates SiteConfig theme/menu provision, Identity role-provision and Site starter-content owners in one reviewed transaction; canonical Editor document and shared revision/Audit owners remain. [Source, checks and continuation](handoffs/COMMERCIAL_MODULARITY.md#solution-pack-v2-composition--completed2026-11-24).
+
 Pay/Extensions integration2026-11-23: local combined source from owner-merged PR481 and Solution Pack f6429ce7; shared catalog45 entries, independent provisioning/financial permissions, Pay incoming unchanged, native and scoped browser proof. [Exact checks, branch and limits](handoffs/COMMERCIAL_MODULARITY.md#mobocompay-synchronization--owner2026-11-23).
 
 Solution Packs2026-11-23: existing Packages/Extensions/Repository compose versioned declarative provisioning with reviewed state hash, atomic typed defaults, retained receipt and signed free/paid distribution; no new registry/license service. [Scope, evidence and limits](handoffs/COMMERCIAL_MODULARITY.md#solution-packs-and-signed-commercial-distribution--2026-11-23).

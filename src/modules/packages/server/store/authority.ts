@@ -5,7 +5,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 export type PackageCommandContext = Pick<AdminAuditInput, 'req' | 'actor'>
 type Actor = AdminAuditInput['actor']
 export class PackageAuthorityError extends Error {
-  constructor() { super('forbidden'); this.name = 'PackageAuthorityError' }
+  constructor(message = 'forbidden') { super(message); this.name = 'PackageAuthorityError' }
 }
 
 /** Reuse canonical Identity at each command attempt; trusted legacy callers retain their contract. */

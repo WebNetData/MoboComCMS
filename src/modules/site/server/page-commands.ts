@@ -11,16 +11,18 @@ const conflict = (error: unknown): never => {
 }
 
 /** Page fields, typed layout, version and the caller's audit share one commit. */
-export async function createPage(input: Record<string, unknown>, fields: Record<string, unknown>, actor: Actor, commit?: RestoreCommit) {
+export async function createPage(input: Record<string, unknown>, fields: Record<string, unknown>, actor: Actor, commit?: RestoreCommit, transaction?: Prisma.TransactionClient) {
   const layout = validatePageLayout(input)
-  return db.$transaction(async tx => {
+  const work = async (tx: Prisma.TransactionClient) => {
     const row = await tx.page.create({ data: { ...fields, status: fields.status ?? 'DRAFT' } as Prisma.PageUncheckedCreateInput })
     await savePageLayout(row.id, layout, tx)
     const after = (await pageRevisionState(row.id, tx))!
     await recordRevision({ entityType: 'pages', entityId: row.id, before: null, after, actor, client: tx, strict: true })
     await commit?.(tx, {}, after)
     return row
-  }, { isolationLevel: 'Serializable', timeout: 30_000 }).catch(conflict)
+  }
+  if (transaction) return work(transaction)
+  return db.$transaction(work, { isolationLevel: 'Serializable', timeout: 30_000 }).catch(conflict)
 }
 
 export async function updatePage(id: number, input: Record<string, unknown>, fields: Record<string, unknown>, actor: Actor, commit?: RestoreCommit) {

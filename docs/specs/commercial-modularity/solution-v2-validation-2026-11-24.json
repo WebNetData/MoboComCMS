@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-24",
+  "scope": "Solution Pack v2 composition through canonical owners",
+  "base": "78fe059cde2189f5408eebbcaf2be575d28b947c",
+  "branch": "feat/solution-packs-v2-2026-11-23",
+  "status": "functional-local-with-recorded-limits",
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "17.11 (Debian 17.11-1.pgdg13+2)",
+    "uid": 1000,
+    "dotenv": false,
+    "databaseSuperuser": false,
+    "migrations": 209
+  },
+  "units": {
+    "passed": 138,
+    "failed": 0,
+    "skipped": 0
+  },
+  "connected": [
+    "solution-packs-v2",
+    "solution-packs",
+    "package-command",
+    "extension-state",
+    "repository-install",
+    "editor-page-documents",
+    "editor-module-blocks",
+    "configuration-history",
+    "page-lifecycle"
+  ],
+  "static": [
+    "full TypeScript",
+    "3092 source/import targets",
+    "architecture",
+    "security invariants",
+    "audit invariants",
+    "generated extension registry parity",
+    "14 canonical AI documents"
+  ],
+  "browser": {
+    "views": 9,
+    "widths": [
+      1440,
+      390
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "scopedAxeViolations": 0,
+    "horizontalOverflow": false,
+    "pageErrors": 0,
+    "realActions": [
+      "chooser ZIP upload",
+      "all four owner previews",
+      "keyboard menu/receipt disclosures and confirmation",
+      "stale409",
+      "atomic apply",
+      "historical receipt replay",
+      "guest/settings-only/foreign Origin denials",
+      "draft public404"
+    ],
+    "screenshots": [
+      {
+        "name": "review-light-1440",
+        "sha256": "d5643ecf1056e6ff83b6a98d58cdae9c8f191fbcb6e343f23b012a19c42034d3"
+      },
+      {
+        "name": "review-dark-1440",
+        "sha256": "1bfd703be7a5b5325ff56df3c681052a69ddaa492dc556061e0f0cd976beef3b"
+      },
+      {
+        "name": "review-light-390",
+        "sha256": "b7e43ff0f1b1444fe67c7a9338d00c0a675bf5fcae8281d56b74cc14644dec7e"
+      },
+      {
+        "name": "review-dark-390",
+        "sha256": "ca569b7f24cbe889bd92125501c1120366f4b8fd8f599e0480f870877765902d"
+      },
+      {
+        "name": "confirmed-dark-390",
+        "sha256": "ef3517024f0241bc2096a3add9dccd5e002329f705f3b5884940cbad850834be"
+      },
+      {
+        "name": "stale-dark-390",
+        "sha256": "8e7de665219bfbbb2d1c9394597552f679f91e86a3a60a6654aabd6f96c7eb6e"
+      },
+      {
+        "name": "applied-dark-390",
+        "sha256": "81acec73876cb897dc14e03f40497a44afaa9c1f0d44dce7e8a382590bfef84d"
+      },
+      {
+        "name": "receipt-light-1440",
+        "sha256": "2b38d54030946354bbe61b25631f9b6009363ff54a381dc628c3fd4553250a06"
+      },
+      {
+        "name": "receipt-dark-1440",
+        "sha256": "24a9db57c28ac59402e3030be4e4b56f3516b4a88dd5c3e179c34adaefa637c2"
+      }
+    ]
+  },
+  "maintainedE2e": {
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "retries": 0,
+    "seconds": 26.2,
+    "checks": [
+      "manager keyboard/public style isolation",
+      "v1 review/apply/replay",
+      "v2 composition/stale/apply/replay/guest refusal"
+    ]
+  },
+  "reactDoctor": {
+    "version": "0.9.17",
+    "components": 2,
+    "blockingErrors": 0,
+    "reviewedWarnings": 1,
+    "warning": "inherited SolutionPackPanel complexity",
+    "suppressionAdded": false
+  },
+  "securityScans": {
+    "semgrepSourceTargets": 20,
+    "semgrepFindings": 0,
+    "semgrepErrors": 0,
+    "gitleaksNamedFiles": 38,
+    "gitleaksFindings": 0,
+    "redacted": true,
+    "scopedLocalRuleOnly": true
+  },
+  "deliberateFault": {
+    "stalePlanGuardFaultDetected": true,
+    "originalBytesRestored": true,
+    "restoredAcceptance": true,
+    "sourceSha256": "82dc88a775816083b1976baa641e3b3d1a9490972f7299ced7b6323bac258809"
+  },
+  "sourceParity": {
+    "inputs": 4226,
+    "includesExamples": true,
+    "contentMismatches": 0,
+    "unexpectedSourceFiles": 0,
+    "lineEndingOnly": 0,
+    "manifestSha256": "f8d1ad44ab5a181fd4e2d3c3c0ee3354ea2368ed663fe58c1fee476b4ccd7c56"
+  },
+  "cleanup": {
+    "ownedRuntimeRemoved": true,
+    "ownedDatabaseAbsent": true,
+    "ownedRoleRemoved": true,
+    "hostPrivateFilesAndTracesRemoved": true,
+    "originalReadiness": 200,
+    "originalSession": 200
+  },
+  "notClaimed": [
+    "full production build/upgrade rehearsal",
+    "independent live commercial distribution/purchase",
+    "provider or SMS call",
+    "hosted workflow",
+    "push/PR/merge/deploy",
+    "per-module theme assignments",
+    "EditorPattern library row creation",
+    "automatic User role assignment/publication",
+    "whole-site accessibility certification",
+    "Storybook execution"
+  ]
+}

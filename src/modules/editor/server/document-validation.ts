@@ -9,13 +9,14 @@ import { lockSignature, structureViolation } from '@/modules/editor/domain/struc
 import { activeEditorRegistry } from '@/modules/editor/server/blocks/registry'
 import { EditorError } from '@/modules/editor/server/errors'
 import type { DocumentEntity, EditorActor } from './documents'
+import type { StateReader } from '@/extensions/server/state'
 
 export const editorMay = (actor: EditorActor) => (permission: string) => actor.permissions === null || actor.permissions.length === 0 ? actor.roleId == null : hasPermission(actor.permissions, permission)
 
 /** The same canonical validation for direct saves, submitted bodies and apply. */
-export async function prepareDocument(document: unknown, actor: EditorActor) {
-  if (!await isModuleEnabled('block-editor')) throw new EditorError('ویرایشگر بلوکی غیرفعال است', 404, 'EDITOR_OFF')
-  const registry = await activeEditorRegistry()
+export async function prepareDocument(document: unknown, actor: EditorActor, reader?: StateReader, plannedModules?: ReadonlySet<string>) {
+  if (!plannedModules?.has('block-editor') && !await isModuleEnabled('block-editor', reader)) throw new EditorError('ویرایشگر بلوکی غیرفعال است', 404, 'EDITOR_OFF')
+  const registry = await activeEditorRegistry(reader, plannedModules)
   const checked = checkDocument(document, registry, { permissions: editorMay(actor) })
   if (!checked.ok) throw new EditorError('متن معتبر نیست و ذخیره نشد', 422, 'DOCUMENT_INVALID', { issues: checked.issues.filter(issue => issue.level === 'error').slice(0, 50) })
   if (moduleBlocks(checked.document, registry).length > MODULE_BLOCK_LIMIT) throw new EditorError('حداکثر ۲۰ بلوک ماژول در هر نوشته مجاز است', 422, 'BLOCK_LIMIT')

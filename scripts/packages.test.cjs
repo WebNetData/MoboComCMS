@@ -22,16 +22,20 @@ const { sanitizePackageHtml, sanitizePackageCss, renderPlaceholders } = load('sr
 const { readZip, writeZip } = load('src/modules/packages/domain/zip.ts')
 
 test('customer Solution Pack examples retain their configuration across the distributable ZIP', () => {
-  for (const id of ['solution-editorial', 'solution-shop-services']) {
+  for (const id of ['solution-editorial', 'solution-shop-services', 'solution-business-starter']) {
     const folder = path.resolve(__dirname, '../examples/packages', id)
     const manifest = Buffer.from(fs.readFileSync(path.join(folder, 'manifest.json')))
     const archive = writeZip(new Map([['manifest.json', manifest], ['README.md', fs.readFileSync(path.join(folder, 'README.md'))]]))
     const entries = normalizeEntries(readZip(archive, PACKAGE_LIMITS))
     const parsed = parseManifest(JSON.parse(entries.get('manifest.json').toString()), new Set(entries.keys()))
     assert.equal(parsed.id, id)
-    assert.equal(parsed.solutionPack.apiVersion, 1)
+    assert.equal(parsed.solutionPack.apiVersion, id === 'solution-business-starter' ? 2 : 1)
     assert.equal(parsed.runtime, 'declarative')
-    assert.ok(parsed.solutionPack.modules.length >= 2)
+    assert.deepEqual(parsed.solutionPack, JSON.parse(manifest.toString()).solutionPack)
+    if (id === 'solution-business-starter') {
+      assert.equal(parsed.solutionPack.starterContent[0].key, 'services-intro')
+      assert.deepEqual(parsed.solutionPack.roles, ['form-specialist'])
+    } else assert.ok(parsed.solutionPack.modules.length >= 2)
   }
 })
 
@@ -81,6 +85,36 @@ test('solution packs are bounded declarative configuration without rendered cont
   assert.throws(() => parseManifest({ ...manifest, runtime: 'code' }, files), /solutionPack/)
   const defaults = { 'seo.title': 'مجله', 'posts.enabled': true, 'posts.max-length': 500 }
   assert.deepEqual({ ...parseManifest(withPack({ apiVersion: 1, modules: [{ id: 'journal', defaults }] }), files).solutionPack.modules[0].defaults }, defaults)
+})
+
+test('solution pack v2 strictly bounds portable composition while retaining v1', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../examples/packages/solution-editorial/manifest.json'), 'utf8'))
+  const files = new Set(['manifest.json'])
+  const document = { version: 1, blocks: [{ id: 'text-1', type: 'core.paragraph', version: 1, props: { text: 'متن نمونه' } }] }
+  const v2 = { apiVersion: 2, modules: [], theme: { id: 'clean' }, navigation: [{ label: 'خانه', href: '/', children: [{ label: 'درباره', href: '/about' }] }], roles: ['cashier'], starterContent: [{ key: 'about-page', slug: 'about-us', title: 'درباره ما', document }] }
+  const parse = solutionPack => parseManifest({ ...manifest, solutionPack }, files).solutionPack
+  assert.deepEqual(parse(v2), v2)
+  assert.equal(parse(manifest.solutionPack).apiVersion, 1)
+  assert.throws(() => parse({ ...manifest.solutionPack, theme: { id: 'clean' } }), /solutionPack/)
+  assert.throws(() => parse({ apiVersion: 2, modules: [] }), /solutionPack/)
+  const page = v2.starterContent[0], menu = v2.navigation[0]
+  const nested = { label: 'one', href: '/', children: [{ label: 'two', href: '/', children: [{ label: 'three', href: '/', children: [{ label: 'four', href: '/', children: [{ label: 'five', href: '/' }] }] }] }] }
+  for (const invalid of [
+    { ...v2, extra: true }, { ...v2, theme: { id: 'clean', raw: true } }, { ...v2, theme: { id: 'Bad_ID' } },
+    { ...v2, navigation: [{ ...menu, id: 'foreign-id' }] }, { ...v2, navigation: [nested] },
+    { ...v2, navigation: Array(21).fill({ label: 'x', href: '/' }) },
+    { ...v2, navigation: [{ label: '', href: '/' }] }, { ...v2, navigation: [{ label: 'x', href: 'x'.repeat(501) }] },
+    { ...v2, roles: ['cashier', 'cashier'] }, { ...v2, roles: ['admin'] }, { ...v2, roles: ['site-deputy'] },
+    { ...v2, starterContent: [{ ...page, slug: 'a'.repeat(101) }] },
+    { ...v2, starterContent: [page, { ...page, slug: 'other-page' }] }, { ...v2, starterContent: [page, { ...page, key: 'other-page' }] },
+    { ...v2, starterContent: [{ ...page, html: '<script>bad()</script>' }] },
+    { ...v2, starterContent: [{ ...page, document: '<p>raw HTML</p>' }] },
+    { ...v2, starterContent: [{ ...page, document: { version: 1, blocks: [] } }] },
+    { ...v2, starterContent: [{ ...page, document: { ...document, html: '<p>x</p>' } }] },
+    { ...v2, starterContent: [{ ...page, document: { version: 2, blocks: document.blocks } }] },
+    { ...v2, starterContent: [{ ...page, document: JSON.parse('{"version":1,"blocks":[{"props":{"__proto__":"bad"}}]}') }] },
+    { ...v2, starterContent: [{ ...page, document: { version: 1, blocks: [{ props: { text: 'x'.repeat(200001) } }] } }] },
+  ]) assert.throws(() => parse(invalid), /solutionPack/)
 })
 
 test('bundled example packages are valid', () => {

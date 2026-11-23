@@ -40,23 +40,26 @@ export async function writeJsonSetting(key: string, value: unknown) {
 export class JsonSettingMutationError extends Error {}
 
 /** Fresh, strict object mutation. Callback is database-only and may run again on contention. */
-export async function updateJsonSetting<T>(key: string, work: (value: Record<string, unknown>, tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+export async function updateJsonSetting<T>(key: string, work: (value: Record<string, unknown>, tx: Prisma.TransactionClient) => Promise<T>, options: { transaction?: Prisma.TransactionClient } = {}): Promise<T> {
+  const mutate = async (tx: Prisma.TransactionClient) => {
+    const row = await tx.setting.findUnique({ where: { key } })
+    let value: Record<string, unknown>
+    try {
+      value = row ? JSON.parse(row.value) : {}
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid object')
+    } catch { throw new JsonSettingMutationError('invalid stored JSON setting') }
+    const result = await work(value, tx), serialized = JSON.stringify(value)
+    if (row) {
+      const claim = await tx.setting.updateMany({ where: { key, value: row.value }, data: { value: serialized } })
+      if (claim.count !== 1) throw new JsonSettingMutationError('setting changed concurrently')
+    } else await tx.setting.create({ data: { key, value: serialized } })
+    return result
+  }
+  // The caller owns commit, retry and cache invalidation when composing a transaction.
+  if (options.transaction) return mutate(options.transaction)
   for (let attempt = 0; ; attempt++) {
     try {
-      const result = await db.$transaction(async tx => {
-        const row = await tx.setting.findUnique({ where: { key } })
-        let value: Record<string, unknown>
-        try {
-          value = row ? JSON.parse(row.value) : {}
-          if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid object')
-        } catch { throw new JsonSettingMutationError('invalid stored JSON setting') }
-        const result = await work(value, tx), serialized = JSON.stringify(value)
-        if (row) {
-          const claim = await tx.setting.updateMany({ where: { key, value: row.value }, data: { value: serialized } })
-          if (claim.count !== 1) throw new JsonSettingMutationError('setting changed concurrently')
-        } else await tx.setting.create({ data: { key, value: serialized } })
-        return result
-      }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 15000 })
+      const result = await db.$transaction(mutate, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 15000 })
       await invalidate('settings:').catch(() => undefined)
       return result
     } catch (error) {

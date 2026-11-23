@@ -171,3 +171,49 @@ affected components. No live purchase/provider, hosted workflow, merge or deploy
 Rollback withdraws the pack UI/commands; keep existing configured modules/settings
 and receipts. Before downgrading, retain/export package receipts and do not install
 an older writer that silently discards them. No automatic configuration reversal.
+
+## Solution Pack v2 composition — owner2026-11-23
+
+The owner selected roadmap item2 after PR482 merged. Continue from main78fe059c
+in `.mobocom/package-lifecycle`, `feat/solution-packs-v2-2026-11-23`.
+Source audit confirms SiteConfig/theme registry/menu writer, canonical staff-role
+templates and page/block-editor/revision owners already exist. Reuse those owners;
+no new registry, identity, editor format, permission resolver or database migration.
+Graphify refresh encountered the existing out-of-corpus CredentialPools source;
+exact source and Serena supplied the bounded owner inventory.
+
+Version1 input and historical receipts remain compatible. Version2 adds bounded
+installed theme selection, navigation, canonical role-template IDs and portable
+canonical document templates creating draft pages. A v2 pack requires a nonempty
+composition. It never acquires paid dependencies, assigns users to roles, changes
+staff standing, publishes pages, imports local synced-pattern IDs or writes arbitrary
+settings/permissions. Preview validates installed owners and required permissions
+before any write; roles.manage and cms.pages are required for their contributions,
+in addition to settings.manage. No full-access role template is accepted.
+
+Existing explicit theme and navigation (including empty navigation) are preserved.
+These two defaults initialize a missing site configuration; a complete existing
+configuration remains authoritative. New roles use canonical preset permissions
+and the existing anti-escalation policy. New pages use canonical blocks-v1 JSON,
+derived HTML, layout, strict history and Audit, DRAFT and showInNav=false. Public
+navigation cannot reference an unpublished local page. Slug/name collisions remain
+untouched and are not adopted. Package-created identities are retained by numeric
+ID across rename, upgrade, temporary omission and deletion; deletion is never undone.
+Retained bindings are bounded, never silently trimmed.
+
+Preview fingerprints include actual site, role/page versions, registry/module
+state and package source. Stale apply refuses409; all owner writes, revisions,
+strict Audit and additive receipt commit in one serializable transaction. Real
+module availability is checked again after declared modules are enabled. Cache
+invalidation occurs only after commit. Same-artifact replay returns historical
+evidence without restoring customer changes. Uninstall never reverses provisioning.
+
+Acceptance: registered v2 connected PostgreSQL scenarios without .env/non-root,
+all four owners, permissions/escalation, stale state, concurrency, strict-Audit
+rollback, rename/deletion/collision retention and unchanged User rows; parser v1/v2,
+existing owner regressions and deliberate critical-guard fault detection. Actual
+manager browser1440 light/dark and390 with preview/apply/replay/errors, keyboard,
+axe and React Doctor. No hosted workflows, live Pay calls, merge or deployment.
+Rollback freezes pack commands and retains/export receipts and canonical resources;
+restore site history or manually manage draft pages/role definitions using owners.
+Do not downgrade to a receipt reader that drops resource bindings.

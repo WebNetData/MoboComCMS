@@ -11,6 +11,8 @@
 .admin-shell .extension-manager :is(h1,h2,h3,p) { margin: 0; }
 .admin-shell .extension-manager :is(button,input,select,textarea,a,summary):focus-visible { outline: 2px solid var(--xm-accent); outline-offset: 4px; }
 .admin-shell .extension-manager .btn { min-block-size: 44px; white-space: normal; line-height: 1.6; }
+html[data-design] .admin-shell .extension-manager .btn-primary { background: var(--sds-color-background-brand-default); color: var(--sds-color-text-brand-on-brand); box-shadow: none; }
+.admin-shell .extension-manager .btn-primary:hover { filter: none; }
 .admin-shell .extension-manager :is(.input,select,textarea) { min-inline-size: 0; inline-size: 100%; }
 .admin-shell .extension-manager .xm-overview { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; border: 1px solid var(--xm-line); border-inline-start: 3px solid var(--xm-accent); border-radius: var(--xm-radius); background: var(--xm-surface); }
 .admin-shell .extension-manager .xm-overview-copy { display: grid; gap: 12px; min-inline-size: 0; }
@@ -158,3 +160,16 @@
 .admin-shell .extension-manager .pm-solution-confirm input { flex: 0 0 20px; inline-size: 20px; block-size: 20px; margin-block-start: 5px; accent-color: var(--xm-accent); }
 .admin-shell .extension-manager .pm-solution-error { color: var(--admin-danger-text); }
 .admin-shell .extension-manager .pm-solution-success { color: var(--text); font-weight: 500; margin-block-start: 12px; }
+.admin-shell .extension-manager .pm-solution-composition { display: grid; gap: 0; margin-block: 16px; border-block-start: 1px solid var(--xm-line); }
+.admin-shell .extension-manager .pm-solution-part { display: grid; gap: 8px; min-inline-size: 0; padding-block: 16px; border-block-end: 1px solid var(--xm-line); }
+.admin-shell .extension-manager .pm-solution-part h4 { margin: 0; font-size: .8125rem; font-weight: 600; }
+.admin-shell .extension-manager .pm-solution-part p { color: var(--xm-muted); font-size: .75rem; line-height: 1.9; }
+.admin-shell .extension-manager .pm-solution-part-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.admin-shell .extension-manager .pm-solution-part-row span { color: var(--xm-muted); font-size: .75rem; }
+.admin-shell .extension-manager .pm-solution-composition-list { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.admin-shell .extension-manager .pm-solution-composition-list li { display: grid; gap: 4px; min-inline-size: 0; }
+.admin-shell .extension-manager .pm-solution-composition-list small { color: var(--xm-muted); overflow-wrap: anywhere; }
+.admin-shell .extension-manager .pm-solution-manage { display: inline-flex; align-items: center; justify-self: start; min-block-size: 44px; color: var(--xm-accent); text-decoration: underline; text-underline-offset: 3px; }
+.admin-shell .extension-manager .pm-solution-menu ul { display: grid; gap: 8px; margin: 0; padding-inline-start: 20px; }
+.admin-shell .extension-manager .pm-solution-menu li { min-inline-size: 0; overflow-wrap: anywhere; }
+.admin-shell .extension-manager .pm-solution-menu bdi { color: var(--xm-muted); font-size: .75rem; }

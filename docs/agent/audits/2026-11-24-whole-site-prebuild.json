@@ -1,0 +1,827 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-24",
+  "sourceCommit": "eafa47f73740e04587d15d10329060ed4698be20",
+  "scope": "Pre-build whole-site source inventory, sampled browser audit and isolated database probes; no feature fixes or build",
+  "inventory": {
+    "pages": 433,
+    "publicPages": 152,
+    "adminPages": 221,
+    "accountPages": 46,
+    "miniAppPages": 14,
+    "apiHandlers": 491,
+    "domainOwners": 74,
+    "extensions": 45
+  },
+  "owners": [
+    "account",
+    "ads",
+    "ai",
+    "analytics",
+    "automation",
+    "billing",
+    "businesses",
+    "catalog",
+    "celebrities",
+    "checkout",
+    "cinema",
+    "community",
+    "compare",
+    "content",
+    "copyright",
+    "downloads",
+    "editor",
+    "forms",
+    "forum",
+    "forwarder",
+    "fulfillment",
+    "fx",
+    "games",
+    "hosting",
+    "identity",
+    "imports",
+    "installer",
+    "journal",
+    "livechat",
+    "mail",
+    "marketplace",
+    "media",
+    "membership",
+    "moderation",
+    "music",
+    "navigation",
+    "notifications",
+    "offers",
+    "operations",
+    "orders",
+    "packages",
+    "paywall",
+    "performance",
+    "popups",
+    "promotions",
+    "prompts",
+    "providers",
+    "public-api",
+    "push",
+    "recommendations",
+    "referrals",
+    "reporting",
+    "repository",
+    "reseller",
+    "reviews",
+    "search",
+    "seo",
+    "server-panel",
+    "settings",
+    "shipping",
+    "site",
+    "sms",
+    "social",
+    "software",
+    "store",
+    "studios",
+    "subscriptions",
+    "support",
+    "taxonomy",
+    "trials",
+    "updater",
+    "vocabulary",
+    "wallet",
+    "watermark"
+  ],
+  "theme": {
+    "id": "custom-mobocom",
+    "name": "MoboCom Custom",
+    "changed": false
+  },
+  "staticChecks": {
+    "architecture": "passed",
+    "sqlitePostgresqlParity": "passed",
+    "releaseManifest": "passed; 23 releases and 2 unreleased Pay migrations",
+    "graphify": "refresh failed: existing out-of-corpus src/app/admin/ai/CredentialPools.tsx; exact source fallback"
+  },
+  "unitTests": {
+    "command": "npm run test:site",
+    "environment": "UID1000, no .env, private PostgreSQL DATABASE_URL explicitly set",
+    "total": 1111,
+    "passed": 1109,
+    "failed": 2,
+    "skipped": 0,
+    "failures": [
+      {
+        "file": "scripts/content-controls.test.cjs",
+        "line": 1369,
+        "reason": "expected maintenance sections omit mobocom-pay"
+      },
+      {
+        "file": "scripts/store.test.cjs",
+        "line": 159,
+        "reason": "PostgreSQL branch fixture omits tx.$queryRaw"
+      }
+    ],
+    "relevantSourcesAndTestsUnchangedFromMain": true
+  },
+  "connected": {
+    "passed": [
+      "scoped-restrictions",
+      "cart-checkout-snapshot",
+      "return-refund-integrity",
+      "editor-page-documents",
+      "forum-category-moderators",
+      "solution-packs-v2",
+      "mobocom-pay",
+      "pay-shared-checkout"
+    ],
+    "fixtureFailures": [
+      "global-authentication: relative compatibility import",
+      "section-maintenance: relative templates import",
+      "inventory-hold-expiry: catalog locations alias",
+      "money-state-rules: relative templates import",
+      "journal-review: missing required publication fields"
+    ],
+    "initialPayGuardRefusal": "initial generic test DB name intentionally refused; corrected to dedicated mobocom_pay_test_whole_audit_20261124 and both passed without changing guards"
+  },
+  "browser": {
+    "attemptedViews": 75,
+    "canonicalViews": 74,
+    "http200": 73,
+    "expectedDisabled404": [
+      "/businesses"
+    ],
+    "noncanonicalProbe404": [
+      "/community"
+    ],
+    "axeViolations": 0,
+    "horizontalOverflow": 0,
+    "pageErrors": 0,
+    "viewports": [
+      1440,
+      390
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "scope": "Sampled page-load observations including loading/empty/shell states; only Extensions had explicit ready-control wait. Not all Admin forms or dynamic details.",
+    "initialTransientFailures": "3 requests during documented Next dev memory-threshold restart; rerun all 3 passed unchanged source",
+    "screenshots": [
+      {
+        "path": "/",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-home-1440-light.png",
+        "sha256": "890b38c854de820c1c77bbf6493ecc22215b38fe44c001555e80c8bfcd55b5ea"
+      },
+      {
+        "path": "/products",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-products-1440-light.png",
+        "sha256": "fc37e188c327317e3c72c7a651ebdeeb3996fef94573de048645f56cba369d14"
+      },
+      {
+        "path": "/blog",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-blog-1440-light.png",
+        "sha256": "7015b171d072f4f15959163b55aa45b9e211112b95a952905161f1aa49922177"
+      },
+      {
+        "path": "/music",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-music-1440-light.png",
+        "sha256": "e34ff5a89fc1ee1ab4c9c92fa21e1b973d8758470e5684af0a0de48535f02400"
+      },
+      {
+        "path": "/cinema",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-cinema-1440-light.png",
+        "sha256": "5e849e16530e2d13c874258ee41b180ce3e118a7abdd52e835bf280b5d9497f5"
+      },
+      {
+        "path": "/games",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-games-1440-light.png",
+        "sha256": "3059a7011c71fd8f7eacac84f41b6b863b0ca44b5c63988c0134828c97cf209c"
+      },
+      {
+        "path": "/software",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-software-1440-light.png",
+        "sha256": "a50e2f37a7fb0862e85ff1af9f6d1e5e3afd05be85d3e1feb674693b231ebf1c"
+      },
+      {
+        "path": "/forum",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-forum-1440-light.png",
+        "sha256": "d1c787a0ff05f53e0c27109fe7bda94c6b504b60c2b3d7fd820d80d201b2333b"
+      },
+      {
+        "path": "/community",
+        "width": 1440,
+        "theme": "light",
+        "status": 404,
+        "file": "guest-community-1440-light.png",
+        "sha256": "41a2ff261763799d94d1107fa8eb1f23f7e917bbac7a73f7dc7e442f993e6679"
+      },
+      {
+        "path": "/businesses",
+        "width": 1440,
+        "theme": "light",
+        "status": 404,
+        "file": "guest-businesses-1440-light.png",
+        "sha256": "41a2ff261763799d94d1107fa8eb1f23f7e917bbac7a73f7dc7e442f993e6679"
+      },
+      {
+        "path": "/celebrities",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-celebrities-1440-light.png",
+        "sha256": "3875bf552f6adce9dae8845440ae5fd8d490cf65a503bc4ad172d284960e6bad"
+      },
+      {
+        "path": "/prompts",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-prompts-1440-light.png",
+        "sha256": "b2ad678d9424c0458cf9a4dbc48f1d1f3a65eae8e2c599787052f566c6e16b65"
+      },
+      {
+        "path": "/search",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-search-1440-light.png",
+        "sha256": "9599e821f06f49dcb1f3160217f1d43180660083009dce0f7c091309a2f4b8bc"
+      },
+      {
+        "path": "/login",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-login-1440-light.png",
+        "sha256": "24980303f6cd4960c62d584747e63598c219002df80cd71410f7a96b86d008f3"
+      },
+      {
+        "path": "/register",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-register-1440-light.png",
+        "sha256": "bf75b41139043a6cc889a2f20f37da0537669231cf3ad1b56a7c86a3fb9ec5a1"
+      },
+      {
+        "path": "/cart",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "guest-cart-1440-light.png",
+        "sha256": "0b8f9ac868e6d441f65cc86a81b3a1708181e8ad841a9f7fe8df191149c2b665"
+      },
+      {
+        "path": "/",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-home-1440-dark.png",
+        "sha256": "786b1e5d7afd28fea33f6835875593f7e46c039d08dcd211477da538b21ec447"
+      },
+      {
+        "path": "/",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-home-390-dark.png",
+        "sha256": "3dad985911851c09ba20fcc57872d9efb3ad9c6700b17ff89f4f0caffbfd6777"
+      },
+      {
+        "path": "/products",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-products-1440-dark.png",
+        "sha256": "0c15f7631847cc4653228b57edd6b6511a29b29e0f268d1159376fc362abfeb4"
+      },
+      {
+        "path": "/products",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-products-390-dark.png",
+        "sha256": "c840a72e57775b7ac4215f36151da6801547769929e431c444c24e7860bb83bf"
+      },
+      {
+        "path": "/blog",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-blog-1440-dark.png",
+        "sha256": "aff7228a9be6dc4bd812bd7b56f3e1c7795f36cef334752f8ef7d71f9799f04d"
+      },
+      {
+        "path": "/blog",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-blog-390-dark.png",
+        "sha256": "a4629b45eaf041adb39d47136844c9d23a1420ed9a043cceb3276bc156008b77"
+      },
+      {
+        "path": "/music",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-music-1440-dark.png",
+        "sha256": "06300ae60fae8ec369a1872f8ce5e03b278d0d40a3944888fab6e7680559fb4d"
+      },
+      {
+        "path": "/music",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-music-390-dark.png",
+        "sha256": "4fb7225a9d28e28b60213d4f22354ffc1c69c5b3aabe19949c6f4bd09b0cbfa2"
+      },
+      {
+        "path": "/cinema",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-cinema-1440-dark.png",
+        "sha256": "a6dcc0148cfdd656adb5330fd66523a6a127d7d76568bae827fab9c497e81056"
+      },
+      {
+        "path": "/cinema",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-cinema-390-dark.png",
+        "sha256": "7ce15fb0919f9cece699be9fada1098deefc9e47eaf4f1d59857cd4a1fa2fb31"
+      },
+      {
+        "path": "/games",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-games-1440-dark.png",
+        "sha256": "c7dcc232ee0bfaaa03e2d7e57d472288bedb0b944ced12f5bef2449b3bdb9685"
+      },
+      {
+        "path": "/games",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-games-390-dark.png",
+        "sha256": "2e990260c71f8d71e6cde57fec83d472f8dff90ab4d82150bb30ec712ee7552d"
+      },
+      {
+        "path": "/software",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-software-1440-dark.png",
+        "sha256": "c1197111321853357b40c2d554759e617ae5b709f62d3d64fc24ee7dc9942df3"
+      },
+      {
+        "path": "/software",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-software-390-dark.png",
+        "sha256": "39c1cafc92920a8bde775abbb7ec7fd5ecf1ed8bf3ba687e2991d3575142e38d"
+      },
+      {
+        "path": "/forum",
+        "width": 1440,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-forum-1440-dark.png",
+        "sha256": "c7b17ced7340913086fd9e87be5302d681e1361265e0e31b079bfc3995e708d3"
+      },
+      {
+        "path": "/forum",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "guest-forum-390-dark.png",
+        "sha256": "e162f15a09705c9e4fdd131852415397458b678b42ba523ffaceb460dc9088d6"
+      },
+      {
+        "path": "/admin",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/site-management",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-site-management-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/products",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-products-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/store",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-store-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/store/orders",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-store-orders-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/store/counter",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-store-counter-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/store/inventory",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-store-inventory-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/forms",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-forms-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/forms/counter",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-forms-counter-1440-light.png",
+        "sha256": "ff2ac06958e9ba931466b897f90c5c27b9e40f26b2d4ad97abfeed3213658cc8"
+      },
+      {
+        "path": "/admin/tickets",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-tickets-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/crm",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-crm-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/journal",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-journal-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/editor",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-editor-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/pages",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-pages-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/media",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-media-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/music",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-music-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/cinema",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-cinema-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/games",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-games-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/software",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-software-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/forum",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-forum-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/roles",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-roles-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/section-managers",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-section-managers-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/settings",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-settings-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/extensions",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-extensions-1440-light.png",
+        "sha256": "b31cea8f1181cbf4e36641a42c025dd539f2c2f4680d45f5bfc4a5d261e7c1d7"
+      },
+      {
+        "path": "/admin/studio",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-studio-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/menus",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-menus-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/seo",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-seo-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/imports",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-imports-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/operations",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-operations-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/ai",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-ai-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/payments",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-payments-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/repository",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-repository-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/mobocom-pay",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-admin-mobocom-pay-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/admin/site-management",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "staff-admin-site-management-390-dark.png",
+        "sha256": "933ff446864a8a8bcf4cfd2fd3dafeb40f657d7dcb1de9f041b8a2a267bcc9c1"
+      },
+      {
+        "path": "/admin/products",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "staff-admin-products-390-dark.png",
+        "sha256": "933ff446864a8a8bcf4cfd2fd3dafeb40f657d7dcb1de9f041b8a2a267bcc9c1"
+      },
+      {
+        "path": "/admin/forms/counter",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "staff-admin-forms-counter-390-dark.png",
+        "sha256": "933ff446864a8a8bcf4cfd2fd3dafeb40f657d7dcb1de9f041b8a2a267bcc9c1"
+      },
+      {
+        "path": "/admin/extensions",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "staff-admin-extensions-390-dark.png",
+        "sha256": "2c87a4170cc6fe228755ba4e4ec6485afc1422571fc6120393885e317ced0cee"
+      },
+      {
+        "path": "/admin/tickets",
+        "width": 390,
+        "theme": "dark",
+        "status": 200,
+        "file": "staff-admin-tickets-390-dark.png",
+        "sha256": "933ff446864a8a8bcf4cfd2fd3dafeb40f657d7dcb1de9f041b8a2a267bcc9c1"
+      },
+      {
+        "path": "/dashboard",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-dashboard-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/dashboard/orders",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-dashboard-orders-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/dashboard/wallet",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-dashboard-wallet-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/dashboard/tickets",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-dashboard-tickets-1440-light.png",
+        "sha256": "cc1fb70ae527585a6f6e8b0eb5615efa5eca13c200d17af6f6dd4d32f619da03"
+      },
+      {
+        "path": "/miniapp",
+        "width": 1440,
+        "theme": "light",
+        "status": 200,
+        "file": "staff-miniapp-1440-light.png",
+        "sha256": "e494a993083110a346c906df38692f5e977b8baee6a6bd65171bc24d255f9240"
+      }
+    ],
+    "readiness": {
+      "explicitExtensionCardViews": 2,
+      "publicPageCaptures": 30,
+      "staffCapturesWithoutHeadings": 41,
+      "limit": "Most Admin/account screenshots captured loading shell after DOMContentLoaded; no complete Admin/form acceptance is claimed. Zero observed violations apply only to the sampled DOM, not all loaded application states."
+    }
+  },
+  "reproduced": {
+    "crossDepartmentTicketMetadata": {
+      "reproduced": true,
+      "canonicalDepartmentGuardDenied": true,
+      "crmHttpStatus": 200,
+      "returnedSubjectAndStatus": true,
+      "ticketBodyExposureClaimed": false
+    },
+    "crmCurrencyProjection": {
+      "reproduced": true,
+      "orderIRR": 1000000,
+      "expectedToman": 100000,
+      "actualToman": 1000000,
+      "financialRowsRewritten": false
+    },
+    "personalPlaylistAudience": {
+      "reproduced": true,
+      "publicTrackSavedThenRestricted": true,
+      "metadataStillReturned": true,
+      "playbackBypassClaimed": false
+    }
+  },
+  "notRun": [
+    "production build",
+    "current release populated upgrade/backup restore/deploy rehearsal",
+    "live provider payment/SMS/ACME",
+    "live signed commercial distribution",
+    "every dynamic detail/edit form",
+    "complete reference-class parity or whole-site accessibility certification"
+  ],
+  "cleanup": {
+    "status": "complete",
+    "privateRuntimeRemoved": true,
+    "bothOwnedDatabasesRemoved": true,
+    "ownedRoleRemoved": true,
+    "hostSessionsPresentationArchiveRemoved": true,
+    "originalReadiness": 200,
+    "originalSession": 200
+  },
+  "sourceParity": {
+    "inputs": 4226,
+    "matching": 4225,
+    "unexpectedSourceFiles": 0,
+    "runtimeOnlyChange": {
+      "file": "tsconfig.json",
+      "property": "compilerOptions.jsx",
+      "source": "preserve",
+      "nextDevRuntime": "react-jsx"
+    },
+    "note": "Next dev automatically rewrote JSX mode in isolated runtime; source repository unchanged. Not exact complete config parity."
+  }
+}
