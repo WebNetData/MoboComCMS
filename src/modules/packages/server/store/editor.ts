@@ -3,9 +3,13 @@ import type { StoredPackage } from '../store'
 import { savePackage, type PackageReader } from './persistence'
 import { manifestFrom, settingDefaults, totalBytes } from './files'
 import { syncSiteTheme } from './themes'
+import { assertPackageIdle } from '@/modules/packages/domain/apply-operation'
+import { assertPackageCompatibility } from '../compatibility'
+import { getSiteConfigFrom } from '@/modules/site/config/store'
 
 /** Create or change one text file; manifest edits are validated before they are saved. */
 export async function writeFile(reader: PackageReader, pkg: StoredPackage, path: string, content: string, actor: string) {
+  assertPackageIdle(pkg)
   if (!validPackagePath(path, pkg.manifest.runtime) || !isEditable(path)) throw new PackageError(`"${path}" cannot be edited here`)
   if (content.length > PACKAGE_LIMITS.maxTextFileChars) throw new PackageError('the file is too long')
   const previous = pkg.files[path]?.text ?? null
@@ -15,6 +19,7 @@ export async function writeFile(reader: PackageReader, pkg: StoredPackage, path:
   const manifest = manifestFrom(files)
   if (manifest.id !== pkg.manifest.id) throw new PackageError('the package id cannot be changed in the editor; export and upload a copy instead')
   if (manifest.kind !== pkg.manifest.kind || manifest.runtime !== pkg.manifest.runtime) throw new PackageError('"kind" and "runtime" cannot be changed in the editor')
+  await assertPackageCompatibility(manifest, reader, pkg.enabled || manifest.kind === 'theme' && (await getSiteConfigFrom(reader, true)).themeId === manifest.id)
   pkg.files = files
   pkg.manifest = manifest
   pkg.settings = settingDefaults(manifest, pkg.settings)
@@ -27,6 +32,7 @@ export async function writeFile(reader: PackageReader, pkg: StoredPackage, path:
 }
 
 export async function deleteFile(reader: PackageReader, pkg: StoredPackage, path: string, actor: string) {
+  assertPackageIdle(pkg)
   if (path === 'manifest.json') throw new PackageError('manifest.json cannot be deleted')
   const file = pkg.files[path]
   if (!file) throw new PackageError(`"${path}" does not exist`)

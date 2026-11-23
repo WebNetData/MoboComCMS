@@ -76,10 +76,43 @@ remain Core-owned recovery controls while ordinary module settings disappear.
 
 ## Subsequent roadmap and rollback
 
-Continue real-core compatibility and dependency versions using existing semantics;
-claimed recoverable trusted-code apply and queued-work lifecycle reconciliation;
-then remaining commercial capability boundaries, customer Solution Packs and
-distribution/entitlement contracts. These are pending, not delivered by manifests.
+### Package compatibility and recoverable code apply — owner2026-11-23
+
+Continue on `.mobocom/package-lifecycle`, branch
+`feat/package-lifecycle-recovery-2026-11-23`, from fetched main `bcdfbdc7`.
+Owner authorized this implementation after the continuation proposal. Existing
+Packages aggregate/index, Identity, strict Audit and generated extension catalogs
+remain owners; no new registry, identity, executable runtime or destructive migration.
+
+Change envelope: validate actual core/dependency contracts before installation,
+editing, activation and trusted source apply. Persist a package-bound operation
+ID, exact file fingerprint and nonsecret target before effects. Plan a Git commit
+before changing the branch; reconcile its identity after an uncertain response.
+Local apply retains the previous directory and prepares the complete replacement;
+interrupted swaps are reconciled against the recorded fingerprints, never guessed.
+Pending operations prevent package edits/upgrade/uninstall. Repeated apply resumes
+the same operation and does not duplicate final history or deployment notification.
+Every privileged phase uses current extensions.code authority and strict Audit;
+database retry callbacks contain no filesystem/network effects. An unknown webhook
+outcome is retained and never automatically resent. Trusted code still needs the
+ordinary reviewed build/deploy; apply is not a production-ready certificate.
+
+Acceptance: registered `package-apply.connected.cjs` on disposable PostgreSQL,
+without .env/non-root; concurrency, authority revocation, audit rollback, pending
+edit refusal, interrupted local swap and Git response loss/recovery, target drift,
+unchanged retry and current-version/dependency rejection. Deliberately remove a
+critical guard in private test source, observe failure, restore and pass. Scoped
+package/extension regressions, types/source/architecture/security checks and real
+manager browser light/dark/mobile with scoped axe/visual review. Rollback retains
+operation receipts, backup directories and package data; unresolved operations
+must be reconciled before downgrade or mutation. No hosted workflow, provider send,
+PR publication, merge or production deployment is part of this task.
+
+The bounded2026-11-23 slice above implements consumed core/module compatibility
+and recoverable trusted-source apply. Continue wider queued-work lifecycle and
+commercial capability boundaries, customer Solution Packs and distribution/
+entitlement contracts. Multi-host process-death proof remains operator-owned;
+manifests do not certify independently deployed extensions or live providers.
 
 Rollback keeps canonical data. Never downgrade to a package reader that republishes
 retained-uninstalled rows or a repair mutation that bypasses consent. Keep the

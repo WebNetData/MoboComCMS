@@ -5,7 +5,7 @@ const db=new Proxy(prisma,{get(target,key){if(key==='setting')return new Proxy(t
 function load(relative){const file=path.resolve(relative);if(cache.has(file))return cache.get(file).exports;const mod={exports:{}};cache.set(file,mod);new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText)(name=>{
  if(name==='@/platform/database/prisma')return{db};if(name==='react')return{cache:fn=>fn};if(name==='@/extensions/generated/server-registry')return{serverPlugins:{}};if(name==='@/platform/observability/logger')return{logEvent:()=>{}};
  if(name.startsWith('@/')){const p='src/'+name.slice(2);if(p.endsWith('.json'))return JSON.parse(fs.readFileSync(p,'utf8'));return load(fs.existsSync(p+'.ts')?p+'.ts':p+'/index.ts')}
- if(name.startsWith('.'))return load(path.resolve(path.dirname(file),name)+'.ts');return require(name)
+ if(name.startsWith('.')){const p=path.resolve(path.dirname(file),name);return p.endsWith('.json')?JSON.parse(fs.readFileSync(p,'utf8')):load(path.extname(p)?p:p+'.ts')}return require(name)
  },mod,mod.exports);return mod.exports}
 const state=load('src/extensions/server/state.ts'),modules=load('src/extensions/server/modules.ts'),catalog=load('src/extensions/generated/catalog.ts').extensionCatalog;
 const keys=[...catalog.map(m=>'extension.'+m.id+'.state.v1'),...catalog.flatMap(m=>m.stateSetting?[m.stateSetting]:[]),'site.config.v1'];

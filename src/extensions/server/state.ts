@@ -5,6 +5,8 @@ import { extensionById, extensionCatalog } from '@/extensions/generated/catalog'
 import { serverPlugins } from '@/extensions/generated/server-registry'
 import type { ExtensionManifest, ExtensionPublicState, ExtensionSettingDefinition } from '@/platform/extensions/contracts'
 import { logEvent } from '@/platform/observability/logger'
+import { compatibilityIssue } from '@/platform/extensions/compatibility'
+import { coreVersion } from '@/platform/extensions/version'
 
 const stateKey = (id: string) => `extension.${id}.state.v1`
 export type StateReader = Pick<Prisma.TransactionClient, 'setting'>
@@ -62,8 +64,10 @@ async function storedExtensionState(id: string, reader: StateReader = db, strict
 export async function getExtensionState(id: string, seen: readonly string[] = [], reader: StateReader = db, strict = false): Promise<ExtensionStoredState> {
   const state = await storedExtensionState(id, reader, strict)
   if (!state.enabled) return state
-  for (const dependency of extensionById.get(id)?.requires || []) {
-    if (!extensionById.has(dependency) || seen.includes(dependency)) continue
+  const manifest = extensionById.get(id)!
+  if (seen.includes(id) || compatibilityIssue(manifest, extensionCatalog, coreVersion)) return { ...state, enabled: false }
+  for (const dependency of manifest.requires || []) {
+    if (!extensionById.has(dependency)) return { ...state, enabled: false }
     if (!(await getExtensionState(dependency, [...seen, id], reader, strict)).enabled) return { ...state, enabled: false }
   }
   return state
@@ -101,7 +105,7 @@ export async function saveExtensionState(id: string, input: { enabled?: boolean;
         }
         // Saving settings must not write down "off" for an extension that is only off because of a dependency.
         const next: ExtensionStoredState = { enabled: typeof input.enabled === 'boolean' ? input.enabled : (await storedExtensionState(id, tx, true)).enabled, settings }
-        if (typeof input.enabled === 'boolean' && input.enabled !== current.enabled) await assertDependencies(manifest, input.enabled, tx)
+        if (input.enabled === true || (input.enabled === false && current.enabled)) await assertDependencies(manifest, input.enabled, tx)
         serverPlugins[id]?.validateSettings?.(next.settings)
         await tx.setting.upsert({ where: { key: stateKey(id) }, create: { key: stateKey(id), value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } })
         if (manifest.stateSetting) {
@@ -124,9 +128,11 @@ export async function saveExtensionState(id: string, input: { enabled?: boolean;
 async function assertDependencies(manifest: ExtensionManifest, enabling: boolean, reader: StateReader = db) {
   const label = (m: ExtensionManifest) => m.name
   if (enabling) {
+    const issue = compatibilityIssue(manifest, extensionCatalog, coreVersion)
+    if (issue) throw new Error(issue)
     for (const dependency of manifest.requires || []) {
       const required = extensionById.get(dependency)
-      if (required && !(await getExtensionState(dependency, [], reader, true)).enabled) throw new Error(`ابتدا «${label(required)}» را فعال کنید / Enable “${required.nameEn || required.name}” first`)
+      if (!required || !(await getExtensionState(dependency, [manifest.id], reader, true)).enabled) throw new Error(`ابتدا «${required ? label(required) : dependency}» را فعال کنید / Enable “${required?.nameEn || required?.name || dependency}” first`)
     }
     return
   }
@@ -170,7 +176,10 @@ export async function getPublicExtensionRuntime(reader: StateReader = db): Promi
     try { return [manifest.id, mirrored(manifest, parseState(value, manifest, typeof legacyValue === 'boolean' ? legacyValue : undefined, true), mirror)] as const }
     catch { logEvent('warn', 'extensions.state_invalid', { extensionId: manifest.id }); return [manifest.id, { enabled: false, settings: {} }] as const }
   }))
-  const on = (id: string, seen: readonly string[] = []): boolean => !!stored.get(id)?.enabled && (extensionById.get(id)?.requires || []).every(dependency => !stored.has(dependency) || seen.includes(dependency) || on(dependency, [...seen, id]))
+  const on = (id: string, seen: readonly string[] = []): boolean => {
+    const manifest = extensionById.get(id)
+    return !!manifest && !seen.includes(id) && !!stored.get(id)?.enabled && !compatibilityIssue(manifest, extensionCatalog, coreVersion) && (manifest.requires || []).every(dependency => on(dependency, [...seen, id]))
+  }
   return Object.fromEntries(extensionCatalog.map(manifest => {
     const state = { ...stored.get(manifest.id)!, enabled: on(manifest.id) }
     const publicKeys = new Set((manifest.settings || []).filter(setting => setting.public && setting.type !== 'secret').map(setting => setting.key))
@@ -188,7 +197,8 @@ export async function listExtensionAdminState() {
       const settings = { ...requested.settings }
       for (const def of manifest.settings || []) if (def.type === 'secret' && settings[def.key]) settings[def.key] = '••••••••'
       const blockedBy = (manifest.requires || []).filter(id => runtime[id]?.enabled !== true)
-      result.push({ manifest, state: { enabled: runtime[manifest.id]?.enabled === true, requestedEnabled: requested.enabled, blockedBy, unavailable, settings } })
+      const compatibilityError = compatibilityIssue(manifest, extensionCatalog, coreVersion)
+      result.push({ manifest, state: { enabled: runtime[manifest.id]?.enabled === true, requestedEnabled: requested.enabled, blockedBy, compatibilityError, unavailable, settings } })
     }
     return result
   }, { isolationLevel: 'Serializable', timeout: 15000 })

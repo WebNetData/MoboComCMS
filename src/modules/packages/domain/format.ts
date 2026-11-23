@@ -6,6 +6,8 @@
 // browser. "code" packages carry TypeScript sources for a trusted rebuild and
 // are stored until an administrator applies them (see code-apply).
 
+import { isCompatibilityRange } from '../../../platform/extensions/compatibility'
+
 export const PACKAGE_SLOTS = [
   'site.before-header', 'site.after-header', 'site.before-footer', 'site.after-footer',
   'home.before-main', 'home.after-main', 'dashboard.top', 'dashboard.bottom', 'miniapp.home',
@@ -35,6 +37,9 @@ export interface PackageManifest {
   kind: PackageKind
   runtime: PackageRuntime
   requiresCore?: string
+  requires?: string[]
+  dependencyVersions?: Record<string, string>
+  requiresCapabilities?: Record<string, string[]>
   slots?: Partial<Record<PackageSlot, LocalizedFile>>
   styles?: string[]
   pages?: PackagePage[]
@@ -78,6 +83,8 @@ export function validPackagePath(path: string, runtime: PackageRuntime = 'declar
 }
 
 export class PackageError extends Error {}
+/** Valid package bytes conflict with the installed host/dependency contract. */
+export class PackageCompatibilityError extends PackageError {}
 
 const ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
@@ -114,8 +121,17 @@ export function parseManifest(raw: unknown, files: ReadonlySet<string>): Package
   if (runtime !== 'declarative' && runtime !== 'code') fail('"runtime" must be "declarative" or "code"')
   for (const key of ['nameEn', 'author'] as const) if (!optionalText(m[key], 80)) fail(`"${key}" is too long`)
   for (const key of ['description', 'descriptionEn'] as const) if (!optionalText(m[key], 400)) fail(`"${key}" is too long`)
-  if (m.requiresCore !== undefined && (typeof m.requiresCore !== 'string' || !/^\^?\d+\.\d+\.\d+$/.test(m.requiresCore))) fail('"requiresCore" must look like ^1.0.0')
-  if (m.requiresCore && Number(String(m.requiresCore).replace('^', '').split('.')[0]) !== 1) fail('this package needs a different MoboComCMS core version')
+  if (m.requiresCore !== undefined && !isCompatibilityRange(m.requiresCore)) fail('"requiresCore" must look like ^1.0.0')
+  for (const key of ['dependencyVersions', 'requiresCapabilities'] as const) {
+    if (m[key] === undefined) continue
+    if (!isRecord(m[key]) || Object.keys(m[key] as object).length > 100) fail(`"${key}" must be a bounded dependency map`)
+    for (const [id, requirement] of Object.entries(m[key] as Record<string, unknown>)) {
+      if (!Array.isArray(m.requires) || !m.requires.includes(id)) fail(`"${key}.${id}" must be listed in requires`)
+      if (key === 'dependencyVersions' ? !isCompatibilityRange(requirement)
+        : !Array.isArray(requirement) || requirement.length > 7 || !requirement.every(value => typeof value === 'string' && ['ui', 'admin', 'api', 'events', 'jobs', 'settings', 'storage'].includes(value))) fail(`"${key}.${id}" is invalid`)
+    }
+  }
+  if (m.requires !== undefined && (!Array.isArray(m.requires) || m.requires.length > 100 || !m.requires.every(id => typeof id === 'string' && id.length >= 2 && id.length <= 50 && ID.test(id)))) fail('"requires" must list module ids')
 
   const need = (path: string, where: string) => { if (!files.has(path)) fail(`${where} references missing file "${path}"`) }
   if (m.slots !== undefined) {

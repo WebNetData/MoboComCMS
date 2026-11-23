@@ -8,9 +8,12 @@ const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 function load(relative) {
-  const source = ts.transpileModule(fs.readFileSync(path.resolve(root, relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+ const file = path.resolve(root, relative)
+ if (file.endsWith('.json')) return JSON.parse(fs.readFileSync(file, 'utf8'))
+ const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+ const localRequire = name => name.startsWith('.') ? load(path.relative(root, path.resolve(path.dirname(file), name + (path.extname(name) ? '' : '.ts')))) : require(name)
+ new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
 const contracts = load('src/platform/extensions/contracts.ts')
@@ -36,7 +39,7 @@ test('example:install copies an example and the generator registers it (in a thr
   fs.cpSync(path.join(root, 'examples'), path.join(dir, 'examples'), { recursive: true })
   fs.mkdirSync(path.join(dir, 'scripts')); fs.copyFileSync(path.join(root, 'scripts/generate-extensions.mjs'), path.join(dir, 'scripts/generate-extensions.mjs'))
   // The real generator also verifies shipped AI knowledge when source-only docs/skills are absent.
-  for (const file of ['scripts/generate-ai-knowledge.cjs', 'src/modules/ai/domain/engineering-knowledge.generated.json']) {
+ for (const file of ['scripts/generate-ai-knowledge.cjs', 'src/modules/ai/domain/engineering-knowledge.generated.json', 'src/platform/extensions/compatibility.ts']) {
     fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true })
     fs.copyFileSync(path.join(root, file), path.join(dir, file))
   }
@@ -45,6 +48,19 @@ test('example:install copies an example and the generator registers it (in a thr
   const plugin = run('plugin', 'sample-feedback')
   assert.equal(plugin.status, 0, plugin.stderr + plugin.stdout)
   assert.match(plugin.stdout, /Verified shipped canonical AI knowledge/)
+ const themeManifest = path.join(dir, 'examples/themes/sample-editorial/manifest.json')
+ const originalTheme = fs.readFileSync(themeManifest, 'utf8')
+ fs.writeFileSync(themeManifest, JSON.stringify({ ...JSON.parse(originalTheme), requiresCore: '^99.0.0' }))
+ const skipped = spawnSync(process.execPath, [path.join(root, 'scripts/install-example.mjs'), 'theme', 'sample-editorial'], { cwd: dir, env: { ...process.env, EXAMPLE_ROOT: dir, EXAMPLE_SKIP_GENERATE: '1' }, encoding: 'utf8' })
+ assert.notEqual(skipped.status, 0)
+ assert.equal(fs.existsSync(path.join(dir, 'src/themes/code/sample-editorial')), false, 'skip-generate still rejects incompatibility before copying')
+ fs.writeFileSync(themeManifest, originalTheme)
+ const generator = path.join(dir, 'scripts/generate-extensions.mjs')
+ const originalGenerator = fs.readFileSync(generator, 'utf8')
+ fs.writeFileSync(generator, 'process.exit(1)\n')
+ assert.notEqual(run('theme', 'sample-editorial').status, 0)
+ assert.equal(fs.existsSync(path.join(dir, 'src/themes/code/sample-editorial')), false, 'failed generator removes only this install')
+ fs.writeFileSync(generator, originalGenerator)
   const theme = run('theme', 'sample-editorial')
   assert.equal(theme.status, 0, theme.stderr + theme.stdout)
   assert.ok(fs.existsSync(path.join(dir, 'src/plugins/sample-feedback/server.ts')))

@@ -4,6 +4,7 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'package-apply',
   'content-publication',
   'content-canonical-alias',
   'support-page-problems',

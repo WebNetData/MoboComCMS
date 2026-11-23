@@ -5,14 +5,17 @@ import { fileFor } from '@/modules/packages/domain/format'
 import { sanitizePackageCss, sanitizePackageHtml } from '@/modules/packages/domain/sanitize'
 import { fileText, loadPackage, packageIds, packageRevision, type StoredPackage } from './store'
 import { packageAssetBase } from './runtime'
+import { getPublicExtensionRuntime } from '@/extensions/server/state'
+import { publicPackageCompatible } from './compatibility'
+import type { ExtensionPublicState } from '@/platform/extensions/contracts'
 
 const memo = new Map<string, ComponentDef[]>()
 
-async function active(themeId: string): Promise<StoredPackage[]> {
+async function active(themeId: string, runtime: Readonly<Record<string, ExtensionPublicState>>): Promise<StoredPackage[]> {
   const result: StoredPackage[] = []
   for (const id of await packageIds()) {
     const pkg = await loadPackage(id)
-    if (!pkg || pkg.manifest.runtime !== 'declarative' || !pkg.manifest.components?.length) continue
+    if (!pkg || pkg.manifest.runtime !== 'declarative' || !pkg.manifest.components?.length || !publicPackageCompatible(pkg, runtime)) continue
     if (pkg.manifest.kind === 'plugin' ? pkg.enabled : pkg.manifest.id === themeId) result.push(pkg)
   }
   return result
@@ -21,11 +24,12 @@ async function active(themeId: string): Promise<StoredPackage[]> {
 /** Components offered by enabled declarative packages: their own template and style, typed fields, never a script. */
 export const getPackageComponents = cache(async (locale: string): Promise<ComponentDef[]> => {
   const [rev, site] = await Promise.all([packageRevision(), getSiteConfig()])
-  const key = `${rev}:${locale}:${site.themeId}`
+  const dependencies = await getPublicExtensionRuntime()
+  const key = `${rev}:${locale}:${site.themeId}:${Object.entries(dependencies).filter(([, state]) => state.enabled).map(([id]) => id).join(',')}`
   const cached = memo.get(key)
   if (cached) return cached
   const out: ComponentDef[] = []
-  for (const pkg of await active(site.themeId)) {
+  for (const pkg of await active(site.themeId, dependencies)) {
     const id = pkg.manifest.id, base = packageAssetBase(id)
     for (const c of pkg.manifest.components || []) {
       const keys = new Set<string>()

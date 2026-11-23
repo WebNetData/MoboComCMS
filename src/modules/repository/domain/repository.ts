@@ -1,5 +1,7 @@
 // Plugin & theme repository rules: license keys, sites, certificates, products and what a license entitles to.
-// Pure functions with no imports (the signing itself lives in server/crypto.ts).
+// Pure functions (the signing itself lives in server/crypto.ts).
+
+import { satisfiesCompatibilityRange } from '../../../platform/extensions/compatibility'
 
 export class RepoError extends Error {
   constructor(message: string, readonly status = 400, readonly meta: Record<string, unknown> = {}) { super(message) }
@@ -209,8 +211,5 @@ export function normalizeCatalog(input: unknown): CatalogProduct[] {
 /** Does a package that needs core `range` (like ^1.2.0) run on `core`? */
 export function coreSatisfies(range: string, core: string): boolean {
   if (!range) return true
-  const need = /^\^?(\d+)\.(\d+)\.(\d+)$/.exec(range), have = /^(\d+)\.(\d+)\.(\d+)/.exec(core)
-  if (!need || !have) return false
-  if (Number(need[1]) !== Number(have[1])) return false
-  return Number(have[2]) > Number(need[2]) || (Number(have[2]) === Number(need[2]) && Number(have[3]) >= Number(need[3]))
+  return satisfiesCompatibilityRange(range, core)
 }

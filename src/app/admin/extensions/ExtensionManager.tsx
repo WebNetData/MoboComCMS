@@ -14,7 +14,7 @@ type Manifest = {
   capabilities?: string[]; settings?: SettingDef[]; adminNavigation?: { href: string; label: string; labelEn?: string }[]
   requires?: string[]; publicPaths?: string[]; adminPaths?: string[]; category?: string; icon?: string
 }
-type ExtensionRow = { manifest: Manifest; state: { enabled: boolean; requestedEnabled?: boolean; blockedBy?: string[]; unavailable?: boolean; settings: Record<string, unknown> } }
+type ExtensionRow = { manifest: Manifest; state: { enabled: boolean; requestedEnabled?: boolean; blockedBy?: string[]; unavailable?: boolean; compatibilityError?: string | null; settings: Record<string, unknown> } }
 
 /** Every manifest category, in the order the owner meets them: the site's sections first, platform services last. */
 const CATEGORIES: { key: string; fa: string; en: string }[] = [
@@ -110,6 +110,7 @@ export default function ExtensionManager({ embedded = false }: { embedded?: bool
         </label>
       </div>
       <p className="xm-desc">{fa ? m.description : m.descriptionEn || m.description}</p>
+      {row.state.compatibilityError && <p className="xm-desc" role="status">{L('Compatibility issue: review the extension requirements before enabling it.', 'مشکل سازگاری: پیش از فعال‌سازی، نیازمندی‌های افزونه را بررسی کنید.')} <span dir="auto">{row.state.compatibilityError}</span></p>}
       <div className="xm-meta">
         <span className="xm-chip is-muted">{L('Included in this build', 'نصب‌شده همراه این نسخه')}</span>
         {row.state.unavailable && <span className="xm-chip is-warn">{L('Stored configuration needs recovery', 'تنظیمات ذخیره‌شده نیازمند بازیابی است')}</span>}

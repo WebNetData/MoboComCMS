@@ -11,6 +11,7 @@ type Manifest = {
 export type PackageRow = {
   id: string; manifest: Manifest; uninstalledAt?: string; enabled: boolean; settings: Record<string, string>; files: { path: string; bytes: number; editable: boolean }[]
   bytes: number; updatedAt: string; revisions: number; codeStatus?: 'staged' | 'applied'; active?: boolean
+  codeApply?: { id: string; mode: 'git' | 'local'; phase: 'prepared' | 'planned' | 'effect' | 'applied' | 'cancelled'; intent?: 'cancel'; deploy?: 'claimed' | 'accepted' | 'failed' | 'unknown' } | null
 }
 
 type CodeStatus = { mode: 'git' | 'local' | 'off'; ready: boolean; detail: string; deployHook: boolean; owner: boolean }
@@ -29,6 +30,7 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
   const [drag, setDrag] = useState(false)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
   const input = useRef<HTMLInputElement>(null)
+  const hasPending = rows.some(row => row.codeApply && row.codeApply.phase !== 'applied' && row.codeApply.phase !== 'cancelled')
 
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/packages', { cache: 'no-store' })
@@ -48,17 +50,17 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
       onChanged?.()
       setMessage({ text: success, error: false })
       return data
-    } catch (error) { setMessage({ text: error instanceof Error ? error.message : String(error), error: true }) }
+    } catch (error) { await load().catch(() => {}); setMessage({ text: error instanceof Error ? error.message : String(error), error: true }) }
     finally { setBusy('') }
   }
 
   async function upload(file: File | undefined) {
-    if (!file) return
+    if (!file || hasPending) return
     if (!/\.zip$/i.test(file.name)) { setMessage({ text: L('Choose a .zip package.', 'یک فایل ‎.zip انتخاب کنید.'), error: true }); return }
     const form = new FormData()
     form.append('file', file)
     const data = await call('upload', () => fetch('/api/admin/packages', { method: 'POST', body: form }), L('Package installed.', 'بسته نصب شد.'))
-    if (data?.package) setMessage({ text: data.upgraded ? L(`${data.package.manifest.name} was updated to v${data.package.manifest.version}.`, `«${data.package.manifest.name}» به نسخهٔ ${data.package.manifest.version} به‌روز شد.`) : data.package.manifest.runtime === 'code' ? L(`${data.package.manifest.name} was uploaded. Code packages run after “Apply & rebuild”.`, `«${data.package.manifest.name}» آپلود شد. بسته‌های کددار بعد از «اعمال و build» اجرا می‌شوند.`) : L(`${data.package.manifest.name} is installed. Turn it on when you are ready.`, `«${data.package.manifest.name}» نصب شد. هر وقت آماده بودید فعالش کنید.`), error: false })
+    if (data?.package) setMessage({ text: data.upgraded ? L(`${data.package.manifest.name} was updated to v${data.package.manifest.version}.`, `«${data.package.manifest.name}» به نسخهٔ ${data.package.manifest.version} به‌روز شد.`) : data.package.manifest.runtime === 'code' ? L(`${data.package.manifest.name} was uploaded. Apply trusted source, then review the build and deployment before activation.`, `«${data.package.manifest.name}» آپلود شد. سورس مورد اعتماد را اعمال کنید و پیش از فعال‌سازی، build و استقرار را بررسی کنید.`) : L(`${data.package.manifest.name} is installed. Turn it on when you are ready.`, `«${data.package.manifest.name}» نصب شد. هر وقت آماده بودید فعالش کنید.`), error: false })
     if (input.current) input.current.value = ''
   }
 
@@ -70,10 +72,22 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
   }
   const name = (m: Manifest) => (fa ? m.name : m.nameEn || m.name)
   async function apply(row: PackageRow) {
-    const where = code?.mode === 'git' ? L(`It is committed to ${code.detail} and the site rebuilds (a few minutes).`, `در ${code.detail} ثبت می‌شود و سایت دوباره build می‌شود (چند دقیقه).`) : L('It is written to the local source tree; rebuild/restart afterwards.', 'در سورس محلی نوشته می‌شود؛ بعد از آن build یا ری‌استارت کنید.')
-    if (!window.confirm(L(`Apply the code of ${row.manifest.name}? Code packages run with full server access — apply only code you trust. ${where} If the build or its checks fail, the current site keeps running.`, `کد «${row.manifest.name}» اعمال شود؟ بسته‌های کددار به کل سرور دسترسی دارند؛ فقط کدی را اعمال کنید که به آن اعتماد دارید. ${where} اگر build یا بررسی‌ها خطا بدهند، سایت فعلی دست‌نخورده می‌ماند.`))) return
+    if (row.codeApply?.intent === 'cancel' && row.codeApply.phase !== 'cancelled' && row.codeApply.phase !== 'applied') {
+      if (!window.confirm(L('Continue the previous cancellation?', 'لغو قبلی ادامه پیدا کند؟'))) return
+      await call(row.id, () => fetch(`/api/admin/packages/${row.id}/apply`, { method: 'POST' }), L('Cancellation completed; package data and backup retained.', 'لغو کامل شد؛ داده‌ها و نسخهٔ پشتیبان بسته حفظ شدند.'))
+      return
+    }
+    const where = code?.mode === 'git' ? L(`The source is committed to ${code.detail}; a commit does not confirm deployment.`, `سورس در ${code.detail} ثبت می‌شود؛ commit به معنی استقرار نیست.`) : L('The local source is written; a reviewed build and restart are needed.', 'سورس محلی نوشته می‌شود؛ build بازبینی‌شده و راه‌اندازی دوباره لازم است.')
+    if (!window.confirm(L(`Apply the code of ${row.manifest.name}? Code packages have full server access; apply only trusted code. ${where}`, `کد «${row.manifest.name}» اعمال شود؟ بسته‌های کددار به کل سرور دسترسی دارند؛ فقط کد مورد اعتماد را اعمال کنید. ${where}`))) return
     const data = await call(row.id, () => fetch(`/api/admin/packages/${row.id}/apply`, { method: 'POST' }), L('Applied.', 'اعمال شد.'))
-    if (data) setMessage({ text: !data.changed ? L('Nothing changed since the last apply.', 'از آخرین اعمال تغییری نبوده است.') : data.mode === 'git' ? L(`Committed ${String(data.commit).slice(0, 7)}. ${data.deploy || 'The deployment starts from the push.'} After it is live, switch the extension on in the list above.`, `commit ${String(data.commit).slice(0, 7)} ثبت شد. ${data.deploy ? (data.deploy === 'deployment triggered' ? 'استقرار شروع شد.' : data.deploy) : 'استقرار با push شروع می‌شود.'} بعد از بالا آمدن نسخهٔ جدید، افزونه را در فهرست بالا فعال کنید.`) : L('Written to the source tree. Rebuild or restart to load it.', 'در سورس نوشته شد. برای بارگذاری، build یا ری‌استارت کنید.'), error: false })
+    if (data) setMessage({ text: data.mode === 'git' ? L('Source prepared in Git. A commit or accepted deployment request does not confirm deployment; review the build and deployment before activation.', 'سورس در Git آماده شد. ثبت commit یا پذیرش درخواست استقرار، اجرای استقرار را تأیید نمی‌کند؛ پیش از فعال‌سازی، build و استقرار را بررسی کنید.') : L('Source written locally. A reviewed build and restart are needed before activation.', 'سورس محلی نوشته شد. پیش از فعال‌سازی، build بازبینی‌شده و راه‌اندازی دوباره لازم است.'), error: false })
+  }
+  async function cancelApply(row: PackageRow) {
+    const local = row.codeApply?.mode === 'local'
+    if (!window.confirm(local
+      ? L('Cancel this apply and restore the recorded original source only if it is unchanged? Package files, settings, history and backup are retained.', 'این اعمال لغو و سورس اصلی ثبت‌شده فقط در صورت تغییرنکردن بازیابی شود؟ فایل‌ها، تنظیمات، سوابق و نسخهٔ پشتیبان بسته حفظ می‌شوند.')
+      : L('Cancel this apply plan? Only a verified unpublishable plan can be cancelled; a published commit is never reverted.', 'برنامهٔ اعمال لغو شود؟ فقط برنامه‌ای که منتشرنشدنی بودن آن تأیید شده لغو می‌شود؛ commit منتشرشده بازگردانده نمی‌شود.'))) return
+    await call(row.id, () => fetch(`/api/admin/packages/${row.id}/apply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel' }) }), L('Apply cancelled; package data and backup retained.', 'اعمال لغو شد؛ داده‌ها و نسخهٔ پشتیبان بسته حفظ شدند.'))
   }
   async function editBuiltin(id: string) {
     if (!id) return
@@ -84,10 +98,11 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
   return <section className="xm-section" aria-labelledby="pm-title">
     <h2 id="pm-title">{L('Uploaded plugins & themes', 'افزونه‌ها و قالب‌های آپلودی')}</h2>
     <label className={`pm-drop${drag ? ' is-drag' : ''}`} onDragOver={event => { event.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)} onDrop={event => { event.preventDefault(); setDrag(false); void upload(event.dataTransfer.files?.[0]) }} aria-busy={busy === 'upload'}>
-      <input ref={input} type="file" accept=".zip,application/zip" className="sr-only" onChange={event => void upload(event.target.files?.[0])} disabled={busy === 'upload'}/>
+      <input ref={input} type="file" accept=".zip,application/zip" className="sr-only" onChange={event => void upload(event.target.files?.[0])} disabled={busy === 'upload' || hasPending}/>
       <Icon name="upload" size={26}/>
       <strong>{busy === 'upload' ? L('Installing…', 'در حال نصب…') : L('Upload a plugin or theme (.zip)', 'آپلود افزونه یا قالب (‎.zip)')}</strong>
       <small>{L('Drop a file here or click to choose. Uploading a newer version of an installed package updates it and keeps its settings.', 'فایل را اینجا رها کنید یا کلیک کنید. آپلود نسخهٔ جدید یک بستهٔ نصب‌شده، آن را به‌روز می‌کند و تنظیماتش حفظ می‌شود.')}</small>
+      {hasPending && <small>{L('Resume or cancel the pending apply before uploading packages.', 'پیش از بارگذاری بسته، اعمال ناتمام را ادامه دهید یا لغو کنید.')}</small>}
     </label>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     {code && <div className="pm-code">
@@ -100,8 +115,9 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
         const m = row.manifest
         const installed = !row.uninstalledAt
         const active = installed && (row.enabled || !!row.active)
-        const expanded = active && open === row.id
         const isCode = m.runtime === 'code'
+        const pending = !!row.codeApply && row.codeApply.phase !== 'applied' && row.codeApply.phase !== 'cancelled'
+        const expanded = active && !pending && open === row.id
         return <article key={row.id} className={`xm-card${row.enabled || row.active ? ' is-on' : ''}`} aria-busy={busy === row.id}>
           <div className="xm-card-head">
             <span className="xm-icon" aria-hidden="true"><Icon name={m.kind === 'theme' ? 'palette' : isCode ? 'code' : 'sparkles'} size={22}/></span>
@@ -117,12 +133,15 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
             {(active ? m.pages || [] : []).map(page => <a className="xm-chip" dir="ltr" key={page.slug} href={`/ext/${m.id}/${page.slug}`} target="_blank" rel="noreferrer">/ext/{m.id}/{page.slug}</a>)}
             <span className="xm-chip is-muted">{row.files.length} {L('files', 'فایل')} · {kb(row.bytes)}</span>
           </div>
+          {row.codeApply && <p className="xm-desc" role="status">{L('Apply receipt', 'رسید اعمال')}: <span dir="ltr">{row.codeApply.id} · {row.codeApply.mode}</span> · {L(row.codeApply.phase, { prepared: 'آماده‌شده', planned: 'برنامه‌ریزی‌شده', effect: 'در حال اعمال', applied: 'اعمال‌شده', cancelled: 'لغوشده' }[row.codeApply.phase])}{row.codeApply.deploy && <> · {L(row.codeApply.deploy, { claimed: 'درخواست ثبت‌شده', accepted: 'درخواست پذیرفته‌شده', failed: 'درخواست ناموفق', unknown: 'نتیجه نامشخص' }[row.codeApply.deploy])}</>}{pending && <> — {L('Changes are locked until this operation is resumed or cancelled.', 'تا ادامه یا لغو این عملیات، تغییر بسته قفل است.')}</>}{(row.codeApply.deploy === 'claimed' || row.codeApply.deploy === 'unknown') && <> {L('The deployment request will not be resent automatically; verify its outcome.', 'درخواست استقرار خودکار دوباره ارسال نمی‌شود؛ نتیجه را بررسی کنید.')}</>}{row.codeApply.deploy === 'accepted' && <> {L('The deployment request was accepted; deployment is not yet confirmed.', 'درخواست استقرار پذیرفته شده؛ استقرار هنوز تأیید نشده است.')}</>}</p>}
+          {pending && row.codeApply?.intent === 'cancel' && <p className="xm-desc" role="status">{L('The previous cancellation is being completed. Continue recovery to finish it.', 'لغو قبلی در حال تکمیل است؛ برای پایان آن بازیابی را ادامه دهید.')}</p>}
           {installed && <div className="xm-foot">
-            <Link className="btn btn-ghost btn-sm" href={`/admin/extensions/editor?package=${row.id}`}><Icon name="code" size={15}/> {L('Editor', 'ویرایشگر')}</Link>
-            {active && !!m.settings?.length && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : row.id)}>{expanded ? L('Hide settings', 'بستن تنظیمات') : L('Settings', 'تنظیمات')}</button>}
-            {code && m.runtime === 'code' && <button type="button" className="btn btn-primary btn-sm" disabled={busy === row.id || !code?.ready || !code?.owner || row.codeStatus === 'applied'} title={!code?.ready ? code?.detail : !code?.owner ? L('Needs the extensions.code permission', 'نیازمند دسترسی extensions.code') : undefined} onClick={() => void apply(row)}>{row.codeStatus === 'applied' ? L('Applied', 'اعمال‌شده') : L('Apply & rebuild', 'اعمال و build')}</button>}
+            {pending ? <span className="btn btn-ghost btn-sm" aria-disabled="true">{L('Editor locked', 'ویرایشگر قفل است')}</span> : <Link className="btn btn-ghost btn-sm" href={`/admin/extensions/editor?package=${row.id}`}><Icon name="code" size={15}/> {L('Editor', 'ویرایشگر')}</Link>}
+            {active && !!m.settings?.length && <button type="button" className="btn btn-ghost btn-sm" disabled={pending} aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : row.id)}>{expanded ? L('Hide settings', 'بستن تنظیمات') : L('Settings', 'تنظیمات')}</button>}
+            {code && m.runtime === 'code' && <button type="button" className="btn btn-primary btn-sm" disabled={busy === row.id || !code?.ready || !code?.owner || (!pending && row.codeStatus === 'applied')} title={!code?.ready ? code?.detail : !code?.owner ? L('Needs the extensions.code permission', 'نیازمند دسترسی extensions.code') : undefined} onClick={() => void apply(row)}>{pending ? row.codeApply?.intent === 'cancel' ? L('Continue recovery', 'ادامهٔ بازیابی') : L('Resume apply', 'ادامهٔ اعمال') : row.codeStatus === 'applied' ? L('Applied', 'اعمال‌شده') : L('Apply source', 'اعمال سورس')}</button>}
+            {pending && row.codeApply?.intent !== 'cancel' && <button type="button" className="btn btn-ghost btn-sm" disabled={busy === row.id || !code?.owner} onClick={() => void cancelApply(row)}>{row.codeApply?.mode === 'local' ? L('Cancel and restore previous source', 'لغو و بازیابی سورس قبلی') : L('Cancel apply plan', 'لغو برنامهٔ اعمال')}</button>}
             <a className="btn btn-ghost btn-sm" href={`/api/admin/packages/${row.id}/export`}>{L('Export .zip', 'خروجی zip')}</a>
-            <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy || active || row.codeStatus === 'applied'} title={active ? L('Deactivate first', 'ابتدا غیرفعال کنید') : row.codeStatus === 'applied' ? L('Source removal requires a reviewed build/deploy', 'حذف سورس به build/deploy بازبینی‌شده نیاز دارد') : undefined} onClick={() => remove(row)}>{L('Uninstall; retain data', 'حذف نصب با حفظ داده‌ها')}</button>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy || pending || active || row.codeStatus === 'applied'} title={pending ? L('Resume or cancel the pending apply first', 'ابتدا اعمال ناتمام را ادامه دهید یا لغو کنید') : active ? L('Deactivate first', 'ابتدا غیرفعال کنید') : row.codeStatus === 'applied' ? L('Source removal requires a reviewed build/deploy', 'حذف سورس به build/deploy بازبینی‌شده نیاز دارد') : undefined} onClick={() => remove(row)}>{L('Uninstall; retain data', 'حذف نصب با حفظ داده‌ها')}</button>
           </div>}
           {!installed && <p className="xm-desc" role="status">{L('Uninstalled; settings, files and history retained privately. Upload a validated package to reinstall; it stays inactive.', 'حذف نصب شده؛ تنظیمات، فایل‌ها و سوابق خصوصی حفظ شده‌اند. برای نصب دوباره بستهٔ معتبر بارگذاری کنید؛ فعال‌سازی جداگانه است.')}</p>}
           {expanded && <form className="xm-settings" onSubmit={event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); void patch(row, { settings: data }, L('Settings saved.', 'تنظیمات ذخیره شد.')) }}>

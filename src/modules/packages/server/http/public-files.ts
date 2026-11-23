@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { contentTypeOf, extensionOf, validPackagePath } from '@/modules/packages/domain/format'
 import { fileBuffer, loadPackage } from '@/modules/packages/server/store'
+import { getPublicExtensionRuntime } from '@/extensions/server/state'
+import { publicPackageCompatible } from '../compatibility'
 
 // Only media, fonts and stylesheets are public. Markup, manifests and sources
 // stay private; SVG is sandboxed so it can never run script at this origin.
@@ -12,6 +14,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!validPackagePath(path) || !PUBLIC_EXTENSIONS.has(extensionOf(path))) return new NextResponse('Not found', { status: 404 })
   const pkg = await loadPackage(id)
   if (!pkg || pkg.manifest.runtime !== 'declarative' || (pkg.manifest.kind === 'plugin' && !pkg.enabled)) return new NextResponse('Not found', { status: 404 })
+  if (!publicPackageCompatible(pkg, await getPublicExtensionRuntime())) return new NextResponse('Not found', { status: 404 })
   const data = fileBuffer(pkg, path)
   if (!data) return new NextResponse('Not found', { status: 404 })
   return new NextResponse(new Uint8Array(data), {

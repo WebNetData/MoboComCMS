@@ -21,6 +21,16 @@ const { parseManifest, validPackagePath, normalizeEntries, PACKAGE_LIMITS } = lo
 const { sanitizePackageHtml, sanitizePackageCss, renderPlaceholders } = load('src/modules/packages/domain/sanitize.ts')
 const { readZip, writeZip } = load('src/modules/packages/domain/zip.ts')
 
+test('bounded JSON keeps strict empty defaults and explicitly supports legacy empty apply requests', async () => {
+  const { readJsonObject } = load('src/platform/http/read-json.ts')
+  const request = body => new Request('http://owned.invalid/apply', { method: 'POST', ...(body !== undefined ? { body } : {}) })
+  await assert.rejects(() => readJsonObject(request()), /خالی/)
+  assert.deepEqual(await readJsonObject(request(), 1024, { allowEmpty: true }), {})
+  assert.deepEqual(await readJsonObject(request(''), 1024, { allowEmpty: true }), {})
+  await assert.rejects(() => readJsonObject(request('{'), 1024, { allowEmpty: true }), /JSON/)
+  await assert.rejects(() => readJsonObject(request('x'.repeat(1025)), 1024, { allowEmpty: true }), error => error.status === 413)
+})
+
 const BASE = '/api/public/packages/demo/files'
 const example = dir => {
   const root = path.join(__dirname, '..', 'docs/packages/examples', dir)
@@ -56,7 +66,10 @@ test('manifests reject unknown slots, missing files, bad ids and code-only field
   assert.throws(() => parseManifest({ ...manifest, id: 'Bad_ID' }, files), /id/)
   assert.throws(() => parseManifest({ ...manifest, slots: { 'admin.secret': 'slots/banner.fa.html' } }, files), /unknown slot/)
   assert.throws(() => parseManifest({ ...manifest, styles: ['missing.css'] }, files), /missing file/)
-  assert.throws(() => parseManifest({ ...manifest, requiresCore: '^2.0.0' }, files), /core version/)
+  assert.equal(parseManifest({ ...manifest, requiresCore: '^2.0.0', requires: ['store'] }, files).requiresCore, '^2.0.0')
+  assert.deepEqual(parseManifest({ ...manifest, requires: ['store'] }, files).requires, ['store'])
+  for (const range of ['^01.0.0', '1.0', '^1.0.0-beta', '9007199254740992.0.0']) assert.throws(() => parseManifest({ ...manifest, requiresCore: range }, files), /requiresCore/)
+  assert.throws(() => parseManifest({ ...manifest, requires: ['Bad_ID'] }, files), /requires/)
   assert.throws(() => parseManifest({ ...manifest, design: { radius: 4 } }, files), /only allowed for themes/)
   const theme = example('ocean-theme')
   assert.throws(() => parseManifest({ ...theme.manifest, design: { ...theme.manifest.design, colors: { ...theme.manifest.design.colors, accent: 'red;x:y' } } }, theme.files), /colors/)
@@ -133,6 +146,19 @@ test('code packages need apiVersion and may carry build-time settings', () => {
   assert.equal(parseManifest(manifest, files).runtime, 'code')
   assert.throws(() => parseManifest({ ...manifest, apiVersion: undefined }, files), /apiVersion/)
   assert.equal(validPackagePath('client.tsx', 'declarative'), false)
+})
+
+test('extension compatibility checks the declared module version and capabilities', () => {
+  const { compatibilityIssue } = load('src/platform/extensions/compatibility.ts')
+  const catalog = [{ id: 'store', kind: 'module', version: '0.2.4', capabilities: ['api', 'events'] }]
+  const manifest = { id: 'example', requiresCore: '^1.0.0', requires: ['store'], dependencyVersions: { store: '^0.2.3' }, requiresCapabilities: { store: ['api'] } }
+  assert.equal(compatibilityIssue(manifest, catalog, '1.7.0'), null)
+  assert.match(compatibilityIssue(manifest, [], '1.7.0'), /missing/)
+  assert.match(compatibilityIssue(manifest, [{ ...catalog[0], kind: 'plugin' }], '1.7.0'), /missing/)
+  assert.match(compatibilityIssue(manifest, [{ ...catalog[0], version: '0.3.0' }], '1.7.0'), /requires store/)
+  assert.match(compatibilityIssue(manifest, [{ ...catalog[0], capabilities: [] }], '1.7.0'), /lacks capabilities/)
+  assert.match(compatibilityIssue(manifest, catalog, '2.0.0'), /requires core/)
+  assert.match(compatibilityIssue({ id: 'example', dependencyVersions: { store: '^0.2.3' } }, catalog, '1.7.0'), /listed in requires/)
 })
 
 test('every migration belongs to exactly one release, and a shipped one is never edited', () => {
