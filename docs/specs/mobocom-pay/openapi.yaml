@@ -1,12 +1,14 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.0.0
+  version: 1.1.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An active merchant and terminal are provisioned through the account interface before using this API.
     Before fulfilling an order, retrieve its payment by ID and confirm status PAID. A customer reference
-    alone is not confirmation. No outbound payment callbacks or production bank adapter are provided.
+    alone is not confirmation. Hosted checkout requires a browser-bound phone OTP before payment instructions,
+    receipt upload or provider initiation. Existing compatible MoboCom gateways are reused. No outbound payment
+    callbacks or production bank adapter are provided. Fees snapshot a merchant-specific bearer and total cap.
 servers:
   - url: /
 security:
@@ -16,7 +18,82 @@ tags:
   - { name: Payments, description: Payment creation and verification. }
   - { name: Settlements, description: Settlement quotes and requests. }
   - { name: Bank bridge, description: Signed bank event ingestion. }
+  - { name: Hosted checkout, description: Guest phone proof and payment methods on the MoboCom domain. }
 paths:
+  /api/pay/checkout/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{32}$' } }]
+    get:
+      operationId: getHostedPayCheckout
+      tags: [Hosted checkout]
+      security: []
+      description: Retrieve price and merchant summary; bank details and methods are withheld until the browser has its scoped OTP cookie.
+      responses:
+        '200': { description: Hosted checkout state, content: { application/json: { schema: { $ref: '#/components/schemas/CheckoutResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: reportHostedPayReference
+      tags: [Hosted checkout]
+      security: []
+      description: Report a reference hint after OTP proof. Requires the HttpOnly pay_payer_ID cookie. This never confirms a payment.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [transferReference], properties: { transferReference: { type: string, minLength: 6, maxLength: 64 } } } } } }
+      responses:
+        '200': { description: Updated checkout state, content: { application/json: { schema: { $ref: '#/components/schemas/CheckoutResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/pay/checkout/{id}/otp:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: requestHostedPayOtp
+      tags: [Hosted checkout]
+      security: []
+      description: Issue a canonical SMS challenge scoped to this payment and browser; sets an HttpOnly challenge cookie. Never returns a code or challenge secret in JSON.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [phone, humanToken], properties: { phone: { type: string }, humanToken: { type: string } } } } } }
+      responses:
+        '200': { description: Challenge delivery state and resend timing, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean }, data: { type: object, properties: { expiresIn: { type: integer }, resendIn: { type: integer }, notice: { type: string } } } } } } } }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      operationId: verifyHostedPayOtp
+      tags: [Hosted checkout]
+      security: []
+      description: Consume the payment-and-browser-bound code, clear its challenge cookie and set a scoped HttpOnly payer ticket. No global login or User is created.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [phone, code], properties: { phone: { type: string }, code: { type: string, pattern: '^\d{6}$' } } } } } }
+      responses:
+        '200': { description: Verified phone last four digits, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean }, data: { type: object, properties: { verified: { type: boolean }, phoneLast4: { type: string } } } } } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/pay/checkout/{id}/gateway:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: startHostedPayGateway
+      tags: [Hosted checkout]
+      security: []
+      description: Requires scoped payer cookie; claims one active canonical gateway and real collection invoice. Ambiguous attempts never blindly create again. External bot redirects are refused.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [gatewayRef], properties: { gatewayRef: { type: string } } } } } }
+      responses:
+        '200': { description: Gateway initiation state, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean }, data: { type: object, properties: { invoiceId: { type: integer }, gatewayRef: { type: string }, provider: { type: string }, manual: { type: boolean }, paymentUrl: { type: string }, status: { type: string, enum: [READY, STARTING, UNKNOWN, FAILED] } } } } } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/pay/checkout/{id}/receipt:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post:
+      operationId: uploadHostedPayReceipt
+      tags: [Hosted checkout]
+      security: []
+      description: Requires scoped payer cookie and a manual collection invoice. Image type is sniffed and bounded to 6MiB; a pending receipt never confirms payment.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image, payerName, trackingCode]
+              properties:
+                image: { type: string, format: binary }
+                payerName: { type: string }
+                payerBank: { type: string }
+                payerCard: { type: string, description: Source card last four digits only. }
+                trackingCode: { type: string, minLength: 6, maxLength: 64 }
+                method: { type: string, enum: [CARD, PAYA, SATNA, ACCOUNT] }
+      responses:
+        '201': { description: Receipt pending review or bank matching, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean }, data: { type: object, properties: { id: { type: integer }, status: { type: string } } } } } } } }
+        default: { $ref: '#/components/responses/Error' }
   /api/v1/pay/overview:
     get:
       operationId: payOverview
@@ -142,6 +219,25 @@ components:
       description: Invalid request, authentication or access denied, conflict, rate limit, or unavailable service (400, 401, 403, 404, 405, 409, 413, 422, 429, 503).
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
+    CheckoutResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok: { type: boolean, enum: [true] }
+        data:
+          type: object
+          required: [id, amountRial, totalRial, feeRial, feeBearer, status, verification, gateways, bank, receipt]
+          properties:
+            id: { type: string }
+            amountRial: { $ref: '#/components/schemas/Rial' }
+            totalRial: { $ref: '#/components/schemas/Rial' }
+            feeRial: { $ref: '#/components/schemas/Rial' }
+            feeBearer: { type: string, enum: [MERCHANT, CUSTOMER] }
+            status: { type: string, enum: [PENDING, PAID, EXPIRED] }
+            verification: { type: object, required: [verified, phoneLast4], properties: { verified: { type: boolean }, phoneLast4: { type: string } } }
+            gateways: { type: array, items: { type: object, properties: { ref: { type: string }, name: { type: string }, provider: { type: string }, manual: { type: boolean } } } }
+            bank: { type: object, nullable: true, description: Withheld before OTP proof or a card-transfer selection. }
+            receipt: { type: object, nullable: true }
     Error:
       type: object
       required: [ok, error]
@@ -165,13 +261,15 @@ components:
       properties: { terminalId: { type: string }, externalId: { type: string, maxLength: 100 }, amountRial: { $ref: '#/components/schemas/Rial' } }
     Payment:
       type: object
-      required: [id, externalId, terminalId, terminalName, amountRial, feeRial, netRial, status, transferReference, createdAt, paidAt, expiresAt, checkoutUrl]
+      required: [id, externalId, terminalId, terminalName, amountRial, feeRial, netRial, totalRial, feeBearer, status, transferReference, createdAt, paidAt, expiresAt, checkoutUrl]
       properties:
         id: { type: string }
         externalId: { type: string }
         terminalId: { type: string }
         terminalName: { type: string }
         amountRial: { $ref: '#/components/schemas/Rial' }
+        totalRial: { $ref: '#/components/schemas/Rial' }
+        feeBearer: { type: string, enum: [MERCHANT, CUSTOMER], description: MERCHANT deducts the capped fee from the base; CUSTOMER adds it to the customer total. }
         feeRial: { $ref: '#/components/schemas/Rial' }
         netRial: { $ref: '#/components/schemas/Rial' }
         status: { type: string, enum: [PENDING, PAID, EXPIRED] }

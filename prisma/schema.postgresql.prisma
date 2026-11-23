@@ -1288,6 +1288,7 @@ model Invoice {
 
   @@index([status, expiresAt])
   @@index([recurringId])
+  payCollection PayPayment?
 }
 
 /// An invoice staff issue to a customer again and again (weekly, monthly, every 3, 6 or 12 months).
@@ -2694,7 +2695,7 @@ model BankAccount {
 model PaymentReceipt {
   id            Int          @id @default(autoincrement())
   invoiceId     Int
-  userId        Int
+  userId        Int?
   bankAccountId Int?
   method        String       @default("CARD") // CARD | PAYA | SATNA | ACCOUNT
   amountMinor   BigInt       @default(0)
@@ -2713,7 +2714,7 @@ model PaymentReceipt {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @default(now()) @updatedAt
   invoice       Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
@@ -5895,6 +5896,10 @@ model PayMerchant {
   name      String
   website   String
   status    String   @default("PENDING")
+  feeBearer String @default("MERCHANT")
+  feeBps Int?
+  flatFeeMinor BigInt?
+  feeCapMinor BigInt?
   version   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -5921,10 +5926,23 @@ model PayPayment {
   id String @id
   merchantId String
   terminalId String
-  bankAccountId Int
+  bankAccountId Int?
   externalId String
   idempotencyKey String
   fingerprint String
+  totalMinor BigInt
+  feeBearer String @default("MERCHANT")
+  invoiceId Int? @unique
+  payerSessionHash String @default("")
+  payerPhoneCiphertext String @default("")
+  payerPhoneLast4 String @default("")
+  payerVerifiedAt DateTime?
+  payerSessionExpiresAt DateTime?
+  gatewayAttemptToken String @default("")
+  gatewayAttemptAt DateTime?
+  gatewayAttemptStatus String @default("")
+  gatewayAttemptRef String @default("")
+  gatewayAttemptProvider String @default("")
   amountMinor BigInt
   feeMinor BigInt
   netMinor BigInt
@@ -5934,9 +5952,10 @@ model PayPayment {
   createdAt DateTime @default(now())
   expiresAt DateTime
   paidAt DateTime?
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
-  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
   walletTx WalletTx? @relation(fields: [walletTxId], references: [id], onDelete: Restrict)
   bankEvent PayBankEvent? @relation("PayMatch")
   bankAttestations PayBankEvent[] @relation("PayAttestation")

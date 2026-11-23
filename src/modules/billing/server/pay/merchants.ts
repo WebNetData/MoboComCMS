@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { PayError } from '@/modules/billing/domain/pay'
-import { httpsUrl, text } from '@/modules/billing/domain/pay-policy'
+import { httpsUrl, text, rial, integer } from '@/modules/billing/domain/pay-policy'
 import { merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
 
 export async function enrollMerchant(actor: PayActor, input: Record<string, unknown>) {
@@ -46,6 +46,7 @@ export async function changeTerminal(actor: PayActor, input: Record<string, unkn
   })
 }
 export async function changeMerchant(actor: PayActor, input: Record<string, unknown>) {
+  if (input.action === 'terms') return changeMerchantTerms(actor, input)
   const id = text(input.id, 60),
     status = text(input.status, 20)
   if (!['ACTIVE', 'SUSPENDED'].includes(status)) throw new PayError('وضعیت پذیرنده معتبر نیست')
@@ -62,6 +63,21 @@ export async function changeMerchant(actor: PayActor, input: Record<string, unkn
     })
     if (claimed.count !== 1) throw new PayError('وضعیت تغییر کرده است', 409)
     await payAudit(tx, actor, 'merchant.status', id, { before: previous.status, status })
+    return tx.payMerchant.findUniqueOrThrow({ where: { id } })
+  })
+}
+async function changeMerchantTerms(actor: PayActor, input: Record<string, unknown>) {
+  const id = text(input.id, 60)
+  if (!['MERCHANT', 'CUSTOMER'].includes(String(input.feeBearer))) throw new PayError('پرداخت‌کنندهٔ کارمزد معتبر نیست')
+  const data = { feeBearer: String(input.feeBearer), feeBps: integer(input.feeBps, 0, 3000), flatFeeMinor: rial(input.flatFeeRial, true), feeCapMinor: rial(input.feeCapRial, true) }
+  return payTransaction(async tx => {
+    await payContext(actor, tx, 'mobocom-pay.manage')
+    const row = await tx.payMerchant.findUnique({ where: { id } })
+    if (!row) throw new PayError('پذیرنده پیدا نشد', 404)
+    if (row.userId === actor.id) throw new PayError('تغییر قرارداد کارمزد خودتان مجاز نیست', 403)
+    const claim = await tx.payMerchant.updateMany({ where: { id, version: row.version }, data: { ...data, version: { increment: 1 } } })
+    if (claim.count !== 1) throw new PayError('قرارداد هم‌زمان تغییر کرده است', 409)
+    await payAudit(tx, actor, 'merchant.terms', id, data)
     return tx.payMerchant.findUniqueOrThrow({ where: { id } })
   })
 }

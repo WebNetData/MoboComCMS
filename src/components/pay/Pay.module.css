@@ -252,6 +252,17 @@
   max-width: 620px;
   margin: auto;
 }
+.checkout > .card, .checkout > section { margin-top: 20px; }
+.priceSummary { display: grid; gap: 12px; margin: 20px 0; }
+.priceSummary > div, .bankDetails > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.priceSummary dd, .bankDetails dd { margin: 0; overflow-wrap: anywhere; }
+.priceTotal { padding-top: 16px; border-top: 1px solid var(--sds-color-border-default-default); font-weight: 600; }
+.bankDetails { display: grid; gap: 16px; padding: 16px; background: var(--sds-color-background-default-secondary); border-radius: 8px; }
+.instructions { white-space: pre-wrap; overflow-wrap: anywhere; }
+.receiptImage { display: block; max-width: 100%; max-height: 280px; object-fit: contain; border-radius: 8px; }
+.feeDetails { margin: 16px 0 24px; padding: 16px; border: 1px solid var(--sds-color-border-default-default); border-radius: 8px; }
+.feeDetails summary { cursor: pointer; min-height: 28px; }
+.feeDetails[open] summary { margin-bottom: 16px; }
 .page :focus-visible {
   outline: 3px solid var(--sds-color-background-brand-default);
   outline-offset: 3px;

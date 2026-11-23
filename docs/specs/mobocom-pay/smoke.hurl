@@ -43,3 +43,23 @@ jsonpath "$.data.id" == "{{payment_id}}"
 GET {{base_url}}/api/v1/pay/payments/{{payment_id}}
 Authorization: Bearer {{foreign_api_key}}
 HTTP 404
+
+# An opaque checkout URL alone never reveals receiving card details or starts a charge.
+GET {{base_url}}/api/pay/checkout/{{payment_id}}
+HTTP 200
+[Asserts]
+jsonpath "$.data.verification.verified" == false
+jsonpath "$.data.bank" == null
+jsonpath "$.data.gateways" count == 0
+
+POST {{base_url}}/api/pay/checkout/{{payment_id}}/gateway
+Origin: {{base_url}}
+Content-Type: application/json
+{"gatewayRef":"{{gateway_ref}}"}
+HTTP 401
+
+POST {{base_url}}/api/pay/checkout/{{payment_id}}
+Origin: {{base_url}}
+Content-Type: application/json
+{"transferReference":"UNVERIFIED123"}
+HTTP 401

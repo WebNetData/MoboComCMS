@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
-import { moveWallet } from '@/modules/wallet/server/wallet'
 import { legacyNumber } from '@/shared/money'
-import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { PayError } from '@/modules/billing/domain/pay'
 import { reference, rial, text } from '@/modules/billing/domain/pay-policy'
-import { payAudit, payTransaction } from './context'
+import { payTransaction } from './context'
+import { creditPayPayment } from './credit'
+import { markInvoicePaid } from '@/modules/billing/server/billing'
 import { paySettings, bankFeedReady } from './settings'
 
 export async function reconcileReference(
@@ -37,7 +37,7 @@ export async function reconcileReference(
       bankAccountId,
       transferReference,
       status: 'PENDING',
-      amountMinor: event.amountMinor,
+      totalMinor: event.amountMinor,
       createdAt: { lte: event.occurredAt },
       expiresAt: { gte: event.occurredAt },
     },
@@ -54,80 +54,23 @@ export async function reconcileReference(
     (await globalAuthenticationDenied(user.id, new Date(), tx))
   )
     return
-  const fenced = await tx.payMerchant.updateMany({
-    where: { id: row.merchantId, status: 'ACTIVE', version: row.merchant.version },
-    data: { version: { increment: 1 } },
-  })
-  if (fenced.count !== 1) throw new PayError('وضعیت پذیرنده تغییر کرده است', 409)
-  const claimed = await tx.payPayment.updateMany({
-    where: { id: row.id, status: 'PENDING', transferReference },
-    data: { status: 'PAID', paidAt: new Date() },
-  })
-  if (claimed.count !== 1) throw new PayError('پرداخت قبلاً پردازش شده است', 409)
-  const bound = await tx.payBankEvent.updateMany({
-    where: { id: event.id, status: 'UNMATCHED', paymentId: null },
-    data: { status: 'MATCHED', paymentId: row.id },
-  })
+  if (!row.payerVerifiedAt) return
+  const bound = await tx.payBankEvent.updateMany({ where: { id: event.id, status: 'UNMATCHED', paymentId: null }, data: { status: 'MATCHED', paymentId: row.id } })
   if (bound.count !== 1) throw new PayError('تراکنش بانکی قبلاً استفاده شده است', 409)
-  const credit = await moveWallet(
-    {
-      userId: user.id,
-      amount: row.netMinor.toString(),
-      currency: 'IRR',
-      type: 'PAY_CREDIT',
-      funds: 'WITHDRAWABLE',
-      idempotencyKey: 'pay-credit:' + row.id,
-      description: 'درآمد تأییدشدهٔ موبوکام‌پی',
-    },
-    tx,
-  )
-  if (!credit.ok || !credit.txId) throw new PayError('ثبت درآمد انجام نشد', 409)
-  const linked = await tx.payPayment.updateMany({
-    where: { id: row.id, status: 'PAID', walletTxId: null },
-    data: { walletTxId: credit.txId },
-  })
-  if (linked.count !== 1) throw new PayError('ثبت درآمد هم‌زمان تغییر کرده است', 409)
-  // Keep the canonical Billing payment journal connected, without treating a
-  // merchant collection as a Store sale or a recoverable wallet-topup invoice.
-  await tx.payment.create({
-    data: {
-      userId: user.id,
-      provider: 'MOBOCOM_PAY',
-      providerTxnId: event.externalId,
-      eventKey: 'mobocom-pay:collection:' + row.id,
-      currency: 'IRR',
-      amountMinor: row.amountMinor,
-      amount: legacyNumber(row.amountMinor, 'IRR'),
-      feeMinor: row.feeMinor,
-      fee: legacyNumber(row.feeMinor, 'IRR'),
-      status: 'CONFIRMED',
-      confirmedAt: new Date(),
-      raw: JSON.stringify({
-        event: 'merchant.payment.verified',
-        payPaymentId: row.id,
-        bankEventId: event.id,
-      }),
-    },
-  })
-  await payAudit(tx, { id: user.id, email: user.email }, 'payment.verified', row.id, {
-    bankEventId: event.id,
-    amountRial: row.amountMinor,
-    feeRial: row.feeMinor,
-    walletTxId: credit.txId,
-  })
-  await createInboxEvent(
-    {
-      userId: user.id,
-      kind: 'MOBOCOM_PAY',
-      dedupeKey: 'pay-paid:' + row.id,
-      titleFa: 'پرداخت مشتری تأیید شد',
-      titleEn: 'Payment verified',
-      bodyFa: 'درآمد خالص در کیف پول ثبت شد.',
-      href: '/dashboard/pay',
-      channels: [],
-    },
-    tx,
-  )
+  if (row.invoiceId) {
+    const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: row.invoiceId } })
+    if (invoice.gatewayId && (await tx.gateway.findUnique({ where: { id: invoice.gatewayId } }))?.provider !== 'CARD_TRANSFER') throw new PayError('روش پرداخت با رویداد بانکی مطابقت ندارد', 409)
+    const paid = await markInvoicePaid({ invoiceId: invoice.id, amount: row.totalMinor.toString(), provider: 'CARD_TRANSFER', providerTxnId: event.externalId, raw: { source: 'mobocom-pay-bank', bankEventId: event.id } }, tx)
+    if (!paid.ok) throw new PayError(paid.message || 'تطبیق انجام نشد', 409)
+    await tx.paymentReceipt.updateMany({ where: { invoiceId: invoice.id, status: 'PENDING' }, data: { status: 'APPROVED', reviewedAt: new Date(), adminNote: 'تطبیق خودکار با شاهد بانکی معتبر' } })
+  } else {
+    await creditPayPayment(tx, row, { bankEventId: event.id })
+    await tx.payment.create({ data: {
+      userId: user.id, provider: 'MOBOCOM_PAY', providerTxnId: event.externalId, eventKey: 'mobocom-pay:collection:' + row.id,
+      currency: 'IRR', amountMinor: row.totalMinor, amount: legacyNumber(row.totalMinor, 'IRR'), feeMinor: row.feeMinor, fee: legacyNumber(row.feeMinor, 'IRR'),
+      status: 'CONFIRMED', confirmedAt: new Date(), raw: JSON.stringify({ event: 'merchant.payment.verified', payPaymentId: row.id, bankEventId: event.id }),
+    } })
+  }
 }
 /** Called only after the HTTP adapter authenticates the bank bridge's exact body. */
 export async function acceptBankEvent(input: Record<string, unknown>, payloadHash: string) {

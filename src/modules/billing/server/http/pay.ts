@@ -10,6 +10,8 @@ import { auditAdminStrict } from '@/platform/audit/server'
 import { recordRevision } from '@/modules/content/server/revisions'
 import { normalizePaySettings, text } from '@/modules/billing/domain/pay-policy'
 import { PayError } from '@/modules/billing/domain/pay'
+import { listCheckoutGateways } from '@/modules/billing/server/gateways'
+import { requirePayPayer, payReceipts, reviewPayReceipt } from '@/modules/billing/server/pay'
 import {
   enrollMerchant,
   createTerminal,
@@ -33,9 +35,10 @@ import {
   payActor,
   payContext,
   bankFeedReady,
+  paySettings,
 } from '@/modules/billing/server/pay'
 
-function failure(error: unknown) {
+export function payHttpFailure(error: unknown) {
   if (error instanceof PayError || error instanceof JsonBodyError)
     return apiErr(error.message, error.status, error instanceof PayError ? error.code : 'INVALID_BODY')
   if ((error as { code?: string })?.code === 'P2002')
@@ -95,7 +98,7 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     const input = await readJsonObject(req, 12000)
     if (req.method === 'POST') {
       if (resource === 'merchant' && !machine)
-        return apiOk(merchantView(await enrollMerchant(actor, input)), 201)
+        return apiOk(merchantView(await enrollMerchant(actor, input), 0n, await paySettings.read()), 201)
       if (resource === 'terminals') return apiOk(terminalView(await createTerminal(actor, input)), 201)
       if (resource === 'payments')
         return apiOk(
@@ -113,18 +116,20 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       return apiOk(terminalView(await changeTerminal(actor, input)))
     return apiErr('عملیات پشتیبانی نمی‌شود', 405)
   } catch (error) {
-    return failure(error)
+    return payHttpFailure(error)
   }
 }
 export async function payCheckoutHttp(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
     await limited('pay-checkout:' + id, 60)
-    if (req.method === 'POST')
+    if (req.method === 'POST') {
+      await requirePayPayer(req, id)
       await reportPayReference(id, (await readJsonObject(req, 2000)).transferReference)
-    return apiOk(await checkoutView(id))
+    }
+    return apiOk(await checkoutView(id, req))
   } catch (error) {
-    return failure(error)
+    return payHttpFailure(error)
   }
 }
 export async function payAdminHttp(req: NextRequest, context: { params: Promise<{ resource: string }> }) {
@@ -133,11 +138,13 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       { resource } = await context.params
     await limited('pay-admin:' + actor.id)
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
+    if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
     const input = await readJsonObject(req, 16000)
     if (req.method === 'PATCH' && resource === 'merchants')
-      return apiOk(merchantView(await changeMerchant(actor, input)))
+      return apiOk(merchantView(await changeMerchant(actor, input), 0n, await paySettings.read()))
     if (req.method === 'PATCH' && resource === 'settlements')
       return apiOk(settlementView(await decidePaySettlement(actor, input)))
+    if (req.method === 'PATCH' && resource === 'receipts') return apiOk(await reviewPayReceipt(actor, input))
     if (req.method === 'PATCH' && resource === 'settings') {
       const expected = text(input.settingsRevision, 64)
       await updateJsonSetting('billing.mobocom-pay.v1', async (stored, tx) => {
@@ -146,16 +153,15 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
         if (sectionSettingsRevision(before) !== expected)
           throw new PayError('تنظیمات تغییر کرده؛ صفحه را تازه کنید', 409)
         const next = normalizePaySettings(input)
-        if (next.incomingEnabled && !bankFeedReady(next.providerId))
-          throw new PayError('ابتدا اتصال امن سرویس بانکی را روی سرور تنظیم کنید', 409)
+        const gateways = await listCheckoutGateways('IRR')
+        if (next.incomingEnabled && !gateways.length)
+          throw new PayError('ابتدا یک درگاه فعال سازگار با پرداخت ریالی تنظیم کنید', 409)
         if (
           next.bankAccountIds.length &&
           (await tx.bankAccount.count({ where: { id: { in: next.bankAccountIds }, active: true } })) !==
             next.bankAccountIds.length
         )
           throw new PayError('حساب بانکی فعال نیست', 409)
-        if (next.incomingEnabled && !next.bankAccountIds.length)
-          throw new PayError('حساب بانکی فعال لازم است')
         Object.assign(stored, next)
         await recordRevision({
           entityType: 'settings-mobocom-pay',
@@ -182,7 +188,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     }
     return apiErr('عملیات پشتیبانی نمی‌شود', 405)
   } catch (error) {
-    return failure(error)
+    return payHttpFailure(error)
   }
 }
 export async function payBankHttp(req: NextRequest) {
@@ -233,6 +239,6 @@ export async function payBankHttp(req: NextRequest) {
     )
     return apiOk({ id: result.id, status: result.status, paymentId: result.paymentId })
   } catch (error) {
-    return failure(error)
+    return payHttpFailure(error)
   }
 }

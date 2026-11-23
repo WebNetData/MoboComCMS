@@ -39,7 +39,7 @@ const bankHttp = load('src/modules/billing/server/http/card-transfer/admin.ts')
 const key = () => randomUUID()
 const actor = user => ({ id: user.id, email: user.email, req: new NextRequest('https://example.invalid/api/pay', { headers: { origin: 'https://example.invalid', 'x-fixture-user': String(user.id) } }) })
 const paySettingsAddress = 'billing.mobocom-pay.v1'
-let savedSetting, createdSetting = false, bank, users = [], merchants = []
+let savedSetting, createdSetting = false, bank, gateway, users = [], merchants = []
 async function main() {
   savedSetting = await db.setting.findUnique({ where: { key: paySettingsAddress } })
   assert.equal(savedSetting, null, 'disposable database must not have Pay settings')
@@ -48,6 +48,7 @@ async function main() {
   state.reviewer = admin.id
   const a = actor(owner), b = actor(other), r = actor(admin)
   bank = await db.bankAccount.create({ data: { bankName: seed, holderName: seed, accountNumber: '123456789' } })
+  gateway = await db.gateway.create({ data: { name: seed, provider: 'CARD_TRANSFER', active: true, fiat: 'IRR' } })
   const settings = policy.normalizePaySettings({ ...policy.defaults(), incomingEnabled: true, providerId: 'fixture', bankAccountIds: [bank.id], minPaymentRial: '1', minSettlementRial: '1' })
   await db.setting.create({ data: { key: paySettingsAddress, value: JSON.stringify(settings) } })
   createdSetting = true
@@ -55,7 +56,11 @@ async function main() {
   await assert.rejects(merchant.createTerminal(a, { name: seed, returnUrl: 'https://example.invalid/return' }))
   await merchant.changeMerchant(r, { id: m.id, status: 'ACTIVE' })
   const terminal = await merchant.createTerminal(a, { name: seed, returnUrl: 'https://example.invalid/return' })
-  const makePayment = (suffix, amount = '1000000') => payments.createPayPayment(a, { terminalId: terminal.id, externalId: `${seed}-${suffix}`, amountRial: amount }, key())
+  // Legacy bank/Wallet scenarios start after the new guest OTP boundary (covered by pay-shared-checkout).
+  const makePayment = async (suffix, amount = '1000000') => {
+    const row = await payments.createPayPayment(a, { terminalId: terminal.id, externalId: `${seed}-${suffix}`, amountRial: amount }, key())
+    return db.payPayment.update({ where: { id: row.id }, data: { payerVerifiedAt: new Date() } })
+  }
   const event = (p, ref, suffix, amount = p.amountMinor.toString()) => ({ providerId: 'fixture', externalId: `${seed}-${suffix}`, transferReference: ref, amountRial: amount, bankAccountId: bank.id, occurredAt: new Date().toISOString(), targetPaymentId: p.id })
   const p = await makePayment('one')
   assert.equal((await payments.createPayPayment(a, { terminalId: terminal.id, externalId: p.externalId, amountRial: p.amountMinor.toString() }, p.idempotencyKey)).id, p.id)
@@ -84,7 +89,10 @@ async function main() {
   const attacker = await merchant.enrollMerchant(b, { name: seed, website: 'https://example.invalid' }); merchants.push(attacker.id)
   await merchant.changeMerchant(r, { id: attacker.id, status: 'ACTIVE' })
   const attackerTerminal = await merchant.createTerminal(b, { name: seed, returnUrl: 'https://example.invalid/return' })
-  const attackerPayment = suffix => payments.createPayPayment(b, { terminalId: attackerTerminal.id, externalId: `${seed}-${suffix}`, amountRial: '1000000' }, key())
+  const attackerPayment = async suffix => {
+    const row = await payments.createPayPayment(b, { terminalId: attackerTerminal.id, externalId: `${seed}-${suffix}`, amountRial: '1000000' }, key())
+    return db.payPayment.update({ where: { id: row.id }, data: { payerVerifiedAt: new Date() } })
+  }
   const unboundVictim = await makePayment('unbound-victim'), unboundAttacker = await attackerPayment('unbound-attacker')
   const unbound = event(unboundVictim, 'REFUNBOUND', 'unbound'); delete unbound.targetPaymentId
   await reconcile.acceptBankEvent(unbound, 'hash-unbound')
@@ -200,6 +208,7 @@ main().catch(error => { console.error(error); process.exitCode = 1 }).finally(as
     await db.userNotification.deleteMany({ where: { userId: { in: users } } })
     await db.user.deleteMany({ where: { id: { in: users } } })
     if (bank) await db.bankAccount.delete({ where: { id: bank.id } })
+    if (gateway) await db.gateway.delete({ where: { id: gateway.id } })
     if (createdSetting) await db.setting.deleteMany({ where: { key: paySettingsAddress } })
   } catch (error) { console.error('Fixture cleanup failed:', error); process.exitCode = 1 }
   finally { await db.$disconnect() }

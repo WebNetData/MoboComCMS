@@ -1,6 +1,6 @@
 import type { Prisma, PayMerchant, PayPayment, PaySettlement, PayTerminal } from '@prisma/client'
 import { PayError, type PayPaymentView, type PaySettlementView } from '@/modules/billing/domain/pay'
-import { formatAtoms } from '@/modules/billing/domain/pay-policy'
+import { formatAtoms, merchantFeeTerms, defaults } from '@/modules/billing/domain/pay-policy'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { sectionSettingsRevision } from '@/modules/settings/server'
 import { payContext, payTransaction, type PayActor } from './context'
@@ -15,7 +15,8 @@ export const terminalView = (row: PayTerminal) => ({
   active: row.active,
   createdAt: row.createdAt.toISOString(),
 })
-export const merchantView = (row: PayMerchant, proceeds = 0n) => ({
+export const merchantView = (row: PayMerchant, proceeds = 0n, settings = defaults()) => ({
+  fees: merchantFeeTerms(settings, row),
   id: row.id,
   userId: row.userId,
   name: row.name,
@@ -32,6 +33,8 @@ export const paymentView = (row: PayPayment & { terminal?: { name: string } }): 
   amountRial: row.amountMinor.toString(),
   feeRial: row.feeMinor.toString(),
   netRial: row.netMinor.toString(),
+  totalRial: row.totalMinor.toString(),
+  feeBearer: row.feeBearer as PayPaymentView['feeBearer'],
   status:
     row.status === 'PENDING' && row.expiresAt < new Date()
       ? 'EXPIRED'
@@ -57,42 +60,7 @@ export const settlementView = (row: PaySettlement): PaySettlementView => ({
   updatedAt: row.updatedAt.toISOString(),
 })
 
-export async function checkoutView(id: string) {
-  return payTransaction(async (tx) => {
-    if (!(await isModuleEnabled('mobocom-pay', tx))) throw new PayError('درگاه غیرفعال است', 404)
-    const row = await publicPayment(tx, id)
-    const user = await tx.user.findUnique({ where: { id: row.merchant.userId } })
-    if (
-      row.status !== 'PAID' &&
-      (row.merchant.status !== 'ACTIVE' ||
-        !row.terminal.active ||
-        !row.bankAccount.active ||
-        user?.status !== 'ACTIVE' ||
-        (await globalAuthenticationDenied(row.merchant.userId, new Date(), tx)))
-    )
-      throw new PayError('دریافت این پایانه متوقف شده است', 409)
-    const settings = await paySettings.read(tx)
-    if (row.status !== 'PAID' && !settings.incomingEnabled) throw new PayError('دریافت موقتاً متوقف است', 503)
-    return {
-      id: row.id,
-      merchantName: row.merchant.name,
-      terminalName: row.terminal.name,
-      externalId: row.externalId,
-      amountRial: row.amountMinor.toString(),
-      status: paymentView(row).status,
-      expiresAt: row.expiresAt.toISOString(),
-      transferReference: row.transferReference,
-      returnUrl: row.status === 'PAID' ? row.terminal.returnUrl : '',
-      bank: {
-        title: row.bankAccount.bankName,
-        bankName: row.bankAccount.bankName,
-        holderName: row.bankAccount.holderName,
-        cardNumber: row.bankAccount.cardNumber,
-        iban: row.bankAccount.sheba,
-      },
-    }
-  })
-}
+export { checkoutView } from './checkout-view'
 async function merchantRead(actor: PayActor, tx: Prisma.TransactionClient) {
   await payContext(actor, tx)
   return tx.payMerchant.findUnique({ where: { userId: actor.id } })
@@ -116,7 +84,7 @@ export async function payOverview(actor: PayActor) {
       tx.paySettlement.findMany({ where, orderBy: { createdAt: 'desc' }, take: 10 }),
       tx.payPayment.aggregate({
         where: { ...where, status: 'PAID' },
-        _sum: { amountMinor: true, feeMinor: true, netMinor: true },
+        _sum: { totalMinor: true, feeMinor: true, netMinor: true },
         _count: true,
       }),
       tx.payPayment.count({ where: { ...where, status: 'PENDING', expiresAt: { gt: new Date() } } }),
@@ -133,18 +101,18 @@ export async function payOverview(actor: PayActor) {
         end = new Date(start.getTime() + 86400000)
       const day = await tx.payPayment.aggregate({
         where: { ...where, status: 'PAID', paidAt: { gte: start, lt: end } },
-        _sum: { amountMinor: true },
+        _sum: { totalMinor: true },
         _count: true,
       })
       trend.push({
         date: start.toISOString().slice(0, 10),
-        grossRial: (day._sum.amountMinor || 0n).toString(),
+        grossRial: (day._sum.totalMinor || 0n).toString(),
         count: day._count,
       })
     }
     const proceeds = wallet?.withdrawableMinor || 0n
     return {
-      merchant: merchant ? merchantView(merchant, proceeds) : null,
+      merchant: merchant ? merchantView(merchant, proceeds, settings) : null,
       terminals: terminals.map(terminalView),
       rails: settings.rails.map(({ id, asset, network, enabled }) => ({ id, asset, network, enabled })),
       payments: payments.map(paymentView),
@@ -154,7 +122,7 @@ export async function payOverview(actor: PayActor) {
         walletRial: (wallet?.balanceMinor || 0n).toString(),
         proceedsRial: proceeds.toString(),
         pendingSettlementRial: (reserved._sum.amountMinor || 0n).toString(),
-        grossRial: (totals._sum.amountMinor || 0n).toString(),
+        grossRial: (totals._sum.totalMinor || 0n).toString(),
         feeRial: (totals._sum.feeMinor || 0n).toString(),
         netRial: (totals._sum.netMinor || 0n).toString(),
         paidCount: totals._count,
@@ -260,7 +228,7 @@ export async function adminPayOverview(actor: PayActor) {
         settle: Boolean(await requirePerm(actor.req, 'mobocom-pay.settle', tx)),
       },
       merchants: merchants.map((row) =>
-        merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n),
+        merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n, settings),
       ),
       payments: payments.map(paymentView),
       settlements: settlements.map((row) => ({ ...settlementView(row), merchantName: row.merchant.name })),

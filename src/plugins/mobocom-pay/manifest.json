@@ -28,6 +28,7 @@
       { "href": "/admin/mobocom-pay/settlements", "label": "تسویه‌ها", "labelEn": "Settlements", "icon": "bank", "exact": true, "permissions": ["mobocom-pay.manage", "mobocom-pay.settle"] },
       { "href": "/admin/mobocom-pay/payments", "label": "پرداخت‌ها", "labelEn": "Payments", "icon": "receipt", "exact": true, "permissions": ["mobocom-pay.manage"] },
       { "href": "/admin/mobocom-pay/bank-events", "label": "رویدادهای بانک", "labelEn": "Bank events", "icon": "activity", "exact": true, "permissions": ["mobocom-pay.manage"] },
+      { "href": "/admin/mobocom-pay/receipts", "label": "رسیدهای مشتریان", "labelEn": "Customer receipts", "icon": "image", "exact": true, "permissions": ["mobocom-pay.manage"] },
       { "href": "/admin/mobocom-pay/settings", "label": "تنظیمات درگاه", "labelEn": "Gateway settings", "icon": "sliders", "exact": true, "permissions": ["mobocom-pay.manage"] }
     ]
   }

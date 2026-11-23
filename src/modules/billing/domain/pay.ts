@@ -3,6 +3,8 @@ export type PayMerchantStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED'
 export type PayPaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED'
 export type PaySettlementStatus = 'REQUESTED' | 'APPROVED' | 'PAID' | 'REJECTED'
 export type PayRailId = 'IRR_BANK' | 'TRX_TRON' | 'USDT_TRON'
+export type PayFeeBearer = 'MERCHANT' | 'CUSTOMER'
+export interface PayFeeTerms { feeBearer: PayFeeBearer; feeBps: number; flatFeeRial: string; feeCapRial: string; inherited?: boolean }
 export interface PayRail {
   id: PayRailId
   asset: string
@@ -18,6 +20,7 @@ export interface PaySettings {
   providerId: string
   feeBps: number
   flatFeeRial: string
+  feeCapRial: string
   minPaymentRial: string
   maxPaymentRial: string
   minSettlementRial: string
@@ -32,6 +35,7 @@ export interface PayMerchantView {
   status: PayMerchantStatus
   proceedsRial: string
   createdAt: string
+  fees: PayFeeTerms
 }
 export interface PayTerminalView {
   id: string
@@ -48,6 +52,8 @@ export interface PayPaymentView {
   amountRial: string
   feeRial: string
   netRial: string
+  totalRial: string
+  feeBearer: PayFeeBearer
   status: PayPaymentStatus
   transferReference: string
   createdAt: string
@@ -106,11 +112,22 @@ export interface PayCheckout {
   terminalName: string
   externalId: string
   amountRial: string
+  totalRial: string
+  feeRial: string
+  feeBearer: PayFeeBearer
+  verification: { verified: boolean; phoneLast4: string }
+  gateways: { ref: string; id: number | null; name: string; provider: string; manual: boolean; isDefault: boolean }[]
+  selectedGateway: { gatewayRef: string; provider: string; manual: boolean; paymentUrl: string; status: string; instructions: string } | null
+  receipt: { id: number; status: string; adminNote: string; createdAt: string } | null
   status: PayPaymentStatus
   expiresAt: string
   transferReference: string
   returnUrl: string
-  bank: { title: string; bankName: string; holderName: string; cardNumber: string; iban: string }
+  bank: { title: string; bankName: string; holderName: string; cardNumber: string; iban: string } | null
+}
+export interface PayReceiptView {
+  id: number; paymentId: string; merchantName: string; externalId: string; totalRial: string;
+  status: string; trackingCode: string; payerName: string; phoneLast4: string; adminNote: string; createdAt: string
 }
 export interface PayBankEventView {
   id: string

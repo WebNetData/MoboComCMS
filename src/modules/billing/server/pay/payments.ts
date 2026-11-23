@@ -1,15 +1,16 @@
 import { createHash, randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
-import { idempotencyKey, paymentAmounts, reference, text, rial } from '@/modules/billing/domain/pay-policy'
+import { idempotencyKey, paymentAmounts, reference, text, rial, merchantFeeTerms } from '@/modules/billing/domain/pay-policy'
 import { merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
-import { bankFeedReady } from './settings'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { reconcileReference } from './reconcile'
+import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 
 export const fingerprint = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function createPayPayment(actor: PayActor, input: Record<string, unknown>, key: string) {
+  const gateways = await listCheckoutGateways('IRR')
   const terminalId = text(input.terminalId, 60),
     externalId = text(input.externalId, 100),
     idem = idempotencyKey(key)
@@ -26,8 +27,8 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
         throw new PayError('کلید تکرار با درخواست دیگری استفاده شده است', 409, 'IDEMPOTENCY_CONFLICT')
       return previous
     }
-    const amounts = paymentAmounts(input.amountRial, settings)
-    if (!settings.incomingEnabled || !bankFeedReady(settings.providerId))
+    const amounts = paymentAmounts(input.amountRial, settings, merchantFeeTerms(settings, merchant))
+    if (!settings.incomingEnabled || !gateways.length)
       throw new PayError('دریافت وجه هنوز آماده نیست', 503, 'PAY_NOT_READY')
     const terminal = await tx.payTerminal.findFirst({
       where: { id: terminalId, merchantId: merchant.id, active: true },
@@ -36,17 +37,17 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
     if (await tx.payPayment.count({ where: { terminalId, externalId } }))
       throw new PayError('شناسهٔ سفارش قبلاً استفاده شده است', 409)
     const bank = await tx.bankAccount.findFirst({
-      where: { id: { in: settings.bankAccountIds }, active: true },
+      where: { ...(settings.bankAccountIds.length ? { id: { in: settings.bankAccountIds } } : {}), active: true },
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     })
-    if (!bank) throw new PayError('حساب دریافت فعال نیست', 503)
+    if (!bank && !gateways.some(g => g.provider !== 'CARD_TRANSFER')) throw new PayError('حساب دریافت فعال نیست', 503)
     const now = new Date()
     const row = await tx.payPayment.create({
       data: {
         id: randomBytes(24).toString('base64url'),
         merchantId: merchant.id,
         terminalId,
-        bankAccountId: bank.id,
+        bankAccountId: bank?.id ?? null,
         externalId,
         idempotencyKey: idem,
         fingerprint: hash,
@@ -63,7 +64,7 @@ export async function publicPayment(tx: Prisma.TransactionClient, id: string) {
   if (!/^[A-Za-z0-9_-]{32}$/.test(id)) throw new PayError('پرداخت پیدا نشد', 404)
   const row = await tx.payPayment.findUnique({
     where: { id },
-    include: { merchant: true, terminal: true, bankAccount: true },
+    include: { merchant: true, terminal: true, bankAccount: true, invoice: { include: { gateway: true } } },
   })
   if (!row) throw new PayError('پرداخت پیدا نشد', 404)
   return row
@@ -86,7 +87,8 @@ export async function reportPayReference(id: string, value: unknown) {
       data: { transferReference },
     })
     if (changed.count !== 1) throw new PayError('پرداخت هم‌زمان تغییر کرده است', 409)
-    await reconcileReference(tx, row.bankAccountId, transferReference)
+    if (!row.payerVerifiedAt) throw new PayError('ابتدا شمارهٔ موبایل را تأیید کنید', 401)
+    if (row.bankAccountId) await reconcileReference(tx, row.bankAccountId, transferReference)
     return tx.payPayment.findUniqueOrThrow({ where: { id } })
   })
 }

@@ -16,6 +16,7 @@ const admin = [
   ["settlements", "تسویه‌ها", "bank"],
   ["payments", "پرداخت‌ها", "receipt"],
   ["bank-events", "رویدادهای بانک", "activity"],
+  ["receipts", "رسیدهای مشتریان", "image"],
   ["settings", "تنظیمات", "sliders"],
 ];
 

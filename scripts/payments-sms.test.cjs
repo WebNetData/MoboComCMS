@@ -323,7 +323,11 @@ test('MoboComPay exact IRR fees, settlement rounding and opt-in settings reject 
   assert.equal(settings.incomingEnabled, false)
   assert.equal(settings.rails.find(r => r.asset === 'USDT').enabled, false)
   const configured = p.normalizePaySettings({ ...settings, feeBps: 125, flatFeeRial: '3', minPaymentRial: '1', maxPaymentRial: '9223372036854775807' })
-  assert.deepEqual(p.paymentAmounts('10001', configured), { amountMinor: 10001n, feeMinor: 129n, netMinor: 9872n })
+  assert.deepEqual(p.paymentAmounts('10001', configured), { amountMinor: 10001n, feeMinor: 129n, netMinor: 9872n, totalMinor: 10001n, feeBearer: 'MERCHANT' })
+  const terms = { feeBearer: 'CUSTOMER', feeBps: 125, flatFeeRial: '300', feeCapRial: '100' }
+  assert.deepEqual(p.paymentAmounts('10001', configured, terms), { amountMinor: 10001n, feeMinor: 100n, netMinor: 10001n, totalMinor: 10101n, feeBearer: 'CUSTOMER' })
+  assert.equal(p.paymentAmounts('1', configured, { ...terms, flatFeeRial: '0', feeCapRial: '0' }).feeMinor, 1n)
+  assert.throws(() => p.paymentAmounts('9223372036854775807', configured, { ...terms, feeCapRial: '0' }))
   assert.equal(p.rial('۹۰۰۷۱۹۹۲۵۴۷۴۰۹۹۳'), 9007199254740993n)
   assert.throws(() => p.rial(10000)); assert.throws(() => p.rial('0.5')); assert.throws(() => p.rial('9223372036854775808'))
   assert.throws(() => p.normalizePaySettings({ ...settings, feeBps: 3001 }))

@@ -62,7 +62,7 @@ export interface CreateInvoiceForOrderInput {
   notes?: string
   status?: InvoiceStatus
   createdBy?: number | null
-  kind?: 'BILLING' | 'WALLET_TOPUP'
+  kind?: 'BILLING' | 'WALLET_TOPUP' | 'PAY_COLLECTION'
   walletApplied?: number | string
   idempotencyKey?: string | null
   dueDays?: number
@@ -86,7 +86,9 @@ export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput, c
   const taxMinor = toMinor(input.tax || 0, currency)
   const totalMinor = invoiceTotalMinor(subtotalMinor, discountMinor, taxMinor)
   const walletAppliedMinor = toMinor(input.walletApplied || 0, currency)
-  if (input.userId === null && (input.saleSource !== 'COUNTER' || !input.orderId || walletAppliedMinor !== 0n)) throw new Error('counter invoice requires an order and no wallet credit')
+  const collection = input.kind === 'PAY_COLLECTION'
+  if (collection && (input.userId !== null || input.orderId || input.planId || input.productId || walletAppliedMinor !== 0n || currency !== 'IRR' || input.saleSource === 'COUNTER')) throw new Error('invalid merchant collection invoice')
+  if (!collection && input.userId === null && (input.saleSource !== 'COUNTER' || !input.orderId || walletAppliedMinor !== 0n)) throw new Error('counter invoice requires an order and no wallet credit')
   if (walletAppliedMinor < 0n || walletAppliedMinor > totalMinor) throw new Error('invalid wallet credit on invoice')
   const dueDays = Math.max(0, Math.min(365, Number(input.dueDays ?? 1) || 0))
 
@@ -160,6 +162,7 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
     const totalPaidMinor = creditMinor + amountMinor
     const totalMinor = invoice.totalMinor || toMinor(invoice.total, currency)
     if (totalPaidMinor < totalMinor) return { ok: false as const, message: 'invoice is not fully paid' }
+    if (invoice.kind === 'PAY_COLLECTION' && (amountMinor !== totalMinor || creditMinor !== 0n)) return { ok: false as const, message: 'merchant payment requires the exact total' }
     const feeBps = Number.isInteger(input.feeBps) ? Number(input.feeBps) : Math.round((Number(input.feePercent) || 0) * 100)
     const feeMinor = bpsAmount(amountMinor, feeBps)
     const now = new Date()
@@ -249,6 +252,7 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
       await tx.promotionRedemption.updateMany({ where: { orderId: invoice.orderId, status: 'RESERVED' }, data: { status: 'USED' } })
     }
 
+    if (invoice.kind === 'PAY_COLLECTION') await (await import('@/modules/billing/server/pay')).creditPayInvoice(tx, invoice.id)
     const settled = await tx.invoice.findUnique({ where: { id: invoice.id } })
     return { ok: true as const, alreadyPaid: false, invoice: settled || invoice }
   }

@@ -1,5 +1,5 @@
 import { latinDigits } from '@/shared/text/digits'
-import { PayError, type PayRail, type PaySettings } from '@/modules/billing/domain/pay'
+import { PayError, type PayFeeTerms, type PayRail, type PaySettings } from '@/modules/billing/domain/pay'
 
 const MAX = 9_223_372_036_854_775_807n
 export function text(value: unknown, max = 160): string {
@@ -65,6 +65,7 @@ export function defaults(): PaySettings {
     providerId: '',
     feeBps: 0,
     flatFeeRial: '0',
+    feeCapRial: '0',
     minPaymentRial: '10000',
     maxPaymentRial: '1000000000',
     minSettlementRial: '100000',
@@ -120,6 +121,7 @@ export function normalizePaySettings(input: unknown): PaySettings {
     providerId: provider,
     feeBps: integer(raw.feeBps, 0, 3000),
     flatFeeRial: rial(raw.flatFeeRial, true).toString(),
+    feeCapRial: rial(raw.feeCapRial, true).toString(),
     minPaymentRial: min.toString(),
     maxPaymentRial: max.toString(),
     minSettlementRial: rial(raw.minSettlementRial).toString(),
@@ -127,13 +129,23 @@ export function normalizePaySettings(input: unknown): PaySettings {
     rails,
   }
 }
-export function paymentAmounts(amount: unknown, settings: PaySettings) {
+export function paymentAmounts(amount: unknown, settings: PaySettings, terms?: PayFeeTerms) {
   const gross = rial(amount)
   if (gross < BigInt(settings.minPaymentRial) || gross > BigInt(settings.maxPaymentRial))
     throw new PayError('مبلغ با حدود مجاز درگاه مطابقت ندارد')
-  const fee = (gross * BigInt(settings.feeBps) + 9999n) / 10000n + BigInt(settings.flatFeeRial)
-  if (fee >= gross) throw new PayError('کارمزد از مبلغ پرداخت بیشتر است')
-  return { amountMinor: gross, feeMinor: fee, netMinor: gross - fee }
+  const policy = terms || { ...settings, feeBearer: 'MERCHANT' }
+  const calculated = (gross * BigInt(policy.feeBps) + 9999n) / 10000n + BigInt(policy.flatFeeRial)
+  const cap = BigInt(policy.feeCapRial || '0'), fee = cap > 0n && calculated > cap ? cap : calculated
+  const customer = policy.feeBearer === 'CUSTOMER'
+  if (!customer && fee >= gross) throw new PayError('کارمزد از مبلغ پرداخت بیشتر است')
+  const total = gross + (customer ? fee : 0n)
+  if (total > MAX) throw new PayError('مبلغ نهایی خارج از محدوده است')
+  return { amountMinor: gross, feeMinor: fee, netMinor: customer ? gross : gross - fee, totalMinor: total, feeBearer: customer ? 'CUSTOMER' : 'MERCHANT' }
+}
+export function merchantFeeTerms(settings: PaySettings, row?: { feeBearer?: string; feeBps?: number | null; flatFeeMinor?: bigint | null; feeCapMinor?: bigint | null }): PayFeeTerms {
+  return { feeBearer: row?.feeBearer === 'CUSTOMER' ? 'CUSTOMER' : 'MERCHANT', feeBps: row?.feeBps ?? settings.feeBps,
+    flatFeeRial: row?.flatFeeMinor?.toString() ?? settings.flatFeeRial, feeCapRial: row?.feeCapMinor?.toString() ?? settings.feeCapRial,
+    inherited: row?.feeBps == null }
 }
 export function quoteAmounts(amount: unknown, rail: PayRail) {
   const gross = rial(amount),

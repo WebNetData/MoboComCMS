@@ -62,6 +62,7 @@ export default function Settings({
           [
             ["feeBps", "کارمزد (نقطه پایه)"],
             ["flatFeeRial", "کارمزد ثابت ریال"],
+            ["feeCapRial", "سقف مجموع کارمزد ریال؛ صفر بدون سقف"],
             ["minPaymentRial", "حداقل پرداخت ریال"],
             ["maxPaymentRial", "حداکثر پرداخت ریال"],
             ["minSettlementRial", "حداقل تسویه ریال"],

@@ -122,7 +122,8 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
           <tr>
             <th>سفارش</th>
             <th>پایانه</th>
-            <th>مبلغ</th>
+            <th>مبلغ سفارش</th>
+            <th>پرداخت مشتری</th>
             <th>کارمزد</th>
             <th>خالص</th>
             <th>وضعیت</th>
@@ -136,6 +137,7 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
               <td>{x.externalId}</td>
               <td>{x.terminalName}</td>
               <td>{money(x.amountRial)}</td>
+              <td>{money(x.totalRial)}</td>
               <td>{money(x.feeRial)}</td>
               <td>{money(x.netRial)}</td>
               <td>
@@ -148,6 +150,8 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
                   <dl>
                     <dt>شناسه پرداخت</dt>
                     <dd className={s.ltr}>{x.id}</dd>
+                    <dt>کارمزد بر عهده</dt>
+                    <dd>{x.feeBearer === 'CUSTOMER' ? 'مشتری' : 'پذیرنده'}</dd>
                     <dt>شناسه پیگیری انتقال</dt>
                     <dd className={s.ltr}>{x.transferReference || "—"}</dd>
                     <dt>زمان ثبت</dt>
