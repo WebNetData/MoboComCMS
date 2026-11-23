@@ -16,6 +16,8 @@ import Payments from "./payments";
 import Settlements from "./settlements";
 import Terminals from "./terminals";
 import ApiGuide from "./api-guide";
+import PayNavigation from "../navigation";
+import WorkspaceHeader from "../workspace-header";
 import {
   SettlementSteps,
   ListControls,
@@ -25,10 +27,10 @@ import {
 } from "./tables";
 
 type Page<T> = { items: T[]; page: number; pages: number; total: number };
-const tabs = ["نمای کلی", "پرداخت‌ها", "تسویه‌ها", "پایانه‌ها", "راهنمای API"];
-export default function Dashboard() {
+const views = ["overview", "payments", "settlements", "terminals", "api", "reports"];
+export default function Dashboard({ initialView = "overview" }: { initialView?: string }) {
+  const tab = Math.max(0, views.indexOf(initialView));
   const [data, setData] = useState<PayOverview | null>(null),
-    [tab, setTab] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const [name, setName] = useState(""),
@@ -96,19 +98,10 @@ export default function Dashboard() {
       setBusy(false);
     }
   }
-  const changeTab = (n: number) => {
-    setTab(n);
-    setPage(1);
-    setStatus("");
-    setQuery("");
-    setPayments(null);
-    setSettlements(null);
-    setError("");
-  };
   if (!data)
     return (
-      <main className={s.page} dir="rtl">
-        <h1>موبوکام پی</h1>
+      <section className={s.page} dir="rtl">
+        <h1>درگاه پرداخت</h1>
         {error ? (
           <>
             <ErrorNotice error={error} />
@@ -123,20 +116,12 @@ export default function Dashboard() {
         ) : (
           <p role="status">در حال دریافت اطلاعات…</p>
         )}
-      </main>
+      </section>
     );
   const active = data.merchant?.status === "ACTIVE";
   return (
-    <main className={s.page}>
-      <header className={s.head}>
-        <div>
-          <span className={s.eyebrow}>MoboCom Pay</span>
-          <h1>مرکز پرداخت</h1>
-          <p className={s.muted}>
-            دریافت ریالی، پیگیری پرداخت‌ها و مدیریت تسویه در یک جا
-          </p>
-        </div>
-        <div className={s.actions}>
+    <section className={s.page}>
+      <WorkspaceHeader area="merchant" view={views[tab]}>
           {data.merchant && <Badge value={data.merchant.status} />}
           <button
             type="button"
@@ -148,8 +133,7 @@ export default function Dashboard() {
           >
             به‌روزرسانی
           </button>
-        </div>
-      </header>
+      </WorkspaceHeader>
       <ErrorNotice error={error} />
       {!data.merchant ? (
         <form
@@ -193,19 +177,8 @@ export default function Dashboard() {
                 : "حساب پذیرنده تعلیق شده است. برای پیگیری با پشتیبانی تماس بگیرید."}
             </p>
           )}
-          <nav className={s.tabs} aria-label="بخش‌های موبوکام پی">
-            {tabs.map((t, i) => (
-              <button
-                type="button"
-                key={t}
-                aria-current={tab === i ? "true" : undefined}
-                onClick={() => changeTab(i)}
-              >
-                {t}
-              </button>
-            ))}
-          </nav>
-          {tab === 0 && <Overview {...{ data, changeTab }} />}
+          <PayNavigation area="merchant" current={views[tab]} />
+          {tab === 0 && <Overview data={data} />}
           {tab === 1 && (
             <Payments
               {...{
@@ -276,8 +249,9 @@ export default function Dashboard() {
             />
           )}
           {tab === 4 && <ApiGuide />}
+          {tab === 5 && <Overview data={data} reports />}
         </>
       )}
-    </main>
+    </section>
   );
 }

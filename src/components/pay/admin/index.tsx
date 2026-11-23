@@ -9,12 +9,15 @@ import { Field, Badge, ErrorNotice } from "../shared";
 import { PaymentTable, SettlementTable } from "../dashboard/tables";
 import s from "../Pay.module.css";
 import Settings from "./settings";
-export default function Admin() {
+import PayNavigation from "../navigation";
+import AdminOverview from "./overview";
+import WorkspaceHeader from "../workspace-header";
+const views = ["merchants", "settlements", "payments", "bank-events", "settings"];
+export default function Admin({ initialView = "overview" }: { initialView?: string }) {
   const [data, setData] = useState<PayAdminOverview | null>(null),
     [settings, setSettings] = useState<PaySettings | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [tab, setTab] = useState(1),
     [reason, setReason] = useState<Record<string, string>>({}),
     [reference, setReference] = useState<Record<string, string>>({});
   const load = useCallback(async () => {
@@ -44,8 +47,8 @@ export default function Admin() {
   }
   if (!data || !settings)
     return (
-      <main className={s.page}>
-        <h1>مدیریت موبوکام پی</h1>
+      <section className={s.page}>
+        <h1>مدیریت درگاه پرداخت</h1>
         {error ? (
           <>
             <ErrorNotice error={error} />
@@ -60,48 +63,27 @@ export default function Admin() {
         ) : (
           <p role="status">در حال دریافت اطلاعات…</p>
         )}
-      </main>
+      </section>
     );
+  const tab = views.indexOf(initialView);
+  const forbidden = tab >= 0 && tab !== 1 && !data.permissions.manage;
   const update = (patch: Partial<PaySettings>) =>
     setSettings({ ...settings, ...patch });
   return (
-    <main className={s.page}>
-      <header className={s.head}>
-        <div>
-          <span className={s.eyebrow}>MoboCom Pay</span>
-          <h1>مدیریت پرداخت</h1>
-          <p className={s.muted}>بررسی پذیرندگان، تطبیق بانکی و تسویه‌ها</p>
-        </div>
+    <section className={s.page}>
+      <WorkspaceHeader area="admin" view={initialView}>
         {data.permissions.manage && (
           <span className={s.badge}>
             صورت‌حساب بانکی:{" "}
             {data.readiness.bankFeedReady ? "پیکربندی شده" : "پیکربندی نشده"}
           </span>
         )}
-      </header>
+      </WorkspaceHeader>
       <ErrorNotice error={error} />
-      <nav className={s.tabs} aria-label="مدیریت موبوکام پی">
-        {[
-          "پذیرندگان",
-          "تسویه‌ها",
-          "پرداخت‌ها",
-          "رویدادهای بانک",
-          "تنظیمات",
-        ].map(
-          (x, i) =>
-            (i === 1 || data.permissions.manage) && (
-              <button
-                type="button"
-                key={x}
-                aria-current={tab === i ? "true" : undefined}
-                onClick={() => setTab(i)}
-              >
-                {x}
-              </button>
-            ),
-        )}
-      </nav>
-      {tab === 0 && (
+      <PayNavigation area="admin" current={initialView} canManage={data.permissions.manage} />
+      {forbidden && <p className={s.notice}>دسترسی به این بخش برای شما فعال نیست.</p>}
+      {initialView === "overview" && <AdminOverview data={data} />}
+      {!forbidden && tab === 0 && (
         <section className={s.card}>
           <h2>پذیرندگان</h2>
           {data.merchants.map((m) => (
@@ -150,7 +132,7 @@ export default function Admin() {
           {!data.merchants.length && <p>پذیرنده‌ای ثبت نشده است.</p>}
         </section>
       )}
-      {tab === 1 && (
+      {!forbidden && tab === 1 && (
         <>
           <p className={s.notice}>
             تأیید درخواست و ثبت پرداخت دو مرحله جدا هستند. این بخش انتقال بانکی
@@ -248,9 +230,9 @@ export default function Admin() {
               ))}
         </>
       )}
-      {tab === 2 && <PaymentTable items={data.payments} />}
-      {tab === 3 && (
-        <section className={`${s.card} ${s.tableWrap}`}>
+      {!forbidden && tab === 2 && <PaymentTable items={data.payments} />}
+      {!forbidden && tab === 3 && (
+        <section className={`${s.card} ${s.tableWrap}`} tabIndex={0} aria-label="فهرست رویدادهای بانکی">
           <h2>رویدادهای بانکی</h2>
           <table className={s.table}>
             <thead>
@@ -281,7 +263,7 @@ export default function Admin() {
           {!data.bankEvents.length && <p>رویدادی ثبت نشده است.</p>}
         </section>
       )}
-      {tab === 4 && <Settings {...{ data, settings, update, action, busy }} />}
-    </main>
+      {!forbidden && tab === 4 && <Settings {...{ data, settings, update, action, busy }} />}
+    </section>
   );
 }

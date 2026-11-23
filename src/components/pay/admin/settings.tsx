@@ -21,7 +21,7 @@ export default function Settings({
   return (
     <section className={`${s.card} ${s.stack}`}>
       <h2>تنظیمات دریافت و تسویه</h2>
-      <label>
+      <label className={s.check}>
         <input
           type="checkbox"
           checked={settings.incomingEnabled}
@@ -90,7 +90,7 @@ export default function Settings({
           <legend>
             {r.asset} · {r.network}
           </legend>
-          <label>
+          <label className={s.check}>
             <input
               type="checkbox"
               checked={r.enabled}
@@ -104,7 +104,7 @@ export default function Settings({
             />{" "}
             فعال
           </label>
-          <div className={s.grid}>
+          <div className={s.railFields}>
             {(["rialPerUnit", "feeRial"] as const).map((key) => (
               <Field
                 key={key}

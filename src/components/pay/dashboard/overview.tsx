@@ -3,6 +3,7 @@ import type { PayOverview } from "@/modules/billing/domain/pay";
 import { money } from "../client";
 import { Badge } from "../shared";
 import { SettlementSteps } from "./tables";
+import Link from "@/components/AppLink";
 import s from "../Pay.module.css";
 const day = (value: string) =>
   new Date(value + "T12:00:00").toLocaleDateString("fa-IR", {
@@ -11,10 +12,10 @@ const day = (value: string) =>
   });
 export default function Overview({
   data,
-  changeTab,
+  reports = false,
 }: {
   data: PayOverview;
-  changeTab: (n: number) => void;
+  reports?: boolean;
 }) {
   const trend = data.stats.trend;
   const max = trend.reduce((m, x) => {
@@ -42,6 +43,8 @@ export default function Overview({
           </div>
         ))}
       </section>
+      <p className={s.walletNote}>دریافت‌های تأییدشده به کیف پول موبوکام افزوده می‌شوند. موجودی قابل تسویه بخشی از همان کیف پول است؛ مبلغ درخواست‌شده تا تعیین تکلیف تسویه قابل خرج کردن نیست. <Link href="/dashboard/wallet">مشاهده کیف پول</Link></p>
+      {reports && <section className={`${s.card} ${s.reportExports}`}><div><h2>دریافت گزارش</h2><p className={s.muted}>خروجی هر صفحه تا ۱۰۰۰ ردیف دارد. برای فیلتر و صفحات دیگر به فهرست مربوط بروید.</p></div><div className={s.actions}><a className={s.secondary} href="/api/pay/payments?format=csv">گزارش پرداخت‌ها CSV</a><a className={s.secondary} href="/api/pay/settlements?format=csv">گزارش تسویه‌ها CSV</a></div></section>}
       <div className={s.split}>
         <section className={s.card}>
           <div className={s.sectionHead}>
@@ -120,13 +123,7 @@ export default function Overview({
           ) : (
             <p>هنوز درخواست تسویه‌ای ثبت نشده است.</p>
           )}
-          <button
-            type="button"
-            className={s.secondary}
-            onClick={() => changeTab(2)}
-          >
-            مدیریت تسویه‌ها
-          </button>
+          <Link className={s.secondary} href="/dashboard/pay/settlements">مدیریت تسویه‌ها</Link>
         </section>
       </div>
       <p className={s.notice}>

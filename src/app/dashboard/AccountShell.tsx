@@ -111,7 +111,6 @@ export default function AccountShell({ children }: { children: React.ReactNode }
       { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },
       { href: '/dashboard/invoices', label: t.myInvoices, icon: 'receipt' },
       { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
-      ...(mobocomPayOn ? [{ href: '/dashboard/pay', label: L('موبوکام‌پی', 'MoboComPay'), icon: 'wallet' }] : []),
       { href: '/dashboard/content-requests', label: L('درخواست کالا و محتوا', 'Product & content requests'), icon: 'search' },
       ...(formsOn ? [{ href: '/dashboard/requests', label: L('درخواست‌های من', 'My requests'), icon: 'receipt' }] : []),
       ...(paywallOn ? [{ href: '/dashboard/purchases', label: L('فایل‌ها و مقاله‌های خریده', 'Bought files & articles'), icon: 'lock' }] : []),
@@ -119,6 +118,14 @@ export default function AccountShell({ children }: { children: React.ReactNode }
       ...(storeOn && clubOn ? [{ href: '/dashboard/club', label: L('باشگاه مشتریان', 'Customer club'), icon: 'crown' }] : []),
       ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: L('لایسنس‌های من', 'My licenses'), icon: 'key' }] : []),
     ] },
+    { id: 'payment-gateway', title: L('درگاه پرداخت', 'Payment gateway'), icon: 'card', items: mobocomPayOn ? [
+      { href: '/dashboard/pay', label: L('نمای کلی', 'Overview'), icon: 'layout', exact: true },
+      { href: '/dashboard/pay/payments', label: L('پرداخت‌ها', 'Payments'), icon: 'receipt', exact: true },
+      { href: '/dashboard/pay/settlements', label: L('تسویه‌ها', 'Settlements'), icon: 'bank', exact: true },
+      { href: '/dashboard/pay/terminals', label: L('پایانه‌ها', 'Terminals'), icon: 'terminal', exact: true },
+      { href: '/dashboard/pay/reports', label: L('گزارش‌های مالی', 'Financial reports'), icon: 'chart', exact: true },
+      { href: '/dashboard/pay/api', label: L('اتصال و راهنمای API', 'Integration & API'), icon: 'code', exact: true },
+    ] : [] },
     { id: 'mine', title: L('محتوای من', 'My things'), icon: 'bookmark', items: [
       ...(gamesOn || musicOn || reviewsOn || promptsOn ? [{ href: '/dashboard/library', label: L('کتابخانهٔ من', 'My library'), icon: 'book' }] : []),
       ...(promptsOn ? [{ href: '/dashboard/prompts', label: L(`${promptsName} من`, `My ${promptsName}`), icon: 'sparkles' }] : []),
