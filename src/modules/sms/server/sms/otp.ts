@@ -16,7 +16,7 @@ import { SmsError } from './error'
 const hashCode = (phone: string, code: string) => createHmac('sha256', authSecret()).update(`otp:${phone}:${code}`).digest('hex')
 
 /** Sends a login or verification code. Throws SmsError with a user-facing message. */
-export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET' | `COUNTER:${number}:${number}` | `REPAIR:${number}` | `REPAIR_DECISION:${number}:${number}:APPROVED` | `REPAIR_DECISION:${number}:${number}:REJECTED`
+export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET' | `COUNTER:${number}:${number}` | `REPAIR:${number}` | `REPAIR_DECISION:${number}:${number}:APPROVED` | `REPAIR_DECISION:${number}:${number}:REJECTED` | `PAY_CHECKOUT:${string}:${string}`
 
 export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; ip: string; userId?: number; context?: { service?: string }; beforeIssue?: (client: Prisma.TransactionClient) => Promise<void> }) {
   const phone = normalizeMobile(input.phone)

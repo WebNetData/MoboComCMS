@@ -40,7 +40,9 @@ export async function DELETE_account(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get('id'))
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid id')
   // Accounts with receipts are kept for the accounting trail and only deactivated.
-  const used = await db.paymentReceipt.count({ where: { bankAccountId: id } })
+  const used = (await db.paymentReceipt.count({ where: { bankAccountId: id } })) +
+    (await db.payPayment.count({ where: { bankAccountId: id } })) +
+    (await db.payBankEvent.count({ where: { bankAccountId: id } }))
   if (used) await db.bankAccount.update({ where: { id }, data: { active: false } })
   else await db.bankAccount.delete({ where: { id } }).catch(() => null)
   await auditAdmin({ req, actor: admin, action: used ? 'bank_account.deactivate' : 'bank_account.delete', targetType: 'BankAccount', targetId: id })
@@ -53,19 +55,21 @@ export async function GET_receipts(req: NextRequest) {
   if (!await requirePerm(req, 'invoices.manage')) return err('forbidden', 403)
   const status = req.nextUrl.searchParams.get('status') || 'PENDING'
   if (!['PENDING', 'APPROVED', 'REJECTED', 'ALL'].includes(status)) return err('invalid status')
+  const payAccess = Boolean(await requirePerm(req, 'mobocom-pay.manage'))
+  const scope = payAccess ? {} : { invoice: { kind: { not: 'PAY_COLLECTION' } } }
   const [receipts, counts] = await Promise.all([
     db.paymentReceipt.findMany({
-      where: status === 'ALL' ? undefined : { status }, orderBy: { createdAt: status === 'PENDING' ? 'asc' : 'desc' }, take: 100,
+      where: { ...scope, ...(status === 'ALL' ? {} : { status }) }, orderBy: { createdAt: status === 'PENDING' ? 'asc' : 'desc' }, take: 100,
       include: {
         invoice: { select: { number: true, total: true, currency: true, status: true, product: { select: { name: true } }, plan: { select: { name: true } } } },
         user: { select: { id: true, name: true, email: true, phone: true } },
         bankAccount: { select: { bankName: true, holderName: true, cardNumber: true } },
       },
     }),
-    db.paymentReceipt.groupBy({ by: ['status'], _count: { _all: true } }),
+    db.paymentReceipt.groupBy({ by: ['status'], where: scope, _count: { _all: true } }),
   ])
   return ok({
-    receipts: receipts.map((receipt) => ({ ...receipt, amountMinor: receipt.amountMinor.toString() })),
+    receipts: receipts.map((receipt) => ({ ...receipt, user: receipt.user || { id: 0, name: 'مشتری درگاه پرداخت', email: '', phone: '' }, amountMinor: receipt.amountMinor.toString() })),
     counts: Object.fromEntries(counts.map((row) => [row.status, row._count._all])),
   })
 }
@@ -78,7 +82,7 @@ export async function REVIEW_receipt(req: NextRequest) {
   const action = body?.action === 'approve' ? 'approve' : body?.action === 'reject' ? 'reject' : null
   if (!Number.isSafeInteger(id) || id <= 0 || !action) return err('invalid input')
   try {
-    const result = await reviewReceipt(admin, id, action, String(body?.note || ''))
+    const result = await reviewReceipt({ ...admin, req }, id, action, String(body?.note || ''))
     await auditAdmin({ req, actor: admin, action: `receipt.${action}`, targetType: 'PaymentReceipt', targetId: id, metadata: { warning: 'warning' in result ? result.warning : undefined } })
     return ok(result)
   } catch (error) { return fail(error) }

@@ -316,3 +316,55 @@ test('repair OTP template is purpose scoped and falls back to the global templat
   assert.equal(cleared.otpTemplates.repair, undefined)
   assert.equal(cleared.otpText, 'global {code}')
 })
+test('MoboComPay exact IRR fees, settlement rounding and opt-in settings reject unsafe input', () => {
+  const load = require('./connected-source-loader.cjs')()
+  const p = load('src/modules/billing/domain/pay-policy.ts')
+  const settings = p.defaults()
+  assert.equal(settings.incomingEnabled, false)
+  assert.equal(settings.rails.find(r => r.asset === 'USDT').enabled, false)
+  const configured = p.normalizePaySettings({ ...settings, feeBps: 125, flatFeeRial: '3', minPaymentRial: '1', maxPaymentRial: '9223372036854775807' })
+  assert.deepEqual(p.paymentAmounts('10001', configured), { amountMinor: 10001n, feeMinor: 129n, netMinor: 9872n, totalMinor: 10001n, feeBearer: 'MERCHANT' })
+  const terms = { feeBearer: 'CUSTOMER', feeBps: 125, flatFeeRial: '300', feeCapRial: '100' }
+  assert.deepEqual(p.paymentAmounts('10001', configured, terms), { amountMinor: 10001n, feeMinor: 100n, netMinor: 10001n, totalMinor: 10101n, feeBearer: 'CUSTOMER' })
+  assert.equal(p.paymentAmounts('1', configured, { ...terms, flatFeeRial: '0', feeCapRial: '0' }).feeMinor, 1n)
+  assert.throws(() => p.paymentAmounts('9223372036854775807', configured, { ...terms, feeCapRial: '0' }))
+  assert.equal(p.rial('۹۰۰۷۱۹۹۲۵۴۷۴۰۹۹۳'), 9007199254740993n)
+  assert.throws(() => p.rial(10000)); assert.throws(() => p.rial('0.5')); assert.throws(() => p.rial('9223372036854775808'))
+  assert.throws(() => p.normalizePaySettings({ ...settings, feeBps: 3001 }))
+  assert.throws(() => p.httpsUrl('https://merchant.example.invalid@127.0.0.1/'))
+  assert.throws(() => p.httpsUrl('javascript:alert(1)'))
+  const quote = p.quoteAmounts('1000000', { id: 'USDT_TRON', asset: 'USDT', network: 'TRON', decimals: 6, enabled: true, rialPerUnit: '333333.333333', feeRial: '0' })
+  assert.equal(p.formatAtoms(quote.payoutAtoms, 6), '3')
+  assert.throws(() => p.quoteAmounts('100', { ...settings.rails[0], feeRial: '100' }))
+  assert.equal(load('src/modules/analytics/domain/analytics.ts').normalizeTrackedPath('/pay/private-capability'), '')
+  assert.ok(load('src/modules/performance/domain/pagecache.ts').DEFAULT_EXCLUDE.includes('/pay'))
+})
+
+test('MoboComPay bank bridge authenticates exact body before consuming trusted quota', async () => {
+  const { createHmac } = require('node:crypto'), { NextRequest } = require('next/server')
+  const secretBefore = process.env.MOBOCOM_PAY_BANK_SECRET, providerBefore = process.env.MOBOCOM_PAY_BANK_PROVIDER
+  const secret = 'synthetic-unit-secret-only-0123456789abcdef'
+  process.env.MOBOCOM_PAY_BANK_SECRET = secret; process.env.MOBOCOM_PAY_BANK_PROVIDER = 'unit'
+  let limits = 0, accepted = 0
+  const load = require('./connected-source-loader.cjs')({
+    '@/platform/database/prisma': {}, '@/platform/http/rate-limit': { rateLimitStrict: async () => { limits++; return { ok: true } } },
+    '@/modules/public-api/server/v1': { apiOk: data => Response.json({ ok: true, data }), apiErr: (error, status) => Response.json({ ok: false, error }, { status }) },
+    '@/modules/site/server/maintenance': {}, '@/modules/identity/server/access': {}, '@/modules/settings/server': {}, '@/platform/audit/server': {}, '@/modules/content/server/revisions': {},
+    '@/modules/billing/server/pay': { acceptBankEvent: async () => { accepted++; return { id: 'event', status: 'UNMATCHED', paymentId: null } } },
+  })
+  const { payBankHttp } = load('src/modules/billing/server/http/pay.ts')
+  const raw = JSON.stringify({ providerId: 'unit', externalId: 'fixture' }), at = String(Math.floor(Date.now() / 1000))
+  const signature = createHmac('sha256', secret).update(at + '.' + raw).digest('hex')
+  const req = (body, timestamp = at, sig = signature) => new NextRequest('https://example.invalid/api/payment/mobocom-pay/bank-events', { method: 'POST', headers: { 'x-pay-timestamp': timestamp, 'x-pay-signature': sig }, body })
+  try {
+    assert.equal((await payBankHttp(req(raw, at, '0'.repeat(64)))).status, 401)
+    assert.equal((await payBankHttp(req(raw + ' '))).status, 401)
+    assert.equal((await payBankHttp(req(raw, String(Number(at) - 600)))).status, 401)
+    assert.equal(limits, 0); assert.equal(accepted, 0)
+    assert.equal((await payBankHttp(req(raw))).status, 200)
+    assert.equal(limits, 1); assert.equal(accepted, 1)
+  } finally {
+    if (secretBefore === undefined) delete process.env.MOBOCOM_PAY_BANK_SECRET; else process.env.MOBOCOM_PAY_BANK_SECRET = secretBefore
+    if (providerBefore === undefined) delete process.env.MOBOCOM_PAY_BANK_PROVIDER; else process.env.MOBOCOM_PAY_BANK_PROVIDER = providerBefore
+  }
+})

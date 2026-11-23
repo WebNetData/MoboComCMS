@@ -5,6 +5,7 @@
 export type SiteSection = { id: string; label: string; hint: string; permissions: readonly string[] }
 
 export const SITE_SECTIONS: readonly SiteSection[] = [
+  { id: 'mobocom-pay', label: 'موبوکام‌پی', hint: 'پذیرندگان، تنظیمات و تطبیق پرداخت‌ها', permissions: ['mobocom-pay.manage'] },
   { id: 'vpn', label: 'VPN', hint: 'پلن‌ها و مدیریت اشتراک‌های VPN', permissions: ['plans.manage', 'subs.manage'] },
   { id: 'hosting', label: 'موبوکام کلاد', hint: 'محصولات میزبانی، سرورها، سامانه‌های متصل و سرویس مشتریان', permissions: ['hosting.manage'] },
   { id: 'prompts', label: 'پرامپت مستر', hint: 'الگوها و دسته‌های کتابخانهٔ پرامپت', permissions: ['prompts.manage'] },

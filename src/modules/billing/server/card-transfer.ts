@@ -28,13 +28,27 @@ export const listBankAccounts = (activeOnly = false) =>
 export async function saveBankAccount(input: Record<string, unknown>) {
   const data = normalizeBankAccount(input)
   const id = Number(input.id)
-  if (Number.isSafeInteger(id) && id > 0) return db.bankAccount.update({ where: { id }, data })
+  if (Number.isSafeInteger(id) && id > 0) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await db.$transaction(async tx => {
+          const previous = await tx.bankAccount.findUnique({ where: { id } })
+          if (!previous) throw new TransferError('حساب بانکی پیدا نشد', 404)
+          if ((previous.cardNumber !== data.cardNumber || previous.sheba !== data.sheba || previous.accountNumber !== data.accountNumber) &&
+            (await tx.payPayment.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
+          return tx.bankAccount.update({ where: { id }, data })
+        }, { isolationLevel: 'Serializable' })
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'P2034' || attempt >= 2) throw error
+      }
+    }
+  }
   return db.bankAccount.create({ data })
 }
 
 // ------------------------------------------------------------------ receipts
 
-async function readMultipart(req: NextRequest) {
+export async function readReceiptMultipart(req: NextRequest) {
   const contentType = req.headers.get('content-type') || ''
   if (!contentType.toLowerCase().startsWith('multipart/form-data')) throw new TransferError('فرم رسید معتبر نیست')
   if (Number(req.headers.get('content-length')) > MAX_REQUEST_BYTES) throw new TransferError('حجم تصویر رسید بیش از ۶ مگابایت است', 413)
@@ -62,7 +76,7 @@ export async function submitReceipt(req: NextRequest, userId: number, invoiceNum
   if (invoice.gateway?.provider !== 'CARD_TRANSFER') throw new TransferError('پرداخت این فاکتور با کارت به کارت نیست', 409)
   if (await db.paymentReceipt.count({ where: { invoiceId: invoice.id, status: 'PENDING' } })) throw new TransferError('رسید قبلی شما در انتظار بررسی است', 409)
 
-  const form = await readMultipart(req)
+  const form = await readReceiptMultipart(req)
   const fields = Object.fromEntries([...form.entries()].filter(([, value]) => typeof value === 'string')) as Record<string, string>
   const receipt = normalizeReceipt(fields)
   if (receipt.bankAccountId && !await db.bankAccount.count({ where: { id: receipt.bankAccountId, active: true } })) throw new TransferError('حساب مقصد معتبر نیست')
@@ -94,9 +108,12 @@ export async function submitReceipt(req: NextRequest, userId: number, invoiceNum
 }
 
 /** Approve (settle the invoice) or reject (tell the customer why). */
-export async function reviewReceipt(admin: { id: number; email: string }, receiptId: number, action: 'approve' | 'reject', note: string) {
+export async function reviewReceipt(admin: { id: number; email: string; req?: NextRequest }, receiptId: number, action: 'approve' | 'reject', note: string) {
+  const collection = await db.paymentReceipt.findUnique({ where: { id: receiptId }, select: { invoice: { select: { kind: true } } } })
+  if (collection?.invoice.kind === 'PAY_COLLECTION') return (await import('@/modules/billing/server/pay')).reviewPayReceiptByStaff(admin, receiptId, action, note)
   const receipt = await db.paymentReceipt.findUnique({ where: { id: receiptId }, include: { invoice: { select: { id: true, number: true, userId: true, status: true } } } })
   if (!receipt) throw new TransferError('رسید پیدا نشد', 404)
+  if (receipt.userId === null) throw new TransferError('رسید بدون صاحب باید در درگاه پرداخت بررسی شود', 409)
   if (receipt.status !== 'PENDING') throw new TransferError('این رسید قبلاً بررسی شده است', 409)
   const adminNote = String(note || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 300)
   if (action === 'reject' && adminNote.length < 3) throw new TransferError('دلیل رد رسید را بنویسید تا به مشتری نمایش داده شود')
