@@ -1,3 +1,14 @@
+# Whole-site prebuild audit / PR requested — 2026-11-24
+
+Owner requested whole-site inspection before build, then publication through this point.
+Source eafa47f7 on feat/solution-packs-v2-2026-11-23 over merged main78fe059c.
+Inventory433 pages/491 API handlers/74 owners/45 extensions;3 actual PostgreSQL
+reproductions (CRM department metadata, CRM IRR projection, playlist metadata),
+1109/1111 units and5 legacy connected fixture failures remain open. Current
+Custom theme retained.75 page-load captures include loading shells, so broad
+Admin UI acceptance is explicitly unverified. No feature fix/build/deploy.
+[Full audit, matrix, priorities, evidence limits and next slice](../docs/agent/audits/2026-11-24-whole-site-prebuild.md).
+
 # Solution Pack v2 composition — completed2026-11-24
 
 Owner selected roadmap item2 after PR482 merged. Authoritative checkout

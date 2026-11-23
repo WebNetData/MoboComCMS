@@ -1,3 +1,5 @@
+Current owner-selected prebuild audit2026-11-24 supersedes historical missing-feature assumptions below. First bounded slice: existing CRM/Support department scope and ticket ownership claim, with two-department HTTP and concurrent take/reply/reassign tests; preserve User, money, data and Custom visuals. Then playlist audience/CRM currency, regression fixture alignment, version/CAS/delivery durability, and finally release/backup/upgrade/commercial rehearsal. [Current full matrix and acceptance/rollback](audits/2026-11-24-whole-site-prebuild.md). This is an audit roadmap, not authorization to implement every row at once.
+
 # Incremental platform roadmap
 
 2026-10-25: [whole-site quality](WHOLE_SITE_QUALITY_STANDARD.md) is the acceptance

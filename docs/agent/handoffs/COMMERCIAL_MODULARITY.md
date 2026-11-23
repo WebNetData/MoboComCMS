@@ -888,3 +888,35 @@ The final source parity and owned-fixture cleanup are recorded below before hand
   records environment, executed checks, screenshot hashes, fault restoration,
   source parity, cleanup and explicit unrun work. Local commit on the branch above
   is the handoff boundary; no push/PR/merge or deployment was performed.
+
+## Whole-site prebuild audit and PR preparation — owner2026-11-24
+
+Owner requested a whole-site gap review before build, then explicitly requested
+publication of work through this point for owner merge. Audited product source
+eafa47f7 over merged main78fe059c in the existing package-lifecycle checkout.
+The [current audit](../audits/2026-11-24-whole-site-prebuild.md) and
+[machine-readable receipt](../audits/2026-11-24-whole-site-prebuild.json) record
+inventory, domain matrix, blueprint, priorities, actual checks and limitations.
+Existing workstate/map/ledger/matrix/roadmap were reconciled without removing history.
+
+Source inspection found existing major owners, not a platform needing a rewrite.
+Three isolated PostgreSQL probes reproduced CRM ticket-department metadata scope,
+CRM IRR/Toman projection and restricted playlist metadata. Support ownership
+concurrency, Software CAS, Games version and general delivery durability remain
+source-backed follow-ups. Full units1109/1111 passed; two stale fixture cases and
+five connected loader/publication fixture failures remain open. Both Pay checks
+passed on the correctly named separate disposable database. The relevant failed
+unit fixture/owner sources match main; no product fix is included in this audit.
+
+75 browser page-load observations are not75 complete UI acceptances: most Admin/
+account captures were loading shells, discovered during visual review; explicit
+ready-card checks covered Extensions. Three Next dev restart navigation failures
+were rerun successfully. Original MoboCom Custom presentation was retained.
+4225/4226 runtime inputs matched; Next dev alone changed tsconfig JSX mode.
+Both owned DBs/role, private source/client, sessions/presentation/archive and
+preview/tunnel were removed; original health/session rechecked200.
+
+This addition is audit documentation/generated canonical AI knowledge only.
+Solution Pack v2's earlier bounded acceptance remains separately recorded.
+No new feature fix, build, live provider, hosted workflow, merge or deploy.
+PR publication status is recorded after the remote request is verified.

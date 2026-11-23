@@ -1,3 +1,7 @@
+# Current whole-site prebuild follow-up — 2026-11-24
+
+Current source eafa47f7: prioritize CRM ticket-department projection, current audience on personal playlists, Support conditional ownership claims, and stale regression fixtures before launch readiness. Native probes reproduced CRM metadata scope, IRR/Toman projection and restricted playlist metadata. Other source-backed work: CRM pagination, Software release CAS, Games version reconciliation and durable general automation/webhooks. Existing core features remain; do not recreate them from historical rows below. [Evidence, limits and phased roadmap](audits/2026-11-24-whole-site-prebuild.md). No build or feature fix is claimed by this audit.
+
 # Remaining gaps — scoped snapshot, updated 2026-10-31
 
 Bulk import's verified block/HTML compatibility gap and missing operator guide are closed locally through the existing owner; [evidence and limits](handoffs/IMPORTS_LAUNCH.md). No arbitrary block-document import or all-adapter/provider browser certification is claimed. Target-host workers, source connectivity and deployment/rollback still need the owner's operational rehearsal.
