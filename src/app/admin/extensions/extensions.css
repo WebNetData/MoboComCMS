@@ -138,3 +138,23 @@
   .admin-shell .extension-manager :is(.xm-facts,.pm-receipt dl) dd + dt { margin-block-start: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .admin-shell .extension-manager .xm-switch input::after { transition: none; } }
+
+.admin-shell .extension-manager .pm-solution { display: grid; gap: 16px; padding: 16px; border: 1px solid var(--xm-line); border-radius: 12px; background: var(--xm-soft); font-size: .8125rem; line-height: 1.9; }
+.admin-shell .extension-manager .pm-solution-heading { display: grid; gap: 4px; }
+.admin-shell .extension-manager .pm-solution-heading span { color: var(--xm-muted); font-size: .75rem; }
+.admin-shell .extension-manager .pm-solution > .btn { justify-self: start; }
+.admin-shell .extension-manager .pm-solution > div[hidden] { display: none; }
+.admin-shell .extension-manager .pm-solution > div:not(.pm-solution-heading) { min-inline-size: 0; }
+.admin-shell .extension-manager .pm-solution-targets { list-style: none; margin: 16px 0; padding: 0; display: grid; gap: 12px; }
+.admin-shell .extension-manager .pm-solution-targets li { padding-block-end: 12px; border-block-end: 1px solid var(--xm-line); min-inline-size: 0; }
+.admin-shell .extension-manager .pm-solution-targets li > div { display: flex; gap: 8px 16px; justify-content: space-between; flex-wrap: wrap; }
+.admin-shell .extension-manager .pm-solution-targets :is(span,small) { color: var(--xm-muted); font-size: .75rem; }
+.admin-shell .extension-manager .pm-solution summary { cursor: pointer; min-block-size: 44px; padding-block: 8px; }
+.admin-shell .extension-manager .pm-solution dl { margin: 8px 0; }
+.admin-shell .extension-manager .pm-solution dl > div { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; margin-block: 8px; }
+.admin-shell .extension-manager .pm-solution :is(dt,dd,bdi) { min-inline-size: 0; overflow-wrap: anywhere; }
+.admin-shell .extension-manager .pm-solution dd { margin: 0; }
+.admin-shell .extension-manager .pm-solution-confirm { display: flex; align-items: start; gap: 10px; margin-block: 16px; cursor: pointer; }
+.admin-shell .extension-manager .pm-solution-confirm input { flex: 0 0 20px; inline-size: 20px; block-size: 20px; margin-block-start: 5px; accent-color: var(--xm-accent); }
+.admin-shell .extension-manager .pm-solution-error { color: var(--admin-danger-text); }
+.admin-shell .extension-manager .pm-solution-success { color: var(--text); font-weight: 500; margin-block-start: 12px; }

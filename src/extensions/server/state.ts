@@ -85,38 +85,58 @@ function validSetting(def: ExtensionSettingDefinition, value: unknown) {
   return typeof value === 'string' && value.length <= (def.type === 'textarea' ? 12000 : 2000)
 }
 
-export async function saveExtensionState(id: string, input: { enabled?: boolean; settings?: Record<string, unknown> }, options: { beforeCommit?: (tx: Prisma.TransactionClient, before: ExtensionStoredState, after: ExtensionStoredState) => Promise<void> } = {}) {
+/** Missing-only provisioning defaults use this owner's schema and strict stored state. */
+export async function planExtensionDefaults(id: string, input: Record<string, unknown>, reader: StateReader) {
+  const manifest = extensionById.get(id)
+  if (!manifest) throw new Error(`Unknown extension: ${id}`)
+  if (id === 'businesses' && Object.keys(input).length) throw new Error('سیاست کسب‌وکار از تنظیمات تخصصی خودش تغییر می‌کند.')
+  await storedExtensionState(id, reader, true)
+  const row = await reader.setting.findUnique({ where: { key: stateKey(id) } })
+  const explicit = row ? parseState(row.value, manifest, undefined, true).settings : {}
+  const defaults: Record<string, unknown> = {}, preserved: string[] = []
+  for (const [key, value] of Object.entries(input)) {
+    const def = manifest.settings?.find(setting => setting.key === key)
+    if (!def || def.type === 'secret' || !validSetting(def, value)) throw new Error(`پیش‌فرض تنظیم «${id}.${key}» مجاز نیست.`)
+    if (Object.hasOwn(explicit, key)) preserved.push(key)
+    else defaults[key] = value
+  }
+  serverPlugins[id]?.validateSettings?.({ ...(await storedExtensionState(id, reader, true)).settings, ...defaults })
+  return { defaults, preserved }
+}
+
+export async function saveExtensionState(id: string, input: { enabled?: boolean; settings?: Record<string, unknown> }, options: { transaction?: Prisma.TransactionClient; beforeCommit?: (tx: Prisma.TransactionClient, before: ExtensionStoredState, after: ExtensionStoredState) => Promise<void> } = {}) {
   const manifest = extensionById.get(id)
   if (!manifest) throw new Error('افزونه در این build نصب نشده است')
+  const work = async (tx: Prisma.TransactionClient) => {
+    const current = await getExtensionState(id, [], tx, true)
+    const definitions = new Map((manifest.settings || []).map(def => [def.key, def]))
+    const settings = { ...current.settings }
+    if (input.settings) {
+      for (const [key, value] of Object.entries(input.settings)) {
+        const def = definitions.get(key)
+        if (!def) throw new Error(`تنظیم ناشناخته: ${key}`)
+        if (!validSetting(def, value)) throw new Error(`مقدار تنظیم ${key} معتبر نیست`)
+        if (def.type === 'secret' && value === '••••••••') continue
+        settings[key] = value
+      }
+    }
+    // Requested state survives a dependency being temporarily off.
+    const next: ExtensionStoredState = { enabled: typeof input.enabled === 'boolean' ? input.enabled : (await storedExtensionState(id, tx, true)).enabled, settings }
+    if (input.enabled === true || (input.enabled === false && current.enabled)) await assertDependencies(manifest, input.enabled, tx)
+    serverPlugins[id]?.validateSettings?.(next.settings)
+    await tx.setting.upsert({ where: { key: stateKey(id) }, create: { key: stateKey(id), value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } })
+    if (manifest.stateSetting) {
+      const key = manifest.stateSetting
+      const value = next.enabled ? 'true' : 'false'
+      await tx.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
+    }
+    await options.beforeCommit?.(tx, current, next)
+    return next
+  }
+  if (options.transaction) return work(options.transaction)
   for (let attempt = 0; attempt < 20; attempt++) {
-    try {
-      return await db.$transaction(async tx => {
-        const current = await getExtensionState(id, [], tx, true)
-        const definitions = new Map((manifest.settings || []).map(def => [def.key, def]))
-        const settings = { ...current.settings }
-        if (input.settings) {
-          for (const [key, value] of Object.entries(input.settings)) {
-            const def = definitions.get(key)
-            if (!def) throw new Error(`تنظیم ناشناخته: ${key}`)
-            if (!validSetting(def, value)) throw new Error(`مقدار تنظیم ${key} معتبر نیست`)
-            if (def.type === 'secret' && value === '••••••••') continue
-            settings[key] = value
-          }
-        }
-        // Saving settings must not write down "off" for an extension that is only off because of a dependency.
-        const next: ExtensionStoredState = { enabled: typeof input.enabled === 'boolean' ? input.enabled : (await storedExtensionState(id, tx, true)).enabled, settings }
-        if (input.enabled === true || (input.enabled === false && current.enabled)) await assertDependencies(manifest, input.enabled, tx)
-        serverPlugins[id]?.validateSettings?.(next.settings)
-        await tx.setting.upsert({ where: { key: stateKey(id) }, create: { key: stateKey(id), value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } })
-        if (manifest.stateSetting) {
-          const key = manifest.stateSetting
-          const value = next.enabled ? 'true' : 'false'
-          await tx.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
-        }
-        await options.beforeCommit?.(tx, current, next)
-        return next
-      }, { isolationLevel: 'Serializable' })
-    } catch (error) {
+    try { return await db.$transaction(work, { isolationLevel: 'Serializable' }) }
+    catch (error) {
       if (['P2034', 'P2002'].includes((error as { code?: string }).code || '') && attempt < 19) continue
       throw error
     }

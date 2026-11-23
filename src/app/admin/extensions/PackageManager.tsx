@@ -57,7 +57,7 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
     const form = new FormData()
     form.append('file', file)
     const data = await call('upload', () => fetch('/api/admin/packages', { method: 'POST', body: form }), L('Package installed.', 'بسته نصب شد.'))
-    if (data?.package) setMessage({ text: data.upgraded ? L(`${data.package.manifest.name} was updated to v${data.package.manifest.version}.`, `«${data.package.manifest.name}» به نسخهٔ ${data.package.manifest.version} به‌روز شد.`) : data.package.manifest.runtime === 'code' ? L(`${data.package.manifest.name} was uploaded. Apply trusted source, then review the build and deployment before activation.`, `«${data.package.manifest.name}» آپلود شد. سورس مورد اعتماد را اعمال کنید و پیش از فعال‌سازی، build و استقرار را بررسی کنید.`) : L(`${data.package.manifest.name} is installed. Turn it on when you are ready.`, `«${data.package.manifest.name}» نصب شد. هر وقت آماده بودید فعالش کنید.`), error: false })
+    if (data?.package) setMessage({ text: data.upgraded ? L(`${data.package.manifest.name} was updated to v${data.package.manifest.version}.`, `«${data.package.manifest.name}» به نسخهٔ ${data.package.manifest.version} به‌روز شد.`) : data.package.manifest.solutionPack ? L('Solution Pack installed. Review its configuration before applying it.', 'بستهٔ راه‌اندازی نصب شد؛ پیش از اعمال، پیکربندی آن را بررسی کنید.') : data.package.manifest.runtime === 'code' ? L(`${data.package.manifest.name} was uploaded. Apply trusted source, then review the build and deployment before activation.`, `«${data.package.manifest.name}» آپلود شد. سورس مورد اعتماد را اعمال کنید و پیش از فعال‌سازی، build و استقرار را بررسی کنید.`) : L(`${data.package.manifest.name} is installed. Turn it on when you are ready.`, `«${data.package.manifest.name}» نصب شد. هر وقت آماده بودید فعالش کنید.`), error: false })
     if (input.current) input.current.value = ''
   }
 
@@ -110,6 +110,6 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
     {loading ? <div className="tb-empty" role="status">{L('Loading packages…', 'در حال دریافت بسته‌ها…')}</div>
       : loadError ? <div className="tb-empty"><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setLoading(true); setMessage(null); void load() }}>{L('Retry', 'تلاش دوباره')}</button></div>
       : !rows.length ? <div className="tb-empty">{L('No packages uploaded yet. Sample packages live in docs/packages/examples.', 'هنوز بسته‌ای آپلود نشده است. نمونه‌ها در docs/packages/examples هستند.')}</div>
-      : <div className="pm-grid">{rows.map(row => <PackageCard key={row.id} row={row} fa={fa} code={code} busy={busy} open={open} L={L} setOpen={setOpen} patch={patch} remove={remove} apply={apply} cancelApply={cancelApply}/>)}</div>}
+      : <div className="pm-grid">{rows.map(row => <PackageCard key={row.id} row={row} fa={fa} code={code} busy={busy} open={open} L={L} setOpen={setOpen} patch={patch} remove={remove} apply={apply} cancelApply={cancelApply} onSolutionApplied={() => { void load(); onChanged?.() }}/>)}</div>}
   </section>
 }

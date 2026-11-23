@@ -2,6 +2,7 @@ import { PackageError } from '@/modules/packages/domain/format'
 import type { StoredPackage } from '../store'
 
 export function applyEnabled(pkg: StoredPackage, enabled: boolean) {
+  if (enabled && pkg.manifest.solutionPack) throw new PackageError('Solution Pack با پیش‌نمایش و اعمال پیکربندی اجرا می‌شود، نه کلید فعال‌سازی.')
   if (pkg.manifest.runtime === 'code') throw new PackageError('code packages are switched on in the extension list once their build is deployed')
   pkg.enabled = enabled
 }

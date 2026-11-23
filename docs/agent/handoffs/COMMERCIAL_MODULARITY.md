@@ -5,9 +5,9 @@ capabilities are optional modules/plugins; inactive contributions must disappear
 from ordinary Admin/public settings and direct server/worker entry points, retaining
 data. This reinforces the existing architecture, not a new shared system.
 
-Current visual continuation is `.mobocom/package-lifecycle`, branch
-`fix/extensions-manager-polish-2026-11-23`, based on local source-apply commit
-`1f25d3a7` (the preceding implementation remains on its feature branch).
+Current Solution Pack continuation is `.mobocom/package-lifecycle`, branch
+`feat/solution-packs-distribution-2026-11-23`, based on visual-polish commit
+`9da4d6ac` (the preceding implementation remains on its feature branch).
 Use the2026-11-23 package compatibility/source-apply section below. The original
 2026-11-15 isolation implementation used `.mobocom/sms-platform`, branch
 `fix/modular-capability-isolation-2026-11-15`, base main274ada62 after owner merge
@@ -482,3 +482,139 @@ Solution Packs/distribution stays separate. Nonsecret proof lives ignored under
   `package-types.ts`; removed only that blank line. Before/after hashes are in
   the visual receipt. All other source remains the verified content; no semantic
   source change followed validation. Final scoped scans and staged diff check pass.
+
+## Solution Packs and signed commercial distribution — 2026-11-23
+
+Owner explicitly selected “architecture: Solution Pack and commercial
+distribution” as phase2, distinct from additional editor styling. Checkout and
+base above preserve both previous lifecycle and visual work. The open IDE config
+in autonomous-foundation is not this feature's source; it remains untouched.
+
+### Inventory and implemented boundary
+
+Architecture §13 described the target but no executable Solution Pack was found
+in source or matching all-branch commit history. Packages already owns upload,
+strict parser, ZIP, revisions, retained uninstall and current transactional
+commands. Repository already owns products, signed releases, archive hashes,
+paid/free acquisition and licensing. Graphify refresh failed the preexisting
+out-of-corpus CredentialPools.tsx; exact source/Serena and existing checks supplied
+the map. This was not evidence that the unrelated AI source needs changing.
+
+- Added version1 `solutionPack` on an existing declarative plugin. Strict bounded
+  parser rejects unknown/prototype fields, duplicate targets, invalid versions,
+  unsafe values and mixed rendered contributions. No product kind, registry,
+  service, dependency or schema migration. Example editorial and shop/services
+  manifests are customer configurations, not MoboCom source forks.
+- Existing Extension state owns typed missing-only defaults and a transaction
+  option on its existing writer. Unknown/secret defaults and Businesses policy
+  defaults refuse. Explicit saved values survive. Shared auth/settings/mirrors,
+  canonical Identity, strict Audit and compatibility remain owners.
+- Packages owns `previewSolutionPack`/`applySolutionPack` and the guarded internal
+  GET/POST `/api/admin/packages/:id/solution`. Preview lists declared capabilities,
+  defaults, preserved keys and advisory recommendations. Dependency ordering never
+  silently enables an undeclared disabled prerequisite. A hash binds current raw
+  state, source and catalog; explicit apply refuses a stale plan409. One serializable
+  transaction commits all module changes, mirrors, receipt/index and strict Audit;
+  retry callbacks have no filesystem/network/provider effects.
+- Additive strictly validated `solutionApply` receipt stays in the package
+  aggregate and survives upgrade, retained uninstall and reinstall. Canonical
+  Audit keeps history. Matching-artifact retries return the historical receipt
+  before replanning current module state, preserving later owner decisions.
+  Changing a plain plugin into a pack via upload/editor makes it inert, so its
+  hidden runtime switch cannot leave an active uninstall lock.
+- Same signed free/paid Repository acquisition accepts the pack. Integrity,
+  signed identity/version/runtime, current site/key/config/entitlement, canonical
+  actor and atomic strict Audit admission remain unchanged. False/no-op disable
+  stays available to license revocation; no direct activation switch for packs.
+  License means acquisition/update entitlement, not continuous DRM of built-in
+  modules. Pack purchase never grants recommended products' separate licenses.
+- The scoped manager has an inline review, visible defaults/preservation,
+  confirmation, stale/error/retry/busy states and keyboard receipt disclosure.
+  Installing/downloading alone is inert. Same SDS/MoboCom surfaces and RTL,
+  light/dark/mobile identity; no public or Studio stylesheet replacement.
+
+### Actual local acceptance
+
+Fresh private PostgreSQL with206 existing migrations, NOSUPERUSER role, Linux
+Node22.23.3/UID1000/no.env. New registered solution-packs native acceptance passed
+inert install/preview, dependency ordering, current Identity/Origin, typed/secret/
+special-owner refusal, stale config/source, strict Audit full rollback, competing
+apply with one receipt/audit, mirrors, preserved settings, lifecycle transitions,
+receipt retention/corruption and replay after later module/dependency changes.
+The existing signed free install, signed paid entitlement, all50 license-map
+scenarios (including pack revoke retaining unrelated license/configuration),
+package-command and extension-state integrity checks passed. Provider answers are
+controlled doubles; database, owner functions, signatures and archive bytes are real.
+
+Deliberately removed only the stale-plan guard in private source; the connected
+acceptance rejected the now-accepted changed-artifact request. Restored original
+bytes/SHA256 and the complete acceptance passed again. The fixture did not weaken
+production guards or silently count the deliberate failure as a pass.
+
+Actual Edge/Playwright accepted11 views: review1440 light/dark and390 dark,
+defaults/confirmation/stale/applied mobile, applied1440 light/dark, keyboard receipt
+and retained reinstall. Every scoped axe report has0 violations, overflow false,
+page errors0. Real chooser ZIP upload, preview, stale409, current settings/defaults,
+apply, replay, uninstall/reinstall and guest/section-only/foreign-Origin denials
+passed. A settings-only actor can preview without extensions.code. Desktop and
+mobile screenshots were visually inspected. One initial harness assertion read
+enabled at the wrong response level; corrected it to the actual state.enabled
+contract. This failure is not counted as an accepted view.
+
+Two maintained local E2E tests passed (0 failures/retries,37.7s): the new pack
+review/confirmation/receipt replay and existing same-document public-style
+isolation after leaving Admin. The new maintained scenario selects an already-on
+capability to avoid changing host module switches; the separate native/browser
+fixtures prove actual activation/default changes on the disposable database.
+React Doctor0.9.17 over3 affected components:0 blocking errors/5 reviewed warnings
+(bounded component complexity and existing client form/error-payload handling),
+no suppression. Types,3033 source/import and architecture checks passed; final
+example/unit/static/freeze/scanner/cleanup receipts follow after execution.
+
+### Limits, continuation and rollback
+
+Version1 intentionally provisions built-in capabilities and missing typed defaults;
+recommendations are advisory. It does not auto-install dependent paid products,
+grant roles/permissions, change theme/navigation or publish starter content. Those
+remain explicit existing owner commands and later versioned composition work.
+The architecture's broader role/theme/navigation/templates target is not claimed
+implemented by this slice. The host must contain Solution Pack v1 support; the
+core range alone is not a feature-support certificate for historical hosts.
+
+No real purchase, live vendor download/publish, provider send, production build,
+hosted workflow, PR/push/merge or deployment ran. Withdraw UI/commands to roll
+back while retaining configured modules/settings and package receipts; do not
+downgrade to a writer that discards receipts on upgrade. Revocation/uninstall
+never reverses customer configuration or purges data. Task evidence stays ignored
+in `var/solution-packs-20261123`; private state is removed during final cleanup.
+
+### Solution Pack final freeze and cleanup
+
+- Final selected package/repository/example/route units48 passed/0 failed/0 skipped;
+  both real customer configurations retained their v1 contribution through ZIP
+  export/import. Existing CLI actually built both sample archives. Full TypeScript,
+  architecture,3033-source syntax/import, security and Audit invariants passed.
+  Generated44 extensions/4 code themes and14 canonical AI documents matched.
+- Source/test/schema/config/example parity covered4156 inputs:0 content mismatches,
+  0 unexpected source files. Seven generated registry/CSS files differed only by
+  Windows CRLF versus Linux LF; both hashes were recorded. Manifest SHA256:
+  `008fb188d43c46b1c2ef2b19f8acb24e979e1cc447b866125f718286953a7636`.
+  This is source/check parity, not a production build or release artifact receipt.
+- After successful source,11-view browser,2-test maintained E2E and deliberate-fault
+  restoration receipts, stopped the exact-cwd preview, killed only its exact bridge,
+  verified realpath/no active owned preview and removed only
+  `/tmp/mobocom-solution-packs-20261123`. Dropped only task database
+  `mobocom_solution_packs_test_20261123` and its NOSUPERUSER role; original app3000
+  readiness/session actually rechecked200. Removed host private DB/session/E2E
+  state/traces and source archive. Only task-created Serena configuration/cache
+  files were removed after checking their exact inventory; owner/root/IDE config,
+  original app process and Docker data volumes stayed intact.
+- Final scoped local Semgrep rule over16 source targets and redacted Gitleaks
+  over38 named changed/new files:0 findings/0 errors; no suppression/rule/baseline
+  change. No dependency or schema change, production build, live provider or
+  hosted workflow. Local Git records this implementation, not deployment.
+- Machine-readable receipt:
+  [solution-validation-2026-11-23.json](../../specs/commercial-modularity/solution-validation-2026-11-23.json).
+  Nonsecret sample ZIPs, screenshots/logs and hash/fault receipts remain ignored
+  under `var/solution-packs-20261123`. Broader role/theme/navigation/starter content
+  composition still needs its later versioned contract and explicit owner commands.

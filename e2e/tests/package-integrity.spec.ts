@@ -2,6 +2,42 @@ import { test, expect, watchErrors } from '../helpers'
 import { ADMIN_STATE } from '../paths'
 import { writeZip } from '../../src/modules/packages/domain/zip'
 
+test('Solution Pack reviews before one-time provisioning and preserves its receipt on replay', async ({ admin, browser, baseURL }) => {
+  const id = `e2e-solution-${Date.now().toString(36)}`
+  const data = await (await admin.get('/api/admin/extensions')).json()
+  const target = data.extensions.find((item: { state: { enabled: boolean } }) => item.state.enabled)
+  test.skip(!target, 'an already-active capability avoids changing host module switches')
+  const manifest = { id, name: id, version: '1.0.0', kind: 'plugin', runtime: 'declarative', solutionPack: { apiVersion: 1, modules: [{ id: target.manifest.id }] } }
+  const context = await browser.newContext({ baseURL, storageState: await admin.storageState(), viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' })
+  const page = await context.newPage(), errors = watchErrors(page)
+  try {
+    const upload = await admin.post('/api/admin/packages', { multipart: { file: { name: 'solution.zip', mimeType: 'application/zip', buffer: writeZip(new Map([['manifest.json', Buffer.from(JSON.stringify(manifest))]])) } } })
+    expect(upload.status(), await upload.text()).toBe(200)
+    expect((await upload.json()).package.enabled).toBe(false)
+    await page.goto('/admin/extensions', { waitUntil: 'domcontentloaded' })
+    const card = page.locator('.pm-card').filter({ has: page.locator('.xm-title small', { hasText: id }) })
+    const panel = card.locator('.pm-solution')
+    await expect(card.locator('.xm-switch')).toHaveCount(0)
+    await panel.getByRole('button', { name: 'بررسی پیکربندی', exact: true }).click()
+    const apply = panel.getByRole('button', { name: 'اعمال پیکربندی بررسی‌شده', exact: true })
+    await expect(apply).toBeDisabled()
+    const confirmation = panel.getByRole('checkbox')
+    await confirmation.focus(); await confirmation.press('Space')
+    await expect(apply).toBeEnabled()
+    const response = page.waitForResponse(response => response.url().endsWith(`/${id}/solution`) && response.request().method() === 'POST')
+    await apply.click()
+    const result = await response
+    expect(result.status(), await result.text()).toBe(200)
+    const receipt = (await result.json()).receipt
+    await expect(panel.getByText('پیکربندی با موفقیت ثبت شد.', { exact: true })).toBeVisible()
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await panel.getByRole('button', { name: 'بررسی پیکربندی', exact: true }).click()
+    await expect(panel.getByText('این نسخه قبلاً اعمال شده است؛ تنظیمات فعلی دوباره تغییر نمی‌کنند.', { exact: true })).toBeVisible()
+    expect((await (await admin.get(`/api/admin/packages/${id}/solution`)).json()).plan.receipt).toEqual(receipt)
+    expect(errors).toEqual([])
+  } finally { await context.close(); await admin.delete(`/api/admin/packages/${id}`) }
+})
+
 test('uploaded package keeps edits, settings and activation through the real admin editor', async ({ admin, browser, baseURL }) => {
   const id = `e2e-package-${Date.now().toString(36)}`
   const context = await browser.newContext({ baseURL, storageState: ADMIN_STATE })

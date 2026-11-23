@@ -6,6 +6,7 @@ import { assertPackageIdle, type CodeApplyOperation } from '@/modules/packages/d
 import { assertPackageCompatibility, assertStoredPackageCompatibility } from './compatibility'
 import { getSiteConfig, getSiteConfigFrom } from '@/modules/site/config/store'
 import { readZip, writeZip, ZipError } from '@/modules/packages/domain/zip'
+import type { SolutionApplyReceipt } from '@/modules/packages/domain/solution-receipt'
 import {
   PACKAGE_LIMITS, PackageError, isEditable, isTextFile, normalizeEntries, validPackagePath,
   type PackageManifest,
@@ -31,6 +32,7 @@ export interface StoredPackage {
   /** Code packages: 'staged' until applied to the source tree and rebuilt. */
   codeStatus?: 'staged' | 'applied'
   codeApply?: CodeApplyOperation
+  solutionApply?: SolutionApplyReceipt
 }
 export interface PackageSummary {
   id: string
@@ -46,6 +48,7 @@ export interface PackageSummary {
   codeStatus?: StoredPackage['codeStatus']
   active?: boolean
   codeApply?: Pick<CodeApplyOperation, 'id' | 'mode' | 'phase' | 'deploy' | 'intent'>
+  solutionApply?: SolutionApplyReceipt
 }
 
 export { fileText, fileBuffer } from './store/files'
@@ -151,9 +154,10 @@ async function persistEntries(entries: Map<string, Buffer>, actor: string, note?
       : [{ at: now, path: '*', content: null, actor: author, note: note || `install ${manifest.version}` }]
     const pkg: StoredPackage = {
       manifest, files,
-      enabled: manifest.runtime === 'code' || previous?.uninstalledAt ? false : previous?.enabled ?? false,
+      enabled: manifest.solutionPack || manifest.runtime === 'code' || previous?.uninstalledAt ? false : previous?.enabled ?? false,
       settings: settingDefaults(manifest, previous?.settings),
       installedAt: previous?.installedAt || now, updatedAt: now, revisions,
+      ...(previous?.solutionApply ? { solutionApply: previous.solutionApply } : {}),
       ...(manifest.runtime === 'code' ? { codeStatus: 'staged' as const } : {}),
     }
     if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(tx, manifest)
@@ -181,6 +185,7 @@ export function summarize(pkg: StoredPackage, activeThemeId?: string): PackageSu
     bytes: totalBytes(pkg.files), installedAt: pkg.installedAt, updatedAt: pkg.updatedAt, revisions: pkg.revisions.length,
     ...(pkg.uninstalledAt ? { uninstalledAt: pkg.uninstalledAt } : {}),
     ...(pkg.codeStatus ? { codeStatus: pkg.codeStatus } : {}),
+    ...(pkg.solutionApply ? { solutionApply: pkg.solutionApply } : {}),
     ...(pkg.codeApply ? { codeApply: { id: pkg.codeApply.id, mode: pkg.codeApply.mode, phase: pkg.codeApply.phase, deploy: pkg.codeApply.deploy, intent: pkg.codeApply.intent } } : {}),
     ...(pkg.manifest.kind === 'theme' ? { active: activeThemeId === pkg.manifest.id } : {}),
   }

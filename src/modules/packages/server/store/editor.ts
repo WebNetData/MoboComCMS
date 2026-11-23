@@ -22,6 +22,7 @@ export async function writeFile(reader: PackageReader, pkg: StoredPackage, path:
   await assertPackageCompatibility(manifest, reader, pkg.enabled || manifest.kind === 'theme' && (await getSiteConfigFrom(reader, true)).themeId === manifest.id)
   pkg.files = files
   pkg.manifest = manifest
+  if (manifest.solutionPack) pkg.enabled = false
   pkg.settings = settingDefaults(manifest, pkg.settings)
   pkg.updatedAt = new Date().toISOString()
   pkg.revisions = [{ at: pkg.updatedAt, path, content: previous, actor, note: previous === null ? 'created' : 'edited' }, ...pkg.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)

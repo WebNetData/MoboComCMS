@@ -70,10 +70,11 @@ if(selected==='concurrent'){
  return;
 }
 let beforeCommit,packageBefore;
+const solutionModuleBefore=mode==='revoked'?await prisma.setting.findUniqueOrThrow({where:{key:moduleKey}}):null;
 if(mode.startsWith('revoked')||mode.startsWith('subject-')||mode==='signed-revoked'||mode==='expired-certificate'){
  const packages=load('src/modules/packages/server/store.ts');
- await packages.installEntries(new Map([['manifest.json',Buffer.from(JSON.stringify({id,name:id,kind:'plugin',runtime:'declarative',version:'1.0.0'}))]]),actor.email);
- await packages.setPackageEnabled(id,true);packageBefore=await prisma.setting.findUniqueOrThrow({where:{key}});
+ await packages.installEntries(new Map([['manifest.json',Buffer.from(JSON.stringify({id,name:id,kind:'plugin',runtime:'declarative',version:'1.0.0',...(mode==='revoked'?{solutionPack:{apiVersion:1,modules:[{id:'repository'}]}}:{})}))]]),actor.email);
+ if(mode!=='revoked')await packages.setPackageEnabled(id,true);packageBefore=await prisma.setting.findUniqueOrThrow({where:{key}});
 }
 global.fetch=async(url)=>{
  assert.equal(new URL(url).origin,'https://repo.example.invalid');reached=true;
@@ -111,7 +112,7 @@ else {
 }
 assert.equal(await prisma.auditLog.count({where:{actorUserId:actor.id,action:'repository.client.'+selected}}),denied?0:1,'one atomic success audit');
 if(mode==='revoked-audit')assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key}}),packageBefore,'package revocation rolls back with failed strict audit');
-if(mode==='revoked'){assert.equal(JSON.parse(after)[id].state,'revoked');assert.equal(JSON.parse((await prisma.setting.findUniqueOrThrow({where:{key}})).value).enabled,false,'actual package disabled atomically');}
+if(mode==='revoked'){assert.equal(JSON.parse(after)[id].state,'revoked');assert.equal(JSON.parse((await prisma.setting.findUniqueOrThrow({where:{key}})).value).enabled,false,'actual package disabled atomically');assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key:moduleKey}}),solutionModuleBefore,'revoking a solution pack never reverts its module configuration');}
 if(mode.includes('subject-')){
  assert.equal(JSON.parse((await prisma.setting.findUniqueOrThrow({where:{key}})).value).enabled,true,'wrong signed subject must not revoke this package');
  assert.deepEqual(JSON.parse(after)[id].certificate,cert,'wrong signed subject never replaces current certificate');

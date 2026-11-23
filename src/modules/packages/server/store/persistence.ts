@@ -3,6 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { PACKAGE_LIMITS, PackageError } from '@/modules/packages/domain/format'
 import type { StoredPackage, PackageRevision } from '../store'
 import { isCodeApplyOperation } from '@/modules/packages/domain/apply-operation'
+import { isSolutionApplyReceipt } from '@/modules/packages/domain/solution-receipt'
 
 export type PackageReader = Pick<Prisma.TransactionClient, 'setting'>
 export const rowKey = (id: string) => `package.${id}.v1`
@@ -51,6 +52,7 @@ export async function loadPackageFrom(id: string, reader: PackageReader = db, st
     if (!record(pkg) || !record(pkg.manifest) || pkg.manifest.id !== id
       || !['plugin', 'theme'].includes(String(pkg.manifest.kind)) || !['code', 'declarative'].includes(String(pkg.manifest.runtime))
       || !record(pkg.files) || !record(pkg.settings)
+      || pkg.solutionApply !== undefined && !isSolutionApplyReceipt(pkg.solutionApply)
       || pkg.codeApply !== undefined && (pkg.manifest.runtime !== 'code' || !isCodeApplyOperation(pkg.codeApply))
       || typeof pkg.enabled !== 'boolean' || typeof pkg.installedAt !== 'string' || typeof pkg.updatedAt !== 'string'
       || pkg.uninstalledAt !== undefined && (typeof pkg.uninstalledAt !== 'string' || !Number.isFinite(Date.parse(pkg.uninstalledAt)) || pkg.enabled !== false)

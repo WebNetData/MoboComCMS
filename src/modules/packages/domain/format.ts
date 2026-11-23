@@ -7,6 +7,7 @@
 // are stored until an administrator applies them (see code-apply).
 
 import { isCompatibilityRange } from '../../../platform/extensions/compatibility'
+import { parseSolutionPack, type SolutionPack } from './solution-pack'
 
 export const PACKAGE_SLOTS = [
   'site.before-header', 'site.after-header', 'site.before-footer', 'site.after-footer',
@@ -46,6 +47,8 @@ export interface PackageManifest {
   settings?: PackageSettingDefinition[]
   components?: PackageComponent[]
   design?: PackageDesign
+  /** A configuration pack has no rendered contributions and is applied explicitly by the host. */
+  solutionPack?: SolutionPack
 }
 
 export const PACKAGE_LIMITS = {
@@ -119,6 +122,13 @@ export function parseManifest(raw: unknown, files: ReadonlySet<string>): Package
   if (m.kind !== 'plugin' && m.kind !== 'theme') fail('"kind" must be "plugin" or "theme"')
   const runtime = m.runtime === undefined ? 'declarative' : m.runtime
   if (runtime !== 'declarative' && runtime !== 'code') fail('"runtime" must be "declarative" or "code"')
+  let solutionPack: SolutionPack | undefined
+  if (m.solutionPack !== undefined) {
+    if (m.kind !== 'plugin' || runtime !== 'declarative') fail('"solutionPack" requires a declarative plugin')
+    if (['slots', 'styles', 'pages', 'settings', 'components', 'design'].some(key => Object.hasOwn(m, key))) fail('"solutionPack" cannot contain rendered contributions or package settings')
+    try { solutionPack = parseSolutionPack(m.solutionPack) }
+    catch (error) { fail(error instanceof Error ? error.message : 'invalid solutionPack') }
+  }
   for (const key of ['nameEn', 'author'] as const) if (!optionalText(m[key], 80)) fail(`"${key}" is too long`)
   for (const key of ['description', 'descriptionEn'] as const) if (!optionalText(m[key], 400)) fail(`"${key}" is too long`)
   if (m.requiresCore !== undefined && !isCompatibilityRange(m.requiresCore)) fail('"requiresCore" must look like ^1.0.0')
@@ -199,7 +209,7 @@ export function parseManifest(raw: unknown, files: ReadonlySet<string>): Package
     if (d.extends !== undefined && (typeof d.extends !== 'string' || !ID.test(d.extends) || d.extends === m.id)) fail('design.extends must be the id of an installed code theme')
   } else if (m.design !== undefined) fail('"design" is only allowed for themes')
 
-  return { ...(m as unknown as PackageManifest), runtime: runtime as PackageRuntime }
+  return { ...(m as unknown as PackageManifest), runtime: runtime as PackageRuntime, ...(solutionPack ? { solutionPack } : {}) }
 }
 
 /** Zip files often wrap everything in one folder; drop it so manifest.json is at the root. */

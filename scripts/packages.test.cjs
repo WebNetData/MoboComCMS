@@ -21,6 +21,20 @@ const { parseManifest, validPackagePath, normalizeEntries, PACKAGE_LIMITS } = lo
 const { sanitizePackageHtml, sanitizePackageCss, renderPlaceholders } = load('src/modules/packages/domain/sanitize.ts')
 const { readZip, writeZip } = load('src/modules/packages/domain/zip.ts')
 
+test('customer Solution Pack examples retain their configuration across the distributable ZIP', () => {
+  for (const id of ['solution-editorial', 'solution-shop-services']) {
+    const folder = path.resolve(__dirname, '../examples/packages', id)
+    const manifest = Buffer.from(fs.readFileSync(path.join(folder, 'manifest.json')))
+    const archive = writeZip(new Map([['manifest.json', manifest], ['README.md', fs.readFileSync(path.join(folder, 'README.md'))]]))
+    const entries = normalizeEntries(readZip(archive, PACKAGE_LIMITS))
+    const parsed = parseManifest(JSON.parse(entries.get('manifest.json').toString()), new Set(entries.keys()))
+    assert.equal(parsed.id, id)
+    assert.equal(parsed.solutionPack.apiVersion, 1)
+    assert.equal(parsed.runtime, 'declarative')
+    assert.ok(parsed.solutionPack.modules.length >= 2)
+  }
+})
+
 test('bounded JSON keeps strict empty defaults and explicitly supports legacy empty apply requests', async () => {
   const { readJsonObject } = load('src/platform/http/read-json.ts')
   const request = body => new Request('http://owned.invalid/apply', { method: 'POST', ...(body !== undefined ? { body } : {}) })
@@ -37,6 +51,37 @@ const example = dir => {
   const walk = folder => fs.readdirSync(folder, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(folder, entry.name)) : [path.relative(root, path.join(folder, entry.name)).split(path.sep).join('/')])
   return { manifest: JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')), files: new Set(walk(root)) }
 }
+
+test('solution packs are bounded declarative configuration without rendered contributions', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../examples/packages/solution-editorial/manifest.json'), 'utf8'))
+  const files = new Set(['manifest.json'])
+  const parsed = parseManifest(manifest, files)
+  assert.deepEqual(parsed.solutionPack.modules.map(module => module.id), ['journal', 'block-editor'])
+  assert.deepEqual(parsed.solutionPack.recommendations, ['promo-banner'])
+  const pack = manifest.solutionPack
+  const withPack = solutionPack => ({ ...manifest, solutionPack })
+  for (const invalid of [
+    null, { ...pack, apiVersion: 2 }, { ...pack, role: 'admin' }, { ...pack, modules: [] },
+    { ...pack, modules: Array(31).fill(pack.modules[0]) },
+    { ...pack, modules: [pack.modules[0], pack.modules[0]] },
+    { ...pack, modules: [{ id: 'journal', version: '^1.0.0-beta' }] },
+    { ...pack, modules: [{ id: 'journal', secret: 'x' }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { 'seo.title': 'x'.repeat(2001) } }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { 'seo.title': { value: 'x' } } }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { 'seo.title': Infinity } }] },
+    { ...pack, modules: [{ id: 'journal', defaults: JSON.parse('{"__proto__":true}') }] },
+    { ...pack, modules: [{ id: 'journal', defaults: { constructor: true } }] },
+    { ...pack, recommendations: ['same', 'same'] },
+    { ...pack, recommendations: ['Bad_ID'] },
+  ]) assert.throws(() => parseManifest(withPack(invalid), files), /solutionPack/)
+  for (const key of ['slots', 'styles', 'pages', 'settings', 'components', 'design']) {
+    assert.throws(() => parseManifest({ ...manifest, [key]: [] }, files), /solutionPack/)
+  }
+  assert.throws(() => parseManifest({ ...manifest, kind: 'theme' }, files), /solutionPack/)
+  assert.throws(() => parseManifest({ ...manifest, runtime: 'code' }, files), /solutionPack/)
+  const defaults = { 'seo.title': 'مجله', 'posts.enabled': true, 'posts.max-length': 500 }
+  assert.deepEqual({ ...parseManifest(withPack({ apiVersion: 1, modules: [{ id: 'journal', defaults }] }), files).solutionPack.modules[0].defaults }, defaults)
+})
 
 test('bundled example packages are valid', () => {
   for (const dir of ['promo-banner', 'ocean-theme']) {

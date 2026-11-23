@@ -1,0 +1,17 @@
+{
+  "id": "solution-shop-services",
+  "name": "بستهٔ راه‌اندازی فروشگاه و خدمات",
+  "description": "فروش آنلاین و حضوری در کنار فرم‌ها و خدمات؛ بدون ساخت شعبهٔ جداگانه از کد موبوکام.",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "runtime": "declarative",
+  "requiresCore": "^1.0.0",
+  "solutionPack": {
+    "apiVersion": 1,
+    "modules": [
+      { "id": "store", "version": "^2.0.0" },
+      { "id": "forms", "version": "^1.0.0" },
+      { "id": "instore", "version": "^1.0.0" }
+    ]
+  }
+}

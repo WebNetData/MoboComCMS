@@ -3,6 +3,7 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import type { PackageRow } from './package-types'
 import PackageReceipt from './PackageReceipt'
+import SolutionPackPanel from './SolutionPackPanel'
 
 type CodeStatus = { mode: 'git' | 'local' | 'off'; ready: boolean; detail: string; deployHook: boolean; owner: boolean }
 type Props = {
@@ -13,10 +14,11 @@ type Props = {
   remove: (row: PackageRow) => void
   apply: (row: PackageRow) => Promise<void>
   cancelApply: (row: PackageRow) => Promise<void>
+  onSolutionApplied: () => void
 }
 const kb = (bytes: number) => bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
 
-export default function PackageCard({ row, fa, code, busy, open, L, setOpen, patch, remove, apply, cancelApply }: Props) {
+export default function PackageCard({ row, fa, code, busy, open, L, setOpen, patch, remove, apply, cancelApply, onSolutionApplied }: Props) {
   const name = (m: PackageRow['manifest']) => fa ? m.name : m.nameEn || m.name
   const m = row.manifest
   const installed = !row.uninstalledAt
@@ -28,7 +30,7 @@ export default function PackageCard({ row, fa, code, busy, open, L, setOpen, pat
           <div className="xm-card-head">
             <span className="xm-icon" aria-hidden="true"><Icon name={m.kind === 'theme' ? 'palette' : isCode ? 'code' : 'sparkles'} size={22}/></span>
             <div className="xm-title"><h3>{name(m)}</h3><small dir="ltr">{m.id} · v{m.version}{m.author ? ` · ${m.author}` : ''}</small></div>
-            {installed && m.kind === 'plugin' && !isCode && <label className="xm-switch"><input type="checkbox" aria-label={`${name(m)} — ${L('activation', 'فعال‌سازی')}`} checked={row.enabled} disabled={!!busy || pending} onChange={event => void patch(row, { enabled: event.target.checked }, event.target.checked ? L('Plugin is on.', 'افزونه فعال شد.') : L('Plugin is off.', 'افزونه غیرفعال شد.'))}/><span>{row.enabled ? L('On', 'فعال') : L('Off', 'غیرفعال')}</span></label>}
+            {installed && m.kind === 'plugin' && !isCode && !m.solutionPack && <label className="xm-switch"><input type="checkbox" aria-label={`${name(m)} — ${L('activation', 'فعال‌سازی')}`} checked={row.enabled} disabled={!!busy || pending} onChange={event => void patch(row, { enabled: event.target.checked }, event.target.checked ? L('Plugin is on.', 'افزونه فعال شد.') : L('Plugin is off.', 'افزونه غیرفعال شد.'))}/><span>{row.enabled ? L('On', 'فعال') : L('Off', 'غیرفعال')}</span></label>}
             {installed && m.kind === 'theme' && !isCode && (row.active ? <span className="xm-chip">{L('Active theme', 'قالب فعال')}</span> : <button type="button" className="btn btn-primary btn-sm" disabled={busy === row.id} onClick={() => void patch(row, { activate: true }, L('Theme activated.', 'قالب فعال شد.'))}>{L('Activate', 'فعال‌سازی')}</button>)}
           </div>
           {(fa ? m.description : m.descriptionEn || m.description) && <p className="xm-desc">{fa ? m.description : m.descriptionEn || m.description}</p>}
@@ -37,6 +39,7 @@ export default function PackageCard({ row, fa, code, busy, open, L, setOpen, pat
             {Object.keys(m.slots || {}).map(slot => <span dir="ltr" key={slot}>{slot}</span>)}
             {(active ? m.pages || [] : []).map(page => <a dir="ltr" key={page.slug} href={`/ext/${m.id}/${page.slug}`} target="_blank" rel="noreferrer">/ext/{m.id}/{page.slug}</a>)}
           </div>
+          {installed && m.solutionPack && <SolutionPackPanel id={row.id} receipt={row.solutionApply} onApplied={onSolutionApplied}/>}
           {row.codeApply && <>
             {(pending || row.codeApply.deploy) && <div className="pm-recovery" role="status">
               {pending && <p>{row.codeApply.intent === 'cancel' ? L('The previous cancellation is being completed. Continue recovery to finish it.', 'لغو قبلی در حال تکمیل است؛ برای پایان آن بازیابی را ادامه دهید.') : L('Changes are locked until this operation is resumed or cancelled.', 'تا ادامه یا لغو این عملیات، تغییر بسته قفل است.')}</p>}

@@ -1,3 +1,19 @@
+# Solution Packs / commercial distribution — 2026-11-23
+
+Owner chose architecture phase2. Continue `.mobocom/package-lifecycle` /
+`feat/solution-packs-distribution-2026-11-23` from9da4d6ac. Existing Packages,
+Extensions and Repository own bounded declarative config, preview/hash/atomic
+apply and retained receipt; no parallel licensing/schema/Identity. Real native
+PG and signed free/paid acquisition, all50 license scenarios, deliberate stale
+guard fault/restoration,11 themed/mobile browser views and2 maintained E2E passed.
+Doctor0 errors/5 reviewed warnings;48 units and final4156-input source/example
+parity passed. Owned runtime/DB/role/private state removed; original health/session200.
+Final freeze/cleanup is recorded in
+[the same handoff](../docs/agent/handoffs/COMMERCIAL_MODULARITY.md#solution-packs-and-signed-commercial-distribution--2026-11-23).
+No live purchase/publish/provider, build/release, push/PR/merge/deploy. Preserve
+root/autonomous work and the prior UI/lifecycle commits. Broader role/theme/menu/
+starter-template composition remains explicitly outside this version1 contract.
+
 # Extension management visual polish — 2026-11-23
 
 Owner selected extension/theme management for Unslop/OpenDesign refinement.

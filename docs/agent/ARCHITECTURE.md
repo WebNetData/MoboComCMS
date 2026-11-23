@@ -608,6 +608,19 @@ SolutionPack
 
 This is how MoboCom adapts to many business types while remaining one product.
 
+Implemented bounded v1 (2026-11-23): a strictly validated `solutionPack` on an
+existing declarative plugin provisions declared built-in capabilities and typed,
+nonsecret missing-only defaults after an explicit state/source-bound preview.
+Packages owns the one-time retained receipt; Extensions owns schema/mirrors and
+its transaction-capable state writer; Repository owns existing signed free/paid
+acquisition and update entitlement. Canonical Identity and strict Audit commit
+with the configuration. No separate pack registry/license service or code fork.
+Recommendations do not install or grant other paid products. Uninstall/revocation
+does not reverse customer configuration. Roles/theme/navigation/starter content
+in the target above remain later explicit owner composition, not v1 behavior.
+[Contracts, local evidence and rollback](handoffs/COMMERCIAL_MODULARITY.md#solution-packs-and-signed-commercial-distribution--2026-11-23).
+
+
 ## 14. Settings architecture
 
 Typed settings are registered by owner.
