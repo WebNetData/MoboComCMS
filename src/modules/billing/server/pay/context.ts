@@ -11,7 +11,7 @@ import { auditAdminStrict, auditSystemStrict } from '@/platform/audit/server'
 import { PayError } from '@/modules/billing/domain/pay'
 import { paySettings } from './settings'
 
-export type PayActor = { id: number; email: string; req: NextRequest; machine?: boolean; keyId?: number }
+export type PayActor = { id: number; email: string; req: NextRequest; machine?: boolean; keyId?: number; botIntegrationId?: string; botKeyHash?: string }
 export async function payTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -31,13 +31,19 @@ export async function payContext(actor: PayActor, tx: Prisma.TransactionClient, 
     throw new PayError('اجازهٔ انجام این کار را ندارید', 403)
   if (!actor.machine && !(await requireUser(actor.req, tx))) throw new PayError('نشست معتبر نیست', 401)
   if (actor.machine) {
-    const key = await tx.apiKey.findUnique({ where: { id: actor.keyId } })
-    if (
-      !key?.active ||
-      key.userId !== actor.id ||
-      (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true'
-    )
-      throw new PayError('کلید API غیرفعال است', 401)
+    if (actor.botIntegrationId) {
+      const integration = await tx.payBotIntegration.findUnique({ where: { id: actor.botIntegrationId }, include: { terminal: { include: { merchant: true } } } })
+      if (!integration?.active || integration.keyHash !== actor.botKeyHash || integration.terminal.merchant.userId !== actor.id || !integration.terminal.active || integration.terminal.merchant.status !== 'ACTIVE' || (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true')
+        throw new PayError('اتصال ربات غیرفعال یا کلید آن تغییر کرده است', 401)
+    } else {
+      const key = await tx.apiKey.findUnique({ where: { id: actor.keyId } })
+      if (
+        !key?.active ||
+        key.userId !== actor.id ||
+        (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true'
+      )
+        throw new PayError('کلید API غیرفعال است', 401)
+    }
   }
   const settings = await paySettings.read(tx)
   return { user, settings }

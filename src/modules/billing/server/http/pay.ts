@@ -36,6 +36,7 @@ import {
   payContext,
   bankFeedReady,
   paySettings,
+  botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery,
 } from '@/modules/billing/server/pay'
 
 export function payHttpFailure(error: unknown) {
@@ -88,6 +89,8 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       return apiOk(await payPaymentById(actor, parts[1]))
     if (parts.length !== 1) return apiErr('پیدا نشد', 404)
     if (req.method === 'GET') {
+      if (!machine && resource === 'bot-integrations') return apiOk({ items: await botIntegrations(actor) })
+      if (!machine && resource === 'bot-deliveries') return apiOk({ items: await botDeliveries(actor) })
       if (resource === 'overview') return apiOk(await payOverview(actor))
       if (resource === 'terminals') return apiOk({ items: (await payOverview(actor)).terminals })
       if (resource === 'payments' || resource === 'settlements') {
@@ -96,6 +99,8 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       }
     }
     const input = await readJsonObject(req, 12000)
+    if (!machine && req.method === 'POST' && resource === 'bot-integrations') return apiOk(await saveBotIntegration(actor, input))
+    if (!machine && req.method === 'POST' && resource === 'bot-deliveries') return apiOk(await recoverBotDelivery(actor, input))
     if (req.method === 'POST') {
       if (resource === 'merchant' && !machine)
         return apiOk(merchantView(await enrollMerchant(actor, input), 0n, await paySettings.read()), 201)

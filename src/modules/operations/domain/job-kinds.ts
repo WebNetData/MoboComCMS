@@ -1,5 +1,6 @@
 /** One canonical set of queue kinds and labels; enqueueing never imports execution handlers. */
 export const JOB_LABEL: Record<string, string> = {
+  'pay.bot-delivery': 'تأیید سفارش پرداخت‌شده در ربات پذیرنده',
   'sms.broadcast': 'ارسال گروهی پیامک',
   'forms.stage-sms': 'پیامک مرحلهٔ خدمات و درخواست‌ها',
   'support.demand-fulfilled': 'اعلان آماده‌شدن درخواست کالا و محتوا',

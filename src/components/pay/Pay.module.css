@@ -1,4 +1,5 @@
 .page {
+  --pay-accent: var(--primary, var(--sds-color-background-brand-default));
   direction: rtl;
   max-width: 1280px;
   margin: auto;
@@ -6,6 +7,39 @@
   color: var(--sds-color-text-default-default);
   font-variant-numeric: tabular-nums;
 }
+
+.integration { margin-top: 32px; display: grid; gap: 20px; }
+.integrationHead { display: grid; gap: 8px; padding-block: 20px; border-top: 1px solid var(--sds-color-border-default-default); }
+.integrationHead p { margin: 0; max-width: 70ch; }
+.connectGrid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap: 20px; align-items: start; }
+.guideSteps { display: grid; gap: 20px; padding-inline-start: 24px; margin: 0; }
+.guideSteps li { padding-inline-start: 8px; }
+.guideSteps p { margin: 6px 0 0; color: var(--sds-color-text-default-secondary); }
+.check { display: flex; align-items: start; gap: 10px; line-height: 1.9; min-height: 44px; cursor: pointer; }
+.check input { margin-top: 6px; inline-size: 20px; block-size: 20px; accent-color: var(--pay-accent); flex: none; }
+.oneTimeKey { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--pay-accent); border-radius: 12px; background: color-mix(in srgb,var(--pay-accent) 6%,var(--sds-color-background-default-default)); }
+.recoveryBox { display: grid; gap: 16px; padding: 20px; margin-top: 20px; border: 1px solid var(--sds-color-border-warning-default, var(--sds-color-border-default-default)); border-radius: 12px; }
+.recoveryBox h4, .recoveryBox p { margin: 0; }
+.emptyState { padding: 24px 0; color: var(--sds-color-text-default-secondary); text-align: center; }
+.tableSub { display: block; font-size: .75rem; color: var(--sds-color-text-default-secondary); margin-top: 6px; }
+.badge[data-state="UNKNOWN"], .badge[data-state="BLOCKED"] { outline: 1px solid var(--sds-color-border-warning-default, var(--sds-color-border-default-default)); }
+.badge[data-state="SENT"] { background: var(--sds-color-background-positive-tertiary); color: var(--sds-color-text-positive-default); }
+.checkoutProgress { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); list-style: none; padding: 0; gap: 12px; margin: 24px 0; }
+.checkoutProgress li { display: flex; align-items: center; gap: 10px; font-size: .8125rem; color: color-mix(in srgb,var(--sds-color-text-default-default) 80%,var(--sds-color-background-default-default)); padding-block: 12px; border-bottom: 2px solid var(--sds-color-border-default-default); }
+.checkoutProgress li > span { display: grid; place-items: center; inline-size: 28px; block-size: 28px; flex: none; border-radius: 50%; background: var(--sds-color-background-default-secondary); color: var(--sds-color-text-default-default); }
+.checkoutProgress li[aria-current="step"] { color: var(--sds-color-text-default-default); border-color: var(--pay-accent); }
+.checkoutProgress li[data-complete="true"] > span { background: var(--sds-color-background-brand-default); color: var(--sds-color-text-brand-on-brand); }
+.checkout > header { position: relative; padding: 28px 24px; border: 1px solid var(--sds-color-border-default-default); border-radius: 20px; background: radial-gradient(ellipse at top right,color-mix(in srgb,var(--pay-accent) 13%,transparent),transparent 75%),var(--sds-color-background-default-default); }
+.checkout > header h1 { margin-block: 12px; }
+.checkout > header p { margin: 0; }
+.page :is(.button,.secondary) { min-height: 44px; }
+@media (prefers-reduced-motion: no-preference) {
+  .integrationHead, .checkout > header { animation: payEnter 240ms ease-out both; }
+  .page :is(.card,.oneTimeKey) { transition: border-color 160ms ease; }
+  @keyframes payEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+}
+@media (max-width: 760px) { .connectGrid { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 420px) { .checkoutProgress { gap: 8px; } .checkoutProgress li { gap: 6px; font-size: .75rem; } .checkout > header { padding: 24px 20px; } }
 .page h1,
 .page h2,
 .page h3 {
@@ -155,7 +189,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 16px;
   border-radius: 8px;
   font: inherit;

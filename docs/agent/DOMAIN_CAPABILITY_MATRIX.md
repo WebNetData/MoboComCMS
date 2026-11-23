@@ -1,3 +1,9 @@
+Scoped2026-11-24: the optional Pay custom-bot adapter is Functional within local
+Billing/Wallet/Operations/Identity evidence, with scoped setup/checkout/recovery UI.
+Unknown real-bot ACK/replay semantics and live financial/provider rollout remain
+unverified. No whole-site maturity or unrelated audit finding was promoted/resolved.
+[Exact scope and checks](handoffs/MOBOCOM_PAY.md#custom-bot-adapter-and-pay-polish--2026-11-24).
+
 Scoped whole-site prebuild audit2026-11-24 at eafa47f7 reconciles this historical table with current owners/handoffs. Existing major domains are present; no broad ProductionVerified promotion. Three native reproduced gaps, source-only concurrency/continuation risks, current test fixture failures, sampled browser readiness limits and prioritized owner slices are in [the current audit](audits/2026-11-24-whole-site-prebuild.md). Preserve the old snapshot as history, not a current missing-feature list.
 
 Scoped2026-11-12 unified Store desk expands the existing commerce owners; maturity claims are limited to executed local evidence, with live provider/terminal/printer and production limits retained. See [handoff](handoffs/STORE_COUNTER_SALES.md#unified-desk-expansion--2026-11-12).

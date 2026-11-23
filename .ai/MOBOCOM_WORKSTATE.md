@@ -1,3 +1,19 @@
+# Pay custom-bot integration — local slice2026-11-24
+
+Current Pay checkout `.mobocom/pay-bot-integration`, branch
+`feat/pay-bot-integration-2026-11-24`, based on owner-merged PR483/main `deb80549`.
+Historical PR483-open receipt below is superseded by that merge. Supplied Toman bot
+contract now composes canonical Billing/Wallet and existing Jobs with terminal keys,
+encrypted separate callback credential, conservative unknown delivery and explicit
+merchant recovery. Scoped setup/status/progress/guide retains MoboCom Custom.
+New additive migration210; native bot and prior Pay/shared-checkout, populated209
+upgrade, fault strength,40 units, types/static/contracts and29 local themed/mobile
+browser views passed.4241 exact runtime hashes; task preview/DBs/role/keys cleaned,
+original app readiness/session200. No new PR, build, hosted workflow or deployment.
+Live unknown-bot ACK/replay, provider/SMS/bank/worker verification and broader advanced
+Pay features remain separate. Root/autonomous/IDE work and whole-site audit findings
+are preserved. [Canonical implementation/evidence/continuation](../docs/agent/handoffs/MOBOCOM_PAY.md#custom-bot-adapter-and-pay-polish--2026-11-24).
+
 # PR483 published — owner request2026-11-24
 
 [PR483](https://github.com/WebNetData/MoboComCMS/pull/483) is open/non-draft to main

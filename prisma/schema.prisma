@@ -5911,6 +5911,7 @@ model PayMerchant {
 }
 
 model PayTerminal {
+  botIntegration PayBotIntegration?
   id String @id
   merchantId String
   name String
@@ -5923,6 +5924,7 @@ model PayTerminal {
 }
 
 model PayPayment {
+  botDelivery PayBotDelivery?
   id String @id
   merchantId String
   terminalId String
@@ -6035,4 +6037,49 @@ model PaySettlement {
   @@unique([merchantId, idempotencyKey])
   @@index([merchantId, createdAt])
   @@index([status, createdAt])
+}
+
+/// Terminal-local bot create capability; it never grants account API permissions.
+model PayBotIntegration {
+  id String @id
+  terminalId String @unique
+  keyHash String @unique
+  keyPrefix String
+  callbackUrl String
+  callbackTokenCiphertext String
+  ackPolicy String @default("UNCONFIGURED")
+  responseMode String @default("URL")
+  active Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
+  deliveries PayBotDelivery[]
+}
+
+/// Durable external-order delivery evidence, separate from immutable payment/Wallet state.
+model PayBotDelivery {
+  id String @id
+  integrationId String
+  paymentId String @unique
+  configVersion Int
+  callbackUrl String
+  callbackTokenCiphertext String
+  ackPolicy String
+  customerRefHash String
+  orderType String
+  status String @default("WAITING")
+  version Int @default(1)
+  attempts Int @default(0)
+  attemptToken String @default("")
+  lastAttemptAt DateTime?
+  lastCode String @default("")
+  httpStatus Int?
+  confirmedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  integration PayBotIntegration @relation(fields: [integrationId], references: [id], onDelete: Restrict)
+  payment PayPayment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  @@index([integrationId, createdAt])
+  @@index([status, updatedAt])
 }
