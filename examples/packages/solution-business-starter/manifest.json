@@ -1,0 +1,30 @@
+{
+  "id": "solution-business-starter",
+  "name": "بستهٔ راه‌اندازی خدمات",
+  "description": "ویرایشگر، نقش کارشناس فرم و پیش‌نویس معرفی خدمات؛ همراه با پیش‌نمایش و حفظ تنظیمات موجود.",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "runtime": "declarative",
+  "requiresCore": "^1.0.0",
+  "solutionPack": {
+    "apiVersion": 2,
+    "modules": [{ "id": "block-editor", "version": "^1.0.0" }],
+    "theme": { "id": "noir" },
+    "navigation": [{ "label": "خانه", "href": "/" }],
+    "roles": ["form-specialist"],
+    "starterContent": [{
+      "key": "services-intro",
+      "slug": "services-intro",
+      "title": "معرفی خدمات",
+      "document": {
+        "version": 1,
+        "blocks": [{
+          "id": "services-heading",
+          "type": "content.heading",
+          "version": 1,
+          "props": { "text": "خدمات ما", "level": 2 }
+        }]
+      }
+    }]
+  }
+}

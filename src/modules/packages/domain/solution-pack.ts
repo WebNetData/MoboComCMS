@@ -1,4 +1,6 @@
 import { isCompatibilityRange } from '../../../platform/extensions/compatibility'
+import { parseSolutionComposition, type SolutionComposition } from './solution-composition'
+export type { SolutionNavigationItem, SolutionStarterPage } from './solution-composition'
 
 /** Declarative configuration only; the host validates each target against its own catalog. */
 export interface SolutionPackModule {
@@ -6,8 +8,8 @@ export interface SolutionPackModule {
   version?: string
   defaults?: Record<string, string | number | boolean>
 }
-export interface SolutionPack {
-  apiVersion: 1
+export interface SolutionPack extends SolutionComposition {
+  apiVersion: 1 | 2
   modules: SolutionPackModule[]
   recommendations?: string[]
 }
@@ -22,9 +24,10 @@ const onlyKeys = (value: Record<string, unknown>, allowed: readonly string[]) =>
 /** Reject unsupported fields and bound all work before catalog or database reads. */
 export function parseSolutionPack(value: unknown): SolutionPack {
   const fail = (reason: string): never => { throw new Error(`solutionPack: ${reason}`) }
-  if (!record(value) || !onlyKeys(value, ['apiVersion', 'modules', 'recommendations'])) return fail('invalid object or unknown field')
-  if (value.apiVersion !== 1) return fail('apiVersion must be 1')
-  if (!Array.isArray(value.modules) || value.modules.length < 1 || value.modules.length > 30) return fail('modules must contain 1–30 entries')
+  if (!record(value)) return fail('invalid object or unknown field')
+  if (value.apiVersion !== 1 && value.apiVersion !== 2) return fail('apiVersion must be 1 or 2')
+  if (!onlyKeys(value, value.apiVersion === 1 ? ['apiVersion', 'modules', 'recommendations'] : ['apiVersion', 'modules', 'recommendations', 'theme', 'navigation', 'roles', 'starterContent'])) return fail('invalid object or unknown field')
+  if (!Array.isArray(value.modules) || value.modules.length < (value.apiVersion === 1 ? 1 : 0) || value.modules.length > 30) return fail('modules must contain at most 30 entries and version 1 requires at least one')
   const seen = new Set<string>()
   const modules = value.modules.map((entry: unknown): SolutionPackModule => {
     if (!record(entry) || !onlyKeys(entry, ['id', 'version', 'defaults'])) return fail('invalid module or unknown field')
@@ -49,5 +52,5 @@ export function parseSolutionPack(value: unknown): SolutionPack {
     if (!Array.isArray(value.recommendations) || value.recommendations.length > 20 || !value.recommendations.every(validId) || new Set(value.recommendations).size !== value.recommendations.length) return fail('recommendations must contain at most 20 unique package ids')
     recommendations = [...value.recommendations]
   }
-  return { apiVersion: 1, modules, ...(recommendations ? { recommendations } : {}) }
+  return { apiVersion: value.apiVersion, modules, ...(recommendations ? { recommendations } : {}), ...(value.apiVersion === 2 ? parseSolutionComposition(value) : {}) }
 }

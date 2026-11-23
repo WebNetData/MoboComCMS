@@ -744,3 +744,147 @@ executed local checks, known public TOTP scanner fixture, provider/build/rollbac
 limits and retained data. This publication receipt changes documents only; no
 product test rerun is claimed. No hosted workflow dispatch, merge, financial
 configuration, original database migration or deployment. Owner reviews/merges.
+
+## Solution Pack v2 composition — completed2026-11-24
+
+Owner selected roadmap item2 (theme/menu/roles/starter content) after PR482 was
+merged. Authoritative checkout `.mobocom/package-lifecycle`, branch
+`feat/solution-packs-v2-2026-11-23`, based on freshly fetched main
+`78fe059cde2189f5408eebbcaf2be575d28b947c` (owner-merged PR482). This is a new local
+engineering slice; no push/PR/merge/deployment is implied. Root, autonomous
+foundation and IDE configuration were preserved. Read-only owner mapping preceded
+implementation; Graphify refresh hit the existing out-of-corpus CredentialPools
+source, so exact source/Serena supplied the bounded inventory.
+
+### Implemented contract and owners
+
+- `packages/domain/solution-composition.ts` and `solution-pack.ts` strictly parse
+  bounded version2 installed theme,20 menu nodes/four levels,20 canonical role
+  templates and10 canonical document draft templates. At least one composition
+  must be nonempty. Version1 behavior remains unchanged. No arbitrary UserId,
+  permissions, full-access role, HTML payload or local synced-template identity.
+- Existing Packages still owns install/export/revisions and the reviewed artifact
+  fingerprint. `packages/server/solution-composition.ts` coordinates existing
+  owners; `solution-packs.ts` binds owner revisions into the stale-review token
+  and commits module/default writes, all owner history/Audit and receipt together.
+  The additive strict receipt retains owned role/page IDs across rename, upgrade,
+  temporary omission (including a v1 interim version) and deliberate deletion.
+  Collisions are preserved and never adopted; retained mappings have a hard100
+  per-resource bound, never silent trimming. Uninstall/revocation never reverses
+  configuration or deletes the resources.
+- `site/config/provision.ts` uses installed theme registry and the existing
+  navigation/config validator, writer, CAS claim, history and strict Audit. Only
+  an uninitialized site's theme/menu defaults are filled; explicit valid existing
+  settings, including an empty menu, are preserved. Public links to unpublished
+  local pages refuse for relative and absolute same-host URLs. External HTTPS
+  page paths remain external; request host participates in preview revision.
+- `identity/server/role-provision.ts` uses canonical staff templates/ROLE_PRESETS,
+  current roles.manage and the exact shared anti-escalation policy extracted into
+  `role-policy.ts`. It creates missing definitions only; no existing role or User
+  row is updated and no user is assigned. Module-linked templates need actual
+  enabled modules; only validated declared modules may be simulated in preview.
+- `site/server/starter-content.ts` composes canonical Editor prepare/relations,
+  page create/layout/strict first revision/Audit through the same transaction.
+  New pages are DRAFT, showInNav=false, blocks-v1 canonical JSON plus derived HTML.
+  Unsupported blocks, local synced-pattern references and invalid documents refuse.
+  Existing pages, edits, publication decisions and deleted bound pages are retained.
+  Optional transaction support in page/config/settings writers preserves their
+  existing standalone behavior; shared cache invalidation follows outer commit.
+- Existing current Identity guards require settings.manage plus roles.manage and
+  cms.pages for the contributions present, including same-artifact replay. HTTP
+  errors distinguish owner permissions, invalid contribution and stale review.
+  No new auth/permission resolver, registry, schema, migration or provider policy.
+- Admin `SolutionPackPanel.tsx` / `SolutionComposition.tsx` show ordered review,
+  created/preserved/deleted states, keyboard disclosures, explicit confirmation,
+  stale refusal and historical receipt. Links use existing Admin routes/AppLink.
+  Scope remains the existing extension manager under SDS/MoboCom tokens. A real
+  dark-theme contrast failure in the upload button was fixed with the SDS brand
+  background/text pair and scoped specificity; public layouts/styles remain.
+- New `examples/packages/solution-business-starter` is a real distributable v2
+  example. Existing v1 examples and signed Repository acquisition remain. The
+  PACKAGES guide documents host compatibility, permissions, preservation, draft
+  publication and manual rollback. This creates draft pages from portable
+  templates; it does not add EditorPattern library rows or per-module themes.
+
+### Executed acceptance and corrections
+
+Private task runtime `/tmp/mobocom-solution-v2-20261123` used a separately generated
+Prisma5.22 PostgreSQL client and disposable database
+`mobocom_pay_test_solution_v2_20261123`/NOSUPERUSER role. Verified Node22.23.3,
+PostgreSQL17.11,209 applied migrations, UID1000, no.env/.env.local and no database
+superuser. Original `/app` dependency/client tree and site database were untouched.
+
+- Registered `solution-packs-v2.connected.cjs` passed on actual PostgreSQL: all
+  four owners, read-only preview, current permission/privilege refusal, stale role/
+  page/site/source, concurrent replay, complete late strict-Audit rollback,
+  revision/layout rollback, no User assignment, DRAFT document, collision handling,
+  preservation of existing theme/empty menu, same-host/relative draft denial and
+  external links, stable renamed/deleted/omitted/interim-v1 bindings and reinstall.
+  The expanded fixture initially supplied an invalid partial SiteConfig; corrected
+  it to canonical complete defaults rather than weakening production validation.
+- Actual PostgreSQL regressions passed: solution-packs, package-command,
+  extension-state, repository-install, editor-page-documents, editor-module-blocks,
+  configuration-history and page-lifecycle. Legacy state/editor test loaders first
+  failed on relative compatibility/catalog JSON imports; corrected resolver and
+  JSON default interop in those two fixtures, retained all assertions, reran/pass.
+- Deliberately removed the private source's stale-token guard. The v2 PostgreSQL
+  test failed on concurrent role creation as expected. Original bytes were restored
+  exactly and the complete native acceptance passed; no mutated source was shipped.
+-138 units passed/0 failed/0 skipped across packages, editor, site, navigation,
+  account-security, examples and repository. The example ZIP assertion was made
+  version-aware and checks round-trip composition equality for the new v2 example.
+- Full TypeScript passed; source syntax/import check passed3092 TS/TSX files;
+  architecture, security invariants, strict Audit invariants, generated extension
+  registry parity and14 canonical AI document generation/check passed. No full
+  production build or whole release-stack result is claimed.
+- Actual local Playwright/Edge run passed3/failed0/skipped0/retries0 (26.2s):
+  extension manager/public-style isolation, v1 one-time configuration/replay,
+  v2 four-owner review/stale/apply/replay and guest refusal. No hosted workflow.
+- A separate real ZIP chooser/keyboard/confirmation/apply/stale/replay journey
+  captured9 views at1440/390, light/dark. Every accepted view has scoped axe0,
+  no horizontal overflow and no page errors. Settings-only/guest/foreign-Origin
+  refusals and public404 for the created draft were exercised. Screenshots were
+  visually inspected. Initial dark upload contrast failed before the scoped fix;
+  the final accepted run replaced that failure, not a waiver.
+- React Doctor0.9.17 reviewed both affected components:0 errors,1 reviewed inherited
+  SolutionPackPanel complexity warning; new component branches were split and
+  internal links use canonical AppLink. No suppression. Local scoped Semgrep and
+  redacted Gitleaks results are in the final freeze receipt below; the rule is a
+  bounded source check, not a comprehensive security certification.
+
+### Continuation and rollback
+
+Roadmap item2 is implemented locally with the scope above. Next independent work
+is production build/upgrade rehearsal and complete independent commercial
+distribution validation; live Pay/provider onboarding remains a separate owner
+action. No live sale, payment, publisher upload, provider/SMS call, hosted workflow,
+main merge or deployment was performed. No whole-site accessibility or Storybook
+execution is claimed.
+
+Rollback freezes/removes pack commands while retaining canonical resources and
+exporting receipts. Use existing site settings history for manual restoration and
+the existing page/role managers for deliberate changes. Never downgrade to an older
+receipt writer that discards bindings, automatically republish drafts, recreate
+deleted resources or remove customer data. Keep Pay-compatible money schema/code.
+The final source parity and owned-fixture cleanup are recorded below before handoff.
+
+### V2 final freeze and cleanup
+
+-4226 exact source/check/schema/config/example inputs matched the private runtime:
+  0 content mismatches,0 unexpected source files,0 line-ending-only differences.
+  Manifest SHA256
+  `f8d1ad44ab5a181fd4e2d3c3c0ee3354ea2368ed663fe58c1fee476b4ccd7c56`.
+  This identifies tested source; it is not a full production-build claim.
+- Scoped local Semgrep over20 changed/new source targets:0 findings/errors.
+  Redacted Gitleaks over38 named files:0 findings. No suppression/baseline change.
+  The scanner configuration is the existing bounded local source rule.
+- Verified parity,9 browser scopes,3 maintained E2E and restored deliberate-fault
+  receipts before removing the exact-cwd runtime/private Prisma client. Stopped
+  only its preview tree and bridge/tunnel. Dropped only the named disposable
+  database and NOSUPERUSER role; host private sessions/traces/archive and task-created
+  Serena metadata were removed. Original readiness/session rechecked200/200.
+  Nonsecret evidence stays ignored under `var/solution-v2-20261123`.
+- [Machine-readable acceptance](../../specs/commercial-modularity/solution-v2-validation-2026-11-24.json)
+  records environment, executed checks, screenshot hashes, fault restoration,
+  source parity, cleanup and explicit unrun work. Local commit on the branch above
+  is the handoff boundary; no push/PR/merge or deployment was performed.

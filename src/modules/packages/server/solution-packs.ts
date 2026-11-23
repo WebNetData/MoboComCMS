@@ -13,6 +13,8 @@ import { assertStoredPackageCompatibility } from './compatibility'
 import { loadPackageFrom, mustLoad, packageTransaction, savePackage } from './store/persistence'
 import { packageCommandActor, auditPackageCommand, type PackageCommandContext } from './store/authority'
 import type { Prisma } from '@prisma/client'
+import { invalidate } from '@/platform/cache/kv'
+import { compositionAuthority, planComposition, applyComposition } from './solution-composition'
 
 export class SolutionPlanConflict extends PackageError {}
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
@@ -45,10 +47,11 @@ async function orderedTargets(targets: SolutionPackModule[], tx: Prisma.Transact
   return ordered
 }
 
-async function buildPlan(pkg: StoredPackage, tx: Prisma.TransactionClient) {
+async function buildPlan(pkg: StoredPackage, tx: Prisma.TransactionClient, context: PackageCommandContext) {
   assertPackageIdle(pkg)
   const manifest = parseManifest(pkg.manifest, new Set(Object.keys(pkg.files)))
   if (!manifest.solutionPack) throw new PackageError('این بسته، Solution Pack نیست.')
+  await compositionAuthority(manifest.solutionPack, context, tx)
   const fingerprint = artifactFingerprint(pkg)
   // A provisioning receipt is historical, not a demand to restore yesterday's configuration.
   if (pkg.solutionApply?.fingerprint === fingerprint) return {
@@ -70,11 +73,13 @@ async function buildPlan(pkg: StoredPackage, tx: Prisma.TransactionClient) {
   // Hash raw snapshots, never expose their values (which may contain unrelated secrets).
   const keys = ['site.config.v1', ...extensionCatalog.flatMap(item => [`extension.${item.id}.state.v1`, ...(item.stateSetting ? [item.stateSetting] : [])])]
   const snapshot = await tx.setting.findMany({ where: { key: { in: keys } }, select: { key: true, value: true }, orderBy: { key: 'asc' } })
+  const { composition, revisions } = await planComposition(manifest.solutionPack, pkg.solutionApply?.composition, context, tx)
   const plan: SolutionPlan = {
     packageId: manifest.id, name: manifest.name, version: manifest.version,
-    token: hash({ fingerprint, updatedAt: pkg.updatedAt, snapshot, catalog: extensionCatalog, coreVersion }),
+    token: hash({ fingerprint, updatedAt: pkg.updatedAt, snapshot, catalog: extensionCatalog, coreVersion, revisions }),
     applied: pkg.solutionApply?.fingerprint === fingerprint,
     modules, recommendations: manifest.solutionPack.recommendations || [],
+    ...(composition ? { composition } : {}),
     ...(pkg.solutionApply ? { receipt: pkg.solutionApply } : {}),
   }
   return { plan, fingerprint }
@@ -84,19 +89,19 @@ export async function previewSolutionPack(id: string, context: PackageCommandCon
   return packageTransaction(async tx => {
     await packageCommandActor(context, tx)
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
-    return (await buildPlan(pkg, tx)).plan
+    return (await buildPlan(pkg, tx, context)).plan
   })
 }
 
 /** All settings, mirrors, receipt, index invalidation and Audit commit together. */
 export async function applySolutionPack(id: string, token: string, context: PackageCommandContext) {
   if (!/^[0-9a-f]{64}$/.test(token)) throw new PackageError('ابتدا پیش‌نمایش معتبر بسته را دریافت کنید.')
-  return packageTransaction(async tx => {
+  const result = await packageTransaction(async tx => {
     const actor = await packageCommandActor(context, tx)
     if (!actor) throw new PackageError('دسترسی مدیریت لازم است.')
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
-    const { plan, fingerprint } = await buildPlan(pkg, tx)
-    if (plan.applied) return { receipt: pkg.solutionApply!, alreadyApplied: true }
+    const { plan, fingerprint } = await buildPlan(pkg, tx, context)
+    if (plan.applied) return { receipt: pkg.solutionApply!, alreadyApplied: true, siteChanged: false }
     if (plan.token !== token) throw new SolutionPlanConflict('بسته یا تنظیمات تغییر کرده است؛ پیش‌نمایش را دوباره بررسی کنید.')
     const defaultKeys: string[] = []
     for (const target of plan.modules) {
@@ -107,11 +112,15 @@ export async function applySolutionPack(id: string, token: string, context: Pack
         await auditAdminStrict({ req: context.req, actor, action: 'extensions.configure', targetType: 'extension', targetId: target.id, metadata: { packageId: id, beforeEnabled: before.enabled, requestedEnabled: after.enabled, settingKeys: keys } }, tx)
       } })
     }
+    const { receipt: composition, siteChanged } = await applyComposition(pkg.manifest.solutionPack!, pkg.solutionApply?.composition, context, tx)
     await packageCommandActor(context, tx)
-    pkg.solutionApply = { fingerprint, appliedAt: new Date().toISOString(), actorId: actor.id, modules: plan.modules.map(target => target.id), defaultKeys }
+    await compositionAuthority(pkg.manifest.solutionPack!, context, tx)
+    pkg.solutionApply = { fingerprint, appliedAt: new Date().toISOString(), actorId: actor.id, modules: plan.modules.map(target => target.id), defaultKeys, ...(composition ? { composition } : {}) }
     pkg.updatedAt = pkg.solutionApply.appliedAt
     await savePackage(tx, pkg)
-    await auditPackageCommand(tx, context, actor, 'solution.apply', id, { fingerprint, modules: pkg.solutionApply.modules, defaultKeys })
-    return { receipt: pkg.solutionApply, alreadyApplied: false }
+    await auditPackageCommand(tx, context, actor, 'solution.apply', id, { fingerprint, modules: pkg.solutionApply.modules, defaultKeys, ...(composition ? { composition } : {}) })
+    return { receipt: pkg.solutionApply, alreadyApplied: false, siteChanged }
   })
+  if (result.siteChanged) await invalidate('settings:').catch(() => {})
+  return { receipt: result.receipt, alreadyApplied: result.alreadyApplied }
 }

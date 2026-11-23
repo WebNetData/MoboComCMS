@@ -2,25 +2,11 @@ import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { ALL_PERMISSIONS, FULL_ACCESS, ROLE_PRESETS, isFullAccess, parsePermissions } from '@/modules/identity/rbac'
-import { actorHasFullAccess } from '@/modules/identity/server/staff-guard'
-import type { AuthedUser } from '@/modules/identity/server/access'
+import { ALL_PERMISSIONS, FULL_ACCESS, ROLE_PRESETS } from '@/modules/identity/rbac'
+import { roleRefusal } from '@/modules/identity/server/role-policy'
 import { auditAdmin } from '@/platform/audit/server'
 import { staffTemplate } from '@/modules/identity/domain/staff-roles'
 import { randomBytes } from 'node:crypto'
-
-/**
- * A role is shaped only up to what its maker holds: someone with "roles" but not full access can neither make
- * a full-access role nor put into a role a permission they do not have, nor edit the role they hold themselves.
- * Otherwise "roles" alone would be full access by one edit.
- */
-function roleRefusal(actor: AuthedUser, permissions: string, roleId?: number): string | null {
-  if (actorHasFullAccess(actor)) return null
-  if (roleId && roleId === actor.roleId) return 'نمی‌توانید نقش خودتان را تغییر دهید'
-  if (isFullAccess(permissions)) return 'نقش با دسترسی کامل را فقط مدیر کل می‌سازد یا تغییر می‌دهد'
-  const beyond = parsePermissions(permissions).find((permission) => !actor.permissions?.includes(permission))
-  return beyond ? `دسترسی «${beyond}» را خودتان ندارید و نمی‌توانید به نقشی بدهید` : null
-}
 
 /** A role's slug: latin, lower case. Code looks these two up by name, so they keep theirs. */
 const ROLE_SLUG = /^[a-z][a-z0-9-]{1,39}$/

@@ -6,10 +6,17 @@ import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
 import { PackageError } from '@/modules/packages/domain/format'
 import { PackageAuthorityError } from '@/modules/packages/server/store'
 import { applySolutionPack, previewSolutionPack, SolutionPlanConflict } from '@/modules/packages/server/solution-packs'
+import { SolutionRoleError } from '@/modules/identity/server/role-provision'
+import { EditorError } from '@/modules/editor/server/errors'
+import { SiteDefaultsError } from '@/modules/site/config/provision'
+import { JsonSettingMutationError } from '@/modules/settings/server'
 
 type Context = { params: Promise<{ id: string }> }
 function failure(error: unknown) {
-  if (error instanceof PackageAuthorityError) return err('forbidden', 403)
+  if (error instanceof PackageAuthorityError) return err(error.message, 403)
+  if (error instanceof SolutionRoleError || error instanceof EditorError) return err(error.message, error.status)
+  if (error instanceof SiteDefaultsError) return err(error.message, 400)
+  if (error instanceof JsonSettingMutationError) return err(error.message === 'forbidden' ? 'forbidden' : 'تنظیمات سایت تغییر کرده است؛ پیش‌نمایش را دوباره بررسی کنید.', error.message === 'forbidden' ? 403 : 409)
   if (error instanceof SolutionPlanConflict) return err(error.message, 409)
   if (error instanceof JsonBodyError) return err(error.message, error.status)
   if (error instanceof PackageError) return err(error.message, 400)

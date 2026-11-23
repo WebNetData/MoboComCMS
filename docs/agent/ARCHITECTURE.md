@@ -628,6 +628,21 @@ does not reverse customer configuration. Roles/theme/navigation/starter content
 in the target above remain later explicit owner composition, not v1 behavior.
 [Contracts, local evidence and rollback](handoffs/COMMERCIAL_MODULARITY.md#solution-packs-and-signed-commercial-distribution--2026-11-23).
 
+Implemented v2 composition (2026-11-24, owner selection2026-11-23) extends the same
+package contribution and receipt. SiteConfig owns installed theme and safe menu
+defaults for an uninitialized configuration; explicit existing values are preserved.
+Identity owns canonical non-full-access role templates and anti-escalation; Site/
+Editor owns portable canonical document templates creating unpublished draft pages.
+No User assignment, publication or separate template registry is implied. Preview
+includes each owner's revision and current domain permission; application composes
+transaction-capable owner writers, strict revisions/Audit and receipt in one
+serializable commit. Stable package-created role/page bindings survive rename,
+temporary omission and deletion; collisions remain unowned and untouched. Canonical
+resources outlive uninstall/revocation. Version1 contracts and historical receipts
+remain readable. Per-module theme assignments and live commercial rollout retain
+their separate future boundaries.
+[V2 evidence and rollback](handoffs/COMMERCIAL_MODULARITY.md#solution-pack-v2-composition--completed2026-11-24).
+
 
 ## 14. Settings architecture
 

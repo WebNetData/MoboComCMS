@@ -1,4 +1,6 @@
 import { getModuleStates } from '@/extensions/server/modules'
+import { getPublicExtensionRuntime, type StateReader } from '@/extensions/server/state'
+import { extensionCatalog } from '@/extensions/generated/catalog'
 import { createRegistry } from '@/modules/editor/domain/core-blocks'
 import type { MoboComBlock } from '@/modules/editor/domain/document'
 import type { BlockDefinition, BlockRegistry } from '@/modules/editor/domain/registry'
@@ -20,7 +22,10 @@ export function registerModuleBlocks(definitions: readonly BlockDefinition[], su
 export const moduleBlockRenderer = (type: string) => renderers.get(type)
 /** Compatibility address for code inspecting installed definitions. Request paths use activeEditorRegistry. */
 export function editorRegistry(): BlockRegistry { return createRegistry([...MODULE_BLOCKS, ...extra]) }
-export async function activeEditorRegistry(): Promise<BlockRegistry> {
-  const states = await getModuleStates()
+export async function activeEditorRegistry(reader?: StateReader, plannedModules?: ReadonlySet<string>): Promise<BlockRegistry> {
+  const runtime = reader ? await getPublicExtensionRuntime(reader) : null
+  const states = runtime
+    ? Object.fromEntries(extensionCatalog.filter(item => item.kind === 'module').map(item => [item.id, runtime[item.id]?.enabled === true || plannedModules?.has(item.id) === true]))
+    : await getModuleStates()
   return createRegistry([...MODULE_BLOCKS, ...extra].filter(definition => !definition.owner || states[definition.owner] === true), Object.keys(states).filter(id => states[id] === false))
 }
