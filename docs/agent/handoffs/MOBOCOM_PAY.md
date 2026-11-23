@@ -1,5 +1,9 @@
 # MoboComPay — merchant collection and reviewed settlements
 
+## Pull request preparation — owner request 2026-11-23
+
+The owner explicitly requested publication of the complete feature as a pull request and retains merge/deploy ownership. The authoritative branch is `feat/mobocom-pay-2026-11-23`; feature tip before this documentation receipt is `db6dcbaa`. Fresh `git fetch origin main` found no missing upstream commits (0 behind / 4 feature commits); the feature tree was clean and aggregate `git diff --check origin/main...HEAD` passed. Publication includes the original merchant/wallet/settlement slice, navigation and verified shared-gateway checkout, with both additive migrations under unreleased. Existing local PostgreSQL/browser/static/contract evidence is recorded below; tests were not rerun for this publication-only step. The PR targets `main`; live-provider configuration, extra crypto networks and production validation remain pending. No hosted workflow, merge or deployment is requested by this step. GitHub is the authoritative record of the resulting PR URL/state.
+
 ## Shared gateways and verified-payer checkout — owner continuation 2026-11-23
 
 Authoritative checkout remains `.mobocom/mobocom-pay`, branch `feat/mobocom-pay-2026-11-23`, continued from `e317a80e`. The owner requested reuse of active MoboCom gateways, phone OTP before payment, card instructions/receipt upload with existing approval paths, and delivery through the merchant's own Telegram bot. Clarifications: fee bearer is selectable per merchant; the requested cap applies to the entire fixed-plus-percentage fee, not to payment size. This section supersedes the original bank-feed-only checkout below. Local implementation only; no deployment or live SMS/bank/Telegram certification.
