@@ -1,3 +1,5 @@
+MoboComPay2026-11-23: local merchant collection/reviewed IRR/TRX/USDT-TRON settlement implementation in `.mobocom/mobocom-pay` / `feat/mobocom-pay-2026-11-23`, base origin/main bcdfbdc7. Billing/Wallet/Public API/Identity/Settings/Audit/Notifications reused; opt-in default-off; bank-attested attribution required, selected bank adapter and additional networks pending. Native PG208/populated upgrade/180 scoped tests/types/contracts/actual themed/mobile browser evidence recorded in docs/agent/handoffs/MOBOCOM_PAY.md; final source hashes and cleaned disposable fixtures are recorded there; code is prepared on the named local feature branch. No live service/provider/production/PR/merge/deploy claim. Preserve root and autonomous-foundation work.
+
 # Release1.7.21 local build — owner2026-11-15
 
 Current acceptance supersedes the historical resource checkpoint below: owner

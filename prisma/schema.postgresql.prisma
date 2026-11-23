@@ -103,6 +103,9 @@ model User {
   invoices       Invoice[]
   payments       Payment[]
   walletTxs      WalletTx[]
+  payMerchant PayMerchant?
+  payApprovals PaySettlement[] @relation("PayApprover")
+  payCompletions PaySettlement[] @relation("PayCompleter")
   walletAccounts WalletAccount[]
   apiKeys        ApiKey[]
   reseller       Reseller?
@@ -1340,6 +1343,14 @@ model Payment {
 }
 
 model WalletTx {
+  reversalOfId Int? @unique
+  reversalOf WalletTx? @relation("WalletReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy WalletTx? @relation("WalletReversal")
+  withdrawableDeltaMinor BigInt @default(0)
+  withdrawableAfterMinor BigInt @default(0)
+  payPayment PayPayment?
+  payReserve PaySettlement? @relation("PayReserve")
+  payRelease PaySettlement? @relation("PayRelease")
   id           Int      @id @default(autoincrement())
   userId       Int
   amount       Float // legacy display mirror; + credit / - debit
@@ -1387,6 +1398,7 @@ model Expense {
 
 // ============ FINANCIAL / DELIVERY INFRASTRUCTURE ============
 model WalletAccount {
+  withdrawableMinor BigInt @default(0)
   id           Int      @id @default(autoincrement())
   userId       Int
   currency     String
@@ -2661,6 +2673,8 @@ model MediaLinkSubtitle {
 }
 /// Bank accounts shown to customers for card-to-card and bank transfers.
 model BankAccount {
+  payPayments PayPayment[]
+  payEvents PayBankEvent[]
   id            Int              @id @default(autoincrement())
   bankName      String
   holderName    String
@@ -5873,4 +5887,133 @@ model DownloadLinkHealth {
   updatedAt DateTime @default(now()) @updatedAt
   @@unique([trackId, quality])
   @@index([nextCheckAt, leaseUntil])
+}
+
+model PayMerchant {
+  id        String   @id
+  userId    Int      @unique
+  name      String
+  website   String
+  status    String   @default("PENDING")
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  terminals PayTerminal[]
+  payments PayPayment[]
+  quotes PaySettlementQuote[]
+  settlements PaySettlement[]
+}
+
+model PayTerminal {
+  id String @id
+  merchantId String
+  name String
+  returnUrl String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  payments PayPayment[]
+  @@index([merchantId, active])
+}
+
+model PayPayment {
+  id String @id
+  merchantId String
+  terminalId String
+  bankAccountId Int
+  externalId String
+  idempotencyKey String
+  fingerprint String
+  amountMinor BigInt
+  feeMinor BigInt
+  netMinor BigInt
+  status String @default("PENDING")
+  transferReference String @default("")
+  walletTxId Int? @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  paidAt DateTime?
+  merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  walletTx WalletTx? @relation(fields: [walletTxId], references: [id], onDelete: Restrict)
+  bankEvent PayBankEvent? @relation("PayMatch")
+  bankAttestations PayBankEvent[] @relation("PayAttestation")
+  @@unique([merchantId, idempotencyKey])
+  @@unique([terminalId, externalId])
+  @@index([merchantId, createdAt])
+  @@index([bankAccountId, transferReference, status])
+}
+
+model PayBankEvent {
+  id String @id
+  providerId String
+  externalId String
+  bankAccountId Int
+  amountMinor BigInt
+  transferReference String
+  occurredAt DateTime
+  payloadHash String
+  status String @default("UNMATCHED")
+  paymentId String? @unique
+  targetPaymentId String?
+  createdAt DateTime @default(now())
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  payment PayPayment? @relation("PayMatch", fields: [paymentId], references: [id], onDelete: Restrict)
+  targetPayment PayPayment? @relation("PayAttestation", fields: [targetPaymentId], references: [id], onDelete: Restrict)
+  @@unique([providerId, externalId])
+  @@unique([bankAccountId, transferReference])
+  @@index([status, createdAt])
+}
+
+model PaySettlementQuote {
+  id String @id
+  merchantId String
+  railId String
+  asset String
+  network String
+  decimals Int
+  amountMinor BigInt
+  feeMinor BigInt
+  payoutAtoms BigInt
+  rialPerUnit String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  settlement PaySettlement?
+  @@index([merchantId, createdAt])
+}
+
+model PaySettlement {
+  id String @id
+  merchantId String
+  quoteId String @unique
+  idempotencyKey String
+  fingerprint String
+  amountMinor BigInt
+  feeMinor BigInt
+  payoutAtoms BigInt
+  asset String
+  network String
+  decimals Int
+  destination String
+  status String @default("REQUESTED")
+  reference String @default("")
+  reason String @default("")
+  reserveWalletTxId Int @unique
+  releaseWalletTxId Int? @unique
+  approvedById Int?
+  completedById Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  quote PaySettlementQuote @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  reserveWalletTx WalletTx @relation("PayReserve", fields: [reserveWalletTxId], references: [id], onDelete: Restrict)
+  releaseWalletTx WalletTx? @relation("PayRelease", fields: [releaseWalletTxId], references: [id], onDelete: Restrict)
+  approvedBy User? @relation("PayApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  completedBy User? @relation("PayCompleter", fields: [completedById], references: [id], onDelete: Restrict)
+  @@unique([merchantId, idempotencyKey])
+  @@index([merchantId, createdAt])
+  @@index([status, createdAt])
 }

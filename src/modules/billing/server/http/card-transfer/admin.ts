@@ -40,7 +40,9 @@ export async function DELETE_account(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get('id'))
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid id')
   // Accounts with receipts are kept for the accounting trail and only deactivated.
-  const used = await db.paymentReceipt.count({ where: { bankAccountId: id } })
+  const used = (await db.paymentReceipt.count({ where: { bankAccountId: id } })) +
+    (await db.payPayment.count({ where: { bankAccountId: id } })) +
+    (await db.payBankEvent.count({ where: { bankAccountId: id } }))
   if (used) await db.bankAccount.update({ where: { id }, data: { active: false } })
   else await db.bankAccount.delete({ where: { id } }).catch(() => null)
   await auditAdmin({ req, actor: admin, action: used ? 'bank_account.deactivate' : 'bank_account.delete', targetType: 'BankAccount', targetId: id })

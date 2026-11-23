@@ -32,10 +32,14 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse, nonce: s
   const path = req.nextUrl.pathname
   response.headers.set('x-content-type-options', 'nosniff')
   // The reset link carries its token in the URL; never leak it to other sites.
-  response.headers.set('referrer-policy', path === '/reset-password' ? 'no-referrer' : 'strict-origin-when-cross-origin')
+  response.headers.set('referrer-policy', path === '/reset-password' || path.startsWith('/pay/') ? 'no-referrer' : 'strict-origin-when-cross-origin')
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(self)')
   // Private areas stay out of search results even when a link to them is found elsewhere.
   if (/^\/(admin|dashboard)(\/|$)/.test(path)) response.headers.set('x-robots-tag', 'noindex, nofollow')
+  if (path.startsWith('/pay/')) {
+    response.headers.set('x-robots-tag', 'noindex, nofollow')
+    response.headers.set('cache-control', 'private, no-store')
+  }
   // The Telegram mini app must stay embeddable in the Telegram webview.
   if (!path.startsWith('/miniapp')) response.headers.set('x-frame-options', 'SAMEORIGIN')
   response.headers.set('content-security-policy', contentSecurityPolicy({ path, nonce, production: process.env.NODE_ENV === 'production' }))

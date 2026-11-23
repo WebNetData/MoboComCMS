@@ -28,7 +28,21 @@ export const listBankAccounts = (activeOnly = false) =>
 export async function saveBankAccount(input: Record<string, unknown>) {
   const data = normalizeBankAccount(input)
   const id = Number(input.id)
-  if (Number.isSafeInteger(id) && id > 0) return db.bankAccount.update({ where: { id }, data })
+  if (Number.isSafeInteger(id) && id > 0) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await db.$transaction(async tx => {
+          const previous = await tx.bankAccount.findUnique({ where: { id } })
+          if (!previous) throw new TransferError('حساب بانکی پیدا نشد', 404)
+          if ((previous.cardNumber !== data.cardNumber || previous.sheba !== data.sheba || previous.accountNumber !== data.accountNumber) &&
+            (await tx.payPayment.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
+          return tx.bankAccount.update({ where: { id }, data })
+        }, { isolationLevel: 'Serializable' })
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'P2034' || attempt >= 2) throw error
+      }
+    }
+  }
   return db.bankAccount.create({ data })
 }
 

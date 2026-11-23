@@ -1,0 +1,223 @@
+openapi: 3.0.3
+info:
+  title: MoboComPay merchant API
+  version: 1.0.0
+  contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
+  description: >-
+    An active merchant and terminal are provisioned through the account interface before using this API.
+    Before fulfilling an order, retrieve its payment by ID and confirm status PAID. A customer reference
+    alone is not confirmation. No outbound payment callbacks or production bank adapter are provided.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - { name: Merchant, description: Merchant account and terminals. }
+  - { name: Payments, description: Payment creation and verification. }
+  - { name: Settlements, description: Settlement quotes and requests. }
+  - { name: Bank bridge, description: Signed bank event ingestion. }
+paths:
+  /api/v1/pay/overview:
+    get:
+      operationId: payOverview
+      tags: [Merchant]
+      description: Retrieve the current merchant's account, activity and readiness.
+      responses:
+        '200': { description: Merchant overview, content: { application/json: { schema: { $ref: '#/components/schemas/OverviewResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/pay/terminals:
+    get:
+      operationId: listPayTerminals
+      tags: [Merchant]
+      description: List the current merchant's terminals.
+      responses:
+        '200': { description: Terminals, content: { application/json: { schema: { $ref: '#/components/schemas/TerminalListResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createPayTerminal
+      tags: [Merchant]
+      description: Create a terminal for the active merchant.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TerminalCreate' } } } }
+      responses:
+        '201': { description: Terminal created, content: { application/json: { schema: { $ref: '#/components/schemas/TerminalResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: changePayTerminal
+      tags: [Merchant]
+      description: Enable or disable an existing merchant terminal.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TerminalChange' } } } }
+      responses:
+        '200': { description: Terminal updated, content: { application/json: { schema: { $ref: '#/components/schemas/TerminalResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/pay/payments:
+    get:
+      operationId: listPayPayments
+      tags: [Payments]
+      description: List or export the current merchant's payments.
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Query' }
+        - { name: status, in: query, schema: { type: string, enum: [PENDING, PAID, EXPIRED] } }
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200': { description: Paginated payments or CSV export, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentListResponse' } }, text/csv: { schema: { type: string } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createPayPayment
+      tags: [Payments]
+      description: Create a payment or replay a matching request using its idempotency key.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentCreate' } } } }
+      responses:
+        '201': { description: Created or replayed payment, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/pay/payments/{id}:
+    get:
+      operationId: getPayPayment
+      tags: [Payments]
+      description: Retrieve this merchant's payment and verify PAID before fulfillment.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Payment, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/pay/quotes:
+    post:
+      operationId: createPayQuote
+      tags: [Settlements]
+      description: Quote an enabled settlement rail using available withdrawable proceeds.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/QuoteCreate' } } } }
+      responses:
+        '201': { description: Short-lived settlement quote, content: { application/json: { schema: { $ref: '#/components/schemas/QuoteResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/pay/settlements:
+    get:
+      operationId: listPaySettlements
+      tags: [Settlements]
+      description: List or export the current merchant's settlement requests.
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Query' }
+        - { name: status, in: query, schema: { type: string, enum: [REQUESTED, APPROVED, PAID, REJECTED] } }
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200': { description: Paginated settlements or CSV export, content: { application/json: { schema: { $ref: '#/components/schemas/SettlementListResponse' } }, text/csv: { schema: { type: string } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: requestPaySettlement
+      tags: [Settlements]
+      description: Reserve proceeds for a quoted settlement or replay a matching request.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SettlementCreate' } } } }
+      responses:
+        '201': { description: Settlement requested or replayed, content: { application/json: { schema: { $ref: '#/components/schemas/SettlementResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/payment/mobocom-pay/bank-events:
+    post:
+      operationId: acceptPayBankEvent
+      tags: [Bank bridge]
+      security: []
+      description: >-
+        Signed bank bridge, not the merchant API. Sign the exact raw JSON bytes with HMAC-SHA256 over
+        timestamp + '.' + body. The timestamp is Unix seconds within 300 seconds; the lowercase hex
+        signature uses the configured secret. Maximum body size is 8000 bytes. targetPaymentId must
+        be bank-attested for automatic credit; an unbound event is stored unmatched and cannot credit.
+        A provider adapter must derive attribution from authoritative bank data; none is provided yet.
+      parameters:
+        - { name: x-pay-timestamp, in: header, required: true, schema: { type: string, pattern: '^\d{10}$' } }
+        - { name: x-pay-signature, in: header, required: true, schema: { type: string, pattern: '^[a-f0-9]{64}$' } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BankEvent' } } } }
+      responses:
+        '200': { description: Accepted or replayed event, content: { application/json: { schema: { $ref: '#/components/schemas/BankEventResponse' } } } }
+        default: { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, description: Reuse the same key and payload for retries; a different payload conflicts., schema: { type: string, minLength: 16, maxLength: 100, pattern: '^[A-Za-z0-9_-]+$' } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 100000 } }
+    Query: { name: q, in: query, schema: { type: string, maxLength: 100 } }
+    Format: { name: format, in: query, description: csv exports at most 1000 entries., schema: { type: string, enum: [csv] } }
+  responses:
+    Error:
+      description: Invalid request, authentication or access denied, conflict, rate limit, or unavailable service (400, 401, 403, 404, 405, 409, 413, 422, 429, 503).
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Error:
+      type: object
+      required: [ok, error]
+      properties: { ok: { type: boolean, enum: [false] }, error: { type: string }, code: { type: string } }
+    Rial: { type: string, description: Exact integer amount in IRR., pattern: '^\d{1,19}$' }
+    TerminalCreate:
+      type: object
+      required: [name, returnUrl]
+      properties: { name: { type: string, maxLength: 100 }, returnUrl: { type: string, format: uri, description: HTTPS URL on the registered merchant origin. } }
+    TerminalChange:
+      type: object
+      required: [id, active]
+      properties: { id: { type: string }, active: { type: boolean } }
+    Terminal:
+      allOf:
+        - { $ref: '#/components/schemas/TerminalCreate' }
+        - { type: object, required: [id, active, createdAt], properties: { id: { type: string }, active: { type: boolean }, createdAt: { type: string, format: date-time } } }
+    PaymentCreate:
+      type: object
+      required: [terminalId, externalId, amountRial]
+      properties: { terminalId: { type: string }, externalId: { type: string, maxLength: 100 }, amountRial: { $ref: '#/components/schemas/Rial' } }
+    Payment:
+      type: object
+      required: [id, externalId, terminalId, terminalName, amountRial, feeRial, netRial, status, transferReference, createdAt, paidAt, expiresAt, checkoutUrl]
+      properties:
+        id: { type: string }
+        externalId: { type: string }
+        terminalId: { type: string }
+        terminalName: { type: string }
+        amountRial: { $ref: '#/components/schemas/Rial' }
+        feeRial: { $ref: '#/components/schemas/Rial' }
+        netRial: { $ref: '#/components/schemas/Rial' }
+        status: { type: string, enum: [PENDING, PAID, EXPIRED] }
+        transferReference: { type: string }
+        createdAt: { type: string, format: date-time }
+        paidAt: { type: string, format: date-time, nullable: true }
+        expiresAt: { type: string, format: date-time }
+        checkoutUrl: { type: string }
+    QuoteCreate:
+      type: object
+      required: [railId, amountRial]
+      properties: { railId: { type: string, enum: [IRR_BANK, TRX_TRON, USDT_TRON] }, amountRial: { $ref: '#/components/schemas/Rial' } }
+    Quote:
+      allOf:
+        - { $ref: '#/components/schemas/QuoteCreate' }
+        - { type: object, required: [id, feeRial, payoutAmount, asset, network, rateRialPerUnit, expiresAt], properties: { id: { type: string }, feeRial: { $ref: '#/components/schemas/Rial' }, payoutAmount: { type: string }, asset: { type: string }, network: { type: string }, rateRialPerUnit: { type: string }, expiresAt: { type: string, format: date-time } } }
+    SettlementCreate:
+      type: object
+      required: [quoteId, destination]
+      properties: { quoteId: { type: string }, destination: { type: string, description: Valid Iranian sheba for IRR or TRON address for TRON rails. } }
+    Settlement:
+      type: object
+      required: [id, amountRial, feeRial, payoutAmount, asset, network, destination, status, reference, reason, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        amountRial: { $ref: '#/components/schemas/Rial' }
+        feeRial: { $ref: '#/components/schemas/Rial' }
+        payoutAmount: { type: string }
+        asset: { type: string }
+        network: { type: string }
+        destination: { type: string }
+        status: { type: string, enum: [REQUESTED, APPROVED, PAID, REJECTED] }
+        reference: { type: string }
+        reason: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BankEvent:
+      type: object
+      required: [providerId, externalId, transferReference, amountRial, bankAccountId, occurredAt]
+      properties: { providerId: { type: string }, externalId: { type: string }, transferReference: { type: string }, amountRial: { $ref: '#/components/schemas/Rial' }, bankAccountId: { type: integer }, occurredAt: { type: string, format: date-time }, targetPaymentId: { type: string, nullable: true, description: Required for automatic credit and derived from authoritative bank attribution. } }
+    TerminalResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Terminal' } } }
+    PaymentResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Payment' } } }
+    QuoteResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Quote' } } }
+    SettlementResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Settlement' } } }
+    TerminalListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Terminal' } } } } } }
+    PaymentListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items, page, pages, total], properties: { items: { type: array, items: { $ref: '#/components/schemas/Payment' } }, page: { type: integer }, pages: { type: integer }, total: { type: integer } } } } }
+    SettlementListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items, page, pages, total], properties: { items: { type: array, items: { $ref: '#/components/schemas/Settlement' } }, page: { type: integer }, pages: { type: integer }, total: { type: integer } } } } }
+    OverviewResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [merchant, terminals, rails, payments, settlements, stats, readiness], properties: { merchant: { type: object, nullable: true }, terminals: { type: array, items: { $ref: '#/components/schemas/Terminal' } }, rails: { type: array, items: { type: object } }, payments: { type: array, items: { $ref: '#/components/schemas/Payment' } }, settlements: { type: array, items: { $ref: '#/components/schemas/Settlement' } }, stats: { type: object }, readiness: { type: object } } } } }
+    BankEventResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [id, status, paymentId], properties: { id: { type: string }, status: { type: string, enum: [UNMATCHED, MATCHED] }, paymentId: { type: string, nullable: true } } } } }

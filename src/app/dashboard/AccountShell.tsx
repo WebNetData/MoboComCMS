@@ -24,6 +24,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
   const { t, locale } = useI18n()
   // Without the VPN module the account area is about orders, wallet and VIP.
   const formsOn = useModuleEnabled('forms')
+  const mobocomPayOn = useModuleEnabled('mobocom-pay')
   const vpnOn = useModuleEnabled('vpn')
   const hostingOn = useModuleEnabled('hosting')
   const storeOn = useModuleEnabled('store')
@@ -110,6 +111,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
       { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },
       { href: '/dashboard/invoices', label: t.myInvoices, icon: 'receipt' },
       { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
+      ...(mobocomPayOn ? [{ href: '/dashboard/pay', label: L('موبوکام‌پی', 'MoboComPay'), icon: 'wallet' }] : []),
       { href: '/dashboard/content-requests', label: L('درخواست کالا و محتوا', 'Product & content requests'), icon: 'search' },
       ...(formsOn ? [{ href: '/dashboard/requests', label: L('درخواست‌های من', 'My requests'), icon: 'receipt' }] : []),
       ...(paywallOn ? [{ href: '/dashboard/purchases', label: L('فایل‌ها و مقاله‌های خریده', 'Bought files & articles'), icon: 'lock' }] : []),

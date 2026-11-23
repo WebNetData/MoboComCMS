@@ -295,27 +295,21 @@ export async function recoverVoidInvoiceCredit(limit = 20, now = new Date()) {
 }
 
 export async function releaseInvoiceCredit(invoiceId: number, description?: string) {
-  const invoice = await db.invoice.findUnique({ where: { id: invoiceId } })
-  if (!invoice) return { ok: false as const, message: 'invoice not found', released: 0 }
-  const currency = normalizeCurrency(invoice.currency)
-  const creditMinor = invoice.walletAppliedMinor || toMinor(invoice.walletApplied || 0, currency)
-  if (creditMinor <= 0n) return { ok: true as const, released: 0 }
-  if (invoice.userId === null) return { ok: false as const, message: 'wallet credit requires an account', released: 0 }
-  if (invoice.status === 'PAID') return { ok: false as const, message: 'a paid invoice keeps its credit', released: 0 }
-
-  const move = await moveWallet({
-    userId: invoice.userId,
-    amount: legacyNumber(creditMinor, currency),
-    currency,
-    type: 'REFUND',
-    description: description || `credit released for ${invoice.number}`,
-    orderId: invoice.orderId,
-    invoiceId: invoice.id,
-    idempotencyKey: `invoice-credit-release:${invoice.id}`,
+  return db.$transaction(async tx => {
+    const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } })
+    if (!invoice) return { ok: false as const, message: 'invoice not found', released: 0 }
+    const currency = normalizeCurrency(invoice.currency)
+    const creditMinor = invoice.walletAppliedMinor || toMinor(invoice.walletApplied || 0, currency)
+    if (creditMinor <= 0n) return { ok: true as const, released: 0 }
+    if (invoice.userId === null) return { ok: false as const, message: 'wallet credit requires an account', released: 0 }
+    if (invoice.status === 'PAID') return { ok: false as const, message: 'a paid invoice keeps its credit', released: 0 }
+    const claimed = await tx.invoice.updateMany({ where: { id: invoice.id, status: invoice.status, walletAppliedMinor: invoice.walletAppliedMinor }, data: { walletApplied: 0, walletAppliedMinor: 0n, ...(invoice.status === 'UNPAID' || invoice.status === 'DRAFT' ? { status: 'VOID', paymentUrl: '' } : {}) } })
+    if (claimed.count !== 1) return { ok: false as const, message: 'invoice credit changed', released: 0 }
+    const original = await tx.walletTx.findFirst({ where: { invoiceId: invoice.id, userId: invoice.userId, currency, type: 'PURCHASE', status: 'DONE', amountMinor: -creditMinor }, orderBy: { id: 'asc' } })
+    const move = await moveWallet({ userId: invoice.userId, amount: creditMinor.toString(), currency, type: 'REFUND', description: description || 'credit released for ' + invoice.number, orderId: invoice.orderId, invoiceId: invoice.id, idempotencyKey: 'invoice-credit-release:' + invoice.id, reversalOfId: original?.id }, tx)
+    if (!move.ok) throw new Error(move.message || 'wallet credit release failed')
+    return { ok: true as const, released: minorToNumber(creditMinor, currency), balance: move.balance, currency }
   })
-  if (!move.ok) return { ok: false as const, message: move.message, released: 0 }
-  await db.invoice.update({ where: { id: invoice.id }, data: { walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
-  return { ok: true as const, released: minorToNumber(creditMinor, currency), balance: move.balance, currency }
 }
 
 export async function recordProviderEvent(input: {

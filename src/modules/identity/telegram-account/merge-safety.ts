@@ -36,6 +36,8 @@ type ReferenceReader = { findFirst(args: { where: { OR: Record<string, number>[]
 
 /** Refuse unsupported ownership rather than letting Cascade/SetNull or scalar orphans lose data. */
 export async function telegramMergeIsSafe(tx: Prisma.TransactionClient, source: Prisma.UserGetPayload<{}>, targetId: number) {
+  // Merchant proceeds cannot be moved by the legacy placeholder-account merge.
+  if (await tx.walletAccount.findFirst({ where: { userId: source.id, withdrawableMinor: { gt: 0n } } })) return false
   if (/^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '')) {
     await tx.$queryRaw`SELECT "userId" FROM "UserProfile" WHERE "userId" IN (${source.id}, ${targetId}) ORDER BY "userId" FOR UPDATE`
   }

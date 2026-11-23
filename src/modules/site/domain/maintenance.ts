@@ -9,6 +9,7 @@ import { isSiteGroupKey } from '@/modules/account/domain/site-groups'
 
 /** The sections that have public pages of their own, and the plugin that owns those pages. */
 export const MAINTENANCE_SECTIONS = [
+  { id: 'mobocom-pay', plugin: 'mobocom-pay', label: 'موبوکام‌پی', extra: ['/dashboard/pay'] },
   { id: 'vpn', plugin: 'vpn', label: 'VPN', extra: ['/dashboard/subscriptions', '/miniapp/subscriptions', '/miniapp/plans', '/miniapp/trial'] },
   { id: 'hosting', plugin: 'hosting', label: 'موبوکام کلاد', extra: ['/dashboard/services', '/dashboard/domains', '/dashboard/cloud'] },
   { id: 'prompts', plugin: 'prompt-master', label: 'پرامپت مستر', extra: [] },

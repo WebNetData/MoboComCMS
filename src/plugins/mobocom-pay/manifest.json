@@ -1,0 +1,29 @@
+{
+  "id": "mobocom-pay",
+  "name": "موبوکام‌پی",
+  "nameEn": "MoboComPay",
+  "description": "مدیریت پذیرندگان، پرداخت‌ها و تسویه‌های موبوکام‌پی",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "wallet",
+  "defaultEnabled": false,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/pay"],
+  "adminPaths": ["/admin/mobocom-pay"],
+  "permissions": [
+    { "id": "mobocom-pay.manage", "label": "مدیریت پذیرندگان، تنظیمات و تطبیق موبوکام‌پی" },
+    { "id": "mobocom-pay.settle", "label": "بررسی تسویه‌های موبوکام‌پی" }
+  ],
+  "adminMenu": {
+    "area": "finance",
+    "title": "موبوکام‌پی",
+    "titleEn": "MoboComPay",
+    "icon": "wallet",
+    "order": 50,
+    "items": [
+      { "href": "/admin/mobocom-pay", "label": "مدیریت موبوکام‌پی", "labelEn": "Manage MoboComPay", "icon": "wallet", "permissions": ["mobocom-pay.manage", "mobocom-pay.settle"] }
+    ]
+  }
+}

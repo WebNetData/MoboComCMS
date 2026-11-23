@@ -210,7 +210,7 @@ test('sign-in wiring: 2-step code, unspent SMS codes, revocation and staff polic
   assert.match(service, /tokenHash\(token\)/, 'only the hash of a reset token is stored')
   assert.match(service, /usedAt: null \}, data: \{ usedAt/, 'reset links are single use')
   const middleware = read('src/proxy.ts')
-  assert.match(middleware, /\/reset-password' \? 'no-referrer'/)
+  assert.match(middleware, /\/reset-password' \|\| path\.startsWith\('\/pay\/'\) \? 'no-referrer'/)
 })
 
 // ---- ready-made roles: a manager of one part of the site gets that part only
@@ -328,7 +328,9 @@ test('roles that held the magazine permission keep what it used to open', () => 
 // ---- managers of the site's sections
 test('a choice of sections stands for one role with exactly their permissions', () => {
   const sections = load('src/modules/identity/domain/sections')
-  assert.deepEqual(sections.SITE_SECTIONS.map((section) => section.id), ['vpn', 'hosting', 'prompts', 'businesses', 'magazine', 'music', 'cinema', 'games', 'software', 'store', 'forum', 'reviews'])
+  assert.deepEqual(sections.SITE_SECTIONS.map((section) => section.id), ['mobocom-pay', 'vpn', 'hosting', 'prompts', 'businesses', 'magazine', 'music', 'cinema', 'games', 'software', 'store', 'forum', 'reviews'])
+  assert.deepEqual(sections.sectionRole(['mobocom-pay']).permissions, ['dashboard.view', 'mobocom-pay.manage'])
+  assert.deepEqual(sections.sectionsOf(['mobocom-pay.settle']), [], 'settlement review does not grant Pay administration')
   assert.deepEqual(sections.sectionRole(['vpn']).permissions, ['dashboard.view', 'plans.manage', 'subs.manage'])
   assert.deepEqual(sections.sectionsOf(['subs.manage']), [], 'supporting subscriptions alone is not the full VPN section')
   assert.deepEqual(sections.sectionRole(['hosting']).permissions, ['dashboard.view', 'hosting.manage'])
