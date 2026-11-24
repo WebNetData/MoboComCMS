@@ -112,6 +112,40 @@ Apply local Unslop under MoboCom/SDS constraints and OpenDesign's brief → desi
 Incremental migration `20270325120000_mobocom_pay` is listed under unreleased; preserve existing migration hashes/data. Disabling preserves rows and Core spending. After any withdrawable activity, retain the upgraded Wallet-compatible binary and migration, disable Pay and forward-fix/reconcile reservations; an older Wallet binary cannot maintain the new subset invariant. Never drop financial history. No private keys, real card details, secrets or customer data in fixtures/docs/screenshots. Executed evidence and integration limits live in [the handoff](../../agent/handoffs/MOBOCOM_PAY.md).
 
 
+## Melli notice parser — owner samples2026-11-24
+
+Owner supplied eight National Bank notice shapes and confirmed delivery FROM the
+bank's official Bale arm INTO the owner's personal account. That resolves the bank
+and receiving-channel questions; personal-account reader API/auth remains unknown.
+Samples include positive interest, negative purchase/fees/POS, and positive card/
+PAYA/SATNA transfers. Other banks need their own verified samples/adapters; no
+generic amount/sign approval fallback is authorized by the templates.
+
+Implemented pure `billing/domain/pay-bank-notice.ts`: bounded single-message
+National Bank template parsing, explicit IRR/sign/13-digit account/reference,
+Persian/Arabic digits and spelling/Markdown normalization, type classification and
+existing shared Jalali date conversion. Modern1402..1499 Tehran dates become a
+half-open UTC minute interval; the text does NOT attest an exact second. Missing,
+duplicate/batched/invalid/unit-ambiguous fields fail closed. Unknown transaction
+types parse as review-only. Interest is non-payment credit; known debit types with
+positive signs are inconsistent, not transfer candidates.
+
+Every success is explicitly `UNVERIFIED_NOTICE`; a transfer is only a candidate.
+No raw body, balance, description, branch or counterparty is returned. No source
+authentication, bank-event creation, trusted targetPaymentId, amount reservation,
+invoice approval or Wallet write is implemented/activated. No new settings/schema/
+HTTP/UI surface. Real account/transaction values were not copied into fixtures:
+only synthetic values with the supplied structural shapes are stored.
+
+Six behavioral cases are included through the existing `pay-bot.test.cjs` suite.
+Acceptance checks exact integer bounds above JS precision, all eight transaction
+types, date rollover/invalid Jalali dates, malformed/duplicate units/fields, unknown
+banks, escaping and privacy. Four deliberate classification/precision/time faults
+must fail, then exact source is restored. Native Pay regression verifies the
+existing financial pipeline remains sound, not a live Bale integration.
+Next is the authorized personal-account receiving/proof adapter; a new bot token
+alone does not establish access to another bank arm's personal-chat messages.
+
 ## Bale bank-notice verification design — owner2026-11-24
 
 Status: DESIGN ONLY. Owner requests automatic recognition of incoming bank

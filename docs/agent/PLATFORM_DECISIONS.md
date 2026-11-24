@@ -1,3 +1,10 @@
+2026-11-24 clarification: National Bank notices originate from its Bale arm and
+arrive in the owner's PERSONAL account. Eight supplied template shapes permit a
+bounded synthetic-tested parser, not normal bot access to those chats or text-only
+financial approval. Receiving adapter/original peer proof, adjustment accounting
+and final bank attribution remain unresolved; preserve current credit boundary.
+[Implemented parser and remaining connector](handoffs/MOBOCOM_PAY.md#melli-notice-parsing-and-personal-account-clarification--2026-11-24).
+
 2026-11-24 owner requests next Pay development: automatic bank transactions visible
 in Bale, using a small distinguishing amount or stronger method. Bank/channel/
 template and adjustment accounting remain unresolved inputs, not adopted proof or

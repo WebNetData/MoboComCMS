@@ -1,3 +1,58 @@
+## Melli notice parsing and personal-account clarification — 2026-11-24
+
+Continuation remains `.mobocom/pay-bale-verification`, branch
+`feat/pay-bale-verification-2026-11-24`, main3679200b plus design137689da. Owner
+supplied eight National Bank shapes, then explicitly confirmed they arrive from
+the bank arm in the owner's PERSONAL Bale account. Earlier missing bank/channel
+inputs below are now resolved. Reader availability/proof is still unverified;
+device availability was asked to choose an appropriate read-only receiving path.
+No personal account login/token/session was accessed or requested in chat.
+
+Implemented `src/modules/billing/domain/pay-bank-notice.ts`, synthetic
+`scripts/pay-bank-notice.cases.cjs`, included in existing `scripts/pay-bot.test.cjs`.
+The parser extracts exact signed IRR/account/reference, normalizes bounded spelling/
+digits/Markdown, and returns a Tehran half-open MINUTE interval using shared
+Jalali conversion (modern1402..1499). Single National Bank template only; duplicate,
+malformed, conflicting/batched/oversized inputs fail closed. Interest, withdrawals,
+fees, positive debit-type inconsistencies and unknown types are not transfer
+candidates. Other banks require verified templates, never a permissive fallback.
+
+Text is always UNVERIFIED_NOTICE, never a trusted bank event/target attestation.
+No live receiving connector, endpoint, adjustment, schema, auto-approval, Wallet
+write, UI/theme or setting changed. Raw body/balance/counterparty/description are
+not projected. The owner's real values were NOT persisted in source/fixtures/logs;
+only constructed structural examples are used. Independent source review found no
+actionable issue in this scoped parser and explicitly did not verify original
+sample fidelity or run tests. Lead checked all eight supplied kind/sign shapes.
+
+Executed isolated Linux evidence (`var/pay-bale-20261124`, ignored):
+
+- Node22.23.3, UID1000, no `.env`, private copied source/Prisma5.22 generated client;
+  no writes to the running original app/dependencies. Host attempt initially failed
+  because this fresh worktree has no `typescript-api`; validation moved to the
+  existing Linux dependencies without installing/changing them.
+- `node --test scripts/pay-bot.test.cjs`:11 pass, including6 notice cases and5
+  prior bot parser/ACK/egress checks. Same final suite passes after fault recovery.
+- Four deliberate private-source faults (interest as transfer, inverted direction,
+  unsafe Number amount conversion, wrong Tehran offset) each fail behavior
+  assertions. Exact parser bytes restored; raw reports retained.
+- Disposable NOSUPERUSER PostgreSQL17 database migrated all211 existing migrations;
+  `scripts/pay-bot.connected.cjs` passes prior current-authority/idempotency/
+  uncertain callback/Wallet/Audit/recovery regression. No live Bale/bank inference.
+- Full TypeScript and architecture/source gates pass. Existing local one-rule
+  Semgrep0 findings and changed-file redacted Gitleaks0; scoped evidence only.
+- SHA256 of all3 changed source/check files matches the tested runtime exactly,
+  including the restored deliberate-fault parser. Task source archive removed.
+- Exact owned database/role removed; original localhost3000 readiness/session200.
+  No preview/background receiver was started. No browser/build run because this
+  slice changes no UI and has no live connector. No new migration/dependency/PR.
+
+Continuation: implement only after choosing a legitimate read-only personal
+receiver that can bind the ORIGINAL bank peer/message identity, handle replay and
+recover gaps. Display name/pasted/forwarded text alone cannot authenticate a bank.
+The unique-amount quote/financial attribution slice remains specified, unimplemented
+and inactive; this parser must not be mistaken for completed automatic payment.
+
 ## Bale verification investigation and design — 2026-11-24
 
 Owner asks for automatic bank-transfer recognition using Bale notices and a small

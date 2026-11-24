@@ -1,3 +1,16 @@
+# Melli parser / personal account — 2026-11-24
+
+Owner supplied8 National Bank notice types and confirmed they arrive from its
+arm into the PERSONAL Bale account. Bank/channel now known; legitimate reader/
+original-source proof still unresolved. Current `.mobocom/pay-bale-verification`
+on main3679200b+design137689da implements a pure bounded parser, no connector or
+financial activation. Always UNVERIFIED_NOTICE; distinguishes interest/debits/fees,
+exact IRR and minute-precision Tehran/Jalali time; synthetic fixtures retain no
+real customer bank values.11 units,4 deliberate fault detections/restoration,
+existing Pay native on211 empty migrations, full types/architecture/source and
+scoped security checks pass. Owned DB/role cleaned; original app200. No UI change/
+browser/build/new migration/live account action/PR. See [current evidence and next boundary](../docs/agent/handoffs/MOBOCOM_PAY.md#melli-notice-parsing-and-personal-account-clarification--2026-11-24).
+
 # Bale verification design — 2026-11-24
 
 PR485 verified merged as3679200b. Continuation `.mobocom/pay-bale-verification` /
