@@ -1,6 +1,6 @@
 /** MoboComPay wire contract v1. Money crosses HTTP as exact decimal strings. */
 export type PayMerchantStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED'
-export type PayPaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED'
+export type PayPaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'UNDER_REVIEW'
 export type PaySettlementStatus = 'REQUESTED' | 'APPROVED' | 'PAID' | 'REJECTED'
 export type PayRailId = 'IRR_BANK' | 'TRX_TRON' | 'USDT_TRON'
 export type PayFeeBearer = 'MERCHANT' | 'CUSTOMER'
@@ -15,6 +15,7 @@ export interface PayRail {
   feeRial: string
 }
 export interface PaySettings {
+  bale: import('./pay-bale-collection').BaleCollectionPolicy
   incomingEnabled: boolean
   bankAccountIds: number[]
   providerId: string
@@ -28,6 +29,7 @@ export interface PaySettings {
   rails: PayRail[]
 }
 export interface PayMerchantView {
+  baleAllowed: boolean
   id: string
   userId: number
   name: string
@@ -38,6 +40,7 @@ export interface PayMerchantView {
   fees: PayFeeTerms
 }
 export interface PayTerminalView {
+  baleEnabled: boolean
   id: string
   name: string
   returnUrl: string
@@ -45,6 +48,9 @@ export interface PayTerminalView {
   createdAt: string
 }
 export interface PayPaymentView {
+  gatewayAdjustmentRial?: string
+  gatewayCollectedRial?: string
+  gatewayCollectionStatus?: string
   id: string
   externalId: string
   terminalId: string
@@ -146,7 +152,7 @@ export interface PayAdminOverview {
   payments: PayPaymentView[]
   settlements: (PaySettlementView & { merchantName: string })[]
   bankEvents: PayBankEventView[]
-  bankAccounts: { id: number; title: string; bankName: string; cardNumber: string; active: boolean }[]
+  bankAccounts: { id: number; title: string; bankName: string; cardNumber: string; active: boolean; collectionUse: string }[]
   settings: PaySettings
   settingsRevision: string
   readiness: { bankFeedReady: boolean; providerId: string }

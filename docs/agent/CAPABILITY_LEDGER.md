@@ -1,3 +1,11 @@
+Automatic card transfer2026-11-24: FUNCTIONAL_LOCAL within scoped PostgreSQL/HTTP/
+browser evidence. Existing CARD_TRANSFER composes optional SMS/Bale, globally unique
+amounts, explicit fee/deadline, immutable renewal, receipt hold and canonical exact-once
+invoice/Wallet credit; merchant grant+terminal opt-in and configurable destination
+visibility. LIVE_ACCOUNT_BANK_SMS_UNVERIFIED. No phone app or production rollout.
+[Current evidence and limits](handoffs/MOBOCOM_PAY.md#automatic-card-transfer-receipt-hold-and-destination-controls--2026-11-24).
+Older source-only entry below is superseded by this slice.
+
 Bale source2026-11-24: FUNCTIONAL_SOURCE_ONLY within local synthetic PG/HTTP/
 browser evidence; LIVE_ACCOUNT_UNVERIFIED / COLLECTION_NOT_IMPLEMENTED. Server-only
 original @bam_bmi identity binding, durable minimal notices/Admin history. The

@@ -6,6 +6,8 @@ import type {
 import { Field } from "../shared";
 import s from "../Pay.module.css";
 import BaleStatus from './bale-status';
+import SmsSources from './sms-sources';
+import Link from '@/components/AppLink';
 export default function Settings({
   data,
   settings,
@@ -44,10 +46,12 @@ export default function Settings({
             <span>
               {a.title} · {a.bankName} · {a.cardNumber}
               {!a.active && " (غیرفعال)"}
+ {a.collectionUse === 'MOBOCOM_PAY' && ' · اختصاصی درگاه موبوکام؛ خارج از روش‌های دستی'}
             </span>
             <input
               type="checkbox"
-              checked={settings.bankAccountIds.includes(a.id)}
+ disabled={a.collectionUse === 'MOBOCOM_PAY'}
+ checked={a.collectionUse !== 'MOBOCOM_PAY' && settings.bankAccountIds.includes(a.id)}
               onChange={(e) =>
                 update({
                   bankAccountIds: e.target.checked
@@ -87,6 +91,17 @@ export default function Settings({
           </Field>
         ))}
       </div>
+ <fieldset className={s.stack}>
+ <legend>تطبیق خودکار بله</legend>
+ <label className={s.check}><input type="checkbox" checked={settings.bale.enabled} onChange={(e) => update({ bale: { ...settings.bale, enabled: e.target.checked } })} /> فعال</label>
+ <p className={s.muted}>هزینهٔ خدمت پلتفرم جداگانه به مشتری اعلام می‌شود. مبلغ‌های اختصاص‌یافته هرگز دوباره استفاده نمی‌شوند. حساب بانکی اختصاصی و منبع تأییدشده لازم است. شمارش مهلت پرداخت بلافاصله آغاز می‌شود.</p>
+ <Link href="/admin/bank-accounts">مدیریت حساب‌های بانکی</Link>
+ <div className={s.grid}>
+ <Field label="حداقل هزینهٔ تشخیص (ریال)"><input dir="ltr" inputMode="numeric" value={settings.bale.minAdjustmentRial} onChange={(e) => update({ bale: { ...settings.bale, minAdjustmentRial: e.target.value } })} /></Field>
+ <Field label="حداکثر هزینهٔ تشخیص (ریال)"><input dir="ltr" inputMode="numeric" value={settings.bale.maxAdjustmentRial} onChange={(e) => update({ bale: { ...settings.bale, maxAdjustmentRial: e.target.value } })} /></Field>
+ <Field label="مهلت پرداخت (۵ تا ۱۲۰ دقیقه)"><input dir="ltr" type="number" min={5} max={120} value={settings.bale.minutes} onChange={(e) => { const value = e.target.value; if (/^\d+$/.test(value) && Number.isSafeInteger(Number(value))) update({ bale: { ...settings.bale, minutes: Number(value) } }) }} /></Field>
+ </div>
+ </fieldset>
       <h3>مسیرهای تسویه</h3>
       {settings.rails.map((r, index) => (
         <fieldset key={r.id}>
@@ -148,6 +163,7 @@ export default function Settings({
       </div>
     </section>
     <BaleStatus />
+ <SmsSources bankAccounts={data.bankAccounts} />
     </div>
   );
 }

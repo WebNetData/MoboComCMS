@@ -20,12 +20,14 @@ export async function createTerminal(actor: PayActor, input: Record<string, unkn
     returnUrl = httpsUrl(input.returnUrl)
   return payTransaction(async (tx) => {
     const merchant = await merchantFor(actor, tx, true)
+    if (input.baleEnabled !== undefined && typeof input.baleEnabled !== 'boolean') throw new PayError('وضعیت درگاه موبوکام معتبر نیست')
+    if (input.baleEnabled === true && !merchant.baleAllowed) throw new PayError('مدیر هنوز استفاده از درگاه موبوکام را برای این پذیرنده مجاز نکرده است', 403)
     if (new URL(returnUrl).origin !== new URL(merchant.website).origin)
       throw new PayError('نشانی بازگشت باید متعلق به وب‌سایت ثبت‌شده باشد')
     if ((await tx.payTerminal.count({ where: { merchantId: merchant.id } })) >= 20)
       throw new PayError('حداکثر ۲۰ پایانه قابل ثبت است')
     const row = await tx.payTerminal.create({
-      data: { id: randomUUID(), merchantId: merchant.id, name, returnUrl },
+      data: { id: randomUUID(), merchantId: merchant.id, name, returnUrl, baleEnabled: input.baleEnabled === true },
     })
     await payAudit(tx, actor, 'terminal.create', row.id)
     return row
@@ -33,12 +35,13 @@ export async function createTerminal(actor: PayActor, input: Record<string, unkn
 }
 export async function changeTerminal(actor: PayActor, input: Record<string, unknown>) {
   const id = text(input.id, 60)
-  if (typeof input.active !== 'boolean') throw new PayError('وضعیت معتبر لازم است')
+  if (input.active !== undefined && typeof input.active !== 'boolean' || input.baleEnabled !== undefined && typeof input.baleEnabled !== 'boolean' || input.active === undefined && input.baleEnabled === undefined) throw new PayError('وضعیت معتبر لازم است')
   return payTransaction(async (tx) => {
     const merchant = await merchantFor(actor, tx, true)
+    if (input.baleEnabled === true && !merchant.baleAllowed) throw new PayError('استفاده از درگاه موبوکام برای این پذیرنده مجاز نیست', 403)
     const changed = await tx.payTerminal.updateMany({
       where: { id, merchantId: merchant.id },
-      data: { active: input.active as boolean },
+      data: { ...(typeof input.active === 'boolean' ? { active: input.active } : {}), ...(typeof input.baleEnabled === 'boolean' ? { baleEnabled: input.baleEnabled } : {}) },
     })
     if (changed.count !== 1) throw new PayError('پایانه پیدا نشد', 404)
     await payAudit(tx, actor, 'terminal.status', id, { active: input.active })
@@ -46,6 +49,7 @@ export async function changeTerminal(actor: PayActor, input: Record<string, unkn
   })
 }
 export async function changeMerchant(actor: PayActor, input: Record<string, unknown>) {
+  if (input.action === 'bale-access') return changeMerchantBaleAccess(actor, input)
   if (input.action === 'terms') return changeMerchantTerms(actor, input)
   const id = text(input.id, 60),
     status = text(input.status, 20)
@@ -78,6 +82,21 @@ async function changeMerchantTerms(actor: PayActor, input: Record<string, unknow
     const claim = await tx.payMerchant.updateMany({ where: { id, version: row.version }, data: { ...data, version: { increment: 1 } } })
     if (claim.count !== 1) throw new PayError('قرارداد هم‌زمان تغییر کرده است', 409)
     await payAudit(tx, actor, 'merchant.terms', id, data)
+    return tx.payMerchant.findUniqueOrThrow({ where: { id } })
+  })
+}
+
+async function changeMerchantBaleAccess(actor: PayActor, input: Record<string, unknown>) {
+  const id = text(input.id, 60)
+  if (typeof input.baleAllowed !== 'boolean') throw new PayError('مجوز درگاه موبوکام معتبر نیست')
+  return payTransaction(async tx => {
+    await payContext(actor, tx, 'mobocom-pay.manage')
+    const row = await tx.payMerchant.findUnique({ where: { id } })
+    if (!row) throw new PayError('پذیرنده پیدا نشد', 404)
+    if (row.userId === actor.id) throw new PayError('تغییر مجوز پذیرندگی خودتان مجاز نیست', 403)
+    const claim = await tx.payMerchant.updateMany({ where: { id, version: row.version }, data: { baleAllowed: input.baleAllowed as boolean, version: { increment: 1 } } })
+    if (claim.count !== 1) throw new PayError('مجوز هم‌زمان تغییر کرده است', 409)
+    await payAudit(tx, actor, 'merchant.bale-access', id, { baleAllowed: input.baleAllowed })
     return tx.payMerchant.findUniqueOrThrow({ where: { id } })
   })
 }

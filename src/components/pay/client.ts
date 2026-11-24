@@ -8,6 +8,7 @@ export const money = (value: string) => {
 export const date = (value: string) => new Date(value).toLocaleString("fa-IR");
 export const labels: Record<string, string> = {
   PENDING: "در انتظار",
+ UNDER_REVIEW: "در حال بررسی",
   ACTIVE: "فعال",
   SUSPENDED: "تعلیق شده",
   PAID: "پرداخت شده",

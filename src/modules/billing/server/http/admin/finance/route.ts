@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   const currency = requestedCurrency ? normalizeCurrency(requestedCurrency) : BASE_CURRENCY
   if (!currencies.includes(currency)) currencies.push(currency)
 
-  const [salesInvoices, unpaidInvoices, expenses, billingPayments, recentPayments, gatewayRows, plans] = await Promise.all([
+  const [salesInvoices, unpaidInvoices, expenses, billingPayments, recentPayments, gatewayRows, plans, collectionFees] = await Promise.all([
     db.invoice.findMany({
       where: { kind: 'BILLING', currency, status: { in: ['PAID', 'REFUNDED'] }, issuedAt: { gte: since } },
       orderBy: { issuedAt: 'desc' },
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     }),
     db.gateway.findMany({ orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }] }),
     db.plan.findMany({ where: { currency }, select: { id: true, name: true, price: true, priceMinor: true, currency: true } }),
+    db.payment.aggregate({ where: { provider: 'MOBOCOM_PAY_ADJUSTMENT', status: 'CONFIRMED', currency: 'IRR', createdAt: { gte: since } }, _sum: { amountMinor: true }, _count: { _all: true } }),
   ])
 
   let grossMinor = 0n
@@ -127,6 +128,7 @@ export async function GET(req: NextRequest) {
   for (const p of recentPayments.filter((x) => x.status === 'PENDING' && x.invoice?.kind === 'BILLING')) pendingMinor += exactMinor(p, currency)
 
   return ok({
+    collectionFees: { currency: 'IRR', amountRial: (collectionFees._sum.amountMinor || 0n).toString(), count: collectionFees._count._all },
     currency,
     currencies: currencies.sort(),
     summary: {

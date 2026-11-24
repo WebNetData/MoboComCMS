@@ -88,6 +88,7 @@ export class TransferError extends Error {
 }
 
 export interface BankAccountInput {
+  collectionUse: 'GENERAL' | 'MOBOCOM_PAY'
   bankName: string
   holderName: string
   cardNumber: string
@@ -102,7 +103,10 @@ export interface BankAccountInput {
 export function normalizeBankAccount(input: Record<string, unknown>): BankAccountInput {
   const cardNumber = cleanCard(input.cardNumber)
   const sheba = cleanSheba(input.sheba)
+  const collectionUse = input.collectionUse === undefined ? 'GENERAL' : input.collectionUse
+  if (collectionUse !== 'GENERAL' && collectionUse !== 'MOBOCOM_PAY') throw new TransferError('کاربرد حساب معتبر نیست')
   const accountNumber = latinDigits(input.accountNumber).replace(/[^\d.-]/g, '').slice(0, 30)
+  if (collectionUse === 'MOBOCOM_PAY' && !/^\d{13}$/.test(accountNumber)) throw new TransferError('حساب اختصاصی به شماره حساب دقیق ۱۳رقمی نیاز دارد')
   if (String(input.cardNumber || '').trim() && !luhnValid(cardNumber)) throw new TransferError('شماره کارت معتبر نیست (۱۶ رقم)')
   if (String(input.sheba || '').trim() && !validSheba(sheba)) throw new TransferError('شماره شبا معتبر نیست (IR و ۲۴ رقم)')
   if (!cardNumber && !sheba && !accountNumber) throw new TransferError('حداقل یکی از شماره کارت، شبا یا شماره حساب را وارد کنید')
@@ -111,7 +115,7 @@ export function normalizeBankAccount(input: Record<string, unknown>): BankAccoun
   const bankName = text(input.bankName, 60) || bankFromCard(cardNumber) || bankFromSheba(sheba)
   if (!bankName) throw new TransferError('نام بانک را وارد کنید')
   return {
-    bankName, holderName, cardNumber, sheba, accountNumber,
+    collectionUse, bankName, holderName, cardNumber, sheba, accountNumber,
     note: text(input.note, 300),
     active: input.active !== false,
     sortOrder: Number.isSafeInteger(Number(input.sortOrder)) ? Number(input.sortOrder) : 0,

@@ -1,3 +1,6 @@
+import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
+import { baleBinding } from '@/modules/billing/domain/pay-bale'
+import type { Prisma } from '@prisma/client'
 // Payment gateway registry — every provider implements this contract so new
 // providers plug in without duplicating checkout, billing or admin logic.
 import { db } from '@/platform/database/prisma'
@@ -30,8 +33,8 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     key: 'MOBOCOM_PAY', label: 'MoboCom bank transfer', labelFa: 'درگاه موبوکام (تطبیق بانکی)',
     needsApiKey: false, needsSecret: false, supportsHostedCheckout: true,
-    hint: 'Server-owned Bale bank notices. Preparation only: collection attribution is not enabled. Account connection is managed by the site operator; do not enter a Bale account token here.',
-    hintFa: 'اتصال سروری به اعلان‌های بانکی بله؛ در حال آماده‌سازی است و هنوز به مشتری نمایش داده نمی‌شود. اتصال حساب در اختیار مدیر سرور است. توکن حساب بله را در این فرم وارد نکنید.',
+    hint: 'Server-owned original Bale bank messages and immutable exact-amount reservations. Configure a verified dedicated bank account and collection policy in MoboComPay settings. Never enter a personal Bale token here.',
+    hintFa: 'پرداخت با مبلغ متمایز و تطبیق خودکار اعلان اصلی بانک در بله. حساب بانکی اختصاصی، اتصال تأییدشده و سیاست دریافت را در تنظیمات موبوکام‌پی آماده کنید. توکن شخصی بله در این فرم وارد نمی‌شود.',
   },
   {
     key: 'MELLAT',
@@ -173,9 +176,8 @@ export function installmentCredentials(gateway: { provider: string; apiKey: stri
   return { provider: gateway.provider as InstallmentCredentials['provider'], baseUrl: config.baseUrl, clientId: gateway.apiKey.trim(), clientSecret: String(gateway.secretKey || '').trim(), username: String(gateway.accountUser || '').trim(), password: config.password }
 }
 
-export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string; config?: string }) {
-  // Source ingestion alone cannot attest an invoice. Do not advertise a working rail prematurely.
-  if (gw.provider === 'MOBOCOM_PAY') return false
+export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string; config?: string; feeBps?: number; feePercent?: number }) {
+  if (gw.provider === 'MOBOCOM_PAY') return Boolean(baleBinding(process.env) && process.env.MOBOCOM_PAY_BALE_VERIFIED === 'true' && !gw.feeBps && !gw.feePercent)
   if (gw.provider === 'MANUAL') return Boolean(gw.instructions.trim())
   if (gw.provider === 'CARD_TRANSFER') return true
   if (gw.provider === 'MELLAT') return Boolean(/^\d+$/.test(gw.apiKey.trim()) && String(gw.secretKey || '').trim() && String(gw.accountUser || '').trim())
@@ -270,14 +272,17 @@ export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provide
  * This allows a safe migration from env-only deployments and also permits
  * several active gateway accounts at the same time.
  */
-export async function listCheckoutGateways(currencyInput?: string): Promise<GatewayRuntime[]> {
-  const rows = await db.gateway.findMany({
+export async function listCheckoutGateways(currencyInput?: string, transaction?: Prisma.TransactionClient): Promise<GatewayRuntime[]> {
+  const reader = transaction || db
+  const rows = await reader.gateway.findMany({
     where: { active: true },
     orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { id: 'asc' }],
   })
   // Card transfer needs at least one active bank account to show at checkout.
-  const hasBankAccount = rows.some((row) => row.provider === 'CARD_TRANSFER') && await db.bankAccount.count({ where: { active: true } }) > 0
-  const dbGateways = rows.filter(isGatewayUsable).filter((row) => row.provider !== 'CARD_TRANSFER' || hasBankAccount).map(runtimeGateway)
+  const hasBankAccount = rows.some((row) => row.provider === 'CARD_TRANSFER') && await reader.bankAccount.count({ where: { active: true, collectionUse: 'GENERAL' } }) > 0
+  const readyIds = new Set<number>()
+  for (const row of rows) if (isAutomaticTransfer(row) && await (await import('@/modules/billing/server/pay')).baleGatewayReady(transaction, row.id)) readyIds.add(row.id)
+  const dbGateways = rows.filter(row => isAutomaticTransfer(row) ? readyIds.has(row.id) : isGatewayUsable(row) && (row.provider !== 'CARD_TRANSFER' || hasBankAccount)).map(runtimeGateway)
   const envGateways = envCheckoutGateways().filter((envGateway) => !dbGateways.some((dbGateway) =>
     dbGateway.provider === envGateway.provider
     && dbGateway.apiKey === envGateway.apiKey
@@ -427,7 +432,10 @@ export async function createGatewayInvoice(
   gateway: GatewayRuntime,
   input: GatewayInvoiceInput
 ): Promise<GatewayInvoiceResult> {
-  if (gateway.provider === 'MOBOCOM_PAY') return { ok: false, message: 'تطبیق قطعی فاکتور در درگاه موبوکام هنوز فعال نیست' }
+  if (isAutomaticTransfer(gateway)) {
+    if (!gateway.id) return { ok: false, message: 'درگاه ثبت‌شده لازم است' }
+    return (await import('@/modules/billing/server/pay')).prepareBaleGateway(gateway.id, input.orderNumber)
+  }
   const currency = normalizeCurrency(input.currency)
   const amountMinor = toMinor(input.amount, currency)
   if (amountMinor <= 0n) return { ok: false, message: 'amount must be greater than zero' }
@@ -552,13 +560,16 @@ export interface GatewayTestResult {
 }
 
 export async function testGateway(gateway: GatewayRuntime): Promise<GatewayTestResult> {
-  if (gateway.provider === 'MOBOCOM_PAY') return { ok: false, message: 'درگاه موبوکام هنوز برای دریافت وجه آماده نیست', detail: 'وضعیت دریافت سروری بله در تنظیمات موبوکام‌پی جداگانه نمایش داده می‌شود؛ دریافت پیام به معنی تأیید فاکتور نیست.' }
+  if (isAutomaticTransfer(gateway)) {
+    const ready = await (await import('@/modules/billing/server/pay')).baleGatewayReady(undefined, gateway.id || undefined)
+    return { ok: ready, message: ready ? 'تنظیمات دریافت خودکار آماده است؛ آزمون واقعی اتصال جداگانه انجام می‌شود' : 'حساب اختصاصی، اتصال تأییدشده و سیاست دریافت خودکار را کامل کنید' }
+  }
   if (gateway.provider === 'MANUAL') {
     if (!gateway.instructions.trim()) return { ok: false, message: 'no payment instructions set', detail: 'instructions are empty' }
     return { ok: true, detail: 'manual gateway ready' }
   }
   if (gateway.provider === 'CARD_TRANSFER') {
-    const accounts = await db.bankAccount.count({ where: { active: true } })
+    const accounts = await db.bankAccount.count({ where: { active: true, collectionUse: 'GENERAL' } })
     return accounts ? { ok: true, detail: `${accounts} active bank account(s)` } : { ok: false, message: 'no active bank account', detail: 'add a bank account in Finance → Bank accounts' }
   }
   if (gateway.provider === 'MELLAT') {

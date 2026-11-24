@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { consumeInventoryReservation, ensureInventoryReservation } from '@/modules/catalog/server/inventory'
 import { provisionFromOrder } from '@/modules/subscriptions/server/provision'
@@ -19,6 +20,7 @@ import { fulfillContentOrder } from '@/modules/paywall/server/paywall'
 export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'FORM_PAID' | 'GRANT_MEMBERSHIP' | 'GRANT_CONTENT' | 'HOSTING_PROVISION' | 'HOSTING_RENEW' | 'HOSTING_ADDON' | 'DOMAIN_ORDER' | 'DOMAIN_RENEW'
 
 type JobPayload = Record<string, unknown>
+export class FulfillmentAdmissionError extends Error {}
 
 export async function enqueueOrderFulfillment(input: {
   orderId: number
@@ -26,23 +28,24 @@ export async function enqueueOrderFulfillment(input: {
   planId?: number | null
   productId?: number | null
   productHoldMinutes?: number
-}) {
+}, transaction?: Prisma.TransactionClient) {
+  const reader = transaction || db
   if (input.productId) {
-    const reserved = await ensureInventoryReservation({ orderId: input.orderId, holdMinutes: input.productHoldMinutes ?? 60 })
-    if (!reserved.ok) throw new Error(reserved.message || 'out of stock')
+    const reserved = await ensureInventoryReservation({ orderId: input.orderId, holdMinutes: input.productHoldMinutes ?? 60 }, transaction)
+    if (!reserved.ok) throw new FulfillmentAdmissionError(reserved.message || 'out of stock')
     return enqueueFulfillment({
       kind: 'DELIVER_PRODUCT',
       dedupeKey: `DELIVER_PRODUCT:order:${input.orderId}`,
       orderId: input.orderId,
       invoiceId: input.invoiceId ?? null,
-    })
+    }, transaction)
   }
   if (input.planId) {
-    const order = await db.order.findUnique({ where: { id: input.orderId }, select: { meta: true } })
+    const order = await reader.order.findUnique({ where: { id: input.orderId }, select: { meta: true } })
     let renewal: Record<string, unknown> = {}
     try { renewal = JSON.parse(order?.meta || '{}') } catch {}
     if (renewal.kind === 'renewal' && Number(renewal.subscriptionId)) {
-      return enqueueFulfillment({ kind: 'RENEW_SUBSCRIPTION', dedupeKey: `RENEW_SUBSCRIPTION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId, subscriptionId: Number(renewal.subscriptionId), payload: renewal })
+      return enqueueFulfillment({ kind: 'RENEW_SUBSCRIPTION', dedupeKey: `RENEW_SUBSCRIPTION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId, subscriptionId: Number(renewal.subscriptionId), payload: renewal }, transaction)
     }
     // A reseller's sale is an account for the reseller's customer, with the allowance the reseller chose.
     // Queued as an ordinary order it would be provisioned for the reseller's own user at the plan's defaults.
@@ -52,42 +55,42 @@ export async function enqueueOrderFulfillment(input: {
       return enqueueFulfillment({
         kind: 'RESELLER_PROVISION', dedupeKey: `RESELLER_PROVISION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null,
         payload: { customerUserId, resellerId, planId: input.planId, username: String(renewal.username || ''), trafficGB: Number(renewal.trafficGB), days: Number(renewal.days), deviceLimit: Number(renewal.deviceLimit) },
-      })
+      }, transaction)
     }
     return enqueueFulfillment({
       kind: 'PROVISION_SUBSCRIPTION',
       dedupeKey: `PROVISION_SUBSCRIPTION:order:${input.orderId}`,
       orderId: input.orderId,
       invoiceId: input.invoiceId ?? null,
-    })
+    }, transaction)
   }
   // VIP membership orders carry neither a plan nor a product.
-  const order = await db.order.findUnique({ where: { id: input.orderId }, select: { meta: true } })
+  const order = await reader.order.findUnique({ where: { id: input.orderId }, select: { meta: true } })
   let meta: Record<string, unknown> = {}
   try { meta = JSON.parse(order?.meta || '{}') } catch {}
   if (meta.kind === 'membership') {
-    return enqueueFulfillment({ kind: 'GRANT_MEMBERSHIP', dedupeKey: `GRANT_MEMBERSHIP:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'GRANT_MEMBERSHIP', dedupeKey: `GRANT_MEMBERSHIP:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   if (meta.kind === 'form') {
-    return enqueueFulfillment({ kind: 'FORM_PAID', dedupeKey: `FORM_PAID:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'FORM_PAID', dedupeKey: `FORM_PAID:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   if (meta.kind === 'domain') {
-    return enqueueFulfillment({ kind: 'DOMAIN_ORDER', dedupeKey: `DOMAIN_ORDER:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'DOMAIN_ORDER', dedupeKey: `DOMAIN_ORDER:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   if (meta.kind === 'domain-renewal') {
-    return enqueueFulfillment({ kind: 'DOMAIN_RENEW', dedupeKey: `DOMAIN_RENEW:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'DOMAIN_RENEW', dedupeKey: `DOMAIN_RENEW:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   if (meta.kind === 'hosting-addon') {
-    return enqueueFulfillment({ kind: 'HOSTING_ADDON', dedupeKey: `HOSTING_ADDON:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'HOSTING_ADDON', dedupeKey: `HOSTING_ADDON:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   if (meta.kind === 'hosting-renewal') {
-    return enqueueFulfillment({ kind: 'HOSTING_RENEW', dedupeKey: `HOSTING_RENEW:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'HOSTING_RENEW', dedupeKey: `HOSTING_RENEW:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   if (meta.kind === 'hosting') {
-    return enqueueFulfillment({ kind: 'HOSTING_PROVISION', dedupeKey: `HOSTING_PROVISION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'HOSTING_PROVISION', dedupeKey: `HOSTING_PROVISION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   if (meta.kind === 'content') {
-    return enqueueFulfillment({ kind: 'GRANT_CONTENT', dedupeKey: `GRANT_CONTENT:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+    return enqueueFulfillment({ kind: 'GRANT_CONTENT', dedupeKey: `GRANT_CONTENT:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null }, transaction)
   }
   return null
 }
@@ -99,8 +102,8 @@ export async function enqueueFulfillment(input: {
   orderId?: number | null
   invoiceId?: number | null
   subscriptionId?: number | null
-}) {
-  return db.fulfillmentJob.upsert({
+}, client: Pick<Prisma.TransactionClient, 'fulfillmentJob'> = db) {
+  return client.fulfillmentJob.upsert({
     where: { dedupeKey: input.dedupeKey },
     create: {
       kind: input.kind,

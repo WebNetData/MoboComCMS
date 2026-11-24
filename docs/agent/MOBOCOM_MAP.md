@@ -1,3 +1,10 @@
+Automatic card transfer2026-11-24: Billing `domain/{auto-transfer,pay-bale-collection,
+pay-sms-template,pay-bale-amount}`; `server/pay/bale/collection-*`, `pay/sms/*` behind
+canonical Billing/Pay owners; `/pay/bank/[id]`, collections/receipt/SMS HTTP adapters;
+Gateway display config and existing Pay Admin/Finance/merchant/terminal surfaces.
+Migration213 owns immutable collection/source proof and receipt hold. No parallel
+Wallet/identity/financial owner. [Current evidence/limits](handoffs/MOBOCOM_PAY.md#automatic-card-transfer-receipt-hold-and-destination-controls--2026-11-24).
+
 Bale continuation2026-11-24: `billing/domain/pay-bale.ts`, Billing
 `server/pay/bale/*` behind `server/pay`, signed `/api/payment/mobocom-pay/bale-events`,
 canonical Gateway MOBOCOM_PAY (unavailable), existing Pay settings history card and

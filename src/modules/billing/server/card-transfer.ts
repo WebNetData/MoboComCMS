@@ -23,7 +23,7 @@ export const receiptDirectory = () => join(process.cwd(), 'storage', 'receipts')
 // ------------------------------------------------------------------ bank accounts
 
 export const listBankAccounts = (activeOnly = false) =>
-  db.bankAccount.findMany({ where: activeOnly ? { active: true } : undefined, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
+  db.bankAccount.findMany({ where: activeOnly ? { active: true, collectionUse: 'GENERAL' } : undefined, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
 
 export async function saveBankAccount(input: Record<string, unknown>) {
   const data = normalizeBankAccount(input)
@@ -34,8 +34,10 @@ export async function saveBankAccount(input: Record<string, unknown>) {
         return await db.$transaction(async tx => {
           const previous = await tx.bankAccount.findUnique({ where: { id } })
           if (!previous) throw new TransferError('حساب بانکی پیدا نشد', 404)
+          if (input.collectionUse === undefined) data.collectionUse = previous.collectionUse as typeof data.collectionUse
+          if (data.collectionUse !== previous.collectionUse) throw new TransferError('کاربرد حساب پس از ساخت قابل تغییر نیست؛ حساب اختصاصی تازه ثبت کنید', 409)
           if ((previous.cardNumber !== data.cardNumber || previous.sheba !== data.sheba || previous.accountNumber !== data.accountNumber) &&
-            (await tx.payPayment.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }) || await tx.payBaleNotice.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
+            (await tx.payPayment.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }) || await tx.payBaleNotice.count({ where: { bankAccountId: id } }) || await tx.payBaleCollection.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
           return tx.bankAccount.update({ where: { id }, data })
         }, { isolationLevel: 'Serializable' })
       } catch (error) {
@@ -43,6 +45,7 @@ export async function saveBankAccount(input: Record<string, unknown>) {
       }
     }
   }
+  if (data.collectionUse === 'MOBOCOM_PAY' && input.dedicatedConfirmed !== true) throw new TransferError('اختصاصی بودن حساب را صریحاً تأیید کنید', 422)
   return db.bankAccount.create({ data })
 }
 
@@ -53,7 +56,8 @@ export async function retireBankAccount(id: number) {
         const used = (await tx.paymentReceipt.count({ where: { bankAccountId: id } })) +
           (await tx.payPayment.count({ where: { bankAccountId: id } })) +
           (await tx.payBankEvent.count({ where: { bankAccountId: id } })) +
-          (await tx.payBaleNotice.count({ where: { bankAccountId: id } }))
+          (await tx.payBaleNotice.count({ where: { bankAccountId: id } })) +
+          (await tx.payBaleCollection.count({ where: { bankAccountId: id } }))
         if (used) await tx.bankAccount.updateMany({ where: { id }, data: { active: false } })
         else await tx.bankAccount.deleteMany({ where: { id } })
         return { id, deactivated: used > 0 }
@@ -87,6 +91,8 @@ export async function readReceiptMultipart(req: NextRequest) {
 
 /** Customer submits a transfer receipt for one of their unpaid card-transfer invoices. */
 export async function submitReceipt(req: NextRequest, userId: number, invoiceNumber: string) {
+  const auto = await db.payBaleCollection.findFirst({ where: { invoice: { number: invoiceNumber, userId }, activeInvoiceId: { not: null } }, select: { id: true } })
+  if (auto) return (await import('@/modules/billing/server/pay/bale/collection-receipts')).submitCollectionReceipt(req, auto.id)
   if (!rateLimitHit(`receipt:${userId}`, 6, 60 * 60_000).ok) throw new TransferError('تعداد ارسال رسید زیاد است؛ کمی بعد دوباره تلاش کنید', 429)
   const invoice = await db.invoice.findUnique({ where: { number: invoiceNumber }, include: { gateway: { select: { provider: true } } } })
   if (!invoice || invoice.userId !== userId) throw new TransferError('فاکتور پیدا نشد', 404)
@@ -97,7 +103,7 @@ export async function submitReceipt(req: NextRequest, userId: number, invoiceNum
   const form = await readReceiptMultipart(req)
   const fields = Object.fromEntries([...form.entries()].filter(([, value]) => typeof value === 'string')) as Record<string, string>
   const receipt = normalizeReceipt(fields)
-  if (receipt.bankAccountId && !await db.bankAccount.count({ where: { id: receipt.bankAccountId, active: true } })) throw new TransferError('حساب مقصد معتبر نیست')
+  if (receipt.bankAccountId && !await db.bankAccount.count({ where: { id: receipt.bankAccountId, active: true, collectionUse: 'GENERAL' } })) throw new TransferError('حساب مقصد معتبر نیست')
 
   const upload = form.get('image')
   if (!upload || typeof upload === 'string' || !upload.size) throw new TransferError('تصویر رسید را بارگذاری کنید')
@@ -127,6 +133,7 @@ export async function submitReceipt(req: NextRequest, userId: number, invoiceNum
 
 /** Approve (settle the invoice) or reject (tell the customer why). */
 export async function reviewReceipt(admin: { id: number; email: string; req?: NextRequest }, receiptId: number, action: 'approve' | 'reject', note: string) {
+  if (await db.payBaleCollection.findUnique({ where: { receiptId }, select: { id: true } })) return (await import('@/modules/billing/server/pay/bale/collection-receipts')).reviewCollectionReceipt(admin, receiptId, action, note)
   const collection = await db.paymentReceipt.findUnique({ where: { id: receiptId }, select: { invoice: { select: { kind: true } } } })
   if (collection?.invoice.kind === 'PAY_COLLECTION') return (await import('@/modules/billing/server/pay')).reviewPayReceiptByStaff(admin, receiptId, action, note)
   const receipt = await db.paymentReceipt.findUnique({ where: { id: receiptId }, include: { invoice: { select: { id: true, number: true, userId: true, status: true } } } })

@@ -98,6 +98,9 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
               </div>
               <div className={s.actions}>
                 <Badge value={m.status} />
+ <button type="button" className={s.secondary} disabled={busy} onClick={() => action('/api/admin/mobocom-pay/merchants', { id: m.id, action: 'bale-access', baleAllowed: !m.baleAllowed })}>
+ {m.baleAllowed ? 'لغو مجوز دریافت بله' : 'صدور مجوز دریافت بله'}
+ </button>
                 {m.status !== "ACTIVE" && (
                   <button
                     type="button"

@@ -1,4 +1,5 @@
 "use client";
+import { useState } from 'react';
 import type { PayOverview } from "@/modules/billing/domain/pay";
 import { api, json } from "../client";
 import { Field } from "../shared";
@@ -23,6 +24,7 @@ export default function Terminals({
   returnUrl: string;
   setReturnUrl: (x: string) => void;
 }) {
+ const [baleEnabled, setBaleEnabled] = useState(false);
   return (
     <><div className={s.split}>
       <section className={s.card}>
@@ -33,7 +35,10 @@ export default function Terminals({
               <div>
                 <strong>{t.name}</strong>
                 <small className={s.ltr}>{t.returnUrl}</small>
+ <small>دریافت بله: {t.baleEnabled ? 'فعال' : 'غیرفعال'}</small>
               </div>
+ <div className={s.actions}>
+ <button type="button" className={s.secondary} disabled={busy || !active || !data.merchant?.baleAllowed} onClick={() => action(() => api('/api/pay/terminals', json('PATCH', { id: t.id, baleEnabled: !t.baleEnabled })))}>{t.baleEnabled ? 'غیرفعال کردن دریافت بله' : 'فعال کردن دریافت بله'}</button>
               <button
                 type="button"
                 className={s.secondary}
@@ -49,6 +54,7 @@ export default function Terminals({
               >
                 {t.active ? "غیرفعال کردن" : "فعال کردن"}
               </button>
+ </div>
             </div>
           ))
         ) : (
@@ -63,10 +69,11 @@ export default function Terminals({
           void action(async () => {
             await api(
               "/api/pay/terminals",
-              json("POST", { name: terminalName, returnUrl }),
+ json("POST", { name: terminalName, returnUrl, baleEnabled: Boolean(data.merchant?.baleAllowed && baleEnabled) }),
             );
             setTerminalName("");
             setReturnUrl("");
+ setBaleEnabled(false);
           });
         }}
       >
@@ -77,6 +84,8 @@ export default function Terminals({
             onChange={(e) => setTerminalName(e.target.value)}
           />
         </Field>
+ <label className={s.check}><input type="checkbox" checked={Boolean(data.merchant?.baleAllowed && baleEnabled)} disabled={busy || !active || !data.merchant?.baleAllowed} onChange={(e) => setBaleEnabled(e.target.checked)} /> فعال کردن دریافت بله برای این پایانه</label>
+ {!data.merchant?.baleAllowed && <p className={s.muted}>برای فعال‌سازی دریافت بله، ابتدا مجوز پذیرنده باید توسط مدیریت صادر شود.</p>}
         <Field label="نشانی بازگشت">
           <input
             type="url"

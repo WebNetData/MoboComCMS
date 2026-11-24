@@ -3,6 +3,7 @@ const {parseBotPayment,botCallbackUrl,botAcknowledged}=load('src/modules/billing
 const {publicBotAddress}=load('src/modules/billing/server/pay/bot/transport.ts')
 require('./pay-bank-notice.cases.cjs')
 require('./pay-bale.cases.cjs')
+require('./pay-bale-collection.cases.cjs')
 const input={api_key:'synthetic',amount:10000,order_id:'order-1',user_id:123456789,type:'purchase'}
 test('bot request preserves exact Toman and bounds hostile claims without retaining personal context',()=>{
  const parsed=parseBotPayment({...input,first_name:'علی',username:'example',payment_count:3,register:1735689600,membership_days:-1,balance:25000})

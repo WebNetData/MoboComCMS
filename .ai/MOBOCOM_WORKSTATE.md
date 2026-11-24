@@ -1,3 +1,17 @@
+# Automatic card transfer / receipt hold / destination settings — 2026-11-24
+
+Current local `.mobocom/pay-bale-verification` continues base3679200b and source3b1330c1.
+CARD_TRANSFER autoVerify now composes SMS/Bale exact-amount matching with canonical
+invoice/Wallet settlement once, global immutable quote amounts, configurable deadline,
+receipt UNDER_REVIEW hold, fresh-amount renewal and per-gateway destination visibility.
+Card+amount only copy; hidden fields omitted server-side. Final213 populated upgrade,
+5 native regressions,20 units/types/static,13 Hurl requests and local responsive/axe
+browser flows pass. Live bank/Bale/SMS and production rollout remain unverified.
+No PR/push/deploy or protected global-theme change. See current
+[handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#automatic-card-transfer-receipt-hold-and-destination-controls--2026-11-24)
+for exact evidence, source boundaries and operational limits; older entries below
+describe earlier slices, not current capability.
+
 # Server-only Bale / source intake — 2026-11-24
 
 Owner rejected Android and identified @bam_bmi; phone experiment withdrawn into

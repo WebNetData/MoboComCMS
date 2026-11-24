@@ -1,3 +1,94 @@
+## Automatic card transfer, receipt hold and destination controls — 2026-11-24
+
+Local implementation in `.mobocom/pay-bale-verification`, branch
+`feat/pay-bale-verification-2026-11-24`, base main3679200b plus prior local
+design/parser/source commits. Continues Billing/Pay/Wallet/Gateway, not a second
+financial system. Owner corrections supersede the older source-only notes below.
+No push, PR, hosted workflow, production migration or deployment in this slice.
+
+### Implemented behavior and owners
+
+- Existing CARD_TRANSFER has autoVerify, SMS/BALE selection, dedicated destination
+  and autoDisplay. Only card is shown by default; bank/holder/account/IBAN are
+  independently configurable. Amount is mandatory; only card and amount have copy
+  buttons. Disabled destination fields are blanked server-side. A configured
+  destination must actually exist before this gateway is offered.
+- Billing `domain/auto-transfer.ts`, `pay-bale-collection.ts`, bounded SMS literal
+  templates and `pay-bale-amount.ts` own validation. Melli old text dates/accounts
+  do not select a payment; authenticated source binding plus exact CREDIT transfer
+  amount does. Interest/debits cannot approve. No owner bank values copied into
+  source/fixtures. Original strict parser is retained for optional bank dedupe.
+- `server/pay/bale/collection-*` owns immutable globally unique amount allocation,
+  disclosure acceptance, server deadline (default30, configurable5–120 minutes),
+  immediate instructions and explicit fresh-amount renewal. Old tombstones never
+  delete/reuse; a bounded amount pool can exhaust and refuses safely. Invoice
+  validity can shorten its quote. PayPayment external-feed expiry stays immutable;
+  only an already-linked automatic checkout with a valid scoped ticket continues
+  through its separate quote deadline. A stored EXPIRED payment is not reopened.
+- `server/pay/sms/*` plus existing personal-Bale intake persist immutable minimal
+  evidence before matching. SMS has versioned operator-owned encrypted sources,
+  stable message IDs, exact sender/template and original phone receipt UTC time;
+  first delivery must be within5minutes. Bale checks original protocol time.
+  Exact replays are acknowledged later; old first deliveries cannot steal a new
+  quote. Source/owner/module/API/merchant/terminal revocation is checked currently.
+- Receipt upload uses canonical PaymentReceipt/image storage and invoice-first
+  Serializable locks: PENDING→UNDER_REVIEW, countdown and bank instructions hidden.
+  Pending receipt holds survive deadlines and atomically block invoice VOID.
+  Reject retains history; a new request can be issued. Manual/automatic approval
+  share `collection-settle.ts` and markInvoicePaid/Pay credit/Wallet/fulfillment.
+  Principal and separate IRR adjustment are journaled exactly once. Manual
+  principal-only receipt records no phantom adjustment. Actual receipt Rial lives
+  on the collection; canonical PaymentReceipt amount remains invoice principal.
+- Gateway/account Admin, Pay settings/source manager, merchant grant and terminal
+  opt-in extend current owners. Finance reports separate service-fee totals;
+  merchant net remains unchanged. Pay and ordinary invoice views show receipt hold.
+  Existing manual card transfer, compatible gateway callbacks and bot delivery
+  remain canonical. Legacy MOBOCOM_PAY records remain compatible.
+- Migration213 `20270330120000_pay_bale_collection` is registered, mirrored Prisma
+  schema includes source/collection relations. SQL guards exact principal/fee/
+  notice or reviewed receipt proof, global tombstones, immutable facts, source
+  version claims and final receipt holds. Existing defaults remain GENERAL/off.
+- OpenAPI1.5, Bale/SMS Hurl scenarios and Persian
+  `tools/pay-bale-server/SMS_AND_COLLECTIONS.fa.md` document the operator contract.
+  Existing Custom theme config hash stayed
+  `be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df`.
+
+### Actual local evidence
+
+| Check | Executed result |
+| --- | --- |
+| Native PostgreSQL | Empty212 then populated212→final213 under NOSUPERUSER task role. All preexisting User/Bank/Gateway/Invoice/Merchant/Terminal/Pay fields compared unchanged; new defaults off. No production DB used. |
+| Final regression | `node scripts/run-pg-checks.cjs pay-bale-collection pay-shared-checkout pay-bot pay-routing-operations pay-bale-server`: all5 pass on final migration. Includes SMS↔Bale race, manual↔auto ordering/race, Wallet top-up once, principal-only fee waiver, global reservation across banks, late old notice and renewal, Pay scoped-ticket continuation after original deadline, review hold and exact merchant net credit once. |
+| Pure/types/static |20 scoped cases pass; final full TypeScript passes. Architecture, source, schema parity, money schema/UI, security, strict Audit and migration-manifest checks pass. No full production build or whole-site suite. |
+| HTTP contracts | Spectral0 findings; oasdiff0 breaking changes versus main base; Hurl8 Bale requests and5 SMS requests pass against private TLS preview. SMS source creation via real Admin POST also passes. |
+| Browser |16 checkout/SMS settings captures plus3 final card-only light/dark/mobile captures pass overflow and scoped axe checks. Real consent, mm:ss, receipt upload→hold without timer/instructions, expiry→fresh amount, Admin visibility save/reload and API masking verified. Additional ordinary invoice hold and real SMS source create-form/endpoint render pass; secret screenshot masked. No page errors in the main checkout/visibility runs. |
+| React/security | Doctor11 affected React files0errors/29 reviewed warnings initially; final focused pass0errors/19 warnings (guarded async/finally heuristics and existing Gateway/Invoice complexity/metadata/key patterns). Scoped existing one-rule Semgrep0 and redacted changed-file Gitleaks0; not comprehensive certification. Independent read-only financial review found no additional blocking duplicate-credit path before final display controls. |
+
+Fixture failures corrected during validation: old next-minute expectations; old
+account-text rejection expectation (now duplicate evidence); test fake-clock/DB
+receipt-time mismatch; SMS Admin endpoint shape and missing POST route export;
+test locator emoji/copy-label mismatches; nullable optional minute-pair SQL check.
+Final native checks use the corrected exact migration, not the first draft.
+
+### Remaining operational work and rollback
+
+Live Bale personal-account login/peer identity, SMS Forwarder payload mapping,
+live-bank delivery/recovery and server deployment remain UNVERIFIED. No phone app
+was built. Operator must configure the current source, destination/card, templates,
+trusted sender, original receipt timestamp and secrets privately, then exercise
+live deposit/retry/outage behavior. Source settings readiness is not liveness.
+
+Rollback: disable automatic verification/source or module; preserve all data and
+amount tombstones. Forward-only migration; never delete payment/notice history.
+Task-only preview/DB/role/private fixture cleanup is recorded at handoff completion;
+synthetic screenshots and redacted check logs remain ignored under
+`var/pay-bale-20261124`. Shared root/autonomous-foundation work is preserved.
+
+Completion cleanup actually ran: verified task preview and tunnel stopped, exact
+task DB/NOSUPERUSER role dropped, TLS/session/Hurl/SMS private fixtures removed,
+builder stopped. Shared app readiness and auth/session returned200 after a transient
+warm-up timeout. Final source-order normalization regression and scoped units pass.
+
 ## Server-only Bale intake and dormant shared gateway — 2026-11-24
 
 Owner explicitly rejected the phone application and requested direct SERVER access

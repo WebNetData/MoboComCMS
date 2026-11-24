@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { transferDisplayDefaults, type TransferDisplay } from '@/modules/billing/domain/auto-transfer'
 
 interface Gateway {
   id: number
@@ -26,7 +27,12 @@ interface Gateway {
   installments?: number
   hasPassword?: boolean
   usable: boolean
+ autoVerify: boolean
+ autoSources: Array<'SMS' | 'BALE'>
+ autoBankAccountId: number | null
+ autoDisplay: TransferDisplay
 }
+type BankAccount = { id: number; bankName: string; holderName: string; collectionUse: string; active: boolean }
 
 const INSTALLMENT = ['SNAPPPAY', 'DIGIPAY', 'AZKI']
 const INSTALLMENT_NAME: Record<string, string> = { SNAPPPAY: 'خرید اقساطی با اسنپ‌پی', DIGIPAY: 'خرید اعتباری دیجی‌پی', AZKI: 'خرید اقساطی ازکی' }
@@ -58,6 +64,10 @@ const EMPTY = {
   active: true,
   isDefault: false,
   sortOrder: 0,
+ autoVerify: false,
+ autoSources: ['SMS', 'BALE'] as Array<'SMS' | 'BALE'>,
+ autoBankAccountId: null as number | null,
+ autoDisplay: transferDisplayDefaults(),
 }
 
 export default function AdminGatewaysPage() {
@@ -65,6 +75,7 @@ export default function AdminGatewaysPage() {
   const isFa = locale === 'fa'
   const [gateways, setGateways] = useState<Gateway[]>([])
   const [providers, setProviders] = useState<Provider[]>([])
+ const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [form, setForm] = useState<any>(EMPTY)
   const [editId, setEditId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -85,8 +96,8 @@ export default function AdminGatewaysPage() {
     try {
       const res = await fetch('/api/admin/gateways', { cache: 'no-store', signal: controller.signal })
       const data = await res.json()
-      if (!res.ok || !Array.isArray(data.gateways) || !Array.isArray(data.providers)) throw new Error(data?.error || 'دریافت تنظیمات درگاه انجام نشد')
-      if (!controller.signal.aborted) { setGateways(data.gateways); setProviders(data.providers) }
+ if (!res.ok || !Array.isArray(data.gateways) || !Array.isArray(data.providers) || !Array.isArray(data.bankAccounts)) throw new Error(data?.error || 'دریافت تنظیمات درگاه انجام نشد')
+ if (!controller.signal.aborted) { setGateways(data.gateways); setProviders(data.providers); setBankAccounts(data.bankAccounts) }
     } catch (error) {
       if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : 'ارتباط با سرور برقرار نشد')
     } finally { if (!controller.signal.aborted) setLoading(false) }
@@ -200,6 +211,10 @@ export default function AdminGatewaysPage() {
       active: gw.active,
       isDefault: gw.isDefault,
       sortOrder: gw.sortOrder,
+ autoVerify: gw.autoVerify ?? false,
+ autoSources: gw.autoSources ?? ['SMS', 'BALE'],
+ autoBankAccountId: gw.autoBankAccountId ?? null,
+ autoDisplay: gw.autoDisplay ?? transferDisplayDefaults(),
     })
     setShowForm(true)
   }
@@ -312,6 +327,19 @@ export default function AdminGatewaysPage() {
               <input className="input" dir="ltr" placeholder="BTC,ETH,USDT_TRX" value={form.currencies} onChange={(e) => setForm({ ...form, currencies: e.target.value })} /></label>
             </div>
           )}
+ {form.provider === 'CARD_TRANSFER' && <fieldset className="grid-column-span-3">
+ <legend>تأیید خودکار کارت به کارت</legend>
+ <label className="flex items-center gap-2 panel-toggle"><input type="checkbox" checked={form.autoVerify} onChange={(e) => setForm({ ...form, autoVerify: e.target.checked })} /> تأیید خودکار</label>
+ <p className="muted text-sm">رسید دستی و تطبیق خودکار به یک پرداخت می‌رسند و تأیید مالی تکرار نمی‌شود.</p>
+ {form.autoVerify && <>
+ <p className="muted text-sm" id="auto-sources-help">حداقل یک منبع را انتخاب کنید.</p>
+ {(['SMS', 'BALE'] as const).map(source => <label key={source} className="flex items-center gap-2 panel-toggle"><input type="checkbox" checked={form.autoSources.includes(source)} aria-describedby="auto-sources-help" onChange={(e) => setForm({ ...form, autoSources: e.target.checked ? [...form.autoSources, source] : form.autoSources.filter((x: string) => x !== source) })} />{source === 'SMS' ? 'پیامک بانکی' : 'بله'}</label>)}
+ <label className="label-field"><span className="label">حساب اختصاصی درگاه موبوکام</span><select className="select" required value={form.autoBankAccountId ?? ''} onChange={(e) => setForm({ ...form, autoBankAccountId: e.target.value ? Number(e.target.value) : null })}><option value="">انتخاب حساب</option>{bankAccounts.filter(a => a.collectionUse === 'MOBOCOM_PAY' && (a.active || a.id === form.autoBankAccountId)).map(a => <option key={a.id} value={a.id} disabled={!a.active}>{a.bankName} · {a.holderName}{!a.active && ' (غیرفعال)'}</option>)}</select></label>
+ <fieldset className="mt-3"><legend>اطلاعات مقصد در صفحهٔ پرداخت</legend><p className="muted text-sm">مبلغ همیشه نمایش داده می‌شود. فقط مبلغ و شماره کارت دکمهٔ کپی دارند. حداقل یک شمارهٔ مقصد را انتخاب کنید.</p>
+ {([['cardNumber','شماره کارت'],['bankName','نام بانک'],['holderName','نام صاحب حساب'],['accountNumber','شماره حساب'],['iban','شماره شبا']] as const).map(([key,label]) => <label key={key} className="flex items-center gap-2 panel-toggle"><input type="checkbox" checked={form.autoDisplay[key]} onChange={event => setForm({ ...form, autoDisplay: { ...form.autoDisplay, [key]: event.target.checked } })} />{label}</label>)}
+ </fieldset>
+ </>}
+ </fieldset>}
           <div>
             <label className="label-field"><span className="label">{t.feePercent}</span>
             <input className="input num" type="number" step="0.01" value={form.feePercent} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} /></label>
@@ -349,7 +377,7 @@ export default function AdminGatewaysPage() {
             </label>
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="btn btn-primary flex-1">{editId ? t.save : t.addGateway}</button>
+ <button type="submit" className="btn btn-primary flex-1" disabled={form.provider === 'CARD_TRANSFER' && form.autoVerify && !form.autoSources.length}>{editId ? t.save : t.addGateway}</button>
             <button type="button" className="btn btn-ghost" onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY) }}>{t.cancel}</button>
           </div>
           {selected && <div className="grid-column-span-3 muted text-xs">{isFa ? selected.hintFa : selected.hint}</div>}

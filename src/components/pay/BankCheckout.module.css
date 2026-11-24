@@ -1,0 +1,24 @@
+.expired { border-inline-start: 4px solid var(--warning); }
+.expired, .entry { animation: appear .25s ease-out both; }
+.timer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-block-start: 1rem; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: .75rem; }
+.timer strong { font-size: 1.5rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.receipt input { width: 100%; box-sizing: border-box; }
+.receipt input[type='file'] { max-width: 100%; }
+.destination { position: relative; overflow: hidden; border-block-start: 3px solid var(--pay-accent); }
+.destination h2 { margin-block: .5rem; }
+.amount, .cardNumber { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: .75rem 1rem; padding: 1.25rem; border: 1px solid var(--sds-color-border-default-default); border-radius: 1rem; }
+.amount { background: color-mix(in srgb,var(--pay-accent) 5%,var(--sds-color-background-default-default)); }
+.amount > span, .cardNumber > span { color: var(--sds-color-text-default-secondary); font-size: .875rem; }
+.amount strong, .cardNumber bdi { grid-column: 1; font-size: clamp(1.15rem, 3.8vw, 1.6rem); font-weight: 650; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.cardNumber bdi { letter-spacing: .055em; justify-self: start; white-space: nowrap; }
+.amount button, .cardNumber button { grid-column: 2; grid-row: 1 / 3; transition: transform .16s ease, border-color .16s ease; }
+.amount button:hover, .cardNumber button:hover { transform: translateY(-2px); border-color: var(--pay-accent); }
+.details { margin: 0; display: grid; gap: .75rem; }
+.details:empty { display: none; }
+.details > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; }
+.details dt { color: var(--sds-color-text-default-secondary); }
+.details dd { margin: 0; overflow-wrap: anywhere; }
+.copyFeedback { min-height: 1.5rem; margin: 0; font-size: .875rem; }
+@media (max-width: 480px) { .amount, .cardNumber { grid-template-columns: minmax(0,1fr); padding: 1rem; } .amount button, .cardNumber button { grid-column: 1; grid-row: auto; justify-self: stretch; } }
+@keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .expired, .entry { animation: none; } .amount button, .cardNumber button { transition: none; } .amount button:hover, .cardNumber button:hover { transform: none; } }

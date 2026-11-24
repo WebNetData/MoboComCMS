@@ -34,9 +34,10 @@ export default function Checkout({ id, preferredGateway = '' }: { id: string; pr
       <section className={s.card}>
         <div className={s.sectionHead}><div><h2>{data.merchantName}</h2><p className={s.muted}>{data.terminalName} · سفارش <bdi>{data.externalId}</bdi></p></div><Badge value={data.status} /></div>
         <dl className={s.priceSummary}><div><dt>مبلغ سفارش</dt><dd>{money(data.amountRial)}</dd></div><div><dt>کارمزد پرداخت{data.feeBearer === "MERCHANT" ? " (بر عهده پذیرنده)" : ""}</dt><dd>{money(data.feeRial)}</dd></div><div className={s.priceTotal}><dt>مبلغ قابل پرداخت شما</dt><dd>{money(data.totalRial)}</dd></div></dl>
-        <p className={s.muted}>مهلت پرداخت: {date(data.expiresAt)}</p>
+ {data.status !== 'UNDER_REVIEW' && <p className={s.muted}>مهلت پرداخت: {date(data.expiresAt)}</p>}
       </section>
-      {data.status === "EXPIRED" ? <p className={s.notice}>مهلت این پرداخت پایان یافته است. لینک تازه را از فروشنده دریافت کنید.</p>
+ {data.status === 'UNDER_REVIEW' ? <p className={s.notice} role="status">رسید ثبت شده و پرداخت در حال بررسی و تأیید است. دوباره واریز نکنید.</p>
+ : data.status === "EXPIRED" ? <p className={s.notice}>مهلت این پرداخت پایان یافته است. لینک تازه را از فروشنده دریافت کنید.</p>
         : data.status === "PAID" && !data.verification.verified ? <p className={s.notice}>این سفارش قبلاً پرداخت شده است. برای مشاهدهٔ نتیجهٔ کامل از همان مرورگر پرداخت استفاده کنید یا با فروشنده تماس بگیرید. دوباره پرداخت نکنید.</p>
         : !data.verification.verified ? <PhoneVerification id={id} onVerified={refresh} />
         : data.status === "PAID" ? <CheckoutResult data={data} refresh={refresh} />

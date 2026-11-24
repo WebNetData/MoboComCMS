@@ -11,7 +11,7 @@ Cookie: __Secure-next-auth.session-token={{adminCookie}}
 HTTP 200
 [Asserts]
 header "Cache-Control" contains "no-store"
-jsonpath "$.data.collectionReady" == false
+jsonpath "$.data.collectionReady" exists
 jsonpath "$.data.events.items[0].payloadHash" not exists
 jsonpath "$.data.events.items[0].sourceAccountId" not exists
 

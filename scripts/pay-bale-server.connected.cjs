@@ -37,7 +37,7 @@ async function main(){try{
  await assert.rejects(pay.receiveBaleBankMessage(dup.signature,envelope(100).event_id,dup.raw),status(422))
  assert.equal((await receive(envelope(2))).status,'DUPLICATE')
  assert.equal((await receive(envelope(3,{amount:'100001'}))).status,'CONFLICT')
- assert.equal((await receive(envelope(4,{account:'1111111111111'}))).status,'REJECTED')
+ assert.equal((await receive(envelope(4,{account:'1111111111111'}))).status,'DUPLICATE') // account text is not attribution
  assert.equal((await receive(envelope(5,{kind:'سود_پرداخت_شده',reference:'INTEREST123'}))).status,'IGNORED')
  assert.equal((await receive(envelope(6,{sign:'-',reference:'DEBIT12345'}))).status,'IGNORED')
  const repeated=envelope(7);repeated.message_id='1';repeated.payload.id='1';await assert.rejects(receive(repeated),status(409))
@@ -47,7 +47,7 @@ async function main(){try{
  const stored=await db.payBaleNotice.findUniqueOrThrow({where:{id:reply.id}});assert.equal(stored.amountMinor,100000n)
  const malformed={...stored,id:randomUUID(),sourceEventId:'d'.repeat(64),messageId:'7000000',bankFingerprint:'e'.repeat(64)}
  await assert.rejects(db.payBaleNotice.create({data:{...malformed,kind:'INTEREST'}}),'database denies interest as original transfer')
- await assert.rejects(db.payBaleNotice.create({data:{...malformed,bankFingerprint:null,status:'REJECTED',direction:'',transferReference:'',amountMinor:null,occurredBefore:null}}),'database denies incomplete minute pair')
+ await assert.rejects(db.payBaleNotice.create({data:{...malformed,bankFingerprint:null,status:'REJECTED',direction:'',transferReference:'',amountMinor:null,occurredFrom:new Date(),occurredBefore:null}}),'database denies incomplete optional minute pair')
  await assert.rejects(db.payBaleNotice.update({where:{id:reply.id},data:{amountMinor:1n}}))
  const overview=await pay.baleSourceStatus(admin);assert.equal(overview.receivingEnabled,true);assert.equal(overview.collectionReady,false);assert.equal(overview.bankUsername,'bam_bmi')
  const safe=JSON.stringify(overview);for(const privateValue of ['PRIVATE_BALANCE','PRIVATE_COUNTERPARTY','0000000000000',process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET,binding.instanceId])assert.equal(safe.includes(privateValue),false,privateValue)

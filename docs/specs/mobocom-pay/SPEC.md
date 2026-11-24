@@ -1,3 +1,42 @@
+## Automatic card transfer — owner corrections2026-11-24
+
+The existing CARD_TRANSFER gateway owns the autoVerify checkbox, SMS/BALE source
+selection and dedicated bank account. Legacy MOBOCOM_PAY records remain compatible.
+No phone application is built. Existing SMS Forwarder installations send authenticated
+events to a server source; personal Bale uses the existing pinned server connector.
+Gateway autoDisplay controls cardNumber/bankName/holderName/accountNumber/iban.
+Card only is the default. Amount is mandatory; only card and amount expose copy
+buttons. Hidden destination fields are omitted server-side, not merely CSS-hidden.
+
+An immutable globally unique collectedRial permanently reserves the exact amount.
+Quote times use server seconds immediately; bank text account/date/reference are not
+payment conditions. CREDIT transfer amount is extracted from a configured trusted
+source bound to the destination. Immutable source protocol/phone receive metadata
+must be fresh and after quote acceptance, so delayed old deposits cannot match a
+new quote. Source revocation/current canonical permissions remain authoritative.
+
+The operator configures 5–120 minutes (default30). The payer sees mm:ss; EXPIRED
+hides instructions and explicitly warns against further deposits. Explicit renewal
+creates a new amount/time quote, preserving the old tombstone. PayPayment's original
+external-bank-feed deadline stays immutable: an already-linked automatic checkout
+continues with its bound payer ticket and its own quote deadline; it never reopens an
+actually EXPIRED PayPayment. Full source/terminal/merchant guards are rechecked.
+
+Successful receipt upload atomically claims PENDING→UNDER_REVIEW with a canonical
+PaymentReceipt. The countdown and instructions disappear; expiry/VOID cannot close
+the pending receipt hold. Receipt rejection retains proof and permits a fresh request.
+Manual and automatic settlement share one Serializable canonical invoice claim.
+Principal goes through markInvoicePaid/Pay credit/Wallet or fulfillment exactly once;
+the disclosed addition is a separate IRR service journal, never merchant proceeds.
+Manual principal-only receipts have no fee journal. Auto→manual, manual→auto and
+SMS↔BALE races cannot duplicate either principal, fee or wallet credit.
+
+Actual receipt Rial is stored on the collection; PaymentReceipt.amountMinor remains
+the canonical invoice principal/currency (migration209 invariant). Financial state,
+exact source proof, quote/receipt immutability and permanent tombstones are guarded
+by incremental migration213. No production migration or live bank verification is
+implied by local checks. Operator contract: tools/pay-bale-server/SMS_AND_COLLECTIONS.fa.md.
+
 ## Server-only Bale continuation — owner correction2026-11-24
 
 The owner explicitly rejected an Android application and named @bam_bmi as the
