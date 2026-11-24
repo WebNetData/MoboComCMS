@@ -112,6 +112,110 @@ Apply local Unslop under MoboCom/SDS constraints and OpenDesign's brief → desi
 Incremental migration `20270325120000_mobocom_pay` is listed under unreleased; preserve existing migration hashes/data. Disabling preserves rows and Core spending. After any withdrawable activity, retain the upgraded Wallet-compatible binary and migration, disable Pay and forward-fix/reconcile reservations; an older Wallet binary cannot maintain the new subset invariant. Never drop financial history. No private keys, real card details, secrets or customer data in fixtures/docs/screenshots. Executed evidence and integration limits live in [the handoff](../../agent/handoffs/MOBOCOM_PAY.md).
 
 
+## Bale bank-notice verification design — owner2026-11-24
+
+Status: DESIGN ONLY. Owner requests automatic recognition of incoming bank
+transactions visible in Bale, using a small distinguishing amount or a stronger
+method. Fresh main3679200b contains owner-merged PR485. Continuation checkout:
+`.mobocom/pay-bale-verification`. No connector, schema, monetary policy or automatic
+approval has been enabled by this design receipt.
+
+Existing evidence: `server/pay/payments.ts` creates exact integer IRR obligations
+and preserves replay/fee/expiry. `reconcile.ts` requires authenticated bank events,
+independent trusted target attribution, assigned account, amount/reference/time
+and payer proof. `credit.ts` converges on canonical invoice/journal/Wallet and bot
+outbox under one transaction. Keep these owners, not a second shared payment,
+wallet, queue, account identity or bot-delivery system.
+
+### Source feasibility
+
+[Official Bale docs](https://docs.bale.ai/), reviewed2026-11-24, document bot updates
+via getUpdates/webhook, invoice payload/SuccessfulPayment and inquireTransaction.
+Their current payment section says official bot collection is wallet-based; the
+former card-transfer request method was removed. Native bot payment into the
+developer wallet differs from bank-credit notices in a personal chat. Reading
+another bot's bank notices in a personal account is not established by these docs.
+Do not assume a normal bot token grants that access or invent bank endpoints,
+webhook signatures or notification formats.
+
+Asked owner: bank name, personal bank-bot chat versus official receiving API, and
+an anonymized sample. No account/session/OTP/token is requested in chat. Establish
+an authorized channel, stable source/account IDs and original bank reference,
+transaction time, direction and unit before coding its adapter. A signed relay
+authenticates the relay, not an arbitrary forwarded customer's bank claim.
+If the channel cannot attest payment ownership, notices remain investigation
+candidates; never fabricate trusted targetPaymentId. A native Bale wallet gateway
+is a separate owner choice, not a silent substitute for direct bank collection.
+
+### Proposed bank-notice flow
+
+1. Existing hosted checkout/phone proof gets a fixed quote and assigned account.
+   Prefer a bank-issued deposit/payment identifier tied to the invoice. If a small
+   distinguishing amount is selected, reserve the exact FINAL amount atomically
+   across ALL merchants using that account before display. Cryptographic choice
+   selects a free slot; database uniqueness/claims prevent collision, including
+   adjacent base prices and fees. Exhaustion fails explicitly, never live reuse.
+2. Keep base, fee, distinguishing adjustment, final collection and merchant net as
+   separate exact IRR facts with explicit Toman labels. Adjustment is visible
+   before payment, fixed under refresh/replay and absent from older obligations.
+   Range, expiry/reuse policy and financial ownership remain inputs, not an
+   implicit platform fee. Never change a displayed amount or swap to an unadjusted
+   invoice after an ambiguous initiation. No money constraints are weakened.
+3. Receiver persists authenticated evidence BEFORE ACK/advancing polling cursor.
+   Dedupe both source-update identity and bank-transaction identity. Customer text,
+   copied/forwarded/edited messages are not original bank evidence. Bounded explicit
+   templates normalize Persian/Arabic digits and parse original amount unit,
+   CREDIT direction, account/time/reference. Unknown format, withdrawals or missing
+   identity stay review-only; no LLM/OCR/approximate match authorizes credit.
+4. Account+exact amount+original transaction time proposes a candidate. A small
+   adjustment is a matching aid, not ownership attestation. Current trust contract
+   still requires independently verified bank transaction/payment binding. No
+   amount-only approval or customer-reference-derived target is enabled here.
+   Once source can establish attribution, define its typed proof and the focused
+   reconciliation change with adversarial tests before activation.
+5. Valid proof uses existing invoice/Pay state claim, one Wallet credit, strict
+   Audit and bot intent in the same transaction. Expired, partial, excess, unknown
+   or ambiguous deposits keep their history and enter existing review operations.
+   No extra financial credit or uncertain external-service automatic replay.
+
+Historical reservations must survive expiry: a delayed notice must never bind to
+a newer quote with the same amount. Trusted ORIGINAL time/provenance, immutable
+assignment and bank-level dedupe matter; receive time/short cooldown alone do not
+solve late reuse. Ambiguous time precision/history refuses automatic attribution.
+Partial transfers cannot be summed without a separately defined atomic allocation;
+overpayment/refund uses existing owner workflows.
+
+### Operations and acceptance
+
+Extend existing Admin `mobocom-pay.manage` guards/settings for selected source,
+assigned accounts, bounded adjustment policy if chosen, enable/disable, redacted
+review reasons, last successful ingestion/lag/backlog. Credentials remain encrypted
+server-only; configured differs from live verified. Merchants never see personal
+bank chats/OTP/full cards. Module/source off stops new effects and preserves data.
+
+Prefer authenticated push IF supported; otherwise a leased long-poll receiver
+through existing runtime/Jobs ownership. Indexed exact lookup, persist-before-ACK,
+bounded backoff and gap/retention alarms prevent silent loss. Bale's finite update
+retention is not a bank archive. Measure source→ingest, ingest→verified and
+verified→bot independently. Initial internal P95 under3seconds AFTER valid-proof
+receipt is a benchmark target, not a bank/Bale delivery promise. UI re-reads
+committed state via current bounded polling or a verified faster signal.
+
+After source/proof feasibility, implement receiver→evidence→reconciliation→credit→
+current UI as one vertical slice. Additive migration/both schemas/release manifest,
+no old money rewrite. Preserve Custom/SDS, OTP/method allowlist, RTL/light/dark/390px
+and explicit waiting/expired/offline/review states.
+
+Acceptance: isolated non-root/no-env PostgreSQL; concurrent same/adjacent amounts,
+shared-account merchants, pool exhaustion, replay/crash-before-cursor, forged/user/
+forwarded/edited notices, wrong account/unit/direction/reference/time, repeated bank
+IDs across different updates, late arrival after reuse, partial/excess payments,
+module/source-off/current merchant restrictions, one invoice/Wallet/bot intent,
+strict-Audit rollback and upgrade preservation. Deliberate source/proof/dedupe
+faults must fail. Anonymized verified parser samples and real HTTP/browser evidence
+are required. Synthetic fixtures are not live bank/consumer certification.
+No product tests were run for this docs-only design.
+
 ## Routing and operational follow-up — owner2026-11-24
 
 Owner authorized both confirmed platform repairs (CRM department metadata/current

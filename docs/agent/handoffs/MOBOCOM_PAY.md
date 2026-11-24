@@ -1,3 +1,33 @@
+## Bale verification investigation and design — 2026-11-24
+
+Owner asks for automatic bank-transfer recognition using Bale notices and a small
+distinguishing amount or better method. PR485 verified MERGED as
+`3679200b41a1a05986036318bc8195c54acb8ab1`. Continuation checkout
+`.mobocom/pay-bale-verification`, branch `feat/pay-bale-verification-2026-11-24`,
+starts from that fresh main; previous Pay/root/autonomous work is preserved.
+
+Read actual payments/reconciliation/credit, schema and fee/expiry contracts.
+Existing HMAC bank bridge and canonical invoice/Wallet/job transaction are reused;
+unbound deposits intentionally do not credit. [Official Bale docs](https://docs.bale.ai/)
+and Context7 `/websites/bale_ai` reviewed: bot updates, native wallet payload/
+success/query are documented; personal bank-notice chat access via official bot
+API was NOT established. Wallet collection is distinct from card-transfer notices.
+
+The existing [Pay spec](../../specs/mobocom-pay/SPEC.md#bale-bank-notice-verification-design--owner2026-11-24)
+records the bounded proposal: durable authenticated ingestion/bank-level dedupe,
+optional atomic unique final amounts across merchants, immutable late history,
+separate adjustment accounting, proof-gated reconciliation and latency metrics.
+Random amount alone never creates trusted targetPaymentId. Native wallet is an
+alternative requiring an explicit choice, not an implemented substitute.
+
+Missing integration input: bank name, actual receiving channel and anonymized
+template; owner asked asynchronously. Do not invent sender IDs/signatures/parser/
+bank APIs. Adjustment range/accounting remains a proposal, not adopted policy.
+No product source/schema/runtime changed, provider/account action, PR/deploy or
+money movement. Docs-only checks cover whitespace/local reference targets; no
+DB/browser/build test run. Next: establish source/proof feasibility from the
+answer, then implement the receiver/reconciliation slice with specified tests.
+
 ## Routing PR preparation — owner2026-11-24
 
 Owner now explicitly authorizes push and a pull request to `main`, retaining

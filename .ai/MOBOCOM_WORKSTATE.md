@@ -1,3 +1,15 @@
+# Bale verification design — 2026-11-24
+
+PR485 verified merged as3679200b. Continuation `.mobocom/pay-bale-verification` /
+`feat/pay-bale-verification-2026-11-24` starts from fresh main. Owner requests
+automatic bank-notice recognition through Bale, possibly with small unique amounts.
+Existing bank attribution/Wallet/Jobs audited and official API docs checked.
+DESIGN ONLY: personal bank-notice API access/proof not established. Asked bank,
+receiving channel and anonymized template; no secrets requested. Existing spec/
+handoff records proposal and acceptance, not a working connector. No financial,
+schema or runtime change/live call; previous tests do not certify this proposal.
+[Current handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#bale-verification-investigation-and-design--2026-11-24).
+
 # Routing PR publication — owner2026-11-24
 
 Owner requests push/PR to main, retaining merge/deploy. Current branch

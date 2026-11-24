@@ -1,3 +1,9 @@
+2026-11-24 owner requests next Pay development: automatic bank transactions visible
+in Bale, using a small distinguishing amount or stronger method. Bank/channel/
+template and adjustment accounting remain unresolved inputs, not adopted proof or
+monetary policy. Preserve current trusted target-attribution requirement; amount
+guesses alone cannot approve money. [Current design/evidence](handoffs/MOBOCOM_PAY.md#bale-verification-investigation-and-design--2026-11-24).
+
 2026-11-24 owner authorized development items1+2: confirmed CRM department/currency
 and playlist audience repairs, plus advanced Pay routing and operations. Extend
 existing owners and preserve approved Custom presentation. Implemented bounded
