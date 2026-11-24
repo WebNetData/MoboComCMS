@@ -1,5 +1,5 @@
 import type { Prisma, PayMerchant, PayPayment, PaySettlement, PayTerminal } from '@prisma/client'
-import { PayError, type PayPaymentView, type PaySettlementView } from '@/modules/billing/domain/pay'
+import { PayError, type PayMerchantView, type PayPaymentView, type PaySettlementView } from '@/modules/billing/domain/pay'
 import { formatAtoms, merchantFeeTerms, defaults } from '@/modules/billing/domain/pay-policy'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { sectionSettingsRevision } from '@/modules/settings/server'
@@ -16,14 +16,14 @@ export const terminalView = (row: PayTerminal) => ({
   active: row.active,
   createdAt: row.createdAt.toISOString(),
 })
-export const merchantView = (row: PayMerchant, proceeds = 0n, settings = defaults()) => ({
+export const merchantView = (row: PayMerchant, proceeds = 0n, settings = defaults()): PayMerchantView => ({
   baleAllowed: row.baleAllowed,
   fees: merchantFeeTerms(settings, row),
   id: row.id,
   userId: row.userId,
   name: row.name,
   website: row.website,
-  status: row.status,
+  status: row.status as PayMerchantView['status'],
   proceedsRial: proceeds.toString(),
   createdAt: row.createdAt.toISOString(),
 })
@@ -79,7 +79,9 @@ export const settlementView = (row: PaySettlement): PaySettlementView => ({
 export { checkoutView } from './checkout-view'
 async function merchantRead(actor: PayActor, tx: Prisma.TransactionClient) {
   await payContext(actor, tx)
-  return tx.payMerchant.findUnique({ where: { userId: actor.id } })
+  const merchant = await tx.payMerchant.findUnique({ where: { userId: actor.id } })
+  if (!merchant || merchant.status !== 'ACTIVE') throw new PayError('این پنل فقط برای پذیرندگان فعال است', 403, 'PAY_MERCHANT_INACTIVE')
+  return merchant
 }
 export async function payOverview(actor: PayActor) {
   return payTransaction(async (tx) => {

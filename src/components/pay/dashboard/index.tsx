@@ -17,7 +17,6 @@ import Settlements from "./settlements";
 import Terminals from "./terminals";
 import ApiGuide from "./api-guide";
 import BotOperations from "./bot-operations";
-import PayNavigation from "../navigation";
 import WorkspaceHeader from "../workspace-header";
 import {
   SettlementSteps,
@@ -34,9 +33,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
   const [data, setData] = useState<PayOverview | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const [name, setName] = useState(""),
-    [terminalName, setTerminalName] = useState(""),
-    [website, setWebsite] = useState(""),
+  const [terminalName, setTerminalName] = useState(""),
     [returnUrl, setReturnUrl] = useState(""),
     [terminal, setTerminal] = useState(""),
     [externalId, setExternalId] = useState(""),
@@ -59,6 +56,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
       setData(await api<PayOverview>("/api/pay/overview"));
       setError("");
     } catch (e) {
+      setData(null);
       setError(e instanceof Error ? e.message : "خطا در دریافت اطلاعات");
     }
   }, []);
@@ -136,41 +134,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
           </button>
       </WorkspaceHeader>
       <ErrorNotice error={error} />
-      {!data.merchant ? (
-        <form
-          className={`${s.card} ${s.stack}`}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void action(() =>
-              api("/api/pay/merchant", json("POST", { name, website })),
-            );
-          }}
-        >
-          <h2>شروع همکاری</h2>
-          <p>اطلاعات کسب‌وکار را برای بررسی ثبت کنید.</p>
-          <Field label="نام کسب‌وکار">
-            <input
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </Field>
-          <Field label="نشانی وب‌سایت">
-            <input
-              type="url"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              dir="ltr"
-            />
-          </Field>
-          <div>
-            <button type="submit" className={s.button} disabled={busy || !name}>
-              ثبت درخواست
-            </button>
-          </div>
-        </form>
-      ) : (
-        <>
+      {data.merchant && <>
           {data.merchant.status !== "ACTIVE" && (
             <p className={s.notice}>
               {data.merchant.status === "PENDING"
@@ -178,7 +142,6 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
                 : "حساب پذیرنده تعلیق شده است. برای پیگیری با پشتیبانی تماس بگیرید."}
             </p>
           )}
-          <PayNavigation area="merchant" current={views[tab]} />
           {tab === 0 && <Overview data={data} />}
           {tab === 1 && (
             <Payments
@@ -253,7 +216,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
           {tab === 5 && <Overview data={data} reports />}
           {tab === 6 && <BotOperations terminals={data.terminals} revision={revision} />}
         </>
-      )}
+      }
     </section>
   );
 }

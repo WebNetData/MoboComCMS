@@ -4,7 +4,8 @@ info:
   version: 1.6.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
-    An active merchant and terminal are provisioned through the account interface before using this API.
+    An authorized administrator provisions and activates the merchant for an existing MoboCom identity.
+    Public merchant enrollment is closed. The active merchant manages terminals in /pay/merchant.
     Before fulfilling an order, retrieve its payment by ID and confirm status PAID. A customer reference
     alone is not confirmation. Hosted checkout requires a browser-bound phone OTP before payment instructions,
     receipt upload or provider initiation. Existing compatible MoboCom gateways are reused. A terminal-scoped

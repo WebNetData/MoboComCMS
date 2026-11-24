@@ -1,3 +1,3 @@
-import {requireModule} from '@/extensions/server/modules'
-import Dashboard from '@/components/pay/Dashboard'
-export default async function Page(){await requireModule('mobocom-pay');return <Dashboard/>}
+import { redirect } from 'next/navigation'
+import { requireModule } from '@/extensions/server/modules'
+export default async function Page() { await requireModule('mobocom-pay'); redirect('/pay/merchant') }

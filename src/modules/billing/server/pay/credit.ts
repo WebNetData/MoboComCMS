@@ -25,7 +25,7 @@ export async function creditPayPayment(tx: Prisma.TransactionClient, row: PayPay
   if (linked.count !== 1) throw new PayError('ثبت درآمد هم‌زمان تغییر کرده است', 409)
   await queueBotDelivery(tx, row.id)
   await payAudit(tx, { id: merchant.userId, email: merchant.user.email }, 'payment.verified', row.id, { ...proof, amountRial: row.amountMinor, totalRial: row.totalMinor, feeRial: row.feeMinor, walletTxId: credit.txId })
-  await createInboxEvent({ userId: merchant.userId, kind: 'MOBOCOM_PAY', dedupeKey: 'pay-paid:' + row.id, titleFa: 'پرداخت مشتری تأیید شد', titleEn: 'Payment verified', bodyFa: 'درآمد خالص در کیف پول ثبت شد.', href: '/dashboard/pay/payments', channels: [] }, tx)
+  await createInboxEvent({ userId: merchant.userId, kind: 'MOBOCOM_PAY', dedupeKey: 'pay-paid:' + row.id, titleFa: 'پرداخت مشتری تأیید شد', titleEn: 'Payment verified', bodyFa: 'درآمد خالص در کیف پول ثبت شد.', href: '/pay/merchant/payments', channels: [] }, tx)
 }
 
 /** Called inside markInvoicePaid's transaction, after its canonical provider journal exists. */

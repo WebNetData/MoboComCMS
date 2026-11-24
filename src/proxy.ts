@@ -36,7 +36,7 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse, nonce: s
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(self)')
   // Private areas stay out of search results even when a link to them is found elsewhere.
   if (/^\/(admin|dashboard)(\/|$)/.test(path)) response.headers.set('x-robots-tag', 'noindex, nofollow')
-  if (path.startsWith('/pay/')) {
+  if (path === '/pay' || path.startsWith('/pay/')) {
     response.headers.set('x-robots-tag', 'noindex, nofollow')
     response.headers.set('cache-control', 'private, no-store')
   }

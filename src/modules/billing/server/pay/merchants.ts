@@ -2,16 +2,26 @@ import { randomUUID } from 'node:crypto'
 import { PayError } from '@/modules/billing/domain/pay'
 import { httpsUrl, text, rial, integer } from '@/modules/billing/domain/pay-policy'
 import { merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
+import { merchantAdminNote } from './merchant-admin/access'
+import { resolveCurrentUser } from '@/modules/identity/server/access'
+import { userOpensSection } from '@/modules/account/server/section-access'
 
 export async function enrollMerchant(actor: PayActor, input: Record<string, unknown>) {
+  if (Object.keys(input).some(k => !['name','website','userId','email','note'].includes(k)) || (input.userId !== undefined) === (input.email !== undefined)) throw new PayError('یک شناسه یا ایمیل دقیق حساب لازم است', 422)
   const name = text(input.name, 100),
-    website = httpsUrl(input.website)
+    website = httpsUrl(input.website), note = merchantAdminNote(input.note)
+  if (!name) throw new PayError('نام کسب‌وکار لازم است', 422)
+  const userId = typeof input.userId === 'number' ? input.userId : NaN, email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : ''
+  if ((!Number.isSafeInteger(userId) || userId < 1) && (!email || email.length > 254)) throw new PayError('شناسه یا ایمیل دقیق حساب موجود لازم است', 422)
   return payTransaction(async (tx) => {
-    await payContext(actor, tx)
-    const previous = await tx.payMerchant.findUnique({ where: { userId: actor.id } })
-    if (previous) return previous
-    const row = await tx.payMerchant.create({ data: { id: randomUUID(), userId: actor.id, name, website } })
-    await payAudit(tx, actor, 'merchant.enroll', row.id)
+    await payContext(actor, tx, 'mobocom-pay.manage')
+    const user = await tx.user.findUnique({ where: Number.isSafeInteger(userId) && userId > 0 ? { id: userId } : { email } })
+    if (!user || !await resolveCurrentUser(user.id, Date.now(), tx) || !await userOpensSection('mobocom-pay', user.id)) throw new PayError('حساب فعال و مجاز پیدا نشد', 409)
+    if (user.id === actor.id) throw new PayError('ایجاد پذیرندگی برای خودتان مجاز نیست', 403)
+    const previous = await tx.payMerchant.findUnique({ where: { userId: user.id } })
+    if (previous) throw new PayError('این حساب از قبل پذیرنده دارد', 409)
+    const row = await tx.payMerchant.create({ data: { id: randomUUID(), userId: user.id, name, website } })
+    await payAudit(tx, actor, 'merchant.provision', row.id, { userId: user.id, note })
     return row
   })
 }

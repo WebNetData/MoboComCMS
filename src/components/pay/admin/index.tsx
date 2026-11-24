@@ -12,7 +12,7 @@ import Settings from "./settings";
 import PayNavigation from "../navigation";
 import AdminOverview from "./overview";
 import WorkspaceHeader from "../workspace-header";
-import MerchantFees from "./merchant-fees";
+import Merchants from "./merchants";
 import Receipts from "./receipts";
 import TransferMonitor from "./transfer-monitor";
 import TransferReconciliation from "./transfer-reconciliation";
@@ -87,58 +87,7 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
       <PayNavigation area="admin" current={initialView} canManage={data.permissions.manage} />
       {forbidden && <p className={s.notice}>دسترسی به این بخش برای شما فعال نیست.</p>}
       {initialView === "overview" && <AdminOverview data={data} />}
-      {!forbidden && tab === 0 && (
-        <section className={s.card}>
-          <h2>پذیرندگان</h2>
-          {data.merchants.map((m) => (
-            <article key={m.id}><div className={s.row}>
-              <div>
-                <strong>{m.name}</strong>
-                <small>
-                  {m.website} · {date(m.createdAt)} · {money(m.proceedsRial)}
-                </small>
-              </div>
-              <div className={s.actions}>
-                <Badge value={m.status} />
- <button type="button" className={s.secondary} disabled={busy} onClick={() => action('/api/admin/mobocom-pay/merchants', { id: m.id, action: 'bale-access', baleAllowed: !m.baleAllowed })}>
- {m.baleAllowed ? 'لغو مجوز دریافت بله' : 'صدور مجوز دریافت بله'}
- </button>
-                {m.status !== "ACTIVE" && (
-                  <button
-                    type="button"
-                    className={s.secondary}
-                    disabled={busy}
-                    onClick={() =>
-                      action("/api/admin/mobocom-pay/merchants", {
-                        id: m.id,
-                        status: "ACTIVE",
-                      })
-                    }
-                  >
-                    فعال کردن
-                  </button>
-                )}
-                {m.status === "ACTIVE" && (
-                  <button
-                    type="button"
-                    className={s.secondary}
-                    disabled={busy}
-                    onClick={() =>
-                      action("/api/admin/mobocom-pay/merchants", {
-                        id: m.id,
-                        status: "SUSPENDED",
-                      })
-                    }
-                  >
-                    تعلیق
-                  </button>
-                )}
-              </div>
-            </div><MerchantFees key={`${m.id}-${JSON.stringify(m.fees)}`} merchant={m} busy={busy} action={action} /></article>
-          ))}
-          {!data.merchants.length && <p>پذیرنده‌ای ثبت نشده است.</p>}
-        </section>
-      )}
+      {!forbidden && tab === 0 && <Merchants />}
       {!forbidden && tab === 1 && (
         <>
           <p className={s.notice}>

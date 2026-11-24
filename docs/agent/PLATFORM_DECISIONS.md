@@ -1,3 +1,12 @@
+2026-11-24 owner requests separate private merchant panel and full Admin controls.
+Canonical workspace is `/pay/merchant` on the same domain; existing Identity,
+Wallet and payment core remain shared. Public promotion/enrollment and generic
+account Pay navigation are removed. Admin provisions existing accounts PENDING and
+explicitly activates; ACTIVE membership gates data/APIs, status screens remain safe.
+Existing payment links/callbacks stay public capability flows. Legacy console URLs
+redirect. No new identity/subdomain/service or financial rewrite is authorized.
+[Implemented slice and evidence](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 2026-11-24 owner authorizes next Pay items1/2: extend operations monitoring and
 add a reconciliation desk under current Billing owners and approved identity.
 Preserve CARD_TRANSFER automatic SMS/Bale and canonical exact-once manual/automatic

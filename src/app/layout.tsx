@@ -104,6 +104,7 @@ import { safeJsonLd } from '@/shared/seo/json-ld'
 import WebVitals from '@/components/site/WebVitals'
 import AutomaticLinks from '@/components/forwarder/AutomaticLinks'
 import { getAutomaticForwarderPolicy } from '@/modules/forwarder/server/forwarder'
+import { publicPayNavigation } from '@/modules/billing/domain/pay-navigation'
 
 export const dynamic = 'force-dynamic'
 
@@ -189,7 +190,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
   // Pages of enabled uploaded packages that ask for it join the main menu.
   const locales = siteLocales()
-  const site = { ...siteConfig, locales, footerYear: new Date().getUTCFullYear().toLocaleString(locale, { useGrouping: false }), navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
+  const site = { ...siteConfig, locales, footerYear: new Date().getUTCFullYear().toLocaleString(locale, { useGrouping: false }), navigation: publicPayNavigation([...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], process.env.NEXTAUTH_URL), footer: publicPayNavigation(siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)), process.env.NEXTAUTH_URL) }
   // The site-wide music player keeps playing across page navigations while the music module is on.
   const musicOn = !pathDisabled('/music', extensions)
   // While the page is translated into a left-to-right language (the translation plugin's own cookie), the whole site

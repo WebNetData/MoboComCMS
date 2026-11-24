@@ -75,7 +75,7 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
       </div>
       {rulesSaved && <p role="status">قواعد انتخاب روش پرداخت ذخیره شد؛ سفارش‌های قبلی مسیر ثبت‌شدهٔ خود را حفظ می‌کنند.</p>}
       {current && <RoutingRules key={current.id + ':routing:' + current.routingVersion} integration={current} gateways={gateways} locked={busy} onBusyChange={setRoutingBusy} onSaved={() => { setRulesSaved(true); refresh() }} />}
-      <p className={s.notice}>برای جست‌وجو، وضعیت صف و بررسی نتیجهٔ سفارش‌ها به <Link href="/dashboard/pay/operations">عملیات ربات</Link> بروید.</p>
+      <p className={s.notice}>برای جست‌وجو، وضعیت صف و بررسی نتیجهٔ سفارش‌ها به <Link href="/pay/merchant/operations">عملیات ربات</Link> بروید.</p>
     </>}
   </section>
 }

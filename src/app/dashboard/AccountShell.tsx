@@ -24,7 +24,6 @@ export default function AccountShell({ children }: { children: React.ReactNode }
   const { t, locale } = useI18n()
   // Without the VPN module the account area is about orders, wallet and VIP.
   const formsOn = useModuleEnabled('forms')
-  const mobocomPayOn = useModuleEnabled('mobocom-pay')
   const vpnOn = useModuleEnabled('vpn')
   const hostingOn = useModuleEnabled('hosting')
   const storeOn = useModuleEnabled('store')
@@ -118,15 +117,6 @@ export default function AccountShell({ children }: { children: React.ReactNode }
       ...(storeOn && clubOn ? [{ href: '/dashboard/club', label: L('باشگاه مشتریان', 'Customer club'), icon: 'crown' }] : []),
       ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: L('لایسنس‌های من', 'My licenses'), icon: 'key' }] : []),
     ] },
-    { id: 'payment-gateway', title: L('درگاه پرداخت', 'Payment gateway'), icon: 'card', items: mobocomPayOn ? [
-      { href: '/dashboard/pay', label: L('نمای کلی', 'Overview'), icon: 'layout', exact: true },
-      { href: '/dashboard/pay/payments', label: L('پرداخت‌ها', 'Payments'), icon: 'receipt', exact: true },
-      { href: '/dashboard/pay/settlements', label: L('تسویه‌ها', 'Settlements'), icon: 'bank', exact: true },
-      { href: '/dashboard/pay/terminals', label: L('پایانه‌ها', 'Terminals'), icon: 'terminal', exact: true },
-      { href: '/dashboard/pay/operations', label: L('عملیات ربات', 'Bot operations'), icon: 'activity', exact: true },
-      { href: '/dashboard/pay/reports', label: L('گزارش‌های مالی', 'Financial reports'), icon: 'chart', exact: true },
-      { href: '/dashboard/pay/api', label: L('اتصال و راهنمای API', 'Integration & API'), icon: 'code', exact: true },
-    ] : [] },
     { id: 'mine', title: L('محتوای من', 'My things'), icon: 'bookmark', items: [
       ...(gamesOn || musicOn || reviewsOn || promptsOn ? [{ href: '/dashboard/library', label: L('کتابخانهٔ من', 'My library'), icon: 'book' }] : []),
       ...(promptsOn ? [{ href: '/dashboard/prompts', label: L(`${promptsName} من`, `My ${promptsName}`), icon: 'sparkles' }] : []),

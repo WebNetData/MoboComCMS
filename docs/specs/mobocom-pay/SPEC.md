@@ -441,3 +441,36 @@ Admin navigation; merchant bot-delivery operations remain their existing owner.
   Acceptance: connected non-root empty/upgraded PostgreSQL; late/exact vs under/over,
   revocation/self/permission/version denial, notice reuse and receipt races; actual
   Admin browser light/dark/mobile, axe, errors and persisted decisions, React Doctor.
+# Private merchant workspace and Admin lifecycle — 2026-11-24
+
+Owner requests a separate professional merchant panel and full Admin control.
+Continue merged PR487/mainb93879bc. Billing Pay retains Identity/Wallet/Settings/
+Gateway/Jobs/Audit owners; no new authentication, database or subdomain deployment.
+
+- `/pay/merchant` and known child views are the canonical private merchant workspace.
+  Root `/pay` redirects there, removing public service promotion/enrollment. Legacy
+  `/dashboard/pay` deep links redirect; valid `/pay/:id`, bank checkout, receipts,
+  callbacks and machine API retain addresses. No public navigation entry for Pay.
+- Server-side entry resolves current canonical session/module/section and merchant
+  status. Only ACTIVE merchants see workspace/data; pending/suspended get a safe
+  status view, guests use existing login with a fixed safe return. Session and API
+  calls also enforce current ACTIVE merchant, not just hidden navigation.
+- Public merchant enrollment is closed (403). Admin `mobocom-pay.manage` provisions
+  PENDING records by existing UserId/email, then explicitly activates. No new User
+  identity, invitations/secrets in URLs or self approval. Existing merchants/data
+  preserved; no migration or money-state change needed.
+- Existing Admin merchants view becomes paginated/searchable with exact account
+  lookup/create, profile editing, active/suspend, fee override/reset, auto gateway
+  grant, terminal active/auto flags and bot integration revocation. Current User
+  standing/section, parent merchant version CAS, required reason and strict Audit
+  gate mutations. Canonical owner/userId immutable; website change refused if it
+  invalidates existing terminal/callback origins. No delete/purge or secret exposure.
+- Financial settlement, receipts and original proof checks remain canonical.
+  Suspension blocks new collection/settlement/bot calls; owner can still use Admin
+  to investigate historical records. Existing callback recovery rules remain.
+- Scoped SDS/RTL workspace, restrained opacity/transform transitions/reduced motion,
+  semantic active navigation, 44px controls, explicit loading/error/denial/success.
+  Acceptance: connected PostgreSQL (guest/ungranted/pending/suspended/other merchant/
+  manager/settlement-only, self/CAS/revocation/history); actual browser light/dark/
+  mobile, Admin create→activate→suspend, legacy redirects, public checkout unchanged,
+  keyboard/axe and React Doctor. No hosted workflow/live bank/deployment authorization.

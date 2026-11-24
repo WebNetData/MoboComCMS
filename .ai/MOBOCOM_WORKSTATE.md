@@ -1,3 +1,13 @@
+# Private merchant workspace / Admin control — 2026-11-24
+
+Continues owner-merged PR487/mainb93879bc in `.mobocom/pay-bale-verification`,
+`feat/pay-private-merchants-2026-11-24`. Canonical `/pay/merchant` is private and
+independent; public enrollment closed, existing checkout preserved. Existing Pay
+Admin adds provisioning, profile/lifecycle/fee/source/terminal/bot control with
+version/reason/Audit. No schema or identity split. Connected6 scenarios, units61,
+types/gates, Doctor0errors, actual browser19 captures+recovery and Hurl7 pass.
+Local only; [actual evidence, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 # PR487 published — 2026-11-24
 
 Owner-requested [PR487](https://github.com/WebNetData/MoboComCMS/pull/487) targets

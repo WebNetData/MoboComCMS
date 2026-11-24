@@ -41,10 +41,10 @@ export default function ApiGuide() {
       <p>amount تومان است؛ درخواست تکراری با همان order_id همان پرداخت را برمی‌گرداند. تغییر مبلغ یا کاربر/نوع سفارش با همان شناسه رد می‌شود. انتخاب پاسخ links نیز از تنظیم اتصال ممکن است؛ روش‌های فعال در صفحهٔ پرداخت نمایش داده می‌شوند.</p>
       <pre className={s.code} tabIndex={0} aria-label="قرارداد تأیید سفارش ربات">{`POST https://YOUR_BOT_DOMAIN/api/payment\nToken: BOT_PAYMENT_API_KEY\nContent-Type: application/json\n\n{"order_id":"order-123","actions":"custom_payment_verify"}`}</pre>
       <p>معیار پاسخ موفق باید مطابق ربات انتخاب شود. قطع ارتباط یا پاسخ نامشخص به معنی شکست وجه نیست؛ نتیجه در «پیگیری تأیید سفارش» برای بررسی می‌ماند و خودکار دوباره ارسال نمی‌شود. تنظیم اتصال با یک پرداخت آزمایشی و تکرار همان سفارش، پیش از استفادهٔ واقعی بررسی شود.</p>
-      <Link className={s.button} href="/dashboard/pay/terminals">راه‌اندازی اتصال ربات</Link>
+      <Link className={s.button} href="/pay/merchant/terminals">راه‌اندازی اتصال ربات</Link>
       <h3>قواعد مسیر و پیگیری عملیات</h3>
       <p>در پایانه‌ها، قواعد مرتبِ مبلغ تومانی، نوع سفارش و سابقهٔ اعلام‌شدهٔ ربات را تنظیم کنید. اولین قاعدهٔ منطبق روش‌ها را انتخاب می‌کند. در حالت links هر دکمه به همان پرداخت با پیشنهاد یک روش وصل است؛ شمارهٔ موبایل و کنترل روش مجاز همچنان روی سرور بررسی می‌شوند. تغییر قواعد مسیر سفارش‌های قبلی یا نسخهٔ تأیید ربات را عوض نمی‌کند.</p>
-      <Link className={s.secondary} href="/dashboard/pay/operations">جست‌وجو و بررسی عملیات ربات</Link>
+      <Link className={s.secondary} href="/pay/merchant/operations">جست‌وجو و بررسی عملیات ربات</Link>
     </section>
   );
 }

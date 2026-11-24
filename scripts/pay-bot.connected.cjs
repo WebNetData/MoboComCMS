@@ -11,7 +11,7 @@ function wrap(client){return new Proxy(client,{get(target,name){if(name==='$tran
 const db=wrap(prisma),mocks={
  '@/platform/database/prisma':{db},react:{...require('react'),cache:fn=>fn},
  '@/extensions/server/modules':{isModuleEnabled:async()=>state.enabled},
- '@/modules/identity/server/access':{requireUser:async(req,tx=db)=>tx.user.findUnique({where:{id:Number(req.headers.get('x-fixture-user'))}}),requirePerm:async(req,_p,tx=db)=>tx.user.findUnique({where:{id:Number(req.headers.get('x-fixture-user'))}})},
+ '@/modules/identity/server/access':{resolveCurrentUser: async (id, _at, tx = db) => { const u = await tx.user.findUnique({where:{id}}); return u?.status === 'ACTIVE' ? u : null },requireUser:async(req,tx=db)=>tx.user.findUnique({where:{id:Number(req.headers.get('x-fixture-user'))}}),requirePerm:async(req,_p,tx=db)=>tx.user.findUnique({where:{id:Number(req.headers.get('x-fixture-user'))}})},
  '@/modules/identity/server/authentication-restrictions':{globalAuthenticationDenied:async()=>state.globalDenied},
  '@/modules/account/server/section-access':{userOpensSection:async()=>true},
  '@/modules/site/server/maintenance':{loadMaintenance:async()=>state.maintenance?{'mobocom-pay':{enabled:true}}:{}},
@@ -28,11 +28,11 @@ async function main(){
  bank=await db.bankAccount.create({data:{bankName:stamp,holderName:stamp,accountNumber:'123456789'}})
  gateway=await db.gateway.create({data:{name:stamp,provider:'CARD_TRANSFER',active:true,fiat:'IRR'}})
  await put(keys[0],JSON.stringify({...policy.defaults(),incomingEnabled:true,providerId:'fixture',bankAccountIds:[bank.id],minPaymentRial:'1'}));await put(keys[1],'true')
- merchant=await pay.enrollMerchant(a,{name:stamp,website:'https://merchant.invalid'});await pay.changeMerchant(r,{id:merchant.id,status:'ACTIVE'})
+ merchant=await pay.enrollMerchant(r,{userId:users[0].id,note:'Synthetic Admin provision',name:stamp,website:'https://merchant.invalid'});await pay.changeMerchant(r,{id:merchant.id,status:'ACTIVE'})
  terminal=await pay.createTerminal(a,{name:stamp,returnUrl:'https://merchant.invalid/return'})
  const config={terminalId:terminal.id,version:0,callbackUrl:'https://merchant.invalid/api/payment',callbackToken:'independent-bot-payment-secret',ackPolicy:'JSON_OK',responseMode:'URL',active:true}
  await assert.rejects(pay.saveBotIntegration(b,config),e=>e.status===403)
- otherMerchant=await pay.enrollMerchant(b,{name:stamp+'other',website:'https://merchant.invalid'});await pay.changeMerchant(r,{id:otherMerchant.id,status:'ACTIVE'})
+ otherMerchant=await pay.enrollMerchant(r,{userId:users[1].id,note:'Synthetic Admin provision',name:stamp+'other',website:'https://merchant.invalid'});await pay.changeMerchant(r,{id:otherMerchant.id,status:'ACTIVE'})
  await assert.rejects(pay.saveBotIntegration(b,config),e=>e.status===404)
  assert.deepEqual(await pay.botIntegrations(b),[])
  await assert.rejects(pay.saveBotIntegration(a,{...config,ackPolicy:'UNCONFIGURED'}))

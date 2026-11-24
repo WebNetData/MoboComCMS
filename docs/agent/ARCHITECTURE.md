@@ -1,3 +1,10 @@
+Private merchant workspace2026-11-24: Billing Pay owns membership/provisioning and
+Admin lifecycle behind its existing server/pay address. `/pay/merchant` is an
+independent presentation using canonical Identity session, same Wallet/payment core
+and current ACTIVE merchant. Existing Admin/AuthZ/Settings/Audit remain owners;
+legacy console URLs redirect and public checkout capability addresses are retained.
+No second auth/service/database; no schema migration. [Evidence and boundaries](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 Bank transfer2026-11-24: Billing Pay owns immutable SMS/Bale evidence, globally
 unique quote tombstones and reviewed dispositions through its existing address.
 CARD_TRANSFER autoVerify composes existing Invoice/Payment/Wallet/fulfillment and

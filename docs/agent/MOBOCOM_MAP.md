@@ -1,3 +1,9 @@
+Private merchants2026-11-24: Billing `server/pay/merchant-admin` and existing
+merchant/context/views owners; `/pay/merchant` wraps existing Pay UI with scoped
+MerchantShell, legacy dashboard aliases redirect. Admin merchants directory/detail
+uses canonical Identity/AuthZ/Audit; no new money/auth owner or migration.
+[Current evidence and operational limits](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 Bank transfer operations2026-11-24: Billing `server/pay/transfer-operations` and
 shared `bale/collection-proof`, typed `domain/pay-transfer-operations`, Admin
 `operations`/`reconciliation` views behind existing Pay navigation/HTTP. Migration214

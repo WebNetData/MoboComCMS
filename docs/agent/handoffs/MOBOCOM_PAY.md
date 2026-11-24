@@ -1,3 +1,126 @@
+## Private merchant workspace and Admin lifecycle — 2026-11-24
+
+Owner asks to separate/private the merchant experience and retain full Admin
+control, with deliberate professional RTL presentation. Continues owner-merged
+PR487 (mainb93879bc), `.mobocom/pay-bale-verification`, branch
+`feat/pay-private-merchants-2026-11-24`. Local implementation, no push/PR/deploy or
+hosted workflow dispatch. The coherent code/documentation commit is recorded in Git.
+
+### Behavior and owners
+
+- `/pay/merchant` and its existing six named views are the canonical independent
+  workspace. Scoped MerchantShell has its own header, navigation, responsive body,
+  theme controls, account/logout and keyboard skip link; existing Pay components
+  retain payment/terminal/report/bot behavior. Same canonical MoboCom login/session,
+  no new identity/app/subdomain/database. SDS/MoboCom tokens, native controls and
+  brief opacity/transform entry with reduced motion. No public visual redesign.
+- Public `/pay` introduction/enrollment is removed and redirects to private entry.
+  `/dashboard/pay` and known child URLs redirect to their new equivalent. Next may
+  stream a redirect as200/meta; actual browser navigation is verified. Ordinary
+  AccountShell no longer advertises Pay. Root menu/footer composition recursively
+  removes merchant entry links (including same-origin absolute URLs); saved theme
+  configuration is preserved. Payment capability URLs are retained. Robots/private
+  headers/no-store include Pay, and the workspace metadata is noindex.
+- Billing `merchantPortalAccess` uses current Identity/session/module/section and
+  stored PayMerchant status on EACH page. Guests get a safe sign-in link to existing
+  `/login?next=/pay/merchant`; ungranted/pending/suspended get safe status screens.
+  Only ACTIVE merchants receive dashboard data. Merchant reads/commands and
+  machine reads enforce active membership; hiding a menu is not the guard. A failed
+  overview refresh clears stale dashboard data and offers retry.
+- Public POST `/api/pay/merchant` explicitly refuses403 PAY_ENROLLMENT_CLOSED.
+  Existing `enrollMerchant` is now Admin-only provisioning to an exact existing
+  UserId/email, creates PENDING, forbids self provisioning, validates current
+  active/unrestricted account/section and records strict Audit. No new user or
+  money rows. Existing merchants and pending requests are preserved for review.
+- Existing Admin merchants tab composes `merchant-admin` behind Billing Pay's
+  public address: `merchant-directory` GET(page/q/status or id), POST(provision),
+  PATCH(id/version/action/note). It supplies25/page search/status filters, profile,
+  activation/suspension, default/override fee terms, auto-source grant, terminal
+  active/auto flags, bot key/integration stop and last50 management Audit events.
+  Owner UserId stays immutable. Origin/strict rate/body/session and the exact
+  `mobocom-pay.manage` permission are canonical; settlement-only staff cannot manage.
+- Each Admin mutation requires a reason, exact parent merchant version CAS and
+  strict Audit in the transaction; UI additionally asks explicit acknowledgment.
+  Source/terminal/bot controls retain original grants and bot version fencing.
+  Stopping a bot replaces its old key hash with an undisclosed random capability;
+  even reactivation cannot revive the old key. The owner explicitly rotates for
+  a usable replacement. No plaintext replacement is returned to Admin or Audit.
+  Profile domain edits cannot invalidate existing return/callback origins. No
+  delete/purge, secret display, arbitrary callback destination or financial write.
+  Parent merchant fencing composes current merchant commands/concurrency. Existing
+  payment and fee snapshots/Wallet/settlement/proof remain their canonical owners.
+- `src/plugins/mobocom-pay/manifest.json` adds the already-implemented monitor and
+  review desk to the existing Finance menu. No new registry/navigation framework.
+  No schema/migration/dependency changes. Public checkout/OTP/bank/callback and
+  machine API URLs stay unchanged; ungranted overview and public enrollment are
+  intentionally closed. OpenAPI description/operator docs reflect provisioning.
+
+### Actual executed acceptance
+
+- Disposable NOSUPERUSER PostgreSQL with all214 existing migrations, no .env:
+  new registered `pay-private-merchants` passes with real signed sessions and
+  current Identity/permissions: guest/ungranted/pending/suspended/other merchant,
+  scoped manager versus settlement-only, self provisioning denial, exact lookup,
+  duplicate refusal, stale version, strict Audit rollback, fees/reset, invalid
+  domain, terminal scope/auto grant, bot revocation, user suspension/module off and
+  zero new Payment/Wallet rows. Pure public navigation filtering is also exercised.
+- Existing pay-bot, pay-routing-operations, pay-shared-checkout and
+  pay-bale-collection connected checks pass. Legacy mobocom-pay passed separately
+  on its required empty-settings disposable DB. Its fixtures now provision through
+  Admin rather than self enrollment; financial assertions remain. No actual
+  bank/SMS/Bale/outbound bot traffic or production DB touched.
+-61 native unit cases pass across Pay bot/routing, navigation and SEO. Full
+  TypeScript, architecture/source/schema parity/money-schema/money-UI/security/
+  strict Audit/release-manifest gates pass. Extension registry generation verified;
+  byte-only/generated unrelated changes were restored, no baseline reset. Final
+  `generate-extensions.mjs --check` matches all7 registry files.
+- Actual TLS Playwright19 final responsive/axe captures:1440 light/dark and390;
+  Admin create→pending→activate, merchant portal, real terminal create, Admin stop
+  terminal→suspend, ordinary and guest refusals, old deep-link redirect, no public
+  account Pay links, unchanged bank checkout. New merchant shell (including header,
+  sidebar/footer) and affected main views have0 axe findings/overflow/page errors.
+  Extra390 browser check: failed overview hides stale panel, retry recovers,
+  native keyboard skip link and full-shell axe0. Two final mobile captures verify
+  guest versus authenticated header controls (logout only for a current session)
+  with full-shell axe0. This is local synthetic evidence.
+- Hurl private-merchants smoke7 requests pass (guest/section denial, safe/no-store
+  directory, closed public enrollment, foreign Origin refusal, private/noindex
+  workspace); Spectral0, oasdiff0 breaking schema changes. Enrollment/access policy
+  intentionally tightened as requested, not described as unchanged behavior.
+- React Doctor9 components0errors/14 reviewed warnings: existing AccountShell
+  fetch/complexity, existing Admin complexity/table resemblance, new detail rendering
+  complexity and keyed profile draft state. Profile key includes merchant.version,
+  so saved/reloaded versions remount fields; no suppression. Final existing
+  one-rule Semgrep over34 source targets and redacted Gitleaks over53 named files
+  report0 findings; these are scoped checks, not comprehensive certification.
+- Browser fixture corrections: proper heading level/terminal label and current
+  compact-bank title; waiting for actual activation completion (PENDING already
+  offered suspend); streamed legacy redirect asserted by navigation rather than
+  assuming307. Initial dev preview restarted at its3GB threshold while compiling
+  account routes; only the private preview was restarted with5GB, final run passed.
+  Full-shell axe exposed low-contrast sidebar/footer text; scoped tokens corrected
+  and rechecked. No global token/theme changes. Custom config hash remains
+  be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+
+### Limits and rollback
+
+No production build/whole-site certification, real bank/Bale/SMS, native mobile
+hardware or deployment claimed. Login uses existing Identity; this slice adds no
+invitation-email sender or separate credentials. New admin controls do not send
+funds, reset a user or reveal bot/provider secrets. Live source activation/recovery
+remains the operational continuation after owner merge/deploy.
+
+Rollback is an app revert or existing module disable; all merchant/financial/evidence
+data remains. Returning to the old app also restores its public enrollment policy,
+so keep that service closed operationally if reverting. Test-only source/runtime,
+sessions/DB cleanup status is appended at completion. Root/autonomous work preserved.
+
+Completion cleanup ran: verified private Next process group and host tunnel stopped;
+exact test/legacy DBs and NOSUPERUSER role removed; private TLS/session/Hurl files
+and source archive removed; builder stopped. Shared app readiness/auth-session
+returned200. Synthetic captures/redacted logs remain ignored under
+`var/pay-bale-20261124`. No production state was changed.
+
 ## PR487 publication — 2026-11-24
 
 Owner requested publication of the completed monitor/reconciliation slice.

@@ -123,7 +123,7 @@ export default function Overview({
           ) : (
             <p>هنوز درخواست تسویه‌ای ثبت نشده است.</p>
           )}
-          <Link className={s.secondary} href="/dashboard/pay/settlements">مدیریت تسویه‌ها</Link>
+          <Link className={s.secondary} href="/pay/merchant/settlements">مدیریت تسویه‌ها</Link>
         </section>
       </div>
       <p className={s.notice}>

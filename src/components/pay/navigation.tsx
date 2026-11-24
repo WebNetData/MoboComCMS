@@ -28,7 +28,7 @@ export default function PayNavigation({ area, current, canManage = true }: {
   current: string;
   canManage?: boolean;
 }) {
-  const base = area === "merchant" ? "/dashboard/pay" : "/admin/mobocom-pay";
+  const base = area === "merchant" ? "/pay/merchant" : "/admin/mobocom-pay";
   const links = area === "merchant" ? merchant : admin;
   return (
     <nav className={s.payNav} aria-label={area === "merchant" ? "بخش‌های درگاه پرداخت" : "بخش‌های مدیریت درگاه پرداخت"}>

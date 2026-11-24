@@ -1,3 +1,10 @@
+Private merchant portal/Admin2026-11-24: FUNCTIONAL_LOCAL. Existing ACTIVE
+membership gates pages/session/machine reads; public enrollment closed. Scoped
+workspace, canonical login, Admin provisioning/lifecycle/profile/fees/source/
+terminal/bot controls with version/reason/Audit. Native6+units61, Doctor0errors,
+19 responsive/a11y views+failure recovery and7 Hurl requests. No live bank/deploy
+claim. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 Bank operations monitor/reconciliation2026-11-24: FUNCTIONAL_LOCAL. Current
 SMS/Bale readiness and observed traffic, latency/review/pool metrics; paged exact
 invoice assignment, under/over review, late exact admission and canonical receipt/
