@@ -6,11 +6,12 @@ if (!/^mobocom_pay_test_/.test(new URL(process.env.DATABASE_URL || 'postgresql:/
 process.env.NEXTAUTH_SECRET = randomBytes(32).toString('hex'); process.env.NEXTAUTH_URL = 'https://mobocom.invalid'; process.env.MOBOCOM_PAY_BALE_VERIFIED = 'true'
 const RealDate = Date; let now = RealDate.now()
 global.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : [now])) } static now() { return now } }
-const prisma = new PrismaClient(), stamp = `collection-${randomUUID()}`, users = [], invoices = [], quotes = [], snapshots = new Map()
+const prisma = new PrismaClient(), stamp = `collection-${randomUUID()}`, users = [], roles = [], invoices = [], quotes = [], snapshots = new Map()
 const availabilitySetting = 'publicApiEnabled'
 const keys = [availabilitySetting, 'billing.mobocom-pay.v1', 'extension.mobocom-pay.state.v1', 'security.policy.v1']
 const load = require('./connected-source-loader.cjs')({ '@/platform/database/prisma': { db: prisma }, react: { ...require('react'), cache: fn => fn } })
 const pay = load('src/modules/billing/server/pay.ts'), policy = load('src/modules/billing/domain/pay-policy.ts'), access = load('src/modules/identity/server/access.ts')
+const operations = load('src/modules/billing/server/pay/transfer-operations.ts')
 const { prepareBaleGateway } = load('src/modules/billing/server/pay/bale/collection-create.ts')
 const { baleCheckout, changeBaleCheckout } = load('src/modules/billing/server/pay/bale/collection-view.ts')
 const { submitCollectionReceipt, reviewCollectionReceipt } = load('src/modules/billing/server/pay/bale/collection-receipts.ts')
@@ -20,8 +21,8 @@ const put = (key, value) => prisma.setting.upsert({ where: { key }, create: { ke
 const status = n => error => error.status === n
 let bank, secondBank, gateway, smsGateway, smsSource, payMerchant, payTerminal, merchantPayment
 async function receive(body) { const raw = Buffer.from(JSON.stringify(body)), signature = 'sha256=' + createHmac('sha256', process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET).update(raw).digest('hex'); return pay.receiveBaleBankMessage(signature, body.event_id, raw) }
-async function invoice(amount, currency = 'IRR', kind = 'BILLING') {
-  const row = await prisma.invoice.create({ data: { number: `${stamp}-${invoices.length}`, userId: users[1].id, status: 'UNPAID', kind, currency, gatewayId: gateway.id, total: Number(amount), totalMinor: BigInt(amount), subtotal: Number(amount), subtotalMinor: BigInt(amount), expiresAt: new Date(now + 3600000) } }); invoices.push(row.id); return row
+async function invoice(amount, currency = 'IRR', kind = 'BILLING', userId = users[1].id) {
+  const row = await prisma.invoice.create({ data: { number: `${stamp}-${invoices.length}`, userId, status: 'UNPAID', kind, currency, gatewayId: gateway.id, total: Number(amount), totalMinor: BigInt(amount), subtotal: Number(amount), subtotalMinor: BigInt(amount), expiresAt: new Date(now + 3600000) } }); invoices.push(row.id); return row
 }
 async function upload(id, amount, cookie = '') {
   const form = new FormData(); form.set('payerName', 'Synthetic User'); form.set('paidAmountRial', String(amount)); form.set('image', new Blob([Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c4944415408d763f8ffff3f0005fe02fef32a02550000000049454e44ae426082', 'hex')], { type: 'image/png' }), 'receipt.png')
@@ -134,9 +135,74 @@ async function main() { try {
   const proceeds = await prisma.walletTx.findMany({ where: { userId: users[1].id, type: 'PAY_CREDIT' } })
   assert.equal(proceeds.length, 1); assert.equal(proceeds[0].amountMinor, 2099000n); assert.equal(proceeds[0].withdrawableDeltaMinor, 2099000n)
   assert.equal(await prisma.payment.count({ where: { invoiceId: payInvoice.id, status: 'CONFIRMED' } }), 1)
-  console.log('Bale collection connected assertions passed: receipts/races/top-up/merchant net/renewal/global amount tombstones')
+  // Operations desk: late evidence requires explicit audited admission, never a second journal.
+  await put(keys[1], JSON.stringify({ ...policy.defaults(), incomingEnabled: true, bankAccountIds: [bank.id], bale: { enabled: true, minAdjustmentRial: '10', maxAdjustmentRial: '10', minutes: 15 } }))
+  now = RealDate.now() - 16 * 60000
+  const deskInvoice = await invoice(3100000, 'IRR', 'WALLET_TOPUP'), deskQuote = await prepare(deskInvoice)
+  await changeBaleCheckout(deskQuote.txnId, new NextRequest('https://mobocom.invalid/pay/bank/' + deskQuote.txnId), 'accept')
+  const deskRow = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: deskQuote.txnId } })
+  now = RealDate.now()
+  const lateDesk = await receive(envelope(501, { amount: String(deskRow.collectedRial), reference: 'DESKLATE501' })); assert.equal(lateDesk.financialApproval, false)
+  const evidence = await prisma.payBaleNotice.findFirstOrThrow({ where: { bankAccountId: bank.id, amountMinor: deskRow.collectedRial } })
+  const command = (noticeId, action, version = 0, collectionId) => operations.decideTransferReview(admin, { noticeId, action, version, note: 'Synthetic reviewed decision', ...(collectionId ? { collectionId } : {}) })
+  let detail = await operations.transferReviewDetail(admin, evidence.id); assert.equal(detail.canConfirm, true); assert.equal(detail.difference, 'EXACT')
+  process.env.MOBOCOM_PAY_BALE_VERIFIED = 'false'
+  try { await assert.rejects(command(evidence.id, 'confirm'), status(503)) } finally { process.env.MOBOCOM_PAY_BALE_VERIFIED = 'true' }
+  assert.equal(await prisma.payTransferReview.count({ where: { noticeId: evidence.id } }), 0)
+  assert.equal((await command(evidence.id, 'confirm')).financialApproval, true)
+  await assert.rejects(command(evidence.id, 'confirm'), status(409))
+  await receive(envelope(502, { amount: String(deskRow.collectedRial), reference: 'DESKLATE502' }))
+  assert.equal(await prisma.payment.count({ where: { invoiceId: deskInvoice.id, status: 'CONFIRMED' } }), 1)
+  assert.equal(await prisma.walletTx.count({ where: { invoiceId: deskInvoice.id, type: 'TOPUP', status: 'DONE' } }), 1)
+  await assert.rejects(prisma.payTransferReview.updateMany({ where: { noticeId: evidence.id }, data: { note: 'tampered', version: { increment: 1 } } }))
+  detail = await operations.transferReviewDetail(admin, evidence.id); assert.ok(detail.history.some(h => h.note === 'Synthetic reviewed decision'))
+  const from = await prisma.payBaleNotice.findUniqueOrThrow({ where: { id: evidence.id } })
+  async function deskNotice(number, amount, sentAt = new Date(now)) { return prisma.payBaleNotice.create({ data: { ...from, id: randomUUID(), sourceEventId: createHash('sha256').update('desk-event-'+number).digest('hex'), messageId: String(1000000+number), payloadHash: createHash('sha256').update('desk-'+number).digest('hex'), bankFingerprint: null, duplicateOfId: null, amountMinor: amount, sourceSentAt: sentAt, receivedAt: new Date(now) } }) }
+  for (const [number, amount] of [[510,3200000n],[511,3400000n]]) {
+    const inv = await invoice(3300000 + number * 10000), q = await prepare(inv), row = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: q.txnId } }), n = await deskNotice(number, amount)
+    assert.equal((await operations.transferReviewSearch(admin,n.id,inv.number)).items.length,1)
+    await command(n.id,'assign',0,q.txnId)
+    const d = await operations.transferReviewDetail(admin,n.id)
+    // Both sides of an exact request are deliberately exercised below.
+    assert.equal(d.difference, amount < row.collectedRial ? 'UNDER' : 'OVER'); assert.equal(d.canConfirm,false)
+    await assert.rejects(prisma.payTransferReview.updateMany({where:{noticeId:n.id,version:1,status:'OPEN'},data:{status:'CONFIRMED',version:{increment:1}}}))
+    await assert.rejects(command(n.id,'confirm',1),status(409)); assert.equal(await prisma.payment.count({where:{invoiceId:inv.id}}),0)
+    await assert.rejects(command(n.id,'dismiss',0),status(409)); await command(n.id,'dismiss',1)
+  }
+  const overInvoice = await invoice(9000000), overQuote = await prepare(overInvoice), overNotice = await deskNotice(512,10000000n)
+  await command(overNotice.id,'assign',0,overQuote.txnId); assert.equal((await operations.transferReviewDetail(admin,overNotice.id)).difference,'OVER'); await assert.rejects(command(overNotice.id,'confirm',1),status(409))
+  // Same invoice fence across receipt, operator and automatic evidence.
+  const deskRaceInvoice = await invoice(10100000,'IRR','WALLET_TOPUP'), deskRaceQuote = await prepare(deskRaceInvoice)
+  await changeBaleCheckout(deskRaceQuote.txnId,new NextRequest('https://mobocom.invalid/pay/bank/'+deskRaceQuote.txnId),'accept'); await upload(deskRaceQuote.txnId,10100000)
+  const deskRaceRow = await prisma.payBaleCollection.findUniqueOrThrow({where:{id:deskRaceQuote.txnId}}), deskRaceNotice = await deskNotice(513,deskRaceRow.collectedRial)
+  await command(deskRaceNotice.id,'assign',0,deskRaceRow.id)
+  await assert.rejects(prisma.payTransferReview.updateMany({where:{noticeId:deskRaceNotice.id,version:1,status:'OPEN'},data:{status:'CONFIRMED',version:{increment:1}}}))
+  const deskRace = await Promise.allSettled([command(deskRaceNotice.id,'confirm',1),reviewCollectionReceipt(admin,deskRaceRow.receiptId,'approve','Synthetic receipt review'),pay.matchBaleNotice(deskRaceNotice.id)])
+  assert.ok(deskRace.some(r=>r.status==='fulfilled')); assert.equal(await prisma.payment.count({where:{invoiceId:deskRaceInvoice.id,status:'CONFIRMED'}}),1); assert.equal(await prisma.walletTx.count({where:{invoiceId:deskRaceInvoice.id,type:'TOPUP',status:'DONE'}}),1)
+  const monitor = await operations.transferMonitor(admin); assert.ok(monitor.totals.paid>0); assert.ok(monitor.sources.some(s=>s.type==='BALE'&&s.observed)); assert.ok(monitor.pools.every(p=>p.remaining===Math.max(0,p.capacity-p.occupied))); assert.ok(monitor.pools.some(p=>p.state==='EXHAUSTED'))
+  assert.ok((await operations.transferReviewQueue(admin,new URLSearchParams('closed=true'))).items.some(n=>n.id===evidence.id))
+  const buyerToken = await encode({secret:process.env.NEXTAUTH_SECRET,token:{uid:String(users[1].id),authAt:Date.now()}})
+  const buyerActor = {id:users[1].id,email:users[1].email,req:new NextRequest('https://mobocom.invalid/api/admin/mobocom-pay/transfer-reviews',{headers:{cookie:`next-auth.session-token=${buyerToken}; __Secure-next-auth.session-token=${buyerToken}`,origin:'https://mobocom.invalid'}})}
+  await assert.rejects(operations.transferMonitor(buyerActor),status(403))
+  const payRole=await prisma.role.create({data:{name:stamp+'-pay-only',permissions:'mobocom-pay.manage'}}); roles.push(payRole.id)
+  const payOnly=await prisma.user.create({data:{email:stamp+'-pay-only@example.invalid',passwordHash:'!',role:'ADMIN',roleId:payRole.id}}); users.push(payOnly)
+  const payOnlyToken=await encode({secret:process.env.NEXTAUTH_SECRET,token:{uid:String(payOnly.id),authAt:Date.now()}}),payOnlyActor={id:payOnly.id,email:payOnly.email,req:new NextRequest('https://mobocom.invalid/api/admin/mobocom-pay/transfer-reviews',{headers:{cookie:`__Secure-next-auth.session-token=${payOnlyToken}`,origin:'https://mobocom.invalid'}})}
+  assert.ok((await operations.transferMonitor(payOnlyActor)).sources.length)
+  await assert.rejects(operations.transferReviewDetail(payOnlyActor,evidence.id),status(403))
+  await assert.rejects(operations.decideTransferReview(payOnlyActor,{noticeId:overNotice.id,version:1,action:'confirm',note:'Synthetic denied approval'}),status(403))
+  const selfInvoice = await invoice(11200000,'IRR','BILLING',users[0].id), selfQuote = await prepare(selfInvoice)
+  await changeBaleCheckout(selfQuote.txnId,new NextRequest('https://mobocom.invalid/pay/bank/'+selfQuote.txnId),'accept')
+  const selfRow = await prisma.payBaleCollection.findUniqueOrThrow({where:{id:selfQuote.txnId}}), selfNotice = await deskNotice(514,selfRow.collectedRial)
+  await assert.rejects(command(selfNotice.id,'confirm',0,selfRow.id),status(403))
+  const staleInvoice=await invoice(11300000),staleQuote=await prepare(staleInvoice)
+  await changeBaleCheckout(staleQuote.txnId,new NextRequest('https://mobocom.invalid/pay/bank/'+staleQuote.txnId),'accept')
+  const staleRow=await prisma.payBaleCollection.findUniqueOrThrow({where:{id:staleQuote.txnId}}),staleNotice=await deskNotice(515,staleRow.collectedRial,new Date(staleRow.validFrom.getTime()-1000))
+  await assert.rejects(command(staleNotice.id,'confirm',0,staleRow.id),status(409))
+  await put(keys[2],'{"enabled":false,"settings":{}}'); await assert.rejects(operations.transferMonitor(admin),status(404)); await assert.rejects(command(overNotice.id,'dismiss',1),status(404)); await put(keys[2],'{"enabled":true,"settings":{}}')
+  console.log('Bale collection + operations desk assertions passed: exact-once receipts/auto/reviewer race, late admission, mismatch refusal, version/module/source denial, pool and latency projections')
 } finally {
   const rows = await prisma.payBaleCollection.findMany({ where: { invoiceId: { in: invoices } }, select: { id: true } }); const ids = rows.map(row => row.id)
+  if (bank) { await prisma.$executeRawUnsafe('ALTER TABLE "PayTransferReview" DISABLE TRIGGER "PayTransferReview_guard"'); try { await prisma.payTransferReview.deleteMany({where:{notice:{bankAccountId:bank.id}}}) } finally { await prisma.$executeRawUnsafe('ALTER TABLE "PayTransferReview" ENABLE TRIGGER "PayTransferReview_guard"') } }
   try { if (ids.length) { await prisma.$executeRawUnsafe('ALTER TABLE "PayBaleCollection" DISABLE TRIGGER "PayBaleCollection_no_delete"'); try { await prisma.payBaleCollection.deleteMany({ where: { id: { in: ids } } }) } finally { await prisma.$executeRawUnsafe('ALTER TABLE "PayBaleCollection" ENABLE TRIGGER "PayBaleCollection_no_delete"') } } }
   finally {
     const receipts = await prisma.paymentReceipt.findMany({ where: { invoiceId: { in: invoices } }, select: { id: true, image: true } })
@@ -147,6 +213,7 @@ async function main() { try {
     if (payMerchant) await prisma.payMerchant.deleteMany({ where: { id: payMerchant.id } })
     await prisma.payment.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { providerTxnId: { in: ids }, provider: 'MOBOCOM_PAY_ADJUSTMENT' }] } }); await prisma.walletTx.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { userId: { in: users.map(user => user.id) }, type: 'PAY_CREDIT' }] } }); await prisma.walletAccount.deleteMany({ where: { userId: { in: users.map(user => user.id) } } }); await prisma.invoice.deleteMany({ where: { id: { in: invoices } } })
     await prisma.auditLog.deleteMany({ where: { actorUserId: { in: users.map(user => user.id) }, action: { startsWith: 'mobocom-pay.' } } }); if (smsSource) await prisma.paySmsSource.deleteMany({ where: { id: smsSource.id } }); if (smsGateway) await prisma.gateway.deleteMany({ where: { id: smsGateway.id } }); if (gateway) await prisma.gateway.deleteMany({ where: { id: gateway.id } }); if (bank) await prisma.bankAccount.deleteMany({ where: { id: bank.id } }); if (secondBank) await prisma.bankAccount.deleteMany({ where: { id: secondBank.id } }); await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } })
+    await prisma.role.deleteMany({where:{id:{in:roles}}})
     for (const [key, old] of snapshots) if (old) await put(key, old.value); else await prisma.setting.deleteMany({ where: { key } }); access.clearAdminPolicyCache(); await prisma.$disconnect(); global.Date = RealDate
   }
 } }

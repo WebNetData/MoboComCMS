@@ -7,7 +7,7 @@ import { PayError } from '@/modules/billing/domain/pay'
 import { auditSystemStrict } from '@/platform/audit/server'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
-type Proof = { method: 'AUTO'; noticeId: string; actor: { id: number; email: string } } | { method: 'MANUAL'; receiptId: number; actualRial: bigint; actor: { id: number; email: string } }
+type Proof = { method: 'AUTO' | 'REVIEWED_NOTICE'; noticeId: string; actor: { id: number; email: string } } | { method: 'MANUAL'; receiptId: number; actualRial: bigint; actor: { id: number; email: string } }
 /** Both staff and all automatic sources converge HERE, within the caller's Serializable transaction. */
 export async function settleTransferCollection(tx: Prisma.TransactionClient, row: PayBaleCollection, proof: Proof) {
   const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: row.invoiceId }, include: { gateway: true } })
@@ -15,7 +15,7 @@ export async function settleTransferCollection(tx: Prisma.TransactionClient, row
   if (!['PENDING','UNDER_REVIEW','REVIEW'].includes(row.status) || invoice.status !== 'UNPAID' || invoice.gatewayId !== row.gatewayId || !invoice.gateway?.active ||
     !['CARD_TRANSFER','MOBOCOM_PAY'].includes(invoice.gateway.provider) || invoice.currency !== row.currency || invoiceDueMinor(invoice) !== row.dueMinor) throw new PayError('وضعیت فاکتور برای تأیید تغییر کرده است', 409)
   if (invoice.userId !== null && ((await tx.user.findUnique({ where: { id: invoice.userId }, select: { status: true } }))?.status !== 'ACTIVE' || await globalAuthenticationDenied(invoice.userId, new Date(), tx))) throw new PayError('حساب فاکتور فعال نیست', 403)
-  const collected = proof.method === 'AUTO' ? row.collectedRial : proof.actualRial
+  const collected = proof.method === 'MANUAL' ? proof.actualRial : row.collectedRial
   if (collected !== row.collectedRial && collected !== row.principalRial) throw new PayError('مبلغ رسید با اصل یا جمع دقیق درخواست مطابقت ندارد', 409)
   const paid = await markInvoicePaid({ invoiceId: row.invoiceId, gatewayId: row.gatewayId, provider: invoice.gateway.provider, providerTxnId: row.id, amount: row.dueMinor.toString(), feeBps: 0,
     raw: { source: 'auto-card-transfer', collectionId: row.id, method: proof.method } }, tx)
@@ -31,7 +31,7 @@ export async function settleTransferCollection(tx: Prisma.TransactionClient, row
     if (!credit.ok) throw new PayError('شارژ کیف پول انجام نشد', 409)
   } else if (invoice.orderId) await enqueueOrderFulfillment({ orderId: invoice.orderId, invoiceId: invoice.id, planId: invoice.planId, productId: invoice.productId }, tx)
   const claimed = await tx.payBaleCollection.updateMany({ where: { id: row.id, status: row.status, principalPaymentId: null }, data: {
-    status: 'PAID', activeInvoiceId: null, noticeId: proof.method === 'AUTO' ? proof.noticeId : row.noticeId, settlementMethod: proof.method,
+    status: 'PAID', activeInvoiceId: null, noticeId: proof.method === 'MANUAL' ? row.noticeId : proof.noticeId, settlementMethod: proof.method,
     principalPaymentId: principal.id, adjustmentPaymentId: fee?.id || null, paidCollectedRial: collected, paidAt: new Date(), reviewReason: '',
   } })
   if (claimed.count !== 1) throw new PayError('پرداخت هم‌زمان تأیید شده است', 409)

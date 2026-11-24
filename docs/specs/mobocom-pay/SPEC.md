@@ -403,3 +403,41 @@ scripts use Origin. Deliberate faults must fail and source must be restored.
 Apply the additive migration before code. Disable routing/integration for new
 orders to pause; existing decisions/history remain. Forward-fix after activity;
 do not delete financial or delivery evidence to roll back.
+# Transfer operations and reconciliation desk — 2026-11-24
+
+Owner authorizes recommendations1/2 after merging PR486 (main8a84ad1a).
+Continue Billing Pay intake, collection settlement, canonical receipts/Audit and
+Admin navigation; merchant bot-delivery operations remain their existing owner.
+
+- `/admin/mobocom-pay/operations`: 24h observed source delivery/confirmation
+  percentiles, current readiness, last receipt, rejected events, overdue requests,
+  receipt holds and globally occupied immutable amount pools for recent principals.
+  Quiet traffic is **unknown connectivity**, never an invented online/offline claim.
+- `/admin/mobocom-pay/reconciliation`: paginated original CREDIT evidence needing
+  attention, holds/rejected receipts, explicit invoice search/assignment, difference,
+  receipt and canonical Audit history. Never infer payer identity from a nearby amount.
+- `mobocom-pay.manage` gates all server operations; ordinary invoice receipt and
+  financial decisions additionally require `invoices.manage`. No self approval.
+  Requests require the existing authenticated Origin policy, bounded JSON and CAS
+  version. Module-off/read and write denial remain canonical.
+- A minimal PayTransferReview stores notice assignment and versioned decision;
+  immutable notice facts remain unchanged. Decision notes/reviewer/time go to strict
+  Audit in the same transaction. Dismiss closes an evidence case without money.
+- Explicit confirmation is only for an accepted, same-bank, same frozen/current
+  authenticated source, exact reserved amount, unpaid eligible invoice. Late exact
+  notices may be admitted by an authorized reviewer with a reason. Under/over amounts
+  remain nonfinancial cases for correction/refund handling; no partial credit or
+  automatic refund is introduced. Old pre-quote evidence cannot be admitted.
+- Confirmation shares invoice-first Serializable locking, markInvoicePaid,
+  principal/adjustment journals, Wallet and fulfillment with AUTO/MANUAL. A database
+  constraint requires the confirmed review for REVIEWED_NOTICE proof; terminal cases
+  and settled collections are immutable. Concurrent receipt/auto/reviewer decisions
+  cannot create a second Payment or Wallet credit.
+- Additive migration214, both Prisma mirrors and release manifest. Existing data,
+  source/gateway defaults, public checkout and approved theme remain unchanged.
+  Rollback: disable auto/source/module, retain evidence/tombstones, forward-only DB.
+- UI uses scoped SDS/MoboCom cards, tabular Rial, RTL/native forms, expandable
+  case details, explicit errors/pending/results, focus and reduced-motion support.
+  Acceptance: connected non-root empty/upgraded PostgreSQL; late/exact vs under/over,
+  revocation/self/permission/version denial, notice reuse and receipt races; actual
+  Admin browser light/dark/mobile, axe, errors and persisted decisions, React Doctor.

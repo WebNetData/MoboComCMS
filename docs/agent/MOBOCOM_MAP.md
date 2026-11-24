@@ -1,3 +1,9 @@
+Bank transfer operations2026-11-24: Billing `server/pay/transfer-operations` and
+shared `bale/collection-proof`, typed `domain/pay-transfer-operations`, Admin
+`operations`/`reconciliation` views behind existing Pay navigation/HTTP. Migration214
+adds versioned evidence dispositions; canonical collection settlement/Wallet/receipts/
+Audit remain owners. [Executed evidence](handoffs/MOBOCOM_PAY.md#bank-operations-monitor-and-reconciliation-desk--2026-11-24).
+
 Compact checkout2026-11-24: `components/pay/bank-checkout` parts behind existing
 entry, `BankCheckout.module.css`; Billing `domain/pay-usdt-equivalent` consumes FX
 owner `currentCurrencyRate` in the existing collection DTO. Rates stay owned by

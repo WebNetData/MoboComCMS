@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import Admin from '@/components/pay/Admin'
 
-const views = ['merchants', 'settlements', 'payments', 'bank-events', 'settings', 'receipts']
+const views = ['merchants', 'settlements', 'payments', 'bank-events', 'settings', 'receipts', 'operations', 'reconciliation']
 
 export default async function Page({ params }: { params: Promise<{ view: string }> }) {
   await requireModule('mobocom-pay')

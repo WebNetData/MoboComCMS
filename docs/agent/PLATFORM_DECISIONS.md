@@ -1,3 +1,12 @@
+2026-11-24 owner authorizes next Pay items1/2: extend operations monitoring and
+add a reconciliation desk under current Billing owners and approved identity.
+Preserve CARD_TRANSFER automatic SMS/Bale and canonical exact-once manual/automatic
+credit. Under/over evidence requires explicit review; no guessed payer or partial
+credit/refund transfer. Authorized staff may admit an exact late notice with reason,
+current source/gateway authority and strict Audit. These final automatic-transfer
+decisions supersede the older source-only investigation below; live connector and
+bank rollout remain unverified. [Implementation and acceptance](handoffs/MOBOCOM_PAY.md#bank-operations-monitor-and-reconciliation-desk--2026-11-24).
+
 2026-11-24 owner correction: no Android app/phone notification relay. The site
 server must read the owner's personal Bale account's original @bam_bmi notices.
 The method belongs in the canonical platform Gateway registry and must eventually
