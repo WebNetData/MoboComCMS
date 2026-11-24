@@ -28,7 +28,8 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
       .catch(cause => { if (!controller.signal.aborted && cause.name !== 'AbortError') setError(cause.message) })
     return () => controller.abort()
   }, [revision])
-  const terminalId = selected || data.terminals[0]?.id || ''
+  const eligible = data.merchant?.website ? data.terminals.filter(item => !item.channelType || item.channelType === 'WEBSITE' || item.channelType === 'BOT') : []
+  const terminalId = eligible.some(item => item.id === selected) ? selected : eligible[0]?.id || ''
   const current = items.find(item => item.terminalId === terminalId)
   const endpoint = current && typeof window !== 'undefined' ? new URL('/api/v1/pay/bot/' + current.id, window.location.origin).toString() : ''
   async function save(form: HTMLFormElement) {
@@ -49,10 +50,10 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
     <ErrorNotice error={error} />
     {!ready && !error && <p role="status">در حال دریافت اتصال‌ها…</p>}
     {error && <button type="button" className={s.secondary} onClick={refresh}>تازه‌کردن اتصال‌ها</button>}
-    {!data.terminals.length ? <p className={s.notice}>ابتدا یک پایانه بسازید؛ سپس اتصال اختصاصی همان پایانه را تنظیم کنید.</p> : ready && <>
+    {!eligible.length ? <p className={s.notice}>برای اتصال ربات، وب‌سایت کسب‌وکار و یک پایانهٔ وب‌سایت یا ربات لازم است.</p> : ready && <>
       <div className={s.connectGrid}>
         <form key={terminalId + ':' + (current?.version || 0)} className={s.card + ' ' + s.stack} onSubmit={event => { event.preventDefault(); void save(event.currentTarget) }}>
-          <Field label="۱. پایانهٔ این ربات"><select aria-label="پایانهٔ اتصال ربات" disabled={busy || routingBusy} value={terminalId} onChange={event => { setSelected(event.target.value); setToken(''); setSaved(false); setRulesSaved(false) }}>{data.terminals.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+          <Field label="۱. پایانهٔ این ربات"><select aria-label="پایانهٔ اتصال ربات" disabled={busy || routingBusy} value={terminalId} onChange={event => { setSelected(event.target.value); setToken(''); setSaved(false); setRulesSaved(false) }}>{eligible.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
           <Field label="۲. API تأیید پرداخت در ربات"><input name="callbackUrl" type="url" dir="ltr" required defaultValue={current?.callbackUrl || new URL('/api/payment', data.merchant!.website).toString()} /></Field>
           <Field label={current?.hasCallbackToken ? 'کلید API پرداخت ربات (خالی یعنی حفظ کلید فعلی)' : '۳. کلید API پرداخت ربات'}><input name="callbackToken" type="password" autoComplete="new-password" dir="ltr" required={!current?.hasCallbackToken} maxLength={512} /></Field>
           <p className={s.muted}>این کلید از پنل ربات با دسترسی پرداخت گرفته می‌شود؛ با توکن خود ربات و کلید ساخت لینک فرق دارد.</p>
@@ -75,7 +76,7 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
       </div>
       {rulesSaved && <p role="status">قواعد انتخاب روش پرداخت ذخیره شد؛ سفارش‌های قبلی مسیر ثبت‌شدهٔ خود را حفظ می‌کنند.</p>}
       {current && <RoutingRules key={current.id + ':routing:' + current.routingVersion} integration={current} gateways={gateways} locked={busy} onBusyChange={setRoutingBusy} onSaved={() => { setRulesSaved(true); refresh() }} />}
-      <p className={s.notice}>برای جست‌وجو، وضعیت صف و بررسی نتیجهٔ سفارش‌ها به <Link href="/dashboard/pay/operations">عملیات ربات</Link> بروید.</p>
+      <p className={s.notice}>برای جست‌وجو، وضعیت صف و بررسی نتیجهٔ سفارش‌ها به <Link href="/pay/merchant/operations">عملیات ربات</Link> بروید.</p>
     </>}
   </section>
 }

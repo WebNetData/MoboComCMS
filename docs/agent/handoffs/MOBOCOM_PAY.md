@@ -1,3 +1,297 @@
+## General channels and selected merchant USDT credit — 2026-11-24
+
+Owner authorizes website/Instagram/channel/standalone collection beyond bots and
+selected merchants receiving purchased internal USDT, with later Rial or crypto
+settlement and independently configurable network fees. Continues local56a0b7a6
+in `.mobocom/pay-bale-verification`, `feat/pay-private-merchants-2026-11-24`,
+base mainb93879bc. This slice is local; no push/PR/deploy or hosted workflow.
+
+Implemented owners and contracts:
+
+- Billing `domain/pay-channels` and existing merchant/terminal commands add six
+  channel types. Instagram/channel/standalone merchants need no artificial website;
+  website/bot return-origin guards remain. Standalone checkout has no forced return.
+  Existing generic machine API and polling serve all channels. The merchant creates
+  a per-order link, sees the amount/credit and copies it without entering checkout.
+  This is not an evergreen multi-customer page or an outbound social publishing API.
+- Admin `credit-mode` requires current version, reason, acknowledgment and existing
+  management/no-self guards; applies to future payments only. Canonical Wallet owns
+  both IRR and USDT withdrawable provenance. USDT's existing two-decimal meaning is
+  explicit; legacy ordinary USDT is preserved and never becomes withdrawable.
+- Billing `pay/assets` uses approved canonical FX only, with configurable age,
+  immutable quantity/rate/time/source/beneficiary/rounding/terms snapshots. The
+  verified payer explicitly accepts internal credit for the named merchant before
+  instructions. Rounding down to0.01 USDT and retained Rial remainder are disclosed.
+  Strict canonical credit and DB links require exact currency/amount/provenance and
+  consent; Audit rollback and concurrent/repeated proof cannot mint a second credit.
+- Acquisition expiry is not renewable. USDT uses bank/manual collection with timely
+  attested event/notice or a timely submitted approved receipt; held receipts remain
+  under review after expiry. Online methods lacking trusted payment-time evidence
+  are not offered for USDT; ordinary IRR provider checkout retains existing methods.
+- Existing quote/reserve/review/release flow carries explicit source asset and an
+  immutable fee/rate snapshot. Separate Wallet balances/reserves and dated Rial
+  valuation appear in merchant/Admin views. Stale valuation is unavailable, never
+  another spendable balance. Per-rail fee currency/percentage/flat/cap is explicit.
+  BSC (Binance-Peg BSC-USD) and Ethereum routes default off; EVM destinations need
+  explicit network acknowledgment. Quote precision6 is separate from ledger2 and
+  BSC contract18; no raw-chain decimal reinterpretation, private keys or RPC sender.
+- `/api/v2/pay/[...resource]` is a thin adapter to the same owner and key. New
+  networks/source assets use v2; v1 keeps its three-rail catalog/closed quote enum,
+  returning `PAY_API_V2_REQUIRED` for new quote types. Bot adapter remains v1.
+  OpenAPI1.7 and `assets-smoke.hurl` describe the connected contract.
+- Migration215 `20270401120000_pay_channels_assets` is listed in the release manifest
+  and both Prisma schemas. Locked incremental backfill retains prior payment/quote/
+  reservation amounts, legacy writer defaults, money-state constraints and owned
+  immutable-row triggers. New immutable credit/source fields and deferred exact
+  Wallet/collection links extend the existing financial constraints.
+- UI stays within Pay SDS tokens: selected asset balance, source/network/fee quote,
+  explicit purchase summary and acceptance, shareable order link, channel forms and
+  Admin controls. Protected public themes and compact bank-checkout CSS unchanged.
+
+Executed evidence (disposable PostgreSQL, NOSUPERUSER / runtime UID1000, no `.env`):
+
+- All215 migrations fresh; populated214-to215 upgrade preserves ordinary2.35 USDT,
+  IRR proceeds/reservation/quotes and immutability; old-writer default checks pass.
+- Registered `pay-assets.connected.cjs`: real canonical sessions/channel guards,
+  exact12.34 USDT acquisition and5678 Rial remainder, consent/SQL proof denial,
+  settings/rate change snapshot retention, strict Audit rollback, duplicate and
+  concurrent credit, BSC fee cap/network/address, competing source reservations,
+  idempotent rejection, separated balances and stale FX. Timely manual receipt
+  approved after expiry credits exactly once at the agreed quantity.
+- Extended `pay-bale-collection.connected.cjs`: USDT consent/expiry cap, SMS notice
+  and receipt hold/replay produce exactly200 minor USDT once; previous IRR cases
+  remain. Existing `pay-shared-checkout`, `pay-bot`, `pay-private-merchants` pass.
+  Twenty-seven routing/bot units pass. Three runtime-only faults (100x USDT amount,
+  removed fee cap, bypassed consent) are detected; original bytes restored.
+- Full TypeScript and eight architecture/source/schema/money/security/Audit/
+  release gates pass after the v2 adapter. Actual TLS Hurl12 requests pass, including
+  v1 catalog/rejection, v2 standalone purchase/poll, unauthenticated denial,
+  BSC/USDT quote, missing network acknowledgment denial and actual1.00 USDT reserve.
+  Spectral0 errors; flattened oasdiff0 breaking changes. Unflattened four allOf
+  optionality warnings disappear after merging the response branches.
+  JSON Schema examples also validate exact decimal input, required source-specific
+  amount and independent quote response fields; an over-escaped v2 amount pattern
+  found in final review was corrected before the final contract lint/diff pass.
+- Actual Playwright33 responsive captures at1440/390, light/dark: merchant asset
+  views, channel creation, BSC quote/reserve, Admin settings and persisted currency
+  change, public purchase/acceptance and copied real checkout link. Axe0, document
+  overflow0, final page errors0. Final Doctor15 components:0 errors/21 reviewed
+  complexity/draft/native-form/CSV warnings; no suppression. Scoped one-rule Semgrep
+  (41 source files) and redacted Gitleaks (61 named files) have no findings (not a
+  full security audit). Final focused browser check proves editing a destination
+  clears network acknowledgment and disables submission; v2 API guide is visible.
+
+Initial test issues were corrected, not waived: migration record-field branch,
+populated upgrade's concurrent-index runner, premature collection-proof lookup,
+duplicate purchase price presentation, settlement detail's accidental undefined
+payment link, browser readiness selectors and v1 enum compatibility. Source-only
+Graphify was unavailable in this checkout; source/owner/static gates were used.
+An old screenshot was detected during final review; the owned Next preview was
+restarted and all33 final captures were rerun against current copied source. The
+focused acknowledgment assertion now waits for action completion rather than
+reading the still-busy submit button immediately.
+Raw logs, Doctor reports and33 captures remain ignored under `var/pay-bale-20261124`.
+No production build, live bank/Bale/SMS/bot traffic or real on-chain payout tested.
+
+External transfer still requires staff review and an actual out-of-platform transfer
+before its reference is recorded; a reference alone is not chain verification.
+Commissioning needs approved FX, per-network configuration and live-source testing.
+Rollback before activity may revert this slice; after USDT activity disable new
+acquisition and retain the upgraded ledger, obligations and active reservations.
+Never downgrade to IRR-only runtime or revalue past USDT at a replacement rate.
+Final cleanup passed: verified private Next process group and Windows TLS tunnel
+stopped; exact disposable DB/NOSUPERUSER role, private sessions/API-key env/TLS files
+and source archive removed; task builder stopped. Existing shared app readiness
+and auth-session endpoints both200. Ignored screenshots/reports/helpers remain.
+
+## Merchant workspace visual refinement — 2026-11-24
+
+Owner requests a more professional merchant/Admin appearance using Unslop,
+Open Design, Figma SDS, MengTo and Taste guidance. Continues local1e96aa10 in
+`.mobocom/pay-bale-verification`, `feat/pay-private-merchants-2026-11-24`,
+base mainb93879bc. Local code/documentation commit in Git; no push/PR/deploy.
+
+Direction: a Persian financial workspace; available proceeds lead the page;
+neutral SDS surfaces with the existing accent; aligned ledger figures and clear
+units; short functional motion. Protected public themes are outside this slice.
+
+- MerchantShell now uses a quieter header, explicit active navigation, compact
+  scrollable mobile navigation, sticky desktop sidebar and readable private-area
+  note. Existing login/logout/theme/account/skip-link behavior remains. Page
+  headings show the actual business name instead of repeating the brand mark.
+- Overview uses a primary balance surface, grouped financial ledger, existing
+  payment/terminal/report shortcuts, a real-data chart with its accessible daily
+  table, useful zero-data state, settlement stages and configuration status.
+  Numbers retain exact BigInt formatting; currency is visually separate. Calendar
+  formatting explicitly uses Persian locale/Tehran timezone. No synthetic figures
+  are inserted into product UI, and configured bank feed is not claimed live.
+- Admin merchant directory/detail are parallel on desktop and sequential on mobile;
+  selection has an explicit jump link. Provisioning closes its native form after
+  success; profile/fee editing uses native progressive disclosure and retains its
+  version-keyed reset. Required reason/ack, all existing actions and Audit history
+  remain. Corrected statistic-label contrast on the new surface.
+- Owned files: `components/pay/{merchant-shell,workspace-header}` plus scoped CSS,
+  `dashboard/{index,overview,Overview.module.css}` and
+  `admin/{merchants,merchant-detail,Merchants.module.css}`. No server/API/AuthZ/
+  financial state/schema/dependency change; same Billing/Wallet owners.
+
+Actually executed: all214 existing migrations on disposable NOSUPERUSER PostgreSQL,
+`pay-private-merchants.connected.cjs` with real canonical sessions, full TypeScript,
+architecture/source/schema/money/security/Audit/manifest gates and whitespace check
+pass. React Doctor6 affected components:0 errors/3 reviewed warnings (existing
+detail complexity and two native CSV download anchors; no suppression). Actual TLS
+Playwright19 lifecycle/isolation/legacy/public-checkout captures +15 populated/
+profile/report/recovery/keyboard captures +4 final authenticated theme/motion
+captures: axe0, document overflow0, final page errors0. Viewports1440/1024/768/390/320;
+both themes at1440/390. Verified200ms single entrance and no entrance under reduced
+motion. Populated fixture used canonical bank reconciliation for3 payments/Wallet
+credits and1 reserved settlement, after its explicit synthetic OTP boundary; no
+live provider/SMS/Bale/bot traffic. Initial contrast/definition-list/link-affordance
+findings were fixed; test selectors were scoped to actual API/render readiness.
+
+Ignored before/after evidence: `var/pay-bale-20261124/private-*.png` (prior slice),
+`visual-{browser,detail-browser,final-review}.json`, `visual-final-*.png` and
+`visual-admin-selected-*.png`; raw Doctor/type/native logs alongside them. Preview,
+verified tunnel, exact DB/role, private session/TLS/config files and source archive
+removed; builder stopped. Shared app readiness/session both200 after a first6s
+warmup timeout. No production build/live rollout or whole-site certification.
+
+Guidance actually adapted: installed Unslop/UI Skills and selected Vercel render
+rules; [Open Design dashboard](https://github.com/nexu-io/open-design/blob/5fdcc3db1e31bd4fa70f673041b78e87977507c3/design-templates/dashboard/SKILL.md)
+for region hierarchy; [SDS semantic tokens](https://github.com/figma/sds/blob/05525f75192a3aa5d5690c5e41277ebd19d2efe1/src/theme.css);
+[MengTo animation systems](https://github.com/MengTo/Skills/blob/e7df6eb7124095d6c7fbc71c8909f8896d061850/agent-skills/web-design/animation-systems/SKILL.md)
+for restrained feedback; [Taste](https://github.com/Leonxlnx/taste-skill/blob/6c0b5c78f5d31776e2210305abaa210cdc0030bf/skills/taste-skill/SKILL.md)
+for equal edges, real product data and browser inspection. No upstream app,
+marketing-page template, random palette, external scripts or new UI framework was
+installed. Local MoboCom architecture and validation override generic demo rules.
+
+Rollback: revert this presentation commit, retaining1e96aa10 private-access and
+Admin lifecycle behavior; no database rollback. Next: owner review/PR publication
+when requested; live-source commissioning remains the earlier handoff's boundary.
+
+## Private merchant workspace and Admin lifecycle — 2026-11-24
+
+Owner asks to separate/private the merchant experience and retain full Admin
+control, with deliberate professional RTL presentation. Continues owner-merged
+PR487 (mainb93879bc), `.mobocom/pay-bale-verification`, branch
+`feat/pay-private-merchants-2026-11-24`. Local implementation, no push/PR/deploy or
+hosted workflow dispatch. The coherent code/documentation commit is recorded in Git.
+
+### Behavior and owners
+
+- `/pay/merchant` and its existing six named views are the canonical independent
+  workspace. Scoped MerchantShell has its own header, navigation, responsive body,
+  theme controls, account/logout and keyboard skip link; existing Pay components
+  retain payment/terminal/report/bot behavior. Same canonical MoboCom login/session,
+  no new identity/app/subdomain/database. SDS/MoboCom tokens, native controls and
+  brief opacity/transform entry with reduced motion. No public visual redesign.
+- Public `/pay` introduction/enrollment is removed and redirects to private entry.
+  `/dashboard/pay` and known child URLs redirect to their new equivalent. Next may
+  stream a redirect as200/meta; actual browser navigation is verified. Ordinary
+  AccountShell no longer advertises Pay. Root menu/footer composition recursively
+  removes merchant entry links (including same-origin absolute URLs); saved theme
+  configuration is preserved. Payment capability URLs are retained. Robots/private
+  headers/no-store include Pay, and the workspace metadata is noindex.
+- Billing `merchantPortalAccess` uses current Identity/session/module/section and
+  stored PayMerchant status on EACH page. Guests get a safe sign-in link to existing
+  `/login?next=/pay/merchant`; ungranted/pending/suspended get safe status screens.
+  Only ACTIVE merchants receive dashboard data. Merchant reads/commands and
+  machine reads enforce active membership; hiding a menu is not the guard. A failed
+  overview refresh clears stale dashboard data and offers retry.
+- Public POST `/api/pay/merchant` explicitly refuses403 PAY_ENROLLMENT_CLOSED.
+  Existing `enrollMerchant` is now Admin-only provisioning to an exact existing
+  UserId/email, creates PENDING, forbids self provisioning, validates current
+  active/unrestricted account/section and records strict Audit. No new user or
+  money rows. Existing merchants and pending requests are preserved for review.
+- Existing Admin merchants tab composes `merchant-admin` behind Billing Pay's
+  public address: `merchant-directory` GET(page/q/status or id), POST(provision),
+  PATCH(id/version/action/note). It supplies25/page search/status filters, profile,
+  activation/suspension, default/override fee terms, auto-source grant, terminal
+  active/auto flags, bot key/integration stop and last50 management Audit events.
+  Owner UserId stays immutable. Origin/strict rate/body/session and the exact
+  `mobocom-pay.manage` permission are canonical; settlement-only staff cannot manage.
+- Each Admin mutation requires a reason, exact parent merchant version CAS and
+  strict Audit in the transaction; UI additionally asks explicit acknowledgment.
+  Source/terminal/bot controls retain original grants and bot version fencing.
+  Stopping a bot replaces its old key hash with an undisclosed random capability;
+  even reactivation cannot revive the old key. The owner explicitly rotates for
+  a usable replacement. No plaintext replacement is returned to Admin or Audit.
+  Profile domain edits cannot invalidate existing return/callback origins. No
+  delete/purge, secret display, arbitrary callback destination or financial write.
+  Parent merchant fencing composes current merchant commands/concurrency. Existing
+  payment and fee snapshots/Wallet/settlement/proof remain their canonical owners.
+- `src/plugins/mobocom-pay/manifest.json` adds the already-implemented monitor and
+  review desk to the existing Finance menu. No new registry/navigation framework.
+  No schema/migration/dependency changes. Public checkout/OTP/bank/callback and
+  machine API URLs stay unchanged; ungranted overview and public enrollment are
+  intentionally closed. OpenAPI description/operator docs reflect provisioning.
+
+### Actual executed acceptance
+
+- Disposable NOSUPERUSER PostgreSQL with all214 existing migrations, no .env:
+  new registered `pay-private-merchants` passes with real signed sessions and
+  current Identity/permissions: guest/ungranted/pending/suspended/other merchant,
+  scoped manager versus settlement-only, self provisioning denial, exact lookup,
+  duplicate refusal, stale version, strict Audit rollback, fees/reset, invalid
+  domain, terminal scope/auto grant, bot revocation, user suspension/module off and
+  zero new Payment/Wallet rows. Pure public navigation filtering is also exercised.
+- Existing pay-bot, pay-routing-operations, pay-shared-checkout and
+  pay-bale-collection connected checks pass. Legacy mobocom-pay passed separately
+  on its required empty-settings disposable DB. Its fixtures now provision through
+  Admin rather than self enrollment; financial assertions remain. No actual
+  bank/SMS/Bale/outbound bot traffic or production DB touched.
+-61 native unit cases pass across Pay bot/routing, navigation and SEO. Full
+  TypeScript, architecture/source/schema parity/money-schema/money-UI/security/
+  strict Audit/release-manifest gates pass. Extension registry generation verified;
+  byte-only/generated unrelated changes were restored, no baseline reset. Final
+  `generate-extensions.mjs --check` matches all7 registry files.
+- Actual TLS Playwright19 final responsive/axe captures:1440 light/dark and390;
+  Admin create→pending→activate, merchant portal, real terminal create, Admin stop
+  terminal→suspend, ordinary and guest refusals, old deep-link redirect, no public
+  account Pay links, unchanged bank checkout. New merchant shell (including header,
+  sidebar/footer) and affected main views have0 axe findings/overflow/page errors.
+  Extra390 browser check: failed overview hides stale panel, retry recovers,
+  native keyboard skip link and full-shell axe0. Two final mobile captures verify
+  guest versus authenticated header controls (logout only for a current session)
+  with full-shell axe0. This is local synthetic evidence.
+- Hurl private-merchants smoke7 requests pass (guest/section denial, safe/no-store
+  directory, closed public enrollment, foreign Origin refusal, private/noindex
+  workspace); Spectral0, oasdiff0 breaking schema changes. Enrollment/access policy
+  intentionally tightened as requested, not described as unchanged behavior.
+- React Doctor9 components0errors/14 reviewed warnings: existing AccountShell
+  fetch/complexity, existing Admin complexity/table resemblance, new detail rendering
+  complexity and keyed profile draft state. Profile key includes merchant.version,
+  so saved/reloaded versions remount fields; no suppression. Final existing
+  one-rule Semgrep over34 source targets and redacted Gitleaks over53 named files
+  report0 findings; these are scoped checks, not comprehensive certification.
+- Browser fixture corrections: proper heading level/terminal label and current
+  compact-bank title; waiting for actual activation completion (PENDING already
+  offered suspend); streamed legacy redirect asserted by navigation rather than
+  assuming307. Initial dev preview restarted at its3GB threshold while compiling
+  account routes; only the private preview was restarted with5GB, final run passed.
+  Full-shell axe exposed low-contrast sidebar/footer text; scoped tokens corrected
+  and rechecked. No global token/theme changes. Custom config hash remains
+  be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+
+### Limits and rollback
+
+No production build/whole-site certification, real bank/Bale/SMS, native mobile
+hardware or deployment claimed. Login uses existing Identity; this slice adds no
+invitation-email sender or separate credentials. New admin controls do not send
+funds, reset a user or reveal bot/provider secrets. Live source activation/recovery
+remains the operational continuation after owner merge/deploy.
+
+Rollback is an app revert or existing module disable; all merchant/financial/evidence
+data remains. Returning to the old app also restores its public enrollment policy,
+so keep that service closed operationally if reverting. Test-only source/runtime,
+sessions/DB cleanup status is appended at completion. Root/autonomous work preserved.
+
+Completion cleanup ran: verified private Next process group and host tunnel stopped;
+exact test/legacy DBs and NOSUPERUSER role removed; private TLS/session/Hurl files
+and source archive removed; builder stopped. Shared app readiness/auth-session
+returned200. Synthetic captures/redacted logs remain ignored under
+`var/pay-bale-20261124`. No production state was changed.
+
 ## PR487 publication — 2026-11-24
 
 Owner requested publication of the completed monitor/reconciliation slice.

@@ -29,7 +29,8 @@ async function payment(id: string, tx: Client, allowPaid = false) {
   if (row.status === 'PENDING' && row.expiresAt <= new Date()) {
     const automatic = allowPaid && row.invoiceId && row.gatewayAttemptStatus === 'READY' && !row.walletTxId &&
       await tx.payBaleCollection.findFirst({ where: { invoiceId: row.invoiceId, gatewayId: row.gatewayAttemptRef.startsWith('db:') ? Number(row.gatewayAttemptRef.slice(3)) : -1, status: { in: ['PENDING','UNDER_REVIEW','EXPIRED','REVIEW'] } } })
-    if (!automatic) throw new PayError('مهلت این پرداخت پایان یافته است', 409)
+    const heldReceipt = allowPaid && row.invoiceId && await tx.paymentReceipt.count({ where: { invoiceId: row.invoiceId, status: 'PENDING' } })
+    if (!automatic && !heldReceipt) throw new PayError('مهلت این پرداخت پایان یافته است', 409)
   }
   if (row.status !== 'PAID' && (row.merchant.status !== 'ACTIVE' || !row.terminal.active || row.merchant.user.status !== 'ACTIVE' || await globalAuthenticationDenied(row.merchant.userId, new Date(), tx)))
     throw new PayError('دریافت این پایانه متوقف شده است', 409)
@@ -80,7 +81,7 @@ export async function verifyPayPayerOtp(req: NextRequest, id: string, input: Rec
     if (current.invoiceId) throw new PayError('این پرداخت به شمارهٔ تأییدشده متصل است؛ از همان مرورگر ادامه دهید', 409)
     const changed = await tx.payPayment.updateMany({
       where: { id, status: 'PENDING', expiresAt: { gt: new Date() }, payerSessionHash: current.payerSessionHash },
-      data: { payerSessionHash: hash, payerPhoneCiphertext: encrypted, payerPhoneLast4: phoneLast4, payerVerifiedAt: new Date(), payerSessionExpiresAt: expiresAt },
+      data: { purchaseAcceptedAt: null, purchaseAcceptedHash: '', purchasePayerHash: '', payerSessionHash: hash, payerPhoneCiphertext: encrypted, payerPhoneLast4: phoneLast4, payerVerifiedAt: new Date(), payerSessionExpiresAt: expiresAt },
     })
     if (changed.count !== 1) throw new PayError('وضعیت پرداخت تغییر کرده است', 409)
   })

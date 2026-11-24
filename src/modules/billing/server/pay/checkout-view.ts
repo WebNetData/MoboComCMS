@@ -1,3 +1,4 @@
+import { purchaseView } from './assets'
 import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import type { NextRequest } from 'next/server'
 import { PayError, type PayCheckout } from '@/modules/billing/domain/pay'
@@ -15,7 +16,8 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
     if (!(await isModuleEnabled('mobocom-pay', tx))) throw new PayError('درگاه غیرفعال است', 404)
     const row = await publicPayment(tx, id), settings = await paySettings.read(tx)
  const collection = row.invoiceId ? await tx.payBaleCollection.findFirst({ where: { invoiceId: row.invoiceId }, orderBy: { createdAt: 'desc' }, select: { status: true, expiresAt: true } }) : null
- const underReview = row.status === 'PENDING' && collection?.status === 'UNDER_REVIEW'
+ const heldReceipt = row.invoiceId ? await tx.paymentReceipt.findFirst({ where: { invoiceId: row.invoiceId, status: 'PENDING' }, select: { id: true } }) : null
+ const underReview = row.status === 'PENDING' && (collection?.status === 'UNDER_REVIEW' || Boolean(heldReceipt))
  const expiresAt = collection?.status === 'PENDING' ? collection.expiresAt : row.expiresAt
  const expired = row.status === 'PENDING' && !underReview && expiresAt <= new Date()
     const user = await tx.user.findUnique({ where: { id: row.merchant.userId } })
@@ -27,6 +29,7 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
     const manual = !gateway || !isAutomaticTransfer(gateway) ? row.gatewayAttemptProvider === 'CARD_TRANSFER' || row.gatewayAttemptProvider === 'MANUAL' : false
     const receipt = verified && invoice ? await tx.paymentReceipt.findFirst({ where: { invoiceId: invoice.id }, orderBy: { id: 'desc' }, select: { id: true, status: true, adminNote: true, createdAt: true } }) : null
     return {
+      purchase: purchaseView(row, verified),
       id, merchantName: row.merchant.name, terminalName: row.terminal.name, externalId: row.externalId,
       amountRial: row.amountMinor.toString(), totalRial: row.totalMinor.toString(), feeRial: row.feeMinor.toString(), feeBearer: row.feeBearer === 'CUSTOMER' ? 'CUSTOMER' : 'MERCHANT',
  status: underReview ? 'UNDER_REVIEW' : expired ? 'EXPIRED' : row.status as PayCheckout['status'], expiresAt: expiresAt.toISOString(), transferReference: verified ? row.transferReference : '',

@@ -1,0 +1,58 @@
+// Real current Identity/session/permissions and PostgreSQL; no bank/provider sends.
+const assert=require('node:assert/strict'),{randomUUID,randomBytes}=require('node:crypto'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server'),{encode}=require('next-auth/jwt')
+if(!/^mobocom_pay_test_/.test(new URL(process.env.DATABASE_URL||'postgresql://invalid/invalid').pathname.slice(1)))throw Error('Owned disposable Pay DB required')
+process.env.NEXTAUTH_SECRET=randomBytes(32).toString('hex');process.env.NEXTAUTH_URL='https://mobocom.invalid';process.env.PANEL_CREDENTIAL_KEY='12'.repeat(32)
+const prisma=new PrismaClient(),stamp='private-'+randomUUID(),users=[],roles=[],merchants=[],snapshots=new Map(),settingKeys=['billing.mobocom-pay.v1','extension.mobocom-pay.state.v1','security.policy.v1','publicApiEnabled'];let auditFault=false,terminal,bot
+const db=new Proxy(prisma,{get(t,n){if(n==='$transaction')return(work,options)=>t.$transaction(tx=>work(new Proxy(tx,{get(x,k){if(k==='auditLog')return new Proxy(x.auditLog,{get(m,f){if(f==='create')return args=>{if(auditFault&&args.data.action.startsWith('mobocom-pay.merchant.'))throw Error('synthetic strict audit refusal');return m.create(args)};return typeof m[f]==='function'?m[f].bind(m):m[f]}});return typeof x[k]==='function'?x[k].bind(x):x[k]}})),options);return typeof t[n]==='function'?t[n].bind(t):t[n]}})
+const load=require('./connected-source-loader.cjs')({'@/platform/database/prisma':{db},react:{...require('react'),cache:fn=>fn}}),pay=load('src/modules/billing/server/pay.ts'),http=load('src/modules/billing/server/http/pay.ts'),policy=load('src/modules/billing/domain/pay-policy.ts'),access=load('src/modules/identity/server/access.ts')
+const put=(key,value)=>prisma.setting.upsert({where:{key},create:{key,value},update:{value}}),isStatus=n=>e=>e.status===n
+async function actor(u){const token=await encode({secret:process.env.NEXTAUTH_SECRET,token:{uid:String(u.id),authAt:Date.now()}});return{id:u.id,email:u.email,req:new NextRequest('https://mobocom.invalid/api/pay/overview',{headers:{cookie:'__Secure-next-auth.session-token='+token,origin:'https://mobocom.invalid'}})}}
+async function main(){try{
+for(const key of settingKeys)snapshots.set(key,await prisma.setting.findUnique({where:{key}}))
+for(const permissions of ['mobocom-pay.manage','mobocom-pay.settle'])roles.push(await prisma.role.create({data:{name:stamp+permissions,permissions}}))
+for(const[label,role,roleId]of[['manager','ADMIN',roles[0].id],['settler','ADMIN',roles[1].id],['owner','CUSTOMER',null],['other','CUSTOMER',null],['ungranted','CUSTOMER',null]])users.push(await prisma.user.create({data:{email:stamp+label+'@example.invalid',passwordHash:'!',role,roleId}}))
+await put(settingKeys[0],JSON.stringify(policy.defaults()));await put(settingKeys[1],'{"enabled":true,"settings":{}}');await put(settingKeys[2],'{"requireAdmin2fa":false}');await put(settingKeys[3],'true');access.clearAdminPolicyCache()
+const [admin,settler,owner,other,ungranted]=await Promise.all(users.map(actor)),guest=new NextRequest('https://mobocom.invalid/pay/merchant')
+assert.equal((await pay.merchantPortalAccess(guest)).status,'GUEST');assert.equal((await pay.merchantPortalAccess(ungranted.req)).status,'DENIED')
+await assert.rejects(pay.payOverview(ungranted),isStatus(403));await assert.rejects(pay.enrollMerchant(ungranted,{userId:users[2].id,name:'Synthetic',website:'https://merchant.invalid',note:'Synthetic provision'}),isStatus(403))
+const closed=await http.payHttp(new NextRequest('https://mobocom.invalid/api/pay/merchant',{method:'POST',headers:ungranted.req.headers,body:JSON.stringify({name:'Synthetic',website:'https://merchant.invalid'})}),{params:Promise.resolve({resource:['merchant']})});assert.equal(closed.status,403)
+await assert.rejects(pay.enrollMerchant(admin,{userId:admin.id,name:'Self',website:'https://merchant.invalid',note:'Synthetic provision'}),isStatus(403))
+await assert.rejects(pay.enrollMerchant(settler,{userId:users[2].id,name:'Denied',website:'https://merchant.invalid',note:'Synthetic provision'}),isStatus(403))
+const m=await pay.enrollMerchant(admin,{email:users[2].email,name:'Synthetic merchant',website:'https://merchant.invalid',note:'Synthetic provision'});merchants.push(m.id)
+const m2=await pay.enrollMerchant(admin,{userId:users[3].id,name:'Other synthetic',website:'https://other.invalid',note:'Synthetic provision'});merchants.push(m2.id)
+assert.equal(m.status,'PENDING');assert.equal((await pay.merchantPortalAccess(owner.req)).status,'PENDING');await assert.rejects(pay.payOverview(owner),isStatus(403))
+await assert.rejects(pay.enrollMerchant(admin,{userId:users[2].id,name:'Duplicate',website:'https://merchant.invalid',note:'Synthetic provision'}),isStatus(409))
+async function manage(action,extra={},version){const row=await prisma.payMerchant.findUniqueOrThrow({where:{id:m.id}});return pay.manageMerchant(admin,{id:m.id,version:version??row.version,action,note:'Synthetic reviewed administration',...extra})}
+await manage('status',{status:'ACTIVE'});await pay.manageMerchant(admin,{id:m2.id,version:m2.version,action:'status',status:'ACTIVE',note:'Synthetic approval'})
+assert.equal((await pay.merchantPortalAccess(owner.req)).status,'ACTIVE');assert.equal((await pay.payOverview(owner)).merchant.id,m.id)
+await assert.rejects(pay.merchantDirectory(settler,new URLSearchParams()),isStatus(403));await assert.rejects(pay.merchantAdminDetail(owner,m2.id),isStatus(403));assert.equal((await pay.payOverview(other)).merchant.id,m2.id)
+assert.equal((await pay.merchantDirectory(admin,new URLSearchParams('q='+encodeURIComponent(users[2].email)))).total,1)
+terminal=await pay.createTerminal(owner,{name:'Synthetic terminal',returnUrl:'https://merchant.invalid/return'})
+bot=await pay.saveBotIntegration(owner,{terminalId:terminal.id,version:0,callbackUrl:'https://merchant.invalid/api/payment',callbackToken:'synthetic-independent-callback-token',ackPolicy:'JSON_OK',responseMode:'URL',active:true})
+const detail=await pay.merchantAdminDetail(admin,m.id);assert.equal(detail.terminals.length,1);assert.equal(JSON.stringify(detail).includes('synthetic-independent-callback-token'),false);assert.equal(JSON.stringify(detail).includes(bot.token),false)
+const before=await prisma.payMerchant.findUniqueOrThrow({where:{id:m.id}})
+await assert.rejects(manage('profile',{name:'Changed',website:'https://foreign.invalid'}),isStatus(409));await manage('profile',{name:'Updated business',website:'https://merchant.invalid/store'})
+await assert.rejects(manage('status',{status:'SUSPENDED'},before.version),isStatus(409))
+await manage('terms',{inherit:false,feeBearer:'CUSTOMER',feeBps:125,flatFeeRial:'1000',feeCapRial:'20000'});assert.equal((await pay.merchantAdminDetail(admin,m.id)).merchant.fees.feeBps,125)
+await manage('terms',{inherit:true});assert.equal((await pay.merchantAdminDetail(admin,m.id)).merchant.fees.inherited,true)
+await assert.rejects(manage('terminal',{terminalId:terminal.id,active:true,baleEnabled:true}),isStatus(422));await manage('auto-access',{allowed:true});await manage('terminal',{terminalId:terminal.id,active:false,baleEnabled:true});assert.equal((await prisma.payTerminal.findUniqueOrThrow({where:{id:terminal.id}})).active,false)
+const oldKeyHash=(await prisma.payBotIntegration.findUniqueOrThrow({where:{id:bot.integration.id}})).keyHash
+await manage('revoke-bot',{terminalId:terminal.id,botVersion:bot.integration.version});const revoked=await prisma.payBotIntegration.findUniqueOrThrow({where:{id:bot.integration.id}});assert.equal(revoked.active,false);assert.notEqual(revoked.keyHash,oldKeyHash)
+await pay.saveBotIntegration(owner,{terminalId:terminal.id,version:revoked.version,callbackUrl:'https://merchant.invalid/api/payment',ackPolicy:'JSON_OK',responseMode:'URL',active:true})
+await assert.rejects(pay.createBotPayment(new NextRequest('https://mobocom.invalid/api/v1/pay/bot/'+bot.integration.id),bot.integration.id,{api_key:bot.token,amount:10000,order_id:'synthetic-denied',user_id:123,type:'purchase'}),isStatus(401))
+await assert.rejects(manage('terminal',{terminalId:randomUUID(),active:false,baleEnabled:false}),isStatus(404))
+const version=(await prisma.payMerchant.findUniqueOrThrow({where:{id:m.id}})).version
+auditFault=true;try{await assert.rejects(manage('status',{status:'SUSPENDED'}),/synthetic strict audit refusal/)}finally{auditFault=false}
+assert.equal((await prisma.payMerchant.findUniqueOrThrow({where:{id:m.id}})).version,version);assert.equal((await pay.merchantPortalAccess(owner.req)).status,'ACTIVE')
+await manage('status',{status:'SUSPENDED'});assert.equal((await pay.merchantPortalAccess(owner.req)).status,'SUSPENDED')
+for(const run of [()=>pay.payOverview(owner),()=>pay.payList(owner,'payments',new URLSearchParams()),()=>pay.botIntegrations(owner),()=>pay.createTerminal(owner,{name:'Denied',returnUrl:'https://merchant.invalid/return'})])await assert.rejects(run(),isStatus(403))
+await prisma.user.update({where:{id:users[2].id},data:{status:'SUSPENDED'}});await assert.rejects(manage('status',{status:'ACTIVE'}),isStatus(409));await prisma.user.update({where:{id:users[2].id},data:{status:'ACTIVE'}})
+await manage('status',{status:'ACTIVE'});assert.equal((await pay.merchantAdminDetail(admin,m.id)).history.filter(h=>h.note==='Synthetic reviewed administration').length>0,true)
+await put(settingKeys[1],'{"enabled":false,"settings":{}}');await assert.rejects(pay.merchantDirectory(admin,new URLSearchParams()),isStatus(404));await assert.rejects(pay.payOverview(owner),isStatus(404))
+assert.equal(await prisma.payment.count({where:{userId:{in:users.map(u=>u.id)}}}),0);assert.equal(await prisma.walletTx.count({where:{userId:{in:users.map(u=>u.id)}}}),0)
+const nav=load('src/modules/billing/domain/pay-navigation.ts');assert.deepEqual(nav.publicPayNavigation([{href:'/pay'},{href:'/blog',children:[{href:'/pay/merchant'},{href:'/blog/a'}]},{href:'/pay/'+'a'.repeat(32)}]),[{href:'/blog',children:[{href:'/blog/a'}]},{href:'/pay/'+'a'.repeat(32)}])
+console.log('Private merchants PASS: current Identity/Admin provisioning, closed enrollment, lifecycle/API isolation, version and Audit rollback, profile/fees/terminal/bot control; no money rows')
+}finally{
+await prisma.auditLog.deleteMany({where:{actorUserId:{in:users.map(u=>u.id)},action:{startsWith:'mobocom-pay.'}}});await prisma.payBotIntegration.deleteMany({where:{terminal:{merchantId:{in:merchants}}}});await prisma.payTerminal.deleteMany({where:{merchantId:{in:merchants}}});await prisma.payMerchant.deleteMany({where:{id:{in:merchants}}});await prisma.user.deleteMany({where:{id:{in:users.map(u=>u.id)}}});await prisma.role.deleteMany({where:{id:{in:roles.map(r=>r.id)}}});for(const[key,row]of snapshots)if(row)await put(key,row.value);else await prisma.setting.deleteMany({where:{key}});access.clearAdminPolicyCache();await prisma.$disconnect()
+}}
+main().catch(e=>{console.error(e.stack);process.exitCode=1})

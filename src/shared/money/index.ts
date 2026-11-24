@@ -12,6 +12,9 @@ export { BASE_CURRENCY }
 export type CurrencyCode = string
 
 const EXPONENTS: Readonly<Record<string, number>> = Object.freeze({
+  // Historical internal USDT money already used the two-decimal fallback.
+  // Network payout precision belongs to the payout quote, never this ledger scale.
+  USDT: 2,
   BHD: 3,
   IQD: 3,
   JOD: 3,

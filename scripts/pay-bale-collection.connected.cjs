@@ -6,7 +6,7 @@ if (!/^mobocom_pay_test_/.test(new URL(process.env.DATABASE_URL || 'postgresql:/
 process.env.NEXTAUTH_SECRET = randomBytes(32).toString('hex'); process.env.NEXTAUTH_URL = 'https://mobocom.invalid'; process.env.MOBOCOM_PAY_BALE_VERIFIED = 'true'
 const RealDate = Date; let now = RealDate.now()
 global.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : [now])) } static now() { return now } }
-const prisma = new PrismaClient(), stamp = `collection-${randomUUID()}`, users = [], roles = [], invoices = [], quotes = [], snapshots = new Map()
+const prisma = new PrismaClient(), stamp = `collection-${randomUUID()}`, users = [], roles = [], invoices = [], quotes = [], merchantPayments = [], snapshots = new Map()
 const availabilitySetting = 'publicApiEnabled'
 const keys = [availabilitySetting, 'billing.mobocom-pay.v1', 'extension.mobocom-pay.state.v1', 'security.policy.v1']
 const load = require('./connected-source-loader.cjs')({ '@/platform/database/prisma': { db: prisma }, react: { ...require('react'), cache: fn => fn } })
@@ -17,9 +17,10 @@ const { baleCheckout, changeBaleCheckout } = load('src/modules/billing/server/pa
 const { submitCollectionReceipt, reviewCollectionReceipt } = load('src/modules/billing/server/pay/bale/collection-receipts.ts')
 const { receiveSmsNotice } = load('src/modules/billing/server/pay/sms/intake.ts')
 const { encryptPanelCredential } = load('src/modules/providers/server/panel-credentials.ts')
+const { acquisitionSnapshot } = load('src/modules/billing/server/pay/assets.ts')
 const put = (key, value) => prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
 const status = n => error => error.status === n
-let bank, secondBank, gateway, smsGateway, smsSource, payMerchant, payTerminal, merchantPayment
+let bank, secondBank, gateway, smsGateway, smsSource, payMerchant, payTerminal, merchantPayment, savedUsdtRate, rateCaptured = false
 async function receive(body) { const raw = Buffer.from(JSON.stringify(body)), signature = 'sha256=' + createHmac('sha256', process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET).update(raw).digest('hex'); return pay.receiveBaleBankMessage(signature, body.event_id, raw) }
 async function invoice(amount, currency = 'IRR', kind = 'BILLING', userId = users[1].id) {
   const row = await prisma.invoice.create({ data: { number: `${stamp}-${invoices.length}`, userId, status: 'UNPAID', kind, currency, gatewayId: gateway.id, total: Number(amount), totalMinor: BigInt(amount), subtotal: Number(amount), subtotalMinor: BigInt(amount), expiresAt: new Date(now + 3600000) } }); invoices.push(row.id); return row
@@ -119,6 +120,7 @@ async function main() { try {
     merchantPayment = await tx.payPayment.create({ data: { id: payId, merchantId: payMerchant.id, terminalId: payTerminal.id, externalId: stamp, idempotencyKey: stamp, fingerprint: stamp, invoiceId: inv.id, amountMinor: 2100000n, totalMinor: 2100000n, feeMinor: 1000n, netMinor: 2099000n, createdAt: new Date(now), expiresAt: new Date(now+600000), payerSessionHash: createHash('sha256').update(payerToken).digest('hex'), payerPhoneCiphertext: encryptPanelCredential('+989120009999'), payerPhoneLast4: '9999', payerVerifiedAt: new Date(now), payerSessionExpiresAt: new Date(now+86400000), gatewayAttemptStatus: 'READY', gatewayAttemptRef: 'db:'+smsGateway.id, gatewayAttemptProvider: 'CARD_TRANSFER' } })
     return inv
   }); invoices.push(payInvoice.id)
+  merchantPayments.push(payId)
   const cookie = `pay_payer_${payId}=${payerToken}`, payRequest = new NextRequest('https://mobocom.invalid/pay/bank/fixture', { headers: { cookie } })
   const oldPayQuote = await prepareBaleGateway(smsGateway.id, payInvoice.number); quotes.push(oldPayQuote.txnId)
   await changeBaleCheckout(oldPayQuote.txnId, payRequest, 'accept')
@@ -135,6 +137,30 @@ async function main() { try {
   const proceeds = await prisma.walletTx.findMany({ where: { userId: users[1].id, type: 'PAY_CREDIT' } })
   assert.equal(proceeds.length, 1); assert.equal(proceeds[0].amountMinor, 2099000n); assert.equal(proceeds[0].withdrawableDeltaMinor, 2099000n)
   assert.equal(await prisma.payment.count({ where: { invoiceId: payInvoice.id, status: 'CONFIRMED' } }), 1)
+  // A USDT purchase remains bound to its payment deadline and credits the stored
+  // amount when an attested automatic notice arrives during that window.
+  now = RealDate.now() - 1000
+  savedUsdtRate = await prisma.currencyRate.findUnique({ where: { code: 'USDT' } }); rateCaptured = true
+  await prisma.currencyRate.upsert({ where: { code: 'USDT' }, create: { code: 'USDT', rate: 100000, source: 'MANUAL', fetchedAt: new Date(now) }, update: { rate: 100000, source: 'MANUAL', fetchedAt: new Date(now), pendingRate: null, pendingAt: null } })
+  const usdtId = randomBytes(24).toString('base64url'), usdtToken = randomBytes(32).toString('base64url'), usdtHash = createHash('sha256').update(usdtToken).digest('hex'), usdtExpiry = new Date(now + 600000)
+  const usdtInvoice = await prisma.$transaction(async tx => {
+    const inv = await tx.invoice.create({ data: { number: stamp+'-usdt', kind: 'PAY_COLLECTION', status: 'UNPAID', currency: 'IRR', gatewayId: smsGateway.id, total: 2000000, totalMinor: 2000000n, subtotal: 2000000, subtotalMinor: 2000000n } })
+    const snapshot = await acquisitionSnapshot(tx, { id: usdtId, merchantId: payMerchant.id, name: payMerchant.name, currency: 'USDT', netMinor: 2000000n, totalMinor: 2000000n, expiresAt: usdtExpiry, maxAgeMinutes: 60 })
+    assert.equal(snapshot.creditMinor, 200n)
+    await tx.payPayment.create({ data: { id: usdtId, merchantId: payMerchant.id, terminalId: payTerminal.id, externalId: stamp+'-usdt', idempotencyKey: stamp+'-usdt', fingerprint: stamp+'-usdt', invoiceId: inv.id, amountMinor: 2000000n, totalMinor: 2000000n, feeMinor: 0n, netMinor: 2000000n, ...snapshot, createdAt: new Date(now), expiresAt: usdtExpiry, payerSessionHash: usdtHash, payerPhoneCiphertext: encryptPanelCredential('+989120009999'), payerPhoneLast4: '9999', payerVerifiedAt: new Date(now), payerSessionExpiresAt: new Date(now+86400000), purchaseAcceptedAt: new Date(now), purchaseAcceptedHash: snapshot.purchaseTermsHash, purchasePayerHash: usdtHash, gatewayAttemptStatus: 'READY', gatewayAttemptRef: 'db:'+smsGateway.id, gatewayAttemptProvider: 'CARD_TRANSFER' } })
+    return inv
+  }); invoices.push(usdtInvoice.id); merchantPayments.push(usdtId)
+  const usdtCookie = `pay_payer_${usdtId}=${usdtToken}`, usdtRequest = new NextRequest('https://mobocom.invalid/pay/bank/fixture', { headers: { cookie: usdtCookie } })
+  const usdtQuote = await prepareBaleGateway(smsGateway.id, usdtInvoice.number); quotes.push(usdtQuote.txnId)
+  assert.ok(new Date(usdtQuote.expiresAt) <= usdtExpiry)
+  await changeBaleCheckout(usdtQuote.txnId, usdtRequest, 'accept'); await upload(usdtQuote.txnId, 2000000, usdtCookie)
+  const usdtCollection = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: usdtQuote.txnId } })
+  const usdtNotice = envelope(31, { amount: usdtCollection.collectedRial.toString(), reference: 'USDTMERCHANT31' })
+  assert.equal((await receive(usdtNotice)).financialApproval, true); await receive(usdtNotice)
+  const usdtPaid = await prisma.payPayment.findUniqueOrThrow({ where: { id: usdtId } }); assert.equal(usdtPaid.status, 'PAID')
+  const usdtCredit = await prisma.walletTx.findUniqueOrThrow({ where: { id: usdtPaid.walletTxId } })
+  assert.equal(usdtCredit.currency, 'USDT'); assert.equal(usdtCredit.amountMinor, 200n); assert.equal(usdtCredit.withdrawableDeltaMinor, 200n)
+  assert.equal(await prisma.walletTx.count({ where: { userId: users[1].id, type: 'PAY_CREDIT', currency: 'USDT' } }), 1)
   // Operations desk: late evidence requires explicit audited admission, never a second journal.
   await put(keys[1], JSON.stringify({ ...policy.defaults(), incomingEnabled: true, bankAccountIds: [bank.id], bale: { enabled: true, minAdjustmentRial: '10', maxAdjustmentRial: '10', minutes: 15 } }))
   now = RealDate.now() - 16 * 60000
@@ -208,12 +234,13 @@ async function main() { try {
     const receipts = await prisma.paymentReceipt.findMany({ where: { invoiceId: { in: invoices } }, select: { id: true, image: true } })
     if (bank) { await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: bank.id, duplicateOfId: { not: null } } }); await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: bank.id } }) }
     await prisma.paymentReceipt.deleteMany({ where: { id: { in: receipts.map(row => row.id) } } }); for (const row of receipts) if (/^[0-9a-f-]{36}\.(png|jpg|webp)$/.test(row.image)) await unlink(join(process.cwd(), 'storage', 'receipts', row.image)).catch(() => {})
-    if (merchantPayment) await prisma.payPayment.deleteMany({ where: { id: merchantPayment.id } })
+    await prisma.payPayment.deleteMany({ where: { id: { in: merchantPayments } } })
     if (payTerminal) await prisma.payTerminal.deleteMany({ where: { id: payTerminal.id } })
     if (payMerchant) await prisma.payMerchant.deleteMany({ where: { id: payMerchant.id } })
     await prisma.payment.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { providerTxnId: { in: ids }, provider: 'MOBOCOM_PAY_ADJUSTMENT' }] } }); await prisma.walletTx.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { userId: { in: users.map(user => user.id) }, type: 'PAY_CREDIT' }] } }); await prisma.walletAccount.deleteMany({ where: { userId: { in: users.map(user => user.id) } } }); await prisma.invoice.deleteMany({ where: { id: { in: invoices } } })
     await prisma.auditLog.deleteMany({ where: { actorUserId: { in: users.map(user => user.id) }, action: { startsWith: 'mobocom-pay.' } } }); if (smsSource) await prisma.paySmsSource.deleteMany({ where: { id: smsSource.id } }); if (smsGateway) await prisma.gateway.deleteMany({ where: { id: smsGateway.id } }); if (gateway) await prisma.gateway.deleteMany({ where: { id: gateway.id } }); if (bank) await prisma.bankAccount.deleteMany({ where: { id: bank.id } }); if (secondBank) await prisma.bankAccount.deleteMany({ where: { id: secondBank.id } }); await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } })
     await prisma.role.deleteMany({where:{id:{in:roles}}})
+    if (rateCaptured && savedUsdtRate) await prisma.currencyRate.upsert({ where: { code: 'USDT' }, create: savedUsdtRate, update: savedUsdtRate }); else if (rateCaptured) await prisma.currencyRate.deleteMany({ where: { code: 'USDT' } })
     for (const [key, old] of snapshots) if (old) await put(key, old.value); else await prisma.setting.deleteMany({ where: { key } }); access.clearAdminPolicyCache(); await prisma.$disconnect(); global.Date = RealDate
   }
 } }

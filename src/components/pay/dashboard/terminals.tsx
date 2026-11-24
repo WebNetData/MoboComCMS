@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
-import type { PayOverview } from "@/modules/billing/domain/pay";
+import type { PayChannelType, PayOverview } from "@/modules/billing/domain/pay";
+import { PAY_CHANNEL_LABELS } from '@/modules/billing/domain/pay-channels';
 import { api, json } from "../client";
 import { Field } from "../shared";
 import s from "../Pay.module.css";
@@ -25,6 +26,9 @@ export default function Terminals({
   setReturnUrl: (x: string) => void;
 }) {
  const [baleEnabled, setBaleEnabled] = useState(false);
+ const [channelType, setChannelType] = useState<PayChannelType>('WEBSITE');
+ const [channelUrl, setChannelUrl] = useState('');
+ const webChannel = channelType === 'WEBSITE' || channelType === 'BOT';
   return (
     <><div className={s.split}>
       <section className={s.card}>
@@ -34,11 +38,12 @@ export default function Terminals({
             <div className={s.row} key={t.id}>
               <div>
                 <strong>{t.name}</strong>
-                <small className={s.ltr}>{t.returnUrl}</small>
- <small>دریافت بله: {t.baleEnabled ? 'فعال' : 'غیرفعال'}</small>
+                <small>{PAY_CHANNEL_LABELS[t.channelType] || PAY_CHANNEL_LABELS.WEBSITE}</small>
+                {(t.channelUrl || t.returnUrl) && <small className={s.ltr}>{t.channelUrl || t.returnUrl}</small>}
+ <small>تأیید خودکار کارت‌به‌کارت: {t.baleEnabled ? 'فعال' : 'غیرفعال'}</small>
               </div>
  <div className={s.actions}>
- <button type="button" className={s.secondary} disabled={busy || !active || !data.merchant?.baleAllowed} onClick={() => action(() => api('/api/pay/terminals', json('PATCH', { id: t.id, baleEnabled: !t.baleEnabled })))}>{t.baleEnabled ? 'غیرفعال کردن دریافت بله' : 'فعال کردن دریافت بله'}</button>
+ <button type="button" className={s.secondary} disabled={busy || !active || !data.merchant?.baleAllowed} onClick={() => action(() => api('/api/pay/terminals', json('PATCH', { id: t.id, baleEnabled: !t.baleEnabled })))}>{t.baleEnabled ? 'غیرفعال کردن تأیید خودکار کارت‌به‌کارت' : 'فعال کردن تأیید خودکار کارت‌به‌کارت'}</button>
               <button
                 type="button"
                 className={s.secondary}
@@ -69,10 +74,11 @@ export default function Terminals({
           void action(async () => {
             await api(
               "/api/pay/terminals",
- json("POST", { name: terminalName, returnUrl, baleEnabled: Boolean(data.merchant?.baleAllowed && baleEnabled) }),
+ json("POST", { name: terminalName, channelType, ...(webChannel ? { returnUrl } : channelType === 'PAYMENT_LINK' ? {} : { channelUrl }), baleEnabled: Boolean(data.merchant?.baleAllowed && baleEnabled) }),
             );
             setTerminalName("");
             setReturnUrl("");
+            setChannelUrl('');
  setBaleEnabled(false);
           });
         }}
@@ -84,21 +90,23 @@ export default function Terminals({
             onChange={(e) => setTerminalName(e.target.value)}
           />
         </Field>
- <label className={s.check}><input type="checkbox" checked={Boolean(data.merchant?.baleAllowed && baleEnabled)} disabled={busy || !active || !data.merchant?.baleAllowed} onChange={(e) => setBaleEnabled(e.target.checked)} /> فعال کردن دریافت بله برای این پایانه</label>
- {!data.merchant?.baleAllowed && <p className={s.muted}>برای فعال‌سازی دریافت بله، ابتدا مجوز پذیرنده باید توسط مدیریت صادر شود.</p>}
-        <Field label="نشانی بازگشت">
+        <Field label="نوع پایانه"><select value={channelType} onChange={e => setChannelType(e.target.value as PayChannelType)}>{(Object.entries(PAY_CHANNEL_LABELS) as [PayChannelType, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+ <label className={s.check}><input type="checkbox" checked={Boolean(data.merchant?.baleAllowed && baleEnabled)} disabled={busy || !active || !data.merchant?.baleAllowed} onChange={(e) => setBaleEnabled(e.target.checked)} /> فعال کردن تأیید خودکار کارت‌به‌کارت برای این پایانه</label>
+ {!data.merchant?.baleAllowed && <p className={s.muted}>برای فعال‌سازی تأیید خودکار کارت‌به‌کارت، ابتدا مجوز پذیرنده باید توسط مدیریت صادر شود.</p>}
+        {webChannel && <Field label="نشانی بازگشت">
           <input
             type="url"
             dir="ltr"
             value={returnUrl}
             onChange={(e) => setReturnUrl(e.target.value)}
           />
-        </Field>
+        </Field>}
+        {!webChannel && channelType !== 'PAYMENT_LINK' && <Field label={channelType === 'INSTAGRAM' ? 'نشانی پروفایل اینستاگرام' : 'نشانی کانال'}><input type="url" dir="ltr" value={channelUrl} onChange={e => setChannelUrl(e.target.value)} required /></Field>}
         <div>
           <button
             type="submit"
             className={s.button}
-            disabled={busy || !active || !terminalName || !returnUrl}
+            disabled={busy || !active || !terminalName || (webChannel ? !returnUrl : channelType !== 'PAYMENT_LINK' && !channelUrl)}
           >
             ثبت پایانه
           </button>

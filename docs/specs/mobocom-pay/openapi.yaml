@@ -1,10 +1,11 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.6.0
+  version: 1.7.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
-    An active merchant and terminal are provisioned through the account interface before using this API.
+    An authorized administrator provisions and activates the merchant for an existing MoboCom identity.
+    Public merchant enrollment is closed. The active merchant manages terminals in /pay/merchant.
     Before fulfilling an order, retrieve its payment by ID and confirm status PAID. A customer reference
     alone is not confirmation. Hosted checkout requires a browser-bound phone OTP before payment instructions,
     receipt upload or provider initiation. Existing compatible MoboCom gateways are reused. A terminal-scoped
@@ -265,7 +266,7 @@ paths:
       tags: [Hosted checkout]
       security: []
       description: Requires scoped payer cookie; claims one active canonical gateway and real collection invoice. Ambiguous attempts never blindly create again. External bot redirects are refused.
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [gatewayRef], properties: { gatewayRef: { type: string } } } } } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [gatewayRef], properties: {"gatewayRef":{"type":"string"},"acceptPurchase":{"type":"boolean","description":"True only after explicit verified-payer acknowledgement of purchase terms."},"purchaseTermsHash":{"type":"string","description":"Immutable checkout purchase terms hash; required for USDT acquisition."}} } } } }
       responses:
         '200': { description: Gateway initiation state, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean }, data: { type: object, properties: { invoiceId: { type: integer }, gatewayRef: { type: string }, provider: { type: string }, manual: { type: boolean }, paymentUrl: { type: string }, status: { type: string, enum: [READY, STARTING, UNKNOWN, FAILED] } } } } } } } }
         default: { $ref: '#/components/responses/Error' }
@@ -405,6 +406,223 @@ paths:
       responses:
         '200': { description: Accepted or replayed event, content: { application/json: { schema: { $ref: '#/components/schemas/BankEventResponse' } } } }
         default: { $ref: '#/components/responses/Error' }
+  /api/v2/pay/overview:
+    get:
+      operationId: v2PayOverview
+      tags:
+        - Merchant
+      description: Retrieve the current merchant's account, activity and readiness.
+      responses:
+        "200":
+          description: Merchant overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverviewResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v2/pay/terminals:
+    get:
+      operationId: v2ListPayTerminals
+      tags:
+        - Merchant
+      description: List the current merchant's terminals.
+      responses:
+        "200":
+          description: Terminals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminalListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: v2CreatePayTerminal
+      tags:
+        - Merchant
+      description: Create a terminal for the active merchant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TerminalCreate"
+      responses:
+        "201":
+          description: Terminal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminalResponse"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: v2ChangePayTerminal
+      tags:
+        - Merchant
+      description: Enable or disable an existing merchant terminal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TerminalChange"
+      responses:
+        "200":
+          description: Terminal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerminalResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v2/pay/payments:
+    get:
+      operationId: v2ListPayPayments
+      tags:
+        - Payments
+      description: List or export the current merchant's payments.
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Query"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - PAID
+              - EXPIRED
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: Paginated payments or CSV export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentListResponse"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: v2CreatePayPayment
+      tags:
+        - Payments
+      description: Create a payment or replay a matching request using its idempotency key.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentCreate"
+      responses:
+        "201":
+          description: Created or replayed payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v2/pay/payments/{id}:
+    get:
+      operationId: v2GetPayPayment
+      tags:
+        - Payments
+      description: Retrieve this merchant's payment and verify PAID before fulfillment.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v2/pay/quotes:
+    post:
+      operationId: v2CreatePayQuote
+      tags:
+        - Settlements
+      description: Quote an enabled settlement rail using available withdrawable proceeds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetQuoteCreate"
+      responses:
+        "201":
+          description: Short-lived settlement quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetQuoteResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v2/pay/settlements:
+    get:
+      operationId: v2ListPaySettlements
+      tags:
+        - Settlements
+      description: List or export the current merchant's settlement requests.
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Query"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - REQUESTED
+              - APPROVED
+              - PAID
+              - REJECTED
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: Paginated settlements or CSV export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementListResponse"
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: v2RequestPaySettlement
+      tags:
+        - Settlements
+      description: Reserve proceeds for a quoted settlement or replay a matching request.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementCreate"
+      responses:
+        "201":
+          description: Settlement requested or replayed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementResponse"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
@@ -450,93 +668,87 @@ components:
         membership_days: { type: integer, minimum: -1, maximum: 9007199254740991, description: Merchant claim used only for optional routing; missing or -1 cannot meet a positive threshold. }
         balance: { type: integer, minimum: 0, maximum: 9007199254740991, description: Merchant claim in Toman; not MoboCom Wallet funds. }
     CheckoutResponse:
-      type: object
-      required: [ok, data]
+      type: "object"
+      required: ["ok","data"]
       properties:
-        ok: { type: boolean, enum: [true] }
-        data:
-          type: object
-          required: [id, amountRial, totalRial, feeRial, feeBearer, status, verification, gateways, bank, receipt]
-          properties:
-            id: { type: string }
-            amountRial: { $ref: '#/components/schemas/Rial' }
-            totalRial: { $ref: '#/components/schemas/Rial' }
-            feeRial: { $ref: '#/components/schemas/Rial' }
-            feeBearer: { type: string, enum: [MERCHANT, CUSTOMER] }
-            status: { type: string, enum: [PENDING, PAID, EXPIRED] }
-            verification: { type: object, required: [verified, phoneLast4], properties: { verified: { type: boolean }, phoneLast4: { type: string } } }
-            gateways: { type: array, items: { type: object, properties: { ref: { type: string }, name: { type: string }, provider: { type: string }, manual: { type: boolean } } } }
-            bank: { type: object, nullable: true, description: Withheld before OTP proof or a card-transfer selection. }
-            receipt: { type: object, nullable: true }
-            botDelivery: { type: object, description: Included only for a verified payer on a PAID bot payment., properties: { status: { type: string, enum: [WAITING, QUEUED, SENDING, SENT, UNKNOWN, BLOCKED] } } }
+        ok: {"type":"boolean","enum":[true]}
+        data: {"type":"object","required":["id","amountRial","totalRial","feeRial","feeBearer","status","verification","gateways","bank","receipt"],"properties":{"id":{"type":"string"},"amountRial":{"$ref":"#/components/schemas/Rial"},"totalRial":{"$ref":"#/components/schemas/Rial"},"feeRial":{"$ref":"#/components/schemas/Rial"},"feeBearer":{"type":"string","enum":["MERCHANT","CUSTOMER"]},"status":{"type":"string","enum":["PENDING","PAID","EXPIRED"]},"verification":{"type":"object","required":["verified","phoneLast4"],"properties":{"verified":{"type":"boolean"},"phoneLast4":{"type":"string"}}},"gateways":{"type":"array","items":{"type":"object","properties":{"ref":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"manual":{"type":"boolean"}}}},"bank":{"type":"object","nullable":true,"description":"Withheld before OTP proof or a card-transfer selection."},"receipt":{"type":"object","nullable":true},"botDelivery":{"type":"object","description":"Included only for a verified payer on a PAID bot payment.","properties":{"status":{"type":"string","enum":["WAITING","QUEUED","SENDING","SENT","UNKNOWN","BLOCKED"]}}},"purchase":{"$ref":"#/components/schemas/MerchantPurchase"}}}
     Error:
       type: object
       required: [ok, error]
       properties: { ok: { type: boolean, enum: [false] }, error: { type: string }, code: { type: string } }
     Rial: { type: string, description: Exact integer amount in IRR., pattern: '^\d{1,19}$' }
     TerminalCreate:
-      type: object
-      required: [name, returnUrl]
-      properties: { name: { type: string, maxLength: 100 }, returnUrl: { type: string, format: uri, description: HTTPS URL on the registered merchant origin. } }
+      type: "object"
+      required: ["name"]
+      properties:
+        name: {"type":"string","maxLength":100}
+        returnUrl: {"type":"string","format":"uri","description":"Required HTTPS same registered origin for WEBSITE/BOT; omitted for PAYMENT_LINK. Social return is the validated channelUrl."}
+        channelType: {"type":"string","enum":["WEBSITE","BOT","INSTAGRAM","CHANNEL","PAYMENT_LINK","OTHER"],"default":"WEBSITE"}
+        channelUrl: {"type":"string","description":"Public HTTPS social/channel destination; Instagram requires its profile host. No server-side fetch."}
     TerminalChange:
       type: object
       required: [id, active]
       properties: { id: { type: string }, active: { type: boolean } }
     Terminal:
       allOf:
-        - { $ref: '#/components/schemas/TerminalCreate' }
-        - { type: object, required: [id, active, createdAt], properties: { id: { type: string }, active: { type: boolean }, createdAt: { type: string, format: date-time } } }
+        - {"$ref":"#/components/schemas/TerminalCreate"}
+        - {"type":"object","required":["id","active","createdAt","returnUrl"],"properties":{"id":{"type":"string"},"active":{"type":"boolean"},"createdAt":{"type":"string","format":"date-time"}}}
     PaymentCreate:
       type: object
       required: [terminalId, externalId, amountRial]
       properties: { terminalId: { type: string }, externalId: { type: string, maxLength: 100 }, amountRial: { $ref: '#/components/schemas/Rial' } }
     Payment:
-      type: object
-      required: [id, externalId, terminalId, terminalName, amountRial, feeRial, netRial, totalRial, feeBearer, status, transferReference, createdAt, paidAt, expiresAt, checkoutUrl]
+      type: "object"
+      required: ["id","externalId","terminalId","terminalName","amountRial","feeRial","netRial","totalRial","feeBearer","status","transferReference","createdAt","paidAt","expiresAt","checkoutUrl"]
       properties:
-        id: { type: string }
-        externalId: { type: string }
-        terminalId: { type: string }
-        terminalName: { type: string }
-        amountRial: { $ref: '#/components/schemas/Rial' }
-        totalRial: { $ref: '#/components/schemas/Rial' }
-        feeBearer: { type: string, enum: [MERCHANT, CUSTOMER], description: MERCHANT deducts the capped fee from the base; CUSTOMER adds it to the customer total. }
-        feeRial: { $ref: '#/components/schemas/Rial' }
-        netRial: { $ref: '#/components/schemas/Rial' }
-        status: { type: string, enum: [PENDING, PAID, EXPIRED] }
-        transferReference: { type: string }
-        createdAt: { type: string, format: date-time }
-        paidAt: { type: string, format: date-time, nullable: true }
-        expiresAt: { type: string, format: date-time }
-        checkoutUrl: { type: string }
-    QuoteCreate:
-      type: object
-      required: [railId, amountRial]
-      properties: { railId: { type: string, enum: [IRR_BANK, TRX_TRON, USDT_TRON] }, amountRial: { $ref: '#/components/schemas/Rial' } }
-    Quote:
-      allOf:
-        - { $ref: '#/components/schemas/QuoteCreate' }
-        - { type: object, required: [id, feeRial, payoutAmount, asset, network, rateRialPerUnit, expiresAt], properties: { id: { type: string }, feeRial: { $ref: '#/components/schemas/Rial' }, payoutAmount: { type: string }, asset: { type: string }, network: { type: string }, rateRialPerUnit: { type: string }, expiresAt: { type: string, format: date-time } } }
+        id: {"type":"string"}
+        externalId: {"type":"string"}
+        terminalId: {"type":"string"}
+        terminalName: {"type":"string"}
+        amountRial: {"$ref":"#/components/schemas/Rial"}
+        totalRial: {"$ref":"#/components/schemas/Rial"}
+        feeBearer: {"type":"string","enum":["MERCHANT","CUSTOMER"],"description":"MERCHANT deducts the capped fee from the base; CUSTOMER adds it to the customer total."}
+        feeRial: {"$ref":"#/components/schemas/Rial"}
+        netRial: {"$ref":"#/components/schemas/Rial"}
+        status: {"type":"string","enum":["PENDING","PAID","EXPIRED"]}
+        transferReference: {"type":"string"}
+        createdAt: {"type":"string","format":"date-time"}
+        paidAt: {"type":"string","format":"date-time","nullable":true}
+        expiresAt: {"type":"string","format":"date-time"}
+        checkoutUrl: {"type":"string"}
+        creditCurrency: {"type":"string","enum":["IRR","USDT"]}
+        creditAmount: {"type":"string","description":"Exact immutable credit to the merchant; USDT has two canonical internal decimals."}
+    QuoteCreate: {"type":"object","required":["railId","amountRial"],"properties":{"railId":{"type":"string","enum":["IRR_BANK","TRX_TRON","USDT_TRON"]},"amountRial":{"$ref":"#/components/schemas/Rial"}}}
+    Quote: {"allOf":[{"$ref":"#/components/schemas/QuoteCreate"},{"type":"object","required":["id","feeRial","payoutAmount","asset","network","rateRialPerUnit","expiresAt"],"properties":{"id":{"type":"string"},"feeRial":{"$ref":"#/components/schemas/Rial"},"payoutAmount":{"type":"string"},"asset":{"type":"string"},"network":{"type":"string"},"rateRialPerUnit":{"type":"string"},"expiresAt":{"type":"string","format":"date-time"}}}]}
     SettlementCreate:
-      type: object
-      required: [quoteId, destination]
-      properties: { quoteId: { type: string }, destination: { type: string, description: Valid Iranian sheba for IRR or TRON address for TRON rails. } }
-    Settlement:
-      type: object
-      required: [id, amountRial, feeRial, payoutAmount, asset, network, destination, status, reference, reason, createdAt, updatedAt]
+      type: "object"
+      required: ["quoteId","destination"]
       properties:
-        id: { type: string }
-        amountRial: { $ref: '#/components/schemas/Rial' }
-        feeRial: { $ref: '#/components/schemas/Rial' }
-        payoutAmount: { type: string }
-        asset: { type: string }
-        network: { type: string }
-        destination: { type: string }
-        status: { type: string, enum: [REQUESTED, APPROVED, PAID, REJECTED] }
-        reference: { type: string }
-        reason: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+        quoteId: {"type":"string"}
+        destination: {"type":"string","description":"Validated Iranian sheba, TRON Base58Check address, or nonzero 0x40-hex EVM address for its selected rail. Returned normalized address must be reviewed."}
+        ackNetwork: {"type":"boolean","description":"Explicit true required for BSC/Ethereum to acknowledge the selected destination network."}
+    Settlement:
+      type: "object"
+      required: ["id","amountRial","feeRial","payoutAmount","asset","network","destination","status","reference","reason","createdAt","updatedAt"]
+      properties:
+        id: {"type":"string"}
+        amountRial: {"$ref":"#/components/schemas/Rial"}
+        feeRial: {"$ref":"#/components/schemas/Rial"}
+        payoutAmount: {"type":"string"}
+        asset: {"type":"string"}
+        network: {"type":"string"}
+        destination: {"type":"string"}
+        status: {"type":"string","enum":["REQUESTED","APPROVED","PAID","REJECTED"]}
+        reference: {"type":"string"}
+        reason: {"type":"string"}
+        createdAt: {"type":"string","format":"date-time"}
+        updatedAt: {"type":"string","format":"date-time"}
+        sourceCurrency: {"type":"string","enum":["IRR","USDT"]}
+        sourceAmount: {"type":"string","description":"Exact major amount reserved from the source Wallet."}
+        feeCurrency: {"type":"string","enum":["IRR","USDT"]}
+        feeAmount: {"type":"string","description":"Exact quoted fee in its explicitly named unit."}
+        instrument: {"type":"string","description":"BSC uses Binance-Peg BSC-USD; quoted precision is not raw chain atoms."}
     BankEvent:
       type: object
       required: [providerId, externalId, transferReference, amountRial, bankAccountId, occurredAt]
@@ -548,5 +760,135 @@ components:
     TerminalListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Terminal' } } } } } }
     PaymentListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items, page, pages, total], properties: { items: { type: array, items: { $ref: '#/components/schemas/Payment' } }, page: { type: integer }, pages: { type: integer }, total: { type: integer } } } } }
     SettlementListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items, page, pages, total], properties: { items: { type: array, items: { $ref: '#/components/schemas/Settlement' } }, page: { type: integer }, pages: { type: integer }, total: { type: integer } } } } }
-    OverviewResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [merchant, terminals, rails, payments, settlements, stats, readiness], properties: { merchant: { type: object, nullable: true }, terminals: { type: array, items: { $ref: '#/components/schemas/Terminal' } }, rails: { type: array, items: { type: object } }, payments: { type: array, items: { $ref: '#/components/schemas/Payment' } }, settlements: { type: array, items: { $ref: '#/components/schemas/Settlement' } }, stats: { type: object }, readiness: { type: object } } } } }
+    OverviewResponse:
+      type: "object"
+      required: ["ok","data"]
+      properties:
+        ok: {"type":"boolean","enum":[true]}
+        data: {"type":"object","required":["merchant","terminals","rails","payments","settlements","stats","readiness"],"properties":{"merchant":{"type":"object","nullable":true},"terminals":{"type":"array","items":{"$ref":"#/components/schemas/Terminal"}},"rails":{"type":"array","items":{"type":"object"}},"payments":{"type":"array","items":{"$ref":"#/components/schemas/Payment"}},"settlements":{"type":"array","items":{"$ref":"#/components/schemas/Settlement"}},"stats":{"type":"object"},"readiness":{"type":"object"},"assetBalances":{"type":"array","items":{"$ref":"#/components/schemas/AssetBalance"}}}}
     BankEventResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [id, status, paymentId], properties: { id: { type: string }, status: { type: string, enum: [UNMATCHED, MATCHED] }, paymentId: { type: string, nullable: true } } } } }
+    MerchantPurchase:
+      type: "object"
+      required: ["currency","amount","convertedRial","rateRial","rateAt","roundingRial","beneficiaryName","termsHash","disclosure","accepted"]
+      properties:
+        currency: {"type":"string","enum":["USDT"]}
+        amount: {"type":"string"}
+        convertedRial: {"$ref":"#/components/schemas/Rial"}
+        rateRial: {"type":"string"}
+        rateAt: {"type":"string","format":"date-time"}
+        roundingRial: {"$ref":"#/components/schemas/Rial"}
+        beneficiaryName: {"type":"string"}
+        termsHash: {"type":"string","pattern":"^[a-f0-9]{64}$"}
+        disclosure: {"type":"string","enum":["MERCHANT_USDT_V1"]}
+        accepted: {"type":"boolean"}
+    AssetBalance:
+      type: "object"
+      properties:
+        currency: {"type":"string","enum":["IRR","USDT"]}
+        availableAmount: {"type":"string"}
+        availableMinor: {"type":"string"}
+        reservedAmount: {"type":"string"}
+        equivalentRial: {"type":"string","nullable":true,"description":"Dated display valuation only, never a second balance."}
+        rateAt: {"type":"string","format":"date-time","nullable":true}
+        rateStatus: {"type":"string","enum":["CURRENT","STALE","UNAVAILABLE"]}
+    AssetQuoteCreate:
+      type: object
+      required:
+        - railId
+      properties:
+        railId:
+          type: string
+          enum:
+            - IRR_BANK
+            - TRX_TRON
+            - USDT_TRON
+            - USDT_BSC
+            - USDT_ETHEREUM
+        amountRial:
+          $ref: "#/components/schemas/Rial"
+        sourceCurrency:
+          type: string
+          enum:
+            - IRR
+            - USDT
+          default: IRR
+        amount:
+          type: string
+          pattern: ^[0-9]+(\.[0-9]{1,2})?$
+          description: Major USDT source amount when sourceCurrency=USDT; sourceCurrency=IRR requires amountRial.
+      oneOf:
+        - required:
+            - amountRial
+          properties:
+            sourceCurrency:
+              enum:
+                - IRR
+        - required:
+            - sourceCurrency
+            - amount
+          properties:
+            sourceCurrency:
+              enum:
+                - USDT
+    AssetQuote:
+      type: object
+      required:
+        - id
+        - feeRial
+        - payoutAmount
+        - asset
+        - network
+        - rateRialPerUnit
+        - expiresAt
+        - amountRial
+        - railId
+        - sourceCurrency
+        - sourceAmount
+        - feeCurrency
+        - feeAmount
+      properties:
+        id:
+          type: string
+        feeRial:
+          $ref: "#/components/schemas/Rial"
+        payoutAmount:
+          type: string
+        asset:
+          type: string
+        network:
+          type: string
+        rateRialPerUnit:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        sourceCurrency:
+          type: string
+          enum:
+            - IRR
+            - USDT
+        sourceAmount:
+          type: string
+          description: Exact major amount reserved from the source Wallet.
+        feeCurrency:
+          type: string
+          enum:
+            - IRR
+            - USDT
+        feeAmount:
+          type: string
+          description: Exact quoted fee in its explicitly named unit.
+        instrument:
+          type: string
+          description: BSC uses Binance-Peg BSC-USD; quoted precision is not raw chain atoms.
+        railId:
+          type: string
+          enum:
+            - IRR_BANK
+            - TRX_TRON
+            - USDT_TRON
+            - USDT_BSC
+            - USDT_ETHEREUM
+        amountRial:
+          $ref: "#/components/schemas/Rial"
+    AssetQuoteResponse: {"type":"object","required":["ok","data"],"properties":{"ok":{"type":"boolean","enum":[true]},"data":{"$ref":"#/components/schemas/AssetQuote"}}}

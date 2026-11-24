@@ -1,6 +1,6 @@
 import { balePolicyDefaults, normalizeBalePolicy } from './pay-bale-collection'
 import { latinDigits } from '@/shared/text/digits'
-import { PayError, type PayFeeTerms, type PayRail, type PaySettings } from '@/modules/billing/domain/pay'
+import { PayError, type PayFeeTerms, type PayRail, type PaySettings, type PaySettlementFees } from '@/modules/billing/domain/pay'
 
 const MAX = 9_223_372_036_854_775_807n
 export function text(value: unknown, max = 160): string {
@@ -58,9 +58,12 @@ const RAILS = [
   { id: 'IRR_BANK', asset: 'IRR', network: 'BANK', decimals: 0 },
   { id: 'TRX_TRON', asset: 'TRX', network: 'TRON', decimals: 6 },
   { id: 'USDT_TRON', asset: 'USDT', network: 'TRON', decimals: 6 },
+  { id: 'USDT_BSC', asset: 'USDT', network: 'BSC', decimals: 6, instrument: 'Binance-Peg BSC-USD (BEP20)' },
+  { id: 'USDT_ETHEREUM', asset: 'USDT', network: 'ETHEREUM', decimals: 6, instrument: 'Tether USDt (ERC20)' },
 ] as const
 export function defaults(): PaySettings {
   return {
+    usdtRateMaxAgeMinutes: 60,
     bale: balePolicyDefaults(),
     incomingEnabled: false,
     bankAccountIds: [],
@@ -101,10 +104,10 @@ export function normalizePaySettings(input: unknown): PaySettings {
   const min = rial(raw.minPaymentRial),
     max = rial(raw.maxPaymentRial)
   if (max < min) throw new PayError('حداکثر پرداخت از حداقل کمتر است')
-  if (!Array.isArray(raw.rails) || raw.rails.length !== RAILS.length)
+  if (!Array.isArray(raw.rails) || raw.rails.length < 3 || raw.rails.length > RAILS.length || new Set(raw.rails.map(v => v?.id)).size !== raw.rails.length || raw.rails.some(v => !RAILS.some(base => base.id === v?.id)))
     throw new PayError('مسیرهای تسویه معتبر نیست')
   const rails = RAILS.map((base) => {
-    const row = (raw.rails as PayRail[]).find((v) => v?.id === base.id)
+    const row = (raw.rails as PayRail[]).find((v) => v?.id === base.id) || (['USDT_BSC', 'USDT_ETHEREUM'].includes(base.id) ? d.rails.find(v => v.id === base.id) : undefined)
     if (!row || typeof row.enabled !== 'boolean' || typeof row.rialPerUnit !== 'string')
       throw new PayError('مسیر تسویه معتبر نیست')
     const rate = rateRatio(row.rialPerUnit)
@@ -115,9 +118,11 @@ export function normalizePaySettings(input: unknown): PaySettings {
       enabled: row.enabled,
       rialPerUnit: row.rialPerUnit,
       feeRial: rial(row.feeRial, true).toString(),
+      fees: settlementFees(row),
     }
   })
   return {
+    usdtRateMaxAgeMinutes: integer(raw.usdtRateMaxAgeMinutes, 15, 1440),
     bale: normalizeBalePolicy(raw.bale),
     incomingEnabled: raw.incomingEnabled,
     bankAccountIds: ids,
@@ -131,6 +136,20 @@ export function normalizePaySettings(input: unknown): PaySettings {
     paymentMinutes: integer(raw.paymentMinutes, 5, 120),
     rails,
   }
+}
+export function parseAtoms(value: unknown, decimals: number): bigint {
+  if (typeof value !== 'string' || !/^\d{1,19}(?:\.\d{1,6})?$/.test(latinDigits(value))) throw new PayError('مبلغ اعشاری معتبر وارد کنید')
+  const [whole, fraction = ''] = latinDigits(value).split('.')
+  if (fraction.length > decimals && /[1-9]/.test(fraction.slice(decimals))) throw new PayError(`این مبلغ حداکثر ${decimals} رقم اعشار دارد`)
+  const amount = BigInt(whole) * 10n ** BigInt(decimals) + BigInt((fraction + '0'.repeat(decimals)).slice(0, decimals) || '0')
+  if (amount > MAX) throw new PayError('مبلغ خارج از محدوده است')
+  return amount
+}
+export function settlementFees(rail: Pick<PayRail, 'feeRial' | 'fees'>): PaySettlementFees {
+  const f = rail.fees || { currency: 'IRR', bps: 0, flat: rail.feeRial, cap: '0' }
+  if (!f || !['IRR','USDT'].includes(f.currency)) throw new PayError('واحد کارمزد معتبر نیست')
+  const decimals = f.currency === 'IRR' ? 0 : 6
+  return { currency: f.currency, bps: integer(f.bps, 0, 3000), flat: formatAtoms(parseAtoms(f.flat, decimals), decimals), cap: formatAtoms(parseAtoms(f.cap, decimals), decimals) }
 }
 export function paymentAmounts(amount: unknown, settings: PaySettings, terms?: PayFeeTerms) {
   const gross = rial(amount)

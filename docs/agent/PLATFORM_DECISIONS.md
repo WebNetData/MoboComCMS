@@ -1,3 +1,23 @@
+2026-11-24 owner extends Pay to websites, Instagram, channels and standalone orders,
+with optional selected-merchant internal USDT credit and later Rial/network payout.
+Reuse Billing/Wallet/FX and canonical identity: no parallel wallet, rate service or
+social automation. Admin credit mode affects future payments only; payer explicitly
+accepts exact internal USDT and named merchant recipient. Preserve existing USDT
+two-decimal ledger, disclose rounding; lock approved FX and original expiry.
+Network fees have explicit currency/percentage/flat/cap; BSC/Ethereum default off.
+New machine quote contracts use `/api/v2/pay`, retaining v1 and custom-bot addresses.
+Actual external transfer remains staff-operated; no live chain-sender claim.
+[Implementation, migration and acceptance](handoffs/MOBOCOM_PAY.md#general-channels-and-selected-merchant-usdt-credit--2026-11-24).
+
+2026-11-24 owner requests separate private merchant panel and full Admin controls.
+Canonical workspace is `/pay/merchant` on the same domain; existing Identity,
+Wallet and payment core remain shared. Public promotion/enrollment and generic
+account Pay navigation are removed. Admin provisions existing accounts PENDING and
+explicitly activates; ACTIVE membership gates data/APIs, status screens remain safe.
+Existing payment links/callbacks stay public capability flows. Legacy console URLs
+redirect. No new identity/subdomain/service or financial rewrite is authorized.
+[Implemented slice and evidence](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 2026-11-24 owner authorizes next Pay items1/2: extend operations monitoring and
 add a reconciliation desk under current Billing owners and approved identity.
 Preserve CARD_TRANSFER automatic SMS/Bale and canonical exact-once manual/automatic

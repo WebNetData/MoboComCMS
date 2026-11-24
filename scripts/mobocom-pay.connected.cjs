@@ -14,7 +14,7 @@ const state = { enabled: true, auditFails: false, reviewer: 0 }
 const mocks = {
   '@/platform/database/prisma': { db },
   '@/extensions/server/modules': { isModuleEnabled: async () => state.enabled },
-  '@/modules/identity/server/access': {
+  '@/modules/identity/server/access': {resolveCurrentUser: async (id, _at, tx = db) => { const u = await tx.user.findUnique({where:{id}}); return u?.status === 'ACTIVE' ? u : null },
     requireUser: async (req, tx = db) => { const id = Number(req.headers.get('x-fixture-user')); return id ? tx.user.findUnique({ where: { id } }) : null },
     requirePerm: async (req, permission, tx = db) => Number(req.headers.get('x-fixture-user')) === state.reviewer && ['mobocom-pay.manage', 'mobocom-pay.settle', 'gateways.manage'].includes(permission) ? tx.user.findUnique({ where: { id: state.reviewer } }) : null,
   },
@@ -52,7 +52,7 @@ async function main() {
   const settings = policy.normalizePaySettings({ ...policy.defaults(), incomingEnabled: true, providerId: 'fixture', bankAccountIds: [bank.id], minPaymentRial: '1', minSettlementRial: '1' })
   await db.setting.create({ data: { key: paySettingsAddress, value: JSON.stringify(settings) } })
   createdSetting = true
-  const m = await merchant.enrollMerchant(a, { name: seed, website: 'https://example.invalid' }); merchants.push(m.id)
+  const m = await merchant.enrollMerchant(r, { userId: owner.id, note: 'Synthetic Admin provision', name: seed, website: 'https://example.invalid' }); merchants.push(m.id)
   await assert.rejects(merchant.createTerminal(a, { name: seed, returnUrl: 'https://example.invalid/return' }))
   await merchant.changeMerchant(r, { id: m.id, status: 'ACTIVE' })
   const terminal = await merchant.createTerminal(a, { name: seed, returnUrl: 'https://example.invalid/return' })
@@ -86,7 +86,7 @@ async function main() {
   assert.equal((await db.payPayment.findUniqueOrThrow({ where: { id: p2.id } })).status, 'PAID')
   const p3 = await makePayment('mismatch'); await payments.reportPayReference(p3.id, 'REF000003'); await reconcile.acceptBankEvent(event(p3, 'REF000003', 'mismatch', '999999'), 'hash-three')
   assert.equal((await db.payPayment.findUniqueOrThrow({ where: { id: p3.id } })).status, 'PENDING')
-  const attacker = await merchant.enrollMerchant(b, { name: seed, website: 'https://example.invalid' }); merchants.push(attacker.id)
+  const attacker = await merchant.enrollMerchant(r, { userId: other.id, note: 'Synthetic Admin provision', name: seed, website: 'https://example.invalid' }); merchants.push(attacker.id)
   await merchant.changeMerchant(r, { id: attacker.id, status: 'ACTIVE' })
   const attackerTerminal = await merchant.createTerminal(b, { name: seed, returnUrl: 'https://example.invalid/return' })
   const attackerPayment = async suffix => {

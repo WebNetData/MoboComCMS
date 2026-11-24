@@ -24,6 +24,8 @@
     "order": 50,
     "items": [
       { "href": "/admin/mobocom-pay", "label": "نمای کلی", "labelEn": "Overview", "icon": "layout", "exact": true, "permissions": ["mobocom-pay.manage", "mobocom-pay.settle"] },
+      { "href": "/admin/mobocom-pay/operations", "label": "پایش دریافت‌ها", "labelEn": "Bank operations", "icon": "activity", "exact": true, "permissions": ["mobocom-pay.manage"] },
+      { "href": "/admin/mobocom-pay/reconciliation", "label": "میز مغایرت‌ها", "labelEn": "Reconciliation", "icon": "receipt", "exact": true, "permissions": ["mobocom-pay.manage"] },
       { "href": "/admin/mobocom-pay/merchants", "label": "پذیرندگان", "labelEn": "Merchants", "icon": "users", "exact": true, "permissions": ["mobocom-pay.manage"] },
       { "href": "/admin/mobocom-pay/settlements", "label": "تسویه‌ها", "labelEn": "Settlements", "icon": "bank", "exact": true, "permissions": ["mobocom-pay.manage", "mobocom-pay.settle"] },
       { "href": "/admin/mobocom-pay/payments", "label": "پرداخت‌ها", "labelEn": "Payments", "icon": "receipt", "exact": true, "permissions": ["mobocom-pay.manage"] },

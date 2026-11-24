@@ -2,10 +2,23 @@
 export type PayMerchantStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED'
 export type PayPaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'UNDER_REVIEW'
 export type PaySettlementStatus = 'REQUESTED' | 'APPROVED' | 'PAID' | 'REJECTED'
-export type PayRailId = 'IRR_BANK' | 'TRX_TRON' | 'USDT_TRON'
+export type PayRailId = 'IRR_BANK' | 'TRX_TRON' | 'USDT_TRON' | 'USDT_BSC' | 'USDT_ETHEREUM'
+export type PayCreditCurrency = 'IRR' | 'USDT'
+export interface PaySettlementFees { currency: PayCreditCurrency; bps: number; flat: string; cap: string }
+export interface PayPurchase {
+  currency: 'USDT'; amount: string; convertedRial: string; rateRial: string; rateAt: string; roundingRial: string;
+  beneficiaryName: string; termsHash: string; disclosure: 'MERCHANT_USDT_V1'; accepted: boolean;
+}
+export interface PayAssetBalance {
+  currency: PayCreditCurrency; availableAmount: string; availableMinor: string; reservedAmount: string;
+  equivalentRial: string | null; rateAt: string | null; rateStatus: 'CURRENT' | 'STALE' | 'UNAVAILABLE';
+}
 export type PayFeeBearer = 'MERCHANT' | 'CUSTOMER'
+export type PayChannelType = 'WEBSITE' | 'BOT' | 'INSTAGRAM' | 'CHANNEL' | 'PAYMENT_LINK' | 'OTHER'
 export interface PayFeeTerms { feeBearer: PayFeeBearer; feeBps: number; flatFeeRial: string; feeCapRial: string; inherited?: boolean }
 export interface PayRail {
+  fees?: PaySettlementFees
+  instrument?: string
   id: PayRailId
   asset: string
   network: string
@@ -15,6 +28,7 @@ export interface PayRail {
   feeRial: string
 }
 export interface PaySettings {
+  usdtRateMaxAgeMinutes: number
   bale: import('./pay-bale-collection').BaleCollectionPolicy
   incomingEnabled: boolean
   bankAccountIds: number[]
@@ -29,6 +43,7 @@ export interface PaySettings {
   rails: PayRail[]
 }
 export interface PayMerchantView {
+  creditCurrency: PayCreditCurrency
   baleAllowed: boolean
   id: string
   userId: number
@@ -40,6 +55,8 @@ export interface PayMerchantView {
   fees: PayFeeTerms
 }
 export interface PayTerminalView {
+  channelType: PayChannelType
+  channelUrl: string
   baleEnabled: boolean
   id: string
   name: string
@@ -48,6 +65,8 @@ export interface PayTerminalView {
   createdAt: string
 }
 export interface PayPaymentView {
+  creditCurrency?: PayCreditCurrency
+  creditAmount?: string
   gatewayAdjustmentRial?: string
   gatewayCollectedRial?: string
   gatewayCollectionStatus?: string
@@ -68,6 +87,10 @@ export interface PayPaymentView {
   checkoutUrl: string
 }
 export interface PaySettlementView {
+  sourceCurrency?: PayCreditCurrency
+  sourceAmount?: string
+  feeCurrency?: PayCreditCurrency
+  feeAmount?: string
   id: string
   amountRial: string
   feeRial: string
@@ -82,6 +105,11 @@ export interface PaySettlementView {
   updatedAt: string
 }
 export interface PayQuoteView {
+  sourceCurrency?: PayCreditCurrency
+  sourceAmount?: string
+  feeCurrency?: PayCreditCurrency
+  feeAmount?: string
+  instrument?: string
   id: string
   amountRial: string
   feeRial: string
@@ -93,6 +121,7 @@ export interface PayQuoteView {
   expiresAt: string
 }
 export interface PayOverview {
+  assetBalances?: PayAssetBalance[]
   merchant: PayMerchantView | null
   terminals: PayTerminalView[]
   rails: Pick<PayRail, 'id' | 'asset' | 'network' | 'enabled'>[]
@@ -113,6 +142,7 @@ export interface PayOverview {
   readiness: { incomingEnabled: boolean; bankFeedReady: boolean }
 }
 export interface PayCheckout {
+  purchase?: PayPurchase
   botDelivery?: { status: string }
   id: string
   merchantName: string

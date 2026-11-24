@@ -22,7 +22,7 @@ function wrap(client) {
 const db = wrap(prisma), mocks = {
   '@/platform/database/prisma': { db }, react: { ...require('react'), cache: fn => fn },
   '@/extensions/server/modules': { isModuleEnabled: async () => true },
-  '@/modules/identity/server/access': { requireUser: async (req, tx = db) => tx.user.findUnique({ where: { id: Number(req.headers.get('x-fixture-user')) } }), requirePerm: async (req, _p, tx = db) => tx.user.findUnique({ where: { id: Number(req.headers.get('x-fixture-user')) } }) },
+  '@/modules/identity/server/access': {resolveCurrentUser: async (id, _at, tx = db) => { const u = await tx.user.findUnique({where:{id}}); return u?.status === 'ACTIVE' ? u : null }, requireUser: async (req, tx = db) => tx.user.findUnique({ where: { id: Number(req.headers.get('x-fixture-user')) } }), requirePerm: async (req, _p, tx = db) => tx.user.findUnique({ where: { id: Number(req.headers.get('x-fixture-user')) } }) },
   '@/modules/identity/server/authentication-restrictions': { globalAuthenticationDenied: async () => false },
   '@/modules/account/server/section-access': { userOpensSection: async () => true },
   '@/modules/site/server/maintenance': { loadMaintenance: async () => ({}) },
@@ -48,8 +48,8 @@ async function main() {
   bank = await db.bankAccount.create({ data: { bankName: stamp, holderName: stamp, accountNumber: '123456789' } })
   for (let i = 0; i < 3; i++) gateways.push(await db.gateway.create({ data: { name: `${stamp}-${i}`, provider: 'CARD_TRANSFER', active: true, fiat: 'IRR' } }))
   await put(keys[0], JSON.stringify({ ...policy.defaults(), incomingEnabled: true, providerId: 'fixture', bankAccountIds: [bank.id], minPaymentRial: '1' })); await put(keys[1], 'true')
-  merchant = await pay.enrollMerchant(a, { name: stamp, website: 'https://merchant.invalid' }); await pay.changeMerchant(admin, { id: merchant.id, status: 'ACTIVE' })
-  otherMerchant = await pay.enrollMerchant(b, { name: stamp + '-other', website: 'https://merchant.invalid' }); await pay.changeMerchant(admin, { id: otherMerchant.id, status: 'ACTIVE' })
+  merchant = await pay.enrollMerchant(admin, { userId: users[0].id, note: 'Synthetic Admin provision', name: stamp, website: 'https://merchant.invalid' }); await pay.changeMerchant(admin, { id: merchant.id, status: 'ACTIVE' })
+  otherMerchant = await pay.enrollMerchant(admin, { userId: users[1].id, note: 'Synthetic Admin provision', name: stamp + '-other', website: 'https://merchant.invalid' }); await pay.changeMerchant(admin, { id: otherMerchant.id, status: 'ACTIVE' })
   terminal = await pay.createTerminal(a, { name: stamp, returnUrl: 'https://merchant.invalid/return' })
   const saved = await pay.saveBotIntegration(a, { terminalId: terminal.id, version: 0, callbackUrl: 'https://merchant.invalid/api/payment', callbackToken: 'synthetic-callback-secret-only', ackPolicy: 'JSON_OK', responseMode: 'LINKS', active: true })
   connection = saved.integration; const token = saved.token

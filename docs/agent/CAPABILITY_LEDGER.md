@@ -1,3 +1,13 @@
+Private merchant portal/Admin2026-11-24: FUNCTIONAL_LOCAL. Existing ACTIVE
+membership gates pages/session/machine reads; public enrollment closed. Scoped
+workspace, canonical login, Admin provisioning/lifecycle/profile/fees/source/
+terminal/bot controls with version/reason/Audit. Native6+units61, Doctor0errors,
+19 responsive/a11y views+failure recovery and7 Hurl requests. No live bank/deploy
+claim. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+Visual refinement locally verified: financial hierarchy, responsive navigation and
+Admin directory/detail; connected PG, types/static, Doctor0errors/3 warnings and38
+responsive/axe captures. [Scoped evidence/limits](handoffs/MOBOCOM_PAY.md#merchant-workspace-visual-refinement--2026-11-24).
+
 Bank operations monitor/reconciliation2026-11-24: FUNCTIONAL_LOCAL. Current
 SMS/Bale readiness and observed traffic, latency/review/pool metrics; paged exact
 invoice assignment, under/over review, late exact admission and canonical receipt/
@@ -53,7 +63,7 @@ Pay shared gateway checkout2026-11-23: FUNCTIONAL within local evidence; LIVE_PR
 
 Payment gateway navigation2026-11-23: FUNCTIONAL within local evidence. Dedicated account/Admin groups, per-view reload/history, real CSV, mobile all-visible submenus and scoped roles verified against private PG208; full types/45 units/Doctor0 errors and26 accepted browser scopes. No new live-provider/deployment claim; [handoff](handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23).
 
-MoboComPay2026-11-23: FUNCTIONAL within bounded local PG/browser evidence; LIVE_PROVIDER_UNVERIFIED. Merchant REST API/checkout/reports and admin-reviewed settlement compose canonical financial owners. PG208 fresh/populated upgrade, deliberate faults, scoped regression/types/contracts and actual themed/mobile/a11y passed; final file/status receipts in [the handoff](handoffs/MOBOCOM_PAY.md). Bank-specific adapter/attested attribution and additional named networks remain pending; module/incoming default-off.
+MoboComPay2026-11-24: FUNCTIONAL within bounded local PG/browser evidence; LIVE_PROVIDER_UNVERIFIED. Generic website/bot/social/channel/order links, selected merchant internal USDT purchases and IRR/USDT source settlement compose canonical Billing/Wallet/FX. New BSC/Ethereum fee-capped routes default off; actual external transfer remains staff-operated. PG215 fresh/populated214 upgrade/legacy-writer preservation, consent/expiry/held receipt/exact-once/fault regressions,27 units, full types/scoped gates, compatible v1/v2 Hurl12 and33 themed/mobile/axe captures pass. [Exact evidence, reviewed warnings, cleanup, limits and rollback](handoffs/MOBOCOM_PAY.md#general-channels-and-selected-merchant-usdt-credit--2026-11-24). Module/incoming remain default-off; live source and chain commissioning unverified.
 
 Agent orchestration2026-11-14: CONFIGURED project-local (Sol lead,7 explicit roles +3 compatibility names); safe merge/idempotence/backup/rollback tests7 passed, native Codex config.load OK. No model execution/entitlement or live-session model switch claim; existing TERM=dumb doctor failure is recorded separately. Same Claude/Codex policy through bootstrap/skills. [Scope and evidence](handoffs/AGENT_ORCHESTRATION.md).
 

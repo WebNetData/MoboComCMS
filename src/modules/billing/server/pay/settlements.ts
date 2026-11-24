@@ -1,6 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { PayError } from '@/modules/billing/domain/pay'
-import { formatAtoms, idempotencyKey, quoteAmounts, rial, text } from '@/modules/billing/domain/pay-policy'
+import { formatAtoms, idempotencyKey, parseAtoms, settlementFees, rial, text } from '@/modules/billing/domain/pay-policy'
+import { assetSettlementAmounts } from '@/modules/billing/domain/pay-assets'
+import { minorToDecimal } from '@/shared/money'
+import { usdtRate } from './assets'
 import { cleanSheba, validSheba } from '@/modules/billing/domain/card-transfer'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
@@ -22,53 +25,42 @@ function validTron(value: string): boolean {
     .subarray(0, 4)
   return checksum.equals(bytes.subarray(21))
 }
-function destinationFor(asset: string, input: unknown) {
+function destinationFor(asset: string, network: string, input: unknown) {
   const value = text(input, 150)
   if (asset === 'IRR') {
     if (!validSheba(value)) throw new PayError('شمارهٔ شبای معتبر لازم است')
     return cleanSheba(value)
+  }
+  if (network === 'BSC' || network === 'ETHEREUM') {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(value) || /^0x0{40}$/.test(value)) throw new PayError('آدرس EVM معتبر لازم است')
+    return value.toLowerCase()
   }
   if (!validTron(value)) throw new PayError('آدرس شبکهٔ TRON معتبر نیست')
   return value
 }
 export async function createPayQuote(actor: PayActor, input: Record<string, unknown>) {
   return payTransaction(async (tx) => {
-    const merchant = await merchantFor(actor, tx, true),
-      { settings } = await payContext(actor, tx)
-    const rail = settings.rails.find((item) => item.id === input.railId)
+    const merchant = await merchantFor(actor, tx, true), { settings } = await payContext(actor, tx)
+    const rail = settings.rails.find(item => item.id === input.railId)
     if (!rail) throw new PayError('مسیر تسویه پیدا نشد')
-    if (rial(input.amountRial) < BigInt(settings.minSettlementRial))
-      throw new PayError('مبلغ کمتر از حداقل تسویه است')
-    const amounts = quoteAmounts(input.amountRial, rail)
-    const wallet = await tx.walletAccount.findUnique({
-      where: { userId_currency: { userId: actor.id, currency: 'IRR' } },
-    })
-    if (!wallet || wallet.withdrawableMinor < amounts.amountMinor)
-      throw new PayError('درآمد قابل‌تسویه کافی نیست', 409)
-    const row = await tx.paySettlementQuote.create({
-      data: {
-        id: randomUUID(),
-        merchantId: merchant.id,
-        railId: rail.id,
-        asset: rail.asset,
-        network: rail.network,
-        decimals: rail.decimals,
-        ...amounts,
-        rialPerUnit: rail.rialPerUnit,
-        expiresAt: new Date(Date.now() + 5 * 60000),
-      },
-    })
-    return {
-      id: row.id,
-      railId: rail.id,
-      asset: row.asset,
-      network: row.network,
-      amountRial: row.amountMinor.toString(),
-      feeRial: row.feeMinor.toString(),
-      payoutAmount: formatAtoms(row.payoutAtoms, row.decimals),
-      rateRialPerUnit: row.rialPerUnit,
-      expiresAt: row.expiresAt.toISOString(),
-    }
+    if (input.sourceCurrency !== undefined && !['IRR','USDT'].includes(String(input.sourceCurrency))) throw new PayError('واحد موجودی معتبر نیست')
+    const sourceCurrency = input.sourceCurrency === 'USDT' ? 'USDT' : 'IRR'
+    const sourceMinor = sourceCurrency === 'IRR' ? rial(input.amountRial) : parseAtoms(input.amount, 2)
+    const f = settlementFees(rail), needsRate = sourceCurrency === 'USDT' || f.currency === 'USDT'
+    const current = needsRate ? await usdtRate(tx, settings.usdtRateMaxAgeMinutes) : null
+    if (needsRate && current?.status !== 'CURRENT') throw new PayError('نرخ تأییدشدهٔ تتر به‌روز نیست', 503, 'PAY_FX_UNAVAILABLE')
+    const amounts = assetSettlementAmounts(sourceMinor, sourceCurrency, rail, current?.rateRial || '0')
+    if (amounts.amountMinor < BigInt(settings.minSettlementRial)) throw new PayError('مبلغ کمتر از حداقل تسویه است')
+    const wallet = await tx.walletAccount.findUnique({ where: { userId_currency: { userId: actor.id, currency: sourceCurrency } } })
+    if (!wallet || wallet.withdrawableMinor < sourceMinor) throw new PayError('درآمد قابل‌تسویه کافی نیست', 409)
+    const row = await tx.paySettlementQuote.create({ data: {
+      id: randomUUID(), merchantId: merchant.id, railId: rail.id, asset: rail.asset, network: rail.network,
+      decimals: rail.decimals, ...amounts, rateAt: current?.at || null, expiresAt: new Date(Date.now() + 5 * 60000),
+    } })
+    return { id: row.id, railId: rail.id, asset: row.asset, network: row.network,
+      amountRial: row.amountMinor.toString(), feeRial: row.feeMinor.toString(),
+      sourceCurrency, sourceAmount: minorToDecimal(sourceMinor, sourceCurrency), feeCurrency: row.feeCurrency as 'IRR' | 'USDT', feeAmount: row.feeAmount,
+      instrument: rail.instrument, payoutAmount: formatAtoms(row.payoutAtoms, row.decimals), rateRialPerUnit: row.rialPerUnit, expiresAt: row.expiresAt.toISOString() }
   })
 }
 export async function requestPaySettlement(actor: PayActor, input: Record<string, unknown>, key: string) {
@@ -94,13 +86,14 @@ export async function requestPaySettlement(actor: PayActor, input: Record<string
       throw new PayError('مسیر تسویه متوقف شده است', 409)
     if (await tx.paySettlement.count({ where: { quoteId } }))
       throw new PayError('این پیش‌فاکتور قبلاً استفاده شده است', 409)
-    const destination = destinationFor(quote.asset, rawDestination),
+    if (['BSC','ETHEREUM'].includes(quote.network) && input.ackNetwork !== true) throw new PayError('شبکه و مقصد تسویه را صریحاً تأیید کنید', 422)
+    const destination = destinationFor(quote.asset, quote.network, rawDestination),
       id = randomUUID()
     const reserved = await moveWallet(
       {
         userId: actor.id,
-        amount: '-' + quote.amountMinor.toString(),
-        currency: 'IRR',
+        amount: minorToDecimal(-quote.sourceMinor, quote.sourceCurrency),
+        currency: quote.sourceCurrency,
         type: 'PAY_RESERVE',
         funds: 'WITHDRAWABLE',
         idempotencyKey: 'pay-reserve:' + id,
@@ -122,6 +115,8 @@ export async function requestPaySettlement(actor: PayActor, input: Record<string
         asset: quote.asset,
         network: quote.network,
         decimals: quote.decimals,
+        sourceCurrency: quote.sourceCurrency, sourceMinor: quote.sourceMinor, sourceRateRial: quote.sourceRateRial, rateAt: quote.rateAt,
+        feeCurrency: quote.feeCurrency, feeAmount: quote.feeAmount, feePolicySnapshot: quote.feePolicySnapshot,
         destination,
         reserveWalletTxId: reserved.txId,
       },
@@ -146,7 +141,8 @@ export async function decidePaySettlement(actor: PayActor, input: Record<string,
     if (!row) throw new PayError('درخواست پیدا نشد', 404)
     if (row.merchant.userId === actor.id) throw new PayError('بررسی تسویهٔ خودتان مجاز نیست', 403)
     const reason = action === 'reject' ? text(input.reason, 500) : ''
-    const ref = action === 'paid' ? text(input.reference, 120) : ''
+    const rawRef = action === 'paid' ? text(input.reference, 120) : ''
+    const ref = row.asset !== 'IRR' ? rawRef.toLowerCase().replace(/^0x/, '') : rawRef
     if (
       action === 'paid' &&
       (row.asset === 'IRR' ? !/^[A-Za-z0-9_-]{6,100}$/.test(ref) : !/^[a-fA-F0-9]{64}$/.test(ref))
@@ -180,8 +176,8 @@ export async function decidePaySettlement(actor: PayActor, input: Record<string,
       const release = await moveWallet(
         {
           userId: row.merchant.userId,
-          amount: row.amountMinor.toString(),
-          currency: 'IRR',
+          amount: minorToDecimal(row.sourceMinor, row.sourceCurrency),
+          currency: row.sourceCurrency,
           type: 'PAY_RELEASE',
           funds: 'WITHDRAWABLE',
           idempotencyKey: 'pay-release:' + id,
@@ -215,7 +211,7 @@ export async function decidePaySettlement(actor: PayActor, input: Record<string,
               : 'درخواست تسویه تأیید شد',
         titleEn: 'Settlement updated',
         bodyFa: reason,
-        href: '/dashboard/pay',
+        href: '/pay/merchant',
         channels: [],
       },
       tx,

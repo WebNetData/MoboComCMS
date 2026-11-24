@@ -51,7 +51,7 @@ export async function payContext(actor: PayActor, tx: Prisma.TransactionClient, 
 export async function merchantFor(actor: PayActor, tx: Prisma.TransactionClient, active = false) {
   await payContext(actor, tx)
   const merchant = await tx.payMerchant.findUnique({ where: { userId: actor.id } })
-  if (!merchant || (active && merchant.status !== 'ACTIVE'))
+  if (!merchant || merchant.status !== 'ACTIVE')
     throw new PayError('پذیرندهٔ فعال لازم است', 403, 'PAY_MERCHANT_INACTIVE')
   // Every merchant command participates in the same fence as suspension/activation.
   const claimed = await tx.payMerchant.updateMany({

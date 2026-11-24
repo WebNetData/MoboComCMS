@@ -1,0 +1,14 @@
+.purchase { margin-block:20px; border-radius:16px; }
+.caption { font-size:.8125rem; margin:8px 0 0; color:color-mix(in srgb,var(--sds-color-text-default-default) 76%,var(--sds-color-background-default-default)); overflow-wrap:anywhere; }
+.amount { padding-block:16px 20px; border-bottom:1px solid var(--sds-color-border-default-default); }
+.amount > span { font-size:.8125rem; }
+.amount strong { display:block; margin-top:8px; font-size:clamp(1.75rem,5vw,2.5rem); font-weight:600; }
+.amount small { font-size:1rem; font-weight:400; }
+.amount p { font-size:.8125rem; margin-bottom:0; max-width:60ch; }
+.total { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:12px; margin:20px 0; }
+.total dt { font-size:.875rem; }
+.total dd { font-weight:600; margin:0; overflow-wrap:anywhere; }
+.details { border-top:1px solid var(--sds-color-border-default-default); margin-top:16px; }
+.details summary { cursor:pointer; min-height:44px; padding-top:12px; font-size:.8125rem; }
+.details summary:focus-visible { outline:2px solid var(--sds-color-text-default-default); outline-offset:4px; }
+@media(max-width:520px) { .purchase { padding:20px; } }

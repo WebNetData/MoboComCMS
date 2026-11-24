@@ -14,6 +14,7 @@ import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { requirePayPayer, payReceipts, reviewPayReceipt } from '@/modules/billing/server/pay'
 import {
   enrollMerchant,
+  merchantDirectory, merchantAdminDetail, manageMerchant,
   createTerminal,
   changeTerminal,
   changeMerchant,
@@ -82,7 +83,8 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
   try {
     const parts = (await context.params).resource,
       resource = parts[0],
-      machine = req.nextUrl.pathname.startsWith('/api/v1/')
+      legacyMachine = req.nextUrl.pathname.startsWith('/api/v1/'),
+      machine = legacyMachine || req.nextUrl.pathname.startsWith('/api/v2/')
     const actor = await payActor(req, machine)
     if ((await loadMaintenance())['mobocom-pay']?.enabled && !(await requirePerm(req, 'mobocom-pay.manage')))
       throw new PayError('این بخش در حال به‌روزرسانی است', 503)
@@ -94,7 +96,10 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       if (!machine && resource === 'bot-integrations') return apiOk({ items: await botIntegrations(actor), gateways: await payGatewayOptions() })
       if (!machine && resource === 'bot-operations') return apiOk(req.nextUrl.searchParams.get('id') ? await botOperationDetail(actor, req.nextUrl.searchParams.get('id')!) : await botOperations(actor, Object.fromEntries(req.nextUrl.searchParams)))
       if (!machine && resource === 'bot-deliveries') return apiOk({ items: await botDeliveries(actor) })
-      if (resource === 'overview') return apiOk(await payOverview(actor))
+      if (resource === 'overview') {
+        const overview = await payOverview(actor)
+        return apiOk(legacyMachine ? { ...overview, rails: overview.rails.filter(r => ['IRR_BANK','TRX_TRON','USDT_TRON'].includes(r.id)) } : overview)
+      }
       if (resource === 'terminals') return apiOk({ items: (await payOverview(actor)).terminals })
       if (resource === 'payments' || resource === 'settlements') {
         const page = await payList(actor, resource, req.nextUrl.searchParams)
@@ -107,14 +112,17 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     if (!machine && req.method === 'POST' && resource === 'bot-deliveries') return apiOk(await recoverBotDelivery(actor, input))
     if (req.method === 'POST') {
       if (resource === 'merchant' && !machine)
-        return apiOk(merchantView(await enrollMerchant(actor, input), 0n, await paySettings.read()), 201)
+        throw new PayError('ثبت‌نام عمومی پذیرندگان بسته است؛ دسترسی توسط مدیر صادر می‌شود', 403, 'PAY_ENROLLMENT_CLOSED')
       if (resource === 'terminals') return apiOk(terminalView(await createTerminal(actor, input)), 201)
       if (resource === 'payments')
         return apiOk(
           paymentView(await createPayPayment(actor, input, req.headers.get('idempotency-key') || '')),
           201,
         )
-      if (resource === 'quotes') return apiOk(await createPayQuote(actor, input), 201)
+      if (resource === 'quotes') {
+        if (legacyMachine && (!['IRR_BANK','TRX_TRON','USDT_TRON'].includes(String(input.railId)) || input.sourceCurrency !== undefined && input.sourceCurrency !== 'IRR')) throw new PayError('برای شبکه‌ها یا موجودی تتر از نسخهٔ ۲ API استفاده کنید', 422, 'PAY_API_V2_REQUIRED')
+        return apiOk(await createPayQuote(actor, input), 201)
+      }
       if (resource === 'settlements')
         return apiOk(
           settlementView(await requestPaySettlement(actor, input, req.headers.get('idempotency-key') || '')),
@@ -147,6 +155,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       { resource } = await context.params
     await limited('pay-admin:' + actor.id)
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
+    if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
     if (req.method === 'GET' && resource === 'bale-status') return apiOk(await baleSourceStatus(actor, req.nextUrl.searchParams.get('page'), req.nextUrl.searchParams.get('collectionsPage')))
     if (req.method === 'GET' && resource === 'sms-sources') return apiOk(await smsSources(actor))
     if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
@@ -158,6 +167,8 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       return apiOk(id ? number ? await transferReviewSearch(actor, id, number) : await transferReviewDetail(actor, id) : await transferReviewQueue(actor, req.nextUrl.searchParams))
     }
     const input = await readJsonObject(req, 16000)
+    if (req.method === 'POST' && resource === 'merchant-directory') return apiOk({ id: (await enrollMerchant(actor, input)).id }, 201)
+    if (req.method === 'PATCH' && resource === 'merchant-directory') return apiOk(await manageMerchant(actor, input))
     if (req.method === 'PATCH' && resource === 'transfer-reviews') return apiOk(await decideTransferReview(actor, input))
     if (['POST','PATCH'].includes(req.method) && resource === 'sms-sources') return apiOk(await saveSmsSource(actor, input))
     if (req.method === 'PATCH' && resource === 'merchants')

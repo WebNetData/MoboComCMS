@@ -1,4 +1,3 @@
-import Link from '@/components/AppLink'
-import {requireModule} from '@/extensions/server/modules'
-import s from '@/components/pay/Pay.module.css'
-export default async function Page(){await requireModule('mobocom-pay');return <main className={s.page}><section className={s.hero}><span className={s.eyebrow}>MoboCom Pay</span><h1>دریافت ریالی، تسویه با انتخاب شما</h1><p>پرداخت‌های کسب‌وکار خود را پیگیری کنید و درخواست تسویه ریالی یا رمزارزی را از یک مرکز مدیریت ثبت کنید.</p><Link href="/dashboard/pay" className={s.button}>ورود به مرکز پرداخت</Link></section><div className={s.grid}><section className={s.card}><h2>دریافت</h2><p>برای هر سفارش یک صفحه پرداخت بسازید و وضعیت آن را پیگیری کنید.</p></section><section className={s.card}><h2>تسویه</h2><p>پیش از ثبت درخواست، مبلغ، کارمزد و مسیر تسویه را بررسی کنید.</p></section><section className={s.card}><h2>اتصال</h2><p>از API برای اتصال پرداخت به سرویس خود استفاده کنید.</p></section></div></main>}
+import { redirect } from 'next/navigation'
+import { requireModule } from '@/extensions/server/modules'
+export default async function Page() { await requireModule('mobocom-pay'); redirect('/pay/merchant') }

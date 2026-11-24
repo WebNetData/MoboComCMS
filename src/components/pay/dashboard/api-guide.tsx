@@ -4,8 +4,12 @@ export default function ApiGuide() {
   return (
     <section className={s.card}>
       <h2>اتصال به API</h2>
+      <p>این درگاه برای وب‌سایت، پیج اینستاگرام، کانال و لینک مستقل هم قابل استفاده است. در پایانه‌ها نوع سرویس را انتخاب کنید؛ برای شبکهٔ اجتماعی داشتن وب‌سایت یا اتصال ربات لازم نیست.</p>
+      <p>برای اتصال تازه از <bdi dir="ltr">/api/v2/pay</bdi> استفاده کنید. شبکه‌های BSC و Ethereum و تسویه از موجودی USDT در نسخهٔ ۲ عرضه می‌شوند؛ مسیرهای قدیمی نسخهٔ ۱ حفظ شده‌اند. کلید Bearer همان کلید API حساب پذیرنده است.</p>
+      <p>در بخش پرداخت‌ها، برای هر سفارش یک لینک بسازید و با دکمهٔ کپی برای مشتری بفرستید. کلید API فقط در سرور فروشگاه نگهداری می‌شود. API عمومی زیر برای وب‌سایت و هر سرویس دیگر است؛ بخش اتصال ربات یک گزینهٔ جداگانه است.</p>
+
       <p>
-        کلید را در سرور خود نگه دارید و درخواست نسخه ۱ را با Bearer ارسال کنید.
+        کلید را در سرور خود نگه دارید و درخواست نسخهٔ ۲ را با Bearer ارسال کنید.
         برای هر پرداخت یک کلید Idempotency-Key یکتا بفرستید و در تلاش مجدد همان
         کلید را استفاده کنید.
       </p>
@@ -13,12 +17,12 @@ export default function ApiGuide() {
         tabIndex={0}
         aria-label="نمونه درخواست ساخت پرداخت"
         className={s.code}
-      >{`POST /api/v1/pay/payments\nAuthorization: Bearer <API_KEY>\nIdempotency-Key: <UNIQUE_REQUEST_KEY>\nContent-Type: application/json\n\n{"terminalId":"<TERMINAL_ID>","externalId":"<ORDER_ID>","amountRial":"100000"}`}</pre>
+      >{`POST /api/v2/pay/payments\nAuthorization: Bearer <API_KEY>\nIdempotency-Key: <UNIQUE_REQUEST_KEY>\nContent-Type: application/json\n\n{"terminalId":"<TERMINAL_ID>","externalId":"<ORDER_ID>","amountRial":"100000"}`}</pre>
       <p>
         پیش از تحویل کالا، با{" "}
-        <code dir="ltr">GET /api/v1/pay/payments/:id</code> وضعیت ثبت‌شده، مبلغ
+        <code dir="ltr">GET /api/v2/pay/payments/:id</code> وضعیت ثبت‌شده، مبلغ
         و شناسه سفارش را در سرور بررسی کنید. پرداخت‌ها را می‌توان با{" "}
-        <code dir="ltr">GET /api/v1/pay/payments?q=...</code> نیز
+        <code dir="ltr">GET /api/v2/pay/payments?q=...</code> نیز
         جست‌وجو کرد.
       </p>
       <Link className={s.secondary} href="/dashboard/api">
@@ -41,10 +45,10 @@ export default function ApiGuide() {
       <p>amount تومان است؛ درخواست تکراری با همان order_id همان پرداخت را برمی‌گرداند. تغییر مبلغ یا کاربر/نوع سفارش با همان شناسه رد می‌شود. انتخاب پاسخ links نیز از تنظیم اتصال ممکن است؛ روش‌های فعال در صفحهٔ پرداخت نمایش داده می‌شوند.</p>
       <pre className={s.code} tabIndex={0} aria-label="قرارداد تأیید سفارش ربات">{`POST https://YOUR_BOT_DOMAIN/api/payment\nToken: BOT_PAYMENT_API_KEY\nContent-Type: application/json\n\n{"order_id":"order-123","actions":"custom_payment_verify"}`}</pre>
       <p>معیار پاسخ موفق باید مطابق ربات انتخاب شود. قطع ارتباط یا پاسخ نامشخص به معنی شکست وجه نیست؛ نتیجه در «پیگیری تأیید سفارش» برای بررسی می‌ماند و خودکار دوباره ارسال نمی‌شود. تنظیم اتصال با یک پرداخت آزمایشی و تکرار همان سفارش، پیش از استفادهٔ واقعی بررسی شود.</p>
-      <Link className={s.button} href="/dashboard/pay/terminals">راه‌اندازی اتصال ربات</Link>
+      <Link className={s.button} href="/pay/merchant/terminals">راه‌اندازی اتصال ربات</Link>
       <h3>قواعد مسیر و پیگیری عملیات</h3>
       <p>در پایانه‌ها، قواعد مرتبِ مبلغ تومانی، نوع سفارش و سابقهٔ اعلام‌شدهٔ ربات را تنظیم کنید. اولین قاعدهٔ منطبق روش‌ها را انتخاب می‌کند. در حالت links هر دکمه به همان پرداخت با پیشنهاد یک روش وصل است؛ شمارهٔ موبایل و کنترل روش مجاز همچنان روی سرور بررسی می‌شوند. تغییر قواعد مسیر سفارش‌های قبلی یا نسخهٔ تأیید ربات را عوض نمی‌کند.</p>
-      <Link className={s.secondary} href="/dashboard/pay/operations">جست‌وجو و بررسی عملیات ربات</Link>
+      <Link className={s.secondary} href="/pay/merchant/operations">جست‌وجو و بررسی عملیات ربات</Link>
     </section>
   );
 }

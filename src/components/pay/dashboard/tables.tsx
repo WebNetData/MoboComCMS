@@ -1,4 +1,5 @@
 "use client";
+import Link from "@/components/AppLink";
 import type {
   PayPaymentView,
   PaySettlementView,
@@ -149,7 +150,7 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
                   <summary>مشاهده جزئیات</summary>
                   <dl>
                     <dt>شناسه پرداخت</dt>
-                    <dd className={s.ltr}>{x.id}</dd>
+                    <dd className={s.ltr}>{x.id}</dd><dt>صفحهٔ مشتری</dt><dd><Link href={x.checkoutUrl}>مشاهده لینک پرداخت</Link></dd>{x.creditAmount && <><dt>اعتبار ثبت‌شدنی پذیرنده</dt><dd><bdi>{x.creditAmount} {x.creditCurrency}</bdi></dd></>}
                     <dt>کارمزد بر عهده</dt>
                     <dd>{x.feeBearer === 'CUSTOMER' ? 'مشتری' : 'پذیرنده'}</dd>
  {x.gatewayCollectionStatus && <><dt>هزینهٔ خدمت درگاه</dt><dd>{money(x.gatewayAdjustmentRial || '0')}</dd><dt>مبلغ درخواستی واریز</dt><dd>{money(x.gatewayCollectedRial || x.totalRial)}</dd></>}
@@ -192,8 +193,8 @@ export function SettlementTable({ items }: { items: PaySettlementView[] }) {
         <tbody>
           {items.map((x) => (
             <tr key={x.id}>
-              <td>{money(x.amountRial)}</td>
-              <td>{money(x.feeRial)}</td>
+              <td>{money(x.amountRial)}{x.sourceAmount && <small className={s.tableSub}><bdi>{x.sourceAmount} {x.sourceCurrency}</bdi> · مبدأ</small>}</td>
+              <td>{money(x.feeRial)}{x.feeAmount && <small className={s.tableSub}><bdi>{x.feeAmount} {x.feeCurrency}</bdi></small>}</td>
               <td>
                 {x.payoutAmount} {x.asset} · {x.network}
               </td>

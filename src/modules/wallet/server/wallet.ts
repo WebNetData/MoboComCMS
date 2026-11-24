@@ -61,7 +61,7 @@ export async function moveWallet(input: WalletMoveInput, transaction?: Prisma.Tr
     return { ok: false, message: error instanceof Error ? error.message : 'invalid amount' }
   }
   if (amountMinor === 0n) return { ok: false, message: 'amount must not be zero' }
-  if (['PAY_CREDIT', 'PAY_RESERVE', 'PAY_RELEASE'].includes(input.type) && (!input.funds || input.currency !== 'IRR' || (input.type === 'PAY_RESERVE' ? amountMinor >= 0n : amountMinor <= 0n))) return { ok: false, message: 'invalid merchant proceeds movement' }
+  if (['PAY_CREDIT', 'PAY_RESERVE', 'PAY_RELEASE'].includes(input.type) && (!input.funds || !['IRR','USDT'].includes(input.currency || '') || (input.type === 'PAY_RESERVE' ? amountMinor >= 0n : amountMinor <= 0n))) return { ok: false, message: 'invalid merchant proceeds movement' }
   if (input.funds && (!['PAY_CREDIT', 'PAY_RESERVE', 'PAY_RELEASE'].includes(input.type) || input.txId || input.status && input.status !== 'DONE')) return { ok: false, message: 'invalid withdrawable movement' }
   if (input.reversalOfId && (input.type !== 'REFUND' || amountMinor <= 0n || input.funds || input.txId || input.status && input.status !== 'DONE')) return { ok: false, message: 'invalid wallet reversal' }
 

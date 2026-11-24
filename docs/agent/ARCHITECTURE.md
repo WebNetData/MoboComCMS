@@ -1,3 +1,10 @@
+Private merchant workspace2026-11-24: Billing Pay owns membership/provisioning and
+Admin lifecycle behind its existing server/pay address. `/pay/merchant` is an
+independent presentation using canonical Identity session, same Wallet/payment core
+and current ACTIVE merchant. Existing Admin/AuthZ/Settings/Audit remain owners;
+legacy console URLs redirect and public checkout capability addresses are retained.
+No second auth/service/database; no schema migration. [Evidence and boundaries](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 Bank transfer2026-11-24: Billing Pay owns immutable SMS/Bale evidence, globally
 unique quote tombstones and reviewed dispositions through its existing address.
 CARD_TRANSFER autoVerify composes existing Invoice/Payment/Wallet/fulfillment and
@@ -31,6 +38,20 @@ Pay collection integration2026-11-23: `Invoice.kind=PAY_COLLECTION` is the canon
 Payment gateway presentation2026-11-23: account navigation remains AccountShell/ShellNav-owned; Admin navigation is declared by the existing Pay manifest in Finance. Whitelisted path views compose the same Pay components and module guards. Reports reuse Billing read models/CSV and canonical Wallet provenance; no second wallet, navigation framework or authorization resolver. [Evidence](handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23).
 
 ## MoboComPay ownership — 2026-11-23
+
+2026-11-24 extension: Billing `pay-channels` owns typed website/bot/Instagram/
+channel/standalone destinations; optional non-web website does not weaken web/bot
+origin guards. Billing `pay/assets` snapshots the approved canonical FX and
+explicit verified-payer purchase of internal USDT for the named merchant. Wallet
+retains its existing two-decimal USDT account and withdrawable provenance; no second
+wallet/identity/rates system. Frozen currency/amount/consent/timely collection proof
+are enforced by canonical commands and deferred DB links. Existing settlements
+reserve/release the source asset, with immutable rate and explicit fee policy.
+New BSC/Ethereum routes default off and require network acknowledgment; external
+transfer remains staff-operated. Version2 machine adapter extends the same owner;
+v1 catalog/quote enum and custom-bot adapter remain compatible. Migration215 and
+[connected evidence/limits](handoffs/MOBOCOM_PAY.md#general-channels-and-selected-merchant-usdt-credit--2026-11-24)
+supersede the earlier IRR-only scope below.
 
 [Merchant collection and settlement](handoffs/MOBOCOM_PAY.md) extends Billing with typed PayMerchant/Terminal/Payment/BankEvent/SettlementQuote/Settlement; canonical User remains the sole human identity. Wallet owns the IRR withdrawable subset and immutable provenance; Pay commands compose its account lock/conditional debit with bank proof, state claims, strict audit, canonical Payment journal and inbox. Ordinary credits cannot become withdrawable; full cancelled purchase reservations reverse only their original provenance once. No second wallet/auth/settings/jobs system. An authenticated customer hint cannot attribute a bank deposit: the signed bank adapter must attest the exact target payment. Current consumer contract is additive REST polling/verification, independent of Telegram connectivity. Module/maintenance use existing owners; actual bank integration and other networks remain unverified.
 

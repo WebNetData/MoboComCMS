@@ -1,3 +1,36 @@
+# General channels / selected merchant USDT credit — 2026-11-24
+
+Continues local56a0b7a6 in `.mobocom/pay-bale-verification`, branch
+`feat/pay-private-merchants-2026-11-24` / mainb93879bc. Generic channel/link collection,
+Admin future-payment credit mode, immutable disclosed USDT purchase, canonical
+multi-asset proceeds and fee-capped BSC/Ethereum settlement quotes extend Billing,
+Wallet and FX. Migration215 preserves prior two-decimal USDT and IRR history.
+APIv2 carries new source/network quotes; v1 catalog/enum and bot adapter retained.
+Connected fresh/populated PG, exact-once/fault/held-receipt regressions,27 units,
+types/static, Hurl12, contract compatibility and33 real browser/axe captures pass.
+Owned preview/tunnel/DB/private fixtures cleaned, builder stopped; shared app200.
+Local slice only; real bank/Bale/SMS and actual chain payout remain unverified.
+[Files, exact evidence, warnings, cleanup and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#general-channels-and-selected-merchant-usdt-credit--2026-11-24).
+
+# Merchant/Admin visual refinement — 2026-11-24
+
+Continues local1e96aa10 in `.mobocom/pay-bale-verification` on
+`feat/pay-private-merchants-2026-11-24`. Scoped SDS merchant shell/financial overview
+and Admin directory/detail polish; financial/access owners unchanged. Connected PG,
+types/static gates, Doctor0errors/3 reviewed warnings and38 actual responsive/axe
+captures pass. Owned runtime/private fixtures cleaned; shared app200. Local only.
+[Sources, exact evidence, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-workspace-visual-refinement--2026-11-24).
+
+# Private merchant workspace / Admin control — 2026-11-24
+
+Continues owner-merged PR487/mainb93879bc in `.mobocom/pay-bale-verification`,
+`feat/pay-private-merchants-2026-11-24`. Canonical `/pay/merchant` is private and
+independent; public enrollment closed, existing checkout preserved. Existing Pay
+Admin adds provisioning, profile/lifecycle/fee/source/terminal/bot control with
+version/reason/Audit. No schema or identity split. Connected6 scenarios, units61,
+types/gates, Doctor0errors, actual browser19 captures+recovery and Hurl7 pass.
+Local only; [actual evidence, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
 # PR487 published — 2026-11-24
 
 Owner-requested [PR487](https://github.com/WebNetData/MoboComCMS/pull/487) targets
