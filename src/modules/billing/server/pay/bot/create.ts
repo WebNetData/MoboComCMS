@@ -33,7 +33,7 @@ export async function createBotPayment(req: NextRequest, id: string, input: Reco
     if (!prior) {
       const rule = matchRoutingRule(storedRoutingRules(current.routingRules), { amountRial: parsed.amountRial, type: parsed.type, paymentCount: input.payment_count as number | undefined, membershipDays: input.membership_days as number | undefined })
       if (rule) {
-        const options = await payGatewayOptions({ totalMinor: row.totalMinor })
+        const options = await payGatewayOptions(row, tx)
         const gateways = rule.gateways.flatMap(ref => { const option = options.find(item => item.ref === ref); return option ? [{ ref, name: option.name.trim().slice(0, 80) || 'پرداخت' }] : [] })
         if (!gateways.length) throw new PayError('روش‌های مجاز این سفارش موقتاً در دسترس نیستند', 503)
         snapshot = { version: 1, ruleId: rule.id, ruleName: rule.name, gateways } satisfies RoutingSnapshot

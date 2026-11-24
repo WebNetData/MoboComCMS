@@ -19,6 +19,8 @@ import { reconcileReference } from './reconcile'
 
 export async function submitPayReceipt(req: NextRequest, id: string) {
   await requirePayPayer(req, id)
+  const auto = await db.payBaleCollection.findFirst({ where: { invoice: { payCollection: { id } }, activeInvoiceId: { not: null } }, select: { id: true } })
+  if (auto) return (await import('./bale/collection-receipts')).submitCollectionReceipt(req, auto.id)
   if (!(await rateLimitStrict('pay:receipt:' + id, 6, 3600000)).ok) throw new PayError('تعداد ارسال رسید زیاد است', 429)
   const form = await readReceiptMultipart(req)
   const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string'))
@@ -39,6 +41,7 @@ export async function submitPayReceipt(req: NextRequest, id: string) {
       if (row.status !== 'PENDING' || row.expiresAt <= new Date()) throw new PayError('مهلت یا وضعیت پرداخت تغییر کرده است', 409)
       if (await tx.paymentReceipt.count({ where: { invoiceId: invoice.id, status: 'PENDING' } })) throw new PayError('رسید قبلی در انتظار بررسی است', 409)
       if (input.bankAccountId && input.bankAccountId !== row.bankAccountId) throw new PayError('حساب مقصد با پرداخت مطابقت ندارد')
+      if (invoice.gateway?.provider === 'CARD_TRANSFER' && (!row.bankAccount?.active || row.bankAccount.collectionUse !== 'GENERAL')) throw new PayError('حساب مقصد برای پرداخت دستی آماده نیست', 409)
       const receipt = await tx.paymentReceipt.create({ data: { ...input, bankAccountId: invoice.gateway?.provider === 'CARD_TRANSFER' ? row.bankAccountId : null, invoiceId: invoice.id, userId: null, amountMinor: row.totalMinor, currency: 'IRR', image: filename, imageType: type.mimeType } })
       if (input.trackingCode && /^[A-Za-z0-9_-]{6,64}$/.test(input.trackingCode)) {
         const claim = await tx.payPayment.updateMany({ where: { id, status: 'PENDING', transferReference: row.transferReference }, data: { transferReference: input.trackingCode } })
@@ -53,6 +56,7 @@ export async function submitPayReceipt(req: NextRequest, id: string) {
 
 /** Shared review entry used by both Finance receipts and the Pay administration surface. */
 export async function reviewPayReceiptByStaff(admin: { id: number; email: string; req?: NextRequest }, receiptId: number, action: 'approve' | 'reject', note: string) {
+  if (await db.payBaleCollection.findUnique({ where: { receiptId }, select: { id: true } })) return (await import('./bale/collection-receipts')).reviewCollectionReceipt(admin, receiptId, action, note)
   return payTransaction(async tx => {
     if (!admin.req) throw new PayError('نشست بررسی‌کننده لازم است', 403)
     await payContext({ ...admin, req: admin.req }, tx, 'mobocom-pay.manage')

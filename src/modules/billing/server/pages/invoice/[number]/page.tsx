@@ -25,6 +25,7 @@ import { getBrandedInvoiceProfile } from '@/modules/billing/server/official-invo
 import InvoiceLogo from '@/components/billing/InvoiceLogo'
 import { headers } from 'next/headers'
 import { invoiceStaffAccess } from '@/modules/billing/server/invoice-access'
+import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 
 
 export default async function InvoicePage({ params: paramsPromise, surface = 'public' }: { params: Promise<{ number: string }>; surface?: CheckoutSurface }) {
@@ -45,6 +46,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
       plan: { select: { name: true, trafficGB: true, days: true, deviceLimit: true } },
       product: { select: { name: true } },
       gateway: true,
+      baleCollections: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, status: true } },
       order: { select: { id: true, status: true, paymentUrl: true, provider: true, meta: true, customerName: true, lines: { orderBy: { line: 'asc' }, select: { name: true, variantName: true, quantity: true, totalMinor: true } } } },
       payments: { orderBy: { id: 'desc' }, take: 5 },
     },
@@ -82,9 +84,11 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
   let digitalDelivery = ''
   // A specialist's structured delivery prints as labelled lines; older free text as it was written.
   try { if (productDelivery?.status === 'DELIVERED') digitalDelivery = deliveryDetailsText(readDeliveryDetails(decryptDigitalDelivery(productDelivery.digitalDelivery))) } catch { /* Lost encryption key: hide unreadable ciphertext. */ }
-  const cardTransfer = invoice.gateway?.provider === 'CARD_TRANSFER'
+  const automaticTransfer = invoice.gateway ? isAutomaticTransfer(invoice.gateway) : false
+  const receiptHeld = invoice.status === 'UNPAID' && invoice.baleCollections[0]?.status === 'UNDER_REVIEW'
+  const cardTransfer = invoice.gateway?.provider === 'CARD_TRANSFER' && !automaticTransfer
   const [bankAccounts, receipts] = cardTransfer ? await Promise.all([
-    db.bankAccount.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
+    db.bankAccount.findMany({ where: { active: true, collectionUse: 'GENERAL' }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
     db.paymentReceipt.findMany({ where: { invoiceId: invoice.id }, orderBy: { id: 'desc' }, take: 5 }),
   ]) : [[], []]
   const invoiceCurrency = normalizeCurrency(invoice.currency)
@@ -112,7 +116,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
           </div>}
         </div>
 
-        <div className="no-print"><InvoiceDeadline status={invoice.status} expiresAt={invoice.expiresAt ? invoice.expiresAt.toISOString() : null} fxRates={parseFxRates(invoice.fxRates)} jumpToman={rules.fxJumpToman} closeAction={invoice.fxRates ? rules.fxAction : rules.overdueAction} closedReason={invoice.closedReason} againHref={productMeta.kind === 'form' ? '/dashboard/requests' : invoice.productId ? '/products' : '/dashboard/invoices'} /></div>
+        {!receiptHeld && !automaticTransfer && <div className="no-print"><InvoiceDeadline status={invoice.status} expiresAt={invoice.expiresAt ? invoice.expiresAt.toISOString() : null} fxRates={parseFxRates(invoice.fxRates)} jumpToman={rules.fxJumpToman} closeAction={invoice.fxRates ? rules.fxAction : rules.overdueAction} closedReason={invoice.closedReason} againHref={productMeta.kind === 'form' ? '/dashboard/requests' : invoice.productId ? '/products' : '/dashboard/invoices'} /></div>}
 
         <div className="card invoice-sheet">
           <div className="invoice-head">
@@ -124,7 +128,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
               </div>
             </div>
             <div className="invoice-id">
-              <span className={`invoice-status is-${invoice.status.toLowerCase()}`}>{(t as Record<string, string>)[`st${invoice.status}`] || invoice.status}</span>
+              <span className={`invoice-status is-${receiptHeld ? 'pending' : invoice.status.toLowerCase()}`}>{receiptHeld ? 'در حال بررسی و تأیید' : (t as Record<string, string>)[`st${invoice.status}`] || invoice.status}</span>
               <div className="invoice-title" role="heading" aria-level={1}>{t.invoice}</div>
               <bdi className="invoice-number" dir="ltr">{invoice.number}</bdi>
             </div>
@@ -201,14 +205,14 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
 
           {invoice.status === 'UNPAID' && (
             <div className="invoice-pay no-print">
-              <h3 className="font-bold mb-2">{invoice.walletApplied > 0 ? t.payRemaining : t.howToPay}</h3>
+              <h3 className="font-bold mb-2">{receiptHeld ? 'رسید شما ثبت شده است' : invoice.walletApplied > 0 ? t.payRemaining : t.howToPay}</h3>
               {invoice.walletApplied > 0 && (
                 <p className="muted mb-3">
                   {t.walletCreditApplied}: {money(invoice.walletApplied)} · {t.amountDue}: <strong className="num">{money(due)}</strong>
                 </p>
               )}
               {hostedPayUrl && (
-                <a href={hostedPayUrl} className="btn btn-primary mb-3">{invoice.gateway?.provider === 'FRENZYEX' ? (isFa ? 'پرداخت با درگاه پرداخت ارزی ریالی' : 'Pay via Currency / Rial Gateway') : t.payWithCrypto} →</a>
+                <a href={hostedPayUrl} className="btn btn-primary mb-3">{automaticTransfer ? receiptHeld ? 'پیگیری نتیجهٔ بررسی' : 'ادامهٔ پرداخت کارت به کارت' : invoice.gateway?.provider === 'FRENZYEX' ? (isFa ? 'پرداخت با درگاه پرداخت ارزی ریالی' : 'Pay via Currency / Rial Gateway') : t.payWithCrypto} →</a>
               )}
               {cardTransfer && transfer && bankAccounts.length > 0 && (
                 <CardTransferBox
@@ -224,7 +228,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
                 <pre className="manual-instructions" dir="ltr">{manualInstructions}</pre>
               )}
               {!hostedPayUrl && !manualInstructions && !(cardTransfer && transfer && bankAccounts.length) && <p className="muted">{t.contactSupportForPayment}</p>}
-              {!cardTransfer && <p className="muted mt-3">{t.invoiceUnpaidHint}</p>}
+              {receiptHeld ? <p className="muted mt-3" role="status">رسید در حال بررسی و تأیید است؛ نیازی به واریز مجدد نیست.</p> : !cardTransfer && !automaticTransfer && <p className="muted mt-3">{t.invoiceUnpaidHint}</p>}
             </div>
           )}
 

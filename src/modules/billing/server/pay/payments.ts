@@ -1,3 +1,4 @@
+import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import { createHash, randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
@@ -10,7 +11,7 @@ import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 export const fingerprint = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function createPayPayment(actor: PayActor, input: Record<string, unknown>, key: string, transaction?: Prisma.TransactionClient) {
-  const gateways = await listCheckoutGateways('IRR')
+  const gateways = await listCheckoutGateways('IRR', transaction)
   const terminalId = text(input.terminalId, 60),
     externalId = text(input.externalId, 100),
     idem = idempotencyKey(key)
@@ -34,13 +35,14 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
       where: { id: terminalId, merchantId: merchant.id, active: true },
     })
     if (!terminal) throw new PayError('پایانهٔ فعال پیدا نشد', 404)
+    if (!gateways.some(gateway => !isAutomaticTransfer(gateway) || merchant.baleAllowed && terminal.baleEnabled)) throw new PayError('هیچ روش پرداخت مجازی برای این پایانه آماده نیست', 503)
     if (await tx.payPayment.count({ where: { terminalId, externalId } }))
       throw new PayError('شناسهٔ سفارش قبلاً استفاده شده است', 409)
     const bank = await tx.bankAccount.findFirst({
-      where: { ...(settings.bankAccountIds.length ? { id: { in: settings.bankAccountIds } } : {}), active: true },
+      where: { collectionUse: 'GENERAL', ...(settings.bankAccountIds.length ? { id: { in: settings.bankAccountIds } } : {}), active: true },
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     })
-    if (!bank && !gateways.some(g => g.provider !== 'CARD_TRANSFER')) throw new PayError('حساب دریافت فعال نیست', 503)
+    if (!bank && !gateways.some(g => g.provider !== 'CARD_TRANSFER' || isAutomaticTransfer(g))) throw new PayError('حساب دریافت فعال نیست', 503)
     const now = new Date()
     const row = await tx.payPayment.create({
       data: {

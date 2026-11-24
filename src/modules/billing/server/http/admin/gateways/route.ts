@@ -1,3 +1,5 @@
+import { PayError } from '@/modules/billing/domain/pay'
+import { autoTransferConfig } from '@/modules/billing/domain/auto-transfer'
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -17,6 +19,7 @@ import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
 function sanitize(g: any) {
   return {
+    ...(g.provider === 'CARD_TRANSFER' ? autoTransferConfig(g.config) : {}),
     id: g.id,
     name: g.name,
     provider: g.provider,
@@ -43,10 +46,10 @@ export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'gateways.manage' as Permission)
   if (!admin) return err('forbidden', 403)
   const rows = await db.gateway.findMany({ orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { id: 'asc' }] })
-  return ok({ providers: PROVIDERS, gateways: rows.map(sanitize) })
+  return ok({ providers: PROVIDERS, gateways: rows.map(sanitize), bankAccounts: await db.bankAccount.findMany({ select: { id:true,bankName:true,holderName:true,collectionUse:true,active:true },orderBy:{id:'asc'} }) })
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const admin = await requirePerm(req, 'gateways.manage' as Permission)
   if (!admin) return err('forbidden', 403)
   const b = await req.json().catch(() => null)
@@ -54,10 +57,11 @@ export async function POST(req: NextRequest) {
   if (!name) return err('gateway name is required')
   const requestedProvider = String(b?.provider || 'PLISIO').toUpperCase()
   const provider = PROVIDERS.some((item) => item.key === requestedProvider) ? requestedProvider : 'PLISIO'
+  if (provider === 'MOBOCOM_PAY' && [b?.apiKey, b?.secretKey, b?.accountUser].some(value => typeof value === 'string' && value.trim())) return err('اطلاعات ورود حساب بله را در فرم درگاه وارد نکنید')
   const makeDefault = b?.isDefault === true
 
-  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
-  const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b?.feePercent) || 0) * 100)))
+  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || provider === 'MOBOCOM_PAY' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
+  const feeBps = provider === 'MOBOCOM_PAY' || provider === 'CARD_TRANSFER' && autoTransferConfig(b).autoVerify ? 0 : Math.max(0, Math.min(10000, Math.round((Number(b?.feePercent) || 0) * 100)))
   let minAmountMinor: bigint
   try { minAmountMinor = toMinor(String(b?.minAmount ?? '0'), fiat) } catch (e) { return err(e instanceof Error ? e.message : 'invalid minimum') }
   const gw = await db.$transaction(async tx => {
@@ -69,7 +73,7 @@ export async function POST(req: NextRequest) {
       apiKey: String(b?.apiKey || '').trim(),
       secretKey: String(b?.secretKey || '').trim(),
       accountUser: String(b?.accountUser || '').trim().slice(0, 100),
-      config: isInstallmentGateway(provider) ? mergeConfig('{}', b) : '{}',
+      config: provider === 'CARD_TRANSFER' ? JSON.stringify(autoTransferConfig(b)) : isInstallmentGateway(provider) ? mergeConfig('{}', b) : '{}',
       fiat,
       currencies: String(b?.currencies || '').trim(),
       feePercent: feeBps / 100,
@@ -86,7 +90,7 @@ export async function POST(req: NextRequest) {
   return ok(sanitize(gw))
 }
 
-export async function PATCH(req: NextRequest) {
+async function handlePATCH(req: NextRequest) {
   const admin = await requirePerm(req, 'gateways.manage' as Permission)
   if (!admin) return err('forbidden', 403)
   const b = await req.json().catch(() => null)
@@ -100,7 +104,7 @@ export async function PATCH(req: NextRequest) {
   if (PROVIDERS.some((item) => item.key === b?.provider)) {
     data.provider = b.provider
     if (b.provider === 'FRENZYEX') data.fiat = 'TMN'
-    if (b.provider === 'CARD_TRANSFER' || b.provider === 'MELLAT' || isInstallmentGateway(b.provider)) data.fiat = 'IRR'
+    if (b.provider === 'CARD_TRANSFER' || b.provider === 'MELLAT' || b.provider === 'MOBOCOM_PAY' || isInstallmentGateway(b.provider)) data.fiat = 'IRR'
   }
   if (typeof b?.accountUser === 'string') data.accountUser = b.accountUser.trim().slice(0, 100)
   if (b?.feePercent !== undefined) {
@@ -116,10 +120,21 @@ export async function PATCH(req: NextRequest) {
 
   const current = await db.gateway.findUnique({ where: { id }, select: { fiat: true, minAmount: true, provider: true, config: true } })
   if (!current) return err('not found', 404)
+  if (data.provider && data.provider !== current.provider && await db.payBaleCollection.count({ where: { gatewayId: id } })) return err('نوع درگاه دارای سابقهٔ پرداخت قابل تغییر نیست؛ درگاه تازه بسازید', 409)
+  if (String(data.provider || current.provider) === 'MOBOCOM_PAY') {
+    if ([b?.apiKey, b?.secretKey, b?.accountUser].some(value => typeof value === 'string' && value.trim())) return err('اطلاعات ورود حساب بله را در فرم درگاه وارد نکنید')
+    Object.assign(data, { apiKey: '', secretKey: '', accountUser: '', config: '{}', fiat: 'IRR', feeBps: 0, feePercent: 0 })
+  }
+  if (String(data.provider || current.provider) === 'CARD_TRANSFER') {
+    data.config = JSON.stringify(autoTransferConfig({ ...autoTransferConfig(current.provider === 'CARD_TRANSFER' ? current.config : '{}'), ...b }))
+    data.fiat = 'IRR'
+    if (autoTransferConfig(data.config).autoVerify) { data.feeBps = 0; data.feePercent = 0 }
+  }
   if (isInstallmentGateway(String(b?.provider || current.provider))) data.config = mergeConfig(current.config, b)
   const effectiveProvider = String(b?.provider || '') === 'FRENZYEX' ? 'FRENZYEX' : undefined
-  const effectiveFiat = effectiveProvider === 'FRENZYEX' ? 'TMN' : normalizeCurrency(b?.fiat ?? current.fiat)
-  if (b?.fiat !== undefined && effectiveFiat !== current.fiat && b?.minAmount === undefined) {
+  const targetProvider = String(data.provider || current.provider)
+  const effectiveFiat = targetProvider === 'MOBOCOM_PAY' ? 'IRR' : effectiveProvider === 'FRENZYEX' ? 'TMN' : normalizeCurrency(b?.fiat ?? current.fiat)
+  if ((b?.fiat !== undefined || targetProvider === 'MOBOCOM_PAY') && effectiveFiat !== current.fiat && b?.minAmount === undefined) {
     return err('changing gateway currency requires an explicit minimum amount')
   }
   if (b?.minAmount !== undefined) {
@@ -148,7 +163,7 @@ export async function DELETE(req: NextRequest) {
   const gw = await db.gateway.findUnique({ where: { id } })
   if (!gw) return err('not found', 404)
 
-  const used = await db.payment.count({ where: { gatewayId: id } })
+  const used = await db.payment.count({ where: { gatewayId: id } }) + await db.payBaleCollection.count({ where: { gatewayId: id } })
   if (used > 0) {
     await db.gateway.update({ where: { id }, data: { active: false } })
     return ok({ deactivated: true, reason: 'gateway has payments — deactivated instead of deleted' })
@@ -159,7 +174,7 @@ export async function DELETE(req: NextRequest) {
   return ok({ deleted: true })
 }
 
-export async function PUT(req: NextRequest) {
+async function handlePUT(req: NextRequest) {
   // connection test
   const admin = await requirePerm(req, 'gateways.manage' as Permission)
   if (!admin) return err('forbidden', 403)
@@ -176,7 +191,7 @@ export async function PUT(req: NextRequest) {
     apiKey: typeof b?.apiKey === 'string' && b.apiKey.trim() ? b.apiKey.trim() : gw.apiKey,
     secretKey: typeof b?.secretKey === 'string' && b.secretKey.trim() ? b.secretKey.trim() : gw.secretKey,
     accountUser: typeof b?.accountUser === 'string' && b.accountUser.trim() ? b.accountUser.trim() : gw.accountUser,
-    config: isInstallmentGateway(String(b?.provider || gw.provider)) ? mergeConfig(gw.config, b) : gw.config,
+    config: gw.provider === 'CARD_TRANSFER' ? JSON.stringify(autoTransferConfig({ ...autoTransferConfig(gw.config), ...b })) : isInstallmentGateway(String(b?.provider || gw.provider)) ? mergeConfig(gw.config, b) : gw.config,
     fiat: gw.fiat,
     currencies: gw.currencies,
     feePercent: gw.feeBps ? gw.feeBps / 100 : gw.feePercent,
@@ -187,4 +202,16 @@ export async function PUT(req: NextRequest) {
   }
   const res = await testGateway(runtime)
   return ok(res)
+}
+
+export async function POST(req: NextRequest) {
+  try { return await handlePOST(req) } catch (error) { if (error instanceof PayError) return err(error.message, error.status); throw error }
+}
+
+export async function PATCH(req: NextRequest) {
+  try { return await handlePATCH(req) } catch (error) { if (error instanceof PayError) return err(error.message, error.status); throw error }
+}
+
+export async function PUT(req: NextRequest) {
+  try { return await handlePUT(req) } catch (error) { if (error instanceof PayError) return err(error.message, error.status); throw error }
 }

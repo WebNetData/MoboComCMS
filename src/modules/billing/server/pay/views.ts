@@ -9,6 +9,7 @@ import { publicPayment } from './payments'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
 export const terminalView = (row: PayTerminal) => ({
+  baleEnabled: row.baleEnabled,
   id: row.id,
   name: row.name,
   returnUrl: row.returnUrl,
@@ -16,6 +17,7 @@ export const terminalView = (row: PayTerminal) => ({
   createdAt: row.createdAt.toISOString(),
 })
 export const merchantView = (row: PayMerchant, proceeds = 0n, settings = defaults()) => ({
+  baleAllowed: row.baleAllowed,
   fees: merchantFeeTerms(settings, row),
   id: row.id,
   userId: row.userId,
@@ -25,7 +27,20 @@ export const merchantView = (row: PayMerchant, proceeds = 0n, settings = default
   proceedsRial: proceeds.toString(),
   createdAt: row.createdAt.toISOString(),
 })
-export const paymentView = (row: PayPayment & { terminal?: { name: string } }): PayPaymentView => ({
+type CollectionAmounts = { adjustmentRial: bigint; collectedRial: bigint; status: string; expiresAt: Date }
+const collectionProjection = { select: { baleCollections: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { adjustmentRial: true, collectedRial: true, status: true, expiresAt: true } } } }
+function paymentStatusFilter(status: 'PENDING' | 'EXPIRED' | 'UNDER_REVIEW', now: Date): Prisma.PayPaymentWhereInput {
+ const held: Prisma.PayPaymentWhereInput = { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'UNDER_REVIEW' } } } } }
+ const active: Prisma.PayPaymentWhereInput = { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'PENDING', expiresAt: { gt: now } } } } } }
+ const pendingCollection: Prisma.PayPaymentWhereInput = { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'PENDING' } } } } }
+ if (status === 'UNDER_REVIEW') return { status: 'PENDING', ...held }
+ if (status === 'PENDING') return { status: 'PENDING', AND: [{ NOT: held }, { OR: [active, { AND: [{ NOT: pendingCollection }, { expiresAt: { gt: now } }] }] }] }
+ return { status: 'PENDING', AND: [{ NOT: held }, { NOT: active }, { OR: [{ AND: [pendingCollection, { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'PENDING', expiresAt: { lte: now } } } } } }] }, { AND: [{ NOT: pendingCollection }, { expiresAt: { lte: now } }] }] }] }
+}
+export const paymentView = (row: PayPayment & { terminal?: { name: string }; invoice?: { baleCollections: CollectionAmounts[] } | null }): PayPaymentView => ({
+ gatewayAdjustmentRial: row.invoice?.baleCollections[0]?.adjustmentRial.toString() || '0',
+ gatewayCollectedRial: row.invoice?.baleCollections[0]?.collectedRial.toString() || row.totalMinor.toString(),
+ gatewayCollectionStatus: row.invoice?.baleCollections[0]?.status || '',
   id: row.id,
   terminalId: row.terminalId,
   terminalName: row.terminal?.name || '',
@@ -36,12 +51,13 @@ export const paymentView = (row: PayPayment & { terminal?: { name: string } }): 
   totalRial: row.totalMinor.toString(),
   feeBearer: row.feeBearer as PayPaymentView['feeBearer'],
   status:
-    row.status === 'PENDING' && row.expiresAt < new Date()
+ row.status === 'PENDING' && row.invoice?.baleCollections[0]?.status === 'UNDER_REVIEW' ? 'UNDER_REVIEW' :
+ row.status === 'PENDING' && (row.invoice?.baleCollections[0]?.status === 'PENDING' ? row.invoice.baleCollections[0].expiresAt : row.expiresAt) < new Date()
       ? 'EXPIRED'
       : (row.status as PayPaymentView['status']),
   transferReference: row.transferReference,
   createdAt: row.createdAt.toISOString(),
-  expiresAt: row.expiresAt.toISOString(),
+ expiresAt: (row.invoice?.baleCollections[0]?.status === 'PENDING' ? row.invoice.baleCollections[0].expiresAt : row.expiresAt).toISOString(),
   paidAt: row.paidAt?.toISOString() || null,
   checkoutUrl: '/pay/' + row.id,
 })
@@ -77,7 +93,7 @@ export async function payOverview(actor: PayActor) {
       tx.payTerminal.findMany({ where, orderBy: { createdAt: 'desc' } }),
       tx.payPayment.findMany({
         where,
-        include: { terminal: true },
+        include: { terminal: true, invoice: collectionProjection },
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
@@ -87,7 +103,7 @@ export async function payOverview(actor: PayActor) {
         _sum: { totalMinor: true, feeMinor: true, netMinor: true },
         _count: true,
       }),
-      tx.payPayment.count({ where: { ...where, status: 'PENDING', expiresAt: { gt: new Date() } } }),
+ tx.payPayment.count({ where: { ...where, ...paymentStatusFilter('PENDING', new Date()) } }),
       tx.paySettlement.aggregate({
         where: { ...where, status: { in: ['REQUESTED', 'APPROVED'] } },
         _sum: { amountMinor: true },
@@ -147,14 +163,13 @@ export async function payList(actor: PayActor, resource: 'payments' | 'settlemen
     const scope = { merchantId: merchant?.id || '__none__' }
     if (resource === 'payments') {
       const where: Prisma.PayPaymentWhereInput = { ...scope, ...(q ? { externalId: { contains: q } } : {}) }
-      if (status === 'EXPIRED') Object.assign(where, { status: 'PENDING', expiresAt: { lte: new Date() } })
-      else if (status === 'PENDING') Object.assign(where, { status, expiresAt: { gt: new Date() } })
+ if (status === 'EXPIRED' || status === 'PENDING' || status === 'UNDER_REVIEW') Object.assign(where, paymentStatusFilter(status, new Date()))
       else if (status === 'PAID') where.status = status
       else if (status) throw new PayError('وضعیت معتبر نیست')
       const [rows, total] = await Promise.all([
         tx.payPayment.findMany({
           where,
-          include: { terminal: true },
+          include: { terminal: true, invoice: collectionProjection },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           skip: (page - 1) * take,
           take,
@@ -186,7 +201,7 @@ export async function payPaymentById(actor: PayActor, id: string) {
   return payTransaction(async (tx) => {
     const merchant = await merchantRead(actor, tx)
     const row = merchant
-      ? await tx.payPayment.findFirst({ where: { id, merchantId: merchant.id }, include: { terminal: true } })
+      ? await tx.payPayment.findFirst({ where: { id, merchantId: merchant.id }, include: { terminal: true, invoice: collectionProjection } })
       : null
     if (!row) throw new PayError('پرداخت پیدا نشد', 404)
     return paymentView(row)
@@ -210,7 +225,7 @@ export async function adminPayOverview(actor: PayActor) {
       ? await tx.payPayment.findMany({
           orderBy: { createdAt: 'desc' },
           take: 100,
-          include: { terminal: true },
+          include: { terminal: true, invoice: collectionProjection },
         })
       : []
     const settlements = await tx.paySettlement.findMany({
@@ -244,6 +259,7 @@ export async function adminPayOverview(actor: PayActor) {
       })),
       bankAccounts: bankAccounts.map((row) => ({
         id: row.id,
+        collectionUse: row.collectionUse,
         title: row.bankName,
         bankName: row.bankName,
         cardNumber: row.cardNumber,

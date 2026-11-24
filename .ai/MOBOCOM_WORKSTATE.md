@@ -1,3 +1,76 @@
+# PR486 published — 2026-11-24
+
+Owner-requested [PR486](https://github.com/WebNetData/MoboComCMS/pull/486) targets
+`main` from `feat/pay-bale-verification-2026-11-24`; product code through5a86b7e1.
+Current evidence and operational limits are in the Pay handoff/PR. Owner merges
+and deploys; no hosted workflow dispatch. The PR handoff update is documentation only.
+
+# Compact bank checkout / USDT equivalent — 2026-11-24
+
+Local continuation from2c9bea6e in `.mobocom/pay-bale-verification`: normal mobile
+checkout fits tested320×568/360×640 without scrolling; receipt form is a native
+dialog, details expand on demand. Canonical approved FX USDT rate supplies a clearly
+display-only BSC/BEP20 equivalent with timestamp/stale/missing states. No new
+financial rail or schema. Scoped native, types/static, contracts, Doctor and real
+browser/a11y checks pass. [Evidence, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#compact-mobile-checkout-and-usdt-display--2026-11-24).
+
+# Automatic card transfer / receipt hold / destination settings — 2026-11-24
+
+Current local `.mobocom/pay-bale-verification` continues base3679200b and source3b1330c1.
+CARD_TRANSFER autoVerify now composes SMS/Bale exact-amount matching with canonical
+invoice/Wallet settlement once, global immutable quote amounts, configurable deadline,
+receipt UNDER_REVIEW hold, fresh-amount renewal and per-gateway destination visibility.
+Card+amount only copy; hidden fields omitted server-side. Final213 populated upgrade,
+5 native regressions,20 units/types/static,13 Hurl requests and local responsive/axe
+browser flows pass. Live bank/Bale/SMS and production rollout remain unverified.
+No PR/push/deploy or protected global-theme change. See current
+[handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#automatic-card-transfer-receipt-hold-and-destination-controls--2026-11-24)
+for exact evidence, source boundaries and operational limits; older entries below
+describe earlier slices, not current capability.
+
+# Server-only Bale / source intake — 2026-11-24
+
+Owner rejected Android and identified @bam_bmi; phone experiment withdrawn into
+ignored hash-verified archive, with no phone source/models/endpoints in active diff.
+Current `.mobocom/pay-bale-verification` on main3679200b+design/parser continues
+Billing with pinned self-hosted GoOmni2.4.2 original-message intake, immutable212
+evidence and safe Admin history; current canonical Identity/strict Audit apply.
+MOBOCOM_PAY is registered but UNAVAILABLE for customers until financial attribution
+and canonical invoice collection are implemented. No automatic money approval or
+adjustment, live account/bank verification, PR/deploy or protected theme change.
+Final empty212/native + populated upgrade/regressions,19 units, types/static,
+4 fault detections,8 Hurl and13 current browser captures pass; Doctor0errors/9
+reviewed existing warnings.27 exact source hashes match; task preview/DBs/private
+fixtures cleaned and rejected APK removed; original app readiness/session200.
+Source-specific operator setup and exact remaining
+reservation/settlement/live-identity work are in the
+[handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#server-only-bale-intake-and-dormant-shared-gateway--2026-11-24).
+
+# Melli parser / personal account — 2026-11-24
+
+Owner supplied8 National Bank notice types and confirmed they arrive from its
+arm into the PERSONAL Bale account. Bank/channel now known; legitimate reader/
+original-source proof still unresolved. Current `.mobocom/pay-bale-verification`
+on main3679200b+design137689da implements a pure bounded parser, no connector or
+financial activation. Always UNVERIFIED_NOTICE; distinguishes interest/debits/fees,
+exact IRR and minute-precision Tehran/Jalali time; synthetic fixtures retain no
+real customer bank values.11 units,4 deliberate fault detections/restoration,
+existing Pay native on211 empty migrations, full types/architecture/source and
+scoped security checks pass. Owned DB/role cleaned; original app200. No UI change/
+browser/build/new migration/live account action/PR. See [current evidence and next boundary](../docs/agent/handoffs/MOBOCOM_PAY.md#melli-notice-parsing-and-personal-account-clarification--2026-11-24).
+
+# Bale verification design — 2026-11-24
+
+PR485 verified merged as3679200b. Continuation `.mobocom/pay-bale-verification` /
+`feat/pay-bale-verification-2026-11-24` starts from fresh main. Owner requests
+automatic bank-notice recognition through Bale, possibly with small unique amounts.
+Existing bank attribution/Wallet/Jobs audited and official API docs checked.
+DESIGN ONLY: personal bank-notice API access/proof not established. Asked bank,
+receiving channel and anonymized template; no secrets requested. Existing spec/
+handoff records proposal and acceptance, not a working connector. No financial,
+schema or runtime change/live call; previous tests do not certify this proposal.
+[Current handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#bale-verification-investigation-and-design--2026-11-24).
+
 # Routing PR publication — owner2026-11-24
 
 Owner requests push/PR to main, retaining merge/deploy. Current branch

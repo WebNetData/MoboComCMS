@@ -1,3 +1,4 @@
+import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import { randomBytes } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import type { Prisma } from '@prisma/client'
@@ -18,13 +19,14 @@ export type PayGatewayOption = { ref: string; id: number | null; name: string; p
 export type PayGatewayStart = { invoiceId: number; gatewayRef: string; provider: string; manual: boolean; paymentUrl: string; status: 'READY' | 'STARTING' | 'UNKNOWN' | 'FAILED' }
 
 /** Active canonical gateways; incompatible precision is never silently rounded. */
-export async function payGatewayOptions(row?: { totalMinor: bigint; id?: string }, reader: Pick<Prisma.TransactionClient, 'payBotDelivery'> = db): Promise<PayGatewayOption[]> {
-  const gateways = await listCheckoutGateways('IRR')
+export async function payGatewayOptions(row?: { totalMinor: bigint; id?: string }, reader: Prisma.TransactionClient | typeof db = db): Promise<PayGatewayOption[]> {
+  const gateways = await listCheckoutGateways('IRR', reader === db ? undefined : reader as Prisma.TransactionClient)
   const delivery = row?.id ? await reader.payBotDelivery.findUnique({ where: { paymentId: row.id }, select: { routingSnapshot: true } }) : null
   const snapshot = delivery ? parseRoutingSnapshot(delivery.routingSnapshot) : null
-  return gateways.filter(gw => !snapshot || snapshot.gateways.some(method => method.ref === checkoutGatewayRef(gw))).filter((gw) => gw.provider !== 'FRENZYEX' || !row || row.totalMinor % 10n === 0n).map((gw, index) => ({
+  const grant = row?.id && gateways.some(gw => isAutomaticTransfer(gw)) ? await reader.payPayment.findUnique({ where: { id: row.id }, select: { merchant: { select: { baleAllowed: true } }, terminal: { select: { baleEnabled: true } } } }) : null
+  return gateways.filter(gw => !isAutomaticTransfer(gw) || !row?.id || Boolean(grant?.merchant.baleAllowed && grant.terminal.baleEnabled)).filter(gw => !snapshot || snapshot.gateways.some(method => method.ref === checkoutGatewayRef(gw))).filter((gw) => gw.provider !== 'FRENZYEX' || !row || row.totalMinor % 10n === 0n).map((gw, index) => ({
     ref: checkoutGatewayRef(gw), id: gw.id, name: customerGatewayLabel(gw), provider: gw.provider,
-    manual: gw.provider === 'CARD_TRANSFER' || gw.provider === 'MANUAL', isDefault: index === 0,
+    manual: !isAutomaticTransfer(gw) && (gw.provider === 'CARD_TRANSFER' || gw.provider === 'MANUAL'), isDefault: index === 0,
   }))
 }
 
@@ -53,7 +55,7 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
   const gateway = (await listCheckoutGateways('IRR')).find((gw) => checkoutGatewayRef(gw) === selected)
   if (!gateway) throw new PayError('درگاه فعال پیدا نشد', 404)
   const origin = siteOrigin(), token = randomBytes(24).toString('base64url')
-  const manual = gateway.provider === 'CARD_TRANSFER' || gateway.provider === 'MANUAL'
+  const manual = !isAutomaticTransfer(gateway) && (gateway.provider === 'CARD_TRANSFER' || gateway.provider === 'MANUAL')
   const claimed = await payTransaction(async (tx) => {
     if (!(await isModuleEnabled('mobocom-pay', tx))) throw new PayError('درگاه غیرفعال است', 404)
     const row = await publicPayment(tx, id)
@@ -65,7 +67,7 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
     const owner = await tx.user.findUnique({ where: { id: row.merchant.userId }, select: { status: true } })
     if (owner?.status !== 'ACTIVE' || await globalAuthenticationDenied(row.merchant.userId, new Date(), tx)) throw new PayError('پذیرنده در دسترس نیست', 409)
     if (gateway.id && !await tx.gateway.count({ where: { id: gateway.id, active: true, provider: gateway.provider } })) throw new PayError('درگاه دیگر فعال نیست', 409)
-    if (gateway.provider === 'CARD_TRANSFER' && (!row.bankAccountId || !row.bankAccount?.active)) throw new PayError('حساب بانکی فعال نیست', 409)
+    if (gateway.provider === 'CARD_TRANSFER' && !isAutomaticTransfer(gateway) && (!row.bankAccountId || !row.bankAccount?.active)) throw new PayError('حساب بانکی فعال نیست', 409)
     if (row.totalMinor > BigInt(Number.MAX_SAFE_INTEGER) || row.totalMinor <= 0n) throw new PayError('مبلغ برای این مسیر قابل پردازش نیست', 422)
     if (gateway.provider === 'FRENZYEX' && row.totalMinor % 10n !== 0n) throw new PayError('مبلغ این درگاه باید مضرب ده ریال باشد', 422)
     if (row.gatewayAttemptRef && row.gatewayAttemptRef !== selected) throw new PayError('پرداخت قبلاً به روش دیگری متصل شده است', 409)

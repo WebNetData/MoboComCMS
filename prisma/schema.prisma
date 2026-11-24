@@ -165,6 +165,8 @@ model User {
   cart           Cart?
 
   @@index([phone])
+  baleCollections PayBaleCollection[]
+  paySmsSources PaySmsSource[]
 }
 
 model PromptTemplate {
@@ -1230,6 +1232,7 @@ model Gateway {
   orders       Order[]
   invoices     Invoice[]
   payments     Payment[]
+  baleCollections PayBaleCollection[]
 }
 
 model Invoice {
@@ -1289,6 +1292,7 @@ model Invoice {
   @@index([status, expiresAt])
   @@index([recurringId])
   payCollection PayPayment?
+  baleCollections PayBaleCollection[]
 }
 
 /// An invoice staff issue to a customer again and again (weekly, monthly, every 3, 6 or 12 months).
@@ -1341,6 +1345,8 @@ model Payment {
   order          Order?    @relation(fields: [orderId], references: [id])
   invoice        Invoice?  @relation(fields: [invoiceId], references: [id])
   gateway        Gateway?  @relation(fields: [gatewayId], references: [id])
+  balePrincipalCollection PayBaleCollection? @relation("BalePrincipal")
+  baleAdjustmentCollection PayBaleCollection? @relation("BaleAdjustment")
 }
 
 model WalletTx {
@@ -2688,6 +2694,10 @@ model BankAccount {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @default(now()) @updatedAt
   receipts      PaymentReceipt[]
+  baleNotices PayBaleNotice[]
+  collectionUse String @default("GENERAL")
+  baleCollections PayBaleCollection[]
+  paySmsSources PaySmsSource[]
 }
 
 /// A customer's proof of a card-to-card / bank transfer. An admin approves it
@@ -2720,6 +2730,7 @@ model PaymentReceipt {
   @@index([status, createdAt])
   @@index([invoiceId])
   @@index([userId])
+  autoCollection PayBaleCollection?
 }
 
 /// One-time SMS codes for phone login and phone verification (only a hash is stored).
@@ -5891,6 +5902,7 @@ model DownloadLinkHealth {
 }
 
 model PayMerchant {
+  baleAllowed Boolean @default(false)
   id        String   @id
   userId    Int      @unique
   name      String
@@ -5911,6 +5923,7 @@ model PayMerchant {
 }
 
 model PayTerminal {
+  baleEnabled Boolean @default(false)
   botIntegration PayBotIntegration?
   id String @id
   merchantId String
@@ -6086,4 +6099,109 @@ model PayBotDelivery {
   @@index([status, updatedAt])
   routingSnapshot String @default("")
   @@index([integrationId, status, createdAt])
+}
+
+/// Minimal original-message evidence from the server-owned Bale account connector.
+/// This is NOT a financial bank attestation or a payment confirmation.
+model PayBaleNotice {
+  id                 String   @id
+  instanceId         String
+  sourceAccountId    String
+  sourceEventId      String
+  messageId          String
+  bankPeerId         String
+  bankAccountId      Int
+  payloadHash        String
+  bankFingerprint    String?  @unique
+  duplicateOfId      String?
+  status             String
+  code               String
+  kind               String
+  direction          String
+  amountMinor        BigInt?
+  transferReference  String   @default("")
+  occurredFrom       DateTime?
+  occurredBefore     DateTime?
+  sourceSentAt       DateTime
+  receivedAt         DateTime @default(now())
+  bankAccount        BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  duplicateOf        PayBaleNotice? @relation("BaleNoticeDuplicates", fields: [duplicateOfId], references: [id], onDelete: Restrict)
+  duplicates         PayBaleNotice[] @relation("BaleNoticeDuplicates")
+
+  @@unique([instanceId, sourceEventId])
+  @@unique([instanceId, messageId])
+  @@index([instanceId, receivedAt])
+  @@index([bankAccountId])
+  @@index([receivedAt, id])
+  collectionMatch PayBaleCollection?
+  sourceType String @default("BALE")
+  bankCode String @default("bankmeli")
+  smsSourceId String?
+  smsSource PaySmsSource? @relation(fields:[smsSourceId], references:[id], onDelete:Restrict)
+}
+
+/// One immutable invoice quote. Final amounts are NEVER reused on this bank account.
+model PayBaleCollection {
+  id                  String @id
+  invoiceId           Int
+  activeInvoiceId     Int? @unique
+  gatewayId           Int
+  bankAccountId       Int
+  ownerUserId         Int
+  sourceInstanceId    String
+  sourceAccountId     String
+  bankPeerId          String
+  currency            String
+  dueMinor            BigInt
+  principalRial       BigInt
+  adjustmentRial      BigInt
+  collectedRial       BigInt @unique
+  policyRevision      String
+  validFrom           DateTime
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  acceptedAt          DateTime?
+  status              String @default("PENDING")
+  noticeId            String? @unique
+  principalPaymentId  Int? @unique
+  adjustmentPaymentId Int? @unique
+  paidAt              DateTime?
+  reviewReason        String @default("")
+  invoice             Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  gateway             Gateway @relation(fields: [gatewayId], references: [id], onDelete: Restrict)
+  bankAccount         BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  owner               User @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  notice              PayBaleNotice? @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  principalPayment    Payment? @relation("BalePrincipal", fields: [principalPaymentId], references: [id], onDelete: Restrict)
+  adjustmentPayment   Payment? @relation("BaleAdjustment", fields: [adjustmentPaymentId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId, createdAt])
+  @@index([status, expiresAt])
+  sourceTypes String @default("[\"BALE\"]")
+  sourceBindings String @default("{}")
+  receiptAmountRial BigInt?
+  paidCollectedRial BigInt?
+  settlementMethod String @default("")
+  receiptId Int? @unique
+  receipt PaymentReceipt? @relation(fields:[receiptId], references:[id], onDelete:Restrict)
+}
+
+/// A server-authenticated SMS Forwarder source; templates are data, never executable rules.
+model PaySmsSource {
+  id String @id
+  label String
+  bankCode String
+  bankAccountId Int
+  ownerUserId Int
+  secretCiphertext String
+  templateJson String
+  verified Boolean @default(false)
+  active Boolean @default(true)
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bankAccount BankAccount @relation(fields:[bankAccountId], references:[id], onDelete:Restrict)
+  owner User @relation(fields:[ownerUserId], references:[id], onDelete:Restrict)
+  notices PayBaleNotice[]
+  @@index([bankAccountId,active])
 }

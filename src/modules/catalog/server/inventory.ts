@@ -101,8 +101,8 @@ export async function reserveInventoryInTransaction(tx: Tx, input: { orderId: nu
  * live holds are kept, expired-but-unreleased holds are extended and released
  * lines are taken again when stock allows.
  */
-export function ensureInventoryReservation(input: { orderId: number; holdMinutes?: number }) {
-  return run(async (tx) => {
+export async function ensureInventoryReservation(input: { orderId: number; holdMinutes?: number }, transaction?: Tx) {
+  const work = async (tx: Tx) => {
     const lines = await orderStockLines(tx, input.orderId)
     const existing = await tx.inventoryReservation.findMany({ where: { orderId: input.orderId } })
     const now = new Date()
@@ -122,7 +122,10 @@ export function ensureInventoryReservation(input: { orderId: number; holdMinutes
       else await tx.inventoryReservation.create({ data: { ...data, orderId: input.orderId, line: item.line } })
     }
     return lines.length
-  })
+  }
+  if (!transaction) return run(work)
+  try { return { ok: true as const, lines: await work(transaction) } }
+  catch (error) { if (error instanceof OutOfStock) return { ok: false as const, message: error.message }; throw error }
 }
 
 /** Marks the held stock as sold (after payment). */

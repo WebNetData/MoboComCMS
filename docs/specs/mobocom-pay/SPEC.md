@@ -1,3 +1,97 @@
+## Compact bank checkout / display equivalent — owner2026-11-24
+
+The collapsed bank checkout fits the verified normal mobile viewport without
+page scrolling. Receipt fields open in a native dialog; fee and extra destination
+details expand. Main financial information is not clipped to force a viewport fit;
+zoom/keyboard/expanded content may scroll naturally. Existing canonical receipt
+hold/settlement behavior remains authoritative.
+
+Optional DTO usdt is an informational four-decimal equivalent of collectedRial,
+using the canonical approved CurrencyRate USDT value (Toman per unit), not pending
+rates or a checkout USD peg fallback. Display labels BSC/BEP20; no crypto address,
+payment rail or on-chain proof is created. Missing/invalid/future rates give
+UNAVAILABLE; automatic rates over24h give STALE without an amount. Manual/locked
+rates are labeled with their persisted timestamp. Rial invoice amounts are fixed.
+
+## Automatic card transfer — owner corrections2026-11-24
+
+The existing CARD_TRANSFER gateway owns the autoVerify checkbox, SMS/BALE source
+selection and dedicated bank account. Legacy MOBOCOM_PAY records remain compatible.
+No phone application is built. Existing SMS Forwarder installations send authenticated
+events to a server source; personal Bale uses the existing pinned server connector.
+Gateway autoDisplay controls cardNumber/bankName/holderName/accountNumber/iban.
+Card only is the default. Amount is mandatory; only card and amount expose copy
+buttons. Hidden destination fields are omitted server-side, not merely CSS-hidden.
+
+An immutable globally unique collectedRial permanently reserves the exact amount.
+Quote times use server seconds immediately; bank text account/date/reference are not
+payment conditions. CREDIT transfer amount is extracted from a configured trusted
+source bound to the destination. Immutable source protocol/phone receive metadata
+must be fresh and after quote acceptance, so delayed old deposits cannot match a
+new quote. Source revocation/current canonical permissions remain authoritative.
+
+The operator configures 5–120 minutes (default30). The payer sees mm:ss; EXPIRED
+hides instructions and explicitly warns against further deposits. Explicit renewal
+creates a new amount/time quote, preserving the old tombstone. PayPayment's original
+external-bank-feed deadline stays immutable: an already-linked automatic checkout
+continues with its bound payer ticket and its own quote deadline; it never reopens an
+actually EXPIRED PayPayment. Full source/terminal/merchant guards are rechecked.
+
+Successful receipt upload atomically claims PENDING→UNDER_REVIEW with a canonical
+PaymentReceipt. The countdown and instructions disappear; expiry/VOID cannot close
+the pending receipt hold. Receipt rejection retains proof and permits a fresh request.
+Manual and automatic settlement share one Serializable canonical invoice claim.
+Principal goes through markInvoicePaid/Pay credit/Wallet or fulfillment exactly once;
+the disclosed addition is a separate IRR service journal, never merchant proceeds.
+Manual principal-only receipts have no fee journal. Auto→manual, manual→auto and
+SMS↔BALE races cannot duplicate either principal, fee or wallet credit.
+
+Actual receipt Rial is stored on the collection; PaymentReceipt.amountMinor remains
+the canonical invoice principal/currency (migration209 invariant). Financial state,
+exact source proof, quote/receipt immutability and permanent tombstones are guarded
+by incremental migration213. No production migration or live bank verification is
+implied by local checks. Operator contract: tools/pay-bale-server/SMS_AND_COLLECTIONS.fa.md.
+
+## Server-only Bale continuation — owner correction2026-11-24
+
+The owner explicitly rejected an Android application and named @bam_bmi as the
+bank arm in their personal account. All uncommitted phone-relay product changes
+are withdrawn and preserved only in an ignored task archive. The committed pure
+Melli parser remains. No phone dependency or device onboarding is part of rollout.
+
+Extend Billing with an original-message intake adapter for a dedicated self-hosted
+GoOmni2.4.2 account connection. This is an unofficial account-protocol connector,
+distinct from official Bale Bot API and native wallet payments. The site receives
+signed events from this service; no third-party cloud gets the personal session.
+Pin configured alias + immutable instance + logged-in account + bank peer IDs.
+Verify the peer belongs to @bam_bmi during operator setup; never trust a display
+name or learn identity from an incoming notice. Reject outgoing/unknown/forwarded/
+edited/partial/group messages and conflicting identity projections. Authenticate
+exact bytes, reject duplicate JSON keys, persist minimal immutable evidence before
+ACK, dedupe source-event/message and bank reference/time across connector restarts.
+Disabled module/API/source refuses new ingestion. No raw personal chat, balance,
+counterparty, credential or account number appears in normal Admin DTOs.
+
+This bounded source slice records ORIGINAL_TRANSFER/IGNORED/REJECTED/DUPLICATE/
+CONFLICT evidence, not a financial success. It does not invent targetPaymentId or
+call reconciliation/Wallet/invoice settlement. Existing financial attribution
+contract stays intact until the separate reservation/proof slice has adversarial
+coverage. Random amount alone is insufficient. The eventual MOBOCOM_PAY provider
+must use canonical Gateway/invoice settlement, not recursively create another
+merchant PayPayment or credit a merchant twice. Register an explicit unavailable
+provider until that collection adapter is complete; configuration never makes it
+customer-visible prematurely. Admin may save its enable/default preference, but
+public checkout intersects that preference with actual readiness.
+
+Source acceptance: signed synthetic original @bam_bmi-shaped notice, exact body
+replay/conflict, duplicate bank fact across source IDs, changed amount conflict,
+wrong peer/account/instance/session/signature, forwarded/edit/unknown direction,
+unknown templates/interest/debits, module/API/source off, immutable DB evidence,
+strict-Audit rollback, unchanged all money tables, source status access denial.
+Run disposable non-root PostgreSQL and existing Pay regression; no live bank or
+personal account verification claim from synthetic checks. A future live trial
+needs operator account login and read-only original-message identity validation.
+
 # MoboComPay — merchant card-transfer collection and reviewed settlements
 
 ## Custom bot adapter and Pay presentation — owner2026-11-24
@@ -111,6 +205,144 @@ Apply local Unslop under MoboCom/SDS constraints and OpenDesign's brief → desi
 
 Incremental migration `20270325120000_mobocom_pay` is listed under unreleased; preserve existing migration hashes/data. Disabling preserves rows and Core spending. After any withdrawable activity, retain the upgraded Wallet-compatible binary and migration, disable Pay and forward-fix/reconcile reservations; an older Wallet binary cannot maintain the new subset invariant. Never drop financial history. No private keys, real card details, secrets or customer data in fixtures/docs/screenshots. Executed evidence and integration limits live in [the handoff](../../agent/handoffs/MOBOCOM_PAY.md).
 
+
+## Melli notice parser — owner samples2026-11-24
+
+Owner supplied eight National Bank notice shapes and confirmed delivery FROM the
+bank's official Bale arm INTO the owner's personal account. That resolves the bank
+and receiving-channel questions; personal-account reader API/auth remains unknown.
+Samples include positive interest, negative purchase/fees/POS, and positive card/
+PAYA/SATNA transfers. Other banks need their own verified samples/adapters; no
+generic amount/sign approval fallback is authorized by the templates.
+
+Implemented pure `billing/domain/pay-bank-notice.ts`: bounded single-message
+National Bank template parsing, explicit IRR/sign/13-digit account/reference,
+Persian/Arabic digits and spelling/Markdown normalization, type classification and
+existing shared Jalali date conversion. Modern1402..1499 Tehran dates become a
+half-open UTC minute interval; the text does NOT attest an exact second. Missing,
+duplicate/batched/invalid/unit-ambiguous fields fail closed. Unknown transaction
+types parse as review-only. Interest is non-payment credit; known debit types with
+positive signs are inconsistent, not transfer candidates.
+
+Every success is explicitly `UNVERIFIED_NOTICE`; a transfer is only a candidate.
+No raw body, balance, description, branch or counterparty is returned. No source
+authentication, bank-event creation, trusted targetPaymentId, amount reservation,
+invoice approval or Wallet write is implemented/activated. No new settings/schema/
+HTTP/UI surface. Real account/transaction values were not copied into fixtures:
+only synthetic values with the supplied structural shapes are stored.
+
+Six behavioral cases are included through the existing `pay-bot.test.cjs` suite.
+Acceptance checks exact integer bounds above JS precision, all eight transaction
+types, date rollover/invalid Jalali dates, malformed/duplicate units/fields, unknown
+banks, escaping and privacy. Four deliberate classification/precision/time faults
+must fail, then exact source is restored. Native Pay regression verifies the
+existing financial pipeline remains sound, not a live Bale integration.
+Next is the authorized personal-account receiving/proof adapter; a new bot token
+alone does not establish access to another bank arm's personal-chat messages.
+
+## Bale bank-notice verification design — owner2026-11-24
+
+Status: DESIGN ONLY. Owner requests automatic recognition of incoming bank
+transactions visible in Bale, using a small distinguishing amount or a stronger
+method. Fresh main3679200b contains owner-merged PR485. Continuation checkout:
+`.mobocom/pay-bale-verification`. No connector, schema, monetary policy or automatic
+approval has been enabled by this design receipt.
+
+Existing evidence: `server/pay/payments.ts` creates exact integer IRR obligations
+and preserves replay/fee/expiry. `reconcile.ts` requires authenticated bank events,
+independent trusted target attribution, assigned account, amount/reference/time
+and payer proof. `credit.ts` converges on canonical invoice/journal/Wallet and bot
+outbox under one transaction. Keep these owners, not a second shared payment,
+wallet, queue, account identity or bot-delivery system.
+
+### Source feasibility
+
+[Official Bale docs](https://docs.bale.ai/), reviewed2026-11-24, document bot updates
+via getUpdates/webhook, invoice payload/SuccessfulPayment and inquireTransaction.
+Their current payment section says official bot collection is wallet-based; the
+former card-transfer request method was removed. Native bot payment into the
+developer wallet differs from bank-credit notices in a personal chat. Reading
+another bot's bank notices in a personal account is not established by these docs.
+Do not assume a normal bot token grants that access or invent bank endpoints,
+webhook signatures or notification formats.
+
+Asked owner: bank name, personal bank-bot chat versus official receiving API, and
+an anonymized sample. No account/session/OTP/token is requested in chat. Establish
+an authorized channel, stable source/account IDs and original bank reference,
+transaction time, direction and unit before coding its adapter. A signed relay
+authenticates the relay, not an arbitrary forwarded customer's bank claim.
+If the channel cannot attest payment ownership, notices remain investigation
+candidates; never fabricate trusted targetPaymentId. A native Bale wallet gateway
+is a separate owner choice, not a silent substitute for direct bank collection.
+
+### Proposed bank-notice flow
+
+1. Existing hosted checkout/phone proof gets a fixed quote and assigned account.
+   Prefer a bank-issued deposit/payment identifier tied to the invoice. If a small
+   distinguishing amount is selected, reserve the exact FINAL amount atomically
+   across ALL merchants using that account before display. Cryptographic choice
+   selects a free slot; database uniqueness/claims prevent collision, including
+   adjacent base prices and fees. Exhaustion fails explicitly, never live reuse.
+2. Keep base, fee, distinguishing adjustment, final collection and merchant net as
+   separate exact IRR facts with explicit Toman labels. Adjustment is visible
+   before payment, fixed under refresh/replay and absent from older obligations.
+   Range, expiry/reuse policy and financial ownership remain inputs, not an
+   implicit platform fee. Never change a displayed amount or swap to an unadjusted
+   invoice after an ambiguous initiation. No money constraints are weakened.
+3. Receiver persists authenticated evidence BEFORE ACK/advancing polling cursor.
+   Dedupe both source-update identity and bank-transaction identity. Customer text,
+   copied/forwarded/edited messages are not original bank evidence. Bounded explicit
+   templates normalize Persian/Arabic digits and parse original amount unit,
+   CREDIT direction, account/time/reference. Unknown format, withdrawals or missing
+   identity stay review-only; no LLM/OCR/approximate match authorizes credit.
+4. Account+exact amount+original transaction time proposes a candidate. A small
+   adjustment is a matching aid, not ownership attestation. Current trust contract
+   still requires independently verified bank transaction/payment binding. No
+   amount-only approval or customer-reference-derived target is enabled here.
+   Once source can establish attribution, define its typed proof and the focused
+   reconciliation change with adversarial tests before activation.
+5. Valid proof uses existing invoice/Pay state claim, one Wallet credit, strict
+   Audit and bot intent in the same transaction. Expired, partial, excess, unknown
+   or ambiguous deposits keep their history and enter existing review operations.
+   No extra financial credit or uncertain external-service automatic replay.
+
+Historical reservations must survive expiry: a delayed notice must never bind to
+a newer quote with the same amount. Trusted ORIGINAL time/provenance, immutable
+assignment and bank-level dedupe matter; receive time/short cooldown alone do not
+solve late reuse. Ambiguous time precision/history refuses automatic attribution.
+Partial transfers cannot be summed without a separately defined atomic allocation;
+overpayment/refund uses existing owner workflows.
+
+### Operations and acceptance
+
+Extend existing Admin `mobocom-pay.manage` guards/settings for selected source,
+assigned accounts, bounded adjustment policy if chosen, enable/disable, redacted
+review reasons, last successful ingestion/lag/backlog. Credentials remain encrypted
+server-only; configured differs from live verified. Merchants never see personal
+bank chats/OTP/full cards. Module/source off stops new effects and preserves data.
+
+Prefer authenticated push IF supported; otherwise a leased long-poll receiver
+through existing runtime/Jobs ownership. Indexed exact lookup, persist-before-ACK,
+bounded backoff and gap/retention alarms prevent silent loss. Bale's finite update
+retention is not a bank archive. Measure source→ingest, ingest→verified and
+verified→bot independently. Initial internal P95 under3seconds AFTER valid-proof
+receipt is a benchmark target, not a bank/Bale delivery promise. UI re-reads
+committed state via current bounded polling or a verified faster signal.
+
+After source/proof feasibility, implement receiver→evidence→reconciliation→credit→
+current UI as one vertical slice. Additive migration/both schemas/release manifest,
+no old money rewrite. Preserve Custom/SDS, OTP/method allowlist, RTL/light/dark/390px
+and explicit waiting/expired/offline/review states.
+
+Acceptance: isolated non-root/no-env PostgreSQL; concurrent same/adjacent amounts,
+shared-account merchants, pool exhaustion, replay/crash-before-cursor, forged/user/
+forwarded/edited notices, wrong account/unit/direction/reference/time, repeated bank
+IDs across different updates, late arrival after reuse, partial/excess payments,
+module/source-off/current merchant restrictions, one invoice/Wallet/bot intent,
+strict-Audit rollback and upgrade preservation. Deliberate source/proof/dedupe
+faults must fail. Anonymized verified parser samples and real HTTP/browser evidence
+are required. Synthetic fixtures are not live bank/consumer certification.
+No product tests were run for this docs-only design.
 
 ## Routing and operational follow-up — owner2026-11-24
 

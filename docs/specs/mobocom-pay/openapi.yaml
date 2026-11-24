@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.3.0
+  version: 1.6.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An active merchant and terminal are provisioned through the account interface before using this API.
@@ -9,7 +9,7 @@ info:
     alone is not confirmation. Hosted checkout requires a browser-bound phone OTP before payment instructions,
     receipt upload or provider initiation. Existing compatible MoboCom gateways are reused. A terminal-scoped
     custom-bot adapter can send paid-order verification through the existing job queue. No production bank
-    adapter is provided. Fees snapshot a merchant-specific bearer and total cap.
+    source has been live-verified by this repository. Fees snapshot a merchant-specific bearer and total cap.
 servers:
   - url: /
 security:
@@ -22,6 +22,153 @@ tags:
   - { name: Hosted checkout, description: Guest phone proof and payment methods on the MoboCom domain. }
   - { name: Custom bot, description: Dedicated body-token compatibility adapter and conservative paid-order delivery. }
 paths:
+  /api/payment/mobocom-pay/sms/{id}:
+    post:
+      operationId: receiveConfiguredBankSms
+      tags: [Bank bridge]
+      description: Authenticated SMS Forwarder original event. received_at is the original device receipt time in UTC, not a date in bank text. Fresh first deliveries only; exact replays are idempotent. Sender/template/source bind the destination. Matching requires the globally unique collected amount and current authority. No customer-provided attribution.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [message_id, sender, message, received_at]
+              properties:
+                message_id: { type: string, minLength: 1, maxLength: 120 }
+                sender: { type: string, minLength: 1, maxLength: 80 }
+                message: { type: string, minLength: 1, maxLength: 4096 }
+                received_at: { type: string, format: date-time }
+      responses:
+        '200': { description: Immutable evidence recorded or exact replay acknowledged; matching may settle one collection. }
+        default: { description: 'Authentication, source, body, freshness, strict rate limit or availability failure.' }
+  /api/payment/mobocom-pay/collections/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{32}$' } }
+    get:
+      operationId: getAutomaticTransferCheckout
+      tags: [Hosted checkout]
+      security: []
+      description: Opaque invoice capability; Pay additionally requires its scoped OTP ticket. Returns serverTime, quote expiry and PENDING/UNDER_REVIEW/PAID/EXPIRED/REVIEW. Instructions only for accepted, eligible pending requests. UNDER_REVIEW has no countdown or automatic expiry. Optional usdt is a display-only BSC/BEP20 equivalent from the canonical approved USDT Toman rate, with rate timestamp and unavailable/stale status; it never changes invoice money or enables a crypto transfer.
+      responses:
+        '200':
+          description: Current checkout and safe receipt status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      usdt: { $ref: '#/components/schemas/UsdtEquivalent' }
+        default: { description: 'Invalid capability, payer proof or unavailable method.' }
+    post:
+      operationId: changeAutomaticTransferCheckout
+      tags: [Hosted checkout]
+      security: []
+      description: Same-origin mutation. accept discloses the separate addition; renew creates a fresh unique amount after expiry or receipt rejection. Old proof/history remains. No renewal under receipt review.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [action], properties: { action: { type: string, enum: [accept, renew] } } }
+      responses:
+        '200': { description: Current or renewed checkout. }
+        default: { description: 'Invalid transition, payer, origin, source or strict rate limit.' }
+  /api/payment/mobocom-pay/collections/{id}/receipt:
+    post:
+      operationId: submitAutomaticTransferReceipt
+      tags: [Hosted checkout]
+      security: []
+      description: Same-origin capability and scoped Pay payer authorization. Bounded sniffed image; paidAmountRial equals the quote principal or exact collected amount. Atomically creates the canonical receipt and enters UNDER_REVIEW; never confirms money on upload. Replays preserve the first receipt.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{32}$' } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image, payerName, paidAmountRial]
+              properties:
+                image: { type: string, format: binary }
+                payerName: { type: string }
+                trackingCode: { type: string }
+                paidAmountRial: { type: string, pattern: '^[1-9][0-9]{0,18}$' }
+      responses:
+        '200': { description: Current checkout with receipt hold. }
+        default: { description: 'Receipt, origin, payer, state, deadline or strict rate limit failure.' }
+  /api/payment/mobocom-pay/bale-events:
+    post:
+      operationId: receiveBaleOriginalBankMessage
+      tags: [Bank bridge]
+      security: []
+      description: >-
+        Dedicated self-hosted GoOmni2.4.2 original-message intake, not Bot API or
+        personal-account login. X-Hub-Signature-256 authenticates exact bounded
+        raw bytes with the deployment-owned per-destination secret. Event header
+        must match event_id. Requires the preconfigured immutable connection,
+        account and original bank peer. Reject duplicate JSON keys, wrong sender,
+        forwarded, edited, outgoing, partial and unsupported messages. Minimal
+        immutable facts commit before ACK. Replays are idempotent and changed
+        bytes conflict. Eligible unique-amount collections may settle through canonical invoice claims; targetPaymentId is never accepted.
+      parameters:
+        - { in: header, name: X-Hub-Signature-256, required: true, schema: { type: string, pattern: '^sha256=[a-f0-9]{64}$' } }
+        - { in: header, name: X-GoOmni-Event-Id, required: true, schema: { type: string, pattern: '^[a-f0-9]{64}$' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, event, device_id, provider, session_id, instance_id, peer, message_id, sender_id, direction, timestamp, payload, content]
+              properties:
+                event_id: { type: string, pattern: '^[a-f0-9]{64}$' }
+                event: { type: string, enum: [message] }
+                device_id: { type: string }
+                provider: { type: string, enum: [bale] }
+                session_id: { type: string }
+                instance_id: { type: string, pattern: '^[a-f0-9]{64}$' }
+                peer: { type: object, required: [type, id], properties: { type: { type: string, enum: [user] }, id: { type: string } } }
+                message_id: { type: string }
+                sender_id: { type: string }
+                direction: { type: string, enum: [incoming] }
+                timestamp: { type: string, format: date-time }
+                payload: { type: object, description: 'Pinned GoOmni complete text projection; id/chat_id/from/direction/timestamp must agree with the envelope. partial=false, supported=true, no forward/edit/reply provenance.' }
+                content: { type: object, description: 'Pinned GoOmni native text content, kind=text and message equal to payload.body. At most4096 characters.' }
+      responses:
+        '200':
+          description: Evidence committed or exact replay acknowledged; financialApproval reports the canonical collection result.
+          headers: { Cache-Control: { schema: { type: string, enum: [no-store] } } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean, enum: [true] }
+                  data:
+                    type: object
+                    required: [received, id, duplicate, status, financialApproval]
+                    properties:
+                      received: { type: boolean, enum: [true] }
+                      id: { type: string }
+                      duplicate: { type: boolean }
+                      status: { type: string, enum: [ORIGINAL_TRANSFER, IGNORED, REJECTED, DUPLICATE, CONFLICT] }
+                      financialApproval: { type: boolean }
+        '401': { description: Missing or invalid exact-body signature. }
+        '403': { description: Current module/API/source owner authority is disabled. }
+        '409': { description: Event/message identity conflicts with previously committed evidence. }
+        '413': { description: Request exceeds24000 bytes. }
+        '422': { description: 'Invalid or ambiguous JSON, identity, provenance or source timestamp.' }
+        '429': { description: Strict request limit or daily source capacity reached; retry later. }
+        '503': { description: Source/bank account unconfigured or persistence unavailable; retry later. }
   /api/v1/pay/bot/{id}:
     post:
       operationId: createCustomBotPayment
@@ -271,6 +418,21 @@ components:
       description: Invalid request, authentication or access denied, conflict, rate limit, or unavailable service (400, 401, 403, 404, 405, 409, 413, 422, 429, 503).
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
+    UsdtEquivalent:
+      type: object
+      description: Informational equivalent of the full requested Rial amount. Approved persisted USDT rate only; no USD peg fallback or provider call on checkout. Four decimal rounding; lessThan marks a sub-0.0001 amount. Provider rates older than 24 hours are stale; explicit manual or locked rates are labeled with their original timestamp.
+      required: [asset, network, standard, displayOnly, status, amount, lessThan, rateToman, asOf, manual]
+      properties:
+        asset: { type: string, enum: [USDT] }
+        network: { type: string, enum: [BSC] }
+        standard: { type: string, enum: [BEP20] }
+        displayOnly: { type: boolean, enum: [true] }
+        status: { type: string, enum: [AVAILABLE, STALE, UNAVAILABLE] }
+        amount: { type: string, nullable: true, pattern: '^[0-9]+\.[0-9]{4}$' }
+        lessThan: { type: boolean }
+        rateToman: { type: string, nullable: true }
+        asOf: { type: string, format: date-time, nullable: true }
+        manual: { type: boolean }
     BotPaymentCreate:
       type: object
       additionalProperties: false

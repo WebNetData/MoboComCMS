@@ -1,3 +1,4 @@
+import { balePolicyDefaults, normalizeBalePolicy } from './pay-bale-collection'
 import { latinDigits } from '@/shared/text/digits'
 import { PayError, type PayFeeTerms, type PayRail, type PaySettings } from '@/modules/billing/domain/pay'
 
@@ -60,6 +61,7 @@ const RAILS = [
 ] as const
 export function defaults(): PaySettings {
   return {
+    bale: balePolicyDefaults(),
     incomingEnabled: false,
     bankAccountIds: [],
     providerId: '',
@@ -116,6 +118,7 @@ export function normalizePaySettings(input: unknown): PaySettings {
     }
   })
   return {
+    bale: normalizeBalePolicy(raw.bale),
     incomingEnabled: raw.incomingEnabled,
     bankAccountIds: ids,
     providerId: provider,

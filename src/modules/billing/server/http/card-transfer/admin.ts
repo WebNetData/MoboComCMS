@@ -4,7 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { TransferError } from '@/modules/billing/domain/card-transfer'
-import { listBankAccounts, reviewReceipt, saveBankAccount } from '@/modules/billing/server/card-transfer'
+import { listBankAccounts, reviewReceipt, saveBankAccount, retireBankAccount } from '@/modules/billing/server/card-transfer'
 
 const fail = (error: unknown) => error instanceof TransferError ? err(error.message, error.status) : err(error instanceof Error ? error.message : 'failed', 400)
 
@@ -39,14 +39,11 @@ export async function DELETE_account(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   const id = Number(req.nextUrl.searchParams.get('id'))
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid id')
-  // Accounts with receipts are kept for the accounting trail and only deactivated.
-  const used = (await db.paymentReceipt.count({ where: { bankAccountId: id } })) +
-    (await db.payPayment.count({ where: { bankAccountId: id } })) +
-    (await db.payBankEvent.count({ where: { bankAccountId: id } }))
-  if (used) await db.bankAccount.update({ where: { id }, data: { active: false } })
-  else await db.bankAccount.delete({ where: { id } }).catch(() => null)
-  await auditAdmin({ req, actor: admin, action: used ? 'bank_account.deactivate' : 'bank_account.delete', targetType: 'BankAccount', targetId: id })
-  return ok({ id, deactivated: used > 0 })
+  try {
+    const result = await retireBankAccount(id)
+    await auditAdmin({ req, actor: admin, action: result.deactivated ? 'bank_account.deactivate' : 'bank_account.delete', targetType: 'BankAccount', targetId: id })
+    return ok(result)
+  } catch (error) { return fail(error) }
 }
 
 // ------------------------------------------------------------ receipts (invoices.manage)

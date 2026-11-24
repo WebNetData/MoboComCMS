@@ -7,6 +7,7 @@ import { TransferError } from '@/modules/billing/domain/card-transfer'
 import { PayError } from '@/modules/billing/domain/pay'
 import { requestPayPayerOtp, verifyPayPayerOtp, payPayerCookie, payPayerChallengeCookie, startPayGateway, submitPayReceipt, payReceiptImage } from '@/modules/billing/server/pay'
 import { payHttpFailure } from './pay'
+import { scopeBalePayerCookie } from '@/modules/billing/server/pay'
 
 export async function payCheckoutAction(req: NextRequest, context: { params: Promise<{ id: string; action: string }> }) {
   try {
@@ -26,7 +27,14 @@ export async function payCheckoutAction(req: NextRequest, context: { params: Pro
       response.cookies.set(payPayerChallengeCookie(id), '', { ...options, maxAge: 0 })
       return response
     }
-    if (action === 'gateway' && req.method === 'POST') return apiOk(await startPayGateway(req, id, await readJsonObject(req, 2000)))
+    if (action === 'gateway' && req.method === 'POST') {
+      const result = await startPayGateway(req, id, await readJsonObject(req, 2000)), response = apiOk(result)
+      if (['MOBOCOM_PAY','CARD_TRANSFER'].includes(result.provider) && result.paymentUrl) {
+        const collectionId = new URL(result.paymentUrl).pathname.match(/^\/pay\/bank\/([A-Za-z0-9_-]{32})$/)?.[1]
+        if (collectionId) scopeBalePayerCookie(req, response, id, collectionId)
+      }
+      return response
+    }
     if (action === 'receipt' && req.method === 'POST') return apiOk(await submitPayReceipt(req, id), 201)
     if (action === 'receipt-image' && req.method === 'GET') return await payReceiptImage(req, Number(req.nextUrl.searchParams.get('receiptId')), id)
     throw new PayError('پیدا نشد', 404)

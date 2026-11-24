@@ -26,7 +26,11 @@ async function payment(id: string, tx: Client, allowPaid = false) {
   const row = await tx.payPayment.findUnique({ where: { id }, include: { merchant: { include: { user: true } }, terminal: true } })
   if (!row) throw new PayError('پرداخت پیدا نشد', 404)
   if (row.status !== 'PENDING' && !(allowPaid && row.status === 'PAID')) throw new PayError('وضعیت این پرداخت تغییر کرده است', 409)
-  if (row.status === 'PENDING' && row.expiresAt <= new Date()) throw new PayError('مهلت این پرداخت پایان یافته است', 409)
+  if (row.status === 'PENDING' && row.expiresAt <= new Date()) {
+    const automatic = allowPaid && row.invoiceId && row.gatewayAttemptStatus === 'READY' && !row.walletTxId &&
+      await tx.payBaleCollection.findFirst({ where: { invoiceId: row.invoiceId, gatewayId: row.gatewayAttemptRef.startsWith('db:') ? Number(row.gatewayAttemptRef.slice(3)) : -1, status: { in: ['PENDING','UNDER_REVIEW','EXPIRED','REVIEW'] } } })
+    if (!automatic) throw new PayError('مهلت این پرداخت پایان یافته است', 409)
+  }
   if (row.status !== 'PAID' && (row.merchant.status !== 'ACTIVE' || !row.terminal.active || row.merchant.user.status !== 'ACTIVE' || await globalAuthenticationDenied(row.merchant.userId, new Date(), tx)))
     throw new PayError('دریافت این پایانه متوقف شده است', 409)
   return row

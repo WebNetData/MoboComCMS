@@ -58,7 +58,7 @@ export function ListControls({
         >
           <option value="">همه</option>
           {(kind === "payments"
-            ? ["PENDING", "PAID", "EXPIRED"]
+ ? ["PENDING", "UNDER_REVIEW", "PAID", "EXPIRED"]
             : ["REQUESTED", "APPROVED", "PAID", "REJECTED"]
           ).map((x) => (
             <option key={x} value={x}>
@@ -152,6 +152,7 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
                     <dd className={s.ltr}>{x.id}</dd>
                     <dt>کارمزد بر عهده</dt>
                     <dd>{x.feeBearer === 'CUSTOMER' ? 'مشتری' : 'پذیرنده'}</dd>
+ {x.gatewayCollectionStatus && <><dt>هزینهٔ خدمت درگاه</dt><dd>{money(x.gatewayAdjustmentRial || '0')}</dd><dt>مبلغ درخواستی واریز</dt><dd>{money(x.gatewayCollectedRial || x.totalRial)}</dd></>}
                     <dt>شناسه پیگیری انتقال</dt>
                     <dd className={s.ltr}>{x.transferReference || "—"}</dd>
                     <dt>زمان ثبت</dt>

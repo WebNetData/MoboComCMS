@@ -16,6 +16,7 @@ export async function reconcileReference(
   transferReference: string,
 ) {
   if (!(await isModuleEnabled('mobocom-pay', tx))) return
+  if (!(await tx.bankAccount.count({ where: { id: bankAccountId, collectionUse: 'GENERAL' } }))) return
   const settings = await paySettings.read(tx)
   if (!settings.incomingEnabled || !bankFeedReady(settings.providerId)) return
   const event = await tx.payBankEvent.findUnique({
@@ -104,7 +105,7 @@ export async function acceptBankEvent(input: Record<string, unknown>, payloadHas
     }
     if (
       !settings.bankAccountIds.includes(bankAccountId) ||
-      !(await tx.bankAccount.count({ where: { id: bankAccountId, active: true } }))
+      !(await tx.bankAccount.count({ where: { id: bankAccountId, active: true, collectionUse: 'GENERAL' } }))
     )
       throw new PayError('حساب بانکی معتبر نیست', 409)
     if (await tx.payBankEvent.count({ where: { bankAccountId, transferReference } }))

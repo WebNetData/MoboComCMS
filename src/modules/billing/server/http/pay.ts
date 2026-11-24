@@ -37,6 +37,7 @@ import {
   bankFeedReady,
   paySettings,
   botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
+  baleSourceStatus, smsSources, saveSmsSource,
 } from '@/modules/billing/server/pay'
 
 export function payHttpFailure(error: unknown) {
@@ -145,8 +146,11 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       { resource } = await context.params
     await limited('pay-admin:' + actor.id)
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
+    if (req.method === 'GET' && resource === 'bale-status') return apiOk(await baleSourceStatus(actor, req.nextUrl.searchParams.get('page'), req.nextUrl.searchParams.get('collectionsPage')))
+    if (req.method === 'GET' && resource === 'sms-sources') return apiOk(await smsSources(actor))
     if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
     const input = await readJsonObject(req, 16000)
+    if (['POST','PATCH'].includes(req.method) && resource === 'sms-sources') return apiOk(await saveSmsSource(actor, input))
     if (req.method === 'PATCH' && resource === 'merchants')
       return apiOk(merchantView(await changeMerchant(actor, input), 0n, await paySettings.read()))
     if (req.method === 'PATCH' && resource === 'settlements')
@@ -165,7 +169,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
           throw new PayError('ابتدا یک درگاه فعال سازگار با پرداخت ریالی تنظیم کنید', 409)
         if (
           next.bankAccountIds.length &&
-          (await tx.bankAccount.count({ where: { id: { in: next.bankAccountIds }, active: true } })) !==
+          (await tx.bankAccount.count({ where: { id: { in: next.bankAccountIds }, active: true, collectionUse: 'GENERAL' } })) !==
             next.bankAccountIds.length
         )
           throw new PayError('حساب بانکی فعال نیست', 409)

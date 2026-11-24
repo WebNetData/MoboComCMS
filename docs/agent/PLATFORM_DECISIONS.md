@@ -1,3 +1,24 @@
+2026-11-24 owner correction: no Android app/phone notification relay. The site
+server must read the owner's personal Bale account's original @bam_bmi notices.
+The method belongs in the canonical platform Gateway registry and must eventually
+be selectable for both ordinary site invoices and merchant Pay checkout. Preserve
+the current theme. A new Bot API token does not grant access to the bank chat.
+Use a server-owned account connector; credentials/OTP never enter chat or Git.
+Do not equate configured message ingestion with completed financial attribution.
+
+2026-11-24 clarification: National Bank notices originate from its Bale arm and
+arrive in the owner's PERSONAL account. Eight supplied template shapes permit a
+bounded synthetic-tested parser, not normal bot access to those chats or text-only
+financial approval. Receiving adapter/original peer proof, adjustment accounting
+and final bank attribution remain unresolved; preserve current credit boundary.
+[Implemented parser and remaining connector](handoffs/MOBOCOM_PAY.md#melli-notice-parsing-and-personal-account-clarification--2026-11-24).
+
+2026-11-24 owner requests next Pay development: automatic bank transactions visible
+in Bale, using a small distinguishing amount or stronger method. Bank/channel/
+template and adjustment accounting remain unresolved inputs, not adopted proof or
+monetary policy. Preserve current trusted target-attribution requirement; amount
+guesses alone cannot approve money. [Current design/evidence](handoffs/MOBOCOM_PAY.md#bale-verification-investigation-and-design--2026-11-24).
+
 2026-11-24 owner authorized development items1+2: confirmed CRM department/currency
 and playlist audience repairs, plus advanced Pay routing and operations. Extend
 existing owners and preserve approved Custom presentation. Implemented bounded

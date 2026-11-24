@@ -87,6 +87,12 @@ export default function AdminFinancePage() {
         ))}
       </div>
 
+ {data.collectionFees && <div className="card mb-8">
+ <h3 className="font-bold">کارمزد دریافت درگاه موبوکام</h3>
+ <p className="num text-2xl font-extrabold">{BigInt(data.collectionFees.amountRial).toLocaleString('fa-IR')} ریال</p>
+ <p className="muted">{num(data.collectionFees.count)} پرداخت تأییدشده در بازهٔ انتخاب‌شده · مستقل از ارز انتخابی گزارش</p>
+ </div>}
+
       <div className="card mb-8">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-6">
           <h3 className="font-bold">{t.monthlyRevenue}</h3>
