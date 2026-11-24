@@ -1,3 +1,13 @@
+# Routing PR publication — owner2026-11-24
+
+Owner requests push/PR to main, retaining merge/deploy. Current branch
+`feat/pay-routing-operations-2026-11-24`, product `b45cfd0f`, receipt `6b05817a`;
+fresh origin/main `bd6a218a`, clean and0 behind/2 ahead before publication receipt.
+Existing local evidence is reused for unchanged source. Additive211, optional
+response cardinality diagnostic and live-provider limits are explicit in PR body.
+GitHub records final URL/state. No hosted dispatch, merge, deploy or live send.
+[Publication preflight](../docs/agent/handoffs/MOBOCOM_PAY.md#routing-pr-preparation--owner2026-11-24).
+
 # Routing/operations and platform repairs — local2026-11-24
 
 Product recorded as local commit `b45cfd0f`; subsequent receipt is documentation

@@ -1,3 +1,19 @@
+## Routing PR preparation — owner2026-11-24
+
+Owner now explicitly authorizes push and a pull request to `main`, retaining
+merge/deploy. This supersedes the local-only status below. Current branch is
+`feat/pay-routing-operations-2026-11-24`; unchanged product `b45cfd0f` plus receipt
+`6b05817a`. Fresh origin/main is still `bd6a218a` (0 behind/2 ahead before this
+publication receipt), working tree was clean and aggregate diff whitespace check
+passed. No existing PR for this head was found. Existing native PostgreSQL,
+upgrade, scoped units/types/contracts/browser/security evidence below is reused
+for unchanged product source; no additional test/build run is implied.
+
+Publication includes additive211 and explicitly records the opt-in response
+maxItems1→5 oasdiff diagnostic, preserved Custom theme and unverified live bank/
+bot/worker rollout. GitHub is authoritative for the resulting PR URL/state.
+No hosted workflow dispatch, automatic merge, deploy or live send is authorized.
+
 ## Routing, operations and confirmed platform repairs — 2026-11-24
 
 Local product commit: `b45cfd0f` (`feat(pay): add routing rules and operations with
