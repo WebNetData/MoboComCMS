@@ -1,3 +1,11 @@
+Bank operations monitor/reconciliation2026-11-24: FUNCTIONAL_LOCAL. Current
+SMS/Bale readiness and observed traffic, latency/review/pool metrics; paged exact
+invoice assignment, under/over review, late exact admission and canonical receipt/
+Audit history. Native214/populated upgrade, money/auth/race regression, typed gates,
+Doctor0errors,11 themed browser captures+resilience and9 Hurl requests pass.
+LIVE_BANK_SMS_BALE_UNVERIFIED; quiet source is unknown connectivity, not offline.
+[Limits and rollback](handoffs/MOBOCOM_PAY.md#bank-operations-monitor-and-reconciliation-desk--2026-11-24).
+
 Compact checkout/USDT display2026-11-24: FUNCTIONAL_LOCAL. Exact measured mobile
 normal view (320×568 and360×640), native receipt dialog, two copy controls; canonical
 approved USDT-rate equivalent labeled BSC/BEP20 and displayOnly with stale/missing

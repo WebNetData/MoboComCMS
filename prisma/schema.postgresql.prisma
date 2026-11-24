@@ -165,6 +165,7 @@ model User {
   cart           Cart?
 
   @@index([phone])
+  transferReviews PayTransferReview[]
   baleCollections PayBaleCollection[]
   paySmsSources PaySmsSource[]
 }
@@ -6133,6 +6134,7 @@ model PayBaleNotice {
   @@index([instanceId, receivedAt])
   @@index([bankAccountId])
   @@index([receivedAt, id])
+  transferReview PayTransferReview?
   collectionMatch PayBaleCollection?
   sourceType String @default("BALE")
   bankCode String @default("bankmeli")
@@ -6142,6 +6144,7 @@ model PayBaleNotice {
 
 /// One immutable invoice quote. Final amounts are NEVER reused on this bank account.
 model PayBaleCollection {
+  transferReviews PayTransferReview[]
   id                  String @id
   invoiceId           Int
   activeInvoiceId     Int? @unique
@@ -6204,4 +6207,20 @@ model PaySmsSource {
   owner User @relation(fields:[ownerUserId], references:[id], onDelete:Restrict)
   notices PayBaleNotice[]
   @@index([bankAccountId,active])
+}
+
+/// Versioned Admin disposition of immutable incoming evidence; financial journals stay canonical.
+model PayTransferReview {
+  noticeId String @id
+  collectionId String?
+  status String @default("OPEN")
+  version Int @default(1)
+  note String
+  reviewedBy Int
+  reviewedAt DateTime @default(now())
+  notice PayBaleNotice @relation(fields:[noticeId], references:[id], onDelete:Restrict)
+  collection PayBaleCollection? @relation(fields:[collectionId], references:[id], onDelete:Restrict)
+  reviewer User @relation(fields:[reviewedBy], references:[id], onDelete:Restrict)
+  @@index([status,reviewedAt])
+  @@index([collectionId])
 }

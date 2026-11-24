@@ -13,6 +13,8 @@ const merchant = [
 ];
 const admin = [
   ["overview", "نمای کلی", "layout"],
+  ["operations", "پایش دریافت‌ها", "activity"],
+  ["reconciliation", "میز مغایرت‌ها", "receipt"],
   ["merchants", "پذیرندگان", "users"],
   ["settlements", "تسویه‌ها", "bank"],
   ["payments", "پرداخت‌ها", "receipt"],

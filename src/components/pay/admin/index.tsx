@@ -14,7 +14,9 @@ import AdminOverview from "./overview";
 import WorkspaceHeader from "../workspace-header";
 import MerchantFees from "./merchant-fees";
 import Receipts from "./receipts";
-const views = ["merchants", "settlements", "payments", "bank-events", "settings", "receipts"];
+import TransferMonitor from "./transfer-monitor";
+import TransferReconciliation from "./transfer-reconciliation";
+const views = ["merchants", "settlements", "payments", "bank-events", "settings", "receipts", "operations", "reconciliation"];
 export default function Admin({ initialView = "overview" }: { initialView?: string }) {
   const [data, setData] = useState<PayAdminOverview | null>(null),
     [settings, setSettings] = useState<PaySettings | null>(null),
@@ -237,6 +239,8 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
       )}
       {!forbidden && tab === 2 && <PaymentTable items={data.payments} />}
       {!forbidden && tab === 5 && <Receipts />}
+      {!forbidden && tab === 6 && <TransferMonitor />}
+      {!forbidden && tab === 7 && <TransferReconciliation />}
       {!forbidden && tab === 3 && (
         <section className={`${s.card} ${s.tableWrap}`} tabIndex={0} aria-label="فهرست رویدادهای بانکی">
           <h2>رویدادهای بانکی</h2>

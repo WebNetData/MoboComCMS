@@ -38,6 +38,7 @@ import {
   paySettings,
   botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
   baleSourceStatus, smsSources, saveSmsSource,
+  transferMonitor, transferReviewQueue, transferReviewDetail, transferReviewSearch, transferCollectionReview, decideTransferReview,
 } from '@/modules/billing/server/pay'
 
 export function payHttpFailure(error: unknown) {
@@ -149,7 +150,15 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     if (req.method === 'GET' && resource === 'bale-status') return apiOk(await baleSourceStatus(actor, req.nextUrl.searchParams.get('page'), req.nextUrl.searchParams.get('collectionsPage')))
     if (req.method === 'GET' && resource === 'sms-sources') return apiOk(await smsSources(actor))
     if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
+    if (req.method === 'GET' && resource === 'transfer-operations') return apiOk(await transferMonitor(actor))
+    if (req.method === 'GET' && resource === 'transfer-reviews') {
+      const collection = req.nextUrl.searchParams.get('collection')
+      if (collection) return apiOk(await transferCollectionReview(actor, collection))
+      const id = req.nextUrl.searchParams.get('id'), number = req.nextUrl.searchParams.get('invoice')
+      return apiOk(id ? number ? await transferReviewSearch(actor, id, number) : await transferReviewDetail(actor, id) : await transferReviewQueue(actor, req.nextUrl.searchParams))
+    }
     const input = await readJsonObject(req, 16000)
+    if (req.method === 'PATCH' && resource === 'transfer-reviews') return apiOk(await decideTransferReview(actor, input))
     if (['POST','PATCH'].includes(req.method) && resource === 'sms-sources') return apiOk(await saveSmsSource(actor, input))
     if (req.method === 'PATCH' && resource === 'merchants')
       return apiOk(merchantView(await changeMerchant(actor, input), 0n, await paySettings.read()))

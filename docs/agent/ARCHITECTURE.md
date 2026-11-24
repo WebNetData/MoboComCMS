@@ -1,10 +1,11 @@
-Bale server-only2026-11-24: Billing owns pinned original-message intake and
-immutable non-financial evidence through its existing Pay public address; canonical
-Identity/Audit/BankAccount/Settings/Gateway remain authoritative. A dedicated
-self-hosted personal-account protocol connector is an adapter, not a new platform
-identity or Wallet. MOBOCOM_PAY metadata is registered but customer usability stays
-false until unique reservation/proof + canonical invoice settlement are complete.
-Phone source is withdrawn. [Current boundaries and actual evidence](handoffs/MOBOCOM_PAY.md#server-only-bale-intake-and-dormant-shared-gateway--2026-11-24).
+Bank transfer2026-11-24: Billing Pay owns immutable SMS/Bale evidence, globally
+unique quote tombstones and reviewed dispositions through its existing address.
+CARD_TRANSFER autoVerify composes existing Invoice/Payment/Wallet/fulfillment and
+canonical receipt storage/Audit; legacy MOBOCOM_PAY remains compatible. The server
+personal-account connector is an adapter, never a second identity/Wallet or phone
+app. Admin operations and reconciliation share collection-proof and settlement;
+REVIEWED_NOTICE requires an exact authorized case, not an amount guess. Source
+readiness/observed traffic is not live connectivity. [Current boundaries/evidence](handoffs/MOBOCOM_PAY.md#bank-operations-monitor-and-reconciliation-desk--2026-11-24).
 
 Pay routing/operations2026-11-24: existing Billing Pay owns bounded ordered rules,
 immutable one-payment method snapshots and merchant-scoped history/recovery;

@@ -1,3 +1,113 @@
+## PR487 publication — 2026-11-24
+
+Owner requested publication of the completed monitor/reconciliation slice.
+[PR487](https://github.com/WebNetData/MoboComCMS/pull/487) is open against `main`,
+head `feat/pay-monitor-reconciliation-2026-11-24`, product commit16728f9c.
+The following publication record changes documentation only. Local evidence and
+live bank/Bale/SMS limits are preserved below; no tests were rerun for this record.
+Owner merges/deploys; no merge, deployment or hosted workflow dispatch performed.
+
+## Bank operations monitor and reconciliation desk — 2026-11-24
+
+Owner authorizes recommendations1/2 after owner-merged PR486, verified merged
+at main8a84ad1a. Authoritative checkout remains `.mobocom/pay-bale-verification`,
+new branch `feat/pay-monitor-reconciliation-2026-11-24` from that main. This is a
+local development slice; its resulting commit is in Git. No push/PR, hosted
+workflow, production migration or deployment was performed.
+
+### Implemented owners and behavior
+
+- Billing `server/pay/transfer-operations` behind the existing Pay address owns
+  the Admin monitor, evidence queue/search/detail and versioned decisions. Existing
+  merchant bot-delivery operations/recovery, Settings, Identity, Audit, Gateway,
+  Invoice, Wallet, receipt storage and fulfillment retain their authority.
+- `/admin/mobocom-pay/operations` shows current SMS/Bale readiness, current binding
+  last receipt and15min observed traffic,24h receipt/rejected counts, delivery p95,
+  bank-backed confirmation p50/p95, review age/overdue requests and globally occupied
+  permanent amount ranges for12 recent principals. Occupancy includes all banks and
+  principals; expiry never frees capacity. Remaining capacity<=10% warns; zero
+  refuses new allocation through the existing allocator. Manual confirmations
+  without a bank notice have no invented latency. Quiet traffic is UNKNOWN live
+  connectivity, never an online/offline assertion. No connector heartbeat introduced.
+- `/admin/mobocom-pay/reconciliation` has independent25/page evidence/receipt queues,
+  closed-case history, exact invoice-number lookup, explicit assignment, exact
+  integer under/over difference, canonical receipt image/review and last50 Audit
+  events. Client action forms require a reason and explicit financial acknowledgment.
+  Admin layout, semantic SDS tokens, RTL, light/dark and scoped short motion are kept;
+  no public checkout/theme design or dependency changes.
+- Same-process typed Admin GET `transfer-operations`; GET `transfer-reviews` supports
+  page/closed/receiptsPage, id, id+invoice, or collection. PATCH accepts exactly
+  noticeId/version/action(assign|dismiss|confirm)/note and optional collectionId.
+  `mobocom-pay.manage` gates all; ordinary invoice detail/decisions additionally
+  require `invoices.manage`. Self confirmation is forbidden. Session/Origin/body/
+  strict-rate limits reuse the existing HTTP/Identity policy. No machine/public API.
+- Minimal PayTransferReview is an evidence disposition with CAS version, immutable
+  terminal decision and restricted notice/collection/reviewer relations. Strict
+  canonical Audit records notes/reviewer/time inside the same transaction. Dismiss
+  has no money/refund effect. Under/over cannot settle; the operator records and
+  pursues correction/refund externally. No guessed payer/partial credit/auto refund.
+- A reviewed exact late notice may settle only an accepted, unpaid, eligible invoice
+  with the same destination, frozen/current original source, current gateway and
+  merchant/terminal grants. Evidence predating the quote/acceptance is refused.
+  Existing `collection-proof` is shared by matcher and reviewer, including current
+  CARD_TRANSFER auto/source revocation. REVIEWED_NOTICE uses the same invoice-first
+  Serializable transaction, markInvoicePaid, principal/adjustment, Wallet/Pay net and
+  fulfillment as AUTO/MANUAL. Migration214 widens only that proof and requires a
+  confirmed exact non-self review; a deferred SQL constraint requires the review
+  and payment to commit together. Migration DDL is transactional. Existing
+  journal/time/binding guards remain.
+  Existing213 data and global amount tombstones are preserved in both schema mirrors.
+
+### Actual executed evidence
+
+- Empty disposable NOSUPERUSER PostgreSQL applied all214 migrations. A separately
+  isolated populated213→214 upgrade compared User/Bank/Gateway/Invoice/immutable
+  quote/notice rows unchanged and found no fabricated review. No production DB used.
+- Extended `pay-bale-collection.connected.cjs` passes: late admission, repeated
+  refusal, Wallet TOPUP once, under/over application AND SQL refusal, immutable
+  decisions, orphan-confirmation SQL refusal, stale CAS, source/module revocation, self confirmation, pre-quote
+  evidence, pay-only role versus invoices.manage, exact-once receipt/reviewer/auto
+  race, pool occupancy/latency/closed projections. Existing pay-shared-checkout,
+  pay-bot, pay-routing-operations and pay-bale-server regressions also passed.
+- Full TypeScript plus architecture/source/schema-parity/money-schema/money-UI/
+  security/Audit/release-manifest gates pass. Doctor six affected components:
+  0errors/3 reviewed warnings (existing Admin complexity/table resemblance and case
+  rendering complexity). No full build/whole-site suite or live-bank test claimed.
+- Real local TLS Playwright:11 responsive/axe captures at1440 light/dark and390;
+  zero page errors/overflow/axe findings on final captures. Actual assignment of
+  underpayment hides financial approval; dismiss, exact late confirmation and
+  receipt approval persist. Scoped permission/foreign-Origin calls refuse. Extra
+  browser check covers both SMS/Bale observations, failed refresh hiding stale data,
+  retry recovery, empty/closed cases, no repeat financial action, keyboard and axe0.
+  Screenshot review corrected stacked selection rows/contrast and meter meaning
+  (remaining capacity, not a green full-occupied meter). Existing theme hash remains
+  be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+- `operations-smoke.hurl`9 requests pass: guest/section denial, safe/no-store reads,
+  persisted confirmed state, cookie-only/foreign Origin denial and stale decision409.
+  Scoped existing one-rule Semgrep0 findings and redacted changed-file Gitleaks0;
+  no comprehensive security certification or new dependencies.
+- Validation fixture corrections: Wallet status is DONE, source IDs must be native
+  numeric/hash shapes, and an exhausted-pool fixture needs a one-slot policy. Initial
+  browser selector used the wrong Persian thousands separator; corrected. Contrast
+  failure on selected receipt text was fixed in scoped styles and rechecked.
+
+### Remaining limits, continuation and rollback
+
+Live personal-account Bale session/peer binding, SMS Forwarder payload/latency,
+actual bank deposits/recovery and production rollout remain UNVERIFIED. Observed
+traffic/readiness is not a transport heartbeat. This slice does not add partial
+settlement, refund transfer or a real USDT collection rail. Operator activation
+and live acceptance remain the next work after owner merge/deploy.
+
+Rollback: turn off automatic source/gateway/module, preserve evidence, reviews and
+amount tombstones; do not down-migrate or reuse old amounts. Local private runtime
+and fixture cleanup is recorded below at completion; redacted logs/synthetic
+captures remain ignored under `var/pay-bale-20261124`. Root/autonomous work preserved.
+
+Completion cleanup ran: verified private preview/tunnel stopped; exact test and
+upgrade DBs/NOSUPERUSER role removed; private session/TLS/Hurl files and source
+archive removed; builder stopped. Shared app readiness and auth/session returned200.
+
 ## Pull request handoff — 2026-11-24
 
 Owner requested publication through the current slice. [PR486](https://github.com/WebNetData/MoboComCMS/pull/486)
