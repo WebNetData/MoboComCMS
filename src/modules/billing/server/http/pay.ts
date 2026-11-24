@@ -83,7 +83,8 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
   try {
     const parts = (await context.params).resource,
       resource = parts[0],
-      machine = req.nextUrl.pathname.startsWith('/api/v1/')
+      legacyMachine = req.nextUrl.pathname.startsWith('/api/v1/'),
+      machine = legacyMachine || req.nextUrl.pathname.startsWith('/api/v2/')
     const actor = await payActor(req, machine)
     if ((await loadMaintenance())['mobocom-pay']?.enabled && !(await requirePerm(req, 'mobocom-pay.manage')))
       throw new PayError('این بخش در حال به‌روزرسانی است', 503)
@@ -95,7 +96,10 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       if (!machine && resource === 'bot-integrations') return apiOk({ items: await botIntegrations(actor), gateways: await payGatewayOptions() })
       if (!machine && resource === 'bot-operations') return apiOk(req.nextUrl.searchParams.get('id') ? await botOperationDetail(actor, req.nextUrl.searchParams.get('id')!) : await botOperations(actor, Object.fromEntries(req.nextUrl.searchParams)))
       if (!machine && resource === 'bot-deliveries') return apiOk({ items: await botDeliveries(actor) })
-      if (resource === 'overview') return apiOk(await payOverview(actor))
+      if (resource === 'overview') {
+        const overview = await payOverview(actor)
+        return apiOk(legacyMachine ? { ...overview, rails: overview.rails.filter(r => ['IRR_BANK','TRX_TRON','USDT_TRON'].includes(r.id)) } : overview)
+      }
       if (resource === 'terminals') return apiOk({ items: (await payOverview(actor)).terminals })
       if (resource === 'payments' || resource === 'settlements') {
         const page = await payList(actor, resource, req.nextUrl.searchParams)
@@ -115,7 +119,10 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
           paymentView(await createPayPayment(actor, input, req.headers.get('idempotency-key') || '')),
           201,
         )
-      if (resource === 'quotes') return apiOk(await createPayQuote(actor, input), 201)
+      if (resource === 'quotes') {
+        if (legacyMachine && (!['IRR_BANK','TRX_TRON','USDT_TRON'].includes(String(input.railId)) || input.sourceCurrency !== undefined && input.sourceCurrency !== 'IRR')) throw new PayError('برای شبکه‌ها یا موجودی تتر از نسخهٔ ۲ API استفاده کنید', 422, 'PAY_API_V2_REQUIRED')
+        return apiOk(await createPayQuote(actor, input), 201)
+      }
       if (resource === 'settlements')
         return apiOk(
           settlementView(await requestPaySettlement(actor, input, req.headers.get('idempotency-key') || '')),

@@ -1,4 +1,6 @@
 "use client";
+import { useState } from "react";
+import Link from "@/components/AppLink";
 import { newIdempotencyKey } from "@/shared/security/idempotency";
 import type {
   PayOverview,
@@ -57,6 +59,7 @@ export default function Payments({
   setPayments: (x: Page<PayPaymentView> | null) => void;
   setError: (x: string) => void;
 }) {
+  const [created, setCreated] = useState<PayPaymentView | null>(null), [shareUrl, setShareUrl] = useState(""), [copyNotice, setCopyNotice] = useState("");
   return (
     <>
       <form
@@ -83,11 +86,12 @@ export default function Payments({
             setAmount("");
             setPayments(null);
             setError("");
-            window.location.assign(p.checkoutUrl);
+            setCreated(p); setShareUrl(new URL(p.checkoutUrl, window.location.origin).href); setCopyNotice("");
           });
         }}
       >
-        <h2>ساخت پرداخت</h2>
+        <h2>ساخت لینک پرداخت</h2>
+        <p className={s.muted}>برای وب‌سایت، پیج، کانال یا پیام خصوصی لینک همین سفارش را بفرستید. برای سفارش تازه، لینک تازه بسازید؛ هر لینک یک پرداخت مشخص دارد.</p>
         <div className={s.grid}>
           <Field label="پایانه">
             <select
@@ -138,6 +142,7 @@ export default function Payments({
           </button>
         </div>
       </form>
+      {created && <section className={`${s.card} ${s.stack}`} aria-label="لینک پرداخت ساخته‌شده"><h2>لینک آمادهٔ ارسال است</h2><p>سفارش <bdi>{created.externalId}</bdi> · {money(created.totalRial)}{created.creditCurrency === 'USDT' && <> · اعتبار پذیرنده <bdi dir="ltr">{created.creditAmount} USDT</bdi></>}</p><Field label="نشانی پرداخت مشتری"><input readOnly dir="ltr" value={shareUrl} onFocus={e => e.currentTarget.select()} /></Field><div className={s.actions}><button type="button" className={s.button} onClick={() => void navigator.clipboard.writeText(shareUrl).then(() => setCopyNotice('لینک پرداخت کپی شد')).catch(() => setCopyNotice('کپی خودکار انجام نشد؛ نشانی را از فیلد انتخاب کنید.'))}>کپی لینک پرداخت</button><Link href={created.checkoutUrl} className={s.secondary}>مشاهده صفحهٔ مشتری</Link></div><p role="status">{copyNotice}</p><p className={s.muted}>نشانی مخصوص مشتری است؛ کلید API یا توکن پذیرنده را همراه آن ارسال نکنید.</p></section>}
       <ListControls
         {...{ query, status, page }}
         setQuery={(x) => {

@@ -1,3 +1,69 @@
+## General channels / selected merchant USDT credit — owner2026-11-24
+
+Continue Billing Pay, canonical Identity/Wallet/FX/Settings/Audit/Operations. Owner
+wants website, bot, Instagram, channel and standalone link collection, plus selected
+merchants whose payer purchases internal USDT credit for that named merchant.
+Merchant chooses later Rial or supported-network payout, with independently
+configured percentage/flat/cap fees and BSC/BEP20 suggested in the UI.
+
+Public machine contract: `/api/v2/pay` reuses the same canonical API key and Pay
+commands. Version1 retains its original three-rail overview and quote enum; new
+BSC/Ethereum or USDT-source quote requests return `PAY_API_V2_REQUIRED` there.
+The independent custom-bot adapter keeps its existing version1 address. Generic
+consumers poll the stored payment result; no new outbound social/webhook service.
+
+- Existing machine API and per-payment hosted URL already support ordinary sites.
+  Add typed terminal channel metadata; non-web channels need no fictitious website
+  or callback. Website/bot callbacks retain registered-origin guards; non-web return
+  is only its validated channel link. Standalone links have no forced return URL.
+- Admin-only versioned merchant `credit-mode` selects IRR(default) or USDT for
+  FUTURE payments. Each payment freezes credit currency/minor units, approved FX
+  rate/time/source and rounding remainder. Existing amounts, past credit and pending
+  promises are not converted when settings change. Collection proof remains IRR.
+- Canonical USDT already has two minor-unit decimals. Preserve that meaning for
+  existing monetary rows; quote an exact0.01-USDT lot, rounding down and explicitly
+  disclosing the Rial rounding remainder. Do not add a second wallet or silently
+  reinterpret old USDT values. Network payout precision is separate from ledger
+  precision and from a token contract's on-chain decimals.
+- Before any instructions/provider start, a verified payer explicitly accepts the
+  immutable USDT quantity, rate, named merchant recipient, fees/rounding and internal
+  credit nature. Bind acceptance to its current payer proof and terms hash; server
+  and deferred DB proof enforce it. Internal credit is not an on-chain transfer.
+- Canonical verified collection credits one IRR/USDT `PAY_CREDIT` transaction with
+  matching withdrawable provenance. Calls to Wallet use major decimal strings, not
+  raw USDT cents. Overview shows separate currency accounts and a dated Rial value;
+  stale/missing FX refuses a fresh acquisition and valuation is never a balance.
+- Existing settlement quote/reservation/review handles explicit source currency and
+  source minor amount. Old rows backfill IRR/old amount. Rejection releases exactly
+  the original asset once, irrespective of later FX. Quote freezes fee policy/rates
+  and source/payout quantities. Percentage+fixed amount capped per network has an
+  explicit fee currency; original `feeRial` remains compatible. IRR history retained.
+- Add disabled-by-default USDT BSC and Ethereum routes alongside existing TRON.
+  BSC instrument is explicitly Binance-Peg BSC-USD, not a native-Tether claim.
+  EVM and TRON destination formats differ. UI requires matching network and shows
+  exact net amount/fee before reservation; Admin external-transfer record remains
+  separate from collection. No private-key storage or live-chain sending in this
+  slice. An entered transaction reference is an Admin record, not RPC verification.
+- USDT acquisition expiry cannot be silently extended by automatic bank renewal.
+  A timely held receipt retains its agreed terms through later review. After price
+  expiry the merchant issues a fresh payment/order revision; preserve old proof.
+  Offer only bank/manual collection for USDT acquisition: its original notice time,
+  bank event time or timely submitted/approved receipt must substantiate collection
+  before the locked purchase expires. Ordinary IRR online methods remain available.
+- Incremental migration widens only supported Wallet currencies, backfills old
+  quote/source fields under table locks and the owned immutable-quote trigger, and
+  enforces immutable acquisition/source facts and exact currency/amount proof links.
+  Runtime money state changes remain CAS claims; strict Audit is transactional.
+
+Acceptance: extend existing Pay native financial harness with populated upgrade,
+ordinary preexisting USDT preservation, fractional acquisition, consent/expiry/held
+receipt, duplicate/concurrent credit/reserve/reject, stale FX, terms changes, direct
+SQL invalid-credit/source proof, and Audit rollback. Public API additions are
+OpenAPI/Hurl/Spectral/oasdiff covered; same-process Admin typed. Real RTL light/dark
+1440/390 browser+axe and affected React Doctor required. No hosted workflows/deploy.
+Rollback after USDT activity disables new acquisition while retaining upgraded
+ledger and liabilities; never downgrade active reserves or revalue past credit.
+
 ## Compact bank checkout / display equivalent — owner2026-11-24
 
 The collapsed bank checkout fits the verified normal mobile viewport without

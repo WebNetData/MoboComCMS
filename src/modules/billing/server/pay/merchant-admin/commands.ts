@@ -1,3 +1,4 @@
+import { profileOriginCompatible } from '@/modules/billing/domain/pay-channels'
 import { PayError } from '@/modules/billing/domain/pay'
 import { randomBytes } from 'node:crypto'
 import { httpsUrl, integer, rial, text } from '@/modules/billing/domain/pay-policy'
@@ -9,8 +10,8 @@ import { botKeyHash } from '../bot/integrations'
 
 export function manageMerchant(actor: PayActor, input: Record<string, unknown>) {
   const id = text(input.id, 60), note = merchantAdminNote(input.note), action = input.action
-  if (!id || !Number.isSafeInteger(input.version) || Number(input.version) < 0 || typeof action !== 'string' || !['profile','status','terms','auto-access','terminal','revoke-bot'].includes(action)) throw new PayError('درخواست مدیریت معتبر نیست', 422)
-  const allowed = ['id','version','note','action', ...(action === 'profile' ? ['name','website'] : action === 'status' ? ['status'] : action === 'terms' ? ['inherit','feeBearer','feeBps','flatFeeRial','feeCapRial'] : action === 'auto-access' ? ['allowed'] : action === 'terminal' ? ['terminalId','active','baleEnabled'] : ['terminalId','botVersion'])]
+  if (!id || !Number.isSafeInteger(input.version) || Number(input.version) < 0 || typeof action !== 'string' || !['profile','status','terms','auto-access','terminal','revoke-bot','credit-mode'].includes(action)) throw new PayError('درخواست مدیریت معتبر نیست', 422)
+  const allowed = ['id','version','note','action', ...(action === 'credit-mode' ? ['creditCurrency'] : action === 'profile' ? ['name','website'] : action === 'status' ? ['status'] : action === 'terms' ? ['inherit','feeBearer','feeBps','flatFeeRial','feeCapRial'] : action === 'auto-access' ? ['allowed'] : action === 'terminal' ? ['terminalId','active','baleEnabled'] : ['terminalId','botVersion'])]
   if (Object.keys(input).some(key => !allowed.includes(key))) throw new PayError('فیلد مدیریت معتبر نیست', 422)
   return payTransaction(async tx => {
     await payContext(actor, tx, 'mobocom-pay.manage')
@@ -18,11 +19,14 @@ export function manageMerchant(actor: PayActor, input: Record<string, unknown>) 
     if (!row) throw new PayError('پذیرنده پیدا نشد', 404)
     if (row.userId === actor.id) throw new PayError('مدیریت پذیرندگی خودتان مجاز نیست', 403)
     if (row.version !== input.version) throw new PayError('اطلاعات پذیرنده تغییر کرده؛ دوباره بارگذاری کنید', 409)
-    const data: { version: { increment: number }; name?: string; website?: string; status?: string; baleAllowed?: boolean; feeBearer?: string; feeBps?: number | null; flatFeeMinor?: bigint | null; feeCapMinor?: bigint | null } = { version: { increment: 1 } }
+    const data: { version: { increment: number }; name?: string; website?: string; creditCurrency?: string; status?: string; baleAllowed?: boolean; feeBearer?: string; feeBps?: number | null; flatFeeMinor?: bigint | null; feeCapMinor?: bigint | null } = { version: { increment: 1 } }
     if (action === 'profile') {
-      data.name = text(input.name, 100); data.website = httpsUrl(input.website)
+      data.name = text(input.name, 100); data.website = input.website === '' || input.website === undefined ? '' : httpsUrl(input.website)
       if (!data.name) throw new PayError('نام کسب‌وکار لازم است', 422)
-      if (row.terminals.some(t => new URL(t.returnUrl).origin !== new URL(data.website!).origin || t.botIntegration && new URL(t.botIntegration.callbackUrl).origin !== new URL(data.website!).origin)) throw new PayError('دامنهٔ جدید با مقصد پایانه‌ها سازگار نیست؛ دامنهٔ قرارداد موجود را حفظ کنید', 409)
+      if (!profileOriginCompatible(data.website, row.terminals)) throw new PayError('دامنهٔ جدید با مقصد پایانه‌ها سازگار نیست؛ دامنهٔ قرارداد موجود را حفظ کنید', 409)
+    } else if (action === 'credit-mode') {
+      if (!['IRR','USDT'].includes(String(input.creditCurrency))) throw new PayError('واحد اعتبار معتبر نیست', 422)
+      data.creditCurrency = String(input.creditCurrency)
     } else if (action === 'status') {
       if (input.status !== 'ACTIVE' && input.status !== 'SUSPENDED') throw new PayError('وضعیت معتبر نیست', 422)
       if (input.status === 'ACTIVE' && (!await resolveCurrentUser(row.userId, Date.now(), tx) || !await userOpensSection('mobocom-pay', row.userId))) throw new PayError('حساب پذیرنده فعال و مجاز نیست', 409)
@@ -55,7 +59,7 @@ export function manageMerchant(actor: PayActor, input: Record<string, unknown>) 
       const changed = await tx.payBotIntegration.updateMany({ where: { id: bot.id, version: bot.version, active: true }, data: { active: false, keyHash: botKeyHash(revoked), keyPrefix: revoked.slice(0, 15), version: { increment: 1 } } })
       if (changed.count !== 1) throw new PayError('اتصال هم‌زمان تغییر کرده است', 409)
     }
-    await payAudit(tx, actor, 'merchant.admin-' + action, id, { note, version: Number(input.version) + 1, ...(action === 'status' ? { before: row.status, status: data.status } : {}), ...(terminal ? { terminalId: terminal.id } : {}) })
+    await payAudit(tx, actor, 'merchant.admin-' + action, id, { note, version: Number(input.version) + 1, ...(action === 'status' ? { before: row.status, status: data.status } : {}), ...(action === 'credit-mode' ? { beforeCurrency: row.creditCurrency, creditCurrency: data.creditCurrency } : {}), ...(terminal ? { terminalId: terminal.id } : {}) })
     return { saved: true, version: Number(input.version) + 1 }
   })
 }

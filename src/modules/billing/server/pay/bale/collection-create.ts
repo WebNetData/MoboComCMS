@@ -23,7 +23,8 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
     if (user?.status !== 'ACTIVE' || await globalAuthenticationDenied(invoice.userId, now, tx)) throw new PayError('حساب پرداخت‌کننده در دسترس نیست', 403)
   }
   const pay = invoice.payCollection
-  if (invoice.kind === 'PAY_COLLECTION' && (!pay || pay.status !== 'PENDING' || (!renewal && pay.expiresAt <= now) || pay.walletTxId !== null || !pay.payerVerifiedAt ||
+  if (pay?.creditCurrency === 'USDT' && (!pay.purchaseAcceptedAt || pay.purchaseAcceptedHash !== pay.purchaseTermsHash)) throw new PayError('شرایط خرید تتر تأیید نشده است', 409)
+  if (invoice.kind === 'PAY_COLLECTION' && (!pay || pay.status !== 'PENDING' || ((!renewal || pay.creditCurrency === 'USDT') && pay.expiresAt <= now) || pay.walletTxId !== null || !pay.payerVerifiedAt ||
     !['MOBOCOM_PAY','CARD_TRANSFER'].includes(pay.gatewayAttemptProvider) || pay.gatewayAttemptRef !== `db:${gateway.id}` || !context.settings.incomingEnabled ||
     pay.merchant.status !== 'ACTIVE' || !pay.merchant.baleAllowed || !pay.terminal.baleEnabled || !pay.terminal.active)) throw new PayError('پرداخت پذیرنده برای این روش مجاز نیست', 409)
   if (await tx.paymentReceipt.count({ where: { invoiceId: invoice.id, status: 'PENDING' } })) throw new PayError('رسید در انتظار بررسی است؛ درخواست تازه صادر نمی‌شود', 409)
@@ -49,7 +50,7 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
   let collectedRial: bigint | null = null
   for (let step = 0; step < slots; step++) { const candidate = first + BigInt((offset + step) % slots) * 10n; if (!occupied.has(candidate.toString())) { collectedRial = candidate; break } }
   if (collectedRial === null) throw new PayError('ظرفیت مبالغ متمایز این حساب پر شده است؛ روش دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید', 409, 'BALE_POOL_EXHAUSTED')
-  const limit = Math.min(now.getTime() + policy.minutes * 60000, invoice.expiresAt?.getTime() || Infinity)
+  const limit = Math.min(now.getTime() + policy.minutes * 60000, invoice.expiresAt?.getTime() || Infinity, pay?.creditCurrency === 'USDT' ? pay.expiresAt.getTime() : Infinity)
   const validFrom = now, expiresAt = new Date(limit)
   if (expiresAt.getTime() - validFrom.getTime() < 1000) throw new PayError('مهلت فاکتور برای درخواست تازه کافی نیست', 409)
   const row = await tx.payBaleCollection.create({ data: {

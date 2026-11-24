@@ -33,9 +33,10 @@ export async function saveBotIntegration(actor: PayActor, input: Record<string, 
   if (input.callbackToken !== undefined && (typeof input.callbackToken !== 'string' || input.callbackToken.length > 512 || /[\r\n\u0000]/.test(input.callbackToken))) throw new PayError('کلید تأیید ربات معتبر نیست')
   return payTransaction(async tx => {
     const merchant = await merchantFor(actor, tx, true)
-    if (new URL(callbackUrl).origin !== new URL(merchant.website).origin) throw new PayError('API ربات باید روی دامنهٔ وب‌سایت ثبت‌شدهٔ پذیرنده باشد')
     const terminal = await tx.payTerminal.findFirst({ where: { id: String(input.terminalId), merchantId: merchant.id } })
     if (!terminal) throw new PayError('پایانه پیدا نشد', 404)
+    if (!merchant.website || !['WEBSITE', 'BOT'].includes(terminal.channelType)) throw new PayError('اتصال ربات به پایانهٔ وب‌سایت یا ربات و وب‌سایت ثبت‌شده نیاز دارد')
+    if (new URL(callbackUrl).origin !== new URL(merchant.website).origin) throw new PayError('API ربات باید روی دامنهٔ وب‌سایت ثبت‌شدهٔ پذیرنده باشد')
     const previous = await tx.payBotIntegration.findUnique({ where: { terminalId: terminal.id } })
     if ((previous?.version || 0) !== input.version) throw new PayError('اتصال تغییر کرده است؛ صفحه را تازه کنید', 409)
     const plain = String(input.callbackToken || '')

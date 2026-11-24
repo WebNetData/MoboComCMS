@@ -1,3 +1,4 @@
+import { acquisitionSnapshot } from './assets'
 import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import { createHash, randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
@@ -29,7 +30,7 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
       return previous
     }
     const amounts = paymentAmounts(input.amountRial, settings, merchantFeeTerms(settings, merchant))
-    if (!settings.incomingEnabled || !gateways.length)
+    if (!settings.incomingEnabled || !gateways.length || merchant.creditCurrency === 'USDT' && !gateways.some(g => ['CARD_TRANSFER','MANUAL','MOBOCOM_PAY'].includes(g.provider)))
       throw new PayError('دریافت وجه هنوز آماده نیست', 503, 'PAY_NOT_READY')
     const terminal = await tx.payTerminal.findFirst({
       where: { id: terminalId, merchantId: merchant.id, active: true },
@@ -43,10 +44,12 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     })
     if (!bank && !gateways.some(g => g.provider !== 'CARD_TRANSFER' || isAutomaticTransfer(g))) throw new PayError('حساب دریافت فعال نیست', 503)
-    const now = new Date()
+    const now = new Date(), id = randomBytes(24).toString('base64url'), expiresAt = new Date(now.getTime() + settings.paymentMinutes * 60000)
+    const credit = await acquisitionSnapshot(tx, { id, merchantId: merchant.id, name: merchant.name, currency: merchant.creditCurrency, netMinor: amounts.netMinor, totalMinor: amounts.totalMinor, expiresAt, maxAgeMinutes: settings.usdtRateMaxAgeMinutes })
     const row = await tx.payPayment.create({
       data: {
-        id: randomBytes(24).toString('base64url'),
+        id,
+        ...credit,
         merchantId: merchant.id,
         terminalId,
         bankAccountId: bank?.id ?? null,
@@ -55,7 +58,7 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
         fingerprint: hash,
         ...amounts,
         createdAt: now,
-        expiresAt: new Date(now.getTime() + settings.paymentMinutes * 60000),
+        expiresAt,
       },
     })
     await payAudit(tx, actor, 'payment.create', row.id, { terminalId, amountRial: row.amountMinor })

@@ -3,6 +3,7 @@
 .balance { background:var(--sds-color-background-brand-default); color:var(--sds-color-text-brand-on-brand); border:1px solid var(--sds-color-border-brand-default); border-radius:16px; padding:24px; display:grid; gap:20px; min-width:0; }
 .balanceHead { display:flex; justify-content:space-between; gap:12px; align-items:center; font-size:.8125rem; }
 .balanceValue { font-size:clamp(1.375rem,2.2vw,2rem); font-weight:600; line-height:1.6; overflow-wrap:anywhere; }
+.balanceNote { margin:0; font-size:.75rem; line-height:1.9; }
 .amount { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
 .amount bdi { min-width:0; overflow-wrap:anywhere; }
 .amount small { font-size:.8125rem; font-weight:400; }

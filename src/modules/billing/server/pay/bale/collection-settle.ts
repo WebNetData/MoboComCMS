@@ -18,7 +18,7 @@ export async function settleTransferCollection(tx: Prisma.TransactionClient, row
   const collected = proof.method === 'MANUAL' ? proof.actualRial : row.collectedRial
   if (collected !== row.collectedRial && collected !== row.principalRial) throw new PayError('مبلغ رسید با اصل یا جمع دقیق درخواست مطابقت ندارد', 409)
   const paid = await markInvoicePaid({ invoiceId: row.invoiceId, gatewayId: row.gatewayId, provider: invoice.gateway.provider, providerTxnId: row.id, amount: row.dueMinor.toString(), feeBps: 0,
-    raw: { source: 'auto-card-transfer', collectionId: row.id, method: proof.method } }, tx)
+    raw: { source: 'auto-card-transfer', collectionId: row.id, method: proof.method, ...(proof.method === 'MANUAL' ? { receiptId: proof.receiptId } : { noticeId: proof.noticeId }) } }, tx)
   if (!paid.ok || paid.alreadyPaid) throw new PayError('فاکتور قبلاً تسویه شده است؛ پرداخت دیگری ثبت نمی‌شود', 409)
   const principal = await tx.payment.findUniqueOrThrow({ where: { eventKey: `invoice:${invoice.id}:payment:${invoice.gateway.provider}:${row.id}` } })
   const feeAmount = collected - row.principalRial

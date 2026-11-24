@@ -103,10 +103,12 @@ export default function Settings({
  </div>
  </fieldset>
       <h3>مسیرهای تسویه</h3>
+      <Field label="حداکثر عمر نرخ USDT (دقیقه، ۱۵ تا ۱۴۴۰)"><input dir="ltr" type="number" min={15} max={1440} value={settings.usdtRateMaxAgeMinutes ?? 60} onChange={e => { const raw = e.target.value; const value = Number(raw); if (raw.trim() && Number.isInteger(value)) update({ usdtRateMaxAgeMinutes: value }) }} /></Field>
+      <p className={s.muted}>نرخ ریالی از تنظیمات فعلی تأمین می‌شود؛ نرخ ناموجود یا قدیمی مانع دریافت نرخ تسویه است.</p>
       {settings.rails.map((r, index) => (
         <fieldset key={r.id}>
           <legend>
-            {r.asset} · {r.network}
+            {r.asset} · {r.network}{r.id === "USDT_BSC" && " · Binance-Peg BSC-USD (bridged)"}
           </legend>
           <label className={s.check}>
             <input
@@ -123,7 +125,7 @@ export default function Settings({
             فعال
           </label>
           <div className={s.railFields}>
-            {(["rialPerUnit", "feeRial"] as const).map((key) => (
+            {(["rialPerUnit"] as const).map((key) => (
               <Field
                 key={key}
                 label={
@@ -143,6 +145,9 @@ export default function Settings({
                 />
               </Field>
             ))}
+            <Field label="واحد کارمزد"><select value={r.fees?.currency ?? "IRR"} onChange={e => update({ rails: settings.rails.map((x, i) => i === index ? { ...x, fees: { ...(x.fees ?? { currency: "IRR", bps: 0, flat: x.feeRial, cap: "0" }), currency: e.target.value as "IRR" | "USDT" } } : x) })}><option value="IRR">ریال</option><option value="USDT">USDT</option></select></Field>
+            <Field label="نرخ کارمزد (هر ۱۰۰ واحد برابر ۱٪)"><input type="number" dir="ltr" min={0} step={1} value={r.fees?.bps ?? 0} onChange={e => { const raw = e.target.value; const bps = Number(raw); if (raw.trim() && Number.isSafeInteger(bps) && bps >= 0) update({ rails: settings.rails.map((x, i) => i === index ? { ...x, fees: { ...(x.fees ?? { currency: "IRR", bps: 0, flat: x.feeRial, cap: "0" }), bps } } : x) }) }} /></Field>
+            {([['flat', 'کارمزد ثابت'], ['cap', 'سقف کارمزد؛ صفر بدون سقف']] as const).map(([key, label]) => <Field key={key} label={label}><input dir="ltr" inputMode="decimal" value={r.fees?.[key] ?? (key === 'flat' ? r.feeRial : '0')} onChange={e => update({ rails: settings.rails.map((x, i) => i === index ? { ...x, fees: { ...(x.fees ?? { currency: 'IRR', bps: 0, flat: x.feeRial, cap: '0' }), [key]: e.target.value } } : x) })} /></Field>)}
           </div>
         </fieldset>
       ))}

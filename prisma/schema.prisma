@@ -5903,6 +5903,7 @@ model DownloadLinkHealth {
 }
 
 model PayMerchant {
+  creditCurrency String @default("IRR")
   baleAllowed Boolean @default(false)
   id        String   @id
   userId    Int      @unique
@@ -5924,6 +5925,8 @@ model PayMerchant {
 }
 
 model PayTerminal {
+  channelType String @default("WEBSITE")
+  channelUrl String @default("")
   baleEnabled Boolean @default(false)
   botIntegration PayBotIntegration?
   id String @id
@@ -5938,6 +5941,17 @@ model PayTerminal {
 }
 
 model PayPayment {
+  creditCurrency String @default("IRR")
+  creditMinor BigInt @default(0)
+  creditRateRial String @default("1")
+  creditRateAt DateTime?
+  creditRateSource String @default("")
+  creditRoundingRial BigInt @default(0)
+  purchaseTermsHash String @default("")
+  purchaseRecipientName String @default("")
+  purchasePayerHash String @default("")
+  purchaseAcceptedHash String @default("")
+  purchaseAcceptedAt DateTime?
   botDelivery PayBotDelivery?
   id String @id
   merchantId String
@@ -6003,6 +6017,13 @@ model PayBankEvent {
 }
 
 model PaySettlementQuote {
+  sourceCurrency String @default("IRR")
+  sourceMinor BigInt @default(0)
+  sourceRateRial String @default("1")
+  rateAt DateTime?
+  feeCurrency String @default("IRR")
+  feeAmount String @default("0")
+  feePolicySnapshot String @default("")
   id String @id
   merchantId String
   railId String
@@ -6021,6 +6042,13 @@ model PaySettlementQuote {
 }
 
 model PaySettlement {
+  sourceCurrency String @default("IRR")
+  sourceMinor BigInt @default(0)
+  sourceRateRial String @default("1")
+  rateAt DateTime?
+  feeCurrency String @default("IRR")
+  feeAmount String @default("0")
+  feePolicySnapshot String @default("")
   id String @id
   merchantId String
   quoteId String @unique

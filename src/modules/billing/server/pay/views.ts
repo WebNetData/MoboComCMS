@@ -1,3 +1,6 @@
+import { minorToDecimal } from '@/shared/money'
+import { assetBalances } from './balances'
+import { creditCurrency } from './assets'
 import type { Prisma, PayMerchant, PayPayment, PaySettlement, PayTerminal } from '@prisma/client'
 import { PayError, type PayMerchantView, type PayPaymentView, type PaySettlementView } from '@/modules/billing/domain/pay'
 import { formatAtoms, merchantFeeTerms, defaults } from '@/modules/billing/domain/pay-policy'
@@ -9,6 +12,7 @@ import { publicPayment } from './payments'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
 export const terminalView = (row: PayTerminal) => ({
+  channelType: row.channelType as import('@/modules/billing/domain/pay').PayChannelType, channelUrl: row.channelUrl,
   baleEnabled: row.baleEnabled,
   id: row.id,
   name: row.name,
@@ -18,6 +22,7 @@ export const terminalView = (row: PayTerminal) => ({
 })
 export const merchantView = (row: PayMerchant, proceeds = 0n, settings = defaults()): PayMerchantView => ({
   baleAllowed: row.baleAllowed,
+  creditCurrency: creditCurrency(row.creditCurrency),
   fees: merchantFeeTerms(settings, row),
   id: row.id,
   userId: row.userId,
@@ -38,6 +43,7 @@ function paymentStatusFilter(status: 'PENDING' | 'EXPIRED' | 'UNDER_REVIEW', now
  return { status: 'PENDING', AND: [{ NOT: held }, { NOT: active }, { OR: [{ AND: [pendingCollection, { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'PENDING', expiresAt: { lte: now } } } } } }] }, { AND: [{ NOT: pendingCollection }, { expiresAt: { lte: now } }] }] }] }
 }
 export const paymentView = (row: PayPayment & { terminal?: { name: string }; invoice?: { baleCollections: CollectionAmounts[] } | null }): PayPaymentView => ({
+ creditCurrency: creditCurrency(row.creditCurrency), creditAmount: minorToDecimal(row.creditMinor, row.creditCurrency),
  gatewayAdjustmentRial: row.invoice?.baleCollections[0]?.adjustmentRial.toString() || '0',
  gatewayCollectedRial: row.invoice?.baleCollections[0]?.collectedRial.toString() || row.totalMinor.toString(),
  gatewayCollectionStatus: row.invoice?.baleCollections[0]?.status || '',
@@ -62,6 +68,7 @@ export const paymentView = (row: PayPayment & { terminal?: { name: string }; inv
   checkoutUrl: '/pay/' + row.id,
 })
 export const settlementView = (row: PaySettlement): PaySettlementView => ({
+  sourceCurrency: creditCurrency(row.sourceCurrency), sourceAmount: minorToDecimal(row.sourceMinor, row.sourceCurrency), feeCurrency: creditCurrency(row.feeCurrency), feeAmount: row.feeAmount,
   id: row.id,
   amountRial: row.amountMinor.toString(),
   feeRial: row.feeMinor.toString(),
@@ -107,7 +114,7 @@ export async function payOverview(actor: PayActor) {
       }),
  tx.payPayment.count({ where: { ...where, ...paymentStatusFilter('PENDING', new Date()) } }),
       tx.paySettlement.aggregate({
-        where: { ...where, status: { in: ['REQUESTED', 'APPROVED'] } },
+        where: { ...where, sourceCurrency: 'IRR', status: { in: ['REQUESTED', 'APPROVED'] } },
         _sum: { amountMinor: true },
       }),
     ])
@@ -129,7 +136,9 @@ export async function payOverview(actor: PayActor) {
       })
     }
     const proceeds = wallet?.withdrawableMinor || 0n
+    const balances = await assetBalances(tx, actor.id, merchant.id, settings.usdtRateMaxAgeMinutes)
     return {
+      assetBalances: balances,
       merchant: merchant ? merchantView(merchant, proceeds, settings) : null,
       terminals: terminals.map(terminalView),
       rails: settings.rails.map(({ id, asset, network, enabled }) => ({ id, asset, network, enabled })),

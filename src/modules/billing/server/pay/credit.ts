@@ -1,3 +1,4 @@
+import { minorToDecimal } from '@/shared/money'
 import type { PayPayment, Prisma } from '@prisma/client'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
@@ -11,6 +12,7 @@ import { queueBotDelivery } from './bot/delivery'
 export async function creditPayPayment(tx: Prisma.TransactionClient, row: PayPayment, proof: Record<string, string | number>) {
   if (row.status === 'PAID') return
   if (!(await isModuleEnabled('mobocom-pay', tx))) throw new PayError('درگاه غیرفعال است', 409)
+  if (row.creditCurrency === 'USDT' && (!row.purchaseAcceptedAt || row.purchaseAcceptedHash !== row.purchaseTermsHash || !row.purchasePayerHash || row.purchasePayerHash !== row.payerSessionHash)) throw new PayError('شرایط خرید تتر تأیید نشده است', 409)
   const merchant = await tx.payMerchant.findUniqueOrThrow({ where: { id: row.merchantId }, include: { user: true } })
   const terminal = await tx.payTerminal.findUniqueOrThrow({ where: { id: row.terminalId } })
   if (!row.payerVerifiedAt || !terminal.active || merchant.status !== 'ACTIVE' || merchant.user.status !== 'ACTIVE' || await globalAuthenticationDenied(merchant.userId, new Date(), tx))
@@ -19,7 +21,7 @@ export async function creditPayPayment(tx: Prisma.TransactionClient, row: PayPay
   if (fence.count !== 1) throw new PayError('وضعیت پذیرنده تغییر کرده است', 409)
   const claim = await tx.payPayment.updateMany({ where: { id: row.id, status: 'PENDING', walletTxId: null }, data: { status: 'PAID', paidAt: new Date() } })
   if (claim.count !== 1) throw new PayError('پرداخت قبلاً پردازش شده است', 409)
-  const credit = await moveWallet({ userId: merchant.userId, amount: row.netMinor.toString(), currency: 'IRR', type: 'PAY_CREDIT', funds: 'WITHDRAWABLE', idempotencyKey: 'pay-credit:' + row.id, description: 'درآمد تأییدشدهٔ موبوکام‌پی' }, tx)
+  const credit = await moveWallet({ userId: merchant.userId, amount: minorToDecimal(row.creditMinor, row.creditCurrency), currency: row.creditCurrency, type: 'PAY_CREDIT', funds: 'WITHDRAWABLE', idempotencyKey: 'pay-credit:' + row.id, description: 'درآمد تأییدشدهٔ موبوکام‌پی' }, tx)
   if (!credit.ok || !credit.txId) throw new PayError('ثبت درآمد انجام نشد', 409)
   const linked = await tx.payPayment.updateMany({ where: { id: row.id, status: 'PAID', walletTxId: null }, data: { walletTxId: credit.txId } })
   if (linked.count !== 1) throw new PayError('ثبت درآمد هم‌زمان تغییر کرده است', 409)
@@ -36,5 +38,15 @@ export async function creditPayInvoice(tx: Prisma.TransactionClient, invoiceId: 
     throw new PayError('اتصال مالی پرداخت معتبر نیست', 409)
   const provider = row.gatewayAttemptProvider
   if (!provider || !await tx.payment.count({ where: { invoiceId, provider, status: 'CONFIRMED', amountMinor: row.totalMinor, currency: 'IRR' } })) throw new PayError('تأیید پرداخت در دفتر مالی وجود ندارد', 409)
+  if (row.creditCurrency === 'USDT') {
+    // Only bank evidence or an explicitly reviewed in-window receipt can attest timely acquisition.
+    const journal = await tx.payment.findFirst({ where: { invoiceId, provider, status: 'CONFIRMED' }, select: { raw: true } })
+    let noticeId = ''
+    try { const raw = JSON.parse(journal?.raw || '{}'); if (raw.source === 'auto-card-transfer' && typeof raw.noticeId === 'string') noticeId = raw.noticeId } catch {}
+    const automatic = noticeId && await tx.payBaleNotice.findFirst({ where: { id: noticeId, status: 'ORIGINAL_TRANSFER', direction: 'CREDIT', sourceSentAt: { lte: row.expiresAt } } })
+    const receipt = await tx.paymentReceipt.findFirst({ where: { invoiceId, status: 'APPROVED', createdAt: { lte: row.expiresAt }, reviewedBy: { not: null } } })
+    const bank = await tx.payBankEvent.findFirst({ where: { paymentId: row.id, status: 'MATCHED', occurredAt: { lte: row.expiresAt } } })
+    if (!automatic && !receipt && !bank) throw new PayError('زمان واریز خرید تتر نیاز به مدرک بانکی یا رسید بررسی‌شده دارد', 409, 'PAY_PURCHASE_PROOF')
+  }
   await creditPayPayment(tx, row, { invoiceId })
 }

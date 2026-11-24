@@ -3,6 +3,7 @@ import { PayError } from '@/modules/billing/domain/pay'
 import type { MerchantDetail, MerchantDirectory } from '@/modules/billing/domain/pay-merchant-admin'
 import { payContext, payTransaction, type PayActor } from '../context'
 import { merchantView, terminalView } from '../views'
+import { assetBalances } from '../balances'
 
 export function merchantDirectory(actor: PayActor, params: URLSearchParams): Promise<MerchantDirectory> {
   return payTransaction(async tx => {
@@ -24,6 +25,7 @@ export function merchantAdminDetail(actor: PayActor, id: string): Promise<Mercha
       tx.paySettlement.count({ where: { merchantId: id, status: { in: ['REQUESTED','APPROVED'] } } }),
       tx.auditLog.findMany({ where: { targetType: 'mobocom-pay', targetId: id, action: { startsWith: 'mobocom-pay.merchant.' } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50 }),
     ])
-    return { merchant: { ...merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n, settings), version: row.version, email: row.user.email, userStatus: row.user.status, terminalCount: row.terminals.length }, terminals: row.terminals.map(t => ({ ...terminalView(t), bot: t.botIntegration ? { id: t.botIntegration.id, active: t.botIntegration.active, version: t.botIntegration.version, callbackUrl: t.botIntegration.callbackUrl } : null })), stats: { payments: payments._count, paidRial: (payments._sum.totalMinor || 0n).toString(), pendingSettlements }, history: history.map(h => { let note = ''; try { const m = JSON.parse(h.metadata); if (typeof m.note === 'string') note = m.note } catch {} return { id: h.id, action: h.action, note, actorId: h.actorUserId, at: h.createdAt.toISOString() } }) }
+    const balances = await assetBalances(tx, row.userId, row.id, settings.usdtRateMaxAgeMinutes)
+    return { assetBalances: balances, merchant: { ...merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n, settings), version: row.version, email: row.user.email, userStatus: row.user.status, terminalCount: row.terminals.length }, terminals: row.terminals.map(t => ({ ...terminalView(t), bot: t.botIntegration ? { id: t.botIntegration.id, active: t.botIntegration.active, version: t.botIntegration.version, callbackUrl: t.botIntegration.callbackUrl } : null })), stats: { payments: payments._count, paidRial: (payments._sum.totalMinor || 0n).toString(), pendingSettlements }, history: history.map(h => { let note = ''; try { const m = JSON.parse(h.metadata); if (typeof m.note === 'string') note = m.note } catch {} return { id: h.id, action: h.action, note, actorId: h.actorUserId, at: h.createdAt.toISOString() } }) }
   })
 }

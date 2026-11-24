@@ -39,6 +39,20 @@ Payment gateway presentation2026-11-23: account navigation remains AccountShell/
 
 ## MoboComPay ownership — 2026-11-23
 
+2026-11-24 extension: Billing `pay-channels` owns typed website/bot/Instagram/
+channel/standalone destinations; optional non-web website does not weaken web/bot
+origin guards. Billing `pay/assets` snapshots the approved canonical FX and
+explicit verified-payer purchase of internal USDT for the named merchant. Wallet
+retains its existing two-decimal USDT account and withdrawable provenance; no second
+wallet/identity/rates system. Frozen currency/amount/consent/timely collection proof
+are enforced by canonical commands and deferred DB links. Existing settlements
+reserve/release the source asset, with immutable rate and explicit fee policy.
+New BSC/Ethereum routes default off and require network acknowledgment; external
+transfer remains staff-operated. Version2 machine adapter extends the same owner;
+v1 catalog/quote enum and custom-bot adapter remain compatible. Migration215 and
+[connected evidence/limits](handoffs/MOBOCOM_PAY.md#general-channels-and-selected-merchant-usdt-credit--2026-11-24)
+supersede the earlier IRR-only scope below.
+
 [Merchant collection and settlement](handoffs/MOBOCOM_PAY.md) extends Billing with typed PayMerchant/Terminal/Payment/BankEvent/SettlementQuote/Settlement; canonical User remains the sole human identity. Wallet owns the IRR withdrawable subset and immutable provenance; Pay commands compose its account lock/conditional debit with bank proof, state claims, strict audit, canonical Payment journal and inbox. Ordinary credits cannot become withdrawable; full cancelled purchase reservations reverse only their original provenance once. No second wallet/auth/settings/jobs system. An authenticated customer hint cannot attribute a bank deposit: the signed bank adapter must attest the exact target payment. Current consumer contract is additive REST polling/verification, independent of Telegram connectivity. Module/maintenance use existing owners; actual bank integration and other networks remain unverified.
 
 Engineering execution2026-11-14: [shared agent orchestration](AGENT_ORCHESTRATION.md) layers Sol-led decisions, bounded Terra implementation and Luna exploration/checks/docs over existing MoboCom owners and skills. It is a repository-scoped tooling policy, not a second runtime service, identity, tracker or product architecture. Claude and Codex retain the same bootstrap, handoffs and workstate; role configuration does not expand operational authority.

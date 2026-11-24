@@ -5,6 +5,24 @@ const { parseRoutingRules, matchRoutingRule, parseRoutingSnapshot } = load('src/
 const rule = (changes = {}) => ({ id: 'first', name: 'First', enabled: true, minAmountToman: '', maxAmountToman: '', types: [], minPayments: 0, minMembershipDays: 0, gateways: ['db:1'], ...changes })
 const claims = (changes = {}) => ({ amountRial: '1000', type: 'purchase', ...changes })
 
+test('USDT acquisition uses historical two-decimal denomination and explicit remainder', () => {
+  const { acquisitionAmounts } = load('src/modules/billing/domain/pay-assets.ts')
+  assert.deepEqual(acquisitionAmounts(12345678n, '1000000'), { creditMinor: 1234n, creditRoundingRial: 5678n })
+  assert.throws(() => acquisitionAmounts(1n, '1000000'))
+})
+
+test('asset settlement caps exact fees, freezes conversion inputs and reconciles bank rounding', () => {
+  const { assetSettlementAmounts } = load('src/modules/billing/domain/pay-assets.ts')
+  const { defaults, normalizePaySettings } = load('src/modules/billing/domain/pay-policy.ts')
+  const d = defaults(), bank = { ...d.rails[0], fees: { currency: 'USDT', bps: 0, flat: '0.000001', cap: '0' } }
+  const q = assetSettlementAmounts(99n, 'USDT', bank, '1000001')
+  assert.equal(q.amountMinor, 990000n); assert.equal(q.feeMinor, 2n); assert.equal(q.payoutAtoms, 989998n)
+  const fromRial = assetSettlementAmounts(10000000n, 'IRR', bank, '1000001')
+  assert.equal(JSON.parse(fromRial.feePolicySnapshot).usdtRateRial, '1000001')
+  const old = normalizePaySettings({ ...d, rails: d.rails.slice(0, 3) })
+  assert.equal(old.rails.length, 5); assert.equal(old.rails.find(r => r.id === 'USDT_BSC').enabled, false)
+})
+
 test('validates rule bounds, refs, fields and uniqueness', () => {
   assert.equal(parseRoutingRules([rule({ maxAmountToman: '900000000000000', gateways: ['env:CARD_TRANSFER'] })]).length, 1)
   for (const value of [

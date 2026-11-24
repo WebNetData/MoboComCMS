@@ -7,6 +7,7 @@ import PhoneVerification from "./checkout/phone";
 import CheckoutMethods from "./checkout/methods";
 import CheckoutProgress from "./checkout/progress";
 import CheckoutResult from "./checkout/result";
+import Purchase from "./checkout/purchase";
 import s from "./Pay.module.css";
 
 export default function Checkout({ id, preferredGateway = '' }: { id: string; preferredGateway?: string }) {
@@ -31,11 +32,12 @@ export default function Checkout({ id, preferredGateway = '' }: { id: string; pr
     {error && <button className={s.secondary} type="button" onClick={refresh}>تلاش دوباره برای دریافت وضعیت</button>}
     {!data ? !error && <p role="status">در حال دریافت اطلاعات…</p> : <>
       <CheckoutProgress data={data} />
-      <section className={s.card}>
+      {!data.purchase && <section className={s.card}>
         <div className={s.sectionHead}><div><h2>{data.merchantName}</h2><p className={s.muted}>{data.terminalName} · سفارش <bdi>{data.externalId}</bdi></p></div><Badge value={data.status} /></div>
         <dl className={s.priceSummary}><div><dt>مبلغ سفارش</dt><dd>{money(data.amountRial)}</dd></div><div><dt>کارمزد پرداخت{data.feeBearer === "MERCHANT" ? " (بر عهده پذیرنده)" : ""}</dt><dd>{money(data.feeRial)}</dd></div><div className={s.priceTotal}><dt>مبلغ قابل پرداخت شما</dt><dd>{money(data.totalRial)}</dd></div></dl>
  {data.status !== 'UNDER_REVIEW' && <p className={s.muted}>مهلت پرداخت: {date(data.expiresAt)}</p>}
-      </section>
+      </section>}
+      <Purchase data={data} />
  {data.status === 'UNDER_REVIEW' ? <p className={s.notice} role="status">رسید ثبت شده و پرداخت در حال بررسی و تأیید است. دوباره واریز نکنید.</p>
  : data.status === "EXPIRED" ? <p className={s.notice}>مهلت این پرداخت پایان یافته است. لینک تازه را از فروشنده دریافت کنید.</p>
         : data.status === "PAID" && !data.verification.verified ? <p className={s.notice}>این سفارش قبلاً پرداخت شده است. برای مشاهدهٔ نتیجهٔ کامل از همان مرورگر پرداخت استفاده کنید یا با فروشنده تماس بگیرید. دوباره پرداخت نکنید.</p>

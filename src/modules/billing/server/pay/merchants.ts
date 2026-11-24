@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { PayError } from '@/modules/billing/domain/pay'
 import { httpsUrl, text, rial, integer } from '@/modules/billing/domain/pay-policy'
+import { parseChannelDestination } from '@/modules/billing/domain/pay-channels'
 import { merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
 import { merchantAdminNote } from './merchant-admin/access'
 import { resolveCurrentUser } from '@/modules/identity/server/access'
@@ -9,7 +10,7 @@ import { userOpensSection } from '@/modules/account/server/section-access'
 export async function enrollMerchant(actor: PayActor, input: Record<string, unknown>) {
   if (Object.keys(input).some(k => !['name','website','userId','email','note'].includes(k)) || (input.userId !== undefined) === (input.email !== undefined)) throw new PayError('یک شناسه یا ایمیل دقیق حساب لازم است', 422)
   const name = text(input.name, 100),
-    website = httpsUrl(input.website), note = merchantAdminNote(input.note)
+    website = input.website === undefined || input.website === '' ? '' : httpsUrl(input.website), note = merchantAdminNote(input.note)
   if (!name) throw new PayError('نام کسب‌وکار لازم است', 422)
   const userId = typeof input.userId === 'number' ? input.userId : NaN, email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : ''
   if ((!Number.isSafeInteger(userId) || userId < 1) && (!email || email.length > 254)) throw new PayError('شناسه یا ایمیل دقیق حساب موجود لازم است', 422)
@@ -26,18 +27,17 @@ export async function enrollMerchant(actor: PayActor, input: Record<string, unkn
   })
 }
 export async function createTerminal(actor: PayActor, input: Record<string, unknown>) {
-  const name = text(input.name, 100),
-    returnUrl = httpsUrl(input.returnUrl)
+  if (Object.keys(input).some(k => !['name', 'returnUrl', 'channelType', 'channelUrl', 'baleEnabled'].includes(k))) throw new PayError('تنظیم پایانه معتبر نیست')
+  const name = text(input.name, 100)
   return payTransaction(async (tx) => {
     const merchant = await merchantFor(actor, tx, true)
     if (input.baleEnabled !== undefined && typeof input.baleEnabled !== 'boolean') throw new PayError('وضعیت درگاه موبوکام معتبر نیست')
     if (input.baleEnabled === true && !merchant.baleAllowed) throw new PayError('مدیر هنوز استفاده از درگاه موبوکام را برای این پذیرنده مجاز نکرده است', 403)
-    if (new URL(returnUrl).origin !== new URL(merchant.website).origin)
-      throw new PayError('نشانی بازگشت باید متعلق به وب‌سایت ثبت‌شده باشد')
+    const destination = parseChannelDestination(input, merchant.website)
     if ((await tx.payTerminal.count({ where: { merchantId: merchant.id } })) >= 20)
       throw new PayError('حداکثر ۲۰ پایانه قابل ثبت است')
     const row = await tx.payTerminal.create({
-      data: { id: randomUUID(), merchantId: merchant.id, name, returnUrl, baleEnabled: input.baleEnabled === true },
+      data: { id: randomUUID(), merchantId: merchant.id, name, ...destination, baleEnabled: input.baleEnabled === true },
     })
     await payAudit(tx, actor, 'terminal.create', row.id)
     return row

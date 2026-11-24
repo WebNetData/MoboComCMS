@@ -1,3 +1,4 @@
+import { acceptPurchase } from './assets'
 import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import { randomBytes } from 'node:crypto'
 import type { NextRequest } from 'next/server'
@@ -19,12 +20,12 @@ export type PayGatewayOption = { ref: string; id: number | null; name: string; p
 export type PayGatewayStart = { invoiceId: number; gatewayRef: string; provider: string; manual: boolean; paymentUrl: string; status: 'READY' | 'STARTING' | 'UNKNOWN' | 'FAILED' }
 
 /** Active canonical gateways; incompatible precision is never silently rounded. */
-export async function payGatewayOptions(row?: { totalMinor: bigint; id?: string }, reader: Prisma.TransactionClient | typeof db = db): Promise<PayGatewayOption[]> {
+export async function payGatewayOptions(row?: { totalMinor: bigint; id?: string; creditCurrency?: string }, reader: Prisma.TransactionClient | typeof db = db): Promise<PayGatewayOption[]> {
   const gateways = await listCheckoutGateways('IRR', reader === db ? undefined : reader as Prisma.TransactionClient)
   const delivery = row?.id ? await reader.payBotDelivery.findUnique({ where: { paymentId: row.id }, select: { routingSnapshot: true } }) : null
   const snapshot = delivery ? parseRoutingSnapshot(delivery.routingSnapshot) : null
   const grant = row?.id && gateways.some(gw => isAutomaticTransfer(gw)) ? await reader.payPayment.findUnique({ where: { id: row.id }, select: { merchant: { select: { baleAllowed: true } }, terminal: { select: { baleEnabled: true } } } }) : null
-  return gateways.filter(gw => !isAutomaticTransfer(gw) || !row?.id || Boolean(grant?.merchant.baleAllowed && grant.terminal.baleEnabled)).filter(gw => !snapshot || snapshot.gateways.some(method => method.ref === checkoutGatewayRef(gw))).filter((gw) => gw.provider !== 'FRENZYEX' || !row || row.totalMinor % 10n === 0n).map((gw, index) => ({
+  return gateways.filter(gw => row?.creditCurrency !== 'USDT' || ['CARD_TRANSFER','MANUAL','MOBOCOM_PAY'].includes(gw.provider)).filter(gw => !isAutomaticTransfer(gw) || !row?.id || Boolean(grant?.merchant.baleAllowed && grant.terminal.baleEnabled)).filter(gw => !snapshot || snapshot.gateways.some(method => method.ref === checkoutGatewayRef(gw))).filter((gw) => gw.provider !== 'FRENZYEX' || !row || row.totalMinor % 10n === 0n).map((gw, index) => ({
     ref: checkoutGatewayRef(gw), id: gw.id, name: customerGatewayLabel(gw), provider: gw.provider,
     manual: !isAutomaticTransfer(gw) && (gw.provider === 'CARD_TRANSFER' || gw.provider === 'MANUAL'), isDefault: index === 0,
   }))
@@ -60,6 +61,7 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
     if (!(await isModuleEnabled('mobocom-pay', tx))) throw new PayError('درگاه غیرفعال است', 404)
     const row = await publicPayment(tx, id)
     const payer = await requirePayPayer(req, id, tx)
+    await acceptPurchase(tx, row, input)
     if (!(await payGatewayOptions(row, tx)).some(method => method.ref === selected)) throw new PayError('این روش برای این سفارش مجاز یا آماده نیست', 409)
     const settings = await paySettings.read(tx)
     if (row.status !== 'PENDING' || row.expiresAt <= new Date()) throw new PayError('مهلت یا وضعیت پرداخت تغییر کرده است', 409)

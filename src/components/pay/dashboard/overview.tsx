@@ -15,6 +15,7 @@ function Amount({ value }: { value: string }) {
 }
 
 export default function Overview({ data, reports = false }: { data: PayOverview; reports?: boolean }) {
+  const usdt = data.assetBalances?.find(x => x.currency === "USDT");
   const trend = data.stats.trend;
   const max = trend.reduce((m, x) => {
     try { return BigInt(x.grossRial) > m ? BigInt(x.grossRial) : m; }
@@ -25,7 +26,7 @@ export default function Overview({ data, reports = false }: { data: PayOverview;
     <section className={o.summary} aria-label="خلاصه مالی">
       <div className={o.balance}>
         <div className={o.balanceHead}><span>موجودی قابل تسویه</span><Icon name="wallet" size={20} /></div>
-        <strong className={o.balanceValue}><Amount value={data.stats.availableRial} /></strong>
+        {data.merchant?.creditCurrency === "USDT" ? <><strong className={o.balanceValue}><bdi dir="ltr">{usdt?.availableAmount ?? "—"} USDT</bdi></strong><p className={o.balanceNote}>معادل نمایشی: {usdt?.equivalentRial != null ? money(usdt.equivalentRial) : "نرخ در دسترس نیست"}{usdt?.rateAt && <> · نرخ {new Date(usdt.rateAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</>}{usdt?.rateStatus === "STALE" && " · نرخ قدیمی"}</p><p className={o.balanceNote}>موجودی ریالی جداگانه: {money(data.stats.availableRial)}</p></> : <><strong className={o.balanceValue}><Amount value={data.stats.availableRial} /></strong>{usdt && <p className={o.balanceNote}>موجودی تتری جداگانه: <bdi dir="ltr">{usdt.availableAmount} USDT</bdi></p>}</>}
         <Link href="/pay/merchant/settlements" className={o.balanceLink}>مدیریت تسویه‌ها<Icon name="arrow" size={18} /></Link>
       </div>
       <dl className={o.ledger}>

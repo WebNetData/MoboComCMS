@@ -1,3 +1,109 @@
+## General channels and selected merchant USDT credit — 2026-11-24
+
+Owner authorizes website/Instagram/channel/standalone collection beyond bots and
+selected merchants receiving purchased internal USDT, with later Rial or crypto
+settlement and independently configurable network fees. Continues local56a0b7a6
+in `.mobocom/pay-bale-verification`, `feat/pay-private-merchants-2026-11-24`,
+base mainb93879bc. This slice is local; no push/PR/deploy or hosted workflow.
+
+Implemented owners and contracts:
+
+- Billing `domain/pay-channels` and existing merchant/terminal commands add six
+  channel types. Instagram/channel/standalone merchants need no artificial website;
+  website/bot return-origin guards remain. Standalone checkout has no forced return.
+  Existing generic machine API and polling serve all channels. The merchant creates
+  a per-order link, sees the amount/credit and copies it without entering checkout.
+  This is not an evergreen multi-customer page or an outbound social publishing API.
+- Admin `credit-mode` requires current version, reason, acknowledgment and existing
+  management/no-self guards; applies to future payments only. Canonical Wallet owns
+  both IRR and USDT withdrawable provenance. USDT's existing two-decimal meaning is
+  explicit; legacy ordinary USDT is preserved and never becomes withdrawable.
+- Billing `pay/assets` uses approved canonical FX only, with configurable age,
+  immutable quantity/rate/time/source/beneficiary/rounding/terms snapshots. The
+  verified payer explicitly accepts internal credit for the named merchant before
+  instructions. Rounding down to0.01 USDT and retained Rial remainder are disclosed.
+  Strict canonical credit and DB links require exact currency/amount/provenance and
+  consent; Audit rollback and concurrent/repeated proof cannot mint a second credit.
+- Acquisition expiry is not renewable. USDT uses bank/manual collection with timely
+  attested event/notice or a timely submitted approved receipt; held receipts remain
+  under review after expiry. Online methods lacking trusted payment-time evidence
+  are not offered for USDT; ordinary IRR provider checkout retains existing methods.
+- Existing quote/reserve/review/release flow carries explicit source asset and an
+  immutable fee/rate snapshot. Separate Wallet balances/reserves and dated Rial
+  valuation appear in merchant/Admin views. Stale valuation is unavailable, never
+  another spendable balance. Per-rail fee currency/percentage/flat/cap is explicit.
+  BSC (Binance-Peg BSC-USD) and Ethereum routes default off; EVM destinations need
+  explicit network acknowledgment. Quote precision6 is separate from ledger2 and
+  BSC contract18; no raw-chain decimal reinterpretation, private keys or RPC sender.
+- `/api/v2/pay/[...resource]` is a thin adapter to the same owner and key. New
+  networks/source assets use v2; v1 keeps its three-rail catalog/closed quote enum,
+  returning `PAY_API_V2_REQUIRED` for new quote types. Bot adapter remains v1.
+  OpenAPI1.7 and `assets-smoke.hurl` describe the connected contract.
+- Migration215 `20270401120000_pay_channels_assets` is listed in the release manifest
+  and both Prisma schemas. Locked incremental backfill retains prior payment/quote/
+  reservation amounts, legacy writer defaults, money-state constraints and owned
+  immutable-row triggers. New immutable credit/source fields and deferred exact
+  Wallet/collection links extend the existing financial constraints.
+- UI stays within Pay SDS tokens: selected asset balance, source/network/fee quote,
+  explicit purchase summary and acceptance, shareable order link, channel forms and
+  Admin controls. Protected public themes and compact bank-checkout CSS unchanged.
+
+Executed evidence (disposable PostgreSQL, NOSUPERUSER / runtime UID1000, no `.env`):
+
+- All215 migrations fresh; populated214-to215 upgrade preserves ordinary2.35 USDT,
+  IRR proceeds/reservation/quotes and immutability; old-writer default checks pass.
+- Registered `pay-assets.connected.cjs`: real canonical sessions/channel guards,
+  exact12.34 USDT acquisition and5678 Rial remainder, consent/SQL proof denial,
+  settings/rate change snapshot retention, strict Audit rollback, duplicate and
+  concurrent credit, BSC fee cap/network/address, competing source reservations,
+  idempotent rejection, separated balances and stale FX. Timely manual receipt
+  approved after expiry credits exactly once at the agreed quantity.
+- Extended `pay-bale-collection.connected.cjs`: USDT consent/expiry cap, SMS notice
+  and receipt hold/replay produce exactly200 minor USDT once; previous IRR cases
+  remain. Existing `pay-shared-checkout`, `pay-bot`, `pay-private-merchants` pass.
+  Twenty-seven routing/bot units pass. Three runtime-only faults (100x USDT amount,
+  removed fee cap, bypassed consent) are detected; original bytes restored.
+- Full TypeScript and eight architecture/source/schema/money/security/Audit/
+  release gates pass after the v2 adapter. Actual TLS Hurl12 requests pass, including
+  v1 catalog/rejection, v2 standalone purchase/poll, unauthenticated denial,
+  BSC/USDT quote, missing network acknowledgment denial and actual1.00 USDT reserve.
+  Spectral0 errors; flattened oasdiff0 breaking changes. Unflattened four allOf
+  optionality warnings disappear after merging the response branches.
+  JSON Schema examples also validate exact decimal input, required source-specific
+  amount and independent quote response fields; an over-escaped v2 amount pattern
+  found in final review was corrected before the final contract lint/diff pass.
+- Actual Playwright33 responsive captures at1440/390, light/dark: merchant asset
+  views, channel creation, BSC quote/reserve, Admin settings and persisted currency
+  change, public purchase/acceptance and copied real checkout link. Axe0, document
+  overflow0, final page errors0. Final Doctor15 components:0 errors/21 reviewed
+  complexity/draft/native-form/CSV warnings; no suppression. Scoped one-rule Semgrep
+  (41 source files) and redacted Gitleaks (61 named files) have no findings (not a
+  full security audit). Final focused browser check proves editing a destination
+  clears network acknowledgment and disables submission; v2 API guide is visible.
+
+Initial test issues were corrected, not waived: migration record-field branch,
+populated upgrade's concurrent-index runner, premature collection-proof lookup,
+duplicate purchase price presentation, settlement detail's accidental undefined
+payment link, browser readiness selectors and v1 enum compatibility. Source-only
+Graphify was unavailable in this checkout; source/owner/static gates were used.
+An old screenshot was detected during final review; the owned Next preview was
+restarted and all33 final captures were rerun against current copied source. The
+focused acknowledgment assertion now waits for action completion rather than
+reading the still-busy submit button immediately.
+Raw logs, Doctor reports and33 captures remain ignored under `var/pay-bale-20261124`.
+No production build, live bank/Bale/SMS/bot traffic or real on-chain payout tested.
+
+External transfer still requires staff review and an actual out-of-platform transfer
+before its reference is recorded; a reference alone is not chain verification.
+Commissioning needs approved FX, per-network configuration and live-source testing.
+Rollback before activity may revert this slice; after USDT activity disable new
+acquisition and retain the upgraded ledger, obligations and active reservations.
+Never downgrade to IRR-only runtime or revalue past USDT at a replacement rate.
+Final cleanup passed: verified private Next process group and Windows TLS tunnel
+stopped; exact disposable DB/NOSUPERUSER role, private sessions/API-key env/TLS files
+and source archive removed; task builder stopped. Existing shared app readiness
+and auth-session endpoints both200. Ignored screenshots/reports/helpers remain.
+
 ## Merchant workspace visual refinement — 2026-11-24
 
 Owner requests a more professional merchant/Admin appearance using Unslop,

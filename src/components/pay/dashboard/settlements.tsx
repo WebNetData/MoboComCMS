@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { newIdempotencyKey } from "@/shared/security/idempotency";
 import type {
   PayOverview,
@@ -59,6 +60,9 @@ export default function Settlements({
   settlements: Page<PaySettlementView> | null;
   setSettlements: (x: Page<PaySettlementView> | null) => void;
 }) {
+  const [sourceCurrency, setSourceCurrency] = useState<"IRR" | "USDT">("IRR");
+  const [ackNetwork, setAckNetwork] = useState(false);
+  const needsNetworkAck = quote?.railId === "USDT_BSC" || quote?.railId === "USDT_ETHEREUM";
   return (
     <>
       <form
@@ -70,7 +74,7 @@ export default function Settlements({
             setQuote(
               await api<PayQuoteView>(
                 "/api/pay/quotes",
-                json("POST", { amountRial: amount, railId: rail }),
+                json("POST", sourceCurrency === "IRR" ? { amountRial: amount, railId: rail, sourceCurrency } : { amount, railId: rail, sourceCurrency }),
               ),
             );
             settlementKey.current = "";
@@ -79,14 +83,16 @@ export default function Settlements({
       >
         <h2>درخواست تسویه</h2>
         <div className={s.grid}>
-          <Field label="مبلغ به ریال">
+          <Field label="کیف پول مبدأ"><select value={sourceCurrency} onChange={e => { setSourceCurrency(e.target.value as "IRR" | "USDT"); setAmount(""); setQuote(null); setAckNetwork(false); settlementKey.current = "" }}><option value="IRR">ریال</option><option value="USDT">USDT داخلی</option></select></Field>
+          <Field label={sourceCurrency === "IRR" ? "مبلغ به ریال" : "مبلغ USDT"}>
             <input
-              inputMode="numeric"
+              inputMode={sourceCurrency === "IRR" ? "numeric" : "decimal"}
               dir="ltr"
               value={amount}
               onChange={(e) => {
                 setAmount(e.target.value);
                 setQuote(null);
+                setAckNetwork(false);
                 settlementKey.current = "";
               }}
             />
@@ -97,6 +103,7 @@ export default function Settlements({
               onChange={(e) => {
                 setRail(e.target.value as PayRailId);
                 setQuote(null);
+                setAckNetwork(false);
                 settlementKey.current = "";
               }}
             >
@@ -104,7 +111,7 @@ export default function Settlements({
                 .filter((r) => r.enabled)
                 .map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.asset} · {r.network}
+                    {r.id === "USDT_BSC" ? "USDT · BSC/BEP20 · پیشنهادی" : `${r.asset} · ${r.network}`}
                   </option>
                 ))}
             </select>
@@ -115,6 +122,7 @@ export default function Settlements({
               value={destination}
               onChange={(e) => {
                 setDestination(e.target.value);
+                setAckNetwork(false);
                 settlementKey.current = "";
               }}
             />
@@ -130,8 +138,7 @@ export default function Settlements({
           </button>
         </div>
         <p className={s.muted}>
-          کارمزد نمایش‌داده‌شده در نرخ، کارمزد تسویه است. در مسیر ترون، شبکه و
-          مقصد را پیش از ثبت بررسی کنید.
+          کارمزد نمایش‌داده‌شده در نرخ، کارمزد تسویه است. برای USDT مسیر BSC/BEP20 را بررسی کنید. شبکه و مقصد را پیش از ثبت بررسی کنید؛ درخواست پس از بررسی مدیریت پرداخت می‌شود. در نبود نرخ معتبر، دریافت نرخ ممکن نیست.
         </p>
         {quote && (
           <div className={s.notice}>
@@ -139,6 +146,9 @@ export default function Settlements({
             <p>
               مبلغ: {money(quote.amountRial)} · کارمزد تسویه:{" "}
               {money(quote.feeRial)}
+              {quote.sourceAmount && <><br />برداشت از کیف پول: <bdi>{quote.sourceAmount} {quote.sourceCurrency}</bdi></>}
+              {quote.feeAmount && <><br />کارمزد در واحد اصلی: <bdi>{quote.feeAmount} {quote.feeCurrency}</bdi></>}
+              {quote.railId === "USDT_BSC" && <><br />دارایی: Binance-Peg BSC-USD (bridged)</>}
               <br />
               نرخ هر واحد {quote.asset}: {money(quote.rateRialPerUnit)}
               <br />
@@ -149,6 +159,7 @@ export default function Settlements({
               <br />
               اعتبار تا: {date(quote.expiresAt)}
             </p>
+            {needsNetworkAck && <label className={s.check}><input type="checkbox" checked={ackNetwork} onChange={e => setAckNetwork(e.target.checked)} />تأیید می‌کنم مقصد با شبکهٔ {quote.network} سازگار است.</label>}
             <button
               type="button"
               className={s.button}
@@ -156,6 +167,7 @@ export default function Settlements({
                 busy ||
                 !active ||
                 !destination ||
+                (needsNetworkAck && !ackNetwork) ||
                 Date.parse(quote.expiresAt) <= Date.now()
               }
               onClick={() =>
@@ -165,7 +177,7 @@ export default function Settlements({
                     "/api/pay/settlements",
                     json(
                       "POST",
-                      { quoteId: quote.id, destination },
+                      { quoteId: quote.id, destination, ...(needsNetworkAck ? { ackNetwork: true } : {}) },
                       settlementKey.current,
                     ),
                   );
@@ -173,6 +185,7 @@ export default function Settlements({
                   setQuote(null);
                   setAmount("");
                   setDestination("");
+                  setAckNetwork(false);
                 })
               }
             >

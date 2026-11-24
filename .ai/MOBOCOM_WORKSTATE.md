@@ -1,3 +1,17 @@
+# General channels / selected merchant USDT credit — 2026-11-24
+
+Continues local56a0b7a6 in `.mobocom/pay-bale-verification`, branch
+`feat/pay-private-merchants-2026-11-24` / mainb93879bc. Generic channel/link collection,
+Admin future-payment credit mode, immutable disclosed USDT purchase, canonical
+multi-asset proceeds and fee-capped BSC/Ethereum settlement quotes extend Billing,
+Wallet and FX. Migration215 preserves prior two-decimal USDT and IRR history.
+APIv2 carries new source/network quotes; v1 catalog/enum and bot adapter retained.
+Connected fresh/populated PG, exact-once/fault/held-receipt regressions,27 units,
+types/static, Hurl12, contract compatibility and33 real browser/axe captures pass.
+Owned preview/tunnel/DB/private fixtures cleaned, builder stopped; shared app200.
+Local slice only; real bank/Bale/SMS and actual chain payout remain unverified.
+[Files, exact evidence, warnings, cleanup and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#general-channels-and-selected-merchant-usdt-credit--2026-11-24).
+
 # Merchant/Admin visual refinement — 2026-11-24
 
 Continues local1e96aa10 in `.mobocom/pay-bale-verification` on

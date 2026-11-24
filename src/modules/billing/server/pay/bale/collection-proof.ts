@@ -28,6 +28,7 @@ export async function collectionSourceActor(tx: Prisma.TransactionClient, row: P
   if (!actor) throw new PayError('منبع تأیید خودکار این درخواست معتبر نیست', 503)
   const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: row.invoiceId }, include: { gateway: true, payCollection: { include: { merchant: true, terminal: true } } } })
   const bank = await tx.bankAccount.findUnique({ where: { id: row.bankAccountId } })
+  if (invoice.payCollection?.creditCurrency === 'USDT' && notice.sourceSentAt > invoice.payCollection.expiresAt) throw new PayError('اعلان واریز پس از انقضای نرخ خرید تتر است؛ نیاز به رسیدگی و بازگشت وجه دارد', 409, 'PAY_PURCHASE_LATE')
   if (!invoice.gateway?.active || !bank?.active || bank.collectionUse !== 'MOBOCOM_PAY' || (invoice.payCollection && (!invoice.payCollection.merchant.baleAllowed || !invoice.payCollection.terminal.baleEnabled || invoice.payCollection.merchant.status !== 'ACTIVE' || !invoice.payCollection.terminal.active)))
     throw new PayError('دریافت این روش متوقف است', 503)
   if (invoice.gateway.provider === 'CARD_TRANSFER') {
