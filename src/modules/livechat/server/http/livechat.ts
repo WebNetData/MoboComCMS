@@ -126,7 +126,7 @@ export async function GET_agent(req: NextRequest) {
   if ('response' in guard) return guard.response
   const q = req.nextUrl.searchParams
   try {
-    if (q.get('id')) return ok(await agentConversation(idOf(q.get('id')), Number(q.get('since')) || 0))
+    if (q.get('id')) return ok(await agentConversation(idOf(q.get('id')), Number(q.get('since')) || 0, guard.admin))
     if (q.get('view') === 'stats') return ok(await chatStats())
     if (q.get('view') === 'settings') return sectionSettingsAnswer(await getChatSettings())
     return ok(await agentList({ status: q.get('status') || '', q: q.get('q') || '', agentId: guard.admin.id }))

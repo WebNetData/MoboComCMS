@@ -6055,6 +6055,8 @@ model PayBotIntegration {
   updatedAt DateTime @default(now()) @updatedAt
   terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
   deliveries PayBotDelivery[]
+  routingRules String @default("[]")
+  routingVersion Int @default(1)
 }
 
 /// Durable external-order delivery evidence, separate from immutable payment/Wallet state.
@@ -6082,4 +6084,6 @@ model PayBotDelivery {
   payment PayPayment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   @@index([integrationId, createdAt])
   @@index([status, updatedAt])
+  routingSnapshot String @default("")
+  @@index([integrationId, status, createdAt])
 }

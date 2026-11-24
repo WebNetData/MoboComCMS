@@ -11,6 +11,8 @@ import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { publish } from '@/platform/realtime/bus'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { minorToNumber } from '@/shared/money'
+import { allowedDepartmentSlugs } from '@/modules/support/server/department-access'
+import type { AuthedUser } from '@/modules/identity/server/access'
 import {
   CRM_TAG, ChatError, cleanContact, cleanMessage, customerSegment, operatorsOnline, timeline, wantsHuman,
   type ChatSettings, type CrmEvent,
@@ -237,7 +239,7 @@ export async function agentList(input: { status?: string; q?: string; agentId: n
   }
 }
 
-export async function agentConversation(id: number, since = 0) {
+export async function agentConversation(id: number, since = 0, actor?: AuthedUser) {
   const conversation = await db.chatConversation.findUnique({ where: { id } })
   if (!conversation) throw new ChatError('گفت‌وگو پیدا نشد', 404)
   const messages = await db.chatMessage.findMany({ where: { conversationId: id, id: { gt: since } }, orderBy: { id: 'asc' }, take: 300 })
@@ -247,7 +249,7 @@ export async function agentConversation(id: number, since = 0) {
   return {
     conversation: { id, status: conversation.status, name: conversation.name, contact: conversation.contact, userId: conversation.userId, assignedTo: conversation.assignedTo, assignedName: conversation.assignedTo ? names.get(conversation.assignedTo) || '' : '', pageUrl: conversation.pageUrl, rating: conversation.rating, createdAt: conversation.createdAt.toISOString() },
     messages: messages.map((m) => ({ ...publicMessage(m), agent: m.agentId ? names.get(m.agentId) || '' : '' })),
-    customer: conversation.userId ? await crmSnapshot(conversation.userId) : null,
+    customer: conversation.userId ? await crmSnapshot(conversation.userId, actor) : null,
   }
 }
 
@@ -307,32 +309,35 @@ export async function chatStats() {
 // ------------------------------------------------------------------ CRM
 
 /** Compact customer card for the chat console. */
-export async function crmSnapshot(userId: number) {
+export async function crmSnapshot(userId: number, actor?: AuthedUser) {
+  const allowed = actor ? await allowedDepartmentSlugs(actor) : []
   const [user, paid, lastOrder, openTickets, tags, wallets] = await Promise.all([
     db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, phone: true, createdAt: true, status: true } }),
-    db.order.aggregate({ where: { userId, status: 'PAID', currency: { in: ['IRT', 'IRR'] } }, _sum: { totalMinor: true }, _count: { _all: true } }),
+    db.order.groupBy({ by: ['currency'], where: { userId, status: 'PAID', currency: { in: ['IRT', 'IRR'] } }, _sum: { totalMinor: true }, _count: { _all: true } }),
     db.order.findFirst({ where: { userId, status: 'PAID' }, orderBy: { id: 'desc' }, select: { id: true, createdAt: true } }),
-    db.ticket.count({ where: { userId, status: { not: 'CLOSED' } } }),
+    db.ticket.count({ where: { userId, status: { not: 'CLOSED' }, ...(allowed === null ? {} : { department: { in: allowed } }) } }),
     db.crmTag.findMany({ where: { userId }, select: { tag: true } }),
     db.walletAccount.findMany({ where: { userId }, select: { currency: true, balanceMinor: true } }),
   ])
   if (!user) return null
-  const spend = Number(paid._sum.totalMinor || 0n)
+  const spend = minorToNumber(paid.reduce((sum, row) => sum + (row._sum.totalMinor || 0n) * (row.currency === 'IRT' ? 10n : 1n), 0n), 'IRR') / 10
+  const paidCount = paid.reduce((sum, row) => sum + row._count._all, 0)
   return {
-    ...user, createdAt: user.createdAt.toISOString(), orders: paid._count._all, spendToman: spend, lastOrderAt: lastOrder?.createdAt.toISOString() || null, openTickets,
+    ...user, createdAt: user.createdAt.toISOString(), orders: paidCount, spendToman: spend, lastOrderAt: lastOrder?.createdAt.toISOString() || null, openTickets,
     tags: tags.map((row) => row.tag), wallet: wallets.map((w) => ({ currency: w.currency, balance: minorToNumber(w.balanceMinor, w.currency) })),
-    ...customerSegment({ orders: paid._count._all, spendToman: spend, lastOrderAt: lastOrder?.createdAt || null, openTickets }),
+    ...customerSegment({ orders: paidCount, spendToman: spend, lastOrderAt: lastOrder?.createdAt || null, openTickets }),
   }
 }
 
 /** The full customer file: profile, value, tags, notes and one timeline of everything. */
-export async function crmProfile(userId: number, actor?: import('@/modules/identity/server/access').AuthedUser) {
-  const snapshot = await crmSnapshot(userId)
+export async function crmProfile(userId: number, actor?: AuthedUser) {
+  const snapshot = await crmSnapshot(userId, actor)
+  const allowed = actor ? await allowedDepartmentSlugs(actor) : []
   if (!snapshot) throw new ChatError('مشتری پیدا نشد', 404)
   const services = await (await import('@/modules/forms/server/customer-history')).customerServiceHistory(userId, actor)
   const [orders, tickets, chats, walletTx, returns, reviews, notes, subscriptions, addresses] = await Promise.all([
     db.order.findMany({ where: { userId }, orderBy: { id: 'desc' }, take: 60, select: { id: true, status: true, createdAt: true, totalMinor: true, currency: true, meta: true, productDelivery: { select: { status: true } }, lines: { select: { name: true, quantity: true }, take: 4 }, plan: { select: { name: true } } } }),
-    db.ticket.findMany({ where: { userId }, orderBy: { id: 'desc' }, take: 40, select: { id: true, subject: true, status: true, createdAt: true, department: true } }),
+    db.ticket.findMany({ where: { userId, ...(allowed === null ? {} : { department: { in: allowed } }) }, orderBy: { id: 'desc' }, take: 40, select: { id: true, subject: true, status: true, createdAt: true, department: true } }),
     db.chatConversation.findMany({ where: { userId }, orderBy: { id: 'desc' }, take: 30, include: { messages: { orderBy: { id: 'desc' }, take: 1 } } }),
     db.walletTx.findMany({ where: { userId }, orderBy: { id: 'desc' }, take: 40, select: { id: true, type: true, amountMinor: true, currency: true, description: true, createdAt: true, status: true } }),
     db.returnRequest.findMany({ where: { userId }, orderBy: { id: 'desc' }, take: 20, select: { id: true, number: true, kind: true, status: true, orderId: true, createdAt: true } }),
@@ -375,17 +380,25 @@ export async function crmSearch(input: { q?: string; tag?: string; segment?: str
   const users = await db.user.findMany({ where, orderBy: { id: 'desc' }, take: 60, select: { id: true, name: true, email: true, phone: true, createdAt: true } })
   const ids = users.map((user) => user.id)
   const [spend, last, tags, allTags] = await Promise.all([
-    db.order.groupBy({ by: ['userId'], where: { userId: { in: ids }, status: 'PAID', currency: { in: ['IRT', 'IRR'] } }, _sum: { totalMinor: true }, _count: { _all: true } }),
+    db.order.groupBy({ by: ['userId', 'currency'], where: { userId: { in: ids }, status: 'PAID', currency: { in: ['IRT', 'IRR'] } }, _sum: { totalMinor: true }, _count: { _all: true } }),
     db.order.groupBy({ by: ['userId'], where: { userId: { in: ids }, status: 'PAID' }, _max: { createdAt: true } }),
     db.crmTag.findMany({ where: { userId: { in: ids } }, select: { userId: true, tag: true } }),
     db.crmTag.groupBy({ by: ['tag'], _count: { _all: true }, orderBy: { _count: { tag: 'desc' } }, take: 30 }),
   ])
-  const spendBy = new Map(spend.map((row) => [row.userId, row]))
+  const spendBy = new Map<number, { rial: bigint; orders: number }>()
+  for (const row of spend) {
+    if (row.userId === null) continue
+    const current = spendBy.get(row.userId) || { rial: 0n, orders: 0 }
+    current.rial += (row._sum.totalMinor || 0n) * (row.currency === 'IRT' ? 10n : 1n)
+    current.orders += row._count._all
+    spendBy.set(row.userId, current)
+  }
   const lastBy = new Map(last.map((row) => [row.userId, row._max.createdAt]))
   const rows = users.map((user) => {
     const s = spendBy.get(user.id)
-    const seg = customerSegment({ orders: s?._count._all || 0, spendToman: Number(s?._sum.totalMinor || 0n), lastOrderAt: lastBy.get(user.id) || null, openTickets: 0 })
-    return { ...user, createdAt: user.createdAt.toISOString(), orders: s?._count._all || 0, spend: Number(s?._sum.totalMinor || 0n), lastOrderAt: lastBy.get(user.id)?.toISOString() || null, segment: seg.segment, tags: tags.filter((t) => t.userId === user.id).map((t) => t.tag) }
+    const amount = minorToNumber(s?.rial || 0n, 'IRR') / 10
+    const seg = customerSegment({ orders: s?.orders || 0, spendToman: amount, lastOrderAt: lastBy.get(user.id) || null, openTickets: 0 })
+    return { ...user, createdAt: user.createdAt.toISOString(), orders: s?.orders || 0, spend: amount, lastOrderAt: lastBy.get(user.id)?.toISOString() || null, segment: seg.segment, tags: tags.filter((t) => t.userId === user.id).map((t) => t.tag) }
   })
   return { rows: input.segment ? rows.filter((row) => row.segment.key === input.segment) : rows, tags: allTags.map((row) => ({ tag: row.tag, count: row._count._all })) }
 }

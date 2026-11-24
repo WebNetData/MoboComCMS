@@ -1,3 +1,20 @@
+# Routing/operations and platform repairs — local2026-11-24
+
+Owner authorized items1+2. Current checkout `.mobocom/pay-routing-operations`,
+branch `feat/pay-routing-operations-2026-11-24`, fresh owner-merged PR484/main
+`bd6a218a`. CRM department projections/Toman aggregates and current playlist track+
+album audience are repaired. Billing Pay adds optional ordered rules, immutable
+single-obligation multi-link routing, separate routingVersion and full-history
+owner operations/recovery UI. Existing MoboCom Custom and canonical owners remain.
+211 empty migrations, populated210→211 preservation plus3 old Pay native suites,
+new native CRM/Music/routing checks,5 deliberate fault detections,61 scoped units,
+final types/static and36 accepted scoped browser views passed. Spectral0; Hurl10
+pass. oasdiff explicitly reports optional response maxItems1→5, not zero breaking
+diagnostics.4252 exact runtime hashes; preview/tunnel/private databases/role and
+credentials cleaned, original app readiness/session200. No build/new PR/deploy or
+live bank/SMS/bot send. Other whole-site findings and live rollout remain open.
+[Files, actual evidence, caveats and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#routing-operations-and-confirmed-platform-repairs--2026-11-24).
+
 # Pay bot PR publication — owner request2026-11-24
 
 Owner requests push/PR to `main`, retaining merge/deploy. Current branch

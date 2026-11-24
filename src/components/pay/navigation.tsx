@@ -7,6 +7,7 @@ const merchant = [
   ["payments", "پرداخت‌ها", "receipt"],
   ["settlements", "تسویه‌ها", "bank"],
   ["terminals", "پایانه‌ها", "terminal"],
+  ["operations", "عملیات ربات", "activity"],
   ["reports", "گزارش‌ها", "chart"],
   ["api", "اتصال API", "code"],
 ];

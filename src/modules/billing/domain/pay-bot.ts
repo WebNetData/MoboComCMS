@@ -1,11 +1,12 @@
 import { PayError, type PayPaymentStatus } from './pay'
+import type { PayRoutingRule } from './pay-routing'
 
 export const BOT_ACK_POLICIES = ['JSON_OK', 'JSON_SUCCESS', 'HTTP_2XX'] as const
 export type BotAckPolicy = typeof BOT_ACK_POLICIES[number]
 export type BotDeliveryStatus = 'WAITING' | 'QUEUED' | 'SENDING' | 'SENT' | 'UNKNOWN' | 'BLOCKED'
 export interface PayBotIntegrationView {
   id: string; terminalId: string; active: boolean; version: number; callbackUrl: string
-  ackPolicy: string; responseMode: string; keyPrefix: string; hasCallbackToken: boolean
+  ackPolicy: string; responseMode: string; keyPrefix: string; hasCallbackToken: boolean; routingRules: PayRoutingRule[]; routingVersion: number
 }
 export interface PayBotDeliveryView {
   id: string; paymentId: string; externalId: string; terminalName: string; status: BotDeliveryStatus

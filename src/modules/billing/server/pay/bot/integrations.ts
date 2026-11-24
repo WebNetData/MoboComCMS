@@ -5,12 +5,13 @@ import { BOT_ACK_POLICIES, botCallbackUrl, type PayBotIntegrationView } from '@/
 import { encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { merchantFor, payAudit, payTransaction, type PayActor } from '../context'
 import { db } from '@/platform/database/prisma'
+import { parseRoutingRules } from '@/modules/billing/domain/pay-routing'
 
 export const botKeyHash = (value: string) => createHash('sha256').update(value).digest('hex')
 export const integrationView = (row: PayBotIntegration): PayBotIntegrationView => ({
   id: row.id, terminalId: row.terminalId, active: row.active, version: row.version,
   callbackUrl: row.callbackUrl, ackPolicy: row.ackPolicy, responseMode: row.responseMode,
-  keyPrefix: row.keyPrefix, hasCallbackToken: !!row.callbackTokenCiphertext,
+  keyPrefix: row.keyPrefix, hasCallbackToken: !!row.callbackTokenCiphertext, routingRules: parseRoutingRules(JSON.parse(row.routingRules)), routingVersion: row.routingVersion,
 })
 
 export async function botIntegrations(actor: PayActor) {

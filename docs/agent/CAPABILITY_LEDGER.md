@@ -1,3 +1,11 @@
+Routing/operations+confirmed repairs2026-11-24: FUNCTIONAL within scoped local
+PostgreSQL/HTTP/browser evidence: CRM department/Toman projection, current playlist
+audience, optional one-payment multi-method rules and full-history Pay operations.
+Independent callback/routing versions; no second shared owner or theme change.
+OpenAPI response cardinality expansion is opt-in and explicitly recorded; live
+bank/bot/worker and unrelated whole-site gaps remain unverified/open.
+[Current implementation, evidence and limits](handoffs/MOBOCOM_PAY.md#routing-operations-and-confirmed-platform-repairs--2026-11-24).
+
 Pay bot adapter2026-11-24: FUNCTIONAL within bounded local PostgreSQL/HTTP/browser
 evidence; LIVE_PROVIDER_UNVERIFIED includes the unknown bot. Dedicated terminal key,
 exact Toman, one canonical payment, atomic existing-queue intent, conservative ACK/

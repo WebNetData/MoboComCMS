@@ -9,7 +9,7 @@ import CheckoutProgress from "./checkout/progress";
 import CheckoutResult from "./checkout/result";
 import s from "./Pay.module.css";
 
-export default function Checkout({ id }: { id: string }) {
+export default function Checkout({ id, preferredGateway = '' }: { id: string; preferredGateway?: string }) {
   const [data, setData] = useState<PayCheckout | null>(null), [error, setError] = useState(""), [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision(x => x + 1), []);
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function Checkout({ id }: { id: string }) {
         : data.status === "PAID" && !data.verification.verified ? <p className={s.notice}>این سفارش قبلاً پرداخت شده است. برای مشاهدهٔ نتیجهٔ کامل از همان مرورگر پرداخت استفاده کنید یا با فروشنده تماس بگیرید. دوباره پرداخت نکنید.</p>
         : !data.verification.verified ? <PhoneVerification id={id} onVerified={refresh} />
         : data.status === "PAID" ? <CheckoutResult data={data} refresh={refresh} />
-        : <><p className={s.notice}>شمارهٔ تأییدشده: …<bdi>{data.verification.phoneLast4}</bdi></p><CheckoutMethods data={data} refresh={refresh} /></>}
+        : <><p className={s.notice}>شمارهٔ تأییدشده: …<bdi>{data.verification.phoneLast4}</bdi></p><CheckoutMethods data={data} refresh={refresh} preferredGateway={preferredGateway} /></>}
     </>}
   </main>;
 }

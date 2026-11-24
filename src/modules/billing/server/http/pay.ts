@@ -36,7 +36,7 @@ import {
   payContext,
   bankFeedReady,
   paySettings,
-  botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery,
+  botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
 } from '@/modules/billing/server/pay'
 
 export function payHttpFailure(error: unknown) {
@@ -89,7 +89,8 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       return apiOk(await payPaymentById(actor, parts[1]))
     if (parts.length !== 1) return apiErr('پیدا نشد', 404)
     if (req.method === 'GET') {
-      if (!machine && resource === 'bot-integrations') return apiOk({ items: await botIntegrations(actor) })
+      if (!machine && resource === 'bot-integrations') return apiOk({ items: await botIntegrations(actor), gateways: await payGatewayOptions() })
+      if (!machine && resource === 'bot-operations') return apiOk(req.nextUrl.searchParams.get('id') ? await botOperationDetail(actor, req.nextUrl.searchParams.get('id')!) : await botOperations(actor, Object.fromEntries(req.nextUrl.searchParams)))
       if (!machine && resource === 'bot-deliveries') return apiOk({ items: await botDeliveries(actor) })
       if (resource === 'overview') return apiOk(await payOverview(actor))
       if (resource === 'terminals') return apiOk({ items: (await payOverview(actor)).terminals })
@@ -99,6 +100,7 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       }
     }
     const input = await readJsonObject(req, 12000)
+    if (!machine && req.method === 'POST' && resource === 'bot-routing') return apiOk(await saveBotRouting(actor, input))
     if (!machine && req.method === 'POST' && resource === 'bot-integrations') return apiOk(await saveBotIntegration(actor, input))
     if (!machine && req.method === 'POST' && resource === 'bot-deliveries') return apiOk(await recoverBotDelivery(actor, input))
     if (req.method === 'POST') {

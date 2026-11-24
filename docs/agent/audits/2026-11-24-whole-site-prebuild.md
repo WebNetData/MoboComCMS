@@ -1,3 +1,16 @@
+## Scoped repair receipt — 2026-11-24
+
+The owner authorized the three confirmed read/projection repairs plus Pay routing/
+operations in `.mobocom/pay-routing-operations` over merged PR484/main bd6a218a.
+CRM cross-department subject/status/timeline/count metadata, IRR/IRT-to-Toman
+projection, and current personal-playlist track+album audience now have native
+PostgreSQL and real session/browser proof. The historical reproductions below
+remain evidence of the original audit, not current unresolved versions of those
+three defects. [Exact files/checks/limits](../handoffs/MOBOCOM_PAY.md#routing-operations-and-confirmed-platform-repairs--2026-11-24).
+Support ownership claim races, global CRM segment pagination, the older unit/native
+fixture failures and broad release-readiness gaps remain open; no full-site build
+or production validation was performed in this continuation.
+
 # ممیزی سراسری پیش از بیلد — ۲۰۲۶/۱۱/۲۴
 
 درخواست مالک: پیش از بیلد، کل پلتفرم از نظر کمبود و کار باقی‌مانده بررسی شود؛

@@ -1,3 +1,11 @@
+Pay routing/operations2026-11-24: existing Billing Pay owns bounded ordered rules,
+immutable one-payment method snapshots and merchant-scoped history/recovery;
+canonical checkout/Wallet/Jobs/Ticket/audience owners retain authority. Rule edits
+claim independent routingVersion, callback/key changes retain delivery version
+fencing. Livechat CRM and Music playlist projections reuse canonical current
+scope/audience rather than new resolvers. Additive211, scoped PG/browser evidence,
+preserved Custom theme and rollout limits are in [the current handoff](handoffs/MOBOCOM_PAY.md#routing-operations-and-confirmed-platform-repairs--2026-11-24).
+
 Pay custom-bot adapter2026-11-24: Billing Pay owns terminal-scoped creation keys and
 one delivery identity per canonical payment. Exact Toman input composes the existing
 IRR payment owner; financial credit and durable delivery enqueue share its transaction.

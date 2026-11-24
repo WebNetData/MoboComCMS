@@ -16,6 +16,7 @@ import Payments from "./payments";
 import Settlements from "./settlements";
 import Terminals from "./terminals";
 import ApiGuide from "./api-guide";
+import BotOperations from "./bot-operations";
 import PayNavigation from "../navigation";
 import WorkspaceHeader from "../workspace-header";
 import {
@@ -27,7 +28,7 @@ import {
 } from "./tables";
 
 type Page<T> = { items: T[]; page: number; pages: number; total: number };
-const views = ["overview", "payments", "settlements", "terminals", "api", "reports"];
+const views = ["overview", "payments", "settlements", "terminals", "api", "reports", "operations"];
 export default function Dashboard({ initialView = "overview" }: { initialView?: string }) {
   const tab = Math.max(0, views.indexOf(initialView));
   const [data, setData] = useState<PayOverview | null>(null),
@@ -250,6 +251,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
           )}
           {tab === 4 && <ApiGuide />}
           {tab === 5 && <Overview data={data} reports />}
+          {tab === 6 && <BotOperations terminals={data.terminals} revision={revision} />}
         </>
       )}
     </section>
