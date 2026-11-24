@@ -1,3 +1,13 @@
+## Pull request handoff — 2026-11-24
+
+Owner requested publication through the current slice. [PR486](https://github.com/WebNetData/MoboComCMS/pull/486)
+is open against `main` from `feat/pay-bale-verification-2026-11-24`. Product code
+through5a86b7e1 includes the parser, original Bale intake, automatic card transfer,
+SMS sources, receipt holds, destination controls and compact mobile/USDT display.
+The subsequent handoff commit changes documentation only. Validation and live-source
+limits remain as recorded below and in the PR. Owner merges/deploys; no merge,
+deployment or hosted workflow dispatch was performed.
+
 ## Compact mobile checkout and USDT display — 2026-11-24
 
 Owner asks for a professional exchange-style bank checkout whose normal mobile

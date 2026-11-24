@@ -1,3 +1,10 @@
+# PR486 published — 2026-11-24
+
+Owner-requested [PR486](https://github.com/WebNetData/MoboComCMS/pull/486) targets
+`main` from `feat/pay-bale-verification-2026-11-24`; product code through5a86b7e1.
+Current evidence and operational limits are in the Pay handoff/PR. Owner merges
+and deploys; no hosted workflow dispatch. The PR handoff update is documentation only.
+
 # Compact bank checkout / USDT equivalent — 2026-11-24
 
 Local continuation from2c9bea6e in `.mobocom/pay-bale-verification`: normal mobile
