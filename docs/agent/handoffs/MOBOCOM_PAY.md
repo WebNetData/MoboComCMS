@@ -1,3 +1,12 @@
+## PR487 publication — 2026-11-24
+
+Owner requested publication of the completed monitor/reconciliation slice.
+[PR487](https://github.com/WebNetData/MoboComCMS/pull/487) is open against `main`,
+head `feat/pay-monitor-reconciliation-2026-11-24`, product commit16728f9c.
+The following publication record changes documentation only. Local evidence and
+live bank/Bale/SMS limits are preserved below; no tests were rerun for this record.
+Owner merges/deploys; no merge, deployment or hosted workflow dispatch performed.
+
 ## Bank operations monitor and reconciliation desk — 2026-11-24
 
 Owner authorizes recommendations1/2 after owner-merged PR486, verified merged

@@ -1,3 +1,11 @@
+# PR487 published — 2026-11-24
+
+Owner-requested [PR487](https://github.com/WebNetData/MoboComCMS/pull/487) targets
+`main` from `feat/pay-monitor-reconciliation-2026-11-24`; product commit16728f9c.
+It adds the bank operations monitor and reconciliation desk. Executed local checks,
+live-source limits and rollback remain in the existing Pay handoff. This publication
+record is documentation only; owner merges/deploys, no hosted workflow dispatch.
+
 # Pay operations monitor / reconciliation — 2026-11-24
 
 Continued owner-merged PR486 from main8a84ad1a in `.mobocom/pay-bale-verification`,
