@@ -4,6 +4,9 @@ workspace, canonical login, Admin provisioning/lifecycle/profile/fees/source/
 terminal/bot controls with version/reason/Audit. Native6+units61, Doctor0errors,
 19 responsive/a11y views+failure recovery and7 Hurl requests. No live bank/deploy
 claim. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+Visual refinement locally verified: financial hierarchy, responsive navigation and
+Admin directory/detail; connected PG, types/static, Doctor0errors/3 warnings and38
+responsive/axe captures. [Scoped evidence/limits](handoffs/MOBOCOM_PAY.md#merchant-workspace-visual-refinement--2026-11-24).
 
 Bank operations monitor/reconciliation2026-11-24: FUNCTIONAL_LOCAL. Current
 SMS/Bale readiness and observed traffic, latency/review/pool metrics; paged exact

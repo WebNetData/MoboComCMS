@@ -120,7 +120,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
   const active = data.merchant?.status === "ACTIVE";
   return (
     <section className={s.page}>
-      <WorkspaceHeader area="merchant" view={views[tab]}>
+      <WorkspaceHeader area="merchant" view={views[tab]} identity={data.merchant?.name}>
           {data.merchant && <Badge value={data.merchant.status} />}
           <button
             type="button"

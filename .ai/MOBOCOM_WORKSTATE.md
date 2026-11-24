@@ -1,3 +1,12 @@
+# Merchant/Admin visual refinement — 2026-11-24
+
+Continues local1e96aa10 in `.mobocom/pay-bale-verification` on
+`feat/pay-private-merchants-2026-11-24`. Scoped SDS merchant shell/financial overview
+and Admin directory/detail polish; financial/access owners unchanged. Connected PG,
+types/static gates, Doctor0errors/3 reviewed warnings and38 actual responsive/axe
+captures pass. Owned runtime/private fixtures cleaned; shared app200. Local only.
+[Sources, exact evidence, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-workspace-visual-refinement--2026-11-24).
+
 # Private merchant workspace / Admin control — 2026-11-24
 
 Continues owner-merged PR487/mainb93879bc in `.mobocom/pay-bale-verification`,

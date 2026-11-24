@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import Icon from "@/components/site/Icon";
-import s from "./Pay.module.css";
+import s from "./WorkspaceHeader.module.css";
 
 const merchant: Record<string, [string, string]> = {
   overview: ["درگاه پرداخت", "وضعیت دریافت‌ها، موجودی قابل تسویه و مسیر انتقال وجه"],
@@ -23,20 +22,20 @@ const admin: Record<string, [string, string]> = {
   settings: ["تنظیمات درگاه", "مدیریت دریافت وجه، کارمزدها و مسیرهای تسویه"],
 };
 
-export default function WorkspaceHeader({ area, view, children }: {
+export default function WorkspaceHeader({ area, view, identity, children }: {
   area: "merchant" | "admin";
   view: string;
+  identity?: string;
   children?: ReactNode;
 }) {
   const sections = area === "merchant" ? merchant : admin;
   const [title, description] = sections[view] || sections.overview;
-  return <header className={`${s.head} ${s.workspaceHead}`}>
-    <div className={s.workspaceIdentity}>
-      <span className={s.workspaceMark}><Icon name="card" size={24} /></span>
+  return <header className={s.heading}>
+    <div className={s.identity}>
       <div>
-        <span className={s.eyebrow}>درگاه پرداخت <span aria-hidden="true"> / </span><bdi>MoboCom Pay</bdi></span>
+        <div className={s.context}>{area === "merchant" ? "پنل پذیرندگان" : "مدیریت مالی"}<span aria-hidden="true" /><bdi>{identity || "MoboCom Pay"}</bdi></div>
         <h1>{title}</h1>
-        <p className={s.muted}>{description}</p>
+        <p>{description}</p>
       </div>
     </div>
     <div className={s.actions}>{children}</div>

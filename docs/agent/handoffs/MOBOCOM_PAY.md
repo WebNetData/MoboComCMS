@@ -1,3 +1,68 @@
+## Merchant workspace visual refinement — 2026-11-24
+
+Owner requests a more professional merchant/Admin appearance using Unslop,
+Open Design, Figma SDS, MengTo and Taste guidance. Continues local1e96aa10 in
+`.mobocom/pay-bale-verification`, `feat/pay-private-merchants-2026-11-24`,
+base mainb93879bc. Local code/documentation commit in Git; no push/PR/deploy.
+
+Direction: a Persian financial workspace; available proceeds lead the page;
+neutral SDS surfaces with the existing accent; aligned ledger figures and clear
+units; short functional motion. Protected public themes are outside this slice.
+
+- MerchantShell now uses a quieter header, explicit active navigation, compact
+  scrollable mobile navigation, sticky desktop sidebar and readable private-area
+  note. Existing login/logout/theme/account/skip-link behavior remains. Page
+  headings show the actual business name instead of repeating the brand mark.
+- Overview uses a primary balance surface, grouped financial ledger, existing
+  payment/terminal/report shortcuts, a real-data chart with its accessible daily
+  table, useful zero-data state, settlement stages and configuration status.
+  Numbers retain exact BigInt formatting; currency is visually separate. Calendar
+  formatting explicitly uses Persian locale/Tehran timezone. No synthetic figures
+  are inserted into product UI, and configured bank feed is not claimed live.
+- Admin merchant directory/detail are parallel on desktop and sequential on mobile;
+  selection has an explicit jump link. Provisioning closes its native form after
+  success; profile/fee editing uses native progressive disclosure and retains its
+  version-keyed reset. Required reason/ack, all existing actions and Audit history
+  remain. Corrected statistic-label contrast on the new surface.
+- Owned files: `components/pay/{merchant-shell,workspace-header}` plus scoped CSS,
+  `dashboard/{index,overview,Overview.module.css}` and
+  `admin/{merchants,merchant-detail,Merchants.module.css}`. No server/API/AuthZ/
+  financial state/schema/dependency change; same Billing/Wallet owners.
+
+Actually executed: all214 existing migrations on disposable NOSUPERUSER PostgreSQL,
+`pay-private-merchants.connected.cjs` with real canonical sessions, full TypeScript,
+architecture/source/schema/money/security/Audit/manifest gates and whitespace check
+pass. React Doctor6 affected components:0 errors/3 reviewed warnings (existing
+detail complexity and two native CSV download anchors; no suppression). Actual TLS
+Playwright19 lifecycle/isolation/legacy/public-checkout captures +15 populated/
+profile/report/recovery/keyboard captures +4 final authenticated theme/motion
+captures: axe0, document overflow0, final page errors0. Viewports1440/1024/768/390/320;
+both themes at1440/390. Verified200ms single entrance and no entrance under reduced
+motion. Populated fixture used canonical bank reconciliation for3 payments/Wallet
+credits and1 reserved settlement, after its explicit synthetic OTP boundary; no
+live provider/SMS/Bale/bot traffic. Initial contrast/definition-list/link-affordance
+findings were fixed; test selectors were scoped to actual API/render readiness.
+
+Ignored before/after evidence: `var/pay-bale-20261124/private-*.png` (prior slice),
+`visual-{browser,detail-browser,final-review}.json`, `visual-final-*.png` and
+`visual-admin-selected-*.png`; raw Doctor/type/native logs alongside them. Preview,
+verified tunnel, exact DB/role, private session/TLS/config files and source archive
+removed; builder stopped. Shared app readiness/session both200 after a first6s
+warmup timeout. No production build/live rollout or whole-site certification.
+
+Guidance actually adapted: installed Unslop/UI Skills and selected Vercel render
+rules; [Open Design dashboard](https://github.com/nexu-io/open-design/blob/5fdcc3db1e31bd4fa70f673041b78e87977507c3/design-templates/dashboard/SKILL.md)
+for region hierarchy; [SDS semantic tokens](https://github.com/figma/sds/blob/05525f75192a3aa5d5690c5e41277ebd19d2efe1/src/theme.css);
+[MengTo animation systems](https://github.com/MengTo/Skills/blob/e7df6eb7124095d6c7fbc71c8909f8896d061850/agent-skills/web-design/animation-systems/SKILL.md)
+for restrained feedback; [Taste](https://github.com/Leonxlnx/taste-skill/blob/6c0b5c78f5d31776e2210305abaa210cdc0030bf/skills/taste-skill/SKILL.md)
+for equal edges, real product data and browser inspection. No upstream app,
+marketing-page template, random palette, external scripts or new UI framework was
+installed. Local MoboCom architecture and validation override generic demo rules.
+
+Rollback: revert this presentation commit, retaining1e96aa10 private-access and
+Admin lifecycle behavior; no database rollback. Next: owner review/PR publication
+when requested; live-source commissioning remains the earlier handoff's boundary.
+
 ## Private merchant workspace and Admin lifecycle — 2026-11-24
 
 Owner asks to separate/private the merchant experience and retain full Admin
