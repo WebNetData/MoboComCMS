@@ -1,3 +1,43 @@
+## Server-only Bale continuation — owner correction2026-11-24
+
+The owner explicitly rejected an Android application and named @bam_bmi as the
+bank arm in their personal account. All uncommitted phone-relay product changes
+are withdrawn and preserved only in an ignored task archive. The committed pure
+Melli parser remains. No phone dependency or device onboarding is part of rollout.
+
+Extend Billing with an original-message intake adapter for a dedicated self-hosted
+GoOmni2.4.2 account connection. This is an unofficial account-protocol connector,
+distinct from official Bale Bot API and native wallet payments. The site receives
+signed events from this service; no third-party cloud gets the personal session.
+Pin configured alias + immutable instance + logged-in account + bank peer IDs.
+Verify the peer belongs to @bam_bmi during operator setup; never trust a display
+name or learn identity from an incoming notice. Reject outgoing/unknown/forwarded/
+edited/partial/group messages and conflicting identity projections. Authenticate
+exact bytes, reject duplicate JSON keys, persist minimal immutable evidence before
+ACK, dedupe source-event/message and bank reference/time across connector restarts.
+Disabled module/API/source refuses new ingestion. No raw personal chat, balance,
+counterparty, credential or account number appears in normal Admin DTOs.
+
+This bounded source slice records ORIGINAL_TRANSFER/IGNORED/REJECTED/DUPLICATE/
+CONFLICT evidence, not a financial success. It does not invent targetPaymentId or
+call reconciliation/Wallet/invoice settlement. Existing financial attribution
+contract stays intact until the separate reservation/proof slice has adversarial
+coverage. Random amount alone is insufficient. The eventual MOBOCOM_PAY provider
+must use canonical Gateway/invoice settlement, not recursively create another
+merchant PayPayment or credit a merchant twice. Register an explicit unavailable
+provider until that collection adapter is complete; configuration never makes it
+customer-visible prematurely. Admin may save its enable/default preference, but
+public checkout intersects that preference with actual readiness.
+
+Source acceptance: signed synthetic original @bam_bmi-shaped notice, exact body
+replay/conflict, duplicate bank fact across source IDs, changed amount conflict,
+wrong peer/account/instance/session/signature, forwarded/edit/unknown direction,
+unknown templates/interest/debits, module/API/source off, immutable DB evidence,
+strict-Audit rollback, unchanged all money tables, source status access denial.
+Run disposable non-root PostgreSQL and existing Pay regression; no live bank or
+personal account verification claim from synthetic checks. A future live trial
+needs operator account login and read-only original-message identity validation.
+
 # MoboComPay — merchant card-transfer collection and reviewed settlements
 
 ## Custom bot adapter and Pay presentation — owner2026-11-24

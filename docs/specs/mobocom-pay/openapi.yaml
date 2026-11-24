@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.3.0
+  version: 1.4.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An active merchant and terminal are provisioned through the account interface before using this API.
@@ -22,6 +22,71 @@ tags:
   - { name: Hosted checkout, description: Guest phone proof and payment methods on the MoboCom domain. }
   - { name: Custom bot, description: Dedicated body-token compatibility adapter and conservative paid-order delivery. }
 paths:
+  /api/payment/mobocom-pay/bale-events:
+    post:
+      operationId: receiveBaleOriginalBankMessage
+      tags: [Bank bridge]
+      security: []
+      description: >-
+        Dedicated self-hosted GoOmni2.4.2 original-message intake, not Bot API or
+        personal-account login. X-Hub-Signature-256 authenticates exact bounded
+        raw bytes with the deployment-owned per-destination secret. Event header
+        must match event_id. Requires the preconfigured immutable connection,
+        account and original bank peer. Reject duplicate JSON keys, wrong sender,
+        forwarded, edited, outgoing, partial and unsupported messages. Minimal
+        immutable facts commit before ACK. Replays are idempotent and changed
+        bytes conflict. No financial approval or targetPaymentId is inferred.
+      parameters:
+        - { in: header, name: X-Hub-Signature-256, required: true, schema: { type: string, pattern: '^sha256=[a-f0-9]{64}$' } }
+        - { in: header, name: X-GoOmni-Event-Id, required: true, schema: { type: string, pattern: '^[a-f0-9]{64}$' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, event, device_id, provider, session_id, instance_id, peer, message_id, sender_id, direction, timestamp, payload, content]
+              properties:
+                event_id: { type: string, pattern: '^[a-f0-9]{64}$' }
+                event: { type: string, enum: [message] }
+                device_id: { type: string }
+                provider: { type: string, enum: [bale] }
+                session_id: { type: string }
+                instance_id: { type: string, pattern: '^[a-f0-9]{64}$' }
+                peer: { type: object, required: [type, id], properties: { type: { type: string, enum: [user] }, id: { type: string } } }
+                message_id: { type: string }
+                sender_id: { type: string }
+                direction: { type: string, enum: [incoming] }
+                timestamp: { type: string, format: date-time }
+                payload: { type: object, description: 'Pinned GoOmni complete text projection; id/chat_id/from/direction/timestamp must agree with the envelope. partial=false, supported=true, no forward/edit/reply provenance.' }
+                content: { type: object, description: 'Pinned GoOmni native text content, kind=text and message equal to payload.body. At most4096 characters.' }
+      responses:
+        '200':
+          description: Evidence committed or exact replay acknowledged; no money approval.
+          headers: { Cache-Control: { schema: { type: string, enum: [no-store] } } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, data]
+                properties:
+                  ok: { type: boolean, enum: [true] }
+                  data:
+                    type: object
+                    required: [received, id, duplicate, status, financialApproval]
+                    properties:
+                      received: { type: boolean, enum: [true] }
+                      id: { type: string }
+                      duplicate: { type: boolean }
+                      status: { type: string, enum: [ORIGINAL_TRANSFER, IGNORED, REJECTED, DUPLICATE, CONFLICT] }
+                      financialApproval: { type: boolean, enum: [false] }
+        '401': { description: Missing or invalid exact-body signature. }
+        '403': { description: Current module/API/source owner authority is disabled. }
+        '409': { description: Event/message identity conflicts with previously committed evidence. }
+        '413': { description: Request exceeds24000 bytes. }
+        '422': { description: 'Invalid or ambiguous JSON, identity, provenance or source timestamp.' }
+        '429': { description: Strict request limit or daily source capacity reached; retry later. }
+        '503': { description: Source/bank account unconfigured or persistence unavailable; retry later. }
   /api/v1/pay/bot/{id}:
     post:
       operationId: createCustomBotPayment

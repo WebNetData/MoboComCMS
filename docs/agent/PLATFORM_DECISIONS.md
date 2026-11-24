@@ -1,3 +1,11 @@
+2026-11-24 owner correction: no Android app/phone notification relay. The site
+server must read the owner's personal Bale account's original @bam_bmi notices.
+The method belongs in the canonical platform Gateway registry and must eventually
+be selectable for both ordinary site invoices and merchant Pay checkout. Preserve
+the current theme. A new Bot API token does not grant access to the bank chat.
+Use a server-owned account connector; credentials/OTP never enter chat or Git.
+Do not equate configured message ingestion with completed financial attribution.
+
 2026-11-24 clarification: National Bank notices originate from its Bale arm and
 arrive in the owner's PERSONAL account. Eight supplied template shapes permit a
 bounded synthetic-tested parser, not normal bot access to those chats or text-only

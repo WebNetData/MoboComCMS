@@ -5,6 +5,7 @@ import type {
 } from "@/modules/billing/domain/pay";
 import { Field } from "../shared";
 import s from "../Pay.module.css";
+import BaleStatus from './bale-status';
 export default function Settings({
   data,
   settings,
@@ -19,6 +20,7 @@ export default function Settings({
   busy: boolean;
 }) {
   return (
+    <div className={s.stack}>
     <section className={`${s.card} ${s.stack}`}>
       <h2>تنظیمات دریافت و تسویه</h2>
       <label className={s.check}>
@@ -145,5 +147,7 @@ export default function Settings({
         </button>
       </div>
     </section>
+    <BaleStatus />
+    </div>
   );
 }

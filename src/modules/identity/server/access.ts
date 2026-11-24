@@ -101,13 +101,14 @@ export async function requireAdmin(req: NextRequest, reader: Pick<typeof db, 'us
 /** Legacy admin without a roleId is the super-admin compatibility path. */
 export async function requirePerm(req: NextRequest, permission: string, reader: Pick<typeof db, 'user' | 'accessRestriction' | 'setting'> = db): Promise<AuthedUser | null> {
   const user = await requireAdmin(req, reader)
-  if (!user) return null
+  return currentAdminHasPermission(user, permission) ? user : null
+}
 
-  if (user.permissions === null || user.permissions.length === 0) {
-    return user.roleId == null ? user : null
-  }
-
-  return hasPermission(user.permissions, permission) ? user : null
+/** The canonical permission decision, also usable by an explicitly bound server connector. */
+export function currentAdminHasPermission(user: AuthedUser | null, permission: string): boolean {
+  if (!user || user.role !== 'ADMIN') return false
+  if (user.permissions === null || user.permissions.length === 0) return user.roleId == null
+  return hasPermission(user.permissions, permission)
 }
 
 /**

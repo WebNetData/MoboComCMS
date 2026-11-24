@@ -1,3 +1,9 @@
+Bale continuation2026-11-24: `billing/domain/pay-bale.ts`, Billing
+`server/pay/bale/*` behind `server/pay`, signed `/api/payment/mobocom-pay/bale-events`,
+canonical Gateway MOBOCOM_PAY (unavailable), existing Pay settings history card and
+`tools/pay-bale-server` operator guide. Phone relay withdrawn; no financial
+attribution/collection implemented. [Source, checks, remaining work](handoffs/MOBOCOM_PAY.md#server-only-bale-intake-and-dormant-shared-gateway--2026-11-24).
+
 Whole-site prebuild audit2026-11-24:433 pages,491 API handlers,74 domain owner folders and45 extensions at eafa47f7. Existing source/handoffs reconciled; current gaps belong to Support/CRM, Music playlist projection and existing data/delivery owners, not new shared systems. [Inventory/matrix/blueprint/priorities and executed evidence](audits/2026-11-24-whole-site-prebuild.md). Current Custom theme preserved; no build/deploy or product fix.
 
 Solution Pack v2 /2026-11-24: existing package aggregate coordinates SiteConfig theme/menu provision, Identity role-provision and Site starter-content owners in one reviewed transaction; canonical Editor document and shared revision/Audit owners remain. [Source, checks and continuation](handoffs/COMMERCIAL_MODULARITY.md#solution-pack-v2-composition--completed2026-11-24).

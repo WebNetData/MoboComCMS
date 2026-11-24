@@ -37,6 +37,7 @@ import {
   bankFeedReady,
   paySettings,
   botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
+  baleSourceStatus,
 } from '@/modules/billing/server/pay'
 
 export function payHttpFailure(error: unknown) {
@@ -145,6 +146,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       { resource } = await context.params
     await limited('pay-admin:' + actor.id)
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
+    if (req.method === 'GET' && resource === 'bale-status') return apiOk(await baleSourceStatus(actor, req.nextUrl.searchParams.get('page')))
     if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
     const input = await readJsonObject(req, 16000)
     if (req.method === 'PATCH' && resource === 'merchants')

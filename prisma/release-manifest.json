@@ -919,6 +919,7 @@
     "20270325120000_mobocom_pay",
     "20270326120000_pay_shared_checkout",
     "20270327120000_pay_bot_delivery",
-    "20270328120000_pay_routing_operations"
+    "20270328120000_pay_routing_operations",
+    "20270329120000_pay_bale_server"
   ]
 }

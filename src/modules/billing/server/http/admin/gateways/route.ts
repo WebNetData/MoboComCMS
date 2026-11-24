@@ -54,9 +54,10 @@ export async function POST(req: NextRequest) {
   if (!name) return err('gateway name is required')
   const requestedProvider = String(b?.provider || 'PLISIO').toUpperCase()
   const provider = PROVIDERS.some((item) => item.key === requestedProvider) ? requestedProvider : 'PLISIO'
+  if (provider === 'MOBOCOM_PAY' && [b?.apiKey, b?.secretKey, b?.accountUser].some(value => typeof value === 'string' && value.trim())) return err('اطلاعات ورود حساب بله را در فرم درگاه وارد نکنید')
   const makeDefault = b?.isDefault === true
 
-  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
+  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || provider === 'MOBOCOM_PAY' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
   const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b?.feePercent) || 0) * 100)))
   let minAmountMinor: bigint
   try { minAmountMinor = toMinor(String(b?.minAmount ?? '0'), fiat) } catch (e) { return err(e instanceof Error ? e.message : 'invalid minimum') }
@@ -100,7 +101,7 @@ export async function PATCH(req: NextRequest) {
   if (PROVIDERS.some((item) => item.key === b?.provider)) {
     data.provider = b.provider
     if (b.provider === 'FRENZYEX') data.fiat = 'TMN'
-    if (b.provider === 'CARD_TRANSFER' || b.provider === 'MELLAT' || isInstallmentGateway(b.provider)) data.fiat = 'IRR'
+    if (b.provider === 'CARD_TRANSFER' || b.provider === 'MELLAT' || b.provider === 'MOBOCOM_PAY' || isInstallmentGateway(b.provider)) data.fiat = 'IRR'
   }
   if (typeof b?.accountUser === 'string') data.accountUser = b.accountUser.trim().slice(0, 100)
   if (b?.feePercent !== undefined) {
@@ -116,6 +117,10 @@ export async function PATCH(req: NextRequest) {
 
   const current = await db.gateway.findUnique({ where: { id }, select: { fiat: true, minAmount: true, provider: true, config: true } })
   if (!current) return err('not found', 404)
+  if (String(data.provider || current.provider) === 'MOBOCOM_PAY') {
+    if ([b?.apiKey, b?.secretKey, b?.accountUser].some(value => typeof value === 'string' && value.trim())) return err('اطلاعات ورود حساب بله را در فرم درگاه وارد نکنید')
+    Object.assign(data, { apiKey: '', secretKey: '', accountUser: '', config: '{}', fiat: 'IRR' })
+  }
   if (isInstallmentGateway(String(b?.provider || current.provider))) data.config = mergeConfig(current.config, b)
   const effectiveProvider = String(b?.provider || '') === 'FRENZYEX' ? 'FRENZYEX' : undefined
   const effectiveFiat = effectiveProvider === 'FRENZYEX' ? 'TMN' : normalizeCurrency(b?.fiat ?? current.fiat)

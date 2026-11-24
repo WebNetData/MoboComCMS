@@ -1,3 +1,9 @@
+Bale2026-11-24 bounded evidence: Billing SOURCE_ONLY (synthetic original-message
+intake+immutable notices+Admin history verified); Gateway REGISTERED_UNAVAILABLE;
+live personal account/recovery/bank peer, unique-amount accounting/reservations and
+financial collection NOT VERIFIED/NOT IMPLEMENTED. No whole-domain maturity
+promotion. [Canonical handoff](handoffs/MOBOCOM_PAY.md#server-only-bale-intake-and-dormant-shared-gateway--2026-11-24).
+
 Scoped continuation2026-11-24: CRM department/Toman read projections and Music
 personal-playlist current track+album audience now have native PG and actual
 browser proof. Optional Pay routing/full-history operations are Functional locally,

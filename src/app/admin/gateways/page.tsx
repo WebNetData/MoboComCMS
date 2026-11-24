@@ -245,7 +245,7 @@ export default function AdminGatewaysPage() {
           </div>
           <div>
             <label className="label-field"><span className="label">{t.provider}</span>
-            <select className="select" value={form.provider} onChange={(e) => { const provider = e.target.value; setForm({ ...form, provider, ...(provider === 'FRENZYEX' ? { name: form.name || 'درگاه پرداخت ارزی ریالی', fiat: 'TMN', currencies: '' } : provider === 'CARD_TRANSFER' ? { name: form.name || 'کارت به کارت / انتقال بانکی', fiat: 'IRR', currencies: '' } : provider === 'MELLAT' ? { name: form.name && form.name !== 'درگاه پرداخت ارزی ریالی' ? form.name : 'پرداخت آنلاین (بانک ملت)', fiat: 'IRR', currencies: '' } : INSTALLMENT.includes(provider) ? { name: !form.name || form.name === 'درگاه پرداخت ارزی ریالی' || Object.values(INSTALLMENT_NAME).includes(form.name) ? INSTALLMENT_NAME[provider] : form.name, fiat: 'IRR', currencies: '' } : {}) }) }}>
+            <select className="select" value={form.provider} onChange={(e) => { const provider = e.target.value; setForm({ ...form, provider, ...(provider === 'FRENZYEX' ? { name: form.name || 'درگاه پرداخت ارزی ریالی', fiat: 'TMN', currencies: '' } : provider === 'MOBOCOM_PAY' ? { name: form.name === 'درگاه پرداخت ارزی ریالی' || !form.name ? 'درگاه موبوکام' : form.name, fiat: 'IRR', currencies: '', apiKey: '', secretKey: '', accountUser: '' } : provider === 'CARD_TRANSFER' ? { name: form.name || 'کارت به کارت / انتقال بانکی', fiat: 'IRR', currencies: '' } : provider === 'MELLAT' ? { name: form.name && form.name !== 'درگاه پرداخت ارزی ریالی' ? form.name : 'پرداخت آنلاین (بانک ملت)', fiat: 'IRR', currencies: '' } : INSTALLMENT.includes(provider) ? { name: !form.name || form.name === 'درگاه پرداخت ارزی ریالی' || Object.values(INSTALLMENT_NAME).includes(form.name) ? INSTALLMENT_NAME[provider] : form.name, fiat: 'IRR', currencies: '' } : {}) }) }}>
               {providers.map((p) => (
                 <option key={p.key} value={p.key}>{isFa ? p.labelFa : p.label}</option>
               ))}
@@ -253,7 +253,7 @@ export default function AdminGatewaysPage() {
           </div>
           <div>
             <label className="label-field"><span className="label">{t.fiatCurrency}</span>
-            <input className="input" dir="ltr" value={form.provider === 'FRENZYEX' ? 'TMN' : form.provider === 'MELLAT' || INSTALLMENT.includes(form.provider) ? 'IRR' : form.fiat} readOnly={form.provider === 'FRENZYEX' || form.provider === 'MELLAT' || INSTALLMENT.includes(form.provider)} onChange={(e) => setForm({ ...form, fiat: e.target.value })} /></label>
+            <input className="input" dir="ltr" value={form.provider === 'FRENZYEX' ? 'TMN' : form.provider === 'MELLAT' || form.provider === 'MOBOCOM_PAY' || INSTALLMENT.includes(form.provider) ? 'IRR' : form.fiat} readOnly={form.provider === 'FRENZYEX' || form.provider === 'MELLAT' || form.provider === 'MOBOCOM_PAY' || INSTALLMENT.includes(form.provider)} onChange={(e) => setForm({ ...form, fiat: e.target.value })} /></label>
           </div>
           {(form.provider === 'SNAPPPAY' || form.provider === 'DIGIPAY') && <>
             <div>

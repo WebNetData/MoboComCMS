@@ -35,7 +35,7 @@ export async function saveBankAccount(input: Record<string, unknown>) {
           const previous = await tx.bankAccount.findUnique({ where: { id } })
           if (!previous) throw new TransferError('حساب بانکی پیدا نشد', 404)
           if ((previous.cardNumber !== data.cardNumber || previous.sheba !== data.sheba || previous.accountNumber !== data.accountNumber) &&
-            (await tx.payPayment.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
+            (await tx.payPayment.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }) || await tx.payBaleNotice.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
           return tx.bankAccount.update({ where: { id }, data })
         }, { isolationLevel: 'Serializable' })
       } catch (error) {
@@ -44,6 +44,24 @@ export async function saveBankAccount(input: Record<string, unknown>) {
     }
   }
   return db.bankAccount.create({ data })
+}
+
+export async function retireBankAccount(id: number) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await db.$transaction(async tx => {
+        const used = (await tx.paymentReceipt.count({ where: { bankAccountId: id } })) +
+          (await tx.payPayment.count({ where: { bankAccountId: id } })) +
+          (await tx.payBankEvent.count({ where: { bankAccountId: id } })) +
+          (await tx.payBaleNotice.count({ where: { bankAccountId: id } }))
+        if (used) await tx.bankAccount.updateMany({ where: { id }, data: { active: false } })
+        else await tx.bankAccount.deleteMany({ where: { id } })
+        return { id, deactivated: used > 0 }
+      }, { isolationLevel: 'Serializable' })
+    } catch (error) {
+      if (!['P2034', 'P2003'].includes((error as { code?: string }).code || '') || attempt >= 2) throw error
+    }
+  }
 }
 
 // ------------------------------------------------------------------ receipts

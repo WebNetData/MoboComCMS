@@ -2688,6 +2688,7 @@ model BankAccount {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @default(now()) @updatedAt
   receipts      PaymentReceipt[]
+  baleNotices PayBaleNotice[]
 }
 
 /// A customer's proof of a card-to-card / bank transfer. An admin approves it
@@ -6086,4 +6087,38 @@ model PayBotDelivery {
   @@index([status, updatedAt])
   routingSnapshot String @default("")
   @@index([integrationId, status, createdAt])
+}
+
+/// Minimal original-message evidence from the server-owned Bale account connector.
+/// This is NOT a financial bank attestation or a payment confirmation.
+model PayBaleNotice {
+  id                 String   @id
+  instanceId         String
+  sourceAccountId    String
+  sourceEventId      String
+  messageId          String
+  bankPeerId         String
+  bankAccountId      Int
+  payloadHash        String
+  bankFingerprint    String?  @unique
+  duplicateOfId      String?
+  status             String
+  code               String
+  kind               String
+  direction          String
+  amountMinor        BigInt?
+  transferReference  String   @default("")
+  occurredFrom       DateTime?
+  occurredBefore     DateTime?
+  sourceSentAt       DateTime
+  receivedAt         DateTime @default(now())
+  bankAccount        BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  duplicateOf        PayBaleNotice? @relation("BaleNoticeDuplicates", fields: [duplicateOfId], references: [id], onDelete: Restrict)
+  duplicates         PayBaleNotice[] @relation("BaleNoticeDuplicates")
+
+  @@unique([instanceId, sourceEventId])
+  @@unique([instanceId, messageId])
+  @@index([instanceId, receivedAt])
+  @@index([bankAccountId])
+  @@index([receivedAt, id])
 }

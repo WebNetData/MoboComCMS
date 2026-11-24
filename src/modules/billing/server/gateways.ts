@@ -9,7 +9,7 @@ import { createInstallment, testInstallment, type InstallmentCredentials } from 
 import { resolveUsdTomanRate } from '@/modules/billing/domain/rates'
 import { currencyScale, legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
-export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL' | 'CARD_TRANSFER' | 'MELLAT' | 'SNAPPPAY' | 'DIGIPAY' | 'AZKI'
+export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL' | 'CARD_TRANSFER' | 'MELLAT' | 'SNAPPPAY' | 'DIGIPAY' | 'AZKI' | 'MOBOCOM_PAY'
 
 /** Buy-now-pay-later providers (خرید اقساطی); Rial amounts, customer mobile required. */
 export const INSTALLMENT_KEYS = ['SNAPPPAY', 'DIGIPAY', 'AZKI'] as const
@@ -27,6 +27,12 @@ export interface ProviderMeta {
 }
 
 export const PROVIDERS: ProviderMeta[] = [
+  {
+    key: 'MOBOCOM_PAY', label: 'MoboCom bank transfer', labelFa: 'درگاه موبوکام (تطبیق بانکی)',
+    needsApiKey: false, needsSecret: false, supportsHostedCheckout: true,
+    hint: 'Server-owned Bale bank notices. Preparation only: collection attribution is not enabled. Account connection is managed by the site operator; do not enter a Bale account token here.',
+    hintFa: 'اتصال سروری به اعلان‌های بانکی بله؛ در حال آماده‌سازی است و هنوز به مشتری نمایش داده نمی‌شود. اتصال حساب در اختیار مدیر سرور است. توکن حساب بله را در این فرم وارد نکنید.',
+  },
   {
     key: 'MELLAT',
     label: 'Bank Mellat (Behpardakht)',
@@ -168,6 +174,8 @@ export function installmentCredentials(gateway: { provider: string; apiKey: stri
 }
 
 export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string; config?: string }) {
+  // Source ingestion alone cannot attest an invoice. Do not advertise a working rail prematurely.
+  if (gw.provider === 'MOBOCOM_PAY') return false
   if (gw.provider === 'MANUAL') return Boolean(gw.instructions.trim())
   if (gw.provider === 'CARD_TRANSFER') return true
   if (gw.provider === 'MELLAT') return Boolean(/^\d+$/.test(gw.apiKey.trim()) && String(gw.secretKey || '').trim() && String(gw.accountUser || '').trim())
@@ -246,6 +254,7 @@ export function checkoutGatewayRef(gateway: Pick<GatewayRuntime, 'id' | 'provide
 }
 
 export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provider' | 'fiat'>) {
+  if (gateway.provider === 'MOBOCOM_PAY') return ['IRR', 'IRT', 'TMN']
   if (gateway.provider === 'FRENZYEX') return ['USD', 'TMN', 'IRT', 'IRR']
   if (gateway.provider === 'CARD_TRANSFER') return ['IRR', 'IRT', 'TMN']
   if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD']
@@ -336,6 +345,7 @@ export async function gatewayById(id: number | null | undefined) {
 
 export function gatewayAcceptsCheckoutCurrency(gateway: GatewayRuntime, currencyInput: string) {
   const currency = normalizeCurrency(currencyInput)
+  if (gateway.provider === 'MOBOCOM_PAY') return ['IRR', 'IRT', 'TMN'].includes(currency)
   if (gateway.provider === 'FRENZYEX') return currency === 'USD' || currency === 'TMN' || currency === 'IRT' || currency === 'IRR'
   if (gateway.provider === 'CARD_TRANSFER') return currency === 'IRR' || currency === 'IRT' || currency === 'TMN'
   if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD'].includes(currency)
@@ -345,6 +355,7 @@ export function gatewayAcceptsCheckoutCurrency(gateway: GatewayRuntime, currency
 
 export function gatewayCallbackUrl(gateway: GatewayRuntime, siteUrl: string) {
   const base = siteUrl.replace(/\/+$/, '')
+  if (gateway.provider === 'MOBOCOM_PAY') return `${base}/api/payment/mobocom-pay/bale-events`
   if (gateway.provider === 'FRENZYEX') return `${base}/api/payment/frenzyex/webhook`
   if (gateway.provider === 'MELLAT') return `${base}/api/payment/mellat/callback`
   if (isInstallmentGateway(gateway.provider)) return `${base}/api/payment/installment/${gateway.provider.toLowerCase()}/callback`
@@ -416,6 +427,7 @@ export async function createGatewayInvoice(
   gateway: GatewayRuntime,
   input: GatewayInvoiceInput
 ): Promise<GatewayInvoiceResult> {
+  if (gateway.provider === 'MOBOCOM_PAY') return { ok: false, message: 'تطبیق قطعی فاکتور در درگاه موبوکام هنوز فعال نیست' }
   const currency = normalizeCurrency(input.currency)
   const amountMinor = toMinor(input.amount, currency)
   if (amountMinor <= 0n) return { ok: false, message: 'amount must be greater than zero' }
@@ -540,6 +552,7 @@ export interface GatewayTestResult {
 }
 
 export async function testGateway(gateway: GatewayRuntime): Promise<GatewayTestResult> {
+  if (gateway.provider === 'MOBOCOM_PAY') return { ok: false, message: 'درگاه موبوکام هنوز برای دریافت وجه آماده نیست', detail: 'وضعیت دریافت سروری بله در تنظیمات موبوکام‌پی جداگانه نمایش داده می‌شود؛ دریافت پیام به معنی تأیید فاکتور نیست.' }
   if (gateway.provider === 'MANUAL') {
     if (!gateway.instructions.trim()) return { ok: false, message: 'no payment instructions set', detail: 'instructions are empty' }
     return { ok: true, detail: 'manual gateway ready' }

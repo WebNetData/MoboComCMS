@@ -1,3 +1,21 @@
+# Server-only Bale / source intake — 2026-11-24
+
+Owner rejected Android and identified @bam_bmi; phone experiment withdrawn into
+ignored hash-verified archive, with no phone source/models/endpoints in active diff.
+Current `.mobocom/pay-bale-verification` on main3679200b+design/parser continues
+Billing with pinned self-hosted GoOmni2.4.2 original-message intake, immutable212
+evidence and safe Admin history; current canonical Identity/strict Audit apply.
+MOBOCOM_PAY is registered but UNAVAILABLE for customers until financial attribution
+and canonical invoice collection are implemented. No automatic money approval or
+adjustment, live account/bank verification, PR/deploy or protected theme change.
+Final empty212/native + populated upgrade/regressions,19 units, types/static,
+4 fault detections,8 Hurl and13 current browser captures pass; Doctor0errors/9
+reviewed existing warnings.27 exact source hashes match; task preview/DBs/private
+fixtures cleaned and rejected APK removed; original app readiness/session200.
+Source-specific operator setup and exact remaining
+reservation/settlement/live-identity work are in the
+[handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#server-only-bale-intake-and-dormant-shared-gateway--2026-11-24).
+
 # Melli parser / personal account — 2026-11-24
 
 Owner supplied8 National Bank notice types and confirmed they arrive from its
