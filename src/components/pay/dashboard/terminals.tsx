@@ -3,6 +3,7 @@ import type { PayOverview } from "@/modules/billing/domain/pay";
 import { api, json } from "../client";
 import { Field } from "../shared";
 import s from "../Pay.module.css";
+import BotIntegration from "./bot-integration";
 export default function Terminals({
   data,
   busy,
@@ -23,7 +24,7 @@ export default function Terminals({
   setReturnUrl: (x: string) => void;
 }) {
   return (
-    <div className={s.split}>
+    <><div className={s.split}>
       <section className={s.card}>
         <h2>پایانه‌ها</h2>
         {data.terminals.length ? (
@@ -94,6 +95,6 @@ export default function Terminals({
           </button>
         </div>
       </form>
-    </div>
+    </div><BotIntegration data={data} /></>
   );
 }

@@ -107,6 +107,7 @@ export interface PayOverview {
   readiness: { incomingEnabled: boolean; bankFeedReady: boolean }
 }
 export interface PayCheckout {
+  botDelivery?: { status: string }
   id: string
   merchantName: string
   terminalName: string

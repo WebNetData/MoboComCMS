@@ -5,6 +5,7 @@ import { moveWallet } from '@/modules/wallet/server/wallet'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { PayError } from '@/modules/billing/domain/pay'
 import { payAudit } from './context'
+import { queueBotDelivery } from './bot/delivery'
 
 /** Both bank evidence and canonical gateway settlement converge on this exact-once credit. */
 export async function creditPayPayment(tx: Prisma.TransactionClient, row: PayPayment, proof: Record<string, string | number>) {
@@ -22,6 +23,7 @@ export async function creditPayPayment(tx: Prisma.TransactionClient, row: PayPay
   if (!credit.ok || !credit.txId) throw new PayError('ثبت درآمد انجام نشد', 409)
   const linked = await tx.payPayment.updateMany({ where: { id: row.id, status: 'PAID', walletTxId: null }, data: { walletTxId: credit.txId } })
   if (linked.count !== 1) throw new PayError('ثبت درآمد هم‌زمان تغییر کرده است', 409)
+  await queueBotDelivery(tx, row.id)
   await payAudit(tx, { id: merchant.userId, email: merchant.user.email }, 'payment.verified', row.id, { ...proof, amountRial: row.amountMinor, totalRial: row.totalMinor, feeRial: row.feeMinor, walletTxId: credit.txId })
   await createInboxEvent({ userId: merchant.userId, kind: 'MOBOCOM_PAY', dedupeKey: 'pay-paid:' + row.id, titleFa: 'پرداخت مشتری تأیید شد', titleEn: 'Payment verified', bodyFa: 'درآمد خالص در کیف پول ثبت شد.', href: '/dashboard/pay/payments', channels: [] }, tx)
 }

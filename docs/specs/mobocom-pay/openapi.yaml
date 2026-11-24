@@ -1,14 +1,15 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.1.0
+  version: 1.2.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An active merchant and terminal are provisioned through the account interface before using this API.
     Before fulfilling an order, retrieve its payment by ID and confirm status PAID. A customer reference
     alone is not confirmation. Hosted checkout requires a browser-bound phone OTP before payment instructions,
-    receipt upload or provider initiation. Existing compatible MoboCom gateways are reused. No outbound payment
-    callbacks or production bank adapter are provided. Fees snapshot a merchant-specific bearer and total cap.
+    receipt upload or provider initiation. Existing compatible MoboCom gateways are reused. A terminal-scoped
+    custom-bot adapter can send paid-order verification through the existing job queue. No production bank
+    adapter is provided. Fees snapshot a merchant-specific bearer and total cap.
 servers:
   - url: /
 security:
@@ -19,7 +20,50 @@ tags:
   - { name: Settlements, description: Settlement quotes and requests. }
   - { name: Bank bridge, description: Signed bank event ingestion. }
   - { name: Hosted checkout, description: Guest phone proof and payment methods on the MoboCom domain. }
+  - { name: Custom bot, description: Dedicated body-token compatibility adapter and conservative paid-order delivery. }
 paths:
+  /api/v1/pay/bot/{id}:
+    post:
+      operationId: createCustomBotPayment
+      tags: [Custom bot]
+      security: []
+      description: >-
+        Authenticate api_key using the dedicated terminal integration key, never a bot token or ordinary
+        bearer key. amount is integer Toman (ten IRR). Replaying the same integration/order/amount/user/type
+        returns the same hosted checkout; changed financial or customer identity claims conflict. Optional
+        customer history is validated but never used as bank evidence or persisted. All errors use the
+        unwrapped ok=false/message response. PAID queues POST to the registered merchant-origin HTTPS
+        /api/payment with the separate Token header and order_id/actions=custom_payment_verify body.
+        Unknown acknowledgments never automatically resend; the merchant explicitly reviews recovery.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BotPaymentCreate' }
+      responses:
+        '200':
+          description: Created or replayed hosted payment; response mode belongs to this integration.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { type: object, required: [url], additionalProperties: false, properties: { url: { type: string, format: uri } } }
+                  - type: object
+                    required: [links]
+                    additionalProperties: false
+                    properties:
+                      links:
+                        type: array
+                        minItems: 1
+                        maxItems: 1
+                        items: { type: object, required: [text, url], properties: { text: { type: string }, url: { type: string, format: uri } } }
+        default:
+          description: Invalid request, key, conflict, strict rate limit, disabled module or unavailable collection (400, 401, 403, 404, 409, 413, 422, 429, 503).
+          content:
+            application/json:
+              schema: { type: object, required: [ok, message], additionalProperties: false, properties: { ok: { type: boolean, enum: [false] }, message: { type: string } } }
   /api/pay/checkout/{id}:
     parameters: [{ name: id, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{32}$' } }]
     get:
@@ -219,6 +263,22 @@ components:
       description: Invalid request, authentication or access denied, conflict, rate limit, or unavailable service (400, 401, 403, 404, 405, 409, 413, 422, 429, 503).
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
+    BotPaymentCreate:
+      type: object
+      additionalProperties: false
+      required: [api_key, amount, order_id, user_id, type]
+      properties:
+        api_key: { type: string, writeOnly: true, pattern: '^mcpbot_[A-Za-z0-9_-]{43}$' }
+        amount: { type: integer, minimum: 1, maximum: 900000000000000, description: Exact Toman; existing configured payment limits also apply. }
+        order_id: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$' }
+        user_id: { type: integer, minimum: 1, maximum: 9007199254740991, description: Bot customer claim; never a canonical MoboCom UserId. }
+        type: { type: string, enum: [purchase, renewal, balance_increase] }
+        username: { type: string, pattern: '^[A-Za-z0-9_]{0,64}$' }
+        first_name: { type: string, maxLength: 160 }
+        payment_count: { type: integer, minimum: 0, maximum: 9007199254740991 }
+        register: { type: integer, minimum: 0, maximum: 9007199254740991 }
+        membership_days: { type: integer, minimum: -1, maximum: 9007199254740991 }
+        balance: { type: integer, minimum: 0, maximum: 9007199254740991, description: Merchant claim in Toman; not MoboCom Wallet funds. }
     CheckoutResponse:
       type: object
       required: [ok, data]
@@ -238,6 +298,7 @@ components:
             gateways: { type: array, items: { type: object, properties: { ref: { type: string }, name: { type: string }, provider: { type: string }, manual: { type: boolean } } } }
             bank: { type: object, nullable: true, description: Withheld before OTP proof or a card-transfer selection. }
             receipt: { type: object, nullable: true }
+            botDelivery: { type: object, description: Included only for a verified payer on a PAID bot payment., properties: { status: { type: string, enum: [WAITING, QUEUED, SENDING, SENT, UNKNOWN, BLOCKED] } } }
     Error:
       type: object
       required: [ok, error]

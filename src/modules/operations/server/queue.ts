@@ -18,6 +18,7 @@ type Handler = (payload: Record<string, unknown>, job: {
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { run: Handler }> = {
+  'pay.bot-delivery': { run: async payload => (await import('@/modules/billing/server/pay')).deliverBotPayment(payload) },
   'sms.broadcast': { run: async (payload, job) => (await import('@/modules/sms/server/broadcast')).deliverBroadcast(payload, job.attempts) },
   'forms.stage-sms': { run: async (payload, job) => (await import('@/modules/forms/server/stage-sms')).deliverFormStageSms(payload, job) },
   'support.demand-fulfilled': { run: async (payload, job) => {

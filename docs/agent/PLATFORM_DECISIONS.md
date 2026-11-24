@@ -1,3 +1,12 @@
+Owner Pay continuation2026-11-24: implement the supplied custom-gateway bot protocol
+and professional Pay-scoped presentation while preserving the approved site theme.
+The owner has no bot name/success-replay response sample and authorized proceeding
+from the supplied request contract. Implementation therefore requires an explicit
+operator acknowledgment profile, keeps unknown outcomes for review and separates
+the creation credential from the bot payment credential. No assumption about an
+unknown provider's fulfillment/idempotency, global visual replacement or live send
+is authorized. [Implemented scope and evidence](handoffs/MOBOCOM_PAY.md#custom-bot-adapter-and-pay-polish--2026-11-24).
+
 Owner selection2026-11-23, implemented2026-11-24: roadmap item2 is Solution Pack v2 through existing SiteConfig/Identity/Site/Editor owners. Explicit reviewed composition initializes only missing configuration, creates only canonical permitted role definitions and draft canonical pages, and retains stable resource identities/customer edits/deletions. No User assignment, full-access role, publication, provider/payment activation or production deployment is authorized. Version1/distribution contracts remain. [Implemented scope and evidence](handoffs/COMMERCIAL_MODULARITY.md#solution-pack-v2-composition--completed2026-11-24).
 
 Owner selection2026-11-23: phase2 continues Solution Packs and commercial distribution through existing Packages/Extensions/Repository owners. The bounded v1 is explicit one-time module/default configuration and existing signed free/paid acquisition, never an implicit activation/payment/role grant or a source fork. Retain customer configuration after pack uninstall/revocation; no live publish/purchase/deploy authorization added. [Implemented boundary and remaining target](handoffs/COMMERCIAL_MODULARITY.md#solution-packs-and-signed-commercial-distribution--2026-11-23).

@@ -18,6 +18,7 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
     if (row.status !== 'PAID' && (row.merchant.status !== 'ACTIVE' || !row.terminal.active || user?.status !== 'ACTIVE' || await globalAuthenticationDenied(row.merchant.userId, new Date(), tx))) throw new PayError('دریافت این پایانه متوقف شده است', 409)
     if (row.status !== 'PAID' && !settings.incomingEnabled) throw new PayError('دریافت موقتاً متوقف است', 503)
     const verified = Boolean(req && !expired && await payPayerVerified(req, id, tx))
+    const delivery = verified && row.status === 'PAID' ? await tx.payBotDelivery.findUnique({ where: { paymentId: id }, select: { status: true } }) : null
     const invoice = row.invoice, gateway = invoice?.gateway
     const manual = row.gatewayAttemptProvider === 'CARD_TRANSFER' || row.gatewayAttemptProvider === 'MANUAL'
     const receipt = verified && invoice ? await tx.paymentReceipt.findFirst({ where: { invoiceId: invoice.id }, orderBy: { id: 'desc' }, select: { id: true, status: true, adminNote: true, createdAt: true } }) : null
@@ -26,6 +27,7 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
       amountRial: row.amountMinor.toString(), totalRial: row.totalMinor.toString(), feeRial: row.feeMinor.toString(), feeBearer: row.feeBearer === 'CUSTOMER' ? 'CUSTOMER' : 'MERCHANT',
       status: expired ? 'EXPIRED' : row.status as PayCheckout['status'], expiresAt: row.expiresAt.toISOString(), transferReference: verified ? row.transferReference : '',
       verification: { verified, phoneLast4: verified ? row.payerPhoneLast4 : '' },
+      ...(delivery ? { botDelivery: { status: delivery.status } } : {}),
       returnUrl: verified && row.status === 'PAID' ? row.terminal.returnUrl : '',
       gateways: verified && row.status === 'PENDING' ? await payGatewayOptions(row) : [],
       selectedGateway: verified && invoice ? { gatewayRef: row.gatewayAttemptRef, provider: row.gatewayAttemptProvider, manual,

@@ -1,3 +1,113 @@
+## Pull request preparation — owner2026-11-24
+
+The owner explicitly requested publishing the completed custom-bot/Pay UI slice
+as a PR and retains merge/deploy. Authoritative branch remains
+`feat/pay-bot-integration-2026-11-24`; product commit `6b28b406` is clean and fresh
+`origin/main` remains `deb80549` (0 behind/1 ahead before this receipt).
+Aggregate `git diff --check origin/main...HEAD` passed. The existing PostgreSQL,
+upgrade, scoped units/types/contracts/browser and security evidence below is
+reused for the unchanged product source; publication does not rerun those tests.
+The PR targets `main` and includes the additive migration, preserved Custom theme,
+exact implemented bot contract and explicit live-provider/ACK limitations.
+This owner-authorized push/PR step supersedes the earlier local-only status;
+GitHub is authoritative for the resulting PR URL/state. No hosted workflow,
+merge, deployment, provider send or live financial configuration is authorized.
+
+## Custom bot adapter and Pay polish — 2026-11-24
+
+Authoritative checkout `.mobocom/pay-bot-integration`, branch
+`feat/pay-bot-integration-2026-11-24`, fresh owner-merged PR483/main `deb80549`.
+The owner supplied the custom-gateway JSON protocol, requested advanced Pay and
+scoped professional styling, and authorized implementation without an unavailable
+bot name/acknowledgment sample. This section supersedes historical statements
+below that Pay has no outbound merchant callback. Polling remains compatible.
+Root/autonomous-foundation and the IDE configuration were preserved.
+
+Implemented boundary and files:
+
+- Billing Pay owns `domain/pay-bot.ts`, `server/pay/bot/*` and the dedicated
+  `POST /api/v1/pay/bot/{integrationId}` route. Integer Toman becomes exact IRR;
+  integration/order identity remains stable across key rotation. Concurrent replay
+  returns one canonical payment; changed amount/user/type conflicts. Optional
+  names/history/balance are validated, discarded and never treated as bank proof
+  or canonical Identity. Response is unwrapped `url`/`links` or `ok:false,message`.
+  LINKS currently contains one hosted payment button with the existing compatible
+  methods inside checkout; no user-history routing engine or multiple obligations.
+- Terminal-scoped `mcpbot_` creation keys are shown once, hash-only at rest, with
+  browser-only owner configuration/rotation. The separate bot payment API key
+  uses existing encrypted provider credentials and requires PANEL_CREDENTIAL_KEY.
+  Callback is merchant-origin HTTPS `/api/payment`, Token header, exact
+  `order_id`/`actions=custom_payment_verify`; no Telegram client/token. Public API,
+  module, maintenance, terminal, merchant and current canonical account restrictions
+  still apply. No second AuthZ/Identity/Wallet/settings/queue owner.
+- `createPayPayment` can share a supplied transaction with the immutable delivery
+  identity/snapshots. `creditPayPayment` claims payment/Wallet and queues delivery
+  atomically, before strict Audit/inbox. Operations adds only `pay.bot-delivery`.
+  Delivery states WAITING→QUEUED→SENDING→SENT/UNKNOWN use claims/versioning.
+  A durable existing-queue reconciliation job turns an interrupted send UNKNOWN;
+  no automatic repeat after an uncertain effect. Configuration/restriction changes
+  block pending sends. Each attempt/result/block/interruption/recovery is audited.
+- Outbound transport resolves once, rejects private/mixed DNS answers, pins the
+  chosen address while preserving TLS hostname checks, bypasses proxies and never
+  follows redirects. DNS/request deadlines and a 16KiB response bound apply. Raw
+  response, credential and transport error are not retained in delivery/Audit.
+  Acknowledgment defaults UNCONFIGURED; active setup requires explicit JSON_OK,
+  JSON_SUCCESS or operator-accepted HTTP_2XX. Explicit negative JSON is refused.
+  Unknown real-bot success/replay semantics are not invented or certified.
+- Merchant owner can review UNKNOWN/BLOCKED, explicitly confirm external success
+  or accept duplicate risk and resend with current configuration. Foreign active
+  merchants, stale versions and unconfirmed actions fail. None recredits Wallet.
+  Delivery list is explicitly latest100 and shows expired waiting payments truthfully.
+- Pay-only `bot-integration`, `bot-deliveries`, checkout progress/result and API
+  guide compose the existing account/Admin/checkout/SDS components. Field guidance,
+  persistent errors/statuses, keyboard recovery focus, RTL, light/dark/mobile,
+  restrained transform/opacity entry and reduced-motion support are implemented.
+  A paid link opened without its payer ticket gives a truthful same-browser notice
+  rather than an OTP form that cannot issue a post-payment challenge. Bot result
+  remains hidden without payer proof. Existing approved MoboCom Custom is retained;
+  no global theme/homepage/public-section replacement or new UI dependency.
+
+Migration `20270327120000_pay_bot_delivery` is additive, registered under unreleased,
+and reflected in both schemas. New tables constrain state/encrypted snapshots and
+ownership; database triggers reject pre-credit sends and identity replacement.
+Existing financial states/amounts are unchanged. Apply the migration before the
+new code; after any activity retain schema/history and forward-fix. Disable the
+integration/terminal/module to stop new optional effects; inspect already claimed
+external attempts before recovery. Never drop money or delivery rows for rollback.
+
+Executed local evidence (ignored raw `var/pay-bot-20261124`):
+
+| Scope | Actual result |
+| --- | --- |
+| Environment | Linux Node22.23.3, PostgreSQL17.11, UID1000, NOSUPERUSER role, no `.env`, private copied source/client;210 empty-database migrations |
+| Native bot | Registered optional `pay-bot` passes exact Toman, concurrent replay, wrong customer/amount/key, foreign active merchant privacy, current authority/module/maintenance blocks, DB pre-credit denial, late Audit rollback, one Wallet credit, ambiguous no-auto-retry, rotation, stale/interrupted claim, explicit resend/confirmation and expired display |
+| Upgrade/regression | Separate owned DB migrated209, seeded an existing PENDING payment, then210; entire row/amount/fee/net/total retained and new tables empty. Existing `mobocom-pay` and `pay-shared-checkout` checks then passed on it. Does not claim a new paid-history upgrade fixture |
+| Fault strength | Deliberately accepting an unknown ACK in stopped-preview private source failed the native SENT-versus-UNKNOWN assertion. Exact source restored; final native check passed. No shipped fault switch |
+| Units/types/static |40 scoped tests pass: bot parser/ACK/transport, payments/SMS/Mellat and invoice rules. Full TypeScript, architecture, source, both-schema parity, money schema/UI/primitive, release manifest, security and Audit checks pass. Unit is in test:site; native remains optional/disposable |
+| Contracts | OpenAPI1.2.0 Spectral0 diagnostics; oasdiff versus deb80549 finds no breaking changes; actual Hurl8 requests pass creation/replay/conflict/wrong key/fractional Toman/anonymous proof privacy/config-recovery denial. No external consumer/Pact certification |
+| Browser |29 accepted scoped views across setup, pending phone, UNKNOWN recovery, SENT checkout, paid-other-browser notice, API guide, merchant overview and Admin overview/settings.1440 light/dark and390 RTL; scoped WCAG axe0, no document overflow/runtime errors, reduced-motion and actual keyboard/operator confirmation persisted through reload. Original public logo/config used; representative images inspected. Final review also disables switching terminal/order during a save; those two pending-control props received a subsequent TypeScript check, not a new browser run. Phone ticket and bank data are synthetic fixtures; real OTP is covered by the existing native regression, not a live SMS send |
+| React/security | Installed Doctor0.9.17 over7 affected components:0 errors/5 reviewed warnings (bounded branching; abort-controlled async effect; generic table-header resemblance; existing JS form submit). No suppression/policy relaxation. Scoped existing local Semgrep dynamic-code rule0 findings/errors and redacted changed-file Gitleaks0; not comprehensive security certification |
+| Source/cleanup |4241 source/check/schema/config SHA256 hashes exactly match the verified runtime. Next dev's private JSX config rewrite was inspected, canonical config restored and TypeScript passed. Exact preview trees/tunnel and both owned DBs/role removed; private fixture credentials/config copies removed. Original localhost3000 readiness/session both200 afterward |
+
+Design guidance actually applied: installed Unslop, accessibility/motion guidance,
+existing SDS/MoboCom primitives, selected Vercel parallel-fetch rule and OpenDesign
+[restrained motion follow-up](https://github.com/nexu-io/open-design/blob/main/skills/emilkowalski-motion/SKILL.md).
+No OpenDesign app/provider, source upload or competing visual system was installed.
+Serena/Graphify current-checkout discovery was unavailable; bounded exact source
+inspection was used, not presented as graph/runtime proof.
+
+Remaining activation dependencies: real merchant/bot credentials and public HTTPS,
+operational queue worker, actual bot success/duplicate responses, and a controlled
+real provider/SMS/bank checkout on its destination host. No live bot/SMS/bank send,
+production build/deployment, hosted workflow or new PR was performed. Refunds/
+chargebacks, additional crypto networks, automated market rates, history-based
+multi-link routing and delivery history beyond the latest100 UI remain separate.
+The unrelated three findings from the whole-site prebuild audit remain open.
+[Merchant setup/operations guide](../../MOBOCOM-PAY-FA.md#اتصال-به-ربات-دارای-درگاه-سفارشی),
+[scenario](../../specs/mobocom-pay/SPEC.md),
+[OpenAPI](../../specs/mobocom-pay/openapi.yaml),
+[Hurl](../../specs/mobocom-pay/bot-smoke.hurl).
+
 ## Integration with Extensions and Solution Packs — owner2026-11-23
 
 Owner-merged PR481 / main e2b6c51b is combined locally with package lifecycle,

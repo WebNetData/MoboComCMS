@@ -1,3 +1,12 @@
+Pay custom-bot adapter2026-11-24: Billing Pay owns terminal-scoped creation keys and
+one delivery identity per canonical payment. Exact Toman input composes the existing
+IRR payment owner; financial credit and durable delivery enqueue share its transaction.
+Operations owns dispatch/reconciliation; existing credential encryption, Identity,
+restrictions, maintenance and strict Audit remain canonical. Only credited PAID can
+send merchant-origin HTTPS verification; unknown outcomes need explicit merchant
+review, never automatic fulfillment replay. No Telegram client or second queue/Wallet.
+[Contracts, migration, actual evidence and limits](handoffs/MOBOCOM_PAY.md#custom-bot-adapter-and-pay-polish--2026-11-24).
+
 Package lifecycle2026-11-23: existing Packages aggregate/index and Settings own recoverable trusted source-apply receipts/claims; Platform Extension contracts own consumed core/module version/capability compatibility. Canonical Identity and strict Audit guard each phase. Local compensation retains old source, Git recovery never forces or guesses an unknown external outcome. No registry/schema/identity replacement. [Bounded scope, evidence and operational limits](handoffs/COMMERCIAL_MODULARITY.md#package-compatibility-and-recoverable-source-apply--2026-11-23).
 
 Pay collection integration2026-11-23: `Invoice.kind=PAY_COLLECTION` is the canonical guest collection document (null User/Order/product, no wallet application), uniquely owned by PayPayment. Shared provider callbacks and PaymentReceipt settle through markInvoicePaid, composing exact-once Pay Wallet credit/journal/audit in the same transaction. Canonical SMS OTP issues payment/browser-scoped proof without login/User creation; Pay persists encrypted phone/hash/last4. No second gateway, identity, receipt store, queue or Telegram client. Fixed+percentage/cap/bearer and provider/total snapshots are immutable per payment. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#shared-gateways-and-verified-payer-checkout--owner-continuation-2026-11-23).

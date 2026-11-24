@@ -9,12 +9,12 @@ import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 
 export const fingerprint = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex')
-export async function createPayPayment(actor: PayActor, input: Record<string, unknown>, key: string) {
+export async function createPayPayment(actor: PayActor, input: Record<string, unknown>, key: string, transaction?: Prisma.TransactionClient) {
   const gateways = await listCheckoutGateways('IRR')
   const terminalId = text(input.terminalId, 60),
     externalId = text(input.externalId, 100),
     idem = idempotencyKey(key)
-  return payTransaction(async (tx) => {
+  const work = async (tx: Prisma.TransactionClient) => {
     const merchant = await merchantFor(actor, tx, true),
       { settings } = await payContext(actor, tx)
     const amount = rial(input.amountRial)
@@ -58,7 +58,8 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
     })
     await payAudit(tx, actor, 'payment.create', row.id, { terminalId, amountRial: row.amountMinor })
     return row
-  })
+  }
+  return transaction ? work(transaction) : payTransaction(work)
 }
 export async function publicPayment(tx: Prisma.TransactionClient, id: string) {
   if (!/^[A-Za-z0-9_-]{32}$/.test(id)) throw new PayError('پرداخت پیدا نشد', 404)

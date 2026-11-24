@@ -1,5 +1,62 @@
 # MoboComPay — merchant card-transfer collection and reviewed settlements
 
+## Custom bot adapter and Pay presentation — owner2026-11-24
+
+Continue fresh merged main deb80549 in .mobocom/pay-bot-integration,
+feat/pay-bot-integration-2026-11-24. Owner supplied the bot's custom gateway
+request/verify contract and authorized choosing a compatible implementation when
+the bot name and acknowledgement example were unavailable. Preserve the selected
+MoboCom Custom theme and unrelated public visuals; refine only Pay surfaces.
+
+Existing Billing/Pay/Gateway/Wallet, canonical human Identity, encrypted provider
+credentials, strict Audit and Operations queue remain owners. A terminal-scoped
+integration receives a dedicated generated hashed create credential (not a human
+identity or a full-account API token). Body api_key authenticates only the exact
+terminal adapter. Public API/module/maintenance, active current merchant/User and
+terminal are checked again inside the transaction. Request amount is integer
+Toman, converted exactly to IRR by BigInt*10; unsafe/fractional numbers refuse.
+order_id is the stable terminal-local external identity and idempotency source.
+Changed amount/type/external user claims on replay refuse409; other bot-supplied
+history/balance claims never establish bank attribution or canonical User identity.
+Both {url} and {links:[{text,url}]} shapes are supported; the same hosted checkout
+offers actual compatible methods without creating multiple financial obligations.
+
+After genuine PAID credit, an immutable terminal/order delivery intent is queued
+in the same financial transaction. Its separate encrypted Token goes only to the
+configured same-origin HTTPS /api/payment endpoint, body
+{order_id,actions:'custom_payment_verify'}. Network I/O is outside transactions.
+DNS results must be public and pinned into the HTTPS connection, TLS hostname
+verification remains, redirects refuse, deadline/response bytes are bounded,
+tokens/bodies never enter logs. PAID/Wallet credit does not depend on bot reply.
+
+The provider's successful response was not supplied. Therefore enablement requires
+an explicit acknowledgement policy: JSON ok===true, JSON status==='success', or
+HTTP2xx as a consciously selected contract. No default policy silently certifies
+this unknown bot. Unknown/malformed/negative answers and timeouts remain UNKNOWN;
+a SENDING lease after interruption becomes UNKNOWN without sending again.
+There is no automatic retry of ambiguous external effects. A merchant may explicitly
+confirm external delivery or resend after acknowledging duplicate-delivery risk;
+both actions use fresh ownership, version/state claim and strict Audit. Config
+rotation pauses stale snapshots until an explicit reviewed retry binds current
+credentials. Disabling preserves payment/delivery/audit history and stops egress.
+
+Additive typed integration/delivery models and constraints preserve all prior
+payments. UI: connection setup with one-time key, separate callback secret,
+clear contract/readiness, payment-vs-order delivery statuses and operator recovery.
+Checkout gets a clear progress/state hierarchy, attractive scoped brand effects,
+RTL/responsive, keyboard, focus and reduced motion. No new global palette/theme,
+external bot call, bank/SMS send or live activation is authorized by local testing.
+
+Acceptance: pure hostile parser/amount/ack tests, native PostgreSQL concurrent
+create/replay/mismatch/rotation/authority/Audit rollback, PAID+delivery atomic intent,
+no send before PAID, exact-once internal credit, late callback uncertainty and
+explicit retry, public/private/DNS-rebinding/redirect/timeout transport probes.
+Contract/OpenAPI and real ready-state browser1440 light/dark+390 with original
+Custom theme, keyboard/axe and React Doctor. Independent unknown bot remains
+Unverified until its actual acknowledgement and idempotency are tested.
+Rollback disables adapter/egress while retaining canonical payments and intents;
+never reset PAID, repeat Wallet credit or blindly replay an uncertain bot action.
+
 ## Shared hosted checkout continuation — owner 2026-11-23
 
 Supersedes the original bank-only collection path below. Reuse Billing's active compatible Gateway catalog and its real provider callbacks through an explicitly typed `Invoice.kind=PAY_COLLECTION`; this document has no customer User, Order, product, wallet credit applied or Store fulfillment. A unique immutable PayPayment→Invoice relation connects the real charge and its receipt/provider proof to exactly one merchant credit in the same transaction. Core financial/provider configuration is not copied. Future providers joining canonical create/verify/settle work through the same invoice boundary; supported currency/precision still applies. FrenzyEx's Telegram-bot fallback is disabled for Pay; the hosted checkout URL is the only entry supplied to a merchant bot.
