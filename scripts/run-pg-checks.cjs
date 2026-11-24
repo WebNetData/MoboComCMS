@@ -191,7 +191,7 @@ const CHECKS = [
 const OPTIONAL_CHECKS = ['cloud-navigation', 'navigation-control', 'updater-github', 'web-operations', 'installer-host-setup', 'import-content-compat', 'media-archive', 'media-storage', 'content-authoring', 'journal-notification-intents', 'compatible-audio', 'admin-policy-history', 'journal-review-reliability', 'journal-block-proposals']
 OPTIONAL_CHECKS.push('mobocom-pay', 'pay-shared-checkout')
 OPTIONAL_CHECKS.push('pay-bot', 'pay-routing-operations', 'crm-scope-currency', 'playlist-audience')
-OPTIONAL_CHECKS.push('pay-bale-server', 'pay-bale-collection')
+OPTIONAL_CHECKS.push('pay-bale-server', 'pay-bale-collection', 'pay-usdt-equivalent')
 // Real ffprobe/ffmpeg with libx264 (as in the Dockerfile) on MKV/MP4 files the check makes; run on a database copy.
 OPTIONAL_CHECKS.push('found-subtitles')
 const REGISTERED = [...CHECKS, ...OPTIONAL_CHECKS]

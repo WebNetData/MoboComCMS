@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.5.0
+  version: 1.6.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An active merchant and terminal are provisioned through the account interface before using this API.
@@ -53,9 +53,20 @@ paths:
       operationId: getAutomaticTransferCheckout
       tags: [Hosted checkout]
       security: []
-      description: Opaque invoice capability; Pay additionally requires its scoped OTP ticket. Returns serverTime, quote expiry and PENDING/UNDER_REVIEW/PAID/EXPIRED/REVIEW. Instructions only for accepted, eligible pending requests. UNDER_REVIEW has no countdown or automatic expiry.
+      description: Opaque invoice capability; Pay additionally requires its scoped OTP ticket. Returns serverTime, quote expiry and PENDING/UNDER_REVIEW/PAID/EXPIRED/REVIEW. Instructions only for accepted, eligible pending requests. UNDER_REVIEW has no countdown or automatic expiry. Optional usdt is a display-only BSC/BEP20 equivalent from the canonical approved USDT Toman rate, with rate timestamp and unavailable/stale status; it never changes invoice money or enables a crypto transfer.
       responses:
-        '200': { description: Current checkout and safe receipt status. }
+        '200':
+          description: Current checkout and safe receipt status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      usdt: { $ref: '#/components/schemas/UsdtEquivalent' }
         default: { description: 'Invalid capability, payer proof or unavailable method.' }
     post:
       operationId: changeAutomaticTransferCheckout
@@ -407,6 +418,21 @@ components:
       description: Invalid request, authentication or access denied, conflict, rate limit, or unavailable service (400, 401, 403, 404, 405, 409, 413, 422, 429, 503).
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
+    UsdtEquivalent:
+      type: object
+      description: Informational equivalent of the full requested Rial amount. Approved persisted USDT rate only; no USD peg fallback or provider call on checkout. Four decimal rounding; lessThan marks a sub-0.0001 amount. Provider rates older than 24 hours are stale; explicit manual or locked rates are labeled with their original timestamp.
+      required: [asset, network, standard, displayOnly, status, amount, lessThan, rateToman, asOf, manual]
+      properties:
+        asset: { type: string, enum: [USDT] }
+        network: { type: string, enum: [BSC] }
+        standard: { type: string, enum: [BEP20] }
+        displayOnly: { type: boolean, enum: [true] }
+        status: { type: string, enum: [AVAILABLE, STALE, UNAVAILABLE] }
+        amount: { type: string, nullable: true, pattern: '^[0-9]+\.[0-9]{4}$' }
+        lessThan: { type: boolean }
+        rateToman: { type: string, nullable: true }
+        asOf: { type: string, format: date-time, nullable: true }
+        manual: { type: boolean }
     BotPaymentCreate:
       type: object
       additionalProperties: false

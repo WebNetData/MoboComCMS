@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client')
+if(!/^mobocom_pay_test_/.test(new URL(process.env.DATABASE_URL||'postgresql://invalid/invalid').pathname.slice(1)))throw Error('Disposable Pay database required')
+const db=new PrismaClient(),load=require('./connected-source-loader.cjs')({'@/platform/database/prisma':{db}})
+const {currentCurrencyRate}=load('src/modules/fx/server/fx.ts'),{usdtEquivalent}=load('src/modules/billing/domain/pay-usdt-equivalent.ts')
+;(async()=>{const previous=await db.currencyRate.findUnique({where:{code:'USDT'}});try{
+ const now=new Date();await db.currencyRate.upsert({where:{code:'USDT'},create:{code:'USDT',rate:100000,source:'synthetic',fetchedAt:now,pendingRate:200000},update:{rate:100000,source:'synthetic',fetchedAt:now,pendingRate:200000,locked:false}})
+ const approved=await currentCurrencyRate('USDT');assert.equal(approved.rate,100000);assert.equal(Object.hasOwn(approved,'pendingRate'),false);assert.equal(usdtEquivalent(12345670n,approved,now).amount,'12.3457')
+ await db.currencyRate.update({where:{code:'USDT'},data:{fetchedAt:new Date(now.getTime()-86400001)}});assert.equal(usdtEquivalent(12345670n,await currentCurrencyRate('USDT'),now).status,'STALE')
+ assert.equal(await currentCurrencyRate('UNSUPPORTED'),null)
+ console.log('USDT native read PASS: canonical approved rate, held rate omitted, exact Rial/Toman conversion and stale state')
+ }finally{if(previous)await db.currencyRate.upsert({where:{code:'USDT'},create:previous,update:previous});else await db.currencyRate.deleteMany({where:{code:'USDT'}});await db.$disconnect()}})().catch(e=>{console.error(e.stack);process.exitCode=1})

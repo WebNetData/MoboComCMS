@@ -27,6 +27,7 @@ export function baleEffectiveStart(row: { validFrom: Date; acceptedAt: Date | nu
   return row.acceptedAt && row.acceptedAt > row.validFrom ? row.acceptedAt : row.validFrom
 }
 export interface BaleCheckout {
+  usdt?: import('./pay-usdt-equivalent').UsdtEquivalent
   id: string
   status: BaleCollectionStatus
   invoiceNumber: string

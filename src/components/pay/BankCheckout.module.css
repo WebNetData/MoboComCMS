@@ -1,24 +1,90 @@
-.expired { border-inline-start: 4px solid var(--warning); }
-.expired, .entry { animation: appear .25s ease-out both; }
-.timer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-block-start: 1rem; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: .75rem; }
-.timer strong { font-size: 1.5rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.receipt input { width: 100%; box-sizing: border-box; }
-.receipt input[type='file'] { max-width: 100%; }
-.destination { position: relative; overflow: hidden; border-block-start: 3px solid var(--pay-accent); }
-.destination h2 { margin-block: .5rem; }
-.amount, .cardNumber { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: .75rem 1rem; padding: 1.25rem; border: 1px solid var(--sds-color-border-default-default); border-radius: 1rem; }
-.amount { background: color-mix(in srgb,var(--pay-accent) 5%,var(--sds-color-background-default-default)); }
-.amount > span, .cardNumber > span { color: var(--sds-color-text-default-secondary); font-size: .875rem; }
-.amount strong, .cardNumber bdi { grid-column: 1; font-size: clamp(1.15rem, 3.8vw, 1.6rem); font-weight: 650; line-height: 1.6; font-variant-numeric: tabular-nums; }
-.cardNumber bdi { letter-spacing: .055em; justify-self: start; white-space: nowrap; }
-.amount button, .cardNumber button { grid-column: 2; grid-row: 1 / 3; transition: transform .16s ease, border-color .16s ease; }
-.amount button:hover, .cardNumber button:hover { transform: translateY(-2px); border-color: var(--pay-accent); }
-.details { margin: 0; display: grid; gap: .75rem; }
-.details:empty { display: none; }
-.details > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; }
-.details dt { color: var(--sds-color-text-default-secondary); }
-.details dd { margin: 0; overflow-wrap: anywhere; }
-.copyFeedback { min-height: 1.5rem; margin: 0; font-size: .875rem; }
-@media (max-width: 480px) { .amount, .cardNumber { grid-template-columns: minmax(0,1fr); padding: 1rem; } .amount button, .cardNumber button { grid-column: 1; grid-row: auto; justify-self: stretch; } }
-@keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .expired, .entry { animation: none; } .amount button, .cardNumber button { transition: none; } .amount button:hover, .cardNumber button:hover { transform: none; } }
+.page.page {
+  --pay-accent: var(--primary, var(--sds-color-background-brand-default));
+  width: 100%; max-width: 520px; min-height: 100vh; min-height: 100svh;
+  box-sizing: border-box; padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; justify-content: center; gap: 10px; margin-inline: auto;
+}
+.header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-inline: 4px; }
+.brand { display: grid; gap: 2px; }
+.brand > span { color: var(--sds-color-text-default-default); font-weight: 700; font-size: .8125rem; line-height: 1.3; letter-spacing: .015em; }
+.page .brand h1 { font-size: 1.15rem; line-height: 1.4; }
+.badge { display: inline-flex; align-items: center; gap: 7px; font-size: .75rem; padding: 7px 10px; border: 1px solid var(--sds-color-border-default-default); border-radius: 99px; white-space: nowrap; }
+.badge i { width: 6px; height: 6px; background: var(--pay-accent); border-radius: 50%; }
+.badge[data-state='PAID'] { background: var(--sds-color-background-positive-tertiary); color: var(--sds-color-text-positive-default); }
+.badge[data-state='EXPIRED'] { color: var(--sds-color-text-danger-default); background: var(--sds-color-background-danger-tertiary); }
+.panel { background: radial-gradient(ellipse at top right, color-mix(in srgb,var(--pay-accent) 6%,transparent), transparent 55%), var(--sds-color-background-default-default); border: 1px solid var(--sds-color-border-default-default); border-radius: 20px; padding: 16px; display: grid; grid-template-columns: minmax(0,1fr); gap: 9px; min-width: 0; box-shadow: 0 10px 32px color-mix(in srgb,var(--sds-color-text-default-default) 4%,transparent); }
+.invoice { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.page .invoice h2 { font-size: .8125rem; font-weight: 500; color: var(--sds-color-text-default-secondary); white-space: nowrap; }
+.invoice > bdi { min-width: 0; max-width: 50%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .75rem; color: var(--sds-color-text-default-secondary); }
+.amount { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-block: 3px; }
+.amount > div { display: grid; gap: 2px; min-width: 0; }
+.amount strong { font-size: clamp(1.3rem, 5.5vw, 1.8rem); line-height: 1.55; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.amount span { color: var(--sds-color-text-default-secondary); font-size: .8125rem; }
+.amount button { flex: none; }
+.equivalent { display: flex; align-items: center; gap: 9px; line-height: 1.45; border: 1px solid var(--sds-color-border-default-default); border-radius: 12px; padding: 9px 10px; background: var(--sds-color-background-default-default); }
+.coin { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--sds-color-background-positive-tertiary); color: var(--sds-color-text-positive-default); font-size: 1.25rem; font-weight: 700; flex: none; }
+.asset { display: grid; gap: 3px; flex: none; }
+.asset strong { font-size: .8125rem; }
+.asset > span { font-size: .625rem; color: var(--sds-color-text-default-secondary); }
+.conversion { margin-inline-start: auto; text-align: end; min-width: 0; }
+.conversion > strong { display: block; font-size: 1.05rem; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.conversion > span { font-size: .75rem; }
+.conversion small { font-size: .625rem; }
+.rateDetails { font-size: .6875rem; color: var(--sds-color-text-default-secondary); position: relative; }
+.rateDetails summary { cursor: pointer; min-height: 24px; display: flex; align-items: center; justify-content: end; text-decoration: underline dotted; text-underline-offset: 3px; }
+.rateDetails[open] > div { position: absolute; z-index: 2; top: 100%; inset-inline-end: 0; width: min(260px, 72vw); background: var(--sds-color-background-default-default); color: var(--sds-color-text-default-default); border: 1px solid var(--sds-color-border-default-default); border-radius: 10px; padding: 10px; text-align: start; box-shadow: 0 8px 24px color-mix(in srgb,var(--sds-color-text-default-default) 10%,transparent); }
+.rateDetails p { margin: 0; }
+.breakdown { font-size: .75rem; }
+.breakdown summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; min-height: 32px; cursor: pointer; color: var(--sds-color-text-default-secondary); }
+.breakdown summary::after { content: '⌄'; margin-inline-start: auto; }
+.breakdown[open] summary::after { content: '⌃'; }
+.breakdown dl, .extraDetails dl { margin: 6px 0; display: grid; gap: 8px; }
+.breakdown dl > div, .extraDetails dl > div { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.breakdown dd, .extraDetails dd { margin: 0; overflow-wrap: anywhere; }
+.timer { padding-block-end: 2px; }
+.timer > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-block-end: 5px; }
+.timer span { color: var(--sds-color-text-default-secondary); font-size: .75rem; }
+.timer strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.timer progress { appearance: none; display: block; width: 100%; height: 3px; border: 0; border-radius: 8px; overflow: hidden; background: var(--sds-color-background-default-secondary); color: var(--pay-accent); }
+.timer progress::-webkit-progress-bar { background: var(--sds-color-background-default-secondary); }
+.timer progress::-webkit-progress-value { background: var(--pay-accent); border-radius: 8px; }
+.timer progress::-moz-progress-bar { background: var(--pay-accent); }
+.cardNumber { border: 1px solid var(--sds-color-border-default-default); border-radius: 12px; padding: 9px 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--sds-color-background-default-default); }
+.destination { min-width: 0; }
+.cardNumber > div { display: grid; gap: 4px; min-width: 0; }
+.cardNumber span { font-size: .75rem; color: var(--sds-color-text-default-secondary); }
+.cardNumber bdi { font-size: clamp(.95rem, 4vw, 1.2rem); letter-spacing: .035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.page .copyCard { padding: 0; width: 44px; flex: 0 0 44px; }
+.extraDetails { font-size: .75rem; margin-block-start: 5px; }
+.extraDetails summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; color: var(--sds-color-text-default-secondary); }
+.page .feedback { margin: 0; min-height: 20px; font-size: .6875rem; line-height: 1.6; color: var(--sds-color-text-default-secondary); }
+.page .consent { display: grid; gap: 8px; }
+.consent > label { font-size: .8125rem; }
+.page :is(button, a) { -webkit-tap-highlight-color: transparent; }
+.page button, .dialog button { min-height: 44px; transition: transform .15s ease, border-color .15s ease; }
+.page button:active, .dialog button:active { transform: translateY(1px); }
+.page :is(button, a, summary):focus-visible, .dialog :is(button, input):focus-visible { outline: 2px solid var(--pay-accent); outline-offset: 3px; }
+.resolution { display: grid; gap: 12px; text-align: center; justify-items: center; padding-block: 14px 4px; border-block-start: 1px solid var(--sds-color-border-default-default); }
+.page .resolution h2 { font-size: 1.125rem; }
+.page .resolution p { font-size: .8125rem; margin: 0; }
+.resolution button, .resolution a { justify-self: stretch; }
+.stateIcon { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--sds-color-background-default-secondary); font-size: 1.5rem; }
+.success .stateIcon { background: var(--sds-color-background-positive-tertiary); color: var(--sds-color-text-positive-default); }
+.expired .stateIcon { background: var(--sds-color-background-danger-tertiary); color: var(--sds-color-text-danger-default); }
+.footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; padding-inline: 4px; color: var(--sds-color-text-default-secondary); font-size: .6875rem; }
+.footer a { color: inherit; min-height: 28px; display: inline-flex; align-items: center; }
+.error { background: var(--sds-color-background-danger-tertiary); color: var(--sds-color-text-danger-default); padding: 12px; border-radius: 12px; font-size: .8125rem; }
+.error p { margin: 0 0 8px; }
+.muted { color: var(--sds-color-text-default-secondary); }
+.dialog { --pay-accent: var(--primary, var(--sds-color-background-brand-default)); width: min(440px, calc(100% - 28px)); max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); box-sizing: border-box; overflow-y: auto; padding: 20px; border: 1px solid var(--sds-color-border-default-default); border-radius: 18px; color: var(--sds-color-text-default-default); background: var(--sds-color-background-default-default); }
+.dialog::backdrop { background: color-mix(in srgb,var(--sds-color-text-default-default) 40%,transparent); }
+.dialogHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dialogHead h2 { font-size: 1.125rem; margin: 0; }
+.dialog > p { font-size: .8125rem; line-height: 1.8; }
+.receipt input { width: 100%; box-sizing: border-box; min-width: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .panel, .resolution, .dialog[open] { animation: appear .2s ease-out both; }
+  @keyframes appear { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+}
+@media (prefers-reduced-motion: reduce) { .page button, .dialog button { transition: none; transform: none; } }
+@media (max-width: 360px) { .page.page { padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); gap: 8px; } .panel { padding: 10px; gap: 6px; } .equivalent { gap: 6px; padding-inline: 8px; } .coin { width: 25px; height: 25px; } .conversion > strong { font-size: .95rem; } .asset > span { font-size: .625rem; } }

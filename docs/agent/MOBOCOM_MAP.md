@@ -1,3 +1,9 @@
+Compact checkout2026-11-24: `components/pay/bank-checkout` parts behind existing
+entry, `BankCheckout.module.css`; Billing `domain/pay-usdt-equivalent` consumes FX
+owner `currentCurrencyRate` in the existing collection DTO. Rates stay owned by
+`/admin/store/currency`; exact Rial payment state stays in Billing/Pay.
+[Evidence](handoffs/MOBOCOM_PAY.md#compact-mobile-checkout-and-usdt-display--2026-11-24).
+
 Automatic card transfer2026-11-24: Billing `domain/{auto-transfer,pay-bale-collection,
 pay-sms-template,pay-bale-amount}`; `server/pay/bale/collection-*`, `pay/sms/*` behind
 canonical Billing/Pay owners; `/pay/bank/[id]`, collections/receipt/SMS HTTP adapters;

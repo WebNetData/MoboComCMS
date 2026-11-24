@@ -11,6 +11,8 @@ import { createBaleCollectionInTransaction } from './collection-create'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { autoTransferConfig, transferDisplayDefaults } from '@/modules/billing/domain/auto-transfer'
+import { usdtEquivalent } from '@/modules/billing/domain/pay-usdt-equivalent'
+import { currentCurrencyRate } from '@/modules/fx/server/fx'
 
 export async function collectionFor(tx: Prisma.TransactionClient, id: string, req: NextRequest) {
   if (!/^[A-Za-z0-9_-]{32}$/.test(id) || !await isModuleEnabled('mobocom-pay', tx)) throw new PayError('درخواست پرداخت پیدا نشد', 404)
@@ -43,6 +45,7 @@ export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout
     // Omitted fields never leave the server, including after browser reload or polling.
     const bank = { bankName: display.bankName ? row.bankAccount.bankName : '', holderName: display.holderName ? row.bankAccount.holderName : '', cardNumber: display.cardNumber ? row.bankAccount.cardNumber : '', accountNumber: display.accountNumber ? row.bankAccount.accountNumber : '', iban: display.iban ? row.bankAccount.sheba : '' }
     return { id, status, invoiceNumber: row.invoice.number, principalRial: row.principalRial.toString(), adjustmentRial: row.adjustmentRial.toString(), collectedRial: row.collectedRial.toString(),
+      usdt: usdtEquivalent(row.collectedRial, await currentCurrencyRate('USDT', tx), now),
       validFrom: start.toISOString(), expiresAt: row.expiresAt.toISOString(), accepted: Boolean(row.acceptedAt), serverTime: now.toISOString(),
       receipt: row.receipt ? { id: row.receipt.id, status: row.receipt.status, createdAt: row.receipt.createdAt.toISOString() } : null,
       bank: status === 'PENDING' && ready && row.acceptedAt && now >= start ? bank : null,

@@ -1,3 +1,8 @@
+Compact checkout/USDT display2026-11-24: FUNCTIONAL_LOCAL. Exact measured mobile
+normal view (320×568 and360×640), native receipt dialog, two copy controls; canonical
+approved USDT-rate equivalent labeled BSC/BEP20 and displayOnly with stale/missing
+states. No new crypto financial rail. [Current evidence/limits](handoffs/MOBOCOM_PAY.md#compact-mobile-checkout-and-usdt-display--2026-11-24).
+
 Automatic card transfer2026-11-24: FUNCTIONAL_LOCAL within scoped PostgreSQL/HTTP/
 browser evidence. Existing CARD_TRANSFER composes optional SMS/Bale, globally unique
 amounts, explicit fee/deadline, immutable renewal, receipt hold and canonical exact-once

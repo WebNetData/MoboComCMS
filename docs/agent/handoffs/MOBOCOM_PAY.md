@@ -1,3 +1,82 @@
+## Compact mobile checkout and USDT display — 2026-11-24
+
+Owner asks for a professional exchange-style bank checkout whose normal mobile
+view needs no vertical scroll, and a USDT equivalent labeled BSC/BEP20. Continues
+local `feat/pay-bale-verification-2026-11-24` from2c9bea6e. No new schema migration.
+
+### Current implementation
+
+- `components/pay/bank-checkout.tsx` remains the address/controller; private
+  `bank-checkout/{view,receipt-dialog}.tsx` owns the compact presentation and native
+  accessible receipt dialog. Scoped `BankCheckout.module.css` uses existing MoboCom/
+  SDS tokens, safe-area spacing, 44px actions and brief opacity/transform effects
+  with reduced-motion support. Global theme/routes remain protected.
+- One panel contains the exact Rial total, exact Toman equivalent, USDT equivalent,
+  countdown/progress and primary destination. Invoice reference truncates, money
+  wraps rather than clips. Fee details and optional configured destination details
+  expand on demand. Only Rial amount and raw card have copy controls; visible
+  "کپی ریال" and copy feedback identify the unit. Customer acceptance is retained.
+- Receipt form opens in a native modal with focus containment/Escape/focus return.
+  Closing during an upload leaves the request running and prevents another submit;
+  successful persistence switches to UNDER_REVIEW and removes the timer. Main
+  payment instructions/copy controls hide on a failed status refresh until retry.
+- Canonical FX owner adds read-only `currentCurrencyRate`: approved stored USDT
+  rate/source timestamp only, excluding held pendingRate; no provider call on the
+  checkout path. Billing `domain/pay-usdt-equivalent.ts` converts the full collected
+  Rial total using the existing Toman/unit contract and exact BigInt arithmetic,
+  four decimal display rounding and a sub-0.0001 marker.
+- Checkout DTO adds optional `usdt` (OpenAPI1.6), displayOnly=true, assetUSDT,
+  networkBSC, standardBEP20, rateToman/asOf/manual/status. Missing/invalid/future
+  rates give UNAVAILABLE; automatic rates over24h give STALE with no invented
+  amount. Explicit manual/locked rates retain their timestamp and manual label.
+  Existing `/admin/store/currency` remains the rate configuration owner. This is
+  informational conversion, not a new crypto collection/settlement rail. Invoice,
+  wallet, fee and payment proof amounts are unchanged.
+
+### Executed evidence
+
+- Disposable NOSUPERUSER PostgreSQL with213 existing migrations: new
+  `pay-usdt-equivalent` and existing `pay-bale-collection` connected checks pass.
+  Approved versus held rate, staleness and exact conversion tested; prior exact-once
+  money/receipt/renewal/merchant-net regression remains passing with the new DTO.
+- Dedicated USDT cases and aggregate Pay/parser cases pass (29 executions,
+  27 distinct cases because the dedicated USDT file was also included by the
+  aggregate wrapper). Final full TypeScript and architecture/source/schema-parity/
+  money/security/Audit/release-manifest gates pass. No production build/whole-site
+  suite or production/live-bank test in this slice.
+- Actual TLS Playwright preview:12 scoped axe/responsive captures, no page errors,
+  no horizontal overflow and exact viewport-height normal views:360×640,
+  320×568,390×844 dark,1440×900. Configured extra destination fields collapsed,
+  rate details, stale/missing rates, receipt hold and expiry also fit checked sizes.
+  Clipboard values verified exactly; modal Escape returns focus; real receipt
+  upload persists; failed status GET hides old payment instructions and retry
+  recovers. Additional delayed-upload test verifies close remains available,
+  repeat submission disabled, then receipt hold. Final320×568 capture checks both
+  Rial/card clipboard values and two copy controls.
+- Scoped Doctor0errors/5 reviewed warnings: guarded async/finally heuristics and
+  view branching complexity. Spectral0 findings, oasdiff0 breaking changes;8 Bale
+  HTTP regression requests plus1 new USDT-display Hurl request pass. Scoped
+  existing one-rule Semgrep0 and redacted changed-file Gitleaks0.
+- Initial browser findings corrected: grid min-content horizontal overflow, primary
+  blue text contrast, narrow card-number wrapping and one-pixel all-fields overflow.
+  Final no-scroll assertions compare scrollHeight≤innerHeight without tolerance.
+
+Normal collapsed views were measured, not forced with page overflow:hidden.
+Expanded details, the receipt form, keyboard, text enlargement or exceptional long
+amounts retain natural scrolling/wrapping for accessibility. Native keyboard/real
+mobile hardware and live rate-provider delivery are not claimed verified.
+Synthetic source/rate values only; Custom presentation hash remains
+be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+
+Rollback: revert this presentation/read-only FX slice; existing payment/receipt
+state and data remain. Owner merges/deploys; no push/PR/hosted workflow/deployment.
+Task-only preview, DB/role and private fixtures are cleaned at completion;
+ignored screenshots/redacted logs remain in `var/pay-bale-20261124`.
+
+Completion cleanup ran: task preview/tunnel stopped, exact DB/role removed,
+private TLS/session/Hurl files removed, builder stopped; original app readiness
+and auth/session both returned200. Final diff check passes.
+
 ## Automatic card transfer, receipt hold and destination controls — 2026-11-24
 
 Local implementation in `.mobocom/pay-bale-verification`, branch

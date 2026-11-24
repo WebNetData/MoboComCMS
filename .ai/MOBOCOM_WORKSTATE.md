@@ -1,3 +1,12 @@
+# Compact bank checkout / USDT equivalent — 2026-11-24
+
+Local continuation from2c9bea6e in `.mobocom/pay-bale-verification`: normal mobile
+checkout fits tested320×568/360×640 without scrolling; receipt form is a native
+dialog, details expand on demand. Canonical approved FX USDT rate supplies a clearly
+display-only BSC/BEP20 equivalent with timestamp/stale/missing states. No new
+financial rail or schema. Scoped native, types/static, contracts, Doctor and real
+browser/a11y checks pass. [Evidence, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#compact-mobile-checkout-and-usdt-display--2026-11-24).
+
 # Automatic card transfer / receipt hold / destination settings — 2026-11-24
 
 Current local `.mobocom/pay-bale-verification` continues base3679200b and source3b1330c1.

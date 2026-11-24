@@ -1,4 +1,5 @@
 import dns from 'node:dns/promises'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { logEvent } from '@/platform/observability/logger'
@@ -58,6 +59,12 @@ export function publicFxConfig(config: FxConfig) {
 export async function loadRates(): Promise<Rates> {
   const rows = await db.currencyRate.findMany().catch(() => [])
   return Object.fromEntries(rows.map((row) => [row.code, row.rate]))
+}
+
+/** Approved persisted rate only; never fetches a provider or exposes a held pending rate. */
+export async function currentCurrencyRate(code: string, reader: Pick<Prisma.TransactionClient, 'currencyRate'> = db) {
+  if (!FX_CODES.includes(code)) return null
+  return reader.currencyRate.findUnique({ where: { code }, select: { rate: true, source: true, fetchedAt: true, locked: true } })
 }
 
 async function assertPublicUrl(raw: string) {

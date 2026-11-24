@@ -1,3 +1,18 @@
+## Compact bank checkout / display equivalent — owner2026-11-24
+
+The collapsed bank checkout fits the verified normal mobile viewport without
+page scrolling. Receipt fields open in a native dialog; fee and extra destination
+details expand. Main financial information is not clipped to force a viewport fit;
+zoom/keyboard/expanded content may scroll naturally. Existing canonical receipt
+hold/settlement behavior remains authoritative.
+
+Optional DTO usdt is an informational four-decimal equivalent of collectedRial,
+using the canonical approved CurrencyRate USDT value (Toman per unit), not pending
+rates or a checkout USD peg fallback. Display labels BSC/BEP20; no crypto address,
+payment rail or on-chain proof is created. Missing/invalid/future rates give
+UNAVAILABLE; automatic rates over24h give STALE without an amount. Manual/locked
+rates are labeled with their persisted timestamp. Rial invoice amounts are fixed.
+
 ## Automatic card transfer — owner corrections2026-11-24
 
 The existing CARD_TRANSFER gateway owns the autoVerify checkbox, SMS/BALE source
