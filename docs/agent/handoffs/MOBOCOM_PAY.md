@@ -1,3 +1,18 @@
+## Pull request preparation — owner2026-11-24
+
+The owner explicitly requested publishing the completed custom-bot/Pay UI slice
+as a PR and retains merge/deploy. Authoritative branch remains
+`feat/pay-bot-integration-2026-11-24`; product commit `6b28b406` is clean and fresh
+`origin/main` remains `deb80549` (0 behind/1 ahead before this receipt).
+Aggregate `git diff --check origin/main...HEAD` passed. The existing PostgreSQL,
+upgrade, scoped units/types/contracts/browser and security evidence below is
+reused for the unchanged product source; publication does not rerun those tests.
+The PR targets `main` and includes the additive migration, preserved Custom theme,
+exact implemented bot contract and explicit live-provider/ACK limitations.
+This owner-authorized push/PR step supersedes the earlier local-only status;
+GitHub is authoritative for the resulting PR URL/state. No hosted workflow,
+merge, deployment, provider send or live financial configuration is authorized.
+
 ## Custom bot adapter and Pay polish — 2026-11-24
 
 Authoritative checkout `.mobocom/pay-bot-integration`, branch

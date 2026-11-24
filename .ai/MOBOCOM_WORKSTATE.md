@@ -1,3 +1,13 @@
+# Pay bot PR publication — owner request2026-11-24
+
+Owner requests push/PR to `main`, retaining merge/deploy. Current branch
+`feat/pay-bot-integration-2026-11-24`, unchanged product `6b28b406`, fresh base
+`deb80549`; clean and0 behind/1 ahead before publication receipt. Existing local
+PostgreSQL/browser/contracts evidence is reused, not rerun. Additive migration
+and live-bot/provider limits are explicit in the PR. GitHub records its URL/state;
+no hosted workflow, merge, deployment or live send in this publication step.
+[Preflight and implementation evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#pull-request-preparation--owner2026-11-24).
+
 # Pay custom-bot integration — local slice2026-11-24
 
 Current Pay checkout `.mobocom/pay-bot-integration`, branch
