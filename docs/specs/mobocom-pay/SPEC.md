@@ -110,3 +110,64 @@ Apply local Unslop under MoboCom/SDS constraints and OpenDesign's brief → desi
 `scripts/mobocom-pay.connected.cjs` on an owned empty PostgreSQL database: canonical identity/owner denial, module off, merchant standing, exact bank match, either arrival order, duplicate/conflicting events, concurrent credits/withdrawals, quote expiry, immutable facts, insufficient wallet vs entitlement, audit rollback, reject-once, admin separation and terminal states. Deliberately break matching/idempotency/reserve checks and prove failure. Extend an existing test:site file with domain/security units; register native PG script. Run schema parity, manifest/generated/architecture/source and relevant security/audit/money gates. React Doctor + actual themed/mobile Playwright/axe evidence; no hosted workflow dispatch. No live bank, real payout, deployment or full service completion claim without selected-provider verification.
 
 Incremental migration `20270325120000_mobocom_pay` is listed under unreleased; preserve existing migration hashes/data. Disabling preserves rows and Core spending. After any withdrawable activity, retain the upgraded Wallet-compatible binary and migration, disable Pay and forward-fix/reconcile reservations; an older Wallet binary cannot maintain the new subset invariant. Never drop financial history. No private keys, real card details, secrets or customer data in fixtures/docs/screenshots. Executed evidence and integration limits live in [the handoff](../../agent/handoffs/MOBOCOM_PAY.md).
+
+
+## Routing and operational follow-up — owner2026-11-24
+
+Owner authorized both confirmed platform repairs (CRM department metadata/current
+playlist audience/CRM IRR projection) and Pay routing/operations from merged PR484
+main bd6a218a, in `.mobocom/pay-routing-operations`. Existing canonical owner guards
+and money primitives repair projections; saved content relations and stored money
+are preserved. No Support race redesign or unrelated audit backlog is implied.
+
+Pay keeps Billing/Gateway/Wallet/Jobs/Identity/Audit owners. Browser-only merchant
+configuration stores up to12 ordered typed rules on the terminal integration.
+First enabled AND match chooses1..5 canonical gateway refs by exact Toman amount,
+order type and optional merchant-claimed payment count/membership. Claims never
+authorize identity or prove payment. Missing history cannot satisfy positive
+thresholds. No match retains the existing compatible methods; a matched rule with
+no available method fails closed, not a silent wider fallback. No arbitrary URLs,
+JavaScript or separate gateway credentials. Disabled methods remain hidden.
+
+Each bot payment snapshots the selected rule and method allowlist in its existing
+delivery identity. Replay keeps that snapshot across rule/history/config changes;
+financial amount/user/type conflicts remain. Routing has its own `routingVersion`
+claim, separate from the callback configuration version: a rule-only edit does
+not invalidate pending callback delivery. Both use strict Audit. Existing records
+with an empty snapshot keep legacy behavior. Both
+schemas and an additive migration widen metadata only; the database prevents
+snapshot replacement. Multiple bot links point to the SAME payment id with a
+method preference; query strings never create an invoice, bypass OTP or expand the
+snapshot. Availability is intersected with the snapshot and the server checks the
+allowlist again before gateway admission. LINKS without a matched rule retains the
+single legacy link. Existing
+single-invoice STARTING/UNKNOWN and exact-once credit guards remain authoritative.
+
+Merchant operations gets full-history search, terminal/status/payment-state filters,
+25-row pagination, persisted queue/review/overdue/paid-undelivered/credit-issue counts,
+and owner-scoped detail (rule/methods, safe job status, allowlisted audit fields).
+No raw queue errors, secrets, customer names or unscoped other-merchant data.
+Summary counts cover the merchant's full history, independent of list filters.
+Credit comparison checks the linked DONE IRR PAY_CREDIT's owner, exact amount and
+withdrawable delta against the payment's net amount; it is a consistency indicator,
+not an independent bank audit. Age-based overdue is not proof of worker liveness.
+UNKNOWN/BLOCKED keep explicit confirm/retry; SENDING at least 120 seconds old can
+be marked UNKNOWN without another send; QUEUED at least five minutes old can
+re-enter the canonical deduplicated queue. Every action claims
+the current version, requires explicit acknowledgment and changes no financial row.
+
+UI extends current Pay/SDS cards and native fields, Persian RTL, both themes,
+responsive tables, keyboard/focus and reduced-motion behavior under Unslop guidance.
+Preserve approved MoboCom Custom/public sections. Loading/empty/error/saved/stale
+and missing-method states are explicit. No live provider call/merge/deploy is part
+of this development authorization. Local evidence does not certify a live worker,
+bank connection or merchant bot.
+
+Acceptance: new native CRM and playlist checks, native Pay routing/operations
+concurrency/privacy/allowlist/immutable snapshot/pagination/recovery/audit rollback,
+existing Pay regressions, routing pure tests, current static/type/schema/contract
+checks and real1440 light/dark plus390 browser/axe/React Doctor evidence. Mutating
+scripts use Origin. Deliberate faults must fail and source must be restored.
+Apply the additive migration before code. Disable routing/integration for new
+orders to pause; existing decisions/history remain. Forward-fix after activity;
+do not delete financial or delivery evidence to roll back.

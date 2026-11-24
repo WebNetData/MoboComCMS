@@ -1,3 +1,10 @@
+Scoped continuation2026-11-24: CRM department/Toman read projections and Music
+personal-playlist current track+album audience now have native PG and actual
+browser proof. Optional Pay routing/full-history operations are Functional locally,
+including separate routingVersion and immutable single-payment method snapshots.
+These receipts do not certify whole CRM/Support/Music or live financial rollout.
+[Current scope and evidence](handoffs/MOBOCOM_PAY.md#routing-operations-and-confirmed-platform-repairs--2026-11-24).
+
 Scoped2026-11-24: the optional Pay custom-bot adapter is Functional within local
 Billing/Wallet/Operations/Identity evidence, with scoped setup/checkout/recovery UI.
 Unknown real-bot ACK/replay semantics and live financial/provider rollout remain

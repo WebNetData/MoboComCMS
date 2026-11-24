@@ -2,6 +2,7 @@ import { PayError } from '@/modules/billing/domain/pay'
 import type { PayBotDeliveryView } from '@/modules/billing/domain/pay-bot'
 import { enqueue } from '@/modules/operations/server/enqueue'
 import { merchantFor, payAudit, payTransaction, type PayActor } from '../context'
+import { overdueDelivery } from './operations'
 
 export async function botDeliveries(actor: PayActor): Promise<PayBotDeliveryView[]> {
   return payTransaction(async tx => {
@@ -13,12 +14,22 @@ export async function botDeliveries(actor: PayActor): Promise<PayBotDeliveryView
 
 export async function recoverBotDelivery(actor: PayActor, input: Record<string, unknown>) {
   if (actor.machine) throw new PayError('بررسی نتیجه فقط از حساب پذیرنده انجام می‌شود', 403)
-  if (typeof input.id !== 'string' || !Number.isSafeInteger(input.version) || !['retry','confirm'].includes(String(input.action)) || input.confirmed !== true) throw new PayError('تأیید آگاهانه و نسخهٔ فعلی نتیجه لازم است')
+  if (typeof input.id !== 'string' || !Number.isSafeInteger(input.version) || !['retry','confirm','inspect','queue'].includes(String(input.action)) || input.confirmed !== true) throw new PayError('تأیید آگاهانه و نسخهٔ فعلی نتیجه لازم است')
   return payTransaction(async tx => {
     const merchant = await merchantFor(actor, tx, true)
     const row = await tx.payBotDelivery.findFirst({ where: { id: input.id as string, payment: { merchantId: merchant.id } }, include: { integration: true, payment: { include: { terminal: true } } } })
     if (!row) throw new PayError('نتیجه پیدا نشد', 404)
-    if (row.version !== input.version || !['UNKNOWN','BLOCKED'].includes(row.status) || row.payment.status !== 'PAID' || !row.payment.walletTxId) throw new PayError('وضعیت تغییر کرده یا قابل بررسی مجدد نیست', 409)
+    if (row.version !== input.version || row.payment.status !== 'PAID' || !row.payment.walletTxId) throw new PayError('وضعیت تغییر کرده یا قابل بررسی مجدد نیست', 409)
+    if (input.action === 'inspect' || input.action === 'queue') {
+      if (!overdueDelivery(row) || row.status !== (input.action === 'inspect' ? 'SENDING' : 'QUEUED')) throw new PayError('این ارسال معطل یا قابل بررسی نیست', 409)
+      const inspect = input.action === 'inspect'
+      const claim = await tx.payBotDelivery.updateMany({ where: { id: row.id, status: row.status, version: row.version }, data: { status: inspect ? 'UNKNOWN' : 'QUEUED', version: { increment: 1 }, lastCode: inspect ? 'OPERATOR_INSPECTED_INTERRUPTION' : 'EXPLICIT_QUEUE_REPAIR' } })
+      if (claim.count !== 1) throw new PayError('وضعیت هم‌زمان تغییر کرده است', 409)
+      if (!inspect) await enqueue('pay.bot-delivery', { deliveryId: row.id }, { dedupeKey: 'pay-bot:' + row.id }, tx)
+      await payAudit(tx, actor, inspect ? 'bot.inspected' : 'bot.queue-repair', row.id, { paymentId: row.paymentId, before: row.status, status: inspect ? 'UNKNOWN' : 'QUEUED' })
+      return { saved: true }
+    }
+    if (!['UNKNOWN','BLOCKED'].includes(row.status)) throw new PayError('نتیجه قابل بررسی مجدد نیست', 409)
     const retry = input.action === 'retry'
     if (retry && (!row.integration.active || !row.payment.terminal.active)) throw new PayError('ابتدا اتصال و پایانه را فعال کنید', 409)
     const claim = await tx.payBotDelivery.updateMany({ where: { id: row.id, version: row.version, status: row.status }, data: {

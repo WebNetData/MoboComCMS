@@ -1,5 +1,18 @@
 import { db } from '@/platform/database/prisma'
 import { toTrack } from '@/modules/media/server/queries'
+import { userOpensAudience } from '@/modules/account/server/item-audience'
+
+async function visibleTracks<T extends { track: { audienceGroups: string; album: { audienceGroups: string } | null } }>(rows: T[], userId: number) {
+  const checks = new Map<string, Promise<boolean>>()
+  const opens = (raw: string | undefined, type: 'track' | 'album') => {
+    const key = `${type}:${raw || ''}`
+    if (!checks.has(key)) checks.set(key, userOpensAudience(raw, type, userId))
+    return checks.get(key)!
+  }
+  const visible = await Promise.all(rows.map(async ({ track }) =>
+    await opens(track.audienceGroups, 'track') && await opens(track.album?.audienceGroups, 'album')))
+  return rows.filter((_, index) => visible[index])
+}
 
 export class PlaylistError extends Error {
   constructor(message: string, public status = 400) { super(message) }
@@ -19,17 +32,17 @@ function playlistTitle(value: unknown) {
 }
 
 export async function listPersonalPlaylists(userId: number) {
-  const rows = await db.userMusicPlaylist.findMany({ where: { userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], select: { id: true, title: true, updatedAt: true, _count: { select: { tracks: true } } } })
-  return rows.map(({ _count, ...row }) => ({ ...row, trackCount: _count.tracks }))
+  const rows = await db.userMusicPlaylist.findMany({ where: { userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], select: { id: true, title: true, updatedAt: true, tracks: { where: { track: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } }, select: { track: { select: { audienceGroups: true, album: { select: { audienceGroups: true } } } } } } } })
+  return Promise.all(rows.map(async ({ tracks, ...row }) => ({ ...row, trackCount: (await visibleTracks(tracks, userId)).length })))
 }
 
 export async function getPersonalPlaylist(userId: number, id: number) {
   const row = await db.userMusicPlaylist.findFirst({ where: { id, userId }, select: {
     id: true, title: true, updatedAt: true,
-    tracks: { orderBy: [{ position: 'asc' }, { addedAt: 'asc' }], include: { track: { include: { artist: { select: { id: true, slug: true, name: true, nameEn: true, image: true } }, album: { select: { id: true, slug: true, title: true, titleEn: true, cover: true } } } } } },
+    tracks: { where: { track: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } }, orderBy: [{ position: 'asc' }, { addedAt: 'asc' }], include: { track: { include: { artist: { select: { id: true, slug: true, name: true, nameEn: true, image: true } }, album: { select: { id: true, slug: true, title: true, titleEn: true, cover: true, audienceGroups: true } } } } } },
   } })
   if (!row) throw new PlaylistError('پلی‌لیست پیدا نشد', 404)
-  return { id: row.id, title: row.title, updatedAt: row.updatedAt, tracks: row.tracks.filter(({ track }) => track.status === 'PUBLISHED' && track.publishedAt <= new Date()).map(({ track }) => toTrack(track)) }
+  return { id: row.id, title: row.title, updatedAt: row.updatedAt, tracks: (await visibleTracks(row.tracks, userId)).map(({ track }) => toTrack(track)) }
 }
 
 export async function createPersonalPlaylist(userId: number, value: unknown) {

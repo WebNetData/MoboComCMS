@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.2.0
+  version: 1.3.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An active merchant and terminal are provisioned through the account interface before using this API.
@@ -31,7 +31,15 @@ paths:
         Authenticate api_key using the dedicated terminal integration key, never a bot token or ordinary
         bearer key. amount is integer Toman (ten IRR). Replaying the same integration/order/amount/user/type
         returns the same hosted checkout; changed financial or customer identity claims conflict. Optional
-        customer history is validated but never used as bank evidence or persisted. All errors use the
+        customer history is validated and may select an opt-in merchant routing rule; it is never bank
+        evidence or identity proof and is not persisted. Up to 12 ordered rules match exact Toman amount,
+        type and claimed payment count and membership days; missing history cannot meet a positive threshold.
+        A matched rule freezes its selected compatible gateway refs on the single payment and delivery;
+        replay retains that snapshot. Available methods are intersected with the snapshot at use time;
+        if none remain available the request fails closed. With no match, legacy compatible methods apply.
+        LINKS mode returns one link per available snapshotted method (up to five), all to the same payment;
+        without a matching rule it returns the existing single link. A method query is only a preference and
+        never bypasses browser OTP or the server allowlist. All errors use the
         unwrapped ok=false/message response. PAID queues POST to the registered merchant-origin HTTPS
         /api/payment with the separate Token header and order_id/actions=custom_payment_verify body.
         Unknown acknowledgments never automatically resend; the merchant explicitly reviews recovery.
@@ -57,7 +65,7 @@ paths:
                       links:
                         type: array
                         minItems: 1
-                        maxItems: 1
+                        maxItems: 5
                         items: { type: object, required: [text, url], properties: { text: { type: string }, url: { type: string, format: uri } } }
         default:
           description: Invalid request, key, conflict, strict rate limit, disabled module or unavailable collection (400, 401, 403, 404, 409, 413, 422, 429, 503).
@@ -275,9 +283,9 @@ components:
         type: { type: string, enum: [purchase, renewal, balance_increase] }
         username: { type: string, pattern: '^[A-Za-z0-9_]{0,64}$' }
         first_name: { type: string, maxLength: 160 }
-        payment_count: { type: integer, minimum: 0, maximum: 9007199254740991 }
+        payment_count: { type: integer, minimum: 0, maximum: 9007199254740991, description: Merchant claim used only for optional routing; missing cannot meet a positive threshold. }
         register: { type: integer, minimum: 0, maximum: 9007199254740991 }
-        membership_days: { type: integer, minimum: -1, maximum: 9007199254740991 }
+        membership_days: { type: integer, minimum: -1, maximum: 9007199254740991, description: Merchant claim used only for optional routing; missing or -1 cannot meet a positive threshold. }
         balance: { type: integer, minimum: 0, maximum: 9007199254740991, description: Merchant claim in Toman; not MoboCom Wallet funds. }
     CheckoutResponse:
       type: object

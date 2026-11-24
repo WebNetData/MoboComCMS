@@ -554,3 +554,12 @@
   color: var(--sds-color-text-warning-default);
   background: var(--sds-color-background-warning-tertiary);
 }
+
+/* Operational detail may contain mixed LTR references; retain the scoped RTL layout. */
+.recoveryBox :is(p, li) { overflow-wrap: anywhere; }
+.operationMetrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.operationMetrics .metric { display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+@media (max-width: 760px) { .page .operationMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.ruleSummary { min-height: 44px; cursor: pointer; font-weight: 600; overflow-wrap: anywhere; }
+.ruleSummary + div { padding-top: 16px; }

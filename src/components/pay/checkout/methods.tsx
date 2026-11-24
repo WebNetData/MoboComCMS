@@ -6,7 +6,7 @@ import { ErrorNotice } from "../shared";
 import ReceiptForm from "./receipt";
 import s from "../Pay.module.css";
 
-export default function CheckoutMethods({ data, refresh }: { data: PayCheckout; refresh: () => void }) {
+export default function CheckoutMethods({ data, refresh, preferredGateway = '' }: { data: PayCheckout; refresh: () => void; preferredGateway?: string }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   async function choose(gatewayRef: string) {
     setBusy(true); setError("");
@@ -17,7 +17,8 @@ export default function CheckoutMethods({ data, refresh }: { data: PayCheckout; 
   const selected = data.selectedGateway;
   return <section className={`${s.card} ${s.stack}`}>
     <h2>{selected ? "ادامه پرداخت" : "انتخاب روش پرداخت"}</h2><ErrorNotice error={error} />
-    {!selected && <>{!data.gateways.length && <p role="status">روش پرداخت فعالی در دسترس نیست؛ با فروشنده تماس بگیرید.</p>}<div className={s.stack}>{data.gateways.map(g => <button type="button" className={s.secondary} key={g.ref} disabled={busy} onClick={() => void choose(g.ref)}>{g.name}{g.manual ? " · ارسال رسید" : " · پرداخت آنلاین"}</button>)}</div></>}
+    {!selected && data.gateways.some(method => method.ref === preferredGateway) && <p className={s.muted} id="pay-method-preference">روش انتخاب‌شده در ربات مشخص شده است؛ برای ادامه، دکمهٔ همان روش را بزنید.</p>}
+    {!selected && <>{!data.gateways.length && <p role="status">روش پرداخت فعالی در دسترس نیست؛ با فروشنده تماس بگیرید.</p>}<div className={s.stack}>{data.gateways.map(g => <button type="button" className={g.ref === preferredGateway ? s.button : s.secondary} aria-describedby={g.ref === preferredGateway ? "pay-method-preference" : undefined} key={g.ref} disabled={busy} onClick={() => void choose(g.ref)}>{g.name}{g.manual ? " · ارسال رسید" : " · پرداخت آنلاین"}</button>)}</div></>}
     {selected && selected.status !== "READY" && <><p role="status">{selected.status === "FAILED" ? "اتصال به درگاه انجام نشد. می‌توانید همین روش را دوباره امتحان کنید." : "نتیجه ایجاد پرداخت هنوز قطعی نیست. برای جلوگیری از پرداخت تکراری، دوباره پرداخت نکنید و با پشتیبانی پیگیری کنید."}</p>{selected.status === "FAILED" && <button type="button" className={s.secondary} disabled={busy} onClick={() => void choose(selected.gatewayRef)}>تلاش دوباره</button>}</>}
     {selected?.status === "READY" && !selected.manual && <><p>پس از پرداخت، برای مشاهده نتیجه به همین صفحه بازگردید.</p><a className={s.button} href={selected.paymentUrl}>ادامه در صفحه امن پرداخت</a><button type="button" className={s.secondary} onClick={refresh}>بررسی نتیجه پرداخت</button></>}
     {selected?.status === "READY" && selected.manual && <>

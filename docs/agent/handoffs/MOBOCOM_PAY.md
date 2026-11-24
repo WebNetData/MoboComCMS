@@ -1,3 +1,115 @@
+## Routing PR preparation — owner2026-11-24
+
+Owner now explicitly authorizes push and a pull request to `main`, retaining
+merge/deploy. This supersedes the local-only status below. Current branch is
+`feat/pay-routing-operations-2026-11-24`; unchanged product `b45cfd0f` plus receipt
+`6b05817a`. Fresh origin/main is still `bd6a218a` (0 behind/2 ahead before this
+publication receipt), working tree was clean and aggregate diff whitespace check
+passed. No existing PR for this head was found. Existing native PostgreSQL,
+upgrade, scoped units/types/contracts/browser/security evidence below is reused
+for unchanged product source; no additional test/build run is implied.
+
+Publication includes additive211 and explicitly records the opt-in response
+maxItems1→5 oasdiff diagnostic, preserved Custom theme and unverified live bank/
+bot/worker rollout. GitHub is authoritative for the resulting PR URL/state.
+No hosted workflow dispatch, automatic merge, deploy or live send is authorized.
+
+## Routing, operations and confirmed platform repairs — 2026-11-24
+
+Local product commit: `b45cfd0f` (`feat(pay): add routing rules and operations with
+scoped platform repairs`). The following receipt changes documentation only;
+executed evidence covers that product source. Aggregate diff whitespace check
+against bd6a218a passed; no publication was requested in this development slice.
+
+Owner authorized development items1+2. Authoritative checkout is
+`.mobocom/pay-routing-operations`, branch `feat/pay-routing-operations-2026-11-24`,
+from fresh owner-merged PR484/main `bd6a218a469a631cb6129e259d7cb43d19120b7c`.
+This section supersedes the older single-button/latest100/no-routing descriptions
+below. Product changes are local; no new push/PR, build, hosted workflow, live
+financial send, merge or deployment was performed. Root/autonomous-foundation/IDE
+work was preserved. Existing canonical owners and Custom presentation remain.
+
+Implemented:
+
+- Existing Livechat CRM snapshot/profile/chat projection now consumes canonical
+  Ticket department scope. Missing actor projects no tickets; full staff and
+  department managers retain their access. Subjects/status/timeline/counts use
+  the same scope. CRM IRR/IRT totals aggregate exactly with BigInt before the old
+  numeric Toman DTO boundary; USD is excluded and stored orders are untouched.
+  Owners: `livechat/server/livechat.ts` and its existing HTTP facade.
+- Existing Music personal-playlist list count and detail recheck current track
+  publication/date plus canonical track and parent-album audience for the current
+  user. Relationships remain saved so restored access restores visibility. This
+  does not invent a new parent-album publication policy or change public styling.
+- Billing Pay `domain/pay-routing.ts`, `server/pay/bot/routing.ts` and existing
+  creation/checkout owners add up to12 ordered, enabled AND rules for integer
+  Toman amount, purchase/renewal/balance type and minimum payment/member history.
+  Missing/invalid history cannot satisfy a positive threshold. These are untrusted
+  merchant routing claims, never Identity/payment proof. First matching rule
+  selects1..5 currently compatible canonical methods. No match keeps legacy
+  behavior; matched-with-no-available-method fails rather than bypassing the rule.
+- The selected rule and method names/refs freeze in one delivery/payment snapshot.
+  Replay never changes financial identity or that snapshot. LINKS returns several
+  buttons for that same obligation; URL mode stays one link. Checkout intersects
+  with current availability and repeats admission inside the invoice transaction.
+  `?method=` is a suggestion, never an automatic charge or OTP bypass. Competing
+  methods still claim a single canonical invoice/Wallet effect.
+- Rule saves claim independent `routingVersion`; callback/key changes still claim
+  `version` and retain exact delivery fencing. A rule-only edit does not revoke a
+  previously snapshotted callback. Both saves are strict-Audit transactions.
+- Billing Pay `domain/pay-operations.ts`/`bot/operations.ts` provides owner-only
+  complete history at25/page, order/payment search, terminal/delivery/payment-state
+  filters, review/overdue filters and merchant-wide queue/review/paid-undelivered/
+  exact net-Wallet-credit mismatch metrics. Spent balance is not a credit mismatch.
+  Details expose only safe job timing/status and allowlisted Audit fields; raw job
+  errors/results, callback credentials and foreign records are omitted. New GET
+  responses inherit canonical `Cache-Control: no-store`.
+- Explicit recovery retains version/status/paid-Wallet guards: stale SENDING can
+  become UNKNOWN without sending; stale QUEUED can repair its deduplicated job.
+  UNKNOWN/BLOCKED confirmation/retry retains explicit acknowledgment. No recovery
+  writes money rows. Age metrics describe persisted work, not worker liveness.
+- Existing Pay navigation gains `/dashboard/pay/operations`. Existing terminal
+  setup gains compact keyboard-operated rules; shared Pay styles, AccountShell,
+  RTL/light/dark/mobile and reduced-motion behavior are retained. Details return
+  focus to the current row even after a table refresh. Old latest100 component is
+  removed; its compatibility API remains. No dependency or global-theme change.
+
+Migration `20270328120000_pay_routing_operations` is additive, release-registered
+and in both schemas: rules/default`[]`, independent routingVersion/default1,
+delivery snapshot/defaultempty, bounded JSON checks, snapshot immutability trigger
+and history index. No financial amount/state is rewritten. Apply211 before code;
+retain all money/delivery history and forward-fix after activity. Disable rules/
+integration for new orders to pause; review already claimed outbound attempts.
+
+Executed evidence (ignored `var/pay-routing-20261124`):
+
+| Scope | Actual result |
+| --- | --- |
+| Environment | Node22.23.3, PostgreSQL17.11, UID1000/NOSUPERUSER, no `.env`, isolated copied source/private generated Prisma5.22 client; all211 migrations on empty DB |
+| CRM + Music native | Registered optional `crm-scope-currency` and `playlist-audience` pass two departments/current actors/no actor, chat/profile/count metadata,101IRT+255IRR=126.5Toman, excluded USD/unchanged orders; current track+album group change/restoration, draft/future, foreign ownership and preserved relationships. Final CRM fixtures create real non-hardcoded staff IDs |
+| Pay native | Registered optional `pay-routing-operations` passes two active merchants, single-payment2links, immutable replay, OTP/method admission, concurrent one-invoice winner, owner/version denial, late strict-Audit rollback,104-order old-history pagination/search, safe detail despite injected raw job error/result, exact Wallet credit, stale/fresh recovery races and queue dedupe. Rule-only save followed by real synthetic bank settlement and mocked successful callback reaches SENT without changing callback version |
+| Upgrade/regressions | Separate DB migrated210, seeded a complete PENDING payment plus callback integration and WAITING delivery, migrated211 and compared every old field unchanged; defaults empty/1/empty. Existing `mobocom-pay`, `pay-shared-checkout` and `pay-bot` native suites then pass on it. No new paid-history upgrade fixture claim |
+| Fault strength | Five deliberate private source faults (old CRM scope, old playlist visibility, wrong Rial scale, bypassed method admission, conflated callback/routing versions) each fail a behavior assertion. Source bytes restored and final CRM/Pay routing checks pass; playlist restoration checked by browser and exact source manifest |
+| Units/types/static |61 scoped units pass including4 pure routing tests and existing Pay/SMS/Mellat/invoice/Livechat/Music checks. Final complete TypeScript passes after private Next JSX config restored. Architecture/source/schema parity/money schema, UI and primitive/release/security/Audit invariants pass. No full build/site suite rerun |
+| Contracts | OpenAPI1.3.0 Spectral0 diagnostics. oasdiff against bd6a218a reports response maxItems1→5 as one breaking diagnostic even though its process exits0; this is explicitly opt-in rules+LINKS, default legacy behavior preserved by native regression. Actual `routing-smoke.hurl`10 requests pass2links/replay/conflict/pre-OTP privacy/direct method denial/owner page+search/foreign active merchant404/anonymous denial. No independent live consumer/Pact certification |
+| Browser |36 accepted scoped captures across setup/empty history/phone/methods, operations history/page2/search/explicit UNKNOWN confirmation, paid result, CRM and both playlist audiences. Final compact/expanded rules supersede earlier expanded-editor captures.1440 light/dark and390 RTL, scoped WCAG axe0/document overflow0. Actual keyboard open/close, focus restoration after decision, blank-number validation, draft survival across callback save and persisted confirmation checked. Runtime errors0 in accepted runs; synthetic payer ticket and bank data, no live SMS/bank/bot send |
+| Review/security | Independent final source security review found no concrete remaining blocker and verified separate version consumers; it ran no tests. Doctor0.9.17 over12 files:0 errors/15 reviewed warnings (existing AccountShell effects/complexity, bounded Pay branches/table resemblance, cancellation-controlled checkout effect, tiny method-list lookup advice). No suppression. Existing scoped one-rule Semgrep0 and redacted changed-file Gitleaks0, not comprehensive certification |
+| Source/presentation/cleanup |4252 source/check/schema/config hashes match runtime exactly; no unexpected source. Original Custom config SHA256 remains `be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df`. Exact task preview/tunnel, both owned databases and private role removed; private cookies/keys/config copies removed. Original localhost3000 readiness/session both200 afterward |
+
+Earlier harness failures were corrected before the accepted runs: literal synthetic
+ciphertext failed the old integration constraint (changed to its valid encrypted
+prefix for the upgrade fixture); a wrong regression filename was corrected; CRM
+text locator included a ticket prefix; the existing translation prompt was
+dismissed normally. Browser testing found and fixed detached-row focus restoration.
+An initial YAML indentation error was corrected before final Spectral/Hurl checks.
+
+Remaining: real bank attribution adapter and production-host OTP/provider/worker
+checks, and the actual bot's successful/duplicate acknowledgment contract. No real
+external bot response was invented. Whole-site Support claim race, CRM global
+segment pagination and older failing fixtures remain outside this bounded slice;
+the three confirmed read/projection defects above are repaired. Next work follows
+those existing owners, not a second queue, wallet, CRM or routing authority.
+
 ## Pull request preparation — owner2026-11-24
 
 The owner explicitly requested publishing the completed custom-bot/Pay UI slice

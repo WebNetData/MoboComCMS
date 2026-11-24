@@ -123,6 +123,7 @@ export default function AccountShell({ children }: { children: React.ReactNode }
       { href: '/dashboard/pay/payments', label: L('پرداخت‌ها', 'Payments'), icon: 'receipt', exact: true },
       { href: '/dashboard/pay/settlements', label: L('تسویه‌ها', 'Settlements'), icon: 'bank', exact: true },
       { href: '/dashboard/pay/terminals', label: L('پایانه‌ها', 'Terminals'), icon: 'terminal', exact: true },
+      { href: '/dashboard/pay/operations', label: L('عملیات ربات', 'Bot operations'), icon: 'activity', exact: true },
       { href: '/dashboard/pay/reports', label: L('گزارش‌های مالی', 'Financial reports'), icon: 'chart', exact: true },
       { href: '/dashboard/pay/api', label: L('اتصال و راهنمای API', 'Integration & API'), icon: 'code', exact: true },
     ] : [] },

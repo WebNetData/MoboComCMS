@@ -1,3 +1,11 @@
+2026-11-24 owner authorized development items1+2: confirmed CRM department/currency
+and playlist audience repairs, plus advanced Pay routing and operations. Extend
+existing owners and preserve approved Custom presentation. Implemented bounded
+rules and one-payment multi-link snapshots; routingVersion is independent of
+callback/key authority. Complete local evidence/limits are [recorded here](handoffs/MOBOCOM_PAY.md#routing-operations-and-confirmed-platform-repairs--2026-11-24).
+This is not authorization for live financial configuration, merge/deploy or hosted
+workflow dispatch; broader whole-site findings remain open.
+
 Owner Pay continuation2026-11-24: implement the supplied custom-gateway bot protocol
 and professional Pay-scoped presentation while preserving the approved site theme.
 The owner has no bot name/success-replay response sample and authorized proceeding

@@ -29,7 +29,7 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
       verification: { verified, phoneLast4: verified ? row.payerPhoneLast4 : '' },
       ...(delivery ? { botDelivery: { status: delivery.status } } : {}),
       returnUrl: verified && row.status === 'PAID' ? row.terminal.returnUrl : '',
-      gateways: verified && row.status === 'PENDING' ? await payGatewayOptions(row) : [],
+      gateways: verified && row.status === 'PENDING' ? await payGatewayOptions(row, tx) : [],
       selectedGateway: verified && invoice ? { gatewayRef: row.gatewayAttemptRef, provider: row.gatewayAttemptProvider, manual,
         status: row.gatewayAttemptStatus, paymentUrl: row.status === 'PENDING' && row.gatewayAttemptStatus === 'READY' ? invoice.paymentUrl : '', instructions: gateway?.instructions || '' } : null,
       receipt: receipt ? { ...receipt, createdAt: receipt.createdAt.toISOString() } : null,

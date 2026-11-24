@@ -6,6 +6,9 @@ import { userOpensSection } from '@/modules/account/server/section-access'
 import { createPayPayment, fingerprint } from '../payments'
 import { payTransaction, payContext } from '../context'
 import { botKeyHash, resolveBotIntegration } from './integrations'
+import { matchRoutingRule, parseRoutingSnapshot, type RoutingSnapshot } from '@/modules/billing/domain/pay-routing'
+import { storedRoutingRules } from './routing'
+import { payGatewayOptions } from '../checkout-gateways'
 
 export async function createBotPayment(req: NextRequest, id: string, input: Record<string, unknown>) {
   let origin: URL
@@ -26,13 +29,31 @@ export async function createBotPayment(req: NextRequest, id: string, input: Reco
     const row = await createPayPayment(actor, { terminalId: integration.terminalId, externalId: parsed.orderId, amountRial: parsed.amountRial }, key, tx)
     const prior = await tx.payBotDelivery.findUnique({ where: { paymentId: row.id } })
     if (prior && (prior.integrationId !== integration.id || prior.customerRefHash !== customerRefHash || prior.orderType !== parsed.type)) throw new PayError('شناسهٔ سفارش با اطلاعات دیگری ثبت شده است', 409)
-    if (!prior) await tx.payBotDelivery.create({ data: {
+    let snapshot = prior ? parseRoutingSnapshot(prior.routingSnapshot) : null
+    if (!prior) {
+      const rule = matchRoutingRule(storedRoutingRules(current.routingRules), { amountRial: parsed.amountRial, type: parsed.type, paymentCount: input.payment_count as number | undefined, membershipDays: input.membership_days as number | undefined })
+      if (rule) {
+        const options = await payGatewayOptions({ totalMinor: row.totalMinor })
+        const gateways = rule.gateways.flatMap(ref => { const option = options.find(item => item.ref === ref); return option ? [{ ref, name: option.name.trim().slice(0, 80) || 'پرداخت' }] : [] })
+        if (!gateways.length) throw new PayError('روش‌های مجاز این سفارش موقتاً در دسترس نیستند', 503)
+        snapshot = { version: 1, ruleId: rule.id, ruleName: rule.name, gateways } satisfies RoutingSnapshot
+      }
+      await tx.payBotDelivery.create({ data: {
       id: randomUUID(), integrationId: integration.id, paymentId: row.id,
       configVersion: current.version, callbackUrl: current.callbackUrl, callbackTokenCiphertext: current.callbackTokenCiphertext,
-      ackPolicy: current.ackPolicy, customerRefHash, orderType: parsed.type,
-    } })
-    return { row, mode: current.responseMode }
+      ackPolicy: current.ackPolicy, customerRefHash, orderType: parsed.type, routingSnapshot: snapshot ? JSON.stringify(snapshot) : '',
+    } }) }
+    return { row, mode: current.responseMode, snapshot }
   })
   const url = new URL('/pay/' + result.row.id, origin).toString()
+  if (result.mode === 'LINKS' && result.snapshot && result.row.status === 'PENDING') {
+    const options = await payGatewayOptions(result.row)
+    const links = result.snapshot.gateways.filter(method => options.some(option => option.ref === method.ref)).map(method => {
+      const target = new URL(url); target.searchParams.set('method', method.ref)
+      return { text: method.name, url: target.toString() }
+    })
+    if (!links.length) throw new PayError('روش‌های مجاز این سفارش موقتاً در دسترس نیستند', 503)
+    return { links }
+  }
   return result.mode === 'LINKS' ? { links: [{ text: 'پرداخت امن با موبوکام', url }] } : { url }
 }
