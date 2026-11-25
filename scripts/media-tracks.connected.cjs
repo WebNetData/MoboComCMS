@@ -26,7 +26,7 @@ const media = load('src/modules/media/server/admin.ts'), queries = load('src/mod
 const u = name => `https://dl.example.invalid/${seed}/${name}`
 
 async function main() {
-  const { row: film } = await media.saveMediaItem('cinema-titles', { title: `${seed} film`, slug: seed, kind: 'MOVIE', links: [
+  const { row: film } = await media.saveMediaItem('cinema-titles', { title: `${seed} film`, slug: seed, kind: 'MOVIE', poster: 'https://example.invalid/poster.jpg', genres: 'Drama', summary: 'A family discovers a forgotten story across generations.', links: [
     { url: u('sub-en.srt'), kind: 'SUBTITLE', language: 'en', quality: 'SRT', audio: 'DUBBED', subtitle: true },
     { url: u('film-1080.mp4'), kind: 'DOWNLOAD', quality: '1080p', audio: 'DUBBED', language: 'fa', subtitle: true },
     { url: u('sub-fa.srt'), kind: 'SUBTITLE', language: 'fa', quality: 'SRT' },

@@ -46,7 +46,7 @@ async function main() {
   assert.deepEqual(audits.map(([action]) => action), ['created', 'created'])
 
   // ---- a title of that format is a series; a kind sent alongside does not override the format
-  const save = (body, id = null) => media.saveMediaItem('cinema-titles', body, id)
+  const save = (body, id = null) => media.saveMediaItem('cinema-titles', id ? body : { status: 'DRAFT', ...body }, id)
   const { row: one } = await save({ title: `${seed} one`, slug: `${seed}-one`, formatId: String(anime.id), kind: 'MOVIE' })
   assert.deepEqual([one.formatId, one.kind], [anime.id, 'SERIES'], 'the format sets the kind')
   // a kind alone (an import, IMDb data) takes the default format of that kind; a fitting format is kept
@@ -79,7 +79,11 @@ async function main() {
   assert.equal(await prisma.cinemaFormat.count({ where: { id: spare.id } }), 0)
 
   // ---- the public browse finds titles by format and cards carry it
-  await prisma.cinemaTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
+  for (const item of [one, two, three]) {
+    const isSeries = item.id !== three.id
+    await save({ status: 'PUBLISHED', poster: 'https://example.invalid/poster.jpg', genres: 'Drama', summary: 'A family discovers a forgotten story across generations.', links: [{ url: `https://example.invalid/${seed}-${item.id}-film.mp4` }], ...(isSeries ? { seasons: [{ number: 1, episodes: [{ number: 1, title: 'First episode', links: [{ url: `https://example.invalid/${seed}-${item.id}-episode.mp4` }] }] }] } : {}) }, item.id)
+  }
+  await prisma.cinemaTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { publishedAt: new Date(Date.now() - 60000) } })
   const found = await browse.browseCinema({ format: `${seed}-anime`, q: seed })
   assert.deepEqual(found.titles.map((title) => [title.id, title.format?.slug]), [[one.id, `${seed}-anime`]])
   assert.equal(rules.formatLabel(found.titles[0], true), 'انیمه')
@@ -97,6 +101,7 @@ async function main() {
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {
+    await prisma.mediaLink.deleteMany({ where: { url: { contains: seed } } })
     await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.cinemaFormat.deleteMany({ where: { slug: { startsWith: seed } } })
   } finally { await prisma.$disconnect() }

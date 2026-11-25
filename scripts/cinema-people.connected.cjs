@@ -39,7 +39,7 @@ async function main() {
   assert.deepEqual([rules.normalizePersonName('  كيانو‌ريوز '), rules.normalizePersonName('Keanu  REEVES'), rules.creditsOf({ director: '', cast: 'not json' })], ['کیانو ریوز', 'keanu reeves', []])
 
   // ---- saving a film through the admin path names its people
-  const save = (body, id = null) => media.saveMediaItem('cinema-titles', body, id)
+  const save = (body, id = null) => media.saveMediaItem('cinema-titles', id ? body : { poster: 'https://example.invalid/poster.jpg', genres: 'Drama', summary: 'A family discovers a forgotten story across generations.', links: [{ url: `https://example.invalid/${seed}-film.mp4` }], ...(body.kind === 'SERIES' ? { seasons: [{ number: 1, episodes: [{ number: 1, title: 'First episode', links: [{ url: `https://example.invalid/${seed}-episode.mp4` }] }] }] } : {}), ...body }, id)
   const { row: one } = await save({ title: N('one'), slug: `${seed}-one`, kind: 'MOVIE', director: `${N('Dir')}، ${N('Second')}`, cast: [{ name: N('Star'), role: 'Hero', image: '/api/media/covers/star.webp' }, { name: N('Dir'), role: 'Cameo' }] })
   const { row: two } = await save({ title: N('two'), slug: `${seed}-two`, kind: 'SERIES', director: N('dir').toUpperCase(), cast: [{ name: N('Star') }] })
   const { row: draft } = await save({ title: N('draft'), slug: `${seed}-draft`, kind: 'MOVIE', status: 'DRAFT', director: N('Hidden'), cast: [{ name: N('Star') }] })
@@ -106,6 +106,6 @@ async function main() {
   console.log('PostgreSQL cinema people: credits read from a title\'s own fields, one person across spellings and roles, pages and directory of published titles only, edits followed, older titles backfilled once, producers credited and filtered, and author-scoped people suggestions passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
-  try { await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } }); await prisma.cinemaPerson.deleteMany({ where: { normalizedName: { startsWith: seed } } }) }
+  try { await prisma.mediaLink.deleteMany({ where: { url: { contains: seed } } }); await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } }); await prisma.cinemaPerson.deleteMany({ where: { normalizedName: { startsWith: seed } } }) }
   finally { await prisma.$disconnect() }
 })

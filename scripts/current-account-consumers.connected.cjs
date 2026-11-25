@@ -23,7 +23,7 @@ function load(file){
   if(name==='@/platform/database/prisma')return {db};
   if(name==='@/platform/config/env')return {authSecret:()=>secret};
   if(name==='@/platform/http/rate-limit')return {clientIp:()=> '10.123.4.5',rateLimitHit:()=>({ok:true})};
-  if(name==='@/extensions/server/modules')return {moduleGuard:async()=>null};
+  if(name==='@/extensions/server/modules')return {moduleGuard:async()=>null,isModuleEnabled:async()=>true};
   if(name==='@/modules/repository/server/vendor')return vendor;
   if(name==='@/modules/ads/server/manage')return manage;
   if(name==='@/modules/ads/server/serving')return serving;
@@ -44,6 +44,7 @@ function load(file){
    if(fs.existsSync(candidate+'/index.ts'))return load(candidate+'/index.ts');
    throw Error('Unexpected alias '+name);
   }
+  if(name.startsWith('.')){const base=require('node:path').resolve(require('node:path').dirname(file),name);return load(fs.existsSync(base+'.ts')?base+'.ts':base+'/index.ts')}
   return require(name);
  },mod,mod.exports);return mod.exports;
 }

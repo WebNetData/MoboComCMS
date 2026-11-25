@@ -280,7 +280,7 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
 export async function voidOpenInvoice(invoiceId: number, description?: string) {
   const claimed = await db.invoice.updateMany({ where: { id: invoiceId, status: { in: ['UNPAID', 'DRAFT'] }, baleCollections: { none: { receipt: { status: 'PENDING' } } } }, data: { status: 'VOID', paymentUrl: '' } })
   if (claimed.count !== 1) return { voided: false as const, released: 0, creditOk: true }
-  const credit = await releaseInvoiceCredit(invoiceId, description)
+  const credit = await releaseInvoiceCredit(invoiceId, description).catch(error => ({ ok: false as const, message: error instanceof Error ? error.message : String(error) }))
   if (!credit.ok) logEvent('error', 'invoice.void_credit_release_failed', { invoiceId, message: credit.message })
   return { voided: true as const, released: credit.ok ? credit.released : 0, creditOk: credit.ok }
 }

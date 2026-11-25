@@ -44,7 +44,9 @@ const balance = async (productId, locationId) => (await db.locationStock.findFir
   assert.equal(await db.storeRegisterAdjustment.count({ where: { sessionId: session.id } }), 0)
   assert.equal(await balance(product.id, shelf.id), 2, 'a failed audit rolls back stock and money')
   const returned = await returns.createCounterReturn(payload, actor.id, noop, noop)
-  assert.equal(returned.refundMinor, '1000'); assert.equal(await balance(product.id, shelf.id), 3)
+  assert.equal(returned.refundMinor, '1000'); assert.equal(await balance(product.id, shelf.id), 2)
+  const quarantine = await db.stockLocation.findFirstOrThrow({ where: { isQuarantine: true } })
+  assert.equal(await balance(product.id, quarantine.id), 1, 'physical returns enter quarantine pending inspection')
   assert.equal(await balance(product.id, home), 6, 'the website warehouse was not restocked instead of the shop')
   assert.equal((await db.storeRegisterAdjustment.findFirstOrThrow({ where: { sessionId: session.id } })).amountMinor, -1000n)
   assert.equal(await db.walletTx.count({ where: { orderId: guest.id } }), 0, 'guest cash refunds never create wallet credit')
@@ -53,7 +55,7 @@ const balance = async (productId, locationId) => (await db.locationStock.findFir
   const second = { ...payload, requestId: randomUUID(), refund: 'CARD', reference: 'qa-refund', restock: false }
   const race = await Promise.allSettled([returns.createCounterReturn(second, actor.id, noop, noop), returns.createCounterReturn({ ...second, requestId: randomUUID() }, actor.id, noop, noop)])
   assert.equal(race.filter(row => row.status === 'fulfilled').length, 1, 'the remaining unit is refunded once across distinct requests')
-  assert.equal(await balance(product.id, shelf.id), 3, 'a damaged return stays out of sellable stock')
+  assert.equal(await balance(product.id, shelf.id), 2, 'a damaged return stays out of sellable stock')
   assert.equal((await db.order.findUniqueOrThrow({ where: { id: guest.id } })).status, 'REFUNDED')
   assert.equal((await db.invoice.findUniqueOrThrow({ where: { id: guest.invoice.id } })).status, 'REFUNDED')
   const row = await db.returnRequest.findUniqueOrThrow({ where: { id: returned.id } })
@@ -68,9 +70,12 @@ const balance = async (productId, locationId) => (await db.locationStock.findFir
   const walletPayload = { ...payload, requestId: randomUUID(), orderId: online.id, refund: 'WALLET', lines: [{ line: 0, quantity: 2 }], expectedRefundMinor: '2000' }
   await returns.createCounterReturn(walletPayload, actor.id, noop, noop)
   assert.equal((await db.walletAccount.findUniqueOrThrow({ where: { userId_currency: { userId: buyer.id, currency: 'IRT' } } })).balanceMinor, 2000n)
-  assert.equal(await balance(product.id, shelf.id), 3)
+  assert.equal(await balance(product.id, shelf.id), 0)
+  assert.equal(await balance(product.id, quarantine.id), 3, 'both physical returns await inspection; neither returns to sellable shelf stock')
   const recheck = await returns.counterReturnResult(walletPayload.requestId, actor.id)
   assert.equal(recheck.refundMinor, '2000')
+  // Replenish from healthy warehouse stock; quarantined returns remain unavailable.
+  await db.$transaction(tx => stock.transferStock(tx, { productId: product.id, variantId: null, from: home, to: shelf.id, quantity: 2 }))
   // Shared coupons reserve the same global/customer capacity as the website and freeze the actual discounted amount.
   const promo = await db.promotion.create({ data: { code: `OMNI_${Date.now()}`, kind: 'PERCENT', percentBps: 1000, currency: 'IRT', salesChannel: 'BOTH', maxUses: 1, perUserLimit: 1 } }); promotions.push(promo.id)
   const discounted = { requestId: randomUUID(), sessionId: session.id, confirmed: true, packingConfirmed: true, method: 'CASH', customerId: buyer.id, discountCode: promo.code, expectedTotalMinor: '1800', lines: [{ productId: product.id, variantId: null, quantity: 2, expectedUnitMinor: '1000', inputs: {} }] }

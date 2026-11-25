@@ -13,17 +13,7 @@ const mocks = {
  'next-auth': {getServerSession: async () => null},
  react: {cache: fn => fn},
 }
-const cache = new Map()
-function load(file) {
- if (cache.has(file)) return cache.get(file).exports
- const mod = {exports: {}}; cache.set(file, mod)
- new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
-  if (Object.hasOwn(mocks, name)) return mocks[name]
-  if (name.startsWith('@/')) {const base = `src/${name.slice(2)}`; return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts')}
-  return require(name)
- }, mod, mod.exports)
- return mod.exports
-}
+const load = require('./connected-source-loader.cjs')(mocks)
 let count = 0
 async function main() {
  const service = load('src/modules/membership/server/membership.ts')

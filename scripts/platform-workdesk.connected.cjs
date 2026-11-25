@@ -12,7 +12,10 @@ const load = require('./connected-source-loader.cjs')({
   '@/platform/database/prisma': { db },
   react: { ...require('react'), cache: fn => fn },
   'next-auth/jwt': { getToken: async () => viewer ? { uid: viewer.id, authAt: new Date().toISOString() } : null },
-  '@/extensions/server/modules': { moduleGuard: async id => id === 'store' && storeDisabled ? new Response(null, { status: 404 }) : null },
+  '@/extensions/server/modules': {
+    moduleGuard: async id => id === 'store' && storeDisabled ? new Response(null, { status: 404 }) : null,
+    isModuleEnabled: async id => id !== 'store' || !storeDisabled,
+  },
   '@/modules/store/server/orders': { adminOrders: async (_input, scope) => {
     capturedStoreScope = scope
     return { total: 1, orders: [{ id: 901, customer: { name: 'Fixture buyer' }, preview: [{ name: 'Fixture item' }], createdAt: new Date(), assigneeId: scope.manager ? null : scope.actorId }] }

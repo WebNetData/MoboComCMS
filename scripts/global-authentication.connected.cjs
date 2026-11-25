@@ -24,6 +24,8 @@ function load(file){
   if(name.startsWith('@/platform/extensions/'))return load('src/'+name.slice(2)+'.ts');
   if(name==='next-auth')return {getServerSession:async()=>({user:{id:String(sessionId)}})};
   if(name.startsWith('@/modules/identity/')&&!name.includes('telegram-account')&&!name.includes('staff-guard')&&!name.includes('turnstile')&&!name.includes('human-check'))return load('src/'+name.slice(2)+'.ts');
+  if(name==='@/shared/text/digits')return load('src/shared/text/digits.ts');
+  if(name.startsWith('.')){const base=require('node:path').resolve(require('node:path').dirname(file),name);return load(fs.existsSync(base+'.ts')?base+'.ts':base+'/index.ts')}
   if(name.startsWith('@/'))return new Proxy({},{get:(_,key)=>()=>{throw Error('Unexpected external service: '+name+' '+String(key))}});
   return require(name);
  },mod,mod.exports);

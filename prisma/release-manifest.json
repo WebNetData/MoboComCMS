@@ -922,7 +922,7 @@
         },
         {
           "name": "20270326120000_pay_shared_checkout",
-          "sha256": "7c05bef3c7c98da0efbce87afdc3de6cf617aaeec9fb3167aa5ee58a32affece"
+          "sha256": "8746c8637ac1976ec15bea5ec37dc302b7ad9187eea777aa85ce35c541923463"
         },
         {
           "name": "20270327120000_pay_bot_delivery",
@@ -955,6 +955,10 @@
         {
           "name": "20270403120000_pay_webhooks_settlement_center",
           "sha256": "d18a0bf8f3360b72a8f1e70838a02e863c5f647c59a7ba730033d03f58660c61"
+        },
+        {
+          "name": "20270404120000_counter_wallet_invoice_compatibility",
+          "sha256": "7bebb1f5ef6eeeebcbc6c311b7f354c5fd28cec9ab04d652584fb984e33b3ff6"
         }
       ]
     }

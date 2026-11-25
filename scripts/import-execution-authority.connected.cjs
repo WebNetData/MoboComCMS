@@ -30,6 +30,7 @@ function load(relative){
   if(name==='@/modules/imports/server/media')return {knownSources:async()=>new Set(),importImage:()=>{throw Error('Unexpected external image')}};
   if(name==='@/modules/operations/server/queue')return {enqueue:async(kind,payload)=>queued.push({kind,payload}),runQueue:async()=>{}};
   if(name.startsWith('@/')){const candidate='src/'+name.slice(2);if(candidate.endsWith('.json'))return JSON.parse(fs.readFileSync(candidate,'utf8'));return load(fs.existsSync(candidate+'.ts')?candidate+'.ts':candidate+'/index.ts')}
+  if(name.startsWith('.')){const base=require('node:path').resolve(require('node:path').dirname(file),name);return load(fs.existsSync(base+'.ts')?base+'.ts':base+'/index.ts')}
   return require(name);
  },mod,mod.exports);return mod.exports;
 }

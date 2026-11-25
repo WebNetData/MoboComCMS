@@ -2,7 +2,7 @@
 
 ## 1.7.22 — MoboComPay, settlement operations and merchant workspace (2026-11-25)
 
-Merged PR481–490 add private merchants/general channel collection, once-only bank/SMS/Bale/manual settlement, isolated fees and internal USDT credit, signed merchant webhooks, saved/scheduled settlements with independent dual approvals, responsive financial tables and a hamburger/sidebar workspace with canonical Support tickets. Solution Pack and extension lifecycle integration remains with existing platform owners. Ten migrations are sealed and the14-source AI knowledge bundle is refreshed. Migration217 and its settlement writer must be deployed together with settlement writes/workers paused and a verified backup. Real bank/receiver/chain commissioning remains separate. See [release notes](docs/releases/1.7.22.md) and the [release evidence](docs/agent/handoffs/RELEASE_1_7_22.md).
+Merged PR481–490 add private merchants/general channel collection, once-only bank/SMS/Bale/manual settlement, isolated fees and internal USDT credit, signed merchant webhooks, saved/scheduled settlements with independent dual approvals, responsive financial tables and a hamburger/sidebar workspace with canonical Support tickets. Solution Pack and extension lifecycle integration remains with existing platform owners. Eleven migrations are sealed and the14-source AI knowledge bundle is refreshed. Migration217 and its settlement writer must be deployed together with settlement writes/workers paused and a verified backup. Real bank/receiver/chain commissioning remains separate. See [release notes](docs/releases/1.7.22.md) and the [release evidence](docs/agent/handoffs/RELEASE_1_7_22.md).
 
 ## 1.7.19 — Store desk, shared stock and refreshed AI architecture (2026-11-13)
 

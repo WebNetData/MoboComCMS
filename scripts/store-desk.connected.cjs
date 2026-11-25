@@ -23,7 +23,7 @@ async function product(name,extra={}){const row=await db.product.create({data:{n
 async function call(method,body,query='',owner=api){const handler=owner===api?(method==='GET'?owner.GET_counter:owner.POST_counter):owner[method];const response=await handler(new NextRequest(`https://site.invalid/api/admin/store/counter${query}`,{method,headers:{Origin:'https://site.invalid','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}));return{status:response.status,body:await response.json()}}
 const phone=`+9891${String(Date.now()).slice(-8)}`
 const line=id=>({productId:id,variantId:null,quantity:1,expectedUnitMinor:'1000',inputs:{}})
-const sale=(sessionId,productId,extra={})=>({requestId:randomUUID(),confirmed:true,sessionId,method:'CASH',customerName:'خریدار آزمایشی',customerPhone:'',lines:[line(productId)],...extra})
+const sale=(sessionId,productId,extra={})=>({requestId:randomUUID(),confirmed:true,packingConfirmed:true,sessionId,method:'CASH',customerName:'خریدار آزمایشی',customerPhone:'',lines:[line(productId)],...extra})
 async function proof(customer,code='482913'){
  const purpose=`COUNTER:${viewer.id}:${customer.id}`
  await db.otpCode.updateMany({where:{phone:customer.phone,purpose,consumedAt:null},data:{consumedAt:new Date()}})
@@ -120,6 +120,8 @@ async function main(){
  const legacyChange=status=>legacyDelivery.PATCH(new NextRequest('https://site.invalid/api/admin/product-deliveries',{method:'PATCH',headers:{Origin:'https://site.invalid','Content-Type':'application/json'},body:JSON.stringify({id:deliveryId,status})}))
  assert.notEqual((await db.productDelivery.findUniqueOrThrow({where:{orderId:onlineId}})).status,'DELIVERED')
  assert.equal((await legacyChange('DELIVERED')).status,409,'legacy delivery API must not bypass customer proof')
+ const packing=load('src/modules/store/server/packing.ts'),packingScope={actorId:manager.id,manager:true},packingState=await packing.orderPacking(onlineId,packingScope),packingRules=load('src/modules/store/domain/packing.ts')
+ await packing.saveOrderPacking(onlineId,{snapshot:packingState.snapshot,revision:packingState.revision,checks:packingState.lines.map(line=>({line:line.line,...Object.fromEntries(packingRules.PACKING_CHECKS.map(item=>[item.key,true]))}))},packingScope,async()=>{},async()=>{})
  const ready=await call('POST',{orderId:onlineId,action:'ready'},'',pickupApi);assert.equal(ready.status,200,JSON.stringify(ready.body))
  assert.equal((await call('POST',{orderId:onlineId,action:'ready'},'',pickupApi)).status,200)
  assert.equal(await db.userNotification.count({where:{dedupeKey:`pickup:ready:${onlineId}`}}),1)

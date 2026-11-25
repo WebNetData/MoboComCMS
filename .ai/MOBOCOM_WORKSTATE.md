@@ -1,10 +1,15 @@
+# Release1.7.22 validation fixes — 2026-11-25
+
+Canonical npm run check passes UID1000/no.env/no DB credentials. Fresh218 and populated207→218 including linked counter wallet invoices, plus populated216→218 settlement preservation passed. Corrected unpublished209 compatibility, added incremental218 for existing main installs, retained recoverable invoice credit failure and shared Jalali scheduling. Test-only fixtures follow current owner contracts. Final native suite, committed production build/browser, signature and publication are pending. Owner merges; no hosted workflow or destination deployment.
+[Release evidence](../docs/agent/handoffs/RELEASE_1_7_22.md).
+
 # Release1.7.22 preparation — 2026-11-25
 
 Owner requests published1.7.22 for updating, after merged PR490/main86697521.
 Authoritative .mobocom/release-1.7.22 on release/1.7.22; version/root lock,
 10-migration seal, operator notes and14-source AI knowledge prepared. Existing
 publisher verified; private signing key remains outside Git/containers. Local
-canonical checks,207→217 preservation, production build/browser and signed
+canonical checks,207→218 preservation, production build/browser and signed
 artifact/re-download gates remain pending. Other checkouts/shared app preserved.
 [Exact release continuation](../docs/agent/handoffs/RELEASE_1_7_22.md).
 

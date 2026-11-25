@@ -55,7 +55,7 @@ const { browseCinema } = load('src/modules/media/server/queries/cinema.ts'), adm
 const celebrities = load('src/modules/celebrities/server/celebrities.ts'), profile = load('src/modules/celebrities/server/celebrities/profile.ts')
 const naming = load('src/modules/cinema/server/metadata/people-names.ts'), { suggestedCelebritySlug } = load('src/modules/celebrities/domain/celebrities.ts')
 const L = name => `${seed} ${name}`, P = name => `${name} ${pseed}`, key = rules.normalizePersonName
-const save = (body, id = null) => media.saveMediaItem('cinema-titles', body, id)
+const save = (body, id = null) => media.saveMediaItem('cinema-titles', id ? body : { poster: 'https://example.invalid/poster.jpg', genres: 'Drama', summary: 'A family discovers a forgotten story across generations.', links: [{ url: `https://example.invalid/${seed}-film.mp4` }], ...(body.kind === 'SERIES' ? { seasons: [{ number: 1, episodes: [{ number: 1, title: 'First episode', links: [{ url: `https://example.invalid/${seed}-episode.mp4` }] }] }] } : {}), ...body }, id)
 const person = id => prisma.cinemaPerson.findUniqueOrThrow({ where: { id } })
 const creditOf = async (title, role) => (await prisma.cinemaCredit.findFirst({ where: { titleId: title.id, role }, orderBy: { sortOrder: 'asc' } })).personId
 const mine = () => prisma.cinemaPerson.count({ where: { OR: [{ normalizedName: { contains: seed } }, { displayNameKey: { contains: seed } }, { normalizedName: { contains: pseed } }, { displayNameKey: { contains: pseed } }] } })
@@ -207,6 +207,7 @@ main().catch(error => { console.error(error); process.exitCode = 1 }).finally(as
     const persons = (await prisma.cinemaPerson.findMany({ where: { OR: [{ normalizedName: { contains: seed } }, { displayNameKey: { contains: seed } }, { normalizedName: { contains: pseed } }, { displayNameKey: { contains: pseed } }] }, select: { id: true } })).map(row => row.id)
     await prisma.celebritySlugAlias.deleteMany({ where: { celebrity: { cinemaPersonId: { in: persons } } } })
     await prisma.celebrity.deleteMany({ where: { cinemaPersonId: { in: persons } } })
+    await prisma.mediaLink.deleteMany({ where: { url: { contains: seed } } })
     await prisma.cinemaTitle.deleteMany({ where: { id: { in: titles } } })
     await prisma.cinemaPerson.deleteMany({ where: { id: { in: persons } } })
     await prisma.vocabulary.deleteMany({ where: { section: 'cinema', OR: [{ code: { contains: seed } }, { nameEn: { contains: seed } }, { code: { contains: pseed } }] } })

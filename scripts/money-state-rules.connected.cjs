@@ -33,17 +33,7 @@ function route(file) {
   '@/modules/catalog/server/inventory': {releaseInventoryReservation: async () => {}, ensureInventoryReservation: async () => ({ok: true})},
  }
  for (const name of ['@/modules/billing/server/settle', '@/modules/wallet/server/wallet', '@/modules/identity/server/staff-guard', '@/modules/identity/server/profile-fields', '@/modules/subscriptions/server/submanage', '@/modules/providers/server/panels', '@/modules/subscriptions/server/provision', '@/modules/fulfillment/server/jobs']) mocks[name] = never(name)
- const cache = new Map()
- const load = path => {
-  if (cache.has(path)) return cache.get(path).exports
-  const mod = {exports: {}}; cache.set(path, mod)
-  new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(path, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
-   if (Object.hasOwn(mocks, name)) return mocks[name]
-   if (name.startsWith('@/')) {const base = `src/${name.slice(2)}`; return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts')}
-   return require(name)
-  }, mod, mod.exports)
-  return mod.exports
- }
+ const load = require('./connected-source-loader.cjs')(mocks)
  return load(file)
 }
 const send = (handler, body, params) => handler(new NextRequest('http://localhost/api/admin/x', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)}), {params: Promise.resolve(params || {})}).then(async response => ({status: response.status, body: await response.json().catch(() => null)}))

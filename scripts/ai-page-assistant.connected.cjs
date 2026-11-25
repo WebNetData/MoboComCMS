@@ -3,7 +3,7 @@ assert(/test|check/.test(new URL(process.env.DATABASE_URL).pathname))
 process.env.NEXTAUTH_SECRET=crypto.randomBytes(32).toString('hex')
 let calls=0,promptSeen,actorSeen,purposeSeen,mutate,off='',limited=false
 const load=require('./connected-source-loader.cjs')({
- '@/platform/database/prisma':{db},'@/extensions/server/modules':{moduleGuard:async module=>off===module?new Response('{}',{status:423}):null},
+ '@/platform/database/prisma':{db},'@/extensions/server/modules':{moduleGuard:async module=>off===module?new Response('{}',{status:423}):null,disabledAdminPaths:async()=>[]},
  '@/platform/http/rate-limit':{rateLimitStrict:async()=>({ok:!limited})},
  '../generation':{generate:async(prompt,config,purpose)=>{calls++;promptSeen=prompt;const context=load('src/modules/ai/server/admin-context.ts');actorSeen=context.personalAiActor();purposeSeen=context.personalAiPurpose();assert.equal(purpose,purposeSeen);if(mutate){const m=mutate;mutate=null;await m()}return{text:'پیشنهاد آزمایشی؛ هیچ تغییری اجرا نشده است.',model:'owned-model',provider:'owned-test'}}},
 })
@@ -17,7 +17,7 @@ async function main(){try{
  }
  for(const [n,authorId]of [[0,actors.admin.id],[1,actors.author.id]])posts.push((await db.post.create({data:{slug:stamp+n,title:'Owned '+n,content:'<p>PRIVATE_SAVED_BODY_'+n+'</p>',excerpt:'OWNED_EXCERPT',status:'DRAFT',authorId}})).id)
  const target={kind:'posts',id:posts[0]},input={path:'/admin/posts',target,expectedActorId:actors.admin.id,instruction:'این مطلب موبوکام را بررسی کن',includeRecord:true,selectedText:'متن انتخابی من',turns:[]}
- let response=await api.GET(req('GET',{path:input.path,kind:target.kind,id:String(target.id)},actors.admin.token));assert.equal(response.status,200);assert.equal(calls,0);assert(!JSON.stringify(await response.json()).includes('PRIVATE_SAVED_BODY'))
+ let response=await api.GET(req('GET',{path:input.path,kind:target.kind,id:String(target.id)},actors.admin.token));assert.equal(response.status,200,await response.clone().text());assert.equal(calls,0);assert(!JSON.stringify(await response.json()).includes('PRIVATE_SAVED_BODY'))
  const before=await db.post.findUniqueOrThrow({where:{id:posts[0]}}),proposals=await db.aiAssistantProposal.count()
  response=await api.POST(req('POST',input,actors.admin.token));assert.equal(response.status,200,await response.text());assert.equal(actorSeen,actors.admin.id);assert.equal(purposeSeen,'editor');let facts=JSON.parse(promptSeen.user);assert.equal(facts.savedRecord.id,posts[0]);assert(facts.savedRecord.content.includes('PRIVATE_SAVED_BODY_0'));assert(!promptSeen.system.includes('PRIVATE_SAVED_BODY_0'));assert(promptSeen.system.includes('Canonical source inventory'))
  assert.deepEqual(await db.post.findUniqueOrThrow({where:{id:posts[0]}}),before);assert.equal(await db.aiAssistantProposal.count(),proposals,'advice cannot create an executable proposal or save content')
