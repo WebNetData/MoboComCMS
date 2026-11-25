@@ -103,3 +103,35 @@ and invoice/wallet bytes, restores valid linked-counter wallet credit and direct
 rejects guest and PAY_COLLECTION wallet credit. Source/fixture/API acceptance is
 local; real bank sources, upstream receivers, on-chain transfer and destination
 hosting were not commissioned. Artifact receipts remain in ignored task evidence.
+
+## Signed candidate and final owner gate
+
+Signed source f9689ac1c552934f5072b976e004937ad18fecb4;5100 packaged files match committed inventory. All10
+assets were uploaded to the immutable candidate draft, re-downloaded over the
+authenticated GitHub API and matched local byte counts/SHA-256. Both current and
+1.7.21 verifiers accept the downloaded mbrelease with the original publisher key.
+Installer syntax and embedded package/key equality pass;14 bundled canonical
+documents verify after safe extraction. CLI upload stalled on the two large files;
+eight valid uploads were retained, missing files uploaded directly over HTTP/1.1,
+and every final asset reverified. No published asset/release was overwritten.
+
+PR: https://github.com/WebNetData/MoboComCMS/pull/491
+Draft: https://github.com/WebNetData/MoboComCMS/releases/tag/untagged-c5c8006ed22f2aa104b3
+Remote stable/latest is intentionally still1.7.21 pending the owner's merge of491.
+The signed source is f9689ac1; subsequent publication/cleanup records are documentation
+only and do not change any accepted build input or artifact. No hosted workflow or
+destination deployment occurred.
+
+Cleanup completed: verified owned preview/tunnel stopped, local synthetic cookie/TLS
+files removed, all five task-owned PostgreSQL databases and NOSUPERUSER role removed,
+private Linux runtime removed. Shared app3000 still returns HTTP200; prior releases,
+keys, databases/volumes, other worktrees and .serena tool state are preserved.
+
+Next exact continuation after owner merge: run ignored
+var/release-1722/publish-stable.cjs, which checks PR491 MERGED, fetches main without
+changing old tags, verifies signed-source and review-record commits are ancestors,
+checks all immutable remote assets again, then publishes stable/latest. Finally run
+node var/release-1722/download-assets.cjs download-published and record its receipt.
+Never rotate the publisher, overwrite assets or dispatch Actions. Owner performs
+the destination update, with verified backup and settlement writers/workers paused
+as instructed above.

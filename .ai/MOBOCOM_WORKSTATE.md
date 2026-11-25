@@ -1,3 +1,7 @@
+# Release1.7.22 signed draft / owner merge pending — 2026-11-25
+
+[PR491](https://github.com/WebNetData/MoboComCMS/pull/491) targets main. Ten signed assets uploaded and re-downloaded/hash-verified; original publisher and1.7.21 verifier accept sourcef9689ac1. All local code/PG/build/browser gates passed; private runtime/five DBs/role/tunnel/session fixtures cleaned, app3000 HTTP200. Stable/latest remains1.7.21 until owner merges491. [Exact resume and proof](../docs/agent/handoffs/RELEASE_1_7_22.md#signed-candidate-and-final-owner-gate).
+
 # Release1.7.22 accepted local candidate — 2026-11-25
 
 Canonical1140/53/4/14, full PostgreSQL243/243, Pay11 suites, fresh/populated218 upgrades, production build114 pages and49 browser/a11y views pass. Same publisher package/draft, owner merge and stable publication are next; no destination deployment or hosted workflow. [Exact evidence/continuation](../docs/agent/handoffs/RELEASE_1_7_22.md).
