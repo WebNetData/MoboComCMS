@@ -1,3 +1,10 @@
+Financial presentation2026-11-25: existing Pay SettlementDesk now delegates its
+request card to settlement-desk/settlement-card. Distinct source/fee/net, destination/
+schedule and actual first/second review compositions. Existing PaymentLedger/table
+styles provide merchant settlement mobile rows and grouped expanded details;
+receipt links belong to the matching row. Shared Pay rules remain module-scoped.
+[Executed evidence and limits](handoffs/MOBOCOM_PAY.md#financial-data-presentation-repair--2026-11-25).
+
 Pay webhooks/settlement center2026-11-25: Billing server/pay/{webhooks,settlements,
 settlement-center} public addresses own typed domain policies and existing HTTP
 adapters. credit queues immutable payment.paid through Operations pay.webhook-delivery;

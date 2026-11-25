@@ -1,5 +1,5 @@
 .hero { display:flex; justify-content:space-between; align-items:end; gap:20px; flex-wrap:wrap; padding:24px; border:1px solid var(--sds-color-border-default-default); border-inline-start:3px solid var(--sds-color-background-brand-default); border-radius:12px; background:var(--sds-color-background-default-default); }.hero h2 { margin:8px 0; }.hero p { margin:0; color:var(--sds-color-text-default-secondary); }.hero span { color:var(--sds-color-text-default-secondary); font-size:.875rem; }
-.destination { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 0; border-top:1px solid var(--sds-color-border-default-default); overflow-wrap:anywhere; }.destination p { margin:4px 0 0; }.receipts { display:flex; flex-wrap:wrap; gap:12px; }.receipts a { overflow-wrap:anywhere; }
+.destination { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 0; border-top:1px solid var(--sds-color-border-default-default); overflow-wrap:anywhere; }.destination p { margin:4px 0 0; }
 .balances { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }.balances > div { display:grid; gap:8px; padding:16px; border:1px solid var(--sds-color-border-default-default); border-radius:12px; background:var(--sds-color-background-default-default); font-variant-numeric:tabular-nums; }.balances small { color:var(--sds-color-text-default-secondary); }
 .hero { border-radius:18px; padding:28px; }
 .hero > p { font-size:.8125rem; max-width:34ch; }
@@ -11,6 +11,6 @@
 .balances > div > small { padding-top:12px; border-top:1px solid var(--sds-color-border-default-default); line-height:1.9; }
 .destination { padding-block:20px; }
 .destination input { min-height:44px; }
-.receipts a { display:inline-flex; min-height:44px; align-items:center; gap:8px; font-size:.75rem; text-underline-offset:4px; }
+
 @media(prefers-reduced-motion:no-preference) { .hero { animation:entry 200ms ease-out both; } @keyframes entry { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } } }
 @media(max-width:520px) { .hero { padding:20px; } .balances { gap:12px; } .balances > div { padding:20px; } .destination > label { width:100%; } }

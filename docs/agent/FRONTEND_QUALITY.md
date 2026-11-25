@@ -12,6 +12,15 @@ Supporting design/React/a11y skills follow [engineering skill routing](ENGINEERI
 4. Use existing Storybook coverage for new reusable component states where available. Code Connect is appropriate only for real maintained Figma/component mappings; never invent Figma IDs or claim a connection was published.
 5. Keep domain/business logic outside presentation. Scope module CSS; separate public, Admin, shared and editor tokens. Prefer existing supported components and dependency versions.
 
+Owner clarification2026-11-25: every affected platform surface must look intentionally
+styled, including dense data lists and internal Admin views. A border around an
+unstructured grid is insufficient. Give financial facts, destinations, review states
+and actions distinct hierarchy; keep amount/unit pairs together and isolate LTR
+identifiers. Use the existing owner table/card compositions with labelled mobile
+rows, readable headers, consistent padding, visible focus and styled actions. Check
+expanded details and selected/error/empty states in both themes. This is a quality
+bar for each continuation, not evidence that every platform page has been audited.
+
 Admin utility/presentation styles are rooted in `.admin-shell` and loaded by
 the Admin layout. An import boundary alone is insufficient: styles can remain
 after client navigation. Keep the public before/after-navigation regression in

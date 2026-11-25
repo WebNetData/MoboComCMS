@@ -1,3 +1,89 @@
+## Financial data presentation repair — 2026-11-25
+
+Owner supplies the prior settlement screenshot and rejects the flat, apparently
+unstyled information grid; requests consistent visual quality across the platform.
+Continue local f53945dd, authoritative .mobocom/pay-bale-verification,
+feat/pay-webhooks-settlement-center-2026-11-25. Local frontend repair only;
+no push/PR/deploy/provider action, API/financial owner or migration change.
+
+Verified audit/direction: the CSS was loaded, but eight unrelated facts shared one
+auto-fit grid, tiny same-weight values, no clear destination/review grouping and a
+bare receipt link. Merchant settlements lacked PaymentLedger's labelled mobile
+rows; separate raw receipt IDs duplicated the list. Prior axe/overflow success
+was insufficient aesthetic evidence. Product: merchant settlement operations;
+character: precise/calm; world: financial ledger; moments: source/fee/net and the
+two independent reviews; signature: distinct net-transfer cell. Existing SDS/
+MoboCom tokens, Persian type, public theme and protected presentation retained.
+
+Implementation:
+- SettlementDesk retains the existing command/loading/filter/batch owner and
+  public address. Its internal card/approval/actions parts show a clear identity/
+  status header, three separated money facts with isolated amount+asset, wallet/
+  schedule panels, actual approval IDs/times and a distinct action footer.
+  Full destination remains visible in its own monospace LTR block. Selected
+  requests receive a visible border. Completed/rejected rows cannot be selected
+  for an inapplicable batch; server authority and state/version claims unchanged.
+- SettlementDesk.module.css replaces the flat grid with scoped semantic surfaces,
+  consistent spacing, explicit row/cell borders and 760px/600px layouts. Existing
+  finite200ms transform/opacity hero entrance/reduced-motion handling retained;
+  no animation library, gradient/theme replacement or financial counter effects.
+- Pay.module.css styles only Pay tables/details: readable headers, aligned values,
+  44px disclosure controls and grouped dt/dd panels. PaymentLedger.module.css gives
+  financial tables a consistent header/edge/row rhythm, value wrappers and mobile
+  label/value composition. SettlementTable now uses the same supported responsive
+  table pattern. Existing explicit table/row/cell roles preserve semantics when
+  CSS switches visual layout; they are not new interactive widgets.
+- Merchant receipt/report download is a styled action INSIDE that settlement's
+  details, with exact request ID in its accessible name. Removed the duplicate raw
+  ID link list and its dead CSS. Existing private GET attachment path unchanged.
+- FRONTEND_QUALITY records the owner's platform-wide quality requirement for
+  future continuations: a border around a flat grid is not sufficient, expanded/
+  selected/error/empty states require visual inspection. No assertion that the
+  whole platform has already been audited; this slice reviews all18 Pay routes.
+
+Executed evidence (ignored pay-ui-* under var/pay-bale-20261124; copied private
+Next3140, own synthetic identities/data, native NOSUPERUSER PG and UID1000, no .env):
+- Fresh217 migration setup PASS; registered pay-settlement-center and
+  pay-shared-checkout connected checks PASS. No backend/money edits after these.
+- Final types PASS,8 architecture/source/schema parity/money schema+UI/security/
+  Audit/manifest gates PASS. React Doctor4 affected files:0 errors/53 reviewed
+  warnings. Baseline original tables alone32 role warnings; current tables49
+  (same intentional explicit native table semantics extended to the mobile
+  settlement table);4 existing settlement form complexity/preventDefault warnings.
+  Extracted card/approval/actions and Desk have0 diagnostics. No rule suppression.
+- Actual44 final browser captures: Admin settlement and merchant settlement/
+  payment expanded-detail pages1440/390 light/dark; remaining15 merchant/Admin
+  pages1440 light/390 dark; queue error/retry and empty states. All relevant main
+  surfaces axe WCAG2A/AA/2.1AA0 violations, no viewport overflow or page errors.
+  Admin card desktop/mobile/light/dark crops and expanded merchant ledger visually
+  inspected against owner screenshot. Presentation SHA remains
+  be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+- Real synthetic requested/scheduled/awaiting-second/approved/paid/rejected facts
+  rendered. Keyboard Tab/Shift+Tab focus and selected border verified; same first
+  reviewer denied, independent second approved, recorded reference completed via
+  the new card callbacks. Available wallet balances unchanged after completion;
+  pending reservation projection correctly decreases by the completed1 USDT.
+  Final read-only continuation verifies persisted approver IDs/status/reference;
+  financial actions were NOT replayed after a development HMR reload. Merchant
+  and denied staff direct Admin calls403. Download links retain per-row context.
+- Corrected two real contrast regressions found by axe: muted secondary money
+  on a focused gray row, and empty-state secondary text on the page surface.
+  Keep text on supported surfaces; no blanket token darkening. Earlier harness
+  assumptions about programmatic mouse focus, reserved projection remaining after
+  PAID and the global Next route-announcer were corrected. Failed runs were not
+  counted as successful full validations; actual successful phases retained.
+
+Rollback: revert only this presentation slice; f53945dd and its migration217/
+financial writer remain. No full build, live financial transfer or outside-Pay
+visual acceptance claimed. Next continuation follows the same evidence-driven
+quality bar on each affected platform owner, preserving protected public designs.
+Scoped security PASS: local one-rule Semgrep4 affected TSX files and redacted
+Gitleaks13 named feature files, no findings; not a full security certification.
+Cleanup completed: verified task Next3140 group/TLS tunnel stopped, exact private
+DB/role removed, session/env/body/presentation/TLS fixtures/archive cleaned and
+dedicated builder stopped. Shared original app readiness/session both200. Screenshots
+and redacted reports remain ignored locally; no fixture credentials are staged.
+
 ## Generic webhooks and settlement center — 2026-11-25
 
 Scope: owner accepted recommendations1/2 after PR489. Authoritative checkout

@@ -1,3 +1,10 @@
+Financial UI repair2026-11-25: VERIFIED_LOCAL within Pay. Grouped Admin settlement
+cards, readable LTR addresses/amount-unit pairs, review steps and styled receipt
+actions; merchant financial tables adapt to labelled mobile rows. Native PG2,
+types/8 gates and44 real captures across all18 merchant/Admin Pay routes pass;
+axe0, no viewport overflow/page errors. No money/schema/authorization change and no
+whole-platform visual certification. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#financial-data-presentation-repair--2026-11-25).
+
 Pay webhooks/settlement center2026-11-25: FUNCTIONAL_LOCAL; LIVE_RECEIVER_UNVERIFIED.
 Signed at-least-once durable delivery/recovery, paged endpoint directory and immutable
 attempt targets; saved destinations, immediate scheduled reserve, distinct dual

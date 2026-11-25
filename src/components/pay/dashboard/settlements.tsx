@@ -258,7 +258,7 @@ export default function Settlements({
         kind="settlements"
       />
       {settlements ? (
-        <><SettlementTable items={settlements.items} /><div className={c.receipts}>{settlements.items.map(x => <a key={x.id} href={`/api/pay/settlement-receipt?${new URLSearchParams({ id: x.id, format: 'html' })}`} target="_blank" rel="noreferrer">رسید وضعیت <bdi>{x.id}</bdi></a>)}</div></>
+        <><SettlementTable items={settlements.items} /></>
       ) : error ? (
         <p>دریافت فهرست ناموفق بود. از به‌روزرسانی استفاده کنید.</p>
       ) : (

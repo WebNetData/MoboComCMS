@@ -1,3 +1,15 @@
+# Financial list/card presentation repair — 2026-11-25
+
+Owner reports the settlement cards look unstyled/disorganized and sets a platform
+quality bar. Continues local f53945dd in .mobocom/pay-bale-verification on
+feat/pay-webhooks-settlement-center-2026-11-25. Structured settlement facts/review/
+actions, styled financial table details and labelled mobile settlement rows;
+receipt actions moved into their own request. Frontend only, no money/API/schema
+change. Native PG2/types/8 gates, Doctor0errors, actual44 themed/mobile/state
+captures across all18 Pay views with axe0 pass. Whole-platform design bar recorded
+in FRONTEND_QUALITY; this is not a whole-site audit claim. Local only.
+[Evidence, warnings, cleanup and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#financial-data-presentation-repair--2026-11-25).
+
 # Generic webhooks / settlement center — 2026-11-25
 
 Owner-authorized recommendations1/2 continue merged PR489/main9b345399 in
