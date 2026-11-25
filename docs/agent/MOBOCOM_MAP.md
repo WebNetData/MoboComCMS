@@ -1,3 +1,25 @@
+Merchant navigation/support2026-11-25: components/pay/merchant-menu is the single
+typed entry list; MerchantNavigation reuses shared ShellNav and useShellGroups.
+MerchantShell owns the1100px drawer/persistent-sidebar presentation; native
+MerchantDrawer handles focus/scroll/resize. MerchantEntry retains the portal guard
+before MerchantSupport composes canonical TicketCenter. Support tickets/messages/
+departments/APIs remain in Support, not Billing. [Evidence/limits](handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
+Financial presentation2026-11-25: existing Pay SettlementDesk now delegates its
+request card to settlement-desk/settlement-card. Distinct source/fee/net, destination/
+schedule and actual first/second review compositions. Existing PaymentLedger/table
+styles provide merchant settlement mobile rows and grouped expanded details;
+receipt links belong to the matching row. Shared Pay rules remain module-scoped.
+[Executed evidence and limits](handoffs/MOBOCOM_PAY.md#financial-data-presentation-repair--2026-11-25).
+
+Pay webhooks/settlement center2026-11-25: Billing server/pay/{webhooks,settlements,
+settlement-center} public addresses own typed domain policies and existing HTTP
+adapters. credit queues immutable payment.paid through Operations pay.webhook-delivery;
+outbound reuses extracted pinned HTTPS bot transport. Private merchant/Admin pages
+compose existing shells. Settings/Wallet/Identity/AuthZ/Audit remain canonical.
+Migration217 adds durable delivery/attempt/profile facts and guarded approval/schedule
+snapshots. [Current local evidence and release limits](handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 Private merchants2026-11-24: Billing `server/pay/merchant-admin` and existing
 merchant/context/views owners; `/pay/merchant` wraps existing Pay UI with scoped
 MerchantShell, legacy dashboard aliases redirect. Admin merchants directory/detail

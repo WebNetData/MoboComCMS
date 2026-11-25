@@ -1,20 +1,14 @@
 import Link from "@/components/AppLink";
 import Icon from "@/components/site/Icon";
 import s from "./Pay.module.css";
+import { merchantGroups } from "./merchant-menu";
 
-const merchant = [
-  ["overview", "نمای کلی", "layout"],
-  ["payments", "پرداخت‌ها", "receipt"],
-  ["settlements", "تسویه‌ها", "bank"],
-  ["terminals", "پایانه‌ها", "terminal"],
-  ["operations", "عملیات ربات", "activity"],
-  ["reports", "گزارش‌ها", "chart"],
-  ["api", "اتصال API", "code"],
-];
+const merchant = merchantGroups.flatMap(group => group.items.map(item => [item.href.split('/')[3] || 'overview', item.label, item.icon]));
 const admin = [
   ["overview", "نمای کلی", "layout"],
   ["operations", "پایش دریافت‌ها", "activity"],
   ["reconciliation", "میز مغایرت‌ها", "receipt"],
+  ["webhooks", "وبهوک‌ها", "globe"],
   ["merchants", "پذیرندگان", "users"],
   ["settlements", "تسویه‌ها", "bank"],
   ["payments", "پرداخت‌ها", "receipt"],

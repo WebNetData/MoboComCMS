@@ -1,3 +1,22 @@
+2026-11-25 owner requires hamburger-opened side navigation on phone/tablet
+workspace sizes, grouped/styled MoboComPay menus matching the account dashboard,
+and no unfinished/unstyled design areas. FRONTEND_QUALITY records the lasting
+navigation, interaction, responsive/a11y and styling acceptance rules. Owner asks
+whether Pay tickets should be separate: implementation follows the existing
+canonical Support/Identity invariant with a dedicated Pay presentation; an
+optional department is configured by the existing Admin owner, not auto-created
+or a second support system. [Implementation/evidence](handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
+2026-11-25 owner accepts recommendations1/2: generic signed merchant webhooks and
+advanced settlement center with modern MoboCom/SDS merchant/Admin presentation.
+Delivery is at least once: receiving services deduplicate the stable event ID.
+Scheduling reserves NOW using the accepted quote; it permits review at the due
+time and does not initiate an external transfer. Configurable Rial threshold
+defaults0; new requests snapshot the policy and require two distinct nonmerchant
+staff above it. Existing requests retain their original financial history.
+Group approve/reject uses per-item claims; payment completion stays individual
+with a recorded external reference. [Implementation/evidence](handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 2026-11-25 owner reiterates central Admin-operated card-transfer confirmation via
 card-owner personal Bale accounts and SMS. First valid proof settles once through
 the existing invoice/Wallet owner; later manual/automatic review must report the

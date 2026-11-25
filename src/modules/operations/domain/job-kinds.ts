@@ -1,5 +1,6 @@
 /** One canonical set of queue kinds and labels; enqueueing never imports execution handlers. */
 export const JOB_LABEL: Record<string, string> = {
+  'pay.webhook-delivery': 'ارسال رویداد پرداخت به پذیرنده',
   'pay.bot-delivery': 'تأیید سفارش پرداخت‌شده در ربات پذیرنده',
   'sms.broadcast': 'ارسال گروهی پیامک',
   'forms.stage-sms': 'پیامک مرحلهٔ خدمات و درخواست‌ها',

@@ -1,3 +1,26 @@
+Merchant menu/support2026-11-25: VERIFIED_LOCAL. Phone/tablet hamburger with
+grouped native modal drawer, desktop sidebar, remembered groups, valid current
+links, account footer and finite/reduced motion. Gated Pay support presentation
+shares the same canonical account tickets. PG2/types/8 gates, Doctor0errors and41
+actual320/390/768/1024/1100/1440 themed/browser/axe captures pass; history/focus/
+scroll/privacy verified. [Evidence and rollback](handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
+Financial UI repair2026-11-25: VERIFIED_LOCAL within Pay. Grouped Admin settlement
+cards, readable LTR addresses/amount-unit pairs, review steps and styled receipt
+actions; merchant financial tables adapt to labelled mobile rows. Native PG2,
+types/8 gates and44 real captures across all18 merchant/Admin Pay routes pass;
+axe0, no viewport overflow/page errors. No money/schema/authorization change and no
+whole-platform visual certification. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#financial-data-presentation-repair--2026-11-25).
+
+Pay webhooks/settlement center2026-11-25: FUNCTIONAL_LOCAL; LIVE_RECEIVER_UNVERIFIED.
+Signed at-least-once durable delivery/recovery, paged endpoint directory and immutable
+attempt targets; saved destinations, immediate scheduled reserve, distinct dual
+approvals, per-item batches and private receipts. Fresh217/populated216→217 and
+new/legacy native PG checks pass; types/scoped gates,12 HTTPS Hurl requests,
+compatible OpenAPI and actual19 functional+16 final themed/mobile/axe captures.
+Doctor0errors/8 reviewed warnings. No live payout or receiver certification.
+[Exact evidence, warnings, cleanup and rollback](handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 Private merchant portal/Admin2026-11-24: FUNCTIONAL_LOCAL. Existing ACTIVE
 membership gates pages/session/machine reads; public enrollment closed. Scoped
 workspace, canonical login, Admin provisioning/lifecycle/profile/fees/source/

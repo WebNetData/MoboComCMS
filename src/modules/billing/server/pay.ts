@@ -4,6 +4,8 @@ export { merchantDirectory, merchantAdminDetail, manageMerchant, merchantPortalA
 export { createPayPayment, reportPayReference } from './pay/payments'
 export { acceptBankEvent } from './pay/reconcile'
 export { createPayQuote, requestPaySettlement, decidePaySettlement } from './pay/settlements'
+export { settlementCenter, saveSettlementDestination, settlementQueue, decideSettlementBatch, settlementReceipt } from './pay/settlement-center'
+export { webhookOverview, saveWebhookEndpoint, recoverWebhookDelivery, deliverPayWebhook } from './pay/webhooks'
 export {
   checkoutView,
   payOverview,

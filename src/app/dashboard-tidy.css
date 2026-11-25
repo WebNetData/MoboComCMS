@@ -176,7 +176,7 @@ html[data-theme="dark"] :is(.dt-tx-end b.is-out, .dt-tx-icon.is-out) { color: #f
 .user-shell .app-main { --sh-muted: var(--muted); }
 .user-shell .app-main :is(.sx-link:not(.is-danger), .text-link, .dt-more, .dt-row-title:hover, a[aria-current="page"]) { color: var(--accent-ink, var(--primary)); }
 .user-shell .app-main .text-link { text-decoration: underline; text-underline-offset: 4px; }
-.user-shell .app-main :is(.dt-quick button.is-on, .dt-chips button.is-on, button.is-active) { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
+.user-shell .app-main :is(.dt-quick button.is-on, .dt-chips button.is-on, button.is-active:not(:where(.ticket-center *))) { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
 .user-shell .app-main :is(.dt-empty, .sx-empty, .sh-empty, .gv-mylib-empty) { min-height: 200px; padding: clamp(28px, 4vw, 48px) 24px; gap: 12px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); }
 .user-shell .app-main .dt-empty.is-bad { border-inline-start: 3px solid var(--danger, #dc2626); }
 .user-shell .app-main :is(.dt-empty > b, .sx-empty > b, .sh-empty h2) { font-size: 1.0625rem; font-weight: 600; line-height: 1.8; text-wrap: balance; }

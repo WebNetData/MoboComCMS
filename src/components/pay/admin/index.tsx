@@ -5,8 +5,8 @@ import type {
   PaySettings,
 } from "@/modules/billing/domain/pay";
 import { api, json, money, date } from "../client";
-import { Field, Badge, ErrorNotice } from "../shared";
-import { PaymentTable, SettlementTable } from "../dashboard/tables";
+import { Badge, ErrorNotice } from "../shared";
+import { PaymentTable } from "../dashboard/tables";
 import s from "../Pay.module.css";
 import Settings from "./settings";
 import PayNavigation from "../navigation";
@@ -16,14 +16,14 @@ import Merchants from "./merchants";
 import Receipts from "./receipts";
 import TransferMonitor from "./transfer-monitor";
 import TransferReconciliation from "./transfer-reconciliation";
-const views = ["merchants", "settlements", "payments", "bank-events", "settings", "receipts", "operations", "reconciliation"];
+import SettlementDesk from "./settlement-desk";
+import WebhookOperations from "./webhook-operations";
+const views = ["merchants", "settlements", "payments", "bank-events", "settings", "receipts", "operations", "reconciliation", "webhooks"];
 export default function Admin({ initialView = "overview" }: { initialView?: string }) {
   const [data, setData] = useState<PayAdminOverview | null>(null),
     [settings, setSettings] = useState<PaySettings | null>(null),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [reason, setReason] = useState<Record<string, string>>({}),
-    [reference, setReference] = useState<Record<string, string>>({});
+    [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
     try {
       const d = await api<PayAdminOverview>("/api/admin/mobocom-pay/overview");
@@ -88,104 +88,8 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
       {forbidden && <p className={s.notice}>دسترسی به این بخش برای شما فعال نیست.</p>}
       {initialView === "overview" && <AdminOverview data={data} />}
       {!forbidden && tab === 0 && <Merchants />}
-      {!forbidden && tab === 1 && (
-        <>
-          <p className={s.notice}>
-            تأیید درخواست و ثبت پرداخت دو مرحله جدا هستند. این بخش انتقال بانکی
-            یا ارسال روی شبکه را انجام نمی‌دهد؛ پس از انتقال خارج از سامانه،
-            شناسه آن را ثبت کنید.
-          </p>
-          <SettlementTable items={data.settlements} />
-          {data.permissions.settle &&
-            data.settlements
-              .filter(
-                (x) => x.status === "REQUESTED" || x.status === "APPROVED",
-              )
-              .map((x) => (
-                <section className={`${s.card} ${s.stack}`} key={x.id}>
-                  <h2>
-                    {x.merchantName} · {money(x.amountRial)}
-                  </h2>
-                  <p>
-                    {x.payoutAmount} {x.asset} · {x.network} ·{" "}
-                    <span className={s.ltr}>{x.destination}</span> ·{" "}
-                    <Badge value={x.status} />
-                  </p>
-                  {x.status === "REQUESTED" ? (
-                    <>
-                      <Field label="دلیل رد">
-                        <input
-                          value={reason[x.id] || ""}
-                          onChange={(e) =>
-                            setReason({ ...reason, [x.id]: e.target.value })
-                          }
-                        />
-                      </Field>
-                      <div className={s.actions}>
-                        <button
-                          type="button"
-                          className={s.button}
-                          disabled={busy}
-                          onClick={() =>
-                            action("/api/admin/mobocom-pay/settlements", {
-                              id: x.id,
-                              action: "approve",
-                            })
-                          }
-                        >
-                          تأیید درخواست
-                        </button>
-                        <button
-                          type="button"
-                          className={s.secondary}
-                          disabled={busy || !reason[x.id]}
-                          onClick={() =>
-                            action("/api/admin/mobocom-pay/settlements", {
-                              id: x.id,
-                              action: "reject",
-                              reason: reason[x.id],
-                            })
-                          }
-                        >
-                          رد درخواست
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Field label="شناسه انتقال انجام‌شده">
-                        <input
-                          value={reference[x.id] || ""}
-                          onChange={(e) =>
-                            setReference({
-                              ...reference,
-                              [x.id]: e.target.value,
-                            })
-                          }
-                        />
-                      </Field>
-                      <div>
-                        <button
-                          type="button"
-                          className={s.button}
-                          disabled={busy || !reference[x.id]}
-                          onClick={() =>
-                            action("/api/admin/mobocom-pay/settlements", {
-                              id: x.id,
-                              action: "paid",
-                              reference: reference[x.id],
-                            })
-                          }
-                        >
-                          ثبت انتقال انجام‌شده
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </section>
-              ))}
-        </>
-      )}
+      {!forbidden && tab === 1 && <SettlementDesk allowed={data.permissions.settle} />}
+      {!forbidden && tab === 8 && <WebhookOperations allowed={data.permissions.manage} />}
       {!forbidden && tab === 2 && <PaymentTable items={data.payments} />}
       {!forbidden && tab === 5 && <Receipts />}
       {!forbidden && tab === 6 && <TransferMonitor />}

@@ -81,6 +81,7 @@ const paths: Record<IconName, React.ReactNode> = {
   activity: <path d="M3 12h4l3-8 4 16 3-8h4"/>,
   terminal: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m5 0h5"/></>,
   close: <path d="M6 6l12 12M18 6 6 18"/>,
+  menu: <path d="M4 6h16M4 12h16M4 18h16"/>,
   cloud: <path d="M7 18h10.500a4.500 4.500 0 0 0 .4-8.980A6 6 0 0 0 6.300 10.100 4 4 0 0 0 7 18Z"/>,
 }
 export default function Icon({ name = 'shield', size = 22, className = '' }: { name?: string; size?: number; className?: string }) {

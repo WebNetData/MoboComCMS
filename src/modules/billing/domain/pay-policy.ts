@@ -63,6 +63,7 @@ const RAILS = [
 ] as const
 export function defaults(): PaySettings {
   return {
+    settlementApprovalThresholdRial: '0',
     usdtRateMaxAgeMinutes: 60,
     bale: balePolicyDefaults(),
     incomingEnabled: false,
@@ -123,6 +124,7 @@ export function normalizePaySettings(input: unknown): PaySettings {
   })
   return {
     usdtRateMaxAgeMinutes: integer(raw.usdtRateMaxAgeMinutes, 15, 1440),
+    settlementApprovalThresholdRial: rial(raw.settlementApprovalThresholdRial, true).toString(),
     bale: normalizeBalePolicy(raw.bale),
     incomingEnabled: raw.incomingEnabled,
     bankAccountIds: ids,

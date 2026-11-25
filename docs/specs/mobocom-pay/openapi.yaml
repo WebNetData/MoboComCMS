@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.9.0
+  version: 1.10.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An authorized administrator provisions and activates the merchant for an existing MoboCom identity.
@@ -23,6 +23,171 @@ tags:
   - { name: Hosted checkout, description: Guest phone proof and payment methods on the MoboCom domain. }
   - { name: Custom bot, description: Dedicated body-token compatibility adapter and conservative paid-order delivery. }
 paths:
+  /api/pay/webhooks:
+    get:
+      operationId: getMerchantWebhooks
+      tags: [Merchant]
+      security: []
+      description: Session-only merchant endpoint and paginated delivery history; optional page and status filters. No secret is returned.
+      responses:
+        '200': { description: Endpoint and delivery overview. }
+        default: { description: Unauthorized or invalid filter. }
+    post:
+      operationId: saveMerchantWebhook
+      tags: [Merchant]
+      security: []
+      description: Session and same-origin mutation. Create or version-claim one endpoint per terminal. The secret is shown only at creation or explicit rotation. URL must be public HTTPS without credentials, query, fragment or non-default port; DNS is checked and pinned at delivery. Changing configuration pauses old deliveries until explicit redelivery to the current binding.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [terminalId, url, active]
+              properties:
+                terminalId: { type: string, format: uuid }
+                url: { type: string, format: uri }
+                active: { type: boolean }
+                version: { type: integer, minimum: 0, description: Required when updating an existing endpoint. }
+                rotateSecret: { type: boolean, enum: [true] }
+      responses:
+        '200': { description: Endpoint and one-time secret when created or rotated. }
+        default: { description: 'Invalid configuration, authority or version conflict.' }
+      callbacks:
+        paymentPaid:
+          '{$request.body#/url}':
+            post:
+              operationId: receiveMerchantPaidEvent
+              tags: [Merchant]
+              security: []
+              description: Signed at-least-once event to the configured URL. Verify HMAC-SHA256 of timestamp plus dot plus raw body with the endpoint secret; enforce timestamp freshness and deduplicate the event ID before fulfillment. Return 2xx after durably accepting the event. Attempts retain the same event ID and payload.
+              parameters:
+                - { in: header, name: X-MoboCom-Event-Id, required: true, schema: { type: string, format: uuid } }
+                - { in: header, name: X-MoboCom-Timestamp, required: true, schema: { type: string, pattern: '^[0-9]+$' } }
+                - { in: header, name: X-MoboCom-Signature, required: true, schema: { type: string, pattern: '^v1=[a-f0-9]{64}$' } }
+                - { in: header, name: X-MoboCom-Attempt-Id, required: true, schema: { type: string, format: uuid } }
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema: { $ref: '#/components/schemas/PayWebhookEvent' }
+              responses:
+                '200': { description: Event durably accepted or duplicate acknowledged. }
+                default: { description: Delivery will retry within its bounded retry cycle. }
+  /api/pay/webhook-deliveries:
+    post:
+      operationId: redeliverMerchantWebhook
+      tags: [Merchant]
+      security: []
+      description: Session and same-origin mutation; acknowledges replay and explicitly binds to the current endpoint version. Delivery is at least once and the receiver must deduplicate the stable event ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookRedelivery' }
+      responses:
+        '200': { description: Redelivery queued. }
+        default: { description: 'Authority, state or version conflict.' }
+  /api/pay/settlement-center:
+    get:
+      operationId: getMerchantSettlementCenter
+      tags: [Settlements]
+      security: []
+      description: Session-only saved destinations, balances, approval threshold and maximum scheduling days.
+      responses:
+        '200': { description: Settlement center. }
+        default: { description: Unauthorized or unavailable. }
+  /api/pay/settlement-destinations:
+    post:
+      operationId: createSettlementDestination
+      tags: [Settlements]
+      security: []
+      description: Session and same-origin mutation; save an owned destination with immutable address and rail. Create a new profile to change either fact.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [label, railId, destination], properties: { label: { type: string }, railId: { type: string }, destination: { type: string } } } } } }
+      responses:
+        '201': { description: Saved destination. }
+        default: { description: Invalid destination or authority. }
+    patch:
+      operationId: updateSettlementDestination
+      tags: [Settlements]
+      security: []
+      description: Session and same-origin mutation; version claims updates to label and/or active state. Destination and rail cannot be edited.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [id, version], properties: { id: { type: string }, version: { type: integer, minimum: 0 }, label: { type: string }, active: { type: boolean } } } } } }
+      responses:
+        '200': { description: Updated destination. }
+        default: { description: Invalid change or version conflict. }
+  /api/pay/settlement-receipt:
+    get:
+      operationId: getMerchantSettlementReceipt
+      tags: [Settlements]
+      security: []
+      description: Session-only read-only receipt. HTML is an attachment and distinguishes unpaid from paid; it does not initiate a payout.
+      parameters:
+        - { in: query, name: id, required: true, schema: { type: string } }
+        - { in: query, name: format, schema: { type: string, enum: [html] }, description: Omit for JSON. }
+      responses:
+        '200': { description: JSON settlement or private HTML receipt. }
+        default: { description: Unauthorized or not found. }
+  /api/admin/mobocom-pay/settlement-center:
+    get:
+      operationId: getAdminSettlementQueue
+      tags: [Settlements]
+      security: []
+      description: Session and mobocom-pay.settle permission; filters phase, status, q and page.
+      responses:
+        '200': { description: 'Paginated queue with due, scheduled, second-approval and approved counts.' }
+        default: { description: Unauthorized or invalid filter. }
+  /api/admin/mobocom-pay/settlement-batches:
+    post:
+      operationId: decideSettlementBatch
+      tags: [Settlements]
+      security: []
+      description: Session, same-origin and mobocom-pay.settle permission; each item is independently claimed and returns its own result.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [action, items], properties: { action: { type: string, enum: [approve, reject] }, reason: { type: string }, items: { type: array, minItems: 1, maxItems: 25, items: { type: object, additionalProperties: false, required: [id, version], properties: { id: { type: string }, version: { type: integer, minimum: 0 } } } } } } } } }
+      responses:
+        '200': { description: Per-item decision results. }
+        default: { description: Invalid batch or authority. }
+  /api/admin/mobocom-pay/webhooks:
+    get:
+      operationId: getAdminWebhooks
+      tags: [Merchant]
+      security: []
+      description: Session and mobocom-pay.manage permission; page and status filter delivery evidence, endpointPage independently pages the endpoint directory. deliveryEndpoints includes the current binding for each delivery on the selected page. No signing secrets are returned.
+      responses:
+        '200': { description: Admin delivery and endpoint overview; mobocom-pay.manage required. }
+        default: { description: Unauthorized. }
+    patch:
+      operationId: pauseAdminWebhook
+      tags: [Merchant]
+      security: []
+      description: Session, same-origin and mobocom-pay.manage permission; pause an endpoint with its current version. This does not retract a request already in flight.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [id, version, active], properties: { id: { type: string, format: uuid }, version: { type: integer, minimum: 0 }, active: { type: boolean, enum: [false] } } } } } }
+      responses:
+        '200': { description: Endpoint paused with version claim. }
+        default: { description: Invalid request or authority. }
+  /api/admin/mobocom-pay/webhook-deliveries:
+    post:
+      operationId: redeliverAdminWebhook
+      tags: [Merchant]
+      security: []
+      description: Session, same-origin and mobocom-pay.manage permission; explicit replay acknowledgment and current endpoint version are required. The immutable event is queued again with the current endpoint binding.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WebhookRedelivery' } } } }
+      responses:
+        '200': { description: Explicit redelivery queued; mobocom-pay.manage required. }
+        default: { description: Invalid request or authority. }
+  /api/admin/mobocom-pay/settlement-receipt:
+    get:
+      operationId: getAdminSettlementReceipt
+      tags: [Settlements]
+      security: []
+      description: Session and mobocom-pay.settle permission; read persisted settlement facts as JSON or an HTML attachment with print styling. This never initiates a transfer.
+      parameters:
+        - { in: query, name: id, required: true, schema: { type: string } }
+        - { in: query, name: format, schema: { type: string, enum: [html] } }
+      responses:
+        '200': { description: Read-only JSON or private HTML receipt; mobocom-pay.settle required. }
+        default: { description: Unauthorized or not found. }
   /api/payment/mobocom-pay/sms-forwarder/{id}:
     post:
       operationId: receiveForwardedBankSms
@@ -757,6 +922,45 @@ components:
       description: Invalid request, authentication or access denied, conflict, rate limit, or unavailable service (400, 401, 403, 404, 405, 409, 413, 422, 429, 503).
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
+    WebhookRedelivery:
+      type: object
+      additionalProperties: false
+      required: [id, version, configVersion, action, ackReplay]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer, minimum: 0, description: Current delivery version. }
+        configVersion: { type: integer, minimum: 1, description: Current endpoint version. }
+        action: { type: string, enum: [redeliver] }
+        ackReplay: { type: boolean, enum: [true] }
+    PayWebhookEvent:
+      type: object
+      additionalProperties: false
+      required: [id, type, version, created_at, data]
+      description: >-
+        Stable event body delivered at least once through the canonical background queue. Receiver must
+        deduplicate id. Each attempt includes X-MoboCom-Event-Id, X-MoboCom-Attempt-Id,
+        X-MoboCom-Timestamp (Unix seconds), and X-MoboCom-Signature (v1= followed by hex HMAC-SHA256
+        over timestamp + '.' + exact raw body). All non-2xx responses and transport errors retry up to
+        eight attempts per delivery cycle; manual redelivery starts a new cycle.
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [payment.paid] }
+        version: { type: integer, enum: [1] }
+        created_at: { type: string, format: date-time }
+        data:
+          type: object
+          additionalProperties: false
+          required: [payment_id, terminal_id, external_id, status, order_amount_rial, invoice_total_rial, contract_fee_rial, merchant_credit_currency, merchant_credit_amount]
+          properties:
+            payment_id: { type: string }
+            terminal_id: { type: string }
+            external_id: { type: string }
+            status: { type: string, enum: [PAID] }
+            order_amount_rial: { type: string }
+            invoice_total_rial: { type: string }
+            contract_fee_rial: { type: string }
+            merchant_credit_currency: { type: string, enum: [IRR, USDT] }
+            merchant_credit_amount: { type: string, description: Exact decimal credit in merchant currency. }
     UsdtEquivalent:
       type: object
       description: Informational equivalent of the full requested Rial amount. Approved persisted USDT rate only; no USD peg fallback or provider call on checkout. Four decimal rounding; lessThan marks a sub-0.0001 amount. Provider rates older than 24 hours are stale; explicit manual or locked rates are labeled with their original timestamp.
@@ -828,6 +1032,9 @@ components:
       properties:
         quoteId: {"type":"string"}
         destination: {"type":"string","description":"Validated Iranian sheba, TRON Base58Check address, or nonzero 0x40-hex EVM address for its selected rail. Returned normalized address must be reviewed."}
+        scheduledFor: { type: string, format: date-time, description: Optional future UTC time at most 30 days away; funds are reserved immediately. }
+        destinationProfileId: { type: string, description: Optional active saved destination matching the quote and destination. }
+        destinationVersion: { type: integer, minimum: 0, description: Required with destinationProfileId. }
         ackNetwork: {"type":"boolean","description":"Explicit true required for BSC/Ethereum to acknowledge the selected destination network."}
     Settlement:
       type: "object"

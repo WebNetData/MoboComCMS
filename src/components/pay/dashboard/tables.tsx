@@ -127,7 +127,7 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
               <td role="cell" data-label="پایانه">{x.terminalName}</td>
               <td role="cell" data-label="مبلغ سفارش">{money(x.amountRial)}</td>
               <td role="cell" data-label="پرداخت مشتری">{money(x.customerAmountRial ?? x.totalRial)}</td>
-              <td role="cell" data-label="کارمزد پلتفرم">{money(x.platformFeeRial ?? x.feeRial)}{x.status !== "PAID" && <small className={ledger.hint}>برآورد</small>}</td>
+              <td role="cell" data-label="کارمزد پلتفرم"><div className={ledger.value}>{money(x.platformFeeRial ?? x.feeRial)}{x.status !== "PAID" && <small className={ledger.hint}>برآورد</small>}</div></td>
               <td role="cell" data-label="معادل ریالی اعتبار" className={ledger.net}>{money(x.creditRial ?? x.netRial)}</td>
               <td role="cell" data-label="وضعیت"><Badge value={x.status} /></td>
               <td role="cell" data-label="ثبت">{date(x.createdAt)}</td>
@@ -163,36 +163,34 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
 export function SettlementTable({ items }: { items: PaySettlementView[] }) {
   return (
     <div
-      className={`${s.card} ${s.tableWrap}`}
+      className={`${s.card} ${s.tableWrap} ${ledger.ledger}`}
       role="region"
       aria-label="فهرست تسویه‌ها"
       tabIndex={0}
     >
-      <table className={s.table}>
-        <thead>
-          <tr>
-            <th>مبلغ</th>
-            <th>کارمزد</th>
-            <th>دریافتی</th>
-            <th>وضعیت</th>
-            <th>تاریخ</th>
-            <th>جزئیات</th>
+      <table className={`${s.table} ${ledger.table}`} role="table">
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col">مبلغ</th>
+            <th scope="col">کارمزد</th>
+            <th scope="col">دریافتی</th>
+            <th scope="col">وضعیت</th>
+            <th scope="col">تاریخ</th>
+            <th scope="col">جزئیات</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           {items.map((x) => (
-            <tr key={x.id}>
-              <td>{money(x.amountRial)}{x.sourceAmount && <small className={s.tableSub}><bdi>{x.sourceAmount} {x.sourceCurrency}</bdi> · مبدأ</small>}</td>
-              <td>{money(x.feeRial)}{x.feeAmount && <small className={s.tableSub}><bdi>{x.feeAmount} {x.feeCurrency}</bdi></small>}</td>
-              <td>
-                {x.payoutAmount} {x.asset} · {x.network}
-              </td>
-              <td>
+            <tr key={x.id} role="row">
+              <td role="cell" data-label="مبلغ"><div className={ledger.value}>{money(x.amountRial)}{x.sourceAmount && <small className={s.tableSub}><bdi>{x.sourceAmount} {x.sourceCurrency}</bdi> · مبدأ</small>}</div></td>
+              <td role="cell" data-label="کارمزد"><div className={ledger.value}>{money(x.feeRial)}{x.feeAmount && <small className={s.tableSub}><bdi>{x.feeAmount} {x.feeCurrency}</bdi></small>}</div></td>
+              <td role="cell" data-label="خالص انتقال"><div className={ledger.value}><bdi>{x.payoutAmount} {x.asset}</bdi><small className={s.tableSub}>{x.network}</small></div></td>
+              <td role="cell" data-label="وضعیت">
                 <Badge value={x.status} />
               </td>
-              <td>{date(x.createdAt)}</td>
-              <td>
-                <details className={s.details}>
+              <td role="cell" data-label="تاریخ">{date(x.createdAt)}</td>
+              <td role="cell" data-label="جزئیات">
+                <details className={`${s.details} ${ledger.details}`}>
                   <summary>مشاهده جزئیات</summary>
                   <dl>
                     <dt>شناسه تسویه</dt>
@@ -210,13 +208,14 @@ export function SettlementTable({ items }: { items: PaySettlementView[] }) {
                     <dt>آخرین تغییر</dt>
                     <dd>{date(x.updatedAt)}</dd>
                   </dl>
+                  <a className={s.secondary} href={`/api/pay/settlement-receipt?${new URLSearchParams({ id: x.id, format: 'html' })}`} target="_blank" rel="noreferrer" aria-label={`دریافت گزارش تسویه ${x.id}`}>{x.status === 'PAID' ? 'دریافت رسید تسویه' : 'دریافت گزارش درخواست'}</a>
                 </details>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {!items.length && <p>موردی یافت نشد.</p>}
+      {!items.length && <p className={ledger.empty}>موردی یافت نشد.</p>}
     </div>
   );
 }

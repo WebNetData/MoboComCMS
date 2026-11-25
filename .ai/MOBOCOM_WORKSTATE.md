@@ -1,3 +1,51 @@
+# PR490 published — 2026-11-25
+
+Owner-requested [PR490](https://github.com/WebNetData/MoboComCMS/pull/490) targets
+main from feat/pay-webhooks-settlement-center-2026-11-25. It includes f53945dd
+(webhooks/settlements),8fc1bf16 (financial presentation) and879848b3 (merchant menu/
+shared Support). Fresh origin/main9b345399 is an ancestor; aggregate diff/secret
+preflight passed. Exact scoped executed evidence,217 coordinated-release limits
+and cleanup are retained below. Owner merges/deploys; no workflow dispatched.
+[Publication receipt](../docs/agent/handoffs/MOBOCOM_PAY.md#pr490-publication-receipt--2026-11-25).
+
+# Merchant hamburger/sidebar and shared Support — 2026-11-25
+
+Continues local8fc1bf16 in .mobocom/pay-bale-verification on
+feat/pay-webhooks-settlement-center-2026-11-25. Owner requests phone/tablet
+hamburger navigation, account-style grouped Pay menu, ticket support and a lasting
+engineering/design rule. Existing ShellNav/typed Pay menu and native dialog;
+private /pay/merchant/support embeds canonical TicketCenter. No separate inbox,
+identity, financial/Support API or migration. Fresh217/native2, types/8 gates,
+Doctor0errors/1 reviewed native-dialog warning,41 actual responsive/theme/axe
+captures and keyboard/history/privacy checks pass. Owned preview/DB/private
+fixtures cleaned; shared readiness/session200. Local only.
+[Evidence, cleanup and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
+# Financial list/card presentation repair — 2026-11-25
+
+Owner reports the settlement cards look unstyled/disorganized and sets a platform
+quality bar. Continues local f53945dd in .mobocom/pay-bale-verification on
+feat/pay-webhooks-settlement-center-2026-11-25. Structured settlement facts/review/
+actions, styled financial table details and labelled mobile settlement rows;
+receipt actions moved into their own request. Frontend only, no money/API/schema
+change. Native PG2/types/8 gates, Doctor0errors, actual44 themed/mobile/state
+captures across all18 Pay views with axe0 pass. Whole-platform design bar recorded
+in FRONTEND_QUALITY; this is not a whole-site audit claim. Local only.
+[Evidence, warnings, cleanup and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#financial-data-presentation-repair--2026-11-25).
+
+# Generic webhooks / settlement center — 2026-11-25
+
+Owner-authorized recommendations1/2 continue merged PR489/main9b345399 in
+.mobocom/pay-bale-verification, feat/pay-webhooks-settlement-center-2026-11-25.
+Signed durable merchant events, independent paged Admin endpoint/history controls,
+saved destinations, scheduled immediate reserves, snapshotted dual approvals,
+per-item batches and private printable receipts extend existing Billing/Wallet/
+Operations owners. Additive217 is manifest-listed. Local PostgreSQL fresh/populated,
+native new+legacy checks, types/scoped gates/contracts/Hurl and actual themed/mobile
+browser/axe evidence recorded below; real receiver/bank/chain commissioning unverified.
+Owned preview/DB/private fixtures cleaned; shared readiness/session200.
+No push/PR/deploy/workflow. [Evidence, limitations and release coordination](../docs/agent/handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 # MoboComPay PR489 opened — 2026-11-25
 
 Owner-authorized publication of the three verified slices below to main:

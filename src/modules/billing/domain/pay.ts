@@ -35,6 +35,7 @@ export interface PayRail {
   feeRial: string
 }
 export interface PaySettings {
+  settlementApprovalThresholdRial: string
   usdtRateMaxAgeMinutes: number
   bale: import('./pay-bale-collection').BaleCollectionPolicy
   incomingEnabled: boolean
@@ -100,6 +101,15 @@ export interface PayPaymentView {
   checkoutUrl: string
 }
 export interface PaySettlementView {
+  version?: number
+  scheduledFor?: string | null
+  destinationLabel?: string
+  requiresSecondApproval?: boolean
+  approvalThresholdRial?: string
+  approvedById?: number | null
+  firstApprovedAt?: string | null
+  secondApprovedById?: number | null
+  secondApprovedAt?: string | null
   sourceCurrency?: PayCreditCurrency
   sourceAmount?: string
   feeCurrency?: PayCreditCurrency

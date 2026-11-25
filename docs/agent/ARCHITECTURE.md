@@ -1,3 +1,22 @@
+Pay navigation/support2026-11-25: one typed menu feeds existing shared ShellNav
+and the compatible flat PayNavigation address. The private merchant shell owns
+its responsive side-drawer presentation, not identity/access resolution. Native
+dialog supplies modal semantics; scoped CSS prevents shared dashboard selectors
+from changing the merchant shell. /pay/merchant/support remains behind existing
+MerchantEntry and composes Support's TicketCenter. One UserId, ticket/message
+history, department configuration and staff permissions; no new support backend
+or implied financial permission. [Actual evidence](handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
+Merchant events/settlement operations2026-11-25: Billing Pay retains financial and
+extension ownership. Existing credit transaction stores one immutable signed-event
+intent, linked to its paid payment; Operations queue owns execution and retries.
+Endpoint configuration and attempt bindings are separate versioned facts; replay
+never touches Wallet. Existing settlement quotes/reserve/release/completion own
+saved-profile snapshots, schedule and independent high-value approvals. No parallel
+queue, identity, balance, FX or live transfer engine. Canonical account section
+guard gains opt-in fresh reads for outbound authority; existing callers unchanged.
+[Implementation, evidence and coordinated217 release](handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 Private merchant workspace2026-11-24: Billing Pay owns membership/provisioning and
 Admin lifecycle behind its existing server/pay address. `/pay/merchant` is an
 independent presentation using canonical Identity session, same Wallet/payment core

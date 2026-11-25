@@ -12,6 +12,39 @@ Supporting design/React/a11y skills follow [engineering skill routing](ENGINEERI
 4. Use existing Storybook coverage for new reusable component states where available. Code Connect is appropriate only for real maintained Figma/component mappings; never invent Figma IDs or claim a connection was published.
 5. Keep domain/business logic outside presentation. Scope module CSS; separate public, Admin, shared and editor tokens. Prefer existing supported components and dependency versions.
 
+Owner clarification2026-11-25: every affected platform surface must look intentionally
+styled, including dense data lists and internal Admin views. A border around an
+unstructured grid is insufficient. Give financial facts, destinations, review states
+and actions distinct hierarchy; keep amount/unit pairs together and isolate LTR
+identifiers. Use the existing owner table/card compositions with labelled mobile
+rows, readable headers, consistent padding, visible focus and styled actions. Check
+expanded details and selected/error/empty states in both themes. This is a quality
+bar for each continuation, not evidence that every platform page has been audited.
+
+## Workspace menus — owner requirement2026-11-25
+
+- On phone/tablet sizes, workspace navigation opens from a visible, styled44px
+  hamburger button in the header. Follow the existing account/Admin interaction;
+  a horizontally scrolling main-menu strip is not a replacement. Choose the
+  breakpoint from content fit (Pay uses1100px); keep the persistent side menu on
+  larger screens and preserve protected public shells.
+- Reuse ShellNav and the canonical typed menu entries for grouping, current-link
+  state and remembered expansion. Do not create a second permission/menu resolver.
+  Style every caption, group, icon tile, link, account footer, focus/selected state
+  and support entry with existing MoboCom/SDS tokens. Native controls retain their
+  semantics and receive consistent spacing/surfaces; no unfinished/default-looking
+  section, overlay or control is accepted as a completed design.
+- A modal side drawer uses native dialog semantics and focus containment, a named
+  close control, Escape/backdrop close, focus restoration and independent scrolling.
+  Close on navigation and desktop resize; restore page scrolling. Expose expanded/
+  controls state, keep closed navigation out of focus order, account for safe areas
+  and test320/390/768/1024 plus desktop in both themes. Motion stays finite and
+  reduced-motion-aware. Existing nonmodal account/Admin disclosure menus keep their
+  current contracts; a visual request alone does not authorize a global rewrite.
+- Support entries reuse the canonical Support ticket/Identity/department owners.
+  A dedicated module presentation must not create a parallel inbox, login, message
+  history, staff permission resolver or implicit access to financial commands.
+
 Admin utility/presentation styles are rooted in `.admin-shell` and loaded by
 the Admin layout. An import boundary alone is insufficient: styles can remain
 after client navigation. Keep the public before/after-navigation regression in

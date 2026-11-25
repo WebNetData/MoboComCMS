@@ -1,3 +1,319 @@
+## PR490 publication receipt — 2026-11-25
+
+Owner explicitly requests a PR for all work to this point. Fetched current
+origin/main9b345399 and proved it remains an ancestor. No existing open PR for
+the branch; pushed feat/pay-webhooks-settlement-center-2026-11-25 and opened
+[PR490](https://github.com/WebNetData/MoboComCMS/pull/490) targeting main, ready for
+owner review. Product commits are f53945dd,8fc1bf16 and879848b3, followed by this
+documentation receipt. The PR body records scope-specific local evidence,
+migration217's matching-writer/backup/write-pause requirement, at-least-once
+receiver dedupe and unverified live receiver/bank/chain/full-build boundaries.
+
+Publication-only verification: clean aggregate git diff/check, main ancestry and
+redacted Gitleaks on77 committed named files; .serena, ignored fixtures and private
+artifacts excluded. Existing native/type/browser evidence was inspected, not
+rerun or represented as production acceptance. GitHub connector transport failed;
+the installed gh CLI created and verified the PR. No source change, hosted workflow
+dispatch, merge, deployment, provider action or reviewer message performed.
+
+## Merchant drawer and canonical support — 2026-11-25
+
+Owner requests phone/tablet hamburger-opened side menu like account/Admin,
+professional grouped merchant navigation, support tickets and lasting engineering
+rules. Continue8fc1bf16 in authoritative .mobocom/pay-bale-verification,
+feat/pay-webhooks-settlement-center-2026-11-25. Local implementation only; no
+PR/push/deploy/hosted workflow, real financial/provider or notification action.
+
+- MerchantShell retains private presentation and canonical session. Shared
+  ShellNav/useShellGroups render the menu from merchant-menu's typed entries;
+  flat PayNavigation derives the same entries for compatibility. No copied
+  permission resolver or group renderer. Finance/business/integration groups,
+  support and account footer use scoped SDS/MoboCom styling, icon tiles, selected
+  links, persistent expansion and current-link scrolling. Registered the shared
+  menu SVG icon in the existing typed icon catalog (not a second icon system).
+- At<=1100px the persistent sidebar hides, header has a44px named hamburger,
+  expanded/controls/dialog state and a right-side native modal. Larger screens
+  keep the272px sidebar. Drawer supplies independent scrolling/safe-area padding,
+  named close/Escape/backdrop handling, page inertness and overflow restoration;
+  route/history changes and desktop resize close it. Native focus restoration
+  and containment are used, no manual trap. Browser chrome can receive boundary
+  Shift+Tab focus; attempts to focus background content remain blocked. Motion
+  is finite180ms opacity/transform, disabled under reduced motion; no large blur.
+- /pay/merchant/support passes existing MerchantEntry/module/merchant gate,
+  then composes canonical TicketCenter. Tickets/messages/UserId/Support APIs and
+  department staff permissions are shared with /dashboard/tickets. Copy explains
+  shared history and selecting the appropriate configured department. No ticket
+  schema, duplicate inbox, login, financial guard or API changed. A MOBOCOM_PAY
+  department was created ONLY in the disposable test DB to exercise existing
+  configurable departments; no production department was provisioned.
+- Actual reuse exposed global CSS collisions: generic admin toggle span flex
+  stretched icon tiles; scoped merchant rules fix32px tiles and active glyph
+  contrast. Canonical ticket small-ID/selected-filter colors were too weak in
+  light mode. Existing dashboard-tidy blanket button.is-active colored selected
+  tickets bright blue and obscured their metadata; exclude TicketCenter from
+  that generic rule so its owner retains its presentation. Two narrowly scoped
+  canonical ticket text rules improve contrast in both entry points. No account/
+  Admin shell structure or protected public visual/URL was replaced.
+- FRONTEND_QUALITY now records the owner's required hamburger/side-menu pattern,
+  complete styling for every affected state, existing menu/permission owners,
+  keyboard/focus/resize acceptance and supported native controls. Architecture/
+  decisions/map/ledger/spec/workstate updated together; no parallel design guide.
+
+Executed evidence (ignored var/pay-bale-20261124/pay-menu-*; isolated copied
+Next3140, synthetic canonical accounts, NOSUPERUSER task PostgreSQL, UID1000 and
+own generated Prisma217 client; no project .env):
+- Fresh all217 migrations PASS (no new migration). Registered
+  pay-private-merchants + support-page-problems native PG checks PASS.
+  Final TypeScript PASS;8 scoped architecture/source/schema parity/money schema+
+  UI/security/Audit/manifest gates PASS. Seven affected React files: Doctor0
+  errors/1 reviewed warning about an onClick on native dialog. It handles only
+  the native backdrop; Escape and a named close button provide keyboard access.
+  No rule suppressed or interactive role incorrectly added to the dialog.
+-41 actual browser captures: closed shell and open drawer at320/390/768/1024/
+  1100 light/dark and desktop1440 light/dark; eight additional merchant views at
+  1440 light/390 dark, owned Support thread, same ticket in account and return
+  navigation. Main or active dialog WCAG2A/AA/2.1AA axe0, no viewport overflow or
+  page errors. Desktop/mobile menu and support screenshots visually inspected.
+  Existing custom-mobocom presentation SHA remains
+  be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+- Real native modal open/close, Escape/backdrop, focus restoration, blocked
+  background focus, group persistence across reload, link navigation and desktop
+  resize/scroll recovery PASS. Separate normal-motion/browser-history check
+  verifies180ms duration, back navigation closes and restores page scrolling.
+  Extra desktop probe verifies the active support link and exact32px icon tile.
+- Same persisted owned ticket/message read from both Pay and account, other
+  user's ticket absent/403-or404, anonymous tickets401 and private Pay support
+  guest gate verified. Seeded messages use DB fixture writes, never notification
+  commands. Ticket creation/reply delivery not newly certified; owners unchanged.
+- Earlier harness assumed boundary Shift+Tab must stay in document; Chromium
+  correctly moved focus to its chrome. Corrected the assertion and separately
+  proved background inertness. Real CSS collisions/contrast failures were fixed
+  and full browser checks rerun, not ignored. Icon registry omission was caught
+  by TypeScript and fixed in the canonical catalog.
+
+Rollback: revert this presentation slice while retaining8fc1bf16/f53945dd and
+migration217's financial writer. Existing tickets/data/settings are preserved;
+Pay support is an additional presentation only. Optional dedicated support team
+is configured through current Admin departments/roles. No whole-site rollout,
+email/SMS delivery, production verification or new financial capability claimed.
+Scoped security PASS: local one-rule Semgrep10 affected TS/TSX files and redacted
+Gitleaks21 named feature files, no findings; no whole-repository certification.
+Cleanup completed: verified task Next3140 group and TLS tunnel stopped; exact
+task DB/role removed, private session/env/body/presentation/TLS fixtures/archive
+cleaned and dedicated builder stopped. Shared original app readiness/session200.
+Screenshots/redacted reports retained ignored locally; no private fixtures staged.
+
+## Financial data presentation repair — 2026-11-25
+
+Owner supplies the prior settlement screenshot and rejects the flat, apparently
+unstyled information grid; requests consistent visual quality across the platform.
+Continue local f53945dd, authoritative .mobocom/pay-bale-verification,
+feat/pay-webhooks-settlement-center-2026-11-25. Local frontend repair only;
+no push/PR/deploy/provider action, API/financial owner or migration change.
+
+Verified audit/direction: the CSS was loaded, but eight unrelated facts shared one
+auto-fit grid, tiny same-weight values, no clear destination/review grouping and a
+bare receipt link. Merchant settlements lacked PaymentLedger's labelled mobile
+rows; separate raw receipt IDs duplicated the list. Prior axe/overflow success
+was insufficient aesthetic evidence. Product: merchant settlement operations;
+character: precise/calm; world: financial ledger; moments: source/fee/net and the
+two independent reviews; signature: distinct net-transfer cell. Existing SDS/
+MoboCom tokens, Persian type, public theme and protected presentation retained.
+
+Implementation:
+- SettlementDesk retains the existing command/loading/filter/batch owner and
+  public address. Its internal card/approval/actions parts show a clear identity/
+  status header, three separated money facts with isolated amount+asset, wallet/
+  schedule panels, actual approval IDs/times and a distinct action footer.
+  Full destination remains visible in its own monospace LTR block. Selected
+  requests receive a visible border. Completed/rejected rows cannot be selected
+  for an inapplicable batch; server authority and state/version claims unchanged.
+- SettlementDesk.module.css replaces the flat grid with scoped semantic surfaces,
+  consistent spacing, explicit row/cell borders and 760px/600px layouts. Existing
+  finite200ms transform/opacity hero entrance/reduced-motion handling retained;
+  no animation library, gradient/theme replacement or financial counter effects.
+- Pay.module.css styles only Pay tables/details: readable headers, aligned values,
+  44px disclosure controls and grouped dt/dd panels. PaymentLedger.module.css gives
+  financial tables a consistent header/edge/row rhythm, value wrappers and mobile
+  label/value composition. SettlementTable now uses the same supported responsive
+  table pattern. Existing explicit table/row/cell roles preserve semantics when
+  CSS switches visual layout; they are not new interactive widgets.
+- Merchant receipt/report download is a styled action INSIDE that settlement's
+  details, with exact request ID in its accessible name. Removed the duplicate raw
+  ID link list and its dead CSS. Existing private GET attachment path unchanged.
+- FRONTEND_QUALITY records the owner's platform-wide quality requirement for
+  future continuations: a border around a flat grid is not sufficient, expanded/
+  selected/error/empty states require visual inspection. No assertion that the
+  whole platform has already been audited; this slice reviews all18 Pay routes.
+
+Executed evidence (ignored pay-ui-* under var/pay-bale-20261124; copied private
+Next3140, own synthetic identities/data, native NOSUPERUSER PG and UID1000, no .env):
+- Fresh217 migration setup PASS; registered pay-settlement-center and
+  pay-shared-checkout connected checks PASS. No backend/money edits after these.
+- Final types PASS,8 architecture/source/schema parity/money schema+UI/security/
+  Audit/manifest gates PASS. React Doctor4 affected files:0 errors/53 reviewed
+  warnings. Baseline original tables alone32 role warnings; current tables49
+  (same intentional explicit native table semantics extended to the mobile
+  settlement table);4 existing settlement form complexity/preventDefault warnings.
+  Extracted card/approval/actions and Desk have0 diagnostics. No rule suppression.
+- Actual44 final browser captures: Admin settlement and merchant settlement/
+  payment expanded-detail pages1440/390 light/dark; remaining15 merchant/Admin
+  pages1440 light/390 dark; queue error/retry and empty states. All relevant main
+  surfaces axe WCAG2A/AA/2.1AA0 violations, no viewport overflow or page errors.
+  Admin card desktop/mobile/light/dark crops and expanded merchant ledger visually
+  inspected against owner screenshot. Presentation SHA remains
+  be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+- Real synthetic requested/scheduled/awaiting-second/approved/paid/rejected facts
+  rendered. Keyboard Tab/Shift+Tab focus and selected border verified; same first
+  reviewer denied, independent second approved, recorded reference completed via
+  the new card callbacks. Available wallet balances unchanged after completion;
+  pending reservation projection correctly decreases by the completed1 USDT.
+  Final read-only continuation verifies persisted approver IDs/status/reference;
+  financial actions were NOT replayed after a development HMR reload. Merchant
+  and denied staff direct Admin calls403. Download links retain per-row context.
+- Corrected two real contrast regressions found by axe: muted secondary money
+  on a focused gray row, and empty-state secondary text on the page surface.
+  Keep text on supported surfaces; no blanket token darkening. Earlier harness
+  assumptions about programmatic mouse focus, reserved projection remaining after
+  PAID and the global Next route-announcer were corrected. Failed runs were not
+  counted as successful full validations; actual successful phases retained.
+
+Rollback: revert only this presentation slice; f53945dd and its migration217/
+financial writer remain. No full build, live financial transfer or outside-Pay
+visual acceptance claimed. Next continuation follows the same evidence-driven
+quality bar on each affected platform owner, preserving protected public designs.
+Scoped security PASS: local one-rule Semgrep4 affected TSX files and redacted
+Gitleaks13 named feature files, no findings; not a full security certification.
+Cleanup completed: verified task Next3140 group/TLS tunnel stopped, exact private
+DB/role removed, session/env/body/presentation/TLS fixtures/archive cleaned and
+dedicated builder stopped. Shared original app readiness/session both200. Screenshots
+and redacted reports remain ignored locally; no fixture credentials are staged.
+
+## Generic webhooks and settlement center — 2026-11-25
+
+Scope: owner accepted recommendations1/2 after PR489. Authoritative checkout
+.mobocom/pay-bale-verification, branch feat/pay-webhooks-settlement-center-2026-11-25,
+base owner-merged main9b345399. This is local implementation; no push, PR, deploy,
+hosted workflow or real provider/chain action. Prior records below remain historical.
+
+Owners and files:
+- Billing domain/pay-webhooks and server/pay/webhooks/{admin,delivery}, credit,
+  outbound and thin bot transport retain one financial owner. PAID+paidAt+Wallet
+  facts are re-read before an immutable payment.paid v1 raw JSON/hash/event ID
+  and Operations job intent are committed with credit. Exact stored order/total/
+  contract fee/net credit only; no early collection proof or payer private fields.
+- Per-terminal encrypted generated key is shown once on creation/rotation; URL
+  and version are claimed. Worker uses HMAC-SHA256(timestamp+'.'+raw body), stable
+  event/body, unique attempt ID,8 attempts per cycle, exponential delay,120s lease
+  and125s durable recovery. UNKNOWN history retains interrupted deliveries;
+  an old completion token cannot overwrite a subsequent attempt. No delivery
+  command changes money or fulfillment. Receiver MUST deduplicate event ID.
+- Current module/API/merchant/User/terminal/global standing/section/maintenance/
+  endpoint authority rechecked before each claim. Account's canonical section
+  resolver accepts an opt-in fresh read which fails closed on read failure;
+  no new AuthZ resolver. DNS all-answer public check and pinned HTTPS/TLS transport
+  extracted from bot: no redirect/proxy/query credential,5s DNS/12s request/16KiB
+  response bounds. Remote body/errors and credentials never enter history/Audit.
+- Changed config pauses old bindings. Explicit redelivery requires current
+  delivery AND endpoint versions plus replay acknowledgment. Same immutable event
+  rebinds current URL/key; each completed attempt retains its historical target.
+  Admin may pause/replay under mobocom-pay.manage, never read a signing secret.
+  Independent25-row endpoint pagination and current delivery-binding projection
+  avoid losing access past the original100-row directory bound; last20 attempts
+  are displayed while all attempt rows remain stored.
+- Existing settlements address split into quotes/request/decisions/validation;
+  settlement-center parts own profiles, queue/batches and receipts. Profile
+  address/asset/network/owner immutable; label/active version-claimed. Requests
+  snapshot profile ID/version/label and exact destination. Legacy inline requests
+  and idempotency fingerprint are preserved without optional new fields.
+- UTC scheduledFor up to30 days reserves the source asset immediately at accepted
+  quote/fees. Before due: approve/pay denied, reject releases original asset once.
+  New Settings settlementApprovalThresholdRial defaults0 and applies to new
+  requests only, freezing threshold/revision/dual flag from quote Rial amount.
+  First dual approval stays REQUESTED; a different currently authorized staff
+  member moves it APPROVED. No merchant self-review. SQL freezes approval IDs/
+  times and schedule/profile/policy facts; state+version claims fence races.
+- Admin due/scheduled/second/approved queue, max25 unique per-item approve/reject
+  results, individual paid reference, owner/staff-only JSON or escaped HTML
+  attachment. Receipt distinguishes unpaid state from recorded transfer; nonce
+  CSS, private no-store, sandbox CSP and print styles; it never executes payment.
+- Merchant/Admin route/navigation/settings/UI use existing SDS semantic tokens,
+  Persian typography, scoped CSS and both themes. Native labelled forms, explicit
+  reserve-now/fees/network review, local-time→UTC schedule validation and live
+  quote expiry; safe one-time-key clipboard feedback. Finite200ms opacity/transform
+  entrances respect reduced motion. Protected public presentation retained.
+- Both Prisma schemas + manifest add217, new registered pay-webhooks and
+  pay-settlement-center native fixtures; standalone pay-center-upgrade.connected
+  requires an EMPTY disposable database. OpenAPI1.10 adds signed callback schema,
+  session-only operational routes and existing settlement optional fields.
+
+Executed local evidence (ignored reports under var/pay-bale-20261124/pay-center-*
+and pay-webhooks-*; isolated copied Next3140, synthetic canonical users, UID1000,
+NOSUPERUSER PostgreSQL, own generated Prisma5.22, no project .env):
+- Fresh all217 migrations PASS. Standalone pay-center-upgrade.connected PASS on a
+  second exact disposable database: deploy216, seed requested/approved/paid legacy
+  settlements and reserved IRR/USDT balances, deploy217. All prior columns/amounts/
+  states byte-equivalent; no invented approvals, old approved request completable.
+- Registered pay-webhooks PASS: atomic intent/HMAC, private key and remote-body
+  exclusion, duplicate paid event, immutable payload and attempt targets,
+  acknowledged replay/current-config race,8 retries, fresh cross-client section
+  revocation/Admin pause, crash/unknown lease and stale completion fencing;
+  deliberate Audit exception after intent proves credit+intent rollback. Final
+  added directory pagination verifies nonoverlapping pages/current bindings.
+- Registered pay-settlement-center PASS: immediate reserve/schedule/idempotency,
+  stale profile/ownership/immutability, direct SQL before-due denial, exact once-only
+  rejection release, concurrent first approvals/independent second review in app
+  and SQL, changed policy preserves old snapshot, individual completion/reference,
+  legacy no-version approval, receipt privacy and batch per-item stale outcomes.
+  Final legacy pay-assets/pay-shared-checkout/pay-bot PASS; earlier same-slice
+  pay-bale-collection PASS. Existing bot+SMS pure32 tests PASS; no live DNS receiver
+  or bank mock result is represented as external acceptance.
+- Final TypeScript noEmit and8 architecture/source/schema parity/money schema+UI/
+  security/Audit/release-manifest gates PASS. Spectral0 findings, oasdiff reports
+  no breaking changes; tracked center-smoke.hurl12 actual HTTPS requests PASS:
+  secret-free overview, schedule queue, owner receipt JSON/HTML headers, visitor/
+  staff/merchant denial, replay acknowledgment, bad Origin/private URL and no
+  bulk-paid command. Browser also verifies one-time key/reload, profile rename,
+  real scheduled USDT reserve, independent two-Admin approval and paid receipt.
+- Actual19 functional themed/mobile/state captures plus16 final four-route
+ 1440/390 light/dark captures: main WCAG2A/AA/2.1AA axe0, no viewport overflow or
+  page errors. Final screenshots visually inspected. Existing custom-mobocom
+  presentation SHA be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df
+  retained. No Storybook project exists; no new preview framework installed.
+- React Doctor9 affected components:0 errors,8 reviewed warnings. Existing Admin
+  branch complexity/settings array lookup; settlement component complexity and
+  intentional client API form preventDefault; incidental metrics/table JSX
+  similarity across separate views. New hydration-time/clipboard/selection-loop
+  warnings fixed without suppression. One-rule scoped Semgrep and redacted named-
+  diff Gitleaks clean; this is not a whole-repository security certification.
+- Earlier harness failures corrected: migration IF/CASE syntax, fixture IBAN/
+  nonexistent historical paidAt column, Audit fault hook action, API guide YAML
+  flow-comma quoting, Hurl expected receipt title/default422, directory synthetic
+  channel and coexistence counts. A failed command was not counted as passing.
+  Graphify source graph was absent; source/Serena evidence used, no graph proof.
+
+Release/rollback limits:217 adds state guards requiring the matching settlement
+writer, so an old application-only rollback is NOT safe for settlement writes.
+Owner release must pause settlement writes/workers, take a verified backup, apply
+manifest migration and deploy matching source before resuming. Disable webhook
+endpoints/new scheduling/dual-threshold to halt new work; retain all money/events/
+profiles and the compatible writer. Full downgrade requires coordinated restore
+or a separately reviewed forward compatibility migration, never drop money rows.
+No real receiving service, Bale/SMS source or chain payout is commissioned here.
+An already claimed outbound HTTP request cannot be retracted by later revocation;
+at-least-once handling is mandatory. Receipt records staff-entered reference, not
+independent bank/chain verification. Next step is owner review/PR, then private
+deployment and synthetic receiver/retry/receipt commissioning with real secrets
+kept outside Git/chat.
+
+Cleanup completed: verified private Next3140 process group and task TLS tunnel
+stopped; exact task DB/role and second upgrade DB removed. Session/env/body/source/
+presentation/TLS fixtures and archive cleaned, public SQL scratch removed, dedicated
+builder stopped. Shared original app readiness/session both200; shared database
+and protected presentation preserved. Scoped security scanned38 source targets and
+61 named feature files, no findings. No live credentials or screenshots with keys
+are staged.
+
 ## Publication receipt — 2026-11-25
 
 Owner explicitly requested a PR for all work to date. Fetched origin/main at

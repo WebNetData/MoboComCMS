@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { merchantPortalAccess } from '@/modules/billing/server/pay'
 import Dashboard from './Dashboard'
+import MerchantSupport from './merchant-support'
 import s from './Pay.module.css'
 const gateCopy = {
   GUEST: ['ورود به فضای پذیرندگان', 'با حساب موبوکامِ معرفی‌شده به مدیریت وارد شوید. دسترسی این پنل پس از تأیید پذیرندگی صادر می‌شود.'],
@@ -16,7 +17,7 @@ export default async function MerchantEntry({ view = 'overview' }: { view?: stri
   await requireModule('mobocom-pay')
   const req = new NextRequest(new URL('/pay/merchant', process.env.NEXTAUTH_URL || 'http://localhost'), { headers: new Headers(await headers()) })
   const access = await merchantPortalAccess(req)
-  if (access.status === 'ACTIVE') return <Dashboard initialView={view} />
+  if (access.status === 'ACTIVE') return view === 'support' ? <MerchantSupport /> : <Dashboard initialView={view} />
   const [title, description] = gateCopy[access.status]
   return <section className={s.page}><article className={`${s.card} ${s.stack}`}>
     <span className={s.eyebrow}>پنل خصوصی پذیرندگان</span><h1>{title}</h1><p>{description}</p>
