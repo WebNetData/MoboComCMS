@@ -1,3 +1,10 @@
+Merchant menu/support2026-11-25: VERIFIED_LOCAL. Phone/tablet hamburger with
+grouped native modal drawer, desktop sidebar, remembered groups, valid current
+links, account footer and finite/reduced motion. Gated Pay support presentation
+shares the same canonical account tickets. PG2/types/8 gates, Doctor0errors and41
+actual320/390/768/1024/1100/1440 themed/browser/axe captures pass; history/focus/
+scroll/privacy verified. [Evidence and rollback](handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
 Financial UI repair2026-11-25: VERIFIED_LOCAL within Pay. Grouped Admin settlement
 cards, readable LTR addresses/amount-unit pairs, review steps and styled receipt
 actions; merchant financial tables adapt to labelled mobile rows. Native PG2,

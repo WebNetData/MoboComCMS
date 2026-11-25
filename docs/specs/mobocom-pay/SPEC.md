@@ -1,3 +1,17 @@
+## Merchant responsive menu / support — owner2026-11-25
+
+Continue local8fc1bf16. Reuse account/Admin ShellNav for grouped merchant links,
+remember expansion and current-page state. At phone/tablet widths up to1100px,
+header hamburger opens a styled native dialog side drawer; desktop keeps its
+side menu. Escape/backdrop/close/navigation/history/desktop resize dismiss and
+restore focus/scroll; finite180ms motion respects reduced motion. No horizontal
+main-menu strip, separate AuthZ or unstyled states. Support menu opens a private
+Pay presentation of the SAME canonical TicketCenter and ticket APIs/identity/
+department permissions. Existing merchant gate still controls the Pay page.
+Acceptance: real320/390/768/1024/1100/1440 light/dark browser/axe, focus/inertness/
+group persistence/history tests, same ticket across account and Pay plus other-
+owner denial, scoped PG/types/gates/Doctor; no production config or notifications.
+
 ## Generic webhooks and advanced settlement center — owner2026-11-25
 
 Continue owner-merged PR489/main9b345399 in the existing Billing/Pay owner. The

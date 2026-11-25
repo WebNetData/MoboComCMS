@@ -6,7 +6,7 @@ const SUPPORTED_ICON_NAMES = [
   'bag', 'pin', 'gift', 'crown', 'book', 'rss', 'user', 'users', 'gamepad', 'folder', 'star', 'lifebuoy', 'chart',
   'image', 'mail', 'telegram', 'instagram', 'x', 'phone', 'wrench', 'search', 'store', 'tag', 'box', 'bank',
   'card', 'flag', 'plug', 'database', 'logout', 'external', 'lock', 'pen', 'ticket', 'server', 'link', 'layout',
-  'chevron', 'cpu', 'activity', 'terminal', 'close', 'cloud',
+  'chevron', 'cpu', 'activity', 'terminal', 'close', 'cloud', 'menu',
 ] as const
 export type IconName = typeof SUPPORTED_ICON_NAMES[number]
 export const ICON_NAMES: string[] = [...SUPPORTED_ICON_NAMES]

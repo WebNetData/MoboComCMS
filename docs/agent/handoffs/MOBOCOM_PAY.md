@@ -1,3 +1,90 @@
+## Merchant drawer and canonical support — 2026-11-25
+
+Owner requests phone/tablet hamburger-opened side menu like account/Admin,
+professional grouped merchant navigation, support tickets and lasting engineering
+rules. Continue8fc1bf16 in authoritative .mobocom/pay-bale-verification,
+feat/pay-webhooks-settlement-center-2026-11-25. Local implementation only; no
+PR/push/deploy/hosted workflow, real financial/provider or notification action.
+
+- MerchantShell retains private presentation and canonical session. Shared
+  ShellNav/useShellGroups render the menu from merchant-menu's typed entries;
+  flat PayNavigation derives the same entries for compatibility. No copied
+  permission resolver or group renderer. Finance/business/integration groups,
+  support and account footer use scoped SDS/MoboCom styling, icon tiles, selected
+  links, persistent expansion and current-link scrolling. Registered the shared
+  menu SVG icon in the existing typed icon catalog (not a second icon system).
+- At<=1100px the persistent sidebar hides, header has a44px named hamburger,
+  expanded/controls/dialog state and a right-side native modal. Larger screens
+  keep the272px sidebar. Drawer supplies independent scrolling/safe-area padding,
+  named close/Escape/backdrop handling, page inertness and overflow restoration;
+  route/history changes and desktop resize close it. Native focus restoration
+  and containment are used, no manual trap. Browser chrome can receive boundary
+  Shift+Tab focus; attempts to focus background content remain blocked. Motion
+  is finite180ms opacity/transform, disabled under reduced motion; no large blur.
+- /pay/merchant/support passes existing MerchantEntry/module/merchant gate,
+  then composes canonical TicketCenter. Tickets/messages/UserId/Support APIs and
+  department staff permissions are shared with /dashboard/tickets. Copy explains
+  shared history and selecting the appropriate configured department. No ticket
+  schema, duplicate inbox, login, financial guard or API changed. A MOBOCOM_PAY
+  department was created ONLY in the disposable test DB to exercise existing
+  configurable departments; no production department was provisioned.
+- Actual reuse exposed global CSS collisions: generic admin toggle span flex
+  stretched icon tiles; scoped merchant rules fix32px tiles and active glyph
+  contrast. Canonical ticket small-ID/selected-filter colors were too weak in
+  light mode. Existing dashboard-tidy blanket button.is-active colored selected
+  tickets bright blue and obscured their metadata; exclude TicketCenter from
+  that generic rule so its owner retains its presentation. Two narrowly scoped
+  canonical ticket text rules improve contrast in both entry points. No account/
+  Admin shell structure or protected public visual/URL was replaced.
+- FRONTEND_QUALITY now records the owner's required hamburger/side-menu pattern,
+  complete styling for every affected state, existing menu/permission owners,
+  keyboard/focus/resize acceptance and supported native controls. Architecture/
+  decisions/map/ledger/spec/workstate updated together; no parallel design guide.
+
+Executed evidence (ignored var/pay-bale-20261124/pay-menu-*; isolated copied
+Next3140, synthetic canonical accounts, NOSUPERUSER task PostgreSQL, UID1000 and
+own generated Prisma217 client; no project .env):
+- Fresh all217 migrations PASS (no new migration). Registered
+  pay-private-merchants + support-page-problems native PG checks PASS.
+  Final TypeScript PASS;8 scoped architecture/source/schema parity/money schema+
+  UI/security/Audit/manifest gates PASS. Seven affected React files: Doctor0
+  errors/1 reviewed warning about an onClick on native dialog. It handles only
+  the native backdrop; Escape and a named close button provide keyboard access.
+  No rule suppressed or interactive role incorrectly added to the dialog.
+-41 actual browser captures: closed shell and open drawer at320/390/768/1024/
+  1100 light/dark and desktop1440 light/dark; eight additional merchant views at
+  1440 light/390 dark, owned Support thread, same ticket in account and return
+  navigation. Main or active dialog WCAG2A/AA/2.1AA axe0, no viewport overflow or
+  page errors. Desktop/mobile menu and support screenshots visually inspected.
+  Existing custom-mobocom presentation SHA remains
+  be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+- Real native modal open/close, Escape/backdrop, focus restoration, blocked
+  background focus, group persistence across reload, link navigation and desktop
+  resize/scroll recovery PASS. Separate normal-motion/browser-history check
+  verifies180ms duration, back navigation closes and restores page scrolling.
+  Extra desktop probe verifies the active support link and exact32px icon tile.
+- Same persisted owned ticket/message read from both Pay and account, other
+  user's ticket absent/403-or404, anonymous tickets401 and private Pay support
+  guest gate verified. Seeded messages use DB fixture writes, never notification
+  commands. Ticket creation/reply delivery not newly certified; owners unchanged.
+- Earlier harness assumed boundary Shift+Tab must stay in document; Chromium
+  correctly moved focus to its chrome. Corrected the assertion and separately
+  proved background inertness. Real CSS collisions/contrast failures were fixed
+  and full browser checks rerun, not ignored. Icon registry omission was caught
+  by TypeScript and fixed in the canonical catalog.
+
+Rollback: revert this presentation slice while retaining8fc1bf16/f53945dd and
+migration217's financial writer. Existing tickets/data/settings are preserved;
+Pay support is an additional presentation only. Optional dedicated support team
+is configured through current Admin departments/roles. No whole-site rollout,
+email/SMS delivery, production verification or new financial capability claimed.
+Scoped security PASS: local one-rule Semgrep10 affected TS/TSX files and redacted
+Gitleaks21 named feature files, no findings; no whole-repository certification.
+Cleanup completed: verified task Next3140 group and TLS tunnel stopped; exact
+task DB/role removed, private session/env/body/presentation/TLS fixtures/archive
+cleaned and dedicated builder stopped. Shared original app readiness/session200.
+Screenshots/redacted reports retained ignored locally; no private fixtures staged.
+
 ## Financial data presentation repair — 2026-11-25
 
 Owner supplies the prior settlement screenshot and rejects the flat, apparently

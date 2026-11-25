@@ -1,3 +1,16 @@
+# Merchant hamburger/sidebar and shared Support — 2026-11-25
+
+Continues local8fc1bf16 in .mobocom/pay-bale-verification on
+feat/pay-webhooks-settlement-center-2026-11-25. Owner requests phone/tablet
+hamburger navigation, account-style grouped Pay menu, ticket support and a lasting
+engineering/design rule. Existing ShellNav/typed Pay menu and native dialog;
+private /pay/merchant/support embeds canonical TicketCenter. No separate inbox,
+identity, financial/Support API or migration. Fresh217/native2, types/8 gates,
+Doctor0errors/1 reviewed native-dialog warning,41 actual responsive/theme/axe
+captures and keyboard/history/privacy checks pass. Owned preview/DB/private
+fixtures cleaned; shared readiness/session200. Local only.
+[Evidence, cleanup and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
 # Financial list/card presentation repair — 2026-11-25
 
 Owner reports the settlement cards look unstyled/disorganized and sets a platform

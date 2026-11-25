@@ -1,3 +1,10 @@
+Merchant navigation/support2026-11-25: components/pay/merchant-menu is the single
+typed entry list; MerchantNavigation reuses shared ShellNav and useShellGroups.
+MerchantShell owns the1100px drawer/persistent-sidebar presentation; native
+MerchantDrawer handles focus/scroll/resize. MerchantEntry retains the portal guard
+before MerchantSupport composes canonical TicketCenter. Support tickets/messages/
+departments/APIs remain in Support, not Billing. [Evidence/limits](handoffs/MOBOCOM_PAY.md#merchant-drawer-and-canonical-support--2026-11-25).
+
 Financial presentation2026-11-25: existing Pay SettlementDesk now delegates its
 request card to settlement-desk/settlement-card. Distinct source/fee/net, destination/
 schedule and actual first/second review compositions. Existing PaymentLedger/table
