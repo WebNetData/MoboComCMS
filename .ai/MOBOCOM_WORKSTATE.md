@@ -1,3 +1,13 @@
+# Release1.7.22 preparation — 2026-11-25
+
+Owner requests published1.7.22 for updating, after merged PR490/main86697521.
+Authoritative .mobocom/release-1.7.22 on release/1.7.22; version/root lock,
+10-migration seal, operator notes and14-source AI knowledge prepared. Existing
+publisher verified; private signing key remains outside Git/containers. Local
+canonical checks,207→217 preservation, production build/browser and signed
+artifact/re-download gates remain pending. Other checkouts/shared app preserved.
+[Exact release continuation](../docs/agent/handoffs/RELEASE_1_7_22.md).
+
 # PR490 published — 2026-11-25
 
 Owner-requested [PR490](https://github.com/WebNetData/MoboComCMS/pull/490) targets
