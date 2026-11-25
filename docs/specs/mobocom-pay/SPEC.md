@@ -1,3 +1,16 @@
+## Merchant visual refinement — owner2026-11-25
+
+Refine the existing private merchant experience under MoboCom/SDS identity:
+distinctive IRR/USDT balance, precise gross/net/platform-fee hierarchy, real trend
+and recent payments, compact mobile navigation, forms/filters and finite motion.
+Reuse server projections and canonical private/API owners. Chart selection is
+display-only; no money counters, fake activity or source readiness assertions.
+Keep loading/empty/error/selected/disabled states readable in both themes and RTL,
+native labelled controls, daily table fallback and keyboard content skip.
+Acceptance is actual seven-route1440/390 light/dark plus state/functional browser,
+axe, scoped Doctor/types/gates and existing connected financial checks; no backend,
+dependency, migration, public theme or production deployment scope.
+
 ## SMS Forwarder three-field adapter — owner2026-11-25
 
 Owner provides exact JSON `{sms:"{msg}",bank:"bankmeli",token:"generated"}`.

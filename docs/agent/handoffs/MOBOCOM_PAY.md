@@ -1,3 +1,77 @@
+## Merchant panel visual upgrade — 2026-11-25
+
+Owner explicitly requests a more professional, attractive merchant panel with
+advanced styling/motion. Continues local41b8ec46 in .mobocom/pay-bale-verification,
+feat/pay-approval-workspace-2026-11-25; local implementation, no PR/push/deploy.
+
+Audit/direction: existing financial owners and visual identity are sound; equal
+weight summaries, dense controls and weak balance/action hierarchy limit scanning.
+Use the existing MoboCom/SDS semantic tokens and Persian typography: a distinctive
+asset balance, quiet precise financial summaries, real daily receipts and accessible
+merchant actions. Native controls, existing statuses/URLs and private shell remain.
+No theme replacement, financial/business rule, API, dependency or migration change.
+
+- MerchantShell/WorkspaceHeader retain their public addresses; header additions are
+  merchant-only. Sidebar gains clearer selected state; mobile has scrollable44px
+  navigation targets. Skip-to-content now actually focuses main (tabIndex=-1).
+- Dashboard.module.css scopes forms, responsive auto-fit fields, aligned search/
+  status/CSV and pagination to the merchant. Loading is a static structural skeleton
+  with status; errors offer real retry and never show fabricated balances.
+- Overview delegates balance, trend and recent payments to three focused parts.
+  The main asset balance preserves separate IRR/USDT values and valuation age,
+  prominent create/settle actions and a restrained static ledger-ring texture.
+  Gross, pending, actual net and platform fee remain distinct server projections.
+  Latest5 payments use actual status, customer collection and net credit; pending
+  credit is explicitly estimated. No invented performance percentages or activity.
+- Chart selection is local display state with native labelled day select, exact
+  Rial values/counts and accessible daily table. SVG is decorative; BigInt scales
+  only a bounded quotient to chart coordinates. Zero/empty and single-day shapes
+  are guarded. Two finite200ms opacity/translate entrances plus short press/hover
+  feedback respect reduced motion; no loops, scroll handlers, blur or money tween.
+- Existing Unslop, baseline/accessibility/motion, UI/UX and selected Vercel guidance
+  were applied under MoboCom/SDS identity. No Storybook configuration or stories
+  exist in this checkout; actual page/state browser evidence is used rather than
+  installing a second preview/component framework.
+
+Executed evidence: isolated copied Next preview, synthetic canonical merchants and
+NOSUPERUSER disposable PostgreSQL; reports/screenshots ignored under
+var/pay-bale-20261124/merchant-style-*.
+
+- Fresh216 migrations and registered pay-assets/pay-shared-checkout native checks
+  PASS. UI flow creates a persisted pending payment and copies its actual URL;
+  USDT/BSC quote shows fee and requires network acknowledgement. Neither action
+  writes another credit: balance and paidCount unchanged before/after UI actions.
+- 36 final captures cover all7 merchant routes at1440/390 light/dark, empty active
+  IRR merchant, daily table, created-link feedback, quote review and Admin settings;
+  plus2 loading/error/retry captures. Relevant main surfaces axe WCAG2A/AA/2.1AA
+  zero violations, no viewport overflow or page errors. Theme/layout screenshots
+  inspected against4 actual before captures. Original custom-mobocom presentation
+  SHA be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df retained.
+  Chart day selection/focus/table, native labels, keyboard skip, reduced-motion
+  contexts and finite normal animation verified. Headless native dropdown arrow
+  selection was unreliable; only actual focus/Tab and selectOption result are
+  claimed, not a fabricated keyboard arrow-selection pass.
+- Anonymous overview401 and merchant Admin overview403 verified. Existing guards
+  remain owners. Initial harness broad text/heading selectors, unsupported/wrong
+  Admin request verbs and native-select assumptions were corrected; the real skip
+  target defect was fixed and rerun. Read-only reviewer found no concrete blocker.
+- Final TypeScript and8 scoped architecture/source/schema parity/money schema+UI/
+  security/Audit/manifest gates PASS. React Doctor10 components:0 errors,39 reviewed
+  warnings. Baseline HEAD copies also39: overview complexity warning eliminated;
+  form handlers, settlement complexity/Date.now and intentional table roles retained.
+  A project-analysis duplicate-table-header candidate matches unchanged existing
+  tables across unrelated modules; no cross-domain abstraction or rule suppression.
+  New balance/trend/recent parts have no diagnostics. CSV download anchors retained.
+- Scoped local one-rule Semgrep10 TS targets and redacted Gitleaks19 final named
+  feature files clean. No whole-repository security/build certification claimed.
+
+Cleanup completed: verified private Next group/TLS tunnel stopped, exact task DB
+and role dropped, synthetic session/source/body/env/TLS/presentation/private files
+and source archive removed, dedicated builder stopped. Shared readiness/session200.
+Remaining: owner review/merge/deployment; no production or live-provider acceptance
+claimed. Rollback is the UI commit only; existing financial rows, source config,
+API contracts, module enablement, migration216 and prior commits are preserved.
+
 ## SMS Forwarder three-field intake — 2026-11-25
 
 Continues local7c85cdfa in authoritative `.mobocom/pay-bale-verification`, branch

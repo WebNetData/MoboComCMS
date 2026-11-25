@@ -13,6 +13,7 @@ import { api, json, money, date } from "../client";
 import { Field } from "../shared";
 import { ListControls, Pager, PaymentTable, SettlementTable } from "./tables";
 import s from "../Pay.module.css";
+import m from "./Dashboard.module.css";
 type Page<T> = { items: T[]; page: number; pages: number; total: number };
 export default function Payments({
   data,
@@ -92,7 +93,7 @@ export default function Payments({
       >
         <h2>ساخت لینک پرداخت</h2>
         <p className={s.muted}>برای وب‌سایت، پیج، کانال یا پیام خصوصی لینک همین سفارش را بفرستید. برای سفارش تازه، لینک تازه بسازید؛ هر لینک یک پرداخت مشخص دارد.</p>
-        <div className={s.grid}>
+        <div className={`${s.grid} ${m.formGrid}`}>
           <Field label="پایانه">
             <select
               value={terminal}

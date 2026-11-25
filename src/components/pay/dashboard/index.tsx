@@ -11,6 +11,7 @@ import type {
 import { api, json, money, date, labels } from "../client";
 import { Field, Badge, ErrorNotice } from "../shared";
 import s from "../Pay.module.css";
+import m from "./Dashboard.module.css";
 import Overview from "./overview";
 import Payments from "./payments";
 import Settlements from "./settlements";
@@ -99,8 +100,8 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
   }
   if (!data)
     return (
-      <section className={s.page} dir="rtl">
-        <h1>درگاه پرداخت</h1>
+      <section className={`${s.page} ${m.dashboard}`} dir="rtl" aria-busy={!error}>
+        <h1>پنل پذیرنده</h1>
         {error ? (
           <>
             <ErrorNotice error={error} />
@@ -113,13 +114,13 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
             </button>
           </>
         ) : (
-          <p role="status">در حال دریافت اطلاعات…</p>
+          <><p role="status">در حال دریافت اطلاعات…</p><div className={m.loading} aria-hidden="true"><div /><div><span /><span /><span /><span /></div></div></>
         )}
       </section>
     );
   const active = data.merchant?.status === "ACTIVE";
   return (
-    <section className={s.page}>
+    <section className={`${s.page} ${m.dashboard}`}>
       <WorkspaceHeader area="merchant" view={views[tab]} identity={data.merchant?.name}>
           {data.merchant && <Badge value={data.merchant.status} />}
           <button

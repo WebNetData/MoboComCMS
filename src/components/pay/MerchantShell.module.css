@@ -6,7 +6,7 @@
   background:var(--sds-color-background-default-secondary);
   font-variant-numeric:tabular-nums;
 }
-.header { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px 32px; background:var(--sds-color-background-default-default); border-bottom:1px solid var(--sds-color-border-default-default); }
+.header { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 32px; background:var(--sds-color-background-default-default); border-bottom:1px solid var(--sds-color-border-default-default); }
 .brand { display:flex; align-items:center; gap:12px; min-height:44px; color:inherit; text-decoration:none; font-size:1.125rem; font-weight:600; flex-shrink:0; }
 .brand small { display:block; margin-top:4px; color:var(--merchant-muted); font-size:.75rem; font-weight:400; }
 .mark { display:grid; place-items:center; width:44px; height:44px; border-radius:12px; background:var(--sds-color-background-brand-default); color:var(--sds-color-text-brand-on-brand); box-shadow:inset 0 0 0 1px var(--sds-color-border-brand-default); }
@@ -14,19 +14,21 @@
 .tools button { min-width:44px; min-height:44px; }
 .tools > a,.tools > button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; min-width:44px; padding:8px 12px; color:inherit; text-decoration:none; border:1px solid var(--sds-color-border-default-default); border-radius:8px; background:var(--sds-color-background-default-default); cursor:pointer; font:inherit; font-size:.8125rem; }
 .tools > :is(a,button):hover { background:var(--sds-color-background-default-secondary); }
-.workspace { display:grid; grid-template-columns:224px minmax(0,1fr); max-width:1600px; margin:auto; min-height:calc(100dvh - 172px); }
+.workspace { display:grid; grid-template-columns:248px minmax(0,1fr); max-width:1600px; margin:auto; min-height:calc(100dvh - 164px); }
 .sidebar { border-inline-end:1px solid var(--sds-color-border-default-default); background:var(--sds-color-background-default-default); }
 .sidebarInner { position:sticky; top:0; padding:32px 16px; }
-.caption { margin:0 12px 20px; color:var(--merchant-muted); font-size:.75rem; }
-.navigation > nav { display:grid; gap:8px; padding:0; margin:0; border:0; background:transparent; overflow:visible; }
-.navigation > nav a { padding:12px; border-radius:8px; font-size:.875rem; }
+.caption { margin:0 12px 16px; color:var(--merchant-muted); font-size:.75rem; }
+.navigation > nav { display:grid; gap:4px; padding:0; margin:0; border:0; background:transparent; overflow:visible; }
+.navigation > nav a { position:relative; min-height:48px; padding:12px; border-radius:8px; font-size:.875rem; }
 .navigation > nav a > svg { flex:none; color:var(--merchant-muted); }
-.navigation > nav a[aria-current="page"] { box-shadow:none; background:color-mix(in srgb,var(--merchant-accent) 8%,var(--sds-color-background-default-default)); border-color:color-mix(in srgb,var(--merchant-accent) 24%,var(--sds-color-border-default-default)); }
+.navigation > nav a[aria-current="page"] { box-shadow:none; background:color-mix(in srgb,var(--merchant-accent) 9%,var(--sds-color-background-default-default)); border-color:color-mix(in srgb,var(--merchant-accent) 24%,var(--sds-color-border-default-default)); font-weight:600; }
+.navigation > nav a[aria-current="page"]::before { content:""; position:absolute; inset-inline-start:0; top:12px; bottom:12px; width:3px; border-radius:3px; background:var(--merchant-accent); }
 .navigation > nav a[aria-current="page"] > svg { color:var(--merchant-accent); }
 .navigation > nav a:not([aria-current="page"]):hover { background:var(--sds-color-background-default-secondary); }
-.sidebarNote { display:grid; gap:12px; margin:40px 8px 0; padding-top:24px; border-top:1px solid var(--sds-color-border-default-default); font-size:.75rem; line-height:1.9; color:var(--merchant-muted); }
+.sidebarNote { display:grid; grid-template-columns:20px minmax(0,1fr); gap:8px 12px; margin:36px 8px 0; padding-top:24px; border-top:1px solid var(--sds-color-border-default-default); font-size:.75rem; line-height:1.9; color:var(--merchant-muted); }
+.sidebarNote > svg { color:var(--merchant-accent); }
 .sidebarNote strong { color:var(--sds-color-text-default-default); font-weight:500; }
-.sidebarNote p { margin:0; }
+.sidebarNote p { grid-column:2; margin:0; }
 .content { min-width:0; }
 .content > section { max-width:none; padding:32px; }
 .footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; padding:20px 32px; border-top:1px solid var(--sds-color-border-default-default); color:var(--merchant-muted); font-size:.75rem; background:var(--sds-color-background-default-default); }
@@ -34,10 +36,8 @@
 .skip:focus { transform:none; }
 .shell :is(a,button,input,select,textarea,summary):focus-visible { outline:2px solid var(--sds-color-text-default-default); outline-offset:4px; }
 @media(prefers-reduced-motion:no-preference) {
-  .content { animation:appear 200ms ease-out both; }
-  .tools > :is(a,button) { transition:background-color 140ms ease-out,transform 140ms ease-out; }
+  .tools > :is(a,button), .navigation > nav a { transition:background-color 140ms ease-out,border-color 140ms ease-out,transform 140ms ease-out; }
   .tools > :is(a,button):active { transform:translateY(1px); }
-  @keyframes appear { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 }
 @media(max-width:1000px) { .workspace { grid-template-columns:192px minmax(0,1fr); } .sidebarInner { padding:24px 12px; } .content > section { padding:24px; } }
 @media(max-width:800px) {
@@ -45,8 +45,9 @@
   .sidebar { border-inline-end:0; border-bottom:1px solid var(--sds-color-border-default-default); min-width:0; }
   .sidebarInner { position:static; padding:8px 20px; }
   .caption,.sidebarNote { display:none; }
-  .navigation > nav { display:flex; overflow-x:auto; overscroll-behavior-inline:contain; gap:8px; padding:4px; }
-  .navigation > nav a { white-space:nowrap; flex:none; font-size:.8125rem; padding:8px 12px; }
+  .navigation > nav { display:flex; overflow-x:auto; overscroll-behavior-inline:contain; gap:8px; padding:8px 4px; scrollbar-width:thin; }
+  .navigation > nav a { white-space:nowrap; flex:none; min-height:44px; font-size:.8125rem; padding:8px 12px; }
+  .navigation > nav a[aria-current="page"]::before { inset-inline:12px; top:auto; bottom:0; width:auto; height:3px; }
 }
 @media(max-width:520px) {
   .header { padding:16px 20px; gap:12px; }

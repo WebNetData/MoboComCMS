@@ -1,3 +1,14 @@
+# Merchant panel visual upgrade — 2026-11-25
+
+Continues local41b8ec46 in .mobocom/pay-bale-verification on
+feat/pay-approval-workspace-2026-11-25. Scoped merchant shell/header, distinctive
+asset balance, accurate gross/net/fee hierarchy, day-selectable chart, latest
+payments, form/filter rhythm and finite reduced-motion-aware effects. Existing
+financial/API/theme owners retained. Native PG2, types/gates, Doctor0errors and
+38 actual themed/mobile/state/axe captures pass; baseline warnings reviewed.
+Owned preview/DB/private fixtures cleaned; shared readiness/session200. Local only.
+[Exact evidence, warnings and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-panel-visual-upgrade--2026-11-25).
+
 # SMS Forwarder exact three-field intake — 2026-11-25
 
 Continues local7c85cdfa, `.mobocom/pay-bale-verification`, branch

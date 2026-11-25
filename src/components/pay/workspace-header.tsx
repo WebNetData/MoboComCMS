@@ -30,7 +30,7 @@ export default function WorkspaceHeader({ area, view, identity, children }: {
 }) {
   const sections = area === "merchant" ? merchant : admin;
   const [title, description] = sections[view] || sections.overview;
-  return <header className={s.heading}>
+  return <header className={`${s.heading} ${area === "merchant" ? s.merchant : ""}`}>
     <div className={s.identity}>
       <div>
         <div className={s.context}>{area === "merchant" ? "پنل پذیرندگان" : "مدیریت مالی"}<span aria-hidden="true" /><bdi>{identity || "MoboCom Pay"}</bdi></div>

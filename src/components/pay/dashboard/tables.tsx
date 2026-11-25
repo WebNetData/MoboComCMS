@@ -7,6 +7,7 @@ import type {
 import { money, date, labels } from "../client";
 import { Field, Badge } from "../shared";
 import s from "../Pay.module.css";
+import m from "./Dashboard.module.css";
 import ledger from "./PaymentLedger.module.css";
 export function SettlementSteps({ status }: { status: string }) {
   if (status === "REJECTED")
@@ -40,7 +41,7 @@ export function ListControls({
   kind: string;
 }) {
   return (
-    <div className={`${s.actions} ${s.notice}`}>
+    <div className={`${s.actions} ${s.notice} ${m.filters}`}>
       <Field label="جست‌وجو">
         <input
           value={query}
@@ -88,7 +89,7 @@ export function Pager({
   setPage: (x: number) => void;
 }) {
   return (
-    <div className={s.actions}>
+    <div className={`${s.actions} ${m.pagination}`}>
       <button
         type="button"
         className={s.secondary}

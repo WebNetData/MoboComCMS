@@ -12,6 +12,7 @@ import { api, json, money, date } from "../client";
 import { Field } from "../shared";
 import { ListControls, Pager, PaymentTable, SettlementTable } from "./tables";
 import s from "../Pay.module.css";
+import m from "./Dashboard.module.css";
 type Page<T> = { items: T[]; page: number; pages: number; total: number };
 export default function Settlements({
   data,
@@ -82,7 +83,7 @@ export default function Settlements({
         }}
       >
         <h2>درخواست تسویه</h2>
-        <div className={s.grid}>
+        <div className={`${s.grid} ${m.formGrid}`}>
           <Field label="کیف پول مبدأ"><select value={sourceCurrency} onChange={e => { setSourceCurrency(e.target.value as "IRR" | "USDT"); setAmount(""); setQuote(null); setAckNetwork(false); settlementKey.current = "" }}><option value="IRR">ریال</option><option value="USDT">USDT داخلی</option></select></Field>
           <Field label={sourceCurrency === "IRR" ? "مبلغ به ریال" : "مبلغ USDT"}>
             <input
