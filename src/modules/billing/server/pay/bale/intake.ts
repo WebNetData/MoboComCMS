@@ -1,7 +1,8 @@
 import { matchBaleNotice } from './collection-match'
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { baleBinding, originalBaleMessage } from '@/modules/billing/domain/pay-bale'
+import { originalBaleMessage } from '@/modules/billing/domain/pay-bale'
+import { selectedBaleSource } from '@/modules/billing/domain/pay-bale-sources'
 import { parsePayBankNotice } from '@/modules/billing/domain/pay-bank-notice'
 import { parseBaleAmount } from '@/modules/billing/domain/pay-bale-amount'
 import { PayError } from '@/modules/billing/domain/pay'
@@ -12,12 +13,12 @@ import { payTransaction } from '../context'
 
 const hash = (raw: string | Buffer) => createHash('sha256').update(raw).digest('hex')
 /** Authenticates a dedicated server connector, NOT an arbitrary bot/customer/phone. */
-export async function receiveBaleBankMessage(signature: string, eventHeader: string, raw: Buffer) {
-  const binding = baleBinding(process.env)
+export async function receiveBaleBankMessage(signature: string, eventHeader: string, raw: Buffer, sourceId?: string) {
+  const binding = selectedBaleSource(process.env, sourceId)
   if (!binding) throw new PayError('اتصال سروری بله آماده نیست', 503, 'BALE_SOURCE_OFF')
   if (!raw.length || raw.length > 24000) throw new PayError('حجم پیام بله معتبر نیست', 413)
   if (!/^sha256=[a-f0-9]{64}$/.test(signature) || !/^[a-f0-9]{64}$/.test(eventHeader)) throw new PayError('امضای اتصال بله معتبر نیست', 401)
-  const expected = createHmac('sha256', process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET!).update(raw).digest()
+  const expected = createHmac('sha256', binding.secret).update(raw).digest()
   if (!timingSafeEqual(expected, Buffer.from(signature.slice(7), 'hex'))) throw new PayError('امضای اتصال بله معتبر نیست', 401)
   // Invalid UTF8 cannot be transformed into a different signed JSON interpretation.
   if (!raw.equals(Buffer.from(raw.toString('utf8')))) throw new PayError('کدگذاری پیام بله معتبر نیست', 422)

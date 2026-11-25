@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { Prisma } from '@prisma/client'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { NextRequest } from 'next/server'
@@ -16,6 +17,8 @@ import { requirePayPayer } from './payer'
 import { payAudit, payContext, payTransaction, type PayActor } from './context'
 import { publicPayment } from './payments'
 import { reconcileReference } from './reconcile'
+import { collectionProjection, paymentInvoiceFields, paymentView } from './payment-view'
+import { paymentConfirmation, receiptReviewResult } from './confirmation'
 
 export async function submitPayReceipt(req: NextRequest, id: string) {
   await requirePayPayer(req, id)
@@ -60,20 +63,28 @@ export async function reviewPayReceiptByStaff(admin: { id: number; email: string
   return payTransaction(async tx => {
     if (!admin.req) throw new PayError('نشست بررسی‌کننده لازم است', 403)
     await payContext({ ...admin, req: admin.req }, tx, 'mobocom-pay.manage')
-    const receipt = await tx.paymentReceipt.findUnique({ where: { id: receiptId }, include: { invoice: { include: { payCollection: { include: { merchant: true } } } } } })
+    const initial = await tx.paymentReceipt.findUnique({ where: { id: receiptId }, select: { invoiceId: true } })
+    if (!initial) throw new PayError('رسید پیدا نشد', 404)
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${initial.invoiceId} FOR UPDATE`)
+    const receipt = await tx.paymentReceipt.findUnique({ where: { id: receiptId }, include: { invoice: { include: { ...paymentInvoiceFields, payCollection: { include: { merchant: true } } } } } })
     const row = receipt?.invoice.payCollection
-    if (!receipt || !row || receipt.status !== 'PENDING') throw new PayError('رسید در انتظار بررسی پیدا نشد', 409)
+    if (!receipt || !row) throw new PayError('رسید در انتظار بررسی پیدا نشد', 409)
     if (row.merchant.userId === admin.id) throw new PayError('تأیید دریافت خودتان مجاز نیست', 403)
+    const paid = row.status === 'PAID' && receipt.invoice.status === 'PAID'
+    const confirmation = paymentConfirmation(row, receipt.invoice.baleCollections[0], receipt.invoice.payments[0]?.raw)
+    if (paid && receipt.status !== 'PENDING') return receiptReviewResult(receipt.status, true, confirmation)
+    if (receipt.status !== 'PENDING') throw new PayError('رسید قبلاً بررسی شده است', 409)
     const clean = String(note || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 300)
-    if (action === 'reject' && clean.length < 3) throw new PayError('دلیل رد رسید را بنویسید')
-    const claim = await tx.paymentReceipt.updateMany({ where: { id: receiptId, status: 'PENDING' }, data: { status: action === 'approve' ? 'APPROVED' : 'REJECTED', adminNote: clean, reviewedBy: admin.id, reviewedAt: new Date() } })
+    if (!paid && action === 'reject' && clean.length < 3) throw new PayError('دلیل رد رسید را بنویسید')
+    const claim = await tx.paymentReceipt.updateMany({ where: { id: receiptId, status: 'PENDING' }, data: { status: paid || action === 'approve' ? 'APPROVED' : 'REJECTED', adminNote: clean, reviewedBy: admin.id, reviewedAt: new Date() } })
     if (claim.count !== 1) throw new PayError('رسید هم‌زمان بررسی شده است', 409)
-    if (action === 'approve') {
+    if (!paid && action === 'approve') {
       const paid = await markInvoicePaid({ invoiceId: receipt.invoiceId, gatewayId: receipt.invoice.gatewayId, amount: row.totalMinor.toString(), provider: row.gatewayAttemptProvider, providerTxnId: receipt.trackingCode || 'receipt-' + receipt.id, raw: { source: 'pay-receipt', receiptId, by: admin.id } }, tx)
       if (!paid.ok) throw new PayError(paid.message || 'ثبت پرداخت انجام نشد', 409)
     }
-    await payAudit(tx, admin, 'receipt.' + action, row.id, { receiptId, note: clean })
-    return { status: action === 'approve' ? 'APPROVED' : 'REJECTED' }
+    await payAudit(tx, admin, 'receipt.' + action, row.id, { receiptId, note: clean, alreadyPaid: paid })
+    return receiptReviewResult(paid || action === 'approve' ? 'APPROVED' : 'REJECTED', paid,
+      paid ? confirmation : action === 'approve' ? { method: 'MANUAL', source: 'STAFF' } : { method: 'NONE', source: '' })
   })
 }
 export async function reviewPayReceipt(actor: PayActor, input: Record<string, unknown>) {
@@ -85,8 +96,13 @@ export async function reviewPayReceipt(actor: PayActor, input: Record<string, un
 export async function payReceipts(actor: PayActor) {
   return payTransaction(async tx => {
     await payContext(actor, tx, 'mobocom-pay.manage')
-    const rows = await tx.paymentReceipt.findMany({ where: { invoice: { kind: 'PAY_COLLECTION' } }, orderBy: { createdAt: 'desc' }, take: 100, include: { invoice: { include: { payCollection: { include: { merchant: true } } } } } })
-    return { items: rows.flatMap(r => r.invoice.payCollection ? [{ id: r.id, paymentId: r.invoice.payCollection.id, merchantName: r.invoice.payCollection.merchant.name, externalId: r.invoice.payCollection.externalId, totalRial: r.amountMinor.toString(), status: r.status, trackingCode: r.trackingCode, payerName: r.payerName, phoneLast4: r.invoice.payCollection.payerPhoneLast4, adminNote: r.adminNote, createdAt: r.createdAt.toISOString() }] : []) }
+    const rows = await tx.paymentReceipt.findMany({ where: { invoice: { kind: 'PAY_COLLECTION' } }, orderBy: { createdAt: 'desc' }, take: 100, include: { invoice: { include: { ...collectionProjection.select, payCollection: { include: { merchant: true } } } } } })
+    return { items: rows.flatMap(r => {
+      const row = r.invoice.payCollection
+      if (!row) return []
+      const view = paymentView({ ...row, invoice: r.invoice })
+      return [{ id: r.id, paymentId: row.id, merchantName: row.merchant.name, externalId: row.externalId, totalRial: view.customerAmountRial || r.amountMinor.toString(), status: r.status, trackingCode: r.trackingCode, payerName: r.payerName, phoneLast4: row.payerPhoneLast4, adminNote: r.adminNote, createdAt: r.createdAt.toISOString(), paymentStatus: view.status, confirmation: view.confirmation, feeRial: view.feeRial, netRial: view.creditRial, creditAmount: view.creditAmount, creditCurrency: view.creditCurrency, platformFeeRial: view.platformFeeRial }]
+    }) }
   })
 }
 export async function payReceiptImage(req: NextRequest, receiptId: number, paymentId?: string) {

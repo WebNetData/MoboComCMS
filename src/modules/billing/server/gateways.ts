@@ -1,5 +1,5 @@
 import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
-import { baleBinding } from '@/modules/billing/domain/pay-bale'
+import { configuredBaleSources } from '@/modules/billing/domain/pay-bale-sources'
 import type { Prisma } from '@prisma/client'
 // Payment gateway registry — every provider implements this contract so new
 // providers plug in without duplicating checkout, billing or admin logic.
@@ -177,7 +177,7 @@ export function installmentCredentials(gateway: { provider: string; apiKey: stri
 }
 
 export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string; config?: string; feeBps?: number; feePercent?: number }) {
-  if (gw.provider === 'MOBOCOM_PAY') return Boolean(baleBinding(process.env) && process.env.MOBOCOM_PAY_BALE_VERIFIED === 'true' && !gw.feeBps && !gw.feePercent)
+  if (gw.provider === 'MOBOCOM_PAY') return configuredBaleSources(process.env).filter(s => s.enabled && s.verified).length === 1 && !gw.feeBps && !gw.feePercent
   if (gw.provider === 'MANUAL') return Boolean(gw.instructions.trim())
   if (gw.provider === 'CARD_TRANSFER') return true
   if (gw.provider === 'MELLAT') return Boolean(/^\d+$/.test(gw.apiKey.trim()) && String(gw.secretKey || '').trim() && String(gw.accountUser || '').trim())

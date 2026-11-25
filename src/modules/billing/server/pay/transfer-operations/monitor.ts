@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { createHash } from 'node:crypto'
-import { baleBinding } from '@/modules/billing/domain/pay-bale'
+import { configuredBaleSources } from '@/modules/billing/domain/pay-bale-sources'
 import type { TransferMonitor } from '@/modules/billing/domain/pay-transfer-operations'
 import { payContext, payTransaction, type PayActor } from '../context'
 import { sourceOwner } from '../bale/access'
@@ -32,10 +32,13 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
     ])
     const enabled = api?.value === 'true' && settings.bale.enabled
     const sources: TransferMonitor['sources'] = []
-    const binding = baleBinding(process.env)
-    const bank = binding ? await tx.bankAccount.findUnique({ where: { id: binding.bankAccountId }, select: { active: true, collectionUse: true, accountNumber: true } }) : null
     const sourceView = (id: string, label: string, type: 'SMS' | 'BALE', ready: boolean, observation?: Observed) => ({ id, label, type, ready, observed: Boolean(observation && observation.last.getTime() >= now.getTime() - 900000), lastReceivedAt: observation?.last.toISOString() || null, notices: Number(observation?.count || 0n), rejected: Number(observation?.rejected || 0n), p95DeliveryMs: observation?.p95 === null || observation?.p95 === undefined ? null : Math.round(observation.p95) })
-    sources.push(sourceView('bale', 'بله · @bam_bmi', 'BALE', Boolean(enabled && binding && process.env.MOBOCOM_PAY_BALE_VERIFIED === 'true' && bank?.active && bank.collectionUse === 'MOBOCOM_PAY' && /^\d{13}$/.test(latinDigits(bank.accountNumber).trim()) && await sourceOwner(binding.ownerUserId, tx)), observations.find(o => o.sourceType === 'BALE' && o.instanceId === binding?.instanceId)))
+    const bale = configuredBaleSources(process.env)
+    for (const binding of bale) {
+      const bank = await tx.bankAccount.findUnique({ where: { id: binding.bankAccountId }, select: { active: true, collectionUse: true, accountNumber: true } })
+      sources.push(sourceView('bale:' + binding.id, 'بله · ' + binding.id + ' · @bam_bmi', 'BALE', Boolean(enabled && binding.enabled && binding.verified && bank?.active && bank.collectionUse === 'MOBOCOM_PAY' && /^\d{13}$/.test(latinDigits(bank.accountNumber).trim()) && await sourceOwner(binding.ownerUserId, tx)), observations.find(o => o.sourceType === 'BALE' && o.instanceId === binding.instanceId)))
+    }
+    if (!bale.length) sources.push(sourceView('bale', 'بله · اتصال پیکربندی نشده', 'BALE', false))
     for (const s of sms) {
       let credentialsReady = false
       try { normalizeSmsTemplate(JSON.parse(s.templateJson)); credentialsReady = s.secretCiphertext.startsWith('encv1:') && /^[A-Za-z0-9_-]{43}$/.test(decryptPanelCredential(s.secretCiphertext)) } catch { /* Readiness only: never expose decryption errors or secret material. */ }

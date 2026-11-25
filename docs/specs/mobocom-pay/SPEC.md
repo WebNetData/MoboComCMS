@@ -1,3 +1,33 @@
+## Merchant approval workspace and fee isolation — owner2026-11-25
+
+Continue merged PR488/main d7f15d6f. Admin controls automatic CARD_TRANSFER and
+trusted server-owned Bale/SMS sources; merchant UI never receives account sessions
+or webhook secrets. Add bounded server configuration for independent card-owner
+Bale accounts while retaining the existing dedicated GoOmni intake and legacy env.
+Original signed identity and current source authority remain mandatory. Matching
+selects only a globally unique reserved amount on its bound destination; first
+valid proof wins the existing invoice lock/CAS, never another credit.
+
+Manual review after automatic confirmation returns explicit original method/source
+and an already-paid message without a new payment/Wallet row. Repeated review is
+idempotent after current reviewer authorization and no-self checks. Late SMS/Bale
+and concurrent manual/automatic arrivals preserve the original method. Display
+proof method and separate gross, contract fee, actually collected service fee,
+rounding and merchant credit in the merchant ledger/Admin receipt queue. Pending
+manual receipts remain UNDER_REVIEW in lists and filters after payment expiry.
+No fee or random adjustment is included in customer top-up or merchant net credit.
+Versioned machine APIs retain their closed PENDING/PAID/EXPIRED statuses; a held
+receipt remains PENDING with additive `reviewStatus:UNDER_REVIEW` in v1/v2. Native
+UI exposes UNDER_REVIEW. CSV serializes nested confirmation as JSON, and idempotent
+create reads the same authoritative invoice/proof projection as payment polling.
+
+Acceptance extends existing connected collection/shared checkout tests with both
+orderings, concurrent source/reviewer races, exact Wallet amounts, explicit replay
+responses and IRR/USDT fee projections. Source registry requires isolated HMAC,
+current bound bank/owner and frozen instance proof; invalid config fails closed.
+Full affected types/gates, Doctor and1440/390 light/dark browser/axe. No live
+account login, provider sending, deployment or hosted workflow is performed.
+
 ## General channels / selected merchant USDT credit — owner2026-11-24
 
 Continue Billing Pay, canonical Identity/Wallet/FX/Settings/Audit/Operations. Owner

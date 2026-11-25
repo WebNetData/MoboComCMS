@@ -1,3 +1,18 @@
+# Merchant approval workspace / fee isolation — 2026-11-25
+
+Continues owner-merged PR488/main d7f15d6f in `.mobocom/pay-bale-verification`, branch
+`feat/pay-approval-workspace-2026-11-25`. Explicit original-source already-paid
+receipt feedback, held-receipt lists, correct actual gross/fee/net projections and
+scoped merchant/Admin UI; bounded multi-account Bale server registry reuses existing
+intake/context/proof/monitoring and preserves legacy binding. Same Billing/Wallet/
+Identity owners, no migration. Fresh215 PG plus final5 native suites and16 units,
+types/scoped gates, Hurl8/compatible contracts and22 actual browser/axe captures
+pass. Real account/source commissioning remains unverified; local only.
+Two deliberate gross-credit/frozen-source faults detected and restored. Scoped
+security clean; owned preview/tunnel/DB/private files cleaned, builder stopped;
+shared readiness/session200 after warmup retry.
+[Sources, evidence, warnings, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-approval-workspace-and-fee-isolation--2026-11-25).
+
 # General channels / selected merchant USDT credit — 2026-11-24
 
 Continues local56a0b7a6 in `.mobocom/pay-bale-verification`, branch

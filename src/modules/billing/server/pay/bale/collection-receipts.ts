@@ -12,6 +12,7 @@ import { auditSystemStrict } from '@/platform/audit/server'
 import { payContext, payTransaction } from '../context'
 import { collectionFor, baleCheckout } from './collection-view'
 import { settleTransferCollection } from './collection-settle'
+import { collectionConfirmation, receiptReviewResult } from '../confirmation'
 
 export async function submitCollectionReceipt(req: NextRequest, id: string) {
   if (await payTransaction(async tx => Boolean((await collectionFor(tx, id, req)).receiptId))) return baleCheckout(id, req)
@@ -53,14 +54,16 @@ export async function reviewCollectionReceipt(admin: { id: number; email: string
     const initial = await tx.payBaleCollection.findUnique({ where: { receiptId } })
     if (!initial) throw new PayError('رسید پیدا نشد', 404)
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${initial.invoiceId} FOR UPDATE`)
-    const row = await tx.payBaleCollection.findUniqueOrThrow({ where: { id: initial.id }, include: { invoice: { include: { payCollection: { include: { merchant: true } } } }, receipt: true } })
+    const row = await tx.payBaleCollection.findUniqueOrThrow({ where: { id: initial.id }, include: { invoice: { include: { payCollection: { include: { merchant: true } } } }, receipt: true, notice: { select: { sourceType: true } } } })
     if (row.invoice.payCollection) await payContext({ ...admin, req }, tx, 'mobocom-pay.manage')
     else if (!await requirePerm(req, 'invoices.manage', tx)) throw new PayError('دسترسی ندارید', 403)
     if (row.invoice.userId === admin.id || row.invoice.payCollection?.merchant.userId === admin.id) throw new PayError('بررسی پرداخت خودتان مجاز نیست', 403)
-    if (!row.receipt || row.receipt.status !== 'PENDING') throw new PayError('رسید قبلاً بررسی شده است', 409)
-    const clean = String(note || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 300)
-    if (action === 'reject' && clean.length < 3) throw new PayError('دلیل رد رسید را بنویسید', 422)
+    if (!row.receipt) throw new PayError('رسید پیدا نشد', 404)
     const paid = row.status === 'PAID' && row.invoice.status === 'PAID'
+    if (paid && row.receipt.status !== 'PENDING') return receiptReviewResult(row.receipt.status, true, collectionConfirmation(row))
+    if (row.receipt.status !== 'PENDING') throw new PayError('رسید قبلاً بررسی شده است', 409)
+    const clean = String(note || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 300)
+    if (!paid && action === 'reject' && clean.length < 3) throw new PayError('دلیل رد رسید را بنویسید', 422)
     const claim = await tx.paymentReceipt.updateMany({ where: { id: receiptId, status: 'PENDING' }, data: { status: paid || action === 'approve' ? 'APPROVED' : 'REJECTED', adminNote: clean, reviewedBy: admin.id, reviewedAt: new Date() } })
     if (claim.count !== 1) throw new PayError('رسید هم‌زمان بررسی شده است', 409)
     if (!paid) {
@@ -69,6 +72,7 @@ export async function reviewCollectionReceipt(admin: { id: number; email: string
       else { const changed = await tx.payBaleCollection.updateMany({ where: { id: row.id, status: 'UNDER_REVIEW', receiptId }, data: { status: 'REVIEW', activeInvoiceId: null, reviewReason: 'RECEIPT_REJECTED' } }); if (changed.count !== 1) throw new PayError('درخواست هم‌زمان تغییر کرده است', 409) }
     }
     await auditSystemStrict({ actor: admin, action: 'mobocom-pay.transfer.receipt-review', targetType: 'mobocom-pay', targetId: row.id, metadata: { receiptId, action: paid ? 'already-paid' : action } }, tx)
-    return { status: paid || action === 'approve' ? 'APPROVED' : 'REJECTED' }
+    return receiptReviewResult(paid || action === 'approve' ? 'APPROVED' : 'REJECTED', paid,
+      paid ? collectionConfirmation(row) : action === 'approve' ? { method: 'MANUAL', source: 'STAFF' } : { method: 'NONE', source: '' })
   })
 }

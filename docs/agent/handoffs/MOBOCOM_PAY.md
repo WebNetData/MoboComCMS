@@ -1,3 +1,112 @@
+## Merchant approval workspace and fee isolation — 2026-11-25
+
+Owner requests more professional merchant UX, centrally operated automatic Bale/
+SMS confirmation, explicit duplicate-approval feedback and platform-only fees.
+PR488 was owner-merged as main d7f15d6f. Current checkout remains
+`.mobocom/pay-bale-verification`, new branch `feat/pay-approval-workspace-2026-11-25`.
+Local implementation; no new PR/push/deploy or hosted workflow in this slice.
+
+- Existing Billing/Pay invoice lock, Serializable transaction, state claims,
+  canonical Wallet and separate adjustment journal remain the financial owner.
+  Automatic matching now re-reads the collection after its invoice lock. Receipt
+  review/replay returns original confirmation method/source and explicit Persian
+  already-paid feedback after current permission/no-self guards. Reviewing a paid
+  receipt records its review without another credit; repeating it is idempotent.
+- New `pay/payment-view` centralizes the existing projection and held-receipt
+  filters. Manual pending receipts remain UNDER_REVIEW after expiry in lists,
+  counts and checkout. The actual PAID quote outranks a newer unpaid renewal;
+  canonical bank journal proof is labelled BANK, reviewed notice BANK rather than
+  automatic staff action, and automatic SMS/Bale preserves its original source.
+- Displayed customer amount includes actually collected service fee; principal-only
+  manual approval does not invent that fee. Contract fee, collected service fee
+  and USDT rounding are separate from merchant credit. Overview shows credited
+  Rial cost and platform fee separately, preserving legacy statistics. Native
+  cases prove credited amount plus platform fees equals customer collection and
+  that only principal reaches customer top-up/merchant proceeds.
+- `domain/pay-bale-sources` adds bounded server-owned `MOBOCOM_PAY_BALE_SOURCES`
+  (1..32, duplicate-key-safe, <=64KiB) with explicit per-source instance/account/
+  numeric bank peer/destination/operator/signing key/flags. Ambiguous IDs/instances/
+  alias-account or bank mappings fail closed. New query `?source=ID` selects ONLY a
+  configured source; its HMAC and original-message identity are still verified.
+  Legacy env/endpoint remains supported. Current authority and frozen quote binding
+  are rechecked through context/proof; ingress, gateway readiness, status and
+  monitoring use the same registry. Secrets and personal sessions are never exposed
+  to merchant UI or stored in Gateway credentials. No new identity/service/table.
+- Pay receipt queue gains real bounded counters/filter, gross/fee/net and original
+  proof details, paid-review guidance and server feedback. Merchant ledger uses
+  readable mobile rows and exact fee/credit breakdown. Overview separates platform
+  share; Admin lists each server source safely with its dedicated path/readiness.
+  Finance receipts also displays the canonical already-paid message. SDS tokens,
+  existing theme/shell/motion and protected public surfaces remain authoritative.
+- Versioned machine APIs retain closed PENDING/PAID/EXPIRED statuses. Held payments
+  return PENDING plus optional `reviewStatus:UNDER_REVIEW` in v1/v2; native UI keeps
+  UNDER_REVIEW. Idempotent payment creation uses authoritative invoice projection;
+  CSV encodes structured confirmation as JSON. OpenAPI1.8/Hurl updated additively.
+  No schema change or migration beyond existing215.
+
+Executed evidence:
+
+- All215 migrations on an empty disposable NOSUPERUSER PostgreSQL; UID1000 runtime,
+  no `.env`. Final registered native suites `pay-bale-server`, `pay-bale-collection`,
+  `pay-shared-checkout`, `pay-assets`, `pay-bot` all pass, including after populated
+  browser fixtures. Two independent Bale sources, wrong endpoint key, missing ID,
+  disabled/malformed registry and source privacy; bound-bank and changed-instance
+  denial; old quote approved after renewal; manual/automatic/late/concurrent/replay
+  paths; exact principal top-up, USDT rounding, strict Audit rollback and no second
+  Wallet/payment. Sixteen scoped pure cases pass in Linux; host lacked
+  `typescript-api`, so no dependencies were installed to fake a host pass.
+- Full TypeScript and eight architecture/source/schema/money/security/Audit/release
+  gates pass. TLS Hurl8 verifies two-source status/privacy, isolated signatures,
+  late manual-first notice, repeated auto-first receipt and forbidden reviewer;
+  v1/v2 held-state compatibility passes. Spectral0 and flattened oasdiff explicitly
+  reports no breaking changes (exit0 alone was not treated as absence of findings).
+- Actual Playwright22 responsive light/dark captures at1440/390: overview, ledger,
+  held filter, receipt queue/review feedback, two-source configuration and Finance
+  receipts. Axe0, horizontal overflow0 and final page errors0. Real Admin review
+  and replay leave merchant balances/paid count unchanged. Finance's development
+  reload interrupted one capture pass; its remaining four views and interaction
+  were completed in a fresh browser context against the warmed route.
+- Doctor5 affected components:0 errors/44 reviewed warnings.32 concern explicit
+  table/row/cell roles retained for the mobile display:block accessibility tree;
+  other warnings cover existing Finance locale/fetch/image-dialog behavior,
+  component complexity, repeated financial markup and native CSV anchors. No rule
+  suppression; actual browser/a11y checks complement the diagnostic review.
+
+Fixed findings rather than waiving them: receipt-filter contrast, a worker's
+encoding-corrupted new Persian strings (restored with UTF8-safe patches), fixture
+dedicated-card alias/update refusal, an old connected test's empty-history count
+assumption, winning-quote/source/gross display issues, and closed machine-status
+enum compatibility. Existing ledger states/amounts were preserved. Graphify has no
+local graph; Serena initial-instructions request did not complete, so exact source
+and local architecture gates supplied the navigation evidence.
+
+Guidance applied: repo MoboCom audit/spec/develop/contracts, Unslop/UI Skills,
+UI/UX Pro Max and selected Vercel rules under SDS/FRONTEND_QUALITY. No new runtime
+dependency or independent financial platform. Native logs, screenshots and reports
+are ignored under `var/pay-bale-20261124`.
+
+Operational boundary: this is a server-owned GoOmni integration, not an Android
+app or a claim that bot tokens can read personal chats. Real card-owner account
+login, original numeric @bam_bmi identity, delivery/recovery and SMS Forwarder
+payload must still be commissioned privately on the actual server. The updated
+operator guide describes multiple connections and distinguishes configuration
+readiness from live delivery. No live bank/Bale/SMS or chain transfer was run.
+Rollback: disable automatic sources/gateways first, preserve all evidence, quotes,
+amount tombstones and credit history; reverting UI/adapter code never deletes or
+recredits money. A return to single-source configuration needs explicit mapping.
+Final safety evidence: two deliberate runtime-only faults (crediting gross including
+service fee, accepting a replaced frozen source instance) were detected by the
+connected collection suite. Exact source bytes were restored and its baseline
+passed again. Scoped one-rule Semgrep21 source files and redacted Gitleaks41 named
+files report no findings; not a whole-product security certification.
+
+Cleanup completed for the verified private Next group, Windows TLS tunnel, exact
+disposable DB/NOSUPERUSER role, sessions/API-key env/signed bodies/TLS files and source
+archive; dedicated builder stopped. Initial shared readiness/session check hit its
+6s warmup timeout; the separately recorded30s retry returned200 for both endpoints.
+No production build/live source test or hosted workflow dispatch. Screenshots,
+reports and redacted fault logs remain ignored; root/autonomous work is preserved.
+
 ## General channels and selected merchant USDT credit — 2026-11-24
 
 Owner authorizes website/Instagram/channel/standalone collection beyond bots and

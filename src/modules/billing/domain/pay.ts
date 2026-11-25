@@ -4,6 +4,13 @@ export type PayPaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'UNDER_REVIEW'
 export type PaySettlementStatus = 'REQUESTED' | 'APPROVED' | 'PAID' | 'REJECTED'
 export type PayRailId = 'IRR_BANK' | 'TRX_TRON' | 'USDT_TRON' | 'USDT_BSC' | 'USDT_ETHEREUM'
 export type PayCreditCurrency = 'IRR' | 'USDT'
+export interface PayConfirmation {
+  method: 'NONE' | 'AUTO' | 'MANUAL' | 'BANK' | 'PROVIDER'
+  source: '' | 'SMS' | 'BALE' | 'BANK' | 'STAFF' | 'PROVIDER'
+}
+export interface PayReceiptReview {
+  status: string; alreadyPaid: boolean; confirmation: PayConfirmation; message: string
+}
 export interface PaySettlementFees { currency: PayCreditCurrency; bps: number; flat: string; cap: string }
 export interface PayPurchase {
   currency: 'USDT'; amount: string; convertedRial: string; rateRial: string; rateAt: string; roundingRial: string;
@@ -65,6 +72,12 @@ export interface PayTerminalView {
   createdAt: string
 }
 export interface PayPaymentView {
+  reviewStatus?: 'UNDER_REVIEW'
+  confirmation?: PayConfirmation
+  settledServiceFeeRial?: string
+  platformFeeRial?: string
+  creditRial?: string
+  customerAmountRial?: string
   creditCurrency?: PayCreditCurrency
   creditAmount?: string
   gatewayAdjustmentRial?: string
@@ -126,6 +139,9 @@ export interface PayOverview {
   terminals: PayTerminalView[]
   rails: Pick<PayRail, 'id' | 'asset' | 'network' | 'enabled'>[]
   stats: {
+    creditedRial?: string
+    platformFeeRial?: string
+    serviceFeeRial?: string
     availableRial: string
     walletRial: string
     proceedsRial: string
@@ -163,6 +179,8 @@ export interface PayCheckout {
   bank: { title: string; bankName: string; holderName: string; cardNumber: string; iban: string } | null
 }
 export interface PayReceiptView {
+  paymentStatus?: PayPaymentStatus; confirmation?: PayConfirmation; feeRial?: string; netRial?: string;
+  creditAmount?: string; creditCurrency?: PayCreditCurrency; platformFeeRial?: string
   id: number; paymentId: string; merchantName: string; externalId: string; totalRial: string;
   status: string; trackingCode: string; payerName: string; phoneLast4: string; adminNote: string; createdAt: string
 }

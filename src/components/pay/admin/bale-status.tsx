@@ -8,7 +8,8 @@ import s from '../Pay.module.css'
 
 type Event = { id: string; status: string; kind: string; direction: string; amountRial: string | null; referenceLast4: string; occurredFrom: string | null; receivedAt: string }
 type Collection = { id: string; invoiceNumber: string; status: 'PENDING' | 'PAID' | 'EXPIRED' | 'REVIEW'; principalRial: string; adjustmentRial: string; collectedRial: string; reviewReason: string; createdAt: string }
-type Status = { bankUsername: string; configured: boolean; receivingEnabled: boolean; collectionReady: boolean; lastReceivedAt: string | null; reviewCount: number; events: { total: number; page: number; pages: number; items: Event[] }; collections: { items: Collection[]; total: number; page: number; pages: number } }
+type Source = { id: string; bankAccountId: number; bankName: string; cardLast4: string; enabled: boolean; verified: boolean; receivingEnabled: boolean; financialReady: boolean; webhookPath: string; lastReceivedAt: string | null }
+type Status = { sources?: Source[]; configurationInvalid?: boolean; bankUsername: string; configured: boolean; receivingEnabled: boolean; collectionReady: boolean; lastReceivedAt: string | null; reviewCount: number; events: { total: number; page: number; pages: number; items: Event[] }; collections: { items: Collection[]; total: number; page: number; pages: number } }
 const states: Record<string, string> = { ORIGINAL_TRANSFER: 'واریز از فرستندهٔ مجاز', IGNORED: 'غیرقابل تطبیق', REJECTED: 'قالب یا حساب نامعتبر', DUPLICATE: 'تکراری', CONFLICT: 'متعارض' }
 const kinds: Record<string, string> = { CARD_TRANSFER: 'انتقال کارت', PAYA: 'پایا', SATNA: 'ساتنا', INTEREST: 'سود سپرده', INTERNET_PURCHASE: 'خرید اینترنتی', TRANSFER_FEE: 'کارمزد انتقال', BALANCE_FEE: 'کارمزد مانده', POS_PURCHASE: 'خرید با پایانه', UNKNOWN: 'نامشخص' }
 const collectionStates: Record<Collection['status'], string> = { PENDING: 'در انتظار', PAID: 'پرداخت ثبت‌شده', EXPIRED: 'منقضی', REVIEW: 'نیازمند بررسی' }
@@ -34,15 +35,22 @@ export default function BaleStatus() {
       <button type="button" className={s.secondary} onClick={refresh} disabled={loading}>تازه‌سازی وضعیت بله</button>
     </div>
     <p className={s.muted}>دریافت مستقیم پیام‌های بازوی <bdi dir="ltr">@bam_bmi</bdi> روی سرور، بدون اپ همراه.</p>
-    <p className={s.notice}>{data?.collectionReady ? 'دریافت و تطبیق خودکار پرداخت بانکی فعال است. وضعیت هر واریز را در سابقه بررسی کنید.' : 'دریافت خودکار پرداخت بانکی آماده نیست. پیکربندی منبع به‌تنهایی به معنی آمادگی تطبیق خودکار نیست.'}</p>
+    <p className={s.notice}>{data?.collectionReady ? 'پیکربندی تطبیق خودکار آماده است؛ دریافت زنده و بازیابی پس از قطعی باید با واریز آزمایشی بررسی شوند.' : 'دریافت خودکار پرداخت بانکی آماده نیست. پیکربندی منبع به‌تنهایی به معنی آمادگی تطبیق خودکار نیست.'}</p>
     <ErrorNotice error={error} />
     <p role="status">{loading ? 'در حال دریافت وضعیت…' : data ? data.receivingEnabled ? 'دریافت سروری فعال است؛ اتصال زنده باید روی سرور آزموده شود.' : data.configured ? 'اتصال تنظیم شده؛ حساب مقصد یا API غیرفعال است.' : 'اتصال حساب بله روی سرور تنظیم نشده است.' : 'وضعیت در دسترس نیست.'}</p>
     {data && !loading && !error && <>
+      {data.configurationInvalid && <p className={s.notice} role="alert">فهرست اتصال‌های بله در تنظیمات سرور نامعتبر یا متعارض است؛ دریافت تا اصلاح آن متوقف می‌ماند.</p>}
+      <div className={s.grid} aria-label="اتصال‌های مستقل حساب بله">{data.sources?.map(source => <article className={`${s.card} ${s.stack}`} key={source.id}>
+        <div className={s.sectionHead}><h3>{source.bankName || 'حساب بانکی'} · <bdi>{source.id}</bdi></h3><span>{source.financialReady ? 'پیکربندی آماده' : 'نیازمند تکمیل'}</span></div>
+        <p className={s.muted}>کارت منتهی به <bdi>{source.cardLast4 || '—'}</bdi> · حساب مقصد #{source.bankAccountId.toLocaleString('fa-IR')}</p>
+        <dl><dt>دریافت اعلان</dt><dd>{source.receivingEnabled ? 'مجاز' : 'متوقف'}</dd><dt>هویت بازوی بانک</dt><dd>{source.verified ? 'تأییدشده توسط مدیر' : 'نیازمند تأیید'}</dd><dt>آخرین پیام همین اتصال</dt><dd>{source.lastReceivedAt ? date(source.lastReceivedAt) : 'هنوز ثبت نشده'}</dd></dl>
+        <details><summary>مسیر اختصاصی و راه‌اندازی</summary><p className={s.muted}>ورود حساب صاحب کارت در اتصال خصوصی سرور انجام می‌شود. رمز نشست و کلید امضا در فرم درگاه یا اختیار پذیرنده قرار نمی‌گیرند.</p><p className={s.ltr}><code>{source.webhookPath}</code></p></details>
+      </article>)}</div>
       <p className={s.muted}>آخرین پیام ثبت‌شده: {data.lastReceivedAt ? date(data.lastReceivedAt) : 'هنوز پیامی ثبت نشده'} · زمان‌ها به وقت تهران</p>
       <Link className={s.secondary} href="/admin/gateways">مدیریت درگاه‌های پلتفرم</Link>
       {data.events.items.length ? <div className={s.tableWrap} tabIndex={0} role="region" aria-label="تاریخچهٔ پیام‌های بانکی بله">
         <table className={s.table}>
-          <caption>پیام‌های بانکی؛ بدون تأیید مالی</caption>
+          <caption>اعلان‌های حساب‌های بله؛ نتیجهٔ مالی در سابقهٔ درخواست‌ها ثبت می‌شود</caption>
           <thead><tr><th scope="col">زمان ثبت</th><th scope="col">نوع تراکنش</th><th scope="col">مبلغ (ریال)</th><th scope="col">وضعیت</th></tr></thead>
           <tbody>{data.events.items.map(event => <tr key={event.id}>
             <td>{date(event.receivedAt)}{event.occurredFrom && <span className={s.tableSub}>زمان بانک: {date(event.occurredFrom)}</span>}</td>

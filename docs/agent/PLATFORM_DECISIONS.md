@@ -1,3 +1,12 @@
+2026-11-25 owner reiterates central Admin-operated card-transfer confirmation via
+card-owner personal Bale accounts and SMS. First valid proof settles once through
+the existing invoice/Wallet owner; later manual/automatic review must report the
+original confirmation and never credit again. Fees/random additions/USDT rounding
+belong to the platform, outside merchant/customer credit. Independent Bale bindings
+and signing secrets stay server-owned; merchants receive no personal sessions.
+Versioned clients keep closed payment statuses and additive review detail. No
+second wallet, identity, login service or phone app. [Implementation and evidence](handoffs/MOBOCOM_PAY.md#merchant-approval-workspace-and-fee-isolation--2026-11-25).
+
 2026-11-24 owner extends Pay to websites, Instagram, channels and standalone orders,
 with optional selected-merchant internal USDT credit and later Rial/network payout.
 Reuse Billing/Wallet/FX and canonical identity: no parallel wallet, rate service or

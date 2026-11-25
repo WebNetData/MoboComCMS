@@ -30,7 +30,7 @@ export default function Overview({ data, reports = false }: { data: PayOverview;
         <Link href="/pay/merchant/settlements" className={o.balanceLink}>مدیریت تسویه‌ها<Icon name="arrow" size={18} /></Link>
       </div>
       <dl className={o.ledger}>
-        {[["در انتظار تسویه", data.stats.pendingSettlementRial, "درخواست‌های در حال بررسی"], ["دریافتی ناخالص", data.stats.grossRial, "مجموع پرداخت‌های تأییدشده"], ["خالص پرداخت‌ها", data.stats.netRial, "دریافتی پس از کسر کارمزد"]].map(([label, value, hint]) => <div key={label}><dt>{label}</dt><dd><Amount value={value} /><small>{hint}</small></dd></div>)}
+        {[["در انتظار تسویه", data.stats.pendingSettlementRial, "درخواست‌های در حال بررسی"], ["دریافتی سفارش‌ها", data.stats.grossRial, "مجموع سفارش‌های تأییدشده"], ["اعتبار خالص پرداخت‌ها", data.stats.creditedRial ?? data.stats.netRial, "بدون کارمزد و هزینهٔ گرد کردن"], ["کارمزدهای پلتفرم", data.stats.platformFeeRial ?? data.stats.feeRial, "سهم پلتفرم؛ خارج از اعتبار شما"]].map(([label, value, hint]) => <div key={label}><dt>{label}</dt><dd><Amount value={value} /><small>{hint}</small></dd></div>)}
       </dl>
     </section>
     <div className={o.walletNote}><Icon name="wallet" size={18} /><p>دریافت‌های تأییدشده به کیف پول موبوکام افزوده می‌شوند. مبلغ درخواست تسویه تا تعیین تکلیف قابل خرج کردن نیست. <Link href="/dashboard/wallet">مشاهده کیف پول</Link></p></div>

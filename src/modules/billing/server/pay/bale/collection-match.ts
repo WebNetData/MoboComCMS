@@ -10,9 +10,10 @@ export async function matchBaleNotice(id: string) {
   return payTransaction(async tx => {
     const notice = await tx.payBaleNotice.findUniqueOrThrow({ where: { id } })
     if (notice.status !== 'ORIGINAL_TRANSFER' || notice.direction !== 'CREDIT' || !notice.amountMinor) return { financialApproval: false }
-    const row = await tx.payBaleCollection.findUnique({ where: { collectedRial: notice.amountMinor } })
-    if (!row || row.bankAccountId !== notice.bankAccountId) return { financialApproval: false }
-    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${row.invoiceId} FOR UPDATE`)
+    const initial = await tx.payBaleCollection.findUnique({ where: { collectedRial: notice.amountMinor } })
+    if (!initial || initial.bankAccountId !== notice.bankAccountId) return { financialApproval: false }
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${initial.invoiceId} FOR UPDATE`)
+    const row = await tx.payBaleCollection.findUniqueOrThrow({ where: { id: initial.id } })
     if (row.status === 'PAID') return { financialApproval: true, alreadyPaid: true, collectionId: row.id, collectionStatus: row.status }
     if (row.status === 'REVIEW') return { financialApproval: false, collectionId: row.id, collectionStatus: row.status }
     const { actor, invoice } = await collectionSourceActor(tx, row, notice)
