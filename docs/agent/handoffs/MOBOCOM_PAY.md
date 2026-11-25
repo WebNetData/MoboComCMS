@@ -1,3 +1,81 @@
+## Merchant account and section hosts — 2026-11-26
+
+Authoritative `.mobocom/pay-account-domains`, branch
+`feat/pay-account-section-domains-2026-11-26`, based on merged mainbac9e4aa/PR491.
+This is a new local feature slice after stable1.7.22; no released assets/version
+were rewritten, hosted workflow dispatched, destination deployed or provider called.
+
+- Existing Billing merchant administration now permits canonical current
+  full-access Admin to provision/activate/configure their own PENDING merchant.
+  Restricted `mobocom-pay.manage` staff cannot self provision/manage. Notes,
+  version claims, strict audit and current Identity/AuthZ checks remain; payment,
+  receipt and settlement own-review refusals are unchanged. Enrollment never
+  credits a wallet. `merchant-admin/access.ts` owns this narrow membership rule.
+- `merchants.ts` accepts exactly one selector: normalized `phone`, `self:true`,
+  compatible `userId` or exact `email`. Identity's existing readonly
+  `findPhoneCustomer` accepts a transaction reader; missing/ambiguous accounts
+  fail409. No user, OTP/verification claim or second identity is created.
+- Admin directory/detail DTOs add phone; creation/search/list/detail present
+  mobile instead of synthetic phone email. Full Admin receives a server-derived
+  self checkbox. Existing Pay/SDS classes, typography and layouts are retained.
+- Optional public first-party section hosts compose Site's existing routing
+  owner and `/admin/sections`. [Routing details and limits](PERMALINK_MANAGEMENT.md#optional-first-party-section-hosts--2026-11-26).
+
+Executed local evidence on isolated Linux Node22 UID1000, owned PostgreSQL
+`mobocom_pay_test_accounts_20261126`/non-superuser role/all218 migrations:
+`pay-merchant-account`, `section-hosts`, `pay-private-merchants`, `pay-bot`,
+`pay-shared-checkout`, `pay-settlement-center`, `permalink-routing`,
+`section-maintenance`, `current-account-consumers` passed. New account suite covers
+self setup/activation/BOT integration, Persian/local/E.164 lookup, duplicate/missing
+selectors/accounts, legacy lookup, no enrollment credit/new identity, restricted
+staff/revocation and real own-settlement approval/completion refusal. Two older
+suites initially failed because the private harness forced HTTPS cookie selection
+on their HTTP fixtures; unsetting that harness override restored both unchanged
+suites. Product assertions and security policy were not weakened.
+
+`npm run check` passed without `.env`/DB credentials:1141 site,53 mock-connected,
+4 backup and14 billing tests plus types/source/architecture/money/schema/security/
+audit/i18n/migration gates. Seven initial proxy unit failures were missing new
+owner exports in test doubles; those mocks were updated without changing assertions.
+Scoped Semgrep/local rule and redacted Gitleaks on named changes each exited0,
+zero findings. Independent read-only security review found partial host-form
+commit and alias auth reachability; dedicated host-only save/auth guard fixed
+both and real PG/browser cases exercised them.
+
+Actual Windows Edge/Playwright against private TLS preview3142 and the owned DB:
+full Admin self create/activate; Persian phone create; own BOT terminal and saved
+integration/API endpoint; hostname syntax disable, foreign-host422/preserved draft,
+valid save/reload; real alias root/main paths/private/auth boundaries. Eight views
+(merchant form and host settings,1440/390,light/dark) had no horizontal overflow
+and zero scoped WCAG A/AA/2.1 axe violations; screenshots were visually inspected.
+Restricted Pay staff had the phone form without self toggle; keyboard Tab reached
+business name, direct self enrollment and section-host writes both returned403.
+Its initial browser fixture incorrectly stored permissions as JSON rather than
+canonical CSV; correcting only that synthetic role restored the expected UI.
+Page exceptions were zero. Main session absence was checked on the actual browser
+request Cookie header: Playwright's `context.cookies(alias)` suffix filter included
+the host-only main cookie and was not a valid transmission assertion. Initial
+automation also assumed201 creates were200 and exact labels excluded wrapped
+select option text; corrected fixtures/locators, not application behavior.
+React Doctor on four affected components exited0; new handler-only state warning
+was fixed with a ref, and section recheck retained only two pre-existing complexity
+warnings (the detail panel retains its existing complexity warning).
+
+Private logs/screenshots/reports are ignored under `var/account-domains`; no real
+bank, SMS, Bale, Telegram callback or customer transaction was exercised. DNS/TLS/
+same-app virtual host commissioning remains an operator task. No production build
+or destination upgrade is claimed for this feature. Rollback removes optional
+host assignments and reverts this additive slice; preserve all Identity and money
+history. Owner merges/deploys; no PR is implied by local completion.
+
+Final continuation: regenerated/checked the14-document shipped AI knowledge;
+AI/navigation/content-controls246/246 passed after that documentation sync.
+Final scoped Semgrep and redacted Gitleaks again exited0/zero findings. Verified
+owned preview process group/TLS tunnel, synthetic DB/role, runtime and private
+credentials were removed; local ignored screenshots/logs retained. Runtime and
+DB absence were checked; preserved shared app3000 returned HTTP200. Other root/
+worktree changes, released1.7.22 assets and destination data were untouched.
+
 ## PR490 publication receipt — 2026-11-25
 
 Owner explicitly requests a PR for all work to this point. Fetched current

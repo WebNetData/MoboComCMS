@@ -1,5 +1,5 @@
 import type { PayMerchantView, PayTerminalView } from './pay'
-export type MerchantDirectory = { page: number; pages: number; total: number; items: (PayMerchantView & { version: number; email: string; userStatus: string; terminalCount: number })[] }
+export type MerchantDirectory = { page: number; pages: number; total: number; canProvisionSelf: boolean; items: (PayMerchantView & { version: number; email: string; phone: string; userStatus: string; terminalCount: number })[] }
 export type MerchantDetail = {
   assetBalances?: import('./pay').PayAssetBalance[]
   merchant: MerchantDirectory['items'][number]

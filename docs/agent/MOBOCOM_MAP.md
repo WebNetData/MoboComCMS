@@ -28,6 +28,15 @@ Visual continuation: scoped SDS financial overview and responsive directory/deta
 existing actions and financial owners retained. [Visual evidence](handoffs/MOBOCOM_PAY.md#merchant-workspace-visual-refinement--2026-11-24).
 [Current evidence and operational limits](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
 
+Merchant account and section hosts2026-11-26: Billing merchant admin commands
+accept existing phone/userId/email and full-access Admin self toggle; Identity's
+phone-customer lookup remains readonly. Site `domain/section-hosts.ts` and
+`server/routes/hosts.ts` use Settings CAS/strict audit through public `routes.ts`;
+`/admin/sections` configures a dedicated hostname payload. `proxy.ts` uses actual
+Host to map section root to its existing public base while preserving paths and
+existing guards. DNS/TLS/same-app vhost remain manual Server Panel operations.
+[Current evidence/limits](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+
 Bank transfer operations2026-11-24: Billing `server/pay/transfer-operations` and
 shared `bale/collection-proof`, typed `domain/pay-transfer-operations`, Admin
 `operations`/`reconciliation` views behind existing Pay navigation/HTTP. Migration214

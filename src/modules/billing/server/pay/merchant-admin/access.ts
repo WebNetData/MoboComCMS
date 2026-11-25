@@ -1,8 +1,18 @@
 import type { NextRequest } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
 import type { MerchantPortalAccess } from '@/modules/billing/domain/pay-merchant-admin'
 import { payActor, payContext, payTransaction } from '../context'
-import { requireUser } from '@/modules/identity/server/access'
+import { requirePerm, requireUser } from '@/modules/identity/server/access'
+import { actorHasFullAccess } from '@/modules/identity/server/staff-guard'
+import type { PayActor } from '../context'
+
+/** Membership administration is distinct from reviewing the owner's own money. */
+export async function assertMerchantAdministration(actor: PayActor, targetUserId: number, tx: Prisma.TransactionClient) {
+  const admin = await requirePerm(actor.req, 'mobocom-pay.manage', tx)
+  if (!admin || admin.id !== actor.id || actor.machine) throw new PayError('مدیریت پذیرندگی به نشست معتبر مدیر نیاز دارد', 403)
+  if (targetUserId === actor.id && !actorHasFullAccess(admin)) throw new PayError('مدیریت پذیرندگی حساب خودتان به دسترسی مدیر کل نیاز دارد', 403)
+}
 
 export async function merchantPortalAccess(req: NextRequest): Promise<MerchantPortalAccess> {
   // Identity is resolved by the canonical current-session guard, never copied from a client role.

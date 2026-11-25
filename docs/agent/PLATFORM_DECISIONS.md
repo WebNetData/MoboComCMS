@@ -46,6 +46,18 @@ Existing payment links/callbacks stay public capability flows. Legacy console UR
 redirect. No new identity/subdomain/service or financial rewrite is authorized.
 [Implemented slice and evidence](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
 
+2026-11-26 owner clarification supersedes only enrollment/section-host portions
+above: canonical full-access Admin may provision/manage their own merchant for
+Telegram bot setup; restricted `mobocom-pay.manage` staff still cannot self-provision or
+self-manage. Payment, receipt and settlement reviews remain independently guarded.
+Enrollment uses existing canonical mobile Identity lookup (exact normalized phone,
+readonly), explicit `self:true` Admin toggle, or compatible existing userId/email;
+ambiguous identity returns409. Optional first-party section subdomains are managed
+in existing `/admin/sections` and Site routing Settings; central auth/dashboard/
+Admin/checkout/private Pay stay on the main origin. No wildcard cookies, SSO, new
+identity, DNS automation or privileged vhost setup. Existing paths/aliases/SEO
+canonical remain intact. [Implementation and local evidence](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+
 2026-11-24 owner authorizes next Pay items1/2: extend operations monitoring and
 add a reconciliation desk under current Billing owners and approved identity.
 Preserve CARD_TRANSFER automatic SMS/Bale and canonical exact-once manual/automatic

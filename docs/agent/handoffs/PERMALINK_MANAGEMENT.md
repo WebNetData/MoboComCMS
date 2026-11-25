@@ -1,5 +1,46 @@
 # Configurable permalinks — continuation
 
+## Optional first-party section hosts — 2026-11-26
+
+Owner requests optional `cloud.mobocom.net` alongside `mobocom.net/cloud`.
+Current checkout `.mobocom/pay-account-domains`, branch
+`feat/pay-account-section-domains-2026-11-26`, base mainbac9e4aa/merged PR491.
+Existing canonical paths, section aliases, content permalinks and SEO remain.
+
+- Site `domain/section-hosts.ts` validates explicit unique subdomains of
+  NEXTAUTH_URL's parent (strip www); URL/port/path/wildcard/foreign/duplicate/base
+  takeover is refused. Existing `server/routes.ts` exports `routes/hosts.ts`;
+  Settings `site.section-hosts.v1` uses serializable version-CAS plus same-tx
+  strict audit and fresh current `settings.manage`. Patches preserve other bases;
+  stale writer409 and audit failure leave stored mapping intact. No schema change.
+- Existing sections GET adds per-base hostname/global routingRevision. POST
+  accepts a dedicated host-only `{id,hostnames,hostsRevision}`; mixed payload422
+  occurs before writes. The UI has an independent styled host card/save action,
+  validation/help/previews/pending/error feedback and retains failed drafts.
+  DNS/TLS/same-app vhost prerequisites link to `/admin/server/domains`.
+- Proxy reads actual Host, never forwarded-host, maps alias `/` to the selected
+  internal root and admits that module's existing public paths. Main paths remain;
+  unrelated/private/Admin/checkout/merchant/account paths return to central origin.
+  Auth GET redirects main; auth/private mutations403 without body forwarding.
+  Redirect URL pathname/search are assigned on a trusted origin, not parsed as an
+  untrusted destination. No cookie-domain/CORS change, SSO or second login.
+- Module-off404, canonical maintenance/audience guards and query retention apply;
+  alias pages bypass guest cache and emit private/no-store/noindex,follow. Invalid
+  host configuration fails closed503 on non-main hosts. No automatic DNS, TLS,
+  privileged helper, wildcard host or arbitrary merchant domain support.
+
+Real owned-PG `section-hosts` passed configuration validation/permission/Origin,
+CAS race, audit rollback, section base scoping, mixed-save no mutation, proxy
+root/query/private/auth/main/forwarded-host/module-off/maintenance/cache/cookie
+cases. Existing permalink-routing/section-maintenance passed. Full canonical check,
+React Doctor and scoped scans passed; [combined Pay evidence and exact limits](MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+Actual browser saved/reloaded the host, rejected foreign/invalid inputs, rendered
+cloud on alias root and main/cloud, returned private/auth navigation to main and
+rejected alias credential writes; actual request headers proved no main cookie
+transmission. Eight light/dark desktop/mobile form/settings views had zero scoped
+axe findings/overflow. This proves local app routing, not public DNS/TLS rollout.
+Remove assignments to revert to main paths; retain all content and financial data.
+
 Current2026-11-04: `feat/miniapp-platform-2026-11-04`, base `5bdc7c93`; continue the existing Site router and the preceding uncommitted Mini App batch. Preserve older-root work, `.serena/` and `public/demo/`. Owner merges/deploys; four later origin/main PR333/334 commits require reconciliation at publication. No dependency, schema, identity, permission-key, API-address or content-row migration.
 
 ## Links reach the final address without a redirect — 2026-11-04

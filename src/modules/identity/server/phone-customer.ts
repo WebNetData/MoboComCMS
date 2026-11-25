@@ -31,10 +31,10 @@ function onlyAccount<T extends { status: string; phone: string }>(rows: T[], pho
 }
 
 /** Read-only preview for the counter: which account a mobile belongs to, without creating one. */
-export async function findPhoneCustomer(raw: unknown) {
+export async function findPhoneCustomer(raw: unknown, reader: Pick<Prisma.TransactionClient, 'user'> = db) {
   const phone = normalizeMobile(raw)
   if (!phone) throw new PhoneCustomerError('شمارهٔ موبایل معتبر نیست')
-  const row = onlyAccount(await db.user.findMany({ where: phoneWhere(phone), take: 3, orderBy: { id: 'asc' }, select: { id: true, name: true, phone: true, email: true, status: true, profileData: true } }), phone)
+  const row = onlyAccount(await reader.user.findMany({ where: phoneWhere(phone), take: 3, orderBy: { id: 'asc' }, select: { id: true, name: true, phone: true, email: true, status: true, profileData: true } }), phone)
   if (!row) return null
   let parts: Record<string, unknown> = {}
   try { parts = JSON.parse(row.profileData || '{}') } catch { /* name only */ }

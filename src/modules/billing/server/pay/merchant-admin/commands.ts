@@ -5,7 +5,7 @@ import { httpsUrl, integer, rial, text } from '@/modules/billing/domain/pay-poli
 import { resolveCurrentUser } from '@/modules/identity/server/access'
 import { userOpensSection } from '@/modules/account/server/section-access'
 import { payAudit, payContext, payTransaction, type PayActor } from '../context'
-import { merchantAdminNote } from './access'
+import { assertMerchantAdministration, merchantAdminNote } from './access'
 import { botKeyHash } from '../bot/integrations'
 
 export function manageMerchant(actor: PayActor, input: Record<string, unknown>) {
@@ -17,7 +17,7 @@ export function manageMerchant(actor: PayActor, input: Record<string, unknown>) 
     await payContext(actor, tx, 'mobocom-pay.manage')
     const row = await tx.payMerchant.findUnique({ where: { id }, include: { terminals: { include: { botIntegration: true } } } })
     if (!row) throw new PayError('پذیرنده پیدا نشد', 404)
-    if (row.userId === actor.id) throw new PayError('مدیریت پذیرندگی خودتان مجاز نیست', 403)
+    await assertMerchantAdministration(actor, row.userId, tx)
     if (row.version !== input.version) throw new PayError('اطلاعات پذیرنده تغییر کرده؛ دوباره بارگذاری کنید', 409)
     const data: { version: { increment: number }; name?: string; website?: string; creditCurrency?: string; status?: string; baleAllowed?: boolean; feeBearer?: string; feeBps?: number | null; flatFeeMinor?: bigint | null; feeCapMinor?: bigint | null } = { version: { increment: 1 } }
     if (action === 'profile') {

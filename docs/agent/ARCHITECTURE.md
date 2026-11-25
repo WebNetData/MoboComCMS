@@ -24,6 +24,15 @@ and current ACTIVE merchant. Existing Admin/AuthZ/Settings/Audit remain owners;
 legacy console URLs redirect and public checkout capability addresses are retained.
 No second auth/service/database; no schema migration. [Evidence and boundaries](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
 
+Merchant enrollment and optional section hosts2026-11-26: canonical full-access
+Admin may self-provision/manage merchant for bot setup; restricted Pay staff may
+not. Independent payment/receipt/settlement review guards remain. Identity phone
+lookup is readonly and exact; Site owns section host Settings/CAS/audit, `/admin/
+sections` edits them, and proxy maps only actual `Host` (never forwarded host) to
+the existing public section base. Existing path aliases/canonical URLs survive;
+auth/dashboard/Admin/checkout/private Pay remain on main origin. No new identity,
+schema, cookie scope, SSO or DNS/TLS provisioning. [Evidence and limits](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+
 Bank transfer2026-11-24: Billing Pay owns immutable SMS/Bale evidence, globally
 unique quote tombstones and reviewed dispositions through its existing address.
 CARD_TRANSFER autoVerify composes existing Invoice/Payment/Wallet/fulfillment and

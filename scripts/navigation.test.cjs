@@ -26,6 +26,24 @@ const { sectionMenuPreset, mergeMenuPreset } = load('src/modules/navigation/doma
 const contact = load('src/modules/site/domain/company-contact')
 const { activeSectionItem } = load('src/modules/navigation/domain/active-section')
 
+test('optional section hosts are explicit unique first-party aliases and retain the main identity origin', () => {
+  const {checkSectionHosts,sectionHostRoute,mainSiteOrigin}=load('src/modules/site/domain/section-hosts')
+  const sections=[{module:'hosting',base:'/cloud'},{module:'hosting',base:'/servers'},{module:'journal',base:'/blog'}],origin='https://mobocom.net'
+  assert.equal(mainSiteOrigin('https://mobocom.net/evil'), '');assert.equal(mainSiteOrigin('https://user@mobocom.net'), '')
+  const hosts=checkSectionHosts({'/cloud':' CLOUD.MOBOCOM.NET ','/blog':''},sections,origin);assert.deepEqual(hosts,{'/cloud':'cloud.mobocom.net'})
+  assert.deepEqual(checkSectionHosts(hosts,sections,'https://www.mobocom.net'),hosts)
+  for(const host of ['evil.net','mobocom.net','www.mobocom.net','https://cloud.mobocom.net','cloud.mobocom.net/path','cloud.mobocom.net:443','*.mobocom.net','mobocom.net.evil.net','-cloud.mobocom.net','cloud..mobocom.net','cloud.mobocom.net.'])assert.throws(()=>checkSectionHosts({'/cloud':host},sections,origin))
+  assert.throws(()=>checkSectionHosts({'/cloud':'cloud.mobocom.net','/blog':'cloud.mobocom.net'},sections,origin),e=>e.status===409)
+  assert.throws(()=>checkSectionHosts({'/admin':'admin.mobocom.net'},sections,origin));assert.throws(()=>checkSectionHosts([],sections,origin))
+  const route=(path,host='cloud.mobocom.net')=>sectionHostRoute({host,path,hosts,sections,origin,aliases:{'/cloud':'/infra'}})
+  assert.deepEqual(route('/'),{kind:'rewrite',path:'/cloud',base:'/cloud',module:'hosting'})
+  for(const path of ['/cloud','/infra'])assert.equal(route(path).path,'/')
+  for(const path of ['/servers','/servers/vps','/cloud/plans','/api/public/products','/_next/image','/logo.svg'])assert.equal(route(path).kind,'pass')
+  for(const path of ['/api/auth/session','/api/auth/callback/credentials','/pay/merchant','/pay/merchant/terminals'])assert.equal(route(path).origin,origin)
+  for(const path of ['/dashboard/cloud','/login','/admin/site','/admin/anything.js','/blog','/blog/a','/cloudish']){assert.equal(route(path).kind,'redirect');assert.equal(route(path).origin,origin)}
+  assert.equal(route('/','mobocom.net'),null);assert.equal(route('/','evil.net'),null);assert.equal(route('/','cloud.mobocom.net@evil.net'),null)
+})
+
 test('cloud menu supplies valid public and member destinations through the shared mega menu', () => {
   const site = load('src/modules/site/config/defaults').defaultSite
   const cloud = site.navigation.filter(link => link.href === '/cloud')

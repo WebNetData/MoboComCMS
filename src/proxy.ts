@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resolvePublicRoute } from '@/modules/site/server/routes'
+import { resolvePublicRoute, loadSectionHosts, loadRouteAliases, routableSections, sectionHostsOrigin } from '@/modules/site/server/routes'
+import { sectionHostRoute } from '@/modules/site/domain/section-hosts'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecache'
 import { installGate } from '@/modules/installer/server/gate'
 import { mutationOrigin } from '@/platform/http/origin-policy'
@@ -72,6 +74,35 @@ export async function proxy(req: NextRequest) {
   const setup = await installGate(req).catch(() => null)
   if (setup) { setup.headers.set('x-request-id', requestId); return setup as NextResponse }
 
+  // Explicit first-party aliases are entry points to the same section, never a
+  // second auth origin. Private navigation returns to the canonical host.
+  let hostRoute: ReturnType<typeof sectionHostRoute> = null
+  const origin = sectionHostsOrigin(), actualHost = req.headers.get('host') || req.nextUrl.host
+  if (origin && actualHost.toLowerCase() !== new URL(origin).host.toLowerCase()) {
+    try {
+      const [{ hosts }, aliases] = await Promise.all([loadSectionHosts(), loadRouteAliases()])
+      hostRoute = sectionHostRoute({ host: actualHost, path: req.nextUrl.pathname, hosts, aliases, sections: routableSections(), origin })
+    } catch {
+      return NextResponse.json({ error: 'تنظیم دامنهٔ بخش در دسترس نیست' }, { status: 503, headers: { 'cache-control': 'no-store' } })
+    }
+    if (hostRoute && !await isModuleEnabled(hostRoute.module)) return NextResponse.json({ error: 'این بخش غیرفعال است' }, { status: 404, headers: { 'cache-control': 'no-store' } })
+    if (hostRoute?.kind === 'redirect') {
+      if (MUTATING_METHODS.has(req.method)) {
+        const refused = NextResponse.json({ error: 'این درخواست را از دامنهٔ اصلی انجام دهید' }, { status: 403 })
+        refused.headers.set('cache-control', 'private, no-store'); refused.headers.set('x-request-id', requestId)
+        applySecurityHeaders(req, refused, nonce)
+        return refused
+      }
+      const target = new URL(hostRoute.origin || new URL(origin).protocol + '//' + actualHost)
+      target.pathname = hostRoute.path
+      target.search = req.nextUrl.search
+      const redirect = NextResponse.redirect(target, 307)
+      redirect.headers.set('cache-control', 'private, no-store'); redirect.headers.set('x-request-id', requestId)
+      applySecurityHeaders(req, redirect, nonce)
+      return redirect
+    }
+  }
+
   // CSRF/Origin guard: state-changing API calls must originate from this site.
   if (
     MUTATING_METHODS.has(req.method) &&
@@ -129,7 +160,7 @@ export async function proxy(req: NextRequest) {
   let canonicalPath = req.nextUrl.pathname
   let redirected = false
   if ((req.method === 'GET' || req.method === 'HEAD') && !NOT_ALIASED.test(req.nextUrl.pathname)) {
-    const decision = await resolvePublicRoute(req.nextUrl.pathname)
+    const decision = hostRoute?.kind === 'rewrite' ? { kind: 'rewrite' as const, path: hostRoute.path } : await resolvePublicRoute(req.nextUrl.pathname)
     if (decision?.kind === 'rewrite') canonicalPath = decision.path
     else if (decision) redirected = true
 
@@ -192,7 +223,7 @@ export async function proxy(req: NextRequest) {
     }
   }
   // Guests get public pages from the page cache (see Optimization in the admin); everything else goes on.
-  if (!redirected && req.method === 'GET' && !NOT_ALIASED.test(req.nextUrl.pathname)) {
+  if (!hostRoute && !redirected && req.method === 'GET' && !NOT_ALIASED.test(req.nextUrl.pathname)) {
     const cached = await pageCacheHandle({
       request: req, canonicalPath, publicPath: req.nextUrl.pathname,
       // The raw address: Next strips `?_rsc=` (client-side navigation) from nextUrl, and those requests must never be cached.
@@ -212,6 +243,12 @@ export async function proxy(req: NextRequest) {
   response ||= NextResponse.next({ request: { headers } })
   response.headers.set('x-request-id', requestId)
   applySecurityHeaders(req, response, nonce)
+  if (hostRoute) {
+    response.headers.set('cache-control', 'private, no-store')
+    // Main-domain URLs remain the indexable canonical publication.
+    response.headers.set('x-robots-tag', 'noindex, follow')
+    if (hostRoute.module === 'mobocom-pay') response.headers.set('referrer-policy', 'no-referrer')
+  }
   return response
 }
 

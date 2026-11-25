@@ -31,6 +31,16 @@ Visual refinement locally verified: financial hierarchy, responsive navigation a
 Admin directory/detail; connected PG, types/static, Doctor0errors/3 warnings and38
 responsive/axe captures. [Scoped evidence/limits](handoffs/MOBOCOM_PAY.md#merchant-workspace-visual-refinement--2026-11-24).
 
+Merchant account and optional section hosts2026-11-26: FUNCTIONAL_LOCAL with
+executed browser evidence. Existing canonical phone enrollment and Admin self-provision
+toggle; Settings-backed first-party host routing through existing Site/proxy owners.
+Connected PostgreSQL suites across all218 migrations, aggregate `npm run check`
+(1141 unit plus connected/other gates) and React Doctor4 affected components pass;
+existing complexity warnings remain. Eight actual1440/390 light/dark form/settings
+views passed scoped axe/overflow; self activation, phone enrollment, bot setup and
+host routing/auth/cookie boundaries were exercised. Production DNS/TLS and live
+providers remain unverified. [Handoff/evidence limits](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+
 Bank operations monitor/reconciliation2026-11-24: FUNCTIONAL_LOCAL. Current
 SMS/Bale readiness and observed traffic, latency/review/pool metrics; paged exact
 invoice assignment, under/over review, late exact admission and canonical receipt/

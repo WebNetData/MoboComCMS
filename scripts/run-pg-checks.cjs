@@ -194,6 +194,8 @@ OPTIONAL_CHECKS.push('pay-bot', 'pay-routing-operations', 'crm-scope-currency', 
 OPTIONAL_CHECKS.push('pay-bale-server', 'pay-bale-collection', 'pay-usdt-equivalent')
 OPTIONAL_CHECKS.push('pay-private-merchants', 'pay-assets')
 OPTIONAL_CHECKS.push('pay-webhooks', 'pay-settlement-center')
+OPTIONAL_CHECKS.push('pay-merchant-account')
+OPTIONAL_CHECKS.push('section-hosts')
 // Real ffprobe/ffmpeg with libx264 (as in the Dockerfile) on MKV/MP4 files the check makes; run on a database copy.
 OPTIONAL_CHECKS.push('found-subtitles')
 const REGISTERED = [...CHECKS, ...OPTIONAL_CHECKS]

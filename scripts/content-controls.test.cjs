@@ -402,7 +402,7 @@ test('origin guard accepts the actual host despite Next localhost normalization 
 })
 
 // Declared configuration seam; the actual permalink owner is exercised against PostgreSQL.
-function sectionRoutes(map = {}) { return { loadRouteAliases: async () => map, resolvePublicRoute: async path => load('src/shared/routing/aliases.ts').routeDecision(path, map) } }
+function sectionRoutes(map = {}) { return { sectionHostsOrigin: () => '', loadRouteAliases: async () => map, resolvePublicRoute: async path => load('src/shared/routing/aliases.ts').routeDecision(path, map) } }
 
 test('middleware publishes sections under their aliases and redirects old addresses', async () => {
   const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': sectionRoutes({ '/games': '/game' }) })
@@ -422,7 +422,7 @@ test('a custom artist permalink retains section maintenance, group access and ca
   let maintenance = true, lock = 'open', cacheReads = 0
   const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED,
     // Native PostgreSQL tests prove these coordinates; this seam isolates the Proxy's decision ordering.
-    '@/modules/site/server/routes': { resolvePublicRoute: async () => ({ kind: 'rewrite', path: '/music/track/banoo-jan' }) },
+    '@/modules/site/server/routes': { ...sectionRoutes(), resolvePublicRoute: async () => ({ kind: 'rewrite', path: '/music/track/banoo-jan' }) },
     '@/modules/site/server/maintenance': { loadMaintenance: async () => m.normalizeMaintenance({ music: { enabled: maintenance } }), maintenanceBases: () => ({ music: ['/music'] }) },
     '@/modules/account/server/section-access': { loadSectionAccess: async () => ({ music: ['vip'] }), sectionLock: async section => { assert.equal(section, 'music'); return lock } },
     '@/modules/identity/server/access': { requireUser: async () => null },

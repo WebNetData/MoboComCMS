@@ -1,3 +1,21 @@
+# Merchant accounts and optional section domains — 2026-11-26
+
+Authoritative `.mobocom/pay-account-domains`, branch
+`feat/pay-account-section-domains-2026-11-26`, base merged mainbac9e4aa/PR491.
+Current slice permits full Admin self merchant setup, primary mobile lookup of
+existing Identity and optional first-party public section hosts in `/admin/sections`.
+Main paths/login/private Pay stay canonical; independent own-money review guards
+remain. Nine owned nonroot PG suites/all218 migrations, full no.env canonical
+check1141/53/4/14, Doctor/scoped scans and actual eight themed responsive/axe views
+plus role/visitor/bot/host/auth/cookie flows passed. No new migration/dependency,
+production build, provider call, PR, destination deployment or hosted workflow.
+Private preview/fixture cleanup is recorded in the handoff. Owner merges/deploys;
+real DNS/TLS/same-app vhost remains required before using a configured subdomain.
+[Implementation/evidence/rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+
+The preceding release notes are historical: PR491 is now merged and stable1.7.22
+was published; this new slice does not rewrite that release or its signed assets.
+
 # Release1.7.22 signed draft / owner merge pending — 2026-11-25
 
 [PR491](https://github.com/WebNetData/MoboComCMS/pull/491) targets main. Ten signed assets uploaded and re-downloaded/hash-verified; original publisher and1.7.21 verifier accept sourcef9689ac1. All local code/PG/build/browser gates passed; private runtime/five DBs/role/tunnel/session fixtures cleaned, app3000 HTTP200. Stable/latest remains1.7.21 until owner merges491. [Exact resume and proof](../docs/agent/handoffs/RELEASE_1_7_22.md#signed-candidate-and-final-owner-gate).
