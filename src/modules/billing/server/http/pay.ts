@@ -9,7 +9,7 @@ import { updateJsonSetting, sectionSettingsRevision } from '@/modules/settings/s
 import { auditAdminStrict } from '@/platform/audit/server'
 import { recordRevision } from '@/modules/content/server/revisions'
 import { normalizePaySettings, text } from '@/modules/billing/domain/pay-policy'
-import { PayError } from '@/modules/billing/domain/pay'
+import { PayError, type PayPaymentView } from '@/modules/billing/domain/pay'
 import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { requirePayPayer, payReceipts, reviewPayReceipt } from '@/modules/billing/server/pay'
 import {
@@ -29,7 +29,6 @@ import {
   payList,
   payPaymentById,
   adminPayOverview,
-  paymentView,
   settlementView,
   merchantView,
   terminalView,
@@ -59,7 +58,7 @@ function csv(items: unknown[], total: number) {
   const columns = items.length ? Object.keys(items[0] as object) : ['id']
   const cell = (v: unknown) =>
     '"' +
-    String(v ?? '')
+    (v && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''))
       .replace(/^[=+\-@\t\r]/, "'$&")
       .replaceAll('"', '""') +
     '"'
@@ -79,6 +78,7 @@ function csv(items: unknown[], total: number) {
     },
   })
 }
+const machinePayment = (row: PayPaymentView) => row.status === 'UNDER_REVIEW' ? { ...row, status: 'PENDING' as const, reviewStatus: 'UNDER_REVIEW' as const } : row
 export async function payHttp(req: NextRequest, context: { params: Promise<{ resource: string[] }> }) {
   try {
     const parts = (await context.params).resource,
@@ -89,8 +89,10 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     if ((await loadMaintenance())['mobocom-pay']?.enabled && !(await requirePerm(req, 'mobocom-pay.manage')))
       throw new PayError('این بخش در حال به‌روزرسانی است', 503)
     await limited('pay:' + actor.id)
-    if (parts.length === 2 && resource === 'payments' && req.method === 'GET')
-      return apiOk(await payPaymentById(actor, parts[1]))
+    if (parts.length === 2 && resource === 'payments' && req.method === 'GET') {
+      const payment = await payPaymentById(actor, parts[1])
+      return apiOk(machine ? machinePayment(payment) : payment)
+    }
     if (parts.length !== 1) return apiErr('پیدا نشد', 404)
     if (req.method === 'GET') {
       if (!machine && resource === 'bot-integrations') return apiOk({ items: await botIntegrations(actor), gateways: await payGatewayOptions() })
@@ -98,12 +100,14 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       if (!machine && resource === 'bot-deliveries') return apiOk({ items: await botDeliveries(actor) })
       if (resource === 'overview') {
         const overview = await payOverview(actor)
-        return apiOk(legacyMachine ? { ...overview, rails: overview.rails.filter(r => ['IRR_BANK','TRX_TRON','USDT_TRON'].includes(r.id)) } : overview)
+        const versioned = { ...overview, payments: overview.payments.map(machinePayment) }
+        return apiOk(legacyMachine ? { ...versioned, rails: overview.rails.filter(r => ['IRR_BANK','TRX_TRON','USDT_TRON'].includes(r.id)) } : machine ? versioned : overview)
       }
       if (resource === 'terminals') return apiOk({ items: (await payOverview(actor)).terminals })
       if (resource === 'payments' || resource === 'settlements') {
         const page = await payList(actor, resource, req.nextUrl.searchParams)
-        return req.nextUrl.searchParams.get('format') === 'csv' ? csv(page.items, page.total) : apiOk(page)
+        const items = machine && resource === 'payments' ? page.items.map(row => row.status === 'UNDER_REVIEW' ? { ...row, status: 'PENDING' as const, reviewStatus: 'UNDER_REVIEW' as const } : row) : page.items
+        return req.nextUrl.searchParams.get('format') === 'csv' ? csv(items, page.total) : apiOk({ ...page, items })
       }
     }
     const input = await readJsonObject(req, 12000)
@@ -114,11 +118,11 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       if (resource === 'merchant' && !machine)
         throw new PayError('ثبت‌نام عمومی پذیرندگان بسته است؛ دسترسی توسط مدیر صادر می‌شود', 403, 'PAY_ENROLLMENT_CLOSED')
       if (resource === 'terminals') return apiOk(terminalView(await createTerminal(actor, input)), 201)
-      if (resource === 'payments')
-        return apiOk(
-          paymentView(await createPayPayment(actor, input, req.headers.get('idempotency-key') || '')),
-          201,
-        )
+      if (resource === 'payments') {
+        const created = await createPayPayment(actor, input, req.headers.get('idempotency-key') || '')
+        const payment = await payPaymentById(actor, created.id)
+        return apiOk(machine ? machinePayment(payment) : payment, 201)
+      }
       if (resource === 'quotes') {
         if (legacyMachine && (!['IRR_BANK','TRX_TRON','USDT_TRON'].includes(String(input.railId)) || input.sourceCurrency !== undefined && input.sourceCurrency !== 'IRR')) throw new PayError('برای شبکه‌ها یا موجودی تتر از نسخهٔ ۲ API استفاده کنید', 422, 'PAY_API_V2_REQUIRED')
         return apiOk(await createPayQuote(actor, input), 201)

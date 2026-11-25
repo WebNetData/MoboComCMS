@@ -146,11 +146,19 @@ async function main() {
     const NativeDate = Date, afterExpiry = late.expiresAt.getTime() + 1000
     try {
       global.Date = class extends NativeDate { constructor(...args) { super(...(args.length ? args : [afterExpiry])) } static now() { return afterExpiry } }
+      assert.equal((await pay.payPaymentById(owner, late.id)).status, 'UNDER_REVIEW')
+      assert.ok((await pay.payList(owner, 'payments', new URLSearchParams('status=UNDER_REVIEW'))).items.some(p => p.id === late.id))
       await pay.reviewPayReceiptByStaff(admin, receipt.id, 'approve', 'Synthetic late review')
-      await assert.rejects(pay.reviewPayReceiptByStaff(admin, receipt.id, 'approve', 'Synthetic duplicate'))
+      const repeated = await pay.reviewPayReceiptByStaff(admin, receipt.id, 'approve', 'Synthetic duplicate')
+      assert.equal(repeated.alreadyPaid, true); assert.equal(repeated.confirmation.method, 'MANUAL')
     } finally { global.Date = NativeDate }
     assert.equal((await db.payPayment.findUniqueOrThrow({ where: { id: late.id } })).status, 'PAID')
     assert.equal((await account()).balanceMinor, 2703n); assert.equal((await account()).withdrawableMinor, 2468n)
+    const projection = await pay.payPaymentById(owner, late.id)
+    assert.equal(projection.creditAmount, '12.34'); assert.equal(projection.creditRial, '12340000'); assert.equal(projection.platformFeeRial, '5678'); assert.equal(projection.settledServiceFeeRial, '0')
+    assert.equal((await pay.payPaymentById(owner, p.id)).confirmation.method, 'BANK')
+    const finance = (await pay.payOverview(owner)).stats
+    assert.equal(finance.creditedRial, '24680000'); assert.equal(finance.platformFeeRial, '11356'); assert.equal(finance.serviceFeeRial, '0')
     assert.equal(await db.walletTx.count({ where: { userId: owner.id, type: 'PAY_CREDIT', currency: 'USDT' } }), 2)
     console.log('Pay assets connected checks passed')
   } finally {

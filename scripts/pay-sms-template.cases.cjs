@@ -2,6 +2,7 @@ const { test } = require('node:test'), assert = require('node:assert/strict')
 const { normalizeSmsTemplate, parseSmsTemplate, parseSmsAmount, smsBankPresets } = require('./connected-source-loader.cjs')()('src/modules/billing/domain/pay-sms-template.ts')
 const { parseBaleAmount } = require('./connected-source-loader.cjs')()('src/modules/billing/domain/pay-bale-amount.ts')
 const { melli } = require('./pay-bale.fixture.cjs')
+const { smsSourceConfig, smsSourceStorage, forwardedSmsIdentity } = require('./connected-source-loader.cjs')()('src/modules/billing/domain/pay-sms-source.ts')
 const config = { bankCode: 'fixture_bank', sender: 'fixture', creditTemplate: 'CREDIT {amount}', debitTemplate: 'DEBIT {amount}', unit: 'IRT', calendar: 'GREGORIAN' }
 test('synthetic bank shapes normalize digits, Arabic letters and whitespace without returning balance', () => {
   const samples = [
@@ -39,4 +40,29 @@ test('Bale amount parser recognizes transfers without using account, balance, or
   assert.equal(parseBaleAmount(melli({ kind: 'سود_پرداخت_شده' })).kind, 'INTEREST')
   assert.equal(parseBaleAmount(melli({ sign: '-' })).kind, 'OTHER')
   assert.equal(parseBaleAmount(melli({ kind: 'نام_ناشناخته' })).kind, 'OTHER')
+})
+test('SMS source storage round trips legacy templates and versioned forwarder templates', () => {
+  const template = normalizeSmsTemplate(config)
+  const legacy = smsSourceStorage(template, 'EXTENDED_V1')
+  assert.deepEqual(JSON.parse(legacy), template)
+  assert.deepEqual(smsSourceConfig(JSON.parse(legacy)), { template, format: 'EXTENDED_V1' })
+  const forwarder = smsSourceStorage(template, 'FORWARDER_V1')
+  assert.deepEqual(JSON.parse(forwarder), { version: 2, format: 'FORWARDER_V1', template })
+  assert.deepEqual(smsSourceConfig(JSON.parse(forwarder)), { template, format: 'FORWARDER_V1' })
+  for (const stored of [legacy, forwarder]) assert.deepEqual(parseSmsAmount(smsSourceConfig(JSON.parse(stored)).template, 'CREDIT 1,234'), { ok: true, amountRial: '12340', direction: 'CREDIT' })
+})
+test('SMS source configuration rejects malformed and unknown wrappers', () => {
+  const valid = { version: 2, format: 'FORWARDER_V1', template: config }
+  for (const input of [null, [], { ...valid, version: 1 }, { ...valid, version: '2' }, { ...valid, format: 'EXTENDED_V1' }, { ...valid, format: 'UNKNOWN' }, { ...valid, extra: true }, { version: 2, template: config }, { version: 2, format: 'FORWARDER_V1' }, { ...valid, template: { ...config, extra: true } }, { ...config, extra: true }, { format: 'FORWARDER_V1', template: config }]) assert.throws(() => smsSourceConfig(input))
+})
+test('forwarded SMS identity normalizes text while isolating sources, banks and distinct messages', () => {
+  const identity = forwardedSmsIdentity('source-a', 'bank-a', '  \u0628\u0627\u0646\u0643 \u0645\u0644\u064a\n\u06f1\u066c\u06f2\u06f3\u06f4  ')
+  assert.equal(identity, forwardedSmsIdentity('source-a', 'bank-a', '\u0628\u0627\u0646\u06a9 \u0645\u0644\u06cc 1,234'))
+  assert.notEqual(identity, forwardedSmsIdentity('source-b', 'bank-a', '\u0628\u0627\u0646\u06a9 \u0645\u0644\u06cc 1,234'))
+  assert.notEqual(identity, forwardedSmsIdentity('source-a', 'bank-b', '\u0628\u0627\u0646\u06a9 \u0645\u0644\u06cc 1,234'))
+  assert.notEqual(identity, forwardedSmsIdentity('source-a', 'bank-a', '\u0628\u0627\u0646\u06a9 \u0645\u0644\u06cc 1,235'))
+  const fromEnvelope = ({ sourceId, bank, message }) => forwardedSmsIdentity(sourceId, bank, message)
+  const envelope = { sourceId: 'source-a', bank: 'bank-a', message: 'CREDIT 123', token: 'first', time: 'old', version: 1 }
+  assert.equal(fromEnvelope(envelope), fromEnvelope({ ...envelope, token: 'second', time: 'new', version: 2 }))
+  assert.deepEqual(JSON.parse(identity).slice(0, 3), ['SMS_FORWARDER_V1', 'source-a', 'bank-a'])
 })

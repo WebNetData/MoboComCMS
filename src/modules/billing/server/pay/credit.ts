@@ -43,7 +43,7 @@ export async function creditPayInvoice(tx: Prisma.TransactionClient, invoiceId: 
     const journal = await tx.payment.findFirst({ where: { invoiceId, provider, status: 'CONFIRMED' }, select: { raw: true } })
     let noticeId = ''
     try { const raw = JSON.parse(journal?.raw || '{}'); if (raw.source === 'auto-card-transfer' && typeof raw.noticeId === 'string') noticeId = raw.noticeId } catch {}
-    const automatic = noticeId && await tx.payBaleNotice.findFirst({ where: { id: noticeId, status: 'ORIGINAL_TRANSFER', direction: 'CREDIT', sourceSentAt: { lte: row.expiresAt } } })
+    const automatic = noticeId && await tx.payBaleNotice.findFirst({ where: { id: noticeId, status: 'ORIGINAL_TRANSFER', direction: 'CREDIT', code: { not: 'SMS_FORWARDER_CREDIT' }, sourceSentAt: { lte: row.expiresAt } } })
     const receipt = await tx.paymentReceipt.findFirst({ where: { invoiceId, status: 'APPROVED', createdAt: { lte: row.expiresAt }, reviewedBy: { not: null } } })
     const bank = await tx.payBankEvent.findFirst({ where: { paymentId: row.id, status: 'MATCHED', occurredAt: { lte: row.expiresAt } } })
     if (!automatic && !receipt && !bank) throw new PayError('زمان واریز خرید تتر نیاز به مدرک بانکی یا رسید بررسی‌شده دارد', 409, 'PAY_PURCHASE_PROOF')

@@ -4,9 +4,16 @@ import { originIsThisSite } from '@/platform/http/origin-policy'
 import { apiOk } from '@/modules/public-api/server/v1'
 import { PayError } from '@/modules/billing/domain/pay'
 import { receiveSmsNotice } from '@/modules/billing/server/pay/sms/intake'
+import { receiveForwardedSms } from '@/modules/billing/server/pay/sms/forwarder'
 import { payHttpFailure } from './pay'
 
 export async function POST_sms(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return smsHttp(req, context, false)
+}
+export async function POST_smsForwarder(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return smsHttp(req, context, true)
+}
+async function smsHttp(req: NextRequest, context: { params: Promise<{ id: string }> }, forwarder: boolean) {
   try {
     const { id } = await context.params
     if (!originIsThisSite(req.headers.get('origin'), req.headers.get('host'))) throw new PayError('مبدأ درخواست مجاز نیست', 403)
@@ -16,6 +23,7 @@ export async function POST_sms(req: NextRequest, context: { params: Promise<{ id
     const reader = req.body?.getReader(), chunks: Uint8Array[] = []; let size = 0
     if (!reader) throw new PayError('پیام دریافت نشد', 422)
     try { while (true) { const part = await reader.read(); if (part.done) break; size += part.value.length; if (size > 24000) { await reader.cancel(); throw new PayError('حجم پیام معتبر نیست', 413) } chunks.push(part.value) } } finally { reader.releaseLock() }
-    return apiOk(await receiveSmsNotice(id, bearer, Buffer.concat(chunks)))
+    const raw = Buffer.concat(chunks)
+    return apiOk(await (forwarder ? receiveForwardedSms(id, raw) : receiveSmsNotice(id, bearer, raw)))
   } catch (error) { return payHttpFailure(error) }
 }

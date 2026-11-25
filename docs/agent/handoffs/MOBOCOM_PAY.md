@@ -1,3 +1,288 @@
+## Publication receipt — 2026-11-25
+
+Owner explicitly requested a PR for all work to date. Fetched origin/main at
+d7f15d6f, confirmed base ancestry and clean aggregate diff, then pushed
+feat/pay-approval-workspace-2026-11-25 and opened
+[PR489](https://github.com/WebNetData/MoboComCMS/pull/489) targeting main, ready for
+owner review. It includes7c85cdfa (approval/fees/multi-Bale),41b8ec46 (SMS Forwarder)
+and aa6489b3 (merchant UX), plus this publication record. Scoped executed evidence,
+reviewed warnings, migration216 and live commissioning boundaries are in the PR
+and the slice records below. No source changed or tests rerun for publication.
+No merge, deployment, provider action or hosted workflow dispatch performed.
+
+## Merchant panel visual upgrade — 2026-11-25
+
+Owner explicitly requests a more professional, attractive merchant panel with
+advanced styling/motion. Continues local41b8ec46 in .mobocom/pay-bale-verification,
+feat/pay-approval-workspace-2026-11-25; local implementation, no PR/push/deploy.
+
+Audit/direction: existing financial owners and visual identity are sound; equal
+weight summaries, dense controls and weak balance/action hierarchy limit scanning.
+Use the existing MoboCom/SDS semantic tokens and Persian typography: a distinctive
+asset balance, quiet precise financial summaries, real daily receipts and accessible
+merchant actions. Native controls, existing statuses/URLs and private shell remain.
+No theme replacement, financial/business rule, API, dependency or migration change.
+
+- MerchantShell/WorkspaceHeader retain their public addresses; header additions are
+  merchant-only. Sidebar gains clearer selected state; mobile has scrollable44px
+  navigation targets. Skip-to-content now actually focuses main (tabIndex=-1).
+- Dashboard.module.css scopes forms, responsive auto-fit fields, aligned search/
+  status/CSV and pagination to the merchant. Loading is a static structural skeleton
+  with status; errors offer real retry and never show fabricated balances.
+- Overview delegates balance, trend and recent payments to three focused parts.
+  The main asset balance preserves separate IRR/USDT values and valuation age,
+  prominent create/settle actions and a restrained static ledger-ring texture.
+  Gross, pending, actual net and platform fee remain distinct server projections.
+  Latest5 payments use actual status, customer collection and net credit; pending
+  credit is explicitly estimated. No invented performance percentages or activity.
+- Chart selection is local display state with native labelled day select, exact
+  Rial values/counts and accessible daily table. SVG is decorative; BigInt scales
+  only a bounded quotient to chart coordinates. Zero/empty and single-day shapes
+  are guarded. Two finite200ms opacity/translate entrances plus short press/hover
+  feedback respect reduced motion; no loops, scroll handlers, blur or money tween.
+- Existing Unslop, baseline/accessibility/motion, UI/UX and selected Vercel guidance
+  were applied under MoboCom/SDS identity. No Storybook configuration or stories
+  exist in this checkout; actual page/state browser evidence is used rather than
+  installing a second preview/component framework.
+
+Executed evidence: isolated copied Next preview, synthetic canonical merchants and
+NOSUPERUSER disposable PostgreSQL; reports/screenshots ignored under
+var/pay-bale-20261124/merchant-style-*.
+
+- Fresh216 migrations and registered pay-assets/pay-shared-checkout native checks
+  PASS. UI flow creates a persisted pending payment and copies its actual URL;
+  USDT/BSC quote shows fee and requires network acknowledgement. Neither action
+  writes another credit: balance and paidCount unchanged before/after UI actions.
+- 36 final captures cover all7 merchant routes at1440/390 light/dark, empty active
+  IRR merchant, daily table, created-link feedback, quote review and Admin settings;
+  plus2 loading/error/retry captures. Relevant main surfaces axe WCAG2A/AA/2.1AA
+  zero violations, no viewport overflow or page errors. Theme/layout screenshots
+  inspected against4 actual before captures. Original custom-mobocom presentation
+  SHA be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df retained.
+  Chart day selection/focus/table, native labels, keyboard skip, reduced-motion
+  contexts and finite normal animation verified. Headless native dropdown arrow
+  selection was unreliable; only actual focus/Tab and selectOption result are
+  claimed, not a fabricated keyboard arrow-selection pass.
+- Anonymous overview401 and merchant Admin overview403 verified. Existing guards
+  remain owners. Initial harness broad text/heading selectors, unsupported/wrong
+  Admin request verbs and native-select assumptions were corrected; the real skip
+  target defect was fixed and rerun. Read-only reviewer found no concrete blocker.
+- Final TypeScript and8 scoped architecture/source/schema parity/money schema+UI/
+  security/Audit/manifest gates PASS. React Doctor10 components:0 errors,39 reviewed
+  warnings. Baseline HEAD copies also39: overview complexity warning eliminated;
+  form handlers, settlement complexity/Date.now and intentional table roles retained.
+  A project-analysis duplicate-table-header candidate matches unchanged existing
+  tables across unrelated modules; no cross-domain abstraction or rule suppression.
+  New balance/trend/recent parts have no diagnostics. CSV download anchors retained.
+- Scoped local one-rule Semgrep10 TS targets and redacted Gitleaks19 final named
+  feature files clean. No whole-repository security/build certification claimed.
+
+Cleanup completed: verified private Next group/TLS tunnel stopped, exact task DB
+and role dropped, synthetic session/source/body/env/TLS/presentation/private files
+and source archive removed, dedicated builder stopped. Shared readiness/session200.
+Remaining: owner review/merge/deployment; no production or live-provider acceptance
+claimed. Rollback is the UI commit only; existing financial rows, source config,
+API contracts, module enablement, migration216 and prior commits are preserved.
+
+## SMS Forwarder three-field intake — 2026-11-25
+
+Continues local7c85cdfa in authoritative `.mobocom/pay-bale-verification`, branch
+`feat/pay-approval-workspace-2026-11-25` / owner-merged main d7f15d6f. Owner supplies
+exact `{sms:"{msg}",bank:"bankmeli",token:"generated"}` and requests simultaneous
+SMS/Bale/manual once-only credit. This slice is local; no push/PR/deploy/workflow.
+
+- Billing owns the additive `POST /api/payment/mobocom-pay/sms-forwarder/{id}`.
+  Strict duplicate-key-safe three-field UTF-8/body validation, current per-source
+  constant-time encrypted credential, bank/mode/operator/module/availability gates,
+  Origin and strict source/IP limits feed the existing durable notice/matcher.
+  Source ID plus normalized decoded bank/SMS hash excludes token/version/time;
+  retries preserve the first immutable receipt timestamp even after source edits.
+- `domain/pay-sms-source` stores explicit FORWARDER_V1 in a version2 wrapper in
+  existing templateJson. Plain six-field old storage remains EXTENDED_V1; old
+  Bearer/four-field endpoint and create/PATCH callers retain their contract.
+  Admin returns a generated token only on creation, plus fixed bank code, HTTPS
+  URL and exact JSON copy controls. No token in query, GET list, Audit or storage
+  outside existing encryption. Accounts/templates/flags use existing Admin owner.
+- No fabricated sender, phone message ID or original bank/device timestamp.
+  Immutable SMS_FORWARDER_* notice codes and Audit SERVER_RECEIPT distinguish the
+  evidence. Review detail labels server receipt accurately. Delivery/confirmation
+  timing excludes forwarder notices, including debit/rejected notices; unavailable
+  time is null, never a zero-latency delivery claim.
+- SMS/Bale/manual converge on existing invoice lock, state claims, Serializable
+  settlement and Wallet idempotency. First valid approval wins; later proof/review
+  cannot add another principal, platform fee, top-up, merchant credit or fulfilment.
+  Customer top-up is principal only; adjustment and merchant fee remain separate.
+- Locked USDT acquisition still requires original-time proof: collection command,
+  credit guard and migration216 exclude SMS_FORWARDER_CREDIT alone. Valid simple
+  intake ACKs received/reviewRequired/PAY_PURCHASE_TIME_REQUIRED without money.
+  Bale/extended SMS or an independently approved timely receipt can resolve it.
+  Migration `20270402120000_pay_sms_forwarder` only replaces the existing deferred
+  links function; manifest updated, no model/column/data rewrite or history reset.
+- Operator must filter exact bank sender in the phone app and forward fresh
+  incoming messages only. A previously unseen old SMS has no distinguishable
+  original timestamp in this contract; unique amount tombstones cannot prove the
+  age of an unrelated historical deposit. This limitation is explicit in UI/docs.
+
+Executed local evidence (task-owned copy, synthetic accounts, NOSUPERUSER isolated
+PostgreSQL; ignored reports/screenshots under `var/pay-bale-20261124/smsf-*`):
+
+- Fresh full216 migrations PASS. Registered native `pay-bale-collection
+  pay-shared-checkout pay-assets` PASS after final source changes: exact3 auth/bank/
+  key/mode/schema, JSON/whitespace retry, version-independent original timestamp,
+  preacceptance/expired notices, debit/rejection, time-basis/null latency, SMS-first,
+  Bale-first, manual-first and concurrent3-way single principal/fee/top-up; USDT
+  exclusion and legacy four-field/multi-Bale/merchant exact-once regressions.
+- Pure SMS/template/collection13 tests PASS. Final TypeScript noEmit PASS; scoped
+  architecture/source/schema parity/money UI+schema/security/Audit/manifest8 gates
+  PASS. Spectral0 findings; oasdiff no breaking changes (OpenAPI1.9 additive).
+  Tracked `sms-forwarder-smoke.hurl`6 actual HTTPS requests PASS (first/retry, wrong
+  bank/key/schema/Origin). Playwright actual HTTP additionally checks permission,
+  no-secret GET, mode preservation and normalized retry.
+- Browser6 actual captures: setup light/dark1440/390 plus mobile monitor/review.
+  Axe WCAG2A/AA/2.1AA scoped surfaces0 violations, no overflow/page errors. Generated
+  URL/token/JSON clipboard checked; screenshots mask token and JSON. Images inspected
+  locally; same approved custom-mobocom presentation SHA be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+  Initial harness locator/preset/Windows clipboard-newline failures corrected;
+  no product financial behavior was weakened to pass them.
+- React Doctor3 affected components:0 errors,1 reviewed existing high-complexity
+  TransferReviewCase warning (only time label changed there). Scoped local one-rule
+  Semgrep15 TS targets clean and redacted Gitleaks31 final named files clean; this
+  is bounded evidence, not comprehensive security certification.
+- Deliberate removal of the application USDT notice-code guard in owned runtime:
+  migration216 constraint rejects the simple-only proof, transaction rolls back,
+  original runtime bytes restored with SHA checks. Prisma5 deferred-COMMIT handling
+  did not surface the expected rejection in the first harness; forcing constraints
+  IMMEDIATE inside the test exposed SQL23514 and the corrected fault run passed.
+  Unmodified app rejects earlier with PAY_PURCHASE_PROOF. Do not describe the first
+  failed fault assertion as a production money write.
+- Populated215-function→216 migration replay PASS with actual reconciled legacy
+  USDT Wallet credit and synthetic invoices/payments/sources/notices/collections:
+  byte-identical history, new proof guard installed. This is a function upgrade
+  check, not a simulated deployment or whole-schema production upgrade.
+
+Remaining: owner deployment applies migration216; real Android app sender filter,
+`{msg}` JSON escaping, foreground/background delivery, actual Bale account login
+and live bank receipts have not run. No real provider/chain or shared production
+DB changed. Next commissioning uses new source/token copied securely in Admin,
+enables both sources on the card-transfer gateway, then controlled fresh SMS/Bale/
+manual order and replay checks. Never forward SMS history or share tokens in chat.
+Rollback: disable source/auto incoming via existing Admin, preserve all rows/amount
+reservations and richer sources; do not reverse216 or downgrade to code that
+cannot read version2 templateJson. Feature removal needs a forward compatibility
+change. Cleanup completed: verified owned Next process group and loopback TLS
+tunnel stopped; exact task DB/NOSUPERUSER role removed; one-time synthetic source
+credentials, body/env files, browser/presentation fixtures, TLS keys and source
+archive removed; dedicated builder stopped. Shared readiness/session both200.
+
+## Merchant approval workspace and fee isolation — 2026-11-25
+
+Owner requests more professional merchant UX, centrally operated automatic Bale/
+SMS confirmation, explicit duplicate-approval feedback and platform-only fees.
+PR488 was owner-merged as main d7f15d6f. Current checkout remains
+`.mobocom/pay-bale-verification`, new branch `feat/pay-approval-workspace-2026-11-25`.
+Local implementation; no new PR/push/deploy or hosted workflow in this slice.
+
+- Existing Billing/Pay invoice lock, Serializable transaction, state claims,
+  canonical Wallet and separate adjustment journal remain the financial owner.
+  Automatic matching now re-reads the collection after its invoice lock. Receipt
+  review/replay returns original confirmation method/source and explicit Persian
+  already-paid feedback after current permission/no-self guards. Reviewing a paid
+  receipt records its review without another credit; repeating it is idempotent.
+- New `pay/payment-view` centralizes the existing projection and held-receipt
+  filters. Manual pending receipts remain UNDER_REVIEW after expiry in lists,
+  counts and checkout. The actual PAID quote outranks a newer unpaid renewal;
+  canonical bank journal proof is labelled BANK, reviewed notice BANK rather than
+  automatic staff action, and automatic SMS/Bale preserves its original source.
+- Displayed customer amount includes actually collected service fee; principal-only
+  manual approval does not invent that fee. Contract fee, collected service fee
+  and USDT rounding are separate from merchant credit. Overview shows credited
+  Rial cost and platform fee separately, preserving legacy statistics. Native
+  cases prove credited amount plus platform fees equals customer collection and
+  that only principal reaches customer top-up/merchant proceeds.
+- `domain/pay-bale-sources` adds bounded server-owned `MOBOCOM_PAY_BALE_SOURCES`
+  (1..32, duplicate-key-safe, <=64KiB) with explicit per-source instance/account/
+  numeric bank peer/destination/operator/signing key/flags. Ambiguous IDs/instances/
+  alias-account or bank mappings fail closed. New query `?source=ID` selects ONLY a
+  configured source; its HMAC and original-message identity are still verified.
+  Legacy env/endpoint remains supported. Current authority and frozen quote binding
+  are rechecked through context/proof; ingress, gateway readiness, status and
+  monitoring use the same registry. Secrets and personal sessions are never exposed
+  to merchant UI or stored in Gateway credentials. No new identity/service/table.
+- Pay receipt queue gains real bounded counters/filter, gross/fee/net and original
+  proof details, paid-review guidance and server feedback. Merchant ledger uses
+  readable mobile rows and exact fee/credit breakdown. Overview separates platform
+  share; Admin lists each server source safely with its dedicated path/readiness.
+  Finance receipts also displays the canonical already-paid message. SDS tokens,
+  existing theme/shell/motion and protected public surfaces remain authoritative.
+- Versioned machine APIs retain closed PENDING/PAID/EXPIRED statuses. Held payments
+  return PENDING plus optional `reviewStatus:UNDER_REVIEW` in v1/v2; native UI keeps
+  UNDER_REVIEW. Idempotent payment creation uses authoritative invoice projection;
+  CSV encodes structured confirmation as JSON. OpenAPI1.8/Hurl updated additively.
+  No schema change or migration beyond existing215.
+
+Executed evidence:
+
+- All215 migrations on an empty disposable NOSUPERUSER PostgreSQL; UID1000 runtime,
+  no `.env`. Final registered native suites `pay-bale-server`, `pay-bale-collection`,
+  `pay-shared-checkout`, `pay-assets`, `pay-bot` all pass, including after populated
+  browser fixtures. Two independent Bale sources, wrong endpoint key, missing ID,
+  disabled/malformed registry and source privacy; bound-bank and changed-instance
+  denial; old quote approved after renewal; manual/automatic/late/concurrent/replay
+  paths; exact principal top-up, USDT rounding, strict Audit rollback and no second
+  Wallet/payment. Sixteen scoped pure cases pass in Linux; host lacked
+  `typescript-api`, so no dependencies were installed to fake a host pass.
+- Full TypeScript and eight architecture/source/schema/money/security/Audit/release
+  gates pass. TLS Hurl8 verifies two-source status/privacy, isolated signatures,
+  late manual-first notice, repeated auto-first receipt and forbidden reviewer;
+  v1/v2 held-state compatibility passes. Spectral0 and flattened oasdiff explicitly
+  reports no breaking changes (exit0 alone was not treated as absence of findings).
+- Actual Playwright22 responsive light/dark captures at1440/390: overview, ledger,
+  held filter, receipt queue/review feedback, two-source configuration and Finance
+  receipts. Axe0, horizontal overflow0 and final page errors0. Real Admin review
+  and replay leave merchant balances/paid count unchanged. Finance's development
+  reload interrupted one capture pass; its remaining four views and interaction
+  were completed in a fresh browser context against the warmed route.
+- Doctor5 affected components:0 errors/44 reviewed warnings.32 concern explicit
+  table/row/cell roles retained for the mobile display:block accessibility tree;
+  other warnings cover existing Finance locale/fetch/image-dialog behavior,
+  component complexity, repeated financial markup and native CSV anchors. No rule
+  suppression; actual browser/a11y checks complement the diagnostic review.
+
+Fixed findings rather than waiving them: receipt-filter contrast, a worker's
+encoding-corrupted new Persian strings (restored with UTF8-safe patches), fixture
+dedicated-card alias/update refusal, an old connected test's empty-history count
+assumption, winning-quote/source/gross display issues, and closed machine-status
+enum compatibility. Existing ledger states/amounts were preserved. Graphify has no
+local graph; Serena initial-instructions request did not complete, so exact source
+and local architecture gates supplied the navigation evidence.
+
+Guidance applied: repo MoboCom audit/spec/develop/contracts, Unslop/UI Skills,
+UI/UX Pro Max and selected Vercel rules under SDS/FRONTEND_QUALITY. No new runtime
+dependency or independent financial platform. Native logs, screenshots and reports
+are ignored under `var/pay-bale-20261124`.
+
+Operational boundary: this is a server-owned GoOmni integration, not an Android
+app or a claim that bot tokens can read personal chats. Real card-owner account
+login, original numeric @bam_bmi identity, delivery/recovery and SMS Forwarder
+payload must still be commissioned privately on the actual server. The updated
+operator guide describes multiple connections and distinguishes configuration
+readiness from live delivery. No live bank/Bale/SMS or chain transfer was run.
+Rollback: disable automatic sources/gateways first, preserve all evidence, quotes,
+amount tombstones and credit history; reverting UI/adapter code never deletes or
+recredits money. A return to single-source configuration needs explicit mapping.
+Final safety evidence: two deliberate runtime-only faults (crediting gross including
+service fee, accepting a replaced frozen source instance) were detected by the
+connected collection suite. Exact source bytes were restored and its baseline
+passed again. Scoped one-rule Semgrep21 source files and redacted Gitleaks41 named
+files report no findings; not a whole-product security certification.
+
+Cleanup completed for the verified private Next group, Windows TLS tunnel, exact
+disposable DB/NOSUPERUSER role, sessions/API-key env/signed bodies/TLS files and source
+archive; dedicated builder stopped. Initial shared readiness/session check hit its
+6s warmup timeout; the separately recorded30s retry returned200 for both endpoints.
+No production build/live source test or hosted workflow dispatch. Screenshots,
+reports and redacted fault logs remain ignored; root/autonomous work is preserved.
+
 ## General channels and selected merchant USDT credit — 2026-11-24
 
 Owner authorizes website/Instagram/channel/standalone collection beyond bots and

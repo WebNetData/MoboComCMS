@@ -1,3 +1,49 @@
+# MoboComPay PR489 opened — 2026-11-25
+
+Owner-authorized publication of the three verified slices below to main:
+[PR489](https://github.com/WebNetData/MoboComCMS/pull/489), branch
+feat/pay-approval-workspace-2026-11-25. Migration216 and private live commissioning
+boundaries are disclosed. Owner merges/deploys; no hosted workflow dispatched.
+[Publication receipt](../docs/agent/handoffs/MOBOCOM_PAY.md#publication-receipt--2026-11-25).
+
+# Merchant panel visual upgrade — 2026-11-25
+
+Continues local41b8ec46 in .mobocom/pay-bale-verification on
+feat/pay-approval-workspace-2026-11-25. Scoped merchant shell/header, distinctive
+asset balance, accurate gross/net/fee hierarchy, day-selectable chart, latest
+payments, form/filter rhythm and finite reduced-motion-aware effects. Existing
+financial/API/theme owners retained. Native PG2, types/gates, Doctor0errors and
+38 actual themed/mobile/state/axe captures pass; baseline warnings reviewed.
+Owned preview/DB/private fixtures cleaned; shared readiness/session200. Local only.
+[Exact evidence, warnings and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-panel-visual-upgrade--2026-11-25).
+
+# SMS Forwarder exact three-field intake — 2026-11-25
+
+Continues local7c85cdfa, `.mobocom/pay-bale-verification`, branch
+`feat/pay-approval-workspace-2026-11-25`. Additive fixed-source sms/bank/token API,
+generated one-time setup URL/JSON, legacy4-field mode preserved, stable immutable
+dedupe and canonical SMS/Bale/manual once-only principal/fee. Server receipt is
+labelled explicitly; locked USDT requires original-time proof. Migration216 only
+tightens the existing proof guard. Fresh216+populated function upgrade, native3 suites,
+units13, types/gates, Hurl6/contracts, Doctor0errors and6 actual browser/axe captures
+pass. DB fault guard verified with runtime restoration; real phone/Bale unverified.
+[Exact evidence, warnings, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
+
+# Merchant approval workspace / fee isolation — 2026-11-25
+
+Continues owner-merged PR488/main d7f15d6f in `.mobocom/pay-bale-verification`, branch
+`feat/pay-approval-workspace-2026-11-25`. Explicit original-source already-paid
+receipt feedback, held-receipt lists, correct actual gross/fee/net projections and
+scoped merchant/Admin UI; bounded multi-account Bale server registry reuses existing
+intake/context/proof/monitoring and preserves legacy binding. Same Billing/Wallet/
+Identity owners, no migration. Fresh215 PG plus final5 native suites and16 units,
+types/scoped gates, Hurl8/compatible contracts and22 actual browser/axe captures
+pass. Real account/source commissioning remains unverified; local only.
+Two deliberate gross-credit/frozen-source faults detected and restored. Scoped
+security clean; owned preview/tunnel/DB/private files cleaned, builder stopped;
+shared readiness/session200 after warmup retry.
+[Sources, evidence, warnings, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-approval-workspace-and-fee-isolation--2026-11-25).
+
 # General channels / selected merchant USDT credit — 2026-11-24
 
 Continues local56a0b7a6 in `.mobocom/pay-bale-verification`, branch

@@ -1,3 +1,71 @@
+## Merchant visual refinement — owner2026-11-25
+
+Refine the existing private merchant experience under MoboCom/SDS identity:
+distinctive IRR/USDT balance, precise gross/net/platform-fee hierarchy, real trend
+and recent payments, compact mobile navigation, forms/filters and finite motion.
+Reuse server projections and canonical private/API owners. Chart selection is
+display-only; no money counters, fake activity or source readiness assertions.
+Keep loading/empty/error/selected/disabled states readable in both themes and RTL,
+native labelled controls, daily table fallback and keyboard content skip.
+Acceptance is actual seven-route1440/390 light/dark plus state/functional browser,
+axe, scoped Doctor/types/gates and existing connected financial checks; no backend,
+dependency, migration, public theme or production deployment scope.
+
+## SMS Forwarder three-field adapter — owner2026-11-25
+
+Owner provides exact JSON `{sms:"{msg}",bank:"bankmeli",token:"generated"}`.
+Add explicit per-source FORWARDER_V1 format and dedicated source-ID endpoint; keep
+EXTENDED_V1 and its Bearer/four-field contract. Reuse generated encrypted source
+credentials, Admin authority, bank/template binding, notice store and shared
+invoice/Wallet/fee settlement. No global bank token or parallel payment path.
+
+Forwarder input has no sender/message ID/original timestamp. Never fabricate those
+facts: mark immutable server-receipt evidence, hash normalized decoded source/bank/
+SMS for stable retries, exclude credentials/version/current time, retain original
+first receipt forever. Accept only current verified operator-filtered fresh SMS
+for the requested amount-only IRR policy. An unseen old SMS remains indistinguishable
+from a fresh one; do not import history. For locked USDT acquisitions, this evidence
+alone cannot establish payment time; existing Bale/extended SMS/approved receipt
+proof remains necessary, enforced in commands and DB links. Valid intake is ACKed
+without credit while waiting for such proof. No relaxed original-time claim.
+
+Acceptance: exact JSON, generated token/clipboard/HTTPS, wrong bank/key/mode,
+semantic/format retries, source version changes, preacceptance and expired notice,
+SMS-first/Bale-first/manual-first/concurrent once-only principal and fee; USDT
+exclusion in command/SQL; unchanged extended source. Connected PG, Hurl/contracts,
+types/gates, affected Doctor and light/dark1440/390 browser/a11y. No actual phone or
+bank delivery claim.
+
+## Merchant approval workspace and fee isolation — owner2026-11-25
+
+Continue merged PR488/main d7f15d6f. Admin controls automatic CARD_TRANSFER and
+trusted server-owned Bale/SMS sources; merchant UI never receives account sessions
+or webhook secrets. Add bounded server configuration for independent card-owner
+Bale accounts while retaining the existing dedicated GoOmni intake and legacy env.
+Original signed identity and current source authority remain mandatory. Matching
+selects only a globally unique reserved amount on its bound destination; first
+valid proof wins the existing invoice lock/CAS, never another credit.
+
+Manual review after automatic confirmation returns explicit original method/source
+and an already-paid message without a new payment/Wallet row. Repeated review is
+idempotent after current reviewer authorization and no-self checks. Late SMS/Bale
+and concurrent manual/automatic arrivals preserve the original method. Display
+proof method and separate gross, contract fee, actually collected service fee,
+rounding and merchant credit in the merchant ledger/Admin receipt queue. Pending
+manual receipts remain UNDER_REVIEW in lists and filters after payment expiry.
+No fee or random adjustment is included in customer top-up or merchant net credit.
+Versioned machine APIs retain their closed PENDING/PAID/EXPIRED statuses; a held
+receipt remains PENDING with additive `reviewStatus:UNDER_REVIEW` in v1/v2. Native
+UI exposes UNDER_REVIEW. CSV serializes nested confirmation as JSON, and idempotent
+create reads the same authoritative invoice/proof projection as payment polling.
+
+Acceptance extends existing connected collection/shared checkout tests with both
+orderings, concurrent source/reviewer races, exact Wallet amounts, explicit replay
+responses and IRR/USDT fee projections. Source registry requires isolated HMAC,
+current bound bank/owner and frozen instance proof; invalid config fails closed.
+Full affected types/gates, Doctor and1440/390 light/dark browser/axe. No live
+account login, provider sending, deployment or hosted workflow is performed.
+
 ## General channels / selected merchant USDT credit — owner2026-11-24
 
 Continue Billing Pay, canonical Identity/Wallet/FX/Settings/Audit/Operations. Owner

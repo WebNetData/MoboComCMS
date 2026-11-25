@@ -32,13 +32,13 @@ export default function ReceiptsPage() {
   useEffect(() => { void load() }, [load])
 
   async function review(receipt: Receipt, action: 'approve' | 'reject') {
-    if (action === 'approve' && !window.confirm(`پرداخت ${money(receipt.amountMinor, receipt.currency)} برای فاکتور ${receipt.invoice.number} تأیید شود؟ سفارش بلافاصله ثبت و تحویل می‌شود.`)) return
+    if (action === 'approve' && !window.confirm(receipt.invoice.status === 'PAID' ? 'این فاکتور قبلاً پرداخت شده است. فقط بررسی رسید ثبت شود؟ اعتبار دوباره‌ای ایجاد نمی‌شود.' : `پرداخت ${money(receipt.amountMinor, receipt.currency)} برای فاکتور ${receipt.invoice.number} تأیید شود؟ سفارش بلافاصله ثبت و تحویل می‌شود.`)) return
     setBusy(receipt.id); setMessage(null)
     const response = await fetch('/api/admin/receipts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: receipt.id, action, note: notes[receipt.id] || '' }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(0)
     if (!response?.ok) { setMessage({ text: data?.error || 'انجام نشد', error: true }); return }
-    setMessage({ text: action === 'approve' ? `پرداخت تأیید شد و سفارش ثبت شد${data.warning ? ` (${data.warning})` : ''}` : 'رسید رد شد و دلیل آن به مشتری اطلاع داده شد', error: false })
+    setMessage({ text: data.message || (action === 'approve' ? `پرداخت تأیید شد و سفارش ثبت شد${data.warning ? ` (${data.warning})` : ''}` : 'رسید رد شد و دلیل آن به مشتری اطلاع داده شد'), error: false })
     void load()
   }
 

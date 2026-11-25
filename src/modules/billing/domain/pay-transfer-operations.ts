@@ -12,7 +12,7 @@ export function transferDifference(actual: bigint, expected: bigint | null): Tra
   return expected === null ? 'UNASSIGNED' : actual === expected ? 'EXACT' : actual < expected ? 'UNDER' : 'OVER'
 }
 export type TransferReviewDetail = {
-  notice: { id: string; source: string; amountRial: string; receivedAt: string; sourceSentAt: string } | null
+  notice: { id: string; source: string; amountRial: string; receivedAt: string; sourceSentAt: string; timeBasis?: 'SERVER_RECEIPT' | 'PHONE_RECEIPT' | 'SOURCE_MESSAGE' } | null
   version: number
   status: TransferReviewState
   difference: TransferDifference

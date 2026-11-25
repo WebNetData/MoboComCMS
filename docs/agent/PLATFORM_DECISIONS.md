@@ -1,3 +1,12 @@
+2026-11-25 owner reiterates central Admin-operated card-transfer confirmation via
+card-owner personal Bale accounts and SMS. First valid proof settles once through
+the existing invoice/Wallet owner; later manual/automatic review must report the
+original confirmation and never credit again. Fees/random additions/USDT rounding
+belong to the platform, outside merchant/customer credit. Independent Bale bindings
+and signing secrets stay server-owned; merchants receive no personal sessions.
+Versioned clients keep closed payment statuses and additive review detail. No
+second wallet, identity, login service or phone app. [Implementation and evidence](handoffs/MOBOCOM_PAY.md#merchant-approval-workspace-and-fee-isolation--2026-11-25).
+
 2026-11-24 owner extends Pay to websites, Instagram, channels and standalone orders,
 with optional selected-merchant internal USDT credit and later Rial/network payout.
 Reuse Billing/Wallet/FX and canonical identity: no parallel wallet, rate service or
@@ -76,6 +85,9 @@ Owner Pay shared-checkout clarification2026-11-23: reuse active compatible MoboC
 Owner Pay navigation2026-11-23: use the independent label «درگاه پرداخت» and organized submenus in account/Admin panels. Preserve MoboCom/SDS identity and canonical shared Wallet; the owner’s wallet question confirmed the existing shared balance with a withdrawable subset. The new request changes presentation/navigation, not withdrawal eligibility or live-provider authorization. [Implementation/evidence](handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23).
 
 ## MoboComPay — owner decisions 2026-11-23
+
+Owner2026-11-25 supplies SMS Forwarder sms/bank/token body and requests simultaneous SMS/Bale/manual first-valid approval. Extend current per-source generated credential/Admin and shared once-only invoice/Wallet settlement; fee never becomes user proceeds. Exact3 mode has only server receipt time, so retain sender-filter/fresh-message commissioning and explicit historical-message limitation. Preserve existing locked-USDT original-time proof requirement; ACK simple evidence without automatically treating it as timely acquisition. [Evidence](handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
+
 
 The owner authorized a merchant API/card-transfer collection service with detailed panel/reporting and fiat/crypto settlement. Clarified: replaceable bank-provider connection (not yet selected), automatic incoming verification, settlements reviewed by an administrator, and additional crypto networks to be named later. Implemented initial rails: IRR bank, TRX/TRON, USDT/TRON; no other network is assumed enabled. Billing/Wallet/canonical Identity and existing shared platform owners remain authoritative. A receipt/reference alone never credits; trusted bank-side target attribution is required. Admin approval is distinct from recording an external transfer; no automatic live payout is authorized or claimed. [Scope, local evidence and continuation](handoffs/MOBOCOM_PAY.md).
 

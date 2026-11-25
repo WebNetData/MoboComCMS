@@ -1,7 +1,7 @@
 import { minorToDecimal } from '@/shared/money'
 import { assetBalances } from './balances'
 import { creditCurrency } from './assets'
-import type { Prisma, PayMerchant, PayPayment, PaySettlement, PayTerminal } from '@prisma/client'
+import type { Prisma, PayMerchant, PaySettlement, PayTerminal } from '@prisma/client'
 import { PayError, type PayMerchantView, type PayPaymentView, type PaySettlementView } from '@/modules/billing/domain/pay'
 import { formatAtoms, merchantFeeTerms, defaults } from '@/modules/billing/domain/pay-policy'
 import { isModuleEnabled } from '@/extensions/server/modules'
@@ -32,41 +32,8 @@ export const merchantView = (row: PayMerchant, proceeds = 0n, settings = default
   proceedsRial: proceeds.toString(),
   createdAt: row.createdAt.toISOString(),
 })
-type CollectionAmounts = { adjustmentRial: bigint; collectedRial: bigint; status: string; expiresAt: Date }
-const collectionProjection = { select: { baleCollections: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { adjustmentRial: true, collectedRial: true, status: true, expiresAt: true } } } }
-function paymentStatusFilter(status: 'PENDING' | 'EXPIRED' | 'UNDER_REVIEW', now: Date): Prisma.PayPaymentWhereInput {
- const held: Prisma.PayPaymentWhereInput = { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'UNDER_REVIEW' } } } } }
- const active: Prisma.PayPaymentWhereInput = { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'PENDING', expiresAt: { gt: now } } } } } }
- const pendingCollection: Prisma.PayPaymentWhereInput = { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'PENDING' } } } } }
- if (status === 'UNDER_REVIEW') return { status: 'PENDING', ...held }
- if (status === 'PENDING') return { status: 'PENDING', AND: [{ NOT: held }, { OR: [active, { AND: [{ NOT: pendingCollection }, { expiresAt: { gt: now } }] }] }] }
- return { status: 'PENDING', AND: [{ NOT: held }, { NOT: active }, { OR: [{ AND: [pendingCollection, { invoice: { is: { baleCollections: { some: { activeInvoiceId: { not: null }, status: 'PENDING', expiresAt: { lte: now } } } } } }] }, { AND: [{ NOT: pendingCollection }, { expiresAt: { lte: now } }] }] }] }
-}
-export const paymentView = (row: PayPayment & { terminal?: { name: string }; invoice?: { baleCollections: CollectionAmounts[] } | null }): PayPaymentView => ({
- creditCurrency: creditCurrency(row.creditCurrency), creditAmount: minorToDecimal(row.creditMinor, row.creditCurrency),
- gatewayAdjustmentRial: row.invoice?.baleCollections[0]?.adjustmentRial.toString() || '0',
- gatewayCollectedRial: row.invoice?.baleCollections[0]?.collectedRial.toString() || row.totalMinor.toString(),
- gatewayCollectionStatus: row.invoice?.baleCollections[0]?.status || '',
-  id: row.id,
-  terminalId: row.terminalId,
-  terminalName: row.terminal?.name || '',
-  externalId: row.externalId,
-  amountRial: row.amountMinor.toString(),
-  feeRial: row.feeMinor.toString(),
-  netRial: row.netMinor.toString(),
-  totalRial: row.totalMinor.toString(),
-  feeBearer: row.feeBearer as PayPaymentView['feeBearer'],
-  status:
- row.status === 'PENDING' && row.invoice?.baleCollections[0]?.status === 'UNDER_REVIEW' ? 'UNDER_REVIEW' :
- row.status === 'PENDING' && (row.invoice?.baleCollections[0]?.status === 'PENDING' ? row.invoice.baleCollections[0].expiresAt : row.expiresAt) < new Date()
-      ? 'EXPIRED'
-      : (row.status as PayPaymentView['status']),
-  transferReference: row.transferReference,
-  createdAt: row.createdAt.toISOString(),
- expiresAt: (row.invoice?.baleCollections[0]?.status === 'PENDING' ? row.invoice.baleCollections[0].expiresAt : row.expiresAt).toISOString(),
-  paidAt: row.paidAt?.toISOString() || null,
-  checkoutUrl: '/pay/' + row.id,
-})
+export { paymentView } from './payment-view'
+import { paymentView, collectionProjection, paymentStatusFilter } from './payment-view'
 export const settlementView = (row: PaySettlement): PaySettlementView => ({
   sourceCurrency: creditCurrency(row.sourceCurrency), sourceAmount: minorToDecimal(row.sourceMinor, row.sourceCurrency), feeCurrency: creditCurrency(row.feeCurrency), feeAmount: row.feeAmount,
   id: row.id,
@@ -98,7 +65,7 @@ export async function payOverview(actor: PayActor) {
       where: { userId_currency: { userId: actor.id, currency: 'IRR' } },
     })
     const where = { merchantId: merchant?.id || '__none__' }
-    const [terminals, payments, settlements, totals, pendingCount, reserved] = await Promise.all([
+    const [terminals, payments, settlements, totals, pendingCount, reserved, collectionFees] = await Promise.all([
       tx.payTerminal.findMany({ where, orderBy: { createdAt: 'desc' } }),
       tx.payPayment.findMany({
         where,
@@ -109,13 +76,17 @@ export async function payOverview(actor: PayActor) {
       tx.paySettlement.findMany({ where, orderBy: { createdAt: 'desc' }, take: 10 }),
       tx.payPayment.aggregate({
         where: { ...where, status: 'PAID' },
-        _sum: { totalMinor: true, feeMinor: true, netMinor: true },
+        _sum: { totalMinor: true, feeMinor: true, netMinor: true, creditRoundingRial: true },
         _count: true,
       }),
  tx.payPayment.count({ where: { ...where, ...paymentStatusFilter('PENDING', new Date()) } }),
       tx.paySettlement.aggregate({
         where: { ...where, sourceCurrency: 'IRR', status: { in: ['REQUESTED', 'APPROVED'] } },
         _sum: { amountMinor: true },
+      }),
+      tx.payBaleCollection.aggregate({
+        where: { status: 'PAID', invoice: { payCollection: { merchantId: merchant.id, status: 'PAID' } } },
+        _sum: { paidCollectedRial: true, principalRial: true },
       }),
     ])
     const trend = []
@@ -145,6 +116,9 @@ export async function payOverview(actor: PayActor) {
       payments: payments.map(paymentView),
       settlements: settlements.map(settlementView),
       stats: {
+        creditedRial: ((totals._sum.netMinor || 0n) - (totals._sum.creditRoundingRial || 0n)).toString(),
+        serviceFeeRial: ((collectionFees._sum.paidCollectedRial || 0n) - (collectionFees._sum.principalRial || 0n)).toString(),
+        platformFeeRial: ((totals._sum.feeMinor || 0n) + (totals._sum.creditRoundingRial || 0n) + (collectionFees._sum.paidCollectedRial || 0n) - (collectionFees._sum.principalRial || 0n)).toString(),
         availableRial: proceeds.toString(),
         walletRial: (wallet?.balanceMinor || 0n).toString(),
         proceedsRial: proceeds.toString(),

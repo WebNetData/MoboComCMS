@@ -923,6 +923,7 @@
     "20270329120000_pay_bale_server",
     "20270330120000_pay_bale_collection",
     "20270331120000_pay_transfer_operations",
-    "20270401120000_pay_channels_assets"
+    "20270401120000_pay_channels_assets",
+    "20270402120000_pay_sms_forwarder"
   ]
 }

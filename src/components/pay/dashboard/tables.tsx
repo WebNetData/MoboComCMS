@@ -7,6 +7,8 @@ import type {
 import { money, date, labels } from "../client";
 import { Field, Badge } from "../shared";
 import s from "../Pay.module.css";
+import m from "./Dashboard.module.css";
+import ledger from "./PaymentLedger.module.css";
 export function SettlementSteps({ status }: { status: string }) {
   if (status === "REJECTED")
     return <p className={s.muted}>درخواست رد شده است</p>;
@@ -39,7 +41,7 @@ export function ListControls({
   kind: string;
 }) {
   return (
-    <div className={`${s.actions} ${s.notice}`}>
+    <div className={`${s.actions} ${s.notice} ${m.filters}`}>
       <Field label="جست‌وجو">
         <input
           value={query}
@@ -87,7 +89,7 @@ export function Pager({
   setPage: (x: number) => void;
 }) {
   return (
-    <div className={s.actions}>
+    <div className={`${s.actions} ${m.pagination}`}>
       <button
         type="button"
         className={s.secondary}
@@ -110,64 +112,51 @@ export function Pager({
     </div>
   );
 }
+const confirmationMethods = { NONE: "تأیید نشده", AUTO: "خودکار", MANUAL: "دستی", BANK: "بانک", PROVIDER: "ارائه‌دهنده" } as const;
+const confirmationSources = { "": "ثبت نشده", SMS: "پیامک", BALE: "بله", BANK: "بانک", STAFF: "کارشناس", PROVIDER: "ارائه‌دهنده" } as const;
+
 export function PaymentTable({ items }: { items: PayPaymentView[] }) {
   return (
-    <div
-      className={`${s.card} ${s.tableWrap}`}
-      role="region"
-      aria-label="فهرست پرداخت‌ها"
-      tabIndex={0}
-    >
-      <table className={s.table}>
-        <thead>
-          <tr>
-            <th>سفارش</th>
-            <th>پایانه</th>
-            <th>مبلغ سفارش</th>
-            <th>پرداخت مشتری</th>
-            <th>کارمزد</th>
-            <th>خالص</th>
-            <th>وضعیت</th>
-            <th>ثبت</th>
-            <th>جزئیات</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div className={`${s.card} ${s.tableWrap} ${ledger.ledger}`} role="region" aria-label="فهرست پرداخت‌ها" tabIndex={0}>
+      <table className={`${s.table} ${ledger.table}`} role="table">
+        <thead role="rowgroup"><tr role="row"><th role="columnheader">سفارش</th><th role="columnheader">پایانه</th><th role="columnheader">مبلغ سفارش</th><th role="columnheader">پرداخت مشتری</th><th role="columnheader">کارمزد پلتفرم</th><th role="columnheader">معادل ریالی اعتبار</th><th role="columnheader">وضعیت</th><th role="columnheader">ثبت</th><th role="columnheader">جزئیات</th></tr></thead>
+        <tbody role="rowgroup">
           {items.map((x) => (
-            <tr key={x.id}>
-              <td>{x.externalId}</td>
-              <td>{x.terminalName}</td>
-              <td>{money(x.amountRial)}</td>
-              <td>{money(x.totalRial)}</td>
-              <td>{money(x.feeRial)}</td>
-              <td>{money(x.netRial)}</td>
-              <td>
-                <Badge value={x.status} />
-              </td>
-              <td>{date(x.createdAt)}</td>
-              <td>
-                <details className={s.details}>
+            <tr key={x.id} role="row">
+              <td role="cell" data-label="سفارش"><bdi>{x.externalId}</bdi></td>
+              <td role="cell" data-label="پایانه">{x.terminalName}</td>
+              <td role="cell" data-label="مبلغ سفارش">{money(x.amountRial)}</td>
+              <td role="cell" data-label="پرداخت مشتری">{money(x.customerAmountRial ?? x.totalRial)}</td>
+              <td role="cell" data-label="کارمزد پلتفرم">{money(x.platformFeeRial ?? x.feeRial)}{x.status !== "PAID" && <small className={ledger.hint}>برآورد</small>}</td>
+              <td role="cell" data-label="معادل ریالی اعتبار" className={ledger.net}>{money(x.creditRial ?? x.netRial)}</td>
+              <td role="cell" data-label="وضعیت"><Badge value={x.status} /></td>
+              <td role="cell" data-label="ثبت">{date(x.createdAt)}</td>
+              <td role="cell" data-label="جزئیات">
+                <details className={`${s.details} ${ledger.details}`}>
                   <summary>مشاهده جزئیات</summary>
                   <dl>
-                    <dt>شناسه پرداخت</dt>
-                    <dd className={s.ltr}>{x.id}</dd><dt>صفحهٔ مشتری</dt><dd><Link href={x.checkoutUrl}>مشاهده لینک پرداخت</Link></dd>{x.creditAmount && <><dt>اعتبار ثبت‌شدنی پذیرنده</dt><dd><bdi>{x.creditAmount} {x.creditCurrency}</bdi></dd></>}
-                    <dt>کارمزد بر عهده</dt>
-                    <dd>{x.feeBearer === 'CUSTOMER' ? 'مشتری' : 'پذیرنده'}</dd>
- {x.gatewayCollectionStatus && <><dt>هزینهٔ خدمت درگاه</dt><dd>{money(x.gatewayAdjustmentRial || '0')}</dd><dt>مبلغ درخواستی واریز</dt><dd>{money(x.gatewayCollectedRial || x.totalRial)}</dd></>}
-                    <dt>شناسه پیگیری انتقال</dt>
-                    <dd className={s.ltr}>{x.transferReference || "—"}</dd>
-                    <dt>زمان ثبت</dt>
-                    <dd>{date(x.createdAt)}</dd>
-                    <dt>زمان پرداخت</dt>
-                    <dd>{x.paidAt ? date(x.paidAt) : "—"}</dd>
+                    <dt>شناسه پرداخت</dt><dd className={s.ltr}>{x.id}</dd>
+                    <dt>صفحهٔ مشتری</dt><dd><Link href={x.checkoutUrl}>مشاهده لینک پرداخت</Link></dd>
+                    {x.confirmation && <><dt>روش تأیید پرداخت</dt><dd>{confirmationMethods[x.confirmation.method]}</dd><dt>منبع تأیید</dt><dd>{confirmationSources[x.confirmation.source]}</dd></>}
+                    <dt>کارمزد قرارداد پرداخت</dt><dd>{money(x.feeRial)}</dd>
+                    {x.settledServiceFeeRial != null && <><dt>کارمزد خدمت وصول‌شده</dt><dd>{money(x.settledServiceFeeRial)}</dd></>}
+                    {x.platformFeeRial != null && <><dt>مجموع کارمزد پلتفرم{x.status !== "PAID" ? " (برآورد)" : ""}</dt><dd>{money(x.platformFeeRial)}</dd></>}
+                    <dt>معادل ریالی اعتبار پذیرنده</dt><dd>{money(x.creditRial ?? x.netRial)}</dd>
+                    {x.creditAmount && <><dt>اعتبار پذیرنده</dt><dd><bdi>{x.creditAmount} {x.creditCurrency}</bdi></dd></>}
+                    <dt>کارمزد بر عهده</dt><dd>{x.feeBearer === "CUSTOMER" ? "مشتری" : "پذیرنده"}</dd>
+                    {x.gatewayCollectionStatus && <><dt>هزینهٔ خدمت درگاه</dt><dd>{money(x.gatewayAdjustmentRial || "0")}</dd><dt>مبلغ درخواستی واریز</dt><dd>{money(x.gatewayCollectedRial || x.totalRial)}</dd></>}
+                    <dt>شناسه پیگیری انتقال</dt><dd className={s.ltr}>{x.transferReference || "—"}</dd>
+                    <dt>زمان ثبت</dt><dd>{date(x.createdAt)}</dd>
+                    <dt>زمان پرداخت</dt><dd>{x.paidAt ? date(x.paidAt) : "—"}</dd>
                   </dl>
+                  <p className={ledger.explanation}>کارمزد پلتفرم در اعتبار پذیرنده لحاظ نمی‌شود</p>
                 </details>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {!items.length && <p>موردی یافت نشد.</p>}
+      {!items.length && <p className={ledger.empty}>پرداختی با این شرایط یافت نشد</p>}
     </div>
   );
 }
