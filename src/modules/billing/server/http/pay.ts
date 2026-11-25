@@ -12,6 +12,7 @@ import { normalizePaySettings, text } from '@/modules/billing/domain/pay-policy'
 import { PayError, type PayPaymentView } from '@/modules/billing/domain/pay'
 import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { requirePayPayer, payReceipts, reviewPayReceipt } from '@/modules/billing/server/pay'
+import { payCenterGet, payCenterWrite } from './pay-center'
 import {
   enrollMerchant,
   merchantDirectory, merchantAdminDetail, manageMerchant,
@@ -89,6 +90,7 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     if ((await loadMaintenance())['mobocom-pay']?.enabled && !(await requirePerm(req, 'mobocom-pay.manage')))
       throw new PayError('این بخش در حال به‌روزرسانی است', 503)
     await limited('pay:' + actor.id)
+    if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource); if (center) return center }
     if (parts.length === 2 && resource === 'payments' && req.method === 'GET') {
       const payment = await payPaymentById(actor, parts[1])
       return apiOk(machine ? machinePayment(payment) : payment)
@@ -111,6 +113,8 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       }
     }
     const input = await readJsonObject(req, 12000)
+    const center = await payCenterWrite(actor, resource, req.method, input)
+    if (center) return center
     if (!machine && req.method === 'POST' && resource === 'bot-routing') return apiOk(await saveBotRouting(actor, input))
     if (!machine && req.method === 'POST' && resource === 'bot-integrations') return apiOk(await saveBotIntegration(actor, input))
     if (!machine && req.method === 'POST' && resource === 'bot-deliveries') return apiOk(await recoverBotDelivery(actor, input))
@@ -158,6 +162,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     const actor = await payActor(req),
       { resource } = await context.params
     await limited('pay-admin:' + actor.id)
+    if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource, true); if (center) return center }
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
     if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
     if (req.method === 'GET' && resource === 'bale-status') return apiOk(await baleSourceStatus(actor, req.nextUrl.searchParams.get('page'), req.nextUrl.searchParams.get('collectionsPage')))
@@ -171,6 +176,8 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       return apiOk(id ? number ? await transferReviewSearch(actor, id, number) : await transferReviewDetail(actor, id) : await transferReviewQueue(actor, req.nextUrl.searchParams))
     }
     const input = await readJsonObject(req, 16000)
+    const center = await payCenterWrite(actor, resource, req.method, input, true)
+    if (center) return center
     if (req.method === 'POST' && resource === 'merchant-directory') return apiOk({ id: (await enrollMerchant(actor, input)).id }, 201)
     if (req.method === 'PATCH' && resource === 'merchant-directory') return apiOk(await manageMerchant(actor, input))
     if (req.method === 'PATCH' && resource === 'transfer-reviews') return apiOk(await decideTransferReview(actor, input))

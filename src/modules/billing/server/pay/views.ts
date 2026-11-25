@@ -35,6 +35,10 @@ export const merchantView = (row: PayMerchant, proceeds = 0n, settings = default
 export { paymentView } from './payment-view'
 import { paymentView, collectionProjection, paymentStatusFilter } from './payment-view'
 export const settlementView = (row: PaySettlement): PaySettlementView => ({
+  version: row.version, scheduledFor: row.scheduledFor?.toISOString() || null, destinationLabel: row.destinationLabel,
+  requiresSecondApproval: row.requiresSecondApproval, approvalThresholdRial: row.approvalThresholdRial.toString(),
+  approvedById: row.approvedById, firstApprovedAt: row.firstApprovedAt?.toISOString() || null,
+  secondApprovedById: row.secondApprovedById, secondApprovedAt: row.secondApprovedAt?.toISOString() || null,
   sourceCurrency: creditCurrency(row.sourceCurrency), sourceAmount: minorToDecimal(row.sourceMinor, row.sourceCurrency), feeCurrency: creditCurrency(row.feeCurrency), feeAmount: row.feeAmount,
   id: row.id,
   amountRial: row.amountMinor.toString(),

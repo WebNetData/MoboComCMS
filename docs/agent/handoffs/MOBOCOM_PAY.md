@@ -1,3 +1,128 @@
+## Generic webhooks and settlement center — 2026-11-25
+
+Scope: owner accepted recommendations1/2 after PR489. Authoritative checkout
+.mobocom/pay-bale-verification, branch feat/pay-webhooks-settlement-center-2026-11-25,
+base owner-merged main9b345399. This is local implementation; no push, PR, deploy,
+hosted workflow or real provider/chain action. Prior records below remain historical.
+
+Owners and files:
+- Billing domain/pay-webhooks and server/pay/webhooks/{admin,delivery}, credit,
+  outbound and thin bot transport retain one financial owner. PAID+paidAt+Wallet
+  facts are re-read before an immutable payment.paid v1 raw JSON/hash/event ID
+  and Operations job intent are committed with credit. Exact stored order/total/
+  contract fee/net credit only; no early collection proof or payer private fields.
+- Per-terminal encrypted generated key is shown once on creation/rotation; URL
+  and version are claimed. Worker uses HMAC-SHA256(timestamp+'.'+raw body), stable
+  event/body, unique attempt ID,8 attempts per cycle, exponential delay,120s lease
+  and125s durable recovery. UNKNOWN history retains interrupted deliveries;
+  an old completion token cannot overwrite a subsequent attempt. No delivery
+  command changes money or fulfillment. Receiver MUST deduplicate event ID.
+- Current module/API/merchant/User/terminal/global standing/section/maintenance/
+  endpoint authority rechecked before each claim. Account's canonical section
+  resolver accepts an opt-in fresh read which fails closed on read failure;
+  no new AuthZ resolver. DNS all-answer public check and pinned HTTPS/TLS transport
+  extracted from bot: no redirect/proxy/query credential,5s DNS/12s request/16KiB
+  response bounds. Remote body/errors and credentials never enter history/Audit.
+- Changed config pauses old bindings. Explicit redelivery requires current
+  delivery AND endpoint versions plus replay acknowledgment. Same immutable event
+  rebinds current URL/key; each completed attempt retains its historical target.
+  Admin may pause/replay under mobocom-pay.manage, never read a signing secret.
+  Independent25-row endpoint pagination and current delivery-binding projection
+  avoid losing access past the original100-row directory bound; last20 attempts
+  are displayed while all attempt rows remain stored.
+- Existing settlements address split into quotes/request/decisions/validation;
+  settlement-center parts own profiles, queue/batches and receipts. Profile
+  address/asset/network/owner immutable; label/active version-claimed. Requests
+  snapshot profile ID/version/label and exact destination. Legacy inline requests
+  and idempotency fingerprint are preserved without optional new fields.
+- UTC scheduledFor up to30 days reserves the source asset immediately at accepted
+  quote/fees. Before due: approve/pay denied, reject releases original asset once.
+  New Settings settlementApprovalThresholdRial defaults0 and applies to new
+  requests only, freezing threshold/revision/dual flag from quote Rial amount.
+  First dual approval stays REQUESTED; a different currently authorized staff
+  member moves it APPROVED. No merchant self-review. SQL freezes approval IDs/
+  times and schedule/profile/policy facts; state+version claims fence races.
+- Admin due/scheduled/second/approved queue, max25 unique per-item approve/reject
+  results, individual paid reference, owner/staff-only JSON or escaped HTML
+  attachment. Receipt distinguishes unpaid state from recorded transfer; nonce
+  CSS, private no-store, sandbox CSP and print styles; it never executes payment.
+- Merchant/Admin route/navigation/settings/UI use existing SDS semantic tokens,
+  Persian typography, scoped CSS and both themes. Native labelled forms, explicit
+  reserve-now/fees/network review, local-time→UTC schedule validation and live
+  quote expiry; safe one-time-key clipboard feedback. Finite200ms opacity/transform
+  entrances respect reduced motion. Protected public presentation retained.
+- Both Prisma schemas + manifest add217, new registered pay-webhooks and
+  pay-settlement-center native fixtures; standalone pay-center-upgrade.connected
+  requires an EMPTY disposable database. OpenAPI1.10 adds signed callback schema,
+  session-only operational routes and existing settlement optional fields.
+
+Executed local evidence (ignored reports under var/pay-bale-20261124/pay-center-*
+and pay-webhooks-*; isolated copied Next3140, synthetic canonical users, UID1000,
+NOSUPERUSER PostgreSQL, own generated Prisma5.22, no project .env):
+- Fresh all217 migrations PASS. Standalone pay-center-upgrade.connected PASS on a
+  second exact disposable database: deploy216, seed requested/approved/paid legacy
+  settlements and reserved IRR/USDT balances, deploy217. All prior columns/amounts/
+  states byte-equivalent; no invented approvals, old approved request completable.
+- Registered pay-webhooks PASS: atomic intent/HMAC, private key and remote-body
+  exclusion, duplicate paid event, immutable payload and attempt targets,
+  acknowledged replay/current-config race,8 retries, fresh cross-client section
+  revocation/Admin pause, crash/unknown lease and stale completion fencing;
+  deliberate Audit exception after intent proves credit+intent rollback. Final
+  added directory pagination verifies nonoverlapping pages/current bindings.
+- Registered pay-settlement-center PASS: immediate reserve/schedule/idempotency,
+  stale profile/ownership/immutability, direct SQL before-due denial, exact once-only
+  rejection release, concurrent first approvals/independent second review in app
+  and SQL, changed policy preserves old snapshot, individual completion/reference,
+  legacy no-version approval, receipt privacy and batch per-item stale outcomes.
+  Final legacy pay-assets/pay-shared-checkout/pay-bot PASS; earlier same-slice
+  pay-bale-collection PASS. Existing bot+SMS pure32 tests PASS; no live DNS receiver
+  or bank mock result is represented as external acceptance.
+- Final TypeScript noEmit and8 architecture/source/schema parity/money schema+UI/
+  security/Audit/release-manifest gates PASS. Spectral0 findings, oasdiff reports
+  no breaking changes; tracked center-smoke.hurl12 actual HTTPS requests PASS:
+  secret-free overview, schedule queue, owner receipt JSON/HTML headers, visitor/
+  staff/merchant denial, replay acknowledgment, bad Origin/private URL and no
+  bulk-paid command. Browser also verifies one-time key/reload, profile rename,
+  real scheduled USDT reserve, independent two-Admin approval and paid receipt.
+- Actual19 functional themed/mobile/state captures plus16 final four-route
+ 1440/390 light/dark captures: main WCAG2A/AA/2.1AA axe0, no viewport overflow or
+  page errors. Final screenshots visually inspected. Existing custom-mobocom
+  presentation SHA be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df
+  retained. No Storybook project exists; no new preview framework installed.
+- React Doctor9 affected components:0 errors,8 reviewed warnings. Existing Admin
+  branch complexity/settings array lookup; settlement component complexity and
+  intentional client API form preventDefault; incidental metrics/table JSX
+  similarity across separate views. New hydration-time/clipboard/selection-loop
+  warnings fixed without suppression. One-rule scoped Semgrep and redacted named-
+  diff Gitleaks clean; this is not a whole-repository security certification.
+- Earlier harness failures corrected: migration IF/CASE syntax, fixture IBAN/
+  nonexistent historical paidAt column, Audit fault hook action, API guide YAML
+  flow-comma quoting, Hurl expected receipt title/default422, directory synthetic
+  channel and coexistence counts. A failed command was not counted as passing.
+  Graphify source graph was absent; source/Serena evidence used, no graph proof.
+
+Release/rollback limits:217 adds state guards requiring the matching settlement
+writer, so an old application-only rollback is NOT safe for settlement writes.
+Owner release must pause settlement writes/workers, take a verified backup, apply
+manifest migration and deploy matching source before resuming. Disable webhook
+endpoints/new scheduling/dual-threshold to halt new work; retain all money/events/
+profiles and the compatible writer. Full downgrade requires coordinated restore
+or a separately reviewed forward compatibility migration, never drop money rows.
+No real receiving service, Bale/SMS source or chain payout is commissioned here.
+An already claimed outbound HTTP request cannot be retracted by later revocation;
+at-least-once handling is mandatory. Receipt records staff-entered reference, not
+independent bank/chain verification. Next step is owner review/PR, then private
+deployment and synthetic receiver/retry/receipt commissioning with real secrets
+kept outside Git/chat.
+
+Cleanup completed: verified private Next3140 process group and task TLS tunnel
+stopped; exact task DB/role and second upgrade DB removed. Session/env/body/source/
+presentation/TLS fixtures and archive cleaned, public SQL scratch removed, dedicated
+builder stopped. Shared original app readiness/session both200; shared database
+and protected presentation preserved. Scoped security scanned38 source targets and
+61 named feature files, no findings. No live credentials or screenshots with keys
+are staged.
+
 ## Publication receipt — 2026-11-25
 
 Owner explicitly requested a PR for all work to date. Fetched origin/main at

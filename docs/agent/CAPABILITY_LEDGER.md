@@ -1,3 +1,12 @@
+Pay webhooks/settlement center2026-11-25: FUNCTIONAL_LOCAL; LIVE_RECEIVER_UNVERIFIED.
+Signed at-least-once durable delivery/recovery, paged endpoint directory and immutable
+attempt targets; saved destinations, immediate scheduled reserve, distinct dual
+approvals, per-item batches and private receipts. Fresh217/populated216→217 and
+new/legacy native PG checks pass; types/scoped gates,12 HTTPS Hurl requests,
+compatible OpenAPI and actual19 functional+16 final themed/mobile/axe captures.
+Doctor0errors/8 reviewed warnings. No live payout or receiver certification.
+[Exact evidence, warnings, cleanup and rollback](handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 Private merchant portal/Admin2026-11-24: FUNCTIONAL_LOCAL. Existing ACTIVE
 membership gates pages/session/machine reads; public enrollment closed. Scoped
 workspace, canonical login, Admin provisioning/lifecycle/profile/fees/source/

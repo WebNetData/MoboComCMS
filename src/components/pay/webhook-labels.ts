@@ -1,0 +1,1 @@
+export const webhookLabels: Record<string,string> = { PENDING: 'در صف ارسال', SENDING: 'در حال ارسال', RETRY: 'تلاش مجدد', DELIVERED: 'تحویل‌شده', FAILED: 'ناموفق', PAUSED: 'متوقف', STARTED: 'آغاز تلاش', UNKNOWN: 'نتیجه نامشخص' }

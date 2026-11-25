@@ -8,6 +8,7 @@ const merchant = [
   ["settlements", "تسویه‌ها", "bank"],
   ["terminals", "پایانه‌ها", "terminal"],
   ["operations", "عملیات ربات", "activity"],
+  ["webhooks", "وبهوک‌ها", "globe"],
   ["reports", "گزارش‌ها", "chart"],
   ["api", "اتصال API", "code"],
 ];
@@ -15,6 +16,7 @@ const admin = [
   ["overview", "نمای کلی", "layout"],
   ["operations", "پایش دریافت‌ها", "activity"],
   ["reconciliation", "میز مغایرت‌ها", "receipt"],
+  ["webhooks", "وبهوک‌ها", "globe"],
   ["merchants", "پذیرندگان", "users"],
   ["settlements", "تسویه‌ها", "bank"],
   ["payments", "پرداخت‌ها", "receipt"],

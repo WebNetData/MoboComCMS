@@ -38,7 +38,7 @@ export async function loadSectionAccess(fresh = false): Promise<SectionAccess> {
     return state
   } catch (error) {
     // A failed read keeps the limits last seen: it never opens a limited section.
-    if (held) return held.state
+    if (held && !fresh) return held.state
     throw error
   }
 }
@@ -58,8 +58,8 @@ export async function saveSectionAccess(input: unknown, context?: SectionSetting
 }
 
 /** What a section says to a visitor. `who` is asked only when the section is limited. */
-export async function sectionLock(section: MaintenanceSectionId, who: () => Promise<(Pick<ViewerAccount, 'id' | 'role'> & { roleId?: number | null; permissions: readonly string[] | null }) | null>): Promise<SectionLock> {
-  const keys = (await loadSectionAccess())[section]
+export async function sectionLock(section: MaintenanceSectionId, who: () => Promise<(Pick<ViewerAccount, 'id' | 'role'> & { roleId?: number | null; permissions: readonly string[] | null }) | null>, fresh = false): Promise<SectionLock> {
+  const keys = (await loadSectionAccess(fresh))[section]
   if (!keys?.length) return 'open'
   const account = await who()
   if (!account) return 'login'
@@ -67,4 +67,5 @@ export async function sectionLock(section: MaintenanceSectionId, who: () => Prom
   return (await siteGroupsOf(account.id, keys)).length ? 'open' : 'refused'
 }
 
-export const userOpensSection = async (section: MaintenanceSectionId, userId: number | null | undefined) => await sectionLock(section, async () => (userId ? accountOf(userId) : null)) === 'open'
+/** Fresh checks bypass the proxy cache and fail closed for outbound capability claims. */
+export const userOpensSection = async (section: MaintenanceSectionId, userId: number | null | undefined, fresh = false) => await sectionLock(section, async () => (userId ? accountOf(userId) : null), fresh) === 'open'

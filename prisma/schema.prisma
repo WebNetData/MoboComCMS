@@ -106,6 +106,7 @@ model User {
   payMerchant PayMerchant?
   payApprovals PaySettlement[] @relation("PayApprover")
   payCompletions PaySettlement[] @relation("PayCompleter")
+  paySecondApprovals PaySettlement[] @relation("PaySecondApprover")
   walletAccounts WalletAccount[]
   apiKeys        ApiKey[]
   reseller       Reseller?
@@ -5922,6 +5923,7 @@ model PayMerchant {
   payments PayPayment[]
   quotes PaySettlementQuote[]
   settlements PaySettlement[]
+  settlementDestinations PaySettlementDestination[]
 }
 
 model PayTerminal {
@@ -5929,6 +5931,7 @@ model PayTerminal {
   channelUrl String @default("")
   baleEnabled Boolean @default(false)
   botIntegration PayBotIntegration?
+  webhookEndpoint PayWebhookEndpoint?
   id String @id
   merchantId String
   name String
@@ -5953,6 +5956,7 @@ model PayPayment {
   purchaseAcceptedHash String @default("")
   purchaseAcceptedAt DateTime?
   botDelivery PayBotDelivery?
+  webhookDelivery PayWebhookDelivery?
   id String @id
   merchantId String
   terminalId String
@@ -6042,6 +6046,19 @@ model PaySettlementQuote {
 }
 
 model PaySettlement {
+  version Int @default(0)
+  scheduledFor DateTime?
+  destinationProfileId String?
+  destinationVersion Int @default(0)
+  destinationLabel String @default("")
+  requiresSecondApproval Boolean @default(false)
+  approvalThresholdRial BigInt @default(0)
+  approvalPolicyRevision String @default("")
+  firstApprovedAt DateTime?
+  secondApprovedById Int?
+  secondApprovedAt DateTime?
+  secondApprovedBy User? @relation("PaySecondApprover", fields: [secondApprovedById], references: [id], onDelete: Restrict)
+  destinationProfile PaySettlementDestination? @relation(fields: [destinationProfileId], references: [id], onDelete: Restrict)
   sourceCurrency String @default("IRR")
   sourceMinor BigInt @default(0)
   sourceRateRial String @default("1")
@@ -6251,4 +6268,78 @@ model PayTransferReview {
   reviewer User @relation(fields:[reviewedBy], references:[id], onDelete:Restrict)
   @@index([status,reviewedAt])
   @@index([collectionId])
+}
+
+model PayWebhookEndpoint {
+  id String @id
+  terminalId String @unique
+  url String
+  secretCiphertext String
+  active Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
+  deliveries PayWebhookDelivery[]
+}
+
+model PayWebhookDelivery {
+  id String @id
+  endpointId String
+  paymentId String @unique
+  configVersion Int
+  url String
+  secretCiphertext String
+  payloadJson String
+  payloadHash String
+  status String @default("PENDING")
+  version Int @default(0)
+  attempts Int @default(0)
+  cycleAttempts Int @default(0)
+  attemptToken String @default("")
+  leaseExpiresAt DateTime?
+  nextAttemptAt DateTime @default(now())
+  lastCode String @default("")
+  httpStatus Int?
+  deliveredAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  endpoint PayWebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Restrict)
+  payment PayPayment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  history PayWebhookAttempt[]
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
+}
+
+model PayWebhookAttempt {
+  configVersion Int
+  url String
+  id String @id
+  deliveryId String
+  token String @unique
+  number Int
+  status String @default("STARTED")
+  code String @default("")
+  httpStatus Int?
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  delivery PayWebhookDelivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  @@unique([deliveryId, number])
+}
+
+model PaySettlementDestination {
+  id String @id
+  merchantId String
+  label String
+  railId String
+  asset String
+  network String
+  destination String
+  active Boolean @default(true)
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  settlements PaySettlement[]
+  @@index([merchantId, active])
 }

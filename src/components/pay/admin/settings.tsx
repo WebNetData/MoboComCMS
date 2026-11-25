@@ -103,6 +103,8 @@ export default function Settings({
  </div>
  </fieldset>
       <h3>مسیرهای تسویه</h3>
+      <Field label="آستانهٔ تأیید دو مدیر (ریال؛ صفر یعنی غیرفعال)"><input dir="ltr" inputMode="numeric" value={settings.settlementApprovalThresholdRial} onChange={e => update({ settlementApprovalThresholdRial: e.target.value })} /></Field>
+      <p className={s.muted}>برای درخواست‌های جدید با مبلغ معادل ریالی برابر یا بالاتر از آستانه، تأیید دو مدیر متفاوت لازم است. سیاست هر درخواست هنگام رزرو ثبت می‌شود.</p>
       <Field label="حداکثر عمر نرخ USDT (دقیقه، ۱۵ تا ۱۴۴۰)"><input dir="ltr" type="number" min={15} max={1440} value={settings.usdtRateMaxAgeMinutes ?? 60} onChange={e => { const raw = e.target.value; const value = Number(raw); if (raw.trim() && Number.isInteger(value)) update({ usdtRateMaxAgeMinutes: value }) }} /></Field>
       <p className={s.muted}>نرخ ریالی از تنظیمات فعلی تأمین می‌شود؛ نرخ ناموجود یا قدیمی مانع دریافت نرخ تسویه است.</p>
       {settings.rails.map((r, index) => (

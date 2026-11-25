@@ -1,3 +1,11 @@
+Pay webhooks/settlement center2026-11-25: Billing server/pay/{webhooks,settlements,
+settlement-center} public addresses own typed domain policies and existing HTTP
+adapters. credit queues immutable payment.paid through Operations pay.webhook-delivery;
+outbound reuses extracted pinned HTTPS bot transport. Private merchant/Admin pages
+compose existing shells. Settings/Wallet/Identity/AuthZ/Audit remain canonical.
+Migration217 adds durable delivery/attempt/profile facts and guarded approval/schedule
+snapshots. [Current local evidence and release limits](handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 Private merchants2026-11-24: Billing `server/pay/merchant-admin` and existing
 merchant/context/views owners; `/pay/merchant` wraps existing Pay UI with scoped
 MerchantShell, legacy dashboard aliases redirect. Admin merchants directory/detail

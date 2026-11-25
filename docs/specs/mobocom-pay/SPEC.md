@@ -1,3 +1,60 @@
+## Generic webhooks and advanced settlement center — owner2026-11-25
+
+Continue owner-merged PR489/main9b345399 in the existing Billing/Pay owner. The
+owner accepted recommendation1 (signed general merchant webhooks) and2 (advanced
+settlement center), including modern merchant/Admin UI under MoboCom/SDS tokens.
+Operations queue, Wallet, Identity, AuthZ, Settings/Audit and existing quote/reserve/
+review/completion remain canonical. No new shared queue or automatic live payout.
+
+Webhook: terminal-owned public HTTPS endpoint, encrypted generated signing key
+shown once; strict versioned config. Credit re-reads authoritative PAID Pay/Wallet
+facts and stores one immutable payment.paid v1 raw JSON/hash/event ID and queued
+delivery intent in the same transaction. Payload includes exact stored order,
+invoice total, contract fee and merchant credit only, never early collection proof,
+service-fee inference or payer private data. Existing bot callback stays compatible.
+Sign timestamp+'.'+raw body with HMAC SHA256; stable event ID/body across retries,
+new attempt ID each time. Durable attempts/leases, bounded exponential retries and
+explicit audited versioned manual redelivery provide at-least-once delivery:
+receiver deduplicates event ID. DNS public-answer validation/pinning/TLS and finite
+limits reuse extracted bot transport; no redirects/proxies/credentials/query token.
+Before attempts recheck current owner/User/module/API/terminal/section authority,
+active endpoint and frozen config version. Changed configuration pauses old
+bindings until explicit redelivery. Delivery never changes money or fulfilment.
+
+Settlement: merchant-owned immutable asset/network/address profiles (label/active
+CAS editable). Request copies profile destination/version/label; disabling or
+renaming profile cannot retarget a prior request. Existing inline input remains.
+Optional UTC scheduledFor up to30 days means reserve NOW with current accepted
+quote/fees, become eligible for review at due time; no delayed reserve or automatic
+external payment. Rejection before due releases original source exactly once.
+New settings settlementApprovalThresholdRial defaults0 (disabled) and affects new
+requests; snapshot threshold/Settings revision and dual flag from frozen Rial quote.
+First high-value approval stays REQUESTED, second distinct current authorized
+nonmerchant staff moves APPROVED. Claim status+row version; freeze approval identity/
+times immediately in SQL. Old requests/default v1 flow retain existing states.
+Group approve/reject max25 is per-item CAS/outcomes, never bulk-paid/status update.
+Owner/staff-authorized HTML receipt uses persisted source/fee/payout/approval/proof,
+is downloadable/printable and clearly distinguishes unpaid request from paid receipt.
+
+New merchant routes/resources compose existing private shell and guards; Admin
+queue has due/scheduled/second-review/approved phases, per-request actions and safe
+batch feedback. Display real amounts and counts, native form/focus/RTL, both themes,
+390 mobile, finite reduced-motion-aware effects, all error/empty/disabled states.
+Versioned REST/event contracts are additive and documented in existing OpenAPI;
+no schema-derived consumer contract or new identity. Module disable preserves data
+and denies commands/jobs/delivery. Migration217 is additive, legacy-safe, in release
+manifest; rollback disables endpoints/new requests and preserves money/evidence.
+
+Acceptance: registered connected PG pay-webhooks/pay-settlement-center cases
+cover transactional intent, replay/crash/leases/config/permission/SSRF/signatures,
+exact reserve/release, stale/concurrent/dual approvals, schedule/profile races,
+immutable facts, batch duplicates, receipt privacy/escaping, Audit rollback and
+old flows. Deliberately bypass an application guard and require SQL denial.
+Fresh/populated migration, relevant legacy Pay/bot/queue regressions, pure cases,
+types/scoped gates, Hurl/Spectral/oasdiff, Doctor and actual1440/390 light/dark
+merchant/Admin browser/axe flows. Fixtures never contact real endpoints, banks or
+chains. Real receiver/account deployment and live delivery remain unverified.
+
 ## Merchant visual refinement — owner2026-11-25
 
 Refine the existing private merchant experience under MoboCom/SDS identity:

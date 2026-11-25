@@ -1,3 +1,16 @@
+# Generic webhooks / settlement center — 2026-11-25
+
+Owner-authorized recommendations1/2 continue merged PR489/main9b345399 in
+.mobocom/pay-bale-verification, feat/pay-webhooks-settlement-center-2026-11-25.
+Signed durable merchant events, independent paged Admin endpoint/history controls,
+saved destinations, scheduled immediate reserves, snapshotted dual approvals,
+per-item batches and private printable receipts extend existing Billing/Wallet/
+Operations owners. Additive217 is manifest-listed. Local PostgreSQL fresh/populated,
+native new+legacy checks, types/scoped gates/contracts/Hurl and actual themed/mobile
+browser/axe evidence recorded below; real receiver/bank/chain commissioning unverified.
+Owned preview/DB/private fixtures cleaned; shared readiness/session200.
+No push/PR/deploy/workflow. [Evidence, limitations and release coordination](../docs/agent/handoffs/MOBOCOM_PAY.md#generic-webhooks-and-settlement-center--2026-11-25).
+
 # MoboComPay PR489 opened — 2026-11-25
 
 Owner-authorized publication of the three verified slices below to main:
