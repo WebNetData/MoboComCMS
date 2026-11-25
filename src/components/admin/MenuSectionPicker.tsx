@@ -5,6 +5,7 @@ import type { SiteLink } from '@/modules/site/config/types'
 import { defaultSectionConfig, MEGA_SECTIONS, SECTION_LABEL, type MegaSection } from '@/modules/navigation/domain/megamenu'
 import { mergeMenuPreset, sectionMenuPreset } from '@/modules/navigation/domain/presets'
 import styles from './MenuTreeEditor.module.css'
+import { DEFAULT_PAY_NAVIGATION } from '@/modules/site/config/pay-navigation'
 
 export default function MenuSectionPicker({ value, onChange, onBusy, disabled = false }: { value: SiteLink[]; onChange: (value: SiteLink[]) => void; onBusy?: (busy: boolean) => void; disabled?: boolean }) {
   const [section, setSection] = useState<MegaSection>('home')
@@ -31,6 +32,7 @@ export default function MenuSectionPicker({ value, onChange, onBusy, disabled = 
     <div><h3>افزودن کامل یک بخش</h3><p>دسته‌ها، زیردسته‌ها، آیکن‌ها و لینک‌های بخش را یک‌جا اضافه کنید؛ همهٔ موارد بعداً قابل ویرایش‌اند.</p></div>
     <label className="sh-field"><span>بخش آماده</span><select className="sh-input" value={section} disabled={busy || disabled} onChange={e => setSection(e.target.value as MegaSection)}>{MEGA_SECTIONS.map(key => <option value={key} key={key}>{SECTION_LABEL[key]}</option>)}</select></label>
     <button type="button" className="sh-btn" disabled={busy || disabled} onClick={() => void insert()}>{busy ? 'در حال دریافت بخش…' : '＋ افزودن کامل بخش'}</button>
+    <button type="button" className="sh-btn" disabled={busy || disabled} onClick={() => { onChange(mergeMenuPreset(value, structuredClone(DEFAULT_PAY_NAVIGATION))); setNotice('موبوکام‌پی به پیش‌نویس منو اضافه شد؛ برای نمایش، منو را ذخیره کنید.') }}>افزودن موبوکام‌پی به منو</button>
     {notice && <p role="status">{notice}</p>}
   </div>
 }

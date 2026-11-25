@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcryptjs'
+import { methodAllowed } from '../domain/login-policy'
 import { Prisma } from '@prisma/client'
 import { normalizeMobile, phoneEmail } from '@/modules/sms/domain/sms'
 import { db } from '@/platform/database/prisma'
@@ -62,6 +63,7 @@ export async function resolvePhoneCustomer(tx: Prisma.TransactionClient, raw: un
 export async function claimPhoneLogin(phone: string) {
   return db.$transaction(async tx => {
     const customer = await resolvePhoneCustomer(tx, phone)
+    if (!methodAllowed(customer.loginPolicy, 'sms') || customer.erasedAt) throw new PhoneCustomerError('ورود پیامکی این حساب فعال نیست')
     return tx.user.update({ where: { id: customer.id }, data: { phone: normalizeMobile(phone), phoneVerifiedAt: new Date(), lastLoginAt: new Date() }, include: { roleRef: true } })
   })
 }

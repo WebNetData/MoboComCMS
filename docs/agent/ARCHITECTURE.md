@@ -1,3 +1,13 @@
+Public Pay/account control2026-11-26: Billing owns PENDING application through its
+existing Pay address; Site owns public chrome/menu/settings, merchant access gates
+the private shell before rendering. Identity owns typed Admin account policy,
+strict revision/audit, provider/session enforcement and explicit account erasure.
+Canonical nonlogin anonymous reference rows preserve shared financial FK facts;
+existing Billing/Forms retain exact amounts/states while private data is erased.
+Operations retries committed file manifests; narrow DB redaction never disables
+money integrity. Unreleased additive219–221 and operational limits are recorded in
+[the handoff](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 Pay navigation/support2026-11-25: one typed menu feeds existing shared ShellNav
 and the compatible flat PayNavigation address. The private merchant shell owns
 its responsive side-drawer presentation, not identity/access resolution. Native

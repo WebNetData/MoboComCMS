@@ -315,7 +315,7 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   // The member's picture rides in the session (refreshed by the check that runs on every request), so the header, the
   // dashboard and the admin shell can draw it without another request; the forum reads the same canonical picture.
   const auth = read('src/modules/identity/auth.ts')
-  assert.match(auth, /select: \{ status: true, passwordChangedAt: true, name: true, telegramPhoto: true, userProfile: \{ select: \{ avatar: true \} \} \}/)
+  assert.match(auth, /select: \{ status: true, passwordChangedAt: true, sessionsRevokedAt: true, loginPolicy: true, name: true, telegramPhoto: true, userProfile: \{ select: \{ avatar: true \} \} \}/)
   assert.match(auth, /token\.picture = pictureOf\(current\) \|\| null/)
   assert.match(auth, /session\.user\.image = typeof token\.picture === 'string' && token\.picture \? token\.picture : null/)
   assert.match(read('src/app/dashboard/layout.tsx'), /<AccountShell>/)

@@ -1,3 +1,108 @@
+## Public Pay and account control — 2026-11-26
+
+Continuation after806b8ed0 in `.mobocom/pay-account-domains`, same feature branch.
+Owner explicitly supersedes the public-Pay/enrollment closure and empty-only
+account deletion. Chosen erasure policy preserves shared financial facts without
+personal details. [Scenario and boundaries](../../specs/pay-public-account-control/SPEC.md).
+
+Public `/pay` now composes the existing Site theme header/footer with a scoped
+MoboCom/SDS product page, services, process and FAQ. `/pay/apply` accepts an existing
+canonical signed-in account's business name, optional HTTPS website and note into
+PENDING only. Management still activates; request creation grants no terminal,
+key, payment or wallet credit. Existing module settings expose title, description,
+SEO and application availability. The existing Site menu editor can add the Pay
+preset; saved operator menus are not silently overwritten. Public `/pay` can be
+indexed; capability/private subpaths remain private/no-store/noindex. The merchant
+layout checks access before rendering the shell: guest, denied, pending and
+suspended receive a standalone, responsive access card, not a disabled dashboard.
+
+Identity owns `admin-account`, `account-erasure` and their small domain/erasure
+parts. `/admin/users/[id]` adds mobile/name/optional email edits, explicit Admin
+phone verification, new/generated password, five per-user login switches and
+all-device revocation. Every mutation uses current staff hierarchy/permission,
+Origin, strict secret rate limit, reason, exact account revision/CAS and strict
+transactional audit. Old/new contact aliases' outstanding OTPs and reset links
+are invalidated. Every provider and current session rechecks policy. Recovery
+finalization rechecks current global/per-user policy and claims its challenge and
+password update together; self lockout is refused. Existing passwords never leave
+storage; generated passwords are returned once and never audited.
+Existing second-factor verification precedes final recovery commit: a later
+policy/conflict refusal may consume that TOTP step/backup code, requiring a fresh
+proof; it cannot authorize a refused password reset. No provider delivery was tested.
+
+Explicit deletion is full-access-only, refuses self deletion and requires a fresh
+server-authenticated impact preview, exact identifier, reason and acknowledgement.
+It terminally erases account PII/credentials/profile and owned private activity,
+scrubs retained order/invoice/receipt/form/customer facts and merchant delivery
+credentials, deactivates merchant/SMS endpoints, and preserves exact financial
+states, amounts, paid proofs, hashes and other customers' balances. A banned,
+nonlogin reference User remains for shared FK/provenance; this is intentional,
+not physical deletion of financial history. DB guards prevent reactivation,
+new owner insertion/rebinding and stale form/order/invoice PII restoration.
+Money guards allow only narrowly defined erased-owner redaction, never arbitrary
+state/amount changes or no-delete bypass. Files use a committed manifest and the
+existing queue; shared references survive, symlinks fail closed and retries keep
+the manifest. Local cleanup failure returns `cleanup:QUEUED` after committed erase.
+
+Unreleased additive219–221 are listed in the release manifest and both schemas;
+deploy with their writers after a verified coherent backup. No version/1.7.22
+seal changed. Roll back presentation/account commands independently only while
+retaining these data-safe columns/guards; an erased account needs a coherent
+pre-erasure DB/file restore, not an old binary. Pause account/merchant writes and
+outbound workers while commissioning these changes. An already dispatched external
+request cannot be recalled. Domain/provider resources and operator-provisioned
+Bale connection secrets require existing operational decommissioning; historical
+unlinked files/backups follow existing retention and are not claimed purged.
+
+Executed local evidence so far (isolated DB/runtime, UID1000/NOSUPERUSER): fresh
+219/220 plus221 on populated owned fixtures; generated-client TypeScript; canonical
+`npm run check` without `.env` or DB credentials1142/53/4/14; eleven native PG checks
+(`account-control`, `account-erasure-files`, `pay-public-account`, `admin-users`,
+`global-authentication`, `identity-otp`, `google-login`, `pay-private-merchants`,
+`pay-merchant-account`, `pay-settlement-center`, `pay-webhooks`). Audit rollback,
+stale/Origin denial, old/new OTP aliases, disabled recovery, terminal/rebinding,
+paid merchant/settlement preservation and callback snapshot removal are exercised.
+Deliberately broken policy and retained private recipient each fail the native
+check; source restored and passing checks repeated. File checks use synthetic
+temp files only, including shared reference, symlink refusal and retry.
+
+Actual Edge/Playwright public/access/request tests pass1440/390 light/dark, no
+overflow/page errors; eight scoped main axe checks have0 violations/incomplete.
+Account profile/policy/password/generation/revoke and stale409/draft recovery pass
+in the browser;1440 both themes,390 both themes and768 dark checked. Account and
+deletion-preview scoped axe0; Enter/Space/Escape and focus restoration checked.
+Native dialog Tab did not focus background controls; full focus-visible probe was
+inconclusive, so no blanket accessibility certification. React Doctor eight files
+has0 errors/eight warnings: existing loading flag, guarded async-dialog lifecycle,
+intentional error-body reads/form preventDefault and component complexity reviewed.
+Scoped Semgrep0 findings/errors. Redacted Gitleaks reports the already tracked RFC
+6238 Base32 test vector in account-security.test.cjs; no new credential found.
+Ignored detailed reports/screenshots: `var/pay-public-accounts/`. Final browser
+activation of the pending application returned200 and ACTIVE customer saw the
+mobile merchant workspace. Exact deletion preview/acknowledgement of an additional
+synthetic customer with Order/Invoice returned200, navigated to users and detail
+GET returned404. Initial final-navigation attempt had a preview transport failure
+after DELETE200; retained fixtures/owned preview were restarted and the full flow
+passed. No production transport claim. Follow-up native check proves stale form
+PII restoration is refused and explicitly owned BusinessPurchaseProof rows vanish
+without deleting another customer's review; file test proves proof blobs removed.
+The existing Admin menu editor's Pay preset adds to its draft in the browser,
+with visible feedback and no overflow; it was not published in that probe.
+The only new HTTP contracts are same-process: application POST returns the
+existing apiOk `{ok:true,data:{status}}` envelope; Admin account GET/PATCH returns
+its typed view/revision (generated password only in that password response), and
+deletion preview/DELETE uses the existing Admin response envelope. Unknown fields,
+stale revisions, permission and Origin failures are covered by native integration
+tests. Public/mobile v1/v2 payment contracts and events are unchanged; no second
+Identity, Pact/provider or OpenAPI surface is introduced.
+
+Cleanup completed: verified owned synthetic DB/role/runtime absent, task preview
+and verified Windows tunnel stopped, named private sessions/TLS/source files
+removed. Cleanup used UID1000 to inspect its own process (root lacked /proc read
+permission); named archive cleanup was finished separately and absence verified.
+Shared app3000 remains HTTP200. Screenshots/redacted reports remain ignored locally.
+No production build, release upgrade proof, live send/delete, PR or deployment.
+
 ## Merchant account and section hosts — 2026-11-26
 
 Authoritative `.mobocom/pay-account-domains`, branch

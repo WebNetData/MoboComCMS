@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     where: { id },
     include: { roleRef: { select: { id: true, name: true, nameFa: true } }, userProfile: { select: { avatar: true } } },
   })
-  if (!user) return err('not found', 404)
+  if (!user || user.erasedAt) return err('not found', 404)
 
   const [subs, invoices, orders, wallet, balances, notes, tickets, keys, paidInvoices, plans] = await Promise.all([
     db.subscription.findMany({
@@ -154,8 +154,8 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   if (!id) return err('invalid id')
   const body = await req.json().catch(() => null)
   const action = String(body?.action || '')
-  const user = await db.user.findUnique({ where: { id }, select: { id: true, email: true } })
-  if (!user) return err('not found', 404)
+  const user = await db.user.findUnique({ where: { id }, select: { id: true, email: true, erasedAt: true } })
+  if (!user || user.erasedAt) return err('not found', 404)
 
   // ---- wallet: charge / debit any customer manually ----
   if (action === 'wallet') {

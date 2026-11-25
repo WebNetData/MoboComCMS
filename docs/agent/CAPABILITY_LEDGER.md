@@ -1,3 +1,11 @@
+Public Pay/account control2026-11-26: FUNCTIONAL_LOCAL. Public product/application
+and access-before-shell; PENDING-only enrollment; typed mobile/email/password and
+provider/session control; explicit account erasure with anonymous shared financial
+references and durable private-file cleanup. Native PG11 suites, generated types,
+canonical1142/53/4/14, actual themed responsive flows/scoped axe and fault checks
+recorded; no live purge/provider/deployment/release-upgrade certification.
+[Owners, precise evidence and limits](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 Merchant menu/support2026-11-25: VERIFIED_LOCAL. Phone/tablet hamburger with
 grouped native modal drawer, desktop sidebar, remembered groups, valid current
 links, account footer and finite/reduced motion. Gated Pay support presentation

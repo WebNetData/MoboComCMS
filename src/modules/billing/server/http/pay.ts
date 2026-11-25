@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { originIsThisSite } from '@/platform/http/origin-policy'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
 import { apiOk, apiErr } from '@/modules/public-api/server/v1'
@@ -14,6 +15,7 @@ import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { requirePayPayer, payReceipts, reviewPayReceipt } from '@/modules/billing/server/pay'
 import { payCenterGet, payCenterWrite } from './pay-center'
 import {
+  applyPayMerchant,
   enrollMerchant,
   merchantDirectory, merchantAdminDetail, manageMerchant,
   createTerminal,
@@ -119,8 +121,11 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     if (!machine && req.method === 'POST' && resource === 'bot-integrations') return apiOk(await saveBotIntegration(actor, input))
     if (!machine && req.method === 'POST' && resource === 'bot-deliveries') return apiOk(await recoverBotDelivery(actor, input))
     if (req.method === 'POST') {
-      if (resource === 'merchant' && !machine)
-        throw new PayError('ثبت‌نام عمومی پذیرندگان بسته است؛ دسترسی توسط مدیر صادر می‌شود', 403, 'PAY_ENROLLMENT_CLOSED')
+      if (resource === 'merchant' && !machine) {
+        if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host'))) throw new PayError('مبدأ درخواست معتبر نیست', 403)
+        await limited('pay-application:' + actor.id, 5)
+        return apiOk(await applyPayMerchant(actor, input))
+      }
       if (resource === 'terminals') return apiOk(terminalView(await createTerminal(actor, input)), 201)
       if (resource === 'payments') {
         const created = await createPayPayment(actor, input, req.headers.get('idempotency-key') || '')

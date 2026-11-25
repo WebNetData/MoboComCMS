@@ -40,3 +40,5 @@ export { scopeBalePayerCookie } from './pay/bale/payer-cookie'
 export { smsSources, saveSmsSource } from './pay/sms/admin'
 export { submitCollectionReceipt, reviewCollectionReceipt } from './pay/bale/collection-receipts'
 export { transferMonitor, transferReviewQueue, transferReviewDetail, transferReviewSearch, transferCollectionReview, decideTransferReview } from './pay/transfer-operations'
+
+export { applyPayMerchant } from './pay/public'

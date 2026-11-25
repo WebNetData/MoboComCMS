@@ -1,4 +1,5 @@
 import { deliverableEmail } from '@/modules/mail/domain/mail'
+import { loginPolicy } from './login-policy'
 
 /**
  * The ways a member can actually get into their account now (audit 2026-11-10). Removing a connected sign-in method is
@@ -19,6 +20,7 @@ export type MemberWays = {
   telegramId: string | null
   googleId: string | null
   passwordChangedAt: Date | null
+  loginPolicy?: string
 }
 
 export function waysIn(member: MemberWays, site: { emailCanSignIn: boolean }): WayIn[] {
@@ -28,7 +30,8 @@ export function waysIn(member: MemberWays, site: { emailCanSignIn: boolean }): W
   if (member.googleId) ways.push('google')
   if (member.passwordChangedAt) ways.push('password')
   if (site.emailCanSignIn && deliverableEmail(member.email)) ways.push('email')
-  return ways
+  const policy = loginPolicy(member.loginPolicy)
+  return ways.filter(way => policy[way === 'mobile' ? 'sms' : way])
 }
 
 /** Whether `method` may go: the member has it, and another way in stays. */

@@ -1,3 +1,13 @@
+Public Pay/account control2026-11-26: app/pay + components/pay/pay-public and
+public-chrome compose Site's existing theme; app/pay/apply and Billing Pay/public
+create PENDING membership, merchant/layout gates the existing shell. Site config
+pay-navigation adds a preset to the existing menu editor. Identity server
+admin-account/account-erasure (erasure/{preview,personal,financial,files}) owns the
+Admin account endpoints and guarded cleanup; domain/login-policy is shared by
+providers/current access. Operations identity.erase-files retries committed exact
+manifests. Additive219–221 preserve financial states and shared canonical UserId
+links through terminal anonymous reference rows. [Evidence/limits](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 Merchant navigation/support2026-11-25: components/pay/merchant-menu is the single
 typed entry list; MerchantNavigation reuses shared ShellNav and useShellGroups.
 MerchantShell owns the1100px drawer/persistent-sidebar presentation; native

@@ -11,6 +11,7 @@ import { getSecurityPolicy, SecurityError } from './account-security'
 import { claimOtpChallenge } from './otp-challenge'
 import { globalAuthenticationDenied } from './authentication-restrictions'
 import { getSettings } from '@/modules/settings/server'
+import { methodAllowed } from '../domain/login-policy'
 
 const hashCode = (email: string, code: string) => createHmac('sha256', authSecret()).update(`email-otp:LOGIN:${email}:${code}`).digest('hex')
 const recipient = (input: unknown) => typeof input === 'string' ? normalizeEmail(input) : ''
@@ -63,7 +64,7 @@ export async function verifyEmailCode(input: { email: unknown; code: unknown; co
   if (!await claimOtpChallenge(row, hashCode(email, code), input.consume !== false)) return null
   const user = await db.user.findUnique({ where: { email }, include: { roleRef: true } })
   if ((user?.id ?? null) !== (row?.userId ?? null)) return null
-  if (user && (user.status !== 'ACTIVE' || await globalAuthenticationDenied(user.id))) return null
+  if (user && (user.status !== 'ACTIVE' || user.erasedAt || !methodAllowed(user.loginPolicy, 'email') || await globalAuthenticationDenied(user.id))) return null
   return { email, user }
 }
 

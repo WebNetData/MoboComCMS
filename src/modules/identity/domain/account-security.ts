@@ -76,6 +76,13 @@ export function sessionRevoked(authAt: unknown, passwordChangedAt: Date | null |
   return passwordChangedAt.getTime() > signedIn + 1000
 }
 
+/** Explicit administrator revocation has no password clock-rounding grace. */
+export function sessionsExpired(authAt: unknown, revokedAt: Date | null | undefined) {
+  if (!revokedAt) return false
+  const time = Number(authAt)
+  return !Number.isFinite(time) || time <= 0 || time <= revokedAt.getTime()
+}
+
 /** a***@gmail.com — enough for the owner to recognise, useless for harvesting. */
 export function maskEmail(email: string) {
   const [local, domain] = email.split('@')

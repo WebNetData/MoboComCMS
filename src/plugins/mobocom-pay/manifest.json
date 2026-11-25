@@ -33,5 +33,38 @@
       { "href": "/admin/mobocom-pay/receipts", "label": "رسیدهای مشتریان", "labelEn": "Customer receipts", "icon": "image", "exact": true, "permissions": ["mobocom-pay.manage"] },
       { "href": "/admin/mobocom-pay/settings", "label": "تنظیمات درگاه", "labelEn": "Gateway settings", "icon": "sliders", "exact": true, "permissions": ["mobocom-pay.manage"] }
     ]
-  }
+  },
+  "settings": [
+    {
+      "key": "public.title",
+      "label": "عنوان صفحه موبوکام‌پی",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "public.description",
+      "label": "توضیح صفحه موبوکام‌پی",
+      "type": "textarea",
+      "public": true
+    },
+    {
+      "key": "public.applications-enabled",
+      "label": "ثبت درخواست پذیرندگی فعال باشد",
+      "type": "boolean",
+      "default": true,
+      "public": true
+    },
+    {
+      "key": "seo.title",
+      "label": "عنوان سئو",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح سئو",
+      "type": "textarea",
+      "public": true
+    }
+  ]
 }

@@ -9,7 +9,7 @@ import { LAST_WAY_IN_MESSAGE, mayRemove, type MemberWays, type RemovableWayIn } 
  * The check and the removal happen in one transaction holding the member's row, so two removals at once cannot each
  * see the other method and leave the member with none.
  */
-const FIELDS = { email: true, phoneVerifiedAt: true, telegramId: true, googleId: true, passwordChangedAt: true } as const
+const FIELDS = { email: true, phoneVerifiedAt: true, telegramId: true, googleId: true, passwordChangedAt: true, loginPolicy: true } as const
 const CLEARED: Record<RemovableWayIn, Record<string, unknown>> = {
   google: { googleId: null, googleEmail: '', googleLinkedAt: null },
   telegram: { telegramId: null, telegramUsername: '', telegramName: '', telegramPhoto: '', telegramLinkedAt: null },

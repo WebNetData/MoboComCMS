@@ -1,3 +1,15 @@
+# Public Pay and account administration — 2026-11-26
+
+Continue after806b8ed0 in `.mobocom/pay-account-domains` on the existing feature
+branch. Owner authorizes public Pay home/application, shell-free access refusal,
+full typed account/login controls and explicit deletion with anonymous shared
+financial retention. New219–221 are unreleased. Native11 PG suites/generated
+types/canonical1142/53/4/14 and actual themed responsive/scoped axe/fault checks
+passed. Admin activation/ACTIVE merchant and actual synthetic account deletion/
+redirect/detail404 passed; private runtime cleanup is recorded in the handoff. No PR,
+production build/release-upgrade proof, live provider/deletion or deployment.
+[Exact owners, tests, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 # Merchant accounts and optional section domains — 2026-11-26
 
 Authoritative `.mobocom/pay-account-domains`, branch

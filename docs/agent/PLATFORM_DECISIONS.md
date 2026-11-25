@@ -1,3 +1,17 @@
+2026-11-26 owner requires public Pay home/application and a standalone styled
+denial screen with no merchant dashboard/shell; only ACTIVE merchants see it.
+This supersedes the earlier closed public Pay/enrollment decision. Public requests
+create PENDING canonical memberships only, activated by Admin. Existing Site menu
+and module settings own navigation/content/request availability. Owner also asks
+full account controls (mobile/email/name/password/per-user login switches) and
+deletion despite history. Explicit chosen policy: erase account/private data,
+retain shared financial facts without personal details. Identity retains only a
+terminal nonlogin anonymous reference where FKs/provenance require it; amounts,
+other customers' balances and bank/event proofs are not deleted or reset. Full
+Admin, impact preview/exact acknowledgement/revision/reason/strict audit required;
+self deletion refused. Provider-resource cancellation/backups/unlinked historical
+files remain operational boundaries. [Evidence and rollout](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 2026-11-25 owner requires hamburger-opened side navigation on phone/tablet
 workspace sizes, grouped/styled MoboComPay menus matching the account dashboard,
 and no unfinished/unstyled design areas. FRONTEND_QUALITY records the lasting

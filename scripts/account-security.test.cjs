@@ -77,6 +77,7 @@ test('request token access uses the same startup auth secret without loading aut
       if (name === '@/platform/database/prisma') return { db: {} }
       if (name === '@/modules/identity/rbac') return { hasPermission: () => false, parsePermissions: () => null }
       if (name === '@/modules/identity/domain/account-security') return sec
+      if (name === '@/modules/identity/domain/login-policy') return load('src/modules/identity/domain/login-policy')
       if (name === '@/platform/observability/logger') return { logEvent: () => {} }
       if (name === '@/modules/identity/server/authentication-restrictions') return { globalAuthenticationDenied: () => { throw Error('Raw token decoding must not run authorization') } }
       throw Error(`Unexpected access dependency: ${name}`)
@@ -202,7 +203,9 @@ test('sign-in wiring: 2-step code, unspent SMS codes, revocation and staff polic
   assert.match(auth, /consume: false/, 'the SMS code is checked before the 2-step prompt without being used up')
   assert.match(auth, /sessionRevoked\(token\.authAt/)
   const access = read('src/modules/identity/server/access.ts')
-  assert.match(access, /return resolveCurrentUser\(Number\(token\.uid\), token\.authAt, reader\)/, 'request and queued work share the canonical current identity through the selected reader')
+  assert.match(access, /return resolveCurrentUser\(Number\(token\.uid\), token\.authAt, reader, token\.authMethod\)/, 'request and queued work share the canonical current identity through the selected reader')
+  assert.match(access, /sessionsExpired\(authAt, current\.sessionsRevokedAt\)/)
+  assert.match(access, /methodAllowed\(current\.loginPolicy, authMethod\)/)
   assert.match(access, /sessionRevoked\(authAt, current\.passwordChangedAt\)/)
   assert.match(access, /adminNeedsTwoFactor\(user, reader\) \? null : user/)
   const service = read('src/modules/identity/server/account-security.ts')
