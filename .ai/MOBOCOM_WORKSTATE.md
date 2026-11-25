@@ -1,3 +1,13 @@
+# PR490 published — 2026-11-25
+
+Owner-requested [PR490](https://github.com/WebNetData/MoboComCMS/pull/490) targets
+main from feat/pay-webhooks-settlement-center-2026-11-25. It includes f53945dd
+(webhooks/settlements),8fc1bf16 (financial presentation) and879848b3 (merchant menu/
+shared Support). Fresh origin/main9b345399 is an ancestor; aggregate diff/secret
+preflight passed. Exact scoped executed evidence,217 coordinated-release limits
+and cleanup are retained below. Owner merges/deploys; no workflow dispatched.
+[Publication receipt](../docs/agent/handoffs/MOBOCOM_PAY.md#pr490-publication-receipt--2026-11-25).
+
 # Merchant hamburger/sidebar and shared Support — 2026-11-25
 
 Continues local8fc1bf16 in .mobocom/pay-bale-verification on

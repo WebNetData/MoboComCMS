@@ -1,3 +1,21 @@
+## PR490 publication receipt — 2026-11-25
+
+Owner explicitly requests a PR for all work to this point. Fetched current
+origin/main9b345399 and proved it remains an ancestor. No existing open PR for
+the branch; pushed feat/pay-webhooks-settlement-center-2026-11-25 and opened
+[PR490](https://github.com/WebNetData/MoboComCMS/pull/490) targeting main, ready for
+owner review. Product commits are f53945dd,8fc1bf16 and879848b3, followed by this
+documentation receipt. The PR body records scope-specific local evidence,
+migration217's matching-writer/backup/write-pause requirement, at-least-once
+receiver dedupe and unverified live receiver/bank/chain/full-build boundaries.
+
+Publication-only verification: clean aggregate git diff/check, main ancestry and
+redacted Gitleaks on77 committed named files; .serena, ignored fixtures and private
+artifacts excluded. Existing native/type/browser evidence was inspected, not
+rerun or represented as production acceptance. GitHub connector transport failed;
+the installed gh CLI created and verified the PR. No source change, hosted workflow
+dispatch, merge, deployment, provider action or reviewer message performed.
+
 ## Merchant drawer and canonical support — 2026-11-25
 
 Owner requests phone/tablet hamburger-opened side menu like account/Admin,
