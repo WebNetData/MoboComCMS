@@ -1,3 +1,7 @@
+# Release1.7.22 accepted local candidate — 2026-11-25
+
+Canonical1140/53/4/14, full PostgreSQL243/243, Pay11 suites, fresh/populated218 upgrades, production build114 pages and49 browser/a11y views pass. Same publisher package/draft, owner merge and stable publication are next; no destination deployment or hosted workflow. [Exact evidence/continuation](../docs/agent/handoffs/RELEASE_1_7_22.md).
+
 # Release1.7.22 validation fixes — 2026-11-25
 
 Canonical npm run check passes UID1000/no.env/no DB credentials. Fresh218 and populated207→218 including linked counter wallet invoices, plus populated216→218 settlement preservation passed. Corrected unpublished209 compatibility, added incremental218 for existing main installs, retained recoverable invoice credit failure and shared Jalali scheduling. Test-only fixtures follow current owner contracts. Final native suite, committed production build/browser, signature and publication are pending. Owner merges; no hosted workflow or destination deployment.

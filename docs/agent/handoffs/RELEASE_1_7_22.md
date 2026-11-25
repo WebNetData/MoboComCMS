@@ -13,10 +13,9 @@ fingerprint70ccde101ede265fc88789302b1a3303692883defc030593ddcc6672b67a1f93
 is verified; private key stays outside Git/containers. Build/distribution use new
 task-owned paths, never overwrite prior assets or rotate trust.
 
-Acceptance still pending: canonical local check UID1000/no.env, scoped connected
-PG and populated207→218 preservation, exact committed production build and
-production browser, same-publisher signature/extraction/previous-updater admission,
-immutable asset publication and re-download verification. Earlier Pay feature
+Local code/build/browser acceptance is complete below. Remaining release steps:
+same-publisher signature/extraction/previous-updater admission, immutable draft
+asset upload/re-download, owner merge and stable publication. Earlier Pay feature
 tests are recorded in MOBOCOM_PAY, not substituted for this release's acceptance.
 
 Migration217 requires matching settlement writer. Pause settlement writes/jobs,
@@ -74,3 +73,33 @@ changes. Scoped Semgrep263 source targets exit0. Redacted Gitleaks404 changed fi
 found only the existing public RFC6238 test vector in account-security.test.cjs:147;
 reviewed against the standard fixture, no live credential or baseline exemption.
 Final source scan/test/build/browser/signature/publication receipts remain pending.
+
+## Accepted local release source
+
+Source commit d0336a6be97ab33675edf71b27989a2e0836c629; Windows-hosted Docker/Linux Node22.23.3,
+UID1000 without.env. Canonical npm run check exit0 (95s): site1140/1140,
+connected53/53, backup4/4, billing14/14, architecture/source/schema/release/money/
+money-UI/security/audit/i18n/type gates pass. Fresh218 then full default native
+PostgreSQL243/243 exit0 (703s); all11 optional Pay suites pass on a
+separate owned DB. Optional updater-github refused its absent synthetic root-owned
+host-protocol lab prerequisite; no bypass or false pass is recorded. Actual signed
+1.7.22 admission by the1.7.21 verifier follows artifact creation.
+
+Production build exit0 (425s), heap6144MB/two CPU affinity,114 static
+pages; runtime storage tracing excludes mutable storage (952 manifests). Committed
+source comparison:4554 matched inputs including CSS; only next-env.d.ts and
+tsconfig.json are the expected build rewrites. Generated AI knowledge14/14 passes.
+Production Edge browser49 accepted phone/tablet/desktop light/dark captures: axe0,
+no horizontal overflow/page errors; drawer focus trap/Escape/backdrop/route/resize
+and saved groups, shared Support ownership/guest denial, same account ticket,
+Jalali time selection/focus and Admin settlement cards. Four card crops and mobile
+drawer/calendar screenshots were visually reviewed. Browser harness corrections
+were navigation order and completing synthetic profile/JWT role fields; no guard
+was disabled. Independent read-only money review found no actionable defect.
+
+Fresh218, populated207→218 (including500 counter wallet credit),216→218 and
+original217→218 passed. The latter preserves the originally installed209 checksum
+and invoice/wallet bytes, restores valid linked-counter wallet credit and directly
+rejects guest and PAY_COLLECTION wallet credit. Source/fixture/API acceptance is
+local; real bank sources, upstream receivers, on-chain transfer and destination
+hosting were not commissioned. Artifact receipts remain in ignored task evidence.
