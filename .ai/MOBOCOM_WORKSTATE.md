@@ -1,3 +1,11 @@
+# MoboComPay PR489 opened — 2026-11-25
+
+Owner-authorized publication of the three verified slices below to main:
+[PR489](https://github.com/WebNetData/MoboComCMS/pull/489), branch
+feat/pay-approval-workspace-2026-11-25. Migration216 and private live commissioning
+boundaries are disclosed. Owner merges/deploys; no hosted workflow dispatched.
+[Publication receipt](../docs/agent/handoffs/MOBOCOM_PAY.md#publication-receipt--2026-11-25).
+
 # Merchant panel visual upgrade — 2026-11-25
 
 Continues local41b8ec46 in .mobocom/pay-bale-verification on

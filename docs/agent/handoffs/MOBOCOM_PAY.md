@@ -1,3 +1,15 @@
+## Publication receipt — 2026-11-25
+
+Owner explicitly requested a PR for all work to date. Fetched origin/main at
+d7f15d6f, confirmed base ancestry and clean aggregate diff, then pushed
+feat/pay-approval-workspace-2026-11-25 and opened
+[PR489](https://github.com/WebNetData/MoboComCMS/pull/489) targeting main, ready for
+owner review. It includes7c85cdfa (approval/fees/multi-Bale),41b8ec46 (SMS Forwarder)
+and aa6489b3 (merchant UX), plus this publication record. Scoped executed evidence,
+reviewed warnings, migration216 and live commissioning boundaries are in the PR
+and the slice records below. No source changed or tests rerun for publication.
+No merge, deployment, provider action or hosted workflow dispatch performed.
+
 ## Merchant panel visual upgrade — 2026-11-25
 
 Owner explicitly requests a more professional, attractive merchant panel with
