@@ -39,6 +39,9 @@ Payment gateway presentation2026-11-23: account navigation remains AccountShell/
 
 ## MoboComPay ownership — 2026-11-23
 
+SMS Forwarder2026-11-25: Billing adds an exact3-field source adapter to existing authenticated SMS notice/matcher, not a second financial pipeline. Explicit per-source versioned templateJson format preserves old rich sources. Stable source/bank/text identity retains first server receipt independently of credentials/config versions. Provenance is explicit in review/Audit; unknown delivery time is omitted. Locked-USDT timing proof excludes simple receipt-only notices in command, credit and deferred DB links (migration216). [Evidence](handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
+
+
 2026-11-25: existing Pay intake/context/proof/monitoring share a bounded server-owned
 multi-account Bale registry with isolated signing keys and frozen original-source
 bindings. Admin operates gateway/source authority; merchant sees safe financial

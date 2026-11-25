@@ -1,3 +1,15 @@
+# SMS Forwarder exact three-field intake — 2026-11-25
+
+Continues local7c85cdfa, `.mobocom/pay-bale-verification`, branch
+`feat/pay-approval-workspace-2026-11-25`. Additive fixed-source sms/bank/token API,
+generated one-time setup URL/JSON, legacy4-field mode preserved, stable immutable
+dedupe and canonical SMS/Bale/manual once-only principal/fee. Server receipt is
+labelled explicitly; locked USDT requires original-time proof. Migration216 only
+tightens the existing proof guard. Fresh216+populated function upgrade, native3 suites,
+units13, types/gates, Hurl6/contracts, Doctor0errors and6 actual browser/axe captures
+pass. DB fault guard verified with runtime restoration; real phone/Bale unverified.
+[Exact evidence, warnings, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
+
 # Merchant approval workspace / fee isolation — 2026-11-25
 
 Continues owner-merged PR488/main d7f15d6f in `.mobocom/pay-bale-verification`, branch

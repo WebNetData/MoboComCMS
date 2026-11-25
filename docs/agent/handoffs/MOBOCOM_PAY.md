@@ -1,3 +1,93 @@
+## SMS Forwarder three-field intake — 2026-11-25
+
+Continues local7c85cdfa in authoritative `.mobocom/pay-bale-verification`, branch
+`feat/pay-approval-workspace-2026-11-25` / owner-merged main d7f15d6f. Owner supplies
+exact `{sms:"{msg}",bank:"bankmeli",token:"generated"}` and requests simultaneous
+SMS/Bale/manual once-only credit. This slice is local; no push/PR/deploy/workflow.
+
+- Billing owns the additive `POST /api/payment/mobocom-pay/sms-forwarder/{id}`.
+  Strict duplicate-key-safe three-field UTF-8/body validation, current per-source
+  constant-time encrypted credential, bank/mode/operator/module/availability gates,
+  Origin and strict source/IP limits feed the existing durable notice/matcher.
+  Source ID plus normalized decoded bank/SMS hash excludes token/version/time;
+  retries preserve the first immutable receipt timestamp even after source edits.
+- `domain/pay-sms-source` stores explicit FORWARDER_V1 in a version2 wrapper in
+  existing templateJson. Plain six-field old storage remains EXTENDED_V1; old
+  Bearer/four-field endpoint and create/PATCH callers retain their contract.
+  Admin returns a generated token only on creation, plus fixed bank code, HTTPS
+  URL and exact JSON copy controls. No token in query, GET list, Audit or storage
+  outside existing encryption. Accounts/templates/flags use existing Admin owner.
+- No fabricated sender, phone message ID or original bank/device timestamp.
+  Immutable SMS_FORWARDER_* notice codes and Audit SERVER_RECEIPT distinguish the
+  evidence. Review detail labels server receipt accurately. Delivery/confirmation
+  timing excludes forwarder notices, including debit/rejected notices; unavailable
+  time is null, never a zero-latency delivery claim.
+- SMS/Bale/manual converge on existing invoice lock, state claims, Serializable
+  settlement and Wallet idempotency. First valid approval wins; later proof/review
+  cannot add another principal, platform fee, top-up, merchant credit or fulfilment.
+  Customer top-up is principal only; adjustment and merchant fee remain separate.
+- Locked USDT acquisition still requires original-time proof: collection command,
+  credit guard and migration216 exclude SMS_FORWARDER_CREDIT alone. Valid simple
+  intake ACKs received/reviewRequired/PAY_PURCHASE_TIME_REQUIRED without money.
+  Bale/extended SMS or an independently approved timely receipt can resolve it.
+  Migration `20270402120000_pay_sms_forwarder` only replaces the existing deferred
+  links function; manifest updated, no model/column/data rewrite or history reset.
+- Operator must filter exact bank sender in the phone app and forward fresh
+  incoming messages only. A previously unseen old SMS has no distinguishable
+  original timestamp in this contract; unique amount tombstones cannot prove the
+  age of an unrelated historical deposit. This limitation is explicit in UI/docs.
+
+Executed local evidence (task-owned copy, synthetic accounts, NOSUPERUSER isolated
+PostgreSQL; ignored reports/screenshots under `var/pay-bale-20261124/smsf-*`):
+
+- Fresh full216 migrations PASS. Registered native `pay-bale-collection
+  pay-shared-checkout pay-assets` PASS after final source changes: exact3 auth/bank/
+  key/mode/schema, JSON/whitespace retry, version-independent original timestamp,
+  preacceptance/expired notices, debit/rejection, time-basis/null latency, SMS-first,
+  Bale-first, manual-first and concurrent3-way single principal/fee/top-up; USDT
+  exclusion and legacy four-field/multi-Bale/merchant exact-once regressions.
+- Pure SMS/template/collection13 tests PASS. Final TypeScript noEmit PASS; scoped
+  architecture/source/schema parity/money UI+schema/security/Audit/manifest8 gates
+  PASS. Spectral0 findings; oasdiff no breaking changes (OpenAPI1.9 additive).
+  Tracked `sms-forwarder-smoke.hurl`6 actual HTTPS requests PASS (first/retry, wrong
+  bank/key/schema/Origin). Playwright actual HTTP additionally checks permission,
+  no-secret GET, mode preservation and normalized retry.
+- Browser6 actual captures: setup light/dark1440/390 plus mobile monitor/review.
+  Axe WCAG2A/AA/2.1AA scoped surfaces0 violations, no overflow/page errors. Generated
+  URL/token/JSON clipboard checked; screenshots mask token and JSON. Images inspected
+  locally; same approved custom-mobocom presentation SHA be7ebaf639a6969952b96bf4c30a22957f7556a48e4e654528ac8468543ac1df.
+  Initial harness locator/preset/Windows clipboard-newline failures corrected;
+  no product financial behavior was weakened to pass them.
+- React Doctor3 affected components:0 errors,1 reviewed existing high-complexity
+  TransferReviewCase warning (only time label changed there). Scoped local one-rule
+  Semgrep15 TS targets clean and redacted Gitleaks31 final named files clean; this
+  is bounded evidence, not comprehensive security certification.
+- Deliberate removal of the application USDT notice-code guard in owned runtime:
+  migration216 constraint rejects the simple-only proof, transaction rolls back,
+  original runtime bytes restored with SHA checks. Prisma5 deferred-COMMIT handling
+  did not surface the expected rejection in the first harness; forcing constraints
+  IMMEDIATE inside the test exposed SQL23514 and the corrected fault run passed.
+  Unmodified app rejects earlier with PAY_PURCHASE_PROOF. Do not describe the first
+  failed fault assertion as a production money write.
+- Populated215-function→216 migration replay PASS with actual reconciled legacy
+  USDT Wallet credit and synthetic invoices/payments/sources/notices/collections:
+  byte-identical history, new proof guard installed. This is a function upgrade
+  check, not a simulated deployment or whole-schema production upgrade.
+
+Remaining: owner deployment applies migration216; real Android app sender filter,
+`{msg}` JSON escaping, foreground/background delivery, actual Bale account login
+and live bank receipts have not run. No real provider/chain or shared production
+DB changed. Next commissioning uses new source/token copied securely in Admin,
+enables both sources on the card-transfer gateway, then controlled fresh SMS/Bale/
+manual order and replay checks. Never forward SMS history or share tokens in chat.
+Rollback: disable source/auto incoming via existing Admin, preserve all rows/amount
+reservations and richer sources; do not reverse216 or downgrade to code that
+cannot read version2 templateJson. Feature removal needs a forward compatibility
+change. Cleanup completed: verified owned Next process group and loopback TLS
+tunnel stopped; exact task DB/NOSUPERUSER role removed; one-time synthetic source
+credentials, body/env files, browser/presentation fixtures, TLS keys and source
+archive removed; dedicated builder stopped. Shared readiness/session both200.
+
 ## Merchant approval workspace and fee isolation — 2026-11-25
 
 Owner requests more professional merchant UX, centrally operated automatic Bale/

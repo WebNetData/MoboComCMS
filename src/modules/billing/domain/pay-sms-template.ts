@@ -6,6 +6,7 @@ const tokenPattern = /\{(amount|account|reference|date|time|ignore)\}/g
 const fields: Record<Token, string> = { amount: '([0-9,٬]{1,40})', account: '([0-9]{5,30})', reference: '([A-Za-z0-9_-]{6,64})', date: '([0-9/]{4,10})', time: '([0-9]{2}:[0-9]{2})', ignore: '(?:[0-9,٬]{1,40})' }
 const invalid = () => { throw new Error('Invalid SMS template configuration') }
 const normalized = (value: string) => latinDigits(value).replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\u064b-\u065f\u0670\u0640]/g, '').replace(/\s+/g, ' ').trim()
+export const normalizedSmsText = normalized
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function validateTemplate(value: unknown, optional = false): string {

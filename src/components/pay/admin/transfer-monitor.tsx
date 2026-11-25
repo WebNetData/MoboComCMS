@@ -29,7 +29,7 @@ export default function TransferMonitor() {
         <div><dt>درخواست‌های با مهلت گذشته</dt><dd>{n(data.totals.overdue)}</dd></div>
       </dl>
       <div className={o.columns}>
-        <section className={`${s.card} ${s.stack}`}><h3>زمان تأیید از دریافت پیام در منبع</h3><dl className={o.facts}><div><dt>میانه</dt><dd>{latency(data.totals.p50ConfirmationMs)}</dd></div><div><dt>صدک ۹۵</dt><dd>{latency(data.totals.p95ConfirmationMs)}</dd></div></dl><p className={s.muted}>فقط پرداخت‌های دارای پیام بانکی در محاسبهٔ زمان‌اند؛ تأیید دستی بدون پیام، زمان ساختگی ندارد.</p></section>
+        <section className={`${s.card} ${s.stack}`}><h3>زمان تأیید از دریافت پیام در منبع</h3><dl className={o.facts}><div><dt>میانه</dt><dd>{latency(data.totals.p50ConfirmationMs)}</dd></div><div><dt>صدک ۹۵</dt><dd>{latency(data.totals.p95ConfirmationMs)}</dd></div></dl><p className={s.muted}>فقط پیام‌های دارای زمان دریافت در منبع در محاسبه‌اند؛ پیامک سه‌فیلدی و تأیید دستی بدون پیام، زمان تحویل قابل اندازه‌گیری ندارند.</p></section>
         <section className={`${s.card} ${s.stack}`}><h3>صف رسیدگی</h3><p>{data.totals.oldestReviewAt ? `قدیمی‌ترین درخواست: ${date(data.totals.oldestReviewAt)}` : 'درخواستی در انتظار بررسی نیست.'}</p><Link href="/admin/mobocom-pay/reconciliation" className={s.button}>ورود به میز مغایرت‌ها</Link></section>
       </div>
       <section className={`${s.card} ${s.stack}`}><h3>منابع بله و پیامک</h3><p className={s.muted}>آمادگی از تنظیمات و دسترسی فعلی محاسبه می‌شود. دریافت در ۱۵ دقیقهٔ اخیر فقط مشاهدهٔ ترافیک است؛ سکوت منبع به معنی قطع اتصال نیست.</p>

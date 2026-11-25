@@ -1,3 +1,28 @@
+## SMS Forwarder three-field adapter — owner2026-11-25
+
+Owner provides exact JSON `{sms:"{msg}",bank:"bankmeli",token:"generated"}`.
+Add explicit per-source FORWARDER_V1 format and dedicated source-ID endpoint; keep
+EXTENDED_V1 and its Bearer/four-field contract. Reuse generated encrypted source
+credentials, Admin authority, bank/template binding, notice store and shared
+invoice/Wallet/fee settlement. No global bank token or parallel payment path.
+
+Forwarder input has no sender/message ID/original timestamp. Never fabricate those
+facts: mark immutable server-receipt evidence, hash normalized decoded source/bank/
+SMS for stable retries, exclude credentials/version/current time, retain original
+first receipt forever. Accept only current verified operator-filtered fresh SMS
+for the requested amount-only IRR policy. An unseen old SMS remains indistinguishable
+from a fresh one; do not import history. For locked USDT acquisitions, this evidence
+alone cannot establish payment time; existing Bale/extended SMS/approved receipt
+proof remains necessary, enforced in commands and DB links. Valid intake is ACKed
+without credit while waiting for such proof. No relaxed original-time claim.
+
+Acceptance: exact JSON, generated token/clipboard/HTTPS, wrong bank/key/mode,
+semantic/format retries, source version changes, preacceptance and expired notice,
+SMS-first/Bale-first/manual-first/concurrent once-only principal and fee; USDT
+exclusion in command/SQL; unchanged extended source. Connected PG, Hurl/contracts,
+types/gates, affected Doctor and light/dark1440/390 browser/a11y. No actual phone or
+bank delivery claim.
+
 ## Merchant approval workspace and fee isolation — owner2026-11-25
 
 Continue merged PR488/main d7f15d6f. Admin controls automatic CARD_TRANSFER and

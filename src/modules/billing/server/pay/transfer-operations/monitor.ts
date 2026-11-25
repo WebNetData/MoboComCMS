@@ -5,7 +5,7 @@ import type { TransferMonitor } from '@/modules/billing/domain/pay-transfer-oper
 import { payContext, payTransaction, type PayActor } from '../context'
 import { sourceOwner } from '../bale/access'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
-import { normalizeSmsTemplate } from '@/modules/billing/domain/pay-sms-template'
+import { smsSourceConfig } from '@/modules/billing/domain/pay-sms-source'
 import { latinDigits } from '@/shared/text/digits'
 
 type Observed = { sourceType: string; smsSourceId: string | null; instanceId: string; last: Date; count: bigint; rejected: bigint; p95: number | null }
@@ -17,13 +17,13 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
       tx.$queryRaw<Observed[]>(Prisma.sql`SELECT "sourceType", "smsSourceId", "instanceId", max("receivedAt") AS last,
         count(*) FILTER (WHERE "receivedAt">=${since}) AS count,
         count(*) FILTER (WHERE "receivedAt">=${since} AND "status" IN ('REJECTED','CONFLICT')) AS rejected,
-        percentile_cont(0.95) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM ("receivedAt"-"sourceSentAt"))*1000)) FILTER (WHERE "receivedAt">=${since}) AS p95
+        percentile_cont(0.95) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM ("receivedAt"-"sourceSentAt"))*1000)) FILTER (WHERE "receivedAt">=${since} AND "code" NOT LIKE 'SMS_FORWARDER%') AS p95
         FROM "PayBaleNotice" GROUP BY "sourceType","smsSourceId","instanceId"`),
       tx.paySmsSource.findMany({ orderBy: { createdAt: 'desc' }, take: 100, include: { bankAccount: { select: { active: true, collectionUse: true } } } }),
       tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }),
       tx.$queryRaw<{ count: bigint; p50: number | null; p95: number | null }[]>(Prisma.sql`SELECT count(*) AS count,
-        percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM(c."paidAt"-n."sourceSentAt"))*1000)) AS p50,
-        percentile_cont(0.95) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM(c."paidAt"-n."sourceSentAt"))*1000)) AS p95
+        percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM(c."paidAt"-n."sourceSentAt"))*1000)) FILTER (WHERE n."code" NOT LIKE 'SMS_FORWARDER%') AS p50,
+        percentile_cont(0.95) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM(c."paidAt"-n."sourceSentAt"))*1000)) FILTER (WHERE n."code" NOT LIKE 'SMS_FORWARDER%') AS p95
         FROM "PayBaleCollection" c LEFT JOIN "PayBaleNotice" n ON n."id"=c."noticeId" WHERE c."status"='PAID' AND c."paidAt">=${since}`),
       tx.payBaleCollection.count({ where: { status: { in: ['UNDER_REVIEW','REVIEW'] }, invoice: { status: 'UNPAID' } } }),
       tx.payBaleCollection.count({ where: { status: 'PENDING', expiresAt: { lt: now }, invoice: { status: 'UNPAID' } } }),
@@ -41,7 +41,7 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
     if (!bale.length) sources.push(sourceView('bale', 'بله · اتصال پیکربندی نشده', 'BALE', false))
     for (const s of sms) {
       let credentialsReady = false
-      try { normalizeSmsTemplate(JSON.parse(s.templateJson)); credentialsReady = s.secretCiphertext.startsWith('encv1:') && /^[A-Za-z0-9_-]{43}$/.test(decryptPanelCredential(s.secretCiphertext)) } catch { /* Readiness only: never expose decryption errors or secret material. */ }
+      try { smsSourceConfig(JSON.parse(s.templateJson)); credentialsReady = s.secretCiphertext.startsWith('encv1:') && /^[A-Za-z0-9_-]{43}$/.test(decryptPanelCredential(s.secretCiphertext)) } catch { /* Readiness only: never expose decryption errors or secret material. */ }
       sources.push(sourceView(s.id, s.label, 'SMS', Boolean(enabled && credentialsReady && s.active && s.verified && s.bankAccount.active && s.bankAccount.collectionUse === 'MOBOCOM_PAY' && await sourceOwner(s.ownerUserId, tx)), observations.find(o => o.sourceType === 'SMS' && o.smsSourceId === s.id && o.instanceId === createHash('sha256').update(`${s.id}:${s.version}`).digest('hex'))))
     }
     const min = BigInt(settings.bale.minAdjustmentRial), max = BigInt(settings.bale.maxAdjustmentRial), capacity = Number((max - min) / 10n + 1n)

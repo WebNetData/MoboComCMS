@@ -20,6 +20,7 @@ const { encryptPanelCredential } = load('src/modules/providers/server/panel-cred
 const { acquisitionSnapshot } = load('src/modules/billing/server/pay/assets.ts')
 const put = (key, value) => prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
 const status = n => error => error.status === n
+const extraSmsSources = []
 let bank, secondBank, gateway, smsGateway, smsSource, payMerchant, payTerminal, merchantPayment, savedUsdtRate, rateCaptured = false
 async function receive(body) { const raw = Buffer.from(JSON.stringify(body)), signature = 'sha256=' + createHmac('sha256', process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET).update(raw).digest('hex'); return pay.receiveBaleBankMessage(signature, body.event_id, raw) }
 async function invoice(amount, currency = 'IRR', kind = 'BILLING', userId = users[1].id) {
@@ -105,6 +106,8 @@ async function main() { try {
   const both = await Promise.allSettled([receiveSmsNotice(smsSource.id, secret, sms), receive(envelope(22, { amount: dualRow.collectedRial.toString(), reference: 'DUALSOURCE123' }))])
   assert.ok(both.some(result => result.status === 'fulfilled' && result.value.financialApproval)); assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: dual.id } })).status, 'PAID')
   assert.equal(await prisma.payment.count({ where: { invoiceId: dual.id, status: 'CONFIRMED' } }), 1)
+  const simpleSource = await require('./pay-sms-forwarder.scenarios.cjs')({ prisma, load, admin, bank, gateway: smsGateway, invoice,
+    prepare: prepareBaleGateway, quotes, upload, receiveBale: receive, envelope, sources: extraSmsSources, clock: { now: () => now, set: value => { now = value } } })
   const sources = [
     { ...fixtureBinding, id: 'first-card', bankAccountId: bank.id, ownerUserId: users[0].id, secret: 'x'.repeat(43), enabled: true, verified: true },
     { ...fixtureBinding, id: 'second-card', alias: 'second-card', instanceId: 'c'.repeat(64), accountId: '321', bankPeerId: '789', bankAccountId: secondBank.id, ownerUserId: users[0].id, secret: 'y'.repeat(43), enabled: true, verified: true },
@@ -196,6 +199,11 @@ async function main() { try {
   assert.ok(new Date(usdtQuote.expiresAt) <= usdtExpiry)
   await changeBaleCheckout(usdtQuote.txnId, usdtRequest, 'accept'); await upload(usdtQuote.txnId, 2000000, usdtCookie)
   const usdtCollection = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: usdtQuote.txnId } })
+  const simpleUsdt = await load('src/modules/billing/server/pay/sms/forwarder.ts').receiveForwardedSms(simpleSource.sourceId, Buffer.from(JSON.stringify({ sms: `CREDIT ${usdtCollection.collectedRial}`, bank: simpleSource.bank, token: simpleSource.token })))
+  assert.equal(simpleUsdt.financialApproval, false); assert.equal(simpleUsdt.reviewRequired, true)
+  assert.equal((await prisma.payPayment.findUniqueOrThrow({ where: { id: usdtId } })).status, 'PENDING')
+  await assert.rejects(prisma.$transaction(tx => load('src/modules/billing/server/pay/bale/collection-settle.ts').settleTransferCollection(tx, usdtCollection, { method: 'AUTO', noticeId: simpleUsdt.id, actor: admin })), e => e.code === 'PAY_PURCHASE_PROOF')
+  assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: usdtInvoice.id } })).status, 'UNPAID')
   const usdtNotice = envelope(31, { amount: usdtCollection.collectedRial.toString(), reference: 'USDTMERCHANT31' })
   assert.equal((await receive(usdtNotice)).financialApproval, true); await receive(usdtNotice)
   const usdtPaid = await prisma.payPayment.findUniqueOrThrow({ where: { id: usdtId } }); assert.equal(usdtPaid.status, 'PAID')
@@ -272,6 +280,7 @@ async function main() { try {
   if (bank) { await prisma.$executeRawUnsafe('ALTER TABLE "PayTransferReview" DISABLE TRIGGER "PayTransferReview_guard"'); try { await prisma.payTransferReview.deleteMany({where:{notice:{bankAccountId:bank.id}}}) } finally { await prisma.$executeRawUnsafe('ALTER TABLE "PayTransferReview" ENABLE TRIGGER "PayTransferReview_guard"') } }
   try { if (ids.length) { await prisma.$executeRawUnsafe('ALTER TABLE "PayBaleCollection" DISABLE TRIGGER "PayBaleCollection_no_delete"'); try { await prisma.payBaleCollection.deleteMany({ where: { id: { in: ids } } }) } finally { await prisma.$executeRawUnsafe('ALTER TABLE "PayBaleCollection" ENABLE TRIGGER "PayBaleCollection_no_delete"') } } }
   finally {
+    // Extra source rows are removed after all their notices/collections below.
     const receipts = await prisma.paymentReceipt.findMany({ where: { invoiceId: { in: invoices } }, select: { id: true, image: true } })
     if (bank) { const ids = [bank.id, secondBank?.id].filter(Boolean); await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: { in: ids }, duplicateOfId: { not: null } } }); await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: { in: ids } } }) }
     await prisma.paymentReceipt.deleteMany({ where: { id: { in: receipts.map(row => row.id) } } }); for (const row of receipts) if (/^[0-9a-f-]{36}\.(png|jpg|webp)$/.test(row.image)) await unlink(join(process.cwd(), 'storage', 'receipts', row.image)).catch(() => {})
@@ -279,7 +288,7 @@ async function main() { try {
     if (payTerminal) await prisma.payTerminal.deleteMany({ where: { id: payTerminal.id } })
     if (payMerchant) await prisma.payMerchant.deleteMany({ where: { id: payMerchant.id } })
     await prisma.payment.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { providerTxnId: { in: ids }, provider: 'MOBOCOM_PAY_ADJUSTMENT' }] } }); await prisma.walletTx.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { userId: { in: users.map(user => user.id) }, type: 'PAY_CREDIT' }] } }); await prisma.walletAccount.deleteMany({ where: { userId: { in: users.map(user => user.id) } } }); await prisma.invoice.deleteMany({ where: { id: { in: invoices } } })
-    await prisma.auditLog.deleteMany({ where: { actorUserId: { in: users.map(user => user.id) }, action: { startsWith: 'mobocom-pay.' } } }); if (smsSource) await prisma.paySmsSource.deleteMany({ where: { id: smsSource.id } }); if (smsGateway) await prisma.gateway.deleteMany({ where: { id: smsGateway.id } }); if (gateway) await prisma.gateway.deleteMany({ where: { id: gateway.id } }); if (bank) await prisma.bankAccount.deleteMany({ where: { id: bank.id } }); if (secondBank) await prisma.bankAccount.deleteMany({ where: { id: secondBank.id } }); await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } })
+    await prisma.auditLog.deleteMany({ where: { actorUserId: { in: users.map(user => user.id) }, action: { startsWith: 'mobocom-pay.' } } }); await prisma.paySmsSource.deleteMany({ where: { id: { in: extraSmsSources } } }); if (smsSource) await prisma.paySmsSource.deleteMany({ where: { id: smsSource.id } }); if (smsGateway) await prisma.gateway.deleteMany({ where: { id: smsGateway.id } }); if (gateway) await prisma.gateway.deleteMany({ where: { id: gateway.id } }); if (bank) await prisma.bankAccount.deleteMany({ where: { id: bank.id } }); if (secondBank) await prisma.bankAccount.deleteMany({ where: { id: secondBank.id } }); await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } })
     await prisma.role.deleteMany({where:{id:{in:roles}}})
     if (rateCaptured && savedUsdtRate) await prisma.currencyRate.upsert({ where: { code: 'USDT' }, create: savedUsdtRate, update: savedUsdtRate }); else if (rateCaptured) await prisma.currencyRate.deleteMany({ where: { code: 'USDT' } })
     for (const [key, old] of snapshots) if (old) await put(key, old.value); else await prisma.setting.deleteMany({ where: { key } }); access.clearAdminPolicyCache(); await prisma.$disconnect(); global.Date = RealDate

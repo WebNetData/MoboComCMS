@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MoboComPay merchant API
-  version: 1.8.0
+  version: 1.9.0
   contact: { url: 'https://github.com/WebNetData/MoboComCMS' }
   description: >-
     An authorized administrator provisions and activates the merchant for an existing MoboCom identity.
@@ -23,6 +23,35 @@ tags:
   - { name: Hosted checkout, description: Guest phone proof and payment methods on the MoboCom domain. }
   - { name: Custom bot, description: Dedicated body-token compatibility adapter and conservative paid-order delivery. }
 paths:
+  /api/payment/mobocom-pay/sms-forwarder/{id}:
+    post:
+      operationId: receiveForwardedBankSms
+      tags: [Bank bridge]
+      security: []
+      description: >-
+        Three-field FORWARDER_V1 source intake. The generated per-source token authenticates in the body;
+        no bearer token is required. The bank must equal the source's configured bank. Only server receipt
+        time is available, so previously unseen historical SMS cannot be distinguished from fresh messages.
+        For a locked USDT purchase quote this evidence alone cannot approve credit; a successful receipt may
+        report reviewRequired and PAY_PURCHASE_TIME_REQUIRED. Configure the phone to forward only fresh
+        messages from the bank sender. Requests must satisfy the same-site Origin policy.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sms, bank, token]
+              properties:
+                sms: { type: string, minLength: 1, maxLength: 4096, description: Nonblank bank message text. }
+                bank: { type: string, pattern: '^[a-z0-9_]{3,40}$', description: Fixed bank code configured for this source. }
+                token: { type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$', writeOnly: true, description: Per-source generated credential shown once. }
+      responses:
+        '200': { description: 'Evidence recorded or replay acknowledged. A locked USDT quote may return financialApproval=false, reviewRequired=true and code=PAY_PURCHASE_TIME_REQUIRED.' }
+        default: { description: 'Authentication, origin, source, body, strict rate limit or availability failure.' }
   /api/payment/mobocom-pay/sms/{id}:
     post:
       operationId: receiveConfiguredBankSms
