@@ -13,7 +13,7 @@ const mocks={
  '@/modules/catalog/server/storefront':{isStoreEnabled:async()=>false},'@/modules/public-api/server/availability':{isPublicApiEnabled:async()=>false},
  '@/platform/observability/logger':{logEvent:()=>{},requestIdFrom:()=>stamp},'@/platform/cache/kv':{cached:async(key,ttl,work)=>work(),invalidate:async()=>{}},
 }
-function load(relative){const file=path.resolve(repo,relative);if(cache.has(file))return cache.get(file).exports;const mod={exports:{}};cache.set(file,mod);new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText)(name=>{
+function load(relative){const file=path.resolve(repo,relative);if(cache.has(file))return cache.get(file).exports;const mod={exports:{}};cache.set(file,mod);new Function('require','module','exports','__dirname','__filename',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText)(name=>{
  if(Object.hasOwn(mocks,name))return mocks[name]
  if(name==='@/modules/reviews/server/reviews')return load('src/modules/reviews/server/business-experiences.ts')
  if(name==='@/modules/marketplace/server/marketplace')return load('src/modules/marketplace/server/marketplace/reviews.ts')
@@ -21,14 +21,14 @@ function load(relative){const file=path.resolve(repo,relative);if(cache.has(file
  if(name.startsWith('@/')&&name.endsWith('.cjs'))return require(path.resolve(repo,'src',name.slice(2)))
  if(name.startsWith('@/')||name.startsWith('.')){const base=name.startsWith('@/')?path.resolve(repo,'src',name.slice(2)):path.resolve(path.dirname(file),name);return load(fs.existsSync(base+'.ts')?base+'.ts':path.join(base,'index.ts'))}
  return require(name)
-},mod,mod.exports);return mod.exports}
+},mod,mod.exports,path.dirname(file),file);return mod.exports}
 const setting=(key,value)=>prisma.setting.upsert({where:{key},create:{key,value},update:{value}})
 const req=new NextRequest('http://localhost:3000/api/businesses',{method:'POST',headers:{origin:'http://localhost:3000'}})
 const denied=(work,status)=>assert.rejects(work,error=>error.status===status)
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2z8AAAAASUVORK5CYII=','base64')
 async function main(){
  try{
-  temp=await fsp.mkdtemp(path.join(os.tmpdir(),stamp));process.chdir(temp)
+  temp=await fsp.mkdtemp(path.join(os.tmpdir(),stamp));await fsp.copyFile(path.join(repo,'package.json'),path.join(temp,'package.json'));process.chdir(temp)
   for(const key of ['extension.businesses.state.v1','extension.reviews.state.v1','security.policy.v1'])snapshots.set(key,await prisma.setting.findUnique({where:{key}}))
   await setting('extension.businesses.state.v1','{"enabled":true,"settings":{}}');await setting('extension.reviews.state.v1','{"enabled":true,"settings":{}}');await setting('security.policy.v1','{"requireAdmin2fa":false}')
   for(const permissions of ['businesses.manage','reviews.moderate'])roles.push(await prisma.role.create({data:{name:`${stamp}-${roles.length}`,permissions}}))

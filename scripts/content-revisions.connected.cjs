@@ -34,7 +34,7 @@ async function main() {
     { title: 't', publishedAt: '2026-01-02T03:04:05.000Z', priceMinor: '12', featured: true, summary: null })
 
   // ---- a new item: its first version; an edit: the next, naming what changed; a save that changes no column: nothing
-  const { row: film } = await media.saveMediaItem(T, { title: `${seed} first`, slug: `${seed}-film`, kind: 'MOVIE', summary: 'as it was', year: 2001 }, null, editor)
+  const { row: film } = await media.saveMediaItem(T, { title: `${seed} first`, slug: `${seed}-film`, kind: 'MOVIE', poster: 'https://example.invalid/poster.jpg', genres: 'Drama', summary: 'as it was in the original story of a remarkable journey', year: 2001, links: [{ url: 'https://dl.example.invalid/original.mp4' }] }, null, editor)
   await media.saveMediaItem(T, { title: `${seed} second`, year: 2002 }, film.id, editor)
   await media.saveMediaItem(T, { links: [{ url: 'https://dl.example.invalid/a.mp4' }] }, film.id, editor)
   await media.saveMediaItem(T, { summary: 'from a file' }, film.id)
@@ -55,11 +55,11 @@ async function main() {
   const { before, after } = await media.restoreMediaItem(T, film.id, current => rules.restoreValues(snapshot, current))
   await revisions.recordRevision({ entityType: T, entityId: film.id, before, after, actor: editor, source: 'restore' })
   const back = await prisma.cinemaTitle.findUniqueOrThrow({ where: { id: film.id } })
-  assert.deepEqual([back.title, back.year, back.summary, back.views, back.publishedAt instanceof Date, back.publishedAt.toISOString() === snapshot.publishedAt, await prisma.mediaLink.count({ where: { ownerType: 'title', ownerId: film.id } }), announced], [`${seed} first`, 2001, 'as it was', 99, true, true, 1, [`title:${film.id}`]], 'search and feeds are told, as after any edit')
+  assert.deepEqual([back.title, back.year, back.summary, back.views, back.publishedAt instanceof Date, back.publishedAt.toISOString() === snapshot.publishedAt, await prisma.mediaLink.count({ where: { ownerType: 'title', ownerId: film.id } }), announced], [`${seed} first`, 2001, 'as it was in the original story of a remarkable journey', 99, true, true, 2, [`title:${film.id}`]], 'search and feeds are told, as after any edit')
   assert.deepEqual((await versions(film.id)).at(-1), [5, 'restore', '__relations,summary,title,year', editor.email], 'a restore is itself a version: it can be undone')
-  assert.equal(await prisma.mediaLink.count({ where: { ownerType: 'title', ownerId: film.id, disabled: false } }), 0, 'obsolete links are hidden while report/entitlement IDs remain')
+  assert.equal(await prisma.mediaLink.count({ where: { ownerType: 'title', ownerId: film.id, disabled: false } }), 1, 'obsolete links are hidden while report/entitlement IDs remain')
 
-  assert.deepEqual((await revisions.revisionDetail(T, film.id, 5)).diff.filter(row => row.field !== '__relations').map(row => [row.field, row.before, row.after]), [['summary', 'from a file', 'as it was'], ['title', `${seed} second`, `${seed} first`], ['year', '2002', '2001']], 'scalar diffs remain exact alongside the separately asserted relationship version')
+  assert.deepEqual((await revisions.revisionDetail(T, film.id, 5)).diff.filter(row => row.field !== '__relations').map(row => [row.field, row.before, row.after]), [['summary', 'from a file', 'as it was in the original story of a remarkable journey'], ['title', `${seed} second`, `${seed} first`], ['year', '2002', '2001']], 'scalar diffs remain exact alongside the separately asserted relationship version')
 
   // ---- a version whose address now belongs to another item is not put back
   await media.saveMediaItem(T, { slug: `${seed}-moved` }, film.id, editor)

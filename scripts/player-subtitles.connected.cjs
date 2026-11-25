@@ -77,7 +77,7 @@ async function main() {
   // The subtitle look is kept with the account; unknown values fall back to the default look, the rest is kept.
   assert.deepEqual((await (await put({ subtitleStyle: { size: 'XL', color: 'YELLOW', background: 'GLOW', edge: 'OUTLINE', position: 99 } })).json()).subtitleStyle, { size: 'XL', color: 'YELLOW', background: 'NONE', edge: 'OUTLINE', position: 40 })
   assert.equal((await (await put({ subtitle: 'fa' })).json()).subtitleStyle.size, 'XL', 'a language change keeps the look')
-  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: member.id } })).playbackPrefs, '{"audio":"","subtitle":"off"}')
+  assert.deepEqual(JSON.parse((await prisma.user.findUniqueOrThrow({ where: { id: member.id } })).playbackPrefs), { audio: '', subtitle: 'fa', subtitleStyle: { size: 'XL', color: 'YELLOW', background: 'NONE', edge: 'OUTLINE', position: 40 } }, 'the last language and normalized style are persisted together')
   assert.equal((await prefs.PUT_playbackPrefs({ headers: new Headers({ origin: 'https://elsewhere.invalid', host: 'site.invalid' }), json: async () => ({ subtitle: 'fa' }) })).status, 403, 'not from another site')
   const releases = [{ audio: 'DUBBED', quality: '1080p' }, { audio: 'ORIGINAL', quality: '1080p' }, { audio: '', quality: '720p' }]
   assert.deepEqual([mediaRules.groupLinks(releases).map(g => g.audio), mediaRules.groupLinks(releases, prefRules.audioOrder({ audio: 'ORIGINAL', subtitle: '' })).map(g => g.audio), prefRules.audioOrder({ audio: 'DUBBED', subtitle: '' })[0]], [['DUBBED', 'ORIGINAL', ''], ['ORIGINAL', 'DUBBED', ''], 'DUBBED'], 'the preferred side first, nothing hidden')

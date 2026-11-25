@@ -38,10 +38,15 @@ test('Bale JSON rejects duplicate decoded keys, nested ambiguity, invalid gramma
  assert.deepEqual(uniqueBaleJson('{"text":"escaped \\\" x","p":[true,null,-1.2e3,{}],"a\\u0062":2}'),{text:'escaped " x',p:[true,null,-1200,{}],ab:2})
 })
 test('new MoboCom provider never falls through to another provider or advertises source-only collection readiness',async()=>{
- const g=load('src/modules/billing/server/gateways.ts'),gw={provider:'MOBOCOM_PAY',apiKey:'accidental-personal-token',instructions:'',fiat:'IRR'}
+ // Readiness is database-backed. A disabled source is doubled here; connected
+ // Pay suites exercise the real registry/account/owner checks against PostgreSQL.
+ let readinessChecks=0;
+ const providerLoad=require('./connected-source-loader.cjs')({'@/modules/billing/server/pay':{baleGatewayReady:async()=>{readinessChecks++;return false}}});
+ const g=providerLoad('src/modules/billing/server/gateways.ts'),gw={provider:'MOBOCOM_PAY',apiKey:'accidental-personal-token',instructions:'',fiat:'IRR'}
  assert.equal(g.PROVIDERS.find(p=>p.key==='MOBOCOM_PAY').needsApiKey,false)
  assert.equal(g.isGatewayUsable(gw),false);assert.deepEqual(g.gatewayAcceptedCurrencies(gw),['IRR','IRT','TMN'])
  assert.equal(g.gatewayAcceptsCheckoutCurrency(gw,'USD'),false)
  assert.equal((await g.createGatewayInvoice(gw,{amount:1000,currency:'IRR'})).ok,false)
  assert.equal((await g.testGateway(gw)).ok,false)
+ assert.equal(readinessChecks,1)
 })

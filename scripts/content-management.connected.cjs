@@ -51,14 +51,16 @@ async function main(){try{
  await db.postCategory.delete({where:{id:category.id}});await assert.rejects(postHistory.restorePostRevision(post.id,snapshot),e=>e.status===409,'deleted categories refuse a whole restore')
  // Actual media owner records season/link/category-only edits and restores them without losing link reports/counters.
  const media=load('src/modules/media/server/admin.ts'),term=await db.taxonomyTerm.create({data:{taxonomy:'cinema',facet:'genres',slug:stamp,name:stamp+' Drama'}})
- const {row:series}=await media.saveMediaItem('cinema-titles',{slug:stamp,title:stamp,kind:'SERIES',terms:{ids:[term.id],primary:term.id},links:[{url:'https://example.invalid/'+stamp+'.mp4'}],seasons:[{number:1,name:'original season',episodes:[{number:1,title:'original episode',links:[{url:'https://example.invalid/'+stamp+'-episode.mp4'}]}]}]},null,actor)
+ const otherTerm=await db.taxonomyTerm.create({data:{taxonomy:'cinema',facet:'genres',slug:stamp+'-other',name:stamp+' Comedy'}})
+ await db.vocabulary.createMany({data:[term,otherTerm].map(t=>({section:'cinema',list:'GENRE',code:t.name,name:t.name}))})
+ const {row:series}=await media.saveMediaItem('cinema-titles',{slug:stamp,title:stamp,kind:'SERIES',poster:'https://example.invalid/poster.jpg',genres:term.name,summary:'A family discovers a forgotten story across generations.',terms:{ids:[term.id],primary:term.id},links:[{url:'https://example.invalid/'+stamp+'.mp4'}],seasons:[{number:1,name:'original season',episodes:[{number:1,title:'original episode',links:[{url:'https://example.invalid/'+stamp+'-episode.mp4'}]}]}]},null,actor)
  createdTitleIds.push(series.id)
  await assert.rejects(media.saveMediaItem('cinema-titles',{title:'must roll back with episode'},series.id,actor,{afterWrite:async(tx,id)=>{const ep=await tx.cinemaEpisode.findFirstOrThrow({where:{season:{titleId:id}}});await tx.cinemaEpisode.update({where:{id:ep.id},data:{title:'must roll back too'}});throw Error('owned episode failure')}}),/owned episode failure/)
  assert.equal((await db.cinemaTitle.findUnique({where:{id:series.id}})).title,stamp)
  assert.equal((await db.cinemaEpisode.findFirstOrThrow({where:{season:{titleId:series.id}}})).title,'original episode')
  const initial=await revisions.revisionSnapshot('cinema-titles',series.id,1),stableLink=await db.mediaLink.findFirst({where:{ownerType:'title',ownerId:series.id}})
  await db.mediaLink.update({where:{id:stableLink.id},data:{clicks:12}})
- await media.saveMediaItem('cinema-titles',{terms:{ids:[]},seasons:[{number:1,name:'changed season',episodes:[{number:1,title:'changed episode'}]}]},series.id,actor)
+ await media.saveMediaItem('cinema-titles',{terms:{ids:[otherTerm.id],primary:otherTerm.id},seasons:[{number:1,name:'changed season',episodes:[{number:1,title:'changed episode'}]}]},series.id,actor)
  assert.equal((await revisions.listRevisions('cinema-titles',series.id)).length,2,'relations-only save is a real version')
  await media.restoreMediaItem('cinema-titles',series.id,current=>rules.restoreValues(initial,current))
  const season=await db.cinemaSeason.findUnique({where:{titleId_number:{titleId:series.id,number:1}},include:{episodes:true}}),link=await db.mediaLink.findUnique({where:{id:stableLink.id}})
@@ -82,7 +84,7 @@ async function main(){try{
  }finally{
   const titles=await db.cinemaTitle.findMany({where:{slug:stamp},select:{id:true,seasons:{select:{episodes:{select:{id:true}}}}}}),titleIds=[...new Set([...titles.map(row=>row.id),...createdTitleIds])],episodeIds=titles.flatMap(row=>row.seasons.flatMap(s=>s.episodes.map(e=>e.id)))
   await db.moderationCase.deleteMany({where:{id:{in:caseIds}}});await db.contentRevision.deleteMany({where:{OR:[{entityType:'cinema-titles',entityId:{in:titleIds}},{entityType:'products',entityId:{in:(await db.product.findMany({where:{slug:stamp},select:{id:true}})).map(row=>row.id)}}]}})
-  await db.mediaLink.deleteMany({where:{OR:[{ownerType:'title',ownerId:{in:titleIds}},{ownerType:'episode',ownerId:{in:episodeIds}},{url:{contains:stamp}}]}});await db.taxonomyAssignment.deleteMany({where:{taxonomy:'cinema',ownerId:{in:titleIds}}});await db.taxonomyTerm.deleteMany({where:{slug:stamp}});await db.backgroundJob.deleteMany({where:{kind:'cinema.person-publication',OR:titleIds.map(id=>({dedupeKey:{contains:':title:'+id}}))}})
-  await db.cinemaTitle.deleteMany({where:{id:{in:titleIds}}});await db.post.deleteMany({where:{slug:stamp}});await db.postCategory.deleteMany({where:{slug:stamp}});await db.product.deleteMany({where:{slug:stamp}});if(actor)await db.auditLog.deleteMany({where:{actorUserId:actor.id}});await db.user.deleteMany({where:{email:stamp+'@example.invalid'}});await prisma.$disconnect()
+  await db.mediaLink.deleteMany({where:{OR:[{ownerType:'title',ownerId:{in:titleIds}},{ownerType:'episode',ownerId:{in:episodeIds}},{url:{contains:stamp}}]}});await db.taxonomyAssignment.deleteMany({where:{taxonomy:'cinema',ownerId:{in:titleIds}}});await db.taxonomyTerm.deleteMany({where:{slug:{startsWith:stamp}}});await db.backgroundJob.deleteMany({where:{kind:'cinema.person-publication',OR:titleIds.map(id=>({dedupeKey:{contains:':title:'+id}}))}})
+  await db.cinemaTitle.deleteMany({where:{id:{in:titleIds}}});await db.vocabulary.deleteMany({where:{section:'cinema',list:'GENRE',code:{startsWith:stamp}}});await db.post.deleteMany({where:{slug:stamp}});await db.postCategory.deleteMany({where:{slug:stamp}});await db.product.deleteMany({where:{slug:stamp}});if(actor)await db.auditLog.deleteMany({where:{actorUserId:actor.id}});await db.user.deleteMany({where:{email:stamp+'@example.invalid'}});await prisma.$disconnect()
  }}
 main().catch(error=>{console.error(error);process.exitCode=1})

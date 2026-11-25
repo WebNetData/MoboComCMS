@@ -913,18 +913,55 @@
           "sha256": "4c36f37d3a811053b88790f4e63cd91c60264ff68637af071cdebcfa36e3780d"
         }
       ]
+    },
+    "1.7.22": {
+      "migrations": [
+        {
+          "name": "20270325120000_mobocom_pay",
+          "sha256": "cc30bafa182b17180867546737dff4e336b761f85ef972ea18fde68486bd0a5a"
+        },
+        {
+          "name": "20270326120000_pay_shared_checkout",
+          "sha256": "8746c8637ac1976ec15bea5ec37dc302b7ad9187eea777aa85ce35c541923463"
+        },
+        {
+          "name": "20270327120000_pay_bot_delivery",
+          "sha256": "e1f28ede9b6ee6cf0f693643c7ab62ce09e17aab4e4f573d5fcf5bcfba308aff"
+        },
+        {
+          "name": "20270328120000_pay_routing_operations",
+          "sha256": "6549709c8bbdb4ce38a4c276d649936fed6a8c4105194680a330a8d6131eae01"
+        },
+        {
+          "name": "20270329120000_pay_bale_server",
+          "sha256": "a9b7313317067a7be08c87af56c9129946ff803680533ea4db71068e9c43f09a"
+        },
+        {
+          "name": "20270330120000_pay_bale_collection",
+          "sha256": "d7bf4eda7ce940cf40abedf4d2c8b1f8e899f343dd776a03bb406d70b853dd33"
+        },
+        {
+          "name": "20270331120000_pay_transfer_operations",
+          "sha256": "7121fc60dab45f75a9f97bd3f68279fae74316e5311a8d8e616270f05e2e0734"
+        },
+        {
+          "name": "20270401120000_pay_channels_assets",
+          "sha256": "155fa527c13e7b6f9b10f847a37f3352e27a342f6dc18851cf280a595f76f662"
+        },
+        {
+          "name": "20270402120000_pay_sms_forwarder",
+          "sha256": "7f122b3c090740759fa9154d86837b45d5e9bc10f8533ef729aaff865e0738e8"
+        },
+        {
+          "name": "20270403120000_pay_webhooks_settlement_center",
+          "sha256": "d18a0bf8f3360b72a8f1e70838a02e863c5f647c59a7ba730033d03f58660c61"
+        },
+        {
+          "name": "20270404120000_counter_wallet_invoice_compatibility",
+          "sha256": "7bebb1f5ef6eeeebcbc6c311b7f354c5fd28cec9ab04d652584fb984e33b3ff6"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270325120000_mobocom_pay",
-    "20270326120000_pay_shared_checkout",
-    "20270327120000_pay_bot_delivery",
-    "20270328120000_pay_routing_operations",
-    "20270329120000_pay_bale_server",
-    "20270330120000_pay_bale_collection",
-    "20270331120000_pay_transfer_operations",
-    "20270401120000_pay_channels_assets",
-    "20270402120000_pay_sms_forwarder",
-    "20270403120000_pay_webhooks_settlement_center"
-  ]
+  "unreleased": []
 }

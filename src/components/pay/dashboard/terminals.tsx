@@ -34,16 +34,16 @@ export default function Terminals({
       <section className={s.card}>
         <h2>پایانه‌ها</h2>
         {data.terminals.length ? (
-          data.terminals.map((t) => (
-            <div className={s.row} key={t.id}>
+          data.terminals.map((terminal) => (
+            <div className={s.row} key={terminal.id}>
               <div>
-                <strong>{t.name}</strong>
-                <small>{PAY_CHANNEL_LABELS[t.channelType] || PAY_CHANNEL_LABELS.WEBSITE}</small>
-                {(t.channelUrl || t.returnUrl) && <small className={s.ltr}>{t.channelUrl || t.returnUrl}</small>}
- <small>تأیید خودکار کارت‌به‌کارت: {t.baleEnabled ? 'فعال' : 'غیرفعال'}</small>
+                <strong>{terminal.name}</strong>
+                <small>{PAY_CHANNEL_LABELS[terminal.channelType] || PAY_CHANNEL_LABELS.WEBSITE}</small>
+                {(terminal.channelUrl || terminal.returnUrl) && <small className={s.ltr}>{terminal.channelUrl || terminal.returnUrl}</small>}
+ <small>تأیید خودکار کارت‌به‌کارت: {terminal.baleEnabled ? 'فعال' : 'غیرفعال'}</small>
               </div>
  <div className={s.actions}>
- <button type="button" className={s.secondary} disabled={busy || !active || !data.merchant?.baleAllowed} onClick={() => action(() => api('/api/pay/terminals', json('PATCH', { id: t.id, baleEnabled: !t.baleEnabled })))}>{t.baleEnabled ? 'غیرفعال کردن تأیید خودکار کارت‌به‌کارت' : 'فعال کردن تأیید خودکار کارت‌به‌کارت'}</button>
+ <button type="button" className={s.secondary} disabled={busy || !active || !data.merchant?.baleAllowed} onClick={() => action(() => api('/api/pay/terminals', json('PATCH', { id: terminal.id, baleEnabled: !terminal.baleEnabled })))}>{terminal.baleEnabled ? 'غیرفعال کردن تأیید خودکار کارت‌به‌کارت' : 'فعال کردن تأیید خودکار کارت‌به‌کارت'}</button>
               <button
                 type="button"
                 className={s.secondary}
@@ -52,12 +52,12 @@ export default function Terminals({
                   action(() =>
                     api(
                       "/api/pay/terminals",
-                      json("PATCH", { id: t.id, active: !t.active }),
+                      json("PATCH", { id: terminal.id, active: !terminal.active }),
                     ),
                   )
                 }
               >
-                {t.active ? "غیرفعال کردن" : "فعال کردن"}
+                {terminal.active ? "غیرفعال کردن" : "فعال کردن"}
               </button>
  </div>
             </div>

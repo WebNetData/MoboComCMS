@@ -63,7 +63,7 @@ async function main() {
   assert.equal((await vocab.updateEntry('games', mode.id, { name: 'بتل‌رویال', sortOrder: 99 }, audit)).name, 'بتل‌رویال')
 
   // ---- a game keeps only known codes; an inactive code stays on a game that had it, and is not added
-  const saveGame = (body, id = null) => media.saveMediaItem('games', body, id)
+  const saveGame = (body, id = null) => media.saveMediaItem('games', id ? body : { status: 'DRAFT', ...body }, id)
   const { row: game } = await saveGame({ title: `${seed} one`, slug: `${seed}-one`, modes: `single, ${CODE}_ROYALE, NOT_LISTED`, localization: [`${CODE}_VX`], platforms: `${seed} Deck`, storeLinks: [{ store: `${seed} Store`, url: 'https://example.invalid/game' }] })
   assert.deepEqual([game.modes, game.localization], [`SINGLE, ${CODE}_ROYALE`, `${CODE}_VX`], 'unknown codes are dropped, list order kept')
   await vocab.updateEntry('games', mode.id, { active: false }, audit)
@@ -74,7 +74,7 @@ async function main() {
   assert.equal((await vocab.listLabels('games')).MODE[`${CODE}_ROYALE`], 'بتل‌رویال', 'a game still shows the name of an inactive code')
 
   // ---- a software title takes a known licence; an unknown one keeps the licence it had (a new title: free)
-  const saveSoftware = (body, id = null) => media.saveMediaItem('software', body, id)
+  const saveSoftware = (body, id = null) => media.saveMediaItem('software', id ? body : { status: 'DRAFT', ...body }, id)
   const { row: app } = await saveSoftware({ title: `${seed} app`, slug: `${seed}-app`, license: `${CODE}_SUB` })
   assert.equal(app.license, `${CODE}_SUB`)
   assert.equal((await saveSoftware({ license: 'NOT_A_LICENCE' }, app.id)).row.license, `${CODE}_SUB`, 'an unknown licence keeps the one it had')
@@ -100,7 +100,7 @@ async function main() {
   await prisma.$executeRawUnsafe(`INSERT INTO "Vocabulary" (section, list, code, name) VALUES ('media', 'QUALITY', '${seed} HDR', 'x')`)
   await assert.rejects(prisma.$executeRawUnsafe(`INSERT INTO "Vocabulary" (section, list, code, name) VALUES ('media', 'AUDIO', '${seed} dub', 'x')`), /check/i, 'an audio side is a code')
   const studio = await vocab.createEntry('media', { list: 'AUDIO', code: `DUBBED_${CODE}`, name: 'دوبلهٔ استودیو', icon: '🎬' }, audit)
-  const saveTitle = (body, id = null) => media.saveMediaItem('cinema-titles', body, id)
+  const saveTitle = (body, id = null) => media.saveMediaItem('cinema-titles', id ? body : { poster: 'https://example.invalid/poster.jpg', genres: 'Drama', summary: 'A family discovers a forgotten story across generations.', ...body }, id)
   const linksOf = (id) => prisma.mediaLink.findMany({ where: { ownerType: 'title', ownerId: id }, orderBy: { id: 'asc' }, select: { url: true, audio: true } })
   const { row: film } = await saveTitle({ title: `${seed} film`, slug: `${seed}-film`, links: [
     { url: 'https://example.invalid/a.mkv', audio: `DUBBED_${CODE}` }, { url: 'https://example.invalid/b.mkv', audio: 'NOT_A_SIDE' }, { url: 'https://example.invalid/c.mkv', audio: 'ORIGINAL' }, { url: 'https://example.invalid/d.mkv', audio: 'lower case' },
@@ -119,8 +119,10 @@ async function main() {
   assert.deepEqual(mediaRules.groupLinks([{ audio: '', quality: 'a' }, { audio: 'SOMETHING_NEW', quality: 'b' }, { audio: 'ORIGINAL', quality: 'c' }], ['ORIGINAL', '']).map((group) => group.audio), ['ORIGINAL', 'SOMETHING_NEW', ''], 'an unnamed side comes before links without one')
 
   // ---- the public side: whole-code filters for games, the owner's licence names on software cards and filters
-  await prisma.gameTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
-  await prisma.softwareTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
+  for (const item of [game, other]) await saveGame({ status: 'PUBLISHED', cover: 'https://example.invalid/cover.jpg', summary: 'A story-driven game for the whole family.', platforms: `${seed} Deck`, links: [{ url: `https://example.invalid/${seed}-game-${item.id}.zip` }] }, item.id)
+  for (const item of [app, fresh]) await saveSoftware({ status: 'PUBLISHED', icon: 'https://example.invalid/icon.png', version: '1.0', summary: 'A useful application for everyday creative work.', content: 'A useful application for everyday creative work. '.repeat(4), platforms: 'Android', size: '10 MB', links: [{ url: `https://example.invalid/${seed}-software-${item.id}.apk` }] }, item.id)
+  await prisma.gameTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { publishedAt: new Date(Date.now() - 60000) } })
+  await prisma.softwareTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { publishedAt: new Date(Date.now() - 60000) } })
   const by = async (input) => (await games.browseGames({ ...input, q: seed })).games.map((g) => g.slug).sort()
   assert.deepEqual(await by({ lang: `${CODE}_V` }), [`${seed}-two`])
   assert.deepEqual(await by({ lang: `${CODE}_VX` }), [`${seed}-one`])
@@ -150,7 +152,8 @@ async function main() {
   assert.equal(JSON.parse((await saveSoftware({ appStores: [{ store: `${seed} Shop`, url: 'https://example.invalid/app3' }] }, fresh.id)).row.appStores).length, 0, 'an inactive store is not given to another title')
   assert.deepEqual([await uses('software', 'PLATFORM', phone.id), await uses('software', 'APP_STORE', shop.id)], [1, 1], 'platform and store uses are counted')
   await refused(vocab.deleteEntry('software', shop.id, audit), /را دارند/, 409)
-  await prisma.softwareTitle.updateMany({ where: { slug: `${seed}-mobile` }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
+  await saveSoftware({ status: 'PUBLISHED', icon: 'https://example.invalid/icon.png', version: '1.0', summary: 'A useful application for everyday creative work.', content: 'A useful application for everyday creative work. '.repeat(4), size: '10 MB', links: [{ url: `https://example.invalid/${seed}-mobile.apk` }] }, mobile.id)
+  await prisma.softwareTitle.updateMany({ where: { slug: `${seed}-mobile` }, data: { publishedAt: new Date(Date.now() - 60000) } })
   const page = await software.getSoftware(`${seed}-mobile`)
   assert.deepEqual([page.software.packageId, page.software.minOs, page.software.appStores], ['com.example.app', 'Android 8.0', [{ store: `${seed} Shop`, url: 'https://example.invalid/app2', name: 'فروشگاه آزمون' }]], 'the page reads the app\'s facts with the store\'s name')
   const softwareRules = load('src/modules/software/domain/vocabulary.ts')
@@ -162,7 +165,7 @@ async function main() {
   const jazz = await vocab.createEntry('music', { list: 'GENRE', code: `جز ${seed}` }, audit)
   const remix = await vocab.createEntry('music', { list: 'ALBUM_TYPE', code: `${CODE}_REMIX`, name: 'ریمیکس' }, audit)
   const guitar = await vocab.createEntry('music', { list: 'CREDIT_ROLE', code: `${CODE}_GUITAR`, name: 'گیتار' }, audit)
-  const saveAlbum = (body, id = null) => media.saveMediaItem('music-albums', body, id), saveTrack = (body, id = null) => media.saveMediaItem('music-tracks', body, id)
+  const saveAlbum = (body, id = null) => media.saveMediaItem('music-albums', id ? body : { status: 'DRAFT', ...body }, id), saveTrack = (body, id = null) => media.saveMediaItem('music-tracks', id ? body : { status: 'DRAFT', ...body }, id)
   const { row: record } = await saveAlbum({ title: `${seed} album`, slug: `${seed}-album`, artistId: singer.id, albumType: `${CODE}_REMIX`, genre: `پاپ, جز ${seed}, نامعلوم` })
   assert.deepEqual([record.albumType, record.genre], [`${CODE}_REMIX`, `پاپ, جز ${seed}`], 'a known release type; unknown genres are dropped')
   assert.equal((await saveAlbum({ title: `${seed} other`, slug: `${seed}-album-2`, artistId: singer.id, albumType: 'NOT_A_TYPE' })).row.albumType, 'ALBUM', 'a new album with an unknown type is an album')
@@ -182,8 +185,11 @@ async function main() {
   await merge.mergeMusicArtists({ sourceId: twin.id, targetId: composer.id, sourceVersion: source.updatedAt.toISOString(), targetVersion: target.updatedAt.toISOString() }, async () => {})
   assert.deepEqual((await creditsOf(song.id)).sort(), [`COMPOSER:${composer.id}`, `FEATURED:${composer.id}`, `LYRICIST:${poet.id}`].sort(), 'credits follow the merge without a repeat')
   // the public pages read them
-  await prisma.musicTrack.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
-  await prisma.musicAlbum.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
+  const albums = await prisma.musicAlbum.findMany({ where: { slug: { startsWith: seed } } })
+  for (const album of albums) await saveAlbum({ status: 'PUBLISHED', cover: 'https://example.invalid/cover.jpg' }, album.id)
+  await saveTrack({ status: 'PUBLISHED', audioUrl: 'https://example.invalid/audio.mp3', duration: 180 }, song.id)
+  await prisma.musicTrack.updateMany({ where: { slug: { startsWith: seed } }, data: { publishedAt: new Date(Date.now() - 60000) } })
+  await prisma.musicAlbum.updateMany({ where: { slug: { startsWith: seed } }, data: { publishedAt: new Date(Date.now() - 60000) } })
   const songPage = await musicQueries.getTrack(`${seed}-song`)
   assert.deepEqual(songPage.credits.map((group) => [group.role, group.name, group.artists.map((a) => a.id)]), [['FEATURED', 'با همراهی', [composer.id]], ['COMPOSER', 'آهنگساز', [composer.id]], ['LYRICIST', 'ترانه‌سرا', [poet.id]]], 'grouped by role in the list order, with the owner names')
   const profile = await musicQueries.getArtist(poet.slug)
@@ -205,11 +211,11 @@ async function main() {
 
   // ---- a film's genres, countries and languages: the owner's names; an English name from an import maps to its entry
   const noir = await vocab.createEntry('cinema', { list: 'GENRE', code: `نوآر ${seed}`, nameEn: `Noir ${seed}` }, audit)
-  const { row: filmLists } = await saveTitle({ title: `${seed} lists`, slug: `${seed}-film-lists`, genres: `Drama, noir ${seed}, Unknown Genre`, countries: 'United States، ایران', languages: 'english, Klingon' })
+  const { row: filmLists } = await saveTitle({ title: `${seed} lists`, slug: `${seed}-film-lists`, genres: `Drama, noir ${seed}, Unknown Genre`, countries: 'United States، ایران', languages: 'english, Klingon', links: [{ url: `https://example.invalid/${seed}-film-lists.mp4` }] })
   assert.deepEqual([filmLists.genres, filmLists.countries, filmLists.languages], [`درام, نوآر ${seed}`, 'ایران, آمریکا', 'انگلیسی'], 'English names (any case) map to the owner\'s entries, in list order; unknown names are dropped')
   await vocab.updateEntry('cinema', noir.id, { active: false }, audit)
   assert.equal((await saveTitle({ genres: `نوآر ${seed}, کمدی` }, filmLists.id)).row.genres, `نوآر ${seed}, کمدی`, 'a title keeps a genre the owner later deactivated')
-  assert.equal((await saveTitle({ title: `${seed} lists 2`, slug: `${seed}-film-lists-2`, genres: `Noir ${seed}` })).row.genres, '', 'a deactivated genre is not given to another title, not even by its English name')
+  assert.equal((await saveTitle({ title: `${seed} lists 2`, slug: `${seed}-film-lists-2`, status: 'DRAFT', genres: `Noir ${seed}` })).row.genres, '', 'a deactivated genre is not given to another title, not even by its English name')
   assert.equal(await uses('cinema', 'GENRE', noir.id), 1)
   await refused(vocab.deleteEntry('cinema', noir.id, audit), /را دارند/, 409)
 
@@ -264,7 +270,7 @@ async function main() {
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {
     const films = await prisma.cinemaTitle.findMany({ where: { slug: { startsWith: seed } }, select: { id: true } })
-    await prisma.mediaLink.deleteMany({ where: { ownerType: 'title', ownerId: { in: films.map((row) => row.id) } } })
+    await prisma.mediaLink.deleteMany({ where: { OR: [{ ownerType: 'title', ownerId: { in: films.map((row) => row.id) } }, { url: { contains: seed } }] } })
     await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.gameTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.softwareTitle.deleteMany({ where: { slug: { startsWith: seed } } })

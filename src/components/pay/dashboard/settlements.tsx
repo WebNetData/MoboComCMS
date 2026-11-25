@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import JalaliDateInput from "@/components/date/JalaliDateInput";
 import type { PaySettlementCenter } from "@/modules/billing/domain/pay-settlement-center";
 import { newIdempotencyKey } from "@/shared/security/idempotency";
 import type {
@@ -166,7 +167,7 @@ export default function Settlements({
               }}
             />
           </Field>
-          <Field label="زمان تسویه به وقت محلی دستگاه (اختیاری)"><input type="datetime-local" min={now ? localInput(now) : undefined} max={now ? localInput(new Date(now.getTime() + maxDays * 86400000)) : undefined} value={scheduledFor} onChange={e => { setScheduledFor(e.target.value); setQuote(null); setAckNetwork(false); settlementKey.current = "" }} aria-invalid={!!scheduledFor && !scheduledUtc} aria-describedby="settlement-schedule-help" /></Field>
+          <Field label="زمان تسویه به وقت محلی دستگاه (اختیاری)"><JalaliDateInput withTime disabled={busy || !active} min={now ? localInput(now) : undefined} max={now ? localInput(new Date(now.getTime() + maxDays * 86400000)) : undefined} value={scheduledFor} onChange={value => { setScheduledFor(value); setQuote(null); setAckNetwork(false); settlementKey.current = "" }} invalid={!!scheduledFor && !scheduledUtc} aria-describedby="settlement-schedule-help" /></Field>
         </div>
         <div>
           <button

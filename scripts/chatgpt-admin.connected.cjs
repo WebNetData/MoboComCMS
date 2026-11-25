@@ -1,6 +1,6 @@
 // Native PostgreSQL, crypto, Setting CAS/leases and actual OAuth/Responses owners. Only upstream responses/cache are doubled.
 const fs=require('node:fs'),crypto=require('node:crypto'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client'),loadSource=require('./connected-source-loader.cjs'),db=new PrismaClient()
-const stamp='owned-chatgpt-'+Date.now(),keys=[],users=[],priorKey=process.env.PANEL_CREDENTIAL_KEY,pair=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),jwk={...pair.publicKey.export({format:'jwk'}),kid:stamp,alg:'RS256',use:'sig'},calls=[];let nonce='',rotation=0
+const stamp='owned-chatgpt-'+Date.now(),keys=[],users=[],priorKey=process.env.PANEL_CREDENTIAL_KEY,pair=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),jwk={...pair.publicKey.export({format:'jwk'}),kid:stamp,alg:'RS256',use:'sig'},calls=[];let nonce='',rotation=0,priorRouting,restoreRouting=false
 const sign=body=>{const h=Buffer.from(JSON.stringify({alg:'RS256',kid:stamp})).toString('base64url'),p=Buffer.from(JSON.stringify(body)).toString('base64url');return h+'.'+p+'.'+crypto.sign('RSA-SHA256',Buffer.from(h+'.'+p),pair.privateKey).toString('base64url')}
 const event=(type,extra={})=>'data: '+JSON.stringify({type,...extra})+'\n\n'
 async function main(){try{
@@ -32,11 +32,13 @@ async function main(){try{
  await assert.rejects(rejecting.withConnectionAudit(auditInput,()=>rejecting.changeState(id,s=>{s.enabled=false})),/owned audit failure/);assert.equal((await db.setting.findUniqueOrThrow({where:{key:keys[0]}})).value,priorAuditValue)
  await store.withConnectionAudit(auditInput,()=>store.changeState(id,s=>{s.enabled=true}));assert.equal(await db.auditLog.count({where:{actorUserId:id,action:'ai.chatgpt.test'}}),1)
  const attempts=await Promise.allSettled([session.activeAccount(id),session.activeAccount(id)]);assert.equal(rotation,1);assert(attempts.some(a=>a.status==='fulfilled'))
+ priorRouting=await db.setting.findUnique({where:{key:'ai.routing.v1'}});restoreRouting=true
+ await load('src/modules/ai/server/routing.ts').saveAiRoute('admin',{source:'personal'})
  const config={provider:'gemini',model:'owned',apiKey:'owned-public-key',voice:'',botName:'',baseUrl:''},prompt={system:'personal admin',user:'test',maxTokens:200}
  assert.equal((await context.withPersonalAi(id,()=>client.generate(prompt,config))).provider,'chatgpt-personal');assert.equal((await client.generate(prompt,config)).text,'shared-public-provider');await assert.rejects(context.withPersonalAi(users[1].id,()=>client.generate(prompt,config)),/متصل/)
  assert.equal(calls.filter(c=>c.url.endsWith('/responses')).length,1)
  await session.disconnect(id);assert.equal((await store.readState(id)).accounts[0].refresh,'')
  console.log('ChatGPT native PostgreSQL passed: signed OAuth/one-use callback, encrypted per-admin isolation, concurrent first-create merge, single rotating refresh, public request isolation, no paid fallback and disconnect retention')
- }finally{try{await db.setting.deleteMany({where:{key:{in:keys}}});if(users.length)await db.auditLog.deleteMany({where:{actorUserId:{in:users.map(u=>u.id)}}});await db.user.deleteMany({where:{id:{in:users.map(u=>u.id)},email:{startsWith:stamp}}})}finally{if(priorKey===undefined)delete process.env.PANEL_CREDENTIAL_KEY;else process.env.PANEL_CREDENTIAL_KEY=priorKey;await db.$disconnect()}}
+ }finally{try{if(restoreRouting){if(priorRouting)await db.setting.upsert({where:{key:'ai.routing.v1'},create:priorRouting,update:{value:priorRouting.value}});else await db.setting.deleteMany({where:{key:'ai.routing.v1'}})}await db.setting.deleteMany({where:{key:{in:keys}}});if(users.length)await db.auditLog.deleteMany({where:{actorUserId:{in:users.map(u=>u.id)}}});await db.user.deleteMany({where:{id:{in:users.map(u=>u.id)},email:{startsWith:stamp}}})}finally{if(priorKey===undefined)delete process.env.PANEL_CREDENTIAL_KEY;else process.env.PANEL_CREDENTIAL_KEY=priorKey;await db.$disconnect()}}
 }
 main().catch(e=>{console.error(e);process.exitCode=1})

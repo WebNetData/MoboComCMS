@@ -46,7 +46,7 @@ async function main() {
   const patch = await call(roleApi.PATCH, 'PATCH', '/api/admin/roles', { id: roles[1], permissions: ['dashboard.view', 'cms.posts'] })
   assert.equal(patch.status, 200, JSON.stringify(patch.body)); assert.equal((await db.role.findUnique({ where: { id: roles[1] } })).permissions, 'dashboard.view,cms.posts')
   const deputy = await call(roleApi.POST, 'POST', '/api/admin/roles', { name: stamp + '-deputy', preset: 'site-deputy', nameFa: 'معاون کل سایت' }); assert.equal(deputy.status, 200); roles.push(deputy.body.id); assert.equal(deputy.body.permissions, '*')
-  viewer = roleEditor; assert.equal((await call(roleApi.POST, 'POST', '/api/admin/roles', { name: stamp + '-forbidden', preset: 'site-deputy' })).status, 403)
+  viewer = roleEditor; assert.equal((await call(roleApi.POST, 'POST', '/api/admin/roles', { name: stamp + '-forbidden', preset: 'site-deputy', nameFa: 'معاون کل سایت' })).status, 403)
   viewer = journal; assert.equal((await call(forumApi.PATCH, 'PATCH', '/api/admin/forum', { section: 'users', userId: expert.id, manualLevelId: 'active' })).status, 403)
   await community.ensureProfiles(users)
   viewer = forumManager

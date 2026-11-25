@@ -33,7 +33,8 @@ async function main() {
   const manager = await prisma.user.create({ data: { email: `${stamp}-manager@example.invalid`, passwordHash: 'owned fixture', role: 'ADMIN' } })
   const author = await prisma.user.create({ data: { email: `${stamp}-author@example.invalid`, passwordHash: 'owned fixture', role: 'ADMIN', roleId: role.id } })
   const authorActor = { id: author.id, email: author.email, roleId: role.id, permissions: ['dashboard.view', 'journal.author'] }
-  const article = (name, extra = {}) => ({ slug: `${stamp}-${name}`, title: `${stamp} ${name}`, content: '<p>متن</p>', ...extra })
+  const category = await prisma.postCategory.create({ data: { slug: stamp, name: stamp } })
+  const article = (name, extra = {}) => ({ slug: `${stamp}-${name}`, title: `${stamp} ${name}`, cover: 'https://example.invalid/cover.jpg', excerpt: 'An editorial overview of this synthetic review fixture.', categoryIds: [category.id], content: `<p>${'A thoughtful article about a local community and its history. '.repeat(20)}</p>`, ...extra })
   const count = () => prisma.post.count({ where: { slug: { startsWith: stamp } } })
 
   // ---- setting off: an author publishes as before
@@ -129,6 +130,7 @@ main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(
     await prisma.contentRevision.deleteMany({ where: { entityType: 'posts', entityId: { in: ids } } })
     await prisma.auditLog.deleteMany({ where: { OR: [{ targetType: 'posts', targetId: { in: ids.map(String) } }, { actorEmail: { startsWith: stamp } }] } })
     await prisma.post.deleteMany({ where: { id: { in: ids } } })
+    await prisma.postCategory.deleteMany({ where: { slug: stamp } })
     const users = (await prisma.user.findMany({ where: { email: { startsWith: stamp } }, select: { id: true } })).map((row) => row.id)
     await prisma.userNotification.deleteMany({ where: { userId: { in: users } } })
     await prisma.user.deleteMany({ where: { id: { in: users } } })

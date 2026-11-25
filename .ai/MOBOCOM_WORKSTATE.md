@@ -1,3 +1,26 @@
+# Release1.7.22 signed draft / owner merge pending — 2026-11-25
+
+[PR491](https://github.com/WebNetData/MoboComCMS/pull/491) targets main. Ten signed assets uploaded and re-downloaded/hash-verified; original publisher and1.7.21 verifier accept sourcef9689ac1. All local code/PG/build/browser gates passed; private runtime/five DBs/role/tunnel/session fixtures cleaned, app3000 HTTP200. Stable/latest remains1.7.21 until owner merges491. [Exact resume and proof](../docs/agent/handoffs/RELEASE_1_7_22.md#signed-candidate-and-final-owner-gate).
+
+# Release1.7.22 accepted local candidate — 2026-11-25
+
+Canonical1140/53/4/14, full PostgreSQL243/243, Pay11 suites, fresh/populated218 upgrades, production build114 pages and49 browser/a11y views pass. Same publisher package/draft, owner merge and stable publication are next; no destination deployment or hosted workflow. [Exact evidence/continuation](../docs/agent/handoffs/RELEASE_1_7_22.md).
+
+# Release1.7.22 validation fixes — 2026-11-25
+
+Canonical npm run check passes UID1000/no.env/no DB credentials. Fresh218 and populated207→218 including linked counter wallet invoices, plus populated216→218 settlement preservation passed. Corrected unpublished209 compatibility, added incremental218 for existing main installs, retained recoverable invoice credit failure and shared Jalali scheduling. Test-only fixtures follow current owner contracts. Final native suite, committed production build/browser, signature and publication are pending. Owner merges; no hosted workflow or destination deployment.
+[Release evidence](../docs/agent/handoffs/RELEASE_1_7_22.md).
+
+# Release1.7.22 preparation — 2026-11-25
+
+Owner requests published1.7.22 for updating, after merged PR490/main86697521.
+Authoritative .mobocom/release-1.7.22 on release/1.7.22; version/root lock,
+10-migration seal, operator notes and14-source AI knowledge prepared. Existing
+publisher verified; private signing key remains outside Git/containers. Local
+canonical checks,207→218 preservation, production build/browser and signed
+artifact/re-download gates remain pending. Other checkouts/shared app preserved.
+[Exact release continuation](../docs/agent/handoffs/RELEASE_1_7_22.md).
+
 # PR490 published — 2026-11-25
 
 Owner-requested [PR490](https://github.com/WebNetData/MoboComCMS/pull/490) targets

@@ -14,18 +14,10 @@ function model(client) { return {
 } }
 const setting = model(db)
 const database = { setting, $transaction: (callback, options) => db.$transaction(tx => callback({ ...tx, setting: model(tx) }), options) }
-const cache = new Map()
-function load(file) {
-  if (cache.has(file)) return cache.get(file).exports
-  const mod = { exports: {} }; cache.set(file, mod)
-  new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(name => {
-    if (name === '@/platform/database/prisma') return { db: database }
-    if (name === '@/extensions/generated/catalog') return { extensionCatalog: [], extensionPermissionIds: [] }
-    if (name.startsWith('@/')) { const base = 'src/' + name.slice(2); return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts') }
-    return require(name)
-  }, mod, mod.exports)
-  return mod.exports
-}
+const load = require('./connected-source-loader.cjs')({
+  '@/platform/database/prisma': { db: database },
+  '@/extensions/generated/catalog': { extensionCatalog: [], extensionPermissionIds: [] },
+})
 const service = load('src/modules/site/server/maintenance.ts')
 const stored = async () => JSON.parse((await db.setting.findUniqueOrThrow({ where: { key } })).value)
 async function main() {

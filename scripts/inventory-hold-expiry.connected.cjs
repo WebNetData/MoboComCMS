@@ -20,7 +20,7 @@ const source = baseline ? execFileSync('git', ['show', `${baseline}:${file}`], {
 function load(text = source) {
  const mod = {exports: {}}
  // The stock rule of code-delivered products is part of the inventory code and runs on the same database client.
- new Function('require', 'module', 'exports', ts.transpileModule(text, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => name === '@/platform/database/prisma' ? {db} : name === '@/modules/catalog/server/code-stock' ? load(fs.readFileSync('src/modules/catalog/server/code-stock.ts', 'utf8')) : require(name), mod, mod.exports)
+ new Function('require', 'module', 'exports', ts.transpileModule(text, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => name === '@/platform/database/prisma' ? {db} : name === '@/modules/catalog/server/code-stock' ? load(fs.readFileSync('src/modules/catalog/server/code-stock.ts', 'utf8')) : name === '@/modules/catalog/server/locations' ? require('./connected-source-loader.cjs')({'@/platform/database/prisma': {db}})('src/modules/catalog/server/locations.ts') : require(name), mod, mod.exports)
  return mod.exports
 }
 let user, product
