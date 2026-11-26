@@ -4,6 +4,7 @@ import type { BaleCheckout } from '@/modules/billing/domain/pay-bale-collection'
 import { money } from '../client'
 import s from '../Pay.module.css'
 import v from '../BankCheckout.module.css'
+import DestinationCard, { TransferAmount } from '../checkout/destination-card'
 
 function Equivalent({ data }: { data: BaleCheckout }) {
   const rate = data.usdt, available = rate?.status === 'AVAILABLE' && rate.amount
@@ -14,15 +15,6 @@ function Equivalent({ data }: { data: BaleCheckout }) {
     <div className={v.conversion}>{available ? <strong dir="ltr">{rate.lessThan ? '< ' : '≈ '}{rate.amount} <small>USDT</small></strong> : <span>{rate?.status === 'STALE' ? 'نرخ نیازمند به‌روزرسانی است' : 'نرخ تتر در دسترس نیست'}</span>}
       <details className={v.rateDetails}><summary>نرخ نمایشی</summary><div>{available && <p>هر تتر: <bdi>{rate.rateToman}</bdi> تومان</p>}{asOf && <p>{rate?.manual ? 'ثبت دستی' : 'آخرین نرخ ثبت‌شده'}: {asOf}</p>}<p>معادل نمایشی است؛ این درخواست با کارت به کارت پرداخت می‌شود.</p></div></details>
     </div>
-  </div>
-}
-
-function Destination({ bank, onCopy }: { bank: NonNullable<BaleCheckout['bank']>; onCopy: (label: string, value: string) => void }) {
-  const primary = bank.cardNumber ? { label: 'شماره کارت مقصد', value: bank.cardNumber.replace(/(.{4})(?=.)/g, '$1 ') } : bank.accountNumber ? { label: 'شماره حساب مقصد', value: bank.accountNumber } : { label: 'شبای مقصد', value: bank.iban }
-  const extras = [['بانک', bank.bankName], ['صاحب حساب', bank.holderName], ['شماره حساب', bank.cardNumber ? bank.accountNumber : ''], ['شبا', bank.cardNumber || bank.accountNumber ? bank.iban : '']].filter(([, value]) => value)
-  return <div className={v.destination}>
-    <div className={v.cardNumber}><div><span>{primary.label}</span><bdi dir="ltr">{primary.value}</bdi></div>{bank.cardNumber && <button type="button" className={`${s.secondary} ${v.copyCard}`} onClick={() => onCopy('شماره کارت', bank.cardNumber)} aria-label="کپی شماره کارت" title="کپی شماره کارت"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></svg></button>}</div>
-    {extras.length > 0 && <details className={v.extraDetails}><summary>اطلاعات بیشتر مقصد</summary><dl>{extras.map(([label, value]) => <div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl></details>}
   </div>
 }
 
@@ -46,13 +38,12 @@ export default function BankCheckoutView({ data, error, expired, countdown, rema
     {error && <div className={v.error} role="alert"><p>{error}</p><button type="button" className={s.secondary} onClick={onRefresh}>تلاش دوباره</button></div>}
     {!data ? !error && <div className={v.panel} role="status">در حال دریافت اطلاعات پرداخت…</div> : <section className={v.panel} aria-labelledby="bank-payment-title">
       <div className={v.invoice}><h2 id="bank-payment-title">{pending ? 'مبلغ نهایی سفارش' : 'خلاصهٔ درخواست'}</h2><bdi title={data.invoiceNumber}>{data.invoiceNumber}</bdi></div>
-      <div className={v.amount}><div><strong>{money(data.collectedRial)}</strong><span>{(BigInt(data.collectedRial) / 10n).toLocaleString('fa-IR')} تومان</span></div>{pending && data.bank && !error && <button type="button" className={s.secondary} onClick={() => onCopy('مبلغ ریالی', data.collectedRial)} aria-label="کپی مبلغ ریالی">کپی ریال</button>}</div>
-      <Equivalent data={data} />
-      <details className={v.breakdown}><summary>جزئیات مبلغ و هزینهٔ خدمت <span>{money(data.adjustmentRial)}</span></summary><dl><div><dt>اصل فاکتور</dt><dd>{money(data.principalRial)}</dd></div><div><dt>هزینهٔ خدمت و تشخیص واریز</dt><dd>{money(data.adjustmentRial)}</dd></div></dl></details>
+      <TransferAmount value={data.collectedRial} onCopy={pending && data.bank && !error ? onCopy : undefined} />
+      <details className={v.breakdown}><summary>کارمزد و معادل تتر <span>{money(data.adjustmentRial)}</span></summary><dl><div><dt>اصل فاکتور</dt><dd>{money(data.principalRial)}</dd></div><div><dt>هزینهٔ خدمت و تشخیص واریز</dt><dd>{money(data.adjustmentRial)}</dd></div></dl><Equivalent data={data} /></details>
       {error ? <p className={v.muted}>برای ادامه، وضعیت درخواست را تازه کنید.</p> : pending ? <>
         <div className={v.timer}><div><span>زمان باقی‌مانده برای واریز</span><strong dir="ltr">{countdown}</strong></div><progress aria-label="مهلت باقی‌مانده پرداخت" max={Math.max(1, (Date.parse(data.expiresAt) - Date.parse(data.validFrom)) / 1000)} value={remaining ?? 0} /></div>
         {!data.accepted ? <div className={v.consent}><label className={s.check}><input type="checkbox" checked={accepted} onChange={event => onAcceptChoice(event.target.checked)} />مبلغ نهایی و هزینهٔ خدمت را می‌پذیرم</label><button type="button" className={s.button} disabled={!accepted || busy} onClick={onAccept}>{busy ? 'در حال ثبت…' : 'پذیرش و ادامه'}</button></div>
-          : data.bank ? <><Destination bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status" aria-live="polite">{copied || 'پس از واریز، منتظر تأیید خودکار بمانید.'}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام؛ ثبت رسید'}</button></>
+          : data.bank ? <><DestinationCard bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status">{copied || 'پس از واریز، می‌توانید رسید بفرستید.'}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام، ارسال رسید'}</button></>
           : <p className={v.muted}>اطلاعات واریز هنوز آماده نیست؛ وضعیت را تازه کنید.</p>}
       </> : <Resolution data={data} expired={expired} busy={busy} back={back} onRenew={onRenew} />}
     </section>}

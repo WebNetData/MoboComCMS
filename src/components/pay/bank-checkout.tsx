@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BaleCheckout } from '@/modules/billing/domain/pay-bale-collection'
 import { api } from './client'
 import BankCheckoutView from './bank-checkout/view'
-import ReceiptDialog from './bank-checkout/receipt-dialog'
+import ReceiptForm from './checkout/receipt'
 
 function sameSite(value: string): string | null {
   try { const url = new URL(value, window.location.origin); return url.origin === window.location.origin && /^https?:$/.test(url.protocol) ? url.href : null } catch { return null }
@@ -14,7 +14,7 @@ export default function BankCheckout({ id }: { id: string }) {
   const [data, setData] = useState<BaleCheckout | null>(null)
   const [error, setError] = useState(''), [revision, setRevision] = useState(0), [accepted, setAccepted] = useState(false)
   const [busy, setBusy] = useState(false), [now, setNow] = useState(0), [copied, setCopied] = useState('')
-  const [offset, setOffset] = useState(0), [uploading, setUploading] = useState(false), [payerName, setPayerName] = useState(''), [trackingCode, setTrackingCode] = useState(''), [paidAmount, setPaidAmount] = useState<string | null>(null), [image, setImage] = useState<File | null>(null)
+  const [offset, setOffset] = useState(0), [uploading, setUploading] = useState(false)
   const [back, setBack] = useState<string | null>(null), action = useRef<AbortController | null>(null), generation = useRef(0)
   const receiptDialog = useRef<HTMLDialogElement | null>(null)
   const refresh = useCallback(() => setRevision(value => value + 1), [])
@@ -58,15 +58,11 @@ export default function BankCheckout({ id }: { id: string }) {
   async function copy(label: string, value: string) {
     try { await navigator.clipboard.writeText(value); setCopied(`${label} کپی شد`) } catch { setCopied(`کپی ${label} انجام نشد؛ مقدار را انتخاب کنید`) }
   }
-  async function upload(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!image || uploading || !payerName.trim() || !/^\d+$/.test(paidAmount ?? data?.collectedRial ?? '')) return
-    if (image.size > 6 * 1024 * 1024) { setError('حجم تصویر باید حداکثر ۶ مگابایت باشد'); return }
-    const controller = new AbortController(); action.current = controller; generation.current++; setUploading(true); setError('')
-    try { const body = new FormData(); body.set('image', image); body.set('payerName', payerName.trim()); body.set('trackingCode', trackingCode); body.set('paidAmountRial', paidAmount ?? data!.collectedRial)
-      const row = await api<BaleCheckout>(`/api/payment/mobocom-pay/collections/${encodeURIComponent(id)}/receipt`, { method: 'POST', body, signal: controller.signal, cache: 'no-store' })
-      if (!controller.signal.aborted) { generation.current++; setOffset(new Date(row.serverTime).getTime() - Date.now()); setData(row); receiptDialog.current?.close(); refresh() }
-    } catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : 'ثبت رسید انجام نشد'); refresh() } }
-    finally { if (!controller.signal.aborted) setUploading(false) }
+  function receiptSubmitted(row: BaleCheckout) {
+    generation.current++
+    setOffset(new Date(row.serverTime).getTime() - Date.now())
+    setData(row)
+    refresh()
   }
   const remaining = data && now ? Math.max(0, Math.ceil((new Date(data.expiresAt).getTime() - (now + offset)) / 1000)) : null
   const locallyExpired = data?.status === 'PENDING' && remaining === 0 && !uploading
@@ -79,8 +75,8 @@ export default function BankCheckout({ id }: { id: string }) {
       countdown={countdown} remaining={remaining} accepted={accepted} busy={busy} copied={copied}
       uploading={uploading} back={back} onAcceptChoice={setAccepted} onAccept={accept} onRenew={renew}
       onCopy={copy} onReceipt={() => receiptDialog.current?.showModal()} onRefresh={refresh} />
-    <ReceiptDialog dialogRef={receiptDialog} uploading={uploading} error={error} payerName={payerName}
-      trackingCode={trackingCode} amount={paidAmount ?? data?.collectedRial ?? ''} onPayerName={setPayerName}
-      onTrackingCode={setTrackingCode} onAmount={setPaidAmount} onImage={setImage} onSubmit={upload} />
+    <ReceiptForm<BaleCheckout> dialogRef={receiptDialog}
+      endpoint={`/api/payment/mobocom-pay/collections/${encodeURIComponent(id)}/receipt`}
+      onSending={setUploading} onSubmitted={receiptSubmitted} />
   </>
 }

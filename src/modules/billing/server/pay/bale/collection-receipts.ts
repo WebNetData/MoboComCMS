@@ -13,14 +13,15 @@ import { payContext, payTransaction } from '../context'
 import { collectionFor, baleCheckout } from './collection-view'
 import { settleTransferCollection } from './collection-settle'
 import { collectionConfirmation, receiptReviewResult } from '../confirmation'
+import { approvalReference } from '../receipt-reference'
 
 export async function submitCollectionReceipt(req: NextRequest, id: string) {
   if (await payTransaction(async tx => Boolean((await collectionFor(tx, id, req)).receiptId))) return baleCheckout(id, req)
   const form = await readReceiptMultipart(req)
   const fields = Object.fromEntries([...form.entries()].filter(([, value]) => typeof value === 'string'))
   const input = normalizeReceipt(fields), rawAmount = latinDigits(fields.paidAmountRial).trim()
-  if (!/^[1-9]\d{0,18}$/.test(rawAmount)) throw new PayError('مبلغ رسید معتبر نیست', 422)
-  const amount = BigInt(rawAmount), upload = form.get('image')
+  if (fields.paidAmountRial !== undefined && !/^[1-9]\d{0,18}$/.test(rawAmount)) throw new PayError('مبلغ رسید معتبر نیست', 422)
+  const upload = form.get('image')
   if (!upload || typeof upload === 'string' || !upload.size || upload.size > 6 * 1024 * 1024) throw new PayError('تصویر رسید تا ۶ مگابایت لازم است', 422)
   const bytes = Buffer.from(await upload.arrayBuffer()), type = sniffImage(bytes)
   if (!type) throw new PayError('تصویر رسید باید PNG، JPEG یا WebP باشد', 422)
@@ -34,8 +35,9 @@ export async function submitCollectionReceipt(req: NextRequest, id: string) {
       const row = await collectionFor(tx, id, req)
       if (row.receiptId) return false
       if (row.status !== 'PENDING' || !row.acceptedAt || row.expiresAt <= new Date() || row.invoice.status !== 'UNPAID' || row.activeInvoiceId !== row.invoiceId) throw new PayError('وضعیت درخواست تغییر کرده است', 409)
+      const amount = rawAmount ? BigInt(rawAmount) : row.collectedRial
       if (amount !== row.principalRial && amount !== row.collectedRial) throw new PayError('مبلغ باید برابر اصل یا جمع درخواست باشد', 422)
-      const receipt = await tx.paymentReceipt.create({ data: { ...input, bankAccountId: row.bankAccountId, invoiceId: row.invoiceId, userId: row.invoice.userId, amountMinor: row.dueMinor, currency: row.currency, image: filename, imageType: type.mimeType } })
+      const receipt = await tx.paymentReceipt.create({ data: { ...input, paidAt: fields.paidAt ? input.paidAt : null, bankAccountId: row.bankAccountId, invoiceId: row.invoiceId, userId: row.invoice.userId, amountMinor: row.dueMinor, currency: row.currency, image: filename, imageType: type.mimeType } })
       const claim = await tx.payBaleCollection.updateMany({ where: { id, status: 'PENDING', receiptId: null, activeInvoiceId: row.invoiceId }, data: { status: 'UNDER_REVIEW', receiptId: receipt.id, receiptAmountRial: amount } })
       if (claim.count !== 1) throw new PayError('درخواست هم‌زمان تغییر کرده است', 409)
       const owner = await tx.user.findUniqueOrThrow({ where: { id: row.ownerUserId }, select: { id: true, email: true } })
@@ -47,7 +49,7 @@ export async function submitCollectionReceipt(req: NextRequest, id: string) {
   } catch (error) { if (!saved) await unlink(join(receiptDirectory(), filename)).catch(() => {}); throw error }
 }
 
-export async function reviewCollectionReceipt(admin: { id: number; email: string; req?: NextRequest }, receiptId: number, action: 'approve' | 'reject', note: string) {
+export async function reviewCollectionReceipt(admin: { id: number; email: string; req?: NextRequest }, receiptId: number, action: 'approve' | 'reject', note: string, verifiedReference?: unknown) {
   if (!admin.req) throw new PayError('نشست بررسی‌کننده لازم است', 403)
   const req = admin.req
   return payTransaction(async tx => {
@@ -64,7 +66,10 @@ export async function reviewCollectionReceipt(admin: { id: number; email: string
     if (row.receipt.status !== 'PENDING') throw new PayError('رسید قبلاً بررسی شده است', 409)
     const clean = String(note || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 300)
     if (!paid && action === 'reject' && clean.length < 3) throw new PayError('دلیل رد رسید را بنویسید', 422)
-    const claim = await tx.paymentReceipt.updateMany({ where: { id: receiptId, status: 'PENDING' }, data: { status: paid || action === 'approve' ? 'APPROVED' : 'REJECTED', adminNote: clean, reviewedBy: admin.id, reviewedAt: new Date() } })
+    const trackingCode = !paid && action === 'approve' && row.invoice.payCollection
+      ? await approvalReference(tx, row.receipt, verifiedReference)
+      : row.receipt.trackingCode
+    const claim = await tx.paymentReceipt.updateMany({ where: { id: receiptId, status: 'PENDING' }, data: { status: paid || action === 'approve' ? 'APPROVED' : 'REJECTED', trackingCode, adminNote: clean, reviewedBy: admin.id, reviewedAt: new Date() } })
     if (claim.count !== 1) throw new PayError('رسید هم‌زمان بررسی شده است', 409)
     if (!paid) {
       if (row.status !== 'UNDER_REVIEW' || row.receiptAmountRial === null) throw new PayError('وضعیت درخواست تغییر کرده است', 409)

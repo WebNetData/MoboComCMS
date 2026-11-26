@@ -73,6 +73,8 @@ export interface PayTerminalView {
   createdAt: string
 }
 export interface PayPaymentView {
+  /** Present only in the authorized Admin payment projection. */
+  receiptIds?: number[]
   reviewStatus?: 'UNDER_REVIEW'
   confirmation?: PayConfirmation
   settledServiceFeeRial?: string
@@ -189,6 +191,7 @@ export interface PayCheckout {
   bank: { title: string; bankName: string; holderName: string; cardNumber: string; iban: string } | null
 }
 export interface PayReceiptView {
+  reportedRial?: string
   paymentStatus?: PayPaymentStatus; confirmation?: PayConfirmation; feeRial?: string; netRial?: string;
   creditAmount?: string; creditCurrency?: PayCreditCurrency; platformFeeRial?: string
   id: number; paymentId: string; merchantName: string; externalId: string; totalRial: string;

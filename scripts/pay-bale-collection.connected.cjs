@@ -32,7 +32,7 @@ async function invoice(amount, currency = 'IRR', kind = 'BILLING', userId = user
   const row = await prisma.invoice.create({ data: { number: `${stamp}-${invoices.length}`, userId, orderId, status: 'UNPAID', kind, currency, gatewayId: gateway.id, total: Number(amount), totalMinor: BigInt(amount), subtotal: Number(amount), subtotalMinor: BigInt(amount), expiresAt: new Date(now + 3600000) } }); invoices.push(row.id); return row
 }
 async function upload(id, amount, cookie = '') {
-  const form = new FormData(); form.set('payerName', 'Synthetic User'); form.set('paidAmountRial', String(amount)); form.set('image', new Blob([Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c4944415408d763f8ffff3f0005fe02fef32a02550000000049454e44ae426082', 'hex')], { type: 'image/png' }), 'receipt.png')
+  const form = new FormData(); form.set('payerName', 'Synthetic User'); if (amount !== undefined) form.set('paidAmountRial', String(amount)); form.set('image', new Blob([Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c4944415408d763f8ffff3f0005fe02fef32a02550000000049454e44ae426082', 'hex')], { type: 'image/png' }), 'receipt.png')
   return submitCollectionReceipt(new NextRequest(`https://mobocom.invalid/api/payment/mobocom-pay/collections/${id}/receipt`, { method: 'POST', headers: cookie ? { cookie } : {}, body: form }), id)
 }
 async function prepare(row) { const result = await prepareBaleGateway(gateway.id, row.number); if (!quotes.includes(result.txnId)) quotes.push(result.txnId); return result }
@@ -312,7 +312,12 @@ async function main() { try {
   now += 16*60000
   const renewedPay = await changeBaleCheckout(oldPayQuote.txnId, payRequest, 'renew'); quotes.push(renewedPay.id)
   assert.equal((await prisma.payPayment.findUniqueOrThrow({ where: { id: payId } })).expiresAt.getTime(), merchantPayment.expiresAt.getTime())
-  await changeBaleCheckout(renewedPay.id, payRequest, 'accept'); await upload(renewedPay.id, renewedPay.collectedRial, cookie)
+  await changeBaleCheckout(renewedPay.id, payRequest, 'accept'); await upload(renewedPay.id, undefined, cookie)
+  const heldMerchantReceipt = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: renewedPay.id }, include: { receipt: true } })
+  assert.equal(heldMerchantReceipt.receiptAmountRial, BigInt(renewedPay.collectedRial))
+  assert.equal(heldMerchantReceipt.receipt.trackingCode, '')
+  assert.ok((await pay.adminPayOverview(admin)).payments.find(row => row.id === payId).receiptIds.includes(heldMerchantReceipt.receiptId))
+  assert.equal((await pay.payReceiptImage(admin.req, heldMerchantReceipt.receiptId)).headers.get('content-type'), 'image/png')
   now = Date.parse(renewedPay.expiresAt)+1000
   assert.equal((await baleCheckout(renewedPay.id, payRequest)).status, 'UNDER_REVIEW')
   const merchantNotice = envelope(30, { amount: renewedPay.collectedRial, reference: 'MERCHANTPAY123' })

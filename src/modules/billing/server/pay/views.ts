@@ -214,7 +214,11 @@ export async function adminPayOverview(actor: PayActor) {
       ? await tx.payPayment.findMany({
           orderBy: { createdAt: 'desc' },
           take: 100,
-          include: { terminal: true, invoice: collectionProjection },
+          include: { terminal: true, invoice: { select: {
+            ...collectionProjection.select,
+            receipts: { orderBy: { id: 'desc' }, take: 20, select: { id: true } },
+            _count: { select: { receipts: { where: { status: 'PENDING' } } } },
+          } } },
         })
       : []
     const settlements = await tx.paySettlement.findMany({
@@ -234,7 +238,10 @@ export async function adminPayOverview(actor: PayActor) {
       merchants: merchants.map((row) =>
         merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n, settings),
       ),
-      payments: payments.map(paymentView),
+      payments: payments.map(row => {
+        const receipts = row.invoice?.receipts ?? []
+        return { ...paymentView({ ...row, hasPendingReceipt: Boolean(row.invoice?._count.receipts) }), receiptIds: receipts.map(receipt => receipt.id) }
+      }),
       settlements: settlements.map((row) => ({ ...settlementView(row), merchantName: row.merchant.name })),
       bankEvents: events.map((row) => ({
         id: row.id,

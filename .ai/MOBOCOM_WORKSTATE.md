@@ -1,3 +1,11 @@
+# Compact checkout and receipt review — 2026-11-26
+
+Continue .mobocom/pay-receipt-checkout from main cd1f6aae. Full-width payment
+details, guarded Admin receipt links, compact card/amount and two-field receipt
+submission. Staff verifies missing reference on manual approval. Four scoped PG
+suites, OpenAPI compatibility, Doctor and twelve real browser scopes passed.
+[Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#compact-checkout-and-receipt-review--2026-11-26).
+
 # Release 1.7.24 — 2026-11-26
 
 Owner authorized PR/merge/stable release. Development PR498 merged as 2ebaaf08.

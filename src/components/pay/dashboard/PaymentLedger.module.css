@@ -5,7 +5,7 @@
 .hint { display: block; margin-top: 4px; color: var(--sds-color-text-default-secondary); font-size: .75rem; font-weight: 400; }
 .details { min-width: 140px; }
 .details summary:focus-visible { outline: 2px solid var(--sds-color-background-brand-default); outline-offset: 3px; }
-.explanation { color: var(--sds-color-text-default-secondary); font-size: .875rem; }
+.explanation { color: var(--sds-color-text-default-default); font-size: .8125rem; }
 .empty { padding: 24px; color: var(--sds-color-text-default-secondary); text-align: center; }
 .ledger { padding: 0; border-radius: 16px; }
 .table thead { background: var(--sds-color-background-default-secondary); }
@@ -26,4 +26,31 @@
   .hint { display: inline; margin: 0 4px; }
   .table td > .value { min-width: 0; overflow-wrap: anywhere; }
   .table tr:last-child { border-bottom: 0; }
+}
+
+.detailRow[hidden] { display: none; }
+.table .detailRow td { padding: 0 20px 20px; white-space: normal; }
+.paymentDetails { padding: 20px; border: 1px solid var(--sds-color-border-default-default); border-radius: 10px; background: var(--sds-color-background-default-secondary); }
+.detailHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-block-end: 12px; border-block-end: 1px solid var(--sds-color-border-default-default); }
+.detailHeading strong { overflow-wrap: anywhere; }
+.paymentDetails dl { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 175px),1fr)); gap: 12px; margin: 12px 0 0; }
+.paymentDetails dl div { min-inline-size: 0; padding: 9px 12px; border-radius: 9px; background: var(--sds-color-background-default-default); }
+.paymentDetails dt { color: var(--sds-color-text-default-secondary); font-size: .75rem; }
+.paymentDetails dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.receiptLinks { display: flex; flex-wrap: wrap; gap: 12px; }
+.receiptLinks a:focus-visible { outline: 2px solid var(--sds-color-background-brand-default); outline-offset: 3px; }
+@media (min-width: 761px) {
+  .table.paymentTable { table-layout: fixed; min-inline-size: 0; }
+  .table.paymentTable :is(th,td) { padding-inline: 10px; overflow-wrap: anywhere; white-space: normal; }
+  .table.paymentTable th:nth-child(1) { inline-size: 12%; }
+  .table.paymentTable th:nth-child(7) { inline-size: 10%; }
+  .table.paymentTable th:nth-child(9) { inline-size: 13%; }
+  .table.paymentTable .detailToggle { inline-size: 100%; padding-inline: 7px; font-size: .75rem; white-space: normal; }
+}
+@media (max-width: 760px) {
+  .table .detailRow { padding-top: 0; }
+  .table .detailRow td { display: block; padding: 0; text-align: start; }
+  .table .detailRow td::before { display: none; }
+  .paymentDetails { padding: 12px; }
+  .paymentDetails dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 }

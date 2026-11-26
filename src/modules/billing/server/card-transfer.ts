@@ -132,10 +132,10 @@ export async function submitReceipt(req: NextRequest, userId: number, invoiceNum
 }
 
 /** Approve (settle the invoice) or reject (tell the customer why). */
-export async function reviewReceipt(admin: { id: number; email: string; req?: NextRequest }, receiptId: number, action: 'approve' | 'reject', note: string) {
-  if (await db.payBaleCollection.findUnique({ where: { receiptId }, select: { id: true } })) return (await import('@/modules/billing/server/pay/bale/collection-receipts')).reviewCollectionReceipt(admin, receiptId, action, note)
+export async function reviewReceipt(admin: { id: number; email: string; req?: NextRequest }, receiptId: number, action: 'approve' | 'reject', note: string, verifiedReference?: unknown) {
+  if (await db.payBaleCollection.findUnique({ where: { receiptId }, select: { id: true } })) return (await import('@/modules/billing/server/pay/bale/collection-receipts')).reviewCollectionReceipt(admin, receiptId, action, note, verifiedReference)
   const collection = await db.paymentReceipt.findUnique({ where: { id: receiptId }, select: { invoice: { select: { kind: true } } } })
-  if (collection?.invoice.kind === 'PAY_COLLECTION') return (await import('@/modules/billing/server/pay')).reviewPayReceiptByStaff(admin, receiptId, action, note)
+  if (collection?.invoice.kind === 'PAY_COLLECTION') return (await import('@/modules/billing/server/pay')).reviewPayReceiptByStaff(admin, receiptId, action, note, verifiedReference)
   const receipt = await db.paymentReceipt.findUnique({ where: { id: receiptId }, include: { invoice: { select: { id: true, number: true, userId: true, status: true } } } })
   if (!receipt) throw new TransferError('رسید پیدا نشد', 404)
   if (receipt.userId === null) throw new TransferError('رسید بدون صاحب باید در درگاه پرداخت بررسی شود', 409)

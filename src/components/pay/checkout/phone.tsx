@@ -21,7 +21,7 @@ export default function PhoneVerification({ id, onVerified }: { id: string; onVe
     catch (e) { setError(e instanceof Error ? e.message : "کد معتبر نیست"); } finally { setBusy(false); }
   }
   return <section className={`${s.card} ${s.stack}`}>
-    <h2>تأیید شمارهٔ موبایل</h2><p className={s.muted}>برای ادامه پرداخت، شماره‌ای را وارد کنید که به آن دسترسی دارید. این مرحله مالکیت شماره را بررسی می‌کند.</p>
+    <h2>{sent ? "کد تأیید پیامک" : "تأیید شمارهٔ موبایل"}</h2>
     <ErrorNotice error={error} />{notice && <p role="status">{notice}</p>}
     <form className={s.stack} onSubmit={e => { e.preventDefault(); void (sent ? verify() : send()); }}>
       <Field label="شمارهٔ موبایل"><input type="tel" inputMode="tel" autoComplete="tel" dir="ltr" required value={phone} readOnly={sent} onChange={e => setPhone(e.target.value)} /></Field>

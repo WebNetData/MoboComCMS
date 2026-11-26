@@ -1,5 +1,6 @@
 "use client";
 import Link from "@/components/AppLink";
+import { Fragment, useState, type ReactNode } from "react";
 import type {
   PayPaymentView,
   PaySettlementView,
@@ -115,14 +116,20 @@ export function Pager({
 const confirmationMethods = { NONE: "تأیید نشده", AUTO: "خودکار", MANUAL: "دستی", BANK: "بانک", PROVIDER: "ارائه‌دهنده" } as const;
 const confirmationSources = { "": "ثبت نشده", SMS: "پیامک", BALE: "بله", BANK: "بانک", STAFF: "کارشناس", PROVIDER: "ارائه‌دهنده" } as const;
 
-export function PaymentTable({ items }: { items: PayPaymentView[] }) {
+function PaymentFact({ label, children }: { label: string; children: ReactNode }) {
+  return <div><dt>{label}</dt><dd>{children}</dd></div>;
+}
+
+export function PaymentTable({ items, adminReceipts = false }: { items: PayPaymentView[]; adminReceipts?: boolean }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   return (
     <div className={`${s.card} ${s.tableWrap} ${ledger.ledger}`} role="region" aria-label="فهرست پرداخت‌ها" tabIndex={0}>
-      <table className={`${s.table} ${ledger.table}`} role="table">
+      <table className={`${s.table} ${ledger.table} ${ledger.paymentTable}`} role="table">
         <thead role="rowgroup"><tr role="row"><th role="columnheader">سفارش</th><th role="columnheader">پایانه</th><th role="columnheader">مبلغ سفارش</th><th role="columnheader">پرداخت مشتری</th><th role="columnheader">کارمزد پلتفرم</th><th role="columnheader">معادل ریالی اعتبار</th><th role="columnheader">وضعیت</th><th role="columnheader">ثبت</th><th role="columnheader">جزئیات</th></tr></thead>
         <tbody role="rowgroup">
           {items.map((x) => (
-            <tr key={x.id} role="row">
+            <Fragment key={x.id}>
+            <tr role="row">
               <td role="cell" data-label="سفارش"><bdi>{x.externalId}</bdi></td>
               <td role="cell" data-label="پایانه">{x.terminalName}</td>
               <td role="cell" data-label="مبلغ سفارش">{money(x.amountRial)}</td>
@@ -132,27 +139,38 @@ export function PaymentTable({ items }: { items: PayPaymentView[] }) {
               <td role="cell" data-label="وضعیت"><Badge value={x.status} /></td>
               <td role="cell" data-label="ثبت">{date(x.createdAt)}</td>
               <td role="cell" data-label="جزئیات">
-                <details className={`${s.details} ${ledger.details}`}>
-                  <summary>مشاهده جزئیات</summary>
-                  <dl>
-                    <dt>شناسه پرداخت</dt><dd className={s.ltr}>{x.id}</dd>
-                    <dt>صفحهٔ مشتری</dt><dd><Link href={x.checkoutUrl}>مشاهده لینک پرداخت</Link></dd>
-                    {x.confirmation && <><dt>روش تأیید پرداخت</dt><dd>{confirmationMethods[x.confirmation.method]}</dd><dt>منبع تأیید</dt><dd>{confirmationSources[x.confirmation.source]}</dd></>}
-                    <dt>کارمزد قرارداد پرداخت</dt><dd>{money(x.feeRial)}</dd>
-                    {x.settledServiceFeeRial != null && <><dt>کارمزد خدمت وصول‌شده</dt><dd>{money(x.settledServiceFeeRial)}</dd></>}
-                    {x.platformFeeRial != null && <><dt>مجموع کارمزد پلتفرم{x.status !== "PAID" ? " (برآورد)" : ""}</dt><dd>{money(x.platformFeeRial)}</dd></>}
-                    <dt>معادل ریالی اعتبار پذیرنده</dt><dd>{money(x.creditRial ?? x.netRial)}</dd>
-                    {x.creditAmount && <><dt>اعتبار پذیرنده</dt><dd><bdi>{x.creditAmount} {x.creditCurrency}</bdi></dd></>}
-                    <dt>کارمزد بر عهده</dt><dd>{x.feeBearer === "CUSTOMER" ? "مشتری" : "پذیرنده"}</dd>
-                    {x.gatewayCollectionStatus && <><dt>هزینهٔ خدمت درگاه</dt><dd>{money(x.gatewayAdjustmentRial || "0")}</dd><dt>مبلغ درخواستی واریز</dt><dd>{money(x.gatewayCollectedRial || x.totalRial)}</dd></>}
-                    <dt>شناسه پیگیری انتقال</dt><dd className={s.ltr}>{x.transferReference || "—"}</dd>
-                    <dt>زمان ثبت</dt><dd>{date(x.createdAt)}</dd>
-                    <dt>زمان پرداخت</dt><dd>{x.paidAt ? date(x.paidAt) : "—"}</dd>
-                  </dl>
-                  <p className={ledger.explanation}>کارمزد پلتفرم در اعتبار پذیرنده لحاظ نمی‌شود</p>
-                </details>
+                <button type="button" className={`${s.secondary} ${ledger.detailToggle}`} aria-label={`جزئیات پرداخت سفارش ${x.externalId}`} aria-expanded={expanded === x.id} aria-controls={`payment-detail-${x.id}`} onClick={() => setExpanded(expanded === x.id ? null : x.id)}>{expanded === x.id ? "بستن جزئیات" : "مشاهده جزئیات"}</button>
               </td>
             </tr>
+            <tr className={ledger.detailRow} hidden={expanded !== x.id}>
+              <td colSpan={9}>
+                <div id={`payment-detail-${x.id}`} className={ledger.paymentDetails}>
+                  <div className={ledger.detailHeading}>
+                    <strong>جزئیات سفارش <bdi>{x.externalId}</bdi></strong>
+                    <div className={ledger.receiptLinks}>
+                      <Link className={s.secondary} href={x.checkoutUrl}>صفحه پرداخت مشتری</Link>
+                      {adminReceipts && x.receiptIds?.map((id, index) => <a className={s.button} key={id} href={`/api/pay/receipt-image/${id}`} target="_blank" rel="noreferrer">مشاهده تصویر رسید{x.receiptIds!.length > 1 ? ` ${index + 1}` : ""}</a>)}
+                    </div>
+                  </div>
+                  <dl>
+                    <PaymentFact label="شناسه پرداخت"><bdi dir="ltr">{x.id}</bdi></PaymentFact>
+                    {x.confirmation && <><PaymentFact label="روش تأیید پرداخت">{confirmationMethods[x.confirmation.method]}</PaymentFact><PaymentFact label="منبع تأیید">{confirmationSources[x.confirmation.source]}</PaymentFact></>}
+                    <PaymentFact label="کارمزد قرارداد پرداخت">{money(x.feeRial)}</PaymentFact>
+                    {x.settledServiceFeeRial != null && <PaymentFact label="کارمزد خدمت وصول‌شده">{money(x.settledServiceFeeRial)}</PaymentFact>}
+                    {x.platformFeeRial != null && <PaymentFact label={x.status === "PAID" ? "مجموع کارمزد پلتفرم" : "برآورد کارمزد پلتفرم"}>{money(x.platformFeeRial)}</PaymentFact>}
+                    <PaymentFact label="معادل ریالی اعتبار پذیرنده">{money(x.creditRial ?? x.netRial)}</PaymentFact>
+                    {x.creditAmount && <PaymentFact label="اعتبار پذیرنده"><bdi dir="ltr">{x.creditAmount} {x.creditCurrency}</bdi></PaymentFact>}
+                    <PaymentFact label="کارمزد بر عهده">{x.feeBearer === "CUSTOMER" ? "مشتری" : "پذیرنده"}</PaymentFact>
+                    {x.gatewayCollectionStatus && <><PaymentFact label="هزینهٔ خدمت درگاه">{money(x.gatewayAdjustmentRial || "0")}</PaymentFact><PaymentFact label="مبلغ درخواستی واریز">{money(x.gatewayCollectedRial || x.totalRial)}</PaymentFact></>}
+                    {x.transferReference && <PaymentFact label="شناسه پیگیری انتقال"><bdi dir="ltr">{x.transferReference}</bdi></PaymentFact>}
+                    <PaymentFact label="زمان ثبت">{date(x.createdAt)}</PaymentFact>
+                    <PaymentFact label="زمان پرداخت">{x.paidAt ? date(x.paidAt) : "—"}</PaymentFact>
+                  </dl>
+                  <p className={ledger.explanation}>کارمزد پلتفرم در اعتبار پذیرنده لحاظ نمی‌شود</p>
+                </div>
+              </td>
+            </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>
