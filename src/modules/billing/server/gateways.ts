@@ -1,5 +1,4 @@
-import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
-import { configuredBaleSources } from '@/modules/billing/domain/pay-bale-sources'
+import { autoTransferConfig, isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import type { Prisma } from '@prisma/client'
 // Payment gateway registry — every provider implements this contract so new
 // providers plug in without duplicating checkout, billing or admin logic.
@@ -33,8 +32,8 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     key: 'MOBOCOM_PAY', label: 'MoboCom bank transfer', labelFa: 'درگاه موبوکام (تطبیق بانکی)',
     needsApiKey: false, needsSecret: false, supportsHostedCheckout: true,
-    hint: 'Server-owned original Bale bank messages and immutable exact-amount reservations. Configure a verified dedicated bank account and collection policy in MoboComPay settings. Never enter a personal Bale token here.',
-    hintFa: 'پرداخت با مبلغ متمایز و تطبیق خودکار اعلان اصلی بانک در بله. حساب بانکی اختصاصی، اتصال تأییدشده و سیاست دریافت را در تنظیمات موبوکام‌پی آماده کنید. توکن شخصی بله در این فرم وارد نمی‌شود.',
+    hint: 'Matches verified bank SMS with the exact amount reserved for the invoice.',
+    hintFa: 'تطبیق پیامک بانکی تأییدشده با مبلغ یکتای فاکتور. حساب اختصاصی و منبع پیامک را در مدیریت تنظیم کنید.',
   },
   {
     key: 'MELLAT',
@@ -177,7 +176,7 @@ export function installmentCredentials(gateway: { provider: string; apiKey: stri
 }
 
 export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string; config?: string; feeBps?: number; feePercent?: number }) {
-  if (gw.provider === 'MOBOCOM_PAY') return configuredBaleSources(process.env).filter(s => s.enabled && s.verified).length === 1 && !gw.feeBps && !gw.feePercent
+  if (gw.provider === 'MOBOCOM_PAY') return autoTransferConfig(gw.config).autoVerify && !gw.feeBps && !gw.feePercent
   if (gw.provider === 'MANUAL') return Boolean(gw.instructions.trim())
   if (gw.provider === 'CARD_TRANSFER') return true
   if (gw.provider === 'MELLAT') return Boolean(/^\d+$/.test(gw.apiKey.trim()) && String(gw.secretKey || '').trim() && String(gw.accountUser || '').trim())
@@ -360,7 +359,7 @@ export function gatewayAcceptsCheckoutCurrency(gateway: GatewayRuntime, currency
 
 export function gatewayCallbackUrl(gateway: GatewayRuntime, siteUrl: string) {
   const base = siteUrl.replace(/\/+$/, '')
-  if (gateway.provider === 'MOBOCOM_PAY') return `${base}/api/payment/mobocom-pay/bale-events`
+  if (isAutomaticTransfer(gateway)) return ''
   if (gateway.provider === 'FRENZYEX') return `${base}/api/payment/frenzyex/webhook`
   if (gateway.provider === 'MELLAT') return `${base}/api/payment/mellat/callback`
   if (isInstallmentGateway(gateway.provider)) return `${base}/api/payment/installment/${gateway.provider.toLowerCase()}/callback`

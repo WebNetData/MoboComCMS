@@ -1,3 +1,11 @@
+# SMS-only bank collection and manual payout — 2026-11-27
+
+Continue the Pay worktree `.mobocom/pay-sms-fee-share`. The retired Bale connector
+responds with HTTP 410. New automatic card transfers use verified SMS sources
+attached to the configured bank account. Manual receipt review and manual
+outbound settlement use the existing financial state claims.
+[Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#sms-only-card-transfer-and-manual-payout--2026-11-27).
+
 # Payment fee allocation and SMS checkout — 2026-11-27
 
 Continue `.mobocom/pay-sms-fee-share` from released main 51cb0686.

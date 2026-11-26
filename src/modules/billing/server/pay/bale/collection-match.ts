@@ -9,6 +9,7 @@ import { collectionSourceActor } from './collection-proof'
 export async function matchBaleNotice(id: string) {
   return payTransaction(async tx => {
     const notice = await tx.payBaleNotice.findUniqueOrThrow({ where: { id } })
+    if (notice.sourceType !== 'SMS') return { financialApproval: false }
     if (notice.status !== 'ORIGINAL_TRANSFER' || notice.direction !== 'CREDIT' || !notice.amountMinor) return { financialApproval: false }
     const initial = await tx.payBaleCollection.findUnique({ where: { collectedRial: notice.amountMinor } })
     if (!initial || initial.bankAccountId !== notice.bankAccountId) return { financialApproval: false }

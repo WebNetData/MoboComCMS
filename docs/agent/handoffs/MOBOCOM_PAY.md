@@ -1,3 +1,31 @@
+## SMS-only card transfer and manual payout — 2026-11-27
+
+The owner retired the personal Bale connection. The old POST returns 410 with
+`PAY_SOURCE_RETIRED`. The connector settings and admin status endpoint were
+removed. Queued Bale notices cannot settle and previous confirmations remain
+in the ledger. This slice introduces no migration.
+
+Admin activates SMS matching and selects the dedicated bank account in the
+gateway. Set up a verified SMS source for that account and enable automatic
+collection on the merchant and terminal. Test the template against a sample
+in settings before enabling it. The existing Forwarder and timestamped
+contracts remain available. Only the stored SMS source and version can
+confirm the unique amount. Accepted requests that lose their eligible source
+can submit a receipt during their original pending window.
+
+The administrator makes the outbound settlement externally and records the
+bank reference or transaction hash in the existing settlement desk. Its
+authorization, review thresholds, receipt evidence and balance claims apply.
+The phone-to-production forwarding path requires testing with a real message.
+
+Verified in Docker Desktop with a clean PostgreSQL database and a non-root
+runner without an `.env` file. The production build and five connected Pay
+suites passed. They cover matching, duplicate handling, delayed events,
+historical source retirement, manual settlement, and asset and bot flows.
+Edge exercised the SMS template tester, HTTP 410, checkout and receipt review,
+and the admin settlement page. Scoped axe, architecture, source, schema and
+money checks passed. React Doctor reported zero errors and five advisories.
+
 ## SMS checkout and fee allocation — 2026-11-27
 
 The customer screenshot showed the manual card path. On new eligible checkouts,

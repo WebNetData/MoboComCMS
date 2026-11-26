@@ -93,7 +93,7 @@ export default function Terminals({
           />
         </Field>
         <Field label="نوع پایانه"><select value={channelType} onChange={e => setChannelType(e.target.value as PayChannelType)}>{(Object.entries(PAY_CHANNEL_LABELS) as [PayChannelType, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
- <p className={s.muted}>دریافت روی کارت‌های موبوکام انجام می‌شود. مدیریت موبوکام روش تأیید، اتصال بانکی و تأیید خودکار هر پایانه را تعیین می‌کند؛ پذیرنده به توکن پیامک یا حساب بله دسترسی ندارد.</p>
+<p className={s.muted}>دریافت روی کارت‌های موبوکام انجام می‌شود. مدیریت موبوکام حساب مقصد، منبع پیامک و مجوز تأیید خودکار هر پایانه را تعیین می‌کند.</p>
         {initialWebsite && <><Field label="وب‌سایت کسب‌وکار"><input type="url" dir="ltr" value={website} onChange={e => setWebsite(e.target.value)} required maxLength={1000} placeholder="https://example.com" /></Field><p className={s.muted}>وب‌سایت همراه نخستین پایانه ثبت می‌شود؛ برای تغییر بعدی دامنه با مدیریت تماس بگیرید.</p></>}
         {webChannel && !initialWebsite && <p className={s.muted}>وب‌سایت ثبت‌شده: <bdi dir="ltr">{data.merchant?.website}</bdi>؛ نشانی بازگشت باید روی همین دامنه باشد.</p>}
         {webChannel && <Field label="نشانی بازگشت">

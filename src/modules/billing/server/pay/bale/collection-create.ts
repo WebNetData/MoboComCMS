@@ -9,7 +9,7 @@ import { payTransaction } from '../context'
 import { baleCollectionContext } from './collection-context'
 
 export async function createBaleCollectionInTransaction(tx: Prisma.TransactionClient, invoiceNumber: string, gatewayId: number, renewal = false) {
-  const context = await baleCollectionContext(tx, gatewayId), { bank, binding, owner, policy } = context
+  const context = await baleCollectionContext(tx, gatewayId), { bank, owner, policy } = context
   const locked = await tx.$queryRaw<{ id: number }[]>(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "number" = ${invoiceNumber} FOR UPDATE`)
   if (!locked.length) throw new PayError('فاکتور این درگاه معتبر نیست', 409)
   const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: locked[0].id }, include: { payCollection: { include: { merchant: true, terminal: true } } } })
@@ -54,8 +54,8 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
   if (expiresAt.getTime() - validFrom.getTime() < 1000) throw new PayError('مهلت فاکتور برای درخواست تازه کافی نیست', 409)
   const row = await tx.payBaleCollection.create({ data: {
     id: randomBytes(24).toString('base64url'), invoiceId: invoice.id, activeInvoiceId: invoice.id, gatewayId, bankAccountId: bank.id, ownerUserId: owner.id,
-    sourceTypes: JSON.stringify(context.sourceTypes), sourceInstanceId: binding?.instanceId || '', sourceAccountId: binding?.accountId || '', bankPeerId: binding?.bankPeerId || '',
-    sourceBindings: JSON.stringify({ bale: binding ? { instanceId: binding.instanceId, accountId: binding.accountId, peerId: binding.bankPeerId } : null, sms: context.sms.map(source => ({ id: source.id, version: source.version })) }),
+    sourceTypes: JSON.stringify(context.sourceTypes), sourceInstanceId: '', sourceAccountId: '', bankPeerId: '',
+    sourceBindings: JSON.stringify({ bale: null, sms: context.sms.map(source => ({ id: source.id, version: source.version })) }),
     currency: invoice.currency, dueMinor, principalRial, adjustmentRial: collectedRial - principalRial, collectedRial,
     policyRevision: createHash('sha256').update(JSON.stringify(policy)).digest('hex'), validFrom, expiresAt, createdAt: now,
   } })

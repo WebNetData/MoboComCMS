@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { api, json } from '../client'
+import { api, json, money } from '../client'
 import { ErrorNotice, Field } from '../shared'
 import s from '../Pay.module.css'
 import SmsForwarderGuide from './sms-forwarder-guide'
+import { parseSmsAmount } from '@/modules/billing/domain/pay-sms-template'
 
 type Template = { bankCode: string; sender: string; creditTemplate: string; debitTemplate: string; unit: 'IRR' | 'IRT'; calendar: 'JALALI' | 'GREGORIAN' }
 type Format = 'FORWARDER_V1' | 'EXTENDED_V1'
@@ -12,6 +13,21 @@ type Source = { id: string; version: number; label: string; bankAccountId: numbe
 type SavedSource = { id: string; bankCode: string; format?: Format }
 type Bank = { id: number; title?: string; bankName: string; active: boolean; collectionUse: string }
 const blank: Template = { bankCode: '', sender: '', creditTemplate: '', debitTemplate: '', unit: 'IRR', calendar: 'JALALI' }
+
+function SmsTemplateTest({ template }: { template: Template }) {
+  const [sample, setSample] = useState('')
+  const [checked, setChecked] = useState(false)
+  const result = checked ? parseSmsAmount(template, sample) : null
+  return <details className={s.stack}>
+    <summary>آزمون قالب پیامک</summary>
+    <Field label="متن نمونهٔ پیامک"><textarea rows={3} maxLength={4096} value={sample} onChange={event => { setSample(event.target.value); setChecked(false) }} /></Field>
+    <p className={s.muted}>این آزمون در مرورگر انجام می‌شود و پرداختی ثبت نمی‌کند.</p>
+    <div><button type="button" className={s.secondary} disabled={!sample.trim()} onClick={() => setChecked(true)}>بررسی قالب</button></div>
+    {result && <p className={s.notice} role="status">{result.ok
+      ? result.direction === 'CREDIT' ? `واریز شناسایی شد · ${money(result.amountRial)}` : 'برداشت شناسایی شد'
+      : 'متن با قالب واریز یا برداشت مطابقت ندارد. واحد مبلغ، قالب و کد بانک را بررسی کنید.'}</p>}
+  </details>
+}
 
 export default function SmsSources({ bankAccounts }: { bankAccounts: Bank[] }) {
   const [items, setItems] = useState<Source[]>([]), [presets, setPresets] = useState<Template[]>([]), [selected, setSelected] = useState<Source | null>(null)
@@ -56,7 +72,7 @@ export default function SmsSources({ bankAccounts }: { bankAccounts: Bank[] }) {
     <p role="status" aria-live="polite">{copyStatus}</p>
     <form className={s.stack} onSubmit={save}><h3>{selected ? 'ویرایش منبع' : 'منبع جدید'}</h3>
       <Field label="قالب دریافت"><select value={format} onChange={e => setFormat(e.target.value as Format)}><option value="FORWARDER_V1">SMS Forwarder سه‌فیلدی</option><option value="EXTENDED_V1">چهار‌فیلدی با زمان/شناسه</option></select></Field>
-      {format === 'FORWARDER_V1' && <p className={s.muted}>این قالب شماره یا زمان و فرستندهٔ اصلی پیامک را ارسال نمی‌کند. فیلتر فرستنده را در برنامه تنظیم کنید و فقط پیام‌های تازه‌دریافت‌شده را بفرستید. برای خرید USDT با نرخ قفل‌شده از بله یا قالب دارای زمان معتبر استفاده کنید. <a href="https://play.google.com/store/apps/details?id=com.frzinapps.smsforward" target="_blank" rel="noreferrer">دریافت SMS Forwarder از Google Play</a></p>}
+      {format === 'FORWARDER_V1' && <p className={s.muted}>فرستندهٔ بانک را در برنامه فیلتر کنید و فقط پیام‌های تازه را بفرستید. برای خرید USDT با نرخ قفل‌شده، قالب زمان‌دار یا بررسی دستی رسید لازم است. <a href="https://play.google.com/store/apps/details?id=com.frzinapps.smsforward" target="_blank" rel="noreferrer">دریافت SMS Forwarder از Google Play</a></p>}
       <Field label="نام منبع"><input required maxLength={80} value={label} onChange={e => setLabel(e.target.value)} /></Field>
       <Field label="حساب اختصاصی"><select required disabled={!!selected} value={bankAccountId} onChange={e => setBankAccountId(e.target.value)}><option value="">انتخاب حساب</option>{bankAccounts.filter(a => a.collectionUse === 'MOBOCOM_PAY' && (a.active || String(a.id) === bankAccountId)).map(a => <option key={a.id} value={a.id} disabled={!a.active}>{a.title && a.title !== a.bankName ? `${a.title} · ` : ''}{a.bankName}{!a.active && ' (غیرفعال)'}</option>)}</select></Field>
       <Field label="نمونهٔ قالب"><select value="" onChange={e => { const p = presets[Number(e.target.value)]; if (p) setTemplate({ ...p }) }}><option value="">انتخاب نمونه</option>{presets.map((p, i) => <option key={p.bankCode} value={i}>{p.bankCode}</option>)}</select></Field>
@@ -64,6 +80,7 @@ export default function SmsSources({ bankAccounts }: { bankAccounts: Bank[] }) {
       <p className={s.muted}>در قالب از {'{amount}'} و در صورت نیاز {'{account}'}، {'{reference}'}، {'{date}'}، {'{time}'} و {'{ignore}'} استفاده کنید. نمونه‌ها پیش از فعال‌سازی باید بررسی شوند.</p>
       <Field label="واحد مبلغ"><select value={template.unit} onChange={e => setTemplate({ ...template, unit: e.target.value as Template['unit'] })}><option value="IRR">ریال</option><option value="IRT">تومان</option></select></Field>
       <Field label="تقویم"><select value={template.calendar} onChange={e => setTemplate({ ...template, calendar: e.target.value as Template['calendar'] })}><option value="JALALI">شمسی</option><option value="GREGORIAN">میلادی</option></select></Field>
+      <SmsTemplateTest key={selected?.id ?? 'new'} template={template} />
       <label className={s.check}><input type="checkbox" checked={verified} onChange={e => setVerified(e.target.checked)} /> قالب، فیلتر فرستنده و ارسال پیام‌های تازه را بررسی کرده‌ام</label><label className={s.check}><input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} /> فعال</label>
       <div className={s.actions}><button className={s.button} type="submit" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره منبع'}</button>{selected && <button type="button" className={s.secondary} onClick={reset} disabled={busy}>انصراف</button>}</div>
     </form>

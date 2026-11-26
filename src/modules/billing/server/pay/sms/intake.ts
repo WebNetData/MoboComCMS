@@ -1,6 +1,6 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { uniqueBaleJson } from '@/modules/billing/domain/pay-bale'
+import { uniqueSmsJson } from '@/modules/billing/domain/pay-sms-json'
 import { PayError } from '@/modules/billing/domain/pay'
 import { parseSmsAmount } from '@/modules/billing/domain/pay-sms-template'
 import { smsSourceConfig, type SmsSourceFormat } from '@/modules/billing/domain/pay-sms-source'
@@ -16,7 +16,7 @@ export async function receiveSmsNotice(id: string, bearer: string, raw: Buffer) 
   if (!/^[a-f0-9-]{36}$/.test(id) || !/^[A-Za-z0-9_-]{43}$/.test(bearer)) throw new PayError('کلید منبع معتبر نیست', 401)
   if (!raw.length || raw.length > 24000) throw new PayError('حجم پیام معتبر نیست', 413)
   if (!raw.equals(Buffer.from(raw.toString('utf8')))) throw new PayError('کدگذاری پیام معتبر نیست', 422)
-  const body = uniqueBaleJson(raw.toString('utf8'))
+  const body = uniqueSmsJson(raw.toString('utf8'))
   if (Object.keys(body).length !== 4 || !['message_id', 'sender', 'message', 'received_at'].every(key => Object.hasOwn(body, key)) || typeof body.message_id !== 'string' || !body.message_id.length || body.message_id.length > 120 || /[\x00-\x1f\x7f-\x9f]/.test(body.message_id) || typeof body.sender !== 'string' || !body.sender.trim() || body.sender.length > 80 || typeof body.message !== 'string' || !body.message.length || body.message.length > 4096 || typeof body.received_at !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(body.received_at) || !Number.isFinite(Date.parse(body.received_at))) throw new PayError('ساختار پیام معتبر نیست', 422)
   const messageId = body.message_id, sender = body.sender, message = body.message, sentAt = new Date(body.received_at), payloadHash = hash(raw)
   return receiveAuthenticatedSms({ id, bearer, mode: 'EXTENDED_V1', messageId, sender, message, sentAt, payloadHash })

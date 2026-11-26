@@ -193,7 +193,7 @@ const CHECKS = [
 const OPTIONAL_CHECKS = ['cloud-navigation', 'navigation-control', 'updater-github', 'web-operations', 'installer-host-setup', 'import-content-compat', 'media-archive', 'media-storage', 'content-authoring', 'journal-notification-intents', 'compatible-audio', 'admin-policy-history', 'journal-review-reliability', 'journal-block-proposals']
 OPTIONAL_CHECKS.push('mobocom-pay', 'pay-shared-checkout')
 OPTIONAL_CHECKS.push('pay-bot', 'pay-routing-operations', 'crm-scope-currency', 'playlist-audience')
-OPTIONAL_CHECKS.push('pay-bale-server', 'pay-bale-collection', 'pay-usdt-equivalent')
+OPTIONAL_CHECKS.push('pay-bale-collection', 'pay-usdt-equivalent')
 OPTIONAL_CHECKS.push('pay-private-merchants', 'pay-assets')
 OPTIONAL_CHECKS.push('pay-webhooks', 'pay-settlement-center')
 OPTIONAL_CHECKS.push('pay-merchant-account')

@@ -5,7 +5,7 @@ const { autoTransferConfig, transferDisplay } = require('./connected-source-load
 test('destination visibility defaults to card only, accepts explicit toggles and rejects unsafe or empty destinations', () => {
   assert.deepEqual(autoTransferConfig('{}').autoDisplay, { cardNumber: true, bankName: false, holderName: false, accountNumber: false, iban: false })
   assert.equal(transferDisplay({ bankName: true }).bankName, true)
-  assert.deepEqual(autoTransferConfig({ autoSources: ['BALE','SMS'] }).autoSources, ['SMS','BALE'])
+  assert.deepEqual(autoTransferConfig({ autoSources: ['BALE','SMS'] }).autoSources, ['SMS'])
   assert.deepEqual(transferDisplay({ cardNumber: false, iban: true }), { cardNumber: false, bankName: false, holderName: false, accountNumber: false, iban: true })
   for (const value of [{ cardNumber: false }, { cardNumber: 'true' }, { secret: true }, { toString: true }, []]) assert.throws(() => transferDisplay(value))
 })

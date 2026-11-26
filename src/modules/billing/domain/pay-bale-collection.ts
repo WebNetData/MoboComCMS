@@ -47,6 +47,7 @@ export interface BaleCheckout {
   validFrom: string
   expiresAt: string
   accepted: boolean
+  receiptOnly?: boolean
   serverTime: string
   receipt: { id: number; status: string; createdAt: string } | null
   bank: { bankName: string; holderName: string; cardNumber: string; accountNumber: string; iban: string } | null

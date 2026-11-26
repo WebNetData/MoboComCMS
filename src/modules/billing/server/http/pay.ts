@@ -41,7 +41,7 @@ import {
   bankFeedReady,
   paySettings,
   botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
-  baleSourceStatus, smsSources, saveSmsSource,
+  smsSources, saveSmsSource,
   transferMonitor, transferReviewQueue, transferReviewDetail, transferReviewSearch, transferCollectionReview, decideTransferReview,
 } from '@/modules/billing/server/pay'
 
@@ -176,7 +176,6 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource, true); if (center) return center }
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
     if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
-    if (req.method === 'GET' && resource === 'bale-status') return apiOk(await baleSourceStatus(actor, req.nextUrl.searchParams.get('page'), req.nextUrl.searchParams.get('collectionsPage')))
     if (req.method === 'GET' && resource === 'sms-sources') return apiOk(await smsSources(actor))
     if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
     if (req.method === 'GET' && resource === 'transfer-operations') return apiOk(await transferMonitor(actor))

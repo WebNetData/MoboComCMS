@@ -1,9 +1,8 @@
-const assert = require('node:assert/strict'), { randomUUID, randomBytes, createHmac, createHash } = require('node:crypto'), { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server'), { encode } = require('next-auth/jwt')
-const { envelope: fixtureEnvelope, config, binding: fixtureBinding } = require('./pay-bale.fixture.cjs')
-const envelope = (number, options = {}) => fixtureEnvelope(number, { account: '9999999999999', ...options })
+const assert = require('node:assert/strict'), { randomUUID, randomBytes, createHash } = require('node:crypto'), { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server'), { encode } = require('next-auth/jwt')
+const envelope = (number, {amount}) => ({ number, amount })
 const { unlink } = require('node:fs/promises'), { join } = require('node:path')
 if (!/^mobocom_pay_test_/.test(new URL(process.env.DATABASE_URL || 'postgresql://invalid/invalid').pathname.slice(1))) throw Error('Disposable Pay test database required')
-process.env.NEXTAUTH_SECRET = randomBytes(32).toString('hex'); process.env.NEXTAUTH_URL = 'https://mobocom.invalid'; process.env.MOBOCOM_PAY_BALE_VERIFIED = 'true'
+process.env.NEXTAUTH_SECRET = randomBytes(32).toString('hex'); process.env.NEXTAUTH_URL = 'https://mobocom.invalid'
 const RealDate = Date; let now = RealDate.now()
 global.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : [now])) } static now() { return now } }
 const prisma = new PrismaClient(), stamp = `collection-${randomUUID()}`, users = [], roles = [], invoices = [], orders = [], quotes = [], merchantPayments = [], snapshots = new Map()
@@ -21,13 +20,25 @@ const { prepareBaleGateway, createBaleCollectionInTransaction } = load('src/modu
 const { baleCheckout, changeBaleCheckout } = load('src/modules/billing/server/pay/bale/collection-view.ts')
 const { submitCollectionReceipt, reviewCollectionReceipt } = load('src/modules/billing/server/pay/bale/collection-receipts.ts')
 const { receiveSmsNotice } = load('src/modules/billing/server/pay/sms/intake.ts')
+const { POST: retiredBaleIntake } = load('src/app/api/payment/mobocom-pay/bale-events/route.ts')
+const { recoverTransferMatch } = load('src/modules/billing/server/pay/bale/match-job.ts')
+const { collectionSourceActor } = load('src/modules/billing/server/pay/bale/collection-proof.ts')
 const { encryptPanelCredential } = load('src/modules/providers/server/panel-credentials.ts')
 const { acquisitionSnapshot } = load('src/modules/billing/server/pay/assets.ts')
 const put = (key, value) => prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
 const status = n => error => error.status === n
 const extraSmsSources = []
-let bank, secondBank, gateway, smsGateway, manualGateway, smsSource, payMerchant, payTerminal, merchantPayment, savedUsdtRate, rateCaptured = false
-async function receive(body) { const raw = Buffer.from(JSON.stringify(body)), signature = 'sha256=' + createHmac('sha256', process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET).update(raw).digest('hex'); return pay.receiveBaleBankMessage(signature, body.event_id, raw) }
+let bank, secondBank, gateway, smsGateway, manualGateway, smsSource, secondSmsSource, payMerchant, payTerminal, merchantPayment, savedUsdtRate, rateCaptured = false
+const secret = 's'.repeat(43)
+const template = { bankCode: 'fixture_bank', sender: 'fixture', creditTemplate: 'CREDIT {amount}', debitTemplate: 'DEBIT {amount}', unit: 'IRR', calendar: 'GREGORIAN' }
+const gatewayConfig = bankId => JSON.stringify({ autoVerify: true, autoSources: ['SMS'], autoBankAccountId: bankId })
+async function newSmsSource(bankId) {
+  return prisma.paySmsSource.create({ data: { id: randomUUID(), label: stamp + bankId, bankCode: template.bankCode, bankAccountId: bankId, ownerUserId: users[0].id,
+    secretCiphertext: encryptPanelCredential(secret), templateJson: JSON.stringify(template), verified: true, active: true } })
+}
+async function receive(body, source = smsSource) {
+  return receiveSmsNotice(source.id, secret, Buffer.from(JSON.stringify({ message_id: 'fixture-' + body.number, sender: 'fixture', message: 'CREDIT ' + body.amount, received_at: new Date().toISOString() })))
+}
 async function invoice(amount, currency = 'IRR', kind = 'BILLING', userId = users[1].id, orderId = null) {
   const row = await prisma.invoice.create({ data: { number: `${stamp}-${invoices.length}`, userId, orderId, status: 'UNPAID', kind, currency, gatewayId: gateway.id, total: Number(amount), totalMinor: BigInt(amount), subtotal: Number(amount), subtotalMinor: BigInt(amount), expiresAt: new Date(now + 3600000) } }); invoices.push(row.id); return row
 }
@@ -37,13 +48,16 @@ async function upload(id, amount, cookie = '') {
 }
 async function prepare(row) { const result = await prepareBaleGateway(gateway.id, row.number); if (!quotes.includes(result.txnId)) quotes.push(result.txnId); return result }
 async function main() { try {
+  const retired = retiredBaleIntake()
+  assert.equal(retired.status, 410)
+  assert.equal((await retired.json()).code, 'PAY_SOURCE_RETIRED')
   for (const key of keys) snapshots.set(key, await prisma.setting.findUnique({ where: { key } }))
   bank = await prisma.bankAccount.create({ data: { bankName: stamp, holderName: stamp, accountNumber: '9999999999999', cardNumber: '9999999999999999', active: true, collectionUse: 'MOBOCOM_PAY' } })
-  Object.assign(process.env, config(bank.id)); process.env.MOBOCOM_PAY_BALE_VERIFIED = 'true'
   users.push(await prisma.user.create({ data: { email: `${stamp}-admin@example.invalid`, passwordHash: '!', role: 'ADMIN', status: 'ACTIVE' } }))
   users.push(await prisma.user.create({ data: { email: `${stamp}-buyer@example.invalid`, passwordHash: '!', role: 'CUSTOMER', status: 'ACTIVE' } }))
-  process.env.MOBOCOM_PAY_BALE_OWNER_USER_ID = String(users[0].id)
-  gateway = await prisma.gateway.create({ data: { name: stamp, provider: 'MOBOCOM_PAY', active: true, fiat: 'IRR', feeBps: 0, feePercent: 0 } })
+  process.env.PANEL_CREDENTIAL_KEY = '12'.repeat(32)
+  smsSource = await newSmsSource(bank.id)
+  gateway = await prisma.gateway.create({ data: { config: gatewayConfig(bank.id), name: stamp, provider: 'MOBOCOM_PAY', active: true, fiat: 'IRR', feeBps: 0, feePercent: 0 } })
   await put(keys[0], 'true'); await put(keys[1], JSON.stringify({ ...policy.defaults(), incomingEnabled: true, bankAccountIds: [bank.id], bale: { enabled: true, minAdjustmentRial: '10', maxAdjustmentRial: '30', minutes: 15 } })); await put(keys[2], '{"enabled":true,"settings":{}}'); await put(keys[3], '{"requireAdmin2fa":false}'); access.clearAdminPolicyCache()
   const a = await invoice(100000), b = await invoice(100000), c = await invoice(100010)
   const [qa, qb, qc] = await Promise.all([prepare(a), prepare(b), prepare(c)])
@@ -65,8 +79,10 @@ async function main() { try {
   await put(keys[1], JSON.stringify({ ...policy.defaults(), incomingEnabled: true, bankAccountIds: [bank.id], bale: { enabled: true, minAdjustmentRial: '10', maxAdjustmentRial: '10', minutes: 15 } }))
   const x = await invoice(500000), y = await invoice(500000); await prepare(x); await assert.rejects(prepare(y), error => error.code === 'BALE_POOL_EXHAUSTED')
   secondBank = await prisma.bankAccount.create({ data: { bankName: stamp + '-second', holderName: stamp, accountNumber: '8888888888888', cardNumber: '8888888888888888', active: true, collectionUse: 'MOBOCOM_PAY' } })
-  process.env.MOBOCOM_PAY_BALE_BANK_ACCOUNT = String(secondBank.id)
-  try { await assert.rejects(prepare(y), error => error.code === 'BALE_POOL_EXHAUSTED') } finally { process.env.MOBOCOM_PAY_BALE_BANK_ACCOUNT = String(bank.id) }
+  secondSmsSource = await newSmsSource(secondBank.id)
+  extraSmsSources.push(secondSmsSource.id)
+  await prisma.gateway.update({ where: { id: gateway.id }, data: { config: gatewayConfig(secondBank.id) } })
+  try { await assert.rejects(prepare(y), error => error.code === 'BALE_POOL_EXHAUSTED') } finally { await prisma.gateway.update({ where: { id: gateway.id }, data: { config: gatewayConfig(bank.id) } }) }
   const toman = await invoice(70000, 'IRT'), qt = await prepare(toman); assert.equal((await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: qt.txnId } })).principalRial, 700000n)
   const token = await encode({ secret: process.env.NEXTAUTH_SECRET, token: { uid: String(users[0].id), authAt: Date.now() } })
   const admin = { id: users[0].id, email: users[0].email, req: new NextRequest('https://mobocom.invalid/api/admin/receipts', { headers: { cookie: `next-auth.session-token=${token}; __Secure-next-auth.session-token=${token}`, origin: 'https://mobocom.invalid' } }) }
@@ -167,7 +183,7 @@ async function main() { try {
   const pendingAuto = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: qAuto.txnId } })
   assert.equal((await receive(envelope(24, { amount: pendingAuto.collectedRial.toString(), reference: 'AUTOFIRST123' }))).financialApproval, true)
   const afterAuto = await reviewCollectionReceipt(admin, pendingAuto.receiptId, 'approve', '')
-  assert.equal(afterAuto.alreadyPaid, true); assert.equal(afterAuto.confirmation.method, 'AUTO'); assert.equal(afterAuto.confirmation.source, 'BALE'); assert.match(afterAuto.message, /قبلاً خودکار/)
+  assert.equal(afterAuto.alreadyPaid, true); assert.equal(afterAuto.confirmation.method, 'AUTO'); assert.equal(afterAuto.confirmation.source, 'SMS'); assert.match(afterAuto.message, /قبلاً خودکار/)
   const autoAgain = await reviewCollectionReceipt(admin, pendingAuto.receiptId, 'approve', '')
   assert.equal(autoAgain.alreadyPaid, true); assert.equal(autoAgain.confirmation.method, 'AUTO')
   assert.equal(await prisma.payment.count({ where: { invoiceId: autoFirst.id, status: 'CONFIRMED' } }), 1)
@@ -182,10 +198,7 @@ async function main() { try {
   const walletNotice = envelope(21, { amount: walletQuote.collectedRial.toString(), reference: 'TOPUP123456' }); await receive(walletNotice); await receive(walletNotice)
   const credits = await prisma.walletTx.findMany({ where: { invoiceId: topup.id, type: 'TOPUP', status: 'DONE' } }); assert.equal(credits.length, 1); assert.equal(credits[0].amountMinor, 1200000n)
   assert.equal((await prisma.payment.findFirstOrThrow({ where: { providerTxnId: walletQuote.id, provider: 'MOBOCOM_PAY_ADJUSTMENT' } })).amountMinor, walletQuote.adjustmentRial)
-  process.env.PANEL_CREDENTIAL_KEY = '12'.repeat(32)
-  const secret = 's'.repeat(43), template = { bankCode: 'fixture_bank', sender: 'fixture', creditTemplate: 'CREDIT {amount}', debitTemplate: 'DEBIT {amount}', unit: 'IRR', calendar: 'GREGORIAN' }
-  smsSource = await prisma.paySmsSource.create({ data: { id: randomUUID(), label: stamp, bankCode: template.bankCode, bankAccountId: bank.id, ownerUserId: users[0].id, secretCiphertext: encryptPanelCredential(secret), templateJson: JSON.stringify(template), verified: true, active: true } })
-  smsGateway = await prisma.gateway.create({ data: { name: stamp + '-dual', provider: 'CARD_TRANSFER', active: true, fiat: 'IRR', feeBps: 0, feePercent: 0, config: JSON.stringify({ autoVerify: true, autoSources: ['SMS', 'BALE'], autoBankAccountId: bank.id }) } })
+  smsGateway = await prisma.gateway.create({ data: { name: stamp + '-dual', provider: 'CARD_TRANSFER', active: true, fiat: 'IRR', feeBps: 0, feePercent: 0, config: JSON.stringify({ autoVerify: true, autoSources: ['SMS'], autoBankAccountId: bank.id }) } })
   const dual = await invoice(1500000); await prisma.invoice.updateMany({ where: { id: dual.id, status: 'UNPAID' }, data: { gatewayId: smsGateway.id } })
   const dualQuote = await prepareBaleGateway(smsGateway.id, dual.number); quotes.push(dualQuote.txnId)
   await changeBaleCheckout(dualQuote.txnId, new NextRequest('https://mobocom.invalid/pay/bank/' + dualQuote.txnId), 'accept')
@@ -194,34 +207,29 @@ async function main() { try {
   const both = await Promise.allSettled([receiveSmsNotice(smsSource.id, secret, sms), receive(envelope(22, { amount: dualRow.collectedRial.toString(), reference: 'DUALSOURCE123' }))])
   assert.ok(both.some(result => result.status === 'fulfilled' && result.value.financialApproval)); assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: dual.id } })).status, 'PAID')
   assert.equal(await prisma.payment.count({ where: { invoiceId: dual.id, status: 'CONFIRMED' } }), 1)
-  await require('./pay-transfer-recovery.scenarios.cjs')({prisma,load,pay,invoice,prepare,changeBaleCheckout,receive,envelope,bank,smsGateway,smsSource,secret,quotes})
+  await require('./pay-transfer-recovery.scenarios.cjs')({prisma,load,pay,invoice,prepare,changeBaleCheckout,bank,smsGateway,smsSource,secret,quotes})
   const simpleSource = await require('./pay-sms-forwarder.scenarios.cjs')({ prisma, load, admin, bank, gateway: smsGateway, invoice,
-    prepare: prepareBaleGateway, quotes, upload, receiveBale: receive, envelope, sources: extraSmsSources, clock: { now: () => now, set: value => { now = value } } })
-  const sources = [
-    { ...fixtureBinding, id: 'first-card', bankAccountId: bank.id, ownerUserId: users[0].id, secret: 'x'.repeat(43), enabled: true, verified: true },
-    { ...fixtureBinding, id: 'second-card', alias: 'second-card', instanceId: 'c'.repeat(64), accountId: '321', bankPeerId: '789', bankAccountId: secondBank.id, ownerUserId: users[0].id, secret: 'y'.repeat(43), enabled: true, verified: true },
-  ]
-  const dualConfig = JSON.stringify({ autoVerify: true, autoSources: ['SMS', 'BALE'], autoBankAccountId: bank.id })
-  process.env.MOBOCOM_PAY_BALE_SOURCES = JSON.stringify(sources)
+    prepare: prepareBaleGateway, quotes, upload, receiveTimestamped: receive, envelope, sources: extraSmsSources, clock: { now: () => now, set: value => { now = value } } })
+  const isolated = await invoice(1550000, 'IRR', 'WALLET_TOPUP')
+  await prisma.gateway.update({ where: { id: gateway.id }, data: { config: gatewayConfig(secondBank.id) } })
   try {
-    await prisma.gateway.update({ where: { id: smsGateway.id }, data: { config: JSON.stringify({ autoVerify: true, autoSources: ['BALE'], autoBankAccountId: secondBank.id }) } })
-    const isolated = await invoice(1550000, 'IRR', 'WALLET_TOPUP'); await prisma.invoice.updateMany({ where: { id: isolated.id, status: 'UNPAID' }, data: { gatewayId: smsGateway.id } })
-    const isolatedQuote = await prepareBaleGateway(smsGateway.id, isolated.number); quotes.push(isolatedQuote.txnId)
-    await changeBaleCheckout(isolatedQuote.txnId, new NextRequest('https://mobocom.invalid/pay/bank/' + isolatedQuote.txnId), 'accept')
-    const isolatedRow = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: isolatedQuote.txnId } })
-    async function sourceNotice(source, number) {
-      const e = envelope(number, { amount: isolatedRow.collectedRial.toString(), reference: 'ISOLATED' + number }); Object.assign(e, { session_id: source.alias, instance_id: source.instanceId, device_id: source.accountId, peer: { type: 'user', id: source.bankPeerId }, sender_id: source.bankPeerId }); Object.assign(e.payload, { chat_id: source.bankPeerId, from: source.bankPeerId })
-      const raw = Buffer.from(JSON.stringify(e)); return pay.receiveBaleBankMessage('sha256=' + createHmac('sha256', source.secret).update(raw).digest('hex'), e.event_id, raw, source.id)
-    }
-    assert.equal((await sourceNotice(sources[0], 45)).financialApproval, false, 'another destination cannot claim the reserved amount')
-    sources[1].instanceId = 'd'.repeat(64); process.env.MOBOCOM_PAY_BALE_SOURCES = JSON.stringify(sources)
-    await assert.rejects(sourceNotice(sources[1], 46), e => e.status === 503)
-    assert.equal(await prisma.walletTx.count({ where: { invoiceId: isolated.id, type: 'TOPUP', status: 'DONE' } }), 0)
-    sources[1].instanceId = 'c'.repeat(64); process.env.MOBOCOM_PAY_BALE_SOURCES = JSON.stringify(sources)
-    assert.equal((await sourceNotice(sources[1], 47)).financialApproval, true)
-    assert.equal((await sourceNotice(sources[1], 47)).alreadyPaid, true)
-    const credit = await prisma.walletTx.findMany({ where: { invoiceId: isolated.id, type: 'TOPUP', status: 'DONE' } }); assert.equal(credit.length, 1); assert.equal(credit[0].amountMinor, 1550000n)
-  } finally { delete process.env.MOBOCOM_PAY_BALE_SOURCES; await prisma.gateway.update({ where: { id: smsGateway.id }, data: { config: dualConfig } }) }
+    const isolatedQuote = await prepare(isolated), request = new NextRequest('https://mobocom.invalid/pay/bank/' + isolatedQuote.txnId)
+    await changeBaleCheckout(isolatedQuote.txnId, request, 'accept')
+    const row = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: isolatedQuote.txnId } })
+    const exact = envelope(45, { amount: row.collectedRial })
+    assert.equal((await receive(exact)).financialApproval, false, 'another destination cannot claim the reserved amount')
+    await prisma.paySmsSource.update({ where: { id: secondSmsSource.id }, data: { version: { increment: 1 } } })
+    const restored = await baleCheckout(row.id, request)
+    assert.equal(restored.receiptOnly, true)
+    assert.equal(restored.bank, null)
+    await assert.rejects(receive(envelope(46, { amount: row.collectedRial }), secondSmsSource), status(503))
+    await upload(row.id, row.collectedRial)
+    const held = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: row.id } })
+    assert.equal(held.status, 'UNDER_REVIEW')
+    await reviewCollectionReceipt(admin, held.receiptId, 'approve', '')
+    const credit = await prisma.walletTx.findMany({ where: { invoiceId: isolated.id, type: 'TOPUP', status: 'DONE' } })
+    assert.equal(credit.length, 1); assert.equal(credit[0].amountMinor, 1550000n)
+  } finally { await prisma.gateway.update({ where: { id: gateway.id }, data: { config: gatewayConfig(bank.id) } }) }
   await put(keys[1], JSON.stringify({ ...policy.defaults(), incomingEnabled: true, bankAccountIds: [bank.id], bale: { enabled: true, minAdjustmentRial: '10', maxAdjustmentRial: '30', minutes: 15 } }))
   const renewedInvoice = await invoice(1800000), oldQuote = await prepare(renewedInvoice), renewalReq = new NextRequest('https://mobocom.invalid/pay/bank/' + oldQuote.txnId)
   await changeBaleCheckout(oldQuote.txnId, renewalReq, 'accept'); const old = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: oldQuote.txnId } })
@@ -330,7 +338,7 @@ async function main() { try {
   const merchantToken = await encode({ secret: process.env.NEXTAUTH_SECRET, token: { uid: String(users[1].id), authAt: Date.now() } })
   const merchantActor = { id: users[1].id, email: users[1].email, req: new NextRequest('https://mobocom.invalid/api/pay', { headers: { cookie: `__Secure-next-auth.session-token=${merchantToken}`, origin: 'https://mobocom.invalid' } }) }
   const merchantView = await pay.payPaymentById(merchantActor, payId)
-  assert.equal(merchantView.confirmation.method, 'AUTO'); assert.equal(merchantView.confirmation.source, 'BALE')
+  assert.equal(merchantView.confirmation.method, 'AUTO'); assert.equal(merchantView.confirmation.source, 'SMS')
   assert.equal(merchantView.creditRial, '2099000'); assert.equal(merchantView.customerAmountRial, renewedPay.collectedRial)
   assert.equal(BigInt(merchantView.platformFeeRial) + BigInt(merchantView.creditRial), BigInt(merchantView.customerAmountRial))
   assert.equal(await prisma.payment.count({ where: { invoiceId: payInvoice.id, status: 'CONFIRMED' } }), 1)
@@ -403,8 +411,19 @@ async function main() { try {
   const evidence = await prisma.payBaleNotice.findFirstOrThrow({ where: { bankAccountId: bank.id, amountMinor: deskRow.collectedRial } })
   const command = (noticeId, action, version = 0, collectionId) => operations.decideTransferReview(admin, { noticeId, action, version, note: 'Synthetic reviewed decision', ...(collectionId ? { collectionId } : {}) })
   let detail = await operations.transferReviewDetail(admin, evidence.id); assert.equal(detail.canConfirm, true); assert.equal(detail.difference, 'EXACT')
-  process.env.MOBOCOM_PAY_BALE_VERIFIED = 'false'
-  try { await assert.rejects(command(evidence.id, 'confirm'), status(503)) } finally { process.env.MOBOCOM_PAY_BALE_VERIFIED = 'true' }
+  const historical = await prisma.payBaleNotice.create({ data: {
+    ...evidence, id: randomUUID(), sourceType: 'BALE', smsSourceId: null,
+    sourceEventId: createHash('sha256').update('retired-event-' + stamp).digest('hex'),
+    messageId: '501999', bankCode: 'bankmeli', code: 'CARD_TRANSFER',
+    bankFingerprint: createHash('sha256').update('retired-transfer-' + stamp).digest('hex'),
+    occurredFrom: new Date(now - 60000), occurredBefore: new Date(now),
+  } })
+  assert.deepEqual(await recoverTransferMatch({ noticeId: historical.id }), { financialApproval: false })
+  await assert.rejects(prisma.$transaction(tx => collectionSourceActor(tx, deskRow, historical)), error => error.code === 'PAY_SOURCE_RETIRED')
+  await assert.rejects(command(historical.id, 'confirm', 0, deskRow.id), status(409))
+  assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: deskInvoice.id } })).status, 'UNPAID')
+  await put(keys[0], 'false')
+  try { await assert.rejects(command(evidence.id, 'confirm'), status(503)) } finally { await put(keys[0], 'true') }
   assert.equal(await prisma.payTransferReview.count({ where: { noticeId: evidence.id } }), 0)
   assert.equal((await command(evidence.id, 'confirm')).financialApproval, true)
   await assert.rejects(command(evidence.id, 'confirm'), status(409))
@@ -436,7 +455,7 @@ async function main() { try {
   await assert.rejects(prisma.payTransferReview.updateMany({where:{noticeId:deskRaceNotice.id,version:1,status:'OPEN'},data:{status:'CONFIRMED',version:{increment:1}}}))
   const deskRace = await Promise.allSettled([command(deskRaceNotice.id,'confirm',1),reviewCollectionReceipt(admin,deskRaceRow.receiptId,'approve','Synthetic receipt review'),pay.matchBaleNotice(deskRaceNotice.id)])
   assert.ok(deskRace.some(r=>r.status==='fulfilled')); assert.equal(await prisma.payment.count({where:{invoiceId:deskRaceInvoice.id,status:'CONFIRMED'}}),1); assert.equal(await prisma.walletTx.count({where:{invoiceId:deskRaceInvoice.id,type:'TOPUP',status:'DONE'}}),1)
-  const monitor = await operations.transferMonitor(admin); assert.ok(monitor.totals.paid>0); assert.ok(monitor.sources.some(s=>s.type==='BALE'&&s.observed)); assert.ok(monitor.pools.every(p=>p.remaining===Math.max(0,p.capacity-p.occupied))); assert.ok(monitor.pools.some(p=>p.state==='EXHAUSTED'))
+  const monitor = await operations.transferMonitor(admin); assert.ok(monitor.totals.paid>0); assert.ok(monitor.sources.some(s=>s.type==='SMS'&&s.observed)); assert.ok(monitor.pools.every(p=>p.remaining===Math.max(0,p.capacity-p.occupied))); assert.ok(monitor.pools.some(p=>p.state==='EXHAUSTED'))
   assert.ok((await operations.transferReviewQueue(admin,new URLSearchParams('closed=true'))).items.some(n=>n.id===evidence.id))
   const buyerToken = await encode({secret:process.env.NEXTAUTH_SECRET,token:{uid:String(users[1].id),authAt:Date.now()}})
   const buyerActor = {id:users[1].id,email:users[1].email,req:new NextRequest('https://mobocom.invalid/api/admin/mobocom-pay/transfer-reviews',{headers:{cookie:`next-auth.session-token=${buyerToken}; __Secure-next-auth.session-token=${buyerToken}`,origin:'https://mobocom.invalid'}})}

@@ -76,7 +76,7 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
           {token && <div className={s.oneTimeKey} role="status"><strong>کلید ساخت لینک؛ فقط همین‌بار نمایش داده می‌شود</strong><Field label="توکن API برای تنظیمات ربات"><input readOnly dir="ltr" value={token} onFocus={event => event.currentTarget.select()} /></Field><button type="button" className={s.secondary} onClick={() => void navigator.clipboard.writeText(token).then(() => setCopied(true)).catch(() => setError('کپی خودکار انجام نشد؛ کلید را از فیلد انتخاب و کپی کنید.'))}>{copied ? 'کلید کپی شد' : 'کپی کلید ساخت لینک'}</button></div>}
           {saved && <p role="status">اتصال ثبت شد. تغییر تنظیمات، ارسال‌های در انتظار با نسخهٔ قبلی را برای بررسی نگه می‌دارد.</p>}
           <p className={s.muted}>مبلغ درخواست ربات تومان است؛ صفحهٔ پرداخت، مبلغ و کارمزد نهایی را نمایش می‌دهد. انتخاب روش‌های فعال پرداخت در همان صفحه انجام می‌شود.</p>
-          <p className={s.muted}>تأیید خودکار و اتصال کارت، پیامک و بله را مدیریت موبوکام فعال می‌کند. مسیر پروکسی پنل شما نیز جداگانه از مدیریت سرور تعیین می‌شود.</p>
+<p className={s.muted}>مدیریت موبوکام تأیید پیامکی و کارت مقصد را فعال می‌کند. مسیر پروکسی پنل نیز از مدیریت سرور تعیین می‌شود.</p>
         </aside>
       </div>
       {rulesSaved && <p role="status">قواعد انتخاب روش پرداخت ذخیره شد؛ سفارش‌های قبلی مسیر ثبت‌شدهٔ خود را حفظ می‌کنند.</p>}

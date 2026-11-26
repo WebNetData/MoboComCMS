@@ -1,3 +1,14 @@
+## SMS-only card transfer and manual payout — 2026-11-27
+
+Only a verified SMS source for the configured bank account can authorize
+automatic card transfer. Authorize against the source version saved at quote
+creation and claim the existing financial state exactly once. The retired
+connector endpoint returns HTTP 410 and historical proof stays in the ledger.
+Previously accepted quotes that lose their eligible source can submit receipts
+for staff review. Restricted quotes without acceptance need a fresh checkout.
+The admin records the external bank reference or transaction hash after making
+the payout manually, subject to the existing approval policy.
+
 ## Checkout alignment, SMS amount and fee allocation — 2026-11-27
 
 An active merchant can save the customer's share of the approved payment fee

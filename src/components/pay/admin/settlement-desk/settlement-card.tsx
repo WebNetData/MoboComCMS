@@ -70,8 +70,9 @@ function SettlementActions({ row: x, busy, reason, reference, onReference, onDec
           <button className={s.secondary} type="button" disabled={busy || !reason.trim()} title={!reason.trim() ? 'دلیل رد را در کادر بالای فهرست وارد کنید' : undefined} onClick={() => onDecide('reject')}>رد با دلیل</button>
         </>}
         {x.status === 'APPROVED' && <>
-          <div className={d.reference}><Field label="شناسه انتقال"><input dir="ltr" value={reference} onChange={e => onReference(e.target.value)} /></Field></div>
-          <button className={s.button} type="button" disabled={busy || !reference.trim()} onClick={() => onDecide('paid')}>ثبت پرداخت انجام‌شده</button>
+          <p className={s.muted}>پس از واریز دستی مبلغ خالص به مقصد، مرجع همان انتقال را ثبت کنید.</p>
+          <div className={d.reference}><Field label={x.asset === 'IRR' ? 'شماره پیگیری بانکی' : 'هش انتقال'}><input dir="ltr" value={reference} onChange={e => onReference(e.target.value)} /></Field></div>
+          <button className={s.button} type="button" disabled={busy || !reference.trim()} onClick={() => onDecide('paid')}>ثبت واریز دستی انجام‌شده</button>
         </>}
       </div>
       <a className={s.secondary} href={`/api/admin/mobocom-pay/settlement-receipt?${new URLSearchParams({ id: x.id, format: 'html' })}`} target="_blank" rel="noreferrer">{x.status === 'PAID' ? 'دریافت رسید تسویه' : 'دریافت گزارش درخواست'}</a>

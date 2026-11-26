@@ -1,31 +1,24 @@
 import { createHash } from 'node:crypto'
 import type { PayBaleCollection, PayBaleNotice, Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
-import { configuredBaleSources } from '@/modules/billing/domain/pay-bale-sources'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { paySettings } from '../settings'
 import { sourceOwner } from './access'
 import { autoTransferConfig } from '@/modules/billing/domain/auto-transfer'
+import { matchesFrozenSms, smsCredentialsReady } from './collection-context'
 
 /** Both automatic matching and reviewed admission recheck the same CURRENT authority. */
 export async function collectionSourceActor(tx: Prisma.TransactionClient, row: PayBaleCollection, notice: PayBaleNotice) {
+  if (notice.sourceType !== 'SMS' || !notice.smsSourceId) throw new PayError('این منبع پذیرش خودکار ندارد', 410, 'PAY_SOURCE_RETIRED')
   if (notice.status !== 'ORIGINAL_TRANSFER' || notice.direction !== 'CREDIT' || notice.amountMinor !== row.collectedRial || notice.bankAccountId !== row.bankAccountId)
     throw new PayError('مدرک واریز با مبلغ و مقصد درخواست برابر نیست', 409)
   if (!(await isModuleEnabled('mobocom-pay', tx)) || (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true' || !(await paySettings.read(tx)).bale.enabled)
     throw new PayError('تأیید خودکار متوقف است', 503)
-  const bindings = JSON.parse(row.sourceBindings) as { bale: { instanceId: string; accountId: string; peerId: string } | null; sms: { id: string; version: number }[] }
-  let actor: { id: number; email: string } | null = null
-  if (notice.sourceType === 'SMS' && notice.smsSourceId && JSON.parse(row.sourceTypes).includes('SMS')) {
-    const source = await tx.paySmsSource.findUnique({ where: { id: notice.smsSourceId } })
-    if (source?.active && source.verified && source.bankAccountId === row.bankAccountId && bindings.sms.some(s => s.id === source.id && s.version === source.version) &&
-      notice.instanceId === createHash('sha256').update(`${source.id}:${source.version}`).digest('hex')) actor = await sourceOwner(source.ownerUserId, tx)
-  } else if (notice.sourceType === 'BALE' && JSON.parse(row.sourceTypes).includes('BALE')) {
-    const frozen = bindings.bale
-    const binding = configuredBaleSources(process.env).find(s => s.enabled && s.verified && s.bankAccountId === row.bankAccountId && s.instanceId === frozen?.instanceId)
-    if (binding && frozen && binding.bankAccountId === row.bankAccountId &&
-      binding.instanceId === frozen.instanceId && binding.accountId === frozen.accountId && binding.bankPeerId === frozen.peerId &&
-      notice.instanceId === frozen.instanceId && notice.sourceAccountId === frozen.accountId && notice.bankPeerId === frozen.peerId) actor = await sourceOwner(binding.ownerUserId, tx)
-  }
+  const source = await tx.paySmsSource.findUnique({ where: { id: notice.smsSourceId } })
+  const actor = source?.active && source.verified && source.bankAccountId === row.bankAccountId &&
+    matchesFrozenSms(row, source) && smsCredentialsReady(source) &&
+    notice.instanceId === createHash('sha256').update(`${source.id}:${source.version}`).digest('hex')
+      ? await sourceOwner(source.ownerUserId, tx) : null
   if (!actor) throw new PayError('منبع تأیید خودکار این درخواست معتبر نیست', 503)
   const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: row.invoiceId }, include: { gateway: true, payCollection: { include: { merchant: true, terminal: true } } } })
   const bank = await tx.bankAccount.findUnique({ where: { id: row.bankAccountId } })
@@ -33,9 +26,7 @@ export async function collectionSourceActor(tx: Prisma.TransactionClient, row: P
   if (invoice.payCollection?.creditCurrency === 'USDT' && notice.sourceSentAt > invoice.payCollection.expiresAt) throw new PayError('اعلان واریز پس از انقضای نرخ خرید تتر است؛ نیاز به رسیدگی و بازگشت وجه دارد', 409, 'PAY_PURCHASE_LATE')
   if (!invoice.gateway?.active || !bank?.active || bank.collectionUse !== 'MOBOCOM_PAY' || (invoice.payCollection && (!invoice.payCollection.merchant.baleAllowed || !invoice.payCollection.terminal.baleEnabled || invoice.payCollection.merchant.status !== 'ACTIVE' || !invoice.payCollection.terminal.active)))
     throw new PayError('دریافت این روش متوقف است', 503)
-  if (invoice.gateway.provider === 'CARD_TRANSFER') {
-    const config = autoTransferConfig(invoice.gateway.config)
-    if (!config.autoVerify || config.autoBankAccountId !== row.bankAccountId || !config.autoSources.includes(notice.sourceType as 'SMS' | 'BALE')) throw new PayError('تنظیمات روش تأیید تغییر کرده است', 503)
-  }
+  const config = autoTransferConfig(invoice.gateway.config)
+  if (!config.autoVerify || config.autoBankAccountId !== row.bankAccountId) throw new PayError('تنظیمات روش تأیید تغییر کرده است', 503)
   return { actor, invoice }
 }

@@ -1,5 +1,6 @@
 import { PayError } from '@/modules/billing/domain/pay'
-import { autoTransferConfig } from '@/modules/billing/domain/auto-transfer'
+import { autoTransferConfig, isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
+import { baleGatewayReady } from '@/modules/billing/server/pay'
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -17,9 +18,9 @@ function mergeConfig(previous: string | undefined, b: any): string {
 }
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
-function sanitize(g: any) {
+async function sanitize(g: any) {
   return {
-    ...(g.provider === 'CARD_TRANSFER' ? autoTransferConfig(g.config) : {}),
+    ...(['CARD_TRANSFER','MOBOCOM_PAY'].includes(g.provider) ? autoTransferConfig(g.config) : {}),
     id: g.id,
     name: g.name,
     provider: g.provider,
@@ -38,7 +39,7 @@ function sanitize(g: any) {
     hasSecret: Boolean(g.secretKey),
     accountUser: g.accountUser || '',
     ...(isInstallmentGateway(g.provider) ? (() => { const c = installmentConfig(g.config); return { baseUrl: c.baseUrl, installments: c.installments, hasPassword: Boolean(c.password) } })() : {}),
-    usable: isGatewayUsable(g),
+    usable: isAutomaticTransfer(g) ? await (g.active ? baleGatewayReady(undefined, g.id) : false) : isGatewayUsable(g),
   }
 }
 
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'gateways.manage' as Permission)
   if (!admin) return err('forbidden', 403)
   const rows = await db.gateway.findMany({ orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { id: 'asc' }] })
-  return ok({ providers: PROVIDERS, gateways: rows.map(sanitize), bankAccounts: await db.bankAccount.findMany({ select: { id:true,bankName:true,holderName:true,collectionUse:true,active:true },orderBy:{id:'asc'} }) })
+  return ok({ providers: PROVIDERS, gateways: await Promise.all(rows.map(sanitize)), bankAccounts: await db.bankAccount.findMany({ select: { id:true,bankName:true,holderName:true,collectionUse:true,active:true },orderBy:{id:'asc'} }) })
 }
 
 async function handlePOST(req: NextRequest) {
@@ -57,7 +58,8 @@ async function handlePOST(req: NextRequest) {
   if (!name) return err('gateway name is required')
   const requestedProvider = String(b?.provider || 'PLISIO').toUpperCase()
   const provider = PROVIDERS.some((item) => item.key === requestedProvider) ? requestedProvider : 'PLISIO'
-  if (provider === 'MOBOCOM_PAY' && [b?.apiKey, b?.secretKey, b?.accountUser].some(value => typeof value === 'string' && value.trim())) return err('اطلاعات ورود حساب بله را در فرم درگاه وارد نکنید')
+  const transfer = ['CARD_TRANSFER','MOBOCOM_PAY'].includes(provider) ? autoTransferConfig(b) : null
+  if (provider === 'MOBOCOM_PAY' && !transfer?.autoVerify) return err('درگاه موبوکام به حساب اختصاصی پیامک نیاز دارد')
   const makeDefault = b?.isDefault === true
 
   const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || provider === 'MOBOCOM_PAY' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
@@ -70,10 +72,10 @@ async function handlePOST(req: NextRequest) {
     data: {
       name,
       provider,
-      apiKey: String(b?.apiKey || '').trim(),
-      secretKey: String(b?.secretKey || '').trim(),
-      accountUser: String(b?.accountUser || '').trim().slice(0, 100),
-      config: provider === 'CARD_TRANSFER' ? JSON.stringify(autoTransferConfig(b)) : isInstallmentGateway(provider) ? mergeConfig('{}', b) : '{}',
+      apiKey: transfer ? '' : String(b?.apiKey || '').trim(),
+      secretKey: transfer ? '' : String(b?.secretKey || '').trim(),
+      accountUser: transfer ? '' : String(b?.accountUser || '').trim().slice(0, 100),
+      config: transfer ? JSON.stringify(transfer) : isInstallmentGateway(provider) ? mergeConfig('{}', b) : '{}',
       fiat,
       currencies: String(b?.currencies || '').trim(),
       feePercent: feeBps / 100,
@@ -87,7 +89,7 @@ async function handlePOST(req: NextRequest) {
     },
     })
   })
-  return ok(sanitize(gw))
+  return ok(await sanitize(gw))
 }
 
 async function handlePATCH(req: NextRequest) {
@@ -122,8 +124,8 @@ async function handlePATCH(req: NextRequest) {
   if (!current) return err('not found', 404)
   if (data.provider && data.provider !== current.provider && await db.payBaleCollection.count({ where: { gatewayId: id } })) return err('نوع درگاه دارای سابقهٔ پرداخت قابل تغییر نیست؛ درگاه تازه بسازید', 409)
   if (String(data.provider || current.provider) === 'MOBOCOM_PAY') {
-    if ([b?.apiKey, b?.secretKey, b?.accountUser].some(value => typeof value === 'string' && value.trim())) return err('اطلاعات ورود حساب بله را در فرم درگاه وارد نکنید')
-    Object.assign(data, { apiKey: '', secretKey: '', accountUser: '', config: '{}', fiat: 'IRR', feeBps: 0, feePercent: 0 })
+    const transfer = autoTransferConfig({ ...autoTransferConfig(current.provider === 'MOBOCOM_PAY' ? current.config : '{}'), ...b })
+    Object.assign(data, { apiKey: '', secretKey: '', accountUser: '', config: JSON.stringify(transfer), fiat: 'IRR', feeBps: 0, feePercent: 0 })
   }
   if (String(data.provider || current.provider) === 'CARD_TRANSFER') {
     data.config = JSON.stringify(autoTransferConfig({ ...autoTransferConfig(current.provider === 'CARD_TRANSFER' ? current.config : '{}'), ...b }))
@@ -152,7 +154,7 @@ async function handlePATCH(req: NextRequest) {
     }
     return tx.gateway.update({ where: { id }, data })
   })
-  return ok(sanitize(gw))
+  return ok(await sanitize(gw))
 }
 
 export async function DELETE(req: NextRequest) {
