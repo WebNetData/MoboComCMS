@@ -29,7 +29,7 @@ These workflow entrypoints and selected supporting entrypoints are present in bo
 
 | Task | Supporting skill(s) | Use in MoboCom |
 | --- | --- | --- |
-| New authorized visual composition | `unslop` by default; `frontend-design`/`ui-ux-pro-max` as relevant | Product-specific direction using existing identity/SDS; references and local search only for the current concern |
+| New authorized visual composition | `frontend-design` with `unslop` by default; `ui-ux-pro-max` as relevant | Product-specific direction using existing identity/SDS; references and local search only for the current concern |
 | Inspect an existing surface / quick polish | `unslop` by default; `improve-ui`/`baseline-ui` as relevant | Verified defects and scoped refinement; keep approved brand/layout, and keep an audit-only pass read-only |
 | React performance / reusable composition | `vercel-react-best-practices`, `vercel-composition-patterns` | Selected rules; verify installed React/Next versions and existing public module boundaries |
 | UI guideline review | `web-design-guidelines` | Relevant current public guidelines plus MoboCom constraints |
@@ -47,6 +47,18 @@ PR preparation2026-10-15: offline verification rechecked all16 skills/392 client
 Existing document/PDF/presentation/spreadsheet skills and the system skill creator/installer are retained. Unrelated Anthropic creative/communication/provider skills, Vercel deployment/native/experimental features, UI registry meta-skill and UI/UX package addons were not activated. This is a selected MoboCom engineering integration, not an installation of every unrelated catalog entry.
 
 ## Default interface design — 2026-11-02
+
+Owner refinement2026-11-26: use the installed Anthropic `frontend-design` guidance
+from `.claude/skills` alongside Unslop for requested new compositions and visual
+reworking; Codex uses the matching `.agents/skills` entrypoint. First inspect the
+actual page and approved MoboCom reference, then state a compact direction for
+hierarchy, Persian typography, fluid layout and purposeful motion. Review that
+direction against the brief before implementation; critique real screenshots
+afterwards. Reuse existing SDS/MoboCom tokens and fonts rather than generating a
+replacement palette or design system. For a small polish fix, load only the
+relevant guidance. Retain task-specific OpenDesign, UI Skills and React guidance
+below. This is a shared working preference, not proof of an Opus model invocation
+or a guarantee that two models produce identical designs.
 
 Owner refinement2026-11-23: use Unslop together with task-relevant OpenDesign
 guidance for requested MoboCom interface work. Read the selected original skill,

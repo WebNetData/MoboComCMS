@@ -1,3 +1,7 @@
+# Shared Claude frontend guidance — 2026-11-26
+
+Owner asks to use Claude's frontend design skills. Canonical ENGINEERING_SKILLS/FRONTEND_QUALITY now explicitly pair installed Anthropic frontend-design with Unslop for new compositions/visual reworking, preserving approved SDS/MoboCom identity, fluid dashboards and actual browser acceptance. Existing pinned skill mirrors verified:17 skills/422 files,0 copies. Docs-only continuation on docs/claude-frontend-guidance-2026-11-26 from main23ce5433 (PR497 merged); no UI/runtime/model configuration change. [Scope and continuation](../docs/agent/handoffs/MOBOCOM_PAY.md#shared-claude-frontend-guidance--2026-11-26).
+
 # Pay reliability audited/fixed — 2026-11-26
 
 [PR497](https://github.com/WebNetData/MoboComCMS/pull/497) is open against main; current implementation `a9a63861`, with readiness `1e4d5854` and pending-migration alignment `a75e04b9`. Not merged or deployed.

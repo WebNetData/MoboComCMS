@@ -1,3 +1,23 @@
+## Shared Claude frontend guidance — 2026-11-26
+
+Owner requests Claude's frontend design skills after preferring its visual work.
+Continue .mobocom/pay-reliability on docs/claude-frontend-guidance-2026-11-26,
+from main23ce5433 (PR497 merged). Read the installed Anthropic frontend-design
+and existing Unslop guidance; canonical ENGINEERING_SKILLS/FRONTEND_QUALITY now
+explicitly pair them for new compositions and visual reworking. Existing approved
+visual identity, fluid specialist layout, Persian typography and task-specific
+OpenDesign/UI Skills remain authoritative. No vendored payload, application UI,
+model/client configuration, dependency or database changes.
+
+Executed: offline sync verification17 skills/422 files,0 copies; canonical AI
+knowledge regenerated and checked, scoped whitespace reviewed. PostgreSQL,
+React Doctor and browser checks are not rerun for this instruction-only change;
+their previous Pay evidence below is historical, not new visual verification.
+Next frontend slice must inspect its actual approved reference, state/review a
+compact direction, implement within existing owners and verify real rendered
+desktop/mobile, both themes and accessibility. No site-wide redesign is started.
+Rollback: revert this documentation/derived-knowledge slice; runtime is unchanged.
+
 ## Integrated payment reliability audit — 2026-11-26
 
 Delivery: [PR497](https://github.com/WebNetData/MoboComCMS/pull/497) targets main;
