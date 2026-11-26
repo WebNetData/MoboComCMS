@@ -1,3 +1,10 @@
+# Release 1.7.25 — 2026-11-26
+
+Owner authorized merging and releasing. PR500 merged as 8ffdc7df; continue
+from release/1.7.25. The version includes zero new migrations. The exact
+release source is built and verified in the Docker Desktop app environment
+before stable publication. [Release handoff](../docs/agent/handoffs/RELEASE_1_7_25.md).
+
 # MoboCom header width — 2026-11-26
 
 The shared MoboCom theme uses 98% viewport width for its header and desktop
