@@ -1,5 +1,9 @@
 ## Integrated payment reliability audit — 2026-11-26
 
+Delivery: [PR497](https://github.com/WebNetData/MoboComCMS/pull/497) targets main;
+integrated readiness `1e4d5854`, pending-migration alignment `a75e04b9`, final
+repair/evidence `a9a63861`. Open for owner review, not merged or deployed.
+
 Owner asks that the payment service work according to the existing external-bot,
 manual/SMS/Bale, fee/net, expiry/review and merchant-ownership requirements, and
 that existing Claude skills feed the shared engineering/architecture workflow.
