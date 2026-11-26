@@ -1,5 +1,9 @@
 # HappVPN deployable baseline — 2026-09-22
 
+## 1.7.25 — MoboCom Pay receipts and public navigation (2026-11-26)
+
+The small-screen checkout presents the destination card, exact amount and a two-field receipt form. Payments expand across the Admin and merchant ledgers, with receipt images available to authorized reviewers. The shared header and desktop navigation use 98% of the viewport. This release introduces zero migrations. See [release notes](docs/releases/1.7.25.md).
+
 ## 1.7.24 — MoboCom Pay checkout and payment reliability (2026-11-26)
 
 Automatic card checkout reserves the payment amount and records its invoice together. Customers can choose another approved method when the amount pool is full. The release also improves merchant bot delivery and review, automatic transfer recovery, Pay and Cloud layouts, and first terminal creation. One additive migration enables the boolean acknowledgement policy. See [release notes](docs/releases/1.7.24.md).
