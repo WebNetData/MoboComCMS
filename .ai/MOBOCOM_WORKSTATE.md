@@ -1,3 +1,11 @@
+# Customer follow-ups — 2026-11-27
+
+Continue `.mobocom/crm-follow-ups`, `feat/crm-follow-ups-2026-11-27`,
+based on merged PR505/main `6ef4b061`. Profile follow-ups now have a
+responsible staff member, a Persian-calendar due day, and retained
+done/cancelled history. Existing CRM access, version claims, atomic audit
+and Identity erasure apply. [Native, upgrade, browser and rollback evidence](../docs/agent/handoffs/CRM_ENGAGEMENT.md#customer-follow-ups--2026-11-27).
+
 # Persian customer relationship desk — 2026-11-27
 
 Owner requested professional CRM with the Persian title «مدیریت ارتباط با

@@ -1,5 +1,37 @@
 # Continuous customer engagement — 2026-11-07
 
+## Customer follow-ups — 2026-11-27
+
+Continue `.mobocom/crm-follow-ups`, `feat/crm-follow-ups-2026-11-27`,
+from merged PR505/main `6ef4b061`. The existing Livechat CRM profile has a
+linked follow-up panel with a Jalali day picker, responsible colleague,
+overdue indication, and done/cancelled history. Existing CRM staff can
+read and assign to themselves. The holder or a user manager can update
+open work. Only user managers can assign to other eligible active staff.
+Requests compare the same version and write the audit with the mutation.
+No title is copied into audit metadata. Identity erasure removes customer
+tasks and clears links to erased colleagues. There is no automatic send.
+
+Disposable PostgreSQL 17 migrated 225 entries as NOSUPERUSER. The populated
+224→225 rehearsal preserved the existing CRM note. Connected
+`crm-follow-ups`, `crm-customer-desk`, and `crm-scope-currency` passed in
+Linux/UID1000. The new test covered refused scopes and dates, handoff,
+concurrent closure, audit privacy, and erasure. TypeScript, source/import,
+architecture, schema parity and migration-manifest checks passed. React
+Doctor reported zero errors and four advisory warnings across two files.
+
+Edge exercised the real PostgreSQL-backed profile in 1440 and 390 at
+light/dark, Persian/RTL. The manager selected a Jalali day, assigned and
+edited a task, then the assignee closed it on mobile and saw it in history.
+Guest/customer direct reads returned 403. Four scoped axe runs, page errors
+and overflow were clear. No provider or production deployment ran.
+
+Migration `20270412120000_crm_follow_ups` is additive and unreleased. For
+rollback, revert application code and keep the migration/table and existing
+task history. Keep the erasure hook if rolling back just the desk, or pause
+account erasure on the older application until the hook is restored.
+A cross-customer assigned-work queue remains a separate slice.
+
 ## Persian customer relationship desk — 2026-11-27
 
 The owner asked for «مدیریت ارتباط با مشتریان» and a professional CRM

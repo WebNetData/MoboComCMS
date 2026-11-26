@@ -9,6 +9,9 @@ datasource db {
 }
 
 model User {
+  crmFollowUps CrmFollowUp[] @relation("CrmFollowUpCustomer")
+  assignedCrmFollowUps CrmFollowUp[] @relation("CrmFollowUpAssignee")
+  createdCrmFollowUps CrmFollowUp[] @relation("CrmFollowUpCreator")
   demandDecisions ContentDemand[] @relation("DemandDecision")
   demandSupport ContentDemandSupporter[]
 
@@ -745,6 +748,24 @@ model CrmNote {
   body      String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model CrmFollowUp {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  assigneeId  Int?
+  createdById Int?
+  title       String
+  dueDay      String
+  status      String   @default("OPEN")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation("CrmFollowUpCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  assignee    User?    @relation("CrmFollowUpAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy   User?    @relation("CrmFollowUpCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, dueDay, id])
 }
 
 model Setting {
