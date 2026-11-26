@@ -2,8 +2,22 @@
 
 Local feature slice on `feat/cloud-workspace-2026-11-26` in
 `.mobocom/cloud-workspace`, base`e133b9a3`. Previous Pay/account commits and
-other worktrees are preserved. Owner merges and deploys; no PR, hosted workflow,
-release/tag/version update or production action belongs to this slice.
+other worktrees are preserved. Owner merges and deploys; implementation performed
+no hosted workflow, release/tag/version update or production action. PR delivery
+is recorded below.
+
+## Pull request delivery — 2026-11-26
+
+At the owner's explicit request, all four unmerged development commits through
+`dd4594c7` were pushed on this branch and [PR #492](https://github.com/WebNetData/MoboComCMS/pull/492)
+opened against `main` (`bac9e4aa`). This is a cumulative PR: Cloud workspace plus
+the preceding Pay public/onboarding/Admin bank-source guides, guarded account
+administration/erasure and section-subdomain work. The PR description records
+the three unreleased account migrations and the already-executed local evidence.
+No new product changes or repeated runtime checks were needed for delivery;
+`git diff --check origin/main...HEAD` passed. This documentation delivery commit
+also belongs to the PR. No merge, auto-merge, release/deploy or hosted workflow
+dispatch was performed; the owner reviews and merges.
 
 ## Result and owners
 

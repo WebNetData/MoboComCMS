@@ -6,7 +6,9 @@ is retained. Independent `/cloud/dashboard` reuses Hosting, Identity, Billing,
 Wallet and Support. Public Cloud sources remain unchanged. Native six-suite
 PostgreSQL/fault tests, full `npm run check`, focused final types/units and
 themed responsive browser/axe/menu/public-navigation checks passed. No schema,
-dependency, version, production provider, release, PR or deployment change.
+dependency, version, production provider, release or deployment change.
+Owner-requested cumulative [PR #492](https://github.com/WebNetData/MoboComCMS/pull/492)
+now targets `main` with Cloud and preceding Pay/account/subdomain work; not merged.
 [Owners, executed evidence, limits and rollback](../docs/agent/handoffs/CLOUD_WORKSPACE.md).
 
 # Admin-owned bank sources and setup guides — 2026-11-26
