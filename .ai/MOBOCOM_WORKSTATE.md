@@ -1,3 +1,11 @@
+# Release1.7.23 — 2026-11-26
+
+Owner authorizes PR/merge/stable publication, no destination deployment. Continue
+`.mobocom/release-1.7.23`, `release/1.7.23`, from `e1cc8be6` and main`c9355792`.
+Four additive migrations; old publisher/migration hashes retained. Exact release
+validation and publication: [handoff](../docs/agent/handoffs/RELEASE_1_7_23.md).
+Other worktrees and unmerged Pay readiness remain independent.
+
 # Cloud automatic operations — 2026-11-26
 
 Continue `.mobocom/cloud-operations` / `feat/cloud-operations-2026-11-26`, base

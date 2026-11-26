@@ -1,5 +1,10 @@
 # HappVPN deployable baseline — 2026-09-22
 
+## 1.7.23 — Cloud operations and account management (2026-11-26)
+
+Includes merged PR492 private Cloud/Pay/account work plus WHM/Joker/Proxmox/Hetzner adapters, encrypted provider-operation claims, responsive Admin/customer controls and financial refund fences. Four additive migrations; automation defaults off. Original publisher trust and previous published migrations are retained. Pause matching financial/Cloud writers during upgrade and verify backup. See [release notes](docs/releases/1.7.23.md) and [evidence](docs/agent/handoffs/RELEASE_1_7_23.md).
+
+
 ## 1.7.22 — MoboComPay, settlement operations and merchant workspace (2026-11-25)
 
 Merged PR481–490 add private merchants/general channel collection, once-only bank/SMS/Bale/manual settlement, isolated fees and internal USDT credit, signed merchant webhooks, saved/scheduled settlements with independent dual approvals, responsive financial tables and a hamburger/sidebar workspace with canonical Support tickets. Solution Pack and extension lifecycle integration remains with existing platform owners. Eleven migrations are sealed and the14-source AI knowledge bundle is refreshed. Migration217 and its settlement writer must be deployed together with settlement writes/workers paused and a verified backup. Real bank/receiver/chain commissioning remains separate. See [release notes](docs/releases/1.7.22.md) and the [release evidence](docs/agent/handoffs/RELEASE_1_7_22.md).

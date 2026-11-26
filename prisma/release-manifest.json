@@ -961,12 +961,27 @@
           "sha256": "7bebb1f5ef6eeeebcbc6c311b7f354c5fd28cec9ab04d652584fb984e33b3ff6"
         }
       ]
+    },
+    "1.7.23": {
+      "migrations": [
+        {
+          "name": "20270405120000_account_login_control",
+          "sha256": "1986ea9ca0c11ee35883ff03e2818460b90167aabddd2369d4400d22cce2feaf"
+        },
+        {
+          "name": "20270406120000_account_erasure_integrity",
+          "sha256": "495732d7457563c92f5994a85006888419e3e228ac6d160591ce5fddd6430dcf"
+        },
+        {
+          "name": "20270407120000_account_erasure_credentials",
+          "sha256": "e737003d28ded475afc148a93d1ef93c659653dac3df046ef271b841ead19d2e"
+        },
+        {
+          "name": "20270409120000_hosting_operations",
+          "sha256": "77246c7c28b9fb01080e5dbafedd73a3acc71557608864548484eb8f4aca8214"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270405120000_account_login_control",
-    "20270406120000_account_erasure_integrity",
-    "20270407120000_account_erasure_credentials",
-    "20270409120000_hosting_operations"
-  ]
+  "unreleased": []
 }
