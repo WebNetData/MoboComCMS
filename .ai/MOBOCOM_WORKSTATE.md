@@ -1,3 +1,10 @@
+# Release 1.7.24 — 2026-11-26
+
+Owner authorized PR/merge/stable release. Development PR498 merged as 2ebaaf08.
+Use release/1.7.24 from that main revision. Seal the one pending ACK migration
+with the original publisher and verify the exact merged release source before
+publication. [Release handoff](../docs/agent/handoffs/RELEASE_1_7_24.md).
+
 # Gateway availability and operations alerts — 2026-11-26
 
 Automatic bank checkout reserves amount, creates invoice and claims method together. Capacity failure leaves alternate permitted methods available; legacy interrupted local checkout can resume. Shared Operations Monitor exposes aggregate bot/bank review incidents. Verified canonical checks, four PostgreSQL suites, fault control and Chromium390/1440. Real source/provider commissioning remains. [Handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#gateway-availability-and-operations-alerts--2026-11-26).
