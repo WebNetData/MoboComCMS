@@ -10,6 +10,7 @@ const CHECKS = [
   'content-publication',
   'content-canonical-alias',
   'support-page-problems',
+  'support-ticket-claim',
   'site-demand-sharing-health',
   'store-quotations',
   'store-delivery-changes',

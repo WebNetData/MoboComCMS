@@ -1,3 +1,12 @@
+# Atomic Support ticket ownership — 2026-11-27
+
+Owner requested the first fix from the current audit. Continue
+`.mobocom/support-ticket-claim`, `fix/support-ticket-claim-2026-11-27`, from
+merged main `6d844fba`. Support now claims the current workflow before
+assigning or saving a staff reply. Competing writes return 409 and the losing
+reply leaves no message or attachment. Internal notes and customer reopening
+retain their existing permissions. [Evidence and rollback](../docs/agent/handoffs/FORMS_AND_OPERATIONS.md#atomic-support-ticket-ownership--2026-11-27).
+
 # SMS-only bank collection and manual payout — 2026-11-27
 
 Continue the Pay worktree `.mobocom/pay-sms-fee-share`. The retired Bale connector

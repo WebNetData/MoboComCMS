@@ -10,6 +10,7 @@ import { HELD_BY_ANOTHER, allowedDepartmentSlugs, canHandleTicket, heldByAnother
 import { ticketSlaState } from '@/modules/support/domain/ticket-operations'
 import { parsePermissions } from '@/modules/identity/rbac'
 import { canHandleDepartment } from '@/modules/support/domain/department-config'
+import { TICKET_CHANGED, ticketWorkflowSelect, ticketWorkflowWhere } from '@/modules/support/server/ticket-workflow'
 
 export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'tickets.handle' as Permission)
@@ -60,8 +61,8 @@ export async function PATCH(req: NextRequest) {
   const id = Number(b?.id)
   const status = b?.status
   const hasAssignment = Object.prototype.hasOwnProperty.call(b || {}, 'assignedToId')
-  if (!id || (status === undefined && !hasAssignment) || (status !== undefined && !['OPEN', 'PENDING', 'CLOSED'].includes(status))) return err('invalid input')
-  const existing = await db.ticket.findUnique({ where: { id }, select: { department: true, status: true, closedAt: true, lastStaffAt: true, lastCustomerAt: true, assignedToId: true } })
+  if (!Number.isSafeInteger(id) || id <= 0 || (status === undefined && !hasAssignment) || (status !== undefined && !['OPEN', 'PENDING', 'CLOSED'].includes(status))) return err('invalid input')
+  const existing = await db.ticket.findUnique({ where: { id }, select: ticketWorkflowSelect })
   if (!existing) return err('not found', 404)
   if (!await canHandleTicket(admin, existing.department)) return err('forbidden', 403)
   if (heldByAnother(admin, existing.assignedToId)) return err(HELD_BY_ANOTHER, 403)
@@ -77,8 +78,15 @@ export async function PATCH(req: NextRequest) {
       if (!staff || staff.status !== 'ACTIVE' || staff.role !== 'ADMIN' || (staff.roleId != null && !parsePermissions(staff.roleRef?.permissions || '').includes('tickets.handle')) || !await canHandleTicket({ id: staff.id, email: staff.email, role: staff.role, roleId: staff.roleId, permissions: staff.roleId == null ? null : parsePermissions(staff.roleRef?.permissions || '') }, existing.department)) return err('assignee cannot handle this department', 403)
     }
   }
-  const t = await db.ticket.update({ where: { id }, data: { ...(status ? { status, closedAt: status === 'CLOSED' ? (existing.status === 'CLOSED' ? existing.closedAt || new Date() : new Date()) : null } : {}), ...(hasAssignment ? { assignedToId } : {}) } })
-  return ok({ id: t.id, status: t.status, assignedToId: t.assignedToId })
+  const claim = await db.ticket.updateMany({
+    where: ticketWorkflowWhere(existing),
+    data: {
+      ...(status ? { status, closedAt: status === 'CLOSED' ? (existing.status === 'CLOSED' ? existing.closedAt : null) ?? new Date() : null } : {}),
+      ...(hasAssignment ? { assignedToId } : {}),
+    },
+  })
+  if (!claim.count) return err(TICKET_CHANGED, 409, { code: 'TICKET_CHANGED' })
+  return ok({ id, status: status ?? existing.status, assignedToId: assignedToId === undefined ? existing.assignedToId : assignedToId })
 }
 
 /**
