@@ -422,6 +422,13 @@ assistant obstruction fixes preserve owners/data/protected layouts. Final accept
 counts and remaining limits: [handoff](handoffs/SITE_UI_CONSISTENCY.md). Not a
 whole-site WCAG, live-provider or production-readiness certification.
 
+2026-11-26 Cloud provider checks: FUNCTIONAL within local protocol/DB/browser
+evidence; LIVE_PROVIDER_DENIED for supplied WHM, other real keys UNVERIFIED.
+WHM modes/packages, Joker and Proxmox checks, hardened Hetzner and config/secret
+claims. Empty capabilities mean no create/registration automation. Ordinary NIC
+retains manual path.15 units,4 native suites, full1159/53/4/14 and9 browser scopes
+pass. [Exact limits and remaining implementation](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 2026-11-26 Cloud customer workspace: bounded local customer-shell slice at
 `/cloud/dashboard`, using canonical identity and Hosting guards plus existing
 Billing/Support/Wallet owners. Six native PostgreSQL suites, the full check gate, focused final checkout units,

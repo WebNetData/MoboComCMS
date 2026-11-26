@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import {
-  HOSTING_KINDS, HostingError, cyclesFor, kindMeta, kindsOf, monthlyEquivalent, normalizeProduct, normalizeProvider, savingPercent,
+  HOSTING_DRIVERS, HOSTING_KINDS, HostingError, cyclesFor, kindMeta, kindsOf, monthlyEquivalent, normalizeProduct, normalizeProvider, savingPercent,
   type HostingGroup, type PublicHostingProduct,
 } from '@/modules/hosting/domain/catalog'
 import { hostingDriver, hasHostingDriver } from '@/modules/hosting/server/drivers/registry'
@@ -22,8 +22,11 @@ export async function adminHostingCatalog() {
     db.hostingProduct.findMany({ orderBy: [{ kind: 'asc' }, { sort: 'asc' }, { id: 'asc' }], include: { prices: true } }),
   ])
   return {
+    supportedDrivers: HOSTING_DRIVERS.filter(item=>hasHostingDriver(item.id)).map(item=>item.id),
     providers: providers.map(({ secret, config: _config, _count, ...provider }) => ({
       ...provider, hasSecret: Boolean(secret), products: _count.products, built: hasHostingDriver(provider.driver),
+      authMode: parseConfig(_config).authMode === 'PASSWORD' ? 'PASSWORD' : 'API_TOKEN',
+      capabilities: hostingDriver({driver:provider.driver,url:provider.url,username:provider.username,secret:'',config:parseConfig(_config)}).capabilities,
     })),
     // In the order of HOSTING_KINDS (web hosting first, then servers), then the Admin's own order.
     products: products.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)).map((product) => ({
@@ -38,29 +41,34 @@ export async function adminHostingCatalog() {
 
 export async function saveHostingProvider(raw: Record<string, unknown>) {
   const input = normalizeProvider(raw)
+  if(input.driver==='IRNIC'&&!input.id)throw new HostingError('برای اتصال ایرنیک، قرارداد و دسترسی API نمایندگی لازم است؛ حساب معمولی را به‌عنوان API ثبت نکنید')
   const data = {
     name: input.name, family: input.family, driver: input.driver, url: input.url, username: input.username,
     location: input.location, capacity: input.capacity, active: input.active,
   }
   if (input.id) {
-    const current = await db.hostingProvider.findUnique({ where: { id: input.id }, select: { driver: true, _count: { select: { products: true } } } })
+    const current = await db.hostingProvider.findUnique({ where: { id: input.id }, include: { _count: { select: { products: true, tlds: true, services: true } } } })
     if (!current) throw new HostingError('سامانه پیدا نشد')
-    if (current.driver !== input.driver && current._count.products) throw new HostingError('نوع سامانه‌ای که محصول دارد عوض نمی‌شود؛ سامانهٔ تازه بسازید')
-    return db.hostingProvider.update({
-      where: { id: input.id },
-      // A new secret replaces the stored one; an empty field keeps it. The last check no longer describes it.
-      data: { ...data, ...(input.secret ? { secret: encryptPanelCredential(input.secret), lastCheckAt: null, lastCheckOk: null, lastCheckMessage: '' } : {}) },
-      select: { id: true },
-    })
+    if(input.driver==='IRNIC'&&current.driver!=='IRNIC')throw new HostingError('تبدیل اتصال به ایرنیک به قرارداد و دسترسی API نمایندگی نیاز دارد')
+    if (current.driver !== input.driver && (current._count.products||current._count.tlds||current._count.services)) throw new HostingError('نوع سامانه‌ای که محصول، سرویس یا پسوند مرتبط دارد عوض نمی‌شود؛ سامانهٔ تازه بسازید')
+    const config=parseConfig(current.config),authMode=input.authMode??(current.driver===input.driver&&config.authMode==='PASSWORD'?'PASSWORD':'API_TOKEN')
+    if(authMode==='PASSWORD'&&(!['CPANEL','JOKER'].includes(input.driver)||!input.username))throw new HostingError('ورود با رمز به نوع سامانهٔ مجاز و نام کاربری نیاز دارد')
+    const changed=current.driver!==input.driver||current.url!==input.url||current.username!==input.username||(config.authMode??'API_TOKEN')!==authMode
+    if(changed&&!input.secret)throw new HostingError('برای تغییر نشانی، نوع ورود یا نام کاربری، رمز یا توکن را دوباره وارد کنید')
+    const updated=await db.hostingProvider.updateMany({where:{id:input.id,updatedAt:current.updatedAt,secret:current.secret,config:current.config,url:current.url,username:current.username,driver:current.driver},
+      data:{...data,config:JSON.stringify({...config,authMode}),...(input.secret?{secret:encryptPanelCredential(input.secret)}:{}),...(changed||input.secret?{lastCheckAt:null,lastCheckOk:null,lastCheckMessage:''}:{})}})
+    if(updated.count!==1)throw new HostingError('اتصال هم‌زمان تغییر کرد؛ صفحه را تازه کنید')
+    return {id:input.id}
   }
   if (!input.secret) throw new HostingError('رمز یا توکن اتصال لازم است')
-  return db.hostingProvider.create({ data: { ...data, secret: encryptPanelCredential(input.secret) }, select: { id: true } })
+  return db.hostingProvider.create({ data: { ...data, config:JSON.stringify({authMode:input.authMode??'API_TOKEN'}), secret: encryptPanelCredential(input.secret) }, select: { id: true } })
 }
 
 export async function deleteHostingProvider(id: number) {
-  const current = await db.hostingProvider.findUnique({ where: { id }, select: { _count: { select: { products: true } } } })
+  const current = await db.hostingProvider.findUnique({ where: { id }, select: { _count: { select: { products: true, tlds: true, services: true } } } })
   if (!current) return false
   if (current._count.products) throw new HostingError('این سامانه محصول دارد؛ اول محصولات را به سامانهٔ دیگری ببرید یا حذف کنید')
+  if(current._count.tlds||current._count.services)throw new HostingError('این سامانه سرویس یا پسوند مرتبط دارد؛ به‌جای حذف آن را غیرفعال کنید')
   // The foreign key refuses too, if a product was linked in between.
   await db.hostingProvider.delete({ where: { id } })
   return true
@@ -74,8 +82,9 @@ export async function testHostingProvider(id: number) {
   try { secret = decryptPanelCredential(provider.secret) } catch { throw new HostingError('رمز ذخیره‌شده خوانده نشد؛ کلید رمزگذاری سرور را بررسی کنید') }
   const result = await hostingDriver({ driver: provider.driver, url: provider.url, username: provider.username, secret, config: parseConfig(provider.config) }).testConnection()
   const message = result.message.slice(0, 300)
-  await db.hostingProvider.update({ where: { id }, data: { lastCheckAt: new Date(), lastCheckOk: result.ok, lastCheckMessage: message } })
-  return { ok: result.ok, message }
+  const recorded=await db.hostingProvider.updateMany({ where: { id,driver:provider.driver,url:provider.url,username:provider.username,secret:provider.secret,config:provider.config }, data: { lastCheckAt: new Date(), lastCheckOk: result.ok, lastCheckMessage: message } })
+  if(recorded.count!==1)throw new HostingError('اطلاعات اتصال هنگام بررسی تغییر کرد؛ دوباره بررسی کنید')
+  return { ok: result.ok, message, ...(result.packages?{packages:result.packages}:{}) }
 }
 
 export async function saveHostingProduct(raw: Record<string, unknown>) {

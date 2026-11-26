@@ -386,6 +386,11 @@ route inventory, browser evidence and limits](handoffs/SITE_UI_CONSISTENCY.md).
 
 ## Cloud customer workspace — 2026-11-26
 
+Provider repair: Hosting drivers cpanel/joker/proxmox/http and existing hetzner,
+canonical Catalog authMode/claims and Admin providers. Real checks with separate
+capability status; ordinary NIC/manual fulfillment preserved.
+[Operator guide and executed evidence](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 Private `/cloud/dashboard` composes current Identity, Hosting, Checkout/Billing,
 Support and Wallet owners. It adds no schema/dependency and leaves public Cloud
 sources protected. Implementation evidence and pending browser/gate/cleanup

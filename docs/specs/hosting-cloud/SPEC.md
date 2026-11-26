@@ -1,5 +1,9 @@
 # Hosting, servers, cloud and domains
 
+2026-11-26 connection repair and explicit operational boundaries:
+[current scenario](CONNECTIONS.md), [operator guide](../../MOBOCOM_CLOUD_CONNECTIONS.md).
+The previously listed CPANEL and registrar names were not implemented adapters.
+
 ## Outcome and owner
 
 Owner, 2026-11-04: add web hosting and infrastructure sales of the ParsPack class, with a more advanced and more

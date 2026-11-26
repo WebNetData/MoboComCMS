@@ -16,9 +16,10 @@ export type AdminProduct = {
 export type AdminProvider = {
   id: number; name: string; family: string; driver: string; url: string; username: string; location: string; capacity: number
   active: boolean; hasSecret: boolean; products: number; built: boolean
+  authMode: 'API_TOKEN' | 'PASSWORD'; capabilities: string[]
   lastCheckAt: string | null; lastCheckOk: boolean | null; lastCheckMessage: string
 }
-export type HostingData = { products: AdminProduct[]; providers: AdminProvider[] }
+export type HostingData = { products: AdminProduct[]; providers: AdminProvider[]; supportedDrivers?: string[] }
 
 const TABS = [
   { href: '/admin/hosting/services', label: 'سرویس‌های مشتریان' },

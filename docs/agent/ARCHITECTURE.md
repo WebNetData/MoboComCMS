@@ -1074,6 +1074,12 @@ effective state; lifecycle controls remain Core. [Scope, evidence and remaining 
 
 ### Cloud customer workspace — 2026-11-26
 
+Provider connection continuation: Hosting owns real WHM modes, Joker/Proxmox
+checks, hardened Hetzner and its pinned HTTPS/private-host deployment boundary.
+Canonical secret encryption and provider.config/authMode with captured-value
+claims remain in Catalog. Empty capabilities preserve manual operations; no new
+schema/identity/queue. [Evidence and remaining operations](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 The private customer workspace at `/cloud/dashboard` composes the existing
 Identity, Hosting, Billing/Checkout, Support and Wallet boundaries. Checkout's
 Cloud presentation is a closed Hosting/domain surface; public Cloud content and

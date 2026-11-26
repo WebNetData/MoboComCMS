@@ -2,6 +2,108 @@
 
 Spec and slices: [docs/specs/hosting-cloud/SPEC.md](../../specs/hosting-cloud/SPEC.md). Decision: PLATFORM_DECISIONS *Hosting and cloud*.
 
+## Provider connection repair — 2026-11-26
+
+Local .mobocom/cloud-connectors, fix/cloud-provider-connectivity-2026-11-26,
+base merged PR492/main c9355792. Owner reports WHM reseller password failure,
+requests real Cloud APIs, selects Joker/nic.ir and confirms ordinary nic.ir
+account. Other worktrees/unmerged Pay7e6b1ae9 remain preserved independently.
+[Scenario](../../specs/hosting-cloud/CONNECTIONS.md);
+[operator guide](../../MOBOCOM_CLOUD_CONNECTIONS.md).
+
+Audit: CPANEL/IRNIC were metadata-only PendingDriver entries; only Hetzner had
+a real check, no built-in driver created resources, domains were staff tasks.
+Implemented genuine CPANEL password/Basic or API_TOKEN/whm authentication,
+strict API1 version metadata and safe bounded reseller package projection.
+Package ACL refusal is separate from failed login; no automatic mode fallback.
+JOKER fixed-origin form POST login/logout supports API key or password. Official
+minimal Auth-SID-only login/empty logout are accepted; negative/malformed headers
+still refuse. Initial agent-required common ACK/status headers were corrected
+against the documented minimal response. Proxmox checks authenticated effective
+permissions rather than public version. Hetzner now rejects malformed HTTP200.
+
+Canonical encrypted secret remains server-only; closed nonsecret authMode uses
+existing provider.config, legacy CPANEL defaults token, password whitespace is
+preserved. Identity changes require fresh credentials, reset checks and claim
+captured config. Check completion claims captured connection fields; stale success
+cannot overwrite new settings. Product/service/TLD links prevent driver changes
+or destructive removal. No schema/migration/dependency change; package.json only
+wires fifteen new tests into existing test:site.
+
+Hosting-owned HTTPS validates/pins DNS, verifies TLS, refuses redirects, caps1MiB
+actual body bytes and covers DNS/headers/body deadline. Private own-server hosts
+require exact deployment HOSTING_PRIVATE_API_HOSTS entries; loopback/link-local/
+metadata are always blocked. No insecure flag, retry or customer-selected target.
+Existing Admin/SDS scoped UI shows explicit modes, supported/unfinished adapters,
+styled packages and ordinary-NIC refusal. Public Cloud remains unchanged.
+All new built-in capabilities remain empty: checks do not enable create, server
+operations or paid domain registration/renewal; existing manual work remains.
+IRNIC web password is not collected as an invented EPP/API contract. New IRNIC
+API creation is refused; existing providers/NIC handles/TLDs/orders retained.
+
+Live read-only evidence: supplied WHM host has public DNS/valid TLS. Direct Basic
+listpkgs returned403; actual new adapter run UID1000 with credentials via stdin
+also denied authentication. Public form was inspected, then one same-credential
+web login POST returned HTTP401/status0/invalid_login. No authenticated account
+data, resource creation, token/password/policy change. Credentials/cookies never
+written to files/logs/Git; only safe summaries retained. Cannot distinguish wrong
+credential, reseller standing, IP/cPHulk or other policy from this refusal.
+Owner/host must resolve real access; do not report this account as connected.
+No live Joker/Proxmox/Hetzner credentials were exercised.
+
+Executed locally: fresh221 migrations, private Prisma5.22, NOSUPERUSER DB and
+Linux UID1000. Fifteen protocol/transport units pass, including actual trusted TLS,
+DNS pinning/certificate/redirect/body-size/stalled-body/private-policy negatives.
+Native hosting-catalog/services/domains/cloud-workspace pass. Config cases prove
+encrypted exact secrets, no retained-secret redirection, stale check refusal,
+forced same-snapshot write competition, fixed Joker origin and linked registrar
+safeguards. Removing retained-secret protection or captured-check claim each
+fails native assertions; originals restored, native rerun passes.
+Full npm run check passes with no .env/DB credentials:1159 site,53 connected,
+4 backup,14 Billing tests, types and all gates. Earlier1144 pass preceded wiring
+the new15 into the explicit canonical test list; final full check includes them.
+
+Actual Edge/Playwright proves UI save/read/hidden secret, real test-provider
+network refusal on reserved synthetic hostname, edited endpoint refusal, ordinary
+NIC disabled, Joker modes and customer Admin GET/POST403. Nine1440/390 light/dark/
+package/NIC captures: axe0, overflow0, pageerrors0; mobile-light/desktop-dark images
+inspected. Package success is an explicit browser-only synthetic response, not
+live WHM evidence. Initial harness faults (option text in label, missing tunnel
+peer, incorrectly wrapped raw DTO) were corrected and complete flow passed.
+Initial native redirect assertion inherited unsupported password mode; corrected
+to the valid intended driver mode. Doctor page0 errors; complexity/array lookup/
+existing form duplication warnings reviewed, not suppressed. Scoped one-rule
+Semgrep/redacted Gitleaks0. No production build, hosted workflow, PR or deployment.
+
+Next operation slice must fix latent services.ts reclaimable PROVISIONING,
+unconditional completion, per-attempt regenerated password and raw error storage
+before adding real create capability. Persist immutable encrypted input/operation
+ownership and reconcile uncertain effects first. Joker registration/renewal needs
+customer-owned contacts, typed configuration, processing IDs/asynchronous result
+recovery, budget/authority and safe cancellation/refund handling. Accepted request
+is not registered-domain proof. IRNIC requires verified representative contract.
+These are explicit remaining implementation gaps, not full Cloud completion.
+Rollback the application slice together; preserve credentials/history/config.
+Older code ignores PASSWORD mode, so disable/reconfigure those rows first.
+
+Final independent source review found no credential/SSRF/TLS/check-claim blocker.
+Its two low configuration findings were fixed: transitions into unsupported IRNIC
+are refused, and the effective merged auth mode/username is validated without
+implicitly carrying PASSWORD into another driver. Native4/types/eight gates and
+the complete nine-view browser flow pass after these fixes. Native fixture cleanup
+now deletes its explicitly owned IDs, including renamed fixtures; the one earlier
+renamed orphan in the isolated DB was removed by exact identity before rerunning.
+Full1159 gate preceded these final small config/fixture changes; focused final
+evidence is distinguished from that complete earlier run.
+
+Cleanup verified: owned preview stopped under UID1000; resolved runtime,
+NOSUPERUSER DB/role and named setup/archive helpers removed, absence verified.
+Windows cleanup initially refused a relative script command; finalizer verified
+task PID, exact task script suffix and unique listening3152 ownership before
+stopping it. Named synthetic session/TLS/archive files removed; safe ignored
+screenshots/reports remain. In-memory credential probe kernel reset. Shared
+app3000 HTTP200; no other checkout, shared data or installed provider changed.
+
 2026-11-10: [Public Cloud navigation](CLOUD_PUBLIC_NAVIGATION.md) adds an editable
 header mega menu for fresh and existing installs;1.7.14 backfills only the missing
 branch and preserves owner configuration. Existing theme/Settings owners remain.

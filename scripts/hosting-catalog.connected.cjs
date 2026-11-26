@@ -56,9 +56,11 @@ async function main() {
   await prisma.hostingProvider.update({ where: { id: provider.id }, data: { driver: 'TEST_OK' } })
   assert.deepEqual(await h.testHostingProvider(provider.id), { ok: true, message: 'test driver' }, 'the driver receives the decrypted secret')
   assert.equal((await prisma.hostingProvider.findUnique({ where: { id: provider.id } })).lastCheckOk, true)
-  await prisma.hostingProvider.update({ where: { id: provider.id }, data: { driver: 'PROXMOX' } })
+  await prisma.hostingProvider.update({ where: { id: provider.id }, data: { driver: 'TEST_PENDING' } })
   const pending = await h.testHostingProvider(provider.id)
   assert.equal(pending.ok, false, 'a driver not built yet says so instead of pretending')
+  await prisma.hostingProvider.update({ where: { id: provider.id }, data: { driver: 'PROXMOX' } })
+  await require('./hosting-provider-config.cases.cjs')({h,prisma,ids,prefix})
 
   // Products: prices are replaced as a whole and the database refuses what the form would refuse.
   const product = await h.saveHostingProduct({ kind: 'CLOUD_SERVER', name: `${prefix} cloud`, slug: `${prefix}-cloud`, fulfillment: 'DRIVER', providerId: provider.id, prices: [{ cycle: 'HOURLY', amountMinor: '150' }, { cycle: 'MONTH', amountMinor: '100000' }, { cycle: 'YEAR', amountMinor: '1000000' }] })
@@ -98,7 +100,7 @@ async function main() {
 main()
   .catch((error) => { console.error(error); process.exitCode = 1 })
   .finally(async () => {
-    await prisma.hostingProduct.deleteMany({ where: { slug: { startsWith: prefix } } }).catch(() => {})
-    await prisma.hostingProvider.deleteMany({ where: { name: { startsWith: prefix } } }).catch(() => {})
+    await prisma.hostingProduct.deleteMany({ where: { id: { in: ids.products } } })
+    await prisma.hostingProvider.deleteMany({ where: { id: { in: ids.providers } } })
     await prisma.$disconnect()
   })

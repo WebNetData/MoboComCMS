@@ -1354,6 +1354,12 @@ commercial provisioning/distribution is subsequent work, not an activation grant
 
 ### Cloud customer workspace — 2026-11-26
 
+Owner reports WHM reseller connection failure, asks for functional provider APIs
+and selects Joker/nic.ir, explicitly ordinary nic.ir account. Extend existing
+Hosting adapters/settings; explicit password/token choice, no invented EPP/web
+password automation or false create/register claim from login. Manual operations
+remain until safely implemented. [Evidence and boundaries](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 The member Cloud workspace uses existing canonical identity and Hosting
 module/group/maintenance guards. Its invoice/order projection recognizes only
 closed Cloud order kinds; public Cloud sources remain protected. This records

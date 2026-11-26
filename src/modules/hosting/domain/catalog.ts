@@ -54,7 +54,8 @@ export const HOSTING_DRIVERS: readonly DriverMeta[] = [
   { id: 'VMWARE', family: 'COMPUTE', label: 'VMware vCenter', connection: 'direct', needsUsername: true, secretLabel: 'رمز', urlHint: 'https://vcenter.example.com' },
   { id: 'SOLUSVM', family: 'COMPUTE', label: 'SolusVM', connection: 'direct', needsUsername: false, secretLabel: 'API Token', urlHint: 'https://solus.example.com' },
   { id: 'OPENSTACK', family: 'COMPUTE', label: 'OpenStack', connection: 'direct', needsUsername: true, secretLabel: 'رمز (پروژه در تنظیمات)', urlHint: 'https://keystone.example.com:5000/v3' },
-  { id: 'IRNIC', family: 'REGISTRAR', label: 'ایرنیک (IRNIC EPP)', connection: 'api', needsUsername: true, secretLabel: 'رمز EPP', urlHint: 'epp.nic.ir' },
+  { id: 'IRNIC', family: 'REGISTRAR', label: 'ایرنیک (نیازمند قرارداد API نمایندگی)', connection: 'api', needsUsername: true, secretLabel: 'کلید API نمایندگی؛ رمز ورود سایت نیست', urlHint: 'نشانی مستندشدهٔ API نمایندگی' },
+  { id: 'JOKER', family: 'REGISTRAR', label: 'Joker.com DMAPI', connection: 'api', fixedUrl: 'https://dmapi.joker.com', needsUsername: false, secretLabel: 'API Key' },
 ]
 
 export const HOSTING_CYCLES = [
@@ -223,6 +224,7 @@ export type ProviderInput = {
   location: string
   capacity: number
   active: boolean
+  authMode?: 'API_TOKEN' | 'PASSWORD'
 }
 
 /** Checks a connected system from the Admin form. The address must be https (or ssh for CloudPanel). */
@@ -245,11 +247,21 @@ export function normalizeProvider(raw: Record<string, unknown>): ProviderInput {
     if (!url) throw new HostingError('نشانی سامانه لازم است')
   }
   const username = text(raw.username, 200)
-  if (meta.needsUsername && !username) throw new HostingError('نام کاربری سامانه لازم است')
+  const authMode=raw.authMode===undefined?undefined:String(raw.authMode)
+  if(authMode!==undefined&&!['API_TOKEN','PASSWORD'].includes(authMode))throw new HostingError('روش ورود اتصال معتبر نیست')
+  if(authMode==='PASSWORD'&&!['CPANEL','JOKER'].includes(meta.id))throw new HostingError('ورود با رمز برای این سامانه پشتیبانی نمی‌شود')
+  if ((meta.needsUsername||authMode==='PASSWORD') && !username) throw new HostingError('نام کاربری سامانه لازم است')
+  if(meta.id==='CPANEL'){
+    const parsed=new URL(url)
+    if(parsed.pathname!=='/'||parsed.search||parsed.hash||!['','2087'].includes(parsed.port))throw new HostingError('نشانی مستقیم WHM روی پورت ۲۰۸۷ یا ۴۴۳ را وارد کنید؛ نشانی cPanel یا مسیر ورود مناسب نیست')
+  }
+  const secret=String(raw.secret??'')
+  if(secret.length>8000||/[\u0000\r\n]/.test(meta.connection==='ssh'?'':secret))throw new HostingError('رمز یا توکن اتصال معتبر نیست')
   return {
     id: Number(raw.id) > 0 ? Math.trunc(Number(raw.id)) : undefined,
     name, family: meta.family, driver: meta.id, url, username,
-    secret: String(raw.secret ?? '').trim().slice(0, 8000),
+    secret,
+    ...(authMode?{authMode:authMode as 'API_TOKEN'|'PASSWORD'}:{}),
     location: text(raw.location, 80),
     capacity: int(raw.capacity, 1_000_000),
     active: raw.active !== false,

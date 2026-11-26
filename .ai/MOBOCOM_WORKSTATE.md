@@ -1,3 +1,13 @@
+# Cloud provider connection repair — 2026-11-26
+
+Continue .mobocom/cloud-connectors / fix/cloud-provider-connectivity-2026-11-26
+from merged main c9355792. Real WHM modes, Joker/Proxmox checks, hardened Hetzner
+and captured secret/config claims; public Cloud/manual fulfillment preserved.
+Owner confirms ordinary nic.ir, no guessed API. Live WHM API403/web invalid_login
+still denied. Local1159/53/4/14, native4 and nine browser/a11y scopes passed;
+no live create/domain registration/deploy/PR. Unmerged Pay7e6b1ae9 remains separate.
+[Owners, evidence, limitations and next operation slice](../docs/agent/handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 # Dedicated Cloud customer workspace — 2026-11-26
 
 Continue the local feature slice in `.mobocom/cloud-workspace`, branch
