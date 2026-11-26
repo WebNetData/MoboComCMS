@@ -24,3 +24,19 @@ customers to remain discoverable and the current filters to survive reload.
   conversion, sort stability, access and current segment boundaries. In a real
   browser verify listing, URL filters, paging and profile navigation at desktop
   and mobile. Reverting this slice requires no data rollback.
+
+## Customer follow-ups
+
+Staff record a short next action, a Tehran calendar due day and a responsible
+CRM staff account in the existing customer file. The assignee or a member
+with `users.manage` may edit their open work or close it as done/cancelled.
+Only a member with `users.manage` may assign another eligible staff member.
+Existing CRM permissions gate reading and self-assignment. Closed rows remain
+as history. Mutations match the current row version and write the audit in
+the same transaction. Audit metadata never contains the task title.
+
+Customer erasure removes their tasks. Erasing staff unassigns their work and
+preserves the customer history. No notifications or outbound actions run.
+Add the table without rewriting historical data. Roll back application code
+without dropping the new table. Verify native PostgreSQL persistence, authority,
+version conflicts, date validation and erasure, then the RTL browser workflow.

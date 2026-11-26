@@ -7,6 +7,7 @@ import { useParams } from '@/platform/routing/navigation'
 import { Notice, fa, faDate } from '../../store/shared'
 import type { CustomerServiceHistory } from '@/modules/forms/domain/customer-history'
 import { CRM_TITLE } from '@/modules/livechat/domain/crm-desk'
+import FollowUps from './FollowUps'
 
 type Event = { at: string; kind: string; title: string; detail: string; href: string; tone: string }
 type Profile = {
@@ -68,7 +69,7 @@ export default function CustomerFile() {
           <form onSubmit={(e) => { e.preventDefault(); if (tag.trim()) void toggleTag(tag.trim(), true) }} className="sa-row"><input className="input" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="+ برچسب" aria-label="برچسب تازه" style={{ width: 120, paddingBlock: 4 }} /></form>
         </div>
       </div>
-      <div className="sa-head-actions"><Link href={`/admin/users/${c.id}`} className="btn btn-ghost">ویرایش حساب</Link><Link href={`/admin/tickets?user=${c.id}`} className="btn btn-ghost">تیکت‌ها</Link></div>
+      <div className="sa-head-actions"><a className="btn btn-ghost" href="#follow-ups-heading">پیگیری مشتری</a><Link href={`/admin/users/${c.id}`} className="btn btn-ghost">ویرایش حساب</Link><Link href={`/admin/tickets?user=${c.id}`} className="btn btn-ghost">تیکت‌ها</Link></div>
     </header>
 
     <div className="sa-kpis">
@@ -88,6 +89,7 @@ export default function CustomerFile() {
         </li>)}{!events.length && <li><span /><p className="sa-empty">موردی نیست.</p><span /></li>}</ol>
       </section>
       <aside className="sa-editor-side sa-stack">
+        <FollowUps key={c.id} userId={c.id} />
         {formsOn && <section className="sa-card" aria-labelledby="crm-services-title">
           <header className="sa-card-head"><h2 id="crm-services-title">خدمات و تعمیرات</h2></header>
           {data.services?.status === 'restricted' ? <p className="sa-hint">برای مشاهدهٔ سابقهٔ خدمات به دسترسی رسیدگی به فرم مربوط نیاز دارید.</p>
