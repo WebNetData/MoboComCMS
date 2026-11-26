@@ -1,5 +1,49 @@
 # Continuous customer engagement — 2026-11-07
 
+## Persian customer relationship desk — 2026-11-27
+
+The owner asked for «مدیریت ارتباط با مشتریان» and a professional CRM
+workspace after merging PR504. Continue `.mobocom/crm-customer-desk` on
+`feat/crm-customer-desk-2026-11-27`, based on main `815c2374`.
+[Scope and acceptance](../../specs/crm-customer-desk/SPEC.md).
+
+The existing Livechat manifest owns the single menu entry under People.
+The customer desk applies search, tag, account status and the canonical
+purchase segment before stable 25-row pagination. The existing private API
+adds page, sort, filtered counts and an engagement-link capability. Search
+supports Persian numerals and Iranian mobile variants. Existing totals,
+profile, notes and tags keep their owners. Staff and erased identities do
+not appear in the desk. URL filters work with the existing saved-view
+workspace. No schema, public URL, or marketing rule change.
+
+Both `crm-customer-desk` and `crm-scope-currency` passed in Linux UID1000
+on isolated PostgreSQL 17 after all 224 migrations. Evidence includes an
+older customer behind 70 newer accounts, boundary dates, combined filters,
+mixed IRR/IRT, and persisted department visibility. Removing the segment
+predicate in an isolated copy failed the connected assertion; restoring it
+passed. The desk check also
+passed against a fresh disposable SQLite client/database. Livechat unit
+tests 12/12, TypeScript, source/imports, architecture and generated extension
+checks passed. React Doctor reported zero errors and 13 warnings in the
+four touched React files, including two in the desk. The desk fetch aborts
+superseded requests and checks its signal before updating state. Its
+explicit table role retains semantics for responsive rows.
+
+Real Edge against the isolated PostgreSQL-backed preview passed desktop
+1440 and mobile390 in light and dark, with Persian RTL, no page errors or
+overflow and no scoped axe violations. Click/keyboard proof covered
+pagination, query reset, phone search, opening a profile and an empty result.
+Guest and customer API refusals were 403. A Support-only session could list
+customers but received 403 on engagement and saw no engagement shortcut.
+Visual review caught a duplicate menu item and a paging link behind the
+floating assistant. The final browser run verified both corrections.
+No full production build or provider operation was tested.
+
+Rollback the application slice as a unit. No data rollback is needed. The
+next product slice can add owned follow-ups with a responsible staff member,
+due date and history before extending into Leads, Deals and a sales pipeline.
+General automation durability remains a separate execution slice.
+
 Owner requested ongoing CRM relationships, followed-product/special offers, stock
 return and birthday SMS. Implemented on `feat/crm-engagement-2026-11-07` from
 main `d7d4a23a`, including owner-merged PR368 and independently of PR369.

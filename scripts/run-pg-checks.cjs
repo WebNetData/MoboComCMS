@@ -40,6 +40,7 @@ const CHECKS = [
   'ai-grounded-support',
   'livechat-continuity',
   'crm-engagement',
+  'crm-customer-desk',
   'ai-connection',
   'ai-engineering',
   'ai-operations',

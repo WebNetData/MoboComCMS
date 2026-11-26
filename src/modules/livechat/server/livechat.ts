@@ -372,37 +372,6 @@ export async function crmProfile(userId: number, actor?: AuthedUser) {
   }
 }
 
-export async function crmSearch(input: { q?: string; tag?: string; segment?: string }) {
-  const q = String(input.q || '').trim()
-  const where: Prisma.UserWhereInput = { role: { not: 'ADMIN' } }
-  if (q) where.OR = [{ name: { contains: q } }, { email: { contains: q.toLowerCase() } }, { phone: { contains: q } }, ...(/^\d+$/.test(q) ? [{ id: Number(q) }] : [])]
-  if (input.tag) where.id = { in: (await db.crmTag.findMany({ where: { tag: input.tag }, select: { userId: true }, take: 2000 })).map((row) => row.userId) }
-  const users = await db.user.findMany({ where, orderBy: { id: 'desc' }, take: 60, select: { id: true, name: true, email: true, phone: true, createdAt: true } })
-  const ids = users.map((user) => user.id)
-  const [spend, last, tags, allTags] = await Promise.all([
-    db.order.groupBy({ by: ['userId', 'currency'], where: { userId: { in: ids }, status: 'PAID', currency: { in: ['IRT', 'IRR'] } }, _sum: { totalMinor: true }, _count: { _all: true } }),
-    db.order.groupBy({ by: ['userId'], where: { userId: { in: ids }, status: 'PAID' }, _max: { createdAt: true } }),
-    db.crmTag.findMany({ where: { userId: { in: ids } }, select: { userId: true, tag: true } }),
-    db.crmTag.groupBy({ by: ['tag'], _count: { _all: true }, orderBy: { _count: { tag: 'desc' } }, take: 30 }),
-  ])
-  const spendBy = new Map<number, { rial: bigint; orders: number }>()
-  for (const row of spend) {
-    if (row.userId === null) continue
-    const current = spendBy.get(row.userId) || { rial: 0n, orders: 0 }
-    current.rial += (row._sum.totalMinor || 0n) * (row.currency === 'IRT' ? 10n : 1n)
-    current.orders += row._count._all
-    spendBy.set(row.userId, current)
-  }
-  const lastBy = new Map(last.map((row) => [row.userId, row._max.createdAt]))
-  const rows = users.map((user) => {
-    const s = spendBy.get(user.id)
-    const amount = minorToNumber(s?.rial || 0n, 'IRR') / 10
-    const seg = customerSegment({ orders: s?.orders || 0, spendToman: amount, lastOrderAt: lastBy.get(user.id) || null, openTickets: 0 })
-    return { ...user, createdAt: user.createdAt.toISOString(), orders: s?.orders || 0, spend: amount, lastOrderAt: lastBy.get(user.id)?.toISOString() || null, segment: seg.segment, tags: tags.filter((t) => t.userId === user.id).map((t) => t.tag) }
-  })
-  return { rows: input.segment ? rows.filter((row) => row.segment.key === input.segment) : rows, tags: allTags.map((row) => ({ tag: row.tag, count: row._count._all })) }
-}
-
 export async function setTag(userId: number, tag: unknown, on: boolean) {
   const value = String(tag ?? '').trim()
   if (!CRM_TAG.test(value)) throw new ChatError('برچسب باید ۲ تا ۲۴ حرف باشد')

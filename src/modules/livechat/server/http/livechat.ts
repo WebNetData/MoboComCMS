@@ -9,9 +9,11 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { requireUser } from '@/modules/identity/server/access'
 import { ChatError } from '@/modules/livechat/domain/livechat'
+import { CRM_PERMISSIONS, crmDeskFilters } from '@/modules/livechat/domain/crm-desk'
+import { crmSearch } from '@/modules/livechat/server/crm-desk'
 import { sseResponse, subscribe } from '@/platform/realtime/bus'
 import {
-  AGENTS_CHANNEL, addNote, agentAction, agentConversation, agentList, agentReply, chatStats, chatToTicket, conversationChannel, crmProfile, crmSearch, getChatSettings, newChatToken,
+  AGENTS_CHANNEL, addNote, agentAction, agentConversation, agentList, agentReply, chatStats, chatToTicket, conversationChannel, crmProfile, getChatSettings, newChatToken,
   requestOperator, saveChatSettings, setTag, typing, visitorContact, visitorConversation, visitorMessagesSince, visitorPoll, visitorRate, visitorSend, visitorState,
 } from '@/modules/livechat/server/livechat'
 
@@ -171,9 +173,9 @@ export async function PUT_agent(req: NextRequest) {
 
 // ------------------------------------------------------------------ CRM
 
-const CRM = ['users.manage', 'support.chat', 'tickets.handle', 'settings.manage']
+const CRM = CRM_PERMISSIONS
 
-/** GET /api/admin/crm — ?q=&tag=&segment= search | ?id= customer file. */
+/** GET /api/admin/crm — filtered customer desk | ?id= customer file. */
 export async function GET_crm(req: NextRequest) {
   const guard = await adminGuard(req, null, CRM)
   if ('response' in guard) return guard.response
@@ -184,7 +186,12 @@ export async function GET_crm(req: NextRequest) {
       response.headers.set('Cache-Control', 'private, no-store')
       return response
     }
-    return ok(await crmSearch({ q: q.get('q') || '', tag: q.get('tag') || '', segment: q.get('segment') || '' }))
+    const result = await crmSearch(crmDeskFilters(q))
+    const permissions = guard.admin.permissions ?? []
+    const mayManageEngagement = guard.admin.roleId == null || (permissions.includes('users.manage') && permissions.includes('automation.manage'))
+    const response = ok({ ...result, mayManageEngagement })
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
   } catch (error) { return failure(error) }
 }
 

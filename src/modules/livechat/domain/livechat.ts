@@ -1,5 +1,6 @@
 import { DEFAULT_KNOWLEDGE, normalizeKnowledge, type KnowledgeSettings } from '@/modules/livechat/domain/knowledge-config'
 import type { SupportSource } from './knowledge'
+import { CRM_SEGMENTS, CRM_SEGMENT_POLICY } from '@/modules/livechat/domain/crm-desk'
 /**
  * Live chat rules: settings, office hours, the assistant prompt, when to hand
  * a chat to a person, and customer CRM summaries. Pure functions only.
@@ -197,15 +198,16 @@ export function timeline(events: CrmEvent[], max = 120): CrmEvent[] {
  * days since the last order and a simple RFM-style segment.
  */
 export function customerSegment(input: { orders: number; spendToman: number; lastOrderAt: Date | null; openTickets: number }, now = new Date()) {
-  const days = input.lastOrderAt ? Math.floor((now.getTime() - input.lastOrderAt.getTime()) / 86_400_000) : null
+  const policy = CRM_SEGMENT_POLICY
+  const days = input.lastOrderAt ? Math.floor((now.getTime() - input.lastOrderAt.getTime()) / policy.dayMs) : null
   const aov = input.orders ? Math.round(input.spendToman / input.orders) : 0
-  let segment: { key: string; label: string; tone: 'ok' | 'warn' | 'bad' | '' }
-  if (!input.orders) segment = { key: 'lead', label: 'هنوز خرید نکرده', tone: '' }
-  else if (input.orders >= 5 && days !== null && days <= 60) segment = { key: 'loyal', label: 'مشتری وفادار', tone: 'ok' }
-  else if (days !== null && days > 180) segment = { key: 'lost', label: 'از دست رفته', tone: 'bad' }
-  else if (days !== null && days > 90) segment = { key: 'at-risk', label: 'در خطر ریزش', tone: 'warn' }
-  else if (input.orders === 1) segment = { key: 'new', label: 'مشتری تازه', tone: 'ok' }
-  else segment = { key: 'active', label: 'مشتری فعال', tone: 'ok' }
+  let segment: (typeof CRM_SEGMENTS)[keyof typeof CRM_SEGMENTS]
+  if (!input.orders) segment = CRM_SEGMENTS.lead
+  else if (input.orders >= policy.loyalOrders && days !== null && days <= policy.loyalDays) segment = CRM_SEGMENTS.loyal
+  else if (days !== null && days > policy.lostDays) segment = CRM_SEGMENTS.lost
+  else if (days !== null && days > policy.riskDays) segment = CRM_SEGMENTS['at-risk']
+  else if (input.orders === 1) segment = CRM_SEGMENTS.new
+  else segment = CRM_SEGMENTS.active
   return { daysSinceLastOrder: days, aov, segment, needsAttention: input.openTickets > 0 }
 }
 
