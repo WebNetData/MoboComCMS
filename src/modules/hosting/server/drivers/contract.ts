@@ -1,7 +1,7 @@
 // One contract per family of outside system. A driver says what it can do; the customer's workspace shows only
 // those actions. Later slices add the operations (create, suspend, power, rebuild…) to these interfaces.
 
-export type DriverCheck = { ok: boolean; message: string }
+export type DriverCheck = { ok: boolean; message: string; packages?: { id: string; name: string }[] }
 
 /** Everything a driver needs to reach its system. `secret` is already decrypted and never leaves the server. */
 export type DriverConnection = { driver: string; url: string; username: string; secret: string; config: Record<string, unknown> }

@@ -26,6 +26,8 @@ export async function eraseFinancialIdentity(tx: Prisma.TransactionClient,id:num
   await tx.storeQuotation.updateMany({where:{userId:id},data:{title:'حساب حذف‌شده',token:randomBytes(32).toString('hex')}})
   const subscriptions=await tx.subscription.findMany({where:{userId:id},select:{id:true}})
   for(const row of subscriptions)await tx.subscription.updateMany({where:{id:row.id,userId:id},data:{email:null,panelSubUrl:'',configLinks:'[]',subToken:'erased-'+randomBytes(32).toString('hex')}})
+  const cloudRows=await tx.hostingOperation.findMany({where:{OR:[{service:{userId:id}},{domain:{userId:id}}]},select:{id:true,version:true,status:true}})
+  for(const row of cloudRows){const change=await tx.hostingOperation.updateMany({where:{id:row.id,version:row.version,status:row.status},data:{status:['DONE','FAILED'].includes(row.status)?row.status:'FAILED',snapshot:encryptPanelCredential('{"erased":true}'),reference:'',code:'ACCOUNT_ERASED',token:'',leaseAt:null,version:{increment:1}}});claimed(change)}
   await tx.hostingService.updateMany({where:{userId:id},data:{label:'حساب حذف‌شده',loginUser:'',loginSecret:'',note:'',autoRenew:false}})
   await tx.domain.updateMany({where:{userId:id},data:{handle:'',authCode:'',autoRenew:false}})
   await tx.seller.updateMany({where:{userId:id},data:{shopName:'حساب حذف‌شده',legalName:'',nationalId:'',phone:'',email:'',city:'',address:'',about:'',logo:'',banner:'',iban:'',ibanOwner:'',status:'SUSPENDED',statusNote:''}})

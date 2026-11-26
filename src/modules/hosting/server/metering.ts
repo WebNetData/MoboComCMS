@@ -9,6 +9,7 @@ import { legacyNumber, normalizeCurrency } from '@/shared/money'
 import { kindMeta } from '@/modules/hosting/domain/catalog'
 import { floorHour, hourlyMinHours, hourlyStep, hoursDue, lifecycleSettings, normalizeServiceName, runwayHours } from '@/modules/hosting/domain/services'
 import { HostingRefusal, provisionService } from '@/modules/hosting/server/services'
+import { cloudManaged,queueServiceOperation } from '@/modules/hosting/server/cloud-operations'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -81,6 +82,8 @@ export async function createHourlyService(input: { userId: number; productId: nu
 // ============ Charging ============
 
 async function suspendForBalance(service: { id: number; userId: number; label: string }, now: Date, terminateDays: number) {
+  const full=await db.hostingService.findUniqueOrThrow({where:{id:service.id}})
+  if(await cloudManaged(full.providerId)){await queueServiceOperation(service.id,'SUSPEND',{key:'balance:'+now.toISOString().slice(0,13)});return false}
   const claimed = await db.hostingService.updateMany({ where: { id: service.id, status: 'ACTIVE' }, data: { status: 'SUSPENDED', suspendedAt: now } })
   if (claimed.count !== 1) return false
   await db.hostingAction.create({ data: { serviceId: service.id, actor: 'SYSTEM', kind: 'SUSPEND', detail: 'موجودی کیف پول تمام شد', finishedAt: now } })
@@ -162,6 +165,8 @@ export async function runHostingMetering(now = new Date()) {
       const step = hourlyStep({ ...service, unpaidSuspension: await unpaidSuspension(service.id) }, await balanceOf(service.userId, service.currency), rate, now, settings)
       if (!step) continue
       if (step.kind === 'resume') {
+        const full=await db.hostingService.findUniqueOrThrow({where:{id:service.id}})
+        if(await cloudManaged(full.providerId)){await queueServiceOperation(service.id,'UNSUSPEND',{key:'resume:'+service.suspendedAt?.getTime()});continue}
         // The suspended time is not charged: billing starts again at this hour.
         const claimed = await db.hostingService.updateMany({ where: { id: service.id, status: 'SUSPENDED', suspendedAt: service.suspendedAt }, data: { status: 'ACTIVE', suspendedAt: null, chargedUntil: floorHour(now) } })
         if (claimed.count !== 1) continue
@@ -170,6 +175,8 @@ export async function runHostingMetering(now = new Date()) {
         await notify(service.userId, service.id, `resumed:${now.getTime()}`, 'سرویس ساعتی شما دوباره فعال شد', `کیف پول شارژ شد و «${service.label}» دوباره روشن است.`)
       } else if (step.kind === 'warn-terminate') counters.warned += await notify(service.userId, service.id, `terminate-warn:${service.suspendedAt?.toISOString()}`, 'سرویس متوقف‌شدهٔ شما به‌زودی حذف می‌شود', `«${service.label}» تا ${step.days.toLocaleString('fa-IR')} روز دیگر حذف می‌شود. برای نگه داشتن، کیف پول را شارژ کنید.`)
       else if (step.kind === 'terminate') {
+        const full=await db.hostingService.findUniqueOrThrow({where:{id:service.id}})
+        if(await cloudManaged(full.providerId)){await queueServiceOperation(service.id,'TERMINATE',{key:'terminate:'+service.suspendedAt?.getTime()});continue}
         const claimed = await db.hostingService.updateMany({ where: { id: service.id, status: 'SUSPENDED', suspendedAt: service.suspendedAt }, data: { status: 'TERMINATED', terminatedAt: now } })
         if (claimed.count !== 1) continue
         await db.hostingAction.create({ data: { serviceId: service.id, actor: 'SYSTEM', kind: 'TERMINATE', detail: 'کیف پول شارژ نشد', finishedAt: now } })
@@ -195,6 +202,8 @@ export async function terminateHourlyByCustomer(userId: number, serviceId: numbe
   const expected = (service.hostname || service.label).trim().toLowerCase()
   if (String(confirm ?? '').trim().toLowerCase() !== expected) throw new HostingRefusal(`برای حذف، «${service.hostname || service.label}» را دقیقاً بنویسید`, 400, 'CONFIRM')
   await chargeHourlyService(service.id, now, { includeCurrent: true })
+  const full=await db.hostingService.findUniqueOrThrow({where:{id:service.id}})
+  if(await cloudManaged(full.providerId)){await queueServiceOperation(service.id,'TERMINATE',{id:userId,kind:'CUSTOMER',key:'customer-terminate'});return {status:'PENDING' as const}}
   const claimed = await db.hostingService.updateMany({ where: { id: service.id, status: { in: OPEN } }, data: { status: 'TERMINATED', terminatedAt: now } })
   if (claimed.count !== 1) throw new HostingRefusal('وضعیت سرویس همزمان تغییر کرد؛ صفحه را تازه کنید', 409)
   await db.hostingAction.create({ data: { serviceId: service.id, actorId: userId, actor: 'CUSTOMER', kind: 'TERMINATE', detail: 'حذف توسط مشتری', finishedAt: now } })

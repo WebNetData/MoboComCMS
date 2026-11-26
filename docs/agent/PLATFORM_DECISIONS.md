@@ -1354,8 +1354,25 @@ commercial provisioning/distribution is subsequent work, not an activation grant
 
 ### Cloud customer workspace — 2026-11-26
 
+Owner reports WHM reseller connection failure, asks for functional provider APIs
+and selects Joker/nic.ir, explicitly ordinary nic.ir account. Extend existing
+Hosting adapters/settings; explicit password/token choice, no invented EPP/web
+password automation or false create/register claim from login. Manual operations
+remain until safely implemented. [Evidence and boundaries](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 The member Cloud workspace uses existing canonical identity and Hosting
 module/group/maintenance guards. Its invoice/order projection recognizes only
 closed Cloud order kinds; public Cloud sources remain protected. This records
 implementation scope, not a new provider, schema or release decision. See
 [Cloud workspace evidence and limits](handoffs/CLOUD_WORKSPACE.md).
+# Cloud automatic operations — owner continuation2026-11-26
+
+Owner authorized all four next Cloud slices: WHM creation/lifecycle, Joker
+registration/renewal, an Admin operations center and Proxmox/Hetzner server
+creation/control. Corrected WHM credentials passed read-only API/TLS checks;
+ordinary nic.ir still uses staff registration. Automatic operations are explicit
+per-provider opt-in and default off. An ambiguous external write is reconciled
+without repeating purchases or resource creation; confirmed state and existing
+money owners remain authoritative. No production resource mutation, paid canary,
+deploy, release or hosted workflow is implied by local development acceptance.
+[Scope, prerequisites and evidence](handoffs/HOSTING_CLOUD.md#automatic-cloud-operations--2026-11-26).

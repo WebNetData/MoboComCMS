@@ -1,5 +1,19 @@
 /* Hosting Admin: product and provider forms. Shares the Admin's sa-* pieces; only the layout is its own. */
+.admin-shell .hx-admin .hx-op-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-block: 20px; }
+.admin-shell .hx-admin .hx-op-stats .sa-card { display: grid; gap: 12px; margin: 0; border-block-start: 2px solid color-mix(in srgb,var(--primary) 55%,var(--border)); }
+.admin-shell .hx-admin .hx-op-stats strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+.admin-shell .hx-admin .hx-op-list { display: grid; gap: 12px; }
+.admin-shell .hx-admin .hx-op-item { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; align-items: center; gap: 20px; padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-soft); transition: border-color 160ms ease; }
+.admin-shell .hx-admin .hx-op-item:hover { border-color: color-mix(in srgb,var(--primary) 45%,var(--border)); }
+.admin-shell .hx-admin .hx-op-item h3 { font-size: 15px; margin: 0 0 6px; }
+.admin-shell .hx-admin .hx-op-item p { margin: 8px 0; }
+.admin-shell .hx-admin .hx-op-item code,.admin-shell .hx-admin .hx-op-item small { display: block; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+@media(max-width:760px) { .admin-shell .hx-admin .hx-op-item { grid-template-columns: minmax(0,1fr); gap: 12px; padding: 16px; } .admin-shell .hx-admin .hx-op-stats { gap: 8px; } .admin-shell .hx-admin .hx-op-stats .sa-card { padding: 12px; min-width: 0; } .admin-shell .hx-admin .hx-op-stats .sa-hint { font-size: 12px; } .admin-shell .hx-admin .hx-op-stats strong { font-size: 22px; } }
+@media(prefers-reduced-motion:reduce) { .admin-shell .hx-admin .hx-op-item { transition: none; } }
 .hx-admin .hx-form { display: grid; gap: 16px; }
+.admin-shell .hx-admin .hx-provider-packages { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr)); }
+.admin-shell .hx-admin .hx-provider-packages li { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); min-width: 0; }
+.admin-shell .hx-admin .hx-provider-packages code { display: block; overflow-wrap: anywhere; color: var(--text); text-align: left; }
 .hx-admin .hx-form .sa-card { display: grid; gap: 12px; }
 .hx-admin .hx-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .hx-admin .hx-choice { margin: 0; padding: 0; border: 0; min-width: 0; }

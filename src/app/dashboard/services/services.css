@@ -192,3 +192,4 @@
 .hs-years b { font-size: 14px; }
 .hs-years span { color: var(--muted); font-size: 12px; }
 .hs-section-title { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 17px; }
+.hs-page .hs-power-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 16px; }

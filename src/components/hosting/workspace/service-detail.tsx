@@ -12,9 +12,11 @@ import { startCheckout } from '@/modules/checkout/ui/client'
 import { day, daysLeft, fa, kindIcon, moment } from '@/app/dashboard/services/shared'
 import HourlyPanel, { type HourlyUsage } from '@/app/dashboard/services/[id]/HourlyPanel'
 import AddonsPanel, { type Addons } from '@/app/dashboard/services/[id]/AddonsPanel'
+import PowerControls,{type CloudOperationView} from './power-controls'
 import '@/app/dashboard/services/services.css'
 
 type Service = {
+  powerEnabled:boolean;powerState:string;operations:CloudOperationView[]
   id: number; label: string; status: string; cycle: string; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; hasPassword: boolean; autoRenew: boolean; priceMinor: string
   note: string; startedAt: string | null; nextDueAt: string | null; suspendedAt: string | null; createdAt: string; allowTraffic: boolean; allowUpgrade: boolean
   product: { kind: string; name: string; cpuCores: number; ramMb: number; diskGb: number; diskType: string; trafficGb: number; bandwidthMbps: number; sites: number; mailboxes: number; databases: number; location: string; fulfillment: string }
@@ -137,6 +139,7 @@ export default function ServiceWorkspace({ params, surface = 'dashboard' }: { pa
     {service.status === 'SUSPENDED' && <div className="hs-alert" role="status"><Icon name="lock" size={18} />این سرویس معلق است. برای رفع تعلیق فاکتور باز را پرداخت کنید یا با پشتیبانی تماس بگیرید.</div>}
 
     <div className="hs-layout">
+      <PowerControls serviceId={service.id} enabled={service.powerEnabled} active={service.status==='ACTIVE'} powerState={service.powerState} operations={service.operations||[]} onChanged={()=>setLoads(n=>n+1)} />
       {usable && <section className="hs-panel" aria-labelledby="hs-login">
         <h2 id="hs-login"><Icon name="key" size={18} />اطلاعات ورود</h2>
         {service.ipv4 && <Field label="آی‌پی" value={service.ipv4} copy />}

@@ -51,6 +51,7 @@ export async function refundPaidInvoice(invoice: Invoice & { gateway?: { provide
   const claim = await db.$transaction(async (tx) => {
     if (orderId) {
       await lockOrder(tx, orderId)
+      if(await tx.hostingOperation.count({where:{orderId,status:{in:['QUEUED','RUNNING','PENDING','UNKNOWN','BLOCKED']}}}))return 'HOSTING'
       if (await tx.returnRequest.count({ where: { orderId, status: { in: ['REQUESTED', 'APPROVED', 'REFUNDED'] } } })) return 'RETURNS'
     }
     const changed = await tx.invoice.updateMany({ where: { id: invoice.id, status: 'PAID' }, data: { status: 'REFUNDED' } })
@@ -63,6 +64,7 @@ export async function refundPaidInvoice(invoice: Invoice & { gateway?: { provide
     } })
     return 'CLAIMED'
   })
+  if (claim === 'HOSTING') return { ok: false, status: 409, message: 'نتیجهٔ عملیات سرویس یا دامنه هنوز قطعی نیست؛ ابتدا از مرکز عملیات کلاد بررسی کنید' }
   if (claim === 'RETURNS') return { ok: false, status: 409, message: 'این سفارش درخواست لغو یا مرجوعی دارد؛ بازپرداخت را از صفحهٔ همان درخواست انجام دهید' }
   if (claim === 'GONE') return { ok: false, status: 409, message: 'وضعیت فاکتور تغییر کرده است؛ صفحه را تازه کنید' }
 

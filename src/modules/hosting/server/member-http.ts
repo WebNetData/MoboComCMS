@@ -7,6 +7,7 @@ import { HostingRefusal, memberHostingService, memberHostingServices, revealServ
 import { setServiceAutoRenew } from '@/modules/hosting/server/renewal'
 import { createHourlyService, hourlyUsage, terminateHourlyByCustomer } from '@/modules/hosting/server/metering'
 import { HostingError } from '@/modules/hosting/domain/catalog'
+import { customerPowerOperation } from '@/modules/hosting/server/cloud-operations/commands'
 import { memberAddons, upgradeHourlyService } from '@/modules/hosting/server/addons'
 
 const privateJson = (body: unknown) => { const response = ok(body); response.headers.set('cache-control', 'private, no-store'); return response }
@@ -56,7 +57,11 @@ export async function POST_service(req: NextRequest, { params }: { params: Promi
   if (body?.action === 'terminate') {
     if (!(await rateLimitStrict(`hosting:terminate:${user.id}`, 5, 60_000)).ok) return err('چند لحظه بعد دوباره امتحان کنید', 429)
     try { return privateJson(await terminateHourlyByCustomer(user.id, id, body.confirm)) }
-    catch (error) { if (error instanceof HostingRefusal) return err(error.message, error.status); throw error }
+    catch (error) { if (error instanceof HostingRefusal) return err(error.message, error.status); if(error instanceof HostingError)return err(error.message,409);throw error }
+  }
+  if(body?.action==='power'){
+    if(!(await rateLimitStrict('hosting:power:'+user.id,10,60000)).ok)return err('کمی بعد تلاش کنید',429)
+    try{return privateJson(await customerPowerOperation(user.id,id,String(body.command),String(body.requestKey)))}catch(error){if(error instanceof HostingError)return err(error.message,409);throw error}
   }
   if (body?.action !== 'reveal') return err('عملیات نامعتبر است')
   if (!(await rateLimitStrict(`hosting:reveal:${user.id}`, 6, 60_000)).ok) return err('چند لحظه بعد دوباره امتحان کنید', 429)

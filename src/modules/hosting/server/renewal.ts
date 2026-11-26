@@ -9,6 +9,7 @@ import { legacyNumber, normalizeCurrency } from '@/shared/money'
 import { cycleMeta } from '@/modules/hosting/domain/catalog'
 import { lifecycleSettings, lifecycleStep, renewedDue } from '@/modules/hosting/domain/services'
 import { HostingRefusal } from '@/modules/hosting/server/services'
+import { cloudManaged,queueServiceOperation,recoverCloudOperations } from '@/modules/hosting/server/cloud-operations'
 
 const DAY = 86_400_000
 const parseMeta = (value: string): Record<string, unknown> => { try { return JSON.parse(value || '{}') } catch { return {} } }
@@ -53,7 +54,11 @@ export async function applyHostingRenewal(orderId: number) {
   const serviceId = Number(meta.serviceId)
   if (meta.kind !== 'hosting-renewal' || !serviceId) throw new Error('hosting renewal order has no service')
   const key = `renew:order:${order.id}`
-  if (await db.hostingAction.findUnique({ where: { idempotencyKey: key } })) return { applied: false, repeated: true }
+  if (await db.hostingAction.findUnique({ where: { idempotencyKey: key } })) {
+    const current=await db.hostingService.findUnique({where:{id:serviceId}})
+    if(current?.status==='SUSPENDED'&&current.nextDueAt&&current.nextDueAt>new Date()&&await unpaidSuspension(current.id)&&await cloudManaged(current.providerId))await queueServiceOperation(current.id,'UNSUSPEND',{key:'renew:'+order.id})
+    return { applied: false, repeated: true }
+  }
   const service = await db.hostingService.findUnique({ where: { id: serviceId } })
   if (!service || service.userId !== order.userId) throw new Error('hosting renewal service is missing or not the buyer\'s')
 
@@ -66,18 +71,20 @@ export async function applyHostingRenewal(orderId: number) {
   }
 
   const reopen = service.status === 'SUSPENDED' && await unpaidSuspension(service.id)
+  const remote=reopen&&await cloudManaged(service.providerId)
   const nextDueAt = renewedDue(service.nextDueAt, service.cycle)
   const now = new Date()
   await db.$transaction(async (tx) => {
     // The action row first: its unique key makes a second worker roll back instead of adding a second term.
     await tx.hostingAction.create({ data: { serviceId: service.id, actorId: order.userId, actor: 'CUSTOMER', kind: 'RENEW', status: 'DONE', idempotencyKey: key, detail: `تمدید ${cycleMeta(service.cycle)?.label || ''}`.trim(), finishedAt: now } })
     // Claim the due date the term was added to: a concurrent renewal of another order recomputes from the new one.
-    const updated = await tx.hostingService.updateMany({ where: { id: service.id, nextDueAt: service.nextDueAt, status: service.status }, data: { nextDueAt, ...(reopen ? { status: 'ACTIVE', suspendedAt: null } : {}) } })
+    const updated = await tx.hostingService.updateMany({ where: { id: service.id, nextDueAt: service.nextDueAt, status: service.status }, data: { nextDueAt, ...(reopen&&!remote ? { status: 'ACTIVE', suspendedAt: null } : {}) } })
     if (updated.count !== 1) throw new Error('hosting service changed during renewal; retry')
-    if (reopen) await tx.hostingAction.create({ data: { serviceId: service.id, actor: 'SYSTEM', kind: 'UNSUSPEND', detail: 'تمدید پرداخت شد', finishedAt: now } })
+    if (reopen&&!remote) await tx.hostingAction.create({ data: { serviceId: service.id, actor: 'SYSTEM', kind: 'UNSUSPEND', detail: 'تمدید پرداخت شد', finishedAt: now } })
   })
-  await notify(order.userId, service.id, `renewed:${order.id}`, 'سرویس شما تمدید شد', `«${service.label}» تا ${new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', dateStyle: 'long' }).format(nextDueAt)} تمدید شد.${reopen ? ' دسترسی دوباره باز شد.' : ''}`)
-  return { applied: true, nextDueAt, reopened: reopen }
+  await notify(order.userId, service.id, `renewed:${order.id}`, 'سرویس شما تمدید شد', `«${service.label}» تا ${new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', dateStyle: 'long' }).format(nextDueAt)} تمدید شد.${reopen&&!remote ? ' دسترسی دوباره باز شد.' : remote?' بازگشایی دسترسی در انتظار پاسخ میزبان است.':''}`)
+  if(remote)await queueServiceOperation(service.id,'UNSUSPEND',{key:'renew:'+order.id})
+  return { applied: true, nextDueAt, reopened: reopen&&!remote }
 }
 
 /** Paid renewal orders that never got their job (a crash between payment and enqueue). */
@@ -120,6 +127,7 @@ async function renewFromWallet(service: { id: number; userId: number; label: str
 export async function runHostingLifecycle(now = new Date()) {
   const counters = { checked: 0, reminded: 0, renewed: 0, suspended: 0, warned: 0, terminated: 0, failed: 0 }
   if (!await isModuleEnabled('hosting')) return counters
+  await recoverCloudOperations()
   const settings = lifecycleSettings(await getModuleSettings('hosting').catch(() => ({} as Record<string, unknown>)))
   const horizon = new Date(now.getTime() + (Math.max(...settings.reminderDays, 1) + 1) * DAY)
   const rows = await db.hostingService.findMany({
@@ -130,12 +138,18 @@ export async function runHostingLifecycle(now = new Date()) {
   for (const row of rows) {
     counters.checked++
     try {
+      if(row.status==='SUSPENDED'&&row.nextDueAt&&row.nextDueAt>now&&await unpaidSuspension(row.id)){
+        const full=await db.hostingService.findUniqueOrThrow({where:{id:row.id}})
+        if(await cloudManaged(full.providerId)){await queueServiceOperation(row.id,'UNSUSPEND',{key:'paid-until:'+row.nextDueAt.toISOString()});continue}
+      }
       const step = lifecycleStep({ ...row, unpaidSuspension: row.status === 'SUSPENDED' ? await unpaidSuspension(row.id) : false }, now, settings)
       if (!step || !row.nextDueAt) continue
       const stamp = row.nextDueAt.toISOString()
       if (step.kind === 'remind') counters.reminded += await notify(row.userId, row.id, `due:${step.days}:${stamp}`, 'زمان تمدید سرویس نزدیک است', `${step.days.toLocaleString('fa-IR')} روز تا سررسید «${row.label}» مانده است.${row.autoRenew ? ' از کیف پول تمدید می‌شود؛ موجودی را بررسی کنید.' : ' از صفحهٔ سرویس تمدید کنید.'}`)
       else if (step.kind === 'renew') { if (await renewFromWallet({ ...row, nextDueAt: row.nextDueAt })) counters.renewed++ }
       else if (step.kind === 'suspend') {
+        const providerId=(await db.hostingService.findUniqueOrThrow({where:{id:row.id}})).providerId
+        if(await cloudManaged(providerId)){await queueServiceOperation(row.id,'SUSPEND',{key:'due:'+stamp});continue}
         const claimed = await db.hostingService.updateMany({ where: { id: row.id, status: 'ACTIVE', nextDueAt: row.nextDueAt }, data: { status: 'SUSPENDED', suspendedAt: now } })
         if (claimed.count !== 1) continue
         await db.hostingAction.create({ data: { serviceId: row.id, actor: 'SYSTEM', kind: 'SUSPEND', detail: 'سررسید پرداخت نشد', finishedAt: now } })
@@ -143,6 +157,8 @@ export async function runHostingLifecycle(now = new Date()) {
         await notify(row.userId, row.id, `suspended:${stamp}`, 'سرویس شما معلق شد', `سررسید «${row.label}» گذشت و پرداخت نشد. با تمدید از صفحهٔ سرویس دوباره فعال می‌شود؛ پس از ${settings.terminateDays.toLocaleString('fa-IR')} روز حذف می‌شود.`)
       } else if (step.kind === 'warn-terminate') counters.warned += await notify(row.userId, row.id, `terminate-warn:${stamp}`, 'سرویس معلق شما به‌زودی حذف می‌شود', `«${row.label}» تا ${step.days.toLocaleString('fa-IR')} روز دیگر حذف می‌شود و اطلاعات آن برنمی‌گردد. برای نگه داشتن، تمدید کنید.`)
       else if (step.kind === 'terminate') {
+        const providerId=(await db.hostingService.findUniqueOrThrow({where:{id:row.id}})).providerId
+        if(await cloudManaged(providerId)){await queueServiceOperation(row.id,'TERMINATE',{key:'terminate:'+stamp});continue}
         const claimed = await db.hostingService.updateMany({ where: { id: row.id, status: 'SUSPENDED', suspendedAt: row.suspendedAt }, data: { status: 'TERMINATED', terminatedAt: now } })
         if (claimed.count !== 1) continue
         await db.hostingAction.create({ data: { serviceId: row.id, actor: 'SYSTEM', kind: 'TERMINATE', detail: 'تمدید نشد', finishedAt: now } })

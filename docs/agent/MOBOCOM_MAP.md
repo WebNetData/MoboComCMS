@@ -386,7 +386,19 @@ route inventory, browser evidence and limits](handoffs/SITE_UI_CONSISTENCY.md).
 
 ## Cloud customer workspace — 2026-11-26
 
+Provider repair: Hosting drivers cpanel/joker/proxmox/http and existing hetzner,
+canonical Catalog authMode/claims and Admin providers. Real checks with separate
+capability status; ordinary NIC/manual fulfillment preserved.
+[Operator guide and executed evidence](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 Private `/cloud/dashboard` composes current Identity, Hosting, Checkout/Billing,
 Support and Wallet owners. It adds no schema/dependency and leaves public Cloud
 sources protected. Implementation evidence and pending browser/gate/cleanup
 confirmation: [handoff](handoffs/CLOUD_WORKSPACE.md).
+Cloud operations2026-11-26: Hosting `server/cloud-operations.ts` is the address for
+intents/runner/settlement/Admin recovery; drivers own closed provider protocols,
+canonical Operations runs `hosting.operation`, existing Hosting fulfillment/
+lifecycle/metering consume it. Admin `/admin/hosting/operations` and provider
+automation fields; customer service detail exposes owner-only power controls.
+Additive migration20270409120000 adds operation history/fences; account erasure
+destroys private snapshots. [Evidence/prerequisites](handoffs/HOSTING_CLOUD.md#automatic-cloud-operations--2026-11-26).

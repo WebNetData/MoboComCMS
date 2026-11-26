@@ -18,6 +18,7 @@ type Handler = (payload: Record<string, unknown>, job: {
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { run: Handler }> = {
+  'hosting.operation': { run: async payload => (await import('@/modules/hosting/server/cloud-operations')).runCloudOperation(payload) },
   'identity.erase-files': { run: async payload => (await import('@/modules/identity/server/account-erasure')).runAccountErasureFiles(payload) },
   'pay.webhook-delivery': { run: async payload => (await import('@/modules/billing/server/pay')).deliverPayWebhook(payload) },
   'pay.bot-delivery': { run: async payload => (await import('@/modules/billing/server/pay')).deliverBotPayment(payload) },

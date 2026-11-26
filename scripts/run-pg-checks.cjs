@@ -92,6 +92,7 @@ const CHECKS = [
   'digital-content-pricing-migration',
   'cloud-workspace',
   'hosting-catalog',
+  'hosting-operations',
   'hosting-services',
   'hosting-renewal',
   'hosting-hourly',

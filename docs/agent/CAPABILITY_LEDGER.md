@@ -422,9 +422,23 @@ assistant obstruction fixes preserve owners/data/protected layouts. Final accept
 counts and remaining limits: [handoff](handoffs/SITE_UI_CONSISTENCY.md). Not a
 whole-site WCAG, live-provider or production-readiness certification.
 
+2026-11-26 Cloud provider checks: FUNCTIONAL within local protocol/DB/browser
+evidence; LIVE_PROVIDER_DENIED for supplied WHM, other real keys UNVERIFIED.
+WHM modes/packages, Joker and Proxmox checks, hardened Hetzner and config/secret
+claims. Empty capabilities mean no create/registration automation. Ordinary NIC
+retains manual path.15 units,4 native suites, full1159/53/4/14 and9 browser scopes
+pass. [Exact limits and remaining implementation](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 2026-11-26 Cloud customer workspace: bounded local customer-shell slice at
 `/cloud/dashboard`, using canonical identity and Hosting guards plus existing
 Billing/Support/Wallet owners. Six native PostgreSQL suites, the full check gate, focused final checkout units,
 25 distinct final responsive/themed views with axe0/overflow0/pageerrors0,
 menu behavior and public-navigation isolation passed. Final local Docker recovery
 and runtime cleanup are recorded in the handoff. [Handoff](handoffs/CLOUD_WORKSPACE.md).
+Cloud operations2026-11-26: IMPLEMENTED with local protocol/PG/browser evidence;
+real corrected WHM read-only login/packages VERIFIED. WHM service lifecycle,
+Joker basic register/renew, Proxmox/Hetzner create/power and Admin/customer controls
+use encrypted claimed intents plus canonical Jobs. Live mutations and remaining
+catalog drivers UNVERIFIED/UNIMPLEMENTED; ordinary NIC remains manual. The new
+capability status supersedes the historical connection-only entry without converting
+local fixtures into live-provider proof. [Exact continuation](handoffs/HOSTING_CLOUD.md#automatic-cloud-operations--2026-11-26).

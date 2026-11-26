@@ -8,7 +8,7 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { startCheckout } from '@/modules/checkout/ui/client'
 
-type Result = { name: string; display: string; suffix: string; state: 'available' | 'taken' | 'unknown'; register: number; renew: number; transfer: number; years: number[]; needsHandle: boolean }
+type Result = { name: string; display: string; suffix: string; state: 'available' | 'taken' | 'unknown'; register: number; renew: number; transfer: number; years: number[]; needsHandle: boolean;needsJokerContact?:boolean }
 const nf = (value: number) => Math.round(value).toLocaleString('fa-IR')
 const STATE = { available: ['آزاد است', 'is-free'], taken: ['ثبت شده', 'is-taken'], unknown: ['قابل سفارش', 'is-unknown'] } as const
 
@@ -17,6 +17,7 @@ function OrderSheet({ result, transfer, signedIn, onClose, surface = 'public' }:
   const [years, setYears] = useState(result.years[0] || 1)
   const [handle, setHandle] = useState('')
   const [authCode, setAuthCode] = useState('')
+  const [jokerContact,setJokerContact]=useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   // Opened once; leaving the page removes the element, which closes it (no cleanup: React runs effects twice in dev).
@@ -27,7 +28,7 @@ function OrderSheet({ result, transfer, signedIn, onClose, surface = 'public' }:
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      const outcome = await startCheckout({ surface: surface !== 'public' ? surface : undefined, domainOrder: { name: result.name, years, transfer, handle: handle.trim(), authCode: authCode.trim() } })
+      const outcome = await startCheckout({ surface: surface !== 'public' ? surface : undefined, domainOrder: { name: result.name, years, transfer, handle: handle.trim(), authCode: authCode.trim(),jokerContact:jokerContact.trim() } })
       if (!outcome.ok) { if (outcome.code === 'GATEWAY_AMBIGUOUS' && outcome.invoiceUrl) { window.location.assign(checkoutPath(outcome.invoiceUrl, surface)); return } setError(outcome.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : outcome.message || 'سفارش ثبت نشد'); return }
       const destination = checkoutDestination(outcome, surface)
       if (destination) window.location.assign(destination)
@@ -52,7 +53,9 @@ function OrderSheet({ result, transfer, signedIn, onClose, surface = 'public' }:
         <input className="input" dir="ltr" required value={authCode} maxLength={200} autoComplete="off" spellCheck={false} onChange={(event) => setAuthCode(event.target.value)} />
         <small>این کد را از ثبت‌کنندهٔ فعلی دامنه بگیرید و قفل انتقال را باز کنید.</small>
       </label>}
+        {result.needsJokerContact&&!transfer&&<label className="hx-order-field"><span>شناسهٔ تماس صاحب امتیاز در Joker</span><input className="input" dir="ltr" required value={jokerContact} maxLength={64} onChange={event=>setJokerContact(event.target.value)} placeholder="CCOM-…" /><small>شناسهٔ تماس ثبت‌شده با مشخصات واقعی خودتان در Joker؛ این مقدار رمز یا API Key نیست. دامنه به نام همین تماس ثبت می‌شود.</small></label>}
       <div className="hx-order-total">
+
         <span>مبلغ قابل پرداخت</span>
         <b className="num">{nf(total)} تومان</b>
         <small>تمدید سالانه {nf(result.renew)} تومان. ابتدا از موجودی کیف پول استفاده می‌شود.</small>

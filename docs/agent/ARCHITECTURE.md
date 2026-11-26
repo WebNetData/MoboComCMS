@@ -1074,8 +1074,29 @@ effective state; lifecycle controls remain Core. [Scope, evidence and remaining 
 
 ### Cloud customer workspace — 2026-11-26
 
+Provider connection continuation: Hosting owns real WHM modes, Joker/Proxmox
+checks, hardened Hetzner and its pinned HTTPS/private-host deployment boundary.
+Canonical secret encryption and provider.config/authMode with captured-value
+claims remain in Catalog. Empty capabilities preserve manual operations; no new
+schema/identity/queue. [Evidence and remaining operations](handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 The private customer workspace at `/cloud/dashboard` composes the existing
 Identity, Hosting, Billing/Checkout, Support and Wallet boundaries. Checkout's
 Cloud presentation is a closed Hosting/domain surface; public Cloud content and
 navigation stay protected. No schema/dependency change is reported. Evidence and
 unresolved validation are recorded in [the handoff](handoffs/CLOUD_WORKSPACE.md).
+# Cloud operation boundary — 2026-11-26
+
+Hosting owns encrypted, frozen `HostingOperation` intents/history behind
+`hosting/server/cloud-operations.ts`; canonical Operations/BackgroundJob executes
+them. There is no second scheduler, identity, billing or wallet. Provider drivers
+perform one claimed phase and inspect uncertain outcomes by reads. Local activation,
+power state and domain expiry follow confirmed results, protected by database
+resource fences and captured version/status claims. Explicit provider opt-in,
+current module/customer/staff authority, exact destination bindings and owned
+resource markers constrain execution; projections exclude connection snapshots.
+Account erasure destroys those private snapshots and invalidates pending claims.
+Creation intents and canonical invoice refunds share the order row lock; Billing
+and database Invoice/Order state fences refuse financial closure while external
+Cloud effects are unresolved, including when the optional module is disabled.
+See [the authoritative Hosting continuation](handoffs/HOSTING_CLOUD.md#automatic-cloud-operations--2026-11-26).

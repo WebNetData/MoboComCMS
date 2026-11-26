@@ -1,3 +1,33 @@
+# Release1.7.23 — 2026-11-26
+
+Owner authorizes PR/merge/stable publication, no destination deployment. Continue
+`.mobocom/release-1.7.23`, `release/1.7.23`, from `e1cc8be6` and main`c9355792`.
+Four additive migrations; old publisher/migration hashes retained. Exact release
+validation and publication: [handoff](../docs/agent/handoffs/RELEASE_1_7_23.md).
+Other worktrees and unmerged Pay readiness remain independent.
+
+# Cloud automatic operations — 2026-11-26
+
+Continue `.mobocom/cloud-operations` / `feat/cloud-operations-2026-11-26`, base
+`deaac03e`. Four authorized slices implemented behind Hosting/Jobs: WHM lifecycle,
+Joker basic register/renew, Admin operations, Proxmox/Hetzner create/power. Corrected
+WHM API/TLS version and 33 packages passed read-only. Encrypted immutable intents,
+exclusive claims/manual fences, read-only unknown recovery and existing money
+owners; provider opt-in defaults off. Public identity/Cloud design retained.
+Live resource/domain writes and deployment unrun. Native/gate/browser evidence and
+cleanup are finalized in [the shared handoff](../docs/agent/handoffs/HOSTING_CLOUD.md#automatic-cloud-operations--2026-11-26).
+Independent Pay `7e6b1ae9`, historical root and other worktrees remain separate.
+
+# Cloud provider connection repair — 2026-11-26
+
+Continue .mobocom/cloud-connectors / fix/cloud-provider-connectivity-2026-11-26
+from merged main c9355792. Real WHM modes, Joker/Proxmox checks, hardened Hetzner
+and captured secret/config claims; public Cloud/manual fulfillment preserved.
+Owner confirms ordinary nic.ir, no guessed API. Live WHM API403/web invalid_login
+still denied. Local1159/53/4/14, native4 and nine browser/a11y scopes passed;
+no live create/domain registration/deploy/PR. Unmerged Pay7e6b1ae9 remains separate.
+[Owners, evidence, limitations and next operation slice](../docs/agent/handoffs/HOSTING_CLOUD.md#provider-connection-repair--2026-11-26).
+
 # Dedicated Cloud customer workspace — 2026-11-26
 
 Continue the local feature slice in `.mobocom/cloud-workspace`, branch
