@@ -1,3 +1,61 @@
+## Compact checkout and receipt review — 2026-11-26
+
+Owner reported unreadable details in both payment tables, hard-to-open receipt
+images, and a long mobile checkout. Continue .mobocom/pay-receipt-checkout,
+fix/pay-receipt-checkout-2026-11-26, based on main cd1f6aae (released 1.7.24).
+The shared PaymentTable expands a full-width row with grouped amounts and facts.
+The Admin projection includes up to 20 recent receipt IDs per payment and counts
+pending receipts independently. Merchant projections omit receipt IDs and the
+original image route continues to enforce its permission.
+
+Hosted and automatic bank checkout share a compact destination card, exact
+Rial clipboard action and a two-field receipt dialog. OTP, exact amount consent,
+current account visibility settings and review hold remain in the original
+owners. Customers supply the source cardholder name and bounded image. Historic
+receipt payloads are still supported. The automatic form uses the exact server
+quote when no amount is sent. The reviewer checks the amount against the bank;
+upload time is not stored as payment time. Staff records the verified bank
+reference when approving an unpaid Pay receipt submitted without one. The
+existing approved-reference unique index and invoice claim protect duplicate
+credit. The Finance review entry forwards the same reference to Billing.
+No migration is added.
+
+Executed local checks in isolated Node 22 and PostgreSQL with no .env:
+typecheck, architecture, source, money and money-UI gates; pay-shared-checkout,
+pay-bale-collection, pay-assets and pay-bot. Tests covered missing customer
+metadata, staff reference requirement and case-insensitive duplicate refusal,
+one credit on repeated approval, automatic quote amount, Admin image authorization
+and absence of receipt IDs in merchant results. oasdiff reported no breaking
+changes. Scoped React Doctor reported zero errors and 63 advisory warnings.
+
+Edge/Playwright verified seven checkout scopes, including 320x568 dark and light
+views with no document scroll, real clipboard contents, Escape and focus return,
+and actual receipt submission on both payment paths. Five Admin/merchant views
+verified the expanded ledger at 390 and 1440, internal width, the guarded image
+response, anonymous denial and inline image decoding. The tested scopes passed
+axe. Early narrow-view overflow and contrast failures were corrected and rerun.
+Owned preview, tunnel, PostgreSQL databases, role and private fixture credentials
+were removed. The shared local app returned HTTP 200 after cleanup.
+No hosted workflow or release for this slice. Roll back the app and API together
+if necessary. Retain all receipt images and payment history.
+
+### Docker Desktop preview — 2026-11-26
+
+The owner asked for build and preview work in the local `mobocom-app` service
+on port 3000. The production build of bafe63e9 and `npm run check` passed
+inside that container as UID 1000 without a .env file. The built app passed
+the seven checkout and five Admin/merchant browser scopes over isolated HTTPS
+with synthetic data. The isolated resources were removed afterward.
+
+The local Compose override in `var/pay-receipt-checkout/compose.checkout.json`
+points the same app service at this checkout. The existing database and
+storage were retained. A local dump was verified before the 16 pending
+migrations ran. Pay was enabled for local review, seed was skipped, and
+background schedulers were paused. The usual HTTP development preview on
+`http://localhost:3000/pay` returned 200 in Edge and the running checkout,
+destination card, payments table and receipt owner matched bafe63e9. No real
+bank transfer or upstream delivery was exercised.
+
 ## Gateway availability and operations alerts — 2026-11-26
 
 Owner requested implementation after the gateway review. Continue in

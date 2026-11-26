@@ -1,6 +1,6 @@
 .page.page {
   --pay-accent: var(--primary, var(--sds-color-background-brand-default));
-  width: 100%; max-width: 520px; min-height: 100vh; min-height: 100svh;
+  width: 100%; max-width: 520px;
   box-sizing: border-box; padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom));
   display: flex; flex-direction: column; justify-content: center; gap: 10px; margin-inline: auto;
 }
@@ -16,11 +16,6 @@
 .invoice { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .page .invoice h2 { font-size: .8125rem; font-weight: 500; color: var(--sds-color-text-default-secondary); white-space: nowrap; }
 .invoice > bdi { min-width: 0; max-width: 50%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .75rem; color: var(--sds-color-text-default-secondary); }
-.amount { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-block: 3px; }
-.amount > div { display: grid; gap: 2px; min-width: 0; }
-.amount strong { font-size: clamp(1.3rem, 5.5vw, 1.8rem); line-height: 1.55; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.amount span { color: var(--sds-color-text-default-secondary); font-size: .8125rem; }
-.amount button { flex: none; }
 .equivalent { display: flex; align-items: center; gap: 9px; line-height: 1.45; border: 1px solid var(--sds-color-border-default-default); border-radius: 12px; padding: 9px 10px; background: var(--sds-color-background-default-default); }
 .coin { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--sds-color-background-positive-tertiary); color: var(--sds-color-text-positive-default); font-size: 1.25rem; font-weight: 700; flex: none; }
 .asset { display: grid; gap: 3px; flex: none; }
@@ -38,9 +33,9 @@
 .breakdown summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; min-height: 32px; cursor: pointer; color: var(--sds-color-text-default-secondary); }
 .breakdown summary::after { content: '⌄'; margin-inline-start: auto; }
 .breakdown[open] summary::after { content: '⌃'; }
-.breakdown dl, .extraDetails dl { margin: 6px 0; display: grid; gap: 8px; }
-.breakdown dl > div, .extraDetails dl > div { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.breakdown dd, .extraDetails dd { margin: 0; overflow-wrap: anywhere; }
+.breakdown dl { margin: 6px 0; display: grid; gap: 8px; }
+.breakdown dl > div { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.breakdown dd { margin: 0; overflow-wrap: anywhere; }
 .timer { padding-block-end: 2px; }
 .timer > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-block-end: 5px; }
 .timer span { color: var(--sds-color-text-default-secondary); font-size: .75rem; }
@@ -49,14 +44,6 @@
 .timer progress::-webkit-progress-bar { background: var(--sds-color-background-default-secondary); }
 .timer progress::-webkit-progress-value { background: var(--pay-accent); border-radius: 8px; }
 .timer progress::-moz-progress-bar { background: var(--pay-accent); }
-.cardNumber { border: 1px solid var(--sds-color-border-default-default); border-radius: 12px; padding: 9px 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--sds-color-background-default-default); }
-.destination { min-width: 0; }
-.cardNumber > div { display: grid; gap: 4px; min-width: 0; }
-.cardNumber span { font-size: .75rem; color: var(--sds-color-text-default-secondary); }
-.cardNumber bdi { font-size: clamp(.95rem, 4vw, 1.2rem); letter-spacing: .035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.page .copyCard { padding: 0; width: 44px; flex: 0 0 44px; }
-.extraDetails { font-size: .75rem; margin-block-start: 5px; }
-.extraDetails summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; color: var(--sds-color-text-default-secondary); }
 .page .feedback { margin: 0; min-height: 20px; font-size: .6875rem; line-height: 1.6; color: var(--sds-color-text-default-secondary); }
 .page .consent { display: grid; gap: 8px; }
 .consent > label { font-size: .8125rem; }

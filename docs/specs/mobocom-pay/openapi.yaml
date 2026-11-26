@@ -281,7 +281,7 @@ paths:
       operationId: submitAutomaticTransferReceipt
       tags: [Hosted checkout]
       security: []
-      description: Same-origin capability and scoped Pay payer authorization. Bounded sniffed image; paidAmountRial equals the quote principal or exact collected amount. Atomically creates the canonical receipt and enters UNDER_REVIEW; never confirms money on upload. Replays preserve the first receipt.
+      description: Same-origin capability and scoped Pay payer authorization. Bounded sniffed image. Omitted paidAmountRial uses the exact collected amount from the quote. A supplied amount must equal the quote principal or exact collected amount. Atomically creates the canonical receipt and enters UNDER_REVIEW without confirming payment. Replays preserve the first receipt.
       parameters:
         - { in: path, name: id, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{32}$' } }
       requestBody:
@@ -290,7 +290,7 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [image, payerName, paidAmountRial]
+              required: [image, payerName]
               properties:
                 image: { type: string, format: binary }
                 payerName: { type: string }
@@ -562,14 +562,14 @@ paths:
       operationId: uploadHostedPayReceipt
       tags: [Hosted checkout]
       security: []
-      description: Requires scoped payer cookie and a manual collection invoice. Image type is sniffed and bounded to 6MiB; a pending receipt never confirms payment.
+      description: Requires scoped payer cookie and a manual collection invoice. Name and image are required. Image type is sniffed and bounded to 6MiB. A pending receipt does not confirm payment. When the customer omits trackingCode, staff must record a verified bank reference before manually confirming an unpaid merchant payment.
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [image, payerName, trackingCode]
+              required: [image, payerName]
               properties:
                 image: { type: string, format: binary }
                 payerName: { type: string }

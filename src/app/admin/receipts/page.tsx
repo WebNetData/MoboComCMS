@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 type Receipt = {
   id: number; status: string; method: string; amountMinor: string; currency: string; payerName: string; payerBank: string; payerCard: string
   trackingCode: string; paidAt: string | null; createdAt: string; adminNote: string; reviewedAt: string | null
-  invoice: { number: string; status: string; product: { name: string } | null; plan: { name: string } | null }
+  invoice: { number: string; status: string; kind: string; product: { name: string } | null; plan: { name: string } | null }
   user: { id: number; name: string; email: string; phone: string }
   bankAccount: { bankName: string; holderName: string; cardNumber: string } | null
 }
@@ -19,6 +19,7 @@ export default function ReceiptsPage() {
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [notes, setNotes] = useState<Record<number, string>>({})
+  const [references, setReferences] = useState<Record<number, string>>({})
   const [zoom, setZoom] = useState(0)
   const [busy, setBusy] = useState(0)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
@@ -34,7 +35,7 @@ export default function ReceiptsPage() {
   async function review(receipt: Receipt, action: 'approve' | 'reject') {
     if (action === 'approve' && !window.confirm(receipt.invoice.status === 'PAID' ? 'این فاکتور قبلاً پرداخت شده است. فقط بررسی رسید ثبت شود؟ اعتبار دوباره‌ای ایجاد نمی‌شود.' : `پرداخت ${money(receipt.amountMinor, receipt.currency)} برای فاکتور ${receipt.invoice.number} تأیید شود؟ سفارش بلافاصله ثبت و تحویل می‌شود.`)) return
     setBusy(receipt.id); setMessage(null)
-    const response = await fetch('/api/admin/receipts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: receipt.id, action, note: notes[receipt.id] || '' }) }).catch(() => null)
+    const response = await fetch('/api/admin/receipts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: receipt.id, action, note: notes[receipt.id] || '', trackingCode: references[receipt.id] }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(0)
     if (!response?.ok) { setMessage({ text: data?.error || 'انجام نشد', error: true }); return }
@@ -62,6 +63,7 @@ export default function ReceiptsPage() {
             {receipt.status !== 'PENDING' && <div><dt>بررسی</dt><dd>{receipt.status === 'APPROVED' ? 'تأیید' : 'رد'}{receipt.reviewedAt ? ` · ${new Date(receipt.reviewedAt).toLocaleString('fa-IR')}` : ''}{receipt.adminNote ? ` · ${receipt.adminNote}` : ''}</dd></div>}
           </dl>
           {receipt.status === 'PENDING' && <div className="rc-actions">
+            {receipt.invoice.kind === 'PAY_COLLECTION' && receipt.invoice.status !== 'PAID' && !receipt.trackingCode && <input aria-label="شمارهٔ پیگیری بانکی" className="input" placeholder="شمارهٔ پیگیری بانکی برای تأیید" value={references[receipt.id] || ''} onChange={e => setReferences({ ...references, [receipt.id]: e.target.value })} maxLength={64} dir="ltr" />}
             <input aria-label="دلیل رد" className="input" placeholder="دلیل رد (به مشتری نمایش داده می‌شود)" value={notes[receipt.id] || ''} onChange={(e) => setNotes({ ...notes, [receipt.id]: e.target.value })} maxLength={300} />
             <button type="button" className="btn btn-primary" disabled={busy === receipt.id} onClick={() => void review(receipt, 'approve')}>✓ تأیید پرداخت</button>
             <button type="button" className="btn btn-ghost" disabled={busy === receipt.id} onClick={() => void review(receipt, 'reject')}>✕ رد رسید</button>

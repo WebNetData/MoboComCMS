@@ -90,7 +90,7 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
       {!forbidden && tab === 0 && <Merchants />}
       {!forbidden && tab === 1 && <SettlementDesk allowed={data.permissions.settle} />}
       {!forbidden && tab === 8 && <WebhookOperations allowed={data.permissions.manage} />}
-      {!forbidden && tab === 2 && <PaymentTable items={data.payments} />}
+      {!forbidden && tab === 2 && <PaymentTable items={data.payments} adminReceipts />}
       {!forbidden && tab === 5 && <Receipts />}
       {!forbidden && tab === 6 && <TransferMonitor />}
       {!forbidden && tab === 7 && <TransferReconciliation />}

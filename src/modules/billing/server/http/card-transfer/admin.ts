@@ -58,7 +58,7 @@ export async function GET_receipts(req: NextRequest) {
     db.paymentReceipt.findMany({
       where: { ...scope, ...(status === 'ALL' ? {} : { status }) }, orderBy: { createdAt: status === 'PENDING' ? 'asc' : 'desc' }, take: 100,
       include: {
-        invoice: { select: { number: true, total: true, currency: true, status: true, product: { select: { name: true } }, plan: { select: { name: true } } } },
+        invoice: { select: { number: true, total: true, currency: true, status: true, kind: true, product: { select: { name: true } }, plan: { select: { name: true } } } },
         user: { select: { id: true, name: true, email: true, phone: true } },
         bankAccount: { select: { bankName: true, holderName: true, cardNumber: true } },
       },
@@ -79,7 +79,7 @@ export async function REVIEW_receipt(req: NextRequest) {
   const action = body?.action === 'approve' ? 'approve' : body?.action === 'reject' ? 'reject' : null
   if (!Number.isSafeInteger(id) || id <= 0 || !action) return err('invalid input')
   try {
-    const result = await reviewReceipt({ ...admin, req }, id, action, String(body?.note || ''))
+    const result = await reviewReceipt({ ...admin, req }, id, action, String(body?.note || ''), body?.trackingCode)
     await auditAdmin({ req, actor: admin, action: `receipt.${action}`, targetType: 'PaymentReceipt', targetId: id, metadata: { warning: 'warning' in result ? result.warning : undefined } })
     return ok(result)
   } catch (error) { return fail(error) }

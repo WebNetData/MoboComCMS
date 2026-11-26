@@ -29,9 +29,9 @@ export function paymentStatusFilter(status: 'PENDING' | 'EXPIRED' | 'UNDER_REVIE
 }
 
 /** Exact persisted credit and actually collected fees; never credit the bank's gross. */
-export function paymentView(row: PayPayment & { terminal?: { name: string }; invoice?: InvoiceProof | null }): PayPaymentView {
+export function paymentView(row: PayPayment & { terminal?: { name: string }; invoice?: InvoiceProof | null; hasPendingReceipt?: boolean }): PayPaymentView {
   const collection = row.invoice?.baleCollections[0]
-  const held = row.status === 'PENDING' && (collection?.status === 'UNDER_REVIEW' || Boolean(row.invoice?.receipts.length))
+  const held = row.status === 'PENDING' && (collection?.status === 'UNDER_REVIEW' || (row.hasPendingReceipt ?? Boolean(row.invoice?.receipts.length)))
   const expiresAt = collection?.status === 'PENDING' ? collection.expiresAt : row.expiresAt
   const serviceFee = row.status === 'PAID' && collection?.status === 'PAID' && collection.paidCollectedRial !== null
     ? collection.paidCollectedRial - collection.principalRial : 0n
