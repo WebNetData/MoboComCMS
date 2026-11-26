@@ -42,6 +42,7 @@ const CHECKS = [
   'crm-engagement',
   'crm-customer-desk',
   'crm-follow-ups',
+  'crm-follow-up-queue',
   'automation-event-recovery',
   'ai-connection',
   'ai-engineering',

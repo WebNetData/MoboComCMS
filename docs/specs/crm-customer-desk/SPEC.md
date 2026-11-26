@@ -40,3 +40,18 @@ preserves the customer history. No notifications or outbound actions run.
 Add the table without rewriting historical data. Roll back application code
 without dropping the new table. Verify native PostgreSQL persistence, authority,
 version conflicts, date validation and erasure, then the RTL browser workflow.
+
+## My follow-ups
+
+The existing admin workdesk links to a paged CRM task list. It shows exact
+overdue, today and upcoming counts for the selected assignee, using the
+Tehran day. Show only open work for non-erased non-staff customer accounts.
+Existing CRM users see their own queue. User managers may choose all work,
+unassigned work or an eligible colleague. Reject crafted scopes on the server.
+When Livechat is off, hide the queue card and close the new read endpoint.
+
+Open the customer file or mark the task done using the existing versioned
+PATCH and audit. Keep empty, busy, error and conflict states. No new model,
+notification or background job. Native PostgreSQL checks cover authorization,
+due groups, pagination, exclusions and durable completion. Browser acceptance
+covers the workdesk entry, staff and manager scopes, and RTL controls.

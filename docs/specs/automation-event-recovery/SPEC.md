@@ -36,3 +36,11 @@ an expired token cannot finish or start a later action, completed events do
 not replay, and CRM receipts are preserved and never claimed. Provider
 acceptance is represented by a test boundary. This slice does not promise
 producer transaction capture or exactly-once external delivery.
+
+## Admin review list
+
+Render the existing private recovery projection in `/admin/automation` after
+the execution summary. Show total and recent records with localized trigger
+and reason, timestamp and reference ID. Keep the panel read-only. Exercise a
+real PostgreSQL review fixture in desktop/mobile light/dark, and verify the
+private payload and the worker's internal reason code are not rendered.
