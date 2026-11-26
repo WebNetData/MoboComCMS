@@ -1,3 +1,14 @@
+# Admin-owned bank sources and setup guides — 2026-11-26
+
+Continue7812d969 in `.mobocom/pay-account-domains`, same branch. Source-specific
+SMS Forwarder POST/header/JSON/one-time secret guide and private-server Bale login/
+binding guide are exposed in Admin Settings. Merchant automatic flag is read-only;
+server403 rejects forged writes, existing Admin commands remain sole owner.
+Fresh221/nonroot PG3/types/47units/eight scoped gates/scans/Doctor and actual
+1440/390 themed clipboard/role/axe flow passed; real phone/Bale/bank commissioning
+and deployment remain pending. No new migration or production action.
+[Evidence, limits and cleanup](../docs/agent/handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
 # Public Pay and account administration — 2026-11-26
 
 Continue after806b8ed0 in `.mobocom/pay-account-domains` on the existing feature

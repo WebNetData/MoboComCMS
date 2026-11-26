@@ -1,3 +1,9 @@
+Admin bank setup2026-11-26: VERIFIED_LOCAL; LIVE_COMMISSIONING_PENDING. Source-aware
+POST/JSON/one-time-token SMS guide, private Bale-panel/setup guide and Admin-only
+auto-flag writes. Native PG3/47units/types/eight gates/scans and actual themed
+responsive/clipboard/denial/axe checks pass. No live account connection claimed.
+[Exact evidence and limits](handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
 Public Pay/account control2026-11-26: FUNCTIONAL_LOCAL. Public product/application
 and access-before-shell; PENDING-only enrollment; typed mobile/email/password and
 provider/session control; explicit account erasure with anonymous shared financial

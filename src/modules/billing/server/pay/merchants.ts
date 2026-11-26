@@ -36,31 +36,32 @@ export async function enrollMerchant(actor: PayActor, input: Record<string, unkn
   })
 }
 export async function createTerminal(actor: PayActor, input: Record<string, unknown>) {
-  if (Object.keys(input).some(k => !['name', 'returnUrl', 'channelType', 'channelUrl', 'baleEnabled'].includes(k))) throw new PayError('تنظیم پایانه معتبر نیست')
+  if (Object.hasOwn(input, 'baleEnabled')) throw new PayError('فعال‌سازی تأیید خودکار فقط از مدیریت موبوکام انجام می‌شود', 403, 'PAY_AUTO_ADMIN_ONLY')
+  if (Object.keys(input).some(k => !['name', 'returnUrl', 'channelType', 'channelUrl'].includes(k))) throw new PayError('تنظیم پایانه معتبر نیست')
   const name = text(input.name, 100)
   return payTransaction(async (tx) => {
     const merchant = await merchantFor(actor, tx, true)
-    if (input.baleEnabled !== undefined && typeof input.baleEnabled !== 'boolean') throw new PayError('وضعیت درگاه موبوکام معتبر نیست')
-    if (input.baleEnabled === true && !merchant.baleAllowed) throw new PayError('مدیر هنوز استفاده از درگاه موبوکام را برای این پذیرنده مجاز نکرده است', 403)
     const destination = parseChannelDestination(input, merchant.website)
     if ((await tx.payTerminal.count({ where: { merchantId: merchant.id } })) >= 20)
       throw new PayError('حداکثر ۲۰ پایانه قابل ثبت است')
     const row = await tx.payTerminal.create({
-      data: { id: randomUUID(), merchantId: merchant.id, name, ...destination, baleEnabled: input.baleEnabled === true },
+      data: { id: randomUUID(), merchantId: merchant.id, name, ...destination, baleEnabled: false },
     })
     await payAudit(tx, actor, 'terminal.create', row.id)
     return row
   })
 }
 export async function changeTerminal(actor: PayActor, input: Record<string, unknown>) {
+  if (Object.hasOwn(input, 'baleEnabled')) throw new PayError('فعال‌سازی تأیید خودکار فقط از مدیریت موبوکام انجام می‌شود', 403, 'PAY_AUTO_ADMIN_ONLY')
+  if (Object.keys(input).some(key => !['id','active'].includes(key))) throw new PayError('تنظیم پایانه معتبر نیست',422)
   const id = text(input.id, 60)
-  if (input.active !== undefined && typeof input.active !== 'boolean' || input.baleEnabled !== undefined && typeof input.baleEnabled !== 'boolean' || input.active === undefined && input.baleEnabled === undefined) throw new PayError('وضعیت معتبر لازم است')
+  if (typeof input.active !== 'boolean') throw new PayError('وضعیت معتبر لازم است')
+  const active = input.active
   return payTransaction(async (tx) => {
     const merchant = await merchantFor(actor, tx, true)
-    if (input.baleEnabled === true && !merchant.baleAllowed) throw new PayError('استفاده از درگاه موبوکام برای این پذیرنده مجاز نیست', 403)
     const changed = await tx.payTerminal.updateMany({
       where: { id, merchantId: merchant.id },
-      data: { ...(typeof input.active === 'boolean' ? { active: input.active } : {}), ...(typeof input.baleEnabled === 'boolean' ? { baleEnabled: input.baleEnabled } : {}) },
+      data: { active },
     })
     if (changed.count !== 1) throw new PayError('پایانه پیدا نشد', 404)
     await payAudit(tx, actor, 'terminal.status', id, { active: input.active })

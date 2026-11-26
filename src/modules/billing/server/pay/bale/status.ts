@@ -4,6 +4,7 @@ import { payContext, payTransaction, type PayActor } from '../context'
 import { baleSourceOwner } from './access'
 import { latinDigits } from '@/shared/text/digits'
 import { baleGatewayReady } from './collection-context'
+import { balePanelUrl } from '@/modules/billing/domain/pay-bale-setup'
 
 /** Admin-only safe status. Configuration readiness never claims live protocol/recovery. */
 export function baleSourceStatus(actor: PayActor, pageInput: unknown = 1, collectionsPageInput: unknown = 1) {
@@ -34,7 +35,8 @@ export function baleSourceStatus(actor: PayActor, pageInput: unknown = 1, collec
     ])
     const gateways = await tx.gateway.findMany({ where: { active: true, provider: 'CARD_TRANSFER' }, select: { id: true }, take: 200 })
     const gatewayReadiness = await Promise.all(gateways.map(g => baleGatewayReady(tx, g.id)))
-    return { sources, configurationInvalid: configuration.invalid, bankUsername: BALE_BANK_USERNAME, configured: sources.length > 0, receivingEnabled: sources.some(s => s.receivingEnabled),
+    const panelUrl = balePanelUrl(process.env.MOBOCOM_PAY_BALE_PANEL_URL)
+    return { setup: { panelUrl, panelUrlInvalid: Boolean(process.env.MOBOCOM_PAY_BALE_PANEL_URL && !panelUrl) }, sources, configurationInvalid: configuration.invalid, bankUsername: BALE_BANK_USERNAME, configured: sources.length > 0, receivingEnabled: sources.some(s => s.receivingEnabled),
       collectionReady: collectionReady || gatewayReadiness.some(Boolean), reviewCount, collections: { total: collectionCount, page: collectionsPage, pages: Math.max(1, Math.ceil(collectionCount / 25)), items: collections.map(row => ({ id: row.id, invoiceNumber: row.invoice.number, status: row.status, principalRial: row.principalRial.toString(), adjustmentRial: row.adjustmentRial.toString(), collectedRial: row.collectedRial.toString(), reviewReason: row.reviewReason, createdAt: row.createdAt.toISOString() })) },
       mode: 'SERVER_ACCOUNT' as const, lastReceivedAt: latest?.receivedAt.toISOString() || null,
       events: { total, page, pages: Math.max(1, Math.ceil(total / 25)), items: rows.map(row => ({ id: row.id, status: row.status, code: row.code,

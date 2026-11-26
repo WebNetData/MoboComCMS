@@ -1,3 +1,10 @@
+Bank source setup2026-11-26: existing Billing Pay Admin owns automatic terminal
+policy, SMS source secrets and safe connector status. Merchant commands cannot
+write the automatic flag. Scoped Admin guides compose those owners; an optional
+validated environment URL is private-panel navigation only, never a server fetch,
+credential proxy, second settings/auth system or embedded Bale login. Existing
+financial proof/Wallet/receipt/race owners remain unchanged. [Evidence](handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
 Public Pay/account control2026-11-26: Billing owns PENDING application through its
 existing Pay address; Site owns public chrome/menu/settings, merchant access gates
 the private shell before rendering. Identity owns typed Admin account policy,

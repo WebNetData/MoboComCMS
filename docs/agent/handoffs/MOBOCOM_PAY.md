@@ -1,3 +1,72 @@
+## Admin-owned bank sources and setup guides — 2026-11-26
+
+Owner asks for an actionable SMS Forwarder POST/URL/body guide, exclusive Admin
+control of automatic approval, and a discoverable way to connect their personal
+Bale account on the server. Continues7812d969 in `.mobocom/pay-account-domains`,
+same feature branch; no new schema, dependency, release or live connection.
+
+- Admin Settings adds source-guide navigation and clarifies platform-owned cards,
+  fee terms and once-only shared confirmation. `sms-forwarder-guide` is always
+  visible, including empty sources. Selected existing/new sources determine the
+  exact HTTPS `/sms-forwarder/{sourceId}` URL and bank code. POST, application/json,
+  literal `{msg}`, JSON copying, source selection, sender filtering and phone
+  permissions are documented. The existing one-time new secret is reused only in
+  memory; existing secrets are never retrieved, stored in browser storage or put
+  in URLs. EXTENDED/Bearer remains distinct; its timestamp-free/USDT limitation is
+  retained. [Operator guide](../../MOBOCOM_PAY_SMS_FORWARDER.md).
+- Merchant terminal UI now shows read-only automatic status. Creating a terminal
+  defaults to false; any merchant/machine attempt to send `baleEnabled`, including
+  false, is rejected403 `PAY_AUTO_ADMIN_ONLY` on create/update. Terminal active
+  control remains available. Existing Admin merchant/terminal commands (current
+  permission, exact ownership/version, note and strict audit) alone change those
+  flags. Existing persisted settings and financial history are preserved; no
+  blanket production disable. Deploy updated clients/server together: cached old
+  create payloads containing the removed flag are intentionally refused.
+- `bale-setup` explains private GoOmni2.4.2 installation/login, immutable account
+  binding, original @bam_bmi numeric sender verification, per-source signed webhook
+  destination and server environment template, then Admin gateway/grant setup and
+  live acceptance. Admin-only bale-status adds optional safe panel navigation via
+  `MOBOCOM_PAY_BALE_PANEL_URL`: HTTPS without credentials/query/fragment. No server
+  fetch or management proxy is added. Missing/invalid/unknown panel state is explicit;
+  merchant endpoints never expose it. This is a link to an installed private
+  connector, not embedded personal login or automatic connector provisioning.
+  [Pinned upstream contract](https://github.com/mimalef70/goomni/blob/v2.4.2/README.md)
+  and [server guide](../../../tools/pay-bale-server/README.fa.md).
+
+Actual evidence: fresh221 migrations in an owned NOSUPERUSER DB, private generated
+Prisma client and nonroot TypeScript pass. Native pay-private-merchants,
+pay-bale-server and pay-bale-collection pass, including forged owner toggles,
+Admin control, safe panel URL/permission, SMS/Bale/manual races, replay and fee
+separation. Restoring the old merchant self-toggle implementation deliberately
+fails the new rejection assertion; source restored and all3 suites pass again.
+47 related units pass with no .env/DB credentials; eight architecture/source/schema/
+money/money-UI/security/audit/i18n gates pass. Semgrep/Gitleaks scoped scans0 findings.
+Doctor six React files0errors/five warnings: existing Bale status complexity/
+duplicated table, small settings lookup/form semantics and guide conditional state
+complexity reviewed, no rule suppression.
+
+Real Edge/Playwright proves empty guide, source creation and one-time JSON clipboard
+content, exact existing HTTPS URL/code, no old-secret recovery, configured panel
+link and fixture-simulated missing-panel state. Four1440/390 light/dark view pairs
+have no overflow/page error and eight scoped axe checks0 violations; screenshots
+inspected. Merchant has no automatic controls; forged toggle and direct source/
+Bale status GETs all403. Initial exact-label locator and synthetic session claims
+were corrected; light surface text/dark badge contrast defects found by axe were
+fixed. A browser transport-mock DNS error exposed only a disposable synthetic
+cookie in tool output; isolated signing secret/sessions were rotated immediately,
+mock changed to a captured safe fixture, final complete flow passed. No real secret
+or provider account was involved. A scratch mutation .ts file was removed before
+the final generated-client typecheck. Detailed ignored reports: `var/pay-auto-setup/`.
+
+Live phone forwarding, real Bale login/bank identity, signed bank traffic and
+outage recovery remain commissioning steps. No hosted workflow, production build,
+PR, deployment or provider send was run. Rollback only this slice's UI/server
+controls together; keep prior219–221 migration/history. Owned synthetic database,
+NOSUPERUSER role, runtime, preview, verified tunnel and private fixture/TLS files
+were removed; absence verified. Named source archive cleanup finished separately
+after the UID1000 cleanup's archive permission error. Safe reports/screenshots stay
+ignored locally; shared app3000 HTTP200, other checkouts/data unchanged.
+
 ## Public Pay and account control — 2026-11-26
 
 Continuation after806b8ed0 in `.mobocom/pay-account-domains`, same feature branch.

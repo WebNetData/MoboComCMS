@@ -1,3 +1,12 @@
+2026-11-26 owner clarifies that cards/accounts and automatic SMS/Bale approval
+belong to MoboCom management; merchants only use the platform's collection service
+and pay its fee. Merchant-visible automatic status is read-only, including when
+an Admin has granted use. Only existing Admin commands can change the terminal
+flag; new terminals default off. This supersedes merchant self-toggle after grant.
+Personal Bale login stays in the private server connector, not a bot token or
+merchant credential. Admin receives discoverable guides and safe private-panel
+navigation; live commissioning is not implied. [Evidence](handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
 2026-11-26 owner requires public Pay home/application and a standalone styled
 denial screen with no merchant dashboard/shell; only ACTIVE merchants see it.
 This supersedes the earlier closed public Pay/enrollment decision. Public requests

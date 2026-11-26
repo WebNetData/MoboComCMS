@@ -1,3 +1,9 @@
+Bank setup2026-11-26: components/pay/admin/{sms-forwarder-guide,bale-setup} provide
+operator setup through existing Settings/SmsSources/BaleStatus. Billing Pay
+merchants blocks merchant auto-flag writes; merchant-admin retains the write owner.
+domain/pay-bale-setup validates Admin-only private-panel navigation. No new schema
+or live provider service. [Evidence/guide](handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
 Public Pay/account control2026-11-26: app/pay + components/pay/pay-public and
 public-chrome compose Site's existing theme; app/pay/apply and Billing Pay/public
 create PENDING membership, merchant/layout gates the existing shell. Site config
