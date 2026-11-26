@@ -26,7 +26,7 @@ const { acquisitionSnapshot } = load('src/modules/billing/server/pay/assets.ts')
 const put = (key, value) => prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
 const status = n => error => error.status === n
 const extraSmsSources = []
-let bank, secondBank, gateway, smsGateway, smsSource, payMerchant, payTerminal, merchantPayment, savedUsdtRate, rateCaptured = false
+let bank, secondBank, gateway, smsGateway, manualGateway, smsSource, payMerchant, payTerminal, merchantPayment, savedUsdtRate, rateCaptured = false
 async function receive(body) { const raw = Buffer.from(JSON.stringify(body)), signature = 'sha256=' + createHmac('sha256', process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET).update(raw).digest('hex'); return pay.receiveBaleBankMessage(signature, body.event_id, raw) }
 async function invoice(amount, currency = 'IRR', kind = 'BILLING', userId = users[1].id, orderId = null) {
   const row = await prisma.invoice.create({ data: { number: `${stamp}-${invoices.length}`, userId, orderId, status: 'UNPAID', kind, currency, gatewayId: gateway.id, total: Number(amount), totalMinor: BigInt(amount), subtotal: Number(amount), subtotalMinor: BigInt(amount), expiresAt: new Date(now + 3600000) } }); invoices.push(row.id); return row
@@ -241,6 +241,62 @@ async function main() { try {
   now = RealDate.now() - 1800000
   payMerchant = await prisma.payMerchant.create({ data: { id: randomUUID(), userId: users[1].id, name: stamp, website: 'https://merchant.invalid', status: 'ACTIVE', baleAllowed: true } })
   payTerminal = await prisma.payTerminal.create({ data: { id: randomUUID(), merchantId: payMerchant.id, name: stamp, returnUrl: 'https://merchant.invalid/return', active: true, baleEnabled: true } })
+  manualGateway = await prisma.gateway.create({ data: { name: stamp + '-manual', provider: 'MANUAL', active: true, fiat: 'IRR', instructions: 'Synthetic manual transfer instructions' } })
+  const gatewayRef = 'db:' + smsGateway.id
+  async function verifiedCheckout(amount, legacy = false) {
+    const id = randomBytes(24).toString('base64url'), secret = randomBytes(32).toString('base64url')
+    const invoiceId = await prisma.$transaction(async tx => {
+      const legacyInvoice = legacy ? await tx.invoice.create({ data: {
+        number: stamp + '-interrupted', kind: 'PAY_COLLECTION', status: 'UNPAID', currency: 'IRR', gatewayId: smsGateway.id,
+        total: Number(amount), totalMinor: amount, subtotal: Number(amount), subtotalMinor: amount,
+      } }) : null
+      await tx.payPayment.create({ data: {
+        id, merchantId: payMerchant.id, terminalId: payTerminal.id, externalId: id, idempotencyKey: id, fingerprint: id,
+        amountMinor: amount, totalMinor: amount, netMinor: amount, feeMinor: 0n, createdAt: new Date(now), expiresAt: new Date(now + 600000),
+        payerSessionHash: createHash('sha256').update(secret).digest('hex'), payerPhoneCiphertext: encryptPanelCredential('+989120009999'),
+        payerPhoneLast4: '9999', payerVerifiedAt: new Date(now), payerSessionExpiresAt: new Date(now + 86400000),
+        ...(legacyInvoice && { invoiceId: legacyInvoice.id, gatewayAttemptRef: gatewayRef, gatewayAttemptProvider: 'CARD_TRANSFER', gatewayAttemptStatus: 'UNKNOWN' }),
+      } })
+      return legacyInvoice?.id
+    })
+    if (invoiceId) invoices.push(invoiceId)
+    merchantPayments.push(id)
+    return { id, invoiceId, req: new NextRequest('https://mobocom.invalid/pay/' + id, { headers: { cookie: `pay_payer_${id}=${secret}` } }) }
+  }
+  const originalPolicy = await prisma.setting.findUniqueOrThrow({ where: { key: keys[1] } })
+  await put(keys[1], JSON.stringify({ ...JSON.parse(originalPolicy.value), bale: { enabled: true, minAdjustmentRial: '10', maxAdjustmentRial: '10', minutes: 15 } }))
+  const blockedCheckout = await verifiedCheckout(500000n)
+  try {
+    await assert.rejects(pay.startPayGateway(blockedCheckout.req, blockedCheckout.id, { gatewayRef }), error => error.code === 'BALE_POOL_EXHAUSTED')
+  } finally {
+    const bound = await prisma.payPayment.findUniqueOrThrow({ where: { id: blockedCheckout.id }, select: { invoiceId: true } })
+    if (bound.invoiceId) invoices.push(bound.invoiceId)
+  }
+  const unbound = await prisma.payPayment.findUniqueOrThrow({ where: { id: blockedCheckout.id } })
+  assert.equal(unbound.invoiceId, null)
+  assert.equal(unbound.gatewayAttemptStatus, '')
+  assert.equal(await prisma.invoice.count({ where: { idempotencyKey: 'pay-collection:' + blockedCheckout.id } }), 0)
+  const fallback = await pay.startPayGateway(blockedCheckout.req, blockedCheckout.id, { gatewayRef: 'db:' + manualGateway.id })
+  invoices.push(fallback.invoiceId)
+  assert.equal(fallback.status, 'READY')
+  assert.equal(fallback.manual, true)
+  await put(keys[1], originalPolicy.value)
+
+  const freshCheckout = await verifiedCheckout(15000000n)
+  const start = () => pay.startPayGateway(freshCheckout.req, freshCheckout.id, { gatewayRef })
+  const [fresh, repeated] = await Promise.all([start(), start()])
+  invoices.push(fresh.invoiceId)
+  assert.equal(fresh.status, 'READY')
+  assert.deepEqual(repeated, fresh)
+  assert.equal(await prisma.payBaleCollection.count({ where: { invoiceId: fresh.invoiceId } }), 1)
+  assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: fresh.invoiceId } })).paymentUrl, fresh.paymentUrl)
+
+  const interrupted = await verifiedCheckout(15100000n, true)
+  assert.equal((await pay.checkoutView(interrupted.id, interrupted.req)).selectedGateway.status, 'FAILED')
+  const resumed = await pay.startPayGateway(interrupted.req, interrupted.id, { gatewayRef })
+  assert.equal(resumed.status, 'READY')
+  assert.equal(resumed.invoiceId, interrupted.invoiceId)
+  assert.equal(await prisma.payBaleCollection.count({ where: { invoiceId: interrupted.invoiceId } }), 1)
   const payerToken = randomBytes(32).toString('base64url'), payId = randomBytes(24).toString('base64url')
   const payInvoice = await prisma.$transaction(async tx => {
     const inv = await tx.invoice.create({ data: { number: stamp+'-merchant', kind: 'PAY_COLLECTION', status: 'UNPAID', currency: 'IRR', gatewayId: smsGateway.id, total: 2100000, totalMinor: 2100000n, subtotal: 2100000, subtotalMinor: 2100000n } })
@@ -309,6 +365,7 @@ async function main() { try {
   const deskRow = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: deskQuote.txnId } })
   now = RealDate.now()
   const lateDesk = await receive(envelope(501, { amount: String(deskRow.collectedRial), reference: 'DESKLATE501' })); assert.equal(lateDesk.financialApproval, false)
+  assert.ok((await pay.payOperationalHealth()).bankAttention > 0)
   const evidence = await prisma.payBaleNotice.findFirstOrThrow({ where: { bankAccountId: bank.id, amountMinor: deskRow.collectedRial } })
   const command = (noticeId, action, version = 0, collectionId) => operations.decideTransferReview(admin, { noticeId, action, version, note: 'Synthetic reviewed decision', ...(collectionId ? { collectionId } : {}) })
   let detail = await operations.transferReviewDetail(admin, evidence.id); assert.equal(detail.canConfirm, true); assert.equal(detail.difference, 'EXACT')
@@ -381,6 +438,7 @@ async function main() { try {
     await prisma.payment.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { providerTxnId: { in: ids }, provider: 'MOBOCOM_PAY_ADJUSTMENT' }] } }); await prisma.walletTx.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { userId: { in: users.map(user => user.id) }, type: 'PAY_CREDIT' }] } }); await prisma.walletAccount.deleteMany({ where: { userId: { in: users.map(user => user.id) } } }); await prisma.invoice.deleteMany({ where: { id: { in: invoices } } }); await prisma.order.deleteMany({ where: { id: { in: orders } } })
     await prisma.auditLog.deleteMany({ where: { actorUserId: { in: users.map(user => user.id) }, OR: [{ action: { startsWith: 'mobocom-pay.' } }, { action: 'invoice.markPaid' }, { action: 'order.markPaid' }] } }); await prisma.paySmsSource.deleteMany({ where: { id: { in: extraSmsSources } } }); if (smsSource) await prisma.paySmsSource.deleteMany({ where: { id: smsSource.id } }); if (smsGateway) await prisma.gateway.deleteMany({ where: { id: smsGateway.id } }); if (gateway) await prisma.gateway.deleteMany({ where: { id: gateway.id } }); if (bank) await prisma.bankAccount.deleteMany({ where: { id: bank.id } }); if (secondBank) await prisma.bankAccount.deleteMany({ where: { id: secondBank.id } }); await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } })
     await prisma.role.deleteMany({where:{id:{in:roles}}})
+    if (manualGateway) await prisma.gateway.deleteMany({ where: { id: manualGateway.id } })
     if (rateCaptured && savedUsdtRate) await prisma.currencyRate.upsert({ where: { code: 'USDT' }, create: savedUsdtRate, update: savedUsdtRate }); else if (rateCaptured) await prisma.currencyRate.deleteMany({ where: { code: 'USDT' } })
     for (const [key, old] of snapshots) if (old) await put(key, old.value); else await prisma.setting.deleteMany({ where: { key } }); access.clearAdminPolicyCache(); await prisma.$disconnect(); global.Date = RealDate
   }

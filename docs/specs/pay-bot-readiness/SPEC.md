@@ -82,3 +82,22 @@ Acceptance for this repair:
 Local tests do not commission a real personal Bale account, bank sender/filter,
 SMS phone, merchant ACK shape, root Xray helper or production queue. No live
 financial POST, provider action, release, deployment or hosted workflow is requested.
+## Gateway availability slice
+
+Billing owns the local automatic-card checkout. Claim the PayPayment, create
+its invoice and reserve its bank amount in one serializable transaction. If
+capacity or configuration blocks the reservation, commit none of those writes.
+The same verified payer can then choose any other method allowed by the
+terminal and route snapshot. Concurrent starts return one committed quote.
+Existing starts without an external provider side effect can recover only
+through their original automatic transfer method. Never change the method of
+a committed invoice, reuse a historical bank amount or replay an outbound POST.
+
+Acceptance in PostgreSQL: fill a single-slot amount pool, start through the
+normal merchant checkout, assert a capacity error and no invoice/attempt.
+Choose another allowed gateway and verify its canonical invoice. Verify a
+successful automatic start, idempotent replay and legacy interrupted recovery.
+Capacity reporting uses the same whole-Toman alignment as the allocator.
+The existing Operations Monitor reads aggregate blocked/uncertain/overdue
+paid bot deliveries and bank reviews. Counts exclude idle sources and do not
+assert phone or Bale connectivity. Alerts use configured monitor preferences.

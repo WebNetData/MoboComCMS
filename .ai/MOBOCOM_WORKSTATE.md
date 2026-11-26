@@ -1,3 +1,15 @@
+# Gateway availability and operations alerts — 2026-11-26
+
+Automatic bank checkout reserves amount, creates invoice and claims method together. Capacity failure leaves alternate permitted methods available; legacy interrupted local checkout can resume. Shared Operations Monitor exposes aggregate bot/bank review incidents. Verified canonical checks, four PostgreSQL suites, fault control and Chromium390/1440. Real source/provider commissioning remains. [Handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#gateway-availability-and-operations-alerts--2026-11-26).
+
+# Gateway launch gap review — 2026-11-26
+
+Source-only Pay review: finite global lifetime amount pool(default999 candidates/whole-Toman principal), configured readiness versus collector liveness, uncommissioned personal Bale session, timestamp-limited simple SMS/USDT, uncertain callback recovery and manually executed external payouts. Existing capacity monitor/review/recovery retained; no product-source change or new live-test claim. Corrected guide migration222→223. [Evidence/priorities](../docs/agent/handoffs/MOBOCOM_PAY.md#gateway-launch-gap-review--2026-11-26).
+
+# Shared Claude frontend guidance — 2026-11-26
+
+Owner asks to use Claude's frontend design skills. Canonical ENGINEERING_SKILLS/FRONTEND_QUALITY now explicitly pair installed Anthropic frontend-design with Unslop for new compositions/visual reworking, preserving approved SDS/MoboCom identity, fluid dashboards and actual browser acceptance. Existing pinned skill mirrors verified:17 skills/422 files,0 copies. Docs-only continuation on docs/claude-frontend-guidance-2026-11-26 from main23ce5433 (PR497 merged); no UI/runtime/model configuration change. [Scope and continuation](../docs/agent/handoffs/MOBOCOM_PAY.md#shared-claude-frontend-guidance--2026-11-26).
+
 # Pay reliability audited/fixed — 2026-11-26
 
 [PR497](https://github.com/WebNetData/MoboComCMS/pull/497) is open against main; current implementation `a9a63861`, with readiness `1e4d5854` and pending-migration alignment `a75e04b9`. Not merged or deployed.

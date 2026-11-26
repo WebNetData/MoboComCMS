@@ -1,3 +1,102 @@
+## Gateway availability and operations alerts — 2026-11-26
+
+Owner requested implementation after the gateway review. Continue in
+.mobocom/pay-reliability, fix/pay-gateway-availability-2026-11-26 from main23ce5433
+with existing local guidance/audit commits. Billing now commits automatic card
+checkout selection, invoice, bank quote and URL together. Pool exhaustion returns
+an actionable capacity error and leaves a fresh payment free to choose another
+allowed method. A legacy interrupted local start can resume on its own unpaid
+invoice. External provider work keeps its existing ambiguity rules. Invoice
+authorization, terminal route snapshot, amount history and settlement claims
+remain in the existing owners. No new migration.
+
+Transfer monitor uses the allocator's whole-Toman range. The existing Operations
+Monitor has an aggregate MoboCom Pay signal for paid bot deliveries requiring
+attention and overdue bank reviews. Alert delivery follows the monitor's existing
+configuration. These signals are independent of collector connectivity.
+
+Executed in Docker Node22/UID1000 with no .env and owned NOSUPERUSER PostgreSQL:
+fresh migration deployment, npm run check, pay-bale-collection, pay-shared-checkout,
+pay-bot and pay-routing-operations. The collection test exercises exhaustion
+rollback, normal fallback, concurrent quote reuse and legacy recovery. Restoring
+the old checkout implementation in the disposable runtime fails the new capacity
+assertion; restored the fixed source and reran the four suites. Actual Chromium
+390 dark and1440 light verified capacity error → manual fallback, automatic URL
+and loaded fee-consent screen. Scoped axe, width and page-error checks passed.
+Earlier fixture-only failures were corrected without relaxing database rules.
+The disposable preview, tunnel, two databases, role and private session files
+were removed. The shared local app responded HTTP200 after cleanup.
+
+Production commissioning remains pending: real owner-side SMS/Bale session,
+production queue and merchant response contract. The amount pool is finite by
+design; a trusted bank/provider transaction identifier is needed for sustainable
+attribution at high volume. Automatic external payouts, independent source
+heartbeat and merchant-side order status verification have external dependencies
+and are outside this implemented slice. Roll back code and alerts together if
+needed. Keep invoices, bank notices, amount reservations and delivery history.
+
+## Gateway launch gap review — 2026-11-26
+
+Owner asks what the actual gateway lacks. Read-only product-source review on
+docs/claude-frontend-guidance-2026-11-26, main23ce5433 plus d1017e18; no runtime,
+schema, UI or financial behavior changes. Separate existing capabilities from gaps:
+
+- Amount-only attribution has a finite, globally reserved lifetime pool. In
+  bale/collection-create.ts the occupancy query includes all historical rows;
+  prisma/schema.prisma makes collectedRial globally unique. Default policy10..9990
+  Rial, step10, gives999 candidates for a whole-Toman principal; overlapping ranges
+  can consume them sooner. Paid/expired requests do not release slots, including
+  across different cards. This is the existing late-message safety decision, not
+  permission to recycle old amounts. Existing monitor exposes LOW/EXHAUSTED.
+  A sustainable capacity/attribution policy is needed for volume; preserve history
+  and delayed-message correctness rather than removing the unique constraint.
+- transfer-operations/monitor.ts distinguishes configured-ready from a notice
+  observed in the last15 minutes. collection-context.ts admits by configuration
+  and authority, not an authenticated collector heartbeat. No heartbeat-specific
+  admission/alert implementation was found in the inspected Pay/Operations paths.
+  Quiet banking activity is not proof of disconnection; add liveness through the
+  existing Operations/Notifications owners, independently of financial notices.
+- Personal Bale installation/login/verified bank peer and actual recovery remain
+  external commissioning, documented in tools/pay-bale-server/README.fa.md; the
+  repository's tools folder provides setup documentation, not an installed session.
+- Three-field SMS has no independent original-message time. Locked-rate USDT
+  acquisition requires trusted timed evidence or review; do not silently loosen it.
+- Bot delivery deliberately leaves uncertain post-send results UNKNOWN. Explicit
+  reviewed recovery exists; automatic reconciliation additionally needs a merchant
+  status/idempotency contract absent from the supplied create/verify-only guide.
+- Settlement decisions record external references/tx hashes with review; the
+  inspected command does not itself initiate bank/on-chain payout. This does not
+  block a consciously manual settlement service.
+
+Evidence is source inspection and existing test inspection only; PostgreSQL,
+browser, real bank/Bale/SMS and merchant callbacks were not rerun for this review.
+Corrected the operator guide's stale final migration number222 to current223.
+Priority: deploy matching code/migration, commission SMS/Bale/worker and the real
+merchant ACK, run one controlled exact-once end-to-end payment; then implement
+heartbeat/alerts and the capacity policy before increasing traffic. Continue the
+same Billing/Operations/Notifications owners. Rollback this documentation slice
+only; no data or deployed behavior has changed.
+
+## Shared Claude frontend guidance — 2026-11-26
+
+Owner requests Claude's frontend design skills after preferring its visual work.
+Continue .mobocom/pay-reliability on docs/claude-frontend-guidance-2026-11-26,
+from main23ce5433 (PR497 merged). Read the installed Anthropic frontend-design
+and existing Unslop guidance; canonical ENGINEERING_SKILLS/FRONTEND_QUALITY now
+explicitly pair them for new compositions and visual reworking. Existing approved
+visual identity, fluid specialist layout, Persian typography and task-specific
+OpenDesign/UI Skills remain authoritative. No vendored payload, application UI,
+model/client configuration, dependency or database changes.
+
+Executed: offline sync verification17 skills/422 files,0 copies; canonical AI
+knowledge regenerated and checked, scoped whitespace reviewed. PostgreSQL,
+React Doctor and browser checks are not rerun for this instruction-only change;
+their previous Pay evidence below is historical, not new visual verification.
+Next frontend slice must inspect its actual approved reference, state/review a
+compact direction, implement within existing owners and verify real rendered
+desktop/mobile, both themes and accessibility. No site-wide redesign is started.
+Rollback: revert this documentation/derived-knowledge slice; runtime is unchanged.
+
 ## Integrated payment reliability audit — 2026-11-26
 
 Delivery: [PR497](https://github.com/WebNetData/MoboComCMS/pull/497) targets main;

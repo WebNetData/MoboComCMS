@@ -10,6 +10,13 @@ const statuses = ['WAITING', 'QUEUED', 'SENDING', 'SENT', 'UNKNOWN', 'BLOCKED']
 export const overdueDelivery = (row: Pick<Row, 'status' | 'updatedAt' | 'lastAttemptAt'>, now = Date.now()) =>
   row.status === 'QUEUED' ? row.updatedAt.getTime() <= now - 300_000 : row.status === 'SENDING' && !!row.lastAttemptAt && row.lastAttemptAt.getTime() <= now - 120_000
 
+export function overdueBotDeliveryWhere(now: Date): Prisma.PayBotDeliveryWhereInput {
+  return { OR: [
+    { status: 'QUEUED', updatedAt: { lte: new Date(now.getTime() - 300_000) } },
+    { status: 'SENDING', lastAttemptAt: { lte: new Date(now.getTime() - 120_000) } },
+  ] }
+}
+
 function operationView(row: Row): PayBotOperationView {
   const wallet = row.payment.walletTx
   const creditMatches = row.payment.status === 'PAID' && !!wallet && wallet.userId === row.payment.merchant.userId && wallet.currency === 'IRR' && wallet.type === 'PAY_CREDIT' && wallet.status === 'DONE' && wallet.amountMinor === row.payment.netMinor && wallet.withdrawableDeltaMinor === row.payment.netMinor
@@ -30,7 +37,7 @@ export async function botOperations(actor: PayActor, input: Record<string, unkno
     const merchant = await merchantFor(actor, tx), now = new Date()
     const base: Prisma.PayBotDeliveryWhereInput = { payment: { merchantId: merchant.id } }
     const staleSending: Prisma.PayBotDeliveryWhereInput = { status: 'SENDING', lastAttemptAt: { lte: new Date(now.getTime() - 120_000) } }
-    const overdue: Prisma.PayBotDeliveryWhereInput = { OR: [{ status: 'QUEUED', updatedAt: { lte: new Date(now.getTime() - 300_000) } }, staleSending] }
+    const overdue = overdueBotDeliveryWhere(now)
     const review: Prisma.PayBotDeliveryWhereInput = { OR: [{ status: { in: ['UNKNOWN', 'BLOCKED'] } }, staleSending] }
     const payment: Prisma.PayPaymentWhereInput = { merchantId: merchant.id, ...(terminalId ? { terminalId } : {}) }
     if (paymentStatus === 'PAID') payment.status = 'PAID'

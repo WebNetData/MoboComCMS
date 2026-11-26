@@ -94,6 +94,18 @@ export async function sampleMonitoring(settings?: Settings) {
     const payments = await listPaymentIssues()
     signals.push({ id: 'payments', status: payments.length ? 'warning' : 'ok', title: 'Payment processing', titleFa: 'پرداخت‌ها', detail: payments.length ? `${payments.length} failed webhook or untracked payment(s) need review.` : 'No recorded gateway issues.', detailFa: payments.length ? `${payments.length} وب‌هوک ناموفق یا پرداخت بدون شناسهٔ پیگیری نیازمند بررسی است.` : 'خطای پرداخت ثبت‌شده‌ای وجود ندارد.' })
   } catch { signals.push({ id: 'payments', status: 'warning', title: 'Payment processing', titleFa: 'پرداخت‌ها', detail: 'Payment issues could not be read.', detailFa: 'خطاهای پرداخت قابل خواندن نیست.' }) }
+  const paySignal = { id: 'mobocom-pay', title: 'MoboCom Pay review', titleFa: 'رسیدگی موبوکام‌پی' }
+  try {
+    const pay = await (await import('@/modules/billing/server/pay')).payOperationalHealth(new Date(checkedAt))
+    signals.push(pay ? {
+      ...paySignal,
+      status: pay.botAttention ? 'critical' : pay.bankAttention ? 'warning' : 'ok',
+      detail: `${pay.botAttention} paid bot order(s) need delivery review. ${pay.bankAttention} bank transfer(s) need review.`,
+      detailFa: `${pay.botAttention} سفارش پرداخت‌شده نیازمند بررسی تحویل به ربات و ${pay.bankAttention} واریز بانکی نیازمند رسیدگی است.`,
+    } : { ...paySignal, status: 'disabled', detail: 'MoboCom Pay is disabled.', detailFa: 'موبوکام‌پی غیرفعال است.' })
+  } catch {
+    signals.push({ ...paySignal, status: 'warning', detail: 'MoboCom Pay review counts are unavailable.', detailFa: 'آمار موارد نیازمند رسیدگی موبوکام‌پی در دسترس نیست.' })
+  }
   try {
     if ((await getExtensionState('remnawave-control')).enabled) {
       const panels = await db.panel.findMany({ where: { type: 'REMNAWAVE', active: true } })

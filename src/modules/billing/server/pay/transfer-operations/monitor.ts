@@ -7,6 +7,7 @@ import { sourceOwner } from '../bale/access'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { smsSourceConfig } from '@/modules/billing/domain/pay-sms-source'
 import { latinDigits } from '@/shared/text/digits'
+import { bankAmountRange } from '@/modules/billing/domain/pay-bale-collection'
 
 type Observed = { sourceType: string; smsSourceId: string | null; instanceId: string; last: Date; count: bigint; rejected: bigint; p95: number | null }
 export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
@@ -44,11 +45,11 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
       try { smsSourceConfig(JSON.parse(s.templateJson)); credentialsReady = s.secretCiphertext.startsWith('encv1:') && /^[A-Za-z0-9_-]{43}$/.test(decryptPanelCredential(s.secretCiphertext)) } catch { /* Readiness only: never expose decryption errors or secret material. */ }
       sources.push(sourceView(s.id, s.label, 'SMS', Boolean(enabled && credentialsReady && s.active && s.verified && s.bankAccount.active && s.bankAccount.collectionUse === 'MOBOCOM_PAY' && await sourceOwner(s.ownerUserId, tx)), observations.find(o => o.sourceType === 'SMS' && o.smsSourceId === s.id && o.instanceId === createHash('sha256').update(`${s.id}:${s.version}`).digest('hex'))))
     }
-    const min = BigInt(settings.bale.minAdjustmentRial), max = BigInt(settings.bale.maxAdjustmentRial), capacity = Number((max - min) / 10n + 1n)
     const pools = []
     for (const p of principals) {
+      const { first, last, capacity } = bankAmountRange(p.principalRial, settings.bale)
       // GLOBAL occupancy: quotes from other principals/banks can consume this range too.
-      const occupied = await tx.payBaleCollection.count({ where: { collectedRial: { gte: p.principalRial + min, lte: p.principalRial + max } } })
+      const occupied = capacity ? await tx.payBaleCollection.count({ where: { collectedRial: { gte: first, lte: last } } }) : 0
       const remaining = Math.max(0, capacity - occupied)
       pools.push({ principalRial: p.principalRial.toString(), capacity, occupied, remaining, state: remaining === 0 ? 'EXHAUSTED' as const : remaining <= Math.max(1, Math.ceil(capacity * .1)) ? 'LOW' as const : 'AVAILABLE' as const })
     }

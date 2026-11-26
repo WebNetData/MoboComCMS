@@ -22,6 +22,13 @@ export function invoicePrincipalRial(dueMinor: bigint, currency: string): bigint
   if (n <= 0n || n > 9223372036854675817n) throw new PayError('مبلغ یا واحد پول برای درگاه موبوکام معتبر نیست')
   return n
 }
+
+export function bankAmountRange(principalRial: bigint, policy: BaleCollectionPolicy) {
+  const first = ((principalRial + BigInt(policy.minAdjustmentRial) + 9n) / 10n) * 10n
+  const last = ((principalRial + BigInt(policy.maxAdjustmentRial)) / 10n) * 10n
+  const capacity = first > last ? 0 : Number((last - first) / 10n + 1n)
+  return { first, last, capacity }
+}
 export const nextBaleMinute = (at: Date) => new Date((Math.floor(at.getTime() / 60000) + 1) * 60000)
 export function baleEffectiveStart(row: { validFrom: Date; acceptedAt: Date | null }): Date {
   return row.acceptedAt && row.acceptedAt > row.validFrom ? row.acceptedAt : row.validFrom
