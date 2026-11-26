@@ -25,7 +25,6 @@ export default function Terminals({
   returnUrl: string;
   setReturnUrl: (x: string) => void;
 }) {
- const [baleEnabled, setBaleEnabled] = useState(false);
  const [channelType, setChannelType] = useState<PayChannelType>('WEBSITE');
  const [channelUrl, setChannelUrl] = useState('');
  const webChannel = channelType === 'WEBSITE' || channelType === 'BOT';
@@ -40,10 +39,9 @@ export default function Terminals({
                 <strong>{terminal.name}</strong>
                 <small>{PAY_CHANNEL_LABELS[terminal.channelType] || PAY_CHANNEL_LABELS.WEBSITE}</small>
                 {(terminal.channelUrl || terminal.returnUrl) && <small className={s.ltr}>{terminal.channelUrl || terminal.returnUrl}</small>}
- <small>تأیید خودکار کارت‌به‌کارت: {terminal.baleEnabled ? 'فعال' : 'غیرفعال'}</small>
+ <small>تأیید خودکار کارت‌به‌کارت: {data.merchant?.baleAllowed && terminal.baleEnabled ? 'فعال توسط مدیریت' : 'فعال نشده توسط مدیریت'}</small>
               </div>
  <div className={s.actions}>
- <button type="button" className={s.secondary} disabled={busy || !active || !data.merchant?.baleAllowed} onClick={() => action(() => api('/api/pay/terminals', json('PATCH', { id: terminal.id, baleEnabled: !terminal.baleEnabled })))}>{terminal.baleEnabled ? 'غیرفعال کردن تأیید خودکار کارت‌به‌کارت' : 'فعال کردن تأیید خودکار کارت‌به‌کارت'}</button>
               <button
                 type="button"
                 className={s.secondary}
@@ -74,12 +72,11 @@ export default function Terminals({
           void action(async () => {
             await api(
               "/api/pay/terminals",
- json("POST", { name: terminalName, channelType, ...(webChannel ? { returnUrl } : channelType === 'PAYMENT_LINK' ? {} : { channelUrl }), baleEnabled: Boolean(data.merchant?.baleAllowed && baleEnabled) }),
+ json("POST", { name: terminalName, channelType, ...(webChannel ? { returnUrl } : channelType === 'PAYMENT_LINK' ? {} : { channelUrl }) }),
             );
             setTerminalName("");
             setReturnUrl("");
             setChannelUrl('');
- setBaleEnabled(false);
           });
         }}
       >
@@ -91,8 +88,7 @@ export default function Terminals({
           />
         </Field>
         <Field label="نوع پایانه"><select value={channelType} onChange={e => setChannelType(e.target.value as PayChannelType)}>{(Object.entries(PAY_CHANNEL_LABELS) as [PayChannelType, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
- <label className={s.check}><input type="checkbox" checked={Boolean(data.merchant?.baleAllowed && baleEnabled)} disabled={busy || !active || !data.merchant?.baleAllowed} onChange={(e) => setBaleEnabled(e.target.checked)} /> فعال کردن تأیید خودکار کارت‌به‌کارت برای این پایانه</label>
- {!data.merchant?.baleAllowed && <p className={s.muted}>برای فعال‌سازی تأیید خودکار کارت‌به‌کارت، ابتدا مجوز پذیرنده باید توسط مدیریت صادر شود.</p>}
+ <p className={s.muted}>دریافت روی کارت‌های موبوکام انجام می‌شود. مدیریت موبوکام روش تأیید، اتصال بانکی و تأیید خودکار هر پایانه را تعیین می‌کند؛ پذیرنده به توکن پیامک یا حساب بله دسترسی ندارد.</p>
         {webChannel && <Field label="نشانی بازگشت">
           <input
             type="url"

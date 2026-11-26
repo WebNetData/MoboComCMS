@@ -1,11 +1,12 @@
 'use client'
 
 import { useParams } from '@/platform/routing/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { Notice, send, useJson } from '../../store/shared'
 import type { Definition, Section } from '../shared'
 
+const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])$/i
 const SEGMENT = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 
 function SettingInput({ def, value, onChange }: { def: Definition; value: unknown; onChange: (value: unknown) => void }) {
@@ -23,6 +24,8 @@ export default function SectionSettingsPage() {
   const { id } = useParams<{ id: string }>()
   const { data, error, reload } = useJson<{ section: Section }>(`/api/admin/sections?id=${encodeURIComponent(id)}`)
   const [addresses, setAddresses] = useState<Record<string, string>>({})
+  const [hostnames, setHostnames] = useState<Record<string, string>>({})
+  const routingRevision = useRef('')
   const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [enabled, setEnabled] = useState(true)
   const [names, setNames] = useState({ fa: '', en: '' })
@@ -32,12 +35,15 @@ export default function SectionSettingsPage() {
   useEffect(() => {
     if (!section) return
     setAddresses(Object.fromEntries(section.bases.map((row) => [row.base, (row.alias || '').replace(/^\//, '')])))
+    setHostnames(Object.fromEntries(section.bases.map((row) => [row.base, row.hostname || ''])))
+    routingRevision.current = section.routingRevision
     setSettings(section.settings)
     setEnabled(section.enabled)
     setNames(section.customName || { fa: '', en: '' })
   }, [section])
   const origin = typeof window === 'undefined' ? '' : window.location.origin
   const invalid = useMemo(() => Object.entries(addresses).find(([, value]) => value && !SEGMENT.test(value.trim().toLowerCase())), [addresses])
+  const invalidHost = useMemo(() => Object.values(hostnames).some((value) => !!value.trim() && !HOSTNAME.test(value.trim())), [hostnames])
   const seo = section?.definitions.filter((def) => def.key.startsWith('seo.')) || []
   const other = section?.definitions.filter((def) => !def.key.startsWith('seo.')) || []
 
@@ -47,9 +53,20 @@ export default function SectionSettingsPage() {
     const response = await send<{ section: Section }>('/api/admin/sections', 'POST', { id: section.id, enabled, settings, addresses, names })
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
+    routingRevision.current = response.data.section.routingRevision
     setMessage({ tone: 'ok', text: 'تنظیمات بخش ذخیره شد' + (Object.values(addresses).some(Boolean) ? '؛ آدرس‌های قدیمی از این پس به آدرس تازه منتقل می‌شوند' : '') })
     window.dispatchEvent(new Event('happ:modules-changed'))
     void reload()
+  }
+
+  async function saveHosts() {
+    if (!section) return
+    setBusy(true); setMessage(null)
+    const response = await send<{ section: Section }>('/api/admin/sections', 'POST', { id: section.id, hostnames, hostsRevision: routingRevision.current })
+    setBusy(false)
+    if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
+    routingRevision.current = response.data.section.routingRevision
+    setMessage({ tone: 'ok', text: 'ساب‌دامنه‌ها ذخیره شدند؛ دسترسی به DNS و گواهی SSL را پیش از استفاده بررسی کنید' })
   }
 
   if (!section) return <div className="sa" dir="rtl">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</div>
@@ -73,6 +90,7 @@ export default function SectionSettingsPage() {
         </section>
         {section.bases.length > 0 && <section className="sa-card">
           <header className="sa-card-head"><h2>آدرس بخش</h2><small>مثلاً <bdi dir="ltr">/game</bdi> به‌جای <bdi dir="ltr">/games</bdi></small></header>
+          <p className="sa-hint">آدرس فعلی روی دامنهٔ اصلی حفظ می‌شود؛ ورود، حساب و مدیریت از دامنهٔ اصلی انجام می‌شود. پیش از استفاده DNS و SSL و میزبانی همین سایت را در <Link href="/admin/server/domains" className="sa-link">مدیریت دامنه‌ها</Link> تنظیم کنید.</p>
           {section.bases.map((row) => {
             const value = addresses[row.base] ?? ''
             const shown = value.trim() ? `/${value.trim().toLowerCase()}` : row.base
@@ -85,6 +103,19 @@ export default function SectionSettingsPage() {
               {value && <button type="button" className="sa-link" onClick={() => setAddresses((current) => ({ ...current, [row.base]: '' }))}>بازگشت به آدرس پیش‌فرض</button>}
             </div>
           })}
+        </section>}
+        {section.bases.length > 0 && <section className="sa-card">
+          <header className="sa-card-head"><h2>ساب‌دامنه‌های بخش</h2><small>ذخیرهٔ مستقل از سایر تنظیمات</small></header>
+          <p className="sa-hint">نام کامل زیردامنهٔ همین سایت را وارد کنید. خالی گذاشتن هر مورد، دسترسی آن زیردامنه را غیرفعال می‌کند.</p>
+          {section.bases.map((row) => {
+            const hostname = hostnames[row.base] ?? ''
+            const validHost = !hostname.trim() || HOSTNAME.test(hostname.trim())
+            return <div key={row.base} className="sh-address">
+              <label className="sa-field"><span>زیردامنهٔ اختیاری برای <bdi dir="ltr">{row.base}</bdi></span><input className="input" dir="ltr" value={hostname} maxLength={253} autoComplete="off" placeholder="cloud.example.com" disabled={busy} aria-invalid={!validHost} aria-describedby={`host-help-${row.base.slice(1)}`} onChange={(e) => setHostnames((current) => ({ ...current, [row.base]: e.target.value }))} /></label>
+              <small id={`host-help-${row.base.slice(1)}`} className={validHost ? 'sa-sub' : 'ga-issues'}>{!validHost ? 'نام کامل دامنه را بدون https، مسیر یا پورت وارد کنید' : hostname.trim() ? <>پیش‌نمایش: <bdi dir="ltr">https://{hostname.trim().toLowerCase()}/</bdi></> : 'خالی = بدون زیردامنه'}</small>
+            </div>
+          })}
+          <button type="button" className="btn btn-primary" disabled={busy || invalidHost} onClick={() => void saveHosts()}>ذخیرهٔ ساب‌دامنه‌ها</button>
         </section>}
         {seo.length > 0 && <section className="sa-card"><header className="sa-card-head"><h2>سئوی صفحهٔ اصلی بخش</h2><small>خالی = متن پیش‌فرض</small></header>
           {seo.map((def) => <SettingInput key={def.key} def={def} value={settings[def.key]} onChange={(value) => setSettings((current) => ({ ...current, [def.key]: value }))} />)}

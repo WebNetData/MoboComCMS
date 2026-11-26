@@ -1,3 +1,57 @@
+# Dedicated Cloud customer workspace — 2026-11-26
+
+Continue the local feature slice in `.mobocom/cloud-workspace`, branch
+`feat/cloud-workspace-2026-11-26`, base`e133b9a3`; preceding Pay/account work
+is retained. Independent `/cloud/dashboard` reuses Hosting, Identity, Billing,
+Wallet and Support. Public Cloud sources remain unchanged. Native six-suite
+PostgreSQL/fault tests, full `npm run check`, focused final types/units and
+themed responsive browser/axe/menu/public-navigation checks passed. No schema,
+dependency, version, production provider, release or deployment change.
+Owner-requested cumulative [PR #492](https://github.com/WebNetData/MoboComCMS/pull/492)
+now targets `main` with Cloud and preceding Pay/account/subdomain work; not merged.
+[Owners, executed evidence, limits and rollback](../docs/agent/handoffs/CLOUD_WORKSPACE.md).
+
+# Admin-owned bank sources and setup guides — 2026-11-26
+
+Continue7812d969 in `.mobocom/pay-account-domains`, same branch. Source-specific
+SMS Forwarder POST/header/JSON/one-time secret guide and private-server Bale login/
+binding guide are exposed in Admin Settings. Merchant automatic flag is read-only;
+server403 rejects forged writes, existing Admin commands remain sole owner.
+Fresh221/nonroot PG3/types/47units/eight scoped gates/scans/Doctor and actual
+1440/390 themed clipboard/role/axe flow passed; real phone/Bale/bank commissioning
+and deployment remain pending. No new migration or production action.
+[Evidence, limits and cleanup](../docs/agent/handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
+# Public Pay and account administration — 2026-11-26
+
+Continue after806b8ed0 in `.mobocom/pay-account-domains` on the existing feature
+branch. Owner authorizes public Pay home/application, shell-free access refusal,
+full typed account/login controls and explicit deletion with anonymous shared
+financial retention. New219–221 are unreleased. Native11 PG suites/generated
+types/canonical1142/53/4/14 and actual themed responsive/scoped axe/fault checks
+passed. Admin activation/ACTIVE merchant and actual synthetic account deletion/
+redirect/detail404 passed; private runtime cleanup is recorded in the handoff. No PR,
+production build/release-upgrade proof, live provider/deletion or deployment.
+[Exact owners, tests, limits and rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
+# Merchant accounts and optional section domains — 2026-11-26
+
+Authoritative `.mobocom/pay-account-domains`, branch
+`feat/pay-account-section-domains-2026-11-26`, base merged mainbac9e4aa/PR491.
+Current slice permits full Admin self merchant setup, primary mobile lookup of
+existing Identity and optional first-party public section hosts in `/admin/sections`.
+Main paths/login/private Pay stay canonical; independent own-money review guards
+remain. Nine owned nonroot PG suites/all218 migrations, full no.env canonical
+check1141/53/4/14, Doctor/scoped scans and actual eight themed responsive/axe views
+plus role/visitor/bot/host/auth/cookie flows passed. No new migration/dependency,
+production build, provider call, PR, destination deployment or hosted workflow.
+Private preview/fixture cleanup is recorded in the handoff. Owner merges/deploys;
+real DNS/TLS/same-app vhost remains required before using a configured subdomain.
+[Implementation/evidence/rollback](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+
+The preceding release notes are historical: PR491 is now merged and stable1.7.22
+was published; this new slice does not rewrite that release or its signed assets.
+
 # Release1.7.22 signed draft / owner merge pending — 2026-11-25
 
 [PR491](https://github.com/WebNetData/MoboComCMS/pull/491) targets main. Ten signed assets uploaded and re-downloaded/hash-verified; original publisher and1.7.21 verifier accept sourcef9689ac1. All local code/PG/build/browser gates passed; private runtime/five DBs/role/tunnel/session fixtures cleaned, app3000 HTTP200. Stable/latest remains1.7.21 until owner merges491. [Exact resume and proof](../docs/agent/handoffs/RELEASE_1_7_22.md#signed-candidate-and-final-owner-gate).

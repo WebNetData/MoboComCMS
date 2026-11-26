@@ -1,9 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { methodAllowed } from '@/modules/identity/domain/login-policy'
 import { authSecret } from '@/platform/config/env'
 import { db } from '@/platform/database/prisma'
 import { hasPermission, parsePermissions } from '@/modules/identity/rbac'
-import { sessionRevoked, staffTwoFactorRule } from '@/modules/identity/domain/account-security'
+import { sessionRevoked, sessionsExpired, staffTwoFactorRule } from '@/modules/identity/domain/account-security'
 import { logEvent } from '@/platform/observability/logger'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
@@ -59,11 +60,11 @@ export async function requireUser(req: NextRequest, reader: Pick<typeof db, 'use
   const token = await getRawToken(req)
   if (!token?.uid) return null
 
-  return resolveCurrentUser(Number(token.uid), token.authAt, reader)
+  return resolveCurrentUser(Number(token.uid), token.authAt, reader, token.authMethod)
 }
 
 /** Current identity for a previously authorized human action, including queued work. */
-export async function resolveCurrentUser(userId: number, authAt: unknown, reader: Pick<typeof db, 'user' | 'accessRestriction'> = db): Promise<AuthedUser | null> {
+export async function resolveCurrentUser(userId: number, authAt: unknown, reader: Pick<typeof db, 'user' | 'accessRestriction'> = db, authMethod?: unknown): Promise<AuthedUser | null> {
   if (!Number.isSafeInteger(userId) || userId <= 0) return null
 
   // Resolve current role/status from storage so revocation takes effect immediately.
@@ -71,10 +72,12 @@ export async function resolveCurrentUser(userId: number, authAt: unknown, reader
     where: { id: userId },
     include: { roleRef: true },
   })
-  if (!current || current.status !== 'ACTIVE') return null
+  if (!current || current.status !== 'ACTIVE' || current.erasedAt) return null
   if (await globalAuthenticationDenied(current.id, new Date(), reader)) return null
   // A password reset signs out every session that started before it.
   if (sessionRevoked(authAt, current.passwordChangedAt)) return null
+  if (sessionsExpired(authAt, current.sessionsRevokedAt)) return null
+  if (authMethod !== undefined && !methodAllowed(current.loginPolicy, authMethod)) return null
 
   const permissions =
     current.role === 'ADMIN' && current.roleId != null

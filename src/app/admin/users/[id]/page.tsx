@@ -10,6 +10,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
 import { userIdentifier } from '@/modules/identity/domain/identifier'
 import DeleteUser from '@/components/admin/users/DeleteUser'
+import AccountSecurity from '@/components/admin/users/AccountSecurity'
 
 interface Detail {
   profileFields?: { completedAt: string | null; missing: string[]; rows: { label: string; value: string }[] } | null
@@ -179,6 +180,7 @@ export default function AdminCustomerPage() {
         <a className="tab" href={`/admin/crm/${u.id}`}>{isFa ? 'پروندهٔ ۳۶۰ درجه ↗' : 'Customer 360 ↗'}</a>
       </div>
 
+      {tab === 'overview' && <AccountSecurity userId={u.id} onSaved={load} />}
       {tab === 'overview' && <UserGroupsEditor key={`memberships:${u.id}`} userId={u.id} />}
       {tab === 'overview' && data.profileFields && (data.profileFields.rows.length > 0 || data.profileFields.missing.length > 0) && (
         <div className="card mb-4" dir="rtl">

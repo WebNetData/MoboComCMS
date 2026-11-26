@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     idempotencyKey,
     siteUrl,
     channel: 'web',
-    surface: body?.surface === 'dashboard' ? 'dashboard' : undefined,
+    surface: body?.surface === 'dashboard' || body?.surface === 'cloud' ? body.surface : undefined,
   })
   if (!result.ok) return err(result.message, result.status, { code: result.code, ...(result.meta || {}) })
   return ok(result.data)

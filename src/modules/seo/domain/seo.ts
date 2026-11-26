@@ -38,7 +38,7 @@ export const DEFAULT_SEO: SeoConfig = {
 export const AI_CRAWLERS = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'Claude-User', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended', 'Bytespider', 'CCBot', 'meta-externalagent', 'Amazonbot', 'DuckAssistBot', 'cohere-ai'] as const
 
 /** Paths that must never be indexed. */
-export const PRIVATE_PATHS = ['/admin', '/dashboard', '/api/', '/builder-preview/', '/invoice/', '/login', '/register', '/payment/', '/pay', '/checkout', '/miniapp', '/reseller', '/forum/new']
+export const PRIVATE_PATHS = ['/cloud/dashboard', '/admin', '/dashboard', '/api/', '/builder-preview/', '/invoice/', '/login', '/register', '/payment/', '/pay/', '/checkout', '/miniapp', '/reseller', '/forum/new']
 
 const text = (value: unknown, max: number) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
 const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)

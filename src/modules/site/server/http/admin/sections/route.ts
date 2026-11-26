@@ -3,7 +3,8 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
 import { listExtensionAdminState, saveExtensionState } from '@/extensions/server/state'
-import { RouteAliasError, loadRouteAliases, saveRouting } from '@/modules/site/server/routes'
+import { RouteAliasError, loadRouteAliases, loadSectionHosts, saveSectionHosts, saveRouting } from '@/modules/site/server/routes'
+import { SectionHostError } from '@/modules/site/domain/section-hosts'
 import { saveBusinessSettings } from '@/modules/businesses/server/businesses'
 import { originIsThisSite } from '@/platform/http/origin-policy'
 import { getSectionNames, saveSectionName } from '@/modules/site/server/section-names'
@@ -12,13 +13,14 @@ import { getSectionNames, saveSectionName } from '@/modules/site/server/section-
 // on/off state, declared settings and admin menu — managed in one place.
 
 async function sections() {
-  const [rows, aliases, names] = await Promise.all([listExtensionAdminState(), loadRouteAliases(), getSectionNames()])
+  const [rows, aliases, names, hosts] = await Promise.all([listExtensionAdminState(), loadRouteAliases(), getSectionNames(), loadSectionHosts()])
   return rows.filter((row) => row.manifest.kind === 'module' && row.manifest.adminMenu).map(({ manifest, state }) => ({
     // `name`/`nameEn` are what the site shows (the owner's name when set); `defaultName` is the built-in one.
     id: manifest.id, name: names[manifest.id]?.fa || manifest.name, nameEn: names[manifest.id]?.en || manifest.nameEn || '', defaultName: manifest.name, defaultNameEn: manifest.nameEn || '', customName: names[manifest.id] || { fa: '', en: '' }, description: manifest.description || '', icon: manifest.icon || 'grid', version: manifest.version,
     enabled: state.enabled, settings: state.settings, definitions: manifest.settings || [], menu: manifest.adminMenu!,
     order: manifest.adminMenu!.order ?? 100,
-    bases: (manifest.publicPaths || []).filter((path) => /^\/[a-z0-9-]+$/.test(path)).map((base) => ({ base, alias: aliases[base] || '' })),
+    routingRevision: hosts.revision,
+    bases: (manifest.publicPaths || []).filter((path) => /^\/[a-z0-9-]+$/.test(path)).map((base) => ({ base, alias: aliases[base] || '', hostname: hosts.hosts[base] || '' })),
   })).sort((a, b) => a.order - b.order)
 }
 
@@ -39,11 +41,21 @@ export async function POST(req: NextRequest) {
   if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   const admin = await requirePerm(req, 'settings.manage')
   if (!admin) return err('دسترسی مجاز نیست', 403)
-  const body = await req.json().catch(() => null) as { id?: unknown; enabled?: unknown; settings?: unknown; addresses?: unknown; names?: unknown } | null
+  const body = await req.json().catch(() => null) as { id?: unknown; enabled?: unknown; settings?: unknown; addresses?: unknown; names?: unknown; hostnames?: unknown; hostsRevision?: unknown } | null
   const id = String(body?.id || '')
   const section = (await sections()).find((row) => row.id === id)
   if (!section) return err('بخش پیدا نشد', 404)
   try {
+    if (body?.hostnames !== undefined) {
+      // Host routing is its own audited CAS operation. Never partially apply a
+      // combined form when an unrelated section setting fails validation.
+      if (Object.keys(body).some(key => !['id', 'hostnames', 'hostsRevision'].includes(key))) return err('ساب‌دامنه‌ها را جداگانه ذخیره کنید', 422)
+      if (!body.hostnames || typeof body.hostnames !== 'object' || Array.isArray(body.hostnames)) return err('تنظیم ساب‌دامنه معتبر نیست', 422)
+      const own = new Set(section.bases.map(row => row.base))
+      if (Object.keys(body.hostnames).some(base => !own.has(base))) return err('ساب‌دامنه متعلق به این بخش نیست', 422)
+      await saveSectionHosts(body.hostnames as Record<string, unknown>, { req, actor: admin, expected: typeof body.hostsRevision === 'string' ? body.hostsRevision : '' })
+      return ok({ section: (await sections()).find(row => row.id === id) })
+    }
     if (body?.addresses && typeof body.addresses === 'object') {
       const own = new Set(section.bases.map((row) => row.base))
       for (const base of Object.keys(body.addresses)) {
@@ -61,7 +73,7 @@ export async function POST(req: NextRequest) {
       else await saveExtensionState(id, input)
     }
   } catch (error) {
-    if (error instanceof RouteAliasError) return err(error.message, error.status)
+    if (error instanceof RouteAliasError || error instanceof SectionHostError) return err(error.message, error.status)
     return err(error instanceof Error ? error.message : 'ذخیره نشد')
   }
   await auditAdmin({ req, actor: admin, action: 'site.section.update', targetType: 'extension', targetId: 0, metadata: { id, enabled: body?.enabled, addresses: body?.addresses, settings: body?.settings ? Object.keys(body.settings as object) : [] } })

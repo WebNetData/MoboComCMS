@@ -1,3 +1,26 @@
+2026-11-26 owner clarifies that cards/accounts and automatic SMS/Bale approval
+belong to MoboCom management; merchants only use the platform's collection service
+and pay its fee. Merchant-visible automatic status is read-only, including when
+an Admin has granted use. Only existing Admin commands can change the terminal
+flag; new terminals default off. This supersedes merchant self-toggle after grant.
+Personal Bale login stays in the private server connector, not a bot token or
+merchant credential. Admin receives discoverable guides and safe private-panel
+navigation; live commissioning is not implied. [Evidence](handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
+2026-11-26 owner requires public Pay home/application and a standalone styled
+denial screen with no merchant dashboard/shell; only ACTIVE merchants see it.
+This supersedes the earlier closed public Pay/enrollment decision. Public requests
+create PENDING canonical memberships only, activated by Admin. Existing Site menu
+and module settings own navigation/content/request availability. Owner also asks
+full account controls (mobile/email/name/password/per-user login switches) and
+deletion despite history. Explicit chosen policy: erase account/private data,
+retain shared financial facts without personal details. Identity retains only a
+terminal nonlogin anonymous reference where FKs/provenance require it; amounts,
+other customers' balances and bank/event proofs are not deleted or reset. Full
+Admin, impact preview/exact acknowledgement/revision/reason/strict audit required;
+self deletion refused. Provider-resource cancellation/backups/unlinked historical
+files remain operational boundaries. [Evidence and rollout](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 2026-11-25 owner requires hamburger-opened side navigation on phone/tablet
 workspace sizes, grouped/styled MoboComPay menus matching the account dashboard,
 and no unfinished/unstyled design areas. FRONTEND_QUALITY records the lasting
@@ -45,6 +68,18 @@ explicitly activates; ACTIVE membership gates data/APIs, status screens remain s
 Existing payment links/callbacks stay public capability flows. Legacy console URLs
 redirect. No new identity/subdomain/service or financial rewrite is authorized.
 [Implemented slice and evidence](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
+2026-11-26 owner clarification supersedes only enrollment/section-host portions
+above: canonical full-access Admin may provision/manage their own merchant for
+Telegram bot setup; restricted `mobocom-pay.manage` staff still cannot self-provision or
+self-manage. Payment, receipt and settlement reviews remain independently guarded.
+Enrollment uses existing canonical mobile Identity lookup (exact normalized phone,
+readonly), explicit `self:true` Admin toggle, or compatible existing userId/email;
+ambiguous identity returns409. Optional first-party section subdomains are managed
+in existing `/admin/sections` and Site routing Settings; central auth/dashboard/
+Admin/checkout/private Pay stay on the main origin. No wildcard cookies, SSO, new
+identity, DNS automation or privileged vhost setup. Existing paths/aliases/SEO
+canonical remain intact. [Implementation and local evidence](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
 
 2026-11-24 owner authorizes next Pay items1/2: extend operations monitoring and
 add a reconciliation desk under current Billing owners and approved identity.
@@ -1316,3 +1351,11 @@ slice gives existing Forms/repairs and Automation coherent switches, truthful
 management and retained uploaded uninstall. Defaults preserve current installations;
 commercial provisioning/distribution is subsequent work, not an activation grant.
 [Implemented scope, actual evidence and phased continuation](handoffs/COMMERCIAL_MODULARITY.md).
+
+### Cloud customer workspace — 2026-11-26
+
+The member Cloud workspace uses existing canonical identity and Hosting
+module/group/maintenance guards. Its invoice/order projection recognizes only
+closed Cloud order kinds; public Cloud sources remain protected. This records
+implementation scope, not a new provider, schema or release decision. See
+[Cloud workspace evidence and limits](handoffs/CLOUD_WORKSPACE.md).

@@ -1,4 +1,3 @@
-'use client'
-import { CloudList } from '../CloudServices'
+import { redirect } from 'next/navigation'
 
-export default function MyServers() { return <CloudList kind="servers" /> }
+export default function Page() { redirect('/cloud/dashboard/servers') }

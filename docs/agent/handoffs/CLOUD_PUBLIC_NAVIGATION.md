@@ -43,3 +43,10 @@ of this request. Owner merges the combined navigation/version PR before stable
 publication; no VPS deployment. Roll back code while retaining the added column,
 menu and service data. The owner can edit the branch from Studio menus; a full or
 invalid old menu needs deliberate repair rather than silent replacement.
+
+Cloud customer workspace continuation: public Cloud pages remain protected;
+private `/cloud/dashboard` uses canonical Identity/Hosting guards and existing
+Billing/Support/Wallet owners. The earlier public navigation and service-ordering
+history stays in [Cloud public navigation](CLOUD_PUBLIC_NAVIGATION.md) and
+[Hosting/Cloud](HOSTING_CLOUD.md). Current local evidence and pending browser,
+gate and cleanup confirmation are in [Cloud workspace](CLOUD_WORKSPACE.md).

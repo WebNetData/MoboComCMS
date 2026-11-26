@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, json } from '../client'
 import { ErrorNotice, Field } from '../shared'
 import s from '../Pay.module.css'
+import SmsForwarderGuide from './sms-forwarder-guide'
 
 type Template = { bankCode: string; sender: string; creditTemplate: string; debitTemplate: string; unit: 'IRR' | 'IRT'; calendar: 'JALALI' | 'GREGORIAN' }
 type Format = 'FORWARDER_V1' | 'EXTENDED_V1'
@@ -40,6 +41,7 @@ export default function SmsSources({ bankAccounts }: { bankAccounts: Bank[] }) {
   }
   return <section className={`${s.card} ${s.stack}`} aria-labelledby="sms-sources-title">
     <h2 id="sms-sources-title">منابع پیامک بانکی</h2><p className={s.muted}>قالب و فرستنده را با پیام بانکی واقعی بررسی کنید. فعال‌سازی منبع به‌تنهایی اتصال یا اصالت پیامک را تضمین نمی‌کند.</p><ErrorNotice error={error} />
+    <SmsForwarderGuide key={setup?.source.id ?? "existing"} sources={items.map(item => ({ id: item.id, label: item.label, bankCode: item.template.bankCode, format: item.format ?? 'EXTENDED_V1' }))} origin={origin} setup={setup} />
     {setup && <div className={`${s.notice} ${s.stack}`}>
       <p role="status">توکن و بدنه فقط این بار نمایش داده می‌شوند؛ پیش از خروج آن‌ها را در تنظیمات امن برنامه ثبت کنید</p>
       <Field label="کد بانک"><input dir="ltr" readOnly value={setup.source.bankCode} /></Field>

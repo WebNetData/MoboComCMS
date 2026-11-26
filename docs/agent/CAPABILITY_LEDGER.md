@@ -1,3 +1,17 @@
+Admin bank setup2026-11-26: VERIFIED_LOCAL; LIVE_COMMISSIONING_PENDING. Source-aware
+POST/JSON/one-time-token SMS guide, private Bale-panel/setup guide and Admin-only
+auto-flag writes. Native PG3/47units/types/eight gates/scans and actual themed
+responsive/clipboard/denial/axe checks pass. No live account connection claimed.
+[Exact evidence and limits](handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
+Public Pay/account control2026-11-26: FUNCTIONAL_LOCAL. Public product/application
+and access-before-shell; PENDING-only enrollment; typed mobile/email/password and
+provider/session control; explicit account erasure with anonymous shared financial
+references and durable private-file cleanup. Native PG11 suites, generated types,
+canonical1142/53/4/14, actual themed responsive flows/scoped axe and fault checks
+recorded; no live purge/provider/deployment/release-upgrade certification.
+[Owners, precise evidence and limits](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 Merchant menu/support2026-11-25: VERIFIED_LOCAL. Phone/tablet hamburger with
 grouped native modal drawer, desktop sidebar, remembered groups, valid current
 links, account footer and finite/reduced motion. Gated Pay support presentation
@@ -30,6 +44,16 @@ claim. [Evidence/rollback](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-an
 Visual refinement locally verified: financial hierarchy, responsive navigation and
 Admin directory/detail; connected PG, types/static, Doctor0errors/3 warnings and38
 responsive/axe captures. [Scoped evidence/limits](handoffs/MOBOCOM_PAY.md#merchant-workspace-visual-refinement--2026-11-24).
+
+Merchant account and optional section hosts2026-11-26: FUNCTIONAL_LOCAL with
+executed browser evidence. Existing canonical phone enrollment and Admin self-provision
+toggle; Settings-backed first-party host routing through existing Site/proxy owners.
+Connected PostgreSQL suites across all218 migrations, aggregate `npm run check`
+(1141 unit plus connected/other gates) and React Doctor4 affected components pass;
+existing complexity warnings remain. Eight actual1440/390 light/dark form/settings
+views passed scoped axe/overflow; self activation, phone enrollment, bot setup and
+host routing/auth/cookie boundaries were exercised. Production DNS/TLS and live
+providers remain unverified. [Handoff/evidence limits](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
 
 Bank operations monitor/reconciliation2026-11-24: FUNCTIONAL_LOCAL. Current
 SMS/Bale readiness and observed traffic, latency/review/pool metrics; paged exact
@@ -397,3 +421,10 @@ states are recorded separately. Scoped contrast, keyboard-scroll and mobile
 assistant obstruction fixes preserve owners/data/protected layouts. Final accepted
 counts and remaining limits: [handoff](handoffs/SITE_UI_CONSISTENCY.md). Not a
 whole-site WCAG, live-provider or production-readiness certification.
+
+2026-11-26 Cloud customer workspace: bounded local customer-shell slice at
+`/cloud/dashboard`, using canonical identity and Hosting guards plus existing
+Billing/Support/Wallet owners. Six native PostgreSQL suites, the full check gate, focused final checkout units,
+25 distinct final responsive/themed views with axe0/overflow0/pageerrors0,
+menu behavior and public-navigation isolation passed. Final local Docker recovery
+and runtime cleanup are recorded in the handoff. [Handoff](handoffs/CLOUD_WORKSPACE.md).

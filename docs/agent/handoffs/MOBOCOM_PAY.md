@@ -1,3 +1,255 @@
+## Admin-owned bank sources and setup guides — 2026-11-26
+
+Owner asks for an actionable SMS Forwarder POST/URL/body guide, exclusive Admin
+control of automatic approval, and a discoverable way to connect their personal
+Bale account on the server. Continues7812d969 in `.mobocom/pay-account-domains`,
+same feature branch; no new schema, dependency, release or live connection.
+
+- Admin Settings adds source-guide navigation and clarifies platform-owned cards,
+  fee terms and once-only shared confirmation. `sms-forwarder-guide` is always
+  visible, including empty sources. Selected existing/new sources determine the
+  exact HTTPS `/sms-forwarder/{sourceId}` URL and bank code. POST, application/json,
+  literal `{msg}`, JSON copying, source selection, sender filtering and phone
+  permissions are documented. The existing one-time new secret is reused only in
+  memory; existing secrets are never retrieved, stored in browser storage or put
+  in URLs. EXTENDED/Bearer remains distinct; its timestamp-free/USDT limitation is
+  retained. [Operator guide](../../MOBOCOM_PAY_SMS_FORWARDER.md).
+- Merchant terminal UI now shows read-only automatic status. Creating a terminal
+  defaults to false; any merchant/machine attempt to send `baleEnabled`, including
+  false, is rejected403 `PAY_AUTO_ADMIN_ONLY` on create/update. Terminal active
+  control remains available. Existing Admin merchant/terminal commands (current
+  permission, exact ownership/version, note and strict audit) alone change those
+  flags. Existing persisted settings and financial history are preserved; no
+  blanket production disable. Deploy updated clients/server together: cached old
+  create payloads containing the removed flag are intentionally refused.
+- `bale-setup` explains private GoOmni2.4.2 installation/login, immutable account
+  binding, original @bam_bmi numeric sender verification, per-source signed webhook
+  destination and server environment template, then Admin gateway/grant setup and
+  live acceptance. Admin-only bale-status adds optional safe panel navigation via
+  `MOBOCOM_PAY_BALE_PANEL_URL`: HTTPS without credentials/query/fragment. No server
+  fetch or management proxy is added. Missing/invalid/unknown panel state is explicit;
+  merchant endpoints never expose it. This is a link to an installed private
+  connector, not embedded personal login or automatic connector provisioning.
+  [Pinned upstream contract](https://github.com/mimalef70/goomni/blob/v2.4.2/README.md)
+  and [server guide](../../../tools/pay-bale-server/README.fa.md).
+
+Actual evidence: fresh221 migrations in an owned NOSUPERUSER DB, private generated
+Prisma client and nonroot TypeScript pass. Native pay-private-merchants,
+pay-bale-server and pay-bale-collection pass, including forged owner toggles,
+Admin control, safe panel URL/permission, SMS/Bale/manual races, replay and fee
+separation. Restoring the old merchant self-toggle implementation deliberately
+fails the new rejection assertion; source restored and all3 suites pass again.
+47 related units pass with no .env/DB credentials; eight architecture/source/schema/
+money/money-UI/security/audit/i18n gates pass. Semgrep/Gitleaks scoped scans0 findings.
+Doctor six React files0errors/five warnings: existing Bale status complexity/
+duplicated table, small settings lookup/form semantics and guide conditional state
+complexity reviewed, no rule suppression.
+
+Real Edge/Playwright proves empty guide, source creation and one-time JSON clipboard
+content, exact existing HTTPS URL/code, no old-secret recovery, configured panel
+link and fixture-simulated missing-panel state. Four1440/390 light/dark view pairs
+have no overflow/page error and eight scoped axe checks0 violations; screenshots
+inspected. Merchant has no automatic controls; forged toggle and direct source/
+Bale status GETs all403. Initial exact-label locator and synthetic session claims
+were corrected; light surface text/dark badge contrast defects found by axe were
+fixed. A browser transport-mock DNS error exposed only a disposable synthetic
+cookie in tool output; isolated signing secret/sessions were rotated immediately,
+mock changed to a captured safe fixture, final complete flow passed. No real secret
+or provider account was involved. A scratch mutation .ts file was removed before
+the final generated-client typecheck. Detailed ignored reports: `var/pay-auto-setup/`.
+
+Live phone forwarding, real Bale login/bank identity, signed bank traffic and
+outage recovery remain commissioning steps. No hosted workflow, production build,
+PR, deployment or provider send was run. Rollback only this slice's UI/server
+controls together; keep prior219–221 migration/history. Owned synthetic database,
+NOSUPERUSER role, runtime, preview, verified tunnel and private fixture/TLS files
+were removed; absence verified. Named source archive cleanup finished separately
+after the UID1000 cleanup's archive permission error. Safe reports/screenshots stay
+ignored locally; shared app3000 HTTP200, other checkouts/data unchanged.
+
+## Public Pay and account control — 2026-11-26
+
+Continuation after806b8ed0 in `.mobocom/pay-account-domains`, same feature branch.
+Owner explicitly supersedes the public-Pay/enrollment closure and empty-only
+account deletion. Chosen erasure policy preserves shared financial facts without
+personal details. [Scenario and boundaries](../../specs/pay-public-account-control/SPEC.md).
+
+Public `/pay` now composes the existing Site theme header/footer with a scoped
+MoboCom/SDS product page, services, process and FAQ. `/pay/apply` accepts an existing
+canonical signed-in account's business name, optional HTTPS website and note into
+PENDING only. Management still activates; request creation grants no terminal,
+key, payment or wallet credit. Existing module settings expose title, description,
+SEO and application availability. The existing Site menu editor can add the Pay
+preset; saved operator menus are not silently overwritten. Public `/pay` can be
+indexed; capability/private subpaths remain private/no-store/noindex. The merchant
+layout checks access before rendering the shell: guest, denied, pending and
+suspended receive a standalone, responsive access card, not a disabled dashboard.
+
+Identity owns `admin-account`, `account-erasure` and their small domain/erasure
+parts. `/admin/users/[id]` adds mobile/name/optional email edits, explicit Admin
+phone verification, new/generated password, five per-user login switches and
+all-device revocation. Every mutation uses current staff hierarchy/permission,
+Origin, strict secret rate limit, reason, exact account revision/CAS and strict
+transactional audit. Old/new contact aliases' outstanding OTPs and reset links
+are invalidated. Every provider and current session rechecks policy. Recovery
+finalization rechecks current global/per-user policy and claims its challenge and
+password update together; self lockout is refused. Existing passwords never leave
+storage; generated passwords are returned once and never audited.
+Existing second-factor verification precedes final recovery commit: a later
+policy/conflict refusal may consume that TOTP step/backup code, requiring a fresh
+proof; it cannot authorize a refused password reset. No provider delivery was tested.
+
+Explicit deletion is full-access-only, refuses self deletion and requires a fresh
+server-authenticated impact preview, exact identifier, reason and acknowledgement.
+It terminally erases account PII/credentials/profile and owned private activity,
+scrubs retained order/invoice/receipt/form/customer facts and merchant delivery
+credentials, deactivates merchant/SMS endpoints, and preserves exact financial
+states, amounts, paid proofs, hashes and other customers' balances. A banned,
+nonlogin reference User remains for shared FK/provenance; this is intentional,
+not physical deletion of financial history. DB guards prevent reactivation,
+new owner insertion/rebinding and stale form/order/invoice PII restoration.
+Money guards allow only narrowly defined erased-owner redaction, never arbitrary
+state/amount changes or no-delete bypass. Files use a committed manifest and the
+existing queue; shared references survive, symlinks fail closed and retries keep
+the manifest. Local cleanup failure returns `cleanup:QUEUED` after committed erase.
+
+Unreleased additive219–221 are listed in the release manifest and both schemas;
+deploy with their writers after a verified coherent backup. No version/1.7.22
+seal changed. Roll back presentation/account commands independently only while
+retaining these data-safe columns/guards; an erased account needs a coherent
+pre-erasure DB/file restore, not an old binary. Pause account/merchant writes and
+outbound workers while commissioning these changes. An already dispatched external
+request cannot be recalled. Domain/provider resources and operator-provisioned
+Bale connection secrets require existing operational decommissioning; historical
+unlinked files/backups follow existing retention and are not claimed purged.
+
+Executed local evidence so far (isolated DB/runtime, UID1000/NOSUPERUSER): fresh
+219/220 plus221 on populated owned fixtures; generated-client TypeScript; canonical
+`npm run check` without `.env` or DB credentials1142/53/4/14; eleven native PG checks
+(`account-control`, `account-erasure-files`, `pay-public-account`, `admin-users`,
+`global-authentication`, `identity-otp`, `google-login`, `pay-private-merchants`,
+`pay-merchant-account`, `pay-settlement-center`, `pay-webhooks`). Audit rollback,
+stale/Origin denial, old/new OTP aliases, disabled recovery, terminal/rebinding,
+paid merchant/settlement preservation and callback snapshot removal are exercised.
+Deliberately broken policy and retained private recipient each fail the native
+check; source restored and passing checks repeated. File checks use synthetic
+temp files only, including shared reference, symlink refusal and retry.
+
+Actual Edge/Playwright public/access/request tests pass1440/390 light/dark, no
+overflow/page errors; eight scoped main axe checks have0 violations/incomplete.
+Account profile/policy/password/generation/revoke and stale409/draft recovery pass
+in the browser;1440 both themes,390 both themes and768 dark checked. Account and
+deletion-preview scoped axe0; Enter/Space/Escape and focus restoration checked.
+Native dialog Tab did not focus background controls; full focus-visible probe was
+inconclusive, so no blanket accessibility certification. React Doctor eight files
+has0 errors/eight warnings: existing loading flag, guarded async-dialog lifecycle,
+intentional error-body reads/form preventDefault and component complexity reviewed.
+Scoped Semgrep0 findings/errors. Redacted Gitleaks reports the already tracked RFC
+6238 Base32 test vector in account-security.test.cjs; no new credential found.
+Ignored detailed reports/screenshots: `var/pay-public-accounts/`. Final browser
+activation of the pending application returned200 and ACTIVE customer saw the
+mobile merchant workspace. Exact deletion preview/acknowledgement of an additional
+synthetic customer with Order/Invoice returned200, navigated to users and detail
+GET returned404. Initial final-navigation attempt had a preview transport failure
+after DELETE200; retained fixtures/owned preview were restarted and the full flow
+passed. No production transport claim. Follow-up native check proves stale form
+PII restoration is refused and explicitly owned BusinessPurchaseProof rows vanish
+without deleting another customer's review; file test proves proof blobs removed.
+The existing Admin menu editor's Pay preset adds to its draft in the browser,
+with visible feedback and no overflow; it was not published in that probe.
+The only new HTTP contracts are same-process: application POST returns the
+existing apiOk `{ok:true,data:{status}}` envelope; Admin account GET/PATCH returns
+its typed view/revision (generated password only in that password response), and
+deletion preview/DELETE uses the existing Admin response envelope. Unknown fields,
+stale revisions, permission and Origin failures are covered by native integration
+tests. Public/mobile v1/v2 payment contracts and events are unchanged; no second
+Identity, Pact/provider or OpenAPI surface is introduced.
+
+Cleanup completed: verified owned synthetic DB/role/runtime absent, task preview
+and verified Windows tunnel stopped, named private sessions/TLS/source files
+removed. Cleanup used UID1000 to inspect its own process (root lacked /proc read
+permission); named archive cleanup was finished separately and absence verified.
+Shared app3000 remains HTTP200. Screenshots/redacted reports remain ignored locally.
+No production build, release upgrade proof, live send/delete, PR or deployment.
+
+## Merchant account and section hosts — 2026-11-26
+
+Authoritative `.mobocom/pay-account-domains`, branch
+`feat/pay-account-section-domains-2026-11-26`, based on merged mainbac9e4aa/PR491.
+This is a new local feature slice after stable1.7.22; no released assets/version
+were rewritten, hosted workflow dispatched, destination deployed or provider called.
+
+- Existing Billing merchant administration now permits canonical current
+  full-access Admin to provision/activate/configure their own PENDING merchant.
+  Restricted `mobocom-pay.manage` staff cannot self provision/manage. Notes,
+  version claims, strict audit and current Identity/AuthZ checks remain; payment,
+  receipt and settlement own-review refusals are unchanged. Enrollment never
+  credits a wallet. `merchant-admin/access.ts` owns this narrow membership rule.
+- `merchants.ts` accepts exactly one selector: normalized `phone`, `self:true`,
+  compatible `userId` or exact `email`. Identity's existing readonly
+  `findPhoneCustomer` accepts a transaction reader; missing/ambiguous accounts
+  fail409. No user, OTP/verification claim or second identity is created.
+- Admin directory/detail DTOs add phone; creation/search/list/detail present
+  mobile instead of synthetic phone email. Full Admin receives a server-derived
+  self checkbox. Existing Pay/SDS classes, typography and layouts are retained.
+- Optional public first-party section hosts compose Site's existing routing
+  owner and `/admin/sections`. [Routing details and limits](PERMALINK_MANAGEMENT.md#optional-first-party-section-hosts--2026-11-26).
+
+Executed local evidence on isolated Linux Node22 UID1000, owned PostgreSQL
+`mobocom_pay_test_accounts_20261126`/non-superuser role/all218 migrations:
+`pay-merchant-account`, `section-hosts`, `pay-private-merchants`, `pay-bot`,
+`pay-shared-checkout`, `pay-settlement-center`, `permalink-routing`,
+`section-maintenance`, `current-account-consumers` passed. New account suite covers
+self setup/activation/BOT integration, Persian/local/E.164 lookup, duplicate/missing
+selectors/accounts, legacy lookup, no enrollment credit/new identity, restricted
+staff/revocation and real own-settlement approval/completion refusal. Two older
+suites initially failed because the private harness forced HTTPS cookie selection
+on their HTTP fixtures; unsetting that harness override restored both unchanged
+suites. Product assertions and security policy were not weakened.
+
+`npm run check` passed without `.env`/DB credentials:1141 site,53 mock-connected,
+4 backup and14 billing tests plus types/source/architecture/money/schema/security/
+audit/i18n/migration gates. Seven initial proxy unit failures were missing new
+owner exports in test doubles; those mocks were updated without changing assertions.
+Scoped Semgrep/local rule and redacted Gitleaks on named changes each exited0,
+zero findings. Independent read-only security review found partial host-form
+commit and alias auth reachability; dedicated host-only save/auth guard fixed
+both and real PG/browser cases exercised them.
+
+Actual Windows Edge/Playwright against private TLS preview3142 and the owned DB:
+full Admin self create/activate; Persian phone create; own BOT terminal and saved
+integration/API endpoint; hostname syntax disable, foreign-host422/preserved draft,
+valid save/reload; real alias root/main paths/private/auth boundaries. Eight views
+(merchant form and host settings,1440/390,light/dark) had no horizontal overflow
+and zero scoped WCAG A/AA/2.1 axe violations; screenshots were visually inspected.
+Restricted Pay staff had the phone form without self toggle; keyboard Tab reached
+business name, direct self enrollment and section-host writes both returned403.
+Its initial browser fixture incorrectly stored permissions as JSON rather than
+canonical CSV; correcting only that synthetic role restored the expected UI.
+Page exceptions were zero. Main session absence was checked on the actual browser
+request Cookie header: Playwright's `context.cookies(alias)` suffix filter included
+the host-only main cookie and was not a valid transmission assertion. Initial
+automation also assumed201 creates were200 and exact labels excluded wrapped
+select option text; corrected fixtures/locators, not application behavior.
+React Doctor on four affected components exited0; new handler-only state warning
+was fixed with a ref, and section recheck retained only two pre-existing complexity
+warnings (the detail panel retains its existing complexity warning).
+
+Private logs/screenshots/reports are ignored under `var/account-domains`; no real
+bank, SMS, Bale, Telegram callback or customer transaction was exercised. DNS/TLS/
+same-app virtual host commissioning remains an operator task. No production build
+or destination upgrade is claimed for this feature. Rollback removes optional
+host assignments and reverts this additive slice; preserve all Identity and money
+history. Owner merges/deploys; no PR is implied by local completion.
+
+Final continuation: regenerated/checked the14-document shipped AI knowledge;
+AI/navigation/content-controls246/246 passed after that documentation sync.
+Final scoped Semgrep and redacted Gitleaks again exited0/zero findings. Verified
+owned preview process group/TLS tunnel, synthetic DB/role, runtime and private
+credentials were removed; local ignored screenshots/logs retained. Runtime and
+DB absence were checked; preserved shared app3000 returned HTTP200. Other root/
+worktree changes, released1.7.22 assets and destination data were untouched.
+
 ## PR490 publication receipt — 2026-11-25
 
 Owner explicitly requests a PR for all work to this point. Fetched current

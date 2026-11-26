@@ -95,3 +95,21 @@ test('failed badge refresh cannot overwrite a current cart count with zero', asy
  const f = fixture([{status: 200, body: {orderId: 21}}], new Error('cart unavailable'))
  assert.equal((await f.checkout()).ok, true); await tick(); assert.deepEqual(f.events, [])
 })
+
+test('cloud checkout is a closed service surface and preserves public gateways',()=>{
+ const {checkoutPath,storedCheckoutSurface,checkoutDestination,cloudOrderMeta}=require('./connected-source-loader.cjs')()('src/modules/checkout/domain/surface.ts')
+ for(const kind of ['hosting','hosting-renewal','hosting-addon','domain','domain-renewal'])assert.equal(storedCheckoutSurface(JSON.stringify({kind,checkoutSurface:'cloud'})),'cloud')
+ for(const raw of ['bad','[]','null','{}',JSON.stringify({kind:['hosting'],checkoutSurface:'cloud'}),JSON.stringify({kind:'product',checkoutSurface:'cloud'})]){assert.equal(storedCheckoutSurface(raw),'public');assert.equal(cloudOrderMeta(raw),null)}
+ assert.equal(checkoutPath('/invoice/INV-1','cloud'),'/cloud/dashboard/invoices/INV-1')
+ assert.equal(checkoutPath('/dashboard/services/12','cloud'),'/cloud/dashboard/services/12')
+ assert.equal(checkoutPath('/dashboard/domains/12','cloud'),'/cloud/dashboard/domains/12')
+ for(const path of ['/checkout/cart','/cart','//foreign.invalid','https://bank.invalid/pay','/dashboard/services/0','/dashboard/services/12/other'])assert.equal(checkoutPath(path,'cloud'),path)
+ assert.equal(checkoutDestination({paid:true,invoiceNumber:'INV-1'},'cloud'),'/cloud/dashboard/payment/result?invoice=INV-1')
+ assert.equal(checkoutDestination({paid:false,invoiceNumber:'INV-1',paymentUrl:'https://bank.invalid/pay'},'cloud'),'https://bank.invalid/pay')
+})
+test('cloud workspace stays canonical, private and uncached with custom public aliases',()=>{
+ const load=require('./connected-source-loader.cjs')(),aliases=load('src/shared/routing/aliases.ts'),hosts=load('src/modules/site/domain/section-hosts.ts'),cache=load('src/modules/performance/domain/pagecache.ts'),seo=load('src/modules/seo/domain/seo.ts'),analytics=load('src/modules/analytics/domain/analytics.ts')
+ assert.equal(analytics.normalizeTrackedPath('/cloud/dashboard/invoices'),'');assert.equal(analytics.normalizeTrackedPath('/cloud'),'/cloud');const map={'/cloud':'/abr'};assert.equal(aliases.toPublicPath('/cloud/dashboard/new?kind=servers',map),'/cloud/dashboard/new?kind=servers');assert.equal(aliases.routeDecision('/cloud/dashboard',map),null);assert.deepEqual(aliases.routeDecision('/abr/dashboard/invoices',map),{kind:'redirect',path:'/cloud/dashboard/invoices'})
+ const config={...cache.DEFAULT_PAGECACHE,mode:'balanced',include:['/cloud'],exclude:[]};assert.equal(cache.decide(config,{method:'GET',accept:'text/html',pathname:'/cloud/dashboard/invoices',search:'',host:'owned.test',cookie:''}).cache,false);assert.ok(seo.PRIVATE_PATHS.includes('/cloud/dashboard'))
+ for(const path of ['/cloud/dashboard','/abr/dashboard/new']){const decision=hosts.sectionHostRoute({host:'cloud.owned.test',path,origin:'https://owned.test',hosts:{'/cloud':'cloud.owned.test'},sections:[{module:'hosting',base:'/cloud'}],aliases:map});assert.equal(decision.kind,'redirect');assert.equal(decision.origin,'https://owned.test');assert.ok(decision.path.startsWith('/cloud/dashboard'))}
+})

@@ -5,11 +5,12 @@ import Link from '@/components/AppLink'
 import { api, money } from '../client'
 import { ErrorNotice } from '../shared'
 import s from '../Pay.module.css'
+import BaleSetup from './bale-setup'
 
 type Event = { id: string; status: string; kind: string; direction: string; amountRial: string | null; referenceLast4: string; occurredFrom: string | null; receivedAt: string }
 type Collection = { id: string; invoiceNumber: string; status: 'PENDING' | 'PAID' | 'EXPIRED' | 'REVIEW'; principalRial: string; adjustmentRial: string; collectedRial: string; reviewReason: string; createdAt: string }
 type Source = { id: string; bankAccountId: number; bankName: string; cardLast4: string; enabled: boolean; verified: boolean; receivingEnabled: boolean; financialReady: boolean; webhookPath: string; lastReceivedAt: string | null }
-type Status = { sources?: Source[]; configurationInvalid?: boolean; bankUsername: string; configured: boolean; receivingEnabled: boolean; collectionReady: boolean; lastReceivedAt: string | null; reviewCount: number; events: { total: number; page: number; pages: number; items: Event[] }; collections: { items: Collection[]; total: number; page: number; pages: number } }
+type Status = { setup?: { panelUrl: string | null; panelUrlInvalid: boolean }; sources?: Source[]; configurationInvalid?: boolean; bankUsername: string; configured: boolean; receivingEnabled: boolean; collectionReady: boolean; lastReceivedAt: string | null; reviewCount: number; events: { total: number; page: number; pages: number; items: Event[] }; collections: { items: Collection[]; total: number; page: number; pages: number } }
 const states: Record<string, string> = { ORIGINAL_TRANSFER: 'واریز از فرستندهٔ مجاز', IGNORED: 'غیرقابل تطبیق', REJECTED: 'قالب یا حساب نامعتبر', DUPLICATE: 'تکراری', CONFLICT: 'متعارض' }
 const kinds: Record<string, string> = { CARD_TRANSFER: 'انتقال کارت', PAYA: 'پایا', SATNA: 'ساتنا', INTEREST: 'سود سپرده', INTERNET_PURCHASE: 'خرید اینترنتی', TRANSFER_FEE: 'کارمزد انتقال', BALANCE_FEE: 'کارمزد مانده', POS_PURCHASE: 'خرید با پایانه', UNKNOWN: 'نامشخص' }
 const collectionStates: Record<Collection['status'], string> = { PENDING: 'در انتظار', PAID: 'پرداخت ثبت‌شده', EXPIRED: 'منقضی', REVIEW: 'نیازمند بررسی' }
@@ -37,6 +38,7 @@ export default function BaleStatus() {
     <p className={s.muted}>دریافت مستقیم پیام‌های بازوی <bdi dir="ltr">@bam_bmi</bdi> روی سرور، بدون اپ همراه.</p>
     <p className={s.notice}>{data?.collectionReady ? 'پیکربندی تطبیق خودکار آماده است؛ دریافت زنده و بازیابی پس از قطعی باید با واریز آزمایشی بررسی شوند.' : 'دریافت خودکار پرداخت بانکی آماده نیست. پیکربندی منبع به‌تنهایی به معنی آمادگی تطبیق خودکار نیست.'}</p>
     <ErrorNotice error={error} />
+    <BaleSetup setup={data?.setup} sources={data?.sources || []} />
     <p role="status">{loading ? 'در حال دریافت وضعیت…' : data ? data.receivingEnabled ? 'دریافت سروری فعال است؛ اتصال زنده باید روی سرور آزموده شود.' : data.configured ? 'اتصال تنظیم شده؛ حساب مقصد یا API غیرفعال است.' : 'اتصال حساب بله روی سرور تنظیم نشده است.' : 'وضعیت در دسترس نیست.'}</p>
     {data && !loading && !error && <>
       {data.configurationInvalid && <p className={s.notice} role="alert">فهرست اتصال‌های بله در تنظیمات سرور نامعتبر یا متعارض است؛ دریافت تا اصلاح آن متوقف می‌ماند.</p>}

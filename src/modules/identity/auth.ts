@@ -9,9 +9,10 @@ import { userForTelegram } from '@/modules/identity/telegram-account'
 import { authSecret } from '@/platform/config/env'
 import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { verifyHuman } from '@/modules/identity/server/human-check'
-import { sessionRevoked } from '@/modules/identity/domain/account-security'
+import { sessionRevoked, sessionsExpired } from '@/modules/identity/domain/account-security'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { loginIdentifier } from '@/modules/identity/domain/login-identifier'
+import { loginMethod, methodAllowed } from '@/modules/identity/domain/login-policy'
 
 /**
  * 2-step sign-in: accounts with an authenticator need its code (or a backup
@@ -67,7 +68,7 @@ export const authOptions: NextAuthOptions = {
           ? await db.user.findUnique({ where: { email }, include: { roleRef: true } })
           : candidates.length === 1 ? candidates[0] : null
         if (!user) return null
-        if (user.status !== 'ACTIVE' || user.passwordSetupRequired) return null
+        if (user.status !== 'ACTIVE' || user.passwordSetupRequired || !methodAllowed(user.loginPolicy, 'password')) return null
         const ok = await bcrypt.compare(credentials.password, user.passwordHash)
         if (!ok) return null
         await secondFactor(user, credentials.totp)
@@ -95,7 +96,8 @@ export const authOptions: NextAuthOptions = {
         } catch {
           return null
         }
-        const existing = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null } }, orderBy: { id: 'asc' }, select: { id: true, totpEnabledAt: true } })
+        const existing = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null } }, orderBy: { id: 'asc' }, select: { id: true, totpEnabledAt: true, loginPolicy: true } })
+        if (existing && !methodAllowed(existing.loginPolicy, 'sms')) return null
         if (existing) await secondFactor(existing, credentials.totp)
         try {
           await verifyOtp({ phone, code: credentials.code, purpose: 'LOGIN' })
@@ -172,7 +174,7 @@ export const authOptions: NextAuthOptions = {
         const userId = await peekGoogleTicket(credentials?.ticket)
         if (!userId) return null
         const user = await db.user.findUnique({ where: { id: userId }, include: { roleRef: true } })
-        if (!user || user.status !== 'ACTIVE') return null
+        if (!user || user.status !== 'ACTIVE' || !methodAllowed(user.loginPolicy, 'google')) return null
         await secondFactor(user, credentials?.totp)
         if (!await consumeGoogleTicket(credentials?.ticket)) return null
         return sessionUser(user)
@@ -180,26 +182,30 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       const subject = Number(user.id)
       if (!Number.isSafeInteger(subject) || subject <= 0) return false
-      const current = await db.user.findUnique({ where: { id: subject }, select: { status: true } })
-      return !!current && current.status === 'ACTIVE' && !await globalAuthenticationDenied(subject)
+      const current = await db.user.findUnique({ where: { id: subject }, select: { status: true, loginPolicy: true } })
+      return !!current && current.status === 'ACTIVE' && methodAllowed(current.loginPolicy, loginMethod(account?.provider || 'credentials')) && !await globalAuthenticationDenied(subject)
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       // Check every provider before minting a JWT, and every existing session.
       const subject = user ? Number(user.id) : Number(token.uid)
       if (subject && await globalAuthenticationDenied(subject)) throw new Error('SESSION_REVOKED')
       if (!user && token.uid) {
         // Sessions end when the password is reset (or the account is suspended).
-        const current = await db.user.findUnique({ where: { id: Number(token.uid) }, select: { status: true, passwordChangedAt: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })
-        if (!current || current.status !== 'ACTIVE' || sessionRevoked(token.authAt, current.passwordChangedAt)) throw new Error('SESSION_REVOKED')
+        const current = await db.user.findUnique({ where: { id: Number(token.uid) }, select: { status: true, passwordChangedAt: true, sessionsRevokedAt: true, loginPolicy: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })
+        if (!current || current.status !== 'ACTIVE' || sessionRevoked(token.authAt, current.passwordChangedAt) || sessionsExpired(token.authAt, current.sessionsRevokedAt) || token.authMethod !== undefined && !methodAllowed(current.loginPolicy, token.authMethod)) throw new Error('SESSION_REVOKED')
         if (!token.authAt) token.authAt = Date.now()
         // The picture and name follow the profile, so a change shows without signing in again.
         token.picture = pictureOf(current) || null
         if (current.name) token.name = current.name
       }
       if (user) {
+        const method = loginMethod(account?.provider || 'credentials')
+        const current = await db.user.findUnique({ where: { id: Number(user.id) }, select: { loginPolicy: true } })
+        if (!current || !methodAllowed(current.loginPolicy, method)) throw new Error('SESSION_REVOKED')
+        token.authMethod = method
         token.authAt = Date.now()
         token.uid = (user as any).id
         token.telegramId = (user as any).telegramId

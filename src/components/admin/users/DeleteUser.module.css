@@ -1,0 +1,21 @@
+.dialog { width: min(36rem, calc(100vw - 2rem)); max-width: none; max-height: 90dvh; overflow: auto; margin: auto; padding: 1.25rem; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); }
+.dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.dialog h2 { margin: 0; font-size: 1.125rem; }
+.dialog h3 { margin: 0 0 .5rem; font-size: 1rem; }
+.dialog p { line-height: 1.6; overflow-wrap: anywhere; }
+.preview, .notice { margin-block: 1rem; padding: .875rem; border: 1px solid var(--border); border-radius: 8px; }
+.notice { background: var(--primary-soft); }
+.notice p { margin-top: 0; }
+.counts { display: grid; gap: .35rem; margin: 0 0 1rem; }
+.counts div { display: flex; justify-content: space-between; gap: 1rem; }
+.counts dt { overflow-wrap: anywhere; }
+.counts dd { margin: 0; font-weight: 700; }
+.fields { display: grid; gap: .875rem; min-width: 0; padding: 0; margin: 1rem 0; border: 0; }
+.fields label:not(.check) { display: grid; gap: .35rem; font-weight: 600; }
+.fields input:not([type='checkbox']), .fields textarea { width: 100%; min-width: 0; }
+.check { display: flex; align-items: center; gap: .5rem; }
+.check input { flex: none; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.dialog button { min-height: 44px; }
+.dialog :is(button, input, textarea):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.error { color: var(--admin-danger-text, var(--danger)); }

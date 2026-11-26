@@ -81,6 +81,9 @@ model User {
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
   passwordChangedAt DateTime?
+  sessionsRevokedAt DateTime?
+  loginPolicy String @default("{}")
+  erasedAt DateTime?
   passwordSetupRequired Boolean @default(false)
   totpSecret     String          @default("")
   totpEnabledAt  DateTime?

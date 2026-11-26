@@ -56,3 +56,8 @@ test('snapshots accept only bounded strict state and preserve legacy empty state
   assert.deepEqual(parseRoutingSnapshot(JSON.stringify(snapshot)), snapshot)
   for (const bad of ['{', '{}', ' '.repeat(5000), JSON.stringify({ ...snapshot, extra: 1 }), JSON.stringify({ ...snapshot, gateways: [] }), JSON.stringify({ ...snapshot, gateways: [{ ref: 'env:BAD/path', name: 'Bad' }] }), JSON.stringify({ ...snapshot, gateways: [snapshot.gateways[0], snapshot.gateways[0]] })]) assert.throws(() => parseRoutingSnapshot(bad))
 })
+
+test('public Pay navigation keeps landing and application but excludes private workspaces', () => {
+  const { publicPayNavigation } = load('src/modules/billing/domain/pay-navigation.ts')
+  assert.deepEqual(publicPayNavigation([{ href: '/pay' }, { href: '/pay/apply' }, { href: '/pay/merchant' }, { href: '/dashboard/pay' }]), [{ href: '/pay' }, { href: '/pay/apply' }])
+})

@@ -18,6 +18,8 @@ import { getSmtp, sendMail } from '@/modules/mail/server/mailer'
 import { clearAdminPolicyCache } from '@/modules/identity/server/access'
 import { SmsError, requestOtp, smsAvailable, verifyOtp } from '@/modules/sms/server/sms'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
+import type { Prisma } from '@prisma/client'
+import { methodAllowed } from '../domain/login-policy'
 
 export class SecurityError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
@@ -27,8 +29,8 @@ export class SecurityError extends Error {
 
 const POLICY_KEY = 'security.policy.v1'
 
-export async function getSecurityPolicy(): Promise<SecurityPolicy> {
-  const row = await db.setting.findUnique({ where: { key: POLICY_KEY } })
+export async function getSecurityPolicy(reader: Pick<typeof db, 'setting'> = db): Promise<SecurityPolicy> {
+  const row = await reader.setting.findUnique({ where: { key: POLICY_KEY } })
   if (!row) return normalizeSecurityPolicy(undefined)
   try {
     const value = JSON.parse(row.value)
@@ -224,14 +226,22 @@ export async function requestSmsReset(input: { phone: unknown; ip: string }) {
   }
 }
 
-async function setNewPassword(userId: number, password: string, via: string) {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true, status: true } })
-  if (!user || user.status !== 'ACTIVE') throw new SecurityError('این حساب فعال نیست', 403)
-  const problem = passwordProblem(password, { email: user.email })
-  if (problem) throw new SecurityError(problem)
-  // passwordChangedAt signs out every existing session of the account.
-  await db.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(password, 10), passwordSetupRequired: false, passwordChangedAt: new Date() } })
-  await db.passwordReset.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } })
+async function setNewPassword(userId: number, password: string, via: 'sms' | 'email', claim: (tx: Prisma.TransactionClient) => Promise<void>, phone?: string) {
+  const hash = await bcrypt.hash(password, 10)
+  const user = await db.$transaction(async tx => {
+    const current = await tx.user.findUnique({ where: { id: userId }, select: { email: true, name: true, phone: true, phoneVerifiedAt: true, status: true, erasedAt: true, loginPolicy: true, updatedAt: true } })
+    const policy = await getSecurityPolicy(tx)
+    if (!current || current.status !== 'ACTIVE' || current.erasedAt) throw new SecurityError('این حساب فعال نیست', 403)
+    if (!(via === 'sms' ? policy.smsReset : policy.emailReset) || !methodAllowed(current.loginPolicy, via) || !methodAllowed(current.loginPolicy, 'password') || (via === 'sms' && (current.phone !== phone || !current.phoneVerifiedAt))) throw new SecurityError('این روش بازیابی برای حساب فعال نیست', 403)
+    const problem = passwordProblem(password, { email: current.email })
+    if (problem) throw new SecurityError(problem)
+    await claim(tx)
+    const now = new Date()
+    const updated = await tx.user.updateMany({ where: { id: userId, updatedAt: current.updatedAt, status: 'ACTIVE', erasedAt: null }, data: { passwordHash: hash, passwordSetupRequired: false, passwordChangedAt: now } })
+    if (updated.count !== 1) throw new SecurityError('حساب هم‌زمان تغییر کرده است؛ دوباره تلاش کنید', 409)
+    await tx.passwordReset.updateMany({ where: { userId, usedAt: null }, data: { usedAt: now } })
+    return current
+  }, { isolationLevel: 'Serializable' })
   logEvent('info', 'identity.password_reset', { userId, via })
   const { brand, site } = await siteVars()
   if (deliverableEmail(user.email)) {
@@ -268,10 +278,10 @@ export async function resetWithToken(input: { token: unknown; password: unknown;
   const owner = await db.user.findUnique({ where: { id: row.userId }, select: { email: true } })
   const problem = passwordProblem(password, { email: owner?.email })
   if (problem) throw new SecurityError(problem)
-  // Single use, even when the form is submitted twice.
-  const claimed = await db.passwordReset.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } })
-  if (claimed.count !== 1) throw new SecurityError('این پیوند قبلاً استفاده شده است', 410)
-  return setNewPassword(row.userId, password, 'email')
+  return setNewPassword(row.userId, password, 'email', async tx => {
+    const claimed = await tx.passwordReset.updateMany({ where: { id: row.id, usedAt: null, expiresAt: { gt: new Date() } }, data: { usedAt: new Date() } })
+    if (claimed.count !== 1) throw new SecurityError('این پیوند قبلاً استفاده شده است', 410)
+  })
 }
 
 /** Completes an SMS reset: the code, then the new password, in one step. */
@@ -293,6 +303,7 @@ export async function resetWithSms(input: { phone: unknown; code: unknown; passw
     if (!input.totp) throw new SecurityError('TOTP_REQUIRED', 428)
     await requireFactor(user.id, input.totp)
   }
-  await verifyOtp({ phone, code: input.code, purpose: 'RESET', userId: user.id }).catch((error) => { throw new SecurityError(error instanceof Error ? error.message : 'کد نامعتبر است') })
-  return setNewPassword(user.id, password, 'sms')
+  return setNewPassword(user.id, password, 'sms', async tx => {
+    await verifyOtp({ phone, code: input.code, purpose: 'RESET', userId: user.id }, tx).catch((error) => { throw new SecurityError(error instanceof Error ? error.message : 'کد نامعتبر است') })
+  }, phone)
 }

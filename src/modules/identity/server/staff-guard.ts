@@ -25,8 +25,9 @@ export type AccountChange = {
  * account being created.
  */
 export async function accountChangeRefusal(actor: AuthedUser, targetId: number | null, change: AccountChange, reader: Pick<typeof db, 'user' | 'role'> = db): Promise<string | null> {
-  const target = targetId ? await reader.user.findUnique({ where: { id: targetId }, select: { role: true, roleId: true, roleRef: { select: { permissions: true } } } }) : null
+  const target = targetId ? await reader.user.findUnique({ where: { id: targetId }, select: { role: true, roleId: true, erasedAt: true, roleRef: { select: { permissions: true } } } }) : null
   if (targetId && !target) return 'کاربر پیدا نشد'
+  if (target?.erasedAt) return 'این حساب حذف شده و قابل فعال‌سازی یا تغییر نیست'
   const targetStaff = target?.role === 'ADMIN'
   const targetFull = targetStaff && (target.roleId == null || isFullAccess(target.roleRef?.permissions || ''))
   const full = actorHasFullAccess(actor)

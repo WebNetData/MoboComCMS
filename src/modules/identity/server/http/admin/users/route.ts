@@ -16,6 +16,7 @@ import { mutationOrigin } from '@/platform/http/origin-policy'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
 import { deleteEmptyUser, DeleteUserError } from '@/modules/identity/server/delete-user'
+import { eraseAccount, AccountErasureError } from '@/modules/identity/server/account-erasure'
 
 export async function GET(req: NextRequest) {
   const admin =
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q') || ''
   const slim = req.nextUrl.searchParams.get('slim') === '1'
   const phone = normalizeMobile(q)
-  const where = q ? { OR: [{ email: { contains: q } }, { name: { contains: q } }, { phone: { contains: phone ? phone.slice(-10) : latinDigits(q) } }] } : undefined
+  const where = { erasedAt: null, ...(q ? { OR: [{ email: { contains: q } }, { name: { contains: q } }, { phone: { contains: phone ? phone.slice(-10) : latinDigits(q) } }] } : {}) }
   if (slim) {
     const basic = await db.user.findMany({
       where,
@@ -134,9 +135,9 @@ export async function DELETE(req: NextRequest) {
   const actor = await requirePerm(req, 'users.manage')
   if (!actor) return err('forbidden', 403)
   if (!(await rateLimitStrict(`admin:user-delete:${actor.id}`, 20, 10 * 60_000)).ok) return err('تعداد درخواست‌های حذف زیاد است؛ کمی بعد تلاش کنید', 429)
-  try { return ok(await deleteEmptyUser(req, await readJsonObject(req, 2000))) }
+  try { const body=await readJsonObject(req, 3000); return ok(body.mode === 'erase' ? await eraseAccount(req,body) : await deleteEmptyUser(req,body)) }
   catch (error) {
-    if (error instanceof DeleteUserError || error instanceof JsonBodyError) return err(error.message, error.status)
+    if (error instanceof DeleteUserError || error instanceof AccountErasureError || error instanceof JsonBodyError) return err(error.message, error.status)
     if (['P2003', 'P2014', 'P2034'].includes(String((error as { code?: string }).code))) return err('کاربر دارای سابقه است یا هم‌زمان تغییر کرده؛ فهرست را تازه کنید و در صورت نیاز حساب را غیرفعال کنید', 409)
     return err('حذف کاربر ثبت نشد؛ دوباره فهرست را بررسی کنید', 503)
   }

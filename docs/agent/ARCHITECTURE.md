@@ -1,3 +1,20 @@
+Bank source setup2026-11-26: existing Billing Pay Admin owns automatic terminal
+policy, SMS source secrets and safe connector status. Merchant commands cannot
+write the automatic flag. Scoped Admin guides compose those owners; an optional
+validated environment URL is private-panel navigation only, never a server fetch,
+credential proxy, second settings/auth system or embedded Bale login. Existing
+financial proof/Wallet/receipt/race owners remain unchanged. [Evidence](handoffs/MOBOCOM_PAY.md#admin-owned-bank-sources-and-setup-guides--2026-11-26).
+
+Public Pay/account control2026-11-26: Billing owns PENDING application through its
+existing Pay address; Site owns public chrome/menu/settings, merchant access gates
+the private shell before rendering. Identity owns typed Admin account policy,
+strict revision/audit, provider/session enforcement and explicit account erasure.
+Canonical nonlogin anonymous reference rows preserve shared financial FK facts;
+existing Billing/Forms retain exact amounts/states while private data is erased.
+Operations retries committed file manifests; narrow DB redaction never disables
+money integrity. Unreleased additive219–221 and operational limits are recorded in
+[the handoff](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
+
 Pay navigation/support2026-11-25: one typed menu feeds existing shared ShellNav
 and the compatible flat PayNavigation address. The private merchant shell owns
 its responsive side-drawer presentation, not identity/access resolution. Native
@@ -23,6 +40,15 @@ independent presentation using canonical Identity session, same Wallet/payment c
 and current ACTIVE merchant. Existing Admin/AuthZ/Settings/Audit remain owners;
 legacy console URLs redirect and public checkout capability addresses are retained.
 No second auth/service/database; no schema migration. [Evidence and boundaries](handoffs/MOBOCOM_PAY.md#private-merchant-workspace-and-admin-lifecycle--2026-11-24).
+
+Merchant enrollment and optional section hosts2026-11-26: canonical full-access
+Admin may self-provision/manage merchant for bot setup; restricted Pay staff may
+not. Independent payment/receipt/settlement review guards remain. Identity phone
+lookup is readonly and exact; Site owns section host Settings/CAS/audit, `/admin/
+sections` edits them, and proxy maps only actual `Host` (never forwarded host) to
+the existing public section base. Existing path aliases/canonical URLs survive;
+auth/dashboard/Admin/checkout/private Pay remain on main origin. No new identity,
+schema, cookie scope, SSO or DNS/TLS provisioning. [Evidence and limits](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
 
 Bank transfer2026-11-24: Billing Pay owns immutable SMS/Bale evidence, globally
 unique quote tombstones and reviewed dispositions through its existing address.
@@ -1045,3 +1071,11 @@ Forms-off blocks admission/effects while Core reconciles already-paid obligation
 Uploaded uninstall retains a private tombstoned aggregate; ordinary package readers
 exclude it and validated reinstall stays inactive. Admin distinguishes requested and
 effective state; lifecycle controls remain Core. [Scope, evidence and remaining gaps](handoffs/COMMERCIAL_MODULARITY.md).
+
+### Cloud customer workspace — 2026-11-26
+
+The private customer workspace at `/cloud/dashboard` composes the existing
+Identity, Hosting, Billing/Checkout, Support and Wallet boundaries. Checkout's
+Cloud presentation is a closed Hosting/domain surface; public Cloud content and
+navigation stay protected. No schema/dependency change is reported. Evidence and
+unresolved validation are recorded in [the handoff](handoffs/CLOUD_WORKSPACE.md).

@@ -39,6 +39,7 @@ function baseOf(path: string, base: string): string | null {
 /** "/games/elden?x=1" → "/game/elden?x=1" when /games is published as /game. Other paths are returned as is. */
 export function toPublicPath(path: string, map: RouteAliases = getRouteAliases()): string {
   if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return path
+  if (/^\/cloud\/dashboard(?:[/?#]|$)/.test(path)) return path
   return presentContentPath(path, getPermalinks(), map)
 }
 
@@ -84,6 +85,9 @@ export function validateAliases(input: unknown, bases: readonly string[], extraR
 
 /** Where the middleware sends a request: rewrite a public alias, redirect an old internal address, or nothing. */
 export function routeDecision(pathname: string, map: RouteAliases): { kind: 'rewrite' | 'redirect'; path: string } | null {
+  if (/^\/cloud\/dashboard(?:\/|$)/.test(pathname)) return null
+  const cloudAlias = map['/cloud']
+  if (cloudAlias && (pathname === cloudAlias + '/dashboard' || pathname.startsWith(cloudAlias + '/dashboard/'))) return {kind:'redirect',path:'/cloud/dashboard'+pathname.slice((cloudAlias+'/dashboard').length)}
   for (const [internal, alias] of Object.entries(map)) {
     const viaAlias = baseOf(pathname, alias)
     if (viaAlias !== null) return { kind: 'rewrite', path: `${internal}${viaAlias}` }
