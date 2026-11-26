@@ -132,7 +132,7 @@ function RoutesCard({ data, busy, op }: { data: Overview; busy: string; op: Op }
             <label htmlFor={`route-${purpose.key}`}><b>{purpose.label}</b></label>
             <span className="sa-hint">{purpose.hint}</span>
             {blocked && data.service.installed && <span className="sa-hint">نیازمند به‌روزرسانی ابزار Xray روی سرور</span>}
-            {check && <span className={`sp-xr-check ${check.ok ? 'is-ok' : 'is-bad'}`} role="status">{check.ok ? `وصل شد (HTTP ${fa(check.status || 0)}، ${fa(check.ms)} میلی‌ثانیه)` : `وصل نشد: ${check.error}`}</span>}
+            {check && <span className={`sp-xr-check ${check.ok ? 'is-ok' : 'is-bad'}`} role="status">{check.ok ? `${purpose.key==='pay_callbacks'?'تونل TLS وصل شد؛ تأیید سفارش ارسال نشد':`وصل شد (HTTP ${fa(check.status || 0)})`} · ${fa(check.ms)} میلی‌ثانیه` : `وصل نشد: ${check.error}`}</span>}
           </div>
           <select id={`route-${purpose.key}`} className="input" value={routes[purpose.key] || ''} disabled={!!busy || blocked} onChange={(event) => setRoutesState((r) => ({ ...r, [purpose.key]: event.target.value }))}>
             <option value="">مستقیم (بدون پروکسی)</option>

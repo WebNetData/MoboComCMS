@@ -84,6 +84,15 @@ Payment gateway presentation2026-11-23: account navigation remains AccountShell/
 
 ## MoboComPay ownership — 2026-11-23
 
+2026-11-26: Billing intake commits accepted SMS/Bale credit evidence and existing
+Operations pay.transfer-match intent atomically; immediate/recovery paths call
+the same matcher/financial claims. Social egress/Server Panel owns pay_callbacks
+and builder4's separate loopback10810 public-IP443 tunnel. Billing retains DNS
+pinning/TLS destination checks, fresh fail-closed route choice, and UNKNOWN on any
+possibly dispatched callback; only proven pre-POST failure may retry. Hosted BOT
+panel origins are independent; WEBSITE origin binding remains. Migration222 only
+widens explicit boolean ACK policy. [Evidence/limits](handoffs/MOBOCOM_PAY.md#external-merchant-bot-and-durable-bank-matching--2026-11-26).
+
 SMS Forwarder2026-11-25: Billing adds an exact3-field source adapter to existing authenticated SMS notice/matcher, not a second financial pipeline. Explicit per-source versioned templateJson format preserves old rich sources. Stable source/bank/text identity retains first server receipt independently of credentials/config versions. Provenance is explicit in review/Audit; unknown delivery time is omitted. Locked-USDT timing proof excludes simple receipt-only notices in command, credit and deferred DB links (migration216). [Evidence](handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
 
 

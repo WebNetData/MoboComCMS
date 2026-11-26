@@ -78,6 +78,11 @@ Gateway display config and existing Pay Admin/Finance/merchant/terminal surfaces
 Migration213 owns immutable collection/source proof and receipt hold. No parallel
 Wallet/identity/financial owner. [Current evidence/limits](handoffs/MOBOCOM_PAY.md#automatic-card-transfer-receipt-hold-and-destination-controls--2026-11-24).
 
+Pay bot readiness2026-11-26: Billing bot/outbound + SMS/Bale match-job, canonical
+Operations handler, Social pay-egress/pay-tunnel and Server Panel builder4 purpose.
+Hosted BOT panel + boolean ACK migration222; future intake crash recovery retains
+same financial matcher. [Evidence, guide and commissioning gaps](handoffs/MOBOCOM_PAY.md#external-merchant-bot-and-durable-bank-matching--2026-11-26).
+
 Bale continuation2026-11-24: `billing/domain/pay-bale.ts`, Billing
 `server/pay/bale/*` behind `server/pay`, signed `/api/payment/mobocom-pay/bale-events`,
 canonical Gateway MOBOCOM_PAY (unavailable), existing Pay settings history card and

@@ -24,7 +24,7 @@ test('acknowledgement never guesses provider success or follows a redirect',()=>
  for(const[policy,status,body]of[['UNCONFIGURED',200,'{"ok":true}'],['JSON_OK',200,'{"ok":"true"}'],['JSON_OK',200,'{"unknown":true}'],['JSON_OK',302,'{"ok":true}'],['JSON_OK',500,'{"ok":true}'],['JSON_OK',200,'<html>ok</html>'],['JSON_OK',200,'{"ok":true,"success":false}']])assert.equal(botAcknowledged(policy,status,body),false)
 })
 test('bot egress denies loopback, LAN, cloud metadata, documentation and IPv4-mapped IPv6',()=>{
- for(const address of['127.0.0.1','10.1.2.3','0.0.0.0','169.254.169.254','172.16.1.1','192.168.1.1','100.64.1.1','198.18.1.1','192.0.2.1','203.0.113.5','224.0.0.1','::1','::','::ffff:127.0.0.1','fc00::1','fe80::1','2001:db8::1','invalid'])assert.equal(publicBotAddress(address),false,address)
+ for(const address of['127.0.0.1','10.1.2.3','0.0.0.0','169.254.169.254','172.16.1.1','192.168.1.1','100.64.1.1','198.18.1.1','192.0.2.1','192.88.99.1','203.0.113.5','224.0.0.1','::1','::','::ffff:127.0.0.1','fc00::1','fe80::1','2001:20::1','2001:db8::1','3fff::1','invalid'])assert.equal(publicBotAddress(address),false,address)
  for(const address of['8.8.8.8','1.1.1.1','2606:4700:4700::1111'])assert.equal(publicBotAddress(address),true,address)
 })
 
@@ -33,6 +33,7 @@ test('outbound verification pins DNS, sends the distinct token/body, refuses pri
  let lookups=0,requests=0,sent='',headers
  const network={answers:[{address:'8.8.8.8',family:4}],status:200,body:'{"ok":true}'}
  const source=require('./connected-source-loader.cjs')({
+  '@/modules/social/server/pay-egress':{payCallbackEgress:async()=> 'direct'},
   'node:dns/promises':{lookup:async()=>{lookups++;return network.answers}},
   'node:https':{request:(url,options,onResponse)=>{
    requests++;assert.equal(url.hostname,'merchant.example');assert.equal(options.servername,'merchant.example');assert.equal(options.agent,false);headers=options.headers
@@ -49,3 +50,15 @@ test('outbound verification pins DNS, sends the distinct token/body, refuses pri
  network.answers=[{address:'8.8.8.8',family:4}];network.body='x'.repeat(17000)
  await assert.rejects(sendBotVerification('https://merchant.example/api/payment','separate-token','order-123'),/TOO_LARGE/)
 })
+
+test('external panel boolean status acknowledgement is explicit and every declared failure wins',()=>{
+ assert.equal(botAcknowledged('JSON_STATUS_TRUE',200,'{"status":true}'),true)
+ for(const policy of ['JSON_OK','JSON_SUCCESS','JSON_STATUS_TRUE','HTTP_2XX'])for(const body of ['{"status":false}','{"status":"error"}','{"status":"failed"}','{"ok":true,"status":false}','{"status":true,"success":false}'])assert.equal(botAcknowledged(policy,200,body),false)
+ for(const body of ['{"status":"true"}','{"status":1}','{"status":"success"}','{}'])assert.equal(botAcknowledged('JSON_STATUS_TRUE',200,body),false)
+})
+test('financial egress reads strict fresh configuration and cannot silently fall back after storage failure',async()=>{
+ let value=null,failed=false;const owner=require('./connected-source-loader.cjs')({'@/platform/database/prisma':{db:{setting:{findUnique:async()=>{if(failed)throw Error('storage down');return value===null?null:{value}}}}}})('src/modules/social/server/pay-egress.ts')
+ assert.equal(await owner.payCallbackEgress(),'direct');value=JSON.stringify({profiles:[{id:'p1',name:'Proxy',link:'encrypted'}],routes:{pay_callbacks:'p1'}});assert.equal(await owner.payCallbackEgress(),'proxy');value=JSON.stringify({profiles:[],routes:{}});assert.equal(await owner.payCallbackEgress(),'direct')
+ for(const raw of ['bad','[]','{}',JSON.stringify({profiles:[],routes:{pay_callbacks:'p1'}})]){value=raw;await assert.rejects(owner.payCallbackEgress())}failed=true;await assert.rejects(owner.payCallbackEgress())
+})
+require('./pay-callback-transport.cases.cjs')

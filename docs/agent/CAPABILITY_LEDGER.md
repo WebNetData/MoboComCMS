@@ -119,6 +119,12 @@ Payment gateway navigation2026-11-23: FUNCTIONAL within local evidence. Dedicate
 
 MoboComPay merchant UX2026-11-25: FUNCTIONAL within scoped local evidence. Seven private merchant views, explicit IRR/USDT/gross/net/platform fee, chart day selection, recent payments and mobile controls refined with MoboCom/SDS identity. Existing PG2/types/gates and38 actual themed/mobile/state/axe captures pass; Doctor0errors, reviewed baseline warnings. No financial/API/migration or live-provider claim. [Evidence and rollback](handoffs/MOBOCOM_PAY.md#merchant-panel-visual-upgrade--2026-11-25).
 
+MoboComPay external bot readiness2026-11-26: IMPLEMENTED with scoped local evidence;
+LIVE_PROVIDER_UNVERIFIED. Hosted BOT panel, explicit boolean ACK migration222,
+Admin-only Xray purpose and guaranteed pre-POST retries, durable SMS/Bale recovery
+reuse current owners. Real TLS/CONNECT and Xray behavior, native crash/fault checks,
+types/gates and responsive browser evidence are recorded in the [handoff](handoffs/MOBOCOM_PAY.md#external-merchant-bot-and-durable-bank-matching--2026-11-26).
+
 MoboComPay SMS Forwarder2026-11-25: FUNCTIONAL within local evidence; LIVE_PROVIDER_UNVERIFIED. Generated per-source three-field setup, simultaneous SMS/Bale/manual once-only principal and fee, legacy mode and time provenance retained. Fresh216/populated function upgrade, native3, units13, types/gates, Hurl6, compatible contracts and6 browser/axe captures pass. Real Android/Bale commissioning pending. [Evidence/limits/rollback](handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
 
 MoboComPay2026-11-25: FUNCTIONAL within bounded local evidence; LIVE_PROVIDER_UNVERIFIED. Existing channel/link/USDT capabilities retained; server-owned multi-account Bale bindings, central SMS/Bale/manual exact-once confirmation, explicit paid-review feedback and actual fee/net projections extend Billing/Wallet. No migration beyond215. Fresh PG plus5 final native suites,16 units, types/scoped gates, compatible v1/v2 Hurl8 and22 themed/mobile/axe captures pass. [Exact evidence, reviewed warnings, cleanup, limits and rollback](handoffs/MOBOCOM_PAY.md#merchant-approval-workspace-and-fee-isolation--2026-11-25). Module/incoming/new networks remain opt-in; live account/source and chain commissioning unverified.

@@ -42,6 +42,7 @@ async function main() { try {
   await put(keys[0], 'true'); await put(keys[1], JSON.stringify({ ...policy.defaults(), incomingEnabled: true, bankAccountIds: [bank.id], bale: { enabled: true, minAdjustmentRial: '10', maxAdjustmentRial: '30', minutes: 15 } })); await put(keys[2], '{"enabled":true,"settings":{}}'); await put(keys[3], '{"requireAdmin2fa":false}'); access.clearAdminPolicyCache()
   const a = await invoice(100000), b = await invoice(100000), c = await invoice(100010)
   const [qa, qb, qc] = await Promise.all([prepare(a), prepare(b), prepare(c)])
+  const recoveryIds=await prisma.payBaleNotice.findMany({where:{bankAccountId:{in:[bank?.id,secondBank?.id].filter(Boolean)}},select:{id:true}});if(recoveryIds.length)await prisma.backgroundJob.deleteMany({where:{kind:'pay.transfer-match',OR:recoveryIds.map(row=>({payload:{contains:row.id}}))}})
   const rows = await prisma.payBaleCollection.findMany({ where: { id: { in: [qa.txnId, qb.txnId, qc.txnId] } } }); assert.equal(new Set(rows.map(row => row.collectedRial.toString())).size, 3)
   assert.equal((await prepare(a)).txnId, qa.txnId)
   const request = new NextRequest('https://mobocom.invalid/pay/bank/' + qa.txnId)
@@ -106,6 +107,7 @@ async function main() { try {
   const both = await Promise.allSettled([receiveSmsNotice(smsSource.id, secret, sms), receive(envelope(22, { amount: dualRow.collectedRial.toString(), reference: 'DUALSOURCE123' }))])
   assert.ok(both.some(result => result.status === 'fulfilled' && result.value.financialApproval)); assert.equal((await prisma.invoice.findUniqueOrThrow({ where: { id: dual.id } })).status, 'PAID')
   assert.equal(await prisma.payment.count({ where: { invoiceId: dual.id, status: 'CONFIRMED' } }), 1)
+  await require('./pay-transfer-recovery.scenarios.cjs')({prisma,load,pay,invoice,prepare,changeBaleCheckout,receive,envelope,bank,smsGateway,smsSource,secret,quotes})
   const simpleSource = await require('./pay-sms-forwarder.scenarios.cjs')({ prisma, load, admin, bank, gateway: smsGateway, invoice,
     prepare: prepareBaleGateway, quotes, upload, receiveBale: receive, envelope, sources: extraSmsSources, clock: { now: () => now, set: value => { now = value } } })
   const sources = [

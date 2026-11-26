@@ -14,7 +14,7 @@ const put=(key,value)=>db.setting.upsert({where:{key},create:{key,value},update:
 const signed=e=>{const raw=Buffer.from(typeof e==='string'?e:JSON.stringify(e));return {raw,signature:'sha256='+createHmac('sha256',process.env.MOBOCOM_PAY_BALE_WEBHOOK_SECRET).update(raw).digest('hex')}}
 const receive=e=>{const s=signed(e);return pay.receiveBaleBankMessage(s.signature,e.event_id,s.raw)}
 async function actor(user){const token=await encode({secret:process.env.NEXTAUTH_SECRET,token:{uid:String(user.id),authAt:Date.now()}});return pay.payActor(new NextRequest('https://mobocom.invalid/api/admin/mobocom-pay/bale-status',{headers:{origin:'https://mobocom.invalid',cookie:`next-auth.session-token=${token}; __Secure-next-auth.session-token=${token}`}}))}
-async function moneySnapshot(){const tables=['invoice','payment','walletTx','walletAccount','payPayment','payBankEvent','payBotDelivery','backgroundJob'];const result={};for(const t of tables)result[t]=await db[t].findMany();return result}
+async function moneySnapshot(){const tables=['invoice','payment','walletTx','walletAccount','payPayment','payBankEvent','payBotDelivery','backgroundJob'];const result={};for(const t of tables)result[t]=await db[t].findMany(t==='backgroundJob'?{where:{kind:{not:'pay.transfer-match'}}}:{});return result}
 async function main(){try{
  for(const key of keys)snapshots.set(key,await db.setting.findUnique({where:{key}}))
  bank=await db.bankAccount.create({data:{bankName:stamp,holderName:stamp,accountNumber:'0000000000000',active:true}})
@@ -27,7 +27,7 @@ async function main(){try{
  await assert.rejects(pay.baleSourceStatus(denied),status(403));await assert.rejects(pay.baleSourceStatus(customer),status(403));process.env.MOBOCOM_PAY_BALE_PANEL_URL='https://bale-admin.example.invalid/ui/';assert.equal((await pay.baleSourceStatus(admin)).setup.panelUrl,'https://bale-admin.example.invalid/ui/');for(const raw of ['javascript:alert(1)','http://private.invalid/ui/','https://user:password@example.invalid/ui/','https://example.invalid/ui/?token=not-a-secret']){process.env.MOBOCOM_PAY_BALE_PANEL_URL=raw;const setup=(await pay.baleSourceStatus(admin)).setup;assert.equal(setup.panelUrl,null);assert.equal(setup.panelUrlInvalid,true)}delete process.env.MOBOCOM_PAY_BALE_PANEL_URL
  const historyBase=await db.payBaleNotice.count({where:{sourceType:'BALE'}}),before=await moneySnapshot(),body=envelope(1),s=signed(body)
  const response=await http.POST_bale(new NextRequest('https://mobocom.invalid/api/payment/mobocom-pay/bale-events',{method:'POST',headers:{origin:'https://mobocom.invalid','content-type':'application/json','x-hub-signature-256':s.signature,'x-goomni-event-id':body.event_id},body:s.raw}));assert.equal(response.status,200)
- const reply=(await response.json()).data;assert.equal(reply.status,'ORIGINAL_TRANSFER');assert.equal(reply.financialApproval,false)
+ const reply=(await response.json()).data;assert.equal(reply.status,'ORIGINAL_TRANSFER');assert.equal(reply.financialApproval,false);const intent=await db.backgroundJob.findUniqueOrThrow({where:{dedupeKey:'pay-transfer-match:'+reply.id}});assert.equal(intent.kind,'pay.transfer-match');assert.deepEqual(JSON.parse(intent.payload),{noticeId:reply.id})
  assert.equal((await receive(body)).duplicate,true)
  await assert.rejects(receive({...body,content:{...body.content,message:'altered'},payload:{...body.payload,body:'altered'}}),status(409))
  await assert.rejects(pay.receiveBaleBankMessage('sha256='+'0'.repeat(64),body.event_id,s.raw),status(401))
@@ -42,8 +42,8 @@ async function main(){try{
  assert.equal((await receive(envelope(6,{sign:'-',reference:'DEBIT12345'}))).status,'IGNORED')
  const repeated=envelope(7);repeated.message_id='1';repeated.payload.id='1';await assert.rejects(receive(repeated),status(409))
  const parallel=envelope(8,{reference:'CONCURRENT123'}),replies=await Promise.all([receive(parallel),receive(parallel)]);assert.equal(replies.filter(x=>x.duplicate).length,1)
- const audit=envelope(9,{reference:'AUDITFAIL123'});fault=true;try{await assert.rejects(receive(audit),/bale audit fault/)}finally{fault=false}
- assert.equal(await db.payBaleNotice.count({where:{sourceEventId:audit.event_id}}),0)
+ const beforeFaultJobs=await db.backgroundJob.count({where:{kind:'pay.transfer-match'}});const audit=envelope(9,{reference:'AUDITFAIL123'});fault=true;try{await assert.rejects(receive(audit),/bale audit fault/)}finally{fault=false}
+ assert.equal(await db.payBaleNotice.count({where:{sourceEventId:audit.event_id}}),0);assert.equal(await db.backgroundJob.count({where:{kind:'pay.transfer-match'}}),beforeFaultJobs,'audit rollback also removes recovery intent')
  const stored=await db.payBaleNotice.findUniqueOrThrow({where:{id:reply.id}});assert.equal(stored.amountMinor,100000n)
  const malformed={...stored,id:randomUUID(),sourceEventId:'d'.repeat(64),messageId:'7000000',bankFingerprint:'e'.repeat(64)}
  await assert.rejects(db.payBaleNotice.create({data:{...malformed,kind:'INTEREST'}}),'database denies interest as original transfer')
@@ -84,7 +84,7 @@ async function main(){try{
 }finally{
  delete process.env.MOBOCOM_PAY_BALE_SOURCES
  const bankIds=[bank?.id,secondBank?.id].filter(Boolean),records=await db.payBaleNotice.findMany({where:{bankAccountId:{in:bankIds}},select:{id:true}})
- if(records.length){await db.auditLog.deleteMany({where:{action:'mobocom-pay.bale.received',targetId:{in:records.map(x=>x.id)}}});await db.payBaleNotice.deleteMany({where:{bankAccountId:{in:bankIds},duplicateOfId:{not:null}}});await db.payBaleNotice.deleteMany({where:{bankAccountId:{in:bankIds}}})}
+ if(records.length){await db.backgroundJob.deleteMany({where:{kind:'pay.transfer-match',OR:records.map(row=>({payload:{contains:row.id}}))}});await db.auditLog.deleteMany({where:{action:'mobocom-pay.bale.received',targetId:{in:records.map(x=>x.id)}}});await db.payBaleNotice.deleteMany({where:{bankAccountId:{in:bankIds},duplicateOfId:{not:null}}});await db.payBaleNotice.deleteMany({where:{bankAccountId:{in:bankIds}}})}
  if(secondBank)await db.bankAccount.delete({where:{id:secondBank.id}})
  if(gateway)await db.gateway.delete({where:{id:gateway.id}});if(bank)await db.bankAccount.delete({where:{id:bank.id}})
  await db.user.deleteMany({where:{id:{in:users.map(u=>u.id)}}});if(role)await db.role.delete({where:{id:role.id}})

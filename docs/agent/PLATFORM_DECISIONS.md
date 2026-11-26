@@ -21,6 +21,13 @@ Admin, impact preview/exact acknowledgement/revision/reason/strict audit require
 self deletion refused. Provider-resource cancellation/backups/unlinked historical
 files remain operational boundaries. [Evidence and rollout](handoffs/MOBOCOM_PAY.md#public-pay-and-account-control--2026-11-26).
 
+2026-11-26 owner clarifies third-party merchant Telegram bot protocol and supplies
+its own panel domain; this is independent of MoboCom's internal Telegram bot.
+Use the existing Pay integration and Admin Xray owner, distinct creation/panel
+payment keys and explicit ACK selection. No guessed success or automatic retry
+after possible financial POST; bank-source commissioning remains Admin-owned.
+[Implementation and limits](handoffs/MOBOCOM_PAY.md#external-merchant-bot-and-durable-bank-matching--2026-11-26).
+
 2026-11-25 owner requires hamburger-opened side navigation on phone/tablet
 workspace sizes, grouped/styled MoboComPay menus matching the account dashboard,
 and no unfinished/unstyled design areas. FRONTEND_QUALITY records the lasting

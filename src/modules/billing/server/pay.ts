@@ -42,3 +42,4 @@ export { submitCollectionReceipt, reviewCollectionReceipt } from './pay/bale/col
 export { transferMonitor, transferReviewQueue, transferReviewDetail, transferReviewSearch, transferCollectionReview, decideTransferReview } from './pay/transfer-operations'
 
 export { applyPayMerchant } from './pay/public'
+export { recoverTransferMatch } from './pay/bale/match-job'

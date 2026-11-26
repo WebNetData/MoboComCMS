@@ -1,0 +1,20 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),os=require('os'),path=require('path'),cp=require('child_process')
+test('external callback uses pinned CONNECT and verified TLS, never direct fallback or repeated uncertain POST',{skip:process.platform==='win32'},()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pay-callback-tls-'))
+ try{
+  cp.execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',dir+'/key.pem','-out',dir+'/cert.pem','-days','1','-subj','/CN=merchant.example','-addext','subjectAltName=DNS:merchant.example'],{stdio:'ignore'})
+  const program=String.raw`
+const fs=require('fs'),https=require('https'),http=require('http'),net=require('net'),assert=require('assert/strict');let server,proxy;
+;(async()=>{const dir=process.argv[1],state={route:'proxy',mode:'ok',posts:0,tunnels:[],headers:null,body:''};
+server=https.createServer({key:fs.readFileSync(dir+'/key.pem'),cert:fs.readFileSync(dir+'/cert.pem')},(req,res)=>{state.posts++;state.headers=req.headers;let body='';req.on('data',c=>body+=c);req.on('end',()=>{state.body=body;if(state.mode==='lost'){req.socket.destroy();return}if(state.mode==='redirect'){res.writeHead(302,{location:'https://elsewhere.invalid/api/payment'});res.end();return}res.end('{"status":true}')})});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+proxy=http.createServer();proxy.on('connect',(req,socket,head)=>{state.tunnels.push(req.url);if(state.mode==='refused'){socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');return}const upstream=net.connect(server.address().port,'127.0.0.1',()=>{socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');if(head.length)upstream.write(head);socket.pipe(upstream);upstream.pipe(socket)});upstream.on('error',()=>socket.destroy());socket.on('error',()=>upstream.destroy())});await new Promise(r=>proxy.listen(0,'127.0.0.1',r));
+const source=require('./scripts/connected-source-loader.cjs')({'@/modules/social/server/pay-egress':{payCallbackEgress:async()=>{if(state.route==='failed')throw Error('unavailable');return state.route}},'node:dns/promises':{lookup:async()=>[{address:'8.8.8.8',family:4}]},'node:http':{...http,request:(options,...args)=>{assert.equal(options.host,'127.0.0.1');assert.equal(options.port,10810);return http.request({...options,port:proxy.address().port},...args)}}}),owner=source('src/modules/billing/server/pay/bot/transport.ts'),notSent=source('src/modules/billing/domain/pay-outbound.ts').PayCallbackNotSentError;
+const send=()=>owner.sendBotVerification('https://merchant.example/api/payment','synthetic-payment-token','order-1');assert.equal((await send()).status,200);assert.deepEqual(state.tunnels,['8.8.8.8:443']);assert.equal(state.posts,1);assert.equal(state.headers.host,'merchant.example');assert.equal(state.headers.token,'synthetic-payment-token');assert.deepEqual(JSON.parse(state.body),{order_id:'order-1',actions:'custom_payment_verify'});
+state.mode='redirect';assert.equal((await send()).status,302);assert.equal(state.posts,2);state.mode='lost';await assert.rejects(send(),e=>!(e instanceof notSent));assert.equal(state.posts,3);state.mode='refused';await assert.rejects(send(),notSent);assert.equal(state.posts,3);state.route='failed';const count=state.tunnels.length;await assert.rejects(send(),notSent);assert.equal(state.tunnels.length,count);state.route='proxy';state.mode='ok';await assert.rejects(owner.sendBotVerification('https://wrong.example/api/payment','synthetic','order-1'),notSent);assert.equal(state.posts,3);
+console.log('Pinned CONNECT/TLS and refusal/ambiguity checks passed')
+})().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(()=>{proxy?.closeAllConnections?.();proxy?.close();server?.closeAllConnections?.();server?.close()})
+`
+  const r=cp.spawnSync(process.execPath,['-e',program,dir],{cwd:process.cwd(),env:{...process.env,NODE_EXTRA_CA_CERTS:dir+'/cert.pem'},encoding:'utf8',timeout:30000,maxBuffer:2e6})
+  assert.equal(r.status,0,(r.stdout||'')+(r.stderr||'')+(r.error?.message||''))
+ }finally{fs.rmSync(dir,{recursive:true,force:true})}
+})

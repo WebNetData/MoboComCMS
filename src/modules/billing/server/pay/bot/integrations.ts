@@ -35,8 +35,11 @@ export async function saveBotIntegration(actor: PayActor, input: Record<string, 
     const merchant = await merchantFor(actor, tx, true)
     const terminal = await tx.payTerminal.findFirst({ where: { id: String(input.terminalId), merchantId: merchant.id } })
     if (!terminal) throw new PayError('پایانه پیدا نشد', 404)
-    if (!merchant.website || !['WEBSITE', 'BOT'].includes(terminal.channelType)) throw new PayError('اتصال ربات به پایانهٔ وب‌سایت یا ربات و وب‌سایت ثبت‌شده نیاز دارد')
-    if (new URL(callbackUrl).origin !== new URL(merchant.website).origin) throw new PayError('API ربات باید روی دامنهٔ وب‌سایت ثبت‌شدهٔ پذیرنده باشد')
+    if (!['WEBSITE', 'BOT'].includes(terminal.channelType) || terminal.channelType==='WEBSITE'&&!merchant.website) throw new PayError('اتصال به پایانهٔ وب‌سایت یا ربات نیاز دارد')
+    // A Telegram merchant may use a hosted bot panel on another public origin.
+    // Browser-only configuration, exact HTTPS path and pinned outbound validation
+    // still apply; website terminals keep their original registered-origin rule.
+    if (terminal.channelType==='WEBSITE' && new URL(callbackUrl).origin !== new URL(merchant.website).origin) throw new PayError('API وب‌سایت باید روی دامنهٔ ثبت‌شدهٔ پذیرنده باشد')
     const previous = await tx.payBotIntegration.findUnique({ where: { terminalId: terminal.id } })
     if ((previous?.version || 0) !== input.version) throw new PayError('اتصال تغییر کرده است؛ صفحه را تازه کنید', 409)
     const plain = String(input.callbackToken || '')

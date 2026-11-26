@@ -10,6 +10,7 @@ import { enqueue } from '@/modules/operations/server/enqueue'
 import { botAcknowledged } from '@/modules/billing/domain/pay-bot'
 import { payAudit, payTransaction } from '../context'
 import { sendBotVerification } from '@/modules/billing/server/pay/bot/transport'
+import { PayCallbackNotSentError,botRetryDelay } from '@/modules/billing/domain/pay-outbound'
 
 /** Called only after the payment's status and Wallet link were claimed in the same transaction. */
 export async function queueBotDelivery(tx: Prisma.TransactionClient, paymentId: string) {
@@ -36,6 +37,7 @@ export async function deliverBotPayment(payload: Record<string, unknown>) {
   if (!/^[a-f0-9-]{36}$/.test(id)) throw new Error('Invalid bot delivery intent')
   const existing = await deliveryRow(db, id)
   if (!existing || ['WAITING','SENT','UNKNOWN','BLOCKED'].includes(existing.status)) return { status: existing?.status || 'MISSING' }
+  if(existing.status==='QUEUED'&&existing.lastCode==='NOT_SENT_RETRY'&&existing.lastAttemptAt&&existing.lastAttemptAt.getTime()+botRetryDelay(existing.attempts)>Date.now())return {status:'QUEUED'}
   if (existing.status === 'SENDING') {
     if (!existing.lastAttemptAt || existing.lastAttemptAt.getTime() > Date.now() - 120_000) return { status: 'SENDING' }
     await payTransaction(async tx => {
@@ -70,10 +72,15 @@ export async function deliverBotPayment(payload: Record<string, unknown>) {
     httpStatus = response.status
     if (botAcknowledged(attempt.row.ackPolicy, response.status, response.body)) { status = 'SENT'; code = 'ACKNOWLEDGED' }
     else code = 'ACK_NOT_MATCHED'
-  } catch { /* Never persist token, URL credentials, remote body or raw transport error. */ }
+  } catch(error) {
+    // A failed DNS/config/CONNECT/TLS preflight sent no payment command. Unknown
+    // POST outcomes remain UNKNOWN and are never automatically repeated.
+    if(error instanceof PayCallbackNotSentError){status=attempt.row.attempts+1<5?'QUEUED':'BLOCKED';code=status==='QUEUED'?'NOT_SENT_RETRY':'NOT_SENT_RETRY_EXHAUSTED'}
+  }
   await payTransaction(async tx => {
     const claim = await tx.payBotDelivery.updateMany({ where: { id, status: 'SENDING', attemptToken: attempt.token }, data: { status, lastCode: code, httpStatus, confirmedAt: status === 'SENT' ? new Date() : null, version: { increment: 1 } } })
     if (!claim.count) return
+    if(status==='QUEUED')await enqueue('pay.bot-delivery',{deliveryId:id},{dedupeKey:'pay-bot-not-sent:'+id+':'+attempt.token,runAt:new Date(Date.now()+botRetryDelay(attempt.row.attempts+1))},tx)
     await payAudit(tx, { id: attempt.row.payment.merchant.userId, email: attempt.row.payment.merchant.user.email }, 'bot.result', id, { paymentId: attempt.row.paymentId, status, code, httpStatus })
   })
   return { status }

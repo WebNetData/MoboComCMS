@@ -12,6 +12,7 @@ const profiles = [
   ['UNCONFIGURED', 'هنوز بررسی نکرده‌ام'],
   ['JSON_OK', 'پاسخ JSON با ok برابر true'],
   ['JSON_SUCCESS', 'پاسخ JSON با status برابر success'],
+  ['JSON_STATUS_TRUE', 'پاسخ JSON با status برابر true (بولی)'],
   ['HTTP_2XX', 'هر پاسخ HTTP موفق (فقط با قرارداد ربات)'],
 ] as const
 
@@ -28,9 +29,10 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
       .catch(cause => { if (!controller.signal.aborted && cause.name !== 'AbortError') setError(cause.message) })
     return () => controller.abort()
   }, [revision])
-  const eligible = data.merchant?.website ? data.terminals.filter(item => !item.channelType || item.channelType === 'WEBSITE' || item.channelType === 'BOT') : []
+  const eligible = data.terminals.filter(item => item.channelType==='BOT'||Boolean(data.merchant?.website)&&(!item.channelType||item.channelType==='WEBSITE'))
   const terminalId = eligible.some(item => item.id === selected) ? selected : eligible[0]?.id || ''
   const current = items.find(item => item.terminalId === terminalId)
+  const selectedTerminal=eligible.find(item=>item.id===terminalId)
   const endpoint = current && typeof window !== 'undefined' ? new URL('/api/v1/pay/bot/' + current.id, window.location.origin).toString() : ''
   async function save(form: HTMLFormElement) {
     const values = new FormData(form)
@@ -46,19 +48,20 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
     finally { setBusy(false) }
   }
   return <section className={s.integration} aria-label="اتصال درگاه به ربات" aria-busy={busy}>
-    <header className={s.integrationHead}><span className={s.eyebrow}>اتصال آمادهٔ ربات</span><h2>از پرداخت تا تأیید سفارش</h2><p className={s.muted}>دو کلید جدا، یک سفارش ثابت و سابقه‌ای روشن برای هر نتیجه.</p></header>
+    <header className={s.integrationHead}><span className={s.eyebrow}>ربات تلگرام کسب‌وکار شما</span><h2>از پرداخت تا تأیید سفارش</h2><p className={s.muted}>ربات متعلق به شماست؛ موبوکام‌پی لینک پرداخت می‌سازد و نتیجه را به پنل همان ربات می‌فرستد.</p></header>
     <ErrorNotice error={error} />
     {!ready && !error && <p role="status">در حال دریافت اتصال‌ها…</p>}
     {error && <button type="button" className={s.secondary} onClick={refresh}>تازه‌کردن اتصال‌ها</button>}
-    {!eligible.length ? <p className={s.notice}>برای اتصال ربات، وب‌سایت کسب‌وکار و یک پایانهٔ وب‌سایت یا ربات لازم است.</p> : ready && <>
+    {!eligible.length ? <p className={s.notice}>ابتدا یک پایانه از نوع «ربات» بسازید. برای پایانهٔ وب‌سایت، دامنهٔ ثبت‌شده هم لازم است.</p> : ready && <>
       <div className={s.connectGrid}>
         <form key={terminalId + ':' + (current?.version || 0)} className={s.card + ' ' + s.stack} onSubmit={event => { event.preventDefault(); void save(event.currentTarget) }}>
           <Field label="۱. پایانهٔ این ربات"><select aria-label="پایانهٔ اتصال ربات" disabled={busy || routingBusy} value={terminalId} onChange={event => { setSelected(event.target.value); setToken(''); setSaved(false); setRulesSaved(false) }}>{eligible.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
-          <Field label="۲. API تأیید پرداخت در ربات"><input name="callbackUrl" type="url" dir="ltr" required defaultValue={current?.callbackUrl || new URL('/api/payment', data.merchant!.website).toString()} /></Field>
+          <Field label="۲. API پرداخت پنل ربات شما"><input name="callbackUrl" type="url" dir="ltr" required placeholder="https://your-bot-panel.example/api/payment" defaultValue={current?.callbackUrl || (selectedTerminal?.channelType!=='BOT'&&data.merchant?.website?new URL('/api/payment',data.merchant.website).toString():'')} /></Field>
           <Field label={current?.hasCallbackToken ? 'کلید API پرداخت ربات (خالی یعنی حفظ کلید فعلی)' : '۳. کلید API پرداخت ربات'}><input name="callbackToken" type="password" autoComplete="new-password" dir="ltr" required={!current?.hasCallbackToken} maxLength={512} /></Field>
-          <p className={s.muted}>این کلید از پنل ربات با دسترسی پرداخت گرفته می‌شود؛ با توکن خود ربات و کلید ساخت لینک فرق دارد.</p>
+          <p className={s.muted}>این آدرس و کلید متعلق به پنل کسب‌وکار شماست. کلید را از تنظیمات کلیدهای API همان پنل با دسترسی پرداخت بگیرید؛ توکن BotFather لازم نیست.</p>
           <Field label="۴. معیار پاسخ موفق ربات"><select name="ackPolicy" defaultValue={current?.ackPolicy || 'UNCONFIGURED'}>{profiles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <p className={s.muted}>قالب پاسخ ربات را بررسی کنید. پاسخ ناشناخته تحویل موفق محسوب نمی‌شود و خودکار تکرار نخواهد شد.</p>
+          <p className={s.muted}>اگر پاسخ قطع شد، پیش از تلاش مجدد سفارش را در پنل خودتان بررسی کنید. خطای قطعی قبل از ارسال، با فاصله و حداکثر پنج بار خودکار تلاش می‌شود.</p>
           <Field label="پاسخ ساخت لینک"><select name="responseMode" defaultValue={current?.responseMode || 'URL'}><option value="URL">یک لینک پرداخت (url)</option><option value="LINKS">فهرست دکمه‌ها (links)</option></select></Field>
           <label className={s.check}><input name="active" type="checkbox" defaultChecked={current?.active || false} />اتصال این ربات فعال باشد</label>
           {current && <label className={s.check}><input name="rotateKey" type="checkbox" />کلید ساخت لینک را تعویض کن؛ کلید قبلی از کار می‌افتد</label>}
@@ -66,12 +69,14 @@ export default function BotIntegration({ data }: { data: PayOverview }) {
         </form>
         <aside className={s.card + ' ' + s.stack}>
           <h3>تنظیم در پنل ربات</h3>
+          <p className={s.notice}>در «مالی ← تنظیمات درگاه سفارشی» ربات خودتان، آدرس API و کلید ساخت لینک زیر را وارد کنید. دامنهٔ API پرداخت بالای فرم را در آن قسمت نگذارید.</p>
           <p className={s.muted}>ساخت لینک به فعال بودن API عمومی و دریافت وجه در تنظیمات درگاه نیاز دارد.</p>
           <ol className={s.guideSteps}><li><strong>آدرس API</strong><p>نشانی اتصال همین پایانه را در «تنظیمات درگاه سفارشی» ربات قرار دهید.</p></li><li><strong>توکن API</strong><p>کلید ساخت لینک را یک‌بار کپی کنید. رمز پرداخت ربات را در این فیلد نگذارید.</p></li><li><strong>پرداخت آزمایشی و نتیجه</strong><p>پرداخت موفق و یک درخواست تکراری را با همان order_id بررسی کنید؛ تحویل سرویس با سامانهٔ ربات است.</p></li></ol>
           {endpoint && <><Field label="آدرس API ساخت لینک"><input readOnly dir="ltr" value={endpoint} onFocus={event => event.currentTarget.select()} /></Field><p className={s.muted}>کلید فعلی: <bdi>{current?.keyPrefix}…</bdi> · {current?.active ? 'فعال' : 'غیرفعال'}</p></>}
           {token && <div className={s.oneTimeKey} role="status"><strong>کلید ساخت لینک؛ فقط همین‌بار نمایش داده می‌شود</strong><Field label="توکن API برای تنظیمات ربات"><input readOnly dir="ltr" value={token} onFocus={event => event.currentTarget.select()} /></Field><button type="button" className={s.secondary} onClick={() => void navigator.clipboard.writeText(token).then(() => setCopied(true)).catch(() => setError('کپی خودکار انجام نشد؛ کلید را از فیلد انتخاب و کپی کنید.'))}>{copied ? 'کلید کپی شد' : 'کپی کلید ساخت لینک'}</button></div>}
           {saved && <p role="status">اتصال ثبت شد. تغییر تنظیمات، ارسال‌های در انتظار با نسخهٔ قبلی را برای بررسی نگه می‌دارد.</p>}
           <p className={s.muted}>مبلغ درخواست ربات تومان است؛ صفحهٔ پرداخت، مبلغ و کارمزد نهایی را نمایش می‌دهد. انتخاب روش‌های فعال پرداخت در همان صفحه انجام می‌شود.</p>
+          <p className={s.muted}>تأیید خودکار و اتصال کارت، پیامک و بله را مدیریت موبوکام فعال می‌کند. مسیر پروکسی پنل شما نیز جداگانه از مدیریت سرور تعیین می‌شود.</p>
         </aside>
       </div>
       {rulesSaved && <p role="status">قواعد انتخاب روش پرداخت ذخیره شد؛ سفارش‌های قبلی مسیر ثبت‌شدهٔ خود را حفظ می‌کنند.</p>}

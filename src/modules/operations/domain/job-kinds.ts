@@ -4,6 +4,7 @@ export const JOB_LABEL: Record<string, string> = {
   'identity.erase-files': 'پاک‌سازی فایل‌های حساب حذف‌شده',
   'pay.webhook-delivery': 'ارسال رویداد پرداخت به پذیرنده',
   'pay.bot-delivery': 'تأیید سفارش پرداخت‌شده در ربات پذیرنده',
+  'pay.transfer-match': 'بازیابی تطبیق واریز پیامک و بله',
   'sms.broadcast': 'ارسال گروهی پیامک',
   'forms.stage-sms': 'پیامک مرحلهٔ خدمات و درخواست‌ها',
   'support.demand-fulfilled': 'اعلان آماده‌شدن درخواست کالا و محتوا',

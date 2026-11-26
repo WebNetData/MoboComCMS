@@ -13,8 +13,8 @@ const PROTOCOLS = ['vless', 'vmess', 'trojan', 'shadowsocks', 'socks', 'http']
 const OUTBOUND_KEYS = ['protocol', 'settings', 'streamSettings', 'tag', 'mux']
 const STREAM_KEYS = ['network', 'security', 'tlsSettings', 'realitySettings', 'wsSettings', 'grpcSettings', 'xhttpSettings', 'httpupgradeSettings', 'tcpSettings', 'rawSettings']
 // Raised whenever PURPOSES gains a purpose or hosts: the site asks for this version before it routes a purpose that
-// needs it, because the installed copy changes only when xray-install.sh runs again (3: "google", Qwen, DeepSeek).
-const BUILDER_VERSION = 3
+// needs it, because the installed copy changes only when xray-install.sh runs again (4: payment callbacks).
+const BUILDER_VERSION = 4
 // The hosts each purpose may reach. A purpose without a profile, and every other host, is dropped.
 const PURPOSES = {
   telegram: ['domain:telegram.org', 'domain:t.me', 'domain:telegram.me'],
@@ -23,6 +23,7 @@ const PURPOSES = {
   ai: ['domain:openai.com', 'domain:anthropic.com', 'full:generativelanguage.googleapis.com', 'domain:openrouter.ai', 'domain:groq.com', 'full:dashscope-intl.aliyuncs.com', 'full:api.deepseek.com'],
   // Google sign-in: only the token endpoint the site calls after the member chose an account.
   google: ['full:oauth2.googleapis.com'],
+  pay_callbacks: [],
 }
 const DOMAINS = [...PURPOSES.telegram, ...PURPOSES.instagram]
 const MAX_PROFILES = 8
@@ -45,12 +46,24 @@ function outboundOf(outbound, tag) {
   return { protocol: outbound.protocol, settings: outbound.settings, ...(stream ? { streamSettings: stream } : {}), ...(outbound.mux ? { mux: outbound.mux } : {}), tag }
 }
 
-function configuration(outbounds, rules) {
+// With AsIs, domains cannot match these IP rules and fall through to drop.
+const CALLBACK_BLOCKED_IPS = [
+  '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16',
+  '172.16.0.0/12', '192.0.0.0/24', '192.0.2.0/24', '192.88.99.0/24', '192.168.0.0/16',
+  '198.18.0.0/15', '198.51.100.0/24', '203.0.113.0/24', '224.0.0.0/4', '240.0.0.0/4',
+  '2001::/23', '2001:db8::/32', '2002::/16', '3fff::/20',
+]
+
+function configuration(outbounds, rules, callbackTag) {
   return {
     log: { loglevel: 'warning', access: 'none', dnsLog: false },
-    inbounds: [{ tag: 'site', listen: '127.0.0.1', port: PORT, protocol: 'http', settings: { allowTransparent: false } }],
+    inbounds: [{ tag: 'site', listen: '127.0.0.1', port: PORT, protocol: 'http', settings: { allowTransparent: false } }, ...(callbackTag ? [{ tag: 'pay-callback', listen: '127.0.0.1', port: 10810, protocol: 'http', settings: { allowTransparent: false } }] : [])],
     outbounds: [...outbounds, { tag: 'drop', protocol: 'blackhole' }],
-    routing: { domainStrategy: 'AsIs', rules: [...rules, { type: 'field', inboundTag: ['site'], outboundTag: 'drop' }] },
+    routing: { domainStrategy: 'AsIs', rules: [...rules, { type: 'field', inboundTag: ['site'], outboundTag: 'drop' }, ...(callbackTag ? [
+      { type: 'field', inboundTag: ['pay-callback'], ip: CALLBACK_BLOCKED_IPS, outboundTag: 'drop' },
+      { type: 'field', inboundTag: ['pay-callback'], ip: ['0.0.0.0/0', '2000::/3'], port: '443', network: 'tcp', outboundTag: callbackTag },
+      { type: 'field', inboundTag: ['pay-callback'], outboundTag: 'drop' },
+    ] : [])] },
   }
 }
 
@@ -69,13 +82,15 @@ function buildProfiles(input) {
   const routes = input.routes
   if (!routes || typeof routes !== 'object' || Array.isArray(routes)) refuse('routes must be a JSON object')
   const rules = []
+  let callbackTag
   for (const [purpose, tag] of Object.entries(routes)) {
     if (!Object.prototype.hasOwnProperty.call(PURPOSES, purpose)) refuse(`purpose ${JSON.stringify(purpose)} is not known`)
     if (!tags.has(tag)) refuse(`purpose ${purpose} names a profile that is not given`)
-    rules.push({ type: 'field', inboundTag: ['site'], domain: PURPOSES[purpose], outboundTag: tag })
+    if (purpose === 'pay_callbacks') callbackTag = tag
+    else rules.push({ type: 'field', inboundTag: ['site'], domain: PURPOSES[purpose], outboundTag: tag })
   }
-  if (!rules.length) refuse('no purpose uses a profile')
-  return configuration(outbounds, rules)
+  if (!rules.length && !callbackTag) refuse('no purpose uses a profile')
+  return configuration(outbounds, rules, callbackTag)
 }
 
 function build(input) {

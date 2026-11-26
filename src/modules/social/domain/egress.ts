@@ -10,6 +10,7 @@ export const EGRESS_PURPOSES = [
   { key: 'updates', label: 'به‌روزرسانی از GitHub', hint: 'دریافت نسخهٔ تازهٔ سایت (git) در به‌روزرسانی امن', hosts: ['github.com', 'githubusercontent.com'], test: 'https://github.com/' },
   { key: 'ai', label: 'هوش مصنوعی', hint: 'OpenAI، Claude، Gemini، Qwen، DeepSeek، OpenRouter و Groq', hosts: ['openai.com', 'anthropic.com', 'generativelanguage.googleapis.com', 'openrouter.ai', 'groq.com', 'dashscope-intl.aliyuncs.com', 'api.deepseek.com'], test: 'https://api.openai.com/' },
   { key: 'google', label: 'ورود با گوگل', hint: 'تأیید ورود اعضا با حساب گوگل (سرورهایی که گوگل را مستقیم نمی‌بینند)', hosts: ['oauth2.googleapis.com'], test: 'https://oauth2.googleapis.com/' },
+  { key: 'pay_callbacks', label: 'تأیید پرداخت ربات پذیرندگان', hint: 'ارسال HTTPS به پنل ربات پذیرنده؛ مستقل از Bot API تلگرام', hosts: [], test: 'https://api.telegram.org/' },
 ] as const
 
 export type EgressPurpose = typeof EGRESS_PURPOSES[number]['key']
@@ -24,9 +25,9 @@ export const LEGACY_PURPOSES: readonly EgressPurpose[] = ['telegram', 'instagram
  * BUILDER_VERSION of deploy/ubuntu/xray-config.cjs in this code. The installed root copy changes only when the owner
  * runs xray-install.sh again, so it can be older than the site; a purpose it does not know makes it refuse everything.
  */
-export const CURRENT_BUILDER = 3
+export const CURRENT_BUILDER = 4
 /** The first builder version that knows a purpose (and its current hosts). */
-export const PURPOSE_BUILDER: Partial<Record<EgressPurpose, number>> = { google: 3 }
+export const PURPOSE_BUILDER: Partial<Record<EgressPurpose, number>> = { google: 3, pay_callbacks: 4 }
 export const builderFor = (purpose: EgressPurpose) => PURPOSE_BUILDER[purpose] ?? (LEGACY_PURPOSES.includes(purpose) ? 1 : 2)
 
 export const isPurpose = (value: unknown): value is EgressPurpose => EGRESS_PURPOSES.some((p) => p.key === value)
