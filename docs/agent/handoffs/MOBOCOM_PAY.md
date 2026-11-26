@@ -39,6 +39,23 @@ were removed. The shared local app returned HTTP 200 after cleanup.
 No hosted workflow or release for this slice. Roll back the app and API together
 if necessary. Retain all receipt images and payment history.
 
+### Docker Desktop preview — 2026-11-26
+
+The owner asked for build and preview work in the local `mobocom-app` service
+on port 3000. The production build of bafe63e9 and `npm run check` passed
+inside that container as UID 1000 without a .env file. The built app passed
+the seven checkout and five Admin/merchant browser scopes over isolated HTTPS
+with synthetic data. The isolated resources were removed afterward.
+
+The local Compose override in `var/pay-receipt-checkout/compose.checkout.json`
+points the same app service at this checkout. The existing database and
+storage were retained. A local dump was verified before the 16 pending
+migrations ran. Pay was enabled for local review, seed was skipped, and
+background schedulers were paused. The usual HTTP development preview on
+`http://localhost:3000/pay` returned 200 in Edge and the running checkout,
+destination card, payments table and receipt owner matched bafe63e9. No real
+bank transfer or upstream delivery was exercised.
+
 ## Gateway availability and operations alerts — 2026-11-26
 
 Owner requested implementation after the gateway review. Continue in

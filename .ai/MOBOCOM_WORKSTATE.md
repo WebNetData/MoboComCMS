@@ -4,6 +4,10 @@ Continue .mobocom/pay-receipt-checkout from main cd1f6aae. Full-width payment
 details, guarded Admin receipt links, compact card/amount and two-field receipt
 submission. Staff verifies missing reference on manual approval. Four scoped PG
 suites, OpenAPI compatibility, Doctor and twelve real browser scopes passed.
+The owner reviews on Docker Desktop `mobocom-app` at `localhost:3000`.
+The bafe63e9 production build and canonical check passed in that container,
+with twelve browser scopes on isolated HTTPS. The active local HTTP preview
+serves the same source with existing PostgreSQL and storage.
 [Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#compact-checkout-and-receipt-review--2026-11-26).
 
 # Release 1.7.24 — 2026-11-26
