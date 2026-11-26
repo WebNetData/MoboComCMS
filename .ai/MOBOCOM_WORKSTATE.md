@@ -1,3 +1,9 @@
+# Pay/Cloud UI and first-terminal repair — 2026-11-26
+
+[PR496](https://github.com/WebNetData/MoboComCMS/pull/496) is open against main; implementation9857fad8, scoped documentation correction9763a43a. Not merged or deployed.
+
+Continue .mobocom/pay-cloud-ui, branch fix/pay-cloud-ui-2026-11-26 from main 44a501be. Wide specialist frames, compact active-group menus, Pay landing and initial merchant website/terminal flow repaired. Canonical check, PG 3, 29 browser/axe views, real form persistence/denial, Doctor 0 errors and scoped scanners passed. Owned runtime/two DBs/role/tunnel/session fixtures cleaned; app3000 HTTP 200. New changes are not deployed/released; immutable 1.7.23 remains unchanged. [Handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#paycloud-layout-and-first-terminal-repair--2026-11-26).
+
 # Release1.7.23 published — 2026-11-26
 
 [Stable/latest1.7.23](https://github.com/WebNetData/MoboComCMS/releases/tag/v1.7.23) is published from merged source`2e2304772eb71423f032be83cbefcc7bd35aad9d` (PR493/494). Full canonical check,245 default +5 scoped PostgreSQL checks, exact-source production build and12 production browser views passed. Ten signed assets re-downloaded/hash-verified before and after publication; the original publisher and1.7.22 verifier accept them. Owned runtime/two DBs/role/tunnel/session fixtures cleaned; shared app3000 HTTP200. Owner performs the destination update with verified backup and writers/workers paused. [Receipts](../docs/agent/handoffs/RELEASE_1_7_23.md#stable-publication-completed).

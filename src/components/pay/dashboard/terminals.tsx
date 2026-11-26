@@ -27,7 +27,9 @@ export default function Terminals({
 }) {
  const [channelType, setChannelType] = useState<PayChannelType>('WEBSITE');
  const [channelUrl, setChannelUrl] = useState('');
+ const [website, setWebsite] = useState('');
  const webChannel = channelType === 'WEBSITE' || channelType === 'BOT';
+ const initialWebsite = webChannel && !data.merchant?.website;
   return (
     <><div className={s.split}>
       <section className={s.card}>
@@ -72,26 +74,34 @@ export default function Terminals({
           void action(async () => {
             await api(
               "/api/pay/terminals",
- json("POST", { name: terminalName, channelType, ...(webChannel ? { returnUrl } : channelType === 'PAYMENT_LINK' ? {} : { channelUrl }) }),
+ json("POST", { name: terminalName, channelType, ...(webChannel ? { returnUrl, ...(initialWebsite ? { website } : {}) } : channelType === 'PAYMENT_LINK' ? {} : { channelUrl }) }),
             );
             setTerminalName("");
             setReturnUrl("");
             setChannelUrl('');
+            setWebsite('');
           });
         }}
       >
         <h2>پایانه جدید</h2>
         <Field label="نام پایانه">
           <input
+            required
+            maxLength={100}
             value={terminalName}
             onChange={(e) => setTerminalName(e.target.value)}
           />
         </Field>
         <Field label="نوع پایانه"><select value={channelType} onChange={e => setChannelType(e.target.value as PayChannelType)}>{(Object.entries(PAY_CHANNEL_LABELS) as [PayChannelType, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
  <p className={s.muted}>دریافت روی کارت‌های موبوکام انجام می‌شود. مدیریت موبوکام روش تأیید، اتصال بانکی و تأیید خودکار هر پایانه را تعیین می‌کند؛ پذیرنده به توکن پیامک یا حساب بله دسترسی ندارد.</p>
+        {initialWebsite && <><Field label="وب‌سایت کسب‌وکار"><input type="url" dir="ltr" value={website} onChange={e => setWebsite(e.target.value)} required maxLength={1000} placeholder="https://example.com" /></Field><p className={s.muted}>وب‌سایت همراه نخستین پایانه ثبت می‌شود؛ برای تغییر بعدی دامنه با مدیریت تماس بگیرید.</p></>}
+        {webChannel && !initialWebsite && <p className={s.muted}>وب‌سایت ثبت‌شده: <bdi dir="ltr">{data.merchant?.website}</bdi>؛ نشانی بازگشت باید روی همین دامنه باشد.</p>}
         {webChannel && <Field label="نشانی بازگشت">
           <input
             type="url"
+            required
+            maxLength={1000}
+            placeholder="https://example.com/payment/result"
             dir="ltr"
             value={returnUrl}
             onChange={(e) => setReturnUrl(e.target.value)}
@@ -102,7 +112,7 @@ export default function Terminals({
           <button
             type="submit"
             className={s.button}
-            disabled={busy || !active || !terminalName || (webChannel ? !returnUrl : channelType !== 'PAYMENT_LINK' && !channelUrl)}
+            disabled={busy || !active || !terminalName || (webChannel ? !returnUrl || (initialWebsite && !website) : channelType !== 'PAYMENT_LINK' && !channelUrl)}
           >
             ثبت پایانه
           </button>

@@ -1,3 +1,9 @@
+Pay/Cloud repair 2026-11-26: existing MerchantShell/CloudShell own fluid frames and
+active-group menus; Pay landing stays under existing Site chrome. Billing Pay
+merchants owns explicit first-website registration atomically with terminal
+creation; the existing domain cannot be replaced here. No new shared system.
+[Files, contracts and evidence](handoffs/MOBOCOM_PAY.md#paycloud-layout-and-first-terminal-repair--2026-11-26).
+
 Bank setup2026-11-26: components/pay/admin/{sms-forwarder-guide,bale-setup} provide
 operator setup through existing Settings/SmsSources/BaleStatus. Billing Pay
 merchants blocks merchant auto-flag writes; merchant-admin retains the write owner.

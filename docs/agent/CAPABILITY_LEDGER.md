@@ -1,3 +1,10 @@
+Pay/Cloud repair 2026-11-26: VERIFIED_LOCAL. Fluid 1920px specialist frames, compact
+default menus, native mobile/tablet drawers and themed Pay public/application/
+restricted states pass 29 browser views/axe. Initial WEBSITE/BOT terminal can
+explicitly register an empty business website; existing origin guard remains.
+Canonical check, PG 3, real form persistence/denial, Doctor 0 errors and scoped
+scanners pass. Not deployed or released. [Evidence](handoffs/MOBOCOM_PAY.md#paycloud-layout-and-first-terminal-repair--2026-11-26).
+
 Admin bank setup2026-11-26: VERIFIED_LOCAL; LIVE_COMMISSIONING_PENDING. Source-aware
 POST/JSON/one-time-token SMS guide, private Bale-panel/setup guide and Admin-only
 auto-flag writes. Native PG3/47units/types/eight gates/scans and actual themed

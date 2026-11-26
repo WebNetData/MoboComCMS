@@ -11,6 +11,7 @@ Supporting design/React/a11y skills follow [engineering skill routing](ENGINEERI
 3. Define loading, empty, error, success, disabled, selected and permission states. Use semantic surface/text/border/focus tokens in both themes, including embedded editor controls. Avoid fixed white backgrounds that bypass theme tokens.
 4. Use existing Storybook coverage for new reusable component states where available. Code Connect is appropriate only for real maintained Figma/component mappings; never invent Figma IDs or claim a connection was published.
 5. Keep domain/business logic outside presentation. Scope module CSS; separate public, Admin, shared and editor tokens. Prefer existing supported components and dependency versions.
+6. Specialist workspaces follow the approved account dashboard's fluid desktop frame: a full-height side column and the remaining viewport for content, without a second narrow outer container. Open the active navigation group by default; retain explicit user choices and scrolling when genuinely needed. At mobile/tablet widths use the existing hamburger/drawer behavior with keyboard focus, Escape and resize restoration. Measure the actual 1920px frame and default menu height as well as the standard mobile checks; desktop screenshots shrunk to mobile do not prove responsive quality.
 
 Owner clarification2026-11-25: every affected platform surface must look intentionally
 styled, including dense data lists and internal Admin views. A border around an
