@@ -529,7 +529,7 @@ test('ticket departments require an active owned service only for product and su
 test('support reply waits for the customer and customer reply reopens the ticket', async () => {
   let role = 'ADMIN', status = 'OPEN'
   const db = {
-    ticket: { findUnique: async () => ({ id: 4, userId: 7, status, firstResponseAt: null }), update: async ({ data }) => { status = data.status } },
+    ticket: { findUnique: async () => ({ id: 4, userId: 7, status, firstResponseAt: null }), updateMany: async ({ data }) => { status = data.status; return { count: 1 } } },
     ticketMessage: { create: async () => ({ id: 1 }) },
     $transaction: async callback => callback(db),
   }
@@ -552,7 +552,7 @@ test('an administrator using their customer ticket remains the customer, while a
   const db = {
     ticket: {
       findUnique: async () => ({ ...ticket, status }),
-      update: async ({ data }) => { status = data.status; lastCustomerAt = data.lastCustomerAt; lastStaffAt = data.lastStaffAt },
+      updateMany: async ({ data }) => { status = data.status; lastCustomerAt = data.lastCustomerAt; lastStaffAt = data.lastStaffAt; return { count: 1 } },
     },
     ticketMessage: { create: async ({ data }) => { sender = data.fromAdmin; return { id: 1 } } },
     $transaction: async callback => callback(db),
@@ -1212,7 +1212,7 @@ test('ticket desk scopes lists and status edits to assigned departments', async 
   let listWhere, updates = 0
   const db = {
     ticketDepartment: { findMany: async () => [{ slug: 'SALES', nameFa: 'فروش', nameEn: 'Sales', roleIds: '[4]' }, { slug: 'TECH', nameFa: 'فنی', nameEn: 'Technical', roleIds: '[5]' }], findUnique: async () => ({ roleIds: '[5]' }) },
-    ticket: { findMany: async ({ where }) => { listWhere = where; return [] }, findUnique: async () => ({ department: 'TECH' }), update: async () => { updates++; return { id: 1, status: 'CLOSED' } } },
+    ticket: { findMany: async ({ where }) => { listWhere = where; return [] }, findUnique: async () => ({ id: 1, department: 'TECH' }), updateMany: async () => { updates++; return { count: 1 } } },
   }
   const route = load('src/modules/support/server/http/admin/tickets/route.ts', { '@/platform/database/prisma': { db }, '@/modules/identity/server/access': { requirePerm: async () => ({ role: 'ADMIN', roleId: 4, permissions: ['tickets.handle'] }) }, '@/modules/identity/rbac': { parsePermissions: value => value.split(',') } })
   assert.equal((await route.GET(new NextRequest('http://localhost/api/admin/tickets'))).status, 200)

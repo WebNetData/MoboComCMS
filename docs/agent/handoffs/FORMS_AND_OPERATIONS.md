@@ -2,6 +2,38 @@ CRM engagement2026-11-07: continue [the scoped CRM handoff](CRM_ENGAGEMENT.md) f
 
 # Form builder, held work and platform safety — continue existing work
 
+## Atomic Support ticket ownership — 2026-11-27
+
+Owner requested the concurrency fix from the whole-site audit. The worktree is
+`.mobocom/support-ticket-claim` on `fix/support-ticket-claim-2026-11-27`,
+based on merged main `6d844fba`. Support owns the shared ticket workflow
+predicate in `src/modules/support/server/ticket-workflow.ts`. The admin PATCH
+and staff reply compare the owner, status, department and response dates they
+authorized against in the write. An intervening workflow change returns
+`409 TICKET_CHANGED`. Existing department/holder refusals stay 403. The
+reply transaction claims the ticket before inserting its message and
+attachment rows. A lost claim removes staged files and emits no reply notice.
+An internal note touches activity without changing status or ownership; a
+customer reply still reopens their own ticket and preserves its owner.
+
+Executed in Docker Linux/UID1000 without an `.env`: PostgreSQL 17 with a fresh
+non-superuser database applied 224 migrations. The registered
+`support-ticket-claim` and existing `support-page-problems` connected checks
+passed through the real route handlers with scoped fixture identities and a
+notice recorder. The checks synchronize the two reads before the writes and
+assert one winner for take/take, reply/reply, take/reply and manager transfer
+versus staff reply. They also check department refusals, note/close, reopening
+and losing-file cleanup. Restoring each old handler separately in the
+disposable runtime produced 200/200 and failed the corresponding assertion;
+restoring this patch passed. Ticket-focused units, the full Forms unit file,
+TypeScript, source/import and architecture checks passed.
+
+The API response adds a conflict case. No migration, frontend source change
+or browser check is part of this fix. For rollback, revert the change as a
+unit with no data migration; reverting restores the race, so avoid concurrent
+assignment/reply operations until an alternative fix is deployed. The next
+independent Support/CRM slice is filtering before CRM pagination.
+
 ## Repair invoice at the counter — 2026-11-13
 
 Branch `feat/repair-invoice-2026-11-13` from main `898a0a6f`. A repair is invoiced through the Store counter sale (parts from stock, staff-priced work and bought-in parts) and linked by `FormSubmission.repairOrderId`; a step marked `invoice` hands the device back only with that invoice paid (or a manager's recorded reason). Decision and owners: PLATFORM_DECISIONS «Repair invoice at the counter». Check: `scripts/repair-invoice.connected.cjs` (registered in `run-pg-checks.cjs`). `forms-counter.connected.cjs` now mocks `moduleGuard` (it failed on main since the in-store module's guard). `store-counter.connected.cjs` still fails on main: its register has no stock location (pre-existing, untouched).
