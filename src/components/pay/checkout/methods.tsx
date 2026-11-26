@@ -27,12 +27,26 @@ export default function CheckoutMethods({ data, refresh, preferredGateway = '' }
   }
   const selected = data.selectedGateway;
   const transfer = selected?.manual && selected.status === "READY";
+  const preferred = data.gateways.find(method => method.ref === preferredGateway);
+  const primary = preferred ?? data.gateways.find(method => method.automatic);
+  const alternatives = data.gateways.filter(method => method.ref !== primary?.ref);
+  function methodButton(method: PayCheckout['gateways'][number]) {
+    const suffix = method.automatic ? ' · تأیید خودکار' : method.manual ? ' · بررسی دستی رسید' : ' · پرداخت آنلاین';
+    return <button type="button" key={method.ref} className={method.ref === primary?.ref ? s.button : s.secondary}
+      disabled={busy || Boolean(data.purchase && !data.purchase.accepted && !accepted)} onClick={() => void choose(method.ref)}>{method.name}{suffix}</button>;
+  }
   return <section className={`${s.card} ${s.stack} ${transfer ? styles.transfer : ""}`} aria-label={transfer ? "واریز و ارسال رسید" : undefined}>
     {!transfer && <h2>{selected ? "ادامه پرداخت" : "انتخاب روش پرداخت"}</h2>}
     <ErrorNotice error={error} />
     {data.purchase && !data.purchase.accepted && <label className={s.check}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />می‌دانم این خرید اعتبار داخلی USDT برای {data.purchase.beneficiaryName} است و به کیف پول شبکهٔ من منتقل نمی‌شود.</label>}
-    {!selected && data.gateways.some(method => method.ref === preferredGateway) && <p className={s.muted} id="pay-method-preference">روش انتخاب‌شده در ربات مشخص شده است؛ برای ادامه، دکمهٔ همان روش را بزنید.</p>}
-    {!selected && <>{!data.gateways.length && <p role="status">روش پرداخت فعالی در دسترس نیست؛ با فروشنده تماس بگیرید.</p>}<div className={s.stack}>{data.gateways.map(g => <button type="button" className={g.ref === preferredGateway ? s.button : s.secondary} aria-describedby={g.ref === preferredGateway ? "pay-method-preference" : undefined} key={g.ref} disabled={busy || Boolean(data.purchase && !data.purchase.accepted && !accepted)} onClick={() => void choose(g.ref)}>{g.name}{g.manual ? " · ارسال رسید" : " · پرداخت آنلاین"}</button>)}</div></>}
+    {!selected && <>
+      {primary && methodButton(primary)}
+      {primary?.automatic && <p className={s.muted}>برای شناسایی واریز، مبلغ دقیق شامل مبلغ یکتا در گام بعد نمایش داده می‌شود.</p>}
+      {primary && alternatives.length > 0
+        ? <details className={styles.disclosure} open={error ? true : undefined}><summary>روش‌های دیگر پرداخت</summary><div className={s.stack}>{alternatives.map(methodButton)}</div></details>
+        : <div className={s.stack}>{alternatives.map(methodButton)}</div>}
+      {!data.gateways.length && <p role="status">روش پرداخت فعالی در دسترس نیست؛ با فروشنده تماس بگیرید.</p>}
+    </>}
     {selected && selected.status !== "READY" && <><p role="status">{selected.status === "FAILED" ? "اتصال به درگاه انجام نشد. می‌توانید همین روش را دوباره امتحان کنید." : "نتیجه ایجاد پرداخت هنوز قطعی نیست. برای جلوگیری از پرداخت تکراری، دوباره پرداخت نکنید و با پشتیبانی پیگیری کنید."}</p>{selected.status === "FAILED" && <button type="button" className={s.secondary} disabled={busy} onClick={() => void choose(selected.gatewayRef)}>تلاش دوباره</button>}</>}
     {selected?.status === "READY" && !selected.manual && <><p>پس از پرداخت، برای مشاهده نتیجه به همین صفحه بازگردید.</p><a className={s.button} href={selected.paymentUrl}>ادامه در صفحه امن پرداخت</a><button type="button" className={s.secondary} onClick={refresh}>بررسی نتیجه پرداخت</button></>}
     {selected?.status === "READY" && selected.manual && <>

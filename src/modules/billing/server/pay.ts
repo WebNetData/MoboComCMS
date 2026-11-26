@@ -1,5 +1,6 @@
 /** Public Billing address for MoboComPay; callers must not import private parts. */
 export { enrollMerchant, createTerminal, changeTerminal, changeMerchant } from './pay/merchants'
+export { saveMerchantFeeShare } from './pay/merchant-fee-share'
 export { merchantDirectory, merchantAdminDetail, manageMerchant, merchantPortalAccess } from './pay/merchant-admin'
 export { createPayPayment, reportPayReference } from './pay/payments'
 export { acceptBankEvent } from './pay/reconcile'

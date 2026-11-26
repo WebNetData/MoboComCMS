@@ -1,3 +1,31 @@
+## SMS checkout and fee allocation — 2026-11-27
+
+The customer screenshot showed the manual card path. On new eligible checkouts,
+the automatic method is primary unless the link specifies a different method.
+Admin controls source, destination and terminal eligibility. A manual
+selection remains explicit and keeps its original invoice. The automatic
+quote reserves an exact amount and shows its adjustment alongside the
+contract fee shares. Existing settlement still claims the invoice once.
+Basic SMS Forwarder can confirm a Rial payment. Locked-rate USDT still
+requires timestamped evidence or staff review.
+
+The merchant's payment workspace saves the customer share of the contracted
+fee or clears it to the contract default. The allocation applies to new Pay
+and bot orders. The whole-Rial remainder goes to the merchant's fee share.
+Existing total, net and fee columns are the immutable snapshot. Legacy API
+feeBearer values remain available with additive exact shares.
+
+Executed on the local Docker Desktop app: clean database migrations,
+four connected PostgreSQL suites, architecture/source/schema/money gates,
+OpenAPI comparison, React Doctor (zero errors, five advisory findings) and
+production build. Connected cases proved a split fee, distinct bank amounts
+for equal orders, a principal-only SMS refusal and one net wallet credit on
+an exact SMS plus replay. Twelve browser scopes on a synthetic HTTPS preview
+verified receipt centering, both submissions, documented mobile dimensions,
+receipt permissions and the existing ledgers. A separate mobile browser
+check verified saving and reloading the merchant fee preference.
+No live provider delivery was exercised.
+
 ## Compact checkout and receipt review — 2026-11-26
 
 Owner reported unreadable details in both payment tables, hard-to-open receipt

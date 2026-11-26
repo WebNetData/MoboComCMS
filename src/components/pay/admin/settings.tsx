@@ -23,7 +23,7 @@ export default function Settings({
 }) {
   return (
     <div className={s.stack}>
-    <section className={`${s.card} ${s.stack}`} aria-labelledby="pay-auto-setup-title"><h2 id="pay-auto-setup-title">راه‌اندازی تأیید خودکار؛ فقط مدیریت</h2><p className={s.muted}>کارت و حساب بانکی متعلق به موبوکام است. اتصال پیامک و بله، فعال‌سازی روش خودکار و قرارداد کارمزد را مدیریت تعیین می‌کند. پذیرنده فقط وضعیت را می‌بیند؛ نخستین تأیید معتبر، پرداخت را یک بار ثبت می‌کند.</p><nav className={s.actions} aria-label="راهنمای منابع بانکی"><a className={s.secondary} href="#sms-forwarder-guide-title">راهنمای POST پیامک</a><a className={s.secondary} href="#pay-bale-setup">اتصال حساب بله</a><Link className={s.secondary} href="/admin/mobocom-pay/merchants">مجوز خودکار پذیرندگان</Link></nav></section>
+    <section className={`${s.card} ${s.stack}`} aria-labelledby="pay-auto-setup-title"><h2 id="pay-auto-setup-title">راه‌اندازی تأیید خودکار؛ فقط مدیریت</h2><p className={s.muted}>مدیریت شمارهٔ مقصد، منابع پیامک و بله، مجوز پایانه و نرخ کارمزد را تعیین می‌کند. پذیرنده سهم پرداخت کارمزد را تنظیم می‌کند. نخستین تأیید معتبر، پرداخت را یک بار ثبت می‌کند.</p><nav className={s.actions} aria-label="راهنمای منابع بانکی"><a className={s.secondary} href="#sms-forwarder-guide-title">راهنمای POST پیامک</a><a className={s.secondary} href="#pay-bale-setup">اتصال حساب بله</a><Link className={s.secondary} href="/admin/mobocom-pay/merchants">مجوز خودکار پذیرندگان</Link></nav></section>
     <section className={`${s.card} ${s.stack}`}>
       <h2>تنظیمات دریافت و تسویه</h2>
       <label className={s.check}>

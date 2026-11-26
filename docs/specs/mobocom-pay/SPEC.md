@@ -1,3 +1,27 @@
+## Checkout alignment, SMS amount and fee allocation — 2026-11-27
+
+An active merchant can save the customer's share of the approved payment fee
+from the payment workspace. A share from 0 to 100 percent applies to future
+links and bot orders. A cleared preference follows the contract. Calculate the
+fee with the existing rate, flat amount and cap, round the customer share down
+to whole Rials, and deduct the remainder from the merchant. Record both shares
+through the existing immutable total, fee and net. The public API retains the
+legacy fee bearer values and adds the two exact amounts.
+
+Show automatic card transfer first when an owner-authorized source and terminal
+are ready and no link explicitly prefers another method. The internal gateway
+atomically reserves a distinct bank total. Display its adjustment separately
+from the contract fee. An authenticated in-window credit SMS with that total
+settles one payment through the existing journal, including when a receipt or
+another source is involved. Basic SMS Forwarder messages use server receipt
+time and preserve the existing reviewed evidence requirement for locked USDT.
+Both receipt dialogs center in the viewport and keep their scroll and focus
+behavior on narrow screens.
+
+Acceptance covers a 30/70 share, both endpoints, capped fees, historical
+snapshots, distinct quotes with identical bases, an unmatched principal, an
+exact SMS, and duplicate wallet credit prevention.
+
 ## Merchant responsive menu / support — owner2026-11-25
 
 Continue local8fc1bf16. Reuse account/Admin ShellNav for grouped merchant links,

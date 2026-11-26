@@ -39,11 +39,16 @@ export default function BankCheckoutView({ data, error, expired, countdown, rema
     {!data ? !error && <div className={v.panel} role="status">در حال دریافت اطلاعات پرداخت…</div> : <section className={v.panel} aria-labelledby="bank-payment-title">
       <div className={v.invoice}><h2 id="bank-payment-title">{pending ? 'مبلغ نهایی سفارش' : 'خلاصهٔ درخواست'}</h2><bdi title={data.invoiceNumber}>{data.invoiceNumber}</bdi></div>
       <TransferAmount value={data.collectedRial} onCopy={pending && data.bank && !error ? onCopy : undefined} />
-      <details className={v.breakdown}><summary>کارمزد و معادل تتر <span>{money(data.adjustmentRial)}</span></summary><dl><div><dt>اصل فاکتور</dt><dd>{money(data.principalRial)}</dd></div><div><dt>هزینهٔ خدمت و تشخیص واریز</dt><dd>{money(data.adjustmentRial)}</dd></div></dl><Equivalent data={data} /></details>
+      <details className={v.breakdown}><summary>جزئیات مبلغ و معادل تتر</summary><dl>
+        <div><dt>مبلغ سفارش</dt><dd>{money(data.orderRial ?? data.principalRial)}</dd></div>
+        {data.customerFeeRial && data.customerFeeRial !== '0' && <div><dt>سهم مشتری از کارمزد</dt><dd>{money(data.customerFeeRial)}</dd></div>}
+        {data.merchantFeeRial && data.merchantFeeRial !== '0' && <div><dt>سهم پذیرنده از کارمزد</dt><dd>{money(data.merchantFeeRial)}</dd></div>}
+        <div><dt>مبلغ یکتای تشخیص واریز</dt><dd>{money(data.adjustmentRial)}</dd></div>
+      </dl><Equivalent data={data} /></details>
       {error ? <p className={v.muted}>برای ادامه، وضعیت درخواست را تازه کنید.</p> : pending ? <>
         <div className={v.timer}><div><span>زمان باقی‌مانده برای واریز</span><strong dir="ltr">{countdown}</strong></div><progress aria-label="مهلت باقی‌مانده پرداخت" max={Math.max(1, (Date.parse(data.expiresAt) - Date.parse(data.validFrom)) / 1000)} value={remaining ?? 0} /></div>
         {!data.accepted ? <div className={v.consent}><label className={s.check}><input type="checkbox" checked={accepted} onChange={event => onAcceptChoice(event.target.checked)} />مبلغ نهایی و هزینهٔ خدمت را می‌پذیرم</label><button type="button" className={s.button} disabled={!accepted || busy} onClick={onAccept}>{busy ? 'در حال ثبت…' : 'پذیرش و ادامه'}</button></div>
-          : data.bank ? <><DestinationCard bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status">{copied || 'پس از واریز، می‌توانید رسید بفرستید.'}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام، ارسال رسید'}</button></>
+          : data.bank ? <><DestinationCard bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status">{copied || 'مبلغ دقیق را واریز کنید و منتظر تأیید خودکار بمانید.'}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام، ارسال رسید'}</button></>
           : <p className={v.muted}>اطلاعات واریز هنوز آماده نیست؛ وضعیت را تازه کنید.</p>}
       </> : <Resolution data={data} expired={expired} busy={busy} back={back} onRenew={onRenew} />}
     </section>}

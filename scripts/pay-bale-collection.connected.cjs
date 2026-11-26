@@ -243,7 +243,7 @@ async function main() { try {
   payTerminal = await prisma.payTerminal.create({ data: { id: randomUUID(), merchantId: payMerchant.id, name: stamp, returnUrl: 'https://merchant.invalid/return', active: true, baleEnabled: true } })
   manualGateway = await prisma.gateway.create({ data: { name: stamp + '-manual', provider: 'MANUAL', active: true, fiat: 'IRR', instructions: 'Synthetic manual transfer instructions' } })
   const gatewayRef = 'db:' + smsGateway.id
-  async function verifiedCheckout(amount, legacy = false) {
+  async function verifiedCheckout(amount, legacy = false, split = false) {
     const id = randomBytes(24).toString('base64url'), secret = randomBytes(32).toString('base64url')
     const invoiceId = await prisma.$transaction(async tx => {
       const legacyInvoice = legacy ? await tx.invoice.create({ data: {
@@ -252,7 +252,8 @@ async function main() { try {
       } }) : null
       await tx.payPayment.create({ data: {
         id, merchantId: payMerchant.id, terminalId: payTerminal.id, externalId: id, idempotencyKey: id, fingerprint: id,
-        amountMinor: amount, totalMinor: amount, netMinor: amount, feeMinor: 0n, createdAt: new Date(now), expiresAt: new Date(now + 600000),
+        amountMinor: amount, totalMinor: amount + (split ? 300n : 0n), netMinor: amount - (split ? 700n : 0n), feeMinor: split ? 1000n : 0n,
+        ...(split && { feeBearer: 'SPLIT' }), createdAt: new Date(now), expiresAt: new Date(now + 600000),
         payerSessionHash: createHash('sha256').update(secret).digest('hex'), payerPhoneCiphertext: encryptPanelCredential('+989120009999'),
         payerPhoneLast4: '9999', payerVerifiedAt: new Date(now), payerSessionExpiresAt: new Date(now + 86400000),
         ...(legacyInvoice && { invoiceId: legacyInvoice.id, gatewayAttemptRef: gatewayRef, gatewayAttemptProvider: 'CARD_TRANSFER', gatewayAttemptStatus: 'UNKNOWN' }),
@@ -333,6 +334,34 @@ async function main() { try {
   assert.equal(merchantView.creditRial, '2099000'); assert.equal(merchantView.customerAmountRial, renewedPay.collectedRial)
   assert.equal(BigInt(merchantView.platformFeeRial) + BigInt(merchantView.creditRial), BigInt(merchantView.customerAmountRial))
   assert.equal(await prisma.payment.count({ where: { invoiceId: payInvoice.id, status: 'CONFIRMED' } }), 1)
+  const smsCheckout = await verifiedCheckout(17000000n, false, true)
+  const smsPeer = await verifiedCheckout(17000000n, false, true)
+  const options = (await pay.checkoutView(smsCheckout.id, smsCheckout.req)).gateways
+  assert.ok(options.some(option => option.ref === gatewayRef && option.automatic && !option.manual))
+  assert.ok(options.some(option => option.id === manualGateway.id && option.manual && !option.automatic))
+  const smsOrders = await Promise.all([smsCheckout, smsPeer].map(async checkout => {
+    const started = await pay.startPayGateway(checkout.req, checkout.id, { gatewayRef })
+    invoices.push(started.invoiceId)
+    const id = new URL(started.paymentUrl).pathname.split('/').at(-1)
+    quotes.push(id)
+    return changeBaleCheckout(id, checkout.req, 'accept')
+  }))
+  const [smsQuote, peerQuote] = smsOrders
+  assert.equal(smsQuote.principalRial, '17000300')
+  assert.equal(smsQuote.orderRial, '17000000')
+  assert.equal(smsQuote.customerFeeRial, '300'); assert.equal(smsQuote.merchantFeeRial, '700')
+  assert.ok(BigInt(smsQuote.adjustmentRial) > 0n)
+  assert.notEqual(smsQuote.collectedRial, peerQuote.collectedRial)
+  const forwarded = amount => load('src/modules/billing/server/pay/sms/forwarder.ts').receiveForwardedSms(simpleSource.sourceId,
+    Buffer.from(JSON.stringify({ sms: `CREDIT ${amount}`, bank: simpleSource.bank, token: simpleSource.token })))
+  assert.equal((await forwarded(smsQuote.principalRial)).financialApproval, false)
+  assert.equal((await forwarded(smsQuote.collectedRial)).financialApproval, true)
+  assert.equal((await forwarded(smsQuote.collectedRial)).duplicate, true)
+  assert.equal((await baleCheckout(peerQuote.id, smsPeer.req)).status, 'PENDING')
+  const splitPayment = await prisma.payPayment.findUniqueOrThrow({ where: { id: smsCheckout.id } })
+  const splitCredit = await prisma.walletTx.findUniqueOrThrow({ where: { id: splitPayment.walletTxId } })
+  assert.equal(splitCredit.amountMinor, 16999300n)
+  assert.equal(await prisma.walletTx.count({ where: { userId: users[1].id, type: 'PAY_CREDIT', amountMinor: 16999300n } }), 1)
   // A USDT purchase remains bound to its payment deadline and credits the stored
   // amount when an attested automatic notice arrives during that window.
   now = RealDate.now() - 1000

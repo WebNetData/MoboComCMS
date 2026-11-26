@@ -2,6 +2,7 @@ import { purchaseView } from './assets'
 import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import type { NextRequest } from 'next/server'
 import { PayError, type PayCheckout } from '@/modules/billing/domain/pay'
+import { paymentFeeShares } from '@/modules/billing/domain/pay-policy'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { payTransaction } from './context'
@@ -33,6 +34,7 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
       ['STARTING', 'UNKNOWN'].includes(row.gatewayAttemptStatus) && methods.some(method => method.ref === row.gatewayAttemptRef)
     const receipt = verified && invoice ? await tx.paymentReceipt.findFirst({ where: { invoiceId: invoice.id }, orderBy: { id: 'desc' }, select: { id: true, status: true, adminNote: true, createdAt: true } }) : null
     return {
+      ...paymentFeeShares(row),
       purchase: purchaseView(row, verified),
       id, merchantName: row.merchant.name, terminalName: row.terminal.name, externalId: row.externalId,
       amountRial: row.amountMinor.toString(), totalRial: row.totalMinor.toString(), feeRial: row.feeMinor.toString(), feeBearer: row.feeBearer === 'CUSTOMER' ? 'CUSTOMER' : 'MERCHANT',

@@ -1,5 +1,6 @@
 import type { PayPayment, Prisma } from '@prisma/client'
 import type { PayPaymentView } from '@/modules/billing/domain/pay'
+import { paymentFeeShares } from '@/modules/billing/domain/pay-policy'
 import { minorToDecimal } from '@/shared/money'
 import { creditCurrency } from './assets'
 import { paymentConfirmation } from './confirmation'
@@ -36,6 +37,7 @@ export function paymentView(row: PayPayment & { terminal?: { name: string }; inv
   const serviceFee = row.status === 'PAID' && collection?.status === 'PAID' && collection.paidCollectedRial !== null
     ? collection.paidCollectedRial - collection.principalRial : 0n
   return {
+    ...paymentFeeShares(row),
     confirmation: paymentConfirmation(row, collection, row.invoice?.payments[0]?.raw),
     settledServiceFeeRial: serviceFee.toString(),
     platformFeeRial: (row.feeMinor + row.creditRoundingRial + (row.status === 'PAID' ? serviceFee : collection?.adjustmentRial || 0n)).toString(),
@@ -47,7 +49,7 @@ export function paymentView(row: PayPayment & { terminal?: { name: string }; inv
     gatewayCollectionStatus: collection?.status || '',
     id: row.id, terminalId: row.terminalId, terminalName: row.terminal?.name || '', externalId: row.externalId,
     amountRial: row.amountMinor.toString(), feeRial: row.feeMinor.toString(), netRial: row.netMinor.toString(),
-    totalRial: row.totalMinor.toString(), feeBearer: row.feeBearer as PayPaymentView['feeBearer'],
+    totalRial: row.totalMinor.toString(), feeBearer: row.feeBearer === 'CUSTOMER' ? 'CUSTOMER' : 'MERCHANT',
     status: held ? 'UNDER_REVIEW' : row.status === 'PENDING' && expiresAt <= new Date() ? 'EXPIRED' : row.status as PayPaymentView['status'],
     transferReference: row.transferReference, createdAt: row.createdAt.toISOString(), paidAt: row.paidAt?.toISOString() || null,
     expiresAt: expiresAt.toISOString(), checkoutUrl: '/pay/' + row.id,

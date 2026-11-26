@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { PayError } from '@/modules/billing/domain/pay'
+import { paymentFeeShares } from '@/modules/billing/domain/pay-policy'
 import { baleEffectiveStart, type BaleCheckout } from '@/modules/billing/domain/pay-bale-collection'
 import { auditSystemStrict } from '@/platform/audit/server'
 import { payTransaction } from '../context'
@@ -45,6 +46,7 @@ export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout
     // Omitted fields never leave the server, including after browser reload or polling.
     const bank = { bankName: display.bankName ? row.bankAccount.bankName : '', holderName: display.holderName ? row.bankAccount.holderName : '', cardNumber: display.cardNumber ? row.bankAccount.cardNumber : '', accountNumber: display.accountNumber ? row.bankAccount.accountNumber : '', iban: display.iban ? row.bankAccount.sheba : '' }
     return { id, status, invoiceNumber: row.invoice.number, principalRial: row.principalRial.toString(), adjustmentRial: row.adjustmentRial.toString(), collectedRial: row.collectedRial.toString(),
+      ...(row.invoice.payCollection ? { orderRial: row.invoice.payCollection.amountMinor.toString(), ...paymentFeeShares(row.invoice.payCollection) } : {}),
       usdt: usdtEquivalent(row.collectedRial, await currentCurrencyRate('USDT', tx), now),
       validFrom: start.toISOString(), expiresAt: row.expiresAt.toISOString(), accepted: Boolean(row.acceptedAt), serverTime: now.toISOString(),
       receipt: row.receipt ? { id: row.receipt.id, status: row.receipt.status, createdAt: row.receipt.createdAt.toISOString() } : null,

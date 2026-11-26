@@ -21,6 +21,7 @@ import {
   createTerminal,
   changeTerminal,
   changeMerchant,
+  saveMerchantFeeShare,
   createPayPayment,
   reportPayReference,
   acceptBankEvent,
@@ -144,6 +145,11 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     }
     if (req.method === 'PATCH' && resource === 'terminals')
       return apiOk(terminalView(await changeTerminal(actor, input)))
+    if (!machine && req.method === 'PATCH' && resource === 'fee-share') {
+      if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host')))
+        throw new PayError('مبدأ درخواست معتبر نیست', 403)
+      return apiOk(await saveMerchantFeeShare(actor, input))
+    }
     return apiErr('عملیات پشتیبانی نمی‌شود', 405)
   } catch (error) {
     return payHttpFailure(error)

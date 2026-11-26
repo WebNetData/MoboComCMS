@@ -41,6 +41,9 @@ export interface BaleCheckout {
   principalRial: string
   adjustmentRial: string
   collectedRial: string
+  orderRial?: string
+  customerFeeRial?: string
+  merchantFeeRial?: string
   validFrom: string
   expiresAt: string
   accepted: boolean

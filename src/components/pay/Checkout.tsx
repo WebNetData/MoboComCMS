@@ -42,7 +42,10 @@ export default function Checkout({ id, preferredGateway = '' }: { id: string; pr
         </div>
         <details className={styles.disclosure}>
           <summary>جزئیات سفارش و کارمزد</summary>
-          <dl className={s.priceSummary}><div><dt>مبلغ سفارش</dt><dd>{money(data.amountRial)}</dd></div><div><dt>کارمزد{data.feeBearer === "MERCHANT" ? " بر عهده پذیرنده" : ""}</dt><dd>{money(data.feeRial)}</dd></div></dl>
+          <dl className={s.priceSummary}><div><dt>مبلغ سفارش</dt><dd>{money(data.amountRial)}</dd></div>
+            {data.customerFeeRial && data.customerFeeRial !== '0' && <div><dt>سهم مشتری از کارمزد</dt><dd>{money(data.customerFeeRial)}</dd></div>}
+            {data.merchantFeeRial && data.merchantFeeRial !== '0' && <div><dt>سهم پذیرنده از کارمزد</dt><dd>{money(data.merchantFeeRial)}</dd></div>}
+          </dl>
           {data.status === "PENDING" && <p>مهلت پرداخت <bdi>{date(data.expiresAt)}</bdi></p>}
         </details>
       </section>}
