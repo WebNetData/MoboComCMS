@@ -376,6 +376,8 @@ model Order {
   shipment      Shipment?
   @@index([assigneeId, status])
   @@index([saleSource, createdAt])
+  cloudOperations HostingOperation[]
+
 }
 
 model OrderDeliveryChange {
@@ -5093,6 +5095,8 @@ model HostingProvider {
   services         HostingService[]
 
   @@index([family, active])
+  cloudOperations HostingOperation[]
+
 }
 
 /// Something for sale: a hosting plan, a server or a cloud size.
@@ -5204,6 +5208,8 @@ model HostingService {
   @@index([status, nextDueAt])
   @@index([providerId])
   @@index([productId])
+  cloudOperations HostingOperation[]
+
 }
 
 /// Everything done to a service, by the customer, staff or the system: its history and audit.
@@ -5295,6 +5301,8 @@ model Domain {
 
   @@index([userId, status])
   @@index([status, expiresAt])
+  cloudOperations HostingOperation[]
+
 }
 
 /// Everything done to a domain, and the tasks staff still have to do at the registry.
@@ -6345,4 +6353,32 @@ model PaySettlementDestination {
   merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   settlements PaySettlement[]
   @@index([merchantId, active])
+}
+
+/// Durable provider workflow and evidence; BackgroundJob is the only execution queue.
+model HostingOperation {
+  id String @id
+  providerId Int
+  provider HostingProvider @relation(fields:[providerId], references:[id], onDelete:Restrict)
+  serviceId Int?
+  service HostingService? @relation(fields:[serviceId], references:[id], onDelete:Restrict)
+  domainId Int?
+  domain Domain? @relation(fields:[domainId], references:[id], onDelete:Restrict)
+  orderId Int?
+  order Order? @relation(fields:[orderId], references:[id], onDelete:Restrict)
+  key String @unique
+  command String
+  status String @default("QUEUED")
+  snapshot String
+  reference String @default("")
+  version Int @default(1)
+  attempts Int @default(0)
+  token String @default("")
+  leaseAt DateTime?
+  code String @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status,updatedAt])
+  @@index([serviceId,createdAt])
+  @@index([domainId,createdAt])
 }

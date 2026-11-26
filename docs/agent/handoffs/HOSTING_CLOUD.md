@@ -1,5 +1,143 @@
 # Hosting, servers, cloud and domains — handoff
 
+## Automatic Cloud operations — 2026-11-26
+
+Owner requested all four continuations: WHM creation/lifecycle, Joker registration/
+renewal, an Admin operations center, and Proxmox/Hetzner creation/power. Current
+authoritative checkout is `.mobocom/cloud-operations`, branch
+`feat/cloud-operations-2026-11-26`, base `deaac03e` (the preceding connection slice).
+Merged main at audit was `c9355792`; independent Pay `7e6b1ae9` remains separate.
+This section supersedes the connection-only capability/WHM failure statements
+below. It does not certify all catalog drivers or a live resource purchase.
+
+The owner's corrected WHM credentials succeeded with verified TLS: API1 `version`
+returned 11.138.0.28; `listpkgs` returned 33 packages. These were read-only calls.
+No credentials, account list or package names were retained in Git. No real
+hosting account, VM, paid registration or renewal was created during acceptance.
+
+Implemented owners:
+
+- Hosting's public `server/cloud-operations.ts` address delegates frozen intents,
+  execution, confirmed settlement and Admin commands to its folder. The new
+  `HostingOperation` is domain history, executed by canonical `BackgroundJob`
+  `hosting.operation`, not a second job system. Connection, generated password,
+  ownership marker and exact request are encrypted before dispatch. Serializable
+  claims, version/token/lease checks and partial unique indexes exclude overlapping
+  work. An uncertain write only reconciles by reads; it is never repeated blindly.
+  A definite preflight rejection has an explicit audited retry. Rotated credentials
+  can be rebound for read-only reconciliation only at the same driver/origin/user.
+- Both Prisma schemas and manifest add
+  `20270409120000_hosting_operations`. Database resource fences also reject manual
+  service/domain changes while an operation is unresolved. Money, invoice and
+  wallet settlement remain with their existing owners. Intent creation and the
+  canonical invoice-refund owner share the order row lock. Refund returns409
+  while Cloud work is unresolved; database Invoice/Order state fences enforce
+  the same rule for other writers. Account erasure invalidates
+  pending claims and removes encrypted connection/customer snapshots while keeping
+  minimized operation facts. Disabling a module preserves data and blocks execution.
+- WHM uses exact account/owner/domain preflight, form POST mutations and subsequent
+  read confirmation for create/suspend/unsuspend/remove. Explicit package codes come
+  from the provider's real package list. New reseller creation is not implemented.
+- Hetzner uses the fixed API, generated resource name/label, a frozen Cloud-init
+  password and resource-specific action inspection. Proxmox uses a reserved VMID
+  range, owned name/description, Cloud-init QEMU template, persisted clone/configure/
+  start phases and UPID inspection. Lost configuration acknowledgement stays unknown.
+- Joker supports basic com/net/org/info/biz, a pre-registered customer contact handle,
+  configured nameservers, exact price/currency/period ceiling and target-year renewal.
+  Acceptance alone does not activate a domain. Processing identity, unique local
+  ClTrId correlation and actual account expiry confirm results; missing or multiple
+  result correlations do not authorize a repeated purchase. Renewal task creation is
+  atomic with the intent; expiry changes only after confirmed completion. Ordinary
+  nic.ir remains a manual staff workflow; there is no guessed ordinary-account API.
+- Existing fulfillment/lifecycle/metering dispatch automatic actions through these
+  intents only after opt-in. Renewal does not claim access was reopened before the
+  host confirms. Power transitions bill elapsed/current hours through canonical
+  metering; starting a previously billed stopped hour charges its exact running-rate
+  difference once. Completed provider operations do not reapply checkout or credit.
+- `/admin/hosting/operations` and its guarded no-store API show safe history,
+  pending/error states, dispatch, definite-rejection retry and read reconciliation.
+  Provider automation settings are closed typed fields and default off. Existing
+  Admin ShellNav/hamburger, SDS tokens and scoped styles are reused. Owner-only
+  customer power controls extend the existing Cloud service detail; no public
+  homepage/theme replacement. Joker contact input follows the existing order-sheet
+  form style and shared checkout request parser.
+
+Executed local evidence:
+
+- Full `npm run check`, with secrets/database environment removed, UID1000:
+  1166 site tests, 53 connected-boundary tests, 4 backup and 14 billing tests,
+  schema/migration-manifest/architecture/source/money/security/audit/i18n gates
+  and TypeScript passed. After the final small authority/import refinements,
+  `tsc --noEmit`, all eight scoped gates and both hosting unit files passed again
+  (22 tests, zero failures/skips). No hosted workflow was dispatched.
+- Real isolated PostgreSQL, NOSUPERUSER role/UID1000: `hosting-operations`,
+  `hosting-catalog`, `hosting-services`, `hosting-renewal`, `hosting-hourly`,
+  `hosting-addons`, `hosting-domains`, `cloud-workspace`, `pay-public-account`
+  and `account-control` all passed. After adding the central financial fence,
+  all twelve suites (including `order-closure` and `invoice-void-settle`) plus
+  the complete `npm run check` passed again on a rebuilt empty nonroot fixture;
+  the populated upgrade and negative-control proofs also passed again. Central
+  refund refusal, direct Invoice/Order database rejection and no refund Payment
+  insertion are checked by the Cloud operation suite.
+  The last manual-fulfillment guard was also
+  followed by another successful operations/services run. The new check covers
+  frozen password/idempotency, exclusive dispatch, uncertain response recovery,
+  provider/module/section/global/staff/automation revocation, safe credential
+  rotation/retry, atomic audit/intent/job rollback, manual database fences, no
+  wallet re-credit, real domain expiry settlement, hourly-rate difference once
+  and encrypted snapshot erasure. A deliberate in-memory mutation of the actual
+  runner to repeat an uncertain write failed the expected PG assertion; clean
+  code passed. This is a negative control, not a provider canary.
+- Fresh migration chain applied on the disposable DB. A separate disposable
+  prior-migration DB was populated before applying the additive migration as
+  NOSUPERUSER; service amount/status/identity/creation time were unchanged and
+  the operation table was empty. That upgrade DB was dropped afterward.
+- Actual Playwright Chromium on synthetic HTTPS preview3154: operations at
+  390/768/1024/1440 in dark/light (8 scoped axe checks, overflow0/pageerrors0),
+  provider settings desktop and customer mobile (2 more views); provider form,
+  customer controls and Joker order dialog each in both themes at390 (6 further
+  scoped axe/overflow checks). Total16 views,14 axe scopes. Only domain lookup
+  response was an explicitly named availability fixture; no domain order was
+  submitted. Existing hamburger/Escape state, history filtering, invalid JSON400,
+  customer power enqueue and disabled duplicate controls passed. Customer Admin
+  access was403; missing/cross Origin Admin writes were403. No queued provider
+  fixture job was executed. Screenshots were visually inspected.
+- React Doctor on six affected components: exit0, zero errors, seven reviewed
+  warnings in retained owner components. Native dialog backdrop click and parsing
+  an error response before checking status are intentional; the other warnings
+  concern existing component complexity/duplicated field structure and small
+  catalog list lookup. No rule suppression or dependency upgrade was introduced.
+- Scoped Semgrep and redacted Gitleaks: zero findings/errors. `git diff --check`
+  passed after trimming documentation EOFs. Canonical AI knowledge regenerated
+  from14 source documents.
+
+Corrected validation failures included stale connection-only capability
+assertions, a legacy test loader requiring absolute facade imports, fixture
+cleanup ordering/namespacing, and UID1000 ownership of a copied generated file.
+The isolated Next dev host needed its named allowedDevOrigin and had a memory
+self-restart; the affected browser scopes passed after restart. These were not
+reported as successful tests until rerun. Shared app3000 was not restarted.
+
+Cleanup completed: verified owned preview/tunnel stopped, both disposable databases,
+NOSUPERUSER role, private session/TLS/environment files and owned container source
+runtime removed. The transient credential kernel was reset. Shared app3000 readiness
+was checked separately; safe local screenshots/scanner reports remain ignored.
+
+Real provider mutations,
+Joker/Proxmox/Hetzner live commissioning, other catalog adapters, production build,
+release, deployment and hosted workflow dispatch remain unrun. Configure each real
+account's accepted packages/templates, network and permissions before production
+automation. First live canary should be a separately authorized disposable service.
+Joker contact creation, special-TLD fields and transfer/DNS/auth-code automation
+remain staff work. Proxmox needs a correctly prepared Linux Cloud-init template;
+Hetzner needs a funded Read & Write project token. These are explicit prerequisites.
+
+Rollback: disable new automation and the hosting worker before code rollback;
+preserve operation history, active resource identities and encrypted snapshots.
+Reconcile in-flight effects before manual refund/delivery. Do not drop the additive
+table/fences or erase operation history to clear a failure. Owner merges/deploys;
+this continuation itself does not create a PR or release.
+
 Spec and slices: [docs/specs/hosting-cloud/SPEC.md](../../specs/hosting-cloud/SPEC.md). Decision: PLATFORM_DECISIONS *Hosting and cloud*.
 
 ## Provider connection repair — 2026-11-26

@@ -1,3 +1,15 @@
+# Cloud automatic operations — 2026-11-26
+
+Continue `.mobocom/cloud-operations` / `feat/cloud-operations-2026-11-26`, base
+`deaac03e`. Four authorized slices implemented behind Hosting/Jobs: WHM lifecycle,
+Joker basic register/renew, Admin operations, Proxmox/Hetzner create/power. Corrected
+WHM API/TLS version and 33 packages passed read-only. Encrypted immutable intents,
+exclusive claims/manual fences, read-only unknown recovery and existing money
+owners; provider opt-in defaults off. Public identity/Cloud design retained.
+Live resource/domain writes and deployment unrun. Native/gate/browser evidence and
+cleanup are finalized in [the shared handoff](../docs/agent/handoffs/HOSTING_CLOUD.md#automatic-cloud-operations--2026-11-26).
+Independent Pay `7e6b1ae9`, historical root and other worktrees remain separate.
+
 # Cloud provider connection repair — 2026-11-26
 
 Continue .mobocom/cloud-connectors / fix/cloud-provider-connectivity-2026-11-26

@@ -26,7 +26,7 @@ module.exports = function jokerCases() {
   test('Joker uses POST form credentials and closes the session', async () => {
     const { calls, Driver } = setup([{ status: 200, text: ack }, { status: 200, text: logout }])
     const driver = new Driver(connection)
-    assert.deepEqual(driver.capabilities, [])
+    assert.deepEqual(driver.capabilities,['check','register','renew'])
     assert.equal((await driver.testConnection()).ok, true)
     assert.deepEqual(calls.map(c => c[0]), ['https://dmapi.joker.com/request/login', 'https://dmapi.joker.com/request/logout'])
     assert.equal(calls[0][1].method, 'POST')

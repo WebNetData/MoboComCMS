@@ -1,5 +1,6 @@
 /** One canonical set of queue kinds and labels; enqueueing never imports execution handlers. */
 export const JOB_LABEL: Record<string, string> = {
+  'hosting.operation': 'اجرای امن عملیات کلاد و بررسی نتیجهٔ سامانه',
   'identity.erase-files': 'پاک‌سازی فایل‌های حساب حذف‌شده',
   'pay.webhook-delivery': 'ارسال رویداد پرداخت به پذیرنده',
   'pay.bot-delivery': 'تأیید سفارش پرداخت‌شده در ربات پذیرنده',

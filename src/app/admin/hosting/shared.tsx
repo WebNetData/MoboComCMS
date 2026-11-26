@@ -17,11 +17,13 @@ export type AdminProvider = {
   id: number; name: string; family: string; driver: string; url: string; username: string; location: string; capacity: number
   active: boolean; hasSecret: boolean; products: number; built: boolean
   authMode: 'API_TOKEN' | 'PASSWORD'; capabilities: string[]
+  automation?: import('@/modules/hosting/domain/automation').CloudAutomation
   lastCheckAt: string | null; lastCheckOk: boolean | null; lastCheckMessage: string
 }
 export type HostingData = { products: AdminProduct[]; providers: AdminProvider[]; supportedDrivers?: string[] }
 
 const TABS = [
+  { href: '/admin/hosting/operations', label: 'مرکز عملیات' },
   { href: '/admin/hosting/services', label: 'سرویس‌های مشتریان' },
   { href: '/admin/hosting', label: 'محصولات و پلن‌ها', exact: true },
   { href: '/admin/hosting/domains', label: 'دامنه‌ها' },

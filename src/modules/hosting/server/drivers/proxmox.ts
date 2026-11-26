@@ -1,5 +1,7 @@
 import type { DriverCheck, DriverConnection, HostingDriver } from '@/modules/hosting/server/drivers/contract'
 import { hostingRequest } from '@/modules/hosting/server/drivers/http'
+import { proxmoxOperation } from '@/modules/hosting/server/drivers/compute-operations'
+import type { CloudOperationInput } from '@/modules/hosting/server/drivers/operations'
 
 function adminOrigin(value: string): string | null {
   // Accept only an HTTPS authority and an optional trailing slash, before URL normalization.
@@ -23,8 +25,10 @@ function validPermissions(value: unknown): boolean {
 
 export class ProxmoxDriver implements HostingDriver {
   readonly id = 'PROXMOX'
-  readonly capabilities = [] as const
+  readonly capabilities = ['create','start','stop','shutdown','reboot','delete'] as const
   constructor(private readonly connection: DriverConnection) {}
+  performOperation(input:CloudOperationInput){return proxmoxOperation(this.connection,input,'',false)}
+  inspectOperation(input:CloudOperationInput,reference:string){return proxmoxOperation(this.connection,input,reference,true)}
 
   async testConnection(): Promise<DriverCheck> {
     const { url, username, secret } = this.connection

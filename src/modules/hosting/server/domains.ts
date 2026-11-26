@@ -15,6 +15,7 @@ import {
 } from '@/modules/hosting/domain/domains'
 import { checkDomain } from '@/modules/hosting/server/domain-check'
 import { HostingRefusal } from '@/modules/hosting/server/services'
+import { assertNoCloudOperation,cloudManaged,queueDomainOperation } from '@/modules/hosting/server/cloud-operations'
 
 const parseMeta = (value: string): Record<string, unknown> => { try { return JSON.parse(value || '{}') } catch { return {} } }
 const parseList = (value: string): string[] => { try { const list = JSON.parse(value); return Array.isArray(list) ? list.map(String) : [] } catch { return [] } }
@@ -76,7 +77,7 @@ export async function deleteTld(id: number) {
 
 // ============ Search (public) ============
 
-export type DomainResult = { name: string; display: string; suffix: string; state: Availability; register: number; renew: number; transfer: number; years: number[]; needsHandle: boolean }
+export type DomainResult = { name: string; display: string; suffix: string; state: Availability; register: number; renew: number; transfer: number; years: number[]; needsHandle: boolean; needsJokerContact?:boolean }
 
 /**
  * What a visitor typed, checked on its own extension and on the featured ones: "shop" is tried as shop.ir, shop.com…;
@@ -96,9 +97,10 @@ export async function searchDomains(query: unknown): Promise<{ query: string; re
   const names = valid.map((tld) => `${label}.${tld.suffix}`)
   const ordered = new Set((await db.domain.findMany({ where: { name: { in: names }, status: { not: 'CANCELLED' } }, select: { name: true } })).map((row) => row.name))
   const states = await Promise.all(names.map((name) => (ordered.has(name) ? Promise.resolve('taken' as const) : checkDomain(name))))
+  const jokerIds=new Set((await db.hostingProvider.findMany({where:{driver:'JOKER',active:true},select:{id:true,config:true}})).filter(p=>parseMeta(p.config).autoOperations===true).map(p=>p.id))
   return {
     query: ascii,
-    results: valid.map((tld, i) => ({ name: names[i], display: unicode(names[i]), suffix: tld.suffix, state: states[i], register: Number(tld.registerMinor), renew: Number(tld.renewMinor), transfer: Number(tld.transferMinor), years: parseYears(tld.years), needsHandle: tld.needsHandle })),
+    results: valid.map((tld, i) => ({ name: names[i], display: unicode(names[i]), suffix: tld.suffix, state: states[i], register: Number(tld.registerMinor), renew: Number(tld.renewMinor), transfer: Number(tld.transferMinor), years: parseYears(tld.years), needsHandle: tld.needsHandle,needsJokerContact:jokerIds.has(tld.registrarId||0) })),
   }
 }
 
@@ -109,7 +111,7 @@ export async function publicTlds() {
 
 // ============ Ordering ============
 
-export type DomainOrderRequest = { name: unknown; years: unknown; transfer?: boolean; handle?: unknown; authCode?: unknown }
+export type DomainOrderRequest = { name: unknown; years: unknown; transfer?: boolean; handle?: unknown; authCode?: unknown; jokerContact?:unknown }
 
 /** Registration or transfer in, priced from the list; checkout freezes it on the order. */
 export async function domainOrderQuote(request: DomainOrderRequest) {
@@ -121,6 +123,10 @@ export async function domainOrderQuote(request: DomainOrderRequest) {
   const label = name.slice(0, -(suffix.length + 1))
   if (label.includes('.') || !validLabel(label, suffix)) throw new HostingRefusal('نام دامنه معتبر نیست', 400, 'DOMAIN_NAME')
   const transfer = request.transfer === true
+  if(!transfer&&await cloudManaged(tld.registrarId)){
+    if(!/^[A-Za-z0-9-]{3,64}$/.test(String(request.jokerContact||'')))throw new HostingRefusal('شناسهٔ تماس صاحب امتیاز Joker لازم است؛ از حساب خود در Joker دریافت کنید')
+    if(!/^[a-z0-9-]+\.(com|net|org|info|biz)$/.test(name))throw new HostingRefusal('این پسوند به اطلاعات تخصصی ثبت‌کننده نیاز دارد؛ فعلاً سفارش خودکار آن فعال نیست')
+  }
   const years = transfer ? 1 : Math.trunc(Number(request.years))
   if (!transfer && !parseYears(tld.years).includes(years)) throw new HostingRefusal('این مدت برای این پسوند نیست', 400, 'DOMAIN_YEARS')
   if (transfer && tld.transferMinor <= 0n) throw new HostingRefusal('انتقال این پسوند پذیرفته نمی‌شود', 400, 'DOMAIN_NO_TRANSFER')
@@ -135,7 +141,7 @@ export async function domainOrderQuote(request: DomainOrderRequest) {
     currency: tld.currency,
     amountMinor: transfer ? tld.transferMinor : tld.registerMinor * BigInt(years),
     label: `${transfer ? 'انتقال' : 'ثبت'} دامنهٔ ${unicode(name)}${transfer ? '' : ` · ${years.toLocaleString('fa-IR')} سال`}`,
-    meta: { kind: 'domain', name, tldId: tld.id, years, action: transfer ? 'TRANSFER' : 'REGISTER', handle, authCode: authCode ? encryptPanelCredential(authCode) : '', renewMinor: tld.renewMinor.toString(), availability: state, productName: unicode(name), contentPath: '/dashboard/services' },
+    meta: { kind: 'domain', name, tldId: tld.id, years, action: transfer ? 'TRANSFER' : 'REGISTER', handle,jokerContact:String(request.jokerContact||'').slice(0,64),authCode: authCode ? encryptPanelCredential(authCode) : '', renewMinor: tld.renewMinor.toString(), availability: state, productName: unicode(name), contentPath: '/dashboard/services' },
   }
 }
 
@@ -169,6 +175,8 @@ export async function fulfillDomainOrder(orderId: number) {
     }
   }
   await notify(order.userId, domain.id, 'received', 'سفارش دامنه ثبت شد', `${unicode(domain.name)} در حال ${domain.kind === 'TRANSFER' ? 'انتقال' : 'ثبت'} است. پس از تکمیل اطلاع می‌دهیم.`)
+  const registrar=(await db.domainTld.findUnique({where:{id:domain.tldId}}))?.registrarId
+  if(domain.kind==='REGISTER'&&await cloudManaged(registrar||null))await queueDomainOperation(domain.id,orderId,'REGISTER')
   return domain.id
 }
 
@@ -198,6 +206,7 @@ export async function adminDomains(filter: { status?: string; q?: string; page?:
 
 /** Staff finished the registration or transfer at the registry: the domain is active until the given date. */
 export async function completeDomainRegistration(domainId: number, input: { expiresAt?: unknown; nameservers?: unknown }, actorId: number) {
+  await assertNoCloudOperation(undefined,domainId)
   const domain = await db.domain.findUnique({ where: { id: domainId } })
   if (!domain) throw new HostingRefusal('دامنه پیدا نشد', 404)
   if (domain.status !== 'PENDING') throw new HostingRefusal('این دامنه در انتظار ثبت نیست', 409)
@@ -215,6 +224,7 @@ export async function completeDomainRegistration(domainId: number, input: { expi
 
 /** Staff could not register it (taken, refused by the registry): the order is cancelled and the money returned. */
 export async function cancelDomainOrder(domainId: number, reason: string, actorId: number) {
+  await assertNoCloudOperation(undefined,domainId)
   const domain = await db.domain.findUnique({ where: { id: domainId } })
   if (!domain) throw new HostingRefusal('دامنه پیدا نشد', 404)
   if (domain.status !== 'PENDING') throw new HostingRefusal('فقط سفارشی که هنوز ثبت نشده لغو می‌شود', 409)
@@ -232,6 +242,7 @@ export async function cancelDomainOrder(domainId: number, reason: string, actorI
 export async function completeDomainTask(actionId: number, actorId: number, note = '') {
   const action = await db.domainAction.findUnique({ where: { id: actionId }, include: { domain: { select: { id: true, userId: true, name: true } } } })
   if (!action || !['RENEW', 'NAMESERVERS', 'AUTHCODE'].includes(action.kind)) throw new HostingRefusal('کار پیدا نشد', 404)
+  await assertNoCloudOperation(undefined,action.domainId)
   const done = await db.domainAction.updateMany({ where: { id: action.id, status: 'WAITING' }, data: { status: 'DONE', actorId, finishedAt: new Date() } })
   if (done.count !== 1) throw new HostingRefusal('این کار قبلاً انجام شده است', 409)
   const text = String(note || '').trim().slice(0, 500)
@@ -243,6 +254,7 @@ export async function completeDomainTask(actionId: number, actorId: number, note
 // ============ Renewal ============
 
 export async function domainRenewQuote(userId: number, domainId: number, yearsInput: unknown) {
+  await assertNoCloudOperation(undefined,domainId)
   const domain = await db.domain.findFirst({ where: { id: domainId, userId }, include: { tld: { select: { years: true } } } })
   if (!domain) throw new HostingRefusal('دامنه پیدا نشد', 404, 'DOMAIN_NOT_FOUND')
   if (!['ACTIVE', 'EXPIRED'].includes(domain.status) || !domain.expiresAt) throw new HostingRefusal('این دامنه قابل تمدید نیست', 409, 'DOMAIN_NOT_RENEWABLE')
@@ -270,6 +282,11 @@ export async function applyDomainRenewal(orderId: number) {
     return { refunded: true }
   }
   const years = Number(meta.years) || 1
+  const registrar=(await db.domainTld.findUnique({where:{id:domain.tldId}}))?.registrarId
+  if(await cloudManaged(registrar||null)){
+    await queueDomainOperation(domain.id,order.id,'RENEW')
+    return {pending:true}
+  }
   const expiresAt = renewedExpiry(domain.expiresAt, years)
   await db.$transaction(async (tx) => {
     await tx.domainAction.create({ data: { domainId: domain.id, actorId: order.userId, actor: 'CUSTOMER', kind: 'RENEW', status: 'WAITING', idempotencyKey: key, detail: `تمدید ${years.toLocaleString('fa-IR')} ساله در رجیستری` } })

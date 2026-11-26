@@ -1,5 +1,6 @@
 // Hosting services: the quote checkout freezes on an order, delivery after payment, staff delivery and states,
 // and what the customer sees. Spec: docs/specs/hosting-cloud/SPEC.md, slice 2.
+import { cloudManaged,queueServiceOperation,assertNoCloudOperation } from '@/modules/hosting/server/cloud-operations'
 import crypto from 'node:crypto'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
@@ -106,6 +107,7 @@ function newPassword() {
 export async function provisionService(serviceId: number) {
   const service = await db.hostingService.findUnique({ where: { id: serviceId }, include: { product: true, provider: true, user: { select: { email: true } } } })
   if (!service) throw new Error('hosting service not found')
+  if(service.product.fulfillment==='DRIVER'&&await cloudManaged(service.providerId))return queueServiceOperation(service.id)
   if (!['PENDING', 'PROVISIONING', 'FAILED'].includes(service.status)) return { status: service.status }
   const driver = service.product.fulfillment === 'DRIVER' && service.provider?.active
     ? hostingDriver({ driver: service.provider.driver, url: service.provider.url, username: service.provider.username, secret: decryptPanelCredential(service.provider.secret), config: parseConfig(service.provider.config) })
@@ -173,6 +175,7 @@ export type DeliveryInput = { hostname?: unknown; ipv4?: unknown; ipv6?: unknown
 export async function deliverService(serviceId: number, input: DeliveryInput, actorId: number) {
   const service = await db.hostingService.findUnique({ where: { id: serviceId }, include: { product: { select: { kind: true } } } })
   if (!service) throw new HostingRefusal('سرویس پیدا نشد', 404)
+  await assertNoCloudOperation(service.id)
   if (service.status === 'TERMINATED') throw new HostingRefusal('سرویس حذف‌شده تحویل نمی‌شود', 409)
   const ipv4 = normalizeIpv4(input.ipv4), ipv6 = normalizeIpv6(input.ipv6), panelUrl = normalizePanelUrl(input.panelUrl)
   const hostname = input.hostname === undefined ? service.hostname : kindMeta(service.product.kind)?.group === 'hosting' ? normalizeServiceName(service.product.kind, input.hostname) : normalizeHostname(input.hostname)
@@ -207,6 +210,9 @@ export async function changeServiceStatus(serviceId: number, op: keyof typeof ST
   const service = await db.hostingService.findUnique({ where: { id: serviceId }, select: { id: true, userId: true, label: true, status: true } })
   if (!service) throw new HostingRefusal('سرویس پیدا نشد', 404)
   if (!rule.from.includes(service.status as ServiceStatus)) throw new HostingRefusal(`سرویس «${SERVICE_STATUS[service.status as ServiceStatus]?.label || service.status}» است و این کار روی آن انجام نمی‌شود`, 409)
+  const full=await db.hostingService.findUniqueOrThrow({where:{id:service.id}})
+  if(await cloudManaged(full.providerId)){const queued=await queueServiceOperation(service.id,op,{id:actorId,kind:'STAFF',key:op+':'+full.updatedAt.getTime()});return {id:queued.id,status:queued.status}}
+  await assertNoCloudOperation(service.id)
   const now = new Date()
   const data = op === 'SUSPEND' ? { status: rule.to, suspendedAt: now } : op === 'UNSUSPEND' ? { status: rule.to, suspendedAt: null } : { status: rule.to, terminatedAt: now }
   const updated = await db.hostingService.updateMany({ where: { id: service.id, status: service.status }, data })
@@ -251,9 +257,10 @@ export async function memberHostingServices(userId: number) {
 export async function memberHostingService(userId: number, serviceId: number) {
   const row = await db.hostingService.findFirst({ where: { id: serviceId, userId }, include: { product: true, actions: { where: { kind: { not: 'REVEAL' } }, orderBy: { id: 'desc' }, take: 20 } } })
   if (!row) return null
+  const [powerEnabled,operations]=await Promise.all([cloudManaged(row.providerId),db.hostingOperation.findMany({where:{serviceId:row.id},take:5,orderBy:{createdAt:'desc'},select:{id:true,command:true,status:true,updatedAt:true}})])
   const { loginSecret, priceMinor, stoppedHourlyMinor, product, actions, ...service } = row
   return {
-    ...service, priceMinor: priceMinor.toString(), stoppedHourlyMinor: stoppedHourlyMinor.toString(), hasPassword: Boolean(loginSecret),
+    ...service, operations,powerEnabled:powerEnabled&&['VPS','CLOUD_SERVER'].includes(product.kind),priceMinor: priceMinor.toString(), stoppedHourlyMinor: stoppedHourlyMinor.toString(), hasPassword: Boolean(loginSecret),
     allowTraffic: service.allowTraffic ?? product.allowTraffic, allowUpgrade: service.allowUpgrade ?? product.allowUpgrade,
     product: { kind: product.kind, name: product.name, cpuCores: product.cpuCores, ramMb: product.ramMb, diskGb: product.diskGb, diskType: product.diskType, trafficGb: product.trafficGb, bandwidthMbps: product.bandwidthMbps, sites: product.sites, mailboxes: product.mailboxes, databases: product.databases, location: product.location, fulfillment: product.fulfillment },
     actions: actions.map((action) => ({ id: action.id, kind: action.kind, status: action.status, actor: action.actor, detail: action.detail, createdAt: action.createdAt })),

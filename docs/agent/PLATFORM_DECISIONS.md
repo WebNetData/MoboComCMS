@@ -1365,3 +1365,14 @@ module/group/maintenance guards. Its invoice/order projection recognizes only
 closed Cloud order kinds; public Cloud sources remain protected. This records
 implementation scope, not a new provider, schema or release decision. See
 [Cloud workspace evidence and limits](handoffs/CLOUD_WORKSPACE.md).
+# Cloud automatic operations — owner continuation2026-11-26
+
+Owner authorized all four next Cloud slices: WHM creation/lifecycle, Joker
+registration/renewal, an Admin operations center and Proxmox/Hetzner server
+creation/control. Corrected WHM credentials passed read-only API/TLS checks;
+ordinary nic.ir still uses staff registration. Automatic operations are explicit
+per-provider opt-in and default off. An ambiguous external write is reconciled
+without repeating purchases or resource creation; confirmed state and existing
+money owners remain authoritative. No production resource mutation, paid canary,
+deploy, release or hosted workflow is implied by local development acceptance.
+[Scope, prerequisites and evidence](handoffs/HOSTING_CLOUD.md#automatic-cloud-operations--2026-11-26).

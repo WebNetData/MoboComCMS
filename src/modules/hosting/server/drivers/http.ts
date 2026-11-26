@@ -18,7 +18,7 @@ export function hostingAddressAllowed(host:string,address:string){
   if(!internal)return family===4||/^[23]/i.test(address)
   return (process.env.HOSTING_PRIVATE_API_HOSTS||'').split(',').map(v=>v.trim().toLowerCase()).filter(Boolean).includes(host.toLowerCase())
 }
-export type HostingRequestInit={method?:'GET'|'POST';headers?:Record<string,string>;body?:string;timeoutMs?:number}
+export type HostingRequestInit={method?:'GET'|'POST'|'PUT'|'DELETE';headers?:Record<string,string>;body?:string;timeoutMs?:number}
 /** One HTTPS origin, pinned DNS and a deadline covering headers and body; no credential-bearing redirects. */
 export async function hostingRequest(destination:string,init:HostingRequestInit={}):Promise<{status:number;text:string}>{
   const url=new URL(destination),host=url.hostname.replace(/^\[|\]$/g,''),deadline=AbortSignal.timeout(Math.min(30000,Math.max(1000,init.timeoutMs??10000)))

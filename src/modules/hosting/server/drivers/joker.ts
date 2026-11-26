@@ -1,5 +1,7 @@
 import type { DriverCheck, DriverConnection, HostingDriver } from '@/modules/hosting/server/drivers/contract'
 import { hostingRequest } from '@/modules/hosting/server/drivers/http'
+import { jokerOperation } from '@/modules/hosting/server/drivers/joker-operations'
+import type { CloudOperationInput } from '@/modules/hosting/server/drivers/operations'
 
 const API = 'https://dmapi.joker.com/request'
 
@@ -36,8 +38,10 @@ async function request(operation: 'login' | 'logout', fields: Record<string, str
 
 export class JokerDriver implements HostingDriver {
   readonly id = 'JOKER'
-  readonly capabilities = [] as const
+  readonly capabilities = ['check','register','renew'] as const
   constructor(private readonly connection: DriverConnection) {}
+  performOperation(input:CloudOperationInput){return jokerOperation(this.connection,input,'',false)}
+  inspectOperation(input:CloudOperationInput,reference:string){return jokerOperation(this.connection,input,reference,true)}
 
   async testConnection(): Promise<DriverCheck> {
     const { secret, username, config } = this.connection

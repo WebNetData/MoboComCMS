@@ -1,13 +1,17 @@
 import type { DriverCheck, DriverConnection, HostingDriver } from './contract'
 import { connectionFailure, hostingRequest } from '@/modules/hosting/server/drivers/http'
+import { whmOperation } from '@/modules/hosting/server/drivers/whm-operations'
+import type { CloudOperationInput } from '@/modules/hosting/server/drivers/operations'
 
 type WhmReply={metadata?:{result?:unknown};data?:{version?:unknown;pkg?:unknown}}
 const record=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value)
 /** WHM reseller and root authentication are explicit; a cPanel token is not a WHM token. */
 export class CpanelDriver implements HostingDriver {
   readonly id='CPANEL'
-  readonly capabilities=[] as const
+  readonly capabilities=['create','suspend','unsuspend','terminate'] as const
   constructor(private readonly connection:DriverConnection){}
+  performOperation(input:CloudOperationInput){return whmOperation(this.connection,input)}
+  inspectOperation(input:CloudOperationInput,_reference:string){return whmOperation(this.connection,input,true)}
   private async call(command:'version'|'listpkgs'){
     const {url,username,secret,config}=this.connection,base=new URL(url)
     if(base.protocol!=='https:'||base.username||base.password||base.search||base.hash||base.pathname!=='/'||!['','2087'].includes(base.port))throw new Error('WHM_URL')

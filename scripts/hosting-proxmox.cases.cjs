@@ -17,7 +17,7 @@ module.exports = function proxmoxCases() {
     for (const data of [{}, { '/vms': { 'VM.Audit': 1 }, '/': { 'Sys.Audit': 0 } }]) {
       const { calls, Driver } = setup({ status: 200, text: JSON.stringify({ data }) })
       const driver = new Driver(connection)
-      assert.deepEqual(driver.capabilities, [])
+      assert.deepEqual(driver.capabilities,['create','start','stop','shutdown','reboot','delete'])
       assert.equal((await driver.testConnection()).ok, true)
       assert.equal(calls[0][0], 'https://pve.example.test:8006/api2/json/access/permissions')
       assert.equal(calls[0][1].method, 'GET')

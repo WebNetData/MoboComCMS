@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { HOSTING_DRIVERS, PROVIDER_FAMILIES, driverMeta } from '@/modules/hosting/domain/catalog'
 import { Notice, faDate, send, useJson } from '../../store/shared'
 import { HostingShell, type AdminProvider, type HostingData } from '../shared'
+import Automation from './Automation'
+import type { CloudAutomation } from '@/modules/hosting/domain/automation'
 
-type Draft = { id?: number; name: string; driver: string; url: string; username: string; secret: string; location: string; capacity: number; active: boolean; hasSecret?: boolean; authMode: 'API_TOKEN' | 'PASSWORD' }
+type Draft = { id?: number; name: string; driver: string; url: string; username: string; secret: string; location: string; capacity: number; active: boolean; hasSecret?: boolean; authMode: 'API_TOKEN' | 'PASSWORD';automation?:CloudAutomation }
 const EMPTY: Draft = { name: '', driver: 'CPANEL', url: '', username: '', secret: '', location: '', capacity: 0, active: true, authMode:'API_TOKEN' }
 const CONNECTION = { api: 'API', direct: 'اتصال مستقیم', ssh: 'SSH' } as const
 
@@ -33,7 +35,7 @@ export default function HostingProvidersPage() {
     const { hasSecret: _hasSecret, ...provider } = draft
     if (await run({ op: 'save-provider', provider }, 'سامانه ذخیره شد.')) setDraft(null)
   }
-  const edit = (row: AdminProvider) => { setNotice(null); setPackages(null); setDraft({ id: row.id, name: row.name, driver: row.driver, url: row.url, username: row.username, secret: '', location: row.location, capacity: row.capacity, active: row.active, hasSecret: row.hasSecret,authMode:['CPANEL','JOKER'].includes(row.driver)&&row.authMode==='PASSWORD'?'PASSWORD':'API_TOKEN' }); window.scrollTo({ top: 0 }) }
+  const edit = (row: AdminProvider) => { setNotice(null); setPackages(null); setDraft({ id: row.id, name: row.name, driver: row.driver, url: row.url, username: row.username, secret: '', location: row.location, capacity: row.capacity, active: row.active, automation:row.automation||{autoOperations:false},hasSecret: row.hasSecret,authMode:['CPANEL','JOKER'].includes(row.driver)&&row.authMode==='PASSWORD'?'PASSWORD':'API_TOKEN' }); window.scrollTo({ top: 0 }) }
   const remove = (row: AdminProvider) => { if (window.confirm(`سامانهٔ «${row.name}» حذف شود؟ رمز ذخیره‌شده هم پاک می‌شود.`)) void run({ op: 'delete-provider', id: row.id }, 'سامانه حذف شد.') }
   const meta = draft ? driverMeta(draft.driver) : undefined
 
@@ -50,7 +52,7 @@ export default function HostingProvidersPage() {
       <section className="sa-card" aria-label="نوع سامانه">
         <header className="sa-card-head"><h2>{draft.id ? 'ویرایش اتصال' : 'اتصال تازه'}</h2></header>
         {PROVIDER_FAMILIES.map((family) => <fieldset key={family.id} className="hx-choice"><legend>{family.label}</legend><div>
-          {HOSTING_DRIVERS.filter((driver) => driver.family === family.id).map((driver) => <label key={driver.id} className={draft.driver === driver.id ? 'is-on' : ''}><input type="radio" name="driver" checked={draft.driver === driver.id} onChange={() => setDraft(current=>current?{...current,driver:driver.id,url:'',username:'',secret:'',authMode:'API_TOKEN',hasSecret:false}:null)} /><span>{driver.label}</span><small>{data?.supportedDrivers?.includes(driver.id)?`${CONNECTION[driver.connection]} · آزمون اتصال`:'اتصال آماده نیست'}</small></label>)}
+          {HOSTING_DRIVERS.filter((driver) => driver.family === family.id).map((driver) => <label key={driver.id} className={draft.driver === driver.id ? 'is-on' : ''}><input type="radio" name="driver" checked={draft.driver === driver.id} onChange={() => setDraft(current=>current?{...current,driver:driver.id,url:'',username:'',secret:'',authMode:'API_TOKEN',hasSecret:false,automation:{autoOperations:false}}:null)} /><span>{driver.label}</span><small>{data?.supportedDrivers?.includes(driver.id)?`${CONNECTION[driver.connection]} · آزمون اتصال`:'اتصال آماده نیست'}</small></label>)}
         </div></fieldset>)}
       </section>
       <section className="sa-card" aria-label="اتصال">
@@ -79,6 +81,7 @@ export default function HostingProvidersPage() {
         {draft.id&&<p className="sa-hint">خالی گذاشتن رمز، مقدار قبلی را حفظ می‌کند. برای تغییر نشانی، روش ورود یا نام کاربری، رمز یا توکن را دوباره وارد کنید.</p>}
         <label className="sa-check"><input type="checkbox" checked={draft.active} onChange={(event) => set('active', event.target.checked)} />فعال برای انتخاب در محصولات؛ قابلیت تحویل خودکار جداگانه بررسی می‌شود</label>
       </section>
+      {['CPANEL','PROXMOX','HETZNER_CLOUD','JOKER'].includes(draft.driver)&&<Automation driver={draft.driver} value={draft.automation||{autoOperations:false}} onChange={value=>set('automation',value)} />}
       <div className="hx-save">
         <button type="button" className="btn btn-primary" disabled={busy||draft.driver==='IRNIC'&&!draft.id} onClick={() => void save()}>ذخیره</button>
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setDraft(null)}>انصراف</button>
@@ -91,7 +94,7 @@ export default function HostingProvidersPage() {
         <thead><tr><th>نام</th><th>نوع</th><th>آخرین بررسی</th><th>محصول</th><th>وضعیت</th><th><span className="sr-only">عملیات</span></th></tr></thead>
         <tbody>{data.providers.map((row) => <tr key={row.id}>
           <td><b>{row.name}</b>{row.location && <div className="hx-spec">{row.location}</div>}</td>
-          <td>{driverMeta(row.driver)?.label || row.driver}<div className="hx-spec">{!row.built?'اتصال آماده نیست':row.capabilities?.includes('create')||row.capabilities?.includes('register')?'دارای عملیات خودکار':'آزمون اتصال؛ تحویل با کارشناس'}</div></td>
+          <td>{driverMeta(row.driver)?.label || row.driver}<div className="hx-spec">{!row.built?'اتصال آماده نیست':row.capabilities?.includes('create')||row.capabilities?.includes('register')?(row.automation?.autoOperations?'خودکار فعال':'آماده؛ خودکار خاموش'):'آزمون اتصال؛ تحویل با کارشناس'}</div></td>
           <td>{row.lastCheckAt
             ? <span className={`hx-check ${row.lastCheckOk ? 'is-ok' : 'is-bad'}`} title={row.lastCheckMessage}>{row.lastCheckOk ? 'متصل' : 'ناموفق'} · {faDate(row.lastCheckAt, true)}</span>
             : <span className="hx-spec">بررسی نشده</span>}</td>

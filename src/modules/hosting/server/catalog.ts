@@ -5,6 +5,7 @@ import {
   type HostingGroup, type PublicHostingProduct,
 } from '@/modules/hosting/domain/catalog'
 import { hostingDriver, hasHostingDriver } from '@/modules/hosting/server/drivers/registry'
+import { cloudAutomation } from '@/modules/hosting/domain/automation'
 
 export type { PublicHostingProduct }
 
@@ -27,6 +28,7 @@ export async function adminHostingCatalog() {
       ...provider, hasSecret: Boolean(secret), products: _count.products, built: hasHostingDriver(provider.driver),
       authMode: parseConfig(_config).authMode === 'PASSWORD' ? 'PASSWORD' : 'API_TOKEN',
       capabilities: hostingDriver({driver:provider.driver,url:provider.url,username:provider.username,secret:'',config:parseConfig(_config)}).capabilities,
+      automation:Object.fromEntries(Object.entries(parseConfig(_config)).filter(([key])=>['autoOperations','image','location','node','templateVmid','vmidBase','cloudUser','jokerMaxPrice','jokerCurrency','nameservers'].includes(key))),
     })),
     // In the order of HOSTING_KINDS (web hosting first, then servers), then the Admin's own order.
     products: products.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)).map((product) => ({
@@ -41,6 +43,7 @@ export async function adminHostingCatalog() {
 
 export async function saveHostingProvider(raw: Record<string, unknown>) {
   const input = normalizeProvider(raw)
+  const automation=raw.automation===undefined?undefined:cloudAutomation(raw.automation,input.driver)
   if(input.driver==='IRNIC'&&!input.id)throw new HostingError('برای اتصال ایرنیک، قرارداد و دسترسی API نمایندگی لازم است؛ حساب معمولی را به‌عنوان API ثبت نکنید')
   const data = {
     name: input.name, family: input.family, driver: input.driver, url: input.url, username: input.username,
@@ -56,12 +59,12 @@ export async function saveHostingProvider(raw: Record<string, unknown>) {
     const changed=current.driver!==input.driver||current.url!==input.url||current.username!==input.username||(config.authMode??'API_TOKEN')!==authMode
     if(changed&&!input.secret)throw new HostingError('برای تغییر نشانی، نوع ورود یا نام کاربری، رمز یا توکن را دوباره وارد کنید')
     const updated=await db.hostingProvider.updateMany({where:{id:input.id,updatedAt:current.updatedAt,secret:current.secret,config:current.config,url:current.url,username:current.username,driver:current.driver},
-      data:{...data,config:JSON.stringify({...config,authMode}),...(input.secret?{secret:encryptPanelCredential(input.secret)}:{}),...(changed||input.secret?{lastCheckAt:null,lastCheckOk:null,lastCheckMessage:''}:{})}})
+      data:{...data,config:JSON.stringify({...config,authMode,...(current.driver!==input.driver?{autoOperations:false}:{}),...automation}),...(input.secret?{secret:encryptPanelCredential(input.secret)}:{}),...(changed||input.secret||automation?{lastCheckAt:null,lastCheckOk:null,lastCheckMessage:''}:{})}})
     if(updated.count!==1)throw new HostingError('اتصال هم‌زمان تغییر کرد؛ صفحه را تازه کنید')
     return {id:input.id}
   }
   if (!input.secret) throw new HostingError('رمز یا توکن اتصال لازم است')
-  return db.hostingProvider.create({ data: { ...data, config:JSON.stringify({authMode:input.authMode??'API_TOKEN'}), secret: encryptPanelCredential(input.secret) }, select: { id: true } })
+  return db.hostingProvider.create({ data: { ...data, config:JSON.stringify({authMode:input.authMode??'API_TOKEN',...automation}), secret: encryptPanelCredential(input.secret) }, select: { id: true } })
 }
 
 export async function deleteHostingProvider(id: number) {

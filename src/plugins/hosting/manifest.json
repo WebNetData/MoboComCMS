@@ -92,6 +92,13 @@
     "order": 46,
     "items": [
       {
+        "href": "/admin/hosting/operations",
+        "label": "مرکز عملیات",
+        "labelEn": "Operations center",
+        "icon": "activity",
+        "permissions": ["hosting.manage"]
+      },
+      {
         "href": "/admin/hosting/services",
         "label": "سرویس‌های مشتریان",
         "labelEn": "Customer services",
