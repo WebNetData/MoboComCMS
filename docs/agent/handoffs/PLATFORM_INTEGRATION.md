@@ -1,5 +1,52 @@
 # Connected platform journeys — 2026-11-14
 
+## General Automation event recovery — 2026-11-27
+
+The owner asked to continue the next defect after PR505. Local branch
+`fix/automation-event-recovery-2026-11-27` on main `6ef4b061` changes
+the existing scheduler's general AutomationEvent worker. A two-minute
+token-bound claim replaces the previous early processed timestamp.
+Preparation failures wait before retrying. An expired claim without an
+action start may be recovered. A recorded possible effect is retained for
+review and is never automatically replayed. Each action and final
+completion check the current token and expiry. CRM engagement dedupe
+receipts and non-event schedules keep their owners and behavior.
+
+The private `GET /api/admin/automation` response adds `recovery` for
+`automation.manage`. It returns the count and 20 recent event IDs,
+types, dates and stable codes. It does not return job payloads, provider
+messages or lease credentials. The scheduler emits a count-only warning.
+This slice includes no dashboard change or replay command. Automatic
+producer persistence and exact-once provider delivery remain separate.
+
+Verified in disposable PostgreSQL 17, with a non-superuser database
+owner and Linux UID1000 without an `.env`. All 225 migrations applied.
+The registered `automation-event-recovery` test exercised competing
+workers, pre-action recovery, pre-action backoff, possible effects under
+expired claims, a stale worker failing to start a second action, and
+CRM receipt preservation. The private review projection passed. The
+existing `crm-engagement` connected test, 17 Automation unit cases,
+TypeScript, source/import, architecture, security, schema parity,
+SQLite/PostgreSQL Prisma validation and migration manifest passed.
+External effects were fixture doubles. No real provider calls or
+browser check ran.
+
+After PR506 merged, rebased onto main `32a3eeda`. The combined runtime
+at `5d1f6977` applied all 226 migrations to a fresh PostgreSQL instance.
+`automation-event-recovery`, `crm-engagement`, `crm-follow-ups`,
+`crm-customer-desk` and `crm-scope-currency` passed, as did all 17
+Automation unit cases, TypeScript, source/import, architecture and
+security. A separate populated upgrade from 225 to 226 retained an
+assigned customer follow-up, a processed CRM receipt and an unprocessed
+general event. Both databases were isolated from the local application.
+
+`20270413120000_automation_event_recovery` is additive and unreleased.
+Pause all scheduler instances before upgrading or rolling back the
+worker. Older workers do not interpret leases or review fields. Reconcile
+pending rows with possible effects before allowing older workers to
+resume. Preserve the columns, quarantined rows and CRM receipts.
+[Scope and acceptance](../../specs/automation-event-recovery/SPEC.md).
+
 ## Public UI regression correction — 2026-11-14
 
 Owner reported1.7.20 screenshots with unwanted «مطالب و رویدادهای مرتبط» in celebrity/cinema hero actions and broken Business filter layout; confirmed the Business issue is appearance, not placement. Checkout .mobocom/public-ui-regressions, fix/public-ui-regressions-2026-11-14, base owner-merged main1147e518. Other worktrees and immutable1.7.20 assets preserved.

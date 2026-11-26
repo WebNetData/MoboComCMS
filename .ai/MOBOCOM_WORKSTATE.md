@@ -1,3 +1,12 @@
+# General Automation event recovery — 2026-11-27
+
+Continue `.mobocom/automation-event-recovery`,
+`fix/automation-event-recovery-2026-11-27`, based on merged PR506/main
+`32a3eeda`. General events use temporary claims and complete after rules
+return. Untouched work retries and possible effects go to review.
+CRM engagement receipts remain out of generic processing.
+[PostgreSQL evidence and rollout](../docs/agent/handoffs/PLATFORM_INTEGRATION.md#general-automation-event-recovery--2026-11-27).
+
 # Customer follow-ups — 2026-11-27
 
 Continue `.mobocom/crm-follow-ups`, `feat/crm-follow-ups-2026-11-27`,

@@ -103,8 +103,20 @@ async function siteFacts(): Promise<Facts> {
 
 type Subject = { key: string; userId: number | null; facts: Facts }
 
+type EventLease = { eventId: number; token: string; effectStarted: boolean }
+const EVENT_LEASE_MS = 2 * 60_000
+
+async function assertEventLease(lease: EventLease, beginEffect = false) {
+  const now = new Date()
+  const claimed = await db.automationEvent.updateMany({
+    where: { id: lease.eventId, dedupeKey: null, processedAt: null, needsReviewAt: null, leaseToken: lease.token, leaseExpiresAt: { gt: now } },
+    data: { ...(beginEffect ? { effectStartedAt: now } : {}), leaseExpiresAt: new Date(now.getTime() + EVENT_LEASE_MS) },
+  })
+  if (!claimed.count) throw new Error('Automation event lease lost')
+}
+
 /** Runs one rule for one subject when its conditions hold and its cooldown allows. Returns whether it ran. */
-async function runRule(rule: Rule, trigger: TriggerDef, subject: Subject, now = new Date()): Promise<boolean> {
+async function runRule(rule: Rule, trigger: TriggerDef, subject: Subject, now = new Date(), eventLease?: EventLease): Promise<boolean> {
   if (!await automationAvailable() || !await triggerAvailable(rule.trigger)) return false
   const facts = { ...(await siteFacts()), ...(await userFacts(subject.userId)), ...subject.facts }
   if (!conditionsHold(rule.conditions, rule.logic, facts)) return false
@@ -113,14 +125,25 @@ async function runRule(rule: Rule, trigger: TriggerDef, subject: Subject, now = 
   const results: string[] = []
   let failed = 0
   for (const [index, action] of rule.actions.entries()) {
+    // Fence the worker before every action. The first claim records that effects may
+    // have started; an expired such lease requires operator review, never blind replay.
+    if (eventLease) {
+      await assertEventLease(eventLease, !eventLease.effectStarted)
+      eventLease.effectStarted = true
+    }
     try { results.push(await runAction(rule, action, index, subject, facts)) } catch (error) {
       failed++
       results.push(`✗ ${error instanceof Error ? error.message : 'خطا'}`)
+      if (eventLease) break // An effect may have happened before the failure became visible.
     }
   }
   const status = failed === 0 ? 'DONE' : failed === rule.actions.length ? 'FAILED' : 'PARTIAL'
   await db.automationRun.create({ data: { ruleId: rule.id!, subjectKey: subject.key, status, detail: results.join(' · ').slice(0, 1000) } })
   await db.automationRule.update({ where: { id: rule.id! }, data: { runCount: { increment: 1 }, lastRunAt: now } })
+  if (eventLease && failed) {
+    const failedAt = new Date()
+    await db.automationEvent.updateMany({ where: { id: eventLease.eventId, leaseToken: eventLease.token, leaseExpiresAt: { gt: failedAt }, processedAt: null }, data: { needsReviewAt: failedAt, leaseToken: null, leaseExpiresAt: null, processingError: 'ACTION_FAILED_AFTER_EFFECT' } })
+  }
   return true
 }
 
@@ -357,26 +380,47 @@ export async function reportFacts(from: Date, to: Date): Promise<Facts> {
  * schedules. A failing rule is written down and the others go on.
  */
 export async function processAutomation(now = new Date()) {
-  if (!await automationAvailable()) return { events: 0, runs: 0 }
+  if (!await automationAvailable()) return { events: 0, runs: 0, needsReview: 0 }
   const rows = await db.automationRule.findMany({ where: { enabled: true } })
-  if (!rows.length) return { events: 0, runs: 0 }
+  if (!rows.length) return { events: 0, runs: 0, needsReview: await db.automationEvent.count({ where: { dedupeKey: null, needsReviewAt: { not: null }, processedAt: null } }) }
   const rules = rows.map(ruleOf)
   const since = new Map(rows.map((row) => [row.id, row.createdAt.getTime()]))
   let runs = 0, events = 0
-  const pending = await db.automationEvent.findMany({ where: { processedAt: null }, orderBy: { id: 'asc' }, take: 100 })
+  // Expired work that may have crossed the effect boundary is surfaced for review;
+  // only a lease with no recorded effect can safely be reclaimed automatically.
+  const wallNow = new Date()
+  const quarantined = await db.automationEvent.updateMany({
+    where: { dedupeKey: null, processedAt: null, needsReviewAt: null, effectStartedAt: { not: null }, leaseExpiresAt: { lte: wallNow } },
+    data: { needsReviewAt: wallNow, leaseToken: null, leaseExpiresAt: null, processingError: 'EFFECT_LEASE_EXPIRED' },
+  })
+  const pending = await db.automationEvent.findMany({ where: { dedupeKey: null, processedAt: null, needsReviewAt: null, OR: [{ leaseToken: null }, { leaseExpiresAt: { lte: wallNow } }] }, orderBy: { id: 'asc' }, take: 100 })
   for (const event of pending) {
     if (!await automationAvailable()) break
     if (!await triggerAvailable(event.name)) continue // Keep pending work without effect until its owner returns.
-    // Claimed once, so two servers never run the same event.
-    const claimed = await db.automationEvent.updateMany({ where: { id: event.id, processedAt: null }, data: { processedAt: now } })
+    // Token-fenced short lease prevents concurrent workers and permits safe recovery
+    // only while the effect boundary has not been crossed.
+    const token = randomBytes(24).toString('hex')
+    const leaseNow = new Date()
+    const claimed = await db.automationEvent.updateMany({ where: { id: event.id, dedupeKey: null, processedAt: null, needsReviewAt: null, effectStartedAt: null, leaseToken: event.leaseToken, leaseExpiresAt: event.leaseExpiresAt }, data: { leaseToken: token, leaseExpiresAt: new Date(leaseNow.getTime() + EVENT_LEASE_MS), processingError: '' } })
     if (!claimed.count) continue
+    const lease = { eventId: event.id, token, effectStarted: false }
     events++
+    let eventFailed = false
     // A rule answers only what happened after it was made; an older event in the queue is not its business.
     for (const rule of rules.filter((item) => item.trigger === event.name && since.get(item.id!)! <= event.createdAt.getTime())) {
       const trigger = triggerOf(rule.trigger)!
-      try { if (await runRule(rule, trigger, { key: event.subjectKey, userId: event.userId, facts: parse<Facts>(event.payload, {}) }, now)) runs++ } catch (error) { logEvent('error', 'automation.rule_failed', { rule: rule.id, error }) }
+      try { if (await runRule(rule, trigger, { key: event.subjectKey, userId: event.userId, facts: parse<Facts>(event.payload, {}) }, now, lease)) runs++ } catch (error) {
+        const failedAt = new Date()
+        await db.automationEvent.updateMany({ where: { id: event.id, leaseToken: token, leaseExpiresAt: { gt: failedAt }, processedAt: null }, data: { ...(lease.effectStarted ? { needsReviewAt: failedAt, leaseToken: null, leaseExpiresAt: null, processingError: 'RULE_FAILED_AFTER_EFFECT' } : { leaseExpiresAt: new Date(failedAt.getTime() + EVENT_LEASE_MS), processingError: 'RULE_FAILED_BEFORE_EFFECT' }) } }).catch(() => undefined)
+        eventFailed = true
+        logEvent('error', 'automation.rule_failed', { rule: rule.id, error })
+        break
+      }
+      if (lease.effectStarted && await db.automationEvent.findFirst({ where: { id: event.id, needsReviewAt: { not: null } }, select: { id: true } })) { eventFailed = true; break }
     }
+    if (!eventFailed) await db.automationEvent.updateMany({ where: { id: event.id, leaseToken: token, leaseExpiresAt: { gt: new Date() }, processedAt: null, needsReviewAt: null }, data: { processedAt: new Date(), leaseToken: null, leaseExpiresAt: null, processingError: '' } })
   }
+  if (quarantined.count) logEvent('warn', 'automation.events_needs_review', { count: quarantined.count })
   for (const rule of rules) {
     const trigger = triggerOf(rule.trigger)
     if (!trigger || trigger.kind === 'event') continue
@@ -386,9 +430,9 @@ export async function processAutomation(now = new Date()) {
   }
   // Processed events are kept two weeks for the record, runs half a year.
   // Idempotency-bearing processed events retain their minimal receipt after inbox retention.
-  await db.automationEvent.deleteMany({ where: { dedupeKey: null, processedAt: { lt: new Date(now.getTime() - 14 * 86_400_000) } } }).catch(() => undefined)
+  await db.automationEvent.deleteMany({ where: { dedupeKey: null, needsReviewAt: null, processedAt: { lt: new Date(now.getTime() - 14 * 86_400_000) } } }).catch(() => undefined)
   await db.automationRun.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 180 * 86_400_000) } } }).catch(() => undefined)
-  return { events, runs }
+  return { events, runs, needsReview: await db.automationEvent.count({ where: { dedupeKey: null, needsReviewAt: { not: null }, processedAt: null } }) }
 }
 
 /** What a rule would find right now, without doing anything (the builder's "try it"). */

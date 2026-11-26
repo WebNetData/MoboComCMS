@@ -4676,8 +4676,14 @@ model AutomationEvent {
   payload     String    @default("{}")
   createdAt   DateTime  @default(now())
   processedAt DateTime?
+  leaseToken       String?
+  leaseExpiresAt   DateTime?
+  effectStartedAt  DateTime?
+  needsReviewAt    DateTime?
+  processingError  String    @default("")
 
   @@index([processedAt, id])
+  @@index([needsReviewAt, leaseExpiresAt, id])
   @@index([userId, name, createdAt])
 }
 
