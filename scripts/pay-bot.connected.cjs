@@ -89,6 +89,7 @@ async function main(){
  }
  state.mode='unknown';await Promise.all([pay.deliverBotPayment({deliveryId:delivery.id}),pay.deliverBotPayment({deliveryId:delivery.id})]);assert.equal(state.sends,1)
  delivery=await db.payBotDelivery.findUniqueOrThrow({where:{id:delivery.id}});assert.equal(delivery.status,'UNKNOWN')
+ assert.equal((await pay.payOperationalHealth()).botAttention, 1)
  await pay.deliverBotPayment({deliveryId:delivery.id});assert.equal(state.sends,1,'unknown outcome never retries automatically')
  await assert.rejects(pay.recoverBotDelivery(b,{id:delivery.id,version:delivery.version,action:'retry',confirmed:true}),e=>e.status===404)
  assert.deepEqual(await pay.botDeliveries(b),[])
@@ -96,6 +97,7 @@ async function main(){
  await pay.recoverBotDelivery(a,{id:delivery.id,version:delivery.version,action:'retry',confirmed:true})
  await assert.rejects(pay.recoverBotDelivery(a,{id:delivery.id,version:delivery.version,action:'retry',confirmed:true}),e=>e.status===409)
  state.mode='ok';await pay.deliverBotPayment({deliveryId:delivery.id});assert.equal((await db.payBotDelivery.findUniqueOrThrow({where:{id:delivery.id}})).status,'SENT');assert.equal(state.sends,2)
+ assert.equal((await pay.payOperationalHealth()).botAttention, 0)
  await pay.deliverBotPayment({deliveryId:delivery.id});assert.equal(state.sends,2)
  const second=await create({...input,order_id:'order-two'}),secondId=new URL(second.url).pathname.split('/').pop()
  await settle(secondId,'BOTREF002');let next=await db.payBotDelivery.findUniqueOrThrow({where:{paymentId:secondId}})

@@ -1,3 +1,40 @@
+## Gateway availability and operations alerts — 2026-11-26
+
+Owner requested implementation after the gateway review. Continue in
+.mobocom/pay-reliability, fix/pay-gateway-availability-2026-11-26 from main23ce5433
+with existing local guidance/audit commits. Billing now commits automatic card
+checkout selection, invoice, bank quote and URL together. Pool exhaustion returns
+an actionable capacity error and leaves a fresh payment free to choose another
+allowed method. A legacy interrupted local start can resume on its own unpaid
+invoice. External provider work keeps its existing ambiguity rules. Invoice
+authorization, terminal route snapshot, amount history and settlement claims
+remain in the existing owners. No new migration.
+
+Transfer monitor uses the allocator's whole-Toman range. The existing Operations
+Monitor has an aggregate MoboCom Pay signal for paid bot deliveries requiring
+attention and overdue bank reviews. Alert delivery follows the monitor's existing
+configuration. These signals are independent of collector connectivity.
+
+Executed in Docker Node22/UID1000 with no .env and owned NOSUPERUSER PostgreSQL:
+fresh migration deployment, npm run check, pay-bale-collection, pay-shared-checkout,
+pay-bot and pay-routing-operations. The collection test exercises exhaustion
+rollback, normal fallback, concurrent quote reuse and legacy recovery. Restoring
+the old checkout implementation in the disposable runtime fails the new capacity
+assertion; restored the fixed source and reran the four suites. Actual Chromium
+390 dark and1440 light verified capacity error → manual fallback, automatic URL
+and loaded fee-consent screen. Scoped axe, width and page-error checks passed.
+Earlier fixture-only failures were corrected without relaxing database rules.
+The disposable preview, tunnel, two databases, role and private session files
+were removed. The shared local app responded HTTP200 after cleanup.
+
+Production commissioning remains pending: real owner-side SMS/Bale session,
+production queue and merchant response contract. The amount pool is finite by
+design; a trusted bank/provider transaction identifier is needed for sustainable
+attribution at high volume. Automatic external payouts, independent source
+heartbeat and merchant-side order status verification have external dependencies
+and are outside this implemented slice. Roll back code and alerts together if
+needed. Keep invoices, bank notices, amount reservations and delivery history.
+
 ## Gateway launch gap review — 2026-11-26
 
 Owner asks what the actual gateway lacks. Read-only product-source review on

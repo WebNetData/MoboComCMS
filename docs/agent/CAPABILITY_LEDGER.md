@@ -1,3 +1,9 @@
+Gateway availability2026-11-26: VERIFIED_LOCAL. Capacity failure rolls back
+new automatic checkout, the customer can choose an allowed alternate, and the
+existing Operations Monitor flags unresolved bot/bank items. Lifetime capacity
+and production commissioning remain limited.
+[Evidence](handoffs/MOBOCOM_PAY.md#gateway-availability-and-operations-alerts--2026-11-26).
+
 Gateway launch review2026-11-26: SOURCE_REVIEW_ONLY. Lifetime amount capacity,
 collector liveness, real commissioning and uncertain external ACK remain explicit
 limits; existing monitor/review/recovery are present, not missing capabilities.

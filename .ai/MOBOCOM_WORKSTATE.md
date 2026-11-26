@@ -1,3 +1,7 @@
+# Gateway availability and operations alerts — 2026-11-26
+
+Automatic bank checkout reserves amount, creates invoice and claims method together. Capacity failure leaves alternate permitted methods available; legacy interrupted local checkout can resume. Shared Operations Monitor exposes aggregate bot/bank review incidents. Verified canonical checks, four PostgreSQL suites, fault control and Chromium390/1440. Real source/provider commissioning remains. [Handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#gateway-availability-and-operations-alerts--2026-11-26).
+
 # Gateway launch gap review — 2026-11-26
 
 Source-only Pay review: finite global lifetime amount pool(default999 candidates/whole-Toman principal), configured readiness versus collector liveness, uncommissioned personal Bale session, timestamp-limited simple SMS/USDT, uncertain callback recovery and manually executed external payouts. Existing capacity monitor/review/recovery retained; no product-source change or new live-test claim. Corrected guide migration222→223. [Evidence/priorities](../docs/agent/handoffs/MOBOCOM_PAY.md#gateway-launch-gap-review--2026-11-26).

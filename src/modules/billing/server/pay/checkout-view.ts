@@ -26,7 +26,11 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
     const verified = Boolean(req && !expired && await payPayerVerified(req, id, tx))
     const delivery = verified && row.status === 'PAID' ? await tx.payBotDelivery.findUnique({ where: { paymentId: id }, select: { status: true } }) : null
     const invoice = row.invoice, gateway = invoice?.gateway
-    const manual = !gateway || !isAutomaticTransfer(gateway) ? row.gatewayAttemptProvider === 'CARD_TRANSFER' || row.gatewayAttemptProvider === 'MANUAL' : false
+    const automatic = Boolean(gateway && isAutomaticTransfer(gateway))
+    const manual = !automatic && (row.gatewayAttemptProvider === 'CARD_TRANSFER' || row.gatewayAttemptProvider === 'MANUAL')
+    const methods = verified && row.status === 'PENDING' && !underReview ? await payGatewayOptions(row, tx) : []
+    const canResumeLocalStart = automatic && invoice?.status === 'UNPAID' && !invoice.providerTxnId && !invoice.paymentUrl &&
+      ['STARTING', 'UNKNOWN'].includes(row.gatewayAttemptStatus) && methods.some(method => method.ref === row.gatewayAttemptRef)
     const receipt = verified && invoice ? await tx.paymentReceipt.findFirst({ where: { invoiceId: invoice.id }, orderBy: { id: 'desc' }, select: { id: true, status: true, adminNote: true, createdAt: true } }) : null
     return {
       purchase: purchaseView(row, verified),
@@ -36,9 +40,9 @@ export async function checkoutView(id: string, req?: NextRequest): Promise<PayCh
       verification: { verified, phoneLast4: verified ? row.payerPhoneLast4 : '' },
       ...(delivery ? { botDelivery: { status: delivery.status } } : {}),
       returnUrl: verified && row.status === 'PAID' ? row.terminal.returnUrl : '',
- gateways: verified && row.status === 'PENDING' && !underReview ? await payGatewayOptions(row, tx) : [],
+      gateways: methods,
       selectedGateway: verified && invoice ? { gatewayRef: row.gatewayAttemptRef, provider: row.gatewayAttemptProvider, manual,
-        status: row.gatewayAttemptStatus, paymentUrl: row.status === 'PENDING' && row.gatewayAttemptStatus === 'READY' ? invoice.paymentUrl : '', instructions: gateway?.instructions || '' } : null,
+        status: canResumeLocalStart ? 'FAILED' : row.gatewayAttemptStatus, paymentUrl: row.status === 'PENDING' && row.gatewayAttemptStatus === 'READY' ? invoice.paymentUrl : '', instructions: gateway?.instructions || '' } : null,
       receipt: receipt ? { ...receipt, createdAt: receipt.createdAt.toISOString() } : null,
       bank: verified && row.status === 'PENDING' && manual && gateway?.provider === 'CARD_TRANSFER' && row.bankAccount?.active ? { title: row.bankAccount.bankName, bankName: row.bankAccount.bankName, holderName: row.bankAccount.holderName, cardNumber: row.bankAccount.cardNumber, iban: row.bankAccount.sheba } : null,
     }

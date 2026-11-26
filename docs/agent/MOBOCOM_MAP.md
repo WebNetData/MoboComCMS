@@ -1,3 +1,8 @@
+Gateway availability2026-11-26: Billing Pay checkout-gateways owns atomic local
+checkout/collection reservation. Billing operational-health projects incident
+counts into the shared Notifications Operations Monitor.
+[Handoff](handoffs/MOBOCOM_PAY.md#gateway-availability-and-operations-alerts--2026-11-26).
+
 Gateway launch review2026-11-26: Billing Pay collection-create owns global lifetime
 amount reservations; transfer-operations monitors capacity/observed notices, not
 authenticated collector heartbeat. Future liveness alerts reuse Operations and

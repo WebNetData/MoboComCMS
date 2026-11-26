@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomInt } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
 import { PayError } from '@/modules/billing/domain/pay'
-import { invoicePrincipalRial } from '@/modules/billing/domain/pay-bale-collection'
+import { bankAmountRange, invoicePrincipalRial } from '@/modules/billing/domain/pay-bale-collection'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { auditSystemStrict } from '@/platform/audit/server'
 import { payTransaction } from '../context'
@@ -10,9 +10,10 @@ import { baleCollectionContext } from './collection-context'
 
 export async function createBaleCollectionInTransaction(tx: Prisma.TransactionClient, invoiceNumber: string, gatewayId: number, renewal = false) {
   const context = await baleCollectionContext(tx, gatewayId), { bank, binding, owner, policy } = context
-  const invoice = await tx.invoice.findUnique({ where: { number: invoiceNumber }, include: { payCollection: { include: { merchant: true, terminal: true } } } })
-  if (!invoice || invoice.gatewayId !== gatewayId || invoice.saleSource === 'COUNTER') throw new PayError('فاکتور این درگاه معتبر نیست', 409)
-  await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${invoice.id} FOR UPDATE`)
+  const locked = await tx.$queryRaw<{ id: number }[]>(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "number" = ${invoiceNumber} FOR UPDATE`)
+  if (!locked.length) throw new PayError('فاکتور این درگاه معتبر نیست', 409)
+  const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: locked[0].id }, include: { payCollection: { include: { merchant: true, terminal: true } } } })
+  if (invoice.gatewayId !== gatewayId || invoice.saleSource === 'COUNTER') throw new PayError('فاکتور این درگاه معتبر نیست', 409)
   const now = new Date()
   if (invoice.status !== 'UNPAID' || (invoice.expiresAt && invoice.expiresAt <= now)) throw new PayError('فاکتور دیگر قابل پرداخت نیست', 409)
   const gateway = await tx.gateway.findFirst({ where: { id: gatewayId, active: true, provider: { in: ['MOBOCOM_PAY','CARD_TRANSFER'] } } })
@@ -39,17 +40,15 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
   }
   const dueMinor = invoiceDueMinor(invoice), principalRial = invoicePrincipalRial(dueMinor, invoice.currency)
   if (principalRial < gateway.minAmountMinor) throw new PayError('مبلغ کمتر از حداقل درگاه است', 422)
-  const min = BigInt(policy.minAdjustmentRial), max = BigInt(policy.maxAdjustmentRial)
   // The principal stays exact; the separately disclosed addition aligns the BANK total to whole Toman.
-  const first = ((principalRial + min + 9n) / 10n) * 10n, last = ((principalRial + max) / 10n) * 10n
-  const slots = Number((last - first) / 10n + 1n)
+  const { first, last, capacity: slots } = bankAmountRange(principalRial, policy)
   if (slots < 1) throw new PayError('بازهٔ تمایز برای این مبلغ ظرفیت ندارد', 409, 'BALE_POOL_EXHAUSTED')
   await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(1885432166, 0)`)
   const occupied = new Set((await tx.payBaleCollection.findMany({ where: { collectedRial: { gte: first, lte: last } }, select: { collectedRial: true } })).map(row => row.collectedRial.toString()))
   const offset = randomInt(slots)
   let collectedRial: bigint | null = null
   for (let step = 0; step < slots; step++) { const candidate = first + BigInt((offset + step) % slots) * 10n; if (!occupied.has(candidate.toString())) { collectedRial = candidate; break } }
-  if (collectedRial === null) throw new PayError('ظرفیت مبالغ متمایز این حساب پر شده است؛ روش دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید', 409, 'BALE_POOL_EXHAUSTED')
+  if (collectedRial === null) throw new PayError('ظرفیت کارت‌به‌کارت خودکار برای این مبلغ پر شده است؛ روش دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید', 409, 'BALE_POOL_EXHAUSTED')
   const limit = Math.min(now.getTime() + policy.minutes * 60000, invoice.expiresAt?.getTime() || Infinity, pay?.creditCurrency === 'USDT' ? pay.expiresAt.getTime() : Infinity)
   const validFrom = now, expiresAt = new Date(limit)
   if (expiresAt.getTime() - validFrom.getTime() < 1000) throw new PayError('مهلت فاکتور برای درخواست تازه کافی نیست', 409)
@@ -70,9 +69,11 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
 }
 
 /** Gateway-owned internal admission; the caller has already created/authorized the canonical invoice. */
-export async function prepareBaleGateway(gatewayId: number, invoiceNumber: string) {
+export async function prepareBaleGateway(gatewayId: number, invoiceNumber: string, tx?: Prisma.TransactionClient) {
   baleCollectionUrl('validation')
-  const row = await payTransaction(tx => createBaleCollectionInTransaction(tx, invoiceNumber, gatewayId))
+  const row = tx
+    ? await createBaleCollectionInTransaction(tx, invoiceNumber, gatewayId)
+    : await payTransaction(client => createBaleCollectionInTransaction(client, invoiceNumber, gatewayId))
   return { ok: true as const, txnId: row.id, paymentUrl: baleCollectionUrl(row.id), expiresAt: row.expiresAt.toISOString() }
 }
 function baleCollectionUrl(id: string) {
