@@ -157,19 +157,27 @@ export function paymentAmounts(amount: unknown, settings: PaySettings, terms?: P
   const gross = rial(amount)
   if (gross < BigInt(settings.minPaymentRial) || gross > BigInt(settings.maxPaymentRial))
     throw new PayError('مبلغ با حدود مجاز درگاه مطابقت ندارد')
-  const policy = terms || { ...settings, feeBearer: 'MERCHANT' }
+  const policy: PayFeeTerms = terms || { ...settings, feeBearer: 'MERCHANT' }
   const calculated = (gross * BigInt(policy.feeBps) + 9999n) / 10000n + BigInt(policy.flatFeeRial)
   const cap = BigInt(policy.feeCapRial || '0'), fee = cap > 0n && calculated > cap ? cap : calculated
-  const customer = policy.feeBearer === 'CUSTOMER'
-  if (!customer && fee >= gross) throw new PayError('کارمزد از مبلغ پرداخت بیشتر است')
-  const total = gross + (customer ? fee : 0n)
+  const share = policy.customerFeeShareBps ?? (policy.feeBearer === 'CUSTOMER' ? 10000 : 0)
+  const customerFee = fee * BigInt(share) / 10000n
+  const merchantFee = fee - customerFee
+  if (merchantFee >= gross) throw new PayError('کارمزد از مبلغ پرداخت بیشتر است')
+  const total = gross + customerFee
   if (total > MAX) throw new PayError('مبلغ نهایی خارج از محدوده است')
-  return { amountMinor: gross, feeMinor: fee, netMinor: customer ? gross : gross - fee, totalMinor: total, feeBearer: customer ? 'CUSTOMER' : 'MERCHANT' }
+  const feeBearer = share === 10000 ? 'CUSTOMER' : customerFee > 0n ? 'SPLIT' : 'MERCHANT'
+  return { amountMinor: gross, feeMinor: fee, netMinor: gross - merchantFee, totalMinor: total, feeBearer }
 }
-export function merchantFeeTerms(settings: PaySettings, row?: { feeBearer?: string; feeBps?: number | null; flatFeeMinor?: bigint | null; feeCapMinor?: bigint | null }): PayFeeTerms {
+export function merchantFeeTerms(settings: PaySettings, row?: { feeBearer?: string; customerFeeShareBps?: number | null; feeBps?: number | null; flatFeeMinor?: bigint | null; feeCapMinor?: bigint | null }): PayFeeTerms {
   return { feeBearer: row?.feeBearer === 'CUSTOMER' ? 'CUSTOMER' : 'MERCHANT', feeBps: row?.feeBps ?? settings.feeBps,
     flatFeeRial: row?.flatFeeMinor?.toString() ?? settings.flatFeeRial, feeCapRial: row?.feeCapMinor?.toString() ?? settings.feeCapRial,
+    ...(row?.customerFeeShareBps != null ? { customerFeeShareBps: row.customerFeeShareBps } : {}),
     inherited: row?.feeBps == null }
+}
+export function paymentFeeShares(row: { amountMinor: bigint; totalMinor: bigint; feeMinor: bigint }) {
+  const customerFee = row.totalMinor - row.amountMinor
+  return { customerFeeRial: customerFee.toString(), merchantFeeRial: (row.feeMinor - customerFee).toString() }
 }
 export function quoteAmounts(amount: unknown, rail: PayRail) {
   const gross = rial(amount),

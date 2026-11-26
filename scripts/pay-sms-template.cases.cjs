@@ -1,7 +1,5 @@
 const { test } = require('node:test'), assert = require('node:assert/strict')
 const { normalizeSmsTemplate, parseSmsTemplate, parseSmsAmount, smsBankPresets } = require('./connected-source-loader.cjs')()('src/modules/billing/domain/pay-sms-template.ts')
-const { parseBaleAmount } = require('./connected-source-loader.cjs')()('src/modules/billing/domain/pay-bale-amount.ts')
-const { melli } = require('./pay-bale.fixture.cjs')
 const { smsSourceConfig, smsSourceStorage, forwardedSmsIdentity } = require('./connected-source-loader.cjs')()('src/modules/billing/domain/pay-sms-source.ts')
 const config = { bankCode: 'fixture_bank', sender: 'fixture', creditTemplate: 'CREDIT {amount}', debitTemplate: 'DEBIT {amount}', unit: 'IRT', calendar: 'GREGORIAN' }
 test('synthetic bank shapes normalize digits, Arabic letters and whitespace without returning balance', () => {
@@ -34,12 +32,6 @@ test('amount grouping and overflow fail without including message text in errors
   for (const amount of ['0', '01', '1,23', '1,234٬567', '922337203685477581']) {
     const result = parseSmsAmount(config, `CREDIT ${amount}`); assert.equal(result.ok, false); assert.equal(JSON.stringify(result).includes(amount), false)
   }
-})
-test('Bale amount parser recognizes transfers without using account, balance, or dates', () => {
-  assert.deepEqual(parseBaleAmount(melli({ account: '1111111111111', amount: '1234' })), { ok: true, amountRial: '1234', direction: 'CREDIT', kind: 'TRANSFER' })
-  assert.equal(parseBaleAmount(melli({ kind: 'سود_پرداخت_شده' })).kind, 'INTEREST')
-  assert.equal(parseBaleAmount(melli({ sign: '-' })).kind, 'OTHER')
-  assert.equal(parseBaleAmount(melli({ kind: 'نام_ناشناخته' })).kind, 'OTHER')
 })
 test('SMS source storage round trips legacy templates and versioned forwarder templates', () => {
   const template = normalizeSmsTemplate(config)

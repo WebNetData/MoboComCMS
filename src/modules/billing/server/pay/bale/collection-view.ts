@@ -2,11 +2,12 @@ import type { NextRequest } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { PayError } from '@/modules/billing/domain/pay'
+import { paymentFeeShares } from '@/modules/billing/domain/pay-policy'
 import { baleEffectiveStart, type BaleCheckout } from '@/modules/billing/domain/pay-bale-collection'
 import { auditSystemStrict } from '@/platform/audit/server'
 import { payTransaction } from '../context'
 import { requirePayPayer } from '../payer'
-import { baleCollectionContext } from './collection-context'
+import { baleCollectionContext, matchesFrozenSms } from './collection-context'
 import { createBaleCollectionInTransaction } from './collection-create'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
@@ -37,16 +38,21 @@ export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout
     const status = row.invoice.status === 'PAID' ? 'PAID' : row.status === 'PENDING' && (row.expiresAt <= now || !['UNPAID','DRAFT'].includes(row.invoice.status)) ? 'EXPIRED' : row.status as BaleCheckout['status']
     let ready = false
     if (status === 'PENDING') {
-      const context = await baleCollectionContext(tx, row.gatewayId)
-      ready = row.bankAccount.active && row.bankAccountId === context.bank.id && row.sourceTypes === JSON.stringify(context.sourceTypes)
-      if (!ready) throw new PayError('اتصال این درخواست تغییر کرده؛ اطلاعات پرداخت را با پشتیبانی بررسی کنید', 409)
+      try {
+        const context = await baleCollectionContext(tx, row.gatewayId)
+        ready = row.bankAccount.active && row.bankAccountId === context.bank.id && context.sms.some(source => matchesFrozenSms(row, source))
+      } catch (error) {
+        if (!(error instanceof PayError)) throw error
+      }
     }
-    const display = row.invoice.gateway?.provider === 'CARD_TRANSFER' ? autoTransferConfig(row.invoice.gateway.config).autoDisplay : transferDisplayDefaults()
+    const display = ready && row.invoice.gateway ? autoTransferConfig(row.invoice.gateway.config).autoDisplay : transferDisplayDefaults()
     // Omitted fields never leave the server, including after browser reload or polling.
     const bank = { bankName: display.bankName ? row.bankAccount.bankName : '', holderName: display.holderName ? row.bankAccount.holderName : '', cardNumber: display.cardNumber ? row.bankAccount.cardNumber : '', accountNumber: display.accountNumber ? row.bankAccount.accountNumber : '', iban: display.iban ? row.bankAccount.sheba : '' }
     return { id, status, invoiceNumber: row.invoice.number, principalRial: row.principalRial.toString(), adjustmentRial: row.adjustmentRial.toString(), collectedRial: row.collectedRial.toString(),
+      ...(row.invoice.payCollection ? { orderRial: row.invoice.payCollection.amountMinor.toString(), ...paymentFeeShares(row.invoice.payCollection) } : {}),
       usdt: usdtEquivalent(row.collectedRial, await currentCurrencyRate('USDT', tx), now),
       validFrom: start.toISOString(), expiresAt: row.expiresAt.toISOString(), accepted: Boolean(row.acceptedAt), serverTime: now.toISOString(),
+      ...(status === 'PENDING' && !ready ? { receiptOnly: true } : {}),
       receipt: row.receipt ? { id: row.receipt.id, status: row.receipt.status, createdAt: row.receipt.createdAt.toISOString() } : null,
       bank: status === 'PENDING' && ready && row.acceptedAt && now >= start ? bank : null,
       returnUrl: row.invoice.payCollection ? `/pay/${row.invoice.payCollection.id}` : `/invoice/${encodeURIComponent(row.invoice.number)}`,
@@ -63,7 +69,7 @@ export async function changeBaleCheckout(id: string, req: NextRequest, action: u
     }
     if (action !== 'accept') throw new PayError('عملیات پرداخت معتبر نیست', 422)
     if (row.status !== 'PENDING' || row.expiresAt <= now || row.invoice.status !== 'UNPAID' || row.activeInvoiceId !== row.invoiceId) throw new PayError('مهلت یا وضعیت درخواست تغییر کرده است', 409)
-    if (row.bankAccountId !== context.bank.id || row.sourceTypes !== JSON.stringify(context.sourceTypes)) throw new PayError('اتصال این درخواست تغییر کرده است', 409)
+    if (row.bankAccountId !== context.bank.id || !context.sms.some(source => matchesFrozenSms(row, source))) throw new PayError('منبع پیامک این درخواست تغییر کرده است', 409)
     if (row.acceptedAt) return row.id
     if (baleEffectiveStart({ ...row, acceptedAt: now }).getTime() + 60000 > row.expiresAt.getTime()) throw new PayError('مهلت کافی برای شروع پرداخت نمانده است؛ درخواست را پس از انقضا تازه کنید', 409)
     const claim = await tx.payBaleCollection.updateMany({ where: { id, status: 'PENDING', acceptedAt: null, activeInvoiceId: row.invoiceId }, data: { acceptedAt: now } })

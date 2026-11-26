@@ -160,7 +160,8 @@ export function PaymentTable({ items, adminReceipts = false }: { items: PayPayme
                     {x.platformFeeRial != null && <PaymentFact label={x.status === "PAID" ? "مجموع کارمزد پلتفرم" : "برآورد کارمزد پلتفرم"}>{money(x.platformFeeRial)}</PaymentFact>}
                     <PaymentFact label="معادل ریالی اعتبار پذیرنده">{money(x.creditRial ?? x.netRial)}</PaymentFact>
                     {x.creditAmount && <PaymentFact label="اعتبار پذیرنده"><bdi dir="ltr">{x.creditAmount} {x.creditCurrency}</bdi></PaymentFact>}
-                    <PaymentFact label="کارمزد بر عهده">{x.feeBearer === "CUSTOMER" ? "مشتری" : "پذیرنده"}</PaymentFact>
+              {x.customerFeeRial && <PaymentFact label="سهم مشتری از کارمزد">{money(x.customerFeeRial)}</PaymentFact>}
+              {x.merchantFeeRial && <PaymentFact label="سهم پذیرنده از کارمزد">{money(x.merchantFeeRial)}</PaymentFact>}
                     {x.gatewayCollectionStatus && <><PaymentFact label="هزینهٔ خدمت درگاه">{money(x.gatewayAdjustmentRial || "0")}</PaymentFact><PaymentFact label="مبلغ درخواستی واریز">{money(x.gatewayCollectedRial || x.totalRial)}</PaymentFact></>}
                     {x.transferReference && <PaymentFact label="شناسه پیگیری انتقال"><bdi dir="ltr">{x.transferReference}</bdi></PaymentFact>}
                     <PaymentFact label="زمان ثبت">{date(x.createdAt)}</PaymentFact>

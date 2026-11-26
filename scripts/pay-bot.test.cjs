@@ -2,7 +2,6 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),load=requ
 const {parseBotPayment,botCallbackUrl,botAcknowledged}=load('src/modules/billing/domain/pay-bot.ts')
 const {publicBotAddress}=load('src/modules/billing/server/pay/bot/transport.ts')
 require('./pay-bank-notice.cases.cjs')
-require('./pay-bale.cases.cjs')
 require('./pay-bale-collection.cases.cjs')
 require('./pay-usdt-equivalent.cases.cjs')
 const input={api_key:'synthetic',amount:10000,order_id:'order-1',user_id:123456789,type:'purchase'}

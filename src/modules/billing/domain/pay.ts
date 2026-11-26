@@ -22,7 +22,7 @@ export interface PayAssetBalance {
 }
 export type PayFeeBearer = 'MERCHANT' | 'CUSTOMER'
 export type PayChannelType = 'WEBSITE' | 'BOT' | 'INSTAGRAM' | 'CHANNEL' | 'PAYMENT_LINK' | 'OTHER'
-export interface PayFeeTerms { feeBearer: PayFeeBearer; feeBps: number; flatFeeRial: string; feeCapRial: string; inherited?: boolean }
+export interface PayFeeTerms { feeBearer: PayFeeBearer; feeBps: number; flatFeeRial: string; feeCapRial: string; inherited?: boolean; customerFeeShareBps?: number }
 export interface PayRail {
   fees?: PaySettlementFees
   instrument?: string
@@ -95,6 +95,8 @@ export interface PayPaymentView {
   netRial: string
   totalRial: string
   feeBearer: PayFeeBearer
+  customerFeeRial?: string
+  merchantFeeRial?: string
   status: PayPaymentStatus
   transferReference: string
   createdAt: string
@@ -180,8 +182,10 @@ export interface PayCheckout {
   totalRial: string
   feeRial: string
   feeBearer: PayFeeBearer
+  customerFeeRial?: string
+  merchantFeeRial?: string
   verification: { verified: boolean; phoneLast4: string }
-  gateways: { ref: string; id: number | null; name: string; provider: string; manual: boolean; isDefault: boolean }[]
+  gateways: { ref: string; id: number | null; name: string; provider: string; manual: boolean; isDefault: boolean; automatic?: boolean }[]
   selectedGateway: { gatewayRef: string; provider: string; manual: boolean; paymentUrl: string; status: string; instructions: string } | null
   receipt: { id: number; status: string; adminNote: string; createdAt: string } | null
   status: PayPaymentStatus

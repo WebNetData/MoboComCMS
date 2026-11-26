@@ -5,7 +5,6 @@ import type {
 } from "@/modules/billing/domain/pay";
 import { Field } from "../shared";
 import s from "../Pay.module.css";
-import BaleStatus from './bale-status';
 import SmsSources from './sms-sources';
 import Link from '@/components/AppLink';
 export default function Settings({
@@ -23,7 +22,7 @@ export default function Settings({
 }) {
   return (
     <div className={s.stack}>
-    <section className={`${s.card} ${s.stack}`} aria-labelledby="pay-auto-setup-title"><h2 id="pay-auto-setup-title">راه‌اندازی تأیید خودکار؛ فقط مدیریت</h2><p className={s.muted}>کارت و حساب بانکی متعلق به موبوکام است. اتصال پیامک و بله، فعال‌سازی روش خودکار و قرارداد کارمزد را مدیریت تعیین می‌کند. پذیرنده فقط وضعیت را می‌بیند؛ نخستین تأیید معتبر، پرداخت را یک بار ثبت می‌کند.</p><nav className={s.actions} aria-label="راهنمای منابع بانکی"><a className={s.secondary} href="#sms-forwarder-guide-title">راهنمای POST پیامک</a><a className={s.secondary} href="#pay-bale-setup">اتصال حساب بله</a><Link className={s.secondary} href="/admin/mobocom-pay/merchants">مجوز خودکار پذیرندگان</Link></nav></section>
+    <section className={`${s.card} ${s.stack}`} aria-labelledby="pay-auto-setup-title"><h2 id="pay-auto-setup-title">تأیید خودکار با پیامک بانکی</h2><p className={s.muted}>حساب مقصد را در تنظیمات درگاه انتخاب کنید، منبع پیامک را برای همان حساب فعال کنید و مجوز پذیرنده و پایانه را بررسی کنید.</p><nav className={s.actions} aria-label="راه‌اندازی پیامک بانکی"><a className={s.secondary} href="#sms-forwarder-guide-title">راهنمای SMS Forwarder</a><Link className={s.secondary} href="/admin/gateways">تنظیم حساب مقصد</Link><Link className={s.secondary} href="/admin/mobocom-pay/merchants">مجوز پذیرنده و پایانه</Link></nav></section>
     <section className={`${s.card} ${s.stack}`}>
       <h2>تنظیمات دریافت و تسویه</h2>
       <label className={s.check}>
@@ -93,7 +92,7 @@ export default function Settings({
         ))}
       </div>
  <fieldset className={s.stack}>
- <legend>تطبیق خودکار بله</legend>
+ <legend>سیاست تطبیق پیامک بانکی</legend>
  <label className={s.check}><input type="checkbox" checked={settings.bale.enabled} onChange={(e) => update({ bale: { ...settings.bale, enabled: e.target.checked } })} /> فعال</label>
  <p className={s.muted}>هزینهٔ خدمت پلتفرم جداگانه به مشتری اعلام می‌شود. مبلغ‌های اختصاص‌یافته هرگز دوباره استفاده نمی‌شوند. حساب بانکی اختصاصی و منبع تأییدشده لازم است. شمارش مهلت پرداخت بلافاصله آغاز می‌شود.</p>
  <Link href="/admin/bank-accounts">مدیریت حساب‌های بانکی</Link>
@@ -170,7 +169,6 @@ export default function Settings({
         </button>
       </div>
     </section>
-    <BaleStatus />
  <SmsSources bankAccounts={data.bankAccounts} />
     </div>
   );

@@ -1,37 +1,11 @@
-# Disposable fixture only; source keys/sessions and signed body remain ignored.
-GET {{baseUrl}}/api/admin/mobocom-pay/bale-status
-Cookie: __Secure-next-auth.session-token={{adminCookie}}
-HTTP 200
-[Asserts]
-jsonpath "$.data.sources" count == 2
-jsonpath "$.data.sources[0].secret" not exists
-jsonpath "$.data.sources[0].instanceId" not exists
-
-POST {{baseUrl}}/api/payment/mobocom-pay/bale-events?source={{sourceId}}
-Origin: {{baseUrl}}
-Content-Type: application/json
-X-Hub-Signature-256: {{signature}}
-X-GoOmni-Event-Id: {{eventId}}
-file,approval-body-private.json;
-HTTP 200
-[Asserts]
-jsonpath "$.data.alreadyPaid" == true
-
-POST {{baseUrl}}/api/payment/mobocom-pay/bale-events?source={{otherSourceId}}
-Origin: {{baseUrl}}
-Content-Type: application/json
-X-Hub-Signature-256: {{signature}}
-X-GoOmni-Event-Id: {{eventId}}
-file,approval-body-private.json;
-HTTP 401
-
+# Disposable fixture. autoReceipt was already confirmed by a bank SMS.
 POST {{baseUrl}}/api/payment/mobocom-pay/bale-events
 Origin: {{baseUrl}}
 Content-Type: application/json
-X-Hub-Signature-256: {{signature}}
-X-GoOmni-Event-Id: {{eventId}}
-file,approval-body-private.json;
-HTTP 503
+{}
+HTTP 410
+[Asserts]
+jsonpath "$.code" == "PAY_SOURCE_RETIRED"
 
 PATCH {{baseUrl}}/api/admin/mobocom-pay/receipts
 Cookie: __Secure-next-auth.session-token={{adminCookie}}
@@ -42,7 +16,7 @@ HTTP 200
 [Asserts]
 jsonpath "$.data.alreadyPaid" == true
 jsonpath "$.data.confirmation.method" == "AUTO"
-jsonpath "$.data.confirmation.source" == "BALE"
+jsonpath "$.data.confirmation.source" == "SMS"
 
 PATCH {{baseUrl}}/api/admin/mobocom-pay/receipts
 Cookie: __Secure-next-auth.session-token={{deniedCookie}}

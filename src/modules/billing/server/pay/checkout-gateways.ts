@@ -17,7 +17,7 @@ import { publicPayment } from './payments'
 import { requirePayPayer } from './payer'
 import { prepareBaleGateway } from './bale/collection-create'
 
-export type PayGatewayOption = { ref: string; id: number | null; name: string; provider: string; manual: boolean; isDefault: boolean }
+export type PayGatewayOption = { ref: string; id: number | null; name: string; provider: string; manual: boolean; isDefault: boolean; automatic?: boolean }
 export type PayGatewayStart = { invoiceId: number; gatewayRef: string; provider: string; manual: boolean; paymentUrl: string; status: 'READY' | 'STARTING' | 'UNKNOWN' | 'FAILED' }
 
 /** Active canonical gateways; incompatible precision is never silently rounded. */
@@ -28,6 +28,7 @@ export async function payGatewayOptions(row?: { totalMinor: bigint; id?: string;
   const grant = row?.id && gateways.some(gw => isAutomaticTransfer(gw)) ? await reader.payPayment.findUnique({ where: { id: row.id }, select: { merchant: { select: { baleAllowed: true } }, terminal: { select: { baleEnabled: true } } } }) : null
   return gateways.filter(gw => row?.creditCurrency !== 'USDT' || ['CARD_TRANSFER','MANUAL','MOBOCOM_PAY'].includes(gw.provider)).filter(gw => !isAutomaticTransfer(gw) || !row?.id || Boolean(grant?.merchant.baleAllowed && grant.terminal.baleEnabled)).filter(gw => !snapshot || snapshot.gateways.some(method => method.ref === checkoutGatewayRef(gw))).filter((gw) => gw.provider !== 'FRENZYEX' || !row || row.totalMinor % 10n === 0n).map((gw, index) => ({
     ref: checkoutGatewayRef(gw), id: gw.id, name: customerGatewayLabel(gw), provider: gw.provider,
+    ...(isAutomaticTransfer(gw) ? { automatic: true } : {}),
     manual: !isAutomaticTransfer(gw) && (gw.provider === 'CARD_TRANSFER' || gw.provider === 'MANUAL'), isDefault: index === 0,
   }))
 }

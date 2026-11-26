@@ -1,3 +1,21 @@
+# SMS-only bank collection and manual payout — 2026-11-27
+
+Continue the Pay worktree `.mobocom/pay-sms-fee-share`. The retired Bale connector
+responds with HTTP 410. New automatic card transfers use verified SMS sources
+attached to the configured bank account. Manual receipt review and manual
+outbound settlement use the existing financial state claims.
+[Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#sms-only-card-transfer-and-manual-payout--2026-11-27).
+
+# Payment fee allocation and SMS checkout — 2026-11-27
+
+Continue `.mobocom/pay-sms-fee-share` from released main 51cb0686.
+New payment links and bot orders use the merchant's saved allocation of the
+existing fee. Historic totals remain immutable. Migration
+`20270411120000_pay_fee_shares` is unreleased.
+Automatic card transfer is the primary choice when ready, with a separately
+disclosed unique bank amount. Receipt dialogs center in both card paths.
+[Evidence and operations](../docs/agent/handoffs/MOBOCOM_PAY.md#sms-checkout-and-fee-allocation--2026-11-27).
+
 # Release 1.7.25 — 2026-11-26
 
 Owner authorized merging and releasing. PR500 merged as 8ffdc7df; continue

@@ -5923,6 +5923,7 @@ model PayMerchant {
   website   String
   status    String   @default("PENDING")
   feeBearer String @default("MERCHANT")
+  customerFeeShareBps Int?
   feeBps Int?
   flatFeeMinor BigInt?
   feeCapMinor BigInt?

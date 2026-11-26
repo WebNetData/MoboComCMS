@@ -1,3 +1,59 @@
+## SMS-only card transfer and manual payout — 2026-11-27
+
+The owner retired the personal Bale connection. The old POST returns 410 with
+`PAY_SOURCE_RETIRED`. The connector settings and admin status endpoint were
+removed. Queued Bale notices cannot settle and previous confirmations remain
+in the ledger. This slice introduces no migration.
+
+Admin activates SMS matching and selects the dedicated bank account in the
+gateway. Set up a verified SMS source for that account and enable automatic
+collection on the merchant and terminal. Test the template against a sample
+in settings before enabling it. The existing Forwarder and timestamped
+contracts remain available. Only the stored SMS source and version can
+confirm the unique amount. Accepted requests that lose their eligible source
+can submit a receipt during their original pending window.
+
+The administrator makes the outbound settlement externally and records the
+bank reference or transaction hash in the existing settlement desk. Its
+authorization, review thresholds, receipt evidence and balance claims apply.
+The phone-to-production forwarding path requires testing with a real message.
+
+Verified in Docker Desktop with a clean PostgreSQL database and a non-root
+runner without an `.env` file. The production build and five connected Pay
+suites passed. They cover matching, duplicate handling, delayed events,
+historical source retirement, manual settlement, and asset and bot flows.
+Edge exercised the SMS template tester, HTTP 410, checkout and receipt review,
+and the admin settlement page. Scoped axe, architecture, source, schema and
+money checks passed. React Doctor reported zero errors and five advisories.
+
+## SMS checkout and fee allocation — 2026-11-27
+
+The customer screenshot showed the manual card path. On new eligible checkouts,
+the automatic method is primary unless the link specifies a different method.
+Admin controls source, destination and terminal eligibility. A manual
+selection remains explicit and keeps its original invoice. The automatic
+quote reserves an exact amount and shows its adjustment alongside the
+contract fee shares. Existing settlement still claims the invoice once.
+Basic SMS Forwarder can confirm a Rial payment. Locked-rate USDT still
+requires timestamped evidence or staff review.
+
+The merchant's payment workspace saves the customer share of the contracted
+fee or clears it to the contract default. The allocation applies to new Pay
+and bot orders. The whole-Rial remainder goes to the merchant's fee share.
+Existing total, net and fee columns are the immutable snapshot. Legacy API
+feeBearer values remain available with additive exact shares.
+
+Executed on the local Docker Desktop app: clean database migrations,
+four connected PostgreSQL suites, architecture/source/schema/money gates,
+OpenAPI comparison, React Doctor (zero errors, five advisory findings) and
+production build. Connected cases proved a split fee, distinct bank amounts
+for equal orders, a principal-only SMS refusal and one net wallet credit on
+an exact SMS plus replay. Twelve browser scopes on a synthetic HTTPS preview
+verified receipt centering, both submissions, documented mobile dimensions,
+receipt permissions and the existing ledgers. A separate mobile browser
+check verified saving and reloading the merchant fee preference.
+No live provider delivery was exercised.
+
 ## Compact checkout and receipt review — 2026-11-26
 
 Owner reported unreadable details in both payment tables, hard-to-open receipt

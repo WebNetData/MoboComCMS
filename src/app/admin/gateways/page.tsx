@@ -28,7 +28,6 @@ interface Gateway {
   hasPassword?: boolean
   usable: boolean
  autoVerify: boolean
- autoSources: Array<'SMS' | 'BALE'>
  autoBankAccountId: number | null
  autoDisplay: TransferDisplay
 }
@@ -65,7 +64,6 @@ const EMPTY = {
   isDefault: false,
   sortOrder: 0,
  autoVerify: false,
- autoSources: ['SMS', 'BALE'] as Array<'SMS' | 'BALE'>,
  autoBankAccountId: null as number | null,
  autoDisplay: transferDisplayDefaults(),
 }
@@ -212,7 +210,6 @@ export default function AdminGatewaysPage() {
       isDefault: gw.isDefault,
       sortOrder: gw.sortOrder,
  autoVerify: gw.autoVerify ?? false,
- autoSources: gw.autoSources ?? ['SMS', 'BALE'],
  autoBankAccountId: gw.autoBankAccountId ?? null,
  autoDisplay: gw.autoDisplay ?? transferDisplayDefaults(),
     })
@@ -327,13 +324,12 @@ export default function AdminGatewaysPage() {
               <input className="input" dir="ltr" placeholder="BTC,ETH,USDT_TRX" value={form.currencies} onChange={(e) => setForm({ ...form, currencies: e.target.value })} /></label>
             </div>
           )}
- {form.provider === 'CARD_TRANSFER' && <fieldset className="grid-column-span-3">
+ {['CARD_TRANSFER','MOBOCOM_PAY'].includes(form.provider) && <fieldset className="grid-column-span-3">
  <legend>تأیید خودکار کارت به کارت</legend>
- <label className="flex items-center gap-2 panel-toggle"><input type="checkbox" checked={form.autoVerify} onChange={(e) => setForm({ ...form, autoVerify: e.target.checked })} /> تأیید خودکار</label>
+ <label className="flex items-center gap-2 panel-toggle"><input type="checkbox" checked={form.autoVerify} onChange={(e) => setForm({ ...form, autoVerify: e.target.checked })} /> تأیید خودکار با پیامک بانکی</label>
  <p className="muted text-sm">رسید دستی و تطبیق خودکار به یک پرداخت می‌رسند و تأیید مالی تکرار نمی‌شود.</p>
  {form.autoVerify && <>
- <p className="muted text-sm" id="auto-sources-help">حداقل یک منبع را انتخاب کنید.</p>
- {(['SMS', 'BALE'] as const).map(source => <label key={source} className="flex items-center gap-2 panel-toggle"><input type="checkbox" checked={form.autoSources.includes(source)} aria-describedby="auto-sources-help" onChange={(e) => setForm({ ...form, autoSources: e.target.checked ? [...form.autoSources, source] : form.autoSources.filter((x: string) => x !== source) })} />{source === 'SMS' ? 'پیامک بانکی' : 'بله'}</label>)}
+ <p className="muted text-sm">منبع پیامک این حساب را در تنظیمات موبوکام‌پی تأیید و فعال کنید.</p>
  <label className="label-field"><span className="label">حساب اختصاصی درگاه موبوکام</span><select className="select" required value={form.autoBankAccountId ?? ''} onChange={(e) => setForm({ ...form, autoBankAccountId: e.target.value ? Number(e.target.value) : null })}><option value="">انتخاب حساب</option>{bankAccounts.filter(a => a.collectionUse === 'MOBOCOM_PAY' && (a.active || a.id === form.autoBankAccountId)).map(a => <option key={a.id} value={a.id} disabled={!a.active}>{a.bankName} · {a.holderName}{!a.active && ' (غیرفعال)'}</option>)}</select></label>
  <fieldset className="mt-3"><legend>اطلاعات مقصد در صفحهٔ پرداخت</legend><p className="muted text-sm">مبلغ همیشه نمایش داده می‌شود. فقط مبلغ و شماره کارت دکمهٔ کپی دارند. حداقل یک شمارهٔ مقصد را انتخاب کنید.</p>
  {([['cardNumber','شماره کارت'],['bankName','نام بانک'],['holderName','نام صاحب حساب'],['accountNumber','شماره حساب'],['iban','شماره شبا']] as const).map(([key,label]) => <label key={key} className="flex items-center gap-2 panel-toggle"><input type="checkbox" checked={form.autoDisplay[key]} onChange={event => setForm({ ...form, autoDisplay: { ...form.autoDisplay, [key]: event.target.checked } })} />{label}</label>)}
@@ -377,7 +373,7 @@ export default function AdminGatewaysPage() {
             </label>
           </div>
           <div className="flex gap-2">
- <button type="submit" className="btn btn-primary flex-1" disabled={form.provider === 'CARD_TRANSFER' && form.autoVerify && !form.autoSources.length}>{editId ? t.save : t.addGateway}</button>
+ <button type="submit" className="btn btn-primary flex-1" disabled={!editId && form.provider === 'MOBOCOM_PAY' && !form.autoVerify}>{editId ? t.save : t.addGateway}</button>
             <button type="button" className="btn btn-ghost" onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY) }}>{t.cancel}</button>
           </div>
           {selected && <div className="grid-column-span-3 muted text-xs">{isFa ? selected.hintFa : selected.hint}</div>}

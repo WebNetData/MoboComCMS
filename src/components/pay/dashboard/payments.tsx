@@ -12,6 +12,7 @@ import type {
 import { api, json, money, date } from "../client";
 import { Field } from "../shared";
 import { ListControls, Pager, PaymentTable, SettlementTable } from "./tables";
+import FeeShare from "./fee-share";
 import s from "../Pay.module.css";
 import m from "./Dashboard.module.css";
 type Page<T> = { items: T[]; page: number; pages: number; total: number };
@@ -143,6 +144,7 @@ export default function Payments({
           </button>
         </div>
       </form>
+      {data.merchant && <FeeShare key={data.merchant.id} terms={data.merchant.fees} disabled={busy || !active} action={action} />}
       {created && <section className={`${s.card} ${s.stack}`} aria-label="لینک پرداخت ساخته‌شده"><h2>لینک آمادهٔ ارسال است</h2><p>سفارش <bdi>{created.externalId}</bdi> · {money(created.totalRial)}{created.creditCurrency === 'USDT' && <> · اعتبار پذیرنده <bdi dir="ltr">{created.creditAmount} USDT</bdi></>}</p><Field label="نشانی پرداخت مشتری"><input readOnly dir="ltr" value={shareUrl} onFocus={e => e.currentTarget.select()} /></Field><div className={s.actions}><button type="button" className={s.button} onClick={() => void navigator.clipboard.writeText(shareUrl).then(() => setCopyNotice('لینک پرداخت کپی شد')).catch(() => setCopyNotice('کپی خودکار انجام نشد؛ نشانی را از فیلد انتخاب کنید.'))}>کپی لینک پرداخت</button><Link href={created.checkoutUrl} className={s.secondary}>مشاهده صفحهٔ مشتری</Link></div><p role="status">{copyNotice}</p><p className={s.muted}>نشانی مخصوص مشتری است؛ کلید API یا توکن پذیرنده را همراه آن ارسال نکنید.</p></section>}
       <ListControls
         {...{ query, status, page }}

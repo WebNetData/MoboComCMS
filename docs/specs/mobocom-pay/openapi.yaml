@@ -262,6 +262,9 @@ paths:
                     type: object
                     properties:
                       usdt: { $ref: '#/components/schemas/UsdtEquivalent' }
+                      orderRial: { $ref: '#/components/schemas/Rial' }
+                      customerFeeRial: { $ref: '#/components/schemas/Rial' }
+                      merchantFeeRial: { $ref: '#/components/schemas/Rial' }
         default: { description: 'Invalid capability, payer proof or unavailable method.' }
     post:
       operationId: changeAutomaticTransferCheckout
@@ -302,160 +305,22 @@ paths:
   /api/payment/mobocom-pay/bale-events:
     post:
       operationId: receiveBaleOriginalBankMessage
-      tags:
-        - Bank bridge
+      tags: [Bank bridge]
+      deprecated: true
       security: []
-      description: Dedicated self-hosted GoOmni2.4.2 original-message intake, not Bot API or personal-account login. X-Hub-Signature-256 authenticates exact bounded raw bytes with the deployment-owned per-destination secret. Event header must match event_id. Requires the preconfigured immutable connection, account and original bank peer. Reject duplicate JSON keys, wrong sender, forwarded, edited, outgoing, partial and unsupported messages. Minimal immutable facts commit before ACK. Replays are idempotent and changed bytes conflict. Eligible unique-amount collections may settle through canonical invoice claims; targetPaymentId is never accepted.
-      parameters:
-        - in: header
-          name: X-Hub-Signature-256
-          required: true
-          schema:
-            type: string
-            pattern: ^sha256=[a-f0-9]{64}$
-        - in: header
-          name: X-GoOmni-Event-Id
-          required: true
-          schema:
-            type: string
-            pattern: ^[a-f0-9]{64}$
-        - name: source
-          in: query
-          required: false
-          description: Configured server-side source ID. Required for a multi-account registry; omitted only for the legacy binding. Never selects an arbitrary recipient.
-          schema:
-            type: string
-            pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - event_id
-                - event
-                - device_id
-                - provider
-                - session_id
-                - instance_id
-                - peer
-                - message_id
-                - sender_id
-                - direction
-                - timestamp
-                - payload
-                - content
-              properties:
-                event_id:
-                  type: string
-                  pattern: ^[a-f0-9]{64}$
-                event:
-                  type: string
-                  enum:
-                    - message
-                device_id:
-                  type: string
-                provider:
-                  type: string
-                  enum:
-                    - bale
-                session_id:
-                  type: string
-                instance_id:
-                  type: string
-                  pattern: ^[a-f0-9]{64}$
-                peer:
-                  type: object
-                  required:
-                    - type
-                    - id
-                  properties:
-                    type:
-                      type: string
-                      enum:
-                        - user
-                    id:
-                      type: string
-                message_id:
-                  type: string
-                sender_id:
-                  type: string
-                direction:
-                  type: string
-                  enum:
-                    - incoming
-                timestamp:
-                  type: string
-                  format: date-time
-                payload:
-                  type: object
-                  description: Pinned GoOmni complete text projection; id/chat_id/from/direction/timestamp must agree with the envelope. partial=false, supported=true, no forward/edit/reply provenance.
-                content:
-                  type: object
-                  description: Pinned GoOmni native text content, kind=text and message equal to payload.body. At most4096 characters.
+      description: Retired bank connector. Configure an SMS source for automatic card transfer.
       responses:
-        "200":
-          description: Evidence committed or exact replay acknowledged; financialApproval reports the canonical collection result.
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                enum:
-                  - no-store
+        '410':
+          description: The connector endpoint has been retired.
           content:
             application/json:
               schema:
                 type: object
-                required:
-                  - ok
-                  - data
+                required: [ok, error, code]
                 properties:
-                  ok:
-                    type: boolean
-                    enum:
-                      - true
-                  data:
-                    type: object
-                    required:
-                      - received
-                      - id
-                      - duplicate
-                      - status
-                      - financialApproval
-                    properties:
-                      received:
-                        type: boolean
-                        enum:
-                          - true
-                      id:
-                        type: string
-                      duplicate:
-                        type: boolean
-                      status:
-                        type: string
-                        enum:
-                          - ORIGINAL_TRANSFER
-                          - IGNORED
-                          - REJECTED
-                          - DUPLICATE
-                          - CONFLICT
-                      financialApproval:
-                        type: boolean
-        "401":
-          description: Missing or invalid exact-body signature.
-        "403":
-          description: Current module/API/source owner authority is disabled.
-        "409":
-          description: Event/message identity conflicts with previously committed evidence.
-        "413":
-          description: Request exceeds24000 bytes.
-        "422":
-          description: Invalid or ambiguous JSON, identity, provenance or source timestamp.
-        "429":
-          description: Strict request limit or daily source capacity reached; retry later.
-        "503":
-          description: Source/bank account unconfigured or persistence unavailable; retry later.
+                  ok: { type: boolean, enum: [false] }
+                  error: { type: string }
+                  code: { type: string, enum: [PAY_SOURCE_RETIRED] }
   /api/v1/pay/bot/{id}:
     post:
       operationId: createCustomBotPayment
@@ -997,7 +862,7 @@ components:
       required: ["ok","data"]
       properties:
         ok: {"type":"boolean","enum":[true]}
-        data: {"type":"object","required":["id","amountRial","totalRial","feeRial","feeBearer","status","verification","gateways","bank","receipt"],"properties":{"id":{"type":"string"},"amountRial":{"$ref":"#/components/schemas/Rial"},"totalRial":{"$ref":"#/components/schemas/Rial"},"feeRial":{"$ref":"#/components/schemas/Rial"},"feeBearer":{"type":"string","enum":["MERCHANT","CUSTOMER"]},"status":{"type":"string","enum":["PENDING","PAID","EXPIRED"]},"verification":{"type":"object","required":["verified","phoneLast4"],"properties":{"verified":{"type":"boolean"},"phoneLast4":{"type":"string"}}},"gateways":{"type":"array","items":{"type":"object","properties":{"ref":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"manual":{"type":"boolean"}}}},"bank":{"type":"object","nullable":true,"description":"Withheld before OTP proof or a card-transfer selection."},"receipt":{"type":"object","nullable":true},"botDelivery":{"type":"object","description":"Included only for a verified payer on a PAID bot payment.","properties":{"status":{"type":"string","enum":["WAITING","QUEUED","SENDING","SENT","UNKNOWN","BLOCKED"]}}},"purchase":{"$ref":"#/components/schemas/MerchantPurchase"}}}
+        data: {"type":"object","required":["id","amountRial","totalRial","feeRial","feeBearer","status","verification","gateways","bank","receipt"],"properties":{"id":{"type":"string"},"amountRial":{"$ref":"#/components/schemas/Rial"},"totalRial":{"$ref":"#/components/schemas/Rial"},"feeRial":{"$ref":"#/components/schemas/Rial"},"customerFeeRial":{"$ref":"#/components/schemas/Rial"},"merchantFeeRial":{"$ref":"#/components/schemas/Rial"},"feeBearer":{"type":"string","enum":["MERCHANT","CUSTOMER"]},"status":{"type":"string","enum":["PENDING","PAID","EXPIRED"]},"verification":{"type":"object","required":["verified","phoneLast4"],"properties":{"verified":{"type":"boolean"},"phoneLast4":{"type":"string"}}},"gateways":{"type":"array","items":{"type":"object","properties":{"ref":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"manual":{"type":"boolean"},"automatic":{"type":"boolean"}}}},"bank":{"type":"object","nullable":true,"description":"Withheld before OTP proof or a card-transfer selection."},"receipt":{"type":"object","nullable":true},"botDelivery":{"type":"object","description":"Included only for a verified payer on a PAID bot payment.","properties":{"status":{"type":"string","enum":["WAITING","QUEUED","SENDING","SENT","UNKNOWN","BLOCKED"]}}},"purchase":{"$ref":"#/components/schemas/MerchantPurchase"}}}
     Error:
       type: object
       required: [ok, error]
@@ -1024,7 +889,7 @@ components:
       type: object
       required: [terminalId, externalId, amountRial]
       properties: { terminalId: { type: string }, externalId: { type: string, maxLength: 100 }, amountRial: { $ref: '#/components/schemas/Rial' } }
-    Payment: {"type":"object","required":["id","externalId","terminalId","terminalName","amountRial","feeRial","netRial","totalRial","feeBearer","status","transferReference","createdAt","paidAt","expiresAt","checkoutUrl"],"properties":{"id":{"type":"string"},"externalId":{"type":"string"},"terminalId":{"type":"string"},"terminalName":{"type":"string"},"amountRial":{"$ref":"#/components/schemas/Rial"},"totalRial":{"$ref":"#/components/schemas/Rial"},"feeBearer":{"type":"string","enum":["MERCHANT","CUSTOMER"],"description":"MERCHANT deducts the capped fee from the base; CUSTOMER adds it to the customer total."},"feeRial":{"$ref":"#/components/schemas/Rial"},"netRial":{"$ref":"#/components/schemas/Rial"},"status":{"type":"string","enum":["PENDING","PAID","EXPIRED"]},"transferReference":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"paidAt":{"type":"string","format":"date-time","nullable":true},"expiresAt":{"type":"string","format":"date-time"},"checkoutUrl":{"type":"string"},"creditCurrency":{"type":"string","enum":["IRR","USDT"]},"creditAmount":{"type":"string","description":"Exact immutable credit to the merchant; USDT has two canonical internal decimals."},"settledServiceFeeRial":{"$ref":"#/components/schemas/Rial"},"platformFeeRial":{"$ref":"#/components/schemas/Rial"},"creditRial":{"$ref":"#/components/schemas/Rial"},"customerAmountRial":{"$ref":"#/components/schemas/Rial"},"confirmation":{"$ref":"#/components/schemas/PayConfirmation"},"reviewStatus":{"type":"string","enum":["UNDER_REVIEW"],"description":"Optional review detail while the stable machine payment status remains PENDING. Native merchant/checkout UI shows UNDER_REVIEW."}}}
+    Payment: {"type":"object","required":["id","externalId","terminalId","terminalName","amountRial","feeRial","netRial","totalRial","feeBearer","status","transferReference","createdAt","paidAt","expiresAt","checkoutUrl"],"properties":{"id":{"type":"string"},"externalId":{"type":"string"},"terminalId":{"type":"string"},"terminalName":{"type":"string"},"amountRial":{"$ref":"#/components/schemas/Rial"},"totalRial":{"$ref":"#/components/schemas/Rial"},"customerFeeRial":{"$ref":"#/components/schemas/Rial"},"merchantFeeRial":{"$ref":"#/components/schemas/Rial"},"feeBearer":{"type":"string","enum":["MERCHANT","CUSTOMER"],"description":"Legacy payer marker. A shared fee retains MERCHANT and exposes both exact fee parts."},"feeRial":{"$ref":"#/components/schemas/Rial"},"netRial":{"$ref":"#/components/schemas/Rial"},"status":{"type":"string","enum":["PENDING","PAID","EXPIRED"]},"transferReference":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"paidAt":{"type":"string","format":"date-time","nullable":true},"expiresAt":{"type":"string","format":"date-time"},"checkoutUrl":{"type":"string"},"creditCurrency":{"type":"string","enum":["IRR","USDT"]},"creditAmount":{"type":"string","description":"Exact immutable credit to the merchant; USDT has two canonical internal decimals."},"settledServiceFeeRial":{"$ref":"#/components/schemas/Rial"},"platformFeeRial":{"$ref":"#/components/schemas/Rial"},"creditRial":{"$ref":"#/components/schemas/Rial"},"customerAmountRial":{"$ref":"#/components/schemas/Rial"},"confirmation":{"$ref":"#/components/schemas/PayConfirmation"},"reviewStatus":{"type":"string","enum":["UNDER_REVIEW"],"description":"Optional review detail while the stable machine payment status remains PENDING. Native merchant/checkout UI shows UNDER_REVIEW."}}}
     QuoteCreate: {"type":"object","required":["railId","amountRial"],"properties":{"railId":{"type":"string","enum":["IRR_BANK","TRX_TRON","USDT_TRON"]},"amountRial":{"$ref":"#/components/schemas/Rial"}}}
     Quote: {"allOf":[{"$ref":"#/components/schemas/QuoteCreate"},{"type":"object","required":["id","feeRial","payoutAmount","asset","network","rateRialPerUnit","expiresAt"],"properties":{"id":{"type":"string"},"feeRial":{"$ref":"#/components/schemas/Rial"},"payoutAmount":{"type":"string"},"asset":{"type":"string"},"network":{"type":"string"},"rateRialPerUnit":{"type":"string"},"expiresAt":{"type":"string","format":"date-time"}}}]}
     SettlementCreate:

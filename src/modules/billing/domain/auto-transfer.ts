@@ -1,5 +1,5 @@
 import { PayError } from './pay'
-export type AutoTransferSource = 'SMS' | 'BALE'
+export type AutoTransferSource = 'SMS'
 export const transferDisplayDefaults = () => ({ cardNumber: true, bankName: false, holderName: false, accountNumber: false, iban: false })
 export type TransferDisplay = ReturnType<typeof transferDisplayDefaults>
 export function transferDisplay(input: unknown): TransferDisplay {
@@ -19,11 +19,12 @@ export function autoTransferConfig(input: unknown): AutoTransferConfig {
   const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
   const autoVerify = raw.autoVerify === undefined ? false : raw.autoVerify
   if (typeof autoVerify !== 'boolean') throw new PayError('وضعیت تأیید خودکار معتبر نیست')
-  const sources = raw.autoSources === undefined ? ['SMS', 'BALE'] : raw.autoSources
+  // Older stored configurations may still name the retired source.
+  const sources = raw.autoSources === undefined ? ['SMS'] : raw.autoSources
   if (!Array.isArray(sources) || sources.length > 2 || sources.some(v => v !== 'SMS' && v !== 'BALE') || new Set(sources).size !== sources.length || autoVerify && !sources.length) throw new PayError('منبع تأیید خودکار معتبر نیست')
   const id = raw.autoBankAccountId == null || raw.autoBankAccountId === '' ? null : Number(raw.autoBankAccountId)
   if (id !== null && (!Number.isSafeInteger(id) || id < 1 || id > 2147483647) || autoVerify && id === null) throw new PayError('حساب تأیید خودکار را انتخاب کنید')
-  return { autoVerify, autoSources: (['SMS','BALE'] as const).filter(source => sources.includes(source)), autoBankAccountId: id, autoDisplay: transferDisplay(raw.autoDisplay) }
+  return { autoVerify, autoSources: ['SMS'], autoBankAccountId: id, autoDisplay: transferDisplay(raw.autoDisplay) }
 }
 export function isAutomaticTransfer(gateway: { provider: string; config?: string }) {
   return gateway.provider === 'MOBOCOM_PAY' || gateway.provider === 'CARD_TRANSFER' && autoTransferConfig(gateway.config).autoVerify
