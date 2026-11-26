@@ -3,16 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { FOLLOW_UP_QUEUE_PATH, type FollowUpCounts } from '@/modules/livechat/domain/crm-follow-up-queue'
 import styles from './daily-workdesk.module.css'
 
-type Item = { id: string; title: string; href: string; updatedAt: string; assigneeId: number | null; detail?: string }
-type Queue = { key: 'store' | 'forms' | 'support'; available: boolean; reason?: 'disabled' | 'forbidden' | 'unavailable'; count?: number; items?: Item[] }
+type Item = { id: string; title: string; href: string; updatedAt: string; assigneeId: number | null; detail?: string; dueDay?: string }
+type Queue = { key: 'store' | 'forms' | 'support' | 'crm'; available: boolean; reason?: 'disabled' | 'forbidden' | 'unavailable'; count?: number; items?: Item[]; due?: FollowUpCounts }
 type Payload = { queues: Queue[] }
 
 const labels = {
   store: { fa: 'سفارش‌های تازه', en: 'New store orders' },
   forms: { fa: 'درخواست‌های باز', en: 'Open form requests' },
   support: { fa: 'تیکت‌های باز', en: 'Open support tickets' },
+  crm: { fa: 'پیگیری‌های من', en: 'My customer follow-ups' },
+}
+const dueDates = {
+  fa: new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'short', timeZone: 'Asia/Tehran' }),
+  en: new Intl.DateTimeFormat('en-US', { dateStyle: 'short', timeZone: 'Asia/Tehran' }),
 }
 
 export default function DailyWorkdesk() {
@@ -37,6 +43,7 @@ export default function DailyWorkdesk() {
   }, [])
   useEffect(() => { void load(); return () => request.current?.abort() }, [load])
   const when = (value: string) => new Date(value).toLocaleString(fa ? 'fa-IR' : 'en-US', { dateStyle: 'short', timeStyle: 'short' })
+  const dueDate = (day: string) => dueDates[fa ? 'fa' : 'en'].format(new Date(day))
   const queues = data?.queues.filter((queue) => queue.available || queue.reason === 'unavailable') || []
   if (!loading && !error && queues.length === 0) return null
 
@@ -50,7 +57,13 @@ export default function DailyWorkdesk() {
     {!loading && !error && data && queues.length > 0 && <div className={`grid-3 ${styles.queues}`}>
       {queues.map((queue) => <section className={`rounded-lg border border-var p-4 ${styles.queue}`} key={queue.key} aria-label={labels[queue.key][fa ? 'fa' : 'en']}>
         <div className={`flex items-center justify-between gap-2 mb-3 ${styles.header}`}><h3 className="font-semibold">{labels[queue.key][fa ? 'fa' : 'en']}</h3>{queue.available ? <b className="num">{(queue.count ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b> : <span className={`text-xs ${styles.meta}`}>{fa ? 'موقتاً در دسترس نیست' : 'Temporarily unavailable'}</span>}</div>
-        {queue.available && queue.items?.length ? <ul className={styles.items} role="list">{queue.items.map((item) => <li key={`${queue.key}:${item.id}`}><Link href={item.href} className={styles.item}><span className="block text-sm font-semibold" dir="auto">{item.title}</span>{item.detail && <small className={`block ${styles.meta}`} dir="auto">{item.detail}</small>}<small className={`${styles.meta} ${styles.details}`}><time dateTime={item.updatedAt}><bdi>{when(item.updatedAt)}</bdi></time>{item.assigneeId && <span>{fa ? 'مسئول' : 'Assigned'} <bdi dir="ltr">#{item.assigneeId.toLocaleString(fa ? 'fa-IR' : 'en-US')}</bdi></span>}</small></Link></li>)}</ul> : queue.available ? <p className={`text-sm ${styles.meta}`}>{fa ? 'موردی در صف نیست.' : 'Nothing in this queue.'}</p> : <p className={`text-sm ${styles.meta}`}>{fa ? 'اطلاعات این صف فعلاً در دسترس نیست.' : 'This queue could not be read right now.'}</p>}
+        {queue.due && <p className={`text-xs ${styles.meta} ${styles.details}`}>
+          <span>{queue.due.overdue.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'عقب‌افتاده' : 'overdue'}</span>
+          <span>{queue.due.today.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'امروز' : 'today'}</span>
+          <span>{queue.due.upcoming.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آینده' : 'upcoming'}</span>
+        </p>}
+        {queue.available && queue.items?.length ? <ul className={styles.items} role="list">{queue.items.map((item) => <li key={`${queue.key}:${item.id}`}><Link href={item.href} className={styles.item}><span className="block text-sm font-semibold" dir="auto">{item.title}</span>{item.detail && <small className={`block ${styles.meta}`} dir="auto">{item.detail}</small>}<small className={`${styles.meta} ${styles.details}`}><time dateTime={item.dueDay || item.updatedAt}><bdi>{item.dueDay ? dueDate(item.dueDay) : when(item.updatedAt)}</bdi></time>{queue.key !== 'crm' && item.assigneeId && <span>{fa ? 'مسئول' : 'Assigned'} <bdi dir="ltr">#{item.assigneeId.toLocaleString(fa ? 'fa-IR' : 'en-US')}</bdi></span>}</small></Link></li>)}</ul> : queue.available ? <p className={`text-sm ${styles.meta}`}>{fa ? 'موردی در صف نیست.' : 'Nothing in this queue.'}</p> : <p className={`text-sm ${styles.meta}`}>{fa ? 'اطلاعات این صف فعلاً در دسترس نیست.' : 'This queue could not be read right now.'}</p>}
+        {queue.key === 'crm' && <Link className={`btn btn-ghost ${styles.allLink}`} href={FOLLOW_UP_QUEUE_PATH}>{fa ? 'مشاهدهٔ پیگیری‌ها' : 'View follow-ups'}</Link>}
       </section>)}
     </div>}
   </section>

@@ -16,6 +16,7 @@
 .item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .meta { color: var(--admin-muted-text, var(--muted)); }
 .details { display: flex; flex-wrap: wrap; gap: .25rem .75rem; font-variant-numeric: tabular-nums; }
+.allLink { margin-block-start: .75rem; }
 
 @media (max-width: 980px) { .queues { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .queues { grid-template-columns: minmax(0, 1fr); } }

@@ -1,0 +1,38 @@
+.desk { display: grid; gap: 16px; color: var(--text); padding-block-end: 84px; }
+.heading { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.heading h1 { margin: 3px 0; font-size: clamp(1.35rem, 2.2vw, 1.85rem); }
+.heading p { margin: 0; color: var(--admin-muted-text, var(--muted)); }
+.desk h2 { font-size: 1rem; margin: 0 0 8px; }
+.toolbar { display: flex; align-items: end; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters a {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 10px;
+  border: 1px solid var(--border); background: var(--card); border-radius: 8px; color: var(--text);
+}
+.filters a[aria-current="page"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--card)); }
+.filters b, .details { font-variant-numeric: tabular-nums; }
+.scope { display: grid; gap: 4px; min-width: min(100%, 180px); font-size: .85rem; }
+.scope select { min-height: 44px; width: 100%; }
+.items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.items li {
+  display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) auto; align-items: center;
+  gap: 8px 16px; border: 1px solid var(--line); background: var(--card); padding: 10px 12px; border-radius: 9px;
+  overflow-wrap: anywhere;
+}
+.record, .details { display: grid; gap: 2px; min-width: 0; }
+.details, .record a { font-size: .84rem; }
+.details { color: var(--admin-muted-text, var(--muted)); }
+.overdue { color: var(--text); border-inline-start: 2px solid var(--admin-accent-text, var(--primary)); padding-inline-start: 6px; }
+.items button, .pagination a { min-height: 44px; }
+.feedback { border: 1px solid var(--line); background: var(--card); padding: 12px; border-radius: 9px; margin: 0 0 8px; }
+.feedback p { margin: 0 0 8px; }
+.pagination { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 8px; margin-block-start: 8px; }
+.pagination > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.desk :is(a, button, select, h2):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 660px) {
+  .items li { grid-template-columns: minmax(0, 1fr) auto; }
+  .record { grid-column: 1 / -1; }
+}
+@media (max-width: 420px) {
+  .scope { width: 100%; }
+}

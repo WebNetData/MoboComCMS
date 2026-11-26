@@ -1,5 +1,35 @@
 # Continuous customer engagement — 2026-11-07
 
+## My follow-ups — 2026-11-27
+
+On `.mobocom/crm-workdesk`, `feat/crm-workdesk-2026-11-27` from merged
+main `de55a51c`, the existing DailyWorkdesk shows the signed-in staff
+member's overdue, today and upcoming CRM counts and up to five tasks.
+The full queue at `/admin/crm/follow-ups` adds paged date filters,
+customer-file links and existing version-checked completion. User
+managers can choose a colleague, unassigned or all work. The server
+rejects crafted cross-assignee scopes from other users. The disabled
+module contributes no queue. Completed and erased-customer work is
+excluded from queue counts. No new CRM data, permission keys or migration.
+
+From a disposable 226-migration PostgreSQL 17 database with a non-superuser
+owner and Linux UID1000, `crm-follow-up-queue`, `crm-follow-ups`,
+`platform-workdesk` and `automation-event-recovery` passed. The queue
+check verifies actual scope, date buckets, two-page ordering, module-off,
+completion, conflict and the committed audit. TypeScript, source/import,
+architecture, security and release manifest checks passed. React Doctor
+reported zero blocking errors in the five inspected React files.
+
+Edge used actual PostgreSQL and the canonical session for a support-only
+staff member and full-access manager. In Persian RTL at 1440 and 390 with
+light/dark, verified the dashboard entry, denied crafted scope, clearing
+the denied filter, own queue, colleague and unassigned filtering, and
+mobile completion followed by history on the customer profile. Scoped
+axe, page errors and viewport overflow were clear. No live providers ran.
+For rollback, revert the application slice. Existing tasks and audit history
+are retained. Contacts, CRM deals/pipeline and automatic reminders are
+separate product work.
+
 ## Customer follow-ups — 2026-11-27
 
 Continue `.mobocom/crm-follow-ups`, `feat/crm-follow-ups-2026-11-27`,

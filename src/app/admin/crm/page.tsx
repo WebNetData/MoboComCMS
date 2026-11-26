@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import { FOLLOW_UP_QUEUE_PATH } from '@/modules/livechat/domain/crm-follow-up-queue'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { CRM_SEGMENTS, CRM_SORTS, CRM_STATUSES, CRM_TITLE, crmDeskFilters, type CrmDeskPage } from '@/modules/livechat/domain/crm-desk'
 import { fa, faDate } from '../store/shared'
@@ -10,6 +12,7 @@ import styles from './desk.module.css'
 type Result = { key: string; data?: CrmDeskPage; error?: string }
 
 function Desk() {
+  const followUpsOn = useModuleEnabled('livechat')
   const router = useRouter()
   const query = useSearchParams().toString()
   const filters = crmDeskFilters(new URLSearchParams(query))
@@ -59,7 +62,10 @@ function Desk() {
   return <div className={styles.desk} dir="rtl">
     <header className={styles.heading}>
       <div><h1>{CRM_TITLE}</h1><p>مشتریان را پیدا کنید و سابقهٔ خرید و پیگیری هر نفر را در پرونده‌اش ببینید.</p></div>
-      {data?.mayManageEngagement && <Link className="btn btn-ghost" href="/admin/crm/engagement">ارتباط خودکار و بازاریابی</Link>}
+      <div className={styles.actions}>
+        {followUpsOn && data && <Link className="btn btn-ghost" href={FOLLOW_UP_QUEUE_PATH}>پیگیری‌های من</Link>}
+        {data?.mayManageEngagement && <Link className="btn btn-ghost" href="/admin/crm/engagement">ارتباط خودکار و بازاریابی</Link>}
+      </div>
     </header>
     <form className={styles.filters} onSubmit={submit} key={JSON.stringify({ ...filters, page: 1 })}>
       <label className={styles.search}>جست‌وجوی مشتری<input className="input" name="q" type="search" maxLength={120} defaultValue={filters.q} placeholder="نام، موبایل، ایمیل یا شناسه" /></label>

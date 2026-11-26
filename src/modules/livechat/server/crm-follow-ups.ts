@@ -9,23 +9,29 @@ import { CRM_PERMISSIONS } from '@/modules/livechat/domain/crm-desk'
 import { type FollowUpList, type FollowUpStatus, validFollowUpDay, validFollowUpId } from '@/modules/livechat/domain/crm-follow-ups'
 import { ChatError } from '@/modules/livechat/domain/livechat'
 
-const mayAssign = (actor: AuthedUser) => actor.roleId == null || Boolean(actor.permissions?.includes('users.manage'))
+export const mayManageFollowUps = (actor: AuthedUser) => actor.roleId == null || Boolean(actor.permissions?.includes('users.manage'))
 const eligible = (staff: { roleId: number | null; roleRef: { permissions: string } | null }) =>
   staff.roleId == null || parsePermissions(staff.roleRef?.permissions || '').some(permission => CRM_PERMISSIONS.includes(permission))
-const customerWhere = (id: number) => ({ id, role: { not: 'ADMIN' }, erasedAt: null })
+export const crmFollowUpCustomer = { role: { not: 'ADMIN' }, erasedAt: null }
+const customerWhere = (id: number) => ({ ...crmFollowUpCustomer, id })
 const activeStaff = { role: 'ADMIN', status: 'ACTIVE', erasedAt: null }
 const staffSelect = { id: true, name: true, roleId: true, roleRef: { select: { permissions: true } } } as const
+
+export async function followUpAssignees() {
+  const staff = await db.user.findMany({ where: activeStaff, select: staffSelect, orderBy: [{ name: 'asc' }, { id: 'asc' }] })
+  return staff.filter(eligible).map(row => ({ id: row.id, name: row.name || `همکار ${row.id}` }))
+}
 
 export async function listFollowUps(userId: number, actor: AuthedUser): Promise<FollowUpList> {
   const customer = await db.user.findFirst({ where: customerWhere(userId), select: { id: true } })
   if (!customer) throw new ChatError('مشتری پیدا نشد', 404)
-  const manager = mayAssign(actor)
+  const manager = mayManageFollowUps(actor)
   const where = { userId, user: customerWhere(userId) }
   const include = { assignee: { select: { name: true } } } as const
   const [open, closed, staff] = await Promise.all([
     db.crmFollowUp.findMany({ where: { ...where, status: 'OPEN' }, orderBy: [{ dueDay: 'asc' }, { id: 'asc' }], include, take: 51 }),
     db.crmFollowUp.findMany({ where: { ...where, status: { not: 'OPEN' } }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], include, take: 21 }),
-    manager ? db.user.findMany({ where: activeStaff, select: staffSelect, orderBy: [{ name: 'asc' }, { id: 'asc' }] }) : [],
+    manager ? followUpAssignees() : [],
   ])
   return {
     rows: [...open.slice(0, 50), ...closed.slice(0, 20)].map(row => ({
@@ -33,7 +39,7 @@ export async function listFollowUps(userId: number, actor: AuthedUser): Promise<
       assigneeId: row.assigneeId, assigneeName: row.assignee?.name || (row.assigneeId ? `همکار ${row.assigneeId}` : ''),
       mayEdit: row.status === 'OPEN' && (manager || row.assigneeId === actor.id),
     })),
-    staff: staff.filter(eligible).map(row => ({ id: row.id, name: row.name || `همکار ${row.id}` })),
+    staff,
     ownId: actor.id, mayAssign: manager, today: tehranDay(), hasMore: open.length > 50 || closed.length > 20,
   }
 }
@@ -47,7 +53,7 @@ function taskFields(input: Record<string, unknown>) {
 
 async function assigneeFor(tx: Prisma.TransactionClient, actor: AuthedUser, id: unknown) {
   if (!validFollowUpId(id)) throw new ChatError('مسئول پیگیری معتبر نیست')
-  if (id !== actor.id && !mayAssign(actor)) throw new ChatError('برای واگذاری به همکار دسترسی ندارید', 403)
+  if (id !== actor.id && !mayManageFollowUps(actor)) throw new ChatError('برای واگذاری به همکار دسترسی ندارید', 403)
   const staff = await tx.user.findFirst({ where: { ...activeStaff, id }, select: staffSelect })
   if (!staff || !eligible(staff)) throw new ChatError('مسئول انتخاب‌شده دسترسی فعال به پروندهٔ مشتری ندارد', 409)
   return staff.id
@@ -72,7 +78,7 @@ export async function saveFollowUp(req: NextRequest, actor: AuthedUser, userId: 
     if (!validFollowUpId(input.id) || !validFollowUpId(input.version)) throw new ChatError('شناسه یا نسخهٔ پیگیری معتبر نیست')
     const row = await tx.crmFollowUp.findFirst({ where: { id: input.id, userId } })
     if (!row) throw new ChatError('پیگیری پیدا نشد', 404)
-    if (row.assigneeId !== actor.id && !mayAssign(actor)) throw new ChatError('تنها مسئول یا مدیر کاربران می‌تواند این پیگیری را تغییر دهد', 403)
+    if (row.assigneeId !== actor.id && !mayManageFollowUps(actor)) throw new ChatError('تنها مسئول یا مدیر کاربران می‌تواند این پیگیری را تغییر دهد', 403)
     if (row.version !== input.version || row.status !== 'OPEN') throw new ChatError('پیگیری تغییر کرده است. فهرست را تازه کنید', 409)
 
     const status = input.status ?? 'OPEN'

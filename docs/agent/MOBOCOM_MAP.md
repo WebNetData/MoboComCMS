@@ -188,6 +188,8 @@ CRM customer desk2026-11-27: `/admin/crm` and Livechat `server/crm-desk.ts` own 
 
 CRM follow-ups2026-11-27: `/admin/crm/[id]` and Livechat `server/crm-follow-ups.ts` own assigned work and its status history. Identity erasure clears private tasks or staff links. [Evidence and migration](handoffs/CRM_ENGAGEMENT.md#customer-follow-ups--2026-11-27).
 
+My follow-ups2026-11-27: `/admin/crm/follow-ups` and the DailyWorkdesk compose the Livechat follow-up queue. The existing profile PATCH still owns completion and audit. [Evidence](handoffs/CRM_ENGAGEMENT.md#my-follow-ups--2026-11-27).
+
 CRM engagement2026-11-07: `/admin/crm/engagement`, Automation `server/engagement.ts` facade and `server/engagement-policy.ts` compose existing CRM tags/segments, Identity consent/custom dates, durable AutomationEvent receipts, inbox/jobs/preferences/SMS/Mail/Push and Store watches. Additive migrations, scoped PostgreSQL/browser evidence, limitations and rollback: [handoff](handoffs/CRM_ENGAGEMENT.md), [Persian guide](../CRM-ENGAGEMENT-FA.md).
 Visual site studio2026-11-07: `/admin/design-studio`, existing `admin/builder` and `admin/theme-builder` compose Site BuilderDoc/ThemeIndex/Settings/ContentRevision/Audit. Typed `site/domain/builder-surfaces` and `site/server/builder-surfaces` supply presentation only; actual specialist detail-view owners and Account OverviewHome/AccountShell retain data, auth and actions. Public Next pages are strict adapters, preview props belong only to internal detail views. AI purpose builder inherits Admin; no second engine/store or migration. [Handoff](handoffs/VISUAL_SITE_STUDIO.md), [operator guide](../VISUAL-STUDIO-FA.md).
 
