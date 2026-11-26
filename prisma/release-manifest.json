@@ -981,9 +981,15 @@
           "sha256": "77246c7c28b9fb01080e5dbafedd73a3acc71557608864548484eb8f4aca8214"
         }
       ]
+    },
+    "1.7.24": {
+      "migrations": [
+        {
+          "name": "20270410120000_pay_bot_boolean_ack",
+          "sha256": "ff5a2274d43c17af6db782a04c2ec51ac51b707b84c92a41793fdb51969e2b56"
+        }
+      ]
     }
   },
-  "unreleased": [
-    "20270410120000_pay_bot_boolean_ack"
-  ]
+  "unreleased": []
 }

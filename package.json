@@ -1,6 +1,6 @@
 {
   "name": "mobocomcms",
-  "version": "1.7.23",
+  "version": "1.7.24",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",

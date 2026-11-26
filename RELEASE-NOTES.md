@@ -1,5 +1,9 @@
 # HappVPN deployable baseline — 2026-09-22
 
+## 1.7.24 — MoboCom Pay checkout and payment reliability (2026-11-26)
+
+Automatic card checkout reserves the payment amount and records its invoice together. Customers can choose another approved method when the amount pool is full. The release also improves merchant bot delivery and review, automatic transfer recovery, Pay and Cloud layouts, and first terminal creation. One additive migration enables the boolean acknowledgement policy. See [release notes](docs/releases/1.7.24.md).
+
 ## 1.7.23 — Cloud operations and account management (2026-11-26)
 
 Includes merged PR492 private Cloud/Pay/account work plus WHM/Joker/Proxmox/Hetzner adapters, encrypted provider-operation claims, responsive Admin/customer controls and financial refund fences. Four additive migrations; automation defaults off. Original publisher trust and previous published migrations are retained. Pause matching financial/Cloud writers during upgrade and verify backup. See [release notes](docs/releases/1.7.23.md) and [evidence](docs/agent/handoffs/RELEASE_1_7_23.md).
