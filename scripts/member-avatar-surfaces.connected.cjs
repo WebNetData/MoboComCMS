@@ -19,7 +19,7 @@ function load(file){
  const base=path.resolve(file),full=fs.existsSync(base)&&fs.statSync(base).isFile()?base:['.ts','.tsx','/index.ts'].map(ext=>base+ext).find(fs.existsSync)
  if(!full)throw Error('Missing '+file);if(full.endsWith('.css'))return {};if(full.endsWith('.json'))return JSON.parse(fs.readFileSync(full,'utf8'));if(cache.has(full))return cache.get(full).exports
  const mod={exports:{}};cache.set(full,mod)
- const compiled=ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true,jsx:ts.JsxEmit.ReactJSX}}).outputText
+ const compiled=ts.transpileModule(fs.readFileSync(full,'utf8'),{fileName:full,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true,jsx:ts.JsxEmit.ReactJSX}}).outputText
  new Function('require','module','exports',compiled)(name=>Object.hasOwn(mocks,name)?mocks[name]:name.startsWith('@/')?load('src/'+name.slice(2)):name.startsWith('.')?load(path.resolve(path.dirname(full),name)):require(name),mod,mod.exports);return mod.exports
 }
 function find(tree,type){if(!tree||typeof tree!=='object')return null;if(tree.type===type)return tree;if(Array.isArray(tree))return tree.map(item=>find(item,type)).find(Boolean)||null;return find(tree.props?.children,type)}

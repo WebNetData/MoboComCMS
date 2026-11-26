@@ -25,3 +25,27 @@ blindly under new constraints. No automatic deletion or production deployment.
 
 Validation, exact accepted source, artifact hashes, PR/merge/publication and
 cleanup receipts are recorded below as they actually complete.
+
+## Post-merge validation and test-loader correction
+
+PR493 merged as `0484a5a3e07712e6d8afdc25107f3848f3b7d409` before
+the requested production build. Its Linux UID1000/no.env canonical check passed
+(1166 site /53 connected /4 backup /14 billing), production build passed in329s
+(116 static pages;971 trace manifests/162054 entries), and12 production Chromium
+views of Cloud operations/customer and public Pay in two themes/two widths passed
+axe, overflow and browser-error checks. No destination deployment occurred.
+
+The full default native PostgreSQL inventory passed244 checks and exposed one
+test-loader failure: member-avatar-surfaces called TypeScript transpileModule
+without fileName, so a newly reachable plain .ts generic arrow function in Forms
+was parsed as TSX. Supply the resolved fileName to preserve each source file's
+actual grammar; production code and every behavioral assertion stay unchanged.
+The corrected connected test and account-control, pay-public-account and
+section-hosts then passed on the isolated NOSUPERUSER database. A fresh complete
+inventory and exact-source build follow this correction's merge before signing
+the final candidate. The previous unpublished candidate is superseded, not shipped.
+
+Scoped Semgrep returned zero findings/errors. Redacted Gitleaks reported one
+reviewed public RFC6238 SHA-1 test vector in account-security.test.cjs, derived
+from the Appendix B ASCII test input; it is not a deployed credential. No new
+scanner suppression, publisher key change or hosted workflow dispatch was added.
