@@ -19,7 +19,7 @@ const nf = (value: number) => Math.round(value).toLocaleString('fa-IR')
 const ram = (mb: number) => (mb >= 1024 ? `${nf(mb / 1024)} گیگ رم` : `${nf(mb)} مگ رم`)
 
 /** Extra traffic packs and upgrades to a bigger plan, paid through checkout (hourly upgrades change the rate only). */
-export default function AddonsPanel({ addons, serviceId, hourly, onChanged }: { addons: Addons; serviceId: number; hourly: boolean; onChanged: () => void }) {
+export default function AddonsPanel({ addons, serviceId, hourly, onChanged, surface = 'dashboard' }: { addons: Addons; serviceId: number; hourly: boolean; onChanged: () => void; surface?: CheckoutSurface }) {
   const [packs, setPacks] = useState(1)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -28,9 +28,9 @@ export default function AddonsPanel({ addons, serviceId, hourly, onChanged }: { 
   async function pay(addon: { kind: 'TRAFFIC' | 'UPGRADE'; packs?: number; productId?: number }, tag: string) {
     setBusy(tag); setError('')
     try {
-      const result = await startCheckout({ surface: 'dashboard', hostingAddon: { serviceId, ...addon } })
-      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(checkoutPath(result.invoiceUrl, 'dashboard')); return } setError(result.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'ثبت نشد'); return }
-      const destination = checkoutDestination(result, 'dashboard')
+      const result = await startCheckout({ surface:surface!=='public'?surface:undefined, hostingAddon: { serviceId, ...addon } })
+      if (!result.ok) { if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(checkoutPath(result.invoiceUrl, surface)); return } setError(result.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'ثبت نشد'); return }
+      const destination = checkoutDestination(result, surface)
       if (destination) window.location.assign(destination)
     } catch { setError('ارتباط با سرور برقرار نشد') } finally { setBusy('') }
   }

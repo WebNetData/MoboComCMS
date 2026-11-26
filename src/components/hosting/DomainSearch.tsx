@@ -27,7 +27,7 @@ function OrderSheet({ result, transfer, signedIn, onClose, surface = 'public' }:
     event.preventDefault()
     setBusy(true); setError('')
     try {
-      const outcome = await startCheckout({ surface: surface === 'dashboard' ? 'dashboard' : undefined, domainOrder: { name: result.name, years, transfer, handle: handle.trim(), authCode: authCode.trim() } })
+      const outcome = await startCheckout({ surface: surface !== 'public' ? surface : undefined, domainOrder: { name: result.name, years, transfer, handle: handle.trim(), authCode: authCode.trim() } })
       if (!outcome.ok) { if (outcome.code === 'GATEWAY_AMBIGUOUS' && outcome.invoiceUrl) { window.location.assign(checkoutPath(outcome.invoiceUrl, surface)); return } setError(outcome.code === 'NO_GATEWAY' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : outcome.message || 'سفارش ثبت نشد'); return }
       const destination = checkoutDestination(outcome, surface)
       if (destination) window.location.assign(destination)

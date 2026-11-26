@@ -30,6 +30,8 @@ export function sectionHostRoute(input: { host: string; path: string; hosts: Sec
   if (host === new URL(main).hostname) return null
   const base = Object.keys(input.hosts).find(base => input.hosts[base] === host), section = input.sections.find(s => s.base === base)
   if (!base || !section) return null
+  const cloudBase = input.aliases['/cloud'] || '/cloud'
+  if (under(input.path, '/cloud/dashboard') || under(input.path, cloudBase + '/dashboard')) return { kind: 'redirect' as const, path: input.path.replace(cloudBase + '/dashboard','/cloud/dashboard'), origin: main, base, module: section.module }
   if (/^\/(admin|dashboard|login|register|welcome|reset-password|forgot-password|checkout|invoice)(\/|$)/.test(input.path) || /^\/(pay\/merchant|api\/auth)(\/|$)/.test(input.path)) return { kind: 'redirect' as const, path: input.path, origin: main, base, module: section.module }
   if (/^\/(api|_next|dl|files|uploads)(\/|$)/.test(input.path) || /\.[a-z0-9]{1,8}$/i.test(input.path)) return { kind: 'pass' as const, base, module: section.module }
   if (input.path === '/') return { kind: 'rewrite' as const, path: base, base, module: section.module }

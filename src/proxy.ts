@@ -32,13 +32,14 @@ function ownHosts(req: NextRequest): Array<string | null> {
 /** The headers every response carries. `nonce` is the one the scripts of this response's body carry. */
 function applySecurityHeaders(req: NextRequest, response: NextResponse, nonce: string | null) {
   const path = req.nextUrl.pathname
+  const cloudPrivate = /^\/cloud\/dashboard(?:\/|$)/.test(path)
   response.headers.set('x-content-type-options', 'nosniff')
   // The reset link carries its token in the URL; never leak it to other sites.
-  response.headers.set('referrer-policy', path === '/reset-password' || path.startsWith('/pay/') ? 'no-referrer' : 'strict-origin-when-cross-origin')
+  response.headers.set('referrer-policy', cloudPrivate || path === '/reset-password' || path.startsWith('/pay/') ? 'no-referrer' : 'strict-origin-when-cross-origin')
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(self)')
   // Private areas stay out of search results even when a link to them is found elsewhere.
   if (/^\/(admin|dashboard)(\/|$)/.test(path)) response.headers.set('x-robots-tag', 'noindex, nofollow')
-  if (path.startsWith('/pay/')) {
+  if (cloudPrivate || path.startsWith('/pay/')) {
     response.headers.set('x-robots-tag', 'noindex, nofollow')
     response.headers.set('cache-control', 'private, no-store')
   }

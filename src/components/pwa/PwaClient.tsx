@@ -11,7 +11,7 @@ type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{
 const PROMPT_KEY = 'mobocom.push.prompt'
 const VISITS_KEY = 'mobocom.visits'
 const INSTALL_KEY = 'mobocom.install.dismissed'
-const PRIVATE = /^\/(admin|studio|builder-preview|miniapp)(\/|$)/
+const PRIVATE = /^\/(cloud\/dashboard|admin|studio|builder-preview|miniapp)(\/|$)/
 
 const read = (key: string) => { try { return window.localStorage.getItem(key) } catch { return null } }
 const write = (key: string, value: string) => { try { window.localStorage.setItem(key, value) } catch { /* storage unavailable */ } }

@@ -1,3 +1,14 @@
+# Dedicated Cloud customer workspace — 2026-11-26
+
+Continue the local feature slice in `.mobocom/cloud-workspace`, branch
+`feat/cloud-workspace-2026-11-26`, base`e133b9a3`; preceding Pay/account work
+is retained. Independent `/cloud/dashboard` reuses Hosting, Identity, Billing,
+Wallet and Support. Public Cloud sources remain unchanged. Native six-suite
+PostgreSQL/fault tests, full `npm run check`, focused final types/units and
+themed responsive browser/axe/menu/public-navigation checks passed. No schema,
+dependency, version, production provider, release, PR or deployment change.
+[Owners, executed evidence, limits and rollback](../docs/agent/handoffs/CLOUD_WORKSPACE.md).
+
 # Admin-owned bank sources and setup guides — 2026-11-26
 
 Continue7812d969 in `.mobocom/pay-account-domains`, same branch. Source-specific

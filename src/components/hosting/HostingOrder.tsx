@@ -39,7 +39,7 @@ export default function HostingOrder({ product, cycle, gateways, signedIn, minHo
   async function orderHourly() {
     const response = await fetch('/api/hosting/hourly', { method: 'POST', headers: { 'content-type': 'application/json', 'Idempotency-Key': hourlyKey.current }, body: JSON.stringify({ productId: product.id, hostingName: name.trim() }) })
     const data = await response.json().catch(() => null)
-    if (response.ok && data?.serviceId) { window.location.assign(`/dashboard/services/${data.serviceId}`); return }
+    if (response.ok && data?.serviceId) { window.location.assign(checkoutPath(`/dashboard/services/${data.serviceId}`, surface)); return }
     setError({ text: String(data?.error || 'سفارش ثبت نشد'), wallet: data?.code === 'INSUFFICIENT_FUNDS' })
   }
 
@@ -49,7 +49,7 @@ export default function HostingOrder({ product, cycle, gateways, signedIn, minHo
     lock.current = true; setBusy(true); setError(null)
     try {
       if (hourly) { await orderHourly(); return }
-      const result = await startCheckout({ surface: surface === 'dashboard' ? 'dashboard' : undefined, hostingProductId: product.id, hostingCycle: term, hostingName: name.trim(), gatewayRef: gatewayRef || undefined })
+      const result = await startCheckout({ surface: surface !== 'public' ? surface : undefined, hostingProductId: product.id, hostingCycle: term, hostingName: name.trim(), gatewayRef: gatewayRef || undefined })
       if (!result.ok) {
         if (result.code === 'GATEWAY_AMBIGUOUS' && result.invoiceUrl) { window.location.assign(checkoutPath(result.invoiceUrl, surface)); return }
         setError({ text: result.code === 'NEED_LOGIN' ? 'برای سفارش ابتدا وارد حساب خود شوید.' : result.code === 'NO_GATEWAY' || result.code === 'INSUFFICIENT_FUNDS' ? 'موجودی کیف پول کافی نیست و درگاه پرداختی فعال نیست.' : result.message || 'سفارش ثبت نشد', wallet: result.code === 'INSUFFICIENT_FUNDS' })

@@ -54,7 +54,7 @@ export default async function PaymentResultPage({
 
   const allowed = Boolean(invoice && viewerId && (invoice.userId === viewerId || isAdmin))
   const view = allowed && invoice ? invoice : null
-  if (view?.userId === viewerId && surface === 'public' && storedCheckoutSurface(view.order?.meta) === 'dashboard') redirect(checkoutPath(resultHref, 'dashboard'))
+  if (view?.userId === viewerId && surface === 'public' && storedCheckoutSurface(view.order?.meta) !== 'public') redirect(checkoutPath(resultHref, storedCheckoutSurface(view.order?.meta)))
 
   const subscription = view?.orderId
     ? await db.subscription.findFirst({ where: { orderId: view.orderId }, select: { id: true, username: true, expiresAt: true } })
@@ -78,13 +78,13 @@ export default async function PaymentResultPage({
   try { orderMeta = JSON.parse(view?.order?.meta || '{}') } catch { /* ignore */ }
   const contentPath = (orderMeta.kind === 'content' || orderMeta.kind === 'form') && typeof orderMeta.contentPath === 'string' && orderMeta.contentPath.startsWith('/') ? orderMeta.contentPath : ''
 
-  const serviceOrder = surface === 'dashboard' && ['hosting', 'hosting-renewal', 'hosting-addon', 'domain', 'domain-renewal'].includes(String(orderMeta.kind))
-  const serviceHref = serviceOrder ? (typeof orderMeta.contentPath === 'string' && /^\/dashboard\/(?:services|domains)\/[1-9]\d*$/.test(orderMeta.contentPath) ? orderMeta.contentPath : '/dashboard/services') : ''
+  const serviceOrder = surface !== 'public' && ['hosting', 'hosting-renewal', 'hosting-addon', 'domain', 'domain-renewal'].includes(String(orderMeta.kind))
+  const serviceHref = serviceOrder ? checkoutPath(typeof orderMeta.contentPath === 'string' && /^\/dashboard\/(?:services|domains)\/[1-9]\d*$/.test(orderMeta.contentPath) ? orderMeta.contentPath : '/dashboard/services', surface) : ''
 
   const money = (n: number) => formatAmount(n, view?.currency || BASE_CURRENCY, isFa ? 'fa-IR' : 'en-US')
   const fmt = (d: Date | null | undefined) => (d ? new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US') : '—')
 
-  const Surface = surface === 'dashboard' ? 'section' : 'main'
+  const Surface = surface !== 'public' ? 'section' : 'main'
   return (
     <>
       {surface === 'public' && <SiteHeader theme={theme} navPages={navPages} />}
@@ -92,7 +92,7 @@ export default async function PaymentResultPage({
         <div className="card text-center max-w-xl w-full py-10">
           <div className="text-5xl mb-4">{icon}</div>
           <h1 className="h2">{title}</h1>
-          <p className="muted mt-3 leading-7">{surface === 'dashboard' && paid ? (isFa ? 'پرداخت سفارش شما ثبت و تأیید شد. وضعیت آماده‌سازی، تحویل یا انجام درخواست را از گزینهٔ پیگیری زیر ببینید.' : 'Your order payment is confirmed. Use the tracking option below to check preparation, delivery or request progress.') : body}</p>
+          <p className="muted mt-3 leading-7">{surface !== 'public' && paid ? (isFa ? 'پرداخت سفارش شما ثبت و تأیید شد. وضعیت آماده‌سازی، تحویل یا انجام درخواست را از گزینهٔ پیگیری زیر ببینید.' : 'Your order payment is confirmed. Use the tracking option below to check preparation, delivery or request progress.') : body}</p>
           {failed && searchParams.reason && <p className="error-text mt-3 leading-7" role="alert">{String(searchParams.reason).replace(/[<>]/g, '').slice(0, 240)}</p>}
 
           {view && (

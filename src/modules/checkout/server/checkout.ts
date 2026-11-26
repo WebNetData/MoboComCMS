@@ -95,7 +95,7 @@ export interface CheckoutCommand {
   idempotencyKey: string
   siteUrl: string
   channel?: 'web' | 'telegram'
-  surface?: 'dashboard'
+  surface?: 'dashboard' | 'cloud'
 }
 
 export type CheckoutFailure = { ok: false; status: number; code: string; message: string; meta?: Record<string, unknown> }
@@ -164,6 +164,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   const domainOrder = command.domainOrder && command.domainOrder.name ? command.domainOrder : null
   const domainRenew = command.domainRenew && Number(command.domainRenew.domainId) > 0 ? command.domainRenew : null
   if ([planId, productId, membershipPlanId, content, formSubmissionId, hostingProductId, hostingRenewServiceId, hostingAddon, domainOrder, domainRenew].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
+  if (command.surface === 'cloud' && !(hostingProductId || hostingRenewServiceId || hostingAddon || domainOrder || domainRenew)) return fail(400, 'BAD_ITEM', 'Cloud checkout supports hosting and domain orders only')
   if (planId && !await isModuleEnabled('vpn')) return fail(403, 'VPN_DISABLED', 'فروش این سرویس در حال حاضر فعال نیست')
   if (planId && !await userOpensSection('vpn', command.userId)) return fail(403, 'VPN_FORBIDDEN', 'این بخش برای اعضای ویژه یا گروه‌های انتخاب‌شده باز است')
   if ((hostingProductId || hostingRenewServiceId || hostingAddon || domainOrder || domainRenew) && !await isModuleEnabled('hosting')) return fail(403, 'HOSTING_DISABLED', 'فروش میزبانی و سرور در حال حاضر فعال نیست')
@@ -485,7 +486,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
         status: 'PENDING',
         provider: dueMinor === 0n ? 'wallet' : gateway!.provider.toLowerCase(),
         gatewayId: gateway?.id ?? null,
-        meta: JSON.stringify({ ...meta, ...(command.surface === 'dashboard' ? { checkoutSurface: 'dashboard' } : {}), walletApplied: minorToNumber(creditMinor, currency), username: desiredUsername || '', discountCode: code, discountMinor: discountMinor.toString(), memberPrice: memberDiscount, shippingMinor: shippingMinor.toString() }),
+        meta: JSON.stringify({ ...meta, ...(['dashboard','cloud'].includes(command.surface || '') ? { checkoutSurface: command.surface } : {}), walletApplied: minorToNumber(creditMinor, currency), username: desiredUsername || '', discountCode: code, discountMinor: discountMinor.toString(), memberPrice: memberDiscount, shippingMinor: shippingMinor.toString() }),
       } })
       if (delivery) await bookDelivery(tx, created.id, delivery.date, delivery.slot.id)
       for (const line of orderLines) await tx.orderLine.create({ data: { ...line, orderId: created.id } })

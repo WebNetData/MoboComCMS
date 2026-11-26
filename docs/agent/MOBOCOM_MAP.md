@@ -383,3 +383,10 @@ labels/statuses, named keyboard-scroll table regions and a mobile header AI trig
 Cinema/Forum/Games/Mini App owners keep their presentation and fix observed light
 surface contrast/link names. No new registry/schema/business settings. [Actual
 route inventory, browser evidence and limits](handoffs/SITE_UI_CONSISTENCY.md).
+
+## Cloud customer workspace — 2026-11-26
+
+Private `/cloud/dashboard` composes current Identity, Hosting, Checkout/Billing,
+Support and Wallet owners. It adds no schema/dependency and leaves public Cloud
+sources protected. Implementation evidence and pending browser/gate/cleanup
+confirmation: [handoff](handoffs/CLOUD_WORKSPACE.md).

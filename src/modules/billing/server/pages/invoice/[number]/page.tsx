@@ -57,7 +57,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
   const isOwner = viewerId && viewerId === invoice.userId
   const isAdmin = (session as any)?.user?.role === 'ADMIN' && await invoiceStaffAccess(new Headers(await headers()))
   if (!isOwner && !isAdmin) notFound()
-  if (isOwner && surface === 'public' && storedCheckoutSurface(invoice.order?.meta) === 'dashboard') redirect(checkoutPath(`/invoice/${encodeURIComponent(invoice.number)}`, 'dashboard'))
+  if (isOwner && surface === 'public' && storedCheckoutSurface(invoice.order?.meta) !== 'public') redirect(checkoutPath(`/invoice/${encodeURIComponent(invoice.number)}`, storedCheckoutSurface(invoice.order?.meta)))
 
   const navPages = await db.page
     .findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } })
@@ -102,13 +102,13 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
       ? invoice.paymentUrl || invoice.order?.paymentUrl || ''
       : ''
 
-  const Surface = surface === 'dashboard' ? 'section' : 'main'
+  const Surface = surface !== 'public' ? 'section' : 'main'
   return (
     <>
       {surface === 'public' && <SiteHeader theme={theme} navPages={navPages} />}
       <Surface className="container py-12 invoice-page">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6 no-print">
-          <Link href="/dashboard/invoices" className="muted">← {t.myInvoices}</Link>
+          <Link href={checkoutPath('/dashboard/invoices', surface)} className="muted">← {t.myInvoices}</Link>
           {invoice.status !== 'DRAFT' && <div className="invoice-actions">
             <a href={`/api/invoices/${encodeURIComponent(invoice.number)}/pdf?download=1`} className="btn btn-primary" download><Icon name="file" size={17} /> {isFa ? 'دانلود PDF' : 'Download PDF'}</a>
             <a href={`/api/invoices/${encodeURIComponent(invoice.number)}/pdf`} className="btn btn-ghost" target="_blank" rel="noopener noreferrer"><Icon name="receipt" size={17} /> {isFa ? 'چاپ فاکتور' : 'Print invoice'}</a>
@@ -116,7 +116,7 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
           </div>}
         </div>
 
-        {!receiptHeld && !automaticTransfer && <div className="no-print"><InvoiceDeadline status={invoice.status} expiresAt={invoice.expiresAt ? invoice.expiresAt.toISOString() : null} fxRates={parseFxRates(invoice.fxRates)} jumpToman={rules.fxJumpToman} closeAction={invoice.fxRates ? rules.fxAction : rules.overdueAction} closedReason={invoice.closedReason} againHref={productMeta.kind === 'form' ? '/dashboard/requests' : invoice.productId ? '/products' : '/dashboard/invoices'} /></div>}
+        {!receiptHeld && !automaticTransfer && <div className="no-print"><InvoiceDeadline status={invoice.status} expiresAt={invoice.expiresAt ? invoice.expiresAt.toISOString() : null} fxRates={parseFxRates(invoice.fxRates)} jumpToman={rules.fxJumpToman} closeAction={invoice.fxRates ? rules.fxAction : rules.overdueAction} closedReason={invoice.closedReason} againHref={productMeta.kind === 'form' ? '/dashboard/requests' : invoice.productId ? '/products' : checkoutPath('/dashboard/invoices', surface)} /></div>}
 
         <div className="card invoice-sheet">
           <div className="invoice-head">

@@ -261,3 +261,10 @@ Not run: a registrar driver (IRNIC EPP or an international registrar), React Doc
 Among slices that need no outside access: manual add-on purchase (traffic, upgrade), domain search and IRNIC order flow UI; then the drivers (4, 6–9) as access arrives. Each real
 driver (DirectAdmin first, Proxmox, Hetzner) plugs into `ProvisioningDriver` when the owner provides access. Owner still to provide: an international registrar reseller
 account, licensed cPanel/DirectAdmin test servers, the IRNIC reseller account, a Hetzner token for live checks.
+
+## Customer workspace continuation — 2026-11-26
+
+The new private Cloud customer shell continues these Hosting services without
+replacing their service/domain owners or existing generic detail addresses.
+See [Cloud workspace handoff](CLOUD_WORKSPACE.md) for reported implementation,
+checks and pending evidence.

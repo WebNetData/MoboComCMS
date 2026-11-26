@@ -40,7 +40,7 @@ export const PRESETS: Record<Exclude<CacheMode, 'off' | 'custom'>, Pick<PageCach
 }
 
 export const DEFAULT_INCLUDE = ['/', '/blog', '/journal', '/products', '/shop', '/software', '/games', '/cinema', '/music', '/plans', '/forum', '/p/', '/ext/']
-export const DEFAULT_EXCLUDE = ['/api', '/admin', '/dashboard', '/seller', '/checkout', '/cart', '/login', '/register', '/forgot-password', '/reset-password', '/account', '/invoice', '/payment', '/pay', '/miniapp', '/dl', '/files', '/watch', '/search', '/track', '/forwarder', '/builder-preview', '/install', '/_next']
+export const DEFAULT_EXCLUDE = ['/cloud/dashboard', '/api', '/admin', '/dashboard', '/seller', '/checkout', '/cart', '/login', '/register', '/forgot-password', '/reset-password', '/account', '/invoice', '/payment', '/pay', '/miniapp', '/dl', '/files', '/watch', '/search', '/track', '/forwarder', '/builder-preview', '/install', '/_next']
 
 export const DEFAULT_PAGECACHE: PageCacheConfig = {
   mode: 'off', ...PRESETS.balanced, include: DEFAULT_INCLUDE, exclude: DEFAULT_EXCLUDE, overrides: [{ prefix: '/', ttl: 30 }],
@@ -127,6 +127,7 @@ export function decide(config: PageCacheConfig, req: RequestInfo): Decision {
   if (/(^|[?&])_rsc=/.test(req.search)) return { cache: false, reason: 'rsc' }
   if (PERSONAL_COOKIE.test(req.cookie || '')) return { cache: false, reason: 'personal' }
   const path = req.pathname.length > 1 ? req.pathname.replace(/\/+$/, '') : req.pathname
+  if (under(path, '/cloud/dashboard')) return { cache: false, reason: 'private' }
   if (config.exclude.some((prefix) => under(path, prefix))) return { cache: false, reason: 'excluded' }
   if (!config.include.some((prefix) => under(path, prefix))) return { cache: false, reason: 'not-listed' }
   // Only the parameters that are part of the page take part in the key.

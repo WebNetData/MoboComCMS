@@ -90,6 +90,7 @@ const CHECKS = [
   'vpn-group-access',
   'digital-content-pricing',
   'digital-content-pricing-migration',
+  'cloud-workspace',
   'hosting-catalog',
   'hosting-services',
   'hosting-renewal',

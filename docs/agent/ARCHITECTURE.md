@@ -1071,3 +1071,11 @@ Forms-off blocks admission/effects while Core reconciles already-paid obligation
 Uploaded uninstall retains a private tombstoned aggregate; ordinary package readers
 exclude it and validated reinstall stays inactive. Admin distinguishes requested and
 effective state; lifecycle controls remain Core. [Scope, evidence and remaining gaps](handoffs/COMMERCIAL_MODULARITY.md).
+
+### Cloud customer workspace — 2026-11-26
+
+The private customer workspace at `/cloud/dashboard` composes the existing
+Identity, Hosting, Billing/Checkout, Support and Wallet boundaries. Checkout's
+Cloud presentation is a closed Hosting/domain surface; public Cloud content and
+navigation stay protected. No schema/dependency change is reported. Evidence and
+unresolved validation are recorded in [the handoff](handoffs/CLOUD_WORKSPACE.md).

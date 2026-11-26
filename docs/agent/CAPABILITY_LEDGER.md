@@ -421,3 +421,10 @@ states are recorded separately. Scoped contrast, keyboard-scroll and mobile
 assistant obstruction fixes preserve owners/data/protected layouts. Final accepted
 counts and remaining limits: [handoff](handoffs/SITE_UI_CONSISTENCY.md). Not a
 whole-site WCAG, live-provider or production-readiness certification.
+
+2026-11-26 Cloud customer workspace: bounded local customer-shell slice at
+`/cloud/dashboard`, using canonical identity and Hosting guards plus existing
+Billing/Support/Wallet owners. Six native PostgreSQL suites, the full check gate, focused final checkout units,
+25 distinct final responsive/themed views with axe0/overflow0/pageerrors0,
+menu behavior and public-navigation isolation passed. Final local Docker recovery
+and runtime cleanup are recorded in the handoff. [Handoff](handoffs/CLOUD_WORKSPACE.md).

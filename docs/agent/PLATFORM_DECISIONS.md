@@ -1351,3 +1351,11 @@ slice gives existing Forms/repairs and Automation coherent switches, truthful
 management and retained uploaded uninstall. Defaults preserve current installations;
 commercial provisioning/distribution is subsequent work, not an activation grant.
 [Implemented scope, actual evidence and phased continuation](handoffs/COMMERCIAL_MODULARITY.md).
+
+### Cloud customer workspace — 2026-11-26
+
+The member Cloud workspace uses existing canonical identity and Hosting
+module/group/maintenance guards. Its invoice/order projection recognizes only
+closed Cloud order kinds; public Cloud sources remain protected. This records
+implementation scope, not a new provider, schema or release decision. See
+[Cloud workspace evidence and limits](handoffs/CLOUD_WORKSPACE.md).

@@ -1,4 +1,5 @@
 'use client'
+import type { CheckoutSurface } from '@/modules/checkout/domain/surface'
 import SectionName from '@/components/site/SectionName'
 
 import { useMemo } from 'react'
@@ -24,7 +25,7 @@ const REGION_TEXT: Record<CloudRegion, string> = {
 const nf = (n: number) => n.toLocaleString('fa-IR')
 
 /** Step by step: what to build, Iran or abroad, which datacenter, then the plan and checkout of the existing catalogue. */
-export default function CloudWizard({ servers, hosting, gateways, minHours, allowed }: { servers: PublicHostingProduct[]; hosting: PublicHostingProduct[]; gateways: CheckoutGatewayChoice[]; minHours: number; allowed: boolean }) {
+export default function CloudWizard({ servers, hosting, gateways, minHours, allowed, surface = 'dashboard' }: { servers: PublicHostingProduct[]; hosting: PublicHostingProduct[]; gateways: CheckoutGatewayChoice[]; minHours: number; allowed: boolean; surface?: CheckoutSurface }) {
   const router = useRouter(), params = useSearchParams()
   const what = (['server', 'hosting', 'domain'] as const).find((w) => w === params.get('type')) || null
   const region = (['IR', 'INTL'] as const).find((r) => r === params.get('region')) || null
@@ -32,7 +33,7 @@ export default function CloudWizard({ servers, hosting, gateways, minHours, allo
   const go = (next: Record<string, string | null>) => {
     const q = new URLSearchParams(params.toString())
     for (const [key, value] of Object.entries(next)) { if (value) q.set(key, value); else q.delete(key) }
-    router.replace(`/dashboard/cloud/new${q.toString() ? `?${q}` : ''}`, { scroll: false })
+    router.replace(`${surface === 'cloud' ? '/cloud/dashboard/new' : '/dashboard/cloud/new'}${q.toString() ? `?${q}` : ''}`, { scroll: false })
   }
   const pool = useMemo(() => (what === 'server' ? servers : what === 'hosting' ? hosting : []), [what, servers, hosting])
   const byRegion = useMemo(() => ({ IR: pool.filter((p) => regionOf(p.location) === 'IR'), INTL: pool.filter((p) => regionOf(p.location) !== 'IR') }), [pool])
@@ -42,7 +43,7 @@ export default function CloudWizard({ servers, hosting, gateways, minHours, allo
   const shown = location ? inRegion.filter((p) => p.location.trim() === location) : inRegion
   const step = !what ? 1 : what === 'domain' ? 2 : !region ? 2 : 3
 
-  if (!allowed) return <div className="dt-page cw-page" dir="rtl"><div className="dt-empty"><Icon name="lock" size={28} /><b>این بخش فعلاً برای حساب شما باز نیست</b><span>از پشتیبانی راهنمایی بگیرید.</span><Link className="btn btn-primary" href="/dashboard/tickets">پشتیبانی</Link></div></div>
+  if (!allowed) return <div className="dt-page cw-page" dir="rtl"><div className="dt-empty"><Icon name="lock" size={28} /><b>این بخش فعلاً برای حساب شما باز نیست</b><span>از پشتیبانی راهنمایی بگیرید.</span><Link className="btn btn-primary" href={surface === 'cloud' ? '/cloud/dashboard/support' : '/dashboard/tickets'}>پشتیبانی</Link></div></div>
   return <div className="dt-page cw-page" dir="rtl">
     <header className="cw-hero">
       <span className="cw-orb" aria-hidden="true"><Icon name="cloud" size={28} /></span>
@@ -65,7 +66,7 @@ export default function CloudWizard({ servers, hosting, gateways, minHours, allo
       })}</div>
     </section>
 
-    {what === 'domain' && <section className="cw-block" aria-label="جست‌وجو و سفارش دامنه"><DomainSearch signedIn surface="dashboard" /></section>}
+    {what === 'domain' && <section className="cw-block" aria-label="جست‌وجو و سفارش دامنه"><DomainSearch signedIn surface={surface} /></section>}
 
     {what && what !== 'domain' && <section className="cw-block" aria-labelledby="cw-region">
       <h2 id="cw-region">{what === 'hosting' ? 'هاست کجا باشد؟' : 'سرور کجا باشد؟'}</h2>
@@ -86,8 +87,8 @@ export default function CloudWizard({ servers, hosting, gateways, minHours, allo
 
     {what && what !== 'domain' && region && <section className="cw-block cw-plans" aria-labelledby="cw-plans">
       <h2 id="cw-plans">پلن و دورهٔ پرداخت</h2>
-      {shown.length ? <HostingCatalog key={`${what}-${region}-${location}`} products={shown} gateways={gateways} signedIn minHours={minHours} surface="dashboard" />
-        : <div className="dt-empty"><Icon name="server" size={28} /><b>در این مکان پلنی عرضه نشده است</b><span>مکان یا کشور دیگری را انتخاب کنید یا از پشتیبانی سرور اختصاصی بخواهید.</span><Link className="btn btn-ghost" href="/dashboard/tickets">درخواست از پشتیبانی</Link></div>}
+      {shown.length ? <HostingCatalog key={`${what}-${region}-${location}`} products={shown} gateways={gateways} signedIn minHours={minHours} surface={surface} />
+        : <div className="dt-empty"><Icon name="server" size={28} /><b>در این مکان پلنی عرضه نشده است</b><span>مکان یا کشور دیگری را انتخاب کنید یا از پشتیبانی سرور اختصاصی بخواهید.</span><Link className="btn btn-ghost" href={surface === 'cloud' ? '/cloud/dashboard/support' : '/dashboard/tickets'}>درخواست از پشتیبانی</Link></div>}
     </section>}
   </div>
 }

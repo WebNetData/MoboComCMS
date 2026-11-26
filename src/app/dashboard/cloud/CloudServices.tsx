@@ -1,5 +1,6 @@
 'use client'
 
+import type { CheckoutSurface } from '@/modules/checkout/domain/surface'
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
@@ -39,9 +40,9 @@ export function useCloudData(family: 'all' | 'services' | 'domains' = 'all') {
 
 export const isServer = (kind: string) => kindMeta(kind)?.group === 'servers'
 
-export function ServiceCard({ row }: { row: CloudService }) {
+export function ServiceCard({ row, surface = 'dashboard' }: { row: CloudService; surface?: CheckoutSurface }) {
   const status = SERVICE_STATUS[row.status as ServiceStatus], left = daysLeft(row.nextDueAt), region = regionOf(row.product.location || '')
-  return <Link href={`/dashboard/services/${row.id}`} className={`hs-card is-${row.status.toLowerCase()}`}>
+  return <Link href={`${surface === 'cloud' ? '/cloud/dashboard' : '/dashboard'}/services/${row.id}`} className={`hs-card is-${row.status.toLowerCase()}`}>
     <span className="hs-card-icon" aria-hidden="true"><Icon name={kindIcon(row.product.kind)} size={22} /></span>
     <span className="hs-card-main">
       <span className="hs-card-kind">{kindMeta(row.product.kind)?.label}{region ? ` · ${REGION_LABEL[region]}` : ''}</span>
@@ -57,9 +58,9 @@ export function ServiceCard({ row }: { row: CloudService }) {
   </Link>
 }
 
-export function DomainCard({ row }: { row: CloudDomain }) {
+export function DomainCard({ row, surface = 'dashboard' }: { row: CloudDomain; surface?: CheckoutSurface }) {
   const status = DOMAIN_STATUS[row.status as DomainStatus], left = daysLeft(row.expiresAt)
-  return <Link href={`/dashboard/domains/${row.id}`} className={`hs-card is-${row.status.toLowerCase()}`}>
+  return <Link href={`${surface === 'cloud' ? '/cloud/dashboard' : '/dashboard'}/domains/${row.id}`} className={`hs-card is-${row.status.toLowerCase()}`}>
     <span className="hs-card-icon" aria-hidden="true"><Icon name="globe" size={22} /></span>
     <span className="hs-card-main"><span className="hs-card-kind">دامنه{row.autoRenew ? ' · تمدید خودکار' : ''}</span><b dir="ltr">{row.display}</b></span>
     <span className="hs-card-side">
@@ -71,14 +72,16 @@ export function DomainCard({ row }: { row: CloudDomain }) {
 }
 
 /** Heading, create button and list for one family (servers, hosting or domains). */
-export function CloudList({ kind }: { kind: 'servers' | 'hosting' | 'domains' }) {
+export function CloudList({ kind, surface = 'dashboard' }: { kind: 'servers' | 'hosting' | 'domains' | 'all'; surface?: CheckoutSurface }) {
   const { services, domains, failed, retry } = useCloudData(kind === 'domains' ? 'domains' : 'services')
+  const newPath = surface === 'cloud' ? '/cloud/dashboard/new' : '/dashboard/cloud/new'
   const meta = {
-    servers: { title: 'سرورهای من', text: 'سرورهای مجازی، ابری و اختصاصی شما در ایران و خارج.', icon: 'server', create: '/dashboard/cloud/new?type=server', cta: 'ساخت سرور' },
-    hosting: { title: 'هاست‌های من', text: 'هاست‌های سایت شما با اطلاعات ورود به کنترل‌پنل و تمدید.', icon: 'layers', create: '/dashboard/cloud/new?type=hosting', cta: 'خرید هاست' },
-    domains: { title: 'دامنه‌های من', text: 'انقضا، تمدید، نیم‌سرورها و کد انتقال هر دامنه.', icon: 'globe', create: '/dashboard/cloud/new?type=domain', cta: 'ثبت دامنه' },
+    all: { title: 'سرویس‌های من', text: 'سرورها و هاست‌های شما.', icon: 'server', create: newPath, cta: 'ساخت سرویس' },
+    servers: { title: 'سرورهای من', text: 'سرورهای مجازی، ابری و اختصاصی شما در ایران و خارج.', icon: 'server', create: `${newPath}?type=server`, cta: 'ساخت سرور' },
+    hosting: { title: 'هاست‌های من', text: 'هاست‌های سایت شما با اطلاعات ورود به کنترل‌پنل و تمدید.', icon: 'layers', create: `${newPath}?type=hosting`, cta: 'خرید هاست' },
+    domains: { title: 'دامنه‌های من', text: 'انقضا، تمدید، نیم‌سرورها و کد انتقال هر دامنه.', icon: 'globe', create: `${newPath}?type=domain`, cta: 'ثبت دامنه' },
   }[kind]
-  const rows = kind === 'domains' ? null : services?.filter((row) => (kind === 'servers') === isServer(row.product.kind)) || null
+  const rows = kind === 'domains' ? null : services?.filter((row) => kind === 'all' || (kind === 'servers') === isServer(row.product.kind)) || null
   const loading = kind === 'domains' ? domains === null && !failed : services === null && !failed
   const empty = kind === 'domains' ? domains?.length === 0 : rows?.length === 0
   return <div className="dt-page hs-page cl-page" dir="rtl">
@@ -89,6 +92,6 @@ export function CloudList({ kind }: { kind: 'servers' | 'hosting' | 'domains' })
     {failed ? <div className="dt-empty is-bad" role="alert"><Icon name={meta.icon} size={28} /><b>فهرست دریافت نشد</b><span>اتصال را بررسی کنید و دوباره تلاش کنید.</span><button type="button" className="btn btn-ghost" onClick={retry}>تلاش دوباره</button></div>
       : loading ? <div className="hs-grid" aria-busy="true">{[0, 1, 2].map((n) => <div key={n} className="hs-card is-skeleton" />)}</div>
       : empty ? <div className="dt-empty cl-empty"><Icon name={meta.icon} size={30} /><b>هنوز موردی ندارید</b><span>پس از سفارش، وضعیت آماده‌سازی و تحویل را از همین بخش پیگیری کنید.</span><Link className="btn btn-primary" href={meta.create}>{meta.cta}</Link></div>
-      : <div className="hs-grid">{kind === 'domains' ? domains!.map((row) => <DomainCard key={row.id} row={row} />) : rows!.map((row) => <ServiceCard key={row.id} row={row} />)}</div>}
+      : <div className="hs-grid">{kind === 'domains' ? domains!.map((row) => <DomainCard key={row.id} row={row} surface={surface} />) : rows!.map((row) => <ServiceCard key={row.id} row={row} surface={surface} />)}</div>}
   </div>
 }
