@@ -4,6 +4,16 @@ Payment audits compose existing Billing/Wallet/Operations/Identity boundaries;
 supporting client skills add methods, never an alternate financial/auth system.
 [Verified file parity and routing](ENGINEERING_SKILLS.md).
 
+Pay reliability2026-11-26: Billing's generic manual settlement owner serializes
+against transfer-quote creation on the canonical Invoice row. All three Admin
+entrypoints compose it; ordinary top-up credit and the invoice claim share one
+transaction and the canonical Wallet row/key. Qualified transfer review retains
+its exact-once principal/adjustment path. Bot creation and outbound claims use
+fresh section access; verified direct/proxy TLS precedes HTTP construction, while
+uncertain replies remain review-only. Operations owns the existing durable
+SMS/Bale recovery job, not a second matcher or balance system.
+[Current migration order, evidence and live limits](handoffs/MOBOCOM_PAY.md#integrated-payment-reliability-audit--2026-11-26).
+
 Bank source setup2026-11-26: existing Billing Pay Admin owns automatic terminal
 policy, SMS source secrets and safe connector status. Merchant commands cannot
 write the automatic flag. Scoped Admin guides compose those owners; an optional

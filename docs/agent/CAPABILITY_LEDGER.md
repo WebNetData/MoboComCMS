@@ -1,3 +1,11 @@
+Pay reliability 2026-11-26: VERIFIED_LOCAL; LIVE_COMMISSIONING_PENDING. Existing
+readiness slice integrated with main/PR496, atomic/manual top-up+collection guards,
+fresh bot authority and safe direct/proxy retries. Canonical 1170/53/4/14, 18 PG
+suites, real lock race, populated 222→223 migration, 3 fault controls, 39 units and
+8 themed browser views pass. Claude/Codex 11-entrypoint parity/shared routing verified.
+No live bank/bot/root-helper/queue commissioning or deployment claim.
+[Evidence and rollout](handoffs/MOBOCOM_PAY.md#integrated-payment-reliability-audit--2026-11-26).
+
 Pay/Cloud repair 2026-11-26: VERIFIED_LOCAL. Fluid 1920px specialist frames, compact
 default menus, native mobile/tablet drawers and themed Pay public/application/
 restricted states pass 29 browser views/axe. Initial WEBSITE/BOT terminal can

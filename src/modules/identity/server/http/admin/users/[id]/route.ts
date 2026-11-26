@@ -9,7 +9,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
 import { moveWallet, walletBalances } from '@/modules/wallet/server/wallet'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
-import { markInvoicePaid } from '@/modules/billing/server/billing'
+import { settleInvoiceManually } from '@/modules/billing/server/settle'
 import { subscriptionAction, type SubAction } from '@/modules/subscriptions/server/submanage'
 import { getPanelAdapter } from '@/modules/providers/server/panels'
 import { auditAdmin } from '@/platform/audit/server'
@@ -256,29 +256,11 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
 
     const change = String(body?.invoiceAction || '')
     if (change === 'markPaid') {
-      const res = await markInvoicePaid({
-        invoiceId,
-        gatewayId: invoice.gatewayId,
-        amount: body?.amount ? Number(body.amount) : undefined,
-        feePercent: invoice.gateway?.feePercent ?? 0,
+      const res = await settleInvoiceManually({
+        invoiceId, amount: body?.amount !== undefined && body.amount !== '' ? String(body.amount) : undefined,
         raw: { source: 'admin-360', by: admin.email },
       })
-      if (!res.ok) return err(res.message || 'failed', 400)
-      // wallet top-up invoices must actually credit the wallet
-      if (invoice.kind === 'WALLET_TOPUP') {
-        const pending = await db.walletTx.findFirst({ where: { invoiceId: invoice.id, status: 'PENDING' } })
-        const amount = body?.amount ? Number(body.amount) : invoice.total
-        await moveWallet({
-          userId: id,
-          currency: invoice.currency,
-          amount,
-          type: 'TOPUP',
-          description: `Wallet top-up ${invoice.number} (admin)`,
-          invoiceId: invoice.id,
-          adminId: admin.id,
-          txId: pending?.id ?? null,
-        }).catch(() => {})
-      }
+      if (!res.ok) return err(res.message, res.status)
       await auditAdmin({ req, actor: admin, action: 'invoice.markPaid', targetType: 'invoice', targetId: invoiceId, metadata: { userId: id, number: invoice.number, currency: invoice.currency, kind: invoice.kind } })
       return ok({ ok: true })
     }

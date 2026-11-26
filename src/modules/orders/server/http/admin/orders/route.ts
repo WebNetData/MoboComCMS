@@ -3,10 +3,8 @@ import { db } from '@/platform/database/prisma'
 import type { Permission } from '@/modules/identity/rbac'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { markInvoicePaid } from '@/modules/billing/server/billing'
+import { settleInvoiceManually } from '@/modules/billing/server/settle'
 import { cancelUnpaidOrder } from '@/modules/billing/server/order-closure'
-import { ensureInventoryReservation } from '@/modules/catalog/server/inventory'
-import { enqueueOrderFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
 import { auditAdmin } from '@/platform/audit/server'
 
 export async function GET(req: NextRequest) {
@@ -50,38 +48,14 @@ export async function PATCH(req: NextRequest) {
     if (!invoice) return err('invoice not found; refusing an unledgered manual settlement', 409)
     if (order.status === 'PAID' && invoice.status === 'PAID') return err('این سفارش قبلاً پرداخت شده')
 
-    // Product stock must be held before settlement so a manual payment cannot create a paid-but-undeliverable order.
-    if (order.productId) {
-      const held = await ensureInventoryReservation({ orderId: order.id, holdMinutes: 60 })
-      if (!held.ok) return err(held.message || 'out of stock', 409)
-    }
-
-    const settled = await markInvoicePaid({
-      invoiceId: invoice.id,
-      gatewayId: invoice.gatewayId,
-      providerTxnId: String(b?.providerTxnId || ''),
-      cryptoCurrency: String(b?.cryptoCurrency || ''),
-      cryptoAmount: String(b?.cryptoAmount || ''),
-      feeBps: invoice.gateway?.feeBps ?? Math.round((invoice.gateway?.feePercent || 0) * 100),
-      provider: invoice.gateway?.provider || 'MANUAL',
+    const settled = await settleInvoiceManually({
+      invoiceId: invoice.id, providerTxnId: String(b?.providerTxnId || ''),
+      cryptoCurrency: String(b?.cryptoCurrency || ''), cryptoAmount: String(b?.cryptoAmount || ''),
       raw: { source: 'admin-order', by: admin.email },
     })
-    if (!settled.ok) return err(settled.message || 'payment settlement failed', 400)
-
-    const job = await enqueueOrderFulfillment({
-      orderId: order.id,
-      invoiceId: invoice.id,
-      planId: order.planId,
-      productId: order.productId,
-    })
-    if (!job) {
-      await auditAdmin({ req, actor: admin, action: 'order.markPaid', targetType: 'order', targetId: id, metadata: { invoiceId: invoice.id, fulfillmentJobId: null } })
-      return ok({ ok: true })
-    }
-    const processed = await processFulfillmentJob(job.id)
-    const warning = processed.ok ? undefined : `payment settled; fulfillment queued for retry: ${processed.message}`
-    await auditAdmin({ req, actor: admin, action: 'order.markPaid', targetType: 'order', targetId: id, metadata: { invoiceId: invoice.id, fulfillmentJobId: job.id, fulfillmentProcessed: processed.ok, warning } })
-    return ok({ ok: true, warning })
+    if (!settled.ok) return err(settled.message, settled.status)
+    await auditAdmin({ req, actor: admin, action: 'order.markPaid', targetType: 'order', targetId: id, metadata: { invoiceId: invoice.id, warning: settled.warning } })
+    return ok({ ok: true, warning: settled.warning })
   }
 
   if (b?.action === 'cancel') {

@@ -1,6 +1,6 @@
-# Pay reliability audit/integration — 2026-11-26
+# Pay reliability audited/fixed — 2026-11-26
 
-Authoritative checkout .mobocom/pay-reliability, branch fix/pay-reliability-2026-11-26, from merged PR496/main595fa493. Continue existing unmerged readiness7e6b1ae9; preserve latest wide Pay/Cloud UI and released1.7.23 migration hashes. Audit manual/SMS/Bale exact-once credit, fee isolation, expiry/review, external callbacks and shared Claude/Codex skill routing. Local integration under validation; no release/deploy or live financial/provider call. Existing Pay handoff/spec remain authoritative.
+Continue .mobocom/pay-reliability, fix/pay-reliability-2026-11-26 from main 595fa493 with existing readiness 7e6b1ae9 integrated as 1e4d5854. Generic Admin bypass/repeated top-up, fresh bot authority and direct pre-send retry repaired. Canonical 1170/53/4/14, 18 PG suites, real lock race, populated 222→223 migration, 3 fault controls, 39 units and 8 themed browser views pass; owned runtime/two DBs/role/tunnel/session fixtures cleaned, app3000 HTTP 200. Only unpublished ACK migration moved after shipped Cloud 09; released 1.7.23 unchanged. Live SMS/Bale/panel/queue/root-helper commissioning remains. Shared Claude/Codex skill routing recorded in canonical ENGINEERING_SKILLS/ARCHITECTURE. [Exact evidence/continuation](../docs/agent/handoffs/MOBOCOM_PAY.md#integrated-payment-reliability-audit--2026-11-26).
 
 # Pay/Cloud UI and first-terminal repair — 2026-11-26
 

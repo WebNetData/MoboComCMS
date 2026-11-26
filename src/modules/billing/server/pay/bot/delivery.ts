@@ -46,7 +46,7 @@ export async function deliverBotPayment(payload: Record<string, unknown>) {
     })
     return { status: 'UNKNOWN' }
   }
-  const sectionAllowed = await userOpensSection('mobocom-pay', existing.payment.merchant.userId)
+  const sectionAllowed = await userOpensSection('mobocom-pay', existing.payment.merchant.userId, true)
   const maintenance = !!(await loadMaintenance(true))['mobocom-pay']?.enabled
   const attempt = await payTransaction(async tx => {
     const row = await deliveryRow(tx, id)

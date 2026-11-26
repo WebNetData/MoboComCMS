@@ -1,3 +1,9 @@
+Pay reliability 2026-11-26: Billing generic manual settlement fences automatic
+collections under Invoice lock; ordinary top-up credit shares its transaction.
+All three Admin entrypoints compose it. Bot authority uses fresh section access;
+direct/proxy preflight classifies proven pre-send failure. Operations owns
+durable SMS/Bale match recovery. [Current evidence/install order](handoffs/MOBOCOM_PAY.md#integrated-payment-reliability-audit--2026-11-26).
+
 Pay/Cloud repair 2026-11-26: existing MerchantShell/CloudShell own fluid frames and
 active-group menus; Pay landing stays under existing Site chrome. Billing Pay
 merchants owns explicit first-website registration atomically with terminal

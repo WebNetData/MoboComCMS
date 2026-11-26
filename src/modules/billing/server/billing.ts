@@ -1,8 +1,9 @@
 import { db } from '@/platform/database/prisma'
 import type { Prisma } from '@prisma/client'
+import { PayError } from '@/modules/billing/domain/pay'
 import { maskSecret } from '@/modules/billing/server/gateways'
 import { moveWallet } from '@/modules/wallet/server/wallet'
-import { bpsAmount, formatMoney, legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
+import { bpsAmount, formatMoney, legacyNumber, minorToDecimal, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { logEvent } from '@/platform/observability/logger'
 import { invoicePaidEvent } from '@/modules/notifications/server/inbox'
@@ -128,6 +129,8 @@ export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput, c
 }
 
 export interface MarkPaidInput {
+  /** Generic staff settlement must not bypass collection review. */
+  genericManualReview?: true
   /** Trusted composed settlement only: separate externally received portions, summing to amount. */
   allocations?: { provider: 'CASH' | 'CARD'; amountMinor: bigint; reference: string }[]
   invoiceId: number
@@ -149,10 +152,15 @@ export interface MarkPaidInput {
  */
 export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.TransactionClient) {
   const settle = async (tx: Prisma.TransactionClient) => {
+    // Collection creation locks the same invoice before inserting its quote.
+    if (input.genericManualReview) await tx.invoice.updateMany({ where: { id: input.invoiceId, status: { in: ['UNPAID', 'DRAFT'] } }, data: { totalMinor: { increment: 0n } } })
     const invoice = await tx.invoice.findUnique({ where: { id: input.invoiceId } })
     if (!invoice) return { ok: false as const, message: 'invoice not found' }
     if (invoice.status === 'PAID') return { ok: true as const, alreadyPaid: true, invoice }
     if (!['UNPAID', 'DRAFT'].includes(invoice.status)) return { ok: false as const, message: `invoice is ${invoice.status}` }
+    if (input.genericManualReview && await tx.payBaleCollection.findFirst({ where: { invoiceId: invoice.id }, select: { id: true } })) {
+      throw new PayError('این فاکتور درخواست کارت‌به‌کارت دارد؛ از بخش بررسی رسید یا تطبیق واریز تأیید کنید.', 409)
+    }
 
     const currency = normalizeCurrency(invoice.currency)
     const creditMinor = invoice.walletAppliedMinor || toMinor(invoice.walletApplied || 0, currency)
@@ -185,6 +193,13 @@ export async function markInvoicePaid(input: MarkPaidInput, client?: Prisma.Tran
       const fresh = await tx.invoice.findUnique({ where: { id: invoice.id } })
       if (fresh?.status === 'PAID') return { ok: true as const, alreadyPaid: true, invoice: fresh }
       return { ok: false as const, message: `invoice is ${fresh?.status || 'missing'}` }
+    }
+
+    if (input.genericManualReview && invoice.kind === 'WALLET_TOPUP' && invoice.userId !== null) {
+      const pending = await tx.walletTx.findFirst({ where: { invoiceId: invoice.id, type: 'TOPUP', status: { not: 'FAILED' } }, orderBy: { id: 'desc' } })
+      const credit = await moveWallet({ userId: invoice.userId, amount: minorToDecimal(invoice.totalMinor, currency), currency, type: 'TOPUP', invoiceId: invoice.id,
+        description: `Wallet top-up ${invoice.number}`, txId: pending?.id ?? null, idempotencyKey: pending ? undefined : `wallet-topup-invoice:${invoice.id}` }, tx)
+      if (!credit.ok) throw new PayError(credit.message || 'wallet top-up failed', 409)
     }
 
     const gateway = input.gatewayId ? await tx.gateway.findUnique({ where: { id: input.gatewayId } }) : null
