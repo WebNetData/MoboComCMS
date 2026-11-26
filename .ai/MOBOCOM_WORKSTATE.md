@@ -1,3 +1,12 @@
+# Persian customer relationship desk — 2026-11-27
+
+Owner requested professional CRM with the Persian title «مدیریت ارتباط با
+مشتریان» after merging PR504. Continue `.mobocom/crm-customer-desk`,
+`feat/crm-customer-desk-2026-11-27`, based on main `815c2374`. Existing
+Livechat CRM owns complete filtered paging, purchase summary and the link to
+the existing customer file. PostgreSQL, SQLite and real RTL Edge checks
+passed. [Handoff and limits](../docs/agent/handoffs/CRM_ENGAGEMENT.md#persian-customer-relationship-desk--2026-11-27).
+
 # Atomic Support ticket ownership — 2026-11-27
 
 Owner requested the first fix from the current audit. Continue

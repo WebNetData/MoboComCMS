@@ -4,7 +4,9 @@ const { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient()
 assert(process.env.DATABASE_URL && /test|check/i.test(new URL(process.env.DATABASE_URL).pathname), 'Use an isolated test database')
 const load = require('./connected-source-loader.cjs')({ '@/platform/database/prisma': { db } })
-const { crmSnapshot, crmProfile, crmSearch, agentConversation } = load('src/modules/livechat/server/livechat.ts')
+const { crmSnapshot, crmProfile, agentConversation } = load('src/modules/livechat/server/livechat.ts')
+const { crmSearch } = load('src/modules/livechat/server/crm-desk.ts')
+const { crmDeskFilters } = load('src/modules/livechat/domain/crm-desk.ts')
 const stamp = randomUUID().replace(/-/g, '')
 const slugs = [`QA${stamp}A`, `QA${stamp}B`]
 let user, role, conversation
@@ -43,7 +45,7 @@ async function main() {
       assert.equal(profile.timeline.some(event => event.title.includes(`private-1-${stamp}`)), count === 2)
       assert.equal((await agentConversation(conversation.id, 0, actor)).customer.openTickets, count)
     }
-    const row = (await crmSearch({ q: user.email })).rows.find(item => item.id === user.id)
+    const row = (await crmSearch(crmDeskFilters(new URLSearchParams({ q: user.email })))).rows.find(item => item.id === user.id)
     assert.equal(row.spend, 126.5)
     assert.equal(row.orders, 2)
     assert.deepEqual(await db.order.findMany({ where: { id: { in: orderIds } }, orderBy: { id: 'asc' }, select: { id: true, currency: true, totalMinor: true, totalAmount: true, status: true } }), before)

@@ -6,6 +6,7 @@ import Link from '@/components/AppLink'
 import { useParams } from '@/platform/routing/navigation'
 import { Notice, fa, faDate } from '../../store/shared'
 import type { CustomerServiceHistory } from '@/modules/forms/domain/customer-history'
+import { CRM_TITLE } from '@/modules/livechat/domain/crm-desk'
 
 type Event = { at: string; kind: string; title: string; detail: string; href: string; tone: string }
 type Profile = {
@@ -56,6 +57,7 @@ export default function CustomerFile() {
   async function toggleTag(value: string, on: boolean) { const result = await post({ id: c.id, tag: value, on }); if (result.ok) { setTag(''); void load() } else setError(result.error) }
   const events = kind ? data.timeline.filter((event) => event.kind === kind) : data.timeline
   return <div className="sa crm-customer-file" dir="rtl">
+    <nav aria-label="مسیر پرونده"><Link className="sa-link" href="/admin/crm">{CRM_TITLE}</Link></nav>
     <header className="sa-head crm-head">
       <span className="crm-avatar" aria-hidden="true">{(c.name || c.email).slice(0, 1)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
