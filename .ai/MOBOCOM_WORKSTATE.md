@@ -1,3 +1,13 @@
+# CRM follow-up workdesk and Automation review list — 2026-11-27
+
+Continue `.mobocom/crm-workdesk`, `feat/crm-workdesk-2026-11-27`, from
+merged PR507/main `de55a51c`. Staff workdesk shows own CRM follow-ups and
+links to the full Tehran-day queue with manager assignment filters. Closing
+a task uses the existing versioned customer-file command. Automation now
+displays its current review projection in Admin. No schema change. See
+[CRM](../docs/agent/handoffs/CRM_ENGAGEMENT.md#my-follow-ups--2026-11-27)
+and [Automation](../docs/agent/handoffs/PLATFORM_INTEGRATION.md#automation-review-list--2026-11-27).
+
 # General Automation event recovery — 2026-11-27
 
 Continue `.mobocom/automation-event-recovery`,

@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ActionDef, Condition, Rule, TriggerDef } from '@/modules/automation/domain/automation'
 import { subjectLabel } from '@/modules/automation/domain/automation'
+import RecoveryList, { type Recovery } from './RecoveryList'
 
 type Saved = Rule & { id: number; runCount: number; lastRunAt: string | null }
 type Run = { id: number; ruleId: number; rule: string; subject: string; status: string; detail: string; at: string }
 type Recipe = { id: string; name: string; description: string; rule: Omit<Rule, 'id'> }
-type Data = { rules: Saved[]; runs: Run[]; triggers: TriggerDef[]; actions: ActionDef[]; ops: { id: string; label: string }[]; recipes: Recipe[] }
+type Data = { rules: Saved[]; runs: Run[]; recovery?: Recovery; triggers: TriggerDef[]; actions: ActionDef[]; ops: { id: string; label: string }[]; recipes: Recipe[] }
 type Preview = { kind: string; found: number; sample: { subject: string; facts: Record<string, unknown> }[]; note: string }
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
@@ -92,6 +93,8 @@ export default function AutomationAdmin() {
       <div className={`am-tile${runsToday.some((run) => run.status !== 'DONE') ? ' is-warn' : ''}`}><b className="num">{fa(runsToday.filter((run) => run.status !== 'DONE').length)}</b><span>اجرای ناقص امروز</span></div>
       <div className="am-tile"><b className="num">{fa(data.rules.reduce((sum, rule) => sum + rule.runCount, 0))}</b><span>کل اجراها</span></div>
     </div>
+
+    {data.recovery && <RecoveryList recovery={data.recovery} triggers={data.triggers} />}
 
     {draft && <section className="sa-card am-builder" aria-label="سازندهٔ قانون">
       <header className="sa-card-head"><h2>{draft.id ? `ویرایش «${draft.name}»` : 'قانون تازه'}</h2><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setDraft(null); setPreview(null) }}>بستن</button></header>

@@ -1,5 +1,20 @@
 # Connected platform journeys — 2026-11-14
 
+## Automation review list — 2026-11-27
+
+The continuation at `.mobocom/crm-workdesk` from merged PR507/main
+`de55a51c` renders the guarded recovery projection inside
+`/admin/automation`. It displays the count, recent event ID, known
+trigger, Tehran time and a Persian reason. It does not run or resolve
+events. The only source is the existing private Automation GET.
+
+The registered PostgreSQL recovery check passed. Edge on real
+PostgreSQL with scoped axe validated the populated list at 1440/390
+light/dark, the empty state on mobile, and access denial for a support-only staff member. The
+browser confirmed an uncertain event exposes neither its payload nor
+the internal error code. No migration or provider call ran for this UI
+slice. Rollback removes the presentation and keeps the recovery queue.
+
 ## General Automation event recovery — 2026-11-27
 
 The owner asked to continue the next defect after PR505. Local branch
