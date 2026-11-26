@@ -120,7 +120,7 @@ test('the root helper applies only what Xray accepts, and the installer checks t
     const status = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'status'], { encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: path.join(dir, 'missing'), XRAYCTL_DIR: dir } })
     assert.deepEqual(JSON.parse(status.stdout), { installed: 0, version: '', configured: 0, active: 0, port: 10809, builder: 1 }, 'an old or missing builder reads as version 1')
     const newer = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'status'], { encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: path.join(dir, 'missing'), XRAYCTL_DIR: dir, XRAYCTL_BUILDER: path.join(root, 'deploy/ubuntu/xray-config.cjs') } })
-    assert.equal(JSON.parse(newer.stdout).builder, 3)
+    assert.equal(JSON.parse(newer.stdout).builder, 4)
     // check: Xray tests the profiles, nothing is installed or restarted.
     const check = cp.spawnSync('bash', [path.join(root, 'deploy/ubuntu/mobocom-xrayctl'), 'check'], { input: JSON.stringify({ version: 2, profiles: [{ tag: 'p1', outbound: good }], routes: { ai: 'p1' } }), encoding: 'utf8', env: { ...process.env, XRAYCTL_DRY: '1', XRAYCTL_XRAY: fake, XRAYCTL_BUILDER: path.join(root, 'deploy/ubuntu/xray-config.cjs'), XRAYCTL_DIR: dir } })
     assert.equal(check.status, 0, check.stderr); assert.match(check.stdout, /OK configuration accepted/)
@@ -186,7 +186,7 @@ test('the root builder takes named profiles: each purpose reaches only its own h
     { type: 'field', inboundTag: ['site'], outboundTag: 'drop' },
   ])
   assert.ok(builder.PURPOSES.updates.includes('domain:github.com'))
-  assert.equal(builder.BUILDER_VERSION, 3)
+  assert.equal(builder.BUILDER_VERSION, 4)
   assert.equal(builder.BUILDER_VERSION, egressDomain.CURRENT_BUILDER, 'the site and the root builder agree on the version')
   for (const purpose of egressDomain.EGRESS_PURPOSES) {
     assert.ok(builder.PURPOSES[purpose.key], `the root builder knows ${purpose.key}`)
@@ -204,6 +204,27 @@ test('the root builder takes named profiles: each purpose reaches only its own h
     [{ version: 2, profiles: [{ tag: 'p1', outbound: a }], routes: { telegram: 'p1' }, rules: [] }, /rules/],
     [{ version: 2, profiles: Array.from({ length: 9 }, (_, i) => ({ tag: `p${i + 1}`, outbound: a })), routes: { telegram: 'p1' } }, /between 1 and 8/],
   ]) assert.throws(() => builder.build(bad), message)
+})
+
+test('callback inlet routes only public IP literals on TCP 443 and rejects unknown profiles', () => {
+  const outbound = parseProxyConfig('trojan://pw@edge.example:443').outbound
+  const input = { version: 2, profiles: [{ tag: 'p1', outbound }], routes: { telegram: 'p1', pay_callbacks: 'p1' } }
+  const config = builder.build(input)
+  assert.deepEqual(config.inbounds[1], { tag: 'pay-callback', listen: '127.0.0.1', port: 10810, protocol: 'http', settings: { allowTransparent: false } })
+  assert.deepEqual(config.routing.rules[0], { type: 'field', inboundTag: ['site'], domain: builder.PURPOSES.telegram, outboundTag: 'p1' })
+  const [blocked, allowed, fallback] = config.routing.rules.slice(2)
+  assert.equal(blocked.outboundTag, 'drop')
+  assert.deepEqual(allowed, { type: 'field', inboundTag: ['pay-callback'], ip: ['0.0.0.0/0', '2000::/3'], port: '443', network: 'tcp', outboundTag: 'p1' })
+  assert.deepEqual(fallback, { type: 'field', inboundTag: ['pay-callback'], outboundTag: 'drop' })
+  const net = require('node:net')
+  const list = new net.BlockList()
+  for (const cidr of blocked.ip) { const [address, prefix] = cidr.split('/'); list.addSubnet(address, Number(prefix), net.isIP(address) === 4 ? 'ipv4' : 'ipv6') }
+  for (const ip of ['127.0.0.1', '10.1.2.3', '100.64.0.1', '169.254.169.254', '192.168.1.1', '198.51.100.1', '224.0.0.1', '2001:db8::1', '2002::1']) assert.ok(list.check(ip, net.isIP(ip) === 4 ? 'ipv4' : 'ipv6'), ip)
+  for (const ip of ['8.8.8.8', '2606:4700:4700::1111']) assert.equal(list.check(ip, net.isIP(ip) === 4 ? 'ipv4' : 'ipv6'), false, ip)
+  assert.throws(() => builder.build({ ...input, routes: { pay_callbacks: 'p2' } }), /not given/)
+  assert.throws(() => builder.build({ ...input, routes: { 'example.com': 'p1' } }), /not known/)
+  assert.equal(builder.build({ ...input, routes: { pay_callbacks: 'p1' } }).inbounds.length, 2)
+  assert.equal(builder.build({ ...input, routes: { telegram: 'p1' } }).inbounds.length, 1)
 })
 
 test('profiles and purposes: hosts map to purposes, old settings become profile p1, and an old builder takes only one shared profile', () => {

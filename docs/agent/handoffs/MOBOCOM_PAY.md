@@ -1,3 +1,244 @@
+## Integrated payment reliability audit — 2026-11-26
+
+Delivery: [PR497](https://github.com/WebNetData/MoboComCMS/pull/497) targets main;
+integrated readiness `1e4d5854`, pending-migration alignment `a75e04b9`, final
+repair/evidence `a9a63861`. Open for owner review, not merged or deployed.
+
+Owner asks that the payment service work according to the existing external-bot,
+manual/SMS/Bale, fee/net, expiry/review and merchant-ownership requirements, and
+that existing Claude skills feed the shared engineering/architecture workflow.
+Authoritative checkout .mobocom/pay-reliability, branch
+fix/pay-reliability-2026-11-26, base main 595fa493 (merged PR496). Continue the
+existing unmerged readiness 7e6b1ae9 as 1e4d5854; do not rebuild those capabilities.
+Latest wide Pay/Cloud presentation and initial-terminal repair remain included.
+No release, production deployment or live financial/provider call is performed.
+
+Verified findings and changes:
+1. The old readiness implementation was not in 1.7.23. Its accepted SMS/Bale
+   evidence now commits the existing pay.transfer-match recovery job in the
+   same transaction, with immediate matching retained. The job invokes the same
+   exact-once settlement; it does not mint another Wallet/payment or credit fees.
+   Hosted BOT callbacks, explicit boolean ACK, dedicated Admin-owned Xray purpose
+   and fail-closed route selection are integrated from that source.
+2. Generic Admin invoice settlement could bypass an automatic collection, and
+   Admin360 could repeatedly credit an already-paid WALLET_TOPUP. Billing's
+   internal genericManualReview command takes a portable conditional no-op Invoice
+   write lock before checking collections; collection creation takes the same
+   row lock. Open automatic quotes return 409 with review guidance. Invoice Admin,
+   Orders Admin and Admin360 all use settleInvoiceManually. Generic top-ups credit
+   exact invoice principal through the canonical Wallet row/stable key inside
+   the invoice transaction; failure rolls back, paid replay returns before credit,
+   and the old nontransactional Admin360 credit is removed. Platform fee/amount
+   distinction remains untouched. Existing qualified receipt/automatic collection
+   settlement retains its own path and separate adjustment journal.
+3. Bot payment creation/delivery used cached section authority; both now demand
+   fresh fail-closed access. A stale open cache or unreadable authority cannot
+   create a payment or send an irreversible callback.
+4. Direct transport treated even proven pre-POST connection failures as UNKNOWN.
+   Both direct and selected-proxy transport now establish pinned public TLS and
+   verify the original host before constructing HTTP. The existing bounded
+   safe-retry path applies only before POST; lost replies/unknown ACK remain
+   UNKNOWN and require review, never automatic replay. Public-IP/DNS/port/redirect
+   restrictions and encrypted distinct merchant callback Token remain.
+5. Eleven relevant .agents/.claude SKILL.md pairs were byte-identical. Existing
+   ENGINEERING_SKILLS and ARCHITECTURE now explicitly route both clients through
+   the same audit/develop/conditional-contracts/release owners and evidence.
+   File parity does not claim Claude discovery/execution, a live model change or
+   a second client-specific architecture. No tool config/dependency was changed.
+
+Migration compatibility: the old, never-published ACK migration sorted before
+Cloud's already-shipped 20270409 migration. Rename only that unpublished directory
+to 20270410120000_pay_bot_boolean_ack, leaving its SQL and every released migration
+unchanged. All 25 released manifests/hashes match main; manifest validation passes
+with one unreleased migration. This is migration 223 on the current baseline.
+Run it with the matching application on the next rollout; do not edit/reseal the
+immutable 1.7.23 release. Older numbered migration 222 references below are the
+historical branch evidence, not the current install order. No Prisma column
+or financial-state migration is introduced by this audit repair.
+
+Executed local evidence:
+- Linux Node 22, UID 1000, no .env and a dedicated NOSUPERUSER role. Full canonical
+  npm run check passed in 97s: 1170 site/53 connected-source/4 backup/14 Billing
+  tests, generated knowledge/extensions, architecture/source/schema/money/money-UI/
+  security/audit/i18n and TypeScript gates. Final 39 Pay/proxy units also passed.
+- Eighteen scoped real PostgreSQL suites passed in 77s:
+  mobocom-pay, pay-shared-checkout, pay-bot, pay-routing-operations, pay-bale-server, pay-bale-collection, pay-usdt-equivalent, pay-private-merchants, pay-assets, pay-webhooks, pay-settlement-center, pay-merchant-account, pay-public-account, account-control, money-state-rules, invoice-void-settle, mellat-callback, order-closure.
+  Final pay-bot/pay-bale-collection reran after fault restoration; the collection
+  suite reran again after adding the real quote-creation lock race, passing in 9s.
+  Existing scenarios cover manual-first/auto-first/SMS+Bale competition/replays,
+  fee vs principal/merchant net, USDT evidence, expiry/receipt review and enqueue
+  crash recovery. New tests cover all three Admin surfaces, repeated/concurrent
+  Admin360 and ordinary top-ups, overpayment isolated from credited principal,
+  current section refusal/read failure, and no duplicated Wallet/journals.
+- A deliberately uncommitted quote is invisible to the helper's precheck. The
+  regression observes the generic settlement actually waiting on the Invoice
+  lock via pg_stat_activity, commits the quote, then verifies 409 with the invoice
+  still UNPAID, quote PENDING and zero credit/payment rows.
+- Fresh current schema deployed223 migrations. Separately deploy baseline 222,
+  populate an existing valid bot integration, prove the old constraint rejects
+  JSON_STATUS_TRUE, deploy 223, compare the prior row byte-equivalent through JSON,
+  then prove the new ACK is admitted. Remove the owned fixture afterward.
+- Real local TLS/CONNECT tests verify exact Host/Token/body, pinned direct and
+  proxied paths, certificate/name failure and connection refusal with zero HTTP
+  construction/POST, no fallback, no redirect follow, and lost-response uncertainty.
+  Deliberate mutations of the generic guard, fresh bot authority and pre-send
+  classification each fail the expected behavioral assertion; all restored.
+- Actual Chromium/Playwright: four merchant and four unlocked Admin 1440/390
+  light/dark captures pass scoped axe, overflow and page-error checks. Real
+  merchant integration save and a cookie-free server-to-server creation request
+  use the supplied bot body/Toman conversion, stable replay URL and JSON error
+  contract. Merchant source/proxy APIs deny 403. Dedicated callback route is
+  visible in Admin and disabled for an absent/old helper, without installing or
+  applying any root configuration. Screenshots were inspected.
+- React Doctor on affected bot form/proxy page: 0 errors, 5 reviewed existing
+  state/form/complexity warnings, no suppressions. Scoped Semgrep 0 findings/errors
+  and redacted Gitleaks 0 findings. Actual validated runtime matched 34 changed
+  source/script/deploy/schema inputs after temporary routing was restored.
+
+Test limitations and corrected setup failures: Docker-copied generated JSON needed
+UID 1000 ownership; a preview-only native-control-plane rewrite exception initially
+leaked into a concurrent full check (that check correctly failed), then source was
+restored and the full canonical check passed. Only after that check, owned browser
+Admin calls were routed to this preview's own unchanged guarded API; routing was
+restored before final source comparison. The real machine request must omit the
+browser session cookie; its first cookie-bound no-Origin probe correctly received
+403. The manual browser fixture initially used a dedicated bank purpose; the DB
+correctly refused mutating that immutable purpose, so a distinct owned GENERAL
+account was added. No financial/source guard was weakened. Installed Node typings
+do not admit signal in TLS ConnectionOptions; explicit abort handling is used
+and final typecheck passes. A first inner-error mutation was neutralized by the
+outer pre-send classifier; mutating the actual classifier then failed as intended.
+The inventory reservation preceding manual settlement can still reserve stock
+before a concurrent quote causes 409; this is an existing reversible reservation
+side effect, not a financial claim or credit. SQLite execution was not rerun;
+the new generic lock uses the established portable Wallet no-op-write pattern.
+Historical notice backfill and real bank/chain/provider fulfillment are not claimed.
+
+Operational acceptance still required on the owner's server:
+- Configure Admin-owned receiving card, per-terminal grant and CARD_TRANSFER
+  automatic policy; the merchant never receives SMS/Bale secrets or controls.
+- Bind a verified SMS source/phone sender filter and the server's personal Bale
+  connector to the immutable owner/account and original bank sender. The guide
+  does not install/log in a live collector. Simple sms/bank/token messages lack
+  independent payment-time evidence and cannot alone auto-settle locked-rate
+  USDT acquisition; use trusted extended/Bale time or canonical receipt review.
+- Confirm the actual merchant panel's successful/repeated JSON ACK, configure its
+  separate payment Token privately, run the real queue and perform one controlled
+  end-to-end canary. If proxy egress is selected, upgrade/configure the installed
+  root helper first; direct and selected-proxy transport never silently substitute.
+
+Cleanup verified: owned preview/tunnel stopped, both owned databases/role/private
+runtime and synthetic session/TLS/source archives removed, shared app3000 HTTP 200.
+Other worktrees, existing schemas/data/keys and released assets are preserved.
+Raw safe receipts/screenshots stay ignored under var/pay-reliability.
+Rollback as one application slice, deselect pay_callbacks before reverting helper,
+retain widened constraints and all payment/UNKNOWN history; never reset balances
+or replay an uncertain external financial action.
+
+## External merchant bot and durable bank matching — 2026-11-26
+
+Owner clarifies this is another merchant's Telegram bot; supplied panel is
+`bot.webnetdata.ir`. Continue merged PR492/main`c9355792` in
+`.mobocom/pay-bot-readiness`, branch`feat/pay-bot-readiness-2026-11-26`.
+Local implementation; no new release/PR/deploy or hosted workflow requested.
+[Scenario](../../specs/pay-bot-readiness/SPEC.md) and
+[Persian operator guide](../../MOBOCOM_PAY_EXTERNAL_BOT.md).
+
+Billing retains terminal-scoped creation keys, Toman conversion, stable order IDs,
+canonical settlement and distinct encrypted panel payment Token. BOT destinations
+may use a hosted panel on another public origin without requiring a merchant
+website; WEBSITE destinations retain their registered-origin restriction.
+The integration form distinguishes the two APIs/keys and BotFather. Explicit
+JSON_STATUS_TRUE accepts literal boolean status only; explicit negative status
+overrides positive fields. Additive migration222 widens the existing integration/
+delivery checks, listed unreleased; no existing financial rows or Prisma columns
+change. Run it before deploying the corresponding application.
+
+Existing Social egress/Server Panel owns pay_callbacks. Root builder4 adds a
+separate loopback10810 inlet in the same Xray service: IP-only public443, private/
+reserved denial and catchall drop. Existing10809 domain-scoped rules stay intact.
+Billing validates all DNS answers, pins the selected IP, then CONNECT/TLS verifies
+the original panel hostname before constructing POST. Redirects are not followed;
+Token remains inside TLS. Selected proxy/config failure cannot fall back to direct.
+Settings are fresh and fail closed. Old helpers refuse the new purpose until the
+owner upgrades through the existing installer. The Admin TLS probe sends no order.
+Only guaranteed pre-POST failures use capped five-attempt backoff in existing
+delivery/Operations; any possible POST/unknown acknowledgement stays UNKNOWN
+without automatic replay. Current identity/merchant/module/permission checks stay.
+
+SMS and Bale intake now enqueue pay.transfer-match in the same transaction as
+accepted ORIGINAL_TRANSFER/CREDIT evidence, including valid duplicate intake.
+Inline matching remains the immediate path. A worker recovering an interruption
+calls the same Billing matcher/claims; it cannot credit fees, add a second Wallet
+entry or bypass module-off/time evidence guards. Locked-rate USDT lacking trusted
+payment time remains review-required. No new queue, matcher, identity or Wallet.
+This closes future intake's commit-to-match gap; historical notice backfill is
+not implemented. Existing manual/SMS/Bale once-only settlement remains authoritative.
+
+Executed evidence so far: fresh222 migrations under an owned NOSUPERUSER role and
+UID1000, private generated Prisma client; full npm run check passes before the
+final durable-match addition (1148 site/53 connected/4 backup/14 Billing tests).
+Final source TypeScript and eight scoped architecture/source/schema/money/money-UI/
+security/audit/i18n gates pass. Final39 Pay/proxy units pass, including actual
+trusted TLS-through-CONNECT, exact Host/Token/body, rejected certificates, redirect,
+lost-response uncertainty, CONNECT/config failure before POST and no direct leak.
+Final six native suites pass: pay-bot, pay-routing-operations, pay-bale-server,
+pay-bale-collection, pay-private-merchants and pay-shared-checkout. They include
+both source crash/replay recovery, module-off denial, manual/automatic competition,
+principal/fee isolation, explicit boolean ACK, hosted BOT vs WEBSITE origins and
+safe callback backoff/exhaustion/recovery. Final types and39 units reran after
+aligning application reserved-IP denial with the root callback rules.
+
+Actual Edge/Playwright verifies real merchant save and exact external creation
+POST body, replay URL and JSON errors. Merchant bank-source/proxy APIs deny403.
+Four merchant and four Admin1440/390 light/dark captures have no overflow, page
+error or scoped axe violations; mobile-dark and desktop-light screenshots inspected.
+The guarded Admin API exposes the dedicated purpose but rejects old-helper selection.
+Owned preview keeps engineering background scheduling suppressed; for the browser
+only, its native-control-plane rewrite is disabled in disposable runtime source
+so Admin requests reach this preview's own guarded API, never the shared app3000.
+No guard was bypassed. A safe temporary runtime-only guard trace was restored.
+Initial failures were fixture/setup issues: manual fixture used dedicated instead
+of GENERAL account purpose; old native-control-plane routing hit the shared app;
+an unselected profile was needed to display the existing route editor; dev memory
+restart interrupted a reload. Final Admin capture ran separately after restart.
+A browser/native synthetic card collision was isolated without weakening the DB
+identity constraint; all six native suites then passed together. Earlier actual
+TLS test caught custom socket's wrong default Host/port; explicit443/Host fixed it.
+
+Pinned real Xray26.10.31 archive hash verified; run-test accepts builder4 output.
+Running actual Xray with a recording local upstream routes publicIP443 only,
+rejects private/metadata/IPv6-reserved/port80/arbitrary-host CONNECT, and keeps the
+old inlet from inheriting this capability. No external provider traffic.
+Deliberate removal of the recovery enqueue fails the new native crash assertion;
+removal of negative-status rejection fails units. Both restored; focused units pass.
+Scoped Semgrep (one repo rule) and redacted Gitleaks report0 findings; this is not
+a claim of a comprehensive security audit. Doctor two components0 errors and four
+reviewed existing form/state/complexity warnings; no rule suppression.
+
+Operational boundary: public GET to the supplied panel returns403 JSON
+`status:false,msg:token invalid`; proves reachability only, not successful ACK.
+No financial POST, real token, real bank/SMS/Bale account or external fulfillment
+was exercised. Actual callback success profile, root helper upgrade, live queue,
+phone filter/forwarder, private GoOmni2.4.2 account login and verified original
+numeric @bam_bmi identity still require secure server commissioning and a small
+real canary. A link to GoOmni is not a bundled live collector/login. Three-field
+SMS cannot independently attest sender/time and cannot alone settle locked-USDT
+purchase without valid time evidence. First successful shared financial claim
+wins; strict upstream chronological arrival ordering is not promised.
+
+Rollback: deselect pay_callbacks before reverting helper; roll back application
+as one slice, retain widened222 checks and all payment/unknown-delivery history.
+Never re-send UNKNOWN simply because the worker restarted. Safe ignored evidence
+and helpers are in var/pay-bot-readiness; no credentials belong in Git.
+
+Cleanup verified: stopped the preview as its own UID after root could not inspect
+its /proc/cwd, then removed only the resolved owned runtime, NOSUPERUSER database/
+role and named setup/archive helpers. Verified their absence. Verified Windows
+tunnel command line before stopping it and deleting private fixture/TLS/archive
+files. Safe reports/screenshots remain ignored. Shared app3000 HTTP200; no shared
+data, other checkout, production setting or installed root helper was changed.
+
 ## Admin-owned bank sources and setup guides — 2026-11-26
 
 Owner asks for an actionable SMS Forwarder POST/URL/body guide, exclusive Admin

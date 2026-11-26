@@ -9,6 +9,8 @@ import {
   type EgressProfile, type EgressPurpose, type EgressSettings,
 } from '@/modules/social/domain/egress'
 import { EGRESS_PROXY_KEY, forgetSocialProxySetting, readEgressSettings, viaProxy } from '@/modules/social/server/egress'
+import { lookup } from 'node:dns/promises'
+import { payCallbackTunnel } from './pay-tunnel'
 
 // The outbound proxy as the Server Panel manages it: named profiles (each a pasted outbound, kept encrypted), the
 // profile each purpose uses, and the root helper that turns them into the running Xray-core configuration.
@@ -191,6 +193,15 @@ export async function testProxy(purposes?: unknown) {
     results: await Promise.all(targets.map(async (target) => {
       const started = Date.now()
       try {
+        if(target.key==='pay_callbacks'){
+          // A TLS-only probe sends no merchant token or payment command.
+          const answers=await lookup('api.telegram.org',{all:true})
+          const address=answers.find(item=>item.family===4)?.address
+          if(!address)throw new Error('نشانی آزمایش در دسترس نیست')
+          const socket=await payCallbackTunnel('api.telegram.org',address,AbortSignal.timeout(15_000))
+          socket.destroy()
+          return {name:target.key,ok:true,status:0,ms:Date.now()-started}
+        }
         const response = await viaProxy(new URL(target.test), { signal: AbortSignal.timeout(15_000) })
         await response.body?.cancel().catch(() => undefined)
         return { name: target.key, ok: true, status: response.status, ms: Date.now() - started }

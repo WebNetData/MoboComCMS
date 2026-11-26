@@ -22,6 +22,7 @@ const HANDLERS: Record<string, { run: Handler }> = {
   'identity.erase-files': { run: async payload => (await import('@/modules/identity/server/account-erasure')).runAccountErasureFiles(payload) },
   'pay.webhook-delivery': { run: async payload => (await import('@/modules/billing/server/pay')).deliverPayWebhook(payload) },
   'pay.bot-delivery': { run: async payload => (await import('@/modules/billing/server/pay')).deliverBotPayment(payload) },
+  'pay.transfer-match': { run: async payload => (await import('@/modules/billing/server/pay')).recoverTransferMatch(payload) },
   'sms.broadcast': { run: async (payload, job) => (await import('@/modules/sms/server/broadcast')).deliverBroadcast(payload, job.attempts) },
   'forms.stage-sms': { run: async (payload, job) => (await import('@/modules/forms/server/stage-sms')).deliverFormStageSms(payload, job) },
   'support.demand-fulfilled': { run: async (payload, job) => {

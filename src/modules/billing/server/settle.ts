@@ -21,6 +21,11 @@ export interface ManualSettlement {
 export async function settleInvoiceManually(input: ManualSettlement): Promise<{ ok: true; warning?: string; alreadyPaid: boolean } | { ok: false; status: number; message: string }> {
   const invoice = await db.invoice.findUnique({ where: { id: input.invoiceId }, include: { gateway: true } })
   if (!invoice) return { ok: false, status: 404, message: 'invoice not found' }
+  // Avoid reserving stock for an existing collection; the locked check in
+  // markInvoicePaid remains authoritative against concurrent quote creation.
+  if (['UNPAID', 'DRAFT'].includes(invoice.status) && await db.payBaleCollection.findFirst({ where: { invoiceId: invoice.id }, select: { id: true } })) {
+    return { ok: false, status: 409, message: 'این فاکتور درخواست کارت‌به‌کارت دارد؛ از بخش بررسی رسید یا تطبیق واریز تأیید کنید.' }
+  }
   // Reserve stock before financial settlement. If it cannot be reserved, do not mark the invoice paid.
   if (invoice.productId && invoice.orderId) {
     const held = await ensureInventoryReservation({ orderId: invoice.orderId, holdMinutes: 60 })
@@ -31,15 +36,15 @@ export async function settleInvoiceManually(input: ManualSettlement): Promise<{ 
     cryptoCurrency: input.cryptoCurrency || '', cryptoAmount: input.cryptoAmount || '',
     amount: input.amount,
     feeBps: invoice.gateway?.feeBps ?? Math.round((invoice.gateway?.feePercent || 0) * 100), provider: invoice.gateway?.provider || 'MANUAL',
-    raw: input.raw,
+    raw: input.raw, genericManualReview: true,
   }).catch(error => {
     // A Pay policy refusal happened inside the atomic transaction; the verified
     // provider callback can use its existing reversal path. Unknown commit errors
     // are not called a refusal and must never trigger an assumed refund.
-    if (error instanceof PayError) return { ok: false as const, message: error.message }
+    if (error instanceof PayError) return { ok: false as const, status: error.status, message: error.message }
     throw error
   })
-  if (!res.ok) return { ok: false, status: 400, message: res.message || 'failed' }
+  if (!res.ok) return { ok: false, status: 'status' in res ? res.status : 400, message: res.message || 'failed' }
   const job = invoice.orderId ? await enqueueOrderFulfillment({ orderId: invoice.orderId, invoiceId: invoice.id, planId: invoice.planId, productId: invoice.productId }) : null
   let warning: string | undefined
   if (job) {

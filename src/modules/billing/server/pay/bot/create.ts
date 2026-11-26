@@ -17,7 +17,7 @@ export async function createBotPayment(req: NextRequest, id: string, input: Reco
   if (origin.username || origin.password || (origin.protocol !== 'https:' && !localHttp)) throw new PayError('نشانی عمومی امن درگاه آماده نیست', 503)
   const parsed = parseBotPayment(input), integration = await resolveBotIntegration(id, input.api_key)
   const merchant = integration.terminal.merchant
-  if (!await userOpensSection('mobocom-pay', merchant.userId)) throw new PayError('دسترسی درگاه محدود است', 403)
+  if (!await userOpensSection('mobocom-pay', merchant.userId, true)) throw new PayError('دسترسی درگاه محدود است', 403)
   const actor = { id: merchant.userId, email: merchant.user.email, req, machine: true, botIntegrationId: integration.id, botKeyHash: integration.keyHash }
   // Stable across key rotation; changed customer/type is rejected below as well.
   const key = botKeyHash(integration.id + ':' + parsed.orderId)

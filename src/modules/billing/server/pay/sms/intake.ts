@@ -9,6 +9,7 @@ import { auditSystemStrict } from '@/platform/audit/server'
 import { sourceOwner } from '../bale/access'
 import { matchBaleNotice } from '../bale/collection-match'
 import { payTransaction } from '../context'
+import { queueTransferMatch } from '../bale/match-job'
 
 const hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex')
 export async function receiveSmsNotice(id: string, bearer: string, raw: Buffer) {
@@ -43,6 +44,7 @@ export async function receiveAuthenticatedSms(input: SmsInput) {
     const previous = await tx.payBaleNotice.findFirst({ where: { smsSourceId: source.id, sourceEventId } })
     if (previous) {
       if (previous.payloadHash !== payloadHash) throw new PayError('شناسهٔ پیام تکراری با محتوای متفاوت است', 409)
+      await queueTransferMatch(tx,previous)
       return { received: true as const, id: previous.id, status: previous.status, duplicate: true }
     }
     const now = new Date(), sentAt = input.sentAt || now
@@ -54,6 +56,7 @@ export async function receiveAuthenticatedSms(input: SmsInput) {
     // These IDs are internal deduplication identifiers, not bank-provided evidence.
     const row = await tx.payBaleNotice.create({ data: { id: randomUUID(), instanceId, sourceAccountId: String(source.bankAccountId), sourceEventId, messageId: (BigInt('0x' + hash(messageId).slice(0, 15)) + 1n).toString(), bankPeerId: '1', bankAccountId: source.bankAccountId, payloadHash, status: credit ? 'ORIGINAL_TRANSFER' : parsed.ok ? 'IGNORED' : 'REJECTED', code, kind: credit ? 'CARD_TRANSFER' : 'UNKNOWN', direction: parsed.ok ? parsed.direction : '', amountMinor: parsed.ok ? BigInt(parsed.amountRial) : null, occurredFrom: null, occurredBefore: null, transferReference: '', sourceSentAt: sentAt, receivedAt: now, sourceType: 'SMS', bankCode: source.bankCode, smsSourceId: source.id } })
     await auditSystemStrict({ actor: owner, action: 'mobocom-pay.sms.received', targetType: 'mobocom-pay', targetId: row.id, metadata: { sourceId: id, status: row.status, code: row.code, format: mode, timeBasis: mode === 'FORWARDER_V1' ? 'SERVER_RECEIPT' : 'PHONE_RECEIPT' } }, tx)
+    await queueTransferMatch(tx,row)
     return { received: true as const, id: row.id, status: row.status, duplicate: false }
   })
   try { return { ...received, ...await matchBaleNotice(received.id) } }

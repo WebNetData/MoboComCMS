@@ -1,3 +1,11 @@
+Pay reliability 2026-11-26: VERIFIED_LOCAL; LIVE_COMMISSIONING_PENDING. Existing
+readiness slice integrated with main/PR496, atomic/manual top-up+collection guards,
+fresh bot authority and safe direct/proxy retries. Canonical 1170/53/4/14, 18 PG
+suites, real lock race, populated 222→223 migration, 3 fault controls, 39 units and
+8 themed browser views pass. Claude/Codex 11-entrypoint parity/shared routing verified.
+No live bank/bot/root-helper/queue commissioning or deployment claim.
+[Evidence and rollout](handoffs/MOBOCOM_PAY.md#integrated-payment-reliability-audit--2026-11-26).
+
 Pay/Cloud repair 2026-11-26: VERIFIED_LOCAL. Fluid 1920px specialist frames, compact
 default menus, native mobile/tablet drawers and themed Pay public/application/
 restricted states pass 29 browser views/axe. Initial WEBSITE/BOT terminal can
@@ -118,6 +126,12 @@ Pay shared gateway checkout2026-11-23: FUNCTIONAL within local evidence; LIVE_PR
 Payment gateway navigation2026-11-23: FUNCTIONAL within local evidence. Dedicated account/Admin groups, per-view reload/history, real CSV, mobile all-visible submenus and scoped roles verified against private PG208; full types/45 units/Doctor0 errors and26 accepted browser scopes. No new live-provider/deployment claim; [handoff](handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23).
 
 MoboComPay merchant UX2026-11-25: FUNCTIONAL within scoped local evidence. Seven private merchant views, explicit IRR/USDT/gross/net/platform fee, chart day selection, recent payments and mobile controls refined with MoboCom/SDS identity. Existing PG2/types/gates and38 actual themed/mobile/state/axe captures pass; Doctor0errors, reviewed baseline warnings. No financial/API/migration or live-provider claim. [Evidence and rollback](handoffs/MOBOCOM_PAY.md#merchant-panel-visual-upgrade--2026-11-25).
+
+MoboComPay external bot readiness2026-11-26: IMPLEMENTED with scoped local evidence;
+LIVE_PROVIDER_UNVERIFIED. Hosted BOT panel, explicit boolean ACK migration222,
+Admin-only Xray purpose and guaranteed pre-POST retries, durable SMS/Bale recovery
+reuse current owners. Real TLS/CONNECT and Xray behavior, native crash/fault checks,
+types/gates and responsive browser evidence are recorded in the [handoff](handoffs/MOBOCOM_PAY.md#external-merchant-bot-and-durable-bank-matching--2026-11-26).
 
 MoboComPay SMS Forwarder2026-11-25: FUNCTIONAL within local evidence; LIVE_PROVIDER_UNVERIFIED. Generated per-source three-field setup, simultaneous SMS/Bale/manual once-only principal and fee, legacy mode and time provenance retained. Fresh216/populated function upgrade, native3, units13, types/gates, Hurl6, compatible contracts and6 browser/axe captures pass. Real Android/Bale commissioning pending. [Evidence/limits/rollback](handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
 

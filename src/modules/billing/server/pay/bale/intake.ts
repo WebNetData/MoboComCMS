@@ -10,6 +10,7 @@ import { latinDigits } from '@/shared/text/digits'
 import { auditSystemStrict } from '@/platform/audit/server'
 import { baleSourceOwner } from './access'
 import { payTransaction } from '../context'
+import { queueTransferMatch } from './match-job'
 
 const hash = (raw: string | Buffer) => createHash('sha256').update(raw).digest('hex')
 /** Authenticates a dedicated server connector, NOT an arbitrary bot/customer/phone. */
@@ -33,6 +34,7 @@ export async function receiveBaleBankMessage(signature: string, eventHeader: str
     const previous = await tx.payBaleNotice.findUnique({ where: { instanceId_sourceEventId: { instanceId: binding.instanceId, sourceEventId: message.eventId } } })
     if (previous) {
       if (previous.payloadHash !== payloadHash || previous.sourceAccountId !== binding.accountId || previous.bankAccountId !== binding.bankAccountId || previous.bankPeerId !== binding.bankPeerId) throw new PayError('شناسهٔ پیام بله با دادهٔ دیگری تکرار شده است', 409)
+      await queueTransferMatch(tx,previous)
       return { received: true as const, id: previous.id, duplicate: true, status: previous.status, financialApproval: false as const }
     }
     if (message.sentAt.getTime() > Date.now() + 60000 || message.sentAt.getTime() < Date.now() - 300000) throw new PayError('زمان اصلی پیام بله معتبر نیست', 422)
@@ -63,6 +65,7 @@ export async function receiveBaleBankMessage(signature: string, eventHeader: str
       occurredBefore: null, sourceSentAt: message.sentAt, receivedAt: new Date(),
     } })
     await auditSystemStrict({ actor: { id: owner.id, email: owner.email }, action: 'mobocom-pay.bale.received', targetType: 'mobocom-pay', targetId: row.id, metadata: { status, code, source: 'SERVER_ACCOUNT', financialApproval: false } }, tx)
+    await queueTransferMatch(tx,row)
     // Receipt and strict audit commit BEFORE any matching attempt or provider ACK.
     return { received: true as const, id: row.id, duplicate: duplicateOfId !== null, status, financialApproval: false as const }
   })

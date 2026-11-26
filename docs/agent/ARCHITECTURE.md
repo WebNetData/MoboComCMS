@@ -1,3 +1,19 @@
+Shared engineering skills2026-11-26: project Claude/Codex skill entrypoints route
+to the same bootstrap, architecture, owners, workstate and scoped evidence gates.
+Payment audits compose existing Billing/Wallet/Operations/Identity boundaries;
+supporting client skills add methods, never an alternate financial/auth system.
+[Verified file parity and routing](ENGINEERING_SKILLS.md).
+
+Pay reliability2026-11-26: Billing's generic manual settlement owner serializes
+against transfer-quote creation on the canonical Invoice row. All three Admin
+entrypoints compose it; ordinary top-up credit and the invoice claim share one
+transaction and the canonical Wallet row/key. Qualified transfer review retains
+its exact-once principal/adjustment path. Bot creation and outbound claims use
+fresh section access; verified direct/proxy TLS precedes HTTP construction, while
+uncertain replies remain review-only. Operations owns the existing durable
+SMS/Bale recovery job, not a second matcher or balance system.
+[Current migration order, evidence and live limits](handoffs/MOBOCOM_PAY.md#integrated-payment-reliability-audit--2026-11-26).
+
 Bank source setup2026-11-26: existing Billing Pay Admin owns automatic terminal
 policy, SMS source secrets and safe connector status. Merchant commands cannot
 write the automatic flag. Scoped Admin guides compose those owners; an optional
@@ -83,6 +99,15 @@ Pay collection integration2026-11-23: `Invoice.kind=PAY_COLLECTION` is the canon
 Payment gateway presentation2026-11-23: account navigation remains AccountShell/ShellNav-owned; Admin navigation is declared by the existing Pay manifest in Finance. Whitelisted path views compose the same Pay components and module guards. Reports reuse Billing read models/CSV and canonical Wallet provenance; no second wallet, navigation framework or authorization resolver. [Evidence](handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23).
 
 ## MoboComPay ownership — 2026-11-23
+
+2026-11-26: Billing intake commits accepted SMS/Bale credit evidence and existing
+Operations pay.transfer-match intent atomically; immediate/recovery paths call
+the same matcher/financial claims. Social egress/Server Panel owns pay_callbacks
+and builder4's separate loopback10810 public-IP443 tunnel. Billing retains DNS
+pinning/TLS destination checks, fresh fail-closed route choice, and UNKNOWN on any
+possibly dispatched callback; only proven pre-POST failure may retry. Hosted BOT
+panel origins are independent; WEBSITE origin binding remains. Migration222 only
+widens explicit boolean ACK policy. [Evidence/limits](handoffs/MOBOCOM_PAY.md#external-merchant-bot-and-durable-bank-matching--2026-11-26).
 
 SMS Forwarder2026-11-25: Billing adds an exact3-field source adapter to existing authenticated SMS notice/matcher, not a second financial pipeline. Explicit per-source versioned templateJson format preserves old rich sources. Stable source/bank/text identity retains first server receipt independently of credentials/config versions. Provenance is explicit in review/Audit; unknown delivery time is omitted. Locked-USDT timing proof excludes simple receipt-only notices in command, credit and deferred DB links (migration216). [Evidence](handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
 

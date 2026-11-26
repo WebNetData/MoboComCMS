@@ -1,3 +1,9 @@
+Pay reliability 2026-11-26: Billing generic manual settlement fences automatic
+collections under Invoice lock; ordinary top-up credit shares its transaction.
+All three Admin entrypoints compose it. Bot authority uses fresh section access;
+direct/proxy preflight classifies proven pre-send failure. Operations owns
+durable SMS/Bale match recovery. [Current evidence/install order](handoffs/MOBOCOM_PAY.md#integrated-payment-reliability-audit--2026-11-26).
+
 Pay/Cloud repair 2026-11-26: existing MerchantShell/CloudShell own fluid frames and
 active-group menus; Pay landing stays under existing Site chrome. Billing Pay
 merchants owns explicit first-website registration atomically with terminal
@@ -77,6 +83,11 @@ canonical Billing/Pay owners; `/pay/bank/[id]`, collections/receipt/SMS HTTP ada
 Gateway display config and existing Pay Admin/Finance/merchant/terminal surfaces.
 Migration213 owns immutable collection/source proof and receipt hold. No parallel
 Wallet/identity/financial owner. [Current evidence/limits](handoffs/MOBOCOM_PAY.md#automatic-card-transfer-receipt-hold-and-destination-controls--2026-11-24).
+
+Pay bot readiness2026-11-26: Billing bot/outbound + SMS/Bale match-job, canonical
+Operations handler, Social pay-egress/pay-tunnel and Server Panel builder4 purpose.
+Hosted BOT panel + boolean ACK migration222; future intake crash recovery retains
+same financial matcher. [Evidence, guide and commissioning gaps](handoffs/MOBOCOM_PAY.md#external-merchant-bot-and-durable-bank-matching--2026-11-26).
 
 Bale continuation2026-11-24: `billing/domain/pay-bale.ts`, Billing
 `server/pay/bale/*` behind `server/pay`, signed `/api/payment/mobocom-pay/bale-events`,

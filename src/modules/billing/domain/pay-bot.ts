@@ -1,7 +1,7 @@
 import { PayError, type PayPaymentStatus } from './pay'
 import type { PayRoutingRule } from './pay-routing'
 
-export const BOT_ACK_POLICIES = ['JSON_OK', 'JSON_SUCCESS', 'HTTP_2XX'] as const
+export const BOT_ACK_POLICIES = ['JSON_OK', 'JSON_SUCCESS', 'JSON_STATUS_TRUE', 'HTTP_2XX'] as const
 export type BotAckPolicy = typeof BOT_ACK_POLICIES[number]
 export type BotDeliveryStatus = 'WAITING' | 'QUEUED' | 'SENDING' | 'SENT' | 'UNKNOWN' | 'BLOCKED'
 export interface PayBotIntegrationView {
@@ -50,7 +50,7 @@ export function botAcknowledged(policy: string, status: number, body: string): b
   try { value = JSON.parse(body) } catch { return policy === 'HTTP_2XX' }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return policy === 'HTTP_2XX'
   const data = value as Record<string, unknown>
-  if (data.ok === false || data.success === false) return false
+  if (data.ok === false || data.success === false || data.status === false || data.status === 'error' || data.status === 'failed') return false
   if (policy === 'HTTP_2XX') return true
-  return policy === 'JSON_OK' ? data.ok === true : policy === 'JSON_SUCCESS' ? data.status === 'success' : false
+  return policy === 'JSON_OK' ? data.ok === true : policy === 'JSON_SUCCESS' ? data.status === 'success' : policy === 'JSON_STATUS_TRUE' ? data.status === true : false
 }

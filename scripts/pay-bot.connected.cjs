@@ -6,16 +6,17 @@ process.env.NEXTAUTH_URL='https://mobocom.invalid'
 process.env.MOBOCOM_PAY_BANK_PROVIDER='fixture'
 process.env.MOBOCOM_PAY_BANK_SECRET='synthetic-fixture-secret-only-0123456789abcdef'
 const prisma=new PrismaClient(),stamp='bot-'+randomUUID(),users=[],keys=['billing.mobocom-pay.v1','publicApiEnabled'],snapshots=new Map()
-const state={enabled:true,globalDenied:false,maintenance:false,auditFault:false,mode:'ok',sends:0}
+const state={enabled:true,globalDenied:false,maintenance:false,auditFault:false,mode:'ok',sends:0,section:'open'}
 function wrap(client){return new Proxy(client,{get(target,name){if(name==='$transaction')return(work,options)=>target.$transaction(tx=>work(wrap(tx)),options);if(name==='auditLog')return new Proxy(target.auditLog,{get(model,method){if(method==='create')return args=>{if(state.auditFault&&args.data.action==='mobocom-pay.payment.verified')throw Error('late audit fault');return model.create(args)};return typeof model[method]==='function'?model[method].bind(model):model[method]}});return typeof target[name]==='function'?target[name].bind(target):target[name]}})}
 const db=wrap(prisma),mocks={
  '@/platform/database/prisma':{db},react:{...require('react'),cache:fn=>fn},
  '@/extensions/server/modules':{isModuleEnabled:async()=>state.enabled},
  '@/modules/identity/server/access':{resolveCurrentUser: async (id, _at, tx = db) => { const u = await tx.user.findUnique({where:{id}}); return u?.status === 'ACTIVE' ? u : null },requireUser:async(req,tx=db)=>tx.user.findUnique({where:{id:Number(req.headers.get('x-fixture-user'))}}),requirePerm:async(req,_p,tx=db)=>tx.user.findUnique({where:{id:Number(req.headers.get('x-fixture-user'))}})},
  '@/modules/identity/server/authentication-restrictions':{globalAuthenticationDenied:async()=>state.globalDenied},
- '@/modules/account/server/section-access':{userOpensSection:async()=>true},
+ // A non-fresh lookup represents a stale open cache; fresh reads see current authority.
+ '@/modules/account/server/section-access':{userOpensSection:async(_section,_userId,fresh)=>{if(!fresh)return true;if(state.section==='unavailable')throw Error('section access unavailable');return state.section==='open'}},
  '@/modules/site/server/maintenance':{loadMaintenance:async()=>state.maintenance?{'mobocom-pay':{enabled:true}}:{}},
- '@/modules/billing/server/pay/bot/transport':{sendBotVerification:async(url,token,id)=>{state.sends++;assert.equal(url,'https://merchant.invalid/api/payment');assert.equal(token,'independent-bot-payment-secret');assert.ok(id.startsWith('order-'));if(state.mode==='timeout')throw Error('transport interrupted');return {status:200,body:state.mode==='unknown'?'{"unknown":true}':'{"ok":true}'}}},
+ '@/modules/billing/server/pay/bot/transport':{sendBotVerification:async(url,token,id)=>{state.sends++;assert.equal(url,'https://merchant.invalid/api/payment');assert.equal(token,'independent-bot-payment-secret');assert.ok(id.startsWith('order-'));if(state.mode==='not-sent')throw new (load('src/modules/billing/domain/pay-outbound.ts').PayCallbackNotSentError)();if(state.mode==='timeout')throw Error('transport interrupted');return {status:200,body:state.mode==='unknown'?'{"unknown":true}':state.mode==='boolean'?'{"status":true}':'{"ok":true}'}}},
 }
 const load=require('./connected-source-loader.cjs')(mocks),pay=load('src/modules/billing/server/pay.ts'),policy=load('src/modules/billing/domain/pay-policy.ts')
 let merchant,otherMerchant,terminal,bank,gateway,connection
@@ -37,12 +38,21 @@ async function main(){
  assert.deepEqual(await pay.botIntegrations(b),[])
  await assert.rejects(pay.saveBotIntegration(a,{...config,ackPolicy:'UNCONFIGURED'}))
  await assert.rejects(pay.saveBotIntegration(a,{...config,callbackUrl:'https://foreign.invalid/api/payment'}))
+ const hostedTerminal=await pay.createTerminal(a,{name:stamp+' hosted bot',channelType:'BOT',returnUrl:'https://merchant.invalid/return'});const hosted=await pay.saveBotIntegration(a,{...config,terminalId:hostedTerminal.id,callbackUrl:'https://external-bot-panel.invalid/api/payment',active:false});assert.equal(hosted.integration.callbackUrl,'https://external-bot-panel.invalid/api/payment','external bot panels are independent from the merchant website');
  const created=await pay.saveBotIntegration(a,config);connection=created.integration
  const token=created.token;assert.match(token,/^mcpbot_/)
  const stored=await db.payBotIntegration.findUniqueOrThrow({where:{id:connection.id}});assert.notEqual(stored.keyHash,token);assert.match(stored.callbackTokenCiphertext,/^encv1:/)
  assert.equal(JSON.stringify(await pay.botIntegrations(a)).includes('independent-bot-payment-secret'),false)
  const input={api_key:token,amount:10000,order_id:'order-one',user_id:123456789,type:'purchase',payment_count:3,membership_days:45,register:1735689600,balance:25000,username:'example',first_name:'علی'}
  const create=data=>pay.createBotPayment(new NextRequest('https://mobocom.invalid/api/v1/pay/bot/'+connection.id),connection.id,data)
+ for(const section of ['restricted','unavailable']){
+  state.section=section
+  const order_id='order-denied-'+section
+  await assert.rejects(create({...input,order_id}),section==='restricted'?e=>e.status===403:/section access unavailable/)
+  assert.equal(await db.payPayment.count({where:{merchantId:merchant.id,externalId:order_id}}),0,'denied authority creates no payment')
+  assert.equal(state.sends,0)
+ }
+ state.section='open'
  const results=await Promise.all([create(input),create(input)]);assert.equal(results[0].url,results[1].url)
  const paymentId=new URL(results[0].url).pathname.split('/').pop()
  let payment=await db.payPayment.findUniqueOrThrow({where:{id:paymentId}}),delivery=await db.payBotDelivery.findUniqueOrThrow({where:{paymentId}})
@@ -67,6 +77,11 @@ async function main(){
  await settle(paymentId,'BOTREF001');delivery=await db.payBotDelivery.findUniqueOrThrow({where:{paymentId}})
  assert.equal(delivery.status,'QUEUED');assert.equal(await db.walletTx.count({where:{userId:a.id,type:'PAY_CREDIT'}}),1)
  assert.equal(await db.backgroundJob.count({where:{kind:'pay.bot-delivery',payload:{contains:delivery.id}}}),1)
+ state.section='unavailable';await assert.rejects(pay.deliverBotPayment({deliveryId:delivery.id}),/section access unavailable/);assert.equal(state.sends,0)
+ assert.equal((await db.payBotDelivery.findUniqueOrThrow({where:{id:delivery.id}})).status,'QUEUED')
+ state.section='restricted';await pay.deliverBotPayment({deliveryId:delivery.id});assert.equal(state.sends,0)
+ delivery=await db.payBotDelivery.findUniqueOrThrow({where:{id:delivery.id}});assert.equal(delivery.status,'BLOCKED')
+ state.section='open';await pay.recoverBotDelivery(a,{id:delivery.id,version:delivery.version,action:'retry',confirmed:true})
  for(const flag of ['enabled','maintenance']){
   state[flag]=flag==='maintenance';await pay.deliverBotPayment({deliveryId:delivery.id});assert.equal(state.sends,0)
   delivery=await db.payBotDelivery.findUniqueOrThrow({where:{id:delivery.id}});assert.equal(delivery.status,'BLOCKED')
@@ -98,6 +113,13 @@ async function main(){
  const sends=state.sends;await pay.deliverBotPayment({deliveryId:interrupted.id});assert.equal(state.sends,sends);interrupted=await db.payBotDelivery.findUniqueOrThrow({where:{id:interrupted.id}});assert.equal(interrupted.status,'UNKNOWN')
  await pay.recoverBotDelivery(a,{id:interrupted.id,version:interrupted.version,action:'confirm',confirmed:true});assert.equal(state.sends,sends)
  assert.equal(await db.walletTx.count({where:{userId:a.id,type:'PAY_CREDIT'}}),3,'delivery retries never repeat Wallet credit')
+ const boolean=await pay.saveBotIntegration(a,{...config,version:connection.version,ackPolicy:'JSON_STATUS_TRUE',responseMode:'URL',callbackToken:''});connection=boolean.integration
+ const fifth=await create({...input,api_key:rotated.token,order_id:'order-five'}),fifthId=new URL(fifth.url).pathname.split('/').pop();await settle(fifthId,'BOTREF005');const pending=await db.payBotDelivery.findUniqueOrThrow({where:{paymentId:fifthId}});assert.equal(pending.ackPolicy,'JSON_STATUS_TRUE')
+ state.mode='not-sent';const before=state.sends;await pay.deliverBotPayment({deliveryId:pending.id});let queued=await db.payBotDelivery.findUniqueOrThrow({where:{id:pending.id}});assert.equal(queued.status,'QUEUED');assert.equal(queued.lastCode,'NOT_SENT_RETRY');assert.equal(queued.attempts,1);await pay.deliverBotPayment({deliveryId:pending.id});assert.equal(state.sends,before+1,'early reconcile cannot bypass safe retry delay')
+ const clock=Date.now;let virtual=clock();Date.now=()=>virtual
+ try{for(let attempt=2;attempt<=5;attempt++){virtual+=1000000;await pay.deliverBotPayment({deliveryId:pending.id})}}finally{Date.now=clock}
+ queued=await db.payBotDelivery.findUniqueOrThrow({where:{id:pending.id}});assert.equal(queued.status,'BLOCKED');assert.equal(queued.lastCode,'NOT_SENT_RETRY_EXHAUSTED');assert.equal(queued.attempts,5)
+ await pay.recoverBotDelivery(a,{id:pending.id,version:queued.version,action:'retry',confirmed:true});state.mode='boolean';await pay.deliverBotPayment({deliveryId:pending.id});assert.equal((await db.payBotDelivery.findUniqueOrThrow({where:{id:pending.id}})).status,'SENT');assert.equal(await db.walletTx.count({where:{userId:a.id,type:'PAY_CREDIT'}}),4,'all transport retries leave exactly one credit per payment')
  console.log('Pay bot native acceptance: exact Toman, terminal keys, concurrent idempotency, current authority, financial/delivery atomicity, privacy, uncertain response, rotation, interrupted lease and explicit recovery passed')
 }
 main().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{
