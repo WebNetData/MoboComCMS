@@ -1,3 +1,8 @@
+Gateway launch review2026-11-26: SOURCE_REVIEW_ONLY. Lifetime amount capacity,
+collector liveness, real commissioning and uncertain external ACK remain explicit
+limits; existing monitor/review/recovery are present, not missing capabilities.
+[Scoped evidence/priorities](handoffs/MOBOCOM_PAY.md#gateway-launch-gap-review--2026-11-26).
+
 Pay reliability 2026-11-26: VERIFIED_LOCAL; LIVE_COMMISSIONING_PENDING. Existing
 readiness slice integrated with main/PR496, atomic/manual top-up+collection guards,
 fresh bot authority and safe direct/proxy retries. Canonical 1170/53/4/14, 18 PG

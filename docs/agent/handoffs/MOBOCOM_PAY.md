@@ -1,3 +1,45 @@
+## Gateway launch gap review — 2026-11-26
+
+Owner asks what the actual gateway lacks. Read-only product-source review on
+docs/claude-frontend-guidance-2026-11-26, main23ce5433 plus d1017e18; no runtime,
+schema, UI or financial behavior changes. Separate existing capabilities from gaps:
+
+- Amount-only attribution has a finite, globally reserved lifetime pool. In
+  bale/collection-create.ts the occupancy query includes all historical rows;
+  prisma/schema.prisma makes collectedRial globally unique. Default policy10..9990
+  Rial, step10, gives999 candidates for a whole-Toman principal; overlapping ranges
+  can consume them sooner. Paid/expired requests do not release slots, including
+  across different cards. This is the existing late-message safety decision, not
+  permission to recycle old amounts. Existing monitor exposes LOW/EXHAUSTED.
+  A sustainable capacity/attribution policy is needed for volume; preserve history
+  and delayed-message correctness rather than removing the unique constraint.
+- transfer-operations/monitor.ts distinguishes configured-ready from a notice
+  observed in the last15 minutes. collection-context.ts admits by configuration
+  and authority, not an authenticated collector heartbeat. No heartbeat-specific
+  admission/alert implementation was found in the inspected Pay/Operations paths.
+  Quiet banking activity is not proof of disconnection; add liveness through the
+  existing Operations/Notifications owners, independently of financial notices.
+- Personal Bale installation/login/verified bank peer and actual recovery remain
+  external commissioning, documented in tools/pay-bale-server/README.fa.md; the
+  repository's tools folder provides setup documentation, not an installed session.
+- Three-field SMS has no independent original-message time. Locked-rate USDT
+  acquisition requires trusted timed evidence or review; do not silently loosen it.
+- Bot delivery deliberately leaves uncertain post-send results UNKNOWN. Explicit
+  reviewed recovery exists; automatic reconciliation additionally needs a merchant
+  status/idempotency contract absent from the supplied create/verify-only guide.
+- Settlement decisions record external references/tx hashes with review; the
+  inspected command does not itself initiate bank/on-chain payout. This does not
+  block a consciously manual settlement service.
+
+Evidence is source inspection and existing test inspection only; PostgreSQL,
+browser, real bank/Bale/SMS and merchant callbacks were not rerun for this review.
+Corrected the operator guide's stale final migration number222 to current223.
+Priority: deploy matching code/migration, commission SMS/Bale/worker and the real
+merchant ACK, run one controlled exact-once end-to-end payment; then implement
+heartbeat/alerts and the capacity policy before increasing traffic. Continue the
+same Billing/Operations/Notifications owners. Rollback this documentation slice
+only; no data or deployed behavior has changed.
+
 ## Shared Claude frontend guidance — 2026-11-26
 
 Owner requests Claude's frontend design skills after preferring its visual work.

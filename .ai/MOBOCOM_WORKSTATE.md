@@ -1,3 +1,7 @@
+# Gateway launch gap review — 2026-11-26
+
+Source-only Pay review: finite global lifetime amount pool(default999 candidates/whole-Toman principal), configured readiness versus collector liveness, uncommissioned personal Bale session, timestamp-limited simple SMS/USDT, uncertain callback recovery and manually executed external payouts. Existing capacity monitor/review/recovery retained; no product-source change or new live-test claim. Corrected guide migration222→223. [Evidence/priorities](../docs/agent/handoffs/MOBOCOM_PAY.md#gateway-launch-gap-review--2026-11-26).
+
 # Shared Claude frontend guidance — 2026-11-26
 
 Owner asks to use Claude's frontend design skills. Canonical ENGINEERING_SKILLS/FRONTEND_QUALITY now explicitly pair installed Anthropic frontend-design with Unslop for new compositions/visual reworking, preserving approved SDS/MoboCom identity, fluid dashboards and actual browser acceptance. Existing pinned skill mirrors verified:17 skills/422 files,0 copies. Docs-only continuation on docs/claude-frontend-guidance-2026-11-26 from main23ce5433 (PR497 merged); no UI/runtime/model configuration change. [Scope and continuation](../docs/agent/handoffs/MOBOCOM_PAY.md#shared-claude-frontend-guidance--2026-11-26).

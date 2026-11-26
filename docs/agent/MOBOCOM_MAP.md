@@ -1,3 +1,8 @@
+Gateway launch review2026-11-26: Billing Pay collection-create owns global lifetime
+amount reservations; transfer-operations monitors capacity/observed notices, not
+authenticated collector heartbeat. Future liveness alerts reuse Operations and
+Notifications. [Source-only gap review](handoffs/MOBOCOM_PAY.md#gateway-launch-gap-review--2026-11-26).
+
 Pay reliability 2026-11-26: Billing generic manual settlement fences automatic
 collections under Invoice lock; ordinary top-up credit shares its transaction.
 All three Admin entrypoints compose it. Bot authority uses fresh section access;
