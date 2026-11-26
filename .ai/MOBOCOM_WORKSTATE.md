@@ -1,3 +1,13 @@
+# MoboCom header width — 2026-11-26
+
+The shared MoboCom theme uses 98% viewport width for its header and desktop
+navigation. The page content grid keeps its own width. Edge verified the
+homepage and /pay on the running Docker Desktop `mobocom-app` at localhost:3000
+at 1920, 1440, 768, 390 and 320px in light and dark. Tablet and phone menus
+opened, closed on Escape and returned focus in the Persian locale. Generated
+extension CSS matched its source and the local PostgreSQL check returned 223
+applied migrations.
+
 # Compact checkout and receipt review — 2026-11-26
 
 Continue .mobocom/pay-receipt-checkout from main cd1f6aae. Full-width payment

@@ -748,13 +748,12 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
    No glass, glow, gradient or looping motion (owner, 2026-11-10: "it must not look designed by AI"). */
 /* The wrapper that names the theme must not box the header in, or it could never stay at the top of the page. */
 .mb-shell { display: contents; }
-/* The width of the chrome and of every page (owner, 2026-10-27: 95–98% of the window, the whole site): 97% with at
-   least 16px each side, no upper limit; about 95% on a phone. */
+/* The content grid keeps at least 16px on each side on desktop and 10px on phones. */
 html[data-design="mobocom"] { --mb-chrome: min(97%, 100% - 32px); }
 @media (max-width: 620px) { html[data-design="mobocom"] { --mb-chrome: calc(100% - 20px); } }
 .mb-shell { --mbh-line: var(--border); --mbh-strong: color-mix(in srgb, var(--text) 22%, var(--border)); --mbh-hover: color-mix(in srgb, var(--text) 5%, transparent); --mbh-shadow: 0 1px 2px rgb(20 18 43 / .05), 0 12px 28px -20px rgb(20 18 43 / .28); --mbh-ease: cubic-bezier(.2, .8, .2, 1); }
 html[data-theme=dark] .mb-shell { --mbh-hover: color-mix(in srgb, var(--text) 7%, transparent); --mbh-shadow: 0 14px 32px -20px rgb(0 0 0 / .9); }
-.mb-header { position: sticky; top: 0; z-index: 40; padding-block: 10px 2px; background: transparent; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
+.mb-header { --mb-chrome: 98%; position: sticky; top: 0; z-index: 40; padding-block: 10px 2px; background: transparent; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; pointer-events: none; }
 .mb-header > * { pointer-events: auto; }
 /* the page fades out above the card instead of showing through the gap over it */
 .mb-header::before { content: ""; position: absolute; inset: 0 0 auto; height: 100%; z-index: -1; background: linear-gradient(180deg, var(--bg) 45%, transparent); pointer-events: none; }
@@ -902,7 +901,7 @@ html[dir="ltr"] .mb-drawer { animation-name: mb-slide-ltr; }
 @media (prefers-reduced-motion: reduce) { .mb-pop, .mb-drawer, .mb-drawer-shade { animation: none; } .mb-navbar, .mb-header-bar { transition: none; } }
 .mb-breadcrumbs { margin-top: 8px; padding: 8px 16px; width: max-content; max-width: calc(100% - 32px); border-radius: 12px; background: color-mix(in srgb, var(--card) 80%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-size: 13px; color: var(--muted); }
 
-/* the section bar and its panel take the width of the header island, so the three line up */
+/* The section bar and its panel follow the content grid. */
 html[data-design="mobocom"] .mm-bar.container, html[data-design="mobocom"] .mm-panel > .container { width: var(--mb-chrome); max-width: none; margin-inline: auto; }
 html[data-design="mobocom"] .mm-panel > .container { padding-inline: 0; }
 
