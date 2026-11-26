@@ -1008,6 +1008,7 @@ components:
       required: ["name"]
       properties:
         name: {"type":"string","maxLength":100}
+        website: {"type":"string","format":"uri","writeOnly":true,"description":"Explicit initial HTTPS business website, required for WEBSITE/BOT only when the merchant has no registered website. Registered atomically with the first web terminal. Existing registered websites cannot be replaced here; later domain changes require administration."}
         returnUrl: {"type":"string","format":"uri","description":"Required HTTPS same registered origin for WEBSITE/BOT; omitted for PAYMENT_LINK. Social return is the validated channelUrl."}
         channelType: {"type":"string","enum":["WEBSITE","BOT","INSTAGRAM","CHANNEL","PAYMENT_LINK","OTHER"],"default":"WEBSITE"}
         channelUrl: {"type":"string","description":"Public HTTPS social/channel destination; Instagram requires its profile host. No server-side fetch."}

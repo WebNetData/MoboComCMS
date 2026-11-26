@@ -12,6 +12,6 @@ export default function MerchantNavigation({ path, choice, onToggle, onNavigate,
   shown?: boolean
 }) {
   return <nav className={`${s.navigation} side-nav`} aria-label="بخش‌های پنل پذیرندگان">
-    <ShellNav groups={merchantGroups} isOn={(href, exact) => path === href || (!exact && path.startsWith(href + '/'))} choice={choice} onToggle={onToggle} onNavigate={onNavigate} openByDefault itemIcons shown={shown} />
+    <ShellNav groups={merchantGroups} isOn={(href, exact) => path === href || (!exact && path.startsWith(href + '/'))} choice={choice} onToggle={onToggle} onNavigate={onNavigate} itemIcons shown={shown} />
   </nav>
 }

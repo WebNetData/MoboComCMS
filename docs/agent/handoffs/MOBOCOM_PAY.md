@@ -1998,3 +1998,84 @@ Final private runtime matched54 product source/schema/migration SHA256 hashes. F
 The exact owned preview container52d4f922c3a6 and all three named mobocom_pay_test_20261123{,_native,_upgrade} databases were removed. The first private source/client/archives/session helper under original app /tmp were removed; /app/shared dependencies were preserved. Host fixture JWT/key files and the owned3417 tunnel were removed/stopped. Original app readiness and session returned200 inside its container. Windows forwarding on127.0.0.1:3000 initially returned UND_ERR_SOCKET after the earlier Docker/WSL restart. A read-only comparison verified3236 original source files and package/config/start-script bytes identical to the current mounted source; restarting that original local container restored Windows readiness/session both200, with existing data/seed preserved and no Pay code installed into it. Raw non-secret proof remains under ignored root .mobocom/pay-qa. No full build, live provider, PR, merge, hosted workflow or deployment.
 
 Code delivery is local commit 321a1238; this final documentation record updates the completed cleanup/original-port recovery. Owner merges/deploys; branch remains local.
+
+## Pay/Cloud layout and first-terminal repair — 2026-11-26
+
+Owner rejects the narrow specialist frames, scrolling default menus and lifeless
+Pay landing, and reports that every website terminal fails with the missing
+business-website message. Authoritative checkout .mobocom/pay-cloud-ui, branch
+fix/pay-cloud-ui-2026-11-26, base main 44a501be (after the immutable 1.7.23 release).
+Existing unrelated/unmerged worktrees are preserved. This is a scoped repair,
+not a new theme or provider integration; publication/deployment is not performed.
+
+Implementation:
+- MerchantShell and CloudShell fill the viewport with a 276px full-height side
+  column and fluid content/header/footer. Remove both the outer 1600px cap and
+  the overlooked 1440px Cloud root-div cap. Only the current menu group opens
+  by default; existing explicit choices, accessible scrolling, active-link
+  marking and native mobile/tablet modal/focus/resize behavior remain. Map SDS
+  brand surfaces to MoboCom's approved accent, style nested appearance controls
+  and prevent global Admin active-label colors leaking into the dark drawer.
+- Pay homepage uses 32px desktop gutters, an asymmetric payment-request
+  illustration explicitly labeled as a sample, readable service/process/FAQ
+  compositions and restrained existing-theme materials. Settings, routes,
+  public theme header/footer and gate/application states remain. Public Cloud
+  and protected product pages are untouched. FRONTEND_QUALITY records the
+  fluid specialist frame and 1920px/menu-height acceptance; canonical generated
+  AI knowledge is refreshed, without a competing design system.
+- Root cause of terminal failure: enrollment website is optional, while
+  createTerminal required merchant.website before reading the entered returnUrl;
+  the form offered no registration path. Active merchants now explicitly send
+  initial website only for WEBSITE/BOT when their stored website is empty.
+  The existing HTTPS/public-host and same-origin policy validates it. Refuse
+  existing origin-dependent terminals or bot callbacks, claim empty website
+  against status/version, increment/audit it and insert the terminal inside
+  the same serializable transaction. Existing registered websites cannot be
+  replaced through terminal creation. No fee, credit, payment or auto-confirmation
+  ownership changes; no schema/dependency/version bump. The UI shows the initial
+  field or registered-site guidance, with native labels/required/length bounds.
+  The optional write-only website request field is documented in the existing
+  v1/v2 TerminalCreate OpenAPI schema and MOBOCOM-PAY-FA guide.
+
+Executed evidence (local Linux Node 22 / UID 1000 / no .env, two isolated PostgreSQL
+databases owned by a NOSUPERUSER role):
+- npm run check passed twice; final run 96s: 1166 site /53 connected-source /4
+  backup /14 billing plus configured architecture/source/schema/security/contract/
+  type gates. The final browser-only CSS corrections do not change those APIs.
+- node scripts/run-pg-checks.cjs pay-assets pay-merchant-account cloud-workspace
+  passed in 13s. pay-assets now covers empty initial website, inactive/foreign
+  access, invalid HTTP/IP/mismatched callback with unchanged stored data, first
+  successful registration and rejection of later replacement. Both databases
+  deployed all 222 migrations from empty. No new production migration is required.
+- Actual Chromium/Playwright: 12 main views (Pay merchant, Cloud, public Pay at
+  390/1440 in both themes), plus 17 wide 1920/mobile 320/tablet 768/1024 and themed
+  application/restricted views. Axe and horizontal-overflow checks pass across
+  these scopes. Desktop content is measured at viewport minus 276px; landing
+  gutters are measured at 32px. Default nav fits 900px viewport, native drawers
+  pass Escape, focus restoration, body-scroll and desktop-resize checks.
+  Cloud capacity comes from an owned synthetic active service with automation off.
+- The actual terminal form first rejects a foreign callback without saving the
+  website, then returns 201 and persists exactly one initial website/terminal;
+  a subsequent different-domain request returns 409 with no replacement/extra
+  terminal. Screenshots and redacted receipts remain ignored in var/pay-cloud-ui.
+- React Doctor on page.tsx, terminals.tsx and both navigation components, files
+  scope, no telemetry/supply-chain, blocking error: 0 errors, 4 reviewed warnings
+  in the existing terminal form (complexity, deliberate JSON onSubmit and two
+  custom Field-wrapper label false positives). Actual getByLabel and axe pass;
+  no suppression or framework/form-system replacement was introduced.
+- Scoped Semgrep: 0 findings/errors; redacted Gitleaks: 0 findings.
+
+Initial runs exposed landing-number and active-drawer contrast, and a Cloud
+inner width cap; each was fixed and affected/final browser scopes rerun. The
+preview's 4GB dev compiler restarted, so only its own heap was raised to 6GB.
+The original private hostname could not be reached by this browser while local
+TLS worked; verification uses isolated HTTPS localhost:3161. Harness assumptions
+about a numeric child, a section instead of Cloud's div, JSON envelope and a
+strict text locator were corrected; final persistence assertions remain.
+
+Cleanup completed: only the verified owned preview/tunnel stopped; both owned
+databases, role, runtime, temporary source archives and synthetic session/TLS
+files removed. Shared app3000 returns HTTP 200; other worktrees, DBs, keys and
+released 1.7.23 assets remain unchanged. No hosted workflow, live payment/provider
+call, production build, new release or destination deployment is claimed.
+Rollback is the scoped UI/API change revert; no financial/data purge is needed.

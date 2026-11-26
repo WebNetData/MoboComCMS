@@ -8,6 +8,6 @@ export default function CloudNavigation({ path, choice, onToggle, onNavigate, sh
   path: string; choice: Record<string, boolean>; onToggle: (id: string, open: boolean) => void; onNavigate?: () => void; shown?: boolean
 }) {
   return <nav className={`${s.navigation} side-nav`} aria-label="بخش‌های پنل ابری">
-    <ShellNav groups={cloudGroups} isOn={(href, exact) => path === href || (!exact && path.startsWith(href + '/'))} choice={choice} onToggle={onToggle} onNavigate={onNavigate} openByDefault itemIcons shown={shown} />
+    <ShellNav groups={cloudGroups} isOn={(href, exact) => path === href || (!exact && path.startsWith(href + '/'))} choice={choice} onToggle={onToggle} onNavigate={onNavigate} itemIcons shown={shown} />
   </nav>
 }

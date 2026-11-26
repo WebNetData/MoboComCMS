@@ -37,13 +37,23 @@ export async function enrollMerchant(actor: PayActor, input: Record<string, unkn
 }
 export async function createTerminal(actor: PayActor, input: Record<string, unknown>) {
   if (Object.hasOwn(input, 'baleEnabled')) throw new PayError('فعال‌سازی تأیید خودکار فقط از مدیریت موبوکام انجام می‌شود', 403, 'PAY_AUTO_ADMIN_ONLY')
-  if (Object.keys(input).some(k => !['name', 'returnUrl', 'channelType', 'channelUrl'].includes(k))) throw new PayError('تنظیم پایانه معتبر نیست')
+  if (Object.keys(input).some(k => !['name', 'returnUrl', 'channelType', 'channelUrl', 'website'].includes(k))) throw new PayError('تنظیم پایانه معتبر نیست')
   const name = text(input.name, 100)
   return payTransaction(async (tx) => {
     const merchant = await merchantFor(actor, tx, true)
-    const destination = parseChannelDestination(input, merchant.website)
+    const web = input.channelType === undefined || input.channelType === 'WEBSITE' || input.channelType === 'BOT'
+    if (input.website !== undefined && (!web || merchant.website)) throw new PayError('تغییر وب‌سایت ثبت‌شده فقط توسط مدیریت انجام می‌شود', 409)
+    const website = input.website === undefined ? merchant.website : httpsUrl(input.website)
+    const destination = parseChannelDestination(input, website)
     if ((await tx.payTerminal.count({ where: { merchantId: merchant.id } })) >= 20)
       throw new PayError('حداکثر ۲۰ پایانه قابل ثبت است')
+    if (input.website !== undefined) {
+      const existing = await tx.payTerminal.findMany({ where: { merchantId: merchant.id }, include: { botIntegration: true } })
+      if (existing.some(t => t.channelType === 'WEBSITE' || t.channelType === 'BOT' || t.botIntegration)) throw new PayError('برای ثبت وب‌سایت با مدیریت تماس بگیرید', 409)
+      const claimed = await tx.payMerchant.updateMany({ where: { id: merchant.id, website: '', status: merchant.status, version: merchant.version + 1 }, data: { website, version: { increment: 1 } } })
+      if (claimed.count !== 1) throw new PayError('اطلاعات پذیرنده تغییر کرده؛ دوباره تلاش کنید', 409)
+      await payAudit(tx, actor, 'merchant.initial-website', merchant.id, { website })
+    }
     const row = await tx.payTerminal.create({
       data: { id: randomUUID(), merchantId: merchant.id, name, ...destination, baleEnabled: false },
     })

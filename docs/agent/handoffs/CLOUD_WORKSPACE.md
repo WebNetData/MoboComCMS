@@ -127,3 +127,13 @@ canonical Linux check then passed on3260 source files.
 Rollback is a revert of this feature slice: old detail owners and public entries
 remain compatible, and persisted Cloud checkout markers resolve publicly after
 rollback without changing order/payment/wallet data. No data purge is needed.
+
+## Specialist frame repair — 2026-11-26
+
+Owner requests the approved wide account-dashboard proportions for Cloud/Pay.
+Cloud shell now uses a full-height 276px side column and fluid remaining viewport;
+its root-div 1440px cap is removed. Only the active menu group opens by default;
+mobile/tablet native drawer, stored choices and existing ownership remain.
+Public Cloud landing is untouched. PG cloud-workspace, canonical check, actual
+themed/wide/mobile/tablet browser/axe and owned fixture cleanup passed.
+[Exact shared repair evidence](MOBOCOM_PAY.md#paycloud-layout-and-first-terminal-repair--2026-11-26).
