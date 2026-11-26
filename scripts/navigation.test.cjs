@@ -298,9 +298,12 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   // A sticky header inside a wrapper as tall as itself never sticks: the wrapper that names the theme is not a box.
   assert.match(client, /<div data-code-theme="mobocom" className="mb-shell"><MobocomHeader/)
   assert.match(css, /\n\.mb-shell \{ display: contents; \}/)
-  assert.match(css, /\n\.mb-header \{ position: sticky; top: 0;/)
+  const headerStyle = css.match(/\n\.mb-header \{([^}]+)\}/)?.[1] || ''
+  assert.match(headerStyle, /\bposition:\s*sticky;/)
+  assert.match(headerStyle, /(?:^|;)\s*top:\s*0;/)
+  assert.match(headerStyle, /--mb-chrome:\s*98%;/)
   // Other pages pin their side columns 76px from the top: the bar is never taller than that.
-  assert.match(css, /\n\.mb-header \{[^}]*padding-block: 10px 2px;/)
+  assert.match(headerStyle, /\bpadding-block:\s*10px 2px;/)
   assert.match(css, /\n\.mb-header-bar \{[^}]*min-height: 62px;/)
   // Two tiers: the links hang under the header without adding to its height (flush with the top row, over the header's
   // 2px of padding, so the two read as one card), and a spacer keeps the page clear of them at the top.
