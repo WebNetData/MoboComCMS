@@ -2079,3 +2079,8 @@ files removed. Shared app3000 returns HTTP 200; other worktrees, DBs, keys and
 released 1.7.23 assets remain unchanged. No hosted workflow, live payment/provider
 call, production build, new release or destination deployment is claimed.
 Rollback is the scoped UI/API change revert; no financial/data purge is needed.
+
+Review delivery: [PR496](https://github.com/WebNetData/MoboComCMS/pull/496)
+targets main and remains open for owner review. Implementation commit 9857fad8;
+9763a43a preserves unrelated historical ledger/map formatting. Subsequent delivery
+record changes are documentation only. No merge or destination update was performed.
