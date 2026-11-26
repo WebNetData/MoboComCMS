@@ -1,3 +1,9 @@
+Shared engineering skills2026-11-26: project Claude/Codex skill entrypoints route
+to the same bootstrap, architecture, owners, workstate and scoped evidence gates.
+Payment audits compose existing Billing/Wallet/Operations/Identity boundaries;
+supporting client skills add methods, never an alternate financial/auth system.
+[Verified file parity and routing](ENGINEERING_SKILLS.md).
+
 Bank source setup2026-11-26: existing Billing Pay Admin owns automatic terminal
 policy, SMS source secrets and safe connector status. Merchant commands cannot
 write the automatic flag. Scoped Admin guides compose those owners; an optional

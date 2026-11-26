@@ -16,6 +16,17 @@ These are project-scoped supporting skills for Codex (`.agents/skills`) and Clau
 
 ## Task routing
 
+### Shared workflow skills (Claude / Codex)
+
+| Work | Workflow | Relevant supporting guidance |
+| --- | --- | --- |
+| Unclear or partial feature state | `mobocom-audit` first | Read only the affected map/ledger and the existing feature handoff; audit is evidence gathering, then continue the authorized slice. |
+| Implement an authorized feature | `mobocom-develop` | Follow the current module owner and handoff; load `mobocom-contracts` for a changed API/event contract and `mobocom-release` only for release, migration, rollout or recovery work. |
+| Payment / money reliability | `mobocom-audit` → `mobocom-develop`; add `mobocom-contracts` or `mobocom-release` when their conditions apply | Preserve the billing/payment owner and recorded money/history decisions. Validate database state changes with the scoped real PostgreSQL checks required by the handoff; do not treat source inspection or skill presence as executed proof. |
+| Affected UI or browser flow | Keep the workflow above; select only relevant UI guidance | Use `unslop` for requested interface work; add `baseline-ui` for hierarchy/spacing, `fixing-accessibility` for controls and keyboard access, and `fixing-motion-performance` for affected motion. Use `webapp-testing` for scoped Playwright reconnaissance/checks, subject to the actual app readiness guidance below. |
+
+These workflow entrypoints and selected supporting entrypoints are present in both `.agents/skills` and `.claude/skills`; their inspected `SKILL.md` entrypoints have matching content. This is repository-file parity only: it does not establish client discovery, model access, skill execution or completed checks. Client-specific invocation names and available tools remain client-local; shared MoboCom decisions, authorization, ownership, handoffs and evidence requirements remain the same.
+
 | Task | Supporting skill(s) | Use in MoboCom |
 | --- | --- | --- |
 | New authorized visual composition | `unslop` by default; `frontend-design`/`ui-ux-pro-max` as relevant | Product-specific direction using existing identity/SDS; references and local search only for the current concern |
