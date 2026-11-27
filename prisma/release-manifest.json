@@ -992,7 +992,35 @@
     },
     "1.7.25": {
       "migrations": []
+    },
+    "1.7.26": {
+      "migrations": [
+        {
+          "name": "20270411120000_pay_fee_shares",
+          "sha256": "0e761483c4c9d9f3e21e34f43c11959556b824061cfcdbe52b9598f6f2a953c9"
+        },
+        {
+          "name": "20270412120000_crm_follow_ups",
+          "sha256": "d8ca48c277922aaa7d65451f207ad99d7c967265020d5ae52c76b1c59ace911d"
+        },
+        {
+          "name": "20270413120000_automation_event_recovery",
+          "sha256": "558456fc658d6b23cfceaec9344ac493c091ec311056e5e06b89f13b43c460d9"
+        },
+        {
+          "name": "20270414120000_forms_webhook_delivery",
+          "sha256": "5e1fc6b8df9aee2b3c1f21abe361d5f7aca588b79b15098270e854226a012f2e"
+        },
+        {
+          "name": "20270415120000_crm_opportunities",
+          "sha256": "f941ac8dbc697efa978e076531b276dd22091b5f846e939ccf1b8d282a1711b6"
+        },
+        {
+          "name": "20270416120000_crm_opportunity_quotations",
+          "sha256": "de9410b8d0468c74281ba239402b07fc88dadef62ed4d1cf0d776c836c41f79c"
+        }
+      ]
     }
   },
-  "unreleased": ["20270411120000_pay_fee_shares", "20270412120000_crm_follow_ups", "20270413120000_automation_event_recovery", "20270414120000_forms_webhook_delivery", "20270415120000_crm_opportunities", "20270416120000_crm_opportunity_quotations"]
+  "unreleased": []
 }
