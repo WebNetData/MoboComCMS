@@ -1,3 +1,9 @@
+# Cloud and Pay ticket service selection — 2026-11-27
+
+PR #514 continuation on `feat/cloud-dashboard-local-tools-2026-11-27`, starting
+at `6c989854`. Support uses closed Cloud and Pay options and records a verified
+resource on new tickets where selected. [Cloud handoff](../docs/agent/handoffs/CLOUD_WORKSPACE.md#scoped-ticket-service-selection--2026-11-27).
+
 # Cloud dashboard wallet, support and account — 2026-11-27
 
 Continue `.mobocom/cloud-dashboard-local-tools`, branch

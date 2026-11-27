@@ -1,5 +1,28 @@
 # Dedicated Cloud customer workspace — 2026-11-26
 
+## Scoped ticket service selection — 2026-11-27
+
+Continue PR #514 on `feat/cloud-dashboard-local-tools-2026-11-27` from
+`6c989854`. Cloud offers the customer's own hosting services and domains, and
+Pay offers the active merchant's own terminals. Both use canonical Support
+and show the saved service to the customer and permitted staff. Account support
+continues to use its existing product, order, warranty and subscription options.
+
+`Ticket.serviceContext` stores a bounded key and label from the server lookup.
+The additive `20270417120000_ticket_service_context` migration is registered
+as unreleased. An earlier build can ignore the extra column and retain all
+tickets and messages. No backfill is needed.
+
+On isolated PostgreSQL 17, the migration preserved a ticket and message from
+the pre-change database. The `ticket-workspaces`, `support-ticket-claim` and
+`cloud-workspace` suites passed against a separate database. An actual HTTP run
+verified both scoped options, omitted selection, saved labels, denial of
+foreign or cross-section IDs, and preserved Store choices for account support.
+Edge checked both composers at 390 and 1440 px in both themes, using the actual
+ticket API for one Cloud and one Pay submission and scoped axe for each
+selector. TypeScript, architecture, source, schema, manifest, security, scoped
+React Doctor and redacted secret scanning passed locally.
+
 ## Cloud wallet, support and account — 2026-11-27
 
 Owner requested a standalone Cloud dashboard with main-dashboard navigation

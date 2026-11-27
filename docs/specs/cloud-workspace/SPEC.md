@@ -1,5 +1,18 @@
 # Independent MoboCom Cloud customer workspace
 
+## Scoped ticket service selection — 2026-11-27
+
+Support owns the ticket and message history. The Cloud composer offers the
+signed-in member's hosting services and domains. The Pay composer offers the
+active merchant's terminals. Account support keeps its original product,
+order, warranty and subscription options.
+
+The existing ticket options and creation routes accept a closed `workspace`
+query for Cloud and Pay. They apply the workspace guard, filter departments
+requiring products or subscriptions, and reject foreign or cross-section
+references. Selection is optional. A verified key and label are stored on
+the ticket, and an additive column defaults to empty on existing tickets.
+
 ## Cloud wallet, support and account surfaces — 2026-11-27
 
 Signed-in Cloud members use a fluid sidebar and mobile drawer to reach

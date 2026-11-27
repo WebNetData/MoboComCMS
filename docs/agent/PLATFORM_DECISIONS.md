@@ -1378,6 +1378,11 @@ as the main member dashboard. Wallet, support tickets and account settings are
 available inside `/cloud/dashboard`. Cloud reuses the canonical account, ledger
 and support history. [Cloud workspace continuation](handoffs/CLOUD_WORKSPACE.md#cloud-wallet-support-and-account--2026-11-27).
 
+Owner 2026-11-27 restricts specialist ticket choices to the originating section.
+Cloud allows the member's own hosting and domains, while Pay allows the active
+merchant's terminals. Support validates and records the optional selection.
+[Scoped service selection](handoffs/CLOUD_WORKSPACE.md#scoped-ticket-service-selection--2026-11-27).
+
 # Cloud automatic operations — owner continuation2026-11-26
 
 Owner authorized all four next Cloud slices: WHM creation/lifecycle, Joker
