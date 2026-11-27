@@ -34,7 +34,28 @@ export type ManagementFinding = ManagementSignal & {
   status: 'PENDING' | ReviewDecision
   outcome: string
   decidedAt?: string
+  action?: ManagementAction
 }
+
+export const actionSignals = ['support.stale', 'store.fulfilment', 'pay.delivery'] as const
+export type ActionSignal = typeof actionSignals[number]
+export type DeskCommand = 'TICKET_NOTE' | 'TICKET_REPLY' | 'ORDER_NOTE' | 'ORDER_ASSIGN' | 'PAY_ASSESSMENT'
+export type DeskTarget = {
+  id: string
+  stamp: string
+  label: string
+  facts: string[]
+  commands: DeskCommand[]
+}
+export type ManagementAction = {
+  command: DeskCommand
+  target: DeskTarget
+  text: string
+  assigneeId?: number
+  assessment?: 'CONFIRMED' | 'UNCONFIRMED' | 'NEEDS_REVIEW'
+  result?: { id: number | string; at: string }
+}
+export type DeskTargets = { targets: DeskTarget[]; assignees: { id: number; name: string }[] }
 export type ReviewHistory = {
   cadence: ReviewCadence
   nextRunAt: string | null

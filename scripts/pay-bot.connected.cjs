@@ -19,6 +19,11 @@ const db=wrap(prisma),mocks={
  '@/modules/billing/server/pay/bot/transport':{sendBotVerification:async(url,token,id)=>{state.sends++;assert.equal(url,'https://merchant.invalid/api/payment');assert.equal(token,'independent-bot-payment-secret');assert.ok(id.startsWith('order-'));if(state.mode==='not-sent')throw new (load('src/modules/billing/domain/pay-outbound.ts').PayCallbackNotSentError)();if(state.mode==='timeout')throw Error('transport interrupted');return {status:200,body:state.mode==='unknown'?'{"unknown":true}':state.mode==='boolean'?'{"status":true}':'{"ok":true}'}}},
 }
 const load=require('./connected-source-loader.cjs')(mocks),pay=load('src/modules/billing/server/pay.ts'),policy=load('src/modules/billing/domain/pay-policy.ts')
+mocks['@/modules/identity/server/access'].requireAdmin=async(req,tx=db)=>{
+ const user=await tx.user.findUnique({where:{id:Number(req.headers.get('x-fixture-user'))}})
+ return user?.id===users[2]?.id ? {...user, role:'ADMIN', permissions:['mobocom-pay.manage']} : null
+}
+mocks['@/modules/identity/server/access'].currentAdminHasPermission=(actor,permission)=>actor.permissions.includes(permission)
 let merchant,otherMerchant,terminal,bank,gateway,connection
 const put=(key,value)=>db.setting.upsert({where:{key},create:{key,value},update:{value}})
 const actor=u=>({id:u.id,email:u.email,req:new NextRequest('https://mobocom.invalid/api/pay',{headers:{origin:'https://mobocom.invalid','x-fixture-user':String(u.id)}})})
@@ -91,6 +96,30 @@ async function main(){
  state.mode='unknown';await Promise.all([pay.deliverBotPayment({deliveryId:delivery.id}),pay.deliverBotPayment({deliveryId:delivery.id})]);assert.equal(state.sends,1)
  delivery=await db.payBotDelivery.findUniqueOrThrow({where:{id:delivery.id}});assert.equal(delivery.status,'UNKNOWN')
  assert.equal((await pay.payOperationalHealth()).botAttention, 1)
+ const review=load('src/modules/ai/server/management-review.ts')
+ const desk=load('src/modules/ai/server/management-actions.ts')
+ await review.reviewNow(r.req)
+ let report=(await review.reviewHistory(r.req)).reviews[0]
+ const ref={id:report.id,signalId:'pay.delivery'}
+ await review.decideReview(r.req,{...ref,version:report.version,decision:'APPROVED'})
+ report=(await review.reviewHistory(r.req)).reviews[0]
+ const targets=await desk.listDeskTargets(r.req,{...ref,version:report.version})
+ const candidate=targets.targets.find(item=>item.id===delivery.id)
+ assert(candidate.facts.some(fact=>fact.includes('آخرین تلاش')))
+ assert(!JSON.stringify(targets).includes('independent-bot-payment-secret'))
+ const assessment={...ref,version:report.version,targetId:candidate.id,stamp:candidate.stamp,command:'PAY_ASSESSMENT',assessment:'CONFIRMED',text:'تأیید در پنل مالک بررسی شد'}
+ await assert.rejects(desk.prepareDeskAction(r.req,assessment),error=>error.status===422)
+ await desk.prepareDeskAction(r.req,{...assessment,externallyChecked:true})
+ report=(await review.reviewHistory(r.req)).reviews[0]
+ await desk.executeDeskAction(r.req,{...ref,version:report.version,confirmed:true})
+ const saved=(await review.reviewHistory(r.req)).reviews[0].findings.find(item=>item.id==='pay.delivery')
+ assert.equal(saved.action.result.id,delivery.id)
+ assert.equal(saved.action.assessment,'CONFIRMED')
+ assert.equal(saved.status,'DONE')
+ assert.equal((await db.payBotDelivery.findUniqueOrThrow({where:{id:delivery.id}})).status,'UNKNOWN')
+ assert.equal((await db.payPayment.findUniqueOrThrow({where:{id:paymentId}})).status,'PAID')
+ assert.equal(await db.walletTx.count({where:{userId:a.id,type:'PAY_CREDIT'}}),1)
+ assert.equal(state.sends,1,'recording desk evidence leaves delivery in merchant recovery')
  await pay.deliverBotPayment({deliveryId:delivery.id});assert.equal(state.sends,1,'unknown outcome never retries automatically')
  await assert.rejects(pay.recoverBotDelivery(b,{id:delivery.id,version:delivery.version,action:'retry',confirmed:true}),e=>e.status===404)
  assert.deepEqual(await pay.botDeliveries(b),[])

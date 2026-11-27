@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import type { ManagementFinding, ReviewCadence, ReviewDecision, ReviewHistory } from '@/modules/ai/domain/management'
+import ReviewedAction from './ReviewedAction'
+import { actionSignals } from '@/modules/ai/domain/management'
 import s from './page.module.css'
 
 const endpoint = '/api/admin/ai/management/reviews'
@@ -87,7 +89,7 @@ export default function ManagementReviewHistory() {
           {row.findings.map(item => <li key={item.id}>
             <Finding item={item} busy={busy} onDecide={(decision, outcome) => command({
               action: 'decide', id: row.id, version: row.version, signalId: item.id, decision, outcome,
-            }, 'نتیجهٔ پیگیری ثبت شد')} />
+            }, 'نتیجهٔ پیگیری ثبت شد')} review={{ id: row.id, version: row.version }} onActionSaved={(result, message) => { setHistory(result); setNotice(message); setError('') }} />
           </li>)}
         </ul>
       </details>)}
@@ -95,9 +97,10 @@ export default function ManagementReviewHistory() {
   </section>
 }
 
-function Finding({ item, busy, onDecide }: { item: ManagementFinding; busy: boolean; onDecide: (status: ReviewDecision, outcome: string) => Promise<void> }) {
+function Finding({ item, busy, onDecide, review, onActionSaved }: { item: ManagementFinding; busy: boolean; onDecide: (status: ReviewDecision, outcome: string) => Promise<void>; review: { id: number; version: number }; onActionSaved: (history: ReviewHistory, message: string) => void }) {
   const [outcome, setOutcome] = useState('')
   const active = item.status === 'PENDING' || item.status === 'APPROVED'
+  const actionSignal = actionSignals.find(signal => signal === item.id)
   return <div className={s.historyFinding}>
     <div className={s.panelHeader}>
       <h3>{item.sectionLabel} · {item.label}</h3>
@@ -106,6 +109,8 @@ function Finding({ item, busy, onDecide }: { item: ManagementFinding; busy: bool
     <p>{count.format(item.count)} مورد هنگام بررسی. {item.recommendation}</p>
     {item.outcome && <p>{item.outcome}</p>}
     {item.status === 'APPROVED' && <Link href={item.href}>باز کردن پنل {item.sectionLabel}</Link>}
+    {actionSignal && (item.status === 'APPROVED' || (item.status === 'DONE' && item.action?.result)) &&
+      <ReviewedAction signalId={actionSignal} review={review} busy={busy} saved={item.action} onSaved={onActionSaved} />}
     {active && <div className={s.followUpControls}>
       <label>دلیل رد یا نتیجهٔ انجام
         <input value={outcome} maxLength={450} onChange={event => setOutcome(event.target.value)} />

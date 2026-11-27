@@ -13,7 +13,8 @@ import { collectManagement, enabledManagementSections } from './management'
 const day = 86_400_000
 const nextRun = (cadence: string, now: Date) => cadence === 'OFF' ? null : new Date(now.getTime() + (cadence === 'WEEKLY' ? 7 : 1) * day)
 type Reader = Prisma.TransactionClient
-type Snapshot = { findings: ManagementFinding[]; unavailable: string[] }
+export type ReviewSnapshot = { findings: ManagementFinding[]; unavailable: string[] }
+type Snapshot = ReviewSnapshot
 
 export class ReviewError extends Error {
   constructor(message: string, readonly status = 422) { super(message) }
@@ -28,7 +29,7 @@ async function managementScope(actor: AuthedUser, reader: Reader) {
   return { enabled, scopeKey }
 }
 
-async function activeActor(req: NextRequest, reader: Reader) {
+export async function activeReviewActor(req: NextRequest, reader: Reader) {
   if (!await isModuleEnabled('ai-assistant', reader)) throw new ReviewError('هوش مصنوعی غیرفعال است', 404)
   const actor = await requireAdmin(req, reader)
   if (!actor) throw new ReviewError('دسترسی مجاز نیست', 403)
@@ -37,7 +38,9 @@ async function activeActor(req: NextRequest, reader: Reader) {
   return { actor, ...scope }
 }
 
-const serializable = <T>(work: (tx: Reader) => Promise<T>) => db.$transaction(work, { isolationLevel: 'Serializable', timeout: 20_000 })
+export const reviewTransaction = <T>(work: (tx: Reader) => Promise<T>) => db.$transaction(work, { isolationLevel: 'Serializable', timeout: 20_000 })
+const serializable = reviewTransaction
+const activeActor = activeReviewActor
 
 export function reviewHistory(req: NextRequest): Promise<ReviewHistory> {
   return serializable(async tx => {

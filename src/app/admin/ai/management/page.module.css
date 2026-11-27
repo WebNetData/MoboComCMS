@@ -108,3 +108,40 @@
 .followUpControls { display: grid; gap: .5rem; margin-block-start: .75rem; }
 .followUpControls label { display: grid; gap: .3rem; }
 .followUpControls .panelHeader { justify-content: flex-start; margin: 0; }
+
+.actionPanel {
+  display: grid;
+  justify-items: start;
+  gap: .75rem;
+  margin-block-start: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--sds-size-radius-200, 8px);
+  background: color-mix(in srgb, var(--primary) 4%, var(--card));
+}
+.actionBody { display: grid; gap: .75rem; width: 100%; min-width: 0; }
+.actionBody h4, .actionPreview h5 { margin: 0; font-size: 1rem; }
+.actionBody label { display: grid; gap: .35rem; }
+.actionBody select, .actionBody textarea {
+  width: 100%; min-height: 44px; padding: .65rem .75rem;
+  border: 1px solid var(--border); border-radius: var(--sds-size-radius-200, 8px);
+  color: var(--text); background: var(--card); font: inherit;
+}
+.actionBody textarea { resize: vertical; line-height: 1.8; }
+.actionBody :is(button, select, textarea, input):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.targetFacts { display: grid; gap: .25rem; margin: 0; padding-inline-start: 1.25rem; color: var(--admin-muted-text, var(--muted)); }
+.actionHint { margin: 0; color: var(--admin-muted-text, var(--muted)); font-size: .9rem; line-height: 1.8; }
+.actionCheck { grid-template-columns: auto 1fr !important; align-items: center; justify-content: start; }
+.actionCheck input { inline-size: 1.125rem; block-size: 1.125rem; accent-color: var(--primary); }
+.actionPreview { display: grid; gap: .75rem; width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: var(--sds-size-radius-200, 8px); background: var(--card); }
+.actionPreview dl { display: grid; gap: .5rem; margin: 0; }
+.actionPreview dl > div { display: grid; grid-template-columns: minmax(5rem, auto) 1fr; gap: .5rem; }
+.actionPreview dt { color: var(--admin-muted-text, var(--muted)); }
+.actionPreview dd { margin: 0; overflow-wrap: anywhere; }
+.savedText { white-space: pre-wrap; overflow-wrap: anywhere; padding: .75rem; border-inline-start: 2px solid var(--primary); background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
+
+@media (max-width: 520px) {
+  .actionPanel { padding: .75rem; }
+  .actionPreview { padding: .75rem; }
+  .actionPreview dl > div { grid-template-columns: 1fr; gap: .125rem; }
+}

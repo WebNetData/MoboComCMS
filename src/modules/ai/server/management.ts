@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import type { Prisma } from '@prisma/client'
+import { paidBotReviewWhere } from '@/modules/billing/server/pay'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { allowedDepartmentSlugs } from '@/modules/support/server/department-access'
 import { tehranDay } from '@/shared/time/day'
@@ -52,7 +53,7 @@ const sections: Section[] = [
   {
     id: 'pay', label: 'موبوکام‌پی', href: '/admin/mobocom-pay', module: 'mobocom-pay', permissions: ['mobocom-pay.manage'],
     read: (_actor, _now, reader) => one('pay.delivery', 'تأیید ربات نیازمند بررسی', 'پرداخت‌های قطعی با نتیجهٔ نامشخص یا ارسال متوقف‌شده به ربات.', 'ابتدا نتیجهٔ سفارش را در پنل ربات بررسی کنید و از مسیر پیگیری تحویل اقدام کنید.',
-      reader.payBotDelivery.count({ where: { status: { in: ['UNKNOWN', 'BLOCKED'] }, payment: { status: 'PAID' } } }), 'urgent'),
+      reader.payBotDelivery.count({ where: paidBotReviewWhere }), 'urgent'),
   },
   {
     id: 'cloud', label: 'موبوکام کلاد', href: '/admin/hosting/operations', module: 'hosting', permissions: ['hosting.manage'],

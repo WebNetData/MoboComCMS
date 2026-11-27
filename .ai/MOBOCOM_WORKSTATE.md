@@ -1,3 +1,12 @@
+# Reviewed AI management actions — 2026-11-27
+
+PR #517 targets main with the desk and review routines. Continue the separate
+`feat/ai-management-reviewed-actions-2026-11-27` branch from its head
+`9f6aa9d5`. Support replies and internal notes, Store notes and assignment,
+and read-only Pay evidence with assessment now use versioned previews and
+explicit confirmation. See [the handoff](../docs/agent/handoffs/AI_MANAGEMENT.md#reviewed-actions-for-support-store-and-pay)
+for owners, checks, and environment scope.
+
 # AI management review routines — 2026-11-27
 
 On `feat/ai-management-platform-2026-11-27` after local desk commit `e9d66c9d`,

@@ -6,11 +6,11 @@ import { sanitizeMessage, richTextToPlain, renderMessage } from '@/shared/conten
 import { HELD_BY_ANOTHER, canHandleTicket, heldByAnother } from '@/modules/support/server/department-access'
 import { parseFields } from '@/modules/support/domain/department-config'
 import { safeHappLink } from '@/modules/subscriptions/server/happ-protocol'
-import { parseTicketSubmission, removeTicketFiles, saveTicketFiles, ticketAttachmentRows, TicketUploadError } from '@/modules/support/server/ticket-attachments'
-import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { parseTicketSubmission, removeTicketFiles, saveTicketFiles, TicketUploadError } from '@/modules/support/server/ticket-attachments'
 import { pictureOf } from '@/modules/identity/domain/picture'
-import { TICKET_CHANGED, ticketWorkflowSelect, ticketWorkflowWhere } from '@/modules/support/server/ticket-workflow'
+import { TICKET_CHANGED, ticketWorkflowSelect } from '@/modules/support/server/ticket-workflow'
 import { readTicketService } from '@/modules/support/domain/ticket-service'
+import { notifyTicketReply, persistTicketReply } from '@/modules/support/server/ticket-reply'
 
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise
@@ -96,29 +96,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   try { await saveTicketFiles(files) }
   catch { return err('Could not save attachments / ذخیرهٔ پیوست‌ها ممکن نشد', 500) }
   let messageId: number | null
-  try { messageId = await db.$transaction(async tx => {
-    const now = new Date()
-    const claim = await tx.ticket.updateMany({
-      where: {
-        userId: ticket.userId,
-        ...(staffReply && !internal ? ticketWorkflowWhere(ticket) : { id, department: ticket.department }),
-      },
-      data: {
-        updatedAt: now,
-        // Notes can be added by a colleague without changing the owner or status.
-        ...(internal ? {} : staffReply ? {
-          status: close ? 'CLOSED' : 'PENDING',
-          closedAt: close ? ticket.closedAt ?? now : null,
-          lastStaffAt: now,
-          firstResponseAt: ticket.firstResponseAt ?? now,
-          assignedToId: ticket.assignedToId ?? user.id,
-        } : { status: 'OPEN', closedAt: null, lastCustomerAt: now }),
-      },
-    })
-    if (!claim.count) return null
-    const created = await tx.ticketMessage.create({ data: { ticketId: id, userId: user.id, fromAdmin: staffReply, internal, body: message, ...(files.length ? { attachments: { create: ticketAttachmentRows(files) } } : {}) } })
-    return created.id
-  }) } catch {
+  try { messageId = await db.$transaction(tx => persistTicketReply(tx, ticket, user.id, { message, staffReply, internal, close, files })) } catch {
     await removeTicketFiles(files)
     return err('Could not send reply / ارسال پاسخ ممکن نشد', 500)
   }
@@ -127,12 +105,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     return err(TICKET_CHANGED, 409, { code: 'TICKET_CHANGED' })
   }
   if (staffReply && !internal) {
-    await createInboxEvent({
-      userId: ticket.userId, kind: 'TICKET_REPLY', dedupeKey: `ticket:${id}:reply:${messageId}`,
-      titleEn: 'Support replied to your ticket', titleFa: 'پشتیبانی به تیکت شما پاسخ داد',
-      bodyEn: `Ticket #${id} has a new reply.`, bodyFa: `تیکت شمارهٔ ${id} پاسخ جدید دارد.`,
-      href: `/dashboard/tickets/${id}`,
-    }).catch(() => {})
+    await notifyTicketReply(id, ticket.userId, messageId).catch(() => {})
   }
   return ok({ sent: true })
 }

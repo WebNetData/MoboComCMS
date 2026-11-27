@@ -1,5 +1,59 @@
 # AI management desk — 2026-11-27
 
+## Reviewed actions for Support, Store and Pay
+
+PR [#517](https://github.com/WebNetData/MoboComCMS/pull/517) targets `main`
+with the desk and scheduled review slices. The action pack continues in
+`feat/ai-management-reviewed-actions-2026-11-27` from that PR's head
+`9f6aa9d5`. It uses the review JSON from migration
+`20270418120000_ai_management_reviews`.
+
+- Support uses the current department and assignment rules. A reviewed public
+  reply saves the message, workflow change, customer inbox event, audit entry and
+  receipt in the same transaction. The internal note uses existing staff
+  visibility. The optional model drafts generic Persian text using the
+  operations route. Ticket contents and customer fields stay in Support.
+- Store shows an online paid order waiting for fulfillment, its last job state
+  and current specialist. Notes use existing private timeline events.
+  Reassignment goes through the Store owner and current active specialist
+  permissions.
+- Pay shows the paid invoice and its last unconfirmed bot attempt as limited
+  evidence. A confirmed assessment requires marking the external verification
+  in the preview. The recorded result lives in review history and audit. Billing
+  continues to own funds, payment state and bot delivery transitions.
+- Each preview binds the selected command to the review version, current target
+  version and scope. Execution rechecks those values in the owner's transaction.
+  Receipt and audit are recorded together with the effect. A stale preview can be
+  edited and saved against current data.
+
+PostgreSQL 17 checks ran as UID 1000 without a repository `.env` after 231
+migrations in an empty disposable database. Passed `ai-management-actions`,
+`ai-management-reviews`, `ai-management`, `support-ticket-claim`,
+`ai-operations`, `pay-bot`, `pay-shared-checkout` and
+`pay-routing-operations`. The action checks include stale previews, both
+internal notes, public reply and inbox deduplication, specialist assignment,
+external verification for Pay and unchanged credit after assessment.
+The model transport is a test double and the tests assert that it receives
+no private ticket subject or customer email. No live model provider, bank,
+or bot endpoint was contacted.
+
+The production webpack build, TypeScript and runtime traces passed. Playwright
+with Edge exercised the actual desk at 1440 and 390 pixels in light and dark
+themes with full-access and support staff accounts. All four views passed draft
+editing, explicit confirmation, receipt on reload, scoped axe and width checks.
+The desktop run also verified Store assignment and the Pay external verification
+control. Architecture, source, security, Semgrep and redacted staged Gitleaks
+passed. React Doctor reported zero errors and two warnings about client-side
+history loading and the action form's control flow.
+
+Graphify refreshed 3,342 files, 21,422 nodes and 85,367 edges. Direct paths
+from the review service to the Support and Store owners and from the target
+projection to Pay's staff evidence were verified.
+
+The pack can be reverted independently of the desk after deployment. Review
+history and completed Support, Store and audit records remain in their existing
+tables. Review the recorded receipts before any compensating action.
+
 ## Scheduled scope and review outcomes
 
 The follow-up extends local commit `e9d66c9d`. The desk adds optional daily
