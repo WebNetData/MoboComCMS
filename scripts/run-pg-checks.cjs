@@ -51,6 +51,7 @@ const CHECKS = [
   'ai-connection',
   'ai-engineering',
   'ai-operations',
+  'ai-management',
   'ai-admin-operations',
   'ai-routing',
   'ai-resilience',

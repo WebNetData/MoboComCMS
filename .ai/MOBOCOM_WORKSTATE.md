@@ -1,3 +1,11 @@
+# AI management desk and platform map — 2026-11-27
+
+Continue `.mobocom/ai-management-platform`, branch
+`feat/ai-management-platform-2026-11-27`, from main `d55452a8`.
+The AI desk connects permission-filtered section indicators, evidence-bound
+recommendations and existing owner panels. The platform map records remaining
+coverage. [Implementation and evidence](../docs/agent/handoffs/AI_MANAGEMENT.md).
+
 # MoboCom Pay numeric fields and SMS checkout — 2026-11-27
 
 Continue `.mobocom/pay-gateway-contract` on

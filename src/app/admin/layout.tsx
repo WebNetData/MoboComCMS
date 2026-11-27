@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import AdminWorkspace from '@/components/admin/Workspace'
 import { AiPageProvider } from '@/components/admin/ai/PageContext'
 import { AI_TOOLS } from '@/modules/ai/domain/operations'
+import { managementPermissions } from '@/modules/ai/domain/management'
 import dynamic from 'next/dynamic'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
@@ -175,7 +176,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     // AI has its own area; extensions add tools with group 'ai'. Addresses and permissions are the ones the AI APIs check.
     { id: 'ai-overview', flat: true, area: 'ai', order: 1, title: L('نمای کلی هوش مصنوعی', 'AI overview'), icon: 'sparkles', items: [
-      { href: '/admin/ai/overview', label: L('نمای کلی هوش مصنوعی', 'AI overview'), icon: 'sparkles', perm: ['cms.posts', 'cms.pages', 'cms.products', 'forum.moderate', 'orders.manage', 'settings.manage'] },
+      { href: '/admin/ai/overview', label: L('نمای کلی هوش مصنوعی', 'AI overview'), icon: 'sparkles', perm: [...new Set([...managementPermissions, 'cms.products'])] },
+    ] },
+    { id: 'ai-management', flat: true, area: 'ai', order: 2, title: L('میز مدیریت هوشمند', 'AI management desk'), icon: 'activity', items: [
+      { href: '/admin/ai/management', label: L('میز مدیریت هوشمند', 'AI management desk'), icon: 'activity', perm: [...managementPermissions] },
     ] },
     { id: 'ai-tools', area: 'ai', order: 10, title: L('دستیارها و تولید', 'Assistants & generation'), icon: 'bolt', items: [
       { href: '/admin/ai', label: L('دستیار نویسندگی', 'Writing assistant'), icon: 'pen', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },

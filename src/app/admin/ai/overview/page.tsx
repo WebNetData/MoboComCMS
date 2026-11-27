@@ -11,6 +11,7 @@ import styles from './page.module.css'
 type Status = { provider: string; label: string; model: string; free: boolean; ready: boolean }
 
 const ABOUT: Record<string, [string, string]> = {
+  '/admin/ai/management': ['وضعیت بخش‌ها، اولویت‌های پیگیری و پیشنهاد بر پایهٔ دادهٔ واقعی.', 'Section status, follow-up priorities and evidence-based recommendations.'],
   '/admin/ai': ['مقاله، توضیح محصول، پاسخ دیدگاه و تالار و توضیح متا؛ همه اول پیش‌نویس و با تأیید شما.', 'Articles, product copy, replies and meta descriptions — always drafts you approve.'],
   '/admin/ai/operations': ['کارهای پنل را بخواهید؛ دستیار برنامه را پیشنهاد می‌کند و فقط پس از تأیید شما اجرا می‌شود.', 'Ask for Admin work; the assistant proposes a plan and runs only after you confirm.'],
   '/admin/ai/production': ['تولید گروهی متن و تصویر برای مطالب و محصولات با صف و بازبینی.', 'Batch text and image generation for posts and products, queued and reviewed.'],
