@@ -12,6 +12,10 @@ model User {
   crmFollowUps CrmFollowUp[] @relation("CrmFollowUpCustomer")
   assignedCrmFollowUps CrmFollowUp[] @relation("CrmFollowUpAssignee")
   createdCrmFollowUps CrmFollowUp[] @relation("CrmFollowUpCreator")
+  crmOpportunities CrmOpportunity[] @relation("CrmOpportunityCustomer")
+  assignedCrmOpportunities CrmOpportunity[] @relation("CrmOpportunityAssignee")
+  createdCrmOpportunities CrmOpportunity[] @relation("CrmOpportunityCreator")
+  crmOpportunityTransitions CrmOpportunityTransition[]
   demandDecisions ContentDemand[] @relation("DemandDecision")
   demandSupport ContentDemandSupporter[]
 
@@ -694,6 +698,7 @@ model Ticket {
   updatedAt DateTime        @default(now()) @updatedAt
   user      User            @relation("TicketUser", fields: [userId], references: [id])
   messages  TicketMessage[]
+  crmOpportunity CrmOpportunity?
   @@index([department, status, updatedAt])
   @@index([assignedToId, status])
   @@index([orderId])
@@ -753,6 +758,7 @@ model CrmNote {
 model CrmFollowUp {
   id          Int      @id @default(autoincrement())
   userId      Int
+  opportunityId Int?
   assigneeId  Int?
   createdById Int?
   title       String
@@ -764,8 +770,55 @@ model CrmFollowUp {
   user        User     @relation("CrmFollowUpCustomer", fields: [userId], references: [id], onDelete: Cascade)
   assignee    User?    @relation("CrmFollowUpAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   createdBy   User?    @relation("CrmFollowUpCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  opportunity CrmOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
 
   @@index([userId, status, dueDay, id])
+  @@index([opportunityId, status])
+}
+
+model CrmOpportunity {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  assigneeId       Int?
+  createdById      Int?
+  formSubmissionId Int?     @unique
+  ticketId         Int?     @unique
+  title            String
+  stage            String   @default("NEW")
+  amountMinor      BigInt   @default(0)
+  currency         String   @default("IRT")
+  targetDay        String?
+  version          Int      @default(1)
+  stageChangedAt   DateTime @default(now())
+  closedAt         DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation("CrmOpportunityCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  assignee         User?    @relation("CrmOpportunityAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy        User?    @relation("CrmOpportunityCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  formSubmission   FormSubmission? @relation(fields: [formSubmissionId], references: [id], onDelete: SetNull)
+  ticket           Ticket?  @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  transitions      CrmOpportunityTransition[]
+  followUps        CrmFollowUp[]
+
+  @@index([userId, updatedAt, id])
+  @@index([assigneeId, stage, updatedAt, id])
+  @@index([stage, stageChangedAt])
+}
+
+model CrmOpportunityTransition {
+  id            Int      @id @default(autoincrement())
+  opportunityId Int
+  actorId       Int?
+  fromStage     String?
+  toStage       String
+  reason        String   @default("")
+  createdAt     DateTime @default(now())
+  opportunity   CrmOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  actor         User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([opportunityId, id])
+  @@index([actorId])
 }
 
 model Setting {
@@ -1640,6 +1693,7 @@ model FormSubmission {
   uploads   FormUpload[]
   bookings  FormBooking[]
   webhookDeliveries FormWebhookDelivery[]
+  crmOpportunity CrmOpportunity?
 
   @@index([formId, createdAt])
   @@index([formId, status])

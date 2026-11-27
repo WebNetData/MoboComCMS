@@ -35,7 +35,7 @@ const summary = (row: Row) => row.answers.filter((a) => a.type !== 'file' && a.t
  * what was sent, its bill, who holds it, where the work stands. `formId` 0 is the queue across every form the
  * member of staff may handle. Work somebody else holds is shown, not changed.
  */
-export default function Inbox({ formId, fields, forms = [], me = 0, manager = true, onNotice }: { formId: number; fields: FormField[]; forms?: SavedForm[]; me?: number; manager?: boolean; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
+export default function Inbox({ formId, initialEntryId = null, fields, forms = [], me = 0, manager = true, onNotice }: { formId: number; initialEntryId?: number | null; fields: FormField[]; forms?: SavedForm[]; me?: number; manager?: boolean; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
   const queue = formId === 0
   const [status, setStatus] = useState('ALL')
   const [stage, setStage] = useState('')
@@ -45,20 +45,32 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
   const [data, setData] = useState<Page | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [showStats, setShowStats] = useState(false)
-  const [open, setOpen] = useState<number | null>(null)
+  const [entryId, setEntryId] = useState(initialEntryId)
+  const [open, setOpen] = useState(entryId)
   const [picked, setPicked] = useState<number[]>([])
   const [notes, setNotes] = useState<Record<number, string>>({})
+  const [opportunitySourceId, setOpportunitySourceId] = useState<number | null>(null)
 
   const query = `formId=${formId}&status=${status}&stage=${stage}&who=${who}&q=${encodeURIComponent(q)}`
   const load = useCallback(async () => {
-    const result = await api<Page>(`/api/admin/forms/submissions?${query}&page=${page}`)
+    const result = await api<Page>(`/api/admin/forms/submissions?${query}&page=${page}${entryId ? `&entry=${entryId}` : ''}`)
     if (result.ok) { setData(result.data); setPicked([]) } else onNotice('error', result.error)
-  }, [query, page, onNotice])
+  }, [query, page, entryId, onNotice])
   useEffect(() => { const t = setTimeout(() => void load(), q ? 250 : 0); return () => clearTimeout(t) }, [load, q])
   useEffect(() => { if (!queue && showStats) void api<Stats>(`/api/admin/forms/submissions?formId=${formId}&view=stats`).then((r) => r.ok && setStats(r.data)) }, [formId, queue, showStats, data?.total])
-  useEffect(() => { setOpen(null); setPage(1) }, [formId])
 
   const row = data?.rows.find((item) => item.id === open) || null
+  const sourceCandidate = row && (manager || !row.assigneeId || row.assigneeId === me) && row.status !== 'SPAM' && row.payStatus !== 'UNPAID' ? row.id : null
+  useEffect(() => {
+    if (!sourceCandidate) return
+    const controller = new AbortController()
+    async function checkSource(id: number) {
+      const response = await fetch(`/api/admin/crm/opportunities?source=FORM&sourceId=${id}`, { cache: 'no-store', signal: controller.signal }).catch(() => null)
+      if (!controller.signal.aborted) setOpportunitySourceId(response?.ok ? id : null)
+    }
+    void checkSource(sourceCandidate)
+    return () => controller.abort()
+  }, [sourceCandidate])
   // Somebody else's work can be read; changing it is for the one who holds it or a manager of forms.
   const locked = (item: Row) => !manager && !!item.assigneeId && item.assigneeId !== me
   const fieldsOf = useMemo(() => (item: Row) => (queue ? forms.find((form) => form.id === item.formId)?.fields || [] : fields), [queue, forms, fields])
@@ -81,7 +93,8 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
     setOpen(item.id)
     if (item.status === 'NEW' && !locked(item)) void setState([item.id], 'READ')
   }
-  const filter = (set: () => void) => { set(); setPage(1); setOpen(null) }
+  const clearEntry = () => { setEntryId(null); setOpen(null); setPage(1) }
+  const filter = (set: () => void) => { set(); clearEntry() }
 
   const work = data?.work || {}
   return <div className="dk">
@@ -95,7 +108,7 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
         <button type="button" aria-pressed={who === 'mine'} onClick={() => filter(() => setWho('mine'))}>کارهای من</button>
         <button type="button" aria-pressed={who === 'free'} onClick={() => filter(() => setWho('free'))}>بدون مسئول</button>
       </div>
-      <input className="input dk-search" type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="جست‌وجو در پاسخ‌ها…" aria-label="جست‌وجو" />
+      <input className="input dk-search" type="search" value={q} onChange={(e) => filter(() => setQ(e.target.value))} placeholder="جست‌وجو در پاسخ‌ها…" aria-label="جست‌وجو" />
       <select className="input dk-triage" aria-label="دسته" value={status} onChange={(e) => filter(() => setStatus(e.target.value))}>
         <option value="ALL">همه (بدون هرزنامه)</option>{STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}{data?.counts[s] ? ` (${fa(data.counts[s])})` : ''}</option>)}
       </select>
@@ -103,7 +116,7 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
       {!queue && <a className="btn btn-ghost btn-sm" href={`/api/admin/forms/submissions?${query}&export=csv`}>خروجی CSV</a>}
     </div>
     {!queue && showStats && <div className="dk-stats">{stats && <Bars series={stats.series} />}<FieldStatsView formId={formId} api={api} /></div>}
-    {stage || who || status !== 'ALL' || q ? <p className="dk-filtered">فیلتر فعال است. <button type="button" className="sa-link" onClick={() => { setStage(''); setWho(''); setStatus('ALL'); setQ(''); setPage(1) }}>نمایش همه</button></p> : null}
+    {stage || who || status !== 'ALL' || q || entryId ? <p className="dk-filtered">فیلتر فعال است. <button type="button" className="sa-link" onClick={() => { setStage(''); setWho(''); setStatus('ALL'); setQ(''); clearEntry() }}>نمایش همه</button></p> : null}
 
     {picked.length > 0 && manager && <div className="fb-bulk" role="region" aria-label="عملیات گروهی"><b>{fa(picked.length)} انتخاب</b>
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => void setState(picked, 'ARCHIVED')}>بایگانی</button>
@@ -138,6 +151,7 @@ export default function Inbox({ formId, fields, forms = [], me = 0, manager = tr
             </div>
           </header>
           {locked(row) && <p className="dk-lock" role="status">این درخواست در دست <b>{row.assignee}</b> است. می‌توانید آن را ببینید، اما تغییرش با خود او یا مدیر فرم‌هاست.</p>}
+          {sourceCandidate === row.id && opportunitySourceId === row.id && <a className="btn btn-ghost btn-sm" href={`/admin/crm/opportunities?source=FORM&sourceId=${row.id}`}>ساخت فرصت فروش</a>}
 
           <h4 className="dk-title">پاسخ‌ها</h4>
           <dl className="dk-answers">{row.answers.map((a) => <div key={a.id}><dt>{a.label}</dt><dd dir="auto">{a.type === 'file' || a.type === 'signature' ? (Array.isArray(a.value) && a.value.length ? 'پیوست (پایین)' : '—') : a.type === 'repeater' && Array.isArray(a.value) ? <ul>{a.value.map((line, index) => <li key={index}>{line}</li>)}</ul> : answerText(a.value) || '—'}</dd></div>)}</dl>

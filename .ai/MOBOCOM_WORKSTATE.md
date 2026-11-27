@@ -1,3 +1,11 @@
+# CRM sales opportunities — 2026-11-27
+
+Continue `.mobocom/crm-sales-pipeline`, `feat/crm-sales-pipeline-2026-11-27`,
+from merged PR509/main `9d874d61`. The existing Persian customer desk
+now links to the sales board. Forms and Support compose authorized source
+links into a single opportunity at explicit conversion. The existing
+follow-up queue and inbox handle due work. [Evidence and rollout](../docs/agent/handoffs/CRM_ENGAGEMENT.md#sales-opportunities--2026-11-27).
+
 # Durable Forms webhook delivery — 2026-11-27
 
 Continue `.mobocom/forms-webhook-delivery`, `feat/forms-webhook-delivery-2026-11-27`,

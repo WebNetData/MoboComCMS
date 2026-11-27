@@ -41,6 +41,7 @@ function QueueRows({ items, today, busy, complete }: {
       <div className={styles.record}>
         <strong dir="auto">{item.title}</strong>
         <Link className="sa-link" href={`/admin/crm/${item.customerId}#follow-ups-heading`} dir="auto">{item.customerName}</Link>
+        {item.opportunityId && <Link className="sa-link" href={`/admin/crm/opportunities?id=${item.opportunityId}`}>فرصت فروش</Link>}
       </div>
       <div className={styles.details}>
         <span>{item.assigneeName || 'بدون مسئول'}</span>

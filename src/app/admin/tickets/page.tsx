@@ -32,6 +32,7 @@ export default function AdminTicketsPage() {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [opportunitySourceId, setOpportunitySourceId] = useState<number | null>(null)
   const date = (value: string) => new Date(value).toLocaleString(fa ? 'fa-IR' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' })
 
   const load = useCallback(async () => {
@@ -49,6 +50,17 @@ export default function AdminTicketsPage() {
     if (Number.isSafeInteger(id) && id > 0) void open(id)
   }, [])
   useEffect(() => { fetch('/api/admin/tickets?view=staff').then(r => r.ok ? r.json() : []).then(setStaff).catch(() => setStaff([])) }, [])
+  const sourceCandidate = detail?.id
+  useEffect(() => {
+    if (!sourceCandidate) return
+    const controller = new AbortController()
+    async function checkSource(id: number) {
+      const response = await fetch(`/api/admin/crm/opportunities?source=TICKET&sourceId=${id}`, { cache: 'no-store', signal: controller.signal }).catch(() => null)
+      if (!controller.signal.aborted) setOpportunitySourceId(response?.ok ? id : null)
+    }
+    void checkSource(sourceCandidate)
+    return () => controller.abort()
+  }, [sourceCandidate, detail?.assignedToId])
 
   async function open(id: number) {
     setSelected(id); setDetail(null); setError('')
@@ -104,6 +116,7 @@ export default function AdminTicketsPage() {
     {error && <p className="ticket-alert" role="alert">{error}</p>}
     <div className="ticket-ops-workspace"><aside className="ticket-ops-inbox"><div className="ticket-ops-pane-title"><strong>{L('Inbox', 'صندوق تیکت‌ها')}</strong><span>{filtered.length}</span></div><div className="ticket-ops-inbox-list">{loading && <p className="ticket-empty">{L('Loading…', 'در حال دریافت…')}</p>}{!loading && filtered.length === 0 && <p className="ticket-empty">{L('No tickets found.', 'تیکتی پیدا نشد.')}</p>}{filtered.map(ticket => <button type="button" key={ticket.id} className={`ticket-ops-row ${selected === ticket.id ? 'is-active' : ''}`} onClick={() => void open(ticket.id)}><div className="ticket-ops-row-top"><span>#{ticket.id} · {fa ? ticket.departmentName.fa : ticket.departmentName.en}</span><StatusBadge value={ticket.status} /></div><strong>{ticket.subject}</strong><small>{ticket.userName || ticket.user} · {date(ticket.updatedAt)}</small><p>{ticket.lastMessage}</p><span className={`ticket-sla ${ticket.sla === 'BREACHED' ? 'is-breached' : ''}`}>{ticket.sla === 'BREACHED' ? L('SLA overdue', 'پاسخ اولیه دیر شده') : ticket.sla === 'DUE' && ticket.slaDueAt ? `${L('Reply by', 'مهلت پاسخ')} ${date(ticket.slaDueAt)}` : L('First response complete', 'پاسخ اولیه انجام شد')}</span></button>)}</div></aside>
       <div className="ticket-ops-detail">{selected && !detail ? <div className="ticket-welcome">{L('Loading conversation…', 'در حال دریافت گفتگو…')}</div> : detail ? <><header className="ticket-ops-detail-head"><div><span className="ticket-eyebrow">#{detail.id} · {fa ? detail.departmentName.fa : detail.departmentName.en}</span><h2>{detail.subject}</h2><p>{detail.userName || detail.user} · {date(detail.updatedAt)}</p></div><div className="ticket-ops-actions"><StatusBadge value={detail.status} />{detail.status !== 'OPEN' && <button type="button" disabled={busy} onClick={() => void setStatus('OPEN')}>{L('Reopen', 'باز کردن')}</button>}{detail.status !== 'CLOSED' && <button type="button" disabled={busy} onClick={() => void setStatus('CLOSED')}>{L('Close', 'بستن')}</button>}</div></header>
+        {opportunitySourceId === detail.id && <a className="btn btn-ghost btn-sm" href={`/admin/crm/opportunities?source=TICKET&sourceId=${detail.id}`}>{L('Create sales opportunity', 'ساخت فرصت فروش')}</a>}
         <div className="ticket-ops-assignment"><label htmlFor="ticket-assignee">{L('Assigned specialist', 'کارشناس مسئول')}</label><select id="ticket-assignee" className="input" value={detail.assignedToId ?? ''} disabled={busy} onChange={event => void assign(event.target.value ? Number(event.target.value) : null)}><option value="">{L('Unassigned', 'واگذار نشده')}</option>{staff.filter(person => person.departments === null || person.departments.includes(detail.department)).map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</select>{detail.slaDueAt && !detail.firstResponseAt && <small>{L('First response due', 'مهلت پاسخ اولیه')}: {date(detail.slaDueAt)}</small>}</div>
         <TicketSubscriptionContext id={detail.subscriptionId} username={detail.subscriptionUsername} link={detail.subscriptionLink} />{(detail.productId || detail.device || detail.issueType || Object.keys(detail.customFields || {}).length > 0) && <div className="ticket-ops-context">{detail.subscriptionId && (detail.device || detail.issueType) && <span>{detail.device ? deviceLabel(detail.device, locale) : ''}{detail.issueType ? ` · ${issueLabel(detail.issueType, locale)}` : ''}</span>}{detail.productId && <span>{L('Product', 'محصول')} #{detail.productId}</span>}{Object.entries(detail.customFields || {}).map(([key, value]) => { const field = detail.departmentFields?.find(item => item.key === key); return <span key={key}>{fa ? field?.labelFa || key : field?.labelEn || key}: {typeof value === 'boolean' ? (value ? L('Yes', 'بله') : L('No', 'خیر')) : value}</span> })}</div>}
         <div className="ticket-ops-messages">{detail.messages.map(message => <article key={message.id} className={`ticket-ops-message ${message.fromAdmin ? 'is-staff' : ''} ${message.internal ? 'is-internal' : ''}`}><div className="ticket-ops-message-head"><span className="ticket-ops-avatar">{!message.fromAdmin && detail.userAvatar ? <img src={detail.userAvatar} alt="" width={28} height={28} loading="lazy" /> : message.fromAdmin ? 'H' : (detail.userName || detail.user).charAt(0).toUpperCase()}</span><strong>{message.internal ? L('Internal note · staff only', 'یادداشت داخلی · فقط کارکنان') : message.fromAdmin ? L('Support team', 'تیم پشتیبانی') : detail.userName || detail.user}</strong><time>{date(message.createdAt)}</time></div><div className="ticket-message-body" dangerouslySetInnerHTML={{ __html: message.body }} /><TicketAttachmentList files={message.attachments} /></article>)}</div>

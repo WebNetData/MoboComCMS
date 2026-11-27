@@ -22,6 +22,7 @@ export default function FormsAdmin() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [form, setForm] = useState<FormDefinition | null>(null)
   const [tab, setTab] = useState<Tab>('build')
+  const [entryLink, setEntryLink] = useState<{ formId: number; id: number } | null>(null)
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
@@ -55,7 +56,11 @@ export default function FormsAdmin() {
       if (wanted.get('tab') === 'queue') setQueue(true)
       if (start) {
         setForm(structuredClone(start))
-        if (wanted.get('tab') === 'inbox') setTab('inbox')
+        if (wanted.get('tab') === 'inbox') {
+          setTab('inbox')
+          const entryId = Number(wanted.get('entry'))
+          if (start.id === id && Number.isSafeInteger(entryId) && entryId > 0 && entryId <= 2_147_483_647) setEntryLink({ formId: id, id: entryId })
+        }
         if (wanted.get('tab') === 'webhooks' && (!id || start.id === id)) setTab('webhooks')
       } else setPicking(true)
     }).catch((e) => setNotice({ tone: 'error', text: e.message })).finally(() => setLoading(false))
@@ -135,7 +140,7 @@ export default function FormsAdmin() {
         {tab === 'build' && <Builder form={form} onChange={edit} />}
         {tab === 'settings' && <SettingsPanel form={form} onChange={edit} />}
         {tab === 'preview' && (problem ? <p className="sa-hint">پیش‌نمایش پس از رفع خطای بالا نمایش داده می‌شود: {problem}</p> : <><p className="sa-hint">پیش‌نمایش زنده؛ شرط‌ها و مرحله‌ها کار می‌کنند اما فرم ارسال نمی‌شود.</p><PublicForm key={JSON.stringify(form)} form={publicForm({ ...form, settings: settingsOf(form) })} preview /></>)}
-        {tab === 'inbox' && (form.id ? <Inbox formId={form.id} fields={form.fields} forms={forms} me={me} manager={canBuild} onNotice={say} /> : <p className="sa-hint">ابتدا فرم را ذخیره کنید.</p>)}
+        {tab === 'inbox' && (form.id ? <Inbox key={form.id} formId={form.id} initialEntryId={entryLink?.formId === form.id ? entryLink.id : null} fields={form.fields} forms={forms} me={me} manager={canBuild} onNotice={say} /> : <p className="sa-hint">ابتدا فرم را ذخیره کنید.</p>)}
         {tab === 'webhooks' && canBuild && saved && <WebhookDeliveries key={saved.id} formId={saved.id} dirty={dirty} />}
       </div>}
     </div>

@@ -1,5 +1,58 @@
 # Continuous customer engagement — 2026-11-07
 
+## Sales opportunities — 2026-11-27
+
+Continue `.mobocom/crm-sales-pipeline`, branch
+`feat/crm-sales-pipeline-2026-11-27`, from merged main `9d874d61`.
+[Scenario and acceptance](../../specs/crm-opportunities/SPEC.md).
+
+Livechat CRM owns opportunities, versioned stage changes and a
+permission-scoped Persian board. The manager can view company-wide work
+and assign eligible colleagues. Other CRM staff view their own
+opportunities. A form answer or ticket can be converted once after the
+actor's source access and ownership are checked. An anonymous form needs an
+explicit existing customer. Source links return to the original record and
+are resolved against current source permissions. CRM does not retain
+copies of answers, tickets or login credentials.
+
+The existing follow-up desk and queue own due dates and completion. The
+assigned staff member receives an internal inbox reminder from 09:00
+Tehran on the due date. The job rechecks authority, and closed or removed
+work produces no notice. Reassigning an opportunity preserves prior
+individual task assignments. Closing an opportunity atomically cancels
+its open linked tasks. Reaching WON or LOST is final for this workflow.
+Reports show stage counts, open work without a change for 14 days, closed
+success rate, and estimated opportunity value by currency. They do not
+post money or create orders.
+
+PostgreSQL 17 ran in disposable Docker databases as a non-superuser with
+Linux UID1000. The empty database applied 228 migrations. The populated
+upgrade kept an existing follow-up, ticket and form response. Seven
+registered connected suites passed, covering source guards and dedupe,
+concurrent changes, history, reporting, internal-only reminder
+deduplication, closure, erasure, and shared Forms/Support/queue behavior.
+Forty-two scoped Forms and Livechat tests, TypeScript, architecture,
+source/import and security invariants passed. Scoped Semgrep and redacted
+Gitleaks reported zero findings. React Doctor reported no blocking
+errors. It flagged complexity and asynchronous fetching in the new
+components. The fetch effects discard aborted responses.
+
+Edge exercised actual fixture-backed creation from the customer
+profile, Jalali selection, conversion from a permitted ticket and an
+anonymous form, navigation to the original response, linked follow-up
+creation and navigation from its queue, stage history, closing and
+permission/Origin denials. At 1440 and 390 in both themes the Persian
+board and detail passed scoped axe with zero violations, no viewport
+overflow or page errors. The stage, owner, and stale filters passed.
+
+Apply additive migration `20270415120000_crm_opportunities` before
+starting the new application. No backfill is needed. Roll back the app
+with the data tables intact. Preserve the erasure entry points for
+customer and staff rows. Jobs executing while Livechat is disabled skip
+their reminder. An older runtime can mark queued reminders as unknown
+jobs. Review the failed reminder jobs after restoring the feature. The
+owner merges and deploys.
+
 ## My follow-ups — 2026-11-27
 
 On `.mobocom/crm-workdesk`, `feat/crm-workdesk-2026-11-27` from merged

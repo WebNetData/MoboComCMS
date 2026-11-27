@@ -8,6 +8,8 @@ import { tehranDay } from '@/shared/time/day'
 import { CRM_PERMISSIONS } from '@/modules/livechat/domain/crm-desk'
 import { type FollowUpList, type FollowUpStatus, validFollowUpDay, validFollowUpId } from '@/modules/livechat/domain/crm-follow-ups'
 import { ChatError } from '@/modules/livechat/domain/livechat'
+import { currentOpportunityActor } from './crm-opportunities/access'
+import { queueOpportunityFollowUpReminder } from './crm-opportunity-reminders'
 
 export const mayManageFollowUps = (actor: AuthedUser) => actor.roleId == null || Boolean(actor.permissions?.includes('users.manage'))
 const eligible = (staff: { roleId: number | null; roleRef: { permissions: string } | null }) =>
@@ -51,7 +53,7 @@ function taskFields(input: Record<string, unknown>) {
   return { title, dueDay: input.dueDay }
 }
 
-async function assigneeFor(tx: Prisma.TransactionClient, actor: AuthedUser, id: unknown) {
+export async function assigneeFor(tx: Prisma.TransactionClient, actor: AuthedUser, id: unknown) {
   if (!validFollowUpId(id)) throw new ChatError('مسئول پیگیری معتبر نیست')
   if (id !== actor.id && !mayManageFollowUps(actor)) throw new ChatError('برای واگذاری به همکار دسترسی ندارید', 403)
   const staff = await tx.user.findFirst({ where: { ...activeStaff, id }, select: staffSelect })
@@ -59,25 +61,45 @@ async function assigneeFor(tx: Prisma.TransactionClient, actor: AuthedUser, id: 
   return staff.id
 }
 
-export async function saveFollowUp(req: NextRequest, actor: AuthedUser, userId: number, input: Record<string, unknown>, create: boolean) {
+export async function saveFollowUp(req: NextRequest, viewer: AuthedUser, userId: number, input: Record<string, unknown>, create: boolean) {
+  const linkedId = create
+    ? input.opportunityId
+    : validFollowUpId(input.id)
+      ? (await db.crmFollowUp.findFirst({ where: { id: input.id, userId }, select: { opportunityId: true } }))?.opportunityId
+      : null
+  if (linkedId != null && !validFollowUpId(linkedId)) throw new ChatError('شناسهٔ فرصت معتبر نیست')
+  const initialOpportunity = linkedId
+    ? await db.crmOpportunity.findFirst({ where: { id: linkedId, userId }, select: { assigneeId: true } })
+    : null
   return db.$transaction(async tx => {
     // Match the account erasure lock on both sides of a new assignment.
     if (!process.env.DATABASE_URL?.startsWith('file:')) {
-      const ids = [...new Set([userId, actor.id, ...(validFollowUpId(input.assigneeId) ? [input.assigneeId] : [])])]
+      const ids = [...new Set([userId, viewer.id, ...(validFollowUpId(input.assigneeId) ? [input.assigneeId] : []), ...(initialOpportunity?.assigneeId ? [initialOpportunity.assigneeId] : [])])]
       await tx.$queryRaw(Prisma.sql`SELECT id FROM "User" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`)
+      if (linkedId) await tx.$queryRaw(Prisma.sql`SELECT id FROM "CrmOpportunity" WHERE id = ${linkedId} FOR UPDATE`)
     }
     if (!await tx.user.findFirst({ where: customerWhere(userId), select: { id: true } })) throw new ChatError('مشتری پیدا نشد', 404)
+    const actor = linkedId ? await currentOpportunityActor(req, tx, viewer.id) : viewer
+    let opportunity: { id: number; assigneeId: number | null; stage: string } | null = null
+    if (linkedId) {
+      opportunity = await tx.crmOpportunity.findFirst({ where: { id: linkedId, userId }, select: { id: true, assigneeId: true, stage: true } })
+      if (!opportunity || opportunity.assigneeId !== initialOpportunity?.assigneeId) throw new ChatError('فرصت تغییر کرده است. صفحه را تازه کنید', 409)
+      if (create && !mayManageFollowUps(actor) && opportunity.assigneeId !== actor.id) throw new ChatError('برای پیگیری این فرصت دسترسی ندارید', 403)
+      if (opportunity.stage === 'WON' || opportunity.stage === 'LOST') throw new ChatError('فرصت بسته شده است', 409)
+    }
     if (create) {
       const fields = taskFields(input)
       if (fields.dueDay < tehranDay()) throw new ChatError('موعد پیگیری تازه نمی‌تواند در گذشته باشد')
-      const assigneeId = await assigneeFor(tx, actor, input.assigneeId ?? actor.id)
-      const row = await tx.crmFollowUp.create({ data: { ...fields, userId, assigneeId, createdById: actor.id }, select: { id: true, version: true } })
+      const assigneeId = await assigneeFor(tx, actor, input.assigneeId ?? opportunity?.assigneeId ?? actor.id)
+      const row = await tx.crmFollowUp.create({ data: { ...fields, userId, assigneeId, createdById: actor.id, opportunityId: opportunity?.id }, select: { id: true, version: true } })
+      if (opportunity) await queueOpportunityFollowUpReminder(tx, { ...row, dueDay: fields.dueDay })
       await auditAdminStrict({ req, actor, action: 'crm.follow_up.create', targetType: 'user', targetId: userId, metadata: { followUpId: row.id, assigneeId } }, tx)
       return row
     }
     if (!validFollowUpId(input.id) || !validFollowUpId(input.version)) throw new ChatError('شناسه یا نسخهٔ پیگیری معتبر نیست')
     const row = await tx.crmFollowUp.findFirst({ where: { id: input.id, userId } })
     if (!row) throw new ChatError('پیگیری پیدا نشد', 404)
+    if (row.opportunityId !== (linkedId ?? null)) throw new ChatError('پیگیری تغییر کرده است. فهرست را تازه کنید', 409)
     if (row.assigneeId !== actor.id && !mayManageFollowUps(actor)) throw new ChatError('تنها مسئول یا مدیر کاربران می‌تواند این پیگیری را تغییر دهد', 403)
     if (row.version !== input.version || row.status !== 'OPEN') throw new ChatError('پیگیری تغییر کرده است. فهرست را تازه کنید', 409)
 
@@ -92,6 +114,7 @@ export async function saveFollowUp(req: NextRequest, actor: AuthedUser, userId: 
       data: { ...fields, status, assigneeId, version: { increment: 1 } },
     })
     if (changed.count !== 1) throw new ChatError('پیگیری تغییر کرده است. فهرست را تازه کنید', 409)
+    if (row.opportunityId && status === 'OPEN') await queueOpportunityFollowUpReminder(tx, { id: row.id, version: row.version + 1, dueDay: fields.dueDay })
     await auditAdminStrict({ req, actor, action: 'crm.follow_up.update', targetType: 'user', targetId: userId, metadata: { followUpId: row.id, status, assigneeId, version: row.version + 1 } }, tx)
     return { id: row.id, version: row.version + 1 }
   })

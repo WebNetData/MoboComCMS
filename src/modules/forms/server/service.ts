@@ -279,13 +279,14 @@ export async function quoteForm(slug: string, input: unknown) {
 
 // ------------------------------------------------------------------ inbox
 
-export interface SubmissionQuery { formId: number; /** The work queue across several forms (then `formId` is ignored). */ formIds?: number[]; /** A handler (not a manager): what colleagues have taken is left out. */ viewer?: number; mine?: number; unassigned?: boolean; status?: string; stage?: string; q?: string; page?: number; from?: string; to?: string }
+export interface SubmissionQuery { formId: number; entryId?: number; /** The work queue across several forms (then `formId` is ignored). */ formIds?: number[]; /** A handler (not a manager): what colleagues have taken is left out. */ viewer?: number; mine?: number; unassigned?: boolean; status?: string; stage?: string; q?: string; page?: number; from?: string; to?: string }
 
 /** What a handler may see: the answers nobody holds and their own (owner, 2026-10-28: a taken answer is private). */
 const visible = (query: Pick<SubmissionQuery, 'viewer'>) => (query.viewer ? { OR: [{ assigneeId: null }, { assigneeId: query.viewer }] } : {})
 const where = (query: SubmissionQuery) => ({
   formId: query.formIds ? { in: query.formIds } : query.formId,
   ...visible(query),
+  ...(query.entryId ? { id: query.entryId } : {}),
   ...(query.mine ? { assigneeId: query.mine } : query.unassigned ? { assigneeId: null, stage: { in: ['OPEN', 'IN_PROGRESS'] } } : {}),
   ...(query.status === 'ALL' || !query.status ? { status: { not: 'SPAM' } } : STATUSES.includes(query.status as SubmissionStatus) ? { status: query.status } : {}),
   ...(query.q ? { data: { contains: query.q.slice(0, 100) } } : {}),

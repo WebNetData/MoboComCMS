@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
     } catch (error) { return failure(error) }
   }
   const formId = Number(q.get('formId'))
+  const entryId = q.has('entry') ? Number(q.get('entry')) : undefined
+  if (entryId !== undefined && (!Number.isSafeInteger(entryId) || entryId < 1 || entryId > 2_147_483_647 || !formId || q.has('export') || q.has('view'))) return err('شناسهٔ پاسخ معتبر نیست')
   // formId=0 is the work queue: the answers of every form this member of staff may handle.
   if (formId === 0 && !q.get('view') && !q.get('export')) {
     const formIds = (await listForms()).filter((form) => mayHandle(form, reader, builder)).map((form) => form.id!)
@@ -45,7 +47,7 @@ export async function GET(req: NextRequest) {
     return ok({ ...rows, rows: rows.rows.map((row) => ({ ...row, canAttachPaidServiceOrder })) })
   }
   if (!Number.isSafeInteger(formId) || formId < 1) return err('شناسه نامعتبر')
-  const query = { formId, viewer: builder ? undefined : reader.id, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free', stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
+  const query = { formId, entryId, viewer: builder ? undefined : reader.id, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free', stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
   try {
     await assertMayHandleForm(formId, reader, builder)
     if (q.get('view') === 'fields') return ok(await formFieldStats(formId, builder ? undefined : reader.id))

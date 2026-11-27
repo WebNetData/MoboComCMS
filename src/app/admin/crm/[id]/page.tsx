@@ -30,6 +30,7 @@ async function post(body: Record<string, unknown>) {
 /** The 360° customer file: value, segment, tags, notes and one timeline of orders, tickets, chats, wallet and more. */
 export default function CustomerFile() {
   const formsOn = useModuleEnabled('forms')
+  const crmOn = useModuleEnabled('livechat')
   const { id } = useParams<{ id: string }>()
   const [data, setData] = useState<Profile | null>(null)
   const [error, setError] = useState('')
@@ -69,7 +70,10 @@ export default function CustomerFile() {
           <form onSubmit={(e) => { e.preventDefault(); if (tag.trim()) void toggleTag(tag.trim(), true) }} className="sa-row"><input className="input" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="+ برچسب" aria-label="برچسب تازه" style={{ width: 120, paddingBlock: 4 }} /></form>
         </div>
       </div>
-      <div className="sa-head-actions"><a className="btn btn-ghost" href="#follow-ups-heading">پیگیری مشتری</a><Link href={`/admin/users/${c.id}`} className="btn btn-ghost">ویرایش حساب</Link><Link href={`/admin/tickets?user=${c.id}`} className="btn btn-ghost">تیکت‌ها</Link></div>
+      <div className="sa-head-actions">
+        {crmOn && <><Link href={`/admin/crm/opportunities?userId=${c.id}`} className="btn btn-ghost">فرصت‌های فروش</Link><Link href={`/admin/crm/opportunities?userId=${c.id}&create=1`} className="btn btn-ghost">ثبت فرصت فروش</Link></>}
+        <a className="btn btn-ghost" href="#follow-ups-heading">پیگیری مشتری</a><Link href={`/admin/users/${c.id}`} className="btn btn-ghost">ویرایش حساب</Link><Link href={`/admin/tickets?user=${c.id}`} className="btn btn-ghost">تیکت‌ها</Link>
+      </div>
     </header>
 
     <div className="sa-kpis">
