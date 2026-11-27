@@ -210,6 +210,8 @@ CRM customer follow-ups2026-11-27: FUNCTIONAL bounded local. An assigned staff m
 
 CRM My follow-ups2026-11-27: FUNCTIONAL bounded local. The existing workdesk and paged CRM queue combine Tehran due buckets, own/manager assignee scope, and versioned completion. PostgreSQL and four scoped RTL Edge/axe views passed. [Evidence and limits](handoffs/CRM_ENGAGEMENT.md#my-follow-ups--2026-11-27).
 
+CRM sales opportunities2026-11-27: Forms/Ticket conversion, Persian opportunity stages, linked follow-ups and per-currency estimated sales reports. PostgreSQL and the populated upgrade passed within the test scope. [Evidence and limits](handoffs/CRM_ENGAGEMENT.md#sales-opportunities--2026-11-27).
+
 Forms webhook delivery2026-11-27: FUNCTIONAL bounded local. Submission, payment and stage dispatches join the existing queue with pre-send retries and uncertainty review. Managers can inspect, replay and test saved endpoints. PostgreSQL, populated upgrade, synthetic TLS and four Persian Edge views passed. [Evidence and rollback](handoffs/FORMS_AND_OPERATIONS.md#durable-form-webhook-delivery--2026-11-27).
 
 CRM engagement2026-11-07: FUNCTIONAL bounded local — four closed opt-in journey kinds; stable birthday/period receipts survive notification retention; serializable caps/window/current eligibility; Admin/history/member preferences.63 focused cases, real174→176 migration preservation, native CRM/4 existing queue-notification suites, three deliberate faults, actual themed RTL Admin/member browser and scoped axe0 passed. Real provider delivery/read/conversion and production activation remain unverified. [Owners, evidence and rollback](handoffs/CRM_ENGAGEMENT.md).

@@ -44,6 +44,7 @@ const CHECKS = [
   'crm-customer-desk',
   'crm-follow-ups',
   'crm-follow-up-queue',
+  'crm-opportunities',
   'automation-event-recovery',
   'ai-connection',
   'ai-engineering',

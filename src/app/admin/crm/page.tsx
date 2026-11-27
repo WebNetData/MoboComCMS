@@ -63,6 +63,7 @@ function Desk() {
     <header className={styles.heading}>
       <div><h1>{CRM_TITLE}</h1><p>مشتریان را پیدا کنید و سابقهٔ خرید و پیگیری هر نفر را در پرونده‌اش ببینید.</p></div>
       <div className={styles.actions}>
+        {followUpsOn && data && <Link className="btn btn-ghost" href="/admin/crm/opportunities">فرصت‌های فروش</Link>}
         {followUpsOn && data && <Link className="btn btn-ghost" href={FOLLOW_UP_QUEUE_PATH}>پیگیری‌های من</Link>}
         {data?.mayManageEngagement && <Link className="btn btn-ghost" href="/admin/crm/engagement">ارتباط خودکار و بازاریابی</Link>}
       </div>

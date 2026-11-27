@@ -8,7 +8,7 @@ export type FollowUpQueueQuery = { bucket: FollowUpBucket | 'all'; scope: Follow
 export type FollowUpCounts = Record<FollowUpBucket, number>
 export type FollowUpQueueItem = {
   id: number; customerId: number; customerName: string; title: string; version: number
-  assigneeId: number | null; assigneeName: string; dueDay: string; updatedAt: string
+  assigneeId: number | null; assigneeName: string; dueDay: string; updatedAt: string; opportunityId?: number | null
 }
 export type FollowUpQueue = {
   items: FollowUpQueueItem[]; counts: FollowUpCounts; today: string

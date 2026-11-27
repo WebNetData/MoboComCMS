@@ -25,24 +25,26 @@ async function countDue(where: Prisma.CrmFollowUpWhereInput, today: string): Pro
   return { overdue, today: todayCount, upcoming }
 }
 
-async function readItems(where: Prisma.CrmFollowUpWhereInput, take: number, skip = 0): Promise<FollowUpQueueItem[]> {
+async function readItems(where: Prisma.CrmFollowUpWhereInput, take: number, actor: AuthedUser, skip = 0): Promise<FollowUpQueueItem[]> {
   const rows = await db.crmFollowUp.findMany({
     where, take, skip, orderBy: [{ dueDay: 'asc' }, { id: 'asc' }],
     select: {
       id: true, title: true, userId: true, version: true, dueDay: true, updatedAt: true, assigneeId: true,
       user: { select: { name: true } }, assignee: { select: { name: true } },
+      opportunity: { select: { id: true, assigneeId: true } },
     },
   })
-  return rows.map(({ id, title, userId, version, dueDay, updatedAt, assigneeId, user, assignee }) => ({
+  return rows.map(({ id, title, userId, version, dueDay, updatedAt, assigneeId, user, assignee, opportunity }) => ({
     id, title, customerId: userId, customerName: user.name || `مشتری ${userId}`, version, dueDay, updatedAt: updatedAt.toISOString(),
     assigneeId, assigneeName: assignee?.name || (assigneeId ? `همکار ${assigneeId}` : ''),
+    opportunityId: opportunity && (mayManageFollowUps(actor) || opportunity.assigneeId === actor.id) ? opportunity.id : null,
   }))
 }
 
 export async function followUpWorkdesk(actor: AuthedUser) {
   const today = tehranDay()
   const where = { ...open, assigneeId: actor.id }
-  const [counts, items] = await Promise.all([countDue(where, today), readItems(where, 5)])
+  const [counts, items] = await Promise.all([countDue(where, today), readItems(where, 5, actor)])
   return { counts, items, today }
 }
 
@@ -64,6 +66,6 @@ export async function listFollowUpQueue(actor: AuthedUser, query: FollowUpQueueQ
   const items = total ? await readItems({
     ...where,
     ...(query.bucket === 'all' ? {} : { dueDay: dateWhere(today)[query.bucket] }),
-  }, PAGE_SIZE, (page - 1) * PAGE_SIZE) : []
+  }, PAGE_SIZE, actor, (page - 1) * PAGE_SIZE) : []
   return { items, counts, today, page, pageCount, staff, canManage }
 }
