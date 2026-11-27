@@ -1,0 +1,12 @@
+.stack { display: grid; gap: 16px; }
+.controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.controls > label { flex: 1 1 220px; }
+.delivery { overflow-wrap: anywhere; }
+.rowHead { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.rowHead h3 { margin: 0; font-size: 1rem; }
+.details { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 12px 0; }
+.details div { min-width: 120px; }
+.details dt { font-size: .85em; }
+.details dd { margin: 0; }
+.replay { display: grid; gap: 12px; margin-top: 12px; }
+.replay p { margin: 0; }

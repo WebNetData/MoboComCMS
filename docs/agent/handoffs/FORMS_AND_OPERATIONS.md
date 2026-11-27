@@ -2,6 +2,58 @@ CRM engagement2026-11-07: continue [the scoped CRM handoff](CRM_ENGAGEMENT.md) f
 
 # Form builder, held work and platform safety — continue existing work
 
+## Durable Form webhook delivery — 2026-11-27
+
+Authoritative checkout `.mobocom/forms-webhook-delivery`, branch
+`feat/forms-webhook-delivery-2026-11-27`, based on merged main `41596450`.
+Forms creates one `FormWebhookDelivery` per matching destination and
+persists its Operations job in the submission, payment, or stage
+transaction. Payment fulfillment still reconciles while Forms is off.
+Previously queued sends wait while the module is off. An edited, removed
+or paused live destination cancels an old unsent dispatch at the next
+worker check. The database queue and Forms scheduler reconciliation cover
+retries, interrupted workers and expired payloads.
+
+The existing envelope and optional HMAC are retained. The
+`x-mobocom-event-id` header is stable per delivery and clients can
+deduplicate by it. DNS results are checked and the TLS connection is
+pinned. The receiver's response body is discarded. Confirmed pre-send
+failures retry after 1, 5 and 20 minutes. The worker holds interrupted runs
+and uncertain outcomes for review.
+
+In Forms → ارسال‌های وب‌هوک, `cms.pages` managers can filter status within
+the selected form, inspect attempt count and HTTP status, test a saved
+paused target with a synthetic envelope, and replay an eligible delivery
+with confirmation and a reason in the canonical audit log. Only the
+host and operational metadata are returned in the history. The production
+payload is encrypted using the existing delivery crypto configuration.
+It is cleared on success. Unresolved payloads become ineligible after
+seven days and the scheduler clears them. Account erasure cancels and clears associated outstanding
+payloads. Removing a form or submission cascades its deliveries.
+
+Validation ran in isolated Linux UID1000 and PostgreSQL 17 with no `.env`.
+The empty database applied 227 migrations. The populated upgrade
+preserved the original saved form, endpoint, and submission without
+historical sends. Edge checked the Persian tab at 1440 and 390 in both
+themes, including real filter, replay and paused synthetic-test requests,
+form scoping, handler and Origin denials and scoped axe with zero
+violations. The registered PostgreSQL fixture covers source rollback,
+duplicate claims, automatic retry, delivery uncertainty, audited replay,
+module-off behavior, changed targets, synthetic data, expiry, and a
+concurrent paid claim. TLS checks use local synthetic receivers.
+Nine connected checks passed, along with 58 scoped unit and transport
+cases, TypeScript, source/import, architecture and security invariants.
+React Doctor reported zero blocking errors and one complexity warning
+on the new component. Configured production receivers were outside the
+test environment.
+
+Apply additive migration `20270414120000_forms_webhook_delivery` before
+starting the new runtime. No history backfill is needed. To roll back the
+sender, pause Forms destinations for the switchover and keep the delivery
+table. The prior version uses inline sends and has no worker for this job
+kind. Reconcile outstanding rows when the durable sender is restored.
+The owner merges and deploys.
+
 ## Atomic Support ticket ownership — 2026-11-27
 
 Owner requested the concurrency fix from the whole-site audit. The worktree is

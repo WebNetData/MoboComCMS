@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   if (!reader) return err('دسترسی مجاز نیست', 403)
   // Somebody who only handles answers sees the forms given to them.
   const forms = (await listForms()).filter((form) => mayHandle(form, reader, Boolean(builder)))
+    .map(form => !builder && form.settings ? { ...form, settings: { ...form.settings, webhooks: [] } } : form)
   if (req.nextUrl.searchParams.get('staff') === '1') return ok({ staff: await formStaff() })
   // Older clients read the bare list.
   if (req.nextUrl.searchParams.get('legacy') === '1') return ok(forms)

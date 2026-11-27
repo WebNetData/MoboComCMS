@@ -49,9 +49,17 @@ The owner asked for a Gravity-Forms-class builder that any part of the site can 
 - **Acceptance**. `scripts/forms-counter.connected.cjs` registered in `scripts/run-pg-checks.cjs` exercises the actual Forms routes against PostgreSQL with manager, assigned handler, other handler and guest. Check draft intake, paid-form denial, sealed lock persistence, receipt privacy and audit. Actual browser checks must cover queue/header/service links, selected-form navigation, picker change, retry/empty/error states, successful save and both receipts at1440/390 in light/dark. `scripts/forms.test.cjs`, TypeScript, architecture, source, migration manifest and affected React Doctor complete the scoped checks. Executed outcomes belong in the handoff.
 - **Rollback**. Revert navigation/picker files. Retain stored submissions and the release's additive schema.
 
+## Durable webhook delivery — 2026-11-27
+
+- Form managers (`cms.pages`) configure existing destinations and view their delivery summaries. Saved paused destinations accept a synthetic test, which carries no submission data. Existing destinations remain enabled unless paused.
+- A public non-spam free submission, claimed payment fulfillment, or committed work-stage change records its configured deliveries and queues them in the same PostgreSQL transaction. Paid requests still emit externally on payment. Each destination gets a stable event ID and the existing JSON and HMAC contract. Consumers can deduplicate by `x-mobocom-event-id`. There is no historical backfill or ordering guarantee between events when a delivery is retried.
+- The worker checks Forms availability and the saved destination before sending. It retries only failures before HTTP data could be sent. Uncertain outcomes are held for review. Managers can manually replay an eligible failure with a reason and explicit acknowledgement. Replay preserves the body and event ID and records a strict audit.
+- History shows metadata only. Delivered payloads are cleared at once, and unresolved payloads expire after seven days. Account erasure clears associated payloads and invalidates active claims. Deleting a form or response cascades to its deliveries. Public HTTPS is DNS-pinned, with no redirects or captured response body.
+- Verify atomic producers, retry and replay races, paused tests, stable signatures, authorization and erasure with `scripts/forms-webhook-delivery.connected.cjs` on PostgreSQL. Verify history, filters and admin commands in the actual Persian Forms UI.
+
 ## Remaining builder gaps
 
-Name and address groups; attachment kinds beyond PDF and images; a resume link that works across devices (drafts live in one browser); retries and a delivery log for webhooks; resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop.
+Name and address groups; attachment kinds beyond PDF and images; a resume link that works across devices (drafts live in one browser); resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop.
 
 ## Acceptance
 
