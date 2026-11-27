@@ -70,6 +70,11 @@ const { NextRequest } = require('next/server')
     assert.equal((await machineCall('GET', `/api/v2/pay/terminals/${terminal.id}/gateways`, null, token)).status, 401)
     const rotatedOptions = await json(await machineCall('GET', `/api/v2/pay/terminals/${terminal.id}/gateways`, null, rotatedToken))
     assert.equal(rotatedOptions.status, 200)
+    const replay = await json(await machineCall('POST', '/api/v2/pay/payments', {
+      terminalId: terminal.id, externalId: stamp + '-key-payment', amountRial: '1000000',
+    }, rotatedToken, { 'idempotency-key': stamp + '-key-idem' }))
+    assert.equal(replay.status, 201)
+    assert.equal(replay.body.data.id, paymentId, 'rotation preserves terminal idempotency')
     const stale = await json(await adminCall('PATCH', 'https://mobocom.invalid/api/admin/mobocom-pay/terminal-keys', {
       merchantId: merchant.id, terminalId: terminal.id, id: key.id, version: key.version,
       action: 'revoke', note: 'Stale revocation', confirmed: true,
@@ -90,7 +95,7 @@ const { NextRequest } = require('next/server')
     assert.ok(revoked.body.data.key.revokedAt)
     assert.equal(await db.auditLog.count({ where: { targetId: key.id, action: { in: ['mobocom-pay.terminal-key.issue', 'mobocom-pay.terminal-key.rotate', 'mobocom-pay.terminal-key.revoke'] } } }), 3)
     assert.equal((await json(await machineCall('GET', `/api/v2/pay/terminals/${terminal.id}/gateways`, null, rotatedToken))).status, 401)
-    console.log('Pay terminal keys PASS: safe one-time disclosure, terminal-scoped v2, V1/settlement denial, rotate/revoke, stale versions and audit rollback')
+    console.log('Pay terminal keys PASS: one-time disclosure, terminal-scoped v2, V1/settlement denial, rotation replay, revocation, stale versions and audit trail')
   } finally {
     if (keys.length) await db.payTerminalApiKey.deleteMany({ where: { id: { in: keys } } })
     await db.payPayment.deleteMany({ where: { merchantId: merchant.id } })

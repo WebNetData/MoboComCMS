@@ -27,6 +27,24 @@ the merged management, support and stock changes. The corrected tests follow
 the current Magazine-only mapping, canonical ticket reply owner and actual
 PostgreSQL stock lock.
 
+The final Linux Node 22 gate exited zero. It ran 1,170 site tests, 53 connected
+tests, 4 backup tests and 14 billing tests, as well as TypeScript and the
+static gates. A separate PostgreSQL 17 on Windows reran the updated credential
+case and confirmed that repeating the same request after key rotation returns
+the original payment. The changes are in [PR #518](https://github.com/WebNetData/MoboComCMS/pull/518).
+
+Four Playwright runs passed against the local production preview and its
+loopback PostgreSQL 17. Light and dark themes were each tested at 1440px
+and 390px. Each run covered creation, one-time reveal, rejected requests
+for a different terminal and settlement access, payment creation and lookup,
+rotation with payment replay, and revocation. The scoped axe and page-error
+checks passed. The Windows package trace check flagged paths in existing
+routes. The Windows build was used for local browser verification.
+
+Provider commissioning in the destination environment still requires a real
+bank SMS, a merchant bot and controlled verification with the destination
+provider credentials.
+
 ## Merchant and terminal gateway access — 2026-11-27
 
 Continue `.mobocom/pay-terminal-gateway-control` on
