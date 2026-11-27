@@ -1,3 +1,10 @@
+# AI management review routines — 2026-11-27
+
+On `feat/ai-management-platform-2026-11-27` after local desk commit `e9d66c9d`,
+the existing scheduled queue records per-admin evidence and the desk tracks
+approval, rejection, and completion outcomes. The additive migration is
+registered for the next release. [Scope and checks](../docs/agent/handoffs/AI_MANAGEMENT.md#scheduled-scope-and-review-outcomes).
+
 # AI management desk and platform map — 2026-11-27
 
 Continue `.mobocom/ai-management-platform`, branch

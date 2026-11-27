@@ -18,8 +18,8 @@ export async function canHandleTicket(user: AuthedUser, slug: string) {
   return canHandleDepartment(user, department)
 }
 
-export async function allowedDepartmentSlugs(user: AuthedUser) {
+export async function allowedDepartmentSlugs(user: AuthedUser, reader: Pick<typeof db, 'ticketDepartment'> = db) {
   if (user.roleId == null || user.permissions?.includes('tickets.departments.manage')) return null
-  const departments = await db.ticketDepartment.findMany({ select: { slug: true, roleIds: true } })
+  const departments = await reader.ticketDepartment.findMany({ select: { slug: true, roleIds: true } })
   return departments.filter(department => canHandleDepartment(user, department)).map(department => department.slug)
 }

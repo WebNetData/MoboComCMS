@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import type { ManagementAdvice, ManagementReport } from '@/modules/ai/domain/management'
+import ManagementReviewHistory from './ReviewHistory'
 import s from './page.module.css'
 
 const endpoint = '/api/admin/ai/management'
@@ -67,6 +68,7 @@ export default function ManagementPage() {
           <time dateTime={report.checkedAt}>آخرین بررسی {time.format(new Date(report.checkedAt))}</time>
         </div>
         <Recommendations report={{ ...report, sections: displayed }} section={active} key={`${revision}:${active}`} />
+        <ManagementReviewHistory />
         <section className={s.panel} aria-labelledby="management-sections">
           <h2 id="management-sections">وضعیت بخش‌ها</h2>
           <ul className={s.sections}>

@@ -1,5 +1,43 @@
 # AI management desk — 2026-11-27
 
+## Scheduled scope and review outcomes
+
+The follow-up extends local commit `e9d66c9d`. The desk adds optional daily
+or weekly checks, a manual snapshot, and pending, approved, dismissed and
+completed finding states. The outcome or dismissal reason is stored on the
+private review and the action is audited. The normal domain panels still own
+order, content, ticket, Pay and Cloud changes.
+
+The existing Operations scheduled queue calls the due scanner. It runs a
+bounded batch and claims the schedule version/slot while recording review
+evidence in the same Serializable transaction. Current account authority and
+department scope govern reads. Access loss fences further scheduled reviews,
+and a changed section/department scope hides earlier snapshots until the same
+scope is restored. Previously scheduled grants are checked against session
+revocation and Admin 2FA policy.
+
+Migration `20270418120000_ai_management_reviews` is additive and in the
+unreleased manifest. It creates the schedule and snapshot relations. Rollback
+leaves the records in PostgreSQL. Scheduled scans use persisted signals without
+an inference request. Interactive AI advice and native reviewed commands keep
+their existing routes.
+
+PostgreSQL 17 upgrade from the preceding 230 migrations passed. Connected
+`ai-management-reviews`, `ai-management` and `ai-operations` passed.
+The new check uses real NextAuth JWT and Prisma, tests one winner under
+concurrency, denied scope/owner/Origin, version conflicts, recorded decisions,
+and schedule stop after session revocation. TypeScript, schema parity, release
+manifest, architecture and security checks passed. React Doctor reported two
+fetch-in-effect advisories and zero errors.
+
+Production webpack build and runtime tracing passed. Edge at 1440 and
+390 px, light and dark, saved settings, captured a review, approved a
+finding and reloaded its completed outcome. All four scoped axe and width
+checks passed. The production internal queue endpoint was called twice for
+one due review and committed exactly one row. The graph was refreshed and
+validated at 21,337 nodes and 85,136 edges. The new code was exercised on
+owned fixtures only.
+
 Checkout `.mobocom/ai-management-platform`, branch
 `feat/ai-management-platform-2026-11-27`, based on merged main `d55452a8`.
 Owner asked for an AI management core, per-section oversight and advice,

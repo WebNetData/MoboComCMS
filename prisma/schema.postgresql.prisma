@@ -37,6 +37,8 @@ model User {
   counterSales Order[] @relation("OrderCreator")
   aiProductionBatches AiProductionBatch[]
   aiAssistantProposals AiAssistantProposal[]
+  aiManagementSchedule AiManagementSchedule?
+  aiManagementReviews AiManagementReview[]
   aiEngineeringRuns AiEngineeringRun[]
   domains Domain[] @relation("DomainOwner")
   hostingServices HostingService[] @relation("HostingServiceOwner")
@@ -6515,4 +6517,31 @@ model HostingOperation {
   @@index([status,updatedAt])
   @@index([serviceId,createdAt])
   @@index([domainId,createdAt])
+}
+
+model AiManagementSchedule {
+  ownerId    Int      @id
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  cadence    String
+  authAt     Float?
+  authMethod String?
+  nextRunAt  DateTime?
+  version    Int      @default(1)
+  updatedAt  DateTime @updatedAt
+
+  @@index([nextRunAt])
+}
+
+model AiManagementReview {
+  id        Int      @id @default(autoincrement())
+  ownerId   Int
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  slot      DateTime
+  checkedAt DateTime
+  scopeKey  String
+  findings  String
+  version   Int      @default(1)
+
+  @@unique([ownerId, slot])
+  @@index([ownerId, checkedAt, id])
 }

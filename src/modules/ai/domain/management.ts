@@ -24,6 +24,30 @@ export type ManagementSection = {
 export type ManagementReport = { checkedAt: string; sections: ManagementSection[] }
 export type ManagementAdvice = { signalId: string; text: string }
 
+export const reviewCadences = ['OFF', 'DAILY', 'WEEKLY'] as const
+export type ReviewCadence = typeof reviewCadences[number]
+export type ReviewDecision = 'APPROVED' | 'DISMISSED' | 'DONE'
+export type ManagementFinding = ManagementSignal & {
+  sectionId: string
+  sectionLabel: string
+  href: string
+  status: 'PENDING' | ReviewDecision
+  outcome: string
+  decidedAt?: string
+}
+export type ReviewHistory = {
+  cadence: ReviewCadence
+  nextRunAt: string | null
+  scheduleVersion: number
+  reviews: {
+    id: number
+    version: number
+    checkedAt: string
+    unavailable: string[]
+    findings: ManagementFinding[]
+  }[]
+}
+
 export function managementAdvice(raw: string, ids: ReadonlySet<string>): ManagementAdvice[] {
   const value: unknown = JSON.parse(raw)
   const result = value && typeof value === 'object' && 'advice' in value ? value.advice : null

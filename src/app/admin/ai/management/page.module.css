@@ -78,3 +78,33 @@
   .scope time { width: 100%; margin-inline-start: 0; }
   .count { flex-basis: 2.5rem; }
 }
+
+.reviewSchedule, .reviewError {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-block-end: 1rem;
+}
+.reviewSchedule select, .followUpControls input {
+  min-height: 44px;
+  max-width: 100%;
+  padding-inline: .75rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--sds-size-radius-200, 8px);
+  background: var(--card);
+  font: inherit;
+}
+.reviewSchedule time { color: var(--admin-muted-text, var(--muted)); font-size: .875rem; }
+.review { border-block-start: 1px solid var(--border); padding-block: .75rem; }
+.review summary { cursor: pointer; padding-block: .25rem; }
+.review summary span { margin-inline-start: .75rem; color: var(--admin-muted-text, var(--muted)); }
+.historyList { display: grid; gap: .75rem; list-style: none; padding: 0; margin-block: .75rem 0; }
+.historyFinding { border-inline-start: 2px solid var(--border); padding-inline-start: .75rem; }
+.historyFinding h3 { margin: 0; font-size: 1rem; }
+.historyFinding p { line-height: 1.85; margin-block: .3rem; overflow-wrap: anywhere; }
+.historyFinding a { color: var(--admin-accent-text, var(--text)); text-decoration: underline; }
+.followUpControls { display: grid; gap: .5rem; margin-block-start: .75rem; }
+.followUpControls label { display: grid; gap: .3rem; }
+.followUpControls .panelHeader { justify-content: flex-start; margin: 0; }

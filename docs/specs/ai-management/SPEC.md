@@ -32,3 +32,25 @@ model explains a follow-up step for findings from that review.
   at 390 and 1440 px, first load/empty/failure states, and reviewed rendering of
   advice. Tests use synthetic data and a model double.
 - Rollback: revert the desk, route and navigation changes in code.
+
+## Scheduled reviews and follow-up
+
+- Each Admin may opt into a review every one or seven days, or run one on
+  demand. The normal scheduled queue checks due rows in bounded batches.
+  One transaction advances the due slot and records the findings, so two
+  workers cannot record the same slot. A late run schedules the next review
+  from its actual time. A disabled AI module pauses scheduled collection.
+- Scheduled authority resolves the initiating canonical User and the current
+  Admin role, sign-in revocation, second-factor requirement and section
+  permissions. A revoked grant disables that schedule. History remains
+  owner-scoped and is shown within the exact current section and department
+  scope. Settings, snapshots and review decisions use explicit same-origin
+  commands, strict rate limits and current authentication.
+- Each finding starts pending. Approve it for follow-up or dismiss it with a
+  reason. An approved item links to its owning panel and may be marked done
+  with an outcome. Audit and a version claim commit with the change. Retrying
+  an already decided version returns a conflict. Operational changes use the
+  existing approval tools and domain owners.
+- Migrate with `20270418120000_ai_management_reviews` before starting the
+  new code. Existing accounts start without a schedule. Rollback preserves
+  the two additive tables and their history.

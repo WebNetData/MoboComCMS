@@ -52,6 +52,7 @@ const CHECKS = [
   'ai-engineering',
   'ai-operations',
   'ai-management',
+  'ai-management-reviews',
   'ai-admin-operations',
   'ai-routing',
   'ai-resilience',
