@@ -160,6 +160,11 @@ test('variant inventory reservation rejects sold-out options without consuming p
   let productDecrements = 0
   const inventory = load('src/modules/catalog/server/inventory.ts', {
     '@/platform/database/prisma': { db: { $transaction: async fn => { try { return await fn({
+      $queryRaw: async (query, productId) => {
+        assert.match(query.join('?'), /FROM "Product".*FOR UPDATE/)
+        assert.equal(productId, 1)
+        return [{ id: productId }]
+      },
       orderLine: { findMany: async () => [] },
       order: { findUnique: async () => ({ productId: 1, meta: JSON.stringify({ variantId: 3 }) }) },
       inventoryReservation: { findMany: async () => [], create: async ({ data }) => data },

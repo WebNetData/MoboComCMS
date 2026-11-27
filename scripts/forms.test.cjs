@@ -368,7 +368,9 @@ test('work somebody holds is theirs: a colleague of the same standing neither re
   assert.match(adminTickets, /if \(heldByAnother\(admin, existing\.assignedToId\)\) return err\(HELD_BY_ANOTHER, 403\)/)
   assert.match(adminTickets, /if \(hasAssignment && !managesTickets\(admin\) && b\.assignedToId != null && Number\(b\.assignedToId\) !== admin\.id\) return err\(/)
   assert.match(reply, /if \(body\?\.internal !== true && heldByAnother\(agent, ticket\.assignedToId\)\) return err\(HELD_BY_ANOTHER, 403\)/)
-  assert.match(reply, /assignedToId: ticket\.assignedToId \?\? user\.id/)
+  const replyOwner = source('src/modules/support/server/ticket-reply.ts')
+  assert.match(reply, /persistTicketReply\(tx, ticket, user\.id,/)
+  assert.match(replyOwner, /assignedToId: ticket\.assignedToId \?\? actorId/)
 })
 
 test('automatic text messages have a ceiling, and a sign-in guess meets a limit on the account itself', () => {

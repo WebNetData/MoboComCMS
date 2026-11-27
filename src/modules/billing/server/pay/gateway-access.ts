@@ -4,7 +4,7 @@ import { gatewayPolicyInput, storedGatewayPolicy } from '@/modules/billing/domai
 import { merchantFeeTerms, paymentAmounts } from '@/modules/billing/domain/pay-policy'
 import { checkoutGatewayRef, listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { eligiblePayGateways } from './gateway-options'
-import { payAudit, payContext, payTransaction, type PayActor } from './context'
+import { assertPayTerminal, payAudit, payContext, payTransaction, type PayActor } from './context'
 import { assertMerchantAdministration, merchantAdminNote } from './merchant-admin/access'
 import { paySettings } from './settings'
 
@@ -23,6 +23,7 @@ export function payCollectionBank(tx: Prisma.TransactionClient, bankAccountIds: 
 }
 
 export function terminalGatewayOptions(actor: PayActor, id: string, amountRial?: string) {
+  assertPayTerminal(actor, id)
   const terminalId = policyId(id)
   return payTransaction(async tx => {
     const { settings } = await payContext(actor, tx)

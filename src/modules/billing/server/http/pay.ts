@@ -42,6 +42,7 @@ import {
   paySettings,
   botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
   adminGatewayAccess, saveGatewayAccess, terminalGatewayOptions,
+  adminTerminalKeys, changeAdminTerminalKey,
   smsSources, saveSmsSource,
   transferMonitor, transferReviewQueue, transferReviewDetail, transferReviewSearch, transferCollectionReview, decideTransferReview,
 } from '@/modules/billing/server/pay'
@@ -93,7 +94,12 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     const actor = await payActor(req, machine)
     if ((await loadMaintenance())['mobocom-pay']?.enabled && !(await requirePerm(req, 'mobocom-pay.manage')))
       throw new PayError('این بخش در حال به‌روزرسانی است', 503)
-    await limited('pay:' + actor.id)
+    await limited(actor.terminalKey ? 'pay-terminal-key:' + actor.terminalKey.id : 'pay:' + actor.id)
+    if (actor.terminalKey) {
+      const payment = resource === 'payments' && (req.method === 'POST' && parts.length === 1 || req.method === 'GET' && parts.length === 2)
+      const catalogue = req.method === 'GET' && resource === 'terminals' && parts.length === 3 && parts[2] === 'gateways'
+      if (!payment && !catalogue) throw new PayError('این عملیات در دسترسی کلید پایانه نیست', 403, 'PAY_TERMINAL_KEY_SCOPE')
+    }
     if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource); if (center) return center }
     if (parts.length === 3 && resource === 'terminals' && parts[2] === 'gateways' && !legacyMachine && req.method === 'GET') {
       const amounts = req.nextUrl.searchParams.getAll('amountRial')
@@ -183,6 +189,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource, true); if (center) return center }
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
     if (req.method === 'GET' && resource === 'gateway-access') return apiOk(await adminGatewayAccess(actor, req.nextUrl.searchParams.get('id')))
+    if (req.method === 'GET' && resource === 'terminal-keys') return apiOk(await adminTerminalKeys(actor, req.nextUrl.searchParams.get('id')))
     if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
     if (req.method === 'GET' && resource === 'sms-sources') return apiOk(await smsSources(actor))
     if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
@@ -194,6 +201,11 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       return apiOk(id ? number ? await transferReviewSearch(actor, id, number) : await transferReviewDetail(actor, id) : await transferReviewQueue(actor, req.nextUrl.searchParams))
     }
     const input = await readJsonObject(req, 16000)
+    if (resource === 'terminal-keys' && (req.method === 'POST' || req.method === 'PATCH')) {
+      const origin = req.headers.get('origin')
+      if (!origin || !originIsThisSite(origin, req.nextUrl.host)) throw new PayError('مبدأ درخواست معتبر نیست', 403)
+      return apiOk(await changeAdminTerminalKey(actor, req.method, input), req.method === 'POST' ? 201 : 200)
+    }
     if (req.method === 'PATCH' && resource === 'gateway-access') {
       const origin = req.headers.get('origin')
       if (!origin || !originIsThisSite(origin, req.nextUrl.host)) throw new PayError('مبدأ درخواست معتبر نیست', 403)

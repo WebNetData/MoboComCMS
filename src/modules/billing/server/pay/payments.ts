@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
 import { idempotencyKey, paymentAmounts, reference, text, rial, merchantFeeTerms } from '@/modules/billing/domain/pay-policy'
-import { merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
+import { assertPayTerminal, merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { reconcileReference } from './reconcile'
 import { listCheckoutGateways } from '@/modules/billing/server/gateways'
@@ -16,7 +16,9 @@ export const fingerprint = (value: unknown) =>
 export async function createPayPayment(actor: PayActor, input: Record<string, unknown>, key: string, transaction?: Prisma.TransactionClient) {
   const terminalId = text(input.terminalId, 60),
     externalId = text(input.externalId, 100),
-    idem = idempotencyKey(key)
+    rawIdem = idempotencyKey(key)
+  assertPayTerminal(actor, terminalId)
+  const idem = actor.terminalKey ? fingerprint(['pay-terminal', terminalId, rawIdem]) : rawIdem
   const requestedGatewayRef = input.gatewayRef === undefined ? '' : input.gatewayRef
   if (input.gatewayRef !== undefined && !validRoutingRef(input.gatewayRef)) throw new PayError('شناسهٔ درگاه معتبر نیست', 422, 'PAY_GATEWAY_REF_INVALID')
   const gatewayRef = String(requestedGatewayRef)

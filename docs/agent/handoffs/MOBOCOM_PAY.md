@@ -1,3 +1,32 @@
+## Terminal API credentials and release rehearsal — 2026-11-28
+
+Continue the existing gateway control branch from main `07583c07`. This slice
+adds named `mcpterm_` credentials for one terminal. They can discover that
+terminal's methods, create its payments and read their status through v2.
+Payment replay stays in the same terminal namespace across a rotation.
+The separate hash store, route allowlist and owner predicates enforce the
+boundary. Administrators with the existing Pay merchant authority issue,
+rotate and revoke with a reason, explicit confirmation and revision checks.
+Issue and rotate return the secret once. PostgreSQL stores its digest and
+display prefix. Audit contains the command and reason.
+
+Migration `20270418140000_pay_terminal_api_keys` adds the credential table.
+A disposable PostgreSQL 17 database built from the released `v1.7.27` schema
+contained a merchant, a terminal and an unpaid payment. A custom-format dump
+restored into a second database and the candidate migrated it through 233.
+The original amount, fee, net, status and fingerprint were retained. An
+isolated `v1.7.27` checkout owner with its original generated Prisma schema
+read that payment afterward. This rehearsal used synthetic records, not a
+destination environment, provider or release installer.
+
+Twelve native PostgreSQL suites passed. They include the terminal credential
+lifecycle with cross-terminal, revoked, rotated, legacy and settlement denial,
+gateway access, checkout, bot, bank collection, webhooks, Mellat and merchant
+access. The first release-gate run surfaced three older test expectations from
+the merged management, support and stock changes. The corrected tests follow
+the current Magazine-only mapping, canonical ticket reply owner and actual
+PostgreSQL stock lock.
+
 ## Merchant and terminal gateway access — 2026-11-27
 
 Continue `.mobocom/pay-terminal-gateway-control` on

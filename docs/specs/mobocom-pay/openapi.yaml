@@ -636,9 +636,14 @@ paths:
         - Merchant
       description: >-
         Read-only catalog of payment gateways currently eligible for this active merchant's terminal.
-        Requires an authenticated merchant bearer token and an active MoboCom Pay module and
+        Accepts either a merchant Bearer key or a limited terminal Bearer key (`mcpterm_` followed
+        by 64 hexadecimal characters). Terminal keys are issued, rotated, or revoked by the Pay
+        platform administrator; their secret is shown only at issuance or rotation. A terminal key
+        is bound to one terminal and only authorizes this catalog, payment creation, and payment
+        retrieval for that same terminal. Other v2 resources return 403 PAY_TERMINAL_KEY_SCOPE.
+        Requires an active MoboCom Pay module and
         section. The terminal must belong to the active merchant; a disabled terminal is returned with
-        an empty items array. When amountRial is supplied, it must follow the Rial grammar and the
+        an empty items array. A terminal key accessing another terminal receives 404. When amountRial is supplied, it must follow the Rial grammar and the
         server calculates the gross charge from current merchant fee terms, returning only methods
         compatible with that amount, provider precision, and configured payout account. Catalog refs
         are opaque and can be passed unchanged as gatewayRef when creating a v2 payment. Availability
@@ -659,9 +664,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TerminalGatewayListResponse" }
-        "401": { description: Missing or invalid bearer token. }
+        "401": { description: Missing or invalid bearer token; a revoked or rotated terminal key returns PAY_TERMINAL_KEY_INVALID. }
         "403": { description: Bearer identity has no active merchant context or the Pay section is unavailable. }
-        "404": { description: Terminal not found for the active merchant. }
+        "404": { description: Terminal not found for the active merchant or not bound to this terminal key. }
         "422": { description: Invalid amountRial. }
         "503": { description: No payment method is currently ready for this terminal. }
         default:
@@ -705,7 +710,13 @@ paths:
         must exactly match a ref returned by the terminal gateway catalog. When supplied, it is part
         of the idempotency request binding; replaying the same key with a different value conflicts.
         Omit it to preserve existing gateway selection behavior. Legacy v1 requests and signed
-        callbacks/webhooks are unchanged.
+        callbacks/webhooks are unchanged. A terminal key (`mcpterm_` plus 64 hex characters) may be
+        used instead of a merchant key only when terminalId is its bound terminal; a foreign
+        terminal returns 404. Terminal keys are issued, rotated, and revoked by the Pay platform
+        administrator and their secret is shown only at issuance or rotation. They authorize only
+        this operation, the gateway catalog, and retrieval of payments for the bound terminal; other
+        v2 resources return 403 PAY_TERMINAL_KEY_SCOPE. Revoked or rotated terminal keys return 401
+        PAY_TERMINAL_KEY_INVALID. Existing same-site Origin validation for writes still applies.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -724,6 +735,8 @@ paths:
         "409": { description: "Idempotency key was already used with a different request, including a different gatewayRef." }
         "422": { description: "Requested gatewayRef is unknown, no longer eligible, or incompatible with this payment; application code PAY_GATEWAY_NOT_AVAILABLE." }
         "503": { description: "No gateway is ready for this terminal; application code PAY_NOT_READY." }
+        "401": { description: Revoked or rotated terminal key returns PAY_TERMINAL_KEY_INVALID. }
+        "404": { description: Terminal is not found for this merchant or is not bound to this terminal key. }
         default:
           $ref: "#/components/responses/Error"
   /api/v2/pay/payments/{id}:
@@ -745,6 +758,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentResponse"
+        "401": { description: Revoked or rotated terminal key returns PAY_TERMINAL_KEY_INVALID. }
+        "403": { description: A terminal key can retrieve only payments for its bound terminal; other v2 resources return PAY_TERMINAL_KEY_SCOPE. }
+        "404": { description: Payment is not found for this merchant or belongs to another terminal key. }
         default:
           $ref: "#/components/responses/Error"
   /api/v2/pay/quotes:
@@ -823,7 +839,7 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   securitySchemes:
-    bearerAuth: { type: http, scheme: bearer }
+    bearerAuth: { type: http, scheme: bearer, description: "Use the existing merchant Bearer key for normal merchant API access. A limited terminal key has format mcpterm_ followed by 64 hexadecimal characters and may only access GET /api/v2/pay/terminals/{id}/gateways, POST /api/v2/pay/payments, and GET /api/v2/pay/payments/{id}, all bound to its one terminal. Other v2 resources return 403 PAY_TERMINAL_KEY_SCOPE; revoked/rotated terminal keys return 401 PAY_TERMINAL_KEY_INVALID. The Pay platform administrator issues, rotates, and revokes terminal keys; the secret is shown only at issuance/rotation. Existing legacy credentials/endpoints and same-site Origin validation for writes remain supported." }
   parameters:
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, description: Reuse the same key and payload for retries; a different payload conflicts., schema: { type: string, minLength: 16, maxLength: 100, pattern: '^[A-Za-z0-9_-]+$' } }
     Page: { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 100000 } }

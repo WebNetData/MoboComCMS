@@ -10,8 +10,13 @@ import { userOpensSection } from '@/modules/account/server/section-access'
 import { auditAdminStrict, auditSystemStrict } from '@/platform/audit/server'
 import { PayError } from '@/modules/billing/domain/pay'
 import { paySettings } from './settings'
+import { assertTerminalKey, resolveTerminalKey, terminalBearer, type TerminalKeyAuthority } from './terminal-key-auth'
 
-export type PayActor = { id: number; email: string; req: NextRequest; machine?: boolean; keyId?: number; botIntegrationId?: string; botKeyHash?: string }
+export type PayActor = { id: number; email: string; req: NextRequest; machine?: boolean; keyId?: number; botIntegrationId?: string; botKeyHash?: string; terminalKey?: TerminalKeyAuthority }
+
+export function assertPayTerminal(actor: PayActor, terminalId: string) {
+  if (actor.terminalKey && actor.terminalKey.terminalId !== terminalId) throw new PayError('پایانه پیدا نشد', 404, 'PAY_TERMINAL_NOT_FOUND')
+}
 export async function payTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -31,7 +36,9 @@ export async function payContext(actor: PayActor, tx: Prisma.TransactionClient, 
     throw new PayError('اجازهٔ انجام این کار را ندارید', 403)
   if (!actor.machine && !(await requireUser(actor.req, tx))) throw new PayError('نشست معتبر نیست', 401)
   if (actor.machine) {
-    if (actor.botIntegrationId) {
+    if (actor.terminalKey) {
+      await assertTerminalKey(tx, actor.id, actor.terminalKey)
+    } else if (actor.botIntegrationId) {
       const integration = await tx.payBotIntegration.findUnique({ where: { id: actor.botIntegrationId }, include: { terminal: { include: { merchant: true } } } })
       if (!integration?.active || integration.keyHash !== actor.botKeyHash || integration.terminal.merchant.userId !== actor.id || !integration.terminal.active || integration.terminal.merchant.status !== 'ACTIVE' || (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true')
         throw new PayError('اتصال ربات غیرفعال یا کلید آن تغییر کرده است', 401)
@@ -67,9 +74,16 @@ export async function payActor(req: NextRequest, machine = false): Promise<PayAc
   if (machine) {
     if (!/^Bearer [^\s]+$/i.test(req.headers.get('authorization') || '') || !(await isPublicApiEnabled()))
       throw new PayError('کلید Bearer لازم است', 401)
-    const caller = await resolveApiCaller(req)
-    if (!caller?.keyId) throw new PayError('کلید API معتبر نیست', 401)
-    actor = { id: caller.userId, email: caller.email, req, machine: true, keyId: caller.keyId }
+    const terminalToken = terminalBearer(req)
+    if (terminalToken) {
+      if (!req.nextUrl.pathname.startsWith('/api/v2/pay/')) throw new PayError('کلید پایانه در این مسیر معتبر نیست', 401, 'PAY_TERMINAL_KEY_INVALID')
+      const { user, terminalKey } = await resolveTerminalKey(req, terminalToken)
+      actor = { id: user.id, email: user.email, req, machine: true, terminalKey }
+    } else {
+      const caller = await resolveApiCaller(req)
+      if (!caller?.keyId) throw new PayError('کلید API معتبر نیست', 401)
+      actor = { id: caller.userId, email: caller.email, req, machine: true, keyId: caller.keyId }
+    }
   } else {
     const user = await requireUser(req)
     if (!user) throw new PayError('ابتدا وارد شوید', 401)

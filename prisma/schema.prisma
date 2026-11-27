@@ -6075,6 +6075,7 @@ model PayMerchant {
 }
 
 model PayTerminal {
+  apiKeys PayTerminalApiKey[]
   gatewayPolicy String @default("")
   channelType String @default("WEBSITE")
   channelUrl String @default("")
@@ -6090,6 +6091,20 @@ model PayTerminal {
   merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   payments PayPayment[]
   @@index([merchantId, active])
+}
+
+model PayTerminalApiKey {
+  id String @id
+  terminalId String
+  label String
+  prefix String
+  keyHash String @unique
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  rotatedAt DateTime?
+  revokedAt DateTime?
+  terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
+  @@index([terminalId, revokedAt, createdAt])
 }
 
 model PayPayment {

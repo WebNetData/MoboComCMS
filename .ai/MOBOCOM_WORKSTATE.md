@@ -1,3 +1,13 @@
+# MoboCom Pay terminal credentials and release rehearsal — 2026-11-28
+
+Continue `.mobocom/pay-terminal-gateway-control` on
+`feat/pay-terminal-gateway-control-2026-11-27`. The owner requested one PR to
+`main` for the previous gateway grants and the new terminal credentials. Pay
+platform managers issue, rotate and revoke independent terminal keys. A key
+authorizes three scoped v2 operations. A disposable restore tested the upgrade
+from `v1.7.27`. See [the Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#terminal-api-credentials-and-release-rehearsal--2026-11-28)
+for validation and destination limits.
+
 # MoboCom Pay gateway access — 2026-11-27
 
 Continue `.mobocom/pay-terminal-gateway-control` on

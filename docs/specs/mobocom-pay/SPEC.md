@@ -748,3 +748,27 @@ does not rewrite historical payments. The connected suite `pay-gateway-access`
 checks the effective grant, version claims, tenant scope, idempotency and
 checkout enforcement. Existing checkout, bot, bank matching, credit and
 webhook suites cover financial continuity.
+
+## Pay terminal API credentials
+
+A platform administrator issues one named credential for each connected system
+under an existing merchant terminal. The merchant administration guard and
+`mobocom-pay.manage` authorize issue, rotation and revocation from the same-site
+Admin session. Commands require a reason and confirmation. Change uses a
+current version and returns the secret once on issue or rotation. PostgreSQL
+retains the digest, display prefix and lifecycle timestamps. A revoked row
+cannot be reactivated. Audit records contain the administrator, terminal,
+credential ID and reason.
+
+The v2 machine routes accept the terminal credential for gateway discovery,
+payment creation and payment lookup. Each resource must belong to the bound
+terminal. The payment idempotency namespace follows the terminal across
+rotation. Module state, maintenance, merchant access, gateway eligibility and
+checkout proofs remain in their existing owners. The general API and
+settlements use existing account credentials.
+
+Migration `20270418140000_pay_terminal_api_keys` adds the credential table.
+Existing clients keep their credentials and behavior. A rollback may leave the
+additive table in place. Ship the new credential only to systems that use the
+v2 routes. Acceptance covers issue, isolation, idempotency, rotation,
+revocation, audit and the browser panel.
