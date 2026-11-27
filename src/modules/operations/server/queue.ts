@@ -232,6 +232,12 @@ export async function runQueue(budgetMs = 45_000, kinds?: string[]) {
 export async function runScheduledQueue(budgetMs?: number) {
   if (!runtimeOwnsBackgroundWork()) return { ran: 0 }
   try {
+    const { runManagementReviews } = await import('@/modules/ai/server/management-review')
+    await runManagementReviews()
+  } catch (error) {
+    logEvent('error', 'ai.management_schedule_failed', { error })
+  }
+  try {
     const { reconcileFormWebhookDeliveries } = await import('@/modules/forms/server/webhooks')
     await reconcileFormWebhookDeliveries()
   } catch (error) {

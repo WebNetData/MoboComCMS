@@ -4,8 +4,8 @@
 
 # Credentials/configuration and non-code never belong to this corpus.
 **/.env*
-**/*secret*
-**/*credential*
+**/*[sS][eE][cC][rR][eE][tT]*
+**/*[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL]*
 **/*.pem
 **/*.key
 **/*.p12

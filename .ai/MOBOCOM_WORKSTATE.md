@@ -1,3 +1,29 @@
+# Reviewed AI management actions — 2026-11-27
+
+PR #517 targets `main` with the desk, review routines and reviewed actions.
+The tested action commit `4f066360` was developed on
+`feat/ai-management-reviewed-actions-2026-11-27` and is included on the PR branch
+`feat/ai-management-platform-2026-11-27`. Support replies and internal notes,
+Store notes and assignment, and read-only Pay evidence with assessment use
+versioned previews and explicit confirmation. See
+[the handoff](../docs/agent/handoffs/AI_MANAGEMENT.md#reviewed-actions-for-support-store-and-pay)
+for owners, checks, and environment scope.
+
+# AI management review routines — 2026-11-27
+
+On `feat/ai-management-platform-2026-11-27` after local desk commit `e9d66c9d`,
+the existing scheduled queue records per-admin evidence and the desk tracks
+approval, rejection, and completion outcomes. The additive migration is
+registered for the next release. [Scope and checks](../docs/agent/handoffs/AI_MANAGEMENT.md#scheduled-scope-and-review-outcomes).
+
+# AI management desk and platform map — 2026-11-27
+
+Continue `.mobocom/ai-management-platform`, branch
+`feat/ai-management-platform-2026-11-27`, from main `d55452a8`.
+The AI desk connects permission-filtered section indicators, evidence-bound
+recommendations and existing owner panels. The platform map records remaining
+coverage. [Implementation and evidence](../docs/agent/handoffs/AI_MANAGEMENT.md).
+
 # MoboCom Pay numeric fields and SMS checkout — 2026-11-27
 
 Continue `.mobocom/pay-gateway-contract` on

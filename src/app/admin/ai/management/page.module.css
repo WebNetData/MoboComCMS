@@ -1,0 +1,147 @@
+.page {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.header, .panelHeader, .scope {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+}
+
+.header, .panelHeader { justify-content: space-between; }
+.header { padding-block: .5rem 1rem; border-block-end: 1px solid var(--border); }
+.header h1 { font-size: clamp(1.4rem, 1.2rem + 1vw, 2rem); margin: 0 0 .25rem; }
+.header p, .finding p, .empty, .notice { margin: 0; line-height: 1.85; }
+.header p, .scope time, .empty, .finding p {
+  color: var(--admin-muted-text, var(--muted));
+}
+
+.scope label { font-weight: 700; }
+.scope select {
+  min-height: 44px;
+  max-width: 100%;
+  padding-inline: .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--sds-size-radius-200, 8px);
+  color: var(--text);
+  background: var(--card);
+  font: inherit;
+}
+.scope time { margin-inline-start: auto; font-size: .875rem; }
+
+.panel {
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--sds-size-radius-300, 12px);
+  background: var(--card);
+}
+.panel h2 { margin: 0; font-size: 1.1rem; }
+.panelHeader { margin-block-end: .75rem; }
+.priorities, .sections { list-style: none; padding: 0; margin: 0; }
+.priorities li, .sections li {
+  display: flex;
+  gap: .75rem;
+  padding-block: .85rem;
+  border-block-end: 1px solid var(--border);
+}
+.priorities li:last-child, .sections li:last-child { border-block-end: 0; padding-block-end: 0; }
+.sections li { align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.sections li a, .finding a { color: var(--admin-accent-text, var(--text)); text-decoration: underline; text-underline-offset: .2em; }
+.state { color: var(--admin-muted-text, var(--muted)); font-size: .875rem; }
+.state[data-state='attention'] { color: var(--text); font-weight: 650; }
+.count {
+  display: grid;
+  place-items: center;
+  flex: 0 0 3.25rem;
+  align-self: start;
+  min-height: 2.75rem;
+  padding-inline: .25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--sds-size-radius-200, 8px);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.count[data-tone='urgent'] { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 11%, var(--card)); }
+.finding { display: grid; gap: .25rem; min-width: 0; overflow-wrap: anywhere; }
+.finding a { width: fit-content; font-size: .875rem; }
+.finding h3 { margin: 0; font-size: 1rem; }
+.finding .advice { border-inline-start: 2px solid var(--primary); color: var(--text); padding-inline-start: .6rem; }
+.status { font-size: .875rem; margin-block-end: .5rem; }
+.status:empty { margin: 0; }
+.notice { padding: .75rem; border-inline-start: 2px solid var(--warning); background: var(--card); }
+
+@media (max-width: 520px) {
+  .scope time { width: 100%; margin-inline-start: 0; }
+  .count { flex-basis: 2.5rem; }
+}
+
+.reviewSchedule, .reviewError {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-block-end: 1rem;
+}
+.reviewSchedule select, .followUpControls input {
+  min-height: 44px;
+  max-width: 100%;
+  padding-inline: .75rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--sds-size-radius-200, 8px);
+  background: var(--card);
+  font: inherit;
+}
+.reviewSchedule time { color: var(--admin-muted-text, var(--muted)); font-size: .875rem; }
+.review { border-block-start: 1px solid var(--border); padding-block: .75rem; }
+.review summary { cursor: pointer; padding-block: .25rem; }
+.review summary span { margin-inline-start: .75rem; color: var(--admin-muted-text, var(--muted)); }
+.historyList { display: grid; gap: .75rem; list-style: none; padding: 0; margin-block: .75rem 0; }
+.historyFinding { border-inline-start: 2px solid var(--border); padding-inline-start: .75rem; }
+.historyFinding h3 { margin: 0; font-size: 1rem; }
+.historyFinding p { line-height: 1.85; margin-block: .3rem; overflow-wrap: anywhere; }
+.historyFinding a { color: var(--admin-accent-text, var(--text)); text-decoration: underline; }
+.followUpControls { display: grid; gap: .5rem; margin-block-start: .75rem; }
+.followUpControls label { display: grid; gap: .3rem; }
+.followUpControls .panelHeader { justify-content: flex-start; margin: 0; }
+
+.actionPanel {
+  display: grid;
+  justify-items: start;
+  gap: .75rem;
+  margin-block-start: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--sds-size-radius-200, 8px);
+  background: color-mix(in srgb, var(--primary) 4%, var(--card));
+}
+.actionBody { display: grid; gap: .75rem; width: 100%; min-width: 0; }
+.actionBody h4, .actionPreview h5 { margin: 0; font-size: 1rem; }
+.actionBody label { display: grid; gap: .35rem; }
+.actionBody select, .actionBody textarea {
+  width: 100%; min-height: 44px; padding: .65rem .75rem;
+  border: 1px solid var(--border); border-radius: var(--sds-size-radius-200, 8px);
+  color: var(--text); background: var(--card); font: inherit;
+}
+.actionBody textarea { resize: vertical; line-height: 1.8; }
+.actionBody :is(button, select, textarea, input):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.targetFacts { display: grid; gap: .25rem; margin: 0; padding-inline-start: 1.25rem; color: var(--admin-muted-text, var(--muted)); }
+.actionHint { margin: 0; color: var(--admin-muted-text, var(--muted)); font-size: .9rem; line-height: 1.8; }
+.actionCheck { grid-template-columns: auto 1fr !important; align-items: center; justify-content: start; }
+.actionCheck input { inline-size: 1.125rem; block-size: 1.125rem; accent-color: var(--primary); }
+.actionPreview { display: grid; gap: .75rem; width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: var(--sds-size-radius-200, 8px); background: var(--card); }
+.actionPreview dl { display: grid; gap: .5rem; margin: 0; }
+.actionPreview dl > div { display: grid; grid-template-columns: minmax(5rem, auto) 1fr; gap: .5rem; }
+.actionPreview dt { color: var(--admin-muted-text, var(--muted)); }
+.actionPreview dd { margin: 0; overflow-wrap: anywhere; }
+.savedText { white-space: pre-wrap; overflow-wrap: anywhere; padding: .75rem; border-inline-start: 2px solid var(--primary); background: color-mix(in srgb, var(--primary) 4%, var(--card)); }
+
+@media (max-width: 520px) {
+  .actionPanel { padding: .75rem; }
+  .actionPreview { padding: .75rem; }
+  .actionPreview dl > div { grid-template-columns: 1fr; gap: .125rem; }
+}
