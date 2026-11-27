@@ -42,6 +42,9 @@ deep link, with foreign access denied. Editing the Cloud account persisted to
 the same member visible in the main profile. External providers and production
 deployment require the owner's environment.
 
+The drawer treats the React state as its open/close owner. A delayed native
+close event from Escape no longer closes a freshly reopened drawer.
+
 Local feature slice on `feat/cloud-workspace-2026-11-26` in
 `.mobocom/cloud-workspace`, base`e133b9a3`. Previous Pay/account commits and
 other worktrees are preserved. Owner merges and deploys; implementation performed
