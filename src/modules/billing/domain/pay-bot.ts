@@ -15,26 +15,40 @@ export interface PayBotDeliveryView {
 }
 export interface BotPaymentInput {
   orderId: string; amountRial: string; userId: string; type: 'purchase' | 'renewal' | 'balance_increase'
+  paymentCount?: number; membershipDays?: number
 }
 const own = (input: Record<string, unknown>, allowed: string[]) => Object.keys(input).every(key => allowed.includes(key))
-const integer = (value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER) =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum
+
+function decimalInteger(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): number | undefined {
+  const number = typeof value === 'string' && /^(?:0|[1-9][0-9]{0,15}|-1)$/.test(value) ? Number(value) : value
+  if (typeof number === 'number' && Number.isSafeInteger(number) && number >= minimum && number <= maximum) return number
+}
+
+function optionalInteger(value: unknown, minimum: number, field: string): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const number = decimalInteger(value, minimum)
+  if (number === undefined) throw new PayError(`مقدار ${field} باید یک عدد صحیح معتبر باشد`)
+  return number
+}
 
 /** Only merchant-authenticated claims, never bank evidence or a canonical human identity. */
 export function parseBotPayment(input: Record<string, unknown>): BotPaymentInput {
   if (!own(input, ['api_key','amount','order_id','user_id','username','first_name','type','payment_count','register','membership_days','balance'])) throw new PayError('فیلد درخواست پرداخت پشتیبانی نمی‌شود')
-  if (!integer(input.amount, 1) || BigInt(input.amount as number) * 10n > 9_000_000_000_000_000n) throw new PayError('مبلغ باید عدد صحیح و معتبر به تومان باشد')
+  const amount = decimalInteger(input.amount, 1, 900_000_000_000_000)
+  if (amount === undefined) throw new PayError('مبلغ باید عدد صحیح و معتبر به تومان باشد')
   if (typeof input.order_id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/.test(input.order_id)) throw new PayError('شناسهٔ سفارش معتبر نیست')
-  const userId = typeof input.user_id === 'string' && /^[1-9][0-9]{0,15}$/.test(input.user_id)
-    ? Number(input.user_id) : input.user_id
-  if (!integer(userId, 1)) throw new PayError('شناسهٔ کاربر ربات معتبر نیست')
-  if (!['purchase','renewal','balance_increase'].includes(String(input.type))) throw new PayError('نوع سفارش پشتیبانی نمی‌شود')
-  for (const key of ['payment_count','register','balance']) if (input[key] !== undefined && !integer(input[key], 0)) throw new PayError('اطلاعات عددی سفارش معتبر نیست')
-  if (input.membership_days !== undefined && !integer(input.membership_days, -1)) throw new PayError('مدت عضویت معتبر نیست')
-  if (input.username !== undefined && (typeof input.username !== 'string' || !/^[A-Za-z0-9_]{0,64}$/.test(input.username))) throw new PayError('نام کاربری ربات معتبر نیست')
-  if (input.first_name !== undefined && (typeof input.first_name !== 'string' || input.first_name.length > 160 || /[\u0000-\u001f]/.test(input.first_name))) throw new PayError('نام سفارش معتبر نیست')
+  const userId = decimalInteger(input.user_id, 1)
+  if (userId === undefined) throw new PayError('شناسهٔ کاربر ربات معتبر نیست')
+  const { type } = input
+  if (type !== 'purchase' && type !== 'renewal' && type !== 'balance_increase') throw new PayError('نوع سفارش پشتیبانی نمی‌شود')
+  const paymentCount = optionalInteger(input.payment_count, 0, 'payment_count')
+  const membershipDays = optionalInteger(input.membership_days, -1, 'membership_days')
+  optionalInteger(input.register, 0, 'register')
+  optionalInteger(input.balance, 0, 'balance')
+  if (input.username != null && (typeof input.username !== 'string' || !/^[A-Za-z0-9_]{0,64}$/.test(input.username))) throw new PayError('نام کاربری ربات معتبر نیست')
+  if (input.first_name != null && (typeof input.first_name !== 'string' || input.first_name.length > 160 || /[\u0000-\u001f]/.test(input.first_name))) throw new PayError('نام سفارش معتبر نیست')
   // Do not retain names, usernames, balance or history supplied by the bot.
-  return { orderId: input.order_id, amountRial: (BigInt(input.amount as number) * 10n).toString(), userId: String(userId), type: input.type as BotPaymentInput['type'] }
+  return { orderId: input.order_id, amountRial: (BigInt(amount) * 10n).toString(), userId: String(userId), type, paymentCount, membershipDays }
 }
 
 export function botCallbackUrl(value: unknown): string {

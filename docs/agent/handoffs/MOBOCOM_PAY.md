@@ -1,3 +1,42 @@
+## Custom bot numeric fields and SMS checkout — 2026-11-27
+
+Continue `.mobocom/pay-gateway-contract`, branch
+`fix/pay-gateway-contract-2026-11-27`, from merged main `0d3332a5`.
+The exact reported 422 was reproduced on the base with optional numeric claims
+sent as strings. Billing now normalizes numeric and canonical decimal-string
+Toman, customer IDs and optional numeric claims. Explicitly empty optional
+fields are treated as absent. Invalid optional integers report the field name.
+Only normalized counts and days can affect routing. Order identity, exact Rial
+conversion, request size, credential scope, receipt evidence and settlement
+claims remain governed by the existing owners. No migration is required.
+
+- The existing connected collection suite now creates a bot order through the
+  actual HTTP owner and settles it via the three-field Forwarder HTTP owner.
+  It checks equal-price orders reserve distinct amounts, the invoice-only
+  amount cannot approve a quote, and an exact SMS replay leaves one merchant
+  credit and one delivery job. The companion routing suite verifies that
+  string claims meet the same thresholds as numbers.
+- On a disposable PostgreSQL 17 database with all 230 migrations, the
+  `pay-bale-collection`, `pay-bot`, `pay-routing-operations`,
+  `pay-shared-checkout`, `mobocom-pay`, `pay-usdt-equivalent` and
+  `pay-webhooks` connected suites passed. The non-root Node 22 runner ran
+  48 targeted unit tests and TypeScript successfully.
+- The local Next runtime returned both URL and LINKS. All ten
+  `bot-smoke.hurl` requests passed. oasdiff found no breaking changes.
+  Spectral reported the same retired Bale route warning before and after.
+  Scoped Semgrep reported zero findings on the two changed product files.
+- The webpack production build passed after allocating a 7 GiB V8 heap to
+  the isolated build process. Runtime trace checks excluded storage.
+  On loopback HTTPS, production returned the bot button URL and handled
+  authenticated terminal creation and lookup of a payment via v2.
+  Playwright opened the returned link by keyboard at 390 and 1440 px in
+  both themes. The checkout showed the matching amount and phone gate;
+  bank details were withheld before verification.
+- Integration settings and examples are in the existing Pay, external bot
+  and SMS Forwarder guides. Operational acceptance requires the customer's
+  real bank SMS, phone forwarding and merchant bot acknowledgement. A code
+  rollback restores the original integer-only parsing for these inputs.
+
 ## Custom bot customer ID compatibility — 2026-11-27
 
 The owner reported HTTP 422 from the external bot's custom gateway and asked for

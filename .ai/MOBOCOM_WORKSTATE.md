@@ -1,3 +1,11 @@
+# MoboCom Pay numeric fields and SMS checkout — 2026-11-27
+
+Continue `.mobocom/pay-gateway-contract` on
+`fix/pay-gateway-contract-2026-11-27` from merged main `0d3332a5`. The custom
+bot accepts equivalent integer representations and normalizes routing claims.
+The bot-to-SMS checkout is covered through the existing terminal and financial
+owners. [Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#custom-bot-numeric-fields-and-sms-checkout--2026-11-27).
+
 # Release 1.7.27 — 2026-11-27
 
 Continue `.mobocom/release-1.7.27` on `release/1.7.27`, based on merged
