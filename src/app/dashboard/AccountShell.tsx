@@ -25,7 +25,6 @@ export default function AccountShell({ children }: { children: React.ReactNode }
   // Without the VPN module the account area is about orders, wallet and VIP.
   const formsOn = useModuleEnabled('forms')
   const vpnOn = useModuleEnabled('vpn')
-  const hostingOn = useModuleEnabled('hosting')
   const storeOn = useModuleEnabled('store')
   const gamesOn = useModuleEnabled('games')
   const musicOn = useModuleEnabled('music')
@@ -89,22 +88,12 @@ export default function AccountShell({ children }: { children: React.ReactNode }
 
   const L = (fa: string, en: string) => (locale === 'fa' ? fa : en)
   // Section groups carry the names the owner set in Admin › sections.
-  const cloudName = sectionNameNow('hosting', locale === 'fa', { fa: 'موبوکام کلاد', en: 'MoboCom Cloud' })
   const promptsName = sectionNameNow('prompt-master', locale === 'fa', { fa: 'پرامپت مستر', en: 'Prompt Master' })
   // The account menu, by what a member comes here to do: buy and pay, their own things, people, tools, help.
   // Every entry keeps its address and its module switch; only the grouping and the order are presentation.
   const NAV_GROUPS: ShellGroup[] = ([
     { id: 'home', flat: true, title: vpnOn ? L('اشتراک‌ها', 'Subscriptions') : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home',
       items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home', exact: true }] },
-    // MoboCom Cloud has its own group: overview, building, and each family; the older «سرویس‌های من» address stays.
-    { id: 'cloud', caption: cloudName, title: cloudName, icon: 'cloud', items: hostingOn ? [
-      { href: '/cloud/dashboard', label: L('نمای کلی', 'Overview'), icon: 'cloud', exact: true },
-      { href: '/cloud/dashboard/new', label: L('ساخت سرور و سرویس', 'Build a service'), icon: 'plus' },
-      { href: '/cloud/dashboard/servers', label: L('سرورهای من', 'My servers'), icon: 'server' },
-      { href: '/cloud/dashboard/hosting', label: L('هاست‌های من', 'My hosting'), icon: 'layers' },
-      { href: '/cloud/dashboard/domains', label: L('دامنه‌های من', 'My domains'), icon: 'globe' },
-      { href: '/dashboard/services', label: L('همهٔ سرویس‌ها', 'All services'), icon: 'activity' },
-    ] : [] },
     { id: 'shopping', caption: L('حساب من', 'My account'), title: L('خرید و پرداخت', 'Orders & billing'), icon: 'bag', items: [
       { href: '/dashboard/order', label: L('سفارش جدید', 'Order services'), icon: 'plus' },
       { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },

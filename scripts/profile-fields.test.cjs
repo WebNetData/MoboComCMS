@@ -142,6 +142,7 @@ test('changing the password in the profile ends every session, as a reset does',
   assert.equal(security.sessionRevoked(changedAt.getTime() - 60_000, changedAt), true, 'a session from before the change is void')
   assert.equal(security.sessionRevoked(changedAt.getTime() + 5_000, changedAt), false, 'signing in afterwards works')
   // The member is sent to sign in again and told why.
-  assert.ok(read('src/app/dashboard/profile/page.tsx').includes("await signOut({ callbackUrl: '/login?changed=1' })"))
+  assert.match(read('src/app/dashboard/profile/page.tsx'), /<AccountSettings\s*\/>/)
+  assert.match(read('src/components/AccountSettings.tsx'), /await signOut\(\{ callbackUrl: cloud \? '\/login\?changed=1&next=%2Fcloud%2Fdashboard%2Faccount' : '\/login\?changed=1' \}\)/)
   assert.ok(read('src/app/login/LoginForm.tsx').includes("params.get('changed') === '1' && <p className=\"success-text mb-4\" role=\"status\">"))
 })

@@ -1,3 +1,13 @@
+# Release 1.7.27 — 2026-11-27
+
+Continue `.mobocom/release-1.7.27` on `release/1.7.27`, based on merged
+main `60edb843`. This release includes merged #513 Pay bot numeric/string
+customer ID compatibility and merged #514 Cloud workspace and scoped support
+service selection for Cloud and Pay. Owner requested removing Cloud navigation
+from the main dashboard while retaining existing direct routes. The release
+manifest seals `20270417120000_ticket_service_context`. See the
+[release handoff](../docs/agent/handoffs/RELEASE_1_7_27.md) for verification.
+
 # Cloud and Pay ticket service selection — 2026-11-27
 
 PR #514 continuation on `feat/cloud-dashboard-local-tools-2026-11-27`, starting

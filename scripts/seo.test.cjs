@@ -123,7 +123,7 @@ test('menus and the cloud pages follow a renamed section without changing the sa
   assert.equal(site.navigation[0].label.fa, 'موبوکام کلاد', 'the saved menu is not changed')
   assert.equal(rename(site, sections, {}), site)
   assert.match(read('src/modules/site/config/store.ts'), /withRenamedSections\(await readPublicSiteConfig\(\)\)/)
-  assert.match(read('src/app/dashboard/AccountShell.tsx'), /caption: cloudName, title: cloudName/)
+  assert.match(read('src/app/cloud/dashboard/layout.tsx'), /sectionDisplayName\('hosting'/)
   assert.match(read('src/components/hosting/CloudBar.tsx'), /sectionDisplayName\('hosting'/)
   assert.match(read('src/components/hosting/CloudLanding.tsx'), /chرا \{name\}|چرا \{name\}/)
 })
