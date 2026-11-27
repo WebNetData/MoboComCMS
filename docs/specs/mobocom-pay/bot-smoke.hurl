@@ -8,11 +8,11 @@ HTTP 200
 jsonpath "$.url" == "{{checkoutUrl}}"
 jsonpath "$.data" not exists
 
-# Identical retry returns the same obligation, including after financial settlement.
+# String and numeric customer IDs return the same obligation, including after financial settlement.
 POST {{baseUrl}}/api/v1/pay/bot/{{integrationId}}
 Origin: {{baseUrl}}
 Content-Type: application/json
-{"api_key":"{{botCreateKey}}","amount":10000,"order_id":"{{orderId}}","user_id":123456789,"type":"purchase"}
+{"api_key":"{{botCreateKey}}","amount":10000,"order_id":"{{orderId}}","user_id":"123456789","type":"purchase"}
 HTTP 200
 [Asserts]
 jsonpath "$.url" == "{{checkoutUrl}}"
