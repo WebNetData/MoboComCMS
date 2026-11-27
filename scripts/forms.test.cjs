@@ -413,7 +413,7 @@ test('a form is given only to staff who can open form answers', () => {
 })
 
 test('the wallet takes toman and rial at their own limits, and says why a top-up is refused', () => {
-  const topup = source('src/modules/wallet/server/topup.ts'), page = source('src/app/dashboard/wallet/page.tsx')
+  const topup = source('src/modules/wallet/server/topup.ts'), page = source('src/components/wallet/WalletPage.tsx')
   assert.match(topup, /if \(currency === 'IRT' \|\| currency === 'TMN'\) return \{ min: 10_000, max: 500_000_000 \}/)
   assert.match(topup, /if \(currency === 'IRR'\) return \{ min: 100_000, max: 5_000_000_000 \}/)
   assert.match(topup, /const defaults = defaultLimits\(currency\)/)

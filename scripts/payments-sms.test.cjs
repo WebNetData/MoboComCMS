@@ -268,10 +268,13 @@ test('the invoice PDF is a real document: Persian font embedded, selectable text
 })
 
 test('the wallet page leads to the plans only while the VPN section is on', () => {
-  const page = fs.readFileSync(path.resolve(__dirname, '..', 'src/app/dashboard/wallet/page.tsx'), 'utf8')
+  const read = file => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  const page = read('src/components/wallet/WalletPage.tsx')
+  assert.match(read('src/app/dashboard/wallet/page.tsx'), /<WalletPage\s*\/>/)
+  assert.match(read('src/app/cloud/dashboard/wallet/page.tsx'), /<WalletPage surface="cloud"\s*\/>/)
   assert.equal((page.match(/href="\/plans"/g) || []).length, 1)
-  assert.match(page, /\{vpnOn \? <Link href="\/plans"/)
-  assert.match(page, /\{vpnOn \? t\.walletSub : /)
+  assert.match(page, /surface === 'cloud' \? <Link href="\/cloud\/dashboard\/new"[^\n]+ : vpnOn \? <Link href="\/plans"/)
+  assert.match(page, /: vpnOn \? t\.walletSub : /)
 })
 
 test('SMS event grouping keeps order status with store events', () => {
