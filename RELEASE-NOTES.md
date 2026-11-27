@@ -1,3 +1,7 @@
+## 1.7.28 — AI management and Pay terminal credentials (2026-11-28)
+
+The AI desk adds scoped reports, scheduled reviews and explicitly confirmed Support, Store and Pay workflows. CRM shows stale sales opportunities with the matching sales-board filter. Pay adds merchant and terminal gateway grants, terminal-specific keys and bot input compatibility. Three additive migrations are sealed. [Release notes](docs/releases/1.7.28.md)
+
 ## 1.7.27 — Cloud workspace and support routing (2026-11-27)
 
 The dedicated Cloud dashboard keeps Cloud tools in its own workspace, with scoped Cloud and Pay service choices in Support. Pay bot checkout accepts numeric and decimal-string customer IDs. One additive migration stores the selected ticket service context. [Release notes](docs/releases/1.7.27.md)
