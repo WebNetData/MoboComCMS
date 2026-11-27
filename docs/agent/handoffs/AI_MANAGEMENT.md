@@ -3,10 +3,10 @@
 ## Reviewed actions for Support, Store and Pay
 
 PR [#517](https://github.com/WebNetData/MoboComCMS/pull/517) targets `main`
-with the desk and scheduled review slices. The action pack continues in
-`feat/ai-management-reviewed-actions-2026-11-27` from that PR's head
-`9f6aa9d5`. It uses the review JSON from migration
-`20270418120000_ai_management_reviews`.
+with the desk, scheduled reviews and reviewed actions. The tested action commit
+`4f066360` follows review commit `9f6aa9d5` on the PR branch
+`feat/ai-management-platform-2026-11-27`. It uses the review JSON from
+migration `20270418120000_ai_management_reviews`.
 
 - Support uses the current department and assignment rules. A reviewed public
   reply saves the message, workflow change, customer inbox event, audit entry and
