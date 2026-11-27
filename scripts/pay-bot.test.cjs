@@ -35,10 +35,8 @@ test('outbound verification pins DNS, sends the distinct token/body, refuses pri
   '@/modules/social/server/pay-egress':{payCallbackEgress:async()=> 'direct'},
   'node:dns/promises':{lookup:async()=>{lookups++;return network.answers}},
   'node:tls':{connect:options=>{assert.equal(options.host,'8.8.8.8');assert.equal(options.port,443);assert.equal(options.servername,'merchant.example');assert.equal(options.rejectUnauthorized,true);const socket=new EventEmitter();socket.destroy=()=>{};setImmediate(()=>socket.emit('secureConnect'));return socket},checkServerIdentity:()=>undefined},
-  'node:https':{request:(url,options,onResponse)=>{
-   requests++;assert.equal(url.hostname,'merchant.example');assert.equal(options.servername,'merchant.example');assert.equal(typeof options.createConnection,'function');headers=options.headers
-   options.lookup(url.hostname,{},(error,address,family)=>{assert.equal(error,null);assert.equal(address,'8.8.8.8');assert.equal(family,4)})
-   options.lookup(url.hostname,{all:true},(error,addresses)=>{assert.equal(error,null);assert.deepEqual(addresses,[{address:'8.8.8.8',family:4}])})
+  'node:https':{Agent:require('node:https').Agent,request:(url,options,onResponse)=>{
+   requests++;assert.equal(url.hostname,'merchant.example');assert(options.agent.createConnection() instanceof EventEmitter);headers=options.headers
    const req=new EventEmitter();req.end=body=>{sent=body;setImmediate(()=>{const response=new EventEmitter();response.statusCode=network.status;response.destroy=()=>{};onResponse(response);response.emit('data',Buffer.from(network.body));response.emit('end')})};return req
   }},
  })
@@ -62,3 +60,4 @@ test('financial egress reads strict fresh configuration and cannot silently fall
  for(const raw of ['bad','[]','{}',JSON.stringify({profiles:[],routes:{pay_callbacks:'p1'}})]){value=raw;await assert.rejects(owner.payCallbackEgress())}failed=true;await assert.rejects(owner.payCallbackEgress())
 })
 require('./pay-callback-transport.cases.cjs')
+require('./forms-webhook-transport.cases.cjs')

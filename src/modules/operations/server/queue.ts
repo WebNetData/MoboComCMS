@@ -25,6 +25,7 @@ const HANDLERS: Record<string, { run: Handler }> = {
   'pay.transfer-match': { run: async payload => (await import('@/modules/billing/server/pay')).recoverTransferMatch(payload) },
   'sms.broadcast': { run: async (payload, job) => (await import('@/modules/sms/server/broadcast')).deliverBroadcast(payload, job.attempts) },
   'forms.stage-sms': { run: async (payload, job) => (await import('@/modules/forms/server/stage-sms')).deliverFormStageSms(payload, job) },
+  'forms.webhook-delivery': { run: async payload => (await import('@/modules/forms/server/webhooks')).deliverFormWebhook(payload) },
   'support.demand-fulfilled': { run: async (payload, job) => {
     const result = await (await import('@/modules/support/server/demand')).deliverDemandFulfilled(payload)
     if (!result.done) await job.continueWith('support.demand-fulfilled', { ...payload, cursor: result.cursor }, { dedupeKey: `demand:${payload.demandId}:${payload.version}:after:${result.cursor}` })
@@ -224,6 +225,17 @@ export async function runQueue(budgetMs = 45_000, kinds?: string[]) {
   // Finished rows are kept for a week.
   if (ran) await db.backgroundJob.deleteMany({ where: { status: { in: ['DONE', 'FAILED'] }, finishedAt: { lt: new Date(Date.now() - 7 * 86_400_000) } } })
   return { ran }
+}
+
+export async function runScheduledQueue(budgetMs?: number) {
+  if (!runtimeOwnsBackgroundWork()) return { ran: 0 }
+  try {
+    const { reconcileFormWebhookDeliveries } = await import('@/modules/forms/server/webhooks')
+    await reconcileFormWebhookDeliveries()
+  } catch (error) {
+    logEvent('error', 'forms.webhook_reconcile_failed', { error })
+  }
+  return runQueue(budgetMs)
 }
 
 export async function queueOverview() {

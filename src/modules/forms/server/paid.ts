@@ -5,7 +5,8 @@ import { quoteForeignAmount } from '@/modules/fx/server/fx'
 import { FxError, percentToBps } from '@/modules/fx/domain/fx'
 import { decryptDigitalDelivery, encryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
-import { formStaff, releaseSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
+import { formStaff, releaseSlots, sendFormNotifications } from '@/modules/forms/server/advanced'
+import { queueFormWebhooks, webhookAnswers } from '@/modules/forms/server/webhooks'
 import {
   FormsError, SECRET_MASK, deviceLockText, parseForm, parseFxAnswer, priceLines, stepLabel, visibleFields, workSteps,
   type Answer, type FormDefinition, type PriceLine, type StoredAnswer, type WorkStep,
@@ -141,19 +142,28 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
   const meta = parse<Record<string, unknown>>(order.meta || '{}', {})
   const submissionId = Number(meta.submissionId)
   if (meta.kind !== 'form' || !Number.isSafeInteger(submissionId)) throw new Error('form order has no answer')
-  const paid = await db.formSubmission.updateMany({ where: { id: submissionId, userId: order.userId, payStatus: 'UNPAID' }, data: { payStatus: 'PAID', paidAt: new Date(), stage: 'OPEN', orderId: order.id, amountMinor: order.totalMinor, currency: order.currency } })
-  if (!paid.count) return
+  const total = minorToNumber(order.totalMinor, order.currency)
+  const paid = await db.$transaction(async tx => {
+    const result = await tx.formSubmission.updateMany({ where: { id: submissionId, userId: order.userId, payStatus: 'UNPAID' }, data: { payStatus: 'PAID', paidAt: new Date(), stage: 'OPEN', orderId: order.id, amountMinor: order.totalMinor, currency: order.currency } })
+    if (!result.count) return null
+    const stored = await tx.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
+    if (stored && stored.data !== '{}' && stored.status !== 'SPAM' && await formsAvailable(tx)) {
+      await queueFormWebhooks(tx, parseForm(stored.form), 'paid', submissionId, 0, {
+        orderId: order.id, total, currency: order.currency, answers: webhookAnswers(parse<StoredAnswer[]>(stored.data, [])),
+      })
+    }
+    return { stored }
+  })
+  if (!paid) return
   // Financial reconciliation survives deactivation; optional communications do not.
   if (!await formsAvailable()) return
   const title = String(meta.formTitle || '').slice(0, 80)
-  // The form's own notifications and webhooks hear about a paid request now (they were held back until the money came).
-  const stored = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
+  // The form's own notifications also wait for payment.
+  const { stored } = paid
   if (stored) {
     const form = parseForm(stored.form), answers = parse<StoredAnswer[]>(stored.data, [])
-    const total = minorToNumber(order.totalMinor, order.currency)
     void sendFormNotifications(form, { formTitle: form.title, entryId: submissionId, answers, total }, valuesOf(answers)).catch(() => undefined)
     void (await import('@/modules/forms/server/service')).emitFormEvent('form.paid', form, submissionId, order.userId, total).catch(() => undefined)
-    void sendFormWebhooks(form, 'paid', { entryId: submissionId, orderId: order.id, total, currency: order.currency, answers: webhookAnswers(answers) }).catch(() => undefined)
   }
   await createInboxEvent({
     userId: order.userId, kind: 'FORM', dedupeKey: `form:paid:${submissionId}`, titleFa: `پرداخت «${title}» انجام شد`, titleEn: 'Your request is paid',
@@ -247,6 +257,9 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
       if (data.reply !== undefined && data.reply !== row.reply) await repairEvent(tx, row, 'REPLY', 'پیام مجموعه', data.reply || 'پیام قبلی برداشته شد')
     }
     if (moved) await queueFormStageSms({ id: row.id, title: row.form.title, data: row.data, userId: row.userId, pickupCode: data.pickupCode || row.pickupCode, receiptToken: data.receiptToken || row.receiptToken }, moved, tx)
+    if (moved && row.data !== '{}' && row.status !== 'SPAM') {
+      await queueFormWebhooks(tx, parseForm(row.form), 'stage', row.id, row.repairVersion + 1, { stage })
+    }
     if (row.userId && (moved || (data.reply && data.reply !== row.reply))) await createInboxEvent({
       userId: row.userId, kind: 'FORM', dedupeKey: `form:work:${row.id}:${randomBytes(16).toString('hex')}`,
       titleFa: `درخواست شما در «${row.form.title.slice(0, 80)}»: ${stage ? stepLabel(settings, stage) : 'به‌روز شد'}`, titleEn: 'Your request was updated',
@@ -255,7 +268,6 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   })
   if (data.stage && data.stage !== row.stage) {
     if (data.stage === 'REJECTED') await releaseSlots(row.id)
-    void sendFormWebhooks(parseForm(row.form), 'stage', { entryId: row.id, stage: data.stage }).catch(() => undefined)
   }
   if (data.assigneeId && data.assigneeId !== row.assigneeId && data.assigneeId !== actor.id) {
     await createInboxEvent({ userId: data.assigneeId, kind: 'FORM', dedupeKey: `form:assigned:${row.id}:${data.assigneeId}`, titleFa: `یک درخواست در «${row.form.title.slice(0, 80)}» به شما سپرده شد`, titleEn: 'A form request was assigned to you', bodyFa: `شمارهٔ ${row.id.toLocaleString('fa-IR')}`, bodyEn: '', href: `/admin/forms?form=${row.formId}&tab=inbox` }).catch(() => undefined)

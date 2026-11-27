@@ -125,9 +125,11 @@ export function AdvancedSettings({ form, s, set }: { form: FormDefinition; s: Fo
     </section>
 
     <section className="sa-card">
-      <header className="sa-card-head"><h2>وب‌هوک</h2><button type="button" className="btn btn-ghost btn-sm" disabled={s.webhooks.length >= 3} onClick={() => set({ webhooks: [...s.webhooks, { url: '', secret: '', events: ['submitted'] }] })}>+ وب‌هوک</button></header>
+      <header className="sa-card-head"><h2>وب‌هوک</h2><button type="button" className="btn btn-ghost btn-sm" disabled={s.webhooks.length >= 3} onClick={() => set({ webhooks: [...s.webhooks, { url: '', secret: '', events: ['submitted'], enabled: false }] })}>+ وب‌هوک</button></header>
       <p className="sa-hint">با هر رویداد، پاسخ‌ها به‌صورت JSON به نشانی شما (فقط https و نشانی عمومی) فرستاده می‌شود. اگر «کلید امضا» بدهید، سربرگ <code dir="ltr">x-mobocom-signature</code> با HMAC-SHA256 می‌آید. رمزها هرگز فرستاده نمی‌شوند.</p>
+      <p className="sa-hint">پس از ذخیره می‌توانید مقصد غیرفعال را در زبانهٔ «ارسال‌های وب‌هوک» با دادهٔ آزمایشی امتحان کنید.</p>
       {s.webhooks.map((item, index) => <div key={index} className="fa-item">
+        <label className="sa-check"><input type="checkbox" checked={item.enabled !== false} onChange={(e) => hook({ enabled: e.target.checked }, index)} />ارسال رویدادها فعال باشد</label>
         <label className="sa-field"><span>نشانی</span><input className="input" dir="ltr" value={item.url} placeholder="https://example.com/hooks/form" onChange={(e) => hook({ url: e.target.value }, index)} /></label>
         <label className="sa-field"><span>کلید امضا (اختیاری)</span><input className="input" dir="ltr" value={item.secret} maxLength={120} autoComplete="off" onChange={(e) => hook({ secret: e.target.value }, index)} /></label>
         <div className="fp-checks" role="group" aria-label="رویدادها"><span>رویدادها</span>{WEBHOOK_EVENTS.map((event) => <label key={event} className="sa-check"><input type="checkbox" checked={item.events.includes(event)} onChange={(e) => { const next = e.target.checked ? [...item.events, event] : item.events.filter((name) => name !== event); hook({ events: next.length ? next : ['submitted'] }, index) }} />{EVENT_LABEL[event]}</label>)}</div>

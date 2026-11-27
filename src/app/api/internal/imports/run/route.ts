@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { runQueue } from '@/modules/operations/server/queue'
+import { runScheduledQueue } from '@/modules/operations/server/queue'
 import { sweepImportJobs } from '@/modules/imports/server/engine'
 
 export const runtime = 'nodejs'
@@ -20,5 +20,5 @@ export async function POST(req: NextRequest) {
   const provided = Buffer.from((req.headers.get('authorization') || '').replace(/^Bearer /, ''))
   if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return err('unauthorized', 401)
   const sweep = await sweepImportJobs()
-  return ok({ sweep, queue: await runQueue(90_000) })
+  return ok({ sweep, queue: await runScheduledQueue(90_000) })
 }

@@ -1546,6 +1546,39 @@ model SiteForm {
   submissions FormSubmission[]
   uploads     FormUpload[]
   bookings    FormBooking[]
+  webhookDeliveries FormWebhookDelivery[]
+}
+
+model FormWebhookDelivery {
+  id             Int      @id @default(autoincrement())
+  formId         Int
+  submissionId   Int?
+  eventId        String   @unique
+  sourceKey      String
+  endpointKey    String
+  host           String
+  event          String
+  status         String   @default("PENDING")
+  version        Int      @default(0)
+  attempts       Int      @default(0)
+  cycleAttempts  Int      @default(0)
+  httpStatus     Int?
+  durationMs     Int?
+  failure        String   @default("")
+  body           String
+  nextAttemptAt  DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  form           SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  submission     FormSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, sourceKey, endpointKey])
+  @@index([formId, id])
+  @@index([formId, status, id])
+  @@index([submissionId])
+  @@index([status, nextAttemptAt])
+  @@index([expiresAt])
 }
 
 model FormBooking {
@@ -1606,6 +1639,7 @@ model FormSubmission {
   form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
   uploads   FormUpload[]
   bookings  FormBooking[]
+  webhookDeliveries FormWebhookDelivery[]
 
   @@index([formId, createdAt])
   @@index([formId, status])

@@ -55,7 +55,7 @@ export const DEFAULT_SLOT: SlotRule = { days: [6, 0, 1, 2, 3], from: '09:00', to
 export interface FormNotification { name: string; to: string; subject: string; body: string; when: Condition[]; logic: 'all' | 'any' }
 export interface FormConfirmation { message: string; redirectUrl: string; when: Condition[]; logic: 'all' | 'any' }
 export const WEBHOOK_EVENTS = ['submitted', 'paid', 'stage'] as const
-export interface FormWebhook { url: string; secret: string; events: (typeof WEBHOOK_EVENTS)[number][] }
+export interface FormWebhook { url: string; secret: string; events: (typeof WEBHOOK_EVENTS)[number][]; enabled?: boolean }
 export interface FormStep { id: string; title: string; description: string }
 export interface FormSettings {
   steps: FormStep[]
@@ -204,7 +204,8 @@ export function normalizeSettings(input: unknown): FormSettings {
     try { url = new URL(str(item?.url, 500)) } catch { url = null }
     if (!url || url.protocol !== 'https:' || url.username || url.password) throw new FormsError('نشانی وب‌هوک باید https باشد')
     const events = (Array.isArray(item?.events) ? item.events : ['submitted']).filter((event): event is FormWebhook['events'][number] => (WEBHOOK_EVENTS as readonly string[]).includes(event as string))
-    return { url: url.toString(), secret: str(item?.secret, 120), events: events.length ? [...new Set(events)] : ['submitted'] }
+    url.hash = ''
+    return { url: url.toString(), secret: str(item?.secret, 120), events: events.length ? [...new Set(events)] : ['submitted'], enabled: item?.enabled !== false }
   })
   const quiz = (raw.quiz && typeof raw.quiz === 'object' ? raw.quiz : {}) as Record<string, unknown>
   const handlers = [...new Set((Array.isArray(raw.handlers) ? raw.handlers : []).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 50)

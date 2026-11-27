@@ -1,3 +1,13 @@
+# Durable Forms webhook delivery — 2026-11-27
+
+Continue `.mobocom/forms-webhook-delivery`, `feat/forms-webhook-delivery-2026-11-27`,
+from merged PR508/main `41596450`. Forms records dispatch and its Operations
+job with the source write. The Persian delivery tab gives managers status
+and HTTP summaries, synthetic testing of saved targets and audited replay
+of eligible failures. Definitive pre-send failures retry automatically.
+Uncertain failures remain available for review with the same event ID.
+[Validation, deployment and rollback](../docs/agent/handoffs/FORMS_AND_OPERATIONS.md#durable-form-webhook-delivery--2026-11-27).
+
 # CRM follow-up workdesk and Automation review list — 2026-11-27
 
 Continue `.mobocom/crm-workdesk`, `feat/crm-workdesk-2026-11-27`, from

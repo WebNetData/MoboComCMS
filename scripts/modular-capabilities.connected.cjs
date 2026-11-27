@@ -81,14 +81,11 @@ async function main(){try{
  const delayedMail=sourceLoader({...mock,'@/modules/mail/server/mailer':{sendMail:async()=>{mailEffects++;await config('forms',false);return{ok:true}}}})('src/modules/forms/server/advanced.ts')
  await delayedMail.sendFormNotifications({...form,settings:{...form.settings,notifications:[{name:'fixture',to:'first@example.invalid,second@example.invalid',subject:'fixture',body:'fixture',when:[],logic:'all'}]}},{formTitle:form.title,entryId:entry.id,answers:[]},{})
  assert.equal(mailEffects,1,'later recipients stopped after disable')
- await config('forms',true)
- let webEffects=0;const priorFetch=global.fetch
- const delayedHook=sourceLoader({...mock,'node:dns/promises':{lookup:async()=>{await config('forms',false);return[{address:'93.184.216.34',family:4}]}}})('src/modules/forms/server/advanced.ts')
- try{global.fetch=async()=>{webEffects++;return new Response('ok')};await delayedHook.sendFormWebhooks({...form,settings:{...form.settings,webhooks:[{url:'https://fixture.example.invalid/hook',secret:'',events:['submitted']}]}},'submitted',{})}finally{global.fetch=priorFetch}
- assert.equal(webEffects,0,'disable during DNS prevents request')
+ // The webhook worker's pre-send module check is exercised in forms-webhook-delivery.connected.cjs.
+ await config('forms',false)
  await config('automation',false)
  const eventsBefore=await db.automationEvent.count();await engine.emitAutomation('user.registered','must-not-admit',user.id,{})
- assert.deepEqual(await engine.processAutomation(),{events:0,runs:0});assert.equal(await db.automationEvent.count(),eventsBefore)
+ assert.deepEqual(await engine.processAutomation(),{events:0,runs:0,needsReview:0});assert.equal(await db.automationEvent.count(),eventsBefore)
  for(const method of ['GET','POST'])assert.equal((await load('src/modules/automation/server/http/admin.ts')[method](req('/api/admin/automation',method))).status,404)
  assert.equal((await load('src/modules/automation/server/engagement-policy.ts').engagementDeliveryPolicy({userId:user.id,kind:'CRM_OFFER',marketingSource:'none',expiresAt:new Date(Date.now()+60000)},new Date())).allowed,false)
  assert.equal(transport,0)

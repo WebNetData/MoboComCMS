@@ -276,7 +276,9 @@ test('merge tags, conditional confirmations and notification recipients', () => 
   assert.deepEqual(adv.dueNotifications(settings, { topic: 'فروش' }).map((n) => n.to), ['sales@example.com, {field:email}', 'all@example.com'])
   assert.deepEqual(adv.dueNotifications(settings, { topic: 'x' }).map((n) => n.to), ['all@example.com'])
   assert.deepEqual(adv.recipients('sales@example.com, {field:email} {field:name}', answers), ['sales@example.com', 'sara@example.com'], 'only an e-mail field can name a recipient')
-  assert.deepEqual(settings.webhooks, [{ url: 'https://example.com/hook', secret: 's', events: ['paid'] }])
+  assert.deepEqual(settings.webhooks, [{ url: 'https://example.com/hook', secret: 's', events: ['paid'], enabled: true }])
+  assert.equal(f.normalizeSettings({ webhooks: [{ url: 'https://example.com/hook#fragment', enabled: false }] }).webhooks[0].url, 'https://example.com/hook')
+  assert.equal(f.normalizeSettings({ webhooks: [{ url: 'https://example.com/hook', enabled: false }] }).webhooks[0].enabled, false)
   assert.deepEqual(settings.handlers, [3, 9])
   for (const url of ['http://example.com/x', 'https://user:pw@example.com/x', 'javascript:alert(1)']) assert.throws(() => f.normalizeSettings({ webhooks: [{ url }] }), /https/, url)
   assert.throws(() => f.normalizeSettings({ notifications: [{ to: 'someone' }] }), /گیرنده/)
@@ -309,11 +311,12 @@ test('appointments cannot be overbooked, hooks go only to public https addresses
   assert.match(service, /if \(\(error as \{ code\?: string \}\)\.code !== 'P2002' \|\| attempt >= 3\) throw error/)
   assert.match(server, /if \(!seat\) throw new FormsError\(/)
   assert.match(paid, /if \(data\.stage === 'REJECTED'\) await releaseSlots\(row\.id\)/)
-  // A webhook: https, a public address, no redirects, a time limit, signed.
-  assert.match(server, /if \(url\.protocol !== 'https:'\) throw new Error\('webhook must be https'\)/)
-  assert.match(server, /addresses\.some\(isPrivateAddress\)/)
-  assert.match(server, /redirect: 'error', signal: AbortSignal\.timeout\(6000\)/)
-  assert.match(server, /createHmac\('sha256', hook\.secret\)\.update\(body\)\.digest\('hex'\)/)
+  // Outbound security and signature behavior are exercised by the connected delivery fixture.
+  const transport = source('src/platform/http/public-https-post.ts')
+  assert.match(transport, /url\.protocol !== 'https:'/)
+  assert.match(transport, /addresses\.some\(item => !publicAddress\(item\.address\)\)/)
+  assert.match(transport, /checkServerIdentity/)
+  assert.match(transport, /AbortSignal\.timeout\(12000\)/)
   // Staff corrections are recorded and keep money, turns, passwords and files as the sender gave them.
   assert.equal(adv.staffEditable({ type: 'text', options: [] }), true)
   for (const type of ['secret', 'slot', 'fxamount', 'file', 'signature', 'hidden', 'repeater']) assert.equal(adv.staffEditable({ type, options: [] }), false, type)

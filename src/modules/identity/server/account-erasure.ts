@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { enqueue } from '@/modules/operations/server/enqueue'
+import { eraseFormWebhookPayloads } from '@/modules/forms/server/webhooks'
 import { erasurePlan,AccountErasureError } from './erasure/preview'
 import { erasePersonalRows,eraseAuthoredText } from './erasure/personal'
 import { eraseFinancialIdentity } from './erasure/financial'
@@ -27,6 +28,7 @@ export async function eraseAccount(req:NextRequest,input:Record<string,unknown>)
     await erasePersonalRows(tx,id)
     await tx.formUpload.deleteMany({where:{submissionId:{in:plan.forms.map(f=>f.id)}}})
     await tx.formSubmission.updateMany({where:{userId:id},data:{data:'{}',secrets:'',secretsErasedAt:now,note:'',reply:'',ipHash:'',pickupCode:'',receiptToken:''}})
+    await eraseFormWebhookPayloads(tx, plan.forms.map(form => form.id))
     await tx.chatMessage.deleteMany({where:{conversationId:{in:plan.chats.map(c=>c.id)}}})
     await tx.chatConversation.deleteMany({where:{userId:id}})
     await tx.newsletterDelivery.deleteMany({where:{OR:[{userId:id},{email:old.email}]}})

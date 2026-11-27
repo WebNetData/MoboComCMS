@@ -75,9 +75,9 @@ const JOBS: Job[] = [
     // Background queue (heavy admin tasks) and a week of performance samples.
     name: 'queue', everyMs: 60_000,
     run: async (tick) => {
-      const { runQueue } = await import('@/modules/operations/server/queue')
+      const { runScheduledQueue } = await import('@/modules/operations/server/queue')
       if (tick % 60 === 0) await (await import('@/modules/operations/server/monitoring')).prunePerfSamples()
-      return runQueue()
+      return runScheduledQueue()
     },
   },
   {
