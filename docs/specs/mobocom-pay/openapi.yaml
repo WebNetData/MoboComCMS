@@ -329,7 +329,8 @@ paths:
       description: >-
         Authenticate api_key using the dedicated terminal integration key, never a bot token or ordinary
         bearer key. amount is integer Toman (ten IRR). Replaying the same integration/order/amount/user/type
-        returns the same hosted checkout; changed financial or customer identity claims conflict. Optional
+        returns the same hosted checkout; numeric and decimal-string user IDs represent the same customer.
+        Changed financial or customer identity claims conflict. Optional
         customer history is validated and may select an opt-in merchant routing rule; it is never bank
         evidence or identity proof and is not persisted. Up to 12 ordered rules match exact Toman amount,
         type and claimed payment count and membership days; missing history cannot meet a positive threshold.
@@ -849,7 +850,11 @@ components:
         api_key: { type: string, writeOnly: true, pattern: '^mcpbot_[A-Za-z0-9_-]{43}$' }
         amount: { type: integer, minimum: 1, maximum: 900000000000000, description: Exact Toman; existing configured payment limits also apply. }
         order_id: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$' }
-        user_id: { type: integer, minimum: 1, maximum: 9007199254740991, description: Bot customer claim; never a canonical MoboCom UserId. }
+        user_id:
+          description: Bot customer claim, independent of the canonical MoboCom UserId. Both forms represent the same positive integer, up to 9007199254740991.
+          oneOf:
+            - { type: integer, minimum: 1, maximum: 9007199254740991 }
+            - { type: string, pattern: '^[1-9][0-9]{0,15}$' }
         type: { type: string, enum: [purchase, renewal, balance_increase] }
         username: { type: string, pattern: '^[A-Za-z0-9_]{0,64}$' }
         first_name: { type: string, maxLength: 160 }

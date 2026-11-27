@@ -1,3 +1,29 @@
+## Custom bot customer ID compatibility — 2026-11-27
+
+The owner reported HTTP 422 from the external bot's custom gateway and asked for
+a payment button under the bot message. The fix is in `.mobocom/pay-bot-string-user-id`,
+branch `fix/pay-bot-string-user-id-2026-11-27`, based on main `92133a8d`.
+
+- The Billing bot parser accepts a positive decimal-string `user_id` in the same
+  safe-integer range as a numeric ID. Both forms use the existing customer hash.
+  A different customer still conflicts. The request shape, amounts, callback
+  contract and authentication retain their existing checks. There is no migration.
+- The setup guide shows the existing `LINKS` mode. Without a routing rule it
+  returns one labeled button URL. The external bot renders the returned links.
+  Existing `URL` consumers continue to receive one `url` field.
+- The focused test reproduced the original 422 on the base parser. On the fix,
+  all 22 tests in `scripts/pay-bot.test.cjs`, TypeScript and the `pay-bot`,
+  `pay-routing-operations` and `pay-shared-checkout` PostgreSQL 17 checks passed.
+  The local Next.js HTTP run covered both response modes, mixed-form replay,
+  changed customer 409 and five invalid IDs returning 422. All eight Hurl
+  requests passed. oasdiff found no breaking change. Spectral reported the same
+  existing Bale retirement warning on base and fix.
+- Playwright activated the returned link with the keyboard at 390 and 1440 px.
+  The local checkout opened the matching synthetic order and phone verification.
+  Deployment and the external bot's renderer still need the owner's environment.
+  The owner should replace credentials that appeared in the support exchange.
+  A code rollback needs no database action.
+
 ## SMS-only card transfer and manual payout — 2026-11-27
 
 The owner retired the personal Bale connection. The old POST returns 410 with

@@ -1,3 +1,10 @@
+# Mobocom Pay bot customer ID compatibility — 2026-11-27
+
+Continue `.mobocom/pay-bot-string-user-id` on `fix/pay-bot-string-user-id-2026-11-27`
+from main `92133a8d`. Decimal-string and numeric customer IDs now resolve to the
+same payment. PostgreSQL, Hurl and desktop/mobile checkout verification passed.
+[Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#custom-bot-customer-id-compatibility--2026-11-27).
+
 # Release 1.7.26 — 2026-11-27
 
 Continue `.mobocom/release-1.7.26` on `release/1.7.26`, based on

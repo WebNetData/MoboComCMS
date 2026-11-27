@@ -11,6 +11,14 @@ test('bot request preserves exact Toman and bounds hostile claims without retain
  for(const amount of[0,-1,1.1,'10000',Number.MAX_SAFE_INTEGER,NaN,Infinity])assert.throws(()=>parseBotPayment({...input,amount}))
  for(const patch of[{user_id:0},{user_id:1.1},{type:'paid'},{order_id:'../x'},{order_id:'x'.repeat(101)},{username:'@name'},{payment_count:-1},{membership_days:-2},{balance:-1},{amountRial:'1'}])assert.throws(()=>parseBotPayment({...input,...patch}))
 })
+test('bot customer IDs normalize decimal strings to the existing numeric identity',()=>{
+ for(const userId of [1,123456789,Number.MAX_SAFE_INTEGER]) {
+  assert.deepEqual(parseBotPayment({...input,user_id:String(userId)}),parseBotPayment({...input,user_id:userId}))
+ }
+ for(const userId of [undefined,null,true,{},[],0,-1,1.1,Number.MAX_SAFE_INTEGER+1,'','0','0123',' 123','123\n','+123','1.0','1e3','۱۲۳','9007199254740992','12345678901234567']) {
+  assert.throws(()=>parseBotPayment({...input,user_id:userId}),error=>error.status===422&&error.message.includes('شناسهٔ کاربر ربات'))
+ }
+})
 test('bot destination is exact HTTPS API without userinfo, query credentials, fragments or alternate ports',()=>{
  assert.equal(botCallbackUrl('https://merchant.example/api/payment'),'https://merchant.example/api/payment')
  for(const url of['http://merchant.example/api/payment','https://user:password@merchant.example/api/payment','https://merchant.example:8443/api/payment','https://merchant.example/api/payment?token=x','https://merchant.example/api/payment#x','https://merchant.example/api/else'])assert.throws(()=>botCallbackUrl(url))
