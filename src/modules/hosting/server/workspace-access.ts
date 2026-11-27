@@ -7,7 +7,7 @@ import { userOpensSection } from '@/modules/account/server/section-access'
 import { opensDuringMaintenance } from '@/modules/account/server/maintenance-access'
 import { loadMaintenance } from '@/modules/site/server/maintenance'
 import { runsSection } from '@/modules/site/domain/maintenance'
-import { cloudOrderMeta } from '@/modules/checkout/domain/surface'
+import { cloudOrderMeta, isCloudWalletTopup } from '@/modules/checkout/domain/surface'
 import { paymentResultTarget } from '@/modules/billing/domain/payment-result'
 
 export class CloudWorkspaceError extends Error { constructor(message: string, readonly status = 403) { super(message) } }
@@ -26,8 +26,8 @@ export async function cloudWorkspaceRequest() {
   return new NextRequest(new URL('/api/hosting/workspace',process.env.NEXTAUTH_URL || 'http://localhost:3000'),{headers:incoming})
 }
 export async function ownedCloudInvoice(userId:number,number:string) {
-  const invoice=await db.invoice.findFirst({where:{number,userId,order:{is:{userId}}},select:{id:true,order:{select:{meta:true}}}})
-  return invoice && cloudOrderMeta(invoice.order?.meta) ? invoice.id : null
+  const invoice=await db.invoice.findFirst({where:{number,userId,OR:[{order:{is:{userId}}},{orderId:null,kind:'WALLET_TOPUP'}]},select:{id:true,kind:true,userId:true,idempotencyKey:true,order:{select:{meta:true}}}})
+  return invoice && (cloudOrderMeta(invoice.order?.meta) || isCloudWalletTopup(invoice,userId)) ? invoice.id : null
 }
 export async function ownedCloudResultInvoice(userId:number,query:{invoice?:string;order?:string}) {
   const {invoiceNumber,orderId}=paymentResultTarget(query)

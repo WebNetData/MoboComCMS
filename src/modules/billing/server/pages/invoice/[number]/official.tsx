@@ -8,6 +8,7 @@ import { officialInvoice } from '@/modules/billing/server/official-invoice'
 import InvoiceLogo from '@/components/billing/InvoiceLogo'
 import { headers } from 'next/headers'
 import { invoiceStaffAccess } from '@/modules/billing/server/invoice-access'
+import { checkoutPath } from '@/modules/checkout/domain/surface'
 
 const n = (value: string | number) => (typeof value === 'number' ? value : Number(value)).toLocaleString('fa-IR')
 const money = (value: string) => { try { return BigInt(value).toLocaleString('fa-IR') } catch { return value } }
@@ -23,18 +24,19 @@ function Field({ label, value, ltr }: { label: string; value: string; ltr?: bool
 }
 
 /** Official sales invoice (صورتحساب فروش کالا و خدمات), A4 landscape, print or "Save as PDF". */
-export default async function OfficialInvoicePage({ params }: { params: Promise<{ number: string }> }) {
+export default async function OfficialInvoicePage({ params, surface = 'public' }: { params: Promise<{ number: string }>; surface?: 'public' | 'cloud' }) {
   const number = decodeURIComponent((await params).number)
+  const invoiceHref = checkoutPath(`/invoice/${encodeURIComponent(number)}`, surface)
   const session = await getServerSession(authOptions)
   const user = session?.user as { id?: string; role?: string } | undefined
-  if (!user?.id) redirect(`/login?next=${encodeURIComponent(`/invoice/${number}/official`)}`)
+  if (!user?.id) redirect(`/login?next=${encodeURIComponent(`${invoiceHref}/official`)}`)
   const admin = user.role === 'ADMIN' && await invoiceStaffAccess(new Headers(await headers()))
   const doc = await officialInvoice(number, { id: Number(user.id), admin })
   if (!doc) notFound()
   const s = doc.seller
   return <div className="oi-page" dir="rtl">
     <div className="oi-toolbar no-print">
-      <Link href={`/invoice/${doc.number}`} className="btn btn-ghost">← بازگشت به فاکتور</Link>
+      <Link href={invoiceHref} className="btn btn-ghost">← بازگشت به فاکتور</Link>
       <span className="oi-tip">برای فایل PDF، در پنجرهٔ چاپ مقصد را «Save as PDF» انتخاب کنید.</span>
       <PrintButton label="چاپ / ذخیرهٔ PDF" />
     </div>

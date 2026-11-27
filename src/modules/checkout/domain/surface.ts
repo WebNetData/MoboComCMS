@@ -11,6 +11,15 @@ export function storedCheckoutSurface(raw: string | null | undefined): CheckoutS
   try { const meta = JSON.parse(raw || '{}'); return meta?.checkoutSurface === 'cloud' && cloudOrderMeta(raw) ? 'cloud' : meta?.checkoutSurface === 'dashboard' ? 'dashboard' : 'public' } catch { return 'public' }
 }
 
+/** Cloud wallet top-ups use a server-built, owner-scoped idempotency namespace. */
+export function isCloudWalletTopup(invoice: { kind?: string | null; userId?: number | null; idempotencyKey?: string | null }, userId?: number) {
+  const ownerId = userId ?? invoice.userId
+  if (invoice.kind !== 'WALLET_TOPUP' || !Number.isSafeInteger(ownerId) || Number(ownerId) <= 0 || invoice.userId !== ownerId) return false
+  const prefix = `wallet-topup:cloud:${ownerId}:`
+  if (typeof invoice.idempotencyKey !== 'string' || !invoice.idempotencyKey.startsWith(prefix)) return false
+  return /^[A-Za-z0-9._:-]{8,128}$/.test(invoice.idempotencyKey.slice(prefix.length))
+}
+
 export function checkoutPath(path: string, surface: CheckoutSurface = 'public') {
   if (surface === 'cloud') {
     if (path === '/payment/result' || path.startsWith('/payment/result?')) return path.replace('/payment/result','/cloud/dashboard/payment/result')

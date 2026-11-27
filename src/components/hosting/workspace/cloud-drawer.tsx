@@ -27,7 +27,7 @@ export default function CloudDrawer({ children, open, onClose, name }: { childre
       else document.getElementById('cloud-content')?.focus({ preventScroll: true })
     }
   }, [open, onClose])
-  return <dialog ref={dialog} id="cloud-mobile-navigation" className={s.drawer} aria-labelledby="cloud-menu-title" onClose={onClose}
+  return <dialog ref={dialog} id="cloud-mobile-navigation" className={s.drawer} aria-labelledby="cloud-menu-title"
     onCancel={event => { event.preventDefault(); onClose() }}
     onClick={event => {
       if (event.target !== dialog.current) return

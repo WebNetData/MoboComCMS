@@ -9,7 +9,7 @@ import { GOOGLE_LOGIN_ERRORS, isGoogleLoginError } from '@/modules/identity/doma
 type Connection = { available: boolean; linked: boolean; email: string; linkedAt: string | null; canDisconnect: boolean }
 
 /** The member's Google connection in account settings: connect (through Google), or disconnect while another way in remains. */
-export default function GoogleLink() {
+export default function GoogleLink({ returnTo = '/dashboard/profile' }: { returnTo?: '/dashboard/profile' | '/cloud/dashboard/account' }) {
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const params = useSearchParams()
@@ -58,7 +58,7 @@ export default function GoogleLink() {
           ? <button type="button" className="btn btn-ghost btn-sm" onClick={disconnect} disabled={busy}>{fa ? 'قطع اتصال' : 'Disconnect'}</button>
           : <small className="muted">{fa ? 'برای قطع اتصال، اول شمارهٔ موبایل را تأیید کنید یا رمز عبور بگذارید.' : 'To disconnect, first verify your mobile or set a password.'}</small>}
       </div>
-      : <a className="auth-google google-link-connect" href="/api/login/google?intent=link&next=%2Fdashboard%2Fprofile"><GoogleMark /><span>{fa ? 'اتصال به گوگل' : 'Connect Google'}</span></a>}
+      : <a className="auth-google google-link-connect" href={`/api/login/google?intent=link&next=${encodeURIComponent(returnTo)}`}><GoogleMark /><span>{fa ? 'اتصال به گوگل' : 'Connect Google'}</span></a>}
     {returned && <p className={returned.ok ? 'success-text mt-2' : 'error-text mt-2'} role={returned.ok ? 'status' : 'alert'}>{returned.text}</p>}
     {notice && <p className="success-text mt-2" role="status">{notice}</p>}
     {error && <p className="error-text mt-2" role="alert">{error}</p>}

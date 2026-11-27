@@ -11,6 +11,7 @@ const CHECKS = [
   'content-canonical-alias',
   'support-page-problems',
   'support-ticket-claim',
+  'ticket-workspaces',
   'site-demand-sharing-health',
   'store-quotations',
   'store-delivery-changes',

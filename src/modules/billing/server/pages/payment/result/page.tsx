@@ -1,4 +1,4 @@
-import { checkoutPath, storedCheckoutSurface, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+import { checkoutPath, isCloudWalletTopup, storedCheckoutSurface, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 import { redirect } from 'next/navigation'
 import Link from '@/components/AppLink'
 import { getServerSession } from 'next-auth'
@@ -54,6 +54,7 @@ export default async function PaymentResultPage({
 
   const allowed = Boolean(invoice && viewerId && (invoice.userId === viewerId || isAdmin))
   const view = allowed && invoice ? invoice : null
+  if (view?.userId === viewerId && surface === 'public' && isCloudWalletTopup(view, viewerId)) redirect(checkoutPath(resultHref, 'cloud'))
   if (view?.userId === viewerId && surface === 'public' && storedCheckoutSurface(view.order?.meta) !== 'public') redirect(checkoutPath(resultHref, storedCheckoutSurface(view.order?.meta)))
 
   const subscription = view?.orderId
@@ -134,7 +135,7 @@ export default async function PaymentResultPage({
             {view?.productId && view.orderId && <Link href={`/dashboard/orders/${view.orderId}`} className="btn btn-ghost">{isFa ? 'پیگیری سفارش' : 'Track order'}</Link>}
             {view && paid && !delivered && <Link href={checkoutPath(`/payment/result?invoice=${encodeURIComponent(view.number)}`, surface)} className="btn btn-ghost">{isFa ? 'بررسی دوباره وضعیت' : 'Check status again'}</Link>}
             {view && !paid && view.status === 'UNPAID' && <Link href={checkoutPath(`/invoice/${view.number}`, surface)} className="btn btn-ghost">{failed ? t.tryAgain : isFa ? 'ادامه پرداخت' : 'Resume payment'}</Link>}
-            {failed && (!view || view.status !== 'UNPAID') && <Link href={view?.kind === 'WALLET_TOPUP' ? '/dashboard/wallet' : await isModuleEnabled('vpn') ? '/plans' : '/dashboard/invoices'} className="btn btn-ghost">{t.tryAgain}</Link>}
+            {failed && (!view || view.status !== 'UNPAID') && <Link href={view?.kind === 'WALLET_TOPUP' ? checkoutPath('/dashboard/wallet', surface) : await isModuleEnabled('vpn') ? '/plans' : '/dashboard/invoices'} className="btn btn-ghost">{t.tryAgain}</Link>}
           </div>
         </div>
       </Surface>

@@ -10,6 +10,7 @@ import { parseTicketSubmission, removeTicketFiles, saveTicketFiles, ticketAttach
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { TICKET_CHANGED, ticketWorkflowSelect, ticketWorkflowWhere } from '@/modules/support/server/ticket-workflow'
+import { readTicketService } from '@/modules/support/domain/ticket-service'
 
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise
@@ -33,6 +34,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     departmentName: departmentConfig ? { fa: departmentConfig.nameFa, en: departmentConfig.nameEn } : { fa: ticket.department, en: ticket.department },
     departmentFields: parseFields(departmentConfig?.fields || '[]'),
     productId: ticket.productId,
+    serviceContext: readTicketService(ticket.serviceContext),
     order: ticket.order ? { id: ticket.order.id, status: ticket.order.status, createdAt: ticket.order.createdAt, currency: ticket.order.currency, totalAmount: ticket.order.totalAmount, lines: ticket.order.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) } : null,
     customFields: JSON.parse(ticket.customFields || '{}'),
     userId: ticket.userId,

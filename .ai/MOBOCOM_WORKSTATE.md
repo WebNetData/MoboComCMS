@@ -1,3 +1,16 @@
+# Cloud and Pay ticket service selection — 2026-11-27
+
+PR #514 continuation on `feat/cloud-dashboard-local-tools-2026-11-27`, starting
+at `6c989854`. Support uses closed Cloud and Pay options and records a verified
+resource on new tickets where selected. [Cloud handoff](../docs/agent/handoffs/CLOUD_WORKSPACE.md#scoped-ticket-service-selection--2026-11-27).
+
+# Cloud dashboard wallet, support and account — 2026-11-27
+
+Continue `.mobocom/cloud-dashboard-local-tools`, branch
+`feat/cloud-dashboard-local-tools-2026-11-27`, from main `92133a8d`. The Cloud
+menu keeps wallet, tickets, settings and invoice actions under `/cloud/dashboard`
+using their existing owners. [Implementation and verification](../docs/agent/handoffs/CLOUD_WORKSPACE.md#cloud-wallet-support-and-account--2026-11-27).
+
 # Mobocom Pay bot customer ID compatibility — 2026-11-27
 
 Continue `.mobocom/pay-bot-string-user-id` on `fix/pay-bot-string-user-id-2026-11-27`

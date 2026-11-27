@@ -682,6 +682,8 @@ model Ticket {
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   department String @default("GENERAL")
   customFields String @default("{}")
+  /// Server-verified Cloud or Pay resource snapshot saved with the ticket.
+  serviceContext String @default("")
   device String?
   issueType String?
   id        Int             @id @default(autoincrement())

@@ -1110,6 +1110,20 @@ Identity, Hosting, Billing/Checkout, Support and Wallet boundaries. Checkout's
 Cloud presentation is a closed Hosting/domain surface; public Cloud content and
 navigation stay protected. No schema/dependency change is reported. Evidence and
 unresolved validation are recorded in [the handoff](handoffs/CLOUD_WORKSPACE.md).
+
+Wallet's Cloud entry uses Hosting's workspace gate and the existing Wallet
+projection and top-up owner. Cloud top-up invoice and ledger keys sit in reserved
+server namespaces distinct from member wallet keys. Billing recognizes the
+same-owner wallet invoice under the Cloud invoice, official print and result
+routes. Hosting's order and invoice list still selects exact Hosting/domain
+orders. Support and Identity provide their existing records and commands inside
+the Cloud shell. [Cloud tools](handoffs/CLOUD_WORKSPACE.md#cloud-wallet-support-and-account--2026-11-27).
+
+Support's scoped ticket routes use existing Cloud and Pay authorization.
+They project only owned resource IDs and labels and capture the verified
+context on the same Ticket record. Customer and staff detail continue to use
+the current ticket access and department guards.
+
 # Cloud operation boundary — 2026-11-26
 
 Hosting owns encrypted, frozen `HostingOperation` intents/history behind

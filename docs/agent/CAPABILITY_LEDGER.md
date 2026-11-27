@@ -481,6 +481,11 @@ Billing/Support/Wallet owners. Six native PostgreSQL suites, the full check gate
 25 distinct final responsive/themed views with axe0/overflow0/pageerrors0,
 menu behavior and public-navigation isolation passed. Final local Docker recovery
 and runtime cleanup are recorded in the handoff. [Handoff](handoffs/CLOUD_WORKSPACE.md).
+2026-11-27 Cloud tools add local wallet, ticket details, account settings and
+official invoice navigation. Existing owners and access guards serve the new
+surfaces. [Current evidence](handoffs/CLOUD_WORKSPACE.md#cloud-wallet-support-and-account--2026-11-27).
+Scoped ticket service choices and server-verified context extend the same
+Support history. [Selection evidence](handoffs/CLOUD_WORKSPACE.md#scoped-ticket-service-selection--2026-11-27).
 Cloud operations2026-11-26: IMPLEMENTED with local protocol/PG/browser evidence;
 real corrected WHM read-only login/packages VERIFIED. WHM service lifecycle,
 Joker basic register/renew, Proxmox/Hetzner create/power and Admin/customer controls

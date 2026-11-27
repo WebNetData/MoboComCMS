@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { ticketSlaDueAt } from '@/modules/support/domain/ticket-operations'
+import type { TicketServiceContext } from '@/modules/support/domain/ticket-service'
 
 export type SupportTicketCreateInput = {
   userId: number
@@ -9,6 +10,7 @@ export type SupportTicketCreateInput = {
   priority: 'low' | 'normal' | 'high'
   department: string
   customFields: Record<string, string | boolean>
+  serviceContext?: TicketServiceContext
   orderId?: number
   productId?: number
   storeWarrantyDeviceId?: number
@@ -27,6 +29,7 @@ export async function createSupportTicket(input: SupportTicketCreateInput) {
       userId: input.userId, subject: input.subject, priority: input.priority,
       lastCustomerAt: new Date(), slaDueAt: ticketSlaDueAt(input.priority),
       department: input.department, customFields: JSON.stringify(input.customFields),
+      serviceContext: input.serviceContext ? JSON.stringify(input.serviceContext) : undefined,
       orderId: input.orderId, productId: input.productId,
       storeWarrantyDeviceId: input.storeWarrantyDeviceId,
       subscriptionId: input.subscriptionId, subscriptionUsername: input.subscriptionUsername,

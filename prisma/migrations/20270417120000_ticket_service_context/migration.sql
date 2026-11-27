@@ -1,0 +1,1 @@
+ALTER TABLE "Ticket" ADD COLUMN "serviceContext" TEXT NOT NULL DEFAULT '';

@@ -1,5 +1,41 @@
 # Independent MoboCom Cloud customer workspace
 
+## Scoped ticket service selection — 2026-11-27
+
+Support owns the ticket and message history. The Cloud composer offers the
+signed-in member's hosting services and domains. The Pay composer offers the
+active merchant's terminals. Account support keeps its original product,
+order, warranty and subscription options.
+
+The existing ticket options and creation routes accept a closed `workspace`
+query for Cloud and Pay. They apply the workspace guard, filter departments
+requiring products or subscriptions, and reject foreign or cross-section
+references. Selection is optional. A verified key and label are stored on
+the ticket, and an additive column defaults to empty on existing tickets.
+
+## Cloud wallet, support and account surfaces — 2026-11-27
+
+Signed-in Cloud members use a fluid sidebar and mobile drawer to reach
+infrastructure, finances, support and account settings. Wallet balance, ledger,
+top-ups and payment results are shown in `/cloud/dashboard`. An owned Cloud
+top-up returns to Cloud after gateway navigation or retry. A member can create,
+open, share and reply to their tickets from the workspace, and update account
+settings from the existing identity forms. The ordinary account routes retain
+their established presentation.
+
+Hosting's current workspace guard protects Cloud pages and the wallet entry
+point. Wallet still owns the ledger and top-up transaction, Support owns ticket
+authorization and attachments, and Identity owns the account. Return locations
+are selected by a closed surface and persisted with the top-up identity. A
+normal wallet invoice, foreign invoice or unrelated order cannot become accessible
+through the Cloud routes. Main wallet and support records are shared through their
+existing owners, with no new database schema or independent identity.
+
+Acceptance covers both wallet origins and replay, ticket actions and foreign
+denial, existing hosting invoice filtering, correct account returns, keyboard
+drawer and responsive sidebar, and light/dark Cloud pages at desktop and mobile
+widths. Test against a disposable PostgreSQL database and synthetic accounts.
+
 Owner2026-11-26 explicitly protects the public Cloud homepage/pages. Authoritative
 checkout `.mobocom/cloud-workspace`, branch `feat/cloud-workspace-2026-11-26`,
 basee133b9a3 retaining the owner's preceding local Pay/account slices. Public

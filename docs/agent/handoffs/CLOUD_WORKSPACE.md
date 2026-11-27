@@ -1,5 +1,73 @@
 # Dedicated Cloud customer workspace — 2026-11-26
 
+## Scoped ticket service selection — 2026-11-27
+
+Continue PR #514 on `feat/cloud-dashboard-local-tools-2026-11-27` from
+`6c989854`. Cloud offers the customer's own hosting services and domains, and
+Pay offers the active merchant's own terminals. Both use canonical Support
+and show the saved service to the customer and permitted staff. Account support
+continues to use its existing product, order, warranty and subscription options.
+
+`Ticket.serviceContext` stores a bounded key and label from the server lookup.
+The additive `20270417120000_ticket_service_context` migration is registered
+as unreleased. An earlier build can ignore the extra column and retain all
+tickets and messages. No backfill is needed.
+
+On isolated PostgreSQL 17, the migration preserved a ticket and message from
+the pre-change database. The `ticket-workspaces`, `support-ticket-claim` and
+`cloud-workspace` suites passed against a separate database. An actual HTTP run
+verified both scoped options, omitted selection, saved labels, denial of
+foreign or cross-section IDs, and preserved Store choices for account support.
+Edge checked both composers at 390 and 1440 px in both themes, using the actual
+ticket API for one Cloud and one Pay submission and scoped axe for each
+selector. TypeScript, architecture, source, schema, manifest, security, scoped
+React Doctor and redacted secret scanning passed locally.
+
+## Cloud wallet, support and account — 2026-11-27
+
+Owner requested a standalone Cloud dashboard with main-dashboard navigation
+style and local wallet, support and ticket workflows. The continuation is
+`.mobocom/cloud-dashboard-local-tools`, branch
+`feat/cloud-dashboard-local-tools-2026-11-27`, from main `92133a8d`.
+
+- The Cloud menu uses the shared ShellNav, existing tokens, a visible current
+  route, fluid content and the native mobile drawer. Wallet, tickets and account
+  are direct destinations in the Cloud workspace.
+- The Cloud wallet reads the existing ledger and submits to the Wallet owner
+  through Hosting's workspace authorization. The stored invoice and ledger keys
+  use separate server namespaces so a member-mode client key cannot change
+  surfaces. A verified Cloud wallet history entry links to the exact owned
+  invoice. Billing composes the canonical invoice, official print and result.
+- Cloud tickets use existing Support authorization, department and attachment
+  flows. A reloadable selection URL lives inside the workspace. The main ticket
+  page retains its existing related-order link. Account composes canonical
+  Identity settings and a closed return for Google linking and password re-login.
+- The change requires no schema migration. All records remain in their canonical
+  ledger, account and support owners. A code rollback retains those records and
+  uses the existing public/account invoice routes to reach earlier payments.
+
+Completed local checks on isolated Linux Node 22 and PostgreSQL 17 include the
+native `cloud-workspace`, `dashboard-service-ordering`, `support-ticket-claim`
+and `google-login` suites. They cover exact-origin invoice/ledger replay,
+foreign-owner denial, normal-wallet compatibility, Hosting filtering, ticket
+authorization and the closed Google linking return. TypeScript, architecture and
+source checks and the money primitive check passed. The focused checkout unit
+suite passed 10 tests. React Doctor reported two complexity warnings in the
+extracted account and wallet views, with no errors.
+
+Browser runs used two synthetic members and a manual transfer fixture. Edge
+covered the Cloud menu at 320, 390, 768, 1024, 1440 and 1920 px in both themes,
+including keyboard containment, Escape and resize restoration. Scoped axe
+reported no navigation violations at 390 and 1440 px. The wallet browser run
+covered top-up, the exact ledger link, official print, the local result and
+other-owner denial. The ticket run created, replied, reloaded and followed a
+deep link, with foreign access denied. Editing the Cloud account persisted to
+the same member visible in the main profile. External providers and production
+deployment require the owner's environment.
+
+The drawer treats the React state as its open/close owner. A delayed native
+close event from Escape no longer closes a freshly reopened drawer.
+
 Local feature slice on `feat/cloud-workspace-2026-11-26` in
 `.mobocom/cloud-workspace`, base`e133b9a3`. Previous Pay/account commits and
 other worktrees are preserved. Owner merges and deploys; implementation performed

@@ -1,8 +1,9 @@
 import { offeredLocale } from '@/i18n/policy'
 import { NextRequest } from 'next/server'
+import type { TicketDepartment } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
-import { requireUser } from '@/modules/identity/server/access'
+import { requireUser, type AuthedUser } from '@/modules/identity/server/access'
 import { sanitizeMessage, richTextToPlain } from '@/shared/content/sanitize'
 import { issueTypes, reportDevices } from '@/modules/support/domain/incidents'
 import { validateAnswers, parseFields } from '@/modules/support/domain/department-config'
@@ -13,12 +14,38 @@ import { parseTicketSubmission, removeTicketFiles, saveTicketFiles, ticketAttach
 import { createSupportTicket } from '@/modules/support/server/create-ticket'
 import { customerWarrantyDevices, ownedWarrantyDeviceForSupport } from '@/modules/store/server/warranties'
 import { moduleGuard } from '@/extensions/server/modules'
+import { requireTicketWorkspace, ticketWorkspaceService, ticketWorkspaceServices, TicketWorkspaceError } from '@/modules/support/server/ticket-workspace'
+import type { TicketServiceContext } from '@/modules/support/domain/ticket-service'
+
+async function requestWorkspace(req: NextRequest, user: AuthedUser) {
+  const workspace = req.nextUrl.searchParams.get('workspace')
+  if (workspace === null) return null
+  if (workspace !== 'cloud' && workspace !== 'pay') return err('بخش پشتیبانی معتبر نیست.', 422)
+  try { await requireTicketWorkspace(req, workspace, user) }
+  catch (error) { if (error instanceof TicketWorkspaceError) return err(error.message, error.status); throw error }
+  return workspace
+}
+
+function departmentViews(departments: TicketDepartment[], locale: string) {
+  return departments.map(d => ({ slug: d.slug, name: locale === 'fa' ? d.nameFa : d.nameEn, description: locale === 'fa' ? d.descriptionFa : d.descriptionEn, requiresSubscription: d.requiresSubscription, requiresProduct: d.requiresProduct, fields: parseFields(d.fields) }))
+}
 
 export async function GET(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
+  const workspace = await requestWorkspace(req, user)
+  if (workspace instanceof Response) return workspace
   if (req.nextUrl.searchParams.get('view') === 'options') {
     const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
+    if (workspace) {
+      const [services, departments] = await Promise.all([
+        ticketWorkspaceServices(workspace, user.id),
+        db.ticketDepartment.findMany({ where: { active: true, requiresSubscription: false, requiresProduct: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
+      ])
+      const response = ok({ services, departments: departmentViews(departments, locale), subscriptions: [], products: [], orders: [], warrantyDevices: [] })
+      response.headers.set('Cache-Control', 'private, no-store')
+      return response
+    }
     const [subscriptions, orders, supportOrders, departments] = await Promise.all([
       db.subscription.findMany({ where: { userId: user.id, status: 'ACTIVE', expiresAt: { gt: new Date() } }, include: { plan: true }, orderBy: { createdAt: 'desc' } }),
       db.order.findMany({ where: { userId: user.id, status: 'PAID', productId: { not: null }, product: { active: true } }, include: { product: true }, orderBy: { createdAt: 'desc' } }),
@@ -28,7 +55,7 @@ export async function GET(req: NextRequest) {
     const products = [...new Map(orders.filter(o => o.product).map(o => [o.product!.id, { id: o.product!.id, name: locale === 'fa' ? o.product!.name : (o.product!.nameEn || `Product #${o.product!.id}`) }])).values()]
     const storeOff = await moduleGuard('store')
     const warrantyDevices = storeOff ? [] : await customerWarrantyDevices(user.id)
-    return ok({ subscriptions: subscriptions.map(s => ({ id: s.id, name: planName(s.plan, locale), username: s.username, expiresAt: s.expiresAt })), products, orders: supportOrders.map(o => ({ id: o.id, createdAt: o.createdAt, status: o.status, lines: o.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) })), warrantyDevices, departments: departments.map(d => ({ slug: d.slug, name: locale === 'fa' ? d.nameFa : d.nameEn, description: locale === 'fa' ? d.descriptionFa : d.descriptionEn, requiresSubscription: d.requiresSubscription, requiresProduct: d.requiresProduct, fields: parseFields(d.fields) })) })
+    return ok({ subscriptions: subscriptions.map(s => ({ id: s.id, name: planName(s.plan, locale), username: s.username, expiresAt: s.expiresAt })), products, orders: supportOrders.map(o => ({ id: o.id, createdAt: o.createdAt, status: o.status, lines: o.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) })), warrantyDevices, departments: departmentViews(departments, locale) })
   }
   const tickets = await db.ticket.findMany({
     where: { userId: user.id },
@@ -55,6 +82,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
+  const workspace = await requestWorkspace(req, user)
+  if (workspace instanceof Response) return workspace
   let body: any, files: Awaited<ReturnType<typeof parseTicketSubmission>>['files']
   try { ({ body, files } = await parseTicketSubmission(req)) }
   catch (error) { return error instanceof TicketUploadError ? err(error.message, error.status) : err('Could not read ticket / دریافت تیکت ممکن نشد') }
@@ -63,13 +92,23 @@ export async function POST(req: NextRequest) {
   const priority = ['low', 'normal', 'high'].includes(body?.priority) ? body.priority : 'normal'
   const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
   const L = (en: string, fa: string) => locale === 'fa' ? fa : en
+  if (workspace && ['orderId', 'storeWarrantyDeviceId', 'productId', 'subscriptionId'].some(key => body?.[key] != null)) {
+    return err(L('Select a service from this workspace.', 'سرویس را از همین بخش انتخاب کنید.'), 422)
+  }
+  if (!workspace && body?.serviceKey != null) return err(L('Select a service in its workspace.', 'سرویس را از پنل همان بخش انتخاب کنید.'), 422)
   const department = body?.department === undefined && body?.subscriptionId !== undefined ? 'SUBSCRIPTION' : String(body?.department || '')
   const departmentConfig = await db.ticketDepartment.findUnique({ where: { slug: department } })
   if (!departmentConfig?.active) return err(L('Choose an active department.', 'یک دپارتمان فعال انتخاب کنید.'))
+  if (workspace && (departmentConfig.requiresSubscription || departmentConfig.requiresProduct)) return err(L('Choose a department available here.', 'یکی از دپارتمان‌های فعال این بخش را انتخاب کنید.'), 422)
   let customFields: Record<string, string | boolean>
   try { customFields = validateAnswers(parseFields(departmentConfig.fields), body?.customFields) } catch (e) { return err(e instanceof Error ? e.message : L('Invalid fields.', 'فیلدها معتبر نیستند.')) }
   if (!subject || !richTextToPlain(message)) return err(L('Subject and message are required.', 'موضوع و متن پیام الزامی است.'))
   if (subject.length > 200 || message.length > 12000) return err('پیام بیش از حد طولانی است / Message too long')
+  let serviceContext: TicketServiceContext | undefined
+  if (workspace && body?.serviceKey != null) {
+    try { serviceContext = await ticketWorkspaceService(workspace, user.id, body.serviceKey) }
+    catch (error) { if (error instanceof TicketWorkspaceError) return err(error.message, error.status); throw error }
+  }
   let report: { subscriptionId: number; subscriptionUsername: string; subscriptionLink: string; device: string; issueType: string } | undefined
   let productId: number | undefined
   let orderId: number | undefined
@@ -122,7 +161,7 @@ export async function POST(req: NextRequest) {
   catch { return err('Could not save attachments / ذخیرهٔ پیوست‌ها ممکن نشد', 500) }
   let ticket: { id: number; priority: string }
   try { ticket = await createSupportTicket({
-    userId: user.id, subject, priority, department, customFields, orderId, productId, storeWarrantyDeviceId,
+    userId: user.id, subject, priority, department, customFields, serviceContext, orderId, productId, storeWarrantyDeviceId,
     ...report, message, attachments: ticketAttachmentRows(files),
   }) } catch {
     await removeTicketFiles(files)
