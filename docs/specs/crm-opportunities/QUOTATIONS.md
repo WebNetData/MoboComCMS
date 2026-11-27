@@ -1,0 +1,11 @@
+# پیش‌فاکتور فرصت فروش
+
+The existing CRM opportunity links to an existing Store quotation. Both CRM holder/manager scope and current `orders.manage` are needed to read or act on commercial detail. A quote uses the same customer account, product and variant eligibility, exact price, discount and expiry validation as standard Store quotes. Store owns quote creation, cancellation, online/counter conversion and order state. The link and audit commit with canonical creation. An open opportunity can have one active quote at a time. Cancelled/expired quotes remain in history and can be replaced. A converted quote continues to anchor the linked order.
+
+The staff member reviews and explicitly confirms sending the existing quote link to the customer's in-site inbox. Share timestamp, actor, strict audit and reminder jobs commit together with the internal notification. Repeated approval returns the original share result. The report and private detail show no quote token. The existing customer quote route and checkout enforce the canonical account. No SMS, email or push is requested.
+
+An open, shared, unconverted quote can alert the current eligible opportunity assignee three days from sharing and within 24 hours of expiry. Jobs check current scope, stage, customer, holder and expiration and skip stale work. A smaller validity window uses only the expiry reminder. Open opportunities can be closed by the existing CRM command, which stops future staff reminders. Existing Store quote validity and payment rules remain the Store owner's concern.
+
+The report uses the CRM owner/customer scope and requires `orders.manage` with Store on. Its conversion rate is opportunities with a linked PAID order divided by all scoped opportunities. Estimates and gross paid order totals for paid conversions are grouped separately by currency. Refunds follow canonical order state. Conversion does not automatically overwrite the opportunity's stage.
+
+Validate both migrations, same-customer and permission boundaries, atomic creation/confirmation, preserved prior quotes, internal reminders, actual linked paid data, and the Persian browser flow. Rollback retains links; older runtimes may classify pending reminder jobs as unknown. Existing quotes retain their Store behavior.

@@ -1,5 +1,59 @@
 # Continuous customer engagement — 2026-11-07
 
+## Opportunity quotations and paid conversion — 2026-11-27
+
+Checkout `.mobocom/crm-opportunity-quotations`, branch
+`feat/crm-opportunity-quotations-2026-11-27`, based on PR510 head `bbcf6906`.
+[Scenario and contract](../../specs/crm-opportunities/QUOTATIONS.md).
+
+An authorized opportunity holder or manager with `orders.manage` can
+create a Store quotation for the same canonical customer. Existing
+Store product, discount, expiry, stock and conversion logic still owns
+the offer. CRM's bridge and strict audit commit in the Store creation
+transaction. One active or converted quotation can occupy an opportunity;
+expired or cancelled offers remain in history and can be replaced.
+
+Explicit staff confirmation shares the existing quote in the customer's
+in-site inbox. Repeated approval is idempotent, and no external channel
+is selected. The panel shows effective expiry, share time and current
+Store order state. The durable queue schedules internal reminders for
+the current eligible opportunity assignee three days after sharing and
+24 hours before expiry. A shorter offer uses only the expiry alert. The
+worker rechecks both module switches, the quote, opportunity and assignee
+before writing any notice. A converted, cancelled or expired offer
+produces no subsequent reminder.
+
+Reports apply the opportunity's existing customer/holder scope and
+`orders.manage`. Conversion uses current PAID orders; the report compares
+the estimated opportunity and actual order totals for the converted
+cohort per currency. The paid order does not change the opportunity's stage.
+
+In isolated PostgreSQL 17, the empty chain applied 229 migrations and a
+populated upgrade preserved the prior standalone Store quotation and CRM
+opportunity. The connected CRM quotation, CRM opportunities, follow-ups,
+Store quotations and generic queue checks passed in Linux UID1000 without
+an `.env`. The new check covers permissions, same-customer binding,
+racing creation and sharing, decline of invalid discount precision, exact
+pricing, replacement of an expired offer, internal delivery deduplication,
+stale reminders and paid scope. TypeScript, source/import, architecture,
+security, schema parity and release manifest checks passed.
+
+Edge exercised physical-product selection, a Jalali expiry, exact discount,
+explicit sharing, the order link, paid totals and Origin denial. The buyer
+opened the canonical quotation from the authenticated dashboard inbox. Scoped axe
+was clear at 1440 and 390 in both themes. React Doctor reported zero blocking
+errors and nine advisory warnings across the inspected components.
+Scoped Semgrep reported zero findings. The 27 Store and Livechat unit tests
+passed without `DATABASE_URL`. With a PostgreSQL URL, the existing inventory
+unit's fake transaction lacks `$queryRaw`; the same failure reproduced on
+unmodified PR510 base. Real Store quotation conversion passed in PostgreSQL.
+
+Deploy after the opportunity migration from PR510 and the new
+`20270416120000_crm_opportunity_quotations` migration. Roll back application
+code with the bridge intact and preserve the erasure hooks for retained
+links. Older runtimes may classify pending reminder jobs as unknown.
+The owner merges and deploys.
+
 ## Sales opportunities — 2026-11-27
 
 Continue `.mobocom/crm-sales-pipeline`, branch

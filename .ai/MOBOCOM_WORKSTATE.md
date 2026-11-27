@@ -1,3 +1,12 @@
+# CRM quotations and paid conversion — 2026-11-27
+
+Continue `.mobocom/crm-opportunity-quotations`,
+`feat/crm-opportunity-quotations-2026-11-27`, from PR510 head `bbcf6906`.
+CRM links the canonical Store quote to an opportunity, with confirmed
+customer inbox sharing, staff reminders and scoped paid-order reporting.
+Apply PR510 first if it remains open.
+[Validation and rollout](../docs/agent/handoffs/CRM_ENGAGEMENT.md#opportunity-quotations-and-paid-conversion--2026-11-27).
+
 # CRM sales opportunities — 2026-11-27
 
 Continue `.mobocom/crm-sales-pipeline`, `feat/crm-sales-pipeline-2026-11-27`,

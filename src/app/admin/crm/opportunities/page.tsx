@@ -141,6 +141,15 @@ function SalesDesk() {
         <div><dt>ارزش فرصت‌های موفق</dt><dd>{data.stats.wonTotals.length ? data.stats.wonTotals.map(item => formatAmount(item.amountMinor, item.currency)).join('، ') : '—'}</dd></div>
       </dl>}
     </section>
+    {data?.commerce && <section className={styles.panel} aria-labelledby="sales-commerce-heading">
+      <h2 id="sales-commerce-heading">تبدیل فرصت به سفارش پرداخت‌شده</h2>
+      <dl className={styles.summary}>
+        <div><dt>فرصت‌های بررسی‌شده</dt><dd>{fa(data.commerce.opportunities)}</dd></div>
+        <div><dt>فرصت‌های دارای سفارش پرداخت‌شده</dt><dd>{fa(data.commerce.paidOpportunities)}</dd></div>
+        <div><dt>نرخ تبدیل</dt><dd>{fa(data.commerce.conversionRate)}٪</dd></div>
+        {data.commerce.totals.map(total => <div key={total.currency}><dt>برآورد و فروش فرصت‌های پرداخت‌شده</dt><dd>{formatAmount(total.estimatedMinor, total.currency)} / {formatAmount(total.paidMinor, total.currency)}</dd></div>)}
+      </dl>
+    </section>}
     {filterOptions && (
       <div className={styles.toolbar}>
         <label>مرحله<select className="input" aria-label="فیلتر مرحله" value={stage} onChange={event => changeFilter({ stage: event.target.value })}><option value="">همهٔ مراحل</option>{stageEntries.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

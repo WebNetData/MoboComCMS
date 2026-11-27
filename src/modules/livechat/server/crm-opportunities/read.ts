@@ -6,6 +6,7 @@ import { OPEN_OPPORTUNITY_STAGES, OPPORTUNITY_STAGES, isClosedOpportunity, isOpp
 import { ChatError } from '../../domain/livechat'
 import { authorizeOpportunitySource } from '../crm-opportunity-source'
 import { crmFollowUpCustomer, followUpAssignees, mayManageFollowUps } from '../crm-follow-ups'
+import { opportunityCommerceReport } from './quotation-report'
 
 const pageSize = 25
 const staleWhere = (now: Date) => ({
@@ -58,14 +59,16 @@ export async function listOpportunities(actor: AuthedUser, filter: OpportunityFi
   const itemsWhere: Prisma.CrmOpportunityWhereInput = {
     ...where, stage: filter.stage, ...(filter.stale ? { AND: [staleWhere(now)] } : {}),
   }
+  const totalOpportunities = Object.values(stats.counts).reduce((sum, count) => sum + count, 0)
   const total = filter.stale ? await db.crmOpportunity.count({ where: itemsWhere })
-    : filter.stage ? stats.counts[filter.stage] : Object.values(stats.counts).reduce((sum, count) => sum + count, 0)
+    : filter.stage ? stats.counts[filter.stage] : totalOpportunities
   const pageCount = Math.max(1, Math.ceil(total / pageSize)), page = Math.min(filter.page, pageCount)
   const rows = total ? await db.crmOpportunity.findMany({
     where: itemsWhere, include: relations, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     skip: (page - 1) * pageSize, take: pageSize,
   }) : []
-  return { rows: rows.map(row => present(row, actor)), staff, canManage, ownId: actor.id, page, pageCount, stats }
+  const commerce = await opportunityCommerceReport(actor, where)
+  return { rows: rows.map(row => present(row, actor)), staff, canManage, ownId: actor.id, page, pageCount, stats, commerce }
 }
 
 export async function previewOpportunitySource(req: NextRequest, actor: AuthedUser, source: OpportunitySource) {

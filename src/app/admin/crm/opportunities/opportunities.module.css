@@ -29,6 +29,12 @@
 .searchResults button { min-height: 44px; text-align: start; width: 100%; }
 .pager { justify-content: space-between; }
 .notice { margin: 0; }
+.quoteSection { display: grid; gap: 12px; margin-block: 18px; padding-block: 16px; border-block: 1px solid var(--line); }
+.quoteSection h3, .quoteForm h4 { margin: 0; }
+.quoteForm { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.quoteForm p, .quoteConfirm p { margin: 0; }
+.quoteFields { display: grid; gap: 12px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.quoteConfirm { display: grid; gap: 8px; }
 .desk :is(a, button, select, input, textarea):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 @media (max-width: 660px) {
   .panel, .feedback { padding: 12px; }
