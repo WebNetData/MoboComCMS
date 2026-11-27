@@ -1028,7 +1028,23 @@
           "sha256": "76c16b54276f74d63ca6b8589c9f070eb70e593c3f4350b1d0e5bd59e263ecf5"
         }
       ]
+    },
+    "1.7.28": {
+      "migrations": [
+        {
+          "name": "20270418120000_ai_management_reviews",
+          "sha256": "2a72480265a08e4fc5c121a510598797aa5a832843af8db2ddbf912983970982"
+        },
+        {
+          "name": "20270418130000_pay_gateway_access",
+          "sha256": "d5b54acf3354109dfd936686167ad24391b271ab30162e13794309c66fb76a94"
+        },
+        {
+          "name": "20270418140000_pay_terminal_api_keys",
+          "sha256": "9d4408c8ce29e137dd133803e29027ca7cb17a799c85a16d8e529de2f5b32ed9"
+        }
+      ]
     }
   },
-  "unreleased": ["20270418120000_ai_management_reviews", "20270418130000_pay_gateway_access", "20270418140000_pay_terminal_api_keys"]
+  "unreleased": []
 }

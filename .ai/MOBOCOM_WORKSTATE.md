@@ -1,3 +1,10 @@
+# Release 1.7.28 — 2026-11-28
+
+Release checkout `.mobocom/release-1.7.28`, branch `release/1.7.28`, from
+merged main `56b8fcf3`. Includes AI management, stale CRM opportunities,
+and Pay gateway grants and terminal credentials. Three additive migrations
+are sealed. [Scope and verification](../docs/agent/handoffs/RELEASE_1_7_28.md).
+
 # AI desk CRM sales indicator — 2026-11-28
 
 Continue `.mobocom/ai-crm-sales-signals` on
