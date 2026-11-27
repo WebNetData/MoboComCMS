@@ -41,6 +41,7 @@ import {
   bankFeedReady,
   paySettings,
   botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
+  adminGatewayAccess, saveGatewayAccess, terminalGatewayOptions,
   smsSources, saveSmsSource,
   transferMonitor, transferReviewQueue, transferReviewDetail, transferReviewSearch, transferCollectionReview, decideTransferReview,
 } from '@/modules/billing/server/pay'
@@ -94,6 +95,11 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       throw new PayError('این بخش در حال به‌روزرسانی است', 503)
     await limited('pay:' + actor.id)
     if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource); if (center) return center }
+    if (parts.length === 3 && resource === 'terminals' && parts[2] === 'gateways' && !legacyMachine && req.method === 'GET') {
+      const amounts = req.nextUrl.searchParams.getAll('amountRial')
+      if (amounts.length > 1) throw new PayError('مبلغ فقط یک‌بار قابل ارسال است', 422)
+      return apiOk(await terminalGatewayOptions(actor, parts[1], amounts[0]))
+    }
     if (parts.length === 2 && resource === 'payments' && req.method === 'GET') {
       const payment = await payPaymentById(actor, parts[1])
       return apiOk(machine ? machinePayment(payment) : payment)
@@ -129,6 +135,7 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
       }
       if (resource === 'terminals') return apiOk(terminalView(await createTerminal(actor, input)), 201)
       if (resource === 'payments') {
+        if (legacyMachine && Object.hasOwn(input, 'gatewayRef')) throw new PayError('انتخاب درگاه در نسخهٔ ۲ API ارائه می‌شود', 422, 'PAY_API_V2_REQUIRED')
         const created = await createPayPayment(actor, input, req.headers.get('idempotency-key') || '')
         const payment = await payPaymentById(actor, created.id)
         return apiOk(machine ? machinePayment(payment) : payment, 201)
@@ -175,6 +182,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     await limited('pay-admin:' + actor.id)
     if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource, true); if (center) return center }
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
+    if (req.method === 'GET' && resource === 'gateway-access') return apiOk(await adminGatewayAccess(actor, req.nextUrl.searchParams.get('id')))
     if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
     if (req.method === 'GET' && resource === 'sms-sources') return apiOk(await smsSources(actor))
     if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
@@ -186,6 +194,11 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
       return apiOk(id ? number ? await transferReviewSearch(actor, id, number) : await transferReviewDetail(actor, id) : await transferReviewQueue(actor, req.nextUrl.searchParams))
     }
     const input = await readJsonObject(req, 16000)
+    if (req.method === 'PATCH' && resource === 'gateway-access') {
+      const origin = req.headers.get('origin')
+      if (!origin || !originIsThisSite(origin, req.nextUrl.host)) throw new PayError('مبدأ درخواست معتبر نیست', 403)
+      return apiOk(await saveGatewayAccess(actor, input))
+    }
     const center = await payCenterWrite(actor, resource, req.method, input, true)
     if (center) return center
     if (req.method === 'POST' && resource === 'merchant-directory') return apiOk({ id: (await enrollMerchant(actor, input)).id }, 201)

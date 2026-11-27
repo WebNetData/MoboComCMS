@@ -6,6 +6,7 @@ import { api, json, money, date } from '../client'
 import { Badge, ErrorNotice, Field } from '../shared'
 import MerchantProfile from './merchant-profile'
 import MerchantCredit from './merchant-credit'
+import MerchantGatewayAccess from './merchant-gateway-access'
 import s from '../Pay.module.css'
 import o from './Merchants.module.css'
 
@@ -30,6 +31,7 @@ export default function MerchantDetailPanel({ id, onSaved }: { id: string; onSav
       <details className={o.disclosure}><summary>مشخصات کسب‌وکار و قرارداد کارمزد</summary><div className={s.stack}><MerchantProfile key={`${id}:${data.merchant.version}`} merchant={data.merchant} disabled={disabled} action={action} /></div></details>
       <details className={o.disclosure}><summary>ارز اعتبار پرداخت‌های تازه</summary><MerchantCredit key={`${id}:${data.merchant.version}`} merchant={data.merchant} disabled={disabled} action={action} /></details>
       <section className={`${s.stack} ${o.controlGroup}`}><h3>کنترل پایانه‌ها و اتصال‌ها</h3>{!data.terminals.length && <p className={s.muted}>پایانه‌ای ثبت نشده است؛ پذیرنده پس از فعال‌سازی از پنل اختصاصی پایانه می‌سازد.</p>}{data.terminals.map(terminal => <article className={o.panel} key={terminal.id}><div className={s.row}><h4>{terminal.name}</h4><Badge value={terminal.active ? 'ACTIVE' : 'SUSPENDED'} /></div><p className={o.sub}>{PAY_CHANNEL_LABELS[terminal.channelType]} · <bdi>{terminal.channelUrl || terminal.returnUrl || 'بدون بازگشت اجباری'}</bdi></p><div className={s.actions}><button className={s.secondary} type="button" disabled={disabled} onClick={() => void action({ action: 'terminal', terminalId: terminal.id, active: !terminal.active, baleEnabled: terminal.baleEnabled && data.merchant.baleAllowed })}>{terminal.active ? 'توقف پایانه' : 'فعال‌سازی پایانه'}</button><button className={s.secondary} type="button" disabled={disabled || !data.merchant.baleAllowed} onClick={() => void action({ action: 'terminal', terminalId: terminal.id, active: terminal.active, baleEnabled: !terminal.baleEnabled })}>{terminal.baleEnabled ? 'بستن روش خودکار پایانه' : 'فعال‌کردن روش خودکار پایانه'}</button></div>{terminal.bot && <div><p>اتصال ربات: {terminal.bot.active ? 'فعال' : 'متوقف'} · <bdi className={o.sub}>{terminal.bot.callbackUrl}</bdi></p><button className={s.secondary} type="button" disabled={disabled || !terminal.bot.active} onClick={() => void action({ action: 'revoke-bot', terminalId: terminal.id, botVersion: terminal.bot!.version })}>توقف اتصال و کلید ربات</button></div>}</article>)}</section>
+      <MerchantGatewayAccess merchantId={id} disabled={busy || loading} />
       <section className={`${s.stack} ${o.historyGroup}`}><h3>سابقهٔ مدیریت · ۵۰ رویداد اخیر</h3>{!data.history.length && <p className={s.muted}>رویدادی ثبت نشده است.</p>}<ol className={o.history}>{data.history.map(h => <li key={h.id}><strong>{titles[h.action.replace('mobocom-pay.merchant.', '')] || 'تغییر پذیرندگی'}</strong><p className={s.muted}>{date(h.at)} · مدیر {h.actorId.toLocaleString('fa-IR')}</p>{h.note && <p>{h.note}</p>}</li>)}</ol></section>
     </>}
   </section>

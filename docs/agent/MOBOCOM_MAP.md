@@ -1,3 +1,9 @@
+Gateway access 2026-11-27: Billing Pay gateway-options owns effective
+catalogue, merchant and terminal policy, exact amount and bot-rule intersection.
+The existing checkout and terminal API use that projection. Merchant
+administration owns the audited policy changes.
+[Evidence](handoffs/MOBOCOM_PAY.md#merchant-and-terminal-gateway-access--2026-11-27).
+
 Gateway availability2026-11-26: Billing Pay checkout-gateways owns atomic local
 checkout/collection reservation. Billing operational-health projects incident
 counts into the shared Notifications Operations Monitor.

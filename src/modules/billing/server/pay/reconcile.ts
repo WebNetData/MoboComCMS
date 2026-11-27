@@ -9,6 +9,7 @@ import { payTransaction } from './context'
 import { creditPayPayment } from './credit'
 import { markInvoicePaid } from '@/modules/billing/server/billing'
 import { paySettings, bankFeedReady } from './settings'
+import { payGatewayOptions } from './gateway-options'
 
 export async function reconcileReference(
   tx: Prisma.TransactionClient,
@@ -56,6 +57,10 @@ export async function reconcileReference(
   )
     return
   if (!row.payerVerifiedAt) return
+  // Existing invoices keep their original verification path. An unstarted legacy
+  // bank hint must respect the current terminal and merchant grant.
+  if (!row.invoiceId && (row.requestedGatewayRef || row.terminal.gatewayPolicy || row.merchant.gatewayPolicy) &&
+    !(await payGatewayOptions(row, tx)).some(method => method.provider === 'CARD_TRANSFER' && method.manual)) return
   const bound = await tx.payBankEvent.updateMany({ where: { id: event.id, status: 'UNMATCHED', paymentId: null }, data: { status: 'MATCHED', paymentId: row.id } })
   if (bound.count !== 1) throw new PayError('تراکنش بانکی قبلاً استفاده شده است', 409)
   if (row.invoiceId) {

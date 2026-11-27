@@ -73,6 +73,7 @@ export interface PayTerminalView {
   createdAt: string
 }
 export interface PayPaymentView {
+  requestedGatewayRef?: string
   /** Present only in the authorized Admin payment projection. */
   receiptIds?: number[]
   reviewStatus?: 'UNDER_REVIEW'

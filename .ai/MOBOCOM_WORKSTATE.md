@@ -1,3 +1,13 @@
+# MoboCom Pay gateway access — 2026-11-27
+
+Continue `.mobocom/pay-terminal-gateway-control` on
+`feat/pay-terminal-gateway-control-2026-11-27` from merged main `07583c07`.
+Pay reuses the canonical ready catalogue. Administrators set an ordered
+merchant grant and a narrower terminal grant. Merchant checkout creation can
+pin an eligible gateway. The v2 discovery and pinning contract is documented
+with the additive migration and operational checks in
+[the Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#merchant-and-terminal-gateway-access--2026-11-27).
+
 # Reviewed AI management actions — 2026-11-27
 
 PR #517 targets `main` with the desk, review routines and reviewed actions.

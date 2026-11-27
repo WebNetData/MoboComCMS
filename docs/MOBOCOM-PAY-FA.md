@@ -94,6 +94,28 @@ Binance-Peg BSC-USD است. انتخاب BSC یا Ethereum تأیید صریح �
 را در دکمهٔ هر پلتفرمی که پیوند وب دارد ارائه کنید. برای پنل رباتی که قرارداد
 «درگاه سفارشی» دارد، از بخش بعد استفاده کنید.
 
+برای نمایش روش‌های قابل‌استفادهٔ یک پایانه، پیش از ساخت پرداخت این درخواست
+خواندنی را بفرستید. `amountRial` اختیاری است؛ در صورت ارسال، موبوکام روش‌هایی
+را می‌دهد که با مبلغ و حساب مقصد فعلی سازگارند. پاسخ از قالب معمول `ok/data`
+پیروی می‌کند و `data` شامل `terminalId`، `currency: IRR` و `items` است. مقدار
+`ref` را همان‌طور که دریافت شده نگه دارید؛ فهرست ممکن است با تغییر تنظیمات عوض شود.
+
+```http
+GET /api/v2/pay/terminals/TERMINAL_ID/gateways?amountRial=100000
+Authorization: Bearer MERCHANT_API_KEY
+Origin: https://YOUR-MOBOCOM-DOMAIN
+```
+
+اگر بخواهید روش پرداخت از ابتدا انتخاب شود، `gatewayRef` را با یکی از همین
+مراجع به بدنهٔ ساخت پرداخت اضافه کنید. این انتخاب اختیاری است و بدون آن رفتار
+انتخاب فعلی حفظ می‌شود. اگر کلید `Idempotency-Key` را تکرار می‌کنید، همان
+`gatewayRef` را هم بفرستید؛ استفاده از همان کلید با انتخاب متفاوت درخواست
+متعارض است. پاسخ فقط در صورت تعیین این فیلد، `data.requestedGatewayRef` را دارد.
+این قابلیت فقط در نسخهٔ ۲ API پشتیبانی می‌شود؛ فرستادن `gatewayRef` به API نسخهٔ ۱
+با خطای `PAY_API_V2_REQUIRED` رد می‌شود.
+درگاه ممکن است تا زمان پرداخت از دسترس خارج شود؛ مشتری وضعیت و روش‌های قابل‌پرداخت
+را در صفحهٔ پرداخت موبوکام می‌بیند.
+
 ```http
 POST /api/v2/pay/payments
 Authorization: Bearer MERCHANT_API_KEY
@@ -101,7 +123,7 @@ Origin: https://YOUR-MOBOCOM-DOMAIN
 Idempotency-Key: checkout-order-123
 Content-Type: application/json
 
-{"terminalId":"TERMINAL_ID","externalId":"order-123","amountRial":"100000"}
+{"terminalId":"TERMINAL_ID","externalId":"order-123","amountRial":"100000","gatewayRef":"REF_FROM_GATEWAY_CATALOG"}
 ```
 
 پاسخ موفق ۲۰۱ است و فیلدهای `data.id`، `data.checkoutUrl` و `data.expiresAt`

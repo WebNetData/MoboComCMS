@@ -714,3 +714,37 @@ Gateway/Jobs/Audit owners; no new authentication, database or subdomain deployme
   manager/settlement-only, self/CAS/revocation/history); actual browser light/dark/
   mobile, Admin create→activate→suspend, legacy redirects, public checkout unchanged,
   keyboard/axe and React Doctor. No hosted workflow/live bank/deployment authorization.
+## Merchant and terminal gateway access
+
+Billing supplies the same ready, currency-compatible gateway accounts used by
+checkout. Portal administrators can inherit that catalogue, choose an ordered
+allowlist, or stop new payments for a merchant and independently for each
+terminal. A terminal can narrow the merchant's access. Automatic transfer
+continues to require both existing grants and a ready source. Bot rules further
+filter the effective methods and preserve their order. The first eligible method
+is the checkout default. The customer can choose any eligible method when an
+integration leaves the choice open.
+
+The existing merchant detail owns policy editing. It requires
+`mobocom-pay.manage`, the merchant administration target guard, a current policy
+version, same-site Origin, confirmation and a reason. The change and audit
+commit together. Saved references that leave the active catalogue do not become
+eligible. The merchant console and v2 Bearer API can read only their own
+terminal's eligible methods. The API exposes the reference, customer label and
+method properties. Credentials and bank details remain in Billing.
+
+`GET /api/v2/pay/terminals/{id}/gateways` optionally accepts `amountRial`.
+Amount-aware discovery uses the customer total and exact provider precision.
+`POST /api/v2/pay/payments` optionally binds an exact `gatewayRef` into the
+idempotency fingerprint and the immutable payment snapshot. Clients that omit
+it keep the existing fingerprint and hosted choice. The new grant is checked
+for both issuance and the first checkout attempt. Previously created provider
+invoices settle through their existing verified proof, and ambiguous attempts
+keep the existing recovery policy.
+
+Migration `20270418130000_pay_gateway_access` adds empty inheritance/pin
+defaults, bounded settings and an immutable requested gateway constraint. It
+does not rewrite historical payments. The connected suite `pay-gateway-access`
+checks the effective grant, version claims, tenant scope, idempotency and
+checkout enforcement. Existing checkout, bot, bank matching, credit and
+webhook suites cover financial continuity.

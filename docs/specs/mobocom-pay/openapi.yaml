@@ -629,6 +629,43 @@ paths:
                 $ref: "#/components/schemas/TerminalResponse"
         default:
           $ref: "#/components/responses/Error"
+  /api/v2/pay/terminals/{id}/gateways:
+    get:
+      operationId: v2ListPayTerminalGateways
+      tags:
+        - Merchant
+      description: >-
+        Read-only catalog of payment gateways currently eligible for this active merchant's terminal.
+        Requires an authenticated merchant bearer token and an active MoboCom Pay module and
+        section. The terminal must belong to the active merchant; a disabled terminal is returned with
+        an empty items array. When amountRial is supplied, it must follow the Rial grammar and the
+        server calculates the gross charge from current merchant fee terms, returning only methods
+        compatible with that amount, provider precision, and configured payout account. Catalog refs
+        are opaque and can be passed unchanged as gatewayRef when creating a v2 payment. Availability
+        is a snapshot; payment creation validates the ref again.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: amountRial
+          in: query
+          required: false
+          description: Optional exact integer amount in IRR, using the Rial schema grammar.
+          schema: { $ref: "#/components/schemas/Rial" }
+      responses:
+        "200":
+          description: Eligible gateway catalog; data is empty for a disabled terminal.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TerminalGatewayListResponse" }
+        "401": { description: Missing or invalid bearer token. }
+        "403": { description: Bearer identity has no active merchant context or the Pay section is unavailable. }
+        "404": { description: Terminal not found for the active merchant. }
+        "422": { description: Invalid amountRial. }
+        "503": { description: No payment method is currently ready for this terminal. }
+        default:
+          $ref: "#/components/responses/Error"
   /api/v2/pay/payments:
     get:
       operationId: v2ListPayPayments
@@ -663,7 +700,12 @@ paths:
       operationId: v2CreatePayPayment
       tags:
         - Payments
-      description: Create a payment or replay a matching request using its idempotency key.
+      description: >-
+        Create a payment or replay a matching request using its idempotency key. Optional gatewayRef
+        must exactly match a ref returned by the terminal gateway catalog. When supplied, it is part
+        of the idempotency request binding; replaying the same key with a different value conflicts.
+        Omit it to preserve existing gateway selection behavior. Legacy v1 requests and signed
+        callbacks/webhooks are unchanged.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -674,11 +716,14 @@ paths:
               $ref: "#/components/schemas/PaymentCreate"
       responses:
         "201":
-          description: Created or replayed payment
+          description: Created or replayed payment; requestedGatewayRef is present only when requested.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentResponse"
+        "409": { description: "Idempotency key was already used with a different request, including a different gatewayRef." }
+        "422": { description: "Requested gatewayRef is unknown, no longer eligible, or incompatible with this payment; application code PAY_GATEWAY_NOT_AVAILABLE." }
+        "503": { description: "No gateway is ready for this terminal; application code PAY_NOT_READY." }
         default:
           $ref: "#/components/responses/Error"
   /api/v2/pay/payments/{id}:
@@ -907,8 +952,8 @@ components:
     PaymentCreate:
       type: object
       required: [terminalId, externalId, amountRial]
-      properties: { terminalId: { type: string }, externalId: { type: string, maxLength: 100 }, amountRial: { $ref: '#/components/schemas/Rial' } }
-    Payment: {"type":"object","required":["id","externalId","terminalId","terminalName","amountRial","feeRial","netRial","totalRial","feeBearer","status","transferReference","createdAt","paidAt","expiresAt","checkoutUrl"],"properties":{"id":{"type":"string"},"externalId":{"type":"string"},"terminalId":{"type":"string"},"terminalName":{"type":"string"},"amountRial":{"$ref":"#/components/schemas/Rial"},"totalRial":{"$ref":"#/components/schemas/Rial"},"customerFeeRial":{"$ref":"#/components/schemas/Rial"},"merchantFeeRial":{"$ref":"#/components/schemas/Rial"},"feeBearer":{"type":"string","enum":["MERCHANT","CUSTOMER"],"description":"Legacy payer marker. A shared fee retains MERCHANT and exposes both exact fee parts."},"feeRial":{"$ref":"#/components/schemas/Rial"},"netRial":{"$ref":"#/components/schemas/Rial"},"status":{"type":"string","enum":["PENDING","PAID","EXPIRED"]},"transferReference":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"paidAt":{"type":"string","format":"date-time","nullable":true},"expiresAt":{"type":"string","format":"date-time"},"checkoutUrl":{"type":"string"},"creditCurrency":{"type":"string","enum":["IRR","USDT"]},"creditAmount":{"type":"string","description":"Exact immutable credit to the merchant; USDT has two canonical internal decimals."},"settledServiceFeeRial":{"$ref":"#/components/schemas/Rial"},"platformFeeRial":{"$ref":"#/components/schemas/Rial"},"creditRial":{"$ref":"#/components/schemas/Rial"},"customerAmountRial":{"$ref":"#/components/schemas/Rial"},"confirmation":{"$ref":"#/components/schemas/PayConfirmation"},"reviewStatus":{"type":"string","enum":["UNDER_REVIEW"],"description":"Optional review detail while the stable machine payment status remains PENDING. Native merchant/checkout UI shows UNDER_REVIEW."}}}
+      properties: { terminalId: { type: string }, externalId: { type: string, maxLength: 100 }, amountRial: { $ref: '#/components/schemas/Rial' }, gatewayRef: { type: string, minLength: 1, maxLength: 200, description: "Exact opaque ref from GET /api/v2/pay/terminals/{id}/gateways. Optional; bound into idempotency when supplied." } }
+    Payment: {"type":"object","required":["id","externalId","terminalId","terminalName","amountRial","feeRial","netRial","totalRial","feeBearer","status","transferReference","createdAt","paidAt","expiresAt","checkoutUrl"],"properties":{"id":{"type":"string"},"externalId":{"type":"string"},"terminalId":{"type":"string"},"terminalName":{"type":"string"},"amountRial":{"$ref":"#/components/schemas/Rial"},"totalRial":{"$ref":"#/components/schemas/Rial"},"customerFeeRial":{"$ref":"#/components/schemas/Rial"},"merchantFeeRial":{"$ref":"#/components/schemas/Rial"},"feeBearer":{"type":"string","enum":["MERCHANT","CUSTOMER"],"description":"Legacy payer marker. A shared fee retains MERCHANT and exposes both exact fee parts."},"feeRial":{"$ref":"#/components/schemas/Rial"},"netRial":{"$ref":"#/components/schemas/Rial"},"status":{"type":"string","enum":["PENDING","PAID","EXPIRED"]},"transferReference":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"paidAt":{"type":"string","format":"date-time","nullable":true},"expiresAt":{"type":"string","format":"date-time"},"checkoutUrl":{"type":"string"},"requestedGatewayRef":{"type":"string","description":"Present only when gatewayRef was requested at creation."},"creditCurrency":{"type":"string","enum":["IRR","USDT"]},"creditAmount":{"type":"string","description":"Exact immutable credit to the merchant; USDT has two canonical internal decimals."},"settledServiceFeeRial":{"$ref":"#/components/schemas/Rial"},"platformFeeRial":{"$ref":"#/components/schemas/Rial"},"creditRial":{"$ref":"#/components/schemas/Rial"},"customerAmountRial":{"$ref":"#/components/schemas/Rial"},"confirmation":{"$ref":"#/components/schemas/PayConfirmation"},"reviewStatus":{"type":"string","enum":["UNDER_REVIEW"],"description":"Optional review detail while the stable machine payment status remains PENDING. Native merchant/checkout UI shows UNDER_REVIEW."}}}
     QuoteCreate: {"type":"object","required":["railId","amountRial"],"properties":{"railId":{"type":"string","enum":["IRR_BANK","TRX_TRON","USDT_TRON"]},"amountRial":{"$ref":"#/components/schemas/Rial"}}}
     Quote: {"allOf":[{"$ref":"#/components/schemas/QuoteCreate"},{"type":"object","required":["id","feeRial","payoutAmount","asset","network","rateRialPerUnit","expiresAt"],"properties":{"id":{"type":"string"},"feeRial":{"$ref":"#/components/schemas/Rial"},"payoutAmount":{"type":"string"},"asset":{"type":"string"},"network":{"type":"string"},"rateRialPerUnit":{"type":"string"},"expiresAt":{"type":"string","format":"date-time"}}}]}
     SettlementCreate:
@@ -951,6 +996,8 @@ components:
     QuoteResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Quote' } } }
     SettlementResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { $ref: '#/components/schemas/Settlement' } } }
     TerminalListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Terminal' } } } } } }
+    TerminalGatewayListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [terminalId, currency, items], properties: { terminalId: { type: string }, currency: { type: string, enum: [IRR] }, items: { type: array, items: { $ref: '#/components/schemas/TerminalGateway' } } } } } }
+    TerminalGateway: { type: object, required: [ref, id, name, provider, manual, isDefault], properties: { ref: { type: string, description: "Opaque selection ref returned by the catalog." }, id: { type: string }, name: { type: string }, provider: { type: string }, manual: { type: boolean }, automatic: { type: boolean, description: Present when automatic capability is known. }, isDefault: { type: boolean } } }
     PaymentListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items, page, pages, total], properties: { items: { type: array, items: { $ref: '#/components/schemas/Payment' } }, page: { type: integer }, pages: { type: integer }, total: { type: integer } } } } }
     SettlementListResponse: { type: object, required: [ok, data], properties: { ok: { type: boolean, enum: [true] }, data: { type: object, required: [items, page, pages, total], properties: { items: { type: array, items: { $ref: '#/components/schemas/Settlement' } }, page: { type: integer }, pages: { type: integer }, total: { type: integer } } } } }
     OverviewResponse:

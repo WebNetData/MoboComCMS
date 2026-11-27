@@ -48,6 +48,7 @@ export function paymentView(row: PayPayment & { terminal?: { name: string }; inv
     gatewayCollectedRial: collection?.collectedRial.toString() || row.totalMinor.toString(),
     gatewayCollectionStatus: collection?.status || '',
     id: row.id, terminalId: row.terminalId, terminalName: row.terminal?.name || '', externalId: row.externalId,
+    ...(row.requestedGatewayRef ? { requestedGatewayRef: row.requestedGatewayRef } : {}),
     amountRial: row.amountMinor.toString(), feeRial: row.feeMinor.toString(), netRial: row.netMinor.toString(),
     totalRial: row.totalMinor.toString(), feeBearer: row.feeBearer === 'CUSTOMER' ? 'CUSTOMER' : 'MERCHANT',
     status: held ? 'UNDER_REVIEW' : row.status === 'PENDING' && expiresAt <= new Date() ? 'EXPIRED' : row.status as PayPaymentView['status'],
