@@ -7,9 +7,26 @@ require('./pay-usdt-equivalent.cases.cjs')
 const input={api_key:'synthetic',amount:10000,order_id:'order-1',user_id:123456789,type:'purchase'}
 test('bot request preserves exact Toman and bounds hostile claims without retaining personal context',()=>{
  const parsed=parseBotPayment({...input,first_name:'علی',username:'example',payment_count:3,register:1735689600,membership_days:-1,balance:25000})
- assert.deepEqual(parsed,{orderId:'order-1',amountRial:'100000',userId:'123456789',type:'purchase'})
- for(const amount of[0,-1,1.1,'10000',Number.MAX_SAFE_INTEGER,NaN,Infinity])assert.throws(()=>parseBotPayment({...input,amount}))
+ assert.deepEqual(parsed,{orderId:'order-1',amountRial:'100000',userId:'123456789',type:'purchase',paymentCount:3,membershipDays:-1})
+ for(const amount of[0,-1,1.1,'0','010000','10000.5','1e4',' 10000','10000\n','900000000000001',Number.MAX_SAFE_INTEGER,NaN,Infinity])assert.throws(()=>parseBotPayment({...input,amount}))
  for(const patch of[{user_id:0},{user_id:1.1},{type:'paid'},{order_id:'../x'},{order_id:'x'.repeat(101)},{username:'@name'},{payment_count:-1},{membership_days:-2},{balance:-1},{amountRial:'1'}])assert.throws(()=>parseBotPayment({...input,...patch}))
+})
+test('decimal strings from a bot panel preserve amounts and routing claims',()=>{
+ const numeric={...input,payment_count:3,register:1735689600,membership_days:45,balance:25000}
+ const strings={...numeric,amount:'10000',user_id:'123456789',payment_count:'3',register:'1735689600',membership_days:'45',balance:'25000'}
+ assert.deepEqual(parseBotPayment(strings),parseBotPayment(numeric))
+ assert.equal(parseBotPayment({...input,amount:'900000000000000'}).amountRial,'9000000000000000')
+ assert.deepEqual(parseBotPayment({...input,payment_count:null,membership_days:'',register:'',balance:null,username:null,first_name:null}),parseBotPayment(input))
+ assert.equal(parseBotPayment({...input,payment_count:'0'}).paymentCount,0)
+ assert.equal(parseBotPayment({...input,membership_days:'-1'}).membershipDays,-1)
+})
+test('rejects malformed numeric values with the field name and requires a literal order type',()=>{
+ for(const field of ['payment_count','register','membership_days','balance']) {
+  for(const value of [true,{},[],1.5,'-2','1.5','01','+1','1e3','۱۲','3\n','9007199254740992']) {
+   assert.throws(()=>parseBotPayment({...input,[field]:value}),error=>error.status===422&&error.message.includes(field))
+  }
+ }
+ assert.throws(()=>parseBotPayment({...input,type:['purchase']}),error=>error.status===422)
 })
 test('bot customer IDs normalize decimal strings to the existing numeric identity',()=>{
  for(const userId of [1,123456789,Number.MAX_SAFE_INTEGER]) {

@@ -31,7 +31,7 @@ export async function createBotPayment(req: NextRequest, id: string, input: Reco
     if (prior && (prior.integrationId !== integration.id || prior.customerRefHash !== customerRefHash || prior.orderType !== parsed.type)) throw new PayError('شناسهٔ سفارش با اطلاعات دیگری ثبت شده است', 409)
     let snapshot = prior ? parseRoutingSnapshot(prior.routingSnapshot) : null
     if (!prior) {
-      const rule = matchRoutingRule(storedRoutingRules(current.routingRules), { amountRial: parsed.amountRial, type: parsed.type, paymentCount: input.payment_count as number | undefined, membershipDays: input.membership_days as number | undefined })
+      const rule = matchRoutingRule(storedRoutingRules(current.routingRules), parsed)
       if (rule) {
         const options = await payGatewayOptions(row, tx)
         const gateways = rule.gateways.flatMap(ref => { const option = options.find(item => item.ref === ref); return option ? [{ ref, name: option.name.trim().slice(0, 80) || 'پرداخت' }] : [] })

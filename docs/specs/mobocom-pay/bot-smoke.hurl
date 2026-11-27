@@ -8,14 +8,31 @@ HTTP 200
 jsonpath "$.url" == "{{checkoutUrl}}"
 jsonpath "$.data" not exists
 
-# String and numeric customer IDs return the same obligation, including after financial settlement.
+# String and numeric claims return the same obligation, including after financial settlement.
 POST {{baseUrl}}/api/v1/pay/bot/{{integrationId}}
 Origin: {{baseUrl}}
 Content-Type: application/json
-{"api_key":"{{botCreateKey}}","amount":10000,"order_id":"{{orderId}}","user_id":"123456789","type":"purchase"}
+{"api_key":"{{botCreateKey}}","amount":"10000","order_id":"{{orderId}}","user_id":"123456789","type":"purchase","payment_count":"3","register":"1735689600","membership_days":"45","balance":"0"}
 HTTP 200
 [Asserts]
 jsonpath "$.url" == "{{checkoutUrl}}"
+
+POST {{baseUrl}}/api/v1/pay/bot/{{integrationId}}
+Origin: {{baseUrl}}
+Content-Type: application/json
+{"api_key":"{{botCreateKey}}","amount":10000,"order_id":"{{orderId}}","user_id":123456789,"type":"purchase","payment_count":null,"register":"","membership_days":null,"balance":""}
+HTTP 200
+[Asserts]
+jsonpath "$.url" == "{{checkoutUrl}}"
+
+POST {{baseUrl}}/api/v1/pay/bot/{{integrationId}}
+Origin: {{baseUrl}}
+Content-Type: application/json
+{"api_key":"{{botCreateKey}}","amount":10000,"order_id":"{{orderId}}","user_id":123456789,"type":"purchase","payment_count":"3.5"}
+HTTP 422
+[Asserts]
+jsonpath "$.ok" == false
+jsonpath "$.message" contains "payment_count"
 
 POST {{baseUrl}}/api/v1/pay/bot/{{integrationId}}
 Origin: {{baseUrl}}

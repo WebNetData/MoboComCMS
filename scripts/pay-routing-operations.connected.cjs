@@ -56,7 +56,9 @@ async function main() {
   connection = (await pay.saveBotRouting(a, { id: connection.id, version: connection.routingVersion, rules: [rule()] })).integration
   const base = { api_key: token, amount: 10000, order_id: 'order-first', user_id: 123456789, type: 'purchase', payment_count: 3, membership_days: 45 }
   const create = input => pay.createBotPayment(new NextRequest(`https://mobocom.invalid/api/v1/pay/bot/${connection.id}`), connection.id, input)
-  const result = await create(base); assert.equal(result.links.length, 2)
+  const result = await create({ ...base, amount: '10000', payment_count: '3', membership_days: '45', register: '1735689600', balance: '0' })
+  assert.equal(result.links.length, 2)
+  assert.deepEqual(await create(base), result)
   const id = paymentId(result), urls = result.links.map(x => new URL(x.url))
   assert.ok(urls.every(u => u.pathname.endsWith('/' + id))); assert.deepEqual(urls.map(u => u.searchParams.get('method')), gateways.slice(0, 2).map(g => `db:${g.id}`))
   assert.equal(await db.payPayment.count({ where: { merchantId: merchant.id, externalId: base.order_id } }), 1)
@@ -82,7 +84,7 @@ async function main() {
   const after = await db.payBotIntegration.findUniqueOrThrow({ where: { id: connection.id } }); assert.equal(after.version, before.version); assert.equal(after.routingVersion, before.routingVersion); assert.equal(after.routingRules, before.routingRules)
   const fallback = await create({ ...base, order_id: 'disabled-fallback' }); assert.equal(fallback.links.length, 1); assert.equal(new URL(fallback.links[0].url).searchParams.has('method'), false)
   connection = (await pay.saveBotRouting(a, { id: connection.id, version: connection.routingVersion, rules: [rule()] })).integration
-  const missing = await create({ ...base, order_id: 'missing-history', payment_count: undefined, membership_days: undefined }); assert.equal(missing.links.length, 1); assert.equal(new URL(missing.links[0].url).searchParams.has('method'), false)
+  const missing = await create({ ...base, order_id: 'missing-history', payment_count: null, membership_days: '' }); assert.equal(missing.links.length, 1); assert.equal(new URL(missing.links[0].url).searchParams.has('method'), false)
   await db.gateway.updateMany({ where: { id: { in: gateways.slice(0, 2).map(g => g.id) } }, data: { active: false } })
   await assert.rejects(create({ ...base, order_id: 'unavailable' }), e => e.status === 503)
   assert.equal(await db.payPayment.count({ where: { merchantId: merchant.id, externalId: 'unavailable' } }), 0)
