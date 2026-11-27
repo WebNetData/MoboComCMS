@@ -1,3 +1,9 @@
+Gateway access 2026-11-27: Billing's ready catalogue supports ordered
+merchant grants, narrower terminal grants, v2 discovery by terminal and amount,
+and an immutable optional gateway for each payment. Hosted checkout and the bot
+both use the effective grant.
+[Evidence and limits](handoffs/MOBOCOM_PAY.md#merchant-and-terminal-gateway-access--2026-11-27).
+
 Gateway availability2026-11-26: VERIFIED_LOCAL. Capacity failure rolls back
 new automatic checkout, the customer can choose an allowed alternate, and the
 existing Operations Monitor flags unresolved bot/bank items. Lifetime capacity

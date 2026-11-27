@@ -1,26 +1,32 @@
 import { acquisitionSnapshot } from './assets'
-import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import { createHash, randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
 import { idempotencyKey, paymentAmounts, reference, text, rial, merchantFeeTerms } from '@/modules/billing/domain/pay-policy'
-import { merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
+import { assertPayTerminal, merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { reconcileReference } from './reconcile'
 import { listCheckoutGateways } from '@/modules/billing/server/gateways'
+import { validRoutingRef } from '@/modules/billing/domain/pay-routing'
+import { payCollectionBank } from './gateway-access'
+import { eligiblePayGateways, payGatewayOptions } from './gateway-options'
 
 export const fingerprint = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function createPayPayment(actor: PayActor, input: Record<string, unknown>, key: string, transaction?: Prisma.TransactionClient) {
-  const gateways = await listCheckoutGateways('IRR', transaction)
   const terminalId = text(input.terminalId, 60),
     externalId = text(input.externalId, 100),
-    idem = idempotencyKey(key)
+    rawIdem = idempotencyKey(key)
+  assertPayTerminal(actor, terminalId)
+  const idem = actor.terminalKey ? fingerprint(['pay-terminal', terminalId, rawIdem]) : rawIdem
+  const requestedGatewayRef = input.gatewayRef === undefined ? '' : input.gatewayRef
+  if (input.gatewayRef !== undefined && !validRoutingRef(input.gatewayRef)) throw new PayError('شناسهٔ درگاه معتبر نیست', 422, 'PAY_GATEWAY_REF_INVALID')
+  const gatewayRef = String(requestedGatewayRef)
   const work = async (tx: Prisma.TransactionClient) => {
     const merchant = await merchantFor(actor, tx, true),
       { settings } = await payContext(actor, tx)
     const amount = rial(input.amountRial)
-    const hash = fingerprint({ terminalId, externalId, amount: amount.toString() })
+    const hash = fingerprint({ terminalId, externalId, amount: amount.toString(), ...(gatewayRef ? { gatewayRef } : {}) })
     const previous = await tx.payPayment.findUnique({
       where: { merchantId_idempotencyKey: { merchantId: merchant.id, idempotencyKey: idem } },
     })
@@ -30,20 +36,23 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
       return previous
     }
     const amounts = paymentAmounts(input.amountRial, settings, merchantFeeTerms(settings, merchant))
-    if (!settings.incomingEnabled || !gateways.length || merchant.creditCurrency === 'USDT' && !gateways.some(g => ['CARD_TRANSFER','MANUAL','MOBOCOM_PAY'].includes(g.provider)))
+    if (!settings.incomingEnabled)
       throw new PayError('دریافت وجه هنوز آماده نیست', 503, 'PAY_NOT_READY')
     const terminal = await tx.payTerminal.findFirst({
       where: { id: terminalId, merchantId: merchant.id, active: true },
     })
     if (!terminal) throw new PayError('پایانهٔ فعال پیدا نشد', 404)
-    if (!gateways.some(gateway => !isAutomaticTransfer(gateway) || merchant.baleAllowed && terminal.baleEnabled)) throw new PayError('هیچ روش پرداخت مجازی برای این پایانه آماده نیست', 503)
     if (await tx.payPayment.count({ where: { terminalId, externalId } }))
       throw new PayError('شناسهٔ سفارش قبلاً استفاده شده است', 409)
-    const bank = await tx.bankAccount.findFirst({
-      where: { collectionUse: 'GENERAL', ...(settings.bankAccountIds.length ? { id: { in: settings.bankAccountIds } } : {}), active: true },
-      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    const bank = await payCollectionBank(tx, settings.bankAccountIds)
+    const catalog = await listCheckoutGateways('IRR', tx)
+    const methods = eligiblePayGateways(catalog, { merchant, terminal }, {
+      totalMinor: amounts.totalMinor, creditCurrency: merchant.creditCurrency, requestedGatewayRef: gatewayRef, hasBankAccount: Boolean(bank),
     })
-    if (!bank && !gateways.some(g => g.provider !== 'CARD_TRANSFER' || isAutomaticTransfer(g))) throw new PayError('حساب دریافت فعال نیست', 503)
+    if (!methods.length) throw gatewayRef
+      ? new PayError('این درگاه برای این پایانه و مبلغ مجاز یا آماده نیست', 422, 'PAY_GATEWAY_NOT_AVAILABLE')
+      : new PayError('هیچ روش پرداخت مجازی برای این پایانه و مبلغ آماده نیست', 503, 'PAY_NOT_READY')
+    const cardTransfer = methods.some(method => method.provider === 'CARD_TRANSFER' && method.manual)
     const now = new Date(), id = randomBytes(24).toString('base64url'), expiresAt = new Date(now.getTime() + settings.paymentMinutes * 60000)
     const credit = await acquisitionSnapshot(tx, { id, merchantId: merchant.id, name: merchant.name, currency: merchant.creditCurrency, netMinor: amounts.netMinor, totalMinor: amounts.totalMinor, expiresAt, maxAgeMinutes: settings.usdtRateMaxAgeMinutes })
     const row = await tx.payPayment.create({
@@ -52,7 +61,8 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
         ...credit,
         merchantId: merchant.id,
         terminalId,
-        bankAccountId: bank?.id ?? null,
+        bankAccountId: cardTransfer ? bank?.id ?? null : null,
+        requestedGatewayRef: gatewayRef,
         externalId,
         idempotencyKey: idem,
         fingerprint: hash,
@@ -61,7 +71,7 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
         expiresAt,
       },
     })
-    await payAudit(tx, actor, 'payment.create', row.id, { terminalId, amountRial: row.amountMinor })
+    await payAudit(tx, actor, 'payment.create', row.id, { terminalId, amountRial: row.amountMinor, ...(gatewayRef ? { gatewayRef } : {}) })
     return row
   }
   return transaction ? work(transaction) : payTransaction(work)
@@ -85,6 +95,9 @@ export async function reportPayReference(id: string, value: unknown) {
       throw new PayError('مهلت یا وضعیت این پرداخت تغییر کرده است', 409)
     if (row.merchant.status !== 'ACTIVE' || !row.terminal.active)
       throw new PayError('دریافت پایانه متوقف شده است', 409)
+    if (!row.invoiceId && (row.requestedGatewayRef || row.terminal.gatewayPolicy || row.merchant.gatewayPolicy) &&
+      !(await payGatewayOptions(row, tx)).some(method => method.provider === 'CARD_TRANSFER' && method.manual))
+      throw new PayError('انتقال بانکی برای این پرداخت مجاز نیست', 409, 'PAY_GATEWAY_NOT_AVAILABLE')
     if (row.transferReference && row.transferReference !== transferReference)
       throw new PayError('شمارهٔ پیگیری قبلاً ثبت شده؛ برای اصلاح با پشتیبانی تماس بگیرید', 409)
     // Duplicate hints create ambiguity and cannot steal a previously matched event.

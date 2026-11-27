@@ -8,7 +8,7 @@ import { payTransaction, payContext } from '../context'
 import { botKeyHash, resolveBotIntegration } from './integrations'
 import { matchRoutingRule, parseRoutingSnapshot, type RoutingSnapshot } from '@/modules/billing/domain/pay-routing'
 import { storedRoutingRules } from './routing'
-import { payGatewayOptions } from '../checkout-gateways'
+import { payGatewayOptions } from '../gateway-options'
 
 export async function createBotPayment(req: NextRequest, id: string, input: Record<string, unknown>) {
   let origin: URL

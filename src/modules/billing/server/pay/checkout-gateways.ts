@@ -2,13 +2,10 @@ import { acceptPurchase } from './assets'
 import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import { randomBytes } from 'node:crypto'
 import type { NextRequest } from 'next/server'
-import type { Prisma } from '@prisma/client'
-import { parseRoutingSnapshot } from '@/modules/billing/domain/pay-routing'
-import { db } from '@/platform/database/prisma'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { PayError } from '@/modules/billing/domain/pay'
-import { checkoutGatewayRef, createGatewayInvoice, customerGatewayLabel, gatewayCallbackUrl, listCheckoutGateways } from '@/modules/billing/server/gateways'
+import { checkoutGatewayRef, createGatewayInvoice, gatewayCallbackUrl, listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { createInvoiceForOrder } from '@/modules/billing/server/billing'
 import { legacyNumber } from '@/shared/money'
 import { payTransaction } from './context'
@@ -16,22 +13,9 @@ import { paySettings } from './settings'
 import { publicPayment } from './payments'
 import { requirePayPayer } from './payer'
 import { prepareBaleGateway } from './bale/collection-create'
+import { payGatewayOptions } from './gateway-options'
 
-export type PayGatewayOption = { ref: string; id: number | null; name: string; provider: string; manual: boolean; isDefault: boolean; automatic?: boolean }
 export type PayGatewayStart = { invoiceId: number; gatewayRef: string; provider: string; manual: boolean; paymentUrl: string; status: 'READY' | 'STARTING' | 'UNKNOWN' | 'FAILED' }
-
-/** Active canonical gateways; incompatible precision is never silently rounded. */
-export async function payGatewayOptions(row?: { totalMinor: bigint; id?: string; creditCurrency?: string }, reader: Prisma.TransactionClient | typeof db = db): Promise<PayGatewayOption[]> {
-  const gateways = await listCheckoutGateways('IRR', reader === db ? undefined : reader as Prisma.TransactionClient)
-  const delivery = row?.id ? await reader.payBotDelivery.findUnique({ where: { paymentId: row.id }, select: { routingSnapshot: true } }) : null
-  const snapshot = delivery ? parseRoutingSnapshot(delivery.routingSnapshot) : null
-  const grant = row?.id && gateways.some(gw => isAutomaticTransfer(gw)) ? await reader.payPayment.findUnique({ where: { id: row.id }, select: { merchant: { select: { baleAllowed: true } }, terminal: { select: { baleEnabled: true } } } }) : null
-  return gateways.filter(gw => row?.creditCurrency !== 'USDT' || ['CARD_TRANSFER','MANUAL','MOBOCOM_PAY'].includes(gw.provider)).filter(gw => !isAutomaticTransfer(gw) || !row?.id || Boolean(grant?.merchant.baleAllowed && grant.terminal.baleEnabled)).filter(gw => !snapshot || snapshot.gateways.some(method => method.ref === checkoutGatewayRef(gw))).filter((gw) => gw.provider !== 'FRENZYEX' || !row || row.totalMinor % 10n === 0n).map((gw, index) => ({
-    ref: checkoutGatewayRef(gw), id: gw.id, name: customerGatewayLabel(gw), provider: gw.provider,
-    ...(isAutomaticTransfer(gw) ? { automatic: true } : {}),
-    manual: !isAutomaticTransfer(gw) && (gw.provider === 'CARD_TRANSFER' || gw.provider === 'MANUAL'), isDefault: index === 0,
-  }))
-}
 
 /** Never navigate to another Telegram bot, including an HTTP bot deep link. */
 function safeWebPaymentUrl(raw: string, origin: string): string {
@@ -55,17 +39,18 @@ function siteOrigin() {
 /** A STARTING claim is never automatically retried after a lost provider response. */
 export async function startPayGateway(req: NextRequest, id: string, input: Record<string, unknown>): Promise<PayGatewayStart> {
   const selected = typeof input.gatewayRef === 'string' ? input.gatewayRef.trim() : ''
-  const gateway = (await listCheckoutGateways('IRR')).find((gw) => checkoutGatewayRef(gw) === selected)
-  if (!gateway) throw new PayError('درگاه فعال پیدا نشد', 404)
   const origin = siteOrigin(), token = randomBytes(24).toString('base64url')
-  const automatic = isAutomaticTransfer(gateway)
-  const manual = !automatic && (gateway.provider === 'CARD_TRANSFER' || gateway.provider === 'MANUAL')
   const claimed = await payTransaction(async (tx) => {
     if (!(await isModuleEnabled('mobocom-pay', tx))) throw new PayError('درگاه غیرفعال است', 404)
     const row = await publicPayment(tx, id)
     const payer = await requirePayPayer(req, id, tx)
     await acceptPurchase(tx, row, input)
-    if (!(await payGatewayOptions(row, tx)).some(method => method.ref === selected)) throw new PayError('این روش برای این سفارش مجاز یا آماده نیست', 409)
+    const catalog = await listCheckoutGateways('IRR', tx)
+    const gateway = catalog.find(item => checkoutGatewayRef(item) === selected)
+    if (!gateway) throw new PayError('درگاه فعال پیدا نشد', 404)
+    if (!(await payGatewayOptions(row, tx, catalog)).some(method => method.ref === selected)) throw new PayError('این روش برای این سفارش مجاز یا آماده نیست', 409, 'PAY_GATEWAY_NOT_AVAILABLE')
+    const automatic = isAutomaticTransfer(gateway)
+    const manual = !automatic && (gateway.provider === 'CARD_TRANSFER' || gateway.provider === 'MANUAL')
     const settings = await paySettings.read(tx)
     if (row.status !== 'PENDING' || row.expiresAt <= new Date()) throw new PayError('مهلت یا وضعیت پرداخت تغییر کرده است', 409)
     if (!settings.incomingEnabled || row.merchant.status !== 'ACTIVE' || !row.terminal.active) throw new PayError('دریافت این پایانه متوقف شده است', 409)
@@ -112,9 +97,10 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
         currency: 'TMN', status: 'PENDING', raw: JSON.stringify({ event: 'payment.requested', source: 'mobocom-pay' }),
       } })
     }
-    return { invoice, phone: payer.phone, amount: Number(row.totalMinor) }
+    return { invoice, phone: payer.phone, amount: Number(row.totalMinor), gateway, manual }
   })
   if (claimed.existing) return claimed.existing
+  const { gateway, manual } = claimed
 
   let outcome: Awaited<ReturnType<typeof createGatewayInvoice>>
   try {

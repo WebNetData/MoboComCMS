@@ -1,3 +1,89 @@
+## Terminal API credentials and release rehearsal — 2026-11-28
+
+Continue the existing gateway control branch from main `07583c07`. This slice
+adds named `mcpterm_` credentials for one terminal. They can discover that
+terminal's methods, create its payments and read their status through v2.
+Payment replay stays in the same terminal namespace across a rotation.
+The separate hash store, route allowlist and owner predicates enforce the
+boundary. Administrators with the existing Pay merchant authority issue,
+rotate and revoke with a reason, explicit confirmation and revision checks.
+Issue and rotate return the secret once. PostgreSQL stores its digest and
+display prefix. Audit contains the command and reason.
+
+Migration `20270418140000_pay_terminal_api_keys` adds the credential table.
+A disposable PostgreSQL 17 database built from the released `v1.7.27` schema
+contained a merchant, a terminal and an unpaid payment. A custom-format dump
+restored into a second database and the candidate migrated it through 233.
+The original amount, fee, net, status and fingerprint were retained. An
+isolated `v1.7.27` checkout owner with its original generated Prisma schema
+read that payment afterward. This rehearsal used synthetic records, not a
+destination environment, provider or release installer.
+
+Twelve native PostgreSQL suites passed. They include the terminal credential
+lifecycle with cross-terminal, revoked, rotated, legacy and settlement denial,
+gateway access, checkout, bot, bank collection, webhooks, Mellat and merchant
+access. The first release-gate run surfaced three older test expectations from
+the merged management, support and stock changes. The corrected tests follow
+the current Magazine-only mapping, canonical ticket reply owner and actual
+PostgreSQL stock lock.
+
+The final Linux Node 22 gate exited zero. It ran 1,170 site tests, 53 connected
+tests, 4 backup tests and 14 billing tests, as well as TypeScript and the
+static gates. A separate PostgreSQL 17 on Windows reran the updated credential
+case and confirmed that repeating the same request after key rotation returns
+the original payment. The changes are in [PR #518](https://github.com/WebNetData/MoboComCMS/pull/518).
+
+Four Playwright runs passed against the local production preview and its
+loopback PostgreSQL 17. Light and dark themes were each tested at 1440px
+and 390px. Each run covered creation, one-time reveal, rejected requests
+for a different terminal and settlement access, payment creation and lookup,
+rotation with payment replay, and revocation. The scoped axe and page-error
+checks passed. The Windows package trace check flagged paths in existing
+routes. The Windows build was used for local browser verification.
+
+Provider commissioning in the destination environment still requires a real
+bank SMS, a merchant bot and controlled verification with the destination
+provider credentials.
+
+## Merchant and terminal gateway access — 2026-11-27
+
+Continue `.mobocom/pay-terminal-gateway-control` on
+`feat/pay-terminal-gateway-control-2026-11-27` from merged main `07583c07`.
+Billing enforces the combined merchant and terminal policy at order creation,
+hosted checkout and the existing bot flow. The catalogue comes from existing
+ready Billing accounts. Administrators can inherit it, limit and order it, or
+pause new attempts. The merchant console and v2 API can pin a permitted
+account. Scope, order, current readiness and an optional amount are checked by
+the same owner. Provider credentials stay in Billing. Gateway pinning is part
+of idempotency only when supplied. A policy change preserves started invoices,
+proof and callback ownership.
+
+Migration `20270418130000_pay_gateway_access` adds default inheritance and
+an immutable optional gateway reference. It preserves historical records.
+PostgreSQL 17 passed all 232 migrations on an empty disposable database and
+the 231-to-232 upgrade with an existing merchant, terminal and unpaid record.
+The upgrade preserved amount, fee, net, status and fingerprint. Eleven suites
+passed on the clean database. They cover the new gateway policy, shared
+checkout, bot routing and delivery, SMS/Bale collection, base Pay, webhooks,
+USDT equivalent, Mellat callback, private merchants and merchant account.
+The run used Node 22 as UID 1000 with no repository environment file.
+
+Production webpack build, TypeScript, runtime traces, source, architecture,
+security, schema parity and the registered-migration gate passed. OpenAPI
+Spectral retained the pre-existing Bale warning, and oasdiff detected no
+breaking changes. All eight Hurl requests and 52 targeted unit tests passed.
+Edge exercised both the admin and merchant flows at 390 and 1440 pixels in
+light and dark themes. The administrator ordered the merchant's catalogue
+and narrowed the terminal grant. The merchant created a link pinned to an
+eligible gateway. The eight views passed scoped axe, viewport and browser error
+checks. Scoped Semgrep and redacted Gitleaks reported no findings. Graphify
+verified the calls from payment creation and hosted start to the policy
+projection. Provider, SMS and bank calls in scope used disposable fixtures.
+Rollback can restore the previous application and keep the additive columns.
+Earlier application versions restore catalogue-wide availability for new
+initiations. Pause affected terminals through the existing control before a
+rollback if a narrowed grant must stay enforced.
+
 ## Custom bot numeric fields and SMS checkout — 2026-11-27
 
 Continue `.mobocom/pay-gateway-contract`, branch

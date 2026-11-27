@@ -6050,6 +6050,7 @@ model DownloadLinkHealth {
 }
 
 model PayMerchant {
+  gatewayPolicy String @default("")
   creditCurrency String @default("IRR")
   baleAllowed Boolean @default(false)
   id        String   @id
@@ -6074,6 +6075,8 @@ model PayMerchant {
 }
 
 model PayTerminal {
+  apiKeys PayTerminalApiKey[]
+  gatewayPolicy String @default("")
   channelType String @default("WEBSITE")
   channelUrl String @default("")
   baleEnabled Boolean @default(false)
@@ -6090,7 +6093,22 @@ model PayTerminal {
   @@index([merchantId, active])
 }
 
+model PayTerminalApiKey {
+  id String @id
+  terminalId String
+  label String
+  prefix String
+  keyHash String @unique
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  rotatedAt DateTime?
+  revokedAt DateTime?
+  terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
+  @@index([terminalId, revokedAt, createdAt])
+}
+
 model PayPayment {
+  requestedGatewayRef String @default("")
   creditCurrency String @default("IRR")
   creditMinor BigInt @default(0)
   creditRateRial String @default("1")

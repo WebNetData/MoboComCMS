@@ -190,7 +190,7 @@ export async function payPaymentById(actor: PayActor, id: string) {
   return payTransaction(async (tx) => {
     const merchant = await merchantRead(actor, tx)
     const row = merchant
-      ? await tx.payPayment.findFirst({ where: { id, merchantId: merchant.id }, include: { terminal: true, invoice: collectionProjection } })
+      ? await tx.payPayment.findFirst({ where: { id, merchantId: merchant.id, ...(actor.terminalKey ? { terminalId: actor.terminalKey.terminalId } : {}) }, include: { terminal: true, invoice: collectionProjection } })
       : null
     if (!row) throw new PayError('پرداخت پیدا نشد', 404)
     return paymentView(row)

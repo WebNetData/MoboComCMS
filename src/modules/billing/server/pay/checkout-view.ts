@@ -9,7 +9,7 @@ import { payTransaction } from './context'
 import { publicPayment } from './payments'
 import { paySettings } from './settings'
 import { payPayerVerified } from './payer'
-import { payGatewayOptions } from './checkout-gateways'
+import { payGatewayOptions } from './gateway-options'
 
 /** The public capability reveals a price summary; payment instructions require the scoped OTP ticket. */
 export async function checkoutView(id: string, req?: NextRequest): Promise<PayCheckout> {

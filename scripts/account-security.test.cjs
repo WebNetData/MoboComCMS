@@ -272,6 +272,9 @@ test('the magazine permission is named only where the magazine is guarded', () =
     'src/modules/ai/domain/engineering-knowledge.generated.json',
     // Operational tools/context map only Magazine creation/publication and Magazine records to this key.
     'src/modules/ai/domain/operations.ts',
+    // The management menu lists individually scoped sections. Its Magazine reader counts Magazine posts.
+    'src/modules/ai/domain/management.ts',
+    'src/modules/ai/server/management.ts',
     // Category tools map only Magazine categories to cms.posts; every other section keeps its own key.
     'src/modules/ai/domain/admin-operations.ts',
     // Contextual advice maps the Magazine page only to its own manager/author guard.
@@ -301,6 +304,7 @@ test('the magazine permission is named only where the magazine is guarded', () =
   assert.match(read('src/modules/paywall/server/http/paywall.ts'), /post: \['cms\.posts'\], software: \['software\.manage'\], game: \['games\.manage'\]/)
   assert.match(read('src/modules/site/server/http/builder/targets.ts'), /kind === 'post' \? 'cms\.posts' : kind === 'product' \? 'cms\.products' : 'cms\.pages'/)
   assert.match(read('src/modules/moderation/domain/queue.ts'), /key: 'item-reviews', module: 'reviews', permissions: \['reviews\.moderate'\]/)
+  assert.match(read('src/modules/ai/server/management.ts'), /editorial\('journal', 'مجله', '\/admin\/posts', 'cms\.posts', reader => reader\.post\.count\(/)
 })
 
 test('roles that held the magazine permission keep what it used to open', () => {

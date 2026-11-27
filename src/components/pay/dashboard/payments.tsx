@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "@/components/AppLink";
 import { newIdempotencyKey } from "@/shared/security/idempotency";
 import type {
@@ -16,6 +16,7 @@ import FeeShare from "./fee-share";
 import s from "../Pay.module.css";
 import m from "./Dashboard.module.css";
 type Page<T> = { items: T[]; page: number; pages: number; total: number };
+type TerminalGatewayView = { terminalId: string; currency: "IRR"; items: { ref: string; name: string; provider: string; manual: boolean; isDefault: boolean; automatic?: boolean }[] };
 export default function Payments({
   data,
   active,
@@ -62,13 +63,25 @@ export default function Payments({
   setError: (x: string) => void;
 }) {
   const [created, setCreated] = useState<PayPaymentView | null>(null), [shareUrl, setShareUrl] = useState(""), [copyNotice, setCopyNotice] = useState("");
+  const [gatewayRef, setGatewayRef] = useState(""), [gatewayTerminal, setGatewayTerminal] = useState(""), [gatewayItems, setGatewayItems] = useState<TerminalGatewayView["items"]>([]), [gatewayLoading, setGatewayLoading] = useState(false), [gatewayError, setGatewayError] = useState("");
+  const noGateways = Boolean(terminal && gatewayTerminal === terminal && !gatewayLoading && !gatewayError && gatewayItems.length === 0);
+  useEffect(() => {
+    if (!terminal) { setGatewayTerminal(""); setGatewayItems([]); setGatewayLoading(false); setGatewayError(""); return; }
+    const controller = new AbortController();
+    setGatewayTerminal(""); setGatewayItems([]); setGatewayLoading(true); setGatewayError("");
+    api<TerminalGatewayView>(`/api/pay/terminals/${encodeURIComponent(terminal)}/gateways`, { signal: controller.signal })
+      .then(result => { if (!controller.signal.aborted) { setGatewayItems(result.items); setGatewayTerminal(terminal); } })
+      .catch(e => { if (!controller.signal.aborted) { setGatewayItems([]); setGatewayTerminal(terminal); setGatewayError(e instanceof Error ? e.message : "فهرست روش‌های پرداخت دریافت نشد"); } })
+      .finally(() => { if (!controller.signal.aborted) setGatewayLoading(false); });
+    return () => controller.abort();
+  }, [terminal]);
   return (
     <>
       <form
         className={`${s.card} ${s.stack}`}
         onSubmit={(e) => {
           e.preventDefault();
-          if (!active) return;
+          if (!active || noGateways) return;
           void action(async () => {
             paymentKey.current ||= newIdempotencyKey("pay");
             const p = await api<PayPaymentView>(
@@ -79,6 +92,7 @@ export default function Payments({
                   terminalId: terminal,
                   externalId,
                   amountRial: amount,
+                  ...(gatewayTerminal === terminal && gatewayRef ? { gatewayRef } : {}),
                 },
                 paymentKey.current,
               ),
@@ -86,6 +100,7 @@ export default function Payments({
             paymentKey.current = "";
             setExternalId("");
             setAmount("");
+            setGatewayRef("");
             setPayments(null);
             setError("");
             setCreated(p); setShareUrl(new URL(p.checkoutUrl, window.location.origin).href); setCopyNotice("");
@@ -100,6 +115,7 @@ export default function Payments({
               value={terminal}
               onChange={(e) => {
                 setTerminal(e.target.value);
+                setGatewayRef("");
                 paymentKey.current = "";
               }}
             >
@@ -133,11 +149,20 @@ export default function Payments({
               }}
             />
           </Field>
+          {terminal && gatewayTerminal === terminal && gatewayItems.length > 0 && !gatewayError && <Field label="روش پرداخت (اختیاری)">
+            <select value={gatewayRef} onChange={e => { setGatewayRef(e.target.value); paymentKey.current = ""; }} disabled={busy || !active}>
+              <option value="">انتخاب روش توسط مشتری</option>
+              {gatewayItems.map(gateway => <option key={gateway.ref} value={gateway.ref}>{gateway.name}{gateway.isDefault ? " · پیش‌فرض" : ""}</option>)}
+            </select>
+          </Field>}
         </div>
+        {terminal && gatewayLoading && <p className={s.muted} role="status">در حال دریافت روش‌های پرداخت این پایانه…</p>}
+        {terminal && gatewayTerminal === terminal && !gatewayLoading && gatewayError && <p className={s.muted} role="status">فهرست روش‌های پرداخت در دسترس نیست؛ لینک با انتخاب روش توسط مشتری ساخته می‌شود.</p>}
+        {noGateways && <p className={s.muted} role="status">برای این پایانه درگاه آماده‌ای وجود ندارد. پایانهٔ دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید.</p>}
         <div>
           <button
             className={s.button}
-            disabled={busy || !active || !terminal || !externalId || !amount}
+            disabled={busy || !active || !terminal || !externalId || !amount || noGateways}
             type="submit"
           >
             ساخت صفحه پرداخت
