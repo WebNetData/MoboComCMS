@@ -317,6 +317,8 @@ Last verified revision: main `ee8f668` (2026-10-07, PRs through #116). Entries m
 
 Keep this file concise. Record only durable architecture facts that prevent repeated repository scans. Decisions and their reasons are in `docs/agent/PLATFORM_DECISIONS.md`; what each capability is and how it is verified is in `docs/agent/CAPABILITY_LEDGER.md`.
 
+- **Frontend workflow:** [Premium Design](FRONTEND_QUALITY.md#design-workflow) routes user-facing work through the existing SDS design system and real browser checks. See the [integration handoff](handoffs/PREMIUM_DESIGN.md) for source, installed companions and verification.
+
 ## Core
 
 - **Business presentation2026-10-16:** authoritative branch `feat/businesses-wide-design-2026-10-16`; full-width directory/profile/activity, server-only `BusinessDirectoryView`, existing GET search/filter owners and scoped `BusinessExperience.module.css`. Current verification and continuation: [business handoff](handoffs/BUSINESS_EXPERIENCES.md#wide-public-presentation--2026-10-16).

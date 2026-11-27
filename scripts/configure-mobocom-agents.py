@@ -28,12 +28,14 @@ TOP = ('model', 'model_reasoning_effort', 'plan_mode_reasoning_effort',
 AGENTS = ('enabled', 'max_concurrent_threads_per_session', 'default_subagent_model',
           'default_subagent_reasoning_effort', 'interrupt_message', 'max_threads')
 ROLE_NAMES = ('code_mapper', 'implementer', 'tester', 'docs', 'reviewer', 'security',
-              'architect', 'mobocom-backend', 'mobocom-frontend', 'mobocom-checker')
+              'architect', 'mobocom-backend', 'mobocom-frontend', 'mobocom-checker',
+              'development_lead', 'development_worker', 'quality_lead', 'quality_worker')
 GUIDANCE = '''Follow [the shared agent orchestration](docs/agent/AGENT_ORCHESTRATION.md)
 alongside SESSION_BOOTSTRAP and the existing mobocom skills. Keep small/sequential
 tasks with the lead; delegate only independent bounded work with explicit file
-ownership. Sol leads, Terra implements, Luna maps/tests/documents; sensitive
-decisions return to Sol. Shared architecture/workstate and required real evidence
+ownership. In hierarchical mode, development and quality leads manage their own
+workers and report to the project manager. Use verified client capabilities.
+Shared architecture/workstate and required real evidence
 remain authoritative for both Claude and Codex.'''
 SKILL_GUIDANCE = '''For delegated work, follow `docs/agent/AGENT_ORCHESTRATION.md` in the
 resolved checkout: explicit ownership, model routing, bounded checks and Sol

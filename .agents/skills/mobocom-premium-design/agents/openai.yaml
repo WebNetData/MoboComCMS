@@ -1,0 +1,6 @@
+interface:
+  display_name: "Mobocom Premium Design"
+  short_description: "Design and verify premium Mobocom platform UI"
+  default_prompt: "Use $mobocom-premium-design to implement or review this Mobocom frontend task within the existing architecture."
+policy:
+  allow_implicit_invocation: true

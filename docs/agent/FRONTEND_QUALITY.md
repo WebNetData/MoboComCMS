@@ -4,6 +4,8 @@ Applies whenever frontend design or React behavior changes. Existing MoboCom vis
 
 ## Design workflow
 
+Enter through [MoboCom Premium Design](../../.agents/skills/mobocom-premium-design/SKILL.md) for any user-facing design, visuals or interaction work. Use the [companion routing](../../.agents/skills/mobocom-premium-design/references/skill-routing.md) to keep the loaded guidance proportional to the task. A small UI fix inherits its surface's tokens and layout. For a new page, dashboard or shared pattern, define the user task, information hierarchy, visual direction and states before implementation. Backend-only work skips this workflow.
+
 Supporting design/React/a11y skills follow [engineering skill routing](ENGINEERING_SKILLS.md). Select only the relevant task skill; its generic palette, primitive, package or workflow preferences do not replace this document or protected MoboCom visuals.
 
 1. Apply the installed `unslop` skill by default for requested UI design, styling or refinement, with Anthropic `frontend-design` for new compositions and visual reworking (owner preference2026-11-26). Both Claude and Codex follow the matching project entrypoints. Inspect the current page, semantic tokens and shared controls; capture a baseline before changing a protected surface. State a compact product-specific direction using existing tokens/fonts, review it against the brief before building, then critique the rendered result; a screenshot review must assess hierarchy, spacing, fluid width and motion as well as technical checks.
@@ -21,6 +23,10 @@ identifiers. Use the existing owner table/card compositions with labelled mobile
 rows, readable headers, consistent padding, visible focus and styled actions. Check
 expanded details and selected/error/empty states in both themes. This is a quality
 bar for each continuation, not evidence that every platform page has been audited.
+
+### Design system ownership
+
+Figma SDS guides design/code mapping. The actual MoboCom semantic tokens in [`globals.css`](../../src/app/globals.css) and shared primitives in [`ui.css`](../../src/app/ui.css) define the shipped visual baseline. Resolve module and theme overrides through the existing [theme architecture](ARCHITECTURE.md#12-theme-architecture). Compare approved Figma frames when accessible and record the actual reference or its absence. Premium Design coordinates that workflow and the Unslop critique within the approved MoboCom identity.
 
 ## Workspace menus — owner requirement2026-11-25
 
@@ -71,6 +77,8 @@ trs raw -- node node_modules/react-doctor/dist/cli.js src/components/admin/Manag
 Replace the example file with the changed components. `--no-supply-chain` limits this review to code diagnostics; run the repository's security/dependency checks when dependencies change. Record exact command, scope, exit code and findings. Resolve introduced relevant errors and review warnings; do not suppress rules or loosen blocking policy to make a score green. Separate existing unrelated findings with evidence. React Doctor cannot certify aesthetics, server authorization or absence of bugs.
 
 ## Browser acceptance
+
+For material UI changes, apply the [visual quality gate](../../.agents/skills/mobocom-premium-design/references/visual-quality-gate.md). Capture a before view when changing a protected surface, inspect actual after screenshots, exercise changed flows and compare shared consumers if tokens or primitives changed. Select widths from the real breakpoints, including an intermediate width when layout changes warrant it. Save safe local evidence and record route, theme, viewport, relevant state and result. Fix scoped regressions and rerun affected checks. If a required check is unavailable, record it as not run with the blocker. Leave that release gate unverified.
 
 Actually run Playwright on affected user flows; check 1440 light/dark and 390 mobile, Persian RTL, mixed LTR text and automatic/explicit text direction. Compare protected screenshots; check focus/keyboard, reduced motion, accessible names, feedback, no overflow and contrast (normal text at least 4.5:1). Use axe/a11y where appropriate. For async actions, test pending, failures and real persisted state. For access-sensitive UI, include a visitor and a section-only account and prove the server rejects a direct forbidden call.
 

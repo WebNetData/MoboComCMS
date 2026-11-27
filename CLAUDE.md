@@ -27,6 +27,8 @@ For supporting UI/design, React, accessibility, browser testing, documentation o
 For requested interface design, styling, polish or redesign, use `unslop` with the relevant installed UI Skills (`baseline-ui`, `fixing-accessibility`, `fixing-motion-performance`), plus `ui-ux-pro-max` and selected Vercel React rules as needed. Follow `docs/agent/FRONTEND_QUALITY.md` and `ENGINEERING_SKILLS.md`; preserve approved MoboCom/SDS tokens and scoped layout. Other catalog skills stay task-specific.
 <!-- mobocom-engineering-skills:end -->
 
+Route user-facing design, graphics and interaction work through the [shared Premium Design skill](.agents/skills/mobocom-premium-design/SKILL.md) with the existing [frontend and engineering skill rules](docs/agent/FRONTEND_QUALITY.md).
+
 <!-- mobocom-whole-site-quality:claude:start -->
 ## Whole-site design and architecture workflow (Claude Code)
 

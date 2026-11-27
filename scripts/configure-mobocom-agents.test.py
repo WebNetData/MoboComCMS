@@ -56,6 +56,20 @@ config_file = "agents/custom.toml"
         with self.assertRaises(Exception):
             setup.merge_config('[agents\nsecret="never print"', DEFAULTS)
 
+    def test_hierarchical_roles_are_installed_with_exact_model_and_effort(self):
+        expected = {
+            'development_lead': ('gpt-6.2-sol', 'high'),
+            'development_worker': ('gpt-6.2-sol', 'medium'),
+            'quality_lead': ('gpt-6-luna', 'high'),
+            'quality_worker': ('gpt-6-luna', 'low'),
+        }
+        for name, settings in expected.items():
+            with self.subTest(name=name):
+                self.assertIn(name, setup.ROLE_NAMES)
+                role = setup.tomllib.loads((setup.SOURCE / '.codex/agents' / f'{name}.toml').read_text(encoding='utf-8'))
+                self.assertEqual(role['name'], name)
+                self.assertEqual((role['model'], role['model_reasoning_effort']), settings)
+
     def test_install_preserves_exact_backup_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory).resolve()
@@ -72,6 +86,8 @@ config_file = "agents/custom.toml"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(data)
             changes = setup.plan(target)
+            self.assertIn('.codex/agents/development_lead.toml', changes)
+            self.assertIn('.codex/agents/quality_worker.toml', changes)
             receipt = setup.install(target, changes)
             backup = Path(receipt['backup'])
             for entry in receipt['files']:

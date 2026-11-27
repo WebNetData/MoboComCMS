@@ -438,6 +438,222 @@
         "Added scoped MoboCom precedence and authorized-work routing; optional helpers remain local and opt-in",
         "Included the repository CC-BY-4.0 license as LICENSE.txt"
       ]
+    },
+    {
+      "name": "design-taste-frontend",
+      "repository": "https://github.com/Leonxlnx/taste-skill",
+      "reviewedCommit": "952435f63acece7d2fcb4b4d3c1786c1c43603e0",
+      "upstreamPath": "skills/taste-skill",
+      "upstreamEntrypointSha256": "0c7a5852a5217be79cab422c6d58329b776f0c25bd6da8a7a01707ce75be6206",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "c8231583864ee4330baa9170970ac910a32c3d190c7343ca44e5c26cb81d478f"
+      },
+      "adaptations": [
+        "Text-only MoboCom art direction adaptation. Omitted hooks, checkers, runtime assets and mandatory layout presets."
+      ]
+    },
+    {
+      "name": "impeccable",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "reviewedCommit": "2fc5e1459efbbf06d92c7306517c286bf12490cf",
+      "upstreamPath": ".agents/skills/impeccable",
+      "upstreamEntrypointSha256": "0189a38e7190e66a938aa987b69709f27742d027fac11c940ffa8fe943fbc557",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "02bb8c3b4e70190e3986c0404ad2fd8d639b4f534252d82379cc1b502b6d1812",
+        "NOTICE.md": "01bf53e5d24d64e19e9e1c33b24c37cef0d314323df7bf678c6ba22d4528a115",
+        "SKILL.md": "43f0bb9de61d13588866f96ef7ea3248ce53653e96bd12b8c11843bdf89f766f"
+      },
+      "adaptations": [
+        "Modified to use scoped manual critique. Omitted launcher, hooks, CLI and engine."
+      ]
+    },
+    {
+      "name": "shadcn",
+      "repository": "https://github.com/shadcn-ui/ui",
+      "reviewedCommit": "0e5b2e621a9ee4cf6a604bbe6c5c0d5b70561eb4",
+      "upstreamPath": "skills/shadcn",
+      "upstreamEntrypointSha256": "93951e5e83f616a3e046491c00d770bd54c0a64164706cd1191822a233d27592",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "1564074e13439397221ffd522e2e504d56561994a23d371aa5e3ad43e4f5423f",
+        "SKILL.md": "73592628489560f0dd2ca4a6e84bf541cd1cea18b0f8f96f39846a836c610d97"
+      },
+      "adaptations": [
+        "Reference-only adaptation. Removed dynamic CLI interpolation, allowed-tools, scripts and CLI workflows."
+      ]
+    },
+    {
+      "name": "dashboard-design",
+      "repository": "https://github.com/Judiedesigns/dashboard-design-skill",
+      "reviewedCommit": "6a557f03aa52306a7a17439a6004124e9df99764",
+      "upstreamPath": "skills/dashboard-design",
+      "upstreamEntrypointSha256": "408116dc9ea0df2ea7cc1e74cd988ee887b48c3ed891ede7f4186c107f386633",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "SKILL.md": "c4588860098c6c9773c4d6a3dfffebc5cb213796390008657d22bb665d1bfad2"
+      },
+      "adaptations": [
+        "Independently written guidance based on the reviewed text. Omitted npm package, postinstall, styles and example dependencies."
+      ]
+    },
+    {
+      "name": "frontend-app-builder",
+      "repository": "https://github.com/openai/plugins",
+      "reviewedCommit": "981b02c0c44058b595f3b4180002c3ae3c806d40",
+      "upstreamPath": "plugins/build-web-apps/skills/frontend-app-builder",
+      "upstreamEntrypointSha256": "9273de02827b29534be28fb2b37154c1571ac38b4e20d3ef5482b7e22af67394",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "SKILL.md": "40bbaef0d81995dbe9241fbe13380927a046d0ff46a38e566f9658a22710d29d"
+      },
+      "adaptations": [
+        "Independently written project adaptation of the plugin skill. No plugin, provider or SDK registration."
+      ]
+    },
+    {
+      "name": "playwright-interactive",
+      "repository": "https://github.com/openai/skills",
+      "reviewedCommit": "49f948faa9258a0c61caceaf225e179651397431",
+      "upstreamPath": "skills/.curated/playwright-interactive",
+      "upstreamEntrypointSha256": "f6c1155d923e6ae3ccc12abfef2266f119f8e9546df2ddeee1f5eb369845a0a1",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "SKILL.md": "5648a23005131876f0e9c828bb5fa25f9db5bb04ec06478bc1b052ef490a1e5f"
+      },
+      "adaptations": [
+        "Independently written project adaptation. No scripts, browser provisioning or privilege changes."
+      ]
+    },
+    {
+      "name": "gsap-core",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-core",
+      "upstreamEntrypointSha256": "3887b47e050ab5afbe2a9a820f23d39fa02ab785e06a343be44c6f91d84d12b3",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "78d8a9e9254f5792a470e03d4e6b0ef6f197de8744849e7a48d990919a5c4e91"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
+    },
+    {
+      "name": "gsap-frameworks",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-frameworks",
+      "upstreamEntrypointSha256": "842d9d3659ec3ddc8abbdc524708f8facf81f468ac25d0577f48c759c4fa31e6",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "0cd4d9b9768502ea14e7640c241d1b11a0271281336dbdae22a8ad961a930ad9"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
+    },
+    {
+      "name": "gsap-performance",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-performance",
+      "upstreamEntrypointSha256": "cb5408d6fba707aabcbfe3320317a14c1f8fca6070074e5261047930f50d441e",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "ee1c18a626337d5f612f80e622685067cf76e9803b665c697a873a3364f84c4d"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
+    },
+    {
+      "name": "gsap-plugins",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-plugins",
+      "upstreamEntrypointSha256": "5838b856c74c07fbc9fa99b6dfd1eee34ea554c3e530c30e0d58014b707d70a4",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "7f1dae44704959ec3dc7f693fe63e7b4bb4c199fd40ce8af542e5512a5153c9f"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
+    },
+    {
+      "name": "gsap-react",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-react",
+      "upstreamEntrypointSha256": "88e2a5312b45e8cc7b3c496637ff5bc9af2ae9c925b555c8b235b34cbc989d74",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "c872b59a6f188a91dbd42b99d7f4b637e473d9d0a349e55bb60611cc00d622de"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
+    },
+    {
+      "name": "gsap-scrolltrigger",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-scrolltrigger",
+      "upstreamEntrypointSha256": "9351b6666a4749c0740406ea363aaccb99a087ff45cc5e8b99a0f367facf3ef4",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "c0277ab8bb171d10c5a47cf16e993e93b9669f1146f29bfc0291aeed72e89dbe"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
+    },
+    {
+      "name": "gsap-timeline",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-timeline",
+      "upstreamEntrypointSha256": "1a8b0f39cc4be3ed3d834b89672e4ae2f151b901dc3450bebf10bbc45379fe02",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "e24d666f124374e43f360ae0f85a641afc52b46ef9a0697bda6baad7797dd62a"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
+    },
+    {
+      "name": "gsap-utils",
+      "repository": "https://github.com/greensock/gsap-skills",
+      "reviewedCommit": "aed9cfd3277740755f6bfc1155c7aa645403b760",
+      "upstreamPath": "skills/gsap-utils",
+      "upstreamEntrypointSha256": "1927bcc4ea95b38203404ad5ea1d060b15c4a886c65ae53e885ff1793aabe0ba",
+      "files": {
+        "agents/openai.yaml": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94",
+        "LICENSE": "51b04b06556662dd817e8f4aa6d06bc7139dc73739e1319a7233cfde3e147b90",
+        "SKILL.md": "7d4c26aaa22533a7955743e17499f299cc0d0483d7c72d7da8fec7786b2d5b10"
+      },
+      "adaptations": [
+        "Narrowed triggers. Retained upstream GSAP reference text. No runtime GSAP package installed.",
+        "Normalized trailing whitespace in Markdown."
+      ]
     }
   ],
   "selection": "MoboCom web engineering, UI quality, documentation and MCP authoring. Existing document plugins and system skill-creator retained; deployment/native/mobile/package-specific addons are not activated.",
