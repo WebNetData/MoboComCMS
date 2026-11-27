@@ -321,6 +321,8 @@ Business public presentation uses the full responsive site shell, existing SDS/M
 
 ## 1. High-level architecture
 
+[MoboCom Premium Design](../../.agents/skills/mobocom-premium-design/SKILL.md) is the project entrypoint for visual and interaction work. It routes into the existing [SDS design system and frontend acceptance](FRONTEND_QUALITY.md), including real browser evidence for material changes. Presentation stays within the owning feature or shared UI layer and uses the existing theme, permission and API boundaries.
+
 ```text
 Clients
 ├─ Public Web

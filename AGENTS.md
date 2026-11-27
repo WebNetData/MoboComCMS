@@ -78,6 +78,12 @@ For supporting UI/design, React, accessibility, browser testing, documentation o
 For requested interface design, styling, polish or redesign, use `unslop` with the relevant installed UI Skills (`baseline-ui`, `fixing-accessibility`, `fixing-motion-performance`), plus `ui-ux-pro-max` and selected Vercel React rules as needed. Follow `docs/agent/FRONTEND_QUALITY.md` and `ENGINEERING_SKILLS.md`; preserve approved MoboCom/SDS tokens and scoped layout. Other catalog skills stay task-specific.
 <!-- mobocom-engineering-skills:end -->
 
+<!-- mobocom-premium-design:start -->
+## MoboCom frontend design and visual engineering
+
+For work that creates, changes or reviews user-facing UI/UX, graphic assets, components, pages, dashboards or visual interactions, load [`mobocom-premium-design`](.agents/skills/mobocom-premium-design/SKILL.md) (`$mobocom-premium-design` in Codex). Follow the existing architecture and [frontend quality standard](docs/agent/FRONTEND_QUALITY.md). Reuse approved MoboCom/Figma SDS tokens and components, preserve protected surfaces, locales and contracts, and keep Unslop as the default design critique. Select companions for the current task only. Verify material UI changes in a real browser and record missing evidence explicitly. Scope minor fixes to the affected surface. Backend-only work stays on its existing route.
+<!-- mobocom-premium-design:end -->
+
 <!-- mobocom-whole-site-quality:start -->
 ## Whole-site architecture and administration quality (Codex + Claude)
 
@@ -98,7 +104,8 @@ For Gemini/AI connection failures, encrypted AI settings or proxy deadlines, rea
 Follow [the shared agent orchestration](docs/agent/AGENT_ORCHESTRATION.md)
 alongside SESSION_BOOTSTRAP and the existing mobocom skills. Keep small/sequential
 tasks with the lead; delegate only independent bounded work with explicit file
-ownership. Sol leads, Terra implements, Luna maps/tests/documents; sensitive
-decisions return to Sol. Shared architecture/workstate and required real evidence
+ownership. In hierarchical mode, development and quality leads manage their own
+workers and report to the project manager. Use verified client capabilities.
+Shared architecture/workstate and required real evidence
 remain authoritative for both Claude and Codex.
 <!-- mobocom-agent-orchestration:end -->

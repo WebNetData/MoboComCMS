@@ -1,3 +1,5 @@
+Premium Design and hierarchical agent workflow: both local slices were reconciled on a branch from current main. See docs/agent/handoffs/PREMIUM_DESIGN.md and docs/agent/handoffs/AGENT_ORCHESTRATION.md for source, checks and model availability.
+
 # MoboCom Pay terminal credentials and release rehearsal — 2026-11-28
 
 Continue `.mobocom/pay-terminal-gateway-control` on
