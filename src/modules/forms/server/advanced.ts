@@ -1,17 +1,14 @@
 import { assertFormsAvailable, formsAvailable } from '@/modules/forms/server/availability'
-import { createHmac } from 'node:crypto'
-import dns from 'node:dns/promises'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { repairPhone, repairConflict } from './repair-access'
 import { repairEvent } from './repair-work'
 import { logEvent } from '@/platform/observability/logger'
-import { isPrivateAddress } from '@/modules/server-panel/domain/downloads'
 import { parsePermissions } from '@/modules/identity/rbac'
 import { sendMail } from '@/modules/mail/server/mailer'
 import {
   DEFAULT_SLOT, FormsError, checkSubmission, parseForm, slotTimes, visibleFields,
-  type Answer, type FormDefinition, type FormField, type FormWebhook, type StoredAnswer,
+  type Answer, type FormDefinition, type FormField, type StoredAnswer,
 } from '@/modules/forms/domain/forms'
 import { dueNotifications, fieldStats, mergeTags, recipients, slotDays, staffEditable, type MergeContext } from '@/modules/forms/domain/advanced'
 
@@ -81,37 +78,6 @@ export async function sendFormNotifications(form: FormDefinition, context: Merge
     }
   }
 }
-
-async function assertPublicHook(raw: string) {
-  const url = new URL(raw)
-  if (url.protocol !== 'https:') throw new Error('webhook must be https')
-  const host = url.hostname.replace(/^\[|\]$/g, '')
-  const addresses = /^[\d.]+$|:/.test(host) ? [host] : (await dns.lookup(host, { all: true })).map((row) => row.address)
-  if (!addresses.length || addresses.some(isPrivateAddress)) throw new Error('webhook address is not public')
-  return url
-}
-
-/** Tells the form's webhooks about an event. Passwords are never in the payload; the body is signed with the hook's secret. */
-export async function sendFormWebhooks(form: Pick<FormDefinition, 'id' | 'slug' | 'title' | 'settings'>, event: FormWebhook['events'][number], payload: Record<string, unknown>) {
-  if (!await formsAvailable()) return
-  const hooks = (form.settings?.webhooks || []).filter((hook) => hook.events.includes(event))
-  for (const hook of hooks) {
-    const body = JSON.stringify({ event, form: { id: form.id, slug: form.slug, title: form.title }, sentAt: new Date().toISOString(), ...payload })
-    try {
-      const url = await assertPublicHook(hook.url)
-      if (!await formsAvailable()) return
-      const response = await fetch(url, {
-        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(6000),
-        headers: { 'content-type': 'application/json', 'user-agent': 'MoboCom-Forms/1', 'x-mobocom-event': event, ...(hook.secret ? { 'x-mobocom-signature': `sha256=${createHmac('sha256', hook.secret).update(body).digest('hex')}` } : {}) },
-        body,
-      })
-      logEvent(response.ok ? 'info' : 'warn', 'forms.webhook', { form: form.slug, event, host: url.hostname, status: response.status })
-    } catch (error) { logEvent('warn', 'forms.webhook_failed', { form: form.slug, event, error }) }
-  }
-}
-
-/** The answer as a webhook carries it: readable answers only (a password stays masked, as it is stored). */
-export const webhookAnswers = (answers: StoredAnswer[]) => Object.fromEntries(answers.map((answer) => [answer.id, { label: answer.label, type: answer.type || 'text', value: answer.value }]))
 
 // ------------------------------------------------------------------ statistics
 

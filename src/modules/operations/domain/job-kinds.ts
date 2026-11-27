@@ -7,6 +7,7 @@ export const JOB_LABEL: Record<string, string> = {
   'pay.transfer-match': 'بازیابی تطبیق واریز پیامک و بله',
   'sms.broadcast': 'ارسال گروهی پیامک',
   'forms.stage-sms': 'پیامک مرحلهٔ خدمات و درخواست‌ها',
+  'forms.webhook-delivery': 'ارسال وب‌هوک فرم',
   'support.demand-fulfilled': 'اعلان آماده‌شدن درخواست کالا و محتوا',
   'downloads.health': 'پایش سلامت لینک‌های فایل و پخش',
   'ai.engineering': 'توسعه و تعمیر هوشمند در محیط جدا',

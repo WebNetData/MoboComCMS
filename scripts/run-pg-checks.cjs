@@ -34,6 +34,7 @@ const CHECKS = [
   'store-omnichannel',
   'store-counter',
   'forms-counter',
+  'forms-webhook-delivery',
   'repair-invoice',
   'ai-page-assistant',
   'ai-telemetry',

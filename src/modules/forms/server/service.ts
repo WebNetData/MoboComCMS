@@ -16,7 +16,8 @@ import {
 import { minorToNumber } from '@/shared/money'
 import { FORM_CURRENCY, billFor, sealSecrets } from '@/modules/forms/server/paid'
 import { mergeTags, pickConfirmation, scoreOf } from '@/modules/forms/domain/advanced'
-import { assertHandlersCanWork, bookSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
+import { assertHandlersCanWork, bookSlots, sendFormNotifications } from '@/modules/forms/server/advanced'
+import { queueFormWebhooks, webhookAnswers } from '@/modules/forms/server/webhooks'
 
 // Uploaded answers live outside the public folder; only administrators read them, through an authorised route.
 export const formsDirectory = () => join(process.cwd(), 'storage', 'forms')
@@ -209,6 +210,7 @@ export async function submitForm(slug: string, input: { values: unknown; website
     if (fileIds.length) await tx.formUpload.updateMany({ where: { id: { in: fileIds } }, data: { submissionId: created.id } })
     // An appointment takes its seat with the answer, or the answer is not stored at all.
     if (!spam) await bookSlots(tx, form, shown, values, created.id)
+    if (!spam && !bill) await queueFormWebhooks(tx, form, 'submitted', created.id, 0, { answers: webhookAnswers(answers), score: score || undefined })
     return created
   })
   let submission: Awaited<ReturnType<typeof store>> | null = null
@@ -230,7 +232,6 @@ export async function submitForm(slug: string, input: { values: unknown; website
     const id = submission.id
     void notify(form, id, answers, who.userId).catch((error) => logEvent('error', 'forms.notify_failed', { form: form.slug, error }))
     void sendFormNotifications(form, context, values).catch((error) => logEvent('error', 'forms.notify_failed', { form: form.slug, error }))
-    void sendFormWebhooks(form, 'submitted', { entryId: id, answers: webhookAnswers(answers), score: score || undefined }).catch(() => undefined)
   }
   return { message, redirect: confirmation.redirectUrl, quiz }
 }
