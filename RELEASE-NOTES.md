@@ -1,3 +1,7 @@
+## 1.7.27 — Cloud workspace and support routing (2026-11-27)
+
+The dedicated Cloud dashboard keeps Cloud tools in its own workspace, with scoped Cloud and Pay service choices in Support. Pay bot checkout accepts numeric and decimal-string customer IDs. One additive migration stores the selected ticket service context. [Release notes](docs/releases/1.7.27.md)
+
 # HappVPN deployable baseline — 2026-09-22
 
 ## 1.7.26 — Payment operations and customer relationship management (2026-11-27)

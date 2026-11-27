@@ -1020,7 +1020,15 @@
           "sha256": "de9410b8d0468c74281ba239402b07fc88dadef62ed4d1cf0d776c836c41f79c"
         }
       ]
+    },
+    "1.7.27": {
+      "migrations": [
+        {
+          "name": "20270417120000_ticket_service_context",
+          "sha256": "76c16b54276f74d63ca6b8589c9f070eb70e593c3f4350b1d0e5bd59e263ecf5"
+        }
+      ]
     }
   },
-  "unreleased": ["20270417120000_ticket_service_context"]
+  "unreleased": []
 }
