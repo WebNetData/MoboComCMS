@@ -19,7 +19,8 @@ export async function createQuotation(raw: Record<string, unknown>, actorId: num
     const price = await quotationPrice(tx, wants, userId)
     const text = latinDigits(String(raw.discount || '0')).trim()
     if (!/^\d{1,12}(\.\d{1,2})?$/.test(text)) throw new StoreError('مبلغ تخفیف معتبر نیست')
-    const discountMinor = toMinor(text, price.currency)
+    let discountMinor: bigint
+    try { discountMinor = toMinor(text, price.currency) } catch { throw new StoreError('مبلغ تخفیف با واحد پول پیش‌فاکتور سازگار نیست') }
     if (discountMinor >= price.subtotalMinor) throw new StoreError('تخفیف باید کمتر از مبلغ کالاها باشد')
     const title = String(raw.title || 'پیش‌فاکتور خرید').replace(/[<>\u0000-\u001f]/g, ' ').trim().slice(0, 120)
     const quote = await tx.storeQuotation.create({ data: { token: randomBytes(24).toString('hex'), userId, createdById: actorId, title, expiresAt, currency: price.currency, subtotalMinor: price.subtotalMinor, discountMinor, lines: JSON.stringify(price.lines.map(line => ({ productId: line.productId, variantId: line.variantId, quantity: line.quantity, unitMinor: line.unitMinor, name: line.name, variantName: line.variantName }))) } })

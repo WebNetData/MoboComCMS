@@ -15,6 +15,7 @@ export type Opportunity = {
 export type Summary = {
   rows: Opportunity[]; staff: Staff[]; canManage: boolean; ownId: number; page: number; pageCount: number
   stats: { counts: Record<Stage, number>; stale: number; successRate: number; wonTotals: { currency: Currency; amountMinor: string }[] }
+  commerce?: { opportunities: number; paidOpportunities: number; conversionRate: number; totals: { currency: Currency; estimatedMinor: string; paidMinor: string }[] } | null
 }
 export type Source = { type: 'FORM' | 'TICKET'; id: number; href: string }
 export type Preview = { userId: number | null; userName: string; source: Source }

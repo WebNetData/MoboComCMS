@@ -13,6 +13,7 @@ export async function erasePersonalRows(tx: Prisma.TransactionClient, id: number
   await tx.crmOpportunity.updateMany({ where: { assigneeId: id }, data: { assigneeId: null, version: { increment: 1 } } })
   await tx.crmOpportunity.updateMany({ where: { createdById: id }, data: { createdById: null } })
   await tx.crmOpportunityTransition.updateMany({ where: { actorId: id }, data: { actorId: null } })
+  await tx.crmOpportunityQuotation.updateMany({ where: { sharedById: id }, data: { sharedById: null } })
   await tx.crmTag.deleteMany({ where: { userId: id } })
   await tx.apiKey.deleteMany({ where: { userId: id } })
   await tx.otpCode.deleteMany({ where: { userId: id } })

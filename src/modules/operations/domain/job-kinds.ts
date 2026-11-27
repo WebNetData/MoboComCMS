@@ -9,6 +9,7 @@ export const JOB_LABEL: Record<string, string> = {
   'forms.stage-sms': 'پیامک مرحلهٔ خدمات و درخواست‌ها',
   'forms.webhook-delivery': 'ارسال وب‌هوک فرم',
   'crm.opportunity-reminder': 'یادآوری پیگیری فرصت فروش',
+  'crm.quotation-reminder': 'یادآوری پیش‌فاکتور فرصت فروش',
   'support.demand-fulfilled': 'اعلان آماده‌شدن درخواست کالا و محتوا',
   'downloads.health': 'پایش سلامت لینک‌های فایل و پخش',
   'ai.engineering': 'توسعه و تعمیر هوشمند در محیط جدا',

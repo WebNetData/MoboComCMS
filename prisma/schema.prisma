@@ -16,6 +16,7 @@ model User {
   assignedCrmOpportunities CrmOpportunity[] @relation("CrmOpportunityAssignee")
   createdCrmOpportunities CrmOpportunity[] @relation("CrmOpportunityCreator")
   crmOpportunityTransitions CrmOpportunityTransition[]
+  sharedCrmQuotations CrmOpportunityQuotation[]
   demandDecisions ContentDemand[] @relation("DemandDecision")
   demandSupport ContentDemandSupporter[]
 
@@ -800,10 +801,24 @@ model CrmOpportunity {
   ticket           Ticket?  @relation(fields: [ticketId], references: [id], onDelete: SetNull)
   transitions      CrmOpportunityTransition[]
   followUps        CrmFollowUp[]
+  quotations      CrmOpportunityQuotation[]
 
   @@index([userId, updatedAt, id])
   @@index([assigneeId, stage, updatedAt, id])
   @@index([stage, stageChangedAt])
+}
+
+model CrmOpportunityQuotation {
+  quotationId   Int @id
+  opportunityId Int
+  sharedAt      DateTime?
+  sharedById    Int?
+  quotation    StoreQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  opportunity  CrmOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  sharedBy     User? @relation(fields: [sharedById], references: [id], onDelete: SetNull)
+
+  @@index([opportunityId, quotationId])
+  @@index([sharedById])
 }
 
 model CrmOpportunityTransition {
@@ -5831,6 +5846,7 @@ model StockPurchaseReceipt {
 }
 
 model StoreQuotation {
+  crmLink CrmOpportunityQuotation?
   id Int @id @default(autoincrement())
   token String @unique
   userId Int

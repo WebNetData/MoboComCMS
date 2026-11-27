@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import { faDate } from '../../store/shared'
 import OpportunityForm from './OpportunityForm'
+import OpportunityQuotations from './OpportunityQuotations'
 import { formatAmount, STAGES, type Detail } from './types'
 import styles from './opportunities.module.css'
 
@@ -80,6 +81,7 @@ export default function OpportunityDetail({ id, close, changed }: { id: number; 
       </dl>
       {data.row.mayEdit && !editing && <p><button className="btn btn-ghost" type="button" disabled={busy || refreshing} onClick={() => setEditing(true)}>ویرایش فرصت و مرحله</button></p>}
       {data.row.mayEdit && editing && <OpportunityForm key={data.row.version} detail={data} staff={data.staff} canManage={data.canManage} ownId={data.row.assigneeId || 0} busy={busy} cancel={() => setEditing(false)} save={body => command('/api/admin/crm/opportunities', 'PATCH', body)} />}
+      <OpportunityQuotations opportunityId={data.row.id} version={data.row.version} mayEdit={data.row.mayEdit} changed={changed} />
       <h3>پیگیری‌های فرصت</h3>
       {data.followUps.length ? <ul className={styles.history}>{data.followUps.map(task => <li key={task.id}><strong>{task.title}</strong><small>{faDate(task.dueDay)} · {task.assigneeName || 'بدون مسئول'} · {task.status === 'OPEN' ? 'باز' : task.status === 'DONE' ? 'انجام‌شده' : 'لغوشده'}</small></li>)}</ul> : <p className={styles.muted}>پیگیری‌ای برای این فرصت ثبت نشده است.</p>}
       <p><Link className="sa-link" href={`/admin/crm/${data.row.userId}#follow-ups-heading`}>همهٔ پیگیری‌های مشتری</Link></p>

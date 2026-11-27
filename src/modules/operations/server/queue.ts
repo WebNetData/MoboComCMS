@@ -27,6 +27,7 @@ const HANDLERS: Record<string, { run: Handler }> = {
   'forms.stage-sms': { run: async (payload, job) => (await import('@/modules/forms/server/stage-sms')).deliverFormStageSms(payload, job) },
   'forms.webhook-delivery': { run: async payload => (await import('@/modules/forms/server/webhooks')).deliverFormWebhook(payload) },
   'crm.opportunity-reminder': { run: async payload => (await import('@/modules/livechat/server/crm-opportunity-reminders')).deliverOpportunityFollowUpReminder(payload) },
+  'crm.quotation-reminder': { run: async payload => (await import('@/modules/livechat/server/crm-opportunities')).deliverQuotationReminder(payload) },
   'support.demand-fulfilled': { run: async (payload, job) => {
     const result = await (await import('@/modules/support/server/demand')).deliverDemandFulfilled(payload)
     if (!result.done) await job.continueWith('support.demand-fulfilled', { ...payload, cursor: result.cursor }, { dedupeKey: `demand:${payload.demandId}:${payload.version}:after:${result.cursor}` })
