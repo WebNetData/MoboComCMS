@@ -1,3 +1,9 @@
+# Release 1.7.26 — 2026-11-27
+
+Continue `.mobocom/release-1.7.26` on `release/1.7.26`, based on
+merged main `ba666260`. The version seals six pending migrations and
+updates the Persian release and upgrade guides. [Release handoff](../docs/agent/handoffs/RELEASE_1_7_26.md).
+
 # CRM quotations and paid conversion — 2026-11-27
 
 Continue `.mobocom/crm-opportunity-quotations`,

@@ -20,7 +20,9 @@ function instance() {
   }
   const logger = { logEvent: () => undefined }
   const load = (relative) => {
-    const file = path.resolve(root, `${relative}.ts`)
+    const base = path.resolve(root, relative)
+    const file = [`${base}.ts`, path.join(base, 'index.ts')].find(fs.existsSync)
+    if (!file) throw new Error(`Missing fixture module: ${relative}`)
     if (cache.has(file)) return cache.get(file)
     // The store keeps its connection on globalThis; each instance gets a global of its own.
     const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText.replace(/\bglobalThis\b/g, '__scope')
@@ -32,7 +34,9 @@ function instance() {
       if (spec === '@/extensions/server/modules') return { moduleGuard: async () => fixture.moduleOn ? null : new Response(null, { status: 404 }) }
       if (spec === '@/modules/identity/server/access') return { requireUser: async () => { throw Error('Secret route must not acquire a human identity') } }
       if (spec === '@/modules/repository/server/vendor') return vendor
-      return spec.startsWith('@/') ? load(`src/${spec.slice(2)}`) : require(spec)
+      if (spec.startsWith('@/')) return load(`src/${spec.slice(2)}`)
+      if (spec.startsWith('.')) return load(path.resolve(path.dirname(file), spec))
+      return require(spec)
     }
     new Function('require', 'module', 'exports', '__scope', source)(req, mod, mod.exports, scope)
     return mod.exports
