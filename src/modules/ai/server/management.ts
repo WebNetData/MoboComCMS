@@ -6,6 +6,7 @@ import { allowedDepartmentSlugs } from '@/modules/support/server/department-acce
 import { tehranDay } from '@/shared/time/day'
 import { CRM_PERMISSIONS } from '@/modules/livechat/domain/crm-desk'
 import { crmFollowUpCustomer, mayManageFollowUps } from '@/modules/livechat/server/crm-follow-ups'
+import { staleOpportunityIndicator } from '@/modules/livechat/server/crm-opportunities'
 import { currentAdminHasPermission, type AuthedUser } from '@/modules/identity/server/access'
 import type { ManagementReport, ManagementSection, ManagementSignal } from '../domain/management'
 
@@ -47,8 +48,22 @@ const sections: Section[] = [
   },
   {
     id: 'crm', label: 'مدیریت ارتباط با مشتریان', href: '/admin/crm/follow-ups', module: 'livechat', permissions: CRM_PERMISSIONS,
-    read: (actor, now, reader) => one('crm.overdue', 'پیگیری معوق', 'پیگیری باز با موعد گذشته، در محدودهٔ دسترسی شما.', 'موعد و مسئول پیگیری را در میز ارتباط با مشتریان مرور کنید.',
-      reader.crmFollowUp.count({ where: { status: 'OPEN', dueDay: { lt: tehranDay(now) }, user: crmFollowUpCustomer, ...(mayManageFollowUps(actor) ? {} : { assigneeId: actor.id }) } })),
+    read: async (actor, now, reader) => {
+      const [followUps, opportunities] = await Promise.all([
+        one('crm.overdue', 'پیگیری معوق', 'پیگیری باز با موعد گذشته، در محدودهٔ دسترسی شما.', 'موعد و مسئول پیگیری را در میز ارتباط با مشتریان مرور کنید.',
+          reader.crmFollowUp.count({ where: { status: 'OPEN', dueDay: { lt: tehranDay(now) }, user: crmFollowUpCustomer, ...(mayManageFollowUps(actor) ? {} : { assigneeId: actor.id }) } })),
+        staleOpportunityIndicator(actor, now, reader),
+      ])
+      return [...followUps, {
+        id: 'crm.sales-stale',
+        label: 'فرصت فروش راکد',
+        count: opportunities.count,
+        detail: 'فرصت‌های بازی که دست‌کم ۱۴ روز در مرحلهٔ فعلی مانده‌اند.',
+        recommendation: 'آخرین پیگیری هر فرصت را بررسی کنید و گام بعدی را در تابلوی فروش مشخص کنید.',
+        tone: 'attention',
+        destination: { href: opportunities.href, label: 'فرصت‌های راکد در تابلوی فروش' },
+      }]
+    },
   },
   {
     id: 'pay', label: 'موبوکام‌پی', href: '/admin/mobocom-pay', module: 'mobocom-pay', permissions: ['mobocom-pay.manage'],

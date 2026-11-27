@@ -11,6 +11,7 @@ export type ManagementSignal = {
   detail: string
   recommendation: string
   tone: 'urgent' | 'attention'
+  destination?: { href: string; label: string }
 }
 
 export type ManagementSection = {

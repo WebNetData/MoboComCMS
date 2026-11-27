@@ -13,6 +13,16 @@ const staleWhere = (now: Date) => ({
   stage: { in: OPEN_OPPORTUNITY_STAGES },
   stageChangedAt: { lte: new Date(now.getTime() - 14 * 86_400_000) },
 })
+const opportunityScope = (actor: AuthedUser, owner: NonNullable<OpportunityFilters['owner']>): Prisma.CrmOpportunityWhereInput => ({
+  user: crmFollowUpCustomer,
+  ...(owner === 'all' ? {} : { assigneeId: owner === 'mine' ? actor.id : owner === 'unassigned' ? null : owner }),
+})
+
+export async function staleOpportunityIndicator(actor: AuthedUser, now: Date, reader: Prisma.TransactionClient) {
+  const owner = mayManageFollowUps(actor) ? 'all' : 'mine'
+  const count = await reader.crmOpportunity.count({ where: { ...opportunityScope(actor, owner), ...staleWhere(now) } })
+  return { count, href: `/admin/crm/opportunities?stale=1&owner=${owner}` }
+}
 const relations = { user: { select: { name: true } }, assignee: { select: { name: true } } } as const
 type OpportunityRow = Prisma.CrmOpportunityGetPayload<{ include: typeof relations }>
 
@@ -52,8 +62,7 @@ export async function listOpportunities(actor: AuthedUser, filter: OpportunityFi
   const staff = canManage ? await followUpAssignees() : []
   if (typeof owner === 'number' && !staff.some(person => person.id === owner)) throw new ChatError('مسئول انتخاب‌شده معتبر نیست')
   const where: Prisma.CrmOpportunityWhereInput = {
-    user: crmFollowUpCustomer, ...(filter.userId ? { userId: filter.userId } : {}),
-    ...(owner === 'all' ? {} : { assigneeId: owner === 'mine' ? actor.id : owner === 'unassigned' ? null : owner }),
+    ...opportunityScope(actor, owner), ...(filter.userId ? { userId: filter.userId } : {}),
   }
   const stats = await salesSummary(where, now)
   const itemsWhere: Prisma.CrmOpportunityWhereInput = {

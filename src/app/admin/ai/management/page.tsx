@@ -126,7 +126,7 @@ function Recommendations({ report, section }: { report: ManagementReport; sectio
           return <li key={signal.id}>
             <div className={s.count} data-tone={signal.tone}>{number.format(signal.count)}</div>
             <div className={s.finding}>
-              <Link href={signal.owner.href}>{signal.owner.label}</Link>
+              <Link href={signal.destination?.href ?? signal.owner.href}>{signal.destination?.label ?? signal.owner.label}</Link>
               <h3>{signal.label}</h3>
               <p>{signal.detail}</p>
               <p>{signal.recommendation}</p>
