@@ -53,13 +53,14 @@ async function main(){
   assert.equal(state.sends,0)
  }
  state.section='open'
- const results=await Promise.all([create(input),create(input)]);assert.equal(results[0].url,results[1].url)
+ const results=await Promise.all([create(input),create({...input,user_id:String(input.user_id)})]);assert.equal(results[0].url,results[1].url)
  const paymentId=new URL(results[0].url).pathname.split('/').pop()
  let payment=await db.payPayment.findUniqueOrThrow({where:{id:paymentId}}),delivery=await db.payBotDelivery.findUniqueOrThrow({where:{paymentId}})
  assert.equal(payment.amountMinor,100000n);assert.equal(payment.status,'PENDING');assert.equal(delivery.status,'WAITING')
  await pay.deliverBotPayment({deliveryId:delivery.id});assert.equal(state.sends,0)
  await assert.rejects(create({...input,amount:10001}),e=>e.status===409)
  await assert.rejects(create({...input,user_id:987654321}),e=>e.status===409)
+ await assert.rejects(create({...input,user_id:'987654321'}),e=>e.status===409)
  await assert.rejects(create({...input,amount:1.2}));await assert.rejects(create({...input,api_key:'bad'}))
  state.enabled=false;await assert.rejects(create(input));state.enabled=true
  state.globalDenied=true;await assert.rejects(create(input));state.globalDenied=false
@@ -103,7 +104,8 @@ async function main(){
  await settle(secondId,'BOTREF002');let next=await db.payBotDelivery.findUniqueOrThrow({where:{paymentId:secondId}})
  const rotated=await pay.saveBotIntegration(a,{...config,version:connection.version,rotateKey:true,responseMode:'LINKS',callbackToken:''});connection=rotated.integration
  await assert.rejects(create(input),e=>e.status===401)
- const list=await create({...input,api_key:rotated.token,order_id:'order-three'});assert.equal(list.links.length,1)
+ const list=await create({...input,api_key:rotated.token,order_id:'order-three',user_id:String(input.user_id)});assert.equal(list.links.length,1)
+ assert.equal(list.links[0].text,'پرداخت امن با موبوکام');assert.equal(new URL(list.links[0].url).origin,'https://mobocom.invalid')
  const thirdId=new URL(list.links[0].url).pathname.split('/').pop()
  const now=Date.now;Date.now=()=>now()+3600000
  try{assert.equal((await pay.botDeliveries(a)).find(row=>row.paymentId===thirdId).paymentStatus,'EXPIRED')}finally{Date.now=now}
