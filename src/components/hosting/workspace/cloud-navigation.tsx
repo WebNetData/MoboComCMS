@@ -1,13 +1,13 @@
-﻿'use client'
+'use client'
 
 import ShellNav from '@/components/shell/ShellNav'
-import { cloudGroups } from './cloud-menu'
+import { cloudGroups, cloudMenuMatch } from './cloud-menu'
 import s from './cloud-shell.module.css'
 
 export default function CloudNavigation({ path, choice, onToggle, onNavigate, shown = true }: {
   path: string; choice: Record<string, boolean>; onToggle: (id: string, open: boolean) => void; onNavigate?: () => void; shown?: boolean
 }) {
   return <nav className={`${s.navigation} side-nav`} aria-label="بخش‌های پنل ابری">
-    <ShellNav groups={cloudGroups} isOn={(href, exact) => path === href || (!exact && path.startsWith(href + '/'))} choice={choice} onToggle={onToggle} onNavigate={onNavigate} itemIcons shown={shown} />
+    <ShellNav groups={cloudGroups} isOn={(href, exact) => cloudMenuMatch(path, href, exact)} choice={choice} onToggle={onToggle} onNavigate={onNavigate} itemIcons shown={shown} />
   </nav>
 }

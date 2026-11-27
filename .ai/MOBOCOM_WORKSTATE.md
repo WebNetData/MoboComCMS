@@ -1,3 +1,10 @@
+# Cloud dashboard wallet, support and account — 2026-11-27
+
+Continue `.mobocom/cloud-dashboard-local-tools`, branch
+`feat/cloud-dashboard-local-tools-2026-11-27`, from main `92133a8d`. The Cloud
+menu keeps wallet, tickets, settings and invoice actions under `/cloud/dashboard`
+using their existing owners. [Implementation and verification](../docs/agent/handoffs/CLOUD_WORKSPACE.md#cloud-wallet-support-and-account--2026-11-27).
+
 # Release 1.7.26 — 2026-11-27
 
 Continue `.mobocom/release-1.7.26` on `release/1.7.26`, based on

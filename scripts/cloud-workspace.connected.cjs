@@ -3,8 +3,8 @@ const { PrismaClient } = require('@prisma/client')
 const loadSource = require('./connected-source-loader.cjs')
 const db = new PrismaClient()
 const stamp = `cloud-workspace-${Date.now()}-${process.pid}`
-const users = [], settings = new Map()
-let token = null, product, tld
+const users = [], settings = new Map(), topupInvoiceIds = []
+let token = null, product, tld, gateway
 const mocks = {
   '@/platform/database/prisma': { db },
   'next-auth/jwt': { getToken: async () => token }, // Session boundary only; requireUser resolves current DB state.
@@ -12,6 +12,7 @@ const mocks = {
   '@/platform/cache/kv': { cached: async (_key, _ttl, fn) => fn(), invalidate: async () => {} },
 }
 const load = loadSource(mocks)
+const surface = load('src/modules/checkout/domain/surface.ts')
 const access = load('src/modules/hosting/server/workspace-access.ts')
 const workspace = load('src/modules/hosting/server/workspace.ts')
 const put = async (key, value) => {
@@ -52,6 +53,47 @@ async function main() {
     for (const row of [foreign, mismatched, store]) {assert.equal(await access.ownedCloudInvoice(users[0].id, row.invoice.number), null);assert.equal(await access.ownedCloudResultInvoice(users[0].id,{order:String(row.row.id)}),null)}
     assert.equal(await access.ownedCloudResultInvoice(users[0].id,{order:String(whitespace.row.id)}),whitespace.invoice.number)
     assert.equal(await access.ownedCloudResultInvoice(users[0].id,{invoice:whitespace.invoice.number}),whitespace.invoice.number)
+    gateway = await db.gateway.create({ data: { name: stamp, provider: 'MANUAL', fiat: 'IRT', instructions: 'connected test', active: true } })
+    let gatewayCalls = 0
+    const topupLoad = loadSource({ ...mocks,
+      '@/modules/settings/server': { getSettings: async () => ({}) },
+      '@/modules/billing/server/gateways': {
+        resolveCheckoutGateway: async () => gateway,
+        checkoutGatewayOptions: async () => [],
+        gatewayAcceptsCheckoutCurrency: () => true,
+        gatewayCallbackUrl: () => '',
+        createGatewayInvoice: async () => { gatewayCalls++; return { ok: true, manual: true, paymentUrl: '' } },
+      },
+    })
+    const startTopup = topupLoad('src/modules/wallet/server/topup.ts').startWalletTopup
+    // The same caller key is valid on both surfaces; each must retain its own callback and replay destination.
+    const requestKey = 'cloud:request-1234'
+    const cloudTopup = await startTopup({ userId: users[0].id, email: users[0].email, amount: 10000, currency: 'IRT', idempotencyKey: requestKey, surface: 'cloud' })
+    const cloudReplay = await startTopup({ userId: users[0].id, email: users[0].email, amount: 10000, currency: 'IRT', idempotencyKey: requestKey, surface: 'cloud' })
+    const regularTopup = await startTopup({ userId: users[0].id, email: users[0].email, amount: 10000, currency: 'IRT', idempotencyKey: requestKey })
+    const regularReplay = await startTopup({ userId: users[0].id, email: users[0].email, amount: 10000, currency: 'IRT', idempotencyKey: requestKey })
+    assert(cloudTopup.ok && regularTopup.ok && cloudReplay.ok && regularReplay.ok)
+    topupInvoiceIds.push(cloudTopup.invoiceId, regularTopup.invoiceId)
+    assert.equal(cloudReplay.invoiceId, cloudTopup.invoiceId); assert.equal(cloudReplay.replayed, true)
+    assert.equal(cloudTopup.paymentUrl, `/cloud/dashboard/invoices/${cloudTopup.invoiceNumber}`)
+    assert.equal(cloudReplay.paymentUrl, cloudTopup.paymentUrl); assert.equal(cloudReplay.manual, true)
+    assert.equal(regularReplay.invoiceId, regularTopup.invoiceId); assert.notEqual(regularTopup.invoiceId, cloudTopup.invoiceId)
+    assert.equal(regularTopup.paymentUrl, `/invoice/${regularTopup.invoiceNumber}`); assert.equal(regularReplay.paymentUrl, regularTopup.paymentUrl)
+    assert.equal(gatewayCalls, 2)
+    const cloudInvoice = await db.invoice.findUnique({ where: { id: cloudTopup.invoiceId } })
+    const regularInvoice = await db.invoice.findUnique({ where: { id: regularTopup.invoiceId } })
+    assert.equal(cloudInvoice.idempotencyKey, `wallet-topup:cloud:${users[0].id}:${requestKey}`)
+    assert.equal(await access.ownedCloudInvoice(users[0].id, cloudInvoice.number), cloudInvoice.id)
+    assert.equal(await access.ownedCloudInvoice(users[1].id, cloudInvoice.number), null)
+    assert.equal(await access.ownedCloudInvoice(users[0].id, regularInvoice.number), null)
+    assert.equal(surface.isCloudWalletTopup(regularInvoice), false)
+    const ledgerRows = await db.walletTx.findMany({ where: { invoiceId: { in: topupInvoiceIds } } })
+    assert.equal(ledgerRows.length, 2); assert.notEqual(ledgerRows[0].idempotencyKey, ledgerRows[1].idempotencyKey)
+    const walletOverview = topupLoad('src/modules/wallet/server/overview.ts').walletOverview
+    const walletView = await walletOverview(users[0].id, 'cloud')
+    assert.equal(walletView.transactions.find(row => row.invoiceId === cloudTopup.invoiceId).cloudInvoiceNumber, cloudInvoice.number)
+    assert.equal(walletView.transactions.find(row => row.invoiceId === regularTopup.invoiceId).cloudInvoiceNumber, null)
+    assert((await walletOverview(users[0].id)).transactions.every(row => !Object.hasOwn(row, 'cloudInvoiceNumber')))
     const http=load('src/modules/hosting/server/workspace-http.ts'),request=query=>({nextUrl:new URL('https://owned.invalid/api/hosting/workspace'+query)})
     for(const query of ['?view=invoices&userId=1','?view=invoices&cursor=-1','?view=invoices&cursor=0','?view=invoices&cursor=2147483648','?view=other'])assert.equal((await http.GET_workspace(request(query))).status,422)
     token=null;assert.equal((await http.GET_workspace(request(''))).status,401);token={uid:String(users[0].id),authAt:Math.floor(Date.now()/1000)}
@@ -91,9 +133,11 @@ async function main() {
   } finally {
     try {
       const ids = users.map(user => user.id)
+      if (topupInvoiceIds.length) await db.walletTx.deleteMany({ where: { invoiceId: { in: topupInvoiceIds } } })
       await db.hostingService.deleteMany({ where: { userId: { in: ids } } })
       await db.domain.deleteMany({ where: { userId: { in: ids } } })
       await db.invoice.deleteMany({ where: { OR: [{ userId: { in: ids } }, { order: { is: { userId: { in: ids } } } }] } })
+      if (gateway) await db.gateway.deleteMany({ where: { id: gateway.id } })
       await db.order.deleteMany({ where: { userId: { in: ids } } })
       if (product) await db.hostingProduct.delete({ where: { id: product.id } })
       if (tld) await db.domainTld.delete({ where: { id: tld.id } })

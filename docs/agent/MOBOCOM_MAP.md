@@ -432,6 +432,8 @@ Private `/cloud/dashboard` composes current Identity, Hosting, Checkout/Billing,
 Support and Wallet owners. It adds no schema/dependency and leaves public Cloud
 sources protected. Implementation evidence and pending browser/gate/cleanup
 confirmation: [handoff](handoffs/CLOUD_WORKSPACE.md).
+The Cloud wallet, tickets, account settings and guarded invoice actions stay
+inside the workspace. [Cloud tools continuation](handoffs/CLOUD_WORKSPACE.md#cloud-wallet-support-and-account--2026-11-27).
 Cloud operations2026-11-26: Hosting `server/cloud-operations.ts` is the address for
 intents/runner/settlement/Admin recovery; drivers own closed provider protocols,
 canonical Operations runs `hosting.operation`, existing Hosting fulfillment/

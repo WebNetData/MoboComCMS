@@ -1,0 +1,71 @@
+.cloudAccount {
+  --cloud-account-line: var(--sds-color-border-default-default);
+}
+
+.cloudAccount :global(.dash-page-head) {
+  align-items: flex-end;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--cloud-account-line);
+}
+
+.cloudAccount :global(.ac-layout) {
+  gap: 24px;
+}
+
+.cloudAccount :global(.ac-col-title) {
+  margin: 4px 0;
+}
+
+.cloudAccount :global(.ac-identity) {
+  padding: 16px;
+  border: 1px solid var(--cloud-account-line);
+  border-radius: 12px;
+  background: var(--sds-color-background-default-secondary);
+}
+
+.cloudAccount :global(.dash-card) {
+  padding: 22px;
+  border-color: var(--cloud-account-line);
+  box-shadow: none;
+}
+
+.cloudAccount :global(.dash-card-head h2),
+.cloudAccount :global(.ac-col-title) {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cloudAccount :global(.dash-card-head p) {
+  color: var(--sds-color-text-default-secondary);
+  line-height: 1.8;
+}
+
+.cloudAccount :global(.dash-field input),
+.cloudAccount :global(.phone-verify input) {
+  min-height: 44px;
+}
+
+.cloudAccount :global(.dash-card .btn),
+.cloudAccount :global(.phone-verify .btn),
+.cloudAccount :global(.google-link .btn),
+.cloudAccount :global(.card .btn) {
+  min-height: 44px;
+}
+
+@media (max-width: 700px) {
+  .cloudAccount :global(.dash-page-head) {
+    align-items: stretch;
+  }
+
+  .cloudAccount :global(.dash-card) {
+    padding: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloudAccount :global(*) {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

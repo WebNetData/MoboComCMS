@@ -1,4 +1,4 @@
-import { checkoutPath, storedCheckoutSurface, type CheckoutSurface } from '@/modules/checkout/domain/surface'
+import { checkoutPath, isCloudWalletTopup, storedCheckoutSurface, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 import Link from '@/components/AppLink'
 import { notFound, redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
@@ -57,6 +57,8 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
   const isOwner = viewerId && viewerId === invoice.userId
   const isAdmin = (session as any)?.user?.role === 'ADMIN' && await invoiceStaffAccess(new Headers(await headers()))
   if (!isOwner && !isAdmin) notFound()
+  const cloudWalletTopup = isOwner && isCloudWalletTopup(invoice, viewerId)
+  if (cloudWalletTopup && surface === 'public') redirect(checkoutPath(`/invoice/${encodeURIComponent(invoice.number)}`, 'cloud'))
   if (isOwner && surface === 'public' && storedCheckoutSurface(invoice.order?.meta) !== 'public') redirect(checkoutPath(`/invoice/${encodeURIComponent(invoice.number)}`, storedCheckoutSurface(invoice.order?.meta)))
 
   const navPages = await db.page
@@ -108,11 +110,11 @@ export default async function InvoicePage({ params: paramsPromise, surface = 'pu
       {surface === 'public' && <SiteHeader theme={theme} navPages={navPages} />}
       <Surface className="container py-12 invoice-page">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6 no-print">
-          <Link href={checkoutPath('/dashboard/invoices', surface)} className="muted">← {t.myInvoices}</Link>
+          <Link href={cloudWalletTopup ? '/cloud/dashboard/wallet' : checkoutPath('/dashboard/invoices', surface)} className="muted">← {cloudWalletTopup ? isFa ? 'بازگشت به کیف پول' : 'Back to wallet' : t.myInvoices}</Link>
           {invoice.status !== 'DRAFT' && <div className="invoice-actions">
             <a href={`/api/invoices/${encodeURIComponent(invoice.number)}/pdf?download=1`} className="btn btn-primary" download><Icon name="file" size={17} /> {isFa ? 'دانلود PDF' : 'Download PDF'}</a>
             <a href={`/api/invoices/${encodeURIComponent(invoice.number)}/pdf`} className="btn btn-ghost" target="_blank" rel="noopener noreferrer"><Icon name="receipt" size={17} /> {isFa ? 'چاپ فاکتور' : 'Print invoice'}</a>
-            <Link href={`/invoice/${invoice.number}/official`} className="btn btn-ghost">{isFa ? 'صورتحساب رسمی' : 'Official invoice'}</Link>
+            <Link href={surface === 'cloud' ? `/cloud/dashboard/invoices/${encodeURIComponent(invoice.number)}/official` : `/invoice/${encodeURIComponent(invoice.number)}/official`} className="btn btn-ghost">{isFa ? 'صورتحساب رسمی' : 'Official invoice'}</Link>
           </div>}
         </div>
 

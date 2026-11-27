@@ -155,10 +155,10 @@ export type GoogleOutcome = { kind: 'ticket'; ticket: string; next: string } | {
 /** Google sent the member back: check everything, then sign in, create the account, or connect it. */
 export async function finishGoogleSignIn(input: { code?: string | null; state?: string | null; browserState?: string | null; error?: string | null; currentUserId?: number | null }): Promise<GoogleOutcome> {
   const flow = await takeFlow(input.state, input.browserState)
-  if (input.error) throw Object.assign(new GoogleLoginFailure('cancelled'), { intent: flow.intent })
+  if (input.error) throw Object.assign(new GoogleLoginFailure('cancelled'), { intent: flow.intent, next: flow.next })
   // A connection completes only for the member who started it and is still signed in in this browser: signing out, or
   // someone else signing in, before Google sends the browser back ends it (audit 2026-11-10). Checked before Google is asked.
-  if (flow.intent === 'link' && (!input.currentUserId || input.currentUserId !== flow.userId)) throw Object.assign(new GoogleLoginFailure('not-allowed'), { intent: flow.intent })
+  if (flow.intent === 'link' && (!input.currentUserId || input.currentUserId !== flow.userId)) throw Object.assign(new GoogleLoginFailure('not-allowed'), { intent: flow.intent, next: flow.next })
   try {
     const config = await googleLoginConfig()
     if (!config.ready) throw new GoogleLoginFailure('unavailable')
@@ -171,7 +171,7 @@ export async function finishGoogleSignIn(input: { code?: string | null; state?: 
     const userId = await userForGoogle(identity, config.signup)
     return { kind: 'ticket', ticket: await issueGoogleTicket(userId), next: flow.next }
   } catch (error) {
-    if (error instanceof GoogleLoginFailure) throw Object.assign(error, { intent: flow.intent })
+    if (error instanceof GoogleLoginFailure) throw Object.assign(error, { intent: flow.intent, next: flow.next })
     throw error
   }
 }

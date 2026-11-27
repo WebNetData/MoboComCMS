@@ -101,7 +101,7 @@ export default function HostingOrder({ product, cycle, gateways, signedIn, minHo
           {price.setup > 0 && <small>شامل {nf(price.setup)} تومان هزینهٔ راه‌اندازی یک‌باره</small>}
           <small>ابتدا از موجودی کیف پول استفاده می‌شود و باقی مبلغ با درگاه پرداخت می‌شود.</small>
         </div>)}
-      {error && <p className="hx-order-error" role="alert">{error.text}{error.wallet && <> <Link href="/dashboard/wallet">شارژ کیف پول</Link></>}</p>}
+      {error && <p className="hx-order-error" role="alert">{error.text}{error.wallet && <> <Link href={surface === 'cloud' ? '/cloud/dashboard/wallet' : '/dashboard/wallet'}>شارژ کیف پول</Link></>}</p>}
       {signedIn
         ? <button type="submit" className="btn btn-primary hx-order-pay" disabled={busy || !price}>{busy ? 'در حال ثبت…' : hourly ? 'ساخت سرویس ساعتی' : 'پرداخت و سفارش'}</button>
         : <Link className="btn btn-primary hx-order-pay" href={`/login?next=${encodeURIComponent(web ? '/hosting' : '/servers')}`}>ورود برای سفارش</Link>}

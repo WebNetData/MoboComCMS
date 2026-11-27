@@ -16,6 +16,11 @@ import { GoogleLoginFailure, disconnectGoogle, finishGoogleSignIn, googleConnect
 
 const COOKIE_PATH = '/api/login/google'
 const PROFILE = '/dashboard/profile'
+const CLOUD_PROFILE = '/cloud/dashboard/account'
+
+function profileReturn(value: unknown): string {
+  return value === CLOUD_PROFILE ? CLOUD_PROFILE : PROFILE
+}
 
 async function to(path: string) {
   const response = NextResponse.redirect(new URL(path, await siteBaseUrl()), 303)
@@ -25,8 +30,8 @@ async function to(path: string) {
 }
 
 /** Back to where the member started, with the reason in the address; the started flow is forgotten. */
-async function back(intent: GoogleIntent, code: GoogleLoginError) {
-  const response = await to(intent === 'link' ? `${PROFILE}?google=${code}` : `/login?google=${code}`)
+async function back(intent: GoogleIntent, code: GoogleLoginError, returnTo: unknown = PROFILE) {
+  const response = await to(intent === 'link' ? `${profileReturn(returnTo)}?google=${code}` : `/login?google=${code}`)
   response.cookies.set(GOOGLE_FLOW_COOKIE, '', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: COOKIE_PATH, maxAge: 0 })
   return response
 }
@@ -34,18 +39,19 @@ async function back(intent: GoogleIntent, code: GoogleLoginError) {
 export async function GET_start(req: NextRequest) {
   const params = req.nextUrl.searchParams
   const intent: GoogleIntent = params.get('intent') === 'link' ? 'link' : 'login'
-  if (!(await rateLimitStrict(`login:google:start:${clientIp(req.headers)}`, 30, 10 * 60_000)).ok) return back(intent, 'unreachable')
+  const returnTo = profileReturn(params.get('next'))
+  if (!(await rateLimitStrict(`login:google:start:${clientIp(req.headers)}`, 30, 10 * 60_000)).ok) return back(intent, 'unreachable', returnTo)
   let userId: number | undefined
   if (intent === 'link') {
     // Connecting starts only from this site's own pages, by the member who is signed in.
     const site = req.headers.get('sec-fetch-site')
-    if (site && site !== 'same-origin' && site !== 'none') return back(intent, 'not-allowed')
+    if (site && site !== 'same-origin' && site !== 'none') return back(intent, 'not-allowed', returnTo)
     const user = await requireUser(req)
-    if (!user) return to(`/login?next=${encodeURIComponent(PROFILE)}`)
+    if (!user) return to(`/login?next=${encodeURIComponent(returnTo)}`)
     userId = user.id
   }
   try {
-    const { url, state } = await startGoogleSignIn({ intent, next: params.get('next'), userId, locale: req.cookies.get('locale')?.value === 'en' ? 'en' : 'fa' })
+    const { url, state } = await startGoogleSignIn({ intent, next: intent === 'link' ? returnTo : params.get('next'), userId, locale: req.cookies.get('locale')?.value === 'en' ? 'en' : 'fa' })
     const response = NextResponse.redirect(url, 303)
     response.headers.set('Cache-Control', 'no-store')
     response.headers.set('Referrer-Policy', 'no-referrer')
@@ -53,7 +59,7 @@ export async function GET_start(req: NextRequest) {
     response.cookies.set(GOOGLE_FLOW_COOKIE, state, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: COOKIE_PATH, maxAge: GOOGLE_FLOW_TTL_MS / 1000 })
     return response
   } catch (error) {
-    if (error instanceof GoogleLoginFailure) return back(intent, error.code)
+    if (error instanceof GoogleLoginFailure) return back(intent, error.code, returnTo)
     throw error
   }
 }
@@ -67,12 +73,15 @@ export async function GET_callback(req: NextRequest) {
     const outcome = await finishGoogleSignIn({ code: params.get('code'), state: params.get('state'), browserState: req.cookies.get(GOOGLE_FLOW_COOKIE)?.value, error: params.get('error'), currentUserId: current?.id ?? null })
     // The ticket rides in the fragment, which never reaches a server, a log or a referrer.
     const response = outcome.kind === 'linked'
-      ? await to(`${PROFILE}?google=linked`)
+      ? await to(`${profileReturn(outcome.next)}?google=linked`)
       : await to(`/login/google#${new URLSearchParams({ ticket: outcome.ticket, next: outcome.next }).toString()}`)
     response.cookies.set(GOOGLE_FLOW_COOKIE, '', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: COOKIE_PATH, maxAge: 0 })
     return response
   } catch (error) {
-    if (error instanceof GoogleLoginFailure) return back((error as GoogleLoginFailure & { intent?: GoogleIntent }).intent || 'login', error.code)
+    if (error instanceof GoogleLoginFailure) {
+      const flow = error as GoogleLoginFailure & { intent?: GoogleIntent; next?: string }
+      return back(flow.intent || 'login', error.code, flow.next)
+    }
     console.error('[google-login]', error)
     return back('login', 'failed')
   }

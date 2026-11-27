@@ -5,6 +5,7 @@ import { createInvoiceForOrder, recordProviderEvent } from '@/modules/billing/se
 import { recordPendingTopup } from '@/modules/wallet/server/wallet'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { walletTopupDefaults } from '@/platform/config/financial'
+import { checkoutPath, type CheckoutSurface } from '@/modules/checkout/domain/surface'
 
 /**
  * The built-in limits when the admin set none, per currency. The environment defaults (WALLET_TOPUP_DEFAULT_*) were
@@ -30,7 +31,9 @@ export async function startWalletTopup(input: {
   currency?: string
   gatewayRef?: string
   idempotencyKey: string
+  surface?: CheckoutSurface
 }) {
+  const surface = input.surface || 'public'
   if (!/^[A-Za-z0-9._:-]{8,128}$/.test(input.idempotencyKey)) return { ok: false as const, status: 400, code: 'IDEMPOTENCY_REQUIRED', message: 'a valid Idempotency-Key is required' }
   const requestedCurrency = input.currency ? normalizeCurrency(input.currency) : undefined
   const gateway = await resolveCheckoutGateway(input.gatewayRef, requestedCurrency)
@@ -49,12 +52,14 @@ export async function startWalletTopup(input: {
   if (amount < min) return { ok: false as const, status: 400, code: 'BELOW_MINIMUM', message: `minimum top-up is ${min} ${currency}` }
   if (amount > max) return { ok: false as const, status: 400, code: 'ABOVE_MAXIMUM', message: `maximum top-up is ${max} ${currency}` }
 
-  const invoiceKey = `wallet-topup:${input.userId}:${input.idempotencyKey}`
+  const invoiceKey = surface === 'cloud'
+    ? `wallet-topup:cloud:${input.userId}:${input.idempotencyKey}`
+    : `wallet-topup:${input.userId}:${input.idempotencyKey}`
   const existing = await db.invoice.findUnique({ where: { idempotencyKey: invoiceKey } })
   if (existing) return {
     ok: true as const, replayed: true, invoiceId: existing.id, invoiceNumber: existing.number,
-    paymentUrl: existing.paymentUrl || `/invoice/${existing.number}`,
-    manual: !existing.paymentUrl || existing.paymentUrl.startsWith('/invoice/'),
+    paymentUrl: checkoutPath(existing.paymentUrl || `/invoice/${existing.number}`, surface),
+    manual: !existing.paymentUrl || existing.paymentUrl.startsWith('/invoice/') || existing.paymentUrl.startsWith('/cloud/dashboard/invoices/'),
     currency: existing.currency, amount: minorToNumber(existing.totalMinor || toMinor(existing.total, existing.currency), existing.currency),
   }
 
@@ -63,10 +68,11 @@ export async function startWalletTopup(input: {
   const result = await createGatewayInvoice(gateway, {
     orderNumber: invoice.number, amount, currency, email: input.email,
     orderName: `MoboComCMS wallet top-up ${amount} ${currency}`,
-    callbackUrl: gatewayCallbackUrl(gateway, siteUrl), successUrl: `${siteUrl}/payment/result?invoice=${invoice.number}`, failUrl: `${siteUrl}/payment/result?invoice=${invoice.number}&failed=1`,
+    callbackUrl: gatewayCallbackUrl(gateway, siteUrl), successUrl: `${siteUrl}${checkoutPath(`/payment/result?invoice=${encodeURIComponent(invoice.number)}`, surface)}`, failUrl: `${siteUrl}${checkoutPath(`/payment/result?invoice=${encodeURIComponent(invoice.number)}&failed=1`, surface)}`,
     channel: 'web',
   })
-  const payUrl = result.manual ? `/invoice/${invoice.number}` : result.paymentUrl
+  const localInvoiceUrl = checkoutPath(`/invoice/${invoice.number}`, surface)
+  const payUrl = result.manual ? localInvoiceUrl : result.paymentUrl
   if (!result.ok || !payUrl) {
     if (result.ambiguous && gateway.provider === 'FRENZYEX') {
       if (result.txnId) await db.invoice.update({ where: { id: invoice.id }, data: { providerTxnId: result.txnId } }).catch(() => {})
@@ -80,7 +86,7 @@ export async function startWalletTopup(input: {
         }).catch(() => {})
       }
       console.warn(`[wallet] FrenzyEx response ambiguous for ${invoice.number}: ${result.message || 'unknown'}`)
-      return { ok: false as const, status: 502, code: 'GATEWAY_AMBIGUOUS', message: 'payment gateway response is ambiguous; check this invoice before retrying', invoiceNumber: invoice.number, invoiceUrl: `/invoice/${invoice.number}` }
+      return { ok: false as const, status: 502, code: 'GATEWAY_AMBIGUOUS', message: 'payment gateway response is ambiguous; check this invoice before retrying', invoiceNumber: invoice.number, invoiceUrl: localInvoiceUrl }
     }
     await db.invoice.updateMany({ where: { id: invoice.id, status: { in: ['UNPAID', 'DRAFT'] } }, data: { status: 'VOID' } }).catch(() => {})
     console.warn(`[wallet] gateway invoice failed for ${invoice.number}: ${result.message || 'unknown'}`)
@@ -95,6 +101,7 @@ export async function startWalletTopup(input: {
       raw: { expiresAt: result.expiresAt || null, kind: 'WALLET_TOPUP' },
     })
   }
-  const pending = await recordPendingTopup({ userId: input.userId, amount, currency, invoiceId: invoice.id, description: `Wallet top-up ${invoice.number}`, idempotencyKey: `wallet-topup-ledger:${input.userId}:${input.idempotencyKey}` })
+  const ledgerNamespace = surface === 'cloud' ? `wallet-topup-ledger:cloud:${input.userId}:` : `wallet-topup-ledger:${input.userId}:`
+  const pending = await recordPendingTopup({ userId: input.userId, amount, currency, invoiceId: invoice.id, description: `Wallet top-up ${invoice.number}`, idempotencyKey: `${ledgerNamespace}${input.idempotencyKey}` })
   return { ok: true as const, replayed: false, invoiceId: invoice.id, invoiceNumber: invoice.number, paymentUrl: payUrl, manual: Boolean(result.manual), pendingTxId: pending.id, currency, amount }
 }

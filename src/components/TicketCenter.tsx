@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import RichEditor from '@/components/RichEditor'
 import StatusBadge from '@/components/TicketStatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
@@ -18,7 +18,7 @@ type SupportOrder = { id: number; status: string; createdAt: string; lines: { li
 type SupportWarrantyDevice = { id: number; orderId: number; line: number; name: string; variantName: string; productId: number | null; serial: string; imei: string; warrantyStartsAt: string; warrantyEndsAt: string; provider: string; conditions: string }
 type Options = { subscriptions: { id: number; name: string; username: string }[]; products: { id: number; name: string }[]; orders: SupportOrder[]; warrantyDevices: SupportWarrantyDevice[]; departments: Department[] }
 
-export default function TicketCenter({ mini = false }: { mini?: boolean }) {
+export default function TicketCenter({ mini = false, workspace = 'account' }: { mini?: boolean; workspace?: 'account' | 'cloud' }) {
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const L = (en: string, persian: string) => fa ? persian : en
@@ -45,6 +45,7 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const ticketRequest = useRef(0)
 
   const refresh = useCallback(async () => {
     try {
@@ -63,13 +64,16 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
   }, [])
 
   const openTicket = useCallback(async (id: number) => {
+    const request = ++ticketRequest.current
+    if (workspace === 'cloud') window.history.replaceState(window.history.state, '', `/cloud/dashboard/support?ticket=${encodeURIComponent(id)}`)
     setSelected(id); setCompose(false); setError(''); setDetail(null)
     try {
       const response = await fetch(`/api/tickets/${id}?asCustomer=1`, { cache: 'no-store' })
       if (!response.ok) throw Error()
-      setDetail(await response.json())
-    } catch { setError(fa ? 'دریافت گفتگو ممکن نشد.' : 'Could not load conversation.') }
-  }, [fa])
+      const value = await response.json()
+      if (ticketRequest.current === request) setDetail(value)
+    } catch { if (ticketRequest.current === request) setError(fa ? 'دریافت گفتگو ممکن نشد.' : 'Could not load conversation.') }
+  }, [fa, workspace])
 
   useEffect(() => {
     void refresh(); void loadOptions()
@@ -92,6 +96,15 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
   const filtered = useMemo(() => tickets.filter(t => filter === 'ALL' || t.status === filter), [tickets, filter])
   const selectedDepartment = options.departments.find(d => d.slug === department)
   const labelFor = (slug: string) => options.departments.find(d => d.slug === slug)?.name || (['GENERAL', 'SALES', 'SUBSCRIPTION', 'PRODUCT'].includes(slug) ? departmentLabel(slug, locale) : slug)
+  const beginNewTicket = () => {
+    ticketRequest.current++
+    if (workspace === 'cloud') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('ticket')
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+    }
+    setCompose(true); setSelected(null); setDetail(null); setError(''); void loadOptions()
+  }
   const counts = { open: tickets.filter(t => t.status === 'OPEN').length, pending: tickets.filter(t => t.status === 'PENDING').length, closed: tickets.filter(t => t.status === 'CLOSED').length }
   const date = (value: string) => new Date(value).toLocaleString(fa ? 'fa-IR' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -123,8 +136,8 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
     finally { setBusy(false) }
   }
 
-  return <section className={`ticket-center ${mini ? 'ticket-center-mini' : ''}`}>
-    <header className="ticket-hero"><div><span className="ticket-eyebrow">MOBOCOMCMS / {L('HELP DESK', 'مرکز پشتیبانی')}</span><h1>{L('How can we help?', 'چطور می‌توانیم کمک کنیم؟')}</h1><p>{L('Choose the right team, describe your request, and follow every update in one place.', 'تیم مناسب را انتخاب کنید، درخواستتان را توضیح دهید و همهٔ پاسخ‌ها را همین‌جا پیگیری کنید.')}</p></div><button type="button" className="btn btn-primary ticket-new" onClick={() => { setCompose(true); setSelected(null); setDetail(null); setError(''); void loadOptions() }}>{L('+ New ticket', '+ تیکت جدید')}</button></header>
+  return <section className={`ticket-center ${mini ? 'ticket-center-mini' : ''} ${workspace === 'cloud' ? 'ticket-center-cloud' : ''}`}>
+    <header className="ticket-hero"><div><span className="ticket-eyebrow">{workspace === 'cloud' ? L('MOBOCOM CLOUD / HELP DESK', 'ابر موبوکام / پشتیبانی') : `MOBOCOMCMS / ${L('HELP DESK', 'مرکز پشتیبانی')}`}</span><h1>{L('How can we help?', 'چطور می‌توانیم کمک کنیم؟')}</h1><p>{L('Choose the right team, describe your request, and follow every update in one place.', 'تیم مناسب را انتخاب کنید، درخواستتان را توضیح دهید و همهٔ پاسخ‌ها را همین‌جا پیگیری کنید.')}</p></div><button type="button" className="btn btn-primary ticket-new" onClick={beginNewTicket}>{L('+ New ticket', '+ تیکت جدید')}</button></header>
     <div className="ticket-stats"><div><strong>{counts.open}</strong><span>{L('Awaiting reply', 'در انتظار پاسخ')}</span></div><div><strong>{counts.pending}</strong><span>{L('Answered', 'پاسخ داده شده')}</span></div><div><strong>{counts.closed}</strong><span>{L('Resolved', 'بسته‌شده')}</span></div></div>
     {error && <div className="ticket-alert" role="alert">{error}</div>}
     <div className="ticket-layout">
@@ -138,7 +151,7 @@ export default function TicketCenter({ mini = false }: { mini?: boolean }) {
         {selectedDepartment?.fields.map(field => <label className="ticket-field" key={field.key}><span className="ticket-field-label">{fa ? field.labelFa : field.labelEn}{field.required && <span className="ticket-required" aria-hidden="true">*</span>}</span>{field.type === 'checkbox' ? <input type="checkbox" checked={customFields[field.key] === true} onChange={e => setCustomFields(current => ({ ...current, [field.key]: e.target.checked }))} /> : field.type === 'select' ? <select className="input" required={field.required} value={String(customFields[field.key] || '')} onChange={e => setCustomFields(current => ({ ...current, [field.key]: e.target.value }))}><option value="">{L('Choose…', 'انتخاب کنید…')}</option>{field.options?.map(option => <option key={option} value={option}>{option}</option>)}</select> : field.type === 'textarea' ? <textarea className="input" required={field.required} maxLength={4000} rows={4} value={String(customFields[field.key] || '')} onChange={e => setCustomFields(current => ({ ...current, [field.key]: e.target.value }))} /> : <input className="input" required={field.required} maxLength={300} value={String(customFields[field.key] || '')} onChange={e => setCustomFields(current => ({ ...current, [field.key]: e.target.value }))} />}</label>)}
         <div className="ticket-form-grid"><label className="ticket-field"><span className="ticket-field-label">{L('Subject', 'موضوع')} <span className="ticket-required" aria-hidden="true">*</span></span><input className="input" required maxLength={200} value={subject} onChange={e => setSubject(e.target.value)} placeholder={L('A short summary', 'خلاصهٔ کوتاه درخواست')} /></label><label className="ticket-field"><span className="ticket-field-label">{L('Priority', 'اولویت')}</span><select className="input" value={priority} onChange={e => setPriority(e.target.value)}><option value="low">{L('Low', 'کم')}</option><option value="normal">{L('Normal', 'معمولی')}</option><option value="high">{L('High', 'زیاد')}</option></select></label></div>
         <div className="ticket-field"><label className="ticket-field-label">{L('Details', 'توضیحات')} <span className="ticket-required" aria-hidden="true">*</span></label><RichEditor ticketMode value={message} onChange={setMessage} dir={fa ? 'rtl' : 'ltr'} minHeight={210} placeholder={L('Describe what happened and what you expected…', 'توضیح دهید چه اتفاقی افتاده و انتظار چه نتیجه‌ای داشتید…')} /><small>{L('Do not include passwords or private subscription links.', 'رمز عبور یا لینک خصوصی اشتراک را در تیکت ننویسید.')}</small></div><TicketAttachmentPicker files={createFiles} onChange={setCreateFiles} disabled={busy} /><button className="btn btn-primary ticket-submit" disabled={busy || !department}>{busy ? L('Submitting…', 'در حال ثبت…') : L('Submit ticket', 'ثبت تیکت')}</button>
-      </form> : detail ? <div className="ticket-thread"><header className="ticket-pane-head"><div><span className="ticket-eyebrow">#{detail.id} / {labelFor(detail.department)}</span><h2>{detail.subject}</h2><div className="ticket-thread-meta"><StatusBadge value={detail.status} />{detail.subscriptionId && <span>{L('Subscription', 'اشتراک')} #{detail.subscriptionId}</span>}{detail.productId && <span>{L('Product', 'محصول')} #{detail.productId}</span>}{detail.device && <span>{deviceLabel(detail.device, locale)}</span>}{detail.issueType && <span>{issueLabel(detail.issueType, locale)}</span>}</div></div></header><TicketSubscriptionContext id={detail.subscriptionId} username={detail.subscriptionUsername} link={detail.subscriptionLink} />{detail.order && <section className="ticket-ops-context" aria-label={L('Related order', 'سفارش مرتبط')}><strong>{L('Order', 'سفارش')} #{detail.order.id}</strong><span>{new Date(detail.order.createdAt).toLocaleDateString(fa ? 'fa-IR' : 'en-US')} · {detail.order.lines.map(line => `${line.name}${line.variantName ? ` (${line.variantName})` : ''}${line.quantity > 1 ? ` ×${line.quantity}` : ''}`).join(', ')}</span><a href={`/dashboard/orders/${detail.order.id}`} className="btn btn-secondary">{L('View order', 'مشاهدهٔ سفارش')}</a></section>}{detail.customFields && Object.keys(detail.customFields).length > 0 && <div className="ticket-ops-context">{Object.entries(detail.customFields).map(([key, value]) => { const field = options.departments.find(item => item.slug === detail.department)?.fields.find(item => item.key === key); return <span key={key}>{fa ? field?.labelFa || key : field?.labelEn || key}: {typeof value === 'boolean' ? (value ? L('Yes', 'بله') : L('No', 'خیر')) : value}</span> })}</div>}<div className="ticket-timeline">{detail.messages.map(m => <article className={`ticket-message ${m.fromAdmin ? 'from-support' : 'from-user'}`} key={m.id}><div className="ticket-message-avatar">{!m.fromAdmin && detail.userAvatar ? <img src={detail.userAvatar} alt="" width={34} height={34} loading="lazy" /> : m.fromAdmin ? 'H' : L('Me', 'من')}</div><div className="ticket-message-card"><div className="ticket-message-head"><strong>{m.fromAdmin ? L('MoboComCMS Support', 'پشتیبانی MoboComCMS') : L('You', 'شما')}</strong><time>{date(m.createdAt)}</time></div><div className="ticket-message-body" dangerouslySetInnerHTML={{ __html: m.body }} /><TicketAttachmentList files={m.attachments} /></div></article>)}</div><form className="ticket-reply" onSubmit={sendReply}><label>{L('Your reply', 'پاسخ شما')}</label><RichEditor ticketMode compact value={reply} onChange={setReply} dir={fa ? 'rtl' : 'ltr'} minHeight={110} placeholder={L('Write your response…', 'پاسخ خود را بنویسید…')} /><TicketAttachmentPicker files={replyFiles} onChange={setReplyFiles} disabled={busy} /><button className="btn btn-primary" disabled={busy}>{busy ? L('Sending…', 'در حال ارسال…') : L('Send reply', 'ارسال پاسخ')}</button></form></div> : <div className="ticket-welcome"><div className="ticket-welcome-icon">✦</div><h2>{L('Support starts here', 'پشتیبانی از اینجا شروع می‌شود')}</h2><p>{L('Open a conversation or create a ticket to get help from our team.', 'یک گفتگو را باز کنید یا برای ارتباط با تیم ما تیکت جدید بسازید.')}</p><button type="button" className="btn btn-primary" onClick={() => { setCompose(true); void loadOptions() }}>{L('Create a ticket', 'ثبت تیکت')}</button></div>}</div>
+      </form> : detail ? <div className="ticket-thread"><header className="ticket-pane-head"><div><span className="ticket-eyebrow">#{detail.id} / {labelFor(detail.department)}</span><h2>{detail.subject}</h2><div className="ticket-thread-meta"><StatusBadge value={detail.status} />{detail.subscriptionId && <span>{L('Subscription', 'اشتراک')} #{detail.subscriptionId}</span>}{detail.productId && <span>{L('Product', 'محصول')} #{detail.productId}</span>}{detail.device && <span>{deviceLabel(detail.device, locale)}</span>}{detail.issueType && <span>{issueLabel(detail.issueType, locale)}</span>}</div></div></header><TicketSubscriptionContext id={detail.subscriptionId} username={detail.subscriptionUsername} link={detail.subscriptionLink} />{detail.order && <section className="ticket-ops-context" aria-label={L('Related order', 'سفارش مرتبط')}><strong>{L('Order', 'سفارش')} #{detail.order.id}</strong><span>{new Date(detail.order.createdAt).toLocaleDateString(fa ? 'fa-IR' : 'en-US')} · {detail.order.lines.map(line => `${line.name}${line.variantName ? ` (${line.variantName})` : ''}${line.quantity > 1 ? ` ×${line.quantity}` : ''}`).join(', ')}</span>{workspace !== 'cloud' && <a href={`/dashboard/orders/${detail.order.id}`} className="btn btn-secondary">{L('View order', 'مشاهدهٔ سفارش')}</a>}</section>}{detail.customFields && Object.keys(detail.customFields).length > 0 && <div className="ticket-ops-context">{Object.entries(detail.customFields).map(([key, value]) => { const field = options.departments.find(item => item.slug === detail.department)?.fields.find(item => item.key === key); return <span key={key}>{fa ? field?.labelFa || key : field?.labelEn || key}: {typeof value === 'boolean' ? (value ? L('Yes', 'بله') : L('No', 'خیر')) : value}</span> })}</div>}<div className="ticket-timeline">{detail.messages.map(m => <article className={`ticket-message ${m.fromAdmin ? 'from-support' : 'from-user'}`} key={m.id}><div className="ticket-message-avatar">{!m.fromAdmin && detail.userAvatar ? <img src={detail.userAvatar} alt="" width={34} height={34} loading="lazy" /> : m.fromAdmin ? 'H' : L('Me', 'من')}</div><div className="ticket-message-card"><div className="ticket-message-head"><strong>{m.fromAdmin ? L('MoboComCMS Support', 'پشتیبانی MoboComCMS') : L('You', 'شما')}</strong><time>{date(m.createdAt)}</time></div><div className="ticket-message-body" dangerouslySetInnerHTML={{ __html: m.body }} /><TicketAttachmentList files={m.attachments} /></div></article>)}</div><form className="ticket-reply" onSubmit={sendReply}><label>{L('Your reply', 'پاسخ شما')}</label><RichEditor ticketMode compact value={reply} onChange={setReply} dir={fa ? 'rtl' : 'ltr'} minHeight={110} placeholder={L('Write your response…', 'پاسخ خود را بنویسید…')} /><TicketAttachmentPicker files={replyFiles} onChange={setReplyFiles} disabled={busy} /><button className="btn btn-primary" disabled={busy}>{busy ? L('Sending…', 'در حال ارسال…') : L('Send reply', 'ارسال پاسخ')}</button></form></div> : <div className="ticket-welcome"><div className="ticket-welcome-icon">✦</div><h2>{L('Support starts here', 'پشتیبانی از اینجا شروع می‌شود')}</h2><p>{L('Open a conversation or create a ticket to get help from our team.', 'یک گفتگو را باز کنید یا برای ارتباط با تیم ما تیکت جدید بسازید.')}</p><button type="button" className="btn btn-primary" onClick={() => { setCompose(true); void loadOptions() }}>{L('Create a ticket', 'ثبت تیکت')}</button></div>}</div>
     </div>
   </section>
 }

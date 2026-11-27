@@ -1372,6 +1372,12 @@ module/group/maintenance guards. Its invoice/order projection recognizes only
 closed Cloud order kinds; public Cloud sources remain protected. This records
 implementation scope, not a new provider, schema or release decision. See
 [Cloud workspace evidence and limits](handoffs/CLOUD_WORKSPACE.md).
+
+Owner 2026-11-27 requests a complete Cloud dashboard in the same visual family
+as the main member dashboard. Wallet, support tickets and account settings are
+available inside `/cloud/dashboard`. Cloud reuses the canonical account, ledger
+and support history. [Cloud workspace continuation](handoffs/CLOUD_WORKSPACE.md#cloud-wallet-support-and-account--2026-11-27).
+
 # Cloud automatic operations — owner continuation2026-11-26
 
 Owner authorized all four next Cloud slices: WHM creation/lifecycle, Joker
