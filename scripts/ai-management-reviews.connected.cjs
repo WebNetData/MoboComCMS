@@ -38,14 +38,20 @@ async function main() {
   try {
     for (const [key, value] of [
       ['security.policy.v1', '{"requireAdmin2fa":false}'], ['extension.ai-assistant.state.v1', '{"enabled":true,"settings":{}}'],
+      ['extension.livechat.state.v1', '{"enabled":true,"settings":{}}'],
     ]) {
       snapshots.set(key, await db.setting.findUnique({ where: { key } }))
       await db.setting.upsert({ where: { key }, update: { value }, create: { key, value } })
     }
     clearAdminPolicyCache()
     const owner = await fixture('-owner'), other = await fixture('-other')
+    const customer = await db.user.create({ data: { email: stamp + '-customer@example.invalid', passwordHash: '!' } })
+    ownerIds.push(customer.id)
     const department = await db.ticketDepartment.create({ data: { slug: stamp, nameFa: stamp, nameEn: stamp, roleIds: JSON.stringify([owner.role.id]) } })
     await db.ticket.create({ data: { userId: owner.user.id, subject: 'private fixture', department: stamp, updatedAt: new Date(Date.now() - 172800000) } })
+    await db.crmOpportunity.create({ data: {
+      userId: customer.id, assigneeId: owner.user.id, title: stamp, stageChangedAt: new Date(Date.now() - 15 * 86400000),
+    } })
     const command = body => POST(owner.request(body))
 
     assert.equal((await POST(owner.request({ action: 'snapshot' }, 'https://else.invalid'))).status, 403)
@@ -60,6 +66,10 @@ async function main() {
     assert.equal(history.reviews.length, 1)
     assert.equal(history.reviews[0].findings[0].count, 1)
     assert.equal(history.reviews[0].findings[0].id, 'support.stale')
+    const sales = history.reviews[0].findings.find(finding => finding.id === 'crm.sales-stale')
+    assert.equal(sales.count, 1)
+    assert.equal(sales.href, '/admin/crm/opportunities?stale=1&owner=mine')
+    assert.ok(!JSON.stringify(sales).includes(stamp))
     assert.equal(history.nextRunAt, new Date(now.getTime() + 86400000).toISOString())
     assert.equal((await (await GET(other.request())).json()).reviews.length, 0)
     const review = history.reviews[0]

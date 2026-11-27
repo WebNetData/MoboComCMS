@@ -80,8 +80,8 @@ async function recordReview(tx: Reader, actor: AuthedUser, scopeKey: string, slo
   const report = await collectManagement(actor, undefined, now, tx)
   const snapshot: Snapshot = {
     unavailable: report.sections.filter(section => section.state === 'unavailable').map(section => section.label),
-    findings: report.sections.flatMap(section => section.signals.filter(signal => signal.count > 0).map(signal => ({
-      ...signal, sectionId: section.id, sectionLabel: section.label, href: section.href, status: 'PENDING', outcome: '',
+    findings: report.sections.flatMap(section => section.signals.filter(signal => signal.count > 0).map(({ destination, ...signal }) => ({
+      ...signal, sectionId: section.id, sectionLabel: section.label, href: destination?.href ?? section.href, status: 'PENDING', outcome: '',
     }))),
   }
   return tx.aiManagementReview.create({ data: { ownerId: actor.id, scopeKey, slot, checkedAt: now, findings: JSON.stringify(snapshot) } })

@@ -1,3 +1,10 @@
+# AI desk CRM sales indicator — 2026-11-28
+
+Continue `.mobocom/ai-crm-sales-signals` on
+`feat/ai-crm-sales-signals-2026-11-28` from merged main `f2809e39`.
+The AI desk and review history use CRM's existing sales-board definition and
+assignee scope for stale opportunities. [Scope and verification](../docs/agent/handoffs/AI_MANAGEMENT.md#stale-crm-sales-opportunities--2026-11-28).
+
 Premium Design and hierarchical agent workflow: both local slices were reconciled on a branch from current main. See docs/agent/handoffs/PREMIUM_DESIGN.md and docs/agent/handoffs/AGENT_ORCHESTRATION.md for source, checks and model availability.
 
 # MoboCom Pay terminal credentials and release rehearsal — 2026-11-28

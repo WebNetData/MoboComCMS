@@ -45,12 +45,16 @@ const load = require('./connected-source-loader.cjs')({
 
 const { GET, POST } = load('src/modules/ai/server/http/management.ts')
 const { managementAdvice } = load('src/modules/ai/domain/management.ts')
+const { listOpportunities } = load('src/modules/livechat/server/crm-opportunities/index.ts')
 const site = 'https://mobocom.invalid'
 const request = (body, origin = site) => new NextRequest(site + '/api/admin/ai/management',
   body === undefined ? {} : { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify(body) })
 
 async function main() {
   const user = await db.user.create({ data: { email: stamp + '@example.invalid', passwordHash: '!' } })
+  const staff = await db.user.create({ data: { email: stamp + '-staff@example.invalid', passwordHash: '!', role: 'ADMIN' } })
+  const colleague = await db.user.create({ data: { email: stamp + '-colleague@example.invalid', passwordHash: '!', role: 'ADMIN' } })
+  actor.id = staff.id
   try {
     const updatedAt = new Date(Date.now() - 2 * 86_400_000)
     await db.ticket.createMany({ data: [
@@ -69,6 +73,34 @@ async function main() {
     ])
     assert.ok(!JSON.stringify(report).includes(stamp))
 
+    const old = new Date(Date.now() - 15 * 86_400_000)
+    await db.crmOpportunity.createMany({ data: [
+      { userId: user.id, assigneeId: staff.id, title: stamp, stageChangedAt: old },
+      { userId: user.id, assigneeId: colleague.id, title: stamp + '-colleague', stageChangedAt: old },
+      { userId: user.id, title: stamp + '-unassigned', stageChangedAt: old },
+      { userId: user.id, assigneeId: staff.id, title: stamp + '-recent' },
+      { userId: user.id, assigneeId: staff.id, title: stamp + '-closed', stage: 'LOST', closedAt: old, stageChangedAt: old },
+    ] })
+    async function checkSales(expectedCount, owner) {
+      const result = await (await GET(request())).json()
+      const crm = result.sections.find(section => section.id === 'crm')
+      const signal = crm.signals.find(item => item.id === 'crm.sales-stale')
+      assert.equal(crm.state, 'attention')
+      assert.equal(signal.count, expectedCount)
+      assert.equal(signal.destination.href, '/admin/crm/opportunities?stale=1&owner=' + owner)
+      assert.ok(!JSON.stringify(crm).includes(stamp))
+      const board = await listOpportunities(current, { owner, stale: true, page: 1 })
+      assert.equal(board.stats.stale, signal.count)
+      assert.equal(board.rows.length, signal.count)
+    }
+    await checkSales(1, 'mine')
+    current = { ...actor, permissions: [...actor.permissions, 'users.manage'] }
+    await checkSales(3, 'all')
+    current = actor
+    disabled.add('livechat')
+    assert.deepEqual((await (await GET(request())).json()).sections.map(section => section.id), ['support'])
+    disabled.delete('livechat')
+
     rejectDepartment = true
     const partial = await (await GET(request())).json()
     assert.equal(partial.sections[0].state, 'unavailable')
@@ -82,17 +114,18 @@ async function main() {
     assert.equal(advice.status, 200)
     assert.equal((await advice.json()).advice[0].signalId, 'support.stale')
     changesDuringModel = true
-    assert.equal((await POST(request({}))).status, 409)
+    assert.equal((await POST(request({ section: 'support' }))).status, 409)
     current = null
     assert.equal((await GET(request())).status, 403)
     disabled.add('ai-assistant')
     assert.equal((await GET(request())).status, 404)
     assert.throws(() => managementAdvice('{"advice":[{"signalId":"foreign","text":"test"}]}', new Set(['support.stale'])))
     assert.throws(() => managementAdvice('{"advice":[{"signalId":"support.stale","text":"<img>"}]}', new Set(['support.stale'])))
-    console.log('Management report: department filter, partial failure, cache, module, origin, grounded responses and permission changes verified')
+    console.log('Management report: CRM scope and board parity, department filter, partial failure, cache, module, origin, grounded responses and permission changes verified')
   } finally {
     await db.ticket.deleteMany({ where: { userId: user.id } })
     await db.user.delete({ where: { id: user.id } })
+    await db.user.deleteMany({ where: { id: { in: [staff.id, colleague.id] } } })
   }
 }
 

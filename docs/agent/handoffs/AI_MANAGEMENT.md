@@ -1,5 +1,46 @@
 # AI management desk — 2026-11-27
 
+## Stale CRM sales opportunities — 2026-11-28
+
+Continue the AI management platform in `.mobocom/ai-crm-sales-signals` on
+`feat/ai-crm-sales-signals-2026-11-28`, based on merged main `f2809e39`.
+The desk and its review history show the count of open sales opportunities
+that have spent at least 14 days in their current stage. Livechat CRM's
+`crm-opportunities` owner shares the stale predicate and assignee/customer
+scope with the sales board. Managers see all eligible opportunities and
+other CRM staff see their own assignments. The link opens the same filter
+in the existing board.
+
+The aggregate uses the caller's transaction for scheduled and manual reviews.
+The CRM section and schedule scope key stay stable. The model prompt receives
+the count and fixed labels through the existing evidence projection. No
+schema change is required. Reverting the code removes the live indicator.
+Existing saved findings keep their outcome and link to the current board.
+
+PostgreSQL 17 on an empty disposable database applied all 233 migrations.
+The `ai-management`, `ai-management-reviews`, `ai-management-actions` and
+`crm-opportunities` connected checks passed on Windows as a non-elevated
+user without a checkout `.env`. The scopes tested include own assignments,
+manager-wide visibility, disabled CRM, closed and recent opportunities and
+the destination persisted by the due scanner. TypeScript, architecture and
+security checks passed. React Doctor reported the page's existing
+data-fetching advisory and zero errors.
+
+Windows Edge opened the actual desk and sales board at 1440 and 390 px in
+light and dark themes using generated NextAuth sessions for manager and
+specialist fixtures. All four views passed scoped axe, RTL, overflow,
+keyboard activation and the destination's filtered rows. The desktop
+manager flow saved a snapshot and approved the finding with the same link.
+The first browser attempt used a fixture token missing Admin session claims
+and redirected to the dashboard. The corrected fixture passed. Screenshots
+and the harness are in the checkout's ignored `playwright-report/`.
+Checks used a local development server and no live model provider. The
+preview and disposable database were stopped after verification. The
+application and documentation changes are a local worktree diff.
+
+Next coverage: assess shared, open quotations awaiting a customer response
+through CRM's quotation projection and its existing Store permission gate.
+
 ## Reviewed actions for Support, Store and Pay
 
 PR [#517](https://github.com/WebNetData/MoboComCMS/pull/517) targets `main`
