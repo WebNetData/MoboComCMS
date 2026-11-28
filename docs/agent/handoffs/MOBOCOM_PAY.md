@@ -1,3 +1,30 @@
+## Bot checkout, terminal administration and unique transfer amounts — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-bot-checkout-terminal-controls` from `e2589e82`.
+Verified paid bot checkouts omit the return URL even for older website terminals
+associated with a bot delivery. The delivery destination stays in the server
+snapshot. Ordinary web checkouts keep their return link.
+
+The existing merchant administration permission and version claim now cover
+creating, editing and archiving terminals. Archive rejects open payment,
+receipt and delivery work, stops the terminal and keeps historical financial
+relations. Migration `20270418150000_pay_terminal_archive` adds an optional
+archive timestamp and enforces that an archived terminal is inactive.
+
+The smart transfer checkbox enables the existing unique amount reservation for
+Pay transfers with an active general bank destination even without a chosen
+dedicated destination or an SMS source. The SMS path still requires its
+verified current source and receipt. With empty SMS bindings, the same quote
+can be settled from the canonical admin receipt workflow.
+
+Connected tests use PostgreSQL for two equal-principal unique reservations, the
+manual receipt and the bot result projection. Gateway-admin integration
+verifies add/edit/archive, permission denial and refusal for an open payment.
+Edge uses the real admin API for terminal changes and settings persistence and
+a synthetic paid bot result for presentation. Desktop light/dark and mobile
+dark passed scope-level axe and viewport checks.
+
 ## Required receipt and invoice deadline — 2026-11-28
 
 Pay merchant card transfers require the canonical uploaded receipt for financial

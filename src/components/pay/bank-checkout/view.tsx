@@ -60,13 +60,13 @@ export default function BankCheckoutView({ data, error, expired, countdown, rema
         {extra && extra.roundingRial !== '0' && <div><dt>گردکردن مبلغ واریز</dt><dd>{money(extra.roundingRial)}</dd></div>}
       </dl><Equivalent data={data} /></details></>}
       {error ? <p className={v.muted}>برای ادامه، وضعیت درخواست را تازه کنید.</p> : pending && data.receiptOnly ?
-        <div className={v.consent}><p role="status">تأیید پیامکی این درخواست در دسترس نیست. با این درخواست واریز تازه انجام ندهید.</p>
+        <div className={v.consent}><p role="status">مقصد واریز این درخواست در دسترس نیست. با این درخواست واریز تازه انجام ندهید.</p>
           {data.accepted ? <button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>ارسال رسید واریز قبلی</button>
             : <p className={v.muted}>برای دریافت لینک تازه با پذیرنده یا پشتیبانی تماس بگیرید.</p>}</div>
         : pending ? <>
         <div className={v.timer}><div><span>زمان باقی‌مانده برای واریز</span><strong dir="ltr">{countdown}</strong></div><progress aria-label="مهلت باقی‌مانده پرداخت" max={Math.max(1, (Date.parse(data.expiresAt) - Date.parse(data.validFrom)) / 1000)} value={remaining ?? 0} /></div>
         {!data.accepted ? <div className={v.consent}><label className={s.check}><input type="checkbox" checked={accepted} onChange={event => onAcceptChoice(event.target.checked)} />مبلغ نهایی و هزینهٔ خدمت را می‌پذیرم</label><button type="button" className={s.button} disabled={!accepted || busy} onClick={onAccept}>{busy ? 'در حال ثبت…' : 'پذیرش و ادامه'}</button></div>
-          : data.bank ? <><DestinationCard bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status">{copied || (data.payCheckoutUrl ? 'بعد از واریز، تصویر رسید را بفرستید. تطبیق پیامکی پس از ثبت رسید انجام می‌شود.' : 'پس از واریز مبلغ دقیق، وضعیت تأیید پیامکی همین‌جا به‌روزرسانی می‌شود.')}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام، ارسال رسید'}</button></>
+          : data.bank ? <><DestinationCard bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status">{copied || (data.payCheckoutUrl ? 'بعد از واریز، تصویر رسید را بفرستید. رسید با پیامک معتبر تطبیق داده می‌شود یا مدیر آن را بررسی می‌کند.' : 'پس از واریز مبلغ دقیق، وضعیت تأیید پیامکی همین‌جا به‌روزرسانی می‌شود.')}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام، ارسال رسید'}</button></>
           : <p className={v.muted}>اطلاعات واریز هنوز آماده نیست؛ وضعیت را تازه کنید.</p>}
         </> : <Resolution data={data} expired={expired} busy={busy} uploading={uploading} back={back} onRenew={onRenew} onReceipt={onReceipt} />}
     </section>}

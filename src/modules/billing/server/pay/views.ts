@@ -70,7 +70,7 @@ export async function payOverview(actor: PayActor) {
     })
     const where = { merchantId: merchant?.id || '__none__' }
     const [terminals, payments, settlements, totals, pendingCount, reserved, collectionFees] = await Promise.all([
-      tx.payTerminal.findMany({ where, orderBy: { createdAt: 'desc' } }),
+      tx.payTerminal.findMany({ where: { ...where, archivedAt: null }, orderBy: { createdAt: 'desc' } }),
       tx.payPayment.findMany({
         where,
         include: { terminal: true, invoice: collectionProjection },

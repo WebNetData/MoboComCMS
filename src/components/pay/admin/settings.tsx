@@ -142,8 +142,8 @@ export default function Settings({
       </div>
  <fieldset id="pay-sms-policy" className={`${s.stack} ${feeStyle.group}`}>
  <legend>کارت‌به‌کارت هوشمند</legend>
- <label className={s.check}><input type="checkbox" checked={settings.bale.enabled} onChange={(e) => update({ bale: { ...settings.bale, enabled: e.target.checked } })} /> تأیید خودکار با پیامک بانکی</label>
- <p className={s.muted}>پس از اتصال حساب اختصاصی و منبع پیامک، این گزینه را تیک بزنید و تنظیمات را ذخیره کنید. هنگام صدور درخواست، مبلغ کوچکی در گام‌های ۱۰ ریالی برای تشخیص واریز اضافه می‌شود.</p>
+ <label className={s.check}><input type="checkbox" checked={settings.bale.enabled} onChange={(e) => update({ bale: { ...settings.bale, enabled: e.target.checked } })} /> مبلغ یکتای کارت‌به‌کارت و تأیید خودکار با پیامک</label>
+ <p className={s.muted}>با فعال کردن این گزینه، مبلغ واریز هر فاکتور کارت‌به‌کارت تازه یکتا می‌شود. اگر حساب اختصاصی تعیین نشده باشد، کارت‌به‌کارت از حساب عمومی فعال استفاده می‌کند. رسید در هر حالت لازم است و بدون منبع معتبر پیامک، مدیر آن را دستی تأیید می‌کند.</p>
  <div className={layout.guideIndex}><Link className={layout.guideLink} href="/admin/gateways">تنظیم حساب مقصد درگاه</Link><a className={layout.guideLink} href="#pay-sms-sources">مدیریت منبع پیامک</a></div>
  <details className={feeStyle.progressive}>
  <summary>بازهٔ مبلغ تشخیص و تنظیمات سایر فاکتورهای سایت</summary>

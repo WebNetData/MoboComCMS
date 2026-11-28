@@ -41,7 +41,7 @@ export function withGatewayPriority(items: PayGatewayOption[]) {
 
 export async function payGatewayOptions(row?: { id?: string; totalMinor: bigint; creditCurrency?: string; requestedGatewayRef?: string },
   reader: Prisma.TransactionClient | typeof db = db, readyCatalog?: Catalog): Promise<PayGatewayOption[]> {
-  const catalog = readyCatalog ?? await listCheckoutGateways('IRR', reader === db ? undefined : reader as Prisma.TransactionClient)
+  const catalog = readyCatalog ?? await listCheckoutGateways('IRR', reader === db ? undefined : reader as Prisma.TransactionClient, undefined, 'pay')
   if (!row?.id) return eligiblePayGateways(catalog, undefined, row)
   const payment = await reader.payPayment.findUnique({
     where: { id: row.id }, select: {

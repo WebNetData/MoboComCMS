@@ -17,7 +17,7 @@ export const integrationView = (row: PayBotIntegration): PayBotIntegrationView =
 export async function botIntegrations(actor: PayActor) {
   return payTransaction(async tx => {
     const merchant = await merchantFor(actor, tx)
-    return (await tx.payBotIntegration.findMany({ where: { terminal: { merchantId: merchant.id } }, orderBy: { createdAt: 'desc' } })).map(integrationView)
+    return (await tx.payBotIntegration.findMany({ where: { terminal: { merchantId: merchant.id, archivedAt: null } }, orderBy: { createdAt: 'desc' } })).map(integrationView)
   })
 }
 
@@ -33,7 +33,7 @@ export async function saveBotIntegration(actor: PayActor, input: Record<string, 
   if (input.callbackToken !== undefined && (typeof input.callbackToken !== 'string' || input.callbackToken.length > 512 || /[\r\n\u0000]/.test(input.callbackToken))) throw new PayError('کلید تأیید ربات معتبر نیست')
   return payTransaction(async tx => {
     const merchant = await merchantFor(actor, tx, true)
-    const terminal = await tx.payTerminal.findFirst({ where: { id: String(input.terminalId), merchantId: merchant.id } })
+    const terminal = await tx.payTerminal.findFirst({ where: { id: String(input.terminalId), merchantId: merchant.id, archivedAt: null } })
     if (!terminal) throw new PayError('پایانه پیدا نشد', 404)
     if (!['WEBSITE', 'BOT'].includes(terminal.channelType) || terminal.channelType==='WEBSITE'&&!merchant.website) throw new PayError('اتصال به پایانهٔ وب‌سایت یا ربات نیاز دارد')
     // A Telegram merchant may use a hosted bot panel on another public origin.

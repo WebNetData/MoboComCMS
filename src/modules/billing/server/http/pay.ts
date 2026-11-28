@@ -247,7 +247,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
         if (sectionSettingsRevision(before) !== expected)
           throw new PayError('تنظیمات تغییر کرده؛ صفحه را تازه کنید', 409)
         const next = normalizePaySettings(input)
-        if (!before.incomingEnabled && next.incomingEnabled && !(await listCheckoutGateways('IRR', tx, next.bale)).length)
+        if (!before.incomingEnabled && next.incomingEnabled && !(await listCheckoutGateways('IRR', tx, next.bale, 'pay')).length)
           throw new PayError('ابتدا یک درگاه فعال سازگار با پرداخت ریالی تنظیم کنید', 409)
         if (
           next.bankAccountIds.length &&

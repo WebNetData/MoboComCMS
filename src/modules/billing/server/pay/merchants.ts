@@ -45,10 +45,10 @@ export async function createTerminal(actor: PayActor, input: Record<string, unkn
     if (input.website !== undefined && (!web || merchant.website)) throw new PayError('تغییر وب‌سایت ثبت‌شده فقط توسط مدیریت انجام می‌شود', 409)
     const website = input.website === undefined ? merchant.website : httpsUrl(input.website)
     const destination = parseChannelDestination(input, website)
-    if ((await tx.payTerminal.count({ where: { merchantId: merchant.id } })) >= 20)
+    if ((await tx.payTerminal.count({ where: { merchantId: merchant.id, archivedAt: null } })) >= 20)
       throw new PayError('حداکثر ۲۰ پایانه قابل ثبت است')
     if (input.website !== undefined) {
-      const existing = await tx.payTerminal.findMany({ where: { merchantId: merchant.id }, include: { botIntegration: true } })
+      const existing = await tx.payTerminal.findMany({ where: { merchantId: merchant.id, archivedAt: null }, include: { botIntegration: true } })
       if (existing.some(t => t.channelType === 'WEBSITE' || t.channelType === 'BOT' || t.botIntegration)) throw new PayError('برای ثبت وب‌سایت با مدیریت تماس بگیرید', 409)
       const claimed = await tx.payMerchant.updateMany({ where: { id: merchant.id, website: '', status: merchant.status, version: merchant.version + 1 }, data: { website, version: { increment: 1 } } })
       if (claimed.count !== 1) throw new PayError('اطلاعات پذیرنده تغییر کرده؛ دوباره تلاش کنید', 409)
@@ -70,7 +70,7 @@ export async function changeTerminal(actor: PayActor, input: Record<string, unkn
   return payTransaction(async (tx) => {
     const merchant = await merchantFor(actor, tx, true)
     const changed = await tx.payTerminal.updateMany({
-      where: { id, merchantId: merchant.id },
+      where: { id, merchantId: merchant.id, archivedAt: null },
       data: { active },
     })
     if (changed.count !== 1) throw new PayError('پایانه پیدا نشد', 404)

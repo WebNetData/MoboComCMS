@@ -1,3 +1,9 @@
+# Pay bot checkout, terminals and unique transfers — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-bot-checkout-terminal-controls`, base `e2589e82`.
+[Scope, migration and evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#bot-checkout-terminal-administration-and-unique-transfer-amounts--2026-11-28).
+
 # Pay required receipt and invoice deadline — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

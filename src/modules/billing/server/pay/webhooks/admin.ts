@@ -19,7 +19,7 @@ export async function webhookOverview(actor: PayActor, params: URLSearchParams, 
     const filter = params.get('status') || ''
     if (filter && !['PENDING','SENDING','RETRY','DELIVERED','FAILED','PAUSED'].includes(filter)) throw new PayError('وضعیت ارسال معتبر نیست')
     const where = { ...baseWhere, ...(filter ? { status: filter } : {}) }
-    const endpointWhere = merchant ? { terminal: { merchantId: merchant.id } } : {}
+    const endpointWhere = { terminal: { archivedAt: null, ...(merchant ? { merchantId: merchant.id } : {}) } }
     const page = Math.max(1, Math.min(10000, Math.trunc(Number(params.get('page'))) || 1))
     const endpointPage = admin ? Math.max(1, Math.min(10000, Math.trunc(Number(params.get('endpointPage'))) || 1)) : 1
     const [endpoints, rows, total, pending, delivered, attention, endpointTotal] = await Promise.all([
@@ -54,7 +54,7 @@ export async function saveWebhookEndpoint(actor: PayActor, input: Record<string,
   const url = webhookUrl(input.url)
   return payTransaction(async tx => {
     const merchant = await merchantFor(actor, tx, true)
-    const terminal = await tx.payTerminal.findFirst({ where: { id: input.terminalId as string, merchantId: merchant.id } })
+    const terminal = await tx.payTerminal.findFirst({ where: { id: input.terminalId as string, merchantId: merchant.id, archivedAt: null } })
     if (!terminal) throw new PayError('پایانه پیدا نشد', 404)
     if (input.active && !terminal.active) throw new PayError('ابتدا پایانه را فعال کنید', 409)
     const current = await tx.payWebhookEndpoint.findUnique({ where: { terminalId: terminal.id } })

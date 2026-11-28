@@ -9,7 +9,6 @@ import { payTransaction } from '../context'
 import { baleCollectionContext } from './collection-context'
 
 export async function createBaleCollectionInTransaction(tx: Prisma.TransactionClient, invoiceNumber: string, gatewayId: number) {
-  const context = await baleCollectionContext(tx, gatewayId), { bank, owner, policy } = context
   const locked = await tx.$queryRaw<{ id: number }[]>(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "number" = ${invoiceNumber} FOR UPDATE`)
   if (!locked.length) throw new PayError('فاکتور این درگاه معتبر نیست', 409)
   const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: locked[0].id }, include: { payCollection: { include: { merchant: true, terminal: true } } } })
@@ -18,16 +17,21 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
   if (invoice.status !== 'UNPAID' || (invoice.expiresAt && invoice.expiresAt <= now)) throw new PayError('فاکتور دیگر قابل پرداخت نیست', 409)
   const gateway = await tx.gateway.findFirst({ where: { id: gatewayId, active: true, provider: { in: ['MOBOCOM_PAY','CARD_TRANSFER'] } } })
   if (!gateway) throw new PayError('درگاه موبوکام غیرفعال است', 409)
-  if (gateway.feeBps !== 0 || gateway.feePercent !== 0) throw new PayError('کارمزد این روش از تنظیمات تطبیق بانکی تعیین می‌شود؛ ردیف درگاه را با کارمزد درصدی صفر ذخیره کنید', 409)
   if (invoice.userId !== null) {
     const user = await tx.user.findUnique({ where: { id: invoice.userId }, select: { status: true } })
     if (user?.status !== 'ACTIVE' || await globalAuthenticationDenied(invoice.userId, now, tx)) throw new PayError('حساب پرداخت‌کننده در دسترس نیست', 403)
   }
   const pay = invoice.payCollection
+  const context = await baleCollectionContext(tx, gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: pay.bankAccountId } : undefined)
+  const { bank, owner, policy } = context
+  if (!owner) throw new PayError('مسئول درخواست پرداخت پیدا نشد', 409)
+  if ((!pay || bank.collectionUse === 'MOBOCOM_PAY' || gateway.provider === 'MOBOCOM_PAY') && (gateway.feeBps !== 0 || gateway.feePercent !== 0))
+    throw new PayError('کارمزد این روش از تنظیمات تطبیق بانکی تعیین می‌شود؛ ردیف درگاه را با کارمزد درصدی صفر ذخیره کنید', 409)
   if (pay?.creditCurrency === 'USDT' && (!pay.purchaseAcceptedAt || pay.purchaseAcceptedHash !== pay.purchaseTermsHash)) throw new PayError('شرایط خرید تتر تأیید نشده است', 409)
   if (invoice.kind === 'PAY_COLLECTION' && (!pay || pay.status !== 'PENDING' || pay.expiresAt <= now || pay.walletTxId !== null || !pay.payerVerifiedAt ||
     !['MOBOCOM_PAY','CARD_TRANSFER'].includes(pay.gatewayAttemptProvider) || pay.gatewayAttemptRef !== `db:${gateway.id}` || !context.settings.incomingEnabled ||
-    pay.merchant.status !== 'ACTIVE' || !pay.merchant.baleAllowed || !pay.terminal.baleEnabled || !pay.terminal.active)) throw new PayError('پرداخت پذیرنده برای این روش مجاز نیست', 409)
+    pay.merchant.status !== 'ACTIVE' || !pay.terminal.active ||
+    ((bank.collectionUse === 'MOBOCOM_PAY' || gateway.provider === 'MOBOCOM_PAY') && (!pay.merchant.baleAllowed || !pay.terminal.baleEnabled)))) throw new PayError('پرداخت پذیرنده برای این روش مجاز نیست', 409)
   if (await tx.paymentReceipt.count({ where: { invoiceId: invoice.id, status: 'PENDING' } })) throw new PayError('رسید در انتظار بررسی است؛ درخواست تازه صادر نمی‌شود', 409)
   const previous = await tx.payBaleCollection.findUnique({ where: { activeInvoiceId: invoice.id } })
   if (previous && (previous.status === 'UNDER_REVIEW' || previous.expiresAt > now)) {
