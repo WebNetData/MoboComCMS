@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Icon from "@/components/site/Icon";
 import s from "./WorkspaceHeader.module.css";
 
 const merchant: Record<string, [string, string]> = {
@@ -10,6 +11,10 @@ const merchant: Record<string, [string, string]> = {
   operations: ["عملیات ربات", "پیگیری وصول وجه، صف تأیید و نتیجهٔ ارتباط با ربات فروشنده"],
   reports: ["گزارش‌های مالی", "روند دریافت‌های تأییدشده و خروجی جزئیات پرداخت و تسویه"],
   api: ["اتصال و راهنمای API", "راه‌اندازی اولین دریافت، اتصال وب‌سایت و رفع خطای ربات"],
+};
+const merchantIcons: Record<string, string> = {
+  overview: "layout", payments: "receipt", settlements: "bank", terminals: "terminal",
+  operations: "activity", reports: "chart", api: "code", webhooks: "globe",
 };
 const admin: Record<string, [string, string]> = {
   reports: ["گزارش مالی درگاه", "وصول وجه، کارمزدها، اعتبار کیف پول و درخواست‌های تسویه"],
@@ -33,10 +38,11 @@ export default function WorkspaceHeader({ area, view, identity, children }: {
 }) {
   const sections = area === "merchant" ? merchant : admin;
   const [title, description] = sections[view] || sections.overview;
-  return <header className={`${s.heading} ${area === "merchant" ? s.merchant : s.admin}`}>
+  return <header className={`${s.heading} ${area === "merchant" ? s.merchant : s.admin}`} data-view={area === "merchant" ? view : undefined}>
     <div className={s.identity}>
+      {area === "merchant" && <span className={s.viewIcon}><Icon name={merchantIcons[view] || "layout"} size={24} /></span>}
       <div>
-        <div className={s.context}>{area === "merchant" ? "پنل پذیرندگان" : "مدیریت مالی"}<span aria-hidden="true" /><bdi>{identity || "MoboCom Pay"}</bdi></div>
+        {(area === "admin" || identity) && <div className={s.context}>{area === "admin" && <>مدیریت مالی<span aria-hidden="true" /></>}<bdi>{identity || "MoboCom Pay"}</bdi></div>}
         <h1>{title}</h1>
         <p>{description}</p>
       </div>

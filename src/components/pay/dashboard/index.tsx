@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { newIdempotencyKey } from "@/shared/security/idempotency";
 import type {
   PayOverview,
   PayPaymentView,
@@ -8,8 +7,8 @@ import type {
   PayQuoteView,
   PayRailId,
 } from "@/modules/billing/domain/pay";
-import { api, json, money, date, labels } from "../client";
-import { Field, Badge, ErrorNotice } from "../shared";
+import { api } from "../client";
+import { Badge, ErrorNotice } from "../shared";
 import s from "../Pay.module.css";
 import m from "./Dashboard.module.css";
 import Overview from "./overview";
@@ -21,13 +20,6 @@ import FinancialReport from "../financial-report";
 import BotOperations from "./bot-operations";
 import Webhooks from "./webhooks";
 import WorkspaceHeader from "../workspace-header";
-import {
-  SettlementSteps,
-  ListControls,
-  Pager,
-  PaymentTable,
-  SettlementTable,
-} from "./tables";
 
 type Page<T> = { items: T[]; page: number; pages: number; total: number };
 const views = ["overview", "payments", "settlements", "terminals", "api", "reports", "operations", "webhooks"];
@@ -103,7 +95,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
   if (!data)
     return (
       <section className={`${s.page} ${m.dashboard}`} dir="rtl" aria-busy={!error}>
-        <h1>پنل پذیرنده</h1>
+        <WorkspaceHeader area="merchant" view={views[tab]} />
         {error ? (
           <>
             <ErrorNotice error={error} />

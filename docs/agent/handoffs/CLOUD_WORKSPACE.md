@@ -1,5 +1,45 @@
 # Dedicated Cloud customer workspace — 2026-11-26
 
+## Customer dashboard redesign — 2026-11-28
+
+### Navigation and account portrait
+
+The desktop sidebar and mobile drawer share the refreshed Cloud menu, with a
+prominent service-creation link, grouped destinations and a clearer current
+route. The account link uses the canonical session image and the existing
+`ProfilePortrait` component, which falls back to an initial if the image is
+missing or fails to load. The drawer keeps its native modal behavior and
+Escape focus restoration.
+
+Local Edge checks at 320, 390 and 1440 px covered both themes, profile image
+precedence over the Telegram fallback, broken-image fallback, keyboard
+expansion, account navigation from the drawer and scoped axe. The image
+network response was a synthetic fixture while the session and profile were
+read from PostgreSQL. The connected `cloud-workspace` suite and TypeScript
+passed. React Doctor reported the existing native dialog backdrop handler
+as an accessibility warning. Keyboard dismissal and focus were verified.
+
+Continued from main `16cfa69a` in `.mobocom/cloud-dashboard-local-tools`,
+branch `feat/cloud-dashboard-redesign`. The new dashboard uses a CSS network
+illustration, resource cards with actual active counts, a service list with
+detail links, urgent items and due dates, allocated capacity, invoices and
+recent activity. The common shell styles the service, invoice, support and
+ordering screens. The existing mobile drawer, keyboard behavior, themes and
+canonical Hosting, Billing, Support and Identity routes are used.
+
+The preview reused checked-in SDS/MoboCom tokens. A connected Figma reference
+was unavailable. Initial illustration motion respects reduced motion. The
+capacity section totals purchased plans and does not report live utilization.
+This change has no database migration or external provider calls in its design.
+
+Edge with an isolated PostgreSQL fixture exercised the populated dashboard at
+320, 390, 768 and 1440 px, including light/dark, account isolation, empty/error
+states, service details, invoices, wallet, support, catalog lists and the order
+wizard. Scoped axe checks and keyboard drawer restoration passed. PostgreSQL
+suites `cloud-workspace`, `ticket-workspaces`, and
+`dashboard-service-ordering` passed. TypeScript, source, architecture and the
+scoped React Doctor scan passed.
+
 ## Scoped ticket service selection — 2026-11-27
 
 Continue PR #514 on `feat/cloud-dashboard-local-tools-2026-11-27` from
