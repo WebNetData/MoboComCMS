@@ -43,5 +43,15 @@ const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto')
  await assert.rejects(pay.decideSettlementBatch(first,{action:'paid',items:[{id:b1.id,version:1}]}))
  const queue=await pay.settlementQueue(first,new URLSearchParams('phase=approved'));assert(queue.items.some(x=>x.id===b1.id));assert(queue.counts.approved>=2)
  assert((await pay.settlementCenter(owner)).destinations.some(d=>d.id===profile.id&&d.label==='Renamed'))
+ const report=await pay.payFinancialReport(owner,'merchant',new URLSearchParams())
+ assert.deepEqual(Object.fromEntries(report.settlements.map(row=>[row.status,[row.count,row.sourceAmount]])),{
+  APPROVED:[2,'2000000'],PAID:[1,'1000000'],REJECTED:[1,'1000000'],REQUESTED:[1,'1000000'],
+ })
+ const otherMerchant = await db.payMerchant.create({ data: { id: randomUUID(), userId: other.id, name: 'Another merchant', website: 'https://other.invalid', status: 'ACTIVE' } })
+ try {
+  const isolated = await pay.payFinancialReport(other,'merchant',new URLSearchParams())
+  assert.deepEqual(isolated.settlements,[])
+  assert.equal(isolated.totals.paidCount,0)
+ } finally { await db.payMerchant.delete({ where: { id: otherMerchant.id } }) }
  console.log('Settlement center PASS: schedule reservation/replay/reject, immutable profiles/policies, concurrent independent dual approval and SQL denial, legacy single approval, bounded batch outcomes and private paid receipt')
  }finally{await h.cleanup()}})().catch(e=>{console.error(e.stack);process.exitCode=1})

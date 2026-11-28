@@ -79,7 +79,7 @@ redirect. No new identity/subdomain/service or financial rewrite is authorized.
 2026-11-26 owner clarification supersedes only enrollment/section-host portions
 above: canonical full-access Admin may provision/manage their own merchant for
 Telegram bot setup; restricted `mobocom-pay.manage` staff still cannot self-provision or
-self-manage. Payment, receipt and settlement reviews remain independently guarded.
+self-manage. Payment, receipt and settlement reviews use separate authorization.
 Enrollment uses existing canonical mobile Identity lookup (exact normalized phone,
 readonly), explicit `self:true` Admin toggle, or compatible existing userId/email;
 ambiguous identity returns409. Optional first-party section subdomains are managed
@@ -87,6 +87,21 @@ in existing `/admin/sections` and Site routing Settings; central auth/dashboard/
 Admin/checkout/private Pay stay on the main origin. No wildcard cookies, SSO, new
 identity, DNS automation or privileged vhost setup. Existing paths/aliases/SEO
 canonical remain intact. [Implementation and local evidence](handoffs/MOBOCOM_PAY.md#merchant-account-and-section-hosts--2026-11-26).
+
+2026-11-28 owner requested operational workspaces, in-product guides and
+financial reports for both Pay panels. Keep existing Admin and merchant menu
+entries. Billing owns confirmed collection and settlement reporting, and
+merchant report queries apply the active merchant scope before aggregation.
+[Workspace and report handoff](handoffs/MOBOCOM_PAY.md#operational-workspaces-and-financial-reporting--2026-11-28).
+
+2026-11-28 owner allows a full-access Admin to approve their own merchant's
+MoboCom Pay receipt manually. The canonical receipt confirmation requires the
+verified bank tracking reference, claims the financial state and logs self-review.
+Restricted Pay staff, self-rejection, generic invoice and wallet receipt reviews,
+bank-evidence reconciliation and settlement decisions keep their existing guards.
+Full-access Admins can also maintain a Pay SMS source created by another Admin,
+through the existing versioned update and immutable owner/destination/credential.
+[Implementation and local evidence](handoffs/MOBOCOM_PAY.md#manual-own-receipt-approval-and-sms-forwarder-save--2026-11-28).
 
 2026-11-24 owner authorizes next Pay items1/2: extend operations monitoring and
 add a reconciliation desk under current Billing owners and approved identity.

@@ -1,7 +1,7 @@
 // Extends the existing disposable collection harness; uses its cleanup/clock and canonical owners.
 const assert = require('node:assert/strict')
 module.exports = async function forwarderScenarios(h) {
-  const { prisma, load, admin, bank, gateway, invoice, prepare, quotes, upload, receiveTimestamped, envelope, sources, clock } = h
+  const { prisma, load, admin, secondAdmin, limitedEditor, bank, gateway, invoice, prepare, quotes, upload, receiveTimestamped, envelope, sources, clock } = h
   const { saveSmsSource, smsSources } = load('src/modules/billing/server/pay/sms/admin.ts')
   const { receiveForwardedSms } = load('src/modules/billing/server/pay/sms/forwarder.ts')
   const { receiveSmsNotice } = load('src/modules/billing/server/pay/sms/intake.ts')
@@ -9,11 +9,44 @@ module.exports = async function forwarderScenarios(h) {
   const { reviewCollectionReceipt } = load('src/modules/billing/server/pay/bale/collection-receipts.ts')
   const { NextRequest } = require('next/server')
   const template = { bankCode: 'bankmeli', sender: 'bankmeli', creditTemplate: 'CREDIT {amount}', debitTemplate: 'DEBIT {amount}', unit: 'IRR', calendar: 'GREGORIAN' }
-  const created = await saveSmsSource(admin, { label: 'Synthetic three-field source', bankAccountId: bank.id, template, format: 'FORWARDER_V1', verified: true, active: true })
+  const settings = { label: 'Synthetic three-field source', bankAccountId: bank.id, template, format: 'FORWARDER_V1', verified: true, active: true }
+  const credentialKey = process.env.PANEL_CREDENTIAL_KEY
+  delete process.env.PANEL_CREDENTIAL_KEY
+  try { await assert.rejects(saveSmsSource(admin, settings), error => error.status === 503) }
+  finally { process.env.PANEL_CREDENTIAL_KEY = credentialKey }
+  const created = await saveSmsSource(admin, settings)
   sources.push(created.source.id)
   assert.match(created.secret, /^[A-Za-z0-9_-]{43}$/)
-  assert.equal((await prisma.paySmsSource.findUniqueOrThrow({ where: { id: created.source.id } })).secretCiphertext.includes(created.secret), false)
+  const where = { id: created.source.id }
+  const original = await prisma.paySmsSource.findUniqueOrThrow({ where })
+  assert.equal(original.secretCiphertext.includes(created.secret), false)
   assert.equal(JSON.stringify(await smsSources(admin)).includes(created.secret), false)
+  const update = { ...settings, id: original.id, version: original.version }
+  const noChange = await saveSmsSource(secondAdmin, update)
+  assert.equal(noChange.source.version, original.version)
+  assert.equal(noChange.secret, undefined)
+  assert.equal((await smsSources(limitedEditor)).items.find(item => item.id === original.id).canEdit, false)
+  await assert.rejects(saveSmsSource(limitedEditor, { ...update, label: 'Denied' }), error => error.status === 403)
+  const edited = await saveSmsSource(secondAdmin, { ...update, label: 'Edited by second admin' })
+  await assert.rejects(saveSmsSource(admin, update), error => error.status === 409)
+  assert.equal(edited.secret, undefined)
+  assert.equal(edited.source.version, original.version + 1)
+  const saved = await prisma.paySmsSource.findUniqueOrThrow({ where })
+  assert.equal(saved.ownerUserId, admin.id)
+  assert.equal(saved.secretCiphertext, original.secretCiphertext)
+  const damaged = await prisma.paySmsSource.update({ where, data: { templateJson: '{}', version: { increment: 1 } } })
+  assert.equal((await smsSources(secondAdmin)).items.find(item => item.id === original.id).template, null)
+  await prisma.bankAccount.update({ where: { id: bank.id }, data: { active: false } })
+  let paused
+  try {
+    await assert.rejects(saveSmsSource(secondAdmin, { ...update, version: damaged.version }), error => error.status === 409)
+    paused = await saveSmsSource(secondAdmin, { ...update, version: damaged.version, active: false })
+    assert.equal(paused.source.active, false)
+    assert.equal(paused.source.format, 'FORWARDER_V1')
+  } finally {
+    await prisma.bankAccount.update({ where: { id: bank.id }, data: { active: true } })
+  }
+  const resumed = await saveSmsSource(admin, { ...update, version: paused.source.version })
   const body = amount => ({ sms: `CREDIT ${amount}`, bank: 'bankmeli', token: created.secret })
   const receive = async input => receiveForwardedSms(created.source.id, Buffer.from(typeof input === 'string' ? input : JSON.stringify(input)))
   async function quote(amount, accept = true) {
@@ -43,7 +76,7 @@ module.exports = async function forwarderScenarios(h) {
   assert.equal(monitor.sources.find(s => s.id === created.source.id).p95DeliveryMs, null)
   assert.equal((await receive(JSON.stringify({ token: created.secret, bank: 'bankmeli', sms: `  CREDIT   ${first.row.collectedRial}  ` }, null, 2))).duplicate, true)
   await receiveTimestamped(envelope(710, { amount: first.row.collectedRial.toString(), reference: 'SIMPLEFIRST710' }))
-  await saveSmsSource(admin, { id: created.source.id, version: created.source.version, label: 'Updated label', bankAccountId: bank.id, template, verified: true, active: true })
+  await saveSmsSource(admin, { id: created.source.id, version: resumed.source.version, label: 'Updated label', bankAccountId: bank.id, template, verified: true, active: true })
   assert.equal((await smsSources(admin)).items.find(s => s.id === created.source.id).format, 'FORWARDER_V1')
   clock.set(clock.now() + 1000)
   assert.equal((await receive(payload)).duplicate, true)
@@ -76,6 +109,21 @@ module.exports = async function forwarderScenarios(h) {
   const late = await quote(25000000), originalTime = clock.now(); clock.set(late.row.expiresAt.getTime() + 1000)
   assert.equal((await receive(body(late.row.collectedRial))).financialApproval, false)
   assert.equal((await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: late.row.id } })).status, 'REVIEW')
+  clock.set(originalTime)
+  const heldLate = await quote(26000000)
+  await upload(heldLate.row.id, heldLate.row.collectedRial)
+  clock.set(heldLate.row.expiresAt.getTime() + 1000)
+  const lateNotice = await receive(body(heldLate.row.collectedRial))
+  assert.equal(lateNotice.financialApproval, false)
+  assert.equal(lateNotice.reviewRequired, true)
+  assert.equal(lateNotice.code, 'LATE_TRANSFER')
+  const held = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: heldLate.row.id }, include: { receipt: true } })
+  assert.equal(held.status, 'UNDER_REVIEW')
+  assert.equal(held.receipt.status, 'PENDING')
+  assert.equal(await prisma.walletTx.count({ where: { invoiceId: heldLate.inv.id, type: 'TOPUP' } }), 0)
+  assert.equal((await receive(body(heldLate.row.collectedRial))).financialApproval, false)
+  assert.equal((await reviewCollectionReceipt(admin, held.receiptId, 'approve', '')).status, 'APPROVED')
+  await once(heldLate)
   clock.set(originalTime)
   return { sourceId: created.source.id, token: created.secret, bank: template.bankCode }
 }

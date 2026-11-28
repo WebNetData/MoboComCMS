@@ -4,6 +4,22 @@ import { transferDifference, type TransferReviewDetail, type TransferReviewQueue
 import { payContext, payTransaction, type PayActor } from '../context'
 import { collectionSourceActor } from '../bale/collection-proof'
 import { noticeInclude, reviewCollection } from './review-context'
+import { canApproveOwnPayReceipt } from '../receipt-review-access'
+
+async function receiptActions(tx: Prisma.TransactionClient, actor: PayActor, row: Awaited<ReturnType<typeof reviewCollection>> | null) {
+  if (!row || row.receipt?.status !== 'PENDING') return { canReviewReceipt: false, canRejectReceipt: false, requiresTrackingCode: false }
+  const paid = row.status === 'PAID' && row.invoice.status === 'PAID'
+  const unpaid = row.status === 'UNDER_REVIEW' && row.invoice.status === 'UNPAID'
+  const ownMerchant = row.invoice.payCollection?.merchant.userId === actor.id
+  const ownInvoice = row.invoice.userId === actor.id
+  const independent = !ownMerchant && !ownInvoice
+  const canReviewReceipt = (paid || unpaid) && (independent || ownMerchant && await canApproveOwnPayReceipt(tx, actor.req, actor.id))
+  return {
+    canReviewReceipt,
+    canRejectReceipt: independent && unpaid,
+    requiresTrackingCode: canReviewReceipt && unpaid && Boolean(row.invoice.payCollection) && !row.receipt.trackingCode,
+  }
+}
 
 export function transferReviewQueue(actor: PayActor, params: URLSearchParams): Promise<TransferReviewQueue> {
   return payTransaction(async tx => {
@@ -35,9 +51,12 @@ export function transferReviewDetail(actor: PayActor, id: string): Promise<Trans
     const collectionId = record?.collectionId || notice.collectionMatch?.id
     const c = collectionId ? await reviewCollection(tx, actor, collectionId) : null
     let canConfirm = Boolean(notice.sourceType === 'SMS' && c && (!record || record.status === 'OPEN') && ['PENDING','UNDER_REVIEW','EXPIRED','REVIEW'].includes(c.status) && c.invoice.status === 'UNPAID' && c.acceptedAt && notice.receivedAt >= c.createdAt && notice.sourceSentAt >= c.acceptedAt && notice.sourceSentAt >= c.validFrom && c.invoice.userId !== actor.id && c.invoice.payCollection?.merchant.userId !== actor.id)
-    if (canConfirm && c) { try { await collectionSourceActor(tx, c, notice) } catch (error) { if (error instanceof PayError) canConfirm = false; else throw error } }
+    if (canConfirm && c) {
+      if (c.invoice.payCollection && !c.receiptId) canConfirm = false
+      else { try { await collectionSourceActor(tx, c, notice) } catch (error) { if (error instanceof PayError) canConfirm = false; else throw error } }
+    }
     const history = await tx.auditLog.findMany({ where: { targetType: 'mobocom-pay', OR: [{ targetId: 'transfer-review:' + id }, ...(c ? [{ targetId: c.id }] : [])] }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50 })
-    return { notice: { id, source: notice.sourceType, amountRial: notice.amountMinor.toString(), receivedAt: notice.receivedAt.toISOString(), sourceSentAt: notice.sourceSentAt.toISOString(), timeBasis: notice.code.startsWith('SMS_FORWARDER_') ? 'SERVER_RECEIPT' : notice.sourceType === 'SMS' ? 'PHONE_RECEIPT' : 'SOURCE_MESSAGE' }, version: record?.version || 0, status: (record?.status || 'OPEN') as TransferReviewDetail['status'], difference: transferDifference(notice.amountMinor, c?.collectedRial ?? null), deltaRial: c ? (notice.amountMinor - c.collectedRial).toString() : null, canConfirm, canReviewReceipt: Boolean(c && c.invoice.userId !== actor.id && c.invoice.payCollection?.merchant.userId !== actor.id && (c.status === 'PAID' || c.status === 'UNDER_REVIEW' && c.invoice.status === 'UNPAID')),
+    return { notice: { id, source: notice.sourceType, amountRial: notice.amountMinor.toString(), receivedAt: notice.receivedAt.toISOString(), sourceSentAt: notice.sourceSentAt.toISOString(), timeBasis: notice.code.startsWith('SMS_FORWARDER_') ? 'SERVER_RECEIPT' : notice.sourceType === 'SMS' ? 'PHONE_RECEIPT' : 'SOURCE_MESSAGE' }, version: record?.version || 0, status: (record?.status || 'OPEN') as TransferReviewDetail['status'], difference: transferDifference(notice.amountMinor, c?.collectedRial ?? null), deltaRial: c ? (notice.amountMinor - c.collectedRial).toString() : null, canConfirm, ...await receiptActions(tx, actor, c),
       collection: c ? { id: c.id, invoiceNumber: c.invoice.number, status: c.status, invoiceStatus: c.invoice.status, totalRial: c.collectedRial.toString(), principalRial: c.principalRial.toString(), expiresAt: c.expiresAt.toISOString(), reason: c.reviewReason, receipt: c.receipt ? { id: c.receipt.id, status: c.receipt.status, amountRial: c.receiptAmountRial!.toString(), imageUrl: c.invoice.payCollection ? `/api/pay/receipt-image/${c.receipt.id}` : `/api/receipts/${c.receipt.id}/image`, note: c.receipt.adminNote } : null } : null,
       history: history.map(h => { let note = ''; try { const meta = JSON.parse(h.metadata); if (typeof meta.note === 'string') note = meta.note } catch {} return { id: h.id, actorId: h.actorUserId, action: h.action, note, createdAt: h.createdAt.toISOString() } }) }
   })
@@ -63,7 +82,7 @@ export function transferCollectionReview(actor: PayActor, id: string): Promise<T
     await payContext(actor, tx, 'mobocom-pay.manage')
     const c = await reviewCollection(tx, actor, id)
     const history = await tx.auditLog.findMany({ where: { targetType: 'mobocom-pay', targetId: c.id }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50 })
-    return { notice: null, version: 0, status: 'OPEN', difference: 'UNASSIGNED', deltaRial: null, canConfirm: false, canReviewReceipt: c.invoice.userId !== actor.id && c.invoice.payCollection?.merchant.userId !== actor.id && (c.status === 'PAID' || c.status === 'UNDER_REVIEW' && c.invoice.status === 'UNPAID'),
+    return { notice: null, version: 0, status: 'OPEN', difference: 'UNASSIGNED', deltaRial: null, canConfirm: false, ...await receiptActions(tx, actor, c),
       collection: { id: c.id, invoiceNumber: c.invoice.number, status: c.status, invoiceStatus: c.invoice.status, totalRial: c.collectedRial.toString(), principalRial: c.principalRial.toString(), expiresAt: c.expiresAt.toISOString(), reason: c.reviewReason, receipt: c.receipt ? { id: c.receipt.id, status: c.receipt.status, amountRial: c.receiptAmountRial!.toString(), imageUrl: c.invoice.payCollection ? `/api/pay/receipt-image/${c.receipt.id}` : `/api/receipts/${c.receipt.id}/image`, note: c.receipt.adminNote } : null },
       history: history.map(h => ({ id: h.id, actorId: h.actorUserId, action: h.action, note: '', createdAt: h.createdAt.toISOString() })) }
   })

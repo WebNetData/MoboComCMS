@@ -22,12 +22,21 @@ export async function matchBaleNotice(id: string) {
       const claim = await tx.payBaleCollection.updateMany({ where: { id: row.id, status: row.status, principalPaymentId: null }, data: { status: 'REVIEW', activeInvoiceId: null, noticeId: notice.id, reviewReason: reason } })
       if (claim.count !== 1) throw new PayError('درخواست هم‌زمان تغییر کرد', 409)
       await auditSystemStrict({ actor: actor!, action: 'mobocom-pay.transfer.review', targetType: 'mobocom-pay', targetId: row.id, metadata: { reason, noticeId: notice.id } }, tx)
-      return { financialApproval: false, collectionId: row.id, collectionStatus: 'REVIEW' }
+      return { financialApproval: false, reviewRequired: true, code: reason, collectionId: row.id, collectionStatus: 'REVIEW' }
     }
     if (invoice.status !== 'UNPAID') return review('INVOICE_ALREADY_SETTLED')
     // Text bank dates/account numbers never determine eligibility. Protocol/device receipt metadata does.
     if (!row.acceptedAt || notice.receivedAt < row.createdAt || notice.sourceSentAt < row.acceptedAt || notice.sourceSentAt < row.validFrom) return { financialApproval: false, collectionId: row.id, collectionStatus: row.status }
-    if (row.status === 'EXPIRED' || (row.status !== 'UNDER_REVIEW' && notice.receivedAt > row.expiresAt)) return review('LATE_TRANSFER')
+    if (invoice.payCollection && !row.receiptId) {
+      return { financialApproval: false, receiptRequired: true, collectionId: row.id, collectionStatus: row.status }
+    }
+    if (row.status === 'EXPIRED' || notice.receivedAt > row.expiresAt) {
+      // Keep an existing receipt actionable through its normal manual owner.
+      if (row.status === 'UNDER_REVIEW') {
+        return { financialApproval: false, reviewRequired: true, code: 'LATE_TRANSFER', collectionId: row.id, collectionStatus: row.status }
+      }
+      return review('LATE_TRANSFER')
+    }
     return settleTransferCollection(tx, row, { method: 'AUTO', noticeId: notice.id, actor })
   })
 }

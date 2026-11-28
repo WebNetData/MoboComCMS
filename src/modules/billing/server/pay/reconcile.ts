@@ -57,6 +57,7 @@ export async function reconcileReference(
   )
     return
   if (!row.payerVerifiedAt) return
+  if (row.invoiceId && !await tx.paymentReceipt.count({ where: { invoiceId: row.invoiceId, status: { in: ['PENDING', 'APPROVED'] } } })) return
   // Existing invoices keep their original verification path. An unstarted legacy
   // bank hint must respect the current terminal and merchant grant.
   if (!row.invoiceId && (row.requestedGatewayRef || row.terminal.gatewayPolicy || row.merchant.gatewayPolicy) &&

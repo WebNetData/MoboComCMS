@@ -2,16 +2,18 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { PayError } from '@/modules/billing/domain/pay'
+import type { BaleCollectionPolicy } from '@/modules/billing/domain/pay-bale-collection'
 import { paySettings } from '../settings'
 import { sourceOwner } from './access'
 import { autoTransferConfig } from '@/modules/billing/domain/auto-transfer'
 import { smsSourceConfig } from '@/modules/billing/domain/pay-sms-source'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 
-export function smsCredentialsReady(source: { templateJson: string; secretCiphertext: string }) {
+export function smsCredentialsReady(source: { bankCode: string; templateJson: string; secretCiphertext: string }) {
   try {
-    smsSourceConfig(JSON.parse(source.templateJson))
-    return source.secretCiphertext.startsWith('encv1:') && /^[A-Za-z0-9_-]{43}$/.test(decryptPanelCredential(source.secretCiphertext))
+    const { template } = smsSourceConfig(JSON.parse(source.templateJson))
+    return template.bankCode === source.bankCode && source.secretCiphertext.startsWith('encv1:')
+      && /^[A-Za-z0-9_-]{43}$/.test(decryptPanelCredential(source.secretCiphertext))
   } catch { return false }
 }
 
@@ -24,9 +26,10 @@ export function matchesFrozenSms(row: { sourceTypes: string; sourceBindings: str
   } catch { return false }
 }
 
-export async function baleCollectionContext(tx: Prisma.TransactionClient, gatewayId?: number) {
+export async function baleCollectionContext(tx: Prisma.TransactionClient, gatewayId?: number, proposedPolicy?: BaleCollectionPolicy) {
   const settings = await paySettings.read(tx)
-  if (!settings.bale.enabled ||
+  const policy = proposedPolicy ?? settings.bale
+  if (!policy.enabled ||
     !await isModuleEnabled('mobocom-pay', tx) || (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true')
     throw new PayError('تطبیق خودکار پیامک هنوز فعال نیست', 503, 'BALE_COLLECTION_OFF')
   const gateway = gatewayId ? await tx.gateway.findUnique({ where: { id: gatewayId } }) : null
@@ -42,9 +45,9 @@ export async function baleCollectionContext(tx: Prisma.TransactionClient, gatewa
   const smsOwners = await Promise.all(sms.map(source => sourceOwner(source.ownerUserId, tx)))
   const owner = smsOwners.find(Boolean)
   if (!owner) throw new PayError('منبع پیامک معتبر و تأییدشده برای این حساب آماده نیست', 503)
-  return { sms: sms.filter((_, index) => smsOwners[index]), sourceTypes: config.autoSources, policy: settings.bale, settings, owner, bank }
+  return { sms: sms.filter((_, index) => smsOwners[index]), sourceTypes: config.autoSources, policy, settings, owner, bank }
 }
-export async function baleGatewayReady(reader?: Prisma.TransactionClient, gatewayId?: number): Promise<boolean> {
-  try { if (reader) await baleCollectionContext(reader, gatewayId); else await db.$transaction(tx => baleCollectionContext(tx, gatewayId)); return true }
+export async function baleGatewayReady(reader?: Prisma.TransactionClient, gatewayId?: number, proposedPolicy?: BaleCollectionPolicy): Promise<boolean> {
+  try { if (reader) await baleCollectionContext(reader, gatewayId, proposedPolicy); else await db.$transaction(tx => baleCollectionContext(tx, gatewayId, proposedPolicy)); return true }
   catch (error) { if (error instanceof PayError) return false; throw error }
 }

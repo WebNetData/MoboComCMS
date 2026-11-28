@@ -121,7 +121,6 @@ export default function AccountShell({ children }: { children: React.ReactNode }
     ] },
     { id: 'tools', title: L('ابزارها', 'Tools'), icon: 'bolt', items: [
       ...(adsOn ? [{ href: '/dashboard/ads', label: L('تبلیغات من', 'My advertising'), icon: 'megaphone' }] : []),
-      ...(site.publicApiEnabled ? [{ href: '/dashboard/api', label: t.apiAccess, icon: 'code' }] : []),
     ] },
     { id: 'support', caption: L('پشتیبانی و تنظیمات', 'Support & settings'), title: L('پیام‌ها و پشتیبانی', 'Messages & support'), icon: 'lifebuoy', items: [
       { href: '/dashboard/notifications', label: L('اعلان‌ها', 'Notifications'), icon: 'bell', badge: <NotificationCount /> },

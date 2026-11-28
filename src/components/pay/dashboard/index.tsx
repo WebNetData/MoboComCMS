@@ -17,6 +17,7 @@ import Payments from "./payments";
 import Settlements from "./settlements";
 import Terminals from "./terminals";
 import ApiGuide from "./api-guide";
+import FinancialReport from "../financial-report";
 import BotOperations from "./bot-operations";
 import Webhooks from "./webhooks";
 import WorkspaceHeader from "../workspace-header";
@@ -215,7 +216,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
             />
           )}
           {tab === 4 && <ApiGuide />}
-          {tab === 5 && <Overview data={data} reports />}
+          {tab === 5 && <FinancialReport area="merchant" />}
           {tab === 6 && <BotOperations terminals={data.terminals} revision={revision} />}
           {tab === 7 && <Webhooks terminals={data.terminals} />}
         </>

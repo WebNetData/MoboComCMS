@@ -8,10 +8,11 @@ import { SettlementSteps } from "./tables";
 import BalanceCard, { Amount } from "./overview-balance";
 import ReceiptTrend from "./overview-trend";
 import RecentPayments from "./overview-payments";
+import OverviewNextAction from "./overview-next-action";
 import s from "../Pay.module.css";
 import o from "./Overview.module.css";
 
-export default function Overview({ data, reports = false }: { data: PayOverview; reports?: boolean }) {
+export default function Overview({ data }: { data: PayOverview }) {
   return <div className={o.overview}>
     <section className={o.summary} aria-label="خلاصه مالی">
       <BalanceCard data={data} />
@@ -24,8 +25,8 @@ export default function Overview({ data, reports = false }: { data: PayOverview;
         ].map(([label, value, hint, icon]) => <div key={label}><dt><Icon name={icon} size={18} />{label}</dt><dd><Amount value={value} /><small>{hint}</small></dd></div>)}
       </dl>
     </section>
+    {data.merchant?.status === "ACTIVE" && <OverviewNextAction data={data} />}
     <div className={o.walletNote}><Icon name="shield" size={18} /><p>دریافت‌های تأییدشده به کیف پول موبوکام افزوده می‌شوند. مبلغ درخواست تسویه تا تعیین تکلیف قابل خرج کردن نیست. <Link href="/dashboard/wallet">مشاهده کیف پول</Link></p></div>
-    {reports && <section className={`${s.card} ${s.reportExports}`}><div><h2>دریافت گزارش</h2><p className={s.muted}>خروجی هر صفحه تا ۱۰۰۰ ردیف دارد. برای فیلتر و صفحات دیگر به فهرست مربوط بروید.</p></div><div className={s.actions}><a className={s.secondary} href="/api/pay/payments?format=csv">گزارش پرداخت‌ها CSV</a><a className={s.secondary} href="/api/pay/settlements?format=csv">گزارش تسویه‌ها CSV</a></div></section>}
     <nav className={o.shortcuts} aria-label="دسترسی سریع پذیرنده">
       {[["payments", "receipt", "مدیریت پرداخت‌ها", "ساخت لینک و پیگیری دریافت"], ["terminals", "terminal", "مدیریت پایانه‌ها", "وب‌سایت، پیج، کانال و ربات"], ["reports", "chart", "گزارش‌های مالی", "روند دریافت و خروجی جزئیات"]].map(([path, icon, title, subtitle]) => <Link key={path} href={`/pay/merchant/${path}`}><span className={o.shortcutIcon}><Icon name={icon} size={20} /></span><span><strong>{title}</strong><small>{subtitle}</small></span><Icon name="arrow" size={16} /></Link>)}
     </nav>
@@ -37,7 +38,6 @@ export default function Overview({ data, reports = false }: { data: PayOverview;
         <Link className={s.secondary} href="/pay/merchant/settlements">مشاهده و ثبت تسویه<Icon name="arrow" size={16} /></Link>
       </section>
     </div>
-    {!reports && <RecentPayments items={data.payments} />}
-    <div className={o.readiness} aria-label="وضعیت پیکربندی دریافت"><span><Icon name="card" size={16} />دریافت پرداخت<Badge value={data.readiness.incomingEnabled ? "ACTIVE" : "SUSPENDED"} /></span><span><Icon name="bank" size={16} />صورت‌حساب بانکی<strong>{data.readiness.bankFeedReady ? "پیکربندی شده" : "پیکربندی نشده"}</strong></span></div>
+    <RecentPayments items={data.payments} />
   </div>;
 }

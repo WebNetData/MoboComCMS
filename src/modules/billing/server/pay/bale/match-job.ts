@@ -4,9 +4,10 @@ import { PayError } from '@/modules/billing/domain/pay'
 import { matchBaleNotice } from './collection-match'
 
 /** Receipt and recovery intent commit atomically; inline matching keeps the fast path. */
-export async function queueTransferMatch(tx:Prisma.TransactionClient,notice:{id:string;status:string;direction:string}){
+export async function queueTransferMatch(tx:Prisma.TransactionClient,notice:{id:string;status:string;direction:string},receiptId?: number){
   if(notice.status!=='ORIGINAL_TRANSFER'||notice.direction!=='CREDIT')return
-  await enqueue('pay.transfer-match',{noticeId:notice.id},{dedupeKey:'pay-transfer-match:'+notice.id},tx)
+  const dedupeKey = 'pay-transfer-match:' + notice.id + (receiptId ? ':receipt:' + receiptId : '')
+  await enqueue('pay.transfer-match',{noticeId:notice.id},{dedupeKey},tx)
 }
 export async function recoverTransferMatch(payload:Record<string,unknown>){
   if(typeof payload.noticeId!=='string'||!/^[a-f0-9-]{36}$/.test(payload.noticeId))throw new Error('Invalid transfer evidence')

@@ -3,6 +3,7 @@ import { mkdir, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Prisma } from '@prisma/client'
 import type { NextRequest } from 'next/server'
+import { assertOwnPayReceiptApproval } from '../receipt-review-access'
 import { requirePerm } from '@/modules/identity/server/access'
 import { sniffImage } from '@/shared/files/image-type'
 import { latinDigits, normalizeReceipt } from '@/modules/billing/domain/card-transfer'
@@ -10,10 +11,11 @@ import { readReceiptMultipart, receiptDirectory } from '@/modules/billing/server
 import { PayError } from '@/modules/billing/domain/pay'
 import { auditSystemStrict } from '@/platform/audit/server'
 import { payContext, payTransaction } from '../context'
-import { collectionFor, baleCheckout } from './collection-view'
+import { collectionFor, baleCheckout, collectionReceiptAvailability } from './collection-view'
 import { settleTransferCollection } from './collection-settle'
 import { collectionConfirmation, receiptReviewResult } from '../confirmation'
 import { approvalReference } from '../receipt-reference'
+import { queueTransferMatch, recoverTransferMatch } from './match-job'
 
 export async function submitCollectionReceipt(req: NextRequest, id: string) {
   if (await payTransaction(async tx => Boolean((await collectionFor(tx, id, req)).receiptId))) return baleCheckout(id, req)
@@ -29,12 +31,12 @@ export async function submitCollectionReceipt(req: NextRequest, id: string) {
   await mkdir(receiptDirectory(), { recursive: true }); await writeFile(join(receiptDirectory(), filename), bytes, { flag: 'wx', mode: 0o600 })
   let saved = false
   try {
-    saved = await payTransaction(async tx => {
+    const noticeIds = await payTransaction(async tx => {
       const initial = await collectionFor(tx, id, req)
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${initial.invoiceId} FOR UPDATE`)
       const row = await collectionFor(tx, id, req)
-      if (row.receiptId) return false
-      if (row.status !== 'PENDING' || !row.acceptedAt || row.expiresAt <= new Date() || row.invoice.status !== 'UNPAID' || row.activeInvoiceId !== row.invoiceId) throw new PayError('وضعیت درخواست تغییر کرده است', 409)
+      if (row.receiptId) return null
+      if (!collectionReceiptAvailability(row, new Date()).canSubmit) throw new PayError('این درخواست برای ثبت رسید قابل استفاده نیست', 409)
       const amount = rawAmount ? BigInt(rawAmount) : row.collectedRial
       if (amount !== row.principalRial && amount !== row.collectedRial) throw new PayError('مبلغ باید برابر اصل یا جمع درخواست باشد', 422)
       const receipt = await tx.paymentReceipt.create({ data: { ...input, paidAt: fields.paidAt ? input.paidAt : null, bankAccountId: row.bankAccountId, invoiceId: row.invoiceId, userId: row.invoice.userId, amountMinor: row.dueMinor, currency: row.currency, image: filename, imageType: type.mimeType } })
@@ -42,9 +44,26 @@ export async function submitCollectionReceipt(req: NextRequest, id: string) {
       if (claim.count !== 1) throw new PayError('درخواست هم‌زمان تغییر کرده است', 409)
       const owner = await tx.user.findUniqueOrThrow({ where: { id: row.ownerUserId }, select: { id: true, email: true } })
       await auditSystemStrict({ actor: owner, action: 'mobocom-pay.transfer.receipt', targetType: 'mobocom-pay', targetId: id, metadata: { receiptId: receipt.id } }, tx)
-      return true
+      if (!row.invoice.payCollection) return []
+      const notices = await tx.payBaleNotice.findMany({
+        where: { sourceType: 'SMS', status: 'ORIGINAL_TRANSFER', direction: 'CREDIT',
+          bankAccountId: row.bankAccountId, amountMinor: row.collectedRial,
+          receivedAt: { gte: row.createdAt, lte: row.expiresAt },
+          sourceSentAt: { gte: new Date(Math.max(row.validFrom.getTime(), row.acceptedAt!.getTime())) },
+        },
+        orderBy: [{ receivedAt: 'asc' }, { id: 'asc' }], take: 8,
+        select: { id: true, status: true, direction: true },
+      })
+      for (const notice of notices) await queueTransferMatch(tx, notice, receipt.id)
+      return notices.map(notice => notice.id)
     })
+    saved = noticeIds !== null
     if (!saved) await unlink(join(receiptDirectory(), filename)).catch(() => {})
+    for (const noticeId of noticeIds ?? []) {
+      // Receipt is durable. The queued attempt also covers failure on this fast path.
+      const result = await recoverTransferMatch({ noticeId }).catch(() => null)
+      if (result?.financialApproval) break
+    }
     return baleCheckout(id, req)
   } catch (error) { if (!saved) await unlink(join(receiptDirectory(), filename)).catch(() => {}); throw error }
 }
@@ -59,7 +78,9 @@ export async function reviewCollectionReceipt(admin: { id: number; email: string
     const row = await tx.payBaleCollection.findUniqueOrThrow({ where: { id: initial.id }, include: { invoice: { include: { payCollection: { include: { merchant: true } } } }, receipt: true, notice: { select: { sourceType: true } } } })
     if (row.invoice.payCollection) await payContext({ ...admin, req }, tx, 'mobocom-pay.manage')
     else if (!await requirePerm(req, 'invoices.manage', tx)) throw new PayError('دسترسی ندارید', 403)
-    if (row.invoice.userId === admin.id || row.invoice.payCollection?.merchant.userId === admin.id) throw new PayError('بررسی پرداخت خودتان مجاز نیست', 403)
+    const selfMerchant = row.invoice.payCollection?.merchant.userId === admin.id
+    const selfReview = row.invoice.userId === admin.id || selfMerchant
+    if (selfReview) await assertOwnPayReceiptApproval(tx, req, admin.id, selfMerchant && action === 'approve')
     if (!row.receipt) throw new PayError('رسید پیدا نشد', 404)
     const paid = row.status === 'PAID' && row.invoice.status === 'PAID'
     if (paid && row.receipt.status !== 'PENDING') return receiptReviewResult(row.receipt.status, true, collectionConfirmation(row))
@@ -76,7 +97,7 @@ export async function reviewCollectionReceipt(admin: { id: number; email: string
       if (action === 'approve') await settleTransferCollection(tx, row, { method: 'MANUAL', receiptId, actualRial: row.receiptAmountRial, actor: admin })
       else { const changed = await tx.payBaleCollection.updateMany({ where: { id: row.id, status: 'UNDER_REVIEW', receiptId }, data: { status: 'REVIEW', activeInvoiceId: null, reviewReason: 'RECEIPT_REJECTED' } }); if (changed.count !== 1) throw new PayError('درخواست هم‌زمان تغییر کرده است', 409) }
     }
-    await auditSystemStrict({ actor: admin, action: 'mobocom-pay.transfer.receipt-review', targetType: 'mobocom-pay', targetId: row.id, metadata: { receiptId, action: paid ? 'already-paid' : action } }, tx)
+    await auditSystemStrict({ actor: admin, action: 'mobocom-pay.transfer.receipt-review', targetType: 'mobocom-pay', targetId: row.id, metadata: { receiptId, action: paid ? 'already-paid' : action, selfReview } }, tx)
     return receiptReviewResult(paid || action === 'approve' ? 'APPROVED' : 'REJECTED', paid,
       paid ? collectionConfirmation(row) : action === 'approve' ? { method: 'MANUAL', source: 'STAFF' } : { method: 'NONE', source: '' })
   })

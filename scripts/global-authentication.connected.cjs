@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typ
 const {PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server');
 const {encode}=require('next-auth/jwt'),prisma=new PrismaClient();
 const secret='owned-global-authentication-fixture',stamp=`global-auth-${Date.now()}`,users=[];
-let unavailable=false,sessionId=0;
+let unavailable=false;
 const db=new Proxy(prisma,{get(target,key){
  if(key==='accessRestriction')return new Proxy(target[key],{get(model,method){
   if(method==='findMany')return args=>{if(unavailable)throw Error('fixture storage unavailable');return model.findMany(args)};
@@ -22,7 +22,6 @@ function load(file){
   if(name==='@/extensions/generated/catalog')return load('src/extensions/generated/catalog.ts');
   if(name.startsWith('@/plugins/')&&name.endsWith('/manifest.json'))return JSON.parse(fs.readFileSync('src/'+name.slice(2),'utf8'));
   if(name.startsWith('@/platform/extensions/'))return load('src/'+name.slice(2)+'.ts');
-  if(name==='next-auth')return {getServerSession:async()=>({user:{id:String(sessionId)}})};
   if(name.startsWith('@/modules/identity/')&&!name.includes('telegram-account')&&!name.includes('staff-guard')&&!name.includes('turnstile')&&!name.includes('human-check'))return load('src/'+name.slice(2)+'.ts');
   if(name==='@/shared/text/digits')return load('src/shared/text/digits.ts');
   if(name.startsWith('.')){const base=require('node:path').resolve(require('node:path').dirname(file),name);return load(fs.existsSync(base+'.ts')?base+'.ts':base+'/index.ts')}
@@ -43,13 +42,12 @@ async function main(){
  const req=new NextRequest('http://localhost/api/fixture',{headers:{cookie:`next-auth.session-token=${jwt}`}});
  const key=api.generateApiKey();await prisma.apiKey.create({data:{userId:user.id,token:key.hash}});
  const keyReq=new NextRequest('http://localhost/api/v1/fixture',{headers:{authorization:`Bearer ${key.token}`}});
- sessionId=user.id;
  const record=async(extra={})=>prisma.accessRestriction.create({data:{userId:user.id,scope:'GLOBAL',effectKey:'identity.suspend',capabilities:'["identity.authenticate"]',reason:'owned fixture',startsAt:past,expiresAt:future,...extra}});
  const allowed=async()=>{
   assert.equal(await authOptions.callbacks.signIn({user:{id:String(user.id)}}),true);
   assert.equal((await access.requireUser(req))?.id,user.id);
   assert.equal((await api.resolveApiCaller(keyReq))?.userId,user.id);
-  assert.equal((await api.resolveApiCaller(new NextRequest('http://localhost/api/v1/fixture')))?.userId,user.id);
+  assert.equal((await api.resolveApiCaller(req))?.userId,user.id);
   assert.equal((await authOptions.callbacks.jwt({token:{...token}})).uid,token.uid);
   assert.equal((await authOptions.callbacks.jwt({token:{},user:{id:String(user.id),role:'USER'}})).uid,String(user.id));
  };
@@ -59,7 +57,7 @@ async function main(){
   const before=await prisma.apiKey.findUniqueOrThrow({where:{token:key.hash}});
   assert.equal(await api.resolveApiCaller(keyReq),null);
   assert.equal((await prisma.apiKey.findUniqueOrThrow({where:{id:before.id}})).requests,before.requests,'denied keys do not count as successful use');
-  assert.equal(await api.resolveApiCaller(new NextRequest('http://localhost/api/v1/fixture')),null);
+  assert.equal(await api.resolveApiCaller(req),null);
   await assert.rejects(authOptions.callbacks.jwt({token:{...token}}),/SESSION_REVOKED/);
   await assert.rejects(authOptions.callbacks.jwt({token:{},user:{id:String(user.id),role:'USER'}}),/SESSION_REVOKED/);
  };
@@ -83,7 +81,7 @@ async function main(){
  await prisma.user.update({where:{id:user.id},data:{status:'BANNED'}});
  assert.equal(await authOptions.callbacks.signIn({user:{id:String(user.id)}}),false);
  assert.equal(await access.requireUser(req),null);assert.equal(await api.resolveApiCaller(keyReq),null);
- assert.equal(await api.resolveApiCaller(new NextRequest('http://localhost/api/v1/fixture')),null);
+ assert.equal(await api.resolveApiCaller(req),null);
  console.log('Global authentication: real signed cookie, existing/new JWT callbacks, hashed keys/session fallback, module isolation, overlap/revoke/expiry/start, full-access denial, standing and fail-closed storage passed');
 }
 main().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{

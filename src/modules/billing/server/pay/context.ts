@@ -14,6 +14,12 @@ import { assertTerminalKey, resolveTerminalKey, terminalBearer, type TerminalKey
 
 export type PayActor = { id: number; email: string; req: NextRequest; machine?: boolean; keyId?: number; botIntegrationId?: string; botKeyHash?: string; terminalKey?: TerminalKeyAuthority }
 
+export function isPaySerializationConflict(error: unknown) {
+  const { code, meta } = (error ?? {}) as { code?: string; meta?: { code?: string } }
+  // Prisma wraps SQLSTATE from raw row locks as P2010 instead of P2034.
+  return code === 'P2034' || code === 'P2010' && (meta?.code === '40001' || meta?.code === '40P01')
+}
+
 export function assertPayTerminal(actor: PayActor, terminalId: string) {
   if (actor.terminalKey && actor.terminalKey.terminalId !== terminalId) throw new PayError('پایانه پیدا نشد', 404, 'PAY_TERMINAL_NOT_FOUND')
 }
@@ -22,7 +28,7 @@ export async function payTransaction<T>(work: (tx: Prisma.TransactionClient) => 
     try {
       return await db.$transaction(work, { isolationLevel: 'Serializable', timeout: 15000 })
     } catch (error) {
-      if (!['P2034', 'P2002'].includes((error as { code?: string }).code || '') || attempt >= 3) throw error
+      if (attempt >= 3 || (!isPaySerializationConflict(error) && (error as { code?: string } | null)?.code !== 'P2002')) throw error
     }
   }
 }

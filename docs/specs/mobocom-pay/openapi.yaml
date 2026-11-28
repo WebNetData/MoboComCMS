@@ -198,7 +198,10 @@ paths:
         no bearer token is required. The bank must equal the source's configured bank. Only server receipt
         time is available, so previously unseen historical SMS cannot be distinguished from fresh messages.
         For a locked USDT purchase quote this evidence alone cannot approve credit; a successful receipt may
-        report reviewRequired and PAY_PURCHASE_TIME_REQUIRED. Configure the phone to forward only fresh
+        report reviewRequired and PAY_PURCHASE_TIME_REQUIRED. Evidence received after the quote deadline
+        requires review even when a receipt is pending. Merchant collections require a receipt
+        image before financial approval; an early SMS is retained for matching after upload.
+        Configure the phone to forward only fresh
         messages from the bank sender. Requests must satisfy the same-site Origin policy.
       parameters:
         - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -215,13 +218,13 @@ paths:
                 bank: { type: string, pattern: '^[a-z0-9_]{3,40}$', description: Fixed bank code configured for this source. }
                 token: { type: string, minLength: 43, maxLength: 43, pattern: '^[A-Za-z0-9_-]{43}$', writeOnly: true, description: Per-source generated credential shown once. }
       responses:
-        '200': { description: 'Evidence recorded or replay acknowledged. A locked USDT quote may return financialApproval=false, reviewRequired=true and code=PAY_PURCHASE_TIME_REQUIRED.' }
+        '200': { description: 'Evidence recorded or replay acknowledged. A locked USDT quote or late notice may return financialApproval=false and reviewRequired=true, with code PAY_PURCHASE_TIME_REQUIRED or LATE_TRANSFER respectively.' }
         default: { description: 'Authentication, origin, source, body, strict rate limit or availability failure.' }
   /api/payment/mobocom-pay/sms/{id}:
     post:
       operationId: receiveConfiguredBankSms
       tags: [Bank bridge]
-      description: Authenticated SMS Forwarder original event. received_at is the original device receipt time in UTC, not a date in bank text. Fresh first deliveries only; exact replays are idempotent. Sender/template/source bind the destination. Matching requires the globally unique collected amount and current authority. No customer-provided attribution.
+      description: Authenticated SMS Forwarder original event. received_at is the original device receipt time in UTC, not a date in bank text. Fresh first deliveries only; exact replays are idempotent. Sender/template/source bind the destination. Automatic matching requires the globally unique collected amount, current authority and server receipt by the quote deadline. Later evidence requires explicit review, including when a receipt is pending. No customer-provided attribution.
       security: [{ bearerAuth: [] }]
       parameters:
         - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -284,7 +287,7 @@ paths:
       operationId: submitAutomaticTransferReceipt
       tags: [Hosted checkout]
       security: []
-      description: Same-origin capability and scoped Pay payer authorization. Bounded sniffed image. Omitted paidAmountRial uses the exact collected amount from the quote. A supplied amount must equal the quote principal or exact collected amount. Atomically creates the canonical receipt and enters UNDER_REVIEW without confirming payment. Replays preserve the first receipt.
+      description: Same-origin capability and scoped Pay payer authorization. Bounded sniffed image. Omitted paidAmountRial uses the exact collected amount from the quote. A supplied amount must equal the quote principal or exact collected amount. Atomically creates the canonical receipt and enters UNDER_REVIEW without confirming payment. A current accepted IRR merchant quote can accept a receipt for a prior transfer after its payment deadline while the verified payer session remains valid. Replays preserve the first receipt.
       parameters:
         - { in: path, name: id, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{32}$' } }
       requestBody:

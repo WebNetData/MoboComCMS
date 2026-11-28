@@ -20,6 +20,8 @@ export type TransferReviewDetail = {
   collection: null | { id: string; invoiceNumber: string; status: string; invoiceStatus: string; totalRial: string; principalRial: string; expiresAt: string; reason: string; receipt: null | { id: number; status: string; amountRial: string; imageUrl: string; note: string } }
   canConfirm: boolean
   canReviewReceipt: boolean
+  canRejectReceipt: boolean
+  requiresTrackingCode: boolean
   history: { id: number; actorId: number; action: string; note: string; createdAt: string }[]
 }
 export type TransferReviewQueue = {

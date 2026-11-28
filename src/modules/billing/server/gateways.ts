@@ -1,4 +1,6 @@
 import { autoTransferConfig, isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
+import { PayError } from '@/modules/billing/domain/pay'
+import type { BaleCollectionPolicy } from '@/modules/billing/domain/pay-bale-collection'
 import type { Prisma } from '@prisma/client'
 // Payment gateway registry — every provider implements this contract so new
 // providers plug in without duplicating checkout, billing or admin logic.
@@ -271,7 +273,7 @@ export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provide
  * This allows a safe migration from env-only deployments and also permits
  * several active gateway accounts at the same time.
  */
-export async function listCheckoutGateways(currencyInput?: string, transaction?: Prisma.TransactionClient): Promise<GatewayRuntime[]> {
+export async function listCheckoutGateways(currencyInput?: string, transaction?: Prisma.TransactionClient, proposedBalePolicy?: BaleCollectionPolicy): Promise<GatewayRuntime[]> {
   const reader = transaction || db
   const rows = await reader.gateway.findMany({
     where: { active: true },
@@ -279,9 +281,19 @@ export async function listCheckoutGateways(currencyInput?: string, transaction?:
   })
   // Card transfer needs at least one active bank account to show at checkout.
   const hasBankAccount = rows.some((row) => row.provider === 'CARD_TRANSFER') && await reader.bankAccount.count({ where: { active: true, collectionUse: 'GENERAL' } }) > 0
-  const readyIds = new Set<number>()
-  for (const row of rows) if (isAutomaticTransfer(row) && await (await import('@/modules/billing/server/pay')).baleGatewayReady(transaction, row.id)) readyIds.add(row.id)
-  const dbGateways = rows.filter(row => isAutomaticTransfer(row) ? readyIds.has(row.id) : isGatewayUsable(row) && (row.provider !== 'CARD_TRANSFER' || hasBankAccount)).map(runtimeGateway)
+  const dbGateways: GatewayRuntime[] = []
+  for (const row of rows) {
+    let automatic: boolean
+    try { automatic = isAutomaticTransfer(row) }
+    catch (error) {
+      if (error instanceof PayError) continue
+      throw error
+    }
+    const ready = automatic
+      ? await (await import('@/modules/billing/server/pay')).baleGatewayReady(transaction, row.id, proposedBalePolicy)
+      : isGatewayUsable(row) && (row.provider !== 'CARD_TRANSFER' || hasBankAccount)
+    if (ready) dbGateways.push(runtimeGateway(row))
+  }
   const envGateways = envCheckoutGateways().filter((envGateway) => !dbGateways.some((dbGateway) =>
     dbGateway.provider === envGateway.provider
     && dbGateway.apiKey === envGateway.apiKey

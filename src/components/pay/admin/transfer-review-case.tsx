@@ -12,6 +12,7 @@ type SearchResult = { items: { id: string; invoiceNumber: string; totalRial: str
 export default function TransferReviewCase({ selected, onDecided }: { selected: { kind: 'id' | 'collection'; id: string }; onDecided: () => void }) {
   const [data, setData] = useState<TransferReviewDetail | null>(null), [reload, setReload] = useState(0), [error, setError] = useState(''), [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('')
   const [note, setNote] = useState(''), [number, setNumber] = useState(''), [results, setResults] = useState<SearchResult | null>(null), [chosen, setChosen] = useState(''), [ack, setAck] = useState(false)
+  const [trackingCode, setTrackingCode] = useState('')
   useEffect(() => {
     const controller = new AbortController()
     setLoading(true); setError('')
@@ -27,8 +28,11 @@ export default function TransferReviewCase({ selected, onDecided }: { selected: 
     setBusy(true); setError(''); setFeedback('')
     try {
       const receipt = action.startsWith('receipt-')
-      await api(`/api/admin/mobocom-pay/${receipt ? 'receipts' : 'transfer-reviews'}`, json('PATCH', receipt ? { id: data.collection?.receipt?.id, action: action === 'receipt-approve' ? 'approve' : 'reject', note } : { noticeId: data.notice?.id, version: data.version, action, note, ...(action === 'assign' ? { collectionId: chosen } : {}) }))
-      setFeedback(action === 'confirm' || action === 'receipt-approve' ? 'نتیجه ثبت شد؛ وضعیت مالی از سرور بازخوانی می‌شود.' : 'نتیجهٔ بررسی ثبت شد.'); setAck(false); setNote(''); setChosen(''); setResults(null); setReload(v => v + 1); onDecided()
+      await api(`/api/admin/mobocom-pay/${receipt ? 'receipts' : 'transfer-reviews'}`, json('PATCH', receipt ? {
+        id: data.collection?.receipt?.id, action: action === 'receipt-approve' ? 'approve' : 'reject', note,
+        ...(action === 'receipt-approve' && data.requiresTrackingCode && { trackingCode: trackingCode.trim() }),
+      } : { noticeId: data.notice?.id, version: data.version, action, note, ...(action === 'assign' ? { collectionId: chosen } : {}) }))
+      setFeedback(action === 'confirm' || action === 'receipt-approve' ? 'نتیجه ثبت شد؛ وضعیت مالی از سرور بازخوانی می‌شود.' : 'نتیجهٔ بررسی ثبت شد.'); setAck(false); setNote(''); setTrackingCode(''); setChosen(''); setResults(null); setReload(v => v + 1); onDecided()
     } catch (e) { setError(e instanceof Error ? e.message : 'تصمیم ثبت نشد') } finally { setBusy(false) }
   }
   const open = data?.status === 'OPEN', receipt = data?.collection?.receipt, validNote = note.trim().length >= 3
@@ -44,11 +48,13 @@ export default function TransferReviewCase({ selected, onDecided }: { selected: 
       {receipt && <section className={s.stack}><h3>رسید ارسالی پرداخت‌کننده</h3><a href={receipt.imageUrl} target="_blank" rel="noreferrer"><img className={s.receiptImage} src={receipt.imageUrl} alt="تصویر رسید ارسالی برای بررسی واریز" /></a><p>مبلغ اعلام‌شده: {money(receipt.amountRial)} · {receipt.status === 'PENDING' ? 'در انتظار بررسی' : receipt.status === 'APPROVED' ? 'تأییدشده' : 'ردشده'}</p>{receipt.note && <p>{receipt.note}</p>}</section>}
       {(data.notice && open || data.canReviewReceipt && receipt?.status === 'PENDING') && <section className={o.confirm}>
         <Field label="دلیل و نتیجهٔ بررسی (۳ تا ۳۰۰ نویسه)"><textarea value={note} onChange={e => setNote(e.target.value)} minLength={3} maxLength={300} rows={3} required /></Field>
+        {data.requiresTrackingCode && <Field label="شناسهٔ پیگیری بانک برای تأیید رسید"><input type="text" dir="auto" maxLength={64} value={trackingCode} onChange={e => setTrackingCode(e.target.value)} /></Field>}
         <p className={s.muted}>بستن بررسی، وجهی ثبت یا مسترد نمی‌کند. رسید نابرابر باید برای اصلاح پیگیری شود؛ مبلغ فاکتور و کیف پول تغییر نمی‌کند.</p>
         {(data.canConfirm || data.canReviewReceipt && receipt?.status === 'PENDING') && <label className={s.check}><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />مدرک وصول وجه و مقصد را بررسی کردم و نتیجهٔ مالی را تأیید می‌کنم.</label>}
         <div className={s.actions}>
           {data.notice && open && <><button className={s.secondary} type="button" disabled={busy || !validNote || !chosen} onClick={() => void decide('assign')}>ثبت ارتباط با فاکتور</button><button className={s.secondary} type="button" disabled={busy || !validNote} onClick={() => void decide('dismiss')}>بستن بررسی بدون ثبت مالی</button>{data.canConfirm && <button className={s.button} type="button" disabled={busy || !validNote || !ack} onClick={() => void decide('confirm')}>تأیید واریز دقیق و ثبت پرداخت</button>}</>}
-          {data.canReviewReceipt && receipt?.status === 'PENDING' && <><button className={s.button} type="button" disabled={busy || !validNote || !ack} onClick={() => void decide('receipt-approve')}>{data.collection?.invoiceStatus === 'PAID' ? 'ثبت رسید برای پرداخت قبلاً تأییدشده' : 'تأیید وصول وجه از رسید'}</button><button className={s.secondary} type="button" disabled={busy || !validNote} onClick={() => void decide('receipt-reject')}>رد رسید با دلیل</button></>}
+          {data.canReviewReceipt && receipt?.status === 'PENDING' && <button className={s.button} type="button" disabled={busy || !validNote || !ack || data.requiresTrackingCode && !trackingCode.trim()} onClick={() => void decide('receipt-approve')}>{data.collection?.invoiceStatus === 'PAID' ? 'ثبت رسید برای پرداخت قبلاً تأییدشده' : 'تأیید وصول وجه از رسید'}</button>}
+          {data.canRejectReceipt && <button className={s.secondary} type="button" disabled={busy || !validNote} onClick={() => void decide('receipt-reject')}>رد رسید با دلیل</button>}
         </div>
       </section>}
       <section className={s.stack}><h3>سابقهٔ ثبت‌شده · ۵۰ رویداد اخیر</h3>{!data.history.length && <p className={s.muted}>هنوز تصمیمی ثبت نشده است.</p>}<ol className={o.history}>{data.history.map(h => <li key={h.id}><strong>{actions[h.action] || 'رویداد درخواست پرداخت'}</strong><p className={s.muted}>{date(h.createdAt)} · شناسهٔ بررسی‌کننده {h.actorId.toLocaleString('fa-IR')}</p>{h.note && <p>{h.note}</p>}</li>)}</ol></section>

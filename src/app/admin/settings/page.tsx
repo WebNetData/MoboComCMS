@@ -66,8 +66,8 @@ export default function AdminSettingsPage() {
       <form onSubmit={save} className="card max-w-xl">
         <fieldset disabled={loading || busy || (!revision.current && !!error)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={loading || busy}>
         <div className="mb-6">
-          <label className="flex items-center gap-2"><input type="checkbox" checked={s.publicApiEnabled === 'true'} onChange={e => setS({ ...s, publicApiEnabled: e.target.checked ? 'true' : 'false' })}/><strong>{locale === 'fa' ? 'نمایش و فعال‌سازی API عمومی' : 'Show and enable public API'}</strong></label>
-          <p className="muted text-sm mt-3">{locale === 'fa' ? 'در حالت خاموش، بخش API، مدیریت کلیدها و دسترسی API عمومی برای همه غیرفعال است.' : 'When off, the API section, key management and public API access are disabled for everyone.'}</p>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={s.publicApiEnabled === 'true'} onChange={e => setS({ ...s, publicApiEnabled: e.target.checked ? 'true' : 'false' })}/><strong>{locale === 'fa' ? 'فعال‌سازی API و اتصال‌های موبوکام‌پی' : 'Enable API and MoboCom Pay integrations'}</strong></label>
+          <p className="muted text-sm mt-3">{locale === 'fa' ? 'خاموش‌کردن این گزینه اتصال ربات، دریافت پیامک بانکی و درخواست‌های API را متوقف می‌کند.' : 'Turning this off stops bot integrations, bank SMS intake and API access.'}</p>
         </div>
         <div className="mb-6">
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.personalRecommendationsEnabled !== 'false'} onChange={e => setS({ ...s, personalRecommendationsEnabled: e.target.checked ? 'true' : 'false' })}/><strong>{locale === 'fa' ? 'پیشنهادهای شخصی کتابخانه' : 'Personal library suggestions'}</strong></label>

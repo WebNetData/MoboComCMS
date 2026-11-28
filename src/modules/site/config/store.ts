@@ -4,7 +4,6 @@ import { db } from '@/platform/database/prisma'
 import { defaultSite } from './defaults'
 import { validateSite } from './validation'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
-import { isPublicApiEnabled } from '@/modules/public-api/server/availability'
 import { normalizeTrustSeals, visibleSeals } from './trust-seals'
 import { hideDisabledModules } from './visibility'
 import { filterSiteMenus } from './menus'
@@ -61,11 +60,11 @@ async function readPublicSiteConfig() {
   const runtime = await getPublicExtensionRuntime().catch(() => ({}))
   const saved = await getSiteConfig()
   const editable = hideDisabledModules({ ...saved, footerExplore: saved.footerExplore ?? saved.navigation }, runtime)
-  const [publicApiEnabled, seals] = await Promise.all([isPublicApiEnabled(), getTrustSeals()])
+  const seals = await getTrustSeals()
   const shown = visibleSeals(seals)
   const trustSeals = shown.length ? { title: seals.title, seals: shown.map(({ id, kind, title, href, image }) => ({ id, kind, title, href, image })) } : undefined
   const contact = saved.contact ? normalizeCompanyContact(saved.contact) : undefined
-  const site = { ...filterSiteMenus(editable, link => publicApiEnabled || !link.href.startsWith('/dashboard/api')), ...(contact ? { contact: contact.mapEnabled ? contact : { ...contact, latitude: null, longitude: null } } : {}), publicApiEnabled, trustSeals }
+  const site = { ...filterSiteMenus(editable, link => !/^\/dashboard\/api(?:[/?#]|$)/i.test(link.href)), ...(contact ? { contact: contact.mapEnabled ? contact : { ...contact, latitude: null, longitude: null } } : {}), trustSeals }
   if (await isStoreEnabled()) return site
   const isShopLink = (link: { href: string }) => /^\/products(?:[/?#]|$)/.test(link.href)
   return {

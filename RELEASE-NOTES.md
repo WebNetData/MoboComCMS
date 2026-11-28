@@ -1,3 +1,11 @@
+## 1.7.29 — MoboCom Pay operations and receipts (2026-11-28)
+
+MoboCom Pay adds operator and merchant reports, guide improvements, private
+personal key management, easier fee entry and card-transfer receipt checks.
+Merchants have one configurable invoice deadline. SMS and manual approval
+share the existing exact-once financial protections.
+[Release notes](docs/releases/1.7.29.md)
+
 ## 1.7.28 — AI management and Pay terminal credentials (2026-11-28)
 
 The AI desk adds scoped reports, scheduled reviews and explicitly confirmed Support, Store and Pay workflows. CRM shows stale sales opportunities with the matching sales-board filter. Pay adds merchant and terminal gateway grants, terminal-specific keys and bot input compatibility. Three additive migrations are sealed. [Release notes](docs/releases/1.7.28.md)

@@ -25,6 +25,7 @@ export function decideTransferReview(actor: PayActor, input: Record<string, unkn
     if (row && reserved && reserved.id !== row.id) throw new PayError('این مبلغ برای درخواست دیگری رزرو شده است', 409)
     if (notice.collectionMatch && row?.id !== notice.collectionMatch.id) throw new PayError('مدرک به درخواست دیگری متصل است', 409)
     if (action === 'confirm') {
+      if (row?.invoice.payCollection && !row.receiptId) throw new PayError('برای ثبت پرداخت پذیرنده، ابتدا مشتری باید رسید را ارسال کند', 409, 'PAY_RECEIPT_REQUIRED')
       if (!row || !['PENDING','UNDER_REVIEW','EXPIRED','REVIEW'].includes(row.status) || row.invoice.status !== 'UNPAID' || !row.acceptedAt || notice.receivedAt < row.createdAt || notice.sourceSentAt < row.acceptedAt || notice.sourceSentAt < row.validFrom || row.noticeId && row.noticeId !== notice.id) throw new PayError('این مدرک برای تأیید درخواست قابل استفاده نیست', 409)
       await collectionSourceActor(tx, row, notice)
     }

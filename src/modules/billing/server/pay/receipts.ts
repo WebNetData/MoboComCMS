@@ -20,6 +20,7 @@ import { reconcileReference } from './reconcile'
 import { collectionProjection, paymentInvoiceFields, paymentView } from './payment-view'
 import { paymentConfirmation, receiptReviewResult } from './confirmation'
 import { approvalReference } from './receipt-reference'
+import { assertOwnPayReceiptApproval } from './receipt-review-access'
 
 export async function submitPayReceipt(req: NextRequest, id: string) {
   await requirePayPayer(req, id)
@@ -70,7 +71,8 @@ export async function reviewPayReceiptByStaff(admin: { id: number; email: string
     const receipt = await tx.paymentReceipt.findUnique({ where: { id: receiptId }, include: { invoice: { include: { ...paymentInvoiceFields, payCollection: { include: { merchant: true } } } } } })
     const row = receipt?.invoice.payCollection
     if (!receipt || !row) throw new PayError('رسید در انتظار بررسی پیدا نشد', 409)
-    if (row.merchant.userId === admin.id) throw new PayError('تأیید دریافت خودتان مجاز نیست', 403)
+    const selfReview = row.merchant.userId === admin.id
+    if (selfReview) await assertOwnPayReceiptApproval(tx, admin.req, admin.id, action === 'approve')
     const paid = row.status === 'PAID' && receipt.invoice.status === 'PAID'
     const confirmation = paymentConfirmation(row, receipt.invoice.baleCollections[0], receipt.invoice.payments[0]?.raw)
     if (paid && receipt.status !== 'PENDING') return receiptReviewResult(receipt.status, true, confirmation)
@@ -84,7 +86,7 @@ export async function reviewPayReceiptByStaff(admin: { id: number; email: string
       const paid = await markInvoicePaid({ invoiceId: receipt.invoiceId, gatewayId: receipt.invoice.gatewayId, amount: row.totalMinor.toString(), provider: row.gatewayAttemptProvider, providerTxnId: trackingCode, raw: { source: 'pay-receipt', receiptId, by: admin.id } }, tx)
       if (!paid.ok) throw new PayError(paid.message || 'ثبت پرداخت انجام نشد', 409)
     }
-    await payAudit(tx, admin, 'receipt.' + action, row.id, { receiptId, note: clean, alreadyPaid: paid })
+    await payAudit(tx, admin, 'receipt.' + action, row.id, { receiptId, note: clean, alreadyPaid: paid, selfReview })
     return receiptReviewResult(paid || action === 'approve' ? 'APPROVED' : 'REJECTED', paid,
       paid ? confirmation : action === 'approve' ? { method: 'MANUAL', source: 'STAFF' } : { method: 'NONE', source: '' })
   })

@@ -32,10 +32,19 @@ export async function collectionFor(tx: Prisma.TransactionClient, id: string, re
   }
   return row
 }
+
+export function collectionReceiptAvailability(row: Awaited<ReturnType<typeof collectionFor>>, now: Date) {
+  const eligible = row.status === 'PENDING' && Boolean(row.acceptedAt) && !row.receiptId &&
+    row.invoice.status === 'UNPAID' && row.activeInvoiceId === row.invoiceId
+  const lateReceiptAllowed = eligible && row.invoice.payCollection?.creditCurrency === 'IRR'
+  return { lateReceiptAllowed, canSubmit: eligible && (row.expiresAt > now || lateReceiptAllowed) }
+}
+
 export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout> {
   return payTransaction(async tx => {
     const row = await collectionFor(tx, id, req), now = new Date(), start = baleEffectiveStart(row)
     const status = row.invoice.status === 'PAID' ? 'PAID' : row.status === 'PENDING' && (row.expiresAt <= now || !['UNPAID','DRAFT'].includes(row.invoice.status)) ? 'EXPIRED' : row.status as BaleCheckout['status']
+    const { lateReceiptAllowed } = collectionReceiptAvailability(row, now)
     let ready = false
     if (status === 'PENDING') {
       try {
@@ -53,6 +62,7 @@ export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout
       usdt: usdtEquivalent(row.collectedRial, await currentCurrencyRate('USDT', tx), now),
       validFrom: start.toISOString(), expiresAt: row.expiresAt.toISOString(), accepted: Boolean(row.acceptedAt), serverTime: now.toISOString(),
       ...(status === 'PENDING' && !ready ? { receiptOnly: true } : {}),
+      ...(lateReceiptAllowed ? { lateReceiptAllowed: true } : {}),
       receipt: row.receipt ? { id: row.receipt.id, status: row.receipt.status, createdAt: row.receipt.createdAt.toISOString() } : null,
       bank: status === 'PENDING' && ready && row.acceptedAt && now >= start ? bank : null,
       returnUrl: row.invoice.payCollection ? `/pay/${row.invoice.payCollection.id}` : `/invoice/${encodeURIComponent(row.invoice.number)}`,
@@ -65,7 +75,7 @@ export async function changeBaleCheckout(id: string, req: NextRequest, action: u
     const context = await baleCollectionContext(tx, row.gatewayId)
     if (action === 'renew') {
       if (row.status !== 'EXPIRED' && !(row.status === 'PENDING' && row.expiresAt <= now) && !(row.status === 'REVIEW' && row.reviewReason === 'RECEIPT_REJECTED')) throw new PayError('فقط درخواست منقضی یا رسید ردشده قابل نوسازی است', 409)
-      return (await createBaleCollectionInTransaction(tx, row.invoice.number, row.gatewayId, true)).id
+      return (await createBaleCollectionInTransaction(tx, row.invoice.number, row.gatewayId)).id
     }
     if (action !== 'accept') throw new PayError('عملیات پرداخت معتبر نیست', 422)
     if (row.status !== 'PENDING' || row.expiresAt <= now || row.invoice.status !== 'UNPAID' || row.activeInvoiceId !== row.invoiceId) throw new PayError('مهلت یا وضعیت درخواست تغییر کرده است', 409)
