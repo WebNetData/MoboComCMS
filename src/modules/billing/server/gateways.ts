@@ -273,7 +273,7 @@ export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provide
  * This allows a safe migration from env-only deployments and also permits
  * several active gateway accounts at the same time.
  */
-export async function listCheckoutGateways(currencyInput?: string, transaction?: Prisma.TransactionClient, proposedBalePolicy?: BaleCollectionPolicy, checkout: 'site' | 'pay' = 'site'): Promise<GatewayRuntime[]> {
+export async function listCheckoutGateways(currencyInput?: string, transaction?: Prisma.TransactionClient, proposedBalePolicy?: BaleCollectionPolicy, checkout: 'site' | 'pay' = 'site', assignedBankAccountId?: number | null): Promise<GatewayRuntime[]> {
   const reader = transaction || db
   const rows = await reader.gateway.findMany({
     where: { active: true },
@@ -290,7 +290,7 @@ export async function listCheckoutGateways(currencyInput?: string, transaction?:
       throw error
     }
     const ready = automatic
-      ? await (await import('@/modules/billing/server/pay')).baleGatewayReady(transaction, row.id, proposedBalePolicy, checkout)
+      ? await (await import('@/modules/billing/server/pay')).baleGatewayReady(transaction, row.id, proposedBalePolicy, checkout, assignedBankAccountId)
       : isGatewayUsable(row) && (row.provider !== 'CARD_TRANSFER' || hasBankAccount)
     if (ready) dbGateways.push(runtimeGateway(row))
   }

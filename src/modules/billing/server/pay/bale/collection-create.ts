@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
+import { isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
 import { PayError } from '@/modules/billing/domain/pay'
 import { bankAmountRange, invoicePrincipalRial } from '@/modules/billing/domain/pay-bale-collection'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
@@ -22,7 +23,7 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
     if (user?.status !== 'ACTIVE' || await globalAuthenticationDenied(invoice.userId, now, tx)) throw new PayError('حساب پرداخت‌کننده در دسترس نیست', 403)
   }
   const pay = invoice.payCollection
-  const context = await baleCollectionContext(tx, gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: pay.bankAccountId } : undefined, { routingKey: invoice.number })
+  const context = await baleCollectionContext(tx, gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: pay.bankAccountId } : undefined, { routingKey: invoice.number, assignedBankAccountId: pay?.assignedBankAccountId && isAutomaticTransfer(gateway) ? pay.assignedBankAccountId : null })
   const { bank, owner, policy } = context
   await tx.$queryRaw(Prisma.sql`SELECT id FROM "BankAccount" WHERE id = ${bank.id} FOR SHARE`)
   if (!owner) throw new PayError('مسئول درخواست پرداخت پیدا نشد', 409)

@@ -63,3 +63,31 @@
   .viewIcon { inline-size: 39px; block-size: 39px; border-radius: 10px; }
   .viewIcon svg { inline-size: 19px; block-size: 19px; }
 }
+
+.admin {
+  --section-ink: var(--sds-theme-accent);
+  isolation: isolate;
+  min-block-size: 138px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 0 0, color-mix(in srgb,var(--section-ink) 15%,transparent),transparent 68%),
+    var(--sds-color-background-default-default);
+}
+.admin::before { display: none; }
+.admin::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb,var(--section-ink) 14%,transparent) 0 1px, transparent 1px 13px);
+  mask-image: radial-gradient(ellipse at 0 0, black, transparent 53%);
+}
+.admin .identity { display: flex; align-items: center; gap: 15px; }
+.admin h1 { font-size: clamp(1.55rem, 2.5vw, 2.35rem); font-weight: 760; }
+.admin .context { color: var(--sds-color-text-default-secondary); }
+.admin[data-view="overview"] { min-block-size: 163px; }
+@media (max-width: 520px) {
+  .admin .identity { align-items: flex-start; gap: 10px; }
+  .admin .actions { justify-content: flex-start; }
+}

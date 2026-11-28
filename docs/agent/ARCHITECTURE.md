@@ -4,6 +4,8 @@ Payment audits compose existing Billing/Wallet/Operations/Identity boundaries;
 supporting client skills add methods, never an alternate financial/auth system.
 [Verified file parity and routing](ENGINEERING_SKILLS.md).
 
+Payment changes follow [the Pay reliability skill](../../.agents/skills/mobocom-pay-reliability/SKILL.md) and [engineering gates](ENGINEERING_SKILLS.md#payment-quality-gates). Billing owns the payment lifecycle, receiving eligibility and evidence matching; Wallet owns balances and ledger postings, Identity owns actors and permissions, and Operations schedules durable retries through Billing's existing commands. Store, Forms and Hosting compose these owners. A payment state claim and related financial effect commit together. Use exact currency units, scoped idempotency and durable callback delivery state. Preserve historical references when retiring accounts or terminals. Keep ambiguous SMS, unmatched receipts and uncertain callbacks in review without automatic credit.
+
 Pay reliability2026-11-26: Billing's generic manual settlement owner serializes
 against transfer-quote creation on the canonical Invoice row. All three Admin
 entrypoints compose it; ordinary top-up credit and the invoice claim share one

@@ -774,8 +774,37 @@ async function main() { try {
     return [...ids].sort()
   })
   assert.deepEqual(destinations, [generalBank.id, secondGeneralBank.id].sort())
+  const assignedBank = secondGeneralBank
+  const updateAssignment = async (actor, bankAccountId, terminalId = payTerminal.id) =>
+    pay.manageMerchant(actor, {
+      id: payMerchant.id, version: (await prisma.payMerchant.findUniqueOrThrow({ where: { id: payMerchant.id } })).version,
+      action: 'terminal-account', terminalId, bankAccountId, note: 'Synthetic destination assignment',
+    })
+  const viewBefore = await pay.merchantAdminDetail(admin, payMerchant.id)
+  assert.equal(viewBefore.bankAccounts.find(item => item.id === assignedBank.id).eligible, true)
+  assert.equal(viewBefore.bankAccounts.find(item => item.id === assignedBank.id).cardLast4, assignedBank.cardNumber.slice(-4))
+  await assert.rejects(updateAssignment(merchantActor, assignedBank.id), status(403))
+  await assert.rejects(updateAssignment(admin, assignedBank.id, randomUUID()), status(404))
+  await assert.rejects(updateAssignment(admin, 2147483647), error => error.status === 409 || error.status === 422)
+  const gatewayAccess = await pay.adminGatewayAccess(admin, payMerchant.id)
+  const version = gatewayAccess.terminals.find(item => item.id === payTerminal.id).policy.version
+  const policyChange = { merchantId: payMerchant.id, terminalId: payTerminal.id, confirmed: true, note: 'Synthetic terminal gateway policy' }
+  const restricted = await pay.saveGatewayAccess(admin, { ...policyChange, version, mode: 'ALLOWLIST', refs: ['db:' + gateway.id] })
+  const unavailable = (await pay.merchantAdminDetail(admin, payMerchant.id)).terminals.find(item => item.id === payTerminal.id)
+  assert.equal(unavailable.eligibleBankAccountIds.includes(assignedBank.id), false)
+  await assert.rejects(updateAssignment(admin, assignedBank.id), error => error.status === 409 || error.status === 422)
+  await pay.saveGatewayAccess(admin, { ...policyChange, version: restricted.terminals.find(item => item.id === payTerminal.id).policy.version, mode: 'INHERIT', refs: [] })
+  await updateAssignment(admin, assignedBank.id)
+  const detailAfterSave = await pay.merchantAdminDetail(admin, payMerchant.id)
+  assert.equal(detailAfterSave.terminals.find(item => item.id === payTerminal.id).bankAccountId, assignedBank.id)
   const automatic = await pay.createPayPayment(merchantActor, { terminalId: payTerminal.id, externalId: stamp + '-pool', amountRial: '19100000', gatewayRef: 'db:' + generalGateway.id }, randomUUID())
   merchantPayments.push(automatic.id)
+  assert.equal(Object.hasOwn(await pay.payPaymentById(merchantActor, automatic.id), 'assignedBankAccountId'), false)
+  assert.equal((await prisma.payPayment.findUniqueOrThrow({ where: { id: automatic.id } })).assignedBankAccountId, assignedBank.id)
+  await assert.rejects(prisma.payPayment.update({ where: { id: automatic.id }, data: { assignedBankAccountId: generalBank.id } }),
+    /assigned|destination|immutable/i)
+  await updateAssignment(admin, null)
+  assert.equal((await pay.merchantAdminDetail(admin, payMerchant.id)).terminals.find(item => item.id === payTerminal.id).bankAccountId, null)
   const autoSecret = randomBytes(32).toString('base64url'), autoCookie = `pay_payer_${automatic.id}=${autoSecret}`
   await prisma.payPayment.updateMany({ where: { id: automatic.id, payerSessionHash: '' }, data: { payerSessionHash: createHash('sha256').update(autoSecret).digest('hex'), payerPhoneCiphertext: encryptPanelCredential('+989120009999'), payerPhoneLast4: '9999', payerVerifiedAt: new Date(now), payerSessionExpiresAt: new Date(now + 3600000) } })
   const autoReq = new NextRequest('https://mobocom.invalid/pay/' + automatic.id, { headers: { cookie: autoCookie } })
@@ -784,6 +813,13 @@ async function main() { try {
   const quoteId = new URL(autoStarted.paymentUrl).pathname.split('/').at(-1)
   const autoQuote = await changeBaleCheckout(quoteId, autoReq, 'accept')
   const poolRow = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: quoteId } })
+  assert.equal(poolRow.bankAccountId, assignedBank.id)
+  const { DELETE_account } = load('src/modules/billing/server/http/card-transfer/admin.ts')
+  const pendingRemoval = await DELETE_account(new NextRequest('https://mobocom.invalid/api/admin/bank-accounts?id=' + assignedBank.id,
+    { method: 'DELETE', headers: admin.req.headers }))
+  assert.equal(pendingRemoval.status, 409)
+  assert.equal((await pendingRemoval.json()).code, 'PAY_BANK_ACCOUNT_IN_USE')
+  assert.equal((await prisma.bankAccount.findUniqueOrThrow({ where: { id: assignedBank.id } })).active, true)
   const correct = sources.find(item => item.account.id === poolRow.bankAccountId)
   const wrong = sources.find(item => item.account.id !== poolRow.bankAccountId)
   assert.equal(autoQuote.bank.cardNumber, correct.account.cardNumber)
@@ -803,6 +839,19 @@ async function main() { try {
   assert.equal((await poolSms(correct)).duplicate, true)
   const bankDestination = await prisma.bankAccount.findUniqueOrThrow({ where: { id: correct.account.id } })
   await assert.rejects(prisma.bankAccount.update({ where: { id: bankDestination.id }, data: { accountNumber: '12345678' } }))
+  await updateAssignment(admin, assignedBank.id)
+  const completedRemoval = await DELETE_account(new NextRequest('https://mobocom.invalid/api/admin/bank-accounts?id=' + assignedBank.id,
+    { method: 'DELETE', headers: admin.req.headers }))
+  assert.equal(completedRemoval.status, 200, await completedRemoval.clone().text())
+  assert.equal((await completedRemoval.json()).archived, true)
+  const archived = await pay.merchantAdminDetail(admin, payMerchant.id)
+  assert.equal(archived.terminals.find(item => item.id === payTerminal.id).bankAccountId, assignedBank.id)
+  assert.equal(archived.bankAccounts.find(item => item.id === assignedBank.id).eligible, false)
+  await assert.rejects(pay.createPayPayment(merchantActor, { terminalId: payTerminal.id, externalId: stamp + '-archived', amountRial: '19100000', gatewayRef: 'db:' + generalGateway.id },
+    randomUUID()), error => error.code === 'PAY_GATEWAY_NOT_AVAILABLE')
+  assert.equal((await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: quoteId } })).bankAccountId, assignedBank.id)
+  assert.equal(await prisma.walletTx.count({ where: { idempotencyKey: 'pay-credit:' + automatic.id } }), 1)
+  await updateAssignment(admin, null)
   await put(keys[2],'{"enabled":false,"settings":{}}'); await assert.rejects(operations.transferMonitor(admin),status(404)); await assert.rejects(command(overNotice.id,'dismiss',1),status(404)); await put(keys[2],'{"enabled":true,"settings":{}}')
   console.log('Bale collection + operations desk assertions passed: exact-once receipts/auto/reviewer race, late admission, mismatch refusal, version/module/source denial, pool and latency projections')
 } finally {
@@ -822,7 +871,7 @@ async function main() { try {
     if (payTerminal) await prisma.payTerminal.deleteMany({ where: { id: payTerminal.id } })
     if (payMerchant) await prisma.payMerchant.deleteMany({ where: { id: payMerchant.id } })
     await prisma.payment.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { providerTxnId: { in: ids }, provider: 'MOBOCOM_PAY_ADJUSTMENT' }] } }); await prisma.walletTx.deleteMany({ where: { OR: [{ invoiceId: { in: invoices } }, { userId: { in: users.map(user => user.id) }, type: 'PAY_CREDIT' }] } }); await prisma.walletAccount.deleteMany({ where: { userId: { in: users.map(user => user.id) } } }); await prisma.invoice.deleteMany({ where: { id: { in: invoices } } }); await prisma.order.deleteMany({ where: { id: { in: orders } } })
-    await prisma.auditLog.deleteMany({ where: { actorUserId: { in: users.map(user => user.id) }, OR: [{ action: { startsWith: 'mobocom-pay.' } }, { action: 'invoice.markPaid' }, { action: 'order.markPaid' }] } }); await prisma.paySmsSource.deleteMany({ where: { id: { in: extraSmsSources } } }); if (smsSource) await prisma.paySmsSource.deleteMany({ where: { id: smsSource.id } }); if (smsGateway) await prisma.gateway.deleteMany({ where: { id: smsGateway.id } }); if (gateway) await prisma.gateway.deleteMany({ where: { id: gateway.id } }); if (bank) await prisma.bankAccount.deleteMany({ where: { id: bank.id } }); if (secondBank) await prisma.bankAccount.deleteMany({ where: { id: secondBank.id } }); await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } })
+    await prisma.auditLog.deleteMany({ where: { actorUserId: { in: users.map(user => user.id) }, OR: [{ action: { startsWith: 'mobocom-pay.' } }, { action: { startsWith: 'bank_account.' } }, { action: 'invoice.markPaid' }, { action: 'order.markPaid' }] } }); await prisma.paySmsSource.deleteMany({ where: { id: { in: extraSmsSources } } }); if (smsSource) await prisma.paySmsSource.deleteMany({ where: { id: smsSource.id } }); if (smsGateway) await prisma.gateway.deleteMany({ where: { id: smsGateway.id } }); if (gateway) await prisma.gateway.deleteMany({ where: { id: gateway.id } }); if (bank) await prisma.bankAccount.deleteMany({ where: { id: bank.id } }); if (secondBank) await prisma.bankAccount.deleteMany({ where: { id: secondBank.id } }); await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } })
     await prisma.role.deleteMany({where:{id:{in:roles}}})
     if (manualGateway) await prisma.gateway.deleteMany({ where: { id: manualGateway.id } })
     if (generalGateway) await prisma.gateway.deleteMany({ where: { id: generalGateway.id } })

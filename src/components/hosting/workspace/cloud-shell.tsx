@@ -17,11 +17,12 @@ function CloudAccount({ onNavigate }: { onNavigate?: () => void }) {
   const { data: session } = useSession()
   const user = session?.user as (NonNullable<typeof session>['user'] & { phone?: string | null }) | undefined
   const displayName = user?.name?.trim() || 'حساب موبوکام'
-  const accountDetail = user?.phone || user?.email
+  const accountDetail = user?.email?.trim() || user?.phone
   return <div className={s.account}>
     <Link href={cloudDashboardPath + '/account'} className={s.accountIdentity} onClick={onNavigate}>
       <span className={s.avatar} aria-hidden="true"><ProfilePortrait image={user?.image || ''} name={displayName} /></span>
-      <span><strong dir="auto">{displayName}</strong>{accountDetail && <small dir="ltr">{accountDetail}</small>}</span>
+      <strong dir="auto">{displayName}</strong>
+      {accountDetail && <small dir="ltr">{accountDetail}</small>}
     </Link>
     <button type="button" className={`${s.control} ${s.logout}`} title="خروج از حساب" aria-label="خروج از حساب" onClick={() => void signOut({ callbackUrl: '/cloud' })}>
       <Icon name="logout" size={18} />

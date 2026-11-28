@@ -84,6 +84,16 @@ For requested interface design, styling, polish or redesign, use `unslop` with t
 For work that creates, changes or reviews user-facing UI/UX, graphic assets, components, pages, dashboards or visual interactions, load [`mobocom-premium-design`](.agents/skills/mobocom-premium-design/SKILL.md) (`$mobocom-premium-design` in Codex). Follow the existing architecture and [frontend quality standard](docs/agent/FRONTEND_QUALITY.md). Reuse approved MoboCom/Figma SDS tokens and components, preserve protected surfaces, locales and contracts, and keep Unslop as the default design critique. Select companions for the current task only. Verify material UI changes in a real browser and record missing evidence explicitly. Scope minor fixes to the affected surface. Backend-only work stays on its existing route.
 <!-- mobocom-premium-design:end -->
 
+<!-- mobocom-pay-reliability:start -->
+## Payment engineering
+
+Use [`mobocom-pay-reliability`](.agents/skills/mobocom-pay-reliability/SKILL.md) for every direct or indirect change affecting payments, including shared services. For any affected payment UI, also use `mobocom-premium-design` with the existing SDS and Unslop routing.
+
+Trace ownership, dependencies and impact. Reproduce bugs, establish the root cause and preserve an executable regression for each fix where practical. Verify existing and new behavior with synthetic fixtures, including applicable PostgreSQL invariants, races, authorization and browser flows. Obtain an independent review and record executed evidence in the [Pay handoff](docs/agent/handoffs/MOBOCOM_PAY.md). Protect financial history, tenant isolation, idempotency, atomicity and published contracts. Ambiguous evidence cannot credit a payment.
+
+Critical failures or missing critical evidence block payment merge and release. Keep existing assertions intact. The [engineering gates](docs/agent/ENGINEERING_SKILLS.md#payment-quality-gates) describe the manual CI workflow and local checks. Production deployment, real-money tests and production data changes require separate authorization.
+<!-- mobocom-pay-reliability:end -->
+
 <!-- mobocom-whole-site-quality:start -->
 ## Whole-site architecture and administration quality (Codex + Claude)
 

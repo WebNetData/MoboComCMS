@@ -41,11 +41,12 @@ export function withGatewayPriority(items: PayGatewayOption[]) {
 
 export async function payGatewayOptions(row?: { id?: string; totalMinor: bigint; creditCurrency?: string; requestedGatewayRef?: string },
   reader: Prisma.TransactionClient | typeof db = db, readyCatalog?: Catalog): Promise<PayGatewayOption[]> {
-  const catalog = readyCatalog ?? await listCheckoutGateways('IRR', reader === db ? undefined : reader as Prisma.TransactionClient, undefined, 'pay')
-  if (!row?.id) return eligiblePayGateways(catalog, undefined, row)
+  const catalogFor = (bankAccountId?: number | null) =>
+    readyCatalog ?? listCheckoutGateways('IRR', reader === db ? undefined : reader as Prisma.TransactionClient, undefined, 'pay', bankAccountId)
+  if (!row?.id) return eligiblePayGateways(await catalogFor(), undefined, row)
   const payment = await reader.payPayment.findUnique({
     where: { id: row.id }, select: {
-      requestedGatewayRef: true, bankAccount: { select: { active: true } },
+      requestedGatewayRef: true, assignedBankAccountId: true, bankAccount: { select: { active: true } },
       merchant: { select: { gatewayPolicy: true, baleAllowed: true } },
       terminal: { select: { gatewayPolicy: true, baleEnabled: true } },
       botDelivery: { select: { routingSnapshot: true } },
@@ -53,7 +54,7 @@ export async function payGatewayOptions(row?: { id?: string; totalMinor: bigint;
   })
   if (!payment) return []
   const snapshot = payment.botDelivery ? parseRoutingSnapshot(payment.botDelivery.routingSnapshot) : null
-  const options = eligiblePayGateways(catalog, payment, { ...row, requestedGatewayRef: payment.requestedGatewayRef, hasBankAccount: Boolean(payment.bankAccount?.active) })
+  const options = eligiblePayGateways(await catalogFor(payment.assignedBankAccountId), payment, { ...row, requestedGatewayRef: payment.requestedGatewayRef, hasBankAccount: Boolean(payment.bankAccount?.active) })
   if (!snapshot) return options
   const available = new Map(options.map(option => [option.ref, option]))
   return withGatewayPriority(snapshot.gateways.flatMap(method => available.get(method.ref) ?? []))

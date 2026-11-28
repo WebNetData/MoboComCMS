@@ -2,6 +2,7 @@ import Link from "@/components/AppLink";
 import Icon from "@/components/site/Icon";
 import type { PayAdminOverview } from "@/modules/billing/domain/pay";
 import styles from "../WorkspaceContent.module.css";
+import design from "./AdminWorkspace.module.css";
 
 const root = "/admin/mobocom-pay";
 const tools = [
@@ -26,13 +27,13 @@ export default function AdminOverview({ data }: { data: PayAdminOverview }) {
     ] : []),
   ];
   return (
-    <div className={styles.workspace}>
+    <div className={`${styles.workspace} ${design.overview}`}>
       <section className={styles.panel} aria-labelledby="pay-queue-title">
         <div className={styles.sectionHead}>
-          <div><h2 id="pay-queue-title">صف عملیات درگاه</h2><p>درخواست‌ها را از مرحلهٔ بررسی تا ثبت نتیجه پیگیری کنید.</p></div>
+          <div><h2 id="pay-queue-title">صف عملیات درگاه</h2><p>تعداد پرونده‌های باز در هر مرحله</p></div>
           {permissions.manage && <Link className={styles.guideLink} href={root + "/settings#pay-admin-guide"}><Icon name="book" size={18} /> راهنمای مدیریت</Link>}
         </div>
-        <ul className={styles.queue}>
+        <ul className={`${styles.queue} ${design.queue}`}>
           {queue.map(item => <li key={item.label} data-needs-action={item.count > 0 || undefined}>
             <Link href={root + "/" + item.href}>
               <span className={styles.tileIcon}><Icon name={item.icon} size={19} /></span>
@@ -42,10 +43,10 @@ export default function AdminOverview({ data }: { data: PayAdminOverview }) {
           </li>)}
         </ul>
       </section>
-      {permissions.manage && <div className={styles.adminColumns}>
+      {permissions.manage && <div className={`${styles.adminColumns} ${design.overviewColumns}`}>
         <section className={styles.panel} aria-labelledby="pay-tools-title">
-          <div className={styles.sectionHead}><div><h2 id="pay-tools-title">ابزارهای مدیریت</h2><p>از هر ابزار مستقیماً به بخش عملیاتی آن بروید.</p></div></div>
-          <ul className={styles.linkGrid}>
+          <div className={styles.sectionHead}><div><h2 id="pay-tools-title">ابزارهای مدیریت</h2></div></div>
+          <ul className={`${styles.linkGrid} ${design.toolGrid}`}>
             {tools.map(tool => <li key={tool.path}><Link href={root + (tool.path.startsWith("?") ? "" : "/") + tool.path}>
               <span className={styles.tileIcon}><Icon name={tool.icon} size={18} /></span>
               <span><strong>{tool.title}</strong><small>{tool.hint}</small></span>
@@ -55,10 +56,10 @@ export default function AdminOverview({ data }: { data: PayAdminOverview }) {
         </section>
         <section className={styles.panel} aria-labelledby="pay-config-title">
           <div className={styles.sectionHead}><div><h2 id="pay-config-title">وضعیت پیکربندی</h2><p>آمادگی تنظیمات دریافت و تسویه</p></div></div>
-          <dl className={styles.statusList}>
-            <div><dt>دریافت درگاه</dt><dd>{settings.incomingEnabled ? "فعال" : "غیرفعال"}</dd></div>
-            <div><dt>تطبیق پیامک بانکی</dt><dd>{settings.bale.enabled ? "فعال" : "غیرفعال"}</dd></div>
-            <div><dt>صورت‌حساب بانکی</dt><dd>{data.readiness.bankFeedReady ? "پیکربندی شده" : "پیکربندی نشده"}</dd></div>
+          <dl className={`${styles.statusList} ${design.readiness}`}>
+            <div><dt>دریافت درگاه</dt><dd data-ready={settings.incomingEnabled}>{settings.incomingEnabled ? "فعال" : "غیرفعال"}</dd></div>
+            <div><dt>تطبیق پیامک بانکی</dt><dd data-ready={settings.bale.enabled}>{settings.bale.enabled ? "فعال" : "غیرفعال"}</dd></div>
+            <div><dt>صورت‌حساب بانکی</dt><dd data-ready={data.readiness.bankFeedReady}>{data.readiness.bankFeedReady ? "پیکربندی شده" : "پیکربندی نشده"}</dd></div>
             <div><dt>مسیرهای تسویهٔ فعال</dt><dd>{settings.rails.filter(rail => rail.enabled).length.toLocaleString("fa-IR")}</dd></div>
           </dl>
           <Link className={styles.guideLink} href={root + "/operations"}>مشاهدهٔ وضعیت منابع <Icon name="arrow" size={16} /></Link>

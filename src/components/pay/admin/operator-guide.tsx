@@ -1,10 +1,13 @@
 import Link from "@/components/AppLink";
 import styles from "../WorkspaceContent.module.css";
+import Icon from "@/components/site/Icon";
+import d from "./AdminSettings.module.css";
 
 export default function OperatorGuide() {
   return (
-    <section id="pay-admin-guide" className={styles.panel} aria-labelledby="pay-admin-guide-title">
-      <div className={styles.sectionHead}>
+    <section id="pay-admin-guide" className={`${styles.panel} ${d.section}`} aria-labelledby="pay-admin-guide-title">
+      <div className={d.title}>
+        <span className={d.icon}><Icon name="book" size={19} /></span>
         <div><h2 id="pay-admin-guide-title">راهنمای مدیریت درگاه</h2><p>مراحل راه‌اندازی پذیرنده و رسیدگی به استثناهای دریافت و تسویه</p></div>
       </div>
       <details className={styles.guideDetails}>

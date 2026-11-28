@@ -11,6 +11,8 @@ import FinancialReport from "../financial-report";
 import s from "../Pay.module.css";
 import Settings from "./settings";
 import PayNavigation from "../navigation";
+import Icon from "@/components/site/Icon";
+import design from "./AdminWorkspace.module.css";
 import AdminOverview from "./overview";
 import WorkspaceHeader from "../workspace-header";
 import Merchants from "./merchants";
@@ -55,8 +57,9 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
   }
   if (!data || !settings)
     return (
-      <section className={s.page}>
-        <h1>مدیریت درگاه پرداخت</h1>
+      <section className={`${s.page} ${design.page}`} dir="rtl">
+        <WorkspaceHeader area="admin" view={initialView} />
+        <div className={design.pending}>
         {error ? (
           <>
             <ErrorNotice error={error} />
@@ -69,8 +72,9 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
             </button>
           </>
         ) : (
-          <p role="status">در حال دریافت اطلاعات…</p>
+          <p role="status">در حال دریافت اطلاعات درگاه…</p>
         )}
+        </div>
       </section>
     );
   const tab = views.indexOf(initialView);
@@ -80,17 +84,18 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
     setSettings({ ...settings, ...patch });
   };
   return (
-    <section className={s.page}>
+    <section className={`${s.page} ${design.page}`} dir="rtl">
       <WorkspaceHeader area="admin" view={initialView}>
         {data.permissions.manage && (
-          <span className={s.badge}>
-            صورت‌حساب بانکی:{" "}
-            {data.readiness.bankFeedReady ? "پیکربندی شده" : "پیکربندی نشده"}
-          </span>
+          <div className={design.bankStatus} data-ready={data.readiness.bankFeedReady}>
+            <span className={design.statusIcon}><Icon name="bank" size={19} /></span>
+            <span><small>صورت‌حساب بانکی</small><strong>{data.readiness.bankFeedReady ? "پیکربندی شده" : "پیکربندی نشده"}</strong></span>
+          </div>
         )}
       </WorkspaceHeader>
       <ErrorNotice error={error} />
       <PayNavigation area="admin" current={initialView === "reports" ? "overview" : initialView} canManage={data.permissions.manage} />
+      <div className={design.content} data-pay-admin-content>
       {forbidden && <p className={s.notice}>دسترسی به این بخش برای شما فعال نیست.</p>}
       {initialView === "overview" && <AdminOverview data={data} />}
       {!forbidden && tab === 0 && <Merchants />}
@@ -102,38 +107,42 @@ export default function Admin({ initialView = "overview" }: { initialView?: stri
       {!forbidden && tab === 6 && <TransferMonitor />}
       {!forbidden && tab === 7 && <TransferReconciliation />}
       {!forbidden && tab === 3 && (
-        <section className={`${s.card} ${s.tableWrap}`} tabIndex={0} aria-label="فهرست رویدادهای بانکی">
-          <h2>رویدادهای بانکی</h2>
+        <section className={s.card} aria-labelledby="pay-bank-events-title">
+          <div className={design.sectionHead}>
+            <div><h2 id="pay-bank-events-title">دفتر رویدادهای بانکی</h2><p>شواهد واریز و وضعیت اتصال آن‌ها به پرداخت‌های درگاه</p></div>
+          </div>
+          {data.bankEvents.length > 0 ? <div className={`${s.tableWrap} ${design.ledger}`} tabIndex={0} role="region" aria-label="فهرست رویدادهای بانکی">
           <table className={s.table}>
             <thead>
               <tr>
-                <th>شناسه</th>
-                <th>مبلغ</th>
-                <th>پیگیری</th>
-                <th>وضعیت تطبیق</th>
-                <th>پرداخت</th>
-                <th>زمان</th>
+                <th scope="col">شناسه</th>
+                <th scope="col">مبلغ</th>
+                <th scope="col">پیگیری</th>
+                <th scope="col">وضعیت تطبیق</th>
+                <th scope="col">پرداخت</th>
+                <th scope="col">زمان</th>
               </tr>
             </thead>
             <tbody>
               {data.bankEvents.map((e) => (
                 <tr key={e.id}>
-                  <td>{e.externalId}</td>
+                  <td><bdi>{e.externalId}</bdi></td>
                   <td>{money(e.amountRial)}</td>
-                  <td>{e.transferReference}</td>
+                  <td><bdi>{e.transferReference}</bdi></td>
                   <td>
                     <Badge value={e.status} />
                   </td>
-                  <td>{e.paymentId || "—"}</td>
+                  <td><bdi>{e.paymentId || "—"}</bdi></td>
                   <td>{date(e.occurredAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {!data.bankEvents.length && <p>رویدادی ثبت نشده است.</p>}
+          </div> : <div className={design.empty}><Icon name="bank" size={24} /><p>هنوز رویداد بانکی ثبت نشده است.</p></div>}
         </section>
       )}
       {!forbidden && tab === 4 && <Settings {...{ data, settings, update, action, busy, settingsSaved, error }} />}
+      </div>
     </section>
   );
 }

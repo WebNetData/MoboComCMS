@@ -4,6 +4,8 @@ import type { MerchantDetail, MerchantDirectory } from '@/modules/billing/domain
 import { payContext, payTransaction, type PayActor } from '../context'
 import { merchantView, terminalView } from '../views'
 import { assetBalances } from '../balances'
+import { terminalBankAccounts, terminalBankAccountIssue } from '../bale/collection-context'
+import { storedGatewayPolicy } from '@/modules/billing/domain/pay-gateway-access'
 import { normalizeMobile } from '@/modules/sms/domain/sms'
 import { requirePerm } from '@/modules/identity/server/access'
 import { actorHasFullAccess } from '@/modules/identity/server/staff-guard'
@@ -24,12 +26,25 @@ export function merchantAdminDetail(actor: PayActor, id: string): Promise<Mercha
     const { settings } = await payContext(actor, tx, 'mobocom-pay.manage')
     const row = await tx.payMerchant.findUnique({ where: { id }, include: { user: { select: { email: true, phone: true, status: true, walletAccounts: { where: { currency: 'IRR' }, select: { withdrawableMinor: true } } } }, terminals: { where: { archivedAt: null }, orderBy: { createdAt: 'desc' }, include: { botIntegration: true } } } })
     if (!row) throw new PayError('پذیرنده پیدا نشد', 404)
-    const [payments, pendingSettlements, history] = await Promise.all([
+    const [payments, pendingSettlements, bankAccounts, history] = await Promise.all([
       tx.payPayment.aggregate({ where: { merchantId: id, status: 'PAID' }, _sum: { totalMinor: true }, _count: true }),
       tx.paySettlement.count({ where: { merchantId: id, status: { in: ['REQUESTED','APPROVED'] } } }),
+      terminalBankAccounts(tx, undefined, row.terminals.flatMap(terminal => terminal.bankAccountId ?? [])),
       tx.auditLog.findMany({ where: { targetType: 'mobocom-pay', targetId: id, action: { startsWith: 'mobocom-pay.merchant.' } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50 }),
     ])
     const balances = await assetBalances(tx, row.userId, row.id, settings.usdtRateMaxAgeMinutes)
-    return { assetBalances: balances, merchant: { ...merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n, settings), version: row.version, email: row.user.email, phone: row.user.phone, userStatus: row.user.status, terminalCount: row.terminals.length }, terminals: row.terminals.map(t => ({ ...terminalView(t), bot: t.botIntegration ? { id: t.botIntegration.id, active: t.botIntegration.active, version: t.botIntegration.version, callbackUrl: t.botIntegration.callbackUrl } : null })), stats: { payments: payments._count, paidRial: (payments._sum.totalMinor || 0n).toString(), pendingSettlements }, history: history.map(h => { let note = ''; try { const m = JSON.parse(h.metadata); if (typeof m.note === 'string') note = m.note } catch {} return { id: h.id, action: h.action, note, actorId: h.actorUserId, at: h.createdAt.toISOString() } }) }
+    const merchantPolicy = storedGatewayPolicy(row.gatewayPolicy)
+    const terminals = row.terminals.map(terminal => {
+      const terminalPolicy = storedGatewayPolicy(terminal.gatewayPolicy)
+      const bot = terminal.botIntegration
+      return {
+        ...terminalView(terminal), bankAccountId: terminal.bankAccountId,
+        eligibleBankAccountIds: bankAccounts.filter(account => !terminalBankAccountIssue(account, merchantPolicy, terminalPolicy)).map(account => account.id),
+        bot: bot ? { id: bot.id, active: bot.active, version: bot.version, callbackUrl: bot.callbackUrl } : null,
+      }
+    })
+    const accountViews = bankAccounts.map(({ id, bankName, holderName, cardLast4, eligible, reason }) =>
+      ({ id, bankName, holderName, cardLast4, eligible, reason }))
+    return { assetBalances: balances, bankAccounts: accountViews, merchant: { ...merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n, settings), version: row.version, email: row.user.email, phone: row.user.phone, userStatus: row.user.status, terminalCount: row.terminals.length }, terminals, stats: { payments: payments._count, paidRial: (payments._sum.totalMinor || 0n).toString(), pendingSettlements }, history: history.map(h => { let note = ''; try { const m = JSON.parse(h.metadata); if (typeof m.note === 'string') note = m.note } catch {} return { id: h.id, action: h.action, note, actorId: h.actorUserId, at: h.createdAt.toISOString() } }) }
   })
 }

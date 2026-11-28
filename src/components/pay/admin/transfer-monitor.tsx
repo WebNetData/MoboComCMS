@@ -6,6 +6,7 @@ import { api, money, date } from '../client'
 import { ErrorNotice } from '../shared'
 import s from '../Pay.module.css'
 import o from './TransferOperations.module.css'
+import DeskHeader from './desk-header'
 
 const n = (value: number) => value.toLocaleString('fa-IR')
 const latency = (value: number | null) => value === null ? 'داده کافی نیست' : `${(value / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} ثانیه`
@@ -51,7 +52,9 @@ export default function TransferMonitor() {
     return () => controller.abort()
   }, [reload])
   return <section className={s.stack} aria-busy={loading}>
-    <div className={`${s.sectionHead} ${o.heading}`}><div><h2>نبض دریافت‌های بانکی</h2><p className={s.muted}>بازهٔ آمار: ۲۴ ساعت اخیر · {data ? `ثبت نما: ${date(data.asOf)}` : 'در انتظار اطلاعات'}</p></div><button type="button" className={s.secondary} disabled={loading} onClick={() => setReload(v => v + 1)}>تازه‌سازی پایش</button></div>
+    <DeskHeader icon="activity" title="وضعیت دریافت‌های بانکی" description={<>۲۴ ساعت اخیر · {data ? `آخرین بازخوانی ${date(data.asOf)}` : 'در انتظار اطلاعات'}</>}>
+      <button type="button" className={s.secondary} disabled={loading} onClick={() => setReload(v => v + 1)}>تازه‌سازی پایش</button>
+    </DeskHeader>
     <ErrorNotice error={error} />
     {loading && <p role="status">در حال دریافت شاخص‌ها…</p>}
     {data && !error && !loading && <>

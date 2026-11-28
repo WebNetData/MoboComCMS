@@ -203,20 +203,29 @@ const CHECKS = [
 // Run explicitly on those isolated databases, never the site's database.
 // Web operations needs an empty first-owner database; import compatibility also requires an explicitly disposable DB.
 const OPTIONAL_CHECKS = ['cloud-navigation', 'navigation-control', 'updater-github', 'web-operations', 'installer-host-setup', 'import-content-compat', 'media-archive', 'media-storage', 'content-authoring', 'journal-notification-intents', 'compatible-audio', 'admin-policy-history', 'journal-review-reliability', 'journal-block-proposals']
-OPTIONAL_CHECKS.push('mobocom-pay', 'pay-shared-checkout')
-OPTIONAL_CHECKS.push('pay-bot', 'pay-routing-operations', 'crm-scope-currency', 'playlist-audience')
-OPTIONAL_CHECKS.push('pay-bale-collection', 'pay-usdt-equivalent')
-OPTIONAL_CHECKS.push('pay-private-merchants', 'pay-assets')
-OPTIONAL_CHECKS.push('pay-webhooks', 'pay-settlement-center')
-OPTIONAL_CHECKS.push('pay-merchant-account')
-OPTIONAL_CHECKS.push('pay-gateway-access')
-OPTIONAL_CHECKS.push('pay-terminal-keys')
-OPTIONAL_CHECKS.push('pay-private-api-access')
-OPTIONAL_CHECKS.push('expert-order-ticket')
-OPTIONAL_CHECKS.push('pay-financial-period')
+// These Pay fixtures require a migrated, disposable database owned by a non-superuser.
+const PAY_CHECKS = [
+  'mobocom-pay',
+  'pay-account-lifecycle',
+  'pay-shared-checkout',
+  'pay-bot',
+  'pay-routing-operations',
+  'pay-bale-collection',
+  'pay-usdt-equivalent',
+  'pay-private-merchants',
+  'pay-assets',
+  'pay-webhooks',
+  'pay-settlement-center',
+  'pay-merchant-account',
+  'pay-gateway-access',
+  'pay-terminal-keys',
+  'pay-private-api-access',
+  'pay-financial-period',
+  'pay-public-account',
+]
+OPTIONAL_CHECKS.push(...PAY_CHECKS, 'pay-center-upgrade', 'crm-scope-currency', 'playlist-audience', 'expert-order-ticket')
 OPTIONAL_CHECKS.push('section-hosts')
 OPTIONAL_CHECKS.push('account-control')
-OPTIONAL_CHECKS.push('pay-public-account')
 OPTIONAL_CHECKS.push('account-erasure-files')
 // Real ffprobe/ffmpeg with libx264 (as in the Dockerfile) on MKV/MP4 files the check makes; run on a database copy.
 OPTIONAL_CHECKS.push('found-subtitles')
@@ -225,7 +234,18 @@ if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/run-pg-checks.cjs')
   process.exit(2)
 }
-const only = process.argv.slice(2)
+const requested = process.argv.slice(2)
+const payOnly = requested.length === 1 && requested[0] === '--pay'
+if (payOnly) {
+  const url = process.env.DATABASE_URL
+  const database = URL.canParse(url) ? new URL(url) : null
+  if (!database || !['postgres:', 'postgresql:'].includes(database.protocol) ||
+      !/^\/mobocom_pay_test_[a-z0-9_]+$/.test(database.pathname)) {
+    console.error('The Pay suite requires a disposable mobocom_pay_test_* PostgreSQL database.')
+    process.exit(2)
+  }
+}
+const only = payOnly ? PAY_CHECKS : requested
 const unknown = only.filter((name) => !REGISTERED.includes(name))
 if (unknown.length) {
   console.error(`Unknown check: ${unknown.join(', ')}. Available: ${REGISTERED.join(', ')}`)

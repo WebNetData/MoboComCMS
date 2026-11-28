@@ -26,7 +26,7 @@ export function terminalGatewayOptions(actor: PayActor, id: string, amountRial?:
     const terminal = await tx.payTerminal.findFirst({ where: { id: terminalId, merchantId: merchant.id, archivedAt: null } })
     if (!terminal) throw new PayError('پایانه پیدا نشد', 404, 'PAY_TERMINAL_NOT_FOUND')
     const totalMinor = amountRial === undefined ? undefined : paymentAmounts(amountRial, settings, merchantFeeTerms(settings, merchant)).totalMinor
-    const items = terminal.active && settings.incomingEnabled ? eligiblePayGateways(await listCheckoutGateways('IRR', tx, undefined, 'pay'),
+    const items = terminal.active && settings.incomingEnabled ? eligiblePayGateways(await listCheckoutGateways('IRR', tx, undefined, 'pay', terminal.bankAccountId),
       { merchant, terminal }, { totalMinor, creditCurrency: merchant.creditCurrency, hasBankAccount: Boolean(await payCollectionBank(tx, settings.bankAccountIds)) }) : []
     return { terminalId, currency: 'IRR' as const, items }
   })
@@ -49,11 +49,12 @@ async function adminGatewayView(tx: Prisma.TransactionClient, merchant: Awaited<
   return {
     catalog: eligiblePayGateways(catalog).map(item => ({ ...item, name: names.get(item.ref) || item.name })),
     merchant: { id: merchant.id, name: merchant.name, policy: storedGatewayPolicy(merchant.gatewayPolicy) },
-    terminals: terminals.map(terminal => ({
+    terminals: await Promise.all(terminals.map(async terminal => ({
       id: terminal.id, name: terminal.name, active: terminal.active, policy: storedGatewayPolicy(terminal.gatewayPolicy),
       effectiveRefs: settings.incomingEnabled && merchant.status === 'ACTIVE' && terminal.active
-        ? eligiblePayGateways(catalog, { merchant, terminal }, facts).map(item => item.ref) : [],
-    })),
+        ? eligiblePayGateways(terminal.bankAccountId ? await listCheckoutGateways('IRR', tx, undefined, 'pay', terminal.bankAccountId) : catalog,
+          { merchant, terminal }, facts).map(item => item.ref) : [],
+    }))),
   }
 }
 

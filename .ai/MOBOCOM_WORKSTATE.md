@@ -1,3 +1,33 @@
+# Pay Admin visual workspace — 2026-11-28
+
+Continued from `56338fde` in `.mobocom/pay-reliability-engineering`.
+The Pay Admin views use consistent panels, forms and operations hierarchy.
+All eleven views now fill the same content column as the Admin overview.
+[Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#pay-admin-visual-workspace--2026-11-28).
+
+# Cloud workspace and Pay landing refinement — 2026-11-28
+
+Continue in `.mobocom/pay-reliability-engineering` from `4d4d9703`.
+The Cloud shell preserves the full email and overview uses grouped real data.
+The Pay hero incorporates the brand and features link.
+[Cloud evidence](../docs/agent/handoffs/CLOUD_WORKSPACE.md#workspace-identity-and-overview-refinement--2026-11-28)
+and [Pay evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#pay-landing-header-refinement--2026-11-28).
+
+# Terminal receiving accounts and merchant workspace — 2026-11-28
+
+Continue `.mobocom/pay-reliability-engineering` on
+`fix/pay-account-lifecycle-and-workspace`, base `c50f9392`.
+Safe account removal, terminal card assignment, Pay home and merchant workspace.
+[Behavior and evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#terminal-receiving-accounts-and-merchant-workspace--2026-11-28).
+
+# Permanent payment engineering gates — 2026-11-28
+
+Continue `.mobocom/pay-reliability-engineering` on
+`chore/pay-reliability-engineering`, base `b1c09c39`.
+Pay Reliability is required for payment-affecting changes. The existing
+manual Checks workflow includes its connected suite and historical upgrade.
+[Implementation and executed checks](../docs/agent/handoffs/MOBOCOM_PAY.md#permanent-payment-engineering-gates--2026-11-28).
+
 # Pay merchant dashboard redesign — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

@@ -84,7 +84,7 @@ export const IRANIAN_BANKS = [...new Set([...Object.values(SHEBA_BANKS), ...Obje
 const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
 
 export class TransferError extends Error {
-  constructor(message: string, readonly status = 400) { super(message) }
+  constructor(message: string, readonly status = 400, readonly code?: string) { super(message) }
 }
 
 export interface BankAccountInput {

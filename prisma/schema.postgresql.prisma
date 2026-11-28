@@ -2817,7 +2817,10 @@ model MediaLinkSubtitle {
 }
 /// Bank accounts shown to customers for card-to-card and bank transfers.
 model BankAccount {
-  payPayments PayPayment[]
+  payPayments PayPayment[] @relation("PayManualBankAccount")
+  assignedPayPayments PayPayment[] @relation("PayAssignedBankAccount")
+  payTerminals PayTerminal[]
+  archivedAt DateTime?
   payEvents PayBankEvent[]
   id            Int              @id @default(autoincrement())
   bankName      String
@@ -6077,6 +6080,8 @@ model PayMerchant {
 }
 
 model PayTerminal {
+  bankAccountId Int?
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
   apiKeys PayTerminalApiKey[]
   gatewayPolicy String @default("")
   channelType String @default("WEBSITE")
@@ -6094,6 +6099,7 @@ model PayTerminal {
   merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   payments PayPayment[]
   @@index([merchantId, active])
+  @@index([bankAccountId])
 }
 
 model PayTerminalApiKey {
@@ -6111,6 +6117,8 @@ model PayTerminalApiKey {
 }
 
 model PayPayment {
+  assignedBankAccountId Int?
+  assignedBankAccount BankAccount? @relation("PayAssignedBankAccount", fields: [assignedBankAccountId], references: [id], onDelete: Restrict)
   requestedGatewayRef String @default("")
   creditCurrency String @default("IRR")
   creditMinor BigInt @default(0)
@@ -6157,7 +6165,7 @@ model PayPayment {
   invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   terminal PayTerminal @relation(fields: [terminalId], references: [id], onDelete: Restrict)
-  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  bankAccount BankAccount? @relation("PayManualBankAccount", fields: [bankAccountId], references: [id], onDelete: Restrict)
   walletTx WalletTx? @relation(fields: [walletTxId], references: [id], onDelete: Restrict)
   bankEvent PayBankEvent? @relation("PayMatch")
   bankAttestations PayBankEvent[] @relation("PayAttestation")
@@ -6165,6 +6173,7 @@ model PayPayment {
   @@unique([terminalId, externalId])
   @@index([merchantId, createdAt])
   @@index([bankAccountId, transferReference, status])
+  @@index([assignedBankAccountId, status])
 }
 
 model PayBankEvent {

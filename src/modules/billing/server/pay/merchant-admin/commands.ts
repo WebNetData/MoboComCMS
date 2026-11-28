@@ -7,10 +7,14 @@ import { userOpensSection } from '@/modules/account/server/section-access'
 import { payAudit, payContext, payTransaction, type PayActor } from '../context'
 import { assertMerchantAdministration, merchantAdminNote } from './access'
 import { botKeyHash } from '../bot/integrations'
+import { terminalBankAccounts, terminalBankAccountIssue } from '../bale/collection-context'
+import { storedGatewayPolicy } from '@/modules/billing/domain/pay-gateway-access'
+import { Prisma } from '@prisma/client'
 
 const fields = {
   profile: ['name','website'], status: ['status'], terms: ['inherit','feeBearer','feeBps','flatFeeRial','feeCapRial'],
   'auto-access': ['allowed'], 'credit-mode': ['creditCurrency'], terminal: ['terminalId','active','baleEnabled'],
+  'terminal-account': ['terminalId','bankAccountId'],
   'revoke-bot': ['terminalId','botVersion'], 'terminal-add': ['name','channelType','channelUrl','returnUrl'],
   'terminal-edit': ['terminalId','name','channelType','channelUrl','returnUrl'], 'terminal-delete': ['terminalId'],
 } as const
@@ -49,7 +53,7 @@ export function manageMerchant(actor: PayActor, input: Record<string, unknown>) 
         Object.assign(data, { feeBearer: input.feeBearer, feeBps: integer(input.feeBps, 0, 3000), flatFeeMinor: rial(input.flatFeeRial, true), feeCapMinor: rial(input.feeCapRial, true) })
       }
     }
-    const needsTerminal = ['terminal','terminal-edit','terminal-delete','revoke-bot'].includes(action)
+    const needsTerminal = ['terminal','terminal-account','terminal-edit','terminal-delete','revoke-bot'].includes(action)
     const terminal = needsTerminal ? row.terminals.find(t => t.id === input.terminalId) : null
     if (needsTerminal && !terminal) throw new PayError('پایانهٔ پذیرنده پیدا نشد', 404)
     if (action === 'terminal' && (typeof input.active !== 'boolean' || typeof input.baleEnabled !== 'boolean' || input.baleEnabled && !row.baleAllowed)) throw new PayError('وضعیت یا مجوز روش خودکار معتبر نیست', 422)
@@ -75,8 +79,22 @@ export function manageMerchant(actor: PayActor, input: Record<string, unknown>) 
         { botDelivery: { status: { in: ['QUEUED', 'SENDING'] } } },
         { webhookDelivery: { status: { in: ['PENDING', 'SENDING', 'RETRY'] } } },
       ] } })) throw new PayError('ابتدا پرداخت‌ها، رسیدها و ارسال‌های باز این پایانه را بررسی کنید', 409)
-      const changed = await tx.payTerminal.updateMany({ where: { id: terminal.id, merchantId: row.id, archivedAt: null }, data: { archivedAt: new Date(), active: false, baleEnabled: false } })
+      const changed = await tx.payTerminal.updateMany({ where: { id: terminal.id, merchantId: row.id, archivedAt: null }, data: { archivedAt: new Date(), active: false, baleEnabled: false, bankAccountId: null } })
       if (changed.count !== 1) throw new PayError('پایانه هم‌زمان تغییر کرده است', 409)
+    } else if (action === 'terminal-account' && terminal) {
+      const bankAccountId = input.bankAccountId === null ? null : integer(input.bankAccountId, 1, 2147483647)
+      if (bankAccountId !== null) {
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM "BankAccount" WHERE id = ${bankAccountId} FOR SHARE`)
+        const [bank] = await terminalBankAccounts(tx, bankAccountId)
+        const issue = bank ? terminalBankAccountIssue(bank, storedGatewayPolicy(row.gatewayPolicy), storedGatewayPolicy(terminal.gatewayPolicy))
+          : 'حساب بانکی فعال پیدا نشد'
+        if (issue) throw new PayError(issue, 422, 'PAY_BANK_ACCOUNT_NOT_ELIGIBLE')
+      }
+      const changed = await tx.payTerminal.updateMany({
+        where: { id: terminal.id, merchantId: row.id, archivedAt: null, bankAccountId: terminal.bankAccountId },
+        data: { bankAccountId },
+      })
+      if (changed.count !== 1) throw new PayError('حساب مقصد پایانه هم‌زمان تغییر کرده است', 409)
     } else if (action === 'terminal' && terminal) {
       const changed = await tx.payTerminal.updateMany({ where: { id: terminal.id, merchantId: row.id, archivedAt: null, active: terminal.active, baleEnabled: terminal.baleEnabled }, data: { active: input.active as boolean, baleEnabled: input.baleEnabled as boolean } })
       if (changed.count !== 1) throw new PayError('پایانه هم‌زمان تغییر کرده است', 409)
@@ -89,7 +107,7 @@ export function manageMerchant(actor: PayActor, input: Record<string, unknown>) 
       const changed = await tx.payBotIntegration.updateMany({ where: { id: bot.id, version: bot.version, active: true }, data: { active: false, keyHash: botKeyHash(revoked), keyPrefix: revoked.slice(0, 15), version: { increment: 1 } } })
       if (changed.count !== 1) throw new PayError('اتصال هم‌زمان تغییر کرده است', 409)
     }
-    await payAudit(tx, actor, 'merchant.admin-' + action, id, { note, version: Number(input.version) + 1, ...(action === 'status' ? { before: row.status, status: data.status } : {}), ...(action === 'credit-mode' ? { beforeCurrency: row.creditCurrency, creditCurrency: data.creditCurrency } : {}), ...(terminalId ? { terminalId } : {}) })
+    await payAudit(tx, actor, 'merchant.admin-' + action, id, { note, version: Number(input.version) + 1, ...(action === 'status' ? { before: row.status, status: data.status } : {}), ...(action === 'credit-mode' ? { beforeCurrency: row.creditCurrency, creditCurrency: data.creditCurrency } : {}), ...(terminalId ? { terminalId } : {}), ...(action === 'terminal-account' ? { beforeBankAccountId: terminal?.bankAccountId, bankAccountId: input.bankAccountId } : {}) })
     return { saved: true, version: Number(input.version) + 1 }
   })
 }

@@ -30,6 +30,12 @@ const admin: Record<string, [string, string]> = {
   settings: ["تنظیمات درگاه", "مدیریت دریافت وجه، کارمزدها و مسیرهای تسویه"],
 };
 
+const adminIcons: Record<string, string> = {
+  overview: "bank", merchants: "users", settlements: "wallet", payments: "card",
+  "bank-events": "bank", receipts: "receipt", operations: "activity", reconciliation: "sliders",
+  reports: "chart", settings: "sliders", webhooks: "globe",
+};
+
 export default function WorkspaceHeader({ area, view, identity, children }: {
   area: "merchant" | "admin";
   view: string;
@@ -38,9 +44,9 @@ export default function WorkspaceHeader({ area, view, identity, children }: {
 }) {
   const sections = area === "merchant" ? merchant : admin;
   const [title, description] = sections[view] || sections.overview;
-  return <header className={`${s.heading} ${area === "merchant" ? s.merchant : s.admin}`} data-view={area === "merchant" ? view : undefined}>
+  return <header className={`${s.heading} ${area === "merchant" ? s.merchant : s.admin}`} data-view={view}>
     <div className={s.identity}>
-      {area === "merchant" && <span className={s.viewIcon}><Icon name={merchantIcons[view] || "layout"} size={24} /></span>}
+      <span className={s.viewIcon}><Icon name={(area === "merchant" ? merchantIcons : adminIcons)[view] || "layout"} size={24} /></span>
       <div>
         {(area === "admin" || identity) && <div className={s.context}>{area === "admin" && <>مدیریت مالی<span aria-hidden="true" /></>}<bdi>{identity || "MoboCom Pay"}</bdi></div>}
         <h1>{title}</h1>

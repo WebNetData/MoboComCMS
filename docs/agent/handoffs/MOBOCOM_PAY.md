@@ -3090,3 +3090,150 @@ on untouched `main`. No live bank SMS was sent.
   receipt and replay, terminal filtering and settlement totals. Edge verified
   the staff queue and report, mobile merchant report, terminal selection,
   CSV downloads and scoped accessibility.
+
+## Permanent payment engineering gates — 2026-11-28
+
+Worktree `.mobocom/pay-reliability-engineering`, branch
+`chore/pay-reliability-engineering`, base `b1c09c39` on `main`.
+The owner made [Pay Reliability](../../../.agents/skills/mobocom-pay-reliability/SKILL.md)
+mandatory for direct and indirect payment changes and paired it with Premium
+Design for affected payment UI. Both client copies contain the same skill and
+regression reference. [Engineering gates](../ENGINEERING_SKILLS.md#payment-quality-gates)
+are the source of test commands and delivery rules.
+
+The existing connected runner now exposes all 16 registered Pay regressions
+through `npm run test:pay`. It refuses missing, malformed or non-disposable
+database URLs before spawning a check. The separate `pay-center-upgrade`
+check seeds historical users through old columns and compares all applied
+migration names against the current migration directories. Its historical
+settlements, quotes and wallet invariants remain asserted. This slice changes
+test infrastructure and project policy only.
+
+Executed locally: a full migration and all 16 connected Pay checks on
+PostgreSQL 17.11 as a non-superuser, the historical upgrade on a second empty
+database, all 67 scoped unit cases in Linux, and architecture, source,
+schema, migration-manifest, money and security gates. The original upgrade
+fixture used an old migration count and attempted to read the newer
+`User.loginPolicy` while seeding. The corrected fixture passed.
+Guard tests rejected three invalid database inputs without echoing them.
+The Codex app-server reported both skills enabled in repository scope.
+Both entrypoints passed the skill validator and both reference files matched
+their mirrors. Independent diff review found no blocking issue.
+
+The manual Checks workflow provisions two separate owned databases and fails
+when either Pay step fails. YAML routing and offline zizmor passed. The
+hosted workflow was not dispatched. The owned synthetic databases and roles
+were removed after verification. Payment PR evidence and independent
+approval remain review controls. This tooling change required no browser
+run, real funds, provider request or production change. Revert this policy
+and test-infrastructure commit to roll back. There is no application schema
+or financial data rollback.
+
+## Terminal receiving accounts and merchant workspace — 2026-11-28
+
+Worktree `.mobocom/pay-reliability-engineering`, branch
+`fix/pay-account-lifecycle-and-workspace`, base `c50f9392` (Pay engineering
+gates over `b1c09c39`). The owner requested safe removal with SMS verification,
+a configurable receiving card per terminal, a wide merchant ticket surface,
+complete account identity and a redesigned Pay home.
+
+Billing's account DELETE previously retried an FK rejection when a verified
+SMS source had the only reference. The handler now locks and evaluates the
+account before making a claim. Actionable payment or review obligations block
+removal. Verified SMS and automatic histories cause an archive in place and
+disable the attached sources. Old ordinary accounts with history retain
+reversible deactivation. The admin list omits archived accounts and reports the
+actual removal action. A receipt still marked pending on an already-paid
+invoice remains historical evidence. It no longer blocks archival.
+
+Admin → Pay → Merchants → terminal now offers a destination-card selector.
+The writer validates the existing Pay permission, request Origin, merchant
+and terminal scope, version and effective gateway policy. Card options require
+the existing SMS intake and verified source to be ready. The Admin projection
+contains only the last four card digits. Billing snapshots the explicit
+destination on a payment before checkout. Archived terminal selections stay
+visible as unavailable until reassigned or cleared. Already issued quotes and
+ledger rows keep their destination. The additive migration
+`20270418190000_pay_terminal_receiving_account` adds archive status, both
+nullable relations and the PostgreSQL payment snapshot immutability guard.
+No production migration was run.
+
+The Pay landing has a payment preview, capability and onboarding sections
+and the primary merchant-dashboard action. The ticket workspace uses the
+existing shared ticket API with Pay-specific wide layout and mobile treatment.
+The sidebar and drawer wrap the full email next to the profile identity. The
+site PWA invitation retains its public behavior and stays clear of merchant
+workspace routes. Admin form operations and the landing follow the existing
+SDS tokens and focus behavior.
+
+Evidence: PostgreSQL 17 isolated non-superuser tests reproduced the original
+400 and exercise concurrent removal, missing Origin/permission denial, policy
+scoping, immutable destination, pending retention, automatic single credit,
+and archival after settlement. All 17 connected Pay checks passed. The populated
+historical settlement upgrade passed and all migrations deployed from empty.
+Linux `npm run check` passed with 1171 site, 53 connected source, 4 backup
+and 14 billing tests. Final TypeScript, security, schema and release-manifest
+checks also passed. The final Linux `npm run build:postgres` completed and
+passed the runtime trace check. Local Edge
+with an isolated application and actual APIs saved and reloaded assignment
+and account deletion. Edge and axe checked public CTA, new Pay
+home, merchant identity and ticket interaction across seven desktop, tablet
+and phone/theme combinations, including drawer Escape, active email hit
+target, native FAQ keyboard action and public/merchant PWA boundary.
+The application page returned 200. React Doctor had no blocking errors.
+Scoped Opengrep and redacted Gitleaks returned no findings. An independent
+review drove the immutability and policy changes and verified their final
+source and archive behavior. Screenshots remain local in
+`var/pay-lifecycle-browser`.
+The synthetic PostgreSQL databases, role and preview session files were removed.
+
+During release, apply the registered migration before upgrading the app.
+To roll back the app use its previous build, keeping the additive columns
+and constraints and the financial records. Keep assignment configured only
+where the receiving bank and the existing SMS source are operational. Local
+evidence uses synthetic accounts and SMS. A real bank or production rollout
+was outside this slice.
+
+## Pay landing header refinement — 2026-11-28
+
+The public `/pay` landing moves the Pay brand into the introduction and
+puts the keyboard-accessible features link beside the hero actions. The
+standalone strip illustrated in the owner's screenshot is gone. The features
+anchor, merchant and application links keep their existing destinations.
+Edge checked keyboard navigation, CTA and overflow at 320, 390, 768, 1440
+and 1920 pixels across light and dark configurations, with scoped axe at
+390 and 1440. React Doctor and independent source review found no issues.
+The change is driven by Pay landing presentation. See the
+[Cloud workspace follow-up](CLOUD_WORKSPACE.md#workspace-identity-and-overview-refinement--2026-11-28)
+for the paired worktree record.
+
+## Pay Admin visual workspace — 2026-11-28
+
+Continued from `56338fde` in `.mobocom/pay-reliability-engineering` on
+`fix/pay-account-lifecycle-and-workspace`. Scope is the content of eleven
+Pay Admin views. The navigation and its destinations retain their ownership.
+The workspace presents the operation queue and bank readiness clearly and
+uses consistent panels, form controls, tables, state badges and focus styles.
+Settings group receiving and fees, smart transfer, settlement and SMS
+sources. Merchant details and the operational desks keep existing
+permission checks, request handlers and success/empty/error flows.
+
+All 17 payment regressions passed on isolated PostgreSQL 17. TypeScript,
+source checks and scoped React Doctor completed. The preview uses synthetic
+administrator, merchant and bank-event records. It checks all eleven views
+in Edge at 1440px dark and 390px light with zero scoped axe violations. It verifies menu routes and persisted invoice expiry after reload. The independent review worker was unavailable; the lead reviewed the final diff.
+Screenshots are local in `var/pay-admin-design`. Rollback is a revert of this
+presentation commit. No database migration or production rollout is part
+of this change.
+
+### Full-width Admin content
+
+The Pay Admin page uses the shared Admin shell for content width and
+gutters. That rule covers the loading and populated workspace. Edge
+compared the width and horizontal position of all eleven views with
+`/admin` at 2560, 1440 and 390 pixels. The matched content widths were
+2168, 1048 and 362 pixels. No document overflow or scoped axe violations
+were found. Screenshots are local in `var/pay-admin-width`.
+`source:check` and the isolated PostgreSQL `pay-financial-period` check
+passed. React Doctor reported two maintainability warnings in the
+existing Pay Admin component (complexity and duplicate JSX).

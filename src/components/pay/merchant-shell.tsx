@@ -14,8 +14,14 @@ import s from './MerchantShell.module.css'
 
 function MerchantAccount({ name, email, image, authenticated, onNavigate }: { name: string; email: string; image: string; authenticated: boolean; onNavigate?: () => void }) {
   return <div className={s.account}>
-    <Link href="/dashboard/profile" className={s.accountIdentity} onClick={onNavigate}><span className={s.avatar} aria-hidden="true"><ProfilePortrait image={image} name={name || email || 'موبوکام'} /></span><span><strong dir="auto">{name || 'حساب موبوکام'}</strong>{email && <small dir="ltr">{email}</small>}</span></Link>
-    {authenticated && <button type="button" onClick={() => void signOut({ callbackUrl: '/pay/merchant' })} aria-label="خروج از حساب موبوکام"><Icon name="logout" size={18} /></button>}
+    <Link href="/dashboard/profile" className={s.accountIdentity} onClick={onNavigate}>
+      <span className={s.avatar} aria-hidden="true"><ProfilePortrait image={image} name={name || email || 'موبوکام'} /></span>
+      <span className={s.accountDetails}>
+        <strong dir="auto">{name || 'حساب موبوکام'}</strong>
+        {email && <small dir="ltr">{email}</small>}
+      </span>
+    </Link>
+    {authenticated && <button type="button" onClick={() => void signOut({ callbackUrl: '/pay/merchant' })} aria-label="خروج از حساب موبوکام" title="خروج از حساب موبوکام"><Icon name="logout" size={18} /></button>}
   </div>
 }
 

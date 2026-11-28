@@ -8,6 +8,8 @@ import { ErrorNotice, Field } from '../shared'
 import TransferReviewCase from './transfer-review-case'
 import s from '../Pay.module.css'
 import o from './TransferOperations.module.css'
+import DeskHeader from './desk-header'
+import workbench from './OperationsWorkbench.module.css'
 
 const stageLabels: Record<TransferQueueStage, string> = {
   WAITING_RECEIPT: 'منتظر رسید مشتری', WAITING_SMS: 'رسید ثبت شده · منتظر پیامک', REVIEW: 'نیازمند بررسی دستی',
@@ -32,14 +34,16 @@ function ReviewQueue({ smsSource }: { smsSource: string }) {
     return () => controller.abort()
   }, [page, closed, receiptsPage, stage, reload, smsSource])
   return <section className={s.stack}>
-    <div className={`${s.sectionHead} ${o.heading}`}><div><h2>میز بررسی واریزها</h2><p className={s.muted}>واریز دیرهنگام، مبلغ نابرابر و رسیدهای در انتظار را با سابقهٔ تصمیم‌ها بررسی کنید.</p></div><button type="button" className={s.secondary} disabled={loading} onClick={() => setReload(n => n + 1)}>تازه‌سازی صف بررسی</button></div>
+    <DeskHeader icon="sliders" title="میز بررسی واریزها" description="واریزهای دیرهنگام، مغایرت مبلغ و رسیدهای در انتظار را با سابقهٔ تصمیم‌ها بررسی کنید.">
+      <button type="button" className={s.secondary} disabled={loading} onClick={() => setReload(n => n + 1)}>تازه‌سازی صف بررسی</button>
+    </DeskHeader>
     <p className={s.notice}>برابری یا نزدیکی مبلغ، هویت پرداخت‌کننده را ثابت نمی‌کند. برای مبلغ کمتر یا بیشتر، نتیجهٔ رسیدگی را ثبت کنید؛ تأیید مالی فقط برای مدرک مجاز با مبلغ دقیق انجام می‌شود.</p>
     <ErrorNotice error={error} />
     {smsSource && <div className={s.notice}>
       {data?.smsSource && <p>رسیدهای در انتظار که به منبع «{data.smsSource.label}» وابسته‌اند. وضعیت سایر منابع و مدرک وصول را پیش از تأیید دستی بررسی کنید.</p>}
       <Link href="/admin/mobocom-pay/reconciliation" className={s.secondary}>نمایش همهٔ منابع</Link>
     </div>}
-    <div className={o.columns}>
+    <div className={workbench.filterStrip}>
       <label className={s.check}><input type="checkbox" checked={closed} onChange={e => { setClosed(e.target.checked); setPage(1) }} />نمایش شواهد بانکی بسته‌شده</label>
       <Field label="مرحلهٔ پیگیری پرداخت"><select value={stage} onChange={e => { setStage(e.target.value); setReceiptsPage(1); setSelected(null) }}><option value="">همهٔ مراحل</option>{Object.entries(stageLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
     </div>

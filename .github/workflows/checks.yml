@@ -6,7 +6,8 @@ name: Checks
 #             i18n, the unit suites, typecheck. No database is reached; the PostgreSQL client is generated,
 #             because that is the client production runs and the one the code is typed against.
 #   postgres  a first deploy on an empty PostgreSQL 17 (every migration, then the seed), the connected checks
-#             (npm run test:pg) and the Redis check of the strict rate limit (npm run test:redis)
+#             (npm run test:pg), the Pay suite and historical Pay upgrade in separate disposable
+#             databases, and the strict Redis rate-limit check (npm run test:redis)
 #   build     the production build with the PostgreSQL client
 # The browser suite is its own workflow (e2e.yml).
 on:
@@ -89,6 +90,25 @@ jobs:
         env:
           ADMIN_EMAIL: admin@example.com
           ADMIN_PASSWORD: CiAdmin!Password-2026
+      - name: Provision isolated Pay databases
+        env:
+          PGPASSWORD: ci-only-password
+        run: |
+          psql -h 127.0.0.1 -U ci -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE ci_pay LOGIN PASSWORD 'ci-pay-fixture-only' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+          CREATE DATABASE mobocom_pay_test_ci OWNER ci_pay;
+          CREATE DATABASE mobocom_pay_test_ci_upgrade OWNER ci_pay;
+          SQL
+      - name: Connected Pay regressions
+        env:
+          DATABASE_URL: postgresql://ci_pay:ci-pay-fixture-only@127.0.0.1:5432/mobocom_pay_test_ci?schema=public
+        run: |
+          npm run deploy:migrate
+          npm run test:pay
+      - name: Historical Pay upgrade
+        env:
+          DATABASE_URL: postgresql://ci_pay:ci-pay-fixture-only@127.0.0.1:5432/mobocom_pay_test_ci_upgrade?schema=public
+        run: npm run test:pg -- pay-center-upgrade
       - name: Connected PostgreSQL checks
         run: npm run test:pg
       - name: Strict rate limit against Redis

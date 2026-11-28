@@ -600,3 +600,36 @@
 
 .ruleSummary { min-height: 44px; cursor: pointer; font-weight: 600; overflow-wrap: anywhere; }
 .ruleSummary + div { padding-top: 16px; }
+
+/* Pay Admin content only. Navigation and other payment surfaces have their own styles. */
+[data-pay-admin-content] .card {
+  padding: clamp(14px, 2vw, 24px);
+  border-radius: 16px;
+  box-shadow: var(--pay-admin-elevation);
+}
+[data-pay-admin-content] .notice { border-radius: 12px; }
+[data-pay-admin-content] .badge { border-radius: 999px; font-weight: 600; }
+[data-pay-admin-content] .field :is(input, select, textarea) {
+  min-block-size: 44px;
+  border-radius: 10px;
+  background: var(--pay-admin-soft);
+}
+[data-pay-admin-content] .field :is(input,select,textarea):focus-visible {
+  border-color: var(--sds-theme-accent-strong);
+  outline: 2px solid var(--sds-theme-accent-strong);
+  outline-offset: 2px;
+}
+[data-pay-admin-content] :is(.button,.secondary) { gap: 7px; border-radius: 10px; font-weight: 650; }
+[data-pay-admin-content] .secondary { background: var(--pay-admin-surface); }
+[data-pay-admin-content] .table th { padding-block: 12px; font-size: .8rem; }
+[data-pay-admin-content] .table td { vertical-align: middle; }
+[data-pay-admin-content] .table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--pay-admin-soft) 50%, var(--pay-admin-surface));
+}
+[data-pay-admin-content] .table tbody tr:last-child td { border-block-end-color: transparent; }
+@media (hover: hover) {
+  [data-pay-admin-content] .secondary:not(:disabled):hover { border-color: var(--sds-theme-accent-strong); }
+  [data-pay-admin-content] .table tbody tr:hover {
+    background: color-mix(in srgb,var(--pay-admin-accent) 6%,var(--pay-admin-surface));
+  }
+}
