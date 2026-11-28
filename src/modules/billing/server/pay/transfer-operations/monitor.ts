@@ -11,7 +11,8 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
   return payTransaction(async tx => {
     const { settings } = await payContext(actor, tx, 'mobocom-pay.manage')
     const now = new Date(), since = new Date(now.getTime() - 86400000)
-    const [observations, sms, api, confirmations, awaitingReview, overdue, oldest, principals] = await Promise.all([
+    const olderThanMinutes = 30
+    const [observations, sms, api, confirmations, awaitingReview, overdue, oldest, principals, receipts] = await Promise.all([
       tx.$queryRaw<Observed[]>(Prisma.sql`SELECT "sourceType", "smsSourceId", "instanceId", max("receivedAt") AS last,
         count(*) FILTER (WHERE "receivedAt">=${since}) AS count,
         count(*) FILTER (WHERE "receivedAt">=${since} AND "status" IN ('REJECTED','CONFLICT')) AS rejected,
@@ -27,6 +28,10 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
       tx.payBaleCollection.count({ where: { status: 'PENDING', expiresAt: { lt: now }, invoice: { status: 'UNPAID' } } }),
       tx.payBaleCollection.findFirst({ where: { status: { in: ['UNDER_REVIEW','REVIEW'] }, invoice: { status: 'UNPAID' } }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
       tx.$queryRaw<{ principalRial: bigint }[]>(Prisma.sql`SELECT "principalRial" FROM "PayBaleCollection" GROUP BY "principalRial" ORDER BY max("createdAt") DESC LIMIT 12`),
+      tx.paymentReceipt.aggregate({
+        where: { status: 'PENDING', createdAt: { lte: new Date(now.getTime() - olderThanMinutes * 60000) }, invoice: { kind: 'PAY_COLLECTION' } },
+        _count: true, _min: { createdAt: true },
+      }),
     ])
     const enabled = api?.value === 'true' && settings.bale.enabled
     const sources: TransferMonitor['sources'] = []
@@ -42,6 +47,8 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
       const remaining = Math.max(0, capacity - occupied)
       pools.push({ principalRial: p.principalRial.toString(), capacity, occupied, remaining, state: remaining === 0 ? 'EXHAUSTED' as const : remaining <= Math.max(1, Math.ceil(capacity * .1)) ? 'LOW' as const : 'AVAILABLE' as const })
     }
-    return { asOf: now.toISOString(), windowHours: 24, sources, totals: { received: observations.reduce((n,o) => n + Number(o.count), 0), paid: Number(confirmations[0].count), awaitingReview, overdue, oldestReviewAt: oldest?.createdAt.toISOString() || null, p50ConfirmationMs: confirmations[0].p50 === null ? null : Math.round(confirmations[0].p50), p95ConfirmationMs: confirmations[0].p95 === null ? null : Math.round(confirmations[0].p95) }, pools }
+    return { asOf: now.toISOString(), windowHours: 24, sources,
+      receiptBacklog: { count: receipts._count, olderThanMinutes, oldestAt: receipts._min.createdAt?.toISOString() ?? null },
+      totals: { received: observations.reduce((n,o) => n + Number(o.count), 0), paid: Number(confirmations[0].count), awaitingReview, overdue, oldestReviewAt: oldest?.createdAt.toISOString() || null, p50ConfirmationMs: confirmations[0].p50 === null ? null : Math.round(confirmations[0].p50), p95ConfirmationMs: confirmations[0].p95 === null ? null : Math.round(confirmations[0].p95) }, pools }
   })
 }

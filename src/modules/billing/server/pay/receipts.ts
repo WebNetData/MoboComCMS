@@ -97,10 +97,10 @@ export async function reviewPayReceipt(actor: PayActor, input: Record<string, un
   if (!Number.isSafeInteger(id) || id < 1 || (action !== 'approve' && action !== 'reject')) throw new PayError('درخواست معتبر نیست')
   return reviewPayReceiptByStaff(actor, id, action, String(input.note || ''), input.trackingCode)
 }
-export async function payReceipts(actor: PayActor) {
+export async function payReceipts(actor: PayActor, receiptIds?: number[]) {
   return payTransaction(async tx => {
     await payContext(actor, tx, 'mobocom-pay.manage')
-    const rows = await tx.paymentReceipt.findMany({ where: { invoice: { kind: 'PAY_COLLECTION' } }, orderBy: { createdAt: 'desc' }, take: 100, include: { autoCollection: { select: { receiptAmountRial: true } }, invoice: { include: { ...collectionProjection.select, payCollection: { include: { merchant: true } } } } } })
+    const rows = await tx.paymentReceipt.findMany({ where: { invoice: { kind: 'PAY_COLLECTION' }, ...(receiptIds && { id: { in: receiptIds } }) }, orderBy: { createdAt: 'desc' }, take: receiptIds?.length || 100, include: { autoCollection: { select: { receiptAmountRial: true } }, invoice: { include: { ...collectionProjection.select, payCollection: { include: { merchant: true } } } } } })
     return { items: rows.flatMap(r => {
       const row = r.invoice.payCollection
       if (!row) return []

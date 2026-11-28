@@ -2,6 +2,7 @@
 export type TransferMonitor = {
   asOf: string
   windowHours: number
+  receiptBacklog: { count: number; olderThanMinutes: number; oldestAt: string | null }
   sources: { id: string; label: string; type: 'SMS' | 'BALE'; ready: boolean; observed: boolean; lastReceivedAt: string | null; notices: number; rejected: number; p95DeliveryMs: number | null }[]
   totals: { received: number; paid: number; awaitingReview: number; overdue: number; oldestReviewAt: string | null; p50ConfirmationMs: number | null; p95ConfirmationMs: number | null }
   pools: { principalRial: string; capacity: number; occupied: number; remaining: number; state: 'AVAILABLE' | 'LOW' | 'EXHAUSTED' }[]

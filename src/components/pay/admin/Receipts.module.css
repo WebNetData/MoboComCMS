@@ -18,3 +18,9 @@
 .review { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--sds-color-border-default-default); }
 .queue :is(button,select,input,a):focus-visible { outline: 2px solid var(--sds-color-background-brand-default); outline-offset: 3px; }
 @media (max-width: 600px) { .summary { grid-template-columns: 1fr; } .body { grid-template-columns: minmax(0,1fr); } .filter { align-items: stretch; flex-direction: column; } }
+.statement { min-inline-size: 0; }
+.statement h3 { margin: 0 0 .25rem; }
+.statement input[type="file"] { inline-size: 100%; max-inline-size: 100%; }
+@media (min-width: 601px) { .statement .summary { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); } }
+.statementMatch { display: grid; gap: .75rem; }
+.statementMatch button { justify-self: start; }

@@ -197,6 +197,7 @@ export async function payPaymentById(actor: PayActor, id: string) {
   })
 }
 const adminPaymentInclude = {
+  botDelivery: { select: { status: true, attempts: true, updatedAt: true } },
   terminal: true, invoice: { select: {
     ...collectionProjection.select,
     receipts: { orderBy: { id: 'desc' as const }, take: 20, select: { id: true } },
@@ -206,7 +207,10 @@ const adminPaymentInclude = {
 
 function adminPaymentView(row: Prisma.PayPaymentGetPayload<{ include: typeof adminPaymentInclude }>) {
   const receipts = row.invoice?.receipts ?? []
-  return { ...paymentView({ ...row, hasPendingReceipt: Boolean(row.invoice?._count.receipts) }), receiptIds: receipts.map(receipt => receipt.id) }
+  const bot = row.botDelivery
+  return { ...paymentView({ ...row, hasPendingReceipt: Boolean(row.invoice?._count.receipts) }), receiptIds: receipts.map(receipt => receipt.id),
+    ...(bot && { botResult: { status: bot.status as NonNullable<PayPaymentView['botResult']>['status'], attempts: bot.attempts, updatedAt: bot.updatedAt.toISOString() } }),
+  }
 }
 
 export async function adminPayPayments(actor: PayActor, params: URLSearchParams) {
@@ -221,6 +225,7 @@ export async function adminPayPayments(actor: PayActor, params: URLSearchParams)
       { merchant: { name: { contains: q, mode: 'insensitive' } } },
     ] } : {}
     if (status === 'EXPIRED' || status === 'PENDING' || status === 'UNDER_REVIEW') Object.assign(where, paymentStatusFilter(status, new Date()))
+    else if (status === 'BOT_ATTENTION') Object.assign(where, { status: 'PAID', botDelivery: { is: { status: { in: ['UNKNOWN', 'BLOCKED'] } } } })
     else if (status === 'PAID') where.status = status
     else if (status) throw new PayError('وضعیت معتبر نیست')
     const [rows, total] = await Promise.all([

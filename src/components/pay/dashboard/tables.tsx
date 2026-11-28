@@ -10,6 +10,10 @@ import { Field, Badge } from "../shared";
 import s from "../Pay.module.css";
 import m from "./Dashboard.module.css";
 import ledger from "./PaymentLedger.module.css";
+const botResultLabels: Record<NonNullable<PayPaymentView["botResult"]>["status"], string> = {
+  WAITING: "در انتظار تأیید وجه", QUEUED: "در صف ارسال", SENDING: "در حال ارسال",
+  SENT: "رسید به ربات", UNKNOWN: "نتیجه نامشخص", BLOCKED: "ارسال متوقف شد",
+};
 export function SettlementSteps({ status }: { status: string }) {
   if (status === "REJECTED")
     return <p className={s.muted}>درخواست رد شده است</p>;
@@ -136,7 +140,7 @@ export function PaymentTable({ items, adminReceipts = false }: { items: PayPayme
               <td role="cell" data-label="پرداخت مشتری">{money(x.customerAmountRial ?? x.totalRial)}</td>
               <td role="cell" data-label="کارمزد پلتفرم"><div className={ledger.value}>{money(x.platformFeeRial ?? x.feeRial)}{x.status !== "PAID" && <small className={ledger.hint}>برآورد</small>}</div></td>
               <td role="cell" data-label="معادل ریالی اعتبار" className={ledger.net}>{money(x.creditRial ?? x.netRial)}</td>
-              <td role="cell" data-label="وضعیت"><Badge value={x.status} /></td>
+              <td role="cell" data-label="وضعیت"><Badge value={x.status} />{adminReceipts && x.botResult && <small className={ledger.hint}>ربات · {botResultLabels[x.botResult.status]}</small>}</td>
               <td role="cell" data-label="ثبت">{date(x.createdAt)}</td>
               <td role="cell" data-label="جزئیات">
                 <button type="button" className={`${s.secondary} ${ledger.detailToggle}`} aria-label={`جزئیات پرداخت سفارش ${x.externalId}`} aria-expanded={expanded === x.id} aria-controls={`payment-detail-${x.id}`} onClick={() => setExpanded(expanded === x.id ? null : x.id)}>{expanded === x.id ? "بستن جزئیات" : "مشاهده جزئیات"}</button>
@@ -155,6 +159,11 @@ export function PaymentTable({ items, adminReceipts = false }: { items: PayPayme
                   <dl>
                     <PaymentFact label="شناسه پرداخت"><bdi dir="ltr">{x.id}</bdi></PaymentFact>
                     {x.confirmation && <><PaymentFact label="روش تأیید پرداخت">{confirmationMethods[x.confirmation.method]}</PaymentFact><PaymentFact label="منبع تأیید">{confirmationSources[x.confirmation.source]}</PaymentFact></>}
+                    {adminReceipts && x.botResult && <>
+                      <PaymentFact label="تحویل نتیجه به ربات">{botResultLabels[x.botResult.status]}</PaymentFact>
+                      <PaymentFact label="تلاش‌های ارسال">{x.botResult.attempts.toLocaleString('fa-IR')}</PaymentFact>
+                      <PaymentFact label="آخرین تغییر ارسال">{date(x.botResult.updatedAt)}</PaymentFact>
+                    </>}
                     <PaymentFact label="کارمزد قرارداد پرداخت">{money(x.feeRial)}</PaymentFact>
                     {x.settledServiceFeeRial != null && <PaymentFact label="کارمزد خدمت وصول‌شده">{money(x.settledServiceFeeRial)}</PaymentFact>}
                     {x.platformFeeRial != null && <PaymentFact label={x.status === "PAID" ? "مجموع کارمزد پلتفرم" : "برآورد کارمزد پلتفرم"}>{money(x.platformFeeRial)}</PaymentFact>}

@@ -45,7 +45,7 @@ export default function PaymentDesk() {
         </div>
         <form className={layout.filterForm} onSubmit={search} onReset={() => setFilters(defaultFilters)}>
           <Field label="شناسه یا نام پذیرنده"><input name="q" maxLength={100} dir="auto" /></Field>
-          <Field label="وضعیت"><select name="status"><option value="">همهٔ وضعیت‌ها</option>{["PENDING", "UNDER_REVIEW", "PAID", "EXPIRED"].map(value => <option key={value} value={value}>{labels[value]}</option>)}</select></Field>
+          <Field label="وضعیت"><select name="status"><option value="">همهٔ وضعیت‌ها</option>{["PENDING", "UNDER_REVIEW", "PAID", "EXPIRED"].map(value => <option key={value} value={value}>{labels[value]}</option>)}<option value="BOT_ATTENTION">پرداخت‌شده، تحویل ربات نیازمند پیگیری</option></select></Field>
           <div className={s.actions}><button className={`${s.button} ${layout.primaryAction}`} type="submit">جست‌وجو</button><button className={s.secondary} type="reset">پاک‌کردن فیلترها</button></div>
         </form>
       </section>
