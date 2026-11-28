@@ -470,3 +470,28 @@ notes are historical. Existing PG/browser/security receipts were inspected, not
 rerun or represented as fresh checks. PR description includes migration, rollback,
 19 reviewed Doctor warnings and live-provider/production limits. Docker app3000
 is still running; no hosted workflow, provider call, merge or deployment was made.
+
+## Repair stage feedback — 2026-11-28
+
+Based on current main `b1c09c39` in `.mobocom/repair-stage-admin`. Forms
+keeps verified customer consent as the prerequisite for quoted work. The
+admin status panel explains pending, expired, rejected or invalidated
+estimates next to the affected controls. A failed handover keeps the
+confirmation open and preserves its inputs. Stage buttons retain keyboard
+focus during failed requests and wrap inside the case panel.
+
+The PostgreSQL 17 repair approval check exercises the actual submissions
+endpoint with a full administrator on a colleague's case. Both repair
+stages persist for unquoted work and after customer OTP approval, and
+both return an explainable conflict before approval. Colleague access
+remains subject to held-work permissions. Repair invoice and SMS workflow
+checks passed on the same isolated non-superuser test database. Source,
+architecture and TypeScript checks passed. React Doctor reported existing
+warnings and no blocking errors. This slice changes no schema.
+
+Edge exercised both buttons, inline feedback and keyboard focus with a
+pending estimate, then persisted both changes after approval and reload
+at 1440px light and dark and 390px light. Scoped axe and case-width
+checks passed. Screenshots are local in `var/repair-stage-admin`.
+The browser used a synthetic estimate decision; the connected test
+exercised the customer OTP flow. Production cases were not inspected.

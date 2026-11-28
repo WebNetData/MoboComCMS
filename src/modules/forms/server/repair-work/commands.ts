@@ -61,7 +61,14 @@ export async function assertRepairStage(tx: RepairClient, row: RepairRow, next: 
   if (['OPEN', 'QUOTED', 'REJECTED'].includes(next) || (target?.receipt && !target.pickup && !target.invoice)) return
   const estimate = await currentEstimate(row, tx)
   if (estimate?.status === 'REJECTED' && !estimate.supersededAt && target?.pickup) return true
-  if (!estimate || estimate.supersededAt || estimate.status !== 'APPROVED' || estimate.contactHash !== repairHash('contact', repairPhone(row.data)) || estimate.receiptHash !== repairHash('receipt', row.receiptToken)) throw new FormsError('ابتدا مشتری باید برآورد جاری هزینه را تأیید کند', 409)
+  if (!estimate || estimate.supersededAt || estimate.contactHash !== repairHash('contact', repairPhone(row.data)) || estimate.receiptHash !== repairHash('receipt', row.receiptToken)) {
+    throw new FormsError('برآورد معتبر برای این پرونده وجود ندارد. در بخش «برنامه و برآورد تعمیر» برآورد تازه ثبت کنید.', 409)
+  }
+  if (estimate.status === 'REJECTED') throw new FormsError('مشتری برآورد هزینه را رد کرده است. برای ادامه، برآورد تازه و تأیید مشتری لازم است.', 409)
+  if (estimate.status !== 'APPROVED') {
+    if (estimate.expiresAt.getTime() <= Date.now()) throw new FormsError('مهلت تأیید برآورد هزینه گذشته است. برای ادامه، برآورد تازه ثبت کنید.', 409)
+    throw new FormsError('تغییر وضعیت در انتظار تأیید برآورد هزینه توسط مشتری در صفحهٔ پیگیری تعمیر است.', 409)
+  }
 }
 
 export async function assertRepairInvoiceConsent(tx: RepairClient, id: number, totalMinor: bigint, currency: string) {

@@ -84,6 +84,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
   const [reason, setReason] = useState('')
   const [paidOrderId, setPaidOrderId] = useState('')
   const [busy, setBusy] = useState(false)
+  const [stageError, setStageError] = useState('')
   const unpaid = row.payStatus === 'UNPAID'
   // A repair is invoiced at the shop counter (parts and work); the step that hands the device back may ask for it paid.
   const invoiced = row.repairInvoice?.status === 'PAID', invoiceStep = row.steps.some((step) => step.invoice)
@@ -91,11 +92,29 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
   const asksCode = !!pickup?.pickup && !!row.receivedAt, asksInvoice = !!pickup?.invoice && !invoiced
 
   async function work(body: { stage?: string; take?: boolean; reply?: string; pickupCode?: string; override?: string }, done: string) {
+    if (busy) return
     setBusy(true)
-    const result = await api('/api/admin/forms/submissions', 'PATCH', { id: row.id, work: body })
-    setBusy(false)
-    onNotice(result.ok ? 'ok' : 'error', result.ok ? done : result.error)
-    if (result.ok) onChanged()
+    setStageError('')
+    try {
+      const result = await api('/api/admin/forms/submissions', 'PATCH', { id: row.id, work: body })
+      if (!result.ok) {
+        if (body.stage) setStageError(result.error)
+        else onNotice('error', result.error)
+        return
+      }
+      if (body.stage) setPickup(null)
+      onNotice('ok', done)
+      onChanged()
+    } finally { setBusy(false) }
+  }
+  function selectStage(step: Row['steps'][number]) {
+    if (busy || row.stage === step.key) return
+    setStageError('')
+    if ((step.pickup && row.receivedAt) || (step.invoice && !invoiced)) {
+      setPickup(step)
+      setCode('')
+      setReason('')
+    } else void work({ stage: step.key }, `وضعیت: ${step.label}`)
   }
   async function reveal() {
     setBusy(true)
@@ -142,12 +161,13 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
     <div className="fp-stage">
       <b>وضعیت کار</b>
       {unpaid ? <p className="sa-hint">تا پرداخت انجام نشود، کار روی این درخواست شروع نمی‌شود.</p> : <>
-        <div className="ad-range" role="group" aria-label="وضعیت کار">{row.steps.map((step) => <button key={step.key} type="button" aria-pressed={row.stage === step.key} disabled={busy} onClick={() => { if (row.stage !== step.key && ((step.pickup && row.receivedAt) || (step.invoice && !invoiced))) { setPickup(step); setCode(''); setReason('') } else void work({ stage: step.key }, `وضعیت: ${step.label}`) }}>{step.label}</button>)}</div>
+        <div className="ad-range" role="group" aria-label="وضعیت کار">{row.steps.map((step) => <button key={step.key} type="button" aria-pressed={row.stage === step.key} aria-disabled={busy || undefined} onClick={() => selectStage(step)}>{step.label}</button>)}</div>
+        {stageError && <p role="alert" className="sa-notice is-error">{stageError}</p>}
         {pickup && <div className="fp-pickup" role="group" aria-label="تحویل دستگاه">
           {asksInvoice && <p className="sa-notice" role="status">فاکتور تعمیر این دستگاه هنوز پرداخت نشده است. <a className="sa-link" href={`/admin/store/counter?repair=${row.id}`}>صدور فاکتور تعمیر</a></p>}
           {asksCode && <label className="sa-field"><span>کد تحویل روی رسید مشتری</span><input className="input" dir="ltr" inputMode="numeric" maxLength={6} autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} /></label>}
           <label className="sa-field"><span>{asksInvoice ? (asksCode ? 'بدون فاکتور یا بدون کد؟ دلیلش' : 'تحویل بدون فاکتور؟ دلیلش') : 'رسید ندارد؟ دلیل تحویل بدون کد'} <small className="sa-sub">فقط مدیر؛ با نام شما ثبت می‌شود</small></span><input className="input" maxLength={300} value={reason} placeholder={asksInvoice ? 'مثلاً تعمیر در گارانتی و رایگان بود' : 'مثلاً رسید گم شده؛ کارت ملی بررسی شد'} onChange={(e) => setReason(e.target.value)} /></label>
-          <div className="sa-row-actions"><button type="button" className="btn btn-primary btn-sm" disabled={busy || (reason.trim().length < 5 && (asksInvoice || (asksCode && !code)))} onClick={() => void work({ stage: pickup.key, pickupCode: code, override: reason }, `وضعیت: ${pickup.label}`).then(() => setPickup(null))}>تحویل دستگاه</button><button type="button" className="sa-link" onClick={() => setPickup(null)}>انصراف</button></div>
+          <div className="sa-row-actions"><button type="button" className="btn btn-primary btn-sm" disabled={busy || (reason.trim().length < 5 && (asksInvoice || (asksCode && !code)))} onClick={() => void work({ stage: pickup.key, pickupCode: code, override: reason }, `وضعیت: ${pickup.label}`)}>تحویل دستگاه</button><button type="button" className="sa-link" onClick={() => { setPickup(null); setStageError('') }}>انصراف</button></div>
         </div>}
         {invoiceStep && (row.repairInvoice || (!finished && (row.receivedAt || !row.receipt))) && <p className="sa-row-actions fp-receipts">
           {invoiced ? <><span className="sa-state is-info">فاکتور تعمیر پرداخت شد</span><a className="btn btn-ghost btn-sm" href={`/invoice/${encodeURIComponent(row.repairInvoice!.number)}/official`} target="_blank">فاکتور <bdi>{row.repairInvoice!.number}</bdi></a><a className="btn btn-ghost btn-sm" href={`/admin/store/counter?order=${row.repairInvoice!.orderId}`}>رسید صندوق</a></>
