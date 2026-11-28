@@ -3090,3 +3090,41 @@ on untouched `main`. No live bank SMS was sent.
   receipt and replay, terminal filtering and settlement totals. Edge verified
   the staff queue and report, mobile merchant report, terminal selection,
   CSV downloads and scoped accessibility.
+
+## Permanent payment engineering gates — 2026-11-28
+
+Worktree `.mobocom/pay-reliability-engineering`, branch
+`chore/pay-reliability-engineering`, base `b1c09c39` on `main`.
+The owner made [Pay Reliability](../../../.agents/skills/mobocom-pay-reliability/SKILL.md)
+mandatory for direct and indirect payment changes and paired it with Premium
+Design for affected payment UI. Both client copies contain the same skill and
+regression reference. [Engineering gates](../ENGINEERING_SKILLS.md#payment-quality-gates)
+are the source of test commands and delivery rules.
+
+The existing connected runner now exposes all 16 registered Pay regressions
+through `npm run test:pay`. It refuses missing, malformed or non-disposable
+database URLs before spawning a check. The separate `pay-center-upgrade`
+check seeds historical users through old columns and compares all applied
+migration names against the current migration directories. Its historical
+settlements, quotes and wallet invariants remain asserted. This slice changes
+test infrastructure and project policy only.
+
+Executed locally: a full migration and all 16 connected Pay checks on
+PostgreSQL 17.11 as a non-superuser, the historical upgrade on a second empty
+database, all 67 scoped unit cases in Linux, and architecture, source,
+schema, migration-manifest, money and security gates. The original upgrade
+fixture used an old migration count and attempted to read the newer
+`User.loginPolicy` while seeding. The corrected fixture passed.
+Guard tests rejected three invalid database inputs without echoing them.
+The Codex app-server reported both skills enabled in repository scope.
+Both entrypoints passed the skill validator and both reference files matched
+their mirrors. Independent diff review found no blocking issue.
+
+The manual Checks workflow provisions two separate owned databases and fails
+when either Pay step fails. YAML routing and offline zizmor passed. The
+hosted workflow was not dispatched. The owned synthetic databases and roles
+were removed after verification. Payment PR evidence and independent
+approval remain review controls. This tooling change required no browser
+run, real funds, provider request or production change. Revert this policy
+and test-infrastructure commit to roll back. There is no application schema
+or financial data rollback.

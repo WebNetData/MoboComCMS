@@ -1,3 +1,11 @@
+# Permanent payment engineering gates — 2026-11-28
+
+Continue `.mobocom/pay-reliability-engineering` on
+`chore/pay-reliability-engineering`, base `b1c09c39`.
+Pay Reliability is required for payment-affecting changes. The existing
+manual Checks workflow includes its connected suite and historical upgrade.
+[Implementation and executed checks](../docs/agent/handoffs/MOBOCOM_PAY.md#permanent-payment-engineering-gates--2026-11-28).
+
 # Pay merchant dashboard redesign — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

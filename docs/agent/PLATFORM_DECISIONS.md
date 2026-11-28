@@ -160,6 +160,8 @@ Owner Pay shared-checkout clarification2026-11-23: reuse active compatible MoboC
 
 Owner Pay navigation2026-11-23: use the independent label «درگاه پرداخت» and organized submenus in account/Admin panels. Preserve MoboCom/SDS identity and canonical shared Wallet; the owner’s wallet question confirmed the existing shared balance with a withdrawable subset. The new request changes presentation/navigation, not withdrawal eligibility or live-provider authorization. [Implementation/evidence](handoffs/MOBOCOM_PAY.md#independent-payment-gateway-navigation--owner-continuation-2026-11-23).
 
+Payment engineering2026-11-28: [Pay Reliability](../../.agents/skills/mobocom-pay-reliability/SKILL.md) is mandatory for direct and indirect payment changes. Apply Premium Design as well when a payment UI is affected. Critical payment regressions or missing critical evidence block merge/release. The existing Checks workflow stays manual. [Engineering gates and ownership](ENGINEERING_SKILLS.md#payment-quality-gates).
+
 ## MoboComPay — owner decisions 2026-11-23
 
 Owner2026-11-25 supplies SMS Forwarder sms/bank/token body and requests simultaneous SMS/Bale/manual first-valid approval. Extend current per-source generated credential/Admin and shared once-only invoice/Wallet settlement; fee never becomes user proceeds. Exact3 mode has only server receipt time, so retain sender-filter/fresh-message commissioning and explicit historical-message limitation. Preserve existing locked-USDT original-time proof requirement; ACK simple evidence without automatically treating it as timely acquisition. [Evidence](handoffs/MOBOCOM_PAY.md#sms-forwarder-three-field-intake--2026-11-25).
