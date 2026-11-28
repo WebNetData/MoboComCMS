@@ -326,6 +326,7 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
     tab, q, page, pages: Math.max(1, Math.ceil(total / size)), total, work: String(input.work || ''), overdueHours,
     counts: Object.fromEntries(ADMIN_TABS.map((item, index) => [item.key, counts[index]])) as Record<AdminTab, number>,
     workCounts: Object.fromEntries(['all', 'pending', 'mine', 'unassigned', 'overdue'].map((key, index) => [key, workCounts[index]])),
+    canManageExpertSla: Boolean(scope?.manager),
     orders: rows.map((order) => {
       const lines = orderLines(order)
       return {
@@ -348,7 +349,7 @@ function loadAdminOrder(orderId: number, scope?: OrderWorkScope) {
       user: { select: { id: true, name: true, email: true, phone: true, createdAt: true } },
       productDelivery: { select: { id: true, status: true, trackingCode: true, deliveryNote: true, deliveredAt: true, address: true, scheduledDate: true, scheduledSlot: true, digitalDelivery: true } },
       invoice: { select: { id: true, number: true, status: true, discountMinor: true, walletAppliedMinor: true } },
-      events: { orderBy: { createdAt: 'asc' } },
+      events: { where: { status: { notIn: ['EXPERT_WAIT_START', 'EXPERT_WAIT_END'] } }, orderBy: { createdAt: 'asc' } },
       payments: { select: { id: true, provider: true, status: true, amountMinor: true, currency: true, createdAt: true }, orderBy: { id: 'asc' } },
       gateway: { select: { name: true } },
     },

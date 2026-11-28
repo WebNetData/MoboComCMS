@@ -90,6 +90,18 @@ async function verifyRenewals() {
   assert.equal(queue.services[0].renewalReminderAt, latest.toISOString())
   assert(queue.services.slice(1).every(row => row.renewalReminderAt === null))
   assert.equal((await admin.adminHostingServices({ status: 'ACTIVE', q: `${stamp}-renewal` }, now)).total, 5)
+  const batch = load('src/modules/hosting/server/renewal-reminders.ts')
+  const openPreview = await batch.previewRenewalReminders({ due: 'OVERDUE', invoice: 'UNPAID', cursor: 0 }, now)
+  const target = openPreview.items.find(row => row.id === payable.id)
+  assert.equal(target?.invoice.number, valid.invoice.number)
+  const paidPreview = await batch.previewRenewalReminders({ due: 'NEXT_7', invoice: 'PAID', cursor: 0 }, now)
+  assert.equal(paidPreview.items.find(row => row.id === paid.id)?.eligible, false)
+  const command = { actor: { id: owner.id, email: owner.email }, req: new Request('http://localhost/api/admin/hosting/services/renewal-reminders') }
+  const selected = { id: target.id, userId: target.userId, dueAt: target.dueAt, invoiceNumber: target.invoice.number }
+  assert.equal((await batch.dispatchRenewalReminders([{ ...selected, userId: other.id }], command, now))[0].status, 'SKIPPED')
+  const race = await Promise.all([batch.dispatchRenewalReminders([selected], command, now), batch.dispatchRenewalReminders([selected], command, now)])
+  assert.deepEqual(race.map(rows => rows[0].status).sort(), ['ALREADY_RECORDED', 'QUEUED'])
+  assert.equal(await db.userNotification.count({ where: { userId: owner.id, dedupeKey: `hosting:${payable.id}:due:manual:${target.dueAt}` } }), 1)
 }
 async function main() {
   try {

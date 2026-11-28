@@ -6,6 +6,7 @@ import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { getSettings } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { recordExpertWorkWait } from '@/modules/support/server/expert-work-wait'
 import { sendMail } from '@/modules/mail/server/mailer'
 import { getSmsConfig, sendSms } from '@/modules/sms/server/sms'
 import { isPrivateAddress } from '@/modules/server-panel/domain/downloads'
@@ -270,14 +271,16 @@ async function firstAdminId() {
 }
 
 async function closeTicket(ticketId: number, message: string) {
-  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true, userId: true, status: true, subject: true } })
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true, userId: true, status: true, subject: true, updatedAt: true, lastStaffAt: true, expertRequestKey: true, orderId: true } })
   if (!ticket) throw new AutomationError('تیکت پیدا نشد')
   if (ticket.status === 'CLOSED') return 'از قبل بسته بود'
   const now = new Date()
   const author = message ? await firstAdminId() : 0
   await db.$transaction(async (tx) => {
+    const claim = await tx.ticket.updateMany({ where: { id: ticketId, status: ticket.status, updatedAt: ticket.updatedAt }, data: { status: 'CLOSED', closedAt: now, updatedAt: now, ...(message ? { lastStaffAt: now } : {}) } })
+    if (!claim.count) throw new AutomationError('تیکت هم‌زمان تغییر کرد')
     if (message) await tx.ticketMessage.create({ data: { ticketId, userId: author, fromAdmin: true, internal: false, body: `<p>${message.replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]!))}</p>` } })
-    await tx.ticket.update({ where: { id: ticketId }, data: { status: 'CLOSED', closedAt: now, updatedAt: now, ...(message ? { lastStaffAt: now } : {}) } })
+    await recordExpertWorkWait(tx, ticket, 'CLOSED', now, author || null)
   })
   await createInboxEvent({ userId: ticket.userId, kind: 'TICKET_REPLY', dedupeKey: `auto:ticket-closed:${ticketId}:${now.getTime()}`, titleFa: `تیکت «${ticket.subject.slice(0, 80)}» بسته شد`, titleEn: 'Your ticket was closed', bodyFa: message.slice(0, 300), bodyEn: '', href: `/dashboard/tickets/${ticketId}` }).catch(() => undefined)
   return 'تیکت بسته شد'

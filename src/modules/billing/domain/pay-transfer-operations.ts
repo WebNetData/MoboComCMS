@@ -3,9 +3,17 @@ export type TransferMonitor = {
   asOf: string
   windowHours: number
   receiptBacklog: { count: number; olderThanMinutes: number; oldestAt: string | null }
-  sources: { id: string; label: string; type: 'SMS' | 'BALE'; ready: boolean; observed: boolean; lastReceivedAt: string | null; notices: number; rejected: number; p95DeliveryMs: number | null }[]
+  sources: TransferSourceHealth[]
   totals: { received: number; paid: number; awaitingReview: number; overdue: number; oldestReviewAt: string | null; p50ConfirmationMs: number | null; p95ConfirmationMs: number | null }
   pools: { principalRial: string; capacity: number; occupied: number; remaining: number; state: 'AVAILABLE' | 'LOW' | 'EXHAUSTED' }[]
+}
+export type TransferSourceHealth = {
+  id: string; label: string; type: 'SMS' | 'BALE'; ready: boolean; observed: boolean
+  lastReceivedAt: string | null; lastValidAt: string | null
+  notices: number; rejected: number; p95DeliveryMs: number | null
+  health: 'NOT_READY' | 'RECENT_VALID' | 'REJECTIONS' | 'SILENT_BACKLOG' | 'UNKNOWN'
+  reasons: { code: string; count: number }[]
+  affected: number
 }
 export type TransferReviewState = 'OPEN' | 'DISMISSED' | 'CONFIRMED'
 export type TransferDifference = 'UNASSIGNED' | 'EXACT' | 'UNDER' | 'OVER'
@@ -30,6 +38,7 @@ export type TransferReviewQueue = {
   receiptsPage: number; receiptsPages: number; receiptsTotal: number
   items: { id: string; source: string; amountRial: string; receivedAt: string; invoiceNumber: string | null; status: TransferReviewState; reason: string }[]
   receipts: { id: string; invoiceNumber: string; status: string; reason: string; receiptId: number | null; createdAt: string; totalRial: string; stage: TransferQueueStage }[]
+  smsSource?: { id: string; label: string }
 }
 
 export type TransferQueueStage = 'WAITING_RECEIPT' | 'WAITING_SMS' | 'REVIEW'

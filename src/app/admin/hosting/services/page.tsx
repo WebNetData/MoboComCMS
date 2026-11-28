@@ -5,6 +5,7 @@ import { cycleMeta, kindMeta } from '@/modules/hosting/domain/catalog'
 import { HOSTING_RENEWAL_HORIZON_DAYS, SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
 import { Notice, Pager, fa, faDate, send, useJson } from '../../store/shared'
 import { HostingShell, toman } from '../shared'
+import RenewalReminderBatch from './RenewalReminderBatch'
 
 type Action = { id: number; kind: string; status: string; actor: string; detail: string; error: string; createdAt: string }
 type Row = {
@@ -112,6 +113,7 @@ export default function HostingServicesPage() {
         <form role="search" onSubmit={(event) => { event.preventDefault(); setQuery(q); setPage(1) }}><input className="input" type="search" aria-label="جست‌وجو" placeholder="ایمیل، دامنه، آی‌پی یا شماره" value={q} onChange={(event) => setQ(event.target.value)} /></form>
       </div>
       {renewalQueue && <RenewalSummary total={data?.total} />}
+      {renewalQueue && <RenewalReminderBatch onQueued={() => void reload()} />}
       {renewalQueue && !data && !error && <p className="sa-hint" role="status">در حال دریافت سررسیدها…</p>}
       {data && !data.services.length && <div className="hx-empty">
         <h2>{renewalQueue ? 'سرویسی نیازمند تمدید نیست' : status || query ? 'سرویسی با این شرایط نیست' : 'هنوز سرویسی فروخته نشده است'}</h2>

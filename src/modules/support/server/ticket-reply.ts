@@ -5,9 +5,10 @@ import { requirePerm, type AuthedUser } from '@/modules/identity/server/access'
 import { sanitizeMessage, richTextToPlain } from '@/shared/content/sanitize'
 import { canHandleDepartment } from '@/modules/support/domain/department-config'
 import { HELD_BY_ANOTHER, heldByAnother, managesTickets } from '@/modules/support/server/department-access'
-import { TICKET_CHANGED, ticketWorkflowWhere } from '@/modules/support/server/ticket-workflow'
+import { TICKET_CHANGED, ticketWorkflowSelect, ticketWorkflowWhere } from '@/modules/support/server/ticket-workflow'
 import { ticketAttachmentRows } from '@/modules/support/server/ticket-attachments'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { recordExpertWorkWait } from '@/modules/support/server/expert-work-wait'
 
 export class TicketReplyError extends Error {
   constructor(message: string, readonly status: number, readonly code?: string) {
@@ -17,7 +18,7 @@ export class TicketReplyError extends Error {
 }
 
 type TicketReplyFiles = Parameters<typeof ticketAttachmentRows>[0]
-type TicketWorkflow = Pick<Ticket, 'id' | 'department' | 'status' | 'assignedToId' | 'firstResponseAt' | 'lastStaffAt' | 'lastCustomerAt' | 'closedAt'>
+type TicketWorkflow = Pick<Ticket, keyof typeof ticketWorkflowSelect>
 
 /** The shared atomic write used by the public ticket route and the reviewed desk action. */
 export async function persistTicketReply(
@@ -28,10 +29,13 @@ export async function persistTicketReply(
   expectedUpdatedAt?: Date,
 ): Promise<number | null> {
   const now = new Date()
+  // Expert replies compare the same workflow fields in each direction. This
+  // keeps concurrent customer responses and staff wait changes ordered.
+  const status = input.staffReply ? input.close ? 'CLOSED' : 'PENDING' : 'OPEN'
   const claim = await tx.ticket.updateMany({
     where: {
       userId: ticket.userId,
-      ...(input.staffReply && !input.internal ? ticketWorkflowWhere(ticket) : { id: ticket.id, department: ticket.department }),
+      ...(!input.internal && (input.staffReply || ticket.expertRequestKey) ? ticketWorkflowWhere(ticket) : { id: ticket.id, department: ticket.department }),
       ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt, status: 'OPEN' } : {}),
     },
     data: {
@@ -46,6 +50,7 @@ export async function persistTicketReply(
     },
   })
   if (!claim.count) return null
+  if (!input.internal) await recordExpertWorkWait(tx, ticket, status, now, actorId)
   const created = await tx.ticketMessage.create({
     data: {
       ticketId: ticket.id, userId: actorId, fromAdmin: input.staffReply, internal: input.internal, body: input.message,
@@ -87,8 +92,7 @@ export async function applyDeskTicketReply(
     const ticket = await tx.ticket.findUnique({
       where: { id: input.id },
       select: {
-        id: true, userId: true, department: true, status: true, assignedToId: true,
-        firstResponseAt: true, lastStaffAt: true, lastCustomerAt: true, closedAt: true, updatedAt: true,
+        ...ticketWorkflowSelect, userId: true, updatedAt: true,
       },
     })
     if (!ticket) throw new TicketReplyError('not found', 404)

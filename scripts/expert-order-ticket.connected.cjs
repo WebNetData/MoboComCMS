@@ -74,6 +74,9 @@ async function main() {
   const callStore = (actor, body) => request(storeRoute, where.store, shop.id, actor, body)
   const callForm = (actor, body) => request(formRoute, where.form, submission.id, actor, body)
   const verification = { purpose: 'verification', version: null }
+  const { expertWorkQueue } = load('src/modules/support/server/expert-work-sla.ts')
+  const queueAt = new Date(Date.now() + 48 * 3_600_000)
+  assert.ok((await expertWorkQueue('form', null, queueAt)).items.find(item => item.id === submission.id)?.deadlines.some(deadline => deadline.kind === 'claim'))
 
   assert.equal((await callStore(specialist, verification)).status, 403, 'unassigned store order')
   assert.equal((await callForm(specialist, verification)).status, 403, 'unassigned paid form')
@@ -96,8 +99,10 @@ async function main() {
   assert.equal(repeatStore.data.ticket.id, storeTicket.id)
   assert.equal(repeatStore.data.ticket.messages.length, 1)
   assert.equal(await db.ticket.count({ where: { expertRequestKey: `store:${shop.id}`, userId: buyer.id, orderId: shop.id } }), 1)
+  assert.equal(await db.orderEvent.count({ where: { orderId: shop.id, status: 'EXPERT_WAIT_START' } }), 1)
   const formTicket = (await callForm(specialist, { purpose: 'detail', message: 'نام طرح مورد نظر را اعلام کنید.', version: null })).data.ticket
   assert.ok(formTicket)
+  assert.equal((await expertWorkQueue('form', null, queueAt)).items.some(item => item.id === submission.id), false, 'waiting for the customer pauses delivery')
   assert.equal((await myRequests(buyer.id)).find(row => row.id === submission.id).expertTicketId, formTicket.id)
   assert.equal((await request(ticketsRoute, where.ticket, storeTicket.id, stranger)).status, 403)
   const read = await request(ticketsRoute, where.ticket, storeTicket.id, buyer)
@@ -108,6 +113,8 @@ async function main() {
   const reply = message => request(ticketsRoute, where.ticket, storeTicket.id, buyer, { message, asCustomer: true })
   assert.equal((await reply('۱۲۳۴۵۶')).status, 422)
   assert.equal((await reply('تأیید را در سایت انجام دادم.')).status, 200)
+  assert.equal(await db.orderEvent.count({ where: { orderId: shop.id, status: 'EXPERT_WAIT_END' } }), 1)
+  assert.ok((await expertWorkQueue('store', null, queueAt)).items.find(item => item.id === shop.id)?.deadlines.some(deadline => deadline.kind === 'reply'))
   assert.equal((await callStore(specialist, { purpose: 'detail', message: 'از همکاری شما متشکریم.', version: storeTicket.version })).status, 409, 'stale revision')
   const latest = (await callStore(specialist)).data.ticket
   assert.equal(latest.status, 'OPEN')

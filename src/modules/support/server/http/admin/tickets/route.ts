@@ -11,6 +11,7 @@ import { ticketSlaState } from '@/modules/support/domain/ticket-operations'
 import { parsePermissions } from '@/modules/identity/rbac'
 import { canHandleDepartment } from '@/modules/support/domain/department-config'
 import { TICKET_CHANGED, ticketWorkflowSelect, ticketWorkflowWhere } from '@/modules/support/server/ticket-workflow'
+import { recordExpertWorkWait } from '@/modules/support/server/expert-work-wait'
 
 export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'tickets.handle' as Permission)
@@ -78,14 +79,19 @@ export async function PATCH(req: NextRequest) {
       if (!staff || staff.status !== 'ACTIVE' || staff.role !== 'ADMIN' || (staff.roleId != null && !parsePermissions(staff.roleRef?.permissions || '').includes('tickets.handle')) || !await canHandleTicket({ id: staff.id, email: staff.email, role: staff.role, roleId: staff.roleId, permissions: staff.roleId == null ? null : parsePermissions(staff.roleRef?.permissions || '') }, existing.department)) return err('assignee cannot handle this department', 403)
     }
   }
-  const claim = await db.ticket.updateMany({
-    where: ticketWorkflowWhere(existing),
-    data: {
-      ...(status ? { status, closedAt: status === 'CLOSED' ? (existing.status === 'CLOSED' ? existing.closedAt : null) ?? new Date() : null } : {}),
-      ...(hasAssignment ? { assignedToId } : {}),
-    },
+  const count = await db.$transaction(async tx => {
+    const now = new Date()
+    const claim = await tx.ticket.updateMany({
+      where: ticketWorkflowWhere(existing),
+      data: {
+        ...(status ? { status, closedAt: status === 'CLOSED' ? (existing.status === 'CLOSED' ? existing.closedAt : null) ?? now : null } : {}),
+        ...(hasAssignment ? { assignedToId } : {}),
+      },
+    })
+    if (claim.count && status) await recordExpertWorkWait(tx, existing, status, now, admin.id)
+    return claim.count
   })
-  if (!claim.count) return err(TICKET_CHANGED, 409, { code: 'TICKET_CHANGED' })
+  if (!count) return err(TICKET_CHANGED, 409, { code: 'TICKET_CHANGED' })
   return ok({ id, status: status ?? existing.status, assignedToId: assignedToId === undefined ? existing.assignedToId : assignedToId })
 }
 

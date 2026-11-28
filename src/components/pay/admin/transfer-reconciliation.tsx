@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import type { TransferReviewQueue, TransferQueueStage } from '@/modules/billing/domain/pay-transfer-operations'
 import Link from '@/components/AppLink'
+import { useSearchParams } from '@/platform/routing/navigation'
 import { api, money, date } from '../client'
 import { ErrorNotice, Field } from '../shared'
 import TransferReviewCase from './transfer-review-case'
@@ -13,6 +14,11 @@ const stageLabels: Record<TransferQueueStage, string> = {
 }
 
 export default function TransferReconciliation() {
+  const smsSource = useSearchParams().get('smsSource') ?? ''
+  return <ReviewQueue key={smsSource} smsSource={smsSource} />
+}
+
+function ReviewQueue({ smsSource }: { smsSource: string }) {
   const [data, setData] = useState<TransferReviewQueue | null>(null), [page, setPage] = useState(1), [closed, setClosed] = useState(false), [reload, setReload] = useState(0), [error, setError] = useState(''), [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<{ id: string; kind: 'id' | 'collection' } | null>(null)
   const [receiptsPage, setReceiptsPage] = useState(1)
@@ -21,13 +27,18 @@ export default function TransferReconciliation() {
     const controller = new AbortController()
     setLoading(true); setError('')
     const query = new URLSearchParams({ page: String(page), closed: String(closed), receiptsPage: String(receiptsPage), stage })
+    if (smsSource) query.set('smsSource', smsSource)
     api<TransferReviewQueue>(`/api/admin/mobocom-pay/transfer-reviews?${query}`, { signal: controller.signal }).then(d => { if (!controller.signal.aborted) setData(d) }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'دریافت صف انجام نشد') }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [page, closed, receiptsPage, stage, reload])
+  }, [page, closed, receiptsPage, stage, reload, smsSource])
   return <section className={s.stack}>
     <div className={`${s.sectionHead} ${o.heading}`}><div><h2>میز بررسی واریزها</h2><p className={s.muted}>واریز دیرهنگام، مبلغ نابرابر و رسیدهای در انتظار را با سابقهٔ تصمیم‌ها بررسی کنید.</p></div><button type="button" className={s.secondary} disabled={loading} onClick={() => setReload(n => n + 1)}>تازه‌سازی صف بررسی</button></div>
     <p className={s.notice}>برابری یا نزدیکی مبلغ، هویت پرداخت‌کننده را ثابت نمی‌کند. برای مبلغ کمتر یا بیشتر، نتیجهٔ رسیدگی را ثبت کنید؛ تأیید مالی فقط برای مدرک مجاز با مبلغ دقیق انجام می‌شود.</p>
     <ErrorNotice error={error} />
+    {smsSource && <div className={s.notice}>
+      {data?.smsSource && <p>رسیدهای در انتظار که به منبع «{data.smsSource.label}» وابسته‌اند. وضعیت سایر منابع و مدرک وصول را پیش از تأیید دستی بررسی کنید.</p>}
+      <Link href="/admin/mobocom-pay/reconciliation" className={s.secondary}>نمایش همهٔ منابع</Link>
+    </div>}
     <div className={o.columns}>
       <label className={s.check}><input type="checkbox" checked={closed} onChange={e => { setClosed(e.target.checked); setPage(1) }} />نمایش شواهد بانکی بسته‌شده</label>
       <Field label="مرحلهٔ پیگیری پرداخت"><select value={stage} onChange={e => { setStage(e.target.value); setReceiptsPage(1); setSelected(null) }}><option value="">همهٔ مراحل</option>{Object.entries(stageLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
