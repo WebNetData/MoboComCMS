@@ -1055,7 +1055,23 @@
           "sha256": "18bfbe2a3c6b9c1fa67610ed84fad791cc74ae3493e66fb36fb160ab01f0c8bb"
         }
       ]
+    },
+    "1.7.31": {
+      "migrations": [
+        {
+          "name": "20270418160000_expert_request_ticket",
+          "sha256": "0a0c092fe8ae2a496bc36e010e299495350c75c84966b8e82a8fbd42e948f81a"
+        },
+        {
+          "name": "20270418170000_pay_financial_period",
+          "sha256": "59220d109446a592081798f06753e4e8d25594dfa24a4c93eef4dbbf2beae962"
+        },
+        {
+          "name": "20270418180000_pay_sms_account_pool",
+          "sha256": "c8f0a30d2a2454c465058d2f098df71bf404dd93883c622000fe27e91580eaca"
+        }
+      ]
     }
   },
-  "unreleased": ["20270418160000_expert_request_ticket", "20270418170000_pay_financial_period", "20270418180000_pay_sms_account_pool"]
+  "unreleased": []
 }
