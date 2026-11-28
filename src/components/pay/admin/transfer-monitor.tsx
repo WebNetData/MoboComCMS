@@ -30,7 +30,13 @@ export default function TransferMonitor() {
       </dl>
       <div className={o.columns}>
         <section className={`${s.card} ${s.stack}`}><h3>زمان تأیید از دریافت پیام در منبع</h3><dl className={o.facts}><div><dt>میانه</dt><dd>{latency(data.totals.p50ConfirmationMs)}</dd></div><div><dt>صدک ۹۵</dt><dd>{latency(data.totals.p95ConfirmationMs)}</dd></div></dl><p className={s.muted}>فقط پیام‌های دارای زمان دریافت در منبع در محاسبه‌اند؛ پیامک سه‌فیلدی و تأیید دستی بدون پیام، زمان تحویل قابل اندازه‌گیری ندارند.</p></section>
-        <section className={`${s.card} ${s.stack}`}><h3>صف رسیدگی</h3><p>{data.totals.oldestReviewAt ? `قدیمی‌ترین درخواست: ${date(data.totals.oldestReviewAt)}` : 'درخواستی در انتظار بررسی نیست.'}</p><Link href="/admin/mobocom-pay/reconciliation" className={s.button}>ورود به میز مغایرت‌ها</Link></section>
+        <section className={`${s.card} ${s.stack}`}><h3>صف رسیدگی</h3><p>{data.totals.oldestReviewAt ? `قدیمی‌ترین مغایرت: ${date(data.totals.oldestReviewAt)}` : 'مغایرت بازی برای بررسی وجود ندارد.'}</p>
+          {data.receiptBacklog.count > 0 && <div className={s.notice}>
+            <strong>{n(data.receiptBacklog.count)} رسید دست‌کم {n(data.receiptBacklog.olderThanMinutes)} دقیقه در انتظار بررسی است.</strong>
+            {data.receiptBacklog.oldestAt && <p className={s.muted}>قدیمی‌ترین رسید {date(data.receiptBacklog.oldestAt)}</p>}
+          </div>}
+          <div className={s.actions}><Link href="/admin/mobocom-pay/receipts" className={s.button}>بررسی رسیدها</Link><Link href="/admin/mobocom-pay/reconciliation" className={s.secondary}>میز مغایرت‌ها</Link></div>
+        </section>
       </div>
 <section className={`${s.card} ${s.stack}`}><h3>منابع پیامک بانکی</h3><p className={s.muted}>آمادگی از تنظیمات و دسترسی فعلی محاسبه می‌شود. «آخرین پیام» زمان آخرین دریافت ثبت‌شده را نشان می‌دهد.</p>
         <div className={o.sources}>{data.sources.map(source => <article key={source.id} className={o.source}><div className={s.row}><h4>{source.label}</h4><span className={s.badge}>{source.ready ? 'آمادهٔ دریافت' : 'نیازمند تنظیم'}</span></div><p className={s.muted}>{source.observed ? 'پیام در ۱۵ دقیقهٔ اخیر دریافت شده' : 'اتصال زنده نامشخص؛ ترافیک اخیر مشاهده نشده'}</p><dl className={o.facts}><div><dt>آخرین دریافت</dt><dd>{source.lastReceivedAt ? date(source.lastReceivedAt) : 'هنوز پیامی ثبت نشده'}</dd></div><div><dt>پیام / نامعتبر در ۲۴ ساعت</dt><dd>{n(source.notices)} / {n(source.rejected)}</dd></div><div><dt>تأخیر تحویل · صدک ۹۵</dt><dd>{latency(source.p95DeliveryMs)}</dd></div></dl></article>)}</div>

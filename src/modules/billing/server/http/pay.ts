@@ -12,7 +12,7 @@ import { recordRevision } from '@/modules/content/server/revisions'
 import { normalizePaySettings, text } from '@/modules/billing/domain/pay-policy'
 import { PayError, type PayPaymentView } from '@/modules/billing/domain/pay'
 import { listCheckoutGateways } from '@/modules/billing/server/gateways'
-import { requirePayPayer, payReceipts, reviewPayReceipt } from '@/modules/billing/server/pay'
+import { requirePayPayer, payReceipts, reviewPayReceipt, previewPayStatement, statementAccounts } from '@/modules/billing/server/pay'
 import { payCenterGet, payCenterWrite } from './pay-center'
 import {
   applyPayMerchant,
@@ -209,7 +209,21 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     if (req.method === 'GET' && resource === 'terminal-keys') return apiOk(await adminTerminalKeys(actor, req.nextUrl.searchParams.get('id')))
     if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
     if (req.method === 'GET' && resource === 'sms-sources') return apiOk(await smsSources(actor))
-    if (req.method === 'GET' && resource === 'receipts') return apiOk(await payReceipts(actor))
+    if (req.method === 'GET' && resource === 'receipts') {
+      const ids = req.nextUrl.searchParams.get('ids')
+      if (ids !== null && (!/^[1-9]\d{0,9}(?:,[1-9]\d{0,9}){0,249}$/.test(ids) || ids.split(',').some(value => Number(value) > 2147483647)))
+        throw new PayError('شناسه‌های رسید معتبر نیستند', 422)
+      return apiOk(await payReceipts(actor, ids?.split(',').map(Number)))
+    }
+    if (resource === 'statement-preview') {
+      if (req.method === 'GET') return apiOk({ accounts: await statementAccounts(actor) })
+      if (req.method === 'POST') {
+        const origin = req.headers.get('origin')
+        if (!origin || !originIsThisSite(origin, req.nextUrl.host)) throw new PayError('مبدأ درخواست معتبر نیست', 403)
+        await limited('pay-statement-preview:' + actor.id, 10)
+        return apiOk(await previewPayStatement(actor, await readJsonObject(req, 65_536)))
+      }
+    }
     if (req.method === 'GET' && resource === 'transfer-operations') return apiOk(await transferMonitor(actor))
     if (req.method === 'GET' && resource === 'transfer-reviews') {
       const collection = req.nextUrl.searchParams.get('collection')

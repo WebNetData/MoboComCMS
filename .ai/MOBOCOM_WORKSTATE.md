@@ -1,3 +1,9 @@
+# Pay statement preview and operations follow-up — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`feat/pay-statement-receipt-preview`, base `9f6a2d47`.
+[Scope and evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#statement-preview-and-operations-follow-up--2026-11-28).
+
 # Pay bot checkout, terminals and unique transfers — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

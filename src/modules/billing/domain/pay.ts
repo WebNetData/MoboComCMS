@@ -76,6 +76,7 @@ export interface PayPaymentView {
   requestedGatewayRef?: string
   /** Present only in the authorized Admin payment projection. */
   receiptIds?: number[]
+  botResult?: { status: import('./pay-bot').BotDeliveryStatus; attempts: number; updatedAt: string }
   reviewStatus?: 'UNDER_REVIEW'
   confirmation?: PayConfirmation
   settledServiceFeeRial?: string

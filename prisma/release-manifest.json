@@ -1047,7 +1047,15 @@
     },
     "1.7.29": {
       "migrations": []
+    },
+    "1.7.30": {
+      "migrations": [
+        {
+          "name": "20270418150000_pay_terminal_archive",
+          "sha256": "18bfbe2a3c6b9c1fa67610ed84fad791cc74ae3493e66fb36fb160ab01f0c8bb"
+        }
+      ]
     }
   },
-  "unreleased": ["20270418150000_pay_terminal_archive"]
+  "unreleased": []
 }

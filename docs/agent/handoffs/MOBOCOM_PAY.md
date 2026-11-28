@@ -1,3 +1,26 @@
+## Statement preview and operations follow-up — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`feat/pay-statement-receipt-preview` from `9f6a2d47`.
+The Admin receipts screen compares an operator-selected destination account's
+CSV of deposits with pending IRR receipts. Use the sample header
+`reference,amount_irr,occurred_at` and an ISO timestamp with a timezone.
+The preview treats repetitions as one row, refuses conflicting entries and
+withholds proposals for ambiguous or already used references. Suggestions
+respect account, amount, timestamp window and known receipt reference.
+The CSV is used only during comparison. Settlement remains the canonical
+authorized receipt action with its original financial and audit claims.
+
+Operations shows pending receipt age starting at 30 minutes. The Admin payment
+desk shows sanitized delivery status separately from payment and can filter paid
+orders with blocked or uncertain bot delivery. The merchant keeps existing
+delivery recovery actions. This slice adds no database migration.
+
+Connected coverage exercises manual quotes, duplicate and cross-account CSV,
+previously approved references, age thresholds and the admin bot projection.
+Edge coverage uses real receipt/statement/operations APIs at desktop and mobile
+widths and a synthetic unknown bot-delivery response for the filter rendering.
+
 ## Bot checkout, terminal administration and unique transfer amounts — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

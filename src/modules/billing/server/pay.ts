@@ -29,6 +29,7 @@ export { adminGatewayAccess, saveGatewayAccess, terminalGatewayOptions } from '.
 export { adminTerminalKeys, changeAdminTerminalKey } from './pay/terminal-keys'
 export { requirePayPayer, requestPayPayerOtp, verifyPayPayerOtp, payPayerCookie, payPayerChallengeCookie } from './pay/payer'
 export { submitPayReceipt, reviewPayReceiptByStaff, reviewPayReceipt, payReceipts, payReceiptImage } from './pay/receipts'
+export { previewPayStatement, statementAccounts } from './pay/statement-preview'
 export { createBotPayment } from './pay/bot/create'
 export { botIntegrations, saveBotIntegration } from './pay/bot/integrations'
 export { deliverBotPayment } from './pay/bot/delivery'

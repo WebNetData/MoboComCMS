@@ -703,11 +703,42 @@ async function main() { try {
   }
   assert.notEqual(manualOnly[0].quote.collectedRial, manualOnly[1].quote.collectedRial)
   const { payment: manualPayment, quote: manualQuote, cookie: manualCookie } = manualOnly[0]
+  now += 3000
   await upload(manualQuote.id, manualQuote.collectedRial, manualCookie)
   const manualTransfer = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: manualQuote.id } })
   assert.equal(manualTransfer.status, 'UNDER_REVIEW')
+  const at = new Date(now - 1000).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  const header = 'reference,amount_irr,occurred_at\n'
+  const row = 'NOMSGPAY001,' + manualQuote.collectedRial + ',' + at
+  const preview = (csv, bankAccountId = generalBank.id) => pay.previewPayStatement(admin, { bankAccountId, csv })
+  assert.ok((await pay.statementAccounts(admin)).some(account => account.id === generalBank.id))
+  const tehran = new Date(Date.parse(at) + 210 * 60000).toISOString().replace(/\.000Z$/, '+03:30')
+  assert.deepEqual(await preview(header + row + '\n' + row.replace(at, tehran)), {
+    entries: 1, duplicates: 1, suggestions: [{ receiptId: manualTransfer.receiptId, entry: { reference: 'NOMSGPAY001', amountRial: manualQuote.collectedRial, at } }],
+    ambiguous: 0, unmatched: 0, alreadyUsed: 0,
+  })
+  assert.equal((await preview(header + row, secondBank.id)).unmatched, 1)
+  assert.equal((await preview(header + row + '\n' + row.replace('001', '002'))).ambiguous, 2)
+  await assert.rejects(preview(header + row + '\n' + row.replace(manualQuote.collectedRial, '100')), status(422))
+  await assert.rejects(preview(header + 'NOMSGPAY001,9999999999999999999,' + at), status(422))
+  await assert.rejects(pay.previewPayStatement(merchantActor, { bankAccountId: generalBank.id, csv: header + row }), status(403))
+  assert.equal((await pay.payReceipts(admin, [manualTransfer.receiptId])).items.length, 1)
+  assert.equal(await prisma.walletTx.count({ where: { idempotencyKey: 'pay-credit:' + manualPayment.id } }), 0)
+  const previewTime = now
+  const savedReceipt = await prisma.paymentReceipt.findUniqueOrThrow({ where: { id: manualTransfer.receiptId } })
+  now = savedReceipt.createdAt.getTime()
+  const backlogBefore = (await operations.transferMonitor(admin)).receiptBacklog
+  now += 31 * 60000
+  const backlogAfter = (await operations.transferMonitor(admin)).receiptBacklog
+  assert.equal(backlogAfter.olderThanMinutes, 30)
+  assert.ok(backlogAfter.count > backlogBefore.count)
+  assert.ok(backlogAfter.oldestAt)
+  now = previewTime
   await reviewCollectionReceipt(admin, manualTransfer.receiptId, 'approve', '', 'NOMSGPAY001')
   await settledMerchantState(manualPayment, manualQuote.id, 'MANUAL')
+  const replayPreview = await preview(header + row)
+  assert.deepEqual(replayPreview.suggestions, [])
+  assert.equal(replayPreview.alreadyUsed, 1)
   await put(keys[2],'{"enabled":false,"settings":{}}'); await assert.rejects(operations.transferMonitor(admin),status(404)); await assert.rejects(command(overNotice.id,'dismiss',1),status(404)); await put(keys[2],'{"enabled":true,"settings":{}}')
   console.log('Bale collection + operations desk assertions passed: exact-once receipts/auto/reviewer race, late admission, mismatch refusal, version/module/source denial, pool and latency projections')
 } finally {
