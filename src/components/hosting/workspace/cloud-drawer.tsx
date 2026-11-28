@@ -34,7 +34,10 @@ export default function CloudDrawer({ children, open, onClose, name }: { childre
       const rect = event.currentTarget.getBoundingClientRect()
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose()
     }}>
-    <div className={s.drawerHead}><div><strong id="cloud-menu-title">منوی پنل ابری</strong><small>{name}</small></div><button ref={closeButton} type="button" onClick={onClose} aria-label="بستن منو"><Icon name="close" size={20} /></button></div>
+    <div className={s.drawerHead}>
+      <div className={s.drawerBrand}><span className={s.mark}><Icon name="cloud" size={21} /></span><strong id="cloud-menu-title">{name}</strong></div>
+      <button ref={closeButton} type="button" onClick={onClose} aria-label="بستن منو"><Icon name="close" size={20} /></button>
+    </div>
     <div className={s.drawerBody}>{children}</div>
   </dialog>
 }
