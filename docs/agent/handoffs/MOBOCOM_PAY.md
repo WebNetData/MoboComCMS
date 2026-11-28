@@ -3225,3 +3225,15 @@ in Edge at 1440px dark and 390px light with zero scoped axe violations. It verif
 Screenshots are local in `var/pay-admin-design`. Rollback is a revert of this
 presentation commit. No database migration or production rollout is part
 of this change.
+
+### Full-width Admin content
+
+The Pay Admin page uses the shared Admin shell for content width and
+gutters. That rule covers the loading and populated workspace. Edge
+compared the width and horizontal position of all eleven views with
+`/admin` at 2560, 1440 and 390 pixels. The matched content widths were
+2168, 1048 and 362 pixels. No document overflow or scoped axe violations
+were found. Screenshots are local in `var/pay-admin-width`.
+`source:check` and the isolated PostgreSQL `pay-financial-period` check
+passed. React Doctor reported two maintainability warnings in the
+existing Pay Admin component (complexity and duplicate JSX).

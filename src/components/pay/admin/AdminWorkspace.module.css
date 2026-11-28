@@ -1,7 +1,8 @@
 /* Admin-only page grid; both existing navigation layers keep their own styles. */
 section.page {
-  max-width: 1660px;
-  padding: clamp(14px, 2.3vw, 30px);
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .content {
@@ -108,7 +109,6 @@ section.page {
   background: color-mix(in srgb,var(--pay-admin-accent) 12%,var(--pay-admin-surface));
 }
 @media (max-width: 480px) {
-  section.page { padding-inline: 12px; }
   .overview .queue { grid-template-columns: minmax(0, 1fr); }
   .overview .queue a { min-block-size: 67px; }
 }
